@@ -24,10 +24,19 @@
  *
  *   - one `find` per distinct directory OBJECT (`sys_position`, `sys_team`,
  *     `sys_business_unit`, `sys_user`), batched with `$in` over that object's
- *     values — the label leg;
+ *     values — the label leg for a kind the spec binds to a DATA row;
+ *   - one registry read per metadata TYPE, for a kind the spec binds to the
+ *     registry instead (`{ source: 'registry', type }`, objectui#7611 Q3b):
+ *     the console's metadata store, `ensureType(<type>)` — the
+ *     `GET /api/v1/meta/<type>` read the Approval Center's position labels and
+ *     the decision outputs already make — matched by the item's `name`. That is
+ *     the label leg for a registry-bound kind; nothing is read from a mirror
+ *     table for it;
  *   - for `position` refs only, `sys_user_position` -> `sys_user` — the staffing
  *     leg, which answers "who actually sits in this seat" and, when it comes
- *     back empty, the unstaffed state `77f846a8b` surfaces.
+ *     back empty, the unstaffed state `77f846a8b` surfaces. The junction stores
+ *     the position's machine NAME under either binding, so this leg does not
+ *     depend on which one the spec declares.
  *
  * The two legs fail INDEPENDENTLY. A business-app reader may hold list access to
  * `sys_position` and none to `sys_user_position`; `find` rejects that with
@@ -48,11 +57,13 @@
  * tests, which must not inherit each other's answers.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useAdapter } from '@object-ui/react';
+import { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { MetadataCtx, useAdapter } from '@object-ui/react';
 import {
   APPROVER_DIRECTORY_BINDINGS,
+  APPROVER_REGISTRY_TYPES,
   PERSON_DISPLAY_FIELDS,
+  approverKindIsResolvable,
   parseApproverRef,
   rowLabel,
   type ResolvedApprover,
@@ -126,6 +137,37 @@ async function resolveLabels(
   }
 }
 
+/** The one member of the console's metadata store the registry leg reads. */
+export interface ApproverRegistryReader {
+  ensureType: (type: string) => Promise<readonly unknown[]>;
+}
+
+/**
+ * Resolve the label leg for every reference of one REGISTRY-bound kind
+ * (objectui#7611 Q3b): list the kind's metadata type once and label each
+ * reference by the item whose `name` it carries. An item with no string
+ * `label` adds nothing, so the prettified machine name still reads.
+ * Rejects propagate to {@link loadSlate}, which isolates each kind.
+ */
+async function resolveRegistryLabels(
+  reader: ApproverRegistryReader,
+  kind: string,
+  type: string,
+  values: string[],
+  into: Map<string, ResolvedApprover>,
+): Promise<void> {
+  const items = await reader.ensureType(type);
+  const wanted = new Set(values);
+  for (const item of Array.isArray(items) ? items : []) {
+    const name = (item as { name?: unknown } | null)?.name;
+    const label = (item as { label?: unknown } | null)?.label;
+    if (typeof name !== 'string' || !wanted.has(name)) continue;
+    if (typeof label !== 'string' || !label.trim()) continue;
+    const ref = `${kind}:${name}`;
+    into.set(ref, { ...into.get(ref), label: label.trim() });
+  }
+}
+
 /**
  * Resolve the staffing leg for `position:` references — who sits in each seat.
  * A seat that the junction never mentions is recorded as `[]` (probed, empty),
@@ -179,28 +221,46 @@ async function resolveStaffing(
  * position its label. Every reference asked about is written back even when
  * nothing resolved, so a second mount does not re-ask a question the directory
  * has already declined to answer.
+ *
+ * Which label leg a kind takes is the spec's published binding, read per kind:
+ * a `data` binding reads its directory object through the adapter, a
+ * `registry` binding reads its metadata type through the store. A leg whose
+ * reader is absent (no adapter, no `<MetadataProvider>`) is skipped, which is
+ * the same answer as a leg that failed.
  */
-async function loadSlate(adapter: any, refs: string[]): Promise<void> {
+async function loadSlate(
+  adapter: any,
+  registry: ApproverRegistryReader | null,
+  refs: string[],
+): Promise<void> {
   const answers = new Map<string, ResolvedApprover>();
   const valuesByKind = new Map<string, string[]>();
   for (const raw of refs) {
     const ref = parseApproverRef(raw);
-    if (!ref || !APPROVER_DIRECTORY_BINDINGS[ref.kind]) continue;
+    if (!ref || !approverKindIsResolvable(ref.kind)) continue;
     const bucket = valuesByKind.get(ref.kind) ?? [];
     if (!bucket.includes(ref.value)) bucket.push(ref.value);
     valuesByKind.set(ref.kind, bucket);
   }
 
   await Promise.all(
-    [...valuesByKind].map(([kind, values]) =>
-      resolveLabels(adapter, kind, values, answers).catch(() => {
+    [...valuesByKind].map(([kind, values]) => {
+      const registryType = APPROVER_REGISTRY_TYPES[kind];
+      const leg = registryType
+        ? registry
+          ? resolveRegistryLabels(registry, kind, registryType, values, answers)
+          : Promise.resolve()
+        : adapter
+          ? resolveLabels(adapter, kind, values, answers)
+          : Promise.resolve();
+      return leg.catch(() => {
         /* label leg unavailable — the prettified machine name still reads */
-      }),
-    ),
+      });
+    }),
   );
 
   const positions = valuesByKind.get('position');
-  if (positions && positions.length > 0) {
+  if (adapter && positions && positions.length > 0) {
     await resolveStaffing(adapter, positions, answers).catch(() => {
       /* staffing unknown — NOT the same claim as "the seat is empty" */
     });
@@ -216,6 +276,18 @@ async function loadSlate(adapter: any, refs: string[]): Promise<void> {
  */
 export function useApproverDirectory(refs: readonly string[]): ApproverDirectory {
   const adapter = useAdapter() as any;
+  // The console's metadata store, or `null` outside a `<MetadataProvider>` —
+  // the reader of the registry label leg. Read raw rather than through
+  // `useMetadata()`, whose no-provider fallback answers every type with `[]`,
+  // and held in a ref: the store's context value is rebuilt whenever any type
+  // it caches settles, and no effect may key on that identity (AGENTS.md #10).
+  const metadataStore = useContext(MetadataCtx);
+  const registryRef = useRef<ApproverRegistryReader | null>(metadataStore);
+  // Synced in an effect, not during render; declared before the load effect
+  // below, so it runs first in the same commit.
+  useEffect(() => {
+    registryRef.current = metadataStore;
+  });
   // Sorted + de-duplicated so a re-render that reorders the slate does not
   // re-run the effect, and so the in-flight key is stable across callers.
   const wanted = useMemo(() => [...new Set(refs)].filter(Boolean).sort(), [refs]);
@@ -229,13 +301,14 @@ export function useApproverDirectory(refs: readonly string[]): ApproverDirectory
   }, []);
 
   useEffect(() => {
-    if (!adapter || wanted.length === 0) return;
+    const registry = registryRef.current;
+    if ((!adapter && !registry) || wanted.length === 0) return;
     const missing = wanted.filter((r) => !CACHE.has(r));
     if (missing.length === 0) return;
     const batch = missing.join('|');
     let pending = INFLIGHT.get(batch);
     if (!pending) {
-      pending = loadSlate(adapter, missing).finally(() => INFLIGHT.delete(batch));
+      pending = loadSlate(adapter, registry, missing).finally(() => INFLIGHT.delete(batch));
       INFLIGHT.set(batch, pending);
     }
     void pending.then(() => { if (alive.current) bump((n) => n + 1); });

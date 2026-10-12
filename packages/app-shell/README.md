@@ -1006,6 +1006,16 @@ the record's requests (comments and attachments included), and an inline
 **Send reminder** button for the submitter. Records without requests carry
 no tab at all.
 
+An approver the server leaves unnamed, such as a `position:<name>` seat, is
+named from where the spec's approver binding says its value lives: a
+directory kind (`team`, `department`) by its row's label, and a kind bound to
+the metadata registry (`{ source: 'registry', type }`, which is how a spec
+carrying objectstack#22710 binds `position`) by the registry item's label,
+read through the metadata store. When no label answers, a reference that
+carries a machine name (a position, under either binding) reads as the
+prettified name, never as the raw reference; an id-valued kind (`team`,
+`department`) keeps the caller's existing formatting.
+
 Visibility is gated by record READ access, not approver status — anyone who
 can open the record sees where its approval stands, without a trip to the
 Approval Center (a `setup`-app surface business roles typically cannot

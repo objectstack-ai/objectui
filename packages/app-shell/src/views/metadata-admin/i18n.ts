@@ -1160,6 +1160,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.dataset.filterNeedsObject': 'Pick a base object to add filter conditions.',
   // Flow reference picker — ReferenceCombobox / FlowReferenceField (objectui#10586)
   'engine.inspector.reference.pickFromRecords': 'Pick from records',
+  'engine.inspector.reference.pickFromRegistry': 'Pick from declared items',
   'engine.inspector.reference.enterManually': 'Enter value manually',
   'engine.inspector.reference.managerPlaceholder': 'Resolved automatically',
   'engine.inspector.reference.managerHint': "Resolved at runtime from the submitter's manager — no value needed.",
@@ -4524,6 +4525,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.dataset.filterNeedsObject': '先选择基础对象，才能添加筛选条件。',
   // Flow reference picker — ReferenceCombobox / FlowReferenceField (objectui#10586)
   'engine.inspector.reference.pickFromRecords': '从记录中选择',
+  'engine.inspector.reference.pickFromRegistry': '从已声明的项中选择',
   'engine.inspector.reference.enterManually': '手动输入值',
   'engine.inspector.reference.managerPlaceholder': '自动解析',
   'engine.inspector.reference.managerHint': '运行时根据提交人的上级自动解析 —— 无需填写。',

@@ -35,11 +35,15 @@
  *   1. **The server's own resolution.** `pending_approver_names[ref]` is the
  *      producer's id -> name mapping. When it answers, nothing here fires and no
  *      request is made. This module never overrides it.
- *   2. **The directory record.** A ref whose kind the spec declares as
- *      `source: 'data'` names a row in a system directory object
- *      ({@link APPROVER_DIRECTORY_BINDINGS}); its display column is the label a
- *      person recognizes (`sys_position.label` -> `Sales Manager` / `销售经理`).
- *      `useApproverDirectory` fetches those; this module only composes them.
+ *   2. **The directory record or the registry item.** A ref whose kind the
+ *      spec declares as `source: 'data'` names a row in a system directory
+ *      object ({@link APPROVER_DIRECTORY_BINDINGS}); its display column is the
+ *      label a person recognizes (`sys_team.label` -> `Platform Team`). A ref
+ *      whose kind the spec declares as `source: 'registry'` names a declared
+ *      metadata item by its machine name ({@link APPROVER_REGISTRY_TYPES},
+ *      objectui#7611 Q3b); the item's `label` is the readable name
+ *      (`position` `sales_manager` -> `Sales Manager` / `销售经理`).
+ *      `useApproverDirectory` fetches both; this module only composes them.
  *   3. **The machine name, prettified.** With no adapter and no directory row,
  *      `sales_manager` -> `Sales Manager` still beats `positi…ager`, and it is
  *      derived rather than guessed.
@@ -62,6 +66,9 @@
  */
 
 import { APPROVER_VALUE_SOURCES } from '@objectstack/spec/automation';
+import { APPROVER_REGISTRY_TYPES, PUBLISHED_APPROVER_VALUE_SOURCES } from './approverValueSources.js';
+
+export { APPROVER_REGISTRY_TYPES };
 
 /** A parsed `<kind>:<value>` approver reference. */
 export interface ApproverRef {
@@ -119,7 +126,7 @@ export const PERSON_DISPLAY_FIELDS: readonly string[] = DISPLAY_FIELDS_BY_OBJECT
  */
 export const APPROVER_DIRECTORY_BINDINGS: Record<string, ApproverDirectoryBinding> =
   Object.fromEntries(
-    Object.entries(APPROVER_VALUE_SOURCES).flatMap(([kind, source]) => {
+    Object.entries(PUBLISHED_APPROVER_VALUE_SOURCES).flatMap(([kind, source]) => {
       if (!source || source.source !== 'data') return [];
       const object = String(source.object);
       return [[
@@ -135,6 +142,28 @@ export const APPROVER_DIRECTORY_BINDINGS: Record<string, ApproverDirectoryBindin
 
 /** Every approver kind the spec declares — directory-backed or not. */
 const KNOWN_APPROVER_KINDS = new Set(Object.keys(APPROVER_VALUE_SOURCES));
+
+/**
+ * Does a `kind:` reference carry a machine NAME — prose to recover — rather
+ * than an opaque row id?
+ *
+ * Read off the published binding, never off a list of kinds: a registry-bound
+ * kind (objectui#7611 Q3b) names a declared item and has no id at all, and a
+ * `data` kind commits a name exactly when its `valueField` is `name`. Under the
+ * installed spec `position` answers through the second arm, under a spec
+ * carrying objectstack#22710 through the first — the same answer either way.
+ */
+export function approverValueIsName(kind: string): boolean {
+  return !!APPROVER_REGISTRY_TYPES[kind] || APPROVER_DIRECTORY_BINDINGS[kind]?.valueField === 'name';
+}
+
+/**
+ * Can this console look a `kind:` reference up itself — in a directory object
+ * (`data`) or in the metadata registry (`registry`)?
+ */
+export function approverKindIsResolvable(kind: string): boolean {
+  return !!APPROVER_DIRECTORY_BINDINGS[kind] || !!APPROVER_REGISTRY_TYPES[kind];
+}
 
 /**
  * Split `<kind>:<value>` into its parts, or `null` when the string is not an
@@ -169,8 +198,9 @@ export function prettifyMachineName(raw: string | null | undefined): string {
 
 /**
  * Render an actor/approver identifier in a friendly form (mirrors the Approval
- * Center): emails as-is, `role:<name>` labeled, a directory reference whose
- * binding commits a machine NAME prettified, and opaque 16+ char ids
+ * Center): emails as-is, `role:<name>` labeled, a reference whose binding
+ * commits a machine NAME ({@link approverValueIsName} — a directory `name`
+ * column, or a registry item) prettified, and opaque 16+ char ids
  * middle-truncated.
  *
  * Moved here from `RecordApprovalsPanel` in `77f846a8b` so the panel, the
@@ -185,7 +215,7 @@ export function formatIdentity(id: string | null | undefined): string {
   if (id.includes('@')) return id;
   if (id.startsWith('role:')) return `Role: ${id.slice(5)}`;
   const ref = parseApproverRef(id);
-  if (ref && APPROVER_DIRECTORY_BINDINGS[ref.kind]?.valueField === 'name') {
+  if (ref && approverValueIsName(ref.kind)) {
     return prettifyMachineName(ref.value);
   }
   if (id.length > 14) return `${id.slice(0, 6)}…${id.slice(-4)}`;
@@ -216,7 +246,7 @@ export function unresolvedApproverRefs(record: unknown): string[] {
     const served = names[raw];
     if (typeof served === 'string' && served) continue;
     const ref = parseApproverRef(raw);
-    if (!ref || !APPROVER_DIRECTORY_BINDINGS[ref.kind]) continue;
+    if (!ref || !approverKindIsResolvable(ref.kind)) continue;
     if (!out.includes(raw)) out.push(raw);
   }
   return out;
@@ -264,10 +294,11 @@ export const MAX_INLINE_HOLDERS = 3;
  * Compose the one string a person reads for one pending approver.
  *
  * `serverName` first (the producer resolved it — never second-guess that),
- * then the directory row's label, then the prettified machine name. Prettifying
- * is restricted to references whose binding commits a NAME: `position` stores
- * `sys_position.name` because the engine routes by machine name, so
- * `sales_manager` prettifies into real prose. The id-valued kinds
+ * then the directory row's or registry item's label, then the prettified
+ * machine name. Prettifying is restricted to references whose binding commits a
+ * NAME ({@link approverValueIsName}): a position is referenced by machine name
+ * because the engine routes by it, so `sales_manager` prettifies into real
+ * prose. The id-valued kinds
  * (`user`/`team`/`department`) carry opaque row ids that prettify into
  * nonsense — those keep the caller's existing formatting, which is the right
  * treatment for an id and is not what `77f846a8b` fixes.
@@ -282,11 +313,10 @@ export function approverDisplay(
 ): ApproverDisplay {
   const { serverName, resolved, copy } = opts;
   const ref = parseApproverRef(raw);
-  const binding = ref ? APPROVER_DIRECTORY_BINDINGS[ref.kind] : undefined;
 
   const resolvedLabel = resolved?.label?.trim() || '';
   const serverLabel = typeof serverName === 'string' ? serverName.trim() : '';
-  const derived = ref && binding?.valueField === 'name'
+  const derived = ref && approverValueIsName(ref.kind)
     ? prettifyMachineName(ref.value)
     : '';
 

@@ -122,6 +122,14 @@ strings, numbers, or objects) becomes a **nested repeater** — so an
 engine-published nested-array config is editable inline rather than dropping to
 the Advanced JSON block.
 
+An *Approval* node's approver **Value** cell takes its candidates from where the
+schema's published binding for the row's **Type** says they live (`xRef.sources`):
+a directory kind (`user`, `team`, `department`) is a lookup over its directory
+object's records, and a kind bound to the metadata registry
+(`{ source: 'registry', type }`, which is how `position` is bound on a server
+carrying objectstack#22710) is a select over that type's declared items that
+stores the item's name. Both offer a pencil toggle for typing a value by hand.
+
 A **Decision** node's Branches editor defines each branch's label, CEL
 expression, **and target node** in one table: the **Target** column picks the
 downstream node, wiring (creating, retargeting, or detaching) the branch's

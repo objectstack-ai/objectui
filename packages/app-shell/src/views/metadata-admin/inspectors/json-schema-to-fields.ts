@@ -129,9 +129,15 @@ const REFERENCE_KINDS: ReadonlySet<string> = new Set<ReferenceKind>([
 /**
  * Validate one `xRef.sources` entry. An entry the designer cannot act on is
  * DROPPED rather than half-trusted: a `data` source missing its object or
- * committed column would produce a picker that queries nothing, which is the
- * failure this annotation exists to end (framework#3508). A dropped entry
- * simply leaves the consumer on its local fallback.
+ * committed column — or a `registry` source missing its metadata type — would
+ * produce a picker that queries nothing, which is the failure this annotation
+ * exists to end (framework#3508). A dropped entry simply leaves the consumer on
+ * its local fallback.
+ *
+ * `registry` (objectstack#22710, objectui#7611 Q3b) is read here, not dropped:
+ * a server on that spec binds `position` to it, and dropping it sent the
+ * picker back to the local fallback — under the installed spec a lookup over
+ * `sys_position` rows, a mirror a fresh environment leaves empty.
  */
 function sourceOf(raw: unknown): RefValueSource | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
@@ -140,6 +146,9 @@ function sourceOf(raw: unknown): RefValueSource | undefined {
     return typeof s.object === 'string' && s.object && typeof s.valueField === 'string' && s.valueField
       ? { source: 'data', object: s.object, valueField: s.valueField }
       : undefined;
+  }
+  if (s.source === 'registry') {
+    return typeof s.type === 'string' && s.type ? { source: 'registry', type: s.type } : undefined;
   }
   if (s.source === 'enum') {
     const values = Array.isArray(s.values) ? s.values.filter((v): v is string => typeof v === 'string') : [];

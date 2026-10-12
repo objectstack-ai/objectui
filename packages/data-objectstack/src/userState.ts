@@ -150,7 +150,7 @@ const openReads = new WeakMap<object, Map<string, SharedRead>>();
  * See "One read per load" in the module header.
  */
 function joinSharedRead(
-  dataSource: DataSource<any>,
+  dataSource: ObjectStackUserStateAdapterOptions['dataSource'],
   resource: string,
   userId: string,
   key: string,

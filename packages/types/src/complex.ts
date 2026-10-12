@@ -2293,16 +2293,21 @@ export interface DashboardWidgetSchema
   /**
    * Component schema (legacy format) — objectui-only, no spec counterpart.
    *
-   * Either arm of this union is a node the dashboard renders through the
-   * registry (`toDashboardNodeType`, then `SchemaRenderer`). The first arm is
-   * the widget slot's component arm, {@link DashboardWidgetSlotComponentSchema}
-   * (objectui#11467): a `metric-card` written here is the same node the slot
-   * holds directly, so its registered inputs are typed by the same members.
-   * The second is any other registered component node, which a `custom`
-   * widget's `component` carries. The Zod twin (`zod/complex.zod.ts`
-   * `DashboardWidgetSchema.component`) is the same two arms.
+   * A `metric-card` node and nothing else (objectui#12163, ruling C): the widget
+   * slot's component arm, {@link DashboardWidgetSlotComponentSchema}
+   * (objectui#11467), the one component node the 2026-08-14 slot ruling admits
+   * (objectstack#8593). A `metric-card` written here is the same node the slot
+   * holds directly, so its registered inputs are typed by the same members. The
+   * dashboard renders it through the registry (`toDashboardNodeType`, then
+   * `SchemaRenderer`).
+   *
+   * Until objectui#12163 this was `DashboardWidgetSlotComponentSchema | SchemaNode`,
+   * the second arm being any other node a `custom` widget's `component` carried.
+   * A dashboard widget binds a dataset (ADR-0021), so a node of any other type
+   * is a compile error here, and the Zod twin (`zod/complex.zod.ts`
+   * `DashboardWidgetSchema.component`) refuses it by name on both faces.
    */
-  component?: DashboardWidgetSlotComponentSchema | SchemaNode;
+  component?: DashboardWidgetSlotComponentSchema;
   layout?: DashboardWidgetLayout;
   /**
    * Widget visualization type (spec shorthand format).

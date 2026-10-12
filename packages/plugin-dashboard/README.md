@@ -545,6 +545,13 @@ dataset-less metric widget and sends no query (objectui#11466). Bind a metric
 widget to a dataset instead. Every other envelope node draws as written, and the
 filter bar still scopes an envelope's `object-chart` and `object-data-table`.
 
+The envelope takes a `metric-card` node only (objectui#12163). Both validator
+faces and `DashboardWidgetSchema['component']` refuse any other node by name,
+at `component`, with the fix: a dashboard widget binds a dataset (ADR-0021), so
+write the widget itself in the spec form, or put a `metric-card` in the slot.
+The surfaces above still draw a stored envelope as they always did; only the
+validator and the type say no.
+
 A `type` that names no widget family and no component type (a typo, or a family
 the spec no longer has) is refused by both validator faces at `type`. A stored
 one draws the labelled placeholder "「type」chart type is not supported yet", as
@@ -633,9 +640,9 @@ const users: DashboardWidgetSchema = {
   options: { value: '1,234' },
 };
 
-// Component format: a registered component node in the widget's `component`
-// slot. Its keys are that COMPONENT's props, not widget keys; a `metric-card`
-// here is typed by the same arm as `kpi` below.
+// Component format: a `metric-card` node in the widget's `component` slot, the
+// one node the slot takes (objectui#12163). Its keys are that COMPONENT's props,
+// not widget keys; it is typed by the same arm as `kpi` below.
 const custom: DashboardWidgetSchema = {
   id: 'kpi_custom',
   component: {

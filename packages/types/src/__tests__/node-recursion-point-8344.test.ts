@@ -259,6 +259,11 @@ type ArmsNotAssignableToSchemaNode = Exclude< z.output< typeof AnyComponentSchem
  * objectui#11515 gave each its TypeScript twin and joined it to `AnySchema`, so a node slot
  * admits them and their zod output is assignable. The bullet above that names them is kept as
  * the reading at objectui#11466's first measurement.
+ *
+ * ⚠️ objectui#12163 (ruling C): reconciled, so its name left the list below: `dashboard`. The
+ * widget slot's component arm now carries one accept set on both faces (the `metric-card` arm
+ * alone, the zod slot refusing every other node by name), so the `dashboard` arm's output is
+ * assignable. The `dashboard` bullet above is kept as the reading at objectui#11466.
  */
 type LiteralArmType< Arm > = Arm extends { type: infer K } ? (string extends K ? never : K) : never;
 type WideArm< Arm > = Arm extends { type: infer K } ? (string extends K ? Arm : never) : never;
@@ -267,8 +272,7 @@ type MeasuredArmDrift11466 =
   | 'record'
   | 'home'
   | 'utility'
-  | 'page'
-  | 'dashboard';
+  | 'page';
 
 export type NodeRecursionPointDeclarationDrift = [
   Expect< Equal< LiteralArmType< ArmsNotAssignableToSchemaNode >, MeasuredArmDrift11466 > >,

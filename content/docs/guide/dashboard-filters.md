@@ -307,10 +307,11 @@ read them under the `page.` scope, keyed by the filter's `name`:
 
 ```json
 {
-  "id": "emea_playbook",
+  "id": "emea_quota",
   "component": {
-    "type": "card",
-    "title": "EMEA Playbook",
+    "type": "metric-card",
+    "title": "EMEA quota",
+    "value": "$1.2M",
     "hidden": "${page.region !== 'EMEA'}"
   }
 }

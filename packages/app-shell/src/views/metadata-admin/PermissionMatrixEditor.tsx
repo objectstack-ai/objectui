@@ -298,6 +298,11 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   // `false` ("no artifact known") and is re-derived on every load, so a slow or
   // failed read never invents a lock — see the helper's doc (objectui#4518).
   const [codeIsArtifact, setCodeIsArtifact] = React.useState(false);
+  // The server's own write verdict for THIS set: `editable`, the ADR-0010
+  // protection envelope of the same layered read. `undefined` until a load
+  // lands, after a failed read, and from a server that sends none: "no
+  // opinion". Read by the artifact tier below (objectui#12169).
+  const [servedEditable, setServedEditable] = React.useState<boolean | undefined>(undefined);
   // Three independent read-only gates, and each reads the fact that actually
   // governs it (objectui#4446, #4518):
   //
@@ -389,10 +394,24 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   // renders read-only. That is the conservative direction — an honest lock
   // rather than a Save that 403s — and closing it would need the kernel's
   // environment topology on the client, i.e. the probe the ruling forbids.
+  //
+  // ── …and the item's own answer, which the type flag cannot give ───────────
+  //
+  // objectui#12169 — `allowEnvironmentOverlay` answers for the TYPE. ADR-0131
+  // D6 seals managed content: the `OS_METADATA_WRITABLE` hatch opens a type's
+  // sets that no package ships and never a set a package ships, so on a
+  // hatch-elevated type the flag is true and the server still refuses this
+  // set's environment-scope write (403 `NOT_OVERRIDABLE`). The server says so
+  // on the layered read, per set: its `editable` (objectstack
+  // `servedLockState`, through the seal predicate the write door asks). So the
+  // artifact arm opens only where the server's answer does not refuse it.
+  // ⛔ No read of `overrideSource` here: telling the hatch from the registry
+  // opt-in would be a client copy of the seal rule. `undefined` keeps the
+  // flag's answer, as before.
   const artifactTierApplies = !packageId && codeIsArtifact;
-  const canWriteByType = artifactTierApplies
-    ? !!entry?.allowEnvironmentOverlay
-    : !!(entry?.allowEnvironmentOverlay || entry?.allowRuntimeCreate);
+  const artifactArmOpen = !!entry?.allowEnvironmentOverlay && servedEditable !== false;
+  const typeTierOpen = !!(entry?.allowEnvironmentOverlay || entry?.allowRuntimeCreate);
+  const canWriteByType = artifactTierApplies ? artifactArmOpen : typeTierOpen;
   // objectui#7611 — the fourth gate, the CALLER: the metadata door refuses a
   // save without `manage_metadata` (measured on objectstack main: 403 "Saving a
   // metadata item requires the `manage_metadata` capability."), and so does the
@@ -418,8 +437,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   // said yes: with both flags false the honest reason is still "this type has
   // no runtime write channel at all", which is also the refusal the server
   // reaches first (`!overlayAllowed && !runtimeCreateAllowed`).
-  const lockedByArtifactTier =
-    artifactTierApplies && !entry?.allowEnvironmentOverlay && !!entry?.allowRuntimeCreate && canAuthor;
+  const lockedByArtifactTier = artifactTierApplies && !artifactArmOpen && typeTierOpen && canAuthor;
   const locale = useMetadataLocale();
   const t = React.useCallback((k: string) => translate(k, locale), [locale]);
   const OBJECT_ACTIONS = React.useMemo(() => getObjectActions(locale), [locale]);
@@ -533,6 +551,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
     // set can never carry the previous one's artifact verdict for a frame
     // (objectui#4518).
     setCodeIsArtifact(false);
+    setServedEditable(undefined);
     setExistsOnServer(null);
     // Same reason: a notice raised by the previous set's save must not survive
     // into a set that is about to be read fresh (objectui#9484).
@@ -585,6 +604,9 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
         // baseline comes from, so the writability verdict and the body on
         // screen can never be read from different round trips.
         setCodeIsArtifact(isArtifactBackedLayer(lay));
+        // objectui#12169 — and the server's write verdict for the set, off the
+        // same envelope (`null` from a failed read says nothing).
+        setServedEditable(lay?.editable);
         // objectui#7611 — `MetadataClient.layered` answers a 404 as an envelope
         // with every layer null; a rejected read was caught to `null` above and
         // decides nothing.
@@ -1329,7 +1351,10 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
               //  • host gate — a read-only PACKAGE; mirror the top-bar wording
               //    so the screen is not self-contradictory.
               //  • artifact gate — a code package SHIPS this set and the type
-              //    has not opted into per-org overlay, so an environment-scope
+              //    has not opted into per-org overlay, or the server's served
+              //    `editable` refuses the set (a hatch-elevated type, whose
+              //    hatch never opens a set a package ships: ADR-0131 D6,
+              //    objectui#12169), so an environment-scope
               //    write of it is refused (403 `not_overridable`). Naming the
               //    type here would be a lie in the other direction: the type
               //    DOES have a runtime write channel — a brand-new set authored
@@ -1342,8 +1367,9 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
               //    honest case: `OS_METADATA_WRITABLE` does not sit beside
               //    `allowEnvironmentOverlay`, it FLIPS it — `getMetaTypes` emits
               //    `allowEnvironmentOverlay: base.allowEnvironmentOverlay || isEnvOverridden`
-              //    — so whenever the hatch is on for this type the surface is
-              //    writable and this badge does not render. The env var is a
+              //    — so whenever the hatch is on for this type the type gate is
+              //    open and this label is never the one shown (a set a package
+              //    ships is then the artifact gate's). The env var is a
               //    documented REMEDY (it appears in the server's own 403 text),
               //    never the cause, so it belongs in the hint, not the label.
               <Badge

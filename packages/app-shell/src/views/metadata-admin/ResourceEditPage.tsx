@@ -1420,10 +1420,46 @@ function MetadataResourceEditPageImpl({
   const resettableVerdict: boolean | undefined = layered?.resettable;
   const isResetSemantic = !createMode && (resettableVerdict ?? isArtifactItem);
 
+  // ── Can THIS item be written? Decided once, read by every gate below ────
+  //
+  // Two-tier authorization (PR-10d.7):
+  //   - artifact-backed items need allowEnvironmentOverlay
+  //   - org-authored items need allowEnvironmentOverlay OR allowRuntimeCreate
+  //   - createMode is always writable (the server will gate on intent)
+  // Which tier this item is in is `isArtifactItem` above.
+  //
+  // The type flags answer for a TYPE, and the server answers for the ITEM:
+  // `editable`, the ADR-0010 protection envelope's write verdict, served on
+  // the layered read this page already loads. `undefined` means "no opinion"
+  // (older server / non-lockable item) and keeps the legacy behaviour; `false`
+  // is an answer.
+  //
+  // objectui#12169 — the item answer is the only one that can tell two items
+  // of the same type apart. ADR-0131 D6 seals managed content: the
+  // `OS_METADATA_WRITABLE` hatch opens a type's items that no package ships,
+  // and never an item a package ships. So on a hatch-elevated type
+  // `allowEnvironmentOverlay` is true for both, and the server's `editable`
+  // is `false` for the packaged one (objectstack `servedLockState`, through
+  // the same seal predicate the write door asks). ⛔ This page does not read
+  // `overrideSource` to tell the hatch from the registry opt-in: that would
+  // be a client copy of the seal rule, and the served answer already holds
+  // the server's.
+  //
+  // Hoisted above the designer auto-on effect below, which used to carry its
+  // own copy of the type half without the item half. That copy put a sealed
+  // item's canvas into design mode with nothing to save it with.
+  const lockEditable = layered?.editable !== false;
+  const canWriteByType = createMode
+    ? !!(entry?.allowEnvironmentOverlay || entry?.allowRuntimeCreate)
+    : isArtifactItem
+      ? !!entry?.allowEnvironmentOverlay
+      : !!(entry?.allowEnvironmentOverlay || entry?.allowRuntimeCreate);
+  const itemWritable = canWriteByType && (createMode || lockEditable);
+
   // Auto-enable design mode for designer-capable types. We do this once
   // per (type,name) navigation so the user lands in the productive
-  // state instead of having to click "Edit". Truly read-only types
-  // (canWrite=false) keep the old behavior. The check happens inside
+  // state instead of having to click "Edit". An item this page cannot
+  // write (`itemWritable` false) keeps the old behavior. The check happens inside
   // the effect to avoid hook-order issues with the early `loading`
   // return below.
   const designerAutoOnRef = React.useRef<string | null>(null);
@@ -1435,16 +1471,14 @@ function MetadataResourceEditPageImpl({
     const key = `${type}/${name ?? ''}`;
     if (designerAutoOnRef.current === key) return;
     if (!registeredPreview) return;
-    // Same tier question as the Save gate below, from the same derivation —
-    // this used to be an in-place copy of the artifact heuristic, so the two
-    // could (and did) answer differently for one item (objectui#4308).
-    const cw = isArtifactItem
-      ? !!entry?.allowEnvironmentOverlay
-      : !!(entry?.allowEnvironmentOverlay || entry?.allowRuntimeCreate);
-    if (!cw) return;
+    // The item gate the Save gate below reads (`itemWritable`), not a copy
+    // of it. An in-place copy of the artifact heuristic answered differently
+    // from the Save gate for one item (objectui#4308), and a copy of the type
+    // half alone opened a sealed item in design mode (objectui#12169).
+    if (!itemWritable) return;
     designerAutoOnRef.current = key;
     setEditing(true);
-  }, [type, name, createMode, embedded, loading, entry, isArtifactItem, registeredPreview]);
+  }, [type, name, createMode, embedded, loading, itemWritable, registeredPreview]);
 
   // Keyboard shortcut: Cmd/Ctrl+\ toggles the inspector. This is the
   // designer convention shared by Figma, VS Code (Cmd+B), Sketch — `\`
@@ -1856,18 +1890,12 @@ function MetadataResourceEditPageImpl({
     }
   }, [draft, createMode]);
 
-  // Two-tier authorization (PR-10d.7) — hoisted above the early `loading`
-  // return so the auto-save / keyboard / blocker effects below can read
-  // them. Recomputed cheaply on every render.
-  //   - artifact-backed items need allowEnvironmentOverlay
-  //   - org-authored items need allowEnvironmentOverlay OR allowRuntimeCreate
-  //   - createMode is always writable (the server will gate on intent)
-  // Which tier this item is in is decided once, next to the designer
-  // auto-on effect above — see `isArtifactItem` for why a non-null `code`
-  // layer alone cannot answer it.
+  // The write gates — hoisted above the early `loading` return so the
+  // auto-save / keyboard / blocker effects below can read them. The item
+  // half (`itemWritable`: the type tier and the served `editable`) is decided
+  // once, next to the designer auto-on effect above.
   // ADR-0010 — server-computed lock flags. undefined means "no opinion"
   // (older server / non-lockable item) → preserve legacy behaviour.
-  const lockEditable = layered?.editable !== false;
   // `deletable` is the lock gate for BOTH verbs, not just the delete one:
   // reset and delete are the same `DELETE /meta/:type/:name` call, and the
   // server gates it once, through `evaluateLockForDelete` (`assertLockAllowsDelete`
@@ -1878,18 +1906,13 @@ function MetadataResourceEditPageImpl({
   const lockDeletable = layered?.deletable !== false;
   const lockReason = layered?.lockReason;
   const isLocked = layered?.lock && layered.lock !== 'none';
-  const canWriteByType = createMode
-    ? !!(entry?.allowEnvironmentOverlay || entry?.allowRuntimeCreate)
-    : isArtifactItem
-      ? !!entry?.allowEnvironmentOverlay
-      : !!(entry?.allowEnvironmentOverlay || entry?.allowRuntimeCreate);
   // objectui#7611 — the CALLER tier. The metadata door refuses every save
   // without `manage_metadata` (measured on objectstack main: 403 "Saving a
   // metadata item requires the `manage_metadata` capability."), so a caller
   // without it gets the read-only page and the reason, not a Save that fails
   // at the end. Unknown fails open (`useCanAuthorMetadata`).
   const canAuthor = useCanAuthorMetadata();
-  const canWrite = canWriteByType && (createMode || lockEditable) && canAuthor;
+  const canWrite = itemWritable && canAuthor;
   const readOnly = !canWrite && !createMode;
   const envScope = isEnvironmentScope(searchParams);
   const scopeSuffix = environmentScopeSuffix(searchParams);

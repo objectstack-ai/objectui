@@ -1358,7 +1358,7 @@ const DashboardWidgetSlotComponentSchema = BaseSchema.extend({
 });
 
 /** The legacy envelope's `component` slot: the two arms, in the TypeScript twin's order. */
-type WidgetComponentSlot = z.ZodUnion<readonly [typeof DashboardWidgetSlotComponentSchema, typeof BaseSchema]>;
+type WidgetComponentSlot = z.ZodUnion<readonly [typeof DashboardWidgetSlotComponentSchema, typeof SchemaNodeSchema]>;
 
 /**
  * objectui#11709: the constructor of the legacy envelope's `component` slot. It is a
@@ -1506,7 +1506,7 @@ export const DashboardWidgetSchema = specFieldsExcept(stripImportedDefaults(Spec
   // stays for every other node.
   component: new WidgetComponentSlotUnion({
     type: 'union',
-    options: [DashboardWidgetSlotComponentSchema, BaseSchema],
+    options: [DashboardWidgetSlotComponentSchema, SchemaNodeSchema],
   }).optional()
     .describe('Widget Component (legacy format)'),
 }).strict()

@@ -40,7 +40,7 @@
  *     that makes the loser audible.
  */
 
-import type { FormField } from '@object-ui/types';
+import type { BaseFieldMetadata, FormField } from '@object-ui/types';
 import { evalFieldPredicate, isBlankPredicateText, type FieldRulePredicate } from '@object-ui/core';
 import { mapFieldTypeToFormType, buildValidationRules } from '@object-ui/fields';
 import { isCreateFormMode, isRequiredInForm } from './schemaDefaults';
@@ -281,6 +281,68 @@ export function warnSectionMemberExcludedByFields(
 }
 
 /**
+ * The keys {@link fieldHelpText} reads off a field definition as served.
+ *
+ * `inlineHelpText` and `description` are the authoring face's own members
+ * (`BaseFieldMetadata`; the first is typed there by reference to the spec).
+ * `help` is declared HERE and not on the authoring face: it is a served leg,
+ * not a key an author may write (see {@link fieldHelpText}).
+ */
+interface FieldHelpTextSource extends Pick<BaseFieldMetadata, 'inlineHelpText' | 'description'> {
+  /**
+   * The served leg. An objectstack server older than `@objectstack/spec`
+   * 17.7.0 puts a field's translated help here. Not an authoring key.
+   */
+  help?: string;
+}
+
+/**
+ * The help line a field draws under its control on the record form
+ * (objectui#12213): the ONE read `ObjectForm`'s field builder and
+ * {@link fromObjectSchema} share, so the flat and the sectioned forms cannot
+ * drift apart. Both used to spell `field.help || field.description`, and
+ * neither read the key the spec declares.
+ *
+ * First non-empty value wins:
+ *
+ *   1. `inlineHelpText`, `@objectstack/spec`'s `FieldSchema.inlineHelpText`
+ *      ("Help text displayed below the field in forms"). Studio's object field
+ *      inspector writes it, and flow screens already draw it under the control.
+ *   2. `help`, the served leg below.
+ *   3. `description`, the fallback the form always had.
+ *
+ * `resolveActionParam` in `@object-ui/fields` derives a field-backed action
+ * param's `helpText` in the same order; it cannot import this package, so the
+ * order is restated there.
+ *
+ * ## `||`, not `??`
+ *
+ * An empty string reads as absent, so `inlineHelpText: ''` falls back to the
+ * description instead of hiding it. The spec declares no setting that hides
+ * the help line, and Studio's inspector stores a cleared box as no key at all
+ * (`inlineHelpText: v || undefined`). With `??`, an empty string would become
+ * a second, undeclared way to suppress the description.
+ *
+ * ## Why the `help` leg is still read
+ *
+ * `FieldSchema` refuses `help` by name (it suggests `inlineHelpText`), so no
+ * document that passes the write door carries it. The ingestion fold
+ * (`normalizeSchemaReferenceKeys` in `@object-ui/core`) has no declared twin
+ * to stamp it onto: its alias probe of `help` matches no key `FieldSchema`
+ * declares, so the key arrives here as served. One producer still serves it.
+ * An objectstack server whose `@objectstack/spec` is older than 17.7.0
+ * translated a field by putting the bundle's field `help` entry (the
+ * translated `description`) on the served field's `help` key. 17.7.0 serves
+ * that entry on `description` instead. Against the older server this leg is
+ * what keeps the translated text on the form. Whether it retires is the
+ * decision recorded on objectui#12213, not taken here.
+ */
+export function fieldHelpText(field: FieldHelpTextSource | null | undefined): string | undefined {
+  if (!field) return undefined;
+  return field.inlineHelpText || field.help || field.description || undefined;
+}
+
+/**
  * Build a runtime FormField from object-schema metadata for `fieldName`.
  *
  * The ONE object-field-to-FormField mapping in this package. Exported because
@@ -308,7 +370,10 @@ export function fromObjectSchema(fieldName: string, ctx: SectionFieldsContext): 
     required: isRequiredInForm(field, isCreateFormMode(ctx)),
     disabled: ctx.readOnly || ctx.mode === 'view' || field.readonly,
     placeholder: field.placeholder,
-    description: field.help || field.description,
+    // The help line under the control: the spec's `inlineHelpText`, else
+    // `description`, through the one read `ObjectForm`'s field builder shares
+    // (`fieldHelpText`, objectui#12213).
+    description: fieldHelpText(field),
     validation: buildValidationRules(field),
     field,
     options: field.options,

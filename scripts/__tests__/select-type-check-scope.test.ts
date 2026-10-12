@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 import { parse as parseYaml } from 'yaml';
 
 import {
@@ -9,6 +11,7 @@ import {
   globToRegExp,
   main,
   rootChanges,
+  rootProgramPackages,
   rootRule,
 } from '../select-type-check-scope.mjs';
 
@@ -123,6 +126,62 @@ describe('select-type-check-scope — the root rule (objectui#12222)', () => {
   });
 });
 
+/**
+ * objectui#12272 — the packages the repo-root `vitest.setup.*` files import,
+ * named outright: the non-vacuity anchor for the derivation below, which reads
+ * them out of `tsconfig.vitest-setup.json` on every run.
+ */
+const ROOT_PROGRAM_PACKAGES = [
+  '@object-ui/components',
+  '@object-ui/fields',
+  '@object-ui/i18n',
+  '@object-ui/plugin-dashboard',
+  '@object-ui/plugin-grid',
+];
+
+describe('select-type-check-scope — the packages the repo-root programs need built (objectui#12272)', () => {
+  it('derives them from the root program’s tsconfig `paths`, a subpath wildcard included', () => {
+    expect(rootProgramPackages(repoRoot)).toEqual(ROOT_PROGRAM_PACKAGES);
+  });
+
+  it('matches what the root setup program really imports, so a new import is a new build', () => {
+    // The derivation reads `paths`; the program's files are what needs them.
+    // The root package.json declares no `@object-ui/*` dependency, so an import
+    // a `paths` entry does not map cannot resolve at all -- hold the two
+    // together. The files are the program's own root set, as `tsc -p` parses it.
+    const configPath = path.join(repoRoot, 'tsconfig.vitest-setup.json');
+    const read = ts.readConfigFile(configPath, ts.sys.readFile);
+    const { fileNames } = ts.parseJsonConfigFileContent(read.config, ts.sys, repoRoot, undefined, configPath);
+    expect(fileNames.length, 'tsconfig.vitest-setup.json resolves no file — the parse is broken').toBeGreaterThanOrEqual(4);
+    const imported = new Set<string>();
+    for (const file of fileNames) {
+      const text = fs.readFileSync(file, 'utf8');
+      for (const m of text.matchAll(/(?:from|import)\s+'(@object-ui\/[\w-]+)(?:\/[^']*)?'/g)) imported.add(m[1]);
+    }
+    expect(imported.size, 'no root setup file imports a workspace package — the scan is broken').toBeGreaterThan(0);
+    expect([...imported].sort()).toEqual(rootProgramPackages(repoRoot));
+  });
+
+  it('throws on a `paths` target that sits in no workspace package, rather than dropping it', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tc-scope-'));
+    try {
+      fs.writeFileSync(path.join(dir, 'package.json'), '{"name":"root"}');
+      fs.mkdirSync(path.join(dir, 'packages/a'), { recursive: true });
+      fs.writeFileSync(path.join(dir, 'packages/a/package.json'), '{"name":"@x/a"}');
+      const write = (paths: Record<string, string[]>) =>
+        fs.writeFileSync(path.join(dir, 'tsconfig.root.json'), JSON.stringify({ compilerOptions: { paths } }));
+
+      write({ '@x/a/*': ['./packages/a/dist/*'] });
+      expect(rootProgramPackages(dir, ['tsconfig.root.json'])).toEqual(['@x/a']);
+
+      write({ '@x/b': ['./nowhere/b'] });
+      expect(() => rootProgramPackages(dir, ['tsconfig.root.json'])).toThrow(/sits in no workspace package/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('select-type-check-scope — the verdict', () => {
   const run = (changed: string[], affected: () => string[] = () => ['@object-ui/plugin-kanban']) => {
     const lines: string[] = [];
@@ -153,6 +212,31 @@ describe('select-type-check-scope — the verdict', () => {
     expect(none.lines.join('\n')).toContain('nothing to type-check');
   });
 
+  it('names the root programs’ packages on an EMPTY affected set, the PR #12262 case (objectui#12272)', () => {
+    const none = run(['.github/workflows/spec-main-shape-gate.yml', 'scripts/__tests__/spec-main-shape-gate.test.ts'], () => []);
+    expect(none.code).toBe(0);
+    expect(none.lines.at(-1)).toBe('scope=affected');
+    const tail = none.lines.slice(none.lines.findIndex((l) => l.startsWith('The repo-root programs')));
+    expect(tail.slice(1, -1)).toEqual(ROOT_PROGRAM_PACKAGES.map((p) => `  ${p}`));
+  });
+
+  it('names them all the same on an affected set that lacks them (objectui#12272)', () => {
+    // `...[base]` over `packages/plugin-ai` alone selects that one package, and
+    // its `^build` closure holds none of fields, plugin-dashboard, plugin-grid.
+    const lacking = run(['packages/plugin-ai/src/index.ts'], () => ['@object-ui/plugin-ai']);
+    expect(lacking.lines.at(-1)).toBe('scope=affected');
+    expect(lacking.lines).toContain('  @object-ui/plugin-ai');
+    const tail = lacking.lines.slice(lacking.lines.findIndex((l) => l.startsWith('The repo-root programs')));
+    expect(tail.slice(1, -1)).toEqual(ROOT_PROGRAM_PACKAGES.map((p) => `  ${p}`));
+  });
+
+  it('prints exactly those packages, one per line, for `--root-builds` (objectui#12272)', () => {
+    const lines: string[] = [];
+    expect(main(['--root-builds'], { root: repoRoot, log: (l: string) => lines.push(l) })).toBe(0);
+    expect(lines).toEqual(ROOT_PROGRAM_PACKAGES);
+    expect(main(['--root-builds', '--base', 'abc123'], { log: () => {} })).toBe(2);
+  });
+
   it('reaches NO verdict when turbo cannot answer, which ci.yml reads as the whole workspace', () => {
     expect(() =>
       run(['packages/plugin-kanban/src/x.ts'], () => {
@@ -165,7 +249,7 @@ describe('select-type-check-scope — the verdict', () => {
 
 describe('ci.yml — the two speeds are wired the way the selector assumes', () => {
   const workflow = parseYaml(fs.readFileSync(path.join(repoRoot, '.github/workflows/ci.yml'), 'utf8')) as {
-    jobs: Record<string, { steps: Array<{ name?: string; id?: string; run?: string; env?: Record<string, string> }> }>;
+    jobs: Record<string, { steps: Array<{ name?: string; id?: string; if?: string; run?: string; env?: Record<string, string> }> }>;
   };
   const steps = workflow.jobs['type-check'].steps;
   const decide = steps.find((s) => s.id === 'tc-scope');
@@ -189,5 +273,33 @@ describe('ci.yml — the two speeds are wired the way the selector assumes', () 
   it('filters only on the affected verdict, with turbo’s own dependents filter', () => {
     expect(runStep?.run).toContain('if [ "$SCOPE" = \'affected\' ]; then');
     expect(runStep?.run).toContain('pnpm type-check "--filter=...[$BASE]"');
+  });
+
+  /**
+   * objectui#12272: on the affected speed nothing else builds the packages the
+   * root setup program resolves, so this step must exist, run on that speed
+   * only, and sit between the turbo run and the root program.
+   */
+  it('builds the root programs’ packages on the affected speed, after the turbo run and before the root program', () => {
+    const names = steps.map((s) => s.name);
+    const at = names.indexOf('Build the packages the repo-root programs import');
+    expect(at, 'the type-check job no longer builds the root programs’ packages on the affected speed').toBeGreaterThan(-1);
+    expect(at).toBeGreaterThan(names.indexOf('Run type-check'));
+    expect(at).toBeLessThan(names.indexOf('Type-check repo-root vitest setup files'));
+
+    const build = steps[at];
+    expect(build.if).toContain("steps.relevant.outputs.should_run == 'true'");
+    expect(build.if, 'the full battery is unchanged: this step runs on the affected speed only').toContain(
+      "steps.tc-scope.outputs.scope == 'affected'",
+    );
+    expect(build.run).toContain('node scripts/select-type-check-scope.mjs --root-builds');
+    // `turbo run build`, never `type-check` with the names added: that task
+    // waits on `^build` and builds no named package's own declarations.
+    expect(build.run).toContain('pnpm exec turbo run build "${filters[@]}"');
+    expect(build.run, 'a failed build piped into `tee` must still fail the step').toContain('set -o pipefail');
+    // `Report what the turbo cache replayed` reads the NEWEST run summary; this
+    // run must not write one, or it would replace `Run type-check`'s.
+    expect(build.env?.TURBO_RUN_SUMMARY).toBeUndefined();
+    expect(build.run).not.toContain('TURBO_RUN_SUMMARY');
   });
 });

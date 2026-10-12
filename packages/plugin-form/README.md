@@ -967,6 +967,21 @@ what refuses the save.
 A `wizard` disables Next and its final submit button, and its step indicator does
 not jump forward, while Cancel and Back stay usable.
 
+**The record's owner is the one exception, and only on an edit
+(objectui#12205).** `owner_id` is in the server-owned roster, so a form never
+echoes it back: the platform refuses an echoed owner from every role without
+the transfer grant (objectui#10108). The spec declares it `system` but not
+`readonly`, because ownership is transferable from a form. So an edit save adds
+it back when, and only when, its value differs from the record the form read: a
+new owner is sent as its id, and a cleared one as `null`. Field-level security,
+a `readonly` declaration on the object and the unknown-key strip still keep it
+off the wire. A create never sends it, and neither does a form with no record
+read of its own (listed below). The server decides whether the caller may make
+the change, and the form shows a refusal as its error. The business-unit and
+tenant columns are not reassignable from a form and are never sent. The
+master-detail form's batch still strips the owner from the header operation, so
+an owner changed in a master-detail header is not saved.
+
 The comparison sends every field it cannot prove unchanged, because a field
 wrongly judged unchanged would lose the user's edit while the server still
 answers 200:

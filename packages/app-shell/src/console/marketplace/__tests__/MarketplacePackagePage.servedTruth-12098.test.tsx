@@ -29,7 +29,7 @@
 
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup, act, within } from '@testing-library/react';
 
 const navigate = vi.fn();
 vi.mock('react-router-dom', () => ({
@@ -301,7 +301,9 @@ describe('an upgrade waits for the new version to be served (objectui#12098)', (
     await bootConsole({ installLocal: false });
     await renderPage();
     fireEvent.click(await screen.findByRole('button', { name: '«marketplace.action.updateTo»' }));
-    fireEvent.click(await screen.findByRole('button', { name: '«marketplace.action.install»' }));
+    // The dialog an upgrade opens is an UPDATE dialog, whose primary button
+    // reads "Update" like the page's own (objectui#12146).
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '«marketplace.action.updateTo»' }));
   }
 
   it('keeps waiting while 1.0.0 is served, and refreshes once 1.1.0 is served', async () => {
@@ -324,7 +326,8 @@ describe('an upgrade waits for the new version to be served (objectui#12098)', (
     // The interval at which the rebuild lands: 1.1.0 is served, then refreshed.
     await elapseInterval();
     expect(await screen.findByRole('button', { name: '«marketplace.install.openApp:Acme CRM»' })).toBeInTheDocument();
-    expect(screen.getByTestId('install-deploy-status')).toHaveTextContent('«marketplace.install.deployed»');
+    // An upgrade's served state says it updated (objectui#12146), not the install's "deployed".
+    expect(screen.getByTestId('install-deploy-status')).toHaveTextContent('«marketplace.update.success»');
     expect(pulses).toEqual([REBUILD_MS]);
     await waitFor(() => expect(seedWrites).toContain('1.1.0'));
     expect(seedWrites.every((v) => v === '1.1.0')).toBe(true);

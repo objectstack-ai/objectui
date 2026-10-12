@@ -410,7 +410,11 @@ export function AppHeader({
         });
       }
     } else if (routeType === 'page') {
-      extraSegments.push({ label: t('console.breadcrumb.pages'), href: baseHref });
+      // No type crumb ahead of the page (objectui#12198, the maintainer's
+      // ruling on objectstack-ai/cloud#2768): a 「Pages」 crumb named a
+      // metadata type, not a place the user went, and linked only to the
+      // app's base, which the app pill before it already opens. The trail
+      // goes from the app straight to the page.
       if (pathParts[3]) {
         const pageName = pathParts[3];
         const pageDef = preferLocal(metadataPages as any[], pageName, (currentApp as any)?._packageId);

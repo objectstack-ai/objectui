@@ -2053,7 +2053,6 @@ const ru = {
     initializing: "Открытие консоли…",
     breadcrumb: {
       dashboards: "Панели",
-      pages: "Страницы",
       reports: "Отчёты",
       system: "Система",
       marketplace: "Маркетплейс",

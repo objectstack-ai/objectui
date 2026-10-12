@@ -1952,7 +1952,6 @@ const ko = {
     initializing: "콘솔을 여는 중…",
     breadcrumb: {
       dashboards: "대시보드",
-      pages: "페이지",
       reports: "보고서",
       system: "시스템",
       marketplace: "마켓플레이스",

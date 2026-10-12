@@ -10,6 +10,7 @@ import React from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { Combobox, EmptyValue, Input, cn } from '@object-ui/components';
 import { SchemaRendererContext } from '@object-ui/react';
+import { AUDIENCE_ANCHOR_POSITIONS } from '@objectstack/spec';
 import type { DataSource } from '@object-ui/types';
 import type { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
@@ -99,6 +100,7 @@ function failureMessage(err: unknown): string {
   return typeof err === 'string' ? err : '';
 }
 
+const AUDIENCE_ANCHORS: ReadonlySet<string> = new Set(AUDIENCE_ANCHOR_POSITIONS);
 const NO_EXCLUSIONS: ReadonlySet<string> = new Set();
 
 /**
@@ -108,14 +110,18 @@ const NO_EXCLUSIONS: ReadonlySet<string> = new Set();
  * anchor the spec adds is left out with no change here. Every other type
  * excludes nothing: a permission set named like an anchor is an ordinary set.
  *
- * Imported lazily, as the console's `audienceAnchorsOf` imports the same
- * module: the console builds this widget into its eager `ui-components` chunk,
- * and `@objectstack/spec/identity` is a lazy chunk of its own.
+ * Imported statically from the spec's ROOT entry, as `@object-ui/auth` imports
+ * `BUILTIN_MEMBERSHIP_ROLES`, and not from `@objectstack/spec/identity`. The
+ * console builds this widget into an eager chunk (`ui-components`), so a
+ * static `/identity` import would carry that subpath's whole module into every
+ * page load; `pnpm check:eager-closure` is the instrument that weighs it. A
+ * lazy `import()` keeps that module out of the eager closure, but out of
+ * `pnpm check:spec-floors` too: that gate judges the `@objectstack/spec` floor
+ * from static imports only, and on the publish lane it reports a subpath it
+ * cannot judge as a finding.
  */
-async function nonGrantableNames(type: string): Promise<ReadonlySet<string>> {
-  if (type !== 'position') return NO_EXCLUSIONS;
-  const { AUDIENCE_ANCHOR_POSITIONS } = await import('@objectstack/spec/identity');
-  return new Set<string>(AUDIENCE_ANCHOR_POSITIONS);
+function nonGrantableNames(type: string): ReadonlySet<string> {
+  return type === 'position' ? AUDIENCE_ANCHORS : NO_EXCLUSIONS;
 }
 
 /** A settled answer, with the inputs it answers for. */
@@ -123,14 +129,6 @@ interface SettledCatalog {
   dataSource: unknown;
   type: string;
   state: RegistryCatalogState;
-  /** The listed names the picker does not offer ({@link nonGrantableNames}). */
-  excluded: ReadonlySet<string>;
-}
-
-/** The catalog's arm, and the names of it a grant cannot name. */
-interface RegistryCatalog {
-  catalog: RegistryCatalogState;
-  excluded: ReadonlySet<string>;
 }
 
 /**
@@ -142,30 +140,21 @@ interface RegistryCatalog {
  * answer for exactly these inputs has not settled is LOADING. So an answer to
  * an older data source or type can never be shown as the current one, and the
  * effect only ever writes a settled answer.
- *
- * The catalog is LOADED only once the names a grant cannot name have settled
- * too, so the picker never offers an anchor it is about to withdraw. A failure
- * to read them is the catalog's FAILED arm, never an unfiltered list.
  */
-function useRegistryCatalog(dataSource: unknown, type: string): RegistryCatalog {
+function useRegistryCatalog(dataSource: unknown, type: string): RegistryCatalogState {
   const [settled, setSettled] = React.useState<SettledCatalog | null>(null);
 
   React.useEffect(() => {
     const source = registryLister(dataSource);
     if (!source) return;
     let cancelled = false;
-    Promise.all([source.listMetadataItems(type), nonGrantableNames(type)]).then(
-      ([items, excluded]) => {
-        if (!cancelled) setSettled({ dataSource, type, state: { status: 'loaded', items }, excluded });
+    source.listMetadataItems(type).then(
+      (items) => {
+        if (!cancelled) setSettled({ dataSource, type, state: { status: 'loaded', items } });
       },
       (err: unknown) => {
         if (!cancelled) {
-          setSettled({
-            dataSource,
-            type,
-            state: { status: 'error', message: failureMessage(err) },
-            excluded: NO_EXCLUSIONS,
-          });
+          setSettled({ dataSource, type, state: { status: 'error', message: failureMessage(err) } });
         }
       },
     );
@@ -174,10 +163,8 @@ function useRegistryCatalog(dataSource: unknown, type: string): RegistryCatalog 
     };
   }, [dataSource, type]);
 
-  if (!registryLister(dataSource)) return { catalog: IDLE, excluded: NO_EXCLUSIONS };
-  return settled && settled.dataSource === dataSource && settled.type === type
-    ? { catalog: settled.state, excluded: settled.excluded }
-    : { catalog: LOADING, excluded: NO_EXCLUSIONS };
+  if (!registryLister(dataSource)) return IDLE;
+  return settled && settled.dataSource === dataSource && settled.type === type ? settled.state : LOADING;
 }
 
 /** What one item reads as: its label beside its name, or the name alone. */
@@ -202,7 +189,8 @@ export function RegistryRefField({
   const ctx = React.useContext(SchemaRendererContext);
   const { t } = useFieldTranslation();
   const dataSource = props.dataSource ?? ctx?.dataSource ?? null;
-  const { catalog, excluded } = useRegistryCatalog(dataSource, registryType);
+  const catalog = useRegistryCatalog(dataSource, registryType);
+  const excluded = nonGrantableNames(registryType);
   const current = typeof value === 'string' ? value : '';
   const testId = `registry-ref-${registryType}`;
 

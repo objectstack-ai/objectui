@@ -28,11 +28,6 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import React from 'react';
 import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
-// `position-ref`'s LOADED arm waits on the widget's dynamic import of this exact
-// specifier, the audience anchors it leaves out (objectui#12200). Loaded here,
-// its cost lands in the import phase rather than inside a `findBy` window
-// (AGENTS.md, test discipline).
-import '@objectstack/spec/identity';
 import { PositionRefField, PermissionRefField } from '../RegistryRefField';
 
 const POSITIONS = [

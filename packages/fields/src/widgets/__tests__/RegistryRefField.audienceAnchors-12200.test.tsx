@@ -14,33 +14,18 @@
  * lists both beside the assignable positions. These pins hold:
  *
  *  - the picker leaves out exactly the spec's `AUDIENCE_ANCHOR_POSITIONS`;
- *  - it offers nothing until that list has loaded, and a failure to load it is
- *    the FAILED arm, never an unfiltered list;
+ *  - a registry that lists nothing BUT anchors offers no picker;
  *  - a stored anchor still shows, by its label beside its name, unflagged, and
  *    is not offered when the row holds another value;
- *  - `permission-ref` filters nothing, and does not wait on that list.
- *
- * The anchor list is the widget's lazy `import('@objectstack/spec/identity')`.
- * Each test re-registers it with `vi.doMock` as the REAL module
- * (`importOriginal`) behind a gate the test can hold shut or make fail, so the
- * widget's next import runs that test's factory. The gate is not inert by
- * construction: the LOADING and FAILED pins below fail when it is.
- *
- * The module-scope import of the same specifier keeps its cost in the import
- * phase rather than inside a `findBy` window (AGENTS.md, test discipline).
+ *  - `permission-ref` filters nothing: a permission set named like an anchor is
+ *    an ordinary set.
  */
-import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import React from 'react';
-import { act, render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { AUDIENCE_ANCHOR_POSITIONS } from '@objectstack/spec/identity';
+import { AUDIENCE_ANCHOR_POSITIONS } from '@objectstack/spec';
 import { PositionRefField, PermissionRefField } from '../RegistryRefField';
-
-/** What the next import of the anchor list waits on, or fails with. */
-const anchorImport = {
-  gate: null as Promise<void> | null,
-  failure: null as Error | null,
-};
 
 /** The assignable positions, by label beside name, as the picker reads them. */
 const ASSIGNABLE = ['auditor', 'Sales Manager (sales_manager)', 'Sales Representative (sales_rep)'];
@@ -83,16 +68,6 @@ async function openOptions(): Promise<string[]> {
   return screen.getAllByRole('option').map((option) => option.textContent ?? '');
 }
 
-beforeEach(() => {
-  anchorImport.gate = null;
-  anchorImport.failure = null;
-  vi.doMock('@objectstack/spec/identity', async (importOriginal) => {
-    if (anchorImport.gate) await anchorImport.gate;
-    if (anchorImport.failure) throw anchorImport.failure;
-    return importOriginal();
-  });
-});
-
 afterEach(() => cleanup());
 
 describe('position-ref leaves the audience anchors out of what it offers (objectui#12200)', () => {
@@ -108,46 +83,11 @@ describe('position-ref leaves the audience anchors out of what it offers (object
     }
   });
 
-  it('offers nothing until the anchor list has loaded, then the positions without the anchors', async () => {
-    let release!: () => void;
-    anchorImport.gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const ds = lister(POSITIONS);
-    const { onChange } = mount(PositionRefField, { dataSource: ds, value: 'sales_rep' });
-
-    // The registry has answered, and every update its answer schedules is
-    // committed; the anchor list has not: still LOADING.
-    await waitFor(() => expect(ds.listMetadataItems).toHaveBeenCalledWith('position'));
-    await act(async () => {
-      await ds.listMetadataItems.mock.results[0].value;
-    });
-    const box = screen.getByRole('textbox');
-    expect(box).toBeDisabled();
-    expect(box).toHaveValue('sales_rep');
-    expect(screen.queryByRole('combobox')).toBeNull();
-    expect(screen.queryByRole('option')).toBeNull();
-
-    release();
-    expect(await openOptions()).toEqual(ASSIGNABLE);
-    expect(onChange).not.toHaveBeenCalled();
-  });
-
-  it('a failure to load the anchor list is the FAILED arm, never an unfiltered list', async () => {
-    anchorImport.failure = new Error('chunk load failed');
-    const { onChange } = mount(PositionRefField, { dataSource: lister(POSITIONS), value: 'sales_rep' });
-
-    expect(await screen.findByTestId('registry-ref-position-load-failed')).toHaveAttribute('role', 'status');
-    expect(screen.queryByRole('combobox')).toBeNull();
-    const box = screen.getByRole('textbox');
-    expect(box).toBeEnabled();
-    expect(box).toHaveValue('sales_rep');
-    expect(onChange).not.toHaveBeenCalled();
-  });
-
   it('a registry that lists only the anchors offers no picker: the typed-name box', async () => {
-    mount(PositionRefField, { dataSource: lister(POSITIONS.slice(3)) });
+    const ds = lister(POSITIONS.slice(3));
+    mount(PositionRefField, { dataSource: ds });
 
+    await waitFor(() => expect(ds.listMetadataItems).toHaveBeenCalledWith('position'));
     const box = await screen.findByRole('textbox');
     await waitFor(() => expect(box).toBeEnabled());
     expect(screen.queryByRole('combobox')).toBeNull();
@@ -178,9 +118,7 @@ describe('a stored anchor still shows, and is not offered as a fresh choice (obj
 });
 
 describe('permission-ref filters nothing (objectui#12200)', () => {
-  it('lists a permission set named like an anchor, without waiting on the anchor list', async () => {
-    // Held shut for the whole test: permission-ref must not depend on it.
-    anchorImport.gate = new Promise<void>(() => {});
+  it('lists, and writes, a permission set named like an anchor', async () => {
     const sets = lister([
       { name: 'everyone', label: 'Everyone Baseline' },
       { name: 'guest' },

@@ -7,7 +7,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
 import { EnvironmentEntitlementDialog, resolveCtaHref } from '../EnvironmentEntitlementDialog';
-import { entitlementDialogFromError, upgradeDialogSpec, type EntitlementDialogSpec } from '../entitlements';
+import { entitlementDialogFromError, type EntitlementDialogSpec } from '../entitlements';
 
 describe('resolveCtaHref', () => {
   it('passes absolute urls through (new tab); mailto is not a new tab', () => {
@@ -54,9 +54,11 @@ describe('EnvironmentEntitlementDialog', () => {
   });
 });
 
-// objectui#10437 — the dialog renders the spec the builders produce, so these
-// pins go through the REAL builders: a spec hand-written without a `cta` would
-// pass whether or not the builders still synthesize a default URL.
+// objectui#10437 — the dialog renders the spec the builder produces, so these
+// pins go through the REAL builder: a spec hand-written without a `cta` would
+// pass whether or not the builder still synthesizes a default URL. (The
+// proactive builder is gone since objectui#12190; the plan-locked toolbar draws
+// a mark, not this dialog.)
 describe('EnvironmentEntitlementDialog — no server URL, no upgrade CTA (objectui#10437)', () => {
   const SERVER_UPGRADE_URL = 'https://cloud.example.com/_console/apps/cloud_control/page/pricing';
 
@@ -71,15 +73,6 @@ describe('EnvironmentEntitlementDialog — no server URL, no upgrade CTA (object
 
   it('a 403 without upgrade_url opens the dialog with no upgrade anchor', async () => {
     renderSpec(entitlementDialogFromError({ error: { code: 'DEV_ENV_PLAN_LOCKED', details: { plan: 'free' } } }));
-    expect(await screen.findByText('Development environments are a paid feature')).toBeTruthy();
-    expect(screen.queryByTestId('entitlement-cta-primary')).toBeNull();
-    expect(screen.queryByRole('link')).toBeNull();
-  });
-
-  it('the proactive prompt from a state without upgradeUrl renders no upgrade anchor', async () => {
-    renderSpec(
-      upgradeDialogSpec({ ready: true, hasProductionEnv: true, canCreateDevelopmentEnv: false, plan: 'free', source: 'summary' }),
-    );
     expect(await screen.findByText('Development environments are a paid feature')).toBeTruthy();
     expect(screen.queryByTestId('entitlement-cta-primary')).toBeNull();
     expect(screen.queryByRole('link')).toBeNull();

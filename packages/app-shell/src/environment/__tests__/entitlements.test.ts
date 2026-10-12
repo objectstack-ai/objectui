@@ -2,7 +2,6 @@
  * Unit coverage for the React-free environment entitlement decision layer:
  *   - entitlementDialogFromError: cloud 403 body → friendly dialog spec (or null)
  *   - decideEnvironmentCta: org state → which toolbar affordance
- *   - upgradeDialogSpec: proactive upgrade prompt
  */
 
 import { describe, it, expect } from 'vitest';
@@ -10,7 +9,6 @@ import {
   isEntitlementErrorCode,
   entitlementDialogFromError,
   decideEnvironmentCta,
-  upgradeDialogSpec,
   type EnvironmentEntitlementsState,
 } from '../entitlements';
 
@@ -225,64 +223,10 @@ describe('decideEnvironmentCta', () => {
   it('has prod + dev allowed → add development', () => {
     expect(decideEnvironmentCta(base({ canCreateDevelopmentEnv: true }))).toBe('add_development');
   });
-  it('has prod + dev NOT allowed → upgrade prompt (no POST)', () => {
+  it('has prod + dev NOT allowed → the locked plan-tier mark (no POST, no dialog)', () => {
     expect(decideEnvironmentCta(base({ canCreateDevelopmentEnv: false }))).toBe('upgrade_for_development');
   });
   it('has prod + dev unknown (no summary) → add development (POST + dialog decides)', () => {
     expect(decideEnvironmentCta(base({ canCreateDevelopmentEnv: undefined, source: 'derived' }))).toBe('add_development');
-  });
-});
-
-describe('upgradeDialogSpec', () => {
-  it('builds a DEV_ENV_PLAN_LOCKED prompt pointing at the upgrade url', () => {
-    const spec = upgradeDialogSpec(base({ plan: 'free', upgradeUrl: '/settings/billing', canCreateDevelopmentEnv: false }));
-    expect(spec.code).toBe('DEV_ENV_PLAN_LOCKED');
-    expect(spec.cta).toEqual({ label: 'Upgrade plan', url: '/settings/billing' });
-    expect(spec.message).toContain('free plan');
-  });
-
-  // The lowercase-`your` sentence users reported (cloud#959) came from this
-  // builder, not from the control plane.
-  it('opens the sentence with a capital letter', () => {
-    const spec = upgradeDialogSpec(base({ plan: 'free' }));
-    expect(spec.message.startsWith('Your ')).toBe(true);
-  });
-
-  it('reads identically to the reactive DEV_ENV_PLAN_LOCKED dialog', () => {
-    const proactive = upgradeDialogSpec(base({ plan: 'free', upgradeUrl: '/settings/billing' }));
-    const reactive = entitlementDialogFromError({
-      error: { code: 'DEV_ENV_PLAN_LOCKED', details: { plan: 'free', upgrade_url: '/settings/billing' } },
-    });
-    expect(reactive).toEqual(proactive);
-  });
-
-  it('withholds the CTA when the state carries no upgradeUrl (objectui#10437)', () => {
-    const spec = upgradeDialogSpec(base({ plan: 'free', upgradeUrl: undefined, canCreateDevelopmentEnv: false }));
-    expect(spec.title).toBe('Development environments are a paid feature');
-    expect(spec.cta).toBeUndefined();
-  });
-
-  it('control: a summary upgradeUrl becomes the CTA verbatim (objectui#10437)', () => {
-    const spec = upgradeDialogSpec(base({ plan: 'free', upgradeUrl: SERVER_UPGRADE_URL, canCreateDevelopmentEnv: false }));
-    expect(spec.cta).toEqual({ label: 'Upgrade plan', url: SERVER_UPGRADE_URL });
-  });
-
-  it('reads identically to the reactive dialog when neither side has a URL', () => {
-    const proactive = upgradeDialogSpec(base({ plan: 'free', upgradeUrl: undefined }));
-    const reactive = entitlementDialogFromError({ error: { code: 'DEV_ENV_PLAN_LOCKED', details: { plan: 'free' } } });
-    expect(reactive).toEqual(proactive);
-  });
-
-  it('localizes through the supplied translator', () => {
-    const zh = (key: string, o?: any) =>
-      ({
-        'environment.entitlement.planLockedTitle': '开发环境是付费功能',
-        'environment.entitlement.planLockedBody': `${o?.plan}包含一个生产环境。`,
-        'environment.entitlement.freePlan': '免费版',
-        'environment.entitlement.upgradeCta': '升级套餐',
-      })[key] ?? key;
-    const spec = upgradeDialogSpec(base({ plan: 'free' }), zh);
-    expect(spec.title).toBe('开发环境是付费功能');
-    expect(spec.message).toBe('免费版包含一个生产环境。');
   });
 });

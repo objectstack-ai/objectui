@@ -3629,10 +3629,13 @@ const ar = {
     buyCredits: "شراء باقة أرصدة",
     upgradePlan: "ترقية الخطة",
   },
+  planTier: {
+    teamAndUp: "خطة Team وما فوقها",
+  },
   environment: {
-    addEnvironment: "إضافة بيئة",
     setUpProduction: "إعداد بيئة الإنتاج",
     addDevelopment: "إضافة بيئة تطوير",
+    developmentLocked: "بيئات التطوير · {{tier}}",
     // Plan/capacity dialog (EnvironmentEntitlementDialog) — cloud#959.
     entitlement: {
       productionLimitTitle: "لديك بالفعل بيئة الإنتاج الخاصة بك",

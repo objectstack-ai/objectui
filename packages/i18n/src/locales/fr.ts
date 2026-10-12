@@ -3424,10 +3424,13 @@ const fr = {
     buyCredits: "Acheter un pack de crédits",
     upgradePlan: "Changer d'offre",
   },
+  planTier: {
+    teamAndUp: "À partir de l'offre Team",
+  },
   environment: {
-    addEnvironment: "Ajouter un environnement",
     setUpProduction: "Configurer votre environnement de production",
     addDevelopment: "Ajouter un environnement de développement",
+    developmentLocked: "Environnements de développement · {{tier}}",
     // Plan/capacity dialog (EnvironmentEntitlementDialog) — cloud#959.
     entitlement: {
       productionLimitTitle: "Vous avez déjà votre environnement de production",

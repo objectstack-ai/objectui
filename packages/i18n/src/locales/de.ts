@@ -3362,10 +3362,13 @@ const de = {
     buyCredits: "Credit-Paket kaufen",
     upgradePlan: "Tarif upgraden",
   },
+  planTier: {
+    teamAndUp: "Ab Tarif Team",
+  },
   environment: {
-    addEnvironment: "Umgebung hinzufügen",
     setUpProduction: "Produktionsumgebung einrichten",
     addDevelopment: "Entwicklungsumgebung hinzufügen",
+    developmentLocked: "Entwicklungsumgebungen · {{tier}}",
     // Plan/capacity dialog (EnvironmentEntitlementDialog) — cloud#959.
     entitlement: {
       productionLimitTitle: "Sie haben bereits Ihre Produktionsumgebung",

@@ -245,9 +245,10 @@ describe('EnvironmentListToolbar — the non-arming affordances read the same li
     expect(screen.queryByTestId('environment-create-cta-loading')).toBeNull();
   });
 
-  it('upgrade CTA stands in for the create action, so a gated-out create shows none', () => {
-    // `environment-add-upgrade` is the create affordance for a plan-locked org.
-    // With no create action on the bar there is nothing for it to stand in for.
+  it('the locked mark stands in for the create action, so a gated-out create shows none', () => {
+    // `environment-development-locked` is the plan-locked org's stand-in for
+    // the create action (objectui#12190). With no create action on the bar
+    // there is nothing for it to stand in for.
     const gatedCreate = { ...CREATE, requiredPermissions: ['manage_environments'] };
     const onUpgrade = vi.fn();
     mountStack({
@@ -258,7 +259,7 @@ describe('EnvironmentListToolbar — the non-arming affordances read the same li
     });
 
     expect(screen.getByText('Refresh')).toBeTruthy();
-    expect(screen.queryByTestId('environment-add-upgrade')).toBeNull();
+    expect(screen.queryByTestId('environment-development-locked')).toBeNull();
     expect(onUpgrade).not.toHaveBeenCalled();
   });
 
@@ -270,6 +271,6 @@ describe('EnvironmentListToolbar — the non-arming affordances read the same li
       held: ['manage_environments'],
     });
 
-    expect(screen.getByTestId('environment-add-upgrade')).toBeTruthy();
+    expect(screen.getByTestId('environment-development-locked')).toBeTruthy();
   });
 });

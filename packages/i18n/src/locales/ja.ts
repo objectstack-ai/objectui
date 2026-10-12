@@ -3364,10 +3364,13 @@ const ja = {
     buyCredits: "クレジットパックを購入",
     upgradePlan: "プランをアップグレード",
   },
+  planTier: {
+    teamAndUp: "Team プラン以上",
+  },
   environment: {
-    addEnvironment: "環境を追加",
     setUpProduction: "本番環境をセットアップ",
     addDevelopment: "開発環境を追加",
+    developmentLocked: "開発環境 · {{tier}}",
     // Plan/capacity dialog (EnvironmentEntitlementDialog) — cloud#959.
     entitlement: {
       productionLimitTitle: "本番環境はすでに作成済みです",

@@ -29,7 +29,7 @@ one has its own section below.
 | `changeset-presence.yml` | Changeset Declaration | PR to `main`, `develop` — **no path filter**; merge-queue builds | **Yes** — when a released package's `src/` changed and no changeset was added |
 | `repo-gates.yml` | Repo Gates | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — fifteen gates as steps of one job ([#12214](https://github.com/objectstack-ai/objectui/issues/12214)); the job is red when any step is, and `scripts/dependabot-merge-gate.mjs` declares the context in `REQUIRED_CONTEXTS` |
 | `line-citation-gate.yml` | Line Citation Gate | PR to `main`, `develop` — **no path filter**; manual | No — **report-only** while it beds in; it exits 0 whatever it finds, and exits 1 only when one of its own synthetic controls fails. It declares no `merge_group` trigger, so it cannot be a required context in its current state |
-| `spec-main-shape-gate.yml` | Spec Main Shape Gate | PR to `main`, `develop` — **no path filter**; merge-queue builds; manual; hourly `schedule` on `main` | **Yes** — a shape break is a real red naming the objectui file and the objectstack commit ([#9860](https://github.com/objectstack-ai/objectui/issues/9860)). The maintainer enrolled the context under [#9969](https://github.com/objectstack-ai/objectui/issues/9969)'s ruling A, and `scripts/dependabot-merge-gate.mjs` declares it in `REQUIRED_CONTEXTS`, so a Dependabot bump waits for it too |
+| `spec-main-shape-gate.yml` | Spec Main Shape Gate | PR to `main`, `develop` — **no path filter**; merge-queue builds; manual; hourly `schedule` on `main` | No — **advisory** since [#12240](https://github.com/objectstack-ai/objectui/issues/12240): the maintainer's ruling took the context out of the required set, and `scripts/dependabot-merge-gate.mjs` classifies it `NOT_A_GATE`. Its verdict is unchanged — a shape break is a real red naming the objectui file and the objectstack commit ([#9860](https://github.com/objectstack-ai/objectui/issues/9860)) — and a red on the hourly `schedule` run on `main` is a main-red for the `domain:devx` lane |
 | `governed-surface-guard.yml` | Governed Surface Queue Guard | PR to `main`, `develop` (incl. `ready_for_review`) — **no path filter**; merge-queue builds | **Yes on a queue build only** — a governed-surface diff with no authorized approval record (on any commit) is refused there, and so is any merge group whose queued pull requests still carry `needs:contract-review`; on the pull request itself it is deliberately green and prints an early warning |
 | `performance-budget.yml` | Bundle Analysis | Push / PR touching `packages/**`, `apps/console/**`, `pnpm-lock.yaml` | **Yes** — the console entry gzip budget |
 | `lockfile-integrity.yml` | Lockfile Integrity Check | PR to `main`, `develop` touching `pnpm-lock.yaml` or the gate's own two files; manual | No — **deliberately not a blocking context** ([#8326](https://github.com/objectstack-ai/objectui/issues/8326)); it names the packages and the Dependabot merge gate classifies it `NOT_A_GATE` |
@@ -572,7 +572,10 @@ job, and nothing was weakened in the fold:
 **What moved:** the check runs. None of the fifteen was a required context of the merge queue —
 `scripts/check-required-check-set.mjs` reads the live set — which is also why `changeset-presence.yml`
 (**Changeset Declaration**), `spec-main-shape-gate.yml` and `governed-surface-guard.yml` were not
-folded: their contexts are required, and a step inside a job is not a check run. The one in-tree
+folded: their contexts were required when the fold landed, and a step inside a job is not a check run
+(the spec gate's has since left the set, by
+[#12240](https://github.com/objectstack-ai/objectui/issues/12240), and keeps its own workflow for its
+hourly run on `main`). The one in-tree
 reader of the old names, `REQUIRED_CONTEXTS` in `scripts/dependabot-merge-gate.mjs`, now waits for
 the one context this job produces.
 
@@ -2160,19 +2163,37 @@ to match in it. `scripts/__tests__/spec-main-shape-gate.test.ts` pins the bypass
 flag, the unfiltered trigger, the queue subscription and both attribution carriers, each with the
 firing control that proves the assertion is not satisfied by something else.
 
-**How it became a required check.** Requiredness is a GitHub ruleset — repository settings —
-which `scripts/check-required-check-set.mjs` can read and nothing in this tree can write. The
-workflow was built to be requirable (unfiltered on `pull_request`, subscribed to `merge_group`, no
-`continue-on-error`), so the maintainer could enrol the context on its own without stalling the
-queue. It waited for the day-one break to clear — its first run was red on one objectui file over
-an objectstack commit — and was enrolled under
+**How it became a required check, and how it left the set.** Requiredness is a GitHub ruleset —
+repository settings — which `scripts/check-required-check-set.mjs` can read and nothing in this tree
+can write. The workflow was built to be requirable (unfiltered on `pull_request`, subscribed to
+`merge_group`, no `continue-on-error`), so the maintainer could enrol the context on its own without
+stalling the queue. It waited for the day-one break to clear — its first run was red on one objectui
+file over an objectstack commit — and was enrolled under
 [#9969](https://github.com/objectstack-ai/objectui/issues/9969)'s ruling A. The in-tree half of that
 action came second: the name moved from `NOT_A_GATE` to `REQUIRED_CONTEXTS` in
-`scripts/dependabot-merge-gate.mjs`, where the two conditions and their order are written down. That
-gate reads check runs and never the ruleset, so the order could not let a red through either way;
-enrolling first only meant no Dependabot bump waited on a check the queue did not. Whether the
-context is *still* enrolled is not answered here: `scripts/check-required-check-set.mjs` watches it,
-and reports its loss in the patrol's run summary without failing.
+`scripts/dependabot-merge-gate.mjs`.
+
+[#12240](https://github.com/objectstack-ai/objectui/issues/12240) reversed the enrolment on the
+maintainer's ruling B, the two-speed doctrine of
+[objectstack#22998](https://github.com/objectstack-ai/objectstack/issues/22998) applied to this gate:
+it was the pull request's critical path, and most of its reds are objectstack drift rather than the
+pull request's own change. **Nothing it verifies changed**, and it still runs on every event above;
+what changed is who waits for its verdict.
+
+- On `main`'s hourly `schedule` run it is part of the full battery, and **a red there is a main-red
+  for the `domain:devx` lane**: the lane's next pull request carries the fix or the pin bump, and no
+  pull request of that lane arms the queue while the red stands.
+- On a pull request it posts the same verdict as an advisory check. Advisory is not a mechanism in
+  the workflow — requiredness is the ruleset's — so it carries no `continue-on-error`, which would
+  hide the verdict and change nothing about who waits for it.
+- The name moved back to `NOT_A_GATE` in `scripts/dependabot-merge-gate.mjs`, so a Dependabot bump
+  does not wait for it either, and `scripts/check-required-check-set.mjs` no longer watches it.
+- `merge_group` stays subscribed. The maintainer removes the context from the ruleset in the same
+  sitting as that pull request's merge, and until that edit the queue still requires the name: a
+  workflow that stopped reporting on queue builds would stall each of them at the ruleset's
+  60-minute timeout. The subscription also keeps the context requirable.
+
+Whether the context is enrolled today is not answered here; the patrol's reading answers it.
 
 
 ## Release Workflows
@@ -3018,13 +3039,15 @@ alone and why. ⛔ Do not add another: point at the gate, do not copy its answer
 
 **Two tiers, because a job rename must not manufacture a red.** `PINNED_CONTEXTS` is `Type Check`
 alone — the leg the recorded incident actually failed on — and its absence fails the job.
-`WATCHED_CONTEXTS` is the other eight; their absence is reported in the run summary and fails
-nothing. Pinning a name is pinning a spelling, and a check that goes red on healthy work is how a
-repository learns to ignore red ([#6596](https://github.com/objectstack-ai/objectui/issues/6596)).
-The shard names are the riskiest of the nine to pin: the 4-way matrix is itself a shape this
-repository has already changed once (`71be244d52`, 2026-07-17). ⚠️ The accepted cost is stated
-plainly — a silent removal of any of the eight is *observable*, not *enforced*. Promoting one is a
-one-line move between the two lists.
+`WATCHED_CONTEXTS` is the rest of the declared set; their absence is reported in the run summary and
+fails nothing, and so is a required context neither list declares. Pinning a name is pinning a
+spelling, and a check that goes red on healthy work is how a repository learns to ignore red
+([#6596](https://github.com/objectstack-ai/objectui/issues/6596)). The test-shard names were the
+riskiest to pin: the 4-way matrix was a shape this repository had already changed once
+(`71be244d52`, 2026-07-17), and [#9499](https://github.com/objectstack-ai/objectui/issues/9499)
+replaced them with one aggregator context. ⚠️ The accepted cost is stated plainly — a silent removal
+of any watched name is *observable*, not *enforced*. Promoting one is a one-line move between the
+two lists. Which names the two lists hold is the script's declaration, not this page's.
 
 **The rule TYPES are pinned as well**, and that is not the same kind of claim: `Type Check` being in
 a `required_status_checks` rule means nothing if the `merge_queue` rule is gone. A rule type is not a

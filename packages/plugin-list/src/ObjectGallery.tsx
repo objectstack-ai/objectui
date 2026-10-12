@@ -734,7 +734,7 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
         if (isEmptyValue(value)) return title;
         const enriched = buildEnrichedField(titleField);
         if (!isExpandableFieldType(enriched)) return title;
-        const CellRenderer = getCellRenderer(resolveCellRendererType(enriched as any));
+        const CellRenderer = getCellRenderer(resolveCellRendererType(enriched));
         return <CellRenderer value={value} field={enriched as any} />;
     };
 

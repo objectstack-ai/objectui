@@ -52,6 +52,17 @@
  * total would let a batch on one card mask a regression on the other. Same
  * rule, same direction: the pin is the head's count, it falls with each batch,
  * and ⛔ it never rises.
+ *
+ * ## `field:` keys are not in the namespaced count (objectui#12176)
+ *
+ * A `field:` key is a record-form field widget. It is selected through a
+ * field's `widget`, which the spec resolves as `field:` + widget, and it is
+ * never authored at a node's `type`, so no arm claims it and none is meant to.
+ * Counted, every new field widget was a rise of a pin that never rises. So the
+ * namespaced population leaves out the `field:` namespace, read from the key
+ * (`isFieldWidgetKey`), not from a list of keys: registering a field widget
+ * leaves `NAMESPACED_REFUSED_AT_TYPE` where it is, and any other namespaced
+ * registration without an arm still turns this file red.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -146,16 +157,38 @@ const REFUSED_AT_TYPE = 0;
  * minus `record:line_items`, armed from the row `@objectstack/spec` 17.6.0
  * gave it, the last public block held. objectui#7611 PR-5: plus
  * `field:position-ref` and `field:permission-ref`, record-form field widgets
- * refused at `type` by design (seat answer 6116842485; the population question
- * is objectui#12176), see `REFUSED_FIELD_WIDGET_KEYS_7611`.
+ * refused at `type` by design (seat answer 6116842485), a named stopgap raise.
+ * objectui#12176: minus every `field:` key, those two among them (fifty-four on
+ * `main` at the time), once the `field:` namespace left the population, so a
+ * field widget moves this pin no more.
  */
-const NAMESPACED_REFUSED_AT_TYPE = 362;
+const NAMESPACED_REFUSED_AT_TYPE = 308;
 
 /** The bare registry keys — the population the card measured. */
 const BARE_KEYS = KNOWN_SCHEMA_TYPES.filter((key) => !key.includes(':'));
 
-/** The namespaced registry keys — objectui#10872's population. */
+/** Every namespaced registry key — what is registered, `field:` keys included. */
 const NAMESPACED_KEYS = KNOWN_SCHEMA_TYPES.filter((key) => key.includes(':'));
+
+/**
+ * Is `key` a record-form field widget, selected through a field's `widget` and
+ * never authored at a node's `type` (objectui#12176)? The namespace is the
+ * key's first segment, so the `protocol-placeholder:field:text` placeholder is
+ * not one.
+ */
+const isFieldWidgetKey = (key: string): boolean => key.startsWith('field:');
+
+/**
+ * objectui#10872's population out of a list of registry keys: every namespaced
+ * key but a field widget. A function, so the pins below put a probe through the
+ * same filter the count reads.
+ */
+function namespacedPopulation(keys: readonly string[]): string[] {
+  return keys.filter((key) => key.includes(':') && !isFieldWidgetKey(key));
+}
+
+/** The namespaced keys `NAMESPACED_REFUSED_AT_TYPE` counts over. */
+const NAMESPACED_POPULATION = namespacedPopulation(KNOWN_SCHEMA_TYPES);
 
 /**
  * The public blocks objectui#10872 batch 1 armed — named, so the row below
@@ -293,17 +326,6 @@ const ARMED_11440 = {
 const UNREGISTERED_11440 = {
   'spec-report': ['plugin-report:spec-report'],
 } as const;
-
-/**
- * The two `field:` keys objectui#7611 PR-5 REGISTERED refused at `type` (the
- * seat answer `6116842485`): the record-form registry-name pickers. A field
- * widget is authored through a field's `widget`, which the spec resolves as
- * `field:` + widget, and never as a page node's `type`, so neither key gets an
- * arm. Named so the raise of `NAMESPACED_REFUSED_AT_TYPE` says which keys it
- * covers. Whether `field:` keys belong in that population at all is
- * objectui#12176.
- */
-const REFUSED_FIELD_WIDGET_KEYS_7611 = ['field:position-ref', 'field:permission-ref'] as const;
 
 /**
  * Every bare key still refused at `type` after objectui#11440 — none. The
@@ -522,7 +544,7 @@ describe('registered component types refused at `type` — a ratchet (objectui#1
 
 describe('registered NAMESPACED component types refused at `type` — a ratchet (objectui#10872)', () => {
   it('the refused count equals the pin, and only ever falls', () => {
-    const refused = NAMESPACED_KEYS.filter(refusedAtType);
+    const refused = NAMESPACED_POPULATION.filter(refusedAtType);
     expect(
       refused.length,
       [
@@ -541,8 +563,11 @@ describe('registered NAMESPACED component types refused at `type` — a ratchet 
     // ten `ui:sidebar-*` twins (391 namespaced keys once objectui#11441 had
     // unregistered its two `layout:` twins as well).
     expect(NAMESPACED_KEYS.length).toBeGreaterThan(350);
+    // The counted population is that list less its `field:` keys
+    // (objectui#12176): one namespace fewer, not a filter that matched nothing.
+    expect(NAMESPACED_POPULATION.length).toBeGreaterThan(300);
     // Lit control: the one namespaced key armed before objectui#10872.
-    expect(NAMESPACED_KEYS).toContain('ui:calendar');
+    expect(NAMESPACED_POPULATION).toContain('ui:calendar');
     expect(refusedAtType('ui:calendar')).toBe(false);
     // And a namespaced key no arm claims IS refused there.
     expect(refusedAtType('no-such-namespace:component-10872')).toBe(true);
@@ -595,14 +620,24 @@ describe('registered NAMESPACED component types refused at `type` — a ratchet 
     expect(refusedAtType('cloud:workspace-timezone-notice')).toBe(false);
   });
 
-  it('counts `field:position-ref` / `field:permission-ref` refused — field widgets, never authored at `type` (objectui#7611)', () => {
-    // Two record-form field widgets, reached through a field's `widget` hint and
-    // never a node's `type`, so neither has an arm and the pin above rose by
-    // exactly these two (seat answer 6116842485; objectui#12176).
-    for (const key of REFUSED_FIELD_WIDGET_KEYS_7611) {
-      expect(NAMESPACED_KEYS, key).toContain(key);
-      expect(refusedAtType(key), key).toBe(true);
-    }
+  it('leaves a newly registered `field:` widget out of the count (objectui#12176)', () => {
+    // A field widget registers with no arm, as every one does. Lit control: the
+    // probe is refused at `type`, so it would count if it reached the
+    // population. It does not, so the refused set, and the pin, stay put.
+    const probe = 'field:no-such-widget-12176';
+    expect(refusedAtType(probe)).toBe(true);
+    const population = namespacedPopulation([...KNOWN_SCHEMA_TYPES, probe]);
+    expect(population).not.toContain(probe);
+    expect(population.filter(refusedAtType)).toEqual(NAMESPACED_POPULATION.filter(refusedAtType));
+  });
+
+  it('still counts a newly registered non-`field:` namespaced key with no arm — the control (objectui#12176)', () => {
+    // The exclusion is the `field:` namespace and nothing wider: any other
+    // namespaced registration without an arm is one more refused key, which
+    // the count row above reads as MORE than the pin.
+    const probe = 'view:no-such-view-12176';
+    const head = NAMESPACED_POPULATION.filter(refusedAtType);
+    expect(namespacedPopulation([...KNOWN_SCHEMA_TYPES, probe]).filter(refusedAtType)).toEqual([...head, probe]);
   });
 });
 

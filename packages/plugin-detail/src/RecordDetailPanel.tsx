@@ -174,6 +174,10 @@ export function buildRecordDetailFields(
         readonly: !!def.readonly || isLookup,
         options: def.options,
         currency: def.currency,
+        // The spec's one declaration of a fixed currency: `FieldSchema`
+        // refuses a field-level `currency`, so without this a fixed-EUR amount
+        // read in the tenant's currency here (objectui#12242).
+        currencyConfig: def.currencyConfig,
         precision: def.precision,
         scale: (def as any).scale,
         // Beside `scale`, whose scale-0 grouping heuristic it overrides in the

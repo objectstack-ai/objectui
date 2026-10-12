@@ -142,7 +142,13 @@ function chipUnder(field: FieldMetadata, stored: unknown, locale: string): Rende
  * grouping mark moves between the two locales, and a date whose whole shape
  * does.
  */
-const CURRENCY: FieldMetadata = { name: 'amount', label: 'Amount', type: 'currency', currency: 'EUR' } as FieldMetadata;
+const CURRENCY: FieldMetadata = {
+  name: 'amount',
+  label: 'Amount',
+  type: 'currency',
+  // The spec's fixed currency; a field-level `currency` is retired (objectui#12242).
+  currencyConfig: { currencyMode: 'fixed', defaultCurrency: 'EUR' },
+} as FieldMetadata;
 /** No `currency` anywhere and no tenant default ⇒ the chip's number fallback. */
 const PLAIN_NUMBER: FieldMetadata = { name: 'score', label: 'Score', type: 'currency' } as FieldMetadata;
 const DATE: FieldMetadata = { name: 'closed_on', label: 'Closed on', type: 'date' } as FieldMetadata;

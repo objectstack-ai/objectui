@@ -802,6 +802,19 @@ const vendorObjectstackTest = widenVendorChunkTestForClient(
   clientDistInjection,
 );
 
+// A lucide icon module, captured by its file name (`circle-arrow-up`). Read by
+// the `vendor-icons-shell` group below.
+const LUCIDE_ICON_MODULE = /[\\/]node_modules[\\/]lucide-react[\\/]dist[\\/]esm[\\/]icons[\\/]([a-z0-9-]+)\.mjs$/;
+
+// Icons that rolldown tags `$initial` and the bundle still loads lazily, so
+// `vendor-icons-shell` must not claim them. Why, and how the list was taken:
+// the note on that group (objectui#12187).
+const LAZY_ONLY_INITIAL_ICONS: ReadonlySet<string> = new Set([
+  'circle-arrow-up',
+  'folder-tree',
+  'webhook',
+]);
+
 // The chunk grouping is not the only consumer of "where does the spec live".
 // `assertLazyLinterStaysLazy`'s counter-probe asks the same question about the
 // emitted module ids, and it used to answer it from a private regex that the
@@ -1034,6 +1047,51 @@ export default defineConfig({
             // `scripts/check-eager-closure-budget.mjs` is what reds on it.
             { name: 'vendor-objectstack', test: vendorObjectstackTest, priority: 95, tags: ['$initial'] },
             { name: 'vendor-icons-core', test: /[\\/]node_modules[\\/]lucide-react[\\/]dist[\\/](lucide-react|esm[\\/](Icon|createLucideIcon|defaultAttributes|shared))/, priority: 90 },
+            //
+            // ## The icons the eager shell imports by name share ONE chunk (objectui#12187)
+            //
+            // The per-icon group below gives every icon a chunk of its own, so
+            // each icon that eagerly loaded code imports by name cost every page
+            // load one request before its content. On the console build of
+            // `54159d3`, 223 of the 291 chunks in the eager closure were
+            // single-icon `vendor-icon-*` chunks (a historical reading, ⛔ not
+            // re-derived by anything).
+            //
+            // This group claims those icons first and writes them to one chunk.
+            // ⛔ It is not the aggregate objectui#9251 refused: `$initial` admits
+            // an icon only when a static import chain from the entry reaches
+            // it, so every member is already eager, and a lazily-used icon still
+            // gets its own chunk from the group below. No byte moves into the
+            // eager closure. The closure gets SMALLER, because one gzip stream
+            // over the set weighs less than one stream per icon; what
+            // `pnpm check:eager-closure` prints is the figure.
+            //
+            // ⚠️ Rolldown decides `$initial` on the import graph BEFORE
+            // tree-shaking. An icon that only a shaken-out module imports counts
+            // as `$initial` and is not eager: the package barrel re-exports
+            // `MarketplacePackagePage`, which `viteDeclaredLazyViews` declares
+            // side-effect-free and the bundle drops from the eager path, and
+            // that page and its `PluginDisclosure` import the three icons in
+            // `LAZY_ONLY_INITIAL_ICONS`. They are kept out by name so they stay
+            // lazy. ⛔ Nothing re-derives that list: an icon that joins that
+            // class later lands in this chunk (its bytes eager), and one that
+            // leaves it gets an eager chunk of its own (one request more). It was
+            // measured by comparing this chunk's members with the eager
+            // `vendor-icon-*` chunks of a build without this group.
+            //
+            // Listed after `vendor-icons-core` at the same priority, so that
+            // group claims the lucide runtime first. On the same build that chunk
+            // held the same 12 modules with and without this group (a historical
+            // reading).
+            {
+              name: 'vendor-icons-shell',
+              test: (id: string) => {
+                const icon = LUCIDE_ICON_MODULE.exec(id);
+                return icon !== null && !LAZY_ONLY_INITIAL_ICONS.has(icon[1]);
+              },
+              priority: 90,
+              tags: ['$initial'],
+            },
             //
             // ## ONE CHUNK PER ICON — and ⛔ why this is not the regroup objectui#9251 forbids
             //

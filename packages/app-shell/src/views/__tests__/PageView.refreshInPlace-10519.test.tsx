@@ -150,6 +150,10 @@ import '@object-ui/plugin-view';
 import '@object-ui/plugin-kanban';
 import '@object-ui/plugin-calendar';
 import '@object-ui/plugin-list';
+// `PageView` loads `InterfaceListPage` through `React.lazy` (objectui#12187).
+// Imported here so its module graph loads in the import phase and the interface
+// case's `waitFor` covers only the lazy edge resolving (AGENTS.md 测试纪律).
+import '../InterfaceListPage';
 import { PageView } from '../PageView';
 
 registerAllFields();

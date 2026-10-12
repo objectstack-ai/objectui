@@ -21,7 +21,7 @@ import { ComponentRegistry } from '@object-ui/core';
 import { ActionProvider } from '@object-ui/react';
 import '../renderers/basic/elements';
 
-function ElementButton({ schema }: { schema: any }) {
+function ElementButton({ schema }: { schema: Record<string, unknown> }) {
   const C = ComponentRegistry.get('element:button');
   if (!C) throw new Error('element:button not registered');
   // eslint-disable-next-line react-hooks/static-components -- ComponentRegistry.get returns a registered component (stable), not one created during render

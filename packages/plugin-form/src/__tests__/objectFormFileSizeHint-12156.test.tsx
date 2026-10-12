@@ -29,7 +29,10 @@
  *   4. the hint's words are the session locale's `form.maxFileSize` pack value,
  *      with `formatFileSize`'s number and unit interpolated: under a `zh`
  *      provider the `zh` sentence, under `en` the `en` one. Without a provider
- *      (cases 1 to 3) the form's fallback renders the English default.
+ *      (cases 1 to 3) the form's fallback renders the English default;
+ *   5. a language switch while the form is open re-renders the hint. The form
+ *      builds its fields in an effect, and only the sentence string in that
+ *      effect's dependency list makes it run again for a new language.
  *
  * The expected sentences are read from the packs, not restated here, so a
  * reworded translation does not turn this file red; a hint that stops reading
@@ -38,7 +41,7 @@
 
 import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, waitFor, cleanup } from '@testing-library/react';
+import { render, waitFor, cleanup, act } from '@testing-library/react';
 import { registerAllFields } from '@object-ui/fields';
 import { createI18n, I18nProvider } from '@object-ui/i18n';
 import { en, zh } from '@object-ui/i18n/locales';
@@ -131,5 +134,19 @@ describe('ObjectForm (flat) — the file-size hint is in the session locale (obj
   it('under an en provider the hint reads the en pack sentence', async () => {
     await renderForm('en');
     await waitFor(() => expect(fieldRow('contract')!.textContent).toContain(sentence(en, '10.0 MB')));
+  });
+
+  it('follows a language switch while the form is open', async () => {
+    const instance = createI18n({ defaultLanguage: 'en', detectBrowserLanguage: false });
+    render(
+      <I18nProvider instance={instance}>
+        <ObjectForm schema={{ type: 'object-form', objectName: 'claim', mode: 'create' } as any} dataSource={makeDS()} />
+      </I18nProvider>,
+    );
+    await waitFor(() => expect(fieldRow('contract')?.textContent).toContain(sentence(en, '10.0 MB')));
+    await act(async () => {
+      await instance.changeLanguage('zh');
+    });
+    await waitFor(() => expect(fieldRow('contract')!.textContent).toContain(sentence(zh, '10.0 MB')));
   });
 });

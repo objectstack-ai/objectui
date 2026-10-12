@@ -101,6 +101,11 @@
  * intermediate step still toasts `flowRunner.nextStep`, and a `refused` or
  * failed end still shows no success toast.
  *
+ * The order of the first two is not this file's: it is `flowSuccessCopy` in
+ * `utils/flowResponse`, which a run that goes straight through follows too
+ * (objectui#12274). This file adds only its own default, the catalog's
+ * sentence.
+ *
  * ## The AUTHOR's copy is localized here; the chrome is not (objectui#5920)
  *
  * A screen's heading and each field's `label` / `placeholder` are the flow
@@ -219,7 +224,7 @@ import {
   type ScreenFieldSpec,
   type ScreenSpec,
 } from './ScreenView.js';
-import { interpretFlowResponse } from '../utils/flowResponse.js';
+import { flowSuccessCopy, interpretFlowResponse } from '../utils/flowResponse.js';
 
 export type { ScreenSpec, ScreenFieldSpec } from './ScreenView.js';
 
@@ -347,18 +352,6 @@ export interface ScreenFlowState extends Pick<AutomationResult, 'flowLabel'> {
    * none; the runner then keeps the flow-completed toast it always had.
    */
   actionSuccessMessage?: string;
-}
-
-/**
- * The invoking action's success copy, when it is usable as a toast: a
- * non-empty string. Anything else — absent, blank, or an `I18nLabel` map that
- * reached the runner without passing through a localizer — counts as no copy,
- * the same rule the action runner's own success toast applies to a rung, so
- * the two paths cannot disagree about what "declares a successMessage" means.
- */
-function invokingActionMessage(state: ScreenFlowState): string | undefined {
-  const copy: unknown = state.actionSuccessMessage;
-  return typeof copy === 'string' && copy.trim() !== '' ? copy : undefined;
 }
 
 /**
@@ -510,11 +503,11 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
     } else {
       // Terminal success — the invoking action's own `successMessage` first
       // (objectui#12234 — see the header), then the flow's declared completion
-      // message, else the catalog's sentence naming the flow by the label this
-      // answer served.
+      // message, by the one precedence a straight-through run follows too
+      // (objectui#12274); else the catalog's sentence naming the flow by the
+      // label this answer served.
       toast.success(
-        invokingActionMessage(state)
-          || outcome.successMessage
+        flowSuccessCopy(state.actionSuccessMessage, outcome.successMessage)?.text
           || t('flowRunner.completed', {
             flow: displayFlowLabel(flowName, outcome.flowLabel, bundle, language),
             defaultValue: 'Flow "{{flow}}" completed',

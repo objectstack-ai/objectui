@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { interpretFlowResponse, judgeFlowLaunch } from '../flowResponse';
+import { flowSuccessCopy, interpretFlowResponse, judgeFlowLaunch } from '../flowResponse';
 
 const ok = { ok: true, status: 200 };
 
@@ -389,5 +389,84 @@ describe('the served flowLabel is lifted once (objectui#11092)', () => {
         }, 'Flow "reassign"'), undefined);
         expect(out.followUp).toEqual({ kind: 'screen', runId: 'run-7', screen, flowLabel: 'Reassign' });
         expect(out.result).toEqual({ success: true, silent: true });
+    });
+});
+
+// objectui#12274 — a run's success copy follows ONE precedence however the run
+// ends: the action's `successMessage`, then the flow's own. `FlowRunner`'s
+// terminal toast (a paused run) and the launch's `done` arm (a straight-through
+// run) both call `flowSuccessCopy`. On the launch the answer decides who speaks:
+// the ActionRunner for the action's copy and its own default (the result is
+// byte-identical to before), the console for the flow's copy (`silent` +
+// `successToast`). The rendered toasts are pinned per host beside
+// objectui#12234's pins (`*.flowDoneSuccessMessage-12274.test.tsx`).
+describe('flowSuccessCopy — the one precedence (objectui#12274)', () => {
+    it("the action's copy wins over the flow's", () => {
+        expect(flowSuccessCopy('Case escalated', 'Escalation recorded'))
+            .toEqual({ text: 'Case escalated', from: 'action' });
+    });
+
+    it("the flow's copy speaks when the action declares none", () => {
+        expect(flowSuccessCopy(undefined, 'Escalation recorded'))
+            .toEqual({ text: 'Escalation recorded', from: 'flow' });
+    });
+
+    it('a blank or unlocalized action copy counts as none', () => {
+        expect(flowSuccessCopy('   ', 'Escalation recorded')).toEqual({ text: 'Escalation recorded', from: 'flow' });
+        expect(flowSuccessCopy({ en: 'Case escalated' }, 'Escalation recorded'))
+            .toEqual({ text: 'Escalation recorded', from: 'flow' });
+    });
+
+    it('neither usable: no copy, so the caller speaks its own default', () => {
+        expect(flowSuccessCopy(undefined, undefined)).toBeUndefined();
+        expect(flowSuccessCopy('', '  ')).toBeUndefined();
+    });
+});
+
+describe("judgeFlowLaunch — a straight-through run's success copy (objectui#12274)", () => {
+    const done = (data: Record<string, unknown>, actionMessage?: unknown, refreshAfter?: boolean) =>
+        judgeFlowLaunch(
+            interpretFlowResponse(ok, { success: true, data }, 'Flow "case_escalate"'),
+            refreshAfter,
+            actionMessage,
+        );
+
+    it("the action's copy wins: the result is unchanged, so the runner speaks it", () => {
+        const data = { success: true, status: 'completed', successMessage: 'Escalation recorded' };
+        const out = done(data, 'Case escalated');
+        expect(out.result).toEqual({ success: true, data, reload: true });
+        expect(out.successToast).toBeUndefined();
+        expect(out.refresh).toBe(true);
+    });
+
+    it("only the flow declares copy: the result is silent and carries the flow's copy to speak", () => {
+        const data = { success: true, status: 'completed', successMessage: 'Escalation recorded' };
+        const out = done(data, undefined);
+        expect(out.result).toEqual({ success: true, data, reload: true, silent: true });
+        expect(out.successToast).toBe('Escalation recorded');
+        expect(out.followUp).toBeUndefined();
+        expect(out.refresh).toBe(true);
+    });
+
+    it("the flow's copy does not touch refreshAfter: false", () => {
+        const out = done({ success: true, status: 'completed', successMessage: 'Escalation recorded' }, undefined, false);
+        expect(out.result).toMatchObject({ success: true, reload: false, silent: true });
+        expect(out.refresh).toBe(false);
+    });
+
+    it('neither declares copy: the result is unchanged, so the runner speaks its default', () => {
+        const data = { success: true, status: 'completed' };
+        const out = done(data, undefined);
+        expect(out.result).toEqual({ success: true, data, reload: true });
+        expect(out.successToast).toBeUndefined();
+    });
+
+    it('refused and failed runs carry no success toast, whatever the flow declares', () => {
+        const refused = done({ success: true, status: 'refused', refusalMessage: 'No.', successMessage: 'Escalation recorded' });
+        expect(refused.result).toEqual({ success: true, silent: true });
+        expect(refused.successToast).toBeUndefined();
+        const failed = done({ success: false, error: 'boom', successMessage: 'Escalation recorded' });
+        expect(failed.result).toEqual({ success: false, error: 'boom' });
+        expect(failed.successToast).toBeUndefined();
     });
 });

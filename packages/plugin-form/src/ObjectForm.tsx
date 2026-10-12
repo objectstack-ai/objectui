@@ -1180,12 +1180,10 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
           formField.disabled = true;
         }
 
-        // Conditional visibility (legacy snake_case `visible_on`) — carry it
-        // as `visibleOn` so the form renderer evaluates it with the canonical
-        // CEL engine; the old `visible()` closure was never called (#2212).
-        if (field.visible_on) {
-          (formField as any).visibleOn = field.visible_on;
-        }
+        // Conditional visibility is the spec's `visibleWhen`, carried above.
+        // The snake_case `visible_on` this builder also read until
+        // objectui#12242 is retired with no alias: `FieldSchema` refuses it by
+        // name (suggesting `visibleWhen`) and `BaseFieldMetadata` refuses it.
 
         return formField;
       }

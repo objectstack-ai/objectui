@@ -1217,6 +1217,7 @@ const ru = {
     noAttachments: "Вложений пока нет. Загрузите файл, чтобы начать.",
     downloadAttachment: "Скачать",
     deleteAttachment: "Удалить вложение",
+    deleteAttachmentConfirm: "Вы уверены, что хотите удалить вложение \"{{name}}\"?",
     attachmentDeleteDenied: "Удалить это вложение может только загрузивший его пользователь или тот, кто может редактировать эту запись.",
     attachmentParentAccessDenied: "У вас нет доступа для прикрепления файлов к этой записи.",
     attachmentDownloadDenied: "У вас нет доступа для скачивания этого вложения.",

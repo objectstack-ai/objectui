@@ -1472,6 +1472,7 @@ const en = {
     noAttachments: 'No attachments yet. Upload a file to get started.',
     downloadAttachment: 'Download',
     deleteAttachment: 'Delete attachment',
+    deleteAttachmentConfirm: 'Are you sure you want to delete the attachment "{{name}}"?',
     attachmentDeleteDenied: 'Only the uploader or someone who can edit this record may delete this attachment.',
     attachmentParentAccessDenied: "You don't have access to attach files to this record.",
     attachmentDownloadDenied: "You don't have access to download this attachment.",

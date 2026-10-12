@@ -1222,6 +1222,7 @@ const zh = {
     noAttachments: '暂无附件。上传一个文件开始吧。',
     downloadAttachment: '下载',
     deleteAttachment: '删除附件',
+    deleteAttachmentConfirm: '确定要删除附件“{{name}}”吗？',
     attachmentDeleteDenied: '只有上传者或可编辑此记录的用户才能删除此附件。',
     attachmentParentAccessDenied: '您无权为此记录添加附件。',
     attachmentDownloadDenied: '您无权下载此附件。',

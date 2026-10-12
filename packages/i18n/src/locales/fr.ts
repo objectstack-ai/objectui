@@ -1159,6 +1159,7 @@ const fr = {
     noAttachments: "Aucune pièce jointe pour le moment. Téléversez un fichier pour commencer.",
     downloadAttachment: "Télécharger",
     deleteAttachment: "Supprimer la pièce jointe",
+    deleteAttachmentConfirm: "Êtes-vous sûr de vouloir supprimer la pièce jointe \"{{name}}\" ?",
     attachmentDeleteDenied: "Seule la personne qui l'a téléversée ou une personne pouvant modifier cet enregistrement peut supprimer cette pièce jointe.",
     attachmentParentAccessDenied: "Vous n'avez pas accès pour joindre des fichiers à cet enregistrement.",
     attachmentDownloadDenied: "Vous n'avez pas accès pour télécharger cette pièce jointe.",

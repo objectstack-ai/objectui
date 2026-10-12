@@ -1125,6 +1125,7 @@ const de = {
     noAttachments: "Noch keine Anhänge. Laden Sie eine Datei hoch, um zu beginnen.",
     downloadAttachment: "Herunterladen",
     deleteAttachment: "Anhang löschen",
+    deleteAttachmentConfirm: "Möchten Sie den Anhang „{{name}}“ wirklich löschen?",
     attachmentDeleteDenied: "Nur die hochladende Person oder jemand mit Bearbeitungsrecht für diesen Datensatz darf diesen Anhang löschen.",
     attachmentParentAccessDenied: "Sie sind nicht berechtigt, Dateien an diesen Datensatz anzuhängen.",
     attachmentDownloadDenied: "Sie sind nicht berechtigt, diesen Anhang herunterzuladen.",

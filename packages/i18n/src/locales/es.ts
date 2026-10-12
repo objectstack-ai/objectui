@@ -1161,6 +1161,7 @@ const es = {
     noAttachments: "Aún no hay adjuntos. Suba un archivo para empezar.",
     downloadAttachment: "Descargar",
     deleteAttachment: "Eliminar adjunto",
+    deleteAttachmentConfirm: "¿Está seguro de que desea eliminar el adjunto \"{{name}}\"?",
     attachmentDeleteDenied: "Solo quien lo subió o alguien que pueda editar este registro puede eliminar este adjunto.",
     attachmentParentAccessDenied: "No tiene acceso para adjuntar archivos a este registro.",
     attachmentDownloadDenied: "No tiene acceso para descargar este adjunto.",

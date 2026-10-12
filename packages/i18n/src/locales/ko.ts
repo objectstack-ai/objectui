@@ -1125,6 +1125,7 @@ const ko = {
     noAttachments: "아직 첨부파일이 없습니다. 파일을 업로드해 시작하세요.",
     downloadAttachment: "다운로드",
     deleteAttachment: "첨부파일 삭제",
+    deleteAttachmentConfirm: "첨부파일 \"{{name}}\"을(를) 삭제하시겠습니까?",
     attachmentDeleteDenied: "업로드한 사용자 또는 이 레코드를 편집할 수 있는 사용자만 이 첨부파일을 삭제할 수 있습니다.",
     attachmentParentAccessDenied: "이 레코드에 파일을 첨부할 권한이 없습니다.",
     attachmentDownloadDenied: "이 첨부파일을 다운로드할 권한이 없습니다.",

@@ -1137,6 +1137,7 @@ const ja = {
     noAttachments: "添付ファイルはまだありません。ファイルをアップロードして始めましょう。",
     downloadAttachment: "ダウンロード",
     deleteAttachment: "添付ファイルを削除",
+    deleteAttachmentConfirm: "添付ファイル「{{name}}」を削除してもよろしいですか？",
     attachmentDeleteDenied: "この添付ファイルを削除できるのは、アップロードした本人またはこのレコードを編集できるユーザーのみです。",
     attachmentParentAccessDenied: "このレコードにファイルを添付する権限がありません。",
     attachmentDownloadDenied: "この添付ファイルをダウンロードする権限がありません。",

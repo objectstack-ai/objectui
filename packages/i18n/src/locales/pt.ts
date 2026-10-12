@@ -1158,6 +1158,7 @@ const pt = {
     noAttachments: "Ainda não há anexos. Envie um arquivo para começar.",
     downloadAttachment: "Baixar",
     deleteAttachment: "Excluir anexo",
+    deleteAttachmentConfirm: "Tem certeza de que deseja excluir o anexo \"{{name}}\"?",
     attachmentDeleteDenied: "Somente quem enviou ou alguém que pode editar este registro pode excluir este anexo.",
     attachmentParentAccessDenied: "Você não tem acesso para anexar arquivos a este registro.",
     attachmentDownloadDenied: "Você não tem acesso para baixar este anexo.",

@@ -1273,6 +1273,7 @@ const ar = {
     noAttachments: "لا توجد مرفقات بعد. ارفع ملفًا للبدء.",
     downloadAttachment: "تنزيل",
     deleteAttachment: "حذف المرفق",
+    deleteAttachmentConfirm: "هل أنت متأكد أنك تريد حذف المرفق \"{{name}}\"؟",
     attachmentDeleteDenied: "لا يمكن حذف هذا المرفق إلا لمن رفعه أو لمن يمكنه تعديل هذا السجل.",
     attachmentParentAccessDenied: "ليس لديك صلاحية إرفاق ملفات بهذا السجل.",
     attachmentDownloadDenied: "ليس لديك صلاحية تنزيل هذا المرفق.",

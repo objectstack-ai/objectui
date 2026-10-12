@@ -29,7 +29,7 @@ one has its own section below.
 | `changeset-presence.yml` | Changeset Declaration | PR to `main`, `develop` — **no path filter**; merge-queue builds | **Yes** — when a released package's `src/` changed and no changeset was added |
 | `repo-gates.yml` | Repo Gates | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — fifteen gates as steps of one job ([#12214](https://github.com/objectstack-ai/objectui/issues/12214)); the job is red when any step is, and `scripts/dependabot-merge-gate.mjs` declares the context in `REQUIRED_CONTEXTS` |
 | `line-citation-gate.yml` | Line Citation Gate | PR to `main`, `develop` — **no path filter**; manual | No — **report-only** while it beds in; it exits 0 whatever it finds, and exits 1 only when one of its own synthetic controls fails. It declares no `merge_group` trigger, so it cannot be a required context in its current state |
-| `spec-main-shape-gate.yml` | Spec Main Shape Gate | PR to `main`, `develop` — **no path filter**; merge-queue builds; manual; hourly `schedule` on `main` | No — **advisory** since [#12240](https://github.com/objectstack-ai/objectui/issues/12240): the maintainer's ruling took the context out of the required set, and `scripts/dependabot-merge-gate.mjs` classifies it `NOT_A_GATE`. Its verdict is unchanged — a shape break is a real red naming the objectui file and the objectstack commit ([#9860](https://github.com/objectstack-ai/objectui/issues/9860)) — and a red on the hourly `schedule` run on `main` is a main-red for the `domain:devx` lane |
+| `spec-main-shape-gate.yml` | Spec Main Shape Gate | PR to `main`, `develop` — **no path filter**; manual; hourly `schedule` on `main` | No — **advisory** since [#12240](https://github.com/objectstack-ai/objectui/issues/12240): the maintainer's ruling took the context out of the required set, and `scripts/dependabot-merge-gate.mjs` classifies it `NOT_A_GATE`. Its verdict is unchanged — a shape break is a real red naming the objectui file and the objectstack commit ([#9860](https://github.com/objectstack-ai/objectui/issues/9860)) — and a red on the hourly `schedule` run on `main` is a main-red for the `domain:devx` lane |
 | `governed-surface-guard.yml` | Governed Surface Queue Guard | PR to `main`, `develop` (incl. `ready_for_review`) — **no path filter**; merge-queue builds | **Yes on a queue build only** — a governed-surface diff with no authorized approval record (on any commit) is refused there, and so is any merge group whose queued pull requests still carry `needs:contract-review`; on the pull request itself it is deliberately green and prints an early warning |
 | `performance-budget.yml` | Bundle Analysis | Push / PR touching `packages/**`, `apps/console/**`, `pnpm-lock.yaml` | **Yes** — the console entry gzip budget |
 | `lockfile-integrity.yml` | Lockfile Integrity Check | PR to `main`, `develop` touching `pnpm-lock.yaml` or the gate's own two files; manual | No — **deliberately not a blocking context** ([#8326](https://github.com/objectstack-ai/objectui/issues/8326)); it names the packages and the Dependabot merge gate classifies it `NOT_A_GATE` |
@@ -2082,7 +2082,7 @@ Uses [Lychee](https://github.com/lycheeverse/lychee) with configuration from `ly
 
 ## Spec Main Shape Gate (`spec-main-shape-gate.yml`)
 
-**Trigger:** PR to `main`, `develop` — **no path filter**; merge-queue builds; manual; hourly `schedule` on `main`.
+**Trigger:** PR to `main`, `develop` — **no path filter**; manual; hourly `schedule` on `main`.
 **Appears as:** Spec Main Shape Gate.
 
 It builds `@objectstack/spec` from objectstack `main` at a git sha and compiles this repository
@@ -2130,11 +2130,11 @@ of it the job needs.
 `objectstack-spec-<sha>`, with the sha it was packed at, kept one day. Every other run first looks
 for that artifact at the sha it just resolved and injects it instead of building again; the clone
 and the spec's own install still run, because the injection reads the dependencies the spec's
-build resolved. Only an artifact from a `main` run of this repository is reused: a pull request or
-a queue build runs its own branch's workflow file, so what it could upload is not evidence about a
-spec. A failed lookup or download, or an artifact recording another sha, means *build*. What this
-saves is the build and the pack — the forced compile below is most of the job and is never cached;
-the measured split is on #12214's pull request, not restated here.
+build resolved. Only an artifact from a `main` run of this repository is reused: a pull request
+(or a manual dispatch on a branch) runs its own branch's workflow file, so what it could upload is
+not evidence about a spec. A failed lookup or download, or an artifact recording another sha, means
+*build*. What this saves is the build and the pack — the forced compile below is most of the job and
+is never cached; the measured split is on #12214's pull request, not restated here.
 
 **The compile is `TURBO_FORCE=true pnpm type-check --continue`, and every word of it is
 load-bearing.** That task dependsOn `^build`, so the job builds every workspace package against
@@ -2160,8 +2160,8 @@ every line locally, and on a GitHub Actions runner a `##[group]<package>:<task>`
 output emitted bare beneath it — with the *failing* task announced by a bare colourised header
 and no group at all. Only the second ever reaches this job, and a prefix-only reading has nothing
 to match in it. `scripts/__tests__/spec-main-shape-gate.test.ts` pins the bypass, the completeness
-flag, the unfiltered trigger, the queue subscription and both attribution carriers, each with the
-firing control that proves the assertion is not satisfied by something else.
+flag, the unfiltered trigger, the absence of a queue subscription and both attribution carriers,
+each with the firing control that proves the assertion is not satisfied by something else.
 
 **How it became a required check, and how it left the set.** Requiredness is a GitHub ruleset —
 repository settings — which `scripts/check-required-check-set.mjs` can read and nothing in this tree
@@ -2188,10 +2188,12 @@ what changed is who waits for its verdict.
   hide the verdict and change nothing about who waits for it.
 - The name moved back to `NOT_A_GATE` in `scripts/dependabot-merge-gate.mjs`, so a Dependabot bump
   does not wait for it either, and `scripts/check-required-check-set.mjs` no longer watches it.
-- `merge_group` stays subscribed. The maintainer removes the context from the ruleset in the same
-  sitting as that pull request's merge, and until that edit the queue still requires the name: a
-  workflow that stopped reporting on queue builds would stall each of them at the ruleset's
-  60-minute timeout. The subscription also keeps the context requirable.
+- It does not run on queue builds. [#12252](https://github.com/objectstack-ai/objectui/issues/12252)
+  dropped the `merge_group` trigger once the context was out of the queue's required set: a verdict
+  on a merge group is read by nobody, and every merge group paid a runner for it. The way back is
+  two edits in this order — re-subscribe `merge_group`, then enrol the context — because a required
+  context that never reports on a queue build stalls it at the ruleset's 60-minute timeout. The
+  test file pins the absence, so re-enrolling edits both on purpose.
 
 Whether the context is enrolled today is not answered here; the patrol's reading answers it.
 

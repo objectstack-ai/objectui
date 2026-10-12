@@ -75,11 +75,27 @@ describe('the gate exists and is wired the way a requirable check has to be', ()
     expect(trigger.filtered, 'a path filter would make this context unrequirable').toBe(false);
   });
 
-  it('subscribes merge_group, so a maintainer can enrol it without stalling the queue', () => {
-    // The #3523 ordering: subscribe first (a pure addition), enrol second. The
-    // reverse order is the state in which every queued pull request burns the
-    // ruleset's 60-minute timeout with nothing red to point at.
-    expect(subscribesMergeGroup(workflow as NonNullable<typeof workflow>)).toBe(true);
+  it('does not subscribe merge_group — re-subscribe merge_group before re-enrolling the context (objectui#12252)', () => {
+    // The #3523 ordering, on the way out. The context left the queue's required
+    // set (objectui#12240), so a queue build's verdict on this gate is read by
+    // nobody while every merge group pays a runner for it; the hourly run on
+    // `main` and the advisory run on a pull request are where it is read.
+    //
+    // This is the ruling's in-tree lock, not a ban on the trigger. The way back
+    // is two edits in this order — subscribe first (a pure addition), enrol
+    // second — and the second is the case the derived floor in
+    // `merge-queue-reporting.test.ts` refuses on its own: a name in
+    // `REQUIRED_CONTEXTS` whose workflow lacks the trigger. The reverse order is
+    // the state in which every queued pull request burns the ruleset's
+    // 60-minute timeout with nothing red to point at.
+    expect(
+      subscribesMergeGroup(workflow as NonNullable<typeof workflow>),
+      `${WORKFLOW} subscribes \`merge_group\` again, so every merge group runs a gate whose ` +
+        `verdict nothing waits for (objectui#12252). If the context is being RE-ENROLLED on a ` +
+        `ruling, subscribing first is the right order (objectui#3523): replace this pin with the ` +
+        `subscription it then owes, and enrol second — the in-tree half is \`REQUIRED_CONTEXTS\` ` +
+        `in scripts/dependabot-merge-gate.mjs. Otherwise drop the trigger.`,
+    ).toBe(false);
   });
 
   it('runs both halves of the gate script', () => {
@@ -120,8 +136,9 @@ describe('the spec is built only when objectstack main moved (objectui#12214)', 
   });
 
   it('reuses only an artifact a main run of THIS repository built, named by the resolved sha', () => {
-    // A pull request or queue build runs its own branch's YAML, so what it
-    // uploads is not evidence about a spec; a main run executes reviewed YAML.
+    // A pull request (or a manual dispatch on a branch) runs its own branch's
+    // YAML, so what it uploads is not evidence about a spec; a main run
+    // executes reviewed YAML.
     const lookup = step('Look for the spec a main run already built at that commit');
     expect(lookup).toContain('actions/artifacts?name=objectstack-spec-$UPSTREAM_SHA');
     expect(lookup).toContain('.workflow_run.head_branch == "main"');

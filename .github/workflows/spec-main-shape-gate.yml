@@ -51,13 +51,18 @@ name: Spec Main Shape Gate
 #     request of that lane arms the queue while the red stands.
 #   - `pull_request` posts the same verdict as an advisory check. A human reads
 #     it; nothing waits for it.
-#   - `merge_group` stays subscribed, deliberately. The ruled order is merge
-#     first, ruleset edit second, and until that edit the queue still requires
-#     this name: a workflow that stopped reporting on `merge_group` would stall
-#     every queue build at the ruleset's 60-minute timeout with nothing red to
-#     point at (objectui#3523 -- subscribe first, enrol second, and the mirror
-#     image on the way out). It also keeps the context REQUIRABLE, so
-#     re-enrolling it stays a settings edit.
+#   - `merge_group` is NOT subscribed (objectui#12252), the other half of the
+#     same ruling: the context is not in the queue's required set, so a
+#     verdict on a queue build would be read by nobody while every merge group
+#     paid a runner for it. (Whether the ruleset says so is
+#     `scripts/check-required-check-set.mjs`'s reading, ⛔ not this comment's.)
+#     ⛔ Re-subscribe `merge_group` BEFORE re-enrolling the context, never
+#     after: a required context that never reports on a queue build stalls
+#     it at the ruleset's 60-minute timeout with nothing red to point at
+#     (objectui#3523 -- subscribe first, enrol second). `merge-queue-reporting`
+#     derives that floor from `REQUIRED_CONTEXTS`, and
+#     `scripts/__tests__/spec-main-shape-gate.test.ts` pins the absence, so
+#     re-enrolling edits both on purpose rather than by accident.
 #
 # ⚠️ Requiredness is repository SETTINGS (GitHub ruleset 11776024), which no
 # file in this tree can set, so "advisory" is not a mechanism in this file.
@@ -101,13 +106,13 @@ name: Spec Main Shape Gate
 # before, so `inject` still reads the dependencies the spec resolves.
 #
 # Only an artifact from a `main` run of THIS repository is reused. A pull
-# request or a queue build runs the workflow file of its own branch, so an
-# artifact it uploaded is a file anybody with a branch could have shaped; a
-# run on `main` executes reviewed YAML. The lookup is a READ (`actions: read`);
-# nothing here writes through the token, and the upload uses the runner's own
-# artifact credential. A lookup that fails, a download that fails, or an
-# artifact whose recorded sha is not the one resolved above all mean BUILD --
-# never a verdict about a spec this job did not hold.
+# request (or a manual dispatch on a branch) runs the workflow file of its own
+# branch, so an artifact it uploaded is a file anybody with a branch could have
+# shaped; a run on `main` executes reviewed YAML. The lookup is a READ
+# (`actions: read`); nothing here writes through the token, and the upload uses
+# the runner's own artifact credential. A lookup that fails, a download that
+# fails, or an artifact whose recorded sha is not the one resolved above all
+# mean BUILD -- never a verdict about a spec this job did not hold.
 #
 # ⚠️ What this buys is the build and the pack, not the compile: the forced
 # typecheck below is the bulk of this job and is deliberately never cached.
@@ -126,8 +131,6 @@ name: Spec Main Shape Gate
 on:
   pull_request:
     branches: [main, develop]
-  merge_group:
-    types: [checks_requested]
   workflow_dispatch: {}
   # The full battery's hourly run on `main` (objectui#12214). Off the hour on
   # purpose, and on a different minute from `ci.yml`'s.
@@ -144,9 +147,10 @@ permissions:
 
 concurrency:
   group: spec-main-shape-gate-${{ github.ref }}
-  # Superseded pull-request runs are cancelled; a QUEUE build never is. A
-  # cancelled check is not `success`, and on a queue build that is a dequeue
-  # rather than a saved runner minute.
+  # Superseded pull-request runs are cancelled; a run on `main` (the hourly
+  # `schedule`, or a dispatch) never is. A cancelled check is not `success`, and
+  # the scheduled run is the one place this gate's verdict is waited on, so a
+  # cancellation there is a missing reading rather than a saved runner minute.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -156,8 +160,8 @@ jobs:
     # Sized against measurements, not taste: the spec's own build and this
     # repository's forced (uncached) build + typecheck each cost minutes, and the
     # runner is slower than the box they were measured on. A ceiling this job can
-    # reach turns a verdict into `cancelled`, which the merge queue cannot tell
-    # from `failure` and which reports nothing a reader can act on.
+    # reach turns a verdict into `cancelled`, which reads as a red on a pull
+    # request or on `main` and reports nothing a reader can act on.
     timeout-minutes: 45
 
     steps:

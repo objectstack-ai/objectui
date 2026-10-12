@@ -112,21 +112,21 @@ function makeDataSource(objectDef: Record<string, unknown>) {
   return {
     find: vi.fn(async () => ({ data: [], total: 0, hasMore: false, pageSize: 50 })),
     findOne: vi.fn(async () => ({ ...RECORD })),
-    create: vi.fn(async (_o: string, row: any) => row),
+    create: vi.fn(async (_o: string, row: Record<string, unknown>) => row),
     update: vi.fn(async () => ({})),
     delete: vi.fn(async () => ({})),
     getObjectSchema: async () => objectDef,
-  } as Record<string, any>;
+  };
 }
 
 function makeMetadata() {
-  const pages: any[] = [];
+  const pages: unknown[] = [];
   return {
     objects: [], pages, loading: false, error: null,
     refresh: async () => {}, invalidate: () => {},
     ensureType: async () => pages, getItem: async () => null,
     getItemsByType: () => pages,
-  } as any;
+  } as never;
 }
 
 const badges = () => Array.from(document.querySelectorAll('[data-testid="managed-by-badge"]'));

@@ -51,7 +51,7 @@ import {
  *
  * Everything here runs on an UNBUILT tree: the fence scanner, the marker
  * convention, the JSON dialects, and the wiring. That boundary is not tidiness —
- * this suite runs inside `ci.yml`'s `Test (shard N/8)` jobs, which do not build
+ * this suite runs inside `ci.yml`'s `Test (shard N/12)` jobs, which do not build
  * the workspace, and a test that needed `dist/*.d.ts` would either be flaky or
  * would quietly assert nothing there.
  *
@@ -645,7 +645,7 @@ describe('the printed build command says what it does NOT build (objectui#7811)'
 describe('wiring — the gate is reachable and a markdown-only PR starts it', () => {
   const SCRIPT = 'scripts/check-skill-examples.mjs';
   const workflowDir = path.join(repoRoot, '.github/workflows');
-  const workflowPath = path.join(workflowDir, 'skill-examples.yml');
+  const workflowPath = path.join(workflowDir, 'repo-gates.yml');
   const workflowFiles = fs.readdirSync(workflowDir).filter((f) => f.endsWith('.yml'));
 
   /**
@@ -668,7 +668,7 @@ describe('wiring — the gate is reachable and a markdown-only PR starts it', ()
 
   it('has a workflow that gates pull requests, not just pushes', () => {
     expect(fs.existsSync(workflowPath), 'a check nothing runs is not a gate').toBe(true);
-    const yaml = yamlOf('skill-examples.yml');
+    const yaml = yamlOf('repo-gates.yml');
     expect(yaml).toMatch(new RegExp(`run:\\s*node\\s+${SCRIPT.replace(/[.]/g, '\\.')}\\s*$`, 'm'));
     expect(yaml).toMatch(/^\s*pull_request:/m);
     expect(yaml).toMatch(/^\s*push:/m);
@@ -676,13 +676,13 @@ describe('wiring — the gate is reachable and a markdown-only PR starts it', ()
   });
 
   it('runs the self-test too — a probe nobody runs is a probe that passes', () => {
-    expect(yamlOf('skill-examples.yml')).toMatch(
+    expect(yamlOf('repo-gates.yml')).toMatch(
       new RegExp(`run:\\s*node\\s+${SCRIPT.replace(/[.]/g, '\\.')}\\s+--self-test`),
     );
   });
 
   it('derives its build filter from the gate rather than hand-maintaining one', () => {
-    const yaml = yamlOf('skill-examples.yml');
+    const yaml = yamlOf('repo-gates.yml');
     expect(yaml).toContain('--build-filter');
     // ⛔ The one thing the header forbids: an unfiltered workspace build.
     expect(yaml).not.toMatch(/turbo run build\s*$/m);
@@ -709,7 +709,7 @@ describe('wiring — the gate is reachable and a markdown-only PR starts it', ()
   it('has exactly one home', () => {
     // A second copy in a path-filtered workflow is how a gate ends up looking
     // covered while the change it exists for still slips past.
-    expect(workflowFiles.filter((f) => yamlOf(f).includes(SCRIPT))).toEqual(['skill-examples.yml']);
+    expect(workflowFiles.filter((f) => yamlOf(f).includes(SCRIPT))).toEqual(['repo-gates.yml']);
   });
 
   it('does not run a NEIGHBOUR gate from this workflow', () => {
@@ -717,7 +717,13 @@ describe('wiring — the gate is reachable and a markdown-only PR starts it', ()
     // exactly one workflow. This gate imports that script's harness as a MODULE,
     // which is the intended reuse; invoking it from this YAML would break that
     // pin and give one gate two homes.
-    expect(yamlOf('skill-examples.yml')).not.toContain('scripts/check-doc-snippet-types.mjs');
+    // Since objectui#12214 every gate shares `repo-gates.yml`, so "this
+    // workflow" is now this gate's OWN steps: the ones named after its check.
+    const own = yamlOf('repo-gates.yml')
+      .split(/^(?= {6}- name: )/m)
+      .filter((step) => step.startsWith('      - name: Skill Example Check'));
+    expect(own.length).toBeGreaterThan(0);
+    for (const step of own) expect(step).not.toContain('scripts/check-doc-snippet-types.mjs');
   });
 
   it('is classified as a blocking context rather than defaulting into silence', () => {
@@ -725,8 +731,11 @@ describe('wiring — the gate is reachable and a markdown-only PR starts it', ()
     // produced check-run set exactly, and `merge-queue-reporting.test.ts`
     // derives the `merge_group` floor from the required bucket. Asserted here
     // too, in this gate's own file, so the reason travels with the gate.
+    // Since objectui#12214 the check reports as a step of the ONE `Repo Gates`
+    // context, which is the name the classification and the floor read.
     const gate = fs.readFileSync(path.join(repoRoot, 'scripts/dependabot-merge-gate.mjs'), 'utf8');
-    expect(gate).toContain("'Skill Example Check'");
+    expect(gate).toContain("'Repo Gates'");
+    expect(yamlOf('repo-gates.yml')).toContain('name: Skill Example Check');
   });
 
   it('has a section on the CI page, named by heading', () => {
@@ -735,7 +744,7 @@ describe('wiring — the gate is reachable and a markdown-only PR starts it', ()
     // the workflow is added, not later.
     const doc = fs.readFileSync(path.join(repoRoot, 'content/docs/guide/ci-cd-pipeline.md'), 'utf8');
     const headings = doc.split('\n').filter((line) => /^#{1,6}\s/.test(line));
-    expect(headings.some((h) => h.includes('skill-examples.yml'))).toBe(true);
+    expect(headings.some((h) => h.includes('repo-gates.yml'))).toBe(true);
   });
 });
 

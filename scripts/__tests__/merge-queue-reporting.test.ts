@@ -79,8 +79,6 @@ const doc = fs.readFileSync(path.join(repoRoot, DOC), 'utf8');
 const MUST_SUBSCRIBE_MERGE_GROUP = new Map<string, string>([
   ['ci.yml', 'produces Type Check, Build & E2E, Test (the shard aggregator) and Changeset Fixed Group Check'],
   ['lint.yml', 'produces Lint — the ESLint error ratchets'],
-  ['control-bytes.yml', 'produces Control Byte Scan, one of the two contexts #3523 found safe to require today'],
-  ['docs-links.yml', 'produces Internal Docs Link Check, the other one'],
   [
     'changeset-presence.yml',
     'produces Changeset Declaration — added by objectui#3387 with no path filter at all, for the ' +
@@ -88,49 +86,13 @@ const MUST_SUBSCRIBE_MERGE_GROUP = new Map<string, string>([
       'requirable context that skips the queue build stalls it',
   ],
   [
-    'skills-paths.yml',
-    'produces Skill Guide Path Check — added by objectui#3735, same shape as the two above: its ' +
-      'entire scan surface is markdown, so it carries no path filter, reports on every pull ' +
-      'request, and is therefore requirable',
-  ],
-  [
-    'skill-examples.yml',
-    'produces Skill Example Check — added by objectui#7359. Its scan surface is the markdown under ' +
-      '`skills/`, the shape `ci.yml` and `lint.yml` structurally cannot see (both list `**/*.md` ' +
-      'under the `paths-ignore` of their `push` trigger), so it carries no path filter, reports on ' +
-      'every pull request, and is therefore requirable; `scripts/dependabot-merge-gate.mjs` ' +
-      'classifies it as a required context',
-  ],
-  [
-    'skill-eval-tokens.yml',
-    'produces Skill Eval Token Check — added by objectui#7461. It holds every eval assertion\'s ' +
-      '`must_contain` token to the guides its own skill bundle ships, and its whole input is the ' +
-      'markdown and JSON under `skills/` — the shape `ci.yml` and `lint.yml` structurally cannot ' +
-      'see (both list `**/*.md` under the `paths-ignore` of their `push` trigger), so it carries ' +
-      'no path filter, reports on every pull request, and is therefore requirable; ' +
-      '`scripts/dependabot-merge-gate.mjs` classifies it as a required context',
-  ],
-  [
-    'pre-install-import-graph.yml',
-    'produces Pre-Install Import Graph Check — added by objectui#6148. What it judges is the ' +
-      'arrangement of the workflows themselves, so it carries no path filter, reports on every ' +
-      'pull request, and is requirable; `scripts/dependabot-merge-gate.mjs` already classifies ' +
-      'it as a required context',
-  ],
-  [
-    'vi-mock-specifiers.yml',
-    'produces Inert vi.mock Specifier Check — added by objectui#5646. A module mock can be ' +
-      'written into any package in any shape of pull request, and the gate costs a checkout plus ' +
-      'one node call, so it carries no path filter, reports on every pull request, and is ' +
-      'requirable; `scripts/dependabot-merge-gate.mjs` already classifies it as a required context',
-  ],
-  [
-    'readme-exports.yml',
-    'produces README Export Check — added by objectui#5043. A fabricated self-import can be ' +
-      'written into any package README, and a README-only pull request is the shape `ci.yml` ' +
-      'structurally cannot see (its jobs short-circuit on a diff that excludes `**/*.md`), so ' +
-      'this gate carries no path filter, reports on every pull request, and is requirable; ' +
-      '`scripts/dependabot-merge-gate.mjs` already classifies it as a required context',
+    'repo-gates.yml',
+    'produces Repo Gates — objectui#12214 folded fifteen one-check gate workflows into this one ' +
+      'job (the control-byte scan and docs-link check among them, the two contexts #3523 first ' +
+      'found safe to require). Their shared reason carries over unchanged: each gate reads the ' +
+      'tree or a markdown-only surface, so the workflow carries no path filter, reports on every ' +
+      'pull request, and is requirable; `scripts/dependabot-merge-gate.mjs` classifies it as a ' +
+      'required context',
   ],
   [
     'governed-surface-guard.yml',
@@ -617,7 +579,11 @@ const HISTORY_ANCHOR = 'objectui/issues/3523';
  * objectui#3523 step 1. Asserted below to be a subset of the map, so the
  * exemption cannot be widened into a second live list by adding names to it.
  */
-const HISTORY_NON_SUBSCRIBERS = ['ci.yml', 'lint.yml', 'control-bytes.yml', 'docs-links.yml'];
+const HISTORY_NON_SUBSCRIBERS = ['ci.yml', 'lint.yml'];
+// The dated paragraph also names `control-bytes.yml` and `docs-links.yml`, the
+// other two PR #3722 subscribed. objectui#12214 folded both into
+// `repo-gates.yml`, so they are no longer subscribers at all: the live rule
+// above cannot flag a name no workflow carries, and they need no exemption.
 
 /**
  * The `## Merge Queue` section, from its heading to the next `## `.
@@ -722,7 +688,7 @@ describe('ci-cd-pipeline.md does not keep its own copy of the subscriber list (#
     }
   });
 
-  it('keeps the dated exemption honest — its four names are all map entries', () => {
+  it('keeps the dated exemption honest — its names are all map entries', () => {
     for (const file of HISTORY_NON_SUBSCRIBERS) {
       expect(
         [...MUST_SUBSCRIBE_MERGE_GROUP.keys()],

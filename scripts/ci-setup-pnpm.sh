@@ -18,11 +18,13 @@
 # opposite conclusion. That control is what distinguishes a transient read from a
 # diff-caused failure, and it is why this file exists rather than a re-run.
 #
-# The cost is not one re-run. `README Export Check` is a REQUIRED context
-# (`scripts/dependabot-merge-gate.mjs`), and since objectui#6160 the `merge_group`
-# subscription floor derives from that same list. `readme-exports.yml`'s own
-# trigger block states the consequence, and `changeset-presence.yml`, `ci.yml` and
-# `control-bytes.yml` each state it independently:
+# The cost is not one re-run. `README Export Check` was a REQUIRED context
+# (`scripts/dependabot-merge-gate.mjs`; since objectui#12214 it is a step of
+# `Repo Gates`, which is), and since objectui#6160 the `merge_group`
+# subscription floor derives from that same list. The README Export Check's
+# trigger block (`readme-exports.yml` then, `repo-gates.yml` since objectui#12214)
+# states the consequence, and `changeset-presence.yml` and `ci.yml` each state it
+# independently:
 #
 #   "A required check that does not report on a queue build stalls the queue
 #    until the ruleset's 60-minute timeout fails it."

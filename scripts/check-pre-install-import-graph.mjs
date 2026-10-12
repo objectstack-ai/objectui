@@ -12,8 +12,9 @@
  * A handful of this repository's gates deliberately run before any install:
  * they read the checkout and nothing else, which is what lets them run
  * UNFILTERED on every pull request shape for the price of a checkout plus one
- * `node` call. `docs-links.yml`, `skills-paths.yml`, `control-bytes.yml` and
- * `changeset-presence.yml` exist in that shape on purpose -- their headers each
+ * `node` call. `repo-gates.yml`'s install-free steps (the Internal Docs Link
+ * Check, Skill Guide Path Check and Control Byte Scan among them, objectui#12214)
+ * and `changeset-presence.yml` exist in that shape on purpose -- their headers
  * say a gate a markdown-only PR cannot start "rebuilds the hole it exists to
  * close".
  *
@@ -75,7 +76,7 @@
  *
  * ## This gate satisfies its own rule, by construction
  *
- * `pre-install-import-graph.yml` runs this file before any install, so this
+ * `repo-gates.yml` runs this file before its install step, so this
  * file is IN its own derived population and walks itself. Its graph is
  * `node:fs`, `node:module`, `node:path`, `node:url`, plus `./invoked-as.mjs`
  * and `./js-comment-mask.mjs`, whose own graphs are builtins only. Nothing here
@@ -313,9 +314,10 @@ const NODE_SCRIPT_RE = /(?:^|[\s;&|(])node\s+(?:--[^\s]+\s+)*(scripts\/[A-Za-z0-
  * Every step that runs a `scripts/` JavaScript file before the first
  * `pnpm install` in its own job.
  *
- * A job with NO install at all counts entirely: `skills-paths.yml` and
- * `docs-links.yml` never install, so every `node` step in them is a
- * pre-install step. That is not an edge case, it is four of the nine.
+ * A job with NO install at all counts entirely: every `node` step in it is a
+ * pre-install step. That is not an edge case -- several gate workflows were
+ * built that way before objectui#12214 folded most of them into
+ * `repo-gates.yml`, whose gates sit before its install step instead.
  *
  * @param {Array<{ file: string, text: string }>} workflows
  * @returns {Array<{ workflow: string, job: string, step: number, stepName: string, script: string }>}

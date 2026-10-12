@@ -14,14 +14,15 @@
  * the identical filter" on Home → Studio. Measured through the REAL adapter
  * and the REAL client, the console's user-state bridge attaches three
  * adapters — favorites, recent items and flow-palette recents — and each
- * loads its own `(user, key)` row: three requests whose filters differ in the
- * `key` predicate, which sits at the tail of a long encoded query string.
- * They are three questions, not one question asked three times, so there is
- * nothing to share between them.
+ * loads its own `(user, key)` row. The card was closed on that reading: three
+ * requests whose filters differ in the `key` predicate.
  *
- * The case that IS a duplicate — two loads of one `(user, key)` at once — is
- * already one request: `find` shares an in-flight read by resource + params.
- * This file pins both, so the reading the card was closed on stays checkable.
+ * objectui#12187 ruled the budget at one read per load: the three loads now
+ * share ONE request that asks for the three keys (`key in (...)`), and each
+ * adapter takes its own row from the answer. The first case below pins that.
+ *
+ * The case that was already a duplicate — two loads of one `(user, key)` at
+ * once — is one request, and a load after a save still reaches the server.
  */
 import { describe, it, expect, vi } from 'vitest';
 import { ObjectStackAdapter } from './index';
@@ -74,22 +75,24 @@ const rows = (records: unknown[]) => ({ success: true, data: { records, total: r
 const BRIDGE_KEYS = ['ui.favorites', 'ui.recent', 'ui.flow.palette.recents'];
 
 describe('sys_user_preference reads on console entry (objectui#11797)', () => {
-  it("the bridge's three loads are three different questions — one request per key", async () => {
+  it("the bridge's three loads share one request, and each takes its own row (objectui#12187)", async () => {
     const { ds, held } = await heldAdapter();
     const loads = BRIDGE_KEYS.map((key) =>
       createObjectStackUserStateAdapter({ dataSource: ds, userId: 'u1', key }).load(),
     );
     await drain();
 
-    expect(held).toHaveLength(3);
-    expect(new Set(held.map((r) => r.path)).size).toBe(3);
-    held.forEach((r, i) => {
-      expect(r.path.startsWith('/api/v1/data/sys_user_preference?')).toBe(true);
-      expect(r.path).toContain(`["key","=","${BRIDGE_KEYS[i]}"]`);
-    });
+    expect(held).toHaveLength(1);
+    expect(held[0].path.startsWith('/api/v1/data/sys_user_preference?')).toBe(true);
+    expect(held[0].path).toContain('["user_id","=","u1"]');
+    expect(held[0].path).toContain(`["key","in",${JSON.stringify(BRIDGE_KEYS)}]`);
+    expect(held[0].path).toContain('top=3');
 
-    held.forEach((r) => r.respond(200, rows([])));
-    await Promise.all(loads);
+    held[0].respond(
+      200,
+      rows(BRIDGE_KEYS.map((key, i) => ({ id: `p${i}`, user_id: 'u1', key, value: [key] }))),
+    );
+    await expect(Promise.all(loads)).resolves.toEqual(BRIDGE_KEYS.map((key) => [key]));
   });
 
   it('two loads of one (user, key) at once put one request on the wire', async () => {

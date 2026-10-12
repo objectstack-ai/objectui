@@ -67,7 +67,10 @@
  *       vitest's own sequencer, so this is arithmetic on the tree, not a guess.
  *   (2) WHETHER THE SAME TREE PASSED UNINSTRUMENTED, from the `merge_group`
  *       lane, which runs the same 4-way split over the same files without
- *       `--coverage` (ci.yml gives `test` `if: github.event_name != 'push'`).
+ *       `--coverage` (ci.yml gave `test` `if: github.event_name != 'push'`
+ *       when this was written; since objectui#12214 a `merge_group` run
+ *       carries only the affected set, and the uninstrumented whole suite
+ *       runs on `push` and `schedule` beside the coverage lane).
  *
  * ⚠️ Reading (2) has a selection trap that has to be named: a commit only lands
  * if its merge_group run went green, so "every landed sha had a green

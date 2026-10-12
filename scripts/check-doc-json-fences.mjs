@@ -58,8 +58,9 @@
  * `@object-ui/types` to source, which is one inherited config away from judging
  * the docs against a face nobody installs; the RESOLUTION control below prints
  * the resolved file and refuses one outside the package's `dist/`. The
- * workflow (`doc-snippet-types.yml`) runs this gate after it has built the
- * snippet gate's `--build-filter` closure, which carries `@object-ui/types`.
+ * workflow (`repo-gates.yml`, objectui#12214) runs this gate after it has built
+ * every package plus the snippet gate's `--build-filter` closure, which carries
+ * `@object-ui/types`.
  *
  * ## The scan surface, declared once (objectui#12131)
  *

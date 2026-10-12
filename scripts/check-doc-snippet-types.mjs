@@ -21,9 +21,9 @@
  * ## Why "could not run" is its own exit code (objectui#5465)
  *
  * Both 1 and 2 are non-zero, so no caller's pass/fail changes: this gate is
- * invoked from exactly one workflow step (`doc-snippet-types.yml`), which fails
- * on any non-zero, and which builds this gate's own `--build-filter` closure
- * BEFORE invoking it — an unbuilt tree is not a state CI can reach. The
+ * invoked from exactly one workflow step (in `repo-gates.yml` since objectui#12214),
+ * which fails on any non-zero, and whose job builds this gate's own
+ * `--build-filter` closure BEFORE invoking it — an unbuilt tree is not a state CI can reach. The
  * distinction exists for the reader. "I could not run" and "I ran and found
  * errors" are different facts, and while they shared one exit code they were
  * indistinguishable at the exit-code level: three separate agents in one evening

@@ -11,8 +11,9 @@
  * `--list` names it): its whole static import graph must be node builtins plus
  * repo-relative modules, or the gate stops running on exactly the markdown-only
  * pull requests it exists for. A `github-slugger` import would be an
- * `ERR_MODULE_NOT_FOUND` in that job, and `docs-links.yml` has no install step
- * to add one to without giving up that property.
+ * `ERR_MODULE_NOT_FOUND` in that step, which `repo-gates.yml` runs before its
+ * install step on purpose and could not move after it without giving up that
+ * property.
  *
  * ## Why the table is copied verbatim and not re-derived
  *

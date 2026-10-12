@@ -49,6 +49,20 @@ on:
   # build it came from never cancel each other.
   merge_group:
     types: [checks_requested]
+  # ── Two speeds (objectui#12214, objectstack#22998) ─────────────────────
+  # A `pull_request` or `merge_group` run carries the FAST SET: the `test`
+  # matrix below runs the test files the change affects, selected by
+  # `scripts/select-affected-tests.mjs`. `push` to `main` and this hourly
+  # `schedule` carry the FULL BATTERY: every test file in twelve shards, plus
+  # the four-shard coverage lane. Nothing is deleted or weakened; the whole
+  # suite moved to `main`, where it runs on every merge and at least hourly.
+  # GitHub runs `schedule` on the default branch only. The minute is off the
+  # hour on purpose: scheduled workflows queue behind everyone else's `:00`.
+  # On `schedule` the concurrency group below falls through to `github.ref`
+  # (`refs/heads/main`), which no push (a sha) or pull request (a number)
+  # shares; an hourly run is cancelled only by the next one, an hour later.
+  schedule:
+    - cron: '26 * * * *'
 
 # ── Concurrency (objectui#5422) ───────────────────────────────────
 # On `pull_request` the group is the PR number and `cancel-in-progress` cancels
@@ -748,10 +762,22 @@ jobs:
   # context, so the width here is an ordinary workflow edit rather than a
   # repository-settings change that renames four live required contexts.
   #
+  # ⭐ 8 -> 12 (objectui#12208, PR-1; ruling 6121816480, letter B). At eight
+  # shards the job was back against the same `timeout-minutes: 20`: measured
+  # on that card over the 1,728 shard jobs of the trailing seven days, the
+  # shard wall sat at 14.4 min median, 17.4 min p95 and 20.3 min max. Same
+  # remedy, same three refusals: ⛔ the ceiling is NOT raised, ⛔ no test is
+  # skipped, and ⛔ the relevance gate is not widened -- the work is spread
+  # over half again as many runners. Duration-balanced sharding is that
+  # card's second pull request, not this edit. The width is one number on
+  # both speeds (objectui#12214): the affected run on a pull request or queue
+  # build and the full battery on `push` and `schedule` both use these twelve
+  # legs, so `test-aggregate`'s `--shards` has one value to agree with.
+  #
   # Vitest shards by hashing each test file's path, so `unit` and `dom` files
   # interleave across shards on their own — no manual balancing needed.
   test:
-    name: Test (shard ${{ matrix.shard }}/8)
+    name: Test (shard ${{ matrix.shard }}/12)
     # Coverage instrumentation (v8 adds 40-100% overhead) is skipped on PRs;
     # the `test-coverage` job below runs the coverage lane on push.
     #
@@ -769,7 +795,14 @@ jobs:
     # report is published as an artifact rather than uploaded to Codecov). PR
     # and push behaviour is unchanged — only the previously impossible third
     # case moves.
-    if: github.event_name != 'push'
+    #
+    # ⭐ Two speeds (objectui#12214): the event guard that kept this matrix off
+    # `push` is GONE. Every event runs it now, at one of two speeds: on
+    # `pull_request` and `merge_group` the `Select the tests this change
+    # affects` step below narrows each shard to the affected set; on `push` and
+    # `schedule` it is the whole suite, beside the coverage lane. The width
+    # is the same on both speeds, so `test-aggregate` keeps one `--shards` and
+    # still refuses a partial set.
     runs-on: ubuntu-latest
     # Bound the job so a stalled runner / non-exiting test worker fails fast and
     # is retryable, instead of hanging up to GitHub's 6h default.
@@ -779,7 +812,7 @@ jobs:
       # Report every shard's failures, not just the first one to break.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 
     steps:
       - name: Checkout code
@@ -934,18 +967,84 @@ jobs:
         if: steps.relevant.outputs.should_run == 'true'
         run: pnpm install --frozen-lockfile
 
+      # ── The two speeds (objectui#12214, objectstack#22998) ──────────────
+      # `push` and `schedule` are the full battery: nothing is selected, every
+      # test file runs. On `pull_request` and `merge_group` the selector names
+      # the affected set -- the packages the change sits in and every package
+      # that depends on them, plus the test files the package graph cannot
+      # place, which run on every change -- or answers `mode=full` when the
+      # change reaches something every test runs through. Its header states the
+      # rules and what it does not see; the full battery on `main` is the
+      # backstop for every miss.
+      #
+      # Fails OPEN, like every gate in this file: a selector that exits
+      # non-zero, prints no verdict, or is handed no base sha means the full
+      # suite, never a skip. The exit status is captured beside the output, not
+      # through a command substitution (objectui#6221). Every shard computes the
+      # same selection from the same checkout, so `--shard` partitions one set.
+      - name: Select the tests this change affects
+        id: select
+        if: steps.relevant.outputs.should_run == 'true'
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          QUEUE_BASE: ${{ github.event.merge_group.base_sha }}
+        run: |
+          case "$EVENT" in
+            pull_request) base="$PR_BASE" ;;
+            merge_group) base="$QUEUE_BASE" ;;
+            *)
+              echo 'mode=full' >> "$GITHUB_OUTPUT"
+              echo "A $EVENT run is the full battery: every test file, twelve shards."
+              exit 0
+              ;;
+          esac
+          status=0
+          if [ -z "$base" ]; then
+            echo "::warning::no base sha on this $EVENT event; running the full suite rather than guessing."
+            status=2
+          else
+            node scripts/select-affected-tests.mjs --base "$base" --out "$RUNNER_TEMP/affected-tests.txt" \
+              > "$RUNNER_TEMP/select.out" || status=$?
+            cat "$RUNNER_TEMP/select.out"
+          fi
+          verdict=''
+          if [ "$status" -eq 0 ]; then
+            verdict=$(tail -n 1 "$RUNNER_TEMP/select.out")
+          fi
+          case "$verdict" in
+            mode=affected | mode=full) ;;
+            *)
+              echo "::warning::the affected-test selector reached no verdict (exit $status); running the full suite rather than skipping silently."
+              verdict='mode=full'
+              ;;
+          esac
+          echo "$verdict" >> "$GITHUB_OUTPUT"
+
       # Run the canonical root Vitest project once. Running `turbo run test`
       # here starts one Vitest process per package; several package configs
       # intentionally inherit the root monorepo project list, so CI ends up
       # repeating large chunks of the suite and can starve slower plugin tests.
-      - name: Run tests (shard ${{ matrix.shard }}/8)
+      # The affected speed is the same root run with the selector's filters as
+      # positionals -- paths relative to the repository root, no `--`, which is
+      # the only spelling `scripts/vitest-invocation-guard.mjs` admits.
+      - name: Run tests (shard ${{ matrix.shard }}/12)
         if: steps.relevant.outputs.should_run == 'true'
-        run: pnpm test --shard=${{ matrix.shard }}/8
+        env:
+          MODE: ${{ steps.select.outputs.mode }}
+        run: |
+          if [ "$MODE" = 'mode=affected' ]; then
+            mapfile -t filters < "$RUNNER_TEMP/affected-tests.txt"
+            echo "Affected speed: ${#filters[@]} vitest filter(s), shard ${{ matrix.shard }} of 12."
+            pnpm exec vitest run --shard=${{ matrix.shard }}/12 "${filters[@]}"
+          else
+            pnpm test --shard=${{ matrix.shard }}/12
+          fi
 
   # ── The built-artifact pin lane, lifted out of the shard matrix ──────────
   # (objectui#7183 for the lane itself; objectui#9499 for this job.)
   #
-  # `pnpm test --shard=N/8` above resolves every workspace package to its `src`
+  # `pnpm test --shard=N/12` above resolves every workspace package to its `src`
   # -- that is what the root alias map is for -- so no test in it can observe
   # its own package's BUILT output. This is the only place a `dist`-importing
   # pin runs, and `turbo run test:dist` carries `dependsOn: ["build"]` for the
@@ -973,10 +1072,10 @@ jobs:
   # line of it is on the `test` job above; it is not repeated here.
   test-dist-pins:
     name: Test (dist pins)
-    # Same event guard as the shard matrix above: the push lane is the coverage
-    # lane, and `test-aggregate` below asserts this job's result, so the two
-    # must skip together or the aggregator would judge a job that never ran.
-    if: github.event_name != 'push'
+    # No event guard, like the shard matrix above (objectui#12214): the push
+    # lane used to be the coverage lane alone, and this job skipped with the
+    # shards. `test-aggregate` below asserts this job's result, so the two
+    # still run together -- now on every event.
     runs-on: ubuntu-latest
     # The same bound the matrix carries. This job builds one package and runs a
     # handful of files, so it sits nowhere near it -- the bound is here for the
@@ -1074,7 +1173,7 @@ jobs:
   # ⚠️ `needs.test.result` ALONE WOULD BE A PHANTOM GATE, and that is why this
   # job runs a script rather than reading an expression. A matrix job's
   # `needs.<job>.result` is a single ROLLUP over every leg, and a rollup cannot
-  # distinguish "all eight ran green" from "five ran green and three were
+  # distinguish "all twelve ran green" from "nine ran green and three were
   # SKIPPED". A shard dropped from the matrix, or given a job-level `if:` that
   # is false, would leave this context GREEN while a fraction of the suite never
   # ran -- the objectui#8857 / objectui#3523 shape, a check reporting success
@@ -1086,12 +1185,13 @@ jobs:
   # `if: always()` so a red, skipped or cancelled shard still produces a verdict
   # here instead of skipping this job -- a skipped required context counts as
   # SUCCESS in branch protection, which on the one context that speaks for the
-  # whole test lane is the failure mode itself. The event guard matches the two
-  # jobs above: on `push` they do not run, and neither does this.
+  # whole test lane is the failure mode itself. No event guard, matching the
+  # two jobs above (objectui#12214): on `push` and `schedule` this is the full
+  # battery's test verdict for the commit on `main`, read the same way.
   test-aggregate:
     name: Test
     needs: [test, test-dist-pins]
-    if: always() && github.event_name != 'push'
+    if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # Declaring any `permissions:` block sets every unlisted scope to `none`,
@@ -1118,7 +1218,7 @@ jobs:
           TEST_MATRIX_ROLLUP: ${{ needs.test.result }}
         run: |
           echo "needs.test.result (the matrix rollup this gate deliberately does NOT trust) = $TEST_MATRIX_ROLLUP"
-          node scripts/check-test-shard-results.mjs --shards 8 --job-name 'Test'
+          node scripts/check-test-shard-results.mjs --shards 12 --job-name 'Test'
 
       # The dist-pin lane is NOT a matrix, so its `needs` result is that one
       # job's own conclusion and `skipped` is visible in it -- no API read is
@@ -1202,7 +1302,9 @@ jobs:
   # than left as a claim the run does not actually support.
   test-coverage:
     name: Test (coverage shard ${{ matrix.shard }}/4)
-    if: github.event_name == 'push'
+    # The full battery's coverage half: every merge to `main` (`push`) and the
+    # hourly `schedule` run (objectui#12214).
+    if: github.event_name == 'push' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 40
 
@@ -1399,9 +1501,9 @@ jobs:
     name: Test (coverage)
     needs: test-coverage
     # `always()` so the verdict step below still runs when a shard failed —
-    # that is the entire point. The event guard keeps this lane push-only, as
-    # the unsharded job was.
-    if: always() && github.event_name == 'push'
+    # that is the entire point. The event guard matches `test-coverage`: the
+    # full battery's events, `push` and `schedule` (objectui#12214).
+    if: always() && (github.event_name == 'push' || github.event_name == 'schedule')
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -2039,7 +2141,8 @@ jobs:
       # The docs *link* check is deliberately NOT here any more — do not add it
       # back. `node scripts/check-doc-links.mjs` ran in this job from #3213 /
       # #3292 (PR #3450) until #3448 promoted it to its own workflow,
-      # `docs-links.yml`, with no path filters. The reason THEN was this
+      # `docs-links.yml` (a step of `repo-gates.yml` since objectui#12214), with no
+      # path filters. The reason THEN was this
       # workflow's own `paths-ignore`, which at the time listed `content/**` and
       # `'**/*.md'` on both triggers: GitHub has no per-job path filter, so a
       # docs-ONLY pull request never started `ci.yml` at all and the link check

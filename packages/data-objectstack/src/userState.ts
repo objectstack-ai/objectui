@@ -43,6 +43,22 @@
  * As soon as the backend supports `sys_user_preference`, persistence
  * "lights up" with no code change.
  *
+ * ## One read per load (objectui#12187)
+ *
+ * The console builds one adapter per slot (favorites, recent items, flow
+ * palette recents) over the same data source and user, and their providers
+ * call `load()` in the same effects pass. Those loads share ONE request: the
+ * first `load()` opens a read for its (data source, resource, user), every
+ * `load()` of that scope issued before the next microtask adds its key to it,
+ * and the read is then sent once and each adapter takes its own row from the
+ * answer. A read that collected one key sends the per-key query this adapter
+ * always sent; several keys go as one `key in (...)` query.
+ *
+ * Nothing is kept past that: the read closes the moment it is sent, so a later
+ * `load()` (a new adapter after a language or account switch) asks the server
+ * again, and a different user or data source never joins another's read.
+ * `save()` does not use it: a write still finds and writes its own row.
+ *
  * @module
  */
 
@@ -103,6 +119,71 @@ interface UserPreferenceRecord {
 const DEFAULT_RESOURCE = 'sys_user_preference';
 
 /**
+ * The query for the rows of `keys`. A lone key keeps the per-key query this
+ * adapter has always sent. Several keys go as one membership query; the
+ * object's unique index on `(user_id, key)` (per organization) bounds the
+ * answer to one row per key, so a `$top` of the key count drops none of them.
+ */
+function preferenceQuery(userId: string, keys: readonly string[]): QueryParams {
+  if (keys.length === 1) {
+    return { $filter: { user_id: userId, key: keys[0] }, $top: 1 };
+  }
+  return { $filter: { user_id: userId, key: { $in: [...keys] } }, $top: keys.length };
+}
+
+/** One request for the rows of several adapters' keys. */
+interface SharedRead {
+  /** The keys asked for. Grows until the request is sent, then fixed. */
+  readonly keys: Set<string>;
+  /** The rows the one request answers with. */
+  readonly rows: Promise<UserPreferenceRecord[]>;
+}
+
+/**
+ * The reads still collecting keys: per data source, then per (resource, user).
+ * An entry lives only until its request is sent, one microtask after it opens.
+ */
+const openReads = new WeakMap<object, Map<string, SharedRead>>();
+
+/**
+ * Join the open read for this (data source, resource, user), or open one.
+ * See "One read per load" in the module header.
+ */
+function joinSharedRead(
+  dataSource: ObjectStackUserStateAdapterOptions['dataSource'],
+  resource: string,
+  userId: string,
+  key: string,
+): SharedRead {
+  let scopes = openReads.get(dataSource);
+  if (!scopes) {
+    scopes = new Map();
+    openReads.set(dataSource, scopes);
+  }
+  const scope = JSON.stringify([resource, userId]);
+  const open = scopes.get(scope);
+  if (open) {
+    open.keys.add(key);
+    return open;
+  }
+
+  const keys = new Set<string>([key]);
+  const opened = scopes;
+  const read: SharedRead = {
+    keys,
+    rows: Promise.resolve().then(async () => {
+      // Closed before the request goes out: a load after this point opens the
+      // next read instead of waiting on, or being served by, this one.
+      if (opened.get(scope) === read) opened.delete(scope);
+      const result = await dataSource.find(resource, preferenceQuery(userId, [...keys]));
+      return (result?.data ?? []) as UserPreferenceRecord[];
+    }),
+  };
+  scopes.set(scope, read);
+  return read;
+}
+
+/**
  * Build a `UserDataAdapter<T>` backed by ObjectStack.
  *
  * Each adapter instance is bound to a single `(user, key)` pair; create
@@ -131,25 +212,11 @@ export function createObjectStackUserStateAdapter<T = unknown>(
   // sees the cachedRowId the first one set and updates instead of inserting.
   let saveChain: Promise<void> = Promise.resolve();
 
-  const findExisting = async (): Promise<UserPreferenceRecord | null> => {
-    // NOTE: `QueryParams` uses OData-style `$`-prefixed keys. Using the bare
-    // names (`filter`, `limit`) silently drops the predicate at the
-    // `convertQueryParams` layer, which then returns *any* row in the
-    // `sys_user_preference` table — that caused the Favorites adapter to load
-    // the Recents row (and vice-versa), so clicked items leaked into Starred.
-    const params: QueryParams = {
-      $filter: {
-        user_id: userId,
-        key,
-      },
-      $top: 1,
-    };
-    const result = await dataSource.find(resource, params);
-    const rows = (result?.data ?? []) as UserPreferenceRecord[];
-    // Defensive: if the backend ignored our predicate and returned mixed
-    // rows, only accept ones tagged for this (user, key) pair. Rows that
-    // omit those metadata fields entirely are trusted (covers mocks and
-    // backends that strip metadata from the projection).
+  // Defensive: if the backend ignored our predicate and returned mixed
+  // rows, only accept ones tagged for this (user, key) pair. Rows that
+  // omit those metadata fields entirely are trusted (covers mocks and
+  // backends that strip metadata from the projection).
+  const matchRow = (rows: UserPreferenceRecord[]): UserPreferenceRecord | null => {
     const match = rows.find(r => {
       if (!r) return false;
       const userMismatch = r.user_id !== undefined && r.user_id !== userId;
@@ -157,6 +224,35 @@ export function createObjectStackUserStateAdapter<T = unknown>(
       return !userMismatch && !keyMismatch;
     });
     return match ?? null;
+  };
+
+  // The per-key read, used by writes. Loads go through the shared read below.
+  const findExisting = async (): Promise<UserPreferenceRecord | null> => {
+    // NOTE: `QueryParams` uses OData-style `$`-prefixed keys. Using the bare
+    // names (`filter`, `limit`) silently drops the predicate at the
+    // `convertQueryParams` layer, which then returns *any* row in the
+    // `sys_user_preference` table — that caused the Favorites adapter to load
+    // the Recents row (and vice-versa), so clicked items leaked into Starred.
+    const result = await dataSource.find(resource, preferenceQuery(userId, [key]));
+    return matchRow((result?.data ?? []) as UserPreferenceRecord[]);
+  };
+
+  // A load's read: this key's row out of the one request every adapter of
+  // this (data source, resource, user) shares for the load (objectui#12187).
+  const loadExisting = async (): Promise<UserPreferenceRecord | null> => {
+    const read = joinSharedRead(dataSource, resource, userId, key);
+    const rows = await read.rows;
+    // The read asked for this key alone: the per-key answer, read as above.
+    if (read.keys.size === 1) return matchRow(rows);
+    // An answer for several keys: a row is this key's only when it names it.
+    const own = rows.find(
+      r => r && r.key === key && (r.user_id === undefined || r.user_id === userId),
+    );
+    if (own) return own;
+    // A row that names no key cannot be told apart in an answer for several
+    // keys; this key's own read, as before the share, answers instead.
+    if (rows.some(r => r && r.key === undefined)) return findExisting();
+    return null;
   };
 
   const decodeValue = (value: unknown): T[] => {
@@ -229,7 +325,7 @@ export function createObjectStackUserStateAdapter<T = unknown>(
   return {
     async load(): Promise<T[]> {
       try {
-        const row = await findExisting();
+        const row = await loadExisting();
         if (!row) {
           cachedRowId = null;
           return [];

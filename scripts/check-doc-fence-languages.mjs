@@ -127,8 +127,8 @@
  * It is re-implemented here rather than imported so
  * this gate needs NO install — that gate imports `typescript`, and an
  * install-gated docs check is one that a docs-only pull request skips, which is
- * the shape objectui#5174 and `doc-component-types.yml`'s header both record as
- * the hole. The copy is not left to drift:
+ * the shape objectui#5174 records as the hole (and `repo-gates.yml`'s header,
+ * which carries the folded workflows' reasoning since objectui#12214). The copy is not left to drift:
  * `scripts/__tests__/check-doc-fence-languages.test.ts` imports BOTH walks and
  * fails if they ever return different document lists, and pins this file's
  * TypeScript-fence set against the gate's own `TS_FENCE_LANGUAGES`.

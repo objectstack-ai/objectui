@@ -1124,6 +1124,16 @@ export const ADJUDICATED = new Map([
       walker: 'not-markdown: package and app directories',
     },
   ],
+  // objectui#12214. Its fixtures write a `README.md` into a temp directory to
+  // prove a root documentation change is not a full-run trigger; the selector
+  // it tests never opens a markdown file.
+  [
+    'scripts/__tests__/select-affected-tests.test.ts',
+    {
+      reads: [],
+      notRead: ['README.md'],
+    },
+  ],
   [
     'scripts/__tests__/sync-quick-reference-release.test.ts',
     {

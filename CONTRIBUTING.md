@@ -484,7 +484,7 @@ Fumadocs is configured with `baseUrl: '/docs'`, which means all documentation pa
 
 Two separate checks with two different jobs — knowing which is which saves a wasted debugging round:
 
-- **Internal links are the PR gate.** `scripts/check-doc-links.mjs`, run by `.github/workflows/docs-links.yml` on every pull request to `main` / `develop` (and on pushes to them). It resolves each `/docs/...` route and each relative path against the files in the checkout — reading the tree and nothing else, no network — so it is deterministic, and a failure blocks the merge. The workflow deliberately carries no `paths` filter, so a docs-only PR is checked too. Run the same script locally before you push:
+- **Internal links are the PR gate.** `scripts/check-doc-links.mjs`, run by `.github/workflows/repo-gates.yml` (its Internal Docs Link Check step) on every pull request to `main` / `develop` (and on pushes to them). It resolves each `/docs/...` route and each relative path against the files in the checkout — reading the tree and nothing else, no network — so it is deterministic, and a failure blocks the merge. The workflow deliberately carries no `paths` filter, so a docs-only PR is checked too. Run the same script locally before you push:
 
   ```bash
   pnpm docs:check-links

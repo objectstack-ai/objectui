@@ -475,7 +475,7 @@ describe('objectstack#5450 — the four baselined files are clean', () => {
 
 describe('wiring — the gate is actually reachable and actually runs', () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'));
-  const workflowPath = path.join(repoRoot, '.github/workflows/control-bytes.yml');
+  const workflowPath = path.join(repoRoot, '.github/workflows/repo-gates.yml');
 
   it('is exposed as a root package script', () => {
     expect(pkg.scripts['check:control-bytes']).toBe('node scripts/check-control-bytes.mjs');

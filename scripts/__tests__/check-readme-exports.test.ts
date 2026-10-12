@@ -1406,7 +1406,7 @@ describe('`--list` REFUSES on an unbuilt tree instead of dying in it (objectui#9
 describe('wiring — the gate is reachable and every pull-request shape starts it', () => {
   const workflowDir = path.join(repoRoot, '.github/workflows');
   const workflowFiles = fs.readdirSync(workflowDir).filter((f) => f.endsWith('.yml'));
-  const workflow = fs.readFileSync(path.join(workflowDir, 'readme-exports.yml'), 'utf8');
+  const workflow = fs.readFileSync(path.join(workflowDir, 'repo-gates.yml'), 'utf8');
   const uncommented = workflow
     .split('\n')
     .filter((line) => !/^\s*#/.test(line))
@@ -1421,7 +1421,7 @@ describe('wiring — the gate is reachable and every pull-request shape starts i
     const runners = workflowFiles.filter((file) =>
       fs.readFileSync(path.join(workflowDir, file), 'utf8').includes('check:readme-exports'),
     );
-    expect(runners).toEqual(['readme-exports.yml']);
+    expect(runners).toEqual(['repo-gates.yml']);
   });
 
   it('carries NO trigger-level path filter — a README-only PR must start it', () => {
@@ -1437,7 +1437,10 @@ describe('wiring — the gate is reachable and every pull-request shape starts i
   });
 
   it('is classified as a required context, so a Dependabot merge waits for it', () => {
-    expect(REQUIRED_CONTEXTS).toContain('README Export Check');
+    // Since objectui#12214 the check reports as a step of the ONE `Repo Gates`
+    // context, which is the name the classification and the floor read.
+    expect(REQUIRED_CONTEXTS).toContain('Repo Gates');
+    expect(uncommented).toContain('name: Repo Gates');
     expect(uncommented).toContain('name: README Export Check');
   });
 

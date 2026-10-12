@@ -27,8 +27,13 @@
  *
  * ⛔ It is a VIEW scope, never an authority: the server decides every write,
  * and the read-only gates read the caller's capabilities (`useCanAuthorMetadata`)
- * and the deployment's posture, not this parameter.
+ * and the deployment's posture ({@link useWalledCatalogReadOnly}), not this
+ * parameter.
  */
+
+import { useAuth } from '@object-ui/auth';
+import type { TenancyPosture } from '@object-ui/auth';
+import { postureHasOrgWall, useTenancyPosture } from '../../hooks/useTenancyPosture.js';
 
 /** The query parameter carrying the scope. Page-local to metadata-admin. */
 export const CATALOG_SCOPE_PARAM = 'scope';
@@ -73,3 +78,63 @@ export function environmentScopeSuffix(search: QueryLike): string {
  * here would put a switch on that page that every click refuses.
  */
 export const SETUP_CATALOG_TYPES = ['permission', 'position'] as const;
+
+/**
+ * The security catalog: the metadata types whose items every organization
+ * resolves BY NAME from the one environment registry (objectstack ADR-0131 D3).
+ *
+ * Restated, not imported: the server's list is `SECURITY_CATALOG_TYPES` in
+ * `@objectstack/metadata-core`, a package this repository does not depend on,
+ * and `@objectstack/spec` exports no such list. Nothing here re-derives the
+ * two (AGENTS.md #9): a fourth catalog type added upstream is a server refusal
+ * this list does not announce, and the page then offers a write the door
+ * answers 403, shown as sent. The spellings are the console's own: the
+ * metadata-admin routes carry the singular names `/meta/types` serves.
+ */
+const SECURITY_CATALOG_TYPES: readonly string[] = ['position', 'permission', 'capability'];
+
+/**
+ * objectui#12183 — is this catalog type read-only for this caller because the
+ * deployment's tenancy wall makes the catalog the platform operator's?
+ *
+ * objectstack ADR-0131 D3, stage W (objectstack#22895): under `isolated` /
+ * `group`, every door that writes a position, permission set or capability
+ * asks `walledCatalogWriteVerdict`, which admits the engine itself and the
+ * `PLATFORM_ADMIN` posture rung and refuses everyone else, whatever they hold
+ * (`manage_metadata` included). Assignments are never judged. Under `single`,
+ * or with no posture, it is inert.
+ *
+ * This reads the two facts the server publishes for that verdict, never a
+ * client copy of it:
+ *  - the posture, `features.tenancyPosture` (`useTenancyPosture`), which
+ *    objectstack's auth config reads off the `tenancy` service the doors
+ *    read;
+ *  - the caller's rung, `user.isPlatformAdmin` on the session, which
+ *    objectstack's session payload computes as `grants.posture ===
+ *    'PLATFORM_ADMIN'` from the same resolution the doors' execution context
+ *    carries. ⛔ Never `positions.includes('platform_admin')`: a tenant can
+ *    write that name (see `useWorkspaceAdminStatus`).
+ *
+ * It does not read the environment scope: the server's verdict has no scope
+ * input, and a package-door draft (`?package=`) is refused by the same door.
+ * An unknown posture fails toward today's rendering; a session that never
+ * published the flag reads as no operator standing.
+ */
+export function walledCatalogReadOnly(input: {
+  type: string;
+  posture: TenancyPosture | undefined;
+  isPlatformOperator: boolean;
+}): boolean {
+  return (
+    SECURITY_CATALOG_TYPES.includes(input.type)
+    && postureHasOrgWall(input.posture)
+    && !input.isPlatformOperator
+  );
+}
+
+/** {@link walledCatalogReadOnly} for this session and this deployment. */
+export function useWalledCatalogReadOnly(type: string): boolean {
+  const posture = useTenancyPosture();
+  const { user } = useAuth();
+  return walledCatalogReadOnly({ type, posture, isPlatformOperator: user?.isPlatformAdmin === true });
+}

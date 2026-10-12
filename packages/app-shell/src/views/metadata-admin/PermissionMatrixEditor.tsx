@@ -80,10 +80,10 @@ import { useDraftSaveGuard } from './DraftConflictDialog.js';
 // objectui#11787 — the package door autosaves through the pillars' own autosave.
 import { useDraftAutoSave, type DraftSend } from '../studio-design/useDraftAutoSave.js';
 import { useDisplayLocale } from '@object-ui/i18n';
-import { t as translate, tFormat, useMetadataLocale } from './i18n.js';
+import { t as translate, tFormat, translateMetadataType, useMetadataLocale } from './i18n.js';
 import { PermissionAdvancedFacets } from './PermissionAdvancedFacets.js';
 import { AssignedUsersSection } from './AssignedUsersSection.js';
-import { isEnvironmentScope } from './catalog-scope.js';
+import { isEnvironmentScope, useWalledCatalogReadOnly } from './catalog-scope.js';
 import { useCanAuthorMetadata } from '../../hooks/useCanAuthorMetadata.js';
 import { errorCodeIs } from '@object-ui/types';
 import { PermissionSetCloneDialog } from './PermissionSetCloneDialog.js';
@@ -421,7 +421,14 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   // (`useCanAuthorMetadata`); the door then answers 403, shown as sent. Its
   // reason is named in the body below.
   const canAuthor = useCanAuthorMetadata();
-  const writable = canWriteByType && !readOnly && canAuthor;
+  // objectui#12183 — and under a wall the security catalog is the platform
+  // operator's: the `/meta` doors and the clone door refuse a non-operator's
+  // write of a permission set, `manage_metadata` or not (objectstack ADR-0131
+  // D3, `catalog-scope.ts`), the package door's drafts included. The wall is
+  // the gate to NAME where the host and the type would otherwise admit it.
+  const walled = useWalledCatalogReadOnly(type);
+  const walledReadOnly = walled && !readOnly && typeTierOpen;
+  const writable = canWriteByType && !readOnly && canAuthor && !walled;
   // objectui#7611 — does the server hold this set at all? `false` only when the
   // layered read answered the not-found shape (no effective, code or overlay
   // layer): a name nobody has saved yet, which this editor's first Save creates.
@@ -438,7 +445,9 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   // said yes: with both flags false the honest reason is still "this type has
   // no runtime write channel at all", which is also the refusal the server
   // reaches first (`!overlayAllowed && !runtimeCreateAllowed`).
-  const lockedByArtifactTier = artifactTierApplies && !artifactArmOpen && typeTierOpen && canAuthor;
+  // Not under a wall: its remedy, the clone, is a catalog write the clone door
+  // refuses a tenant there (objectui#12183).
+  const lockedByArtifactTier = artifactTierApplies && !artifactArmOpen && typeTierOpen && canAuthor && !walled;
   const locale = useMetadataLocale();
   const t = React.useCallback((k: string) => translate(k, locale), [locale]);
   const OBJECT_ACTIONS = React.useMemo(() => getObjectActions(locale), [locale]);
@@ -1229,7 +1238,23 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
         {/* objectui#7611 — the caller cannot author this set at all: say so,
             once, instead of a matrix whose controls are disabled for no visible
             reason. The host and type gates keep their own badges. */}
-        {!canAuthor && !readOnly && (
+        {/* objectui#12183 — under a wall the server rule is the reason, not a
+            missing permission: the capability does not admit a tenant there. */}
+        {walledReadOnly && (
+          <div
+            role="note"
+            data-testid="perm-walled-readonly"
+            className="m-4 rounded-md border bg-muted/40 p-3 text-sm flex items-start gap-2"
+          >
+            <Lock className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+            <span>
+              {tFormat('engine.catalog.readOnly.walled', locale, {
+                type: translateMetadataType(type, locale, entry?.label ?? type),
+              })}
+            </span>
+          </div>
+        )}
+        {!canAuthor && !readOnly && !walledReadOnly && (
           <div
             role="note"
             data-testid="perm-capability-readonly"
@@ -1379,16 +1404,22 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
                 title={
                   readOnly
                     ? t('engine.studio.pkg.readonlyHint')
-                    : lockedByArtifactTier
-                      ? t('perm.readOnly.artifact.hint')
-                      : t('perm.readOnly.hint')
+                    : walledReadOnly
+                      ? tFormat('engine.catalog.readOnly.walled', locale, {
+                          type: translateMetadataType(type, locale, entry?.label ?? type),
+                        })
+                      : lockedByArtifactTier
+                        ? t('perm.readOnly.artifact.hint')
+                        : t('perm.readOnly.hint')
                 }
               >
                 {readOnly
                   ? t('engine.studio.pkg.readonly')
-                  : lockedByArtifactTier
-                    ? t('perm.readOnly.artifact')
-                    : t('perm.readOnly')}
+                  : walledReadOnly
+                    ? t('perm.readOnly.walled')
+                    : lockedByArtifactTier
+                      ? t('perm.readOnly.artifact')
+                      : t('perm.readOnly')}
               </Badge>
             )}
           </button>

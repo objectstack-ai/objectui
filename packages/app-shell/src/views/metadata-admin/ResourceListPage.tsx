@@ -42,7 +42,7 @@ import {
 } from './registry.js';
 import { t, tFormat, translateMetadataType, useMetadataLocale } from './i18n.js';
 import { buildPackageScopeOptions } from './package-scope.js';
-import { ENVIRONMENT_SCOPE_QUERY, isEnvironmentScope } from './catalog-scope.js';
+import { ENVIRONMENT_SCOPE_QUERY, isEnvironmentScope, useWalledCatalogReadOnly } from './catalog-scope.js';
 import {
   audienceAnchorsOf,
   hasCatalogActivation,
@@ -140,6 +140,11 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   const envScope = isEnvironmentScope(searchParams);
   const canAuthor = useCanAuthorMetadata();
   const posture = useTenancyPosture();
+  // objectui#12183 — under a wall the security catalog is the platform
+  // operator's: the server refuses this caller every write of the type,
+  // whatever it holds (`catalog-scope.ts`). Not keyed on the scope: the server's
+  // verdict has none, and the package door is refused the same way.
+  const walled = useWalledCatalogReadOnly(type);
   const activation = envScope && hasCatalogActivation(type);
   const [statusFilter, setStatusFilter] = React.useState<'all' | 'active' | 'inactive'>('all');
   // The activation ledger's answer for the switch column, with the names the
@@ -426,7 +431,11 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   // door requires. The server refuses either way; this is the half that says
   // so before the click (objectui#7611, the #22621 → A parity gate).
   const typeWritable = !!(entry?.allowEnvironmentOverlay || entry?.allowRuntimeCreate);
-  const canCreate = typeWritable && (!envScope || canAuthor);
+  const canCreate = typeWritable && !walled && (!envScope || canAuthor);
+  // The wall is the gate to NAME only where the type would otherwise admit a
+  // write: a type with no runtime write channel is read-only for the operator
+  // too, and its page says nothing about the wall.
+  const walledDeciding = walled && typeWritable;
   // Packages load only for the package scope; the environment scope never
   // waits on them.
   const packagesPending = !envScope && projectPackages === null;
@@ -553,8 +562,10 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
             define here, in the posture's own terms (#22621 → A): under
             `single` the platform administrator defines and an organization
             administrator reads; under a wall the operator defines in Studio
-            and tenants assign. */}
-        {envScope && !canAuthor && (
+            and tenants assign. objectui#12183 — and under a wall a tenant
+            holding the capability is told the same thing, since the capability
+            does not admit it there. */}
+        {((envScope && !canAuthor) || walledDeciding) && (
           <div
             data-testid="catalog-readonly-reason"
             className="text-xs text-amber-800 border border-amber-300/70 bg-amber-50/70 rounded-md px-3 py-2.5 dark:text-amber-200 dark:border-amber-700/40 dark:bg-amber-950/20 flex items-start gap-2"
@@ -726,7 +737,7 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                           <CatalogActiveCell
                             itemName={name}
                             ledger={ledger}
-                            canSwitch={canAuthor}
+                            canSwitch={canAuthor && !walled}
                             busy={switching === name}
                             locale={locale}
                             onToggle={toggleActive}

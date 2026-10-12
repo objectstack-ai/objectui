@@ -58,6 +58,7 @@
  * objectui#4612.
  */
 
+import { DASHBOARD_COMPONENT_WIDGET_TYPES } from '@object-ui/types';
 import type { DashboardWidgetSlotEntry } from './widgetDispatch';
 
 /**
@@ -126,36 +127,31 @@ export function isLegacyRetiredWidget(widget: DashboardWidgetSlotEntry | null | 
 }
 
 /**
- * The node types a widget's legacy `component` envelope no longer draws:
- * `object-metric`, under its bare key and its registration's full name
- * (objectui#11466, the maintainer's ruling A, which extends ruling C on
- * objectui#11525 to this form).
+ * Is `node`, read from a widget's legacy `component` envelope
+ * (`{ id, component, layout }`, objectui's own format, which the spec's widget
+ * has no member for), a node the surfaces no longer draw? True for every node
+ * but a `metric-card` (objectui#12254).
  *
- * Ruling C put a dashboard metric's number on the semantic layer only: a
- * metric binds a `dataset` (ADR-0021). It retired the dataset-less inline path
- * the two surfaces built; an `object-metric` node an author placed in the
- * envelope (`{ id, component, layout }`, objectui's own format, which the
- * spec's widget has no member for) was the one inline metric form left. Both
- * surfaces now answer it with {@link LEGACY_RETIRED_WIDGET_SCHEMA}, the same
- * imported object their metric and pivot arms return, so the tile draws the
- * rebind prompt and sends no query.
+ * The envelope takes a `metric-card` and nothing else: the 2026-08-14 slot
+ * ruling (objectstack#8593) allowed that one node, and since objectui#12163
+ * (ruling C) both zod faces and `DashboardWidgetSchema['component']` refuse any
+ * other node by name. objectui#12254 retires the draw to match, after a census
+ * of stored use found no producer. So the accept set is the authoring one, read
+ * from the same closed list, `DASHBOARD_COMPONENT_WIDGET_TYPES`: a node whose
+ * `type` is a member draws as before, and anything else in the envelope (a
+ * node of another type, a node with no `type`, a string or a number) draws
+ * {@link LEGACY_RETIRED_WIDGET_SCHEMA}, the rebind prompt the metric and pivot
+ * arms return, and sends no query. The `object-metric` node objectui#11466
+ * retired here first is one case of the rule.
  *
- * ⛔ Every other envelope node draws as before, `object-chart` and
- * `object-data-table` included, and so does an `object-metric` block authored
- * on a page: this set is read only at the envelope.
+ * An empty envelope (`component` absent, or a falsy value) holds no node, so
+ * this answers false and the widget draws by its family, as before.
+ *
+ * ⛔ Read only at the envelope: the same node types authored on a page, or a
+ * `metric-card` placed directly in `widgets[]`, are not judged here.
  */
-const RETIRED_ENVELOPE_NODE_TYPES: ReadonlySet<string> = new Set([
-  'object-metric',
-  'plugin-dashboard:object-metric',
-]);
-
-/** Is `node`, read from a widget's `component` envelope, a retired node type? */
 export function isRetiredEnvelopeNode(node: unknown): boolean {
-  return (
-    typeof node === 'object' &&
-    node !== null &&
-    'type' in node &&
-    typeof node.type === 'string' &&
-    RETIRED_ENVELOPE_NODE_TYPES.has(node.type)
-  );
+  if (!node) return false;
+  const type = typeof node === 'object' ? (node as { type?: unknown }).type : undefined;
+  return !(DASHBOARD_COMPONENT_WIDGET_TYPES as readonly unknown[]).includes(type);
 }

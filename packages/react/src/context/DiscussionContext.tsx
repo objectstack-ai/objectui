@@ -45,6 +45,21 @@ export interface DiscussionContextValue {
   onAddComment?: (text: string, attachments?: DiscussionAttachment[]) => void | Promise<void>;
   onAddReply?: (parentId: string, text: string) => void | Promise<void>;
   onToggleReaction?: (itemId: string, reaction: string) => void | Promise<void>;
+  /**
+   * Edit the text of a comment the viewer wrote (objectui#12268). The feed
+   * offers it on a `comment` row whose `authoredByViewer` the host set. A
+   * returned promise that REJECTS means the edit was not stored: the editor
+   * keeps the draft and the row keeps its old text, and reporting why is the
+   * host's job. Typed by the feed's own item id (`FeedItem['id']`), so the
+   * feed hands it on without a cast.
+   */
+  onEditComment?: (itemId: string | number, text: string) => void | Promise<void>;
+  /**
+   * Delete a comment the viewer wrote (objectui#12268), offered on the same
+   * rows. The host asks for confirmation before it deletes; a rejection means
+   * nothing was deleted.
+   */
+  onDeleteComment?: (itemId: string | number) => void | Promise<void>;
   /** Optional list of users (or any mentionable entities) the comment
    *  input can suggest after the user types `@`. When omitted the input
    *  falls back to free-text @-mentions without autocompletion. */
@@ -84,6 +99,8 @@ export const DiscussionContextProvider: React.FC<DiscussionContextProviderProps>
     value.onAddComment,
     value.onAddReply,
     value.onToggleReaction,
+    value.onEditComment,
+    value.onDeleteComment,
     value.mentionSuggestions,
     value.onUploadAttachments,
     value.loading,

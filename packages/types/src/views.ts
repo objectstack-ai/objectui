@@ -653,6 +653,16 @@ export interface FeedItem {
   /** Whether this item has been edited */
   edited?: boolean;
   /**
+   * Whether the signed-in viewer wrote this item (objectui#12268). Set by the
+   * host that read the row, never derived by the timeline: the record page
+   * answers it for each `sys_comment` row with `@object-ui/collaboration`'s
+   * `isCommentAuthor`, the rule `CommentThread` gates on. A `comment` row
+   * offers its author's Edit and Delete only when this is `true` and the host
+   * hands over the matching handler. Relative to the viewer, like
+   * `Reaction.reacted`.
+   */
+  authoredByViewer?: boolean;
+  /**
    * Source rich-entity pointer (ADR-0052 ActivityPointer). When the activity
    * was derived from a separate record — an email in `sys_email`, a call/meeting
    * task — these identify it so the timeline can drill from the one-line summary

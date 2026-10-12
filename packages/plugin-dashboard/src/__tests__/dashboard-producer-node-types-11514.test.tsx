@@ -133,37 +133,11 @@ describe.each(SURFACES)('%s surface — the object-chart node is the declared no
   });
 });
 
-/* ── 3. the legacy `component` envelope's primitives draw as before ──────── */
-
-describe.each(SURFACES)('%s surface — a primitive in a widget\'s `component` envelope (objectui#11514)', (surface) => {
-  // The envelope's `component` is `SchemaNode`, which admits numbers and booleans
-  // the renderer's prop does not; the producer bridges them through
-  // `toRenderableSchema`, which draws the same text the renderer drew for them bare.
-  // Only a truthy `component` is an envelope on either surface (a falsy one falls
-  // through to the `type` dispatch), so the two rows are the truthy primitives.
-  // A typeless envelope keeps its card chrome: the spec's default `type` is not
-  // applied to it (`resolveWidgetType`), so the heading is drawn.
-  const mountWidget = (component: unknown) =>
-    render(
-      <SchemaRendererProvider dataSource={dataSource as unknown as DataSource}>
-        {surface === 'grid' ? (
-          <DashboardGridLayout schema={{ widgets: [{ id: 'w1', title: 'Envelope', component }] } as any} />
-        ) : (
-          <DashboardRenderer schema={{ widgets: [{ id: 'w1', title: 'Envelope', component }] } as any} />
-        )}
-      </SchemaRendererProvider>,
-    ).container;
-
-  it('a number draws its text', async () => {
-    const container = mountWidget(5);
-    await waitFor(() => expect(container.textContent).toContain('Envelope'));
-    expect(container.textContent).toContain('5');
-  });
-
-  it('`true` draws its text', async () => {
-    const container = mountWidget(true);
-    await waitFor(() => expect(container.textContent).toContain('Envelope'));
-    expect(container.textContent).toContain('true');
-    expect(container.textContent).not.toMatch(/Unknown component type/);
-  });
-});
+/*
+ * ⚠️ Dated note, 2026-10-12 — section 3 retired — objectui#12254. It pinned
+ * that a number or `true` in a widget's legacy `component` envelope drew its
+ * text, bridged through `toRenderableSchema`. The envelope now draws a
+ * `metric-card` and nothing else, so a primitive there draws the
+ * retired-format placeholder under the card heading; that is pinned in
+ * `envelopeDrawRetired-12254.test.tsx`.
+ */

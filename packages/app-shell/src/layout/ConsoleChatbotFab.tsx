@@ -18,11 +18,83 @@
  * chat publishes it; see `usePlanApprovalPending`), never from chat code here,
  * and only a change of the plan's state clears it — opening the chat does not.
  *
+ * objectui#12248 — the FAB yields its corner. It is `fixed` over the bottom-right
+ * of every page, and that corner is where a record page puts two controls a
+ * user cannot do without: the inline-edit bar's Save (sticky at the scroller's
+ * bottom edge, right-aligned) and, when the attachments panel is the page's
+ * last content, its last row's Download / Delete. Measured on a hosted console
+ * at 1440×900 and 1440×1400: a click on Save opened the assistant instead, and
+ * one tester lost an inline save that way. So while any element carrying
+ * `data-fab-yield` overlaps the FAB's own box, the FAB is hidden and not
+ * hit-testable (`invisible`), and it comes back the moment the corner is free.
+ * The assistant stays reachable through the top bar and ⌘/Ctrl+Shift+I.
+ *
+ * Positional, not presence: an occupant that is on the page but not under the
+ * button (the save bar under `sm`, where the FAB sits higher; an attachment row
+ * scrolled elsewhere) leaves the FAB alone. Opt-in, not "any control": a list
+ * scrolling row actions through the corner would otherwise blink the FAB on
+ * every page; an occupant declares itself with the attribute instead.
+ *
  * @module
  */
-import React, { useEffect, useId, useRef } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { useAssistant, usePlanApprovalPending } from '../assistant/assistantBus.js';
 import { useObjectTranslation } from '@object-ui/i18n';
+
+/**
+ * The DOM marker of a control the FAB must not cover (objectui#12248). Written
+ * by `InlineEditSaveBar` (`@object-ui/plugin-detail`) on its bar and by
+ * `RecordAttachmentsPanel` on its row actions. A DOM attribute rather than a
+ * shared export, so no package grows a published name for it.
+ */
+const FAB_YIELD_SELECTOR = '[data-fab-yield]';
+
+/** Two boxes share area. A zero-size box (a `display: none` element) shares none. */
+function overlaps(a: DOMRect, b: DOMRect): boolean {
+  if (a.width <= 0 || a.height <= 0 || b.width <= 0 || b.height <= 0) return false;
+  return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+}
+
+/**
+ * Whether a `data-fab-yield` element overlaps `button`'s box right now.
+ * Re-measured at most once per frame, on any scroll (captured, so the record
+ * page's own scroller counts), on resize, and when nodes are added or removed
+ * (the save bar mounting, a tab or a list row arriving). The button keeps its
+ * geometry while hidden, so the measurement reads the same box either way.
+ */
+function useCornerOccupied(button: React.RefObject<HTMLButtonElement | null>): boolean {
+  const [occupied, setOccupied] = useState(false);
+  useEffect(() => {
+    const own = button.current;
+    if (!own || typeof document === 'undefined') return;
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const box = own.getBoundingClientRect();
+      const occupants = document.querySelectorAll(FAB_YIELD_SELECTOR);
+      let hit = false;
+      for (let i = 0; i < occupants.length && !hit; i++) {
+        hit = overlaps(box, occupants[i].getBoundingClientRect());
+      }
+      setOccupied(hit);
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(measure);
+    };
+    schedule();
+    document.addEventListener('scroll', schedule, { capture: true, passive: true });
+    window.addEventListener('resize', schedule);
+    const observer = typeof MutationObserver === 'undefined' ? null : new MutationObserver(schedule);
+    observer?.observe(document.body, { childList: true, subtree: true });
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      document.removeEventListener('scroll', schedule, { capture: true });
+      window.removeEventListener('resize', schedule);
+      observer?.disconnect();
+    };
+  }, [button]);
+  return occupied;
+}
 
 export interface ConsoleChatbotFabProps {
   /** Product/app label for the accessible name. */
@@ -47,14 +119,17 @@ export function ConsoleChatbotFab({ appLabel, onOpenDock }: ConsoleChatbotFabPro
 
   const planPending = usePlanApprovalPending();
   const markerId = useId();
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const cornerOccupied = useCornerOccupied(buttonRef);
 
   return (
     <button
+      ref={buttonRef}
       type="button"
       aria-label={t('topbar.openAssistant', { defaultValue: 'Open {{name}} assistant', name: appLabel })}
       aria-describedby={planPending ? markerId : undefined}
       onClick={onOpenDock}
-      className="fixed bottom-20 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg ring-1 ring-primary/20 transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:bottom-6"
+      className={`fixed bottom-20 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg ring-1 ring-primary/20 transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:bottom-6${cornerOccupied ? ' invisible' : ''}`}
       data-testid="console-chatbot-fab"
     >
       {/* Inline SVG — no lucide-react import here, FAB stays dependency-free. */}

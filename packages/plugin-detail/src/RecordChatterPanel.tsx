@@ -32,6 +32,10 @@ export interface RecordChatterPanelProps {
   onAddReply?: (parentId: string | number, text: string) => void | Promise<void>;
   /** Called when user toggles a reaction */
   onToggleReaction?: (itemId: string | number, emoji: string) => void | Promise<void>;
+  /** Edits a comment the viewer wrote; forwarded to the timeline (objectui#12268). */
+  onEditComment?: (itemId: string | number, text: string) => void | Promise<void>;
+  /** Deletes a comment the viewer wrote; forwarded to the timeline (objectui#12268). */
+  onDeleteComment?: (itemId: string | number) => void | Promise<void>;
   /** Subscription state */
   subscription?: RecordSubscription;
   /** Called when user toggles subscription */
@@ -81,6 +85,8 @@ export const RecordChatterPanel: React.FC<RecordChatterPanelProps> = ({
   onAddComment,
   onAddReply,
   onToggleReaction,
+  onEditComment,
+  onDeleteComment,
   subscription,
   onToggleSubscription,
   filterMode,
@@ -183,6 +189,8 @@ export const RecordChatterPanel: React.FC<RecordChatterPanelProps> = ({
               onAddComment={onAddComment}
               onAddReply={onAddReply}
               onToggleReaction={onToggleReaction}
+              onEditComment={onEditComment}
+              onDeleteComment={onDeleteComment}
               subscription={subscription}
               onToggleSubscription={onToggleSubscription}
               filterMode={filterMode}
@@ -244,6 +252,8 @@ export const RecordChatterPanel: React.FC<RecordChatterPanelProps> = ({
               onAddComment={onAddComment}
               onAddReply={onAddReply}
               onToggleReaction={onToggleReaction}
+              onEditComment={onEditComment}
+              onDeleteComment={onDeleteComment}
               subscription={subscription}
               onToggleSubscription={onToggleSubscription}
               filterMode={filterMode}

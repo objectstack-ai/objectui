@@ -455,6 +455,12 @@ export const InlineEditSaveBar: React.FC<InlineEditSaveBarProps> = ({
         )}
         role="region"
         aria-label={t('detail.editFieldsInline')}
+        // objectui#12248: this bar sticks to the bottom edge with Save at its
+        // right end, which is where a host's floating launcher sits (the
+        // console assistant's button covered Save at 1440 wide). The marker
+        // asks such chrome to step aside while the two overlap; the console's
+        // `ConsoleChatbotFab` reads it. A DOM attribute, not a prop.
+        data-fab-yield=""
       >
         {/* objectui#6868: a field-scoped refusal reads as one reason PER FIELD,
             named by the field's own label, instead of the raw server string.

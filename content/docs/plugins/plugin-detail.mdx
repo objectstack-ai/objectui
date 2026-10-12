@@ -318,8 +318,20 @@ itself, so everything above describes that page too.
 | `showCommentInput` | Shows the composer. | A host discussion context to persist the comment. Without one the feed is read-only and no composer is rendered. |
 | `enableMentions` | Offers @-mention autocomplete in the composer. `false` withholds the suggestions. | The host context's user list. |
 | `enableReactions` | Shows emoji reactions on feed items. Existing reactions still render without a host; toggling one needs the host handler. Only a `comment` row offers Add reaction and clickable chips, because a reaction is stored on the comment (`sys_comment`). Any other row, such as a field change read from `sys_activity`, shows its reactions as chips that cannot be clicked. | A host `onToggleReaction`. |
-| `enableThreading` | Groups replies under their parent comment. Posting a reply needs the host handler. | A host `onAddReply`. |
+| `enableThreading` | Groups replies under their parent comment. A reply whose parent the feed does not hold (deleted, or older than the loaded page) shows as a row of its own. Posting a reply needs the host handler. | A host `onAddReply`. |
 | `showSubscriptionToggle` | **Not implemented.** | — |
+
+**Editing and deleting your own comment needs no input.** `sys_comment` is
+`managedBy: 'platform'`, which already declares the generic Edit / Delete
+affordances, so the feed offers them wherever its host does: on a `comment`
+row (or a reply) whose `authoredByViewer` the host set, with the host's
+`onEditComment` / `onDeleteComment`. The console's record page marks each row
+with `@object-ui/collaboration`'s `isCommentAuthor`, the rule `CommentThread`
+uses, and hands each handler over under the caller's update or delete grant on
+`sys_comment`. Edit opens the text in place; Delete asks through the console's
+destructive-action confirm. The server still decides the write, and a refusal
+shows as an error with the comment unchanged. An edited comment reads as
+edited (`is_edited` on the row).
 
 > **Known gap — `showSubscriptionToggle`.** It renders nothing, whatever you set
 > it to. The bell needs a `RecordSubscription` value and somewhere to persist
@@ -456,7 +468,8 @@ decision as a defect is how a warning channel gets ignored:
   mentions?: Mention[],            // @mention references
   reactions?: Reaction[],          // Emoji reactions
   pinned?: boolean,                // Pinned comment
-  edited?: boolean                 // Edited flag
+  edited?: boolean,                // Edited flag
+  authoredByViewer?: boolean       // The viewer wrote it (set by the host); gates Edit / Delete
 }
 ```
 
@@ -484,6 +497,8 @@ decision as a defect is how a warning channel gets ignored:
 | `onAddComment` | `(text: string) => void` | — | New comment callback |
 | `onAddReply` | `(parentId, text) => void` | — | Reply to comment callback |
 | `onToggleReaction` | `(itemId, emoji) => void` | — | Toggle emoji reaction callback. Called only for a `comment` row |
+| `onEditComment` | `(itemId, text) => void \| Promise<void>` | — | Stores a comment's new text. Offered only on a `comment` row (or reply) whose `authoredByViewer` is `true`; a rejection keeps the editor's draft |
+| `onDeleteComment` | `(itemId) => void \| Promise<void>` | — | Deletes a comment, on the same rows. The host confirms first |
 | `subscription` | `RecordSubscription` | — | Current subscription state |
 | `onToggleSubscription` | `(subscribed: boolean) => void` | — | Toggle subscription callback |
 | `filterMode` | `FeedFilterMode` | `'all'` | Active filter mode |
@@ -504,6 +519,8 @@ decision as a defect is how a warning channel gets ignored:
 | `onAddComment` | `(text: string) => void` | — | New comment callback |
 | `onAddReply` | `(parentId, text) => void` | — | Reply to comment callback |
 | `onToggleReaction` | `(itemId, emoji) => void` | — | Toggle emoji reaction callback. Called only for a `comment` row |
+| `onEditComment` | `(itemId, text) => void \| Promise<void>` | — | Stores a comment's new text. Offered only on a `comment` row (or reply) whose `authoredByViewer` is `true`; a rejection keeps the editor's draft |
+| `onDeleteComment` | `(itemId) => void \| Promise<void>` | — | Deletes a comment, on the same rows. The host confirms first |
 | `subscription` | `RecordSubscription` | — | Current subscription state |
 | `onToggleSubscription` | `(subscribed: boolean) => void` | — | Toggle subscription callback |
 | `className` | `string` | `''` | Additional CSS classes |
@@ -525,6 +542,8 @@ decision as a defect is how a warning channel gets ignored:
 | `replies` | `FeedItem[]` | required | Reply items |
 | `onAddReply` | `(parentId, text) => void` | — | Add reply callback |
 | `showReplyInput` | `boolean` | `false` | Show reply input |
+| `onEditComment` | `(itemId, text) => void \| Promise<void>` | — | Edit on a reply whose `authoredByViewer` is `true` |
+| `onDeleteComment` | `(itemId) => void \| Promise<void>` | — | Delete on the same replies |
 | `className` | `string` | `''` | Additional CSS classes |
 
 ### SubscriptionToggle

@@ -23,7 +23,8 @@ import { createObjectStackUploadAdapter } from '@object-ui/providers';
 import { createAuthenticatedFetch } from '@object-ui/auth';
 import { useObjectTranslation, isPermissionError, classifyLoadError } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
-import { resolveAffordance } from '@object-ui/core';
+import { resolveAffordance, type ConfirmationHandler } from '@object-ui/core';
+import { ActionConfirmDialog, type ConfirmDialogState } from './ActionConfirmDialog.js';
 
 /**
  * RecordAttachmentsPanel — generic record Attachments surface (objectstack-ai/objectstack#2727,
@@ -364,9 +365,38 @@ export const RecordAttachmentsPanel: React.FC<RecordAttachmentsPanelProps> = ({
     [adapter, dataSource, objectName, recordId, currentUserId, refresh],
   );
 
+  /**
+   * objectui#12248 — a delete asks first, through the console's ordinary
+   * destructive-action confirm: the same `ActionConfirmDialog` the record
+   * page's own Delete opens (objectui#11001), mounted here with the same
+   * promise-based state, and painted destructive the same way. Before this the
+   * row's button deleted at once (`DELETE sys_attachment/…` answered 200 with
+   * no question asked). A cancel settles `false` and nothing is sent.
+   */
+  const [confirmState, setConfirmState] = React.useState<ConfirmDialogState>({ open: false, message: '' });
+  const confirmDelete = React.useCallback<ConfirmationHandler>(
+    (message, options) =>
+      new Promise<boolean>((resolve) => {
+        setConfirmState({ open: true, message, options, resolve });
+      }),
+    [],
+  );
+
   const handleDelete = React.useCallback(
     async (row: AttachmentRow) => {
       if (!dataSource) return;
+      const confirmed = await confirmDelete(
+        t('detail.deleteAttachmentConfirm', {
+          defaultValue: 'Are you sure you want to delete the attachment "{{name}}"?',
+          name: row.file_name || row.file_id,
+        }),
+        {
+          title: t('detail.deleteAttachment', { defaultValue: 'Delete attachment' }),
+          confirmText: t('objectActions.deleteConfirmButton', { defaultValue: 'Delete' }),
+          destructive: true,
+        },
+      );
+      if (!confirmed) return;
       setError(null);
       try {
         await dataSource.delete('sys_attachment', row.id);
@@ -380,7 +410,7 @@ export const RecordAttachmentsPanel: React.FC<RecordAttachmentsPanelProps> = ({
         setError(friendlyError(err));
       }
     },
-    [dataSource, friendlyError],
+    [dataSource, friendlyError, confirmDelete, t],
   );
 
   const handleDownload = React.useCallback(
@@ -589,12 +619,19 @@ export const RecordAttachmentsPanel: React.FC<RecordAttachmentsPanelProps> = ({
                     .join(' · ')}
                 </div>
               </div>
+              {/* objectui#12248: `data-fab-yield` on both row actions. They
+                  sit at the panel's right edge, and when the panel is the
+                  page's last content the last row lands in the bottom-right
+                  corner at full scroll — under the console assistant's
+                  button, which no further scroll can move it out from. The
+                  marker makes that button step aside while they overlap. */}
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8"
                 aria-label={t('detail.downloadAttachment', { defaultValue: 'Download' })}
                 onClick={() => void handleDownload(row)}
+                data-fab-yield=""
               >
                 <Download className="h-4 w-4" />
               </Button>
@@ -605,6 +642,7 @@ export const RecordAttachmentsPanel: React.FC<RecordAttachmentsPanelProps> = ({
                   className="h-8 w-8 text-muted-foreground hover:text-destructive"
                   aria-label={t('detail.deleteAttachment', { defaultValue: 'Delete attachment' })}
                   onClick={() => void handleDelete(row)}
+                  data-fab-yield=""
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -613,6 +651,12 @@ export const RecordAttachmentsPanel: React.FC<RecordAttachmentsPanelProps> = ({
           ))}
         </ul>
       )}
+      <ActionConfirmDialog
+        state={confirmState}
+        onOpenChange={(open) => {
+          if (!open) setConfirmState((s) => ({ ...s, open: false }));
+        }}
+      />
     </div>
   );
 };

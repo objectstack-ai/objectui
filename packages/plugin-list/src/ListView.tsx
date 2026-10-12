@@ -7,7 +7,7 @@
  */
 
 import * as React from 'react';
-import { cn, Button, Input, Popover, PopoverContent, PopoverTrigger, FilterBuilder, SortBuilder, NavigationOverlay, GroupingEditor, RefreshIndicator, DataErrorState, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@object-ui/components';
+import { cn, Button, Input, Popover, PopoverContent, PopoverTrigger, FilterBuilder, SortBuilder, NavigationOverlay, GroupingEditor, RefreshIndicator, DataErrorState, resolveIcon, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@object-ui/components';
 import type { SortItem } from '@object-ui/components';
 import { Search, SlidersHorizontal, ArrowUpDown, X, EyeOff, Pencil, Group, Paintbrush, Download, Rows4, Rows3, Rows2, Share2, Printer, Plus, Trash2, CheckSquare, AlertTriangle, ShieldAlert, RotateCw, Loader2 } from 'lucide-react';
 import type { FilterBuilderRowGroup } from '@object-ui/components';
@@ -5686,7 +5686,14 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           // It used to hand the empty list to `ObjectGallery`, which drew a
           // hard-coded English line and never read the view's `emptyState`.
           <ListEmptyState
-            emptyState={schema.emptyState}
+            title={schema.emptyState?.title}
+            message={schema.emptyState?.message}
+            // objectui#5935: the authored name is normalised through the ONE
+            // icon seam. This site once had its own inline `split('-')` and no
+            // rename map, so `home` and every snake_case spelling fell through
+            // to the fallback here while resolving elsewhere. What an
+            // unresolvable name draws is the empty state's own decision.
+            icon={resolveIcon(schema.emptyState?.icon)}
             hasBaseFilter={hasDeclaredFilter(authoredFilter)}
             // The USER's query (objectui#11687): the search box, the
             // user-filter chips, the filter panel's own conditions. The view's

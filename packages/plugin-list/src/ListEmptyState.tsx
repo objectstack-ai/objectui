@@ -19,13 +19,14 @@
  *
  * Module-internal: not exported from the package barrel. The copy is the
  * `list.*` keys the grid already read; ⛔ no second string table. Each caller
- * hands over the translation function and display locale it already holds, and
- * says what it knows about the query that came back empty; a caller that has
- * no search box or user filters (a standalone gallery) says `false`.
+ * hands over the translation function and display locale it already holds, the
+ * authored members it has (an authored icon NAME already resolved through the
+ * icon seam), and what it knows about the query that came back empty; a caller
+ * that has no search box or user filters (a standalone gallery) says `false`.
  */
 
 import * as React from 'react';
-import { Button, DataEmptyState, resolveIcon } from '@object-ui/components';
+import { Button, DataEmptyState } from '@object-ui/components';
 import { Inbox, Plus, type LucideIcon } from 'lucide-react';
 import type { ListViewSchema } from '@object-ui/types';
 // The spec's own resolver for an `I18nLabel` (a plain string or an inline
@@ -43,9 +44,20 @@ export function hasDeclaredFilter(filter: unknown): boolean {
   return false;
 }
 
+/** The authored `emptyState` (the spec's `EmptyStateSchema`). */
+type AuthoredEmptyState = NonNullable<ListViewSchema['emptyState']>;
+
 export interface ListEmptyStateProps {
-  /** The authored `emptyState` (the spec's `EmptyStateSchema`), when the caller has one. */
-  emptyState?: ListViewSchema['emptyState'];
+  /** The authored `emptyState.title` (`I18nLabel`), resolved here against `displayLocale`. */
+  title?: AuthoredEmptyState['title'];
+  /** The authored `emptyState.message` (`I18nLabel`), resolved here against `displayLocale`. */
+  message?: AuthoredEmptyState['message'];
+  /**
+   * The authored `emptyState.icon`, already resolved by the caller through the
+   * ONE icon seam (`resolveIcon`, objectui#5935); `null` or absent draws the
+   * `Inbox` glyph.
+   */
+  icon?: LucideIcon | null;
   /**
    * The USER applied a query: the search box, the user-filter chips, the
    * filter panel. Only then is the user told to adjust or clear their filters.
@@ -62,20 +74,19 @@ export interface ListEmptyStateProps {
 }
 
 export function ListEmptyState({
-  emptyState,
+  title: authoredTitle,
+  message: authoredMessage,
+  icon,
   hasUserQuery,
   hasBaseFilter,
   onAddRecord,
   t,
   displayLocale,
 }: ListEmptyStateProps) {
-  // objectui#5935: normalisation through the ONE seam. The grid's branch had
-  // its own inline `split('-')` and no rename map, so `home` and every
-  // snake_case spelling fell through to `Inbox` there while resolving
-  // elsewhere. ⛔ The `Inbox` fallback itself stays here, at the surface —
-  // an empty state always shows a glyph, and that is this surface's decision,
-  // not the seam's (maintainer ruling 2026-09-03, option C).
-  const ResolvedIcon: LucideIcon = resolveIcon(emptyState?.icon) ?? Inbox;
+  // ⛔ The `Inbox` fallback stays here, at the surface — an empty state always
+  // shows a glyph, and that is this surface's decision, not the icon seam's
+  // (objectui#5935, maintainer ruling 2026-09-03, option C).
+  const ResolvedIcon: LucideIcon = icon ?? Inbox;
   // Distinguish "filtered/searched to empty" from "truly empty (first run)".
   // A new user with no filters shouldn't be told to "adjust your filters" —
   // they should be invited to create.
@@ -100,9 +111,9 @@ export function ListEmptyState({
   // state silently drew the default copy in every locale. A string still
   // passes through unchanged, and a map with no usable entry still falls to
   // the default.
-  const title = resolveInlineI18nLabel(emptyState?.title, displayLocale)
+  const title = resolveInlineI18nLabel(authoredTitle, displayLocale)
     ?? (hasActiveQuery ? t('list.noMatches') : t('list.firstRunTitle'));
-  const description = resolveInlineI18nLabel(emptyState?.message, displayLocale)
+  const description = resolveInlineI18nLabel(authoredMessage, displayLocale)
     ?? (hasUserQuery
       ? t('list.noMatchesMessage')
       : hasBaseFilter

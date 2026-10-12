@@ -18,7 +18,11 @@
  * `position`) render a record lookup against the data API (with a manual-entry
  * escape hatch, so the never-trap rule still holds), `org-membership-level` is
  * a strict select over a closed enum, `manager` is auto-resolved (disabled
- * cell), and `queue` warns that the runtime doesn't resolve it.
+ * cell), and `queue` warns that the runtime doesn't resolve it. A kind whose
+ * published binding is the REGISTRY instead (`{ source: 'registry', type }`,
+ * objectstack#22710 — `position` on a server carrying it) renders a select over
+ * that metadata type's items and commits the item's name (objectui#7611 Q3b),
+ * with the same manual-entry escape hatch.
  *
  * An `object` reference renders the shared {@link ObjectPicker} instead
  * (objectui#11783): still suggest-but-allow-anything, but the value is committed
@@ -53,6 +57,7 @@ import { useObjectFields } from '../previews/useObjectFields.js';
 import { t, tFormat, useMetadataLocale, type SupportedLocale } from '../i18n.js';
 import { flagUnknownValue, RequiredMarker } from './_shared.js';
 import { ObjectPicker } from './ObjectPicker.js';
+import { APPROVER_REGISTRY_TYPES } from '../../../utils/approverValueSources.js';
 
 /** Context the reference picker needs to resolve dynamic option sources. */
 export interface FlowReferenceContext {
@@ -313,6 +318,33 @@ export function recordLookupFor(resolved: ResolvedRef | undefined): RecordLookup
     ...(local?.picker ? { picker: local.picker } : {}),
     ...(local?.subtitle ? { subtitle: local.subtitle } : {}),
   };
+}
+
+/**
+ * The older-server fallback for a REGISTRY-bound kind (objectui#7611 Q3b),
+ * derived from the bundled spec exactly as {@link KIND_TO_RECORD_LOOKUP} is:
+ * empty under the installed spec, `{ position: 'position' }` when the bundle
+ * carries objectstack#22710 (the console objectstack ships injects it). Never a
+ * list written here — which kinds are registry-backed is the spec's answer.
+ */
+export const KIND_TO_REGISTRY_TYPE: Readonly<Partial<Record<ReferenceKind, string>>> = APPROVER_REGISTRY_TYPES;
+
+/**
+ * The metadata type a resolved reference lists its candidates from, when its
+ * binding is the REGISTRY (`{ source: 'registry', type }`, objectstack#22710),
+ * else `undefined`.
+ *
+ * The same precedence as {@link recordLookupFor}: the schema's published
+ * `xRef.sources` entry wins — it is the server's own binding — and a kind the
+ * server publishes as anything else (a `data` row lookup above all, which keeps
+ * the record arm exactly as it was) never reaches the registry. Only with no
+ * published source does the spec-derived {@link KIND_TO_REGISTRY_TYPE} answer.
+ */
+export function registryTypeFor(resolved: ResolvedRef | undefined): string | undefined {
+  if (!resolved) return undefined;
+  const published = resolved.source;
+  if (published) return published.source === 'registry' ? published.type : undefined;
+  return KIND_TO_REGISTRY_TYPE[resolved.kind];
 }
 
 /** Read `node.config[key]` as a non-empty string, else undefined. */
@@ -613,6 +645,106 @@ function RecordLookupCell({ binding, value, onPick, onCommit, onBlur, disabled, 
   );
 }
 
+/**
+ * A single-select REGISTRY picker cell (objectui#7611 Q3b) for a reference
+ * whose binding is `{ source: 'registry', type }`: the value is the machine
+ * NAME of an item of metadata `type`, so the candidates are that type's items —
+ * listed through the designer's metadata client, `GET /api/v1/meta/<type>`,
+ * which serves the code-declared and the environment-authored items alike
+ * (ADR-0131 D2) — and a choice commits the item's `name`, never anything else.
+ *
+ * "Never trap the author" holds as it does for {@link RecordLookupCell}: a
+ * pencil toggle switches to manual entry, and a registry that lists nothing
+ * (none declared yet, a failed read) leaves the plain text box rather than an
+ * empty select. A stored name the listed items do not carry still renders,
+ * flagged `(not found)`, so opening an old row never silently blanks it.
+ */
+function RegistryPickCell({ type, value, onPick, onCommit, onBlur, disabled, placeholder, locale }: {
+  /** The metadata type whose items are the candidates. */
+  type: string;
+  value: unknown;
+  /** Immediate commit for a choice (there is no blur to flush on). */
+  onPick: (value: string) => void;
+  /** Keystroke-level commit for the manual-entry input (flushed via onBlur). */
+  onCommit: (value: unknown) => void;
+  onBlur?: () => void;
+  disabled?: boolean;
+  placeholder?: string;
+  /** The designer locale the toggle buttons and the flag are worded in. */
+  locale: SupportedLocale;
+}) {
+  const { options, loading } = useMetadataListOptions(type);
+  const [manual, setManual] = React.useState(false);
+  const current = value != null ? String(value) : '';
+  const listed = !loading && options.length > 0;
+
+  if (manual || !listed) {
+    return (
+      <div className="flex w-full items-center gap-1" data-testid="registry-pick" data-registry-type={type} data-mode="text">
+        <Input
+          value={current}
+          onChange={(e) => onCommit(e.target.value)}
+          onBlur={onBlur}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+          }}
+          placeholder={loading ? t('engine.form.loadingOptions', locale) : placeholder}
+          disabled={disabled || loading}
+          className="h-8 flex-1 text-sm"
+        />
+        {listed && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 shrink-0 p-0 text-muted-foreground"
+            onClick={() => setManual(false)}
+            disabled={disabled}
+            aria-label={t('engine.inspector.reference.pickFromRegistry', locale)}
+            title={t('engine.inspector.reference.pickFromRegistry', locale)}
+          >
+            <Search className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      </div>
+    );
+  }
+
+  const shown = current && !options.some((o) => o.value === current)
+    ? [...options, { value: current, label: flagUnknownValue(current, t('engine.form.notFound', locale), locale) }]
+    : options;
+  return (
+    <div className="flex w-full items-center gap-1" data-testid="registry-pick" data-registry-type={type} data-mode="select">
+      <div className="min-w-0 flex-1">
+        <Select value={current || undefined} onValueChange={onPick} disabled={disabled}>
+          <SelectTrigger className="h-8 w-full text-sm">
+            <SelectValue placeholder={placeholder ?? '—'} />
+          </SelectTrigger>
+          <SelectContent>
+            {shown.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-8 w-8 shrink-0 p-0 text-muted-foreground"
+        onClick={() => setManual(true)}
+        disabled={disabled}
+        aria-label={t('engine.inspector.reference.enterManually', locale)}
+        title={t('engine.inspector.reference.enterManually', locale)}
+      >
+        <Pencil className="h-3.5 w-3.5" />
+      </Button>
+    </div>
+  );
+}
+
 export interface ReferenceComboboxProps {
   /** The resolved concrete reference, or undefined → plain free text. */
   resolved: ResolvedRef | undefined;
@@ -643,6 +775,7 @@ export interface ReferenceComboboxProps {
  * The bare reference combobox — suggestions for `resolved.kind`, always
  * free-text editable, except for the kinds with a stronger contract:
  * directory-backed kinds render a record lookup ({@link RecordLookupCell}),
+ * registry-bound kinds a select over the registry ({@link RegistryPickCell}),
  * `org-membership-level` a strict select (closed enum), `manager` a disabled
  * auto-resolved cell, and `queue` free text with a not-supported warning
  * (objectstack-ai/objectstack#3508). Hooks are called unconditionally (kind-gated args) so the
@@ -719,6 +852,25 @@ export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect,
     return (
       <RecordLookupCell
         binding={lookup}
+        value={value}
+        onPick={commitSelection}
+        onCommit={onCommit}
+        onBlur={onBlur}
+        disabled={disabled}
+        placeholder={placeholder}
+        locale={locale}
+      />
+    );
+  }
+
+  // Registry-bound kinds → a select over the metadata type the binding names
+  // (objectui#7611 Q3b). Read off the published binding like the lookup above,
+  // so this package never decides which kinds live in the registry.
+  const registryType = registryTypeFor(resolved);
+  if (registryType) {
+    return (
+      <RegistryPickCell
+        type={registryType}
         value={value}
         onPick={commitSelection}
         onCommit={onCommit}

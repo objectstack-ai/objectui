@@ -31,6 +31,7 @@
 
 import type { FlowTriggerKind } from '@objectstack/spec/automation';
 import type { DeclaredConfigKey } from './json-schema-to-fields.js';
+import type { RegistryValueSource } from '../../../utils/approverValueSources.js';
 import { flowFieldZh, isZhLocale } from '../i18n.js';
 
 export type FlowConfigFieldKind =
@@ -166,13 +167,18 @@ export interface FlowReferenceSpec {
  * value. Mirrors the spec's `APPROVER_VALUE_SOURCES` projection.
  *
  * `data` means the DATA API (`/api/v1/data/:object`) — named in deliberate
- * contrast to `meta`, the registry this used to query by mistake. The other
- * variants are not pickers at all: a closed `enum`, an `auto`-resolved value, a
- * `trigger-field` name, a CEL `expression`, or an `unsupported` type the
- * runtime never resolves.
+ * contrast to `meta`, the registry this used to query by mistake for ROWS.
+ * `registry` is the other half of that split (objectstack#22710, objectui#7611
+ * Q3b): the value is the machine name of a declared item of metadata `type`, so
+ * its candidates ARE the registry, `GET /api/v1/meta/<type>`, and the picker
+ * commits the item's `name` — `position` is bound this way (ADR-0131 D4). The
+ * other variants are not pickers at all: a closed `enum`, an `auto`-resolved
+ * value, a `trigger-field` name, a CEL `expression`, or an `unsupported` type
+ * the runtime never resolves.
  */
 export type RefValueSource =
   | { source: 'data'; object: string; valueField: string }
+  | RegistryValueSource
   | { source: 'enum'; values: string[] }
   | { source: 'auto' | 'trigger-field' | 'expression' | 'unsupported' };
 

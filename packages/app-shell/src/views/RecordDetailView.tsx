@@ -15,7 +15,7 @@ import { Empty, EmptyTitle, EmptyDescription, Button } from '@object-ui/componen
 import { useAuth, createAuthenticatedFetch } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
 import { useDisplayLocale } from '@object-ui/i18n';
-import { ActionProvider, useObjectTranslation, useObjectLabel, useActionTextLocalizer, usePageAssignment, RecordContextProvider, SchemaRenderer, DiscussionContextProvider, HighlightFieldsProvider, InlineEditProvider, resolveApprovalLock, useGlobalUndo, useDataInvalidation, notifyDataChanged, useRowPredicate, classifyLoadError } from '@object-ui/react';
+import { ActionProvider, useObjectTranslation, useObjectLabel, useActionTextLocalizer, usePageAssignment, RecordContextProvider, SchemaRenderer, DiscussionContextProvider, HighlightFieldsProvider, InlineEditProvider, resolveApprovalLock, useGlobalUndo, useDataInvalidation, notifyDataChanged, subscribeDataChanges, dataChangeMatches, useRowPredicate, classifyLoadError } from '@object-ui/react';
 import { buildExpandFields, captureUpdateUndoData, recordDelete, resolveAffordance, resolveRecordIdParamSeed, userActionPredicates, withoutDeniedFields, type AffordanceGrantPrincipal, type SchemaLike } from '@object-ui/core';
 import { toast } from 'sonner';
 import { useRecordPresence, PresenceAvatars } from '@object-ui/collaboration';
@@ -593,6 +593,10 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // its object) is invalidated by anyone — the form overlay, an action, an
   // undo, or any dataSource write via the MutationEvent bridge.
   const recordInvalidationNonce = useDataInvalidation(objectName || undefined, pureRecordId || undefined);
+  // objectui#12244 — the record load's SECOND trigger: a write to one of this
+  // record's related CHILD objects. Bumped by the subscription beside
+  // `childRelations` below, which explains why it exists.
+  const [childInvalidationNonce, setChildInvalidationNonce] = useState(0);
   const notifyRecordChanged = useCallback(() => {
     if (objectName) notifyDataChanged({ objectName, recordId: pureRecordId || undefined });
   }, [objectName, pureRecordId]);
@@ -816,13 +820,14 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
       window.removeEventListener('objectui:record-changed', onChanged as EventListener);
     };
     // #2269: recordInvalidationNonce re-runs this fetch in place whenever the
-    // record (or its object) is invalidated on the bus.
+    // record (or its object) is invalidated on the bus; childInvalidationNonce
+    // does the same for a write to one of its related children (objectui#12244).
     //
     // objectui#11699: every dependency here is either a primitive or the
     // adapter the read goes through. ⛔ Do not list `objectDef`,
     // `effectivePage` or `perms` here — derive what the read sends from them
     // above instead (AGENTS.md #10).
-  }, [hasPage, objectName, pureRecordId, dataSource, pageRecordExpand, recordInvalidationNonce]);
+  }, [hasPage, objectName, pureRecordId, dataSource, pageRecordExpand, recordInvalidationNonce, childInvalidationNonce]);
 
   // The loaded record AS THE VIEWER MAY READ IT (objectui#10434,
   // objectui#10499): `withoutDeniedFields` removes the fields the loaded
@@ -1577,6 +1582,42 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     }),
     [objectDef, objects, canOnObject, permissionsLoaded, objectPluralLabel],
   );
+
+  // [objectui#12244] A write to a CHILD re-reads this record, in place.
+  //
+  // Every block of this page — the header's highlight strip with its rollups
+  // among them — draws from the ONE row the record-load effect above reads, and
+  // that read re-ran only for a change to THIS record or object. A child write
+  // reaches the bus (objectui#2269) under the CHILD's name: through the
+  // console's MutationEvent bridge for a dataSource write (a related-list row
+  // delete, the form overlay's save), or through `notifyRelatedChanged` for a
+  // row action. Neither matched, so a quote's total stayed stale beside a line
+  // list that refreshed, until a reload. A rollup is the server's to compute
+  // (a summary field, or a hook rolling the children up); the page's part is
+  // only to read the parent again.
+  //
+  // Reader side, the precedent `record:reference_rail` set for its own rows
+  // (objectui#12110 item 4): the WRITER declares what it wrote, the reader
+  // knows what it depends on. That covers every child-write path at one seam,
+  // and costs one parent read per change, however many lists are mounted.
+  //
+  // The children are the page's derived related lists, keyed by CONTENT
+  // (AGENTS.md #10 — `childRelations` is a memo). A change the record's own
+  // subscription already answers — this record, its object, or `'*'` — is
+  // left to it, so a self-referencing child or a wildcard reads the row once.
+  const relatedChildObjectsKey = JSON.stringify(
+    Array.from(new Set(childRelations.map((r) => r.childObject))).sort(),
+  );
+  useEffect(() => {
+    const childObjects = JSON.parse(relatedChildObjectsKey) as string[];
+    if (!objectName || childObjects.length === 0) return;
+    return subscribeDataChanges((change) => {
+      if (dataChangeMatches(change, objectName, pureRecordId || undefined)) return;
+      if (childObjects.some((child) => dataChangeMatches(change, child))) {
+        setChildInvalidationNonce((n) => n + 1);
+      }
+    });
+  }, [objectName, pureRecordId, relatedChildObjectsKey]);
 
   // [objectstack#3821] RECORD-level write gate. Everything above is object
   // scoped — it cannot express "this one record is read-only", which is

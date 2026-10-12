@@ -3504,6 +3504,7 @@ const ko = {
       working: "처리 중…",
       installToCloud: "클라우드에 설치…",
       installing: "설치 중…",
+      updating: "업데이트 중…",
       uninstall: "제거",
       uninstalling: "제거 중…",
       details: "세부 정보",
@@ -3536,6 +3537,17 @@ const ko = {
       openApp: "{{name}} 열기",
       deployTimeout: "설치는 기록되었지만 이 환경에서 아직 앱을 제공하지 않습니다. 아직 배포 중일 수 있으니 잠시 후 다시 확인하세요. 계속 나타나지 않으면 패키지가 로드되지 않았거나, 앱이 포함되어 있지 않거나, 앱에 사용자에게 없는 권한이 필요할 수 있습니다.",
       checkAgain: "다시 확인",
+    },
+    // objectui#12146 — the install dialog opened as an UPDATE of the copy
+    // this environment holds (MarketplacePackagePage).
+    update: {
+      dialogTitle: "{{name}} 업데이트",
+      dialogDescCurrent: "이 환경({{host}})에 설치된 앱을 업데이트합니다.",
+      dialogDescPicker: "설치된 앱을 업데이트할 환경을 선택하세요. ObjectStack Cloud에 로그인되어 있어야 합니다.",
+      majorNotice: "메이저 버전 업데이트입니다(v{{fromMajor}} → v{{toMajor}}). 호환되지 않는 변경이 포함될 수 있습니다.",
+      releaseNotes: "v{{version}} 릴리스 노트 읽기",
+      success: "v{{version}}(으)로 업데이트했습니다.",
+      deployTimeout: "업데이트는 기록되었지만 이 환경에서 아직 v{{version}}을(를) 제공하지 않습니다. 아직 배포 중일 수 있으니 잠시 후 다시 확인하세요.",
     },
     // objectui#3546 — the MarketplacePage "Your organization" strip.
     org: {

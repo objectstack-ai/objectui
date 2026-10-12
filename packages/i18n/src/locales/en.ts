@@ -4128,6 +4128,7 @@ const en = {
         installToCloud: 'Install to cloud…',
         installed: 'Installed',
         installing: 'Installing…',
+        updating: 'Updating…',
         uninstall: 'Uninstall',
         uninstalling: 'Uninstalling…',
         details: 'Details',
@@ -4165,6 +4166,17 @@ const en = {
         openApp: 'Open {{name}}',
         deployTimeout: 'The install was recorded, but this environment is not serving the app yet. It may still be deploying — check again shortly. If it never appears, the package may not have loaded, may include no app, or its app may need a permission you do not hold.',
         checkAgain: 'Check again',
+      },
+      // objectui#12146 — the install dialog opened as an UPDATE of the copy
+      // this environment holds (MarketplacePackagePage).
+      update: {
+        dialogTitle: 'Update {{name}}',
+        dialogDescCurrent: 'Update the copy installed in this environment ({{host}}).',
+        dialogDescPicker: 'Choose the environment whose installed copy to update. You need to be signed into ObjectStack Cloud.',
+        majorNotice: 'This is a major version update (v{{fromMajor}} → v{{toMajor}}), which may include breaking changes.',
+        releaseNotes: 'Read the v{{version}} release notes',
+        success: 'Updated to v{{version}}.',
+        deployTimeout: 'The update was recorded, but this environment is not serving v{{version}} yet. It may still be deploying — check again shortly.',
       },
       // objectui#3546 — the MarketplacePage "Your organization" strip.
       org: {

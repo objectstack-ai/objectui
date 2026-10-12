@@ -3572,6 +3572,7 @@ const es = {
       working: "Procesando…",
       installToCloud: "Instalar en la nube…",
       installing: "Instalando…",
+      updating: "Actualizando…",
       uninstall: "Desinstalar",
       uninstalling: "Desinstalando…",
       details: "Detalles",
@@ -3604,6 +3605,17 @@ const es = {
       openApp: "Abrir {{name}}",
       deployTimeout: "La instalación se registró, pero este entorno aún no ofrece la aplicación. Puede que siga desplegándose; vuelve a comprobarlo en breve. Si nunca aparece, es posible que el paquete no se haya cargado, que no incluya ninguna aplicación o que su aplicación requiera un permiso que no tienes.",
       checkAgain: "Comprobar de nuevo",
+    },
+    // objectui#12146 — the install dialog opened as an UPDATE of the copy
+    // this environment holds (MarketplacePackagePage).
+    update: {
+      dialogTitle: "Actualizar {{name}}",
+      dialogDescCurrent: "Actualizar la copia instalada en este entorno ({{host}}).",
+      dialogDescPicker: "Elija el entorno cuya copia instalada desea actualizar. Debe haber iniciado sesión en ObjectStack Cloud.",
+      majorNotice: "Esta es una actualización de versión principal (v{{fromMajor}} → v{{toMajor}}), que puede incluir cambios incompatibles.",
+      releaseNotes: "Leer las notas de la versión v{{version}}",
+      success: "Actualizado a la v{{version}}.",
+      deployTimeout: "La actualización se registró, pero este entorno aún no ofrece la v{{version}}. Puede que siga desplegándose; vuelva a comprobarlo en breve.",
     },
     // objectui#3546 — the MarketplacePage "Your organization" strip.
     org: {

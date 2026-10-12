@@ -3655,6 +3655,7 @@ const ru = {
       working: "Обработка…",
       installToCloud: "Установить в облако…",
       installing: "Установка…",
+      updating: "Обновление…",
       uninstall: "Удалить",
       uninstalling: "Удаление…",
       details: "Подробности",
@@ -3687,6 +3688,17 @@ const ru = {
       openApp: "Открыть {{name}}",
       deployTimeout: "Установка записана, но эта среда пока не предоставляет приложение. Возможно, развёртывание ещё идёт — проверьте снова чуть позже. Если оно так и не появится, пакет мог не загрузиться, не содержать приложения или требовать разрешение, которого у вас нет.",
       checkAgain: "Проверить снова",
+    },
+    // objectui#12146 — the install dialog opened as an UPDATE of the copy
+    // this environment holds (MarketplacePackagePage).
+    update: {
+      dialogTitle: "Обновить {{name}}",
+      dialogDescCurrent: "Обновить копию, установленную в этой среде ({{host}}).",
+      dialogDescPicker: "Выберите среду, в которой нужно обновить установленную копию. Требуется вход в ObjectStack Cloud.",
+      majorNotice: "Это обновление основной версии (v{{fromMajor}} → v{{toMajor}}), оно может содержать несовместимые изменения.",
+      releaseNotes: "Прочитать примечания к выпуску v{{version}}",
+      success: "Обновлено до v{{version}}.",
+      deployTimeout: "Обновление записано, но эта среда пока не предоставляет v{{version}}. Возможно, развёртывание ещё идёт — проверьте снова чуть позже.",
     },
     // objectui#3546 — the MarketplacePage "Your organization" strip.
     org: {

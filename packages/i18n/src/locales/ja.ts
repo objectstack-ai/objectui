@@ -3507,6 +3507,7 @@ const ja = {
       working: "処理中…",
       installToCloud: "クラウドにインストール…",
       installing: "インストール中…",
+      updating: "更新中…",
       uninstall: "アンインストール",
       uninstalling: "アンインストール中…",
       details: "詳細",
@@ -3539,6 +3540,17 @@ const ja = {
       openApp: "{{name}} を開く",
       deployTimeout: "インストールは記録されましたが、この環境ではまだアプリが提供されていません。デプロイ中の可能性があります。しばらくしてから再確認してください。表示されない場合は、パッケージが読み込まれていない、アプリが含まれていない、またはアプリにあなたが持っていない権限が必要な可能性があります。",
       checkAgain: "再確認",
+    },
+    // objectui#12146 — the install dialog opened as an UPDATE of the copy
+    // this environment holds (MarketplacePackagePage).
+    update: {
+      dialogTitle: "{{name}} を更新",
+      dialogDescCurrent: "この環境（{{host}}）にインストール済みのアプリを更新します。",
+      dialogDescPicker: "インストール済みのアプリを更新する環境を選択します。ObjectStack Cloudにサインインする必要があります。",
+      majorNotice: "メジャーバージョンの更新です（v{{fromMajor}} → v{{toMajor}}）。互換性のない変更が含まれる可能性があります。",
+      releaseNotes: "v{{version}} のリリースノートを読む",
+      success: "v{{version}} に更新しました。",
+      deployTimeout: "更新は記録されましたが、この環境ではまだ v{{version}} が提供されていません。デプロイ中の可能性があります。しばらくしてから再確認してください。",
     },
     // objectui#3546 — the MarketplacePage "Your organization" strip.
     org: {

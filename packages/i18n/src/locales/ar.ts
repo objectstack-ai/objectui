@@ -3780,6 +3780,7 @@ const ar = {
       working: "جارٍ المعالجة…",
       installToCloud: "تثبيت في السحابة…",
       installing: "جارٍ التثبيت…",
+      updating: "جارٍ التحديث…",
       uninstall: "إلغاء التثبيت",
       uninstalling: "جارٍ إلغاء التثبيت…",
       details: "التفاصيل",
@@ -3812,6 +3813,17 @@ const ar = {
       openApp: "فتح {{name}}",
       deployTimeout: "تم تسجيل التثبيت، لكن هذه البيئة لا تقدّم التطبيق بعد. قد يكون النشر لا يزال جاريًا — تحقّق مرة أخرى بعد قليل. إذا لم يظهر أبدًا، فربما لم تُحمَّل الحزمة، أو لا تتضمن أي تطبيق، أو يتطلب تطبيقها إذنًا لا تملكه.",
       checkAgain: "تحقّق مرة أخرى",
+    },
+    // objectui#12146 — the install dialog opened as an UPDATE of the copy
+    // this environment holds (MarketplacePackagePage).
+    update: {
+      dialogTitle: "تحديث {{name}}",
+      dialogDescCurrent: "تحديث النسخة المثبتة في هذه البيئة ({{host}}).",
+      dialogDescPicker: "اختر البيئة التي تريد تحديث النسخة المثبتة فيها. يجب أن تكون مسجلاً في ObjectStack Cloud.",
+      majorNotice: "هذا تحديث إلى إصدار رئيسي جديد (v{{fromMajor}} → v{{toMajor}})، وقد يتضمن تغييرات غير متوافقة.",
+      releaseNotes: "اقرأ ملاحظات الإصدار v{{version}}",
+      success: "تم التحديث إلى v{{version}}.",
+      deployTimeout: "تم تسجيل التحديث، لكن هذه البيئة لا تقدّم v{{version}} بعد. قد يكون النشر لا يزال جاريًا — تحقّق مرة أخرى بعد قليل.",
     },
     // objectui#3546 — the MarketplacePage "Your organization" strip.
     org: {

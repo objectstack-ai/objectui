@@ -2,10 +2,12 @@
  * Marketplace Package Detail Page.
  *
  * Shows full package metadata + readme + approved version list. Provides
- * an "Install" button that opens a dialog with environment picker.
+ * an "Install" button that opens a dialog with environment picker. When this
+ * environment holds an older version, the same button reads "Update" and opens
+ * the same dialog as an UPDATE dialog (objectui#12146).
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Button,
@@ -97,9 +99,33 @@ function installLandsInThisEnvironment(selectedEnv: string): boolean {
  * answer names, so "Check again" waits for the same version (objectui#12098).
  */
 type DeployState =
-  | { phase: 'waiting'; manifestId: string; version: string | undefined }
-  | { phase: 'served'; manifestId: string; version: string | undefined; app: ServedApp | null }
-  | { phase: 'timeout'; manifestId: string; version: string | undefined };
+  | { phase: 'waiting'; manifestId: string; version: string | undefined; updatedTo: string | null }
+  | { phase: 'served'; manifestId: string; version: string | undefined; updatedTo: string | null; app: ServedApp | null }
+  | { phase: 'timeout'; manifestId: string; version: string | undefined; updatedTo: string | null };
+
+/**
+ * objectui#12146 — what the dialog is doing, fixed when it opens. `null` is an
+ * install (the dialog as it always was); otherwise an update of the copy this
+ * environment holds, from the version the page reads as installed to the
+ * latest one, both already on the page ("Installed · v3.1.0", "Update
+ * available → v4.0.1"). Fixed at open rather than derived per render: the
+ * update's own success flips the installed version to the latest, and the
+ * dialog that reports it must not turn back into an install dialog.
+ */
+type DialogUpdate = { from: string; to: string } | null;
+
+/**
+ * The major version of a version `isNewerVersion` already accepted, so a
+ * SemVer 2.0.0 string by then: its leading numeric identifier.
+ */
+function majorOf(version: string): number {
+  return Number(version.trim().split('.')[0]);
+}
+
+/** The side panel's entry for a version, the target of the dialog's release-notes link. */
+function versionEntryId(version: string): string {
+  return `marketplace-version-${version}`;
+}
 
 export function MarketplacePackagePage() {
   const navigate = useNavigate();
@@ -169,6 +195,11 @@ export function MarketplacePackagePage() {
   const [error, setError] = useState<string | null>(null);
 
   const [installOpen, setInstallOpen] = useState(false);
+  const [dialogUpdate, setDialogUpdate] = useState<DialogUpdate>(null);
+  // Set by the update dialog's release-notes link: the side-panel entry that
+  // takes focus once the dialog has closed, in place of the button that opened
+  // it. Ephemeral by design (AGENTS.md #8): it lives for one close.
+  const focusOnCloseRef = useRef<string | null>(null);
   const [envs, setEnvs] = useState<CloudEnvironment[]>([]);
   const [envsLoading, setEnvsLoading] = useState(false);
   const [envsError, setEnvsError] = useState<string | null>(null);
@@ -286,7 +317,8 @@ export function MarketplacePackagePage() {
     return () => { cancelled = true; };
   }, [packageId, marketplaceEnabled, isAdmin]);
 
-  const openInstall = async () => {
+  const openInstall = async (update: DialogUpdate = null) => {
+    setDialogUpdate(update);
     setInstallOpen(true);
     setInstallResult(null);
     setEnvsError(null);
@@ -369,9 +401,13 @@ export function MarketplacePackagePage() {
    * objectui#12098 — on an upgrade the stale kernel still serves the OLD
    * version's app under the same `_packageId`, so the wait also names the
    * version the install answered with (see `waitForServedApp`).
+   *
+   * objectui#12146 — `updatedTo` is the version an UPDATE moved to, `null` for
+   * an install: the result then says "Updated to vX" rather than the install's
+   * "deployed" sentence.
    */
-  const awaitServedInstall = async (manifestId: string, version: string | undefined) => {
-    setDeploy({ phase: 'waiting', manifestId, version });
+  const awaitServedInstall = async (manifestId: string, version: string | undefined, updatedTo: string | null) => {
+    setDeploy({ phase: 'waiting', manifestId, version, updatedTo });
     const wait = await waitForServedApp({
       manifestId,
       version,
@@ -385,7 +421,7 @@ export function MarketplacePackagePage() {
       },
     });
     if (!wait.served) {
-      setDeploy({ phase: 'timeout', manifestId, version });
+      setDeploy({ phase: 'timeout', manifestId, version, updatedTo });
       return;
     }
     // Invalidate the metadata cache so the newly-installed app's
@@ -409,7 +445,7 @@ export function MarketplacePackagePage() {
       // back to pick up the new metadata.
     }
     emitMetadataRefresh();
-    setDeploy({ phase: 'served', manifestId, version, app: filterActiveApps(wait.apps)[0] ?? null });
+    setDeploy({ phase: 'served', manifestId, version, updatedTo, app: filterActiveApps(wait.apps)[0] ?? null });
   };
 
   const doInstall = async () => {
@@ -417,7 +453,18 @@ export function MarketplacePackagePage() {
     setInstalling(true);
     setInstallResult(null);
     try {
-      const installResp = await installPackage({ packageId, environmentId: selectedEnv, seedSampleData });
+      // objectui#12146 — an update never asks for sample data: the update
+      // dialog draws no "Include sample data" control, so it sends what an
+      // unticked one sends. Adding sample data to an installed copy stays the
+      // job of the page's own "Add sample data" action.
+      const installResp = await installPackage({
+        packageId,
+        environmentId: selectedEnv,
+        seedSampleData: dialogUpdate ? false : seedSampleData,
+      });
+      // The version an update reports moving to: the install answer's own, else
+      // the one the dialog named.
+      const updatedTo = dialogUpdate ? (installResp?.installation?.version ?? dialogUpdate.to) : null;
       // Flip the primary CTA to "Installed" so the user sees the state
       // change without a page refresh. Response includes the install
       // row when the cloud handler echoes it; fall back to the package's
@@ -445,11 +492,16 @@ export function MarketplacePackagePage() {
         // app deploys still gets the refreshed cache when it lands. The version
         // is the answer's own (objectui#12098), never the catalog's latest: an
         // answer that names none waits on the id alone, as before.
-        void awaitServedInstall(data.package.manifest_id, installResp?.installation?.version);
+        void awaitServedInstall(data.package.manifest_id, installResp?.installation?.version, updatedTo);
       } else {
         // Another environment: nothing this console renders changed, so there
         // is nothing here to wait for or to refresh.
-        setInstallResult({ ok: true, message: t('marketplace.install.success') });
+        setInstallResult({
+          ok: true,
+          message: updatedTo
+            ? t('marketplace.update.success', { version: updatedTo })
+            : t('marketplace.install.success'),
+        });
       }
     } catch (e: any) {
       setInstallResult({ ok: false, message: e?.message ?? String(e) });
@@ -793,8 +845,12 @@ export function MarketplacePackagePage() {
           {deploy.phase === 'waiting'
             ? t('marketplace.install.deploying')
             : deploy.phase === 'served'
-              ? t('marketplace.install.deployed')
-              : t('marketplace.install.deployTimeout')}
+              ? (deploy.updatedTo
+                  ? t('marketplace.update.success', { version: deploy.updatedTo })
+                  : t('marketplace.install.deployed'))
+              : (deploy.updatedTo
+                  ? t('marketplace.update.deployTimeout', { version: deploy.updatedTo })
+                  : t('marketplace.install.deployTimeout'))}
         </div>
         {deployApp && appRouteSegment(deployApp) ? (
           <Button size="sm" onClick={() => navigate(`/apps/${appRouteSegment(deployApp)}`)}>
@@ -807,7 +863,7 @@ export function MarketplacePackagePage() {
           </Button>
         ) : null}
         {deploy.phase === 'timeout' ? (
-          <Button size="sm" variant="outline" onClick={() => void awaitServedInstall(deploy.manifestId, deploy.version)}>
+          <Button size="sm" variant="outline" onClick={() => void awaitServedInstall(deploy.manifestId, deploy.version, deploy.updatedTo)}>
             {t('marketplace.install.checkAgain')}
           </Button>
         ) : null}
@@ -980,7 +1036,7 @@ export function MarketplacePackagePage() {
     }
     : {
       label: installing
-        ? t('marketplace.action.installing')
+        ? (dialogUpdate ? t('marketplace.action.updating') : t('marketplace.action.installing'))
         : cloudInstalledVersion
           ? (cloudUpdateAvailable
               // No `version` argument: `marketplace.action.updateTo` reads a bare
@@ -991,8 +1047,21 @@ export function MarketplacePackagePage() {
               ? t('marketplace.action.updateTo', { defaultValue: 'Update' })
               : t('marketplace.action.installed', { defaultValue: 'Installed' }))
           : t('marketplace.action.installToCloud'),
-      onClick: openInstall,
+      // objectui#12146 — "Update" opens the dialog as an update of the copy
+      // this environment holds, naming both versions; every other state opens
+      // it as the install dialog, unchanged.
+      onClick: () => void openInstall(cloudUpdateAvailable && cloudInstalledVersion && latestVersion
+        ? { from: cloudInstalledVersion, to: latestVersion }
+        : null),
     };
+
+  // The update dialog's notice for a major-version jump, and the side-panel
+  // entry its release-notes link points at: the target version's, when the
+  // panel lists that version with notes. No notes, no link.
+  const majorJump = !!dialogUpdate && majorOf(dialogUpdate.to) > majorOf(dialogUpdate.from);
+  const targetNotes = dialogUpdate
+    ? data.versions.find((v) => v.version === dialogUpdate.to && !!v.release_notes?.trim())
+    : undefined;
 
   const categoryLabel = pkg.category
     ? t(`marketplace.category.${pkg.category}` as any, { defaultValue: pkg.category })
@@ -1131,7 +1200,12 @@ export function MarketplacePackagePage() {
               ) : (
                 <ul className="space-y-3">
                   {data.versions.map((v) => (
-                    <li key={v.id} className="space-y-1 text-sm">
+                    <li
+                      key={v.id}
+                      id={versionEntryId(v.version)}
+                      tabIndex={-1}
+                      className="space-y-1 rounded-sm text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
                       <div className="flex items-center justify-between gap-2">
                         <span className="flex items-center gap-1.5">
                           <Package className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
@@ -1155,15 +1229,78 @@ export function MarketplacePackagePage() {
       </div>
 
       <Dialog open={installOpen} onOpenChange={(o) => { setInstallOpen(o); if (!o) { setInstallResult(null); setAcknowledged(false); } }}>
-        <DialogContent>
+        <DialogContent
+          onCloseAutoFocus={(e) => {
+            // The release-notes link closed the dialog: focus (and so scroll
+            // to) the notes it named, not the button that opened the dialog.
+            const target = focusOnCloseRef.current;
+            focusOnCloseRef.current = null;
+            const el = target ? document.getElementById(target) : null;
+            if (!el) return;
+            e.preventDefault();
+            el.focus();
+            el.scrollIntoView?.({ block: 'center' });
+          }}
+        >
           <DialogHeader>
-            <DialogTitle>{t('marketplace.install.dialogTitle', { name: loc.displayName || pkg.manifest_id })}</DialogTitle>
+            <DialogTitle>
+              {dialogUpdate
+                ? t('marketplace.update.dialogTitle', { name: loc.displayName || pkg.manifest_id })
+                : t('marketplace.install.dialogTitle', { name: loc.displayName || pkg.manifest_id })}
+            </DialogTitle>
             <DialogDescription>
               {getRuntimeConfig().defaultEnvironmentId
-                ? t('marketplace.install.dialogDescCurrent', { host: typeof window !== 'undefined' ? window.location.host : '' })
-                : t('marketplace.install.dialogDescPicker')}
+                ? (dialogUpdate
+                    ? t('marketplace.update.dialogDescCurrent', { host: typeof window !== 'undefined' ? window.location.host : '' })
+                    : t('marketplace.install.dialogDescCurrent', { host: typeof window !== 'undefined' ? window.location.host : '' }))
+                : (dialogUpdate
+                    ? t('marketplace.update.dialogDescPicker')
+                    : t('marketplace.install.dialogDescPicker'))}
             </DialogDescription>
           </DialogHeader>
+
+          {/* objectui#12146 — an update names the version it moves from and the
+              one it moves to, and a major-version jump says so in one line that
+              links to the target version's notes in the side panel. */}
+          {dialogUpdate && (
+            <div className="space-y-2">
+              <p data-testid="update-versions" className="font-mono text-sm">
+                {t('marketplace.versionBadge', { version: dialogUpdate.from })}
+                {' → '}
+                {t('marketplace.versionBadge', { version: dialogUpdate.to })}
+              </p>
+              {majorJump && (
+                <p
+                  data-testid="update-major-notice"
+                  className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-700 dark:text-amber-400"
+                >
+                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" />
+                  <span>
+                    {t('marketplace.update.majorNotice', {
+                      fromMajor: majorOf(dialogUpdate.from),
+                      toMajor: majorOf(dialogUpdate.to),
+                    })}
+                    {targetNotes ? (
+                      <>
+                        {' '}
+                        <a
+                          href={`#${versionEntryId(targetNotes.version)}`}
+                          className="font-medium underline underline-offset-2"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            focusOnCloseRef.current = versionEntryId(targetNotes.version);
+                            setInstallOpen(false);
+                          }}
+                        >
+                          {t('marketplace.update.releaseNotes', { version: targetNotes.version })}
+                        </a>
+                      </>
+                    ) : null}
+                  </span>
+                </p>
+              )}
+            </div>
+          )}
 
           {envsLoading ? (
             <Skeleton className="h-10 w-full" />
@@ -1186,16 +1323,20 @@ export function MarketplacePackagePage() {
               ) : null}
             </div>
           ) : getRuntimeConfig().defaultEnvironmentId ? (
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="seed"
-                checked={seedSampleData}
-                onCheckedChange={(c) => setSeedSampleData(c === true)}
-              />
-              <Label htmlFor="seed" className="text-sm font-normal cursor-pointer">
-                {t('marketplace.install.includeSampleData')}
-              </Label>
-            </div>
+            // objectui#12146 — no "Include sample data" on an update: the page
+            // offers sample data for an installed copy through its own action.
+            dialogUpdate ? null : (
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="seed"
+                  checked={seedSampleData}
+                  onCheckedChange={(c) => setSeedSampleData(c === true)}
+                />
+                <Label htmlFor="seed" className="text-sm font-normal cursor-pointer">
+                  {t('marketplace.install.includeSampleData')}
+                </Label>
+              </div>
+            )
           ) : envs.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t('marketplace.install.noEnvs')}</p>
           ) : (
@@ -1227,16 +1368,18 @@ export function MarketplacePackagePage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="seed"
-                  checked={seedSampleData}
-                  onCheckedChange={(c) => setSeedSampleData(c === true)}
-                />
-                <Label htmlFor="seed" className="text-sm font-normal cursor-pointer">
-                  {t('marketplace.install.includeSampleData')}
-                </Label>
-              </div>
+              {!dialogUpdate && (
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="seed"
+                    checked={seedSampleData}
+                    onCheckedChange={(c) => setSeedSampleData(c === true)}
+                  />
+                  <Label htmlFor="seed" className="text-sm font-normal cursor-pointer">
+                    {t('marketplace.install.includeSampleData')}
+                  </Label>
+                </div>
+              )}
             </div>
           )}
 
@@ -1284,7 +1427,9 @@ export function MarketplacePackagePage() {
                 onClick={doInstall}
                 disabled={!selectedEnv || installing || installResult?.ok === true || deploy !== null || (containsCode && !acknowledged)}
               >
-                {installing ? t('marketplace.action.installing') : t('marketplace.action.install')}
+                {dialogUpdate
+                  ? (installing ? t('marketplace.action.updating') : t('marketplace.action.updateTo', { defaultValue: 'Update' }))
+                  : (installing ? t('marketplace.action.installing') : t('marketplace.action.install'))}
               </Button>
             )}
           </DialogFooter>

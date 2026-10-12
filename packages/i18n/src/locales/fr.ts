@@ -3569,6 +3569,7 @@ const fr = {
       working: "Traitement…",
       installToCloud: "Installer dans le cloud…",
       installing: "Installation…",
+      updating: "Mise à jour…",
       uninstall: "Désinstaller",
       uninstalling: "Désinstallation…",
       details: "Détails",
@@ -3601,6 +3602,17 @@ const fr = {
       openApp: "Ouvrir {{name}}",
       deployTimeout: "L'installation a été enregistrée, mais cet environnement ne sert pas encore l'application. Le déploiement est peut-être encore en cours : vérifiez à nouveau dans un instant. Si elle n'apparaît jamais, le paquet n'a peut-être pas été chargé, ne contient aucune application, ou son application exige une autorisation que vous n'avez pas.",
       checkAgain: "Vérifier à nouveau",
+    },
+    // objectui#12146 — the install dialog opened as an UPDATE of the copy
+    // this environment holds (MarketplacePackagePage).
+    update: {
+      dialogTitle: "Mettre à jour {{name}}",
+      dialogDescCurrent: "Mettre à jour la copie installée dans cet environnement ({{host}}).",
+      dialogDescPicker: "Choisissez l'environnement dont la copie installée doit être mise à jour. Vous devez être connecté à ObjectStack Cloud.",
+      majorNotice: "Il s'agit d'une mise à jour de version majeure (v{{fromMajor}} → v{{toMajor}}), qui peut comporter des changements incompatibles.",
+      releaseNotes: "Lire les notes de version de la v{{version}}",
+      success: "Mis à jour vers la v{{version}}.",
+      deployTimeout: "La mise à jour a été enregistrée, mais cet environnement ne sert pas encore la v{{version}}. Le déploiement est peut-être encore en cours : vérifiez à nouveau dans un instant.",
     },
     // objectui#3546 — the MarketplacePage "Your organization" strip.
     org: {

@@ -3638,6 +3638,7 @@ const zh = {
         installToCloud: '安装到云端…',
         installed: '已安装',
         installing: '安装中…',
+        updating: '更新中…',
         uninstall: '卸载',
         uninstalling: '卸载中…',
         details: '详情',
@@ -3670,6 +3671,17 @@ const zh = {
         openApp: '打开 {{name}}',
         deployTimeout: '安装已记录，但当前环境尚未提供该应用。它可能仍在部署中，请稍后再次检查。如果一直没有出现，可能是软件包未能加载、不包含应用，或其应用需要你尚未拥有的权限。',
         checkAgain: '再次检查',
+      },
+      // objectui#12146 — the install dialog opened as an UPDATE of the copy
+      // this environment holds (MarketplacePackagePage).
+      update: {
+        dialogTitle: '更新 {{name}}',
+        dialogDescCurrent: '更新当前环境（{{host}}）中已安装的应用。',
+        dialogDescPicker: '选择要更新已安装应用的环境。需要先登录 ObjectStack Cloud。',
+        majorNotice: '这是一次主版本更新（v{{fromMajor}} → v{{toMajor}}），可能包含不兼容的变更。',
+        releaseNotes: '查看 v{{version}} 的版本说明',
+        success: '已更新到 v{{version}}。',
+        deployTimeout: '更新已记录，但当前环境尚未提供 v{{version}}。可能仍在部署中，请稍后再次检查。',
       },
       // objectui#3546 — the MarketplacePage "Your organization" strip.
       org: {

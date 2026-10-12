@@ -138,6 +138,11 @@ export interface RelatedRecordActionsValue {
    *
    * Returns `null` when the host cannot route to that object (unknown object,
    * no app context), which consumers must render as the plain value.
+   *
+   * The value is a document href, read by the browser on "open in new tab" and
+   * "copy link address", so it carries the host router's basename (for
+   * example `/_console/apps/…`), while {@link openRecord} navigates by the
+   * router path (objectui#12233).
    */
   recordHref?: (objectName: string, recordId: string | number) => string | null;
   /**

@@ -85,6 +85,7 @@ import { evalRowPredicate, resolveAffordance, type ActionDef, type RowCrudPredic
 import { actionRendersAt, type ActionLocation } from '@object-ui/types';
 import { usePermissions } from '@object-ui/permissions';
 import { RECORD_FORM_PARAM, RECORD_FORM_OBJECT_PARAM, RECORD_FORM_LINK_PARAM, RECORD_TRAIL_PARAM, appendRecordTrail } from '../urlParams.js';
+import { documentHref } from './documentHref.js';
 
 /**
  * Notify open related lists for `objectName` to refetch.
@@ -135,22 +136,6 @@ function evalCreatePredicate(
     label,
     fields: fields as never,
   });
-}
-
-/**
- * The href a document resolves to the place a router path names, which is the
- * href react-router's own `Link` renders for that path (objectui#12233).
- *
- * `rootHref` is `useHref('/')`, the router's href for its root, so it carries
- * the basename the host mounted the router under: `/_console` on a console the
- * framework serves there, `/` on a root mount. `navigate(path)` applies that
- * basename itself and an anchor's `href` does not. A router path published
- * bare as an href therefore works from a plain left click, which the anchor
- * hands to the SPA, and from nothing else: a new tab, a middle-click or a
- * copied link resolves it against the origin, outside the console.
- */
-function documentHref(rootHref: string, routerPath: string): string {
-  return `${rootHref.replace(/\/+$/, '')}${routerPath}`;
 }
 
 export interface RelatedRecordActionsBridgeProps {

@@ -71,42 +71,37 @@ format: 'ORD-{YYYYMMDD}-{00}'  // ORD-20240315-01...
 
 ```plaintext
 format: 'PO-{YYYY}-{MM}-{0000}'  // PO-2024-03-0001
-format: '{YY}Q{Q}-{000}'         // 24Q1-001, 24Q1-002...
 ```
 
 ## Format Placeholders
 
-- `{0}`, `{00}`, `{000}`, etc. - Sequential number with padding
+These are the tokens `parseAutonumberFormat` (`@objectstack/spec/data`) reads:
+
+- `{0}`, `{00}`, `{000}`, etc. - Sequential number, zero-padded to at least that many digits (one per format)
 - `{YYYY}` - Four-digit year (2024)
 - `{YY}` - Two-digit year (24)
 - `{MM}` - Two-digit month (03)
 - `{DD}` - Two-digit day (15)
-- `{Q}` - Quarter (1-4)
+- `{YYYYMMDD}` - Year, month and day together (20240315)
+- `{field_name}` - The value of another field on the same record
+
+The date tokens are exact and case-sensitive, and there are no others: no
+quarter, week or time token. Any other name in braces is a `{field_name}`
+token, so `{Q}` reads a field called `Q`, not the quarter. A referenced field
+must exist on the object and be set before the record is created:
+`objectstack compile` refuses a format that names a field the object does not
+have, and an insert whose referenced field is empty fails rather than mint a
+number.
 
 ## Backend Implementation
 
-AutoNumber values are generated on record creation:
-
-```plaintext
-const generateAutoNumber = (format: string, sequence: number) => {
-  const now = new Date();
-  
-  return format
-    .replace('{YYYY}', now.getFullYear().toString())
-    .replace('{YY}', now.getFullYear().toString().slice(-2))
-    .replace('{MM}', (now.getMonth() + 1).toString().padStart(2, '0'))
-    .replace('{DD}', now.getDate().toString().padStart(2, '0'))
-    .replace('{Q}', Math.ceil((now.getMonth() + 1) / 3).toString())
-    .replace(/\{0+\}/, (match) => {
-      const padding = match.length - 2;
-      return sequence.toString().padStart(padding, '0');
-    });
-};
-
-// Example usage
-generateAutoNumber('ORD-{YYYY}-{0000}', 42);
-// Returns: "ORD-2024-0042"
-```
+ObjectUI does not render the format. An ObjectStack backend mints each value
+when the record is inserted, with the renderer `@objectstack/spec/data`
+exports: `parseAutonumberFormat` reads the format into tokens and
+`renderAutonumber` renders them. The query engine and the SQL driver share
+that renderer, so the placeholders above are the whole grammar. A backend of
+your own should call the same two functions rather than re-implement the
+token grammar.
 
 ## Sequence Management
 
@@ -129,11 +124,12 @@ const orderNumber: AutoNumberFieldMetadata = {
 };
 ```
 
-On the backend, keep one counter per object-and-field pair and increment it in
-the same transaction that inserts the record, so two concurrent inserts cannot
-read the same current value. Partition the counter (per year, per prefix) only
-if the format resets — `'ORD-{YYYY}-{0000}'` needs one counter per year if the
-sequence is meant to restart each January.
+On the backend, keep one counter per object, field and counter scope, and
+increment it in the same transaction that inserts the record, so two concurrent
+inserts cannot read the same current value. The scope is whatever the format
+renders before the `{0000}` slot, and `renderAutonumber` returns it with the
+value: `'ORD-{YYYY}-{0000}'` counts per year and restarts each January, while
+`'ORD-{0000}'` keeps one count.
 
 Because the number is assigned at insert time, it does not exist while the
 record is still being drafted: a create form shows the field empty, and the

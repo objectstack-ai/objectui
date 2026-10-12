@@ -69,6 +69,13 @@ const PAUSED = answered({
 });
 const COMPLETED = answered({ success: true, status: 'completed', flowLabel: 'Escalate' });
 
+/**
+ * The text of every success toast, in order. The runner's sink passes an
+ * options bag beside the text and `FlowRunner` passes none, so the text alone
+ * is compared — the full list, so a second toast cannot hide.
+ */
+const successTexts = () => (toast as any).success.mock.calls.map((call: unknown[]) => call[0]);
+
 beforeEach(() => {
   authFetchSpy.mockReset();
   (toast as any).mockClear();
@@ -125,7 +132,7 @@ describe('objectui#12234 — a paused action-door launch completes with the acti
 
     await submitWith(COMPLETED);
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect((toast as any).success.mock.calls).toEqual([[ACTION_MESSAGE]]);
+    expect(successTexts()).toEqual([ACTION_MESSAGE]);
     expect((toast as any).error).not.toHaveBeenCalled();
   });
 
@@ -135,7 +142,7 @@ describe('objectui#12234 — a paused action-door launch completes with the acti
     const result = await click(DECLARED);
 
     expect(result).toMatchObject({ success: true });
-    expect((toast as any).success.mock.calls).toEqual([[ACTION_MESSAGE]]);
+    expect(successTexts()).toEqual([ACTION_MESSAGE]);
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
@@ -156,6 +163,6 @@ describe('objectui#12234 — a paused action-door launch completes with the acti
     await submitWith(COMPLETED);
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect((toast as any).success.mock.calls).toEqual([['Flow "Escalate" completed']]);
+    expect(successTexts()).toEqual(['Flow "Escalate" completed']);
   });
 });

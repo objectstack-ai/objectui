@@ -104,6 +104,13 @@ const PAUSED = {
 };
 const COMPLETED = { success: true, data: { success: true, status: 'completed', flowLabel: 'Escalate' } };
 
+/**
+ * The text of every success toast, in order. The runner's sink passes an
+ * options bag beside the text and `FlowRunner` passes none, so the text alone
+ * is compared — the full list, so a second toast cannot hide.
+ */
+const successTexts = () => (toast as any).success.mock.calls.map((call: unknown[]) => call[0]);
+
 beforeEach(() => {
   cleanup();
   captured.length = 0;
@@ -200,13 +207,13 @@ describe('objectui#12234 — a paused record-page action completes with the acti
   it('toasts the action message once at completion', async () => {
     await launchAndSubmit(DECLARED);
 
-    expect((toast as any).success.mock.calls).toEqual([[ACTION_MESSAGE]]);
+    expect(successTexts()).toEqual([ACTION_MESSAGE]);
     expect((toast as any).error).not.toHaveBeenCalled();
   });
 
   it('control: an action that declares no successMessage keeps the flow-completed toast', async () => {
     await launchAndSubmit(DECLARED_WITHOUT_MESSAGE);
 
-    expect((toast as any).success.mock.calls).toEqual([['Flow "Escalate" completed']]);
+    expect(successTexts()).toEqual(['Flow "Escalate" completed']);
   });
 });

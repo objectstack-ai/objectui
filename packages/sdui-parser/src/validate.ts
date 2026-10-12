@@ -24,7 +24,7 @@ import type {
   ManifestInput,
   ManifestInputType,
   SchemaElement,
-  SchemaNode,
+  ParsedSchemaNode,
   ManifestValidationResult,
 } from './types.js';
 import { inputTypeArms } from './input-type.js';
@@ -225,7 +225,7 @@ export function validateTree(tree: SchemaElement | null, manifest: Manifest): Ma
   const requires = new Set<string>();
   const bindings: ManifestValidationResult['bindings'] = [];
 
-  const visit = (node: SchemaNode): void => {
+  const visit = (node: ParsedSchemaNode): void => {
     if (typeof node === 'string') return;
     const comp = manifest.components[node.type];
     if (!comp) {

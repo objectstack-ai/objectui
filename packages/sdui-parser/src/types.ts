@@ -2,16 +2,26 @@
  * ObjectUI — SDUI JSX-source parser (ADR-0080)
  *
  * Types shared by the constrained JSX-source compiler. The parser turns a
- * constrained JSX *text* into the existing SDUI `SchemaNode`
- * tree. It PARSES — it never executes. No `import`, no `eval`, no JS.
+ * constrained JSX *text* into an SDUI node tree (`ParsedSchemaNode`, below).
+ * It PARSES — it never executes. No `import`, no `eval`, no JS.
  */
 
-/** A node in the compiled SDUI tree. Mirrors `@object-ui/types` BaseSchema. */
-export type SchemaNode = SchemaElement | string;
+/**
+ * A node in the compiled SDUI tree, as parsed: an element or a text child.
+ *
+ * Not `SchemaNode`: `@object-ui/types` publishes that name for the closed
+ * AUTHORING face, a union discriminated on a literal `type` with no index
+ * signature and with primitive children admitted. This is the parser's open,
+ * as-parsed data (any `type` string, the keys as authored), neither is
+ * assignable to the other, and this package takes no runtime dependency on
+ * `@object-ui/types` to re-export from. One exported name stood for both until
+ * this declaration was renamed (objectui#6349, batch 11).
+ */
+export type ParsedSchemaNode = SchemaElement | string;
 
 export interface SchemaElement {
   type: string;
-  children?: SchemaNode[];
+  children?: ParsedSchemaNode[];
   [prop: string]: unknown;
 }
 

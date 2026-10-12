@@ -38,17 +38,17 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer } from '@object-ui/react';
 import { parseJsx } from '../parse.js';
-import type { SchemaElement, SchemaNode } from '../types.js';
+import type { SchemaElement, ParsedSchemaNode } from '../types.js';
 
 /** The parsed children of a single-root source. */
-function childrenOf(source: string): SchemaNode[] {
+function childrenOf(source: string): ParsedSchemaNode[] {
   const { tree, diagnostics } = parseJsx(source);
   expect(diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
   return (tree as SchemaElement).children ?? [];
 }
 
 /** Concatenated text of a subtree — the parse-tree stand-in for `textContent`. */
-function flatten(node: SchemaNode | undefined): string {
+function flatten(node: ParsedSchemaNode | undefined): string {
   if (typeof node === 'string') return node;
   return (node?.children ?? []).map(flatten).join('');
 }

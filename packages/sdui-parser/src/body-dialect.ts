@@ -33,7 +33,7 @@
  * Control on the same sweep: `name: 'children'` fires seven times.
  */
 
-import type { Diagnostic, SchemaNode } from './types.js';
+import type { Diagnostic, ParsedSchemaNode } from './types.js';
 
 /** The child-list spelling objectui#6771 retired. `children` replaced it. */
 export const RETIRED_CHILD_LIST_KEY = 'body';
@@ -49,7 +49,7 @@ const isPlainObject = (v: unknown): v is Record<string, unknown> =>
  * more, so it does not get the containment sentence, which would name a shape
  * its author did not write.
  */
-const isChildList = (value: unknown): value is SchemaNode | SchemaNode[] =>
+const isChildList = (value: unknown): value is ParsedSchemaNode | ParsedSchemaNode[] =>
   Array.isArray(value) || isPlainObject(value);
 
 /**

@@ -4917,7 +4917,7 @@ export { withFieldCarrier } from './withFieldCarrier.js';
 // `withFieldCarrier` above: a widget authored outside this repo needs to reach
 // it, or it re-grows the bare spread this closed.
 export { toDomProps } from './widgets/toDomProps.js';
-export type { DomProps } from './widgets/toDomProps.js';
+export type { FieldDomProps } from './widgets/toDomProps.js';
 
 // The sibling executor for the NON-DOM half of the same declaration
 // (`f08bcd9af`): `error` plus the "Host plumbing" block, forwarded as

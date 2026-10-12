@@ -184,8 +184,21 @@ type EverySharedSduiKeyIsForwarded = SharedSduiKey extends DomPassThroughKey ? t
 const _everySharedSduiKeyIsForwarded: EverySharedSduiKeyIsForwarded = true;
 void _everySharedSduiKeyIsForwarded;
 
-/** The subset of `P` this helper forwards, with each key's declared type. */
-export type DomProps<P> = CoreDomProps<P, DomPassThroughKey>;
+/**
+ * The subset of `P` this helper forwards, with each key's declared type.
+ *
+ * Not {@link FieldWidgetDomProps}: that is the contract's DOM block, the
+ * non-generic set of keys a widget may receive; this is the generic RESULT
+ * type of {@link toDomProps}, whatever `P` it is handed narrowed to this
+ * helper's key set.
+ *
+ * Not `DomProps`: `@object-ui/core` publishes that name for the general
+ * mechanism, whose default key set forwards `role` where this one forwards
+ * `name` and `disabled`. One exported name stood for both key sets until this
+ * declaration was renamed, the way `@object-ui/components` names its own
+ * specialisation `FormControlDomProps` (objectui#6349, batch 11).
+ */
+export type FieldDomProps<P> = CoreDomProps<P, DomPassThroughKey>;
 
 /**
  * Keep only what may legitimately become a DOM attribute, and drop everything
@@ -208,6 +221,6 @@ export type DomProps<P> = CoreDomProps<P, DomPassThroughKey>;
  * `readonly`, `error`, …) are read from `props` as before; this function only
  * governs what gets spread.
  */
-export function toDomProps<P extends object>(props: P): DomProps<P> {
+export function toDomProps<P extends object>(props: P): FieldDomProps<P> {
   return pickDomProps(props, DOM_PASS_THROUGH_KEYS);
 }

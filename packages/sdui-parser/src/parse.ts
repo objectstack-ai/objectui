@@ -4,7 +4,7 @@
  * A small recursive-descent parser for a CONSTRAINED JSX subset. It is
  * deliberately not a full JS/JSX parser: a bounded grammar is the point
  * (Markdoc model) — it shrinks the attack surface and the expressible-but-wrong
- * space. Output is the existing SDUI `SchemaNode` tree. Nothing is executed.
+ * space. Output is an SDUI node tree (`ParsedSchemaNode`). Nothing is executed.
  *
  * Grammar (informal):
  *   document := element                       (exactly one root)
@@ -14,7 +14,7 @@
  *   tag      := [A-Za-z][A-Za-z0-9:_-]star      (matches registry keys)
  */
 
-import type { Diagnostic, ParseOptions, ParseResult, SchemaElement, SchemaNode } from './types.js';
+import type { Diagnostic, ParseOptions, ParseResult, SchemaElement, ParsedSchemaNode } from './types.js';
 import { markHtmlTierNode } from './provenance.js';
 
 /** Event handlers and raw-HTML injection are never allowed (parse ≠ execute). */
@@ -124,7 +124,7 @@ class Parser {
     }
 
     this.skipWs();
-    let children: SchemaNode[] | undefined;
+    let children: ParsedSchemaNode[] | undefined;
     if (this.eat('/')) {
       if (!this.eat('>')) this.error('bad-self-close', `Malformed self-closing <${tag}>`, this.pos, tag);
     } else if (this.eat('>')) {
@@ -203,8 +203,8 @@ class Parser {
     return undefined;
   }
 
-  private parseChildren(parentTag: string): SchemaNode[] {
-    const children: SchemaNode[] = [];
+  private parseChildren(parentTag: string): ParsedSchemaNode[] {
+    const children: ParsedSchemaNode[] = [];
     for (;;) {
       if (this.pos >= this.src.length) {
         this.error('unclosed-element', `Unclosed <${parentTag}>`, this.pos, parentTag);

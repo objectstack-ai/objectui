@@ -4,7 +4,7 @@ import { cn, Textarea, EmptyValue, CharacterCount, type FullscreenEditorAria } f
 import { useObjectTranslation } from '@object-ui/react';
 import { FullscreenFieldEditor } from './FullscreenFieldEditor.js';
 import { FieldWidgetComponentProps } from './types.js';
-import { toDomProps, type DomProps } from './toDomProps.js';
+import { toDomProps, type FieldDomProps } from './toDomProps.js';
 import { richTextCellRenderer } from './richTextDisplay.js';
 
 /**
@@ -107,7 +107,7 @@ function RichTextEditorSurface({
    * `aria-hidden`s while the modal is open. Exactly the split `TextAreaField`
    * makes for the same pair of surfaces.
    */
-  domProps?: DomProps<FieldWidgetComponentProps<string>>;
+  domProps?: FieldDomProps<FieldWidgetComponentProps<string>>;
   /**
    * The accessibility set `FullscreenFieldEditor` computes for the control it
    * hosts — accessible name and validation state (objectui#4824 / #4832).

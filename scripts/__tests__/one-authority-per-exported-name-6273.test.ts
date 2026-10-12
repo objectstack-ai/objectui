@@ -488,7 +488,18 @@ const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // The flow designer's is the one general level (its structural, server and
   // expression problems all carry it), so it keeps the name and the doctor's
   // now spells `DoctorDiagnosticLevel` (objectui#6349, batch 6).
-  ['DomProps', ['packages/core/src/utils/dom-props.ts', 'packages/fields/src/widgets/toDomProps.ts']],
+  // `DomProps` sat here, colliding between `packages/core/src/utils/dom-props.ts`
+  // and `packages/fields/src/widgets/toDomProps.ts`. One mechanism, two key
+  // sets behind one name: core's is the general "subset of P a whitelist of K
+  // forwards", whose default SDUI set forwards `role`; fields' fixed K at its own
+  // set, which forwards `name` and `disabled` instead, so the same one-argument
+  // spelling meant two things. fields depends on core, but re-pointing its name
+  // at core's measured 27 type errors and would silently re-mean it for a reader
+  // of the fields root. RENAME branch: fields' declaration now spells
+  // `FieldDomProps`, which the fields root publishes instead, after
+  // `@object-ui/components`' `FormControlDomProps`; core is the one authority.
+  // The two `toDomProps` functions keep their names — value names are outside
+  // this gate's bound (objectui#6349, batch 11).
   // ⚠️ `FilterBuilderCondition` / `FilterGroup` still carry two declarations,
   // but no longer two unrelated shapes. objectui#7561 and objectui#9306 are
   // closed: the maintainer's ruling on objectui#9306 (letter A, comment
@@ -581,7 +592,17 @@ const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // `target` is `'drawer' | 'dialog'`, `fields` whitelists). Neither package
   // depends on the other. RENAME branch: the dashboard's declaration now spells
   // `DashboardRecordDetailDrawerProps` (objectui#6349, batch 8).
-  ['SchemaNode', ['packages/sdui-parser/src/types.ts', 'packages/types/src/base.ts']],
+  // `SchemaNode` sat here, colliding between `packages/sdui-parser/src/types.ts`
+  // and `packages/types/src/base.ts`. Two faces, not one drifted shape:
+  // `@object-ui/types`' is the closed AUTHORING union (discriminated on a
+  // literal `type`, no index signature, primitive children admitted) and the
+  // parser's is its open, as-parsed tree (any `type` string, keys as authored);
+  // neither is assignable to the other. sdui-parser has no runtime dependency on
+  // `@object-ui/types` — a re-point or a move-down fails `check:phantom-deps` —
+  // so neither could converge onto the other. RENAME branch: the parser's
+  // declaration now spells `ParsedSchemaNode`, which the sdui-parser root
+  // publishes instead; types is the one authority, as objectui#4580 already made
+  // it for core (objectui#6349, batch 11).
   // `ThemeProviderProps` sat here, colliding between
   // `packages/providers/src/types.ts` and
   // `packages/react/src/context/ThemeContext.tsx`. Two providers, not one

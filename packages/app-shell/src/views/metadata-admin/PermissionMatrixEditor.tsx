@@ -324,8 +324,9 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   //    `allowRuntimeCreate` (still `true`) and keep working").
   //    `useMetadata.ts` states the convention on the field itself: "UI
   //    affordances ('+ New', Save, Delete on DB-only items) should activate
-  //    when either flag is true" — DirectoryPage:171/175, EmbeddedItemEditor:93
-  //    and ResourceEditPage:1332 all already read it that way. Read the raw
+  //    when either flag is true" — `DirectoryPage`'s `writableCount` and its
+  //    "Writable only" filter, `EmbeddedItemEditor`'s `readOnly` and
+  //    `ResourceEditPage`'s `canWriteByType` all already read it that way. Read the raw
   //    server `entry` like they do; `resolveResourceConfig` forwards
   //    `allowEnvironmentOverlay` ONLY, so a `resolved.allowRuntimeCreate` would be
   //    silently `undefined`.

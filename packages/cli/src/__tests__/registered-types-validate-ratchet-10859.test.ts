@@ -144,9 +144,12 @@ const REFUSED_AT_TYPE = 0;
  * move this pin; its second took it down by one, `plugin-report:spec-report`,
  * the namespaced twin of the `spec-report` key it unregistered. objectui#10872:
  * minus `record:line_items`, armed from the row `@objectstack/spec` 17.6.0
- * gave it, the last public block held.
+ * gave it, the last public block held. objectui#7611 PR-5: plus
+ * `field:position-ref` and `field:permission-ref`, record-form field widgets
+ * refused at `type` by design (seat answer 6116842485; the population question
+ * is objectui#12176), see `REFUSED_FIELD_WIDGET_KEYS_7611`.
  */
-const NAMESPACED_REFUSED_AT_TYPE = 360;
+const NAMESPACED_REFUSED_AT_TYPE = 362;
 
 /** The bare registry keys — the population the card measured. */
 const BARE_KEYS = KNOWN_SCHEMA_TYPES.filter((key) => !key.includes(':'));
@@ -290,6 +293,17 @@ const ARMED_11440 = {
 const UNREGISTERED_11440 = {
   'spec-report': ['plugin-report:spec-report'],
 } as const;
+
+/**
+ * The two `field:` keys objectui#7611 PR-5 REGISTERED refused at `type` (the
+ * seat answer `6116842485`): the record-form registry-name pickers. A field
+ * widget is authored through a field's `widget`, which the spec resolves as
+ * `field:` + widget, and never as a page node's `type`, so neither key gets an
+ * arm. Named so the raise of `NAMESPACED_REFUSED_AT_TYPE` says which keys it
+ * covers. Whether `field:` keys belong in that population at all is
+ * objectui#12176.
+ */
+const REFUSED_FIELD_WIDGET_KEYS_7611 = ['field:position-ref', 'field:permission-ref'] as const;
 
 /**
  * Every bare key still refused at `type` after objectui#11440 — none. The
@@ -579,6 +593,16 @@ describe('registered NAMESPACED component types refused at `type` — a ratchet 
     expect(NAMESPACED_KEYS).toContain('cloud:workspace-timezone-notice');
     expect(BARE_KEYS).not.toContain('workspace-timezone-notice');
     expect(refusedAtType('cloud:workspace-timezone-notice')).toBe(false);
+  });
+
+  it('counts `field:position-ref` / `field:permission-ref` refused — field widgets, never authored at `type` (objectui#7611)', () => {
+    // Two record-form field widgets, reached through a field's `widget` hint and
+    // never a node's `type`, so neither has an arm and the pin above rose by
+    // exactly these two (seat answer 6116842485; objectui#12176).
+    for (const key of REFUSED_FIELD_WIDGET_KEYS_7611) {
+      expect(NAMESPACED_KEYS, key).toContain(key);
+      expect(refusedAtType(key), key).toBe(true);
+    }
   });
 });
 

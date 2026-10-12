@@ -226,6 +226,18 @@ export const ADJUDICATED = new Map([
     'examples/schema-catalog/test/slotted-pages-header-example-11165.test.ts',
     { reads: ['content/docs/guide/slotted-pages.md'] },
   ],
+  // ADR-0060. The product-neutral renderer ratchet reads its CEILING -- the
+  // product words, the frozen directories and namespaces, and the most its live
+  // list may ever hold -- out of that ADR's frozen-baseline block, so an edit to
+  // the ADR is an edit to this test's input. Its walk collects file NAMES under
+  // `packages`, `apps` and `examples`, never markdown content.
+  [
+    'packages/app-shell/src/__tests__/product-neutral-renderer.ratchet.test.ts',
+    {
+      reads: ['docs/adr/0060-product-neutral-renderer.md'],
+      walker: 'not-markdown: walks `packages`, `apps` and `examples` for file paths, reading no file it finds',
+    },
+  ],
   [
     'packages/app-shell/src/views/metadata-admin/previews/readme-flow-canvas-draft.test.ts',
     { reads: ['packages/app-shell/README.md'] },

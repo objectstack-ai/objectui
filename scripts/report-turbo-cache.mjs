@@ -6,6 +6,7 @@
  * re-executed, read from turbo's own run summary (objectui#12222).
  *
  *   node scripts/report-turbo-cache.mjs [--summary <file>] [--cache-dir <dir>]
+ *   node scripts/report-turbo-cache.mjs --prune [--summary <file>] [--cache-dir <dir>]
  *
  * ci.yml's `Run type-check` step sets `TURBO_RUN_SUMMARY=true`, so turbo writes
  * its run summary to `.turbo/runs/<id>.json`. This script reads the newest one
@@ -21,8 +22,18 @@
  *     that is how objectui#12222 read its miss: every `type-check` depended on
  *     the uncached root task `//#type-check:e2e`, whose default inputs were
  *     every tracked file in the repository;
- *   - the cache directory: entries, bytes, and how many entries this run did
- *     not use (`--cache-dir`, default `.turbo/cache`).
+ *   - the cache directory: entries and bytes, and how many of them this run
+ *     did not use (`--cache-dir`, default `.turbo/cache`).
+ *
+ * `--prune` then DELETES every entry this run did not use, so the directory
+ * holds exactly the verdicts and build outputs of the run that is about to
+ * save it. ci.yml prunes on the full battery only (`push`, `schedule`),
+ * whose summary covers every task: measured on objectui#12222's first run, the
+ * cache a pull request restored -- another job's, through the bare
+ * `turbo-<os>-` restore key -- held 401 entries and about 2 GB, 321 of them
+ * unused, and an entry that size is what a size-limited cache store evicts
+ * first. Pruning refuses to run without a summary that lists at least one
+ * task: no summary means no knowledge of what is used, never "nothing is".
  *
  * The same counts go into ONE `::notice` annotation. An annotation is readable
  * through the check-runs API by a reader who cannot open the job log, which is
@@ -33,8 +44,9 @@
  * It is bookkeeping and says nothing about the code under test: ci.yml runs it
  * after the job's last checking step, bounded and `continue-on-error`.
  *
- * Exit 0 = reported. Exit 1 = no run summary to read: the instrument broke,
- * not the code. Exit 2 = bad arguments.
+ * Exit 0 = reported (and, with `--prune`, pruned). Exit 1 = no run summary
+ * to read, or one with no task in it under `--prune`: the instrument broke,
+ * not the code, and nothing was deleted. Exit 2 = bad arguments.
  */
 
 import fs from 'node:fs';
@@ -123,20 +135,58 @@ export function cacheDirStats(dir, used) {
   try {
     names = fs.readdirSync(dir);
   } catch {
-    return { present: false, entries: 0, bytes: 0, unused: 0 };
+    return { present: false, entries: 0, bytes: 0, unused: 0, unusedBytes: 0 };
   }
   let bytes = 0;
+  let unusedBytes = 0;
   let entries = 0;
   let unused = 0;
   for (const name of names) {
     const stat = fs.statSync(path.join(dir, name));
-    if (stat.isFile()) bytes += stat.size;
-    const m = name.match(/^([0-9a-f]+)\.tar\.zst$/);
-    if (!m) continue;
+    if (!stat.isFile()) continue;
+    bytes += stat.size;
+    const owner = entryHash(name);
+    if (owner !== null && !used.has(owner)) unusedBytes += stat.size;
+    if (!name.endsWith('.tar.zst') || owner === null) continue;
     entries += 1;
-    if (!used.has(m[1])) unused += 1;
+    if (!used.has(owner)) unused += 1;
   }
-  return { present: true, entries, bytes, unused };
+  return { present: true, entries, bytes, unused, unusedBytes };
+}
+
+/** The hash a turbo cache file belongs to, or null for a file turbo's layout does not name. */
+export function entryHash(name) {
+  const m = name.match(/^([0-9a-f]+)(?:\.tar\.zst|-meta\.json|-manifest\.json)$/);
+  return m ? m[1] : null;
+}
+
+/**
+ * Delete every cache file whose entry this run did not use. Files outside
+ * turbo's `<hash>.tar.zst` / `-meta.json` / `-manifest.json` layout are left
+ * alone.
+ *
+ * @returns {{ files: number, bytes: number }} what was deleted
+ */
+export function pruneCacheDir(dir, used) {
+  let files = 0;
+  let bytes = 0;
+  let names;
+  try {
+    names = fs.readdirSync(dir);
+  } catch {
+    return { files, bytes };
+  }
+  for (const name of names) {
+    const owner = entryHash(name);
+    if (owner === null || used.has(owner)) continue;
+    const file = path.join(dir, name);
+    const stat = fs.statSync(file);
+    if (!stat.isFile()) continue;
+    fs.rmSync(file);
+    files += 1;
+    bytes += stat.size;
+  }
+  return { files, bytes };
 }
 
 const seconds = (ms) => (ms === null || ms === undefined ? '?' : `${(ms / 1000).toFixed(1)}s`);
@@ -165,7 +215,7 @@ export function render({ summaryFile, stats, cache, restoredKey }) {
   }
   lines.push('');
   if (cache.present) {
-    const c = `${cache.entries} entries, ${megabytes(cache.bytes)}, ${cache.unused} not used by this run`;
+    const c = `${cache.entries} entries, ${megabytes(cache.bytes)}, ${cache.unused} (${megabytes(cache.unusedBytes ?? 0)}) not used by this run`;
     lines.push(`Cache directory: ${c}`);
     parts.push(`cache ${c}`);
   } else {
@@ -179,10 +229,11 @@ export function render({ summaryFile, stats, cache, restoredKey }) {
 }
 
 function parseArgs(argv) {
-  const out = { summary: null, cacheDir: CACHE_DIR };
+  const out = { summary: null, cacheDir: CACHE_DIR, prune: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
-    if (arg === '--summary' && argv[i + 1]) out.summary = argv[++i];
+    if (arg === '--prune') out.prune = true;
+    else if (arg === '--summary' && argv[i + 1]) out.summary = argv[++i];
     else if (arg === '--cache-dir' && argv[i + 1]) out.cacheDir = argv[++i];
     else return { error: `unknown or incomplete argument: ${arg}` };
   }
@@ -205,7 +256,19 @@ export function main(argv, env = process.env, log = console.log) {
   const cache = cacheDirStats(args.cacheDir, stats.hashes);
   const { lines, notice } = render({ summaryFile, stats, cache, restoredKey: env.RESTORED_CACHE_KEY ?? '' });
   for (const line of lines) log(line);
-  log(notice);
+  // The annotation is the REPORT step's: a prune run after it would post the
+  // same counts twice on one check run.
+  if (!args.prune) {
+    log(notice);
+    return 0;
+  }
+  if (stats.total === 0) {
+    log(`::warning title=Turbo cache::the run summary lists no task, so nothing is known to be used; not pruning ${args.cacheDir}.`);
+    return 1;
+  }
+  const pruned = pruneCacheDir(args.cacheDir, stats.hashes);
+  const kept = cacheDirStats(args.cacheDir, stats.hashes);
+  log(`Pruned ${pruned.files} file(s), ${megabytes(pruned.bytes)}; kept ${kept.entries} entries, ${megabytes(kept.bytes)}.`);
   return 0;
 }
 

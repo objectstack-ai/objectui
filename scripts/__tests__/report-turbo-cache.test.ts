@@ -3,7 +3,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { cacheDirStats, main, newestSummary, render, summarize } from '../report-turbo-cache.mjs';
+import { cacheDirStats, main, newestSummary, pruneCacheDir, render, summarize } from '../report-turbo-cache.mjs';
+import { parse as parseYaml } from 'yaml';
+import { fileURLToPath } from 'node:url';
 
 /**
  * objectui#12222 — the reader behind `Type Check`'s cache report.
@@ -89,7 +91,7 @@ describe('report-turbo-cache (objectui#12222)', () => {
       fs.writeFileSync(path.join(dir, `${hash}-meta.json`), '{}');
     }
     const stats = cacheDirStats(dir, summarize(SUMMARY).hashes);
-    expect(stats).toMatchObject({ present: true, entries: 3, unused: 1 });
+    expect(stats).toMatchObject({ present: true, entries: 3, unused: 1, unusedBytes: 2 + 2 });
     expect(stats.bytes).toBe(3 * (2 + 2));
     expect(cacheDirStats(path.join(dir, 'absent'), new Set())).toMatchObject({ present: false, entries: 0 });
   });
@@ -98,7 +100,7 @@ describe('report-turbo-cache (objectui#12222)', () => {
     const { notice, lines } = render({
       summaryFile: 'run.json',
       stats: summarize(SUMMARY),
-      cache: { present: true, entries: 3, bytes: 2_097_152, unused: 1 },
+      cache: { present: true, entries: 3, bytes: 2_097_152, unused: 1, unusedBytes: 1_048_576 },
       restoredKey: 'turbo-Linux-type-check-abc',
     });
     expect(notice.startsWith('::notice title=Turbo cache::')).toBe(true);
@@ -106,7 +108,7 @@ describe('report-turbo-cache (objectui#12222)', () => {
     expect(notice).toContain('type-check 1/2 replayed');
     expect(notice).toContain('build 1/1 replayed');
     expect(notice).toContain('uncached //#type-check:e2e (3 input files)');
-    expect(notice).toContain('cache 3 entries, 2.0 MB, 1 not used by this run');
+    expect(notice).toContain('cache 3 entries, 2.0 MB, 1 (1.0 MB) not used by this run');
     expect(notice).toContain('restored turbo-Linux-type-check-abc');
     expect(lines.join('\n')).toContain('@x/b#type-check ddd333 41.5s <- //#type-check:e2e uncached (3 inputs), @x/a#build HIT (1 inputs)');
   });
@@ -115,7 +117,7 @@ describe('report-turbo-cache (objectui#12222)', () => {
     const { notice } = render({
       summaryFile: 'run.json',
       stats: summarize({ tasks: [] }),
-      cache: { present: false, entries: 0, bytes: 0, unused: 0 },
+      cache: { present: false, entries: 0, bytes: 0, unused: 0, unusedBytes: 0 },
       restoredKey: '',
     });
     expect(notice).toContain('no task ran');
@@ -143,7 +145,73 @@ describe('report-turbo-cache (objectui#12222)', () => {
     expect(missing.join('\n')).toContain('::warning');
   });
 
+  it('prunes exactly the entries this run did not use, and leaves foreign files alone', () => {
+    const dir = tmpDir();
+    for (const hash of ['ccc222', 'bbb111', 'eee444']) {
+      fs.writeFileSync(path.join(dir, `${hash}.tar.zst`), 'zz');
+      fs.writeFileSync(path.join(dir, `${hash}-meta.json`), '{}');
+      fs.writeFileSync(path.join(dir, `${hash}-manifest.json`), '{}');
+    }
+    fs.writeFileSync(path.join(dir, 'README'), 'not turbo’s');
+    const pruned = pruneCacheDir(dir, summarize(SUMMARY).hashes);
+    expect(pruned).toEqual({ files: 3, bytes: 2 + 2 + 2 });
+    expect(fs.readdirSync(dir).sort()).toEqual([
+      'README',
+      'bbb111-manifest.json',
+      'bbb111-meta.json',
+      'bbb111.tar.zst',
+      'ccc222-manifest.json',
+      'ccc222-meta.json',
+      'ccc222.tar.zst',
+    ]);
+  });
+
+  it('refuses to prune on a summary that lists no task: unknown use is not "unused"', () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, 'aaa000.tar.zst'), 'zz');
+    const empty = path.join(dir, 'empty.json');
+    fs.writeFileSync(empty, JSON.stringify({ tasks: [] }));
+    const out: string[] = [];
+    expect(main(['--prune', '--summary', empty, '--cache-dir', dir], {}, (l: string) => out.push(l))).toBe(1);
+    expect(fs.existsSync(path.join(dir, 'aaa000.tar.zst'))).toBe(true);
+    expect(out.join('\n')).toContain('not pruning');
+  });
+
+  it('posts no second annotation when it prunes: the report step already did', () => {
+    const dir = tmpDir();
+    const summary = path.join(dir, 'run.json');
+    fs.writeFileSync(summary, JSON.stringify(SUMMARY));
+    fs.writeFileSync(path.join(dir, 'eee444.tar.zst'), 'zz');
+    const out: string[] = [];
+    expect(main(['--prune', '--summary', summary, '--cache-dir', dir], {}, (l: string) => out.push(l))).toBe(0);
+    expect(out.filter((l) => l.startsWith('::notice'))).toEqual([]);
+    expect(out.at(-1)).toMatch(/^Pruned 1 file\(s\)/);
+    expect(fs.existsSync(path.join(dir, 'eee444.tar.zst'))).toBe(false);
+  });
+
   it('refuses an argument it does not know (exit 2)', () => {
     expect(main(['--sumary', 'x.json'], {}, () => {})).toBe(2);
+  });
+});
+
+describe('ci.yml — only the full battery writes the type-check cache, pruned first (objectui#12222)', () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+  const workflow = parseYaml(fs.readFileSync(path.join(repoRoot, '.github/workflows/ci.yml'), 'utf8')) as {
+    jobs: Record<string, { steps: Array<{ name?: string; uses?: string; run?: string; if?: string }> }>;
+  };
+  const steps = workflow.jobs['type-check'].steps;
+  const FULL_BATTERY = "(github.event_name == 'push' || github.event_name == 'schedule')";
+
+  it('saves only on push and schedule, whose run covers every task', () => {
+    const save = steps.find((s) => (s.uses ?? '').startsWith('actions/cache/save@'));
+    expect(save?.if ?? '').toContain(FULL_BATTERY);
+  });
+
+  it('prunes before it saves, on the same events, and never on a pull request or a queue build', () => {
+    const pruneAt = steps.findIndex((s) => s.run === 'node scripts/report-turbo-cache.mjs --prune');
+    const saveAt = steps.findIndex((s) => (s.uses ?? '').startsWith('actions/cache/save@'));
+    expect(pruneAt, 'the prune step is gone').toBeGreaterThan(-1);
+    expect(pruneAt).toBeLessThan(saveAt);
+    expect(steps[pruneAt].if ?? '').toContain(FULL_BATTERY);
   });
 });

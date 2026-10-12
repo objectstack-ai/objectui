@@ -655,6 +655,16 @@ jobs:
       # ⛔ Raising `timeout-minutes: 20` is not the fix and was ruled out on the
       # card: a larger ceiling only buys a longer hang, still ending in
       # `cancelled`, and lifting a gate's ceiling weakens the gate.
+      #
+      # ONE restore key, the job's own prefix (objectui#12222). `actions/cache`
+      # tries every key on the run's OWN ref before it looks at `main`, and
+      # the bare `turbo-<os>-` key this step used to end with matched any job's
+      # cache on that ref: on that card's first pull-request run it restored
+      # the `docs` job's cache, saved minutes earlier by the same run (about
+      # 2 GB, most of it unused), and so never reached `main`'s type-check
+      # cache at all. Pull-request and queue runs save nothing now (see the
+      # prune step below), so on those refs this key finds nothing and the
+      # lookup falls through to `main` -- whose entry the full battery wrote.
       - name: Restore Turbo Cache
         id: turbo-cache
         if: steps.relevant.outputs.should_run == 'true'
@@ -664,7 +674,6 @@ jobs:
           key: turbo-${{ runner.os }}-type-check-${{ github.sha }}
           restore-keys: |
             turbo-${{ runner.os }}-type-check-
-            turbo-${{ runner.os }}-
 
       # ── Two speeds for the type gate (objectui#12222, objectstack#22998) ──
       # The same doctrine as the `test` job below. A `pull_request` or
@@ -809,6 +818,31 @@ jobs:
           RESTORED_CACHE_KEY: ${{ steps.turbo-cache.outputs.cache-matched-key }}
         run: node scripts/report-turbo-cache.mjs
 
+      # ── Only the full battery writes this cache, and only what it used ──
+      # Measured on objectui#12222's first pull-request run: the cache it
+      # restored (another job's, through the bare restore key the restore step
+      # above no longer has) held 401 entries, about 2 GB, 321 of them unused
+      # by the run -- and this job saved all of it again under its own key, on
+      # every pull request, queue build and push. A store full of multi-GB
+      # entries is one a size-limited cache store evicts (the eviction itself
+      # is not readable from a seat's container: the cache API is refused
+      # there). So the type-check cache is written by the full battery only
+      # -- `push` and `schedule`, whose forced run covers every task -- and
+      # this step first deletes every entry that run did not use, so `main`'s
+      # entry is exactly the current verdicts and build outputs, the one every
+      # pull request and queue build restores. Pull-request and queue runs
+      # restore and never save. Bookkeeping like the save: bounded,
+      # `continue-on-error`, after the last checking step;
+      # `scripts/report-turbo-cache.mjs` refuses to prune on a summary that
+      # lists no task.
+      - name: Prune the turbo cache to what this run used
+        if: >-
+          steps.relevant.outputs.should_run == 'true'
+          && (github.event_name == 'push' || github.event_name == 'schedule')
+        timeout-minutes: 2
+        continue-on-error: true
+        run: node scripts/report-turbo-cache.mjs --prune
+
       # The bookkeeping half of the split documented at the restore step above,
       # placed HERE — after the last checking step — because that is exactly
       # where the post phase it replaces already ran. Nothing about which
@@ -831,10 +865,13 @@ jobs:
       #   - the condition names no status function, so the implicit `success()`
       #     still applies — matching the combined action's `post-if: success()`.
       #   - same `path` and same `key` as the restore step above.
+      # One deliberate change (objectui#12222): only `push` and `schedule`
+      # save, after the prune step above; see there for why.
       - name: Save Turbo Cache
         if: >-
           steps.relevant.outputs.should_run == 'true'
           && steps.turbo-cache.outputs.cache-hit != 'true'
+          && (github.event_name == 'push' || github.event_name == 'schedule')
         uses: actions/cache/save@v6
         timeout-minutes: 5
         continue-on-error: true

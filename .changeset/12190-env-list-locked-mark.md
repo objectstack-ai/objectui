@@ -1,6 +1,6 @@
 ---
 '@object-ui/app-shell': patch
-'@object-ui/i18n': patch
+'@object-ui/i18n': minor
 ---
 
 A free-plan organization's environment list no longer offers a primary button that opens a paywall dialog (objectui#12190). The maintainer's rule is that no primary button opens a paywall (objectstack-ai/cloud#2775).
@@ -22,4 +22,4 @@ A free-plan organization's environment list no longer offers a primary button th
 
 **Exports.** No export of `@object-ui/app-shell` changes. Two internal pieces the toolbar no longer uses are removed: the `upgradeDialogSpec` builder in `environment/entitlements.ts`, and the `onUpgrade` prop of the internal `EnvironmentListToolbar`, which `ObjectView` no longer passes. Neither was ever re-exported from the package entry.
 
-**Why `patch`.** It is a bug fix, and this repository scores a fix that adds or replaces locale-pack copy as `patch` (the changesets of objectui#11591, objectui#11659 and objectui#11717 did the same).
+**Breaking for `@object-ui/i18n` consumers: `environment.addEnvironment` is removed.** The key is gone from all ten locale packs and from the published `TranslationKeys` type (`typeof en`). A consumer that calls `t('environment.addEnvironment')` now gets the key echoed back, and code that reads the key off a published pack object or off `TranslationKeys` no longer compiles. There is no replacement key: the "Add environment" button it labelled is retired. The plan-locked state's text is now `environment.developmentLocked`, and its `{{tier}}` placeholder is filled from `planTier.teamAndUp`. Both of those keys are added (listed above). Under this repository's version policy a breaking change is declared `minor` with the break described here, never `major`, so `@object-ui/i18n` is `minor`. `@object-ui/app-shell` stays `patch`: none of its exports changes.

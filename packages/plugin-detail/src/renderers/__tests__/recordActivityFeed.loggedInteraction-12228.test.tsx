@@ -221,10 +221,14 @@ describe('the synthesized default record page shows a logged call (objectui#1222
     // The synthesizer's node is the bare block: no `feed`, no properties.
     expect(discussion).toEqual({ type: 'record:discussion' });
 
-    const Renderer = ComponentRegistry.get('record:discussion') as React.ComponentType<any> | undefined;
+    const Renderer = ComponentRegistry.get('record:discussion') as
+      | React.ComponentType<{ schema: Record<string, unknown> }>
+      | undefined;
     if (!Renderer) throw new Error('no renderer registered for record:discussion');
+    // The discussion context keys its items on a string id.
+    const items = mapAll(ALL_ROWS).map((i) => ({ ...i, id: String(i.id) }));
     render(
-      <DiscussionContextProvider items={mapAll(ALL_ROWS) as any} loading={false}>
+      <DiscussionContextProvider items={items} loading={false}>
         <Renderer schema={discussion} />
       </DiscussionContextProvider>,
     );

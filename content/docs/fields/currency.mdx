@@ -17,7 +17,7 @@ The Currency Field component provides a formatted currency input with proper loc
 
 A currency field is authored as `CurrencyFieldMetadata` (`@object-ui/types`), which is
 the source of truth for the key set: it extends `BaseFieldMetadata` with the currency
-code, the total-digit `precision` and the two numeric bounds.
+declaration, the total-digit `precision` and the two numeric bounds.
 
 ```ts
 import type { CurrencyFieldMetadata } from '@object-ui/types';
@@ -28,11 +28,17 @@ const amount: CurrencyFieldMetadata = {
   label: 'Amount',
   placeholder: '0.00',
   required: true,
-  currency: 'USD',
+  currencyConfig: { currencyMode: 'fixed', defaultCurrency: 'USD' },
   min: 0,
   max: 1000000,
 };
 ```
+
+**The currency is `currencyConfig`**, `@objectstack/spec`'s own declaration. A field that
+always shows one currency declares `{ currencyMode: 'fixed', defaultCurrency }`; a field
+with no `currencyConfig`, or with `currencyMode: 'dynamic'`, shows the tenant's default
+currency. A field-level `currency` key is refused by the spec by name, and
+`CurrencyFieldMetadata` refuses it at compile time.
 
 **Decimal places come from the currency, not from a field key.** An amount shows its
 currency's own ISO 4217 minor unit — two decimals for USD or CNY, none for JPY, three

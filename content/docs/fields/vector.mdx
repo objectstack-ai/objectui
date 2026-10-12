@@ -17,7 +17,9 @@ The Vector Field component displays vector embeddings used in AI/ML applications
 
 A vector field is authored as `VectorFieldMetadata` (`@object-ui/types`), which is the
 source of truth for the key set: it extends `BaseFieldMetadata` with the embedding
-dimensionality and whether the stored vector is normalised.
+dimensionality, `dimensions`, the one vector key `@objectstack/spec`'s `FieldSchema`
+declares. There is no normalisation key: the spec refuses `normalize` by name and the
+widget never read it, so `VectorFieldMetadata` refuses it at compile time.
 
 ```ts
 import type { VectorFieldMetadata } from '@object-ui/types';
@@ -28,7 +30,6 @@ const embedding: VectorFieldMetadata = {
   label: 'Embedding',
   readonly: true,
   dimensions: 1536,
-  normalize: true,
 };
 ```
 

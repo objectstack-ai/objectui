@@ -140,15 +140,37 @@ export interface BaseFieldMetadata {
   sortable?: boolean;
   
   /**
-   * Whether field is filterable
+   * REFUSED BY NAME (objectui#12242): `@objectstack/spec`'s `FieldSchema`
+   * refuses `filterable` with `unrecognized_keys` and declares no field-level
+   * filter switch, and no reader reads it off field metadata. It is retired
+   * with no replacement key: a list view declares its filterable fields on
+   * the view.
+   * @deprecated Nothing reads this key. Remove it.
    */
-  filterable?: boolean;
-  
+  filterable?: never;
+
   /**
-   * Conditional visibility expression
+   * Show the field only while this predicate is true —
+   * `@objectstack/spec`'s `FieldSchema.visibleWhen`, typed BY REFERENCE
+   * (objectui#12242): a bare CEL string (`record.type == 'invoice'`) or the
+   * spec's expression envelope (`{ dialect, source }`). Both form builders in
+   * `@object-ui/plugin-form` (`ObjectForm` and `fromObjectSchema`) carry it
+   * onto the runtime form field, and the form renderer evaluates it against
+   * the record.
    */
-  visible_on?: VisibilityCondition;
-  
+  visibleWhen?: SpecField['visibleWhen'];
+
+  /**
+   * REFUSED BY NAME (objectui#12242): renamed {@link visibleWhen}, which is
+   * the spelling `FieldSchema` suggests for it ("did you mean `visible_on` →
+   * `visibleWhen`?"). The value is a CEL predicate, not the
+   * `{ field, operator, value }` object this member used to declare: the
+   * form builders read predicate text only, so that object was never drawn
+   * as a gate. Neither form builder reads this spelling any more.
+   * @deprecated Write `visibleWhen`. Nothing reads this spelling.
+   */
+  visible_on?: never;
+
   /**
    * Custom validation function or rules
    */
@@ -203,7 +225,12 @@ export interface BaseFieldMetadata {
 }
 
 /**
- * Visibility condition type
+ * Visibility condition type.
+ *
+ * @deprecated No member declares it since objectui#12242: it typed the retired
+ * `BaseFieldMetadata.visible_on`, and no reader ever drew this object shape as
+ * a gate. A field's visibility is `BaseFieldMetadata.visibleWhen`, a CEL
+ * predicate.
  */
 export type VisibilityCondition = {
   field: string;
@@ -476,7 +503,22 @@ export interface NumberFieldMetadata extends BaseFieldMetadata {
  */
 export interface CurrencyFieldMetadata extends BaseFieldMetadata {
   type: 'currency';
-  currency?: string;
+  /**
+   * The field's currency — `@objectstack/spec`'s `FieldSchema.currencyConfig`,
+   * typed BY REFERENCE (objectui#12242). A field that always shows one currency
+   * declares `{ currencyMode: 'fixed', defaultCurrency: 'USD' }`; a field with
+   * no fixed currency (or `currencyMode: 'dynamic'`) shows the tenant's
+   * default. `resolveFieldCurrency` (`@object-ui/i18n`) is the reader every
+   * currency widget and cell shares.
+   */
+  currencyConfig?: SpecField['currencyConfig'];
+  /**
+   * REFUSED BY NAME (objectui#12242): `FieldSchema` refuses a field-level
+   * `currency` with `unrecognized_keys`. A fixed currency is
+   * {@link currencyConfig}: `{ currencyMode: 'fixed', defaultCurrency }`.
+   * @deprecated Write `currencyConfig: { currencyMode: 'fixed', defaultCurrency }`.
+   */
+  currency?: never;
   precision?: number;
   min?: number;
   max?: number;
@@ -507,8 +549,18 @@ export interface BooleanFieldMetadata extends BaseFieldMetadata {
 export interface DateFieldMetadata extends BaseFieldMetadata {
   type: 'date';
   format?: string;
-  min_date?: string | Date;
-  max_date?: string | Date;
+  /**
+   * REFUSED BY NAME (objectui#12242): `FieldSchema` refuses `min_date` with
+   * `unrecognized_keys` and declares no date bound (its `min` / `max` are
+   * numbers), and no widget reads it. Retired with no replacement key.
+   * @deprecated Nothing reads this key. Remove it.
+   */
+  min_date?: never;
+  /**
+   * REFUSED BY NAME (objectui#12242), as {@link min_date}.
+   * @deprecated Nothing reads this key. Remove it.
+   */
+  max_date?: never;
   /**
    * Marks this field as due/deadline-semantic (vs. a plain start/end/created
    * date). Gates the relative-time "Overdue Nd" wording and red styling —
@@ -524,8 +576,16 @@ export interface DateFieldMetadata extends BaseFieldMetadata {
 export interface DateTimeFieldMetadata extends BaseFieldMetadata {
   type: 'datetime';
   format?: string;
-  min_date?: string | Date;
-  max_date?: string | Date;
+  /**
+   * REFUSED BY NAME (objectui#12242), as {@link DateFieldMetadata.min_date}.
+   * @deprecated Nothing reads this key. Remove it.
+   */
+  min_date?: never;
+  /**
+   * REFUSED BY NAME (objectui#12242), as {@link DateFieldMetadata.max_date}.
+   * @deprecated Nothing reads this key. Remove it.
+   */
+  max_date?: never;
   /**
    * Marks this field as due/deadline-semantic — the same key, with the same
    * meaning, as {@link DateFieldMetadata.dueLike} one interface up.
@@ -728,7 +788,13 @@ export interface ImageFieldMetadata extends BaseFieldMetadata {
  */
 export interface LocationFieldMetadata extends BaseFieldMetadata {
   type: 'location';
-  default_zoom?: number;
+  /**
+   * REFUSED BY NAME (objectui#12242): `FieldSchema` refuses `default_zoom` with
+   * `unrecognized_keys` and declares no map zoom, and `LocationField` never
+   * reads it. Retired with no replacement key.
+   * @deprecated Nothing reads this key. Remove it.
+   */
+  default_zoom?: never;
 }
 
 /**
@@ -951,12 +1017,25 @@ export interface SummaryFieldMetadata extends BaseFieldMetadata {
 }
 
 /**
- * Auto-number field metadata
+ * Auto-number field metadata.
+ *
+ * `type` is `'autonumber'`, the spelling `@objectstack/spec`'s `FieldType`
+ * declares (objectui#12242). It was `'auto_number'`, which `FieldSchema` refuses
+ * at `type` with `invalid_value`. `auto_number` is the form's WIDGET key
+ * (`field:auto_number`), which `mapFieldTypeToFormType` resolves `autonumber`
+ * to; it is not a field type.
  */
 export interface AutoNumberFieldMetadata extends BaseFieldMetadata {
-  type: 'auto_number';
+  type: 'autonumber';
   format?: string;
-  starting_number?: number;
+  /**
+   * REFUSED BY NAME (objectui#12242): `FieldSchema` refuses `starting_number`
+   * with `unrecognized_keys` and declares no starting value (the record number
+   * is minted by the backend from `format`), and nothing reads it. Retired with
+   * no replacement key.
+   * @deprecated Nothing reads this key. Remove it.
+   */
+  starting_number?: never;
 }
 
 /**
@@ -1005,11 +1084,24 @@ export interface UserFieldMetadata extends BaseFieldMetadata {
 }
 
 /**
- * Object field metadata (JSON object)
+ * JSON field metadata — the field `ObjectField` edits as JSON.
+ *
+ * `type` is `'json'`, the `@objectstack/spec` `FieldType` for a free-form JSON
+ * value (objectui#12242). It was `'object'`, which is not a spec field type:
+ * `FieldSchema` refuses it at `type` with `invalid_value`. The form resolves
+ * `json` to the same `field:object` editor `object` reached, so nothing about
+ * the widget changes. The interface keeps its name.
  */
 export interface ObjectFieldMetadata extends BaseFieldMetadata {
-  type: 'object';
-  schema?: Record<string, any>;
+  type: 'json';
+  /**
+   * REFUSED BY NAME (objectui#12242): `FieldSchema` refuses `schema` with
+   * `unrecognized_keys`, and `ObjectField` never read it (it checks JSON syntax
+   * only). The spec validates a JSON value's shape at the OBJECT level instead,
+   * with a `validations[]` rule of `type: 'json_schema'` naming the field.
+   * @deprecated Nothing reads this key. Declare a `json_schema` validation rule on the object.
+   */
+  schema?: never;
 }
 
 /**
@@ -1041,9 +1133,12 @@ export interface VectorFieldMetadata extends BaseFieldMetadata {
    * fields, unique }]`.
    */
   /**
-   * Normalization strategy
+   * REFUSED BY NAME (objectui#12242): `FieldSchema` refuses `normalize` with
+   * `unrecognized_keys` (`dimensions` is the only vector key it declares), and
+   * `VectorField` never reads it. Retired with no replacement key.
+   * @deprecated Nothing reads this key. Remove it.
    */
-  normalize?: boolean;
+  normalize?: never;
 }
 
 /**

@@ -25,7 +25,8 @@ The DateTime Field component provides a combined date and time input for collect
 
 A datetime field is authored as `DateTimeFieldMetadata` (`@object-ui/types`), which is
 the source of truth for the key set: it extends `BaseFieldMetadata` with a display
-format and the two range bounds.
+format and the due/deadline flag. As on the [Date Field](/docs/fields/date), there is
+no range key: the spec refuses `min_date` / `max_date` by name and nothing read them.
 
 ```ts
 import type { DateTimeFieldMetadata } from '@object-ui/types';
@@ -37,8 +38,6 @@ const startsAt: DateTimeFieldMetadata = {
   placeholder: 'Pick a date and time',
   required: true,
   format: 'yyyy-MM-dd HH:mm',
-  min_date: '2024-01-01T00:00:00Z',
-  max_date: '2030-12-31T23:59:59Z',
   dueLike: true,
 };
 ```

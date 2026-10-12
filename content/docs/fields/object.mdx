@@ -11,7 +11,7 @@ It is the form editor for the free-form JSON field types: `object`, `composite`,
 
 <SchemaExample id="fields-object/basic-object-editor" />
 
-## With Schema
+## Structured Configuration
 
 <SchemaExample id="fields-object/structured-configuration" />
 
@@ -25,23 +25,22 @@ It is the form editor for the free-form JSON field types: `object`, `composite`,
 
 ## Field Schema
 
-An object field is authored as `ObjectFieldMetadata` (`@object-ui/types`), which is the
-source of truth for the key set: it extends `BaseFieldMetadata` with one key, an
-optional `schema` describing the JSON the field accepts.
+A JSON field is authored as `ObjectFieldMetadata` (`@object-ui/types`), which is the
+source of truth for the key set. Its type value is `json`, the `@objectstack/spec`
+`FieldType` for a free-form JSON value: `object` is not a spec field type, and
+`FieldSchema` refuses it at `type`. The type adds no key of its own to
+`BaseFieldMetadata`; the shape the value must have is declared on the object instead
+(see [Schema Validation](#schema-validation)).
 
 ```ts
 import type { ObjectFieldMetadata } from '@object-ui/types';
 
 const settings: ObjectFieldMetadata = {
-  type: 'object',
+  type: 'json',
   name: 'settings',
   label: 'Settings',
   placeholder: '{ }',
   inlineHelpText: 'Stored as JSON.',
-  schema: {
-    theme: { type: 'string' },
-    notifications: { type: 'boolean' },
-  },
 };
 ```
 
@@ -80,7 +79,7 @@ The object field stores data as parsed JSON:
 
 ```plaintext
 {
-  type: 'object',
+  type: 'json',
   name: 'api_config',
   label: 'API Configuration',
   value: {
@@ -98,7 +97,7 @@ The object field stores data as parsed JSON:
 
 ```plaintext
 {
-  type: 'object',
+  type: 'json',
   name: 'custom_metadata',
   label: 'Custom Metadata',
   value: {
@@ -113,7 +112,7 @@ The object field stores data as parsed JSON:
 
 ```plaintext
 {
-  type: 'object',
+  type: 'json',
   name: 'user_preferences',
   label: 'Preferences',
   value: {
@@ -130,8 +129,8 @@ The object field stores data as parsed JSON:
 
 ## Cell Renderer
 
-In tables/grids, an `object` value is rendered by the JSON cell renderer —
-`getCellRenderer('object')` resolves to this same component, shared with `json`:
+In tables/grids, a `json` value is rendered by the JSON cell renderer —
+`getCellRenderer('json')` resolves to it, as `getCellRenderer('object')` does:
 
 ```ts
 import { JsonCellRenderer } from '@object-ui/fields';
@@ -161,48 +160,38 @@ An empty value, `[]`, `{}` and a non-object value read as the JSON cell reads th
 
 ## Schema Validation
 
-For typed object fields, you can define a schema in two formats:
+The shape a JSON value must have is declared on the **object**, not on the field.
+`@objectstack/spec` has a validation rule for exactly this, `type: 'json_schema'`, which
+names the field and carries a JSON Schema document. Like every object validation rule it
+runs on the server's write path, on the writes its `events` name. `FieldSchema` has no
+field-level `schema` key: it refuses one
+by name, and `ObjectFieldMetadata` refuses it at compile time.
 
-**Simplified Format** (for documentation):
 ```plaintext
-{
-  type: 'object',
-  name: 'product_specs',
-  label: 'Product Specifications',
-  schema: {
-    weight: 'number',
-    dimensions: {
-      width: 'number',
-      height: 'number',
-      depth: 'number'
-    },
-    materials: 'array'
-  }
-}
-```
-
-**JSON Schema Format** (for validation):
-```plaintext
-{
-  type: 'object',
-  name: 'product_specs',
-  label: 'Product Specifications',
-  schema: {
-    type: 'object',
-    properties: {
-      weight: { type: 'number' },
-      dimensions: {
-        type: 'object',
-        properties: {
-          width: { type: 'number' },
-          height: { type: 'number' },
-          depth: { type: 'number' }
-        }
-      },
-      materials: { type: 'array' }
+// on the object definition
+validations: [
+  {
+    type: 'json_schema',
+    name: 'product_specs_shape',
+    field: 'product_specs',
+    message: 'Product specifications are not in the expected shape.',
+    schema: {
+      type: 'object',
+      properties: {
+        weight: { type: 'number' },
+        dimensions: {
+          type: 'object',
+          properties: {
+            width: { type: 'number' },
+            height: { type: 'number' },
+            depth: { type: 'number' }
+          }
+        },
+        materials: { type: 'array' }
+      }
     }
   }
-}
+]
 ```
 
 ## Use Cases
@@ -224,36 +213,8 @@ For typed object fields, you can define a schema in two formats:
 
 ## Backend Validation
 
-ObjectUI does not enforce `schema`. `ObjectField` checks JSON **syntax** only —
-it accepts any value `JSON.parse` accepts, and refuses a draft it cannot parse —
-so nothing on the client rejects a well-formed object whose shape is wrong.
-Structural validation belongs on the server.
-
-The `schema` you author is carried on the field metadata untouched, and in the
-JSON Schema Format above it is an ordinary JSON Schema document. That is the
-whole integration point: the server validates the incoming value against the
-very same object, using whichever JSON Schema validator it already has (Ajv,
-for instance — ObjectUI ships none and names none).
-
-```ts
-import type { ObjectFieldMetadata } from '@object-ui/types';
-
-const apiConfig: ObjectFieldMetadata = {
-  type: 'object',
-  name: 'api_config',
-  label: 'API Configuration',
-  schema: {
-    type: 'object',
-    properties: {
-      api_key: { type: 'string', minLength: 1 },
-      timeout: { type: 'number', minimum: 0 },
-      enabled: { type: 'boolean' },
-    },
-    required: ['api_key'],
-  },
-};
-```
-
-One caveat when you do: the Simplified Format above is
-documentation for a reader, not a validator input — only the JSON Schema Format
-can be handed to a JSON Schema validator as-is.
+ObjectUI does not check the shape of a JSON value. `ObjectField` checks JSON **syntax**
+only — it accepts any value `JSON.parse` accepts, and refuses a draft it cannot parse —
+so nothing on the client rejects a well-formed object whose shape is wrong. Shape
+validation belongs on the server, and the object's `json_schema` rule above is how it is
+declared there.

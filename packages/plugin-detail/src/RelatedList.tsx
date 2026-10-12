@@ -1601,6 +1601,10 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         type: def.type,
         ...((lookupOptions || def.options) && { options: lookupOptions || def.options }),
         ...(def.currency && { currency: def.currency }),
+        // The spec's one declaration of a fixed currency: `FieldSchema`
+        // refuses a field-level `currency`, so without this a fixed-EUR amount
+        // read in the tenant's currency in this list (objectui#12242).
+        ...(def.currencyConfig && { currencyConfig: def.currencyConfig }),
         ...(def.precision !== undefined && { precision: def.precision }),
         ...((def as any).scale !== undefined && { scale: (def as any).scale }),
         // Beside `scale`, whose scale-0 grouping heuristic it overrides in the

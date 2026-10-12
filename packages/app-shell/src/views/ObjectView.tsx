@@ -3861,7 +3861,8 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
              {/* 1. Header with breadcrumb + description.
                  The managed-by badge sits inline with the title so the
                  lifecycle bucket (system / config / append-only /
-                 better-auth) is communicated at a glance; the previous
+                 better-auth) is communicated at a glance to an authoring
+                 caller — it draws for no one else (objectui#12194); the previous
                  full-width banner was deliberately removed because it
                  (a) leaked engine-internal terminology and (b) repeated
                  itself on list/detail/form for the same record.

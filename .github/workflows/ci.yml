@@ -808,7 +808,7 @@ jobs:
           fi
           pnpm exec turbo run build "${filters[@]}" | tee "$RUNNER_TEMP/root-builds.out"
           cached=$(grep -E '^ *Cached:' "$RUNNER_TEMP/root-builds.out" | tail -n 1 | tr -s ' ' || true)
-          echo "::notice title=Repo-root program builds::$(echo $packages) --${cached:- turbo printed no Cached line}"
+          echo "::notice title=Repo-root program builds::$(echo $packages) -- ${cached:-turbo printed no Cached line}"
 
       # The four repo-root `vitest.setup.*` files were in ZERO tsc programs
       # (objectui#3515) — the same shape as `scripts/` before objectui#3494, one

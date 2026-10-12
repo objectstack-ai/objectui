@@ -1,18 +1,14 @@
 import type { ReactNode } from 'react';
 
-/**
- * Generic data source interface
- * Third-party systems can implement this to connect their own backends
- */
-export interface DataSource {
-  find(objectName: string, params?: any): Promise<any>;
-  findOne(objectName: string, id: string, params?: any): Promise<any>;
-  create(objectName: string, data: any): Promise<any>;
-  update(objectName: string, id: string, data: any): Promise<any>;
-  delete(objectName: string, id: string): Promise<void>;
-  getMetadata?(): Promise<any>;
-  [key: string]: any; // Allow additional methods
-}
+// `DataSource` is `@object-ui/types`' — the one authority, the
+// backend-agnostic contract every adapter implements. This module used to
+// declare an older, looser copy of the same contract (`any`-typed doors, a
+// `delete` resolving `void` where the authority resolves `boolean`, no
+// `getObjectSchema`, an optional `getMetadata` nothing calls, and an open
+// index signature). No file imported it and this package's entry never
+// published it, so it re-exports the authority rather than declaring a second
+// one (objectui#6349, batch 11).
+export type { DataSource } from '@object-ui/types';
 
 /**
  * Props of this package's minimal `AppShell` container: header, body and

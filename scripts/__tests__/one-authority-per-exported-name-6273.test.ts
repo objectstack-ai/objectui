@@ -465,7 +465,15 @@ const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // Both depend on `@object-ui/types`, so the ONE declaration moved down there
   // (`data.ts`, beside `DataSource`) and both sites now RE-EXPORT it; both
   // package roots still publish the name (objectui#6349, batch 10).
-  ['DataSource', ['packages/app-shell/src/types.ts', 'packages/types/src/data.ts']],
+  // `DataSource` sat here, colliding between `packages/app-shell/src/types.ts`
+  // and `packages/types/src/data.ts`. One contract, drifted: app-shell's was an
+  // older, looser copy of the adapter contract `@object-ui/types` declares
+  // (`any`-typed doors, `delete` resolving `void`, no `getObjectSchema`, an
+  // optional `getMetadata` nothing calls, an open index signature), so neither
+  // was assignable to the other, and no file imported it and the app-shell
+  // entry never published it. app-shell depends on `@object-ui/types`, so that
+  // declaration is the one authority and `types.ts` RE-EXPORTS it
+  // (objectui#6349, batch 11).
   // `Diagnostic` sat here with THREE sites and three meanings:
   // `packages/sdui-parser/src/types.ts` (a parser finding: `severity`, `code`,
   // `start`, `tag` — published at that package's root and read through it),

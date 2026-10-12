@@ -276,7 +276,7 @@ export const OPTIONAL_CONTEXTS = Object.freeze({
  * whichever shard happens to exist.
  */
 const COVERAGE_SHARD_NOT_A_GATE =
-  "ci.yml's push-only coverage lane (`if: github.event_name == 'push'`), so on a pull request it reports conclusion=skipped by design. Coverage is deliberately not recomputed per pull request — v8 instrumentation adds 40-100% overhead — so the PR lane is the `Test (shard N/8)` matrix, which reports through the `Test` aggregator above. ⛔ This lane's own 4-way sharding is unrelated to that matrix's width and objectui#9499 did not touch it.";
+  "ci.yml's coverage lane runs on the full battery's events only (`push` and the hourly `schedule`, objectui#12214), so on a pull request it reports conclusion=skipped by design. Coverage is deliberately not recomputed per pull request — v8 instrumentation adds 40-100% overhead — so the PR lane is the `Test (shard N/8)` matrix, which reports through the `Test` aggregator above. ⛔ This lane's own 4-way sharding is unrelated to that matrix's width and objectui#9499 did not touch it.";
 
 /**
  * The eight PR test shards share one reason, spelled once. Every one of them is
@@ -292,7 +292,7 @@ const COVERAGE_SHARD_NOT_A_GATE =
  * count used to be welded to (objectui#9499).
  */
 const PR_TEST_SHARD_NOT_A_GATE =
-  "ci.yml's PR/merge-queue test matrix. It is a blocking leg and it is NOT waited for by name: since objectui#9499 the `test-aggregate` job (`Test`, above) is the single required test context, and it reports only after every shard has finished, red unless each shard's OWN conclusion is `success` — `skipped` included. Waiting for the legs here as well would put the shard COUNT back into a second declaration, which is the coupling that card removed.";
+  "ci.yml's test matrix — the affected set on a pull request or queue build, the whole suite on `push` and `schedule` (objectui#12214). It is a blocking leg and it is NOT waited for by name: since objectui#9499 the `test-aggregate` job (`Test`, above) is the single required test context, and it reports only after every shard has finished, red unless each shard's OWN conclusion is `success` — `skipped` included. Waiting for the legs here as well would put the shard COUNT back into a second declaration, which is the coupling that card removed.";
 
 /**
  * Everything else a pull request to `main` produces, and why it cannot gate.
@@ -314,7 +314,7 @@ export const NOT_A_GATE = Object.freeze({
   dependabot:
     'This workflow itself. The gate runs inside this job, so requiring it would deadlock at its own deadline.',
   'Test (coverage)':
-    "ci.yml's push lane (`if: github.event_name == 'push'`), so on a pull request it reports conclusion=skipped by design. Since objectui#5403 this is the job at the END of the coverage lane — it merges the four shard blob reports into one complete report, enforces the configured coverage thresholds over it, publishes it as the `coverage-report` artifact, and goes red whenever any of that did not happen (the Codecov upload it also carried was retired by objectui#5436). The PR lane is the `Test (shard N/8)` matrix, reported through the `Test` aggregator above.",
+    "ci.yml's full-battery lane (`push` and the hourly `schedule`, objectui#12214), so on a pull request it reports conclusion=skipped by design. Since objectui#5403 this is the job at the END of the coverage lane — it merges the four shard blob reports into one complete report, enforces the configured coverage thresholds over it, publishes it as the `coverage-report` artifact, and goes red whenever any of that did not happen (the Codecov upload it also carried was retired by objectui#5436). The PR lane is the `Test (shard N/8)` matrix, reported through the `Test` aggregator above.",
   'Test (coverage shard 1/4)': COVERAGE_SHARD_NOT_A_GATE,
   'Test (coverage shard 2/4)': COVERAGE_SHARD_NOT_A_GATE,
   'Test (coverage shard 3/4)': COVERAGE_SHARD_NOT_A_GATE,

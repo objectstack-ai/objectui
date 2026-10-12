@@ -49,6 +49,20 @@ on:
   # build it came from never cancel each other.
   merge_group:
     types: [checks_requested]
+  # ── Two speeds (objectui#12214, objectstack#22998) ─────────────────────
+  # A `pull_request` or `merge_group` run carries the FAST SET: the `test`
+  # matrix below runs the test files the change affects, selected by
+  # `scripts/select-affected-tests.mjs`. `push` to `main` and this hourly
+  # `schedule` carry the FULL BATTERY: every test file in eight shards, plus
+  # the four-shard coverage lane. Nothing is deleted or weakened; the whole
+  # suite moved to `main`, where it runs on every merge and at least hourly.
+  # GitHub runs `schedule` on the default branch only. The minute is off the
+  # hour on purpose: scheduled workflows queue behind everyone else's `:00`.
+  # On `schedule` the concurrency group below falls through to `github.ref`
+  # (`refs/heads/main`), which no push (a sha) or pull request (a number)
+  # shares; an hourly run is cancelled only by the next one, an hour later.
+  schedule:
+    - cron: '26 * * * *'
 
 # ── Concurrency (objectui#5422) ───────────────────────────────────
 # On `pull_request` the group is the PR number and `cancel-in-progress` cancels
@@ -769,7 +783,14 @@ jobs:
     # report is published as an artifact rather than uploaded to Codecov). PR
     # and push behaviour is unchanged — only the previously impossible third
     # case moves.
-    if: github.event_name != 'push'
+    #
+    # ⭐ Two speeds (objectui#12214): the event guard that kept this matrix off
+    # `push` is GONE. Every event runs it now, at one of two speeds: on
+    # `pull_request` and `merge_group` the `Select the tests this change
+    # affects` step below narrows each shard to the affected set; on `push` and
+    # `schedule` it is the whole suite, beside the coverage lane. The width
+    # stays eight on both speeds, so `test-aggregate` keeps `--shards 8` and
+    # still refuses a partial set.
     runs-on: ubuntu-latest
     # Bound the job so a stalled runner / non-exiting test worker fails fast and
     # is retryable, instead of hanging up to GitHub's 6h default.
@@ -934,13 +955,79 @@ jobs:
         if: steps.relevant.outputs.should_run == 'true'
         run: pnpm install --frozen-lockfile
 
+      # ── The two speeds (objectui#12214, objectstack#22998) ──────────────
+      # `push` and `schedule` are the full battery: nothing is selected, every
+      # test file runs. On `pull_request` and `merge_group` the selector names
+      # the affected set -- the packages the change sits in and every package
+      # that depends on them, plus the test files the package graph cannot
+      # place, which run on every change -- or answers `mode=full` when the
+      # change reaches something every test runs through. Its header states the
+      # rules and what it does not see; the full battery on `main` is the
+      # backstop for every miss.
+      #
+      # Fails OPEN, like every gate in this file: a selector that exits
+      # non-zero, prints no verdict, or is handed no base sha means the full
+      # suite, never a skip. The exit status is captured beside the output, not
+      # through a command substitution (objectui#6221). Every shard computes the
+      # same selection from the same checkout, so `--shard` partitions one set.
+      - name: Select the tests this change affects
+        id: select
+        if: steps.relevant.outputs.should_run == 'true'
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          QUEUE_BASE: ${{ github.event.merge_group.base_sha }}
+        run: |
+          case "$EVENT" in
+            pull_request) base="$PR_BASE" ;;
+            merge_group) base="$QUEUE_BASE" ;;
+            *)
+              echo 'mode=full' >> "$GITHUB_OUTPUT"
+              echo "A $EVENT run is the full battery: every test file, eight shards."
+              exit 0
+              ;;
+          esac
+          status=0
+          if [ -z "$base" ]; then
+            echo "::warning::no base sha on this $EVENT event; running the full suite rather than guessing."
+            status=2
+          else
+            node scripts/select-affected-tests.mjs --base "$base" --out "$RUNNER_TEMP/affected-tests.txt" \
+              > "$RUNNER_TEMP/select.out" || status=$?
+            cat "$RUNNER_TEMP/select.out"
+          fi
+          verdict=''
+          if [ "$status" -eq 0 ]; then
+            verdict=$(tail -n 1 "$RUNNER_TEMP/select.out")
+          fi
+          case "$verdict" in
+            mode=affected | mode=full) ;;
+            *)
+              echo "::warning::the affected-test selector reached no verdict (exit $status); running the full suite rather than skipping silently."
+              verdict='mode=full'
+              ;;
+          esac
+          echo "$verdict" >> "$GITHUB_OUTPUT"
+
       # Run the canonical root Vitest project once. Running `turbo run test`
       # here starts one Vitest process per package; several package configs
       # intentionally inherit the root monorepo project list, so CI ends up
       # repeating large chunks of the suite and can starve slower plugin tests.
+      # The affected speed is the same root run with the selector's filters as
+      # positionals -- paths relative to the repository root, no `--`, which is
+      # the only spelling `scripts/vitest-invocation-guard.mjs` admits.
       - name: Run tests (shard ${{ matrix.shard }}/8)
         if: steps.relevant.outputs.should_run == 'true'
-        run: pnpm test --shard=${{ matrix.shard }}/8
+        env:
+          MODE: ${{ steps.select.outputs.mode }}
+        run: |
+          if [ "$MODE" = 'mode=affected' ]; then
+            mapfile -t filters < "$RUNNER_TEMP/affected-tests.txt"
+            echo "Affected speed: ${#filters[@]} vitest filter(s), shard ${{ matrix.shard }} of 8."
+            pnpm exec vitest run --shard=${{ matrix.shard }}/8 "${filters[@]}"
+          else
+            pnpm test --shard=${{ matrix.shard }}/8
+          fi
 
   # ── The built-artifact pin lane, lifted out of the shard matrix ──────────
   # (objectui#7183 for the lane itself; objectui#9499 for this job.)
@@ -973,10 +1060,10 @@ jobs:
   # line of it is on the `test` job above; it is not repeated here.
   test-dist-pins:
     name: Test (dist pins)
-    # Same event guard as the shard matrix above: the push lane is the coverage
-    # lane, and `test-aggregate` below asserts this job's result, so the two
-    # must skip together or the aggregator would judge a job that never ran.
-    if: github.event_name != 'push'
+    # No event guard, like the shard matrix above (objectui#12214): the push
+    # lane used to be the coverage lane alone, and this job skipped with the
+    # shards. `test-aggregate` below asserts this job's result, so the two
+    # still run together -- now on every event.
     runs-on: ubuntu-latest
     # The same bound the matrix carries. This job builds one package and runs a
     # handful of files, so it sits nowhere near it -- the bound is here for the
@@ -1086,12 +1173,13 @@ jobs:
   # `if: always()` so a red, skipped or cancelled shard still produces a verdict
   # here instead of skipping this job -- a skipped required context counts as
   # SUCCESS in branch protection, which on the one context that speaks for the
-  # whole test lane is the failure mode itself. The event guard matches the two
-  # jobs above: on `push` they do not run, and neither does this.
+  # whole test lane is the failure mode itself. No event guard, matching the
+  # two jobs above (objectui#12214): on `push` and `schedule` this is the full
+  # battery's test verdict for the commit on `main`, read the same way.
   test-aggregate:
     name: Test
     needs: [test, test-dist-pins]
-    if: always() && github.event_name != 'push'
+    if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # Declaring any `permissions:` block sets every unlisted scope to `none`,
@@ -1202,7 +1290,9 @@ jobs:
   # than left as a claim the run does not actually support.
   test-coverage:
     name: Test (coverage shard ${{ matrix.shard }}/4)
-    if: github.event_name == 'push'
+    # The full battery's coverage half: every merge to `main` (`push`) and the
+    # hourly `schedule` run (objectui#12214).
+    if: github.event_name == 'push' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 40
 
@@ -1399,9 +1489,9 @@ jobs:
     name: Test (coverage)
     needs: test-coverage
     # `always()` so the verdict step below still runs when a shard failed —
-    # that is the entire point. The event guard keeps this lane push-only, as
-    # the unsharded job was.
-    if: always() && github.event_name == 'push'
+    # that is the entire point. The event guard matches `test-coverage`: the
+    # full battery's events, `push` and `schedule` (objectui#12214).
+    if: always() && (github.event_name == 'push' || github.event_name == 'schedule')
     runs-on: ubuntu-latest
     timeout-minutes: 20
 

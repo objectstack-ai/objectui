@@ -16,9 +16,11 @@ The Image Field component provides an image upload interface with thumbnail prev
 ## Field Schema
 
 An image field is authored as `ImageFieldMetadata` (`@object-ui/types`), which is the
-source of truth for the key set: it extends `BaseFieldMetadata` with the upload limits
-and the two pixel bounds. A stored image is the bare `sys_file` id the upload adapter
-minted, the same value shape the file field stores: see the
+source of truth for the key set: it extends `BaseFieldMetadata` with `multiple`, `accept`
+and `maxSize`, the spec's `FieldSchema.maxSize` in bytes. There is no key for a file count
+or for pixel dimensions, because the spec declares none and no widget enforces one. A stored
+image is the bare `sys_file` id the upload adapter minted, the same value shape the file
+field stores: see the
 [File Field](/docs/fields/file) for the refusal when no id comes back, and for
 `UploadedFileMetadata`, the legacy inline shape an older record may still hold.
 
@@ -31,10 +33,7 @@ const productPhotos: ImageFieldMetadata = {
   label: 'Product Photos',
   multiple: true,
   accept: ['image/png', 'image/jpeg', 'image/webp'],
-  max_size: 5 * 1024 * 1024,
-  max_files: 8,
-  max_width: 4096,
-  max_height: 4096,
+  maxSize: 5 * 1024 * 1024,
 };
 ```
 
@@ -71,7 +70,7 @@ import { ImageCellRenderer } from '@object-ui/fields';
 
 ## Image Optimization
 
-For best results, consider:
+For best results, cap the upload size and accept web-friendly formats:
 
 ```plaintext
 {
@@ -79,10 +78,7 @@ For best results, consider:
   name: 'product_images',
   label: 'Product Photos',
   multiple: true,
-  max_size: 5242880,        // 5MB
-  max_files: 10,
-  max_width: 2048,
-  max_height: 2048,
+  maxSize: 5242880,        // 5 MB
   accept: ['image/jpeg', 'image/png', 'image/webp']
 }
 ```

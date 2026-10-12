@@ -1127,9 +1127,13 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
           formField.inputType = 'file';
           formField.multiple = field.multiple;
           formField.accept = field.accept ? field.accept.join(',') : undefined;
-          // Add validation hints for file size and dimensions
-          if (field.max_size) {
-            const sizeHint = `Max size: ${formatFileSize(field.max_size)}`;
+          // The size-limit hint reads the spec's `maxSize` (`FieldSchema`),
+          // the one spelling: the snake_case `max_size` this read until
+          // objectui#12156 is refused by the spec and declared by no objectui
+          // type. `field` is untyped here, so nothing but
+          // `objectFormFileSizeHint-12156.test.tsx` catches a misspelt read.
+          if (field.maxSize) {
+            const sizeHint = `Max size: ${formatFileSize(field.maxSize)}`;
             formField.description = formField.description 
               ? `${formField.description} (${sizeHint})` 
               : sizeHint;

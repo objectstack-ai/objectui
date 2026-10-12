@@ -20,7 +20,10 @@ The File Field component provides a file upload interface with support for multi
 ## Field Schema
 
 A file field is authored as `FileFieldMetadata` (`@object-ui/types`), which is the
-source of truth for the key set: it extends `BaseFieldMetadata` with the upload limits.
+source of truth for the key set: it extends `BaseFieldMetadata` with `multiple`, `accept`
+and `maxSize`. `maxSize` is the largest file the widget accepts, in bytes, and it is the
+spec's `FieldSchema.maxSize`: a larger pick is refused before any upload starts. There is
+no key for a file count, because the spec declares none and no widget enforces one.
 
 The field's stored **value** is the bare `sys_file` id the upload adapter minted — a
 `string`, or `string[]` when `multiple` — the reference form the platform's stored
@@ -41,8 +44,7 @@ const attachments: FileFieldMetadata = {
   help: 'PDF or Word, up to 10 MB each.',
   multiple: true,
   accept: ['application/pdf', 'application/msword'],
-  max_size: 10 * 1024 * 1024,
-  max_files: 5,
+  maxSize: 10 * 1024 * 1024,
 };
 
 // The LEGACY inline shape a pre-reference record may still hold as its VALUE —

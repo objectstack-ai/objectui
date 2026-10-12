@@ -1602,22 +1602,22 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // and costs one parent read per change, however many lists are mounted.
   //
   // The children are the page's derived related lists, keyed by CONTENT
-  // (AGENTS.md #10 — `childRelations` is a memo). A change the record's own
-  // subscription already answers — this record, its object, or `'*'` — is
-  // left to it, so a self-referencing child or a wildcard reads the row once.
+  // (AGENTS.md #10 — `childRelations` is a memo). A change both subscriptions
+  // match — a `'*'`, or this record when the object references itself — bumps
+  // both nonces from one dispatch; React batches the two updates into one
+  // render, so the row is still read once.
   const relatedChildObjectsKey = JSON.stringify(
     Array.from(new Set(childRelations.map((r) => r.childObject))).sort(),
   );
   useEffect(() => {
     const childObjects = JSON.parse(relatedChildObjectsKey) as string[];
-    if (!objectName || childObjects.length === 0) return;
+    if (childObjects.length === 0) return;
     return subscribeDataChanges((change) => {
-      if (dataChangeMatches(change, objectName, pureRecordId || undefined)) return;
       if (childObjects.some((child) => dataChangeMatches(change, child))) {
         setChildInvalidationNonce((n) => n + 1);
       }
     });
-  }, [objectName, pureRecordId, relatedChildObjectsKey]);
+  }, [relatedChildObjectsKey]);
 
   // [objectstack#3821] RECORD-level write gate. Everything above is object
   // scoped — it cannot express "this one record is read-only", which is

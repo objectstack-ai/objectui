@@ -1011,8 +1011,10 @@ named from where the spec's approver binding says its value lives: a
 directory kind (`team`, `department`) by its row's label, and a kind bound to
 the metadata registry (`{ source: 'registry', type }`, which is how a spec
 carrying objectstack#22710 binds `position`) by the registry item's label,
-read through the metadata store. Failing both, it reads as the prettified
-machine name, never as the raw reference.
+read through the metadata store. When no label answers, a reference that
+carries a machine name (a position, under either binding) reads as the
+prettified name, never as the raw reference; an id-valued kind (`team`,
+`department`) keeps the caller's existing formatting.
 
 Visibility is gated by record READ access, not approver status — anyone who
 can open the record sees where its approval stands, without a trip to the

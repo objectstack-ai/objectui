@@ -69,7 +69,7 @@
  */
 
 import { useCallback, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useHref, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   RelatedRecordActionsProvider,
   notifyDataChanged,
@@ -85,6 +85,7 @@ import { evalRowPredicate, resolveAffordance, type ActionDef, type RowCrudPredic
 import { actionRendersAt, type ActionLocation } from '@object-ui/types';
 import { usePermissions } from '@object-ui/permissions';
 import { RECORD_FORM_PARAM, RECORD_FORM_OBJECT_PARAM, RECORD_FORM_LINK_PARAM, RECORD_TRAIL_PARAM, appendRecordTrail } from '../urlParams.js';
+import { documentHref } from './documentHref.js';
 
 /**
  * Notify open related lists for `objectName` to refetch.
@@ -250,6 +251,9 @@ export function RelatedRecordActionsBridge({
   // dialog stayed in the authored language.
   const localizeActionTexts = useActionTextLocalizer();
   const base = appName ? `/apps/${appName}` : '';
+  // The router's href for its root, basename included (see `documentHref`).
+  // Read once here, because `recordHref` below runs per rendered lookup.
+  const routerRootHref = useHref('/');
   /** A parent record is in scope: the related lists below sit inside it. */
   const hasParentRecord = parentRecordId != null && parentRecordId !== '';
 
@@ -260,18 +264,18 @@ export function RelatedRecordActionsBridge({
   );
 
   /**
-   * THE record-detail URL builder for this page — one route shape, one place.
+   * THE record-detail route for this page — one route shape, one place.
    *
-   * Serves both the related list's row navigation (`onView`, below) and, since
-   * objectui#4336, the lookup values rendered anywhere under this bridge: a
-   * lookup points at a record of another object, and `LookupCellRenderer` has
-   * no router, so it asks for the href instead of re-deriving `/apps/:app/
-   * :object/record/:id` a second time (the #4472 lesson — one resolver).
+   * A ROUTER path (`/apps/:app/:object/record/:id`, no basename), which is what
+   * `navigate` takes. Both of this page's ways of reaching a record derive from
+   * it: the related list's row navigation (`onView`, through `openRecord`) and
+   * the href the lookup values render (`recordHref`), so the two cannot address
+   * different records.
    *
    * `null` when the host cannot route there (no app segment, or an object that
    * is not in this console's metadata), which renders as the plain value.
    */
-  const recordHref = useCallback(
+  const recordPath = useCallback(
     (objectName: string, recordId: string | number): string | null => {
       if (!base || !objectName || !routableObjects.has(objectName)) return null;
       const url = `${base}/${objectName}/record/${encodeURIComponent(String(recordId))}`;
@@ -296,13 +300,37 @@ export function RelatedRecordActionsBridge({
     [base, routableObjects, parentObjectName, parentRecordId, parentTitle],
   );
 
-  /** SPA-navigate to the destination {@link recordHref} addresses. */
+  /**
+   * The same destination as an HREF, for the lookup values rendered anywhere
+   * under this bridge (objectui#4336): a lookup points at a record of another
+   * object, and `LookupCellRenderer` has no router, so it asks for the href
+   * instead of re-deriving `/apps/:app/:object/record/:id` a second time (the
+   * #4472 lesson — one resolver).
+   *
+   * The browser reads an href, not the router, so it carries the router's
+   * basename (objectui#12233; see {@link documentHref}). The published
+   * contract offers it for "open in new tab" and "copy link address", and a
+   * console mounted at `/_console` used to hand out the bare route instead:
+   * only a plain left click, which `openRecord` routes, reached the record.
+   */
+  const recordHref = useCallback(
+    (objectName: string, recordId: string | number): string | null => {
+      const path = recordPath(objectName, recordId);
+      return path === null ? null : documentHref(routerRootHref, path);
+    },
+    [recordPath, routerRootHref],
+  );
+
+  /**
+   * SPA-navigate to the destination {@link recordHref} addresses — by its
+   * router path, because `navigate` applies the basename itself.
+   */
   const openRecord = useCallback(
     (objectName: string, recordId: string | number) => {
-      const href = recordHref(objectName, recordId);
-      if (href) navigate(href);
+      const path = recordPath(objectName, recordId);
+      if (path) navigate(path);
     },
-    [recordHref, navigate],
+    [recordPath, navigate],
   );
 
   // objectstack-ai/objectstack#2604 D3 — open a child create/edit task as the console's global record
@@ -425,7 +453,7 @@ export function RelatedRecordActionsBridge({
         };
         const handlers: RelatedRecordHandlers = {
           // Viewing a child record is always allowed when the list is visible.
-          // Same builder the lookup links use — `recordHref` above.
+          // Same route the lookup links address — `recordPath` above.
           onView: (id) => openRecord(objectName, id),
         };
 

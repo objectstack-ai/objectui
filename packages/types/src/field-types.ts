@@ -60,12 +60,22 @@ export interface BaseFieldMetadata {
   type: string;
   
   /**
-   * Help text or description
+   * Help text drawn under the field's control on a form —
+   * `@objectstack/spec`'s `FieldSchema.inlineHelpText` ("Help text displayed
+   * below the field in forms"), typed BY REFERENCE (objectui#12213). It is
+   * the key Studio's object field inspector writes. The record form reads it
+   * first and falls back to `description` (`fieldHelpText` in
+   * `@object-ui/plugin-form`), and flow screens draw it in the same place.
+   *
+   * It replaces `help`, which this interface declared until objectui#12213:
+   * the spec refuses `help` by name and suggests `inlineHelpText`, so a field
+   * written with it could not be published.
    */
-  help?: string;
-  
+  inlineHelpText?: SpecField['inlineHelpText'];
+
   /**
-   * Description text
+   * Description text. The record form draws it under the control when the
+   * field declares no `inlineHelpText`.
    */
   description?: string;
   

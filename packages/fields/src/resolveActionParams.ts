@@ -350,6 +350,19 @@ interface RuntimeField {
   label?: string;
   required?: boolean;
   placeholder?: string;
+  /**
+   * `@objectstack/spec`'s `FieldSchema.inlineHelpText`, the help line drawn
+   * under the field's control (objectui#12213). Read first for a field-backed
+   * param's `helpText`, the same order the record form reads it in.
+   */
+  inlineHelpText?: string;
+  /**
+   * A SERVED leg, not an authoring key: `FieldSchema` refuses `help` by name.
+   * An objectstack server older than `@objectstack/spec` 17.7.0 puts a field's
+   * translated help here; 17.7.0 serves it on `description`. Still read,
+   * pending the ruling on objectui#12213 (see `fieldHelpText` in
+   * `@object-ui/plugin-form`'s `sectionFields`, which reads the same order).
+   */
   help?: string;
   description?: string;
   /**
@@ -780,7 +793,12 @@ export function resolveActionParam(
     required: param.required ?? field.required ?? false,
     options: resolvedOptions,
     placeholder: param.placeholder ?? field.placeholder,
-    helpText: param.helpText ?? field.help ?? field.description,
+    // The param's own `helpText` first; else the help line the field draws
+    // under its control on the record form, in the record form's order
+    // (`fieldHelpText` in `@object-ui/plugin-form`, objectui#12213): the
+    // spec's `inlineHelpText`, the served `help` leg, then `description`. An
+    // empty string reads as absent, as it does there.
+    helpText: param.helpText ?? (field.inlineHelpText || field.help || field.description || undefined),
     defaultValue: rowDefault ?? param.defaultValue ?? field.defaultValue,
     visible: normaliseVisible(param.visible),
     // A declaration of the PARAM, never inherited from the field.

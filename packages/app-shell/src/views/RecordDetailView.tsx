@@ -15,7 +15,7 @@ import { Empty, EmptyTitle, EmptyDescription, Button } from '@object-ui/componen
 import { useAuth, createAuthenticatedFetch } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
 import { useDisplayLocale } from '@object-ui/i18n';
-import { ActionProvider, useObjectTranslation, useObjectLabel, useActionTextLocalizer, usePageAssignment, RecordContextProvider, SchemaRenderer, DiscussionContextProvider, HighlightFieldsProvider, InlineEditProvider, useGlobalUndo, useDataInvalidation, notifyDataChanged, useRowPredicate, classifyLoadError } from '@object-ui/react';
+import { ActionProvider, useObjectTranslation, useObjectLabel, useActionTextLocalizer, usePageAssignment, RecordContextProvider, SchemaRenderer, DiscussionContextProvider, HighlightFieldsProvider, InlineEditProvider, resolveApprovalLock, useGlobalUndo, useDataInvalidation, notifyDataChanged, useRowPredicate, classifyLoadError } from '@object-ui/react';
 import { buildExpandFields, captureUpdateUndoData, recordDelete, resolveAffordance, resolveRecordIdParamSeed, userActionPredicates, withoutDeniedFields, type AffordanceGrantPrincipal, type SchemaLike } from '@object-ui/core';
 import { toast } from 'sonner';
 import { useRecordPresence, PresenceAvatars } from '@object-ui/collaboration';
@@ -1483,13 +1483,21 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // that mirror status onto the record but expose no approvals API. It carries
   // no node granularity, so it can only mean "locked" — the conservative read,
   // and the same one `recordLockedByApproval` applies to a pre-framework#3814 backend.
-  const approvalStatusPending =
-    (pageRecord as any)?.approval_status === 'pending' ||
-    (pageRecord as any)?.approval_status === 'in_approval';
-  const approvalPending = approvalStatusPending || !!approvals.pendingRequest;
-  const approvalLocked = approvals.pendingRequest
-    ? recordLockedByApproval(approvals.pendingRequest)
-    : approvalStatusPending;
+  //
+  // It stands in ONLY while no approvals read has answered (objectui#12220).
+  // A read that answered with no pending request means no approval is running:
+  // a composition without the approvals service answers `200 { data: [] }` and
+  // enforces no lock, so a stale `pending` in the column used to lock the
+  // record with nothing to recall. `resolveApprovalLock` is the one rule this
+  // page and the DetailView band share; `approvalReadAnswered` below hands the
+  // band the same `answered` this call reads.
+  const { pending: approvalPending, locked: approvalLocked } = resolveApprovalLock({
+    readAnswered: approvals.answered,
+    openApproval: approvals.pendingRequest
+      ? { locked: recordLockedByApproval(approvals.pendingRequest) }
+      : null,
+    recordStatus: (pageRecord as any)?.approval_status,
+  });
   // How far the pending node's tally has got (objectstack#4478). Multi-approver
   // nodes — `quorum`, `unanimous`, `per_group` — do not finalize on one
   // decision, so an approver standing on the record needs the count to know
@@ -3248,6 +3256,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           }
           locked={approvalLocked}
           approvalPending={approvalPending}
+          approvalReadAnswered={approvals.answered}
           approvalProgress={approvalProgress}
           approvalIsSubmitter={approvalIsSubmitter}
           lockedReason={t('detail.lockedTooltip', {

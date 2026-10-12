@@ -43,7 +43,7 @@ import { RecordComments } from './RecordComments';
 import { ActivityTimeline } from './ActivityTimeline';
 import { HistoryTimeline } from './HistoryTimeline';
 import { RecordMetaFooter } from './RecordMetaFooter';
-import { SchemaRenderer, SchemaErrorBoundary, toRenderableSchema, useSafeFieldLabel, useDataInvalidation, useInlineEdit, useRowPredicate } from '@object-ui/react';
+import { SchemaRenderer, SchemaErrorBoundary, toRenderableSchema, useSafeFieldLabel, useDataInvalidation, useInlineEdit, useRowPredicate, resolveApprovalLock } from '@object-ui/react';
 import { buildExpandFields, declaredNameField, getRecordDisplayName, formatTitleTemplate, recordDisplayValueAt, resolveAffordance, toDisplayDate, userActionPredicates, withoutDeniedFields } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
@@ -1627,25 +1627,28 @@ export const DetailView: React.FC<DetailViewProps> = ({
         // "Locked for approval" on exactly the `lockRecord: false` node this
         // feature exists to free — pencils live and saves landing underneath it.
         //
-        // `approvalPending && !locked` is the tell that the host has an actual
-        // opinion. `InlineEditProvider` defaults `approvalPending` to `locked`,
-        // so a host threading only `locked` (pre-#2902) always reports the two
-        // equal and can never produce that combination; a host that resolved
-        // the pending node's `lock_record` is the only thing that can. When it
-        // speaks, it wins — it read the same snapshot the server's lock hook
-        // enforces.
-        const approvalStatus = data?.approval_status;
-        const statusPending =
-          approvalStatus === 'pending' || approvalStatus === 'in_approval';
+        // So a host-threaded approval decides: pending, and locked exactly when
+        // the host says so. `InlineEditProvider` defaults `approvalPending` to
+        // `locked`, so a host threading only `locked` (objectui#2618, before
+        // `approvalPending` existed) still reads as an approval that locks.
+        //
+        // With none threaded, `false` / `false` is ambiguous: no host at all, a
+        // host that read no approvals, or a host whose approvals read ANSWERED
+        // and found nothing. Only the last means "no approval is running", and
+        // it is the one that must not fall back to the column — a composition
+        // without the approvals service answers the read empty, enforces no
+        // lock, and the column's stale `pending` used to re-lock the band
+        // (objectui#12220). `approvalReadAnswered` is the host saying which.
+        //
+        // `resolveApprovalLock` is the ONE rule: the record page host
+        // (app-shell `RecordDetailView`) calls it for the pair it threads here.
+        const hostLocked = inline?.locked ?? false;
         const hostPending = inline?.approvalPending ?? false;
-        const hostSaysEditable = hostPending && !(inline?.locked ?? false);
-        const isLocked = hostSaysEditable
-          ? false
-          : ((inline?.locked ?? false) || statusPending);
-        // A lock always implies an in-flight approval, so a host that threads
-        // only `locked` (objectui#2618, before `approvalPending` existed) keeps
-        // its band.
-        const isPending = isLocked || hostPending || statusPending;
+        const { pending: isPending, locked: isLocked } = resolveApprovalLock({
+          readAnswered: inline?.approvalReadAnswered === true,
+          openApproval: hostPending || hostLocked ? { locked: hostLocked } : null,
+          recordStatus: data?.approval_status,
+        });
         // How many decisions the pending node still needs (objectstack#4478).
         // `lockRecord` told the approver they may not EDIT; this tells them
         // whether their own approval finalizes the step. A `quorum` node with

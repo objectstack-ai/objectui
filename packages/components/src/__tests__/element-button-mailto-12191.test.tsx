@@ -15,7 +15,7 @@
  * `packages/core/src/actions/__tests__/navigationTarget.mailto-12191.test.ts`.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock, type MockInstance } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ComponentRegistry } from '@object-ui/core';
 import { ActionProvider } from '@object-ui/react';
@@ -31,15 +31,16 @@ function ElementButton({ schema }: { schema: any }) {
 const MAIL = 'mailto:sales@objectos.ai';
 
 let originalLocation: Location;
-let hrefSet: ReturnType<typeof vi.fn>;
-let openSpy: ReturnType<typeof vi.spyOn>;
+let hrefSet: Mock<(url: string) => void>;
+let openSpy: MockInstance<typeof window.open>;
 
 beforeEach(() => {
   originalLocation = window.location;
   hrefSet = vi.fn();
   Object.defineProperty(window, 'location', {
     writable: true,
-    value: { ...originalLocation, set href(v: string) { hrefSet(v); } } as Location,
+    // Only the setter matters: the runner assigns `window.location.href`.
+    value: { ...originalLocation, set href(v: string) { hrefSet(v); } } as unknown as Location,
   });
   openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
 });

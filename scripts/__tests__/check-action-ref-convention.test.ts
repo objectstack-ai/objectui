@@ -132,14 +132,14 @@ describe('the gate can fail (non-vacuity)', () => {
 
   it('goes red on an undeclared SHA pin — the exact shape of objectui#8465', () => {
     const result = scanMutated((files) => {
-      const name = 'control-bytes.yml';
+      const name = 'repo-gates.yml';
       files.set(
         name,
         files.get(name)!.replace('uses: actions/checkout@v7', 'uses: actions/checkout@' + 'a'.repeat(40)),
       );
     });
     expect(result.offenders.map((o: { file: string; kind: string }) => `${o.file} ${o.kind}`)).toContain(
-      'control-bytes.yml sha',
+      'repo-gates.yml sha',
     );
   });
 
@@ -147,7 +147,7 @@ describe('the gate can fail (non-vacuity)', () => {
     // The convention is a spelling, not an anti-SHA rule. `@main` is the other
     // direction of the same defect: a reference nothing around it looks like.
     const result = scanMutated((files) => {
-      const name = 'control-bytes.yml';
+      const name = 'repo-gates.yml';
       files.set(name, files.get(name)!.replace('uses: actions/checkout@v7', 'uses: actions/checkout@main'));
     });
     expect(result.offenders.map((o: { ref: string }) => o.ref)).toContain('actions/checkout@main');
@@ -168,14 +168,14 @@ describe('the gate can fail (non-vacuity)', () => {
     const declared = [
       ...DECLARED_EXCEPTIONS,
       {
-        workflow: 'control-bytes.yml',
+        workflow: 'repo-gates.yml',
         action: 'actions/checkout',
         issue: 'objectui#8465',
         reason: 'synthetic entry for the non-vacuity proof below — not a real exception',
       },
     ];
     const shaPin = (files: Map<string, string>) => {
-      const name = 'control-bytes.yml';
+      const name = 'repo-gates.yml';
       files.set(
         name,
         files.get(name)!.replace('uses: actions/checkout@v7', 'uses: actions/checkout@' + 'a'.repeat(40)),
@@ -194,10 +194,10 @@ describe('the gate can fail (non-vacuity)', () => {
     // permanently red `main` behind it.
     const orphaned = scanMutated((files) => {
       shaPin(files);
-      files.delete('control-bytes.yml');
+      files.delete('repo-gates.yml');
     }, declared);
     expect(orphaned.offenders).toEqual([]);
-    expect(orphaned.stale.map((e: { workflow: string }) => e.workflow)).toEqual(['control-bytes.yml']);
+    expect(orphaned.stale.map((e: { workflow: string }) => e.workflow)).toEqual(['repo-gates.yml']);
   });
 
   it('goes red when the census collapses, instead of reporting a clean tree', () => {
@@ -216,7 +216,7 @@ describe('the gate can fail (non-vacuity)', () => {
     // entry whose effect this case reads.
     const fake = [
       ...DECLARED_EXCEPTIONS,
-      { workflow: 'control-bytes.yml', action: 'actions/checkout', issue: 'objectui#1', reason: 'x'.repeat(50) },
+      { workflow: 'repo-gates.yml', action: 'actions/checkout', issue: 'objectui#1', reason: 'x'.repeat(50) },
     ];
     // Two off-convention refs, in two different workflows, and `fake` names only
     // the first. The second is the whole point of the case: until objectui#8548
@@ -225,8 +225,8 @@ describe('the gate can fail (non-vacuity)', () => {
     // half — a gate that reported nothing at all would pass that alone.
     const result = scanMutated((files) => {
       files.set(
-        'control-bytes.yml',
-        files.get('control-bytes.yml')!.replace('uses: actions/checkout@v7', 'uses: actions/checkout@main'),
+        'repo-gates.yml',
+        files.get('repo-gates.yml')!.replace('uses: actions/checkout@v7', 'uses: actions/checkout@main'),
       );
       files.set(
         'shadcn-check.yml',
@@ -264,8 +264,8 @@ describe('prose cannot be mistaken for a reference', () => {
   });
 
   it("does not count this gate's own workflow header as references", () => {
-    const source = fs.readFileSync(path.join(dirOf(), 'action-ref-convention.yml'), 'utf8');
-    expect(parseRefs(source, 'action-ref-convention.yml').map((r: { ref: string }) => r.ref)).toEqual([
+    const source = fs.readFileSync(path.join(dirOf(), 'repo-gates.yml'), 'utf8');
+    expect(parseRefs(source, 'repo-gates.yml').map((r: { ref: string }) => r.ref)).toEqual([
       'actions/checkout@v7',
       'actions/setup-node@v7',
     ]);
@@ -298,7 +298,7 @@ describe('classification', () => {
 });
 
 describe('the gate is wired into CI', () => {
-  const workflow = path.join(workflowDir(repoRoot), 'action-ref-convention.yml');
+  const workflow = path.join(workflowDir(repoRoot), 'repo-gates.yml');
 
   it('has a workflow that runs it', () => {
     expect(fs.existsSync(workflow), 'action-ref-convention.yml must exist').toBe(true);

@@ -139,24 +139,20 @@ import { isEntrypoint } from './invoked-as.mjs';
  *   ci.yml            Changeset Fixed Group Check, Type Check, Test,
  *                     Build & E2E, Build Docs
  *   lint.yml          Lint
- *   control-bytes.yml Control Byte Scan
- *   docs-links.yml    Internal Docs Link Check
- *   skills-paths.yml  Skill Guide Path Check
- *   skill-examples.yml  Skill Example Check
- *   skill-eval-tokens.yml  Skill Eval Token Check
+ *   repo-gates.yml    Repo Gates
  *   changeset-presence.yml   Changeset Declaration
- *   doc-component-types.yml  Doc Component Type Check
- *   doc-snippet-types.yml    Doc Snippet Type Check
- *   doc-fence-languages.yml  Doc Fence Language Check
- *   doc-example-ids.yml      Doc Example Id Check
- *   pre-install-import-graph.yml  Pre-Install Import Graph Check
- *   vi-mock-specifiers.yml        Inert vi.mock Specifier Check
- *   shell-escape-residue.yml      Shell Escape Residue Scan
- *   readme-exports.yml            README Export Check
- *   docs-route-eager-closure.yml   Docs Route Eager Closure Check
  *   governed-surface-guard.yml     Governed Surface Queue Guard
- *   action-ref-convention.yml      Action Ref Convention
  *   spec-main-shape-gate.yml       Spec Main Shape Gate
+ *
+ * `Repo Gates` is ONE context for fifteen checks (objectui#12214): the
+ * one-check workflows that each produced a context of their own -- the
+ * control-byte scan, the docs-link check, the skill-guide path, skill-example
+ * and eval-token checks, the doc component-type, snippet-type, fence-language
+ * and example-id checks, the pre-install import graph, the inert vi.mock check,
+ * the shell-escape residue scan, the README export check, the docs-route eager
+ * closure check and the action-ref convention -- were folded into one job whose
+ * steps keep those names. The job is red when any of its steps is, so waiting
+ * for this one name waits for all fifteen verdicts.
  *
  * `Governed Surface Queue Guard` is the newest and the one whose reading here
  * differs from every other row, so it is worth a sentence. On a PULL REQUEST it
@@ -196,28 +192,15 @@ export const REQUIRED_CONTEXTS = Object.freeze([
   'Build & E2E',
   'Build Docs',
   'Lint',
-  'Control Byte Scan',
-  'Internal Docs Link Check',
-  'Skill Guide Path Check',
-  'Skill Example Check',
-  'Skill Eval Token Check',
+  // objectui#12214: the fifteen one-check gate workflows, folded into one job.
+  // Among its steps, the action-ref convention (objectui#8465) is worth naming:
+  // it reads `.github/workflows/**`, which is exactly what a Dependabot
+  // `github-actions` bump edits -- the pull requests most likely to introduce
+  // an off-convention reference and the least likely to have a human reading
+  // each edited line.
+  'Repo Gates',
   'Changeset Declaration',
-  'Doc Component Type Check',
-  'Doc Snippet Type Check',
-  'Doc Fence Language Check',
-  'Doc Example Id Check',
-  'Pre-Install Import Graph Check',
-  'Inert vi.mock Specifier Check',
-  'Shell Escape Residue Scan',
-  'README Export Check',
-  'Docs Route Eager Closure Check',
   'Governed Surface Queue Guard',
-  // objectui#8465. Worth listing deliberately rather than by reflex: this gate
-  // reads `.github/workflows/**`, which is exactly what a Dependabot
-  // `github-actions` bump edits — those bumps are the pull requests most likely
-  // to introduce an off-convention reference and the least likely to have a
-  // human reading each edited line.
-  'Action Ref Convention',
   // objectui#9969, ruling A — the residual of objectui#9860's ruling C. This
   // name sat in `NOT_A_GATE` until two facts that were somebody else's to
   // establish had both been established, and it moved only after both were:

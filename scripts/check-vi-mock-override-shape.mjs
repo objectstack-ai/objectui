@@ -57,9 +57,9 @@
  *
  * Reading a DECLARED shape means parsing TypeScript -- return-type annotations,
  * re-export chains, type-only exports. This file therefore imports `typescript`.
- * `check-vi-mock-inherit.mjs` runs in `.github/workflows/vi-mock-specifiers.yml`,
- * which deliberately carries NO install step so that it can run on every pull
- * request shape at the cost of a checkout plus one `node` call; the import graph
+ * `check-vi-mock-inherit.mjs` runs in `.github/workflows/repo-gates.yml`, in a
+ * step deliberately placed BEFORE that job's install step so that it can run on
+ * every pull request shape at the cost of a checkout plus one `node` call; the import graph
  * of every pre-install gate is enforced to be node builtins plus repo-relative
  * modules only (objectui#6148). Adding the import to the sibling was measured
  * rather than argued -- injected on disk, blob hash before/after recorded:

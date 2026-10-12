@@ -364,7 +364,7 @@ describe('the real corpus', () => {
 describe('wiring — the gate is reachable and a markdown-only PR starts it', () => {
   const SCRIPT = 'scripts/check-skill-eval-tokens.mjs';
   const workflowDir = path.join(repoRoot, '.github/workflows');
-  const workflowPath = path.join(workflowDir, 'skill-eval-tokens.yml');
+  const workflowPath = path.join(workflowDir, 'repo-gates.yml');
   const workflowFiles = fs.readdirSync(workflowDir).filter((f) => f.endsWith('.yml'));
 
   /**
@@ -387,7 +387,7 @@ describe('wiring — the gate is reachable and a markdown-only PR starts it', ()
 
   it('has a workflow that gates pull requests, not just pushes', () => {
     expect(fs.existsSync(workflowPath), 'a check nothing runs is not a gate').toBe(true);
-    const yaml = yamlOf('skill-eval-tokens.yml');
+    const yaml = yamlOf('repo-gates.yml');
     expect(yaml).toMatch(new RegExp(`run:\\s*node\\s+${SCRIPT.replace(/[.]/g, '\\.')}\\s*$`, 'm'));
     expect(yaml).toMatch(/^\s*pull_request:/m);
     expect(yaml).toMatch(/^\s*push:/m);
@@ -395,7 +395,7 @@ describe('wiring — the gate is reachable and a markdown-only PR starts it', ()
   });
 
   it('runs the self-test too — a probe nobody runs is a probe that passes', () => {
-    expect(yamlOf('skill-eval-tokens.yml')).toMatch(
+    expect(yamlOf('repo-gates.yml')).toMatch(
       new RegExp(`run:\\s*node\\s+${SCRIPT.replace(/[.]/g, '\\.')}\\s+--self-test`),
     );
   });
@@ -406,9 +406,16 @@ describe('wiring — the gate is reachable and a markdown-only PR starts it', ()
     // pre-install step, so the whole static import graph must stay free of
     // `node_modules`. Folding this gate into `check-skill-examples.mjs` would
     // have lost exactly this, since that one exits 2 on an unbuilt tree.
-    const yaml = yamlOf('skill-eval-tokens.yml');
-    expect(yaml).not.toMatch(/pnpm install/);
-    expect(yaml).not.toMatch(/turbo run build/);
+    // Since objectui#12214 the home is `repo-gates.yml`, ONE job that installs
+    // after its install-free gates: the property is now an ORDER -- this gate's
+    // step sits before the job's `pnpm install` -- and no longer an absence.
+    const yaml = yamlOf('repo-gates.yml');
+    const gateAt = yaml.indexOf(`run: node ${SCRIPT} --self-test`);
+    expect(gateAt).toBeGreaterThan(-1);
+    for (const marker of ['pnpm install', 'turbo run build']) {
+      const at = yaml.indexOf(marker);
+      expect(at === -1 || gateAt < at, `the gate step moved below \`${marker}\``).toBe(true);
+    }
     expect(yaml).not.toMatch(/pnpm build/);
   });
 
@@ -425,19 +432,28 @@ describe('wiring — the gate is reachable and a markdown-only PR starts it', ()
   });
 
   it('has exactly one home', () => {
-    expect(workflowFiles.filter((f) => yamlOf(f).includes(SCRIPT))).toEqual(['skill-eval-tokens.yml']);
+    expect(workflowFiles.filter((f) => yamlOf(f).includes(SCRIPT))).toEqual(['repo-gates.yml']);
   });
 
   it('does not run a NEIGHBOUR gate from this workflow', () => {
     // `check-skill-examples.test.ts` pins that its own script lives in exactly
     // one workflow. Invoking it from this YAML would break that pin and give
     // one gate two homes.
-    expect(yamlOf('skill-eval-tokens.yml')).not.toContain('scripts/check-skill-examples.mjs');
+    // Since objectui#12214 every gate shares `repo-gates.yml`, so "this
+    // workflow" is now this gate's OWN steps: the ones named after its check.
+    const own = yamlOf('repo-gates.yml')
+      .split(/^(?= {6}- name: )/m)
+      .filter((step) => step.startsWith('      - name: Skill Eval Token Check'));
+    expect(own.length).toBeGreaterThan(0);
+    for (const step of own) expect(step).not.toContain('scripts/check-skill-examples.mjs');
   });
 
   it('is classified as a blocking context rather than defaulting into silence', () => {
+    // Since objectui#12214 the check reports as a step of the ONE `Repo Gates`
+    // context, which is the name the classification and the floor read.
     const gate = fs.readFileSync(path.join(repoRoot, 'scripts/dependabot-merge-gate.mjs'), 'utf8');
-    expect(gate).toContain("'Skill Eval Token Check'");
+    expect(gate).toContain("'Repo Gates'");
+    expect(yamlOf('repo-gates.yml')).toContain('name: Skill Eval Token Check');
   });
 
   it('has a section on the CI page, named by heading', () => {
@@ -446,6 +462,6 @@ describe('wiring — the gate is reachable and a markdown-only PR starts it', ()
     // the workflow is added, not later.
     const doc = fs.readFileSync(path.join(repoRoot, 'content/docs/guide/ci-cd-pipeline.md'), 'utf8');
     const headings = doc.split('\n').filter((line) => /^#{1,6}\s/.test(line));
-    expect(headings.some((h) => h.includes('skill-eval-tokens.yml'))).toBe(true);
+    expect(headings.some((h) => h.includes('repo-gates.yml'))).toBe(true);
   });
 });

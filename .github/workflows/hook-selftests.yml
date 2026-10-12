@@ -73,9 +73,10 @@ name: Hook Self-Tests
 #         loses nothing and the step still FAILS when any of them does, naming
 #         every one that failed. ⛔ Do not "simplify" it into a bare loop.
 #
-# ── Why path-filtered, unlike `control-bytes.yml` ───────────────────────────
+# ── Why path-filtered, unlike the control-byte gate ─────────────────────────
 #
-# `control-bytes.yml`'s header explains at length why ITS gate carries no `paths`
+# The control-byte gate (`control-bytes.yml`, a step of `repo-gates.yml` since
+# objectui#12214) explains at length why IT carries no `paths`
 # filter: a markdown-only PR can trip a raw control byte just as easily as a
 # TypeScript one, so an unfiltered gate is the only kind that can see it. That
 # reasoning does not transfer here — the self-tests build their own hermetic

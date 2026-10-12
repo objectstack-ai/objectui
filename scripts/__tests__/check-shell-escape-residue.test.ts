@@ -687,7 +687,7 @@ describe('repo state — the gate is green on this tree, over a real population'
 
 describe('wiring — the gate is reachable and every PR shape starts it', () => {
   const SCRIPT = 'scripts/check-shell-escape-residue.mjs';
-  const WORKFLOW = 'shell-escape-residue.yml';
+  const WORKFLOW = 'repo-gates.yml';
   const CHECK_NAME = 'Shell Escape Residue Scan';
   const workflowDir = path.join(repoRoot, '.github/workflows');
   const workflowFiles = fs.readdirSync(workflowDir).filter((f) => f.endsWith('.yml'));
@@ -727,7 +727,9 @@ describe('wiring — the gate is reachable and every PR shape starts it', () => 
     // `REQUIRED_CONTEXTS` to decide which workflows must subscribe the queue,
     // and `dependabot-merge-gate.mjs` would let a Dependabot merge past an
     // unclassified blocking check (objectui#6135).
-    expect(REQUIRED_CONTEXTS).toContain(CHECK_NAME);
+    // Since objectui#12214 the check reports as a step of the ONE `Repo Gates`
+    // context, which is the name the classification and the floor read.
+    expect(REQUIRED_CONTEXTS).toContain('Repo Gates');
   });
 
   it('runs it in NO path-filtered workflow', () => {
@@ -747,8 +749,13 @@ describe('wiring — the gate is reachable and every PR shape starts it', () => 
   });
 
   it('installs nothing before running the gate — the cheap tier, mechanically', () => {
+    // Since objectui#12214 the home is `repo-gates.yml`, ONE job that installs
+    // after its install-free gates: the property is now an ORDER -- this gate's
+    // step sits before the job's `pnpm install` -- and no longer an absence.
     const yaml = yamlOf(WORKFLOW);
-    expect(yaml).not.toMatch(/pnpm install/);
-    expect(yaml.indexOf(SCRIPT)).toBeGreaterThan(-1);
+    const gateAt = yaml.indexOf(SCRIPT);
+    const installAt = yaml.indexOf('pnpm install');
+    expect(gateAt).toBeGreaterThan(-1);
+    expect(installAt === -1 || gateAt < installAt, 'the gate step moved below the install step').toBe(true);
   });
 });

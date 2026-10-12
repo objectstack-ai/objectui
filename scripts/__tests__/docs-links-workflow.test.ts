@@ -43,7 +43,7 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const workflowDir = path.join(repoRoot, '.github/workflows');
-const workflowPath = path.join(workflowDir, 'docs-links.yml');
+const workflowPath = path.join(workflowDir, 'repo-gates.yml');
 const SCRIPT = 'scripts/check-doc-links.mjs';
 
 /**
@@ -98,7 +98,7 @@ describe('docs-links.yml — the internal link gate is reachable', () => {
     const runners = workflowFiles.filter((f) =>
       withoutComments(fs.readFileSync(path.join(workflowDir, f), 'utf8')).includes(SCRIPT),
     );
-    expect(runners).toEqual(['docs-links.yml']);
+    expect(runners).toEqual(['repo-gates.yml']);
   });
 
   it('every workflow that runs it is one a docs-only PR can start', () => {

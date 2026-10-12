@@ -5,7 +5,8 @@
 # file links (`docs/**` links into `../../packages/**` source files rely on
 # that). Site-ABSOLUTE routes — `/docs/...`, `/api/...`, `/protocol/...` — are
 # not its job; those belong to `scripts/check-doc-links.mjs`, run by
-# `docs-links.yml`. See the `root_dir` section below.
+# `repo-gates.yml` (the Internal Docs Link Check step). See the `root_dir`
+# section below.
 
 # Maximum number of concurrent requests
 max_concurrency = 10

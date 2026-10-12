@@ -162,6 +162,13 @@ const RENAMED_SINCE_4959 = [
   'Test (shard 2/4)',
   'Test (shard 3/4)',
   'Test (shard 4/4)',
+  // objectui#12214 folded the one-check gate workflows into `repo-gates.yml`:
+  // these four are STEP names of the one `Repo Gates` context now, and no
+  // workflow produces a check run by these names any more.
+  'Skill Guide Path Check',
+  'Control Byte Scan',
+  'Internal Docs Link Check',
+  'Doc Component Type Check',
 ];
 
 /**
@@ -323,13 +330,15 @@ describe('absence is never green (#3523 in mirror image)', () => {
   });
 
   it('refuses a required context that reported `skipped`', () => {
+    // `Repo Gates` since objectui#12214 folded `Control Byte Scan`, the context
+    // this case used to skip, into it.
     const runs = allGreenSnapshot().map((run) =>
-      run.name === 'Control Byte Scan' ? { ...run, conclusion: 'skipped' } : run,
+      run.name === 'Repo Gates' ? { ...run, conclusion: 'skipped' } : run,
     );
     const result = evaluateGate({ checkRuns: runs });
 
     expect(result.verdict).toBe('red');
-    expect(result.failing).toEqual(['Control Byte Scan (skipped)']);
+    expect(result.failing).toEqual(['Repo Gates (skipped)']);
   });
 
   it('refuses `cancelled` and `timed_out` as well as `failure`', () => {

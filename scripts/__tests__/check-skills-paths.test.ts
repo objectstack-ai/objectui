@@ -509,7 +509,7 @@ describe('objectui#3713 / #3730 — the guide those two rounds corrected by hand
 describe('wiring — the gate is reachable and a markdown-only PR starts it', () => {
   const SCRIPT = 'scripts/check-skills-paths.mjs';
   const workflowDir = path.join(repoRoot, '.github/workflows');
-  const workflowPath = path.join(workflowDir, 'skills-paths.yml');
+  const workflowPath = path.join(workflowDir, 'repo-gates.yml');
   const workflowFiles = fs.readdirSync(workflowDir).filter((f) => f.endsWith('.yml'));
 
   /**
@@ -532,7 +532,7 @@ describe('wiring — the gate is reachable and a markdown-only PR starts it', ()
 
   it('has a workflow that gates pull requests, not just pushes', () => {
     expect(fs.existsSync(workflowPath), 'a check nothing runs is not a gate').toBe(true);
-    const yaml = yamlOf('skills-paths.yml');
+    const yaml = yamlOf('repo-gates.yml');
     expect(yaml).toMatch(new RegExp(`run:\\s*node\\s+${SCRIPT.replace(/[.]/g, '\\.')}`));
     expect(yaml).toMatch(/^\s*pull_request:/m);
     expect(yaml).toMatch(/^\s*push:/m);
@@ -559,7 +559,7 @@ describe('wiring — the gate is reachable and a markdown-only PR starts it', ()
   it('has exactly one home', () => {
     // A second copy in a path-filtered workflow is how a gate ends up looking
     // covered while the change it exists for still slips past.
-    expect(workflowFiles.filter((f) => yamlOf(f).includes(SCRIPT))).toEqual(['skills-paths.yml']);
+    expect(workflowFiles.filter((f) => yamlOf(f).includes(SCRIPT))).toEqual(['repo-gates.yml']);
   });
 
   it('ships its baseline next to the script', () => {

@@ -406,7 +406,7 @@ describe('on this repository — the walk is non-vacuous and reaches both known 
 
 describe('wiring — a census nothing runs is not a census', () => {
   const workflow = fs.readFileSync(
-    path.join(repoRoot, '.github/workflows/doc-snippet-types.yml'),
+    path.join(repoRoot, '.github/workflows/repo-gates.yml'),
     'utf8',
   );
 

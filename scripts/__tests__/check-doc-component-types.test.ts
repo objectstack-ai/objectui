@@ -2098,7 +2098,7 @@ describe('objectui#7896 — every package README is inside the scan surface', ()
 
 describe('wiring — the gate is reachable and a docs-only PR starts it', () => {
   const workflowDir = path.join(repoRoot, '.github/workflows');
-  const workflowPath = path.join(workflowDir, 'doc-component-types.yml');
+  const workflowPath = path.join(workflowDir, 'repo-gates.yml');
   const workflowFiles = fs.readdirSync(workflowDir).filter((f) => f.endsWith('.yml'));
 
   /**
@@ -2122,7 +2122,7 @@ describe('wiring — the gate is reachable and a docs-only PR starts it', () => 
 
   it('has a workflow that gates pull requests, not just pushes', () => {
     expect(fs.existsSync(workflowPath), 'a check nothing runs is not a gate').toBe(true);
-    const yaml = yamlOf('doc-component-types.yml');
+    const yaml = yamlOf('repo-gates.yml');
     expect(yaml).toMatch(new RegExp(`run:\\s*node\\s+${SCRIPT.replace(/[.]/g, '\\.')}`));
     expect(yaml).toMatch(/^\s*pull_request:/m);
     expect(yaml).toMatch(/^\s*push:/m);
@@ -2145,15 +2145,20 @@ describe('wiring — the gate is reachable and a docs-only PR starts it', () => 
   });
 
   it('has exactly one home', () => {
-    expect(workflowFiles.filter((f) => yamlOf(f).includes(SCRIPT))).toEqual(['doc-component-types.yml']);
+    expect(workflowFiles.filter((f) => yamlOf(f).includes(SCRIPT))).toEqual(['repo-gates.yml']);
   });
 
   it('needs no install, so it can afford to run unfiltered', () => {
     // The moment this needs `pnpm install` it stops being cheap enough to run on
     // every PR shape, and the filter that follows is the hole.
-    const yaml = yamlOf('doc-component-types.yml');
-    expect(yaml).not.toContain('pnpm install');
-    expect(yaml).not.toContain('corepack');
+    // Since objectui#12214 the home is `repo-gates.yml`, ONE job that installs
+    // after its install-free gates: the property is now an ORDER -- this gate's
+    // step sits before the job's `pnpm install` -- and no longer an absence.
+    const yaml = yamlOf('repo-gates.yml');
+    const gateAt = yaml.indexOf(`run: node ${SCRIPT}`);
+    const installAt = yaml.indexOf('pnpm install');
+    expect(gateAt).toBeGreaterThan(-1);
+    expect(installAt === -1 || gateAt < installAt, 'the gate step moved below the install step').toBe(true);
 
     // Walk the WHOLE static import graph, not just the gate's own first line.
     // objectui#6092 converted this gate's entry guard to `./invoked-as.mjs`, a

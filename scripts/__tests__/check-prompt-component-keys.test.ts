@@ -317,9 +317,14 @@ describe('wiring', () => {
   });
 
   it('needs no install, so it can afford to run unfiltered', () => {
+    // Since objectui#12214 the home is `repo-gates.yml`, ONE job that installs
+    // after its install-free gates: the property is now an ORDER -- this gate's
+    // step sits before the job's `pnpm install` -- and no longer an absence.
     const yaml = yamlOf(homes[0]);
-    expect(yaml).not.toContain('pnpm install');
-    expect(yaml).not.toContain('corepack');
+    const gateAt = yaml.indexOf('scripts/check-prompt-component-keys.mjs');
+    const installAt = yaml.indexOf('pnpm install');
+    expect(gateAt).toBeGreaterThan(-1);
+    expect(installAt === -1 || gateAt < installAt, 'the gate step moved below the install step').toBe(true);
 
     // Walk the WHOLE static import graph, not just this gate's first line: it
     // imports a sibling gate, and "needs no node_modules" has to stay true of

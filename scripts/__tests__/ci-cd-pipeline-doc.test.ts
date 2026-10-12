@@ -920,6 +920,37 @@ function commandParity(
   };
 }
 
+/**
+ * objectui#12214: fifteen one-check workflows became steps of ONE job in
+ * `repo-gates.yml`, each step named `<check> — <step>`. A section that documents
+ * one of those checks is paired against the steps that carry its check name --
+ * plus, for the gates that read built types, the job's one shared build step,
+ * which runs on their behalf -- never against the whole job, which would credit
+ * every section with every other gate's commands.
+ */
+const REPO_GATES_SHARED_BUILD_STEP = 'Build every package the gates below read';
+function checkParity(
+  checkName: string,
+  documentation: string,
+  label: string,
+  { withSharedBuild = false }: { withSharedBuild?: boolean } = {},
+): CommandParity {
+  const yaml = fs.readFileSync(path.join(workflowDir, 'repo-gates.yml'), 'utf8');
+  const steps = jobBlock(yaml, 'repo-gates', 'repo-gates.yml')
+    .split(/^(?= {6}- name: )/m)
+    .filter(
+      (step) =>
+        step.startsWith(`      - name: ${checkName} — `) ||
+        (withSharedBuild && step.startsWith(`      - name: ${REPO_GATES_SHARED_BUILD_STEP}`)),
+    );
+  expect(steps.length, `repo-gates.yml has no step named after ${checkName}`).toBeGreaterThan(0);
+  return {
+    label,
+    ran: firstPartyCommands(runSteps(steps.join('\n')).join('\n')),
+    named: firstPartyCommands(documentation),
+  };
+}
+
 /** Commands a job runs that the prose documenting it does not name. */
 function undocumentedCommands(units: CommandParity[]): string[] {
   return units.flatMap((u) => [...u.ran].filter((c) => !u.named.has(c)).map((c) => `${u.label}: ${c}`));
@@ -2662,17 +2693,16 @@ function section(heading: string): string {
  *     the two spellings are one gate.
  */
 describe('ci-cd-pipeline.md — the vi-mock and shadcn sections', () => {
-  const VI_MOCK_HEADING = '## Inert vi.mock Specifiers (`vi-mock-specifiers.yml`)';
+  const VI_MOCK_HEADING = '### Inert vi.mock Specifiers — the Inert vi.mock Specifier Check step';
   const SHADCN_HEADING = '### Shadcn Component Check (`shadcn-check.yml`)';
 
   function units(): CommandParity[] {
     return [
       byGate(
-        commandParity(
-          'vi-mock-specifiers.yml',
-          'vi-mock-specifiers',
+        checkParity(
+          'Inert vi.mock Specifier Check',
           section(VI_MOCK_HEADING),
-          'vi-mock-specifiers.yml `vi-mock-specifiers`',
+          'repo-gates.yml `Inert vi.mock Specifier Check`',
         ),
       ),
       byGate(
@@ -2715,7 +2745,8 @@ describe('ci-cd-pipeline.md — the vi-mock and shadcn sections', () => {
     // no assertion here reads and no section here documents, so it comes through
     // this test first — the shape `lint.yml`'s pin uses, one workflow each.
     for (const [file, keys] of [
-      ['vi-mock-specifiers.yml', ['vi-mock-specifiers']],
+      // objectui#12214: the vi.mock gates are steps of `repo-gates.yml`'s one job.
+      ['repo-gates.yml', ['repo-gates']],
       ['shadcn-check.yml', ['check-components']],
     ] as const) {
       expect(
@@ -2875,7 +2906,7 @@ const DECLARED_NON_RUN_COMMANDS = new Map<string, string>([
  */
 describe('ci-cd-pipeline.md — the four sections measured as parity defects', () => {
   const PERF_HEADING = '## Performance Budget (`performance-budget.yml`)';
-  const SKILL_EXAMPLES_HEADING = '## Skill Examples (`skill-examples.yml`)';
+  const SKILL_EXAMPLES_HEADING = '### Skill Examples — the Skill Example Check step';
   const CHANGESET_RELEASE_HEADING = '### Changeset Release (`changeset-release.yml`)';
   const SPEC_RANGE_FLOORS_HEADING = '### Spec Range Floors (`spec-range-floors.yml`)';
 
@@ -2886,15 +2917,23 @@ describe('ci-cd-pipeline.md — the four sections measured as parity defects', (
    */
   const PINNED = [
     ['performance-budget.yml', 'bundle-analysis', PERF_HEADING],
-    ['skill-examples.yml', 'skill-examples', SKILL_EXAMPLES_HEADING],
     ['changeset-release.yml', 'release', CHANGESET_RELEASE_HEADING],
     ['spec-range-floors.yml', 'spec-range-floors', SPEC_RANGE_FLOORS_HEADING],
   ] as const;
 
   function units(): CommandParity[] {
-    return PINNED.map(([file, job, heading]) =>
-      byGate(commandParity(file, job, section(heading), `${file} \`${job}\``)),
-    );
+    return [
+      ...PINNED.map(([file, job, heading]) =>
+        byGate(commandParity(file, job, section(heading), `${file} \`${job}\``)),
+      ),
+      // objectui#12214: the skill-example gate is a set of `repo-gates.yml` steps,
+      // and its `turbo run build` is the job's shared build step.
+      byGate(
+        checkParity('Skill Example Check', section(SKILL_EXAMPLES_HEADING), 'repo-gates.yml `Skill Example Check`', {
+          withSharedBuild: true,
+        }),
+      ),
+    ];
   }
 
   it('documents every job these four workflows define', () => {
@@ -2902,7 +2941,7 @@ describe('ci-cd-pipeline.md — the four sections measured as parity defects', (
     // reads and no section here documents, so it comes through this test first.
     for (const [file, keys] of [
       ['performance-budget.yml', ['bundle-analysis']],
-      ['skill-examples.yml', ['skill-examples']],
+      ['repo-gates.yml', ['repo-gates']],
       ['changeset-release.yml', ['lane', 'release']],
       ['spec-range-floors.yml', ['spec-range-floors']],
     ] as const) {
@@ -3196,8 +3235,8 @@ describe('ci-cd-pipeline.md — the four sections measured as parity defects', (
  * would be a repair with nothing able to notice it come back.
  */
 describe('ci-cd-pipeline.md — populations are pointed at, never counted in prose', () => {
-  const EAGER_HEADING = '## Docs Route Eager Closure (`docs-route-eager-closure.yml`)';
-  const RESIDUE_HEADING = '## Shell Escape Residue (`shell-escape-residue.yml`)';
+  const EAGER_HEADING = '### Docs Route Eager Closure — the Docs Route Eager Closure Check step';
+  const RESIDUE_HEADING = '### Shell Escape Residue — the Shell Escape Residue Scan step';
   const PATROL_HEADING = '### Half-State Patrol (`half-state-patrol.yml`)';
 
   /** A section of the page as one line — the unit every assertion here judges. */
@@ -3563,7 +3602,8 @@ const SWEEP_DECLARED_NON_RUN_COMMANDS = new Map<string, string>([
   [
     'check-links.yml: pnpm docs:check-links',
     "The SIBLING checker, named in this section's two-checker comparison table whose own `Runs` " +
-      'column says `docs-links.yml`. ⚠️ Dual-eligible: this job has no `run:` step at all (its ' +
+      "column names `repo-gates.yml`'s Internal Docs Link Check. ⚠️ Dual-eligible: this job has " +
+      'no `run:` step at all (its ' +
       'work is `lycheeverse/lychee-action`), so the rule reads no command on the workflow side ' +
       'either.',
   ],
@@ -3575,12 +3615,18 @@ const SWEEP_DECLARED_NON_RUN_COMMANDS = new Map<string, string>([
       'job builds (objectui#12178).',
   ],
   [
-    'docs-route-eager-closure.yml: scripts/dependabot-merge-gate.mjs',
+    'repo-gates.yml: scripts/check-required-check-set.mjs',
+    'Named as the one thing in this tree that can READ the merge queue\'s required set, in the ' +
+      'sentence saying none of the folded gates was in it (objectui#12214). A different ' +
+      "workflow's instrument, cited to keep the claim falsifiable.",
+  ],
+  [
+    'repo-gates.yml: scripts/dependabot-merge-gate.mjs',
     'Named as the registry whose `REQUIRED_CONTEXTS` declares this context blocking — the ' +
       'declaration, not a command.',
   ],
   [
-    'docs-route-eager-closure.yml: pnpm check:eager-closure',
+    'repo-gates.yml: pnpm check:eager-closure',
     'Named expressly to say it weighs the CONSOLE and not this route: "The cards that added to ' +
       'that list said the cost was governed by `check:eager-closure`. It was not." Deleting it ' +
       'would delete the correction.',
@@ -3652,12 +3698,12 @@ const SWEEP_DECLARED_NON_RUN_COMMANDS = new Map<string, string>([
       'so it runs per pull request in Type Check, not in this workflow".',
   ],
   [
-    'pre-install-import-graph.yml: scripts/invoked-as.mjs',
+    'repo-gates.yml: scripts/invoked-as.mjs',
     'Named as the module every pre-install script imports since objectui#6092 — data the gate ' +
       'walks, and the tail of the illustrative failure chain under "If it fails".',
   ],
   [
-    'pre-install-import-graph.yml: scripts/some-gate.mjs',
+    'repo-gates.yml: scripts/some-gate.mjs',
     'An illustrative PLACEHOLDER in the example failure chain ' +
       '`scripts/some-gate.mjs -> scripts/invoked-as.mjs -> typescript`. No such file exists.',
   ],

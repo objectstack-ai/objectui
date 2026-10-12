@@ -68,7 +68,7 @@ Two lists bound them:
 What the ratchet cannot see, stated so that a green run is not read as more than it is:
 
 - product code under a neutral name outside the frozen directories — a `PaywallDialog` in `views/`. Names
-  are all it reads; the pull-request template's checkbox and review catch the rest;
+  are all it reads; the rest is left to review, which the template's checkbox prompts only on web-form PRs;
 - growth inside an existing file — the file half counts files, not lines;
 - registration spellings the derivation reads under a premise that does not hold, which its own header lists
   as KNOWN GAP readings. A spelling it does not recognise is a finding, and a finding turns the ratchet red
@@ -159,8 +159,8 @@ objectui for a product-named widget, dialog, hook or copy namespace is refiled i
   test's stale half makes it.
 - A new product-specific surface needs an amendment to this record, which only lands with the maintainer's
   approval. Appending to the live list does not turn the test green.
-- Every pull request's description carries the template's checkbox: "Adds no product-specific widget,
-  dialog, hook or string".
+- A pull request opened through the web form starts with the template's checkbox; one opened through the API,
+  as the fleet's are, does not. The checkbox prompts human authors; it is not a gate.
 - The residuals are the four bounds listed under "The ratchet" above.
 
 ## Provenance

@@ -22,6 +22,10 @@
  * - The author deletes: the page asks through its own `ActionConfirmDialog`
  *   (the real one, not a double), painted destructive; Cancel sends nothing;
  *   Delete deletes the row from `sys_comment` and from the feed.
+ * - A delete hides nobody else's words: another member's reply to the deleted
+ *   comment stays on the page as a row of its own, at once and after the feed
+ *   is read again from rows that still hold it. The client cascades nothing;
+ *   the fake server, like the real one, keeps the reply.
  * - The server's rule stays the authority: a refused edit or delete raises an
  *   error toast and the row keeps its text, or stays.
  * - Another member sees neither control on that comment, and sees them on
@@ -134,6 +138,19 @@ const GRACE_EDITED_ROW = {
 };
 const ROWS = [ADA_ROW, GRACE_ROW, GRACE_EDITED_ROW];
 
+/** Grace's reply to Ada's comment: the row a delete of Ada's comment must not hide. */
+const GRACE_REPLY_BODY = 'Grace: tier two confirmed the outage window';
+const GRACE_REPLY_ROW = {
+  id: 'c-grace-reply',
+  thread_id: THREAD,
+  parent_id: 'c-ada',
+  author_id: 'u-grace',
+  author_name: 'Grace',
+  body: GRACE_REPLY_BODY,
+  is_edited: false,
+  created_at: '2026-10-01T11:00:00.000Z',
+};
+
 const OBJECTS = [
   {
     name: OBJECT_NAME,
@@ -179,17 +196,26 @@ function authoredPage(block: Block) {
   };
 }
 
-function makeDataSource() {
+/**
+ * The server's `sys_comment` rows for the record. A delete removes the row from
+ * them and nothing else (the server keeps a deleted comment's replies), so a
+ * later read answers what the server would.
+ */
+function makeDataSource(rows: Array<Record<string, unknown>> = ROWS) {
+  let stored = rows.map((c) => ({ ...c }));
   return {
     find: vi.fn(async (objectName: string) => {
-      if (objectName === COMMENT) return { data: ROWS.map((c) => ({ ...c })) };
+      if (objectName === COMMENT) return { data: stored.map((c) => ({ ...c })) };
       if (objectName === ACTIVITY) return { data: [] };
       return { data: [] };
     }),
     findOne: vi.fn(async (_o: string, id: string) => ({ id, subject: `Case ${id}` })),
     create: vi.fn(async (_o: string, data: any) => ({ ...data })),
     update: vi.fn(async (_o: string, id: string, patch: any) => ({ id, ...patch })),
-    delete: vi.fn(async () => true),
+    delete: vi.fn(async (objectName: string, id: string) => {
+      if (objectName === COMMENT) stored = stored.filter((c) => c.id !== id);
+      return true;
+    }),
   } as any;
 }
 
@@ -223,8 +249,15 @@ function answer(bits: Record<string, unknown> = FULL): MePermissionsResponse {
   } as MePermissionsResponse;
 }
 
-async function mount(block: Block, perms: MePermissionsResponse = answer()) {
-  const dataSource = makeDataSource();
+interface MountOptions {
+  /** The data source to read through; a second mount over the same one is a fresh read. */
+  dataSource?: ReturnType<typeof makeDataSource>;
+  /** The body the mount waits for before it returns. */
+  firstBody?: string;
+}
+
+async function mount(block: Block, perms: MePermissionsResponse = answer(), options: MountOptions = {}) {
+  const dataSource = options.dataSource ?? makeDataSource();
   const rendered = render(
     <I18nProvider config={{ defaultLanguage: 'en', detectBrowserLanguage: false }} persistLanguage={false}>
       <MePermissionsProvider initialPermissions={perms}>
@@ -244,7 +277,7 @@ async function mount(block: Block, perms: MePermissionsResponse = answer()) {
     </I18nProvider>,
   );
   const view = within(rendered.container);
-  await view.findByText(ADA_BODY);
+  await view.findByText(options.firstBody ?? ADA_BODY);
   await waitFor(() => expect(view.queryByTestId('activity-loading')).toBeNull());
   await act(async () => {});
   return { view, dataSource };
@@ -376,6 +409,42 @@ describe.each<Block>(['record:activity', 'record:discussion'])(
       await waitFor(() => expect(view.queryByText(ADA_BODY)).toBeNull());
       expect(view.getByText(GRACE_BODY)).toBeInTheDocument();
       expect(toast.error).not.toHaveBeenCalled();
+    });
+
+    it("deleting the author's comment keeps another member's reply to it on the page, at once and after the feed is read again", async () => {
+      const dataSource = makeDataSource([ADA_ROW, GRACE_ROW, GRACE_REPLY_ROW]);
+      const { view } = await mount(block, answer(), { dataSource });
+      // Before: Grace's reply nests under Ada's comment, behind its toggle.
+      expect(view.queryByText(GRACE_REPLY_BODY)).toBeNull();
+      fireEvent.click(within(rowOf(view, ADA_BODY)).getByRole('button', { name: /1 reply/ }));
+      expect(within(rowOf(view, ADA_BODY)).getByText(GRACE_REPLY_BODY)).toBeInTheDocument();
+
+      fireEvent.click(deleteIn(rowOf(view, ADA_BODY))!);
+      const dialog = await screen.findByRole('alertdialog');
+      await act(async () => {
+        fireEvent.click(within(dialog).getByRole('button', { name: EN.objectActions.deleteConfirmButton }));
+      });
+      await waitFor(() => expect(view.queryByText(ADA_BODY)).toBeNull());
+      expect(dataSource.delete).toHaveBeenCalledTimes(1);
+      expect(dataSource.delete).toHaveBeenCalledWith(COMMENT, 'c-ada');
+      // At once: the reply is a row of its own, in the feed's list, open with
+      // no toggle to press, and it is still Grace's (no controls for Ada).
+      const reply = rowOf(view, GRACE_REPLY_BODY);
+      expect(within(reply).getByText(GRACE_REPLY_BODY)).toBeInTheDocument();
+      expect(within(reply).queryByRole('button', { name: /1 reply/ })).toBeNull();
+      expect(editIn(reply)).toBeNull();
+      expect(deleteIn(reply)).toBeNull();
+      expect(view.getByText(GRACE_BODY)).toBeInTheDocument();
+      cleanup();
+
+      // Read again: a fresh page reads the server's rows, the reply among them
+      // with a parent that no longer exists. It still shows.
+      const readsBefore = dataSource.find.mock.calls.filter((c: unknown[]) => c[0] === COMMENT).length;
+      const again = await mount(block, answer(), { dataSource, firstBody: GRACE_REPLY_BODY });
+      expect(dataSource.find.mock.calls.filter((c: unknown[]) => c[0] === COMMENT).length).toBe(readsBefore + 1);
+      expect(again.view.queryByText(ADA_BODY)).toBeNull();
+      expect(rowOf(again.view, GRACE_REPLY_BODY)).toBeInTheDocument();
+      expect(again.view.getByText(GRACE_BODY)).toBeInTheDocument();
     });
 
     it('a refused delete raises the error and the row stays', async () => {

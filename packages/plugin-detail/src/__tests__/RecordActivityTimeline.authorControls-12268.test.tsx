@@ -228,6 +228,37 @@ describe('an edited comment reads as edited, on a root row and on a reply (objec
   });
 });
 
+describe('a reply whose parent the feed does not hold is a row of its own, in its place (objectui#12268)', () => {
+  const ORPHAN_BODY = 'A reply whose parent was deleted';
+  const orphan: FeedItem = { ...OTHER, id: 'r-orphan', body: ORPHAN_BODY, parentId: 'c-deleted', createdAt: '2026-10-01T08:30:00.000Z' };
+
+  it('with threading on it renders as a root row, between the rows it sits between in time', () => {
+    mount([OWN, orphan, OTHER], {}, true);
+    const list = screen.getByText(OWN_BODY).closest('.space-y-4')!;
+    const rows = Array.from(list.children).map((r) => r.textContent ?? '');
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toContain(OWN_BODY);
+    expect(rows[1]).toContain(ORPHAN_BODY);
+    expect(rows[2]).toContain(OTHER_BODY);
+    expect(screen.queryAllByRole('button', { name: /\d+ repl/ })).toHaveLength(0);
+  });
+
+  it('CONTROL: with its parent held, the same reply nests under it, behind the toggle', () => {
+    const parent: FeedItem = { ...OWN, id: 'c-deleted', replyCount: 1 };
+    mount([parent, orphan, OTHER], {}, true);
+    expect(screen.queryByText(ORPHAN_BODY)).toBeNull();
+    fireEvent.click(within(rootRowOf(OWN_BODY)).getByRole('button', { name: /1 reply/ }));
+    expect(within(rootRowOf(OWN_BODY)).getByText(ORPHAN_BODY)).toBeInTheDocument();
+  });
+
+  it('as a root row it keeps its own terms: the viewer\'s orphaned reply offers its author Edit and Delete', () => {
+    mount([{ ...orphan, authoredByViewer: true }], { onEditComment: vi.fn(), onDeleteComment: vi.fn() }, true);
+    const row = rootRowOf(ORPHAN_BODY);
+    expect(within(row).getByRole('button', { name: EDIT })).toBeInTheDocument();
+    expect(within(row).getByRole('button', { name: DELETE })).toBeInTheDocument();
+  });
+});
+
 describe("a reply is a comment too: its author's Edit and Delete show on it, on the same terms (objectui#12268)", () => {
   it("the viewer's reply under another's comment offers both; another's reply under the viewer's comment offers neither", async () => {
     const theirs: FeedItem = { ...OTHER, replyCount: 1 };

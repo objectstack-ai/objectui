@@ -325,11 +325,22 @@ export const RecordActivityTimeline: React.FC<RecordActivityTimelineProps> = ({
     [items, activeFilter],
   );
 
-  // Group replies by parentId
+  // Group replies by parentId.
+  //
+  // A reply nests under its parent only when the feed holds that parent. One
+  // whose `parentId` names no item here is a row of its own, in its place
+  // (objectui#12268): its parent was deleted (the server keeps the replies),
+  // or it lies before the current page and "Load more" has not brought it in.
+  // Before, such a reply was dropped from the roots and nested under nothing,
+  // so deleting a comment hid every reply to it, another member's included.
+  // "Holds" is decided on `items`, by the identity the nesting below keys on
+  // (a `Map` key, SameValueZero). Who may delete what is not decided here:
+  // the server stays the authority, and the client cascades nothing.
   const rootItems = React.useMemo(() => {
     if (!enableThreading) return filtered;
-    return filtered.filter((i) => !i.parentId);
-  }, [filtered, enableThreading]);
+    const held = new Set<string | number>(items.map((i) => i.id));
+    return filtered.filter((i) => !i.parentId || !held.has(i.parentId));
+  }, [filtered, items, enableThreading]);
 
   const repliesByParent = React.useMemo(() => {
     if (!enableThreading) return new Map<string | number, FeedItem[]>();

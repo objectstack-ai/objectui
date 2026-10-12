@@ -65,9 +65,9 @@ type NamedExtensions = 'operator' | 'value';
 // Each `@ts-expect-error` IS the assertion: declare or re-export either name in
 // this module again and the line stops erroring, which fails the compile.
 // @ts-expect-error the builder's row is `FilterBuilderRow`; `FilterBuilderCondition` is @object-ui/types' authored row
-type OldRowName = BuilderModule.FilterBuilderCondition;
+type _OldRowName = BuilderModule.FilterBuilderCondition;
 // @ts-expect-error the builder's group is `FilterBuilderRowGroup`; `FilterGroup` is @object-ui/types' authored group
-type OldGroupName = BuilderModule.FilterGroup;
+type _OldGroupName = BuilderModule.FilterGroup;
 // …while the operator extension keeps the name the ruling gives it (objectui#9306).
 expectType<Equal<BuilderModule.FilterBuilderOperator, FilterBuilderOperator>>();
 

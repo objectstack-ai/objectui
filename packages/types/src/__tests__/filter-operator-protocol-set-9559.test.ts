@@ -57,7 +57,7 @@ expectType<Equal<RowOperator, ViewFilterOperator>>();
 // `@ts-expect-error` IS the assertion: export the name again and this line
 // stops erroring, which fails the compile.
 // @ts-expect-error `FilterBuilderOperator` is not a name of @object-ui/types (objectui#6349)
-type RetiredOperatorName = Barrel.FilterBuilderOperator;
+type _RetiredOperatorName = Barrel.FilterBuilderOperator;
 expectType<Equal<z.output<typeof FilterOperatorSchema>, ViewFilterOperator>>();
 
 /** The spec rule's own operator member — the side this mirror must agree with. */

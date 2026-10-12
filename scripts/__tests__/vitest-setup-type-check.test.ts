@@ -274,7 +274,9 @@ describe('the gate is actually wired up (objectui#3515)', () => {
    */
   it('runs AFTER the build, because its program needs built declarations', () => {
     const job = typeCheckJob();
-    const build = job.indexOf('run: pnpm type-check\n');
+    // A line that IS the bare command, as `run:`'s value or inside a `run: |`
+    // block -- objectui#12222 put the two speeds' branches in that step.
+    const build = job.search(/^\s+(?:run: )?pnpm type-check$/m);
     const check = job.indexOf(`pnpm ${SCRIPT_NAME}`);
 
     expect(build, 'the type-check job must still run `pnpm type-check`').toBeGreaterThan(-1);

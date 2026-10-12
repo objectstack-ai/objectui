@@ -227,6 +227,14 @@ order, so ordering by the across dimension is what fixes the column order;
 declaring nothing still reads correctly, because a selected time dimension
 defaults to ascending.
 
+With no `order`, a **select** dimension follows its field's declared option
+order (table rows, matrix headers on both axes, the embedded chart's
+categories): declared options first, values the options do not declare next in
+the dataset's order, the empty bucket last. With several grouping dimensions the
+outer one is laid out first and the inner one within each outer group; a
+dimension whose field declares no options keeps the dataset's order. An
+authored `order` keeps the server's order.
+
 ### Embedded chart
 
 `chart.type` is one of the spec's chart names; `xAxis` / `yAxis` are **bare

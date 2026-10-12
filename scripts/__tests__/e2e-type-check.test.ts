@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
+import { globToRegExp, repoFilesOnDisk } from './helpers/turbo-inputs';
 
 /**
  * objectui#4471 — the 30 Playwright specs under `e2e/` were compiled by nothing.
@@ -412,6 +413,57 @@ describe('the gate is actually wired up (objectui#4471)', () => {
         'the entire wiring: ci.yml’s existing `Run type-check` step gains e2e/ coverage with ' +
         'no new workflow entry, exactly as `lint` gained `//#lint:root` in objectui#4456.',
     ).toContain(TURBO_TASK);
+  });
+
+  /**
+   * objectui#12222. Turbo folds a dependency's hash into its dependent's, and
+   * every package's `type-check` depends on this task — so this task's hash is
+   * part of EVERY package's type-check hash. With no `inputs`, a root task
+   * hashes every tracked file in the repository (turbo's default for the root
+   * package), so any commit anywhere moved all of those hashes and the restored
+   * `.turbo/cache` replayed nothing: `Type Check` re-ran every package on every
+   * pull request and queue build. Measured on that card, before the fix: one
+   * untracked file under `docs/` moved every `type-check` hash and no `build`
+   * hash.
+   *
+   * The task stays uncached (below), so its `inputs` decide nothing but that
+   * hash. They name its own program — what `tsconfig.e2e.json` includes, and
+   * the config itself — so the hash moves when the e2e program does and not
+   * when anything else in the repository does. Turbo adds the root
+   * `package.json` and `turbo.json` on its own.
+   */
+  it('hashes its own program, not the whole repository, because every type-check inherits its hash', () => {
+    const inputs = turbo.tasks[TURBO_TASK]?.inputs ?? [];
+    expect(
+      inputs,
+      `\`${TURBO_TASK}\` declares no \`inputs\`, so turbo hashes every tracked file in the ` +
+        'repository for it — and every package’s `type-check` inherits that hash through ' +
+        '`dependsOn`, so no commit can ever replay a cached type-check (objectui#12222).',
+    ).not.toHaveLength(0);
+    expect(inputs, '`$TURBO_DEFAULT$` on a root task is the whole repository again').not.toContain(
+      '$TURBO_DEFAULT$',
+    );
+
+    const matchers = inputs.map((glob) => globToRegExp(glob));
+    const program = [...programFiles(), 'tsconfig.e2e.json'];
+    const unhashed = program.filter((file) => !matchers.some((re) => re.test(file)));
+    expect(
+      unhashed,
+      `files of the e2e program that \`${TURBO_TASK}\`'s inputs do not name — its hash would not ` +
+        'move when they change:\n' +
+        unhashed.map((f) => `  - ${f}`).join('\n'),
+    ).toEqual([]);
+
+    const ownProgram = /^(?:e2e\/|playwright[^/]*\.config\.ts$|tsconfig\.e2e\.json$)/;
+    const beyond = [...repoFilesOnDisk()].filter(
+      (file) => matchers.some((re) => re.test(file)) && !ownProgram.test(file),
+    );
+    expect(
+      beyond,
+      `\`${TURBO_TASK}\`'s inputs reach files outside its own program, and each one moves every ` +
+        'package’s type-check hash when it changes:\n' +
+        beyond.map((f) => `  - ${f}`).join('\n'),
+    ).toEqual([]);
   });
 
   /**

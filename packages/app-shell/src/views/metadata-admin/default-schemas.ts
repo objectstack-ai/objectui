@@ -1,10 +1,15 @@
 // Copyright (c) 2025 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * default-schemas — minimal JSONSchemas used by SchemaForm when the
- * framework's `/meta/types` registry row doesn't carry a `schema` field
- * (i.e. for every type today — full Zod→JSONSchema generation in the
- * framework is a deferred milestone).
+ * default-schemas — minimal JSONSchemas used by SchemaForm ONLY when the
+ * framework's `/meta/types` registry row carries no `schema` field. The
+ * framework derives that field from each type's Zod schema (and keeps a
+ * hand-crafted fallback for a type whose schema does not derive), so against
+ * a current server the served schema wins and the entry here is not read:
+ * `ResourceEditPage` takes `entry.schema` first and `defaultSchema` second.
+ * What an entry here still decides is the form shown against a server that
+ * serves no schema for the type — so an entry must never offer a key the
+ * spec has retired, because the save would send it and be refused.
  *
  * These schemas cover the universal metadata header (name/label/
  * description/scope) plus the small set of per-type "obvious" fields
@@ -12,10 +17,6 @@
  * edited via the raw JSON escape hatch — the schema is intentionally
  * lax (no `additionalProperties: false`) so unknown payload keys round-
  * trip untouched.
- *
- * When the framework starts emitting JSONSchemas in the registry, this
- * file becomes a no-op (SchemaForm receives the real schema and ignores
- * `defaultSchema`).
  */
 
 import { registerMetadataResource } from './registry.js';
@@ -165,12 +166,9 @@ const SCHEMAS: Record<string, Record<string, unknown>> = {
         description: "Agent surface this skill binds to (ADR-0063).",
         enum: ['ask', 'build', 'both'],
       },
-      triggerPhrases: {
-        type: 'array',
-        title: 'Trigger Phrases',
-        description: 'Natural-language phrases that activate this skill.',
-        items: { type: 'string' },
-      },
+      // No `triggerPhrases`: retired in spec 17 (objectstack#3896) — the
+      // phrases were never matched against anything, and the spec now refuses
+      // the key with a migration note.
       triggerConditions: {
         type: 'array',
         title: 'Trigger Conditions',
@@ -307,12 +305,10 @@ const SCHEMAS: Record<string, Record<string, unknown>> = {
     required: ['name', 'label', 'subject', 'bodyHtml'],
     properties: {
       ...headerProps,
-      category: {
-        type: 'string',
-        title: 'Category',
-        enum: ['auth', 'notification', 'workflow', 'marketing', 'custom'],
-        default: 'custom',
-      },
+      // No `category` and no `isSystem`: both are retired from the spec's
+      // `EmailTemplateDefinitionSchema` (objectstack-ai/objectstack#22876,
+      // ADR-0049 enforce-or-remove). Nothing ever read either one, and a
+      // fallback form that offered them would write a key the server refuses.
       locale: { type: 'string', title: 'Locale', default: 'en-US', description: 'BCP-47 tag (en-US, zh-CN, …)' },
       subject: { type: 'string', title: 'Subject', description: 'Supports {{var.path}} interpolation' },
       bodyHtml: { type: 'string', title: 'HTML Body', format: 'multiline' },
@@ -321,7 +317,6 @@ const SCHEMAS: Record<string, Record<string, unknown>> = {
       fromOverride: { type: 'object', title: 'From Override' },
       replyTo: { type: 'string', title: 'Reply-To' },
       active: { type: 'boolean', title: 'Active', default: true },
-      isSystem: { type: 'boolean', title: 'System Template', default: false },
     },
   },
 };

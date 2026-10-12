@@ -60,7 +60,9 @@ export interface FormWritePayloads {
  *    runtime default the producer resolves (#4069).
  * 3. On an edit, `dirtyEditPayload` keeps only the fields that differ from the
  *    record the form read (objectui#10156), and sends the whole of step 1's
- *    result when it cannot settle that.
+ *    result when it cannot settle that. It is handed the values too, so an
+ *    owner the user changed is written while an untouched one is not
+ *    (objectui#12205): only `writePayload` can carry it, never `payload`.
  *
  * ## Why it is one function
  *
@@ -95,5 +97,8 @@ export function formWritePayload(
   if (isCreateFormMode(form)) {
     payload = omitServerResolvedDefaults(payload, definition);
   }
-  return { payload, writePayload: dirtyEditPayload(payload, snapshot, form) };
+  return {
+    payload,
+    writePayload: dirtyEditPayload(payload, snapshot, form, { values, objectSchema: definition, canEdit }),
+  };
 }

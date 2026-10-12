@@ -414,11 +414,31 @@ describe('console record header — the gates that must not move (objectui#4213)
  * independent reasons for "off", and neither may cancel the other.
  *
  * `approval_status: 'pending'` is the record-field fallback source of
- * `approvalLocked` (objectui#2618), which needs no approvals-API stub — it is
- * the same `approvalLocked` boolean either way.
+ * `approvalLocked` (objectui#2618) — it is the same `approvalLocked` boolean
+ * either way. That fallback stands in only on a backend with NO approvals
+ * route (objectui#12220): an approvals read that answers, even empty, decides
+ * the lock by itself. So this block answers the approvals list route 404, and
+ * the last case pins the answered side against the header Edit.
  */
 describe('console record header — approvalLocked composition (objectui#4213)', () => {
   const LOCKED = { ...REPORTED, approval_status: 'pending' };
+
+  beforeEach(() => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) =>
+        String(url).includes('/approvals/requests?')
+          ? new Response(JSON.stringify({ code: 'NOT_FOUND' }), {
+            status: 404,
+            headers: { 'content-type': 'application/json' },
+          })
+          : new Response(JSON.stringify({ data: [] }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+      ),
+    );
+  });
 
   it('keeps approvalLocked disabling Edit with NO predicate declared', async () => {
     // The pre-#4213 behavior, byte-identical: `disabled: approvalLocked`.
@@ -463,5 +483,31 @@ describe('console record header — approvalLocked composition (objectui#4213)',
     });
 
     expect(headerEditButton()).toBeNull();
+  });
+
+  /**
+   * objectui#12220 — the same `pending` record on a composition without the
+   * approvals service, whose list route answers `200 { data: [] }`. The column
+   * locks only until the read answers; once it has, nothing is running and the
+   * header Edit is live. Waiting for the enabled state is the measurement: the
+   * pre-read render is disabled by the column, so an Edit that never left that
+   * state times out here.
+   */
+  it('enables Edit on a `pending` record once the approvals read answers 200 empty (objectui#12220)', async () => {
+    const approvalsListGets: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (String(url).includes('/approvals/requests?')) approvalsListGets.push(String(url));
+        return new Response(JSON.stringify({ data: [] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }),
+    );
+    await mountRecordPage(LOCKED, undefined);
+
+    await waitFor(() => expect(headerEditButton()).not.toBeDisabled());
+    expect(approvalsListGets.length).toBeGreaterThan(0);
   });
 });

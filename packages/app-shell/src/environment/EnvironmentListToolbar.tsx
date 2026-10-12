@@ -12,8 +12,10 @@
  *                                  must never error.
  *   • has prod + dev allowed     → "Add development environment" (the create POST
  *                                  makes a dev env).
- *   • has prod + dev NOT allowed → "Add environment" that opens an UPGRADE prompt
- *                                  instead of POST-ing into a 403.
+ *   • has prod + dev NOT allowed → an outline, LOCKED mark naming the tier
+ *                                  development environments start at, linking
+ *                                  to the summary's `upgradeUrl`. No button, no
+ *                                  dialog, no POST (objectui#12190).
  *   • still resolving            → a SKELETON where the create button will land —
  *                                  no label at all (see below).
  *   • settled with no signal     → the action's metadata label (neutral), with the
@@ -43,8 +45,9 @@
  * for two different states, and each has exactly one owner:
  *
  *   • Every RESOLVED state → THIS package. `environment.setUpProduction` /
- *     `environment.addDevelopment` / `environment.addEnvironment` in
- *     `packages/i18n/src/locales/*.ts` are the sole source of truth. The cloud
+ *     `environment.addDevelopment` / `environment.developmentLocked` (with
+ *     `planTier.teamAndUp`) in `packages/i18n/src/locales/*.ts` are the sole
+ *     source of truth. The cloud
  *     action metadata's `_actions.create_environment.label` translation CANNOT
  *     reach the button here — `decideEnvironmentCta()` is total over `ready`
  *     state, so a resolved state always overrides the label.
@@ -58,20 +61,15 @@
  *     (reported back on cloud#1049 for the cloud seat).
  */
 
-import { useEffect } from 'react';
 import { SchemaRenderer, useCapabilityGate } from '@object-ui/react';
 import { actionRendersAt } from '@object-ui/types';
 import type { ActionBarSchema } from '@object-ui/types';
 import { Button, Skeleton } from '@object-ui/components';
-import { Plus } from 'lucide-react';
+import { Lock } from 'lucide-react';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { useNavRunAction } from '../hooks/useNavRunAction.js';
-import {
-  decideEnvironmentCta,
-  upgradeDialogSpec,
-  type EntitlementDialogSpec,
-  type EnvironmentEntitlementsState,
-} from './entitlements.js';
+import { resolveCtaHref } from './EnvironmentEntitlementDialog.js';
+import { decideEnvironmentCta, type EnvironmentEntitlementsState } from './entitlements.js';
 
 const CREATE_ACTION = 'create_environment';
 
@@ -96,9 +94,12 @@ const CREATE_ACTION = 'create_environment';
  * user intent. Arm it when nothing can act on it and the intent is not merely
  * lost, it is unrecoverable: the URL no longer carries it, so a reload cannot
  * retry. Hence both conjuncts below: the create action must actually be on the
- * bar (`hasCreateAction`), AND entitlements must have resolved — `upgrade_...`
- * routes to the upgrade dialog instead, and while loading we must not trigger
- * an action whose meaning (prod vs dev create) isn't known yet. When either
+ * bar (`hasCreateAction`), AND entitlements must have resolved — while loading
+ * we must not trigger an action whose meaning (prod vs dev create) isn't known
+ * yet. In the `upgrade_for_development` state arming consumes the param and
+ * runs NOTHING (objectui#12190: no dialog): the locked mark that stands in for
+ * the create action is the page's whole answer to "create" there, so the
+ * intent is spent on that answer rather than lost. When either
  * fails, the honest degradation is to leave the URL alone: the next mount that
  * CAN act on the deep link still does.
  *
@@ -128,6 +129,59 @@ function OtherActionsBar({ actions }: { actions: any[] }) {
   return <SchemaRenderer schema={bar} />;
 }
 
+const DEVELOPMENT_LOCKED_MARK = 'environment-development-locked';
+
+/**
+ * The plan-locked stand-in for the create action (objectui#12190): an outline
+ * mark with a lock icon that names the tier development environments start at
+ * ("Development environments · Team plan and up"; the zh value of the tier
+ * label follows cloud's own zh bundle). The maintainer's rule is that no primary
+ * button opens a paywall dialog (objectstack-ai/cloud#2775), so this is never a
+ * primary button and opens nothing: it is a plain link to the upgrade page.
+ *
+ * The destination is the entitlement summary's `upgradeUrl`, verbatim, resolved
+ * the way the entitlement dialog resolves its CTA (`resolveCtaHref`: a
+ * control-plane-relative path is prefixed with the control-plane origin). With
+ * no `upgradeUrl` the mark is drawn UNLINKED: the URL is the control plane's to
+ * name and none is composed here (objectui#10437), while the fact the mark
+ * states (development environments need a higher tier) is still true and is
+ * the only explanation of why this page has no create button.
+ */
+function DevelopmentLockedMark({ upgradeUrl }: { upgradeUrl?: string }) {
+  const { t } = useObjectTranslation();
+  const content = (
+    <>
+      <Lock className="h-4 w-4" aria-hidden="true" />
+      <span>{t('environment.developmentLocked', { tier: t('planTier.teamAndUp') })}</span>
+    </>
+  );
+  if (!upgradeUrl) {
+    return (
+      <span
+        className="inline-flex h-8 sm:h-9 items-center gap-1.5 sm:gap-2 rounded-md border border-input bg-background px-3 text-sm font-medium text-muted-foreground"
+        data-testid={DEVELOPMENT_LOCKED_MARK}
+      >
+        {content}
+      </span>
+    );
+  }
+  const { href, external } = resolveCtaHref(
+    upgradeUrl,
+    (import.meta.env.VITE_SERVER_URL as string | undefined) || '',
+  );
+  return (
+    <Button asChild size="sm" variant="outline" className="shadow-none gap-1.5 sm:gap-2 h-8 sm:h-9 text-muted-foreground">
+      <a
+        href={href}
+        {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+        data-testid={DEVELOPMENT_LOCKED_MARK}
+      >
+        {content}
+      </a>
+    </Button>
+  );
+}
+
 interface Props {
   /** Toolbar actions already localized by the caller (ObjectView). */
   actions: any[];
@@ -139,11 +193,9 @@ interface Props {
    * "wait" (skeleton) and never "we gave up" (which must keep a usable button).
    */
   entitlements: EnvironmentEntitlementsState | null;
-  /** Open the shared entitlement dialog (proactive upgrade prompt). */
-  onUpgrade: (spec: EntitlementDialogSpec) => void;
 }
 
-export function EnvironmentListToolbar({ actions, entitlements, onUpgrade }: Props) {
+export function EnvironmentListToolbar({ actions, entitlements }: Props) {
   const { t } = useObjectTranslation();
   // [ADR-0066 D4] The same capability gate `action:bar` applies to the actions
   // it RENDERS. This toolbar is one more surface that filters its own action
@@ -168,16 +220,6 @@ export function EnvironmentListToolbar({ actions, entitlements, onUpgrade }: Pro
   // and triggered nothing (measured: `urlParam=null execute=0`), unrecoverably.
   const autoRunCreate = useAutoRunCreate(hasCreateAction, ctaKind);
 
-  // Deep-linked "create" while in the upgrade state opens the SAME upgrade
-  // prompt — the honest answer to "create" here. In an effect, not render:
-  // onUpgrade sets parent state.
-  useEffect(() => {
-    if (autoRunCreate && ctaKind === 'upgrade_for_development' && entitlements) {
-      onUpgrade(upgradeDialogSpec(entitlements, t));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoRunCreate, ctaKind]);
-
   if (toolbarActions.length === 0) return null;
 
   // Still resolving: hold the create button's slot with a skeleton instead of a
@@ -201,31 +243,20 @@ export function EnvironmentListToolbar({ actions, entitlements, onUpgrade }: Pro
     );
   }
 
-  // Upgrade state: a free-plan org clicking "create" must NOT POST-then-403.
-  // Render a primary button that opens the upgrade prompt, plus any other
-  // (non-create) toolbar actions through the normal bar.
+  // Plan-locked state: a free-plan org must NOT POST-then-403, and no primary
+  // button may open a paywall dialog (objectui#12190). The create action gives
+  // way to the locked mark; any other (non-create) toolbar actions still render
+  // through the normal bar.
   if (ctaKind === 'upgrade_for_development') {
     return (
       <>
         <OtherActionsBar actions={otherActions(toolbarActions)} />
         {/*
-          This button IS the create affordance for a plan-locked org — it stands
-          in for the create action so the click opens the upgrade prompt instead
-          of POSTing into a 403. With no create action on the bar there is
-          nothing to stand in for, so it must not appear either (#4123): same
-          one-list rule as the arming predicate above.
+          The mark stands in for the create action. With no create action on
+          the bar there is nothing to stand in for, so it must not appear either
+          (#4123): same one-list rule as the arming predicate above.
         */}
-        {hasCreateAction && (
-          <Button
-            size="sm"
-            onClick={() => onUpgrade(upgradeDialogSpec(entitlements!, t))}
-            className="shadow-none gap-1.5 sm:gap-2 h-8 sm:h-9"
-            data-testid="environment-add-upgrade"
-          >
-            <Plus className="h-4 w-4" />
-            <span>{t('environment.addEnvironment')}</span>
-          </Button>
-        )}
+        {hasCreateAction && <DevelopmentLockedMark upgradeUrl={entitlements?.upgradeUrl} />}
       </>
     );
   }

@@ -2784,6 +2784,7 @@ const ar = {
     },
     aiAssistant: "مساعد الذكاء الاصطناعي",
     designInStudio: "التصميم في Studio",
+    editApp: "تعديل التطبيق",
   },
   home: {
     build: {
@@ -2910,6 +2911,8 @@ const ar = {
       manageAllApps: "إدارة جميع التطبيقات",
       systemConsole: "وحدة تحكم النظام",
       noAppsConfigured: "لا تطبيقات مُهيأة",
+      allApps: "جميع التطبيقات",
+      editAppInStudio: "تعديل {{app}} في Studio",
     },
     activityFeed: {
       title: "النشاط الأخير",
@@ -3624,10 +3627,13 @@ const ar = {
     buyCredits: "شراء باقة أرصدة",
     upgradePlan: "ترقية الخطة",
   },
+  planTier: {
+    teamAndUp: "خطة Team وما فوقها",
+  },
   environment: {
-    addEnvironment: "إضافة بيئة",
     setUpProduction: "إعداد بيئة الإنتاج",
     addDevelopment: "إضافة بيئة تطوير",
+    developmentLocked: "بيئات التطوير · {{tier}}",
     // Plan/capacity dialog (EnvironmentEntitlementDialog) — cloud#959.
     entitlement: {
       productionLimitTitle: "لديك بالفعل بيئة الإنتاج الخاصة بك",

@@ -226,9 +226,11 @@ light-mode HSL triple and does not follow the light/dark toggle, whereas `--prim
 
 **The app's logo is not part of that object.** `AppShellBranding` carries theme values and the
 tab title only. An app's `branding.logo` (an image URL — the one logo spelling the app schema
-declares) is drawn by `UnifiedSidebar`, which already resolves the active app: a header at the top
-of the sidebar shows the image, with the app's label as its alt text. An app without a
-`branding.logo` gets no header, so its sidebar is unchanged.
+declares — for the app's square icon) is drawn in the top bar: the app pill (`AppSwitcher`) shows
+it left of the app's name, and each row of the pill's dropdown shows its own app's logo. An app
+without a `branding.logo` gets its `icon` on a tile instead, coloured by its own
+`branding.primaryColor` when that is a hex. The sidebar draws no logo. On a phone, where the top
+bar hides the pill, the sidebar drawer's header shows the app's glyph and name.
 
 ## Development Mode
 

@@ -380,25 +380,37 @@ import './views/nav-menu-renderer.js';
 // reads a bare import as "this module is not pure" and the whole eager closure
 // comes back. See the leaf's own header.
 import './views/metadata-admin/register-builtins.js';
+import { deferBuiltinDesigners } from './views/metadata-admin/builtin-designers-loader.js';
 // The built-in metadata DESIGNERS (every Preview and Inspector) are registered
-// from a chunk of their own, loaded here, at the entry's module scope, so
-// importing the package still registers them with no action from the host —
-// once the chunk has arrived rather than during this module's evaluation
-// (objectui#11939 step 2). Their three registries are observable (step 1), so
-// a reader that rendered first shows its "designer missing" state and then the
-// designer. A host's own registration is kept whichever comes first: see
-// `registerAsBuiltIns` in `views/metadata-admin/preview-registry.ts`.
+// from a chunk of their own, so importing the package still registers them with
+// no action from the host — once the chunk has arrived rather than during this
+// module's evaluation (objectui#11939 step 2). Their three registries are
+// observable (step 1), so a reader that rendered first shows its "designer
+// missing" state and then the designer. A host's own registration is kept
+// whichever comes first: see `registerAsBuiltIns` in
+// `views/metadata-admin/preview-registry.ts`.
+//
+// The entry hands the loader to the registries instead of running it here, and
+// the first read of a designer registry runs it (objectui#12187). Run here, it
+// fetched every Preview and Inspector chunk, and the icons they draw, on every
+// console page, before a plain page route's content and with nothing on that
+// route reading a designer. See `views/metadata-admin/builtin-designers-loader.ts`.
 //
 // ⛔ Keep this edge DYNAMIC. A static import of that module, or of the
 // previews/inspectors it registers, from anything this entry reaches statically
 // puts every designer back on every console page's first load, and
 // `scripts/check-eager-closure-budget.mjs` is sized on the bytes that left.
-import('./views/metadata-admin/register-builtin-designers.js')
-  .then(({ registerBuiltinDesigners }) => registerBuiltinDesigners())
-  .catch((error: unknown) => {
-    // The readers keep their "designer missing" states; say why once, here.
-    console.error('[@object-ui/app-shell] The built-in metadata designers failed to load.', error);
-  });
+// ⛔ And keep it DEFERRED: calling the loader at this module's scope puts the
+// same chunks back on every page load as dynamic requests, where that gate
+// cannot see them.
+deferBuiltinDesigners(() =>
+  import('./views/metadata-admin/register-builtin-designers.js')
+    .then(({ registerBuiltinDesigners }) => registerBuiltinDesigners())
+    .catch((error: unknown) => {
+      // The readers keep their "designer missing" states; say why once, here.
+      console.error('[@object-ui/app-shell] The built-in metadata designers failed to load.', error);
+    }),
+);
 
 // Phase 3c — generic metadata admin engine. Re-exported so plugins
 // can call `registerMetadataResource()` to override the per-type

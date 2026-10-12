@@ -9,6 +9,7 @@
  * embedding the heavyweight page canvas in the runtime.
  */
 
+import { lazy, Suspense } from 'react';
 import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   SchemaRenderer,
@@ -26,9 +27,20 @@ import { useExpressionContext } from '../providers/ExpressionProvider.js';
 import { preferLocal } from '../utils/preferLocal.js';
 import { ConsoleActionRuntimeProvider } from '../hooks/useConsoleActionRuntime.js';
 import { useCanAuthorMetadata } from '../hooks/useCanAuthorMetadata.js';
-import { InterfaceListPage } from './InterfaceListPage.js';
 import { pageRecordActionsValue } from './pageRecordActions.js';
 import { pageKindNode } from './pageKindNode.js';
+
+/**
+ * Only an interface page (ADR-0047, `interfaceConfig.source`) draws
+ * `InterfaceListPage`, so it loads when such a page renders (objectui#12187).
+ * Imported statically, its chunk loaded with every page route, before the
+ * content of pages that never draw a list. The chunk is shared with the
+ * Studio's page preview and the object data page, so it is its own chunk and
+ * this edge is what decided whether a plain page fetched it.
+ */
+const InterfaceListPage = lazy(() =>
+  import('./InterfaceListPage.js').then((m) => ({ default: m.InterfaceListPage })),
+);
 
 /**
  * After a successful page-level action, declare the change on the
@@ -148,7 +160,15 @@ export function PageView() {
           {(page as any).interfaceConfig?.source ? (
             // ADR-0047 interface mode: the page binds a source view into a
             // curated list surface — rendered directly, not via regions.
-            <InterfaceListPage page={page} reserveEditAffordance={canEditInStudio} />
+            <Suspense
+              fallback={
+                <div className="h-full flex items-center justify-center p-8" data-testid="interface-page-loading">
+                  <Spinner className="h-5 w-5 text-muted-foreground" />
+                </div>
+              }
+            >
+              <InterfaceListPage page={page} reserveEditAffordance={canEditInStudio} />
+            </Suspense>
           ) : (
             <RelatedRecordActionsProvider value={pageRecordActions}>
               <SchemaRenderer

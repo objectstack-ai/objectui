@@ -9,6 +9,7 @@ import {
 } from '@object-ui/components';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { type ManagedByBucket } from '../utils/crudAffordances.js';
+import { useCanAuthorMetadata } from '../hooks/useCanAuthorMetadata.js';
 
 /**
  * ManagedByBadge — replaces the verbose, full-width `ManagedByBanner` with
@@ -37,12 +38,33 @@ import { type ManagedByBucket } from '../utils/crudAffordances.js';
  *   - `better-auth`  — Identity tables owned by better-auth driver.
  *
  * Forms still disable inputs and the toolbar still hides New/Import/Delete
- * via `resolveEffectiveCrudAffordances()`. This badge purely *labels* the bucket so
- * users understand at a glance why those affordances are missing — the
- * detailed explanation lives in the tooltip.
+ * via `resolveEffectiveCrudAffordances()`. This badge purely *labels* the bucket;
+ * the detailed explanation lives in the tooltip.
  *
- * Empty-state guidance for the read-only buckets is rendered separately by
- * `ObjectView` via `resolveManagedByEmptyState()`.
+ * ## An authoring aid: it draws for an authoring caller only (objectui#12194)
+ *
+ * The bucket is a fact about how the object is BUILT, so the label speaks to
+ * whoever can author it. To an end user it is an implementation word — the
+ * `better-auth` variant reads 「身份」 / "Identity" on a workspace page a host
+ * authored, with no meaning to them — and the record page draws it outside
+ * the page tree, so no page could leave it out. Triage's ruling on
+ * objectui#12194 (option a): the badge renders only for a caller who can
+ * author metadata; no declared switch, no new spec key.
+ *
+ * "Can author" is `useCanAuthorMetadata()` — the server's `manage_metadata`
+ * answer, the same one the Studio entry points (HomePage's builder CTAs, the
+ * header's Studio bridge, PageView's edit pencil) read. The gate sits HERE
+ * rather than at each call site, so the list header, the record page and the
+ * form page follow one rule. The hook keeps its own doctrine: an UNREPORTED capability
+ * set (a backend whose `/me/permissions` omits `systemPermissions`, or no
+ * permission provider at all) fails open, and the badge draws as before.
+ *
+ * What an end user needs is said elsewhere, and none of it reads this badge:
+ * the toolbar hides the affordances the bucket closes, a locked form names
+ * the missing permission above its fields (plugin-form's
+ * `ClosedAffordanceNotice`, objectui#11000), and the list's empty state for
+ * the read-only buckets is rendered separately by `ObjectView` via
+ * `resolveManagedByEmptyState()`.
  */
 
 type Bucket = ManagedByBucket;
@@ -136,6 +158,9 @@ const VARIANTS: Record<VariantKey, Variant> = {
 
 export function ManagedByBadge({ managedBy, label, className }: ManagedByBadgeProps) {
   const { t } = useObjectTranslation();
+  // objectui#12194 — an authoring aid: nothing for a caller who cannot author.
+  const canAuthor = useCanAuthorMetadata();
+  if (!canAuthor) return null;
   if (!managedBy || managedBy === 'platform') return null;
   // ADR-0103 — a `system` object that opened any write is admin/user-writable
   // data, not an engine-owned monitoring surface: pick the writable variant/copy.

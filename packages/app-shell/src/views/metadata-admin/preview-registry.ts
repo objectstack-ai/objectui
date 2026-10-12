@@ -34,6 +34,7 @@
  */
 
 import { useSyncExternalStore, type ComponentType } from 'react';
+import { requestBuiltinDesigners } from './builtin-designers-loader.js';
 
 /**
  * Identifies a sub-element selected inside a preview surface.
@@ -130,9 +131,15 @@ export interface ObservableTypeRegistry<T> {
    * replaces an entry that is already there.
    */
   set(type: string, value: T): void;
-  /** The entry for `type` as it is now. */
+  /**
+   * The entry for `type` as it is now. Like every read, it asks for the
+   * built-in designers (`./builtin-designers-loader.ts`).
+   */
   get(type: string): T | undefined;
-  /** A new sorted array of the registered types, the caller's to keep or mutate. */
+  /**
+   * A new sorted array of the registered types, the caller's to keep or mutate.
+   * Like every read, it asks for the built-in designers.
+   */
   types(): string[];
   /** Call `listener` after every change; returns the function that stops it. */
   subscribe(listener: () => void): () => void;
@@ -198,6 +205,14 @@ export function createObservableTypeRegistry<T>(): ObservableTypeRegistry<T> {
       listeners.delete(listener);
     };
   };
+  // What the reader hooks subscribe with: a reader is a read, so it asks for
+  // the built-in designers (`./builtin-designers-loader.ts`, objectui#12187).
+  // React subscribes after the commit, so the request is not a render-phase
+  // effect.
+  const subscribeReader = (listener: () => void): (() => void) => {
+    requestBuiltinDesigners();
+    return subscribe(listener);
+  };
   const readTypes = (): readonly string[] => typesSnapshot;
 
   return {
@@ -215,17 +230,23 @@ export function createObservableTypeRegistry<T>(): ObservableTypeRegistry<T> {
       // Iterate a copy: a listener can unsubscribe another (an unmount) mid-loop.
       for (const listener of Array.from(listeners)) listener();
     },
-    get: (type) => entries.get(type),
-    types: () => Array.from(entries.keys()).sort(),
+    get: (type) => {
+      requestBuiltinDesigners();
+      return entries.get(type);
+    },
+    types: () => {
+      requestBuiltinDesigners();
+      return Array.from(entries.keys()).sort();
+    },
     subscribe,
     useEntry(type) {
       const read = (): T | undefined => entries.get(type);
       // The same read serves the server snapshot: registration is module state,
       // so a server render sees whatever its module graph registered.
-      return useSyncExternalStore(subscribe, read, read);
+      return useSyncExternalStore(subscribeReader, read, read);
     },
     useTypes() {
-      return useSyncExternalStore(subscribe, readTypes, readTypes);
+      return useSyncExternalStore(subscribeReader, readTypes, readTypes);
     },
   };
 }

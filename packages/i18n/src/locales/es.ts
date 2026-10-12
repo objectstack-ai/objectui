@@ -2630,6 +2630,7 @@ const es = {
     },
     aiAssistant: "Asistente de IA",
     designInStudio: "Diseñar en Studio",
+    editApp: "Editar aplicación",
   },
   home: {
     build: {
@@ -2753,6 +2754,8 @@ const es = {
       manageAllApps: "Administrar todas las aplicaciones",
       systemConsole: "Consola del sistema",
       noAppsConfigured: "Sin aplicaciones configuradas",
+      allApps: "Todas las aplicaciones",
+      editAppInStudio: "Editar {{app}} en Studio",
     },
     activityFeed: {
       title: "Actividad reciente",
@@ -3422,10 +3425,13 @@ const es = {
     buyCredits: "Comprar un paquete de créditos",
     upgradePlan: "Mejorar el plan",
   },
+  planTier: {
+    teamAndUp: "Desde el plan Team",
+  },
   environment: {
-    addEnvironment: "Añadir entorno",
     setUpProduction: "Configure su entorno de producción",
     addDevelopment: "Añadir entorno de desarrollo",
+    developmentLocked: "Entornos de desarrollo · {{tier}}",
     // Plan/capacity dialog (EnvironmentEntitlementDialog) — cloud#959.
     entitlement: {
       productionLimitTitle: "Ya tiene su entorno de producción",

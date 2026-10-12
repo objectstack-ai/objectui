@@ -47,7 +47,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, cleanup } from '@testing-library/react';
+import { render, cleanup, waitFor } from '@testing-library/react';
 import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import { PageTypeSchema } from '@objectstack/spec/ui';
@@ -267,7 +267,7 @@ describe('objectui#9718 — page kind ↔ node type channel, the WRITING end', (
     ).toBe(false);
   });
 
-  it('interface-mode kinds are short-circuited before the renderer, so they write no node type', () => {
+  it('interface-mode kinds are short-circuited before the renderer, so they write no node type', async () => {
     // Firing control: the same harness DOES capture a write when the branch is
     // not taken, so an empty capture below means the short-circuit fired and
     // ⛔ not that the harness went quiet.
@@ -276,11 +276,15 @@ describe('objectui#9718 — page kind ↔ node type channel, the WRITING end', (
     for (const kind of INTERFACE_MODE_KINDS) {
       writeFor({ type: kind, interfaceConfig: { source: 'view/anything' } });
 
-      expect(
-        interfaceMounts.length,
-        `page kind '${kind}' carrying interfaceConfig.source is ADR-0047 interface mode: PageView ` +
-          `must render InterfaceListPage directly.`,
-      ).toBe(1);
+      // `PageView` loads `InterfaceListPage` through `React.lazy`
+      // (objectui#12187), so the mount lands once that import resolves.
+      await waitFor(() => {
+        expect(
+          interfaceMounts.length,
+          `page kind '${kind}' carrying interfaceConfig.source is ADR-0047 interface mode: PageView ` +
+            `must render InterfaceListPage directly.`,
+        ).toBe(1);
+      });
 
       expect(
         written.length,

@@ -132,7 +132,12 @@ const pendingRequest = (over: Record<string, unknown> = {}) => ({
 
 let approvalsFetch: ReturnType<typeof vi.fn>;
 
-function stubApprovalsApi(row: Record<string, unknown> | null) {
+/**
+ * `row: null` with `listStatus` is a backend with no approvals route at all.
+ * An empty `200` is NOT that backend (objectui#12220): it is an answered read
+ * with no request, on which the page threads no approval at all.
+ */
+function stubApprovalsApi(row: Record<string, unknown> | null, listStatus = 200) {
   approvalsFetch = vi.fn(async (url: string) => {
     const u = String(url);
     if (u.includes(`/approvals/requests/${REQUEST_ID}/actions`)) {
@@ -143,6 +148,9 @@ function stubApprovalsApi(row: Record<string, unknown> | null) {
       return { ok: true, json: async () => row } as any;
     }
     if (u.includes('/approvals/requests?object=')) {
+      if (listStatus !== 200) {
+        return { ok: false, status: listStatus, json: async () => ({ code: 'NOT_FOUND' }) } as any;
+      }
       return { ok: true, json: async () => ({ data: row ? [row] : [] }) } as any;
     }
     return { ok: true, json: async () => ({ data: [] }) } as any;
@@ -266,7 +274,10 @@ describe('record page → band: who may see recall (objectui#6464)', () => {
    * submitter on every backend without an approvals API.
    */
   it('threads `undefined` — not `false` — when there is no request to consult', async () => {
-    stubApprovalsApi(null);
+    // No approvals route (404): the column is the only source, which is the
+    // case this pin is about. An empty 200 would mean "no approval running"
+    // and thread no band at all (objectui#12220).
+    stubApprovalsApi(null, 404);
     renderRecordPage();
 
     // Still pending: `approval_status: 'pending'` on the record is the mirror

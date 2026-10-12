@@ -2580,6 +2580,7 @@ const ko = {
     },
     aiAssistant: "AI 어시스턴트",
     designInStudio: "Studio에서 디자인",
+    editApp: "앱 편집",
   },
   home: {
     build: {
@@ -2701,6 +2702,8 @@ const ko = {
       manageAllApps: "모든 앱 관리",
       systemConsole: "시스템 콘솔",
       noAppsConfigured: "구성된 앱 없음",
+      allApps: "모든 앱",
+      editAppInStudio: "Studio에서 {{app}} 편집",
     },
     activityFeed: {
       title: "최근 활동",
@@ -3356,10 +3359,13 @@ const ko = {
     buyCredits: "크레딧 팩 구매",
     upgradePlan: "요금제 업그레이드",
   },
+  planTier: {
+    teamAndUp: "Team 요금제 이상",
+  },
   environment: {
-    addEnvironment: "환경 추가",
     setUpProduction: "프로덕션 환경 설정",
     addDevelopment: "개발 환경 추가",
+    developmentLocked: "개발 환경 · {{tier}}",
     // Plan/capacity dialog (EnvironmentEntitlementDialog) — cloud#959.
     entitlement: {
       productionLimitTitle: "이미 프로덕션 환경이 있습니다",

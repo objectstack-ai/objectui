@@ -4,9 +4,10 @@
  *
  * The Console environment list (`sys_environment`) renders a single
  * `create_environment` toolbar action. Whether that should read "Set up your
- * production environment", "Add development environment", or open an upgrade
- * prompt depends on org state the action metadata can't express (does the org
- * already own its one production env? is its plan allowed development envs?).
+ * production environment", "Add development environment", or give way to a
+ * locked plan-tier mark depends on org state the action metadata can't express
+ * (does the org already own its one production env? is its plan allowed
+ * development envs?).
  * This module turns the org-scoped capacity summary
  * (GET /cloud/environment-entitlements) — with a row-derived fallback — into
  * that decision, and maps the cloud env-create 403 bodies to a friendly dialog
@@ -106,8 +107,7 @@ function planPhrase(t: EntitlementTranslate, plan: unknown): string {
  * The copy is the CONSOLE's, not the server's: a control plane may be older
  * than the Console (or newer), and its prose is only localized from cloud#959
  * on. Rendering our own localized strings — from the same code + counts the
- * server reports — keeps this dialog in the user's language either way, and
- * keeps it identical to the proactive prompt in {@link upgradeDialogSpec}.
+ * server reports — keeps this dialog in the user's language either way.
  */
 export function entitlementDialogFromError(body: any, t: EntitlementTranslate = fallbackTranslate): EntitlementDialogSpec | null {
   const error = body?.error;
@@ -231,7 +231,7 @@ export type EnvironmentCtaKind = 'setup_production' | 'add_development' | 'upgra
  *   • no production env          → set up production (the create POST makes one;
  *                                  the critical historical-data path — never errors)
  *   • has prod + dev allowed     → add development (POST makes a dev env)
- *   • has prod + dev NOT allowed → upgrade prompt (no POST)
+ *   • has prod + dev NOT allowed → locked plan-tier mark (no POST, no dialog)
  *   • has prod + dev unknown     → add development (let the POST + dialog decide)
  */
 export function decideEnvironmentCta(state: EnvironmentEntitlementsState): EnvironmentCtaKind {
@@ -240,28 +240,3 @@ export function decideEnvironmentCta(state: EnvironmentEntitlementsState): Envir
   return 'add_development';
 }
 
-/**
- * The proactive (pre-POST) upgrade dialog shown when a free-plan org clicks
- * "Add environment" but development envs aren't in its plan. Mirrors the copy
- * of the reactive DEV_ENV_PLAN_LOCKED error so both paths read identically.
- */
-export function upgradeDialogSpec(
-  state: EnvironmentEntitlementsState,
-  t: EntitlementTranslate = fallbackTranslate,
-): EntitlementDialogSpec {
-  return {
-    code: 'DEV_ENV_PLAN_LOCKED',
-    title: t('environment.entitlement.planLockedTitle', {
-      defaultValue: 'Development environments are a paid feature',
-    }),
-    message: t('environment.entitlement.planLockedBody', {
-      plan: planPhrase(t, state.plan),
-      defaultValue:
-        'Your {{plan}} includes one production environment. Upgrade to add development environments — build in dev, then publish to production.',
-    }),
-    // No server-supplied upgrade URL ⇒ no CTA, exactly as the reactive dialog.
-    cta: state.upgradeUrl
-      ? { label: t('environment.entitlement.upgradeCta', { defaultValue: 'Upgrade plan' }), url: state.upgradeUrl }
-      : undefined,
-  };
-}

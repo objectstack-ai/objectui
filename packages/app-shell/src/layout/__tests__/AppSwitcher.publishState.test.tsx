@@ -37,6 +37,7 @@
 import '@testing-library/jest-dom/vitest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 
 // Passthrough dropdown primitives so the menu CONTENT renders without an
 // interaction — the same idiom as WorkspaceSwitcher.test.tsx. What is under
@@ -94,7 +95,12 @@ vi.mock('../../providers/MetadataProvider', () => ({
 import { AppSwitcher } from '../AppSwitcher';
 
 function renderSwitcher(active = 'crm') {
-  render(<AppSwitcher activeAppName={active} onAppChange={vi.fn()} />);
+  // The router is for the menu's link rows (「All apps」, objectui#12201).
+  render(
+    <MemoryRouter>
+      <AppSwitcher activeAppName={active} onAppChange={vi.fn()} />
+    </MemoryRouter>,
+  );
   // The switcher LIST, not the trigger — see the DropdownMenuContent mock.
   return within(screen.getByTestId('app-switcher-menu'));
 }

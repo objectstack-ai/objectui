@@ -28,7 +28,18 @@ import { hasDeclaredPredicate } from '../evaluator/declaredPredicate.js';
 import { globalUndoManager } from './UndoManager.js';
 import { warnOnDeprecatedObjectParams, warnOnUnknownActionKeys } from './actionKeys.js';
 import { readActionPayload } from './actionResponse.js';
+import { classifyNavigationTarget } from './navigationTarget.js';
 import { toPredicateRecord, type FieldContainerLike } from '../utils/predicate-record.js';
+
+/**
+ * What a navigation target outside `classifyNavigationTarget`'s admitted set
+ * answers (objectui#12191). It names the admitted set, so the author learns the
+ * fix from the refusal. ⚠️ Nothing derives this text from the classifier: a
+ * change to the set changes this sentence by hand.
+ * `navigationTarget.mailto-12191.test.ts` pins that it names each admitted kind.
+ */
+const NAVIGATION_TARGET_REFUSAL =
+  'Invalid URL scheme. Only http://, https://, mailto: and in-app relative paths (/path, ./path) are allowed.';
 
 /**
  * What an action handler returns and the runner reads — ONE authority, in
@@ -1645,7 +1656,9 @@ export class ActionRunner {
    * react-router's `navigate` — so `openIn: 'self'` is a real SPA route hop,
    * in place, immune to popup blocking. No `window.location` / `window.open`
    * mechanism is introduced here; the no-handler fallback is the same
-   * `result.redirect` hand-off `navigateTo` already uses.
+   * `result.redirect` hand-off `navigateTo` already uses. The one exception is
+   * shared with `navigateTo`: a `mailto:` target is not a route, so it is a
+   * full-page navigation in place (objectui#12191).
    *
    * **No default is written here.** `openIn` is a materialised
    * `.default('self')` in the spec, so parse output always carries a resolved
@@ -1674,19 +1687,25 @@ export class ActionRunner {
 
     // `navigate` is author-supplied metadata and lands in a URL position, so
     // it goes through the same scheme guard as every other navigator here.
-    if (!this.isValidUrl(url)) {
+    const kind = classifyNavigationTarget(url);
+    if (kind === null) {
       console.warn(
-        '[ActionRunner] onSuccess.navigate resolved to a URL this runner refuses to open '
-        + '(only http://, https:// and relative URLs are allowed) — no navigation performed.',
+        `[ActionRunner] onSuccess.navigate resolved to a URL this runner refuses to open — no navigation performed. ${NAVIGATION_TARGET_REFUSAL}`,
         { action: action.name, navigate: block.navigate, resolved: url },
       );
+      return;
+    }
+    // `mailto:` hands off to the mail client in place, whatever `openIn` says,
+    // and never through the host's router (see `navigateTo`).
+    if (kind === 'mail') {
+      window.location.href = url;
       return;
     }
 
     const newTab = block.openIn === 'newTab';
     // Same external-URL convention `navigateTo` hands the handler; `newTab`
     // stays the declared choice alone, never `?? isExternal`.
-    const external = url.startsWith('http://') || url.startsWith('https://');
+    const external = kind === 'web';
 
     if (this.navigationHandler) {
       this.navigationHandler(url, { external, newTab });
@@ -1942,11 +1961,20 @@ export class ActionRunner {
     const interpolated = this.interpolateTarget(rawUrl as string, action);
     let url = this.evaluator.evaluate(interpolated) as string;
 
-    if (!this.isValidUrl(url)) {
-      return {
-        success: false,
-        error: 'Invalid URL scheme. Only http://, https://, and relative URLs are allowed.',
-      };
+    const kind = classifyNavigationTarget(url);
+    if (kind === null) {
+      return { success: false, error: NAVIGATION_TARGET_REFUSAL };
+    }
+
+    // A `mailto:` target opens the mail client IN PLACE (objectui#12191): it
+    // never opens a new tab, so `openIn` is not consulted. It does not go to
+    // the host's navigation handler either. The console's handler opens every
+    // `external` URL in a new tab and hands the rest to react-router, which
+    // resolves `mailto:a@b.com` as a path under the current route. So this is
+    // a full-page navigation here, the same mechanism as the `/api/` case below.
+    if (kind === 'mail') {
+      window.location.href = url;
+      return { success: true };
     }
 
     // Promote same-origin-style `/api/...` paths to absolute when an
@@ -1963,7 +1991,7 @@ export class ActionRunner {
     // `source.external` is the `navigation` shape's explicit override; the
     // scheme heuristic covers every other case.
     const isExternal =
-      Boolean(source.external) || url.startsWith('http://') || url.startsWith('https://');
+      Boolean(source.external) || classifyNavigationTarget(url) === 'web';
     // Same-origin API endpoints (most commonly the auth provider's
     // `/api/v1/auth/sign-in/social` redirect dance) issue server-side
     // 302s that must be followed by the *browser*, not the SPA router.
@@ -2329,18 +2357,6 @@ export class ActionRunner {
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
-  }
-
-  /**
-   * Validate URL to prevent javascript: or data: protocol injection.
-   */
-  private isValidUrl(url: unknown): boolean {
-    return typeof url === 'string' && (
-      url.startsWith('http://') ||
-      url.startsWith('https://') ||
-      url.startsWith('/') ||
-      url.startsWith('./')
-    );
   }
 
   /**

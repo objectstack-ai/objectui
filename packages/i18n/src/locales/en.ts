@@ -3069,6 +3069,7 @@ const en = {
   topbar: {
     aiAssistant: 'AI Assistant',
     designInStudio: 'Design in Studio',
+    editApp: 'Edit app',
     openAssistant: 'Open {{name}} assistant',
     offline: 'Offline',
     usersOnline: 'Users currently online',
@@ -3202,6 +3203,8 @@ const en = {
       manageAllApps: 'Manage All Apps',
       systemConsole: 'System Console',
       noAppsConfigured: 'No apps configured',
+      allApps: 'All apps',
+      editAppInStudio: 'Edit {{app}} in Studio',
     },
     systemNav: {
       systemSettings: 'System Settings',
@@ -3994,10 +3997,18 @@ const en = {
     buyCredits: 'Buy a credit pack',
     upgradePlan: 'Upgrade plan',
   },
+  // Plan-tier labels, keyed by the TIER rather than by the surface that draws
+  // them, so every plan-locked mark reuses one string (objectui#12190). The zh
+  // value follows the cloud control plane's own zh plan label.
+  planTier: {
+    teamAndUp: 'Team plan and up',
+  },
   environment: {
-    addEnvironment: 'Add environment',
     setUpProduction: 'Set up your production environment',
     addDevelopment: 'Add development environment',
+    // The plan-locked stand-in for the create action (objectui#12190).
+    // `{{tier}}` is a `planTier.*` label.
+    developmentLocked: 'Development environments · {{tier}}',
     // Plan/capacity dialog (EnvironmentEntitlementDialog). Shown on a paid
     // conversion path, so it must read in the user's language — cloud#959.
     entitlement: {

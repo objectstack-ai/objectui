@@ -139,7 +139,7 @@ describe('RichTextField mobile fullscreen — the metadata flag is the only sour
     fireEvent.click(screen.getByTestId('richtext-fullscreen-toggle'));
 
     // Inline + dialog: the placeholder is present twice, a header in neither.
-    expect(screen.queryByText('Format: html')).toBeNull();
+    expect(screen.queryAllByText('Format: html')).toHaveLength(0);
     expect(screen.getAllByPlaceholderText('Write HTML')).toHaveLength(2);
     expect(screen.getByTestId('richtext-fullscreen-input')).toBeEnabled();
   });

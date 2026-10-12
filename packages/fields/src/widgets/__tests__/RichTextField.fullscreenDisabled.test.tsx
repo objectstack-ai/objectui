@@ -227,8 +227,8 @@ describe('RichTextField fullscreen — the states the fix must not have moved (o
 
     fireEvent.click(toggle()!);
     expect(screen.getAllByPlaceholderText('Write the notes')).toHaveLength(2);
-    expect(screen.queryByText(label)).toBeNull();
-    expect(screen.queryByText('Rich text editor (basic)')).toBeNull();
+    expect(screen.queryAllByText(label)).toHaveLength(0);
+    expect(screen.queryAllByText('Rich text editor (basic)')).toHaveLength(0);
 
     rerender(
       <RichTextField
@@ -241,8 +241,8 @@ describe('RichTextField fullscreen — the states the fix must not have moved (o
 
     // Both surfaces present, both inert, neither with a header.
     expect(screen.getAllByPlaceholderText('Write the notes')).toHaveLength(2);
-    expect(screen.queryByText(label)).toBeNull();
-    expect(screen.queryByText('Rich text editor (basic)')).toBeNull();
+    expect(screen.queryAllByText(label)).toHaveLength(0);
+    expect(screen.queryAllByText('Rich text editor (basic)')).toHaveLength(0);
     // Queried off the document rather than by role: the dialog is modal, so
     // Radix marks the background `aria-hidden` and a role query sees only the
     // dialog's own control — which is precisely the textarea NOT at issue here.

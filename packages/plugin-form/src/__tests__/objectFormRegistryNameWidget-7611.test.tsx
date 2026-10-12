@@ -16,11 +16,14 @@
  * declaration reaches the registry-name picker only if `@object-ui/fields`
  * registers it under that key and the form threads the data source to it.
  * Importing `ObjectForm` pulls `@object-ui/fields` in, whose module body
- * registers every `field:*` widget — the ordinary route.
+ * registers every `field:*` widget — the ordinary route. The form hands a
+ * field widget the data source of `SchemaRendererContext`, so the form is
+ * mounted inside the provider, as the console mounts it.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, waitFor, fireEvent, cleanup, screen } from '@testing-library/react';
 import React from 'react';
+import { SchemaRendererProvider } from '@object-ui/react';
 
 import { ObjectForm } from '../ObjectForm';
 
@@ -50,10 +53,12 @@ function mount(objectSchema: unknown) {
     find: vi.fn(async () => ({ data: [] })),
   };
   const view = render(
-    <ObjectForm
-      schema={{ type: 'object-form', objectName: 'sys_user_position', mode: 'create' } as any}
-      dataSource={ds as any}
-    />,
+    <SchemaRendererProvider dataSource={ds as any}>
+      <ObjectForm
+        schema={{ type: 'object-form', objectName: 'sys_user_position', mode: 'create' } as any}
+        dataSource={ds as any}
+      />
+    </SchemaRendererProvider>,
   );
   return { ds, ...view };
 }

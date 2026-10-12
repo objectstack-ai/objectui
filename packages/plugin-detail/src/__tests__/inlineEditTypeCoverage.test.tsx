@@ -232,6 +232,9 @@ describe('inline-edit type coverage — every type has exactly one decision (#42
       excluded: [
         'auto_number', 'autonumber', 'composite', 'filter-condition', 'formula',
         'grid', 'html', 'object', 'object-ref', 'password',
+        // objectui#7611: the registry-name pickers, widget hints like
+        // `object-ref`.
+        'permission-ref', 'position-ref',
         'recipient-picker', 'record', 'repeater', 'richtext', 'secret',
         'summary', 'vector',
       ],

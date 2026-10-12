@@ -144,6 +144,7 @@ import { QRCodeField } from '../widgets/QRCodeField';
 import { ObjectRefField } from '../widgets/ObjectRefField';
 import { FilterConditionField } from '../widgets/FilterConditionField';
 import { RecipientPickerField } from '../widgets/RecipientPickerField';
+import { PositionRefField, PermissionRefField } from '../widgets/RegistryRefField';
 
 /* ════════════════════════════════════════════════════════════════════════════
  * Every registered field widget, both hosts
@@ -204,6 +205,8 @@ const WIDGETS: Record<string, ComponentType<any>> = {
   'object-ref': ObjectRefField,
   'filter-condition': FilterConditionField,
   'recipient-picker': RecipientPickerField,
+  'position-ref': PositionRefField,
+  'permission-ref': PermissionRefField,
 };
 
 /** Option widgets render an "unfillable" placeholder unless offered a list. */

@@ -134,6 +134,7 @@ import { QRCodeField } from '../widgets/QRCodeField';
 import { ObjectRefField } from '../widgets/ObjectRefField';
 import { FilterConditionField } from '../widgets/FilterConditionField';
 import { RecipientPickerField } from '../widgets/RecipientPickerField';
+import { PositionRefField, PermissionRefField } from '../widgets/RegistryRefField';
 
 /** Same widget map as the #3291 sweep, so the parity check covers the registry. */
 const WIDGETS: Record<string, ComponentType<any>> = {
@@ -185,6 +186,8 @@ const WIDGETS: Record<string, ComponentType<any>> = {
   'object-ref': ObjectRefField,
   'filter-condition': FilterConditionField,
   'recipient-picker': RecipientPickerField,
+  'position-ref': PositionRefField,
+  'permission-ref': PermissionRefField,
 };
 
 /**

@@ -254,8 +254,8 @@ export function buildDataset({ runs, measuredAt }) {
   const dataset = {
     schema: TIMINGS_SCHEMA,
     generated_by:
-      'scripts/test-file-timings.mjs merge, from the test-file-timings-N artifacts of main\'s full-battery CI runs. ' +
-      'Never hand-edited: .github/workflows/test-shard-timings-refresh.yml regenerates it (objectui#12208).',
+      'scripts/test-file-timings.mjs merge, from the per-file timing reports of the runs under measured.runs. ' +
+      'Never hand-edited: .github/workflows/test-shard-timings-refresh.yml regenerates it weekly from main (objectui#12208).',
     // Sorted by run id, so the order the directories were named in cannot move a byte.
     measured: {
       at: measuredAt,

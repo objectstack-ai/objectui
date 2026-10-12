@@ -29,8 +29,7 @@
  *      field's `visibleWhen`), or a slot the spec's ledger declares
  *      `predicate` (`FLOW_NODE_EXPRESSION_PATHS`).
  *   3. Template — a descriptor text field, or a `kind: 'expression'` field the
- *      descriptor marks `refMode: 'template'`, or a ledger `flow-template` slot
- *      (a loop's `collection`).
+ *      descriptor marks `refMode: 'template'` (a loop's or a map's `collection`).
  *   4. CEL — any other `condition` or `expression` key: the structural predicate
  *      every node and edge carries, and a key no descriptor describes (the
  *      platform linter's `CEL_KEYS` rule).
@@ -142,7 +141,6 @@ function slotsForType(type: string): NodeSlots {
     if (entry.nodeType !== type) continue;
     const at = entry.path.split('.').flatMap((seg) => (seg.endsWith('[]') ? [seg.slice(0, -2), '[]'] : [seg]));
     if (entry.role === 'predicate') slots.cel.push(at);
-    else if (entry.role === 'flow-template') slots.template.push(at);
     // `value`: an envelope is CEL and a string a template, read off the value itself.
   }
   slotCache.set(type, slots);

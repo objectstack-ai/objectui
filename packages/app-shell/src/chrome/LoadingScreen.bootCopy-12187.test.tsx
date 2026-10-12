@@ -165,6 +165,24 @@ describe('LoadingScreen boot copy (objectui#12187)', () => {
     expect(container.textContent).toBe(`${PRODUCT}${ja.console.initializing}`);
   });
 
+  it.each([
+    ['loading', {}],
+    ['message', { message: 'Signing you in' }],
+    ['error', { error: 'boom', onRetry: () => {} }],
+  ] as const)('marks its root with data-boot-splash in the %s state, and the mark goes with it', (_state, props) => {
+    // The language-independent hook a readiness wait keys on (round 2): the
+    // line is absent until the pack lands, so a wait on the copy passes while
+    // the splash is still up. Asserted on the ROOT, so the hook names the
+    // whole screen.
+    const { container, rerender } = render(<LoadingScreen {...props} />);
+    const root = container.firstElementChild;
+    expect(root?.hasAttribute('data-boot-splash'), 'the splash root carries the marker').toBe(true);
+    expect(document.querySelectorAll('[data-boot-splash]')).toHaveLength(1);
+
+    rerender(<div data-testid="destination" />);
+    expect(document.querySelector('[data-boot-splash]'), 'the marker outlived the splash').toBeNull();
+  });
+
   it('keeps the error block, in the provider language', () => {
     browserLanguage('zh-CN');
 

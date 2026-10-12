@@ -109,7 +109,11 @@ test.describe('Console App – Smoke', () => {
     await page.goto(`${CONSOLE_BASE}/`);
 
     const appShell = page.locator('nav').first();
-    const loadingScreen = page.getByText(/Initializing|Loading|Connecting/i).first();
+    // The boot splash, matched by its language-independent marker rather than
+    // its copy: its line depends on the locale and is absent until the
+    // locale's catalogue lands, so a copy match can stop seeing the splash
+    // while it is on screen (objectui#12187).
+    const loadingScreen = page.locator('[data-boot-splash]').first();
     // The signed-out sign-in screen, matched structurally rather than by its
     // copy so a locale change cannot silently stop matching it: the auth-config
     // spinner it opens with, then the identifier field of whichever sign-in

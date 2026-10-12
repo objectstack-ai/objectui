@@ -56,6 +56,15 @@ interface LoadingScreenProps {
 // The error block alone still degrades to `en` field by field: an error must
 // say something, and a pack behind on a `console.*` key must render English
 // there rather than `undefined` (objectui#2872 part (a)).
+//
+// THE MARKER. The root carries `data-boot-splash` in every state — loading,
+// `message` and error. (The pre-JS splash in `apps/console/index.html` is a
+// different element, `#boot-splash`, removed once React first commits.) It is this
+// screen's one language-independent hook: a readiness wait or a smoke test
+// that needs to know whether the splash is still up asks for that attribute,
+// never for the line, which is language-dependent by design and absent until
+// the active catalogue lands. A wait keyed on the copy passes at once while
+// the splash is still up (objectui#12187, round 2).
 type ConsoleStrings = typeof enLocale.console;
 
 interface StartupStrings {
@@ -87,7 +96,7 @@ export function LoadingScreen({ message, error, onRetry, retrying }: LoadingScre
   const strings = getStartupStrings(language);
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-background">
+    <div data-boot-splash="" className="flex flex-col items-center justify-center h-screen bg-background">
       <div className="flex flex-col items-center gap-6">
         {/* Logo/Icon */}
         <div className="relative">

@@ -45,6 +45,17 @@
  * never a client-side re-sort: sorting here would order the truncated page
  * rather than the query, and could not sort by a derived measure at all.
  *
+ * Declaring NO `order` leaves the grid in the dataset's `GROUP BY` order — the
+ * stored values' alphabetical order — which for a select dimension is not the
+ * domain order. So, and only then, this renderer lays a select dimension's
+ * groups out in its field's DECLARED option order (objectui#12243, the reading
+ * objectui#11809 set for grid groups and dashboard charts): the table rows, the
+ * matrix headers on both axes and the embedded chart's categories. Declared
+ * options first, undeclared values next in the dataset's order, the empty
+ * bucket last; a dimension without options keeps its arrival order. It moves
+ * nothing the server ordered on the author's behalf (see
+ * `arrangeByDeclaredOptions`).
+ *
  * For a matrix that also decides the ACROSS axis: `colHeaders` are collected in
  * row-arrival order, so ordering the rows by the across dimension is what makes
  * the columns read left-to-right in that order. Declaring nothing still reads
@@ -95,13 +106,18 @@ import {
   localizeFieldOptions,
   dimensionOptionTranslator,
   deriveDimensionLabelMaps,
+  // objectui#12243 — the rank reading of that same declared order, the one
+  // the funnel and objectui#11809's grid and dashboard chart already use. The
+  // report's TABLE rows, its matrix headers and its chart's categories are put
+  // in it (see `arrangeByDeclaredOptions`).
+  buildCategoryRank,
   type DatasetResultField,
   type DatasetDrillRange,
 } from '@object-ui/core';
 import { builtinAggregateLabels, useSafeFieldLabel, useSafeTranslate, useDisplayLocale, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
 import { useDataInvalidation } from '@object-ui/react';
 import { mergeFilters } from './mergeFilters';
-import { useDatasetDimensionLabels, useDatasetDimensionMeta } from './useDatasetDimensionLabels';
+import { useDatasetDimensionMeta, type DatasetDimensionMeta } from './useDatasetDimensionLabels';
 
 type Row = Record<string, unknown>;
 
@@ -360,6 +376,110 @@ function scopeOrder(
 }
 
 /**
+ * Per dimension, the rank of each value in its field's DECLARED option order
+ * (objectui#12243), or `null` for a dimension whose field declares no options.
+ */
+type DimensionRanks = Record<string, ReadonlyMap<string, number> | null>;
+
+/**
+ * The display-label maps AND the declared-order ranks of one selection's
+ * dimensions, both derived from the ONE metadata read (`useDatasetDimensionMeta`).
+ *
+ * The labels are exactly what `useDatasetDimensionLabels` derives from that read
+ * (`deriveDimensionLabelMaps`, same arguments). The ranks run the chain the
+ * report chart already runs for its own `categoryOrder` (objectui#4906):
+ * `localizeFieldOptions` → `buildCategoryOrder` → `buildCategoryRank`, so they
+ * key the stored value AND the localized label — the spelling the RELABELED
+ * rows carry — and rank them identically.
+ */
+function deriveDimensionDisplay(
+  meta: DatasetDimensionMeta | null,
+  fieldOptionLabel: Parameters<typeof dimensionOptionTranslator>[1],
+): { dimensionLabels: Record<string, Record<string, string>> | null; dimensionRanks: DimensionRanks | null } {
+  const dimensionLabels = deriveDimensionLabelMaps(meta?.metaByPath, meta?.relabel, fieldOptionLabel);
+  if (!meta) return { dimensionLabels, dimensionRanks: null };
+  const dimensionRanks: DimensionRanks = {};
+  let any = false;
+  for (const { dim, path } of meta.relabel) {
+    const fieldMeta = meta.metaByPath[path];
+    const options = localizeFieldOptions(fieldMeta?.options, dimensionOptionTranslator(fieldMeta, fieldOptionLabel));
+    const rank = buildCategoryRank(buildCategoryOrder(options));
+    dimensionRanks[dim] = rank;
+    if (rank) any = true;
+  }
+  return { dimensionLabels, dimensionRanks: any ? dimensionRanks : null };
+}
+
+/**
+ * Where one value of a select dimension sits in its field's declared option
+ * order (objectui#12243, the reading objectui#11809 set for grid groups and
+ * dashboard charts): a declared option at its declared position, then any value
+ * the options do not declare, then the empty bucket last.
+ */
+function declaredOptionPosition(value: unknown, rank: ReadonlyMap<string, number>): number {
+  if (value == null || value === '') return Number.MAX_SAFE_INTEGER;
+  return rank.get(String(value)) ?? Number.MAX_SAFE_INTEGER - 1;
+}
+
+/**
+ * The order to LAY OUT a report's grouped items in, as a list of indices into
+ * `items` — or `null` to keep them exactly as the dataset answered them
+ * (objectui#12243).
+ *
+ * The dataset answers its groups in `GROUP BY` order, which is the STORED
+ * values' alphabetical order, so a stage dimension read Closed Won, Needs
+ * Analysis, Negotiation, Proposal, Prospecting, Qualification. A select field's
+ * declared option order is the domain order (the Kanban lanes, the grid's
+ * groups and the dashboard's charts already follow it), so the items are put in
+ * it here, one dimension level at a time, outermost first:
+ *
+ * - the items are bucketed by the level's value, the buckets kept in the order
+ *   they first arrive (so each outer group's inner rows stay together);
+ * - a dimension with declared options orders its buckets by
+ *   {@link declaredOptionPosition} (a STABLE sort, so undeclared values keep the
+ *   dataset's order among themselves); a dimension without keeps arrival order;
+ * - each bucket is then laid out by the next level.
+ *
+ * `null` — nothing moves — when no dimension declares options, and the caller
+ * passes `null` ranks when the report declares its own `order`: an author's
+ * explicit order is the author's, and the server already applied it.
+ *
+ * Indices, never a reordered copy of the rows: the drill payload is read off
+ * `state.rows[i]` / `drillRawRows[i]` / `drillRanges[i]`, which stay aligned
+ * with the dataset's own order.
+ */
+function arrangeByDeclaredOptions<T>(
+  items: readonly T[],
+  dims: readonly string[],
+  valueOf: (item: T, dim: string) => unknown,
+  ranks: DimensionRanks | null,
+): number[] | null {
+  if (!ranks || !dims.some((d) => ranks[d])) return null;
+  const arrange = (indices: number[], level: number): number[] => {
+    if (level >= dims.length || indices.length < 2) return indices;
+    const dim = dims[level];
+    const buckets = new Map<string, number[]>();
+    for (const i of indices) {
+      const id = pivotBucketId([pivotDimensionValue(valueOf(items[i], dim))]);
+      const bucket = buckets.get(id);
+      if (bucket) bucket.push(i);
+      else buckets.set(id, [i]);
+    }
+    const groups = [...buckets.values()];
+    const rank = ranks[dim];
+    if (rank) {
+      groups.sort(
+        (a, b) =>
+          declaredOptionPosition(valueOf(items[a[0]], dim), rank) -
+          declaredOptionPosition(valueOf(items[b[0]], dim), rank),
+      );
+    }
+    return groups.flatMap((group) => arrange(group, level + 1));
+  };
+  return arrange(items.map((_, i) => i), 0);
+}
+
+/**
  * Shared fetch for one dataset selection.
  *
  * `order` (framework#3916) is scoped to what THIS selection projects before it
@@ -597,7 +717,7 @@ function DatasetReportTable({
     withTotals && rows.length > 0 ? [[]] : undefined,
     order,
   );
-  const { fieldLabel } = useSafeFieldLabel();
+  const { fieldLabel, fieldOptionLabel } = useSafeFieldLabel();
   const tt = useSafeTranslate();
   // The display locale every measure and dimension value below is formatted in
   // (objectui#4575, completing objectui#4566's channel). `formatMeasure` /
@@ -609,8 +729,15 @@ function DatasetReportTable({
   const displayLocale = useDisplayLocale();
   // objectui#4330 — the option list this report's select dimensions are
   // localized against. Null (and free) for a report whose dimensions own no
-  // options, or before the read lands.
-  const dimensionLabels = useDatasetDimensionLabels(state.object, state.dimensionFields, rows);
+  // options, or before the read lands. objectui#12243 reads the SAME list for
+  // its declared ORDER too, so the read is the locale-free metadata itself and
+  // the labels are derived from it here, exactly as `useDatasetDimensionLabels`
+  // derived them — one read, as before.
+  const dimensionMeta = useDatasetDimensionMeta(state.object, state.dimensionFields, rows);
+  const { dimensionLabels, dimensionRanks } = React.useMemo(
+    () => deriveDimensionDisplay(dimensionMeta, fieldOptionLabel),
+    [dimensionMeta, fieldOptionLabel],
+  );
 
   if (values.length === 0) return <EmptyMeasures dataset={dataset} />;
   if (state.status === 'loading' || state.status === 'idle') return <FetchStates status={state.status} />;
@@ -659,6 +786,16 @@ function DatasetReportTable({
   // keeps the drill payload below on the untranslated values. With no label
   // map this is `state.rows` ITSELF, the same array identity as before.
   const displayRows = relabelDimensions(state.rows, dimensionLabels);
+  // objectui#12243 — the order the rows are LAID OUT in: each select dimension
+  // in its field's declared option order, outermost dimension first (see
+  // `arrangeByDeclaredOptions`). A report that declares its own `order` for
+  // this selection keeps the server's answer untouched. Indices into the
+  // dataset's own order, so `state.rows[i]` / `drillRawRows[i]` still address
+  // the row that was drawn.
+  const authoredOrder = scopeOrder(order, rows, values);
+  const layout =
+    arrangeByDeclaredOptions(displayRows, rows, (row, dim) => row[dim], authoredOrder ? null : dimensionRanks) ??
+    displayRows.map((_, i) => i);
   // Server-supplied grand total (`dimensions: []`); absent → no totals row.
   const grandTotal = withTotals
     ? state.totals?.find((t) => Array.isArray(t.dimensions) && t.dimensions.length === 0)?.rows?.[0]
@@ -677,7 +814,7 @@ function DatasetReportTable({
           </tr>
         </thead>
         <tbody>
-          {displayRows.map((row, i) => (
+          {layout.map((i) => (
             <tr
               key={i}
               className={`border-t${canDrill ? ` ${DRILL_CLASS}` : ''}`}
@@ -692,8 +829,8 @@ function DatasetReportTable({
               {columns.map((c) => (
                 <td key={c} className="px-2 py-1 tabular-nums whitespace-nowrap">
                   {values.includes(c)
-                    ? formatMeasure(row[c], measureField(c)?.format, measureField(c)?.currency, measureField(c)?.percentScale, displayLocale)
-                    : formatDimensionValue(row[c], displayLocale)}
+                    ? formatMeasure(displayRows[i][c], measureField(c)?.format, measureField(c)?.currency, measureField(c)?.percentScale, displayLocale)
+                    : formatDimensionValue(displayRows[i][c], displayLocale)}
                 </td>
               ))}
             </tr>
@@ -955,10 +1092,12 @@ function DatasetReportChart({
   // client-side recombination (the ADR-0021 red line). Plans that render no
   // chart at all select no measures, which parks the hook in `idle`.
   const wantsQuery = plan.kind === 'series' || plan.kind === 'single_value';
+  const queryDimensions = plan.kind === 'series' && xAxis ? [xAxis] : [];
+  const queryMeasures = wantsQuery && yAxis ? [yAxis] : [];
   const state = useDatasetRows(
     dataset,
-    plan.kind === 'series' && xAxis ? [xAxis] : [],
-    wantsQuery && yAxis ? [yAxis] : [],
+    queryDimensions,
+    queryMeasures,
     runtimeFilter,
     dataSource,
     undefined,
@@ -989,9 +1128,10 @@ function DatasetReportChart({
   // family exists to close.
   const chartDimensions = React.useMemo(() => (xAxis ? [xAxis] : []), [xAxis]);
   // objectui#4906 — `useDatasetDimensionMeta`, NOT the label-only
-  // `useDatasetDimensionLabels` above: this chart derives more from the
-  // resolved field metadata than label maps (see the file-level doc comment
-  // above this component). Mirrors `DatasetWidget`'s own call exactly.
+  // `useDatasetDimensionLabels`: this chart derives more from the resolved
+  // field metadata than label maps (see the file-level doc comment above this
+  // component). Mirrors `DatasetWidget`'s own call exactly. (Since
+  // objectui#12243 the tables above read the same hook, for the declared order.)
   const dimensionMeta = useDatasetDimensionMeta(state.object, state.dimensionFields, chartDimensions);
   const { categoryColors, dimensionLabels, categoryOrder } = React.useMemo(() => {
     if (!dimensionMeta) return { categoryColors: null, dimensionLabels: null, categoryOrder: null };
@@ -1141,8 +1281,28 @@ function DatasetReportChart({
   // built-in default (`builtinAggregate: 'count'`, objectstack#14492) reads its
   // series label from the locale bundle; an author-declared measure carries no
   // discriminator and keeps its wire `label` verbatim (objectui#4106).
+  //
+  // objectui#12243 — the categories in the dimension's DECLARED option order.
+  // The dataset answers in `GROUP BY` order, the stored values' alphabetical
+  // order, and a bar, line or pie draws its categories in the order of its
+  // rows: `categoryOrder` below reorders a FUNNEL only, and widening that
+  // published prop would override an explicit report `order` on every chart
+  // (objectui#11809 measured this). So the rows are put in the declared order
+  // here, by the same rule the table beside it follows: declared options first,
+  // undeclared values next in the dataset's order, the empty bucket last. A
+  // report whose `order` reaches this chart's selection keeps the server's
+  // order. No drill reads these rows by index, so the reordered copy is safe.
+  const displayRows = relabelDimensions(state.rows, dimensionLabels);
+  const categoryRank = scopeOrder(order, queryDimensions, queryMeasures) ? null : buildCategoryRank(categoryOrder);
+  const plotLayout = arrangeByDeclaredOptions(
+    displayRows,
+    [xAxis],
+    (row, dim) => row[dim],
+    categoryRank ? { [xAxis]: categoryRank } : null,
+  );
+  const plotRows = plotLayout ? plotLayout.map((i) => displayRows[i]) : displayRows;
   const { data: chartData, xAxisKey, series: derivedSeries } = buildChartSeries(
-    relabelDimensions(state.rows, dimensionLabels),
+    plotRows,
     [xAxis],
     [yAxis],
     state.fields,
@@ -1312,18 +1472,27 @@ function DatasetMatrixTable({
     order,
   );
   const tt = useSafeTranslate();
-  const { fieldLabel } = useSafeFieldLabel();
+  const { fieldLabel, fieldOptionLabel } = useSafeFieldLabel();
   // objectui#4575 — the display locale every measure and dimension value here
   // is formatted in. Unlike the flat table above, this component formats inside
   // a `useMemo` (the header labels `bucketLabel` builds), so the locale also
   // joins that memo's dependency array — threading it into the call alone would
   // leave the headers frozen in the locale they were first built with.
   const displayLocale = useDisplayLocale();
-  // objectui#4330 — both axes' dimensions, one read (see the flat table above).
-  const dimensionLabels = useDatasetDimensionLabels(state.object, state.dimensionFields, [
+  // objectui#4330 — both axes' dimensions, one read (see the flat table above),
+  // which objectui#12243 also reads for each select dimension's declared order.
+  const dimensionMeta = useDatasetDimensionMeta(state.object, state.dimensionFields, [
     ...rows,
     ...columnsAcross,
   ]);
+  const { dimensionLabels, dimensionRanks } = React.useMemo(
+    () => deriveDimensionDisplay(dimensionMeta, fieldOptionLabel),
+    [dimensionMeta, fieldOptionLabel],
+  );
+  // objectui#12243 — a report that declares its own `order` for this selection
+  // keeps the server's arrival order on both axes; otherwise each axis is laid
+  // out in its select dimensions' declared option order.
+  const hasAuthoredOrder = scopeOrder(order, [...rows, ...columnsAcross], values) !== undefined;
 
   const pivot = React.useMemo(() => {
     if (state.status !== 'ok') return null;
@@ -1367,14 +1536,29 @@ function DatasetMatrixTable({
       // server's own row.
       cells.set(pivotCellKey(rid, cid), { row: raw, index });
     });
-    return { rowHeaders, colHeaders, cells };
+    // objectui#12243 — the headers were collected in row-ARRIVAL order, which
+    // with no authored `order` is the dataset's `GROUP BY` order (alphabetical
+    // by stored value). Each axis is laid out by its own dimensions' declared
+    // option order, read off the DISPLAY values the headers carry, so a
+    // `priority` column axis reads Low, Medium, High as a `status` row axis
+    // reads New, In Progress, Closed. A time or text dimension keeps its
+    // arrival order (the server's chronological default for a time axis).
+    // Only the header lists move: every cell is still looked up by bucket id.
+    const ranks = hasAuthoredOrder ? null : dimensionRanks;
+    const rowLayout = arrangeByDeclaredOptions(rowHeaders, rows, (h, d) => h.display[d], ranks);
+    const colLayout = arrangeByDeclaredOptions(colHeaders, columnsAcross, (h, d) => h.display[d], ranks);
+    return {
+      rowHeaders: rowLayout ? rowLayout.map((i) => rowHeaders[i]) : rowHeaders,
+      colHeaders: colLayout ? colLayout.map((i) => colHeaders[i]) : colHeaders,
+      cells,
+    };
     // `displayLocale` is load-bearing here, not decorative: the header labels
     // above are built inside this memo (objectui#4575). Measured — with the
     // locale threaded into `bucketLabel` but absent from these deps, a session
     // that switches locale without refetching keeps the previous locale's
     // headers, and the pin for that is the "re-labels the across header when
     // only the locale changes" case in DatasetReportRenderer.measureLocale.test.tsx.
-  }, [state, rows, columnsAcross, dimensionLabels, displayLocale]);
+  }, [state, rows, columnsAcross, dimensionLabels, dimensionRanks, hasAuthoredOrder, displayLocale]);
 
   if (values.length === 0) return <EmptyMeasures dataset={dataset} />;
   if (state.status === 'loading' || state.status === 'idle') return <FetchStates status={state.status} />;

@@ -229,7 +229,9 @@ describe('the gate is actually wired up (objectui#7328)', () => {
     const job = typeCheckJob();
     const install = job.indexOf('pnpm install --frozen-lockfile');
     const check = job.indexOf(`pnpm ${SCRIPT_NAME}`);
-    const build = job.indexOf('run: pnpm type-check\n');
+    // A line that IS the bare command, as `run:`'s value or inside a `run: |`
+    // block -- objectui#12222 put the two speeds' branches in that step.
+    const build = job.search(/^\s+(?:run: )?pnpm type-check$/m);
 
     expect(install, 'the type-check job must still install dependencies').toBeGreaterThan(-1);
     expect(build, 'the type-check job must still run `pnpm type-check`').toBeGreaterThan(-1);

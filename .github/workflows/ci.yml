@@ -666,18 +666,100 @@ jobs:
             turbo-${{ runner.os }}-type-check-
             turbo-${{ runner.os }}-
 
+      # ── Two speeds for the type gate (objectui#12222, objectstack#22998) ──
+      # The same doctrine as the `test` job below. A `pull_request` or
+      # `merge_group` run type-checks the FAST SET: the packages the change
+      # sits in plus every package that depends on them -- turbo's own
+      # `--filter=...[<base>]`, against the PR's base sha or the queue's base
+      # sha -- and replays from the restored `.turbo/cache` every one whose
+      # hash did not move. `push` to `main` and the hourly `schedule` run the
+      # FULL BATTERY: every package, with `TURBO_FORCE` so not one verdict is
+      # replayed -- which is also what writes the cache those fast runs read.
+      #
+      # THE ROOT RULE, because the package graph cannot see a file that sits in
+      # no package (measured on objectui#12222: a change to the root
+      # tsconfig.json, the root package.json, scripts/vite-*.ts or e2e/
+      # selects zero packages). A change to any of these means EVERY package
+      # is affected, and the fast run becomes a whole-workspace run:
+      #   - pnpm-lock.yaml, pnpm-workspace.yaml, the root package.json,
+      #     turbo.json, .npmrc, a root tsconfig*.json, anything in patches/;
+      #   - every `$TURBO_ROOT$` input of turbo's `type-check` and `build`
+      #     tasks (the scripts and root files those tasks' inputs name);
+      #   - every `globalDependencies` entry;
+      #   - the inputs of every root task `type-check` dependsOn (the e2e
+      #     program), which runs only as a dependency of a selected package.
+      # The last three are read out of turbo.json on every run by
+      # `scripts/select-type-check-scope.mjs`, never copied: the rule follows
+      # the file turbo hashes from. A selector that cannot decide -- no base
+      # sha, a base git cannot resolve, a turbo dry run that fails -- means the
+      # whole workspace, never a skip. Nothing is skipped or weakened: a
+      # package the fast set leaves out is one the change cannot reach through
+      # the package graph or a turbo input, and the full battery on `main`
+      # re-derives every verdict within the hour.
+      - name: Decide which packages to type-check
+        id: tc-scope
+        if: steps.relevant.outputs.should_run == 'true'
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          QUEUE_BASE: ${{ github.event.merge_group.base_sha }}
+        run: |
+          case "$EVENT" in
+            pull_request) base="$PR_BASE" ;;
+            merge_group) base="$QUEUE_BASE" ;;
+            *)
+              echo 'scope=full' >> "$GITHUB_OUTPUT"
+              echo "A $EVENT run is the full battery: every package type-checked, no verdict replayed."
+              exit 0
+              ;;
+          esac
+          status=0
+          if [ -z "$base" ]; then
+            echo "::warning::no base sha on this $EVENT event; type-checking the whole workspace rather than guessing."
+            status=2
+          else
+            node scripts/select-type-check-scope.mjs --base "$base" > "$RUNNER_TEMP/tc-scope.out" || status=$?
+            cat "$RUNNER_TEMP/tc-scope.out"
+          fi
+          verdict=''
+          if [ "$status" -eq 0 ]; then
+            verdict=$(tail -n 1 "$RUNNER_TEMP/tc-scope.out")
+          fi
+          case "$verdict" in
+            scope=affected)
+              echo 'scope=affected' >> "$GITHUB_OUTPUT"
+              echo "base=$base" >> "$GITHUB_OUTPUT"
+              ;;
+            scope=workspace)
+              echo 'scope=workspace' >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "::warning::the type-check scope selector reached no verdict (exit $status); type-checking the whole workspace rather than skipping silently."
+              echo 'scope=workspace' >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
       # `type-check` dependsOn `^build`, so this builds workspace dependencies
       # first: the checked packages resolve their deps through built `.d.ts`.
       #
       # `TURBO_RUN_SUMMARY` makes turbo write its run summary to `.turbo/runs/`
       # -- per task, the hash, the cache status and the tasks it depends on. It
       # changes nothing turbo runs or caches; `Report what the turbo cache
-      # replayed` below reads it (objectui#12222).
+      # replayed` below reads it (objectui#12222). `TURBO_FORCE` is the string
+      # `true` on the full battery only; turbo reads `false` as not forced.
       - name: Run type-check
         if: steps.relevant.outputs.should_run == 'true'
         env:
           TURBO_RUN_SUMMARY: 'true'
-        run: pnpm type-check
+          TURBO_FORCE: ${{ steps.tc-scope.outputs.scope == 'full' }}
+          SCOPE: ${{ steps.tc-scope.outputs.scope }}
+          BASE: ${{ steps.tc-scope.outputs.base }}
+        run: |
+          if [ "$SCOPE" = 'affected' ]; then
+            pnpm type-check "--filter=...[$BASE]"
+          else
+            pnpm type-check
+          fi
 
       # The four repo-root `vitest.setup.*` files were in ZERO tsc programs
       # (objectui#3515) — the same shape as `scripts/` before objectui#3494, one

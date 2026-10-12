@@ -194,6 +194,7 @@ const de = {
     dialogDescriptionFallback: "Füllen Sie die Formularfelder aus und senden Sie ab oder brechen Sie ab.",
     deniedDescription: "Sie haben keinen Bearbeitungszugriff auf dieses Feld.",
     serverDefaultHint: "Wird beim Speichern automatisch gesetzt.",
+    maxFileSize: "Maximale Größe: {{size}}",
     masterDetail: {
       loadingColumns: "Spalten werden geladen…",
       subtotal: "Zwischensumme",

@@ -200,6 +200,7 @@ const fr = {
     dialogDescriptionFallback: "Remplissez les champs du formulaire, puis envoyez ou annulez.",
     deniedDescription: "Vous n'avez pas l'autorisation de modifier ce champ.",
     serverDefaultHint: "Défini automatiquement lors de l'enregistrement.",
+    maxFileSize: "Taille maximale : {{size}}",
     masterDetail: {
       loadingColumns: "Chargement des colonnes…",
       subtotal: "Sous-total",

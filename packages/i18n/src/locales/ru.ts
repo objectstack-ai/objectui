@@ -214,6 +214,7 @@ const ru = {
     dialogDescriptionFallback: "Заполните поля формы, затем отправьте или отмените.",
     deniedDescription: "У вас нет прав на редактирование этого поля.",
     serverDefaultHint: "Задаётся автоматически при сохранении.",
+    maxFileSize: "Максимальный размер: {{size}}",
     masterDetail: {
       loadingColumns: "Загрузка столбцов…",
       subtotal: "Промежуточный итог",

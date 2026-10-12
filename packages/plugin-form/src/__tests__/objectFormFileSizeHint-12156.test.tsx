@@ -25,13 +25,23 @@
  *      authored description keeps its place before it;
  *   2. the retired `max_size` is not read: a field carrying only that spelling
  *      shows no hint (no dual read, AGENTS.md #0.1);
- *   3. CONTROL: a field declaring no limit shows no hint.
+ *   3. CONTROL: a field declaring no limit shows no hint;
+ *   4. the hint's words are the session locale's `form.maxFileSize` pack value,
+ *      with `formatFileSize`'s number and unit interpolated: under a `zh`
+ *      provider the `zh` sentence, under `en` the `en` one. Without a provider
+ *      (cases 1 to 3) the form's fallback renders the English default.
+ *
+ * The expected sentences are read from the packs, not restated here, so a
+ * reworded translation does not turn this file red; a hint that stops reading
+ * the pack does.
  */
 
 import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, waitFor, cleanup } from '@testing-library/react';
 import { registerAllFields } from '@object-ui/fields';
+import { createI18n, I18nProvider } from '@object-ui/i18n';
+import { en, zh } from '@object-ui/i18n/locales';
 import { ObjectForm } from '../ObjectForm';
 
 registerAllFields();
@@ -61,9 +71,14 @@ const makeDS = () =>
 
 const fieldRow = (name: string) => document.body.querySelector<HTMLElement>(`[data-field="${name}"]`);
 
-const renderForm = async () => {
+const renderForm = async (language?: 'en' | 'zh') => {
+  const form = (
+    <ObjectForm schema={{ type: 'object-form', objectName: 'claim', mode: 'create' } as any} dataSource={makeDS()} />
+  );
   render(
-    <ObjectForm schema={{ type: 'object-form', objectName: 'claim', mode: 'create' } as any} dataSource={makeDS()} />,
+    language
+      ? <I18nProvider instance={createI18n({ defaultLanguage: language, detectBrowserLanguage: false })}>{form}</I18nProvider>
+      : form,
   );
   await waitFor(() => {
     for (const name of Object.keys(OBJECT_SCHEMA.fields)) {
@@ -74,24 +89,47 @@ const renderForm = async () => {
 
 afterEach(() => cleanup());
 
+/** A pack's `form.maxFileSize` sentence with the size filled in. */
+const sentence = (pack: { form: { maxFileSize: string } }, size: string) =>
+  pack.form.maxFileSize.replace('{{size}}', size);
+
 describe('ObjectForm (flat) — the file-size hint reads `maxSize` (objectui#12156)', () => {
   it('shows the hint on a file field declaring `maxSize`', async () => {
     await renderForm();
-    expect(fieldRow('contract')!.textContent).toContain('Max size: 10.0 MB');
+    expect(fieldRow('contract')!.textContent).toContain(sentence(en, '10.0 MB'));
   });
 
   it('appends the hint after an authored description on an image field', async () => {
     await renderForm();
-    expect(fieldRow('photo')!.textContent).toContain('Front view. (Max size: 5.0 MB)');
+    expect(fieldRow('photo')!.textContent).toContain(`Front view. (${sentence(en, '5.0 MB')})`);
   });
 
   it('does not read the retired `max_size`: no hint', async () => {
     await renderForm();
-    expect(fieldRow('legacy')!.textContent).not.toContain('Max size');
+    expect(fieldRow('legacy')!.textContent).not.toContain(sentence(en, ''));
   });
 
   it('CONTROL: no limit declared, no hint', async () => {
     await renderForm();
-    expect(fieldRow('open')!.textContent).not.toContain('Max size');
+    expect(fieldRow('open')!.textContent).not.toContain(sentence(en, ''));
+  });
+});
+
+describe('ObjectForm (flat) — the file-size hint is in the session locale (objectui#12156)', () => {
+  it('the two packs say different things, so the zh case below measures a translation', () => {
+    expect(zh.form.maxFileSize).not.toBe(en.form.maxFileSize);
+    expect(zh.form.maxFileSize).toContain('{{size}}');
+  });
+
+  it('under a zh provider the hint reads the zh pack sentence', async () => {
+    await renderForm('zh');
+    await waitFor(() => expect(fieldRow('contract')!.textContent).toContain(sentence(zh, '10.0 MB')));
+    expect(fieldRow('photo')!.textContent).toContain(`Front view. (${sentence(zh, '5.0 MB')})`);
+    expect(fieldRow('contract')!.textContent).not.toContain(sentence(en, '10.0 MB'));
+  });
+
+  it('under an en provider the hint reads the en pack sentence', async () => {
+    await renderForm('en');
+    await waitFor(() => expect(fieldRow('contract')!.textContent).toContain(sentence(en, '10.0 MB')));
   });
 });

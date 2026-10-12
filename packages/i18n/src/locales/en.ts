@@ -277,6 +277,10 @@ const en = {
     // evaluate, so it leaves the field empty and omits it (objectui#12108).
     // Shown only while the field is empty: a typed value is saved instead.
     serverDefaultHint: 'Set automatically when saved.',
+    // The size-limit hint the flat `ObjectForm` appends to a `file` or `image`
+    // field's description when the field declares `maxSize` (objectui#12156).
+    // `{{size}}` is the formatted limit ("10.0 MB"); only the words translate.
+    maxFileSize: 'Max size: {{size}}',
     // The master-detail form's own chrome (objectui#11071): the collection
     // placeholder while its columns resolve, the document totals stack
     // (`{{rate}}` is the header's tax rate), the row editor's title

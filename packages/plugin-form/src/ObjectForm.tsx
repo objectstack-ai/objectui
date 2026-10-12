@@ -650,6 +650,11 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
   // locale (objectui#11071). A string rather than `t` in the dependency list
   // below: it changes when the language does and at no other time.
   const deniedDescription = t('form.deniedDescription');
+  // The same reason for the file-size hint's sentence (objectui#12156): the
+  // field builder below interpolates the size into it, and this string, not
+  // `t`, is what its dependency list carries. It changes when the language, or
+  // that language's late-arriving catalogue, does.
+  const maxFileSizeSentence = t('form.maxFileSize', { size: '' });
   // The ONE field-gate step every layout draws through (objectui#10612):
   // field-level security plus the ADR-0092 D4 managed-object lock, which this
   // arm's field generator used to stamp on its own — see `gateFormFields`.
@@ -1132,8 +1137,13 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
           // objectui#12156 is refused by the spec and declared by no objectui
           // type. `field` is untyped here, so nothing but
           // `objectFormFileSizeHint-12156.test.tsx` catches a misspelt read.
+          // The words are the session locale's pack value (`form.maxFileSize`);
+          // the number and unit stay `formatFileSize`'s.
           if (field.maxSize) {
-            const sizeHint = `Max size: ${formatFileSize(field.maxSize)}`;
+            const sizeHint = t('form.maxFileSize', {
+              size: formatFileSize(field.maxSize),
+              defaultValue: 'Max size: {{size}}',
+            });
             formField.description = formField.description 
               ? `${formField.description} (${sizeHint})` 
               : sizeHint;
@@ -1195,7 +1205,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
     if (!willFetchData) {
       setLoading(false);
     }
-  }, [objectSchema, schema.fields, schema.customFields, schema.readOnly, schema.mode, schema.objectName, hasInlineFields, schema.recordId, dataSource]);
+  }, [objectSchema, schema.fields, schema.customFields, schema.readOnly, schema.mode, schema.objectName, hasInlineFields, schema.recordId, dataSource, maxFileSizeSentence]);
 
   // Handle form submission
   const handleSubmit = useCallback(async (formData: any, e?: any) => {

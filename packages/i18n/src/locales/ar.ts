@@ -230,6 +230,7 @@ const ar = {
     dialogDescriptionFallback: "املأ حقول النموذج ثم أرسل أو ألغِ.",
     deniedDescription: "ليس لديك إذن لتعديل هذا الحقل.",
     serverDefaultHint: "يُعيَّن تلقائيًا عند الحفظ.",
+    maxFileSize: "الحجم الأقصى: {{size}}",
     masterDetail: {
       loadingColumns: "جارٍ تحميل الأعمدة…",
       subtotal: "المجموع الفرعي",

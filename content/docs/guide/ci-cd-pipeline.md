@@ -23,27 +23,13 @@ one has its own section below.
 
 | Workflow file | Appears as | Runs on | Blocks a PR? |
 |---|---|---|---|
-| `ci.yml` | CI | Push / PR to `main`, `develop`; merge-queue builds | **Yes** — every job but the two coverage-lane jobs (`test-coverage` and `coverage-report`, push only) runs on PRs and on queue builds |
+| `ci.yml` | CI | Push / PR to `main`, `develop`; merge-queue builds; hourly `schedule` on `main` | **Yes** — every job but the two coverage-lane jobs (`test-coverage` and `coverage-report`, push and schedule only) runs on PRs and on queue builds |
 | `lint.yml` | Lint | Push / PR to `main`, `develop`; merge-queue builds; manual | **Yes** — ESLint **errors** only |
 | `changeset-guard.yml` | Changeset Bump Policy, Changeset Overwrite Report | PR / push touching `.changeset/**` or either gate itself | **Yes** — the bump policy job only; the overwrite job is report-only |
 | `changeset-presence.yml` | Changeset Declaration | PR to `main`, `develop` — **no path filter**; merge-queue builds | **Yes** — when a released package's `src/` changed and no changeset was added |
-| `control-bytes.yml` | Control Byte Scan | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** |
-| `action-ref-convention.yml` | Action Ref Convention | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a `uses:` ref is not spelled as a floating major tag and is not a declared exception, when a declared exception matches nothing, or when the scan's own census collapses |
-| `docs-links.yml` | Internal Docs Link Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** |
-| `skills-paths.yml` | Skill Guide Path Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a path stated in a `skills/` guide does not exist |
-| `skill-examples.yml` | Skill Example Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a MARKED fenced example in a `skills/` or `.claude/skills/` guide no longer compiles against the packages' built types, no longer parses as JSON, uses a bare `any`, or carries a marker that opts nothing in |
-| `skill-eval-tokens.yml` | Skill Eval Token Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when an eval assertion's `must_contain` token is not taught as a whole token anywhere in its own `skills/` bundle |
-| `doc-component-types.yml` | Doc Component Type Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a `content/docs/**.mdx` snippet teaches a `type` nothing registers |
-| `doc-snippet-types.yml` | Doc Snippet Type Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a covered documentation snippet no longer compiles against the packages' built types, **or** when a covered JSDoc `@example` block does, **or** when a `json` / `jsonc` node document in `content/docs` is refused by the strict authoring face (three gates, one job — see below) |
-| `doc-fence-languages.yml` | Doc Fence Language Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a TypeScript block sits under a fence the snippet gate does not read |
-| `doc-example-ids.yml` | Doc Example Id Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a `content/docs/**` page references a schema-catalog example id the registry does not carry, or when the gate's own population collapses |
-| `pre-install-import-graph.yml` | Pre-Install Import Graph Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a gate a workflow runs *before* `pnpm install` reaches a package anywhere in its import graph |
-| `vi-mock-specifiers.yml` | Inert vi.mock Specifier Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a `vi.mock` / `vi.doMock` relative specifier resolves to no file, or the scan's population collapses |
-| `shell-escape-residue.yml` | Shell Escape Residue Scan | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a fenced block in `AGENTS.md`, `CLAUDE.md`, `skills/**` or `content/docs/**` carries the enumerated machine-produced shell escape, or a scan root fails to resolve |
-| `readme-exports.yml` | README Export Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a `packages/**/README.md` imports a name from its own package that the package does not export, or the scan's population collapses |
-| `docs-route-eager-closure.yml` | Docs Route Eager Closure Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a package named in `apps/site/app/components/registerCatalogBlocks.ts` is not already reachable from the docs route's module graph (exit 1), or when the gate's own gauge cannot be trusted (exit 2) |
+| `repo-gates.yml` | Repo Gates | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — fifteen gates as steps of one job ([#12214](https://github.com/objectstack-ai/objectui/issues/12214)); the job is red when any step is, and `scripts/dependabot-merge-gate.mjs` declares the context in `REQUIRED_CONTEXTS` |
 | `line-citation-gate.yml` | Line Citation Gate | PR to `main`, `develop` — **no path filter**; manual | No — **report-only** while it beds in; it exits 0 whatever it finds, and exits 1 only when one of its own synthetic controls fails. It declares no `merge_group` trigger, so it cannot be a required context in its current state |
-| `spec-main-shape-gate.yml` | Spec Main Shape Gate | PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — a shape break is a real red naming the objectui file and the objectstack commit ([#9860](https://github.com/objectstack-ai/objectui/issues/9860)). The maintainer enrolled the context under [#9969](https://github.com/objectstack-ai/objectui/issues/9969)'s ruling A, and `scripts/dependabot-merge-gate.mjs` declares it in `REQUIRED_CONTEXTS`, so a Dependabot bump waits for it too |
+| `spec-main-shape-gate.yml` | Spec Main Shape Gate | PR to `main`, `develop` — **no path filter**; merge-queue builds; manual; hourly `schedule` on `main` | **Yes** — a shape break is a real red naming the objectui file and the objectstack commit ([#9860](https://github.com/objectstack-ai/objectui/issues/9860)). The maintainer enrolled the context under [#9969](https://github.com/objectstack-ai/objectui/issues/9969)'s ruling A, and `scripts/dependabot-merge-gate.mjs` declares it in `REQUIRED_CONTEXTS`, so a Dependabot bump waits for it too |
 | `governed-surface-guard.yml` | Governed Surface Queue Guard | PR to `main`, `develop` (incl. `ready_for_review`) — **no path filter**; merge-queue builds | **Yes on a queue build only** — a governed-surface diff with no authorized approval record (on any commit) is refused there, and so is any merge group whose queued pull requests still carry `needs:contract-review`; on the pull request itself it is deliberately green and prints an early warning |
 | `performance-budget.yml` | Bundle Analysis | Push / PR touching `packages/**`, `apps/console/**`, `pnpm-lock.yaml` | **Yes** — the console entry gzip budget |
 | `lockfile-integrity.yml` | Lockfile Integrity Check | PR to `main`, `develop` touching `pnpm-lock.yaml` or the gate's own two files; manual | No — **deliberately not a blocking context** ([#8326](https://github.com/objectstack-ai/objectui/issues/8326)); it names the packages and the Dependabot merge gate classifies it `NOT_A_GATE` |
@@ -86,10 +72,11 @@ The path filters explain most "why did nothing run on my PR?" questions:
   *forgot* its changeset does not touch `.changeset/**`, so the inverse filter guarantees the one
   check that could notice never runs. It therefore carries **no** filter and decides from the diff
   inside its script.
-- `control-bytes.yml` and `docs-links.yml` carry **no** filter of any kind, which is equally
-  deliberate: both guard markdown, and a gate that a markdown-only PR cannot start is no gate on
-  the change most likely to trip it. Both cost a checkout plus one `node` call.
-- `docs-route-eager-closure.yml` carries **no** filter for the opposite reason — not that its
+- `repo-gates.yml` carries **no** filter of any kind, which is equally deliberate: its gates guard
+  markdown among the rest (the Control Byte Scan and the Internal Docs Link Check first of all), and
+  a gate that a markdown-only PR cannot start is no gate on the change most likely to trip it. Its
+  install-free gates cost one `node` call each, on one runner.
+- Its Docs Route Eager Closure Check carries **no** filter for the opposite reason — not that its
   subject is invisible to a filter, but that a filter naming everything it reads would be
   indistinguishable from having none. Its inputs are the whole `/docs/[[...slug]]` module graph:
   `apps/site/**`, `content/docs/**` (the compiled MDX modules are most of that graph) and
@@ -122,8 +109,8 @@ the rule that decides membership, not the instances: a gate that carries no path
 every pull request and is therefore requirable — and a requirable context that skips the queue
 build does not fail it, it stalls it.
 
-That rule was learned the expensive way. `ci.yml`, `lint.yml`, `control-bytes.yml` and
-`docs-links.yml` did not subscribe at all until
+That rule was learned the expensive way. `ci.yml`, `lint.yml` and the control-byte and docs-link
+gates did not subscribe at all until
 [#3523](https://github.com/objectstack-ai/objectui/issues/3523), and the consequence was not subtle. A queue whose required set
 is empty validates nothing: it rebuilds the PR, sees no failing required check because there are
 no required checks, and merges. On 2026-08-07 three pull requests
@@ -214,9 +201,23 @@ paths decide only whether it does any work. The `docs` job has worked this way s
 The gate fails **open** — if the diff cannot be computed the job runs everything, rather than
 reporting green having built nothing.
 
+**Two speeds** ([#12214](https://github.com/objectstack-ai/objectui/issues/12214), the doctrine of
+[objectstack#22998](https://github.com/objectstack-ai/objectstack/issues/22998)). A pull request or a
+merge-queue build runs the *affected* test files: `scripts/select-affected-tests.mjs` names the
+packages the change sits in and every package that depends on them, plus the test files the package
+graph cannot place (tests outside every package, tests whose relative imports read the disk or leave
+their package, tests that import a package their own does not depend on), and answers "run
+everything" when the change reaches something every test runs through — a `package.json`, a
+`tsconfig*.json`, a vitest or vite config, a root install or toolchain file, a file the root vitest
+config imports, or a package a broad setup file imports. A `push` to `main` and the hourly `schedule`
+run are the *full battery*: every test file, plus the coverage lane. Nothing was deleted; the whole
+suite moved to `main`, where every merge and every hour runs it, and whatever the fast set misses
+turns `main` red there. The selector's header states the rules and the edges it cannot see; this page
+does not restate its measurements.
+
 Most jobs run in parallel. Two `needs:` edges exist and both point at an aggregator: `coverage-report`
 waits on the four coverage shards ([#5403](https://github.com/objectstack-ai/objectui/issues/5403)),
-and `test-aggregate` waits on the eight test shards and the dist-pin job
+and `test-aggregate` waits on the twelve test shards and the dist-pin job
 ([#9499](https://github.com/objectstack-ai/objectui/issues/9499)). Nothing else waits for anything.
 As with the workflow
 inventory above, this page states **no job count**: the table *is* the list, and
@@ -236,13 +237,13 @@ it green — which is how two of `type-check`'s gates came to be missing from th
 |---|---|---|---|
 | `changeset-check` | Changeset Fixed Group Check | `scripts/check-changeset-fixed.mjs` — every workspace package must be in the changeset `fixed` group or explicitly ignored. It checks group *membership*; it does **not** check whether the PR added a changeset. | Every run |
 | `type-check` | Type Check | `scripts/check-type-check-coverage.mjs`, then `pnpm check:phantom-deps`, then `pnpm check:self-import`, then `pnpm check:unreferenced-sources`, then `pnpm check:doc-example-readers`, then `pnpm check:handler-key-reads`, then `pnpm check:metadata-write-doors`, then `pnpm check:published-tsconfig-exclude`, then `pnpm check:side-effects-array`, then `pnpm check:element-data-source-declaration`, then `pnpm check:esm-specifiers`, then `pnpm check:spec-symbols`, then `pnpm check:action-forward-parity`, then `pnpm check:designer-field-key-parity`, then `pnpm check:icon-record-names`, then `pnpm check:i18n-keys`, then `pnpm check:i18n-drift`, then `pnpm check:i18n-designer-parity`, then `pnpm type-check:scripts`, then `pnpm type-check:vitest-config`, then `pnpm type-check`, then `pnpm type-check:vitest-setup`. The coverage guard runs first because turbo silently skips packages that have no `type-check` script, so a package without one would otherwise read as passing (#2911). `pnpm check:phantom-deps` fails when a released package imports a bare specifier its own `package.json` does not declare — a *phantom dependency*, invisible locally because the workspace root's `devDependencies` sit on the upward resolution path from every package directory and on no consumer's, so `require.resolve('react', { paths: ['packages/core/src'] })` succeeds while `@object-ui/core` declares react in no field at all ([#4394](https://github.com/objectstack-ai/objectui/issues/4394)). `pnpm check:self-import` runs next because it reuses that gate's parser: it fails when a file inside a package names its OWN package, a specifier that resolves through the package's `exports` map to `dist/` while `type-check` waits on `^build` — the *dependencies'* builds, never the package's own — so on a cold cache the declarations do not exist yet and the file fails with `TS2307`. Locally it is always green, because every local workflow builds before it type-checks and leaves a `dist/` behind; PR #4789's first run was red on exactly one such line ([#4801](https://github.com/objectstack-ai/objectui/issues/4801)). `pnpm check:unreferenced-sources` runs next, reusing the same parser again: it fails when a covered package ships a source file that nothing reaches — not the package's declared entry, and not its build config. Until [#7515](https://github.com/objectstack-ai/objectui/issues/7515) no gate here could see one: `check-dist-completeness` asks whether `dist/` holds what `tsc` emits, `check-readme-exports` compares documented exports against shipped ones, and a file that is in the tarball while being reachable from nothing is outside both — so the detection mechanism was a human reading unrelated code, which is how both instances found in one week were found ([#7319](https://github.com/objectstack-ai/objectui/issues/7319), [#7397](https://github.com/objectstack-ai/objectui/issues/7397)). The hazard is not the bytes: the file #7319 removed carried the same export name as a live engine one package over and evaluated no predicate, so name-completion alone could have wired a silently wrong renderer into a published package. Reachability has TWO roots, and the second is the whole difficulty — `packages/components` reaches its two `use-sync-external-store` shims only through `vite.config.ts` `resolve.alias` entries whose importer is a bundled dependency no source file names, so a walk that skips that leg reports exactly those two live files as dead on its first run, and a gate that cries wolf gets switched off rather than fixed. Scope is DECLARED per package in `COVERED_PACKAGES` and the uncovered remainder is printed as a count derived from the workspace on every run, because the alias mechanisms differ per package and a gate that covers one package correctly beats one that covers forty with false positives. An alias expression it cannot evaluate is a FINDING rather than a skip, since skipping one would make it accuse whatever file that alias points at. `pnpm check:doc-example-readers` runs next, on the same parser again: it fails when an exported symbol's own JSDoc `@example` hand-spells a resolution that its REAL call sites obtain by calling a shared reader. A doc comment is what the next call site is copied from, so prose that outlives the ruling it encoded re-seeds every later copy — measured at two cards and three copied call sites, both cards closed by pointing the prose at `resolveRecordSourceObjectName` (`b041b9c0c`, `2ce2612df`). Nothing here could see either one, and `check-spec-symbol-derivation` was credited with the class twice — in the second card's body and then in the dispatch that repeated it — while its rule 4 judges `@objectstack/spec` citations at member granularity and says nothing about prose prescribing a LOCAL spelling ([#7652](https://github.com/objectstack-ai/objectui/issues/7652)). It fires on four conditions at once — the example calls the symbol it documents, a real call site fills the same argument slot by calling an exported single-`return` reader, the example does not, and what the example writes there is that reader's own return expression or one of the rungs it resolves between — which is what keeps it off the literals and placeholders an example legitimately carries. It does NOT judge whether a prescribed spelling is correct: on the day either card was filed the prose and every copy of it agreed, and no gate reading only the tree can know a ruling. What it catches is the state right after, when the call sites move and the prose does not. `pnpm check:handler-key-reads` runs next, on the same parser again: it fails when an `on*` handler key that a REGISTERED renderer reads off the authored document is not a declared member of the zod arm for the type it is registered under. `BaseSchema` is `.passthrough()`, so an undeclared key is not refused — it stops being judged and the value is KEPT, then reaches the renderer that reads it; measured on the built dist, `{ type: 'kanban', columns: [], onCardClick: { action: 'toast' } }` went from REFUSED to ACCEPTED with the object surviving into the parsed output ([#7664](https://github.com/objectstack-ai/objectui/issues/7664)). Every gate stayed green, because the [#6124](https://github.com/objectstack-ai/objectui/issues/6124) ledger's population is two hand-written arrays of tuples and that change re-keyed the arm by SUBSTITUTION — so its length assertion held, and a count ratchet would have been green too, which is why `72498f257`, the commit that landed this gate, rejected that option on the instance itself. This gate derives BOTH populations: the arms from every `type: z.literal(…)` in `packages/types/src/zod`, and the read sites from every real `ComponentRegistry.register(…)` call — read off the AST, because one types file NAMES that call in prose eleven times and registers nothing. It follows the document one component at a time rather than every JSX child, because most children are handed a DIFFERENT document (a dashboard's widgets each get their own), and the chain it must reach is four hops long: `register('kanban', ObjectKanbanRenderer)` names a component, that component is an HOC, the document arrives at `ObjectKanban` through a render-prop parameter and at `KanbanRenderer` through an object spread. It says nothing about keys that reach a renderer only through a `{...props}` spread onto a Radix root or a DOM listener slot — there is no read site to derive from — nor about the ledger's `?: never` tombstones, which have no read site by construction; `KNOWN_UNDECLARED_READS` is an exemption list that only shrinks, each row naming the card that owns the fix, and a row whose read site the gate can no longer find fails it. It lives in `scripts/` because the read sites are spread across `@object-ui/plugin-*` and `packages/components`, which `@object-ui/types` may not import — `check:phantom-deps` rejects it and it would close a cycle. `pnpm check:metadata-write-doors` runs next, on the same parser again: it fails when an in-repo DOOR that can PUT an object-metadata document does not apply the object-metadata write guard. [#7714](https://github.com/objectstack-ai/objectui/issues/7714) ruled one client behaviour — a half-filled relationship is held client-side and the PUT body never carries one without a non-empty `reference` — and its PR implemented that ruling by ENUMERATING the writers it knew of, which were two. The identical defect was then reproduced on a THIRD writer neither guard covered, in that card's own required dogfood (recorded in `9662aca56`, the commit that landed this gate), and [#8676](https://github.com/objectstack-ai/objectui/issues/8676) swept and found nine more. The half that outlives the count is that the sweep the question is naturally asked in cannot see its own subject: `git grep 'client\.save('` returns ZERO over the file that third writer lives in, because the call is `client.save<any>(type, …)` and the generic argument sits between the name and the paren — and a hand-rolled `fetch` PUT to `/api/v1/meta/object/:name` is not that spelling at all. So this gate enumerates DOORS, never writers: the writer set is OPEN and nobody has to announce a new member, while the transport set is CLOSED and this repository owns it, so guarding the doors covers every writer past and future without a list anywhere. It derives every call carrying a `method: 'PUT'` literal whose URL RESOLVES to a `/meta` path — resolved through templates, fields and helper return values rather than read, because the repo's central door spells its URL three hops from the call and says nothing at the call site — plus every call to the SDK's `meta.saveItem`, which lives in a package this repo does not own and so cannot be guarded from the inside. A door whose type is a string literal other than `object` is exempt; a door whose type is a runtime value is judged CAPABLE, which is the fail-closed direction. It answers COVERAGE only — whether a guarded door's body is correct is the guard's own pins — and it refuses to report OK unless it found at least one door of each kind and at least one guarded door, so a renamed transport turns it red rather than green. Same placement rationale as the gates around it: it parses the sources with `typescript`, so it needs the install and nothing built. `pnpm check:published-tsconfig-exclude` follows, config reads only: it fails when a published package's build `tsconfig.json` excludes tooling by FILE NAME (`*.test.ts`) without also excluding the tooling DIRECTORIES (`**/__tests__/**` and its two siblings, derived from `TOOLING_FILE` rather than retyped). A name-only exclude stops the files that happen to be named that way and nothing else, so the first shared helper added to a `__tests__/` directory becomes a program input and an emitting program writes it into the published `dist` — three times so far, each found by a human and never by a gate ([#4006](https://github.com/objectstack-ai/objectui/issues/4006), [#4836](https://github.com/objectstack-ai/objectui/issues/4836), and a third in the same package as the first, all three recorded in `6aeba673c`, the commit that landed this gate). [#7212](https://github.com/objectstack-ai/objectui/issues/7212) measured the standing exposure — 29 published packages carrying the name form with ZERO offending files, green because nobody had added such a helper yet — and the gate landed together with their conversion so `main` was green on merge. It reads `exclude` arrays and nothing else: no build, no artifact, no emit model, which is the narrower scope that keeps it clear of the modelling [#4846](https://github.com/objectstack-ai/objectui/issues/4846) declined for the artifact-level gate. Six published packages are named carve-outs, each re-proving its own reason on every run: `cli`, `create-plugin` and `data-objectstack` emit from a `tsup` entry graph, `plugin-charts` keeps its tooling exclude in the `dts()` options, and `console` and `runner` are Vite applications with `noEmit: true` and no `dts()` plugin. `pnpm check:side-effects-array` runs next, sources only and no build: it fails when a package's `sideEffects` ARRAY and its module bodies disagree in either direction — a module that registers something at load time and is not named (a bundler drops it, and the registration is gone from a *consumer's* app with no error, no warning and exit 0), or a name whose module no longer registers anything. `@object-ui/app-shell` declares such an array because both simpler answers are measurably wrong for it: omitting the field makes the whole package unshakeable, and `"sideEffects": false` silently drops three live SDUI widget registrations to zero chunks ([#6535](https://github.com/objectstack-ai/objectui/issues/6535), [#6683](https://github.com/objectstack-ai/objectui/issues/6683)). The enumeration is re-derived from the module bodies on every run rather than listed, so there is no second copy to rot. The artifact half of the same contract — do those registrations survive a real bundler — cannot run in this job at all: it needs a built console, so it lives in the SDUI registration pin step of `performance-budget.yml`. `pnpm check:element-data-source-declaration` runs next, sources only and no build: it fails when a source that consumes `ElementDataSourceGate` does not also pass through `elementDataSourceBlock()`, the seam that declares the `dataSource` key the gate reads. A block that wraps the gate off-seam publishes an authoring surface missing the one key its own runtime honours, and the html tier reports that key with the same `unknown-prop` warning it gives the spellings that do nothing ([#6678](https://github.com/objectstack-ai/objectui/issues/6678)). `pnpm check:esm-specifiers` follows it for the same reason — sources only, no build: it fails when a published package whose build preserves import specifiers (a bare emitting `tsc`, which never rewrites them) writes a relative specifier with no file extension. Node's ESM resolver does not extension-search relative specifiers, so such a specifier makes the published entry unloadable outside a bundler; `@object-ui/react`'s entry died with `ERR_MODULE_NOT_FOUND` while every bundler-based consumer, the whole test suite and CI stayed green ([#4538](https://github.com/objectstack-ai/objectui/issues/4538)). The half that actually *imports* each built entry needs a full build and runs in `node-esm-load-gate.yml`. `pnpm check:action-forward-parity` fails when an action renderer's forward whitelist drops a key the action runtime reads — the class that shipped six times one key at a time, each time green, because the key parses and publishes while the payload is dropped one hop before the runner ([#4050](https://github.com/objectstack-ai/objectui/issues/4050)). `pnpm check:designer-field-key-parity` fails when one of the field designers' statically declared payload shapes (`FieldMetadataPayload`, `ServerFieldSchema`, `DesignerFieldDefinition`) declares a key the installed `@objectstack/spec` `FieldSchema` refuses by NAME. Such a key makes `PUT /api/v1/meta/object/:name` return a hard 422 `INVALID_METADATA` that blocks *every subsequent save* of that object, and the author cannot tell from the designer UI which key did it — the class had been filed three times, each closed with a per-key tombstone written after the instance was found in production, with nothing detecting the next one ([#4644](https://github.com/objectstack-ai/objectui/issues/4644) `indexed`, [#4687](https://github.com/objectstack-ai/objectui/issues/4687) `distance_metric`, [#4676](https://github.com/objectstack-ai/objectui/issues/4676) `placeholder`, gated by [#5761](https://github.com/objectstack-ai/objectui/issues/5761)). It reads the accept set off the schema itself rather than from a list, and it covers a deliberately documented *subset* of the write path: a key that reaches the payload only through a `patchDef` spread or an index signature is outside its reach, and the boundary is stated in the script's own docblock. Its draft-I/O half — the `readFields`/`writeFields` round-trip, which has no declared shape to read — runs in the test suite as `object-fields-io.spec-keys.test.ts`. Same placement rationale as the gates around it: it parses the sources with `typescript` and imports the installed spec, so it needs the install and nothing built. `pnpm check:icon-record-names` fails when an authored icon NAME that reaches a resolver reading lucide's runtime `icons` record is not a live key of that record. lucide retires a spelling by dropping it from that record while keeping it as a deprecated named export, so the retired name still imports, still type-checks and still renders wherever it is used as a *component* — `Edit === SquarePen` is true — and resolves to nothing wherever it is used as a *string*: nothing goes red in either direction, which is why the class was repaired twice in two packages before anyone gated it ([#5586](https://github.com/objectstack-ai/objectui/issues/5586), [#5622](https://github.com/objectstack-ai/objectui/issues/5622), [#5633](https://github.com/objectstack-ai/objectui/issues/5633)). It carries no list of retired spellings — the record itself is the judgement — and it re-discovers the resolver population from source on every run, which is how its first pass found four record-reading resolvers nobody had catalogued. It sits here because it parses the sources with `typescript` and reads the installed lucide: the install, and nothing built. The three locale gates sit in the middle because all of them parse the sources with `typescript`: they need the install and nothing built. `pnpm check:i18n-keys` fails when a `t()` call site asks for a key the `en` pack does not define ([#3530](https://github.com/objectstack-ai/objectui/issues/3530)); `pnpm check:i18n-drift` fails when a change to an `en` string is not accompanied by the nine translation packs ([#3650](https://github.com/objectstack-ai/objectui/issues/3650)), and it is why this job's checkout sets `fetch-depth: 0` — it diffs against the merge base, which a depth-1 clone cannot resolve. `pnpm check:i18n-designer-parity` fails when the metadata-admin designer's own module-local string tables come apart — an `en` row with no `zh` row, or a shared row whose two values carry different `{placeholders}` ([#8834](https://github.com/objectstack-ai/objectui/issues/8834)). The two gates before it are blind to that file by construction — the first classifies the module `module-local table` by declaration and skips it, the second read only the ten locale packs and this table is not one of them — so the same card also gave `pnpm check:i18n-drift` that table as a SECOND population, which is the half that catches a changed `en` value whose `zh` row did not follow. `pnpm type-check:scripts` (`tsconfig.scripts.json`) covers `scripts/**/*.ts`, which `pnpm type-check` cannot reach at all — `scripts/` has no package.json, so turbo never walks it, and the coverage guard decides coverage per *package*. Until [#3494](https://github.com/objectstack-ai/objectui/issues/3494) that left the pin tests in `scripts/__tests__/` — including the one pinning this very page — compiled by nothing. `pnpm type-check:vitest-config` runs `apps/console/tsconfig.node.json` directly — the program that already lists `../../vitest.config.mts` and `apps/console/vitest.config.ts` ([#3476](https://github.com/objectstack-ai/objectui/issues/3476)) — because until [#7328](https://github.com/objectstack-ai/objectui/issues/7328) the only thing that ran it was the console's own `type-check` script, reached through the task runner, whose `type-check` task waits on `^build`. (Named in prose rather than as a code span on purpose: the pin below reads this cell as this job's gate list, so spelling that invocation out would credit the job with a command it does not run.) The cheapest compiler that reads the root Vitest config was therefore reachable only through the most expensive job here, and PR #7291 paid for it: a conditionally spread `dist` project whose literal `extends: true` widened to `boolean` degraded the whole `projects` array to `never[]`, every gate its author ran was green, and CI reported three errors, two of them at `../../vitest.config.mts`. It sits in the cheap half beside `pnpm type-check:scripts` for the same measured reason — nothing in its program imports an `@object-ui/*` package, so it needs the install and nothing built. `pnpm type-check:vitest-setup` (`tsconfig.vitest-setup.json`) closes the same gap for the four repo-root `vitest.setup.*` files, uncovered until [#3515](https://github.com/objectstack-ai/objectui/issues/3515); it runs *last*, after `pnpm type-check`, because `vitest.setup.dom.tsx` side-effect-imports four `@object-ui/*` packages and resolves them through the declarations that turbo's `^build` produces. | Every run; on a PR the steps short-circuit when only ignored paths changed |
-| `test` | Test (shard N/8) | When a pull request changed nothing outside the exclusion list, the decision step runs `scripts/markdown-test-inputs.mjs` before anything else, and the job runs in full when the answer is yes ([#8861](https://github.com/objectstack-ai/objectui/issues/8861)). The exclusions drop every markdown path, and a markdown document can be a TEST'S INPUT: [#8857](https://github.com/objectstack-ai/objectui/issues/8857) changed one package README, this job reported success in ten seconds having run nothing, and the merge-queue build then failed the same shard in 907 seconds and dequeued it. That script carries the derived class — which documents a test reads, and which test reads each — and audits itself against the tree. It is this job's stage only, because this is the job that runs those tests. [#9096](https://github.com/objectstack-ai/objectui/issues/9096) then added `scripts` to that scan, because the gate tests under `scripts/__tests__` read this repository's documentation as data and run in these same shards — measured by running all 46 of them under an fs trace, **every** tracked markdown file in the tree is opened by at least one of them. ⇒ for this job the markdown half of the exclusion list is now inert: **any markdown-only pull request runs the shards**. Priced over the 513 first-parent commits available then: 36 reached this stage, 21 already ran, and the widening moves 14 of the remaining 15 from skip to run. The rest of the exclusion list still pays — a non-markdown change under `content/**`, `docs/**` or `apps/site/**` skips as before. Then `pnpm test --shard=N/8` across an 8-runner matrix with `fail-fast: false`, so every shard reports its own failures. No coverage instrumentation — v8 adds 40–100% overhead. **4 → 8 shards, and the built-artifact pin step moved out of this job entirely, in [#9499](https://github.com/objectstack-ai/objectui/issues/9499).** At four shards this job had grown into its own `timeout-minutes: 20`: measured over the 14 most recent `merge_group` runs and the 14 most recent `pull_request` runs, the longest *succeeding* shard-1 job was 1199 s against the 1200 s ceiling — a one-second margin — and two runs crossed it and were **cancelled**, one of them dequeuing a pull request whose tests had passed, because the merge queue cannot tell `cancelled` from `failure`. The ceiling is **not** raised, no test is skipped and the exclusion list is not widened; the work is spread over twice the runners, and the one step that was never sharded at all is now the `test-dist-pins` job below. No shard is a required context any more — `test-aggregate` reports for all of them. | Pull requests and merge-queue builds (everything but `push`); steps short-circuit on a PR that changed only ignored paths |
-| `test-dist-pins` | Test (dist pins) | The same decision step as `test` above, `scripts/markdown-test-inputs.mjs` stage included — deliberately verbatim, because this lane used to run whenever that job's gate said run, and a narrower gate here would silently stop running the built-artifact pins on the markdown-only pull requests [#9096](https://github.com/objectstack-ai/objectui/issues/9096) brought into scope. Then `pnpm test:dist` — the built-artifact lane ([#7183](https://github.com/objectstack-ai/objectui/issues/7183)). It delegates to a turbo task scoped to the one package that holds built-artifact pins; that task depends on the package's OWN build (`dependsOn: ["build"]`, not `^build`), so the bundle exists before the pins read it, and then runs the `dist` vitest project, whose pins import a package's BUILT bundle instead of its `src` — a claim the source-aliased suite above is structurally unable to make, since the root config aliases every workspace package to `src`. **Why it is a job and not a step on shard 1** ([#9499](https://github.com/objectstack-ai/objectui/issues/9499)): it was never sharded, so it made shard 1 structurally the longest leg of a matrix bounded by a 20-minute ceiling, and in **both** observed ceiling kills the job died in this step with the test step already green — the tests passed and the check reported `cancelled`. Measured across 28 full CI runs it costs 31–58 s (median ≈53 s); a separate job pays for one more runner and takes the asymmetry out of the matrix without touching a budget. | Pull requests and merge-queue builds (everything but `push`); steps short-circuit on a PR that changed only ignored paths |
-| `test-aggregate` | Test | `scripts/check-test-shard-results.mjs` — the **single required test context** ([#9499](https://github.com/objectstack-ai/objectui/issues/9499), director ruling letter C). It `needs` the shard matrix and `test-dist-pins`, and runs `if: always()` so a red, skipped or cancelled shard still produces a verdict here instead of skipping this job — a skipped required context counts as *success* in branch protection, which on the one context that speaks for the whole lane is the failure mode itself. ⛔ It does **not** gate on `needs.test.result`: a matrix job's `needs.<job>.result` is a single rollup over every leg, and a rollup reads `success` when some legs succeeded and the rest were **skipped**, so an aggregator built on that expression is a check reporting success having run nothing — [#8857](https://github.com/objectstack-ai/objectui/issues/8857) and [#3523](https://github.com/objectstack-ai/objectui/issues/3523) in one line of YAML. The gate reads this run's own job list from the Actions API instead (`actions: read`, nothing written) and asserts each shard **by name and by its own conclusion**; `skipped` is not a pass. It fails closed — an unreadable answer is exit 2 and a red context — and refuses any verdict over a job list that does not contain this very job, which is the control that the reading reached the right run at all. The dist-pin job is asserted from `needs` directly, since a non-matrix job's result is its own. **Why one name:** naming the legs made the shard *count* a member of a repository-settings surface no workflow edit can reach — widening the matrix renamed four live required contexts at once. | Pull requests and merge-queue builds (everything but `push`) |
-| `test-coverage` | Test (coverage shard N/4) | `pnpm test:coverage --reporter=blob --reporter=default --reporter=github-actions --shard=N/4` across a 4-runner matrix with `fail-fast: false`. Each shard writes `.vitest-reports/blob-N-4.json` — raw coverage and test results in one file — and uploads it as an artifact even when the shard is red (vitest deletes `coverage/` on a red run unless `coverage.reportOnFailure` is set, [#5402](https://github.com/objectstack-ai/objectui/issues/5402)). The two reporters after the blob are what keep a red shard *readable*: a CLI `--reporter` replaces the default reporter set rather than adding to it, so `--reporter=blob` on its own ended a failing shard's log at `blob report written to …` with no test name and no assertion text, leaving the download-only artifact as the only copy of the failure ([#9177](https://github.com/objectstack-ai/objectui/issues/9177)); `--reporter=default` restores the log and `--reporter=github-actions` restores the per-test `::error` annotation. The flags are pinned by `scripts/__tests__/coverage-shard-reporter-readability.test.ts`. The configured coverage thresholds are neutralised on the shard legs, because a quarter of the suite judged against a whole-suite threshold is not a defect signal; they are enforced once, on the merged report, by the job below ([#5403](https://github.com/objectstack-ai/objectui/issues/5403)). | **Push only** |
-| `coverage-report` | Test (coverage) | Downloads the four blob reports, refuses to continue unless all four arrived, merges them with `pnpm test:coverage --merge-reports` into one complete report — which is where the configured coverage thresholds are enforced, over the whole merged map, the shard legs having overridden them to zero — and publishes that report as the `coverage-report` artifact (kept 7 days, the same as the blobs it is derived from). Its last step runs on every path and states the outcome: the job is **red, with an error annotation**, whenever the gate did not run for the commit — before [#5403](https://github.com/objectstack-ai/objectui/issues/5403) the final step carried the implicit `success()` and was silently skipped by 311 of 373 coverage jobs, which is how four days of a 100%-failing coverage job went unnoticed. A breach of the thresholds is reported *separately* from a lane that never delivered, because the two call for opposite actions. ⛔ It never merges a report from fewer than four shards: a wrong coverage number is worse than a missing one. The Codecov upload this job used to carry was retired by [#5436](https://github.com/objectstack-ai/objectui/issues/5436) — `CODECOV_TOKEN` was never set, so it failed on every push; the trend dashboard and PR coverage comments are gone with it, the gate is not. | **Push only** |
+| `test` | Test (shard N/12) | When a pull request changed nothing outside the exclusion list, the decision step runs `scripts/markdown-test-inputs.mjs` before anything else, and the job runs in full when the answer is yes ([#8861](https://github.com/objectstack-ai/objectui/issues/8861)). The exclusions drop every markdown path, and a markdown document can be a TEST'S INPUT: [#8857](https://github.com/objectstack-ai/objectui/issues/8857) changed one package README, this job reported success in ten seconds having run nothing, and the merge-queue build then failed the same shard in 907 seconds and dequeued it. That script carries the derived class — which documents a test reads, and which test reads each — and audits itself against the tree. It is this job's stage only, because this is the job that runs those tests. [#9096](https://github.com/objectstack-ai/objectui/issues/9096) then added `scripts` to that scan, because the gate tests under `scripts/__tests__` read this repository's documentation as data and run in these same shards — measured by running all 46 of them under an fs trace, **every** tracked markdown file in the tree is opened by at least one of them. ⇒ for this job the markdown half of the exclusion list is now inert: **any markdown-only pull request runs the shards**. Priced over the 513 first-parent commits available then: 36 reached this stage, 21 already ran, and the widening moves 14 of the remaining 15 from skip to run. The rest of the exclusion list still pays — a non-markdown change under `content/**`, `docs/**` or `apps/site/**` skips as before. On a pull request or a queue build the job then runs `scripts/select-affected-tests.mjs` against the event's base sha and, when it answers `mode=affected`, `vitest run` over the filters it wrote, sharded the same way; a selector that cannot decide means the full suite, never a skip ([#12214](https://github.com/objectstack-ai/objectui/issues/12214)). Otherwise — and always on `push` and `schedule` — `pnpm test --shard=N/12` across a 12-runner matrix with `fail-fast: false`, so every shard reports its own failures. No coverage instrumentation — v8 adds 40–100% overhead. **4 → 8 shards, and the built-artifact pin step moved out of this job entirely, in [#9499](https://github.com/objectstack-ai/objectui/issues/9499).** At four shards this job had grown into its own `timeout-minutes: 20`: measured over the 14 most recent `merge_group` runs and the 14 most recent `pull_request` runs, the longest *succeeding* shard-1 job was 1199 s against the 1200 s ceiling — a one-second margin — and two runs crossed it and were **cancelled**, one of them dequeuing a pull request whose tests had passed, because the merge queue cannot tell `cancelled` from `failure`. The ceiling is **not** raised, no test is skipped and the exclusion list is not widened; the work is spread over twice the runners, and the one step that was never sharded at all is now the `test-dist-pins` job below. **8 → 12 shards in [#12208](https://github.com/objectstack-ai/objectui/issues/12208)** (its first pull request, folded into [#12214](https://github.com/objectstack-ai/objectui/issues/12214)'s): at eight the job was back against the same ceiling — 14.4 min median, 17.4 min p95 and 20.3 min max over the 1,728 shard jobs of one week, measured on that card — and the same three refusals hold: the ceiling is not raised, no test is skipped, the relevance gate is not widened. Both speeds use the same twelve legs. No shard is a required context any more — `test-aggregate` reports for all of them. | Every event: the affected set on pull requests and merge-queue builds, the whole suite on `push` and the hourly `schedule`; steps short-circuit on a PR that changed only ignored paths |
+| `test-dist-pins` | Test (dist pins) | The same decision step as `test` above, `scripts/markdown-test-inputs.mjs` stage included — deliberately verbatim, because this lane used to run whenever that job's gate said run, and a narrower gate here would silently stop running the built-artifact pins on the markdown-only pull requests [#9096](https://github.com/objectstack-ai/objectui/issues/9096) brought into scope. Then `pnpm test:dist` — the built-artifact lane ([#7183](https://github.com/objectstack-ai/objectui/issues/7183)). It delegates to a turbo task scoped to the one package that holds built-artifact pins; that task depends on the package's OWN build (`dependsOn: ["build"]`, not `^build`), so the bundle exists before the pins read it, and then runs the `dist` vitest project, whose pins import a package's BUILT bundle instead of its `src` — a claim the source-aliased suite above is structurally unable to make, since the root config aliases every workspace package to `src`. **Why it is a job and not a step on shard 1** ([#9499](https://github.com/objectstack-ai/objectui/issues/9499)): it was never sharded, so it made shard 1 structurally the longest leg of a matrix bounded by a 20-minute ceiling, and in **both** observed ceiling kills the job died in this step with the test step already green — the tests passed and the check reported `cancelled`. Measured across 28 full CI runs it costs 31–58 s (median ≈53 s); a separate job pays for one more runner and takes the asymmetry out of the matrix without touching a budget. | Every event (the `push` guard went with the shard matrix's in [#12214](https://github.com/objectstack-ai/objectui/issues/12214)); steps short-circuit on a PR that changed only ignored paths |
+| `test-aggregate` | Test | `scripts/check-test-shard-results.mjs` — the **single required test context** ([#9499](https://github.com/objectstack-ai/objectui/issues/9499), director ruling letter C). It `needs` the shard matrix and `test-dist-pins`, and runs `if: always()` so a red, skipped or cancelled shard still produces a verdict here instead of skipping this job — a skipped required context counts as *success* in branch protection, which on the one context that speaks for the whole lane is the failure mode itself. ⛔ It does **not** gate on `needs.test.result`: a matrix job's `needs.<job>.result` is a single rollup over every leg, and a rollup reads `success` when some legs succeeded and the rest were **skipped**, so an aggregator built on that expression is a check reporting success having run nothing — [#8857](https://github.com/objectstack-ai/objectui/issues/8857) and [#3523](https://github.com/objectstack-ai/objectui/issues/3523) in one line of YAML. The gate reads this run's own job list from the Actions API instead (`actions: read`, nothing written) and asserts each shard **by name and by its own conclusion**; `skipped` is not a pass. It fails closed — an unreadable answer is exit 2 and a red context — and refuses any verdict over a job list that does not contain this very job, which is the control that the reading reached the right run at all. The dist-pin job is asserted from `needs` directly, since a non-matrix job's result is its own. **Why one name:** naming the legs made the shard *count* a member of a repository-settings surface no workflow edit can reach — widening the matrix renamed four live required contexts at once. | Every event — on `push` and `schedule` it is the full battery's test verdict |
+| `test-coverage` | Test (coverage shard N/4) | `pnpm test:coverage --reporter=blob --reporter=default --reporter=github-actions --shard=N/4` across a 4-runner matrix with `fail-fast: false`. Each shard writes `.vitest-reports/blob-N-4.json` — raw coverage and test results in one file — and uploads it as an artifact even when the shard is red (vitest deletes `coverage/` on a red run unless `coverage.reportOnFailure` is set, [#5402](https://github.com/objectstack-ai/objectui/issues/5402)). The two reporters after the blob are what keep a red shard *readable*: a CLI `--reporter` replaces the default reporter set rather than adding to it, so `--reporter=blob` on its own ended a failing shard's log at `blob report written to …` with no test name and no assertion text, leaving the download-only artifact as the only copy of the failure ([#9177](https://github.com/objectstack-ai/objectui/issues/9177)); `--reporter=default` restores the log and `--reporter=github-actions` restores the per-test `::error` annotation. The flags are pinned by `scripts/__tests__/coverage-shard-reporter-readability.test.ts`. The configured coverage thresholds are neutralised on the shard legs, because a quarter of the suite judged against a whole-suite threshold is not a defect signal; they are enforced once, on the merged report, by the job below ([#5403](https://github.com/objectstack-ai/objectui/issues/5403)). | **Push and the hourly schedule only** |
+| `coverage-report` | Test (coverage) | Downloads the four blob reports, refuses to continue unless all four arrived, merges them with `pnpm test:coverage --merge-reports` into one complete report — which is where the configured coverage thresholds are enforced, over the whole merged map, the shard legs having overridden them to zero — and publishes that report as the `coverage-report` artifact (kept 7 days, the same as the blobs it is derived from). Its last step runs on every path and states the outcome: the job is **red, with an error annotation**, whenever the gate did not run for the commit — before [#5403](https://github.com/objectstack-ai/objectui/issues/5403) the final step carried the implicit `success()` and was silently skipped by 311 of 373 coverage jobs, which is how four days of a 100%-failing coverage job went unnoticed. A breach of the thresholds is reported *separately* from a lane that never delivered, because the two call for opposite actions. ⛔ It never merges a report from fewer than four shards: a wrong coverage number is worse than a missing one. The Codecov upload this job used to carry was retired by [#5436](https://github.com/objectstack-ai/objectui/issues/5436) — `CODECOV_TOKEN` was never set, so it failed on every push; the trend dashboard and PR coverage comments are gone with it, the gate is not. | **Push and the hourly schedule only** |
 | `e2e` | Build & E2E | Builds the console with `vite build` (`VITE_BASE_PATH=/console/`), verifies the artifact, then `pnpm test:e2e --project=chromium`. On failure it uploads `test-results/` — the screenshots, traces and `error-context.md` Playwright writes for failing specs — as the `e2e-failure-artifacts` upload; the `github` reporter this lane runs on CI writes annotations, so there is no HTML report in it. | Every run; on a PR the steps short-circuit when only ignored paths changed |
-| `docs` | Build Docs | `turbo run build --filter='@object-ui/site'`. On a PR it first diffs against the base and skips the build only when nothing that build consumes changed. ⛔ The path set is **not enumerated here**, deliberately: it is derived rather than curated — from the workspace packages turbo builds on the way to `@object-ui/site`, the root-level inputs `turbo.json` declares for the `build` task, and the workspace manifests, plus the workflow file itself so a change to this gate is validated by the gate — and a path list copied into prose is a stale list the moment the closure moves, which is the class [#8629](https://github.com/objectstack-ai/objectui/issues/8629) and [#7448](https://github.com/objectstack-ai/objectui/issues/7448) each record. `scripts/__tests__/docs-build-trigger.test.ts` re-derives all three populations on every PR and executes the step's own shell against them, so the live answer is the pathspec in the step and a red test is what happens when it stops covering them. Until [#8647](https://github.com/objectstack-ai/objectui/issues/8647) the filter named the site's **output** surface only — the docs content and the site app — while its **input** surface is everything turbo builds before `next build` runs, so a pull request touching only `packages/**` skipped the build and still reported `success`, and a skipped build and a passed build are the same green to every reader downstream. The merge-queue leg always built, so what the filter cost was early detection rather than the guarantee at merge time. Then `scripts/check-doc-expression-carriage.mjs`, which is **report-only**: it censuses every `json` fence on the surface `check:doc-types` walks (`content/docs/**`, every `apps/<app>/docs/**` tree, and the root `README.md` — widened from `content/docs/**` alone in `59a3a233d`) for a `${…}` authored on a key `SchemaRenderer` never evaluates — the class that reached `main` four times under green gates, because `check:doc-types` judges the `type` literal only and `check:doc-snippets` compiles the ts/tsx blocks only ([#7851](https://github.com/objectstack-ai/objectui/issues/7851)). It prints its findings and **exits 0 regardless**, so it can block no merge; it exits 1 only when the instrument itself is broken — a derivation that matched nothing, a missing `@objectstack/spec` artifact, or a failed built-in control — because a check that runs, goes green and looked at nothing is worse than none. Report-only is a ruling, not an oversight: three cards of the class it reports ([#7440](https://github.com/objectstack-ai/objectui/issues/7440), [#7444](https://github.com/objectstack-ai/objectui/issues/7444), [#7838](https://github.com/objectstack-ai/objectui/issues/7838)) are open and each fixes its own sites. It does **not** check docs links any more — that moved to `docs-links.yml` (#3448), because this workflow's `paths-ignore` then hid exactly the docs-only PRs a link check needs to see. #3523 has since removed that filter from the `pull_request` trigger, but the check stays in its own home: `docs-links.yml` still runs where this workflow does not (a docs-only push to `main`), and one gate with one home was the point of #3448. | Every run (build itself conditional) |
+| `docs` | Build Docs | `turbo run build --filter='@object-ui/site'`. On a PR it first diffs against the base and skips the build only when nothing that build consumes changed. ⛔ The path set is **not enumerated here**, deliberately: it is derived rather than curated — from the workspace packages turbo builds on the way to `@object-ui/site`, the root-level inputs `turbo.json` declares for the `build` task, and the workspace manifests, plus the workflow file itself so a change to this gate is validated by the gate — and a path list copied into prose is a stale list the moment the closure moves, which is the class [#8629](https://github.com/objectstack-ai/objectui/issues/8629) and [#7448](https://github.com/objectstack-ai/objectui/issues/7448) each record. `scripts/__tests__/docs-build-trigger.test.ts` re-derives all three populations on every PR and executes the step's own shell against them, so the live answer is the pathspec in the step and a red test is what happens when it stops covering them. Until [#8647](https://github.com/objectstack-ai/objectui/issues/8647) the filter named the site's **output** surface only — the docs content and the site app — while its **input** surface is everything turbo builds before `next build` runs, so a pull request touching only `packages/**` skipped the build and still reported `success`, and a skipped build and a passed build are the same green to every reader downstream. The merge-queue leg always built, so what the filter cost was early detection rather than the guarantee at merge time. Then `scripts/check-doc-expression-carriage.mjs`, which is **report-only**: it censuses every `json` fence on the surface `check:doc-types` walks (`content/docs/**`, every `apps/<app>/docs/**` tree, and the root `README.md` — widened from `content/docs/**` alone in `59a3a233d`) for a `${…}` authored on a key `SchemaRenderer` never evaluates — the class that reached `main` four times under green gates, because `check:doc-types` judges the `type` literal only and `check:doc-snippets` compiles the ts/tsx blocks only ([#7851](https://github.com/objectstack-ai/objectui/issues/7851)). It prints its findings and **exits 0 regardless**, so it can block no merge; it exits 1 only when the instrument itself is broken — a derivation that matched nothing, a missing `@objectstack/spec` artifact, or a failed built-in control — because a check that runs, goes green and looked at nothing is worse than none. Report-only is a ruling, not an oversight: three cards of the class it reports ([#7440](https://github.com/objectstack-ai/objectui/issues/7440), [#7444](https://github.com/objectstack-ai/objectui/issues/7444), [#7838](https://github.com/objectstack-ai/objectui/issues/7838)) are open and each fixes its own sites. It does **not** check docs links any more — that moved to a workflow of its own (#3448), because this workflow's `paths-ignore` then hid exactly the docs-only PRs a link check needs to see — today the Internal Docs Link Check step of `repo-gates.yml` (#12214). #3523 has since removed that filter from the `pull_request` trigger, but the check stays out of this job: `repo-gates.yml` still runs where this workflow does not (a docs-only push to `main`), and one gate with one home was the point of #3448. | Every run (build itself conditional) |
 
 Uses: Node 22.x, pnpm via `corepack`, `actions/cache` over `.turbo/cache`.
 
@@ -304,7 +305,7 @@ first, which is what stops a scanner that recognises nothing from reporting a cl
   path; through a symlink, on the same tree, it exits 0 in silence
   ([#6092](https://github.com/objectstack-ai/objectui/issues/6092)). (Named without its `scripts/`
   path on purpose: this section reads as the `lint` job's gate list, and that script runs in
-  `skills-paths.yml`, so spelling the path here would credit this job with a gate it does not run.)
+  `repo-gates.yml`, so spelling the path here would credit this job with a gate it does not run.)
 - `scripts/check-bash32-floor.mjs` — this repository's own shell must run on bash 3.2, which is what
   macOS ships and what CI never exercises. Under bash 5 a `mapfile`, a `declare -A` or an unguarded
   `$EPOCHSECONDS` in a hand-run script is invisible: the defect *and* its repair both read green,
@@ -316,7 +317,7 @@ first, which is what stops a scanner that recognises nothing from reporting a cl
 - Then `pnpm lint`.
 - Then `scripts/check-vi-mock-override-shape.mjs` — a `vi.mock` factory that overrides a typed
   export must hand back the shape that export declares. Its two siblings run in
-  `vi-mock-specifiers.yml` and judge different properties of the same call sites: whether a relative
+  `repo-gates.yml`'s Inert vi.mock Specifier Check and judge different properties of the same call sites: whether a relative
   specifier resolves, and whether the factory inherits the real module. Neither judges what the
   override is **worth**, and `tsc` never looks — a `vi.mock` factory is untyped, so the compiler
   never compares a stub against the export's type. Measured rather than argued: thirteen
@@ -390,124 +391,6 @@ set here: `objectui check` exits non-zero on parse errors only, while its unknow
 warnings print and leave the exit code alone. This gate neither promotes those warnings to failures
 nor suppresses them from the log — [#5127](https://github.com/objectstack-ai/objectui/issues/5127)
 owns that arm and is open.
-
-## Control Bytes (`control-bytes.yml`)
-
-**Triggers:** Push and PR to `main`/`develop`, plus manual dispatch — with **no path filter at
-all**, which is the point of the workflow. It appears in the checks list as **Control Byte Scan**.
-
-Runs `scripts/check-control-bytes.mjs`, which reads `git ls-files` and rejects raw control
-characters in every tracked **text** file: the C0 range apart from tab, line feed and carriage
-return, plus U+007F. No install, no build — a checkout and one `node` call.
-
-**Why it blocks a merge.** A single raw U+0000 makes grep and ripgrep classify the *entire* file
-as binary: they print `binary file matches` and no matching line, so the file silently drops out
-of code search and out of every grep-based lint. Nothing else catches it — git decides
-binary-ness from the first 8000 bytes only, so a control byte past that offset keeps diffing as
-ordinary text, and review cannot see a character that renders as nothing. objectui had no such
-guard until objectstack#5425, by which time five files had accumulated the defect.
-
-The two byte classes carry different harms and the report says which:
-
-| Byte | Harm | Measured behaviour |
-|---|---|---|
-| U+0000 | Code-search outage | GNU grep 3.11 and ripgrep 14 both refuse to print matching lines |
-| Every other control byte | Invisible, unreviewable literal | Both tools print the line normally |
-
-Covering only U+0000 would reproduce a known miss: objectstack#5140 shipped a NUL *and* a U+0001
-fourteen bytes away, and the NUL-only scanner reported OK on the second one (objectstack#5157).
-
-**Why it is a separate workflow.** `ci.yml` and `lint.yml` used to list `'**/*.md'`, `content/**`,
-`docs/**` and `.changeset/**` under `paths-ignore` on *every* trigger, and GitHub has no per-job
-path filter. Markdown
-is exactly the carrier the worst instance of this bug used — objectstack#4890 was a raw NUL in a
-`.claude/` skill file, emitted by the PR that was writing the rule forbidding it, leaving the agent
-instructions unfindable by `grep -r` with no signal that anything was missing. A path-filtered gate
-could not have seen that PR. [#3523](https://github.com/objectstack-ai/objectui/issues/3523) has since taken that filter off their
-`pull_request` triggers, so a markdown-only PR does start them now — but their jobs short-circuit
-to nothing on such a change, and both keep the filter on `push`. This gate stays where it is, and
-its unfiltered trigger set is why it is one of only two contexts that audit found safe to make
-required today. `scripts/__tests__/check-control-bytes.test.ts` fails if a `paths` or
-`paths-ignore` key is ever added here.
-
-**If it fails:** write the escape sequence (backslash, lowercase `u`, four zeroes) instead of the
-byte — the resulting string is byte-identical at runtime. Better still, if the byte was only ever
-"a character the data cannot contain" (a join/split separator, a sentinel), use something a reader
-can verify: a newline, a comma, or `JSON.stringify`, which needs no impossible character at all.
-When writing *about* these bytes in prose or in a tool payload, name them as `U+0000` — a backslash
-escape typed into an agent's tool payload gets decoded into the real byte before it reaches disk,
-which is how two of the five incidents in this family happened.
-
-**Known pre-existing offenders.** `KNOWN_OFFENDERS` in the script baselines the files that already
-carried a control byte when the gate landed, so it could be switched on as a ratchet. It is not a
-skip-list: the scan fails on an entry whose file has been cleaned or deleted, so a fix that forgets
-to remove its entry is as red as a new offender. Entries carry the issue tracking their removal
-(objectstack#5450) and the map is expected to reach empty and stay there.
-
-## Action Ref Convention (`action-ref-convention.yml`)
-
-**Triggers:** Push and PR to `main`/`develop`, merge-queue builds, plus manual dispatch — with **no
-path filter**, for the same reason `control-bytes.yml` has none: the population this gate scans *is*
-`.github/workflows/`, and a change touching only that directory runs nothing expensive in `ci.yml`
-or `lint.yml`. It appears in the checks list as **Action Ref Convention**.
-
-Runs `scripts/check-action-ref-convention.mjs` — a checkout and one `node` call, no install.
-
-### The convention
-
-**Every `uses:` in `.github/workflows/**` is written as a floating major tag, `owner/action@vN`.**
-
-**An exception is marked by an entry in `DECLARED_EXCEPTIONS`** in that script, carrying the
-workflow file, the action path, the issue that owns the decision, and a real reason. That is the
-only form an exception takes. A trailing `# v9.0.0`-style comment beside a ref is a version *hint*,
-not a reason, and the gate does not read it as one.
-
-### Why it exists — the finding is the sole instance, not the pinning
-
-[objectui#8465](https://github.com/objectstack-ai/objectui/issues/8465). There were 13 distinct
-action references in this directory. Exactly **one** was spelled differently from the other twelve —
-a commit SHA on `actions/stale` — and it was the only reference in the repository that had **never
-resolved**: 236 scheduled runs of the stale-issues workflow since 2026-01-16, **0 successes**, every
-one failing in `Set up job`, unnoticed for eight months because nothing downstream consumes that
-job. The broken reference itself was
-[objectui#8126](https://github.com/objectstack-ai/objectui/issues/8126).
-
-That workflow no longer exists. [objectui#8548](https://github.com/objectstack-ai/objectui/issues/8548)
-retired it under enforce-or-remove — a declared automation with zero successes, zero consumers and no
-external authors on the open board is removed rather than repaired — and #8126 closed with it. The
-`DECLARED_EXCEPTIONS` entry that had covered its SHA pin was deleted in the same commit: an entry
-matching nothing is red under the second rule below, so a deletion that left it behind would have
-reddened this gate on `main` for every pull request.
-
-This is **not** an argument that SHA pinning is wrong — it is normally the *more* secure spelling and
-supply-chain guidance recommends it. The failure was the *shape*: one ref written in a form nothing
-else in the tree used, with no convention that would have made the odd one out visible and nothing
-verifying it. A floating tag that stops resolving is loud on the next run of every workflow that uses
-it; a lone off-convention ref that never resolved is silent for as long as nobody happens to look.
-
-So the default is the floating major tag because that is what the tree already was — 12 of 13, and
-the repository's one deliberately reasoned per-ref pin, `changesets/action@v1`, is itself a tag (held
-there by `scripts/__tests__/changeset-release-action-ref-pin.test.ts`). Declaring it moved no
-reference and closed no door. **Do not read it as a ruling against SHA pinning, and do not "unify"
-this directory in either direction under cover of this gate** — changing the repository's pinning
-posture is a supply-chain decision and belongs on its own card.
-
-### What it does not do
-
-It checks **spelling, not resolvability**. A SHA that points at no commit and one that points at a
-real commit are indistinguishable without the network. That is deliberate: what failed in #8465 was
-that the odd ref had no reason attached and no second instance to compare against, and both of those
-are checkable offline.
-
-### The three ways it goes red
-
-1. An off-convention ref with no entry in `DECLARED_EXCEPTIONS`.
-2. An entry in `DECLARED_EXCEPTIONS` that matches nothing any more — the same staleness check
-   `KNOWN_OFFENDERS` and `DOCUMENTATION_EXEMPT` carry elsewhere in this repository, because an escape
-   hatch nobody removes is how a baseline turns into a permanent skip-list.
-3. Its own census collapsing. A scan that stops finding references reports an empty offender list,
-   which renders exactly like a clean repository, so the floors and a positive control
-   (`actions/checkout` must be found) are asserted in the same run as the counts.
 
 ## Performance Budget (`performance-budget.yml`)
 
@@ -668,11 +551,165 @@ text prescribed (objectui#11073, the maintainer's ruling on objectui#11111): `pl
 declares the whole family at exactly 1.7.3 and no longer imports that export, so holding 1.7.2
 on it made the lane test a combination nobody ships, and the seeded sign-in never answered.
 
-## Internal Docs Links (`docs-links.yml`)
+## Repo Gates (`repo-gates.yml`)
+
+**Triggers:** Push and PR to `main`/`develop`, merge-queue builds, plus manual dispatch — with **no
+path filter at all**. **Appears as:** Repo Gates.
+
+One job, one checkout, one setup, fifteen checks
+([#12214](https://github.com/objectstack-ai/objectui/issues/12214), the two-speed doctrine of
+[objectstack#22998](https://github.com/objectstack-ai/objectstack/issues/22998)). Each check below
+used to be a workflow of its own, paying its own runner, checkout and Node setup on every pull
+request, push and queue build, to run a gate that mostly takes seconds. They were folded into one
+job, and nothing was weakened in the fold:
+
+- every check runs the same command on the same events, with no path filter, as it did alone;
+- every check keeps its name — each step is named `<check> — <step>`, where `<check>` is the job
+  name it used to report under — so a red **Repo Gates** context names the gate in its step list;
+- every gate step runs `if: ${{ !cancelled() }}` (or on the install or build it needs), so one red
+  gate never hides another.
+
+**What moved:** the check runs. None of the fifteen was a required context of the merge queue —
+`scripts/check-required-check-set.mjs` reads the live set — which is also why `changeset-presence.yml`
+(**Changeset Declaration**), `spec-main-shape-gate.yml` and `governed-surface-guard.yml` were not
+folded: their contexts are required, and a step inside a job is not a check run. The one in-tree
+reader of the old names, `REQUIRED_CONTEXTS` in `scripts/dependabot-merge-gate.mjs`, now waits for
+the one context this job produces.
+
+**The order is install-free gates, then the install, then the build.** The install-free gates read
+the checkout with `node:fs` and nothing else, and run *before* `pnpm install` — which is what keeps
+them inside the population `scripts/check-pre-install-import-graph.mjs` derives and holds to an
+import graph free of `node_modules`. The three gates that judge the *published* type surface share
+one build: `turbo run build` over every package under `packages/` (the README export check reads
+each package's declared type entry), in union with the closures the two snippet gates derive with
+`--build-filter`. ⛔ It is never an unfiltered workspace build, and a derived filter that names no
+package is refused at the step that derives it.
+
+The sections below are the fifteen gates, each under the name its step carries.
+
+### Control Bytes — the Control Byte Scan step
 
 **Triggers:** Push and PR to `main`/`develop`, plus manual dispatch — with **no path filter at
-all**, which is the point of the workflow. It appears in the checks list as **Internal Docs Link
-Check**.
+all**, which is the point of the workflow. It runs as the **Control Byte Scan** step of the **Repo Gates** job.
+
+Runs `scripts/check-control-bytes.mjs`, which reads `git ls-files` and rejects raw control
+characters in every tracked **text** file: the C0 range apart from tab, line feed and carriage
+return, plus U+007F. No install, no build — a checkout and one `node` call.
+
+**Why it blocks a merge.** A single raw U+0000 makes grep and ripgrep classify the *entire* file
+as binary: they print `binary file matches` and no matching line, so the file silently drops out
+of code search and out of every grep-based lint. Nothing else catches it — git decides
+binary-ness from the first 8000 bytes only, so a control byte past that offset keeps diffing as
+ordinary text, and review cannot see a character that renders as nothing. objectui had no such
+guard until objectstack#5425, by which time five files had accumulated the defect.
+
+The two byte classes carry different harms and the report says which:
+
+| Byte | Harm | Measured behaviour |
+|---|---|---|
+| U+0000 | Code-search outage | GNU grep 3.11 and ripgrep 14 both refuse to print matching lines |
+| Every other control byte | Invisible, unreviewable literal | Both tools print the line normally |
+
+Covering only U+0000 would reproduce a known miss: objectstack#5140 shipped a NUL *and* a U+0001
+fourteen bytes away, and the NUL-only scanner reported OK on the second one (objectstack#5157).
+
+**Why it is a separate workflow.** `ci.yml` and `lint.yml` used to list `'**/*.md'`, `content/**`,
+`docs/**` and `.changeset/**` under `paths-ignore` on *every* trigger, and GitHub has no per-job
+path filter. Markdown
+is exactly the carrier the worst instance of this bug used — objectstack#4890 was a raw NUL in a
+`.claude/` skill file, emitted by the PR that was writing the rule forbidding it, leaving the agent
+instructions unfindable by `grep -r` with no signal that anything was missing. A path-filtered gate
+could not have seen that PR. [#3523](https://github.com/objectstack-ai/objectui/issues/3523) has since taken that filter off their
+`pull_request` triggers, so a markdown-only PR does start them now — but their jobs short-circuit
+to nothing on such a change, and both keep the filter on `push`. This gate stays where it is, and
+its unfiltered trigger set is why it is one of only two contexts that audit found safe to make
+required today. `scripts/__tests__/check-control-bytes.test.ts` fails if a `paths` or
+`paths-ignore` key is ever added here.
+
+**If it fails:** write the escape sequence (backslash, lowercase `u`, four zeroes) instead of the
+byte — the resulting string is byte-identical at runtime. Better still, if the byte was only ever
+"a character the data cannot contain" (a join/split separator, a sentinel), use something a reader
+can verify: a newline, a comma, or `JSON.stringify`, which needs no impossible character at all.
+When writing *about* these bytes in prose or in a tool payload, name them as `U+0000` — a backslash
+escape typed into an agent's tool payload gets decoded into the real byte before it reaches disk,
+which is how two of the five incidents in this family happened.
+
+**Known pre-existing offenders.** `KNOWN_OFFENDERS` in the script baselines the files that already
+carried a control byte when the gate landed, so it could be switched on as a ratchet. It is not a
+skip-list: the scan fails on an entry whose file has been cleaned or deleted, so a fix that forgets
+to remove its entry is as red as a new offender. Entries carry the issue tracking their removal
+(objectstack#5450) and the map is expected to reach empty and stay there.
+
+### Action Ref Convention — the Action Ref Convention step
+
+**Triggers:** Push and PR to `main`/`develop`, merge-queue builds, plus manual dispatch — with **no
+path filter**, for the same reason the Control Byte Scan has none: the population this gate scans *is*
+`.github/workflows/`, and a change touching only that directory runs nothing expensive in `ci.yml`
+or `lint.yml`. It runs as the **Action Ref Convention** step of the **Repo Gates** job.
+
+Runs `scripts/check-action-ref-convention.mjs` — a checkout and one `node` call, no install.
+
+#### The convention
+
+**Every `uses:` in `.github/workflows/**` is written as a floating major tag, `owner/action@vN`.**
+
+**An exception is marked by an entry in `DECLARED_EXCEPTIONS`** in that script, carrying the
+workflow file, the action path, the issue that owns the decision, and a real reason. That is the
+only form an exception takes. A trailing `# v9.0.0`-style comment beside a ref is a version *hint*,
+not a reason, and the gate does not read it as one.
+
+#### Why it exists — the finding is the sole instance, not the pinning
+
+[objectui#8465](https://github.com/objectstack-ai/objectui/issues/8465). There were 13 distinct
+action references in this directory. Exactly **one** was spelled differently from the other twelve —
+a commit SHA on `actions/stale` — and it was the only reference in the repository that had **never
+resolved**: 236 scheduled runs of the stale-issues workflow since 2026-01-16, **0 successes**, every
+one failing in `Set up job`, unnoticed for eight months because nothing downstream consumes that
+job. The broken reference itself was
+[objectui#8126](https://github.com/objectstack-ai/objectui/issues/8126).
+
+That workflow no longer exists. [objectui#8548](https://github.com/objectstack-ai/objectui/issues/8548)
+retired it under enforce-or-remove — a declared automation with zero successes, zero consumers and no
+external authors on the open board is removed rather than repaired — and #8126 closed with it. The
+`DECLARED_EXCEPTIONS` entry that had covered its SHA pin was deleted in the same commit: an entry
+matching nothing is red under the second rule below, so a deletion that left it behind would have
+reddened this gate on `main` for every pull request.
+
+This is **not** an argument that SHA pinning is wrong — it is normally the *more* secure spelling and
+supply-chain guidance recommends it. The failure was the *shape*: one ref written in a form nothing
+else in the tree used, with no convention that would have made the odd one out visible and nothing
+verifying it. A floating tag that stops resolving is loud on the next run of every workflow that uses
+it; a lone off-convention ref that never resolved is silent for as long as nobody happens to look.
+
+So the default is the floating major tag because that is what the tree already was — 12 of 13, and
+the repository's one deliberately reasoned per-ref pin, `changesets/action@v1`, is itself a tag (held
+there by `scripts/__tests__/changeset-release-action-ref-pin.test.ts`). Declaring it moved no
+reference and closed no door. **Do not read it as a ruling against SHA pinning, and do not "unify"
+this directory in either direction under cover of this gate** — changing the repository's pinning
+posture is a supply-chain decision and belongs on its own card.
+
+#### What it does not do
+
+It checks **spelling, not resolvability**. A SHA that points at no commit and one that points at a
+real commit are indistinguishable without the network. That is deliberate: what failed in #8465 was
+that the odd ref had no reason attached and no second instance to compare against, and both of those
+are checkable offline.
+
+#### The three ways it goes red
+
+1. An off-convention ref with no entry in `DECLARED_EXCEPTIONS`.
+2. An entry in `DECLARED_EXCEPTIONS` that matches nothing any more — the same staleness check
+   `KNOWN_OFFENDERS` and `DOCUMENTATION_EXEMPT` carry elsewhere in this repository, because an escape
+   hatch nobody removes is how a baseline turns into a permanent skip-list.
+3. Its own census collapsing. A scan that stops finding references reports an empty offender list,
+   which renders exactly like a clean repository, so the floors and a positive control
+   (`actions/checkout` must be found) are asserted in the same run as the counts.
+
+### Internal Docs Links — the Internal Docs Link Check step
+
+**Triggers:** Push and PR to `main`/`develop`, plus manual dispatch — with **no path filter at
+all**, which is the point of the workflow. It runs as the **Internal Docs Link
+Check** step of the **Repo Gates** job.
 
 Runs `scripts/check-doc-links.mjs`, which walks every `.md` / `.mdx` file in the surfaces listed in
 its `SCAN_ROOTS` (17 rows as of objectui#6280) — `content/docs/`, `examples/`, the internal `docs/`
@@ -762,8 +799,8 @@ in CI sees it: the site build succeeds with a dead link in it. The script itself
 gate — it existed, worked, and was wired to nothing under `.github/`, so it had never run in CI at
 all, and `main` sat with a broken link it would have caught (objectui#3213, objectui#3292).
 
-**Why it is a separate workflow.** This is the second instance of the lesson `control-bytes.yml`
-records, and it was found by the PR that first put this check into CI. That PR added it as a step
+**Why it was a separate workflow, and is a `repo-gates.yml` step rather than a `ci.yml` one.** This
+is the second instance of the lesson the Control Byte Scan records, and it was found by the PR that first put this check into CI. That PR added it as a step
 in `ci.yml`'s `docs` job — where it could never see the PRs that matter. `ci.yml` *then* listed
 `'**/*.md'`, `content/**`, `docs/**` and `apps/site/**` under the `paths-ignore` of **both** its
 triggers, GitHub's `paths-ignore` skips the *whole workflow* when every changed file matches, and
@@ -789,12 +826,12 @@ page it points at has moved or been renamed — fix the link, or restore the tar
 checked as *routes*, so `/docs/guide/foo` is what belongs in the markdown, not
 `content/docs/guide/foo.md`. Run it locally with `pnpm docs:check-links`.
 
-## Skill Guide Paths (`skills-paths.yml`)
+### Skill Guide Paths — the Skill Guide Path Check step
 
 **Triggers:** Push and PR to `main`/`develop`, merge-queue builds, plus manual dispatch — with **no
 path filter at all**, for the same reason as the two sections above: this gate's entire scan surface
-is markdown, and `ci.yml` still lists `'**/*.md'` under the `paths-ignore` of its `push` trigger. It
-appears in the checks list as **Skill Guide Path Check**.
+is markdown, and `ci.yml` still lists `'**/*.md'` under the `paths-ignore` of its `push` trigger. It runs as the **Skill Guide Path Check** step of the **Repo Gates**
+job.
 
 Runs `scripts/check-skills-paths.mjs`, which reads every markdown file under `skills/` and
 `.claude/skills/` and asks, of each in-repo path the prose states inside a backtick code span,
@@ -845,12 +882,12 @@ the sentence's whole point is that the path does not exist. Run it locally with
 `pnpm check:skills-paths`, or `node scripts/check-skills-paths.mjs --list` to see every candidate and
 how it was classified.
 
-## Skill Examples (`skill-examples.yml`)
+### Skill Examples — the Skill Example Check step
 
 **Triggers:** Push and PR to `main`/`develop`, merge-queue builds, plus manual dispatch — with **no
 path filter at all**, for the same reason as the section above: the scan surface is markdown under
 `skills/` and `.claude/skills/`, and both `ci.yml` and `lint.yml` list `'**/*.md'` under the
-`paths-ignore` of their `push` trigger. It appears in the checks list as **Skill Example Check**.
+`paths-ignore` of their `push` trigger. It runs as the **Skill Example Check** step of the **Repo Gates** job.
 
 Runs `scripts/check-skill-examples.mjs`. Where the section above checks the *paths* a guide states in
 prose, this one checks the *worked examples* themselves: a marked `ts` / `tsx` / `typescript` fence
@@ -914,11 +951,12 @@ the run. A lenient rule would opt in nothing while its author believed otherwise
 repository's recurring "looks like enforcement, isn't" class. A marker shown as *example text* inside
 another fence is neither an opt-in nor an orphan: it is not at top level, so it claims nothing.
 
-**It builds, unlike `skills-paths.yml`:** the criterion is the *published* type surface, so the
-packages the marked fences import must exist as `dist/*.d.ts` first. The job therefore runs
-`turbo run build`, filtered to exactly those packages, and the filter is emitted by the gate itself
-(`node scripts/check-skill-examples.mjs --build-filter`) rather than hand-maintained in the workflow,
-so it grows only as the marked population grows.
+**It builds, unlike the Skill Guide Path Check:** the criterion is the *published* type surface, so the
+packages the marked fences import must exist as `dist/*.d.ts` first. The filter is emitted by the
+gate itself (`node scripts/check-skill-examples.mjs --build-filter`) rather than hand-maintained in
+the workflow, so it grows only as the marked population grows; the job's one `turbo run build` takes
+it in union with every package under `packages/`, which the README export check needs anyway
+([#12214](https://github.com/objectstack-ai/objectui/issues/12214)).
 
 **Three exit codes, not two.** `0` = every marked example held up. `1` = the gate ran and found
 errors — a verdict about a guide. `2` = the gate **could not run**: the packages are unbuilt or typed
@@ -937,18 +975,17 @@ silent unmark, exactly the move this floor exists to catch. Run it locally with
 `pnpm check:skill-examples`, `node scripts/check-skill-examples.mjs --list` to see every candidate
 fence and its verdict, and `--measure` to judge every candidate whether marked or not.
 
-## Skill Eval Tokens (`skill-eval-tokens.yml`)
+### Skill Eval Tokens — the Skill Eval Token Check step
 
 **Triggers:** Push and PR to `main`/`develop`, merge-queue builds, plus manual dispatch — with **no
 path filter at all**, for the same reason as the two sections above: the whole input is the markdown
-and JSON under `skills/`, which `ci.yml` and `lint.yml` structurally cannot see. It appears in the
-checks list as **Skill Eval Token Check**.
+and JSON under `skills/`, which `ci.yml` and `lint.yml` structurally cannot see. It runs as the **Skill Eval Token Check** step of the **Repo Gates** job.
 
 Runs `scripts/check-skill-eval-tokens.mjs`. The two sections above check the *paths* a guide states
 and the *worked examples* it ships; this one checks the **evals** — the `skills/<bundle>/evals/*.json`
 files that grade an answering agent. Every `must_contain` token must occur as a **whole token** in the
 markdown of its own skill bundle. Unlike its sibling it does **not** install or build: it reads text
-out of the checkout, so it is a checkout plus two `node` calls, the shape `skills-paths.yml` uses.
+out of the checkout, so it is a checkout plus two `node` calls, the shape the Skill Guide Path Check uses.
 
 **Why it was needed:** nothing checked that a token an eval grades on is something the skill actually
 teaches, so an eval could require a word the guides never say and grade nothing forever. The class had
@@ -994,14 +1031,14 @@ it stays visible, and a row whose red goes away fails as stale until its line is
 locally with `pnpm check:skill-eval-tokens`, `--list` for every row under both oracles, and `--measure`
 for the two red lists side by side.
 
-## Documented Component Types (`doc-component-types.yml`)
+### Documented Component Types — the Doc Component Type Check step
 
 **Triggers:** Push and PR to `main`/`develop`, merge-queue builds, plus manual dispatch — with **no
 path filter at all**, and here the reason is sharper than in the three sections above. `ci.yml`'s
 `type-check` job decides whether to run its gates with a `git diff` that *excludes* `content/**`, so
 a pull request editing only `content/docs/**.mdx` reports that context and runs nothing inside it —
 and a docs-only pull request is exactly the change that introduces the defect this gate exists for.
-It appears in the checks list as **Doc Component Type Check**.
+It runs as the **Doc Component Type Check** step of the **Repo Gates** job.
 
 Runs `scripts/check-doc-component-types.mjs`, which reads every fenced code block under
 `content/docs/**` and asks, of each `type` string literal in one, whether the repository registers a
@@ -1058,19 +1095,19 @@ spell the registered key (`grep -rn "ComponentRegistry.register(" packages/` for
 if the value belongs to another vocabulary — add the declaration with its reason. Run it locally with
 `pnpm check:doc-types`.
 
-## Documented Snippet Types (`doc-snippet-types.yml`)
+### Documented Snippet Types — the Doc Snippet Type Check step
 
 **Triggers:** Push and PR to `main`/`develop`, merge-queue builds, plus manual dispatch — with **no
 path filter at all**, for the same reason as the section above: the change that breaks a
 documentation snippet is a docs-only change, and that is exactly the shape `ci.yml`'s expensive jobs
-short-circuit. It appears in the checks list as **Doc Snippet Type Check**.
+short-circuit. It runs as the **Doc Snippet Type Check** step of the **Repo Gates** job.
 
 Runs `scripts/check-doc-snippet-types.mjs`, which extracts every fenced `ts` / `tsx` block from the
 documents it covers and compiles them `--strict` against each package's **built** `dist/*.d.ts` — the
 surface a reader who copies the snippet actually imports.
 
 **The second dimension, and why it is separate from the first.**
-`doc-component-types.yml` answers whether a `type` literal names a registered component. It says so
+The Doc Component Type Check answers whether a `type` literal names a registered component. It says so
 in its own header, and [#5138](https://github.com/objectstack-ai/objectui/issues/5138) measured what
 the gap beside it allowed: both plugin-report documents taught the pre-9.0 report form for the whole
 interval after the ADR-0021 cutover, and every gate was green on that prose — because the `type`
@@ -1083,8 +1120,10 @@ beside them. The harness that catches those had by then been hand-rolled three t
 rather than new capability.
 
 **Why this one builds.** Its criterion is the *published* type surface, so the packages the covered
-snippets import must exist as `dist/*.d.ts` first. The build is filtered to exactly those packages,
-and the filter is emitted by the gate itself (`node scripts/check-doc-snippet-types.mjs
+snippets import must exist as `dist/*.d.ts` first. Since
+[#12214](https://github.com/objectstack-ai/objectui/issues/12214) that closure is built in union with
+every package under `packages/`, in the one build the README export check needs anyway, and the
+filter is emitted by the gate itself (`node scripts/check-doc-snippet-types.mjs
 --build-filter`) rather than hand-maintained in the workflow — so it can never drift from what the
 documents import, and the cost grows only when coverage grows. Each emitted filter carries pnpm and
 turbo's dependency-closure suffix (`--filter=@object-ui/react...`), because the packages the
@@ -1158,7 +1197,7 @@ at the harness. Either fix what the snippet teaches, or — if the block is genu
 it with a reason. Run it locally with `pnpm check:doc-snippets` (after building the packages it
 names: `pnpm exec turbo run build $(node scripts/check-doc-snippet-types.mjs --build-filter)`).
 
-### JSDoc `@example` Types — the second gate in this job (`doc-snippet-types.yml`)
+#### JSDoc `@example` Types — the second gate in this job
 
 The same job's second blocking step runs `scripts/check-doc-example-types.mjs`
 (`pnpm check:doc-examples`). It asks the snippet gate's question of a different corpus: every fenced
@@ -1180,7 +1219,7 @@ copying it out of an IDE hover got TS2322, and nothing in this repository had ev
 **Why it shares this job rather than getting a workflow.** It is a *sibling* of the gate above, not a
 fork: it imports that script's compiler host, its built-`.d.ts` resolution and every one of its
 controls, and reuses its `analyze()` wholesale — so an `@example` block is judged by exactly the
-program a documentation fence is judged by, and its precondition is the very filtered build this job
+program a documentation fence is judged by, and its precondition is the very build this job
 already pays for. A workflow of its own would install the workspace and rebuild the same closure a
 second time for no additional coverage; and it could not even derive that filter without naming
 `scripts/check-doc-snippet-types.mjs` in a second workflow file, which that gate's own pin
@@ -1213,7 +1252,7 @@ example, or declare it. Run it locally exactly as this job does: build first
 (`pnpm exec turbo run build $(node scripts/check-doc-snippet-types.mjs --build-filter)`), then
 `pnpm check:doc-examples`; the gate prints that same recipe when it exits `2`.
 
-### JSON Node Documents — the third gate in this job (`doc-snippet-types.yml`)
+#### JSON Node Documents — the third gate in this job
 
 The job's **last** step runs `scripts/check-doc-json-fences.mjs` (`pnpm check:doc-json`). The two
 gates above read `ts` / `tsx` only, so a `json` fence was checked by nothing:
@@ -1265,11 +1304,11 @@ key by name and path, anything else by the face's own message. Remove the key, o
 the declared key its renderer reads; declare a deliberate fragment. Run it locally with
 `pnpm --filter @object-ui/types build`, then `pnpm check:doc-json`.
 
-## Fence Languages (`doc-fence-languages.yml`)
+### Fence Languages — the Doc Fence Language Check step
 
 **Triggers:** Push and PR to `main`/`develop`, merge-queue builds, plus manual dispatch — **no path
-filter**, for the same reason as the two sections above. It appears in the checks list as **Doc Fence
-Language Check**.
+filter**, for the same reason as the two sections above. It runs as the **Doc Fence
+Language Check** step of the **Repo Gates** job.
 
 Runs `scripts/check-doc-fence-languages.mjs`. It answers the question the gate above cannot ask about
 itself: *is every TypeScript block in the documentation actually fenced as TypeScript?*
@@ -1313,13 +1352,13 @@ which is why the probe runs before the verdict.
 block ```ts (or ```tsx) and fix whatever `check-doc-snippets` then reports, then lower the file's
 number. Run it locally with `pnpm check:doc-fences`; it needs no install and no build.
 
-## Documented Example Ids (`doc-example-ids.yml`)
+### Documented Example Ids — the Doc Example Id Check step
 
 **Triggers:** Push and PR to `main`/`develop`, merge-queue builds, plus manual dispatch — with **no
 path filter at all**, for the same reason as the three doc sections above: the change that
 introduces this defect is an id typed into an MDX page, and a docs-only pull request is exactly the
-shape `ci.yml`'s expensive jobs short-circuit. It appears in the checks list as **Doc Example Id
-Check**.
+shape `ci.yml`'s expensive jobs short-circuit. It runs as the **Doc Example Id
+Check** step of the **Repo Gates** job.
 
 Runs `scripts/check-doc-example-ids.mjs`, which walks every `.mdx` and `.md` page under
 `content/docs/**`, reads the `id` prop off each `SchemaExample` tag, and resolves it against the ids
@@ -1360,13 +1399,13 @@ the schema under `examples/schema-catalog/src/schemas/` and regenerate the index
 do not add a registry entry just to make a reference resolve. Run it locally with
 `pnpm check:doc-example-ids`; it needs no install and no build.
 
-## Pre-Install Import Graphs (`pre-install-import-graph.yml`)
+### Pre-Install Import Graphs — the Pre-Install Import Graph Check step
 
 **Triggers:** Push and PR to `main`/`develop`, merge-queue builds, plus manual dispatch — with **no
 path filter at all**. What this gate judges is the arrangement of the workflows themselves, so its
 input is `.github/workflows/**` plus the `scripts/` files those workflows name, and the change most
-likely to break it is a workflow edit. It appears in the checks list as **Pre-Install Import Graph
-Check**.
+likely to break it is a workflow edit. It runs as the **Pre-Install Import Graph
+Check** step of the **Repo Gates** job.
 
 Runs `scripts/check-pre-install-import-graph.mjs`. Several gates in this repository deliberately run
 **before any `pnpm install`** — that is what lets them run unfiltered on every pull request shape for
@@ -1418,23 +1457,24 @@ the import is deliberately *not* this gate's job: either drop the package, or mo
 the derived population and every module walked, or `--self-test` to exercise the parser and the walk
 against fixtures.
 
-## Inert vi.mock Specifiers (`vi-mock-specifiers.yml`)
+### Inert vi.mock Specifiers — the Inert vi.mock Specifier Check step
 
 **Triggers:** Push and PR to `main`/`develop`, merge-queue builds, plus manual dispatch — with **no
 path filter at all**. A module mock can be written into any package in any shape of pull request, and
 the scan costs a checkout plus one `node` call, so there is nothing to gain by hiding it behind a
-filter. It appears in the checks list as **Inert vi.mock Specifier Check**.
+filter. It runs as the **Inert vi.mock Specifier Check** step of the **Repo Gates** job.
 
 **Two gates run here, over one population, and both block a merge.**
 `scripts/check-vi-mock-specifiers.mjs` and `scripts/check-vi-mock-inherit.mjs` are steps of the same
-job, so either one failing fails the check — and `dependabot-merge-gate.mjs` classifies **Inert
-vi.mock Specifier Check** as a required context. (Named without its `scripts/` path on purpose: this
+job, so either one failing fails it — and `dependabot-merge-gate.mjs` classifies **Repo Gates**, the
+context both report through since [#12214](https://github.com/objectstack-ai/objectui/issues/12214),
+as a required context. (Named without its `scripts/` path on purpose: this
 section reads as this job's gate list, and that script runs in `dependabot-auto-merge.yml`, so
 spelling the path here would credit this job with a gate it does not run.) They read the same
 `vi.mock` call sites deliberately: a population that drifted between them would be a hole neither
-one reports, which is why they share a workflow instead of each registering a context of its own.
-The workflow `name:` and the job `name:` are therefore broader than the older of the two gates, and
-are left that way on purpose — renaming a required context silently un-requires it.
+one reports, which is why they shared a workflow instead of each registering a context of its own;
+both steps carry the **Inert vi.mock Specifier Check** name, broader than the older of the two gates,
+because that was the context name they reported under before the fold.
 
 **The specifier gate.** `scripts/check-vi-mock-specifiers.mjs` walks every tracked JS/TS-family
 source file, finds each `vi.mock` / `vi.doMock` call site, and resolves the **relative** specifiers
@@ -1496,12 +1536,12 @@ test and checking that the suite goes red. The inherit gate names each frozen ca
 `pnpm check:vi-mock-specifiers` and `pnpm check:vi-mock-inherit`, either with `--list` after the
 script path to see every call site the walk found. Neither needs an install or a build.
 
-## Shell Escape Residue (`shell-escape-residue.yml`)
+### Shell Escape Residue — the Shell Escape Residue Scan step
 
 **Triggers:** Push and PR to `main`/`develop`, merge-queue builds, plus manual dispatch — with **no
 path filter at all**. The scan surface is markdown that any shape of pull request can touch, and a
-markdown-only change is exactly the shape `ci.yml` and `lint.yml` skip their expensive steps on. It
-appears in the checks list as **Shell Escape Residue Scan**.
+markdown-only change is exactly the shape `ci.yml` and `lint.yml` skip their expensive steps on. It runs as the **Shell Escape Residue Scan** step of the **Repo Gates**
+job.
 
 Runs `scripts/check-shell-escape-residue.mjs`. It walks `AGENTS.md`, `CLAUDE.md`, every `.md`/`.mdx`
 under `skills/`, every one under `.claude/skills/` and every one under `content/docs/`, and fails when
@@ -1575,10 +1615,10 @@ request. A
 finding under `content/docs/**` is an ordinary docs fix. Run it locally with
 `pnpm check:shell-escape-residue`, or `node scripts/check-shell-escape-residue.mjs --list` to see the
 per-root census. It needs no install and no build.
-## README Exports (`readme-exports.yml`)
+### README Exports — the README Export Check step
 
 **Triggers:** Push and PR to `main`/`develop`, merge-queue builds, plus manual dispatch — with **no
-path filter at all**. It appears in the checks list as **README Export Check**.
+path filter at all**. It runs as the **README Export Check** step of the **Repo Gates** job.
 
 The absent filter is the point. The two edits that introduce this drift are a README change and a
 source change that renames or drops an export, and `ci.yml` structurally cannot see the first: every
@@ -1652,14 +1692,14 @@ that card the same state was an uncaught `TypeError` in the row formatter, which
 no row past the first unjudgeable declaration, and left exit 1, indistinguishable from the
 fabricated-name failure the gate exists to report.
 
-## Docs Route Eager Closure (`docs-route-eager-closure.yml`)
+### Docs Route Eager Closure — the Docs Route Eager Closure Check step
 
 **Triggers:** Push and PR to `main`/`develop`, merge-queue builds, plus manual dispatch — with **no
-path filter at all** (the reason is in the [inventory](#workflow-inventory) bullets above). It
-appears in the checks list as **Docs Route Eager Closure Check**, and `REQUIRED_CONTEXTS` in
-`scripts/dependabot-merge-gate.mjs` declares that context blocking — which is also what puts this
-workflow inside the derived `merge_group` floor, because a required check that never reports on a
-queue build does not fail it, it stalls it for the ruleset's 60 minutes.
+path filter at all** (the reason is in the [inventory](#workflow-inventory) bullets above). It runs as the **Docs Route Eager Closure Check** step of the **Repo Gates**
+job, and `REQUIRED_CONTEXTS` in
+`scripts/dependabot-merge-gate.mjs` declares that job's context blocking — which is also what puts
+`repo-gates.yml` inside the derived `merge_group` floor, because a required check that never reports
+on a queue build does not fail it, it stalls it for the ruleset's 60 minutes.
 
 Runs `scripts/check-docs-route-eager-closure.mjs` (`pnpm check:docs-route-closure`): a checkout plus
 one `node` call over the source tree, **no install and no build**, ~1.3 s.
@@ -1818,8 +1858,8 @@ governed diff through, and the wiring is pinned by
 
 ## Line Citations (`line-citation-gate.yml`)
 
-**Triggers:** Pull requests to `main`/`develop`, with **no path filter**, plus manual dispatch. It
-appears in the checks list as **Line Citation Gate**.
+**Triggers:** Pull requests to `main`/`develop`, with **no path filter**, plus manual dispatch. It runs as the **Line Citation Gate** step of the **Repo Gates**
+job.
 
 **What it runs:** `node scripts/check-new-cross-file-line-citations.mjs` — one `node` call over the
 pull request's own diff. No install, no build.
@@ -1891,8 +1931,7 @@ right instrument for asking how large the existing class is — never for decidi
 ## Lockfile Integrity (`lockfile-integrity.yml`)
 
 **Triggers:** Pull requests to `main`/`develop` that touch `pnpm-lock.yaml`,
-`scripts/check-lockfile-integrity.mjs` or the workflow file itself, plus manual dispatch. It appears
-in the checks list as **Lockfile Integrity Check**.
+`scripts/check-lockfile-integrity.mjs` or the workflow file itself, plus manual dispatch. It runs as the **Lockfile Integrity Check** step of the **Repo Gates** job.
 
 Runs `scripts/check-lockfile-integrity.mjs`, which compares the pull request's `pnpm-lock.yaml`
 against the **merge base's** and reports two things:
@@ -1940,8 +1979,7 @@ pull request as input.
 
 **Trigger:** Pull requests to `main` and `develop` that touch `pnpm-lock.yaml`, this gate's own
 runtime closure (`scripts/check-lockfile-dedupe.mjs`, `scripts/invoked-as.mjs`,
-`scripts/ci-setup-pnpm.sh`) or the workflow file itself, plus manual dispatch. It appears in the
-checks list as **Lockfile Dedupe Check**.
+`scripts/ci-setup-pnpm.sh`) or the workflow file itself, plus manual dispatch. It runs as the **Lockfile Dedupe Check** step of the **Repo Gates** job.
 
 Runs `scripts/check-lockfile-dedupe.mjs`, which shells out to `pnpm dedupe --check` and requires the
 committed lockfile to be **already deduped** — that is, `pnpm dedupe` must have nothing left to
@@ -1999,7 +2037,7 @@ There are **two** link checkers, and they cover different things (objectui#3213)
 
 | | Covers | Network | Runs |
 |---|---|---|---|
-| `scripts/check-doc-links.mjs` | **Internal** links in `content/docs/` (relative hrefs, `/docs/...` routes, every other site-absolute href against `apps/site`), and, as paths on disk: `examples/`, the internal `docs/` tree, every package and app `README.md`, the rest of each package's and app's directory tree (everything but `README.md`/`CHANGELOG.md`), every nested `README.md`, and the root-level markdown files (`README.md`, `CONTRIBUTING.md`, `ROADMAP.md`, `AGENTS.md`, `CHANGELOG.md`, `CLAUDE.md`, `LICENSE-THIRD-PARTY.md`, `QUICK_REFERENCE.md`) — plus this repo's own `blob/main/` and `tree/main/` GitHub URLs and this site's own `objectui.org` URLs everywhere — **except** anything inside a code fence | No | `docs-links.yml` — every push and PR, no path filter (previous section) |
+| `scripts/check-doc-links.mjs` | **Internal** links in `content/docs/` (relative hrefs, `/docs/...` routes, every other site-absolute href against `apps/site`), and, as paths on disk: `examples/`, the internal `docs/` tree, every package and app `README.md`, the rest of each package's and app's directory tree (everything but `README.md`/`CHANGELOG.md`), every nested `README.md`, and the root-level markdown files (`README.md`, `CONTRIBUTING.md`, `ROADMAP.md`, `AGENTS.md`, `CHANGELOG.md`, `CLAUDE.md`, `LICENSE-THIRD-PARTY.md`, `QUICK_REFERENCE.md`) — plus this repo's own `blob/main/` and `tree/main/` GitHub URLs and this site's own `objectui.org` URLs everywhere — **except** anything inside a code fence | No | `repo-gates.yml`'s Internal Docs Link Check — every push and PR, no path filter |
 | Lychee (this workflow) | **External** URLs, plus **relative** in-repo file links, in `content/docs/`, `docs/` and `README.md` | Yes | Weekly cron and manual dispatch |
 
 Lychee sweeps **both** documentation trees plus `README.md`: the **published** tree
@@ -2041,7 +2079,7 @@ Uses [Lychee](https://github.com/lycheeverse/lychee) with configuration from `ly
 
 ## Spec Main Shape Gate (`spec-main-shape-gate.yml`)
 
-**Trigger:** PR to `main`, `develop` — **no path filter**; merge-queue builds; manual.
+**Trigger:** PR to `main`, `develop` — **no path filter**; merge-queue builds; manual; hourly `schedule` on `main`.
 **Appears as:** Spec Main Shape Gate.
 
 It builds `@objectstack/spec` from objectstack `main` at a git sha and compiles this repository
@@ -2082,6 +2120,18 @@ carries the long version:
 objectstack repository root. A packed codeload tarball was measured against it and rejected: the
 tarball endpoint has no server-side path filter, so it ships the whole repository however little
 of it the job needs.
+
+**The spec is built only when objectstack `main` moved**
+([#12214](https://github.com/objectstack-ai/objectui/issues/12214)). The hourly `schedule` run on
+`main` — this gate's place in the full battery — publishes the spec it packed as the artifact
+`objectstack-spec-<sha>`, with the sha it was packed at, kept one day. Every other run first looks
+for that artifact at the sha it just resolved and injects it instead of building again; the clone
+and the spec's own install still run, because the injection reads the dependencies the spec's
+build resolved. Only an artifact from a `main` run of this repository is reused: a pull request or
+a queue build runs its own branch's workflow file, so what it could upload is not evidence about a
+spec. A failed lookup or download, or an artifact recording another sha, means *build*. What this
+saves is the build and the pack — the forced compile below is most of the job and is never cached;
+the measured split is on #12214's pull request, not restated here.
 
 **The compile is `TURBO_FORCE=true pnpm type-check --continue`, and every word of it is
 load-bearing.** That task dependsOn `^build`, so the job builds every workspace package against
@@ -3047,7 +3097,7 @@ without a caller.
 `.claude/**` is governed surface. It only gives the existing matrices a caller that fails the
 build the moment any one of them goes red, the same way any other required check does.
 
-**Path-filtered, unlike `control-bytes.yml`.** That gate carries no `paths` filter because a raw
+**Path-filtered, unlike the Control Byte Scan.** That gate carries no `paths` filter because a raw
 control byte can land in a markdown-only PR just as easily as a TypeScript one. That reasoning
 does not transfer here: the self-tests assert the CURRENT hook script's behaviour against a
 fixture they build themselves, so nothing about a docs-only or dependency-bump PR can move the
@@ -3085,8 +3135,10 @@ So the wait is now explicit and this workflow owns it
 every context it declares has reported `success`, and only then may the two mutations — approve,
 enqueue — run. The declared set is the unfiltered blocking contexts (**Test** — since
 [#9499](https://github.com/objectstack-ai/objectui/issues/9499) the single aggregator context that
-reports for the eight test shards and the dist-pin job — **Type
-Check**, **Lint**, **Build & E2E**, **Build Docs** and the five one-`node`-call gates); the
+reports for the twelve test shards and the dist-pin job — **Type
+Check**, **Lint**, **Build & E2E**, **Build Docs**, **Repo Gates** — one context for the fifteen gates
+[#12214](https://github.com/objectstack-ai/objectui/issues/12214) folded into one job — and the rest of
+`REQUIRED_CONTEXTS`); the
 path-filtered ones (**Bundle Analysis**, **Changeset Bump Policy**, **Hook Self-Tests**) must be
 green *if they reported*; everything else is listed with the reason it cannot gate. A context that is missing,
 still running at the deadline, or anything other than `success` is **not** green: nothing merges,
@@ -3278,8 +3330,8 @@ step because nothing in that job calls pnpm.
    from Corepack plus the root `packageManager` field instead, through
    `scripts/ci-setup-pnpm.sh`.
 
-   `readme-exports.yml` (see the **README Exports** section above) is a good one to read: it
-   is short, runs on every pull request, and its setup is the complete pattern most new
+   `repo-gates.yml` (see the **Repo Gates** section above) is a good one to read: it runs on
+   every pull request, and its setup is the complete pattern most new
    build/test/lint workflows need — checkout, the shared pnpm setup, `actions/setup-node`
    with pnpm's own cache, `pnpm install --frozen-lockfile`, then a `turbo run build` step
    for whatever it needs built. Two of its steps hold for any workflow no matter which Node

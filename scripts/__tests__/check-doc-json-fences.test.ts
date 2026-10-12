@@ -516,7 +516,7 @@ describe('main — exit codes', () => {
 describe('wiring — the gate runs in CI, after the build and after its siblings', () => {
   const GATE = 'scripts/check-doc-json-fences.mjs';
   const SIBLINGS = ['scripts/check-doc-snippet-types.mjs', 'scripts/check-doc-example-types.mjs'];
-  const HOME = 'doc-snippet-types.yml';
+  const HOME = 'repo-gates.yml';
   const workflowDir = path.join(repoRoot, '.github/workflows');
   const workflowFiles = fs.readdirSync(workflowDir).filter((f) => f.endsWith('.yml'));
   const yamlOf = (file: string): string =>

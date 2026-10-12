@@ -350,8 +350,8 @@ jobs:
       # made both of those gates print a BYTE-IDENTICAL verdict line and exit 0
       # (objectui#8083, fixed by PR #8902).
       #
-      # Its two siblings live in `vi-mock-specifiers.yml`, which runs before any
-      # install so that it sees every pull request shape. This one cannot: it
+      # Its two siblings live in `repo-gates.yml` (objectui#12214), in steps that
+      # run before that job's install so that they see every pull request shape. This one cannot: it
       # imports `typescript` to read declared return types, and
       # `check-pre-install-import-graph.mjs` fails any pre-install gate that
       # reaches a package — measured, by injecting the import into the sibling
@@ -376,7 +376,7 @@ jobs:
       #
       # This step is a SECOND signal, not the gate. The gate is
       # `scripts/__tests__/check-test-path-roots.test.ts`, which runs inside
-      # `Test (shard N/8)`. Those shards are not required contexts themselves
+      # `Test (shard N/12)`. Those shards are not required contexts themselves
       # since objectui#9499 — the `Test` aggregator reports for all of them, and
       # it is required and subscribes `merge_group` — so the verdict still
       # blocks a queue build, through one name instead of N. This step reaches the same verdict sooner

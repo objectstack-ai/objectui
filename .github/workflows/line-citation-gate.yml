@@ -20,9 +20,9 @@ name: Line Citation Gate
 # changeset-only change. Those are precisely the changes that carry citations:
 # the ruling names 注释、消息串、文档、changeset、脚本 in that order. A gate
 # that cannot see the pull request shape most likely to trip it rebuilds the
-# hole it exists to close — the same conclusion `shell-escape-residue.yml`,
-# `docs-links.yml`, `control-bytes.yml` and `changeset-presence.yml` each
-# reached in their own headers. One gate, one home.
+# hole it exists to close — the same conclusion the shell-escape, docs-link and
+# control-byte gates (folded into `repo-gates.yml` by objectui#12214) and
+# `changeset-presence.yml` each reached in their own headers. One gate, one home.
 #
 # Hence no `paths` and no `paths-ignore`, deliberately.
 #
@@ -37,7 +37,8 @@ name: Line Citation Gate
 #
 # It needs no install and no build: a checkout plus one `node` call over this
 # branch's own diff. Keep it that way; the import graph is node builtins plus
-# repo-relative modules only, which `pre-install-import-graph.yml` enforces.
+# repo-relative modules only, which `repo-gates.yml`'s Pre-Install Import Graph
+# Check enforces.
 
 on:
   pull_request:

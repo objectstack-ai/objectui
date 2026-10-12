@@ -60,7 +60,7 @@ import { selfTestCases, stripAnsi } from './helpers/child-verdict';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const workflowDir = path.join(repoRoot, '.github/workflows');
 const SCRIPT = 'scripts/check-pre-install-import-graph.mjs';
-const WORKFLOW = 'pre-install-import-graph.yml';
+const WORKFLOW = 'repo-gates.yml';
 const CHECK_NAME = 'Pre-Install Import Graph Check';
 
 /** A workflow's YAML with whole-line comments removed — every file here discusses the shapes in prose. */
@@ -264,10 +264,12 @@ describe('the real tree — every step objectui#6148 measured is still derived',
     'changeset-presence.yml : changeset-presence -> scripts/check-changeset-presence.mjs',
     'ci.yml : changeset-check -> scripts/check-changeset-fixed.mjs',
     'ci.yml : type-check -> scripts/check-type-check-coverage.mjs',
-    'control-bytes.yml : control-bytes -> scripts/check-control-bytes.mjs',
-    'doc-component-types.yml : doc-component-types -> scripts/check-doc-component-types.mjs',
-    'docs-links.yml : docs-links -> scripts/check-doc-links.mjs',
-    'skills-paths.yml : skills-paths -> scripts/check-skills-paths.mjs',
+    // objectui#12214 folded these four (and eleven more) into `repo-gates.yml`,
+    // ahead of that job's install step, so they stay in the population.
+    'repo-gates.yml : repo-gates -> scripts/check-control-bytes.mjs',
+    'repo-gates.yml : repo-gates -> scripts/check-doc-component-types.mjs',
+    'repo-gates.yml : repo-gates -> scripts/check-doc-links.mjs',
+    'repo-gates.yml : repo-gates -> scripts/check-skills-paths.mjs',
     'lint.yml : lint -> scripts/check-entry-guard.mjs',
   ];
 
@@ -312,9 +314,13 @@ describe('the gate is wired, not merely present', () => {
     expect(yaml.split('\n').some((l) => l.trim() === `node ${SCRIPT}`)).toBe(true);
   });
 
-  it('needs no install, which is the property it exists to protect', () => {
-    expect(yaml).not.toMatch(/pnpm install/);
-    expect(yaml).not.toMatch(/corepack/);
+  it('runs before its job installs anything, which is the property it exists to protect', () => {
+    // Since objectui#12214 the home is `repo-gates.yml`, one job that installs
+    // AFTER its install-free gates; this gate must stay on the near side.
+    const gateAt = yaml.indexOf(`node ${SCRIPT} --self-test`);
+    const installAt = yaml.indexOf('pnpm install');
+    expect(gateAt).toBeGreaterThan(-1);
+    expect(installAt === -1 || gateAt < installAt, 'the gate step moved below the install step').toBe(true);
   });
 
   it('carries NO path filter of any kind', () => {
@@ -341,7 +347,8 @@ describe('the gate is wired, not merely present', () => {
     // objectui#6135: an UNCLASSIFIED blocking check is one a Dependabot merge
     // would be let past. `dependabot-merge-gate.test.ts` asserts the partition
     // itself; this asserts the direction that matters for this check.
-    expect(REQUIRED_CONTEXTS).toContain(CHECK_NAME);
+    // Since objectui#12214 it reports as a step of the one `Repo Gates` context.
+    expect(REQUIRED_CONTEXTS).toContain('Repo Gates');
   });
 
   it('names the same check in the workflow as the gate requires', () => {

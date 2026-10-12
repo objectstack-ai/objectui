@@ -33,6 +33,7 @@ import {
   warnSectionMemberExcludedByFields,
   buildSectionFields,
   sectionEntryName,
+  fieldHelpText,
   type SectionFieldsContext,
 } from './sectionFields';
 import { TabbedForm } from './TabbedForm';
@@ -1035,7 +1036,11 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
           required: isRequiredInForm(field, isCreateFormMode(schema)),
           disabled: schema.readOnly || schema.mode === 'view' || field.readonly,
           placeholder: field.placeholder,
-          description: field.help || field.description,
+          // The help line under the control: the spec's `inlineHelpText`,
+          // else `description`, through the one read `fromObjectSchema`
+          // shares (`fieldHelpText`, objectui#12213). A file or image field's
+          // size hint is appended to it below.
+          description: fieldHelpText(field),
           validation: buildValidationRules(field),
           // Field-level CEL conditional rules (B2). Carried through verbatim so
           // the form renderer evaluates them reactively via the canonical

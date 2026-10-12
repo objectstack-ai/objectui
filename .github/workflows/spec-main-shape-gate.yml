@@ -69,6 +69,31 @@ name: Spec Main Shape Gate
 #     needs its directory added here, because nothing derives the cone from
 #     that map yet.
 #
+# ## The spec is built only when objectstack `main` moved (objectui#12214)
+#
+# The two-speed doctrine (objectstack#22998) keeps this gate on every event,
+# and adds an hourly `schedule` run on `main` -- the gate's place in the full
+# battery. That scheduled run also PUBLISHES what it built: the packed spec,
+# with the sha it was built at, as the artifact `objectstack-spec-<sha>`, kept
+# one day. Every other run first looks for that artifact at the sha it just
+# resolved and, when there is one, injects it instead of building it again:
+# the clone, the spec's own install and everything after the pack run as
+# before, so `inject` still reads the dependencies the spec resolves.
+#
+# Only an artifact from a `main` run of THIS repository is reused. A pull
+# request or a queue build runs the workflow file of its own branch, so an
+# artifact it uploaded is a file anybody with a branch could have shaped; a
+# run on `main` executes reviewed YAML. The lookup is a READ (`actions: read`);
+# nothing here writes through the token, and the upload uses the runner's own
+# artifact credential. A lookup that fails, a download that fails, or an
+# artifact whose recorded sha is not the one resolved above all mean BUILD --
+# never a verdict about a spec this job did not hold.
+#
+# ⚠️ What this buys is the build and the pack, not the compile: the forced
+# typecheck below is the bulk of this job and is deliberately never cached.
+# The measured split and the hit rate are on objectui#12214's pull request,
+# not copied here.
+#
 # ## ⛔ The turbo cache is a FALSE GREEN here
 #
 # `turbo`'s hash covers this repository's sources, its lockfile and a declared env
@@ -84,11 +109,18 @@ on:
   merge_group:
     types: [checks_requested]
   workflow_dispatch: {}
+  # The full battery's hourly run on `main` (objectui#12214). Off the hour on
+  # purpose, and on a different minute from `ci.yml`'s.
+  schedule:
+    - cron: '48 * * * *'
 
 # Least privilege: the job reads this repository, reads a public one over HTTPS,
-# and writes nothing anywhere.
+# and writes nothing anywhere through the token. `actions: read` is the
+# artifact lookup and download of the reused spec (objectui#12214); the
+# scheduled upload goes through the runner's own artifact credential.
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: spec-main-shape-gate-${{ github.ref }}
@@ -143,6 +175,53 @@ jobs:
           echo "commit=${sha:0:12} · $authored · $subject" >> "$GITHUB_OUTPUT"
           echo "Compiling against objectstack-ai/objectstack@$sha ($authored)"
 
+      # ── Reuse the spec a `main` run already built at that sha ────────────
+      # See "The spec is built only when objectstack `main` moved" in the
+      # header. Any failure here is `hit=false`, i.e. BUILD.
+      - name: Look for the spec a main run already built at that commit
+        id: reuse
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UPSTREAM_SHA: ${{ steps.upstream.outputs.sha }}
+          REPOSITORY_ID: ${{ github.repository_id }}
+        run: |
+          set -uo pipefail
+          listing="$RUNNER_TEMP/spec-artifacts.json"
+          if ! curl -sS --fail-with-body \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts?name=objectstack-spec-$UPSTREAM_SHA&per_page=30" \
+            -o "$listing"; then
+            echo "hit=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::could not list artifacts; building the spec at $UPSTREAM_SHA"
+            exit 0
+          fi
+          run_id=$(jq -r --arg repo "$REPOSITORY_ID" '
+            [.artifacts[]
+              | select(.expired == false
+                  and .workflow_run.head_branch == "main"
+                  and ((.workflow_run.repository_id | tostring) == $repo))]
+            | sort_by(.created_at) | last | .workflow_run.id // empty' "$listing")
+          if [ -n "$run_id" ]; then
+            echo "hit=true" >> "$GITHUB_OUTPUT"
+            echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+            echo "Reusing the spec main run $run_id built at $UPSTREAM_SHA"
+          else
+            echo "hit=false" >> "$GITHUB_OUTPUT"
+            echo "No main run has built the spec at $UPSTREAM_SHA yet; building it here"
+          fi
+
+      - name: Download that spec
+        id: download
+        if: steps.reuse.outputs.hit == 'true'
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: objectstack-spec-${{ steps.upstream.outputs.sha }}
+          path: ${{ runner.temp }}/spec-built
+          run-id: ${{ steps.reuse.outputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Fetch packages/spec from that commit (sparse, blobless — never a full clone)
         env:
           UPSTREAM_SHA: ${{ steps.upstream.outputs.sha }}
@@ -180,26 +259,72 @@ jobs:
 
       # ── Build the spec from source, and PACK it ──────────────────────────
       # `--filter @objectstack/spec...` installs the spec and its dependencies
-      # only; the rest of that workspace is not even in the checkout.
+      # only; the rest of that workspace is not even in the checkout. The
+      # install runs on a reuse too: `inject` reads the dependencies the
+      # spec's build resolved out of this checkout (objectui#10229).
       - name: Build @objectstack/spec from objectstack main
+        env:
+          REUSED: ${{ steps.download.outcome == 'success' }}
         working-directory: ${{ runner.temp }}/objectstack
         run: |
           set -euo pipefail
           pnpm install --frozen-lockfile --filter @objectstack/spec...
+          if [ "$REUSED" = 'true' ]; then
+            echo "Not building: a main run already built and packed the spec at this sha (objectui#12214)."
+            exit 0
+          fi
           pnpm --filter @objectstack/spec build
 
       # What gets injected is what a RELEASE from that commit would ship — the
       # `files` field's file set, not a working tree. `--ignore-scripts` because
       # the build above already ran; a lifecycle script re-running here would
       # pack something the build step never produced.
+      #
+      # A reused spec is the tarball a `main` run packed, beside the sha it was
+      # packed at. Anything but exactly one tarball recorded at the sha resolved
+      # above is refused: compiling against it would report a verdict about a
+      # spec this job cannot name.
       - name: Pack the built spec
         id: pack
+        env:
+          REUSED: ${{ steps.download.outcome == 'success' }}
+          UPSTREAM_SHA: ${{ steps.upstream.outputs.sha }}
+          BUILT: ${{ runner.temp }}/spec-built
         working-directory: ${{ runner.temp }}/objectstack/packages/spec
         run: |
           set -euo pipefail
-          tarball=$(npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP" | tail -n 1)
-          echo "tarball=$RUNNER_TEMP/$tarball" >> "$GITHUB_OUTPUT"
-          ls -l "$RUNNER_TEMP/$tarball"
+          if [ "$REUSED" = 'true' ]; then
+            recorded=$(cat "$BUILT/sha.txt" 2>&1 || true)
+            count=$(find "$BUILT" -maxdepth 1 -name '*.tgz' | wc -l)
+            if [ "$recorded" != "$UPSTREAM_SHA" ] || [ "$count" -ne 1 ]; then
+              echo "::error::the reused spec artifact records sha '$recorded' and holds $count tarball(s); expected exactly one at $UPSTREAM_SHA"
+              exit 1
+            fi
+            tarball=$(find "$BUILT" -maxdepth 1 -name '*.tgz')
+          else
+            mkdir -p "$BUILT"
+            packed=$(npm pack --ignore-scripts --pack-destination "$BUILT" | tail -n 1)
+            tarball="$BUILT/$packed"
+            echo "$UPSTREAM_SHA" > "$BUILT/sha.txt"
+          fi
+          echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
+          ls -l "$tarball"
+
+      # Publish what this scheduled `main` run built, for every run that
+      # resolves the same objectstack sha in the next day. `main` only -- see
+      # the header for why no other event's artifact is ever reused. A failed
+      # upload costs the next run a build and says nothing about the code
+      # under test, so it cannot speak for the verdict.
+      - name: Publish the built spec for runs at the same objectstack commit
+        if: github.event_name == 'schedule' && steps.download.outcome != 'success'
+        continue-on-error: true
+        timeout-minutes: 5
+        uses: actions/upload-artifact@v7
+        with:
+          name: objectstack-spec-${{ steps.upstream.outputs.sha }}
+          path: ${{ runner.temp }}/spec-built
+          retention-days: 1
+          if-no-files-found: error
 
       - name: Install objectui dependencies
         run: pnpm install --frozen-lockfile

@@ -139,24 +139,20 @@ import { isEntrypoint } from './invoked-as.mjs';
  *   ci.yml            Changeset Fixed Group Check, Type Check, Test,
  *                     Build & E2E, Build Docs
  *   lint.yml          Lint
- *   control-bytes.yml Control Byte Scan
- *   docs-links.yml    Internal Docs Link Check
- *   skills-paths.yml  Skill Guide Path Check
- *   skill-examples.yml  Skill Example Check
- *   skill-eval-tokens.yml  Skill Eval Token Check
+ *   repo-gates.yml    Repo Gates
  *   changeset-presence.yml   Changeset Declaration
- *   doc-component-types.yml  Doc Component Type Check
- *   doc-snippet-types.yml    Doc Snippet Type Check
- *   doc-fence-languages.yml  Doc Fence Language Check
- *   doc-example-ids.yml      Doc Example Id Check
- *   pre-install-import-graph.yml  Pre-Install Import Graph Check
- *   vi-mock-specifiers.yml        Inert vi.mock Specifier Check
- *   shell-escape-residue.yml      Shell Escape Residue Scan
- *   readme-exports.yml            README Export Check
- *   docs-route-eager-closure.yml   Docs Route Eager Closure Check
  *   governed-surface-guard.yml     Governed Surface Queue Guard
- *   action-ref-convention.yml      Action Ref Convention
  *   spec-main-shape-gate.yml       Spec Main Shape Gate
+ *
+ * `Repo Gates` is ONE context for fifteen checks (objectui#12214): the
+ * one-check workflows that each produced a context of their own -- the
+ * control-byte scan, the docs-link check, the skill-guide path, skill-example
+ * and eval-token checks, the doc component-type, snippet-type, fence-language
+ * and example-id checks, the pre-install import graph, the inert vi.mock check,
+ * the shell-escape residue scan, the README export check, the docs-route eager
+ * closure check and the action-ref convention -- were folded into one job whose
+ * steps keep those names. The job is red when any of its steps is, so waiting
+ * for this one name waits for all fifteen verdicts.
  *
  * `Governed Surface Queue Guard` is the newest and the one whose reading here
  * differs from every other row, so it is worth a sentence. On a PULL REQUEST it
@@ -196,28 +192,15 @@ export const REQUIRED_CONTEXTS = Object.freeze([
   'Build & E2E',
   'Build Docs',
   'Lint',
-  'Control Byte Scan',
-  'Internal Docs Link Check',
-  'Skill Guide Path Check',
-  'Skill Example Check',
-  'Skill Eval Token Check',
+  // objectui#12214: the fifteen one-check gate workflows, folded into one job.
+  // Among its steps, the action-ref convention (objectui#8465) is worth naming:
+  // it reads `.github/workflows/**`, which is exactly what a Dependabot
+  // `github-actions` bump edits -- the pull requests most likely to introduce
+  // an off-convention reference and the least likely to have a human reading
+  // each edited line.
+  'Repo Gates',
   'Changeset Declaration',
-  'Doc Component Type Check',
-  'Doc Snippet Type Check',
-  'Doc Fence Language Check',
-  'Doc Example Id Check',
-  'Pre-Install Import Graph Check',
-  'Inert vi.mock Specifier Check',
-  'Shell Escape Residue Scan',
-  'README Export Check',
-  'Docs Route Eager Closure Check',
   'Governed Surface Queue Guard',
-  // objectui#8465. Worth listing deliberately rather than by reflex: this gate
-  // reads `.github/workflows/**`, which is exactly what a Dependabot
-  // `github-actions` bump edits — those bumps are the pull requests most likely
-  // to introduce an off-convention reference and the least likely to have a
-  // human reading each edited line.
-  'Action Ref Convention',
   // objectui#9969, ruling A — the residual of objectui#9860's ruling C. This
   // name sat in `NOT_A_GATE` until two facts that were somebody else's to
   // establish had both been established, and it moved only after both were:
@@ -276,10 +259,10 @@ export const OPTIONAL_CONTEXTS = Object.freeze({
  * whichever shard happens to exist.
  */
 const COVERAGE_SHARD_NOT_A_GATE =
-  "ci.yml's push-only coverage lane (`if: github.event_name == 'push'`), so on a pull request it reports conclusion=skipped by design. Coverage is deliberately not recomputed per pull request — v8 instrumentation adds 40-100% overhead — so the PR lane is the `Test (shard N/8)` matrix, which reports through the `Test` aggregator above. ⛔ This lane's own 4-way sharding is unrelated to that matrix's width and objectui#9499 did not touch it.";
+  "ci.yml's coverage lane runs on the full battery's events only (`push` and the hourly `schedule`, objectui#12214), so on a pull request it reports conclusion=skipped by design. Coverage is deliberately not recomputed per pull request — v8 instrumentation adds 40-100% overhead — so the PR lane is the `Test (shard N/12)` matrix, which reports through the `Test` aggregator above. ⛔ This lane's own 4-way sharding is unrelated to that matrix's width and objectui#9499 did not touch it.";
 
 /**
- * The eight PR test shards share one reason, spelled once. Every one of them is
+ * The twelve test shards share one reason, spelled once. Every one of them is
  * a real blocking leg — the difference from the coverage shards above is that
  * something else reports their verdict, not that they have none.
  *
@@ -292,7 +275,7 @@ const COVERAGE_SHARD_NOT_A_GATE =
  * count used to be welded to (objectui#9499).
  */
 const PR_TEST_SHARD_NOT_A_GATE =
-  "ci.yml's PR/merge-queue test matrix. It is a blocking leg and it is NOT waited for by name: since objectui#9499 the `test-aggregate` job (`Test`, above) is the single required test context, and it reports only after every shard has finished, red unless each shard's OWN conclusion is `success` — `skipped` included. Waiting for the legs here as well would put the shard COUNT back into a second declaration, which is the coupling that card removed.";
+  "ci.yml's test matrix — the affected set on a pull request or queue build, the whole suite on `push` and `schedule` (objectui#12214). It is a blocking leg and it is NOT waited for by name: since objectui#9499 the `test-aggregate` job (`Test`, above) is the single required test context, and it reports only after every shard has finished, red unless each shard's OWN conclusion is `success` — `skipped` included. Waiting for the legs here as well would put the shard COUNT back into a second declaration, which is the coupling that card removed.";
 
 /**
  * Everything else a pull request to `main` produces, and why it cannot gate.
@@ -301,20 +284,24 @@ const PR_TEST_SHARD_NOT_A_GATE =
  * defaulting into silence.
  */
 export const NOT_A_GATE = Object.freeze({
-  'Test (shard 1/8)': PR_TEST_SHARD_NOT_A_GATE,
-  'Test (shard 2/8)': PR_TEST_SHARD_NOT_A_GATE,
-  'Test (shard 3/8)': PR_TEST_SHARD_NOT_A_GATE,
-  'Test (shard 4/8)': PR_TEST_SHARD_NOT_A_GATE,
-  'Test (shard 5/8)': PR_TEST_SHARD_NOT_A_GATE,
-  'Test (shard 6/8)': PR_TEST_SHARD_NOT_A_GATE,
-  'Test (shard 7/8)': PR_TEST_SHARD_NOT_A_GATE,
-  'Test (shard 8/8)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 1/12)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 2/12)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 3/12)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 4/12)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 5/12)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 6/12)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 7/12)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 8/12)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 9/12)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 10/12)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 11/12)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 12/12)': PR_TEST_SHARD_NOT_A_GATE,
   'Test (dist pins)':
     "ci.yml's built-artifact pin lane, lifted out of the shard matrix by objectui#9499 (the lane itself is objectui#7183). Same reading as the shards above: it is blocking, and the `Test` aggregator asserts its result — `needs.test-dist-pins.result` is one job's own conclusion, so `skipped` is visible there without an API read — so the whole test lane still speaks through one required name.",
   dependabot:
     'This workflow itself. The gate runs inside this job, so requiring it would deadlock at its own deadline.',
   'Test (coverage)':
-    "ci.yml's push lane (`if: github.event_name == 'push'`), so on a pull request it reports conclusion=skipped by design. Since objectui#5403 this is the job at the END of the coverage lane — it merges the four shard blob reports into one complete report, enforces the configured coverage thresholds over it, publishes it as the `coverage-report` artifact, and goes red whenever any of that did not happen (the Codecov upload it also carried was retired by objectui#5436). The PR lane is the `Test (shard N/8)` matrix, reported through the `Test` aggregator above.",
+    "ci.yml's full-battery lane (`push` and the hourly `schedule`, objectui#12214), so on a pull request it reports conclusion=skipped by design. Since objectui#5403 this is the job at the END of the coverage lane — it merges the four shard blob reports into one complete report, enforces the configured coverage thresholds over it, publishes it as the `coverage-report` artifact, and goes red whenever any of that did not happen (the Codecov upload it also carried was retired by objectui#5436). The PR lane is the `Test (shard N/12)` matrix, reported through the `Test` aggregator above.",
   'Test (coverage shard 1/4)': COVERAGE_SHARD_NOT_A_GATE,
   'Test (coverage shard 2/4)': COVERAGE_SHARD_NOT_A_GATE,
   'Test (coverage shard 3/4)': COVERAGE_SHARD_NOT_A_GATE,

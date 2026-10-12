@@ -34,6 +34,9 @@ vi.mock('react-router-dom', () => ({
   useParams: () => ({ pageName: PAGE_NAME }),
   useSearchParams: () => [new URLSearchParams(), vi.fn()],
   useNavigate: () => navigate,
+  // The router's root href, which the page's navigator joins its hrefs to
+  // (objectui#12233). `/` is a root mount; the basename case is below.
+  useHref: () => '/',
   useLocation: () => ({ pathname: `/apps/crm/page/${PAGE_NAME}`, search: '' }),
 }));
 
@@ -115,20 +118,29 @@ describe('pageRecordActionsValue — the builder the page publishes', () => {
   const objects = [{ name: 'account' }, { name: '' }, null, { label: 'nameless' }];
 
   it('addresses a routable object under the app route', () => {
-    const value = pageRecordActionsValue('crm', objects, vi.fn());
+    const value = pageRecordActionsValue('crm', objects, vi.fn(), '/');
     expect(value.recordHref!('account', 7)).toBe('/apps/crm/account/record/7');
   });
 
+  it('under a basename, `recordHref` is the document href and `openRecord` still navigates by the router path (objectui#12233)', () => {
+    const go = vi.fn();
+    const value = pageRecordActionsValue('crm', objects, go, '/_console');
+    expect(value.recordHref!('account', 'a/b')).toBe('/_console/apps/crm/account/record/a%2Fb');
+    value.openRecord!('account', 'a/b');
+    expect(go).toHaveBeenCalledWith('/apps/crm/account/record/a%2Fb');
+    expect(value.recordHref!('contact', 7)).toBeNull();
+  });
+
   it('answers null outside an app route, for an unknown object, and for an empty id', () => {
-    expect(pageRecordActionsValue(undefined, objects, vi.fn()).recordHref!('account', 7)).toBeNull();
-    const value = pageRecordActionsValue('crm', objects, vi.fn());
+    expect(pageRecordActionsValue(undefined, objects, vi.fn(), '/').recordHref!('account', 7)).toBeNull();
+    const value = pageRecordActionsValue('crm', objects, vi.fn(), '/');
     expect(value.recordHref!('contact', 7)).toBeNull();
     expect(value.recordHref!('account', '')).toBeNull();
   });
 
   it('`openRecord` navigates to exactly the `recordHref` destination, and to nothing without one', () => {
     const go = vi.fn();
-    const value = pageRecordActionsValue('crm', objects, go);
+    const value = pageRecordActionsValue('crm', objects, go, '/');
     value.openRecord!('account', 'a/b');
     expect(go).toHaveBeenCalledWith(value.recordHref!('account', 'a/b'));
     expect(go).toHaveBeenCalledWith('/apps/crm/account/record/a%2Fb');

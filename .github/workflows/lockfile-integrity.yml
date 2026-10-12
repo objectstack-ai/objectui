@@ -12,7 +12,7 @@ name: Lockfile Integrity
 # `fetch-depth: 0` and fetches the base branch, which no other gate here pays
 # for. Keeping it separate keeps that cost off every other job.
 #
-# ── Why it IS path-filtered, unlike shell-escape-residue.yml and friends ─────
+# ── Why it IS path-filtered, unlike the gates in repo-gates.yml ─────────────
 #
 # Those gates read the whole tree, so any change can trip them and a path filter
 # would build the hole they exist to close. This one reads exactly one file and
@@ -77,7 +77,7 @@ jobs:
 
       # No install and no build: the gate is one `node` call over two text
       # files, builtins plus one repo-relative module only, which
-      # `pre-install-import-graph.yml` enforces (objectui#6148).
+      # `repo-gates.yml`'s Pre-Install Import Graph Check enforces (objectui#6148).
       - name: Fetch the base branch so the merge base exists
         env:
           BASE_REF: ${{ github.base_ref || 'main' }}

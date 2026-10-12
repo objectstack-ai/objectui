@@ -379,8 +379,10 @@ describe('ci.yml wires the gate to its own matrix (#9499)', () => {
   it('needs every job whose result it speaks for, and reports whatever they did', () => {
     expect(aggregate).toMatch(/^ {4}needs: \[test, test-dist-pins\]$/m);
     // `always()` — without it a red or skipped shard SKIPS this job, and a
-    // skipped required context counts as SUCCESS in branch protection.
-    expect(aggregate).toMatch(/^ {4}if: always\(\) && github\.event_name != 'push'$/m);
+    // skipped required context counts as SUCCESS in branch protection. No
+    // event guard since objectui#12214: on `push` and `schedule` this is the
+    // full battery's test verdict, read the same way.
+    expect(aggregate).toMatch(/^ {4}if: always\(\)$/m);
     // `actions: read` is what the API read needs; a `permissions:` block sets
     // every unlisted scope to `none`, so its absence is a 403 and exit 2.
     expect(aggregate).toMatch(/^ {6}actions: read$/m);

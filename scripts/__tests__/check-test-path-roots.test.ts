@@ -4,7 +4,7 @@
  *
  * ## Why the enforcement lives HERE and not only in a workflow step
  *
- * Every test file under `scripts` runs inside `Test (shard N/8)`, reported by
+ * Every test file under `scripts` runs inside `Test (shard N/12)`, reported by
  * the `Test` aggregator (objectui#9499), which is a
  * REQUIRED context and subscribes `merge_group` — so the scan below is what
  * actually blocks a queue build. The `Lint` step added alongside it is a second, faster

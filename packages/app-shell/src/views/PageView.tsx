@@ -10,7 +10,7 @@
  */
 
 import { lazy, Suspense } from 'react';
-import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate, useLocation, useHref } from 'react-router-dom';
 import {
   SchemaRenderer,
   notifyDataChanged,
@@ -67,6 +67,9 @@ export function PageView() {
   const [searchParams] = useSearchParams();
   const { showDebug } = useMetadataInspector();
   const navigate = useNavigate();
+  // The router's root href, basename included: the page's record navigator
+  // publishes document hrefs from it (objectui#12233).
+  const routerRootHref = useHref('/');
   const location = useLocation();
   // Editing a page mutates the shared metadata definition, so the entry point
   // is admin-only (mirrors the view/report/dashboard runtime editors) — AND
@@ -130,7 +133,7 @@ export function PageView() {
   // The record navigator the page's blocks open a record through
   // (objectui#11293). Not memoised: the schema below is rebuilt on every
   // render too, and nothing may rest on this object's identity (AGENTS.md #10).
-  const pageRecordActions = pageRecordActionsValue(appName, (objects ?? []) as unknown[], navigate);
+  const pageRecordActions = pageRecordActionsValue(appName, (objects ?? []) as unknown[], navigate, routerRootHref);
 
   return (
     // Mount the shared console action runtime so page-level `action:button`s can

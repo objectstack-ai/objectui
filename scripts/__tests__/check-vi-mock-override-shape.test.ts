@@ -473,7 +473,7 @@ describe('wiring', () => {
     // gate reaches the package `typescript`, and that workflow deliberately has
     // no install step. Measured on this tree by injecting the same import into
     // `check-vi-mock-inherit.mjs`: that gate went from exit 0 to exit 1.
-    const sibling = fs.readFileSync(path.join(repoRoot, '.github/workflows/vi-mock-specifiers.yml'), 'utf8');
+    const sibling = fs.readFileSync(path.join(repoRoot, '.github/workflows/repo-gates.yml'), 'utf8');
     expect(sibling).not.toContain(GATE);
   });
 

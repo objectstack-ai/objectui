@@ -447,7 +447,7 @@ describe('objectui#5646 — the real file the instance was written in', () => {
 
 describe('wiring — the gate is reachable and every PR shape starts it', () => {
   const SCRIPT = 'scripts/check-vi-mock-specifiers.mjs';
-  const WORKFLOW = 'vi-mock-specifiers.yml';
+  const WORKFLOW = 'repo-gates.yml';
   const workflowDir = path.join(repoRoot, '.github/workflows');
   const workflowFiles = fs.readdirSync(workflowDir).filter((f) => f.endsWith('.yml'));
 
@@ -503,8 +503,13 @@ describe('wiring — the gate is reachable and every PR shape starts it', () => 
   });
 
   it('installs nothing before running the gate — the cheap tier, mechanically', () => {
+    // Since objectui#12214 the home is `repo-gates.yml`, ONE job that installs
+    // after its install-free gates: the property is now an ORDER -- this gate's
+    // step sits before the job's `pnpm install` -- and no longer an absence.
     const yaml = yamlOf(WORKFLOW);
-    expect(yaml).not.toMatch(/pnpm install/);
-    expect(yaml.indexOf(SCRIPT)).toBeGreaterThan(-1);
+    const gateAt = yaml.indexOf(SCRIPT);
+    const installAt = yaml.indexOf('pnpm install');
+    expect(gateAt).toBeGreaterThan(-1);
+    expect(installAt === -1 || gateAt < installAt, 'the gate step moved below the install step').toBe(true);
   });
 });

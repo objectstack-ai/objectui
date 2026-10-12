@@ -3,7 +3,8 @@ name: Check Links
 # Lychee is the EXTERNAL link checker. It makes real network requests and is
 # flaky by nature. Site-internal routes (`/docs/...`) are a different problem
 # with a different tool — `scripts/check-doc-links.mjs`, run by
-# `docs-links.yml`, which reads the checkout and nothing else and is therefore
+# `repo-gates.yml` (objectui#12214; `docs-links.yml` before it), which reads the
+# checkout and nothing else and is therefore
 # the one that gates pull requests. The two are complementary, not redundant;
 # do not move either one's job onto the other.
 #

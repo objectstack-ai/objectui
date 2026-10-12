@@ -37,7 +37,7 @@ import { selfTestCases, stripAnsi } from './helpers/child-verdict';
 
 const ROOT = path.resolve(fileURLToPath(import.meta.url), '../../..');
 const GUARD = 'scripts/check-doc-fence-languages.mjs';
-const WORKFLOW = 'doc-fence-languages.yml';
+const WORKFLOW = 'repo-gates.yml';
 
 /**
  * A numeral that qualifies a document-population noun, as `match: text`.
@@ -441,7 +441,7 @@ describe('check-doc-fence-languages: non-vacuity, through the shipped module', (
 
 describe('check-doc-fence-languages is wired, not merely present', () => {
   const workflow = parseYaml(fs.readFileSync(path.join(ROOT, '.github/workflows', WORKFLOW), 'utf8'));
-  const steps: Array<Record<string, unknown>> = workflow.jobs['doc-fence-languages'].steps;
+  const steps: Array<Record<string, unknown>> = workflow.jobs['repo-gates'].steps;
   const gateSteps = steps.filter((s) => typeof s.run === 'string' && (s.run as string).includes(GUARD));
 
   it('the guard script exists', () => {
@@ -482,9 +482,17 @@ describe('check-doc-fence-languages is wired, not merely present', () => {
     expect(Object.keys(on)).toContain('merge_group');
   });
 
-  it('needs no install — nothing in the job runs pnpm', () => {
-    const runs = steps.map((s) => (typeof s.run === 'string' ? s.run : '')).join('\n');
-    expect(runs).not.toContain('pnpm');
+  it('needs no install — no pnpm runs before this gate in its job', () => {
+    // Since objectui#12214 the home is `repo-gates.yml`, ONE job that installs
+    // after its install-free gates: the property is now an ORDER -- nothing
+    // before this gate's step runs `pnpm install` -- and no longer an absence.
+    const gateAt = steps.findIndex((s) => typeof s.run === 'string' && (s.run as string).includes(GUARD));
+    expect(gateAt).toBeGreaterThan(-1);
+    const before = steps
+      .slice(0, gateAt)
+      .map((s) => (typeof s.run === 'string' ? s.run : ''))
+      .join('\n');
+    expect(before).not.toContain('pnpm install');
   });
 
   it('its self-test passes — the half that makes a green scan mean something', () => {

@@ -1537,8 +1537,9 @@ export function buildFilterArgs(packages) {
  * packages, and expanding each one's dependency closure puts 30 in scope — so
  * running the printed command exactly as given leaves 10 packages with no
  * `dist/`, and nothing distinguishes that from a build that half-failed. The
- * trimming is deliberate (`skill-examples.yml`'s header forbids the unfiltered
- * build in as many words, under the 2026-08-16 ruling on objectui#4846), so what
+ * trimming is deliberate (the workflow that runs this gate -- `repo-gates.yml`
+ * since objectui#12214 -- forbids the unfiltered build in its header, under the
+ * 2026-08-16 ruling on objectui#4846), so what
  * was missing is the sentence, never a wider filter.
  *
  * Both counts are ARGUMENTS and the text names no package on purpose. A list of

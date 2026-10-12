@@ -22,6 +22,8 @@ vi.mock('react-router-dom', () => ({
   useParams: () => ({ pageName: 'home' }),
   useSearchParams: () => [new URLSearchParams(), vi.fn()],
   useNavigate: () => vi.fn(),
+  // PageView reads the router's root href for its record navigator (objectui#12233).
+  useHref: () => '/',
   useLocation: () => ({ pathname: '/apps/cloud/page/home', search: '' }),
 }));
 

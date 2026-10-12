@@ -305,18 +305,6 @@ read them under the `page.` scope, keyed by the filter's `name`:
 }
 ```
 
-```json
-{
-  "id": "emea_quota",
-  "component": {
-    "type": "metric-card",
-    "title": "EMEA quota",
-    "value": "$1.2M",
-    "hidden": "${page.region !== 'EMEA'}"
-  }
-}
-```
-
 The built-in date range is an object under `page.dateRange` — a preset selection
 is `{ "preset": "last_30_days" }`, a custom range is
 `{ "from": "2026-01-01", "to": "2026-03-31" }` (either bound may be absent).

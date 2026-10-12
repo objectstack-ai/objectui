@@ -21,7 +21,7 @@ Every node in the UI tree follows this shape — enforce it on every input.
 `BaseSchema` (`import type { BaseSchema } from '@object-ui/types';`), KEPT
 rather than replaced by an import: it teaches the SHAPE, not the member list,
 and nothing checks the copy against the real type. `BaseSchema` has **no index
-signature** (objectui#8347), so a key no member declares gets one verdict per
+signature**, so a key no member declares gets one verdict per
 face: on the TypeScript authoring face it is a compile error in a fresh typed
 literal (TypeScript excess-checks only a FRESH object literal, so a value that
 reached its annotation through a wider variable is not re-checked); on the

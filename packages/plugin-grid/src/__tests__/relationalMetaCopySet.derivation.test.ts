@@ -228,15 +228,21 @@ function assertExtractorFoundKnownChains(x: Extraction): void {
   // ⭐ objectui#7155 retired the snake_case lookup dialect, so the cell's own
   // chain is no longer a two-spelling pair. The control keeps its SHAPE — a
   // consumer whose reads include both a camel and a snake spelling — by moving
-  // to `lookup-editor`, whose `lookup_columns` / `lookupColumns` pair this card
-  // did NOT touch. ⛔ Never weaken this to camel-only: the extractor's job is to
-  // see every spelling a consumer reads, and a control that only ever looks for
-  // the surviving dialect cannot detect an extractor that stopped seeing the
-  // other one.
+  // to `lookup-editor`. ⛔ Never weaken this to camel-only: the extractor's job
+  // is to see every spelling a consumer reads, and a control that only ever
+  // looks for the surviving dialect cannot detect an extractor that stopped
+  // seeing the other one.
+  //
+  // ⭐ objectui#12157 retired the `lookup_columns` leg the pair used to stand
+  // on, so the pair moved to `avatar_field` / `avatarField`, which that card
+  // did NOT touch. A move, not a weakening: both spellings are still required.
   expect(x.cell).toContain('displayField');
   // objectui#11070 round 4: the cell reads the target as `reference` alone.
   expect(x.cell).toContain('reference');
-  expect(x['lookup-editor']).toContain('lookup_columns');
+  expect(x['lookup-editor']).toContain('avatar_field');
+  expect(x['lookup-editor']).toContain('avatarField');
+  // The declared spelling of the retired pair is still read — the half of the
+  // old control that did not move.
   expect(x['lookup-editor']).toContain('lookupColumns');
   // objectui#6153: this one is read through the ANNOTATED ALIAS `cascadeMeta`
   // (`const cascadeMeta: LookupFieldMetadata | undefined = fieldMeta;`), not off
@@ -246,8 +252,8 @@ function assertExtractorFoundKnownChains(x: Extraction): void {
   // was a DELETION, not a weakening: the snake arm it controlled for is gone
   // from `LookupField`, so keeping the line would have pinned a read that no
   // longer happens. The two-spelling SHAPE this control needs is unaffected —
-  // it lives on the `lookup_columns` / `lookupColumns` pair above, which that
-  // card did not touch.
+  // it lives on the pair above (`avatar_field` / `avatarField` since
+  // objectui#12157).
   expect(x['lookup-editor']).toContain('dependsOn');
   expect(x['user-editor']).toContain('reference_field');
 }

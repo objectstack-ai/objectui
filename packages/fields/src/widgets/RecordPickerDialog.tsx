@@ -46,7 +46,7 @@ import { RelatedRecordActionsProvider, useRelatedRecordActions } from '@object-u
 import { useFieldTranslation } from './useFieldTranslation.js';
 import { useRecordQuery } from './useRecordQuery.js';
 // The one place a lookup column's display value is decided — shared with the
-// inline dropdown in LookupField so a single `lookup_columns` declaration
+// inline dropdown in LookupField so a single `lookupColumns` declaration
 // cannot render two different ways (objectui#5492).
 import {
   normalizeColumn,
@@ -600,7 +600,7 @@ export function RecordPickerDialog({
 
   // Field descriptors handed to the type-aware cell renderers — built by the
   // SHARED helper, the same call the inline dropdown makes, so both surfaces
-  // enrich one `lookup_columns` declaration identically (objectui#5492).
+  // enrich one `lookupColumns` declaration identically (objectui#5492).
   const columnFieldDescriptors = useMemo<Record<string, any>>(
     () => buildLookupColumnDescriptors(resolvedColumns, fieldsMeta, objectName, translateOptions),
     [resolvedColumns, fieldsMeta, objectName, translateOptions],
@@ -980,7 +980,7 @@ export function RecordPickerDialog({
   // Get display value for a cell. Delegated to the SHARED lookup-column
   // renderer (objectui#5492) — the inline dropdown in LookupField calls the
   // very same function, so this table and that popover cannot answer one
-  // `lookup_columns` declaration two different ways.
+  // `lookupColumns` declaration two different ways.
   //
   // The display column's title (objectui#10486) is built from the row the
   // dropdown's option label is built from: relations collapsed to ids, so an

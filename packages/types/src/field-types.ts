@@ -756,9 +756,9 @@ export interface LookupFilterDef {
  * Lookup/Master-Detail field metadata
  *
  * Supports enterprise-grade Record Picker configuration:
- * - `lookup_columns` — columns shown in the Record Picker dialog table
+ * - `lookupColumns` — columns shown in the Record Picker dialog table
  * - `descriptionField` — secondary description shown in quick-select popover
- * - `lookup_page_size` — records per page in the Record Picker dialog
+ * - `lookupPageSize` — records per page in the Record Picker dialog
  * - `lookupFilters` — base filters applied to Record Picker queries
  */
 export interface LookupFieldMetadata extends BaseFieldMetadata {
@@ -803,8 +803,12 @@ export interface LookupFieldMetadata extends BaseFieldMetadata {
    * picker. Defaults ON for user-facing relations and OFF for platform
    * objects (`sys_`/`cloud_`/`ai_` and the user directory); set explicitly to
    * override either way.
+   *
+   * `@objectstack/spec`'s `FieldSchema.allowCreate`, typed BY REFERENCE
+   * (objectui#12157). It replaces the snake_case `allow_create`, which the spec
+   * refuses with `unrecognized_keys` and the widget no longer reads.
    */
-  allow_create?: boolean;
+  allowCreate?: SpecField['allowCreate'];
 
   /**
    * Secondary field shown as description in the quick-select popover.
@@ -818,14 +822,23 @@ export interface LookupFieldMetadata extends BaseFieldMetadata {
    * description field.
    * @example ['name', 'email', 'status']
    * @example [{ field: 'name', label: 'Customer' }, { field: 'amount', label: 'Total', width: '100px' }]
+   *
+   * `@objectstack/spec`'s `FieldSchema.lookupColumns`, typed BY REFERENCE: each
+   * entry is a field name or a {@link LookupColumnDef}-shaped descriptor
+   * (objectui#12157). It replaces the snake_case `lookup_columns`, which the
+   * spec refuses with `unrecognized_keys` and the widget no longer reads.
    */
-  lookup_columns?: Array<string | LookupColumnDef>;
+  lookupColumns?: SpecField['lookupColumns'];
 
   /**
    * Custom page size for the Record Picker dialog.
    * Defaults to 10.
+   *
+   * `@objectstack/spec`'s `FieldSchema.lookupPageSize`, typed BY REFERENCE
+   * (objectui#12157). It replaces the snake_case `lookup_page_size`, which the
+   * spec refuses with `unrecognized_keys` and the widget no longer reads.
    */
-  lookup_page_size?: number;
+  lookupPageSize?: SpecField['lookupPageSize'];
 
   /**
    * Base filters applied to every Record Picker query.

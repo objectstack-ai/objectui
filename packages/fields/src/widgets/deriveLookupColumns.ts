@@ -45,7 +45,7 @@ function dedupe(names: string[]): string[] {
 
 /**
  * Derive sensible Record Picker columns from a referenced object's schema when
- * a lookup field declares no explicit `lookup_columns`.
+ * a lookup field declares no explicit `lookupColumns`.
  *
  * Priority:
  *   1. The referenced object's ADR-0085 `highlightFields` — the canonical

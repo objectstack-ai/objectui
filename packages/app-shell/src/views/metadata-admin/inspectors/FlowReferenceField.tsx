@@ -622,7 +622,10 @@ function RecordLookupCell({ binding, value, onPick, onCommit, onBlur, disabled, 
             idField: binding.valueField,
             multiple: false,
             // A directory row is never created from a flow-authoring picker.
-            allow_create: false,
+            // The spec's `allowCreate`, the only spelling `LookupField` reads
+            // (objectui#12157): its explicit `false` outranks the widget's
+            // default-on quick-create for a user-facing reference.
+            allowCreate: false,
             placeholder,
             ...(binding.picker ? { picker: binding.picker } : {}),
             ...(binding.subtitle ? { subtitle: binding.subtitle } : {}),

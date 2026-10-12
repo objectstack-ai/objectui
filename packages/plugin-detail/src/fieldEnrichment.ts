@@ -246,11 +246,11 @@ export const ENRICHED_FIELD_METADATA_KEYS = [
   'displayField',
   'descriptionField',
   'idField',
-  'allow_create',
+  // ⭐ objectui#12157 retired `allow_create` / `lookup_columns` /
+  // `lookup_page_size` from the picker the same way, so only the spec
+  // spellings are copied.
   'allowCreate',
-  'lookup_columns',
   'lookupColumns',
-  'lookup_page_size',
   'lookupPageSize',
   'lookupFilters',
   'picker',

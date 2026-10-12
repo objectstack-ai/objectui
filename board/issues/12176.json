@@ -1,0 +1,29 @@
+{
+  "number": 12176,
+  "kind": "issue",
+  "title": "cli(ratchet): the namespaced refused-at-type population counts `field:` widget keys, which are authored through a field's `widget` and never at a node `type`, so every new field widget must raise a pin that \"never rises\"",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "domain:ui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-12T02:47:21Z",
+  "updated_at": "2026-10-12T02:47:21Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12176",
+  "body": "**Finding.** `packages/cli/src/__tests__/registered-types-validate-ratchet-10859.test.ts` counts every namespaced key of the generated `KNOWN_SCHEMA_TYPES` that `objectui validate` refuses at `type`. The count is pinned as `NAMESPACED_REFUSED_AT_TYPE` (objectui#10872, closed), and the file rules that it \"⛔ never rises\": a refused key is either armed or \"its authorability taken to the card\".\n\nA `field:` key is a record-form field widget. It is selected through a field's `widget`, which the spec's `FieldSchema.widget` resolves as `field:WIDGET`, and it is never authored as a page node's `type`. So:\n- every `field:` key is refused at `type` by construction. The 360 on `main` already includes the existing `field:` keys (52 in the generated list on `main` `2498a0753`), and the batch-8 row keeps the 28 `field:TYPE` keys registered;\n- no `field:` key can ever be armed, because the spec has no node-authoring row for one;\n- every new field widget therefore turns the ratchet red, and the only way to green is the raise the file forbids.\n\n**First occurrence:** objectui#12175 (objectui#7611 PR-5) registers `field:position-ref` and `field:permission-ref`. The count is 362 against 360. The seat ruled a named raise in that PR, pinning exactly those two keys (seat answer on objectui#7611). That is a stopgap, not the gate's design.\n\n**The question for this card:** should `field:` keys leave the namespaced population? Each option is weighed on the four axes.\n- **(i)** Leave the population. `NAMESPACED_REFUSED_AT_TYPE` drops by the number of `field:` keys, and a separate exact list pins the registered `field:` keys, so adding one is a reviewed one-line list change rather than a pin raise.\n- **(ii)** Keep counting them, and amend the file's ⛔ to allow a named raise for `field:` keys only.\n\nEither way the bare half (`REFUSED_AT_TYPE = 0`) is untouched.\n\n**Evidence:**\n- objectui `main` `2498a0753`, the file's `NAMESPACED_REFUSED_AT_TYPE = 360`, and `RETIRED_FIELD_FALLBACKS_10859_BATCH_8` (the `field:${key}` assertions).\n- objectui#12175's union run: `expected 362 to be 360`, with the refused list containing the two new keys.\n\nFound by the objectstack#15194 epic seat while reviewing objectui#12175."
+}

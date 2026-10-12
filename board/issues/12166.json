@@ -1,0 +1,39 @@
+{
+  "number": 12166,
+  "kind": "pull_request",
+  "title": "fix(types,components,plugin-form): declare a form field's `step` (the spec's number) and `className`; built-in branches merge the class and derive the number step, ObjectForm stops writing 'any' (objectui#12130)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "examples",
+    "package: components",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-11T22:35:11Z",
+  "updated_at": "2026-10-11T23:17:21Z",
+  "closed_at": "2026-10-11T23:17:19Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-11T23:17:19Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12166",
+  "body": "Fixes #12130\nClause-②: yes (narrowing): declaring `step` and `className` widens the strict authoring face by two keys. Typing `step` as the spec's number narrows the tolerant face, from accepting `step: 'any'` (stripped) to refusing it at `fields[].step`.\n\nRound 3 of objectui#12130 (`step`, `className`), the census's last two OPEN rows. After it the census ledger has no OPEN row. Implemented by the os-dev for the `domain:spec` @ objectui seat, session `https://claude.ai/code/session_01V8qYZseSLfKH3V8tPu2f73`, claim 6113481475 as amended by 6114408150. Base `c0c2f79`, synced by merging `main` `f3d5408` (objectui#12155's DOM allowlist; conflicts kept both sides). Head `9c93615`.\n\n## Premises (measured before any declaration): both held\n\n- **`step`.** The built-in number input can derive the step from the metadata carrier (`field.field || field`; on the `ObjectForm` route that is the raw object field with `scale`), by `NumberField`'s rule: an explicit `step`, else `10^-scale`, else `any`. So `ObjectForm` now writes no `step`. `objectFormNumericStep-9574.test.tsx` passes on both routes with every assertion byte-identical to `main`: its 7 `expect(` lines diff empty, and only header prose changed. Ablating the derivation turns its two route-1 tests red. A hand-authored `input` with `inputType: 'number'` steps by `any` / `0.01` (scale 2) / `5` (explicit), where it had no step attribute / none / `5` before.\n- **`className`.** Measured per type through the real `SchemaRenderer`, with components only and with `@object-ui/fields`, in three states. Every reader puts it on an element the field's own widget or branch renders: the control in most types, the widget's own box for `tags`, `file`, `image` and `slider`, the first sub-input for `address` and `geolocation`, a display element, or a `section-divider`'s divider. None puts it on the field row, the label, the host's read-only group or outside the row. `lookup`, `master_detail`, `user` and `signature` draw no class from it.\n\n## What changed\n\n- `packages/components/src/renderers/form/form.tsx`: the `input` and `default` arms derive a number input's step (`nativeNumberStep`), and the built-in branches merge an entry's `className` with their own classes (`cn(own, className)`), as `select` already did. Before, the entry's class replaced the touch-target and read-only classes.\n- `packages/plugin-form/src/ObjectForm.tsx`: the `formField.step = … : 'any'` write is removed.\n- `FormField` / `FormFieldSchema`: `step` declared by reference to the spec's `FieldSchema.step`; `className` declared as `string`.\n- The census (both rows move to `DECLARED_BY_12130`), the effects and components-only pins (with/without cases, one per element class, and a never-the-row sweep), the face pin and the zod coverage list.\n- Docs: `form.mdx` and `plugin-form.mdx` (`className` is now a declared key). Its pin in `check-doc-component-types.test.ts` flips to `toMatch`.\n- Changesets: new `.changeset/12130-step-classname.md` (types / components `minor`, plugin-form `patch`, breaking semantics stated). Round 1's pending changeset loses its 「Still undeclared」 sentence.\n\n## Gates run (code at `215da7e`; `9c93615` adds the `plugin-form/README.md` correction only)\n\n- vitest under `os-verify-lock`: `scripts/__tests__/` 「Test Files 180 passed | 2 skipped (182)」; the 9574 pin 「Tests 3 passed (3)」; `examples/schema-catalog/` 「Test Files 46 passed (46)」. At `b1fd4c4`: `packages/types/`, `packages/plugin-form/`, `packages/components/`: all exit 0.\n- `pnpm --filter` `type-check` for types, components, plugin-form and example-schema-catalog: exit 0. `pnpm check`: 「0 did not validate」.\n- Doc gates over the rebuilt types (35 of 35 build tasks): `check-doc-component-types`, `-doc-snippet-types`, `-doc-json-fences`, `check:doc-fences`, `-doc-example-ids`: all exit 0.\n- Changeset gates: `check-changeset-presence` 「7 source file(s) of 3 released package(s) changed, and this change declares 1 changeset(s)」. `-claims`, `-no-major`, `-overwrite` and `-fixed` exit 0 (`-overwrite` reports the round-1 changeset edit, report-only). `check:pending-changeset-literals`, `check:control-bytes` and `check:new-line-citations` (「0 new citation(s)」): exit 0.\n- Not measured here: the console bundle budget. CI's.\n\n## Acceptance notes\n\n- `packages/plugin-form/README.md` listed `className` as 「Not a `FormField` key」. It ships with the package, so it is corrected in this PR (`9c93615`, claim amendment `6114675131`): `className` moves to the declared keys and the stale 「23 keys」 count is dropped.\n- `lookup`, `master_detail`, `user` and `signature` accept `className` and draw nothing from it. That is noted, not filed.\n\n---\n\n_Generated by [Claude Code](https://claude.ai/code/session_01V8qYZseSLfKH3V8tPu2f73)_\n"
+}

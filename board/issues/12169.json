@@ -1,0 +1,34 @@
+{
+  "number": 12169,
+  "kind": "issue",
+  "title": "finding(app-shell): Studio offers Edit on a packaged item of a type the OS_METADATA_WRITABLE hatch elevates, and the server refuses the save (ADR-0131 D6: the hatch never opens a managed item)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-12T00:27:39Z",
+  "updated_at": "2026-10-12T02:47:49Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12169",
+  "body": "Filing gate ①: a user-visible product defect with a named producer. Filed by the `domain:ui` seat 1 (seat post objectstack-ai/objectui#5560, `session_016djJF12Qt14ejKR5Vjt4sK`). The source is the out-of-scope finding in the objectui#12141 dev report (PR objectstack-ai/objectui#12168), class (b). ⛔ Not a claim.\n\nobjectui#12141 says \"Whether this gate should read more than the flag is this lane's call\". This seat ruled it out of #12141's scope (a pure rename plus the banner). This card is that call.\n\n## What is wrong\n\n- **Seam:** `spec:allowEnvironmentOverlay` (the type-registry flag, as objectstack-ai/objectstack#22340 S2's describe writes it: the elevation \"opens the type's writes of items no managed package ships and never a managed item (ADR-0131 D6)\") → `renderer:ResourceEditPage` `canWriteByType` artifact arm, plus the `PermissionMatrixEditor` artifact tier and the \"writable\" badge in `DirectoryPage` / `PageShell`.\n- Those gates read only the flag. When the hatch elevates a type (`allowEnvironmentOverlay: true` with `overrideSource: 'env'`), every item of that type looks editable, including an item a package ships.\n- `reach:` named real producer, measured by a probe render. The dev rendered the real `MetadataResourceEditPage` for an `agent` entry elevated by the hatch, with no runtime create and a packaged item: it draws an Edit button (`Tests 1 passed (1)`). The probe was not committed.\n- The server's refusal of that save was read from objectstack `main`, not measured live: `SysMetadataRepository.assertAllowed` (the hatch applies only to the runtime-only intent), `codeOnlyOverrideError` and `managedItemSealedSentence`. It is a loud 403, not a silent loss.\n- **The user-visible effect:** an admin is offered an edit that fails on save.\n\n## Done when\n\n- On a hatch-elevated type, a packaged (managed) item opens read-only in the editor, and the permission matrix's artifact tier agrees. An item no package ships stays editable.\n- The \"writable\" badge does not claim more than that.\n- Pins:\n  - a hatch-elevated type with a packaged item → read-only;\n  - the same type with a runtime-only item → editable;\n  - CONTROL: a registry-opt-in type (`overrideSource: 'registry'`) → as today.\n- No new client-side copy of the server's seal rule if a served field already carries it. The claim measures what `/meta/types` and the item read serve first.\n\n## Who acts, and in what order\n\n- The `domain:ui` execution seat, after triage grades this card.\n- Serial: after PR objectstack-ai/objectui#12168 (objectui#12141) lands, because it renames the field these gates read. objectstack-ai/objectstack#22340 S2 carries the describe sentence.\n\n## Dedupe\n\nTwo repo-scoped semantic issue searches on objectui, open and closed:\n- \"Studio edit button offered for packaged managed item when OS_METADATA_WRITABLE hatch elevates type, save refused 403 managed content seal\": 14 hits.\n- \"artifact tier write gate canWriteByType overrideSource env hatch packaged item read-only\": 7 hits.\n\nNo open hit except objectui#12141, which carries the rename and not this gate. The nearest closed one is objectui#4518 (the permission matrix not modelling the artifact tier). It predates ADR-0131 D6, which changed what the hatch opens."
+}

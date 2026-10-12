@@ -42,6 +42,9 @@ vi.mock('react-router-dom', () => ({
   useParams: () => ({ pageName: 'welcome' }),
   useNavigate: () => vi.fn(),
   useSearchParams: () => [new URLSearchParams(), vi.fn()] as const,
+  // `PageView` reads the router basename through `useHref('/')` once
+  // objectui#12239 lands; harmless before it.
+  useHref: () => '/',
   Link: ({ children, to, ...p }: Record<string, unknown> & { children?: React.ReactNode }) => (
     <a href={String(to)} {...p}>{children}</a>
   ),

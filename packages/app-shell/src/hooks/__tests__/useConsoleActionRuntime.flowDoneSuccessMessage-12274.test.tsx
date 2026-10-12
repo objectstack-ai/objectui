@@ -129,8 +129,9 @@ describe('objectui#12274 — a straight-through action-door launch closes by the
     const result = await click(DECLARED_WITHOUT_MESSAGE);
 
     expect(String(authFetchSpy.mock.calls[0][0])).toBe(`/api/v1/actions/${OBJECT}/escalate_case`);
-    expect(result).toEqual({ success: true, data: COMPLETED_WITH_FLOW_MESSAGE, reload: true, silent: true });
+    // The toast first: it is what the user reads, so a red run names the sentence.
     expect(successTexts()).toEqual([FLOW_MESSAGE]);
+    expect(result).toEqual({ success: true, data: COMPLETED_WITH_FLOW_MESSAGE, reload: true, silent: true });
     expect((toast as any).error).not.toHaveBeenCalled();
   });
 
@@ -174,7 +175,7 @@ describe('objectui#12274 — the trigger-route door follows the same precedence'
     const result = await click({ name: 'escalate_inline', label: 'Escalate', type: 'flow', target: FLOW }, null);
 
     expect(String(authFetchSpy.mock.calls[0][0])).toBe(`/api/v1/automation/${FLOW}/trigger`);
-    expect(result).toMatchObject({ success: true, silent: true });
     expect(successTexts()).toEqual([FLOW_MESSAGE]);
+    expect(result).toMatchObject({ success: true, silent: true });
   });
 });

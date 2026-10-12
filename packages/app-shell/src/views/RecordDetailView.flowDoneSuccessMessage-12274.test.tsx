@@ -205,8 +205,9 @@ describe('objectui#12274 — a straight-through record-page launch closes by the
   it("(ii) the flow's own successMessage when the action declares none — once, with no runner default beside it", async () => {
     const result = await launch(DECLARED_WITHOUT_MESSAGE, COMPLETED_WITH_FLOW_MESSAGE);
 
-    expect(result).toEqual({ success: true, data: COMPLETED_WITH_FLOW_MESSAGE, reload: true, silent: true });
+    // The toast first: it is what the user reads, so a red run names the sentence.
     expect(successTexts()).toEqual([FLOW_MESSAGE]);
+    expect(result).toEqual({ success: true, data: COMPLETED_WITH_FLOW_MESSAGE, reload: true, silent: true });
     expect((toast as any).error).not.toHaveBeenCalled();
   });
 

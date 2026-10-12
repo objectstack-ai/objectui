@@ -69,10 +69,6 @@ on:
   schedule:
     - cron: '43 5,11,17,23 * * *'
   workflow_dispatch: {}
-  # TEMPORARY (removed before review): build-only dry run on this PR, deploy step skipped.
-  pull_request:
-    paths:
-      - '.github/workflows/docs-deploy.yml'
 
 permissions:
   contents: read
@@ -99,7 +95,7 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          if [ "${GITHUB_EVENT_NAME}" != 'pull_request' ] && [ "${GITHUB_REF}" != 'refs/heads/main' ]; then
+          if [ "${GITHUB_REF}" != 'refs/heads/main' ]; then
             echo "::error title=Docs deploy runs from main only::This run is on ${GITHUB_REF}. The docs site deploys only from main (objectui#12178); dispatch the workflow with --ref main."
             exit 1
           fi
@@ -131,16 +127,7 @@ jobs:
       - name: Build the site
         run: vercel build --prod
 
-      - name: TEMPORARY dry-run evidence
-        if: github.event_name == 'pull_request'
-        run: |
-          ls -la .vercel/output
-          cat .vercel/output/config.json | head -c 2000; echo
-          ls .vercel/output/functions | head -50
-          cat .vercel/output/builds.json | head -c 1500; echo
-
       - name: Deploy the prebuilt output to production
-        if: github.event_name != 'pull_request'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |

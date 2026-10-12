@@ -824,8 +824,12 @@ export const ADJUDICATED = new Map([
       // objectui#12131 widened that surface to the published READMEs: the root
       // `README.md` and every `packages/NAME/README.md`, a leg taken by IMPORT
       // from `check-doc-component-types.mjs`, hence `packages/**` as in the
-      // carriage census's entry above.
-      reads: ['README.md', 'content/docs/**', 'packages/**'],
+      // carriage census's entry above. objectui#12204 added the gate's fourth
+      // leg, the published skill bundle -- every `.md` under `skills/objectui/`,
+      // its anchor `rules/protocol.md` -- so the walk reads that tree too; the
+      // two bundle pages the scanner resolves by name (`SKILL.md`, the anchor)
+      // are fixture keys of the leg's order and anchor pins, inside the tree.
+      reads: ['README.md', 'content/docs/**', 'packages/**', 'skills/objectui/**'],
       walker: 'markdown-tree',
     },
   ],

@@ -897,7 +897,7 @@ export const ADJUDICATED = new Map([
   [
     'scripts/__tests__/check-installed-spec-pin-claims.test.ts',
     {
-      reads: ['.claude/skills/**', '.github/prompts/component.prompt.md', '.github/prompts/engine.prompt.md', '.github/prompts/ui-library.prompt.md', 'AGENTS.md', 'CLAUDE.md', 'CONTRIBUTING.md', 'LICENSE-THIRD-PARTY.md', 'QUICK_REFERENCE.md', 'README.md', 'ROADMAP.md', 'apps/**', 'content/docs/**', 'docs/ARCHITECTURE.md', 'docs/CONSOLE-STREAMLINING-SUMMARY.md', 'docs/adr/**', 'docs/audits/**', 'examples/**', 'packages/**', 'patches/README.md', 'skills/objectui/**'],
+      reads: ['.claude/skills/**', '.github/prompts/component.prompt.md', '.github/prompts/engine.prompt.md', '.github/prompts/ui-library.prompt.md', '.github/pull_request_template.md', 'AGENTS.md', 'CLAUDE.md', 'CONTRIBUTING.md', 'LICENSE-THIRD-PARTY.md', 'QUICK_REFERENCE.md', 'README.md', 'ROADMAP.md', 'apps/**', 'content/docs/**', 'docs/ARCHITECTURE.md', 'docs/CONSOLE-STREAMLINING-SUMMARY.md', 'docs/adr/**', 'docs/audits/**', 'examples/**', 'packages/**', 'patches/README.md', 'skills/objectui/**'],
       notRead: ['CHANGELOG.md'],
     },
   ],

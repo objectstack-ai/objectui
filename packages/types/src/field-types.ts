@@ -65,7 +65,7 @@ export interface BaseFieldMetadata {
    * below the field in forms"), typed BY REFERENCE (objectui#12213). It is
    * the key Studio's object field inspector writes. The record form reads it
    * first and falls back to `description` (`fieldHelpText` in
-   * `@object-ui/plugin-form`), and flow screens draw it in the same place.
+   * `@object-ui/fields`), and flow screens draw it in the same place.
    *
    * It replaces `help`, which this interface declared until objectui#12213:
    * the spec refuses `help` by name and suggests `inlineHelpText`, so a field

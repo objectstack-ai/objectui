@@ -15,7 +15,7 @@
  * writes it. Both of the form's field builders (`ObjectForm`'s own and
  * `fromObjectSchema`) read `field.help || field.description` and never that
  * key, so help text an admin typed in Studio never showed on the record form.
- * They now share one read, `fieldHelpText`.
+ * They now share one read, `fieldHelpText` from `@object-ui/fields`.
  *
  * Pinned through the public `ObjectForm` entry, with the real registered field
  * widgets, on three layouts that reach the two builders:
@@ -34,9 +34,11 @@
  *   2. CONTROL: a field with only `description` still draws it;
  *   3. `inlineHelpText: ''` reads as absent, so the description is drawn (`||`,
  *      not `??`: the spec declares no setting that hides the help line);
- *   4. the served `help` leg is still read (an objectstack server older than
- *      spec 17.7.0 serves a translated description there); it loses to
- *      `inlineHelpText`. Whether that leg retires is ruled on objectui#12213;
+ *   4. a served `help` key is ignored (ruled on objectui#12213: only an
+ *      objectstack server older than spec 17.7.0 serves one, and 17.7.0 serves
+ *      the translated text on `description`). A field carrying `help` draws its
+ *      `description`; one whose only help is `help` draws no help line; and
+ *      `inlineHelpText` still wins over it;
  *   5. CONTROL: a field with none of the three draws no description.
  *
  * Plus, on the flat layout only (the one that appends it): a file field's size
@@ -65,13 +67,14 @@ const OBJECT_SCHEMA = {
     summary: { type: 'text', label: 'Summary', description: 'The summary description' },
     blank: { type: 'text', label: 'Blank', inlineHelpText: '', description: 'The blank description' },
     served: { type: 'text', label: 'Served', help: 'Served translated help', description: 'Served source description' },
+    helpOnly: { type: 'text', label: 'Help only', help: 'Served help alone' },
     both: { type: 'text', label: 'Both', inlineHelpText: 'Declared help wins', help: 'Served help loses' },
     plain: { type: 'text', label: 'Plain' },
     contract: { type: 'file', label: 'Contract', inlineHelpText: 'PDF only', maxSize: 10 * MB },
   },
 };
 
-const TEXT_FIELDS = ['note', 'summary', 'blank', 'served', 'both', 'plain'] as const;
+const TEXT_FIELDS = ['note', 'summary', 'blank', 'served', 'helpOnly', 'both', 'plain'] as const;
 
 const makeDS = () =>
   ({
@@ -130,9 +133,12 @@ describe.each<Layout>(['flat', 'sectioned', 'tabbed'])(
       expect(control('Blank')).toHaveAccessibleDescription('The blank description');
     });
 
-    it('the served `help` leg is still read, and loses to `inlineHelpText`', async () => {
+    it('a served `help` key is ignored: `description` is drawn, and `help` alone draws no help line', async () => {
       await renderForm(layout);
-      expect(control('Served')).toHaveAccessibleDescription('Served translated help');
+      expect(control('Served')).toHaveAccessibleDescription('Served source description');
+      expect(screen.queryByText('Served translated help')).toBeNull();
+      expect(control('Help only')).toHaveAccessibleDescription('');
+      expect(screen.queryByText('Served help alone')).toBeNull();
       expect(control('Both')).toHaveAccessibleDescription('Declared help wins');
       expect(screen.queryByText('Served help loses')).toBeNull();
     });

@@ -18,7 +18,7 @@ import type { ObjectFormSchema, FormField, FormSchema, DataSource } from '@objec
 import { SchemaRenderer, useSafeFieldLabel } from '@object-ui/react';
 import { pickLocalized, useObjectTranslation } from '@object-ui/i18n';
 import { useRecordInvalidation } from './recordInvalidation';
-import { mapFieldTypeToFormType, buildValidationRules, formatFileSize } from '@object-ui/fields';
+import { mapFieldTypeToFormType, buildValidationRules, formatFileSize, fieldHelpText } from '@object-ui/fields';
 import { useIsMobile, toast } from '@object-ui/components';
 import { resolveSuccessNavigate } from './successBehavior';
 import { resolveSubmitRedirect, submitRedirectScope } from './submitRedirect';
@@ -33,7 +33,6 @@ import {
   warnSectionMemberExcludedByFields,
   buildSectionFields,
   sectionEntryName,
-  fieldHelpText,
   type SectionFieldsContext,
 } from './sectionFields';
 import { TabbedForm } from './TabbedForm';

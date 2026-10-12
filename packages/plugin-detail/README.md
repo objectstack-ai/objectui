@@ -614,6 +614,15 @@ shared draft (`InlineEditProvider` from `@object-ui/react`), committed by
   as it was** — a host that resolves no approval identity is unchanged rather
   than losing its submitter's only unlock lever. It gates the affordance only;
   the recall endpoint remains the authority on who may actually recall.
+- **Answered approvals read** (#12220): a host whose approvals read answered
+  (a 2xx) passes `InlineEditProvider.approvalReadAnswered`. Its `locked` /
+  `approvalPending` are then the whole answer, and the band stops falling back
+  to the record's `approval_status` column: a composition without the
+  approvals service answers the read with an empty list and enforces no lock,
+  so a stale `pending` in the column no longer shows a lock with nothing to
+  recall. Omitting it keeps the column fallback exactly as before. Hosts and
+  the band decide through one rule, `resolveApprovalLock` from
+  `@object-ui/react`.
 
 ## Links
 

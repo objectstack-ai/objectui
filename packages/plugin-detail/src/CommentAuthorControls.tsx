@@ -22,7 +22,7 @@ import { useDetailTranslation } from './useDetailTranslation';
  * gates its own Edit and Delete on. A row read from `sys_activity` offers
  * neither, for the reason `canTakeReply` gives in `RecordActivityTimeline`.
  */
-export function offersAuthorControls(item: FeedItem): boolean {
+function offersAuthorControls(item: FeedItem): boolean {
   return item.type === 'comment' && item.authoredByViewer === true;
 }
 

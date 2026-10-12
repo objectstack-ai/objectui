@@ -380,7 +380,7 @@ export interface EditOwnerSource {
   /** The values the form holds — BEFORE `sanitizeFormData`, which drops the owner. */
   values: Record<string, unknown>;
   /** The definition `payload` was sanitized against (`null` for inline members). */
-  objectSchema?: { fields?: Record<string, any> } | null;
+  objectSchema?: { fields?: Record<string, unknown> } | null;
   /** The field-level verdict `payload` was sanitized with. */
   canEdit?: (fieldName: string) => boolean;
 }

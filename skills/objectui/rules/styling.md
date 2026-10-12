@@ -129,7 +129,7 @@ runtime *geometry* value (a computed bar offset, a virtualiser's row height) is 
 question this carve-out does not answer.
 
 **Worked reference:** `getBadgeHexAppearance` / `getDotHexAppearance` in
-`packages/fields/src/index.tsx`, added by PR #5184 — the derived surface, label and border
+`packages/fields/src/index.tsx` — the derived surface, label and border
 are published as custom properties and consumed by the static utility pair above.
 
 ## Rule: Use Component Variants (CVA)

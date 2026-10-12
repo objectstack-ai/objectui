@@ -1,0 +1,4 @@
+---
+---
+
+No release. objectui#12170 makes `@object-ui/app-shell` compile against `@objectstack/spec` built from objectstack `main` (the Spec Main Shape Gate) while it keeps compiling, unchanged, against the installed release. objectstack-ai/objectstack#22883 retired the ledger role `flow-template` from `FLOW_NODE_EXPRESSION_PATHS` and moved its two rows, a loop's and a map's `collection`, to `value`. The flow designer's reference reader (`slotsForType` in `flow-node-refs.ts`, not exported) stops comparing a ledger row's role to the retired literal. Its behaviour does not move on either spec: both nodes' config descriptors already declare `collection` as an expression field with `refMode: 'template'`, which files the slot as a template on their own. A pin covers the map's `collection` beside the loop's.

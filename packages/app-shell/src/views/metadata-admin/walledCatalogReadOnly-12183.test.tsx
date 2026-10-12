@@ -26,7 +26,8 @@
  *
  *  - a walled tenant holding `manage_metadata` is read-only on each catalog
  *    type, on the list (no New, no switch) and in each editor (no Edit, no
- *    Save, no Clone), and the page says why in the server rule's terms;
+ *    Save, no Clone, no rollback), and the page says why in the server rule's
+ *    terms;
  *  - the operator (CONTROL) keeps every write, under the same wall;
  *  - `single` (CONTROL) and an unknown posture are unchanged;
  *  - a non-catalog type (CONTROL) stays writable under the wall;
@@ -116,6 +117,8 @@ const CLIENT = {
   references: vi.fn(async () => []),
   layered: vi.fn(async (type: string) => layeredFor(type)),
   save: vi.fn(async (_t: string, _n: string, payload: Record<string, unknown>) => payload),
+  /** One saved version, so the History sheet has a row to offer a rollback on. */
+  history: vi.fn(async () => [{ seq: 3, version: 7, op: 'save', ts: '2026-10-01T00:00:00Z' }]),
 };
 
 vi.mock('./useMetadata', async (importOriginal) => ({
@@ -349,6 +352,21 @@ describe('the position and capability editors under a wall (objectui#12183)', ()
     await mountEditor('position');
     expect((await screen.findAllByRole('button', { name: /^Edit$/ })).length).toBeGreaterThan(0);
     expect(screen.queryByTestId('walled-catalog-readonly-banner')).toBeNull();
+  });
+
+  it("the History sheet offers the walled tenant no rollback (the rollback door refuses it); CONTROL: the operator's does", async () => {
+    const rollback = () => screen.queryByTitle(t('engine.edit.rollback', 'en-US'));
+    await mountEditor('position');
+    fireEvent.click(screen.getByTitle(t('engine.edit.history', 'en-US')));
+    await screen.findByText('v7');
+    expect(rollback()).toBeNull();
+    cleanup();
+
+    operator = true;
+    await mountEditor('position');
+    fireEvent.click(screen.getByTitle(t('engine.edit.history', 'en-US')));
+    await screen.findByText('v7');
+    expect(rollback()).not.toBeNull();
   });
 
   it("assigning stays writable: the walled tenant adds a position's holder, by name", async () => {

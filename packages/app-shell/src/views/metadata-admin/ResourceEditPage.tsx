@@ -3210,7 +3210,10 @@ function MetadataResourceEditPageImpl({
                 name={name}
                 client={client}
                 locale={locale}
-                onRollback={() => setReloadKey((k) => k + 1)}
+                // The rollback door asks the capability and wall verdicts the
+                // save door asks, so it is offered on Save's gate
+                // (objectui#12183: a walled tenant was offered it, refused).
+                onRollback={canWrite ? () => setReloadKey((k) => k + 1) : undefined}
                 rollbackLabel={t('engine.edit.rollback', locale)}
                 rollbackConfirm={(version) =>
                   t('engine.edit.rollbackConfirm', locale).replace(

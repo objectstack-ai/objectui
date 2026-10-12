@@ -2582,6 +2582,7 @@ const ja = {
     },
     aiAssistant: "AI アシスタント",
     designInStudio: "Studio でデザイン",
+    editApp: "アプリを編集",
   },
   home: {
     build: {
@@ -2704,6 +2705,8 @@ const ja = {
       manageAllApps: "すべてのアプリを管理",
       systemConsole: "システムコンソール",
       noAppsConfigured: "アプリが設定されていません",
+      allApps: "すべてのアプリ",
+      editAppInStudio: "Studio で {{app}} を編集",
     },
     activityFeed: {
       title: "最近の活動",

@@ -3192,7 +3192,9 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     <div className="h-full bg-background overflow-hidden flex flex-col relative">
       {/* Shared cross-cutting chrome: lifecycle badge + presence avatars —
           rendered above the page tree so custom Page-assigned record pages
-          don't lose these affordances. */}
+          don't lose these affordances. The badge is an authoring aid and
+          draws for an authoring caller only (objectui#12194); the gate
+          lives in `ManagedByBadge`, so an end user sees none here. */}
       <div className="absolute top-2 sm:top-4 right-2 sm:right-4 z-50 flex items-center gap-2">
         {recordPresence.length > 0 && (
           <PresenceAvatars users={recordPresence} size="sm" maxVisible={3} showStatus />

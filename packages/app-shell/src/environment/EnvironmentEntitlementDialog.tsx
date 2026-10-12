@@ -26,6 +26,7 @@ import {
   AlertDialogCancel,
   Button,
 } from '@object-ui/components';
+import { classifyNavigationTarget } from '@object-ui/core';
 import { useObjectTranslation } from '@object-ui/i18n';
 import type { EntitlementCta, EntitlementDialogSpec } from './entitlements.js';
 
@@ -34,10 +35,17 @@ export interface EntitlementDialogState {
   spec?: EntitlementDialogSpec;
 }
 
-/** Resolve a CTA URL to a concrete href + whether it should open in a new tab. */
+/**
+ * Resolve a CTA URL to a concrete href + whether it should open in a new tab.
+ *
+ * Which targets are absolute is `@object-ui/core`'s answer, shared with the
+ * action runner (objectui#12191): an http(s) URL opens in a new tab, and a
+ * `mailto:` URL navigates in place. This function keeps no scheme list of its own.
+ */
 export function resolveCtaHref(url: string, apiBase: string): { href: string; external: boolean } {
-  if (/^https?:\/\//i.test(url) || url.startsWith('mailto:')) {
-    return { href: url, external: !url.startsWith('mailto:') };
+  const kind = classifyNavigationTarget(url);
+  if (kind === 'web' || kind === 'mail') {
+    return { href: url, external: kind === 'web' };
   }
   const base = (apiBase || '').replace(/\/+$/, '');
   // A control-plane-relative path: prefix the API origin when we have one (dev:

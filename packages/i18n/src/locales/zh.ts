@@ -2653,6 +2653,7 @@ const zh = {
   topbar: {
     aiAssistant: 'AI 助手',
     designInStudio: '在 Studio 中设计',
+    editApp: '编辑应用',
     openAssistant: '打开{{name}}助手',
     offline: '离线',
     usersOnline: '当前在线用户',
@@ -2779,6 +2780,8 @@ const zh = {
       manageAllApps: '管理所有应用',
       systemConsole: '系统控制台',
       noAppsConfigured: '尚未配置任何应用',
+      allApps: '所有应用',
+      editAppInStudio: '在 Studio 中编辑 {{app}}',
     },
     systemNav: {
       systemSettings: '系统设置',

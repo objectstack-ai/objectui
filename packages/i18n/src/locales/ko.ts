@@ -2580,6 +2580,7 @@ const ko = {
     },
     aiAssistant: "AI 어시스턴트",
     designInStudio: "Studio에서 디자인",
+    editApp: "앱 편집",
   },
   home: {
     build: {
@@ -2701,6 +2702,8 @@ const ko = {
       manageAllApps: "모든 앱 관리",
       systemConsole: "시스템 콘솔",
       noAppsConfigured: "구성된 앱 없음",
+      allApps: "모든 앱",
+      editAppInStudio: "Studio에서 {{app}} 편집",
     },
     activityFeed: {
       title: "최근 활동",

@@ -340,9 +340,11 @@ export function RecordFormPage({ mode }: RecordFormPageProps) {
             <span className="text-foreground font-medium" data-testid="record-form-page-title">
               {pageTitle}
             </span>
-            {/* Lifecycle bucket badge — see ManagedByBadge.
-                Forms additionally disable inputs for non-`platform`
-                buckets via ObjectForm's own readOnly resolution. */}
+            {/* Lifecycle bucket badge — see ManagedByBadge. An authoring
+                aid, drawn for an authoring caller only (objectui#12194).
+                Why a locked form's fields are read-only is ObjectForm's own
+                sentence (`ClosedAffordanceNotice`, objectui#11000), not
+                this badge's. */}
             <ManagedByBadge
               managedBy={(objectDef as any)?.managedBy}
               className="ml-1"

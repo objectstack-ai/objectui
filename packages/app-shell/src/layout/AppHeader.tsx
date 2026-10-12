@@ -2,11 +2,15 @@
  * AppHeader — unified top bar
  *
  * Supabase-style top bar used across the whole console:
- *   [Logo] [/ App ▾ / Object ▾ ...]                       [actions] [user ▾]
+ *   [Logo] [Product / Section]                            [actions] [user ▾]
+ *   [App ▾] [/ Object ▾ ...]              (inside an app) [actions] [user ▾]
  *
  * Variants:
  *   - `app`  (default when `appName` is present): sidebar trigger + AppSwitcher
  *              + breadcrumb path. Used by `ConsoleLayout` inside `/apps/:appName/*`.
+ *              The bar starts with the app pill — the app's glyph and name —
+ *              and carries no platform mark: one brand mark per screen, and
+ *              inside an app that mark is the app's (objectui#12201).
  *   - `home` : no breadcrumb; displays the product wordmark (from
  *              `getProductName()`, default "ObjectOS") next to the brand
  *              logo. Used by `/home`.
@@ -33,7 +37,6 @@ import {
   Avatar,
   AvatarImage,
   AvatarFallback,
-  cn,
 } from '@object-ui/components';
 import {
   Search,
@@ -50,7 +53,7 @@ import {
   BookOpen,
   ExternalLink,
   Keyboard,
-  Hammer,
+  Pencil,
 } from 'lucide-react';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -495,28 +498,28 @@ export function AppHeader({
     <div className="flex items-center justify-between w-full h-full">
       {/* ── LEFT: Logo / App / Object path ── */}
       <div className="flex items-center min-w-0 flex-1">
-        {/* Platform logo — links to home. Hidden on mobile when inside an
-            app: the sidebar (opened via the SidebarTrigger ☰) already
-            exposes the home affordance, so duplicating it in the topbar
-            just steals horizontal space from the page title.
+        {/* Platform logo — links to home. Platform surfaces only (Home,
+            organizations, the Studio front door): inside an app the bar
+            starts with the app pill instead, and the way back to Home is the
+            pill's 「All apps」 row (objectui#12201 items 4 and 6) — on a phone,
+            the drawer header's 「All apps」 button.
 
             `homePath`, not a literal `/home` (objectui#7256): on a deployment
             that DECLARES a landing this is the declared one, so the logo and
             the post-login landing name the same screen. */}
-        <Link
-          to={homePath}
-          className={cn(
-            "flex items-center justify-center h-7 w-7 shrink-0 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors overflow-hidden",
-            isApp && "hidden sm:flex"
-          )}
-          title={getProductName()}
-        >
-          {getLogoUrl() ? (
-            <img src={getLogoUrl()} alt={getProductName()} className="h-full w-full object-contain" />
-          ) : (
-            <Layers className="h-4 w-4" />
-          )}
-        </Link>
+        {!isApp && (
+          <Link
+            to={homePath}
+            className="flex items-center justify-center h-7 w-7 shrink-0 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors overflow-hidden"
+            title={getProductName()}
+          >
+            {getLogoUrl() ? (
+              <img src={getLogoUrl()} alt={getProductName()} className="h-full w-full object-contain" />
+            ) : (
+              <Layers className="h-4 w-4" />
+            )}
+          </Link>
+        )}
 
         {resolvedVariant === 'home' && (
           <span className="hidden sm:inline ml-2 text-sm font-semibold tracking-tight">
@@ -524,11 +527,13 @@ export function AppHeader({
           </span>
         )}
 
-        {/* Platform-stage chip — sits in the brand zone so it rides along on
-            every console surface (home / app / orgs / studio) while the whole platform
-            is in preview. Desktop-only to spare the crowded mobile top bar;
-            renders nothing once runtime-config reports GA. */}
-        <PreviewBadge className="ml-2 hidden sm:inline-flex" />
+        {/* Platform-stage chip — rides along on every console surface while
+            the whole platform is in preview. On platform surfaces it sits in
+            the brand zone, beside the mark; inside an app it sits on the
+            right, beside the search box, so the bar's left edge is the app
+            (objectui#12201 item 5). Desktop-only to spare the crowded mobile
+            top bar; renders nothing once runtime-config reports GA. */}
+        {!isApp && <PreviewBadge className="ml-2 hidden sm:inline-flex" />}
 
         {/* Organization context — "which org am I in", right after the brand and
             before the app/section breadcrumb. Two mutually exclusive renderers:
@@ -563,21 +568,22 @@ export function AppHeader({
                 where the sidebar may already be collapsed into icon mode. */}
             <LocalizedSidebarTrigger className="lg:hidden shrink-0 ml-1" aria-label={t('common.toggleSidebar', { defaultValue: 'Toggle sidebar' })} />
 
-            {/* App dropdown — desktop/tablet only. On mobile the sidebar
-                already shows the active app at its top, so a second app
-                pill in the topbar is pure noise. */}
+            {/* App pill — the app's glyph and name, and its switcher. It
+                starts the path, so no separator precedes it. Desktop/tablet
+                only: on mobile the drawer header names the active app, so a
+                second app pill in the topbar is pure noise. The dropdown's
+                Studio row takes the Studio button's own target, so the two
+                cannot disagree (objectui#12201 item 6). */}
             {activeAppName && onAppChange ? (
-              <>
-                <span className="hidden sm:flex items-center"><PathSep /></span>
-                <div className="hidden sm:flex items-center">
-                  <AppSwitcher activeAppName={activeAppName} onAppChange={onAppChange} />
-                </div>
-              </>
+              <div className="hidden sm:flex items-center">
+                <AppSwitcher
+                  activeAppName={activeAppName}
+                  onAppChange={onAppChange}
+                  designInStudioPath={studioDesignPath}
+                />
+              </div>
             ) : appName ? (
-              <>
-                <span className="hidden sm:flex items-center"><PathSep /></span>
-                <span className="hidden sm:inline text-sm font-medium text-foreground/80 px-1.5">{appName}</span>
-              </>
+              <span className="hidden sm:inline text-sm font-medium text-foreground/80 px-1.5">{appName}</span>
             ) : null}
 
             {/* Extra path segments */}
@@ -698,6 +704,11 @@ export function AppHeader({
           </div>
         )}
 
+        {/* Platform-stage chip, inside an app — beside the search box
+            (objectui#12201 item 5); on platform surfaces it stays in the
+            brand zone on the left. */}
+        {isApp && <PreviewBadge className="hidden sm:inline-flex" />}
+
         {/* Group 1: Search */}
         {/* Only where a palette is mounted (objectui#11912) — see `hasCommandPalette`. */}
         {hasCommandPalette && (
@@ -734,8 +745,38 @@ export function AppHeader({
           </div>
         )}
 
-        {/* Group 2: Inbox (notifications + approvals + activity) & Help */}
+        {/* Group 2: Edit app, Inbox (notifications + approvals + activity) & Help */}
         <div data-topbar-group className="flex items-center gap-0.5 shrink-0">
+          {/* Edit app — the app → builder reverse bridge (ADR-0080), at the
+              left edge of this utility cluster, labelled so a viewer can tell
+              what it does (objectui#12201 item 6). Admins jump from the
+              running app to its owning package's design surface; on a
+              dashboard route it deep-links to that dashboard's design page in
+              the Interfaces pillar
+              (/studio/:packageId/interfaces?surface=dashboard:NAME), otherwise
+              the package's Data tab. Hidden for everyone else and for apps
+              with no owning package. From `lg` up it reads 「Edit app」 beside
+              its pencil; narrower, the pencil alone, named by its aria-label
+              and its tooltip. */}
+          {studioDesignPath && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 shrink-0 gap-1.5 px-0 mr-1 lg:w-auto lg:px-2.5"
+              asChild
+              data-testid="app-design-in-studio-button"
+              aria-label={t('topbar.editApp', { defaultValue: 'Edit app' })}
+              title={t('topbar.editApp', { defaultValue: 'Edit app' })}
+            >
+              <Link to={studioDesignPath}>
+                <Pencil className="h-4 w-4" />
+                <span className="hidden lg:inline" data-testid="app-design-in-studio-label">
+                  {t('topbar.editApp', { defaultValue: 'Edit app' })}
+                </span>
+              </Link>
+            </Button>
+          )}
+
           {/*
            * UX P0-2: a single bell consolidates what used to be three
            * separate top-bar buttons (ActivityFeed, Approvals, Notifications).
@@ -750,29 +791,6 @@ export function AppHeader({
             onMarkRead={markNotificationRead}
             onMarkManyRead={markManyRead}
           />
-
-          {/* Design in Studio — the app → builder reverse bridge (ADR-0080).
-              Admins jump from the running app to its owning package's design
-              surface; on a dashboard route it deep-links to that dashboard's
-              design page in the Interfaces pillar
-              (/studio/:packageId/interfaces?surface=dashboard:<name>), otherwise
-              the package's Data tab. Hidden for everyone else and for apps with
-              no owning package. */}
-          {studioDesignPath && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 shrink-0"
-              asChild
-              data-testid="app-design-in-studio-button"
-              aria-label={t('topbar.designInStudio', { defaultValue: 'Design in Studio' })}
-              title={t('topbar.designInStudio', { defaultValue: 'Design in Studio' })}
-            >
-              <Link to={studioDesignPath}>
-                <Hammer className="h-4 w-4" />
-              </Link>
-            </Button>
-          )}
 
           {/* AI Assistant — only when the runtime serves AI (hidden on
               Community Edition so it can't dead-end on an agent-less chat). */}

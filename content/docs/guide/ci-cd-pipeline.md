@@ -1226,16 +1226,20 @@ judge an authored document with ([#5250](https://github.com/objectstack-ai/objec
 So a key no schema declares fails here exactly as it fails `objectui validate`; the tolerant face
 keeps it, because `BaseSchemaCore` is `.passthrough()` for the renderer.
 
-**What it reads.** Three legs, declared once in the script's `SCAN_SURFACE` and printed leg by leg
+**What it reads.** Four legs, declared once in the script's `SCAN_SURFACE` and printed leg by leg
 in its summary: every `.mdx` / `.md` page under `content/docs`, every package's own `README.md`
-(`packages/NAME/README.md`), and the root `README.md`. The two README legs are the ones the other doc
-gates walk, imported from the component-type gate rather than spelled a second time. They joined in
+(`packages/NAME/README.md`), the root `README.md`, and every `.md` page of the published skill bundle
+under `skills/objectui/`. The two README legs are the ones the other doc gates walk, imported from the
+component-type gate rather than spelled a second time. They joined in
 [#12131](https://github.com/objectstack-ai/objectui/issues/12131), after the root README's form and
 dashboard examples and a table in `packages/plugin-dashboard/README.md` were refused by
-`objectui validate` while this gate was green. Pages off that surface are not read, and the summary
-says so: `docs/audits/**` (point-in-time records, kept out on purpose), `skills/**`, CHANGELOGs,
-changesets, and READMEs below a package root, which are published only when a package's `files`
-reaches them.
+`objectui validate` while this gate was green. The skills leg joined in
+[#12204](https://github.com/objectstack-ai/objectui/issues/12204): `check-skill-examples` holds those
+fences to *parse* only, and its `os:check` opt-in line sits directly above each of them, so a fragment
+declaration there goes on the line directly above that opt-in line — the one shape the gate steps
+over. Pages off that surface are not read, and the summary says so: `docs/audits/**` (point-in-time
+records, kept out on purpose), `.claude/skills/**`, CHANGELOGs, changesets, and READMEs below a package
+root, which are published only when a package's `files` reaches them.
 
 **What it does not judge, it counts.** A fence that is not JSON, not an object, carries no string
 `type`, or names a `type` no node schema declares is not judged; the summary prints each bucket, and

@@ -29,6 +29,7 @@ full boundary tables -- the evaluated fields, the raw ones, `visible` over
 -- are in [`rules/protocol.md`](../rules/protocol.md), which is the anchor for
 this rule. The four cases that decide most schemas:
 
+<!-- doc-json: fragment — deliberate counter-example: a title parked under props is evaluated, then dropped, and props is no declared key -->
 <!-- os:check -->
 ```jsonc
 // Evaluated, then dropped -- renders an empty card
@@ -41,6 +42,7 @@ this rule. The four cases that decide most schemas:
 { "type": "card", "title": "${data.customer.name}" }
 ```
 
+<!-- doc-json: fragment — deliberate counter-example: value is retired from text and refused by name; the fix beside it writes content -->
 <!-- os:check -->
 ```jsonc
 // `value` is RETIRED from `text` -- refused by name; write `content`
@@ -420,6 +422,7 @@ what reaches the screen.
 `list` is the component authors reach for first, and it is **data-as-nodes**:
 the array it renders *is* the node list. It never reads `children`.
 
+<!-- doc-json: fragment — deliberate counter-example: list reads no children slot and has no per-item scope, so this renders two empty items -->
 <!-- os:check -->
 ```jsonc
 // ❌ Renders two EMPTY <li>. `children` is not a template — `list` never reads it,
@@ -544,12 +547,14 @@ Expressions are compiled once per unique `(expression, variableNames)` pair and 
 
 **Cause:** The field isn't expression-evaluated. Use `content`.
 
+<!-- doc-json: fragment — deliberate counter-example: value is retired from text and refused by name; the fix two fences down writes content -->
 <!-- os:check -->
 ```jsonc
 // ❌ Refused by name — `value` is RETIRED from `text`; write `content`
 { "type": "text", "value": "${data.total}" }
 ```
 
+<!-- doc-json: fragment — deliberate counter-example: content parked under props is evaluated inside the envelope, then discarded, and props is no declared key -->
 <!-- os:check -->
 ```jsonc
 // ❌ Worse — evaluated inside the envelope, then discarded: renders nothing
@@ -607,6 +612,7 @@ the DOM as a locale-dependent blob.
 
 ### Object literal in expression
 
+<!-- doc-json: fragment — deliberate counter-example: an object literal inside an expression, which the evaluator rejects; style is a record, never a template string -->
 <!-- os:check -->
 ```jsonc
 // ❌ Object literals not supported

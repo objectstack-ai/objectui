@@ -35,7 +35,7 @@ import {
   Star,
   StarOff,
   ChevronRight,
-  Home,
+  LayoutGrid,
   Layers,
 } from 'lucide-react';
 import { NavigationRenderer, hasVisibleNavigationItems } from '@object-ui/layout';
@@ -70,6 +70,7 @@ import {
   STUDIO_PACKAGE_SELECTOR_ID,
 } from './ContextSelectors.js';
 import { LocalizedSidebarTrigger } from './LocalizedSidebarTrigger.js';
+import { AppMark } from './AppMark.js';
 
 /**
  * Lazy-resolved Lucide icon — see ../utils/getIcon for impl.
@@ -160,12 +161,11 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   const activeApps = apps.filter((a: any) => a.active !== false && a.hidden !== true);
   // ADR-0048 (A) — route segment may be a package id; match by it (name fallback).
   const activeApp = matchAppBySegment(apps.filter((a: any) => a.active !== false), activeAppName || currentAppName) || activeApps[0];
-  // The active app's logo (objectui#10827): `branding.logo`, the one spelling
-  // `@objectstack/spec` declares — an image URL. This is the console chrome's
-  // only reader of it. App context only: on Home `activeApp` falls back to the
-  // FIRST app, whose logo is not this screen's. No logo, no header — the
-  // sidebar renders exactly as it did before the key had a reader.
-  const appLogo: string | undefined = context === 'app' ? activeApp?.branding?.logo : undefined;
+  // The app's identity — `branding.logo`, or its `icon` on a tile — is drawn
+  // by the top bar's app pill on desktop, so this sidebar draws no logo header
+  // there (objectui#12201, which retired the one objectui#10827 added). On a
+  // phone the top bar hides the pill, and the drawer header below names the
+  // app instead.
 
   // Pin persistence, and the pinned section's order (objectui#12059). The app's
   // own menu is drawn in the order the app authors: arranging it is Studio's
@@ -432,34 +432,25 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   return (
     <>
     <Sidebar collapsible="icon" className="!top-14 !h-[calc(100svh-3.5rem)]">
-      {appLogo && (
-        <SidebarHeader className="border-b p-2">
-          <img
-            src={appLogo}
-            alt={appLabel({ name: activeApp.name, label: resolveKeyedI18nLabel(activeApp.label, t) })}
-            className="h-8 w-auto max-w-full object-contain object-left"
-          />
-        </SidebarHeader>
-      )}
-      {/* Mobile-only "Home" affordance — the desktop topbar exposes Home
-          via the platform logo + AppSwitcher pill, but those are hidden
-          on phones. Without this row, users entering an app on mobile
-          have no way back out: there's no path-separator, no back arrow,
-          and the bottom tab bar only switches between objects inside the
-          current app. Render it inside the sheet header so it survives
-          the SidebarHeader vs SidebarContent split. */}
-      {isMobile && context === 'app' && (
+      {/* Mobile-only drawer header — the app's glyph and name (objectui#12201
+          item 3). On a phone the top bar hides the app pill, so this is the
+          one place that says which app the user is in. It replaces the old
+          Home row, and keeps that row's job: the trailing 「All apps」
+          button is the way back out of the app, since a phone has no
+          path-separator, no back arrow and no top-bar pill to open. Render
+          it inside the sheet header so it survives the SidebarHeader vs
+          SidebarContent split. */}
+      {isMobile && context === 'app' && activeApp && (
         <SidebarHeader className="border-b p-1.5">
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild className="min-h-[44px] text-[15px] font-medium rounded-xl">
-                <Link to={homePath} onClick={() => setOpenMobile(false)} data-testid="mobile-sidebar-home">
-                  <Home className="h-5 w-5" />
-                  <span>{t('home.nav', { defaultValue: 'Home' })}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
+          <div className="flex min-h-[44px] items-center gap-2.5 px-2" data-testid="mobile-sidebar-app">
+            <AppMark app={activeApp} size="md" />
+            <span className="flex-1 truncate text-[15px] font-semibold">
+              {appLabel({ name: activeApp.name, label: resolveKeyedI18nLabel(activeApp.label, t) })}
+            </span>
+            <Link to={homePath} onClick={() => setOpenMobile(false)} data-testid="mobile-sidebar-home" aria-label={t('layout.appSwitcher.allApps', { defaultValue: 'All apps' })} title={t('layout.appSwitcher.allApps', { defaultValue: 'All apps' })} className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
+              <LayoutGrid className="h-5 w-5" />
+            </Link>
+          </div>
         </SidebarHeader>
       )}
       <SidebarContent className="pt-2">

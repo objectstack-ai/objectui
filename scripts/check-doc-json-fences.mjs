@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
  * Every fenced `json` / `jsonc` NODE DOCUMENT on this gate's scan surface —
- * `content/docs`, every package's own `README.md` and the root `README.md`
- * (`SCAN_SURFACE`) — must pass the STRICT AUTHORING FACE —
- * `StrictAnyComponentSchema`, the face `objectui validate` and `objectui
- * check` judge an authored document with.
+ * `content/docs`, every package's own `README.md`, the root `README.md` and
+ * the published skill bundle `skills/objectui/**` (`SCAN_SURFACE`) — must pass
+ * the STRICT AUTHORING FACE — `StrictAnyComponentSchema`, the face `objectui
+ * validate` and `objectui check` judge an authored document with.
  *
  * Run:  node scripts/check-doc-json-fences.mjs          (also `pnpm check:doc-json`)
  *       node scripts/check-doc-json-fences.mjs --list   (also print every fence and
@@ -65,12 +65,25 @@
  *
  * `SCAN_SURFACE` below is everything this gate reads: one leg per entry, in
  * walk order, and the summary prints it leg by leg with the pages each leg
- * collected. Three legs:
+ * collected. Four legs:
  *
  *   1. every `.mdx` / `.md` page under `content/docs` — the population
  *      objectui#5250's measurement priced;
  *   2. every package's own `README.md`, `packages/NAME/README.md`;
- *   3. the root `README.md`.
+ *   3. the root `README.md`;
+ *   4. every `.md` page under `skills/objectui/` — the published skill bundle
+ *      (objectui#12204).
+ *
+ * Leg 4 is a governed, published surface whose fences belong to its owner
+ * (objectui#12135), and it joined on that owner's ruling: the json/jsonc
+ * examples there are the ones a customer's agent copies through
+ * `npx skills add`, and `scripts/check-skill-examples.mjs` holds them to PARSE
+ * only — it judges no validity. That gate's opt-in line sits directly above
+ * every one of those fences; how a declaration for THIS gate coexists with it
+ * is `SKILL_OPT_IN_LINE` below. The leg collects `.md` only, which is what the
+ * bundle is made of and what the sibling gate's walk of the same tree
+ * collects, so the two gates read the same pages there. `.claude/skills/**`,
+ * the internal agent tooling, is not this leg and stays off the surface.
  *
  * Legs 2 and 3 are the published READMEs, and they joined because this gate
  * was green while three README examples were refused by `objectui validate`
@@ -98,8 +111,6 @@
  * `docs/audits/**` — point-in-time records, not teaching surfaces; triage on
  * objectui#12131 kept them out of this scan, and a block inside a record is
  * not this gate's to repair. CHANGELOGs and `.changeset/` are history.
- * `skills/**` is a governed, published surface whose fences belong to its
- * owner (objectui#12135).
  *
  * ## What a "node document" is — the population, stated
  *
@@ -143,6 +154,16 @@
  * `doc-snippet:`, on purpose: the sibling gate reports a `doc-snippet:` marker
  * that sits above anything but a ts/tsx fence as stale, so one spelling cannot
  * serve both gates without coupling them.
+ *
+ * "Immediately above" has exactly one allowance (objectui#12204): a fence whose
+ * directly-above line is `check-skill-examples.mjs`'s opt-in line is declared
+ * by the line directly above THAT one — declaration, opt-in line, fence, three
+ * contiguous lines at one quote depth. That gate requires its line to be
+ * directly above the fence (its header: an orphan is a failure), only one line
+ * can be, and its rule is not this gate's to loosen. The walk steps over that
+ * one line and nothing else: a declaration separated from its fence by a blank
+ * line, prose, or a second opt-in line on that path is dangling, and the
+ * three-line shape is pinned in both directions by the test file.
  *
  * A declaration is never taken on trust. It is re-judged on every run:
  *
@@ -190,12 +211,15 @@
  *   4. ⚠️ Any page off `SCAN_SURFACE`. The `apps/<app>/docs` trees, the root
  *      `docs/` tree (`docs/audits/**` included, deliberately — see "The scan
  *      surface"), a README below a package root, the READMEs under `apps/`,
- *      `examples/` and `patches/`, `skills/**`, CHANGELOGs and `.changeset/`
- *      are NOT READ here, and nothing about them is claimed by a green run.
- *      Widening is a change of `SCAN_SURFACE` and of the pages it would then
- *      read.
+ *      `examples/` and `patches/`, `.claude/skills/**`, CHANGELOGs and
+ *      `.changeset/` are NOT READ here, and nothing about them is claimed by a
+ *      green run. Widening is a change of `SCAN_SURFACE` and of the pages it
+ *      would then read.
  *   5. Whether a key the face DECLARES is read by a renderer. A declared key
  *      nothing reads passes here; that is the declaration side's question.
+ *   6. Whether a json/jsonc fence under `skills/objectui/` PARSES and keeps its
+ *      opt-in population — `scripts/check-skill-examples.mjs`, whose marker,
+ *      floor and adjacency rule this gate reads past and never judges.
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
@@ -234,20 +258,56 @@ export const JSON_FENCE_LANGUAGES = new Set(['json', 'jsonc']);
  */
 export const ANCHOR_DOCUMENT = 'content/docs/blocks/forms.mdx';
 
+/** The published skill bundle — the fourth leg of `SCAN_SURFACE` (objectui#12204). */
+export const SKILLS_ROOT = 'skills/objectui';
+
+/**
+ * Page extensions collected under `SKILLS_ROOT`: `.md` only — the bundle's own
+ * format, and what `check-skill-examples.mjs` collects on the same tree, so the
+ * two gates read the same pages there (see the header, "The scan surface").
+ */
+export const SKILL_PAGE_EXTENSIONS = ['.md'];
+
+/**
+ * The skills leg's anchor: a page that must contribute at least one judged node
+ * document on every run. `rules/protocol.md` is the bundle's protocol rule page
+ * and carries complete node documents beside its deliberate counter-examples.
+ * If it stops holding one, name another page on the same leg; ⛔ never delete
+ * the control.
+ */
+export const SKILLS_ANCHOR = 'skills/objectui/rules/protocol.md';
+
+/**
+ * `check-skill-examples.mjs`'s opt-in line (its `MARKER`), which that gate
+ * requires DIRECTLY above every json/jsonc fence it reads under `skills/`, and
+ * which every such fence under `SKILLS_ROOT` carries. Only one line can be
+ * directly above a fence, so where this line is, a declaration for this gate
+ * sits directly above it and `scanJsonFences` steps over exactly this one line
+ * — the header's "Immediately above has exactly one allowance".
+ *
+ * Spelled here rather than imported, on purpose: an import would couple how
+ * this gate attaches a declaration to the sibling's module (and its
+ * `typescript` import), and a re-spelling there would move this gate's
+ * attachment rule without anyone opening this file. The test file pins the two
+ * spellings equal, so a drift is a red test rather than a silent detachment of
+ * every declaration under the bundle.
+ */
+export const SKILL_OPT_IN_LINE = '<!-- os:check -->';
+
 const toPosix = (root, abs) => relative(root, abs).split(sep).join('/');
 
-/** Every page under `DOCS_ROOT`, repo-relative and POSIX-separated, in a stable order. */
-function contentDocsPages(root) {
+/** Every page under `root/dir` with one of `extensions`, repo-relative and POSIX-separated, in a stable order. */
+function pagesUnder(root, dir, extensions) {
   const out = [];
-  const walk = (dir) => {
-    for (const entry of readdirSync(dir).sort()) {
-      const p = join(dir, entry);
+  const walk = (d) => {
+    for (const entry of readdirSync(d).sort()) {
+      const p = join(d, entry);
       if (statSync(p).isDirectory()) walk(p);
-      else if (DOC_EXTENSIONS.some((ext) => entry.endsWith(ext))) out.push(toPosix(root, p));
+      else if (extensions.some((ext) => entry.endsWith(ext))) out.push(toPosix(root, p));
     }
   };
-  const docsRoot = join(root, DOCS_ROOT);
-  if (existsSync(docsRoot)) walk(docsRoot);
+  const top = join(root, dir);
+  if (existsSync(top)) walk(top);
   return out;
 }
 
@@ -263,12 +323,14 @@ function contentDocsPages(root) {
  *
  * Both README anchors are pages objectui#12131 repaired. If one stops holding a
  * node document, name another page on the same leg; ⛔ never delete the control.
+ * The skills leg (objectui#12204) walks `SKILLS_ROOT` the way the first leg
+ * walks `DOCS_ROOT`, last, after the READMEs.
  */
 export const SCAN_SURFACE = Object.freeze([
   Object.freeze({
     leg: `every ${DOC_EXTENSIONS.join(' / ')} page under ${DOCS_ROOT}/`,
     anchor: ANCHOR_DOCUMENT,
-    pages: contentDocsPages,
+    pages: (root) => pagesUnder(root, DOCS_ROOT, DOC_EXTENSIONS),
   }),
   Object.freeze({
     leg: `every ${PACKAGE_READMES.dir}/NAME/${PACKAGE_READMES.name}`,
@@ -279,6 +341,11 @@ export const SCAN_SURFACE = Object.freeze([
     leg: `the root ${ROOT_PAGES.join(', ')}`,
     anchor: 'README.md',
     pages: (root) => ROOT_PAGES.filter((name) => existsSync(join(root, name))),
+  }),
+  Object.freeze({
+    leg: `every ${SKILL_PAGE_EXTENSIONS.join(' / ')} page under ${SKILLS_ROOT}/`,
+    anchor: SKILLS_ANCHOR,
+    pages: (root) => pagesUnder(root, SKILLS_ROOT, SKILL_PAGE_EXTENSIONS),
   }),
 ]);
 
@@ -340,8 +407,13 @@ export function listDocuments(root = repoRoot) {
  *
  * A marker declares the fence whose opener is the nearest non-blank line below
  * it AT THE SAME QUOTE DEPTH (a bare `>` spacer counts as blank), the sibling
- * gate's attachment rule.
+ * gate's attachment rule — with one allowance: when the line directly above a
+ * fence is `SKILL_OPT_IN_LINE` at the fence's depth, the walk steps over that
+ * one line and reads the line directly above it, and ONLY that line (no
+ * blank-line walk on this path). Three contiguous lines, or nothing.
  */
+const isSkillOptInAt = (line, depth) => quoteDepthOf(line) === depth && stripQuotePrefix(line, depth).trim() === SKILL_OPT_IN_LINE;
+
 export function scanJsonFences(source) {
   const lines = source.split('\n');
   const fences = [];
@@ -364,7 +436,8 @@ export function scanJsonFences(source) {
     const language = open.lang.toLowerCase();
     if (JSON_FENCE_LANGUAGES.has(language)) {
       let k = i - 1;
-      while (k >= 0 && isBlankAtDepth(lines[k], depth)) k--;
+      if (k >= 0 && isSkillOptInAt(lines[k], depth)) k -= 1;
+      else while (k >= 0 && isBlankAtDepth(lines[k], depth)) k--;
       const above = k >= 0 ? markers.find((m) => m.line === k + 1 && m.depth === depth) : undefined;
       if (above) above.consumed = true;
       fences.push({
@@ -541,7 +614,7 @@ export function analyze({ root = repoRoot, judge, tolerant, nodeTypes, parseJson
         findings.push({
           reason: 'dangling-fragment-marker',
           site: `${doc}:${marker.line}`,
-          detail: 'a `doc-json: fragment` marker must sit immediately above the json/jsonc fence it declares',
+          detail: 'a `doc-json: fragment` marker must sit immediately above the json/jsonc fence it declares — or immediately above the one `os:check` opt-in line that is itself immediately above the fence; nothing else may stand between',
         });
       }
     }
@@ -710,7 +783,7 @@ export async function main(argv = process.argv.slice(2), root = repoRoot) {
       `  judged node documents: ${r.judged.length} — ${r.accepted.length} accepted, ${r.declared.length} declared fragment(s) the face refuses as declared, ${r.refused.length} refused`,
       `  not judged: ${r.buckets.notJson.length} not JSON · ${r.buckets.notAnObject.length} not an object · ${r.buckets.noTypeKey.length} without a string \`type\` · ${r.buckets.unresolvedType.length} with a \`type\` no node schema declares${unresolvedTypes.length ? ` (${unresolvedTypes.join(', ')})` : ''}`,
       `  controls: RESOLUTION, REFUSES, ACCEPTS hold over ${nodeTypes.size} node type(s); anchors ${SURFACE_ANCHORS.map((a) => `${a} ${unreadAnchors.has(a) ? 'NOT read' : 'read'}`).join(', ')}`,
-      `  NOT read: every page off that surface — docs/audits/**, skills/**, CHANGELOGs, .changeset/ and READMEs below a package root among them (see this script's header) — a green run claims nothing about them`,
+      `  NOT read: every page off that surface — docs/audits/**, .claude/skills/**, CHANGELOGs, .changeset/ and READMEs below a package root among them (see this script's header) — a green run claims nothing about them`,
     ].join('\n'),
   );
 
@@ -722,7 +795,8 @@ export async function main(argv = process.argv.slice(2), root = repoRoot) {
   if (r.findings.length > 0) {
     console.error(
       `\n    Fix the document: remove a key no schema declares, or replace it with the declared key its renderer reads.` +
-        `\n    A fence that is deliberately not a complete, valid node document is declared on the line above it:` +
+        `\n    A fence that is deliberately not a complete, valid node document is declared on the line above it` +
+        `\n    (above the \`${SKILL_OPT_IN_LINE.replace(/<!--\s*|\s*-->/g, '')}\` opt-in line where a fence under ${SKILLS_ROOT}/ carries one):` +
         `\n      ${FRAGMENT_MARKER_EXAMPLES[0]}\n      ${FRAGMENT_MARKER_EXAMPLES[1]}`,
     );
     return EXIT_CODES.documentsFailed;

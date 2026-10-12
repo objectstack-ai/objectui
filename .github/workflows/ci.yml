@@ -770,6 +770,46 @@ jobs:
             pnpm type-check
           fi
 
+      # ── The repo-root programs' packages, built on the fast speed (objectui#12272) ──
+      # `Type-check repo-root vitest setup files` below resolves the workspace
+      # packages the root `vitest.setup.*` files import through their BUILT
+      # declarations. The full battery and the whole-workspace run build every
+      # one of them as the `^build` of the packages that depend on them; the
+      # affected run builds only the dependencies of what it selects, and that
+      # may hold none of them -- a change outside every package selects ZERO
+      # packages, so nothing built and that step failed with four TS2882 and a
+      # TS2307 (PR #12262; and a change to `packages/plugin-ai` alone selects
+      # one package and still leaves three of them unbuilt -- both measured on
+      # objectui#12272, readings of that day, not live counts). So this
+      # speed builds them here, whatever it selected. Which packages is read
+      # on every run out of that program's tsconfig `paths` by the selector,
+      # never copied. `turbo run build` replays each from the restored cache
+      # when its hash did not move; it is not `turbo run type-check` with
+      # their names added, because that task waits on `^build` -- the
+      # DEPENDENCIES' builds -- and builds no named package's own (measured:
+      # that spelling leaves `plugin-dashboard` and `plugin-grid` unbuilt).
+      # No run summary is asked for here, so `Report what the turbo cache
+      # replayed` still reads `Run type-check`'s; turbo's own `Cached:` line
+      # goes out as a notice instead, so the replay stays readable to anyone
+      # who cannot open this log. `push` and `schedule` skip this step: the
+      # full battery is unchanged.
+      - name: Build the packages the repo-root programs import
+        if: >-
+          steps.relevant.outputs.should_run == 'true'
+          && steps.tc-scope.outputs.scope == 'affected'
+        run: |
+          set -o pipefail
+          packages=$(node scripts/select-type-check-scope.mjs --root-builds)
+          filters=()
+          for p in $packages; do filters+=("--filter=$p"); done
+          if [ "${#filters[@]}" -eq 0 ]; then
+            echo 'The repo-root programs import no workspace package: nothing to build.'
+            exit 0
+          fi
+          pnpm exec turbo run build "${filters[@]}" | tee "$RUNNER_TEMP/root-builds.out"
+          cached=$(grep -E '^ *Cached:' "$RUNNER_TEMP/root-builds.out" | tail -n 1 | tr -s ' ' || true)
+          echo "::notice title=Repo-root program builds::$(echo $packages) --${cached:- turbo printed no Cached line}"
+
       # The four repo-root `vitest.setup.*` files were in ZERO tsc programs
       # (objectui#3515) — the same shape as `scripts/` before objectui#3494, one
       # directory over. They live outside every workspace package, so
@@ -785,8 +825,10 @@ jobs:
       # @object-ui/components, /fields, /plugin-dashboard and /plugin-grid for
       # their registrations. `tsconfig.vitest-setup.json` resolves those through
       # each package's own `exports.types`, i.e. its built declarations — which
-      # exist only after the `^build` that `pnpm type-check` depends on.
-      # `scripts/__tests__/vitest-setup-type-check.test.ts` pins that ordering.
+      # exist only after the `^build` that `pnpm type-check` depends on, and on
+      # the affected speed after the step above (objectui#12272).
+      # `scripts/__tests__/vitest-setup-type-check.test.ts` pins that ordering,
+      # `scripts/__tests__/select-type-check-scope.test.ts` the step above.
       #
       # A direct step, deliberately: this is not a turbo task, so no cache key
       # decides its verdict. `pnpm type-check` is cached by turbo and its `inputs`

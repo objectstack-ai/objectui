@@ -8,6 +8,7 @@
  *
  *   node scripts/select-type-check-scope.mjs --base <sha>
  *   node scripts/select-type-check-scope.mjs --base <sha> --head <ref>
+ *   node scripts/select-type-check-scope.mjs --root-builds
  *
  * The LAST line on stdout is the verdict, one of:
  *
@@ -60,6 +61,26 @@
  * `inputs` reads every file in the repository, and then EVERY change is a
  * root change -- the rule degrades to the whole workspace, never to a skip.
  *
+ * ## The repo-root programs need their packages BUILT, whatever the set
+ *
+ * The job also compiles programs that sit in no package, after the turbo
+ * run: `pnpm type-check:vitest-setup` (`tsconfig.vitest-setup.json`) resolves
+ * the workspace packages the root `vitest.setup.*` files import through
+ * each package's built declarations. The full battery builds those as the
+ * `^build` of the packages that depend on them; the affected set need not
+ * contain them, or anything at all -- a change outside every package
+ * selects zero packages, so nothing builds and that program fails to
+ * resolve them (objectui#12272, measured on PR #12262: four TS2882 and one
+ * TS2307). So on the affected speed ci.yml builds them in a step of its
+ * own, and `--root-builds` prints which: one package name per line, read
+ * on every run out of the `paths` of each tsconfig in
+ * ROOT_PROGRAMS_AFTER_BUILD, never copied (the root package.json declares
+ * no `@object-ui/*` dependency, so a workspace import from the repo root
+ * resolves through those `paths` or not at all). The other root programs
+ * the job compiles import no workspace package: `tsconfig.scripts.json`
+ * and the root Vitest config each pin that premise in their own test, and
+ * the e2e program's `@object-ui/*` strings are stub-map keys, not imports.
+ *
  * ## What it does not see -- stated, not hidden
  *
  * An edge that is in neither the package graph nor a turbo input: a file a
@@ -73,6 +94,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 import { isEntrypoint } from './invoked-as.mjs';
@@ -89,6 +111,13 @@ export const FIXED_ROOT_FILES = Object.freeze([
   'tsconfig*.json',
   'patches/**',
 ]);
+
+/**
+ * The repo-root tsconfigs ci.yml compiles AFTER the turbo run, because their
+ * programs resolve workspace packages through those packages' built
+ * declarations. See "The repo-root programs need their packages BUILT".
+ */
+export const ROOT_PROGRAMS_AFTER_BUILD = Object.freeze(['tsconfig.vitest-setup.json']);
 
 /** The turbo tasks whose `$TURBO_ROOT$` inputs decide a type-check verdict. */
 export const HASHED_TASKS = Object.freeze(['type-check', 'build']);
@@ -182,6 +211,40 @@ export function rootChanges(changed, rule) {
   return hits;
 }
 
+/**
+ * The workspace packages a repo-root program resolves through its `paths`:
+ * each `paths` target, read with TypeScript's own config parser, walked up to
+ * the nearest directory below the repository root that holds a package.json
+ * (`./packages/i18n/dist/*` is `@object-ui/i18n`). A target that reaches no
+ * package throws: a mapping this cannot place is not one it may drop.
+ *
+ * @param {string} root
+ * @param {readonly string[]} [tsconfigs]
+ * @returns {string[]} package names, sorted, each once
+ */
+export function rootProgramPackages(root, tsconfigs = ROOT_PROGRAMS_AFTER_BUILD) {
+  const ts = createRequire(import.meta.url)('typescript');
+  const names = new Set();
+  for (const tsconfig of tsconfigs) {
+    const file = path.join(root, tsconfig);
+    const read = ts.readConfigFile(file, ts.sys.readFile);
+    if (read.error) throw new Error(`${tsconfig}: ${ts.flattenDiagnosticMessageText(read.error.messageText, ' ')}`);
+    const { options } = ts.parseJsonConfigFileContent(read.config, ts.sys, path.dirname(file), undefined, file);
+    const base = options.pathsBasePath ?? path.dirname(file);
+    for (const targets of Object.values(options.paths ?? {})) {
+      for (const target of targets) {
+        let dir = path.resolve(base, target.split('*')[0]);
+        while (dir.startsWith(root + path.sep) && !fs.existsSync(path.join(dir, 'package.json'))) dir = path.dirname(dir);
+        if (!dir.startsWith(root + path.sep)) {
+          throw new Error(`${tsconfig}: the paths target ${JSON.stringify(target)} sits in no workspace package`);
+        }
+        names.add(JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')).name);
+      }
+    }
+  }
+  return [...names].sort();
+}
+
 /** `git diff --name-only <base> <head>`, or a thrown error the caller turns into "no verdict". */
 export function changedFiles(root, base, head) {
   execFileSync('git', ['rev-parse', '--verify', '--quiet', `${base}^{commit}`], { cwd: root, stdio: 'ignore' });
@@ -206,13 +269,15 @@ export function affectedPackages(root, base) {
 }
 
 function parseArgs(argv) {
-  const out = { base: null, head: 'HEAD' };
+  const out = { base: null, head: 'HEAD', rootBuilds: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
-    if (arg === '--base' && argv[i + 1]) out.base = argv[++i];
+    if (arg === '--root-builds') out.rootBuilds = true;
+    else if (arg === '--base' && argv[i + 1]) out.base = argv[++i];
     else if (arg === '--head' && argv[i + 1]) out.head = argv[++i];
     else return { error: `unknown or incomplete argument: ${arg}` };
   }
+  if (out.rootBuilds) return out.base ? { error: '--root-builds takes no --base' } : out;
   if (!out.base) return { error: '--base <sha> is required' };
   return out;
 }
@@ -227,6 +292,10 @@ export function main(argv, deps = {}) {
   if ('error' in args) {
     console.error(`select-type-check-scope: ${args.error}`);
     return 2;
+  }
+  if (args.rootBuilds) {
+    for (const name of rootProgramPackages(root)) log(name);
+    return 0;
   }
   const turbo = JSON.parse(fs.readFileSync(path.join(root, 'turbo.json'), 'utf8'));
   const rule = rootRule(turbo);
@@ -248,6 +317,11 @@ export function main(argv, deps = {}) {
     log(`${packages.length} package(s) affected -- changed, or depending on one that changed:`);
     for (const p of packages) log(`  ${p}`);
   }
+  // Whatever that set is -- empty included -- the repo-root programs still
+  // need theirs built; ci.yml builds them from `--root-builds` (objectui#12272).
+  const rootBuilds = rootProgramPackages(root);
+  log(`The repo-root programs resolve ${rootBuilds.length} package(s) through their builds, which ci.yml builds on this speed whatever the set above:`);
+  for (const p of rootBuilds) log(`  ${p}`);
   log('scope=affected');
   return 0;
 }

@@ -105,6 +105,24 @@ describe('a rename carries the expression references to the node (objectui#11838
     expect(at['l › config.collection']).toBe('{renamed.items}');
   });
 
+  it("a loop's and a map's collection are templates by their descriptor, and a map's follows a rename too (objectui#12170)", () => {
+    // The descriptor's `refMode: 'template'` is what makes this slot a template:
+    // the spec's ledger rows for it are `value`-role on objectstack `main`
+    // (objectstack-ai/objectstack#22883), which leaves the dialect to the value.
+    const flow = card();
+    flow.nodes.push(
+      { id: 'l', type: 'loop', label: 'Each', config: { collection: '{x.items}', iteratorVariable: 'it' } },
+      { id: 'm', type: 'map', label: 'Each item', config: { collection: '{x.items}', flowName: 'one_task_signoff', iteratorVariable: 'it' } },
+    );
+    const dialects = Object.fromEntries(
+      exprSites(flow)
+        .filter((s) => s.holder.kind === 'node' && s.holderPath.join('.') === 'config.collection')
+        .map((s) => [s.holder.kind === 'node' ? s.holder.id : '', s.dialect]),
+    );
+    expect(dialects).toEqual({ l: 'template', m: 'template' });
+    expect(texts(carried(flow, 'x', 'renamed'))['m › config.collection']).toBe('{renamed.items}');
+  });
+
   it('an identifier that only contains x, a member named x, a string literal and a macro-bound x are untouched', () => {
     const flow = card();
     const source = "xy.decision == 'approve' && ax > 1 && y.x == 2 && \"x.decision\" == z && rows.exists(x, x.ok) && x.decision == 'a'";

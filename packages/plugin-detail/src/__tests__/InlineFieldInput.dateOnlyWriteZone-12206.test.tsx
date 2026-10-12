@@ -18,7 +18,7 @@
  * day BEFORE — measured on HotCRM in `Asia/Taipei`, picking 2026-10-16 sent
  * `{"due_date":"2026-10-15T16:00:00.000Z"}` and stored 2026-10-15, while the
  * Edit form sent `{"due_date":"2026-10-22"}` for the same field. West of UTC
- * the instant still names the right UTC day (`…T05:00:00.000Z` at UTC−5), but it
+ * the instant still names the right UTC day (`…T05:00:00.000Z` at UTC-5), but it
  * is an instant, not the day — so every case below asserts the payload is
  * EXACTLY the plain day, never a day extracted from it.
  *
@@ -53,7 +53,7 @@ const DRIVEN = process.env.OBJECTUI_DATE_ZONE_CHILD === '1';
 
 /** UTC+8, no DST — the zone the card measured in. */
 const EAST = 'Asia/Taipei';
-/** UTC−5, no DST — the negative offset the triage named. */
+/** UTC-5, no DST — the negative offset the triage named. */
 const WEST = 'America/Bogota';
 
 /** A fixed instant: 20:00 in the east, 07:00 in the west. */
@@ -152,7 +152,7 @@ describe.runIf(DRIVEN)('inline `date` write east of UTC, at UTC+8 (objectui#1220
   });
 });
 
-describe.runIf(DRIVEN)('inline `date` write west of UTC, at UTC−5 (objectui#12206)', () => {
+describe.runIf(DRIVEN)('inline `date` write west of UTC, at UTC-5 (objectui#12206)', () => {
   it('rig: the zone really moved', () => {
     process.env.TZ = WEST;
     expect(Intl.DateTimeFormat().resolvedOptions().timeZone).toBe(WEST);

@@ -51,6 +51,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { MetadataCtx, notifyDataChanged, useMutationInvalidationBridge } from '@object-ui/react';
 import { RelatedCountStore } from '@object-ui/components';
+import type { DataSourceMutationEvent } from '@object-ui/types';
 
 vi.mock('@object-ui/auth', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -155,8 +156,8 @@ function makeBackend() {
     { id: 'l-2', name: 'Onboarding', quantity: 1, unit_price: 3000, [PARENT]: RECORD_ID },
   ];
   const rollup = () => lines.reduce((sum, l) => sum + l.quantity * l.unit_price, 0);
-  const listeners = new Set<(e: { type: 'create' | 'update' | 'delete'; resource: string; id?: string }) => void>();
-  const emit = (e: { type: 'create' | 'update' | 'delete'; resource: string; id?: string }) => {
+  const listeners = new Set<(e: DataSourceMutationEvent) => void>();
+  const emit = (e: DataSourceMutationEvent) => {
     for (const l of Array.from(listeners)) l(e);
   };
   const ds = {
@@ -168,8 +169,8 @@ function makeBackend() {
       if (objectName !== PARENT || id !== RECORD_ID) return null;
       return { id: RECORD_ID, name: 'QTE-0007', total_price: rollup() };
     }),
-    create: vi.fn(async (_o: string, row: any) => row),
-    update: vi.fn(async (objectName: string, id: string, patch: Record<string, any>) => {
+    create: vi.fn(async (_o: string, row: Record<string, unknown>) => row),
+    update: vi.fn(async (objectName: string, id: string, patch: { quantity?: number; name?: string }) => {
       if (objectName === CHILD) {
         const line = lines.find((l) => l.id === id);
         if (line) Object.assign(line, patch);
@@ -185,13 +186,15 @@ function makeBackend() {
       emit({ type: 'delete', resource: objectName, id });
       return true;
     }),
-    onMutation: (cb: (e: any) => void) => {
+    onMutation: (cb: (e: DataSourceMutationEvent) => void) => {
       listeners.add(cb);
       return () => listeners.delete(cb);
     },
   };
-  return { ds: ds as any, rollup };
+  return { ds, rollup };
 }
+
+type FakeDataSource = ReturnType<typeof makeBackend>['ds'];
 
 /** The console mounts the MutationEvent bridge once, in `AppContent`. */
 function ConsoleHost({ dataSource, children }: { dataSource: unknown; children: React.ReactNode }) {
@@ -199,7 +202,7 @@ function ConsoleHost({ dataSource, children }: { dataSource: unknown; children: 
   return <>{children}</>;
 }
 
-function renderPage(ds: any) {
+function renderPage(ds: FakeDataSource) {
   const metadata = {
     objects: OBJECTS,
     pages: [],
@@ -210,7 +213,7 @@ function renderPage(ds: any) {
     ensureType: async () => [],
     getItem: async () => null,
     getItemsByType: () => [],
-  } as any;
+  } as unknown as React.ContextType<typeof MetadataCtx>;
   return render(
     <MemoryRouter initialEntries={[`/apps/${APP}/${PARENT}/record/${RECORD_ID}?tab=related`]}>
       <MetadataCtx.Provider value={metadata}>
@@ -228,8 +231,8 @@ function renderPage(ds: any) {
 }
 
 /** Reads of the PARENT record — the read every header block draws from. */
-const parentReads = (ds: any) =>
-  ds.findOne.mock.calls.filter((c: any[]) => c[0] === PARENT && c[1] === RECORD_ID).length;
+const parentReads = (ds: FakeDataSource) =>
+  ds.findOne.mock.calls.filter(([objectName, id]) => objectName === PARENT && id === RECORD_ID).length;
 
 /** Is `figure` (e.g. 9000) on screen, in any grouping the number formatter picks? */
 const figureShown = (figure: number) => {

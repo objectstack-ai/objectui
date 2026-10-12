@@ -329,6 +329,10 @@ const ru = {
       search: "Поиск объектов…",
       empty: "Объекты не найдены",
     },
+    registryRef: {
+      loadFailed: "Не удалось загрузить список. Имя можно ввести вручную.",
+      notFound: "{{name}} (не найдено)",
+    },
     recipient: {
       selectTypeFirst: "Сначала выберите тип получателя.",
       loading: "Загрузка…",

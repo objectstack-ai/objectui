@@ -315,6 +315,10 @@ const zh = {
       search: '搜索对象…',
       empty: '未找到对象',
     },
+    registryRef: {
+      loadFailed: '列表加载失败。仍可直接输入名称。',
+      notFound: '{{name}}（未找到）',
+    },
     recipient: {
       selectTypeFirst: '请先选择接收方类型。',
       loading: '加载中…',

@@ -266,6 +266,18 @@ or photo per row without opening the row form (objectui#2360). Columns accept
 exported as `FileCell`). Auto-derived subform columns map `file`/`image`/
 `avatar` fields to file columns instead of dropping them.
 
+### Registry-name pickers (`position-ref`, `permission-ref`)
+
+A `text` field that stores the machine name of one registry item declares
+`widget: 'position-ref'` or `widget: 'permission-ref'` (resolved as
+`field:<widget>`). The widget lists that registry through the data source's
+`listMetadataItems(type)`, shows each item's label beside its name, and writes
+the name only. A stored name the loaded registry lacks stays, flagged *not
+found*. When the adapter cannot list a registry, the list is empty, or the
+load fails, it is a text box that takes the typed name (a failure is shown with
+its cause). See
+[`content/docs/guide/fields.md`](../../content/docs/guide/fields.md).
+
 ### Multi-value selects
 
 A `select` field declared `multiple: true` selects zero-or-more values (spec

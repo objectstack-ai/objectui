@@ -178,6 +178,8 @@ await dataSource.find('users', {
 
 Data-aware plugins may also use optional methods such as `batchTransaction`, `bulkUpdate`, `bulkDelete`, `getView`, or `listViewOverrides` when an adapter supports them. Keep the required CRUD methods implemented first, then add optional capabilities as your UI needs them.
 
+`listMetadataItems(type)` lists one metadata registry type as `{ name, label }` headers, for the `position-ref` / `permission-ref` field widgets (see the [Fields guide](./fields.md)). An empty array means the registry has no item of that type, so a failed load must **reject**, never resolve `[]`.
+
 ### Cross-object atomic writes (`batchTransaction`)
 
 Master-detail saves (a parent record plus its child line items) go through

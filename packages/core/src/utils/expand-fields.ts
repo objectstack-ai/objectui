@@ -138,10 +138,11 @@ import { columnIdentity } from './column-identity.js';
  * (objectui#4790). The form now DERIVES from this set instead of restating it:
  *
  *     form's data-source rule  ==  EXPANDABLE_FIELD_TYPES
- *                                  + three widget-hint-only picker names
+ *                                  + the widget-hint-only picker names
  *
  * The extension is one-directional and cannot fold back into this set:
- * `object-ref` / `filter-condition` / `recipient-picker` are widget HINTS, never
+ * `object-ref` / `filter-condition` / `recipient-picker` (and the registry-name
+ * pickers `position-ref` / `permission-ref`, objectui#7611) are widget HINTS, never
  * declarable field types (`widgetHintOnly: true` in
  * `app-shell/src/utils/paramValueShape.ts`), so no object schema can produce a
  * field whose `type` is one of them.
@@ -150,7 +151,7 @@ import { columnIdentity } from './column-identity.js';
  * of the above (`lookup` / `master_detail` / `user` — no `tree`, no pickers, and
  * for a while a fifth spelling, `owner`, that objectui#4814 retired). It now
  * derives from this set with NO extension, because the bulk dialog's params
- * cannot produce the three widget-hint names (objectui#4815):
+ * cannot produce the widget-hint names (objectui#4815):
  *
  *     bulk dialog's data-source rule  ==  EXPANDABLE_FIELD_TYPES
  *

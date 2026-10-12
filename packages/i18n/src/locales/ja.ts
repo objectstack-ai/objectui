@@ -307,6 +307,10 @@ const ja = {
       search: "オブジェクトを検索…",
       empty: "オブジェクトが見つかりません",
     },
+    registryRef: {
+      loadFailed: "一覧を読み込めませんでした。名前を直接入力できます。",
+      notFound: "{{name}}（見つかりません）",
+    },
     recipient: {
       selectTypeFirst: "先に受信者タイプを選択してください。",
       loading: "読み込み中…",

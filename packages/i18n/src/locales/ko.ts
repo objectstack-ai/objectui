@@ -307,6 +307,10 @@ const ko = {
       search: "객체 검색…",
       empty: "객체를 찾을 수 없습니다",
     },
+    registryRef: {
+      loadFailed: "목록을 불러오지 못했습니다. 이름을 직접 입력할 수 있습니다.",
+      notFound: "{{name}} (찾을 수 없음)",
+    },
     recipient: {
       selectTypeFirst: "먼저 수신자 유형을 선택하세요.",
       loading: "로딩 중…",

@@ -313,6 +313,10 @@ const pt = {
       search: "Pesquisar objetos…",
       empty: "Nenhum objeto encontrado",
     },
+    registryRef: {
+      loadFailed: "Não foi possível carregar a lista. Você ainda pode digitar o nome.",
+      notFound: "{{name}} (não encontrado)",
+    },
     recipient: {
       selectTypeFirst: "Selecione primeiro um tipo de destinatário.",
       loading: "Carregando…",

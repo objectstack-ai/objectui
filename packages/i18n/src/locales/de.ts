@@ -307,6 +307,10 @@ const de = {
       search: "Objekte suchen…",
       empty: "Keine Objekte gefunden",
     },
+    registryRef: {
+      loadFailed: "Die Liste konnte nicht geladen werden. Sie können den Namen weiterhin eingeben.",
+      notFound: "{{name}} (nicht gefunden)",
+    },
     recipient: {
       selectTypeFirst: "Wählen Sie zuerst einen Empfängertyp.",
       loading: "Wird geladen…",

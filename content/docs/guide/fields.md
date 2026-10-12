@@ -147,6 +147,38 @@ pointer field on a record page shows the record it points at. Nothing is
 authored for this: the `referenceVia` declaration on the field is the whole
 contract. List cells are not a call site yet.
 
+## Naming a registry item by name (`position-ref`, `permission-ref`)
+
+A `text` field that stores the **machine name** of one item of a metadata
+registry — a position, a permission set — declares the matching widget, and the
+record form lists that registry instead of asking for a typed name:
+
+```json
+{
+  "position": {
+    "type": "text",
+    "label": "Position",
+    "required": true,
+    "maxLength": 100,
+    "widget": "position-ref"
+  }
+}
+```
+
+| Widget | Lists | Stores |
+|---|---|---|
+| `position-ref` | the `position` registry (`GET /api/v1/meta/position`) | the position's `name` |
+| `permission-ref` | the `permission` registry (`GET /api/v1/meta/permission`) | the permission set's `name` |
+
+Like every `widget` value, the name is looked up as `field:<widget>`. Each item
+reads as its label beside its name, and the value written is the name alone: no
+label, no id. A stored name the registry does not list stays on screen, flagged
+*not found*, so a renamed or removed item is visible rather than dropped. The
+list comes from the data source's `listMetadataItems(type)`. When the adapter
+has none, the list is empty, or the load fails, the field is a text box that
+takes the typed name; a failure is shown with its cause, and the box stays
+editable.
+
 ## Using Renderers in Custom Components
 
 If you are building your own custom component (like a Kanban board card), you can leverage the registry to render fields without reinventing the wheel.

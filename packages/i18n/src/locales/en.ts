@@ -429,6 +429,10 @@ const en = {
       search: 'Search objects…',
       empty: 'No objects found',
     },
+    registryRef: {
+      loadFailed: 'The list could not be loaded. You can still type the name.',
+      notFound: '{{name}} (not found)',
+    },
     recipient: {
       selectTypeFirst: 'Select a recipient type first.',
       loading: 'Loading…',

@@ -314,6 +314,10 @@ const fr = {
       search: "Rechercher des objets…",
       empty: "Aucun objet trouvé",
     },
+    registryRef: {
+      loadFailed: "La liste n'a pas pu être chargée. Vous pouvez toujours saisir le nom.",
+      notFound: "{{name}} (introuvable)",
+    },
     recipient: {
       selectTypeFirst: "Sélectionnez d'abord un type de destinataire.",
       loading: "Chargement…",

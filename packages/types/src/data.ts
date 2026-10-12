@@ -597,6 +597,28 @@ export interface DataSource<T = any> {
   getObjects?(): Promise<Array<{ name: string; label?: string }>>;
 
   /**
+   * List the items one metadata registry type declares (lightweight
+   * `{ name, label }` headers) for a record-form field that names a registry
+   * item by name (objectui#7611): the `position-ref` and `permission-ref`
+   * field widgets. Backed by the registry's list route for that type,
+   * `GET /api/v1/meta/:type`, so it answers the declared items and the
+   * environment-authored ones alike (ADR-0131 D3).
+   *
+   * An empty array means "the registry declares no item of this type" and is
+   * AUTHORITATIVE, so a failure MUST reject, never resolve `[]`: the widget
+   * renders a failed load as a failure, and an empty list as an empty
+   * catalog. That is the contract {@link getObjects} does not keep, which is
+   * why this is a separate member and not a generalisation of it.
+   *
+   * Optional: an adapter that cannot enumerate a registry omits it, and the
+   * widget then takes a typed name.
+   *
+   * @param type - The registry type (`position`, `permission`)
+   * @throws on transport, permission or envelope failure — do NOT resolve `[]`
+   */
+  listMetadataItems?(type: string): Promise<Array<{ name: string; label?: string }>>;
+
+  /**
    * Get a view definition for an object.
    * Used by view components to render server-defined UI configurations.
    * Optional — implementations may return null to fall back to static config.

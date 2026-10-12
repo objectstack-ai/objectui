@@ -48,7 +48,11 @@ function makeStub(type: string) {
 }
 
 /** Widget-hint-only pickers — the form-specific half of the rule. */
-const PICKER_WIDGET_TYPES = ['object-ref', 'filter-condition', 'recipient-picker'];
+const PICKER_WIDGET_TYPES = [
+  'object-ref', 'filter-condition', 'recipient-picker',
+  // objectui#7611: the registry-name pickers.
+  'position-ref', 'permission-ref',
+];
 
 /**
  * Stubs for the whole rule, DERIVED from the core set rather than retyped: a
@@ -137,7 +141,7 @@ describe('form renderer — data-source wiring covers the core reference family'
     expect(seen.user.dependsOnLabels).toEqual(expect.objectContaining({ parent: 'Parent' }));
   });
 
-  it('still threads them to the three widget-hint-only pickers', () => {
+  it('still threads them to the widget-hint-only pickers', () => {
     // The form-specific half. These are reached only through a `widget:` hint
     // (`widgetHintOnly: true`, `app-shell/src/utils/paramValueShape.ts`), so
     // they can never move into the core schema-type set.

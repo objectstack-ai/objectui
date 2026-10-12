@@ -5333,6 +5333,39 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
   }
 
   /**
+   * List the items one metadata registry type declares —
+   * `GET /api/v1/meta/:type`, through the client's `meta.getItems` — as
+   * `{ name, label }` headers for the `position-ref` / `permission-ref` field
+   * widgets (objectui#7611).
+   *
+   * Unlike {@link getObjects}, a failure REJECTS (the `DataSource` contract):
+   * the transport's own error propagates, and an answer without the spec's
+   * `items` list is refused rather than read as an empty registry, so a
+   * failed load can never reach the widget as "this registry declares
+   * nothing". Uncached, like `getObjects`: an item authored in Studio is
+   * listed on the next form that opens.
+   *
+   * An item without a string `name` is not listed (the widget stores the
+   * name, so there is nothing to store); a `label` that is not a string is
+   * left off rather than coerced.
+   */
+  async listMetadataItems(type: string): Promise<Array<{ name: string; label?: string }>> {
+    await this.connect();
+    const result: any = await this.client.meta.getItems(type);
+    if (!Array.isArray(result?.items)) {
+      throw new Error(`GET /meta/${type} answered without an items list`);
+    }
+    const out: Array<{ name: string; label?: string }> = [];
+    for (const it of result.items as unknown[]) {
+      const name = (it as { name?: unknown } | null)?.name;
+      if (typeof name !== 'string' || !name) continue;
+      const label = (it as { label?: unknown }).label;
+      out.push(typeof label === 'string' && label ? { name, label } : { name });
+    }
+    return out;
+  }
+
+  /**
    * Get access to the underlying ObjectStack client for advanced operations.
    */
   getClient(): ObjectStackClient {

@@ -4335,6 +4335,14 @@ const fieldWidgetMap = {
   'object-ref': () => import('./widgets/ObjectRefField.js').then(m => ({ default: m.ObjectRefField })),
   'filter-condition': () => import('./widgets/FilterConditionField.js').then(m => ({ default: m.FilterConditionField })),
   'recipient-picker': () => import('./widgets/RecipientPickerField.js').then(m => ({ default: m.RecipientPickerField })),
+  // Registry-name pickers (objectui#7611, ruling B2 on objectstack#22865): a
+  // text field that stores the MACHINE NAME of one item of one metadata
+  // registry type, listed from `GET /api/v1/meta/<type>`. The type is in the
+  // key, as `object-ref` carries `object`; one key per type a grant names.
+  //   position-ref   → a position (sys_user_position's position name)
+  //   permission-ref → a permission set (sys_user_permission_set.permission_set)
+  'position-ref': () => import('./widgets/RegistryRefField.js').then(m => ({ default: m.PositionRefField })),
+  'permission-ref': () => import('./widgets/RegistryRefField.js').then(m => ({ default: m.PermissionRefField })),
 } satisfies Record<string, FieldWidgetLoader>;
 
 /** The registered field widget keys, as a literal union (objectui#4857). */
@@ -4504,6 +4512,8 @@ const FIELD_TYPES_SKIP_FALLBACK = new Set([
   'object-ref',
   'filter-condition',
   'recipient-picker',
+  'position-ref',
+  'permission-ref',
   // ── Retired bare node keys (objectui#10859 batch 8) ───────────────────────
   // Each was registered bare only as this loop's fallback: no other package
   // owns the name, no form path reads it, and no document authors it as a
@@ -4642,6 +4652,8 @@ export const FIELD_WIDGET_LABELLING: Record<
   'object-ref': 'control',
   'filter-condition': 'control',
   'recipient-picker': 'control',
+  'position-ref': 'control',
+  'permission-ref': 'control',
 };
 
 export function registerField(fieldType: string): void {

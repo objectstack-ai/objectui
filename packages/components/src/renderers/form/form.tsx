@@ -592,6 +592,9 @@ function reportUnrecognizedRulesOnce(fieldName: string, unrecognized: string[]):
  */
 const DATA_SOURCE_ONLY_WIDGET_TYPES = new Set([
   'object-ref', 'filter-condition', 'recipient-picker',
+  // objectui#7611: the registry-name pickers read their catalog through
+  // `dataSource.listMetadataItems`.
+  'position-ref', 'permission-ref',
 ]);
 
 /**

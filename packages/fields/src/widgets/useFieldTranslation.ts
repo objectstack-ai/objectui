@@ -87,6 +87,13 @@ const FIELD_DEFAULTS: Record<string, string> = {
   'fields.objectRef.placeholder': 'Select an object',
   'fields.objectRef.search': 'Search objects…',
   'fields.objectRef.empty': 'No objects found',
+  // objectui#7611 — the registry-name pickers (`position-ref` /
+  // `permission-ref`). The failed-load sentence names no cause of its own (the
+  // transport's message is shown beside it) and says what still works; the
+  // flag marks a stored name the loaded registry does not list. Same values as
+  // the `en` pack.
+  'fields.registryRef.loadFailed': 'The list could not be loaded. You can still type the name.',
+  'fields.registryRef.notFound': '{{name}} (not found)',
   'fields.recipient.selectTypeFirst': 'Select a recipient type first.',
   'fields.recipient.loading': 'Loading…',
   'fields.recipient.search': 'Search…',

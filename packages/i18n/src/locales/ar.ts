@@ -347,6 +347,10 @@ const ar = {
       search: "بحث في الكائنات…",
       empty: "لم يتم العثور على كائنات",
     },
+    registryRef: {
+      loadFailed: "تعذّر تحميل القائمة. لا يزال بإمكانك كتابة الاسم.",
+      notFound: "{{name}} (غير موجود)",
+    },
     recipient: {
       selectTypeFirst: "اختر نوع المستلم أولاً.",
       loading: "جارٍ التحميل…",

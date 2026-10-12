@@ -159,6 +159,7 @@ export const INLINE_EXCLUDED_FIELD_TYPES = new Set<string>([
   // Widget-hint-only pickers — authored in the record form (they depend on
   // sibling fields / a loaded object catalog), not inline in a grid cell.
   'object-ref', 'filter-condition', 'recipient-picker',
+  'position-ref', 'permission-ref',
 ]);
 
 /** Field types whose value is chosen in one discrete gesture (no free typing). */

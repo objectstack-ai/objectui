@@ -54,7 +54,7 @@ on:
   # matrix below runs the test files the change affects, selected by
   # `scripts/select-affected-tests.mjs`. `push` to `main` and this hourly
   # `schedule` carry the FULL BATTERY: every test file in twelve shards, plus
-  # the four-shard coverage lane. Nothing is deleted or weakened; the whole
+  # the eight-shard coverage lane. Nothing is deleted or weakened; the whole
   # suite moved to `main`, where it runs on every merge and at least hourly.
   # GitHub runs `schedule` on the default branch only. The minute is off the
   # hour on purpose: scheduled workflows queue behind everyone else's `:00`.
@@ -77,14 +77,14 @@ on:
 #
 # That matters because the push lane is the only lane that runs the coverage
 # gate (`test-coverage` + `coverage-report` below are push-only), and the merged
-# 4-shard report is what enforces `coverage.thresholds` for a commit. Measured
-# on this repository over the 64 completed push-lane runs on `main` between
-# 2026-08-23T06:34Z and 2026-08-24T13:56Z: the merged report was produced for
-# 20, five lost it to a red suite, and 39 — 61% — lost it to CANCELLATION.
-# Over the 30 strictly consecutive push runs of 2026-08-24 alone it is 15 of 28
-# completed (54%). The lane needs ~13.5 min end to end while the median
-# inter-merge interval is 8.8 min, so most merges are overtaken before the gate
-# can report at all.
+# report of every coverage shard is what enforces `coverage.thresholds` for a
+# commit. Measured on this repository over the 64 completed push-lane runs on
+# `main` between 2026-08-23T06:34Z and 2026-08-24T13:56Z: the merged report was
+# produced for 20, five lost it to a red suite, and 39 — 61% — lost it to
+# CANCELLATION. Over the 30 strictly consecutive push runs of 2026-08-24 alone
+# it is 15 of 28 completed (54%). The lane needs ~13.5 min end to end while the
+# median inter-merge interval is 8.8 min, so most merges are overtaken before
+# the gate can report at all.
 #
 # ⚠️ This has to live at WORKFLOW level, not on the coverage jobs. A job-level
 # `concurrency:` only decides whether a job waits for another job in the same
@@ -785,16 +785,16 @@ jobs:
     # third event this workflow now sees is `merge_group`, and a queue build
     # that runs no tests is the hole this repository just paid for. `push` is
     # still excluded because the coverage lane below is the push lane: it is
-    # sharded 4 ways of its own since objectui#5403 -- ⛔ INDEPENDENTLY of the
-    # matrix above, which objectui#9499 widened to 8 without touching it: the
-    # two lanes declare their own `shard:` matrix and their own `--shard=N/M`,
-    # and the coverage blobs are named `blob-N-4.json` by the coverage job's own
-    # flag -- and its `coverage-report`
-    # job merges the four blob reports into ONE complete report, which is where
-    # the coverage thresholds are enforced (and, since objectui#5436, where the
-    # report is published as an artifact rather than uploaded to Codecov). PR
-    # and push behaviour is unchanged — only the previously impossible third
-    # case moves.
+    # sharded of its own since objectui#5403 (4 ways, 8 since objectui#12256) --
+    # ⛔ INDEPENDENTLY of the matrix above, which objectui#9499 widened to 8 and
+    # objectui#12208 to 12 without touching it: the two lanes declare their own
+    # `shard:` matrix and their own `--shard=N/M`, and the coverage blobs are
+    # named `blob-N-M.json` by the coverage job's own flag -- and its
+    # `coverage-report` job merges every shard's blob report into ONE complete
+    # report, which is where the coverage thresholds are enforced (and, since
+    # objectui#5436, where the report is published as an artifact rather than
+    # uploaded to Codecov). PR and push behaviour is unchanged — only the
+    # previously impossible third case moves.
     #
     # ⭐ Two speeds (objectui#12214): the event guard that kept this matrix off
     # `push` is GONE. Every event runs it now, at one of two speeds: on
@@ -1270,6 +1270,23 @@ jobs:
   # stops being tight on its own, and raising or lowering a cap is a separate
   # decision from this one.
   #
+  # ⭐ 4 -> 8 (objectui#12256, folded into objectui#12208 under that card's
+  # ruling 6121816480, letter B, by the director's fold note 6126024274). At
+  # four shards the margin above had gone: measured on objectui#12256 over the
+  # 25 newest `push` runs on `main`, a coverage shard was CANCELLED at the
+  # 40-minute ceiling on 7 of them, and on the 18 that finished every shard ran
+  # within one to three minutes of it. The width is derived from those walls,
+  # not guessed: the four shards summed to about 91-153 minutes on the runs
+  # that finished, and at a 20-minute target per shard that is eight. The same
+  # three refusals as the `test` matrix: ⛔ the ceiling is NOT raised, ⛔ no test
+  # is skipped or quarantined, and ⛔ `coverage.thresholds` are unchanged --
+  # still enforced exactly once, by `coverage-report` below, over the merge of
+  # EVERY shard's blob, which that job refuses to merge from a partial set. The
+  # width is said once per job (the matrix here, `COVERAGE_SHARDS` there) and
+  # `scripts/__tests__/coverage-shard-width.test.ts` holds every spelling of it
+  # -- the job name, `--shard=N/M`, the blob name the merge counts and the
+  # count it expects -- to this matrix.
+  #
   # ## Why the shard legs override the coverage thresholds, and the merge does
   # ## not
   #
@@ -1278,12 +1295,13 @@ jobs:
   # anywhere in that path (`@vitest/coverage-v8/dist/provider.js`: `if (this
   # .options.thresholds) await this.reportThresholds(...)`, reached from
   # `reportCoverage()` and from `mergeReports()` alike). Sharding without the
-  # override would therefore evaluate the whole-suite thresholds FIVE times per
-  # push: once per shard over a quarter of the suite, plus once on the merged
-  # report. Those four extra evaluations are assertions this lane has never
-  # made, they judge partial data, and the only verdict they can add is a false
-  # red. The override keeps the check at exactly ONE evaluation over the
-  # complete report — the shape this lane had while it was unsharded.
+  # override would therefore evaluate the whole-suite thresholds once per shard
+  # over a slice of the suite, plus once on the merged report (five times per
+  # push at four shards, nine at eight). Those per-shard evaluations are
+  # assertions this lane has never made, they judge partial data, and the only
+  # verdict they can add is a false red. The override keeps the check at exactly
+  # ONE evaluation over the complete report — the shape this lane had while it
+  # was unsharded.
   #
   # ⚠️ It is NOT here because the shards were seen to fail: that prediction was
   # measured and refuted. A shard leg run WITHOUT the override passes today
@@ -1301,7 +1319,7 @@ jobs:
   # and neither separates the thresholds from the failures. Said here rather
   # than left as a claim the run does not actually support.
   test-coverage:
-    name: Test (coverage shard ${{ matrix.shard }}/4)
+    name: Test (coverage shard ${{ matrix.shard }}/8)
     # The full battery's coverage half: every merge to `main` (`push`) and the
     # hourly `schedule` run (objectui#12214).
     if: github.event_name == 'push' || github.event_name == 'schedule'
@@ -1310,11 +1328,11 @@ jobs:
 
     strategy:
       # Report every shard's failures, not just the first one to break — and
-      # the merge below refuses to publish anything unless all four are green,
+      # the merge below refuses to publish anything unless every shard is green,
       # so there is nothing to save by stopping early.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
 
     steps:
       - name: Checkout code
@@ -1337,9 +1355,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # `--reporter=blob` makes the run write `.vitest-reports/blob-N-4.json`
-      # (the shard index is in the FILE NAME, which is what lets the four
-      # artifacts be downloaded into one directory below without colliding —
+      # `--reporter=blob` makes the run write `.vitest-reports/blob-N-8.json`
+      # (the shard index is in the FILE NAME, which is what lets every shard's
+      # artifact be downloaded into one directory below without colliding —
       # measured, not assumed). The blob carries this shard's raw coverage as
       # well as its test results; the coverage report proper is produced once,
       # by the merge.
@@ -1367,12 +1385,13 @@ jobs:
       #
       # ⚠️ Additive on purpose — the blob stays, because the merge job below is
       # what enforces the thresholds and it has nothing to read without it.
-      # Measured on vitest 4.1.10 with all three reporters and `--shard=N/4`:
+      # Measured on vitest 4.1.10 with all three reporters and `--shard=N/4`
+      # (the width then; the reporter set does not depend on it):
       # the log carries `Failed Tests`, the test names, the assertion diff and
       # `Error: Test timed out in …`; `github-actions` emits one `::error`
       # annotation per failing test, which is the only form of this an API
       # reader gets without downloading an artifact; and the shard still writes
-      # `.vitest-reports/blob-N-4.json`, which merges and has the configured
+      # its `.vitest-reports/blob-N-M.json`, which merges and has the configured
       # thresholds enforced over it exactly as before.
       #
       # ⛔ Do not "simplify" this back to one reporter. Dropping the blob trades
@@ -1413,14 +1432,15 @@ jobs:
       #       --reporter=verbose scripts/__tests__/check-i18n-dead-keys.test.ts
       #     # then again with --coverage and compare the per-row ms
       #
-      # ⚠️ Raising this cannot cost the job its own budget: `timeout-minutes: 40`
-      # above is roughly twice the wall clock the slowest shard has been using,
-      # and letting a row finish instead of killing it at 15s adds only the
-      # difference, not a re-run.
-      - name: Run tests with coverage (shard ${{ matrix.shard }}/4)
+      # ⚠️ Raising this cannot cost the job its own budget on its own: letting a
+      # row finish instead of killing it at 15s adds only the difference, not a
+      # re-run. The shard's own margin against `timeout-minutes: 40` is a
+      # separate question -- objectui#12256 measured it gone at four shards,
+      # which is why this lane is eight wide.
+      - name: Run tests with coverage (shard ${{ matrix.shard }}/8)
         run: >-
           pnpm test:coverage --reporter=blob --reporter=default
-          --reporter=github-actions --shard=${{ matrix.shard }}/4
+          --reporter=github-actions --shard=${{ matrix.shard }}/8
           --testTimeout=60000
           --coverage.thresholds.lines=0 --coverage.thresholds.functions=0
           --coverage.thresholds.branches=0 --coverage.thresholds.statements=0
@@ -1433,8 +1453,10 @@ jobs:
       # because "the reporter wrote nothing" is a real finding, not a shrug.
       #
       # `retention-days: 7` is a deliberate, adjustable number rather than the
-      # 90-day default: a blob is ~6 MB, so four per push at roughly 18 merges a
-      # working day is ~3 GB of steady-state storage at a week. A week is what
+      # 90-day default: one blob per shard per full-battery run (eight since
+      # objectui#12256, on every push and every hourly run) is several GB of
+      # steady-state storage at a week -- the run's own artifact list is the
+      # reading, not a figure written here (AGENTS.md #9). A week is what
       # makes a Monday-morning question about a Friday-evening red run
       # answerable; shorten it if the storage matters more than that.
       - name: Upload this shard's blob report
@@ -1447,7 +1469,7 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-  # The other half of objectui#5403: merge the four blob reports into ONE
+  # The other half of objectui#5403: merge every shard's blob report into ONE
   # complete coverage report, publish it, and — whatever happens — say out loud
   # whether this lane actually delivered for the commit.
   #
@@ -1477,7 +1499,7 @@ jobs:
   # carries that guarantee across to the claim that survives the upload's
   # retirement:
   #
-  #   this job is green ONLY when all four shards passed, all four blob reports
+  #   this job is green ONLY when every shard passed, every shard's blob report
   #   arrived, they merged into one report, the configured thresholds were
   #   enforced over that whole merged map, and the report was published as a
   #   retrievable artifact — and red, with an error annotation naming which of
@@ -1489,10 +1511,10 @@ jobs:
   # thresholds to zero, this job is the only place it can run at all.
   #
   # ⛔ The merge is deliberately NOT unconditional. A merged report built from
-  # fewer than four shards would understate coverage on every file the missing
+  # fewer than every shard would understate coverage on every file the missing
   # shard exercised, and a wrong coverage number is worse than a missing one.
-  # So the merge and the publish run only when all four shards are green AND
-  # all four blobs actually arrived; everything else takes the loud path.
+  # So the merge and the publish run only when every shard is green AND every
+  # shard's blob actually arrived; everything else takes the loud path.
   #
   # The job keeps the name `Test (coverage)` the unsharded job had: it is the
   # context that answers "did the coverage lane deliver for this commit", and
@@ -1506,6 +1528,12 @@ jobs:
     if: always() && (github.event_name == 'push' || github.event_name == 'schedule')
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # The coverage matrix's width, said once for this job: the blob count the
+    # merge refuses to go below and the verdict's wording both read it.
+    # `scripts/__tests__/coverage-shard-width.test.ts` pins it to the
+    # `test-coverage` matrix above (objectui#12256).
+    env:
+      COVERAGE_SHARDS: '8'
 
     steps:
       # Every step up to the verdict is gated on the shards having passed:
@@ -1555,12 +1583,12 @@ jobs:
           # removed from this file (pinned by merge-queue-reporting.test.ts).
           mkdir -p .vitest-reports
           ls -la .vitest-reports/
-          blobs=$(find .vitest-reports -maxdepth 1 -type f -name 'blob-*-4.json' | wc -l)
-          if [ "$blobs" -ne 4 ]; then
-            echo "::error title=Coverage merge::expected 4 shard blob reports, found $blobs — a merged report built from a partial set understates coverage, refusing to merge"
+          blobs=$(find .vitest-reports -maxdepth 1 -type f -name "blob-*-${COVERAGE_SHARDS}.json" | wc -l)
+          if [ "$blobs" -ne "$COVERAGE_SHARDS" ]; then
+            echo "::error title=Coverage merge::expected $COVERAGE_SHARDS shard blob reports, found $blobs — a merged report built from a partial set understates coverage, refusing to merge"
             exit 1
           fi
-          echo "all 4 shard blob reports present"
+          echo "all $COVERAGE_SHARDS shard blob reports present"
 
       # No tests run here: `--merge-reports` reads the blobs and produces the
       # one complete report. It is ALSO the gate. The configured
@@ -1626,12 +1654,12 @@ jobs:
           run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
           if [ "$SHARDS" = 'success' ] && [ "$BLOBS" = 'success' ] && [ "$MERGE" = 'success' ] && [ "$REPORT" = 'success' ]; then
-            echo "::notice title=Coverage gate ran::the merged 4-shard report was produced for $GITHUB_SHA, the thresholds passed over the whole map, and the report is attached as the coverage-report artifact"
+            echo "::notice title=Coverage gate ran::the merged $COVERAGE_SHARDS-shard report was produced for $GITHUB_SHA, the thresholds passed over the whole map, and the report is attached as the coverage-report artifact"
             {
               echo "### Coverage: the gate ran on the complete merged report"
               echo
               echo "- commit: \`$GITHUB_SHA\`"
-              echo "- shards: all 4 green, all 4 blob reports merged"
+              echo "- shards: all $COVERAGE_SHARDS green, all $COVERAGE_SHARDS blob reports merged"
               echo "- thresholds: enforced over the whole merged map, passed"
               echo "- report: the \`coverage-report\` artifact on [this run]($run_url), kept 7 days"
             } >> "$GITHUB_STEP_SUMMARY"
@@ -1661,7 +1689,7 @@ jobs:
               echo "### Coverage: the thresholds were enforced and BREACHED"
               echo
               echo "- commit: \`$GITHUB_SHA\`"
-              echo "- shards: all 4 green, all 4 blob reports merged"
+              echo "- shards: all $COVERAGE_SHARDS green, all $COVERAGE_SHARDS blob reports merged"
               echo "- thresholds: enforced over the whole merged map, **failed**"
               echo "- report published: \`$REPORT\`"
               echo
@@ -1678,7 +1706,7 @@ jobs:
             echo
             echo "- commit: \`$GITHUB_SHA\`"
             echo "- shard jobs: \`$SHARDS\`"
-            echo "- all 4 blobs present: \`$BLOBS\`"
+            echo "- all $COVERAGE_SHARDS blobs present: \`$BLOBS\`"
             echo "- merge + thresholds: \`$MERGE\`"
             echo "- report published: \`$REPORT\`"
             echo

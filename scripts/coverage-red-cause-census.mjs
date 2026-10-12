@@ -160,7 +160,10 @@ export function proximateCause(jobs) {
   const shards = new Set();
   const kinds = new Set();
   for (const job of jobs) {
-    const match = /^Test \(coverage shard (\d)\/4\)$/.exec(job.name);
+    // Any width: the runs this census reads were 4-way, and objectui#12256
+    // made the lane 8-way. A width-pinned pattern would read every newer run
+    // as having no coverage shard at all, which is a silent zero.
+    const match = /^Test \(coverage shard (\d+)\/\d+\)$/.exec(job.name);
     if (!match) continue;
     if (job.conclusion === 'cancelled') {
       kinds.add('run-cancelled');

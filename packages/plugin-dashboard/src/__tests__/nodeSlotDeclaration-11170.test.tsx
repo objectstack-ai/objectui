@@ -38,8 +38,11 @@ const rendersMark = (schema: unknown): boolean => {
   return (document.body.textContent ?? '').includes(MARK);
 };
 
+// The envelope draws a `metric-card` and nothing else (objectui#12254): any
+// other node there draws the retired-format placeholder, so the node authored
+// at the slot is the one it takes, carrying the mark as its figure.
 const FIXTURES: Record<string, Record<string, unknown>> = {
-  'widgets[].component': { widgets: [{ id: 'w1', component: MARK_NODE }] },
+  'widgets[].component': { widgets: [{ id: 'w1', component: { type: 'metric-card', title: 'Slot', value: MARK } }] },
 };
 
 describe.each(['dashboard', 'plugin-dashboard:dashboard'])('`%s` — declared ⇔ rendered (objectui#11170)', (type) => {

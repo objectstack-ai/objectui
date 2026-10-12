@@ -145,7 +145,7 @@ describe('objectui#12188 — RelatedList at phone width hands a lookup title to 
     await waitFor(() => expect(galleryLanded()).toBe(true));
 
     // The list asked for the expansion …
-    const params = ds.find.mock.calls.filter(([o]: any[]) => o === OBJECT).at(-1)![1];
+    const params = ds.find.mock.calls.filter(([o]: any[]) => o === OBJECT).at(-1)?.[1] ?? {};
     expect(params.$expand).toContain('user_id');
     // … and hands the record through untouched: naming it is the card's job.
     expect(h.schema.data[0].user_id).toEqual(EXPANDED_USER);

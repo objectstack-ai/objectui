@@ -147,9 +147,13 @@ const ENVELOPE_CHART = {
   series: [{ dataKey: 'amount' }],
 };
 
-/** Each non-`metric-card` envelope input, labelled, with the node type it carried. */
+/**
+ * Each non-`metric-card` envelope input, labelled, with the node type it
+ * carried when no other node on the page has that type. A `text` node is read
+ * by its marker instead: the placeholder is a `text` node too.
+ */
 const RETIRED_CASES: Array<[string, unknown, string | undefined]> = [
-  ['a `custom` widget\'s `text` node', { type: 'text', content: 'ENVELOPE-TEXT' }, 'text'],
+  ['a `custom` widget\'s `text` node', { type: 'text', content: 'ENVELOPE-TEXT' }, undefined],
   ['an `object-chart` node', ENVELOPE_CHART, 'object-chart'],
   ['an `object-data-table` node', { type: 'object-data-table', objectName: 'deal' }, 'object-data-table'],
   ['a `card` node', { type: 'card', title: 'ENVELOPE-CARD' }, 'card'],
@@ -175,6 +179,7 @@ describe.each(SURFACES)('%s surface — the retired draw (objectui#12254)', (sur
     expect(screen.getByText(PLACEHOLDER)).toBeInTheDocument();
     // The node itself is never handed to the renderer, and nothing it would draw is on screen.
     if (nodeType) expect(nodesOfType(nodeType)).toHaveLength(0);
+    expect(received.filter((n) => JSON.stringify(n).includes('ENVELOPE-'))).toEqual([]);
     expect(container.textContent).not.toMatch(/ENVELOPE-/);
     expect(adapter.aggregate).not.toHaveBeenCalled();
     expect(adapter.find).not.toHaveBeenCalled();

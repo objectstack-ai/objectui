@@ -239,7 +239,7 @@ describe('negative controls — nothing else became a markup renderer (objectui#
   );
 });
 
-describe('the discriminator: the editor header names the syntax the value is in (objectui#5498)', () => {
+describe('the discriminator: the editable surface names no syntax at all (objectui#5498, objectui#12110)', () => {
   /**
    * The trap this card names. `field.format` is declared on `date`/`datetime`/
    * `time`/`phone`/`auto_number` and on NO rich-content type, so the old
@@ -249,18 +249,23 @@ describe('the discriminator: the editor header names the syntax the value is in 
    * would have routed html and richtext through the markdown pipeline, which
    * drops raw HTML and renders a populated value as nothing.
    *
-   * The header is asserted here because it is where the wrong discriminator is
-   * VISIBLE; it now reads out of the same table the readonly display dispatches
-   * on, so the two cannot answer differently again.
+   * The header was asserted here because it was where the wrong discriminator
+   * was VISIBLE. objectui#12110 (ruled B) removed it from every surface, so
+   * each type's label is now asserted ABSENT from the editable form item: the
+   * type is read only where it does work, by the readonly display above. The
+   * textarea read first keeps the absence a reading of a rendered editor, not
+   * of an empty item.
    */
   it.each([
     ['markdown', 'Format: markdown'],
     ['html', 'Format: html'],
     ['richtext', 'Format: html'],
-  ])('%s: the header reads "%s"', (type, expected) => {
+  ])('%s: the editable item draws no "%s" header', (type, label) => {
     renderForm(type, '', { readonly: false });
 
-    expect(item(type).textContent).toContain(expected);
+    expect(item(type).querySelector('textarea')).not.toBeNull();
+    expect(item(type).textContent).not.toContain(label);
+    expect(item(type).textContent).not.toContain('Rich text editor (basic)');
   });
 });
 

@@ -15,10 +15,9 @@
  * separate code path rather than a copy of the assertions: this widget reaches
  * the affordance through `RichTextEditorSurface`'s `overlay` slot, and the
  * dialog renders the SAME surface again. `disabled` therefore has to be
- * resolved once and given to both renderings, exactly like `formatLabel` /
- * `hint` / `placeholder` already were — otherwise the two surfaces disagree
- * about whether the field is editable, which is the drift #3301 built the
- * shared surface to prevent.
+ * resolved once and given to both renderings, exactly like `placeholder`
+ * already was — otherwise the two surfaces disagree about whether the field is
+ * editable, which is the drift #3301 built the shared surface to prevent.
  *
  * Measured on `origin/main` before the fix, by a dynamic probe (the issue
  * carried static evidence only):
@@ -173,8 +172,8 @@ describe('RichTextField fullscreen — the states the fix must not have moved (o
   });
 
   /**
-   * The indicator's VEHICLE changed with objectui#5498; what this case pins did
-   * not.
+   * The indicator's VEHICLE changed with objectui#5498, and the indicator
+   * itself went with objectui#12110; what this case pins did not.
    *
    * It was written with `fieldMeta({ format: 'html' })` on a `markdown`-typed
    * fixture, and the `'html'` string was doing real work: the widget derived the
@@ -195,12 +194,18 @@ describe('RichTextField fullscreen — the states the fix must not have moved (o
    * so honouring it here made this widget the one place where the header could
    * name a syntax the whole platform does not render the value through.
    *
-   * So the fixture moves from `format` to `type`, and the case is parameterised
+   * So the fixture moved from `format` to `type`, and the case was parameterised
    * over all three registry keys rather than losing the teeth: each type's OWN
-   * label must appear exactly twice. A dialog that computed its own label from a
-   * hardcoded default now fails on at least two of the three, which is strictly
-   * more than the single fixture caught. The `disabled` half — #3402's actual
-   * subject — is untouched.
+   * label had to appear exactly twice.
+   *
+   * objectui#12110 (ruled B) then removed the header from every surface, the
+   * format label with it. Each type's label is now asserted ABSENT in both
+   * positions, and the "same surface" teeth moved to the authored
+   * `placeholder`: `RichTextField` resolves it once and hands it to both
+   * renderings, so it appears exactly twice only when the dialog holds the
+   * real surface — a bare `<Textarea>` in the dialog carries none, and the
+   * count would be 1. The `disabled` half — #3402's actual subject — is
+   * untouched.
    */
   it.each([
     ['markdown', 'Format: markdown'],
@@ -208,31 +213,36 @@ describe('RichTextField fullscreen — the states the fix must not have moved (o
     ['richtext', 'Format: html'],
   ])('keeps the dialog holding the REAL editor, disabled and not (%s)', (type, label) => {
     // #3301's acceptance criterion, re-pinned under `disabled`: the dialog
-    // shows the same surface as the inline one (same format indicator), and now
-    // the same interactivity too — the very thing that had drifted.
+    // shows the same surface as the inline one (same authored placeholder, and
+    // no header in either), and now the same interactivity too — the very
+    // thing that had drifted.
     const onChange = vi.fn();
     const { rerender } = render(
       <RichTextField
         value=""
         onChange={onChange}
-        field={fieldMeta({ type })}
+        field={fieldMeta({ type, placeholder: 'Write the notes' })}
       />,
     );
 
     fireEvent.click(toggle()!);
-    expect(screen.getAllByText(label)).toHaveLength(2);
+    expect(screen.getAllByPlaceholderText('Write the notes')).toHaveLength(2);
+    expect(screen.queryByText(label)).toBeNull();
+    expect(screen.queryByText('Rich text editor (basic)')).toBeNull();
 
     rerender(
       <RichTextField
         value=""
         onChange={onChange}
-        field={fieldMeta({ type })}
+        field={fieldMeta({ type, placeholder: 'Write the notes' })}
         disabled
       />,
     );
 
-    // Both surfaces present, both inert.
-    expect(screen.getAllByText(label)).toHaveLength(2);
+    // Both surfaces present, both inert, neither with a header.
+    expect(screen.getAllByPlaceholderText('Write the notes')).toHaveLength(2);
+    expect(screen.queryByText(label)).toBeNull();
+    expect(screen.queryByText('Rich text editor (basic)')).toBeNull();
     // Queried off the document rather than by role: the dialog is modal, so
     // Radix marks the background `aria-hidden` and a role query sees only the
     // dialog's own control — which is precisely the textarea NOT at issue here.

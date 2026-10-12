@@ -117,28 +117,29 @@ describe('RichTextField mobile fullscreen — the metadata flag is the only sour
 
   it('puts the REAL editor in the dialog, not a degraded copy of it', () => {
     // The acceptance criterion that the dialog holds the rich editor itself:
-    // the same surface renders in both positions (same format indicator, same
-    // editor), so whatever this widget's editor grows into, the fullscreen
+    // the same surface renders in both positions (same authored placeholder,
+    // same editor), so whatever this widget's editor grows into, the fullscreen
     // view gets it too rather than drifting into a bare textarea.
     render(
       <RichTextField
         value=""
         onChange={() => {}}
-        // `type: 'html'` rather than `format: 'html'` since objectui#5498: the
-        // header is derived from the field TYPE's display pipeline, and no
-        // rich-content type declares `format` (see the note in
-        // `RichTextField.fullscreenDisabled.test.tsx`). Same non-default label,
-        // same assertions — only the key that produces it moved.
+        // `type: 'html'` rather than `format: 'html'` since objectui#5498 (no
+        // rich-content type declares `format`; see the note in
+        // `RichTextField.fullscreenDisabled.test.tsx`). The "Format: html"
+        // header that type used to draw is gone from both surfaces since
+        // objectui#12110, so it is asserted absent; the placeholder carries
+        // the "same surface" count.
         field={fieldMeta({ mobile_fullscreen: true, type: 'html', placeholder: 'Write HTML' })}
       />,
     );
 
-    expect(screen.getAllByText('Format: html')).toHaveLength(1);
+    expect(screen.queryByText('Format: html')).toBeNull();
 
     fireEvent.click(screen.getByTestId('richtext-fullscreen-toggle'));
 
-    // Inline + dialog: the indicator and the placeholder are present twice.
-    expect(screen.getAllByText('Format: html')).toHaveLength(2);
+    // Inline + dialog: the placeholder is present twice, a header in neither.
+    expect(screen.queryByText('Format: html')).toBeNull();
     expect(screen.getAllByPlaceholderText('Write HTML')).toHaveLength(2);
     expect(screen.getByTestId('richtext-fullscreen-input')).toBeEnabled();
   });

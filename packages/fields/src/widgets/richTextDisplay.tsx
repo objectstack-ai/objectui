@@ -201,28 +201,6 @@ export const RICH_TEXT_FIELD_TYPES: readonly RichTextFieldType[] = Object.keys(
 ) as RichTextFieldType[];
 
 /**
- * The SYNTAX a rich-content type stores, derived from the renderer that type
- * resolves to rather than declared a second time.
- *
- * This is what `RichTextField`'s editor header names ("Format: markdown"), and
- * deriving it from {@link RICH_TEXT_CELL_RENDERERS} is the point: the header
- * used to be computed as `field.format || 'markdown'`, and since `format` is
- * declared on no rich-content field type (only on `date`/`datetime`/`time`/
- * `phone`/`auto_number`), it read `undefined` for every real field and labelled
- * an `html` field "Format: markdown" — a label pointing at a pipeline the value
- * does not go through. Derived, the label cannot disagree with the renderer.
- *
- * `undefined` for a type with no pipeline, rather than a guessed default: the
- * caller has to say what it does with "not a rich-content type" instead of
- * silently getting the markdown answer, which is the bug this replaces.
- */
-export function richTextSyntax(fieldType: string): 'markdown' | 'html' | undefined {
-  const renderer = richTextCellRenderer(fieldType);
-  if (!renderer) return undefined;
-  return renderer === MarkdownCellRenderer ? 'markdown' : 'html';
-}
-
-/**
  * The display pipeline a field type reads through, or `undefined` when the
  * type is not one of the three rich-content types.
  *

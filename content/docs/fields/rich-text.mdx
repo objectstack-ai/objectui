@@ -128,7 +128,8 @@ import { TextCellRenderer } from '@object-ui/fields';
 - **Fullscreen editing**: An expand affordance when the form opts in
   (`mobile.fullscreenLongText`)
 
-The editing surface itself is a plain textarea with a format indicator — a
+The editing surface itself is a plain textarea with no header row above it; guidance
+for the person typing comes from the field's own `placeholder` and help text. A
 formatting toolbar, an edit-time preview pane and WYSIWYG editing are **not yet
 implemented** (whatever the editor grows into, both the inline and fullscreen
 surfaces gain it at once, since they share one editor component).

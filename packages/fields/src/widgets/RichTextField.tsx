@@ -5,7 +5,7 @@ import { useObjectTranslation } from '@object-ui/react';
 import { FullscreenFieldEditor } from './FullscreenFieldEditor.js';
 import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps, type DomProps } from './toDomProps.js';
-import { richTextCellRenderer, richTextSyntax } from './richTextDisplay.js';
+import { richTextCellRenderer } from './richTextDisplay.js';
 
 /**
  * The rich-text editing surface, rendered by `RichTextField` in BOTH positions:
@@ -13,22 +13,28 @@ import { richTextCellRenderer, richTextSyntax } from './richTextDisplay.js';
  *
  * Sharing it is the point of objectui#3301's acceptance criterion "the dialog
  * holds the real editor". Had the dialog inlined a bare `<Textarea>` instead,
- * the two surfaces would already disagree (no format indicator) and would keep
- * disagreeing every time this widget gains an affordance — whatever the editor
- * grows into (a toolbar, a TipTap/Lexical instance, a preview toggle), both
- * positions get it at once because there is only one of them.
+ * the two surfaces would already disagree (no placeholder, no native
+ * `maxLength` stop) and would keep disagreeing every time this widget gains an
+ * affordance — whatever the editor grows into (a toolbar, a TipTap/Lexical
+ * instance, a preview toggle), both positions get it at once because there is
+ * only one of them.
  *
  * `fullHeight` is the only difference between the two renderings: inline the
  * textarea is `rows`-sized, in the dialog it fills the available height.
  *
  * The `<Textarea>` below is this widget's ONE focusable control, so it is where
  * the host's DOM pass-through has to land (objectui#4810) — see `domProps`.
+ *
+ * It draws no header row. It used to, on every surface: "Format: markdown" and
+ * "Rich text editor (basic)" above the textarea, which an anonymous visitor on
+ * a public form read as editor chrome (objectui#12110, ruled B). Authored
+ * guidance reaches the person through the field's own help text and
+ * `placeholder`; the widget has no page to tell apart, so the lines went
+ * everywhere rather than behind a per-surface switch.
  */
 function RichTextEditorSurface({
   value,
   onChange,
-  formatLabel,
-  hint,
   placeholder,
   rows,
   disabled,
@@ -46,8 +52,6 @@ function RichTextEditorSurface({
 }: {
   value: string;
   onChange: (next: string) => void;
-  formatLabel: string;
-  hint: string;
   placeholder?: string;
   rows?: number;
   disabled?: boolean;
@@ -61,9 +65,9 @@ function RichTextEditorSurface({
   /**
    * The character counter for THIS surface, already constructed by the caller.
    *
-   * Passed in rather than built here for the same reason `formatLabel` and
-   * `hint` are: the two surfaces differ in exactly one declared behaviour
-   * (`announceNearLimit`), and the difference belongs at the one place that
+   * Passed in rather than built here because the two surfaces differ in
+   * exactly one declared behaviour (`announceNearLimit`), and the difference
+   * belongs at the one place that
    * knows which surface it is rendering. Positioned inside the `relative`
    * wrapper below, over the textarea, exactly like {@link overlay}.
    */
@@ -123,11 +127,7 @@ function RichTextEditorSurface({
   editorAria?: FullscreenEditorAria;
 }) {
   return (
-    <div className={cn('space-y-2', fullHeight && 'flex flex-col h-full')}>
-      <div className="flex items-center justify-between text-xs text-gray-500">
-        <span>{formatLabel}</span>
-        <span className="italic">{hint}</span>
-      </div>
+    <div className={cn(fullHeight && 'flex flex-col h-full')}>
       <div className={cn('relative', fullHeight && 'flex-1 min-h-0')}>
         <Textarea
           // BEFORE the spread, both of them, so a host that supplies either key
@@ -197,8 +197,9 @@ function RichTextEditorSurface({
  *    on it would have routed `html` and `richtext` — whose values are entirely
  *    HTML — through the markdown pipeline, which drops raw HTML and renders a
  *    populated value as NOTHING (the objectui#5452 failure, reintroduced on the
- *    form). The editor header showing "Format: markdown" for an `html` field is
- *    the same phantom read, visible; it is derived from the type now.
+ *    form). The editor header that once labelled an `html` field "Format:
+ *    markdown" was the same phantom read, made visible (that header is gone
+ *    since objectui#12110).
  *  - the RESOLVED WIDGET KEY (`widget || field.widget || type`, the form
  *    renderer's `resolveWidgetType`) is not visible from inside a widget, and
  *    keying off it would be wrong anyway: every other read surface dispatches
@@ -281,11 +282,6 @@ function resolveRichTextFieldType(field: unknown): string {
  */
 export function RichTextField({ value, onChange, field, readonly, error, ...props }: FieldWidgetComponentProps<string>) {
   const { t } = useObjectTranslation();
-  // Resolved BEFORE anything branches on it, and once — the readonly display
-  // and the editor's format header are two readings of the same fact, which is
-  // how they stopped being able to disagree (`4bb940b6e`).
-  const fieldType = resolveRichTextFieldType(field);
-  const syntax = richTextSyntax(fieldType);
 
   /**
    * Two description ids off one `useId()` — one per editing surface, minted
@@ -302,6 +298,10 @@ export function RichTextField({ value, onChange, field, readonly, error, ...prop
   const fullscreenDescriptionId = `${instanceId}-fullscreen-charcount`;
 
   if (readonly) {
+    // The type is the display's pipeline key (`4bb940b6e`), and the readonly
+    // display is its only reader: the editable surface names no syntax since
+    // its format header went (objectui#12110).
+    const fieldType = resolveRichTextFieldType(field);
     const Display = richTextCellRenderer(fieldType);
     // Not a rich-content type: nothing to render as markup, and `prose` would
     // be styling content that does not exist. Plain text is also what every
@@ -379,11 +379,6 @@ export function RichTextField({ value, onChange, field, readonly, error, ...prop
    * the person is told after writing — and it is what this read ends.
    */
   const maxLength = richField?.maxLength;
-  // The stored syntax, DERIVED from the type's display pipeline rather than
-  // read off a `format` key no rich-content type declares. Empty for a type
-  // with no pipeline: the header names a syntax or it names nothing, it does
-  // not guess `markdown` for a field whose value is HTML.
-  const format = syntax ?? '';
   // Same single read as `TextAreaField`: the field metadata is the only
   // carrier, and this widget is the second consumer the flag always had.
   const showFullscreenButton = Boolean(richField?.mobile_fullscreen);
@@ -395,10 +390,10 @@ export function RichTextField({ value, onChange, field, readonly, error, ...prop
   // spread and the read disagreeing.
   const domProps = toDomProps(props);
   // Resolved once and given to BOTH renderings of the editor (objectui#3402) —
-  // exactly like `formatLabel` / `hint` / `placeholder` below, and for the same
-  // reason. Landing it on the inline surface alone left a disabled rich-text
-  // field greyed out next to a live expand button whose dialog committed any
-  // edit through `onCommit`. `disabled` also carries the form's `isSubmitting`.
+  // exactly like `placeholder` below, and for the same reason. Landing it on
+  // the inline surface alone left a disabled rich-text field greyed out next
+  // to a live expand button whose dialog committed any edit through
+  // `onCommit`. `disabled` also carries the form's `isSubmitting`.
   const disabled = Boolean(domProps.disabled);
 
   /**
@@ -414,8 +409,6 @@ export function RichTextField({ value, onChange, field, readonly, error, ...prop
 
   // Resolved once and handed to BOTH renderings of the editor, so the dialog
   // cannot drift into showing different copy than the inline surface.
-  const formatLabel = t('fields.richText.format', { format, defaultValue: `Format: ${format}` });
-  const hint = t('fields.richText.basicEditorHint', { defaultValue: 'Rich text editor (basic)' });
   const placeholder =
     richField?.placeholder ||
     t('fields.richText.placeholder', { defaultValue: 'Enter text…' });
@@ -424,8 +417,6 @@ export function RichTextField({ value, onChange, field, readonly, error, ...prop
     <RichTextEditorSurface
       value={value}
       onChange={onChange}
-      formatLabel={formatLabel}
-      hint={hint}
       placeholder={placeholder}
       rows={rows}
       disabled={readonly || disabled}
@@ -496,8 +487,6 @@ export function RichTextField({ value, onChange, field, readonly, error, ...prop
               <RichTextEditorSurface
                 value={draft}
                 onChange={setDraft}
-                formatLabel={formatLabel}
-                hint={hint}
                 placeholder={placeholder}
                 disabled={editorDisabled}
                 autoFocus

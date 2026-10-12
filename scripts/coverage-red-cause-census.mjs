@@ -132,6 +132,13 @@ export function shardRange(filesCount, index, count) {
  * ⚠️ Shard membership is a function of the WHOLE spec list, so it moves when
  * files are added anywhere in the repository. That is objectui#8545's own
  * point: a file can cross a shard boundary with nobody editing it.
+ *
+ * ⚠️ This replicates vitest's DEFAULT split, which describes the runs this
+ * census was written for. Since objectui#12208 the root config's sequencer
+ * (`scripts/test-shard-sequencer.mjs`) splits by measured duration whenever
+ * `scripts/test-shard-timings.json` holds a measurement, so for a run on a
+ * tree whose dataset is non-empty this replica no longer names the shard a
+ * file ran in.
  */
 export function shardOf(specPaths, index, count) {
   const rows = specPaths.map((p) => ({ p, h: createHash('sha1').update(`/${p}`).digest('hex') }));

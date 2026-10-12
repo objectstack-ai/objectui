@@ -1,0 +1,9 @@
+{
+ "schema": "objectui.test-shard-timings/1",
+ "generated_by": "No measurement yet: until the first one is committed, scripts/test-shard-sequencer.mjs keeps vitest's own path-hash split. scripts/test-file-timings.mjs merge writes this file; it is never hand-edited (objectui#12208).",
+ "measured": {
+  "at": null,
+  "runs": []
+ },
+ "files": {}
+}

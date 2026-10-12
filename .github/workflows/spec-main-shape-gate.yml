@@ -33,20 +33,40 @@ name: Spec Main Shape Gate
 # required check that never reports does not fail the pull request, it leaves it
 # pending until the ruleset's 60-minute timeout).
 #
-# ## Why `merge_group` is subscribed although this context is NOT required yet
+# ## ADVISORY, not required: the full battery on `main`, a signal on a PR
 #
-# Ordering, and objectui#3523 paid for it: subscribe the trigger FIRST (a pure
-# addition that changes nothing about pull requests), and only then may a
-# maintainer write the context into the ruleset's required set. Reversed — a
-# required context whose workflow does not subscribe the queue — every queued
-# pull request burns an hour and fails with nothing red to point at.
+# objectui#12240 executes the maintainer's ruling B on objectui#12214's open
+# question 1 (ACCEPT 6123370050), the two-speed doctrine of objectstack#22998
+# applied to this gate: the context leaves the merge queue's required set. It
+# was the pull request's critical path, and most of its reds are objectstack
+# drift rather than the pull request's own change (the measurement is on
+# objectui#12214, not copied here). ⛔ NOTHING it verifies changed -- the
+# bypass, the anti-false-green marker and the attribution below are as they
+# were. What changed is who WAITS for the verdict:
 #
-# ⚠️ This context is REQUIRABLE, and it is not REQUIRED: requiredness is
-# repository SETTINGS (GitHub ruleset 11776024), which no file in this tree can
-# set. `scripts/dependabot-merge-gate.mjs` classifies it, with the reason, in
-# `NOT_A_GATE` until a maintainer enrols it there; moving the name to
-# `REQUIRED_CONTEXTS` in that file is the in-tree half of the same action.
-# ⛔ Nothing here claims the check is required.
+#   - `schedule`, hourly on `main`, is its place in the full battery.
+#     ⭐ A red on that run is a MAIN-RED for the `domain:devx` lane at objectui,
+#     under objectstack#22998's rule 3: it is that lane's first work, the
+#     lane's next pull request carries the fix or the pin bump, and no pull
+#     request of that lane arms the queue while the red stands.
+#   - `pull_request` posts the same verdict as an advisory check. A human reads
+#     it; nothing waits for it.
+#   - `merge_group` stays subscribed, deliberately. The ruled order is merge
+#     first, ruleset edit second, and until that edit the queue still requires
+#     this name: a workflow that stopped reporting on `merge_group` would stall
+#     every queue build at the ruleset's 60-minute timeout with nothing red to
+#     point at (objectui#3523 -- subscribe first, enrol second, and the mirror
+#     image on the way out). It also keeps the context REQUIRABLE, so
+#     re-enrolling it stays a settings edit.
+#
+# ⚠️ Requiredness is repository SETTINGS (GitHub ruleset 11776024), which no
+# file in this tree can set, so "advisory" is not a mechanism in this file.
+# ⛔ Never add `continue-on-error` to make it look so: it would hide the verdict
+# on the run and change nothing about who waits for it. The in-tree halves are
+# `scripts/dependabot-merge-gate.mjs`, which classifies the name in
+# `NOT_A_GATE` again (a Dependabot bump does not wait for it either), and
+# `scripts/check-required-check-set.mjs`, which no longer watches it. Whether
+# the ruleset still lists it is that script's reading, ⛔ not this comment's.
 #
 # ## The fetch shape: sparse, blobless, at a sha
 #

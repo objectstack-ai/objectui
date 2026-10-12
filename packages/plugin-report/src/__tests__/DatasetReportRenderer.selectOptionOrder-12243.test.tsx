@@ -120,10 +120,12 @@ beforeEach(() => {
   );
 });
 
-let captured: { schema: Record<string, any> } | null = null;
+/** The keys of the schema the registered `chart` component is handed that these pins read. */
+type CapturedChartSchema = { chartType?: string; categoryOrder?: string[]; data?: Array<Record<string, unknown>> };
+let captured: { schema: CapturedChartSchema } | null = null;
 beforeEach(() => {
   captured = null;
-  ComponentRegistry.register('chart', (props: any) => {
+  ComponentRegistry.register('chart', (props: { schema: CapturedChartSchema }) => {
     captured = props;
     return null;
   });
@@ -159,7 +161,7 @@ const rowCells = (table: HTMLElement) =>
   Array.from(table.querySelectorAll('tbody tr')).map((tr) =>
     Array.from(tr.querySelectorAll('td')).map((td) => td.textContent),
   );
-const chartCategories = (key: string) => (captured?.schema?.data ?? []).map((r: Record<string, unknown>) => r[key]);
+const chartCategories = (key: string) => (captured?.schema?.data ?? []).map((r) => r[key]);
 
 // ── Opportunities by Stage ─────────────────────────────────────────────────
 // Server-resolved to the AUTHORED label (ADR-0021), in `GROUP BY` order: the

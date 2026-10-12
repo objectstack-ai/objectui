@@ -67,12 +67,13 @@ interface StartupStrings {
 
 function getStartupStrings(language: string): StartupStrings {
   const resident = getLoadedBuiltInLocales();
-  // Exact tag first, then its base language — the registry's own order.
+  // Exact tag first, then its base language — the registry's own order. An
+  // empty language has resolved nothing, so it has no catalogue and no line.
   // `as unknown as` because a catalogue is typed by SHAPE here while
   // `enLocale` carries `en`'s literal VALUES — the same cast `createI18n` makes.
-  const catalogue = (resident[language] ?? resident[language.toLowerCase().split('-')[0]]) as unknown as
-    | { console?: Partial<ConsoleStrings> }
-    | undefined;
+  const catalogue = (
+    language ? (resident[language] ?? resident[language.toLowerCase().split('-')[0]]) : undefined
+  ) as unknown as { console?: Partial<ConsoleStrings> } | undefined;
   const pack = catalogue?.console;
   return {
     line: pack?.initializing ?? null,

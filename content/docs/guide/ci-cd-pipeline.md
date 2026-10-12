@@ -2978,7 +2978,9 @@ request with it. `scripts/test-file-timings.mjs select` picks the newest complet
 `main` from the full battery's events (`push` and the hourly `schedule`) whose twelve test shards
 all reported success and whose twelve `test-file-timings-N` artifacts are all there, at most six;
 `gh run download` fetches those artifacts; `scripts/test-file-timings.mjs merge` keeps each file's
-median across the runs and writes the file. ⛔ No timing in it is ever written by hand, ⛔ the
+median across the runs and writes the file, keyed by a hash of each test path rather than the path
+(a file listing every test path would put each retired-spelling pin's own name into the tree its
+sweep reads — measured on this pull request's run 38271639400). ⛔ No timing in it is ever written by hand, ⛔ the
 workflow never edits `ci.yml` (the width a run's measured total implies is printed by the two test
 aggregators on every run, and moving a width is a reviewed edit), and ⛔ it opens no pull request for
 a byte-identical file.

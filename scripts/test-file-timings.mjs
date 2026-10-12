@@ -26,7 +26,8 @@
  *
  *   THE GENERATOR, `merge`: one directory per run (the run id is the
  *   directory's name), every report under it read; per run a file's
- *   durations are summed, across runs the MEDIAN is kept.
+ *   durations are summed, across runs the MEDIAN is kept, and the dataset is
+ *   keyed by `pathKey()` of each file, never by its path.
  *
  *     node scripts/test-file-timings.mjs merge --runs-file runs.json \
  *       --out scripts/test-shard-timings.json [--summary body.md] DIR...
@@ -70,7 +71,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { isEntrypoint } from './invoked-as.mjs';
-import { TIMINGS_SCHEMA, datasetWeights } from './test-shard-partition.mjs';
+import { TIMINGS_SCHEMA, datasetWeights, pathKey } from './test-shard-partition.mjs';
 
 /** The writer's report schema. The generator refuses any other tag rather than reading it as empty. */
 export const REPORT_SCHEMA = 'objectui.test-file-timings/1';
@@ -227,16 +228,14 @@ function median(values) {
 }
 
 /**
- * The dataset, from several runs' per-file durations. A file keeps the median
- * of the runs that ran it; a file no run ran is not in the dataset (a deleted
- * file drops out, and a new one is weighed at the median until it is
- * measured). Keys are sorted and values rounded to `ROUND_MS`, so the same
- * inputs always give the same bytes.
+ * Each file's median across the runs that ran it, rounded to `ROUND_MS`, by
+ * PATH. A file no run ran is absent (a deleted file drops out; a new one is
+ * weighed at the dataset median until it is measured).
  *
- * @param {{ runs: Array<{ meta: Record<string, unknown>, durations: Map<string, number> }>, measuredAt: string }} input
+ * @param {Array<{ durations: Map<string, number> }>} runs
+ * @returns {Map<string, number>}
  */
-export function buildDataset({ runs, measuredAt }) {
-  if (runs.length === 0) throw new Error('no run to build the dataset from');
+export function medianDurations(runs) {
   /** @type {Map<string, number[]>} */
   const seen = new Map();
   for (const run of runs) {
@@ -246,15 +245,38 @@ export function buildDataset({ runs, measuredAt }) {
       seen.set(file, list);
     }
   }
+  /** @type {Map<string, number>} */
+  const out = new Map();
+  for (const file of [...seen.keys()].sort()) {
+    out.set(file, Math.round(median(/** @type {number[]} */ (seen.get(file))) / ROUND_MS) * ROUND_MS);
+  }
+  return out;
+}
+
+/**
+ * The dataset, from several runs' per-file durations: `medianDurations()`
+ * keyed by `pathKey()` -- never by the path, for the reason `pathKey` states.
+ * Keys are sorted, so the same inputs always give the same bytes.
+ *
+ * @param {{ runs: Array<{ meta: Record<string, unknown>, durations: Map<string, number> }>, measuredAt: string }} input
+ */
+export function buildDataset({ runs, measuredAt }) {
+  if (runs.length === 0) throw new Error('no run to build the dataset from');
+  /** @type {Map<string, number>} */
+  const byKey = new Map();
+  for (const [file, value] of medianDurations(runs)) {
+    const key = pathKey(file);
+    if (byKey.has(key)) throw new Error(`pathKey collision on ${file}: pick a longer key before this dataset can be written`);
+    byKey.set(key, value);
+  }
   /** @type {Record<string, number>} */
   const files = {};
-  for (const file of [...seen.keys()].sort()) {
-    files[file] = Math.round(median(/** @type {number[]} */ (seen.get(file))) / ROUND_MS) * ROUND_MS;
-  }
+  for (const key of [...byKey.keys()].sort()) files[key] = /** @type {number} */ (byKey.get(key));
   const dataset = {
     schema: TIMINGS_SCHEMA,
     generated_by:
-      'scripts/test-file-timings.mjs merge, from the per-file timing reports of the runs under measured.runs. ' +
+      'scripts/test-file-timings.mjs merge, from the per-file timing reports of the runs under measured.runs; ' +
+      'each key is pathKey() of a test file (scripts/test-shard-partition.mjs says why it is not the path). ' +
       'Never hand-edited: .github/workflows/test-shard-timings-refresh.yml regenerates it weekly from main (objectui#12208).',
     // Sorted by run id, so the order the directories were named in cannot move a byte.
     measured: {
@@ -269,36 +291,35 @@ export function buildDataset({ runs, measuredAt }) {
 
 /**
  * The refresh pull request's account of a regenerated dataset, against the one
- * it replaces: which runs it read, which files arrived and left, and the
- * heaviest files. Markdown, and no angle-bracket shapes (GitHub strips them).
+ * it replaces: which runs it read, which files arrived and how many left, and
+ * the heaviest files. Names come from the runs' reports (`medians`); the
+ * dataset itself carries none. Markdown, and no angle-bracket shapes (GitHub
+ * strips them).
  *
+ * @param {Map<string, number>} medians  `medianDurations()` of the same runs
  * @param {{ files: Record<string, number>, measured: { at: string, runs: Array<Record<string, unknown>> } }} dataset
  * @param {unknown} previous  the committed dataset, or null
  */
-export function summarize(dataset, previous) {
-  const before = /** @type {{ files?: Record<string, number> } | null} */ (previous)?.files ?? {};
-  const now = dataset.files;
-  const added = Object.keys(now).filter((f) => !(f in before));
-  const dropped = Object.keys(before).filter((f) => !(f in now));
-  const total = Object.values(now).reduce((a, b) => a + b, 0);
-  const heaviest = Object.entries(now)
-    .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
-    .slice(0, 10);
+export function summarize(medians, dataset, previous) {
+  const before = new Set(Object.keys(/** @type {{ files?: Record<string, number> } | null} */ (previous)?.files ?? {}));
+  const added = [...medians.keys()].filter((f) => !before.has(pathKey(f)));
+  const dropped = [...before].filter((k) => !(k in dataset.files)).length;
+  const total = [...medians.values()].reduce((a, b) => a + b, 0);
+  const heaviest = [...medians.entries()].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, 10);
   const secs = (/** @type {number} */ v) => `${(v / 1000).toFixed(1)} s`;
   const list = (/** @type {string[]} */ files) =>
     files.length === 0 ? ['- none'] : [...files.slice(0, 20).map((f) => `- \`${f}\``), ...(files.length > 20 ? [`- and ${files.length - 20} more`] : [])];
   return [
-    `Measured ${dataset.measured.at}, the median of ${dataset.measured.runs.length} full-battery run(s) on \`main\`:`,
+    `Measured ${dataset.measured.at}, the median of ${dataset.measured.runs.length} full-battery run(s):`,
     '',
     ...dataset.measured.runs.map((r) => `- run ${String(r.id)} (${String(r.event)}, \`${String(r.head_sha ?? '').slice(0, 10)}\`)`),
     '',
-    `${Object.keys(now).length} files, ${secs(total)} summed over their workers.`,
+    `${medians.size} files, ${secs(total)} summed over their workers.`,
     '',
     `**Measured for the first time (${added.length}):**`,
     ...list(added),
     '',
-    `**No longer measured (${dropped.length}):**`,
-    ...list(dropped),
+    `**No longer measured: ${dropped}.**`,
     '',
     '**The ten heaviest files:**',
     ...heaviest.map(([f, v]) => `- ${secs(v)} \`${f}\``),
@@ -458,7 +479,7 @@ export async function main(argv) {
     fs.writeFileSync(flags.out, `${JSON.stringify(dataset, null, 1)}\n`);
     const n = Object.keys(dataset.files).length;
     console.log(`wrote ${flags.out}: ${n} files from ${runs.length} run(s), measured ${measuredAt}`);
-    if (flags.summary) fs.writeFileSync(flags.summary, summarize(dataset, previous));
+    if (flags.summary) fs.writeFileSync(flags.summary, summarize(medianDurations(runs), dataset, previous));
     return EXIT_OK;
   }
 

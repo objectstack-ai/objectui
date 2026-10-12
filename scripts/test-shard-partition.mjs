@@ -46,15 +46,37 @@
  * case before this code is reached.
  */
 
+import { createHash } from 'node:crypto';
+
 /** The dataset schema this module reads. Any other tag is refused, never guessed at. */
-export const TIMINGS_SCHEMA = 'objectui.test-shard-timings/1';
+export const TIMINGS_SCHEMA = 'objectui.test-shard-timings/2';
+
+/**
+ * The dataset's key for a test file: the first 16 hex digits of the sha1 of
+ * its repository-relative posix path. NOT the path itself, and that is
+ * measured, not taste: a tracked file listing every test path puts every
+ * test's own file name into the tree, and this repository's retired-spelling
+ * pins sweep the tracked tree with `git grep` excluding only their OWN file --
+ * so a pin named after the spelling it retires finds that spelling in the
+ * dataset. Run 38271639400 failed exactly so, on objectui#8800's pin -- the
+ * first full run with a path-keyed dataset. (The spelling is not written
+ * here, for the same reason.) A hash carries no spelling, so no such pin, present or future, can
+ * meet one here. 64 bits over a few thousand paths makes a collision
+ * negligible, and a collision would cost balance, never correctness.
+ *
+ * @param {string} path
+ */
+export function pathKey(path) {
+  return createHash('sha1').update(path).digest('hex').slice(0, 16);
+}
 
 /** The floor every weight is lifted to, in ms. */
 export const MIN_WEIGHT_MS = 1;
 
 /**
- * The per-file weights of a dataset, checked. Throws on a dataset this module
- * cannot read: a plan built from a misread dataset is a silently wrong split.
+ * The per-file weights of a dataset, keyed by `pathKey()`, checked. Throws on
+ * a dataset this module cannot read: a plan built from a misread dataset is a
+ * silently wrong split.
  *
  * @param {unknown} dataset
  * @returns {Map<string, number>}
@@ -66,15 +88,18 @@ export function datasetWeights(dataset) {
     throw new Error(`test-shard timings: schema ${JSON.stringify(schema)} is not ${JSON.stringify(TIMINGS_SCHEMA)}`);
   }
   if (!files || typeof files !== 'object' || Array.isArray(files)) {
-    throw new Error('test-shard timings: `files` is not an object of path -> ms');
+    throw new Error('test-shard timings: `files` is not an object of key -> ms');
   }
   /** @type {Map<string, number>} */
   const weights = new Map();
-  for (const [file, ms] of Object.entries(files)) {
-    if (typeof ms !== 'number' || !Number.isFinite(ms) || ms < 0) {
-      throw new Error(`test-shard timings: ${file} carries ${JSON.stringify(ms)}, not a non-negative number of ms`);
+  for (const [key, ms] of Object.entries(files)) {
+    if (!/^[0-9a-f]{16}$/.test(key)) {
+      throw new Error(`test-shard timings: ${JSON.stringify(key)} is not a pathKey() -- 16 hex digits, never a path`);
     }
-    weights.set(file, ms);
+    if (typeof ms !== 'number' || !Number.isFinite(ms) || ms < 0) {
+      throw new Error(`test-shard timings: ${key} carries ${JSON.stringify(ms)}, not a non-negative number of ms`);
+    }
+    weights.set(key, ms);
   }
   return weights;
 }
@@ -140,7 +165,7 @@ export function planShards(specs, dataset, count) {
   /** @type {string[]} */
   const unknown = [];
   const items = specs.map((spec) => {
-    const measured = weights.get(spec.path);
+    const measured = weights.get(pathKey(spec.path));
     if (measured === undefined) unknown.push(spec.path);
     const weight = Math.max(MIN_WEIGHT_MS, (measured ?? median) / (multiplicity.get(spec.path) ?? 1));
     return { key: spec.path, tie: spec.project ?? '', weight };

@@ -12,8 +12,10 @@ import {
   describePlan,
   medianWeight,
   partition,
+  pathKey,
   planShards,
 } from '../test-shard-partition.mjs';
+import { execFileSync } from 'node:child_process';
 
 /**
  * The duration-balanced shard split (objectui#12208, ruling 6121816480,
@@ -40,7 +42,9 @@ function lcg(seed: number) {
   };
 }
 
-function dataset(files: Record<string, number>) {
+/** A dataset over PATHS, keyed the way the committed one is: by `pathKey()`. */
+function dataset(byPath: Record<string, number>) {
+  const files = Object.fromEntries(Object.entries(byPath).map(([p, ms]) => [pathKey(p), ms]));
   return { schema: TIMINGS_SCHEMA, measured: { at: '2026-10-12T00:00:00Z', runs: [] }, files };
 }
 
@@ -148,11 +152,12 @@ describe('planShards: the dataset decides the weights', () => {
 });
 
 describe('datasetWeights: a dataset this reader cannot read is refused, never guessed at', () => {
-  it('refuses another schema, a missing `files`, and a non-number weight', () => {
+  it('refuses another schema, a missing `files`, a non-number weight, and a key that is a path', () => {
     expect(() => datasetWeights({ schema: 'something/else', files: {} })).toThrow(/schema/);
     expect(() => datasetWeights({ schema: TIMINGS_SCHEMA })).toThrow(/files/);
     expect(() => datasetWeights(dataset({ 'a.test.ts': -1 }))).toThrow(/non-negative/);
     expect(() => datasetWeights(dataset({ 'a.test.ts': Number.NaN }))).toThrow(/non-negative/);
+    expect(() => datasetWeights({ schema: TIMINGS_SCHEMA, files: { 'a.test.ts': 1 } })).toThrow(/never a path/);
   });
 
   it('reads the floor as the median of an empty dataset', () => {
@@ -161,13 +166,24 @@ describe('datasetWeights: a dataset this reader cannot read is refused, never gu
 });
 
 describe('the committed wiring', () => {
-  it('commits a dataset the reader accepts, keyed by tracked test files', () => {
-    const committed = JSON.parse(fs.readFileSync(path.join(repoRoot, 'scripts/test-shard-timings.json'), 'utf8'));
-    const weights = datasetWeights(committed);
-    for (const file of weights.keys()) {
-      expect(file, 'a dataset key is a repository-relative posix path').not.toMatch(/^\/|\\/);
-      expect(file).toMatch(/\.(test|spec)\.[cm]?[jt]sx?$/);
-    }
+  const datasetText = fs.readFileSync(path.join(repoRoot, 'scripts/test-shard-timings.json'), 'utf8');
+  const trackedTests = execFileSync('git', ['ls-files', '-z'], { cwd: repoRoot, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
+    .split('\0')
+    .filter((f) => /\.(test|spec)\.[cm]?[jt]sx?$/.test(f));
+
+  it('commits a dataset the reader accepts, whose keys name tracked test files', () => {
+    const weights = datasetWeights(JSON.parse(datasetText));
+    if (weights.size === 0) return; // the pre-measurement shape: the sequencer keeps vitest's own split
+    const live = trackedTests.filter((f) => weights.has(pathKey(f)));
+    // A live control, not a staleness gate: a dataset whose keys resolve to no
+    // tracked test at all is keyed some other way than `pathKey()`.
+    expect(live.length, 'no key of the committed dataset is pathKey() of a tracked test file').toBeGreaterThan(0);
+  });
+
+  it('carries no test file path, so no retired-spelling sweep of the tree can meet one in it (run 38271639400)', () => {
+    expect(trackedTests.length, 'a zero is a broken `git ls-files`, not an empty repository').toBeGreaterThan(100);
+    const found = trackedTests.filter((f) => datasetText.includes(path.posix.basename(f)));
+    expect(found).toEqual([]);
   });
 
   it('wires the sequencer into the root vitest config, which is the only config vitest reads it from', () => {

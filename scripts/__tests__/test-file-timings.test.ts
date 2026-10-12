@@ -15,11 +15,13 @@ import FileTimingsReporter, {
   buildDataset,
   fileRecord,
   judgeRun,
+  medianDurations,
+  summarize,
   readRunReports,
   runDurations,
   shardJobName,
 } from '../test-file-timings.mjs';
-import { TIMINGS_SCHEMA, datasetWeights } from '../test-shard-partition.mjs';
+import { TIMINGS_SCHEMA, datasetWeights, pathKey } from '../test-shard-partition.mjs';
 
 /**
  * The per-file timing pipeline (objectui#12208): the reporter that measures on
@@ -135,8 +137,15 @@ describe('the generator', () => {
     const two = buildDataset({ runs: [...runs].reverse(), measuredAt: '2026-10-12T00:00:00Z' });
     expect(JSON.stringify(two)).toBe(JSON.stringify(one));
     expect(one.schema).toBe(TIMINGS_SCHEMA);
-    expect(one.files).toEqual({ 'a.test.ts': 1000, 'b.test.ts': 10, 'c.test.ts': 60 });
-    expect(Object.keys(one.files)).toEqual(['a.test.ts', 'b.test.ts', 'c.test.ts']);
+    expect([...medianDurations(runs)]).toEqual([
+      ['a.test.ts', 1000],
+      ['b.test.ts', 10],
+      ['c.test.ts', 60],
+    ]);
+    // Keyed by pathKey(), never by the path (the sweep collision on run 38271639400).
+    expect(one.files).toEqual({ [pathKey('a.test.ts')]: 1000, [pathKey('b.test.ts')]: 10, [pathKey('c.test.ts')]: 60 });
+    expect(JSON.stringify(one)).not.toContain('a.test.ts');
+    expect(Object.keys(one.files)).toEqual([...Object.keys(one.files)].sort());
     expect(Object.values(one.files).every((v) => v % ROUND_MS === 0)).toBe(true);
     expect(one.measured.runs).toEqual([{ id: 1 }, { id: 2 }, { id: 3 }]);
     expect(() => datasetWeights(one)).not.toThrow();
@@ -144,6 +153,17 @@ describe('the generator', () => {
 
   it('refuses to build a dataset from no run at all', () => {
     expect(() => buildDataset({ runs: [], measuredAt: 'x' })).toThrow(/no run/);
+  });
+
+  it("names the refresh's new files by path in its summary, from the runs' own reports", () => {
+    const runs = [{ meta: { id: 9, event: 'schedule', head_sha: 'abcdef1234567' }, durations: new Map([['old.test.ts', 100], ['new.test.ts', 9000]]) }];
+    const dataset = buildDataset({ runs, measuredAt: '2026-10-19T00:00:00Z' });
+    const previous = { files: { [pathKey('old.test.ts')]: 90, [pathKey('gone.test.ts')]: 5 } };
+    const text = summarize(medianDurations(runs), dataset, previous);
+    expect(text).toContain('**Measured for the first time (1):**\n- `new.test.ts`');
+    expect(text).toContain('**No longer measured: 1.**');
+    expect(text).toContain('- 9.0 s `new.test.ts`');
+    expect(text).not.toMatch(/[<>]/);
   });
 });
 

@@ -87,7 +87,8 @@ export function useEnvironmentEntitlements(
           canCreateDevelopmentEnv: data.development?.canCreate,
           plan: data.plan,
           // Verbatim, like `contactSalesUrl`: absent stays absent, and the
-          // upgrade prompt then renders no CTA (objectui#10437).
+          // toolbar's locked plan-tier mark is then drawn unlinked
+          // (objectui#10437, objectui#12190).
           upgradeUrl: data.upgradeUrl,
           contactSalesUrl: data.contactSalesUrl,
           // Verbatim, like `upgradeUrl`: absent stays absent, and the

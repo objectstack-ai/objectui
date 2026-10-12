@@ -6,10 +6,11 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 
 const CREATE_LOADING = 'environment-create-cta-loading';
+const LOCKED_MARK = 'environment-development-locked';
 
 vi.mock('@object-ui/react', async (importActual) => ({
   ...(await importActual<any>()),
@@ -57,28 +58,89 @@ const UNRESOLVED: EnvironmentEntitlementsState = {
 
 describe('EnvironmentListToolbar', () => {
   it('no production env → "Set up your production environment" (primary)', () => {
-    renderToolbar(<EnvironmentListToolbar actions={[CREATE]} entitlements={st({ hasProductionEnv: false })} onUpgrade={vi.fn()} />);
+    renderToolbar(<EnvironmentListToolbar actions={[CREATE]} entitlements={st({ hasProductionEnv: false })} />);
     const btn = screen.getByText('Set up your production environment');
     expect(btn).toBeTruthy();
     expect(btn.getAttribute('data-variant')).toBe('primary');
-    expect(screen.queryByTestId('environment-add-upgrade')).toBeNull();
+    expect(screen.queryByTestId(LOCKED_MARK)).toBeNull();
   });
 
   it('has prod + dev allowed (paid) → "Add development environment"', () => {
-    renderToolbar(<EnvironmentListToolbar actions={[CREATE]} entitlements={st({ canCreateDevelopmentEnv: true })} onUpgrade={vi.fn()} />);
+    renderToolbar(<EnvironmentListToolbar actions={[CREATE]} entitlements={st({ canCreateDevelopmentEnv: true })} />);
     expect(screen.getByText('Add development environment')).toBeTruthy();
-    expect(screen.queryByTestId('environment-add-upgrade')).toBeNull();
+    expect(screen.queryByTestId(LOCKED_MARK)).toBeNull();
   });
 
-  it('has prod + dev locked (free) → upgrade button, NO create POST affordance', () => {
-    const onUpgrade = vi.fn();
-    renderToolbar(<EnvironmentListToolbar actions={[CREATE]} entitlements={st({ canCreateDevelopmentEnv: false, plan: 'free' })} onUpgrade={onUpgrade} />);
-    // The create action is NOT rendered as a bar button (no POST-then-403).
+});
+
+/**
+ * objectui#12190 — the maintainer's rule is that no primary button opens a
+ * paywall dialog (objectstack-ai/cloud#2775). A plan-locked org gets an
+ * outline, locked mark that LINKS to the summary's `upgradeUrl`; nothing on
+ * this toolbar opens a dialog, from a click or from the deep link below.
+ */
+describe('EnvironmentListToolbar — plan-locked: a locked mark, no paywall dialog (objectui#12190)', () => {
+  const LOCKED = st({ canCreateDevelopmentEnv: false, plan: 'free' });
+
+  it('draws the locked mark as a link to upgradeUrl, and no button of any kind', () => {
+    renderToolbar(<EnvironmentListToolbar actions={[CREATE]} entitlements={LOCKED} />);
+    const mark = screen.getByTestId(LOCKED_MARK);
+    expect(mark.tagName).toBe('A');
+    expect(mark.getAttribute('href')).toBe('/settings/billing');
+    // Same-origin relative URL (no control-plane origin configured): same tab.
+    expect(mark.getAttribute('target')).toBeNull();
+    expect(mark.textContent).toBe('Development environments · Team plan and up');
+    // The lock icon.
+    expect(mark.querySelector('svg')).not.toBeNull();
+    // No primary button stands in for create, and the create action itself is
+    // NOT rendered as a bar button (no POST-then-403).
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.queryByTestId('action-bar')).toBeNull();
     expect(screen.queryByText('Create Environment')).toBeNull();
-    expect(screen.queryByText('Add development environment')).toBeNull();
-    fireEvent.click(screen.getByTestId('environment-add-upgrade'));
-    expect(onUpgrade).toHaveBeenCalledTimes(1);
-    expect(onUpgrade.mock.calls[0][0]).toMatchObject({ code: 'DEV_ENV_PLAN_LOCKED', cta: { url: '/settings/billing' } });
+    // Clicking it is plain navigation: the toolbar has no prop or handler
+    // through which to ask for a dialog, and none renders.
+    mark.addEventListener('click', (e) => e.preventDefault());
+    fireEvent.click(mark);
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+
+  it('other toolbar actions still render through the bar beside the mark', () => {
+    const REFRESH = { name: 'refresh_all', label: 'Refresh', type: 'api', locations: ['list_toolbar'] };
+    renderToolbar(<EnvironmentListToolbar actions={[CREATE, REFRESH]} entitlements={LOCKED} />);
+    expect(screen.getByText('Refresh')).toBeTruthy();
+    expect(screen.getByTestId(LOCKED_MARK)).toBeTruthy();
+    expect(screen.queryByText('Create Environment')).toBeNull();
+  });
+
+  it('an absolute upgradeUrl is linked verbatim and opens in a new tab', () => {
+    const url = 'https://cloud.example.com/_console/apps/cloud_control/page/pricing';
+    renderToolbar(
+      <EnvironmentListToolbar actions={[CREATE]} entitlements={st({ canCreateDevelopmentEnv: false, upgradeUrl: url })} />,
+    );
+    const mark = screen.getByTestId(LOCKED_MARK);
+    expect(mark.getAttribute('href')).toBe(url);
+    expect(mark.getAttribute('target')).toBe('_blank');
+    expect(mark.getAttribute('rel')).toBe('noopener noreferrer');
+  });
+
+  it('no upgradeUrl → the mark is drawn unlinked; no URL is composed (objectui#10437)', () => {
+    renderToolbar(
+      <EnvironmentListToolbar actions={[CREATE]} entitlements={st({ canCreateDevelopmentEnv: false, upgradeUrl: undefined })} />,
+    );
+    const mark = screen.getByTestId(LOCKED_MARK);
+    expect(mark.tagName).toBe('SPAN');
+    expect(mark.textContent).toBe('Development environments · Team plan and up');
+    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('zh: the mark reads the ruled tier label', async () => {
+    render(
+      <I18nProvider config={{ defaultLanguage: 'zh', detectBrowserLanguage: false }}>
+        <EnvironmentListToolbar actions={[CREATE]} entitlements={LOCKED} />
+      </I18nProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId(LOCKED_MARK).textContent).toBe('开发环境 · 团队版起'));
   });
 });
 
@@ -90,19 +152,19 @@ describe('EnvironmentListToolbar', () => {
  */
 describe('EnvironmentListToolbar — loading state (objectui#3482)', () => {
   it('still resolving (null) → skeleton, no label of any kind, no upgrade button', () => {
-    renderToolbar(<EnvironmentListToolbar actions={[CREATE]} entitlements={null} onUpgrade={vi.fn()} />);
+    renderToolbar(<EnvironmentListToolbar actions={[CREATE]} entitlements={null} />);
     expect(screen.getByTestId(CREATE_LOADING)).toBeTruthy();
     // The metadata label is the one that used to flash here.
     expect(screen.queryByText('Create Environment')).toBeNull();
     // …and no state-aware label is guessed at either — the bar isn't rendered.
     expect(screen.queryByTestId('action-bar')).toBeNull();
-    expect(screen.queryByTestId('environment-add-upgrade')).toBeNull();
+    expect(screen.queryByTestId(LOCKED_MARK)).toBeNull();
   });
 
   it('non-create toolbar actions still render while resolving (they never re-label)', () => {
     const REFRESH = { name: 'refresh_all', label: 'Refresh', type: 'api', locations: ['list_toolbar'] };
     renderToolbar(
-      <EnvironmentListToolbar actions={[CREATE, REFRESH]} entitlements={null} onUpgrade={vi.fn()} />,
+      <EnvironmentListToolbar actions={[CREATE, REFRESH]} entitlements={null} />,
     );
     expect(screen.getByText('Refresh')).toBeTruthy();
     expect(screen.getByTestId(CREATE_LOADING)).toBeTruthy();
@@ -111,7 +173,7 @@ describe('EnvironmentListToolbar — loading state (objectui#3482)', () => {
 
   it('no create action in the toolbar → nothing can jump, so no skeleton', () => {
     const REFRESH = { name: 'refresh_all', label: 'Refresh', type: 'api', locations: ['list_toolbar'] };
-    renderToolbar(<EnvironmentListToolbar actions={[REFRESH]} entitlements={null} onUpgrade={vi.fn()} />);
+    renderToolbar(<EnvironmentListToolbar actions={[REFRESH]} entitlements={null} />);
     expect(screen.getByText('Refresh')).toBeTruthy();
     expect(screen.queryByTestId(CREATE_LOADING)).toBeNull();
   });
@@ -120,10 +182,10 @@ describe('EnvironmentListToolbar — loading state (objectui#3482)', () => {
     // The skeleton must never be terminal: when both entitlement signals fail
     // the user still needs a working create button, and the producer's neutral
     // wording is the only honest text for an unknown state.
-    renderToolbar(<EnvironmentListToolbar actions={[CREATE]} entitlements={UNRESOLVED} onUpgrade={vi.fn()} />);
+    renderToolbar(<EnvironmentListToolbar actions={[CREATE]} entitlements={UNRESOLVED} />);
     expect(screen.getByText('Create Environment')).toBeTruthy();
     expect(screen.queryByTestId(CREATE_LOADING)).toBeNull();
-    expect(screen.queryByTestId('environment-add-upgrade')).toBeNull();
+    expect(screen.queryByTestId(LOCKED_MARK)).toBeNull();
   });
 
   it('resolving → resolved: the metadata label never appears in any render output', () => {
@@ -133,7 +195,7 @@ describe('EnvironmentListToolbar — loading state (objectui#3482)', () => {
     // whose key is covered by the all-locales key-parity test.
     const tree = (entitlements: EnvironmentEntitlementsState | null) => (
       <I18nProvider config={{ defaultLanguage: 'en', detectBrowserLanguage: false }}>
-        <EnvironmentListToolbar actions={[CREATE]} entitlements={entitlements} onUpgrade={vi.fn()} />
+        <EnvironmentListToolbar actions={[CREATE]} entitlements={entitlements} />
       </I18nProvider>
     );
 
@@ -159,7 +221,7 @@ describe('EnvironmentListToolbar — ?runAction=create_environment deep link (#8
 
   it('marks the create action autoTrigger once entitlements resolve, then strips the param', async () => {
     withRunActionParam();
-    renderToolbar(<EnvironmentListToolbar actions={[CREATE]} entitlements={st({ hasProductionEnv: false })} onUpgrade={vi.fn()} />);
+    renderToolbar(<EnvironmentListToolbar actions={[CREATE]} entitlements={st({ hasProductionEnv: false })} />);
     const btn = screen.getByText('Set up your production environment');
     // The SchemaRenderer stub surfaces autoTrigger as data-autotrigger.
     expect(btn.getAttribute('data-autotrigger')).toBe('true');
@@ -169,11 +231,17 @@ describe('EnvironmentListToolbar — ?runAction=create_environment deep link (#8
     });
   });
 
-  it('upgrade state: deep link opens the upgrade prompt instead of a create POST', async () => {
+  it('upgrade state: the deep link is consumed and opens nothing (objectui#12190)', async () => {
     withRunActionParam();
-    const onUpgrade = vi.fn();
-    renderToolbar(<EnvironmentListToolbar actions={[CREATE]} entitlements={st({ canCreateDevelopmentEnv: false, plan: 'free' })} onUpgrade={onUpgrade} />);
-    await vi.waitFor(() => expect(onUpgrade).toHaveBeenCalledTimes(1));
-    expect(onUpgrade.mock.calls[0][0]).toMatchObject({ code: 'DEV_ENV_PLAN_LOCKED' });
+    renderToolbar(<EnvironmentListToolbar actions={[CREATE]} entitlements={st({ canCreateDevelopmentEnv: false, plan: 'free' })} />);
+    // Consumed exactly as before: the one-shot intent is spent on the mark,
+    // which is the page's whole answer to "create" in this state.
+    await vi.waitFor(() => {
+      expect(new URL(window.location.href).searchParams.get('runAction')).toBeNull();
+    });
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(screen.getByTestId(LOCKED_MARK)).toBeTruthy();
+    // Nothing is auto-triggered either: no bar, so no autoTrigger action.
+    expect(screen.queryByTestId('action-bar')).toBeNull();
   });
 });

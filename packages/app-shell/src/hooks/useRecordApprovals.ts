@@ -22,9 +22,12 @@
  * decision action is metadata, not console code.
  *
  * Talks directly to the framework REST endpoints under
- * `/api/v1/approvals/*`. Fails open: if the approvals plugin is not installed
+ * `/api/v1/approvals/*`. Fails open: if the approvals route is absent
  * (404 / 501) or the user has no identity, returns inert state so the detail
- * view continues to render normally.
+ * view continues to render normally. A framework composition WITHOUT the
+ * approvals service still mounts the list route and answers it
+ * `200 { data: [] }`: that is an answered read with no request, not an absent
+ * route, and the result's `answered` says which one happened (objectui#12220).
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -238,7 +241,27 @@ export function isSubmitterOf(
 
 interface UseRecordApprovalsResult {
   loading: boolean;
+  /**
+   * `false` once the approvals route answered 404 / 501 (no approvals API on
+   * this backend). ⚠️ It starts `true` and keeps its last value on any other
+   * failure, so `true` does NOT mean a read answered: read {@link answered}
+   * for that.
+   */
   available: boolean;
+  /**
+   * Whether the approvals read ANSWERED (a 2xx) for the current
+   * object + record (objectui#12220). `false` before the first read lands,
+   * after a 404 / 501, when the first read failed any other way, and again
+   * while the read for a newly opened record is in flight. Once a read has
+   * answered, a later transient failure keeps it `true`, with the last rows.
+   *
+   * This is the input the record page's approval-lock rule
+   * (`resolveApprovalLock` in `@object-ui/react`) keys its fallback on: an
+   * answered read with no pending request means no approval is running, and
+   * the record's `approval_status` column only stands in while no read has
+   * answered.
+   */
+  answered: boolean;
   /**
    * Every approval request on the record, newest first — one per approval
    * node the flow has reached (and per ADR-0044 revision round), so a
@@ -360,11 +383,17 @@ export function useRecordApprovals(
   const [loading, setLoading] = useState(false);
   const [available, setAvailable] = useState(true);
   const [requests, setRequests] = useState<ApprovalRequestLite[]>([]);
+  // Which object + record the last ANSWERED read was for. Keyed rather than a
+  // bare flag so that opening another record reads as unanswered until that
+  // record's own read lands, instead of inheriting the previous one's answer.
+  const [answeredFor, setAnsweredFor] = useState<string | null>(null);
   const unavailableRef = useRef(false);
+  const readKey = objectName && recordId ? JSON.stringify([objectName, recordId]) : null;
 
   const refresh = useCallback(async () => {
     if (!objectName || !recordId) return;
     if (unavailableRef.current) return;
+    const key = JSON.stringify([objectName, recordId]);
     setLoading(true);
     try {
       const reqResp = await fetchJson<{ data: ApprovalRequestLite[] }>(
@@ -377,10 +406,12 @@ export function useRecordApprovals(
       const full = pending ? await fetchProgressEnrichment(pending) : null;
       setRequests(full ? rows.map((r) => (r === pending ? full : r)) : rows);
       setAvailable(true);
+      setAnsweredFor(key);
     } catch (err: any) {
       if (err?.status === 404 || err?.status === 501) {
         unavailableRef.current = true;
         setAvailable(false);
+        setAnsweredFor(null);
       }
       // Other errors are transient — silently keep last state.
     } finally {
@@ -422,6 +453,7 @@ export function useRecordApprovals(
   return {
     loading,
     available,
+    answered: readKey !== null && answeredFor === readKey,
     requests: sortedRequests,
     pendingRequest,
     latestRequest,

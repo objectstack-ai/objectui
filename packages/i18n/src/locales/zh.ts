@@ -3506,10 +3506,13 @@ const zh = {
     buyCredits: '购买额度包',
     upgradePlan: '升级方案',
   },
+  planTier: {
+    teamAndUp: '团队版起',
+  },
   environment: {
-    addEnvironment: '新建环境',
     setUpProduction: '创建你的生产环境',
     addDevelopment: '新建开发环境',
+    developmentLocked: '开发环境 · {{tier}}',
     entitlement: {
       productionLimitTitle: '你已经有生产环境了',
       productionLimitBody:

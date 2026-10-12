@@ -48,6 +48,67 @@ export interface ApprovalProgress {
   groups?: Array<{ group: string; got: number; need: number; satisfied: boolean }>;
 }
 
+/**
+ * The approval state a record surface shows (objectui#2902): whether an
+ * approval is running on the record (`pending`, which drives the status band
+ * and the recall lever) and whether it also forbids edits (`locked`).
+ */
+export interface ApprovalLockState {
+  pending: boolean;
+  locked: boolean;
+}
+
+/** Input to {@link resolveApprovalLock}. */
+export interface ApprovalLockInput {
+  /**
+   * Whether the approvals read ANSWERED (a 2xx) for this record. When it did,
+   * the open request is the whole answer and the record's `approval_status`
+   * column is not consulted. `false` covers a route that is absent (404 /
+   * 501), a read that has not landed yet, and a read that failed before it
+   * ever answered.
+   */
+  readAnswered: boolean;
+  /**
+   * The open approval on the record, reduced to its lock policy, or `null`
+   * when there is none. For a host this is the pending request it found
+   * (`locked` from the node's `lock_record`); for a renderer it is the verdict
+   * a host threaded through {@link InlineEditContextValue}.
+   */
+  openApproval: { locked: boolean } | null;
+  /** The record's own `approval_status` value, read only as the fallback. */
+  recordStatus: unknown;
+}
+
+/**
+ * THE approval-lock rule of a record surface (objectui#12220). The record page
+ * host (`@object-ui/app-shell` `RecordDetailView`) and the detail body's
+ * approval band (`@object-ui/plugin-detail` `DetailView`) both call this, so
+ * the two cannot disagree about when a record is locked.
+ *
+ * 1. An open approval decides: it is pending, and it locks exactly when its
+ *    node's `lockRecord` policy says so (objectui#2902).
+ * 2. With none, an approvals read that ANSWERED means no approval is running:
+ *    not pending, not locked. The record's `approval_status` column is not a
+ *    second opinion there. A composition without the approvals service answers
+ *    the read `200 { data: [] }` and enforces no lock, so a `pending` left in
+ *    the column by any writer would otherwise lock the record with nothing to
+ *    recall and nothing the server refuses.
+ * 3. Only when no read answered does the column stand in: `pending` or
+ *    `in_approval` reads as pending AND locked. It carries no node granularity,
+ *    so it can only mean "locked", the conservative read for a backend that
+ *    mirrors the status but exposes no approvals API (objectui#2618).
+ */
+export function resolveApprovalLock({
+  readAnswered,
+  openApproval,
+  recordStatus,
+}: ApprovalLockInput): ApprovalLockState {
+  if (openApproval) return { pending: true, locked: openApproval.locked };
+  if (readAnswered) return { pending: false, locked: false };
+  const columnPending = recordStatus === 'pending' || recordStatus === 'in_approval';
+  return { pending: columnPending, locked: columnPending };
+}
+
 export interface InlineEditContextValue {
   /** True while the record is in inline-edit mode. */
   editing: boolean;
@@ -84,6 +145,18 @@ export interface InlineEditContextValue {
    * still get a coherent band. Defaults to `false`.
    */
   approvalPending: boolean;
+  /**
+   * Whether the host's `locked` / `approvalPending` come from an approvals
+   * read that ANSWERED (a 2xx) for this record (objectui#12220). When `true`,
+   * the host's pair is the whole answer and a renderer must not fall back to
+   * the record's `approval_status` column: `false` / `false` then means "no
+   * approval is running", not "this host has no opinion". Feed it to
+   * {@link resolveApprovalLock} as `readAnswered`.
+   *
+   * Omitted ⇒ `false` ⇒ unchanged: a renderer keeps the column as its
+   * fallback, so a host that never learns of this prop renders as before.
+   */
+  approvalReadAnswered?: boolean;
   /**
    * Quorum / per-group tally of the pending approval node, when it aggregates
    * more than one decision (objectstack#4478). Threaded verbatim from the
@@ -220,6 +293,13 @@ export interface InlineEditProviderProps {
    */
   approvalPending?: boolean;
   /**
+   * Whether `locked` / `approvalPending` come from an approvals read that
+   * answered (objectui#12220; see `InlineEditContextValue`). Omitted ⇒ `false`,
+   * which keeps a renderer's `approval_status` column fallback exactly as
+   * before.
+   */
+  approvalReadAnswered?: boolean;
+  /**
    * The pending node's server-computed decision tally (objectstack#4478).
    * Surfaced verbatim so the band can show "2 of 3" / per-group ticks. Omitted
    * for `first_response` nodes and for hosts that don't read approvals.
@@ -242,6 +322,7 @@ export const InlineEditProvider: React.FC<InlineEditProviderProps> = ({
   canEdit = true,
   locked = false,
   approvalPending,
+  approvalReadAnswered = false,
   approvalProgress,
   approvalIsSubmitter,
   lockedReason,
@@ -294,6 +375,7 @@ export const InlineEditProvider: React.FC<InlineEditProviderProps> = ({
       canEdit,
       locked,
       approvalPending: pending,
+      approvalReadAnswered,
       approvalProgress,
       approvalIsSubmitter,
       lockedReason,
@@ -310,7 +392,7 @@ export const InlineEditProvider: React.FC<InlineEditProviderProps> = ({
       setError,
       setFieldErrors,
     }),
-    [editing, canEdit, locked, pending, approvalProgress, approvalIsSubmitter, lockedReason, draft, autoFocusField, saving, error, fieldErrors, enter, setField, teardown],
+    [editing, canEdit, locked, pending, approvalReadAnswered, approvalProgress, approvalIsSubmitter, lockedReason, draft, autoFocusField, saving, error, fieldErrors, enter, setField, teardown],
   );
 
   return <InlineEditContext.Provider value={value}>{children}</InlineEditContext.Provider>;

@@ -202,8 +202,9 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
   const [screenFlow, setScreenFlow] = useState<ScreenFlowState | null>(null);
   // A flow launch that ended `refused` without pausing (objectui#9973).
   const [flowRefusal, setFlowRefusal] = useState<FlowRefusalState>({ open: false });
-  // Plan/capacity gate dialog (upgrade / limit), shared by the env-list toolbar
-  // (proactive) and the api-action error path below (reactive safety net).
+  // Plan/capacity gate dialog (upgrade / limit), opened by the api-action error
+  // path below when the server refuses a create. The env-list toolbar opens no
+  // dialog: its plan-locked state draws a locked mark instead (objectui#12190).
   const [entitlementDialog, setEntitlementDialog] = useState<EntitlementDialogState>({ open: false });
 
   const resultDialogHandler = useCallback<ResultDialogHandler>(

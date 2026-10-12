@@ -108,7 +108,7 @@ function mountStack(actions: any[]) {
   const view = render(
     <I18nProvider config={{ defaultLanguage: 'en', detectBrowserLanguage: false }}>
       <ActionProvider context={{ user: { id: 'u1' } } as any} handlers={{ api: execute as any }}>
-        <EnvironmentListToolbar actions={actions} entitlements={ADD_DEVELOPMENT} onUpgrade={vi.fn()} />
+        <EnvironmentListToolbar actions={actions} entitlements={ADD_DEVELOPMENT} />
       </ActionProvider>
     </I18nProvider>,
   );

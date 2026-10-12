@@ -3358,10 +3358,13 @@ const ko = {
     buyCredits: "크레딧 팩 구매",
     upgradePlan: "요금제 업그레이드",
   },
+  planTier: {
+    teamAndUp: "Team 요금제 이상",
+  },
   environment: {
-    addEnvironment: "환경 추가",
     setUpProduction: "프로덕션 환경 설정",
     addDevelopment: "개발 환경 추가",
+    developmentLocked: "개발 환경 · {{tier}}",
     // Plan/capacity dialog (EnvironmentEntitlementDialog) — cloud#959.
     entitlement: {
       productionLimitTitle: "이미 프로덕션 환경이 있습니다",

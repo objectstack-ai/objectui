@@ -3,11 +3,10 @@
  * of a raw red error toast when an environment-create is gated by plan or
  * capacity (DEV_ENV_PLAN_LOCKED / DEV_ENV_LIMIT / PRODUCTION_ENV_LIMIT).
  *
- * Driven by a single {@link EntitlementDialogSpec}, opened from two places:
- *   • proactively, from the env-list toolbar (a free-plan org clicking
- *     "Add environment" — see EnvironmentListToolbar), and
- *   • reactively, from the action runtime's apiHandler when the create POST
- *     comes back with an entitlement 403 (the safety net).
+ * Driven by a single {@link EntitlementDialogSpec}, opened from one place: the
+ * action runtime's apiHandler, when the create POST comes back with an
+ * entitlement 403. The env-list toolbar opens no dialog: its plan-locked state
+ * draws a locked mark that links to the upgrade page instead (objectui#12190).
  *
  * The CTA renders as an anchor (not an SPA navigation) so a control-plane URL
  * lands on the control plane's own page regardless of the console's router.
@@ -26,6 +25,7 @@ import {
   AlertDialogCancel,
   Button,
 } from '@object-ui/components';
+import { classifyNavigationTarget } from '@object-ui/core';
 import { useObjectTranslation } from '@object-ui/i18n';
 import type { EntitlementCta, EntitlementDialogSpec } from './entitlements.js';
 
@@ -34,10 +34,17 @@ export interface EntitlementDialogState {
   spec?: EntitlementDialogSpec;
 }
 
-/** Resolve a CTA URL to a concrete href + whether it should open in a new tab. */
+/**
+ * Resolve a CTA URL to a concrete href + whether it should open in a new tab.
+ *
+ * Which targets are absolute is `@object-ui/core`'s answer, shared with the
+ * action runner (objectui#12191): an http(s) URL opens in a new tab, and a
+ * `mailto:` URL navigates in place. This function keeps no scheme list of its own.
+ */
 export function resolveCtaHref(url: string, apiBase: string): { href: string; external: boolean } {
-  if (/^https?:\/\//i.test(url) || url.startsWith('mailto:')) {
-    return { href: url, external: !url.startsWith('mailto:') };
+  const kind = classifyNavigationTarget(url);
+  if (kind === 'web' || kind === 'mail') {
+    return { href: url, external: kind === 'web' };
   }
   const base = (apiBase || '').replace(/\/+$/, '');
   // A control-plane-relative path: prefix the API origin when we have one (dev:

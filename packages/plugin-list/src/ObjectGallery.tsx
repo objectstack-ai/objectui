@@ -14,6 +14,9 @@ import { usePermissions } from '@object-ui/permissions';
 import type { DataSource, GalleryConfig, ObjectGallerySchema, QueryParams } from '@object-ui/types';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 import { getCellRenderer, resolveCellRendererType, readFileValues } from '@object-ui/fields';
+import { useDisplayLocale } from '@object-ui/i18n';
+import { ListEmptyState, hasDeclaredFilter } from './ListEmptyState';
+import { useListViewTranslation } from './ListView';
 
 export interface ObjectGalleryProps {
     /**
@@ -350,6 +353,10 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
 
     // i18n: translate select-field option labels in card cells
     const { fieldLabel, fieldOptionLabel } = useSafeFieldLabel();
+    // The empty state's `list.*` copy and the locale it resolves against
+    // (objectui#12217): the same translation hook `ListView` draws it with.
+    const { t } = useListViewTranslation();
+    const displayLocale = useDisplayLocale();
 
     // Build an enriched FieldMetadata for a given field name so the shared
     // cell renderer pipeline (used by Detail/Grid/Related) receives the
@@ -560,8 +567,8 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
             if (!objectDefReady) {
                 // ⚠️ Hold the placeholder across the gate window. `loading` starts
                 // `false` here and was only ever flipped inside `fetchData`, so a
-                // bare `return` would leave the gallery showing "No items to
-                // display" — a FALSE empty state — for the whole metadata read,
+                // bare `return` would leave the gallery showing its empty state
+                // — a FALSE one — for the whole metadata read,
                 // where before the gate it showed the loading placeholder. The
                 // two siblings get this for free from their own initial state
                 // (`ObjectCalendar` starts `loading` at `true`; `ObjectTimeline`
@@ -650,7 +657,23 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
     }, [items, groupingFields, isGrouped, collapsedGroups, defaultCollapsed]);
 
     if (loading && !items.length) return <div className="p-4 text-sm text-muted-foreground">Loading Gallery...</div>;
-    if (!items.length) return <div className="p-4 text-sm text-muted-foreground">No items to display</div>;
+    // objectui#12217 — the empty state `ListView` draws for a grid, through the
+    // one shared component. Under `ListView` this branch is not reached: the
+    // view draws it itself, with the view's authored `emptyState` and the
+    // toolbar's search and filters. Standalone, the gallery says what it
+    // knows: the `object-gallery` node declares no `emptyState`, there is no
+    // search box, user filter or add-record control here, and its own
+    // `filter` emptied the list only when the gallery issued the query.
+    if (!items.length) {
+        return (
+            <ListEmptyState
+                hasUserQuery={false}
+                hasBaseFilter={fetchesForItself && hasDeclaredFilter(authoredFilter)}
+                t={t}
+                displayLocale={displayLocale}
+            />
+        );
+    }
 
     // Detail rows (description / tags / badges) shared by both card layouts.
     const renderFields = (item: Record<string, unknown>) => {

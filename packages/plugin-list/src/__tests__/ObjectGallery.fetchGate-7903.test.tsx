@@ -250,8 +250,8 @@ describe('objectui#7903 — the gallery waits for the object definition instead 
   it('holds the LOADING placeholder across the gate window, never a false empty state', async () => {
     // ⚠️ This component's own departure. `loading` starts `false` here and was
     // only ever flipped inside the fetch, so a bare `return` at the gate would
-    // show "No items to display" for the whole metadata read — a FALSE empty
-    // state where the pre-gate component showed the placeholder. The two
+    // show the empty state for the whole metadata read — a FALSE empty state
+    // where the pre-gate component showed the placeholder. The two
     // siblings get this from their initial state (`ObjectCalendar` starts
     // `loading` at `true`, `ObjectTimeline` computes it in a lazy initializer);
     // this component states it in the gate branch instead.
@@ -269,7 +269,10 @@ describe('objectui#7903 — the gallery waits for the object definition instead 
     renderGallery(adapter);
 
     await waitFor(() => expect(screen.getByText(/Loading Gallery/i)).toBeTruthy());
-    expect(screen.queryByText(/No items to display/i)).toBeNull();
+    // By the shared component's test id, not its copy (objectui#12217): the
+    // copy is translated and selected by the query, so a text match would
+    // go vacuous the moment either changed.
+    expect(document.querySelector('[data-testid="empty-state"]')).toBeNull();
     expect(adapter.find).not.toHaveBeenCalled();
 
     await act(async () => {

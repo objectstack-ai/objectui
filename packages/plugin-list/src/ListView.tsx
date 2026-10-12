@@ -7,12 +7,13 @@
  */
 
 import * as React from 'react';
-import { cn, Button, Input, Popover, PopoverContent, PopoverTrigger, FilterBuilder, SortBuilder, NavigationOverlay, GroupingEditor, RefreshIndicator, DataEmptyState, DataErrorState, resolveIcon, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@object-ui/components';
+import { cn, Button, Input, Popover, PopoverContent, PopoverTrigger, FilterBuilder, SortBuilder, NavigationOverlay, GroupingEditor, RefreshIndicator, DataErrorState, resolveIcon, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@object-ui/components';
 import type { SortItem } from '@object-ui/components';
-import { Search, SlidersHorizontal, ArrowUpDown, X, EyeOff, Pencil, Group, Paintbrush, Inbox, Download, Rows4, Rows3, Rows2, Share2, Printer, Plus, Trash2, CheckSquare, AlertTriangle, ShieldAlert, RotateCw, Loader2, type LucideIcon } from 'lucide-react';
+import { Search, SlidersHorizontal, ArrowUpDown, X, EyeOff, Pencil, Group, Paintbrush, Download, Rows4, Rows3, Rows2, Share2, Printer, Plus, Trash2, CheckSquare, AlertTriangle, ShieldAlert, RotateCw, Loader2 } from 'lucide-react';
 import type { FilterBuilderRowGroup } from '@object-ui/components';
 import { VALUELESS_FILTER_BUILDER_OPERATORS, isFilterValueComplete } from '@object-ui/components';
 import { ViewSwitcherDropdown } from './ViewSwitcher';
+import { ListEmptyState, hasDeclaredFilter } from './ListEmptyState';
 import { ViewSettingsPopover } from './components/ViewSettingsPopover';
 import { UserFilters } from './UserFilters';
 import {
@@ -1035,8 +1036,12 @@ export const LIST_DEFAULT_TRANSLATIONS: Record<string, string> = {
  * Delegates to `@object-ui/i18n`'s `createSafeTranslation`. The local copy
  * this replaced wrapped the hook in try/catch — the very thing the comment on
  * `useListViewObjectLabel` below warns against (objectui#2879).
+ *
+ * Exported for this package's `ObjectGallery` only (objectui#12217), which
+ * draws `ListEmptyState`'s `list.*` copy when no `ListView` is around it; the
+ * package barrel does not re-export it.
  */
-const useListViewTranslation = createSafeTranslation(
+export const useListViewTranslation = createSafeTranslation(
   LIST_DEFAULT_TRANSLATIONS,
   'list.recordCount',
 );
@@ -5674,84 +5679,34 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               />
             ))}
           </div>
-        ) : !loading && data.length === 0 && currentView === 'grid' ? (
-          (() => {
-            const iconName = schema.emptyState?.icon;
-            // objectui#5935: normalisation through the ONE seam. This site had
-            // its own inline `split('-')` and no rename map, so `home` and every
-            // snake_case spelling fell through to `Inbox` here while resolving
-            // elsewhere. ⛔ The `Inbox` fallback itself stays at this call site
-            // — an empty state always shows a glyph, and that is this surface's
-            // decision, not the seam's (maintainer ruling 2026-09-03, option C).
-            const ResolvedIcon: LucideIcon = resolveIcon(iconName) ?? Inbox;
-            // Distinguish "filtered/searched to empty" from "truly empty
-            // (first run)". A new user with no filters shouldn't be told to
-            // "adjust your filters" — they should be invited to create.
-            //
-            // The VIEW's own `filter` counts as an active query too
-            // (objectui#4155). It used to be excluded, so a view that returns
-            // nothing *because it is filtered* — the declared `status not_in
-            // [archived]`, or a stale stored condition — rendered the first-run
-            // copy ("no data yet / create your first record") over an object
-            // full of records. That reads as data loss or a permission problem
-            // and sends triage away from the view layer, which is exactly what
-            // this issue reported.
-            //
-            // …but it is not the USER's query (objectui#11687). "Your current
-            // filters or search" is said only when the user applied one — the
-            // search box, the user-filter chips, the filter panel. A view
-            // emptied by its own declared filter alone gets its own message,
-            // which names the view's filter instead of telling the user to
-            // clear filters they never set.
-            const hasBaseFilter =
-              Array.isArray(authoredFilter)
-                ? authoredFilter.length > 0
-                : !!authoredFilter && typeof authoredFilter === 'object'
-                  ? Object.keys(authoredFilter).length > 0
-                  : false;
-            const hasUserQuery =
+        ) : !loading && data.length === 0 && (currentView === 'grid' || currentView === 'gallery') ? (
+          // objectui#12217 — the gallery draws the grid's empty state, through
+          // the one shared component: the authored `emptyState`, resolved
+          // against the display locale, otherwise the localized `list.*` copy.
+          // It used to hand the empty list to `ObjectGallery`, which drew a
+          // hard-coded English line and never read the view's `emptyState`.
+          <ListEmptyState
+            title={schema.emptyState?.title}
+            message={schema.emptyState?.message}
+            // objectui#5935: the authored name is normalised through the ONE
+            // icon seam. This site once had its own inline `split('-')` and no
+            // rename map, so `home` and every snake_case spelling fell through
+            // to the fallback here while resolving elsewhere. What an
+            // unresolvable name draws is the empty state's own decision.
+            icon={resolveIcon(schema.emptyState?.icon)}
+            hasBaseFilter={hasDeclaredFilter(authoredFilter)}
+            // The USER's query (objectui#11687): the search box, the
+            // user-filter chips, the filter panel's own conditions. The view's
+            // declared `filter` is `hasBaseFilter`, not this.
+            hasUserQuery={
               !!(searchTerm && searchTerm.trim()) ||
               (Array.isArray(appliedUserFilterConditions) && appliedUserFilterConditions.length > 0) ||
-              (Array.isArray(appliedFilters?.conditions) && appliedFilters.conditions.length > 0);
-            const hasActiveQuery = hasUserQuery || hasBaseFilter;
-            // objectui#11227 — `title` and `message` are the spec's `I18nLabel`
-            // (`EmptyStateSchema`): a plain string or an inline locale map. They
-            // are RESOLVED against the display locale, as the view's `label`
-            // is. A `typeof === 'string'` test stood here, which is not a
-            // resolution: it answered "absent" for every map an author may write,
-            // so a localised empty state silently drew the default copy in every
-            // locale. A string still passes through unchanged, and a map with no
-            // usable entry still falls to the default.
-            const title = resolveInlineI18nLabel(schema.emptyState?.title, displayLocale)
-              ?? (hasActiveQuery ? t('list.noMatches') : t('list.firstRunTitle'));
-            const description = resolveInlineI18nLabel(schema.emptyState?.message, displayLocale)
-              ?? (hasUserQuery
-                ? t('list.noMatchesMessage')
-                : hasBaseFilter
-                  ? t('list.viewFilterNoMatchesMessage')
-                  : t('list.firstRunMessage'));
-            return (
-              <DataEmptyState
-                data-testid="empty-state"
-                className="h-full min-h-[200px] p-8 gap-1 [&>h3]:text-lg [&>h3]:font-medium [&>h3]:text-foreground [&>p]:max-w-md"
-                icon={<ResolvedIcon className="h-12 w-12 text-muted-foreground/50" />}
-                iconWrapperClassName="mb-3"
-                title={title}
-                description={description}
-                action={toolbarFlags.showAddRecord ? (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    data-testid="empty-state-add-record"
-                    onClick={() => props.onAddRecord?.()}
-                  >
-                    <Plus className="h-4 w-4 mr-1.5" />
-                    {t('list.addRecord')}
-                  </Button>
-                ) : undefined}
-              />
-            );
-          })()
+              (Array.isArray(appliedFilters?.conditions) && appliedFilters.conditions.length > 0)
+            }
+            onAddRecord={toolbarFlags.showAddRecord ? () => props.onAddRecord?.() : undefined}
+            t={t}
+            displayLocale={displayLocale}
+          />
         ) : (
           <SchemaRenderer
             schema={viewComponentSchema}

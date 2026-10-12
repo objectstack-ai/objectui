@@ -1985,7 +1985,8 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     // Environment list (sys_environment) is entitlement- + state-aware: born
     // with one production env per org, its single `create_environment` action
     // means different things — "Set up your production environment", "Add
-    // development environment", or an upgrade prompt — depending on org state.
+    // development environment", or a locked plan-tier mark linking to the
+    // upgrade page (objectui#12190) — depending on org state.
     // Resolved org-side here; the hook is a no-op for every other object.
     const isEnvironmentList = objectDef.name === 'sys_environment';
     const environmentEntitlements = useEnvironmentEntitlements({
@@ -3861,7 +3862,8 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
              {/* 1. Header with breadcrumb + description.
                  The managed-by badge sits inline with the title so the
                  lifecycle bucket (system / config / append-only /
-                 better-auth) is communicated at a glance; the previous
+                 better-auth) is communicated at a glance to an authoring
+                 caller — it draws for no one else (objectui#12194); the previous
                  full-width banner was deliberately removed because it
                  (a) leaked engine-internal terminology and (b) repeated
                  itself on list/detail/form for the same record.
@@ -3960,7 +3962,6 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                         <EnvironmentListToolbar
                           actions={localizedToolbarActions}
                           entitlements={environmentEntitlements}
-                          onUpgrade={actionRuntime.openEntitlementDialog}
                         />
                       ) : (
                       <SchemaRenderer schema={toolbarBar} />

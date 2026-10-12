@@ -3505,10 +3505,13 @@ const ru = {
     buyCredits: "Купить пакет кредитов",
     upgradePlan: "Повысить тариф",
   },
+  planTier: {
+    teamAndUp: "Тариф Team и выше",
+  },
   environment: {
-    addEnvironment: "Добавить окружение",
     setUpProduction: "Настройте продакшн-окружение",
     addDevelopment: "Добавить окружение разработки",
+    developmentLocked: "Окружения разработки · {{tier}}",
     // Plan/capacity dialog (EnvironmentEntitlementDialog) — cloud#959.
     entitlement: {
       productionLimitTitle: "У вас уже есть продакшн-окружение",

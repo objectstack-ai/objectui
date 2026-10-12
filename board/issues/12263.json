@@ -1,0 +1,33 @@
+{
+  "number": 12263,
+  "kind": "pull_request",
+  "title": "ci(test): the coverage lane runs eight shards, then both test matrices shard by measured duration (objectui#12208, objectui#12256)",
+  "state": "open",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration",
+    "documentation",
+    "tests"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-12T14:40:01Z",
+  "updated_at": "2026-10-12T16:28:24Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12263",
+  "body": "Fixes #12208\nFixes #12256\nClause-②: no\n\nPR-2 of objectui#12208 (ruling 6121816480, letter B, staged), with objectui#12256 (the `Test (coverage)` main-red) folded in by the director's note 6126024274. Dispatched by the director seat; implemented in session `session_01LqNgdPZB2Jnr5HpGbaqLeB`.\n\n## First commit: the coverage lane goes from 4 to 8 shards\n\nThis is the p1 main-red fix, and it is mechanical. At four shards a coverage shard was cancelled at the 40-minute ceiling on 7 of the 25 newest `push` runs on `main` (objectui#12256), and every shard of the runs that finished sat one to three minutes under it, so on those 7 commits the coverage gate never ran. The four shards summed to about 91-153 minutes on the finished runs; at a 20-minute target per shard that is eight.\n\n- `ci.yml` `test-coverage`: the matrix is `[1..8]`, and the job name, the step name and `--shard=N/8` all say 8.\n- `ci.yml` `coverage-report`: the width is said once, as the job variable `COVERAGE_SHARDS: '8'`. The blob count step reads it for both the glob (`blob-*-${COVERAGE_SHARDS}.json`) and the count it refuses to go below. The verdict's wording reads it too.\n- `scripts/__tests__/coverage-shard-width.test.ts` (new) holds every spelling of the width to the matrix: the job name, the `--shard` flag, the step name, `COVERAGE_SHARDS`, no literal width left in the count step, and a merge step that overrides no threshold.\n- `scripts/dependabot-merge-gate.mjs` classifies the eight new shard names. Its partition test expands ci.yml's matrix and fails on any name the list lacks. `scripts/coverage-red-cause-census.mjs` reads a coverage shard at any width.\n- `content/docs/guide/ci-cd-pipeline.md`: the two coverage rows and the `needs:` paragraph.\n\nNot changed: `timeout-minutes: 40`, any test (nothing skipped or quarantined), and `coverage.thresholds`. The thresholds are still enforced once, by `coverage-report`, over the merge of every shard's blob.\n\nShown locally: the shard legs wrote 8 blobs from ten test files, one per `--shard=k/8`, all exit 0. `--merge-reports` read all 8 back (`Test Files 10 passed (10)`). Over that merged map, a lines threshold of 70 exits 0 and 71 exits 1 with `ERROR: Coverage for lines (70.57%) does not meet global threshold (71%)`. Ablations on the committed tree: with `COVERAGE_SHARDS` set back to `'4'`, the width pin goes red (1 failed); with the matrix set back to `[1, 2, 3, 4]` it goes red on 3 of 5 tests. Both restores were verified (`git diff HEAD` empty). The coverage walls at eight shards are NOT MEASURED here, because this lane runs on `push` and `schedule` only. The seat reads them on the first full-battery run after landing.\n\n## The commits that follow, in this same pull request\n\nThese are planned. The report comment on objectui#12208 states what landed and what was measured.\n\n- A vitest sequencer whose `shard()` bin-packs test files by measured per-file duration (greedy, longest first), for both matrices. Vitest 4.1.10 calls `sequence.sequencer`'s `shard()` whenever `--shard` is set.\n- A per-file timing reporter on the full-battery `test` shards. The built-in json reporter's per-file span covers only the tests, not import, setup or environment.\n- A committed timing dataset, refreshed weekly from `main`'s full-battery runs by a workflow that opens a pull request. The timings are never hand-edited.\n- A report-only headroom reading in the `Test` and `Test (coverage)` aggregators: the longest shard against the cap, and the width the measured total implies at the target per shard. It is not a gate.\n\n## Acceptance notes\n\n- Acceptance, per the cards: ten consecutive full-suite runs on `main` with the longest shard under the target plus margin, and the coverage reds stopping at the first full-battery run after this lands. The seat reads both after landing.\n- This PR changes `.github/workflows/**` (Tier H). It stays a draft until a `GOVERNED_APPROVERS` member approves. It is never marked ready or queued by the dev.\n- Out of scope, noted for whoever touches these files next: `AGENTS.md` still gives `--shard=1/4` as its example. `changeset-release.yml` still describes the coverage lane as four shards in two comments.\n\n## 维护者速读(草稿)\n\n**改了什么**:main 上的覆盖率测试由 4 路并行改为 8 路。本 PR 后续提交会在同一个 PR 里继续三件事。第一,两条测试线都按每个测试文件的实测耗时分配分片,不再按文件路径哈希。第二,耗时数据每周从 main 的全量运行自动刷新,并开 PR。第三,两个测试汇总检查打印「最慢分片离上限还有多少」,只报告,不拦截。\n\n**为什么改**:最近 25 次合并到 main,有 7 次的覆盖率分片跑满 40 分钟被取消,那几次提交的覆盖率门禁根本没有执行。普通测试线也一样:同一次运行里,最慢的分片比最快的慢六到九成(两次全量运行的读数)。原因是分片按路径哈希分,不看耗时。\n\n**风险与代价(含回滚)**:覆盖率线每次全量运行多用 4 台 runner,每台多约半分钟准备时间。按耗时分片会改变哪些测试文件一起跑;以前没暴露的文件间相互影响,可能在新组合下暴露,而且会在本 PR 自己的全量运行里先暴露。回滚很简单:把 `ci.yml` 的宽度改回去,或删掉 `vitest.config.mts` 里的 sequencer 一行,就回到原来的哈希分配。\n\n**席位意见**:\n\n**你要做的**:本 PR 改了 `.github/workflows`,需要你在 PR 上批准,之后由席位落地。另外,每周的耗时刷新 PR 由 Actions 自带的 token 打开,GitHub 不会自动给它跑 CI,需要席位推一次才会触发(与 release PR 同一限制,objectui#5397 已裁不引入 PAT)。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01LqNgdPZB2Jnr5HpGbaqLeB)_\n"
+}

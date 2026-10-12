@@ -2,7 +2,7 @@
   "number": 12251,
   "kind": "pull_request",
   "title": "ci(type-check): the turbo cache replays unchanged packages, and pull-request and queue runs type-check only what the change affects (objectui#12222)",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
   "draft": false,
   "author": {
@@ -22,10 +22,14 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-12T13:17:16Z",
-  "updated_at": "2026-10-12T14:26:37Z",
-  "closed_at": null,
-  "closed_by": null,
-  "merged_at": null,
+  "updated_at": "2026-10-12T14:41:39Z",
+  "closed_at": "2026-10-12T14:41:37Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-10-12T14:41:37Z",
   "comments": 1,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/12251",

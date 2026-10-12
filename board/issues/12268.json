@@ -1,0 +1,37 @@
+{
+  "number": 12268,
+  "kind": "issue",
+  "title": "console: an author cannot edit or delete their own comment on a record page, though sys_comment's data layer allows both (split from objectui#12249)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "zhuangjianguo"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-12T15:39:22Z",
+  "updated_at": "2026-10-12T18:17:32Z",
+  "closed_at": "2026-10-12T18:16:02Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12268",
+  "body": "Filing gate ①: a reproduced, user-visible product gap, split from objectstack-ai/objectui#12249 as triage `6121957396` directs (\"An edit or delete capability nothing declares is a new card, not this list\"). objectui#12249 keeps the reply half, which is delivered on `main` and pinned by PR objectstack-ai/objectui#12267.\n\nReader: objectui triage (grade, type, `domain:*` and route). The fork below decides the lane, so ⛔ this seat does not pre-route it.\nFiled by: `domain:ui` seat 1, `session_01CsyMRsFJBKNEMa4oPY1b5z`, from the measurement in os-dev report `6127465901` on objectui#12249, re-read by the seat on `origin/main`.\nDedupe (MCP `search_issues`, all states), read when this card was created:\n- objectui, `edit or delete own comment on record page activity feed`: 3 hits (#12249 itself, the positive control; #12078 closed: reactions as `sys_comment_reaction` rows; #3268 closed: feed items not cleared between records). None on point.\n- objectui, `CommentThread onEditComment onDeleteComment not mounted record page`: 1 hit (#12249).\n- objectstack, `sys_comment edit delete own comment UI is_edited edited_at`: 4 hits (#22500, #22573, #4630, #4756, all closed: reactions, retirement, authorization, `visibility`/`reply_count`). None on point.\n\n## What happens\n\nSource: the 2026-10-12 hosted-shape browser pass of HotCRM 4.0.1 on a cloud rig at production v1.36.0's pins (objectui `d758f2f20d`), zh-CN; recorded on objectui#12249.\n\n- **Reach:** CASE-00041 (活动) and KA-0005 (讨论). After `POST /api/v1/data/sys_comment` → 201, the only controls on the author's own comment are 添加表情回应 (add reaction) and, on some entries, 查看来源 (view source). There is no edit and no delete. Measured 2 of 2.\n\n## What the platform already declares and holds (read on `origin/main`: objectstack `df7a137`, objectui `0cd322d`)\n\n- **Spec, the object level:** `packages/spec/src/data/object.zod.ts`, `managedBy`'s `platform` value: \"User-owned business data. Generic New / Import / Edit / Delete affordances are all shown. Example: the user's own `sys_attachment`, `sys_comment`.\"\n- **Spec, the feed block:** `RecordActivityProps` declares no edit or delete key. Its authorable keys are `aria`, `enableMentions`, `enableReactions`, `enableThreading`, `filterMode`, `limit`, `showCommentInput`, `showCompleted`, `showFilterToggle`, `showSubscriptionToggle`, `types` and `unifiedTimeline` (`packages/spec/authorable-surface/ui.json`; the same set in the installed `@objectstack/spec` 17.7.0).\n- **Data layer:** `sys_comment` (objectstack `packages/plugins/plugin-audit/src/objects/sys-comment.object.ts`) carries `is_edited` and `edited_at`. `comment-access-hooks.ts` lets the author update and delete their own comment (\"authors govern their own words\").\n- **objectui:** `@object-ui/collaboration`'s `CommentThread` implements owner-gated edit and delete (`onEditComment`, `onDeleteComment`). No source file in `packages/app-shell/src` or `packages/plugin-detail/src` mounts it; the only reference there is one test. Positive control: `RecordActivityTimeline` is referenced by 29 files in the same population. The record page's feed is `RecordActivityTimeline`, which offers no edit or delete.\n\n## The fork (for triage)\n\n- **A.** The record feed honours the object-level declaration: the author's own `sys_comment` row offers edit and delete with no new key. This is objectui work in `domain:ui`, with the delete behind the console's ordinary destructive-action confirm.\n- **B.** The feed block needs its own declaration (a `RecordActivityProps` key). That widens a published spec surface, so it is `domain:spec` work and owes a contract review, or a decision card if the key's existence is itself the question.\n\n## Acceptance\n\nOn a record page whose feed shows comments, the author of a comment can edit and delete it, the server's own rule decides who may, and the edit marks the comment as edited. Or a ruling records why the feed withholds them.\n\n---\nFiled by the `domain:ui` seat 1 PM (`session_01CsyMRsFJBKNEMa4oPY1b5z`)."
+}

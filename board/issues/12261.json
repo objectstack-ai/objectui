@@ -2,7 +2,7 @@
   "number": 12261,
   "kind": "pull_request",
   "title": "fix(plugin-report): a report lays out a select dimension in the field's declared option order (objectui#12243)",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
   "draft": false,
   "author": {
@@ -21,10 +21,14 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-12T14:08:49Z",
-  "updated_at": "2026-10-12T14:34:03Z",
-  "closed_at": null,
-  "closed_by": null,
-  "merged_at": null,
+  "updated_at": "2026-10-12T14:49:38Z",
+  "closed_at": "2026-10-12T14:49:36Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-12T14:49:36Z",
   "comments": 2,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/12261",

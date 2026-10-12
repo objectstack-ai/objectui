@@ -2,7 +2,7 @@
   "number": 12260,
   "kind": "pull_request",
   "title": "fix(app-shell): Home's activity card names each row's object by its label, through the bell's resolver (objectui#12238)",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
   "draft": false,
   "author": {
@@ -20,10 +20,14 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-12T13:56:19Z",
-  "updated_at": "2026-10-12T14:19:40Z",
-  "closed_at": null,
-  "closed_by": null,
-  "merged_at": null,
+  "updated_at": "2026-10-12T14:43:10Z",
+  "closed_at": "2026-10-12T14:43:08Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-12T14:43:08Z",
   "comments": 1,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/12260",

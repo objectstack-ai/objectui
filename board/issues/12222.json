@@ -2,8 +2,8 @@
   "number": 12222,
   "kind": "issue",
   "title": "ci: Type Check runs 476 s median on every PR and merge group although its turbo cache is restored — measure the cache hit rate, fix the miss, and type-check affected packages only on PR and merge-queue runs (two-speed CI, objectstack#22998)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -13,21 +13,22 @@
   "labels": [
     "area:devpath",
     "domain:devx",
-    "pm:dispatched",
     "priority:p1",
     "tooling"
   ],
-  "assignees": [
-    "os-zhuang"
-  ],
+  "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-12T10:05:28Z",
-  "updated_at": "2026-10-12T14:20:20Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-12T14:43:33Z",
+  "closed_at": "2026-10-12T14:41:39Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12222",
   "body": "Protects: this repository's required `Type Check` context, the published check-run name every PR and merge group of `@object-ui/*` passes through; this card keeps the name and cuts its wall.\n\nFiled by the director seat (summon #37, `session_01LqNgdPZB2Jnr5HpGbaqLeB`) on the maintainer's word 「Type Check 的两张后续卡也立吧」 (2026-10-12), the follow-up objectui#12214 names. Filing gate ①: a measured defect with a named landing point. ⛔ Not a claim. Tier H: `.github/workflows/**`; the PR stays a draft until a `GOVERNED_APPROVERS` member approves it.\n\n## What is measured (29 completed `CI` runs, 16 `pull_request` + 8 `merge_group` + push, the jobs API, 2026-10-12)\n\n| reading | value |\n|---|---|\n| `Type Check` job wall min / median / p90 / max | 2 / 10.3 / 12.4 / 13.4 min |\n| step `Run type-check` (`pnpm type-check`) | 476 s median, 620 p90, 680 max (82 % of the job) |\n| step `Restore Turbo Cache` | 2 s median (a two-second restore is a small or empty cache) |\n| the other 30 steps (guards, `Type-check scripts/`, setup) | about 90 s together |\n\nThe cache keys look right on paper: `key: turbo-${{ runner.os }}-type-check-${{ github.sha }}`, `restore-keys: turbo-${{ runner.os }}-type-check-` then `turbo-${{ runner.os }}-`, saved whenever the exact key missed. `turbo.json` declares `type-check` with `cache: true`, `dependsOn: [\"^build\", \"//#type-check:e2e\"]` and inputs that include `$TURBO_ROOT$/scripts/vite-*.ts`. Yet the step re-executes for about 8 minutes on every run, so something defeats the replay: a root task (`//#type-check:e2e`) or a root-level input whose hash changes on every commit, a cache directory that is not `.turbo/cache`, or `pnpm type-check` not going through turbo for every package. Which one is this card's first measurement, not its premise.\n\n## What to build (one PR, Tier H, draft until approved; lands after objectui#12214's PR, which edits the same file)\n\n1. **Measure the miss:** one PR run with `turbo run type-check --summarize` (or the run summary) read for cache hit / miss per package and the hash inputs of a missed package; name the input or task that invalidates the hash in the PR body.\n2. **Fix it** so unchanged packages replay from the restored cache (narrow the invalidating input, split the root task out of `dependsOn`, or point the cache at the directory turbo writes).\n3. **Type-check affected-only on `pull_request` / `merge_group`:** the packages the diff affects and their dependents (`--affected` against the merge base, or `--filter=...[<base>]`), the whole workspace on `push` and the hourly `schedule` (the doctrine's full battery). Root-level changes (lockfile, `tsconfig*.json`, `turbo.json`, `package.json`) mean everything affected; state the rule in the workflow.\n4. The job keeps its name `Type Check`; `scripts/check-type-check-coverage.mjs` and `scripts/check-required-check-set.mjs` stay green.\n\nExpected: `Run type-check` from 476 s to about 60–120 s on a typical PR; after objectui#12214, `Type Check` is the PR's critical path (10.2 min), so the PR wall follows this card down to the Lint job (6 min).\n\n## Acceptance\n- `Type Check` median under 4 minutes on three consecutive merge groups and three PRs, read from the jobs API and written in the PR body with the before figures above.\n- The turbo summary of one PR run shows cache hits for packages the diff did not touch.\n\nRelated: objectstack#22998 · objectui#12214 · objectui#12208 · `.github/workflows/ci.yml` (`type-check` job) · `turbo.json`."

@@ -8,6 +8,9 @@
  * environment overlay an item a package ships. Three landing strings still
  * offered an "org overlay" (zh 「组织覆盖」): the page description, the
  * read-only section's hint, and the tooltip on a read-only card's overlay link.
+ * A fourth string, the permission matrix's hint on a set a code package ships
+ * (`perm.readOnly.artifact.hint`), said "per-org overlay" (zh 「按组织覆盖」)
+ * in its parenthetical; the card's claim amendment added it to this pin.
  *
  * ## The population
  *
@@ -18,7 +21,7 @@
  *
  * ## The pins
  *
- * 1. No value of the three keys, in any table that carries them, names the
+ * 1. No value of these keys, in any table that carries them, names the
  *    organization axis.
  * 2. Lit control on the matcher: every one of those values names the
  *    environment overlay. A table in a language neither pattern speaks fails
@@ -40,11 +43,15 @@ const readTables: (root: string) => Map<string, Map<string, string>> = readDesig
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../..');
 
-/** The three keys `BuilderLanding` renders that name the overlay axis. */
+/**
+ * The keys that name the overlay axis: the three `BuilderLanding` renders, and
+ * the hint `PermissionMatrixEditor` shows on a set a code package ships.
+ */
 const KEYS = [
   'engine.studio.landing.description',
   'engine.studio.landing.readonlyHint',
   'engine.studio.landing.overlayTitle',
+  'perm.readOnly.artifact.hint',
 ] as const;
 
 /** The retired axis, in the languages the tables speak: "org", "per-org", "organization", 组织. */
@@ -64,7 +71,7 @@ function tablesCarryingKeys(): Array<[string, Map<string, string>]> {
   return [...readTables(REPO_ROOT)].filter(([, table]) => KEYS.some((key) => table.has(key)));
 }
 
-describe('the Studio landing names the environment overlay, not the organization axis (objectui#12171)', () => {
+describe('the overlay copy names the environment overlay, not the organization axis (objectui#12171)', () => {
   it('reads the tables t() serves', () => {
     const read = tablesCarryingKeys();
     for (const locale of Object.keys(DECLARED_LOCALES)) {
@@ -79,7 +86,7 @@ describe('the Studio landing names the environment overlay, not the organization
     }
   });
 
-  it('no value of the three keys names the organization axis', () => {
+  it('no value of these keys names the organization axis', () => {
     const offenders: string[] = [];
     for (const [name, table] of tablesCarryingKeys()) {
       for (const key of KEYS) {
@@ -91,7 +98,7 @@ describe('the Studio landing names the environment overlay, not the organization
     expect(offenders).toEqual([]);
   });
 
-  it('every value of the three keys names the environment overlay', () => {
+  it('every value of these keys names the environment overlay', () => {
     const silent: string[] = [];
     for (const [name, table] of tablesCarryingKeys()) {
       for (const key of KEYS) {

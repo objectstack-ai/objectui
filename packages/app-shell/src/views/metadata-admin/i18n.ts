@@ -2518,7 +2518,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // set on it. The hint names the hatch only to say so, as the server's own
   // refusal sentence does.
   'perm.readOnly.artifact.hint':
-    'A code package ships this permission set, so it is locked here: an environment-scope edit would overlay a packaged item, and the metadata-type registry declares allowEnvironmentOverlay false for permission (ADR-0005 forbids per-org overlay of a packaged set: silent privilege drift). The server refuses the write with 403 not_overridable. Clone to customize: the copy is an ordinary permission set authored in this environment, under a new name, that you edit here, and upgrades keep flowing to this base. Other routes: edit the source artifact and redeploy, or create a new runtime set. The OS_METADATA_WRITABLE escape hatch does not open a set a package ships (ADR-0131 D6).',
+    'A code package ships this permission set, so it is locked here: an environment-scope edit would overlay a packaged item, and the metadata-type registry declares allowEnvironmentOverlay false for permission (ADR-0131 D6 forbids an environment overlay of a packaged set: silent privilege drift). The server refuses the write with 403 not_overridable. Clone to customize: the copy is an ordinary permission set authored in this environment, under a new name, that you edit here, and upgrades keep flowing to this base. Other routes: edit the source artifact and redeploy, or create a new runtime set. The OS_METADATA_WRITABLE escape hatch does not open a set a package ships (ADR-0131 D6).',
   // objectui#5987 — "Clone to customize", the locked editor's primary action.
   // objectui#7611 — it asks for a new name and label (`PermissionSetCloneDialog.tsx`)
   // and calls the server's clone door (`permission-set-clone.ts`), which copies
@@ -3029,7 +3029,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.landing.dupCreated': 'Duplicated into writable package “{name}”',
   'engine.studio.landing.installedHeading': 'Installed (read-only · browsable)',
   // objectui#11808 — the routes a read-only package does have (ADR-0070 D2,
-  // ADR-0005): an org overlay, and the marketplace where the runtime has one.
+  // ADR-0005): an environment overlay, and the marketplace where the runtime has one.
   'engine.studio.landing.readonlyHint': 'Code and installed packages are read-only, so they are not edited or duplicated here. Customize one with an environment overlay, for the metadata types that accept one.',
   'engine.studio.landing.overlay': 'Customize with an overlay',
   'engine.studio.landing.overlayTitle': 'Open this package’s metadata: each type shows whether it accepts an environment overlay',
@@ -5781,7 +5781,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'perm.readOnly.artifact': '只读（该权限集由代码包提供）',
   // objectui#5987 — 见 EN 表同键注释：裁定的路径（克隆后自定义）放在最前。
   'perm.readOnly.artifact.hint':
-    '该权限集由代码包提供，因此在此处被锁定：在环境作用域下编辑它属于覆盖（overlay）已打包的条目，而元数据类型注册表对 permission 声明 allowEnvironmentOverlay 为 false（ADR-0005 禁止对已打包权限集做按组织覆盖：会造成权限静默漂移）。服务端会以 403 not_overridable 拒绝该写入。请「克隆后自定义」：副本以新名称保存为本环境中创作的普通权限集、可在此编辑，升级会继续流向这个基线。其他途径：修改源工件后重新部署，或新建一个运行时权限集。OS_METADATA_WRITABLE 逃生阀不会开放由包提供的权限集（ADR-0131 D6）。',
+    '该权限集由代码包提供，因此在此处被锁定：在环境作用域下编辑它属于覆盖（overlay）已打包的条目，而元数据类型注册表对 permission 声明 allowEnvironmentOverlay 为 false（ADR-0131 D6 禁止对已打包权限集做环境覆盖：会造成权限静默漂移）。服务端会以 403 not_overridable 拒绝该写入。请「克隆后自定义」：副本以新名称保存为本环境中创作的普通权限集、可在此编辑，升级会继续流向这个基线。其他途径：修改源工件后重新部署，或新建一个运行时权限集。OS_METADATA_WRITABLE 逃生阀不会开放由包提供的权限集（ADR-0131 D6）。',
   // objectui#5987 — 见 EN 表同键注释。
   'perm.clone.action': '克隆后自定义',
   'perm.clone.hint':

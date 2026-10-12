@@ -1021,9 +1021,9 @@ export interface SummaryFieldMetadata extends BaseFieldMetadata {
  *
  * `type` is `'autonumber'`, the spelling `@objectstack/spec`'s `FieldType`
  * declares (objectui#12242). It was `'auto_number'`, which `FieldSchema` refuses
- * at `type` with `invalid_value`. `auto_number` survives only as the form's
- * WIDGET key (`field:auto_number`), which `mapFieldTypeToFormType` resolves
- * `autonumber` to; it is not a field type.
+ * at `type` with `invalid_value`. `auto_number` is the form's WIDGET key
+ * (`field:auto_number`), which `mapFieldTypeToFormType` resolves `autonumber`
+ * to; it is not a field type.
  */
 export interface AutoNumberFieldMetadata extends BaseFieldMetadata {
   type: 'autonumber';

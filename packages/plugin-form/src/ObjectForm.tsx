@@ -1175,11 +1175,8 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
           formField.inputType = 'time';
         }
 
-        // Read-only fields for computed types. `autonumber` is the spec's
-        // `FieldType` spelling, the one an object field carries; this gate
-        // read `auto_number` (the form's widget key, never a field type) until
-        // objectui#12242, so a spec auto-number field was never disabled here.
-        if (field.type === 'formula' || field.type === 'summary' || field.type === 'autonumber') {
+        // Read-only fields for computed types
+        if (field.type === 'formula' || field.type === 'summary' || field.type === 'auto_number') {
           formField.disabled = true;
         }
 

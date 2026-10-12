@@ -1957,8 +1957,6 @@ const de = {
     title: "ObjectStack Konsole",
     initializing: "Ihre Konsole wird geöffnet…",
     breadcrumb: {
-      dashboards: "Dashboards",
-      reports: "Berichte",
       system: "System",
       marketplace: "Marktplatz",
       settings: 'Einstellungen',

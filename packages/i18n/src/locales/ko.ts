@@ -1957,8 +1957,6 @@ const ko = {
     title: "ObjectStack 콘솔",
     initializing: "콘솔을 여는 중…",
     breadcrumb: {
-      dashboards: "대시보드",
-      reports: "보고서",
       system: "시스템",
       marketplace: "마켓플레이스",
       settings: '설정',

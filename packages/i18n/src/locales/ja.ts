@@ -1959,8 +1959,6 @@ const ja = {
     title: "ObjectStack コンソール",
     initializing: "コンソールを開いています…",
     breadcrumb: {
-      dashboards: "ダッシュボード",
-      reports: "レポート",
       system: "システム",
       marketplace: "マーケットプレイス",
       settings: '設定',

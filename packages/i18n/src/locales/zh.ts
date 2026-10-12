@@ -1717,20 +1717,6 @@ const zh = {
     initializing: '正在打开你的控制台…',
     search: '搜索…',
     breadcrumb: {
-      dashboards: '仪表盘',
-      // objectui#6166 — 报表 here is a maintainer RULING (2026-08-25), not a
-      // majority count. 报表 (tabular/data report) and 报告 (written/narrative
-      // report) are NOT interchangeable, so this key holding 报告 against the
-      // rest of the pack was read as evidence of a majority and never, on its
-      // own, as evidence of a mistake; the call was made on what renders. This
-      // segment labels the `routeType === 'report'` LIST route (app-shell
-      // AppHeader) — a structural sibling of dashboards/pages that drills into
-      // metadata report definitions, i.e. the same feature that
-      // `console.commandPalette.reports`, `console.nav.navReport` and
-      // `search.badgeReport` already call 报表. Nothing narrative renders
-      // beneath it. Don't re-file this as a pack inconsistency, and don't
-      // restore 报告 without a new ruling.
-      reports: '报表',
       system: '系统',
       marketplace: '应用市场',
       settings: '设置',

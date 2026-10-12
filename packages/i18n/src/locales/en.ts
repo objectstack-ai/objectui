@@ -2024,8 +2024,6 @@ const en = {
     initializing: 'Opening your console…',
     search: 'Search…',
     breadcrumb: {
-      dashboards: 'Dashboards',
-      reports: 'Reports',
       system: 'System',
       // The Setup system page segment after `System` (objectui#10900).
       marketplace: 'Marketplace',

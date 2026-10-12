@@ -2003,8 +2003,6 @@ const es = {
     title: "Consola ObjectStack",
     initializing: "Abriendo su consola…",
     breadcrumb: {
-      dashboards: "Paneles",
-      reports: "Informes",
       system: "Sistema",
       marketplace: "Marketplace",
       settings: 'Configuración',

@@ -1998,8 +1998,6 @@ const pt = {
     title: "Console ObjectStack",
     initializing: "Abrindo seu console…",
     breadcrumb: {
-      dashboards: "Painéis",
-      reports: "Relatórios",
       system: "Sistema",
       marketplace: "Marketplace",
       settings: 'Configurações',

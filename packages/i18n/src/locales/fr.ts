@@ -2000,8 +2000,6 @@ const fr = {
     title: "Console ObjectStack",
     initializing: "Ouverture de votre console…",
     breadcrumb: {
-      dashboards: "Tableaux de bord",
-      reports: "Rapports",
       system: "Système",
       marketplace: "Marketplace",
       settings: 'Paramètres',

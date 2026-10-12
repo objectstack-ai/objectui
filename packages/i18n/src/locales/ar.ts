@@ -2142,8 +2142,6 @@ const ar = {
     title: "وحدة تحكم ObjectStack",
     initializing: "جارٍ فتح وحدة التحكم…",
     breadcrumb: {
-      dashboards: "لوحات المعلومات",
-      reports: "التقارير",
       system: "النظام",
       marketplace: "السوق",
       settings: 'الإعدادات',

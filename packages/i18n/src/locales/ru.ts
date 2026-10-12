@@ -2058,8 +2058,6 @@ const ru = {
     title: "Консоль ObjectStack",
     initializing: "Открытие консоли…",
     breadcrumb: {
-      dashboards: "Панели",
-      reports: "Отчёты",
       system: "Система",
       marketplace: "Маркетплейс",
       settings: 'Настройки',

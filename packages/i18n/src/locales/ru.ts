@@ -2697,6 +2697,7 @@ const ru = {
     },
     aiAssistant: "ИИ-ассистент",
     designInStudio: "Дизайн в Studio",
+    editApp: "Редактировать приложение",
   },
   home: {
     build: {
@@ -2822,6 +2823,8 @@ const ru = {
       manageAllApps: "Управление приложениями",
       systemConsole: "Системная консоль",
       noAppsConfigured: "Нет приложений",
+      allApps: "Все приложения",
+      editAppInStudio: "Редактировать {{app}} в Studio",
     },
     activityFeed: {
       title: "Последние действия",

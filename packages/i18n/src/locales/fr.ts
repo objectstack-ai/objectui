@@ -2632,6 +2632,7 @@ const fr = {
     },
     aiAssistant: "Assistant IA",
     designInStudio: "Concevoir dans Studio",
+    editApp: "Modifier l'application",
   },
   home: {
     build: {
@@ -2755,6 +2756,8 @@ const fr = {
       manageAllApps: "Gérer toutes les applications",
       systemConsole: "Console système",
       noAppsConfigured: "Aucune application configurée",
+      allApps: "Toutes les applications",
+      editAppInStudio: "Modifier {{app}} dans Studio",
     },
     activityFeed: {
       title: "Activité récente",

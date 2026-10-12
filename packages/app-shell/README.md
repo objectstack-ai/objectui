@@ -449,9 +449,10 @@ catalog hides the whole AI surface.
 
 ### App → Studio reverse bridge
 
-Inside a running app, workspace admins get a "Design in Studio" entry in the
-top bar (`AppHeader`) that deep-links to the app's owning package on the Studio
-design surface. When the current route names a specific interface — a
+Inside a running app, workspace admins get an "Edit app" button in the top bar
+(`AppHeader`) — and, at the end of the app switcher's dropdown, an "Edit APP in
+Studio" row to the same target — that deep-links to the app's owning package on
+the Studio design surface. When the current route names a specific interface — a
 dashboard, page, or report — it opens straight to that surface in the Interfaces
 pillar (`/studio/:packageId/interfaces?surface=<type>:<name>`); on object routes
 and the app root it opens the package's Data tab (`/studio/:packageId/data`).

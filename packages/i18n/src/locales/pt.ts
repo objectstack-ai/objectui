@@ -2630,6 +2630,7 @@ const pt = {
     },
     aiAssistant: "Assistente de IA",
     designInStudio: "Projetar no Studio",
+    editApp: "Editar aplicativo",
   },
   home: {
     build: {
@@ -2753,6 +2754,8 @@ const pt = {
       manageAllApps: "Gerenciar todos os aplicativos",
       systemConsole: "Console do sistema",
       noAppsConfigured: "Nenhum aplicativo configurado",
+      allApps: "Todos os aplicativos",
+      editAppInStudio: "Editar {{app}} no Studio",
     },
     activityFeed: {
       title: "Atividade recente",

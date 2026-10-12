@@ -1,34 +1,38 @@
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * The console chrome draws the active app's `branding.logo` (objectui#10827).
+ * The console chrome draws the active app's `branding.logo` (objectui#10827) —
+ * in the top bar's app pill, not in the sidebar (objectui#12201).
  *
  * `branding.logo` is authored by the designer (`AppCreationWizard`,
- * `BrandingEditor`), documented, and set by downstream apps, and until this
- * card nothing mounted in the console rendered it: its only reader was the
- * never-mounted `AppSidebar`, removed by PR #10617. The mounted sidebar,
- * `UnifiedSidebar`, now reads it — the chrome's one reader — and draws it as a
- * header image. An app without a logo gets no header: today's sidebar, which
- * is the control.
+ * `BrandingEditor`), documented, and set by downstream apps. objectui#10827
+ * gave it its first mounted reader, a logo header at the top of
+ * `UnifiedSidebar`. The maintainer's ruling of 2026-10-12 moved the reader:
+ * the value is the app's square icon, and it sits LEFT of the app's name in
+ * the top bar's app pill (`AppSwitcher`), so the sidebar header goes. An app
+ * without a logo gets its `icon` on a tile in the pill — the control.
  *
  * ## Real subjects
  *
- * `ConsoleLayout` with its real `AppShell` (`@object-ui/layout`) and real
- * `UnifiedSidebar`, under the real `NavigationProvider` — so the sidebar is in
- * `app` context only because `ConsoleLayout` put it there, as in the running
- * console. The stand-ins are the providers the sidebar reads (metadata,
- * permissions, auth, expressions) and the siblings this card does not touch:
- * the top bar (`AppHeader`), the chat dock and FAB, and the preview and
- * notification bars.
+ * `ConsoleLayout` with its real `AppShell` (`@object-ui/layout`), real
+ * `UnifiedSidebar` and real `AppSwitcher`, under the real
+ * `NavigationProvider` — so the sidebar is in `app` context only because
+ * `ConsoleLayout` put it there, as in the running console. The top bar is a
+ * stand-in that mounts the real `AppSwitcher` with the very props
+ * `ConsoleLayout` hands `AppHeader` (`AppHeader`'s own wiring of the pill is
+ * `AppHeader.appIdentity-12201.test.tsx`'s). The other stand-ins are the
+ * providers the sidebar reads (metadata, permissions, auth, expressions) and
+ * the siblings this card does not touch: the chat dock and FAB, and the
+ * preview and notification bars.
  *
- * The logo is read from `[data-sidebar="sidebar"]`, the sidebar's own root,
- * so no other surface can answer for it.
+ * The sidebar is read from `[data-sidebar="sidebar"]`, its own root, and the
+ * pill from its trigger, so neither surface can answer for the other.
  */
 
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import React from 'react';
-import { render, cleanup } from '@testing-library/react';
+import { render, cleanup, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 // Partial mock: @object-ui/components also imports from @object-ui/i18n
@@ -90,8 +94,19 @@ vi.mock('../LocalizedSidebarTrigger', () => ({
   LocalizedSidebarTrigger: () => null,
 }));
 
+// The top bar, reduced to the app pill it mounts — the REAL `AppSwitcher`, fed
+// the props `ConsoleLayout` passes the header.
+vi.mock('../AppHeader', async () => {
+  const { AppSwitcher } = await import('../AppSwitcher');
+  return {
+    AppHeader: ({ activeAppName, onAppChange }: { activeAppName: string; onAppChange: (n: string) => void }) => (
+      <div data-testid="app-header-stub">
+        <AppSwitcher activeAppName={activeAppName} onAppChange={onAppChange} />
+      </div>
+    ),
+  };
+});
 // Siblings in `ConsoleLayout` this card does not touch.
-vi.mock('../AppHeader', () => ({ AppHeader: () => <div data-testid="app-header-stub" /> }));
 vi.mock('../../hooks/useAiSurface', () => ({
   useAiSurfaceEnabled: () => ({ enabled: false, isLoading: false }),
 }));
@@ -151,26 +166,41 @@ function sidebarRoot(): HTMLElement {
 
 const imagesIn = (el: HTMLElement) => [...el.querySelectorAll('img')].map((img) => img.getAttribute('src'));
 
+function appPill(): HTMLElement {
+  const pill = document.querySelector<HTMLElement>('[data-testid="app-switcher-trigger"]');
+  if (!pill) throw new Error('the console chrome mounted no app pill');
+  return pill;
+}
+
 beforeEach(() => {
   localStorage.clear();
 });
 afterEach(() => cleanup());
 
-describe('the console chrome renders the active app\'s `branding.logo` (objectui#10827)', () => {
-  it('an app with `branding.logo` shows it at the top of the sidebar, named by the app\'s label', () => {
+describe('the console chrome renders the active app\'s `branding.logo` in the app pill (objectui#10827, objectui#12201)', () => {
+  it('an app with `branding.logo` shows it in the app pill, left of the app\'s name', () => {
     const view = mountConsole(BRANDED);
     // The mount is real: the route content and the sidebar's navigation render.
     expect(view.getByTestId('route-content')).toBeInTheDocument();
     expect(view.getByText('Accounts')).toBeInTheDocument();
 
-    const sidebar = sidebarRoot();
-    expect(imagesIn(sidebar)).toEqual([LOGO]);
-    expect(view.getByRole('img', { name: 'Acme CRM' })).toHaveAttribute('src', LOGO);
+    const pill = appPill();
+    expect(imagesIn(pill)).toEqual([LOGO]);
+    const logo = pill.querySelector('img')!;
+    expect(logo.compareDocumentPosition(within(pill).getByText('Acme CRM')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('CONTROL — an app without a logo keeps today\'s sidebar: no image, same navigation', () => {
+  it('the sidebar no longer draws `branding.logo` — no logo header, no image', () => {
+    mountConsole(BRANDED);
+    expect(imagesIn(sidebarRoot())).toEqual([]);
+    expect(sidebarRoot().querySelector('[data-sidebar="header"]')).toBeNull();
+  });
+
+  it('CONTROL — an app without a logo gets its icon tile in the pill, and no image anywhere', () => {
     const view = mountConsole(PLAIN);
     expect(view.getByText('Accounts')).toBeInTheDocument();
+    expect(imagesIn(appPill())).toEqual([]);
+    expect(within(appPill()).getByTestId('app-mark-tile')).toBeInTheDocument();
     expect(imagesIn(sidebarRoot())).toEqual([]);
   });
 
@@ -178,16 +208,17 @@ describe('the console chrome renders the active app\'s `branding.logo` (objectui
     const aliasOnly = { ...PLAIN, name: 'alias_app', logo: LOGO };
     const view = mountConsole(aliasOnly);
     expect(view.getByText('Accounts')).toBeInTheDocument();
+    expect(imagesIn(appPill())).toEqual([]);
     expect(imagesIn(sidebarRoot())).toEqual([]);
   });
 
-  it('switching to a branded app shows ITS logo, not the first app\'s', () => {
-    // `PLAIN` is listed first: the sidebar must follow the active app.
+  it('switching to a branded app shows ITS logo in the pill, not the first app\'s', () => {
+    // `PLAIN` is listed first: the pill must follow the active app.
     mountConsole(BRANDED, [PLAIN, BRANDED]);
-    expect(imagesIn(sidebarRoot())).toEqual([LOGO]);
+    expect(imagesIn(appPill())).toEqual([LOGO]);
     cleanup();
     mountConsole(PLAIN, [BRANDED, PLAIN]);
-    expect(imagesIn(sidebarRoot())).toEqual([]);
+    expect(imagesIn(appPill())).toEqual([]);
   });
 });
 

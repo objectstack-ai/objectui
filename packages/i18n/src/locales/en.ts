@@ -3071,6 +3071,7 @@ const en = {
   topbar: {
     aiAssistant: 'AI Assistant',
     designInStudio: 'Design in Studio',
+    editApp: 'Edit app',
     openAssistant: 'Open {{name}} assistant',
     offline: 'Offline',
     usersOnline: 'Users currently online',
@@ -3204,6 +3205,8 @@ const en = {
       manageAllApps: 'Manage All Apps',
       systemConsole: 'System Console',
       noAppsConfigured: 'No apps configured',
+      allApps: 'All apps',
+      editAppInStudio: 'Edit {{app}} in Studio',
     },
     systemNav: {
       systemSettings: 'System Settings',

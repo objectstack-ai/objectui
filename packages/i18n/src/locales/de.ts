@@ -2585,6 +2585,7 @@ const de = {
     },
     aiAssistant: "KI-Assistent",
     designInStudio: "Im Studio gestalten",
+    editApp: "App bearbeiten",
   },
   home: {
     build: {
@@ -2707,6 +2708,8 @@ const de = {
       manageAllApps: "Alle Apps verwalten",
       systemConsole: "Systemkonsole",
       noAppsConfigured: "Keine Apps konfiguriert",
+      allApps: "Alle Apps",
+      editAppInStudio: "{{app}} im Studio bearbeiten",
     },
     activityFeed: {
       title: "Letzte Aktivitäten",

@@ -2789,6 +2789,7 @@ const ar = {
     },
     aiAssistant: "مساعد الذكاء الاصطناعي",
     designInStudio: "التصميم في Studio",
+    editApp: "تعديل التطبيق",
   },
   home: {
     build: {
@@ -2915,6 +2916,8 @@ const ar = {
       manageAllApps: "إدارة جميع التطبيقات",
       systemConsole: "وحدة تحكم النظام",
       noAppsConfigured: "لا تطبيقات مُهيأة",
+      allApps: "جميع التطبيقات",
+      editAppInStudio: "تعديل {{app}} في Studio",
     },
     activityFeed: {
       title: "النشاط الأخير",

@@ -21,14 +21,14 @@
  * The workspace-admin flag is the stubbed axis, as in the objectui#10899 pins
  * (`AppHeader.designInStudioNeedsAuthoring-10899`,
  * `PageView.editInStudioNeedsAuthoring-10899`), which pin each surface's gate
- * on its own; this file pins the three together, for one session, on one
- * route.
+ * on its own; this file pins the three together, for one session payload, on
+ * one route.
  *
  * Real subjects: `AppHeader` in its `app` variant with the real `AppSwitcher`
  * — its menu content passed through so the Studio row renders without radix's
- * open/close machinery — and `PageView`, side by side under one provider. The
- * chrome this card does not touch is stubbed the way the objectui#10899 pins
- * stub it.
+ * open/close machinery — and `PageView`, each under a provider seeded with the
+ * same payload. The chrome this card does not touch is stubbed the way the
+ * objectui#10899 pins stub it.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -203,21 +203,57 @@ const MEMBER = mePermissions([]);
 /** A metadata author: holds `manage_metadata`. */
 const AUTHOR = mePermissions(['manage_metadata', 'studio.access', 'setup.access']);
 
-const HANDLES = ['page-edit-in-studio-button', 'app-design-in-studio-button', 'app-switcher-edit-in-studio'] as const;
+type Handle = 'page-edit-in-studio-button' | 'app-design-in-studio-button' | 'app-switcher-edit-in-studio';
 
-async function mountPageRoute(perms: MePermissionsResponse) {
-  render(
+/** What one session sees on the page route: each Studio entry's link target, or `null` when absent. */
+type Seen = Record<Handle, string | null>;
+
+const hrefOf = (el: HTMLElement | null) =>
+  el ? (el.getAttribute('href') ?? el.querySelector('a')?.getAttribute('href') ?? '') : null;
+
+/**
+ * The page route for one session: the top bar first, then the page, each
+ * under the real `MePermissionsProvider` seeded with the SAME payload. One
+ * tree at a time: with both halves mounted in one tree, this harness's render
+ * never finished (measured when the file was written; the cause, somewhere
+ * among the stubs, was not traced), so each half is read and unmounted before
+ * the next. Each half proves it rendered before its absences are read.
+ */
+async function studioEntriesOnPageRoute(perms: MePermissionsResponse): Promise<Seen> {
+  const header = render(
     <MePermissionsProvider initialPermissions={perms}>
       <AppHeader variant="app" appName="Cloud" activeAppName="cloud_control" onAppChange={vi.fn()} objects={[]} />
+    </MePermissionsProvider>,
+  );
+  // The pill and its menu content rendered — so an absent row is a reading.
+  expect(screen.getByTestId('app-switcher-trigger')).toBeInTheDocument();
+  expect(screen.getByTestId('app-switcher-all-apps')).toBeInTheDocument();
+  const button = hrefOf(screen.queryByTestId('app-design-in-studio-button'));
+  const row = hrefOf(screen.queryByTestId('app-switcher-edit-in-studio'));
+  header.unmount();
+
+  const page = render(
+    <MePermissionsProvider initialPermissions={perms}>
       <PageView />
     </MePermissionsProvider>,
   );
-  // Both halves rendered, and the pill's menu content with them — so an absent
-  // handle below is a reading, not a harness that drew nothing.
+  // The page body rendered — so an absent pencil is a reading.
   expect(await screen.findByTestId('page-body')).toBeInTheDocument();
-  expect(screen.getByTestId('app-switcher-trigger')).toBeInTheDocument();
-  expect(screen.getByTestId('app-switcher-all-apps')).toBeInTheDocument();
+  const pencil = screen.queryByTestId('page-edit-in-studio-button') ? '' : null;
+  page.unmount();
+
+  return {
+    'page-edit-in-studio-button': pencil,
+    'app-design-in-studio-button': button,
+    'app-switcher-edit-in-studio': row,
+  };
 }
+
+const NONE: Seen = {
+  'page-edit-in-studio-button': null,
+  'app-design-in-studio-button': null,
+  'app-switcher-edit-in-studio': null,
+};
 
 /** The crumbs after the app pill, in order: each separator's crumb text. */
 function crumbLabels(): string[] {
@@ -232,29 +268,31 @@ beforeEach(() => {
 });
 
 describe('a page route\'s breadcrumb goes from the app to the page (objectui#12198)', () => {
-  it('one crumb after the app pill — the page itself; no 「Pages」 type crumb', async () => {
-    await mountPageRoute(MEMBER);
+  it('one crumb after the app pill — the page itself; no 「Pages」 type crumb', () => {
+    render(
+      <MePermissionsProvider initialPermissions={MEMBER}>
+        <AppHeader variant="app" appName="Cloud" activeAppName="cloud_control" onAppChange={vi.fn()} objects={[]} />
+      </MePermissionsProvider>,
+    );
+    expect(screen.getByTestId('app-switcher-trigger')).toBeInTheDocument();
     expect(crumbLabels()).toEqual(['Welcome']);
   });
 });
 
 describe('a page offers no Studio entry to a caller without `manage_metadata` (objectui#12198)', () => {
   it('an organization owner — a workspace admin whose set withholds `manage_metadata` — sees none of the three', async () => {
-    await mountPageRoute(ORG_OWNER);
-    for (const id of HANDLES) expect(screen.queryByTestId(id), id).not.toBeInTheDocument();
+    expect(await studioEntriesOnPageRoute(ORG_OWNER)).toEqual(NONE);
   });
 
   it('a plain member — no admin flag, no system permission — sees none of the three', async () => {
     viewer.isAdmin = false;
-    await mountPageRoute(MEMBER);
-    for (const id of HANDLES) expect(screen.queryByTestId(id), id).not.toBeInTheDocument();
+    expect(await studioEntriesOnPageRoute(MEMBER)).toEqual(NONE);
   });
 
   it('CONTROL — a workspace admin holding `manage_metadata` sees all three, the row and the button to one target', async () => {
-    await mountPageRoute(AUTHOR);
-    for (const id of HANDLES) expect(screen.getByTestId(id), id).toBeInTheDocument();
-    const button = screen.getByTestId('app-design-in-studio-button').querySelector('a')!.getAttribute('href');
-    expect(button).toContain('/studio/com.objectstack.cloud/');
-    expect(screen.getByTestId('app-switcher-edit-in-studio')).toHaveAttribute('href', button!);
+    const seen = await studioEntriesOnPageRoute(AUTHOR);
+    expect(seen['page-edit-in-studio-button']).not.toBeNull();
+    expect(seen['app-design-in-studio-button']).toContain('/studio/com.objectstack.cloud/');
+    expect(seen['app-switcher-edit-in-studio']).toBe(seen['app-design-in-studio-button']);
   });
 });

@@ -69,15 +69,19 @@
           "integration_id": 15368
         },
         {
-          "context": "Test",
-          "integration_id": 15368
-        },
-        {
           "context": "Build Docs",
           "integration_id": 15368
         },
         {
           "context": "Changeset Declaration",
+          "integration_id": 15368
+        },
+        {
+          "context": "Test",
+          "integration_id": 15368
+        },
+        {
+          "context": "Governed Surface Queue Guard",
           "integration_id": 15368
         }
       ]

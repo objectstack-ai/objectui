@@ -142,7 +142,6 @@ import { isEntrypoint } from './invoked-as.mjs';
  *   repo-gates.yml    Repo Gates
  *   changeset-presence.yml   Changeset Declaration
  *   governed-surface-guard.yml     Governed Surface Queue Guard
- *   spec-main-shape-gate.yml       Spec Main Shape Gate
  *
  * `Repo Gates` is ONE context for fifteen checks (objectui#12214): the
  * one-check workflows that each produced a context of their own -- the
@@ -201,28 +200,10 @@ export const REQUIRED_CONTEXTS = Object.freeze([
   'Repo Gates',
   'Changeset Declaration',
   'Governed Surface Queue Guard',
-  // objectui#9969, ruling A — the residual of objectui#9860's ruling C. This
-  // name sat in `NOT_A_GATE` until two facts that were somebody else's to
-  // establish had both been established, and it moved only after both were:
-  //   (1) the maintainer enrolled the context in ruleset 11776024, read back
-  //       on 2026-09-27 and recorded on objectui#9969. ⛔ A dated reading, not
-  //       a live one: `scripts/check-required-check-set.mjs` re-takes it, and
-  //       no decision in this file turns on what the ruleset says;
-  //   (2) the day-one break cleared: the check read `success` on this
-  //       repository's `main` on 2026-09-27, and the job itself re-derives that
-  //       verdict on every queue build. On 2026-09-18 its first run was RED on
-  //       one objectui file for a spec change made in objectstack — enrolled in
-  //       that state, it would have turned every objectui pull request red over
-  //       an objectstack commit, which is why it waited.
-  // ⭐ The two halves were ordered, not simultaneous: ruleset first, this line
-  // second. This gate reads check runs and never the ruleset, so with this name
-  // here and the ruleset silent it would still wait for the check on a
-  // Dependabot head and refuse it red or absent — stricter than the queue, never
-  // looser. Enrolling first means no Dependabot bump ever waited on a check the
-  // queue did not. What a red here says, and why it may name an objectstack
-  // commit rather than anything the bump changed, is `spec-main-shape-gate.yml`'s
-  // header.
-  'Spec Main Shape Gate',
+  // ⛔ `Spec Main Shape Gate` is NOT here since objectui#12240: it sat here from
+  // objectui#9969 (ruling A, the in-tree half of enrolling it) and moved to
+  // `NOT_A_GATE` below when the maintainer's ruling B took it out of the
+  // required set. The reason is written there.
 ]);
 
 /**
@@ -306,6 +287,8 @@ export const NOT_A_GATE = Object.freeze({
   'Test (coverage shard 2/4)': COVERAGE_SHARD_NOT_A_GATE,
   'Test (coverage shard 3/4)': COVERAGE_SHARD_NOT_A_GATE,
   'Test (coverage shard 4/4)': COVERAGE_SHARD_NOT_A_GATE,
+  'Spec Main Shape Gate':
+    "spec-main-shape-gate.yml is ADVISORY on a pull request by ruling (objectui#12240: the maintainer's ruling B on objectui#12214's open question 1, ACCEPT 6123370050). It compiles this repository against `@objectstack/spec` built from objectstack `main`, so most of its reds name an objectstack commit rather than anything the pull request changed (measured on objectui#12214, not copied here), and its place in the two-speed doctrine (objectstack#22998) is the hourly `schedule` run on `main`, where a red is a main-red for the `domain:devx` lane. It still reports on every pull request and its verdict is real -- nothing it verifies changed and it carries no `continue-on-error` -- so a red here is ignored because the lane is advisory, never because the check cannot fail. It sat in `REQUIRED_CONTEXTS` from objectui#9969 (ruling A) to objectui#12240, the in-tree half of the maintainer's enrolment; ⛔ moving it back is the in-tree half of a re-enrolment, a ruling and not a tidy-up, and it puts the workflow back inside the `merge_group` floor `merge-queue-reporting.test.ts` derives from that list.",
   'Live E2E (informational)':
     'live-e2e.yml is declared INFORMATIONAL and NON-REQUIRED in its own header, and ci-cd-pipeline.md says in as many words not to add it to required checks. It carries no `continue-on-error` since objectui#8084 — that flag left this check run red anyway and only inverted the workflow-run conclusion — so a red here is a real red, ignored because the lane is advisory and never because the check could not fail.',
   label:

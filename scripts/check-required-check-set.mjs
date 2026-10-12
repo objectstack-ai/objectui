@@ -16,9 +16,9 @@
  *
  * ## The gap (objectui#9422, out of the residual of objectui#3535)
  *
- * `main` sits behind an enforced merge queue whose required set currently holds
- * nine contexts. That set lives in GitHub ruleset 11776024 -- repository
- * SETTINGS. Removing a member from it reds no gate, fires no alarm, and leaves
+ * `main` sits behind an enforced merge queue whose required set lives in GitHub
+ * ruleset 11776024 -- repository SETTINGS (what it holds is this script's
+ * reading, not a number written here). Removing a member from it reds no gate, fires no alarm, and leaves
  * no trace in a diff anybody reviews.
  *
  * What that costs is not hypothetical. On 2026-08-07, with the required set
@@ -72,7 +72,7 @@
  *
  * Measured 2026-09-14 on ruleset 11776024, which answered with all five rule
  * types (`deletion`, `merge_queue`, `non_fast_forward`, `pull_request`,
- * `required_status_checks`) and the nine contexts in `WATCHED_CONTEXTS` below.
+ * `required_status_checks`) and the nine contexts it required that day.
  *
  * ⚠️ The reading above was taken through an agent egress proxy that injects
  * credentials, so it does NOT establish what scope the endpoint needs: the same
@@ -112,10 +112,10 @@
  * only, and it is an argument FOR watching: the `Type Check` leg is untested in
  * practice, so its silent removal is the removal least likely to be noticed.
  *
- * ⇒ the failure mode ACCEPTED by this split: a silent removal of any of the
- * eight watched contexts is REPORTED in the run summary and does not fail
- * anything. Eight ninths of the set is made observable, not enforced. Promoting
- * one is a one-line move from `WATCHED_CONTEXTS` to `PINNED_CONTEXTS` and a
+ * ⇒ the failure mode ACCEPTED by this split: a silent removal of any watched
+ * context is REPORTED in the run summary and does not fail anything. Every
+ * member but the pinned one is made observable, not enforced. Promoting one is
+ * a one-line move from `WATCHED_CONTEXTS` to `PINNED_CONTEXTS` and a
  * maintainer's call, not a tidy-up.
  *
  * ## Why the rule types are pinned too, and why that is not a widening
@@ -156,7 +156,7 @@ export const EXIT_BREACHED = 3;
 
 /**
  * The contexts whose absence FAILS this gate. See the header for why this is
- * one name and not nine.
+ * one name and not the whole set.
  */
 export const PINNED_CONTEXTS = Object.freeze(['Type Check']);
 
@@ -184,13 +184,20 @@ export const PINNED_CONTEXTS = Object.freeze(['Type Check']);
  * assumed. ⛔ Re-take the live reading after the click; do not edit this list
  * to agree with whatever the endpoint says.
  *
- * `Spec Main Shape Gate` joined under objectui#9969's ruling A, which is a
- * ruling and not an endpoint reading: the maintainer enrolled the context, and
- * `scripts/dependabot-merge-gate.mjs` moved it into `REQUIRED_CONTEXTS` in the
- * same change that added it here. Before that change the patrol printed the
- * name as "required but not declared", and losing it from the ruleset would
- * only have shortened that list, naming nothing. WATCHED, not pinned:
- * promoting it is the maintainer's call this header describes, ⛔ not a tidy-up.
+ * ⭐ objectui#12240 is the same kind of change, run the other way: its ruling
+ * names the set this list and `PINNED_CONTEXTS` now declare, the pull request
+ * that writes it here merges, and the maintainer edits the ruleset in the same
+ * sitting. Between those two acts the live answer still carries
+ * `Spec Main Shape Gate`, and the patrol reports it as required but not
+ * declared -- `drifted`, exit 0, never red. The test holds that window too, on
+ * a dated reading taken the day the ruling was executed.
+ *
+ * `Governed Surface Queue Guard` is declared here by objectui#12240, whose
+ * ruling names it. The maintainer enrolled it under objectui#6596 and nothing
+ * added it to this list, so until this change every reading printed it as
+ * required but not declared (measured on the live endpoint 2026-10-12). WATCHED,
+ * not pinned, like every name below: promoting one is the maintainer's call
+ * this header describes, ⛔ not a tidy-up.
  */
 export const WATCHED_CONTEXTS = Object.freeze([
   'Lint',
@@ -198,7 +205,17 @@ export const WATCHED_CONTEXTS = Object.freeze([
   'Test',
   'Build Docs',
   'Changeset Declaration',
-  'Spec Main Shape Gate',
+  // ⛔ TOMBSTONE -- `Spec Main Shape Gate`, watched here from objectui#9969
+  // (ruling A, which enrolled it) to objectui#12240, which removed it: the
+  // maintainer's ruling B on objectui#12214's open question 1 (ACCEPT
+  // 6123370050) takes the context out of the required set -- advisory on pull
+  // requests, hourly on `main` in the full battery, nothing it verifies
+  // changed (`.github/workflows/spec-main-shape-gate.yml`'s header). ⛔ Do not
+  // re-add it to agree with whatever the endpoint says: the ruleset edit is
+  // the maintainer's act, and this list names the set the ruling installs.
+  // Re-enrolling it is a ruling, and its in-tree half is moving the name back
+  // into `REQUIRED_CONTEXTS` in `scripts/dependabot-merge-gate.mjs`.
+  'Governed Surface Queue Guard',
 ]);
 
 /**

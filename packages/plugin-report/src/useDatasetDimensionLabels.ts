@@ -77,9 +77,11 @@
  * chart's per-category option COLOURS (`buildOptionColorMap`) and its declared
  * picklist ORDER (`buildCategoryOrder`, framework#3588) — the same two
  * derivations `DatasetWidget` already runs off this exact hook for its own
- * chart-only needs (see that hook's own doc comment). `DatasetReportChart` is
- * the one call site; every other report surface still wants the label-only
- * {@link useDatasetDimensionLabels} above.
+ * chart-only needs (see that hook's own doc comment). `DatasetReportChart` was
+ * the one call site when objectui#4906 added it; since objectui#12243 the flat
+ * table and the matrix read it too, for each select dimension's declared ORDER,
+ * and derive their label maps from that same read, so no surface in
+ * `DatasetReportRenderer` calls the label-only {@link useDatasetDimensionLabels}.
  */
 
 export {

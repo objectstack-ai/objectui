@@ -21,6 +21,7 @@ import type { ActivityFeedReading } from '../../hooks/sharedUserFeeds.js';
 import type { HomeInboxStatus, HomeNotification } from '../../hooks/useHomeInbox.js';
 import type { RecentItem } from '../../hooks/useRecentItems.js';
 import type { RecentItemLabelResolver } from '../../hooks/useRecentItemLabel.js';
+import { ActivityObjectLabel } from '../../layout/ActivityObjectLabel.js';
 import { recentItemTypeLabel } from './recentItemTypeLabel.js';
 import { timeAgo } from '../../utils/relativeTime.js';
 
@@ -242,7 +243,9 @@ const RECENT_TONE: Record<string, string> = {
  * stores identity, not text, so its label is resolved on the render, in the
  * current language (objectui#11678). Taken as a prop so this module — which
  * also holds the action center and the activity card — does not itself load
- * the metadata cache the resolver reads.
+ * the metadata cache the resolver reads. The one read it does make is the
+ * activity card's: `ActivityObjectLabel` reads the cached object list, and only
+ * while an activity row is on screen (objectui#12238).
  */
 export function HomeContinue({
   items,
@@ -289,6 +292,10 @@ export function HomeContinue({
  * Renders nothing for a caller who may not read `sys_activity`
  * (`readable: false`): no card, no empty claim, and no drill into a list page
  * that answers them `403`. `HomePage` drops the column with it.
+ *
+ * A row names its object through `ActivityObjectLabel`, the component the
+ * bell's Activity tab renders for the same row (objectui#12238): the label in
+ * the reader's language, the API name only when none resolves.
  */
 export function HomeActivity({ activity, onViewAll, t }: { activity: ActivityFeedReading; onViewAll: () => void; t: TFn }) {
   // The display locale, as `HomeActionCenter` above (objectui#10668).
@@ -326,7 +333,7 @@ export function HomeActivity({ activity, onViewAll, t }: { activity: ActivityFee
               <span className="font-medium">{a.user}</span>{' '}
               <span className="text-muted-foreground">{a.description}</span>
               <div className="mt-0.5 text-[11px] text-muted-foreground">
-                {timeAgo(a.timestamp, displayLocale)} · {a.objectName}
+                {timeAgo(a.timestamp, displayLocale)} · <ActivityObjectLabel objectName={a.objectName} />
               </div>
             </li>
           ))}

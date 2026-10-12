@@ -39,7 +39,12 @@
 // `pnpm type-check` — and therefore ci.yml's existing `Run type-check` step —
 // covers `e2e/` with no new workflow step. That is the shape objectui#4456 used
 // for `//#lint:root`, and it is why this file needs no ci.yml entry of its own
-// the way `type-check:scripts` and `type-check:vitest-setup` do.
+// the way `type-check:scripts` and `type-check:vitest-setup` do. Because every
+// package's `type-check` inherits that root task's hash, its turbo `inputs`
+// name this program (the two `include` globs below and this file) rather than
+// turbo's root default of every tracked file, which re-ran every package on
+// every commit (objectui#12222); `scripts/__tests__/e2e-type-check.test.ts`
+// pins both halves.
 //
 // The four root `playwright*.config.ts` files were the deliberate remainder of
 // objectui#4471 — they sit beside this file rather than under `e2e/`, so the

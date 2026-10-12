@@ -1,7 +1,7 @@
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RecordAttachmentsPanel } from '../RecordAttachmentsPanel';
 
@@ -36,6 +36,17 @@ function setup(dataSource: any) {
 
 beforeEach(() => vi.restoreAllMocks());
 
+/**
+ * Press a row's delete and answer the confirm dialog it opens (objectui#12248:
+ * the delete asks first, through `ActionConfirmDialog`). The delete-path pins
+ * below are about what happens AFTER the user confirms.
+ */
+async function deleteAndConfirm(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'Delete attachment' }));
+  const dialog = await screen.findByRole('alertdialog');
+  await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+}
+
 describe('RecordAttachmentsPanel — server-denial error mapping (#2755)', () => {
   it('maps ATTACHMENT_DELETE_DENIED to the friendly uploader/editor message', async () => {
     const dataSource = makeDataSource({
@@ -50,7 +61,7 @@ describe('RecordAttachmentsPanel — server-denial error mapping (#2755)', () =>
 
     // The delete button renders for EVERY row (server is the gate).
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Delete attachment' }));
+    await deleteAndConfirm(user);
 
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(
@@ -73,7 +84,7 @@ describe('RecordAttachmentsPanel — server-denial error mapping (#2755)', () =>
     await waitFor(() => expect(screen.getByText('report.pdf')).toBeInTheDocument());
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Delete attachment' }));
+    await deleteAndConfirm(user);
 
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent("You don't have permission to do that."),
@@ -86,7 +97,7 @@ describe('RecordAttachmentsPanel — server-denial error mapping (#2755)', () =>
     await waitFor(() => expect(screen.getByText('report.pdf')).toBeInTheDocument());
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Delete attachment' }));
+    await deleteAndConfirm(user);
 
     await waitFor(() => expect(screen.queryByText('report.pdf')).not.toBeInTheDocument());
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();

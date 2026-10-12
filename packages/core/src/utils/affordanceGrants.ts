@@ -211,6 +211,15 @@ export const AFFORDANCE_GRANTS = {
    * comment's `reactions` column.
    */
   feedReactionColumn: { crud: 'edit', grant: 'update' },
+  /**
+   * The record feed's Edit on a comment or reply the caller wrote, asked of
+   * `sys_comment`: it updates that comment row (objectui#12268). Whose comment
+   * it is decides only which rows offer it; the server's own rule decides the
+   * write.
+   */
+  feedCommentEdit: { crud: 'edit', grant: 'update' },
+  /** The same rows' Delete, asked of `sys_comment`: it deletes that comment row. */
+  feedCommentDelete: { crud: 'delete', grant: 'delete' },
   /** A calendar's quick-create: an empty-day click, or a time-range drag in the week / day grid. */
   calendarQuickCreate: { crud: 'create', grant: 'create' },
   /** A calendar's drag-to-reschedule: moving or resizing an event writes its date fields. */

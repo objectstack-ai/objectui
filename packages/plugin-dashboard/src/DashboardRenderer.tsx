@@ -7,7 +7,7 @@
  */
 
 import type { BaseSchema, DashboardComponentSchema, DataSource, ObjectChartSchema, ObjectDataTableSchema } from '@object-ui/types';
-import { SchemaRenderer, toRenderableSchema, useActionEngine, useObjectLabel, PageVariablesProvider, usePageVariables, useResolvedDataSource, type SchemaRendererProps } from '@object-ui/react';
+import { SchemaRenderer, useActionEngine, useObjectLabel, PageVariablesProvider, usePageVariables, useResolvedDataSource, type SchemaRendererProps } from '@object-ui/react';
 import { useObjectTranslation, useSafeTranslate, pickLocalized, useDisplayLocale } from '@object-ui/i18n';
 import type { ActionDef, ActionResult, ActionContext, ModalHandler, SduiDomPassThroughKey } from '@object-ui/core';
 import {
@@ -163,21 +163,22 @@ const FILTERABLE_COMPONENT_TYPES: ReadonlySet<string> = new Set<FilterableCompon
  * Both are the `@object-ui/types` node schemas, by reference, each declaring
  * `filter`. The broadcast covers the `object-chart` and `object-data-table`
  * nodes this renderer builds for a `provider: 'object'` series or table
- * widget, and the same two types when an author places one in a widget's
- * legacy `component` envelope.
+ * widget. It no longer covers a node an author placed in a widget's legacy
+ * `component` envelope: since objectui#12254 that envelope draws a
+ * `metric-card` and nothing else, and any other node in it draws the
+ * retired-format placeholder (`isRetiredEnvelopeNode`).
  *
  * `object-metric` LEFT the set under objectui#11466 (the maintainer's ruling A,
  * extending ruling C on objectui#11525). objectui#11525 had kept it for one
  * input, an `object-metric` node in that envelope, after this renderer stopped
  * building one; it wrote a flat `filter` that the declared `object-metric`
- * node (the spec's `properties` bag) refuses by name. That envelope node now
- * draws the retired-format placeholder (`isRetiredEnvelopeNode`), so no
- * `object-metric` node reaches the merge.
+ * node (the spec's `properties` bag) refuses by name. That envelope node drew
+ * the retired-format placeholder from then on, so no `object-metric` node
+ * reaches the merge.
  *
  * The value is not host state: the renderer wrote it from the widget's own
- * spec-declared `filter` (or the provider's), or the author wrote it on the
- * envelope's node, and the dashboard's filter-bar values arrive separately, as
- * the `scopedFilter` merged into it.
+ * spec-declared `filter` (or the provider's), and the dashboard's filter-bar
+ * values arrive separately, as the `scopedFilter` merged into it.
  */
 type FilterableComponentSchema = ObjectChartSchema | ObjectDataTableSchema;
 
@@ -674,15 +675,13 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
             // `metric-card` node key moves onto its namespaced registration
             // (`toDashboardNodeType`, objectui#10859 batch 8).
             const authoredComponent = entryComponent(widget);
-            // An `object-metric` node in the envelope is the last inline metric
-            // form, retired with the rest (objectui#11466, ruling A extending
-            // ruling C on objectui#11525): it draws the rebind prompt, the object
-            // the metric and pivot arms below return, and sends no query.
+            // The envelope draws a `metric-card` and nothing else
+            // (objectui#12254, the draw matching objectui#12163's authoring
+            // rule): any other node draws the rebind prompt, the object the
+            // metric and pivot arms below return, and sends no query. One rule
+            // for both surfaces, `isRetiredEnvelopeNode`.
             if (isRetiredEnvelopeNode(authoredComponent)) return LEGACY_RETIRED_WIDGET_SCHEMA;
-            // `toRenderableSchema` (objectui#4622) bridges the envelope's `SchemaNode`
-            // to what `SchemaRenderer` takes: a number or boolean draws the same text
-            // (or nothing, when falsy) it drew when handed to the renderer bare.
-            if (authoredComponent) return toRenderableSchema(toDashboardNodeType(authoredComponent));
+            if (authoredComponent) return toDashboardNodeType(authoredComponent);
 
             // Handle Shorthand Registry Mappings
             const widgetType = entryType;
@@ -949,18 +948,11 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                 return LEGACY_RETIRED_WIDGET_SCHEMA;
             }
 
-            // Custom widget — caller must supply `widget.component` (a full
-            // UIComponent schema).  When missing, render a friendly placeholder
-            // instead of falling through (which produced 0×0 chart errors).
-            if (dispatch.family === 'custom') {
-                return {
-                    type: 'text',
-                    content: 'Custom widget — set `component` to a UIComponent schema.',
-                    variant: 'caption',
-                    align: 'center',
-                    className: 'flex h-full w-full items-center justify-center rounded border border-dashed bg-muted/20 p-4 text-muted-foreground',
-                };
-            }
+            // A `custom` widget with no `component` reaches the labelled
+            // placeholder below, as on `DashboardGridLayout`. It used to draw
+            // its own prompt to "set `component` to a UIComponent schema",
+            // which objectui#12254 made false: the envelope above draws a
+            // `metric-card` and nothing else.
 
             // Known chart family with no dedicated renderer yet → clean labelled
             // placeholder instead of falling through to a raw "Unknown component

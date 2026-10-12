@@ -49,6 +49,11 @@ export {
   type CommentThreadProps,
 } from './CommentThread.js';
 
+// The owner rule `CommentThread` gates Edit and Delete on, exported so a host
+// that maps its own comment rows reads the same rule rather than a copy of it
+// (objectui#12268: the console's record feed).
+export { isCommentAuthor } from './commentAuthorship.js';
+
 // This package's i18n seam. Exported like `plugin-detail`'s
 // `useDetailTranslation` / `DETAIL_DEFAULT_TRANSLATIONS` so a host can read the
 // English defaults (e.g. to seed its own bundle) and so anything added to this

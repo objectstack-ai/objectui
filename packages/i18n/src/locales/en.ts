@@ -1348,6 +1348,14 @@ const en = {
     linkCopied: 'Link copied to clipboard',
     commentFailed: 'Your comment was not posted. Nothing was saved — please try again.',
     reactionFailed: 'Your reaction was not saved. Please try again.',
+    // objectui#12268 — the author's Edit and Delete on their own comment in the
+    // record feed: the two buttons' names, the delete confirm, and the two
+    // refusals the record page raises.
+    editComment: 'Edit comment',
+    deleteComment: 'Delete comment',
+    deleteCommentConfirm: 'Are you sure you want to delete this comment?',
+    commentEditFailed: 'Your edit was not saved. The comment keeps its previous text.',
+    commentDeleteFailed: 'The comment was not deleted. Please try again.',
     linkCopyFailed: 'Failed to copy link',
     cancel: 'Cancel',
     cancelEdit: 'Discard changes',
@@ -1472,6 +1480,7 @@ const en = {
     noAttachments: 'No attachments yet. Upload a file to get started.',
     downloadAttachment: 'Download',
     deleteAttachment: 'Delete attachment',
+    deleteAttachmentConfirm: 'Are you sure you want to delete the attachment "{{name}}"?',
     attachmentDeleteDenied: 'Only the uploader or someone who can edit this record may delete this attachment.',
     attachmentParentAccessDenied: "You don't have access to attach files to this record.",
     attachmentDownloadDenied: "You don't have access to download this attachment.",

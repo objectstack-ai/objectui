@@ -88,12 +88,21 @@
         "$TURBO_ROOT$/scripts/vite-*.ts",
         "$TURBO_ROOT$/vitest.config.mts",
         "$TURBO_ROOT$/tsconfig.json",
-        "$TURBO_ROOT$/tsconfig.tier-base.json"
+        "$TURBO_ROOT$/tsconfig.tier-base.json",
+        "$TURBO_ROOT$/apps/console/src/lib/auth-preflight.ts",
+        "$TURBO_ROOT$/eslint-rules/no-unprefixed-query-params.js",
+        "$TURBO_ROOT$/packages/cli/src/commands/generate.ts",
+        "$TURBO_ROOT$/packages/cli/src/utils/authoring-face.ts",
+        "$TURBO_ROOT$/packages/cli/src/utils/issue-path.ts",
+        "$TURBO_ROOT$/packages/cli/src/utils/union-arm-diagnostics.ts",
+        "$TURBO_ROOT$/scripts/check-doc-component-types.mjs",
+        "$TURBO_ROOT$/scripts/markdown-fence-scan.mjs"
       ]
     },
     "//#type-check:e2e": {
       "outputs": [],
-      "cache": false
+      "cache": false,
+      "inputs": ["e2e/**", "playwright*.config.ts", "tsconfig.e2e.json"]
     },
     "clean": {
       "cache": false

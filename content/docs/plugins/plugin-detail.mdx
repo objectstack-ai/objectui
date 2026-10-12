@@ -255,10 +255,10 @@ from this package, is the verdict both surfaces use.
 and `login` / `logout` are account events, not record activity.
 
 `scheduled` and `completed` are the two branches the same producer writes for a
-meeting, and they land at different default visibility on purpose: a held
-meeting is `completed` → `task`, hidden unless `showCompleted`; a not-yet-held
-meeting is `scheduled` → `event`, shown, because an upcoming meeting is the part
-of a timeline you still act on.
+meeting, and both show by default: a not-yet-held meeting is `scheduled` →
+`event`, because an upcoming meeting is the part of a timeline you still act on;
+a held meeting is `completed` → `task`, and shows because it is a logged
+interaction (see below).
 
 A milestone is the exception to the `completed` rule. When an object's
 `activityMilestones` entry fires, plugin-audit writes the row with the type the
@@ -266,10 +266,18 @@ declaration names and stamps `metadata.kind: 'milestone'` on it. A milestone is
 not a completed activity, so a `completed` row with that marker renders as a
 `system` item and shows whatever `showCompleted` says. That covers "Case
 resolved" on a case, and a task's own "Task completed" on that task's page. A
-`completed` row without the marker is still a `task` item, hidden by default.
-That includes every row a runtime from before the marker serves, a row an app
-inserts itself, and a milestone row served to a reader who may not read a field
-the milestone watches (the server leaves the marker off for that reader).
+`completed` row without the marker is still a `task` item. It is hidden by
+default unless it is a logged interaction: a call, meeting or email an app logs
+on the record writes the record it logged first (an event, a `sys_email` row)
+and points at it from the activity row through `source_object` / `source_id`
+(ADR-0052). A `task` item that carries that pointer shows whatever
+`showCompleted` says, and it is the same item the timeline gives a **View
+source** link. It stays a `task` item, so `types: ['task']` and
+`filterMode: 'tasks_only'` still list it. A `completed` row with neither the
+marker nor a pointer is hidden by default. That includes a finished task, every
+row a runtime from before the marker serves, a row an app inserts itself
+without a pointer, and a milestone row served to a reader who may not read a
+field the milestone watches (the server leaves the marker off for that reader).
 
 A row whose `type` is in neither list is **not dropped**: it renders through the
 generic `system` presentation and logs one `console.warn` naming the type.
@@ -305,13 +313,25 @@ itself, so everything above describes that page too.
 | `filterMode` | Which slice the filter dropdown opens on (`all` / `comments_only` / `changes_only` / `tasks_only`). The user can still change it. An unrecognised value falls back to `all`. | — |
 | `showFilterToggle` | Shows/hides that dropdown. | — |
 | `limit` | Items per page; also caps the scoped `sys_activity` read. "Load more" grows the window by this much and re-reads. Must be a positive integer **number**: any other value (a string such as `"5"`, a boolean, a fraction, zero or a negative) is ignored, the block uses its default of 20, and one `console.warn` names the value. The same rule applies to `feed.limit` on `record:chatter` / `record:discussion` and to `limit` on `record:history` (default 50). | — |
-| `showCompleted` | Include completed activities (`sys_activity.type = 'completed'`, which surfaces as a `task` item). Off by default, per spec. A milestone row (`metadata.kind: 'milestone'`) is not a completed activity: it surfaces as a `system` item and shows either way. | — |
+| `showCompleted` | Include completed activities (`sys_activity.type = 'completed'`, which surfaces as a `task` item). Off by default, per spec. A milestone row (`metadata.kind: 'milestone'`) is not a completed activity: it surfaces as a `system` item and shows either way. A logged interaction (a `task` item that points at its source record through `source_object` / `source_id`, such as a logged call, meeting or email) stays a `task` item and also shows either way. | — |
 | `unifiedTimeline` | Default `true` mixes field changes and comments in one timeline (Airtable style). `false` un-mixes them: the panel becomes a discussion stream and field changes stay in `record:history`. | — |
 | `showCommentInput` | Shows the composer. | A host discussion context to persist the comment. Without one the feed is read-only and no composer is rendered. |
 | `enableMentions` | Offers @-mention autocomplete in the composer. `false` withholds the suggestions. | The host context's user list. |
 | `enableReactions` | Shows emoji reactions on feed items. Existing reactions still render without a host; toggling one needs the host handler. Only a `comment` row offers Add reaction and clickable chips, because a reaction is stored on the comment (`sys_comment`). Any other row, such as a field change read from `sys_activity`, shows its reactions as chips that cannot be clicked. | A host `onToggleReaction`. |
-| `enableThreading` | Groups replies under their parent comment. Posting a reply needs the host handler. | A host `onAddReply`. |
+| `enableThreading` | Groups replies under their parent comment. A reply whose parent the feed does not hold (deleted, or older than the loaded page) shows as a row of its own. Posting a reply needs the host handler. | A host `onAddReply`. |
 | `showSubscriptionToggle` | **Not implemented.** | — |
+
+**Editing and deleting your own comment needs no input.** `sys_comment` is
+`managedBy: 'platform'`, which already declares the generic Edit / Delete
+affordances, so the feed offers them wherever its host does: on a `comment`
+row (or a reply) whose `authoredByViewer` the host set, with the host's
+`onEditComment` / `onDeleteComment`. The console's record page marks each row
+with `@object-ui/collaboration`'s `isCommentAuthor`, the rule `CommentThread`
+uses, and hands each handler over under the caller's update or delete grant on
+`sys_comment`. Edit opens the text in place; Delete asks through the console's
+destructive-action confirm. The server still decides the write, and a refusal
+shows as an error with the comment unchanged. An edited comment reads as
+edited (`is_edited` on the row).
 
 > **Known gap — `showSubscriptionToggle`.** It renders nothing, whatever you set
 > it to. The bell needs a `RecordSubscription` value and somewhere to persist
@@ -378,9 +398,9 @@ decision as a defect is how a warning channel gets ignored:
   objectui#8934 an **authored `record:chatter` / `record:discussion` block**,
   and every synthesized default page (which emits `record:discussion`), applies
   it with the same pipeline `record:activity` uses. Its **defaults** come with
-  it: `showCompleted` is `false`, so completed activities are hidden unless
-  asked for, and an unauthored `limit` is `20`, so a longer feed pages with
-  **Load more** rather than rendering whole.
+  it: `showCompleted` is `false`, so completed activities other than logged
+  interactions are hidden unless asked for, and an unauthored `limit` is `20`,
+  so a longer feed pages with **Load more** rather than rendering whole.
 
   Since objectui#8968 the remaining two members are read here too.
   `filterMode` seeds which slice the panel opens on, normalized by the same
@@ -448,7 +468,8 @@ decision as a defect is how a warning channel gets ignored:
   mentions?: Mention[],            // @mention references
   reactions?: Reaction[],          // Emoji reactions
   pinned?: boolean,                // Pinned comment
-  edited?: boolean                 // Edited flag
+  edited?: boolean,                // Edited flag
+  authoredByViewer?: boolean       // The viewer wrote it (set by the host); gates Edit / Delete
 }
 ```
 
@@ -476,6 +497,8 @@ decision as a defect is how a warning channel gets ignored:
 | `onAddComment` | `(text: string) => void` | — | New comment callback |
 | `onAddReply` | `(parentId, text) => void` | — | Reply to comment callback |
 | `onToggleReaction` | `(itemId, emoji) => void` | — | Toggle emoji reaction callback. Called only for a `comment` row |
+| `onEditComment` | `(itemId, text) => void \| Promise<void>` | — | Stores a comment's new text. Offered only on a `comment` row (or reply) whose `authoredByViewer` is `true`; a rejection keeps the editor's draft |
+| `onDeleteComment` | `(itemId) => void \| Promise<void>` | — | Deletes a comment, on the same rows. The host confirms first |
 | `subscription` | `RecordSubscription` | — | Current subscription state |
 | `onToggleSubscription` | `(subscribed: boolean) => void` | — | Toggle subscription callback |
 | `filterMode` | `FeedFilterMode` | `'all'` | Active filter mode |
@@ -496,6 +519,8 @@ decision as a defect is how a warning channel gets ignored:
 | `onAddComment` | `(text: string) => void` | — | New comment callback |
 | `onAddReply` | `(parentId, text) => void` | — | Reply to comment callback |
 | `onToggleReaction` | `(itemId, emoji) => void` | — | Toggle emoji reaction callback. Called only for a `comment` row |
+| `onEditComment` | `(itemId, text) => void \| Promise<void>` | — | Stores a comment's new text. Offered only on a `comment` row (or reply) whose `authoredByViewer` is `true`; a rejection keeps the editor's draft |
+| `onDeleteComment` | `(itemId) => void \| Promise<void>` | — | Deletes a comment, on the same rows. The host confirms first |
 | `subscription` | `RecordSubscription` | — | Current subscription state |
 | `onToggleSubscription` | `(subscribed: boolean) => void` | — | Toggle subscription callback |
 | `className` | `string` | `''` | Additional CSS classes |
@@ -517,6 +542,8 @@ decision as a defect is how a warning channel gets ignored:
 | `replies` | `FeedItem[]` | required | Reply items |
 | `onAddReply` | `(parentId, text) => void` | — | Add reply callback |
 | `showReplyInput` | `boolean` | `false` | Show reply input |
+| `onEditComment` | `(itemId, text) => void \| Promise<void>` | — | Edit on a reply whose `authoredByViewer` is `true` |
+| `onDeleteComment` | `(itemId) => void \| Promise<void>` | — | Delete on the same replies |
 | `className` | `string` | `''` | Additional CSS classes |
 
 ### SubscriptionToggle

@@ -200,6 +200,11 @@ export const DETAIL_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'detail.activityUpdated': 'Updated record',
   'detail.loadMore': 'Load more',
   'detail.edited': '(edited)',
+  // objectui#12268 — the author's controls on their own feed comment: the
+  // icon-only Edit and Delete buttons' accessible names (Edit's is also the
+  // in-place editor's).
+  'detail.editComment': 'Edit comment',
+  'detail.deleteComment': 'Delete comment',
   'detail.via': 'via {{source}}',
   'detail.viewSource': 'View source',
   // Replies

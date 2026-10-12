@@ -49,6 +49,11 @@
  *   need `onAddReply`) · `enableReactions` (needs `onToggleReaction`) ·
  *   `enableMentions` (withholds the @-autocomplete suggestions when off)
  *
+ * The author's Edit and Delete on their own comment (objectui#12268) need no
+ * declared input: `sys_comment`'s `managedBy: 'platform'` already declares the
+ * generic Edit / Delete affordances. They are live where the host supplies
+ * `onEditComment` / `onDeleteComment`, on the rows it marks `authoredByViewer`.
+ *
  * KNOWN GAP, stated at the registration site and in the docs so an author
  * reading the manifest meets it before writing it:
  *   `showSubscriptionToggle` — the bell needs a `RecordSubscription` and a
@@ -304,6 +309,11 @@ export const RecordActivityRenderer: React.FC<RecordActivityRendererProps> = ({
         onAddComment={discussion?.onAddComment as any}
         onAddReply={discussion?.onAddReply as any}
         onToggleReaction={discussion?.onToggleReaction as any}
+        // objectui#12268: the author's Edit and Delete on their own comment.
+        // The host hands each over under the caller's grant and marks whose
+        // rows are whose; this block decides neither.
+        onEditComment={discussion?.onEditComment}
+        onDeleteComment={discussion?.onDeleteComment}
         mentionSuggestions={mentionsEnabled ? (discussion?.mentionSuggestions as any) : undefined}
         onUploadAttachments={discussion?.onUploadAttachments as any}
         activityDenied={activityDenied}

@@ -31,7 +31,9 @@
  *
  * ⚠️ Consequences an author sees, because the spec's DEFAULTS now apply here
  * too: `showCompleted` defaults false, so completed activities (feed type
- * `task`) are hidden unless asked for; and an unauthored `limit` is
+ * `task`) are hidden unless asked for, a logged call, meeting or email
+ * excepted (objectui#12228, `isLoggedInteraction` in `recordActivityFeed.ts`);
+ * and an unauthored `limit` is
  * `DEFAULT_ACTIVITY_LIMIT` (20), so a longer feed pages instead of rendering
  * whole. Both are `record:activity`'s behaviour, which is what the protocol
  * says this key is.
@@ -288,6 +290,10 @@ export const RecordChatterRenderer: React.FC<RecordChatterRendererProps> = ({
         onAddComment={discussion?.onAddComment as any}
         onAddReply={discussion?.onAddReply as any}
         onToggleReaction={discussion?.onToggleReaction as any}
+        // objectui#12268: same two handlers `record:activity` forwards, off the
+        // same context; the host decides who may be offered them.
+        onEditComment={discussion?.onEditComment}
+        onDeleteComment={discussion?.onDeleteComment}
         mentionSuggestions={mentionsEnabled ? (discussion?.mentionSuggestions as any) : undefined}
         onUploadAttachments={discussion?.onUploadAttachments as any}
         // objectui#11195: which of the host's two feed reads the server

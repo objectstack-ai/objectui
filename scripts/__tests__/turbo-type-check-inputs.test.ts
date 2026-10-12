@@ -90,12 +90,42 @@ const TASK = 'type-check';
  * `$TURBO_ROOT$` inputs that are deliberately NOT derivable from any package's
  * tsconfig, each with the reason it cannot be.
  *
- * Empty, and worth keeping that way: an entry nothing derives is an entry
- * nobody can verify, and a glob that matches nothing at all reads as coverage
- * while providing none — the precise shape of the phantom `vitest.setup.ts`
- * include objectui#3476 found in `apps/console/tsconfig.node.json`.
+ * Keep it as short as the measurement allows: an entry nothing derives is an
+ * entry nobody can verify, and a glob that matches nothing at all reads as
+ * coverage while providing none — the precise shape of the phantom
+ * `vitest.setup.ts` include objectui#3476 found in
+ * `apps/console/tsconfig.node.json`. The "matches at least one file on disk"
+ * assertion below still holds every entry here, so a renamed file goes red.
+ *
+ * The entries below are objectui#12222's, and they are the header's "ROOT
+ * FILES, not the import closure" narrowing coming due. Until that card the
+ * narrowing cost nothing in CI: every `type-check` dependsOn the root task
+ * `//#type-check:e2e`, whose default inputs were every tracked file in the
+ * repository, so any commit moved every package's hash and the cache never
+ * replayed a verdict — stale or fresh. Once the root task hashes only its own
+ * program, a file a program reaches through an IMPORT (not through a tsconfig
+ * root) is invisible to the hash unless it is listed. Each file here was read
+ * by a real program under `tsc --listFilesOnly` (every package's `type-check`
+ * projects, on the card's branch) and lies outside both the package and its
+ * dependency closure, which `^build` already hashes; the derivation in this
+ * file cannot see an import, which is why they are listed rather than derived.
  */
-const INPUTS_NOT_DERIVABLE: ReadonlyMap<string, string> = new Map();
+const IMPORT_CLOSURE_READ = 'read through an import, not a tsconfig root (objectui#12222)';
+const INPUTS_NOT_DERIVABLE: ReadonlyMap<string, string> = new Map([
+  // `packages/app-shell` tsconfig.test.json — a test imports the console's preflight.
+  ['apps/console/src/lib/auth-preflight.ts', IMPORT_CLOSURE_READ],
+  // `apps/console` tsconfig.json — a test imports the lint rule it pins.
+  ['eslint-rules/no-unprefixed-query-params.js', IMPORT_CLOSURE_READ],
+  // `packages/components` tsconfig.test.json — a test imports the CLI generator.
+  ['packages/cli/src/commands/generate.ts', IMPORT_CLOSURE_READ],
+  // `examples/schema-catalog` tsconfig.test.json — tests import the CLI's
+  // authoring face (which imports the next two) and two doc gates.
+  ['packages/cli/src/utils/authoring-face.ts', IMPORT_CLOSURE_READ],
+  ['packages/cli/src/utils/issue-path.ts', IMPORT_CLOSURE_READ],
+  ['packages/cli/src/utils/union-arm-diagnostics.ts', IMPORT_CLOSURE_READ],
+  ['scripts/check-doc-component-types.mjs', IMPORT_CLOSURE_READ],
+  ['scripts/markdown-fence-scan.mjs', IMPORT_CLOSURE_READ],
+]);
 
 // ── The derivation, computed once ────────────────────────────────────────────
 

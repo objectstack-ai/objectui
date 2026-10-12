@@ -119,7 +119,8 @@ describe('objectui#11598 N2 — a card takes no other widget key', () => {
   });
 
   it('`entryComponent` reads the envelope on the widget arm alone', () => {
-    const envelope = { type: 'text', content: 'ENVELOPE-NODE' } as const;
+    // A `metric-card`: the one node the envelope's type admits since objectui#12163 (ruling C).
+    const envelope = { type: 'metric-card', value: 'ENVELOPE-NODE' } as const;
     const widgetArm: DashboardWidgetSlotEntry = { id: 'w2', component: envelope };
     expect(entryComponent(widgetArm)).toBe(envelope);
     expect(entryComponent(CARD_WITH_COMPONENT as unknown as DashboardWidgetSlotEntry)).toBeUndefined();

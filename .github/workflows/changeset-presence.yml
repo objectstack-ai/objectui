@@ -38,8 +38,7 @@ name: Changeset Presence
 # judges a changeset-only PR at all.
 #
 # Hence also: no `paths` and no `paths-ignore` here, deliberately — the same
-# choice the control-byte and docs-link gates made (now steps of
-# `repo-gates.yml`, objectui#12214) and for a stronger reason.
+# choice `control-bytes.yml` and `docs-links.yml` made and for a stronger reason.
 # A path filter on the trigger skips the WHOLE workflow (GitHub has no per-job
 # path filter), so the context is never CREATED on a pull request that does not
 # match, and a required context that is never created leaves the PR pending rather

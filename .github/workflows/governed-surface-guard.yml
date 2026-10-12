@@ -50,8 +50,7 @@ on:
 # and costs zero API calls. (`merge_group` supports no path filter at all, so a
 # filter would also make the two legs disagree about what they cover.) The
 # script's `--self-test` fails if one is ever added; the same conclusion
-# the control-byte gate (`repo-gates.yml` since objectui#12214) and
-# `changeset-presence.yml` reached for themselves.
+# `control-bytes.yml` and `changeset-presence.yml` reached for themselves.
 
 concurrency:
   group: governed-surface-guard-${{ github.event.pull_request.number || github.ref }}

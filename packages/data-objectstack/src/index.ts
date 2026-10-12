@@ -5351,7 +5351,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    */
   async listMetadataItems(type: string): Promise<Array<{ name: string; label?: string }>> {
     await this.connect();
-    const result: any = await this.client.meta.getItems(type);
+    const result: { items?: unknown } | null | undefined = await this.client.meta.getItems(type);
     if (!Array.isArray(result?.items)) {
       throw new Error(`GET /meta/${type} answered without an items list`);
     }

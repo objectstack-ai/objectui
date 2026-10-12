@@ -90,28 +90,38 @@ function failureMessage(err: unknown): string {
   return typeof err === 'string' ? err : '';
 }
 
+/** A settled answer, with the inputs it answers for. */
+interface SettledCatalog {
+  dataSource: unknown;
+  type: string;
+  state: RegistryCatalogState;
+}
+
 /**
  * Load one registry type's catalog. Keyed on the data source and the type it
  * reads — the inputs the request is made from — and nothing memoised.
+ *
+ * The arm is DERIVED from those inputs on every render rather than written
+ * into state ahead of the request: no lister is IDLE, and a lister whose
+ * answer for exactly these inputs has not settled is LOADING. So an answer to
+ * an older data source or type can never be shown as the current one, and the
+ * effect only ever writes a settled answer.
  */
-export function useRegistryCatalog(dataSource: unknown, type: string): RegistryCatalogState {
-  const lister = registryLister(dataSource);
-  const [state, setState] = React.useState<RegistryCatalogState>(lister ? LOADING : IDLE);
+function useRegistryCatalog(dataSource: unknown, type: string): RegistryCatalogState {
+  const [settled, setSettled] = React.useState<SettledCatalog | null>(null);
 
   React.useEffect(() => {
     const source = registryLister(dataSource);
-    if (!source) {
-      setState(IDLE);
-      return;
-    }
+    if (!source) return;
     let cancelled = false;
-    setState(LOADING);
     source.listMetadataItems(type).then(
       (items) => {
-        if (!cancelled) setState({ status: 'loaded', items });
+        if (!cancelled) setSettled({ dataSource, type, state: { status: 'loaded', items } });
       },
       (err: unknown) => {
-        if (!cancelled) setState({ status: 'error', message: failureMessage(err) });
+        if (!cancelled) {
+          setSettled({ dataSource, type, state: { status: 'error', message: failureMessage(err) } });
+        }
       },
     );
     return () => {
@@ -119,7 +129,8 @@ export function useRegistryCatalog(dataSource: unknown, type: string): RegistryC
     };
   }, [dataSource, type]);
 
-  return state;
+  if (!registryLister(dataSource)) return IDLE;
+  return settled && settled.dataSource === dataSource && settled.type === type ? settled.state : LOADING;
 }
 
 /** What one item reads as: its label beside its name, or the name alone. */

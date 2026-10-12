@@ -785,7 +785,7 @@ ComponentRegistry.register('activity', RecordActivityRenderer, {
     },
     { name: 'showFilterToggle', type: 'boolean', description: 'Expose the activity-type filter dropdown in the panel header' },
     { name: 'limit', type: 'number', description: 'Items per page. Also caps the scoped sys_activity read; "Load more" grows the window by this much.' },
-    { name: 'showCompleted', type: 'boolean', description: 'Include completed activities (sys_activity type "completed", which surfaces as a task item). Off by default. A milestone row (metadata.kind "milestone") is not a completed activity and shows either way.' },
+    { name: 'showCompleted', type: 'boolean', description: 'Include completed activities (sys_activity type "completed", which surfaces as a task item). Off by default. A milestone row (metadata.kind "milestone") is not a completed activity and shows either way. A logged interaction, a task item that points at its source record through source_object / source_id (a logged call, meeting or email), also shows either way.' },
     { name: 'unifiedTimeline', type: 'boolean', description: 'Mix field changes and comments in one timeline (Airtable style). Off keeps the panel a discussion stream — field changes stay in record:history.' },
     { name: 'showCommentInput', type: 'boolean', description: 'Show the composer. Requires a host discussion context to persist the comment (record detail pages provide one); without it the feed is read-only.' },
     { name: 'enableMentions', type: 'boolean', description: 'Offer @-mention autocomplete in the composer, from the host discussion context\'s user list. Off withholds the suggestions.' },

@@ -86,18 +86,21 @@ export const DEFAULT_ACTIVITY_LIMIT = 20;
  *
  * So `scheduled` is a value that is written, stored and queryable while being
  * undeclared upstream. Dropping it was not a decision this map made; it was the
- * absence of one. Its producer is HotCRM's `schedule_meeting` action
- * (`src/actions/global.actions.ts` — `type: EVENT_STATUS === 'held' ?
- * 'completed' : 'scheduled'`), registered for `crm_lead`, `crm_contact`,
- * `crm_account`, `crm_opportunity` and `crm_case`: the held branch reached the
- * timeline, the scheduled branch never did.
+ * absence of one. Its producer is HotCRM's activity-action factory
+ * (`src/sales/actions/activity-actions.ts`, once `src/actions/global.actions.ts`
+ * — `type: EVENT_STATUS === 'held' ? 'completed' : 'scheduled'`), which builds
+ * `log_call`, `log_meeting` and `schedule_meeting` for `crm_lead`,
+ * `crm_contact`, `crm_account`, `crm_opportunity` and `crm_case`: the held
+ * branch reached the timeline, the scheduled branch never did.
  *
  * `scheduled` → `event` is the semantic pairing and it is what makes the
- * declared `event` feed type reachable at all. Note the two branches of that
- * one producer now land at different DEFAULT visibility, which is the intended
- * reading: a held meeting is `completed` → `task`, hidden unless
- * `showCompleted`; a not-yet-held meeting is `scheduled` → `event`, shown,
- * because an upcoming meeting is the part of a timeline you still act on.
+ * declared `event` feed type reachable at all. Both branches of that producer
+ * show by default: a not-yet-held meeting is `scheduled` → `event`, because an
+ * upcoming meeting is the part of a timeline you still act on; a held one is
+ * `completed` → `task`, and shows because it is a LOGGED INTERACTION, a `task`
+ * item that points at the record it was logged as (objectui#12228, see
+ * {@link isLoggedInteraction}). Until objectui#12228 the held branch was hidden
+ * unless `showCompleted`.
  *
  * ## The vocabulary is OPEN — ruled. Do NOT restore set-equality.
  *
@@ -310,8 +313,66 @@ export const PRODUCED_FEED_TYPES: ReadonlySet<FeedItemType> = new Set<FeedItemTy
  *
  * A `completed` row that a milestone fired never reaches these types: the
  * mapper sends it to {@link MILESTONE_ACTIVITY_FEED_TYPE} (objectui#12106).
+ * A `completed` row that is a logged interaction does reach them, and stays
+ * `task`; `showCompleted` does not hide it ({@link isLoggedInteraction},
+ * objectui#12228).
  */
 const COMPLETED_FEED_TYPES = new Set<string>(['task']);
+
+/**
+ * Whether a feed item is a LOGGED INTERACTION — a call, meeting or email
+ * logged on the record — rather than a finished task (objectui#12228).
+ *
+ * The test is the ADR-0052 ActivityPointer: the item names the rich record it
+ * was derived from, `sourceObject` with a `sourceId`. That is the same reading
+ * `RecordActivityTimeline` gives its "View source" drill link, so an item this
+ * exempts from `showCompleted` is exactly an item the timeline links to its
+ * source record.
+ *
+ * ## Why the pointer, read off the row's own fields
+ *
+ * Measured on the three producers, HotCRM's `log_call` / `log_meeting` (its
+ * activity-action factory) and `send_email`. Each one writes the rich record
+ * first, then one `sys_activity` row with `type: 'completed'`,
+ * `source_object` / `source_id` naming that record (`crm_event` for a call or
+ * meeting, `sys_email` for an email) and a `metadata.kind` of `call`,
+ * `meeting` or `email`. The producer calls that row "the unified-timeline
+ * pointer". The platform declares the pair on `sys_activity` (plugin-audit:
+ * "Object name of the rich source entity this activity was derived from …
+ * Null when the activity is about the target record itself"), the read side
+ * serves it as written, and {@link activityRowToFeedItem} already carries it
+ * onto `FeedItem`, so a host feed that maps its rows through that function
+ * carries it too. No new member on `FeedItem` and no second map.
+ *
+ * `sys_activity` has no channel or sub-type column, and nothing on a row says
+ * "this is a to-do". The platform's own CRUD mirror never sets the pointer, and
+ * the only `completed` rows it writes are milestones, which the mapper already
+ * moves off `task`. So a `completed` row WITHOUT a pointer, which is a finished
+ * task or a milestone row from a runtime before the marker, stays hidden under
+ * `showCompleted`'s default.
+ *
+ * ## What it deliberately does not read
+ *
+ *  - ⛔ Not `metadata.kind`. ADR-0052 §5 keeps `type` domain-neutral and puts
+ *    one vertical's words (`call`, `meeting`, `email`) in `metadata.kind`, an
+ *    open vocabulary every domain writes its own words into. Recognising a
+ *    logged interaction by kind would be a list of one app's words in a
+ *    renderer, and `metadata` does not survive onto `FeedItem`, so a host feed
+ *    could not be judged by it.
+ *  - ⛔ Not a different feed type (the objectui#12106 milestone shape). A
+ *    logged interaction IS listed as a task by authored pages:
+ *    `types: ['task']` with `showCompleted: true` is how HotCRM's lead page
+ *    shows its calls, and `filterMode: 'tasks_only'` selects them. Moving the
+ *    item off `task` would empty those pages.
+ *
+ * ⚠️ The boundary: a producer that writes a finished to-do AS a pointer to the
+ * to-do record would show by default too. No producer measured for this card
+ * does: the platform mirror writes no pointer, and HotCRM's only `sys_activity`
+ * writers are the three interaction actions above.
+ */
+function isLoggedInteraction(item: FeedItem): boolean {
+  return Boolean(item.sourceObject) && item.sourceId != null;
+}
 
 /**
  * Whether a `sys_activity` row carries the milestone marker,
@@ -961,9 +1022,11 @@ export function applyFeedConfig(
 
   // `showCompleted` — spec default false, i.e. completed activities are hidden
   // unless asked for. See COMPLETED_FEED_TYPES for why this reads as a feed
-  // type here.
+  // type here. A logged interaction is not a finished task and is kept
+  // (objectui#12228): it stays a `task` item, so `types` below still selects
+  // it as one.
   if (config.showCompleted !== true) {
-    kept = kept.filter((i) => !COMPLETED_FEED_TYPES.has(i.type));
+    kept = kept.filter((i) => !COMPLETED_FEED_TYPES.has(i.type) || isLoggedInteraction(i));
   }
 
   // `types` — an explicit allow-list of feed item types.

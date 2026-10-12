@@ -31,7 +31,9 @@
  *
  * ⚠️ Consequences an author sees, because the spec's DEFAULTS now apply here
  * too: `showCompleted` defaults false, so completed activities (feed type
- * `task`) are hidden unless asked for; and an unauthored `limit` is
+ * `task`) are hidden unless asked for, a logged call, meeting or email
+ * excepted (objectui#12228, `isLoggedInteraction` in `recordActivityFeed.ts`);
+ * and an unauthored `limit` is
  * `DEFAULT_ACTIVITY_LIMIT` (20), so a longer feed pages instead of rendering
  * whole. Both are `record:activity`'s behaviour, which is what the protocol
  * says this key is.

@@ -249,7 +249,7 @@ const DECLARED: Exemption[] = [
       'formatted and no face is rendered.',
   },
   {
-    file: 'apps/console/src/pages/settings/workspaceTimezonePrompt.ts',
+    file: 'apps/console/src/pages/settings/workspaceTimezonePromptLogic.ts',
     expression: 'const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;',
     count: 1,
     verdict: 'not applicable',

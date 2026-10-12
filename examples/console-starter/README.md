@@ -117,8 +117,8 @@ Chromium on `/`:
 
 **`/` redirects to `/login`.** The root route is wrapped in `AuthenticatedRoute`
 (objectui#4042), so the guard resolves the session before the landing redirect —
-and the `/meta/*` reads behind it — ever mount. The branded "Initializing application... /
-Connecting to data source" screen still appears, but only as a *transient* frame
+and the `/meta/*` reads behind it — ever mount. The branded boot screen (the product name
+over "Opening your console…") still appears, but only as a *transient* frame
 while `GET /api/v1/auth/get-session` is in flight; the redirect lands within a few
 hundred milliseconds of that request being refused. `/login` then renders in full
 but cannot sign in. The browser console shows `ERR_CONNECTION_REFUSED` for

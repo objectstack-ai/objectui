@@ -200,6 +200,7 @@ const fr = {
     dialogDescriptionFallback: "Remplissez les champs du formulaire, puis envoyez ou annulez.",
     deniedDescription: "Vous n'avez pas l'autorisation de modifier ce champ.",
     serverDefaultHint: "Défini automatiquement lors de l'enregistrement.",
+    maxFileSize: "Taille maximale : {{size}}",
     masterDetail: {
       loadingColumns: "Chargement des colonnes…",
       subtotal: "Sous-total",
@@ -1991,8 +1992,7 @@ const fr = {
       },
     },
     title: "Console ObjectStack",
-    initializing: "Initialisation de l'application…",
-    loadingHint: "La configuration d'un nouvel environnement peut prendre quelques instants.",
+    initializing: "Ouverture de votre console…",
     breadcrumb: {
       dashboards: "Tableaux de bord",
       pages: "Pages",
@@ -2039,11 +2039,6 @@ const fr = {
       decline: "Conserver la valeur par défaut",
       confirm: "Définir le fuseau horaire",
       saved: "Fuseau horaire de l’espace de travail défini sur {{zone}}",
-    },
-    loadingSteps: {
-      connecting: "Connexion à la source de données",
-      loadingConfig: "Chargement de la configuration",
-      preparingWorkspace: "Préparation de l'espace de travail",
     },
     error: {
       connectionFailed: "Impossible de se connecter au serveur",

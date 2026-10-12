@@ -8,7 +8,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useContext } from 'react';
 import { useDataScope, SchemaRendererContext, useNavigationOverlay, useSafeFieldLabel, useSettledSchema, useDataInvalidation, useFilterScope, useResolvedFilter } from '@object-ui/react';
-import { ComponentRegistry, buildExpandFields, getRecordDisplayName, isEmptyValue } from '@object-ui/core';
+import { ComponentRegistry, buildExpandFields, getRecordDisplayName, isEmptyValue, isExpandableFieldType } from '@object-ui/core';
 import { cn, Card, CardContent, NavigationOverlay } from '@object-ui/components';
 import { usePermissions } from '@object-ui/permissions';
 import type { DataSource, GalleryConfig, ObjectGallerySchema, QueryParams } from '@object-ui/types';
@@ -710,15 +710,44 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
         );
     };
 
+    /**
+     * The heading CONTENT of one card (objectui#12188).
+     *
+     * A title field of the reference-bearing family (`isExpandableFieldType`,
+     * the `@object-ui/core` set: `lookup`, `master_detail`, `tree`, `user`)
+     * renders through the cell renderer `renderFields` uses, enriched by the
+     * same `buildEnrichedField` — the formatter the grid and this card's own
+     * detail rows already draw that value with. Its value is the related
+     * RECORD once `$expand`-ed (and a bare id when not), so the plain-text
+     * heading used to print `[object Object]` (or the raw id) where the grid
+     * printed the person's name. The cell names an embedded record and
+     * resolves a bare id by its own fetch; ⛔ no second lookup-to-label path
+     * lives here.
+     *
+     * Every other title — and a reference field with no value, or no
+     * definition to type it — stays the TEXT `title`, byte for byte, so a
+     * plain text heading is unchanged.
+     */
+    const renderTitleContent = (item: Record<string, unknown>, title: string): React.ReactNode => {
+        if (titleField == null) return title;
+        const value = item[titleField];
+        if (isEmptyValue(value)) return title;
+        const enriched = buildEnrichedField(titleField);
+        if (!isExpandableFieldType(enriched)) return title;
+        const CellRenderer = getCellRenderer(resolveCellRendererType(enriched));
+        return <CellRenderer value={value} field={enriched as any} />;
+    };
+
     const renderCard = (item: Record<string, unknown>, i: number) => {
         const id = (item.id ?? item._id ?? i) as string | number;
-        // Prefer the explicit title field when authored & present; otherwise
-        // defer to the unified object-level resolver (ADR-0079).
-        const explicitTitle =
-            titleField != null && item[titleField] != null && item[titleField] !== ''
-                ? String(item[titleField])
-                : undefined;
-        const title = explicitTitle ?? getRecordDisplayName(objectDef, item);
+        // The title TEXT — the heading's tooltip, the cover / icon tile and the
+        // placeholder seed all need a string. One call to the unified ADR-0079
+        // resolver: its `titleField` option honours the author's field first
+        // (an embedded record resolving through its display chain rather than
+        // stringifying to `[object Object]`, objectui#12188) and otherwise
+        // falls back to the object-level precedence, as before.
+        const title = getRecordDisplayName(objectDef, item, { titleField });
+        const titleContent = renderTitleContent(item, title);
         const imageUrl = resolveCoverUrl(item, coverField);
         const placeholder = pickPlaceholderGradient(String(id) + '|' + title);
 
@@ -748,7 +777,7 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
                             <GalleryIconTile imageUrl={imageUrl} title={title} placeholder={placeholder} />
                             <div className="min-w-0 flex-1">
                                 <h3 className="font-semibold tracking-tight truncate text-sm leading-tight text-foreground" title={title}>
-                                    {title}
+                                    {titleContent}
                                 </h3>
                                 {renderFields(item)}
                             </div>
@@ -777,7 +806,7 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
                 />
                 <CardContent className={cn('p-3', showCoverArea && 'border-t border-border/60')}>
                     <h3 className="font-semibold tracking-tight truncate text-sm leading-tight text-foreground" title={title}>
-                        {title}
+                        {titleContent}
                     </h3>
                     {renderFields(item)}
                 </CardContent>

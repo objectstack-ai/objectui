@@ -4,10 +4,11 @@
  *
  * They are **one word in two spellings**, differing by a single code point at
  * the end of the first word — U+064D (tanwīn kasr, the yāʾ dropped) against
- * U+064A (the yāʾ retained) — not two translations. It is same-screen visible:
- * `app-shell`'s `LoadingScreen.tsx` renders `console.initializing` as the
- * heading over the three `console.loadingSteps.*` as a list and
- * `console.actions.retrying` on the retry button — four values that all said
+ * U+064A (the yāʾ retained) — not two translations. It was same-screen visible:
+ * `app-shell`'s `LoadingScreen.tsx` rendered `console.initializing` as the
+ * heading over the three `console.loadingSteps.*` as a list (retired with the
+ * step list by objectui#12187) and `console.actions.retrying` on the retry
+ * button — four values that all said
  * `جاري` — while the console around them had already said `جارٍ` on
  * `dashboard.loading`, `list.loading`, `detail.loadingAttachments` and
  * `console.ai.*`.
@@ -216,9 +217,16 @@ function correctCount(pack: Array<[string, string]>): number {
 }
 
 /**
- * The eight values this card converged, with what they say now. A census of
- * what actually moved, next to the rule — so the record is readable here and
- * not only in the PR that made it.
+ * The values this card converged that are still in the pack, with what they
+ * say now. A census of what actually moved, next to the rule — so the record
+ * is readable here and not only in the PR that made it.
+ *
+ * Eight converged; five remain. objectui#12187 retired the three
+ * `console.loadingSteps.*` with the boot screen's step list (the keys left the
+ * pack, so their rows left this list), and gave `console.initializing` new
+ * copy — still the standalone participle followed by an indefinite maṣdar
+ * heading an iḍāfa, the frame this card ruled on, so it stays pinned here in
+ * the converged spelling.
  *
  * ⚠️ `chart.loading` stands `[needs-review]` in `check:i18n-dead-keys` — its only
  * textual references are this file and `ellipsis-glyph-3878.test.ts`. That
@@ -232,10 +240,7 @@ const CONVERGED: Array<[string, string]> = [
   ['grid.loading', `${JAARIN} تحميل الشبكة…`],
   ['grid.refreshing', `${JAARIN} التحديث…`],
   ['chart.loading', `${JAARIN} تحميل الرسم البياني…`],
-  ['console.initializing', `${JAARIN} تهيئة التطبيق…`],
-  ['console.loadingSteps.connecting', `${JAARIN} الاتصال بمصدر البيانات`],
-  ['console.loadingSteps.loadingConfig', `${JAARIN} تحميل الإعدادات`],
-  ['console.loadingSteps.preparingWorkspace', `${JAARIN} تجهيز مساحة العمل`],
+  ['console.initializing', `${JAARIN} فتح وحدة التحكم…`],
   ['console.actions.retrying', `${JAARIN} إعادة المحاولة…`],
 ];
 
@@ -314,8 +319,8 @@ describe('objectui#6610 — the ar pack spells the منقوص participle جار�
     ).toEqual([]);
   });
 
-  it('pins the eight values this card converged, and the minimal pair that proved the direction', () => {
-    expect(CONVERGED).toHaveLength(8);
+  it('pins the values this card converged, and the minimal pair that proved the direction', () => {
+    expect(CONVERGED).toHaveLength(5);
 
     for (const [key, value] of CONVERGED) {
       const actual = at(builtInLocales.ar, key);

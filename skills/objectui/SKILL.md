@@ -102,7 +102,7 @@ node — the spec's strict page component refuses a node-level `actionType` /
 ```
 
 ⛔ There is no `events` bag: nothing declares or reads `schema.events`, and the node
-is `.passthrough()`, so one authored there is kept and run by nothing (objectui#6497).
+is `.passthrough()`, so one authored there is kept and run by nothing.
 
 ### 5. Layout as components
 

@@ -680,26 +680,37 @@ export interface UploadedFileMetadata {
 
 /**
  * File field metadata
+ *
+ * The size limit is `maxSize`, the spec's `FieldSchema.maxSize` by reference:
+ * the one spelling the file widget reads, and the one the spec accepts on a
+ * field document (objectui#12156). The snake_case `max_size` this interface
+ * declared until then was read by no widget, so a limit written that way was
+ * accepted and then did nothing. ⛔ No file-count key is declared: `FieldSchema`
+ * has none and no widget enforces one, so `max_files` was removed, not renamed.
+ * Pinned in `__tests__/field-file-image-max-size-12156.test.ts`.
  */
 export interface FileFieldMetadata extends BaseFieldMetadata {
   type: 'file';
   multiple?: boolean;
   accept?: string[];
-  max_size?: number;
-  max_files?: number;
+  /** Largest file the widget accepts, in bytes; it refuses a larger pick before any upload starts. */
+  maxSize?: SpecField['maxSize'];
 }
 
 /**
  * Image field metadata
+ *
+ * `maxSize` as on {@link FileFieldMetadata}, by reference to the spec. ⛔ No
+ * file-count or pixel-dimension key is declared: `FieldSchema` has none and no
+ * widget enforces one, so `max_files`, `max_width` and `max_height` were
+ * removed, not renamed (objectui#12156).
  */
 export interface ImageFieldMetadata extends BaseFieldMetadata {
   type: 'image';
   multiple?: boolean;
   accept?: string[];
-  max_size?: number;
-  max_files?: number;
-  max_width?: number;
-  max_height?: number;
+  /** Largest image the widget accepts, in bytes; it refuses a larger pick (or crop) before any upload starts. */
+  maxSize?: SpecField['maxSize'];
 }
 
 /**

@@ -103,16 +103,16 @@ const controlTypes: ComponentInputControlType[] = [
 const inputs: ComponentInput[] = [
   { name: 'title', type: 'string', required: true, description: 'Heading text' },
   // ONE control type, or an ARRAY of them when the input accepts several
-  // shapes (objectui#3832). Widening the vocabulary is a contract change.
+  // shapes. Widening the vocabulary is a contract change.
   { name: 'items', type: ['array', 'object'], of: 'object', description: 'Rows to render' },
   { name: 'variant', type: 'enum', enum: ['solid', 'outline'], description: 'Visual style' },
 ];
 
-// ADR-0049 RETIREMENT TOMBSTONES (objectui#5905) - DECLARED but UNWRITABLE.
+// ADR-0049 RETIREMENT TOMBSTONES - DECLARED but UNWRITABLE.
 // Every key named here is `never` on the published type, so authoring one is a
 // `tsc` error and a named refusal from the Zod mirror (`ComponentInputSchema`).
 // They were never read and never published: the manifest serializer forwards
-// a fixed key list per input, `of` included since objectui#8067 — `name`,
+// a fixed key list per input, `of` now included — `name`,
 // `type`, `of`, `required`, `enum`, `binding`, `description` — so an authored
 // value was silently dropped. Remedy: delete the key and say it in
 // `description`, which IS published. A `Pick` rather than a prose list, so a
@@ -134,7 +134,7 @@ type ComponentInputTombstones = Pick<
 in four ways at once while every gate stayed green: it declared `label`,
 `defaultValue` and `advanced` as WRITABLE where the published type has all three
 as `never` tombstones, and it did not carry `of` at all. That is what a
-teaching copy of a contract type costs — objectui#7636 paid it first.
+teaching copy of a contract type costs; this fence paid it once already.
 
 ### Looking up components
 

@@ -1,0 +1,5 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "pnpm i",
+  "buildCommand": "cd ../.. && pnpm turbo run build --filter=@object-ui/site"
+}

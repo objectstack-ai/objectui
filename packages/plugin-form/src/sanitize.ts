@@ -163,14 +163,14 @@ const REASSIGNABLE_OWNER_FIELD = 'owner_id';
  * it, still never writes it. Only {@link dirtyEditPayload} passes `true`.
  */
 function stripUnwritable(
-  data: Record<string, any>,
-  objectSchema: { fields?: Record<string, any> } | null | undefined,
+  data: Parameters<typeof sanitizeFormData>[0],
+  objectSchema: Parameters<typeof sanitizeFormData>[1],
   canEdit: ((fieldName: string) => boolean) | undefined,
   admitOwner: boolean,
-): Record<string, any> {
+): ReturnType<typeof sanitizeFormData> {
   if (!data || typeof data !== 'object') return data;
 
-  const out: Record<string, any> = {};
+  const out: ReturnType<typeof sanitizeFormData> = {};
   const fields = objectSchema?.fields;
 
   for (const [key, value] of Object.entries(data)) {

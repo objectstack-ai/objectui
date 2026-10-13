@@ -103,8 +103,9 @@ const NUMERIC_EDIT_TYPES = new Set<TableColumnType>(['number', 'currency', 'perc
  */
 type PendingRowKey = unknown;
 
-function pendingRowKeyOf(row: any): PendingRowKey {
-  return row != null && typeof row === 'object' && row.id != null ? row.id : row;
+function pendingRowKeyOf(row: unknown): PendingRowKey {
+  if (row !== null && typeof row === 'object' && 'id' in row && row.id != null) return row.id;
+  return row;
 }
 
 /**

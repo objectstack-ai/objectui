@@ -1257,9 +1257,17 @@ export const BASELINE = Object.freeze({
    * moved the figure. Measured by `CI=true pnpm exec turbo run build
    * --filter=@object-ui/console... --concurrency=2` (exit 0), reading
    * `apps/console/dist/eager-closure.json`, under `scripts/pm/os-verify-lock.sh`,
-   * in the same container as the `cea429b` control build. The commits after
-   * `5488ae7` on the branch (one unit-test edit in `packages/types` and this
-   * re-pin) reach no bundler input, so they cannot move the figure it pins.
+   * in the same container as the `cea429b` control build. Of the commits after
+   * `5488ae7` on the branch, a unit-test edit in `packages/types`, this re-pin
+   * and a changeset reach no bundler input. Two do, both folded in under the
+   * maintainer's ruling 6148150305 after this reading: `179247d` drops the zh
+   * `org` overlay-scope label in app-shell's `i18n.ts`, and `5db13ba` removes
+   * the retired `defaultFilters` reads from `ObjectGrid` and `ObjectView`. The
+   * console build of `5db13ba`, by the same instrument, read 3,122,375 across
+   * 72 of 2255 chunks: −88 bytes, the largest moves `plugin-grid` (−40) and
+   * `plugin-view` (−16). ⛔ Not re-pinned for it: a shrink that small sits
+   * inside the band, and this constant stays the reading the ceiling was
+   * derived from.
    *
    * ⚠️ The paragraph below describes the reading this one superseded, the
    * previous baseline `f05f015` (3,235,899 across 289 of 2474 chunks), kept as

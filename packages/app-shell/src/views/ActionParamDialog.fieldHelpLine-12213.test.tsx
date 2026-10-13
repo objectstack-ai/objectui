@@ -14,9 +14,11 @@
  * (`{ field: 'x' }`) the field's help text when the param declares none of its
  * own. It read `field.help ?? field.description`, so the key the spec declares
  * for a field's help (`FieldSchema.inlineHelpText`, which Studio's object field
- * inspector writes) never reached the dialog. It now reads the record form's
- * order: `inlineHelpText`, then the served `help` leg, then `description`, an
- * empty string reading as absent.
+ * inspector writes) never reached the dialog. It now reads through
+ * `fieldHelpText`, the one read the record form shares: `inlineHelpText`, then
+ * `description`, an empty string reading as absent. A served `help` key is
+ * ignored (ruled on objectui#12213: only an objectstack server older than spec
+ * 17.7.0 serves one, and 17.7.0 serves the translated text on `description`).
  *
  * Each case resolves a REAL param against an object definition and renders the
  * real `ActionParamDialog`, so what is asserted is the line a user reads under
@@ -35,6 +37,7 @@ const TICKET = {
     summary: { type: 'text', label: 'Summary', description: 'The summary description' },
     blank: { type: 'text', label: 'Blank', inlineHelpText: '', description: 'The blank description' },
     served: { type: 'text', label: 'Served', help: 'Served translated help', description: 'Served source description' },
+    helpOnly: { type: 'text', label: 'Help only', help: 'Served help alone' },
     plain: { type: 'text', label: 'Plain' },
   },
 };
@@ -76,10 +79,17 @@ describe('objectui#12213 — a field-backed param’s help line reads `inlineHel
     expect(screen.getByText('The blank description')).toBeTruthy();
   });
 
-  it('the served `help` leg is still read, as on the record form', async () => {
+  it('a served `help` key is ignored, as on the record form: the field lends its `description`', async () => {
     const { param } = await openFor({ field: 'served' });
-    expect(param.helpText).toBe('Served translated help');
-    expect(screen.getByText('Served translated help')).toBeTruthy();
+    expect(param.helpText).toBe('Served source description');
+    expect(screen.getByText('Served source description')).toBeTruthy();
+    expect(screen.queryByText('Served translated help')).toBeNull();
+  });
+
+  it('a field whose only help is a served `help` key lends none', async () => {
+    const { param } = await openFor({ field: 'helpOnly' });
+    expect(param.helpText).toBeUndefined();
+    expect(screen.queryByText('Served help alone')).toBeNull();
   });
 
   it('the param’s own `helpText` still wins over the field’s `inlineHelpText`', async () => {

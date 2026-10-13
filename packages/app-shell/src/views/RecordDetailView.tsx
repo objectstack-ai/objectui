@@ -15,10 +15,10 @@ import { Empty, EmptyTitle, EmptyDescription, Button } from '@object-ui/componen
 import { useAuth, createAuthenticatedFetch } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
 import { useDisplayLocale } from '@object-ui/i18n';
-import { ActionProvider, useObjectTranslation, useObjectLabel, useActionTextLocalizer, usePageAssignment, RecordContextProvider, SchemaRenderer, DiscussionContextProvider, HighlightFieldsProvider, InlineEditProvider, resolveApprovalLock, useGlobalUndo, useDataInvalidation, notifyDataChanged, useRowPredicate, classifyLoadError } from '@object-ui/react';
+import { ActionProvider, useObjectTranslation, useObjectLabel, useActionTextLocalizer, usePageAssignment, RecordContextProvider, SchemaRenderer, DiscussionContextProvider, HighlightFieldsProvider, InlineEditProvider, resolveApprovalLock, useGlobalUndo, useDataInvalidation, notifyDataChanged, subscribeDataChanges, dataChangeMatches, useRowPredicate, classifyLoadError } from '@object-ui/react';
 import { buildExpandFields, captureUpdateUndoData, recordDelete, resolveAffordance, resolveRecordIdParamSeed, userActionPredicates, withoutDeniedFields, type AffordanceGrantPrincipal, type SchemaLike } from '@object-ui/core';
 import { toast } from 'sonner';
-import { useRecordPresence, PresenceAvatars } from '@object-ui/collaboration';
+import { useRecordPresence, PresenceAvatars, isCommentAuthor } from '@object-ui/collaboration';
 import { Database, ChevronLeft, Lock, AlertTriangle, RotateCw } from 'lucide-react';
 import { MetadataPanel, useMetadataInspector } from './MetadataInspector.js';
 import { SkeletonDetail } from '../skeletons/index.js';
@@ -315,8 +315,9 @@ const COMMENT_REACTION_OBJECT = 'sys_comment_reaction';
 const COMMENT_OBJECT = 'sys_comment';
 
 /**
- * Which writes the record feed may offer: its comment and reply composers, and
- * its reaction control on either store (objectui#12082).
+ * Which writes the record feed may offer: its comment and reply composers, the
+ * author's Edit and Delete on their own comment (objectui#12268), and its
+ * reaction control on either store (objectui#12082).
  *
  * Each is a row of the affordance-to-grant map (`resolveAffordance` in
  * `@object-ui/core`), asked of the object it writes, with that object's schema
@@ -335,7 +336,14 @@ const COMMENT_OBJECT = 'sys_comment';
 function resolveFeedWriteGates(
   objects: readonly unknown[] | undefined,
   perms: AffordanceGrantPrincipal | null | undefined,
-): { comment: boolean; reactionAdd: boolean; reactionRemove: boolean; reactionColumn: boolean } {
+): {
+  comment: boolean;
+  commentEdit: boolean;
+  commentDelete: boolean;
+  reactionAdd: boolean;
+  reactionRemove: boolean;
+  reactionColumn: boolean;
+} {
   const source = (objectName: string) => ({
     objectSchema: ((objects ?? []).find((o) => (o as { name?: unknown } | null)?.name === objectName) ??
       null) as SchemaLike | null,
@@ -344,6 +352,10 @@ function resolveFeedWriteGates(
   });
   return {
     comment: resolveAffordance('feedComment', source(COMMENT_OBJECT)).allowed,
+    // objectui#12268: the author's Edit and Delete on their own comment, each
+    // under its own grant on `sys_comment`.
+    commentEdit: resolveAffordance('feedCommentEdit', source(COMMENT_OBJECT)).allowed,
+    commentDelete: resolveAffordance('feedCommentDelete', source(COMMENT_OBJECT)).allowed,
     reactionAdd: resolveAffordance('feedReactionAdd', source(COMMENT_REACTION_OBJECT)).allowed,
     reactionRemove: resolveAffordance('feedReactionRemove', source(COMMENT_REACTION_OBJECT)).allowed,
     reactionColumn: resolveAffordance('feedReactionColumn', source(COMMENT_OBJECT)).allowed,
@@ -593,6 +605,10 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // its object) is invalidated by anyone — the form overlay, an action, an
   // undo, or any dataSource write via the MutationEvent bridge.
   const recordInvalidationNonce = useDataInvalidation(objectName || undefined, pureRecordId || undefined);
+  // objectui#12244 — the record load's SECOND trigger: a write to one of this
+  // record's related CHILD objects. Bumped by the subscription beside
+  // `childRelations` below, which explains why it exists.
+  const [childInvalidationNonce, setChildInvalidationNonce] = useState(0);
   const notifyRecordChanged = useCallback(() => {
     if (objectName) notifyDataChanged({ objectName, recordId: pureRecordId || undefined });
   }, [objectName, pureRecordId]);
@@ -816,13 +832,14 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
       window.removeEventListener('objectui:record-changed', onChanged as EventListener);
     };
     // #2269: recordInvalidationNonce re-runs this fetch in place whenever the
-    // record (or its object) is invalidated on the bus.
+    // record (or its object) is invalidated on the bus; childInvalidationNonce
+    // does the same for a write to one of its related children (objectui#12244).
     //
     // objectui#11699: every dependency here is either a primitive or the
     // adapter the read goes through. ⛔ Do not list `objectDef`,
     // `effectivePage` or `perms` here — derive what the read sends from them
     // above instead (AGENTS.md #10).
-  }, [hasPage, objectName, pureRecordId, dataSource, pageRecordExpand, recordInvalidationNonce]);
+  }, [hasPage, objectName, pureRecordId, dataSource, pageRecordExpand, recordInvalidationNonce, childInvalidationNonce]);
 
   // The loaded record AS THE VIEWER MAY READ IT (objectui#10434,
   // objectui#10499): `withoutDeniedFields` removes the fields the loaded
@@ -1329,13 +1346,16 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
       });
       const judged = launch.judged;
       // Paused at a `screen` node: FlowRunner renders the form + resumes, and
-      // refreshes on completion.
+      // refreshes on completion. The pause keeps the action's own toast
+      // silent, so its `successMessage` rides along to the run's completion
+      // (objectui#12234 — see FlowRunner's header).
       if (judged.followUp?.kind === 'screen') {
         setScreenFlow({
           flowName: launch.flowName,
           flowLabel: judged.followUp.flowLabel,
           runId: judged.followUp.runId,
           screen: judged.followUp.screen,
+          actionSuccessMessage: action.successMessage,
         });
       }
       // Ended `refused`: the Close-only notice carries the engine's sentence,
@@ -1574,6 +1594,42 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     }),
     [objectDef, objects, canOnObject, permissionsLoaded, objectPluralLabel],
   );
+
+  // [objectui#12244] A write to a CHILD re-reads this record, in place.
+  //
+  // Every block of this page — the header's highlight strip with its rollups
+  // among them — draws from the ONE row the record-load effect above reads, and
+  // that read re-ran only for a change to THIS record or object. A child write
+  // reaches the bus (objectui#2269) under the CHILD's name: through the
+  // console's MutationEvent bridge for a dataSource write (a related-list row
+  // delete, the form overlay's save), or through `notifyRelatedChanged` for a
+  // row action. Neither matched, so a quote's total stayed stale beside a line
+  // list that refreshed, until a reload. A rollup is the server's to compute
+  // (a summary field, or a hook rolling the children up); the page's part is
+  // only to read the parent again.
+  //
+  // Reader side, the precedent `record:reference_rail` set for its own rows
+  // (objectui#12110 item 4): the WRITER declares what it wrote, the reader
+  // knows what it depends on. That covers every child-write path at one seam,
+  // and costs one parent read per change, however many lists are mounted.
+  //
+  // The children are the page's derived related lists, keyed by CONTENT
+  // (AGENTS.md #10 — `childRelations` is a memo). A change both subscriptions
+  // match — a `'*'`, or this record when the object references itself — bumps
+  // both nonces from one dispatch; React batches the two updates into one
+  // render, so the row is still read once.
+  const relatedChildObjectsKey = JSON.stringify(
+    Array.from(new Set(childRelations.map((r) => r.childObject))).sort(),
+  );
+  useEffect(() => {
+    const childObjects = JSON.parse(relatedChildObjectsKey) as string[];
+    if (childObjects.length === 0) return;
+    return subscribeDataChanges((change) => {
+      if (childObjects.some((child) => dataChangeMatches(change, child))) {
+        setChildInvalidationNonce((n) => n + 1);
+      }
+    });
+  }, [relatedChildObjectsKey]);
 
   // [objectstack#3821] RECORD-level write gate. Everything above is object
   // scoped — it cannot express "this one record is read-only", which is
@@ -2061,10 +2117,11 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     };
 
     // M10.10: Fetch persisted comments from sys_comment. Field names
-    // are snake_case to match the platform-objects schema
-    // (`packages/platform-objects/src/audit/sys-comment.object.ts`):
-    // thread_id, author_id, author_name, author_avatar_url, body,
-    // reactions (JSON string), parent_id, created_at, updated_at.
+    // are snake_case to match the object's schema (`sys_comment` in
+    // `@objectstack/plugin-audit`): thread_id, author_id, author_name,
+    // author_avatar_url, body, parent_id, is_edited, edited_at, created_at,
+    // updated_at — and `reactions` (JSON string) only on the `column` store
+    // below, a framework that predates `sys_comment_reaction`.
     //
     // Either store reaches the screen as `{ emoji: string[] }` (one array of
     // user-ids per emoji). The aggregator below counts entries and flags the
@@ -2140,6 +2197,13 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           updatedAt: c.updated_at,
           parentId: c.parent_id ?? undefined,
           replyCount: replyCounts.get(c.id),
+          // objectui#12268: a comment its author edited reads as edited, from
+          // the row's own `is_edited`; and the viewer's own comment offers its
+          // author's Edit and Delete. Whose it is, is the one rule
+          // `CommentThread` gates on (`isCommentAuthor`), asked here so the
+          // feed never derives it.
+          edited: c.is_edited === true,
+          authoredByViewer: isCommentAuthor(c.author_id, currentUser.id),
           reactions:
             reactionStore === 'records'
               ? toReactions(records?.stored.get(String(c.id)))
@@ -2306,6 +2370,9 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         actorAvatarUrl: 'avatar' in currentUser ? (currentUser as any).avatar : undefined,
         body: text,
         createdAt: new Date().toISOString(),
+        // Written under the viewer's own id (the server stamps the session's),
+        // asked through the same rule as a read row (objectui#12268).
+        authoredByViewer: isCommentAuthor(currentUser.id, currentUser.id),
       };
       // Persist to backend (M10.10: snake_case fields per sys_comment schema)
       const threadId = `${objectName}:${pureRecordId}`;
@@ -2346,6 +2413,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         body: text,
         createdAt: new Date().toISOString(),
         parentId,
+        authoredByViewer: isCommentAuthor(currentUser.id, currentUser.id),
       };
       const threadId = `${objectName}:${pureRecordId}`;
       const mentionIds = extractMentions(text, mentionSuggestions);
@@ -2381,6 +2449,119 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
       });
     },
     [currentUser, dataSource, objectName, pureRecordId, feedRecordKey, mentionSuggestions, commentWriteFailed],
+  );
+
+  /**
+   * The author's Edit on their own comment or reply (objectui#12268).
+   *
+   * The panel offers it on a `comment` row the read marked `authoredByViewer`,
+   * and only while the caller holds the update grant on `sys_comment`
+   * (`feedGates.commentEdit`). The server's rule stays the authority: the
+   * platform's comment access hooks let the author, or a user who may edit the
+   * parent record, update a comment, and refuse anyone else.
+   *
+   * Same shape as the composers above (objectui#10899): the row's text changes
+   * only after the server has stored it. A refused write raises a localized
+   * error and REJECTS back to the editor, which keeps the draft, and the row
+   * keeps its old text.
+   *
+   * The write marks the comment edited (`is_edited`, `edited_at`): the server
+   * stamps neither on update, so the client that makes the edit records it,
+   * and the next read shows the mark from the row itself. `mentions` is
+   * rewritten from the new text, so the row's id list stays the text's.
+   */
+  const handleEditComment = useCallback(
+    async (itemId: string | number, text: string) => {
+      const editFailed = (err: unknown): Error => {
+        toast.error(
+          t('detail.commentEditFailed', {
+            defaultValue: 'Your edit was not saved. The comment keeps its previous text.',
+          }),
+        );
+        return err instanceof Error ? err : new Error(String(err));
+      };
+      if (!dataSource || !feedRecordKey) {
+        throw editFailed(new Error('No data source to write sys_comment through'));
+      }
+      const key = feedRecordKey;
+      // A `sys_comment` id only: any other row is refused without a write, as
+      // the reaction handler refuses one (objectui#11035).
+      const row = (feedItemsByRecord[key] ?? EMPTY_FEED).find(item => item.id === itemId);
+      if (!row || row.type !== 'comment') return;
+      try {
+        await dataSource.update(COMMENT_OBJECT, String(itemId), {
+          body: text,
+          mentions: JSON.stringify(extractMentions(text, mentionSuggestions)),
+          is_edited: true,
+          edited_at: new Date().toISOString(),
+        });
+      } catch (err) {
+        throw editFailed(err);
+      }
+      setFeedItemsByRecord(prev => ({
+        ...prev,
+        [key]: (prev[key] ?? EMPTY_FEED).map(item =>
+          item.id === itemId ? { ...item, body: text, edited: true } : item,
+        ),
+      }));
+    },
+    [dataSource, feedRecordKey, feedItemsByRecord, mentionSuggestions, t],
+  );
+
+  /**
+   * The author's Delete on their own comment or reply (objectui#12268), offered
+   * on the same rows under the delete grant (`feedGates.commentDelete`).
+   *
+   * It asks first, through the console's ordinary destructive-action confirm:
+   * this page's own `confirmHandler`, the `ActionConfirmDialog` the record's
+   * Delete opens, painted destructive. A cancel settles `false` and nothing is
+   * sent. The row leaves the panel only once the server has deleted it; a
+   * refused delete raises a localized error and leaves the row where it was.
+   * A deleted reply takes one off its parent's `replyCount`, the count
+   * `handleAddReply` adds one to.
+   */
+  const handleDeleteComment = useCallback(
+    async (itemId: string | number) => {
+      if (!dataSource || !feedRecordKey) return;
+      const key = feedRecordKey;
+      const row = (feedItemsByRecord[key] ?? EMPTY_FEED).find(item => item.id === itemId);
+      if (!row || row.type !== 'comment') return;
+      const confirmed = await confirmHandler(
+        t('detail.deleteCommentConfirm', {
+          defaultValue: 'Are you sure you want to delete this comment?',
+        }),
+        {
+          title: t('detail.deleteComment', { defaultValue: 'Delete comment' }),
+          confirmText: t('objectActions.deleteConfirmButton', { defaultValue: 'Delete' }),
+          destructive: true,
+        },
+      );
+      if (!confirmed) return;
+      try {
+        if ((await dataSource.delete(COMMENT_OBJECT, String(itemId))) === false) {
+          throw new Error('The comment was not deleted.');
+        }
+      } catch (err) {
+        toast.error(
+          t('detail.commentDeleteFailed', {
+            defaultValue: 'The comment was not deleted. Please try again.',
+          }),
+        );
+        throw err instanceof Error ? err : new Error(String(err));
+      }
+      const parentId = row.parentId;
+      setFeedItemsByRecord(prev => ({
+        ...prev,
+        [key]: (prev[key] ?? EMPTY_FEED)
+          .filter(item => item.id !== itemId)
+          .map(item =>
+            parentId != null && item.id === parentId
+              ? { ...item, replyCount: Math.max(0, (item.replyCount ?? 0) - 1) }
+              : item,
+          ),
+      }));
+    },
+    [dataSource, feedRecordKey, feedItemsByRecord, confirmHandler, t],
   );
 
   /**
@@ -3279,6 +3460,11 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           // the column row where the deployment stores reactions in a column.
           onAddComment={feedGates.comment ? (handleAddComment as any) : undefined}
           onAddReply={feedGates.comment ? (handleAddReply as any) : undefined}
+          // objectui#12268: the author's Edit and Delete, each under its own
+          // grant; the panel offers them only on the rows the read marked
+          // `authoredByViewer`.
+          onEditComment={feedGates.commentEdit ? handleEditComment : undefined}
+          onDeleteComment={feedGates.commentDelete ? handleDeleteComment : undefined}
           onToggleReaction={
             (reactionStore === 'records'
               ? feedGates.reactionAdd

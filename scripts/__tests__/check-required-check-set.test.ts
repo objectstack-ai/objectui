@@ -22,25 +22,30 @@ const GATE = 'scripts/check-required-check-set.mjs';
 const WORKFLOW = '.github/workflows/required-check-set-patrol.yml';
 const FIXTURES = 'scripts/__tests__/fixtures/required-check-set';
 /**
- * The set objectui#9499's ruling installs: the four `Test (shard N/4)` contexts
- * replaced by the one aggregator context `Test`. It WAS the control fixture
- * until objectui#9969 declared one more context; it is kept because it is now
- * exactly the declared set with `Spec Main Shape Gate` lost, which is the case
- * that card asked the patrol to report.
+ * The verbatim live answer of 2026-10-12, taken the day objectui#12240 was
+ * executed and before the maintainer's ruleset edit. That card's window is
+ * this reading: between its pull request merging and the maintainer removing
+ * `Spec Main Shape Gate` from the ruleset, the live set is exactly this one and
+ * the declaration is `RULING_FIXTURE`. A case below asserts the evaluator calls
+ * that `drifted` — reported, exit 0, never red.
  */
-const RULING_9499_FIXTURE = `${FIXTURES}/ruling-9499.json`;
+const LIVE_2026_10_12_FIXTURE = `${FIXTURES}/live-2026-10-12.json`;
 /**
- * objectui#9499's set plus `Spec Main Shape Gate`, which objectui#9969's ruling
- * A enrolled and this patrol now watches. The CONTROL fixture: byte-identical
- * to the one above except for that one appended entry.
+ * The set objectui#12240's ruling installs — the maintainer's ruling B on
+ * objectui#12214's open question 1 (ACCEPT 6123370050): `Spec Main Shape Gate`
+ * leaves the required set, and `Governed Surface Queue Guard`, enrolled under
+ * objectui#6596 and never declared here, is. The CONTROL fixture: the dated
+ * reading above with exactly that one entry removed, every other rule
+ * byte-identical. It replaced objectui#9969's control, which watched the gate
+ * that card enrolled.
  */
-const RULING_FIXTURE = `${FIXTURES}/ruling-9969.json`;
+const RULING_FIXTURE = `${FIXTURES}/ruling-12240.json`;
 /**
  * The verbatim live answer of 2026-09-14, kept because it is a real reading and
- * because the window objectui#9499 opens is worth pinning: between this pull
- * request merging and the maintainer adding `Test` to the ruleset, the live set
- * is exactly this one and the declaration is `RULING_FIXTURE`. The case below
- * asserts the evaluator calls that `drifted` — reported, exit 0, never red.
+ * because objectui#9499's window was worth pinning: between that pull request
+ * merging and the maintainer adding `Test` to the ruleset, the live set was
+ * exactly this one. The case below asserts the evaluator still calls it
+ * `drifted` — reported, exit 0, never red — against today's declaration.
  */
 const LIVE_2026_09_14_FIXTURE = `${FIXTURES}/live-2026-09-14.json`;
 const LIVE_FIXTURE = RULING_FIXTURE;
@@ -209,10 +214,10 @@ describe('check-required-check-set — the committed fixture is the live shape',
 
     expect(reading.verdict).toBe('drifted');
     expect(exitCodeFor(reading.verdict)).toBe(EXIT_OK);
-    // `Spec Main Shape Gate` is missing from this dated answer too: it was not
-    // enrolled until objectui#9969, and the declaration it is read against now
-    // watches it. The fixture is a verbatim reading and stays as it was.
-    expect(reading.missingWatched).toEqual(['Test', 'Spec Main Shape Gate']);
+    // `Governed Surface Queue Guard` is missing from this dated answer too: it
+    // was not enrolled until objectui#6596 and not declared here until
+    // objectui#12240. The fixture is a verbatim reading and stays as it was.
+    expect(reading.missingWatched).toEqual(['Test', 'Governed Surface Queue Guard']);
     expect(reading.unexpected).toEqual([
       'Test (shard 1/4)',
       'Test (shard 2/4)',
@@ -225,32 +230,51 @@ describe('check-required-check-set — the committed fixture is the live shape',
   });
 
   /**
-   * objectui#9969: the reason `Spec Main Shape Gate` is watched at all. The
-   * pre-#9969 declared set is the current one with that context lost, so it is
-   * the case to read. Losing it must be NAMED (the patrol's summary says it is
-   * no longer required) and must stay exit 0: watched, not pinned, so no new
-   * red leg is added by declaring it.
+   * objectui#12240's window, pinned at its middle step — objectui#9499's shape
+   * run the other way. The ruling REMOVES a context: the pull request that
+   * declares the new set merges, and the maintainer edits the ruleset in the
+   * same sitting. Between the two the live answer is the dated reading of
+   * 2026-10-12 and the declaration is the ruling's. The patrol must NAME the
+   * leftover context and stay at exit 0: a ruled removal must not manufacture
+   * a red on healthy work, which is objectui#9422's two tiers doing their job.
    */
-  it('reads the declared set with `Spec Main Shape Gate` lost as DRIFTED, naming it', () => {
+  it('reads the live answer of the day objectui#12240 was executed as DRIFTED, naming `Spec Main Shape Gate`', () => {
     const contexts = (rules: Rule[]): string[] =>
       rules.flatMap((r) =>
         r.type === 'required_status_checks'
           ? (r.parameters?.required_status_checks ?? []).map((c) => String(c.context))
           : [],
       );
-    // The two ruling fixtures differ by exactly that one context and nothing
-    // else, so the drift below cannot be caused by some second difference.
-    expect(contexts(readFixture(RULING_9499_FIXTURE))).toEqual(
-      contexts(readFixture(RULING_FIXTURE)).filter((c) => c !== 'Spec Main Shape Gate'),
+    // The two fixtures differ by exactly that one context and nothing else, so
+    // the drift below cannot be caused by some second difference.
+    expect(contexts(readFixture(RULING_FIXTURE))).toEqual(
+      contexts(readFixture(LIVE_2026_10_12_FIXTURE)).filter((c) => c !== 'Spec Main Shape Gate'),
     );
     const others = (rules: Rule[]) => JSON.stringify(rules.filter((r) => r.type !== 'required_status_checks'));
-    expect(others(readFixture(RULING_9499_FIXTURE))).toBe(others(readFixture(RULING_FIXTURE)));
+    expect(others(readFixture(RULING_FIXTURE))).toBe(others(readFixture(LIVE_2026_10_12_FIXTURE)));
 
-    const r = runGate(['--fixture', RULING_9499_FIXTURE]);
+    const reading = evaluate({
+      rules: readFixture(LIVE_2026_10_12_FIXTURE),
+      branch: 'main',
+      repository: 'objectstack-ai/objectui',
+    });
+    expect(reading.verdict).toBe('drifted');
+    expect(reading.unexpected).toEqual(['Spec Main Shape Gate']);
+    expect(reading.missingWatched).toEqual([]);
+    expect(reading.missingPinned).toEqual([]);
+
+    const r = runGate(['--fixture', LIVE_2026_10_12_FIXTURE]);
     expect(r.status).toBe(EXIT_OK);
-    expect(r.stdout).toContain('No longer required: `Spec Main Shape Gate`.');
+    expect(r.stdout).toContain('Required but not declared here: `Spec Main Shape Gate`.');
     expect(r.stdout).not.toContain('✅');
     expect(r.stderr).toContain('DRIFTED');
+  });
+
+  it('the context objectui#12240 removed is neither pinned nor watched', () => {
+    const declared = [...PINNED_CONTEXTS, ...WATCHED_CONTEXTS];
+    expect(declared).not.toContain('Spec Main Shape Gate');
+    // Control: the same membership test finds the name that ruling declared.
+    expect(declared).toContain('Governed Surface Queue Guard');
   });
 });
 

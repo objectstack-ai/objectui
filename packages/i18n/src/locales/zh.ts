@@ -1111,6 +1111,11 @@ const zh = {
     linkCopied: '链接已复制到剪贴板',
     commentFailed: '评论未发布，内容没有保存，请重试。',
     reactionFailed: '表情回应未保存，请重试。',
+    editComment: '编辑评论',
+    deleteComment: '删除评论',
+    deleteCommentConfirm: '确定要删除这条评论吗？',
+    commentEditFailed: '您的修改未保存，评论保留原有内容。',
+    commentDeleteFailed: '评论未删除，请重试。',
     linkCopyFailed: '复制链接失败',
     cancel: '取消',
     cancelEdit: '放弃更改',
@@ -1222,6 +1227,7 @@ const zh = {
     noAttachments: '暂无附件。上传一个文件开始吧。',
     downloadAttachment: '下载',
     deleteAttachment: '删除附件',
+    deleteAttachmentConfirm: '确定要删除附件“{{name}}”吗？',
     attachmentDeleteDenied: '只有上传者或可编辑此记录的用户才能删除此附件。',
     attachmentParentAccessDenied: '您无权为此记录添加附件。',
     attachmentDownloadDenied: '您无权下载此附件。',
@@ -1711,21 +1717,6 @@ const zh = {
     initializing: '正在打开你的控制台…',
     search: '搜索…',
     breadcrumb: {
-      dashboards: '仪表盘',
-      pages: '页面',
-      // objectui#6166 — 报表 here is a maintainer RULING (2026-08-25), not a
-      // majority count. 报表 (tabular/data report) and 报告 (written/narrative
-      // report) are NOT interchangeable, so this key holding 报告 against the
-      // rest of the pack was read as evidence of a majority and never, on its
-      // own, as evidence of a mistake; the call was made on what renders. This
-      // segment labels the `routeType === 'report'` LIST route (app-shell
-      // AppHeader) — a structural sibling of dashboards/pages that drills into
-      // metadata report definitions, i.e. the same feature that
-      // `console.commandPalette.reports`, `console.nav.navReport` and
-      // `search.badgeReport` already call 报表. Nothing narrative renders
-      // beneath it. Don't re-file this as a pack inconsistency, and don't
-      // restore 报告 without a new ruling.
-      reports: '报表',
       system: '系统',
       marketplace: '应用市场',
       settings: '设置',

@@ -79,6 +79,33 @@
  * suppresses the action's `successMessage` at the ActionRunner's toast sink.
  * ⛔ That last part is a thing that WORKS — it is pinned, not touched.
  *
+ * ## The invoking action's `successMessage` closes the run (objectui#12234)
+ *
+ * The `silent` above holds the action's message back AT THE PAUSE, because
+ * nothing has completed yet. It used to be held back for good: the run then
+ * completed here, and this toast knew only the FLOW's words, so an action
+ * declaring "Case escalated" closed on the generic `Flow "…" completed`. The
+ * same action whose run did not pause got its own message from the action
+ * runner, so the copy a user read depended on whether the flow happened to
+ * ask for input.
+ *
+ * So the launch host hands the action's message over with the run
+ * (`ScreenFlowState.actionSuccessMessage`), and the terminal-success toast
+ * reads, in order: that message, the flow's own `successMessage`, the
+ * catalog's flow-completed sentence. The action's copy wins over the flow's
+ * for the reason above — it is what the same click shows when the run does
+ * not pause. It is handed over already localized: every surface that
+ * dispatches a declared action runs it through `useActionTextLocalizer`
+ * first, and the handler receives that copy, so there is no second
+ * localization step here. Nothing else moves: the pause stays silent, an
+ * intermediate step still toasts `flowRunner.nextStep`, and a `refused` or
+ * failed end still shows no success toast.
+ *
+ * The order of the first two is not this file's: it is `flowSuccessCopy` in
+ * `utils/flowResponse`, which a run that goes straight through follows too
+ * (objectui#12274). This file adds only its own default, the catalog's
+ * sentence.
+ *
  * ## The AUTHOR's copy is localized here; the chrome is not (objectui#5920)
  *
  * A screen's heading and each field's `label` / `placeholder` are the flow
@@ -197,7 +224,7 @@ import {
   type ScreenFieldSpec,
   type ScreenSpec,
 } from './ScreenView.js';
-import { interpretFlowResponse } from '../utils/flowResponse.js';
+import { flowSuccessCopy, interpretFlowResponse } from '../utils/flowResponse.js';
 
 export type { ScreenSpec, ScreenFieldSpec } from './ScreenView.js';
 
@@ -316,6 +343,15 @@ export interface ScreenFlowState extends Pick<AutomationResult, 'flowLabel'> {
   flowName: string;
   runId: string;
   screen: ScreenSpec;
+  /**
+   * The `successMessage` the ACTION that launched this run declares, exactly
+   * as that action reached the host's flow handler — so already localized by
+   * the surface that dispatched it, and the same value the action runner
+   * toasts when the run completes without pausing (objectui#12234 — see the
+   * header). Absent when no action launched the run or the action declares
+   * none; the runner then keeps the flow-completed toast it always had.
+   */
+  actionSuccessMessage?: string;
 }
 
 /**
@@ -465,10 +501,13 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
       setValues(initialScreenValues(outcome.screen));
       toast.success(t('flowRunner.nextStep', { defaultValue: 'Saved — next step' }));
     } else {
-      // Terminal success — show the flow's declared completion message, else
-      // the catalog's sentence naming the flow by the label this answer served.
+      // Terminal success — the invoking action's own `successMessage` first
+      // (objectui#12234 — see the header), then the flow's declared completion
+      // message, by the one precedence a straight-through run follows too
+      // (objectui#12274); else the catalog's sentence naming the flow by the
+      // label this answer served.
       toast.success(
-        outcome.successMessage
+        flowSuccessCopy(state.actionSuccessMessage, outcome.successMessage)?.text
           || t('flowRunner.completed', {
             flow: displayFlowLabel(flowName, outcome.flowLabel, bundle, language),
             defaultValue: 'Flow "{{flow}}" completed',

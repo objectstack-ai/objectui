@@ -45,10 +45,15 @@
  * maintainer's ruling A on objectui#11466 extended ruling C to this last
  * inline metric form: on both surfaces the envelope node now draws
  * `LEGACY_RETIRED_WIDGET_SCHEMA` and sends no query, and `object-metric` left
- * the filterable set. The last two blocks below pin that, and keep the
- * broadcast's control on the envelope's `object-chart` and
- * `object-data-table`, which still receive the filter bar's value. The rest of
- * this header is kept as the reading of objectui#11525.
+ * the filterable set. The last block below pins that. The rest of this header
+ * is kept as the reading of objectui#11525.
+ *
+ * ⚠️ Dated note, 2026-10-12 — the broadcast's envelope control retired —
+ * objectui#12254. A block here pinned that the dashboard filter bar still
+ * scoped an `object-chart` or `object-data-table` node placed in that
+ * envelope. The envelope now draws a `metric-card` and nothing else, so both
+ * nodes draw the same placeholder and send no query, filter bar or not; that
+ * is pinned, with the filter bar set, in `envelopeDrawRetired-12254.test.tsx`.
  */
 
 import * as React from 'react';
@@ -245,20 +250,5 @@ describe.each(SURFACES)('%s surface — an object-metric in a component envelope
     expect(nodesOfType(type)).toHaveLength(0);
     expect(adapter.aggregate).not.toHaveBeenCalled();
     expect(adapter.find).not.toHaveBeenCalled();
-  });
-});
-
-describe('renderer surface — the filter broadcast still scopes the envelope\'s other object-backed nodes (objectui#11466)', () => {
-  it.each([
-    ['object-chart', { type: 'object-chart', objectName: 'deal', chartType: 'bar', aggregate: { field: 'amount', function: 'sum', groupBy: 'name' }, xAxisKey: 'name', series: [{ dataKey: 'amount' }] }],
-    ['object-data-table', { type: 'object-data-table', objectName: 'deal' }],
-  ])('a `component` envelope holding an %s node receives the filter bar value', async (type, component) => {
-    const adapter = makeAdapter();
-    mount('renderer', [{ id: 'w1', title: 'Envelope', component }], adapter, REGION_FILTER);
-
-    await waitFor(() => expect(nodesOfType(type).length).toBeGreaterThan(0));
-    const node = nodesOfType(type)[nodesOfType(type).length - 1];
-    expect(node.filter).toEqual({ region: 'EMEA' });
-    expect(received).not.toContain(LEGACY_RETIRED_WIDGET_SCHEMA);
   });
 });

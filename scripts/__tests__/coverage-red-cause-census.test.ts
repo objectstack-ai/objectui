@@ -156,6 +156,15 @@ describe('the proximate reading separates a red suite from a broken runner', () 
       kinds: [],
     });
   });
+
+  it('reads a coverage shard at any width, not only the 4-way runs it was written for (objectui#12256)', () => {
+    const eightWay = {
+      name: 'Test (coverage shard 7/8)',
+      conclusion: 'failure',
+      steps: [{ name: 'Run tests with coverage (shard 7/8)', conclusion: 'failure' }],
+    };
+    expect(proximateCause([eightWay])).toEqual({ failingShards: [7], kinds: ['vitest-nonzero'] });
+  });
 });
 
 describe('attribution requires BOTH the live window and the computed shard', () => {

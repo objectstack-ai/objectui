@@ -18,9 +18,11 @@ name: Repo Gates
 #
 # ⚠️ What DID move: the check-run each gate used to produce. None of them was
 # in the merge queue's required set (`node scripts/check-required-check-set.mjs`
-# reads the live set; the ruleset names `Governed Surface Queue Guard`,
-# `Changeset Declaration` and `Spec Main Shape Gate`, which is why those three
-# workflows were NOT folded), so the queue is unchanged. The one in-tree reader
+# reads the live set; when this fold landed the ruleset named
+# `Governed Surface Queue Guard`, `Changeset Declaration` and
+# `Spec Main Shape Gate`, which is why those three workflows were NOT folded --
+# the last has since left the set by objectui#12240's ruling and keeps its own
+# workflow for its hourly run on `main`), so the queue is unchanged. The one in-tree reader
 # of the old names, `scripts/dependabot-merge-gate.mjs`, now waits for the one
 # context this job produces, `Repo Gates`.
 #

@@ -12,6 +12,7 @@ import { MessageSquare, ChevronDown, ChevronRight, Send } from 'lucide-react';
 import type { FeedItem } from '@object-ui/types';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { useDetailTranslation } from './useDetailTranslation';
+import { CommentBody } from './CommentAuthorControls';
 
 export interface ThreadedRepliesProps {
   /** Parent feed item (root comment) */
@@ -22,6 +23,14 @@ export interface ThreadedRepliesProps {
   onAddReply?: (parentId: string | number, text: string) => void | Promise<void>;
   /** Whether to show the reply input */
   showReplyInput?: boolean;
+  /**
+   * Stores a new text for a reply the viewer wrote (objectui#12268): a reply
+   * is a comment too, and offers its author the same Edit as a root comment,
+   * on a reply whose `authoredByViewer` the host set. A rejection keeps the draft.
+   */
+  onEditComment?: (itemId: string | number, text: string) => void | Promise<void>;
+  /** Deletes a reply the viewer wrote, on the same replies; the host confirms first. */
+  onDeleteComment?: (itemId: string | number) => void | Promise<void>;
   className?: string;
 }
 
@@ -59,6 +68,8 @@ export const ThreadedReplies: React.FC<ThreadedRepliesProps> = ({
   replies,
   onAddReply,
   showReplyInput = true,
+  onEditComment,
+  onDeleteComment,
   className,
 }) => {
   const { t } = useDetailTranslation();
@@ -140,8 +151,18 @@ export const ThreadedReplies: React.FC<ThreadedRepliesProps> = ({
                   <span className="text-[10px] text-muted-foreground">
                     {formatTimestamp(reply.createdAt, t, displayLocale)}
                   </span>
+                  {/* A reply edited by its author reads as edited, as a root
+                      comment does (objectui#12268). */}
+                  {reply.edited && (
+                    <span className="text-[10px] text-muted-foreground italic">{t('detail.edited')}</span>
+                  )}
                 </div>
-                <p className="text-xs whitespace-pre-wrap break-words">{reply.body}</p>
+                <CommentBody
+                  item={reply}
+                  onEditComment={onEditComment}
+                  onDeleteComment={onDeleteComment}
+                  bodyClassName="text-xs whitespace-pre-wrap break-words"
+                />
               </div>
             </div>
           ))}

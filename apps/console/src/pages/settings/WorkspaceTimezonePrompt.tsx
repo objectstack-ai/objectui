@@ -8,7 +8,7 @@
  * Mounted once, in the console's app shell (`AppContent`), inside the
  * `MePermissionsProvider` that shell already mounts: that provider is what
  * answers which capabilities this session holds. When to ask, and what to
- * offer, is decided in `workspaceTimezonePrompt.ts`; this file is the dialog.
+ * offer, is decided in `workspaceTimezonePromptLogic.ts`; this file is the dialog.
  *
  * Both halves of the write are the Settings page's own:
  *
@@ -54,7 +54,7 @@ import {
   promptRecordKey,
   wasAsked,
   type TimezoneOffer,
-} from './workspaceTimezonePrompt';
+} from './workspaceTimezonePromptLogic';
 
 export function WorkspaceTimezonePrompt() {
   const { t } = useObjectTranslation();

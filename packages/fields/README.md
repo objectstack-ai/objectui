@@ -164,6 +164,26 @@ const resolved = resolveActionParams(params, {
   resolver's dev warning prints.
 - Types: `RawActionParam`, `RawActionParamOption`, `ResolveActionParamsContext`.
 
+### A field's help line
+
+`fieldHelpText(field)` is the one read of the help line a field draws under its
+control. The record form (`@object-ui/plugin-form`) and a field-backed action
+param both use it, so the two cannot disagree:
+
+```ts
+import { fieldHelpText } from '@object-ui/fields';
+
+fieldHelpText({ inlineHelpText: 'Shown under the control', description: 'About the field' });
+// → 'Shown under the control'
+fieldHelpText({ inlineHelpText: '', description: 'About the field' });
+// → 'About the field' (an empty string reads as absent)
+```
+
+It reads `@objectstack/spec`'s `inlineHelpText`, then `description`. It does
+not read `help`: the spec refuses that key on a field, and an objectstack
+server on spec 17.7.0 or later serves a field's translated help text on
+`description`.
+
 ### Enumerating the CELL renderer registry
 
 `listCellRendererTypes()` is the read-side twin of `FORM_FIELD_TYPES`: every

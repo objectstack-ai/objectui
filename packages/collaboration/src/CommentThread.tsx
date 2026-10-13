@@ -12,6 +12,7 @@ import {
   useCollaborationTranslation,
   type CollaborationTranslate,
 } from './useCollaborationTranslation.js';
+import { isCommentAuthor } from './commentAuthorship.js';
 
 export interface Comment {
   id: string;
@@ -542,7 +543,8 @@ export function CommentThread({
 
   const renderComment = (comment: Comment, isReply = false) => {
     const isEditing = editingId === comment.id;
-    const isOwner = comment.author.id === currentUser.id;
+    // The one owner rule, shared with the console's record feed (objectui#12268).
+    const isOwner = isCommentAuthor(comment.author.id, currentUser.id);
 
     return React.createElement('div', {
       key: comment.id,

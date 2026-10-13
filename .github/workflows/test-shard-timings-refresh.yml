@@ -1,0 +1,182 @@
+# Regenerate scripts/test-shard-timings.json from main's full-battery runs,
+# weekly, and open the pull request (objectui#12208, ruling 6121816480, letter
+# B: "the timing file refreshed from `main`'s full-suite runs on a schedule").
+#
+# ## What the file is, and why it has a clock
+#
+# `scripts/test-shard-timings.json` is the per-file duration dataset both
+# `ci.yml` test matrices are split by (`scripts/test-shard-sequencer.mjs`,
+# wired as the root vitest config's `sequence.sequencer`). It goes stale in one
+# direction only: files are added and suites get slower while the committed
+# numbers stay put. A new file is weighed at the dataset's median, so a stale
+# dataset degrades to spreading files by count -- the old hash split's shape,
+# and visible in the aggregators' headroom readings -- but the drift is silent
+# unless something refreshes it. A timer is what refreshes it.
+#
+# ## Why a committed file and a pull request, not an artifact the shards fetch
+#
+# Every leg of a matrix computes the whole partition on its own and keeps its
+# bin, so every leg of one run must read the SAME weights. A committed file
+# guarantees that by construction: the legs share a checkout. Legs that each
+# fetched "the newest timings artifact" at their own start could straddle a
+# refresh, and two legs on different weights run some files twice and others
+# never, with every leg green. The committed file also makes a partition move a
+# reviewed, reproducible event -- `pnpm test --shard=3/12` on a laptop runs the
+# same files CI's leg 3 ran -- and the dataset is in the root config's import
+# closure, so the pull request that moves it runs the full suite on the new
+# split before it lands (`scripts/select-affected-tests.mjs`).
+#
+# ## What this workflow is not allowed to do
+#
+#   ⛔ It never hand-edits a timing: every byte it commits came out of
+#      `scripts/test-file-timings.mjs merge`.
+#   ⛔ It never touches `ci.yml`: not the matrix widths, not a `timeout-minutes`.
+#      The width a run's measured total implies is printed by the `Test` and
+#      `Test (coverage)` aggregators on every run; moving a width is a reviewed
+#      edit, not this workflow's.
+#   ⛔ It never opens a pull request for a byte-identical file.
+#
+# ## The cost it carries, stated
+#
+# The pull request is opened with this run's `GITHUB_TOKEN`, and GitHub starts
+# no workflow run for an event that token raised -- the release pull request's
+# limitation, which objectui#5397's ruling chose to keep rather than add a
+# personal access token. So the refresh pull request arrives with no CI; the
+# seat or person who lands it pushes to its branch once (a merge of `main` is
+# enough), and that push runs the full suite on the new split. The branch is
+# this workflow's own and is overwritten by each refresh, the same posture
+# `changeset-release.yml` takes with its version branch.
+#
+# ## Which runs it reads
+#
+# `scripts/test-file-timings.mjs select`: the newest completed `CI` runs on
+# `main` from the full battery's events (`push` and the hourly `schedule`,
+# objectui#12214) whose twelve `Test (shard N/12)` legs all reported success
+# and whose twelve `test-file-timings-N` artifacts are all present; at most
+# six, and a file keeps the median of the runs that ran it. When no run
+# qualifies -- before the first full battery has uploaded, or after a week of
+# red -- it prints NOT MEASURED, writes nothing and exits green, because
+# nothing failed; a NOT MEASURED that persists is the finding.
+#
+# ## The pull-request leg
+#
+# A pull request that edits this workflow or the scripts it runs executes it
+# all -- the selection, the downloads, the regeneration -- and stops before
+# the two acts that leave the runner: the push and the pull request.
+
+name: Test Shard Timings Refresh
+
+on:
+  schedule:
+    # Monday 06:47 UTC: after a weekend of hourly full-battery runs, and on a
+    # minute no other workflow here is scheduled on.
+    - cron: '47 6 * * 1'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/test-shard-timings-refresh.yml'
+      - 'scripts/test-file-timings.mjs'
+      - 'scripts/test-shard-partition.mjs'
+
+# Read-only at the top level; the one job widens to exactly what it writes.
+permissions:
+  contents: read
+
+# One refresh per ref at a time: the newer inputs are the better ones, so an
+# in-flight run yields. Scoped by ref so two pull requests' dry runs do not
+# cancel each other.
+concurrency:
+  group: test-shard-timings-refresh-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    name: Regenerate the per-file test timings
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write # push this workflow's own branch
+      pull-requests: write # open the refresh pull request
+      actions: read # list runs, read their jobs, download their timing artifacts
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # The selector and the generator are node builtins only: no pnpm, no
+      # install.
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22.x'
+
+      # Exit 3 is NOT MEASURED, not a failure: nothing was eligible, nothing is
+      # written, and the job says so and stays green. Any other non-zero exit
+      # is red. `|| status=$?` because this step runs under `bash -e`.
+      - name: Choose the runs to measure from
+        id: select
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          status=0
+          node scripts/test-file-timings.mjs select --shards 12 --limit 6 > "$RUNNER_TEMP/runs.json" || status=$?
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          if [ "$status" -eq 3 ]; then
+            echo "::warning title=Test shard timings::NOT MEASURED: no completed full-battery run on main has all twelve test shards green and all twelve timing artifacts. scripts/test-shard-timings.json is untouched."
+            exit 0
+          fi
+          if [ "$status" -ne 0 ]; then
+            exit "$status"
+          fi
+          cat "$RUNNER_TEMP/runs.json"
+
+      - name: Download each run's per-file timings
+        if: steps.select.outputs.status == '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/timings"
+          node -e 'for (const r of JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))) console.log(r.id)' "$RUNNER_TEMP/runs.json" > "$RUNNER_TEMP/run-ids.txt"
+          while read -r id; do
+            gh run download "$id" --repo "$GITHUB_REPOSITORY" --pattern 'test-file-timings-*' --dir "$RUNNER_TEMP/timings/$id"
+          done < "$RUNNER_TEMP/run-ids.txt"
+
+      - name: Regenerate the dataset
+        if: steps.select.outputs.status == '0'
+        run: |
+          node scripts/test-file-timings.mjs merge --runs-file "$RUNNER_TEMP/runs.json" \
+            --out scripts/test-shard-timings.json --summary "$RUNNER_TEMP/summary.md" "$RUNNER_TEMP"/timings/*
+          git diff --stat -- scripts/test-shard-timings.json
+          cat "$RUNNER_TEMP/summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open or update the refresh pull request
+        if: steps.select.outputs.status == '0' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ci/test-shard-timings-refresh
+        run: |
+          if git diff --quiet -- scripts/test-shard-timings.json; then
+            echo "The regenerated dataset is byte-identical to the committed one: no pull request."
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$BRANCH"
+          git add scripts/test-shard-timings.json
+          git commit -m 'chore(test): refresh the per-file test timings (objectui#12208)'
+          git push --force origin "$BRANCH"
+          {
+            echo 'The weekly refresh of `scripts/test-shard-timings.json`, the per-file durations both `ci.yml` test matrices are split by (objectui#12208). Generated by `scripts/test-file-timings.mjs merge` from the runs below; never hand-edited.'
+            echo
+            cat "$RUNNER_TEMP/summary.md"
+            echo
+            echo '**This pull request has no CI of its own yet.** It was opened with the Actions token, and GitHub starts no workflow for an event that token raised. Push to its branch once (a merge of `main` is enough): the dataset is in the root vitest config import closure, so that push runs the full suite on the new split.'
+          } > "$RUNNER_TEMP/body.md"
+          open=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$open" ]; then
+            gh pr edit "$open" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/body.md"
+            echo "Updated the open refresh pull request #$open."
+          else
+            gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$BRANCH" \
+              --title 'chore(test): refresh the per-file test timings (objectui#12208)' --body-file "$RUNNER_TEMP/body.md"
+          fi

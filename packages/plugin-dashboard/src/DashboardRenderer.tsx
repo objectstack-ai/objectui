@@ -7,7 +7,7 @@
  */
 
 import type { BaseSchema, DashboardComponentSchema, DataSource, ObjectChartSchema, ObjectDataTableSchema } from '@object-ui/types';
-import { SchemaRenderer, toRenderableSchema, useActionEngine, useObjectLabel, PageVariablesProvider, usePageVariables, useResolvedDataSource, type SchemaRendererProps } from '@object-ui/react';
+import { SchemaRenderer, useActionEngine, useObjectLabel, PageVariablesProvider, usePageVariables, useResolvedDataSource, type SchemaRendererProps } from '@object-ui/react';
 import { useObjectTranslation, useSafeTranslate, pickLocalized, useDisplayLocale } from '@object-ui/i18n';
 import type { ActionDef, ActionResult, ActionContext, ModalHandler, SduiDomPassThroughKey } from '@object-ui/core';
 import {
@@ -163,21 +163,22 @@ const FILTERABLE_COMPONENT_TYPES: ReadonlySet<string> = new Set<FilterableCompon
  * Both are the `@object-ui/types` node schemas, by reference, each declaring
  * `filter`. The broadcast covers the `object-chart` and `object-data-table`
  * nodes this renderer builds for a `provider: 'object'` series or table
- * widget, and the same two types when an author places one in a widget's
- * legacy `component` envelope.
+ * widget. It no longer covers a node an author placed in a widget's legacy
+ * `component` envelope: since objectui#12254 that envelope draws a
+ * `metric-card` and nothing else, and any other node in it draws the
+ * retired-format placeholder (`isRetiredEnvelopeNode`).
  *
  * `object-metric` LEFT the set under objectui#11466 (the maintainer's ruling A,
  * extending ruling C on objectui#11525). objectui#11525 had kept it for one
  * input, an `object-metric` node in that envelope, after this renderer stopped
  * building one; it wrote a flat `filter` that the declared `object-metric`
- * node (the spec's `properties` bag) refuses by name. That envelope node now
- * draws the retired-format placeholder (`isRetiredEnvelopeNode`), so no
- * `object-metric` node reaches the merge.
+ * node (the spec's `properties` bag) refuses by name. That envelope node drew
+ * the retired-format placeholder from then on, so no `object-metric` node
+ * reaches the merge.
  *
  * The value is not host state: the renderer wrote it from the widget's own
- * spec-declared `filter` (or the provider's), or the author wrote it on the
- * envelope's node, and the dashboard's filter-bar values arrive separately, as
- * the `scopedFilter` merged into it.
+ * spec-declared `filter` (or the provider's), and the dashboard's filter-bar
+ * values arrive separately, as the `scopedFilter` merged into it.
  */
 type FilterableComponentSchema = ObjectChartSchema | ObjectDataTableSchema;
 
@@ -450,15 +451,25 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
     // name. `ActionDef.label` is a `string`, so the def carries the label
     // resolved against the active language, exactly as the button shows it.
     // Keyed on `language`, not on a memoised resolver's identity (AGENTS.md #10).
+    //
+    // `type` is the ONE reading of an omitted `actionType`: `url`, as the
+    // contract door reads it (objectui#12275). The click dispatches this def,
+    // so it never re-reads the authored `actionType`.
     const headerActionDefs = useMemo<ActionDef[]>(() => {
       const actions = schema.header?.actions ?? [];
       return actions.map((a) => {
         const label = pickLocalized(a.label, language) || undefined;
+        const type = (a.actionType as ActionDef['type']) || 'url';
         return {
           name: a.actionUrl || label,
-          type: (a.actionType as ActionDef['type']) || 'url',
+          type,
           target: a.actionUrl,
           label,
+          // Following a link is not a feedback-worthy action, so a `url` header
+          // action raises no success toast, as it raised none before it went
+          // through the runner (the html-tier anchor suppresses it the same
+          // way). The error toast stays: a refused target is reported.
+          ...(type === 'url' ? { toast: { showOnSuccess: false } } : {}),
         };
       });
     }, [schema.header?.actions, language]);
@@ -674,15 +685,13 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
             // `metric-card` node key moves onto its namespaced registration
             // (`toDashboardNodeType`, objectui#10859 batch 8).
             const authoredComponent = entryComponent(widget);
-            // An `object-metric` node in the envelope is the last inline metric
-            // form, retired with the rest (objectui#11466, ruling A extending
-            // ruling C on objectui#11525): it draws the rebind prompt, the object
-            // the metric and pivot arms below return, and sends no query.
+            // The envelope draws a `metric-card` and nothing else
+            // (objectui#12254, the draw matching objectui#12163's authoring
+            // rule): any other node draws the rebind prompt, the object the
+            // metric and pivot arms below return, and sends no query. One rule
+            // for both surfaces, `isRetiredEnvelopeNode`.
             if (isRetiredEnvelopeNode(authoredComponent)) return LEGACY_RETIRED_WIDGET_SCHEMA;
-            // `toRenderableSchema` (objectui#4622) bridges the envelope's `SchemaNode`
-            // to what `SchemaRenderer` takes: a number or boolean draws the same text
-            // (or nothing, when falsy) it drew when handed to the renderer bare.
-            if (authoredComponent) return toRenderableSchema(toDashboardNodeType(authoredComponent));
+            if (authoredComponent) return toDashboardNodeType(authoredComponent);
 
             // Handle Shorthand Registry Mappings
             const widgetType = entryType;
@@ -949,18 +958,11 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                 return LEGACY_RETIRED_WIDGET_SCHEMA;
             }
 
-            // Custom widget — caller must supply `widget.component` (a full
-            // UIComponent schema).  When missing, render a friendly placeholder
-            // instead of falling through (which produced 0×0 chart errors).
-            if (dispatch.family === 'custom') {
-                return {
-                    type: 'text',
-                    content: 'Custom widget — set `component` to a UIComponent schema.',
-                    variant: 'caption',
-                    align: 'center',
-                    className: 'flex h-full w-full items-center justify-center rounded border border-dashed bg-muted/20 p-4 text-muted-foreground',
-                };
-            }
+            // A `custom` widget with no `component` reaches the labelled
+            // placeholder below, as on `DashboardGridLayout`. It used to draw
+            // its own prompt to "set `component` to a UIComponent schema",
+            // which objectui#12254 made false: the envelope above draws a
+            // `metric-card` and nothing else.
 
             // Known chart family with no dedicated renderer yet → clean labelled
             // placeholder instead of falling through to a raw "Unknown component
@@ -1216,32 +1218,39 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
               {headerActions.map((action, i) => {
                 const Icon = resolveLucideIcon(action.icon);
                 const handleClick = async () => {
-                  const { actionType, actionUrl } = action;
-                  if (!actionType || !actionUrl) {
-                    console.warn('[DashboardRenderer] Header action missing actionType/actionUrl:', action);
+                  // Every header action goes through the ActionRunner, which
+                  // owns the type registry. This used to allow-list `modal` /
+                  // `script` only, so a `flow` header action (and `api` / `form`
+                  // / `navigation`) fell through to a warn and never dispatched —
+                  // a screen flow could not even be launched from a dashboard
+                  // (framework#3528). The runner reports an unknown type itself,
+                  // so there is nothing to second-guess here.
+                  //
+                  // `url` included (objectui#12275). It used to navigate here,
+                  // by a url grammar of its own: a protocol-relative `//host`
+                  // was assigned, `mailto:` threw in `pushState`, a bare
+                  // relative value was pushed as a route, and an omitted
+                  // `actionType` was dropped with a warning although the def
+                  // above reads it as `url`. The runner's `classifyNavigationTarget`
+                  // is the one answer to what a click may open (ruling A+ on
+                  // objectui#12191). ⛔ No scheme test of its own here.
+                  //
+                  // `actionUrl` is the name the def registered under.
+                  const result = await executeAction(action.actionUrl);
+                  if (!result?.success) {
+                    console.warn('[DashboardRenderer] action failed', result?.error);
                     return;
                   }
-                  if (actionType === 'url') {
-                    if (/^https?:\/\//.test(actionUrl) || actionUrl.startsWith('//')) {
-                      window.location.assign(actionUrl);
-                    } else {
-                      // SPA-friendly navigation: use history API + popstate so React Router picks it up.
-                      window.history.pushState({}, '', actionUrl);
-                      window.dispatchEvent(new PopStateEvent('popstate'));
-                    }
-                    return;
+                  // With no navigation handler (no `ActionProvider` above, so
+                  // no host router), the runner does not navigate to an
+                  // admitted in-app path: it hands it back as `redirect`.
+                  // Follow that hand-off for a `url` action, SPA-style, as this
+                  // click did before: history API + popstate so a router that
+                  // listens picks it up. `pushState` cannot leave the origin.
+                  if (result.redirect && headerActionDefs[i]?.type === 'url') {
+                    window.history.pushState({}, '', result.redirect);
+                    window.dispatchEvent(new PopStateEvent('popstate'));
                   }
-                  // Everything that is not a raw navigation goes through the
-                  // ActionRunner, which owns the type registry. This used to
-                  // allow-list `modal` / `script` only, so a `flow` header action
-                  // (and `api` / `form` / `navigation`) fell through to a warn and
-                  // never dispatched — a screen flow could not even be launched
-                  // from a dashboard (framework#3528). The runner reports an
-                  // unknown type itself, so there is nothing to second-guess here.
-                  // `actionUrl` is non-empty here (the guard above returns
-                  // otherwise), and it is the name the def registered under.
-                  const result = await executeAction(actionUrl);
-                  if (!result?.success) console.warn('[DashboardRenderer] action failed', result?.error);
                 };
                 return (
                   <Button key={i} variant="outline" size="sm" onClick={handleClick}>

@@ -124,6 +124,10 @@ const EXPECTED_GRANT: Record<string, Grant> = {
   feedReactionAdd: 'create',
   feedReactionRemove: 'delete',
   feedReactionColumn: 'update',
+  // objectui#12268: the author's Edit and Delete on their own feed comment,
+  // asked of `sys_comment`.
+  feedCommentEdit: 'update',
+  feedCommentDelete: 'delete',
 };
 
 /** The field rows, and which grant their no-entry fallback reads. */
@@ -662,6 +666,10 @@ const WRITE_SITES: Record<string, WriteSite> = {
     mapped(['feedComment'], RECORD_PAGE),
   'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > handleAddReply :: create':
     mapped(['feedComment'], RECORD_PAGE),
+  'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > handleEditComment :: update':
+    mapped(['feedCommentEdit'], RECORD_PAGE),
+  'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > handleDeleteComment :: delete':
+    mapped(['feedCommentDelete'], RECORD_PAGE),
   'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > handleToggleReaction :: update':
     mapped(['feedReactionColumn'], RECORD_PAGE),
   'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > handleToggleReaction > write :: create':

@@ -191,6 +191,15 @@ reads left-to-right in row-arrival order, so ordering by the across dimension is
 what makes the columns come out in that order; declaring nothing still reads
 correctly, because a selected time dimension defaults to ascending.
 
+With no `order`, a **select** dimension follows its field's declared option
+order: the table rows, a matrix's row and column headers, and the embedded
+chart's categories. The declared options come first, in their order; a value the
+options do not declare comes next, in the order the dataset returned it; the
+empty bucket comes last. With several grouping dimensions the outer one is laid
+out first and the inner one within each outer group, and a dimension whose field
+declares no options keeps the order the dataset returned it in. An authored
+`order` keeps the server's order.
+
 ## Embedded chart
 
 A report may carry a `chart` object rendered over the same selection. Its

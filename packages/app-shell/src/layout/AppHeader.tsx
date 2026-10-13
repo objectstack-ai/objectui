@@ -395,7 +395,11 @@ export function AppHeader({
 
   if (isApp) {
     if (routeType === 'dashboard') {
-      extraSegments.push({ label: t('console.breadcrumb.dashboards'), href: baseHref });
+      // No type crumb ahead of the dashboard (objectui#12273), as for pages
+      // below (objectui#12198, the maintainer's ruling on
+      // objectstack-ai/cloud#2768): a 「Dashboards」 crumb named a metadata
+      // type, not a place the user went, and linked only to the app's base,
+      // which the app pill already opens.
       if (pathParts[3]) {
         const dashboardName = pathParts[3];
         // ADR-0048 Phase 2 — prefer the current app's package (container-scoped).
@@ -410,7 +414,11 @@ export function AppHeader({
         });
       }
     } else if (routeType === 'page') {
-      extraSegments.push({ label: t('console.breadcrumb.pages'), href: baseHref });
+      // No type crumb ahead of the page (objectui#12198, the maintainer's
+      // ruling on objectstack-ai/cloud#2768): a 「Pages」 crumb named a
+      // metadata type, not a place the user went, and linked only to the
+      // app's base, which the app pill before it already opens. The trail
+      // goes from the app straight to the page.
       if (pathParts[3]) {
         const pageName = pathParts[3];
         const pageDef = preferLocal(metadataPages as any[], pageName, (currentApp as any)?._packageId);
@@ -418,7 +426,8 @@ export function AppHeader({
         extraSegments.push({ label: pageLabel({ name: pageName, label: fallback }) });
       }
     } else if (routeType === 'report') {
-      extraSegments.push({ label: t('console.breadcrumb.reports'), href: baseHref });
+      // No 「Reports」 type crumb either (objectui#12273), for the dashboard
+      // branch's reason: the trail goes from the app straight to the report.
       if (pathParts[3]) {
         const reportName = pathParts[3];
         const reportDef = preferLocal(metadataReports as any[], reportName, (currentApp as any)?._packageId);

@@ -44,7 +44,7 @@ import {
   isAdmissibleZone,
   mayWrite,
   promptRecordKey,
-} from '../workspaceTimezonePrompt';
+} from '../workspaceTimezonePromptLogic';
 import type { Specifier } from '../types';
 
 const BROWSER_ZONE = 'Asia/Kolkata';

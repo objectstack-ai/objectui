@@ -77,7 +77,6 @@
 import { describe, it, expect } from 'vitest';
 import type { z } from 'zod';
 import type { I18nLabel } from '@objectstack/spec/ui';
-import type { SchemaNode } from '../base.js';
 import type {
   DashboardComponentSchema,
   DashboardComponentWidgetType,
@@ -305,8 +304,9 @@ describe('objectui#11467 — the component arm declares `MetricCard`\'s register
     expect(read).toBe(true);
   });
 
-  it('the widget `component` slot is typed with the arm first, then any other component node', () => {
-    const slot: Equal< NonNullable< DashboardWidgetSchema['component'] >, DashboardWidgetSlotComponentSchema | NonNullable< SchemaNode > > = true;
+  it('the widget `component` slot is typed with the component arm alone (objectui#12163, ruling C)', () => {
+    // It was `DashboardWidgetSlotComponentSchema | SchemaNode` until objectui#12163.
+    const slot: Equal< NonNullable< DashboardWidgetSchema['component'] >, DashboardWidgetSlotComponentSchema > = true;
     expect(slot).toBe(true);
   });
 
@@ -323,7 +323,7 @@ describe('objectui#11467 — the component arm declares `MetricCard`\'s register
     expect(StrictAnyComponentSchema.safeParse(doc).success).toBe(true);
   });
 
-  it('in the `component` slot the strict face judges a card by the arm, and still admits any other node', () => {
+  it('in the `component` slot the strict face judges a card by the arm, and refuses any other node by name', () => {
     const issues = (doc: unknown): string => {
       const result = StrictAnyComponentSchema.safeParse(doc);
       return result.success ? '' : JSON.stringify(result.error.issues);
@@ -334,9 +334,16 @@ describe('objectui#11467 — the component arm declares `MetricCard`\'s register
     // The tolerant face refuses the same card since objectui#11709, and the
     // TypeScript union already did. That is pinned once for every refusal the
     // arm carries, by the objectui#11709 enumeration pin below.
-    // CONTROL — a non-card node in the slot is judged by `BaseSchema`, unchanged.
-    expect(issues(envelope({ type: 'chart' }))).toBe('');
-    expect(DashboardComponentZod.safeParse(envelope({ type: 'chart' })).success).toBe(true);
+    // CONTROL, flipped by objectui#12163 (ruling C): a non-card node in the slot was
+    // judged by `BaseSchema` and parsed; it is now refused by name on both faces, one
+    // `custom` issue at the slot naming the node (`dashboard-custom-component-own-type-12163.test.ts`).
+    for (const face of [StrictAnyComponentSchema, DashboardComponentZod]) {
+      const result = face.safeParse(envelope({ type: 'chart' }));
+      expect(result.success).toBe(false);
+      const slot = flatIssues(result).filter((i) => i.path.join('.') === 'widgets.0.component');
+      expect(slot.map((i) => i.code)).toEqual(['custom']);
+      expect(slot[0].message).toContain('`chart` node');
+    }
   });
 });
 
@@ -447,8 +454,8 @@ describe('objectui#11709 — the legacy `component` envelope judges a `metric-ca
   /**
    * Every refusal the arm carries, DERIVED from the arm, never listed (objectui#11709's pin).
    *
-   * For each member except the discriminator `type` (a different `type` routes to `BaseSchema`,
-   * by design), the probe authors the first of these JSON values that the member itself refuses.
+   * For each member except the discriminator `type` (a different `type` is refused by the slot's
+   * refusal arm, objectui#12163), the probe authors the first of these JSON values that the member itself refuses.
    * A tombstone refuses the first, an enum refuses the first as out of vocabulary, and a typed
    * member refuses a value of another kind. A required member also gets an omission probe. A
    * member that refuses none of them (`data`, typed `any`) yields no probe. So a refusal added
@@ -497,12 +504,13 @@ describe('objectui#11709 — the legacy `component` envelope judges a `metric-ca
     }
   });
 
-  it('CONTROL — every other node is still the passthrough a `custom` widget\'s `component` carries', () => {
+  it('CONTROL, flipped by objectui#12163 (ruling C) — every other node a `custom` widget\'s `component` carries is refused by name, not passed through', () => {
     const doc = { type: 'dashboard', widgets: [{ id: 'w', type: 'custom', component: { type: 'text', content: 'hello', someProp: 1 } }] };
     const result = safeValidateSchema(doc);
-    expect(result.success).toBe(true);
-    if (!result.success) return;
-    expect((result.data as { widgets: { component: Record<string, unknown> }[] }).widgets[0].component).toHaveProperty('someProp', 1);
+    expect(result.success).toBe(false);
+    const slot = flatIssues(result).filter((i) => i.path.join('.') === 'widgets.0.component');
+    expect(slot.map((i) => i.code)).toEqual(['custom']);
+    expect(slot[0].message).toContain('`text` node');
   });
 
   it.each(refusals.map((r) => [`${r.key}: ${r.authored}`, r] as const))(

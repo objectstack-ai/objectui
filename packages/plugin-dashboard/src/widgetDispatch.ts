@@ -222,7 +222,11 @@ export type WidgetDispatchFamily =
   | 'table'
   /** Cross-tab — dataset-bound only; a non-dataset pivot is stale metadata. */
   | 'pivot'
-  /** Author-supplied component schema required. */
+  /**
+   * objectui's legacy `custom` widget. Its `component` envelope draws a
+   * `metric-card` and nothing else (objectui#12254); with no `component` it
+   * draws the labelled placeholder `unsupported` draws.
+   */
   | 'custom'
   /** Known family, no renderer — labelled placeholder. */
   | 'unsupported'

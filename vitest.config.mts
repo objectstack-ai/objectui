@@ -3,6 +3,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 // @ts-expect-error — plain-JS CI helper, intentionally untyped (`allowJs: false`)
 import { assertCanonicalVitestInvocation, cliHasTestFilters } from './scripts/vitest-invocation-guard.mjs';
+// @ts-expect-error — plain-JS CI helper, intentionally untyped (`allowJs: false`)
+import TestShardSequencer from './scripts/test-shard-sequencer.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -473,6 +475,12 @@ export default defineConfig({
     // caused thousands of order-dependent failures).
     pool: 'threads',
     isolate: true,
+    // `--shard=N/M` splits by measured per-file duration, not by path hash
+    // (objectui#12208, ruling 6121816480, letter B). Both `ci.yml` matrices
+    // shard through this; `scripts/test-shard-partition.mjs` says why and how,
+    // and `scripts/test-shard-timings.json` is the measured input it reads.
+    // Only `shard()` is replaced: the order inside a leg is vitest's own.
+    sequence: { sequencer: TestShardSequencer },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

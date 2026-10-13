@@ -4418,6 +4418,14 @@ export type {
   ResolveActionParamsContext,
 } from './resolveActionParams.js';
 
+/**
+ * The ONE read of a field definition's help line (objectui#12213):
+ * `inlineHelpText`, else `description`. Exported from here because both of its
+ * readers can reach this package: `@object-ui/plugin-form`'s record form and
+ * this package's own `resolveActionParam`. See the module.
+ */
+export { fieldHelpText } from './fieldHelpText.js';
+
 /** Cache so each widget type creates one lazy component (and one chunk request). */
 const lazyFieldWidgets = new Map<string, React.ComponentType<any>>();
 

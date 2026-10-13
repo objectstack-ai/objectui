@@ -65,8 +65,19 @@
  * `errorMessage`. The dispatcher's own reading (`interpretActionResponse`) has
  * none of those arms, so the transport is injected and the raw answer is read
  * here; the dispatcher's `ActionResult` is used only when no answer arrived.
+ *
+ * ## The one toast a launch speaks itself (objectui#12274)
+ *
+ * A run that goes straight through is closed by the ActionRunner's success
+ * toast, which knows the action's copy and its own default and nothing else.
+ * When the flow's own `successMessage` is the copy the run closes with — the
+ * action declares none — the judgement says so (`successToast`, with a
+ * `silent` result), and it is spoken here, once for both hosts, the way
+ * `FlowRunner` speaks a paused run's closing copy. Which copy wins is not
+ * decided here: see `flowSuccessCopy` in `utils/flowResponse`.
  */
 
+import { toast } from 'sonner';
 import { createServerActionHandler } from '@object-ui/core';
 import type { ActionDef, ActionResult, ServerActionFetch } from '@object-ui/core';
 import { interpretFlowResponse, judgeFlowLaunch, type FlowLaunchJudgement } from './flowResponse.js';
@@ -135,6 +146,16 @@ export interface ConsoleFlowLaunch<S = unknown> {
   judged: FlowLaunchJudgement<S>;
 }
 
+/**
+ * Hand the launch back to its host, first speaking the success toast the
+ * ActionRunner cannot (see the header). The result is `silent` exactly when
+ * `successToast` is set, so the user reads one toast either way.
+ */
+function settled<S>(launch: ConsoleFlowLaunch<S>): ConsoleFlowLaunch<S> {
+  if (launch.judged.successToast) toast.success(launch.judged.successToast);
+  return launch;
+}
+
 /** Start the flow a click names, through the door {@link findDeclaredFlowAction} picks. */
 export async function launchConsoleFlow<S = unknown>(
   input: ConsoleFlowLaunchInput,
@@ -163,14 +184,15 @@ export async function launchConsoleFlow<S = unknown>(
     if (!answered) {
       return { door: 'action', flowName, judged: { result: dispatched, refresh: false } };
     }
-    return {
+    return settled({
       door: 'action',
       flowName,
       judged: judgeFlowLaunch(
         interpretFlowResponse<S>(answered.res, answered.json, `Flow "${flowName}"`),
         action.refreshAfter,
+        action.successMessage,
       ),
-    };
+    });
   }
 
   const res = await input.fetch(
@@ -182,12 +204,13 @@ export async function launchConsoleFlow<S = unknown>(
     },
   );
   const json = await res.json().catch(() => null);
-  return {
+  return settled({
     door: 'trigger',
     flowName: clickedFlow,
     judged: judgeFlowLaunch(
       interpretFlowResponse<S>(res, json, `Flow "${clickedFlow}"`),
       action.refreshAfter,
+      action.successMessage,
     ),
-  };
+  });
 }

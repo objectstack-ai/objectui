@@ -135,6 +135,36 @@
  * the `screen` follow-up, typed by the contract rather than by a local copy.
  * The `refused` arm does not carry it: nothing that arm opens names the flow
  * (the launch notice is titled with the action's own label).
+ *
+ * ## A run's success copy has ONE precedence, however the run ends (objectui#12274)
+ *
+ * A run that pauses on a screen completes in `FlowRunner`, whose terminal toast
+ * reads the invoking action's `successMessage`, then the flow's own
+ * `successMessage`, then the catalog's flow-completed sentence (objectui#12234).
+ * A run that goes straight through completes HERE, and the `done` arm used to
+ * hand the ActionRunner a plain success. The runner's toast has rungs for the
+ * action's copy and for its own default text, and none for the flow's — so a
+ * flow's `successMessage` was read only when the run happened to pause, though
+ * the spec carries it on `AutomationResult` for every terminal run, not only
+ * screen runs (`FlowSchema.successMessage`).
+ *
+ * {@link flowSuccessCopy} is that precedence, once: `FlowRunner`'s terminal
+ * toast and {@link judgeFlowLaunch}'s `done` arm both call it, and neither
+ * restates it. On the launch side the answer decides who SPEAKS the toast:
+ *
+ * - the action's copy wins — the ActionRunner speaks it, exactly as before,
+ *   through its own rung (which also fills `${result.*}`). Its `outcomeMessages`
+ *   rung cannot fire on a flow answer: the spec refuses `outcomeMessages` on a
+ *   `type: 'flow'` action, and `AutomationResult` declares no `outcome`;
+ * - the flow's copy wins — the runner has no rung for it, so the result is
+ *   `silent` (the runner adds no second, generic toast) and the judgement
+ *   carries the copy as `successToast`, which `launchConsoleFlow` speaks;
+ * - neither — the runner speaks its default text, as before.
+ *
+ * Each end keeps its own default sentence: the runner's on a straight-through
+ * run, the flow-completed sentence on a paused one. Only the author's copy is
+ * shared. A `refused` or failed run never reaches a `done` arm, so neither
+ * shows a success toast on either end.
  */
 
 import { actionErrorDetail } from '@object-ui/core';
@@ -342,6 +372,45 @@ export function interpretFlowResponse<S = unknown>(
 }
 
 /**
+ * The success copy {@link flowSuccessCopy} picked, and whose it is. `from`
+ * matters only to a launch, which must know whether the ActionRunner can speak
+ * it (see the header).
+ */
+export interface FlowSuccessCopy {
+    text: string;
+    /** `'action'`: the invoking action's `successMessage`. `'flow'`: the flow's own. */
+    from: 'action' | 'flow';
+}
+
+/**
+ * Copy is usable as a toast only as a non-empty string. Anything else — absent,
+ * blank, or an `I18nLabel` map that reached here without passing through a
+ * localizer — counts as no copy: the same rule the action runner's own success
+ * toast applies to a rung, so the paths cannot disagree about what "declares a
+ * successMessage" means.
+ */
+function usableCopy(copy: unknown): copy is string {
+    return typeof copy === 'string' && copy.trim() !== '';
+}
+
+/**
+ * The ONE precedence a flow run's success toast follows, whichever way the run
+ * ended (objectui#12274 — see the header): the invoking action's
+ * `successMessage`, then the flow's own `successMessage`. `undefined` when
+ * neither is usable; the caller then speaks its own default sentence.
+ *
+ * `actionMessage` is the action's copy exactly as it reached the host's flow
+ * handler, so already localized by the surface that dispatched it.
+ * `flowMessage` is the served `AutomationResult.successMessage`, a plain string
+ * the spec keeps off the translation surface.
+ */
+export function flowSuccessCopy(actionMessage: unknown, flowMessage: unknown): FlowSuccessCopy | undefined {
+    if (usableCopy(actionMessage)) return { text: actionMessage, from: 'action' };
+    if (usableCopy(flowMessage)) return { text: flowMessage, from: 'flow' };
+    return undefined;
+}
+
+/**
  * The surface a launch hands off to, when it hands off to one. `S` is the
  * caller's screen type, as on {@link FlowResponseOutcome}.
  */
@@ -364,6 +433,13 @@ export interface FlowLaunchJudgement<S = unknown> {
     result: ActionResult;
     /** The follow-up surface to open, if the run handed off to one. */
     followUp?: FlowLaunchFollowUp<S>;
+    /**
+     * A success toast the ActionRunner cannot speak (objectui#12274 — see the
+     * header). Set only on a `done` run whose copy, by {@link flowSuccessCopy},
+     * is the FLOW's own `successMessage`; `result` is then `silent`.
+     * `launchConsoleFlow` speaks it, so a host does nothing with it.
+     */
+    successToast?: string;
     /** Whether the host invalidates its data now. */
     refresh: boolean;
 }
@@ -371,8 +447,8 @@ export interface FlowLaunchJudgement<S = unknown> {
 /**
  * Judge a flow LAUNCH: the one decision both console launch handlers
  * (`useConsoleActionRuntime`'s and `RecordDetailView`'s) act on, so they cannot
- * drift apart again (objectui#9973 — see the header). `refreshAfter` is the
- * invoking action's own flag.
+ * drift apart again (objectui#9973 — see the header). `refreshAfter` and
+ * `actionSuccessMessage` are the invoking action's own flag and copy.
  *
  * - `failed` — the ActionRunner's post-execution hook surfaces `error` as a
  *   toast; nothing refreshes, because nothing changed.
@@ -387,12 +463,16 @@ export interface FlowLaunchJudgement<S = unknown> {
  *   stays `true`), and `success: false` would put the runner hooks' error
  *   state on it; and no `data` and no `reload`. Nothing refreshes — the run
  *   wrote nothing, and a refresh would say it did.
- * - `done` — terminal success: the runner toasts, and the host refreshes
- *   unless the action opted out with `refreshAfter: false`.
+ * - `done` — terminal success, and the host refreshes unless the action opted
+ *   out with `refreshAfter: false`. The toast follows {@link flowSuccessCopy}
+ *   (objectui#12274): the runner speaks the action's copy or its own default
+ *   as before, and when the copy is the flow's the result goes `silent` and
+ *   carries it as `successToast` instead.
  */
 export function judgeFlowLaunch<S = unknown>(
     outcome: FlowResponseOutcome<S>,
     refreshAfter: boolean | undefined,
+    actionSuccessMessage?: unknown,
 ): FlowLaunchJudgement<S> {
     switch (outcome.kind) {
         case 'failed':
@@ -416,7 +496,10 @@ export function judgeFlowLaunch<S = unknown>(
             };
         case 'done': {
             const refresh = refreshAfter !== false;
-            return { result: { success: true, data: outcome.data, reload: refresh }, refresh };
+            const result: ActionResult = { success: true, data: outcome.data, reload: refresh };
+            const copy = flowSuccessCopy(actionSuccessMessage, outcome.successMessage);
+            if (copy?.from !== 'flow') return { result, refresh };
+            return { result: { ...result, silent: true }, successToast: copy.text, refresh };
         }
     }
 }

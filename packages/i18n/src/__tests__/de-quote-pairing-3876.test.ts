@@ -324,7 +324,10 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // quote the set („{{set}}“) and the position („Everyone“) — two spans
     // each; `.dismissedState` and `.revokedToast` quote the set — one each;
     // `.guestUnsupported` quotes the position („Guest“) — one.
-    expect(okSpans, 'correctly paired spans').toBe(84);
+    // 85 once objectui#12248 added `detail.deleteAttachmentConfirm`, the
+    // attachment delete's confirm question, which quotes the file name
+    // („{{name}}“) — one interpolated span, runtime data.
+    expect(okSpans, 'correctly paired spans').toBe(85);
   });
 
   it('keeps the count identity that replaces the card’s count(„) === count(“)', () => {
@@ -370,8 +373,9 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // 77 / 77 / 0 after objectui#12098 added
     // `marketplace.install.localLoadsAtRestart`, one more matched pair.
     // 84 / 84 / 0 after objectui#7611 added five suggested-bindings values,
-    // seven matched pairs between them.
-    expect({ open, close, rdq }).toEqual({ open: 84, close: 84, rdq: 0 });
+    // seven matched pairs between them. 85 / 85 / 0 after objectui#12248 added
+    // `detail.deleteAttachmentConfirm`, one more matched pair.
+    expect({ open, close, rdq }).toEqual({ open: 85, close: 85, rdq: 0 });
     // The durable shape: every „ closed by a “, every surplus “ an English
     // opener answered by a ”. Survived translating the two English values.
     expect(close).toBe(open + rdq);

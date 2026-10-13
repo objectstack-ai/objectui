@@ -141,6 +141,7 @@ import {
   checkDashboardWidgetMetricMeasureArity,
   checkDashboardWidgetChartMeasureArity,
   checkPageRequiresKind,
+  checkPageSlotPair,
   VIEW_METADATA_MEMBERS as SpecViewMetadataMembers,
 } from '@objectstack/spec/ui';
 import {
@@ -696,6 +697,10 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
       // `PageNodeSchema` and `PageKindNodeSchema`.
       ['checkDashboardWidgetChartMeasureArity', checkDashboardWidgetChartMeasureArity],
       ['checkPageRequiresKind', checkPageRequiresKind],
+      // objectui#12030: the page slot-pair check `@objectstack/spec` 18 adds to
+      // `PageSchema`, re-attached on `PageNodeSchema` and `PageKindNodeSchema`
+      // under the same ruling.
+      ['checkPageSlotPair', checkPageSlotPair],
     ]);
 
     /**

@@ -209,7 +209,7 @@ function stageCellChange(
   row: any,
   columnKey: string,
   value: unknown,
-  inFlight?: Record<string, any>,
+  inFlight?: Record<string, unknown>,
 ): PendingChanges {
   const current = prev.get(rowKey);
   const unchanged = !(inFlight && columnKey in inFlight) && isUnchangedCellValue(value, row?.[columnKey]);
@@ -245,7 +245,7 @@ function stageCellChange(
  */
 function removeSentEdits(
   prev: PendingChanges,
-  sent: ReadonlyMap<PendingRowKey, Record<string, any>>,
+  sent: ReadonlyMap<PendingRowKey, Record<string, unknown>>,
 ): PendingChanges {
   let next: PendingChanges | null = null;
   for (const [rowKey, sentChanges] of sent) {
@@ -1513,7 +1513,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   // Cell editing stays open during a save, and a commit on a cell in here is
   // always staged (see `stageCellChange`). Set when the save is pressed and
   // cleared when it settles; read only by event handlers, never by render.
-  const inFlightRef = useRef<Map<PendingRowKey, Record<string, any>>>(new Map());
+  const inFlightRef = useRef<Map<PendingRowKey, Record<string, unknown>>>(new Map());
 
   // objectui#7188 — the row merged with its STAGED edits, handed to the host
   // editor as `pendingRow` next to the persisted `row`. Cached per row object
@@ -2253,7 +2253,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   // Marks what a save sends as in flight until `settled` resolves, so a commit
   // on one of those cells during the save is staged (objectui#12322).
   const whileInFlight = async <T,>(
-    sent: ReadonlyMap<PendingRowKey, Record<string, any>>,
+    sent: ReadonlyMap<PendingRowKey, Record<string, unknown>>,
     settled: () => Promise<T>,
   ): Promise<T> => {
     for (const [rowKey, changes] of sent) inFlightRef.current.set(rowKey, changes);
@@ -2341,7 +2341,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   // (objectui#12322).
   const saveBatch = async () => {
     if (pendingChanges.size === 0) return;
-    const sent = new Map(Array.from(pendingChanges, ([rowKey, pending]) => [rowKey, pending.changes]));
+    const sent = new Map(Array.from(pendingChanges, ([rowKey, pending]) => [rowKey, pending.changes] as const));
     // The editor open when Save All was pressed, if any.
     const openEditor = editingCellRef.current;
     

@@ -231,6 +231,9 @@ describe('objectui#6661 — spec `PageComponentType` members that had no rendere
       renderPage('app:launcher');
 
       expect(screen.getByTestId('pathname')).toHaveTextContent('/apps/crm');
+      // objectui#12305 — the tile is a link to that segment, so it can also be
+      // opened in a new tab or copied; a plain click still navigates in place.
+      expect(screen.getByRole('link', { name: 'Operations' })).toHaveAttribute('href', '/apps/ops');
       fireEvent.click(screen.getByTestId('app-tile-ops'));
       expect(screen.getByTestId('pathname')).toHaveTextContent('/apps/ops');
     });

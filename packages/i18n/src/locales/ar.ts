@@ -3830,6 +3830,19 @@ const ar = {
       openApp: "فتح {{name}}",
       deployTimeout: "تم تسجيل التثبيت، لكن هذه البيئة لا تقدّم التطبيق بعد. قد يكون النشر لا يزال جاريًا — تحقّق مرة أخرى بعد قليل. إذا لم يظهر أبدًا، فربما لم تُحمَّل الحزمة، أو لا تتضمن أي تطبيق، أو يتطلب تطبيقها إذنًا لا تملكه.",
       checkAgain: "تحقّق مرة أخرى",
+      // ADR-0131 D6 — the install modes a package's manifest permits, and
+      // what an unmanaged install answers (MarketplacePackagePage).
+      mode: {
+        label: "طريقة التثبيت",
+        managed: "مُدار",
+        managedHint: "تبقى الحزمة هي المرجع: تُسجَّل كتعليمات برمجية وتتلقى ترقياتها، ولا تُحرَّر عناصرها هنا.",
+        unmanaged: "نسخة غير مُدارة",
+        unmanagedHint: "تُنسخ مرة واحدة إلى وقت التشغيل هذا كبيانات وصفية خاصة به: كل عنصر قابل للتحرير هنا، ولا تتلقى النسخة أي ترقية.",
+        required: "اختر طريقة التثبيت لتثبيت هذه الحزمة.",
+      },
+      unmanagedSuccess: "تم نسخ v{{version}} من \"{{name}}\" إلى وقت التشغيل هذا كبيانات وصفية خاصة به، في القاعدة {{base}}. النسخة قابلة للتحرير ولا تتلقى أي ترقية.",
+      unmanagedStrippedLocks: "كانت الحزمة تقفل هذه العناصر. النسخة قابلة للتحرير، لذلك لم تُنسخ أقفالها:",
+      unmanagedIgnored: "لا يدعم وقت التشغيل هذا التثبيت غير المُدار، لذلك ثُبّت \"{{name}}\" كحزمة مُدارة (مسجّلة كتعليمات برمجية) بدلاً من نسخه. رقِّ وقت التشغيل، ثم ألغِ تثبيت الحزمة وثبّتها مرة أخرى كنسخة غير مُدارة.",
     },
     // objectui#12146 — the install dialog opened as an UPDATE of the copy
     // this environment holds (MarketplacePackagePage).
@@ -4435,6 +4448,8 @@ const ar = {
       setDefaultFailed: "فشل تعيين التطبيق الافتراضي: {{reason}}",
       appDeleted: "تم حذف {{name}}",
       deleteFailed: "فشل حذف التطبيق: {{reason}}",
+      nothingToDelete: "لا يوجد ما يُحذف لـ {{name}}: {{reason}}",
+      alreadyAtDefault: "إنه بالفعل على الإعداد الافتراضي لحزمته",
       bulkEnabled: "تم تفعيل {{n}} تطبيقات",
       bulkDisabled: "تم تعطيل {{n}} تطبيقات",
       bulkFailed: "فشل لـ {{n}}: {{details}}",

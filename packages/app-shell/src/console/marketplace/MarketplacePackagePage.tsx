@@ -4,7 +4,10 @@
  * Shows full package metadata + readme + approved version list. Provides
  * an "Install" button that opens a dialog with environment picker. When this
  * environment holds an older version, the same button reads "Update" and opens
- * the same dialog as an UPDATE dialog (objectui#12146).
+ * the same dialog as an UPDATE dialog (objectui#12146). Where install-local is
+ * the install door and the package's manifest permits more than one install
+ * mode, the page offers the choice and reads the door's answer
+ * (objectui#12288, ADR-0131 D6).
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -34,6 +37,12 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  RadioGroup,
+  RadioGroupItem,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@object-ui/components';
 import { ArrowLeft, ExternalLink, Download, AlertCircle, Package, Trash2, MoreHorizontal, CheckCircle2, ArrowUpCircle, Database, Loader2 } from 'lucide-react';
 import { useWorkspaceAdminStatus } from '@object-ui/auth';
@@ -50,6 +59,7 @@ import { localizePackage } from './usePackageL10n.js';
 import { isNewerVersion } from './versionPrecedence.js';
 import {
   getMarketplacePackage,
+  getDeclaredInstallModes,
   installPackage,
   installLocal,
   uninstallLocal,
@@ -66,6 +76,8 @@ import {
   type CloudEnvironment,
   type LocalInstallEntry,
   type LocalInstallNotLoaded,
+  type LocalInstallMode,
+  type LocalInstallStrippedLock,
   type CloudInstallationInfo,
 } from './marketplaceApi.js';
 import { getCloudBase, getRuntimeConfig, isMarketplaceEnabled } from '../../runtime-config.js';
@@ -236,7 +248,27 @@ export function MarketplacePackagePage() {
   // Local-install state (this runtime's own kernel — separate flow from cloud).
   const [localInstalls, setLocalInstalls] = useState<LocalInstallEntry[]>([]);
   const [installingLocal, setInstallingLocal] = useState(false);
-  const [localResult, setLocalResult] = useState<{ ok: boolean; message: string } | null>(null);
+  // `unmanaged` is set when the answer was an unmanaged copy (ADR-0131 D6):
+  // it carries the locks the copy dropped, and nothing is registered under the
+  // package's id, so there are no install-time suggestions to surface.
+  const [localResult, setLocalResult] = useState<{
+    ok: boolean;
+    message: string;
+    unmanaged?: { strippedLocks: LocalInstallStrippedLock[] };
+  } | null>(null);
+  // ADR-0131 D6 — the install modes the package's latest manifest declares,
+  // read from the manifest install-local judges, and the operator's pick among
+  // them. Both are kept with the package they belong to, so a page that moves
+  // to another package never offers or sends the last one's.
+  const [modesRead, setModesRead] = useState<{ packageId: string; modes: readonly LocalInstallMode[] | undefined } | null>(null);
+  const [modePick, setModePick] = useState<{ packageId: string; mode: LocalInstallMode } | null>(null);
+  // `undefined` until read, when the manifest declares none, or when it could
+  // not be read: then no choice is drawn and no mode is sent, so the door's own
+  // default and answer decide.
+  const declaredModes = modesRead && modesRead.packageId === packageId ? modesRead.modes : undefined;
+  // Starts unpicked: the spec ranks no permitted mode above another, so the
+  // page does not pick one for the operator.
+  const chosenMode: LocalInstallMode | '' = modePick && modePick.packageId === packageId ? modePick.mode : '';
 
   useEffect(() => {
     // `features.installLocal` is a genuinely separate deployment axis from
@@ -259,6 +291,35 @@ export function MarketplacePackagePage() {
     })();
     return () => { cancelled = true; };
   }, [packageId, localResult, isAdmin]);
+
+  // ADR-0131 D6 — what the package permits is its manifest's `installModes`,
+  // so the page reads the manifest the install door reads: the same path and
+  // the same version (`latest`, the one `installLocal` installs when it names
+  // none). Only where install-local is the page's install door (the cloud
+  // install routes take no mode) and only for a viewer the page serves.
+  useEffect(() => {
+    if (!packageId) return;
+    if (!marketplaceEnabled) return;
+    if (!isAdmin) return;
+    if (!getRuntimeConfig().features.installLocal) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const modes = await getDeclaredInstallModes(packageId);
+        if (!cancelled) setModesRead({ packageId, modes });
+      } catch {
+        // No manifest to read: no choice and no mode, and the door decides.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [packageId, marketplaceEnabled, isAdmin]);
+
+  // A choice only when the manifest permits more than one mode. One declared
+  // mode is sent as declared, with no choice; none declared sends none.
+  const offeredInstallModes = declaredModes && declaredModes.length > 1 ? declaredModes : null;
+  const requestedInstallMode: LocalInstallMode | undefined = !declaredModes
+    ? undefined
+    : declaredModes.length === 1 ? declaredModes[0] : (chosenMode || undefined);
 
   // Seed cloud-install state so the primary CTA renders as "Installed" on
   // first paint instead of inviting another install.
@@ -518,18 +579,46 @@ export function MarketplacePackagePage() {
    */
   const doInstallLocal = async () => {
     if (!packageId) return;
+    // ADR-0131 D6 — the mode is sent only when the manifest declares
+    // `installModes`: its one mode, or the operator's pick among several.
+    // Declaring none sends none, and the door's own default stands.
+    const installMode = requestedInstallMode;
+    if (offeredInstallModes && !installMode) return;
     setInstallingLocal(true);
     setLocalResult(null);
     try {
-      const result = await installLocal({ packageId });
+      const result = await installLocal({ packageId, ...(installMode ? { installMode } : {}) });
       const name = data?.package ? localizePackage(data.package as any, language).displayName : result.manifestId;
+      // An unmanaged copy (ADR-0131 D6): the package's metadata is this
+      // runtime's own from now on, in the base the answer names; the answer
+      // lists every protection lock the copy dropped, with the package's reason.
+      if (result.installMode === 'unmanaged') {
+        try {
+          await refreshMetadata('app');
+        } catch {
+          // Non-fatal: the copy is written; the app list refreshes on next navigation.
+        }
+        setLocalResult({
+          ok: true,
+          message: t('marketplace.install.unmanagedSuccess', { version: result.version, name, base: result.targetPackageId }),
+          unmanaged: { strippedLocks: result.strippedLocks },
+        });
+        emitMetadataRefresh();
+        return;
+      }
+      // Asked for a copy, answered without one: a runtime that predates the
+      // install mode reads no `installMode` and installed the package MANAGED.
+      // Said out loud, since the opposite of what was asked happened.
+      const ignoredCopy = installMode === 'unmanaged';
       // objectui#12098 — `hotLoaded` says whether the running kernel registered
       // the package (objectstack#22695). `false` is the runtime's lenient path:
       // installed and in its ledger, loaded at its next restart. Nothing of it
       // is served until then, so the app list is not refreshed as if it were,
       // and the page says when the app will appear.
       if (!result.hotLoaded) {
-        setLocalResult({ ok: true, message: t('marketplace.install.localLoadsAtRestart', { version: result.version, name }) });
+        setLocalResult(ignoredCopy
+          ? { ok: false, message: t('marketplace.install.unmanagedIgnored', { name }) }
+          : { ok: true, message: t('marketplace.install.localLoadsAtRestart', { version: result.version, name }) });
         return;
       }
       try {
@@ -537,12 +626,15 @@ export function MarketplacePackagePage() {
       } catch {
         // Non-fatal: the install succeeded; the app list will refresh on next navigation.
       }
-      setLocalResult({
-        ok: true,
-        message: t('marketplace.install.localSuccess', { version: result.version, name }),
-      });
+      setLocalResult(ignoredCopy
+        ? { ok: false, message: t('marketplace.install.unmanagedIgnored', { name }) }
+        : { ok: true, message: t('marketplace.install.localSuccess', { version: result.version, name }) });
       emitMetadataRefresh();
     } catch (e: any) {
+      // A refusal shows the envelope's own message. The install-mode refusals
+      // (`INSTALL_MODE_NOT_PERMITTED`, `UNMANAGED_INSTALL_WALLED_POSTURE`,
+      // `RESOURCE_CONFLICT`) take no branch below: each message names its own
+      // remedy, and the page has nothing to add to it.
       const code = e?.code;
       let msg = e?.message ?? String(e);
       if (errorCodeIs(e, 'MANIFEST_CONFLICT')) {
@@ -882,9 +974,29 @@ export function MarketplacePackagePage() {
       {localResult.ok ? <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" /> : <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" />}
       <div className="flex-1">
         {localResult.message}
+        {/* ADR-0131 D6 — each protection lock the unmanaged copy dropped, as
+            the answer states it: the item, the lock and the package's reason
+            verbatim, so the operator reads why the vendor locked an item
+            before editing it. */}
+        {localResult.unmanaged && localResult.unmanaged.strippedLocks.length > 0 ? (
+          <div className="mt-2 whitespace-normal" data-testid="unmanaged-stripped-locks">
+            <p>{t('marketplace.install.unmanagedStrippedLocks')}</p>
+            <ul className="mt-1 list-disc space-y-0.5 pl-5">
+              {localResult.unmanaged.strippedLocks.map((entry, i) => (
+                <li key={`${entry.type}.${entry.name}.${i}`}>
+                  <code className="font-mono text-xs">{entry.type}.{entry.name}</code>
+                  {': '}
+                  <code className="font-mono text-xs">{entry.lock}</code>
+                  {entry.reason ? <>{' — '}{entry.reason}</> : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         {/* ADR-0090 D5 — local installs land in this runtime's kernel, so
-            its suggested audience bindings are confirmable right here. */}
-        {localResult.ok && suggestFor ? (
+            its suggested audience bindings are confirmable right here. Not
+            for an unmanaged copy: nothing is registered under the package. */}
+        {localResult.ok && suggestFor && !localResult.unmanaged ? (
           <SuggestedBindingsPanel packageId={suggestFor} strings={suggestionStrings} className="mt-2" />
         ) : null}
       </div>
@@ -1024,7 +1136,19 @@ export function MarketplacePackagePage() {
     && !!latestVersion
     && isNewerVersion(latestVersion, cloudInstalledVersion);
 
-  const primaryDisabled = !latestVersion || installingLocal || installing || (!supportsLocal && !!cloudInstalledVersion && !cloudUpdateAvailable);
+  // ADR-0131 D6 — where the package permits more than one mode, the install
+  // waits for the operator's pick.
+  const installModeUnpicked = supportsLocal && !!offeredInstallModes && !chosenMode;
+  const primaryDisabled = !latestVersion || installingLocal || installing || installModeUnpicked || (!supportsLocal && !!cloudInstalledVersion && !cloudUpdateAvailable);
+  // The reason Install is disabled, when the missing pick is what disables it:
+  // the console's convention for a disabled control (`DeclaredActionsBar`'s
+  // `actions.notAvailableForRecord`) — a focusable wrapper that opens it on
+  // hover and focus, and an accessible description on the button and on the
+  // wrapper, so a screen reader hears it with the tooltip closed.
+  const installModeReason = installModeUnpicked && !!latestVersion && !installingLocal && !installing
+    ? t('marketplace.install.mode.required')
+    : undefined;
+  const installModeReasonId = 'install-mode-required-reason';
   const primaryAction = supportsLocal
     ? {
       label: installingLocal
@@ -1066,6 +1190,82 @@ export function MarketplacePackagePage() {
   const categoryLabel = pkg.category
     ? t(`marketplace.category.${pkg.category}` as any, { defaultValue: pkg.category })
     : null;
+
+  // ADR-0131 D6 — the install modes the manifest permits, as the operator's
+  // choice: drawn only where it permits more than one. A package that permits
+  // only `unmanaged` draws no choice, but says what its install does before
+  // the click, since that install is a copy rather than the registration every
+  // install was before the key existed.
+  const installModeChoice = supportsLocal && offeredInstallModes ? (
+    <div className="mt-4 max-w-2xl space-y-2" data-testid="install-mode-choice">
+      <p id="install-mode-label" className="text-sm font-medium">{t('marketplace.install.mode.label')}</p>
+      <RadioGroup
+        value={chosenMode}
+        onValueChange={(v) => {
+          const mode = offeredInstallModes.find((m) => m === v);
+          setModePick(mode && packageId ? { packageId, mode } : null);
+        }}
+        aria-labelledby="install-mode-label"
+        disabled={installingLocal}
+        className="gap-3"
+      >
+        {offeredInstallModes.map((mode) => (
+          <div key={mode} className="flex items-start gap-2">
+            <RadioGroupItem value={mode} id={`install-mode-${mode}`} className="mt-0.5" />
+            <Label htmlFor={`install-mode-${mode}`} className="grid gap-0.5 font-normal cursor-pointer">
+              <span className="font-medium">
+                {mode === 'managed' ? t('marketplace.install.mode.managed') : t('marketplace.install.mode.unmanaged')}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {mode === 'managed' ? t('marketplace.install.mode.managedHint') : t('marketplace.install.mode.unmanagedHint')}
+              </span>
+            </Label>
+          </div>
+        ))}
+      </RadioGroup>
+    </div>
+  ) : supportsLocal && declaredModes?.length === 1 && declaredModes[0] === 'unmanaged' ? (
+    <p className="mt-3 max-w-2xl text-sm text-muted-foreground" data-testid="install-mode-sole">
+      <span className="font-medium text-foreground">{t('marketplace.install.mode.unmanaged')}</span>
+      {': '}
+      {t('marketplace.install.mode.unmanagedHint')}
+    </p>
+  ) : null;
+
+  const primaryButton = (
+    <Button
+      onClick={primaryAction.onClick}
+      disabled={primaryDisabled}
+      aria-describedby={installModeReason ? installModeReasonId : undefined}
+      size="lg"
+      className="min-w-[8rem]"
+    >
+      <Download className="h-4 w-4 mr-1.5" aria-hidden="true" />
+      {primaryAction.label}
+    </Button>
+  );
+  // A natively disabled button fires no pointer or focus events, so the
+  // wrapping span is the tooltip trigger and the Tab stop.
+  const primaryControl = installModeReason ? (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            tabIndex={0}
+            aria-describedby={installModeReasonId}
+            data-disabled-reason=""
+            className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            {primaryButton}
+            <span id={installModeReasonId} className="sr-only">{installModeReason}</span>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{installModeReason}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  ) : primaryButton;
 
   return (
     <div className="mx-auto w-full max-w-6xl flex flex-col gap-6 p-4 sm:p-6">
@@ -1124,12 +1324,10 @@ export function MarketplacePackagePage() {
           {loc.description && (
             <p className="text-sm sm:text-base text-foreground/80 mt-3 max-w-2xl leading-relaxed">{loc.description}</p>
           )}
+          {installModeChoice}
         </div>
         <div className="flex items-center gap-2 shrink-0 self-start">
-          <Button onClick={primaryAction.onClick} disabled={primaryDisabled} size="lg" className="min-w-[8rem]">
-            <Download className="h-4 w-4 mr-1.5" aria-hidden="true" />
-            {primaryAction.label}
-          </Button>
+          {primaryControl}
           {localMenu}
           {/* Reseed / purge still POST cross-origin to the control plane, which
               the browser blocks on a tenant subdomain. Only offer them when the

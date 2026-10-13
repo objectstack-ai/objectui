@@ -173,6 +173,18 @@ export interface ObjectCalendarComponentProps {
    */
   onRowClick?: (record: any, event?: any) => void;
   onDateClick?: (date: Date) => void;
+  /**
+   * The host's record form, opened on `record`. This component calls it for
+   * one gesture (objectui#12291): an empty-day click, or a range drag in the
+   * week / day grid, on an object with a required field quick-create cannot
+   * fill (`requiredFieldsQuickCreateCannotFill`). Quick-create could not
+   * succeed there, so the gesture hands the day to the host's full create
+   * form instead of offering the dialog: `record` is then a NEW record — it
+   * carries no `id` — whose keys are the date fields the click sets, written
+   * in their stored form, and the host pre-fills its create form with them.
+   * The console's handler already reads a record without an id as a new one.
+   * With no `onEdit`, that gesture offers nothing on such an object.
+   */
   onEdit?: (record: any) => void;
   onDelete?: (record: any) => void;
   onNavigate?: (date: Date) => void;
@@ -364,6 +376,110 @@ function isDateOnlyField(declaredType: unknown, stored: unknown): boolean {
 }
 
 /**
+ * The date values a quick-create writes, and the values its hand-off to the
+ * host's full create form pre-fills (objectui#12291): the start field as the
+ * day clicked (or the start of the range dragged), and the end field, when
+ * the calendar binds one, as the range's end — the same day for a click.
+ * Each in its stored form ({@link toStoredDateValue}).
+ */
+function quickCreateDateValues(
+  config: ObjectCalendarConfig,
+  fieldDefs: Record<string, { type?: unknown } | undefined> | undefined,
+  start: Date,
+  end: Date | undefined,
+): Record<string, string> {
+  const values: Record<string, string> = {
+    [config.startDateField]: toStoredDateValue(start, fieldDefs?.[config.startDateField]?.type, undefined),
+  };
+  if (config.endDateField) {
+    values[config.endDateField] = toStoredDateValue(end ?? start, fieldDefs?.[config.endDateField]?.type, undefined);
+  }
+  return values;
+}
+
+/** A field definition, as much of it as quick-create reads. */
+interface QuickCreateFieldDef {
+  type?: unknown;
+  required?: unknown;
+  readonly?: unknown;
+  system?: unknown;
+  defaultValue?: unknown;
+  options?: unknown;
+  choices?: unknown;
+  name?: string;
+  apiName?: string;
+}
+
+/** The object schema's fields as `[name, definition]` pairs, keyed map or array. */
+function quickCreateFieldEntries(fieldsMeta: unknown): [string, QuickCreateFieldDef | undefined][] {
+  if (!fieldsMeta || typeof fieldsMeta !== 'object') return [];
+  return Array.isArray(fieldsMeta)
+    ? (fieldsMeta as QuickCreateFieldDef[]).map((f) => [f.name ?? f.apiName ?? '', f])
+    : Object.entries(fieldsMeta as Record<string, QuickCreateFieldDef | undefined>);
+}
+
+/**
+ * What quick-create writes for a required field its dialog does not ask for,
+ * or `undefined` when it has nothing to write.
+ *
+ * ⭐ This is THE statement of the set quick-create can fill (objectui#12291),
+ * and both halves of quick-create read it: `submitQuickCreate` writes these
+ * values, and {@link requiredFieldsQuickCreateCannotFill} asks the same
+ * question before the dialog is offered. So the dialog appears exactly when
+ * the write it sends carries every required field. ⛔ Never a second copy of
+ * the set beside the check: two copies drift, and the drift is a dialog that
+ * cannot succeed.
+ *
+ * ⛔ Not widened to guess. A required lookup has no value this component
+ * could know; an object that has one gets the host's full create form, which
+ * asks for it.
+ */
+function quickCreateFill(def: QuickCreateFieldDef): { value: unknown } | undefined {
+  if (def.defaultValue !== undefined && def.defaultValue !== null) {
+    return { value: def.defaultValue };
+  }
+  const t = def.type;
+  if (t === 'select' || t === 'picklist' || t === 'status') {
+    const opts = (def.options || def.choices || []) as unknown[];
+    const first = opts[0];
+    if (first === undefined) return undefined;
+    if (typeof first !== 'object' || first === null) return { value: first };
+    const option = first as { value?: unknown; id?: unknown };
+    return { value: option.value ?? option.id };
+  }
+  if (t === 'boolean' || t === 'checkbox') return { value: false };
+  if (t === 'number' || t === 'integer' || t === 'decimal' || t === 'currency' || t === 'percent') {
+    return { value: 0 };
+  }
+  // A required text, date, lookup or any other type has nothing to write
+  // here: the write leaves it empty and the server refuses it.
+  return undefined;
+}
+
+/**
+ * The required fields a quick-create write would leave empty (objectui#12291):
+ * required, not among the keys the dialog writes itself (`provided` — the
+ * title field and the date fields), and outside {@link quickCreateFill}'s set.
+ * Read from the field definitions this component already holds, never from a
+ * server round trip.
+ *
+ * A required field the server fills on insert needs no input and is not
+ * counted: one declared `readonly` or `system`, or of type `autonumber`. Those
+ * are the three exemptions objectql's insert walk (`validateRecordInScope`,
+ * with `isCallerWritableField`) makes before its required check, so a write
+ * that leaves them empty is not refused for them.
+ */
+function requiredFieldsQuickCreateCannotFill(fieldsMeta: unknown, provided: ReadonlySet<string>): string[] {
+  const unfillable: string[] = [];
+  for (const [name, def] of quickCreateFieldEntries(fieldsMeta)) {
+    if (!name || provided.has(name) || !def?.required) continue;
+    if (def.readonly === true || def.system === true || def.type === 'autonumber') continue;
+    if (!quickCreateFill(def)) unfillable.push(name);
+  }
+  return unfillable;
+}
+
+/**
  * A record the calendar cannot place: the field declared as `startDateField`
  * carries no value on it, so there is no date to draw and none is invented
  * (`bc5870c9f`). Deliberately just an id and a display title — the ruled
@@ -383,6 +499,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   onEventClick,
   onRowClick,
   onDateClick,
+  onEdit,
   onNavigate,
   onViewChange,
   onVisibleRangeChange,
@@ -1186,6 +1303,45 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     setQuickCreate({ start, end, title: '', submitting: false });
   }, [calendarConfig, schema.objectName, dataSource]);
 
+  // objectui#12291 — can the dialog's write succeed on this object? It writes
+  // the title field and the date fields, plus what `quickCreateFill` fills, so
+  // any other required field is one it would leave empty, and the server would
+  // refuse the create for it (a required lookup on the stock `showcase_task`:
+  // 400 "Project is required", with no Project input to offer). Recomputed
+  // each render from the field definitions; read as a count, never as an
+  // identity (AGENTS.md #10).
+  const quickCreateUnfillable = calendarConfig
+    ? requiredFieldsQuickCreateCannotFill(
+        objectSchema?.fields,
+        new Set(
+          [calendarConfig.titleField || 'name', calendarConfig.startDateField, calendarConfig.endDateField]
+            .filter((key): key is string => !!key),
+        ),
+      )
+    : [];
+  const quickCreateCanSucceed = quickCreateUnfillable.length === 0;
+
+  // …and where it cannot, the same gesture opens the host's FULL create form
+  // with the day it was made on (the triage direction on objectui#12291): a
+  // new record, no id, carrying the date values the dialog would have written.
+  // ⛔ No lookup picker in the dialog and no guessed value in its write — the
+  // full form is the one that asks for the lookup.
+  const handOffToCreateForm = useCallback((start: Date, end?: Date) => {
+    if (!calendarConfig || !schema.objectName || !onEdit) return;
+    const fieldDefs = objectSchema?.fields as Record<string, { type?: unknown } | undefined> | undefined;
+    onEdit(quickCreateDateValues(calendarConfig, fieldDefs, start, end));
+  }, [calendarConfig, schema.objectName, onEdit, objectSchema]);
+
+  // The two quick-create gestures (an empty-day click, a week / day range
+  // drag), as handed to `CalendarView`, which draws an affordance only when it
+  // holds its handler: closed by the `calendarQuickCreate` row
+  // (objectui#12082); the dialog when its write can succeed; otherwise the
+  // hand-off; and NOTHING when there is no host form to hand off to — a dialog
+  // that cannot succeed is never offered.
+  const handOff = onEdit ? handOffToCreateForm : undefined;
+  const dayClickCreate = !quickCreateGranted ? undefined : quickCreateCanSucceed ? handleDateClickDefault : handOff;
+  const rangeSelectCreate = !quickCreateGranted ? undefined : quickCreateCanSucceed ? handleTimeRangeSelectDefault : handOff;
+
   const submitQuickCreate = useCallback(async () => {
     if (!quickCreate || !calendarConfig) return;
     const title = quickCreate.title.trim();
@@ -1196,53 +1352,24 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     if (!schema.objectName || !dataSource?.create) return;
 
     setQuickCreate(qc => qc ? { ...qc, submitting: true, error: undefined } : qc);
-    const { startDateField, endDateField, titleField } = calendarConfig;
+    const { titleField } = calendarConfig;
     // A `date` field is written as the calendar day clicked, a `datetime` as
-    // the instant (objectui#10866, `toStoredDateValue`).
+    // the instant (objectui#10866, `toStoredDateValue`); the end field, when
+    // bound, as the range's end or the same day.
     const dateFieldDefs = objectSchema?.fields as Record<string, { type?: unknown } | undefined> | undefined;
     const payload: Record<string, any> = {
       [titleField || 'name']: title,
-      [startDateField]: toStoredDateValue(quickCreate.start, dateFieldDefs?.[startDateField]?.type, undefined),
+      ...quickCreateDateValues(calendarConfig, dateFieldDefs, quickCreate.start, quickCreate.end),
     };
-    // Default end_date to range end (or same as start if not provided).
-    if (endDateField) {
-      payload[endDateField] = toStoredDateValue(
-        quickCreate.end ?? quickCreate.start,
-        dateFieldDefs?.[endDateField]?.type,
-        undefined,
-      );
-    }
-    // Auto-fill required fields the user hasn't provided (e.g. select
-    // status, autonumber). Without this the server would 400 on
-    // NOT NULL constraint. Uses first option for picklists; falls back
-    // to defaultValue or sensible empty string for text.
-    const fieldsMeta = objectSchema?.fields;
-    if (fieldsMeta && typeof fieldsMeta === 'object') {
-      const entries: [string, any][] = Array.isArray(fieldsMeta)
-        ? fieldsMeta.map((f: any) => [f.name ?? f.apiName, f] as [string, any])
-        : Object.entries(fieldsMeta);
-      for (const [name, def] of entries) {
-        if (!name || name in payload) continue;
-        if (!def?.required) continue;
-        if (def.defaultValue !== undefined && def.defaultValue !== null) {
-          payload[name] = def.defaultValue;
-          continue;
-        }
-        const t = def.type;
-        if (t === 'select' || t === 'picklist' || t === 'status') {
-          const opts = (def.options || def.choices || []) as any[];
-          const first = opts[0];
-          if (first !== undefined) {
-            payload[name] = typeof first === 'object' ? (first.value ?? first.id) : first;
-          }
-        } else if (t === 'boolean' || t === 'checkbox') {
-          payload[name] = false;
-        } else if (t === 'number' || t === 'integer' || t === 'decimal' || t === 'currency' || t === 'percent') {
-          payload[name] = 0;
-        }
-        // autonumber/text/date that are required but not provided will fall
-        // through; the server will surface a clear error which we display.
-      }
+    // Auto-fill the required fields the dialog does not ask for, from the one
+    // statement of what quick-create can fill (`quickCreateFill`) — the set
+    // the check before the dialog read. The only required fields left empty
+    // here are the ones the server fills on insert (that check's exemptions);
+    // an object with any other one hands the gesture to the host's full form.
+    for (const [name, def] of quickCreateFieldEntries(objectSchema?.fields)) {
+      if (!name || name in payload || !def?.required) continue;
+      const fill = quickCreateFill(def);
+      if (fill) payload[name] = fill.value;
     }
     try {
       const created = await dataSource.create(schema.objectName, payload);
@@ -1476,9 +1603,11 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
             }
           }}
           // Quick-create on empty-day click. Caller-supplied onDateClick
-          // wins; otherwise open the quick-create dialog — when the
-          // `calendarQuickCreate` row allows it (objectui#12082).
-          onDateClick={onDateClick ?? (quickCreateGranted ? handleDateClickDefault : undefined)}
+          // wins; otherwise `dayClickCreate` — the dialog, or the hand-off to
+          // the host's full create form where the dialog's write cannot
+          // succeed (objectui#12291), when the `calendarQuickCreate` row
+          // allows it (objectui#12082).
+          onDateClick={onDateClick ?? dayClickCreate}
           onNavigate={(date) => {
             setCurrentDate(date);
             onNavigate?.(date);
@@ -1500,7 +1629,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
                   }
                 : undefined
           }
-          onTimeRangeSelect={quickCreateGranted ? handleTimeRangeSelectDefault : undefined}
+          onTimeRangeSelect={rangeSelectCreate}
         />
       </div>
       {/* objectui#7210 — a month drawn from the first N rows of a larger set
@@ -1553,8 +1682,9 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
 
       {/* Quick-create dialog: opens when the user clicks an empty day cell.
           Pre-fills start_date (and end_date) with the clicked day; only the
-          title is required. The full record can be edited afterward via the
-          standard detail page. */}
+          title is asked for. Offered only on an object whose required fields
+          its write can carry (objectui#12291); the full record can be edited
+          afterward via the standard detail page. */}
       <Dialog open={!!quickCreate} onOpenChange={(open) => {
         if (!open) setQuickCreate(null);
       }}>

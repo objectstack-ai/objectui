@@ -29,6 +29,62 @@ export type RecordFormTarget =
   | { kind: 'page'; url: string };
 
 /**
+ * The record the console's `onEdit` is handed: an existing record (it carries
+ * an id), or a NEW one — `null`, or a record with no id, which may carry the
+ * values the create form opens with (objectui#12291).
+ */
+export type RecordFormRecord = { id?: unknown; _id?: unknown; [field: string]: unknown };
+
+/**
+ * The values a NEW record carries into the create form (objectui#12291), or
+ * `undefined` when there are none to carry.
+ *
+ * The console's `onEdit` has always read a record without an id as a new one
+ * (the list's "New" hands it no record at all). A record without an id that
+ * carries field values is a create SEEDED with them: the calendar's empty-day
+ * hand-off sends the day that was clicked (its start date field, and its end
+ * date field when bound), so the full create form opens with the date set.
+ * An existing record carries none — the edit form reads the stored row.
+ * `null` / `undefined` entries carry nothing and are dropped.
+ */
+export function recordFormCreateValues(
+  record: RecordFormRecord | null | undefined,
+): Record<string, unknown> | undefined {
+  if (!record) return undefined;
+  const rawId = record.id ?? record._id;
+  if (rawId != null && rawId !== '') return undefined;
+  const values: Record<string, unknown> = {};
+  for (const [field, value] of Object.entries(record)) {
+    if (field === 'id' || field === '_id' || value === undefined || value === null) continue;
+    values[field] = value;
+  }
+  return Object.keys(values).length > 0 ? values : undefined;
+}
+
+/**
+ * The history-state key a seeded create rides on to the record-form OVERLAY
+ * (objectui#12291) — the overlay's own create values, beside the `?form=new`
+ * that opens it.
+ *
+ * History state, not a URL param, for the reason the post-create landing in
+ * `AppContent` already gives for its `from` origin: the reserved console URL
+ * params are a contract (`urlParams.ts`), and a create form's opening values
+ * are not something anyone shares or bookmarks. History state still gives what
+ * a URL would here: it belongs to the entry the overlay was opened on, so Back
+ * closes the overlay with it, and a refresh of that entry restores it.
+ */
+export const RECORD_FORM_CREATE_VALUES_STATE = 'recordFormCreateValues';
+
+/** The create values a history entry carries for the overlay, if any. */
+export function readRecordFormCreateValues(state: unknown): Record<string, unknown> | undefined {
+  if (!state || typeof state !== 'object') return undefined;
+  const values = (state as Record<string, unknown>)[RECORD_FORM_CREATE_VALUES_STATE];
+  return values && typeof values === 'object' && !Array.isArray(values)
+    ? (values as Record<string, unknown>)
+    : undefined;
+}
+
+/**
  * Build a record-form navigation target.
  *
  * Returns:
@@ -38,7 +94,10 @@ export type RecordFormTarget =
  *     URL points at `/{baseUrl}/{objectName}/new` for create, or
  *     `/{baseUrl}/{objectName}/record/{recordId}/edit` for edit. The
  *     `recordId` is derived from `record.id` or `record._id`, falling
- *     back to create-mode if neither is present.
+ *     back to create-mode if neither is present. A create seeded with
+ *     values ({@link recordFormCreateValues}, objectui#12291) carries them
+ *     as the query-string pairs `RecordFormPage` already reads as its
+ *     create prefill (`/new?field=value`).
  *
  * Notes:
  *   - Returns `{ kind: 'modal' }` when `objectDef` is missing or has no
@@ -50,7 +109,7 @@ export type RecordFormTarget =
 export function resolveRecordFormTarget(opts: {
   objectDef: ObjectDefinitionForNavigation | null | undefined;
   baseUrl: string;
-  record: { id?: string | number; _id?: string | number } | null | undefined;
+  record: RecordFormRecord | null | undefined;
 }): RecordFormTarget {
   const { objectDef, baseUrl, record } = opts;
 
@@ -67,7 +126,12 @@ export function resolveRecordFormTarget(opts: {
     };
   }
 
-  return { kind: 'page', url: `${baseUrl}/${objectDef.name}/new` };
+  const createValues = recordFormCreateValues(record);
+  if (!createValues) return { kind: 'page', url: `${baseUrl}/${objectDef.name}/new` };
+  const prefill = new URLSearchParams(
+    Object.entries(createValues).map(([field, value]) => [field, String(value)]),
+  );
+  return { kind: 'page', url: `${baseUrl}/${objectDef.name}/new?${prefill.toString()}` };
 }
 
 /**

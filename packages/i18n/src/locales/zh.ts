@@ -3672,6 +3672,19 @@ const zh = {
         openApp: '打开 {{name}}',
         deployTimeout: '安装已记录，但当前环境尚未提供该应用。它可能仍在部署中，请稍后再次检查。如果一直没有出现，可能是软件包未能加载、不包含应用，或其应用需要你尚未拥有的权限。',
         checkAgain: '再次检查',
+        // ADR-0131 D6 — the install modes a package's manifest permits, and
+        // what an unmanaged install answers (MarketplacePackagePage).
+        mode: {
+          label: '安装方式',
+          managed: '托管',
+          managedHint: '软件包保持权威：以代码形式注册并接收其升级，其中的条目不在此处编辑。',
+          unmanaged: '非托管副本',
+          unmanagedHint: '一次性复制到本运行时，成为它自己的元数据：每个条目都可在此编辑，副本不再接收升级。',
+          required: '请先选择安装方式，再安装此软件包。',
+        },
+        unmanagedSuccess: '已将 "{{name}}" 的 v{{version}} 复制到本运行时，成为它自己的元数据，位于基础包 {{base}} 中。副本可编辑，且不再接收升级。',
+        unmanagedStrippedLocks: '软件包锁定了以下条目。副本可编辑，因此这些锁未被复制：',
+        unmanagedIgnored: '本运行时不支持非托管安装，因此 "{{name}}" 以托管方式安装（以代码形式注册），而不是被复制。请先升级运行时，然后卸载该软件包，再以非托管副本重新安装。',
       },
       // objectui#12146 — the install dialog opened as an UPDATE of the copy
       // this environment holds (MarketplacePackagePage).
@@ -4122,6 +4135,8 @@ const zh = {
       setDefaultFailed: '设置默认应用失败：{{reason}}',
       appDeleted: '{{name}} 已删除',
       deleteFailed: '删除应用失败：{{reason}}',
+      nothingToDelete: '{{name}} 无可删除：{{reason}}',
+      alreadyAtDefault: '它已是其软件包的默认状态',
       bulkEnabled: '已启用 {{n}} 个应用',
       bulkDisabled: '已停用 {{n}} 个应用',
       bulkFailed: '{{n}} 个失败：{{details}}',

@@ -144,7 +144,8 @@ export type { PluginPermissions } from '@objectstack/spec/kernel';
  */
 export type { PluginRuntime } from '@objectstack/spec/kernel';
 
-import type { PluginPermissions, PluginRuntime } from '@objectstack/spec/kernel';
+import type { MetadataLock, PluginPermissions, PluginRuntime } from '@objectstack/spec/kernel';
+import { isPlainRecord } from '@objectstack/spec/data';
 
 export interface MarketplacePackageVersion {
   id: string;
@@ -241,6 +242,55 @@ export async function listMarketplacePackages(params: { q?: string; category?: s
 
 export async function getMarketplacePackage(id: string): Promise<MarketplaceDetailResponse> {
   return call<MarketplaceDetailResponse>(`/packages/${encodeURIComponent(id)}`);
+}
+
+/**
+ * How install-local installs a package (ADR-0131 D6): `managed` registers it
+ * as code that receives its upgrades; `unmanaged` copies its metadata once into
+ * this runtime as the environment's own, which follows no upgrade.
+ *
+ * The console's reading of the two values the install door
+ * (`POST /api/v1/marketplace/install-local`) takes as `installMode`. Written
+ * here, not derived: the `@objectstack/spec` this package resolves declares no
+ * install mode.
+ */
+export type LocalInstallMode = 'managed' | 'unmanaged';
+
+/** Every install mode, in the order the package page lists them. */
+const LOCAL_INSTALL_MODES: readonly LocalInstallMode[] = ['managed', 'unmanaged'];
+
+/**
+ * The install modes a package version's manifest declares: its `installModes`
+ * key, read from the manifest install-local itself fetches and judges
+ * (`GET /packages/:id/versions/:versionId/manifest`; install-local installs
+ * `latest` when it is given no version, and so does the package page).
+ *
+ * The key is read where the door reads it: a compiled artifact nests its
+ * manifest under `manifest:`, a flat package body carries it at the top.
+ *
+ * - `undefined` when the manifest declares no `installModes`. ⛔ Absence is
+ *   not resolved to a default here: what it means is the door's answer, and
+ *   the page sends no `installMode` for it.
+ * - `undefined` too for a declaration the spec refuses (not a non-empty list
+ *   of the two modes). The door refuses that package whatever mode is sent
+ *   (`PLUGIN_MANIFEST_INVALID`), so the page offers no choice the door would
+ *   refuse, and shows the door's own message.
+ * - Otherwise each declared mode once: a mode named twice changes nothing
+ *   (the spec's reading of the key).
+ */
+export async function getDeclaredInstallModes(
+  packageId: string,
+  versionId = 'latest',
+): Promise<readonly LocalInstallMode[] | undefined> {
+  const data = await call<{ manifest?: unknown } | null>(
+    `/packages/${encodeURIComponent(packageId)}/versions/${encodeURIComponent(versionId)}/manifest`,
+  );
+  const body = data?.manifest;
+  if (!isPlainRecord(body)) return undefined;
+  const declared = (isPlainRecord(body.manifest) ? body.manifest : body).installModes;
+  if (!Array.isArray(declared) || declared.length === 0) return undefined;
+  if (!declared.every((m) => (LOCAL_INSTALL_MODES as readonly unknown[]).includes(m))) return undefined;
+  return LOCAL_INSTALL_MODES.filter((m) => declared.includes(m));
 }
 
 /**
@@ -692,7 +742,10 @@ export interface LocalInstallEntry {
   notLoaded?: LocalInstallNotLoaded;
 }
 
-export interface LocalInstallResult {
+/** A `managed` install-local answer: the package registered as code. */
+export interface LocalManagedInstallResult {
+  /** Never sent on a managed answer: only the `unmanaged` answer names its mode. */
+  installMode?: never;
   manifestId: string;
   version: string;
   versionId: string;
@@ -701,6 +754,44 @@ export interface LocalInstallResult {
   upgradedFrom: string | null;
   note?: string;
 }
+
+/**
+ * One protection lock an `unmanaged` copy dropped: the item, the lock the
+ * package shipped on it, and the package's reason verbatim. The console's
+ * reading of one entry of the install door's `strippedLocks` answer; only
+ * `lock` is typed from the spec, whose answer shape this package's resolved
+ * `@objectstack/spec` does not declare.
+ */
+export interface LocalInstallStrippedLock {
+  type: string;
+  name: string;
+  lock: Exclude<MetadataLock, 'none'>;
+  reason?: string;
+}
+
+/**
+ * The `unmanaged` install-local answer (ADR-0131 D6): the package's metadata
+ * copied once into a new writable base, `targetPackageId`. Nothing is
+ * registered under the package's own id, so the install-local listing does not
+ * list it. `strippedLocks` is every lock the copy dropped; empty when the
+ * package locked nothing.
+ */
+export interface LocalUnmanagedInstallResult {
+  installMode: 'unmanaged';
+  manifestId: string;
+  version: string;
+  versionId: string;
+  installedAt: string;
+  installedFrom: { packageId: string; version?: string };
+  targetPackageId: string;
+  namespace: string;
+  copiedCount: number;
+  copied: Array<{ type: string; name: string }>;
+  strippedLocks: LocalInstallStrippedLock[];
+  note?: string;
+}
+
+export type LocalInstallResult = LocalManagedInstallResult | LocalUnmanagedInstallResult;
 
 /**
  * Org-scoped catalog (ADR-0007 step ②). The caller's own organization's
@@ -739,9 +830,31 @@ export async function listOrgPackages(): Promise<OrgPackagesResult> {
   }
 }
 
+/**
+ * `POST /install-local`. `installMode` is sent only when the caller names one
+ * (ADR-0131 D6); absent, the door applies its own default. A refusal rejects
+ * with the envelope's own `message`, its `code` and `status` beside it — the
+ * install-mode refusals included (`INSTALL_MODE_NOT_PERMITTED`,
+ * `UNMANAGED_INSTALL_WALLED_POSTURE`, `RESOURCE_CONFLICT`).
+ *
+ * The first overload is the door's own rule for a request that names no mode:
+ * it installs managed and answers the managed shape, as every install did
+ * before the mode existed.
+ */
+export function installLocal(input: {
+  packageId: string;
+  versionId?: string;
+  installMode?: undefined;
+}): Promise<LocalManagedInstallResult>;
+export function installLocal(input: {
+  packageId: string;
+  versionId?: string;
+  installMode?: LocalInstallMode;
+}): Promise<LocalInstallResult>;
 export async function installLocal(input: {
   packageId: string;
   versionId?: string;
+  installMode?: LocalInstallMode;
 }): Promise<LocalInstallResult> {
   const res = await fetch(`${API_BASE}/install-local`, {
     method: 'POST',
@@ -750,6 +863,7 @@ export async function installLocal(input: {
     body: JSON.stringify({
       packageId: input.packageId,
       ...(input.versionId ? { versionId: input.versionId } : {}),
+      ...(input.installMode ? { installMode: input.installMode } : {}),
     }),
   });
   let payload: any = null;

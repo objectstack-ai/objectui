@@ -34,7 +34,6 @@ import { HomeActionCenter, HomeContinue, HomeActivity } from './HomeRail.js';
 import { useHomeInbox } from '../../hooks/useHomeInbox.js';
 import { useNavigationContext } from '../../context/NavigationContext.js';
 import {
-  appRouteSegment,
   filterActiveApps,
   resolveHostAppSegment,
   resolveNotificationTarget,
@@ -541,7 +540,6 @@ export function HomePage() {
           <HomeAppsStrip
             apps={activeApps}
             favorites={favorites}
-            onOpen={(app) => navigate(`/apps/${appRouteSegment(app) ?? app.name}`)}
             /* Deliberately NOT resolved through `hostAppSegment` (objectui#4074
                scope guard): the marketplace is an admin-only surface that lives
                in the setup app, so `setup` here is the target, not an oversight

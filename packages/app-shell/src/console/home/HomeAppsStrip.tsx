@@ -10,13 +10,24 @@
  * toggle keeps the fold stable no matter how many apps exist. Favorites sort
  * first.
  *
+ * Each app tile is a router `Link` to the app's route, not a button that
+ * navigates on click (objectui#12305). An app is an addressable place, so its
+ * tile carries the address: middle-click, ⌘/Ctrl-click, "Open link in new tab",
+ * "Copy link address" and the hover destination all work, and `Link` writes the
+ * router's basename into `href`, so the address the browser shows is the real
+ * one. A plain left-click still navigates in place. The strip owns the address
+ * rule, so its two mounts (Home and the `app:launcher` page block) cannot build
+ * two different addresses for one app. "More", "Show less" and the marketplace
+ * shortcut stay buttons: they open nothing addressable.
+ *
  * @module
  */
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { LayoutGrid, Store, Star } from 'lucide-react';
 import { Button, cn } from '@object-ui/components';
 import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
-import { resolveKeyedI18nLabel } from '../../utils/index.js';
+import { appRouteSegment, resolveKeyedI18nLabel } from '../../utils/index.js';
 import { getIcon } from '../../utils/getIcon.js';
 import type { FavoriteItem } from '../../hooks/useFavorites.js';
 
@@ -51,7 +62,6 @@ function hashStr(s: string): number {
 export function HomeAppsStrip({
   apps,
   favorites,
-  onOpen,
   onBrowseMarketplace,
   isAdmin,
   canAuthorMetadata = true,
@@ -59,7 +69,6 @@ export function HomeAppsStrip({
 }: {
   apps: any[];
   favorites: FavoriteItem[];
-  onOpen: (app: any) => void;
   onBrowseMarketplace: () => void;
   isAdmin: boolean;
   /**
@@ -128,10 +137,11 @@ export function HomeAppsStrip({
           const fav = favNames.has(app.name);
           const grad = ICON_GRADIENTS[hashStr(app.name) % ICON_GRADIENTS.length];
           return (
-            <button
+            <Link
               key={app.name}
-              type="button"
-              onClick={() => onOpen(app)}
+              // ADR-0048: the route segment is the package id, falling back to
+              // the app name for apps with none.
+              to={`/apps/${appRouteSegment(app)}`}
               className="group relative flex flex-col items-center gap-2 rounded-xl p-2.5 text-center transition hover:bg-muted/40 active:scale-[0.96]"
               data-testid={`app-tile-${app.name}`}
             >
@@ -151,7 +161,7 @@ export function HomeAppsStrip({
                 )}
               </span>
               <span className="w-full truncate text-xs font-medium">{label}</span>
-            </button>
+            </Link>
           );
         })}
 

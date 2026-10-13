@@ -61,9 +61,17 @@ import { MePermissionsProvider, type MePermissionsResponse } from '@object-ui/pe
 
 const navigateMock = vi.fn();
 
-vi.mock('react-router-dom', () => ({
-  useNavigate: () => navigateMock,
-}));
+vi.mock('react-router-dom', async () => {
+  const { createElement } = await import('react');
+  return {
+    useNavigate: () => navigateMock,
+    // objectui#12305: each Home app tile is a router `Link`. This harness has
+    // no router, so the stand-in renders the anchor `Link` would, minus the
+    // basename. The tile's own pins live in `HomeAppsStrip.tilesAreLinks-12305`.
+    Link: ({ to, ...rest }: { to: string } & Record<string, unknown>) =>
+      createElement('a', { ...rest, href: to }),
+  };
+});
 
 vi.mock('@object-ui/i18n', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),

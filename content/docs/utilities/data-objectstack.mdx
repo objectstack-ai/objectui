@@ -540,6 +540,12 @@ dataSource.onConnectionStateChange((event) => {
 });
 ```
 
+After the first connect, the state follows the requests you make. A request
+with no HTTP answer moves it to `reconnecting`, then to `error` once the
+`maxReconnectAttempts` budget is spent. The next answered request moves it back
+to `connected`. An answered 4xx or 5xx leaves it unchanged, because the server
+is reachable.
+
 ### CORS Issues
 
 Configure CORS on your ObjectStack backend to allow your domain.

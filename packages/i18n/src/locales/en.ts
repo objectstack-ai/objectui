@@ -4192,6 +4192,19 @@ const en = {
         openApp: 'Open {{name}}',
         deployTimeout: 'The install was recorded, but this environment is not serving the app yet. It may still be deploying — check again shortly. If it never appears, the package may not have loaded, may include no app, or its app may need a permission you do not hold.',
         checkAgain: 'Check again',
+        // ADR-0131 D6 — the install modes a package's manifest permits, and
+        // what an unmanaged install answers (MarketplacePackagePage).
+        mode: {
+          label: 'Install mode',
+          managed: 'Managed',
+          managedHint: 'The package stays the authority: it is registered as code, receives its upgrades, and its items are not edited here.',
+          unmanaged: 'Unmanaged copy',
+          unmanagedHint: 'Copied once into this runtime as its own metadata: every item is editable here, and the copy receives no upgrade.',
+          required: 'Choose an install mode to install this package.',
+        },
+        unmanagedSuccess: 'Copied v{{version}} of "{{name}}" into this runtime as its own metadata, in the base {{base}}. The copy is editable and receives no upgrade.',
+        unmanagedStrippedLocks: 'The package locked these items. The copy is editable, so their locks were not copied:',
+        unmanagedIgnored: 'This runtime does not support unmanaged installs, so "{{name}}" was installed managed (registered as code) instead of copied. Upgrade the runtime, then uninstall the package and install it again as an unmanaged copy.',
       },
       // objectui#12146 — the install dialog opened as an UPDATE of the copy
       // this environment holds (MarketplacePackagePage).
@@ -4737,6 +4750,11 @@ const en = {
       setDefaultFailed: 'Failed to set default app: {{reason}}',
       appDeleted: '{{name}} deleted',
       deleteFailed: 'Failed to delete app: {{reason}}',
+      // A `reset: false` answer: no customization row existed, so nothing was
+      // removed. `{{reason}}` is the server's own sentence, passed through raw.
+      nothingToDelete: 'Nothing to delete for {{name}}: {{reason}}',
+      // `{{reason}}` above when that answer carried no sentence of its own.
+      alreadyAtDefault: 'it is already at its package default',
       // `{{n}}` is the count that actually LANDED, not the selection size — a
       // bulk toggle is N independent writes with no transaction behind them.
       bulkEnabled: '{{n}} apps enabled',

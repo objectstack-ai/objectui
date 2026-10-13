@@ -131,14 +131,20 @@ const OBJECT_CALENDAR_DATA_SOURCE: ElementDataSourceMapping = {
  * declares, so listing them narrows what may reach the component and widens
  * nothing.
  *
- * `onEdit` and `onDelete` are declared by `ObjectCalendarComponentProps` but are NOT
+ * `onDelete` is declared by `ObjectCalendarComponentProps` but is NOT
  * destructured by the component (`ObjectCalendar.tsx` — the record drawer builds
- * its own edit/delete handlers from `dataSource`), so forwarding them is inert
- * today. They are listed anyway: the hatch is bounded by the DECLARATION, and a
- * key that is declared, inert and silently dropped would be a second, quieter
- * contract than the one this boundary states. Their inertness is a census
- * observation, not a behaviour change — before and after this card, a value
- * under either name does nothing.
+ * its own delete handler from `dataSource`), so forwarding it is inert today. It
+ * is listed anyway: the hatch is bounded by the DECLARATION, and a key that is
+ * declared, inert and silently dropped would be a second, quieter contract than
+ * the one this boundary states.
+ *
+ * `onEdit` was inert the same way until objectui#12291, and it is the one this
+ * forward carries that a host really wires: `ListView` hands its own `onEdit`
+ * down through the trailing props, and in the console that is the handler that
+ * opens the record form. The calendar now calls it for one gesture — an
+ * empty-day click on an object whose required fields quick-create cannot fill
+ * — with a new record carrying the clicked day, so the host's full create form
+ * opens pre-filled (see the prop's own doc comment).
  */
 const HOST_CALLBACKS = [
   'onEventClick',

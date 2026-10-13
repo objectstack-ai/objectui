@@ -500,6 +500,26 @@ unsubscribe();
 - `reconnecting` - Attempting to reconnect after failure
 - `error` - Connection failed (check event.error for details)
 
+### After the First Connect
+
+Once the first connection has succeeded, the state follows the outcome of the
+requests your app already makes. The adapter adds no timer, heartbeat or
+request of its own:
+
+- **A request with no HTTP answer** (refused, reset, unreachable) moves the state
+  to `reconnecting`. When the retry window is spent, it moves to `error`. The
+  window is the same `autoReconnect` / `maxReconnectAttempts` budget as below,
+  counted in unanswered requests. With `autoReconnect: false` the first
+  unanswered request moves the state straight to `error`.
+- **The next answered request** moves it back to `connected`.
+- **An answered HTTP error does not move it.** A 4xx or 5xx means the server is
+  reachable. A request its caller aborted does not move it either.
+
+Every request goes through the adapter's one fetch, including those made
+through `getClient()`, except `uploadFile` / `uploadFiles`. Those two call the
+global `fetch`, so an upload's outcome does not move the state. The response or
+rejection reaches your code unchanged.
+
 ### Auto-Reconnect
 
 The adapter automatically attempts to reconnect on connection failures:

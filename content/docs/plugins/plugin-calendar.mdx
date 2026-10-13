@@ -89,6 +89,23 @@ or the field's declared `defaultValue`). This ensures the create
 succeeds against `NOT NULL` columns without forcing the user through
 the full form.
 
+When the object has a required field outside that set (a required lookup,
+or a required text field other than the title), the dialog's create could
+not succeed, so it is not offered. The same gesture opens the host's full
+create form instead: the calendar calls `onEdit` with a new record (no `id`)
+carrying the date values the dialog would have written, and the host
+pre-fills its create form with them. The console does this already. Without
+an `onEdit`, the gesture offers nothing on such an object. Required fields
+the server fills on insert (`readonly`, `system`, `autonumber`) do not count.
+
+```jsx
+<ObjectCalendar
+  schema={{ type: 'object-calendar', objectName: 'task', calendar: { startDateField: 'due_date' } }}
+  // Called as onEdit({ due_date: '2026-10-20' }) on an object with a required lookup.
+  onEdit={(record) => openCreateForm({ initialValues: record })}
+/>
+```
+
 Quick-create is offered only when the `calendarQuickCreate` row of the
 affordance-to-grant map allows it (the caller's **create** grant, with the
 object's policy and the effective API operation set): without it a day click

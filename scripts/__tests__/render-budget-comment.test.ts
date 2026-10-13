@@ -456,7 +456,9 @@ describe('performance-budget.yml contract', () => {
   });
 
   it('gates the size report, the renderer and the comment on !cancelled()', () => {
-    expect(conditions.filter((c) => c.includes('!cancelled()'))).toHaveLength(3);
+    // Four: those three, plus the turbo cache report (objectui#12276), which is
+    // bookkeeping after the verdict and reports on a red run for the same reason.
+    expect(conditions.filter((c) => c.includes('!cancelled()'))).toHaveLength(4);
   });
 
   it('generates the size report only from a complete package build', () => {
@@ -473,7 +475,12 @@ describe('performance-budget.yml contract', () => {
   });
 
   it('passes every env var the renderer reads, and reads every one it passes', () => {
-    const declared = [...workflow.matchAll(/^\s{10}([A-Z_]+): \$\{\{ steps\./gm)].map((m) => m[1]);
+    // The render step's own block: another step's `env:` (the turbo cache
+    // report's RESTORED_CACHE_KEY, objectui#12276) is not the renderer's contract.
+    const renderStep = workflow.slice(workflow.indexOf('- name: Render performance budget comment'));
+    const block = renderStep.slice(0, renderStep.indexOf('- name:', 1));
+    expect(block, 'the render step is gone').toContain('scripts/render-budget-comment.mjs');
+    const declared = [...block.matchAll(/^\s{10}([A-Z_]+): \$\{\{ steps\./gm)].map((m) => m[1]);
 
     expect(declared.length).toBeGreaterThan(0);
     for (const name of declared) {
@@ -569,6 +576,8 @@ describe('performance-budget.yml contract', () => {
       // `isEntrypoint` decides whether `main()` runs at all — a regression here
       // makes the checker exit 0 having measured nothing.
       'scripts/invoked-as.mjs',
+      // The turbo cache report and prune the job runs after its verdict (objectui#12276).
+      'scripts/report-turbo-cache.mjs',
     ];
 
     it('triggers on its whole runtime closure, so no part of this gate ships unexercised', () => {

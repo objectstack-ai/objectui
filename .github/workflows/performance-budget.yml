@@ -57,6 +57,10 @@ on:
       - 'scripts/check-side-effects-array.mjs'
       - 'scripts/component-registrations.mjs'
       - 'scripts/js-comment-mask.mjs'
+      # The turbo cache report and prune (objectui#12276). Same rule again:
+      # this job runs it, so an edit to it must run this gate on its own pull
+      # request.
+      - 'scripts/report-turbo-cache.mjs'
   pull_request:
     branches: [main, develop]
     paths:
@@ -113,6 +117,10 @@ on:
       - 'scripts/check-side-effects-array.mjs'
       - 'scripts/component-registrations.mjs'
       - 'scripts/js-comment-mask.mjs'
+      # The turbo cache report and prune (objectui#12276). Same rule again:
+      # this job runs it, so an edit to it must run this gate on its own pull
+      # request.
+      - 'scripts/report-turbo-cache.mjs'
 
 concurrency:
   group: bundle-analysis-${{ github.event.pull_request.number || github.ref }}

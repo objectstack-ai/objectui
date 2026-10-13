@@ -28,9 +28,11 @@
  * ## Ablation
  *
  * Dropping the package scope from the page's `saveApp` (both branches call the
- * three-argument form) turns the three "sends the owning package" cases red,
- * on the call and on the badge after the re-read. Restoring the old delete body
- * (toast "deleted" whatever `reset` says) turns the `reset: false` case red.
+ * three-argument form) turns every case that saves a packaged app red: both
+ * packaged Disables, both Set default cases and the bulk toggle, on the call
+ * and on the row after the re-read. The package-less and sentinel cases stay
+ * green, as they must. Ignoring `reset` in the delete handler (toast "deleted"
+ * whatever it says) turns the two `reset: false` cases red.
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';

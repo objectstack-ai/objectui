@@ -88,7 +88,8 @@
         "!packages/*/**",
         "!examples/*/**",
         "!apps/*/**",
-        "!docs/**"
+        "!docs/**",
+        "!**/node_modules/**"
       ]
     },
     "type-check": {

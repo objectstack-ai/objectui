@@ -994,6 +994,11 @@ const persistence = (
   `409`, which opens the record page's conflict dialog (Reload latest, Overwrite
   anyway, Cancel). "Save All" reports each row on its own: a refused row stays
   pending and flagged, and the rows that saved are cleared.
+- **Each pending edit stays on its record**: edits are kept by the record's `id`,
+  not by row position, so a re-read in a new order (a row save's refresh, the
+  data-invalidation bus, a page change) draws and saves every edit on the record
+  it was typed on. An edit whose record the current page no longer holds stays
+  pending, and "Save All" still writes it to that record.
 
 **Example Workflow:**
 1. User edits multiple cells across different rows

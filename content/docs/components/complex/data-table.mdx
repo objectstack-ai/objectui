@@ -123,6 +123,17 @@ by the `rowIndex` it was handed: the table keeps and flags exactly those rows, a
 clears the rest. Resolving with nothing means every row persisted. A rejection
 says nothing about which rows landed, so the table keeps and flags every row.
 
+A pending edit belongs to its **record**, not to the position its row had: the
+table keeps it under the row's `id` (or, for a row with no `id`, under the row
+object itself). When the host hands the table a new read of its rows, in any
+order, every edit is drawn, saved and flagged on its own record. An edit whose
+record the new rows no longer include (a re-read dropped it, or it sits on
+another server page) stays pending and is counted in the toolbar. "Save All"
+hands it over with the row it was staged against and a negative `rowIndex`
+(`-1`, `-2`, …, unique within the batch), since no position in the rows the
+table holds is that record's. Every other entry's `rowIndex` is the row's index
+when "Save All" is pressed.
+
 The host can also supply `renderCellEditor`, a function the table calls first for
 every cell it is about to edit; it returns a node to use, or `null` to fall through
 to the built-in editor for that column. This is how `object-grid` gives a `select`

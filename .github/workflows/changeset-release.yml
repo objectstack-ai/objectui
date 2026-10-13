@@ -709,14 +709,23 @@ jobs:
       #
       # The restore half is deliberately left UNBOUNDED: a restore stall fails
       # BEFORE anything is published, which is the honest failure.
+      #
+      # ONE restore key, this job's own prefix (objectui#12276, the shape
+      # `ci.yml`'s `type-check` job took in objectui#12222). Until then this key
+      # was `turbo-<os>-<sha>` with a bare `turbo-<os>-` fallback, and `Lint`
+      # and `Bundle Analysis` saved under that same key, so this job restored
+      # whichever of their caches reached the sha first -- and its own save
+      # below found an exact hit and skipped. Every run of this job is on
+      # `main` (push, `schedule`, dispatch), so its own previous entry is what
+      # the prefix finds.
       - name: Restore Turbo Cache
         id: turbo-cache
         uses: actions/cache/restore@v6
         with:
           path: .turbo/cache
-          key: turbo-${{ runner.os }}-${{ github.sha }}
+          key: turbo-${{ runner.os }}-release-${{ github.sha }}
           restore-keys: |
-            turbo-${{ runner.os }}-
+            turbo-${{ runner.os }}-release-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -738,6 +747,8 @@ jobs:
       # commit; this one only ever duplicated it, ~34 minutes later.
 
       - name: Build packages
+        env:
+          TURBO_RUN_SUMMARY: 'true'
         run: pnpm build
 
       # ══════════════════════════════════════════════════════════════════════
@@ -1408,6 +1419,37 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # ── What the cache replayed, and only what it used is kept (objectui#12276) ──
+      # The `type-check` job's two bookkeeping steps (objectui#12222), for this
+      # job's cache. `Build packages` above sets `TURBO_RUN_SUMMARY`, so turbo
+      # wrote its run summary to `.turbo/runs/`; the report reads it and puts
+      # what the restored cache replayed, what re-ran and the restored key on
+      # ONE `::notice` annotation, readable through the check-runs API by
+      # anyone who cannot open this log. The prune then deletes every entry
+      # that build did not use, so the entry saved below is exactly the
+      # current build outputs. Every run of this job is a `main` run, so both
+      # run on every run, after every release step: `!cancelled()` on the
+      # report so a failed release still reports, the prune on success like
+      # the save it prepares.
+      #
+      # Bounded and `continue-on-error`, like the save: neither can redden a
+      # job that has already published. `timeout-minutes: 1` each is DERIVED
+      # FOR THIS SITE: the script reads one run summary and lists one
+      # directory, and measured 87 ms on a lint run's summary
+      # (objectui#12276); a minute is several hundred times that.
+      - name: Report what the turbo cache replayed
+        if: ${{ !cancelled() }}
+        timeout-minutes: 1
+        continue-on-error: true
+        env:
+          RESTORED_CACHE_KEY: ${{ steps.turbo-cache.outputs.cache-matched-key }}
+        run: node scripts/report-turbo-cache.mjs
+
+      - name: Prune the turbo cache to what this run used
+        timeout-minutes: 1
+        continue-on-error: true
+        run: node scripts/report-turbo-cache.mjs --prune
+
       # The bookkeeping half of the split documented at the restore step above,
       # placed HERE — last in the job, after publish, after the post-version
       # tree validation and after the refresh — because that is exactly where
@@ -1417,14 +1459,16 @@ jobs:
       # `timeout-minutes: 5` is DERIVED, and the derivation is weaker here than
       # at the other six sites — said plainly rather than dressed up.
       # objectui#7048 fences inheriting PR #7047's 5, so: this cache is
-      # `.turbo/cache` under the same `turbo-${{ runner.os }}-${{ github.sha }}`
-      # key shape as `lint.yml` and `performance-budget.yml`, and the saves of
-      # THAT cache measured 1s, 2s, 5s and 6s across four jobs on 2026-09-02
+      # `.turbo/cache`, under the same `turbo-${{ runner.os }}-${{ github.sha }}`
+      # key as `lint.yml` and `performance-budget.yml` when this was derived
+      # (each job has its own key prefix since objectui#12276), and the saves
+      # of that cache measured 1s, 2s, 5s and 6s across four jobs on 2026-09-02
       # (`Bundle Analysis` 100096569559, `Type Check` 100096569872,
       # `Build Docs` 100094597253, `Lint` 100097466846). A same-SITE save was
       # not observable in the sampled runs: this job runs on `push` to `main`
       # only when the version is not yet on npm, and on the 6-hourly `schedule`
-      # the primary key is an exact hit, so `Post Turbo Cache` measured 0s on
+      # the primary key was an exact hit -- another job's save under the shared
+      # key -- so `Post Turbo Cache` measured 0s on
       # the sampled scheduled run (job 99021319583, 2026-08-29) with its
       # restore at 4s. 5 minutes is 50x the slowest of the four same-cache
       # saves; if a directly measured save of this site ever lands and lies
@@ -1449,4 +1493,4 @@ jobs:
         continue-on-error: true
         with:
           path: .turbo/cache
-          key: turbo-${{ runner.os }}-${{ github.sha }}
+          key: turbo-${{ runner.os }}-release-${{ github.sha }}

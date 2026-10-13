@@ -78,7 +78,19 @@
     },
     "//#lint:root": {
       "outputs": [],
-      "cache": false
+      "cache": false,
+      "inputs": [
+        "**/*.js",
+        "**/*.cjs",
+        "**/*.mjs",
+        "**/*.ts",
+        "**/*.tsx",
+        "!packages/*/**",
+        "!examples/*/**",
+        "!apps/*/**",
+        "!docs/**",
+        "!**/node_modules/**"
+      ]
     },
     "type-check": {
       "dependsOn": ["^build", "//#type-check:e2e"],

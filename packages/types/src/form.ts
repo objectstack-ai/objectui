@@ -17,7 +17,7 @@
 
 import type { BaseSchema, SchemaNode } from './base.js';
 import type { SelectOptionBase } from './select-option.js';
-import type { GridFieldMetadata, LookupFieldMetadata, UserFieldMetadata } from './field-types.js';
+import type { GridFieldMetadata } from './field-types.js';
 // objectui#11070 — the field-metadata members `FormField` declares by
 // reference to the spec's `FieldSchema`. Type-only: no runtime edge.
 import type { Field as SpecField } from '@objectstack/spec/data';
@@ -1594,13 +1594,15 @@ export interface FieldValidationRules {
    * `value instanceof RegExp` (verified against the installed 7.85.0 bundle),
    * so a string here type-checked and then validated NOTHING, silently: the
    * form looked validated while the rule never ran (objectui#5099, maintainer
-   * ruling 2026-08-18). String patterns belong to the metadata route's field
-   * declaration (`FieldSchema.pattern`), which `buildValidationRules` in
-   * `@object-ui/fields` compiles via `new RegExp(...)` before it reaches this
-   * shape. The renderer deliberately does NOT compile strings at its read
-   * point — that consumer-side tolerance would harden the ambiguous
-   * declaration into contract (AGENTS.md #0.1); the declaration is narrowed
-   * at the producer instead.
+   * ruling 2026-08-18). No path compiles a string into one: a regex declared
+   * as object METADATA is the object's `format` validation rule
+   * (`validations[]`), which the server runs on save — the field-level
+   * `pattern` that `buildValidationRules` in `@object-ui/fields` used to
+   * compile is retired (objectui#12242; `FieldSchema` refuses it by name).
+   * The renderer deliberately does NOT compile strings at its read point —
+   * that consumer-side tolerance would harden the ambiguous declaration into
+   * contract (AGENTS.md #0.1); the declaration is narrowed at the producer
+   * instead.
    */
   pattern?: { value: RegExp; message: string };
   /**
@@ -2192,10 +2194,13 @@ export interface FormField {
   // with and without. Every member below is read by the widget or branch its
   // note names and changes what it does; where no note names a field type, it
   // is accepted and read by nothing. The spec's `FieldSchema` members are
-  // typed by reference (`step` among them), `idField` / `picker` / `subtitle`
-  // are the field metadata types' members by reference, and `capture`,
-  // `crop`, `defaultName`, `avatarField` and `className`, which no type
-  // declared for a form field, are typed as they are read.
+  // typed by reference (`step` among them), and `idField` / `picker` /
+  // `subtitle`, `capture`, `crop`, `defaultName`, `avatarField` and
+  // `className` are typed as they are read. `idField` / `picker` / `subtitle`
+  // were the field metadata types' members by reference until objectui#12242
+  // moved them off that authoring face (the spec's `FieldSchema` refuses all
+  // three by name): this entry is the face that declares them now, and
+  // `LookupField` reads them through it.
   //
   // ⛔ Not declared: `defaultValue` and `defaultChecked`. No reader asks for
   // either, and neither becomes the field's value (the effects file measures
@@ -2255,10 +2260,12 @@ export interface FormField {
    */
   displayField?: SpecField['displayField'];
   /**
-   * Record field a `lookup` field's pick commits as the value (default `id`):
-   * {@link LookupFieldMetadata.idField}.
+   * Record field a `lookup` field's pick commits as the value (default `id`),
+   * e.g. `name` for a reference stored by machine name
+   * (objectstack-ai/objectstack#3508). Picker configuration, not object
+   * metadata: `FieldSchema` refuses it by name (objectui#12242).
    */
-  idField?: LookupFieldMetadata['idField'];
+  idField?: string;
   /**
    * Columns of a `lookup` field's browse-all dialog.
    */
@@ -2273,20 +2280,24 @@ export interface FormField {
   lookupPageSize?: SpecField['lookupPageSize'];
   /**
    * Picker of a `lookup` or `user` field: `'search'` is the search-first
-   * people picker, which replaces the quick-select and the browse-all dialog:
-   * {@link UserFieldMetadata.picker}.
+   * people picker, which replaces the quick-select and the browse-all dialog;
+   * `'default'` is the classic record-picker dialog. A `user` field with no
+   * `picker` gets the search picker. Picker configuration, not object
+   * metadata: `FieldSchema` refuses it by name (objectui#12242).
    */
-  picker?: UserFieldMetadata['picker'];
+  picker?: 'search' | 'default';
   /**
-   * Record fields shown beside each candidate of the search picker
-   * (`picker: 'search'`): {@link UserFieldMetadata.subtitle}.
+   * Dotted record-field paths shown beside each candidate of the search
+   * picker (`picker: 'search'`); relation paths expand, e.g.
+   * `primary_business_unit_id.name`. Picker configuration, not object
+   * metadata: `FieldSchema` refuses it by name (objectui#12242).
    */
-  subtitle?: UserFieldMetadata['subtitle'];
+  subtitle?: string[];
   /**
    * Record field each candidate of the search picker (`picker: 'search'`) of
    * a `lookup` or `user` field draws its avatar image from (default `image`).
    * Typed as the widgets read it: the spec's `FieldSchema` declares neither
-   * spelling, and {@link UserFieldMetadata} declares only the snake_case one,
+   * spelling, and `UserFieldMetadata` declares only the snake_case one,
    * which this face refuses.
    */
   avatarField?: string;

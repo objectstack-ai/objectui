@@ -256,7 +256,7 @@ There is no `ValidationRule` type in this repo, under any spelling.
 | `required` | `string \| boolean` | supplies the required **message** only. Whether the field is required is decided by `required` / `requiredWhen` **on the field** |
 | `minLength` / `maxLength` | `{ value: number; message: string }` | `message` is not optional when you author the rule by hand |
 | `min` / `max` | `{ value: number; message: string }` | numeric range |
-| `pattern` | `{ value: string \| RegExp; message: string }` | pass a **RegExp** in a hand-authored schema: react-hook-form only applies a pattern whose value `instanceof RegExp`, and it is the object-metadata path (`buildValidationRules` in `@object-ui/fields`) that compiles a declared string into one |
+| `pattern` | `{ value: RegExp; message: string }` | pass a **RegExp** in a hand-authored schema: react-hook-form only applies a pattern whose value `instanceof RegExp`, and nothing compiles a string into one. An object field has no `pattern` key: a regex check on an object is its `format` validation rule, which the server runs on save |
 | `validate` | `(value) => boolean \| string \| Promise<boolean \| string>` | custom check; TypeScript-authored schemas only |
 
 There is no `email` rule name — an email check is a `pattern`, which is exactly

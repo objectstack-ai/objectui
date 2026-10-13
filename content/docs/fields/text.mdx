@@ -42,10 +42,29 @@ const productName: TextFieldMetadata = {
   required: true,
   minLength: 2,
   maxLength: 120,
-  pattern: '^[A-Za-z0-9 -]+$',
-  pattern_message: 'Letters, digits, spaces and hyphens only.',
 };
 ```
+
+## Format Validation
+
+A regex check is declared on the **object**, not on the field. `@objectstack/spec`
+has a validation rule for it: an entry of the object definition's `validations[]`
+whose `type` is `'format'`. For the field above it carries:
+
+- `name`: the rule's own snake_case name, e.g. `'product_name_characters'`;
+- `field`: the field it checks, `'product_name'`;
+- `regex`: `'^[A-Za-z0-9 -]+$'`. It is not anchored for you, so write `^` and `$`
+  to match the whole value;
+- `message`: `'Letters, digits, spaces and hyphens only.'`, the reason given when
+  the value is refused.
+
+The server runs the rule on every write that touches the field and refuses a
+non-empty value the `regex` does not match, with the rule's `message`. `FieldSchema`
+has no field-level `pattern` or `pattern_message`: it refuses both by name, and
+`TextFieldMetadata` refuses them at compile time.
+
+The form does not pre-check this rule in the browser. A value that breaks it is
+refused when the record is saved, and the rule's `message` is the reason given.
 
 The value being edited, and the `className` / `disabled` a host supplies, are **not**
 metadata keys — they are runtime widget props. See [Field Widget Props](/docs/fields/widget-props).

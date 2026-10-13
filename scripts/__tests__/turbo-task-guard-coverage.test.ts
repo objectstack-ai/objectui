@@ -44,6 +44,13 @@ import { repoRoot } from './helpers/turbo-inputs';
  * stale the moment a new root-level directory is added, and a stale inputs list
  * on a CACHED task replays a green verdict over a directory nothing linted —
  * which is objectui#4456 itself, one level up. It runs in about four seconds.
+ * It has declared `inputs` since objectui#12276, and that does not move it
+ * across the partition: uncached, its inputs decide no verdict of its own,
+ * only the hash every package's `lint` inherits through `dependsOn` — with
+ * none, that hash covered every file in the repository and no package's lint
+ * could replay. They are derived from the `lint:root` script's ignore
+ * patterns rather than listed by directory, and
+ * `turbo-lint-inputs.test.ts` pins them against ESLint's own walk.
  *
  * `//#type-check:e2e` (objectui#4471) is the same move for the TYPE gate: `e2e/`
  * is not a workspace package, so `turbo run type-check` could not reach it and

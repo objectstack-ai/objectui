@@ -238,12 +238,14 @@ export type RelationalMetaVerdict =
   // `reference_to` (objectui#11070 round 4): the choke point no longer stamps
   // it and no consumer reads it, so the verdict names nothing.
   /**
-   * Declared on `@object-ui/types`' WIDGET metadata (`LookupFieldMetadata` /
-   * `UserFieldMetadata`) and emitted by in-repo producers, with no twin on
+   * Picker configuration declared on `@object-ui/types`' form entry
+   * (`FormField`) and emitted by in-repo producers, with no twin on
    * `FieldSchema` — and none needed. objectui#7155 created this category when
    * it converged the two dialects: `idField` carries objectstack#3508's
    * machine-name hydration, which is a picker capability and not an
-   * object-metadata one.
+   * object-metadata one. It was declared on the field metadata types
+   * (`LookupFieldMetadata`) until objectui#12242 moved it off that authoring
+   * face; the verdict is unchanged.
    */
   | 'widget-contract'
   /** Read, but no producer can emit it — copying it would reach nothing. */
@@ -361,7 +363,7 @@ export const RELATIONAL_META_READ_SET: Readonly<Record<string, RelationalMetaEnt
   // field other than the id as a lookup's stored VALUE (objectstack#3508's
   // machine-name hydration), which is picker behaviour, not object metadata.
   // objectui#7155 kept the capability and moved it onto the widget contract.
-  idField: { verdict: 'widget-contract', readers: LOOKUP_EDITOR_ONLY, note: "LookupFieldMetadata.idField — the picker's id column. Absent from FieldSchema, and `id_field` was too: this is a widget-contract key by construction, not a spelling gap. Read only by LookupField, which the inline editor feeds from the schema def, so it stays off the copy set (objectui#7166's measurement, unchanged by the rename)." },
+  idField: { verdict: 'widget-contract', readers: LOOKUP_EDITOR_ONLY, note: "FormField.idField — the picker's id column (on LookupFieldMetadata until objectui#12242). Absent from FieldSchema, and `id_field` was too: this is a widget-contract key by construction, not a spelling gap. Read only by LookupField, which the inline editor feeds from the schema def, so it stays off the copy set (objectui#7166's measurement, unchanged by the rename)." },
 
   // ── Read by the EDITOR widgets, producible, and NOT copied ──────────────
   // Found by objectui#6875's re-sweep. objectui#7154 measured WHY copying them

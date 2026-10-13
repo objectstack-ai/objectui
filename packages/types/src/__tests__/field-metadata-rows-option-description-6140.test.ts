@@ -113,7 +113,9 @@ export const _lookupWithOptionDescription: LookupFieldMetadata = {
 const readSites: Array<{ file: string; text: string; why: string }> = [
   {
     file: 'packages/fields/src/widgets/RichTextField.tsx',
-    text: 'const richField = field as MarkdownFieldMetadata | HtmlFieldMetadata;',
+    // objectui#12242 intersected the host-written `mobile_fullscreen`'s hand-off
+    // into the same declared cast; the carrier is still read through declared types.
+    text: 'const richField = field as (MarkdownFieldMetadata | HtmlFieldMetadata) & LongTextCarrierHandoff;',
     why: 'the DECLARED carrier — the `as any` this card retired must not come back',
   },
   {
@@ -128,7 +130,7 @@ const readSites: Array<{ file: string; text: string; why: string }> = [
   },
   {
     file: 'packages/fields/src/widgets/TextAreaField.tsx',
-    text: 'const textareaField = field as TextareaFieldMetadata;',
+    text: 'const textareaField = field as TextareaFieldMetadata & LongTextCarrierHandoff;',
     why: 'the precedent widget reads through the declared type too',
   },
   {

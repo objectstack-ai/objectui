@@ -278,14 +278,15 @@ describe('buildValidationRules now compiles a `location` branch (objectui#6744)'
     expect(validate({ lat: 91, lng: 0 })).toBe(expectedMessage({ lat: 91, lng: 0 }));
   });
 
-  it('a field-authored `validate` keeps running alongside it', () => {
+  it('is the only validator in the object form: a field-level `validate` is not compiled (objectui#12242)', () => {
     // The object form is react-hook-form's own way of holding several named
-    // validators, and it is the shape the form renderer already normalises to
-    // when it adds `required`. Composing rather than replacing is what keeps an
-    // authored rule from being silently dropped on location fields.
+    // validators, and it is the shape the form renderer normalises to when it
+    // adds `required`. A field-level `validate` used to ride in beside the
+    // location entry; the spec refuses that key by name, so it is no longer
+    // read, and the entry stands alone.
     const authored = () => 'authored says no';
     const rules = buildValidationRules({ type: 'location', name: 'place', validate: authored });
-    expect(rules.validate.validate).toBe(authored);
+    expect(Object.keys(rules.validate)).toEqual(['location']);
     expect(typeof rules.validate.location).toBe('function');
   });
 
@@ -295,8 +296,5 @@ describe('buildValidationRules now compiles a `location` branch (objectui#6744)'
     expect(buildValidationRules({ type: 'text', name: 'title', required: true }))
       .toEqual({ required: true });
     expect(buildValidationRules({ type: 'text', name: 'title' })).toBeUndefined();
-    const authored = () => true;
-    expect(buildValidationRules({ type: 'text', name: 'title', validate: authored }))
-      .toEqual({ validate: authored });
   });
 });

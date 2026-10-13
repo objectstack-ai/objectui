@@ -17,8 +17,8 @@ The Lookup Field component provides a reference field for creating relationships
 
 A lookup field is authored as `LookupFieldMetadata` (`@object-ui/types`), which is the
 source of truth for the key set: it extends `BaseFieldMetadata` with the reference
-target, the display and id fields, an optional static option list, and the Record
-Picker's column and paging configuration. Static options are `SelectOptionMetadata`,
+target, the display and description fields, an optional static option list, and the
+Record Picker's column and paging configuration. Static options are `SelectOptionMetadata`,
 and picker columns are `LookupColumnDef` — both exported, both checked here.
 
 ```ts
@@ -33,7 +33,6 @@ const accountId: LookupFieldMetadata = {
   reference: 'accounts',
   reference_field: 'name',
   descriptionField: 'industry',
-  idField: '_id',
   multiple: false,
   searchable: true,
   allowCreate: true,
@@ -61,6 +60,14 @@ with no alias: the spec refuses each of them, and nothing reads them. A stored o
 definition that still spells one is folded onto the declared key when it is served
 through the ObjectStack adapter or the console's metadata store; a definition handed
 to the widget any other way loses the setting — rename the key.
+
+The record field a pick commits as the value, `id` unless told otherwise, is picker
+configuration rather than object metadata. `FieldSchema` refuses an `idField` by
+name, so a lookup field definition cannot carry it, and `LookupFieldMetadata` does
+not declare it. A host sets it where it builds the picker: on a form entry
+(`FormField.idField`), on an action parameter, or on a `master_detail` inline grid
+column. A reference stored by machine name, such as an approval `position` stored as
+`sys_position.name`, sets it to `name`.
 
 When no data source is available the field falls back to a static option list:
 

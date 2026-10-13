@@ -4,6 +4,7 @@ import { cn, Textarea, EmptyValue, CharacterCount, type FullscreenEditorAria } f
 import { useObjectTranslation } from '@object-ui/react';
 import { FullscreenFieldEditor } from './FullscreenFieldEditor.js';
 import { FieldWidgetComponentProps } from './types.js';
+import type { LongTextCarrierHandoff } from './longTextCarrierHandoff.js';
 import { toDomProps, type FieldDomProps } from './toDomProps.js';
 import { richTextCellRenderer } from './richTextDisplay.js';
 
@@ -342,11 +343,13 @@ export function RichTextField({ value, onChange, field, readonly, error, ...prop
   // what retired the deliberate `as unknown as MarkdownFieldMetadata` its pin
   // test needed for as long as the union had no branch to write it against.
   // The cast below names two of the three because it does not have to
-  // discriminate: every key this widget consumes (`rows`, `maxLength`,
-  // `mobile_fullscreen`, `placeholder`, `label`) is DECLARED on all three, so
-  // the two named already admit every read below — `rows` since the objectui#6140 Option A ruling
+  // discriminate: every authored key this widget consumes (`rows`,
+  // `maxLength`, `placeholder`, `label`) is DECLARED on all three, so the two
+  // named already admit every read below — `rows` since the objectui#6140 Option A ruling
   // (which is what retired the `as any` that used to launder this carrier).
-  const richField = field as MarkdownFieldMetadata | HtmlFieldMetadata;
+  // `mobile_fullscreen` is the one host-written key, typed on
+  // `LongTextCarrierHandoff` since objectui#12242.
+  const richField = field as (MarkdownFieldMetadata | HtmlFieldMetadata) & LongTextCarrierHandoff;
   const rows = richField?.rows || 8;
   /**
    * The authored ceiling — the spec's `maxLength`, the same single read

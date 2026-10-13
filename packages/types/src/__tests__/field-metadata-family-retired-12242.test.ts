@@ -23,22 +23,39 @@
  *    "the spec accepts the twin" are re-derived on every run, each behind an
  *    accepting control.
  *
- * The members the same census found refused by the spec but read by a live
- * widget with no spec twin (`mobile_fullscreen`, `pattern` / `pattern_message`,
- * `validate`, `dueLike`, `idField`, `picker`, `subtitle`) are deliberately
- * NOT retired here; they are reported on the card for a decision.
+ * The second round (maintainer ruling A on the card) takes the positions the
+ * first round kept:
+ *
+ *  - `mobile_fullscreen`, `idField`, `picker` and `subtitle` MOVE off the field
+ *    metadata types: each is a key a host writes onto a widget's carrier, so it
+ *    is typed where its producer and consumer meet (`LongTextCarrierHandoff`
+ *    in `@object-ui/fields`; the form entry, `FormField`, for the three picker
+ *    keys). A fresh annotated literal carrying one is refused here.
+ *  - `pattern`, `pattern_message` and `validate` RETIRE as `never` tombstones:
+ *    the spec's regex check is the object's `format` validation rule.
+ *  - `GeolocationFieldMetadata` leaves the `FieldMetadata` union: `geolocation`
+ *    is not a spec `FieldType`.
+ *
+ * `dueLike` is deliberately NOT moved. The installed spec refuses it, but
+ * `@objectstack/spec`'s own source has since declared it on `FieldSchema`
+ * (unpublished at the version installed here), so the authoring face is where
+ * it is headed, not away from; the card holds it for a decision.
  */
 import { describe, it, expect } from 'vitest';
-import { FieldSchema, type Field as SpecField } from '@objectstack/spec/data';
+import { FieldSchema, ObjectSchema, type Field as SpecField } from '@objectstack/spec/data';
 import type {
   AutoNumberFieldMetadata,
   BaseFieldMetadata,
   CurrencyFieldMetadata,
   DateFieldMetadata,
   DateTimeFieldMetadata,
+  FieldMetadata,
   LocationFieldMetadata,
+  LookupFieldMetadata,
   ObjectFieldMetadata,
+  TextareaFieldMetadata,
   TextFieldMetadata,
+  UserFieldMetadata,
   VectorFieldMetadata,
 } from '../field-types.js';
 
@@ -171,6 +188,85 @@ export const _objectType: ObjectFieldMetadata = {
   name: 'settings',
 };
 
+// ── Round two: the host-written keys leave the authoring face ───────────────
+
+export const _mobileFullscreen: TextareaFieldMetadata = {
+  type: 'textarea',
+  name: 'body',
+  // @ts-expect-error — objectui#12242: `mobile_fullscreen` is host-written; it is typed on `LongTextCarrierHandoff` in `@object-ui/fields`
+  mobile_fullscreen: true,
+};
+
+export const _idField: LookupFieldMetadata = {
+  type: 'lookup',
+  name: 'approver',
+  reference: 'sys_position',
+  // @ts-expect-error — objectui#12242: `idField` is picker configuration; a form entry declares it (`FormField.idField`)
+  idField: 'name',
+};
+
+export const _picker: UserFieldMetadata = {
+  type: 'user',
+  name: 'owner_id',
+  // @ts-expect-error — objectui#12242: `picker` is picker configuration; a form entry declares it (`FormField.picker`)
+  picker: 'search',
+};
+
+export const _subtitle: UserFieldMetadata = {
+  type: 'user',
+  name: 'owner_id',
+  // @ts-expect-error — objectui#12242: `subtitle` is picker configuration; a form entry declares it (`FormField.subtitle`)
+  subtitle: ['email'],
+};
+
+/** Not readable off the authoring face at all: the base no longer names it. */
+export type assertionMovedOffTheBase = [
+  Expect<Equal<'mobile_fullscreen' extends keyof BaseFieldMetadata ? true : false, false>>,
+  Expect<Equal<'idField' extends keyof LookupFieldMetadata ? true : false, false>>,
+  Expect<Equal<'picker' extends keyof UserFieldMetadata ? true : false, false>>,
+  Expect<Equal<'subtitle' extends keyof UserFieldMetadata ? true : false, false>>,
+];
+
+// ── Round two: the field-level regex keys retire as `never` ─────────────────
+
+export type assertionRegexTombstones = [
+  Expect<Equal<TextFieldMetadata['pattern'], undefined>>,
+  Expect<Equal<TextFieldMetadata['pattern_message'], undefined>>,
+  Expect<Equal<BaseFieldMetadata['validate'], undefined>>,
+];
+
+export const _pattern: TextFieldMetadata = {
+  type: 'text',
+  name: 'sku',
+  // @ts-expect-error — objectui#12242: `pattern` is retired; declare a `format` validation rule on the object
+  pattern: '^[A-Z]{3}-[0-9]{4}$',
+};
+
+export const _patternMessage: TextFieldMetadata = {
+  type: 'text',
+  name: 'sku',
+  // @ts-expect-error — objectui#12242: `pattern_message` is retired; the `format` rule carries the message
+  pattern_message: 'SKU must look like ABC-1234',
+};
+
+export const _validate: TextFieldMetadata = {
+  type: 'text',
+  name: 'sku',
+  // @ts-expect-error — objectui#12242: `validate` is retired; declare a `validations[]` rule on the object
+  validate: (value: unknown) => typeof value === 'string',
+};
+
+// ── Round two: `geolocation` is not a member of the union ───────────────────
+
+export const _geolocation: FieldMetadata = {
+  // @ts-expect-error — objectui#12242: `geolocation` is not a spec field type; the spec's map point is `location`
+  type: 'geolocation',
+  name: 'site',
+};
+
+/** CONTROL for the row above: the spec's map-point type is a member. */
+export const _location: FieldMetadata = { type: 'location', name: 'site' };
+
 // ── The installed spec: what the type follows ────────────────────────────────
 
 /** The `unrecognized_keys` issue naming `key`, if the parse refused it by name. */
@@ -220,6 +316,45 @@ describe('installed @objectstack/spec — the members the type retires (objectui
 
   it('the spec accepts `currencyConfig`, the fixed-currency declaration that replaces `currency`', () => {
     expect(FieldSchema.safeParse(_currencyConfig).success).toBe(true);
+  });
+
+  it.each([
+    ['textarea', 'mobile_fullscreen', true],
+    ['lookup', 'idField', 'name'],
+    ['user', 'picker', 'search'],
+    ['user', 'subtitle', ['email']],
+    ['text', 'pattern', '^[A-Z]{3}-[0-9]{4}$'],
+    ['text', 'pattern_message', 'SKU must look like ABC-1234'],
+    ['text', 'validate', { required: true }],
+  ] as const)('round two — on a `%s` field the spec refuses `%s` by name', (type, key, value) => {
+    const base = type === 'lookup' ? { reference: 'sys_position' } : {};
+    // CONTROL: the same field without the key parses.
+    expect(FieldSchema.safeParse({ type, name: 'f', ...base }).success, type).toBe(true);
+    expect(refusedByName(FieldSchema.safeParse({ type, name: 'f', ...base, [key]: value }), key)).toBe(true);
+  });
+
+  it('round two — the spec refuses `geolocation` at `type`, and accepts `location`', () => {
+    expect(typeRefused(FieldSchema.safeParse({ type: 'geolocation', name: 'f' }))).toBe(true);
+    expect(FieldSchema.safeParse(_location).success).toBe(true);
+  });
+
+  it("round two — a regex check is the object's `format` rule: the object parses with it, and refuses the field-level key", () => {
+    const sku = { type: 'text', label: 'SKU', maxLength: 8 };
+    const format = {
+      type: 'format',
+      name: 'sku_format',
+      field: 'sku',
+      regex: '^[A-Z]{3}-[0-9]{4}$',
+      message: 'SKU must look like ABC-1234',
+    };
+    expect(ObjectSchema.safeParse({ name: 'product', label: 'Product', fields: { sku }, validations: [format] }).success).toBe(true);
+    const fieldLevel = ObjectSchema.safeParse({ name: 'product', label: 'Product', fields: { sku: { ...sku, pattern: format.regex } } });
+    expect(fieldLevel.success).toBe(false);
+    expect(
+      !fieldLevel.success && fieldLevel.error.issues.some(
+        (i) => i.code === 'unrecognized_keys' && ((i as { keys?: string[] }).keys ?? []).includes('pattern'),
+      ),
+    ).toBe(true);
   });
 
   it('the spec refuses `auto_number` and `object` at `type`, and accepts `autonumber` and `json`', () => {

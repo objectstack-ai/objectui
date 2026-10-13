@@ -85,11 +85,12 @@ is decided by `required` on the field itself:
 
 `pattern` is the one rule that route cannot take from JSON: react-hook-form runs
 it only when the rule's `value` is a compiled `RegExp`, and no JSON document can
-hold one. Declare the pattern on the object field's metadata instead (`pattern`,
-a string, which `@object-ui/fields` compiles before the rule reaches the form),
-or in a TypeScript-authored schema pass the real thing —
-`pattern: { value: /.../, message: '...' }`. The full rule table is in the
-[Form Plugin](/docs/plugins/plugin-form) reference.
+hold one. In a TypeScript-authored schema pass the real thing —
+`pattern: { value: /.../, message: '...' }`. For a form bound to an object,
+declare the check on the object as a `format` validation rule
+(see [Text Field](/docs/fields/text#format-validation)): the server runs it when
+the record is saved, and an object field has no `pattern` key of its own. The
+full rule table is in the [Form Plugin](/docs/plugins/plugin-form) reference.
 
 ### Add Submit Action
 

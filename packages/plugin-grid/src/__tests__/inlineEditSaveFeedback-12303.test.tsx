@@ -49,7 +49,7 @@ registerAllFields();
 
 beforeAll(() => {
   if (!Element.prototype.scrollIntoView) {
-    Element.prototype.scrollIntoView = vi.fn() as any;
+    Element.prototype.scrollIntoView = vi.fn() as unknown as Element['scrollIntoView'];
   }
 });
 beforeEach(() => {
@@ -88,11 +88,13 @@ function makeDataSource(refuse: Set<string> = new Set()) {
         estimate_hours: { type: 'number', label: 'Estimate' },
       },
     })),
-  } as any;
+  };
 }
 
-async function loaded(dataSource: any) {
-  const schema: any = {
+type GridProps = React.ComponentProps<typeof ObjectGrid>;
+
+async function loaded(dataSource: ReturnType<typeof makeDataSource>) {
+  const schema = {
     type: 'object-grid',
     objectName: OBJECT,
     editable: true,
@@ -102,11 +104,17 @@ async function loaded(dataSource: any) {
       { field: 'estimate_hours', label: 'Estimate', type: 'number' },
     ],
     pagination: { pageSize: 50 },
-  };
+  } as GridProps['schema'];
   render(
     <ActionProvider>
       {/* Row Edit/Delete handlers: the per-row save button exists. */}
-      <ObjectGrid schema={schema} dataSource={dataSource} onEdit={() => {}} onDelete={() => {}} />
+      <ObjectGrid
+        schema={schema}
+        // The in-memory double implements the three members the default saves read.
+        dataSource={dataSource as unknown as GridProps['dataSource']}
+        onEdit={() => {}}
+        onDelete={() => {}}
+      />
     </ActionProvider>,
   );
   await waitFor(() => expect(screen.getByText('Ingest pipeline')).toBeInTheDocument());

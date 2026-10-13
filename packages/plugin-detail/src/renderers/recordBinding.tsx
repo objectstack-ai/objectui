@@ -144,12 +144,12 @@ function isBound(schema: unknown): boolean {
  * @param blockKey The registry key (`record:details`, …); the panel test ids are
  *                 derived from it the way `record-related-list` spells its own.
  */
-export function recordBindingBlock<P extends { schema?: unknown }>(
-  Body: React.ComponentType<P>,
+export function recordBindingBlock<RendererProps extends { schema?: unknown }>(
+  Body: React.ComponentType<RendererProps>,
   blockKey: string,
-): React.FC<P> {
+): React.FC<RendererProps> {
   const testId = recordBlockTestId(blockKey);
-  const Bound: React.FC<P> = (props) => {
+  const Bound: React.FC<RendererProps> = (props) => {
     const bound = isBound(props.schema);
     return (
       <ElementDataSourceGate

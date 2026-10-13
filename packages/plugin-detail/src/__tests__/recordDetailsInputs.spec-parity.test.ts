@@ -55,7 +55,7 @@ import {
   listedShapeKeys,
   resolvePropsShape,
 } from '@object-ui/test-support';
-import { RecordDetailsProps } from '@objectstack/spec/ui';
+import { PageComponentSchema, RecordDetailsProps } from '@objectstack/spec/ui';
 import '../index';
 
 const SRC_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -102,6 +102,18 @@ const isTombstoned = (key: string): boolean =>
 
 /** Top-level keys the spec actually ACCEPTS — tombstones removed. */
 const specAcceptedTopLevelKeys = (): string[] => authorableShapeKeys(RecordDetailsProps);
+
+/**
+ * Keys the spec accepts on the NODE, on every page component — the widening
+ * `recordRelatedListInputs.spec-parity.test.ts` and the repo-wide
+ * `registry-inputs-spec-parity.test.ts` already make (objectui#6678).
+ * `RecordDetailsProps` is this block's PROPS contract, not the whole contract of
+ * the node: `dataSource`, the per-element binding this block reads since
+ * objectui#12294 and declares from the seam, is a `PageComponentSchema` key.
+ * DERIVED from that schema's input shape (it is a `.pipe()`), never listed.
+ */
+const nodeLevelSpecKeys = (): string[] =>
+  authorableShapeKeys((PageComponentSchema as unknown as { _def?: { in?: unknown } })._def?.in);
 
 /** Member keys of one `sections[]` entry, per the spec. */
 const specSectionKeys = (): string[] =>
@@ -328,9 +340,12 @@ describe('record:details — registry inputs vs @objectstack/spec', () => {
     // shape and rejects every value (see `isTombstoned`). Reading raw shape
     // keys here is what let the retired `layout` input stay published and green
     // through the 17.0.0-rc.6 bump (objectui#3818).
-    const allowed = new Set(specAcceptedTopLevelKeys());
+    const allowed = new Set([...specAcceptedTopLevelKeys(), ...nodeLevelSpecKeys()]);
     const offSpec = inputs().map((i) => i.name).filter((name) => !allowed.has(name));
     expect(offSpec).toEqual([]);
+    // Calibration: the node-level widening is derived and discriminating.
+    expect(nodeLevelSpecKeys()).toContain('dataSource');
+    expect(nodeLevelSpecKeys()).not.toContain('sections');
   });
 
   it('publishes `hideFields`, which the renderer has read all along', () => {

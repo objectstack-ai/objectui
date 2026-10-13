@@ -38,7 +38,8 @@
 
 import { describe, it, expect } from 'vitest';
 import { ComponentRegistry } from '@object-ui/core';
-import { RecordHighlightsField, RecordHighlightsProps } from '@objectstack/spec/ui';
+import { PageComponentSchema, RecordHighlightsField, RecordHighlightsProps } from '@objectstack/spec/ui';
+import { authorableShapeKeys } from '@object-ui/test-support';
 import '../index';
 
 /** Keys of the object arm of the spec's `RecordHighlightsField` union. */
@@ -67,6 +68,17 @@ function specTopLevelKeys(): string[] {
   const resolved = typeof shape === 'function' ? (shape as () => object)() : shape;
   return resolved && typeof resolved === 'object' ? Object.keys(resolved) : [];
 }
+
+/**
+ * Keys the spec accepts on the NODE, on every page component — the widening
+ * `recordRelatedListInputs.spec-parity.test.ts` and the repo-wide
+ * `registry-inputs-spec-parity.test.ts` already make (objectui#6678).
+ * `dataSource`, the per-element binding this block reads since objectui#12294
+ * and declares from the seam, is a `PageComponentSchema` key, not a
+ * `RecordHighlightsProps` one. DERIVED from that schema's input shape.
+ */
+const nodeLevelSpecKeys = (): string[] =>
+  authorableShapeKeys((PageComponentSchema as unknown as { _def?: { in?: unknown } })._def?.in);
 
 const config = () => ComponentRegistry.getConfig('record:highlights');
 const inputs = () => config()?.inputs ?? [];
@@ -176,9 +188,12 @@ describe('record:highlights — registry inputs vs @objectstack/spec', () => {
   });
 
   it('declares no top-level input the spec does not accept', () => {
-    const allowed = new Set(specTopLevelKeys());
+    const allowed = new Set([...specTopLevelKeys(), ...nodeLevelSpecKeys()]);
     const offSpec = inputs().map((i) => i.name).filter((name) => !allowed.has(name));
     expect(offSpec).toEqual([]);
+    // Calibration: the node-level widening is derived and discriminating.
+    expect(nodeLevelSpecKeys()).toContain('dataSource');
+    expect(nodeLevelSpecKeys()).not.toContain('fields');
   });
 });
 

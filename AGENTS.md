@@ -19,6 +19,16 @@ You don't just build components — you build a **Renderer** that interprets JSO
 - **The "JSON-to-Shadcn" bridge** — combine low-code speed with Shadcn/Tailwind design quality.
 - **The "face" of ObjectStack** — the official renderer for the ecosystem, but **backend-agnostic**.
 
+### Product-neutral renderer
+
+objectui renders for every product the same way — ObjectStack Cloud, HotCRM, any app built on the stack. Three rules, recorded in ADR-0060 (`docs/adr/0060-product-neutral-renderer.md`):
+
+1. **A product composes its pages.** It builds them from the generic blocks of `@objectstack/spec`'s page vocabulary and keeps their copy in its own bundles.
+2. **A page that cannot be composed is fixed generically:** a **generic** block here, named for what it draws (`stat`, `usage-bar`, `checklist`), or a **contract door** in `@objectstack/spec` (`needs:contract-review`). ⛔ Never a widget, dialog, hook or i18n namespace named for the product that needed it.
+3. **What already exists stays until its page migrates, and may only shrink.**
+
+`packages/app-shell/src/__tests__/product-neutral-renderer.ratchet.test.ts` holds rules 2 and 3 for registry keys, file names and locale keys led by a product word, and for the frozen directories and namespaces. Its live list, `product-specific.allowlist.json`, takes deletions only: the pull request that migrates a surface out deletes its entries. ⛔ Never append to that list to turn the test green. ADR-0060's frozen-baseline block is the ceiling, and growing it is an ADR amendment the maintainer approves. The test reads names, not intent, so a product surface under a neutral name is left to review and the pull-request template's checkbox.
+
 ---
 
 ## 2. Tech Stack (strict)

@@ -226,6 +226,18 @@ export const ADJUDICATED = new Map([
     'examples/schema-catalog/test/slotted-pages-header-example-11165.test.ts',
     { reads: ['content/docs/guide/slotted-pages.md'] },
   ],
+  // ADR-0060. The product-neutral renderer ratchet reads its CEILING -- the
+  // product words, the frozen directories and namespaces, and the most its live
+  // list may ever hold -- out of that ADR's frozen-baseline block, so an edit to
+  // the ADR is an edit to this test's input. Its walk collects file NAMES under
+  // `packages`, `apps` and `examples`, never markdown content.
+  [
+    'packages/app-shell/src/__tests__/product-neutral-renderer.ratchet.test.ts',
+    {
+      reads: ['docs/adr/0060-product-neutral-renderer.md'],
+      walker: 'not-markdown: walks `packages`, `apps` and `examples` for file paths, reading no file it finds',
+    },
+  ],
   [
     'packages/app-shell/src/views/metadata-admin/previews/readme-flow-canvas-draft.test.ts',
     { reads: ['packages/app-shell/README.md'] },
@@ -885,7 +897,7 @@ export const ADJUDICATED = new Map([
   [
     'scripts/__tests__/check-installed-spec-pin-claims.test.ts',
     {
-      reads: ['.claude/skills/**', '.github/prompts/component.prompt.md', '.github/prompts/engine.prompt.md', '.github/prompts/ui-library.prompt.md', 'AGENTS.md', 'CLAUDE.md', 'CONTRIBUTING.md', 'LICENSE-THIRD-PARTY.md', 'QUICK_REFERENCE.md', 'README.md', 'ROADMAP.md', 'apps/**', 'content/docs/**', 'docs/ARCHITECTURE.md', 'docs/CONSOLE-STREAMLINING-SUMMARY.md', 'docs/adr/**', 'docs/audits/**', 'examples/**', 'packages/**', 'patches/README.md', 'skills/objectui/**'],
+      reads: ['.claude/skills/**', '.github/prompts/component.prompt.md', '.github/prompts/engine.prompt.md', '.github/prompts/ui-library.prompt.md', '.github/pull_request_template.md', 'AGENTS.md', 'CLAUDE.md', 'CONTRIBUTING.md', 'LICENSE-THIRD-PARTY.md', 'QUICK_REFERENCE.md', 'README.md', 'ROADMAP.md', 'apps/**', 'content/docs/**', 'docs/ARCHITECTURE.md', 'docs/CONSOLE-STREAMLINING-SUMMARY.md', 'docs/adr/**', 'docs/audits/**', 'examples/**', 'packages/**', 'patches/README.md', 'skills/objectui/**'],
       notRead: ['CHANGELOG.md'],
     },
   ],

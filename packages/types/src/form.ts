@@ -17,7 +17,7 @@
 
 import type { BaseSchema, SchemaNode } from './base.js';
 import type { SelectOptionBase } from './select-option.js';
-import type { GridFieldMetadata, UserFieldMetadata } from './field-types.js';
+import type { GridFieldMetadata } from './field-types.js';
 // objectui#11070 — the field-metadata members `FormField` declares by
 // reference to the spec's `FieldSchema`. Type-only: no runtime edge.
 import type { Field as SpecField } from '@objectstack/spec/data';
@@ -2297,7 +2297,7 @@ export interface FormField {
    * Record field each candidate of the search picker (`picker: 'search'`) of
    * a `lookup` or `user` field draws its avatar image from (default `image`).
    * Typed as the widgets read it: the spec's `FieldSchema` declares neither
-   * spelling, and {@link UserFieldMetadata} declares only the snake_case one,
+   * spelling, and `UserFieldMetadata` declares only the snake_case one,
    * which this face refuses.
    */
   avatarField?: string;

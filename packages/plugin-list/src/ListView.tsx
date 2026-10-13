@@ -2054,6 +2054,15 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     return resolveAffordance('listInlineEdit', { objectSchema: objectDef as SchemaLike, objectName: schema.objectName, perms: affordancePerms }).allowed;
   }, [schema.userActions, schema.objectName, objectDef, affordancePerms]);
 
+  /**
+   * Whether the rows this list fetches must carry their concurrency token
+   * (objectui#12292): exactly when the grid it hands them to is editable in
+   * place — the same expression as that grid's `editable` below. The grid's
+   * save sends each row's `updated_at` as `If-Match`, so the fetch projects it;
+   * turning the mode on re-reads the rows with it.
+   */
+  const rowsCarryConcurrencyToken = inlineEdit && inlineEditOffered;
+
   // Normalize exportOptions: support both ObjectUI object format and spec string[] format
   const resolvedExportOptions = React.useMemo(() => {
     if (!schema.exportOptions) return undefined;
@@ -2996,6 +3005,13 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
             userActions: (objectDef as any)?.userActions,
           }))) addPredicateField(f);
 
+          // [objectui#12292] The rows' concurrency token, which the grid's
+          // inline-edit save sends as `If-Match`. A projection built from the
+          // columns left it off every row no column showed it on, and that
+          // save went out with no token. It is a platform column, admitted by
+          // the same rule as a predicate operand.
+          if (rowsCarryConcurrencyToken) addPredicateField('updated_at');
+
           return Array.from(required);
         })();
 
@@ -3231,7 +3247,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     // silently un-suppresses nothing, because the finding it was suppressing
     // simply moves elsewhere. Add prose ABOVE this point, never below it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema.objectName, schema.data, dataSource, authoredFilter, effectivePageSize, currentSort, appliedFilters, appliedUserFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, schema.map, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, predicateProjectionKey, ganttOwnsData, invalidationNonce, groupingNeedsHeaderQuery, calendarWindowKey]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change
+  }, [schema.objectName, schema.data, dataSource, authoredFilter, effectivePageSize, currentSort, appliedFilters, appliedUserFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, schema.map, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, predicateProjectionKey, ganttOwnsData, invalidationNonce, groupingNeedsHeaderQuery, calendarWindowKey, rowsCarryConcurrencyToken]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change; `rowsCarryConcurrencyToken` (objectui#12292) re-reads the rows with their token when inline edit turns on
 
   // Any change to the result-defining inputs (object, filters, sort, search,
   // grouping, page size) invalidates the current page number — snap back to

@@ -2652,6 +2652,8 @@ const ar = {
       title: "يطلب {{appName}} الوصول إلى حسابك",
       request: "يطلب {{appName}} الإذن{{suffix}}.",
       unknownApp: "تطبيق ما",
+      unidentified: "تعذّر التعرّف على هذا التطبيق.",
+      clientId: "معرّف العميل",
       willAllow: "سيتمكن هذا التطبيق من:",
       scope: {
         openid: "تأكيد هويتك",

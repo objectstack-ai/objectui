@@ -2498,6 +2498,8 @@ const es = {
       title: "{{appName}} quiere acceder a su cuenta",
       request: "{{appName}} solicita permiso{{suffix}}.",
       unknownApp: "una aplicación",
+      unidentified: "No se pudo identificar esta aplicación.",
+      clientId: "ID de cliente",
       willAllow: "Esta aplicación podrá:",
       scope: {
         openid: "Confirmar su identidad",

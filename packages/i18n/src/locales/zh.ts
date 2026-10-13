@@ -2527,6 +2527,8 @@ const zh = {
       title: '{{appName}} 请求访问您的账户',
       request: '{{appName}} 正在请求授权{{suffix}}。',
       unknownApp: '某个应用',
+      unidentified: '无法识别此应用。',
+      clientId: '客户端 ID',
       willAllow: '此应用将能够：',
       scope: {
         openid: '确认您的身份',

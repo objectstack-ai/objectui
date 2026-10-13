@@ -2495,6 +2495,8 @@ const fr = {
       title: "{{appName}} souhaite accéder à votre compte",
       request: "{{appName}} demande une autorisation{{suffix}}.",
       unknownApp: "une application",
+      unidentified: "Cette application n'a pas pu être identifiée.",
+      clientId: "ID client",
       willAllow: "Cette application pourra :",
       scope: {
         openid: "Confirmer votre identité",

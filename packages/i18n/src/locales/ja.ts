@@ -2450,6 +2450,8 @@ const ja = {
       title: "{{appName}} がアカウントへのアクセスを求めています",
       request: "{{appName}} が許可を求めています{{suffix}}。",
       unknownApp: "あるアプリケーション",
+      unidentified: "このアプリケーションを識別できませんでした。",
+      clientId: "クライアント ID",
       willAllow: "このアプリは次のことができます:",
       scope: {
         openid: "本人確認を行う",

@@ -2448,6 +2448,8 @@ const ko = {
       title: "{{appName}}이(가) 계정에 액세스하려고 합니다",
       request: "{{appName}}이(가) 권한을 요청합니다{{suffix}}.",
       unknownApp: "어떤 애플리케이션",
+      unidentified: "이 애플리케이션을 식별할 수 없습니다.",
+      clientId: "클라이언트 ID",
       willAllow: "이 앱은 다음을 할 수 있습니다:",
       scope: {
         openid: "본인 확인",

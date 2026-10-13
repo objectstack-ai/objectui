@@ -2448,6 +2448,8 @@ const de = {
       title: "{{appName}} möchte auf Ihr Konto zugreifen",
       request: "{{appName}} fordert eine Berechtigung an{{suffix}}.",
       unknownApp: "eine Anwendung",
+      unidentified: "Diese Anwendung konnte nicht identifiziert werden.",
+      clientId: "Client-ID",
       willAllow: "Diese App kann dann:",
       scope: {
         openid: "Ihre Identität bestätigen",

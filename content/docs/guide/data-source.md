@@ -281,8 +281,8 @@ on that block. A view name that does not resolve is reported as a configuration
 error on **every** block in the table, including the ones that take nothing else
 from the view — so a typo never passes silently, whatever the block.
 
-Reading the `object` column: it lands on the block's own object key, which is
-`objectName` everywhere except `record:line_items`, where the collection the panel
+Reading the `object` column: on a block with an object key it lands on that key,
+which is `objectName` everywhere except `record:line_items`, where the collection the panel
 lists, fetches and writes is `childObject`. Its `relationshipField` is *not* part
 of the binding and stays the author's — it has to name a field on the bound child
 object, so rebinding `object` without updating it is an authoring error the panel
@@ -290,9 +290,13 @@ cannot paper over. A `record:line_items` node bound this way needs no `childObje
 of its own, and the page compile accepts it; a node that names its child object in
 neither place shows a configuration hint naming `childObject` and loads nothing.
 
-The three one-record blocks — `record:details`, `record:highlights` and
-`record:quick_actions` — have no object key to land the binding on: they show
-the record their record context carries. Bound, a block reads the FIRST row of
+Two kinds of block have no object key for the binding to land on. The
+`element:*` blocks read `dataSource.object` themselves (see below). The three
+one-record blocks, whose rows read "its record", take the binding's `object` as
+the object of the record they show, and the bound row becomes that record.
+
+`record:details`, `record:highlights` and `record:quick_actions` show the
+record their record context carries. Bound, a block reads the FIRST row of
 the bound set by the binding's `sort`, under the caller's own identity, and that
 row becomes its record, so a product page shows a record without being a
 `type: 'record'` page:

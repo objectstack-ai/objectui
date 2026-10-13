@@ -117,20 +117,30 @@ function bindingDocRows(): Map<string, { object: string; view: string }> {
 const DOC_ROWS = bindingDocRows();
 
 /**
- * The key the binding's `object` lands on. The doc: "it lands on the block's
- * own object key, which is `objectName` everywhere except `record:line_items`"
+ * The key the binding's `object` lands on. The doc: "on a block with an object
+ * key it lands on that key, which is `objectName` everywhere except
+ * `record:line_items`"
  * (its row spells that key in the `object` column).
  *
- * `undefined` for the `element:*` blocks: each reads `dataSource.object`
- * itself, so the binding lands on no key of theirs (objectui#11880), and since
- * objectui#12085 neither `element:number` nor `element:repeater` publishes a
- * flat `object` for it to land on. Row 3 asserts that exception is exactly the
- * `element:*` tags, so it cannot quietly cover an `object-*` block.
+ * `undefined` for two kinds of block, and only these:
+ *  - the `element:*` blocks: each reads `dataSource.object` itself, so the
+ *    binding lands on no key of theirs (objectui#11880), and since
+ *    objectui#12085 neither `element:number` nor `element:repeater` publishes a
+ *    flat `object` for it to land on;
+ *  - the three one-record blocks {@link ONE_RECORD_BLOCKS} (objectui#12294):
+ *    the binding's `object` and its first row become the block's RECORD SCOPE
+ *    (`RecordContextProvider`), so it lands on no schema key either. Named one
+ *    by one, ⛔ not a `record:` prefix: `record:related_list` and
+ *    `record:line_items` keep their keys.
+ * Row 3 asserts the exception is exactly those tags, so it cannot quietly
+ * cover an `object-*` block.
  */
+const ONE_RECORD_BLOCKS: ReadonlySet<string> = new Set(['record:details', 'record:highlights', 'record:quick_actions']);
+
 function objectKeyOf(tag: string): string | undefined {
   const named = /\(`([^`]+)`\)/.exec(DOC_ROWS.get(tag)?.object ?? '');
   if (named) return named[1];
-  if (tag.startsWith('element:')) return undefined;
+  if (tag.startsWith('element:') || ONE_RECORD_BLOCKS.has(tag)) return undefined;
   return 'objectName';
 }
 
@@ -245,15 +255,26 @@ describe('objectui#11605 — a bound registration requires no input its binding 
         `<${tag}>: the binding's object lands on "${key}", which the entry does not declare`,
       ).toContain(key);
     }
-    // The exception is the `element:*` tags and nothing else, and it is not
-    // vacuous: the two whose flat `object` objectui#12085 stopped publishing
-    // are bound entries of the shipped manifest that declare no `object`.
+    // The exception is the `element:*` tags plus the three named one-record
+    // blocks and nothing else, and it is not vacuous: the two whose flat
+    // `object` objectui#12085 stopped publishing are bound entries of the
+    // shipped manifest that declare no `object`, and the three one-record
+    // blocks (objectui#12294) are bound entries that declare no `objectName`.
     const landsNowhere = BOUND.filter((tag) => objectKeyOf(tag) === undefined);
-    expect(landsNowhere.every((tag) => tag.startsWith('element:'))).toBe(true);
+    expect(landsNowhere.every((tag) => tag.startsWith('element:') || ONE_RECORD_BLOCKS.has(tag))).toBe(true);
+    expect(landsNowhere.filter((tag) => tag.startsWith('object-'))).toEqual([]);
     for (const tag of ['element:number', 'element:repeater']) {
       expect(landsNowhere, tag).toContain(tag);
       expect(inputsOf(tag).map((input) => input.name), tag).not.toContain('object');
     }
+    for (const tag of ONE_RECORD_BLOCKS) {
+      expect(landsNowhere, tag).toContain(tag);
+      expect(inputsOf(tag).map((input) => input.name), tag).not.toContain('objectName');
+      // The doc row says so, in the words a reader sees.
+      expect(DOC_ROWS.get(tag)?.object, tag).toContain('its record');
+    }
+    // Named, not a prefix: the other bound record blocks keep their keys.
+    expect(objectKeyOf('record:related_list')).toBe('objectName');
     // Controls on the doc reading: the exception it names, and a full-view row.
     expect(objectKeyOf('record:line_items')).toBe('childObject');
     expect(bindingSupplies('object-grid').has('columns')).toBe(true);

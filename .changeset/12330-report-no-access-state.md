@@ -12,4 +12,4 @@ When the dataset query behind a report was refused because the viewer may not re
 - **A report with a chart shows it once.** The chart already hides itself when its own query fails, and the table beside it shows the state.
 - **Any other failure keeps its error box and message**, so a real error (a 500, a rejected query) is not hidden behind "no access".
 
-Nothing is added to the package entry: no export, prop or type member. One language-pack key is added: `report.forbiddenMessage`.
+**Clause-②: yes (widening)**: one locale key, `report.forbiddenMessage`, added to `@object-ui/i18n`'s published packs, which widens `TranslationKeys`. No export, prop or schema key is added, and nothing is renamed or removed.

@@ -87,8 +87,45 @@ import {
 // error rather than a silent re-opening of the undeclared dialect.
 const NUMERIC_EDIT_TYPES = new Set<TableColumnType>(['number', 'currency', 'percent']);
 
-/** One staged cell edit per column key, per page-local row index. */
-type PendingChanges = Map<number, Record<string, any>>;
+/**
+ * The identity a pending edit is kept under (objectui#12310): the record's id
+ * (`row.id`, the id `getRowId` reads; a null one names no record), or, for a
+ * row that carries none, the row object itself. Never a position. A pending edit used to be keyed by its
+ * row's page-local index, so any re-read that put the page in a new order (a
+ * row save's refresh, the data-invalidation bus, a page change) drew a kept
+ * edit on whichever record now sat at that index, and Save All wrote it
+ * there.
+ *
+ * An id-less row has no identity that survives a re-read, so its edit follows
+ * the row OBJECT: it stays put through a client-side sort, filter or page
+ * change, and a re-read that hands over new objects leaves it pending against
+ * the object it was typed on, never against the row now in its place.
+ */
+type PendingRowKey = unknown;
+
+function pendingRowKeyOf(row: any): PendingRowKey {
+  return row != null && typeof row === 'object' && row.id != null ? row.id : row;
+}
+
+/**
+ * One row's staged edits, per column key, and the row they were last staged
+ * against. The row is read only when the rows the table holds no longer
+ * include that record (a re-read dropped it, or it sits on another server
+ * page): Save All then hands the edit over with the row it was typed on,
+ * never with the row at its old position.
+ */
+interface PendingRow {
+  row: any;
+  changes: Record<string, any>;
+}
+type PendingChanges = Map<PendingRowKey, PendingRow>;
+
+/** The cell an inline editor is open on, and the row it was opened on. */
+interface EditingCell {
+  rowKey: PendingRowKey;
+  columnKey: string;
+  row: any;
+}
 
 /** A decimal numeral, as a number `<input>` hands it back — never hex, `Infinity` or blank. */
 const DECIMAL_NUMERAL = /^[-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?$/;
@@ -153,23 +190,27 @@ function isUnchangedCellValue(staged: unknown, loaded: unknown): boolean {
  * staged on it (objectui#11816). That is what makes staging a value back to
  * the loaded one un-mark the row. Returns `prev` itself when nothing changes,
  * so a no-op commit schedules no state update.
+ *
+ * The edit is kept under the record's key, with `row` (the row it is staged
+ * against, whose own value for the column is the loaded one) as its snapshot
+ * (objectui#12310).
  */
 function stageCellChange(
   prev: PendingChanges,
-  rowIndex: number,
+  rowKey: PendingRowKey,
+  row: any,
   columnKey: string,
   value: unknown,
-  loaded: unknown,
 ): PendingChanges {
-  const current = prev.get(rowIndex);
-  const unchanged = isUnchangedCellValue(value, loaded);
-  if (unchanged && !(current && columnKey in current)) return prev;
+  const current = prev.get(rowKey);
+  const unchanged = isUnchangedCellValue(value, row?.[columnKey]);
+  if (unchanged && !(current && columnKey in current.changes)) return prev;
   const next = new Map(prev);
-  const rowChanges = { ...(current || {}) };
+  const rowChanges = { ...(current?.changes || {}) };
   if (unchanged) delete rowChanges[columnKey];
   else rowChanges[columnKey] = value;
-  if (Object.keys(rowChanges).length > 0) next.set(rowIndex, rowChanges);
-  else next.delete(rowIndex);
+  if (Object.keys(rowChanges).length > 0) next.set(rowKey, { row, changes: rowChanges });
+  else next.delete(rowKey);
   return next;
 }
 
@@ -1397,7 +1438,10 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   }, [selectable, showRowNumbers, columns]);
   const [draggedColumn, setDraggedColumn] = useState<number | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<number | null>(null);
-  const [editingCell, setEditingCell] = useState<{ rowIndex: number; columnKey: string } | null>(null);
+  // Keyed by the record, like a pending edit (objectui#12310): a re-read that
+  // reorders the page leaves the open editor on its record, so its commit
+  // stages there, never on the row now at the editor's old position.
+  const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
   // Mirror of `editingCell` that is mutated synchronously, so the `startEdit`
   // re-entry guard can't be defeated by a stale closure. A lookup/select option
   // renders in a Portal; picking it fires the option's onChange (which stages
@@ -1407,9 +1451,10 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   // (pre-edit) value under batching/contention, so the guard misses and the
   // just-picked value is reset from empty `pendingChanges`. The ref always
   // reflects the latest edit target within the same tick, so re-entry is caught.
-  const editingCellRef = useRef<{ rowIndex: number; columnKey: string } | null>(null);
+  const editingCellRef = useRef<EditingCell | null>(null);
   const [editValue, setEditValue] = useState<any>('');
-  // Track pending changes for multi-cell editing: rowIndex -> { columnKey -> newValue }
+  // Track pending changes for multi-cell editing, per record (objectui#12310):
+  // record key -> { row, changes: { columnKey -> newValue } }
   const [pendingChanges, setPendingChanges] = useState<PendingChanges>(new Map());
 
   // objectui#7188 — the row merged with its STAGED edits, handed to the host
@@ -1427,8 +1472,8 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     const byRow = new WeakMap<object, any>();
     return {
       /** `row` merged with its staged edits — or `row` itself when it has none. */
-      of(row: any, rowIndex: number): any {
-        const changes = pendingChanges.get(rowIndex);
+      of(row: any, rowKey: PendingRowKey): any {
+        const changes = pendingChanges.get(rowKey)?.changes;
         if (!changes || row === null || typeof row !== 'object') return row;
         const hit = byRow.get(row);
         if (hit !== undefined) return hit;
@@ -1442,9 +1487,10 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   // Last save failure message (server validation text, etc.) shown in the
   // toolbar; null when the last save attempt succeeded or nothing's been saved.
   const [saveError, setSaveError] = useState<string | null>(null);
-  // Row indices whose last save attempt failed — tinted destructive so the
-  // author sees exactly which rows didn't persist (no silent "phantom save").
-  const [erroredRows, setErroredRows] = useState<Set<number>>(new Set());
+  // Records whose last save attempt failed, by the key their pending edit is
+  // kept under (objectui#12310) — tinted destructive so the author sees exactly
+  // which rows didn't persist (no silent "phantom save").
+  const [erroredRows, setErroredRows] = useState<Set<PendingRowKey>>(new Set());
   // Column header context menu state
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; columnKey: string } | null>(null);
   
@@ -1601,6 +1647,38 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   const paginatedData = (pagination && !manualPagination)
     ? sortedData.slice((currentPage - 1) * pageSize, currentPage * pageSize)
     : sortedData;
+
+  // objectui#12310 — where each record sits in the rows this table holds NOW,
+  // by the key its pending edit is kept under. Every reader of a pending edit
+  // resolves it through here at the moment it reads, so an edit is drawn,
+  // saved and reported against its own record whatever order a re-read put
+  // the rows in. A record the held rows do not include (a re-read dropped it,
+  // or it sits on another server page) has no entry: its edit stays pending
+  // and is handed over with the row it was staged against.
+  const sortedIndexByKey = useMemo(() => {
+    const index = new Map<PendingRowKey, number>();
+    sortedData.forEach((row, at) => {
+      const key = pendingRowKeyOf(row);
+      if (!index.has(key)) index.set(key, at);
+    });
+    return index;
+  }, [sortedData]);
+  /** The row this table holds now for a record key, or `undefined`. */
+  const heldRowOf = (rowKey: PendingRowKey): any => {
+    const at = sortedIndexByKey.get(rowKey);
+    return at === undefined ? undefined : sortedData[at];
+  };
+  /**
+   * The `rowIndex` the published callbacks receive for a record key, computed
+   * when they are called: the row's global index, as before, while the table
+   * holds it, and `-1` while it does not — no position in these rows is that
+   * record's, so none is handed over as if it were.
+   */
+  const rowIndexOf = (rowKey: PendingRowKey): number => {
+    const at = sortedIndexByKey.get(rowKey);
+    if (at === undefined) return -1;
+    return manualPagination ? (effectivePage - 1) * pageSize + at : at;
+  };
 
   // Route page / page-size changes to the parent under manual pagination,
   // otherwise drive the internal state.
@@ -1971,8 +2049,9 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   };
 
   // Cell editing handlers
-  const startEdit = (rowIndex: number, columnKey: string) => {
+  const startEdit = (row: any, columnKey: string) => {
     if (!editable) return;
+    const rowKey = pendingRowKeyOf(row);
 
     // Already editing THIS cell — do nothing. Re-entering would reset `editValue`
     // from `pendingChanges`, and when a widget-injected editor commits via an
@@ -1983,7 +2062,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     // the `editingCell` state, which can read stale under batching/contention —
     // the intermittent CI failure #2150) so the re-entrant call is always caught.
     const active = editingCellRef.current;
-    if (active?.rowIndex === rowIndex && active?.columnKey === columnKey) return;
+    if (active !== null && active.rowKey === rowKey && active.columnKey === columnKey) return;
 
     const column = columns.find(col => col.accessorKey === columnKey);
     if (column?.editable === false) return;
@@ -1994,12 +2073,13 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     // and double-click all pass through.
     if (column?.masked) return;
 
-    editingCellRef.current = { rowIndex, columnKey };
-    setEditingCell({ rowIndex, columnKey });
-    
+    const cell: EditingCell = { rowKey, columnKey, row };
+    editingCellRef.current = cell;
+    setEditingCell(cell);
+
     // Check if there's a pending change for this cell, otherwise use current data value
-    const rowChanges = pendingChanges.get(rowIndex);
-    const currentValue = paginatedData[rowIndex][columnKey];
+    const rowChanges = pendingChanges.get(rowKey)?.changes;
+    const currentValue = row[columnKey];
     const valueToEdit = rowChanges?.[columnKey] ?? currentValue ?? '';
     setEditValue(valueToEdit);
     // Snapshot the cell's pending state so Escape/cancel can revert an injected
@@ -2015,11 +2095,11 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     // Don't save if we're in cancelled state (unless forced)
     if (!force && editingCell === null) return;
 
-    const { rowIndex, columnKey } = editingCell;
-    const globalIndex = (effectivePage - 1) * pageSize + rowIndex;
-    // Under manual pagination `sortedData` IS the current page, so address it
-    // page-locally; otherwise it's the full in-memory set indexed absolutely.
-    const row = sortedData[manualPagination ? rowIndex : globalIndex];
+    const { rowKey, columnKey } = editingCell;
+    // The record the editor is open on, as the table holds it now — or, if
+    // the held rows no longer include it, the row the editor was opened on
+    // (objectui#12310). Never the row now at the editor's old position.
+    const row = heldRowOf(rowKey) ?? editingCell.row;
 
     // Discrete editors (select / checkbox) commit the chosen value synchronously
     // via `explicitValue` — their `setEditValue` hasn't flushed to state yet.
@@ -2027,11 +2107,11 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
 
     // Update pending changes — or drop this cell's entry when the committed
     // value is the one the row loaded with (objectui#11816).
-    setPendingChanges(stageCellChange(pendingChanges, rowIndex, columnKey, valueToStage, row?.[columnKey]));
+    setPendingChanges(stageCellChange(pendingChanges, rowKey, row, columnKey, valueToStage));
 
     // Call the legacy onCellChange callback if provided
     if (schema.onCellChange) {
-      schema.onCellChange(globalIndex, columnKey, valueToStage, row);
+      schema.onCellChange(rowIndexOf(rowKey), columnKey, valueToStage, row);
     }
 
     editRevertRef.current = null;
@@ -2059,17 +2139,17 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     const snap = editRevertRef.current;
     editRevertRef.current = null;
     if (revert && active && snap) {
-      const { rowIndex, columnKey } = active;
+      const { rowKey, columnKey } = active;
       setPendingChanges((prev) => {
-        const cur = prev.get(rowIndex);
-        const staged = !!cur && columnKey in cur;
+        const cur = prev.get(rowKey);
+        const staged = !!cur && columnKey in cur.changes;
         if (!staged && !snap.had) return prev; // nothing changed for this cell
         const next = new Map(prev);
-        const rc = { ...(cur || {}) };
+        const rc = { ...(cur?.changes || {}) };
         if (snap.had) rc[columnKey] = snap.value;
         else delete rc[columnKey];
-        if (Object.keys(rc).length > 0) next.set(rowIndex, rc);
-        else next.delete(rowIndex);
+        if (Object.keys(rc).length > 0) next.set(rowKey, { row: cur?.row ?? active.row, changes: rc });
+        else next.delete(rowKey);
         return next;
       });
     }
@@ -2092,11 +2172,11 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   // what saveEdit stages, minus the close.
   const stageEdit = (value: any) => {
     if (!editingCell) return;
-    const { rowIndex, columnKey } = editingCell;
+    const { rowKey, columnKey } = editingCell;
     // The row the edit is addressed to, the way `saveEdit` addresses it.
-    const row = sortedData[manualPagination ? rowIndex : (effectivePage - 1) * pageSize + rowIndex];
+    const row = heldRowOf(rowKey) ?? editingCell.row;
     setEditValue(value);
-    setPendingChanges((prev) => stageCellChange(prev, rowIndex, columnKey, value, row?.[columnKey]));
+    setPendingChanges((prev) => stageCellChange(prev, rowKey, row, columnKey, value));
   };
 
   // Commit the in-flight edit when the input loses focus (e.g. the user clicks
@@ -2109,27 +2189,30 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     saveEdit(true);
   };
 
-  const saveRow = async (rowIndex: number) => {
-    const globalIndex = (effectivePage - 1) * pageSize + rowIndex;
-    const row = sortedData[manualPagination ? rowIndex : globalIndex];
-    const rowChanges = pendingChanges.get(rowIndex);
+  // A row's own save, from the save button on the row the record is drawn on:
+  // the edit kept under that record's key, handed over with the row the table
+  // holds for it now (objectui#12310).
+  const saveRow = async (rowKey: PendingRowKey) => {
+    const pending = pendingChanges.get(rowKey);
     
-    if (!rowChanges || Object.keys(rowChanges).length === 0) return;
+    if (!pending || Object.keys(pending.changes).length === 0) return;
+    const rowChanges = pending.changes;
+    const row = heldRowOf(rowKey) ?? pending.row;
     
     setIsSaving(true);
     try {
       if (schema.onRowSave) {
-        await schema.onRowSave(globalIndex, rowChanges, row);
+        await schema.onRowSave(rowIndexOf(rowKey), rowChanges, row);
       }
       
       // Clear pending changes for this row
       const newPendingChanges = new Map(pendingChanges);
-      newPendingChanges.delete(rowIndex);
+      newPendingChanges.delete(rowKey);
       setPendingChanges(newPendingChanges);
       // A staged editor (e.g. a lookup picker, which keeps its widget open on
       // pick rather than committing) must exit edit mode once its value is
       // persisted — otherwise the saved cell stays stuck showing the editor.
-      if (editingCell?.rowIndex === rowIndex) {
+      if (editingCell !== null && editingCell.rowKey === rowKey) {
         editingCellRef.current = null;
         setEditingCell(null);
         setEditValue('');
@@ -2137,9 +2220,9 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
       // Saved — drop any prior error for this row, and clear the banner once
       // no errored rows remain.
       setErroredRows((prev) => {
-        if (!prev.has(rowIndex)) return prev;
+        if (!prev.has(rowKey)) return prev;
         const next = new Set(prev);
-        next.delete(rowIndex);
+        next.delete(rowKey);
         if (next.size === 0) setSaveError(null);
         return next;
       });
@@ -2148,20 +2231,20 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
       // reason instead of failing silently, and flag the row.
       console.error('Failed to save row:', error);
       setSaveError(extractSaveErrorMessage(error));
-      setErroredRows((prev) => new Set(prev).add(rowIndex));
+      setErroredRows((prev) => new Set(prev).add(rowKey));
     } finally {
       setIsSaving(false);
     }
   };
 
-  const cancelRowChanges = (rowIndex: number) => {
+  const cancelRowChanges = (rowKey: PendingRowKey) => {
     const newPendingChanges = new Map(pendingChanges);
-    newPendingChanges.delete(rowIndex);
+    newPendingChanges.delete(rowKey);
     setPendingChanges(newPendingChanges);
     setErroredRows((prev) => {
-      if (!prev.has(rowIndex)) return prev;
+      if (!prev.has(rowKey)) return prev;
       const next = new Set(prev);
-      next.delete(rowIndex);
+      next.delete(rowKey);
       if (next.size === 0) setSaveError(null);
       return next;
     });
@@ -2172,14 +2255,22 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     
     setIsSaving(true);
     try {
-      // The pending key each handed-over `rowIndex` came from, so a per-row
+      // The record key each handed-over `rowIndex` came from, so a per-row
       // outcome can name its row back (objectui#12292).
-      const pendingKeyOf = new Map<number, number>();
-      const changesToSave = Array.from(pendingChanges.entries()).map(([rowIndex, changes]) => {
-        const globalIndex = (effectivePage - 1) * pageSize + rowIndex;
-        const row = sortedData[manualPagination ? rowIndex : globalIndex];
-        pendingKeyOf.set(globalIndex, rowIndex);
-        return { rowIndex: globalIndex, changes, row };
+      //
+      // Each edit goes out with its OWN record, resolved by key when Save All
+      // is pressed (objectui#12310): the row the table holds for that record
+      // now, with its global index; or, when the held rows no longer include
+      // it, the row the edit was staged against, with a negative `rowIndex`
+      // (-1, -2, …) that no held row can carry, so the outcome still names
+      // each entry apart. A position is never what picks the record.
+      const keyOfRowIndex = new Map<number, PendingRowKey>();
+      let notHeld = 0;
+      const changesToSave = Array.from(pendingChanges.entries()).map(([rowKey, pending]) => {
+        const held = heldRowOf(rowKey);
+        const rowIndex = held === undefined ? -(++notHeld) : rowIndexOf(rowKey);
+        keyOfRowIndex.set(rowIndex, rowKey);
+        return { rowIndex, changes: pending.changes, row: held ?? pending.row };
       });
 
       // `void` at runtime is `undefined`: the handler persisted every row.
@@ -2187,9 +2278,9 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
         ? await schema.onBatchSave(changesToSave)
         : undefined) as BatchSaveOutcome | undefined;
       const failed = outcome?.failed ?? [];
-      const failedKeys = new Set<number>();
+      const failedKeys = new Set<PendingRowKey>();
       for (const entry of failed) {
-        const key = pendingKeyOf.get(entry.rowIndex);
+        const key = keyOfRowIndex.get(entry.rowIndex);
         // A failure naming a row this batch never handed over cannot be
         // placed, so no row can be called persisted: fall back to the
         // all-or-nothing reading below rather than clear an unsaved edit.
@@ -2375,7 +2466,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     
     if (e.key === 'Enter' && !editingCell) {
       e.preventDefault();
-      startEdit(rowIndex, columnKey);
+      startEdit(paginatedData[rowIndex], columnKey);
     }
   };
 
@@ -2920,8 +3011,13 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                   const globalIndex = (effectivePage - 1) * pageSize + rowIndex;
                   const rowId = getRowId(row, globalIndex);
                   const isSelected = selectedRowIds.has(rowId);
-                  const rowHasChanges = pendingChanges.has(rowIndex);
-                  const rowChanges = pendingChanges.get(rowIndex) || {};
+                  // The record's own pending edit and save state, read by its
+                  // key, never by where the row sits (objectui#12310).
+                  const rowKey = pendingRowKeyOf(row);
+                  const rowPending = pendingChanges.get(rowKey);
+                  const rowHasChanges = rowPending !== undefined;
+                  const rowChanges = rowPending?.changes || {};
+                  const rowErrored = erroredRows.has(rowKey);
                   
                   return (
                     <TableRow 
@@ -2938,8 +3034,8 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                         "data-[state=selected]:bg-primary/5 data-[state=selected]:hover:bg-primary/10",
                         "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset",
                         schema.onRowClick && "cursor-pointer",
-                        rowHasChanges && !erroredRows.has(rowIndex) && "bg-amber-50 dark:bg-amber-950/20",
-                        erroredRows.has(rowIndex) && "bg-destructive/10 dark:bg-destructive/15 ring-1 ring-inset ring-destructive/40",
+                        rowHasChanges && !rowErrored && "bg-amber-50 dark:bg-amber-950/20",
+                        rowErrored && "bg-destructive/10 dark:bg-destructive/15 ring-1 ring-inset ring-destructive/40",
                         rowClassName && rowClassName(row, rowIndex)
                       )}
                       style={rowStyle ? rowStyle(row, rowIndex) : undefined}
@@ -3072,7 +3168,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                         const originalValue = row[col.accessorKey];
                         const hasPendingChange = rowChanges[col.accessorKey] !== undefined;
                         const cellValue = hasPendingChange ? rowChanges[col.accessorKey] : originalValue;
-                        const isEditing = editingCell?.rowIndex === rowIndex && editingCell?.columnKey === col.accessorKey;
+                        const isEditing = editingCell !== null && editingCell.rowKey === rowKey && editingCell.columnKey === col.accessorKey;
                         // A masked column reads as NOT editable here too
                         // (objectui#10583), so its cell neither shows the
                         // edit cursor nor swallows the row's click —
@@ -3126,13 +3222,13 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                               // next frame), so stop propagation here explicitly.
                               if (isEditable && !singleClickEdit) {
                                 e.stopPropagation();
-                                startEdit(rowIndex, col.accessorKey);
+                                startEdit(row, col.accessorKey);
                               }
                             }}
                             onClick={(e) => {
                               if (isEditable && singleClickEdit) {
                                 e.stopPropagation();
-                                startEdit(rowIndex, col.accessorKey);
+                                startEdit(row, col.accessorKey);
                               }
                             }}
                             onKeyDown={(e) => handleCellKeyDown(e, rowIndex, colIndex, col.accessorKey)}
@@ -3184,7 +3280,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                                     // the SAME object as `row` when nothing is
                                     // staged, so `row === pendingRow` reads as
                                     // "clean" on the host side.
-                                    pendingRow: rowHasChanges ? pendingRows.of(row, rowIndex) : row,
+                                    pendingRow: rowHasChanges ? pendingRows.of(row, rowKey) : row,
                                     value: editValue,
                                     stage: stageEdit,
                                     commit: (v?: any) => saveEdit(true, v),
@@ -3377,7 +3473,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() => cancelRowChanges(rowIndex)}
+                                  onClick={() => cancelRowChanges(rowKey)}
                                   disabled={isSaving}
                                   title="Cancel changes"
                                 >
@@ -3386,7 +3482,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() => saveRow(rowIndex)}
+                                  onClick={() => saveRow(rowKey)}
                                   disabled={isSaving}
                                   title="Save row"
                                 >

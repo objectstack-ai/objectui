@@ -7,11 +7,13 @@
  *
  * `record:details` — page-level record component that renders the canonical
  * field-detail block. Reads the bound record from <RecordContextProvider> and
- * synthesizes a DetailViewSchema for the existing DetailView component.
+ * synthesizes a DetailViewSchema for the existing DetailView component. A
+ * `dataSource` binding on the node supplies that record instead of the record
+ * page (objectui#12294, see `./recordBinding`).
  */
 
 import React from 'react';
-import { useRecordContext, useHighlightFieldNames, useSafeFieldLabel, usePredicateScope } from '@object-ui/react';
+import { ElementDataSourceGate, useRecordContext, useHighlightFieldNames, useSafeFieldLabel, usePredicateScope } from '@object-ui/react';
 import { useFieldPermissions, usePermissions } from '@object-ui/permissions';
 import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
 import type { RecordDetailsComponentProps } from '@object-ui/types';
@@ -19,6 +21,7 @@ import {
   columnIdentity,
   declaredNameField,
   deriveTitleField,
+  elementDataSourceBlock,
   formatTitleTemplate,
   resolveAffordance,
   type FieldRulePredicate,
@@ -31,6 +34,7 @@ import {
 import { DetailView } from '../DetailView';
 import { deriveFieldGroupDetailEntries, type FieldGroupDetailEntry } from '../synth/buildDefaultPageSchema';
 import { useRecordAriaProps } from './recordComponentAria';
+import { BoundRecordScope, recordBlockGateProps, recordBlockTestId } from './recordBinding';
 
 /** Normalize a field entry (string | {field} | {name}) to its machine name. */
 const fieldName = (entry: any): string | null => columnIdentity(entry) ?? null;
@@ -221,7 +225,7 @@ export interface RecordDetailsRendererProps {
   [k: string]: any;
 }
 
-export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
+const RecordDetailsBody: React.FC<RecordDetailsRendererProps> = ({
   // ⛔ NOT `{} as any` (objectui#8649). A destructuring default's type joins
   // the annotated property type at the binding, so `any` here ERASED
   // `RecordDetailsRendererProps` for every read site in this file: declared
@@ -999,5 +1003,26 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
     </div>
   );
 };
+
+/**
+ * `record:details` with the spec's per-element `dataSource` binding honoured
+ * (objectui#12294). Unbound, the body reads the record page's record exactly as
+ * before; bound, it reads the FIRST row of the bound set, provided by
+ * `BoundRecordScope` (`./recordBinding`, which states the semantics). The gate
+ * resolves the binding the way every bound block resolves it, and the seam
+ * (`elementDataSourceBlock`) makes this registration declare the key.
+ *
+ * Wraps the EXPORTED name, as `record:related_list` does, so a host that
+ * imports this renderer directly gets the binding too.
+ */
+export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = elementDataSourceBlock((props) => (
+  <ElementDataSourceGate {...recordBlockGateProps(props.schema, 'record:details')}>
+    {(bound) => (
+      <BoundRecordScope schema={props.schema} bound={bound} testId={recordBlockTestId('record:details')}>
+        <RecordDetailsBody {...props} />
+      </BoundRecordScope>
+    )}
+  </ElementDataSourceGate>
+));
 
 export default RecordDetailsRenderer;

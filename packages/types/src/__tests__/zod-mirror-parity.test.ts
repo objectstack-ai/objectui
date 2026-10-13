@@ -4798,9 +4798,9 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   'public-blocks.zod.ts#PageSidebarBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `page:sidebar` literal + `properties`, which IS `ComponentPropsMap['page:sidebar']`, + the objectui#10872 batch-6 `body` / `children` refusals (its renderer reads the child list, whose home is the row's `properties.children`); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#RecordDetailsBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `record:details` literal + `properties`, which IS `ComponentPropsMap['record:details']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:details` literal + `properties`, which IS `ComponentPropsMap['record:details']`, + `dataSource`, which IS the spec's `ElementDataSourceSchema` (objectui#12294), + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#RecordHighlightsBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `record:highlights` literal + `properties`, which IS `ComponentPropsMap['record:highlights']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:highlights` literal + `properties`, which IS `ComponentPropsMap['record:highlights']`, + `dataSource`, which IS the spec's `ElementDataSourceSchema` (objectui#12294), + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#RecordRelatedListBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `record:related_list` literal + `properties`, which IS `ComponentPropsMap['record:related_list']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#RecordPathBlockSchema':
@@ -4812,7 +4812,7 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   'public-blocks.zod.ts#RecordHistoryBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `record:history` literal + `properties`, which IS `ComponentPropsMap['record:history']`, + the objectui#11321 `entries` / `loading` host-feed-slot refusals (the host's channel, never authored), + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#RecordQuickActionsBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `record:quick_actions` literal + `properties`, which IS `ComponentPropsMap['record:quick_actions']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:quick_actions` literal + `properties`, which IS `ComponentPropsMap['record:quick_actions']`, + `dataSource`, which IS the spec's `ElementDataSourceSchema` (objectui#12294), + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#RecordReferenceRailBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `record:reference_rail` literal + `properties`, which IS `ComponentPropsMap['record:reference_rail']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#RecordAlertBlockSchema':

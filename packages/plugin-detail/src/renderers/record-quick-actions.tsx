@@ -16,7 +16,8 @@
  */
 
 import React from 'react';
-import { useRecordContext, useActionEngine, useMetadataItem, useCondition, toPredicateInput, useActionTextLocalizer } from '@object-ui/react';
+import { ElementDataSourceGate, useRecordContext, useActionEngine, useMetadataItem, useCondition, toPredicateInput, useActionTextLocalizer } from '@object-ui/react';
+import { elementDataSourceBlock } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import {
   Button,
@@ -33,6 +34,7 @@ import type { ActionDef, ActionLocation } from '@object-ui/core';
 import { resolveDeclaredActionIds } from '@object-ui/types';
 import type { DeclaredActionsRefusal } from '@object-ui/types';
 import { useRecordAriaProps, type AuthoredRecordAria } from './recordComponentAria';
+import { BoundRecordScope, recordBlockGateProps, recordBlockTestId } from './recordBinding';
 
 const splitDesigner = (props: Record<string, any>) => {
   const { 'data-obj-id': id, 'data-obj-type': type, style, ...rest } = props || {};
@@ -110,7 +112,7 @@ export interface RecordQuickActionsRendererProps {
   [k: string]: any;
 }
 
-export const RecordQuickActionsRenderer: React.FC<RecordQuickActionsRendererProps> = ({
+const RecordQuickActionsBody: React.FC<RecordQuickActionsRendererProps> = ({
   schema = {} as any,
   className,
   ...props
@@ -172,6 +174,13 @@ export const RecordQuickActionsRenderer: React.FC<RecordQuickActionsRendererProp
       : EMPTY_DECLARED_ACTIONS;
 
   const objectName = ctx?.objectName || '';
+
+  // A record context that names an object but NO record has nothing to run a
+  // record action against. That is what a `dataSource` binding matching no row
+  // provides (objectui#12294, `./recordBinding`): the bar then offers no action
+  // and draws its empty state, the 0-row semantics of a bound record block.
+  // The record page always names its record, so its bar is unaffected.
+  const noRecord = ctx != null && ctx.recordId == null;
 
   // ONE array, ONE rule (objectui#7182, maintainer ruling 2026-09-02, option C).
   // `actionNames` is the spec-declared spelling (`RecordQuickActionsProps`:
@@ -289,7 +298,7 @@ export const RecordQuickActionsRenderer: React.FC<RecordQuickActionsRendererProp
     );
   }
 
-  const visibleActions = actions.length > 0 ? getActionsForLocation(location) : [];
+  const visibleActions = actions.length > 0 && !noRecord ? getActionsForLocation(location) : [];
 
   if (visibleActions.length === 0) {
     return (
@@ -438,5 +447,26 @@ function QuickActionButton({
     </TooltipProvider>
   );
 }
+
+/**
+ * `record:quick_actions` with the spec's per-element `dataSource` binding honoured
+ * (objectui#12294). Unbound, the body reads the record page's record exactly as
+ * before; bound, it reads the FIRST row of the bound set, provided by
+ * `BoundRecordScope` (`./recordBinding`, which states the semantics). The gate
+ * resolves the binding the way every bound block resolves it, and the seam
+ * (`elementDataSourceBlock`) makes this registration declare the key.
+ *
+ * Wraps the EXPORTED name, as `record:related_list` does, so a host that
+ * imports this renderer directly gets the binding too.
+ */
+export const RecordQuickActionsRenderer: React.FC<RecordQuickActionsRendererProps> = elementDataSourceBlock((props) => (
+  <ElementDataSourceGate {...recordBlockGateProps(props.schema, 'record:quick_actions')}>
+    {(bound) => (
+      <BoundRecordScope schema={props.schema} bound={bound} testId={recordBlockTestId('record:quick_actions')}>
+        <RecordQuickActionsBody {...props} />
+      </BoundRecordScope>
+    )}
+  </ElementDataSourceGate>
+));
 
 export default RecordQuickActionsRenderer;

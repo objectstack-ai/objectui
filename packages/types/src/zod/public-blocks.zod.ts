@@ -301,7 +301,8 @@ export function propsBag<T extends z.ZodType>(type: string, row: T, description?
  * ⛔ The other five stay undeclared (no producer; release condition "additive,
  * when a producer needs them", objectui#10872). `dataSource` is declared per
  * arm where a renderer reads the binding (`element:number`,
- * `record:line_items`, and the ObjectQL blocks), not here. ⛔ Not on `BaseSchema`: that widens every arm of
+ * `record:line_items`, the three one-record blocks `record:details`,
+ * `record:highlights` and `record:quick_actions`, and the ObjectQL blocks), not here. ⛔ Not on `BaseSchema`: that widens every arm of
  * `AnyComponentSchema`, a different accept-set change from the arms above,
  * each of which has a measured producer.
  *
@@ -638,6 +639,36 @@ export const PageSidebarBlockSchema = BaseSchema.extend({
 
 /* ── record: — record-context blocks ────────────────────────────────────── */
 
+/**
+ * The node-level `dataSource` binding of the three ONE-RECORD blocks —
+ * `record:details`, `record:highlights` and `record:quick_actions`
+ * (objectui#12294).
+ *
+ * `@objectstack/spec`'s `PageComponentSchema.dataSource` declares the binding
+ * on every page component, and this module declares it per arm where a renderer
+ * reads it (see `NODE_ENVELOPE`). These three renderers read it: each is
+ * gate-wrapped (`elementDataSourceBlock`, `ElementDataSourceGate`), resolves
+ * the binding to the FIRST row of the bound set under the caller's identity,
+ * and provides that row as the block's record context — so a product `app`
+ * page binds its record by filter, with no record page around it. Left
+ * undeclared, the strict authoring face would refuse the binding these
+ * renderers honour.
+ *
+ * The spec's `ElementDataSourceSchema`, by reference, as `record:line_items`,
+ * `element:number` and the ObjectQL blocks declare it. ONE constant for the
+ * three arms, because it is one binding with one meaning on all three.
+ * `record:related_list` is NOT one of them: its binding is the binding of its
+ * CHILD rows, a different meaning (objectstack#6953).
+ */
+const RECORD_BLOCK_DATA_SOURCE = stripImportedDefaults(SpecElementDataSourceSchema)
+  .optional()
+  .describe(
+    'Per-element data binding — `@objectstack/spec` `ElementDataSourceSchema`, the schema '
+    + '`PageComponentSchema.dataSource` declares, by reference. Binds the ONE record this block shows: '
+    + 'the first row of the bound set by the binding\'s `sort` (declare `limit: 1`), read under the '
+    + 'caller\'s identity; it overrides the record page\'s record for this block.',
+  );
+
 /** objectui#9256 (public-block slice): ONE refusal string for both content channels of `record:details`. */
 const RECORD_DETAILS_NEITHER_CHANNEL = neitherContentChannelGuidance(
   'record:details',
@@ -653,6 +684,8 @@ export const RecordDetailsBlockSchema = BaseSchema.extend({
   // objectui#10872 batch 10: a row member written flat on the node is refused by name, toward `properties.KEY`.
   ...flatPropRefusals('record:details', stripImportedDefaults(SpecRecordDetailsProps)),
   properties: propsBag('record:details', stripImportedDefaults(SpecRecordDetailsProps)),
+  // objectui#12294: the one-record binding this block's renderer reads (`RECORD_BLOCK_DATA_SOURCE`).
+  dataSource: RECORD_BLOCK_DATA_SOURCE,
   // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
   // kept a MEMBER (see "The content channels" above).
   body: retirementTombstone(RECORD_DETAILS_NEITHER_CHANNEL),
@@ -674,6 +707,8 @@ export const RecordHighlightsBlockSchema = BaseSchema.extend({
   // objectui#10872 batch 10: a row member written flat on the node is refused by name, toward `properties.KEY`.
   ...flatPropRefusals('record:highlights', stripImportedDefaults(SpecRecordHighlightsProps)),
   properties: propsBag('record:highlights', stripImportedDefaults(SpecRecordHighlightsProps)),
+  // objectui#12294: the one-record binding this block's renderer reads (`RECORD_BLOCK_DATA_SOURCE`).
+  dataSource: RECORD_BLOCK_DATA_SOURCE,
   // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
   // kept a MEMBER (see "The content channels" above).
   body: retirementTombstone(RECORD_HIGHLIGHTS_NEITHER_CHANNEL),
@@ -924,6 +959,8 @@ export const RecordQuickActionsBlockSchema = BaseSchema.extend({
   // objectui#10872 batch 10: a row member written flat on the node is refused by name, toward `properties.KEY`.
   ...flatPropRefusals('record:quick_actions', stripImportedDefaults(SpecRecordQuickActionsProps)),
   properties: propsBag('record:quick_actions', stripImportedDefaults(SpecRecordQuickActionsProps)),
+  // objectui#12294: the one-record binding this block's renderer reads (`RECORD_BLOCK_DATA_SOURCE`).
+  dataSource: RECORD_BLOCK_DATA_SOURCE,
   // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
   // kept a MEMBER (see "The content channels" above).
   body: retirementTombstone(RECORD_QUICK_ACTIONS_NEITHER_CHANNEL),

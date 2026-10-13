@@ -12,6 +12,10 @@ import { resolve } from 'path';
 import { load as loadYaml } from 'js-yaml';
 import { describeUndeclaredKey, validateAuthoredDocument } from '../utils/authoring-face.js';
 import { findSpecVocabularyFormFields } from '../utils/spec-vocabulary-hint.js';
+import {
+  describeRecordBindingWithoutLimitOne,
+  findRecordBindingsWithoutLimitOne,
+} from '../utils/record-block-binding-hint.js';
 import { explainUnionIssue, findUndeclaredKeys } from '../utils/union-arm-diagnostics.js';
 import { formatIssuePath } from '../utils/issue-path.js';
 
@@ -89,13 +93,20 @@ export async function validate(schemaPath: string) {
       // schema) but the spec `field` key is dead weight: the renderer ignores
       // it and strip-mode validation drops it. Valid ≠ clean — say so (#3090).
       const mixed = findSpecVocabularyFormFields(schema).filter((f) => f.mixedName);
-      if (mixed.length > 0) {
+      // A one-record block bound by a `dataSource` that can match several rows
+      // draws the first by its `sort`; the author should say `limit: 1`
+      // (objectui#12294). Advisory: the document is valid either way.
+      const unboundedRecordBindings = findRecordBindingsWithoutLimitOne(schema);
+      if (mixed.length > 0 || unboundedRecordBindings.length > 0) {
         console.log(chalk.yellow('\nWarnings:'));
         for (const m of mixed) {
           console.log(chalk.yellow(
             `  ${m.path}: '${m.mixedName}' also carries { field: '${m.field}' } — mixed form-field ` +
             `vocabularies. The renderer ignores \`field\` here; drop one of the two.`,
           ));
+        }
+        for (const finding of unboundedRecordBindings) {
+          console.log(chalk.yellow(`  ${describeRecordBindingWithoutLimitOne(finding)}`));
         }
       }
 

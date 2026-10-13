@@ -838,7 +838,21 @@ export async function listOrgPackages(): Promise<OrgPackagesResult> {
  * with the envelope's own `message`, its `code` and `status` beside it — the
  * install-mode refusals included (`INSTALL_MODE_NOT_PERMITTED`,
  * `UNMANAGED_INSTALL_WALLED_POSTURE`, `RESOURCE_CONFLICT`).
+ *
+ * The first overload is the door's own rule for a request that names no mode:
+ * it installs managed and answers the managed shape, as every install did
+ * before the mode existed.
  */
+export function installLocal(input: {
+  packageId: string;
+  versionId?: string;
+  installMode?: undefined;
+}): Promise<LocalManagedInstallResult>;
+export function installLocal(input: {
+  packageId: string;
+  versionId?: string;
+  installMode?: LocalInstallMode;
+}): Promise<LocalInstallResult>;
 export async function installLocal(input: {
   packageId: string;
   versionId?: string;

@@ -3208,6 +3208,17 @@ function mergeViewPatch(
 }
 
 /**
+ * Whether a rejected fetch was cancelled by its own caller (an aborted
+ * `signal`), as opposed to failing to reach the server. A cancellation says
+ * nothing about reachability, so it must not move the connection state
+ * (objectui#12295).
+ */
+function isCallerAbort(error: unknown, init?: RequestInit): boolean {
+  if (init?.signal?.aborted) return true;
+  return (error as { name?: unknown } | null)?.name === 'AbortError';
+}
+
+/**
  * ObjectStack Data Source Adapter
  *
  * Bridges the ObjectStack Client SDK with the ObjectUI DataSource interface.
@@ -3336,11 +3347,25 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
      */
     systemCapabilities?: string[];
   }) {
+    // objectui#12295 — ONE fetch carries every request this adapter makes: the
+    // client's (data, metadata, analytics, and every caller of `getClient()`)
+    // and the adapter's own raw reads alike. It is the single seam where "the
+    // server answered" (a Response, whatever its status) can be told apart
+    // from "no HTTP answer at all" (the fetch rejected), so the connection
+    // state follows the requests the host already makes; see
+    // `observeServerAnswer`.
+    const transport = config.fetch || globalThis.fetch.bind(globalThis);
+    this.fetchImpl = (input, init) =>
+      this.observeServerAnswer(() => transport(input, init), init);
     // Inject a quiet logger that demotes expected 404s ("HTTP request failed"
     // from probing optional collections like sys_presence/sys_activity) to
     // debug() so they don't pollute the browser console. Other log levels are
     // forwarded to the standard console.
-    this.client = new ObjectStackClient({ ...config, logger: createQuietHttpLogger() });
+    this.client = new ObjectStackClient({
+      ...config,
+      fetch: this.fetchImpl,
+      logger: createQuietHttpLogger(),
+    });
     // #4237 — one emitter for every metadata save this adapter's client makes,
     // installed the moment the client exists so no save can precede it.
     this.installSaveAdvisoryInterceptor();
@@ -3351,7 +3376,6 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
     this.baseUrl = config.baseUrl;
     this.token = config.token;
     this.systemCapabilities = config.systemCapabilities;
-    this.fetchImpl = config.fetch || globalThis.fetch.bind(globalThis);
   }
 
   /**
@@ -3507,6 +3531,69 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
         console.error('Error in connection state listener:', err);
       }
     });
+  }
+
+  /**
+   * Run one request through the adapter's fetch and let its outcome move the
+   * connection state (objectui#12295). Before the first successful
+   * {@link connect} this records nothing: `connect()` owns the state until
+   * then, and its own discovery read passes through here too.
+   *
+   * - **Answered** — the fetch resolved with a Response, whatever its status.
+   *   A 4xx or 5xx is an answer: the server is reachable, so it counts the
+   *   same as a 200 and ends any outage.
+   * - **Not answered** — the fetch rejected: no HTTP answer at all (refused,
+   *   reset, DNS, an offline browser). A rejection the caller asked for by
+   *   aborting is not evidence about the server and records nothing.
+   *
+   * The rejection or the Response reaches the caller unchanged.
+   */
+  private async observeServerAnswer(
+    send: () => Promise<Response>,
+    init?: RequestInit,
+  ): Promise<Response> {
+    let response: Response;
+    try {
+      response = await send();
+    } catch (error) {
+      if (!isCallerAbort(error, init)) this.noteServerUnanswered(error);
+      throw error;
+    }
+    this.noteServerAnswered();
+    return response;
+  }
+
+  /** An answered request after the first connect: the server is reachable. */
+  private noteServerAnswered(): void {
+    if (!this.connected) return;
+    this.reconnectAttempts = 0;
+    if (this.connectionState !== 'connected') this.setConnectionState('connected');
+  }
+
+  /**
+   * An unanswered request after the first connect. It spends the adapter's own
+   * retry window — the `autoReconnect` / `maxReconnectAttempts` budget that
+   * {@link connect} grants a failed discovery — counted in the requests the
+   * host already makes rather than in timed probes: while the budget lasts the
+   * state is `reconnecting`, and the first unanswered request past it moves the
+   * state to `error`. No timer and no request of the adapter's own is involved;
+   * the next answered request, whenever it comes, restores `connected`.
+   */
+  private noteServerUnanswered(error: unknown): void {
+    if (!this.connected || this.connectionState === 'error') return;
+    if (this.autoReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.reconnectAttempts++;
+      if (this.connectionState !== 'reconnecting') this.setConnectionState('reconnecting');
+      return;
+    }
+    this.setConnectionState(
+      'error',
+      new ConnectionError(
+        error instanceof Error ? error.message : 'ObjectStack server did not answer',
+        undefined,
+        { originalError: error },
+      ),
+    );
   }
 
   /**

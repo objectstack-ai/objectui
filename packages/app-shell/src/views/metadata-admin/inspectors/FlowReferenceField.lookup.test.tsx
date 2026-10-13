@@ -2,15 +2,17 @@
 
 /**
  * framework #3508 — the approver "Value" cell must source directory kinds
- * (`user` / `team` / `department` / `position`) from DATA records, not the
- * metadata registry: `GET /api/v1/meta/user` lists no `sys_user` rows, so the
- * old datalist was always empty and the control silently degraded to a raw-id
- * text box.
+ * (`user` / `team` / `department`) from DATA records, not the metadata
+ * registry: `GET /api/v1/meta/user` lists no `sys_user` rows, so the old
+ * datalist was always empty and the control silently degraded to a raw-id text
+ * box. `position` was a fourth until `@objectstack/spec` 18 bound it to the
+ * registry itself (objectstack#22710, objectui#12030); its picker is the
+ * registry arm, pinned by `FlowReferenceField.registrySource-7611.test.tsx`.
  *
  * Load-bearing behaviours:
  *   1. the record-lookup bindings mirror the ENGINE's resolution semantics
  *      (`plugin-approvals` resolveApproverSpec) — object names and the
- *      committed field, incl. `position` storing the machine NAME;
+ *      committed field;
  *   2. with an adapter, a directory kind renders the record lookup (with the
  *      manual-entry escape hatch — the author is never trapped);
  *   3. without an adapter (offline preview gallery) it degrades to free text
@@ -107,12 +109,14 @@ describe('KIND_TO_RECORD_LOOKUP — engine contract (#3508)', () => {
     expect(KIND_TO_RECORD_LOOKUP.team).toMatchObject({ object: 'sys_team', valueField: 'id' });
     // find('sys_business_unit', { id: value }) — NOT a sys_department.
     expect(KIND_TO_RECORD_LOOKUP.department).toMatchObject({ object: 'sys_business_unit', valueField: 'id' });
-    // find('sys_user_position', { position: value }) — the machine NAME.
-    expect(KIND_TO_RECORD_LOOKUP.position).toMatchObject({ object: 'sys_position', valueField: 'name' });
+    // `position` is the registry member since `@objectstack/spec` 18: its value
+    // is the position's machine NAME, listed off `GET /api/v1/meta/position`,
+    // so it has no record lookup at all (objectui#12030).
+    expect(KIND_TO_RECORD_LOOKUP.position).toBeUndefined();
   });
 
-  it('covers exactly the directory kinds — enum/auto/unsupported kinds stay off the record path', () => {
-    expect(Object.keys(KIND_TO_RECORD_LOOKUP).sort()).toEqual(['department', 'position', 'team', 'user']);
+  it('covers exactly the directory kinds — enum/auto/unsupported/registry kinds stay off the record path', () => {
+    expect(Object.keys(KIND_TO_RECORD_LOOKUP).sort()).toEqual(['department', 'team', 'user']);
   });
 });
 
@@ -140,12 +144,14 @@ describe('ReferenceCombobox — directory kinds (#3508)', () => {
     expect(keys).not.toContain('allow_create');
   });
 
-  it('position lookups commit the machine NAME, not the row id', () => {
+  it('position renders no record lookup — its picker is the registry arm since spec 18 (objectui#12030)', () => {
+    // It committed `sys_position.name` through a record lookup until
+    // `@objectstack/spec` 18 bound `position` to the registry. The registry
+    // picker, which commits the item's machine NAME, is pinned in
+    // `FlowReferenceField.registrySource-7611.test.tsx`.
     state.adapter = makeAdapter();
     renderRef('position');
-    const cell = screen.getByTestId('record-lookup');
-    expect(cell.getAttribute('data-object')).toBe('sys_position');
-    expect(cell.getAttribute('data-value-field')).toBe('name');
+    expect(screen.queryByTestId('record-lookup')).toBeNull();
   });
 
   it('manual mode: typing commits the raw value and can return to the picker', () => {

@@ -36,7 +36,14 @@ import { AdapterCtx } from '@object-ui/react';
 
 import { useApproverDirectory, resetApproverDirectoryCache } from '../useApproverDirectory';
 
-/** The reference under test — `position` is the kind with BOTH legs. */
+/**
+ * The reference under test — `position` is the kind with BOTH legs. Since
+ * `@objectstack/spec` 18 binds `position` to the metadata registry
+ * (objectstack#22710, objectui#12030), its LABEL leg reads the registry
+ * through the console's metadata store, not `find()`; its STAFFING leg (the
+ * `sys_user_position` junction, then `sys_user`) is still `find()` answers, and
+ * that is the leg this file measures the envelope on.
+ */
 const REF = 'position:sales_manager';
 
 /** How one case wraps its rows on the way back out of `find()`. */
@@ -56,9 +63,6 @@ const asItems: Envelope = (rows) => ({ items: rows, total: rows.length });
 function directory(envelope: Envelope) {
   return {
     find: vi.fn(async (object: string) => {
-      if (object === 'sys_position') {
-        return envelope([{ name: 'sales_manager', label: 'Sales Manager' }]);
-      }
       if (object === 'sys_user_position') {
         return envelope([{ id: 'up_1', position: 'sales_manager', user_id: 'u_1' }]);
       }
@@ -93,27 +97,23 @@ afterEach(() => {
 describe('useApproverDirectory — the find() envelope it accepts (objectui#5945)', () => {
   it("reads the contract's `data` member", async () => {
     const answer = await resolveThrough(asData);
-    expect(answer.label).toBe('Sales Manager');
     expect(answer.holders).toEqual(['Ada Holder']);
   });
 
   it('still reads a bare array — the live non-envelope shape fakes answer with', async () => {
     const answer = await resolveThrough(asBareArray);
-    expect(answer.label).toBe('Sales Manager');
     expect(answer.holders).toEqual(['Ada Holder']);
   });
 
   it('does NOT read `records` — not a QueryResult member', async () => {
     const answer = await resolveThrough(asRecords);
-    // Nothing resolved: no label leg, and a staffing leg that probed and found
-    // no assignment. Before the fix this read `Sales Manager` / `['Ada Holder']`.
-    expect(answer.label).toBeUndefined();
+    // Nothing resolved: a staffing leg that probed and found no assignment.
+    // Before the fix this read `['Ada Holder']`.
     expect(answer.holders).toEqual([]);
   });
 
   it('does NOT read `items` — not a QueryResult member', async () => {
     const answer = await resolveThrough(asItems);
-    expect(answer.label).toBeUndefined();
     expect(answer.holders).toEqual([]);
   });
 });

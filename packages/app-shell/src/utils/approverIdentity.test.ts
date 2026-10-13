@@ -20,6 +20,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   APPROVER_DIRECTORY_BINDINGS,
+  APPROVER_REGISTRY_TYPES,
   DEFAULT_APPROVER_COPY,
   approverCopyFrom,
   approverDisplay,
@@ -78,21 +79,25 @@ describe('parseApproverRef', () => {
 });
 
 describe('APPROVER_DIRECTORY_BINDINGS is derived from the spec, not restated', () => {
-  it('binds position to sys_position by machine name — framework#3508 territory', () => {
-    expect(APPROVER_DIRECTORY_BINDINGS.position)
-      .toMatchObject({ object: 'sys_position', valueField: 'name' });
-    expect(APPROVER_DIRECTORY_BINDINGS.position.displayFields[0]).toBe('label');
+  it('keeps position off the record arm — the spec binds it to the registry since 18', () => {
+    // It bound `sys_position` by machine name through `@objectstack/spec` 17.x
+    // (framework#3508 territory). Spec 18 publishes `position` as the registry
+    // member (objectstack#22710), so its label comes from the metadata
+    // registry and `approverIdentity.registryBinding-7611.test.tsx` pins that
+    // arm (objectui#12030).
+    expect(APPROVER_DIRECTORY_BINDINGS.position).toBeUndefined();
+    expect(APPROVER_REGISTRY_TYPES).toEqual({ position: 'position' });
   });
 
   it('skips the kinds whose source is not data rather than throwing', () => {
     // `manager` (auto), `queue` (unsupported), `role` (enum) have no directory
-    // rows. A module-level throw over a vocabulary change would white-screen
-    // the record page.
-    for (const kind of ['manager', 'queue', 'role', 'field', 'expression']) {
+    // rows, and `position` (registry) has its own arm. A module-level throw
+    // over a vocabulary change would white-screen the record page.
+    for (const kind of ['manager', 'queue', 'role', 'field', 'expression', 'position']) {
       expect(APPROVER_DIRECTORY_BINDINGS[kind]).toBeUndefined();
     }
     expect(Object.keys(APPROVER_DIRECTORY_BINDINGS).sort())
-      .toEqual(['department', 'position', 'team', 'user']);
+      .toEqual(['department', 'team', 'user']);
   });
 });
 

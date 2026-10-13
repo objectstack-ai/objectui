@@ -148,16 +148,29 @@ describe('the Automations pillar holds a step the spec refuses for a missing inp
   });
 
   // CONTROLS: what the flow parse accepts is sent.
-  it('a filled Notify, a blank Title (a value), or a template in its place: not held', () => {
+  it('a filled Notify, or a template in its place: not held', () => {
     for (const config of [
       { channels: ['inbox'], recipients: [], title: 'Approved' },
-      { channels: ['inbox'], recipients: ['owner'], title: '' },
       { channels: ['inbox'], recipients: [], template: 'approval_done' },
     ]) {
       const flow = flowWithNotify(config);
       expect(flowParseRefusals(flow)).toEqual([]);
       expect(flowHeldEdit(flow, 'en')).toBeNull();
     }
+  });
+
+  it('a BLANK Title: the flow parse refuses it since `@objectstack/spec` 18, and it is not held — its refusal shows (objectui#12030)', () => {
+    // Through 17.x a blank title was a value: accepted, and sent. 18 refuses a
+    // blank Notify title at the title. The hold asks only about an ABSENT key
+    // (`heldInputOf`), so a title the author emptied is sent and the server's
+    // refusal shows, as for any finished-but-refused input. That is the
+    // behaviour this bump keeps; whether an emptied input should be held like
+    // an absent one (as objectui#11951 ruled for a widget's binding) is a
+    // design question left open, not answered here. The hold stays no stricter
+    // than the contract either way.
+    const flow = flowWithNotify({ channels: ['inbox'], recipients: ['owner'], title: '' });
+    expect(flowParseRefusals(flow)).toEqual(['nodes.2.config.title']);
+    expect(flowHeldEdit(flow, 'en')).toBeNull();
   });
 
   it('a flow with no nodes, or only Start and End: not held', () => {

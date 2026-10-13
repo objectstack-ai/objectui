@@ -17,10 +17,12 @@
  *    rows take precedence).
  *  - objectui#7588: on a `value`-role slot (the `assignment` node's
  *    `assignments` map, see `flow-value-envelope.ts`) each value is either TEXT,
- *    the smart-parsed cell above, where a string is `{token}` interpolation and
- *    is stored exactly as typed, or an EXPRESSION, stored as a CEL value
- *    envelope `{ dialect: 'cel', source }`. The caller opts in through the
- *    `valueEnvelope` prop; every other map renders exactly as before.
+ *    the smart-parsed cell above, where a string is stored exactly as typed,
+ *    or an EXPRESSION, stored as a CEL value envelope `{ dialect: 'cel',
+ *    source }`. The caller opts in through the `valueEnvelope` prop; every
+ *    other map renders exactly as before. Through `@objectstack/spec` 17 a
+ *    text string was `{token}` interpolation; from 18 it is literal text, and
+ *    the cell shows the spec's refusal of a `{…}` token in it (objectui#12030).
  */
 
 import * as React from 'react';

@@ -125,8 +125,10 @@ function appliedIterator(schema: { safeParse: (v: unknown) => { success: boolean
   return parsed.data![ITERATOR_KEY];
 }
 
-const LOOP_BASE = { collection: '{leadList}' };
-const MAP_BASE = { collection: '{items}', flowName: 'one_task_signoff' };
+// `collection` is a value slot: `@objectstack/spec` 18 refuses the `{…}` template
+// there and takes a CEL value envelope (objectui#12030).
+const LOOP_BASE = { collection: { dialect: 'cel', source: 'vars.leadList' } };
+const MAP_BASE = { collection: { dialect: 'cel', source: 'vars.items' }, flowName: 'one_task_signoff' };
 
 /** The spec-applied identifier per node type — the sweep's right-hand side. */
 const APPLIED_BY_TYPE: Record<string, () => unknown> = {
@@ -311,7 +313,7 @@ describe('and the author reads the right identifier off the box (objectui#9340)'
   };
 
   it('draws the spec-applied identifier as the placeholder of the box when nothing is stored', () => {
-    renderNode('loop', { collection: '{leadList}' });
+    renderNode('loop', { ...LOOP_BASE });
     const input = itemVariableInput();
     expect(input, 'the lit control: this render DID draw the Item variable row').not.toBeNull();
     expect(
@@ -326,7 +328,7 @@ describe('and the author reads the right identifier off the box (objectui#9340)'
     // The other half of the push-past reading, on screen: `currentItem` is a
     // legitimate value an author may have typed, and correcting the HINT must
     // not rewrite it (AGENTS.md #0.1 — no lenient renderer-side rewriting).
-    renderNode('loop', { collection: '{leadList}', [ITERATOR_KEY]: 'currentItem' });
+    renderNode('loop', { ...LOOP_BASE, [ITERATOR_KEY]: 'currentItem' });
     const input = itemVariableInput();
     expect(input!.value, 'a stored identifier survives the corrected hint untouched').toBe('currentItem');
   });

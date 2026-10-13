@@ -14,15 +14,15 @@
  * The readers' behaviour under that binding is pinned where it renders:
  * `approverIdentity.registryBinding-7611.test.tsx` and the two
  * `FlowReferenceField.*-7611.test.tsx` files. This file pins the reading
- * itself, and carries the reminder the ruling asks for: the type loosening in
- * `approverValueSources.ts` goes when objectui moves to spec 18.
+ * itself. It carried the reminder the ruling asked for — the type loosening in
+ * `approverValueSources.ts` goes when objectui moves to spec 18 — and that move
+ * (objectui#12030) took the loosening out.
  */
 
 import { describe, it, expect } from 'vitest';
 import { APPROVER_VALUE_SOURCES } from '@objectstack/spec/automation';
 import {
   APPROVER_REGISTRY_TYPES,
-  PUBLISHED_APPROVER_VALUE_SOURCES,
   registryTypesOf,
   registryValueSourceOf,
 } from './approverValueSources';
@@ -59,20 +59,13 @@ describe('registryTypesOf (objectui#7611 Q3b)', () => {
   });
 });
 
-describe('the spec-17 loosening is still needed (objectui#7611 Q3b)', () => {
-  it('reads the bundled spec object itself, unchanged', () => {
-    expect(PUBLISHED_APPROVER_VALUE_SOURCES).toBe(APPROVER_VALUE_SOURCES);
-  });
-
-  it('the installed spec binds nothing to the registry yet', () => {
-    // When this goes red, objectui has moved to a spec that declares the
-    // registry member itself (objectstack#22710, spec 18): remove the widening
-    // in approverValueSources.ts — read APPROVER_VALUE_SOURCES directly — and
-    // revisit `FlowReferenceField.specDerivation.test.ts`, whose `position`
-    // record-lookup expectation moves with it.
-    expect(
-      APPROVER_REGISTRY_TYPES,
-      'the installed spec now publishes a registry binding: drop the spec-17 loosening in approverValueSources.ts',
-    ).toEqual({});
+describe('the installed spec publishes the registry binding itself (objectui#7611 Q3b, objectui#12030)', () => {
+  it('binds `position` to the registry, and nothing else', () => {
+    // The tripwire that stood here ("the installed spec binds nothing to the
+    // registry yet") went red on the move to `@objectstack/spec` 18, as it said
+    // it would: the widening it guarded is gone from approverValueSources.ts,
+    // which reads `APPROVER_VALUE_SOURCES` directly now.
+    expect(APPROVER_REGISTRY_TYPES).toEqual({ position: 'position' });
+    expect(APPROVER_VALUE_SOURCES.position).toEqual({ source: 'registry', type: 'position' });
   });
 });

@@ -336,8 +336,11 @@ describe('the preset module’s written-out tables agree with the spec (objectui
       const needs = refusedAt({ ...seed, type }, 'target');
       expect(heldInputKey({ ...seed, type }) !== null).toBe(needs);
       // With a target, the spec has nothing to say at `target`, and nothing is held.
-      expect(refusedAt({ ...seed, type, target: 'x_target' }, 'target')).toBe(false);
-      expect(heldInputKey({ ...seed, type, target: 'x_target' })).toBeNull();
+      // A `url` target is a path since `@objectstack/spec` 18, which refuses a bare
+      // relative one at `target` (objectui#12030); every other type takes a name.
+      const target = type === 'url' ? '/x_target' : 'x_target';
+      expect(refusedAt({ ...seed, type, target }, 'target')).toBe(false);
+      expect(heldInputKey({ ...seed, type, target })).toBeNull();
     },
   );
 

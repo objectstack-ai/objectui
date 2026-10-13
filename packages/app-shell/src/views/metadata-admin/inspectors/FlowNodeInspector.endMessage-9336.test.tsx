@@ -157,7 +157,7 @@ describe('the contract this form has to make satisfiable (objectui#9336)', () =>
     // alone.
     expect(parse({ outcome: 'completed' }).success, '`completed` alone is accepted').toBe(true);
     expect(
-      parse({ outcome: 'refused', message: 'Refused: {record.name} is a confirmed duplicate' }).success,
+      parse({ outcome: 'refused', message: 'Refused: {{ record.name }} is a confirmed duplicate' }).success,
       '`refused` WITH a message is accepted — the shape the form must be able to produce',
     ).toBe(true);
     expect(
@@ -340,14 +340,14 @@ describe('and the author actually sees it on a refused end (objectui#9336)', () 
     // contract requires, in a shape the contract accepts.
     const { onPatch } = renderInspector(draftWith({ outcome: 'refused' }));
     const control = messageControl()!;
-    fireEvent.change(control, { target: { value: 'Refused: {record.name} is a confirmed duplicate' } });
+    fireEvent.change(control, { target: { value: 'Refused: {{ record.name }} is a confirmed duplicate' } });
     fireEvent.blur(control);
 
     expect(onPatch, 'the edit reached the draft').toHaveBeenCalled();
     const written = onPatch.mock.calls.at(-1)![0] as { nodes: Array<Record<string, unknown>> };
     const config = written.nodes[0].config as Record<string, unknown>;
     expect(config.message, 'the typed text lands on the key the contract names').toBe(
-      'Refused: {record.name} is a confirmed duplicate',
+      'Refused: {{ record.name }} is a confirmed duplicate',
     );
     // ⭐ The whole point of the card, stated as a parse: what the form now
     // produces from a `refused` outcome LOADS.

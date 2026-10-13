@@ -22,59 +22,35 @@
  * `GET /api/v1/meta/<type>`, and a picker commits the item's `name` — a catalog
  * item has no row id (ADR-0131 D4). `position` is bound that way.
  *
- * objectui's installed spec predates that member, yet two consoles already
- * receive it:
- *  - a console bundled with the server's own spec injected
- *    (`OBJECTSTACK_SPEC_DIST`, the console objectstack ships), where
- *    `APPROVER_VALUE_SOURCES.position` IS the registry member; and
- *  - a console talking to such a server, whose approval node schema publishes
- *    the same projection as `xRef.sources`.
- * Both readers kept only the `data` member and dropped the rest, so a position
- * approver lost its designer picker and its readable label.
+ * Before objectui moved to `@objectstack/spec` 18 (objectui#12030), its
+ * installed spec predated that member while two consoles already received it —
+ * one bundled with the server's own spec injected (`OBJECTSTACK_SPEC_DIST`), and
+ * one talking to such a server, whose approval node schema publishes the same
+ * projection as `xRef.sources`. Both readers then kept only the `data` member
+ * and dropped the rest, so a position approver lost its designer picker and its
+ * readable label.
  *
  * Nothing here says which kinds are registry-backed: every answer is read off
  * the published binding, so a kind the spec moves is followed with no edit
  * here, and the `data` member is read exactly as before.
  *
- * ## LOOSENED FOR SPEC 17 — remove when objectui moves to spec 18
- *
- * {@link ApproverValueSource} widens the installed spec's type with
- * {@link RegistryValueSource} so a reader can test for the member at all.
- * Once the installed spec declares it, the widening is redundant: read
- * `APPROVER_VALUE_SOURCES` directly and drop {@link PUBLISHED_APPROVER_VALUE_SOURCES}.
- * `approverValueSources.test.ts` turns red on that bump to say so. This module
- * only READS what the server publishes; no authoring surface is touched, so
- * `objectui validate` and the strict faces are unchanged.
+ * The installed spec declares the registry member itself since 18, so this
+ * module reads `APPROVER_VALUE_SOURCES` directly; the widened type it carried
+ * through 17.x is gone (objectui#12030). This module only READS what the
+ * server publishes; no authoring surface is touched, so `objectui validate`
+ * and the strict faces are unchanged.
  */
 
 import { APPROVER_VALUE_SOURCES } from '@objectstack/spec/automation';
+
+/** One entry of `APPROVER_VALUE_SOURCES`, as the installed spec types it. */
+export type ApproverValueSource = (typeof APPROVER_VALUE_SOURCES)[keyof typeof APPROVER_VALUE_SOURCES];
 
 /**
  * The registry member of the spec's approver value binding (objectstack#22710):
  * the value is the machine name of an item of metadata `type`.
  */
-export interface RegistryValueSource {
-  source: 'registry';
-  /** The metadata type to list — singular, as the meta API spells it (`position`). */
-  type: string;
-}
-
-/**
- * One entry of `APPROVER_VALUE_SOURCES`, widened with the registry member the
- * installed spec's type predates. LOOSENED FOR SPEC 17 — see this module's
- * docstring for when it goes.
- */
-export type ApproverValueSource =
-  | (typeof APPROVER_VALUE_SOURCES)[keyof typeof APPROVER_VALUE_SOURCES]
-  | RegistryValueSource;
-
-/**
- * `APPROVER_VALUE_SOURCES`, typed so the registry member is expressible. The
- * VALUE is the bundled spec's own object, unchanged: under an injected spec it
- * already carries the registry member, under the installed one it does not.
- */
-export const PUBLISHED_APPROVER_VALUE_SOURCES: Readonly<Record<string, ApproverValueSource>> =
-  APPROVER_VALUE_SOURCES;
+export type RegistryValueSource = Extract<ApproverValueSource, { source: 'registry' }>;
 
 /**
  * Read one binding as the registry member, or `undefined`.
@@ -102,9 +78,9 @@ export function registryTypesOf(sources: Readonly<Record<string, unknown>>): Rec
 }
 
 /**
- * The registry-bound approver kinds of the bundled spec, kind → metadata type.
- * Empty under the installed spec 17.7.0; `{ position: 'position' }` under a
- * spec carrying objectstack#22710.
+ * The registry-bound approver kinds of the bundled spec, kind → metadata type —
+ * `{ position: 'position' }` on a spec carrying objectstack#22710, which every
+ * spec objectui installs since objectui#12030 does.
  */
 export const APPROVER_REGISTRY_TYPES: Readonly<Record<string, string>> =
-  registryTypesOf(PUBLISHED_APPROVER_VALUE_SOURCES);
+  registryTypesOf(APPROVER_VALUE_SOURCES);

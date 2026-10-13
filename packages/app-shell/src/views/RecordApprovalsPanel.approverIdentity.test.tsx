@@ -22,7 +22,7 @@ import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, cleanup, waitFor } from '@testing-library/react';
 import { I18nProvider } from '@object-ui/i18n';
-import { AdapterCtx } from '@object-ui/react';
+import { AdapterCtx, MetadataCtx } from '@object-ui/react';
 import type { ApprovalRequestLite } from '../hooks/useRecordApprovals';
 
 vi.mock('@object-ui/auth', async (importOriginal) => ({
@@ -55,23 +55,27 @@ const request = (over: Partial<ApprovalRequestLite> = {}): ApprovalRequestLite =
 });
 
 /**
- * A directory the panel can read. `sys_position` answers the label leg,
- * `sys_user_position` -> `sys_user` the staffing leg; `failStaffing` makes the
- * second leg reject the way a denied object API does (`OBJECT_API_DISABLED`),
- * which must read as UNKNOWN staffing rather than as an empty seat.
+ * A directory the panel can read. The metadata registry answers the label leg
+ * (`ensureType('position')` on the console's metadata store: `@objectstack/spec`
+ * 18 binds `position` to the registry, objectstack#22710 — it was a
+ * `sys_position` read through 17.x, objectui#12030), and `sys_user_position`
+ * -> `sys_user` the staffing leg; `failStaffing` makes the second leg reject
+ * the way a denied object API does (`OBJECT_API_DISABLED`), which must read as
+ * UNKNOWN staffing rather than as an empty seat.
  */
 function directory(opts: {
   label?: string;
   holders?: Array<{ id: string; name: string }>;
   failStaffing?: boolean;
 }) {
+  const metadataStore = {
+    ensureType: vi.fn(async (type: string) =>
+      type === 'position' && opts.label !== undefined ? [{ name: 'sales_manager', label: opts.label }] : [],
+    ),
+  };
   return {
+    metadataStore,
     find: vi.fn(async (object: string) => {
-      if (object === 'sys_position') {
-        return opts.label === undefined
-          ? { data: [] }
-          : { data: [{ name: 'sales_manager', label: opts.label }] };
-      }
       if (object === 'sys_user_position') {
         if (opts.failStaffing) {
           throw Object.assign(new Error('denied'), { code: 'OBJECT_API_DISABLED' });
@@ -91,17 +95,20 @@ function directory(opts: {
 }
 
 function renderPanel(req: ApprovalRequestLite, adapter: unknown, language = 'en') {
+  const store = (adapter as { metadataStore?: unknown } | null)?.metadataStore ?? null;
   render(
     <I18nProvider
       config={{ defaultLanguage: language, detectBrowserLanguage: false }}
       persistLanguage={false}
     >
-      <AdapterCtx.Provider value={adapter as never}>
-        <RecordApprovalsPanel
-          approvals={{ available: true, requests: [req], pendingRequest: req }}
-          currentUserId="u_sub"
-        />
-      </AdapterCtx.Provider>
+      <MetadataCtx.Provider value={store as never}>
+        <AdapterCtx.Provider value={adapter as never}>
+          <RecordApprovalsPanel
+            approvals={{ available: true, requests: [req], pendingRequest: req }}
+            currentUserId="u_sub"
+          />
+        </AdapterCtx.Provider>
+      </MetadataCtx.Provider>
     </I18nProvider>,
   );
 }
@@ -164,7 +171,7 @@ describe('RecordApprovalsPanel — pending approver identity (objectui#5414)', (
   });
 
   it('does NOT claim an empty seat when the staffing read was refused', async () => {
-    // A business-app reader may list `sys_position` and not `sys_user_position`.
+    // A business-app reader may read the position registry and not list `sys_user_position`.
     // "I could not look" is a different claim from "nobody holds it", and only
     // one of them is safe to print on a governance surface.
     renderPanel(request(), directory({ label: 'Sales Manager', failStaffing: true }));
@@ -189,6 +196,7 @@ describe('RecordApprovalsPanel — pending approver identity (objectui#5414)', (
     );
     await waitFor(() => expect(chipText()).toBe('Sales Manager Desk'));
     expect(adapter.find).not.toHaveBeenCalled();
+    expect(adapter.metadataStore.ensureType).not.toHaveBeenCalled();
   });
 
   it('leaves a plain user slate exactly as it rendered before', async () => {

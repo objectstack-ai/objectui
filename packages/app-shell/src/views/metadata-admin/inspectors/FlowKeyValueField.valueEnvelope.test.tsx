@@ -12,6 +12,7 @@ import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import {
   ASSIGNMENT_ARRAY_FORM_PRESCRIPTION,
   ASSIGNMENT_VALUE_ENVELOPE_REFUSAL,
+  VALUE_SLOT_TEMPLATE_REFUSAL,
 } from '@objectstack/spec/automation';
 import { FlowNodeConfigField } from './FlowNodeConfigField';
 import type { FlowConfigField } from './flow-node-config';
@@ -48,9 +49,9 @@ function renderField(field: FlowConfigField, nodeType: string, value: unknown) {
 }
 
 describe('assignment value cell — text or CEL expression (objectui#7588)', () => {
-  it('offers the toggle on the assignment map, on the record field maps since 17.5.0, and on no other key/value map', () => {
+  it('offers the toggle on the assignment map, on the other value-role maps the ledger names, and on no other key/value map', () => {
     renderField(ASSIGNMENTS, 'assignment', {
-      label: '{record.name}',
+      label: 'Weekly digest',
       digest: { dialect: 'cel', source: 'joinNonEmpty(names, ", ")' },
     });
     const toggles = screen.getAllByRole('button', { name: TOGGLE });
@@ -63,9 +64,18 @@ describe('assignment value cell — text or CEL expression (objectui#7588)', () 
     // `@objectstack/spec` 17.5.0 declares `create_record` / `update_record`
     // `fields.*` as `value`-role slots in its expression ledger, so the same
     // choice reaches those maps (objectui#11073). Through 17.4.0 this row
-    // asserted NO toggle on `create_record`'s field values.
-    for (const nodeType of ['create_record', 'update_record']) {
-      renderField(FIELD_VALUES, nodeType, { name: '{record.name}', total: { dialect: 'cel', source: 'a + b' } });
+    // asserted NO toggle on `create_record`'s field values. 18.0.0-next.0 adds
+    // `screen` `defaults.*`, `script` `inputs.*` and `subflow` `input.*`
+    // (objectui#12030); through 17.x `subflow`'s `input` was this case's control.
+    const VALUE_ROLE_MAPS: Array<[string, FlowConfigField]> = [
+      ['create_record', FIELD_VALUES],
+      ['update_record', FIELD_VALUES],
+      ['screen', { id: 'defaults', path: ['config', 'defaults'], label: 'Defaults', kind: 'keyValue' }],
+      ['script', { id: 'inputs', path: ['config', 'inputs'], label: 'Inputs', kind: 'keyValue' }],
+      ['subflow', { id: 'input', path: ['config', 'input'], label: 'Input mapping', kind: 'keyValue' }],
+    ];
+    for (const [nodeType, field] of VALUE_ROLE_MAPS) {
+      renderField(field, nodeType, { name: 'Acme', total: { dialect: 'cel', source: 'a + b' } });
       expect(
         screen.getAllByRole('button', { name: TOGGLE }).map((b) => b.getAttribute('aria-pressed')),
         `${nodeType}: one toggle per value, the envelope pressed`,
@@ -76,16 +86,21 @@ describe('assignment value cell — text or CEL expression (objectui#7588)', () 
 
     // Control: a key/value map the ledger gives no `value` role keeps plain
     // text cells — an object naming a `dialect` there is just data.
-    renderField({ id: 'input', path: ['config', 'input'], label: 'Input mapping', kind: 'keyValue' }, 'subflow', {
+    renderField({ id: 'headers', path: ['config', 'headers'], label: 'Headers', kind: 'keyValue' }, 'http_request', {
       name: '{record.name}',
     });
     expect(screen.queryAllByRole('button', { name: TOGGLE })).toHaveLength(0);
   });
 
-  it('commits a `{token}` string unchanged on blur', () => {
+  it('commits a `{token}` string unchanged on blur, and shows the spec refusal of it', () => {
     const onCommit = renderField(ASSIGNMENTS, 'assignment', { label: '{record.first} {record.last}' });
     fireEvent.blur(screen.getByDisplayValue('{record.first} {record.last}'));
     expect(onCommit).toHaveBeenLastCalledWith({ label: '{record.first} {record.last}' });
+    // `@objectstack/spec` 18 (ADR-0032 §3) reads a value-slot string as the
+    // literal it spells and refuses a `{…}` token in it; the cell shows that
+    // sentence, as it shows any other refusal (objectui#12030). Through 17.x a
+    // `{token}` string drew no alert here.
+    expect(screen.getByRole('alert').textContent).toContain(VALUE_SLOT_TEMPLATE_REFUSAL);
   });
 
   it('stores an expression as a `{ dialect, source }` envelope and leaves the text values alone', () => {

@@ -5,12 +5,15 @@
  * (objectui#7588, the Studio half of objectstack#14149 ruling A).
  *
  * The `assignment` node's `assignments` map takes two authoring forms per
- * value: a plain string, which is `{token}` flow interpolation, and a CEL value
- * envelope `{ dialect: 'cel', source }`, which the expression engine evaluates,
- * so the CEL stdlib (`joinNonEmpty`, …) becomes authorable from metadata. The
- * two are told apart by SHAPE, never by a mode key: an object naming a
- * `dialect` is an envelope, and everything else keeps the meaning it always
- * had. That is why a plain string is never rewritten into an envelope here.
+ * value: a plain string, and a CEL value envelope `{ dialect: 'cel', source }`,
+ * which the expression engine evaluates, so the CEL stdlib (`joinNonEmpty`, …)
+ * becomes authorable from metadata. The two are told apart by SHAPE, never by
+ * a mode key: an object naming a `dialect` is an envelope, and everything else
+ * is a literal. That is why a plain string is never rewritten into an envelope
+ * here. Through `@objectstack/spec` 17 a plain string was `{token}` flow
+ * interpolation; from 18 (ADR-0032 §3, objectui#12030) it is the literal text
+ * it spells, and the spec refuses a `{…}` token in it with
+ * `VALUE_SLOT_TEMPLATE_REFUSAL`, which the editor shows like any other refusal.
  *
  * Every decision below is read from `@objectstack/spec/automation`, never
  * restated:
@@ -23,10 +26,11 @@
  *   where the ledger declares the role.
  * - WHAT is an envelope: `isExpressionEnvelopeShaped`, the predicate the
  *   ledger resolver and the executor both use.
- * - WHEN an envelope is refused: `AssignmentValueSchema`, whose issues lead
- *   with `ASSIGNMENT_VALUE_ENVELOPE_REFUSAL`. The editor shows those messages
- *   verbatim beside the cell, so the author reads the same sentence
- *   `registerFlow` would refuse the flow with.
+ * - WHEN a value is refused: `AssignmentValueSchema`, whose issues lead with
+ *   `ASSIGNMENT_VALUE_ENVELOPE_REFUSAL` for a malformed envelope and with
+ *   `VALUE_SLOT_TEMPLATE_REFUSAL` for a `{…}` token in a string. The editor
+ *   shows those messages verbatim beside the cell, so the author reads the
+ *   same sentence `registerFlow` would refuse the flow with.
  * - The one dialect the slot evaluates: read off
  *   `AssignmentExpressionValueSchema`'s own `dialect` literal.
  *
@@ -106,8 +110,9 @@ export function writeValueEnvelope(prior: unknown, source: string): Record<strin
 
 /**
  * The spec's refusal of `value` as a slot value, one message per issue, or
- * `null` when the spec accepts it. Only envelope-shaped values are ever
- * refused, so a `{token}` string or any other literal answers `null`.
+ * `null` when the spec accepts it. A malformed envelope is refused, and from
+ * `@objectstack/spec` 18 so is a string carrying a `{…}` token; any other
+ * literal answers `null`.
  */
 export function valueEnvelopeRefusal(value: unknown): string[] | null {
   const result = AssignmentValueSchema.safeParse(value);

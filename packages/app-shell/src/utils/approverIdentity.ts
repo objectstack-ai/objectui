@@ -66,7 +66,7 @@
  */
 
 import { APPROVER_VALUE_SOURCES } from '@objectstack/spec/automation';
-import { APPROVER_REGISTRY_TYPES, PUBLISHED_APPROVER_VALUE_SOURCES } from './approverValueSources.js';
+import { APPROVER_REGISTRY_TYPES } from './approverValueSources.js';
 
 export { APPROVER_REGISTRY_TYPES };
 
@@ -126,7 +126,7 @@ export const PERSON_DISPLAY_FIELDS: readonly string[] = DISPLAY_FIELDS_BY_OBJECT
  */
 export const APPROVER_DIRECTORY_BINDINGS: Record<string, ApproverDirectoryBinding> =
   Object.fromEntries(
-    Object.entries(PUBLISHED_APPROVER_VALUE_SOURCES).flatMap(([kind, source]) => {
+    Object.entries(APPROVER_VALUE_SOURCES).flatMap(([kind, source]) => {
       if (!source || source.source !== 'data') return [];
       const object = String(source.object);
       return [[

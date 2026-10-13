@@ -162,7 +162,7 @@ describe('the contract that refuses `outputVariable` on an end node (objectui#93
     // a measurement rather than a schema that says no to everything.
     expect(parse({ outcome: 'completed' }).success, 'the lit control: `completed` alone is ACCEPTED').toBe(true);
     expect(
-      parse({ outcome: 'refused', message: 'Refused: {record.name} is a confirmed duplicate' }).success,
+      parse({ outcome: 'refused', message: 'Refused: {{ record.name }} is a confirmed duplicate' }).success,
       'the second lit control: a refusal WITH its message is ACCEPTED',
     ).toBe(true);
 

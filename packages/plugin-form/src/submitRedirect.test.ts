@@ -112,42 +112,27 @@ const OUT_OF_CONTRACT: Array<[label: string, url: string]> = [
 ];
 
 /**
- * A refusal CITES THE RULING it comes from, in either spelling the spec uses.
+ * The refusal IS the contract's own sentence for this value.
  *
- * ⚠️ This file was the odd one out (objectui#7122 contract review). Its three
- * siblings — `WizardForm.submitRedirect.test.tsx`,
- * `ObjectForm.submitRedirect.test.tsx` and the console's
- * `submitRedirect.test.ts` — all assert this SHAPE, while this one pinned the
- * literal `'ruled 2026-08-11'`. That is the same defect the re-point was
- * supposed to remove, moved one word along: it swapped a brittle `#7496` for a
- * brittle date, and the four files disagreed about what the property even is.
+ * The property is provenance: the sentence a submitter reads on screen came
+ * from the schema, not from a local hand-written string (the load-bearing
+ * mutation probe in this file's header — "replacing the spec's refusal message
+ * … turns 14 tests red" — depends on exactly that).
  *
- * The property is that the sentence on screen carries its governing ruling in a
- * machine-recognisable form, which is what proves it came from the schema and
- * not from a local hand-written string (the load-bearing mutation probe in this
- * file's header — "replacing the spec's refusal message … turns 14 tests red" —
- * depends on exactly that).
- *
- * ## ⚠️ Why there is no bare `#\d{3,}` alternative
- *
- * The sibling files' first spelling was
- * `/\(ruled \d{4}-\d{2}-\d{2}\)|#\d{3,}/` — two alternatives, to admit
- * either form upstream uses. The loose half discriminated NOTHING: this repo's
- * own hand-written messages routinely cite `objectui#NNNN`, so a locally
- * authored sentence satisfied it, and telling those two apart is this
- * assertion's entire job.
- *
- * It was also unnecessary, which is the measurement that settled it. Both
- * spellings, read off the installed artifacts rather than recalled:
- *
- *   17.2.0  "… and this is an absolute URL (ruled 2026-08-11 on #7496)."
- *   17.3.0  "… and this is an absolute URL (ruled 2026-08-11)."
- *
- * The issue number never appears OUTSIDE that parenthesis, so `(ruled ` + a
- * date already matched both releases on its own. The optional ` on #NNNN` tail
- * keeps the 17.2.0 spelling admissible without admitting a bare local `#7122`.
+ * Through `@objectstack/spec` 17.x this was read off a citation the message
+ * carried, `(ruled DATE)`, which no locally authored sentence in this repository
+ * spells. `@objectstack/spec` 18 dropped those citations from its messages
+ * (objectui#12030), so the provenance is now read the direct way: the refusal
+ * equals the message the spec's own parse puts on `submitBehavior.url` for the
+ * same value. That is stronger than a shape match — a local sentence that
+ * happened to carry a citation would pass a shape, and passes this only by
+ * being the spec's text.
  */
-const CITES_ITS_RULING = /\(ruled \d{4}-\d{2}-\d{2}(?: on #\d{3,})?\)/;
+function specRefusal(url: string): string | undefined {
+  const parsed = FormViewSchema.safeParse({ submitBehavior: { kind: 'redirect', url } });
+  if (parsed.success) return undefined;
+  return parsed.error.issues.find((i) => i.path[0] === 'submitBehavior' && i.path[1] === 'url')?.message;
+}
 
 describe('the shape verdict is the contract’s, for every family', () => {
   it.each(IN_CONTRACT)('accepts %j, and so does the schema', (url) => {
@@ -170,12 +155,11 @@ describe('the shape verdict is the contract’s, for every family', () => {
     // An empty or generic message would be a silent drop wearing an error's
     // clothes — which is defect 2 with extra steps.
     //
-    // The citation is asserted through `CITES_ITS_RULING` above — the SHAPE the
-    // provenance takes, not the literal date this release happens to print.
-    // Re-pointed rather than dropped: the property this line exists for is that
-    // the sentence carries its governing ruling, not how that ruling is spelled.
+    // The provenance is asserted through `specRefusal` above — the refusal is
+    // the spec's own sentence for this value, read off the same parse.
     expect(verdict.refusal).toMatch(/`(submitBehavior\.)?url`/);
-    expect(verdict.refusal).toMatch(CITES_ITS_RULING);
+    expect(specRefusal(url)).toBeTruthy();
+    expect(verdict.refusal).toBe(specRefusal(url));
     expect(verdict.refusal.length).toBeGreaterThan(40);
   });
 

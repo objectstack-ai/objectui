@@ -59,13 +59,23 @@ import type { MetadataSelection } from '../preview-registry';
 
 const META_OBJECT_ROUTE = '/api/v1/meta/object';
 
+/**
+ * `GET /api/v1/meta/position` — the approver picker's candidate list since
+ * `@objectstack/spec` 18 binds the `position` approver to the metadata registry
+ * (objectstack#22710, objectui#12030). An approval node's inspector asks it on
+ * mount, so the double serves it as an empty registry too; every OTHER route is
+ * still an escape the teardown below refuses.
+ */
+const META_POSITION_ROUTE = '/api/v1/meta/position';
+const SERVED_ROUTES = [META_OBJECT_ROUTE, META_POSITION_ROUTE];
+
 /** Every URL this file's renders handed the global `fetch`, in request order. */
 let metaCalls: string[] = [];
 
 /** The route key of a recorded URL: its pathname, without the scope query. */
 const routeOf = (url: string) => url.split('?')[0];
 
-/** Serve `GET /api/v1/meta/object` as an empty registry; record everything. */
+/** Serve `GET /api/v1/meta/object` and `/meta/position` as empty registries; record everything. */
 function installMetaObjectDouble() {
   metaCalls = [];
   vi.stubGlobal(
@@ -75,10 +85,12 @@ function installMetaObjectDouble() {
         input && typeof input === 'object' && 'url' in input ? (input as { url: unknown }).url : input,
       );
       metaCalls.push(url);
-      if (routeOf(url) !== META_OBJECT_ROUTE) {
+      const route = routeOf(url);
+      if (!SERVED_ROUTES.includes(route)) {
         return { ok: false, status: 404, headers: new Headers(), json: async () => ({}) };
       }
-      return { ok: true, status: 200, headers: new Headers(), json: async () => ({ type: 'object', items: [] }) };
+      const type = route.slice(route.lastIndexOf('/') + 1);
+      return { ok: true, status: 200, headers: new Headers(), json: async () => ({ type, items: [] }) };
     }),
   );
 }
@@ -88,7 +100,7 @@ beforeEach(installMetaObjectDouble);
 afterEach(() => {
   // The double is a router, not a sink: an escape to any OTHER endpoint fails
   // here instead of vanishing into `useMetadataListOptions`'s `.catch`.
-  expect(metaCalls.filter((url) => routeOf(url) !== META_OBJECT_ROUTE)).toEqual([]);
+  expect(metaCalls.filter((url) => !SERVED_ROUTES.includes(routeOf(url)))).toEqual([]);
   // Unmount BEFORE restoring the real `fetch` — this replaces the bare
   // `afterEach(cleanup)` that used to stand here, it does not drop it. Vitest
   // runs `afterEach` hooks in reverse registration order, so this file's

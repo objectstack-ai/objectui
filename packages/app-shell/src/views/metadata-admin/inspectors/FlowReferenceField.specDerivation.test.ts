@@ -22,9 +22,17 @@ import { describe, it, expect } from 'vitest';
 import { APPROVER_VALUE_SOURCES } from '@objectstack/spec/automation';
 
 import { KIND_TO_RECORD_LOOKUP } from './FlowReferenceField';
+import { APPROVER_REGISTRY_TYPES } from '../../../utils/approverValueSources.js';
 
-/** The directory-backed kinds this package renders a record lookup for. */
-const EXPECTED_KINDS = ['user', 'team', 'department', 'position'] as const;
+/**
+ * The directory-backed kinds this package renders a record lookup for.
+ * `position` left this list on the move to `@objectstack/spec` 18
+ * (objectui#12030): the spec binds it to the metadata registry
+ * (objectstack#22710), so its picker is the registry arm the
+ * `FlowReferenceField.*-7611` tests pin, as `approverValueSources.ts` said it
+ * would be.
+ */
+const EXPECTED_KINDS = ['user', 'team', 'department'] as const;
 
 describe('KIND_TO_RECORD_LOOKUP is derived from APPROVER_VALUE_SOURCES (objectui#3017)', () => {
   it('is not vacuous — the derivation still produces every expected kind', () => {
@@ -64,8 +72,14 @@ describe('KIND_TO_RECORD_LOOKUP is derived from APPROVER_VALUE_SOURCES (objectui
     // survive the derivation rather than be lost when the binding is composed.
     expect(KIND_TO_RECORD_LOOKUP.user?.picker).toBe('search');
     expect(KIND_TO_RECORD_LOOKUP.user?.subtitle).toEqual(['email']);
-    for (const kind of ['team', 'department', 'position'] as const) {
+    for (const kind of ['team', 'department'] as const) {
       expect(KIND_TO_RECORD_LOOKUP[kind]?.picker).toBeUndefined();
     }
+  });
+
+  it('`position` is the registry member, so it has no record lookup (objectui#12030)', () => {
+    expect(APPROVER_VALUE_SOURCES.position).toEqual({ source: 'registry', type: 'position' });
+    expect(KIND_TO_RECORD_LOOKUP).not.toHaveProperty('position');
+    expect(APPROVER_REGISTRY_TYPES).toEqual({ position: 'position' });
   });
 });

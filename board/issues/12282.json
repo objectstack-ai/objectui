@@ -2,8 +2,8 @@
   "number": 12282,
   "kind": "issue",
   "title": "finding(types, docs): `AutoNumberFieldMetadata` does not declare the spec's `autonumberFormat`, which the spec prefers for a new field and Studio's field designer writes, so a typed literal carrying it fails TS2353 and the auto-number page cannot teach it",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:records",
     "bug",
     "domain:spec",
-    "pm:dispatched",
     "priority:p3"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-12T23:39:40Z",
-  "updated_at": "2026-10-13T02:38:32Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-13T03:50:40Z",
+  "closed_at": "2026-10-13T03:49:53Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12282",
   "body": "Filing class: **① product defect**, a `finding` of class (b), a declared contract objectui's typed authoring face does not carry. Reach: named producers. objectui's own Studio field designer writes `autonumberFormat`, and the docs page `content/docs/fields/auto-number.mdx` cannot teach it through the page's typed literal.\n\nSeam: `spec: FieldSchema.autonumberFormat` → `runtime: resolveAutonumberFormat` (objectstack engine and SQL driver) | `renderer: consumer: none` (objectui's `AutoNumberField` prints the stored value; the gap is the authoring type, `AutoNumberFieldMetadata`).\n\n- **Who acts:** triage grades and routes. The declaration lands in `packages/types/src/field-types.ts` (`AutoNumberFieldMetadata`). The docs page then teaches it, which is the remainder of objectui#12258 triage bullet 3 (`6125709413`), not done there by measurement.\n- **Dedupe:** two objectui issue searches, closed included. \"autonumberFormat AutoNumberFieldMetadata\" returned 1 hit, objectui#4219 (closed, inline-edit of an `autonumber` value). \"auto-number format key types autonumber\" returned 2: objectui#12258 (open, the `{Q}` docs card; the control hit) and objectui#4219. Neither covers this gap. objectui#12242 (open, in the decision box) is the family for the opposite direction: objectui members that `FieldSchema` refuses. Its census does not cover a key the spec declares and objectui lacks.\n- **Found by:** the os-dev of objectui#12258 (PR objectui#12280, report `6134680820`, out-of-scope finding 1). Re-read and filed by the `domain:spec` @ objectui seat (objectui#10217), session `session_015YrgVw7e65cs1ndbebt46G`.\n\n## The reading\n\n- **The contract:** `@objectstack/spec` `FieldSchema`'s `format` describe calls `format` \"the shorthand that predates `autonumberFormat`, which wins when both are present\" and says \"Prefer `autonumberFormat` on a new field.\" The liveness row `packages/spec/liveness/field.json` → `autonumberFormat` is live: the engine's `applyAutonumbers` resolves `autonumberFormat`, then `format`, then `{0000}`. Read on objectstack `origin/main` `36b2889cd`.\n- **objectui's typed face:** `AutoNumberFieldMetadata` (`packages/types/src/field-types.ts`) declares `type: 'autonumber'`, `format` and `starting_number?: never`, and no `autonumberFormat`. Read by this seat on objectui `origin/main` `48fb558d`.\n- **Measured by the dev on PR objectui#12280's head `0d614b0e`:** a typed `AutoNumberFieldMetadata` literal carrying `autonumberFormat` fails `TS2353: Object literal may only specify known properties, and 'autonumberFormat' does not exist in type 'AutoNumberFieldMetadata'`, both in a standalone `tsc` probe against `packages/types/dist` (the control literal with `format` compiles) and as a mutation of the page under `check:doc-snippets` (788 blocks judged, 1 failed; restore proven). Not re-run by this seat.\n- **The producer:** Studio's metadata-admin `SchemaForm` is driven by the spec's field schema and shows `autonumberFormat` when `type == 'autonumber'`. Pinned in `packages/app-shell/src/views/metadata-admin/predicate.test.ts` (`['autonumberFormat', \"type == 'autonumber'\"]`) and `SchemaForm.unresolvedPredicate.test.tsx`. Read by this seat in the pins; the live form was not driven.\n\n## Why it matters\n\nThe spec tells authors to use `autonumberFormat` for a new field, and Studio writes it. An author or AI that types field metadata through `@object-ui/types` cannot write it: the type refuses the preferred key and offers only the shorthand. The objectui docs page therefore teaches the shorthand alone, so authoring by objectui's types and authoring in Studio produce two spellings of one setting.\n\n## Direction (triage decides)\n\nDeclare `autonumberFormat` on `AutoNumberFieldMetadata` by reference to the spec row (objectui `AGENTS.md` #0.1: declare a key the spec owns by reference, not by retyping), then teach it on `content/docs/fields/auto-number.mdx`. Adding a member widens a published type, so `Clause-②: yes`. Whether `format` then stays or retires is this card's own question.\n\nDedupe words: AutoNumberFieldMetadata autonumberFormat · autonumber format key objectui types · auto-number docs autonumberFormat"

@@ -7191,14 +7191,12 @@ export function translateFlowMeta(
  * returns the raw value for the other nine locale packs by existing design, and
  * whether to extend it is a separate decision, not a rider on this fix.
  *
- * `org` is keyed beside the spec's union, not through it (objectui#12093):
- * `@objectstack/spec` 18 narrows the enum to `env` (objectstack#15206 S5,
- * ADR-0131, installed by objectui#12030), where a keyed `org` would be an
- * unknown property. A server still on 17.x sends `org`, so its label stays;
- * the completeness check above is unchanged.
+ * `org` left this table with the spec's enum (objectstack#15206 S5, ADR-0131),
+ * when objectui#12030 moved to `@objectstack/spec` 18: no served response
+ * carries it, and an `org` from an older server is outside the union, so
+ * `translateConsoleValue` hands it back raw rather than refusing it.
  */
-const LAYER_SCOPE_ZH: Record<NonNullable<MetadataOverlayScope> | 'org', string> = {
-  org: '组织',
+const LAYER_SCOPE_ZH: Record<NonNullable<MetadataOverlayScope>, string> = {
   env: '环境',
 };
 

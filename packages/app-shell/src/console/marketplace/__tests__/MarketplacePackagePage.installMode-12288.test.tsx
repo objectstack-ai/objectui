@@ -19,7 +19,9 @@
  * - A manifest with no `installModes`: no choice, and no `installMode` sent.
  * - More than one distinct mode: the choice is drawn, the install waits for a
  *   pick, and the picked mode is sent — for a flat package body and for a
- *   compiled artifact that nests its manifest under `manifest:`.
+ *   compiled artifact that nests its manifest under `manifest:`. While it waits,
+ *   the disabled Install's reason is reached by Tab and is its accessible
+ *   description.
  * - One distinct mode: no choice, and that mode is sent. A package that permits
  *   only `unmanaged` says what its install does before the click.
  * - An `unmanaged` answer: its success sentence names the base, and each
@@ -39,6 +41,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 vi.mock('react-router-dom', () => ({
   useNavigate: () => vi.fn(),
@@ -211,10 +214,38 @@ describe('the choice is the manifest\'s `installModes` (objectui#12288)', () => 
     expect(screen.queryAllByRole('radio')).toHaveLength(0);
     expect(screen.queryByTestId('install-mode-sole')).not.toBeInTheDocument();
     expect(installButton()).toBeEnabled();
+    expect(document.querySelector('[data-disabled-reason]')).toBeNull();
 
     await install();
     expect(posts[0]).toEqual({ packageId: 'pkg_crm' });
     expect(posts[0]).not.toHaveProperty('installMode');
+  });
+
+  it('while the choice is unpicked, the disabled Install carries its reason: reached by Tab, and the button\'s accessible description', async () => {
+    serveManifest(flatBody({ installModes: ['managed', 'unmanaged'] }));
+    await boot();
+    await renderPage();
+
+    const reason = '«marketplace.install.mode.required»';
+    expect(installButton()).toBeDisabled();
+    expect(installButton()).toHaveAccessibleDescription(reason);
+
+    // A disabled button takes no focus; its wrapper is the Tab stop that carries the reason.
+    const user = userEvent.setup();
+    let reached: Element | null = null;
+    for (let i = 0; i < 12 && !reached; i++) {
+      await user.tab();
+      if (document.activeElement?.hasAttribute('data-disabled-reason')) reached = document.activeElement;
+    }
+    expect(reached).not.toBeNull();
+    expect(reached).toContainElement(installButton());
+    expect(reached).toHaveAccessibleDescription(reason);
+
+    // CONTROL: once a mode is picked, Install is enabled and carries no reason.
+    fireEvent.click(radio('managed'));
+    await waitFor(() => expect(installButton()).toBeEnabled());
+    expect(installButton()).not.toHaveAccessibleDescription();
+    expect(document.querySelector('[data-disabled-reason]')).toBeNull();
   });
 
   it.each([

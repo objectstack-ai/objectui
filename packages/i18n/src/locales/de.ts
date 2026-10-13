@@ -3556,6 +3556,7 @@ const de = {
         managedHint: "Das Paket bleibt maßgeblich: Es wird als Code registriert, erhält seine Upgrades, und seine Elemente werden hier nicht bearbeitet.",
         unmanaged: "Nicht verwaltete Kopie",
         unmanagedHint: "Einmalig als eigene Metadaten in dieses Laufzeitsystem kopiert: Jedes Element ist hier bearbeitbar, und die Kopie erhält kein Upgrade.",
+        required: "Wählen Sie einen Installationsmodus, um dieses Paket zu installieren.",
       },
       unmanagedSuccess: "v{{version}} von „{{name}}“ als eigene Metadaten in dieses Laufzeitsystem kopiert, in die Basis {{base}}. Die Kopie ist bearbeitbar und erhält kein Upgrade.",
       unmanagedStrippedLocks: "Das Paket hat diese Elemente gesperrt. Die Kopie ist bearbeitbar, daher wurden ihre Sperren nicht kopiert:",

@@ -3620,6 +3620,7 @@ const fr = {
         managedHint: "Le paquet reste l'autorité : il est enregistré comme code, reçoit ses mises à niveau, et ses éléments ne sont pas modifiés ici.",
         unmanaged: "Copie non gérée",
         unmanagedHint: "Copié une seule fois dans ce runtime comme ses propres métadonnées : chaque élément est modifiable ici, et la copie ne reçoit aucune mise à niveau.",
+        required: "Choisissez un mode d'installation pour installer ce paquet.",
       },
       unmanagedSuccess: "v{{version}} de \"{{name}}\" copié dans ce runtime comme ses propres métadonnées, dans la base {{base}}. La copie est modifiable et ne reçoit aucune mise à niveau.",
       unmanagedStrippedLocks: "Le paquet verrouillait ces éléments. La copie est modifiable, leurs verrous n'ont donc pas été copiés :",

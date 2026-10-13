@@ -39,6 +39,10 @@ import {
   DropdownMenuItem,
   RadioGroup,
   RadioGroupItem,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@object-ui/components';
 import { ArrowLeft, ExternalLink, Download, AlertCircle, Package, Trash2, MoreHorizontal, CheckCircle2, ArrowUpCircle, Database, Loader2 } from 'lucide-react';
 import { useWorkspaceAdminStatus } from '@object-ui/auth';
@@ -1136,6 +1140,15 @@ export function MarketplacePackagePage() {
   // waits for the operator's pick.
   const installModeUnpicked = supportsLocal && !!offeredInstallModes && !chosenMode;
   const primaryDisabled = !latestVersion || installingLocal || installing || installModeUnpicked || (!supportsLocal && !!cloudInstalledVersion && !cloudUpdateAvailable);
+  // The reason Install is disabled, when the missing pick is what disables it:
+  // the console's convention for a disabled control (`DeclaredActionsBar`'s
+  // `actions.notAvailableForRecord`) — a focusable wrapper that opens it on
+  // hover and focus, and an accessible description on the button and on the
+  // wrapper, so a screen reader hears it with the tooltip closed.
+  const installModeReason = installModeUnpicked && !!latestVersion && !installingLocal && !installing
+    ? t('marketplace.install.mode.required')
+    : undefined;
+  const installModeReasonId = 'install-mode-required-reason';
   const primaryAction = supportsLocal
     ? {
       label: installingLocal
@@ -1219,6 +1232,41 @@ export function MarketplacePackagePage() {
     </p>
   ) : null;
 
+  const primaryButton = (
+    <Button
+      onClick={primaryAction.onClick}
+      disabled={primaryDisabled}
+      aria-describedby={installModeReason ? installModeReasonId : undefined}
+      size="lg"
+      className="min-w-[8rem]"
+    >
+      <Download className="h-4 w-4 mr-1.5" aria-hidden="true" />
+      {primaryAction.label}
+    </Button>
+  );
+  // A natively disabled button fires no pointer or focus events, so the
+  // wrapping span is the tooltip trigger and the Tab stop.
+  const primaryControl = installModeReason ? (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            tabIndex={0}
+            aria-describedby={installModeReasonId}
+            data-disabled-reason=""
+            className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            {primaryButton}
+            <span id={installModeReasonId} className="sr-only">{installModeReason}</span>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{installModeReason}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  ) : primaryButton;
+
   return (
     <div className="mx-auto w-full max-w-6xl flex flex-col gap-6 p-4 sm:p-6">
       <Button variant="ghost" size="sm" className="self-start -ml-2 text-muted-foreground hover:text-foreground" onClick={() => navigate(`${basePath}/system/marketplace`)}>
@@ -1279,10 +1327,7 @@ export function MarketplacePackagePage() {
           {installModeChoice}
         </div>
         <div className="flex items-center gap-2 shrink-0 self-start">
-          <Button onClick={primaryAction.onClick} disabled={primaryDisabled} size="lg" className="min-w-[8rem]">
-            <Download className="h-4 w-4 mr-1.5" aria-hidden="true" />
-            {primaryAction.label}
-          </Button>
+          {primaryControl}
           {localMenu}
           {/* Reseed / purge still POST cross-origin to the control plane, which
               the browser blocks on a tenant subdomain. Only offer them when the

@@ -145,6 +145,7 @@ export type { PluginPermissions } from '@objectstack/spec/kernel';
 export type { PluginRuntime } from '@objectstack/spec/kernel';
 
 import type { MetadataLock, PluginPermissions, PluginRuntime } from '@objectstack/spec/kernel';
+import { isPlainRecord } from '@objectstack/spec/data';
 
 export interface MarketplacePackageVersion {
   id: string;
@@ -248,18 +249,15 @@ export async function getMarketplacePackage(id: string): Promise<MarketplaceDeta
  * as code that receives its upgrades; `unmanaged` copies its metadata once into
  * this runtime as the environment's own, which follows no upgrade.
  *
- * The two members of `@objectstack/spec/kernel`'s `InstallModeSchema`
- * (`INSTALL_MODES`), which the `@objectstack/spec` this package resolves does
- * not export yet. Replace this with that import once it does.
+ * The console's reading of the two values the install door
+ * (`POST /api/v1/marketplace/install-local`) takes as `installMode`. Written
+ * here, not derived: the `@objectstack/spec` this package resolves declares no
+ * install mode.
  */
 export type LocalInstallMode = 'managed' | 'unmanaged';
 
 /** Every install mode, in the order the package page lists them. */
 const LOCAL_INSTALL_MODES: readonly LocalInstallMode[] = ['managed', 'unmanaged'];
-
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
 
 /**
  * The install modes a package version's manifest declares: its `installModes`
@@ -759,10 +757,10 @@ export interface LocalManagedInstallResult {
 
 /**
  * One protection lock an `unmanaged` copy dropped: the item, the lock the
- * package shipped on it, and the package's reason verbatim. An entry of
- * `ImportUnmanagedPackageResponseSchema`'s `strippedLocks` (`@objectstack/spec`
- * `api`), which the `@objectstack/spec` this package resolves does not export
- * yet.
+ * package shipped on it, and the package's reason verbatim. The console's
+ * reading of one entry of the install door's `strippedLocks` answer; only
+ * `lock` is typed from the spec, whose answer shape this package's resolved
+ * `@objectstack/spec` does not declare.
  */
 export interface LocalInstallStrippedLock {
   type: string;

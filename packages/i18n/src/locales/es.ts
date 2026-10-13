@@ -3623,6 +3623,7 @@ const es = {
         managedHint: "El paquete sigue siendo la autoridad: se registra como código, recibe sus actualizaciones y sus elementos no se editan aquí.",
         unmanaged: "Copia no administrada",
         unmanagedHint: "Se copia una sola vez en este runtime como sus propios metadatos: cada elemento se puede editar aquí y la copia no recibe actualizaciones.",
+        required: "Elige un modo de instalación para instalar este paquete.",
       },
       unmanagedSuccess: "v{{version}} de \"{{name}}\" copiado en este runtime como sus propios metadatos, en la base {{base}}. La copia se puede editar y no recibe actualizaciones.",
       unmanagedStrippedLocks: "El paquete bloqueaba estos elementos. La copia se puede editar, así que sus bloqueos no se copiaron:",

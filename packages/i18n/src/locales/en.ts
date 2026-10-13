@@ -4197,6 +4197,7 @@ const en = {
           managedHint: 'The package stays the authority: it is registered as code, receives its upgrades, and its items are not edited here.',
           unmanaged: 'Unmanaged copy',
           unmanagedHint: 'Copied once into this runtime as its own metadata: every item is editable here, and the copy receives no upgrade.',
+          required: 'Choose an install mode to install this package.',
         },
         unmanagedSuccess: 'Copied v{{version}} of "{{name}}" into this runtime as its own metadata, in the base {{base}}. The copy is editable and receives no upgrade.',
         unmanagedStrippedLocks: 'The package locked these items. The copy is editable, so their locks were not copied:',

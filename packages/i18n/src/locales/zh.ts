@@ -3677,6 +3677,7 @@ const zh = {
           managedHint: '软件包保持权威：以代码形式注册并接收其升级，其中的条目不在此处编辑。',
           unmanaged: '非托管副本',
           unmanagedHint: '一次性复制到本运行时，成为它自己的元数据：每个条目都可在此编辑，副本不再接收升级。',
+          required: '请先选择安装方式，再安装此软件包。',
         },
         unmanagedSuccess: '已将 "{{name}}" 的 v{{version}} 复制到本运行时，成为它自己的元数据，位于基础包 {{base}} 中。副本可编辑，且不再接收升级。',
         unmanagedStrippedLocks: '软件包锁定了以下条目。副本可编辑，因此这些锁未被复制：',

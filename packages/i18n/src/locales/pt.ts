@@ -3618,6 +3618,7 @@ const pt = {
         managedHint: "O pacote continua sendo a autoridade: é registrado como código, recebe suas atualizações e seus itens não são editados aqui.",
         unmanaged: "Cópia não gerenciada",
         unmanagedHint: "Copiado uma única vez para este runtime como seus próprios metadados: cada item pode ser editado aqui, e a cópia não recebe atualizações.",
+        required: "Escolha um modo de instalação para instalar este pacote.",
       },
       unmanagedSuccess: "v{{version}} de \"{{name}}\" copiado para este runtime como seus próprios metadados, na base {{base}}. A cópia pode ser editada e não recebe atualizações.",
       unmanagedStrippedLocks: "O pacote bloqueava estes itens. A cópia pode ser editada, então seus bloqueios não foram copiados:",

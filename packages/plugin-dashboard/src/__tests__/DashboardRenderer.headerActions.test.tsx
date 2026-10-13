@@ -15,7 +15,9 @@
  *    `api`, `form`, `navigation` — fell through to a `console.warn` and did
  *    nothing at all. A screen flow could not even be launched from a dashboard
  *    (framework#3528). The runner owns the type registry, so the renderer no
- *    longer second-guesses it.
+ *    longer second-guesses it. Since objectui#12275 that includes `url`, which
+ *    kept a url grammar of its own here until then; its navigation pins are in
+ *    `DashboardRenderer.headerActionUrl-12275.test.tsx`.
  *
  * 2. The header wrapper must cost zero pixels when every child is suppressed.
  *    It used to render whenever `header` was merely declared, while each child
@@ -53,7 +55,7 @@ function dashboardWith(actionType: string): DashboardComponentSchema {
 }
 
 describe('DashboardRenderer header actions', () => {
-  it.each(['flow', 'api', 'form'])('dispatches a %s header action to its handler', async (actionType) => {
+  it.each(['flow', 'api', 'form', 'url'])('dispatches a %s header action to its handler', async (actionType) => {
     const handler = vi.fn().mockResolvedValue({ success: true });
     render(
       <ActionProvider handlers={{ [actionType]: handler }}>
@@ -68,21 +70,6 @@ describe('DashboardRenderer header actions', () => {
     expect(handler.mock.calls[0][0]).toMatchObject({ type: actionType, target: 'convert_lead_wizard' });
   });
 
-  it('still navigates for a url header action instead of dispatching', async () => {
-    const handler = vi.fn();
-    const pushState = vi.spyOn(window.history, 'pushState');
-    render(
-      <ActionProvider handlers={{ url: handler }}>
-        <DashboardRenderer schema={dashboardWith('url')} />
-      </ActionProvider>,
-    );
-
-    await userEvent.setup().click(screen.getByRole('button', { name: /Convert Lead/i }));
-
-    await waitFor(() => expect(pushState).toHaveBeenCalled());
-    expect(handler).not.toHaveBeenCalled();
-    pushState.mockRestore();
-  });
 });
 
 /**

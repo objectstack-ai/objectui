@@ -451,15 +451,25 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
     // name. `ActionDef.label` is a `string`, so the def carries the label
     // resolved against the active language, exactly as the button shows it.
     // Keyed on `language`, not on a memoised resolver's identity (AGENTS.md #10).
+    //
+    // `type` is the ONE reading of an omitted `actionType`: `url`, as the
+    // contract door reads it (objectui#12275). The click dispatches this def,
+    // so it never re-reads the authored `actionType`.
     const headerActionDefs = useMemo<ActionDef[]>(() => {
       const actions = schema.header?.actions ?? [];
       return actions.map((a) => {
         const label = pickLocalized(a.label, language) || undefined;
+        const type = (a.actionType as ActionDef['type']) || 'url';
         return {
           name: a.actionUrl || label,
-          type: (a.actionType as ActionDef['type']) || 'url',
+          type,
           target: a.actionUrl,
           label,
+          // Following a link is not a feedback-worthy action, so a `url` header
+          // action raises no success toast, as it raised none before it went
+          // through the runner (the html-tier anchor suppresses it the same
+          // way). The error toast stays: a refused target is reported.
+          ...(type === 'url' ? { toast: { showOnSuccess: false } } : {}),
         };
       });
     }, [schema.header?.actions, language]);
@@ -1208,32 +1218,39 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
               {headerActions.map((action, i) => {
                 const Icon = resolveLucideIcon(action.icon);
                 const handleClick = async () => {
-                  const { actionType, actionUrl } = action;
-                  if (!actionType || !actionUrl) {
-                    console.warn('[DashboardRenderer] Header action missing actionType/actionUrl:', action);
+                  // Every header action goes through the ActionRunner, which
+                  // owns the type registry. This used to allow-list `modal` /
+                  // `script` only, so a `flow` header action (and `api` / `form`
+                  // / `navigation`) fell through to a warn and never dispatched —
+                  // a screen flow could not even be launched from a dashboard
+                  // (framework#3528). The runner reports an unknown type itself,
+                  // so there is nothing to second-guess here.
+                  //
+                  // `url` included (objectui#12275). It used to navigate here,
+                  // by a url grammar of its own: a protocol-relative `//host`
+                  // was assigned, `mailto:` threw in `pushState`, a bare
+                  // relative value was pushed as a route, and an omitted
+                  // `actionType` was dropped with a warning although the def
+                  // above reads it as `url`. The runner's `classifyNavigationTarget`
+                  // is the one answer to what a click may open (ruling A+ on
+                  // objectui#12191). ⛔ No scheme test of its own here.
+                  //
+                  // `actionUrl` is the name the def registered under.
+                  const result = await executeAction(action.actionUrl);
+                  if (!result?.success) {
+                    console.warn('[DashboardRenderer] action failed', result?.error);
                     return;
                   }
-                  if (actionType === 'url') {
-                    if (/^https?:\/\//.test(actionUrl) || actionUrl.startsWith('//')) {
-                      window.location.assign(actionUrl);
-                    } else {
-                      // SPA-friendly navigation: use history API + popstate so React Router picks it up.
-                      window.history.pushState({}, '', actionUrl);
-                      window.dispatchEvent(new PopStateEvent('popstate'));
-                    }
-                    return;
+                  // With no navigation handler (no `ActionProvider` above, so
+                  // no host router), the runner does not navigate to an
+                  // admitted in-app path: it hands it back as `redirect`.
+                  // Follow that hand-off for a `url` action, SPA-style, as this
+                  // click did before: history API + popstate so a router that
+                  // listens picks it up. `pushState` cannot leave the origin.
+                  if (result.redirect && headerActionDefs[i]?.type === 'url') {
+                    window.history.pushState({}, '', result.redirect);
+                    window.dispatchEvent(new PopStateEvent('popstate'));
                   }
-                  // Everything that is not a raw navigation goes through the
-                  // ActionRunner, which owns the type registry. This used to
-                  // allow-list `modal` / `script` only, so a `flow` header action
-                  // (and `api` / `form` / `navigation`) fell through to a warn and
-                  // never dispatched — a screen flow could not even be launched
-                  // from a dashboard (framework#3528). The runner reports an
-                  // unknown type itself, so there is nothing to second-guess here.
-                  // `actionUrl` is non-empty here (the guard above returns
-                  // otherwise), and it is the name the def registered under.
-                  const result = await executeAction(actionUrl);
-                  if (!result?.success) console.warn('[DashboardRenderer] action failed', result?.error);
                 };
                 return (
                   <Button key={i} variant="outline" size="sm" onClick={handleClick}>

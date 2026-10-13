@@ -56,6 +56,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   RefreshIndicator,
   DataEmptyState, resolveIcon,
+  toast,
 } from '@object-ui/components';
 import { usePullToRefresh } from '@object-ui/mobile';
 import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, resolveAffordance, resolveFieldAffordance, type SchemaLike, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, partitionRowsByPredicate, buildCategoryOrder, buildCategoryRank, type FilterTokenScope } from '@object-ui/core';
@@ -479,6 +480,12 @@ const GRID_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'table.previousPage': 'Previous page',
   'table.nextPage': 'Next page',
   'table.lastPage': 'Last page',
+  // The default inline-edit saves' success toast (objectui#12303), counted in
+  // the rows the server accepted — the `table.modified` unit the table's
+  // "Save All" bar counts in.
+  'table.saved': '{{count}} row saved',
+  'table.saved_one': '{{count}} row saved',
+  'table.saved_other': '{{count}} rows saved',
   // The heading of an authored `emptyState` that declares no `title`
   // (objectui#11068): the words the table's own empty row shows, so leaving the
   // member out changes nothing a user reads.
@@ -5573,6 +5580,10 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     }
     // Refresh so the grid shows the persisted values.
     setRefreshKey(k => k + 1);
+    // objectui#12303 — the write is said, through the console's shared toast
+    // (the one the form, kanban and view surfaces raise). Only here, once the
+    // row landed: a refusal rejects above, and the table flags the row.
+    toast.success(t('table.saved', { count: 1 }));
   };
 
   const defaultBatchSave = async (
@@ -5602,11 +5613,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       }),
     );
     const failed: BatchSaveOutcome['failed'] = [];
-    let landed = false;
+    // How many rows the server accepted — the number the toast below names.
+    let saved = 0;
     for (let i = 0; i < changes.length; i++) {
       const attempt = attempts[i];
       if (attempt.status === 'fulfilled') {
-        landed = true;
+        saved += 1;
         continue;
       }
       const { rowIndex, changes: rowChanges, row } = changes[i];
@@ -5618,14 +5630,21 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       }
       try {
         if ((await resolveRowConflict(dataSource, objectName, id, rowChanges, row, err)) === 'saved') {
-          landed = true;
+          saved += 1;
         }
       } catch (resolutionError) {
         failed.push({ rowIndex, error: resolutionError });
       }
     }
-    // Refresh so the grid shows the persisted values.
-    if (landed) setRefreshKey(k => k + 1);
+    if (saved > 0) {
+      // Refresh so the grid shows the persisted values.
+      setRefreshKey(k => k + 1);
+      // objectui#12303 — "Save All" says what it saved, through the console's
+      // shared toast, counting only the rows the server accepted. A row that
+      // failed is not in the count: the table keeps it, flags it and shows
+      // the reason. A reloaded row wrote nothing, so it is not either.
+      toast.success(t('table.saved', { count: saved }));
+    }
     return failed.length > 0 ? { failed } : undefined;
   };
 

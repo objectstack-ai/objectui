@@ -82,14 +82,13 @@
  */
 
 import * as React from 'react';
-import { useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useMemo } from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import { useMetadata } from '@object-ui/react';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { HomeAppsStrip } from '../console/home/HomeAppsStrip.js';
 import { useFavorites } from '../hooks/useFavorites.js';
-import { appRouteSegment, filterActiveApps } from '../utils/index.js';
+import { filterActiveApps } from '../utils/index.js';
 
 /** Keep the designer's own data attributes on the wrapper, drop the rest. */
 const splitDesigner = (props: Record<string, any>) => {
@@ -109,7 +108,6 @@ export const AppLauncherRenderer: React.FC<AppLauncherRendererProps> = ({
   ...props
 }) => {
   const { t } = useObjectTranslation();
-  const navigate = useNavigate();
   const { apps } = useMetadata();
   const { favorites } = useFavorites();
 
@@ -117,11 +115,6 @@ export const AppLauncherRenderer: React.FC<AppLauncherRendererProps> = ({
   // hidden !== true`. Two copies of "an app the user can open" is precisely
   // the dialect `filterActiveApps` exists to prevent.
   const openable = useMemo(() => filterActiveApps(apps as any[]), [apps]);
-
-  const open = useCallback(
-    (app: any) => navigate(`/apps/${appRouteSegment(app) ?? app?.name}`),
-    [navigate],
-  );
 
   return (
     <nav
@@ -133,7 +126,6 @@ export const AppLauncherRenderer: React.FC<AppLauncherRendererProps> = ({
       <HomeAppsStrip
         apps={openable}
         favorites={favorites}
-        onOpen={open}
         // See the header: with an empty prop shape there is no authoring key
         // that could address the marketplace shortcut, so it is not offered.
         isAdmin={false}

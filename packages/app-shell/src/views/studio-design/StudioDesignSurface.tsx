@@ -57,6 +57,10 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@object-ui/components';
 import { ObjectView as PluginObjectView } from '@object-ui/plugin-view';
 import { ListView } from '@object-ui/plugin-list';
@@ -1306,6 +1310,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   const shownPendingCount = behindSave ? Math.max(pendingCount ?? 0, 1) : pendingCount;
   const hasPending = (shownPendingCount ?? 0) > 0;
   const publishNoneReasonId = React.useId();
+  const publishReadOnlyReasonId = React.useId();
 
   // Builder → running-app bridge (Airtable's Launch): the builder edits the
   // package (the design surface), the app is its published front-end. If this
@@ -1476,6 +1481,49 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
     [tab, packageId, scopeSegment, confirmLeavePillar, shellNavigate],
   );
 
+  const publishButton = (
+    <button
+      type="button"
+      // Publish is review-then-confirm: open the pending-changes panel,
+      // whose footer button fires the actual atomic package publish —
+      // never straight from this header click (objectui#2261).
+      onClick={() => setChangesOpen(true)}
+      disabled={publishing || !hasPending || readOnly}
+      aria-describedby={
+        readOnly
+          ? publishReadOnlyReasonId
+          : !hasPending && !publishing
+            ? publishNoneReasonId
+            : undefined
+      }
+      // A read-only package's reason is the wrapper's (objectui#12303), not a
+      // `title` the disabled button can never show.
+      title={
+        readOnly
+          ? undefined
+          : hasPending
+            ? t('engine.studio.publishTitle', locale)
+            : t('engine.studio.publishNoneTitle', locale)
+      }
+      // objectui#8219 — the primary style is for a publish the author
+      // CAN do. A disabled one (no draft, or a read-only package)
+      // drops to an outline, instead of staying the loudest element
+      // on the page dimmed only by `disabled:opacity-50`.
+      className={cn(
+        // The border is on both states so the swap never shifts the bar.
+        'inline-flex items-center gap-1.5 rounded-md border px-3 py-1 text-xs font-medium',
+        publishing || (hasPending && !readOnly)
+          ? 'border-transparent bg-primary text-primary-foreground disabled:opacity-50'
+          : 'text-muted-foreground',
+        // The wrapper takes the hover: the disabled button lets it through.
+        readOnly && 'disabled:pointer-events-none',
+      )}
+    >
+      {publishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5" />}
+      {t('engine.studio.publish', locale)}
+    </button>
+  );
+
   return (
     <SurfaceDeepLinkProvider onRequest={requestSurface}>
       <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
@@ -1635,36 +1683,36 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                   {t('engine.studio.publishNoneTitle', locale)}
                 </span>
               )}
-              <button
-                type="button"
-                // Publish is review-then-confirm: open the pending-changes panel,
-                // whose footer button fires the actual atomic package publish —
-                // never straight from this header click (objectui#2261).
-                onClick={() => setChangesOpen(true)}
-                disabled={publishing || !hasPending || readOnly}
-                aria-describedby={!hasPending && !readOnly && !publishing ? publishNoneReasonId : undefined}
-                title={
-                  readOnly
-                    ? t('engine.studio.pkg.readonlyHint', locale)
-                    : hasPending
-                      ? t('engine.studio.publishTitle', locale)
-                      : t('engine.studio.publishNoneTitle', locale)
-                }
-                // objectui#8219 — the primary style is for a publish the author
-                // CAN do. A disabled one (no draft, or a read-only package)
-                // drops to an outline, instead of staying the loudest element
-                // on the page dimmed only by `disabled:opacity-50`.
-                className={cn(
-                  // The border is on both states so the swap never shifts the bar.
-                  'inline-flex items-center gap-1.5 rounded-md border px-3 py-1 text-xs font-medium',
-                  publishing || (hasPending && !readOnly)
-                    ? 'border-transparent bg-primary text-primary-foreground disabled:opacity-50'
-                    : 'text-muted-foreground',
-                )}
-              >
-                {publishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5" />}
-                {t('engine.studio.publish', locale)}
-              </button>
+              {/* objectui#12303 — on a read-only package the reason rides the
+                  record page's Archive pattern (`DeclaredActionsBar`,
+                  objectui#11811) instead of a `title` on the disabled button:
+                  a natively disabled button fires no hover or focus, so the
+                  `title` reached no keyboard or assistive-tech user and Tab
+                  skipped Publish entirely. The wrapping span is the tooltip
+                  trigger and a tab stop, and the button and the span both
+                  point `aria-describedby` at an `sr-only` copy of the reason. */}
+              {readOnly ? (
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span
+                        tabIndex={0}
+                        aria-describedby={publishReadOnlyReasonId}
+                        data-disabled-reason=""
+                        className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      >
+                        {publishButton}
+                        <span id={publishReadOnlyReasonId} className="sr-only">
+                          {t('engine.studio.pkg.readonlyHint', locale)}
+                        </span>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>{t('engine.studio.pkg.readonlyHint', locale)}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : (
+                publishButton
+              )}
             </div>
           </header>
 
@@ -4430,6 +4478,9 @@ export function DataPillar({
   const [error, setError] = React.useState<StudioRefusal | null>(null);
   // field management — a selected field opens ObjectFieldInspector (full type + config)
   const [fieldSel, setFieldSel] = React.useState<MetadataSelection | null>(null);
+  // objectui#12303 — the property rail's title, and the read-only reason its body is described by.
+  const fieldRailTitleId = React.useId();
+  const fieldRailReasonId = React.useId();
   // Blocking author-time issues the field inspector is showing — a CEL formula
   // that does not parse must not be saveable, let alone publishable as the live
   // field definition (objectui#4306).
@@ -5519,7 +5570,7 @@ export function DataPillar({
           <aside className="flex w-80 shrink-0 flex-col border-l">
             <header className="sticky top-0 z-10 flex items-center gap-2 border-b bg-background/95 px-3 py-2 backdrop-blur">
               <SlidersHorizontal className="h-3.5 w-3.5" />
-              <span className="text-[13px] font-medium">
+              <span id={fieldRailTitleId} className="text-[13px] font-medium">
                 {t(fieldSel.kind === 'group' ? 'engine.studio.data.groupProps' : 'engine.studio.data.fieldProps', locale)}
               </span>
               <button
@@ -5531,8 +5582,8 @@ export function DataPillar({
                 <X className="h-3.5 w-3.5" />
               </button>
             </header>
-            <div className="min-h-0 flex-1 overflow-auto p-3">
-              {fieldSel.kind === 'group' ? (
+            {(() => {
+              const railContent = fieldSel.kind === 'group' ? (
                 <ObjectGroupInspector
                   draft={objDraft}
                   groupKey={fieldSel.id}
@@ -5564,8 +5615,41 @@ export function DataPillar({
                   <Ban className="h-5 w-5" />
                   {t('engine.studio.data.fieldInspectorMissing', locale)}
                 </div>
-              )}
-            </div>
+              );
+              if (!readOnly) return <div className="min-h-0 flex-1 overflow-auto p-3">{railContent}</div>;
+              // objectui#12303 — on a read-only package every input and the
+              // Remove button in this rail are disabled for one reason, the
+              // package's. It rides the record page's Archive pattern
+              // (`DeclaredActionsBar`, objectui#11811) on the rail body: the
+              // body is the tooltip trigger, so hovering any disabled control
+              // in it shows the reason, and a tab stop described by an
+              // `sr-only` copy of it, so a keyboard or screen-reader user
+              // reaches it too (a disabled input takes neither hover nor
+              // focus, and Tab skipped the whole rail). One trigger for the
+              // rail rather than one per control: the reason is the same for
+              // all of them, and the controls are the shared inspector's.
+              const reason = t('engine.studio.pkg.readonlyHint', locale);
+              return (
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div
+                        role="group"
+                        aria-labelledby={fieldRailTitleId}
+                        tabIndex={0}
+                        aria-describedby={fieldRailReasonId}
+                        data-disabled-reason=""
+                        className="min-h-0 flex-1 overflow-auto p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                      >
+                        {railContent}
+                        <span id={fieldRailReasonId} className="sr-only">{reason}</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="left" align="start">{reason}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              );
+            })()}
           </aside>
         )}
       </div>
@@ -5870,6 +5954,8 @@ export function AutomationsPillar({
   const [newChoice, setNewChoice] = React.useState<FlowPreset | 'advanced'>(FLOW_PRESETS[0]);
   const [newNeeds, setNewNeeds] = React.useState<string | null>(null);
   const newChoiceGroup = React.useId();
+  // objectui#12303 — the read-only reason the header's status switch is described by.
+  const toggleReadOnlyReasonId = React.useId();
   // objectui#11591 — keyed on the pillar's one type, as the inspector beside
   // it is, never on the open flow's: with no flow open (a deep link naming one
   // this rail does not hold, or an empty rail) a selection-keyed read found no
@@ -6211,30 +6297,63 @@ export function AutomationsPillar({
         )}
         {/* objectui#11272 — the switch reads and saves the open flow's own
             document, so it waits for it: not offered over another's. */}
-        {current && flowLoaded && (
-          <button
-            type="button"
-            role="switch"
-            aria-checked={flowEnabled}
-            onClick={toggleEnabled}
-            // objectui#11124 — a read-only package takes no status change: the
-            // draft save would be refused (`ITEM_LOCKED`).
-            disabled={!isEditable || !!saving || readOnly}
-            title={
-              readOnly
-                ? t('engine.studio.pkg.readonlyHint', locale)
-                : flowEnabled
-                  ? t('engine.studio.auto.disableTitle', locale)
-                  : t('engine.studio.auto.enableTitle', locale)
-            }
-            className="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] hover:bg-muted disabled:opacity-50"
-          >
-            <span className={'relative inline-flex h-3.5 w-6 shrink-0 items-center rounded-full transition-colors ' + (flowEnabled ? 'bg-emerald-500' : 'bg-muted-foreground/40')}>
-              <span className={'inline-block h-2.5 w-2.5 rounded-full bg-white transition-transform ' + (flowEnabled ? 'translate-x-3' : 'translate-x-0.5')} />
-            </span>
-            {flowEnabled ? t('engine.studio.auto.enabled', locale) : t('engine.studio.auto.disabled', locale)}
-          </button>
-        )}
+        {current && flowLoaded && (() => {
+          const toggle = (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={flowEnabled}
+              onClick={toggleEnabled}
+              // objectui#11124 — a read-only package takes no status change: the
+              // draft save would be refused (`ITEM_LOCKED`).
+              disabled={!isEditable || !!saving || readOnly}
+              aria-describedby={readOnly ? toggleReadOnlyReasonId : undefined}
+              // A read-only package's reason is the wrapper's below
+              // (objectui#12303), not a `title` the disabled switch can never show.
+              title={
+                readOnly
+                  ? undefined
+                  : flowEnabled
+                    ? t('engine.studio.auto.disableTitle', locale)
+                    : t('engine.studio.auto.enableTitle', locale)
+              }
+              className={
+                'inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] hover:bg-muted disabled:opacity-50' +
+                (readOnly ? ' disabled:pointer-events-none' : '')
+              }
+            >
+              <span className={'relative inline-flex h-3.5 w-6 shrink-0 items-center rounded-full transition-colors ' + (flowEnabled ? 'bg-emerald-500' : 'bg-muted-foreground/40')}>
+                <span className={'inline-block h-2.5 w-2.5 rounded-full bg-white transition-transform ' + (flowEnabled ? 'translate-x-3' : 'translate-x-0.5')} />
+              </span>
+              {flowEnabled ? t('engine.studio.auto.enabled', locale) : t('engine.studio.auto.disabled', locale)}
+            </button>
+          );
+          if (!readOnly) return toggle;
+          // objectui#12303 — the record page's Archive pattern
+          // (`DeclaredActionsBar`, objectui#11811), as the header's Publish
+          // takes it: the span is the tooltip trigger and a tab stop, and the
+          // switch and the span both point at an `sr-only` copy of the reason.
+          return (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    tabIndex={0}
+                    aria-describedby={toggleReadOnlyReasonId}
+                    data-disabled-reason=""
+                    className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    {toggle}
+                    <span id={toggleReadOnlyReasonId} className="sr-only">
+                      {t('engine.studio.pkg.readonlyHint', locale)}
+                    </span>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>{t('engine.studio.pkg.readonlyHint', locale)}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          );
+        })()}
         {/* objectui#5813 — drafts auto-save; the spinner is the affordance. */}
         {saving === 'draft' && (
           <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-muted-foreground" data-testid="auto-autosaving">

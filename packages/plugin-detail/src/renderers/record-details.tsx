@@ -22,6 +22,7 @@ import {
   declaredNameField,
   deriveTitleField,
   formatTitleTemplate,
+  isElementDataSourceConfig,
   resolveAffordance,
   type FieldRulePredicate,
   recordDisplayValueAt,
@@ -31,6 +32,7 @@ import {
   withoutDeniedFields,
 } from '@object-ui/core';
 import { DetailView } from '../DetailView';
+import { RecordPageProvenanceContext } from '../recordPageProvenance';
 import { deriveFieldGroupDetailEntries, type FieldGroupDetailEntry } from '../synth/buildDefaultPageSchema';
 import { useRecordAriaProps } from './recordComponentAria';
 import { recordBindingBlock } from './recordBinding';
@@ -992,13 +994,26 @@ const RecordDetailsBody: React.FC<RecordDetailsRendererProps> = ({
   // highlights strip AND this body (objectui#2407 P2). DetailView here just
   // consumes that shared context; `inlineEdit` gates the affordance to this
   // object's lifecycle/permission.
+  //
+  // objectui#12307 — the provenance footer is the record PAGE's, drawn once by
+  // the page host, so the DetailView below draws none of its own when this node
+  // reads the page's record. That is the unbound node: with no `dataSource`
+  // binding, the record context above is the record page's (see the module doc
+  // of `./recordBinding`). A bound node shows the first row of its own query —
+  // a record the page does not show — and keeps its footer. The predicate is
+  // the one the binding gate and `recordBinding`'s `isBound` read.
+  const readsPageRecord = !isElementDataSourceConfig(
+    (schema as { dataSource?: unknown }).dataSource,
+  );
   return (
     <div className={className} {...designer} {...ariaProps}>
-      <DetailView
-        schema={synthesized}
-        dataSource={ctx.dataSource}
-        inlineEdit={inlineEditDefault}
-      />
+      <RecordPageProvenanceContext.Provider value={readsPageRecord}>
+        <DetailView
+          schema={synthesized}
+          dataSource={ctx.dataSource}
+          inlineEdit={inlineEditDefault}
+        />
+      </RecordPageProvenanceContext.Provider>
     </div>
   );
 };

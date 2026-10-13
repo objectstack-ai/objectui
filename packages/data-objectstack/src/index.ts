@@ -3383,75 +3383,88 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
   /**
    * Ensure the client is connected to the server.
    * Call this before making requests or it will auto-connect on first request.
+   *
+   * With `autoReconnect`, a failed discovery read is retried up to
+   * `maxReconnectAttempts` times with exponential backoff. The promise resolves
+   * once discovery answers and rejects with the last `ConnectionError` once the
+   * retries are spent (objectui#12318).
    */
   async connect(): Promise<void> {
     if (this.connected) return;
     // Dedupe concurrent connect() calls — without this, every component
     // that mounts on first paint can trigger an independent discovery
-    // request before the first one completes.
+    // request before the first one completes. The one promise covers the
+    // attempt AND its retries, so a caller that arrives during the backoff
+    // joins it instead of starting a discovery read of its own.
     if (this.connectPromise) return this.connectPromise;
 
     this.setConnectionState('connecting');
-    this.connectPromise = (async () => {
-      try {
-        // Use the module-level discovery cache so multiple adapter instances
-        // (or React StrictMode double-mounts) at the same baseUrl share a
-        // single network round trip. We inject the result into the client's
-        // private `discoveryInfo` field to avoid client.connect() re-fetching.
-        const baseUrl = this.baseUrl || '';
-        const discoveryUrl = baseUrl
-          ? `${baseUrl.replace(/\/$/, '')}/api/v1/discovery`
-          : '/api/v1/discovery';
-
-        const data = await getSharedDiscovery(baseUrl, async () => {
-          const res = await this.fetchImpl(discoveryUrl, {
-            method: 'GET',
-            headers: this.token
-              ? { Authorization: `Bearer ${this.token}` }
-              : undefined,
-          });
-          if (!res.ok) {
-            throw new Error(`discovery ${res.status} ${res.statusText}`);
-          }
-          const body = await res.json();
-          return body && typeof body.success === 'boolean' && 'data' in body
-            ? body.data
-            : body;
-        });
-
-        // Prime the underlying client's cached discovery so capability/route
-        // helpers continue to work without a redundant fetch.
-        (this.client as unknown as { discoveryInfo?: unknown }).discoveryInfo = data;
-
-        // Record the declared cross-object atomic-batch capability (objectstack-ai/objectstack#3298) so
-        // batchTransaction can decide declaratively at call time whether it may
-        // trust server atomicity instead of runtime-probing 404/405/501.
-        this.atomicBatchCapability = readTransactionalBatchCapability(data);
-
-        this.connected = true;
-        this.reconnectAttempts = 0;
-        this.setConnectionState('connected');
-      } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Failed to connect to ObjectStack server';
-        const connectionError = new ConnectionError(
-          errorMessage,
-          undefined,
-          { originalError: error }
-        );
-
-        this.setConnectionState('error', connectionError);
-
-        // Attempt auto-reconnect if enabled
-        if (this.autoReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
-          await this.attemptReconnect();
-        } else {
-          throw connectionError;
-        }
-      } finally {
-        this.connectPromise = null;
-      }
-    })();
+    this.connectPromise = this.attemptConnect().finally(() => {
+      this.connectPromise = null;
+    });
     return this.connectPromise;
+  }
+
+  /**
+   * One discovery attempt, and the retry that follows it when it fails with
+   * budget left. Runs inside the promise {@link connect} hands every caller.
+   */
+  private async attemptConnect(): Promise<void> {
+    try {
+      // Use the module-level discovery cache so multiple adapter instances
+      // (or React StrictMode double-mounts) at the same baseUrl share a
+      // single network round trip. We inject the result into the client's
+      // private `discoveryInfo` field to avoid client.connect() re-fetching.
+      const baseUrl = this.baseUrl || '';
+      const discoveryUrl = baseUrl
+        ? `${baseUrl.replace(/\/$/, '')}/api/v1/discovery`
+        : '/api/v1/discovery';
+
+      const data = await getSharedDiscovery(baseUrl, async () => {
+        const res = await this.fetchImpl(discoveryUrl, {
+          method: 'GET',
+          headers: this.token
+            ? { Authorization: `Bearer ${this.token}` }
+            : undefined,
+        });
+        if (!res.ok) {
+          throw new Error(`discovery ${res.status} ${res.statusText}`);
+        }
+        const body = await res.json();
+        return body && typeof body.success === 'boolean' && 'data' in body
+          ? body.data
+          : body;
+      });
+
+      // Prime the underlying client's cached discovery so capability/route
+      // helpers continue to work without a redundant fetch.
+      (this.client as unknown as { discoveryInfo?: unknown }).discoveryInfo = data;
+
+      // Record the declared cross-object atomic-batch capability (objectstack-ai/objectstack#3298) so
+      // batchTransaction can decide declaratively at call time whether it may
+      // trust server atomicity instead of runtime-probing 404/405/501.
+      this.atomicBatchCapability = readTransactionalBatchCapability(data);
+
+      this.connected = true;
+      this.reconnectAttempts = 0;
+      this.setConnectionState('connected');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to connect to ObjectStack server';
+      const connectionError = new ConnectionError(
+        errorMessage,
+        undefined,
+        { originalError: error }
+      );
+
+      this.setConnectionState('error', connectionError);
+
+      // Attempt auto-reconnect if enabled
+      if (this.autoReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
+        await this.attemptReconnect();
+      } else {
+        throw connectionError;
+      }
+    }
   }
 
   /**
@@ -3460,14 +3473,16 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
   private async attemptReconnect(): Promise<void> {
     this.reconnectAttempts++;
     this.setConnectionState('reconnecting');
-    
+
     // Exponential backoff: delay * 2^(attempts-1)
     const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
-    
+
     await new Promise(resolve => setTimeout(resolve, delay));
-    
-    this.connected = false;
-    await this.connect();
+
+    // A new attempt, never `connect()`: that returns the in-flight promise,
+    // which is the one this retry runs inside, so the retry would await itself
+    // and never settle (objectui#12318).
+    await this.attemptConnect();
   }
 
   /**

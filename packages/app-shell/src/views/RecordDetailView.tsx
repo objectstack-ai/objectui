@@ -10,7 +10,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom';
-import { activityRowToFeedItem, InlineEditSaveBar, buildDefaultPageSchema, deriveFieldGroupDetailSections, extractMentions, isRefusedFeedRead, resolveTitleField, useRecordEditable } from '@object-ui/plugin-detail';
+import { activityRowToFeedItem, InlineEditSaveBar, RecordMetaFooter, buildDefaultPageSchema, deriveFieldGroupDetailSections, extractMentions, isRefusedFeedRead, resolveTitleField, useRecordEditable } from '@object-ui/plugin-detail';
 import { Empty, EmptyTitle, EmptyDescription, Button } from '@object-ui/components';
 import { useAuth, createAuthenticatedFetch } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
@@ -2905,8 +2905,9 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
 
     // Audit fields (created_at/created_by/updated_at/updated_by) are NOT
     // appended as a section here — they are surfaced by `<RecordMetaFooter>`
-    // (rendered by DetailView) as a single subtle line below the content,
-    // replacing the old card-style "System Information" panel. The inline-edit
+    // (rendered once by this view, at the page foot, objectui#12307) as a
+    // single subtle line below the content, replacing the old card-style
+    // "System Information" panel. The inline-edit
     // drawer continues to hide them via `DEFAULT_SYSTEM_FIELDS` in
     // `@object-ui/plugin-detail/RecordDetailDrawer`.
 
@@ -3603,6 +3604,21 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
                   />
                 </div>
               )}
+              {/* The record's provenance footer, ONCE for the page
+                  (objectui#12307). A `record:details` node that reads this
+                  page's record no longer draws its own, so a page with two
+                  nodes shows one line and a node whose sections are all
+                  hidden draws nothing. Placed at the page foot, after the
+                  page tree and the bottom appends above, the way this host
+                  already places its page-level additions; it is the record's,
+                  so it does not move with the active tab. `readablePageRecord`
+                  is the row every block on the page reads, and the footer
+                  renders nothing when the record carries no audit field. */}
+              <RecordMetaFooter
+                data={readablePageRecord}
+                objectSchema={objectDef}
+                objectName={objectName}
+              />
               {/* Record-level inline-edit Save/Cancel bar (objectui#2407 P2) —
                   commits the whole draft (highlights + body) in ONE atomic OCC
                   update; renders (sticky) only while editing. */}

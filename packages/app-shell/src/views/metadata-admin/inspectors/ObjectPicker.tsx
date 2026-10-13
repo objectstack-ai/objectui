@@ -36,6 +36,15 @@
  * (`ObjectSchema` in `@objectstack/spec`) — never a name prefix and never a
  * list kept here.
  *
+ * - **At rest it reads as the label (objectui#12303).** While the input does
+ *   not have focus, a committed name the catalog knows shows as that object's
+ *   label, with the name beneath it as secondary text — smaller, monospace and
+ *   muted, and the input's description — the way each option already reads
+ *   and the Studio object header shows an object. Focus puts the name back in
+ *   the input to edit, and a value the catalog does not know (an expression,
+ *   a name not served) shows as itself, in monospace, as before. Display only:
+ *   what is committed is always the name.
+ *
  * Module-private: imported by its sibling inspectors, exported from no barrel.
  */
 
@@ -198,6 +207,7 @@ export function ObjectPicker({
   const inputId = React.useId();
   const listId = React.useId();
   const optionIdBase = React.useId();
+  const nameLineId = React.useId();
 
   const [focused, setFocused] = React.useState(false);
   const [open, setOpen] = React.useState(false);
@@ -301,7 +311,10 @@ export function ObjectPicker({
     }
   };
 
-  const shown = focused ? text : value;
+  // At rest, a name the catalog knows reads as its label; the name is the
+  // secondary line under the input (objectui#12303).
+  const restingLabel = focused ? undefined : entries.find((e) => e.name === value)?.label;
+  const shown = focused ? text : (restingLabel ?? value);
   const listLabel = label ?? ariaLabel;
 
   return (
@@ -320,12 +333,13 @@ export function ObjectPicker({
           aria-expanded={open}
           aria-controls={open ? listId : undefined}
           aria-activedescendant={open && activeRow ? activeRow.id : undefined}
+          aria-describedby={restingLabel ? nameLineId : undefined}
           autoComplete="off"
           spellCheck={false}
           value={shown}
           disabled={disabled}
           placeholder={placeholder}
-          className="h-8 text-sm font-mono"
+          className={cn('h-8 text-sm', !restingLabel && 'font-mono')}
           onFocus={() => {
             setFocused(true);
             setText(value);
@@ -438,6 +452,11 @@ export function ObjectPicker({
           </div>
         )}
       </div>
+      {restingLabel && (
+        <p id={nameLineId} data-object-name-line="" className="truncate font-mono text-[10px] leading-tight text-muted-foreground">
+          {value}
+        </p>
+      )}
       {catalog.status === 'error' && (
         <p role="status" className="text-[11px] leading-snug text-amber-600 dark:text-amber-300">
           {t('engine.form.optionsLoadFailedTitle', locale)}

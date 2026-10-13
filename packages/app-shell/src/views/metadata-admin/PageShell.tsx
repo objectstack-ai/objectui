@@ -170,7 +170,18 @@ export function PageShell({
         // adds nothing once you've drilled into a specific item — the
         // breadcrumb already names the type and the item, and meta badges
         // sit inline to free a full row of vertical chrome.
-        <div className="px-6 py-2.5 border-b bg-background flex items-center gap-3 min-h-[44px]">
+        //
+        // objectui#12306 — the row WRAPS when its content does not fit. It
+        // used to be a no-wrap row whose `shrink-0` chip, stat and action
+        // groups squeezed the `min-w-0` breadcrumb, whose own `shrink-0`
+        // links then painted underneath the chips (at an 820px window the
+        // breadcrumb box was 0px wide). Now everything after the breadcrumb
+        // travels as ONE cluster: `flex-auto` keeps its basis at its content
+        // width, so when it cannot sit beside the breadcrumb it moves to the
+        // next line as a whole and the breadcrumb keeps a line to itself,
+        // truncating the item name only when that line is narrower than it.
+        // `flex-1` would zero the basis and bring the squeeze back.
+        <div className="px-6 py-2.5 border-b bg-background flex flex-wrap items-center gap-x-3 gap-y-1.5 min-h-[44px]">
           <nav className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
             {embedded ? (
               <span className="shrink-0">{label}</span>
@@ -196,34 +207,41 @@ export function PageShell({
               {itemName}
             </span>
           </nav>
-          <div className="flex items-center gap-1.5 shrink-0">
-            {entry?.domain && (
-              <Badge
-                variant="outline"
-                className="text-[10px] uppercase tracking-wider h-5 px-1.5"
-              >
-                {translateMetadataDomain(entry.domain, locale)}
-              </Badge>
+          <div
+            className="flex flex-auto flex-wrap items-center gap-x-3 gap-y-1.5 min-w-0"
+            data-testid="page-shell-header-meta"
+          >
+            <div className="flex items-center gap-1.5 shrink-0">
+              {entry?.domain && (
+                <Badge
+                  variant="outline"
+                  className="text-[10px] uppercase tracking-wider h-5 px-1.5"
+                >
+                  {translateMetadataDomain(entry.domain, locale)}
+                </Badge>
+              )}
+              <WritabilityBadge entry={entry} readOnly={readOnly} locale={locale} compact />
+            </div>
+            {subtitle && (
+              <div className="text-xs text-muted-foreground truncate">{subtitle}</div>
             )}
-            <WritabilityBadge entry={entry} readOnly={readOnly} locale={locale} compact />
-          </div>
-          {subtitle && (
-            <div className="text-xs text-muted-foreground truncate">{subtitle}</div>
-          )}
-          <div className="flex-1" />
-          <div className="flex items-center gap-2 shrink-0">
-            {stats?.map((s, i) => (
-              <div
-                key={i}
-                className="flex items-baseline gap-1 px-2 py-0.5 rounded border bg-muted/30"
-              >
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                  {s.label}
-                </span>
-                <span className="text-xs font-semibold tabular-nums">{s.value}</span>
-              </div>
-            ))}
-            {actions}
+            {/* `ml-auto` keeps stats and actions right-aligned on whichever
+                line they land on; they wrap among themselves only when even
+                a line of their own is too narrow. */}
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-2 min-w-0">
+              {stats?.map((s, i) => (
+                <div
+                  key={i}
+                  className="flex items-baseline gap-1 px-2 py-0.5 rounded border bg-muted/30"
+                >
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    {s.label}
+                  </span>
+                  <span className="text-xs font-semibold tabular-nums">{s.value}</span>
+                </div>
+              ))}
+              {actions}
+            </div>
           </div>
         </div>
       ) : (

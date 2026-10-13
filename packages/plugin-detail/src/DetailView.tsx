@@ -43,6 +43,7 @@ import { RecordComments } from './RecordComments';
 import { ActivityTimeline } from './ActivityTimeline';
 import { HistoryTimeline } from './HistoryTimeline';
 import { RecordMetaFooter } from './RecordMetaFooter';
+import { RecordPageProvenanceContext } from './recordPageProvenance';
 import { SchemaRenderer, SchemaErrorBoundary, toRenderableSchema, useSafeFieldLabel, useDataInvalidation, useInlineEdit, useRowPredicate, resolveApprovalLock } from '@object-ui/react';
 import { buildExpandFields, declaredNameField, getRecordDisplayName, formatTitleTemplate, recordDisplayValueAt, resolveAffordance, toDisplayDate, userActionPredicates, withoutDeniedFields } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
@@ -300,6 +301,9 @@ export const DetailView: React.FC<DetailViewProps> = ({
   // DetailView without a provider (bare / legacy usage) → read-only. The
   // Save/Cancel bar + atomic persistence live in <InlineEditSaveBar>.
   const inline = useInlineEdit();
+  // objectui#12307: `true` only under a `record:details` that reads the page's
+  // record — the page host draws the one footer then. See the context's doc.
+  const pageDrawsProvenance = React.useContext(RecordPageProvenanceContext);
   const isInlineEditing = inline?.editing ?? false;
   const editedValues = inline?.draft ?? EMPTY_DRAFT;
   const autoFocusField = inline?.autoFocusField ?? null;
@@ -2063,12 +2067,16 @@ export const DetailView: React.FC<DetailViewProps> = ({
       {/* Record provenance footer — replaces the old "System Information"
           section with a low-visual-weight single-line summary of audit
           fields (created/updated by + when). Renders nothing when none of
-          the audit fields are present on the record. */}
-      <RecordMetaFooter
-        data={{ ...data, ...editedValues }}
-        objectSchema={objectSchema}
-        objectName={schema.objectName}
-      />
+          the audit fields are present on the record. Not drawn here when the
+          record page draws it once for the record (objectui#12307, see
+          `RecordPageProvenanceContext`). */}
+      {!pageDrawsProvenance && (
+        <RecordMetaFooter
+          data={{ ...data, ...editedValues }}
+          objectSchema={objectSchema}
+          objectName={schema.objectName}
+        />
+      )}
 
       {/* Custom Footer */}
 {/* ⛔ No `&&` guard on a node slot (objectui#9162): `&&` evaluates to the

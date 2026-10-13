@@ -1437,7 +1437,11 @@ const StepMapping: React.FC<{
   /** Required fields with no column mapped — surfaced as an inline hint so the
    *  disabled Next button always explains itself. */
   missingRequired: ImportWizardProps['fields'];
-}> = ({ headers, fields, mapping, onMappingChange, inferredTypes, suggestions, templates, selectedTemplateId, onSelectTemplate, onSaveTemplate, onDeleteTemplate, savedMappings, activeMapping, onSelectSavedMapping, onClearSavedMapping, missingRequired }) => {
+  /** The id the hint's text carries: the disabled Next names it as its
+   *  description (objectui#12303), so the reason is the control's, not only
+   *  text that happens to sit above it. */
+  missingRequiredHintId: string;
+}> = ({ headers, fields, mapping, onMappingChange, inferredTypes, suggestions, templates, selectedTemplateId, onSelectTemplate, onSaveTemplate, onDeleteTemplate, savedMappings, activeMapping, onSelectSavedMapping, onClearSavedMapping, missingRequired, missingRequiredHintId }) => {
   const { t } = useImportTranslation();
   const usedFields = useMemo(() => new Set(Object.values(mapping)), [mapping]);
   const suggestionByCol = useMemo(() => {
@@ -1554,7 +1558,7 @@ const StepMapping: React.FC<{
           data-testid="import-missing-required"
         >
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>
+          <span id={missingRequiredHintId}>
             {t('grid.import.missingRequiredHint', {
               fields: missingRequired
                 .map((f) => (f.label && f.label !== f.name ? `${f.label} (${f.name})` : f.name))
@@ -2237,6 +2241,11 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
     const mapped = new Set(Object.values(mapping));
     return fields.filter((f) => f.required && !mapped.has(f.name));
   }, [fields, mapping]);
+  // objectui#12303 — the "Can't continue" hint's id, so the Next it disables
+  // is described by it. A saved mapping lets the server own the columns, so
+  // Next is not held back by the missing fields then, and the hint is not shown.
+  const missingRequiredHintId = React.useId();
+  const nextHeldByRequired = !mappingName && missingRequired.length > 0;
 
   const handleFileLoaded = useCallback((h: string[], r: string[][]) => {
     setHeaders(h); setRows(r); setMapping(autoMapColumns(h, fields, r)); setCorrections({}); setStep('mapping');
@@ -2835,6 +2844,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
                 onSelectSavedMapping={handleSelectSavedMapping}
                 onClearSavedMapping={handleClearSavedMapping}
                 missingRequired={missingRequired}
+                missingRequiredHintId={missingRequiredHintId}
               />
             )}
             {step === 'preview' && (
@@ -3063,15 +3073,34 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
                   <ArrowLeft className="mr-1 h-4 w-4" /> {t('grid.import.back')}
                 </Button>
               )}
-              {step === 'mapping' && (
-                <Button
-                  onClick={() => setStep('preview')}
-                  disabled={mappingName ? false : (Object.keys(mapping).length === 0 || missingRequired.length > 0)}
-                  data-testid="import-next-btn"
-                >
-                  {t('grid.import.next')} <ArrowRight className="ml-1 h-4 w-4" />
-                </Button>
-              )}
+              {step === 'mapping' && (() => {
+                const next = (
+                  <Button
+                    onClick={() => setStep('preview')}
+                    disabled={mappingName ? false : (Object.keys(mapping).length === 0 || missingRequired.length > 0)}
+                    aria-describedby={nextHeldByRequired ? missingRequiredHintId : undefined}
+                    data-testid="import-next-btn"
+                  >
+                    {t('grid.import.next')} <ArrowRight className="ml-1 h-4 w-4" />
+                  </Button>
+                );
+                if (!nextHeldByRequired) return next;
+                // objectui#12303 — the record page's Archive pattern
+                // (`DeclaredActionsBar`, objectui#11811): a natively disabled
+                // button takes no focus, so the wrapping span is the tab stop,
+                // and it and the button are described by the visible "Can't
+                // continue" text above, which says exactly why.
+                return (
+                  <span
+                    tabIndex={0}
+                    aria-describedby={missingRequiredHintId}
+                    data-disabled-reason=""
+                    className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    {next}
+                  </span>
+                );
+              })()}
               {step === 'preview' && (
                 <Button
                   onClick={handleImport}

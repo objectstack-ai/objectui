@@ -92,7 +92,9 @@ async function pickSelectOption(label: string, option: string) {
 async function pickComboOption(label: string, value: string) {
   fireEvent.click(screen.getByRole('combobox', { name: label }));
   await waitFor(() => expect(screen.queryAllByRole('option').length).toBeGreaterThan(0));
-  const item = screen.getAllByRole('option').find((o) => o.textContent?.startsWith(value));
+  // By the option's value (cmdk's `data-value`), not by where its text starts:
+  // a labelled option leads with its label (objectui#12303).
+  const item = screen.getAllByRole('option').find((o) => o.getAttribute('data-value') === value);
   expect(item, `the catalog option ${value}`).toBeTruthy();
   fireEvent.click(item!);
 }

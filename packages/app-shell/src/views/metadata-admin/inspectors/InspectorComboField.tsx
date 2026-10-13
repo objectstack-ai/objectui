@@ -93,6 +93,19 @@ export interface InspectorComboOption {
  * active locale through `useMetadataLocale()`, as {@link InspectorSelectField}'s
  * default flag does. A caller that passes its own `placeholder`,
  * `searchPlaceholder` or `emptyText` keeps it.
+ *
+ * ## Label first, machine name second (objectui#12303)
+ *
+ * An option with a label of its own reads as that label, with its value — the
+ * machine name the draft stores — after it as secondary text: smaller,
+ * monospace and muted. The trigger shows a chosen option by its label, in the
+ * body font; the caller's `mono` styles a raw value only. That is the Studio
+ * object header's form, and the maintainer's ruling on objectui#11862 that the
+ * label leads everywhere and the machine name is secondary (quoted verbatim on
+ * `StudioNameLabel` in `StudioDesignSurface.tsx`). The list used to lead with
+ * the value in the body font and trail the label muted, so a field picker read
+ * as a column of truncated api names. An option whose label IS its value (or
+ * which has none) shows the value alone, in monospace, as before.
  */
 export type InspectorComboFieldNaming =
   | { label: string; ariaLabel?: never; id?: never }
@@ -165,6 +178,9 @@ export function InspectorComboField({
 
   const selected = options.find((o) => o.value === value);
   const triggerText = selected ? selected.label : value || (loading ? t('engine.inspector.combo.loading', locale) : placeholder);
+  // A chosen option with a label of its own shows that label in the body
+  // font; only a raw value takes the caller's `mono` (objectui#12303).
+  const selectedLabelled = !!selected && !!selected.label && selected.label !== selected.value;
 
   const filtered = React.useMemo(() => options.filter((o) => matches(o, search)), [options, search]);
   const groups = React.useMemo(() => {
@@ -212,7 +228,7 @@ export function InspectorComboField({
           disabled={disabled}
           className={cn('h-8 w-full justify-between px-2 text-sm font-normal', className)}
         >
-          <span className={cn('truncate', mono && 'font-mono', !selected && !value && 'text-muted-foreground')}>
+          <span className={cn('truncate', mono && !selectedLabelled && 'font-mono', !selected && !value && 'text-muted-foreground')}>
             {triggerText}
           </span>
           <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
@@ -240,9 +256,13 @@ export function InspectorComboField({
                 {g.items.map((o) => (
                   <CommandItem key={o.value} value={o.value} onSelect={() => commit(o.value)}>
                     <Check className={cn('h-3.5 w-3.5', o.value === value ? 'opacity-100' : 'opacity-0')} />
-                    <span className="truncate font-mono">{o.value}</span>
-                    {o.label && o.label !== o.value && (
-                      <span className="ml-1 truncate text-muted-foreground">{o.label}</span>
+                    {o.label && o.label !== o.value ? (
+                      <>
+                        <span className="truncate">{o.label}</span>{' '}
+                        <span className="ml-1 truncate font-mono text-[10px] text-muted-foreground">{o.value}</span>
+                      </>
+                    ) : (
+                      <span className="truncate font-mono">{o.value}</span>
                     )}
                     {o.hint && <span className="ml-auto pl-2 text-[10px] text-muted-foreground">{o.hint}</span>}
                   </CommandItem>

@@ -1,0 +1,37 @@
+{
+  "number": 12274,
+  "kind": "issue",
+  "title": "decision: a flow action that runs straight through should show the flow's own successMessage, as the paused path now does?",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:workflow",
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "zhuangjianguo"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-12T21:48:33Z",
+  "updated_at": "2026-10-13T00:19:45Z",
+  "closed_at": "2026-10-13T00:18:11Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12274",
+  "body": "Filing gate ②: a decision only the maintainer can make. It is a product reading of a declared field on one console path, and the contract review of objectui#12246 escalated it to the dispatching seat for a card or the decision box (`6125257205`, ③).\n\n- **Who acts after the ruling:** the `domain:ui` seat that dispatches it (`@object-ui/app-shell`, `utils/flowResponse.ts` and the action runner's success toast).\n- **Raised by:** `domain:ui` seat 2 (seat post objectui#9771), `session_01G5TSaEwbEQsKMjhzTB4rEd`, from objectui#12234's dev report (`6124232882`, out-of-scope finding 2).\n- **Dedupe:** REST issue list of objectui, all states, updated since 2026-08-01 (710 issues), matched for `successMessage` + `straight-through|done arm|judgeFlowLaunch|flow…success`: 4 hits. None asks this. The nearest is objectui#12234 (closed, the paused path).\n\n## 维护者速读\n\n一个按钮动作启动流程时，有两种走法。流程中途停下来让用户填表，最后弹的提示是「动作自己的提示 → 流程自己的提示 → 通用句」，这是 objectui#12246 刚定的顺序。流程一口气跑完，弹的是「动作自己的提示，或通用默认句」，流程自己声明的 `successMessage` 被丢掉了。结果同一个流程，作者写的完成语有时显示、有时不显示。选项：**A** 两条路用同一个顺序（推荐）；**B** 保持现状。选哪个？\n\n## os-decision-facets\n\n- ① 项目长远合理性：A 收窄特例——两条路径一个顺序；spec 写明 `successMessage`「每次终止运行都携带」，A 让已声明的字段在两条路上都兑现。\n- ② 实际业务拉动：今天无人报告；未实测有哪个流程同时声明了 `successMessage`、又由直通动作启动。零拉动但改动小。\n- ③ 防 AI 犯错：AI 写了流程的 `successMessage`，在一条路上看得到、另一条路上静默丢失，这是静默容忍；A 消除这种静默丢失。\n- ④ 创业阶段不扩散：A 不新增任何键或界面，只读已声明的字段；B 让一个已发布字段在一条路径上不兑现。\n\nPrior rulings read: `FlowSchema.successMessage every terminal run` → 1 hit (objectstack `packages/spec/src/automation/flow.zod.ts:1048-1063`, #9414's triage, which rejected reading it as screen-flow-only); ADR none; thread: objectui#12234.\n\n## One-line problem\n\nWhen a flow-backed action runs its flow straight through, with no screen, the console never shows the flow's own `successMessage`. It shows the action's message or a generic one. The paused path now shows action, then flow, then the generic sentence.\n\n## Measured (objectui `main` `7af0ab37`; objectstack spec as checked out)\n\n- `packages/app-shell/src/utils/flowResponse.ts`: `judgeFlowLaunch` reads the served `successMessage` into the `done` outcome (`:337-339`). The `done` arm of the launch handler then returns `{ success: true, data, reload }` (`:417-419`), which drops it. The action runner toasts the action's own `successMessage` if declared, otherwise its default.\n- The paused path: `FlowRunner`'s terminal toast reads `invokingActionMessage(state) || outcome.successMessage || flowRunner.completed` (objectui#12246, `main` `360cf32`).\n- The spec, `FlowSchema.successMessage`: \"carried on AutomationResult for every terminal run (not only screen flows) … treat the screen-flow toast as one consumer, not the whole contract\".\n\n## Options\n\n| | what | customer-visible result | work |\n|:--|:--|:--|:--|\n| **A** | the straight-through path uses the paused path's order: the action's message, then the flow's `successMessage`, then the default | an author's flow completion text shows whichever way the run goes | `domain:ui` · 1 PR · precedent objectui#12246 (+636/−5, mostly tests) · `patch` if no published type moves, otherwise a declared widening and a contract-tier review |\n| **B** | leave as is | the flow's text shows only when the run paused first | none |\n\n**In business terms.** A gives one rule: what the author wrote is what the user reads. B keeps an outcome that depends on whether the flow happened to ask for input.\n\n## Recommendation\n\n**A.** It honours a declared, documented field on the path that drops it, with the precedence already ruled for the paused path, and it adds no surface. **Fallback:** B. **Confidence gap:** who declares a flow `successMessage` behind a straight-through action today was not measured (HotCRM's flow sources were not read for this). The action runner's exact default text on that path was read from the review, not re-rendered.\n\nSelf-check: judged on ① alone, A. Do ② ③ ④ flip it? No.\n\n## After the ruling\n\n- **A:** this seat files one `domain:ui` card. Its acceptance: on a straight-through launch, the success toast reads the action's message, then the flow's `successMessage`, then the default. It is pinned on a real render beside objectui#12246's paused-path pins, and `refused` and failed runs still show no success toast.\n- **B:** this card closes `not_planned`, citing the ruling.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

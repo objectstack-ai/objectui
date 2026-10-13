@@ -1,0 +1,37 @@
+{
+  "number": 12273,
+  "kind": "issue",
+  "title": "decision: should dashboard and report routes drop their 「仪表盘」/「报表」 type crumb, as page routes dropped 「页面」?",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "domain:ui",
+    "enhancement",
+    "priority:p3"
+  ],
+  "assignees": [
+    "zhuangjianguo"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-12T21:48:02Z",
+  "updated_at": "2026-10-12T23:56:01Z",
+  "closed_at": "2026-10-12T23:55:00Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12273",
+  "body": "Filing gate ②: a decision only the maintainer can make. The maintainer's ruling on objectstack-ai/cloud#2768 (`6118501670`) named the 「页面」 crumb only. Whether it extends to two more crumbs of the same kind is the maintainer's to say.\n\n- **Who acts after the ruling:** the `domain:ui` seat that dispatches it (objectui `AppHeader.tsx`, `@object-ui/i18n` packs).\n- **Raised by:** `domain:ui` seat 2 (seat post objectui#9771), `session_01G5TSaEwbEQsKMjhzTB4rEd`, from objectui#12198's dev report (`6124626764`, out-of-scope finding 2) and contract review `6125264132`.\n- **Dedupe:** REST issue list of objectui, all states, updated since 2026-08-01 (710 issues), matched for `breadcrumb` + `dashboard(s)|report(s)` + `crumb`: 11 hits. None asks this. The nearest is objectui#12198 (closed, the Pages crumb).\n\n## 维护者速读\n\n在应用里打开一个仪表盘，顶栏面包屑是「应用 › 仪表盘 › Ops Board」；打开报表是「应用 › 报表 › 某报表」。中间这一格是元数据类型名，点了只回到应用首页，和你已经裁掉的「页面」是同一种东西。选项：**A** 一并去掉（推荐）；**B** 保持不动；**C** 改成指向真实的仪表盘/报表列表页。选哪个？\n\n## os-decision-facets\n\n- ① 项目长远合理性：A 收窄——面包屑只写用户去过的地方，三类路由规则统一；C 扩大（新增列表路由）。\n- ② 实际业务拉动：今天无人报告这两处；「页面」那次来自 cloud 首页走查。零拉动，但 A 是删除而非新增，成本低。\n- ③ 防 AI 犯错：显示层文字，不涉及 AI 写元数据；A 少两个要翻译的 key，无反向风险。\n- ④ 创业阶段不扩散：A 删两个已发布 key（删除优于维护）；C 新增路由与页面，属扩散。\n\nPrior rulings read: `breadcrumb pages crumb metadata type` → 1 hit (objectstack-ai/cloud#2768 `6118501670`, quoted on objectui#12198); ADR none; thread: objectui#12198.\n\n## One-line problem\n\nOn a dashboard or report route the top bar draws a crumb that names a metadata type (\"Dashboards\" / \"Reports\") and links back to the app's home, which the app pill already does. It is the crumb class the maintainer removed for pages.\n\n## Measured (objectui `main` `7af0ab37`)\n\n- `packages/app-shell/src/layout/AppHeader.tsx:397-398`: `routeType === 'dashboard'` pushes `{ label: t('console.breadcrumb.dashboards'), href: baseHref }`. Then, at `:424-425`, `routeType === 'report'` pushes `console.breadcrumb.reports` the same way.\n- **One reader each.** `git grep` finds each key in exactly one non-pack file, `AppHeader.tsx`. Control: `console.breadcrumb.marketplace` hits 8 files.\n- **No list page to point at.** The app routes are `dashboard/:dashboardName` and `report/:reportName` (`AppContent.tsx:1150-1151`); there is no in-app dashboards or reports list route.\n- objectui#12198's harness rendered `[\"console.breadcrumb.dashboards\", \"Ops Board\"]` on `/apps/APP/dashboard/ops_board`. The report trail was read from the code, not rendered.\n\n## Options\n\n| | what | customer-visible result | work |\n|:--|:--|:--|:--|\n| **A** | drop both type crumbs; retire `console.breadcrumb.dashboards` and `console.breadcrumb.reports` from the ten packs | trail reads app › dashboard (or report), like pages | `domain:ui` · 1 PR · precedent objectui#12247 (+322/−13; its crumb half was a few lines plus one pack line × 10, the rest pinned Studio handles) · `@object-ui/i18n` `minor` with a BREAKING note, `Clause-②: no (narrowing)`, one contract-tier review |\n| **B** | leave as is | two route types keep a crumb pages no longer have | none |\n| **C** | keep the crumb but link it to a real list of the app's dashboards / reports | the crumb becomes a place | `domain:ui` · new list routes and pages · no precedent; not measured |\n\n**In business terms.** A makes the three object-less route types read the same: app, then the thing you opened. B accepts one rule for pages and another for dashboards and reports. C builds a feature nobody asked for, to justify a crumb.\n\n## Recommendation\n\n**A.** Same principle as the Pages ruling, one reader per key, no list page exists, and removal shrinks the published pack. **Fallback:** B (no work; the inconsistency stays). **Confidence gap:** the report trail was read, not rendered; whether any host outside this repo reads the two pack keys is not measurable from here (the same gap the Pages retirement accepted).\n\nSelf-check: judged on ① alone, A. Do ② ③ ④ flip it? No.\n\n## After the ruling\n\n- **A:** this seat files one `domain:ui` card with exactly objectui#12198's crumb half for the two branches: pins that the trail after the pill is the item alone, the keys retired from ten packs, a `minor` changeset with a BREAKING note, and a contract-tier review before the queue.\n- **B:** this card closes `not_planned`, citing the ruling.\n- **C:** the card goes back to triage to size the list pages.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

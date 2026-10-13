@@ -2,8 +2,8 @@
   "number": 12256,
   "kind": "issue",
   "title": "main-red: `Test (coverage)` fails on main's push lane: a coverage shard hits its 40-minute ceiling on 7 of the last 25 `CI` push runs, so the coverage gate is not evaluated on those commits",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,21 @@
     "area:devpath",
     "bug",
     "domain:devx",
-    "pm:queue",
     "priority:p1"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-12T13:36:26Z",
-  "updated_at": "2026-10-12T16:22:04Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-12T22:35:12Z",
+  "closed_at": "2026-10-12T22:00:05Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
   "merged_at": null,
-  "comments": 4,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12256",
   "body": "Filing gate ①: a measured defect with a named landing point, `.github/workflows/ci.yml`, job `test-coverage` (`Test (coverage shard N/4)`, `timeout-minutes: 40`, `matrix.shard: [1, 2, 3, 4]`) and the `Test (coverage)` merge after it. This is the **main-red anchor** for the failing check `Test (coverage)` (main-red convention ②: one failing check, one anchor card). No card held it at filing; the dedupe is below.\n\nProtects: the coverage gate on `main`, the only place `coverage.thresholds` are enforced. Since objectui#12232 that is the full battery's coverage half on `push` and the hourly `schedule`.\n\nFiled by `domain:devx` @ objectui seat 1 (seat post objectui#5748, `session_012C78gPTyDHszhoRZc1khB7`) at its hourly wake. ⛔ Not a claim. **Readers:** triage grades and routes it. The fix is the owning lane's first work (AGENTS.md, two-speed clause: \"a full-battery red is its lane's first work — triage files it under the main-red convention, the lane's next PR fixes it, and ⛔ no lane PR arms the queue meanwhile\"). Once the card is graded, this seat dispatches it, unless the director seat (the dispatcher named by objectui#12208's ruling) folds it into objectui#12208 PR-2 and says so on this card.\n\n## What is measured\nSource: the jobs API, the 25 newest completed `CI` runs on `main` with event `push` (`actions/workflows/ci.yml/runs?branch=main&event=push&status=completed`), 2026-10-12 05:37Z to 12:31Z, read at about 13:35Z. Seven of the 25 concluded `cancelled`. In each of the seven, a coverage shard was cancelled with the annotation \"The job has exceeded the maximum execution time of 40m0s\", and `Test (coverage)` then concluded `failure`:\n\n| head | run created | shard(s) at the ceiling |\n|:--|:--|:--|\n| `923504f4` | 12:31:35Z | 1/4 |\n| `97e7d4ed` | 12:30:36Z | 1/4 |\n| `fa778e67` | 11:37:46Z | 1/4 |\n| `a491b64a` | 10:20:54Z | 1/4 |\n| `b2316074` | 09:31:14Z | 1/4 |\n| `9646e2ed` | 08:20:01Z | 1/4 and 2/4 |\n| `5dd583f5` | 08:08:02Z | 1/4 and 4/4 |\n\nShard walls on the 18 runs that finished, in whole minutes: shard 1 between 24 and 39, shard 2 between 22 and 39, shard 3 between 23 and 38, shard 4 between 22 and 37. All four shards run within one to three minutes of the ceiling on a typical run. Shard 1 is the one that crosses it most often.\n\n- **Not caused by objectui#12232.** Five of the seven timeouts come before its merge (`21fdeb34`, 12:26Z). That PR left the coverage lane's width (4) and ceiling (40) alone. What it changed is that a red here is now a full-battery red.\n- **Reproduce:** the same API call; for each run, `GET /actions/runs/ID/jobs`, then `completed_at − started_at` for every `Test (coverage shard N/4)`. The ceiling annotation is on `GET /check-runs/JOB_ID/annotations`.\n\n## Governing text\n- `ci.yml` refuses a higher ceiling as the fix on every capped job: the `test` job, \"⛔ The ceiling is NOT raised …, ⛔ no test is skipped, disabled or quarantined, and ⛔ the relevance gate is not widened\" (objectui#9499's ruling); the `type-check` job, \"⛔ Raising `timeout-minutes: 20` is not the fix\"; two more jobs carry the same line for 30 and 15.\n- objectui#12208's ruling `6121816480` (letter B, staged) handles the same defect shape on the `test` matrix: PR-1 widened it from 8 to 12 shards and says \"the coverage matrix stays 4\"; PR-2 balances the `test` shards by measured per-file duration.\n\n## Open for the dispatcher (⛔ not a ruling)\n- This is objectui#12208's defect shape (a shard wall against a fixed cap) on a sibling job. Whether the coverage matrix gets its own width step first, or joins PR-2's per-file balancer, is for the dispatcher to settle within that ruling. A higher `timeout-minutes` is excluded by the governing text.\n- The `Test (coverage)` merge's `--shards` / blob-name pins move with any width change. So do the `coverage-blob-N` artifact names, if they carry the count.\n\n## Acceptance\n- Ten consecutive `push` or `schedule` full-battery runs on `main` where every coverage shard finishes under 60 % of its ceiling and `Test (coverage)` concludes `success`, read from the jobs API and quoted in the PR body with the before figures above.\n\n## Dedupe (objectui, open and closed)\n- \"Test (coverage shard 1/4) exceeded maximum execution time 40m push main cancelled\": 15 hits. The top 10 were read: objectui#12208 is open but concerns the `Test (shard N/8)` matrix on PR runs, a different check. objectui#9499, #8545, #8479, #12214, #5403, #5421, #10099, #9503 and #9271 are all closed.\n- \"coverage lane timeout-minutes coverage shards widen coverage matrix\": 1 hit, objectui#9271, closed `not_planned`. It was a 15 s per-test timeout, a different failure shape.\n- No open card holds `Test (coverage)`.\n\nRelated: objectui#12208 · objectui#12214 (PR objectui#12232) · objectui#9499 · objectui#5403 (the 4-way coverage split) · objectstack-ai/objectstack#22998.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

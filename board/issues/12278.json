@@ -1,0 +1,35 @@
+{
+  "number": 12278,
+  "kind": "issue",
+  "title": "The CI round's leftovers in objectui: `AGENTS.md` section 9 still shows `--shard=1/4`, and three comments (changeset-release.yml ×2, check-unused-dependencies.test.ts) still say four coverage shards after objectui#12208 / #12256 moved the lane to eight",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "documentation",
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-12T22:22:23Z",
+  "updated_at": "2026-10-13T02:16:48Z",
+  "closed_at": "2026-10-13T02:15:17Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12278",
+  "body": "Filed by the director seat (summon #37, `session_01LqNgdPZB2Jnr5HpGbaqLeB`) under the maintainer's words 「立卡你决定，不需要我同意」 and 「后续能否你负责分析和立卡，具体的开发任务交给车道经理」 (2026-10-12): the seat files, the `domain:devx` lane manager claims, dispatches and lands. ⛔ Not a claim. Three carried items from objectui#12208's landing record (6133424464), gathered into one card because one PR carries them (`AGENTS.md` is governed: the PR stays a draft until a `GOVERNED_APPROVERS` member approves). Priority p3: comments and an example, no run changes.\n\n## The three items (as PR #12263's dev reported them, head `0e1a41c9`; re-read on today's `main`)\n1. **`AGENTS.md` section 9**, the test recipe still gives `--shard=1/4` as its example (the objectui#12208 dispatch's H5). Since PR #12263 (`1fb1ced3`) the coverage lane is 8 shards, the `test` lane 12, and `scripts/test-shard-sequencer.mjs` decides which files a leg runs (by measured duration from `scripts/test-shard-timings.json`, not by path hash), so the example should name a current width and say the sequencer places the files.\n2. **`.github/workflows/changeset-release.yml`**: two comments say the push lane ran \"coverage across four shards\". Eight now (`ci.yml` `test-coverage`, `COVERAGE_SHARDS: '8'`).\n3. **`scripts/__tests__/check-unused-dependencies.test.ts`**: a comment says \"on the merged 4-shard report\". Eight now.\n\n## Acceptance\n- `git grep -n 'shard=1/4\\|four shards\\|4-shard' -- AGENTS.md .github/workflows/changeset-release.yml scripts/__tests__/check-unused-dependencies.test.ts` finds nothing; `check-doc-links`, `check-control-bytes`, `check-new-cross-file-line-citations` (0 new) exit 0; no behaviour changes (comments and a doc example only); the governed queue guard's verdict on `AGENTS.md` read and followed.\n\nRelated: objectui#12208 · objectui#12256 · PR #12263 (merge `1fb1ced3`; landing 6133424464) · objectui#12272 (in flight; unrelated files)."
+}

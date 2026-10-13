@@ -2,8 +2,8 @@
   "number": 12255,
   "kind": "issue",
   "title": "governance: `.github/workflows/**` joins this repository's governed surfaces — the AGENTS.md 受管面 list (five → six) and the queue guard's `GOVERNED_SURFACES` register — a workflow PR waits for an authorised approval (ruled A)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -13,7 +13,6 @@
   "labels": [
     "area:devpath",
     "domain:devx",
-    "pm:queue",
     "priority:p2",
     "tooling"
   ],
@@ -21,11 +20,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-12T13:36:20Z",
-  "updated_at": "2026-10-12T14:10:07Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-13T02:28:17Z",
+  "closed_at": "2026-10-13T02:27:15Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12255",
   "body": "Filed by the director seat (summon #37, `session_01LqNgdPZB2Jnr5HpGbaqLeB`) on the maintainer's word 「两仓加治理行」 (2026-10-12), the answer A to the seat's question. Filing gate ③: maintainer-directed. ⛔ Not a claim. Tier H: `AGENTS.md` is in the diff, so the PR stays a draft until a `GOVERNED_APPROVERS` member approves it; the seat then lands it.\n\n## Why\n`AGENTS.md`'s section 「⛔ 受管面」 lists five surfaces (`AGENTS.md`, `CLAUDE.md`, `.claude/**`, `skills/**`, `docs/adr/**`) and `scripts/check-governed-queue-guard.mjs`'s `GOVERNED_SURFACES` has the same five rows; `--test` over PR #12232's and PR #12250's twelve workflow paths answered NOT GOVERNED (objectui#12214 report 6123124321; objectui#12240 report 6124777533). This round every CI PR here waited for the maintainer's approval, and cloud wrote the row into its table (cloud#2809, PR #2810); the objectstack sibling card adds the same row to its register in the same act.\n\n## What to build\n1. **The register row** in `scripts/check-governed-queue-guard.mjs`: `{ id: 'workflows', prefix: '.github/workflows/', glob: '.github/workflows/**', what: 'CI, deploy and release workflows: what runs on every push, what deploys, what gates the queue' }`, and its test (`scripts/__tests__/check-governed-queue-guard.test.ts`): a workflow path → GOVERNED; `.github/ISSUE_TEMPLATE/**` and `.github/dependabot.yml` → not.\n2. **`AGENTS.md` 「本仓的受管面 —— 五项」 → six**, one bullet in the section's own wording (CI、部署与发版 workflow 决定每次 push 跑什么、拿什么门禁挡合并队列，改它们由维护者批准), and the sentences that say \"五项\" or enumerate the five move with it; the header comment of the guard (its restated list) likewise.\n3. **Consumers:** `scripts/dependabot-merge-gate.mjs`, `merge-queue-reporting.test.ts`, `ci-cd-pipeline-doc.test.ts` and `check-doc-snippet-types.mjs` read the register or the list (grep `GOVERNED_SURFACES`): move any enumeration honestly; `.github/workflows/governed-surface-guard.yml`'s `paths:` filter, if it enumerates the surfaces, gains the glob (⛔ the guard must still fire on a workflow-only PR).\n4. Nothing else: no tier mechanism exists here (the two legs stay as they are), no change to `GOVERNED_APPROVERS`.\n\n## Acceptance\n- `node scripts/check-governed-queue-guard.mjs --self-test` exit 0 and `--test .github/workflows/ci.yml` answers GOVERNED; the guard's `pull_request` leg on the PR itself reads GOVERNED (the PR touches `AGENTS.md`); the PR body lists the six surfaces and every file touched.\n\nRelated: cloud#2809 (PR #2810) · the objectstack sibling card (filed in the same act) · objectui#12214 · objectui#12240 · `scripts/check-governed-queue-guard.mjs` · `AGENTS.md` 「受管面」."

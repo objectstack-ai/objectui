@@ -1,0 +1,35 @@
+{
+  "number": 12272,
+  "kind": "issue",
+  "title": "ci: `Type Check` red on every PR that touches no workspace package since objectui#12222 (PR #12251): the scoped turbo run builds no dist, then `type-check:vitest-setup` cannot resolve the five packages the root setup files import",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "bug",
+    "domain:devx",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-12T21:45:24Z",
+  "updated_at": "2026-10-12T23:44:17Z",
+  "closed_at": "2026-10-12T23:11:22Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12272",
+  "body": "Filing gate ①: a measured defect with a named landing point, `.github/workflows/ci.yml` job `type-check` (the steps `Run type-check` and `Type-check repo-root vitest setup files`) and `scripts/select-type-check-scope.mjs`. Filed by the director seat (summon #37, `session_01LqNgdPZB2Jnr5HpGbaqLeB`) on a regression from its own lane's landing, objectui#12222 → PR #12251 (merge `1ce8db8d`, 14:41Z), found on PR #12262 at the maintainer's word 「12262 红了」. ⛔ Not a claim; the claim follows in this act, under the standing order 「三仓的 ci 优化卡你负责派发」. **Blocks:** PR #12262 (approved, readied and auto-merge armed by the maintainer at 21:35Z) and every pull request whose diff touches no workspace package (workflow-only, docs-only, `scripts/__tests__`-only diffs; the lane's own weekly refresh PRs are candidates).\n\n## What is measured\nPR #12262, head `c819b74b` (the maintainer's merge of `main` `7af0ab37` into the branch; the diff is `.github/workflows/spec-main-shape-gate.yml`, `scripts/__tests__/spec-main-shape-gate.test.ts`, `content/docs/guide/ci-cd-pipeline.md`). The `Type Check` job 115018179844 of run 38311534599, from its log:\n- `Decide which packages to type-check`: \"3 file(s) changed against 7af0ab37… No changed file sits in a workspace package or reaches one through a turbo input: nothing to type-check.\" then `scope=affected`.\n- `Run type-check`: `turbo run type-check --filter=...[7af0ab37]` → \"Packages in scope: //\", \"No tasks were executed as part of this run\", 0 total. Nothing built, so no package's `dist/` exists on the runner.\n- `Type-check repo-root vitest setup files`: `tsc -p tsconfig.vitest-setup.json` → `vitest.setup.dom.tsx` lines 47–50, TS2882 \"Cannot find module or type declarations for side-effect import of '@object-ui/components'\", and the same for `@object-ui/fields`, `@object-ui/plugin-dashboard`, `@object-ui/plugin-grid`; `vitest.setup.i18n-catalogues.ts` line 54, TS2307 '@object-ui/i18n/locales'. Exit 2; the job red.\n- Before PR #12251 that step followed `pnpm type-check` over the whole workspace, whose `type-check` task `dependsOn` `^build` and `build`, so every `dist/` existed when the root `tsc` ran. PR #12262's earlier head `17033fd1`, based before #12251 landed, had `Type Check` green (ACCEPT 6126674519).\n- `main` is not red: `push` and `schedule` runs take `scope=full` (`TURBO_FORCE`, every package). The red is on `pull_request` runs (and, to be measured, `merge_group` builds) whose affected set is empty; **to be measured as well:** a non-empty affected closure that does not contain the five packages the root setup files import (`@object-ui/components`, `@object-ui/fields`, `@object-ui/plugin-dashboard`, `@object-ui/plugin-grid`, `@object-ui/i18n`) fails the same way, since nothing builds them either.\n\n## Governing text\n- objectui#12222's ACCEPT (6126154639) and landing (6126541762): two speeds, the affected set on pull requests and the queue, the full workspace on `push` and `schedule`; nothing deleted or weakened.\n- `ci.yml`, the `type-check` job: \"⛔ Raising `timeout-minutes: 20` is not the fix\".\n\n## What to build (measure first, then pick; say which and why)\nThe root `tsc` steps need the built typings of the packages they import. Routes: **(A)** in the affected scope, add those packages to the turbo filter (`--filter=...[BASE]` plus `--filter=<pkg>` for the five) so their `build` runs, replayed from the cache when unchanged, before the root step; **(B)** make `type-check:vitest-setup` (and any sibling root step that imports packages: read `type-check:scripts`, `type-check:vitest-config`, `type-check:e2e`) a turbo root task with `dependsOn` on those packages' `build` and its own `inputs` (the shape objectui#12222 gave `//#type-check:e2e`), run through turbo in both scopes; **(C)** skipping the root step on an empty affected set is ⛔ not enough alone (the non-empty case without the five fails the same way) and would weaken a check. Keep the `push`/`schedule` path byte-identical. `scripts/select-type-check-scope.mjs`'s self-test gains the empty case and the \"affected set without the five\" case, whichever route is taken.\n\n## Acceptance\n- A pull request whose diff touches no workspace package gets `Type Check` green with the root `tsc` steps **run**, not skipped: PR #12262 is the live case (after this lands the seat merges `origin/main` into it and reads its run). A package-only diff whose affected closure lacks the five is green too (the dev's own probe or a fixture, quoted in the PR body). `main`'s next `push` run unchanged.\n- The CI doc and the pins that read the job (`scripts/__tests__/ci-cd-pipeline-doc.test.ts`, `turbo-test-inputs`, whatever names the steps) follow.\n\nRelated: objectui#12222 · PR #12251 · PR #12262 (blocked by this) · PR #12263 (its run takes `scope=workspace`: root files changed)."
+}

@@ -1,0 +1,38 @@
+{
+  "number": 12275,
+  "kind": "issue",
+  "title": "plugin-dashboard: a header action's click handler keeps its own url grammar and bypasses the ActionRunner (a protocol-relative `//host` is assigned, `mailto:` throws) — and it drops an omitted `actionType` that its own `headerActionDefs` reads as `'url'`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:access",
+    "bug",
+    "domain:ui",
+    "priority:p1",
+    "security"
+  ],
+  "assignees": [
+    "zhuangjianguo"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-12T22:00:16Z",
+  "updated_at": "2026-10-13T00:55:12Z",
+  "closed_at": "2026-10-13T00:53:57Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12275",
+  "body": "Filing gate **①**, class (b) with a security reach, plus a class (c) half in the same handler. `reach:` the contract door that #23077 closes. Read from source at objectui `main` `7af0ab37`, not executed in a browser.\n\nFiled by objectstack `domain:spec` seat 1 (seat post objectstack-ai/objectstack#6017) · `os-warren` · session `session_019G5ZnRrTMiwcHG6iZM19zf`, from the dev report on objectstack-ai/objectstack#23077 (PR objectstack-ai/objectstack#23101, out-of-scope findings 1 and 2). ⛔ Not a claim. Lane and grade are triage's.\n\n## The rule this handler does not follow\n\nRuling A+ on #12191: the url scheme set \"is stated once in the contract and the runtime fulfils exactly that\". The contract states it once, as `navigationTargetRefusal` (`packages/spec/src/ui/navigation-target.ts`). The console's `ActionRunner` fulfils it through `classifyNavigationTarget`. Once objectstack-ai/objectstack#23101 lands, `DashboardHeaderActionSchema.actionUrl` refuses a target outside the set when `actionType` is `'url'` or omitted.\n\n## What the handler does (`packages/plugin-dashboard/src/DashboardRenderer.tsx` at `7af0ab37`)\n\n1. **A second url grammar** (`:1216`–`:1225`). For `actionType === 'url'` the handler navigates by itself and never reaches the `ActionRunner`:\n   - `window.location.assign(actionUrl)` when the value matches `^https?://` OR starts with `//`. A protocol-relative `//host` is refused by the contract set and by `classifyNavigationTarget`, but it is assigned here.\n   - Otherwise it calls `window.history.pushState({}, '', actionUrl)`. That throws on `mailto:`, which the contract admits, and it admits a bare relative value such as `thanks`, which the contract refuses.\n2. **An omitted `actionType` is dropped at the click** (`:1212`–`:1214`). `if (!actionType || !actionUrl)` logs `Header action missing actionType/actionUrl` and returns. The same file's `headerActionDefs` (`:460`) builds the header action's `ActionDef` with `type: actionType || 'url'`, and objectstack's `os validate` (`validateDashboardActionRefs`) also reads an omitted type as `'url'`. So a contract-legal header action with no `actionType` publishes clean and renders a button that does nothing.\n\n## Wanted\n\n- The header action's click goes through the `ActionRunner`, which owns the type registry and `classifyNavigationTarget`, as every non-url header action already does. ⛔ No scheme list of its own in this file.\n- An omitted `actionType` means `'url'` at the click too, as `headerActionDefs` and the contract door read it.\n- Pins: `//cdn.example.com/x` is refused at the click; `mailto:` opens; a bare relative value is refused; an omitted-type header action with an `https://` target navigates.\n\n## Seam\n\n`spec:DashboardHeaderActionSchema.actionUrl` / `.actionType` → `renderer: plugin-dashboard DashboardRenderer` header action `handleClick`.\n\n## Dedupe\n\nMCP `search_issues` on objectstack-ai/objectui, closed included, for `DashboardRenderer header action url location.assign protocol-relative bypasses classifyNavigationTarget`: 2 hits, #11211 and #2333, neither this. For `dashboard header action missing actionType dead button console.warn headerActionDefs default url`: 4 hits, #10345, #7281, #2960 and #994, none this.\n\nDedupe words: DashboardRenderer header action url location.assign; dashboard header actionUrl protocol-relative; classifyNavigationTarget bypass dashboard; header action missing actionType dead button."
+}

@@ -2,8 +2,8 @@
   "number": 12224,
   "kind": "issue",
   "title": "governance: objectui is a product-neutral renderer — products compose pages from generic blocks; no product-named widget, dialog, hook or i18n namespace; write it into AGENTS.md + an ADR and ratchet it with a test over the registry, the app-shell dirs and the locale bundles (maintainer ruling 2026-10-12)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "hotlong",
@@ -14,7 +14,6 @@
     "area:devpath",
     "domain:skills",
     "enhancement",
-    "pm:dispatched",
     "priority:p1"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-12T10:11:22Z",
-  "updated_at": "2026-10-12T13:39:29Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-13T01:24:41Z",
+  "closed_at": "2026-10-13T01:23:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
   "merged_at": null,
-  "comments": 5,
+  "comments": 11,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12224",
   "body": "Filing gate: a maintainer ruling in chat, 2026-10-12. First 「现在转向」 (cloud's pages stay metadata; objectui ships only product-agnostic blocks; no new `cloud:*` widgets), then, on where the rule lives: 「规则应该写入 objectui 仓库，要不然每个项目都会有页面定制的需求」. Filed from the cloud maintainer's session. ⛔ Not a claim.\n\n## The rule (to be written into this repo, not into any consumer's)\n\n1. objectui is a product-neutral renderer. A product (cloud, HotCRM, any app) composes its pages from the generic blocks in `@objectstack/spec`'s page vocabulary and keeps its copy in its own bundles.\n2. When a page cannot be composed, the fix is a **generic** block in objectui (named for what it draws: `stat`, `usage-bar`, `checklist`), or a **contract door** in `@objectstack/spec` (`needs:contract-review`). Never a widget, dialog, hook or i18n namespace named for the product that needed it.\n3. What already exists stays until its page migrates, and may only shrink.\n\n## Why\n\nThe cloud control plane has accreted into this repo: registered widgets `cloud:onboarding-next`, `cloud:plan-status`, `cloud:workspace-timezone-notice`, `cloud:ai-model-status`; the `packages/app-shell/src/environment/` directory (environment list toolbar, the paywall dialog, the entitlements hook) and `packages/app-shell/src/console/organizations/`; i18n namespaces `cloudOnboarding`, `cloudPlanStatus`, `cloudWorkspaceTimezoneNotice`, `cloudConnection`, `environment.entitlement`, `organizations`, `workspace`. Every cloud wording change became an objectui PR plus a pin bump; today a lane waited on cloud for one string (「团队版起」, objectui#12190 / #12197). The next consumer would do the same.\n\n## What to do\n\n1. **`AGENTS.md`**: a section \"Product-neutral renderer\" stating the rule above and the escalation path (generic block here, or a spec door in objectstack). Governed file: a draft PR for the maintainer to merge.\n2. **`docs/adr/0060-product-neutral-renderer.md`** (next free number at this write): the ruling, the inventory above as the frozen baseline, and the ratchet below.\n3. **Ratchet test** (runs in CI with the app-shell suite): an allowlist file (`product-specific.allowlist.json` or similar) that lists today's product-named registrations, files and i18n namespaces verbatim. The test fails when: a `ComponentRegistry.register` name carries a product prefix not in the list; a file is added under `app-shell/src/environment/`, `app-shell/src/console/organizations/` or matches `console/home/Cloud*.tsx` beyond the list; a locale file gains a top-level namespace, or a key under the listed namespaces, that the list does not carry. Removing entries is always allowed; the list is edited only to delete.\n4. **PR template**: one checkbox, \"Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\".\n5. Rider, objectstack (governed `.claude/` path, draft PR for the maintainer): one line in `.claude/skills/pm-dispatch/references/filing-gate.md` — a UI card must say what generic block or spec door it needs; a card asking objectui for a product-named widget is refiled.\n\n## Acceptance\n\n1. `AGENTS.md` and the ADR merged by the maintainer; the PR template line present.\n2. The ratchet test is green on `main` and red on each of: a new `register('cloud:x')`, a new `app-shell/src/environment/Foo.tsx`, a new key under `cloudOnboarding` in `zh.ts` (prove with three throwaway commits, screenshots or CI links on this card).\n3. The allowlist shrinks when objectstack-ai/cloud#2801 retires `cloud:onboarding-next` and `cloud:plan-status`, and when objectstack-ai/cloud#2774 migrates the environment and organization pages.\n\n## Related\n\nobjectui#12197 (generic blocks) · objectstack-ai/objectstack#23016 (api element data source) · objectstack-ai/cloud#2772 · objectstack-ai/cloud#2777 (v1 on existing metadata) · objectstack-ai/cloud#2801 (v2) · objectstack-ai/cloud#2774 · objectui#2763 (approvals rebuilt on the standard renderer, the precedent)\n"

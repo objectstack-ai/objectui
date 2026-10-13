@@ -1,0 +1,34 @@
+{
+  "number": 12276,
+  "kind": "issue",
+  "title": "Topic: objectui's turbo cache never replays for Lint and shadows itself across jobs — `//#lint:root` couples every package's lint hash to every tracked file (the objectui#12222 disease), and four jobs restore the bare `turbo-<os>-` key",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "domain:devx",
+    "pm:dispatched",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-12T22:20:47Z",
+  "updated_at": "2026-10-13T02:18:38Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12276",
+  "body": "Topic card, filed by the director seat (summon #37, `session_01LqNgdPZB2Jnr5HpGbaqLeB`) under the maintainer's words 「立卡你决定，不需要我同意」 and 「后续能否你负责分析和立卡，具体的开发任务交给车道经理」 (2026-10-12): the seat files, the `domain:devx` lane manager claims, dispatches and lands. ⛔ Not a claim. Filing gate ①: a measured defect with named landing points, from objectui#12222's dev report and ACCEPT (6126154639), carried there as \"a card for the lane once this lands\".\n\nProtects: the `Lint` required context's wall on every pull request and queue build, and the turbo cache the `type-check` job now prunes and keys per job (objectui#12222): a cache that never replays costs a full lint each run; a bare restore key restores another job's multi-GB cache.\n\n## What is measured (objectui#12222's dev, on `main` before `1ce8db8d`; re-measure on today's `main` first)\n1. **`//#lint:root` has the default inputs** (`turbo.json`: `\"//#lint:root\": { \"outputs\": [], \"cache\": false }`, no `inputs`), so this root task hashes every tracked file (about 8,600), and every package's `lint` task `dependsOn` it (`\"lint\": { \"dependsOn\": [\"//#lint:root\"], \"inputs\": [\"$TURBO_DEFAULT$\", \"$TURBO_ROOT$/eslint.config.js\", \"$TURBO_ROOT$/eslint-rules/*.js\"] }`). Measured: one untracked `docs/` file moves 46 of 46 lint hashes, so the `Lint` job's restored cache replays nothing, ever. The same coupling on `//#type-check:e2e` was fixed in objectui#12222 (PR #12251) by giving the root task its own `inputs`: `\"//#type-check:e2e\": { \"inputs\": [\"e2e/**\", \"playwright*.config.ts\", \"tsconfig.e2e.json\"] }`. `lint:root` is `eslint . --ignore-pattern 'packages/*/**' --ignore-pattern 'examples/*/**' --ignore-pattern 'apps/*/**' --ignore-pattern 'docs/**'`: its inputs are the root-level sources and `eslint.config.js` / `eslint-rules/*.js`, not the packages.\n2. **Four jobs restore the bare `turbo-${{ runner.os }}-` key** (`actions/cache` `restore-keys`): `lint.yml` line 333 (key `turbo-<os>-<sha>`, fallback bare), `ci.yml` line 2454 (the docs job: `turbo-<os>-docs-` then bare), `changeset-release.yml` line 719, `performance-budget.yml` line 236. objectui#12222 measured the shape on the `type-check` job before it moved to `turbo-<os>-type-check-<sha>` with a per-job prefix only: the bare fallback matched another job's 2 GB cache on the PR's own ref, 321 of 401 entries unused, and by the fourth run nothing could be restored. The three bare-key jobs save and restore each other's caches; the docs job's second fallback does the same.\n\n## What to build (one PR, or two if the lane prefers; the `type-check` job's shape is the template)\n- `turbo.json`: `//#lint:root` gets its own `inputs` (the files `lint:root` lints: the root sources outside `packages/`, `examples/`, `apps/`, `docs/`, plus `eslint.config.js` and `eslint-rules/*.js`; derive the list from the script's ignore patterns and prove it with the same probe objectui#12222 used: an untracked `docs/` file must move 0 of 46 lint hashes after, 46 before).\n- The four `actions/cache` steps: a per-job key prefix (`turbo-<os>-lint-`, `-docs-`, `-release-`, `-perf-`) and no bare fallback; save only on `push`/`schedule` if the job follows the `type-check` job's two-speed shape (objectui#12222: PR runs restore, never save), and prune to what the run used (`scripts/report-turbo-cache.mjs --prune` exists). The `Report what the turbo cache replayed` step from #12222 tells the before/after.\n- The pins that read these workflows (`ci-cd-pipeline-doc.test.ts`, `turbo-test-inputs`, the cache-key pins #12222 added) follow.\n\n## Acceptance\n- On `main` after landing: the first three `pull_request` runs' `Lint` jobs replay their lint tasks from the cache (the report step's notice: hits ≥ 40 of 46 on a one-package change) and the job's wall against the before median (read it first: the `Lint` job's `Run linter` step over the last 20 PR runs); no job restores another job's cache (the restored key's prefix is the job's own in the notice).\n- ⛔ `lint` itself, eslint's config and rules, and every other job untouched.\n\nRelated: objectui#12222 · PR #12251 (merge `1ce8db8d`; ACCEPT 6126154639; landing 6126541762) · objectui#12272 (the other #12251 follow-up, in flight) · `turbo.json` · `lint.yml` · `ci.yml` (the docs job) · `changeset-release.yml` · `performance-budget.yml`."
+}

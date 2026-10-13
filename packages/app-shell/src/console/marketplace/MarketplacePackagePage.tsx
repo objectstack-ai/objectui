@@ -253,14 +253,18 @@ export function MarketplacePackagePage() {
     unmanaged?: { strippedLocks: LocalInstallStrippedLock[] };
   } | null>(null);
   // ADR-0131 D6 — the install modes the package's latest manifest declares,
-  // read from the manifest install-local judges. `undefined` until read, when
-  // the manifest declares none, or when it could not be read: then no choice
-  // is drawn and no mode is sent, so the door's own default and answer decide.
-  const [declaredModes, setDeclaredModes] = useState<readonly LocalInstallMode[] | undefined>(undefined);
-  // The operator's pick when the package permits more than one mode. Starts
-  // unpicked: the spec ranks no permitted mode above another, so the page
-  // does not pick one for them.
-  const [chosenMode, setChosenMode] = useState<LocalInstallMode | ''>('');
+  // read from the manifest install-local judges, and the operator's pick among
+  // them. Both are kept with the package they belong to, so a page that moves
+  // to another package never offers or sends the last one's.
+  const [modesRead, setModesRead] = useState<{ packageId: string; modes: readonly LocalInstallMode[] | undefined } | null>(null);
+  const [modePick, setModePick] = useState<{ packageId: string; mode: LocalInstallMode } | null>(null);
+  // `undefined` until read, when the manifest declares none, or when it could
+  // not be read: then no choice is drawn and no mode is sent, so the door's own
+  // default and answer decide.
+  const declaredModes = modesRead && modesRead.packageId === packageId ? modesRead.modes : undefined;
+  // Starts unpicked: the spec ranks no permitted mode above another, so the
+  // page does not pick one for the operator.
+  const chosenMode: LocalInstallMode | '' = modePick && modePick.packageId === packageId ? modePick.mode : '';
 
   useEffect(() => {
     // `features.installLocal` is a genuinely separate deployment axis from
@@ -290,8 +294,6 @@ export function MarketplacePackagePage() {
   // none). Only where install-local is the page's install door (the cloud
   // install routes take no mode) and only for a viewer the page serves.
   useEffect(() => {
-    setDeclaredModes(undefined);
-    setChosenMode('');
     if (!packageId) return;
     if (!marketplaceEnabled) return;
     if (!isAdmin) return;
@@ -300,7 +302,7 @@ export function MarketplacePackagePage() {
     (async () => {
       try {
         const modes = await getDeclaredInstallModes(packageId);
-        if (!cancelled) setDeclaredModes(modes);
+        if (!cancelled) setModesRead({ packageId, modes });
       } catch {
         // No manifest to read: no choice and no mode, and the door decides.
       }
@@ -1186,7 +1188,10 @@ export function MarketplacePackagePage() {
       <p id="install-mode-label" className="text-sm font-medium">{t('marketplace.install.mode.label')}</p>
       <RadioGroup
         value={chosenMode}
-        onValueChange={(v) => setChosenMode(offeredInstallModes.find((m) => m === v) ?? '')}
+        onValueChange={(v) => {
+          const mode = offeredInstallModes.find((m) => m === v);
+          setModePick(mode && packageId ? { packageId, mode } : null);
+        }}
         aria-labelledby="install-mode-label"
         disabled={installingLocal}
         className="gap-3"

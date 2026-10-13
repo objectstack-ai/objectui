@@ -2926,6 +2926,7 @@ const fr = {
     loading: "Chargement…",
     failedToLoad: "Échec du chargement de la matrice : {{message}}",
     needsAcross: "Le rapport matriciel nécessite au moins un champ `groupingsAcross`.",
+    forbiddenMessage: "Vous n’avez pas l’autorisation de voir les données de ce rapport.",
     aggregate: {
       count: "Compter",
       countDistinct: "Compter distincts",

@@ -71,7 +71,7 @@
  */
 
 import * as React from 'react';
-import { Loader2, AlertTriangle, Table2 } from 'lucide-react';
+import { Loader2, AlertTriangle, Table2, ShieldAlert } from 'lucide-react';
 import {
   ComponentRegistry,
   formatMeasure,
@@ -115,7 +115,7 @@ import {
   type DatasetDrillRange,
 } from '@object-ui/core';
 import { builtinAggregateLabels, useSafeFieldLabel, useSafeTranslate, useDisplayLocale, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
-import { useDataInvalidation } from '@object-ui/react';
+import { useDataInvalidation, classifyLoadError } from '@object-ui/react';
 import { mergeFilters } from './mergeFilters';
 import { useDatasetDimensionMeta, type DatasetDimensionMeta } from './useDatasetDimensionLabels';
 
@@ -506,6 +506,8 @@ function useDatasetRows(
     drillRanges?: Array<Record<string, DatasetDrillRange>>;
     totals?: DatasetResultTotals[];
     error?: string;
+    /** The query was refused because this viewer may not read the data (objectui#12330). */
+    forbidden?: boolean;
   }>({
     status: 'idle',
     rows: [],
@@ -601,7 +603,19 @@ function useDatasetRows(
         // alike: the table's error branch draws the error INSTEAD of a table, so
         // no rows are kept under it. `datasetObject` is deliberately left as it
         // is, so a failed re-read stays subscribed (see above).
-        if (!cancelled) setState({ status: 'error', rows: [], error: String((e as Error)?.message ?? e) });
+        if (cancelled) return;
+        // objectui#12330 — a READ refusal (403 / `PERMISSION_DENIED`, the
+        // analytics read admission) is not a failure to explain: the viewer may
+        // not see this data. It is classified by the shared, adapter-agnostic
+        // `classifyLoadError`, the branch `DatasetWidget` takes for the same
+        // refusal, never by matching the message text. It keeps no `error`
+        // text, so the adapter's message (which quotes the server and names
+        // the object) cannot reach the page. Every other failure keeps it.
+        if (classifyLoadError(e) === 'forbidden') {
+          setState({ status: 'error', rows: [], forbidden: true });
+          return;
+        }
+        setState({ status: 'error', rows: [], error: String((e as Error)?.message ?? e) });
       });
     return () => {
       cancelled = true;
@@ -649,7 +663,38 @@ function EmptyMeasures({ dataset }: { dataset: string }) {
   );
 }
 
-function FetchStates({ status, error }: { status: 'idle' | 'loading' | 'error'; error?: string }) {
+/**
+ * The report's no-access state (objectui#12330): the same title a dataset
+ * widget shows for the same refusal (`dashboard.widgetForbiddenTitle`), and a
+ * message that names the report. No server text, no object name.
+ */
+function NoAccess() {
+  const tt = useSafeTranslate();
+  return (
+    <div
+      role="alert"
+      data-testid="dataset-report-forbidden"
+      className="flex flex-col items-center justify-center gap-1 rounded-md border border-dashed bg-muted/20 p-6 text-center text-xs text-muted-foreground"
+    >
+      <ShieldAlert className="h-5 w-5 text-muted-foreground/70" aria-hidden="true" />
+      <span className="font-medium text-foreground/80">
+        {tt('dashboard.widgetForbiddenTitle', 'You don’t have access')}
+      </span>
+      <span>{tt('report.forbiddenMessage', 'You don’t have permission to view the data behind this report.')}</span>
+    </div>
+  );
+}
+
+function FetchStates({
+  status,
+  error,
+  forbidden,
+}: {
+  status: 'idle' | 'loading' | 'error';
+  error?: string;
+  forbidden?: boolean;
+}) {
+  if (status === 'error' && forbidden) return <NoAccess />;
   if (status === 'error') {
     return (
       <div role="alert" className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
@@ -741,7 +786,7 @@ function DatasetReportTable({
 
   if (values.length === 0) return <EmptyMeasures dataset={dataset} />;
   if (state.status === 'loading' || state.status === 'idle') return <FetchStates status={state.status} />;
-  if (state.status === 'error') return <FetchStates status="error" error={state.error} />;
+  if (state.status === 'error') return <FetchStates status="error" error={state.error} forbidden={state.forbidden} />;
   if (state.rows.length === 0) return <NoRows />;
 
   // Drilling needs at least one dimension to scope by.
@@ -1210,7 +1255,10 @@ function DatasetReportChart({
       </div>
     );
   }
-  // On error or empty, fall back silently to the report's table.
+  // On error or empty, fall back silently to the report's table. A read
+  // refusal is an error here too: the table beside this slot reads the same
+  // dataset and draws the one no-access state, so the chart draws no second
+  // one (objectui#12330).
   if (state.status === 'error' || state.rows.length === 0) return null;
 
   // objectui#7534 — resolve a BUILT-IN default measure's caption through the
@@ -1562,7 +1610,7 @@ function DatasetMatrixTable({
 
   if (values.length === 0) return <EmptyMeasures dataset={dataset} />;
   if (state.status === 'loading' || state.status === 'idle') return <FetchStates status={state.status} />;
-  if (state.status === 'error') return <FetchStates status="error" error={state.error} />;
+  if (state.status === 'error') return <FetchStates status="error" error={state.error} forbidden={state.forbidden} />;
   if (!pivot || pivot.rowHeaders.length === 0) return <NoRows />;
 
   // objectui#7534 — resolve a BUILT-IN default measure's caption through the

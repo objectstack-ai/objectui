@@ -281,6 +281,13 @@ pre-aggregated rows it is handed and never re-aggregates bucketed values
 client-side, since measures like `avg` cannot be recombined without drifting
 from the semantic layer.
 
+When the dataset query is refused because the viewer may not read the data
+(`403` / `PERMISSION_DENIED`, as the shared `classifyLoadError` from
+`@object-ui/react` reads it), the report shows a localized "You don't have
+access" state instead of its table, the same title a dataset dashboard widget
+shows, and never the server's message. Any other failure still shows the error
+and its message.
+
 Drill-down is a **host callback, not a registered handler**: pass `onDrill` and
 every aggregated row / matrix cell becomes clickable. The report emits *what was
 clicked*; the host decides where that goes, because the renderer only knows

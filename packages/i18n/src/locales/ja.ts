@@ -2875,6 +2875,7 @@ const ja = {
     loading: "読み込み中…",
     failedToLoad: "マトリックスの読み込みに失敗しました：{{message}}",
     needsAcross: "マトリックスレポートには少なくとも1つの `groupingsAcross` フィールドが必要です。",
+    forbiddenMessage: "このレポートのデータを表示する権限がありません。",
     aggregate: {
       count: "件数",
       countDistinct: "ユニーク件数",

@@ -2924,6 +2924,7 @@ const pt = {
     loading: "Carregando…",
     failedToLoad: "Falha ao carregar a matriz: {{message}}",
     needsAcross: "O relatório de matriz requer pelo menos um campo `groupingsAcross`.",
+    forbiddenMessage: "Você não tem permissão para ver os dados deste relatório.",
     aggregate: {
       count: "Contar",
       countDistinct: "Contar distintos",

@@ -1342,6 +1342,7 @@ const zh = {
     loading: '加载中…',
     failedToLoad: '矩阵报表加载失败：{{message}}',
     needsAcross: '矩阵报表至少需要一个 `groupingsAcross` 字段。',
+    forbiddenMessage: '你没有查看该报表数据的权限。',
     aggregate: {
       count: '计数',
       countDistinct: '去重计数',

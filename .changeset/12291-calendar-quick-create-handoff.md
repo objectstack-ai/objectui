@@ -1,6 +1,6 @@
 ---
-'@object-ui/plugin-calendar': patch
-'@object-ui/app-shell': patch
+'@object-ui/plugin-calendar': minor
+'@object-ui/app-shell': minor
 ---
 
 Calendar quick-create no longer offers a dialog that cannot succeed. On an object with a required field it cannot fill, an empty-day click opens the full create form with the clicked day already set (objectui#12291).

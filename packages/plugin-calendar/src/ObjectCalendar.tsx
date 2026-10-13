@@ -397,12 +397,25 @@ function quickCreateDateValues(
   return values;
 }
 
+/** A field definition, as much of it as quick-create reads. */
+interface QuickCreateFieldDef {
+  type?: unknown;
+  required?: unknown;
+  readonly?: unknown;
+  system?: unknown;
+  defaultValue?: unknown;
+  options?: unknown;
+  choices?: unknown;
+  name?: string;
+  apiName?: string;
+}
+
 /** The object schema's fields as `[name, definition]` pairs, keyed map or array. */
-function quickCreateFieldEntries(fieldsMeta: unknown): [string, any][] {
+function quickCreateFieldEntries(fieldsMeta: unknown): [string, QuickCreateFieldDef | undefined][] {
   if (!fieldsMeta || typeof fieldsMeta !== 'object') return [];
   return Array.isArray(fieldsMeta)
-    ? fieldsMeta.map((f: any) => [f.name ?? f.apiName, f] as [string, any])
-    : Object.entries(fieldsMeta);
+    ? (fieldsMeta as QuickCreateFieldDef[]).map((f) => [f.name ?? f.apiName ?? '', f])
+    : Object.entries(fieldsMeta as Record<string, QuickCreateFieldDef | undefined>);
 }
 
 /**
@@ -421,16 +434,18 @@ function quickCreateFieldEntries(fieldsMeta: unknown): [string, any][] {
  * could know; an object that has one gets the host's full create form, which
  * asks for it.
  */
-function quickCreateFill(def: any): { value: unknown } | undefined {
+function quickCreateFill(def: QuickCreateFieldDef): { value: unknown } | undefined {
   if (def.defaultValue !== undefined && def.defaultValue !== null) {
     return { value: def.defaultValue };
   }
   const t = def.type;
   if (t === 'select' || t === 'picklist' || t === 'status') {
-    const opts = (def.options || def.choices || []) as any[];
+    const opts = (def.options || def.choices || []) as unknown[];
     const first = opts[0];
     if (first === undefined) return undefined;
-    return { value: typeof first === 'object' ? (first.value ?? first.id) : first };
+    if (typeof first !== 'object' || first === null) return { value: first };
+    const option = first as { value?: unknown; id?: unknown };
+    return { value: option.value ?? option.id };
   }
   if (t === 'boolean' || t === 'checkbox') return { value: false };
   if (t === 'number' || t === 'integer' || t === 'decimal' || t === 'currency' || t === 'percent') {

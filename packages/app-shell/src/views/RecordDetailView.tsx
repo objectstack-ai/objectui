@@ -2905,8 +2905,9 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
 
     // Audit fields (created_at/created_by/updated_at/updated_by) are NOT
     // appended as a section here — they are surfaced by `<RecordMetaFooter>`
-    // (rendered by DetailView) as a single subtle line below the content,
-    // replacing the old card-style "System Information" panel. The inline-edit
+    // (rendered once by this view, at the page foot, objectui#12307) as a
+    // single subtle line below the content, replacing the old card-style
+    // "System Information" panel. The inline-edit
     // drawer continues to hide them via `DEFAULT_SYSTEM_FIELDS` in
     // `@object-ui/plugin-detail/RecordDetailDrawer`.
 

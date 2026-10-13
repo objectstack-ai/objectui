@@ -1859,8 +1859,9 @@ the sweeper copy whose H31 compared the gate's two carriers was retired
 carriers either. The `CLEAR` rendering says so out loud, so a green is never read as "the review
 happened".
 
-**What it deliberately does not do.** It does not govern the rest of `.github/` — `dependabot.yml`,
-`labeler.yml`, `prompts/` — because the ruling named the workflows, not their directory. It *does*
+**What it deliberately does not do.** It does not govern the rest of `.github/` — `.github/dependabot.yml`,
+`.github/labeler.yml`, `.github/prompts/` — because the ruling named the workflows, not their
+directory. It *does*
 govern its own workflow file, and a Dependabot `github-actions` bump with it: that bump edits
 `.github/workflows/**`, so `dependabot-auto-merge.yml` still approves and enqueues it, the queue leg
 refuses it, and it waits for an authorized approval like any other workflow change. It

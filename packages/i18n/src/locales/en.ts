@@ -4730,6 +4730,11 @@ const en = {
       setDefaultFailed: 'Failed to set default app: {{reason}}',
       appDeleted: '{{name}} deleted',
       deleteFailed: 'Failed to delete app: {{reason}}',
+      // A `reset: false` answer: no customization row existed, so nothing was
+      // removed. `{{reason}}` is the server's own sentence, passed through raw.
+      nothingToDelete: 'Nothing to delete for {{name}}: {{reason}}',
+      // `{{reason}}` above when that answer carried no sentence of its own.
+      alreadyAtDefault: 'it is already at its package default',
       // `{{n}}` is the count that actually LANDED, not the selection size — a
       // bulk toggle is N independent writes with no transaction behind them.
       bulkEnabled: '{{n}} apps enabled',

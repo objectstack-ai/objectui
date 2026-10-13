@@ -4117,6 +4117,8 @@ const zh = {
       setDefaultFailed: '设置默认应用失败：{{reason}}',
       appDeleted: '{{name}} 已删除',
       deleteFailed: '删除应用失败：{{reason}}',
+      nothingToDelete: '{{name}} 无可删除：{{reason}}',
+      alreadyAtDefault: '它已是其软件包的默认状态',
       bulkEnabled: '已启用 {{n}} 个应用',
       bulkDisabled: '已停用 {{n}} 个应用',
       bulkFailed: '{{n}} 个失败：{{details}}',

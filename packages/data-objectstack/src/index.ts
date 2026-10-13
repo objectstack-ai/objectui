@@ -4066,20 +4066,30 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    *
    * Drafts are NEVER gated: the framework returns at its D1 early-return
    * (`if (args.state !== 'active') return null`) before running a rule, so a
-   * draft save produces no findings to withhold. This client class has no draft
-   * door at all to worry about — the SDK's `saveItem(type, name, item)` takes no
-   * mode and always writes the active door, which is exactly why the gate DOES
-   * run for its callers. `mode` on the emitted event is therefore derived from
-   * the response's own `state` rather than from a request-side flag that does
-   * not exist here: `'draft'` when the server says the row landed as a draft,
-   * `'publish'` otherwise. That keeps the event truthful about which door it
-   * came through instead of hard-coding one.
+   * draft save produces no findings to withhold. `mode` on the emitted event is
+   * derived from the response's own `state`, not from the caller's options:
+   * `'draft'` when the server says the row landed as a draft, `'publish'`
+   * otherwise. The server's answer is the one that says which door the write
+   * took, so the event cannot claim a door the request only asked for.
+   *
+   * ## Every argument is forwarded (objectui#12300)
+   *
+   * The SDK's `saveItem(type, name, item, options?)` carries the write's scope
+   * in its fourth argument, `SaveMetaItemOptions`: `packageId` (`?package=`),
+   * `force`, `mode` and `ifMatch`. This wrapper used to name three parameters
+   * and call the original with three, so that bag was dropped before the SDK
+   * saw it. Every caller reaching the SDK through {@link getClient} got a bare
+   * `PUT` whatever it passed, while the declared signature still accepted the
+   * bag, so nothing at the call site could tell. The wrapper now takes and
+   * passes the original's own parameter list, so it forwards whatever the SDK
+   * declares, today's bag and any later member, without naming one.
    */
   private installSaveAdvisoryInterceptor(): void {
     const meta = this.client.meta;
     const original = meta.saveItem.bind(meta);
-    meta.saveItem = async (type: string, name: string, item: any) => {
-      const result = await original(type, name, item);
+    meta.saveItem = async (...args: Parameters<typeof original>) => {
+      const [type, name] = args;
+      const result = await original(...args);
       // Everything below is best-effort by construction: the row is already
       // committed server-side, so nothing the advisory channel does may change
       // what this call returns or whether it throws.

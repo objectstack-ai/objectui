@@ -4144,6 +4144,8 @@ const fr = {
       setDefaultFailed: "Échec de la définition de l'application par défaut : {{reason}}",
       appDeleted: "{{name}} supprimée",
       deleteFailed: "Échec de la suppression de l'application : {{reason}}",
+      nothingToDelete: "Rien à supprimer pour {{name}} : {{reason}}",
+      alreadyAtDefault: "elle est déjà à la valeur par défaut de son package",
       bulkEnabled: "{{n}} applications activées",
       bulkDisabled: "{{n}} applications désactivées",
       bulkFailed: "Échec pour {{n}} : {{details}}",

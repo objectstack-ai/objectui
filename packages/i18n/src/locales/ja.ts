@@ -4060,6 +4060,8 @@ const ja = {
       setDefaultFailed: "デフォルトアプリの設定に失敗しました：{{reason}}",
       appDeleted: "{{name}} を削除しました",
       deleteFailed: "アプリの削除に失敗しました：{{reason}}",
+      nothingToDelete: "{{name}} に削除するものはありません：{{reason}}",
+      alreadyAtDefault: "すでにパッケージの既定の状態です",
       bulkEnabled: "{{n}} 件のアプリを有効化しました",
       bulkDisabled: "{{n}} 件のアプリを無効化しました",
       bulkFailed: "{{n}} 件失敗しました：{{details}}",

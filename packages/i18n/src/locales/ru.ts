@@ -4252,6 +4252,8 @@ const ru = {
       setDefaultFailed: "Не удалось установить приложение по умолчанию: {{reason}}",
       appDeleted: "{{name}} удалено",
       deleteFailed: "Не удалось удалить приложение: {{reason}}",
+      nothingToDelete: "Нечего удалять для {{name}}: {{reason}}",
+      alreadyAtDefault: "оно уже соответствует значению по умолчанию из пакета",
       bulkEnabled: "Включено приложений: {{n}}",
       bulkDisabled: "Отключено приложений: {{n}}",
       bulkFailed: "Не удалось для {{n}}: {{details}}",

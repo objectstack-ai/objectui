@@ -4147,6 +4147,8 @@ const es = {
       setDefaultFailed: "Error al establecer la aplicación predeterminada: {{reason}}",
       appDeleted: "{{name}} eliminada",
       deleteFailed: "Error al eliminar la aplicación: {{reason}}",
+      nothingToDelete: "Nada que eliminar para {{name}}: {{reason}}",
+      alreadyAtDefault: "ya está en el valor predeterminado de su paquete",
       bulkEnabled: "{{n}} aplicaciones habilitadas",
       bulkDisabled: "{{n}} aplicaciones deshabilitadas",
       bulkFailed: "Error en {{n}}: {{details}}",

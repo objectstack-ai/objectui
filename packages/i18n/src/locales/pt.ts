@@ -4142,6 +4142,8 @@ const pt = {
       setDefaultFailed: "Falha ao definir o aplicativo padrão: {{reason}}",
       appDeleted: "{{name}} excluído",
       deleteFailed: "Falha ao excluir o aplicativo: {{reason}}",
+      nothingToDelete: "Nada a excluir para {{name}}: {{reason}}",
+      alreadyAtDefault: "ele já está no padrão do seu pacote",
       bulkEnabled: "{{n}} aplicativos habilitados",
       bulkDisabled: "{{n}} aplicativos desabilitados",
       bulkFailed: "Falha em {{n}}: {{details}}",

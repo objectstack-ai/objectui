@@ -16,8 +16,7 @@
  */
 
 import React from 'react';
-import { ElementDataSourceGate, useRecordContext, useActionEngine, useMetadataItem, useCondition, toPredicateInput, useActionTextLocalizer } from '@object-ui/react';
-import { elementDataSourceBlock } from '@object-ui/core';
+import { useRecordContext, useActionEngine, useMetadataItem, useCondition, toPredicateInput, useActionTextLocalizer } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
 import {
   Button,
@@ -34,7 +33,7 @@ import type { ActionDef, ActionLocation } from '@object-ui/core';
 import { resolveDeclaredActionIds } from '@object-ui/types';
 import type { DeclaredActionsRefusal } from '@object-ui/types';
 import { useRecordAriaProps, type AuthoredRecordAria } from './recordComponentAria';
-import { BoundRecordScope, recordBlockGateProps, recordBlockTestId } from './recordBinding';
+import { recordBindingBlock } from './recordBinding';
 
 const splitDesigner = (props: Record<string, any>) => {
   const { 'data-obj-id': id, 'data-obj-type': type, style, ...rest } = props || {};
@@ -451,22 +450,13 @@ function QuickActionButton({
 /**
  * `record:quick_actions` with the spec's per-element `dataSource` binding honoured
  * (objectui#12294). Unbound, the body reads the record page's record exactly as
- * before; bound, it reads the FIRST row of the bound set, provided by
- * `BoundRecordScope` (`./recordBinding`, which states the semantics). The gate
- * resolves the binding the way every bound block resolves it, and the seam
- * (`elementDataSourceBlock`) makes this registration declare the key.
+ * before; bound, it reads the FIRST row of the bound set. `recordBindingBlock`
+ * (`./recordBinding`, which states the semantics) wraps the body in the gate and
+ * the one-record scope, and passes the result through the declaration seam.
  *
  * Wraps the EXPORTED name, as `record:related_list` does, so a host that
  * imports this renderer directly gets the binding too.
  */
-export const RecordQuickActionsRenderer: React.FC<RecordQuickActionsRendererProps> = elementDataSourceBlock((props) => (
-  <ElementDataSourceGate {...recordBlockGateProps(props.schema, 'record:quick_actions')}>
-    {(bound) => (
-      <BoundRecordScope schema={props.schema} bound={bound} testId={recordBlockTestId('record:quick_actions')}>
-        <RecordQuickActionsBody {...props} />
-      </BoundRecordScope>
-    )}
-  </ElementDataSourceGate>
-));
+export const RecordQuickActionsRenderer: React.FC<RecordQuickActionsRendererProps> = recordBindingBlock(RecordQuickActionsBody, 'record:quick_actions');
 
 export default RecordQuickActionsRenderer;

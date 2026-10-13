@@ -11,13 +11,12 @@
  */
 
 import React from 'react';
-import { ElementDataSourceGate, useRecordContext, useRegisterHighlightFields } from '@object-ui/react';
-import { elementDataSourceBlock } from '@object-ui/core';
+import { useRecordContext, useRegisterHighlightFields } from '@object-ui/react';
 import { useFieldPermissions, usePermissions } from '@object-ui/permissions';
 import type { RecordHighlightsComponentProps } from '@object-ui/types';
 import { HeaderHighlight } from '../HeaderHighlight';
 import { useRecordAriaProps } from './recordComponentAria';
-import { BoundRecordScope, recordBlockGateProps, recordBlockTestId } from './recordBinding';
+import { recordBindingBlock } from './recordBinding';
 
 const splitDesigner = (props: Record<string, any>) => {
   const { 'data-obj-id': id, 'data-obj-type': type, style, ...rest } = props || {};
@@ -190,22 +189,13 @@ const RecordHighlightsBody: React.FC<RecordHighlightsRendererProps> = ({
 /**
  * `record:highlights` with the spec's per-element `dataSource` binding honoured
  * (objectui#12294). Unbound, the body reads the record page's record exactly as
- * before; bound, it reads the FIRST row of the bound set, provided by
- * `BoundRecordScope` (`./recordBinding`, which states the semantics). The gate
- * resolves the binding the way every bound block resolves it, and the seam
- * (`elementDataSourceBlock`) makes this registration declare the key.
+ * before; bound, it reads the FIRST row of the bound set. `recordBindingBlock`
+ * (`./recordBinding`, which states the semantics) wraps the body in the gate and
+ * the one-record scope, and passes the result through the declaration seam.
  *
  * Wraps the EXPORTED name, as `record:related_list` does, so a host that
  * imports this renderer directly gets the binding too.
  */
-export const RecordHighlightsRenderer: React.FC<RecordHighlightsRendererProps> = elementDataSourceBlock((props) => (
-  <ElementDataSourceGate {...recordBlockGateProps(props.schema, 'record:highlights')}>
-    {(bound) => (
-      <BoundRecordScope schema={props.schema} bound={bound} testId={recordBlockTestId('record:highlights')}>
-        <RecordHighlightsBody {...props} />
-      </BoundRecordScope>
-    )}
-  </ElementDataSourceGate>
-));
+export const RecordHighlightsRenderer: React.FC<RecordHighlightsRendererProps> = recordBindingBlock(RecordHighlightsBody, 'record:highlights');
 
 export default RecordHighlightsRenderer;

@@ -17,13 +17,14 @@
  * `record:quick_actions` drew an empty box or "no actions configured" even
  * with a binding that returns one row.
  *
- * This module is the one-record consumer those three share. The gate still
- * resolves the binding (the named view, the AND-combined filter, the sort, and
- * every configuration panel the family draws), so a record block's binding
- * means exactly what it means on a list block. What this adds is the last hop:
- * read the bound set, take its FIRST row, and provide that row through the
- * existing `RecordContextProvider` — so the block bodies are unchanged and
- * there is no second rendering path inside a block.
+ * This module is the one-record consumer those three share, and
+ * {@link recordBindingBlock} is the one way a record block takes it. The gate
+ * still resolves the binding (the named view, the AND-combined filter, the
+ * sort, and every configuration panel the family draws), so a record block's
+ * binding means exactly what it means on a list block. What this adds is the
+ * last hop: read the bound set, take its FIRST row, and provide that row
+ * through the existing `RecordContextProvider` — so the block bodies are
+ * unchanged and there is no second rendering path inside a block.
  *
  * ## Semantics of the bound set (the card's, verbatim in intent)
  *
@@ -82,6 +83,7 @@
 import * as React from 'react';
 import {
   ElementDataSourceErrorPanel,
+  ElementDataSourceGate,
   HighlightFieldsProvider,
   InlineEditProvider,
   RecordContextProvider,
@@ -95,7 +97,12 @@ import {
 } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
 import { Skeleton } from '@object-ui/components';
-import { buildExpandFields, isElementDataSourceConfig, withoutDeniedFields } from '@object-ui/core';
+import {
+  buildExpandFields,
+  elementDataSourceBlock,
+  isElementDataSourceConfig,
+  withoutDeniedFields,
+} from '@object-ui/core';
 import type { DataSource, QueryParams } from '@object-ui/types';
 
 /**
@@ -107,7 +114,7 @@ import type { DataSource, QueryParams } from '@object-ui/types';
  * `limit` is deliberately unmapped: one row is read whatever the binding caps
  * the set at (see the module doc).
  */
-export const RECORD_BLOCK_DATA_SOURCE: ElementDataSourceMapping = { filter: true, sort: true };
+const RECORD_BLOCK_DATA_SOURCE: ElementDataSourceMapping = { filter: true, sort: true };
 
 /** Stable stand-in for a missing `schema`, so the gate keeps one identity. */
 const NO_SCHEMA: Record<string, unknown> = {};
@@ -118,36 +125,62 @@ function isBound(schema: unknown): boolean {
 }
 
 /**
- * The `ElementDataSourceGate` props of a record block, other than `children`.
+ * Wrap a record block's body so its `dataSource` binding supplies its record,
+ * and declare the key through the seam.
+ *
+ * The one way a record block takes the binding, so a fourth one cannot take it
+ * differently: `ElementDataSourceGate` resolves the binding (and draws the
+ * family's panels for an unresolvable view, a refused filter, or no adapter),
+ * {@link BoundRecordScope} reads and provides the first row, and
+ * `elementDataSourceBlock` makes the registration publish the injected
+ * `dataSource` input — from `@object-ui/core`, the import source
+ * `check:element-data-source-declaration` holds every call site to.
  *
  * `requiresDataSource` is set for a BOUND block only: a bound block with no
  * adapter has nothing to read its row with, and says so through the family's
- * no-data-source panel. An unbound block is the record page path and is left
- * exactly as it was.
+ * no-data-source panel. An unbound block is the record page path, left as it was.
  *
- * @param schema   The block's schema as authored.
- * @param blockKey The registry key (`record:details`, …); the panel test ids
- *                 are derived from it the way `record-related-list` spells its own.
+ * @param Body     The block's renderer, unchanged: it reads `useRecordContext()`.
+ * @param blockKey The registry key (`record:details`, …); the panel test ids are
+ *                 derived from it the way `record-related-list` spells its own.
  */
-export function recordBlockGateProps(schema: unknown, blockKey: string) {
-  const bound = isBound(schema);
-  return {
-    schema: (schema ?? NO_SCHEMA) as Record<string, unknown>,
-    mapping: RECORD_BLOCK_DATA_SOURCE,
-    testId: recordBlockTestId(blockKey),
-    requiresDataSource: bound,
-    noDataSourceMessage: bound
-      ? noDataSourceMessage(blockKey, (schema as { dataSource?: { object?: unknown } }).dataSource?.object)
-      : undefined,
+export function recordBindingBlock<P extends { schema?: unknown }>(
+  Body: React.ComponentType<P>,
+  blockKey: string,
+): React.FC<P> {
+  const testId = recordBlockTestId(blockKey);
+  const Bound: React.FC<P> = (props) => {
+    const bound = isBound(props.schema);
+    return (
+      <ElementDataSourceGate
+        schema={(props.schema ?? NO_SCHEMA) as Record<string, unknown>}
+        mapping={RECORD_BLOCK_DATA_SOURCE}
+        testId={testId}
+        requiresDataSource={bound}
+        noDataSourceMessage={
+          bound
+            ? noDataSourceMessage(blockKey, (props.schema as { dataSource?: { object?: unknown } }).dataSource?.object)
+            : undefined
+        }
+      >
+        {(landed) => (
+          <BoundRecordScope schema={props.schema} bound={landed} testId={testId}>
+            <Body {...props} />
+          </BoundRecordScope>
+        )}
+      </ElementDataSourceGate>
+    );
   };
+  Bound.displayName = `RecordBinding(${blockKey})`;
+  return elementDataSourceBlock(Bound);
 }
 
 /** `record:quick_actions` → `record-quick-actions`. */
-export function recordBlockTestId(blockKey: string): string {
+function recordBlockTestId(blockKey: string): string {
   return blockKey.replace(/[:_]/g, '-');
 }
 
-export interface BoundRecordScopeProps {
+interface BoundRecordScopeProps {
   /** The block's schema as authored; its `dataSource` says whether it is bound. */
   schema: unknown;
   /** The same schema with the gate's {@link RECORD_BLOCK_DATA_SOURCE} landing applied. */
@@ -163,7 +196,7 @@ export interface BoundRecordScopeProps {
  * Unbound → the children as they are (the record page path). Bound → the
  * first row of the bound set, provided through `RecordContextProvider`.
  */
-export function BoundRecordScope({ schema, bound, testId, children }: BoundRecordScopeProps): React.ReactElement {
+function BoundRecordScope({ schema, bound, testId, children }: BoundRecordScopeProps): React.ReactElement {
   if (!isBound(schema)) return <>{children}</>;
   const landed = (bound ?? NO_SCHEMA) as { objectName?: unknown; filter?: unknown; sort?: unknown };
   // The gate calls its children only once the binding composed, and a composed

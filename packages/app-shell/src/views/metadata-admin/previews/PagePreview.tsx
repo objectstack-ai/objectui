@@ -14,7 +14,7 @@ import { SchemaRenderer, RecordContextProvider } from '@object-ui/react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@object-ui/components';
 import { buildExpandFields } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
-import { buildDefaultPageSchema } from '@object-ui/plugin-detail';
+import { buildDefaultPageSchema, RecordMetaFooter } from '@object-ui/plugin-detail';
 import type { MetadataPreviewProps } from '../preview-registry.js';
 import { PreviewShell, PreviewErrorBoundary, PreviewMessage } from './PreviewShell.js';
 import { OutlineStrip } from './OutlineStrip.js';
@@ -439,6 +439,18 @@ export function PagePreview({ draft, editing, selection, onSelectionChange, onPa
         {withRecordBinding(
           <div className="min-h-[200px] max-h-[70vh] overflow-auto p-4">
             <SchemaRenderer schema={renderSchema as any} />
+            {/* The record's provenance footer, once for the page, at its foot —
+                as the runtime `RecordDetailView` draws it (objectui#12307): a
+                `record:details` node reading the page's record no longer draws
+                its own. Only where a sample record is bound, which is exactly
+                when `withRecordBinding` mounts the record context. */}
+            {recordObject && selectedRecord && (
+              <RecordMetaFooter
+                data={selectedRecord}
+                objectSchema={recordSchema ?? undefined}
+                objectName={recordObject}
+              />
+            )}
           </div>
         )}
       </PreviewErrorBoundary>

@@ -274,6 +274,34 @@ const SectionBoundary: React.FC<{ section: any; index: number; children: React.R
   </SchemaErrorBoundary>
 );
 
+/**
+ * Whether the record PAGE draws this view's provenance footer (objectui#12307).
+ *
+ * A record page shows ONE record, so its `<RecordMetaFooter>` is the page's
+ * and is drawn once, by the page host (app-shell's `RecordDetailView`, and the
+ * Studio `PagePreview` that mirrors it), whatever the number of
+ * `record:details` nodes the page carries. Before this, every `DetailView`
+ * mounted its own: a page with two `record:details` nodes printed the same
+ * line twice, and a node whose sections were all hidden drew a block holding
+ * nothing but that line.
+ *
+ * `record:details` provides `true` around the one `DetailView` it mounts when
+ * the node reads the page's record, i.e. when it carries no `dataSource`
+ * binding (`record-details.tsx`). Everything else reads the default, `false`,
+ * and keeps its footer:
+ *
+ *  - a standalone `DetailView` (the `detail-view` node, the record drawer and
+ *    overlay panel, a direct React caller) has no page to draw it for it;
+ *  - a BOUND `record:details` shows the first row of its own query, a record
+ *    the page does not show, so the page's footer is not that record's.
+ *
+ * ⛔ Module-internal on purpose: not re-exported from the package barrel, and
+ * neither a `DetailView` prop nor a `DetailViewSchema` key. Where the footer
+ * sits is the renderer's placement, not something a page authors (the triage
+ * on objectui#12307 ruled out a prop and a spec key for it).
+ */
+export const RecordPageProvenanceContext = React.createContext<boolean>(false);
+
 
 export const DetailView: React.FC<DetailViewProps> = ({
   schema: rawSchema,
@@ -300,6 +328,9 @@ export const DetailView: React.FC<DetailViewProps> = ({
   // DetailView without a provider (bare / legacy usage) → read-only. The
   // Save/Cancel bar + atomic persistence live in <InlineEditSaveBar>.
   const inline = useInlineEdit();
+  // objectui#12307: `true` only under a `record:details` that reads the page's
+  // record — the page host draws the one footer then. See the context's doc.
+  const pageDrawsProvenance = React.useContext(RecordPageProvenanceContext);
   const isInlineEditing = inline?.editing ?? false;
   const editedValues = inline?.draft ?? EMPTY_DRAFT;
   const autoFocusField = inline?.autoFocusField ?? null;
@@ -2063,12 +2094,16 @@ export const DetailView: React.FC<DetailViewProps> = ({
       {/* Record provenance footer — replaces the old "System Information"
           section with a low-visual-weight single-line summary of audit
           fields (created/updated by + when). Renders nothing when none of
-          the audit fields are present on the record. */}
-      <RecordMetaFooter
-        data={{ ...data, ...editedValues }}
-        objectSchema={objectSchema}
-        objectName={schema.objectName}
-      />
+          the audit fields are present on the record. Not drawn here when the
+          record page draws it once for the record (objectui#12307, see
+          `RecordPageProvenanceContext`). */}
+      {!pageDrawsProvenance && (
+        <RecordMetaFooter
+          data={{ ...data, ...editedValues }}
+          objectSchema={objectSchema}
+          objectName={schema.objectName}
+        />
+      )}
 
       {/* Custom Footer */}
 {/* ⛔ No `&&` guard on a node slot (objectui#9162): `&&` evaluates to the

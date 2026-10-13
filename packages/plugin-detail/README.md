@@ -58,6 +58,22 @@ and the object it was about to read, instead of an empty shell.
 Note the record id is `resourceId` here. `object-form`'s is `recordId`; the two
 blocks do not share that key.
 
+### The provenance footer belongs to the record page
+
+`RecordMetaFooter` is the one-line "Created … Updated …" summary of a record's
+audit fields. A standalone `DetailView` draws it under its body. On a
+`type: 'record'` page the footer is the PAGE's: the page host draws it once for
+the record, whatever the number of `record:details` nodes the page carries, and a
+`record:details` node that reads the page's record draws none of its own. So a
+page with two nodes shows the line once, and a node whose sections are all
+hidden draws nothing. The console's record page (`RecordDetailView` in
+`@object-ui/app-shell`) draws it at the page foot.
+
+A host that mounts `RecordContextProvider` itself renders `RecordMetaFooter`
+once, where its page ends, with the record as `data` and the object definition
+as `objectSchema`. A `record:details` node with a `dataSource` binding (below)
+shows a record the page does not, so it keeps its own footer.
+
 ### Record blocks without a record page (`dataSource`)
 
 `record:details`, `record:highlights` and `record:quick_actions` show the record

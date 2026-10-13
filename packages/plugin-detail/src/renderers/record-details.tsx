@@ -31,7 +31,8 @@ import {
   toPredicateRecord,
   withoutDeniedFields,
 } from '@object-ui/core';
-import { DetailView, RecordPageProvenanceContext } from '../DetailView';
+import { DetailView } from '../DetailView';
+import { RecordPageProvenanceContext } from '../recordPageProvenance';
 import { deriveFieldGroupDetailEntries, type FieldGroupDetailEntry } from '../synth/buildDefaultPageSchema';
 import { useRecordAriaProps } from './recordComponentAria';
 import { recordBindingBlock } from './recordBinding';

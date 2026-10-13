@@ -516,7 +516,9 @@ request of its own:
   reachable. A request its caller aborted does not move it either.
 
 Every request goes through the adapter's one fetch, including those made
-through `getClient()`. The response or rejection reaches your code unchanged.
+through `getClient()`, except `uploadFile` / `uploadFiles`. Those two call the
+global `fetch`, so an upload's outcome does not move the state. The response or
+rejection reaches your code unchanged.
 
 ### Auto-Reconnect
 

@@ -3349,7 +3349,9 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
   }) {
     // objectui#12295 — ONE fetch carries every request this adapter makes: the
     // client's (data, metadata, analytics, and every caller of `getClient()`)
-    // and the adapter's own raw reads alike. It is the single seam where "the
+    // and the adapter's own raw reads alike. The exception is `uploadFile` /
+    // `uploadFiles`, which call the global `fetch`, so an upload's outcome does
+    // not move the connection state. This fetch is the single seam where "the
     // server answered" (a Response, whatever its status) can be told apart
     // from "no HTTP answer at all" (the fetch rejected), so the connection
     // state follows the requests the host already makes; see

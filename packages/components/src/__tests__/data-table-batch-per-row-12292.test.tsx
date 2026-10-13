@@ -21,7 +21,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import React from 'react';
 import { renderComponent } from './test-utils';
 // Registers the renderers at module scope, NOT inside a `beforeAll`; see
 // object-ui/no-dynamic-import-in-test-hook (objectui#3010/#3021).

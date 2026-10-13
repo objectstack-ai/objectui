@@ -5436,9 +5436,14 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // `@object-ui/plugin-detail`, the one `InlineEditSaveBar` opens. There is no
   // grid-only dialog, and nothing is retried without the user's choice.
 
-  /** Open the conflict dialog and wait for the user's choice. */
+  /**
+   * Open the conflict dialog and wait for the user's choice. A save still
+   * waiting on an earlier dialog is settled as Cancel first, so no save is
+   * left waiting on a dialog that is no longer shown.
+   */
   const askRowConflict = (conflict: ConcurrentUpdateConflict): Promise<RowConflictChoice> =>
     new Promise<RowConflictChoice>((resolve) => {
+      rowConflictDecisionRef.current?.('cancel');
       rowConflictDecisionRef.current = resolve;
       setRowConflict(conflict);
     });

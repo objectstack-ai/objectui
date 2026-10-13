@@ -999,6 +999,9 @@ const persistence = (
   data-invalidation bus, a page change) draws and saves every edit on the record
   it was typed on. An edit whose record the current page no longer holds stays
   pending, and "Save All" still writes it to that record.
+- **Editing during a save is kept**: cells stay editable while a row save or
+  "Save All" is in flight, and the save clears only the values it sent. An edit
+  made during the save, on any row or on the cell being saved, stays pending.
 
 **Example Workflow:**
 1. User edits multiple cells across different rows

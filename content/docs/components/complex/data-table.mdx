@@ -134,6 +134,13 @@ hands it over with the row it was staged against and a negative `rowIndex`
 table holds is that record's. Every other entry's `rowIndex` is the row's index
 when "Save All" is pressed.
 
+Cells stay editable while a row save or "Save All" is in flight. When the save
+settles, it clears only what it sent: each cell whose pending value is still the
+value it sent. An edit made during the save stays pending and drawn, whether it is
+on another row, on another cell of the row being saved, or a new value for a cell
+being saved (even the value the row loaded with, since the save writes the old
+edit). The settle closes only the editor that was open when the save was pressed.
+
 The host can also supply `renderCellEditor`, a function the table calls first for
 every cell it is about to edit; it returns a node to use, or `null` to fall through
 to the built-in editor for that column. This is how `object-grid` gives a `select`

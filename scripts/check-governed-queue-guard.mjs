@@ -283,17 +283,33 @@ export const EVENT_MERGE_GROUP = 'merge_group';
 export const EVENT_PULL_REQUEST = 'pull_request';
 
 /**
- * The governed surface, verbatim from the 2026-08-18 definition the card
- * restates: `AGENTS.md`, `CLAUDE.md`, `.claude/**`, `skills/**`, `docs/adr/**`.
+ * The governed surface: the 2026-08-18 definition the card restated —
+ * `AGENTS.md`, `CLAUDE.md`, `.claude/**`, `skills/**`, `docs/adr/**` — plus
+ * `.github/workflows/**`, which the maintainer ruled in on objectui#12255
+ * (verbatim, untranslated: 「两仓加治理行」).
  *
  * ⛔ This list is the WHOLE scope and widening it is a maintainer decision, not
- * an implementation detail. Two omissions are deliberate and worth naming so a
- * future reader does not read them as oversights:
+ * an implementation detail. The workflows row is that rule working, not an
+ * exception to it: until the ruling this comment named `.github/workflows/**` as
+ * a widening deliberately NOT taken, and the row arrived by the maintainer's
+ * word rather than by an implementation's reading. What it costs, named so a
+ * future reader does not read it as an accident:
  *
- *   - `.github/workflows/**` is NOT governed, so this guard does not govern its
- *     own workflow file. Making CI configuration governed is a strictly larger
- *     rule than the one ruled, and taking it here would be widening a
- *     governance gate past its own ruling.
+ *   - this guard now governs its OWN workflow file, so a change to how the
+ *     refusal is wired waits for the same authorized approval the refusal
+ *     enforces. The script itself stays ordinary source (`scripts/**` is not a
+ *     row).
+ *   - a Dependabot `github-actions` bump edits `.github/workflows/**`, so it is
+ *     governed like any other workflow change: `dependabot-auto-merge.yml` still
+ *     approves and enqueues it, and the `merge_group` leg refuses it until an
+ *     approval by an account in `GOVERNED_APPROVERS` is on record.
+ *
+ * Two omissions are deliberate and worth naming so a future reader does not read
+ * them as oversights:
+ *
+ *   - the rest of `.github/` stays out (`dependabot.yml`, `labeler.yml`,
+ *     `prompts/**`, an `ISSUE_TEMPLATE/**` tree): the ruling named the
+ *     workflows, not the directory that holds them.
  *   - `examples/**` and any vendored template copy of `AGENTS.md` stay out: the
  *     two root rows are EXACT matches, so `examples/AGENTS.md` is ordinary
  *     source.
@@ -307,6 +323,7 @@ export const GOVERNED_SURFACES = Object.freeze([
   Object.freeze({ id: 'skills-catalog', prefix: 'skills/', glob: 'skills/**', what: 'the published skills catalog' }),
   Object.freeze({ id: 'agents-md', exact: 'AGENTS.md', glob: 'AGENTS.md', what: 'the repo-root agent instruction file' }),
   Object.freeze({ id: 'claude-md', exact: 'CLAUDE.md', glob: 'CLAUDE.md', what: 'the repo-root Claude instruction file' }),
+  Object.freeze({ id: 'workflows', prefix: '.github/workflows/', glob: '.github/workflows/**', what: 'CI, deploy and release workflows: what runs on every push, what deploys, what gates the queue' }),
 ]);
 
 /**
@@ -871,8 +888,11 @@ export function carrierPullsInGroup(rows, namedPull = null) {
  * was before this predicate existed. An early warning on the PR leg would be
  * useful and is deliberately NOT taken here: the ruling this leg implements is
  * about ENQUEUE, and widening a governance gate past its own ruling is how gates
- * acquire policy nobody agreed to — the same restraint this file already applies
- * to `.github/workflows/**`. Widening it is a one-line maintainer decision.
+ * acquire policy nobody agreed to — the same restraint this file applies to
+ * `GOVERNED_SURFACES`, whose rows arrive by a maintainer's ruling and never by an
+ * implementation (`.github/workflows/**` was named as a widening NOT taken until
+ * the maintainer ruled it in on objectui#12255). Widening it is a one-line
+ * maintainer decision.
  */
 export function carrierVerdict({ event, pulls = [], readings = new Map(), apiCalls = 0 }) {
   const base = { event, entries: [], apiCalls, legName: CARRIER_LEG_NAME, label: CONTRACT_REVIEW_LABEL };
@@ -1341,13 +1361,14 @@ export async function selfTest() {
 
   // -- the governed surface IS the ruled definition, in both directions ------
   //
-  // The card restates the 2026-08-18 definition as five surfaces. Pinning the
-  // membership BOTH ways is what stops a sixth being added here instead of by a
-  // maintainer, and a fifth being dropped by an edit nobody reads.
-  assert('the-register-declares-exactly-the-five-ruled-surfaces', GOVERNED_SURFACES.length === 5, String(GOVERNED_SURFACES.length));
+  // The card restated the 2026-08-18 definition as five surfaces, and the
+  // maintainer's ruling on objectui#12255 added the sixth, `.github/workflows/**`.
+  // Pinning the membership BOTH ways is what stops a seventh being added here
+  // instead of by a maintainer, and one being dropped by an edit nobody reads.
+  assert('the-register-declares-exactly-the-six-ruled-surfaces', GOVERNED_SURFACES.length === 6, String(GOVERNED_SURFACES.length));
   assert(
     'and-they-are-the-ruled-globs-verbatim',
-    GOVERNED_SURFACES.map((s) => s.glob).join() === 'docs/adr/**,.claude/**,skills/**,AGENTS.md,CLAUDE.md',
+    GOVERNED_SURFACES.map((s) => s.glob).join() === 'docs/adr/**,.claude/**,skills/**,AGENTS.md,CLAUDE.md,.github/workflows/**',
     GOVERNED_SURFACES.map((s) => s.glob).join(),
   );
   for (const surface of GOVERNED_SURFACES) {
@@ -1358,10 +1379,23 @@ export async function selfTest() {
   // The two exact rows are EXACT: a vendored or example copy is ordinary source.
   assert('an-example-copy-of-AGENTS.md-is-not-the-governed-one', governedPathsIn(['examples/AGENTS.md']).length === 0);
   assert('a-near-miss-adr-directory-is-not-governed', governedPathsIn(['docs/adrs/z.md', 'docs/adr-notes.md']).length === 0);
-  // ⛔ The widening this guard deliberately does NOT take: it does not govern
-  // its own workflow, and pinning that keeps the scope honest against a future
-  // edit that quietly promotes CI config to a governed surface.
-  assert('this-guards-own-workflow-is-NOT-governed', governedPathsIn([`.github/workflows/${CHECK_WORKFLOW}`, 'scripts/check-governed-queue-guard.mjs']).length === 0);
+  // ⭐ This case used to pin the OPPOSITE — "this guard's own workflow is NOT
+  // governed" — as the widening deliberately not taken. The maintainer took it
+  // (objectui#12255), so it is reversed rather than deleted: the guard governs
+  // its own workflow file, and the script that file runs stays ordinary source.
+  const ownWiring = governedPathsIn([`.github/workflows/${CHECK_WORKFLOW}`, 'scripts/check-governed-queue-guard.mjs']);
+  assert(
+    'this-guards-own-workflow-IS-governed-and-its-script-is-not',
+    ownWiring.length === 1 && ownWiring[0].id === 'workflows' && ownWiring[0].files.join() === `.github/workflows/${CHECK_WORKFLOW}`,
+    JSON.stringify(ownWiring.map((s) => [s.id, s.files])),
+  );
+  // ⛔ The widening this guard still does NOT take: the ruling named the
+  // workflows, not the `.github/` directory that holds them.
+  assert(
+    'the-rest-of-.github-is-NOT-governed',
+    governedPathsIn(['.github/dependabot.yml', '.github/ISSUE_TEMPLATE/config.yml', '.github/labeler.yml', '.github/prompts/component.prompt.md']).length === 0,
+  );
+  assert('a-near-miss-workflows-path-is-not-governed', governedPathsIn(['.github/workflow/ci.yml', '.github/workflows.md']).length === 0);
   assert('ordinary-source-is-not-governed', governedPathsIn(['packages/core/src/index.ts', 'content/docs/guide/x.md', 'package.json']).length === 0);
 
   // -- the exit contract as a table ------------------------------------------
@@ -1521,6 +1555,16 @@ export async function selfTest() {
     new Map([[11, authorizedPass()], [12, authorizedApprovalVerdict([])]]),
   );
   assert('one-approved-pr-does-NOT-carry-an-unapproved-sibling-through-the-same-group', partial.exitCode === EXIT_REFUSED_UNAPPROVED);
+  // The workflows row's consequence for Dependabot, pinned as the ruling's and
+  // not as a defect: a `github-actions` bump edits `.github/workflows/**`, and the
+  // approval `dependabot-auto-merge.yml` leaves is by `github-actions[bot]`, an
+  // account outside GOVERNED_APPROVERS — so the queue refuses it, and the PR leg
+  // only warns, exactly as for any other governed pull request.
+  const bumpRows = [row(4242, ['.github/workflows/ci.yml', '.github/workflows/lint.yml'])];
+  const bumpQueued = run('merge_group', bumpRows, new Map([[4242, authorizedApprovalVerdict(approved('github-actions[bot]'))]]));
+  assert('a-github-actions-bump-approved-only-by-the-bot-is-REFUSED-at-the-queue-with-code-3', bumpQueued.conclusion === 'refused' && bumpQueued.exitCode === EXIT_REFUSED_UNAPPROVED);
+  const bumpWarned = run('pull_request', bumpRows, new Map([[4242, approvalVerdict(approved('github-actions[bot]'))]]));
+  assert('and-the-same-bump-is-not-reddened-on-its-pull-request', bumpWarned.exitCode === EXIT_CLEAR);
 
   // -- the pull_request leg is an EARLY WARNING and never reddens -------------
   const warnedV = run('pull_request', [row(6183, ['AGENTS.md'])], new Map([[6183, approvalVerdict([])]]));
@@ -2183,7 +2227,7 @@ export async function selfTest() {
   }
   console.log(
     `OK check-governed-queue-guard self-test: ${checked} cases pass ` +
-      '(the five ruled surfaces pinned in both directions including the widenings NOT taken, the queue/PR ' +
+      '(the six ruled surfaces pinned in both directions including the widenings NOT taken, the queue/PR ' +
       'event split, latest-decisive approval reduction, the authorized-approval-record predicate on the queue ' +
       'leg per the 2026-09-04 ruling — counts on an OLDER commit, on no commit_id and on an unparsable one; ' +
       'never for an unauthorized, dismissed, superseded, non-decisive or absent review — with the PR leg ' +

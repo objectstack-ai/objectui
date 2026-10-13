@@ -733,9 +733,9 @@ jobs:
       # that happened to still find `.changeset/` empty.
       #
       # The backstop for `main` is `ci.yml`'s push lane, which runs the whole suite under
-      # coverage across four shards on every push and enforces the thresholds on the merged
-      # report (objectui#5403). That is the copy that tests this commit; this one only ever
-      # duplicated it, ~34 minutes later.
+      # coverage across every shard of its `test-coverage` matrix on every push and enforces
+      # the thresholds on the merged report (objectui#5403). That is the copy that tests this
+      # commit; this one only ever duplicated it, ~34 minutes later.
 
       - name: Build packages
         run: pnpm build
@@ -1217,7 +1217,7 @@ jobs:
       # Zero `.ts`, zero `.tsx`, zero config. The source in the post-version
       # tree is byte-identical to the `main` commit this run checked out, and
       # `ci.yml`'s push lane already ran the whole suite over that commit under
-      # coverage across four shards. A `pnpm test` here would re-test bytes that
+      # coverage across every shard. A `pnpm test` here would re-test bytes that
       # were tested ~13 min ago and would report nothing new — at 40 minutes a
       # go (`ci.yml` measured its own unsharded suite at 39 min 51 s of tests /
       # 40 min 19 s of job), four times a day on the cron below, i.e. ~2.7 h of

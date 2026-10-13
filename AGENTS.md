@@ -19,6 +19,16 @@ You don't just build components — you build a **Renderer** that interprets JSO
 - **The "JSON-to-Shadcn" bridge** — combine low-code speed with Shadcn/Tailwind design quality.
 - **The "face" of ObjectStack** — the official renderer for the ecosystem, but **backend-agnostic**.
 
+### Product-neutral renderer
+
+objectui renders for every product the same way — ObjectStack Cloud, HotCRM, any app built on the stack. Three rules, recorded in ADR-0060 (`docs/adr/0060-product-neutral-renderer.md`):
+
+1. **A product composes its pages.** It builds them from the generic blocks of `@objectstack/spec`'s page vocabulary and keeps their copy in its own bundles.
+2. **A page that cannot be composed is fixed generically:** a **generic** block here, named for what it draws (`stat`, `usage-bar`, `checklist`), or a **contract door** in `@objectstack/spec` (`needs:contract-review`). ⛔ Never a widget, dialog, hook or i18n namespace named for the product that needed it.
+3. **What already exists stays until its page migrates, and may only shrink.**
+
+`packages/app-shell/src/__tests__/product-neutral-renderer.ratchet.test.ts` holds rules 2 and 3 for registry keys, file names and locale keys led by a product word, and for the frozen directories and namespaces. Its live list, `product-specific.allowlist.json`, takes deletions only: the pull request that migrates a surface out deletes its entries. ⛔ Never append to that list to turn the test green. ADR-0060's frozen-baseline block is the ceiling, and growing it is an ADR amendment the maintainer approves. The test reads names, not intent, so a product surface under a neutral name is left to review and the pull-request template's checkbox.
+
 ---
 
 ## 2. Tech Stack (strict)
@@ -177,8 +187,10 @@ export const SchemaRenderer = ({ schema }: { schema: BaseSchema }) => {
 ```bash
 pnpm exec vitest run packages/<pkg>/src/<file>.test.ts   # 只跑一个文件
 pnpm exec vitest run packages/<pkg>/                     # 只跑一个包
-pnpm test                                                # 全量(CI 就是它,可加 --shard=1/4)
+pnpm test                                                # 全量(CI 就是它,可加 --shard=1/12)
 ```
+
+`--shard=K/N` 在本地也经根 config 的 `sequence.sequencer`(`scripts/test-shard-sequencer.mjs`)分腿:按 `scripts/test-shard-timings.json` 里实测的每文件耗时,不按路径哈希,开跑前打印一行 `test-shard-sequencer:` 读数。分配只由文件集、那份 timings 与 N 决定(`scripts/test-shard-partition.mjs` 文件头),所以 N 取 CI 某个 matrix 的宽度时,同一 checkout 上不带路径的 `pnpm test --shard=K/N` 跑的就是那个 matrix 全量运行时第 K 腿的文件;带了路径,文件集变了,分配也跟着变。N 以 `ci.yml` 为准 —— `test` 与 `test-coverage` 两个 matrix 各自声明宽度;示例里的 `12` 是写下时 `test` matrix 的读数,本文件不复核它(诫条 #9)。
 
 AGENTS.md 的「只跑受影响的包」指的是**用上面的路径过滤缩小范围**,不是 `cd` 进包里。
 `pnpm --filter <pkg> test` 与 `turbo run test` **不再静默假绿**(objectui#3240):每个包的
@@ -517,13 +529,14 @@ ls <dir>/* | wc -l                                   # 两个数不等 ⇒ 工�
 
 > 同意
 
-**本仓的受管面 —— 五项,已逐条对本仓实际目录核实:**
+**本仓的受管面 —— 六项,已逐条对本仓实际目录核实:**
 
 - `AGENTS.md` —— **你正在读的这个文件本身就是受管面**。
 - `CLAUDE.md` —— 仓根一个。
 - `.claude/**` —— **整棵树**:hooks、settings、launch 配置、内部 skills,一个不落,**不是只有 skills**。
 - `skills/**` —— 仓根**发布给使用者**的那棵 skills 树(如 `skills/objectui/`),guard 里的 `skills-catalog` 一项 —— 见下方 ⚠️,这一项本段曾经写反。
 - `docs/adr/**` —— 本仓**确实有**这个目录;它和上面四项同级,不因为篇数少而降级。
+- `.github/workflows/**` —— CI、部署与发版 workflow 决定每次 push 跑什么、拿什么门禁挡合并队列,改它们由维护者批准(维护者 2026-10-12 裁决,原文照录:「两仓加治理行」,objectui#12255)。guard 自己的 `governed-surface-guard.yml` 也在内;Dependabot 的 `github-actions` 升级同样受管 —— `dependabot-auto-merge.yml` 照常批准并入队,`merge_group` 腿照样拒绝,它等的也是一条获授权的批准。`.github/` 下其余文件(`dependabot.yml`、`labeler.yml`、`prompts/`)**不受管**。
 
 ⚠️ **两棵 skills 树都受管 —— 别把它们和 skill 的安装位置弄混:**
 
@@ -549,7 +562,7 @@ sha pin **退休**之后这条**更重、不是更轻**(维护者 2026-09-04 裁
 - **CI 全绿、已 review 都不构成例外。** 这类文件是后续每一次 dispatch 读的操作规程,绿灯说明不了它该不该成为规程。
 - **发现自己已经挂上了怎么办**:把 PR 转回 **draft** 是唯一能可靠退出合并队列的动作 —— 只调 `disable_pr_auto_merge` 会摘掉 auto-merge 但**不取消队列成员资格**,两个都要做。⚠️ 只回收**你自己**挂上的:本仓多 agent 共用同一 GitHub 身份,不是你设置的状态就属于别的 actor —— 去问、去报告,别替他回退。
 
-**本仓的机械兜底只有一件,它的两条腿意思不同:`merge_group` 腿拦得住合并队列(2026-09-27 起,见下),`pull_request` 腿只告警 —— 别把 PR 页上的绿读成不受管,也别再读成「什么都没有」。** 本仓仍然没有 CODEOWNERS(核实:仓内不存在该文件),受管面上也没有钩子;但 `.github/workflows/governed-surface-guard.yml`(check 名 `Governed Surface Queue Guard`,判定逻辑在 `scripts/check-governed-queue-guard.mjs`)**是活的**:`pull_request` 腿是早期告警、**故意 exit 0**(受管 PR 停在 draft 正是健康终态,所以**绿不等于不受管**),`merge_group` 腿才是会拒绝的那条 —— 它要求 `GOVERNED_APPROVERS`(`os-zhuang` / `hotlong`)里某个账号的一条 latest-decisive APPROVED review,**留在哪个 commit 上都算**;DISMISSED 与被顶掉的批准(同一 reviewer 后续给了 CHANGES_REQUESTED)不算,该集合之外账号的 APPROVED 不算,review 列表为空或读不到则 fail closed —— 判定读的是**有没有一条人工批准记录**,不问它是对哪些字节给的(维护者 2026-09-04 裁,逐字未译:「你的门禁有问题，只需要有人工批准记录就行，不需要卡最新的提交。」;sha pin 是**退休**不是放宽,守卫里已没有任何判定读 `commit_id`)。⚠️ 已接受的代价:批准之后的 push 不再被这道门重审,一个已批准的受管 PR 可以带着批准者没读过的字节落地 —— 维护者接受这一点,而这道拒绝先印的补救仍是转回 draft、交人类合并。⚠️ 而这条拒绝腿上的判据**不止上面那一条** —— #9018(PR #9212)给 `merge_group` 腿加了**第二条、与受管面完全无关的**判据:它枚举该 merge group 要落地的**每一个** PR(逐 commit 分解,不是只读 `merge_group.head_ref`),读每个 PR 的 label,其中任何一个仍挂着 `needs:contract-review` 就拒绝(**exit 6**);label 读不到、或该 group 指不出任何 PR,同样拒绝(**exit 7**)。⚠️ 这条判据读的是**挂在 PR 上的 label**,不读任何路径、不问 diff 命中了什么 —— ⇒ **一个 diff 完全没碰受管面的 merge group,现在也可能被这道 check 拒绝**;`pull_request` 腿不受影响,不读 label。⚠️ 它拦得住,是因为这个 check 名进了 ruleset 的 required 集合 —— 下面是一段有日期的历史,不是本段替你复核的现状:ruleset 开关只有维护者能翻;2026-09-14 的读数里它还不在集合中,那时这条拒绝腿只报告、不阻止队列;ruleset 的最后一次编辑在 2026-09-27,三分钟后 objectui#6596 以 completed 关闭,2026-09-28 实测它已在集合里。**在集合里,它的拒绝(上面的 exit 6 / exit 7 同样)就会把 PR 踢出合并队列。** 它现在还在不在,跑 `node scripts/check-required-check-set.mjs` 读,⛔ 别把它的答案抄进本段。⚠️ 这是按配置推出的,不是观察到的:登记后到 2026-09-28 的 `merge_group` 运行全部通过,拒绝路径还没在队列里真正触发过一次。事后一侧:`../objectstack` 的 report-only 合并后审计(`scripts/pm/check-governed-merges.mjs`)自 objectstack#9619 起**已覆盖本仓**(四个受管仓一次扫完),它把受管面的合并列出来,但它不阻止任何事。⇒ 一个没有获授权批准记录的受管 PR 经合并队列落不了地,这一半队列替你拦;**拦不住的是批准本身**:席位共用一个 GitHub 身份,守卫分不出那条 APPROVED 是不是人留的,绕过 ruleset 的人也不经这道门(谁能绕过,见上面 ruleset 那一条)—— 所以第五条禁令的效力仍然全在于你读到了它并照做。**⛔ 别再把本段当成兜底工具的完整清单** —— 覆盖面以脚本自己的 `GOVERNED_SURFACES` 为准(它随树变化,本段不会);⚠️ 该清单曾与上面的受管面清单**并不一致**(脚本的集合含已发布 `skills/**`),这一分歧**已裁**:维护者第 5 场决裁批 #7 采 **Option A**(#6866 评论 5469339478)—— 已发布 `skills/**` **受管**,守卫的读法才是裁定的那个;该裁决**已随本段上方的清单落地**(#6866):上面五项已含 `skills/**`,与脚本的 `GOVERNED_SURFACES` 一致,曾经那条「仓根 `skills/**` 不受管、自行入队」的豁免**已作废**,⛔ 别再照它行事。
+**本仓的机械兜底只有一件,它的两条腿意思不同:`merge_group` 腿拦得住合并队列(2026-09-27 起,见下),`pull_request` 腿只告警 —— 别把 PR 页上的绿读成不受管,也别再读成「什么都没有」。** 本仓仍然没有 CODEOWNERS(核实:仓内不存在该文件),受管面上也没有钩子;但 `.github/workflows/governed-surface-guard.yml`(check 名 `Governed Surface Queue Guard`,判定逻辑在 `scripts/check-governed-queue-guard.mjs`)**是活的**:`pull_request` 腿是早期告警、**故意 exit 0**(受管 PR 停在 draft 正是健康终态,所以**绿不等于不受管**),`merge_group` 腿才是会拒绝的那条 —— 它要求 `GOVERNED_APPROVERS`(`os-zhuang` / `hotlong`)里某个账号的一条 latest-decisive APPROVED review,**留在哪个 commit 上都算**;DISMISSED 与被顶掉的批准(同一 reviewer 后续给了 CHANGES_REQUESTED)不算,该集合之外账号的 APPROVED 不算,review 列表为空或读不到则 fail closed —— 判定读的是**有没有一条人工批准记录**,不问它是对哪些字节给的(维护者 2026-09-04 裁,逐字未译:「你的门禁有问题，只需要有人工批准记录就行，不需要卡最新的提交。」;sha pin 是**退休**不是放宽,守卫里已没有任何判定读 `commit_id`)。⚠️ 已接受的代价:批准之后的 push 不再被这道门重审,一个已批准的受管 PR 可以带着批准者没读过的字节落地 —— 维护者接受这一点,而这道拒绝先印的补救仍是转回 draft、交人类合并。⚠️ 而这条拒绝腿上的判据**不止上面那一条** —— #9018(PR #9212)给 `merge_group` 腿加了**第二条、与受管面完全无关的**判据:它枚举该 merge group 要落地的**每一个** PR(逐 commit 分解,不是只读 `merge_group.head_ref`),读每个 PR 的 label,其中任何一个仍挂着 `needs:contract-review` 就拒绝(**exit 6**);label 读不到、或该 group 指不出任何 PR,同样拒绝(**exit 7**)。⚠️ 这条判据读的是**挂在 PR 上的 label**,不读任何路径、不问 diff 命中了什么 —— ⇒ **一个 diff 完全没碰受管面的 merge group,现在也可能被这道 check 拒绝**;`pull_request` 腿不受影响,不读 label。⚠️ 它拦得住,是因为这个 check 名进了 ruleset 的 required 集合 —— 下面是一段有日期的历史,不是本段替你复核的现状:ruleset 开关只有维护者能翻;2026-09-14 的读数里它还不在集合中,那时这条拒绝腿只报告、不阻止队列;ruleset 的最后一次编辑在 2026-09-27,三分钟后 objectui#6596 以 completed 关闭,2026-09-28 实测它已在集合里。**在集合里,它的拒绝(上面的 exit 6 / exit 7 同样)就会把 PR 踢出合并队列。** 它现在还在不在,跑 `node scripts/check-required-check-set.mjs` 读,⛔ 别把它的答案抄进本段。⚠️ 这是按配置推出的,不是观察到的:登记后到 2026-09-28 的 `merge_group` 运行全部通过,拒绝路径还没在队列里真正触发过一次。事后一侧:`../objectstack` 的 report-only 合并后审计(`scripts/pm/check-governed-merges.mjs`)自 objectstack#9619 起**已覆盖本仓**(四个受管仓一次扫完),它把受管面的合并列出来,但它不阻止任何事。⇒ 一个没有获授权批准记录的受管 PR 经合并队列落不了地,这一半队列替你拦;**拦不住的是批准本身**:席位共用一个 GitHub 身份,守卫分不出那条 APPROVED 是不是人留的,绕过 ruleset 的人也不经这道门(谁能绕过,见上面 ruleset 那一条)—— 所以第五条禁令的效力仍然全在于你读到了它并照做。**⛔ 别再把本段当成兜底工具的完整清单** —— 覆盖面以脚本自己的 `GOVERNED_SURFACES` 为准(它随树变化,本段不会);⚠️ 该清单曾与上面的受管面清单**并不一致**(脚本的集合含已发布 `skills/**`),这一分歧**已裁**:维护者第 5 场决裁批 #7 采 **Option A**(#6866 评论 5469339478)—— 已发布 `skills/**` **受管**,守卫的读法才是裁定的那个;该裁决**已随本段上方的清单落地**(#6866):上面六项已含 `skills/**`,与脚本的 `GOVERNED_SURFACES` 一致,曾经那条「仓根 `skills/**` 不受管、自行入队」的豁免**已作废**,⛔ 别再照它行事。
 
 ### 服务纪律(本仓库与 `../objectstack` 多 agent 并行开发)
 

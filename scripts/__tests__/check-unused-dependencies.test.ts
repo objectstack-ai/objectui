@@ -384,8 +384,8 @@ describe('scope', () => {
  * under v8 coverage instrumentation, a single pass crosses vitest's 15 s
  * `testTimeout`: all three tests then fail with `Test timed out in 15000ms`
  * while the gate itself is green, and because the coverage thresholds live only
- * on the merged 4-shard report, one red shard means the coverage gate does not
- * run at all (objectui#8479).
+ * on the report merged from every coverage shard, one red shard means the
+ * coverage gate does not run at all (objectui#8479).
  *
  * Module scope, not `beforeAll`: the import phase is governed by no timeout,
  * whereas a hook would trade the 15 s `testTimeout` for the narrower 10 s

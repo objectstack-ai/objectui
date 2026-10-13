@@ -1788,8 +1788,10 @@ each *free* package is already imported by.
 **Blocks a PR?** Not on the pull request, by design. On a merge-queue build it refuses.
 
 The **governed surface** is a fixed list — `AGENTS.md`, `CLAUDE.md`, `.claude/**`, `skills/**`,
-`docs/adr/**` — and the rule about it is that a change to any of them is merged by a human, not by
-the queue. That rule used to live only in prose. On
+`docs/adr/**` and, since the maintainer's ruling on
+[#12255](https://github.com/objectstack-ai/objectui/issues/12255), `.github/workflows/**` — and
+the rule about it is that a change to any of them is merged by a human, not by the queue. That rule
+used to live only in prose. On
 [#6183](https://github.com/objectstack-ai/objectui/pull/6183) an `AGENTS.md` change was correctly
 parked as a draft; a GitHub MCP `update_pull_request` call passing only `reviewers` silently also
 set `draft: false`; the pull request entered the merge queue and landed with no human approval, and
@@ -1857,8 +1859,13 @@ the sweeper copy whose H31 compared the gate's two carriers was retired
 carriers either. The `CLEAR` rendering says so out loud, so a green is never read as "the review
 happened".
 
-**What it deliberately does not do.** It does not govern its own workflow or CI configuration
-generally: that would be a larger rule than the one that was ruled. It cannot stop a maintainer
+**What it deliberately does not do.** It does not govern the rest of `.github/` — `.github/dependabot.yml`,
+`.github/labeler.yml`, `.github/prompts/` — because the ruling named the workflows, not their
+directory. It *does*
+govern its own workflow file, and a Dependabot `github-actions` bump with it: that bump edits
+`.github/workflows/**`, so `dependabot-auto-merge.yml` still approves and enqueues it, the queue leg
+refuses it, and it waits for an authorized approval like any other workflow change. It
+cannot stop a maintainer
 merging a governed pull request by hand, and does not try — under this regime the human merge *is*
 the review record. And it does not make itself required: that is a branch-protection setting only
 the maintainer can flip. Until it is flipped, the queue leg reports without stopping anything. What

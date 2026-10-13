@@ -146,14 +146,17 @@ describe('check-governed-queue-guard is wired, not merely present', () => {
  * nothing, and the reverse (a surface silently dropped) is the rule quietly
  * shrinking.
  */
-describe('the governed surface is the 2026-08-18 definition, and it is real', () => {
-  it('declares exactly the five ruled surfaces', () => {
+describe('the governed surface is the ruled definition, and it is real', () => {
+  it('declares exactly the six ruled surfaces', () => {
+    // The five of the 2026-08-18 definition, then `.github/workflows/**`, which
+    // the maintainer's ruling on objectui#12255 added (「两仓加治理行」).
     expect(GOVERNED_SURFACES.map((s) => s.glob)).toEqual([
       'docs/adr/**',
       '.claude/**',
       'skills/**',
       'AGENTS.md',
       'CLAUDE.md',
+      '.github/workflows/**',
     ]);
   });
 
@@ -174,12 +177,21 @@ describe('the governed surface is the 2026-08-18 definition, and it is real', ()
     }
   });
 
-  it('does not govern its own workflow, or CI configuration generally', () => {
-    // The widening deliberately NOT taken. Promoting CI config to a governed
-    // surface is a strictly larger rule than the one ruled, and taking it in an
-    // implementation would be a governance gate acquiring policy nobody agreed
-    // to. Pinned so a later edit has to be a decision.
-    expect(governedPathsIn([WORKFLOW, GATE, '.github/workflows/ci.yml'])).toEqual([]);
+  it('governs every workflow, its own included, and not the script that workflow runs', () => {
+    // This case used to pin the opposite ("does not govern its own workflow, or
+    // CI configuration generally") as the widening deliberately NOT taken. The
+    // maintainer took it on objectui#12255, so the pin is reversed, not deleted:
+    // a later edit that drops the row still has to be a decision.
+    const hit = governedPathsIn([WORKFLOW, GATE, '.github/workflows/ci.yml']);
+    expect(hit.map((s) => s.id)).toEqual(['workflows']);
+    expect(hit[0].files).toEqual([WORKFLOW, '.github/workflows/ci.yml']);
+  });
+
+  it('does not govern the rest of .github/ — the ruling named the workflows, not their directory', () => {
+    // YAML paths only: a markdown literal here would read, to
+    // `markdown-test-inputs.mjs`, as a document this test consumes. The self-test
+    // carries the `.github/prompts/**` negative.
+    expect(governedPathsIn(['.github/dependabot.yml', '.github/ISSUE_TEMPLATE/config.yml', '.github/labeler.yml'])).toEqual([]);
   });
 
   it('the two root rows are EXACT — a vendored copy is ordinary source', () => {

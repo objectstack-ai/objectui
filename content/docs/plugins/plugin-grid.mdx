@@ -824,6 +824,12 @@ const persistence = (
   keys: `onRowSave` for a single row, `onBatchSave` for many, `onCellChange` for
   each committed cell edit, including one that leaves the value as loaded (only a
   real change is staged)
+- **A concurrent write is refused, not overwritten**: the default saves send each
+  row's `updated_at` as `If-Match`, and an editable grid asks for that column even
+  when no column shows it. A row someone else saved after it was read answers
+  `409`, which opens the record page's conflict dialog (Reload latest, Overwrite
+  anyway, Cancel). "Save All" reports each row on its own: a refused row stays
+  pending and flagged, and the rows that saved are cleared.
 
 ## TypeScript Support
 

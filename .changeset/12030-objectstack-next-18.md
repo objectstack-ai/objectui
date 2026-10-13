@@ -1,31 +1,31 @@
 ---
-"@object-ui/app-shell": major
-"@object-ui/auth": major
-"@object-ui/cli": major
-"@object-ui/components": major
-"@object-ui/core": major
-"@object-ui/data-objectstack": major
-"@object-ui/fields": major
-"@object-ui/layout": major
-"@object-ui/permissions": major
-"@object-ui/plugin-chatbot": major
-"@object-ui/plugin-dashboard": major
-"@object-ui/plugin-designer": major
-"@object-ui/plugin-detail": major
-"@object-ui/plugin-form": major
-"@object-ui/plugin-gantt": major
-"@object-ui/plugin-grid": major
-"@object-ui/plugin-list": major
-"@object-ui/plugin-timeline": major
-"@object-ui/plugin-tree": major
-"@object-ui/plugin-view": major
-"@object-ui/react": major
-"@object-ui/types": major
+"@object-ui/app-shell": minor
+"@object-ui/auth": minor
+"@object-ui/cli": minor
+"@object-ui/components": minor
+"@object-ui/core": minor
+"@object-ui/data-objectstack": minor
+"@object-ui/fields": minor
+"@object-ui/layout": minor
+"@object-ui/permissions": minor
+"@object-ui/plugin-chatbot": minor
+"@object-ui/plugin-dashboard": minor
+"@object-ui/plugin-designer": minor
+"@object-ui/plugin-detail": minor
+"@object-ui/plugin-form": minor
+"@object-ui/plugin-gantt": minor
+"@object-ui/plugin-grid": minor
+"@object-ui/plugin-list": minor
+"@object-ui/plugin-timeline": minor
+"@object-ui/plugin-tree": minor
+"@object-ui/plugin-view": minor
+"@object-ui/react": minor
+"@object-ui/types": minor
 ---
 
-Follow `@objectstack/*` across its major, 17 → 18 (objectui#12030). This is the synchronized bump AGENTS.md §版本号策略 reserves `major` for: objectui's major tracks the `@objectstack` major its packages depend on ("major 相同即兼容"), so the fixed group crosses to 18 together with it. It is the only `major` that policy admits.
+Depend on the `@objectstack/*` 18 prerelease line (objectui#12030).
 
-Every `@objectstack/*` range these packages declare in `dependencies` or `peerDependencies` moves from `^17.x` to `^18.0.0-next.0`, the `next` prerelease of `@objectstack/*` 18. The repository is in Changesets pre mode on tag `next` (`.changeset/pre.json`), as objectstack's 18 line is, so this release is `18.0.0-next.N` on the npm `next` dist-tag, and `latest` stays on 17.7.0 until `@objectstack` 18 is GA and both repositories exit pre mode.
+Every `@objectstack/*` range these packages declare in `dependencies` or `peerDependencies` moves from `^17.x` to `^18.0.0-next.0`, the `next` prerelease of `@objectstack/*` 18.
 
 **Breaking for consumers:** an install that resolves `@objectstack/spec` (or `@objectstack/client`, `@objectstack/formula`, `@objectstack/lint`) 17.x no longer satisfies these ranges. A consumer must move its own `@objectstack/*` packages to the 18 line, starting with `18.0.0-next.0`, at the same time as it takes this release.
 

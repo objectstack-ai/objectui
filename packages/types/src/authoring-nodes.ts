@@ -62,11 +62,9 @@
  *     unrecognized key, as it does on `element:text`.
  *     `element:record_picker` also declares `dataSource` (the
  *     spec's `ElementDataSourceSchema`), because its renderer reads the node's
- *     binding, the same rule `ElementNumberBlockSchema` follows. Its bag leaves
- *     `object` optional, because the spec's props gate waives that one member
- *     beside a `dataSource.object` for every row that requires it. A type
- *     cannot carry the waiver's condition, which is also true of the
- *     `element:number` arm's `z.input`.
+ *     binding, the same rule `ElementNumberBlockSchema` follows. Its bag is the
+ *     row as published: the flat `object` it once left optional for the spec's
+ *     `dataSource` waiver is a tombstone since `@objectstack/spec` 18.
  *   - {@link PageDocumentNode}: the spec's `PageSchema` input. `PageView`
  *     hands a stored page to `SchemaRenderer` with its page KIND written into
  *     `type` (objectui#9642), so `type` is required here, while the spec
@@ -323,18 +321,17 @@ export interface FlexBlockNode extends z.input<z.ZodObject<FlexBlockShape>> {}
  */
 export type ElementTextInputNode = SpecRowNode<'element:text_input', typeof SpecElementTextInputPropsSchema>;
 
-type RecordPickerRowShape = (typeof SpecElementRecordPickerPropsSchema)['shape'];
-
 /**
  * `element:record_picker`: `ComponentPropsMap['element:record_picker']`
- * (`ElementRecordPickerPropsSchema`) as its `properties` bag, with `object`
- * optional for the spec's `dataSource` waiver, plus the node-level
- * `dataSource` (`ElementDataSourceSchema`) its renderer reads. Both by
- * reference.
+ * (`ElementRecordPickerPropsSchema`) as its `properties` bag, plus the
+ * node-level `dataSource` (`ElementDataSourceSchema`) its renderer reads. Both
+ * by reference. The row's flat query keys (`object`, `filter`, `sort`,
+ * `limit`) are retired since `@objectstack/spec` 18 (objectui#12030), so the
+ * picker's query is written on the binding.
  */
 export type ElementRecordPickerNode = SpecRowNode<
   'element:record_picker',
-  z.ZodObject<Omit<RecordPickerRowShape, 'object'> & { object: z.ZodOptional<RecordPickerRowShape['object']> }>,
+  typeof SpecElementRecordPickerPropsSchema,
   { dataSource: z.ZodOptional<typeof SpecElementDataSourceSchema> }
 >;
 

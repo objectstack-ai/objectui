@@ -91,12 +91,10 @@ const input = (name: string) =>
   ComponentRegistry.getConfig('element:record_picker')?.inputs?.find((i) => i.name === name);
 
 describe('element:record_picker — the `sort` MEMBER shape the renderer reads (objectui#8068, objectui#11880)', () => {
-  it('CONTROL — the flat `sort` is still declared as an array of OBJECTS, and says it is not read', () => {
-    // Published until the spec's v18 retirement (objectstack#11509); the
-    // description is what tells an author the binding is the door.
-    expect(input('sort')?.type).toBe('array');
-    expect(input('sort')?.of).toBe('object');
-    expect(input('sort')?.description).toMatch(/NOT READ/);
+  it('CONTROL — the flat `sort` is not published since the spec retired it; the binding is the door', () => {
+    // It was published, described as NOT READ, until `@objectstack/spec` 18
+    // retired it as a tombstone (objectstack#11509, objectui#12030).
+    expect(input('sort')).toBeUndefined();
     expect(input('dataSource')).toBeDefined();
   });
 

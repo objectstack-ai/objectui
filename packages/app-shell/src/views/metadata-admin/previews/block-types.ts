@@ -231,6 +231,15 @@ export const PALETTE_EXCLUSIONS: Record<string, string> = {
   // only because the then-pinned `@objectstack/spec` did not declare the
   // canonical name yet (objectui#5328); the pinned spec now declares both.
   'record:chatter': 'compatibility alias — same renderer as the offered canonical `record:discussion`; still renders, just no longer advertised',
+  //
+  // `@objectstack/spec` 18 added three record blocks to `PageComponentType`
+  // (objectui#12030). The bump records a palette decision for each and makes
+  // none: offering a block is Studio feature work, and two of the three are
+  // already drawn by the record page itself. Each reason states only what is
+  // true of the block today.
+  'record:approvals': 'renders (registered by `@object-ui/app-shell`), not yet offered: `@objectstack/spec` 18 added the type, and offering it in the palette is a Studio decision the version bump does not make',
+  'record:attachments': 'renders (registered by `@object-ui/app-shell`), not yet offered: `@objectstack/spec` 18 added the type, and offering it in the palette is a Studio decision the version bump does not make',
+  'record:approval_decision': 'not yet registered as a page block — `ApprovalDecisionRenderer` (`@object-ui/app-shell`) is written and no registration mounts it yet; `@objectstack/spec` 18 added the type, and registering and offering it is follow-up work',
 };
 
 /**

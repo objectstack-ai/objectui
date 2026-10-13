@@ -106,11 +106,10 @@ describe('objectui#10872 batch 4 — the six held blocks are armed, by reference
     expect(PageComponentSchema.safeParse({ type }).success).toBe(true);
   });
 
-  // `element:repeater`'s bag is its row with `object` alone made optional since
-  // objectui#12056 (the spec gate's `dataSource` waiver, mirrored as
-  // `element:number`'s is), so it is a clone by construction, pinned member by
-  // member in `./element-repeater-data-source-11880.test.ts`.
-  it.each(ARMS.filter(([type]) => type !== 'element:repeater'))('%s: the bag IS the spec row — nothing restated, nothing stripped', (type, arm) => {
+  // `element:repeater`'s bag was its row with `object` alone made optional from
+  // objectui#12056 until `@objectstack/spec` 18 retired that `object`
+  // (objectui#12030); it is the row by reference again, so it is back in this row.
+  it.each(ARMS)('%s: the bag IS the spec row — nothing restated, nothing stripped', (type, arm) => {
     const row = rowOf(type);
     // All six rows carry no default and no `z.lazy`, so the import boundary is
     // the identity function on them (objectui#8317)…
@@ -172,18 +171,21 @@ describe('objectui#10872 batch 4 — the arm follows the row, which follows the 
   });
 
   it.each(FACES)('%s face: `element:repeater` refuses a `fields[].label`, which the list never prints', (_face, judge) => {
-    const result = judge({ type: 'element:repeater', properties: { object: 'task', fields: [{ field: 'subject', label: 'Subject' }] } });
+    const result = judge({ type: 'element:repeater', dataSource: { object: 'task' }, properties: { fields: [{ field: 'subject', label: 'Subject' }] } });
     expect(result.success).toBe(false);
     expect(refusedKeys(result)).toContain('label');
-    expect(judge({ type: 'element:repeater', properties: { object: 'task', fields: [{ field: 'subject' }, 'status'] } }).success)
+    expect(judge({ type: 'element:repeater', dataSource: { object: 'task' }, properties: { fields: [{ field: 'subject' }, 'status'] } }).success)
       .toBe(true);
   });
 
-  it.each(FACES)('%s face: `element:repeater` requires `object` unless a binding names it — the spec gate\'s waiver (objectui#12056)', (_face, judge) => {
-    const result = judge({ type: 'element:repeater', properties: { limit: 5 } });
+  it.each(FACES)('%s face: `element:repeater` refuses a flat `object` — the binding names it (objectui#12030)', (_face, judge) => {
+    // objectui#12056 mirrored the spec gate's waiver of a required flat `object`
+    // beside a binding; `@objectstack/spec` 18 retired the flat `object`, so the
+    // bag refuses it by name and the binding is where the object is written.
+    const result = judge({ type: 'element:repeater', properties: { object: 'task' } });
     expect(result.success).toBe(false);
     expect(at(result, 'properties.object').length).toBeGreaterThan(0);
-    expect(judge({ type: 'element:repeater', properties: { limit: 5 }, dataSource: { object: 'task' } }).success).toBe(true);
+    expect(judge({ type: 'element:repeater', properties: {}, dataSource: { object: 'task' } }).success).toBe(true);
   });
 
   it.each(FACES)('%s face: `objectName` is the two single actions\' key, and each MEMBER\'s on the containers', (_face, judge) => {

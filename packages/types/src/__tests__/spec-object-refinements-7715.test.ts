@@ -141,6 +141,31 @@ describe('objectui#11717 — the Page `requires` ⇄ `kind` refusal reaches obje
   });
 });
 
+describe('objectui#12030 — the Page `details` + `tabs` slot-pair refusal reaches objectui', () => {
+  const BOTH = { kind: 'slotted', slots: { details: [], tabs: [] } };
+
+  it('the spec refuses the pair at `slots.details`, and objectui refuses with the spec\'s own issue', () => {
+    const spec = SpecPageSchema.safeParse(specPage(BOTH));
+    expect(spec.success).toBe(false);
+    const specIssue = spec.error!.issues.find((i) => i.path.join('.') === 'slots.details');
+    expect(specIssue?.code).toBe('custom');
+
+    for (const r of [PageNodeSchema.safeParse(pageNode(BOTH)), safeValidateSchema(pageNode(BOTH))]) {
+      expect(r.success).toBe(false);
+      const issues = r.error!.issues.map((i) => ({ code: i.code, path: i.path.join('.'), message: i.message }));
+      expect(issues).toContainEqual({ code: 'custom', path: 'slots.details', message: specIssue!.message });
+    }
+  });
+
+  it('controls: either slot alone passes on both doors', () => {
+    for (const extra of [{ kind: 'slotted', slots: { tabs: [] } }, { kind: 'slotted', slots: { details: [] } }]) {
+      expect(SpecPageSchema.safeParse(specPage(extra)).success).toBe(true);
+      expect(PageNodeSchema.safeParse(pageNode(extra)).success).toBe(true);
+      expect(safeValidateSchema(pageNode(extra)).success).toBe(true);
+    }
+  });
+});
+
 // ── The census: every object-level check the spec runs is accounted for ─────
 
 /**
@@ -180,8 +205,15 @@ const SITES = [
     spec: SpecPageSchema,
     // `checkPageRequiresKind` joined the spec object at 17.7.0 (objectstack#21459) and was
     // attached by objectui#11717: it reads `kind` and `requires`, both carried by reference.
-    attached: ['checkPageSourceCompleteness', 'checkPageRequiresKind'],
-    notAttachable: [],
+    // `checkPageSlotPair` joined at 18 (objectstack#22568) and was attached by objectui#12030:
+    // it reads `slots`, carried by reference.
+    attached: ['checkPageSourceCompleteness', 'checkPageRequiresKind', 'checkPageSlotPair'],
+    // `checkPagePrintComposition` joined at 18 (the `print` page, ruling B′ on objectstack#8346).
+    // It reads `type` and `regions`, and this node carries NEITHER by reference: both are in
+    // `PAGE_SPEC_EXCLUDED`, `type` being the component discriminator (`'page'`, or a page kind
+    // on the kind node) and `regions` objectui's own `PageNodeRegionSchema` — so it is not
+    // attachable here, the measurement `checkListViewPageMount` had on the list-view site.
+    notAttachable: ['checkPagePrintComposition'],
   },
   {
     site: 'ListViewSchema (objectql.zod.ts)',
@@ -192,7 +224,11 @@ const SITES = [
     // stopped exporting it at 17.5.0, when it retired `pageName` and the `page`
     // list-view type; the row and its measurement left together, as the
     // measurement's own message instructed (objectui#11073).
-    notAttachable: [],
+    // `checkListViewChartBinding` joined at 18 (objectstack#22491). It judges a view whose
+    // `type` is `'chart'`, and on this node `type` is the component discriminator
+    // (`'list-view'`; the view kind is the local `viewType`), so attached it would never
+    // fire: not attachable, for the reason `checkListViewPageMount` was (objectui#12030).
+    notAttachable: ['checkListViewChartBinding'],
   },
 ] as const;
 

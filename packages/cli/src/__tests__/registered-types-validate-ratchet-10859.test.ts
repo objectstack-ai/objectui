@@ -134,7 +134,7 @@ const REFUSED_AT_TYPE = 0;
  * The head's refused count over the NAMESPACED keys (objectui#10872 batch 1:
  * 418 on `main` before it, minus the twenty ADR-0080 public blocks armed from
  * their `@objectstack/spec` `ComponentPropsMap` rows; batch 2: minus
- * `element:number`, armed with the spec's `dataSource` waiver; batch 4: minus
+ * `element:number`, armed with the spec's `dataSource` waiver (its row by reference since `@objectstack/spec` 18, objectui#12030); batch 4: minus
  * the six blocks `@objectstack/spec` 17.5.0 gave a row; objectui#10859 batch 8:
  * minus `view:tree` and `plugin-view:view`, the namespaced twins of the `tree` /
  * `view` aliases it unregistered; objectui#10859 batch 8 phase 2b: minus the
@@ -749,13 +749,13 @@ describe('objectui validate — a page built from ADR-0080 public blocks (object
     expect(exitCodes).toEqual([1]);
   });
 
-  it('validates `element:number` in both of its binding forms (objectui#10872 batch 2)', async () => {
-    // The props form, and the `dataSource` form the spec's props gate waives
-    // `properties.object` for.
+  it('validates `element:number` in its binding form (objectui#10872 batch 2, objectui#12030)', async () => {
+    // The `dataSource` form, the one form since `@objectstack/spec` 18 retired the
+    // flat `properties.object` (objectui#12030).
     const page = {
       type: 'page',
       children: [
-        { type: 'element:number', properties: { object: 'order', aggregate: 'count' } },
+        { type: 'element:number', dataSource: { object: 'order' }, properties: { aggregate: 'count' } },
         { type: 'element:number', dataSource: { object: 'order' }, properties: { aggregate: 'sum', field: 'total' } },
       ],
     };
@@ -770,9 +770,11 @@ describe('objectui validate — a page built from ADR-0080 public blocks (object
     expect(exitCodes).toEqual([0]);
   });
 
-  it('refuses an `element:number` that names its object nowhere, at `properties.object`', async () => {
-    // The control that keeps the row above from passing for the wrong reason.
-    const page = { type: 'page', children: [{ type: 'element:number', properties: { aggregate: 'count' } }] };
+  it('refuses an `element:number` that writes the retired flat `properties.object`', async () => {
+    // The control that keeps the row above from passing for the wrong reason:
+    // the same block with its object in the bag, which `@objectstack/spec` 18
+    // refuses by name and points at `dataSource.object` (objectui#12030).
+    const page = { type: 'page', children: [{ type: 'element:number', properties: { object: 'order', aggregate: 'count' } }] };
     const file = join(dir, 'element-number-page-refused.json');
     writeFileSync(file, JSON.stringify(page, null, 2), 'utf-8');
 
@@ -823,7 +825,7 @@ describe('objectui validate — a page built from ADR-0080 public blocks (object
         { type: 'action:group', properties: { display: 'dropdown', actions: [{ name: 'archive', label: 'Archive' }] } },
         { type: 'action:menu', properties: { actions: [{ name: 'delete', label: 'Delete' }] } },
         { type: 'element:definition-list', properties: { columns: 2, items: [{ term: 'Owner', description: 'Ada' }] } },
-        { type: 'element:repeater', properties: { object: 'task', fields: ['subject'], limit: 5 } },
+        { type: 'element:repeater', dataSource: { object: 'task', limit: 5 }, properties: { fields: ['subject'] } },
       ],
     };
     const file = join(dir, 'held-blocks-page.json');

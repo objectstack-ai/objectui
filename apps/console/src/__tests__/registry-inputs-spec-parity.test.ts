@@ -976,6 +976,12 @@ const UNJUDGED_SPEC_BLOCKS: Record<string, string> = {
     'EMPTY SPEC SHAPE. New in `@objectstack/spec` 17.3.0, which declares it with no top-level key at all. Registered propless by `@object-ui/app-shell` (`src/console/marketplace/InstalledListWidget.tsx`), outside this file\'s import graph; the empty shape is the load-bearing half either way. objectui#7122, ledger objectui#8176.',
   'mcp:connect-agent':
     'EMPTY SPEC SHAPE. New in `@objectstack/spec` 17.3.0, which declares it with no top-level key at all. Registered propless by `@object-ui/app-shell` (`src/console/connect/ConnectAgentWidget.tsx`), outside this file\'s import graph; the empty shape is the load-bearing half either way. objectui#7122, ledger objectui#8176.',
+  'record:approval_decision':
+    'EMPTY SPEC SHAPE. New in `@objectstack/spec` 18 (objectui#12030), which declares it with no top-level key at all, so neither direction has a question to ask. `ApprovalDecisionRenderer` (`@object-ui/app-shell` `src/views/approval-decision/ApprovalDecisionPanel.tsx`) is written, and no registration mounts it yet; the empty shape is the load-bearing half either way. objectui#12030, ledger objectui#8176.',
+  'record:approvals':
+    'EMPTY SPEC SHAPE. New in `@objectstack/spec` 18 (objectui#12030), which declares it with no top-level key at all. Registered by `@object-ui/app-shell` (`src/views/record-approvals-renderer.tsx`), outside this file\'s import graph; the empty shape is the load-bearing half either way, exactly as for `app:launcher` above. objectui#12030, ledger objectui#8176.',
+  'record:attachments':
+    'EMPTY SPEC SHAPE. New in `@objectstack/spec` 18 (objectui#12030), which declares it with no top-level key at all. Registered by `@object-ui/app-shell` (`src/views/record-attachments-renderer.tsx`), outside this file\'s import graph; the empty shape is the load-bearing half either way, exactly as for `app:launcher` above. objectui#12030, ledger objectui#8176.',
   // The fourth class, and the only one that is not mechanically "unjudgeable":
   // OWED. The 17.5.0 bump booked four blocks here — new in that spec, registered
   // with `registerLazy` by the console (`register-plugins.ts`) and not loaded by
@@ -1274,7 +1280,7 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   // five extra (`showPagination`, `defaultSort`, `defaultFilters`,
   // `resizableColumns`, `title`) are the same class by the same test, so they are
   // carved out with it. `defaultSort` has since been harvested — spec 17.3.0
-  // tombstoned it (see the note below), and `resizableColumns` followed at 17.7.0, leaving eight. Trimming back to exactly five is a one-line reversal
+  // tombstoned it (see the note below), `resizableColumns` followed at 17.7.0 and `defaultFilters` at 18 (objectui#12030), leaving seven. Trimming back to exactly five is a one-line reversal
   // (delete the entry, declare the input); publishing first and withdrawing later
   // is not, which is why the exemption is the direction taken while the card is
   // open.
@@ -1311,8 +1317,14 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
    * declared already, and publishing a key the contract rejects by name is the
    * one resolution the test below forbids in so many words.
    */
-  'object-grid.defaultFilters':
-    '@deprecated in ObjectGridSchema ("Use filter instead"); GA describes it as the "Legacy base-filter fallback, read only when `filter` is absent. Prefer `filter`". Read as back-compat, deliberately not published — the canonical `filter` IS declared. Same ruled carve-out class as the five the ruling enumerated, measured on this branch — objectui#4648 (maintainer 2026-08-16).',
+  /*
+   * `object-grid.defaultFilters` WAS THE ELEVENTH TOMBSTONE HARVESTED HERE —
+   * `@objectstack/spec` 18 (objectstack#11509, objectui#12030), the way
+   * `defaultSort` above was at 17.3.0 and `resizableColumns` below at 17.7.0.
+   * The row now refuses the key by name (`invalid_type`, `expected: 'never'`),
+   * so the entry went dangling and stale and was deleted, and the key left
+   * `GA_PENDING_UNPUBLISHED_KEYS` and the ruled carve-out list with it.
+   */
   /*
    * `object-grid.resizableColumns` WAS THE TENTH TOMBSTONE HARVESTED HERE —
    * `@objectstack/spec` 17.7.0 (objectstack#21445, PR objectstack#21463), the way
@@ -1557,21 +1569,13 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   // `carries no stale unpublished-key exemption` would refuse it.
 
   // ── objectui#12085: the element-layer flat binding keys objectstack#11509 retires ──
-  // The repeater still READS its four as a fallback for metadata written
-  // before the retirement; the metric reads neither of its two. Each entry
-  // dies on its own at the pin that carries the tombstones.
-  'element:repeater.object':
-    'objectui#12085: NOT published, and publishing it would be WRONG, not premature. `@objectstack/spec` retires the repeater\'s flat `object` as a tombstone (objectstack#11509, objectstack PR #22421), and the manifest this registration feeds is read by objectstack\'s `os validate` against that spec: a published `object` made the html tier accept the retired spelling, and its `required: true` refused a repeater bound through `dataSource` alone. The binding\'s `dataSource.object` is the published door (the injected `dataSource` input). The renderer still READS the flat key as the binding\'s fallback, for metadata written before the retirement; a back-compat read is not an authoring surface (the split `page:card.body` records above). The installed pin predates the retirement, which is why the reverse direction still asks for the key here; at the pin that carries objectstack#11509\'s tombstone the key leaves the accepted set, and `carries no stale unpublished-key exemption` deletes this entry there.',
-  'element:repeater.filter':
-    'objectui#12085: NOT published, and publishing it would be WRONG, not premature. `@objectstack/spec` retires the repeater\'s flat `filter` as a tombstone (objectstack#11509, objectstack PR #22421), and the manifest this registration feeds is read by objectstack\'s `os validate` against that spec: a published `filter` made the html tier accept the retired spelling. The binding\'s `dataSource.filter` is the published door (the injected `dataSource` input). The renderer still READS the flat key as the binding\'s fallback, for metadata written before the retirement; a back-compat read is not an authoring surface (the split `page:card.body` records above). The installed pin predates the retirement, which is why the reverse direction still asks for the key here; at the pin that carries objectstack#11509\'s tombstone the key leaves the accepted set, and `carries no stale unpublished-key exemption` deletes this entry there.',
-  'element:repeater.sort':
-    'objectui#12085: NOT published, and publishing it would be WRONG, not premature. `@objectstack/spec` retires the repeater\'s flat `sort` as a tombstone (objectstack#11509, objectstack PR #22421), and the manifest this registration feeds is read by objectstack\'s `os validate` against that spec: a published `sort` made the html tier accept the retired spelling. The binding\'s `dataSource.sort` is the published door (the injected `dataSource` input). The renderer still READS the flat key as the binding\'s fallback, for metadata written before the retirement; a back-compat read is not an authoring surface (the split `page:card.body` records above). The installed pin predates the retirement, which is why the reverse direction still asks for the key here; at the pin that carries objectstack#11509\'s tombstone the key leaves the accepted set, and `carries no stale unpublished-key exemption` deletes this entry there.',
-  'element:repeater.limit':
-    'objectui#12085: NOT published, and publishing it would be WRONG, not premature. `@objectstack/spec` retires the repeater\'s flat `limit` as a tombstone (objectstack#11509, objectstack PR #22421), and the manifest this registration feeds is read by objectstack\'s `os validate` against that spec: a published `limit` made the html tier accept the retired spelling. The binding\'s `dataSource.limit` is the published door (the injected `dataSource` input). The renderer still READS the flat key as the binding\'s fallback, for metadata written before the retirement; a back-compat read is not an authoring surface (the split `page:card.body` records above). The installed pin predates the retirement, which is why the reverse direction still asks for the key here; at the pin that carries objectstack#11509\'s tombstone the key leaves the accepted set, and `carries no stale unpublished-key exemption` deletes this entry there.',
-  'element:number.object':
-    'objectui#12085: NOT published, and publishing it would be WRONG, not premature. The renderer does not read the flat `object` (since objectui#11880 the metric\'s query is the node-level `dataSource` only), and `@objectstack/spec` retires it as a tombstone (objectstack#11509, objectstack PR #22421), so a published `object` advertised configuration the platform drops and its own spec refuses. The binding\'s `dataSource.object` is the published door (the injected `dataSource` input). The installed pin predates the retirement, which is why the reverse direction still asks for the key here; at the pin that carries objectstack#11509\'s tombstone the key leaves the accepted set, and `carries no stale unpublished-key exemption` deletes this entry there.',
-  'element:number.filter':
-    'objectui#12085: NOT published, and publishing it would be WRONG, not premature. The renderer does not read the flat `filter` (since objectui#11880 the metric\'s query is the node-level `dataSource` only), and `@objectstack/spec` retires it as a tombstone (objectstack#11509, objectstack PR #22421), so a published `filter` advertised configuration the platform drops and its own spec refuses. The binding\'s `dataSource.filter` is the published door (the injected `dataSource` input). The installed pin predates the retirement, which is why the reverse direction still asks for the key here; at the pin that carries objectstack#11509\'s tombstone the key leaves the accepted set, and `carries no stale unpublished-key exemption` deletes this entry there.',
+  // Six entries stood here — `element:repeater.object` / `.filter` / `.sort` /
+  // `.limit` and `element:number.object` / `.filter` — each "dies on its own at
+  // the pin that carries the tombstones". `@objectstack/spec` 18 is that pin
+  // (objectui#12030): every one of the six is a tombstone now, so each entry
+  // went dangling and stale and was deleted. The repeater still READS its four
+  // as a fallback for metadata written before the retirement; that read is the
+  // renderer's, and nothing here publishes the keys.
 };
 
 /**
@@ -1690,7 +1694,6 @@ const GA_PENDING_UNPUBLISHED_KEYS = [
   'object-grid.pageSize',
   'object-grid.showSearch',
   'object-grid.showPagination',
-  'object-grid.defaultFilters',
   'object-grid.title',
 ];
 
@@ -2803,10 +2806,11 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'apps/console/src/__tests__/component-input-union-specimens.test.ts',
     pins: 'The `object` arm is the inline translation map, asserted at the render site that actually resolves one, with the non-matching controls (`42`, `["No records"]`) still reported (objectui#3832).',
   },
-  'element:record_picker.filter': {
-    file: 'packages/components/src/__tests__/record-picker-inputs-spec-parity.test.ts',
-    pins: 'The `array` arm is `ViewFilterRuleSchema[]` — the one filter orthography this map\'s array-declared `filter` doors share — with the MongoDB-style RECORD spelling (`{ status }`, `{ $and }`) refused by kind at `filter` and a bare tuple refused at `filter.0`, and the description pinned to say the key is NOT READ and to name `dataSource.filter`, the one filter the renderer reads since objectui#11880 (`composed?.filter`). objectui#3830 declared the key; objectstack#14406 converged it off the record form and objectui#7663 moved this side onto the array arm; it stays published until the spec\'s v18 retirement (objectstack#11509).',
-  },
+  // `element:record_picker.filter` and `.sort` stood here until the `@objectstack/spec`
+  // 18 bump retired both as tombstones and the registration stopped publishing them
+  // (objectui#12030): a member pin names a key still array/object-armed on a covered
+  // block, and neither is. The binding's `dataSource.sort` reach is still pinned by
+  // `record-picker-sort-members.test.tsx`, and the binding itself by `.dataSource` below.
   'element:record_picker.label': {
     file: 'packages/components/src/renderers/basic/__tests__/record-picker-label-placeholder-i18n.test.tsx',
     pins: 'The I18nLabel object arm, resolved at ITS OWN read site rather than through the row-value helper `toText` it used to share: the map resolves to the active language rather than always to its `en` entry (the pre-fix harm rendered ENGLISH to a zh-CN viewer), a region tag falls back to the base language an author actually wrote, and — the quiet failure — a legal map that simply omits `en` used to delete the `<label>` element with nothing thrown and nothing logged; this pin asserts the element\'s PRESENCE first, then its text, so a fix that resolved the string but left the element gone still fails here. A plain-string control and the "absent key renders no label at all" control both stay green in every case, which is what keeps the object-arm rows from being satisfied by an always-render fix (objectui#5637).',
@@ -2814,10 +2818,6 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   'element:record_picker.placeholder': {
     file: 'packages/components/src/renderers/basic/__tests__/record-picker-label-placeholder-i18n.test.tsx',
     pins: 'The I18nLabel trio\'s other object arm, on the sharper of the two pre-fix failures: an authored map THREW `Objects are not valid as a React child` at `SelectValue`, taking the whole control down rather than merely mis-rendering. Same resolver, same fallback chain and the same base-language control as `label` above; see that entry (objectui#5637).',
-  },
-  'element:record_picker.sort': {
-    file: 'packages/components/src/__tests__/record-picker-sort-members.test.tsx',
-    pins: 'An IDENTITY pin, unlike the sibling block\'s: `record-picker.tsx` assigns `query.$orderby = sort` with no `normalizeSortSpec` in between, so a member missing `field` is NOT dropped the way `record:related_list.sort` (objectui#8071 slice 2) drops one — pinned as the current, undocumented divergence between two blocks whose registrations both say only "array of objects". Order is preserved for a multi-member array and no `$orderby` is sent when the key is absent. Since objectui#11880 the read is `composed?.sort` alone, so these rows drive the binding\'s `dataSource.sort`, and the flat `sort` — still published, its description saying NOT READ — is pinned unread both beside a binding that declares its own `sort` and beside one that carries none (objectui#8071, objectui#11880).',
   },
   'element:text.content': {
     file: 'apps/console/src/__tests__/component-input-union-specimens.test.ts',
@@ -2945,7 +2945,7 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   },
   'object-grid.conditionalFormatting': {
     file: 'packages/plugin-grid/src/__tests__/gridRowDecorationMembers-8071.test.tsx',
-    pins: 'The members read inside ONE formatting rule, asserted on the `style` attribute of the `<tr>` the grid paints. THREE alternative predicate members with a PRECEDENCE between them — one rule carrying `condition`, `expression` and the native `field`/`operator`/`value` triple, each naming a DIFFERENT row, is decided by `condition`; drop it and `expression` decides; drop that and the triple does — so a renderer reading any two of them as equivalent is red in a specific direction rather than merely unpinned. FOUR style members, and the sharp one is a RENAME: `backgroundColor` and `borderColor` keep their authored names on the way to the DOM while `textColor` is read as the CSS `color`, so keeping the authored spelling hands React a key it silently drops — same rules, same background, the text colour gone with nothing thrown. `style` is pinned as the BASE the three colour members override rather than replace (a non-colour member of it survives alongside the override). Two rule-list facts complete it: FIRST-MATCH-WINS with no merge (the second matching rule\'s own `textColor` never lands) and a rule carrying NO predicate member is SKIPPED rather than read as always-true, with the rule after it still deciding. ⚠️ Since objectui#11533 the AUTHORED member is ONE dialect, `{ condition, style }`: `expression`, the native triple and the three top-level colour members are refused by name on `ObjectGridSchema` and the list view (`packages/types/src/__tests__/grid-list-view-conditional-formatting-11533.test.ts`), so the rows that write them pin STORED-rule reads, which the resolver keeps as compatibility arms; a last block pins the two facts side by side — the stored native rule refused at authoring and painted at render, with its respelling painting the same row. The registration is an `array` arm; the installed spec row (17.7.0) takes the list view\'s own `{ condition, style }` rule and refuses the native members and any other key, so the spec fixes the AUTHORED shape and the read site is the rest of the member contract, the stored-rule compatibility arms included (objectui#8071 slice 12).',
+    pins: 'The members read inside ONE formatting rule, asserted on the `style` attribute of the `<tr>` the grid paints. THREE alternative predicate members with a PRECEDENCE between them — one rule carrying `condition`, `expression` and the native `field`/`operator`/`value` triple, each naming a DIFFERENT row, is decided by `condition`; drop it and `expression` decides; drop that and the triple does — so a renderer reading any two of them as equivalent is red in a specific direction rather than merely unpinned. FOUR style members, and the sharp one is a RENAME: `backgroundColor` and `borderColor` keep their authored names on the way to the DOM while `textColor` is read as the CSS `color`, so keeping the authored spelling hands React a key it silently drops — same rules, same background, the text colour gone with nothing thrown. `style` is pinned as the BASE the three colour members override rather than replace (a non-colour member of it survives alongside the override). Two rule-list facts complete it: FIRST-MATCH-WINS with no merge (the second matching rule\'s own `textColor` never lands) and a rule carrying NO predicate member is SKIPPED rather than read as always-true, with the rule after it still deciding. ⚠️ Since objectui#11533 the AUTHORED member is ONE dialect, `{ condition, style }`: `expression`, the native triple and the three top-level colour members are refused by name on `ObjectGridSchema` and the list view (`packages/types/src/__tests__/grid-list-view-conditional-formatting-11533.test.ts`), so the rows that write them pin STORED-rule reads, which the resolver keeps as compatibility arms; a last block pins the two facts side by side — the stored native rule refused at authoring and painted at render, with its respelling painting the same row. The registration is an `array` arm; the installed spec row (18.0.0-next.0, re-measured by objectui#12030) takes the list view\'s own `{ condition, style }` rule and refuses the native members and any other key, so the spec fixes the AUTHORED shape and the read site is the rest of the member contract, the stored-rule compatibility arms included (objectui#8071 slice 12).',
   },
   'object-grid.operations': {
     file: 'packages/plugin-grid/src/__tests__/gridOperationsMembers-8071.test.tsx',
@@ -3021,7 +3021,7 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   },
   'object-kanban.conditionalFormatting': {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
-    pins: 'Members are card STYLE RULES in ONE dialect since objectui#11522, the spec list view\'s `{ condition, style }`, and it reaches the sink: a rule colours the matching card and only it, a second rule aimed at the other card does the same, and the whole `style` map arrives, with the sibling card in the same render as the live non-matching control so a green cannot come from two unstyled cards agreeing. The retired native `{ field, operator, value }` and flat-colour dialects are refused by name on the types side (`packages/types/src/__tests__/kanban-conditional-formatting.test.ts`); these rows are their respellings, painting the same cards. ⛔ NOT an identity pin and not a wire pin: `ObjectKanban.tsx` never names this key at all (measured zero, against nine for `cardFields` in the same file) — it rides the `{ ...schema }` spread into `KanbanRenderer`, which forwards it to `KanbanImpl`\'s `getCardStyles`. That makes the pin load-bearing in a way the others are not: an edit replacing that spread with an explicit key list drops the key silently and nothing else in the repo would notice. The installed spec row (17.7.0) takes the list view\'s own `{ condition, style }` rule, so the spec fixes the authored shape and the read site is the rest of the member contract (objectui#8313).',
+    pins: 'Members are card STYLE RULES in ONE dialect since objectui#11522, the spec list view\'s `{ condition, style }`, and it reaches the sink: a rule colours the matching card and only it, a second rule aimed at the other card does the same, and the whole `style` map arrives, with the sibling card in the same render as the live non-matching control so a green cannot come from two unstyled cards agreeing. The retired native `{ field, operator, value }` and flat-colour dialects are refused by name on the types side (`packages/types/src/__tests__/kanban-conditional-formatting.test.ts`); these rows are their respellings, painting the same cards. ⛔ NOT an identity pin and not a wire pin: `ObjectKanban.tsx` never names this key at all (measured zero, against nine for `cardFields` in the same file) — it rides the `{ ...schema }` spread into `KanbanRenderer`, which forwards it to `KanbanImpl`\'s `getCardStyles`. That makes the pin load-bearing in a way the others are not: an edit replacing that spread with an explicit key list drops the key silently and nothing else in the repo would notice. The installed spec row (18.0.0-next.0, re-measured by objectui#12030) takes the list view\'s own `{ condition, style }` rule, so the spec fixes the authored shape and the read site is the rest of the member contract (objectui#8313).',
   },
   'object-kanban.data': {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
@@ -4578,10 +4578,16 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       // booked to objectui#11536 under objectui#11438 ruling A′.
       // `registeredPropless` and `ledgeredUnjudgeable` do not move.
       // 40 + 7 + 9 = 56.
-      specCarried: 56,
+      //
+      // 56 -> 59 on the `@objectstack/spec` 18.0.0-next.0 pin (objectui#12030):
+      // three new blocks, `record:approval_decision`, `record:approvals` and
+      // `record:attachments`, each declared with an EMPTY shape, so all three are
+      // ledgered (9 -> 12). `judged` and `registeredPropless` do not move.
+      // 40 + 7 + 12 = 59.
+      specCarried: 59,
       judged: 40,
       registeredPropless: 7,
-      ledgeredUnjudgeable: 9,
+      ledgeredUnjudgeable: 12,
     });
     // Non-vacuity, stated rather than implied by the numbers above.
     expect(covered.length).toBeGreaterThan(0);
@@ -4956,8 +4962,8 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
 
     // The carve-out, by name: `@deprecated` in this repo's own ObjectGridSchema,
     // declared by GA, and deliberately NOT published (maintainer 2026-08-16).
+    // `defaultFilters` left with the `@objectstack/spec` 18 tombstone (objectui#12030).
     const CARVED_OUT_GRID_KEYS = [
-      'defaultFilters',
       'fields',
       'pageSize',
       'selectable',
@@ -5212,7 +5218,7 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     }
   });
 
-  it('the ten tombstoned keys are recognised, not exempted — and not published either', () => {
+  it('the harvested tombstoned keys are recognised, not exempted — and not published either', () => {
     // The pin the harvest leaves behind (objectui#3809). Deleting eight
     // exemptions is only half the change: the derived assertions above would go
     // green just as readily if a future edit RE-EXEMPTED one of these keys, or
@@ -5246,6 +5252,21 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       // The tenth, harvested at the 17.7.0 bump (objectui#11717):
       // objectstack#21445 retired the legacy second spelling of `resizable`.
       ['object-grid', 'resizableColumns'],
+      // Eleven more, harvested at the `@objectstack/spec` 18 bump (objectui#12030):
+      // objectstack#11509 retired the element layer's flat query keys (the
+      // binding's `dataSource` is the one door), and the grid's legacy base
+      // filter with them.
+      ['object-grid', 'defaultFilters'],
+      ['element:number', 'object'],
+      ['element:number', 'filter'],
+      ['element:repeater', 'object'],
+      ['element:repeater', 'filter'],
+      ['element:repeater', 'sort'],
+      ['element:repeater', 'limit'],
+      ['element:record_picker', 'object'],
+      ['element:record_picker', 'filter'],
+      ['element:record_picker', 'sort'],
+      ['element:record_picker', 'limit'],
     ];
 
     for (const [type, key] of HARVESTED) {
@@ -5644,12 +5665,16 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     // (deleted above) is not evidence of anything once the input exists, and a
     // future change that dropped the declaration and re-added the exemption
     // would restore the gap while leaving every derived assertion green.
+    //
+    // `element:record_picker.filter` left this list at the `@objectstack/spec` 18
+    // bump (objectui#12030): the spec retired it as a tombstone (objectstack#11509),
+    // and the registration stopped publishing it in the same change, so it is
+    // pinned with the other harvested tombstones now, as published-NOT.
     const fixed: Array<[string, string]> = [
       ['record:details', 'hideFields'],
       ['record:related_list', 'relationshipValueField'],
       ['record:related_list', 'add'],
       ['element:text_input', 'defaultValue'],
-      ['element:record_picker', 'filter'],
     ];
     for (const [type, key] of fixed) {
       expect(specTopLevelKeys(type), `${type} spec no longer declares ${key}`).toContain(key);
@@ -5658,7 +5683,7 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     }
   });
 
-  it('the three keys the rc.6 bump added to element:record_picker are discoverable', () => {
+  it('the one key the rc.6 bump added to element:record_picker that is still live is discoverable', () => {
     // objectui#4167, and pinned by name for exactly the reason the five above
     // are: the derived reverse-direction assertion would go green just as
     // readily if these three were added to `UNPUBLISHED_EXEMPTIONS` instead of
@@ -5672,7 +5697,11 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     // `ElementRecordPickerProps`, `undiscoverableSpecKeys` would stop naming
     // them and every derived assertion would pass while the inputs sat there
     // publishing keys the contract no longer has.
-    for (const key of ['sort', 'limit', 'emptyText']) {
+    //
+    // `sort` and `limit` left this list at the `@objectstack/spec` 18 bump
+    // (objectui#12030): both are tombstones there (objectstack#11509), unpublished
+    // in the same change, and pinned with the other harvested tombstones.
+    for (const key of ['emptyText']) {
       expect(
         specTopLevelKeys('element:record_picker'),
         `spec no longer declares element:record_picker.${key}`,

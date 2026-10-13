@@ -150,25 +150,24 @@
  * the spec's own props gate (`validateComponentProps`, `@objectstack/lint`)
  * judges a bag only when the node carries one, and so does this face.
  *
- * ## The one waiver: `object` beside `dataSource.object` (objectui#10872 batch 2, objectui#12056)
+ * ## No waiver since `@objectstack/spec` 18: the query lives on the binding (objectui#12030)
  *
- * `ComponentPropsMap['element:number']` requires `object`, and the spec's props
- * gate waives exactly that one member when the node's `dataSource.object` is a
- * non-empty name (`DATASOURCE_SUPPLIED_PROP` and `suppliedByDataSource` in
- * `@objectstack/lint`'s `validate-component-props.ts`). The row alone would
- * refuse that spec-valid node, so this arm mirrors the waiver — and only it —
- * in two halves, both by reference: the bag is the row with `object` alone made
- * optional (`ElementNumberPropsBag`), and a node refinement puts the
- * requiredness back wherever the waiver does not apply
- * (`elementNumberObjectIsSupplied`). The waiver covers an OMITTED `object`, as
- * the gate's own docblock states it ("the one prop whose absence this rule does
- * NOT report"); the gate's code matches the issue by path alone and so also
- * passes a wrong-typed `object` beside a binding, which this arm leaves to the
- * row to refuse. The node also declares `dataSource`, as the
- * spec's `ElementDataSourceSchema` read by reference — the same schema
- * `PageComponentSchema.dataSource` is. `element:repeater`'s arm mirrors the
- * same waiver the same way (objectui#12056): its row requires `object` too, and
- * the gate's waiver is type-blind.
+ * Through 17.x, `ComponentPropsMap['element:number']` and
+ * `ComponentPropsMap['element:repeater']` REQUIRED a flat `object`, and the
+ * spec's props gate waived exactly that one member when the node bound
+ * `dataSource.object`; these two arms mirrored the waiver with a bag that made
+ * `object` optional and a node refinement that put the requiredness back.
+ * `@objectstack/spec` 18 retired the flat query keys on both rows (`object`
+ * and `filter`, and on the repeater `sort` and `limit` too; objectstack#11509):
+ * each is a tombstone the row refuses by name, and the node-level
+ * `dataSource` binding is the only place the query is written. The spec's gate
+ * no longer refuses a node that names no object; it WARNS that such a node
+ * queries nothing. So both arms are now the row by reference, through
+ * `propsBag`, like every other public block, and refuse nothing the spec
+ * accepts: the warning is the lint gate's, not a parse verdict this face
+ * mirrors. The node also declares `dataSource`, as the spec's
+ * `ElementDataSourceSchema` read by reference — the same schema
+ * `PageComponentSchema.dataSource` is.
  *
  * ## The public blocks once held, and why they are armed now
  *
@@ -1208,44 +1207,22 @@ export const ElementTextBlockSchema = BaseSchema.extend({
 });
 
 /**
- * The `element:number` bag: `ComponentPropsMap['element:number']` with ONE
- * member, `object`, made optional — the half of the spec's `dataSource` waiver
- * that lives in the bag (`elementNumberObjectIsSupplied` below is the other).
- *
- * By reference, and here is how: zod 4's `.partial({ object: true })` clones
- * the row's own def — so its strictness (`catchall` never) and its unknown-key
- * guidance travel — and replaces exactly the masked member with a `ZodOptional`
- * wrapped around the row's OWN `object` schema.
- * Every other member (`field`, `aggregate`, `filter`, `format`, `prefix`,
- * `suffix`, `aria`) is handed through as the very object the row holds. No
- * member is restated, so a row the spec widens or narrows moves this bag the
- * same day. `.partial()` THROWS on an object that carries refinements, which is
- * the loud answer this module wants if the spec ever installs one on the row:
- * the waiver then has to be re-decided, not silently lose the check.
- *
- * Not exported: the zod-mirror parity census reads `export const` out of this
- * directory, and this is a derivation of the spec row, not a mirror of a
- * declaration in this package.
- */
-const ElementNumberPropsBag = stripImportedDefaults(SpecElementNumberPropsSchema).partial({ object: true });
-
-/**
  * Does this node's `dataSource` name the object it binds? The spec gate's
- * `suppliedByDataSource` answer, read for one node: a `dataSource` that is a
- * record whose `object` is a NON-EMPTY string. An empty name, a non-string, a
- * non-record, or no binding supplies nothing — the gate's `strName` refuses the
- * same three, and so does the runtime's `isElementDataSourceConfig`
- * (`@object-ui/core`), which is what decides whether `ElementDataSourceGate`
- * lands a binding on the node at all.
+ * answer, read for one node: a `dataSource` that is a record whose `object` is
+ * a NON-EMPTY string. An empty name, a non-string, a non-record, or no binding
+ * supplies nothing — the gate's `strName` refuses the same three, and so does
+ * the runtime's `isElementDataSourceConfig` (`@object-ui/core`), which is what
+ * decides whether `ElementDataSourceGate` lands a binding on the node at all.
  *
- * The ONE copy of that predicate (objectui#11117): `element:number`'s and
- * `element:repeater`'s waivers below read it (the second since objectui#12056),
- * and so does `./objectql.zod.ts`'s `requireRecordSource`,
- * which counts the binding as a record source on every gate-wrapped arm that
- * has one. Internal to this package's zod modules, like `propsBag` —
- * deliberately NOT re-exported from `index.zod.ts`. It reads the raw input
- * defensively, because both callers run it from a refinement installed with
- * `when: () => true`, where the node may be anything.
+ * The ONE copy of that predicate (objectui#11117): `./objectql.zod.ts`'s
+ * `requireRecordSource` reads it, counting the binding as a record source on
+ * every gate-wrapped arm that has one. `element:number`'s and
+ * `element:repeater`'s waivers read it too until `@objectstack/spec` 18
+ * retired the flat `object` those waivers excused (objectui#12030). Internal to
+ * this package's zod modules, like `propsBag` — deliberately NOT re-exported
+ * from `index.zod.ts`. It reads the raw input defensively, because its caller
+ * runs it from a refinement installed with `when: () => true`, where the node
+ * may be anything.
  */
 export function dataSourceSuppliesObject(node: unknown): boolean {
   if (!node || typeof node !== 'object' || Array.isArray(node)) return false;
@@ -1255,78 +1232,40 @@ export function dataSourceSuppliesObject(node: unknown): boolean {
   return typeof object === 'string' && object.length > 0;
 }
 
-/**
- * The node half of the waiver: a bag that omits `object` is refused at
- * `properties.object` UNLESS `dataSource.object` supplies it — which is the
- * spec row's requiredness, put back everywhere the spec gate does not waive it.
- * A node with no bag at all is not judged, exactly as the gate skips a node
- * whose `properties` is absent (and as every other arm here leaves its bag
- * optional). A bag whose `object` is PRESENT is left to the row's own member
- * verdict, so a wrong `object` is reported once, by the row.
- *
- * ⚠️ `when: () => true` is load-bearing: zod skips a refinement once an earlier
- * issue aborts the parse, and the gate reports a missing `object` BESIDE every
- * other bag issue. Without it, a bag with a bad `aggregate` and no `object`
- * would report only the `aggregate`. So the body reads the raw input
- * defensively — the bag may be anything when it runs.
- */
-function elementNumberObjectIsSupplied(
-  node: { properties?: unknown; dataSource?: unknown },
-  ctx: z.core.$RefinementCtx,
-): void {
-  const bag = node.properties;
-  if (!bag || typeof bag !== 'object' || Array.isArray(bag)) return;
-  if ((bag as { object?: unknown }).object !== undefined) return;
-  if (dataSourceSuppliesObject(node)) return;
-  ctx.addIssue({
-    code: 'custom',
-    path: ['properties', 'object'],
-    params: { code: 'ELEMENT_NUMBER_OBJECT_REQUIRED' },
-    message:
-      '`element:number` names no object to aggregate: set `properties.object`, or bind the node '
-      + 'through `dataSource.object` (a non-empty object name). `ComponentPropsMap[\'element:number\']` '
-      + 'requires `object`, and the spec waives it only beside `dataSource.object`.',
-  });
-}
-
 /** objectui#9256 (public-block slice): ONE refusal string for both content channels of `element:number`. */
 const ELEMENT_NUMBER_NEITHER_CHANNEL = neitherContentChannelGuidance(
   'element:number',
   'its registration (`element:number`, `@object-ui/components`) hands the node to `ElementNumberRenderer`, an '
     + '`any`-typed renderer that reads the props bag (`readProps`), the node\'s `dataSource` binding and `className`',
-  'one aggregate — `aggregate` of `field` over `object` (or `dataSource.object`), formatted by `format` with '
+  'one aggregate — `aggregate` of `field` over the node\'s `dataSource.object`, formatted by `format` with '
     + '`prefix` and `suffix`',
 );
 
 /**
- * `element:number` — `ComponentPropsMap['element:number']`, with the spec's one
- * `dataSource` waiver on its required `object` (see the module docblock and the
- * two helpers above), and the node's `dataSource` declared as the spec's
- * `ElementDataSourceSchema`, by reference.
+ * `element:number` — `ComponentPropsMap['element:number']`, by reference, and
+ * the node's `dataSource` declared as the spec's `ElementDataSourceSchema`, by
+ * reference. The row's flat `object` and `filter` are tombstones since
+ * `@objectstack/spec` 18 (see the module docblock), so the bag refuses them by
+ * name and the metric's query is written on the binding.
  */
 export const ElementNumberBlockSchema = BaseSchema.extend({
   type: z.literal('element:number'),
   ...NODE_ENVELOPE,
   // objectui#10872 batch 10: a row member written flat on the node is refused by name, toward `properties.KEY`.
-  ...flatPropRefusals('element:number', ElementNumberPropsBag),
-  properties: ElementNumberPropsBag
-    .optional()
-    .describe(
-      'The `element:number` props bag — `@objectstack/spec` `ComponentPropsMap[\'element:number\']`, by reference, '
-      + 'with `object` optional only because the spec waives it beside `dataSource.object`; without that binding a '
-      + 'bag must name `object`. Judged only when present, as the spec\'s props gate judges it.',
-    ),
+  ...flatPropRefusals('element:number', stripImportedDefaults(SpecElementNumberPropsSchema)),
+  properties: propsBag('element:number', stripImportedDefaults(SpecElementNumberPropsSchema)),
   dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
     .optional()
     .describe(
       'Per-element data binding — `@objectstack/spec` `ElementDataSourceSchema`, the schema '
-      + '`PageComponentSchema.dataSource` declares, by reference.',
+      + '`PageComponentSchema.dataSource` declares, by reference. The metric\'s object and filter are written '
+      + 'here; the row retired its flat `object` and `filter`.',
     ),
   // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
   // kept a MEMBER (see "The content channels" above).
   body: retirementTombstone(ELEMENT_NUMBER_NEITHER_CHANNEL),
   children: retirementTombstone(ELEMENT_NUMBER_NEITHER_CHANNEL),
-}).superRefine(elementNumberObjectIsSupplied, { when: () => true });
+});
 
 /** objectui#9256 (public-block slice): ONE refusal string for both content channels of `element:button`. */
 const ELEMENT_BUTTON_NEITHER_CHANNEL = neitherContentChannelGuidance(
@@ -1421,76 +1360,29 @@ export const ElementDefinitionListBlockSchema = BaseSchema.extend({
   children: retirementTombstone(ELEMENT_DEFINITION_LIST_NEITHER_CHANNEL),
 });
 
-/**
- * The `element:repeater` bag: `ComponentPropsMap['element:repeater']` with ONE
- * member, `object`, made optional — the bag half of the spec gate's
- * `dataSource` waiver, built exactly as `ElementNumberPropsBag` is and for the
- * same reasons (by reference through `.partial({ object: true })`; it throws if
- * the spec ever installs a refinement on the row). objectui#12056.
- *
- * Not exported, like `ElementNumberPropsBag`: a derivation of the spec row,
- * not a mirror of a declaration in this package.
- */
-const ElementRepeaterPropsBag = stripImportedDefaults(SpecElementRepeaterPropsSchema).partial({ object: true });
-
-/**
- * The node half of `element:repeater`'s waiver (objectui#12056), the same rule
- * as `elementNumberObjectIsSupplied`: a bag that omits `object` is refused at
- * `properties.object` UNLESS `dataSource.object` names a non-empty object
- * (`dataSourceSuppliesObject`). A node with no bag is not judged, and a
- * PRESENT `object` is left to the row's own member verdict.
- * `when: () => true` is load-bearing here for the reason given there.
- */
-function elementRepeaterObjectIsSupplied(
-  node: { properties?: unknown; dataSource?: unknown },
-  ctx: z.core.$RefinementCtx,
-): void {
-  const bag = node.properties;
-  if (!bag || typeof bag !== 'object' || Array.isArray(bag)) return;
-  if ((bag as { object?: unknown }).object !== undefined) return;
-  if (dataSourceSuppliesObject(node)) return;
-  ctx.addIssue({
-    code: 'custom',
-    path: ['properties', 'object'],
-    params: { code: 'ELEMENT_REPEATER_OBJECT_REQUIRED' },
-    message:
-      '`element:repeater` names no object to list: set `properties.object`, or bind the node '
-      + 'through `dataSource.object` (a non-empty object name). `ComponentPropsMap[\'element:repeater\']` '
-      + 'requires `object`, and the spec waives it only beside `dataSource.object`.',
-  });
-}
-
 /** objectui#10872 batch 5 (the objectui#9256 method): ONE refusal string for both content channels of `element:repeater`. */
 const ELEMENT_REPEATER_NEITHER_CHANNEL = neitherContentChannelGuidance(
   'element:repeater',
   'its registration (`element:repeater`, `@object-ui/components`) hands the node to `RepeaterRenderer`, an '
     + '`any`-typed renderer that reads the props bag (`readProps`), the node\'s `dataSource` binding and `className`',
-  'one line per record its query returns (over `dataSource.object`, else `properties.object`), printing that '
+  'one line per record its query returns (over the node\'s `dataSource.object`), printing that '
     + 'record\'s `titleField` and `fields` values. It has NO content channel: no per-row template and no child slot',
 );
 
 /**
  * `element:repeater` — `ComponentPropsMap['element:repeater']` (objectui#10872
- * batch 4), plus the node's `dataSource` binding (objectui#11880).
+ * batch 4), by reference, plus the node's `dataSource` binding (objectui#11880).
  *
- * Its renderer reads the node's `dataSource` binding FIRST and the row's flat
- * query keys (`object`, `filter`, `sort`, `limit`) as the fallback, until the
- * spec retires those keys at the v18 pin bump (objectstack#11509, ruled
- * A-narrow, objectui first). So the arm declares `dataSource` as the spec's
- * `ElementDataSourceSchema`, by reference, as `element:number` and
- * `record:line_items` do; left undeclared, the strict face refused, as an
- * unrecognized key, the one binding the renderer reads first.
- *
- * The row requires `object`, as `element:number`'s does, and the arm mirrors
- * the same spec-gate waiver the same way (objectui#12056): the bag is the row
- * with `object` alone made optional (`ElementRepeaterPropsBag`), and
- * `elementRepeaterObjectIsSupplied` puts the requiredness back wherever no
- * `dataSource.object` names the object. Until objectui#12056 the arm mirrored
- * no waiver, and the page designer wrote `properties.object` because of it;
- * the designer now writes the binding, as it does for `element:number`. A node
- * with no bag at all is not judged, as on every arm here. A `fields` entry is
- * a bare name or a strict `{ field }`; a `label` there is refused by name,
- * because the list has no header row to print it in.
+ * `@objectstack/spec` 18 retired the row's flat query keys (`object`, `filter`,
+ * `sort`, `limit`; objectstack#11509, ruled A-narrow), so the bag refuses each
+ * by name and the query is written on the node-level `dataSource` binding,
+ * declared here as the spec's `ElementDataSourceSchema`, by reference, as
+ * `element:number` and `record:line_items` do. The repeater's renderer still
+ * reads a stored document's flat keys as a fallback after the binding; that
+ * read is the renderer's, and this face judges what is authored (see the
+ * module docblock). A `fields` entry is a bare name or a strict `{ field }`; a
+ * `label` there is refused by name, because the list has no header row to
+ * print it in.
  *
  * It has no content channel at all — each row prints fields of the queried
  * record, and nothing an author writes is placed inside a row — so the node's
@@ -1501,26 +1393,20 @@ export const ElementRepeaterBlockSchema = BaseSchema.extend({
   type: z.literal('element:repeater'),
   ...NODE_ENVELOPE,
   // objectui#10872 batch 10: a row member written flat on the node is refused by name, toward `properties.KEY`.
-  ...flatPropRefusals('element:repeater', ElementRepeaterPropsBag),
-  properties: propsBag(
-    'element:repeater',
-    ElementRepeaterPropsBag,
-    'The `element:repeater` props bag — `@objectstack/spec` `ComponentPropsMap[\'element:repeater\']`, by reference, '
-      + 'with `object` optional only because the spec waives it beside `dataSource.object`; without that binding a '
-      + 'bag must name `object`. Judged only when present, as the spec\'s props gate judges it.',
-  ),
+  ...flatPropRefusals('element:repeater', stripImportedDefaults(SpecElementRepeaterPropsSchema)),
+  properties: propsBag('element:repeater', stripImportedDefaults(SpecElementRepeaterPropsSchema)),
   dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
     .optional()
     .describe(
       'Per-element data binding — `@objectstack/spec` `ElementDataSourceSchema`, the schema '
-      + '`PageComponentSchema.dataSource` declares, by reference. The repeater reads it first, and its flat '
-      + '`properties` query keys only as the fallback.',
+      + '`PageComponentSchema.dataSource` declares, by reference. The repeater\'s query is written here; the row '
+      + 'retired its flat `object`, `filter`, `sort` and `limit`.',
     ),
   // objectui#10872 batch 5: the renderer reads NEITHER content channel, so both are refused by name,
   // each kept a MEMBER (see "The content channels" above).
   body: retirementTombstone(ELEMENT_REPEATER_NEITHER_CHANNEL),
   children: retirementTombstone(ELEMENT_REPEATER_NEITHER_CHANNEL),
-}).superRefine(elementRepeaterObjectIsSupplied, { when: () => true });
+});
 
 /* ── action: — action controls ──────────────────────────────────────────── */
 

@@ -337,7 +337,7 @@ const NAMED_VIEW_ABSENT_CONTROL = 'stickyHeader';
 
 /**
  * The protocol's own member set for a named list view — `ObjectListViewSchema`'s
- * shape, off `@objectstack/spec` as installed (17.7.0). ⛔ Not a copy of the
+ * shape, off `@objectstack/spec` as installed (18.0.0-next.0). ⛔ Not a copy of the
  * objectui face and ⛔ not a hand list: it is read off the schema object, so a
  * spec bump that moves a key moves this.
  */
@@ -346,13 +346,13 @@ const PROTOCOL_LIST_VIEW_KEYS = [
   'calendar', 'chart', 'columns', 'compactToolbar', 'conditionalFormatting', 'data', 'description',
   'emptyState', 'exportOptions', 'fieldOrder', 'filter', 'filterableFields', 'gallery', 'gantt',
   'grouping', 'hiddenFields', 'inlineEdit', 'kanban', 'label', 'map', 'name', 'navigation',
-  'pageName', 'pagination', 'performance', 'resizable', 'responsive', 'rowActions', 'rowColor',
+  'pageName', 'pagination', 'performance', 'requiredPermissions', 'resizable', 'responsive', 'rowActions', 'rowColor',
   'rowHeight', 'searchableFields', 'selection', 'sharing', 'showRecordCount', 'sort', 'striped',
   'tabs', 'timeline', 'tree', 'type', 'userActions', 'userFilters', 'virtualScroll',
 ] as const;
 
 /**
- * Seven of those 50 are RETIREMENT TOMBSTONES, refused by name with the
+ * Seven of those 51 are RETIREMENT TOMBSTONES, refused by name with the
  * protocol's own `[REMOVED]` text (five until `@objectstack/spec` 17.5.0 retired
  * `pageName` and `tabs`, objectui#11073). ⚠️ They are why a raw key-count diff reads
  * objectui as "narrower" and is wrong to: not declaring a key the protocol
@@ -360,6 +360,16 @@ const PROTOCOL_LIST_VIEW_KEYS = [
  * listed by hand.
  */
 const PROTOCOL_RETIRED_KEYS = ['bordered', 'pageName', 'performance', 'responsive', 'striped', 'tabs', 'virtualScroll'] as const;
+
+/**
+ * Live protocol members of a named list view that objectui does not declare
+ * yet, each PENDING a ruling rather than accepted as narrowness (objectui#12030).
+ * `requiredPermissions` is the ADR-0066 audience gate `@objectstack/spec` 18
+ * adds; the server enforces it before the view is served, so no renderer reads
+ * it — which is exactly the case the four disposition buckets below do not
+ * name. ⛔ Not a place to park a key the renderer should read.
+ */
+const PENDING_SERVER_ENFORCED_DECLARATION = ['requiredPermissions'] as const;
 
 /** The marker every protocol tombstone's description opens with. */
 const PROTOCOL_TOMBSTONE_MARKER = '[REMOVED]';
@@ -1609,17 +1619,17 @@ function foldFlagMap(): Record<string, string> {
 }
 
 describe('objectui#7924 — the unread members, in the FOUR buckets the ruling was written in, derived against the installed protocol (bucket ① empty since objectui#10758)', () => {
-  it('the protocol declares 50 keys for a named list view, and the instrument that reads them fires', () => {
+  it('the protocol declares 51 keys for a named list view, and the instrument that reads them fires', () => {
     const keys = protocolListViewKeys();
     expect(keys).toEqual([...PROTOCOL_LIST_VIEW_KEYS]);
-    expect(keys).toHaveLength(50);
+    expect(keys).toHaveLength(51);
     // Firing control + its negative twin, on the same query that produces every
     // "the protocol declares this nowhere" zero below.
     expect(keys).toContain(NAMED_VIEW_READ_CONTROL);
     expect(keys).not.toContain(NAMED_VIEW_ABSENT_CONTROL);
   });
 
-  it('seven of the 50 are RETIREMENT TOMBSTONES, refused BY NAME — so objectui not declaring them LIVE is agreement, not narrowness', () => {
+  it('seven of the 51 are RETIREMENT TOMBSTONES, refused BY NAME — so objectui not declaring them LIVE is agreement, not narrowness', () => {
     expect(protocolRetiredKeys()).toEqual([...PROTOCOL_RETIRED_KEYS]);
     const base = { label: 'Directory', columns: ['name', 'email'] };
     // The accept leg first: without it every refusal below is a schema that
@@ -1646,16 +1656,25 @@ describe('objectui#7924 — the unread members, in the FOUR buckets the ruling w
     expect(PROTOCOL_RETIRED_KEYS.filter((k) => tombstones.includes(k))).toEqual([...BUCKET_PROTOCOL_RETIRED_TOMBSTONED]);
   });
 
-  it('objectui declares every LIVE protocol key on this surface — the narrower-than-protocol direction is EMPTY today', () => {
+  it('objectui declares every LIVE protocol key on this surface but the one pending its ruling — the narrower-than-protocol direction is otherwise EMPTY', () => {
     const declared = new Set(namedListViewMembers().names);
     const live = protocolListViewKeys().filter((k) => !protocolRetiredKeys().includes(k));
-    expect(live).toHaveLength(43);
+    expect(live).toHaveLength(44);
     const missing = live.filter((k) => !declared.has(k));
     // ⭐ objectui#8979 measured SEVENTEEN live protocol keys missing here; the
     // objectui#8980 ruling declared them (PR #9534) and this is the zero that
     // records it. ⛔ A name appearing here is objectui going narrower than the
     // protocol — the direction the maintainer principle forbids.
-    expect(missing, 'objectui is narrower than the protocol on these live keys').toEqual([]);
+    //
+    // ⚠️ ONE name stands here since `@objectstack/spec` 18, and it is PENDING,
+    // not accepted: `requiredPermissions`, the ADR-0066 audience gate the SERVER
+    // enforces before it serves a view (objectui#12030). Declaring it is what
+    // objectui#8980 rules; but a declared member no renderer reads lands in
+    // bucket ①, whose emptiness says "implementation owed", and a server-side
+    // gate owes the renderer nothing. Which way the census reads such a member
+    // is the seat's call, so the declaration is left out of objectui#12030 and
+    // the name is pinned here exactly, so a second missing key still fails.
+    expect(missing, 'objectui is narrower than the protocol on these live keys').toEqual([...PENDING_SERVER_ENFORCED_DECLARATION]);
     // The control for that zero: the SAME set difference over the SAME two key
     // sets is non-empty in the other direction, so the emptiness is a reading.
     const localOnly = [...declared].filter((k) => !protocolListViewKeys().includes(k)).sort();

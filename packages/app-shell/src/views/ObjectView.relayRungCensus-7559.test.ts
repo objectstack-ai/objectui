@@ -468,6 +468,7 @@ const ABSENCES: Record<string, Absence> = {
   // census reddens instead of the value silently not arriving.
   striped: { kind: 'unread', reason: 'Retired by objectstack#7176 (maintainer-ruled 2026-08-10) after every objectui reader was measured as pass-through. Present only as the spec import that carries its tombstone.' },
   bordered: { kind: 'unread', reason: 'Retired by objectstack#7176, as `striped`.' },
+  requiredPermissions: { kind: 'unread', reason: 'The ADR-0066 audience gate `@objectstack/spec` 18 adds to a list view (objectui#12030). The SERVER enforces it before the view is served: a user who lacks the capabilities is never listed the view and is refused it by name, so nothing on the ListView path has a value to consume.' },
   virtualScroll: { kind: 'unread', reason: 'Retired by objectstack#7176, as `striped`.' },
   responsive: { kind: 'unread', reason: 'Imported from the spec by reference; no objectui renderer reads it.' },
   performance: { kind: 'unread', reason: 'Imported from the spec by reference; no objectui renderer reads it.' },

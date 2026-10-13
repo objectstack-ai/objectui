@@ -23,6 +23,7 @@ import {
   PageTypeSchema as SpecPageTypeSchema,
   PageVariableSchema as SpecPageVariableSchema,
   checkPageRequiresKind,
+  checkPageSlotPair,
   checkPageSourceCompleteness,
 } from '@objectstack/spec/ui';
 import { BaseSchema, SchemaNodeSchema, specFieldsExcept } from './base.zod.js';
@@ -1333,14 +1334,22 @@ export const PageNodeSchema = BaseSchema.extend(SpecPageFields.shape).extend({
   //    objectstack#16489);
   //  - `requires` is refused at `requires` on a page whose `kind` the platform
   //    does not compile at save — anything but `html` / `jsx`, an absent `kind`
-  //    included (`checkPageRequiresKind`, objectstack#21459, the spec's 17.7.0).
-  // The spec exports both and both are attached here as-is: they read `kind`,
-  // `source` and `requires`, and this node carries all three by reference —
-  // none is in {@link PAGE_SPEC_EXCLUDED} nor overridden above.
+  //    included (`checkPageRequiresKind`, objectstack#21459, the spec's 17.7.0);
+  //  - a page that authors both `slots.details` and `slots.tabs` is refused at
+  //    `slots.details`, because the `tabs` slot replaces the strip the details
+  //    body lives in (`checkPageSlotPair`, objectstack#22568, the spec's 18;
+  //    attached by objectui#12030).
+  // The spec exports all three and all three are attached here as-is: they read
+  // `kind`, `source`, `requires` and `slots`, and this node carries all four by
+  // reference — none is in {@link PAGE_SPEC_EXCLUDED} nor overridden above. The
+  // spec's fourth page check, `checkPagePrintComposition`, reads `type` and
+  // `regions`, which this node does NOT carry by reference, so it is not
+  // attached; the census below records why.
   // `__tests__/spec-object-refinements-7715.test.ts` re-derives the count, so a
   // check the spec adds to `PageSchema` later reddens there.
   .superRefine(checkPageSourceCompleteness)
-  .superRefine(checkPageRequiresKind);
+  .superRefine(checkPageRequiresKind)
+  .superRefine(checkPageSlotPair);
 
 /**
  * The spec page KINDS a node may carry in `type` (objectui#11440): `record`,
@@ -1388,8 +1397,9 @@ const { type: _pageNodeTypeLiteral, ...PAGE_NODE_MEMBERS } = PageNodeSchema.shap
  * member is {@link PageNodeSchema}'s own, by reference, and that node already
  * takes the spec's `PageSchema` fields by reference through
  * {@link SpecPageFields}. Its four refusals (`actions`, `breadcrumbs`,
- * `maxWidth`, `padding`), the `body` refusal and the spec's two object-level
- * checks (`source`, and `requires` by `kind`) come with it. `regions` stays the node's own
+ * `maxWidth`, `padding`), the `body` refusal and the spec's three attachable
+ * object-level checks (`source`, `requires` by `kind`, and the `details` /
+ * `tabs` slot pair) come with it. `regions` stays the node's own
  * {@link PageNodeRegionSchema}, so each region component is judged by this
  * union at every depth, as on `page`.
  *
@@ -1399,7 +1409,7 @@ const { type: _pageNodeTypeLiteral, ...PAGE_NODE_MEMBERS } = PageNodeSchema.shap
 export const PageKindNodeSchema: PageKindNodeSchemaType = BaseSchema.extend({
   ...PAGE_NODE_MEMBERS,
   type: PAGE_KIND_NODE_TYPE.describe('The spec page kind — `record`, `home` or `utility` (`@objectstack/spec` `PageTypeSchema`)'),
-}).superRefine(checkPageSourceCompleteness).superRefine(checkPageRequiresKind);
+}).superRefine(checkPageSourceCompleteness).superRefine(checkPageRequiresKind).superRefine(checkPageSlotPair);
 
 /**
  * The TYPE of {@link PageKindNodeSchema}, written out BY REFERENCE to the

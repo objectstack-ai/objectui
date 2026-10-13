@@ -155,11 +155,13 @@ const VALID_BAG: Readonly<Record<string, Record<string, unknown>>> = {
     limit: 50,
   },
   'element:text': { content: 'Hello' },
-  'element:number': { object: 'order', aggregate: 'count' },
+  // No flat query key: `@objectstack/spec` 18 retired `object` / `filter` here (objectui#12030).
+  'element:number': { aggregate: 'count' },
   'element:button': { label: 'Go', disabled: true },
   'element:divider': {},
   'element:definition-list': { items: [{ term: 'Owner', description: 'Ada' }], columns: 2 },
-  'element:repeater': { object: 'task', fields: ['subject', { field: 'status' }], limit: 5 },
+  // No flat query key: `@objectstack/spec` 18 retired `object` / `filter` / `sort` / `limit` here (objectui#12030).
+  'element:repeater': { titleField: 'subject', fields: ['subject', { field: 'status' }] },
   'action:button': {
     name: 'open_details',
     label: 'Open details',

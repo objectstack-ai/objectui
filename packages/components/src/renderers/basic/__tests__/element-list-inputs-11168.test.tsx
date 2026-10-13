@@ -265,10 +265,12 @@ describe('element:repeater.fields — what each entry prints (objectui#11168)', 
     // The value is printed (the entry is read), its label is not.
     expect(line()).toEqual(['ada@example.com']);
     expect(screen.getByTestId('repeater').textContent).not.toContain('E-mail address');
-    expect(refusal(REPEATER, { object: 'contact', fields: [{ field: 'email', label: 'E-mail address' }] })).toEqual([
+    // No flat `object` in the bag: `@objectstack/spec` 18 retired it (objectui#12030);
+    // the repeater's object is the node's `dataSource.object`, as mounted above.
+    expect(refusal(REPEATER, { fields: [{ field: 'email', label: 'E-mail address' }] })).toEqual([
       { code: 'invalid_union', path: 'fields.0' },
     ]);
-    expect(specRow(REPEATER).safeParse({ object: 'contact', fields: ['owner', { field: 'email' }] }).success).toBe(true);
+    expect(specRow(REPEATER).safeParse({ fields: ['owner', { field: 'email' }] }).success).toBe(true);
   });
 
   it('declares no member kind: the contract takes a field name OR `{ field }`', () => {

@@ -164,9 +164,13 @@ describe('record:details sections ↔ spec section-entry coverage (#3819)', () =
     'icon',
     'description',
     'headerColor',
+    // `@objectstack/spec` 18 declares a ninth, `count` (objectui#12030), declared
+    // ahead of its renderer upstream (EXPERIMENTAL). The renderer half is held on
+    // objectui#12192; its control waits with it, as the eight above do.
+    'count',
   ];
 
-  it('exposes an editor for every key the spec declares on a section, bar the deferred eight', () => {
+  it('exposes an editor for every key the spec declares on a section, bar the deferred nine', () => {
     expect(sectionsField?.kind).toBe('array');
     const authored = (sectionsField?.itemFields ?? []).map((f) => f.name);
     const missing = specSectionKeys.filter(

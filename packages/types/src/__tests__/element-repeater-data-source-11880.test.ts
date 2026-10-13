@@ -32,16 +32,14 @@
  *     refused at `dataSource` on both faces.
  *   - the TypeScript authoring face (`PublicBlockNodeOf<'element:repeater'>`,
  *     derived from the arm's shape) types `dataSource` as the spec's binding.
- *   - objectui#12056: `properties.object` is required only where no binding
- *     names the object. The spec row requires it, and the spec's props gate
- *     waives it beside a non-empty `dataSource.object`, for every component
- *     type (`suppliedByDataSource`, `@objectstack/lint`). Until objectui#12056
- *     this arm mirrored no waiver, so the node the page designer writes once
- *     its Object picker homes in the binding (`properties: {}` beside
- *     `dataSource.object`) was refused at `properties.object` on both faces.
- *     The arm now mirrors the waiver as `element:number`'s does: a bag that
- *     omits `object` is accepted beside a binding that names one and refused
- *     without it (`ELEMENT_REPEATER_OBJECT_REQUIRED`).
+ *   - objectui#12056 made `properties.object` required only where no binding
+ *     named the object, mirroring the spec props gate's waiver.
+ *   - objectui#12030: `@objectstack/spec` 18 retired the row's flat query keys
+ *     (`object`, `filter`, `sort`, `limit`; objectstack#11509) as tombstones,
+ *     so the waiver has nothing left to excuse. The bag is the row by
+ *     reference and refuses each flat key by name; the query is written on the
+ *     binding alone; and a node that binds no object is accepted, because the
+ *     spec's gate only WARNS that it queries nothing.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -70,7 +68,7 @@ const FACES: ReadonlyArray<readonly [string, (document: unknown) => Result]> = [
 const issuesAt = (result: Result, path: string): z.core.$ZodIssue[] =>
   result.success ? [] : result.error!.issues.filter((issue) => issue.path.join('.') === path);
 
-const BAG = { object: 'contact', titleField: 'name', fields: ['email'] } as const;
+const BAG = { titleField: 'name', fields: ['email'] } as const;
 const BINDING = {
   object: 'contact',
   filter: [{ field: 'status', operator: 'equals', value: 'active' }],
@@ -79,7 +77,7 @@ const BINDING = {
 } as const;
 
 describe('`element:repeater` takes the node-level `dataSource` (objectui#11880)', () => {
-  it('the designer-shaped node — `properties.object` plus a binding — is accepted on every face', () => {
+  it('the designer-shaped node — a bag plus a binding — is accepted on every face', () => {
     const document = { type: TYPE, properties: { ...BAG }, dataSource: { ...BINDING } };
     // Controls: the spec's node schema, its row and its binding schema each
     // accept their part, so the verdicts below are the arm's own.
@@ -91,44 +89,33 @@ describe('`element:repeater` takes the node-level `dataSource` (objectui#11880)'
     }
   });
 
-  it('a binding that names the object stands in for `properties.object` on both faces (objectui#12056)', () => {
-    // The node the page designer writes once its Object picker homes in the
-    // binding, and the same with display members in the bag.
-    for (const properties of [{}, { titleField: 'name', fields: ['email'] }]) {
-      const document = { type: TYPE, properties, dataSource: { object: 'contact', limit: 10 } };
-      // Control: the row ALONE refuses this bag at `object`, so the acceptance
-      // below is the waiver's doing, not a bag that never needed it.
-      expect(issuesAt(ROW.safeParse(properties) as Result, 'object').map((i) => i.code)).toEqual(['invalid_type']);
+  it('a flat query key in the bag is refused BY NAME on both faces, as the row refuses it (objectui#12030)', () => {
+    for (const [key, value] of [
+      ['object', 'contact'],
+      ['filter', [{ field: 'status', operator: 'equals', value: 'active' }]],
+      ['sort', [{ field: 'name', order: 'asc' }]],
+      ['limit', 5],
+    ] as const) {
+      const properties = { ...BAG, [key]: value };
+      // Control: the spec's own row refuses the same bag, at the same member.
+      expect(issuesAt(ROW.safeParse(properties) as Result, key).map((i) => i.code), key).toEqual(['invalid_type']);
       for (const [face, parse] of FACES) {
-        expect(parse(document).success, `${face} ${JSON.stringify(properties)}`).toBe(true);
+        const result = parse({ type: TYPE, properties, dataSource: { object: 'contact' } });
+        expect(result.success, `${face} ${key}`).toBe(false);
+        expect(issuesAt(result, `properties.${key}`).map((i) => i.code), `${face} ${key}`).toEqual(['invalid_type']);
       }
     }
   });
 
-  it('a bag with neither `properties.object` nor a binding naming one is refused at `properties.object` (objectui#12056)', () => {
-    for (const dataSource of [undefined, { object: '' }, { object: 42 }, 'contact', { limit: 10 }]) {
+  it('a node that binds no object is NOT refused — the spec warns about it, it does not refuse it (objectui#12030)', () => {
+    for (const dataSource of [undefined, { object: '' }]) {
       const document = { type: TYPE, properties: { titleField: 'name' }, ...(dataSource === undefined ? {} : { dataSource }) };
+      // Control: the spec's node schema and its row accept the same node.
+      expect(PageComponentSchema.safeParse(document).success, JSON.stringify(dataSource)).toBe(true);
+      expect(ROW.safeParse(document.properties).success).toBe(true);
       for (const [face, parse] of FACES) {
-        const result = parse(document);
-        const label = `${face} ${JSON.stringify(dataSource)}`;
-        expect(result.success, label).toBe(false);
-        const [issue] = issuesAt(result, 'properties.object');
-        expect(issue?.code, label).toBe('custom');
-        expect((issue as { params?: { code?: string } } | undefined)?.params?.code, label)
-          .toBe('ELEMENT_REPEATER_OBJECT_REQUIRED');
+        expect(parse(document).success, `${face} ${JSON.stringify(dataSource)}`).toBe(true);
       }
-    }
-    // Control: the spec's binding schema itself accepts the empty name, so the
-    // refusal of `{ object: '' }` is the waiver's non-empty rule.
-    expect(ElementDataSourceSchema.safeParse({ object: '' }).success).toBe(true);
-  });
-
-  it('the waiver covers an OMITTED `object` only: a wrong one beside a binding is the row\'s refusal (objectui#12056)', () => {
-    const document = { type: TYPE, properties: { object: 7 }, dataSource: { object: 'contact' } };
-    for (const [face, parse] of FACES) {
-      const result = parse(document);
-      expect(result.success, face).toBe(false);
-      expect(issuesAt(result, 'properties.object').map((i) => i.code), face).toEqual(['invalid_type']);
     }
   });
 
@@ -170,36 +157,29 @@ describe('`element:repeater` takes the node-level `dataSource` (objectui#11880)'
 /**
  * The differential: on every probe the strict face answers what the spec
  * answers — its node schema (`PageComponentSchema`, which judges `dataSource`)
- * together with THIS FILE'S MODEL of the spec props gate's documented reading
- * over the row: the row's issues, less a missing `object` beside a non-empty
- * `dataSource.object` (`DATASOURCE_SUPPLIED_PROP`, type-blind), judged only
- * when a bag is present. objectui#11880 modelled the row with no waiver; the
- * arm mirrors the gate's since objectui#12056, as `element:number`'s does.
+ * together with the spec's row over the bag, judged only when a bag is
+ * present. objectui#12056 modelled the props gate's `object` waiver here; the
+ * row retired the flat `object` at `@objectstack/spec` 18 (objectui#12030), so
+ * there is no waiver left to model.
  */
-describe('the strict face answers as the spec node schema plus the spec gate\'s reading do (objectui#11880, objectui#12056)', () => {
+describe('the strict face answers as the spec node schema plus its row do (objectui#11880, objectui#12030)', () => {
   const specAccepts = (node: Readonly<Record<string, unknown>>): boolean => {
     if (!PageComponentSchema.safeParse(node).success) return false;
     const bag = node.properties;
     if (bag === undefined) return true;
-    const parsed = ROW.safeParse(bag) as Result;
-    if (parsed.success) return true;
-    const ds = node.dataSource as { object?: unknown } | undefined;
-    const supplied = !!ds && typeof ds === 'object' && typeof ds.object === 'string' && ds.object.length > 0;
-    const absent = !!bag && typeof bag === 'object' && (bag as { object?: unknown }).object === undefined;
-    return parsed.error!.issues.every(
-      (issue) => supplied && absent && issue.path.length === 1 && issue.path[0] === 'object',
-    );
+    return ROW.safeParse(bag).success;
   };
 
   const PROBES: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
     ['flat bag only', { properties: { ...BAG } }],
     ['bag and binding', { properties: { ...BAG }, dataSource: { ...BINDING } }],
     ['bag and binding naming a saved view', { properties: { ...BAG }, dataSource: { object: 'contact', view: 'active' } }],
-    ['bag without object, binding', { properties: { titleField: 'name' }, dataSource: { object: 'contact' } }],
+    ['bag, binding', { properties: { titleField: 'name' }, dataSource: { object: 'contact' } }],
+    ['flat object in the bag, binding', { properties: { object: 'contact', titleField: 'name' }, dataSource: { object: 'contact' } }],
     ['empty bag, binding (the designer-written node)', { properties: {}, dataSource: { object: 'contact', limit: 10 } }],
-    ['bag without object, no binding', { properties: { titleField: 'name' } }],
-    ['bag without object, empty binding name', { properties: { titleField: 'name' }, dataSource: { object: '' } }],
-    ['bag without object, binding with a bad member', { properties: { titleField: 'name', limit: 'ten' }, dataSource: { object: 'contact' } }],
+    ['bag, no binding', { properties: { titleField: 'name' } }],
+    ['bag, empty binding name', { properties: { titleField: 'name' }, dataSource: { object: '' } }],
+    ['bag with a retired member, binding', { properties: { titleField: 'name', limit: 'ten' }, dataSource: { object: 'contact' } }],
     ['binding only, no bag', { dataSource: { object: 'contact' } }],
     ['bag and a binding with an alias member', { properties: { ...BAG }, dataSource: { object: 'contact', objectName: 'contact' } }],
     ['bag and a binding that is a string', { properties: { ...BAG }, dataSource: 'contact' }],
@@ -253,8 +233,9 @@ describe('`dataSource` on the repeater arm IS the spec\'s binding (objectui#1188
       // @ts-expect-error `objectName` is not a member of the spec's ElementDataSourceSchema
       dataSource: { object: 'contact', objectName: 'contact' },
     };
-    // objectui#12056: the bag's `object` is optional on the type too, so the
-    // node the page designer writes is a typed literal that compiles.
+    // objectui#12056 / objectui#12030: the bag names no `object` (the row
+    // retired it), so the node the page designer writes is a typed literal that
+    // compiles.
     const bindingOnly: PublicBlockNodeOf<'element:repeater'> = {
       type: TYPE,
       properties: { titleField: 'name' },
@@ -282,7 +263,7 @@ describe('`dataSource` on the repeater arm IS the spec\'s binding (objectui#1188
   });
 });
 
-describe('the repeater bag is its row with `object` alone made optional (objectui#12056)', () => {
+describe('the repeater bag is its row, by reference (objectui#12056, objectui#12030)', () => {
   /** The arm's `properties` member with its `.optional()` peeled off. */
   const bag = (): z.ZodObject =>
     ((ElementRepeaterBlockSchema.shape as unknown as Record<string, z.ZodType>).properties as unknown as z.ZodOptional)
@@ -294,15 +275,15 @@ describe('the repeater bag is its row with `object` alone made optional (objectu
       .toBe('never');
   });
 
-  it('every member but `object` IS the row\'s own member object; `object` is the row\'s own, made optional', () => {
+  it('every member IS the row\'s own member object — the retired flat query keys included', () => {
     const rowShape = ROW.shape as Record<string, z.ZodType>;
     const bagShape = bag().shape as Record<string, z.ZodType>;
-    for (const key of Object.keys(rowShape).filter((k) => k !== 'object')) {
+    for (const key of Object.keys(rowShape)) {
       expect(bagShape[key], key).toBe(rowShape[key]);
     }
-    expect((bagShape.object as unknown as { _zod: { def: { type: string } } })._zod.def.type).toBe('optional');
-    expect((bagShape.object as unknown as z.ZodOptional).unwrap()).toBe(rowShape.object);
-    // Control: the row's own `object` is required, which is why the waiver exists.
-    expect(ROW.safeParse({ titleField: 'name' }).success).toBe(false);
+    // Control: the row no longer requires `object` — it refuses it — which is
+    // why no waiver is left to mirror.
+    expect(ROW.safeParse({ titleField: 'name' }).success).toBe(true);
+    expect(ROW.safeParse({ titleField: 'name', object: 'contact' }).success).toBe(false);
   });
 });

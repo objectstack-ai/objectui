@@ -119,7 +119,7 @@ const ROWS: ReadonlyArray<
   [
     'element:repeater',
     ElementRepeaterBlockSchema as unknown as Arm,
-    { type: 'element:repeater', properties: { object: 'account', titleField: 'name', fields: ['industry'] } },
+    { type: 'element:repeater', dataSource: { object: 'account' }, properties: { titleField: 'name', fields: ['industry'] } },
     null,
   ],
 ];

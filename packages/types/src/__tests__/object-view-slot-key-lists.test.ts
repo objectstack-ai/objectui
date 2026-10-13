@@ -174,6 +174,16 @@ const TABLE_WITHHELD_KEYS: readonly string[] = Object.values(TABLE_WITHHELD_BY_R
 const TABLE_INHERITED_TOMBSTONES = ['body', 'children', 'defaultSort'] as const;
 
 /**
+ * Members the slot carries BY REFERENCE from the spec's `object-grid` row that
+ * the spec itself has since retired: `defaultFilters`, a tombstone in
+ * `@objectstack/spec` 18 (objectstack#11509, objectui#12030). The zod twin
+ * refuses it with the spec's own tombstone; the TypeScript face types it as the
+ * spec's retired-key type, so no value compiles there either. Kept apart from
+ * {@link TABLE_INHERITED_TOMBSTONES}, whose members are objectui's own `?: never`.
+ */
+const TABLE_SPEC_RETIRED_MEMBERS = ['defaultFilters'] as const;
+
+/**
  * The one tombstone the zod `ObjectGridSchema` declares and its TypeScript twin
  * deliberately does not: `operators`, the misspelling of `operations`
  * (objectui#9739 — declaring `?: never` would write the misspelling into the
@@ -405,7 +415,7 @@ describe('objectui#10976 — the table slot withholds what the view\'s grid does
     const shape = mirrorTableObject().shape as Record<string, z.ZodType>;
     const refused = Object.keys(shape).filter((k) => refusesEverything(shape[k])).sort();
     expect(refused).toEqual(
-      [...TABLE_WITHHELD_KEYS, ...TABLE_INHERITED_TOMBSTONES, ...TABLE_MIRROR_ONLY_TOMBSTONES].sort(),
+      [...TABLE_WITHHELD_KEYS, ...TABLE_INHERITED_TOMBSTONES, ...TABLE_MIRROR_ONLY_TOMBSTONES, ...TABLE_SPEC_RETIRED_MEMBERS].sort(),
     );
   });
 

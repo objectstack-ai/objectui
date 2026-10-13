@@ -23,6 +23,13 @@
  * differential blocks hold every local verdict to the row's on the same values: the local
  * faces must never refuse what the installed protocol accepts, nor accept what it refuses.
  * `filter` on the grid is the lit control throughout: round 8 moved it, this round does not.
+ *
+ * ⚠️ `@objectstack/spec` 18 RETIRED `object-grid.defaultFilters` (objectstack#11509): the
+ * row's member is a tombstone that refuses every value by name. Both faces carry it by
+ * reference, so both refuse it too — the rows below that held the rule-array verdict now
+ * hold the retirement (objectui#12030). `ObjectGrid` still reads a stored document's
+ * `defaultFilters` as a legacy fallback when `filter` is absent; that read is the
+ * renderer's, and these faces judge what is authored.
  */
 import { describe, it, expect } from 'vitest';
 
@@ -84,13 +91,15 @@ const VALUES: ReadonlyArray<readonly [string, unknown]> = [
 /* ── The precondition, on the installed protocol ─────────────────────────────── */
 
 describe('objectui#6152 round 10 — the installed protocol (the precondition)', () => {
-  it('the `object-grid` row takes the rule array on `defaultFilters` and refuses the record, naming the rule array', () => {
-    expect(SpecObjectGridPropsSchema.safeParse({ defaultFilters: RULES }).success).toBe(true);
-    const record = SpecObjectGridPropsSchema.safeParse({ defaultFilters: RECORD });
-    expect(codeAndPath(record)).toEqual([{ code: 'invalid_type', path: ['defaultFilters'] }]);
-    // The refusal names the new shape, computed from the author's own keys.
-    expect(firstMessage(record)).toContain("[{ field: 'status', operator: 'equals', value: 'open' }]");
-    expect(paths(SpecObjectGridPropsSchema.safeParse({ defaultFilters: TUPLES }))).toEqual(['defaultFilters.0']);
+  it('the `object-grid` row refuses `defaultFilters` BY NAME, whatever the value — a tombstone since 18 (objectui#12030)', () => {
+    for (const [, value] of VALUES) {
+      const r = SpecObjectGridPropsSchema.safeParse({ defaultFilters: value });
+      expect(codeAndPath(r), JSON.stringify(value)).toEqual([{ code: 'invalid_type', path: ['defaultFilters'] }]);
+    }
+    // The refusal points at the live key.
+    expect(firstMessage(SpecObjectGridPropsSchema.safeParse({ defaultFilters: RULES }))).toContain('filter');
+    // Lit control: the row's `filter` takes the rule array the retired key took.
+    expect(SpecObjectGridPropsSchema.safeParse({ filter: RULES }).success).toBe(true);
   });
 
   it.each([
@@ -127,8 +136,16 @@ describe('objectui#6152 round 10 — the mirror members are the rows\' own, by r
 /* ── Every local verdict is the row's ────────────────────────────────────────── */
 
 describe('objectui#6152 round 10 — every flat mirror verdict is its row\'s', () => {
+  it('object-grid `defaultFilters`: the mirror refuses every value, as the retired row member does (objectui#12030)', () => {
+    for (const [, value] of VALUES) {
+      const local = (ObjectGridSchema as unknown as { safeParse: Parse }).safeParse({ ...GRID, defaultFilters: value });
+      expect(local.success, JSON.stringify(value)).toBe(false);
+      expect(paths(local), JSON.stringify(value)).toEqual(['defaultFilters']);
+      expect(SpecObjectGridPropsSchema.safeParse({ defaultFilters: value }).success).toBe(false);
+    }
+  });
+
   describe.each([
-    ['object-grid `defaultFilters`', ObjectGridSchema as unknown as { safeParse: Parse }, SpecObjectGridPropsSchema, GRID, 'defaultFilters'],
     ['object-grid `filter` (lit control, round 8)', ObjectGridSchema as unknown as { safeParse: Parse }, SpecObjectGridPropsSchema, GRID, 'filter'],
     ['object-gantt `filter`', ObjectGanttSchema as unknown as { safeParse: Parse }, SpecObjectGanttPropsSchema, GANTT, 'filter'],
     ['object-map `filter`', ObjectMapSchema as unknown as { safeParse: Parse }, SpecObjectMapPropsSchema, MAP, 'filter'],
@@ -155,46 +172,32 @@ describe('objectui#6152 round 10 — every flat mirror verdict is its row\'s', (
 
 /* ── The `object-view` `table` slot: objectui's own door ─────────────────────── */
 
-describe('objectui#6152 round 10 — `table.defaultFilters` takes the rule array and refuses the record', () => {
+describe('objectui#6152 round 10 — `table.defaultFilters` follows the row: refused for every value since 18 (objectui#12030)', () => {
   describe.each(DOORS)('%s', (_door, parse) => {
-    it('the rule array parses', () => {
-      const r = parse({ ...VIEW, table: { defaultFilters: RULES } });
-      expect(r.success, JSON.stringify(codeAndPath(r))).toBe(true);
-    });
-
-    it('the record is refused AT `table.defaultFilters`, naming the rule array', () => {
-      const r = parse({ ...VIEW, table: { defaultFilters: RECORD } });
-      expect(codeAndPath(r)).toEqual([{ code: 'invalid_type', path: ['table', 'defaultFilters'] }]);
-      expect(firstMessage(r)).toContain("[{ field: 'status', operator: 'equals', value: 'open' }]");
-    });
-
-    it('the tuple array is refused at its first element', () => {
-      expect(paths(parse({ ...VIEW, table: { defaultFilters: TUPLES } }))).toEqual(['table.defaultFilters.0']);
+    it.each(VALUES)('%s: refused AT `table.defaultFilters`, as the row refuses it', (_value, value) => {
+      const local = parse({ ...VIEW, table: { defaultFilters: value } });
+      expect(local.success).toBe(false);
+      expect(paths(local)).toEqual(['table.defaultFilters']);
+      expect(SpecObjectGridPropsSchema.safeParse({ defaultFilters: value }).success).toBe(false);
     });
 
     it('LIT CONTROL: `table.filter` is unchanged — the rule array parses, the tuple array is refused', () => {
       expect(parse({ ...VIEW, table: { filter: RULES } }).success).toBe(true);
       expect(paths(parse({ ...VIEW, table: { filter: TUPLES } }))).toEqual(['table.filter.0']);
     });
-
-    it.each(VALUES)('%s: the slot\'s verdict is the row\'s', (_value, value) => {
-      const local = parse({ ...VIEW, table: { defaultFilters: value } });
-      expect(local.success).toBe(SpecObjectGridPropsSchema.safeParse({ defaultFilters: value }).success);
-    });
   });
 
   it('the `object-view` mirror\'s own slot agrees with the doors above', () => {
-    expect(ObjectViewSchema.safeParse({ ...VIEW, table: { defaultFilters: RULES } }).success).toBe(true);
-    expect(codeAndPath(ObjectViewSchema.safeParse({ ...VIEW, table: { defaultFilters: RECORD } })))
-      .toEqual([{ code: 'invalid_type', path: ['table', 'defaultFilters'] }]);
+    expect(paths(ObjectViewSchema.safeParse({ ...VIEW, table: { defaultFilters: RULES } }))).toEqual(['table.defaultFilters']);
+    expect(ObjectViewSchema.safeParse({ ...VIEW, table: { filter: RULES } }).success).toBe(true);
   });
 
   it('CONTROL: the authored `object-grid` node\'s bag (the row itself) gives the same verdicts', () => {
     for (const [, parse] of DOORS) {
-      const ok = parse({ type: 'object-grid', properties: { objectName: 'task', defaultFilters: RULES } });
-      expect(ok.success, JSON.stringify(codeAndPath(ok))).toBe(true);
-      expect(paths(parse({ type: 'object-grid', properties: { objectName: 'task', defaultFilters: RECORD } })))
+      expect(paths(parse({ type: 'object-grid', properties: { objectName: 'task', defaultFilters: RULES } })))
         .toEqual(['properties.defaultFilters']);
+      const ok = parse({ type: 'object-grid', properties: { objectName: 'task', filter: RULES } });
+      expect(ok.success, JSON.stringify(codeAndPath(ok))).toBe(true);
     }
   });
 });

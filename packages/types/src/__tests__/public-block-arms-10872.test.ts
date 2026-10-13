@@ -71,13 +71,15 @@ const VALID_BAG: Readonly<Record<string, Record<string, unknown>>> = {
   'element:text': { content: 'Hello' },
   // objectui#10872 batch 2 — the bag that names its own `object`; the
   // `dataSource` waiver is pinned in `./element-number-arm-10872.test.ts`.
-  'element:number': { object: 'order', aggregate: 'count' },
+  // No flat query key: `@objectstack/spec` 18 retired `object` / `filter` here (objectui#12030).
+  'element:number': { aggregate: 'count' },
   'element:button': { label: 'Go' },
   'element:divider': {},
   // objectui#10872 batch 4 — the six rows `@objectstack/spec` 17.5.0 carries;
   // their own readings are pinned in `./held-public-block-arms-10872.test.ts`.
   'element:definition-list': { items: [{ term: 'Owner', description: 'Ada' }], columns: 2 },
-  'element:repeater': { object: 'task', fields: ['subject', { field: 'status' }], limit: 5 },
+  // No flat query key: `@objectstack/spec` 18 retired `object` / `filter` / `sort` / `limit` here (objectui#12030).
+  'element:repeater': { titleField: 'subject', fields: ['subject', { field: 'status' }] },
   'action:button': { label: 'Open details', actionType: 'url', target: '/users/ada' },
   'action:icon': { icon: 'pencil', label: 'Edit', actionType: 'url', target: '/users/ada/edit' },
   'action:group': { actions: [{ name: 'edit', label: 'Edit' }], display: 'dropdown' },
@@ -175,13 +177,11 @@ describe('the bag is the spec row, read by reference (objectui#10872)', () => {
     expect(keysOf(bagOf(type))).toEqual(keysOf(rowOf(type)));
   });
 
-  // `element:divider` is restated (below); `element:number`'s bag is its row
-  // with `object` alone made optional — the spec's `dataSource` waiver — so it
-  // is a clone by construction, and `./element-number-arm-10872.test.ts` pins
-  // it member by member against the row instead. `element:repeater`'s bag is
-  // the same clone since objectui#12056, pinned member by member in
-  // `./element-repeater-data-source-11880.test.ts`.
-  it.each(ARMED.filter((type) => type !== 'element:divider' && type !== 'element:number' && type !== 'element:repeater'))(
+  // `element:divider` is restated (below). `element:number`'s and
+  // `element:repeater`'s bags were their rows with `object` alone made optional
+  // — the spec's `dataSource` waiver — until `@objectstack/spec` 18 retired that
+  // `object` (objectui#12030); both are their rows by reference again.
+  it.each(ARMED.filter((type) => type !== 'element:divider'))(
     '%s: the bag is the spec\'s own row object wherever the import boundary has nothing to strip',
     (type) => {
       const row = rowOf(type);

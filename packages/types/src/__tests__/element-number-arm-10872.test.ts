@@ -7,8 +7,8 @@
  */
 
 /**
- * `element:number` has a zod arm, with the spec's one `dataSource` waiver on
- * its required `object` (objectui#10872, batch 2).
+ * `element:number` has a zod arm: its row by reference, and the node's
+ * `dataSource` binding (objectui#10872 batch 2, objectui#12030).
  *
  * ## The defect these pin
  *
@@ -18,17 +18,18 @@
  * refused every `element:number` document with `invalid_union` at `type`,
  * whichever form it bound its object in.
  *
- * ## Why this block was held from batch 1
+ * ## The query lives on the binding since `@objectstack/spec` 18
  *
- * Its row REQUIRES `object`, and the spec's own props gate waives exactly that
- * one member when the node binds through `dataSource.object`
- * (`DATASOURCE_SUPPLIED_PROP` / `suppliedByDataSource` in `@objectstack/lint`'s
- * `validate-component-props.ts`, pinned there by "does not report the required
- * `object` prop when `dataSource` supplies it"). The row alone would refuse
- * that spec-valid node. The arm mirrors the waiver — the bag is the row with
- * `object` alone made optional, and a node refinement restores the
- * requiredness wherever the waiver does not apply — so every row below
- * measures the arm against the INSTALLED spec rather than a transcription.
+ * Through 17.x the row REQUIRED a flat `object`, the spec's props gate waived
+ * it beside `dataSource.object`, and this arm mirrored that waiver with a bag
+ * that made `object` optional and a node refinement that put the requiredness
+ * back. `@objectstack/spec` 18 retired the row's flat `object` and `filter` as
+ * tombstones (objectstack#11509): the metric's object and filter are written on
+ * the node-level `dataSource` binding only, the renderer reads nothing else
+ * (objectui#11880), and the spec's gate no longer refuses a node that names no
+ * object — it WARNS that such a node queries nothing. So the arm is the row by
+ * reference, like every other public block, and every row below measures it
+ * against the INSTALLED spec rather than a transcription.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -67,127 +68,86 @@ const issuesAt = (result: Result, path: string): z.core.$ZodIssue[] =>
 const bag = (): z.ZodObject =>
   (ElementNumberBlockSchema.shape.properties as unknown as z.ZodOptional).unwrap() as unknown as z.ZodObject;
 
-/** A bag that names everything but `object` — valid by the row once `object` is supplied. */
-const BAG_WITHOUT_OBJECT = { aggregate: 'sum', field: 'total' } as const;
+/** A bag the row accepts: everything but the query. */
+const BAG = { aggregate: 'sum', field: 'total' } as const;
 
-describe('`element:number` validates, with the spec\'s `dataSource` waiver (objectui#10872 batch 2)', () => {
-  it('a minimal `properties.object` document is accepted on both faces', () => {
-    const properties = { object: 'order', aggregate: 'count' };
+describe('`element:number` validates, with its query on the binding (objectui#10872 batch 2, objectui#12030)', () => {
+  it('a `dataSource.object` document is accepted on both faces', () => {
     // Fixture control: the bag is valid by the spec's own row.
-    expect(ROW.safeParse(properties).success).toBe(true);
-    for (const [face, parse] of FACES) {
-      expect(parse({ type: TYPE, properties }).success, face).toBe(true);
-    }
-  });
-
-  it('a `dataSource.object` document with no `properties.object` is accepted on both faces', () => {
-    const document = { type: TYPE, dataSource: { object: 'order' }, properties: { ...BAG_WITHOUT_OBJECT } };
+    expect(ROW.safeParse(BAG).success).toBe(true);
+    const document = { type: TYPE, dataSource: { object: 'order' }, properties: { ...BAG } };
+    expect(PageComponentSchema.safeParse(document).success).toBe(true);
     for (const [face, parse] of FACES) {
       expect(parse(document).success, face).toBe(true);
     }
-    // Control: the row ALONE refuses this bag at `object` — so the acceptance
-    // above is the waiver's doing, not a bag that never needed it.
-    const rowAlone = ROW.safeParse(BAG_WITHOUT_OBJECT) as Result;
-    expect(rowAlone.success).toBe(false);
-    expect(pathsOf(rowAlone)).toEqual(['object']);
   });
 
-  it('a document with neither is refused on both faces, at `properties.object`', () => {
-    const document = { type: TYPE, properties: { ...BAG_WITHOUT_OBJECT } };
-    for (const [face, parse] of FACES) {
-      const result = parse(document);
-      expect(result.success, face).toBe(false);
-      const [issue] = issuesAt(result, 'properties.object');
-      expect(issue?.code, face).toBe('custom');
-      expect((issue as { params?: { code?: string } } | undefined)?.params?.code, face)
-        .toBe('ELEMENT_NUMBER_OBJECT_REQUIRED');
-      // The remedy names both subjects the author can set.
-      expect(issue?.message, face).toContain('properties.object');
-      expect(issue?.message, face).toContain('dataSource.object');
-    }
-  });
-
-  it('the missing `object` is reported BESIDE another bag issue, as the spec gate reports it', () => {
-    // `when: () => true` on the refinement: without it zod skips the check once
-    // the bad `aggregate` aborts the parse, and the author learns of `object`
-    // only after fixing the first issue.
-    const result = safeValidateSchema({ type: TYPE, properties: { aggregate: 'median' } });
-    expect(pathsOf(result).sort()).toEqual(['properties.aggregate', 'properties.object']);
-  });
-
-  it('a `dataSource` whose `object` is empty, or not a string, supplies nothing', () => {
-    for (const dataSource of [{ object: '' }, { object: 42 }, 'order']) {
-      const document = { type: TYPE, dataSource, properties: { ...BAG_WITHOUT_OBJECT } };
+  it('a flat `properties.object` or `properties.filter` is refused BY NAME on both faces, as the row refuses it', () => {
+    for (const [key, value] of [
+      ['object', 'order'],
+      ['filter', [{ field: 'status', operator: 'equals', value: 'won' }]],
+    ] as const) {
+      const properties = { ...BAG, [key]: value };
+      // Control: the spec's own row refuses the same bag at the same member.
+      expect(pathsOf(ROW.safeParse(properties) as Result), key).toEqual([key]);
       for (const [face, parse] of FACES) {
-        const result = parse(document);
-        expect(result.success, `${face} ${JSON.stringify(dataSource)}`).toBe(false);
-        expect(issuesAt(result, 'properties.object').map((issue) => issue.code), `${face} ${JSON.stringify(dataSource)}`)
-          .toEqual(['custom']);
+        const result = parse({ type: TYPE, dataSource: { object: 'order' }, properties });
+        expect(result.success, `${face} ${key}`).toBe(false);
+        expect(issuesAt(result, `properties.${key}`).map((issue) => issue.code), `${face} ${key}`)
+          .toEqual(['invalid_type']);
       }
     }
-    // Control: the spec's binding schema itself ACCEPTS the empty name — so the
-    // refusal above is the waiver's non-empty rule (the gate's `strName`), not
-    // the binding's own verdict.
-    expect(ElementDataSourceSchema.safeParse({ object: '' }).success).toBe(true);
   });
 
-  it('the waiver covers an OMITTED `object` only — a wrong one beside a binding is the row\'s refusal', () => {
-    const document = { type: TYPE, dataSource: { object: 'order' }, properties: { object: 7, aggregate: 'count' } };
-    for (const [face, parse] of FACES) {
-      const result = parse(document);
-      expect(result.success, face).toBe(false);
-      expect(issuesAt(result, 'properties.object').map((issue) => issue.code), face).toEqual(['invalid_type']);
+  it('a node that binds no object is NOT refused — the spec warns about it, it does not refuse it', () => {
+    // The spec's gate reports a `dataSource.object`-less `element:number` as a
+    // WARNING (it queries nothing), never as a parse refusal, and its node
+    // schema accepts the node. This face follows the parse, not the lint.
+    for (const document of [
+      { type: TYPE, properties: { ...BAG } },
+      { type: TYPE, dataSource: { object: '' }, properties: { ...BAG } },
+      { type: TYPE },
+    ]) {
+      expect(PageComponentSchema.safeParse(document).success, JSON.stringify(document)).toBe(true);
+      for (const [face, parse] of FACES) {
+        expect(parse(document).success, `${face} ${JSON.stringify(document)}`).toBe(true);
+      }
     }
   });
 
   it('a spec-invalid bag member is refused at the member, by reference', () => {
-    for (const [properties, path] of [
-      [{ object: 'order', aggregate: 'count', format: 'roman' }, 'properties.format'],
-      // The record-form `filter` the spec's `element-number-filter-rule-array`
-      // migration retired: refused at `filter` by the row, and so here.
-      [{ object: 'order', aggregate: 'count', filter: { status: 'won' } }, 'properties.filter'],
-    ] as const) {
-      // Control: the spec's own row refuses the same bag, at the same member.
-      expect(pathsOf(ROW.safeParse(properties) as Result), path).toContain(path.replace('properties.', ''));
-      for (const [face, parse] of FACES) {
-        const result = parse({ type: TYPE, properties });
-        expect(result.success, `${face} ${path}`).toBe(false);
-        expect(pathsOf(result), `${face} ${path}`).toContain(path);
-      }
+    const properties = { aggregate: 'count', format: 'roman' };
+    // Control: the spec's own row refuses the same bag, at the same member.
+    expect(pathsOf(ROW.safeParse(properties) as Result)).toContain('format');
+    for (const [face, parse] of FACES) {
+      const result = parse({ type: TYPE, properties });
+      expect(result.success, face).toBe(false);
+      expect(pathsOf(result), face).toContain('properties.format');
     }
   });
 
   it('an undeclared member inside the bag is refused by name — the row\'s strictness travels', () => {
-    const result = safeValidateSchema({ type: TYPE, properties: { object: 'order', aggregate: 'count', inventedKey10872: 1 } });
+    const result = safeValidateSchema({ type: TYPE, properties: { aggregate: 'count', inventedKey10872: 1 } });
     const [issue] = issuesAt(result, 'properties');
     expect(issue?.code).toBe('unrecognized_keys');
     expect((issue as { keys?: string[] } | undefined)?.keys).toEqual(['inventedKey10872']);
   });
 
-  it('taught and shipped `element:number` documents validate', () => {
-    for (const [source, document] of [
-      // `@objectstack/spec` "should accept element:number component" — the
-      // props form, the one form every `element:number` document the platform
-      // teaches or ships uses (no example app authors one).
-      ['spec component fixture', { type: TYPE, properties: { object: 'order', aggregate: 'count' } }],
-      // The same suite's `PageComponent dataSource integration` document —
-      // BOTH forms at once — with its `dataSource.filter` left out: the
-      // installed spec's binding still takes the record-form filter there.
-      [
-        'spec dataSource-integration fixture',
-        { type: TYPE, properties: { object: 'order', aggregate: 'sum', field: 'total' }, dataSource: { object: 'order', limit: 100 } },
-      ],
-      // The rule-array `filter` the spec's `element-number-filter-rule-array`
-      // migration prescribes.
-      [
-        'spec migration prescription',
-        { type: TYPE, properties: { object: 'task', aggregate: 'count', filter: [{ field: 'status', operator: 'equals', value: 'won' }] } },
-      ],
-    ] as const) {
-      // Control: the spec's own node schema accepts each one.
-      expect(PageComponentSchema.safeParse(document).success, source).toBe(true);
+  it('documents in the binding form validate, and so does the spec', () => {
+    for (const document of [
+      { type: TYPE, dataSource: { object: 'order' }, properties: { aggregate: 'count' } },
+      { type: TYPE, dataSource: { object: 'order', limit: 100 }, properties: { aggregate: 'sum', field: 'total' } },
+      {
+        type: TYPE,
+        dataSource: { object: 'task', filter: [{ field: 'status', operator: 'equals', value: 'won' }] },
+        properties: { aggregate: 'count' },
+      },
+    ]) {
+      // Control: the spec's node schema accepts each one, and its row the bag.
+      expect(PageComponentSchema.safeParse(document).success, JSON.stringify(document)).toBe(true);
+      expect(ROW.safeParse(document.properties).success, JSON.stringify(document)).toBe(true);
       for (const [face, parse] of FACES) {
-        expect(parse(document).success, `${face} ${source}`).toBe(true);
+        expect(parse(document).success, `${face} ${JSON.stringify(document)}`).toBe(true);
       }
     }
   });
@@ -202,89 +162,68 @@ describe('`element:number` validates, with the spec\'s `dataSource` waiver (obje
 /**
  * The differential: on every probe, the arm answers exactly what the spec's
  * node schema (`PageComponentSchema`, which judges `dataSource`) answers,
- * together with THIS FILE'S MODEL of the spec gate's documented reading over
- * the row (`specGateAccepts` below — the gate's docblock, not the gate's code,
- * which is not importable here). Each probe is its own row, so a regression
- * names the document it broke.
+ * together with the spec's row over the bag (`specAccepts` below). Each probe
+ * is its own row, so a regression names the document it broke.
  */
-describe('`element:number` answers as the spec node schema plus the spec gate\'s documented reading do (objectui#10872 batch 2)', () => {
-  /**
-   * The spec gate's verdict on a node's bag: the row's issues, less the one the
-   * gate waives — `object` ABSENT while `dataSource.object` is a non-empty
-   * string (`DATASOURCE_SUPPLIED_PROP`, documented there as "the one prop whose
-   * absence this rule does NOT report"). A node with no bag is not judged.
-   *
-   * ⚠️ Absence, as that docblock and this card's order state it ("may omit
-   * `properties.object`"). The gate's `suppliedByDataSource` matches the issue
-   * by PATH alone, so it also waives a present-but-wrong `object` (a number)
-   * beside a binding; the arm does not, and the probe that tells the two apart
-   * is its own row below.
-   */
-  function specGateAccepts(node: Readonly<Record<string, unknown>>): boolean {
+describe('`element:number` answers as the spec node schema plus its row do (objectui#10872 batch 2, objectui#12030)', () => {
+  /** The spec's verdict: the node schema, and the row over a bag when there is one. */
+  function specAccepts(node: Readonly<Record<string, unknown>>): boolean {
+    if (!PageComponentSchema.safeParse(node).success) return false;
     const props = node.properties;
-    if (!props || typeof props !== 'object' || Array.isArray(props)) return true;
-    const parsed = ROW.safeParse(props) as Result;
-    if (parsed.success) return true;
-    const ds = node.dataSource as { object?: unknown } | undefined;
-    const supplied = !!ds && typeof ds === 'object' && typeof ds.object === 'string' && ds.object.length > 0;
-    const absent = (props as { object?: unknown }).object === undefined;
-    return parsed.error!.issues.every(
-      (issue) => supplied && absent && issue.path.length === 1 && issue.path[0] === 'object',
-    );
+    if (props === undefined) return true;
+    return ROW.safeParse(props).success;
   }
 
   const PROBES: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
     ['bare node', {}],
-    ['props form', { properties: { object: 'order', aggregate: 'count' } }],
-    ['bag without object, no binding', { properties: { ...BAG_WITHOUT_OBJECT } }],
-    ['bag without object, dataSource.object', { properties: { ...BAG_WITHOUT_OBJECT }, dataSource: { object: 'order' } }],
-    ['bag without object, empty dataSource.object', { properties: { ...BAG_WITHOUT_OBJECT }, dataSource: { object: '' } }],
-    ['bag without object, numeric dataSource.object', { properties: { ...BAG_WITHOUT_OBJECT }, dataSource: { object: 42 } }],
-    ['bag without object, dataSource a string', { properties: { ...BAG_WITHOUT_OBJECT }, dataSource: 'order' }],
-    ['bag without object, dataSource with an alias key', { properties: { ...BAG_WITHOUT_OBJECT }, dataSource: { object: 'order', objectName: 'order' } }],
-    ['props form, empty dataSource.object', { properties: { object: 'order', aggregate: 'count' }, dataSource: { object: '' } }],
+    ['bag, no binding', { properties: { ...BAG } }],
+    ['bag, dataSource.object', { properties: { ...BAG }, dataSource: { object: 'order' } }],
+    ['bag, empty dataSource.object', { properties: { ...BAG }, dataSource: { object: '' } }],
+    ['bag, numeric dataSource.object', { properties: { ...BAG }, dataSource: { object: 42 } }],
+    ['bag, dataSource a string', { properties: { ...BAG }, dataSource: 'order' }],
+    ['bag, dataSource with an alias key', { properties: { ...BAG }, dataSource: { object: 'order', objectName: 'order' } }],
+    ['flat object in the bag, dataSource.object', { properties: { object: 'order', aggregate: 'count' }, dataSource: { object: 'order' } }],
+    ['flat object in the bag, no binding', { properties: { object: 'order', aggregate: 'count' } }],
     ['dataSource only, no bag', { dataSource: { object: 'order' } }],
     ['empty bag, dataSource.object', { properties: {}, dataSource: { object: 'order' } }],
-    ['bag with a bad member, dataSource.object', { properties: { ...BAG_WITHOUT_OBJECT, format: 'roman' }, dataSource: { object: 'order' } }],
-    ['bag with a non-string object, dataSource.object', { properties: { object: 7, aggregate: 'count' }, dataSource: { object: 'order' } }],
+    ['bag with a bad member, dataSource.object', { properties: { ...BAG, format: 'roman' }, dataSource: { object: 'order' } }],
     ['bag not a record', { properties: 'order' }],
   ];
 
   it.each(PROBES)('%s', (_name, fields) => {
     const node = { type: TYPE, ...fields };
-    const spec = PageComponentSchema.safeParse(node).success && specGateAccepts(node);
+    const spec = specAccepts(node);
     for (const [face, parse] of FACES) {
       expect(parse(node).success, face).toBe(spec);
     }
   });
 
   it('the probes include both verdicts (non-vacuity)', () => {
-    const verdicts = PROBES.map(([, fields]) => {
-      const node = { type: TYPE, ...fields };
-      return PageComponentSchema.safeParse(node).success && specGateAccepts(node);
-    });
+    const verdicts = PROBES.map(([, fields]) => specAccepts({ type: TYPE, ...fields }));
     expect(verdicts).toContain(true);
     expect(verdicts).toContain(false);
   });
 });
 
-describe('`element:number` reads the spec by reference (objectui#10872 batch 2)', () => {
+describe('`element:number` reads the spec by reference (objectui#10872 batch 2, objectui#12030)', () => {
   it('the bag declares exactly the row\'s members, and is closed as the row is', () => {
     expect(Object.keys(bag().shape).sort()).toEqual(Object.keys(ROW.shape).sort());
     expect((bag() as unknown as { _zod: { def: { catchall?: { _zod: { def: { type: string } } } } } })._zod.def.catchall?._zod.def.type)
       .toBe('never');
   });
 
-  it('every member but `object` IS the row\'s own member object; `object` is the row\'s own, made optional', () => {
+  it('every member IS the row\'s own member object — the retired `object` and `filter` included', () => {
     const rowShape = ROW.shape as Record<string, z.ZodType>;
     const bagShape = bag().shape as Record<string, z.ZodType>;
-    for (const key of Object.keys(rowShape).filter((k) => k !== 'object')) {
+    for (const key of Object.keys(rowShape)) {
       expect(bagShape[key], key).toBe(rowShape[key]);
     }
-    expect((bagShape.object as unknown as { _zod: { def: { type: string } } })._zod.def.type).toBe('optional');
-    expect((bagShape.object as unknown as z.ZodOptional).unwrap()).toBe(rowShape.object);
-    // Control: the row's own `object` is required, which is why the waiver exists.
-    expect(ROW.safeParse({ aggregate: 'count' }).success).toBe(false);
+    // Control: the row's own `object` refuses every value now, which is why no
+    // waiver is left to mirror.
+    for (const value of ['order', '', 1]) {
+      expect(ROW.safeParse({ aggregate: 'count', object: value }).success, JSON.stringify(value)).toBe(false);
+    }
+    expect(ROW.safeParse({ aggregate: 'count' }).success).toBe(true);
   });
 
   it('`dataSource` is the spec\'s element binding, through the import boundary', () => {
@@ -304,19 +243,12 @@ describe('`element:number` reads the spec by reference (objectui#10872 batch 2)'
   });
 
   /**
-   * Measured WHERE the rebuild happened: through `@objectstack/spec` 17.4.0
-   * `filter` was the member whose subtree reached the recursive filter clause's
-   * `z.lazy`, the one node the boundary's walker rebuilt in this clean schema.
-   * Every probe above stops short of it. Each probe here goes through `filter`,
-   * and each verdict is held to the spec's own schema — on the member, and on
-   * the node through both faces.
-   *
-   * ⚠️ 17.5.0 moved the ACCEPT SET under these rows (objectui#11073): `filter`
-   * converged on the `ViewFilterRule` array `[{ field, operator, value }]`, and
-   * the MongoDB-style record form, `$and` / `$or` included, is refused. The
-   * rows follow the spec's verdicts rather than restating the old ones, and the
-   * array row is the one that parses now. What the renderer does with each
-   * shape is objectui#8945's, not these rows'.
+   * The binding's `filter` is the metric's filter. Each probe goes through
+   * `dataSource.filter`, and each verdict is held to the spec's own schema — on
+   * the member, and on the node through both faces. 17.5.0 converged `filter`
+   * on the `ViewFilterRule` array `[{ field, operator, value }]`, and the
+   * MongoDB-style record form, `$and` / `$or` included, is refused
+   * (objectui#11073).
    */
   it.each([
     ['ViewFilterRule array filter', { object: 'o', filter: [{ field: 'status', operator: 'equals', value: 'won' }] }, true],
@@ -330,7 +262,7 @@ describe('`element:number` reads the spec by reference (objectui#10872 batch 2)'
     // Non-vacuity: the spec's own verdict is the one this row names.
     expect(spec.safeParse(probe).success).toBe(expected);
     expect(member.safeParse(probe).success).toBe(expected);
-    const node = { type: TYPE, properties: { object: 'o', aggregate: 'count' }, dataSource: probe };
+    const node = { type: TYPE, properties: { aggregate: 'count' }, dataSource: probe };
     expect(PageComponentSchema.safeParse(node).success).toBe(expected);
     for (const [face, parse] of FACES) {
       expect(parse(node).success, face).toBe(expected);

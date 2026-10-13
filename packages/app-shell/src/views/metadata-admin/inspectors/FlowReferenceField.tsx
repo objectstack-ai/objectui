@@ -51,6 +51,7 @@ import { APPROVER_VALUE_SOURCES } from '@objectstack/spec/automation';
 import { BUILTIN_MEMBERSHIP_ROLE_OPTIONS } from '@objectstack/spec/identity';
 import { useAdapter } from '@object-ui/react';
 import { LookupField } from '@object-ui/fields';
+import type { FormField, LookupFieldMetadata } from '@object-ui/types';
 import type { FlowReferenceSpec, ReferenceKind, RefValueSource } from './flow-node-config.js';
 import { useMetadataClient } from '../useMetadata.js';
 import { useObjectFields } from '../previews/useObjectFields.js';
@@ -569,6 +570,28 @@ function RecordLookupCell({ binding, value, onPick, onCommit, onBlur, disabled, 
   const adapter = useAdapter();
   const [manual, setManual] = React.useState(false);
   const current = value != null ? String(value) : '';
+  // The picker's carrier: the lookup's field metadata plus the picker
+  // configuration this host writes. `idField`, `picker` and `subtitle` are not
+  // field metadata (`FieldSchema` refuses all three by name, and the field
+  // metadata types stopped declaring them, objectui#12242); the form entry
+  // declares them, and `LookupField` reads them through that declaration.
+  const lookupCarrier: LookupFieldMetadata & Pick<FormField, 'idField' | 'picker' | 'subtitle'> = {
+    type: 'lookup',
+    name: 'value',
+    reference: binding.object,
+    displayField: binding.displayField,
+    // `position` commits the machine name, the rest the row id.
+    idField: binding.valueField,
+    multiple: false,
+    // A directory row is never created from a flow-authoring picker.
+    // The spec's `allowCreate`, the only spelling `LookupField` reads
+    // (objectui#12157): its explicit `false` outranks the widget's
+    // default-on quick-create for a user-facing reference.
+    allowCreate: false,
+    placeholder,
+    ...(binding.picker ? { picker: binding.picker } : {}),
+    ...(binding.subtitle ? { subtitle: binding.subtitle } : {}),
+  };
 
   if (!adapter || manual) {
     return (
@@ -610,26 +633,7 @@ function RecordLookupCell({ binding, value, onPick, onCommit, onBlur, disabled, 
           onChange={(v: unknown) => onPick(v == null ? '' : String(v))}
           readonly={disabled}
           dataSource={adapter}
-          field={{
-            // `type` is the discriminator that selects LookupFieldMetadata —
-            // without it the literal is checked against the wrong union member
-            // and the lookup keys below are rejected.
-            type: 'lookup',
-            name: 'value',
-            reference: binding.object,
-            displayField: binding.displayField,
-            // `position` commits the machine name, the rest the row id.
-            idField: binding.valueField,
-            multiple: false,
-            // A directory row is never created from a flow-authoring picker.
-            // The spec's `allowCreate`, the only spelling `LookupField` reads
-            // (objectui#12157): its explicit `false` outranks the widget's
-            // default-on quick-create for a user-facing reference.
-            allowCreate: false,
-            placeholder,
-            ...(binding.picker ? { picker: binding.picker } : {}),
-            ...(binding.subtitle ? { subtitle: binding.subtitle } : {}),
-          }}
+          field={lookupCarrier}
         />
       </div>
       <Button

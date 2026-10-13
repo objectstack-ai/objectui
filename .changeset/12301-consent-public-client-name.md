@@ -1,6 +1,6 @@
 ---
 '@object-ui/console': patch
-'@object-ui/i18n': patch
+'@object-ui/i18n': minor
 ---
 
 The OAuth consent page names the requesting application by its registered name again, and never shows the raw `client_id` in the name's place (objectui#12301).

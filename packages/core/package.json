@@ -32,8 +32,8 @@
   },
   "dependencies": {
     "@object-ui/types": "workspace:*",
-    "@objectstack/formula": "^17.5.0",
-    "@objectstack/spec": "^17.6.0"
+    "@objectstack/formula": "^18.0.0-next.0",
+    "@objectstack/spec": "^18.0.0-next.0"
   },
   "devDependencies": {
     "@object-ui/test-support": "workspace:*",

@@ -19,6 +19,16 @@ You don't just build components — you build a **Renderer** that interprets JSO
 - **The "JSON-to-Shadcn" bridge** — combine low-code speed with Shadcn/Tailwind design quality.
 - **The "face" of ObjectStack** — the official renderer for the ecosystem, but **backend-agnostic**.
 
+### Product-neutral renderer
+
+objectui renders for every product the same way — ObjectStack Cloud, HotCRM, any app built on the stack. Three rules, recorded in ADR-0060 (`docs/adr/0060-product-neutral-renderer.md`):
+
+1. **A product composes its pages.** It builds them from the generic blocks of `@objectstack/spec`'s page vocabulary and keeps their copy in its own bundles.
+2. **A page that cannot be composed is fixed generically:** a **generic** block here, named for what it draws (`stat`, `usage-bar`, `checklist`), or a **contract door** in `@objectstack/spec` (`needs:contract-review`). ⛔ Never a widget, dialog, hook or i18n namespace named for the product that needed it.
+3. **What already exists stays until its page migrates, and may only shrink.**
+
+`packages/app-shell/src/__tests__/product-neutral-renderer.ratchet.test.ts` holds rules 2 and 3 for registry keys, file names and locale keys led by a product word, and for the frozen directories and namespaces. Its live list, `product-specific.allowlist.json`, takes deletions only: the pull request that migrates a surface out deletes its entries. ⛔ Never append to that list to turn the test green. ADR-0060's frozen-baseline block is the ceiling, and growing it is an ADR amendment the maintainer approves. The test reads names, not intent, so a product surface under a neutral name is left to review and the pull-request template's checkbox.
+
 ---
 
 ## 2. Tech Stack (strict)
@@ -177,8 +187,10 @@ export const SchemaRenderer = ({ schema }: { schema: BaseSchema }) => {
 ```bash
 pnpm exec vitest run packages/<pkg>/src/<file>.test.ts   # 只跑一个文件
 pnpm exec vitest run packages/<pkg>/                     # 只跑一个包
-pnpm test                                                # 全量(CI 就是它,可加 --shard=1/4)
+pnpm test                                                # 全量(CI 就是它,可加 --shard=1/12)
 ```
+
+`--shard=K/N` 在本地也经根 config 的 `sequence.sequencer`(`scripts/test-shard-sequencer.mjs`)分腿:按 `scripts/test-shard-timings.json` 里实测的每文件耗时,不按路径哈希,开跑前打印一行 `test-shard-sequencer:` 读数。分配只由文件集、那份 timings 与 N 决定(`scripts/test-shard-partition.mjs` 文件头),所以 N 取 CI 某个 matrix 的宽度时,同一 checkout 上不带路径的 `pnpm test --shard=K/N` 跑的就是那个 matrix 全量运行时第 K 腿的文件;带了路径,文件集变了,分配也跟着变。N 以 `ci.yml` 为准 —— `test` 与 `test-coverage` 两个 matrix 各自声明宽度;示例里的 `12` 是写下时 `test` matrix 的读数,本文件不复核它(诫条 #9)。
 
 AGENTS.md 的「只跑受影响的包」指的是**用上面的路径过滤缩小范围**,不是 `cd` 进包里。
 `pnpm --filter <pkg> test` 与 `turbo run test` **不再静默假绿**(objectui#3240):每个包的

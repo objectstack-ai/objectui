@@ -805,8 +805,12 @@ const WRITE_SITES: Record<string, WriteSite> = {
     ...mapped(['listImport'], CONSOLE_LIST, 'packages/app-shell/src/views/importTargetFields.ts', EXCEL_IMPORT_BAR),
     note: "one site, two mounts: the console list's Import and the AI build panel's spreadsheet import (`ExcelImportBar`) each read the row where they offer Import; HOST_GATED below holds every mount of the wizard to this list",
   } as WriteSite,
-  'packages/plugin-grid/src/ObjectGrid.tsx :: ObjectGrid > defaultRowSave :: update': mapped(['listInlineEdit'], OBJECT_GRID),
-  'packages/plugin-grid/src/ObjectGrid.tsx :: ObjectGrid > defaultBatchSave :: update': mapped(['listInlineEdit'], OBJECT_GRID),
+  // The inline-edit saves (objectui#12292): `defaultRowSave` and
+  // `defaultBatchSave` both write through `writeRowGuarded`, the `If-Match`
+  // write; `resolveRowConflict` is the same save's Overwrite after a 409, re-keyed
+  // to the server's version. One affordance, the grid's `listInlineEdit` row.
+  'packages/plugin-grid/src/ObjectGrid.tsx :: ObjectGrid > writeRowGuarded :: update': mapped(['listInlineEdit'], OBJECT_GRID),
+  'packages/plugin-grid/src/ObjectGrid.tsx :: ObjectGrid > resolveRowConflict :: update': mapped(['listInlineEdit'], OBJECT_GRID),
   'packages/plugin-grid/src/hooks/useBulkExecutor.ts :: useBulkExecutor > run > perRow :: delete': mapped(['rowDelete'], OBJECT_GRID),
   'packages/plugin-grid/src/hooks/useBulkExecutor.ts :: useBulkExecutor > run > perRow :: update':
     mapped(['rowEdit'], OBJECT_GRID),

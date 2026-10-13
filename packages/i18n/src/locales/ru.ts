@@ -2560,6 +2560,8 @@ const ru = {
       title: "{{appName}} запрашивает доступ к вашему аккаунту",
       request: "{{appName}} запрашивает разрешение{{suffix}}.",
       unknownApp: "приложение",
+      unidentified: "Не удалось определить это приложение.",
+      clientId: "ID клиента",
       willAllow: "Это приложение сможет:",
       scope: {
         openid: "Подтверждать вашу личность",
@@ -4252,6 +4254,8 @@ const ru = {
       setDefaultFailed: "Не удалось установить приложение по умолчанию: {{reason}}",
       appDeleted: "{{name}} удалено",
       deleteFailed: "Не удалось удалить приложение: {{reason}}",
+      nothingToDelete: "Нечего удалять для {{name}}: {{reason}}",
+      alreadyAtDefault: "оно уже соответствует значению по умолчанию из пакета",
       bulkEnabled: "Включено приложений: {{n}}",
       bulkDisabled: "Отключено приложений: {{n}}",
       bulkFailed: "Не удалось для {{n}}: {{details}}",

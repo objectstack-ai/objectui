@@ -2652,6 +2652,8 @@ const ar = {
       title: "يطلب {{appName}} الوصول إلى حسابك",
       request: "يطلب {{appName}} الإذن{{suffix}}.",
       unknownApp: "تطبيق ما",
+      unidentified: "تعذّر التعرّف على هذا التطبيق.",
+      clientId: "معرّف العميل",
       willAllow: "سيتمكن هذا التطبيق من:",
       scope: {
         openid: "تأكيد هويتك",
@@ -4426,6 +4428,8 @@ const ar = {
       setDefaultFailed: "فشل تعيين التطبيق الافتراضي: {{reason}}",
       appDeleted: "تم حذف {{name}}",
       deleteFailed: "فشل حذف التطبيق: {{reason}}",
+      nothingToDelete: "لا يوجد ما يُحذف لـ {{name}}: {{reason}}",
+      alreadyAtDefault: "إنه بالفعل على الإعداد الافتراضي لحزمته",
       bulkEnabled: "تم تفعيل {{n}} تطبيقات",
       bulkDisabled: "تم تعطيل {{n}} تطبيقات",
       bulkFailed: "فشل لـ {{n}}: {{details}}",

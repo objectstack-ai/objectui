@@ -2948,13 +2948,17 @@ const en = {
   // language — objectui#3546 slice three.
   oauth: {
     consent: {
-      // `{{appName}}` is the client's registered name, or `unknownApp` when the
-      // client metadata carries none. `{{suffix}}` is the parenthesised account
-      // hint the page passes (empty when no user is loaded), so it must stay
-      // attached to the sentence's last word.
+      // `{{appName}}` is the client's registered name, or `unknownApp` while the
+      // lookup is in flight or when it gives no name. `{{suffix}}` is the
+      // parenthesised account hint the page passes (empty when no user is
+      // loaded), so it must stay attached to the sentence's last word.
       title: '{{appName}} wants to access your account',
       request: '{{appName}} is requesting permission{{suffix}}.',
       unknownApp: 'an application',
+      // Shown when the lookup gives no registered name, above the raw
+      // `client_id` labelled `clientId` — the id is never shown as the name.
+      unidentified: 'This application could not be identified.',
+      clientId: 'Client ID',
       willAllow: 'This app will be able to:',
       // Only the four scopes the page maps by name; anything else renders the
       // raw scope string, which is why there is no generic entry here.
@@ -4730,6 +4734,11 @@ const en = {
       setDefaultFailed: 'Failed to set default app: {{reason}}',
       appDeleted: '{{name}} deleted',
       deleteFailed: 'Failed to delete app: {{reason}}',
+      // A `reset: false` answer: no customization row existed, so nothing was
+      // removed. `{{reason}}` is the server's own sentence, passed through raw.
+      nothingToDelete: 'Nothing to delete for {{name}}: {{reason}}',
+      // `{{reason}}` above when that answer carried no sentence of its own.
+      alreadyAtDefault: 'it is already at its package default',
       // `{{n}}` is the count that actually LANDED, not the selection size — a
       // bulk toggle is N independent writes with no transaction behind them.
       bulkEnabled: '{{n}} apps enabled',

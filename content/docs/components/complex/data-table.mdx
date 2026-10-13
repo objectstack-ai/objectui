@@ -116,6 +116,13 @@ When a host has switched editing on, a cell enters edit mode on double-click (or
 a single click) and the table renders one of its built-in editors — text, number,
 date — chosen from the column's `type`.
 
+"Save All" hands every pending row to `onBatchSave` at once, and reads the outcome
+per row. A batch is several writes, and some can land while others are refused. A
+host that knows which rows did not persist resolves with `{ failed }`, naming each
+by the `rowIndex` it was handed: the table keeps and flags exactly those rows, and
+clears the rest. Resolving with nothing means every row persisted. A rejection
+says nothing about which rows landed, so the table keeps and flags every row.
+
 The host can also supply `renderCellEditor`, a function the table calls first for
 every cell it is about to edit; it returns a node to use, or `null` to fall through
 to the built-in editor for that column. This is how `object-grid` gives a `select`

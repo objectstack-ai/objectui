@@ -11,15 +11,35 @@
  *
  * After accept/deny we POST to `/api/v1/auth/oauth2/consent` which
  * returns `{ redirect_uri }` pointing at the OAuth client's callback.
+ *
+ * ## Naming the application
+ *
+ * The page names the requesting application by its REGISTERED name, read
+ * from `GET /api/v1/auth/oauth2/public-client?client_id=…` — the route the
+ * server serves (`@better-auth/oauth-provider`'s `getOAuthClientPublic`, the
+ * same URL `@objectstack/client`'s `oauth.applications.getPublic` builds).
+ * It needs a signed-in session, so the lookup waits for one. Its answer is
+ * the client's RFC 7591 metadata, verbatim: the name is `client_name`, the
+ * logo `logo_uri`.
+ *
+ * When the lookup gives no name — any non-2xx (an unknown or disabled client
+ * is a 404), a network failure, or an answer without `client_name` — the page
+ * says the application could not be identified and shows the raw `client_id`
+ * labelled as the id. ⛔ The id is never shown in the name's place: an id
+ * the user cannot recognise must not read as the name of something they can.
  */
 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, KeyRound, X } from 'lucide-react';
+import { Check, KeyRound, ShieldAlert, X } from 'lucide-react';
 import { toast } from 'sonner';
+import type { OAuthApplicationPublic } from '@objectstack/client';
 import { useAuth } from '@object-ui/auth';
 import { useObjectTranslation } from '@object-ui/i18n';
 import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
   Button,
   Card,
   CardContent,
@@ -30,11 +50,23 @@ import {
 
 const AUTH_BASE = `${import.meta.env.VITE_SERVER_URL || ''}/api/v1/auth`;
 
-interface OAuthClientPublicInfo {
-  name?: string;
-  client_name?: string;
-  icon?: string;
-  logo_uri?: string;
+/** What the public-client lookup established about the requesting client. */
+type ClientLookup =
+  | { state: 'pending' }
+  | { state: 'identified'; name: string; logoUri?: string }
+  | { state: 'unidentified' };
+
+const PENDING: ClientLookup = { state: 'pending' };
+const UNIDENTIFIED: ClientLookup = { state: 'unidentified' };
+
+/** Read the server's answer: identified only by a non-empty `client_name`. */
+async function readPublicClient(res: Response): Promise<ClientLookup> {
+  if (!res.ok) return UNIDENTIFIED;
+  const body = (await res.json().catch(() => null)) as OAuthApplicationPublic | null;
+  const name = typeof body?.client_name === 'string' ? body.client_name.trim() : '';
+  if (!name) return UNIDENTIFIED;
+  const logoUri = typeof body?.logo_uri === 'string' && body.logo_uri ? body.logo_uri : undefined;
+  return { state: 'identified', name, logoUri };
 }
 
 export function OAuthConsentPage() {
@@ -42,7 +74,9 @@ export function OAuthConsentPage() {
   const navigate = useNavigate();
   const { user, isLoading } = useAuth();
   const [submitting, setSubmitting] = useState(false);
-  const [clientInfo, setClientInfo] = useState<OAuthClientPublicInfo | null>(null);
+  // Keyed by the client id it answers for, so the lookup below is derived
+  // rather than reset from an effect.
+  const [answer, setAnswer] = useState<{ clientId: string; lookup: ClientLookup } | null>(null);
 
   // Read raw query so the signed `sig=` is forwarded verbatim.
   const rawSearch = typeof window !== 'undefined' ? window.location.search : '';
@@ -61,27 +95,30 @@ export function OAuthConsentPage() {
     }
   }, [user, isLoading, navigate]);
 
-  // Best-effort lookup of the client app's display name + icon.
+  // Look the client up by its registered name. The route requires a session,
+  // so a signed-out visitor (bounced to /login above) never asks it.
+  const userId = user?.id;
   useEffect(() => {
-    if (!clientId) return;
+    if (!clientId || !userId) return;
     let cancelled = false;
-    fetch(`${AUTH_BASE}/oauth2/applications/${encodeURIComponent(clientId)}/public`, {
+    fetch(`${AUTH_BASE}/oauth2/public-client?client_id=${encodeURIComponent(clientId)}`, {
       credentials: 'include',
     })
-      .then(async (res) => {
-        if (!res.ok) return;
-        const data = await res.json().catch(() => ({}));
-        if (cancelled) return;
-        const payload = (data as { data?: OAuthClientPublicInfo })?.data ?? data;
-        setClientInfo(payload as OAuthClientPublicInfo);
-      })
-      .catch(() => {
-        /* ignore — fall back to the bare client_id */
+      .then(readPublicClient, () => UNIDENTIFIED)
+      .then((lookup) => {
+        if (!cancelled) setAnswer({ clientId, lookup });
       });
     return () => {
       cancelled = true;
     };
-  }, [clientId]);
+  }, [clientId, userId]);
+
+  const lookup: ClientLookup = !clientId
+    ? UNIDENTIFIED
+    : answer?.clientId === clientId
+      ? answer.lookup
+      : PENDING;
+  const identified = lookup.state === 'identified' ? lookup : null;
 
   const scopes = scope.split(/\s+/).filter(Boolean);
 
@@ -128,19 +165,16 @@ export function OAuthConsentPage() {
   };
 
   const appName =
-    clientInfo?.name ??
-    clientInfo?.client_name ??
-    clientId ??
-    t('oauth.consent.unknownApp', { defaultValue: 'an application' });
+    identified?.name ?? t('oauth.consent.unknownApp', { defaultValue: 'an application' });
 
   return (
     <div className="flex min-h-svh w-full flex-1 items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="items-center text-center">
           <div className="mb-3 rounded-full border bg-muted p-3">
-            {clientInfo?.icon || clientInfo?.logo_uri ? (
+            {identified?.logoUri ? (
               <img
-                src={clientInfo.icon || clientInfo.logo_uri}
+                src={identified.logoUri}
                 alt=""
                 className="h-8 w-8 rounded"
                 onError={(e) => {
@@ -168,6 +202,29 @@ export function OAuthConsentPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {lookup.state === 'unidentified' && (
+            <Alert>
+              <ShieldAlert className="size-4" />
+              <AlertTitle>
+                {t('oauth.consent.unidentified', {
+                  defaultValue: 'This application could not be identified.',
+                })}
+              </AlertTitle>
+              {clientId && (
+                <AlertDescription>
+                  <dl className="text-xs">
+                    <dt className="text-muted-foreground">
+                      {t('oauth.consent.clientId', { defaultValue: 'Client ID' })}
+                    </dt>
+                    <dd>
+                      <code className="break-all font-mono">{clientId}</code>
+                    </dd>
+                  </dl>
+                </AlertDescription>
+              )}
+            </Alert>
+          )}
+
           {scopes.length > 0 && (
             <div>
               <p className="mb-2 text-sm font-medium">

@@ -2493,6 +2493,8 @@ const pt = {
       title: "{{appName}} quer acessar sua conta",
       request: "{{appName}} está solicitando permissão{{suffix}}.",
       unknownApp: "um aplicativo",
+      unidentified: "Não foi possível identificar este aplicativo.",
+      clientId: "ID do cliente",
       willAllow: "Este aplicativo poderá:",
       scope: {
         openid: "Confirmar sua identidade",
@@ -4142,6 +4144,8 @@ const pt = {
       setDefaultFailed: "Falha ao definir o aplicativo padrão: {{reason}}",
       appDeleted: "{{name}} excluído",
       deleteFailed: "Falha ao excluir o aplicativo: {{reason}}",
+      nothingToDelete: "Nada a excluir para {{name}}: {{reason}}",
+      alreadyAtDefault: "ele já está no padrão do seu pacote",
       bulkEnabled: "{{n}} aplicativos habilitados",
       bulkDisabled: "{{n}} aplicativos desabilitados",
       bulkFailed: "Falha em {{n}}: {{details}}",

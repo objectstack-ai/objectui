@@ -2448,6 +2448,8 @@ const de = {
       title: "{{appName}} möchte auf Ihr Konto zugreifen",
       request: "{{appName}} fordert eine Berechtigung an{{suffix}}.",
       unknownApp: "eine Anwendung",
+      unidentified: "Diese Anwendung konnte nicht identifiziert werden.",
+      clientId: "Client-ID",
       willAllow: "Diese App kann dann:",
       scope: {
         openid: "Ihre Identität bestätigen",
@@ -4058,6 +4060,8 @@ const de = {
       setDefaultFailed: "Festlegen der Standard-App fehlgeschlagen: {{reason}}",
       appDeleted: "{{name}} gelöscht",
       deleteFailed: "Löschen der App fehlgeschlagen: {{reason}}",
+      nothingToDelete: "Nichts zu löschen für {{name}}: {{reason}}",
+      alreadyAtDefault: "sie entspricht bereits dem Standard ihres Pakets",
       bulkEnabled: "{{n}} Apps aktiviert",
       bulkDisabled: "{{n}} Apps deaktiviert",
       bulkFailed: "Fehlgeschlagen für {{n}}: {{details}}",

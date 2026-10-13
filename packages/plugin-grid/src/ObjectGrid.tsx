@@ -26,7 +26,7 @@ import type { ObjectGridSchema, DataSource, ListColumn, TableColumn, ViewData, T
 import { isSystemManagedField, normalizeTableColumnType } from '@object-ui/types';
 import type { I18nLabel } from '@objectstack/spec/ui';
 import { parseFilterAST, resolveFieldScale, type FilterCondition } from '@objectstack/spec/data';
-import { SchemaRenderer, useDataScope, useNavigationOverlay, useAction, useSafeFieldLabel, usePredicateScope, useRelatedRecordActions, RelatedRecordActionsProvider, useDataInvalidation, useFilterScope, useMetadata } from '@object-ui/react';
+import { SchemaRenderer, useDataScope, useNavigationOverlay, useAction, useSafeFieldLabel, usePredicateScope, useRelatedRecordActions, RelatedRecordActionsProvider, useDataInvalidation, notifyDataChanged, useFilterScope, useMetadata } from '@object-ui/react';
 import { createSafeTranslation } from '@object-ui/i18n';
 // objectui#8920 — the grid reaches a cell renderer through THIS module and
 // nowhere else. `getCellRenderer` / `resolveCellRendererType` are deliberately
@@ -63,6 +63,10 @@ import { usePermissions } from '@object-ui/permissions';
 import {
   RECORD_OVERLAY_DEFAULT_WIDTH,
   RecordDetailPanel,
+  ConcurrentUpdateDialog,
+  isConcurrentUpdateError,
+  useDetailTranslation,
+  type ConcurrentUpdateConflict,
 } from '@object-ui/plugin-detail';
 import { ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight, Download, Rows2, Rows3, Rows4, AlignJustify, Type, Hash, Calendar, CheckSquare, User, Tag, Clock, Loader2 } from 'lucide-react';
 import { useRowColor } from './useRowColor';
@@ -1495,6 +1499,63 @@ function describeNonPositivePageSize(
  */
 const NO_GROUPING_REFUSAL = JSON.stringify({ refused: [], warned: [] });
 
+/**
+ * The row key that carries a record's optimistic-concurrency token
+ * (objectui#12292): `updated_at`, the key the record surfaces send as
+ * `If-Match`.
+ */
+const OCC_TOKEN_FIELD = 'updated_at';
+
+/**
+ * The concurrency token a row carries, read exactly as the record surfaces read
+ * it (`occVersionOf` in `plugin-form`, the save in `plugin-detail`'s
+ * `InlineEditSaveBar`): a non-empty string `updated_at`. Anything else (a
+ * backend without timestamps, a row read without the column) answers
+ * `undefined`, and the write goes out unguarded, as it did before.
+ */
+function rowVersionOf(row: unknown): string | undefined {
+  const v = (row as Record<string, unknown> | null | undefined)?.[OCC_TOKEN_FIELD];
+  return typeof v === 'string' && v.length > 0 ? v : undefined;
+}
+
+/** What this grid remembers about its last landed write to one record. */
+interface WrittenRowVersion {
+  /** The token the row carried when that write was made: the read it superseded. */
+  readVersion: string;
+  /** The token of the record the server answered that write with. */
+  version: string;
+}
+
+/**
+ * The `ifMatch` a row save sends: the rule `plugin-form`'s `versionToSend`
+ * applies to a form that stays open (objectui#10565), applied to a row.
+ *
+ * A saved row keeps the token it was READ with until the grid re-reads it, and
+ * that token stopped being current the moment this grid's own write landed. So
+ * while the row still carries the read a landed write superseded, the version
+ * that write answered with is sent. A row carrying any other token is a newer
+ * read, and its token wins. A row with no token stays unguarded.
+ */
+function rowVersionToSend(
+  written: WrittenRowVersion | undefined,
+  readVersion: string | undefined,
+): string | undefined {
+  if (!readVersion) return undefined;
+  return written && written.readVersion === readVersion ? written.version : readVersion;
+}
+
+/** The three ways out of `ConcurrentUpdateDialog`, by its own button names. */
+type RowConflictChoice = 'reload' | 'overwrite' | 'cancel';
+
+/**
+ * The per-row outcome the table's `onBatchSave` slot reads, derived from the
+ * slot's declared return rather than restated here.
+ */
+type BatchSaveOutcome = Exclude<
+  Awaited<ReturnType<NonNullable<DataTableSchema['onBatchSave']>>>,
+  void
+>;
+
 export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   schema,
   dataSource,
@@ -1547,6 +1608,18 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   const [objectSchema, setObjectSchema] = useState<any>(null);
   const [useCardView, setUseCardView] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  // Optimistic concurrency for the default inline-edit saves (objectui#12292).
+  // Per record, the version this grid's last landed write returned — see
+  // `rowVersionToSend`. It lives as long as this grid does.
+  const writtenVersionsRef = React.useRef(new Map<string, WrittenRowVersion>());
+  // The conflict a 409 opened, on the record surfaces' own dialog, and the
+  // resolver of the save that is awaiting the user's choice.
+  const { t: tDetail } = useDetailTranslation();
+  const [rowConflict, setRowConflict] = useState<ConcurrentUpdateConflict | null>(null);
+  const rowConflictDecisionRef = React.useRef<((choice: RowConflictChoice) => void) | null>(null);
+  // A grid torn down mid-conflict settles it as Cancel, so the awaiting save
+  // never hangs.
+  useEffect(() => () => rowConflictDecisionRef.current?.('cancel'), []);
   const [showExport, setShowExport] = useState(false);
   const [exportBusy, setExportBusy] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -1980,6 +2053,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
   const schemaFields = schema.fields;
   const schemaColumns = schema.columns;
+  // [objectui#12292] Whether this grid's rows must carry their concurrency
+  // token: the AUTHORED key, not `inlineEditable`, so the principal's write
+  // verdict landing does not cost a second fetch. A read-only principal is
+  // sent one column it does not use.
+  const carriesConcurrencyToken = schema.editable === true;
   // [objectui#7179] The fetch effect's dep on the grouping block, as a CONTENT
   // key over the field NAMES alone.
   //
@@ -2588,9 +2666,20 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                   .filter((f) => isProjectableField(f, declared as Record<string, unknown>))
                   .filter((f) => passesProjectionGate(f))
               : [];
+            // [objectui#12292] The row's concurrency token. An inline-editable
+            // grid's default save sends it as `If-Match` (`rowVersionOf`), so
+            // every row has to carry it. A projection built from the columns
+            // left it off each row no column showed it on, and the save went
+            // out with no token at all. The same two gates as the harvests
+            // above: a platform column, and one this principal may read.
+            const concurrencyFields = carriesConcurrencyToken && declared
+              ? [OCC_TOKEN_FIELD]
+                  .filter((f) => isProjectableField(f, declared as Record<string, unknown>))
+                  .filter((f) => passesProjectionGate(f))
+              : [];
             // A UNION, never an append: a grouping field that IS also a column
             // must not produce a duplicate `$select` entry.
-            const extraFields = [...predicateFields, ...groupingFields];
+            const extraFields = [...predicateFields, ...groupingFields, ...concurrencyFields];
             const withHarvestedFields = (list: any[]): any[] => {
               if (extraFields.length === 0) return list;
               const names = new Set(list.map((f: any) => columnIdentity(f)));
@@ -2897,7 +2986,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // `predicateProjectionKey` and `searchFieldsKey` (objectui#10689): the
   // harvested predicate operands and the `$searchFields` this query sends, each
   // a string compared by value — see their declarations above.
-  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaDefaultFilters, schemaSort, headerSort, querySearchTerm, schemaPagination, schemaPageSize, serverPage, fetchWindow, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey, predicateProjectionKey, searchFieldsKey, invalidationNonce, serverGroupedFetch, groupingNeedsHeaderQuery]);
+  // `carriesConcurrencyToken` (objectui#12292): a boolean, so turning inline
+  // edit on re-reads the rows WITH their token — see its declaration above.
+  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaDefaultFilters, schemaSort, headerSort, querySearchTerm, schemaPagination, schemaPageSize, serverPage, fetchWindow, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey, predicateProjectionKey, searchFieldsKey, invalidationNonce, serverGroupedFetch, groupingNeedsHeaderQuery, carriesConcurrencyToken]);
 
   // The same reset, for the path the loader above never runs on (objectui#4501
   // clause 2). "All N matching are selected" is a claim about ONE query, so it
@@ -5325,15 +5416,141 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // But a declaratively-configured `editable: true` view has no host wiring — so
   // "Save All" would otherwise just clear pending changes without writing to the
   // backend. Supply a default that persists through the grid's `dataSource`, then
-  // refresh so the grid reflects persisted values. Throwing on failure is
-  // important: DataTable's saveRow/saveBatch keep pending changes when the save
-  // promise rejects, so a failed write doesn't silently lose the user's edits.
+  // refresh so the grid reflects persisted values. Reporting failure is
+  // important: DataTable's saveRow keeps a row's pending changes when the save
+  // promise rejects, and saveBatch keeps exactly the rows the batch hands back
+  // as `failed`, so a failed write doesn't silently lose the user's edits.
   // The one place a row's primary key is read for a write. `string`, as
   // `@objectstack/spec` declares every record door — the union this used to
   // annotate was a claim about `any`-typed row data, not a measurement of it
   // (objectui#9333).
   const resolveRecordId = (row: any): string | undefined =>
     row?._id ?? row?.id;
+
+  // ── Optimistic concurrency on the default saves (objectui#12292) ──────────
+  //
+  // Every save below sends the row's token as `If-Match` (`rowVersionOf`,
+  // `rowVersionToSend`), so a write made from a stale row is refused `409`
+  // instead of landing over a concurrent one with a 200. A `409` goes to the
+  // record surfaces' own conflict dialog, `ConcurrentUpdateDialog` from
+  // `@object-ui/plugin-detail`, the one `InlineEditSaveBar` opens. There is no
+  // grid-only dialog, and nothing is retried without the user's choice.
+
+  /**
+   * Open the conflict dialog and wait for the user's choice. A save still
+   * waiting on an earlier dialog is settled as Cancel first, so no save is
+   * left waiting on a dialog that is no longer shown.
+   */
+  const askRowConflict = (conflict: ConcurrentUpdateConflict): Promise<RowConflictChoice> =>
+    new Promise<RowConflictChoice>((resolve) => {
+      rowConflictDecisionRef.current?.('cancel');
+      rowConflictDecisionRef.current = resolve;
+      setRowConflict(conflict);
+    });
+  const settleRowConflict = (choice: RowConflictChoice) => {
+    const resolve = rowConflictDecisionRef.current;
+    rowConflictDecisionRef.current = null;
+    setRowConflict(null);
+    resolve?.(choice);
+  };
+
+  /** The header the user reads over a column, for naming the field in the dialog. */
+  const columnHeaderOf = (field: string): string | undefined => {
+    const column = (orderedColumns as Array<{ accessorKey?: unknown; header?: unknown }>)
+      .find((c) => c?.accessorKey === field);
+    return typeof column?.header === 'string' && column.header.length > 0 ? column.header : undefined;
+  };
+
+  /**
+   * The dialog's payload for one row's 409, in the shape `InlineEditSaveBar`
+   * builds for a record's draft: one edited field shows its own before and
+   * after, several show the record-level summary.
+   */
+  const buildRowConflict = (
+    changes: Record<string, any>,
+    err: { currentVersion?: string; currentRecord?: Record<string, unknown> | null },
+  ): ConcurrentUpdateConflict => {
+    const keys = Object.keys(changes);
+    const current = err.currentRecord ?? null;
+    if (keys.length === 1) {
+      const field = keys[0];
+      return {
+        field,
+        label: columnHeaderOf(field),
+        pendingValue: changes[field],
+        currentValue: current ? current[field] : undefined,
+        currentVersion: err.currentVersion,
+        currentRecord: current,
+      };
+    }
+    return {
+      field: keys.join(', '),
+      label: tDetail('detail.concurrentUpdateRecordLabel', { defaultValue: 'this record' }),
+      pendingValue: changes,
+      currentValue: current ? Object.fromEntries(keys.map((k) => [k, current[k]])) : undefined,
+      currentVersion: err.currentVersion,
+      currentRecord: current,
+    };
+  };
+
+  /**
+   * Remember what a landed write answered with, for the next save of the same
+   * record. A result with no token clears the entry, so that save falls back
+   * to the row's own token rather than to an older write's.
+   */
+  const rememberRowWrite = (id: string, readVersion: string | undefined, result: unknown) => {
+    const version = rowVersionOf(result);
+    if (readVersion && version) writtenVersionsRef.current.set(id, { readVersion, version });
+    else writtenVersionsRef.current.delete(id);
+  };
+
+  /** One row's guarded write. Rejects with whatever the data source threw. */
+  const writeRowGuarded = async (
+    ds: DataSource,
+    resource: string,
+    id: string,
+    changes: Record<string, any>,
+    row: any,
+  ): Promise<void> => {
+    const readVersion = rowVersionOf(row);
+    const ifMatch = rowVersionToSend(writtenVersionsRef.current.get(id), readVersion);
+    const result = await ds.update(resource, id, changes, ifMatch ? { ifMatch } : undefined);
+    rememberRowWrite(id, readVersion, result);
+  };
+
+  /**
+   * After a row's 409, the user's choice on the dialog:
+   *  - Overwrite: the same changes, re-keyed to the version the 409 reported
+   *    ("I have seen the newer record, apply mine on top"). Resolves `saved`.
+   *  - Reload latest: the edit is dropped and the record is declared changed on
+   *    the data-invalidation bus, so whoever holds the rows reads them again.
+   *    Resolves `reloaded`; nothing was written.
+   *  - Cancel: rejects with the 409, so the table keeps the edit and flags the
+   *    row as not saved.
+   */
+  const resolveRowConflict = async (
+    ds: DataSource,
+    resource: string,
+    id: string,
+    changes: Record<string, any>,
+    row: any,
+    err: { currentVersion?: string; currentRecord?: Record<string, unknown> | null },
+  ): Promise<'saved' | 'reloaded'> => {
+    const choice = await askRowConflict(buildRowConflict(changes, err));
+    if (choice === 'cancel') throw err;
+    if (choice === 'reload') {
+      notifyDataChanged({ objectName: resource, recordId: String(id) });
+      return 'reloaded';
+    }
+    const currentVersion = typeof err.currentVersion === 'string' && err.currentVersion.length > 0
+      ? err.currentVersion
+      : undefined;
+    const result = await ds.update(
+      resource, id, changes, currentVersion ? { ifMatch: currentVersion } : undefined,
+    );
+    rememberRowWrite(id, rowVersionOf(row), result);
+    return 'saved';
+  };
 
   const defaultRowSave = async (
     _rowIndex: number,
@@ -5347,30 +5564,69 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     if (id === undefined || id === null) {
       throw new Error('Cannot persist inline edit: row has no id/_id.');
     }
-    await dataSource.update(objectName, id, changes);
+    try {
+      await writeRowGuarded(dataSource, objectName, id, changes, row);
+    } catch (err) {
+      if (!isConcurrentUpdateError(err)) throw err;
+      // A reload re-reads through the bus; there is nothing of ours to show.
+      if ((await resolveRowConflict(dataSource, objectName, id, changes, row, err)) === 'reloaded') return;
+    }
     // Refresh so the grid shows the persisted values.
     setRefreshKey(k => k + 1);
   };
 
   const defaultBatchSave = async (
     changes: Array<{ rowIndex: number; changes: Record<string, any>; row: any }>,
-  ): Promise<void> => {
+  ): Promise<BatchSaveOutcome | undefined> => {
     if (!dataSource || !objectName) {
       throw new Error('Cannot persist inline edits: no dataSource/objectName configured on the grid.');
     }
     // Update each modified row. The DataSource `bulk`/`bulkUpdate` primitives
     // apply a single uniform patch across many ids, which does NOT fit per-row
     // edits (each row has its own field changes), so issue one update per row.
-    await Promise.all(
-      changes.map(({ changes: rowChanges, row }) => {
-        const id = resolveRecordId(row);
+    //
+    // Each row is its own write and its own outcome (objectui#12292). All are
+    // attempted together and every one is waited for, so a refused row never
+    // hides what happened to the others; a conflict is then put to the user
+    // one row at a time. Nothing the server accepted is taken back: the rows
+    // that landed are reported as saved, and only the rows that did not are
+    // handed back to the table as `failed`.
+    const ids = changes.map(({ row }) => resolveRecordId(row));
+    const attempts = await Promise.allSettled(
+      changes.map(({ changes: rowChanges, row }, i) => {
+        const id = ids[i];
         if (id === undefined || id === null) {
-          throw new Error('Cannot persist inline edit: row has no id/_id.');
+          return Promise.reject(new Error('Cannot persist inline edit: row has no id/_id.'));
         }
-        return dataSource.update(objectName, id, rowChanges);
+        return writeRowGuarded(dataSource, objectName, id, rowChanges, row);
       }),
     );
-    setRefreshKey(k => k + 1);
+    const failed: BatchSaveOutcome['failed'] = [];
+    let landed = false;
+    for (let i = 0; i < changes.length; i++) {
+      const attempt = attempts[i];
+      if (attempt.status === 'fulfilled') {
+        landed = true;
+        continue;
+      }
+      const { rowIndex, changes: rowChanges, row } = changes[i];
+      const id = ids[i];
+      const err: unknown = attempt.reason;
+      if (!isConcurrentUpdateError(err) || id === undefined || id === null) {
+        failed.push({ rowIndex, error: err });
+        continue;
+      }
+      try {
+        if ((await resolveRowConflict(dataSource, objectName, id, rowChanges, row, err)) === 'saved') {
+          landed = true;
+        }
+      } catch (resolutionError) {
+        failed.push({ rowIndex, error: resolutionError });
+      }
+    }
+    // Refresh so the grid shows the persisted values.
+    if (landed) setRefreshKey(k => k + 1);
+    return failed.length > 0 ? { failed } : undefined;
   };
 
   // Determine pagination settings (support both new and legacy formats)
@@ -6699,6 +6955,18 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     />
   );
 
+  // A row save's 409, on the record surfaces' own dialog (objectui#12292).
+  // Shared across both render branches, like the bulk dialog above.
+  const rowConflictDialog = (
+    <ConcurrentUpdateDialog
+      open={!!rowConflict}
+      conflict={rowConflict}
+      onReload={() => settleRowConflict('reload')}
+      onOverwrite={() => settleRowConflict('overwrite')}
+      onCancel={() => settleRowConflict('cancel')}
+    />
+  );
+
   // For split mode, wrap the grid in the ResizablePanelGroup.
   //
   // ⭐ objectui#9299, MEASURED WHILE REPAIRING THIS CARD and repaired here.
@@ -6746,6 +7014,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           {(record) => renderRecordDetail(record)}
         </NavigationOverlay>
         {bulkDialog}
+        {rowConflictDialog}
       </>
     );
   }
@@ -6789,6 +7058,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         </NavigationOverlay>
       )}
       {bulkDialog}
+      {rowConflictDialog}
     </div>
   );
 };

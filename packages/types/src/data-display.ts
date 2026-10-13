@@ -1574,8 +1574,19 @@ export interface DataTableSchema extends BaseSchema {
    * (`await schema.onBatchSave(changesToSave)`). Supplied by `ObjectGrid` as
    * `onBatchSave ?? defaultBatchSave`, the same two-limb shape as
    * {@link onRowSave}.
+   *
+   * The outcome is read PER ROW (objectui#12292). A batch is several
+   * independent writes, so some can land while others are refused, and the
+   * server does not take the landed ones back. A handler that knows which rows
+   * did not persist resolves with `{ failed }`, each entry naming a row by the
+   * `rowIndex` it was handed: the table keeps and flags exactly those rows and
+   * clears the rest. Resolving with nothing means every row persisted.
+   * Rejecting means the handler cannot say which rows landed, so the table
+   * keeps and flags every row, as it always has.
    */
-  onBatchSave?: (changes: Array<{ rowIndex: number; changes: Record<string, any>; row: any }>) => void | Promise<void>;
+  onBatchSave?: (
+    changes: Array<{ rowIndex: number; changes: Record<string, any>; row: any }>,
+  ) => void | Promise<void | { failed: Array<{ rowIndex: number; error: unknown }> }>;
   /**
    * Row click handler
    * Called when a row is clicked

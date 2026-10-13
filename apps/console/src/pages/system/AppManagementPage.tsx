@@ -40,6 +40,27 @@
  * hole** — the frame is localized, what fills it is passed through byte for
  * byte. `AppManagementPage.i18n.test.tsx` pins both halves at once, against a
  * `t` that answers in no natural language at all.
+ *
+ * ## A write is reported as what the server did with it (objectui#12300)
+ *
+ * Wiring the writes was not enough: two of them answered 200 for a write that
+ * changed nothing the page shows, and the page still said it had worked.
+ *
+ * - **Delete.** `DELETE /meta/app/:name` resets the app to what its package
+ *   ships, by removing the customization overlay row. When there is no such row
+ *   the door answers `reset: false` and says so in `message`. Nothing was
+ *   removed, so the page says that in a neutral toast, with the server's own
+ *   sentence in the `{{reason}}` hole, and never says "deleted".
+ * - **Disable, Set default and the bulk toggles.** An app that a package owns
+ *   is served from that package's row. A save that names no package lands on a
+ *   package-less row the reader never serves, so the app did not change. Each
+ *   save now names the owning package (`?package=`, read off the served
+ *   `_packageId`), as the console's other package-aware writes do, and a
+ *   package-less app sends no scope at all.
+ *
+ * After every write, whatever it answered, the page re-reads the list, so each
+ * row shows the state the server serves. No row is patched locally ahead of
+ * that read.
  */
 
 import { useState, useCallback } from 'react';
@@ -65,6 +86,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import type { ObjectStackClient } from '@objectstack/client';
 import { useMetadata, useAdapter } from '@object-ui/app-shell';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { resolveKeyedI18nLabel } from '../../utils';
@@ -73,14 +95,53 @@ import { resolveKeyedI18nLabel } from '../../utils';
  * The two metadata writes this page needs, named rather than reached for
  * through `any` — these are the calls whose ABSENCE was the defect, so the
  * shape they are called with is part of what this file now guarantees.
+ *
+ * Taken from the SDK's own declaration rather than restated, so the options
+ * bag `saveItem` takes (`packageId` among them) and the `reset` / `message`
+ * that `deleteItem` answers with are the client's types, not a local copy.
  */
-interface MetaWriteClient {
-  saveItem: (type: string, name: string, item: unknown) => Promise<unknown>;
-  deleteItem: (type: string, name: string) => Promise<unknown>;
-}
+type MetaWriteClient = Pick<ObjectStackClient['meta'], 'saveItem' | 'deleteItem'>;
 
 interface AdapterWithClient {
   getClient?: () => { meta?: MetaWriteClient } | null | undefined;
+}
+
+/**
+ * The value the server stamps as `_packageId` on a row bound to NO package.
+ * It names no package, so it is never sent as a scope: the server's own
+ * write path folds a missing binding into it, and its readers treat it as
+ * "no package". The console's Studio bridge for an app reads it the same way.
+ */
+const PACKAGELESS_SENTINEL = 'sys_metadata';
+
+/**
+ * The package that owns an app's served row, or `undefined` for an app no
+ * package owns.
+ */
+function owningPackage(app: { _packageId?: unknown }): string | undefined {
+  const packageId = app._packageId;
+  return typeof packageId === 'string' && packageId !== '' && packageId !== PACKAGELESS_SENTINEL
+    ? packageId
+    : undefined;
+}
+
+/**
+ * Save one app in the scope it is served from (objectui#12300).
+ *
+ * A package-owned app is saved with `{ packageId }`, which the SDK sends as
+ * `?package=`. That is the row the reader serves, so the change is what the
+ * next read shows. A package-less app is saved exactly as before, with no
+ * fourth argument, because there is no package to name.
+ */
+function saveApp(
+  meta: MetaWriteClient,
+  app: { name: string; _packageId?: unknown },
+  body: Record<string, unknown>,
+) {
+  const packageId = owningPackage(app);
+  return packageId
+    ? meta.saveItem('app', app.name, body, { packageId })
+    : meta.saveItem('app', app.name, body);
 }
 
 /**
@@ -204,13 +265,12 @@ export function AppManagementPage() {
       // control owns — the same round trip `useNavigationSync.saveApp` performs
       // for the `navigation` key. Rebuilding a minimal payload instead would
       // drop every field of the app the console does not model.
-      await meta.saveItem('app', app.name, { ...app, active: newActive });
+      await saveApp(meta, app, { ...app, active: newActive });
       toast.success(
         newActive
           ? t('appManagement.toast.appEnabled', { defaultValue: '{{name}} enabled', name: appTitle(app) })
           : t('appManagement.toast.appDisabled', { defaultValue: '{{name}} disabled', name: appTitle(app) }),
       );
-      await refresh();
     } catch (e: unknown) {
       // The frame is localized; `{{reason}}` is the server's own sentence, raw.
       toast.error(t('appManagement.toast.toggleFailed', {
@@ -218,6 +278,8 @@ export function AppManagementPage() {
         reason: reason(e, unknownError),
       }));
     } finally {
+      // Re-read whatever the write answered: the row shows the served state.
+      await refresh();
       setProcessing(false);
     }
   }, [refresh, metaClient, t, appTitle, unknownError]);
@@ -240,21 +302,25 @@ export function AppManagementPage() {
       const outgoing = (apps || []).filter(
         (a: any) => a?.isDefault === true && a.name !== app.name,
       );
+      // Each app is saved in ITS OWN package's scope: the outgoing default and
+      // the incoming one may belong to different packages, or to none.
       for (const prev of outgoing) {
-        await meta.saveItem('app', prev.name, { ...prev, isDefault: false });
+        await saveApp(meta, prev, { ...prev, isDefault: false });
       }
-      await meta.saveItem('app', app.name, { ...app, isDefault: true });
+      await saveApp(meta, app, { ...app, isDefault: true });
       toast.success(t('appManagement.toast.setDefaultDone', {
         defaultValue: '{{name}} set as default',
         name: appTitle(app),
       }));
-      await refresh();
     } catch (e: unknown) {
       toast.error(t('appManagement.toast.setDefaultFailed', {
         defaultValue: 'Failed to set default app: {{reason}}',
         reason: reason(e, unknownError),
       }));
     } finally {
+      // Re-read on failure too: a failure after the demotion has already
+      // changed the server, and the list must show the deployment as it now is.
+      await refresh();
       setProcessing(false);
     }
   }, [apps, refresh, metaClient, t, appTitle, unknownError]);
@@ -271,19 +337,36 @@ export function AppManagementPage() {
     }
     setProcessing(true);
     try {
-      await meta.deleteItem('app', appToDelete.name);
-      toast.success(t('appManagement.toast.appDeleted', {
-        defaultValue: '{{name}} deleted',
-        name: appTitle(appToDelete),
-      }));
+      const answer = await meta.deleteItem('app', appToDelete.name);
       setConfirmDelete(null);
-      await refresh();
+      if (answer.reset === false) {
+        // The door found no customization row to remove: the app already is
+        // what its package ships, and nothing was deleted. Said neutrally, in
+        // the server's own words, which only the frame around them localizes.
+        // When the server gives no sentence, the page states what `reset: false`
+        // means.
+        toast.info(t('appManagement.toast.nothingToDelete', {
+          defaultValue: 'Nothing to delete for {{name}}: {{reason}}',
+          name: appTitle(appToDelete),
+          reason: answer.message || t('appManagement.toast.alreadyAtDefault', {
+            defaultValue: 'it is already at its package default',
+          }),
+        }));
+      } else {
+        toast.success(t('appManagement.toast.appDeleted', {
+          defaultValue: '{{name}} deleted',
+          name: appTitle(appToDelete),
+        }));
+      }
     } catch (e: unknown) {
       toast.error(t('appManagement.toast.deleteFailed', {
         defaultValue: 'Failed to delete app: {{reason}}',
         reason: reason(e, unknownError),
       }));
     } finally {
+      // The list is re-read, never edited: a row leaves only when the server
+      // stops serving it.
+      await refresh();
       setProcessing(false);
     }
   }, [confirmDelete, refresh, metaClient, t, appTitle, unknownError]);
@@ -307,7 +390,7 @@ export function AppManagementPage() {
         const app = byName.get(name);
         if (!app) continue;
         try {
-          await meta.saveItem('app', name, { ...app, active });
+          await saveApp(meta, app, { ...app, active });
           saved += 1;
         } catch (e: unknown) {
           // Keyed for its PUNCTUATION as much as its words — the CJK packs set
@@ -338,13 +421,13 @@ export function AppManagementPage() {
           details: failures.join(joiner),
         }));
       }
-      await refresh();
     } catch (e: unknown) {
       toast.error(t('appManagement.toast.bulkOperationFailed', {
         defaultValue: 'Bulk operation failed: {{reason}}',
         reason: reason(e, unknownError),
       }));
     } finally {
+      await refresh();
       setProcessing(false);
     }
   }, [apps, selectedIds, refresh, metaClient, t, appTitle, unknownError]);

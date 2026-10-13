@@ -195,6 +195,13 @@ function isUnchangedCellValue(staged: unknown, loaded: unknown): boolean {
  * The edit is kept under the record's key, with `row` (the row it is staged
  * against, whose own value for the column is the loaded one) as its snapshot
  * (objectui#12310).
+ *
+ * `inFlight` is what a running save sent for this record (objectui#12322).
+ * While a save of the cell is in flight, the record will hold the value sent,
+ * or the loaded one if the save fails, so no commit there is called
+ * unchanged: it is staged, and the save's settle (`removeSentEdits`) decides
+ * what stays. Otherwise a cell re-edited back to its loaded value during its
+ * save would be dropped here, and the save would then write the old edit.
  */
 function stageCellChange(
   prev: PendingChanges,
@@ -202,9 +209,10 @@ function stageCellChange(
   row: any,
   columnKey: string,
   value: unknown,
+  inFlight?: Record<string, any>,
 ): PendingChanges {
   const current = prev.get(rowKey);
-  const unchanged = isUnchangedCellValue(value, row?.[columnKey]);
+  const unchanged = !(inFlight && columnKey in inFlight) && isUnchangedCellValue(value, row?.[columnKey]);
   if (unchanged && !(current && columnKey in current.changes)) return prev;
   const next = new Map(prev);
   const rowChanges = { ...(current?.changes || {}) };
@@ -213,6 +221,50 @@ function stageCellChange(
   if (Object.keys(rowChanges).length > 0) next.set(rowKey, { row, changes: rowChanges });
   else next.delete(rowKey);
   return next;
+}
+
+/**
+ * The pending edits once a save of `sent` (record key -> the changes it
+ * handed over) has landed (objectui#12322). For each record sent, each column
+ * whose staged value is still the very value sent is removed, and the
+ * record's entry goes once nothing else is staged on it. Everything else
+ * stays: an edit staged on another record during the save, another column
+ * staged on the record being saved, a new value for a column being saved.
+ *
+ * It is applied as a `setPendingChanges` updater, to the edits as they stand
+ * when the save settles. Applied to the copy read when the save was pressed,
+ * it would drop every edit made during the round trip, with no signal.
+ *
+ * "Still the value sent" means the same value (`Object.is`), not
+ * `isUnchangedCellValue`'s equality. The question here is whether the cell was
+ * staged again since it was sent. A value staged again with an equal copy (a
+ * lookup picked again) stays pending, which costs at most one redundant
+ * write. An equality judged too loosely would drop an edit instead.
+ *
+ * Returns `prev` itself when nothing is removed.
+ */
+function removeSentEdits(
+  prev: PendingChanges,
+  sent: ReadonlyMap<PendingRowKey, Record<string, any>>,
+): PendingChanges {
+  let next: PendingChanges | null = null;
+  for (const [rowKey, sentChanges] of sent) {
+    const current = prev.get(rowKey);
+    if (!current) continue;
+    const remaining = { ...current.changes };
+    let removed = false;
+    for (const columnKey of Object.keys(sentChanges)) {
+      if (columnKey in remaining && Object.is(remaining[columnKey], sentChanges[columnKey])) {
+        delete remaining[columnKey];
+        removed = true;
+      }
+    }
+    if (!removed) continue;
+    next ??= new Map(prev);
+    if (Object.keys(remaining).length > 0) next.set(rowKey, { row: current.row, changes: remaining });
+    else next.delete(rowKey);
+  }
+  return next ?? prev;
 }
 
 /**
@@ -1457,6 +1509,11 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   // Track pending changes for multi-cell editing, per record (objectui#12310):
   // record key -> { row, changes: { columnKey -> newValue } }
   const [pendingChanges, setPendingChanges] = useState<PendingChanges>(new Map());
+  // What a running row save or Save All sent, per record key (objectui#12322).
+  // Cell editing stays open during a save, and a commit on a cell in here is
+  // always staged (see `stageCellChange`). Set when the save is pressed and
+  // cleared when it settles; read only by event handlers, never by render.
+  const inFlightRef = useRef<Map<PendingRowKey, Record<string, any>>>(new Map());
 
   // objectui#7188 — the row merged with its STAGED edits, handed to the host
   // editor as `pendingRow` next to the persisted `row`. Cached per row object
@@ -2107,8 +2164,10 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     const valueToStage = explicitValue !== undefined ? explicitValue : editValue;
 
     // Update pending changes — or drop this cell's entry when the committed
-    // value is the one the row loaded with (objectui#11816).
-    setPendingChanges(stageCellChange(pendingChanges, rowKey, row, columnKey, valueToStage));
+    // value is the one the row loaded with (objectui#11816). An updater, so a
+    // save that settled since this render is not undone (objectui#12322).
+    const inFlight = inFlightRef.current.get(rowKey);
+    setPendingChanges((prev) => stageCellChange(prev, rowKey, row, columnKey, valueToStage, inFlight));
 
     // Call the legacy onCellChange callback if provided
     if (schema.onCellChange) {
@@ -2176,8 +2235,9 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     const { rowKey, columnKey } = editingCell;
     // The row the edit is addressed to, the way `saveEdit` addresses it.
     const row = heldRowOf(rowKey) ?? editingCell.row;
+    const inFlight = inFlightRef.current.get(rowKey);
     setEditValue(value);
-    setPendingChanges((prev) => stageCellChange(prev, rowKey, row, columnKey, value));
+    setPendingChanges((prev) => stageCellChange(prev, rowKey, row, columnKey, value, inFlight));
   };
 
   // Commit the in-flight edit when the input loses focus (e.g. the user clicks
@@ -2190,30 +2250,55 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     saveEdit(true);
   };
 
+  // Marks what a save sends as in flight until `settled` resolves, so a commit
+  // on one of those cells during the save is staged (objectui#12322).
+  const whileInFlight = async <T,>(
+    sent: ReadonlyMap<PendingRowKey, Record<string, any>>,
+    settled: () => Promise<T>,
+  ): Promise<T> => {
+    for (const [rowKey, changes] of sent) inFlightRef.current.set(rowKey, changes);
+    try {
+      return await settled();
+    } finally {
+      for (const [rowKey, changes] of sent) {
+        if (inFlightRef.current.get(rowKey) === changes) inFlightRef.current.delete(rowKey);
+      }
+    }
+  };
+
   // A row's own save, from the save button on the row the record is drawn on:
   // the edit kept under that record's key, handed over with the row the table
   // holds for it now (objectui#12310).
+  //
+  // Cell editing stays open while the save is in flight, so when it settles it
+  // removes only what it sent, from the pending edits as they stand then
+  // (objectui#12322).
   const saveRow = async (rowKey: PendingRowKey) => {
     const pending = pendingChanges.get(rowKey);
     
     if (!pending || Object.keys(pending.changes).length === 0) return;
     const rowChanges = pending.changes;
     const row = heldRowOf(rowKey) ?? pending.row;
+    const sent = new Map([[rowKey, rowChanges]]);
+    // The editor open when the save was pressed, if any.
+    const openEditor = editingCellRef.current;
     
     setIsSaving(true);
     try {
-      if (schema.onRowSave) {
-        await schema.onRowSave(rowIndexOf(rowKey), rowChanges, row);
-      }
+      await whileInFlight(sent, async () => {
+        if (schema.onRowSave) {
+          await schema.onRowSave(rowIndexOf(rowKey), rowChanges, row);
+        }
+      });
       
-      // Clear pending changes for this row
-      const newPendingChanges = new Map(pendingChanges);
-      newPendingChanges.delete(rowKey);
-      setPendingChanges(newPendingChanges);
+      // Clear this row's saved edits, and only those.
+      setPendingChanges((prev) => removeSentEdits(prev, sent));
       // A staged editor (e.g. a lookup picker, which keeps its widget open on
       // pick rather than committing) must exit edit mode once its value is
       // persisted — otherwise the saved cell stays stuck showing the editor.
-      if (editingCell !== null && editingCell.rowKey === rowKey) {
+      // Only the editor that was open on this row when the save was pressed:
+      // one opened during the save is still in use.
+      if (openEditor !== null && openEditor.rowKey === rowKey && editingCellRef.current === openEditor) {
         editingCellRef.current = null;
         setEditingCell(null);
         setEditValue('');
@@ -2251,8 +2336,14 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     });
   };
 
+  // Save All. Like `saveRow`, it settles against the pending edits as they
+  // stand when the batch returns, and removes only what it sent
+  // (objectui#12322).
   const saveBatch = async () => {
     if (pendingChanges.size === 0) return;
+    const sent = new Map(Array.from(pendingChanges, ([rowKey, pending]) => [rowKey, pending.changes]));
+    // The editor open when Save All was pressed, if any.
+    const openEditor = editingCellRef.current;
     
     setIsSaving(true);
     try {
@@ -2276,7 +2367,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
 
       // `void` at runtime is `undefined`: the handler persisted every row.
       const outcome = (schema.onBatchSave
-        ? await schema.onBatchSave(changesToSave)
+        ? await whileInFlight(sent, async () => schema.onBatchSave?.(changesToSave))
         : undefined) as BatchSaveOutcome | undefined;
       const failed = outcome?.failed ?? [];
       const failedKeys = new Set<PendingRowKey>();
@@ -2292,32 +2383,38 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
       // Any staged editor left open (e.g. a lookup picker that keeps its widget
       // open on pick) must exit edit mode now that the batch has settled —
       // otherwise the edited cell stays stuck showing the editor after 全部保存.
-      editingCellRef.current = null;
-      setEditingCell(null);
-      setEditValue('');
+      // Only the editor that was open when Save All was pressed: one opened
+      // during the save is still in use.
+      if (openEditor !== null && editingCellRef.current === openEditor) {
+        editingCellRef.current = null;
+        setEditingCell(null);
+        setEditValue('');
+      }
       if (failedKeys.size > 0) {
         // Per-row outcome: the rows that persisted are cleared, and only the
         // rows that did not are kept and flagged. The server already accepted
         // the others, so keeping them pending would report a landed write as
         // a failed one, and a retry would send it again.
         console.error('Failed to save rows:', failed.map((entry) => entry.error));
-        setPendingChanges(new Map(Array.from(pendingChanges).filter(([key]) => failedKeys.has(key))));
+        const landed = new Map(Array.from(sent).filter(([key]) => !failedKeys.has(key)));
+        setPendingChanges((prev) => removeSentEdits(prev, landed));
         setErroredRows(failedKeys);
         setSaveError(extractSaveErrorMessage(failed[0].error));
         return;
       }
-      // Clear all pending changes
-      setPendingChanges(new Map());
+      // Clear every edit the batch saved, and only those.
+      setPendingChanges((prev) => removeSentEdits(prev, sent));
       // Saved — clear any prior errors.
       setErroredRows(new Set());
       setSaveError(null);
     } catch (error) {
       // A rejection says nothing about which rows landed, so it is read as
-      // all-or-nothing: keep every pending row, flag them all, and surface the
-      // reason instead of failing silently.
+      // all-or-nothing: keep every pending row, flag every row it sent (not
+      // one staged during the save), and surface the reason instead of
+      // failing silently.
       console.error('Failed to save batch:', error);
       setSaveError(extractSaveErrorMessage(error));
-      setErroredRows(new Set(pendingChanges.keys()));
+      setErroredRows(new Set(sent.keys()));
     } finally {
       setIsSaving(false);
     }

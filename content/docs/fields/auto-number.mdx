@@ -21,8 +21,8 @@ The AutoNumber Field component displays auto-generated sequence numbers. This is
 
 An auto-number field is authored as `AutoNumberFieldMetadata` (`@object-ui/types`),
 which is the source of truth for the key set: it extends `BaseFieldMetadata` with the
-record-number format. The type value is `autonumber`, the spelling `@objectstack/spec`'s
-`FieldType` declares (`auto_number` is refused at `type`).
+record-number pattern, `autonumberFormat`. The type value is `autonumber`, the spelling
+`@objectstack/spec`'s `FieldType` declares (`auto_number` is refused at `type`).
 
 ```ts
 import type { AutoNumberFieldMetadata } from '@object-ui/types';
@@ -33,9 +33,14 @@ const invoiceNumber: AutoNumberFieldMetadata = {
   label: 'Invoice Number',
   inlineHelpText: 'Assigned by the platform when the record is created.',
   readonly: true,
-  format: 'INV-{0000}',
+  autonumberFormat: 'INV-{0000}',
 };
 ```
+
+`autonumberFormat` is the spelling `@objectstack/spec` prefers on a new field.
+`format` is the older shorthand for the same pattern, and the spec still accepts
+it: `format: 'INV-{0000}'` mints the same numbers. When a field sets both,
+`autonumberFormat` wins and `format` is ignored.
 
 The generated value, and the `className` a host supplies, are **not** metadata keys —
 they are runtime widget props. See [Field Widget Props](/docs/fields/widget-props).
@@ -47,30 +52,30 @@ Common format patterns:
 ### Simple Sequential
 
 ```plaintext
-format: '{0000}'           // 0001, 0002, 0003...
-format: '{00000}'          // 00001, 00002, 00003...
+autonumberFormat: '{0000}'           // 0001, 0002, 0003...
+autonumberFormat: '{00000}'          // 00001, 00002, 00003...
 ```
 
 ### With Prefix
 
 ```plaintext
-format: 'ORD-{0000}'       // ORD-0001, ORD-0002...
-format: 'INV-{00000}'      // INV-00001, INV-00002...
-format: 'CUST-{000}'       // CUST-001, CUST-002...
+autonumberFormat: 'ORD-{0000}'       // ORD-0001, ORD-0002...
+autonumberFormat: 'INV-{00000}'      // INV-00001, INV-00002...
+autonumberFormat: 'CUST-{000}'       // CUST-001, CUST-002...
 ```
 
 ### Date-Based
 
 ```plaintext
-format: '{YYYY}-{0000}'    // 2024-0001, 2024-0002...
-format: '{YY}{MM}-{000}'   // 2403-001, 2403-002...
-format: 'ORD-{YYYYMMDD}-{00}'  // ORD-20240315-01...
+autonumberFormat: '{YYYY}-{0000}'    // 2024-0001, 2024-0002...
+autonumberFormat: '{YY}{MM}-{000}'   // 2403-001, 2403-002...
+autonumberFormat: 'ORD-{YYYYMMDD}-{00}'  // ORD-20240315-01...
 ```
 
 ### Mixed Format
 
 ```plaintext
-format: 'PO-{YYYY}-{MM}-{0000}'  // PO-2024-03-0001
+autonumberFormat: 'PO-{YYYY}-{MM}-{0000}'  // PO-2024-03-0001
 ```
 
 ## Format Placeholders
@@ -120,7 +125,7 @@ const orderNumber: AutoNumberFieldMetadata = {
   type: 'autonumber',
   name: 'order_number',
   label: 'Order Number',
-  format: 'ORD-{YYYY}-{0000}',
+  autonumberFormat: 'ORD-{YYYY}-{0000}',
 };
 ```
 

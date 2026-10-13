@@ -1027,12 +1027,34 @@ export interface SummaryFieldMetadata extends BaseFieldMetadata {
  */
 export interface AutoNumberFieldMetadata extends BaseFieldMetadata {
   type: 'autonumber';
+  /**
+   * The record-number pattern — `@objectstack/spec`'s
+   * `FieldSchema.autonumberFormat`, typed BY REFERENCE so the two cannot drift
+   * (objectui#12282): literal text plus a `{0000}` counter, the date tokens and
+   * `{field_name}` interpolation that the spec's `parseAutonumberFormat` reads,
+   * e.g. `'INV-{YYYY}-{0000}'`. The spec prefers it on a new field, and it is
+   * the key the spec's own field form, which Studio's field designer renders,
+   * offers for an `autonumber` field.
+   *
+   * It wins over `format` when a field carries both: the backend takes a
+   * non-empty `autonumberFormat`, then a non-empty `format`, then the
+   * contract default `{0000}` (`resolveAutonumberFormat`,
+   * `@objectstack/spec/data`).
+   */
+  autonumberFormat?: SpecField['autonumberFormat'];
+  /**
+   * The shorthand for `autonumberFormat` — `@objectstack/spec`'s
+   * `FieldSchema.format`, which on an `autonumber` field is the same
+   * record-number pattern and predates `autonumberFormat`. The spec still
+   * accepts it and the backend still honours it, but only when the field
+   * carries no `autonumberFormat`. Prefer `autonumberFormat` on a new field.
+   */
   format?: string;
   /**
    * REFUSED BY NAME (objectui#12242): `FieldSchema` refuses `starting_number`
    * with `unrecognized_keys` and declares no starting value (the record number
-   * is minted by the backend from `format`), and nothing reads it. Retired with
-   * no replacement key.
+   * is minted by the backend from `autonumberFormat`, or its shorthand
+   * `format`), and nothing reads it. Retired with no replacement key.
    * @deprecated Nothing reads this key. Remove it.
    */
   starting_number?: never;

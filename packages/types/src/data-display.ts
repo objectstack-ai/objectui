@@ -1544,9 +1544,17 @@ export interface DataTableSchema extends BaseSchema {
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is called by `renderers/complex/data-table.tsx`
-   * (`schema.onCellChange(globalIndex, columnKey, valueToStage, row)`). Supplied
-   * by `ObjectGrid` (`@object-ui/plugin-grid`), which forwards the React prop of
-   * the same name off `ObjectGridComponentProps`.
+   * when an inline edit is staged, with the staged value and the edited record's
+   * row. Supplied by `ObjectGrid` (`@object-ui/plugin-grid`), which forwards the
+   * React prop of the same name off `ObjectGridComponentProps`.
+   *
+   * `rowIndex` is computed when the call is made (objectui#12310): the row's
+   * global index while the table holds the record, and `-1` when the rows it
+   * holds no longer include it (a re-read or a client-side search dropped the
+   * record while its editor was open). A pending edit belongs to its record
+   * (`row.id`, or the row object for a row without one), never to a position,
+   * so `row` is that record's own row in both cases: the held row, or else the
+   * row the editor was opened on.
    */
   onCellChange?: (rowIndex: number, columnKey: string, newValue: any, row: any) => void;
   /**
@@ -1557,10 +1565,14 @@ export interface DataTableSchema extends BaseSchema {
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is called by `renderers/complex/data-table.tsx`
-   * (`await schema.onRowSave(globalIndex, rowChanges, row)`). Supplied by
-   * `ObjectGrid` as `onRowSave ?? defaultRowSave` — the left limb is the React
-   * prop of the same name on `ObjectGridComponentProps`, the right a
-   * dataSource-backed default installed only when no host wired one.
+   * from a row's own save button, with that record's staged changes and its
+   * row. Supplied by `ObjectGrid` as `onRowSave ?? defaultRowSave` — the left
+   * limb is the React prop of the same name on `ObjectGridComponentProps`, the
+   * right a dataSource-backed default installed only when no host wired one.
+   *
+   * `rowIndex` is the row's global index when the call is made
+   * (objectui#12310). The button is drawn only on a row the table holds, so it
+   * is never negative here.
    */
   onRowSave?: (rowIndex: number, changes: Record<string, any>, row: any) => void | Promise<void>;
   /**
@@ -1583,6 +1595,16 @@ export interface DataTableSchema extends BaseSchema {
    * clears the rest. Resolving with nothing means every row persisted.
    * Rejecting means the handler cannot say which rows landed, so the table
    * keeps and flags every row, as it always has.
+   *
+   * Each entry is one record's pending edit, resolved by the record, never by
+   * a position (objectui#12310). While the table holds the record, `row` is
+   * its current row and `rowIndex` its global index when Save All is pressed.
+   * A record the table no longer holds (a re-read or a client-side search
+   * dropped it, or it sits on another server page) is still handed over:
+   * `row` is the row the edit was staged against, and `rowIndex` is negative
+   * (`-1`, `-2`, …, distinct within one batch), since no position in the held
+   * rows is that record's. A `{ failed }` entry names its row by the
+   * `rowIndex` it was handed, negatives included.
    */
   onBatchSave?: (
     changes: Array<{ rowIndex: number; changes: Record<string, any>; row: any }>,

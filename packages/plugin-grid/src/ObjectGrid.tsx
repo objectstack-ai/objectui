@@ -58,7 +58,7 @@ import {
   DataEmptyState, resolveIcon,
 } from '@object-ui/components';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, resolveAffordance, resolveFieldAffordance, type SchemaLike, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, partitionRowsByPredicate, buildCategoryOrder, buildCategoryRank, type FilterTokenScope } from '@object-ui/core';
+import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, resolveAffordance, resolveFieldAffordance, type SchemaLike, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, partitionRowsByPredicate, buildCategoryOrder, buildCategoryRank, type FilterTokenScope } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import {
   RECORD_OVERLAY_DEFAULT_WIDTH,
@@ -89,13 +89,13 @@ import type { BulkResult } from './hooks/useBulkExecutor';
 import type { BulkActionDef } from '@object-ui/types';
 
 /**
- * The node's own authored filter: the canonical `filter`, and its deprecated
- * alias `defaultFilters`, which the load effect reads only when `filter` is
- * absent.
+ * The node's own authored filter: the canonical `filter`. Its deprecated alias
+ * `defaultFilters` is not read: `@objectstack/spec` 18 retired it as a
+ * tombstone that refuses by name (objectstack#11509), and the alias read went
+ * with it (objectui#12030).
  */
 interface AuthoredGridFilters {
   filter: ObjectGridSchema['filter'];
-  defaultFilters: ObjectGridSchema['defaultFilters'];
 }
 
 /** One resolution, remembered with the inputs it was computed from. */
@@ -2137,12 +2137,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // `useResolvedGridFilters`), so `{current_user_id}` goes out as the real id
   // and an equal filter keeps its reference across renders.
   const filterScope = useFilterScope();
-  const authoredFilters = useResolvedGridFilters(
-    { filter: schema.filter, defaultFilters: schema.defaultFilters },
-    filterScope,
-  );
+  const authoredFilters = useResolvedGridFilters({ filter: schema.filter }, filterScope);
   const schemaFilterSource = authoredFilters.filter;
-  const schemaDefaultFilters = authoredFilters.defaultFilters;
   const schemaFilterResult = useMemo(() => toFilterNodeSafely(schemaFilterSource), [schemaFilterSource]);
   const schemaFilterRefusal = schemaFilterResult.ok ? undefined : schemaFilterResult.refusal;
   const schemaFilter = schemaFilterResult.ok ? schemaFilterResult.node : undefined;
@@ -2732,49 +2728,6 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           // went missing and the grid answered with every record.
           if (schemaFilter !== undefined) {
             params.$filter = schemaFilter;
-          } else {
-            // The deprecated `defaultFilters`, through the SAME sink as the
-            // canonical key above (objectui#4082). It used to be assigned
-            // byte-for-byte, which made this the one leg on the chain that
-            // reached the wire unlowered — `plugin-list`'s
-            // `buildEffectiveFilter` and `plugin-view`'s non-grid fetch both
-            // already go through `toFilterNode`/`mergeFilterNodes`.
-            //
-            // Byte-copying is refused on the wire for BOTH shapes this slot
-            // carries. `defaultFilters` was declared `Record<string, any>`
-            // (the MongoDB-style shape) until objectui#6152 round 10 — it is the
-            // row's `ViewFilterRule` array since, the shape `filter` takes — and
-            // `isFilterAST` is false for a plain object; a rule array is the
-            // other shape (`plugin-view`'s `ObjectView` forwarded an active
-            // named view's `ViewFilterRule[]` into this slot until objectui#11880
-            // item 5, and hands its whole filter chain to `filter` since), and
-            // `isFilterAST` is false for an array of rule objects too. Either one
-            // answers `400 INVALID_FILTER` (measured against a real backend in
-            // objectui#3431).
-            //
-            // `toFilterNode` handles both without new logic: objects route
-            // through `convertFiltersToAST`, rule arrays lower element-wise,
-            // and an AST already in this slot passes through untouched so
-            // nothing is lowered twice. It also folds an absent/empty source to
-            // `undefined`, which is why the truthiness guard this replaces is
-            // gone — `defaultFilters: {}` used to send `$filter: {}`, asking
-            // the server a question with no content in a shape it refuses.
-            //
-            // ⚠️ Still the THROWING entry, and that is measured rather than
-            // inherited (objectui#9050). Unlike the three `useMemo` reads this
-            // card converts — `schema.filter` above, `RelatedList`'s and
-            // `LineItemsPanel`'s — this read is inside `loadSchemaAndData`, so
-            // it is already wrapped by this effect's own `try` and lands in
-            // `setError`. What it did NOT do is say what went wrong: the panel
-            // read "Error loading grid" over the converter's English paragraph.
-            // The malformed-filter branch in the render now names the operator
-            // for a `FilterOperatorError` arriving on this path too, which is
-            // the whole of step 2 for this fourth call site. Converting it to
-            // `toFilterNodeSafely` here would only rethrow into the same catch.
-            const legacyFilter = toFilterNode(schemaDefaultFilters);
-            if (legacyFilter !== undefined) {
-              params.$filter = legacyFilter;
-            }
           }
 
           // Sort. A column-header click (objectui#3106) replaces the view's
@@ -2976,10 +2929,6 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // reachable a second way.
   // `invalidationNonce` (objectui#10035): a write to this object, reported on
   // the data-invalidation bus — see its declaration above.
-  // `schemaDefaultFilters` (objectui#10607): the deprecated alias, resolved and
-  // held with `filter`. It changes only when the authored alias changes by
-  // structure or the scope changes (a new signed-in user), and either one
-  // changes the `$filter` this effect sends when `filter` is absent.
   // `groupingNeedsHeaderQuery` (objectui#10881): it flips when the object's
   // types land and show the only grouping key masked, and the flat fetch it
   // withheld must then go out.
@@ -2988,7 +2937,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // a string compared by value — see their declarations above.
   // `carriesConcurrencyToken` (objectui#12292): a boolean, so turning inline
   // edit on re-reads the rows WITH their token — see its declaration above.
-  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaDefaultFilters, schemaSort, headerSort, querySearchTerm, schemaPagination, schemaPageSize, serverPage, fetchWindow, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey, predicateProjectionKey, searchFieldsKey, invalidationNonce, serverGroupedFetch, groupingNeedsHeaderQuery, carriesConcurrencyToken]);
+  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaSort, headerSort, querySearchTerm, schemaPagination, schemaPageSize, serverPage, fetchWindow, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey, predicateProjectionKey, searchFieldsKey, invalidationNonce, serverGroupedFetch, groupingNeedsHeaderQuery, carriesConcurrencyToken]);
 
   // The same reset, for the path the loader above never runs on (objectui#4501
   // clause 2). "All N matching are selected" is a claim about ONE query, so it
@@ -4489,11 +4438,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     setShowExport(false);
   }, [data, schema.exportOptions, schema.operations?.export, effectiveApiOps, schema.objectName, objectName, objectSchema, objectFields, objectTypesPending, generateColumns, dataSource, hasInlineData, schemaFilter, schemaSort]);
 
-  // objectui#9050 step 2 — a refused filter, from EITHER of this component's
-  // two entries into the lowering: `schema.filter` (a render-time `useMemo`,
-  // which would otherwise have thrown out of render) and `schema.defaultFilters`
-  // (inside the load effect, which already caught it but reported it as a
-  // generic load failure). Ahead of the load-error branch because it is not a
+  // objectui#9050 step 2 — a refused filter: `schema.filter` (a render-time
+  // `useMemo`, which would otherwise have thrown out of render), or a
+  // `FilterOperatorError` the load effect caught. The second entry used to be
+  // `schema.defaultFilters`, lowered inside the load effect; that alias is not
+  // read since `@objectstack/spec` 18 retired it (objectui#12030). Ahead of the
+  // load-error branch because it is not a
   // load failure: nothing was ever sent, and the repair is in the author's
   // metadata rather than in the network. It NAMES the operator, which is what
   // separates it from the `SchemaErrorBoundary`'s "Component failed to render"

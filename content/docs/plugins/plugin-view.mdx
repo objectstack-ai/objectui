@@ -128,7 +128,7 @@ object through:
 
 | Sub-config | Keys `ObjectView` forwards |
 | --- | --- |
-| `table` | read by name: `columns`, `fields`, `title`, `filter`, `defaultFilters`, `sort`, `pagination`, `pageSize`, `selection`, `selectable`, `operations`, `className`; handed to the grid as written: `editable`, `singleClickEdit`, `frozenColumns`, `rowHeight`, `resizable`, `reorderableColumns`, `searchableFields`, `showSearch`, `showPagination`, `showColumnTypeIcons`, `conditionalFormatting`, `rowActions`, `bulkActions`, `bulkActionDefs`, `exportOptions`, `grouping`, `aggregations`, `rowColor`, `label` |
+| `table` | read by name: `columns`, `fields`, `title`, `filter`, `sort`, `pagination`, `pageSize`, `selection`, `selectable`, `operations`, `className`; handed to the grid as written: `editable`, `singleClickEdit`, `frozenColumns`, `rowHeight`, `resizable`, `reorderableColumns`, `searchableFields`, `showSearch`, `showPagination`, `showColumnTypeIcons`, `conditionalFormatting`, `rowActions`, `bulkActions`, `bulkActionDefs`, `exportOptions`, `grouping`, `aggregations`, `rowColor`, `label` |
 | `form` | `fields`, `customFields`, `sections`, `groups`, `layout`, `columns`, `title`, `description`, `subforms`, `buttons`, `defaults`, `initialValues`, `readOnly`, `showSubmit`, `submitText`, `showCancel`, `cancelText`, `showReset`, `className` |
 
 `table` declares exactly these keys (objectui#10976). Any other grid key —
@@ -151,6 +151,13 @@ The forwarding is literal, key by key, spread across three sites in
 `mergedFilters` / `mergedSort` pair handed to a host-supplied list renderer —
 so the keys below behave the same on every rendering path.
 
+> **`table.defaultFilters` is retired (objectui#12030).** It was the legacy
+> spelling of `table.filter`, the same rule array. `@objectstack/spec` 18
+> refuses `object-grid`'s `defaultFilters` by name (a retired-key tombstone,
+> objectstack#11509), and neither `ObjectView` nor `ObjectGrid` reads it any
+> more: a view that still carries it renders **unfiltered**. Rename the key to
+> `filter`; the value does not change.
+
 > **`table.defaultSort` is retired (objectui#5861).** It was the legacy
 > single-entry spelling of `table.sort`. The installed `@objectstack/spec`
 > protocol refuses `object-grid`'s `defaultSort` by name (a retired-key
@@ -162,16 +169,16 @@ so the keys below behave the same on every rendering path.
 
 #### Canonical keys now take effect (objectui#5102)
 
-Three of the forwarded `table` keys are pairs — a canonical `ObjectGridSchema`
+Two of the forwarded `table` keys are pairs — a canonical `ObjectGridSchema`
 key and the `@deprecated` legacy spelling it replaced. Both work; write the
-canonical one. (A fourth pair, `sort` / `defaultSort`, used to be listed here;
-its legacy half is retired — see the note above.)
+canonical one. (Two more pairs, `filter` / `defaultFilters` and `sort` /
+`defaultSort`, used to be listed here; their legacy halves are retired — see
+the notes above.)
 
 | write this (canonical) | not this (legacy alias — still works) |
 | --- | --- |
 | `pagination: { pageSize, pageSizeOptions? }` | `pageSize: number` |
 | `selection: { type: 'single' \| 'multiple' \| 'none' }` | `selectable: boolean \| 'single' \| 'multiple'` |
-| `filter: [{ field, operator, value }, …]` (same shape as a named view's `filter`) | `defaultFilters: [{ field, operator, value }, …]` — the same rule array; TypeScript and the validator refuse the record form `{ field: value }` (objectui#6152 round 10) |
 
 Before objectui#5102, `pagination` / `selection` / `filter` / `sort` had **no
 read point at all** in this file: an author who wrote the canonical shape
@@ -184,12 +191,10 @@ the right are simply no longer the ones to reach for.
 (`schema.pagination?.pageSize || schema.pageSize`; `if
 (schema.selection?.type) … else if (schema.selectable !== undefined)`), and
 `ObjectView` defers to it by forwarding both slots rather than re-resolving
-the pair itself. The filter pair is the exception: `ObjectView` resolves it
-and hands the grid the winner in `filter` alone (objectui#11880). `table.filter`
-wins unless it lowers to nothing (absent, `[]` or `{}`), and then
-`table.defaultFilters` applies. Because the grid then has one filter slot,
-its export carries the filter in force and a change to it returns the grid to
-page 1, as `table.filter` always did:
+the pair itself. `table.filter` reaches the grid in its one `filter` slot
+(objectui#11880), unless it lowers to nothing (absent, `[]` or `{}`), so its
+export carries the filter in force and a change to it returns the grid to
+page 1:
 
 ```typescript
 import type { ObjectViewSchema } from '@object-ui/types';
@@ -207,12 +212,10 @@ const bothSpellingsWritten: ObjectViewSchema = {
 ⚠️ **`filter` / `sort` have one more tier ahead of `table` entirely**, and it
 predates this change: an **active named view's own** `filter` / `sort`
 (`listViews.<name>.filter` / `.sort`) always outranks anything written on
-`table` — `table.filter` does **not** universally win over the legacy
-`table.defaultFilters`, it wins only when no active named view supplies its
-own filter. In order, highest first: the active named view's `filter`/`sort`,
-then `table.filter`/`table.sort`, then `table.defaultFilters` (filter only —
-`sort` has no legacy tier since `table.defaultSort` was retired). If you never
-write `listViews`, that first tier never applies.
+`table`. In order, highest first: the active named view's `filter`/`sort`,
+then `table.filter`/`table.sort`. Neither has a legacy tier: `table.defaultFilters`
+and `table.defaultSort` are retired. If you never write `listViews`, that
+first tier never applies.
 
 Whichever tier wins, its filter goes through `resolveFilterPlaceholders` from
 `@object-ui/core` before it leaves `ObjectView` (objectui#10506), on all three

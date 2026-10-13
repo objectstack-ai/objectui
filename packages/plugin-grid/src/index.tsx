@@ -264,7 +264,7 @@ const GRID_QUERY_INPUTS: ComponentInput[] = [
       'Object this grid lists. Not required: the node\'s `dataSource` binding can name the object instead, and `dataSource.object` lands on this key, outranking an authored value. With neither, and no inline `data` rows, the grid shows an error saying an object name is required and fetches nothing.',
   },
   { name: 'columns', type: 'array', description: 'Columns to show, either field names (`["name", "email"]`) or column objects (`[{ field: "name", label: "Full Name", width: 200 }]`). The canonical spelling — the deprecated `fields` is only read when this is absent.' },
-  { name: 'filter', type: 'array', description: 'Base query filter — the `ViewFilterRule` array `[{ field, operator, value }, ...]`, lowered to `$filter`. The canonical spelling — the deprecated `defaultFilters` is only read when this is absent.' },
+  { name: 'filter', type: 'array', description: 'Base query filter — the `ViewFilterRule` array `[{ field, operator, value }, ...]`, lowered to `$filter`. The canonical spelling — the retired `defaultFilters` is not read (`@objectstack/spec` 18 refuses it by name).' },
   // ── identity ──────────────────────────────────────────────────────────────
   // `label` is an `I18nLabel` in the spec row (`ComponentPropsMap['object-grid']`),
   // and every read of it in `ObjectGrid` (the table caption, the export title,

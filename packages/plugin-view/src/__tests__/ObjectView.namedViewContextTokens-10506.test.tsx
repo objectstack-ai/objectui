@@ -265,11 +265,13 @@ describe('named view / table filter → the `list-view` schema handed to renderL
     expect(seen.at(-1)?.filter).toEqual([{ field: 'owner', operator: 'equals', value: USER }]);
   });
 
-  it('hands the delegated slot a resolved object table.defaultFilters', () => {
+  it('hands the delegated slot a resolved object table.filter', () => {
+    // Was `table.defaultFilters` until objectui#12030 retired that key; the
+    // same object source rides the canonical `table.filter`.
     const { seen } = renderDelegated({
       type: 'object-view',
       objectName: 'task',
-      table: { defaultFilters: { owner: '{current_user_id}', org: '{current_org_id}' } },
+      table: { filter: { owner: '{current_user_id}', org: '{current_org_id}' } },
     } as unknown as ObjectViewSchema);
     expect(seen.at(-1)?.filter).toEqual({ owner: USER, org: ORG });
   });

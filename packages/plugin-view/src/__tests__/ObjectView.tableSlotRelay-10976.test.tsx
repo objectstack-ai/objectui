@@ -89,11 +89,16 @@ type RelayKey = (typeof OBJECT_VIEW_TABLE_RELAY_KEYS)[number];
 
 /** The keys the grid-node build reads off `table` BY NAME (not through the relay). */
 type ByNameKey =
-  | 'className' | 'columns' | 'defaultFilters' | 'fields' | 'filter' | 'operations'
+  | 'className' | 'columns' | 'fields' | 'filter' | 'operations'
   | 'pageSize' | 'pagination' | 'selectable' | 'selection' | 'sort' | 'title';
 
-/** `ObjectGridSchema`'s own retirement tombstones — `never`, so they type no value. */
-type TombstoneKey = 'body' | 'children' | 'defaultSort';
+/**
+ * `ObjectGridSchema`'s own retirement tombstones, which type no value an author
+ * can write. `defaultFilters` joined them with `@objectstack/spec` 18
+ * (objectstack#11509), when this component stopped reading it by name
+ * (objectui#12030).
+ */
+type TombstoneKey = 'body' | 'children' | 'defaultFilters' | 'defaultSort';
 
 /**
  * ⭐ The compile-time pins. Each alias resolves to `never` when the claim holds;
@@ -136,22 +141,17 @@ const RELAYED: Required<Pick<TableSlot, RelayKey>> = {
 };
 
 /**
- * `table.defaultFilters` as metadata written on the installed `@objectstack/spec`
- * carries it: the `filter` rule array. objectstack `main` retires the key
- * (objectstack#11509, a tombstone there), and this component still READS it by
- * name for such metadata (objectui#11880 item 5), so the sample is typed by the
- * shape it has on the installed spec rather than by the slot's declaration,
- * which is the tombstone on `main` (objectui#12093).
+ * `table.defaultFilters` as metadata written before `@objectstack/spec` 18
+ * carried it: the `filter` rule array. The slot's declaration is the tombstone
+ * now (objectstack#11509), so the sample is cast past it; nothing reads it
+ * (objectui#12030), which the case below pins.
  */
-type LegacyDefaultFilters = { defaultFilters: NonNullable<TableSlot['filter']> };
+const RETIRED_DEFAULT_FILTERS = [{ field: 'stage', operator: 'equals', value: 'lost' }];
 
 /** One authored value per by-name key, each copied onto the node unchanged. */
-const BY_NAME: Required<Pick<TableSlot, Exclude<ByNameKey, 'operations' | 'defaultFilters'>>> & LegacyDefaultFilters = {
+const BY_NAME: Required<Pick<TableSlot, Exclude<ByNameKey, 'operations'>>> = {
   className: 'table-probe',
   columns: ['subject', 'stage'],
-  // objectui#6152 round 10: the grid row's rule array (the slot's type was a `Record`). Its
-  // value differs from `filter`'s below, so a swap of the two slots cannot read as arrival.
-  defaultFilters: [{ field: 'stage', operator: 'equals', value: 'lost' }],
   fields: ['subject', 'stage'],
   filter: [{ field: 'stage', operator: 'equals', value: 'open' }],
   pageSize: 50,
@@ -206,19 +206,15 @@ describe('objectui#10976 — a key written on `table` reaches the grid `ObjectVi
   it('CONTROL: each by-name key still arrives, and `operations` still merges the view\'s `create: false`', async () => {
     const s = await gridNode({ table: { ...BY_NAME, operations: { update: false } } });
     for (const [key, value] of Object.entries(BY_NAME)) {
-      // objectui#11880 item 5: `defaultFilters` is still read by name, but the
-      // filter pair is resolved before the node is built and handed over in
-      // `filter` alone; its arrival is pinned in the case below.
-      if (key === 'defaultFilters') continue;
       expect(s[key], `\`table.${key}\` no longer reaches the grid`).toEqual(value);
     }
     expect(s.defaultFilters).toBeUndefined();
     expect(s.operations).toMatchObject({ update: false, create: false });
   });
 
-  it('`table.defaultFilters` still arrives, in `filter`, when `table.filter` is absent (objectui#11880 item 5)', async () => {
-    const s = await gridNode({ table: { defaultFilters: BY_NAME.defaultFilters } });
-    expect(s.filter).toEqual(BY_NAME.defaultFilters);
+  it('a retired `table.defaultFilters` arrives in neither slot, even with `table.filter` absent (objectui#12030)', async () => {
+    const s = await gridNode({ table: { defaultFilters: RETIRED_DEFAULT_FILTERS } as unknown as TableSlot });
+    expect(s.filter).toBeUndefined();
     expect(s.defaultFilters).toBeUndefined();
   });
 });

@@ -25,7 +25,10 @@
  *     "Error loading grid", over the converter's English paragraph. So the
  *     assertion for that leg is about the DIAGNOSIS, not about containment: a
  *     pin that only asked "did the page survive" would have been green before
- *     this card on that leg.
+ *     this card on that leg. ⚠️ That leg is gone since objectui#12030:
+ *     `@objectstack/spec` 18 retired `object-grid.defaultFilters`, and the grid
+ *     no longer reads it, so a refused value there is not diagnosed either —
+ *     it is not read at all, which the case below pins.
  *
  * Both legs land on one render branch, which is why one `data-testid` covers
  * them: it is one sentence about one authored value.
@@ -80,26 +83,23 @@ describe('objectui#9050 — ObjectGrid names a refused filter', () => {
     await waitFor(() => expect(ds.find).not.toHaveBeenCalled());
   });
 
-  it('defaultFilters: the load-path refusal is diagnosed, not reported as a load failure', async () => {
+  it('defaultFilters: the retired key is not read, so a refused value there draws no refusal and sends no `$filter` (objectui#12030)', async () => {
     render(
       <ObjectGrid
         schema={{
           type: 'object-grid',
           objectName: 'invoice',
           columns: COLUMNS,
-          // `filter` absent on purpose — that is the only way this deprecated
-          // leg is read at all.
+          // `filter` absent on purpose — the only way the retired leg was read.
           defaultFilters: { note: { $regex: 'a.c' } },
         } as any}
         dataSource={ds}
       />,
     );
 
-    const headline = await screen.findByTestId('grid-malformed-filter-subject');
-    expect(headline.textContent).toContain('$regex');
-    // The half that was NOT green before this card. The generic load heading is
-    // what this path used to show, and it names nothing an author can act on.
-    expect(document.body.textContent).not.toMatch(/error loading grid/i);
+    await waitFor(() => expect(ds.find).toHaveBeenCalled());
+    expect((ds.find.mock.calls[0] as [string, Record<string, unknown>])[1].$filter).toBeUndefined();
+    expect(screen.queryByTestId('grid-malformed-filter')).toBeNull();
   });
 
   it('positive control — a well-formed filter still queries and shows no refusal', async () => {

@@ -28,6 +28,12 @@
  *      shared `toFilterNode` sink — the other is `plugin-list`'s
  *      `buildEffectiveFilter` — which is why the lowering lives there and not
  *      in either caller.
+ *
+ * ⚠️ objectui#12030: the cells below used `table.defaultFilters` as the vehicle
+ * for each source shape. `@objectstack/spec` 18 retired that key (a tombstone
+ * refusing it by name) and `ObjectView` no longer reads it, so the same shapes
+ * now ride the canonical `table.filter`, and one cell pins the retired key as
+ * inert.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -90,13 +96,13 @@ async function queriedFilter(find: ReturnType<typeof vi.fn>) {
 describe('ObjectView carries every filter source into the query', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('keeps an OBJECT table.defaultFilters instead of dropping it', async () => {
-    const find = renderCalendar({ table: { defaultFilters: { status: 'active' } } as any });
+  it('keeps an OBJECT table.filter instead of dropping it', async () => {
+    const find = renderCalendar({ table: { filter: { status: 'active' } } as any });
     // Was `undefined` — the view queried unfiltered and showed every record.
     expect(await queriedFilter(find)).toEqual(['status', '=', 'active']);
   });
 
-  it('LOWERS a ViewFilterRule[] table.defaultFilters into AST nodes', async () => {
+  it('LOWERS a ViewFilterRule[] table.filter into AST nodes', async () => {
     // objectui#3431. This case used to assert `toEqual(rules)` — that the rule
     // objects reached `$filter` VERBATIM — and it was green because that is
     // what happened, not because it was right: the server refuses an array of
@@ -105,13 +111,18 @@ describe('ObjectView carries every filter source into the query', () => {
     // through the spec's own `normalizeFilterOperator`, the same exit the
     // write side uses.
     const rules = [{ field: 'stage', operator: 'eq', value: 'won' }];
-    const find = renderCalendar({ table: { defaultFilters: rules } as any });
+    const find = renderCalendar({ table: { filter: rules } as any });
     expect(await queriedFilter(find)).toEqual([['stage', 'equals', 'won']]);
   });
 
   it('keeps an AST-shaped source', async () => {
-    const find = renderCalendar({ table: { defaultFilters: [['stage', '=', 'won']] } as any });
+    const find = renderCalendar({ table: { filter: [['stage', '=', 'won']] } as any });
     expect(await queriedFilter(find)).toEqual([['stage', '=', 'won']]);
+  });
+
+  it('a retired table.defaultFilters is not read: the view queries unfiltered (objectui#12030)', async () => {
+    const find = renderCalendar({ table: { defaultFilters: { status: 'active' } } as any });
+    expect(await queriedFilter(find)).toBeUndefined();
   });
 
   it('sends no filter when the view declares none', async () => {
@@ -119,8 +130,8 @@ describe('ObjectView carries every filter source into the query', () => {
   });
 
   it('sends no filter for an empty source rather than an empty array', async () => {
-    expect(await queriedFilter(renderCalendar({ table: { defaultFilters: {} } as any }))).toBeUndefined();
-    expect(await queriedFilter(renderCalendar({ table: { defaultFilters: [] } as any }))).toBeUndefined();
+    expect(await queriedFilter(renderCalendar({ table: { filter: {} } as any }))).toBeUndefined();
+    expect(await queriedFilter(renderCalendar({ table: { filter: [] } as any }))).toBeUndefined();
   });
 });
 
@@ -154,15 +165,20 @@ describe('ObjectView hands the view filter to the delegated renderer', () => {
     return seen;
   }
 
-  it('forwards an object table.defaultFilters unchanged', () => {
-    const seen = renderDelegated({ table: { defaultFilters: { status: 'active' } } as any });
+  it('forwards an object table.filter unchanged', () => {
+    const seen = renderDelegated({ table: { filter: { status: 'active' } } as any });
     expect(seen[0]?.filter).toEqual({ status: 'active' });
   });
 
   it('forwards a ViewFilterRule[] unchanged', () => {
     const rules = [{ field: 'stage', operator: 'eq', value: 'won' }];
-    const seen = renderDelegated({ table: { defaultFilters: rules } as any });
+    const seen = renderDelegated({ table: { filter: rules } as any });
     expect(seen[0]?.filter).toEqual(rules);
+  });
+
+  it('forwards no filter for a retired table.defaultFilters (objectui#12030)', () => {
+    const seen = renderDelegated({ table: { defaultFilters: { status: 'active' } } as any });
+    expect(seen[0]?.filter).toBeUndefined();
   });
 
   // ⚠️ CONTROL, green in BOTH states — named so it is not read as evidence

@@ -5,26 +5,18 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * objectui#6152 round 10 — `defaultFilters` takes the `object-grid` row's
- * `ViewFilterRule` array, and the real `ObjectGrid` honours it exactly as it honours
- * the same array written as `filter`.
+ * objectui#6152 round 10 — `defaultFilters` took the `object-grid` row's
+ * `ViewFilterRule` array, and the real `ObjectGrid` honoured it exactly as it
+ * honoured the same array written as `filter`.
  *
- * `@object-ui/types` now declares `ObjectGridSchema.defaultFilters` as the row's own
- * member (it was `Record<string, any>`). No reader changed: `ObjectGrid` lowers the
- * legacy slot through the same `toFilterNode` sink as the canonical one, so a rule
- * array there already reached the wire as AST. This file measures that through the
- * registered renderer and a `ValueDataSource` that APPLIES the `$filter` it receives,
- * so "the same rows" is a reading of what the grid draws, not only of what it sends.
- *
- * The fixtures are typed by the shape legacy metadata carries (objectui#12093). The
- * declaration follows the `object-grid` row by reference: the rule array on the
- * installed `@objectstack/spec`, a retired-key tombstone on objectstack `main`
- * (objectstack#11509), which no current document can author. The grid still READS the
- * key for metadata written before that retirement, and that read is what this file
- * pins, so a `defaultFilters` node is built by `withDefaultFilters` below from the `filter` rule
- * array, the shape the key carries on both specs. Which spec says the rule array is
- * the declaration is `grid-default-filters-gantt-map-filter-round10-6152.test.ts`'s
- * question in `@object-ui/types`, answered there against the row.
+ * ⚠️ RETIRED since objectui#12030. `@objectstack/spec` 18 tombstones
+ * `object-grid.defaultFilters` (objectstack#11509): the row refuses the key by
+ * name, and the grid stopped reading it in the same change. This file now pins
+ * that absence through the registered renderer and a `ValueDataSource` that
+ * APPLIES the `$filter` it receives, so "every row" is a reading of what the
+ * grid draws, not only of what it sends. The fixtures are built by
+ * `withDefaultFilters` below as legacy metadata had them, cast past the
+ * tombstone type no current document can author.
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -89,36 +81,30 @@ const node = (extra: Partial<ObjectGridSchema>): ObjectGridSchema => ({
   ...extra,
 });
 
-/** A node carrying the legacy `defaultFilters` (see the header): written as legacy metadata has it. */
+/** A node carrying the retired `defaultFilters` (see the header): written as legacy metadata has it. */
 const withDefaultFilters = (defaultFilters: Rules, extra: Partial<ObjectGridSchema> = {}): ObjectGridSchema =>
   ({ ...node(extra), defaultFilters }) as unknown as ObjectGridSchema;
 
-describe('objectui#6152 round 10 — a `defaultFilters` rule array draws what the same `filter` draws', () => {
+describe('objectui#12030 — a retired `defaultFilters` rule array is not read', () => {
   it('CONTROL: with neither key, every row is drawn and no `$filter` goes out', async () => {
     const { $filter, drawn } = await draw(node({}));
     expect($filter).toBeUndefined();
     expect(drawn).toEqual(['Acme', 'Beta', 'Cyan']);
   });
 
-  it('`defaultFilters: [rule]` sends the lowered AST and draws the matching rows', async () => {
+  it('`defaultFilters: [rule]` sends no `$filter` and draws every row', async () => {
     const { $filter, drawn } = await draw(withDefaultFilters(OPEN));
+    expect($filter).toBeUndefined();
+    expect(drawn).toEqual(['Acme', 'Beta', 'Cyan']);
+  });
+
+  it('LIT CONTROL: the same array written as `filter` sends the lowered AST and draws the matching rows', async () => {
+    const { $filter, drawn } = await draw(node({ filter: OPEN }));
     expect($filter).toEqual([['status', 'equals', 'open']]);
     expect(drawn).toEqual(['Acme', 'Cyan']);
   });
 
-  it('the same array written as `filter` sends the same `$filter` and draws the same rows', async () => {
-    const legacy = await draw(withDefaultFilters(OPEN));
-    const canonical = await draw(node({ filter: OPEN }));
-    expect(legacy).toEqual(canonical);
-  });
-
-  it('LIT CONTROL: a different rule array moves both readings, so the equality above can fail', async () => {
-    const { $filter, drawn } = await draw(withDefaultFilters(CLOSED));
-    expect($filter).toEqual([['status', 'equals', 'closed']]);
-    expect(drawn).toEqual(['Beta']);
-  });
-
-  it('CONTROL: written both ways, `filter` still wins', async () => {
+  it('written both ways, `filter` answers alone', async () => {
     const { $filter, drawn } = await draw(withDefaultFilters(CLOSED, { filter: OPEN }));
     expect($filter).toEqual([['status', 'equals', 'open']]);
     expect(drawn).toEqual(['Acme', 'Cyan']);

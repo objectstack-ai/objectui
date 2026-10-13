@@ -411,7 +411,7 @@ function gridExportOptions(options: NamedViewConfig['exportOptions']): ObjectGri
 /**
  * objectui#10976 — the `table` members this component hands the grid it draws
  * VERBATIM, beside the ones the grid-node build below reads off `table` by
- * name (`columns` / `fields`, `filter` / `defaultFilters`, `sort`,
+ * name (`columns` / `fields`, `filter`, `sort`,
  * `pagination` / `pageSize`, `selection` / `selectable`, `operations`, `title`,
  * `className`).
  *
@@ -480,54 +480,37 @@ function authoredTableRelay(table: ObjectViewSchema['table']): TableRelay {
 type NamedViewConfig = NonNullable<ObjectViewSchema['listViews']>[string];
 
 /**
- * The three authored filter segments this component chains, in precedence
+ * The two authored filter segments this component chains, in precedence
  * order: the active view's own filter (a named `listViews` entry, else the
- * host's `views` entry), then the object-level `table.filter`, then its
- * deprecated alias `table.defaultFilters`.
+ * host's `views` entry), then the object-level `table.filter`.
+ *
+ * A third segment, the deprecated alias `table.defaultFilters`, was read as a
+ * legacy rung until objectui#12030: `@objectstack/spec` 18 retired
+ * `object-grid.defaultFilters` as a tombstone that refuses by name
+ * (objectstack#11509), and the read went with it, as objectui#12093 said it
+ * would at the pin that carries the tombstone.
  */
 interface AuthoredFilterSegments {
   view: NamedListView['filter'];
   table: ObjectGridSchema['filter'];
-  tableDefaults: ObjectGridSchema['filter'];
-}
-
-/**
- * The deprecated `table.defaultFilters`, read as the legacy rung's value
- * (objectui#12093). Its declared type follows the `object-grid` row by
- * reference: the `filter` rule array on the installed `@objectstack/spec`, and
- * a retired-key tombstone on objectstack `main` (objectstack#11509), where no
- * current document can author it. This component keeps READING it for
- * metadata written before that retirement, exactly as before, so the value is
- * typed by the shape such metadata has: the rule array `filter` takes on both
- * specs. A back-compat read, not an authoring surface; it goes with the rung
- * at the pin that carries the tombstone.
- */
-function legacyTableDefaults(table: ObjectViewSchema['table']): ObjectGridSchema['filter'] {
-  const legacy: unknown = table?.defaultFilters;
-  return legacy as ObjectGridSchema['filter'];
 }
 
 /**
  * objectui#11880 item 5 — the `table` rung of the filter this component hands
- * the grid it draws: `table.filter`, unless it lowers to nothing, else the
- * deprecated `table.defaultFilters`.
+ * the grid it draws: `table.filter`, unless it lowers to nothing.
  *
- * This is the choice `ObjectGrid` made itself while the two arrived in two
- * slots (it read `defaultFilters` only when `filter` lowered to nothing), now
- * made here so both reach it in `filter` alone — `ObjectGrid`'s export and
- * page reset read that slot only. "Lowers to nothing" is the sink's own
- * answer (`toFilterNodeSafely`: absent, `[]`, `{}`, a record of nulls), not a
- * truthiness test, so an empty `table.filter` beside a `table.defaultFilters`
- * keeps the grid's answer: the legacy rung applies.
+ * "Lowers to nothing" is the sink's own answer (`toFilterNodeSafely`: absent,
+ * `[]`, `{}`, a record of nulls), not a truthiness test; such a filter hands
+ * the grid no filter, as it did while the retired `table.defaultFilters` rung
+ * stood behind it and was absent.
  *
  * A REFUSED `table.filter` is kept, not skipped: it reaches `ObjectGrid`, which
- * draws its malformed-filter panel, as it did before. Skipping it would let
- * the legacy rung answer a query the author's canonical filter forbids.
+ * draws its malformed-filter panel, as it did before.
  */
 function gridTableFilterRung(segments: AuthoredFilterSegments): ObjectGridSchema['filter'] {
   const canonical = toFilterNodeSafely(segments.table);
   if (!canonical.ok || canonical.node !== undefined) return segments.table;
-  return segments.tableDefaults;
+  return undefined;
 }
 
 /**
@@ -1403,7 +1386,6 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     {
       view: currentNamedViewConfig?.filter || activeViewQueryInputs?.filter,
       table: schema.table?.filter,
-      tableDefaults: legacyTableDefaults(schema.table),
     },
     filterScope,
   );
@@ -1521,15 +1503,14 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // correctly as a grid and returned everything as a calendar/kanban/
         // gallery. It also keeps each source as its own child of the `and`
         // rather than spreading it, which is what a `ViewFilterRule[]` needs.
-        // The `table` segment reads the CANONICAL key first and the deprecated
-        // one only as its alias (objectui#5102). The two view segments ahead of
-        // it are untouched — this extends the last segment only.
+        // The deprecated `table.defaultFilters` alias is not read since
+        // `@objectstack/spec` 18 retired it (objectui#12030).
         //
         // objectui#10506: the segments are read RESOLVED — `{current_user_id}`
         // and the other placeholders expanded once, above, through the shared
         // `resolveFilterPlaceholders` — so this query carries the real id.
         const finalFilter = mergeFilterNodes(
-          authoredFilters.view || authoredFilters.table || authoredFilters.tableDefaults,
+          authoredFilters.view || authoredFilters.table,
         );
 
         // objectui#4869: this was the LAST object-bound read site handing an
@@ -2952,8 +2933,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // value again in its own `renderListView`; a resolved id no longer matches
   // the whole-token pattern, so that second pass changes nothing.
   const mergedFilters = authoredFilters.view
-    || authoredFilters.table
-    || authoredFilters.tableDefaults;
+    || authoredFilters.table;
 
   const mergedSort = currentNamedViewConfig?.sort
     || activeView?.sort

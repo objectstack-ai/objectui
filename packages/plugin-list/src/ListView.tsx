@@ -749,8 +749,9 @@ export function normalizeFilters(filters: any[]): any[] {
  * record. An earlier version of this comment called that unreachable, on the
  * grounds that nothing in the repo hands a list view an object filter. That was
  * wrong: `ObjectView` passes `mergedFilters` straight into this schema's
- * `filter`, and its last fallback is `table.defaultFilters`, declared
- * `Record<string, any>`. `toFilterNode` now converts it instead.
+ * `filter`, and its last fallback was `table.defaultFilters`, declared
+ * `Record<string, any>` (retired since objectui#12030; `table.filter` takes
+ * the same object). `toFilterNode` now converts it instead.
  */
 export function buildEffectiveFilter(
   baseFilter: unknown,

@@ -8,6 +8,13 @@
  * `object-grid` — the LEGACY `defaultFilters` leg must reach `$filter` through
  * the same lowering sink as the canonical `filter` key (objectui#4082).
  *
+ * ⚠️ RETIRED since objectui#12030. `@objectstack/spec` 18 tombstones
+ * `object-grid.defaultFilters` (objectstack#11509), refusing it by name, and
+ * the grid no longer reads it: the leg this file was written for is gone. The
+ * cases below now pin that absence for every shape the leg used to lower,
+ * beside the canonical `filter` cases, which are unchanged. The history below
+ * is kept as the record of what the leg did while it stood.
+ *
  * ## What was wrong
  *
  * objectui#4041 converged the declared `filter` key onto `toFilterNode`, the
@@ -130,50 +137,27 @@ async function findParamsFor(schema: Record<string, unknown>) {
 
 const BASE = { type: 'object-grid', objectName: 'account', columns: [{ field: 'name' }] };
 
-describe('object-grid — legacy `defaultFilters` is lowered before the wire (objectui#4082)', () => {
-  it('lowers the legacy `Record<string, any>` shape to AST', async () => {
-    // The shape the key was DECLARED as until objectui#6152 round 10
-    // (`ObjectGridSchema.defaultFilters` in `@object-ui/types`; the row's rule
-    // array since). `isFilterAST` is false for a plain object, so this is the
-    // case that used to guarantee a 400.
-    const params = await findParamsFor({ ...BASE, defaultFilters: { status: 'active' } });
-    expect(params.$filter).toEqual(['status', '=', 'active']);
+describe('object-grid — the retired `defaultFilters` is not read (objectui#12030)', () => {
+  // Each shape the legacy leg used to lower (objectui#4082): the record it was
+  // declared as until objectui#6152 round 10, the rule array, an already
+  // composed AST, a flat array of AST nodes. None of them reaches `$filter`.
+  it.each([
+    ['a `Record`', { status: 'active' }],
+    ['a multi-key `Record`', { status: 'active', stage: 'won' }],
+    ['a `ViewFilterRule[]`', [{ field: 'status', operator: 'equals', value: 'in_progress' }]],
+    ['a composed AST', ['and', ['stage', '=', 'won'], ['amount', '>', 100]]],
+    ['a flat array of AST nodes', [['status', '=', 'active']]],
+  ])('%s in `defaultFilters` sends no `$filter`', async (_shape, defaultFilters) => {
+    const params = await findParamsFor({ ...BASE, defaultFilters });
+    expect(params.$filter).toBeUndefined();
   });
 
-  it('folds a multi-key `Record` into a single `and` node', async () => {
+  it('LIT CONTROL: the same rule array written as `filter` is lowered and sent', async () => {
     const params = await findParamsFor({
       ...BASE,
-      defaultFilters: { status: 'active', stage: 'won' },
-    });
-    expect(params.$filter).toEqual(['and', ['status', '=', 'active'], ['stage', '=', 'won']]);
-  });
-
-  it('lowers the `ViewFilterRule[]` shape `plugin-view` forwards into this slot', async () => {
-    // Not a hypothetical shape: `ObjectView`'s `gridSchema` memo assigns
-    // `defaultFilters: viewFilter || schema.table?.defaultFilters`, where
-    // `viewFilter` is an active named view's `filter`. `plugin-view`'s README
-    // documents that as `[{ field, operator, value }, …]`, and the showcase
-    // ships exactly this value on `showcase_task.in_progress`.
-    const params = await findParamsFor({
-      ...BASE,
-      defaultFilters: [
-        { field: 'status', operator: 'equals', value: 'in_progress' },
-      ] as unknown as Record<string, unknown>,
+      filter: [{ field: 'status', operator: 'equals', value: 'in_progress' }],
     });
     expect(params.$filter).toEqual([['status', 'equals', 'in_progress']]);
-    // Stated structurally too: no bare rule OBJECT may survive into the
-    // outgoing filter, whichever slot it arrived in.
-    for (const node of params.$filter as unknown[]) {
-      expect(Array.isArray(node)).toBe(true);
-    }
-  });
-
-  it('omits `$filter` for an empty `defaultFilters` rather than sending `{}`', async () => {
-    // The truthiness guard this replaces let `{}` through, so the grid asked
-    // the server a question with no content — in a shape it refuses. Same
-    // contract the canonical key already honours for `filter: []`.
-    const params = await findParamsFor({ ...BASE, defaultFilters: {} });
-    expect(params.$filter).toBeUndefined();
   });
 
   it('omits `$filter` when neither slot is written', async () => {
@@ -182,63 +166,26 @@ describe('object-grid — legacy `defaultFilters` is lowered before the wire (ob
   });
 });
 
-describe('object-grid — NEGATIVE CONTROL: no double lowering (objectui#4082)', () => {
-  it('leaves an already-composed AST in the legacy slot byte-identical', async () => {
-    // `toFilterNode` passes AST through untouched, and this pins that it still
-    // does from THIS slot. A second lowering pass is the mirror-image defect of
-    // the one being fixed, and this case is the one that would catch it.
-    const ast = ['and', ['stage', '=', 'won'], ['amount', '>', 100]];
-    const params = await findParamsFor({
-      ...BASE,
-      defaultFilters: ast as unknown as Record<string, unknown>,
-    });
-    expect(params.$filter).toEqual(['and', ['stage', '=', 'won'], ['amount', '>', 100]]);
-  });
-
-  it('leaves a flat array of AST nodes in the legacy slot byte-identical', async () => {
-    const params = await findParamsFor({
-      ...BASE,
-      defaultFilters: [['status', '=', 'active']] as unknown as Record<string, unknown>,
-    });
-    expect(params.$filter).toEqual([['status', '=', 'active']]);
-    // Structural, not just deep-equal: an AST that came back "equal" after
-    // being rebuilt would still be a lowering pass that should not have run.
-    expect((params.$filter as unknown[]).every((n) => Array.isArray(n))).toBe(true);
-  });
-});
-
 describe('object-grid — NEGATIVE CONTROL: the declared `filter` path is unchanged (objectui#4082)', () => {
-  it('still prefers the canonical `filter` over the legacy slot', async () => {
-    // Precedence is the part a "fix" here could most easily invert. The
-    // canonical key wins; the legacy value must not appear at all.
+  it('the canonical `filter` answers alone when the retired slot is also written', async () => {
+    // The retired value must not appear at all, merged or as a fallback.
     const params = await findParamsFor({
       ...BASE,
       filter: [['stage', '=', 'won']],
-      defaultFilters: { status: 'active' },
+      defaultFilters: { status: 'active', amount: { $gt: 100 } },
     });
     expect(params.$filter).toEqual([['stage', '=', 'won']]);
   });
 
-  it('still prefers the canonical `filter` even when the legacy slot is richer', async () => {
-    const params = await findParamsFor({
-      ...BASE,
-      filter: [{ field: 'stage', operator: 'equals', value: 'won' }],
-      defaultFilters: { status: 'active', amount: { $gt: 100 } },
-    });
-    expect(params.$filter).toEqual([['stage', 'equals', 'won']]);
-  });
-
-  it('falls back to the legacy slot only when the canonical one folds away', async () => {
-    // `filter: []` folds to `undefined`, which is "no filter declared" — so the
-    // legacy slot is reached, and reached LOWERED. This is the seam between the
-    // two branches, and it is the one place the change could have altered which
-    // branch runs.
+  it('a canonical `filter` that folds away does not fall back to the retired slot', async () => {
+    // `filter: []` folds to `undefined`. Until objectui#12030 the legacy slot
+    // answered here; it is not read now, so no `$filter` goes out.
     const params = await findParamsFor({
       ...BASE,
       filter: [],
       defaultFilters: { status: 'active' },
     });
-    expect(params.$filter).toEqual(['status', '=', 'active']);
+    expect(params.$filter).toBeUndefined();
   });
 
   it('still lowers the canonical `filter` itself', async () => {

@@ -1142,29 +1142,16 @@ export interface ObjectGridSchema extends BaseSchema {
   defaultSort?: never;
 
   /**
-   * The legacy base-filter fallback, read only when {@link ObjectGridSchema.filter}
-   * is absent — the SAME `ViewFilterRule` array, `[{ field, operator, value }, ...]`,
-   * taken BY REFERENCE from the `object-grid` row
-   * (`ComponentPropsMap['object-grid'].defaultFilters`), which has declared it so
-   * since `@objectstack/spec` 17.6.0 and refuses the MongoDB-style record, a bare
-   * string and the AST tuple array. `ObjectGrid` lowers it through the same
-   * `toFilterNode` sink as `filter`, so a rule array here sends the same `$filter`
-   * as the same rule array written as `filter`.
+   * RETIRED: the legacy base-filter fallback. `@objectstack/spec` 18 tombstones
+   * `object-grid.defaultFilters` (objectstack#11509) and refuses it by name, so
+   * this member, taken BY REFERENCE from the row
+   * (`ComponentPropsMap['object-grid'].defaultFilters`), types no value an author
+   * can write, and neither `ObjectGrid` nor `ObjectView` reads it since
+   * objectui#12030. A value that still reaches the slot at runtime is ignored.
+   * Write {@link ObjectGridSchema.filter}: the same `ViewFilterRule` array,
+   * `[{ field, operator, value }, ...]`.
    *
-   * objectui#6152 round 10: this was `Record<string, any>`, so the record form
-   * (`{ status: 'open' }`) type-checked here, and through the `object-view`
-   * `table` slot, while the protocol refused it. Write
-   * `[{ field: 'status', operator: 'equals', value: 'open' }]` instead — or, better,
-   * move it to `filter`. ⚠️ The read did not narrow: the sink still lowers a record
-   * or an AST array that reaches the slot at runtime, which is not a shape an
-   * author writes here, so this face does not publish it (the objectui#10199
-   * split, as {@link ObjectGridSchema.filter} makes it). Since objectui#11880
-   * item 5 `ObjectView` no longer writes this slot on the grid it draws: an
-   * active named view's `filter` and an authored `table.defaultFilters` both
-   * reach that grid in `filter`, so its export and page reset follow them.
-   *
-   * @deprecated Use filter instead — the same rule array; this key is read only
-   * when `filter` is absent.
+   * @deprecated Retired — use `filter`, the same rule array; this key is not read.
    */
   defaultFilters?: SpecObjectGridProps['defaultFilters'];
   

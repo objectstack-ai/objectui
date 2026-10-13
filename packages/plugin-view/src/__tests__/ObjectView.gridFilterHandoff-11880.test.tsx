@@ -31,6 +31,13 @@
  * (the objectui#11880 PR records the ablation) the export was handed no filter
  * and the next query kept a page index above 0, while every rung row stayed
  * green.
+ *
+ * ⚠️ objectui#12030 retired the third rung. `@objectstack/spec` 18 tombstones
+ * `object-grid.defaultFilters` (objectstack#11509), refusing it by name, and
+ * `ObjectView` no longer reads `table.defaultFilters`. The rows that pinned it
+ * as a rung now pin it as inert: alone it sends no `$filter` and draws every
+ * row, and beside a live rung it changes nothing. The page-reset row for it is
+ * gone with it: a key nothing reads cannot move the page.
  */
 
 import React from 'react';
@@ -62,11 +69,10 @@ type Rule = { field: string; operator: string; value: unknown };
 /** One rule per rung, each matching a different set, so the winner is readable. */
 const VIEW: Rule[] = [{ field: 'stage', operator: 'equals', value: 'open' }]; // Acme, Dune
 const TABLE: Rule[] = [{ field: 'stage', operator: 'equals', value: 'won' }]; // Beta
-const DEFAULTS: Rule[] = [{ field: 'stage', operator: 'equals', value: 'lost' }]; // Cyan
+const DEFAULTS: Rule[] = [{ field: 'stage', operator: 'equals', value: 'lost' }]; // Cyan, were it read
 
 const VIEW_AST = [['stage', 'equals', 'open']];
 const TABLE_AST = [['stage', 'equals', 'won']];
-const DEFAULTS_AST = [['stage', 'equals', 'lost']];
 
 beforeAll(() => {
   if (!Element.prototype.scrollIntoView) {
@@ -196,23 +202,24 @@ describe('objectui#11880 item 5 — the rung order through the real grid', () =>
     expect(await draw({ table: TABLE })).toEqual({ $filter: TABLE_AST, drawn: ['Beta'] });
   });
 
-  it('rung 3 alone: the authored `table.defaultFilters`', async () => {
-    expect(await draw({ tableDefaults: DEFAULTS })).toEqual({ $filter: DEFAULTS_AST, drawn: ['Cyan'] });
+  it('the retired `table.defaultFilters` alone is not a rung: no `$filter`, every row (objectui#12030)', async () => {
+    expect(await draw({ tableDefaults: DEFAULTS }))
+      .toEqual({ $filter: undefined, drawn: ['Acme', 'Beta', 'Cyan', 'Dune'] });
   });
 
   it('rungs 1 + 2: the view wins over `table.filter`', async () => {
     expect(await draw({ view: VIEW, table: TABLE })).toEqual({ $filter: VIEW_AST, drawn: ['Acme', 'Dune'] });
   });
 
-  it('rungs 1 + 3: the view wins over `table.defaultFilters`', async () => {
+  it('the view answers beside a retired `table.defaultFilters`', async () => {
     expect(await draw({ view: VIEW, tableDefaults: DEFAULTS })).toEqual({ $filter: VIEW_AST, drawn: ['Acme', 'Dune'] });
   });
 
-  it('rungs 2 + 3: `table.filter` wins over `table.defaultFilters`', async () => {
+  it('`table.filter` answers beside a retired `table.defaultFilters`', async () => {
     expect(await draw({ table: TABLE, tableDefaults: DEFAULTS })).toEqual({ $filter: TABLE_AST, drawn: ['Beta'] });
   });
 
-  it('rungs 1 + 2 + 3: the view wins', async () => {
+  it('rungs 1 + 2, with a retired `table.defaultFilters` beside them: the view wins', async () => {
     expect(await draw({ view: VIEW, table: TABLE, tableDefaults: DEFAULTS }))
       .toEqual({ $filter: VIEW_AST, drawn: ['Acme', 'Dune'] });
   });
@@ -222,8 +229,9 @@ describe('objectui#11880 item 5 — the rung order through the real grid', () =>
       .toEqual({ $filter: undefined, drawn: ['Acme', 'Beta', 'Cyan', 'Dune'] });
   });
 
-  it('an EMPTY `table.filter` lowers to nothing, so `table.defaultFilters` answers', async () => {
-    expect(await draw({ table: [], tableDefaults: DEFAULTS })).toEqual({ $filter: DEFAULTS_AST, drawn: ['Cyan'] });
+  it('an EMPTY `table.filter` lowers to nothing, and a retired `table.defaultFilters` does not answer for it', async () => {
+    expect(await draw({ table: [], tableDefaults: DEFAULTS }))
+      .toEqual({ $filter: undefined, drawn: ['Acme', 'Beta', 'Cyan', 'Dune'] });
   });
 });
 
@@ -234,10 +242,10 @@ describe('objectui#11880 item 5 — the server-streamed export', () => {
     expect(r.filter).toEqual(VIEW_AST);
   });
 
-  it('`table.defaultFilters` alone reaches the export, as it reaches the rows', async () => {
+  it('a retired `table.defaultFilters` reaches neither the rows nor the export (objectui#12030)', async () => {
     const r = await exported({ tableDefaults: DEFAULTS });
-    expect(r.fetched).toEqual(DEFAULTS_AST);
-    expect(r.filter).toEqual(DEFAULTS_AST);
+    expect(r.fetched).toBeUndefined();
+    expect(r.filter).toBeUndefined();
   });
 
   it('CONTROL: `table.filter` reaches the export, as before', async () => {
@@ -284,10 +292,6 @@ describe('objectui#11880 item 5 — the page reset when the filter changes in pl
     expect(await skipAfterChange({ view: EAST }, { view: WEST })).toBe(0);
   });
 
-  it('`table.defaultFilters` changed in place returns to page 1', async () => {
-    expect(await skipAfterChange({ tableDefaults: EAST }, { tableDefaults: WEST })).toBe(0);
-  });
-
   it('CONTROL: `table.filter` changed in place returns to page 1, as before', async () => {
     expect(await skipAfterChange({ table: EAST }, { table: WEST })).toBe(0);
   });
@@ -304,7 +308,7 @@ describe('objectui#11880 item 5 — a refused filter still draws its panel', () 
     expect(document.body.textContent).not.toMatch(/error loading grid/i);
   });
 
-  it('a refused `table.filter` is kept, not skipped for `table.defaultFilters`', async () => {
+  it('a refused `table.filter` is kept, with a retired `table.defaultFilters` beside it', async () => {
     const ds = makeAdapter();
     mount(viewSchema({ table: [{ field: 'stage', operator: 'equals', value: ['a', 'b'] }], tableDefaults: DEFAULTS }), ds);
     const headline = await screen.findByTestId('grid-malformed-filter-subject');

@@ -30,6 +30,15 @@
  * each now asserts the key is inert on its path, beside a canonical `sort`
  * control on the same path. The other three pairs are untouched.
  *
+ * ⚠️ objectui#12030 RETIRED the third pair's legacy half the same way.
+ * `@objectstack/spec` 18 tombstones `object-grid.defaultFilters`
+ * (objectstack#11509), refusing it by name, and `ObjectView` stopped reading
+ * `table.defaultFilters` on all three paths (the grid hand-off, the non-grid
+ * fetch, the delegated `renderListView` schema), as `ObjectGrid` stopped
+ * reading its own. The cells that pinned it as a working alias were flipped
+ * the objectui#5861 way: each asserts the key is inert on its path, beside a
+ * canonical `filter` control on the same path.
+ *
  * So an author writing the shape the type recommends — `table: { pagination:
  * { pageSize: 25 } }` — got a view that compiled, read correctly, and did
  * NOTHING. There was no failure signal anywhere: the key is declared on
@@ -209,10 +218,15 @@ describe('grid path: the legacy spellings still work', () => {
     expect(forwardedGridSchema({ table: { selectable: true } as any }).selectable).toBe(true);
   });
 
-  it('still honours table.defaultFilters, handed over in `filter` (objectui#11880 item 5)', () => {
+  it('no longer reads a retired table.defaultFilters — and does not rescue it into `filter` (objectui#12030)', () => {
+    // Flipped from `still honours table.defaultFilters, handed over in
+    // `filter`. Neither slot carries it.
     const grid = forwardedGridSchema({ table: { defaultFilters: { status: 'active' } } as any });
-    expect(grid.filter).toEqual({ status: 'active' });
+    expect(grid.filter).toBeUndefined();
     expect(grid.defaultFilters).toBeUndefined();
+    // CONTROL, same path: the canonical spelling still arrives.
+    expect(forwardedGridSchema({ table: { filter: [['status', '=', 'active']] } as any }).filter)
+      .toEqual([['status', '=', 'active']]);
   });
 
   it('no longer forwards a retired table.defaultSort — and does not rescue it into `sort` (objectui#5861)', () => {
@@ -237,9 +251,9 @@ describe('grid path: the legacy spellings still work', () => {
     expect(grid.pagination).toBeUndefined();
     expect(grid.selection).toBeUndefined();
     expect(grid.sort).toBeUndefined();
-    // objectui#11880 item 5 — the filter pair is resolved here, so the alias
-    // rides the only filter slot the node carries; nothing is synthesised.
-    expect(grid.filter).toEqual({ a: 1 });
+    // objectui#12030 — the retired filter alias is not read, so nothing
+    // reaches the one filter slot the node carries either.
+    expect(grid.filter).toBeUndefined();
     expect(grid.defaultFilters).toBeUndefined();
   });
 });
@@ -364,7 +378,7 @@ describe('non-grid path: ObjectView resolves the pair itself, canonical first', 
   });
 
   it('lowers a ViewFilterRule[] table.filter through the shared sink', async () => {
-    // Same treatment `table.defaultFilters` already gets — the canonical key
+    // Same treatment the retired `table.defaultFilters` got — the canonical key
     // reaches `$filter` as AST, not as bare rule objects (objectui#3431).
     const params = await queryParams(
       nonGridFind({ table: { filter: [{ field: 'stage', operator: 'eq', value: 'won' }] } as any }),
@@ -372,7 +386,7 @@ describe('non-grid path: ObjectView resolves the pair itself, canonical first', 
     expect(params.$filter).toEqual([['stage', 'equals', 'won']]);
   });
 
-  it('prefers table.filter over table.defaultFilters', async () => {
+  it('queries with table.filter alone when a retired table.defaultFilters is written beside it', async () => {
     const params = await queryParams(
       nonGridFind({
         table: { filter: [['stage', '=', 'won']], defaultFilters: { stage: 'lost' } } as any,
@@ -381,9 +395,12 @@ describe('non-grid path: ObjectView resolves the pair itself, canonical first', 
     expect(params.$filter).toEqual([['stage', '=', 'won']]);
   });
 
-  it('still queries with table.defaultFilters alone', async () => {
+  it('a retired table.defaultFilters alone filters NOTHING (objectui#12030)', async () => {
+    // Flipped from `still queries with table.defaultFilters alone`, which
+    // asserted `['status', '=', 'active']`. The canonical control is `queries
+    // with a canonical table.filter` above, on this same path.
     const params = await queryParams(nonGridFind({ table: { defaultFilters: { status: 'active' } } as any }));
-    expect(params.$filter).toEqual(['status', '=', 'active']);
+    expect(params.$filter).toBeUndefined();
   });
 
   it('orders by a canonical table.sort', async () => {
@@ -411,22 +428,24 @@ describe('non-grid path: ObjectView resolves the pair itself, canonical first', 
   });
 });
 
-describe('delegated renderListView: canonical first, filter alias still working, sort alias retired', () => {
+describe('delegated renderListView: canonical first, filter and sort aliases retired', () => {
   it('hands over a canonical table.filter', () => {
     expect(delegatedSchema({ table: { filter: [['stage', '=', 'won']] } as any }).filter)
       .toEqual([['stage', '=', 'won']]);
   });
 
-  it('prefers table.filter over table.defaultFilters', () => {
+  it('hands over table.filter alone when a retired table.defaultFilters is written beside it', () => {
     const s = delegatedSchema({
       table: { filter: [['stage', '=', 'won']], defaultFilters: { stage: 'lost' } } as any,
     });
     expect(s.filter).toEqual([['stage', '=', 'won']]);
   });
 
-  it('still hands over table.defaultFilters alone', () => {
+  it('a retired table.defaultFilters alone hands over no filter (objectui#12030)', () => {
+    // Flipped from `still hands over table.defaultFilters alone`. The canonical
+    // control is `hands over a canonical table.filter` above.
     expect(delegatedSchema({ table: { defaultFilters: { status: 'active' } } as any }).filter)
-      .toEqual({ status: 'active' });
+      .toBeUndefined();
   });
 
   it('hands over a canonical table.sort, and a retired table.defaultSort beside it changes nothing', () => {

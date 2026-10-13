@@ -128,7 +128,8 @@ describe('Data pillar Field properties on a read-only package — the reason rea
     const user = userEvent.setup();
     const rail = await openRail(true);
     const body = rail.querySelector('[data-disabled-reason]') as HTMLElement;
-    within(rail).getByRole('button', { name: L('engine.studio.close') }).focus();
+    // The rail header's own close button (the inspector inside has one too).
+    within(rail.querySelector('header') as HTMLElement).getByRole('button', { name: L('engine.studio.close') }).focus();
     await user.tab();
     expect(body).toHaveFocus();
     expect(describedBy(body)).toHaveTextContent(REASON);

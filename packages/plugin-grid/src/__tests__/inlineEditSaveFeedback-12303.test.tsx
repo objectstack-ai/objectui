@@ -20,16 +20,24 @@
  * that failed is not counted, and a batch where nothing landed says nothing.
  *
  * The real `ObjectGrid` and `data-table` over an in-memory data source whose
- * `update` persists, and can refuse named rows. Only `sonner` is replaced, so
- * the toast call itself is read.
+ * `update` persists, and can refuse named rows. Only that `toast` export is
+ * replaced, so the toast call itself is read.
  */
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, cleanup, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
 
+// The `toast` this grid raises is `@object-ui/components`' re-export of
+// sonner's. `plugin-grid` does not depend on `sonner`, so a bare
+// `vi.mock('sonner')` here would register against an id nothing in this
+// package resolves to (the trap `WizardForm.outcomeToastSupersede.test.tsx`
+// measured); the components entry is the module the grid imports it from.
 const toasts = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }));
-vi.mock('sonner', () => ({ toast: toasts, Toaster: () => null }));
+vi.mock('@object-ui/components', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return { ...actual, toast: Object.assign(vi.fn(), toasts) };
+});
 
 import { registerAllFields } from '@object-ui/fields';
 import { ActionProvider } from '@object-ui/react';

@@ -153,7 +153,8 @@ const CURATED_CAPABILITY_LABELS = new Set([
   'manage_users',
   'manage_org_users',
   'manage_metadata',
-  'manage_org_presentation',
+  // `manage_org_presentation` left `PLATFORM_CAPABILITIES` in `@objectstack/spec` 18
+  // (objectstack#15206 stage S3), so a grant of it admits nothing (objectui#12030).
   'manage_platform_settings',
   // The spec spells these three with a dot (`setup.access`, `setup.write`,
   // `studio.access`). `labelFor` normalises dots to underscores before building
@@ -166,6 +167,8 @@ const CURATED_CAPABILITY_LABELS = new Set([
   'manage_sharing',
   // `@objectstack/spec` 17.7.0 added it to `PLATFORM_CAPABILITIES` (objectui#11717).
   'view_all_audit_log',
+  // `@objectstack/spec` 18 added it to `PLATFORM_CAPABILITIES` (objectui#12030).
+  'manage_mailboxes',
 ]);
 
 export function CapabilityMultiSelectField({

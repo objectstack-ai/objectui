@@ -179,7 +179,7 @@ function pathname(): string {
 const ORG_OWN_SENTINEL = {
   code: { ...objectDef, _packageId: 'sys_metadata' },
   overlay: { ...objectDef, label: 'Account (customized)' },
-  overlayScope: 'org',
+  overlayScope: 'env',
   effective: { ...objectDef, label: 'Account (customized)' },
   packageId: 'sys_metadata',
   editable: true,
@@ -187,11 +187,11 @@ const ORG_OWN_SENTINEL = {
   resettable: false,
 };
 
-/** A genuine packaged artifact carrying an org overlay on top. */
+/** A genuine packaged artifact carrying an environment overlay on top. */
 const PACKAGED_WITH_OVERLAY = {
   code: { ...objectDef, _packageId: 'com.example.showcase', _provenance: 'package' },
   overlay: { ...objectDef, label: 'Account (customized)' },
-  overlayScope: 'org',
+  overlayScope: 'env',
   effective: { ...objectDef, label: 'Account (customized)' },
   provenance: 'package',
   packageId: 'com.example.showcase',

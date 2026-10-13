@@ -73,7 +73,7 @@ const mockClient = {
     if (type === 'object') return { effective: OBJECT_DEF, code: OBJECT_DEF };
     if (type === 'view') {
       const row = views[name];
-      return row ? { code: null, overlay: row, overlayScope: 'org', effective: row } : { code: null, overlay: null, overlayScope: null, effective: null };
+      return row ? { code: null, overlay: row, overlayScope: 'env', effective: row } : { code: null, overlay: null, overlayScope: null, effective: null };
     }
     return { effective: { name } };
   }),

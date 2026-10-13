@@ -46,10 +46,10 @@ import type { MetadataLayered, MetadataOverlayScope } from './metadata-client';
 //
 // This file is compiled against TWO specs: the pull-request type-check against
 // the INSTALLED `@objectstack/spec`, and the Spec Main Shape Gate against one
-// built from objectstack `main`. The two vocabularies differ today: objectstack
-// PR #22628 (objectstack#15206 S5, ADR-0131) narrowed `overlayScope` on `main`
-// to `env`, while the installed release still declares `org | env`. So the
-// expected set is READ OFF THE SCHEMA VALUE, never written down here
+// built from objectstack `main`. objectstack PR #22628 (objectstack#15206 S5,
+// ADR-0131) narrowed `overlayScope` to `env`, and the installed release carries
+// that narrowing since objectui#12030 moved to the 18 prerelease line. The
+// expected set is still READ OFF THE SCHEMA VALUE, never written down here
 // (objectui#12093): each line below holds on either spec and fails on either
 // when the alias stops being the spec's.
 
@@ -68,12 +68,12 @@ const _noWider = null as unknown as MetadataOverlayScope satisfies SpecOverlaySc
 // both specs. It is the line that fails the day the spec adds a scope —
 // deliberately, because a new scope needs a zh-CN label rather than silently
 // reaching the badge.
-const _labelled = null as unknown as MetadataOverlayScope satisfies 'org' | 'env' | null;
+const _labelled = null as unknown as MetadataOverlayScope satisfies 'env' | null;
 // The interface field is the alias, not a widened `string`.
 const _fieldIsAlias = null as unknown as MetadataLayered['overlayScope'] satisfies MetadataOverlayScope;
-// `env` and `null` are values on both specs. An `org` literal stood here, and
-// `org` is a value on the installed spec only; `_specCovers` above carries it
-// wherever the spec declares it.
+// `env` and `null` are the whole vocabulary since S5. An `org` literal stood
+// here while the installed spec still declared it; `_specCovers` above carries
+// any scope the spec declares.
 const _env: MetadataLayered['overlayScope'] = 'env';
 const _none: MetadataLayered['overlayScope'] = null;
 // @ts-expect-error — objectui#4982: the spelling the old comment claimed is not
@@ -85,12 +85,11 @@ const _notASpecScope: MetadataLayered['overlayScope'] = 'organization';
 //
 // vitest runs against the INSTALLED spec only (the Spec Main Shape Gate
 // type-checks and runs no test), so the literal below is a reading of that
-// release. objectstack `main` declares `env` alone (objectstack#15206 S5): at
-// the pin that carries it, this line and `LAYER_SCOPE_ZH`'s `org` entry move
-// together.
+// release. objectstack#15206 S5 narrowed the vocabulary to `env` alone, and
+// `LAYER_SCOPE_ZH`'s `org` entry left with it (objectui#12030).
 
 describe('MetadataLayered.overlayScope tracks the spec enum (objectui#4982)', () => {
-  it('the producer vocabulary is exactly org | env, plus null, on the installed spec', () => {
+  it('the producer vocabulary is exactly env, plus null, on the installed spec', () => {
     // Read through `@object-ui/test-support` rather than `.unwrap().options`
     // (objectui#5872 class (4)). The bare spelling was a SEVENTH way to ask this
     // question and the only one with neither a cast nor a guard: it answered
@@ -98,7 +97,7 @@ describe('MetadataLayered.overlayScope tracks the spec enum (objectui#4982)', ()
     // kept `.options` where it is. `enumOptions` walks the wrappers and answers
     // `[]` when it cannot read — and `[]` fails this assertion, which is the
     // non-vacuity duty that reader's docblock leaves with every caller.
-    expect(enumOptions(specOverlayScope)).toEqual(['org', 'env']);
+    expect(enumOptions(specOverlayScope)).toEqual(['env']);
     expect(specOverlayScope.safeParse(null).success).toBe(true);
   });
 

@@ -1838,7 +1838,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.validationPreview.noMessage': 'no message set',
   'engine.validationPreview.tags': 'Tags',
   'engine.validationPreview.removed.unique':
-    'Uniqueness is a unique INDEX, not a validation rule: declare it on the object as `indexes: [{ fields: [...], unique: true }]` (or `unique: true` on the field). A SELECT-then-INSERT rule is inherently racy (TOCTOU); a database constraint is not.',
+    'Uniqueness is a unique INDEX, not a validation rule: declare it on the object as `indexes: [{ fields: [...], unique: \'organization\' }]` — one holder per organization — or `unique: \'global\'` for one holder across the installation (or `unique: true` on the field). A SELECT-then-INSERT rule is inherently racy (TOCTOU); a database constraint is not.',
   'engine.validationPreview.removed.async':
     'Remote/async validation is a form-layer concern — on the server write path it is an SSRF and latency hazard. Keep it in the form, or enforce the underlying invariant with a unique index or a lifecycle hook.',
   'engine.validationPreview.removed.custom':
@@ -5180,7 +5180,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.validationPreview.noMessage': '未设置消息',
   'engine.validationPreview.tags': '标签',
   'engine.validationPreview.removed.unique':
-    '唯一性是唯一索引（INDEX），不是校验规则：请在对象上声明为 `indexes: [{ fields: [...], unique: true }]`（或在字段上设置 `unique: true`）。先 SELECT 再 INSERT 的规则天生存在竞态（TOCTOU）；数据库约束则不会。',
+    '唯一性是唯一索引（INDEX），不是校验规则：请在对象上声明为 `indexes: [{ fields: [...], unique: \'organization\' }]`（每个组织一个持有者），或用 `unique: \'global\'` 表示整个安装唯一（或在字段上设置 `unique: true`）。先 SELECT 再 INSERT 的规则天生存在竞态（TOCTOU）；数据库约束则不会。',
   'engine.validationPreview.removed.async':
     '远程/异步校验属于表单层的职责 —— 放在服务端写入路径上会带来 SSRF 与延迟风险。请把它留在表单中，或用唯一索引或生命周期钩子来强制其背后的约束。',
   'engine.validationPreview.removed.custom':
@@ -7192,11 +7192,10 @@ export function translateFlowMeta(
  * whether to extend it is a separate decision, not a rider on this fix.
  *
  * `org` is keyed beside the spec's union, not through it (objectui#12093):
- * the installed `@objectstack/spec` declares `org | env`, and objectstack
- * `main` narrows the enum to `env` (objectstack#15206 S5, ADR-0131), where a
- * keyed `org` would be an unknown property and stop this file compiling in the
- * Spec Main Shape Gate. A server on the installed release still sends `org`,
- * so its label stays; the completeness check above is unchanged on both specs.
+ * `@objectstack/spec` 18 narrows the enum to `env` (objectstack#15206 S5,
+ * ADR-0131, installed by objectui#12030), where a keyed `org` would be an
+ * unknown property. A server still on 17.x sends `org`, so its label stays;
+ * the completeness check above is unchanged.
  */
 const LAYER_SCOPE_ZH: Record<NonNullable<MetadataOverlayScope> | 'org', string> = {
   org: '组织',

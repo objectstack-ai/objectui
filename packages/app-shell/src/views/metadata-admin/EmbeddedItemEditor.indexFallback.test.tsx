@@ -117,7 +117,9 @@ describe('every control the console offers is a real authoring surface', () => {
     // Completeness, the other direction. A tombstone rejects every probe; a
     // live key accepts at least one, so this needs no hand-listed key set and
     // survives the next key the spec adds.
-    const probes: unknown[] = ['x', true, 1, ['x'], {}];
+    // `false` too: since protocol 18 the index `unique` takes `false | 'global' |
+    // 'organization'` and refuses every other probe here (objectui#12030).
+    const probes: unknown[] = ['x', true, false, 1, ['x'], {}];
     const authorable = Object.keys(IndexSchema.shape).filter((key) =>
       probes.some((probe) => IndexSchema.safeParse({ fields: ['c'], [key]: probe }).success),
     );
@@ -160,16 +162,19 @@ describe('`unique` mirrors the ADR-0120 scope union', () => {
     }
   });
 
-  it('does not offer the deprecated bare `true` as a selectable option', () => {
-    // Bare `true` is the positional spelling of `'global'`: lint
-    // `unique/unscoped-declared-index` warns in 17.x and protocol 18 rejects it
-    // (objectstack#5082). It parses today — so this is a claim about what the
-    // console EMITS, which is why it is asserted on the control, not the parse.
+  it('does not offer the retired bare `true` as a selectable option', () => {
+    // Bare `true` was the positional spelling of `'global'`; protocol 18 refuses
+    // it at parse (objectstack#22103, closing objectstack#5082), which the
+    // control below now pins. The scope select never offered it, so this stays
+    // a claim about what the console EMITS, asserted on the control.
     const branch = (CONSOLE_PROPS.unique.anyOf as Array<Record<string, unknown>>)[0];
     expect(branch.enum).not.toContain(true);
     expect(branch.enum).not.toContain('true');
-    // Control: it is still ACCEPTED, so legacy indexes are readable/savable.
-    expect(IndexSchema.safeParse({ fields: ['c'], unique: true }).success).toBe(true);
+    // Control: the spec REFUSES it since protocol 18 (objectui#11864, objectui#12030).
+    // A server on 18 serves a stored legacy `true` as `'global'`, so the switch
+    // branch below renders only a row that never came from such a server.
+    expect(IndexSchema.safeParse({ fields: ['c'], unique: true }).success).toBe(false);
+    expect(IndexSchema.safeParse({ fields: ['c'], unique: false }).success).toBe(true);
   });
 
   it("rejects 'tenant' — the word is 'organization' (ADR-0120 §Terminology)", () => {

@@ -351,12 +351,13 @@ export interface MetadataDeleteOptions extends MetadataClientSaveOptions {
 }
 
 /**
- * Which layer an overlay was saved at — `'org'` for a tenant overlay, `'env'`
- * for an environment-level one, `null` exactly when `overlay` is null.
+ * Which layer an overlay was saved at — `'env'` for an environment-level one,
+ * `null` exactly when `overlay` is null. Every metadata read is environment →
+ * code since objectstack#15206 S5, which retired the `'org'` tenant scope.
  *
  * DERIVED from `@objectstack/spec`, not restated: the vocabulary lives once, in
  * `GetMetaItemLayeredResponseSchema`'s `overlayScope`
- * (`z.enum(['org', 'env']).nullable()`), and this alias indexes the published
+ * (`z.enum(['env']).nullable()`), and this alias indexes the published
  * response type so a scope the spec adds arrives here with no edit. Restating
  * the union locally is the fork `scripts/check-spec-symbol-derivation.mjs`
  * exists to reject, and the mirror-image mistake — a consumer re-spelling a

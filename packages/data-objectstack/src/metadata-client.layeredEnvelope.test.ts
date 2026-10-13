@@ -72,7 +72,7 @@ const CONFORMING = {
   name: 'showcase_project',
   code: { name: 'showcase_project', label: 'Project' },
   overlay: { label: 'Projects (ours)' },
-  overlayScope: 'org',
+  overlayScope: 'env',
   effective: { name: 'showcase_project', label: 'Projects (ours)' },
   lock: 'no-delete',
   lockReason: 'shipped by the crm package',
@@ -108,7 +108,7 @@ describe('objectui#5676 · (a) a conforming envelope types cleanly', () => {
   it('hands back all seven ruled fields with the values the server sent', async () => {
     const layered = await clientAnswering(CONFORMING).layered('object', 'showcase_project');
 
-    expect(layered.overlayScope).toBe('org');
+    expect(layered.overlayScope).toBe('env');
     expect(layered.lock).toBe('no-delete');
     expect(layered.lockSource).toBe('package');
     expect(layered.provenance).toBe('package');
@@ -166,7 +166,7 @@ describe('objectui#5676 · (b) an unknown token degrades ONE field, and is label
     // undefined, so a boundary that leaned on it alone would degrade the WHOLE
     // envelope every time a server spoke a newer dialect — a subtler version of
     // the bug being fixed. These six are the assertion that it does not.
-    expect(layered.overlayScope).toBe('org');
+    expect(layered.overlayScope).toBe('env');
     expect(layered.lockSource).toBe('package');
     expect(layered.provenance).toBe('package');
     expect(layered.editable).toBe(true);

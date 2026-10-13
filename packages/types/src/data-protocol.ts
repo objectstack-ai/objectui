@@ -810,9 +810,10 @@ export type ConditionalValidation = Omit<
  *   `{ fields, unique: 'global' | 'organization' }`. `'organization'` is one
  *   holder per organization (the driver prepends the NULL-safe organization
  *   key part); `'global'` is one holder across the installation. On THIS
- *   surface bare `unique: true` is the deprecated positional spelling of
- *   `'global'` — lint `unique/unscoped-declared-index` warns in 17.x and
- *   protocol 18 rejects it.
+ *   surface bare `unique: true` was the positional spelling of `'global'`;
+ *   protocol 18 REFUSES it at parse, at `os validate` and at the metadata save
+ *   door (objectstack#22103), and the server serves a stored legacy `true` as
+ *   `'global'`.
  * - Field-level `unique` for a single-field constraint. The same token does
  *   NOT mean the same thing on both surfaces: at field level bare `true` is
  *   the positional spelling of `'organization'` and stays valid, though new

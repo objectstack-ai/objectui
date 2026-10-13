@@ -86,7 +86,7 @@ const LAYERED_BODY = {
   name: 'showcase_project',
   code: { name: 'showcase_project', label: 'Project', fields: { code: { type: 'text' } } },
   overlay: { label: 'Projects (ours)' },
-  overlayScope: 'org',
+  overlayScope: 'env',
   effective: { name: 'showcase_project', label: 'Projects (ours)', fields: { code: { type: 'text' } } },
   _diagnostics: { valid: false, errors: [{ path: 'label', message: 'too long', code: 'too_big' }] },
   lock: 'no-delete',
@@ -160,7 +160,7 @@ describe('objectui#4016 · the layered read goes to its declared path', () => {
     expect(layered).toEqual({
       code: LAYERED_BODY.code,
       overlay: LAYERED_BODY.overlay,
-      overlayScope: 'org',
+      overlayScope: 'env',
       effective: LAYERED_BODY.effective,
       _diagnostics: LAYERED_BODY._diagnostics,
       lock: 'no-delete',

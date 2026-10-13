@@ -77,6 +77,16 @@ The new record is optimistically inserted into local state so it
 appears immediately. To override (e.g. open your own create form), pass
 `onDateClick={(day) => …}` — the default behaviour is skipped.
 
+The dialog is offered only where that payload can succeed. If the object
+has a required field outside the set above (a required lookup, a required
+text field other than the title), the click — or a range drag in the
+week/day grid — opens the host's full create form instead: the calendar
+calls `onEdit` with a new record (no `id`) carrying the date values, e.g.
+`onEdit({ due_date: '2026-10-20' })`, and the host pre-fills its create form
+with them. The console does this already. Without an `onEdit`, the gesture
+offers nothing on such an object. Required fields the server fills on insert
+(`readonly`, `system`, `autonumber`) do not count.
+
 ## Reporting the visible days
 
 A host that fetches the calendar's records for it, and hands them over as

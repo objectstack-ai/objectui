@@ -32,7 +32,7 @@ import { buildExpressionUser } from '../providers/expressionUser.js';
 import { useTrackRouteAsRecent } from '../hooks/useTrackRouteAsRecent.js';
 import { useHomePath } from '../hooks/useHomePath.js';
 import { useSignedInUserLocale } from '../hooks/useUserLocale.js';
-import { resolveRecordFormTarget, resolveFormViewLayout, resolveNavigateCreateUrl, resolveNavigateEditUrl, resolvePostCreateTarget } from '../utils/recordFormNavigation.js';
+import { resolveRecordFormTarget, resolveFormViewLayout, resolveNavigateCreateUrl, resolveNavigateEditUrl, resolvePostCreateTarget, recordFormCreateValues, readRecordFormCreateValues, RECORD_FORM_CREATE_VALUES_STATE } from '../utils/recordFormNavigation.js';
 import { deriveRecordSurface, deriveRecordFlowSurface } from '@object-ui/plugin-view';
 import { RECORD_FORM_PARAM, RECORD_FORM_OBJECT_PARAM, RECORD_FORM_LINK_PARAM } from '../urlParams.js';
 import { appRouteSegment, matchAppBySegment } from '../utils/appRoute.js';
@@ -435,6 +435,10 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   const [refreshKey, setRefreshKey] = useState(0);
 
   const isDialogOpen = !!recordFormParam;
+  // objectui#12291 — a seeded create's values, carried by the history entry
+  // that opened the overlay (`handleEdit` below). The object the router keeps
+  // for that entry, so its identity holds until the entry changes.
+  const overlayCreateValues = editingRecord ? undefined : readRecordFormCreateValues(location.state);
 
   // Close the record-form overlay by stripping `?form` in place. Reads the
   // LIVE location (not the hook's render-time snapshot) so it stays a no-op
@@ -687,7 +691,16 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     // overrides (see the record-form URL contract above).
     sp.delete(RECORD_FORM_OBJECT_PARAM);
     sp.delete(RECORD_FORM_LINK_PARAM);
-    setSearchParams(sp);
+    // objectui#12291 — a new record that arrives carrying values (the
+    // calendar's empty-day hand-off sends the day clicked) opens the create
+    // form with them, riding the history entry this push makes
+    // (`RECORD_FORM_CREATE_VALUES_STATE`). Page mode carries them in its URL,
+    // above (`resolveRecordFormTarget`).
+    const createValues = recordFormCreateValues(record);
+    setSearchParams(
+      sp,
+      createValues ? { state: { [RECORD_FORM_CREATE_VALUES_STATE]: createValues } } : undefined,
+    );
   };
 
   const handleAppChange = (newAppName: string) => {
@@ -1191,7 +1204,14 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
                 recordId: editingRecord?.id,
                 // Child create task (objectstack-ai/objectstack#2604 D3): pre-link the parent from the
                 // `formLink` URL param (refresh-safe — the link survives).
-                ...(formLinkValues && !editingRecord ? { initialValues: formLinkValues } : {}),
+                // Otherwise a create seeded by its opener (objectui#12291 — the
+                // calendar's empty-day hand-off) opens with the values its
+                // history entry carries. Each is handed as the object it is,
+                // never a merge rebuilt per render: the form re-seeds whenever
+                // `initialValues` is a new object.
+                ...(!editingRecord && (formLinkValues ?? overlayCreateValues)
+                  ? { initialValues: formLinkValues ?? overlayCreateValues }
+                  : {}),
                 // objectstack-ai/objectstack#2604 D1: create/edit follow the flow-surface derivation —
                 // field-heavy → full-screen modal (the same big canvas the
                 // detail page gets, with overlay return semantics); light

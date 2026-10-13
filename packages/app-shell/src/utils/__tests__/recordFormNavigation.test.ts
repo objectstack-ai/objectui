@@ -18,6 +18,9 @@ import {
   resolveNavigateCreateUrl,
   resolveNavigateEditUrl,
   resolvePostCreateTarget,
+  recordFormCreateValues,
+  readRecordFormCreateValues,
+  RECORD_FORM_CREATE_VALUES_STATE,
 } from '../recordFormNavigation';
 
 describe('resolveRecordFormTarget', () => {
@@ -124,6 +127,68 @@ describe('resolveRecordFormTarget', () => {
         record: { id: 'r1' },
       }),
     ).toEqual({ kind: 'modal' });
+  });
+});
+
+// objectui#12291 — a NEW record (no id) that carries values is a create
+// seeded with them: the calendar's empty-day hand-off sends the clicked day.
+describe('recordFormCreateValues (objectui#12291)', () => {
+  it('returns the values a record without an id carries', () => {
+    expect(recordFormCreateValues({ due_date: '2026-10-20' })).toEqual({ due_date: '2026-10-20' });
+  });
+
+  it('treats an empty-string id as a new record, and never carries the id keys', () => {
+    expect(recordFormCreateValues({ id: '', _id: '', due_date: '2026-10-20' })).toEqual({ due_date: '2026-10-20' });
+  });
+
+  it('carries nothing for an existing record (it has an id or an _id)', () => {
+    expect(recordFormCreateValues({ id: 'r1', due_date: '2026-10-20' })).toBeUndefined();
+    expect(recordFormCreateValues({ _id: 'mongo-7', due_date: '2026-10-20' })).toBeUndefined();
+  });
+
+  it('carries nothing for no record, or one with only empty entries', () => {
+    expect(recordFormCreateValues(null)).toBeUndefined();
+    expect(recordFormCreateValues(undefined)).toBeUndefined();
+    expect(recordFormCreateValues({ due_date: null, end_date: undefined })).toBeUndefined();
+  });
+});
+
+describe('readRecordFormCreateValues (objectui#12291)', () => {
+  it('reads the values a history entry carries under its key', () => {
+    const values = { due_date: '2026-10-20' };
+    expect(readRecordFormCreateValues({ [RECORD_FORM_CREATE_VALUES_STATE]: values })).toBe(values);
+  });
+
+  it('reads nothing from an entry without them, or from a value that is not a values object', () => {
+    expect(readRecordFormCreateValues(null)).toBeUndefined();
+    expect(readRecordFormCreateValues({ from: { pathname: '/x' } })).toBeUndefined();
+    expect(readRecordFormCreateValues({ [RECORD_FORM_CREATE_VALUES_STATE]: ['due_date'] })).toBeUndefined();
+    expect(readRecordFormCreateValues({ [RECORD_FORM_CREATE_VALUES_STATE]: 'due_date' })).toBeUndefined();
+  });
+});
+
+describe('resolveRecordFormTarget — a seeded create in page mode (objectui#12291)', () => {
+  it('carries the values as the query-string prefill RecordFormPage reads', () => {
+    expect(
+      resolveRecordFormTarget({
+        objectDef: { name: 'task', editMode: 'page' },
+        baseUrl: '/apps/sales',
+        record: { due_date: '2026-10-20', start_at: '2026-10-20T09:00:00.000Z' },
+      }),
+    ).toEqual({
+      kind: 'page',
+      url: '/apps/sales/task/new?due_date=2026-10-20&start_at=2026-10-20T09%3A00%3A00.000Z',
+    });
+  });
+
+  it('an existing record still opens its edit page, its other keys ignored', () => {
+    expect(
+      resolveRecordFormTarget({
+        objectDef: { name: 'task', editMode: 'page' },
+        baseUrl: '/apps/sales',
+        record: { id: 'r1', due_date: '2026-10-20' },
+      }),
+    ).toEqual({ kind: 'page', url: '/apps/sales/task/record/r1/edit' });
   });
 });
 

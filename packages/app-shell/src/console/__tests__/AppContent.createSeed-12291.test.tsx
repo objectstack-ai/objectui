@@ -36,7 +36,7 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import React from 'react';
-import { render, cleanup, waitFor, screen, fireEvent, act } from '@testing-library/react';
+import { render, cleanup, waitFor, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { registerAllFields } from '@object-ui/fields';
 
@@ -202,11 +202,12 @@ describe('objectui#12291 — a new record carrying values opens the console\'s c
     probe.realModal = true;
     await handOffFrom('showcase_task');
 
-    const title = await screen.findByLabelText(/Title/, undefined, { timeout: 5000 });
+    const title = await screen.findByRole('textbox', { name: /^Title/ }, { timeout: 5000 });
     fireEvent.change(title, { target: { value: 'Plan the sprint' } });
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Create' }));
-    });
+    // Not inside an awaited `act`: under React 19 that did not return before
+    // the test timeout (as `AppContent.createLandingOriginPlural-11733` found);
+    // the `waitFor` below polls inside `act` on its own.
+    fireEvent.submit(screen.getByRole('dialog').querySelector('form') as HTMLFormElement);
 
     await waitFor(() => expect(dataSourceStub.create).toHaveBeenCalledTimes(1));
     expect(dataSourceStub.create.mock.calls[0][0]).toBe('showcase_task');

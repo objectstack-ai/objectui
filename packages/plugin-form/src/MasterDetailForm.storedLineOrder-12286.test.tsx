@@ -73,8 +73,8 @@ function serverOrder(rows: Row[], orderby: unknown): Row[] {
   }
   return [...rows].sort((a, b) => {
     for (const { field, order } of orderby as Sort) {
-      const av = a[field] as any;
-      const bv = b[field] as any;
+      const av = a[field] as number | string | null | undefined;
+      const bv = b[field] as number | string | null | undefined;
       if (av === bv || (av == null && bv == null)) continue;
       const cmp = av == null ? -1 : bv == null ? 1 : av < bv ? -1 : 1;
       return order === 'desc' ? -cmp : cmp;
@@ -83,15 +83,18 @@ function serverOrder(rows: Row[], orderby: unknown): Row[] {
   });
 }
 
+/** The two members of a read's query the fake server answers. */
+type ReadParams = { $filter?: { invoice?: unknown }; $orderby?: unknown } | undefined;
+
 /** Mount an edit form over `table`, the server's lines in the server's own order. */
 function renderForm(table: Row[]) {
   const batch = vi.fn(async (ops: Op[]) => ({
     results: ops.map((op) => (op.action === 'delete' ? true : { id: op.id ?? 'new', ...op.data })),
   }));
-  const ds: any = {
+  const ds = {
     getObjectSchema: vi.fn(async (o: string) => (o === 'inv_line' ? LINE_SCHEMA : INV_SCHEMA)),
     findOne: vi.fn().mockResolvedValue({ id: 'inv1', ref: 'INV-1' }),
-    find: vi.fn(async (o: string, params: any) =>
+    find: vi.fn(async (o: string, params: ReadParams) =>
       o === 'inv_line'
         ? {
             data: serverOrder(
@@ -108,19 +111,21 @@ function renderForm(table: Row[]) {
   };
   const view = render(
     <MasterDetailForm
-      schema={{ objectName: 'inv', mode: 'edit', recordId: 'inv1', fields: ['ref'], details: [DETAIL] } as any}
-      dataSource={ds}
+      schema={{ objectName: 'inv', mode: 'edit', recordId: 'inv1', fields: ['ref'], details: [DETAIL] } as never}
+      dataSource={ds as never}
     />,
   );
   return { ...view, ds, batch };
 }
 
+type FakeServer = ReturnType<typeof renderForm>['ds'];
+
 const descriptions = () => screen.getAllByLabelText('Description') as HTMLInputElement[];
 const qtys = () => screen.getAllByLabelText('Qty') as HTMLInputElement[];
 const saveButton = () => screen.getByTestId('md-form-submit') as HTMLButtonElement;
 /** The query of each read of the lines, in the order they were sent. */
-const lineReads = (ds: any): unknown[] =>
-  ds.find.mock.calls.filter(([o]: [string]) => o === 'inv_line').map(([, params]: [string, unknown]) => params);
+const lineReads = (ds: FakeServer): ReadParams[] =>
+  ds.find.mock.calls.filter(([o]) => o === 'inv_line').map(([, params]) => params);
 
 /**
  * The parent record and `lines` stored lines have landed (plus the grid's
@@ -129,7 +134,7 @@ const lineReads = (ds: any): unknown[] =>
  * sort field is derived, and again once it has; the second read supersedes the
  * first. Waiting for both keeps a pin from reading the first one's rows.
  */
-async function ready(container: HTMLElement, ds: any, lines: number) {
+async function ready(container: HTMLElement, ds: FakeServer, lines: number) {
   await waitFor(() => {
     const ref = container.querySelector('input[name="ref"]') as HTMLInputElement | null;
     expect(ref?.value).toBe('INV-1');

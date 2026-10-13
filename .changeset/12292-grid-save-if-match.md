@@ -1,8 +1,8 @@
 ---
 '@object-ui/plugin-grid': patch
 '@object-ui/plugin-list': patch
-'@object-ui/components': patch
-'@object-ui/types': patch
+'@object-ui/components': minor
+'@object-ui/types': minor
 ---
 
 A grid's inline-edit save no longer overwrites a concurrent write without a word (objectui#12292). The grid's default row save and "Save All" now send each row's `updated_at` as `If-Match`, the way the record forms and the record page's inline edit already do. A stale grid edit is refused with `409` instead of landing with a `200`. The refusal opens the same conflict dialog the record page opens (`ConcurrentUpdateDialog`, offering Reload latest, Overwrite anyway or Cancel). After a save, the row's next save sends the token of the record the server answered with, so saving the same row twice does not conflict with your own first save.

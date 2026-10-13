@@ -26,9 +26,17 @@ import React from 'react';
 import { render, screen, cleanup } from '@testing-library/react';
 import { I18nProvider } from '@object-ui/i18n';
 
-vi.mock('react-router-dom', () => ({
-  useNavigate: () => vi.fn(),
-}));
+vi.mock('react-router-dom', async () => {
+  const { createElement } = await import('react');
+  return {
+    useNavigate: () => vi.fn(),
+    // objectui#12305: each Home app tile is a router `Link`. This harness has
+    // no router, so the stand-in renders the anchor `Link` would, minus the
+    // basename. The tile's own pins live in `HomeAppsStrip.tilesAreLinks-12305`.
+    Link: ({ to, ...rest }: { to: string } & Record<string, unknown>) =>
+      createElement('a', { ...rest, href: to }),
+  };
+});
 
 let userFixture: { id: string; name: string; email: string } = {
   id: 'u1',

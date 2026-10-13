@@ -33,7 +33,7 @@
  *
  * Same shape as `HomePage.approvalsTarget.test.tsx`: every hook `HomePage` calls
  * for an unrelated surface is stubbed at its module boundary, while `HomeRail` /
- * `HomeAppsStrip` — which own the buttons and their testids — stay real, because
+ * `HomeAppsStrip` — which own the controls and their testids — stay real, because
  * "the click reaches the right URL" is not assertable through a stubbed button.
  */
 
@@ -45,9 +45,17 @@ import userEvent from '@testing-library/user-event';
 
 const navigateMock = vi.fn();
 
-vi.mock('react-router-dom', () => ({
-  useNavigate: () => navigateMock,
-}));
+vi.mock('react-router-dom', async () => {
+  const { createElement } = await import('react');
+  return {
+    useNavigate: () => navigateMock,
+    // objectui#12305: each Home app tile is a router `Link`. This harness has
+    // no router, so the stand-in renders the anchor `Link` would, minus the
+    // basename. The tile's own pins live in `HomeAppsStrip.tilesAreLinks-12305`.
+    Link: ({ to, ...rest }: { to: string } & Record<string, unknown>) =>
+      createElement('a', { ...rest, href: to }),
+  };
+});
 
 vi.mock('@object-ui/i18n', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),

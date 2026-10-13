@@ -115,8 +115,9 @@ const DECLARED_KEYS = [
   // objectui#12130 — the rest of the field metadata the channel reads off the
   // entry, measured at runtime (`form-field-channel-census-12130.test.tsx` in
   // `examples/schema-catalog/test/`). The spec's `FieldSchema` members by
-  // reference, plus `idField` / `picker` / `subtitle` from the field metadata
-  // types and `capture` / `crop` / `defaultName` as their widgets read them.
+  // reference, plus `idField` / `picker` / `subtitle` (declared on the entry
+  // itself since objectui#12242 moved them off the field metadata types) and
+  // `capture` / `crop` / `defaultName` as their widgets read them.
   'language',
   'maxSize',
   'capture',

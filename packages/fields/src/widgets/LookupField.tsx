@@ -12,7 +12,7 @@ import { cn,
 import { Search, X, Loader2, AlertCircle, Plus, TableProperties } from 'lucide-react';
 import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
-import type { DataSource, QueryParams, LookupColumnDef, LookupFieldMetadata } from '@object-ui/types';
+import type { DataSource, FormField, QueryParams, LookupColumnDef, LookupFieldMetadata } from '@object-ui/types';
 import { RecordPickerDialog, lookupFiltersToRecord } from './RecordPickerDialog.js';
 import type { RecordPickerFilterColumn } from './RecordPickerDialog.js';
 import { PeoplePicker } from './PeoplePicker.js';
@@ -308,6 +308,13 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   const fieldMeta = (innerField && typeof innerField === 'object' && ('reference' in innerField || 'type' in innerField))
     ? innerField
     : lookupField;
+  // `idField`, `picker` and `subtitle` are picker configuration a HOST writes
+  // onto this carrier (a form entry, an action parameter, a flow binding, a
+  // `master_detail` inline grid column, `UserField`'s own defaults), never
+  // object metadata: `FieldSchema` refuses all three by name, so the field
+  // metadata types stopped declaring them (objectui#12242). They are read
+  // through the face that does declare them, the form entry's.
+  const pickerConfig: Pick<FormField, 'idField' | 'picker' | 'subtitle'> | undefined = fieldMeta;
 
   const staticOptions: LookupOption[] = fieldMeta?.options || [];
   const multiple = fieldMeta?.multiple || false;
@@ -318,7 +325,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
     fieldMeta?.displayField || fieldMeta?.reference_field || undefined;
   const displayField = declaredDisplayField || DEFAULT_DISPLAY_FIELD;
   const descriptionField: string | undefined = fieldMeta?.descriptionField;
-  const idField = fieldMeta?.idField || 'id';
+  const idField = pickerConfig?.idField || 'id';
   // `reference` — `@objectstack/spec`'s `FieldSchema.reference` — is the only
   // target spelling read (objectui#11070 round 4). A served def that still
   // spells a legacy key was folded onto it at ingestion
@@ -352,8 +359,8 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   // Search-first PeoplePicker opt-in (user fields). When `picker === 'search'`
   // the Level-2 picker is the rich PeoplePicker (avatar rows + selection tray)
   // instead of the classic table dialog. `subtitle`/`avatar_field` drive the rows.
-  const pickerVariant: string | undefined = fieldMeta?.picker;
-  const subtitleFields: string[] | undefined = fieldMeta?.subtitle;
+  const pickerVariant: string | undefined = pickerConfig?.picker;
+  const subtitleFields: string[] | undefined = pickerConfig?.subtitle;
   const avatarField: string = fieldMeta?.avatar_field ?? fieldMeta?.avatarField ?? 'image';
 
   /**

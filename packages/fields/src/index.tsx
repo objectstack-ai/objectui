@@ -4077,6 +4077,14 @@ function buildLocationStoredValueValidator(field: any): (value: unknown) => true
  * Build validation rules from field metadata
  * @param field - Field metadata from ObjectStack
  * @returns Validation rule object compatible with react-hook-form
+ *
+ * ⛔ No field-level `pattern` / `pattern_message` / `validate` (objectui#12242,
+ * maintainer ruling A). `@objectstack/spec`'s `FieldSchema` refuses all three
+ * by name, so no published object carries them, and the field metadata types
+ * retire them as `never`. A regex check is the OBJECT's `format` validation
+ * rule (`validations[]`), which the server runs on every write that touches
+ * the field and refuses with the rule's message; this function adds no client
+ * pre-check of it.
  */
 export function buildValidationRules(field: any): any {
   const rules: any = {};
@@ -4138,15 +4146,6 @@ export function buildValidationRules(field: any): any {
     };
   }
 
-  // Pattern validation
-  if (field.pattern) {
-    rules.pattern = {
-      value: typeof field.pattern === 'string' ? new RegExp(field.pattern) : field.pattern,
-      message: typeof field.pattern_message === 'string' ? field.pattern_message : undefined,
-      messageKey: 'validation.pattern',
-    };
-  }
-
   // Email validation
   if (field.type === 'email') {
     rules.pattern = {
@@ -4165,27 +4164,18 @@ export function buildValidationRules(field: any): any {
     };
   }
 
-  // Custom validation function
-  if (field.validate) {
-    rules.validate = field.validate;
-  }
-
   // Stored-value validation for `location` (objectui#6744). See
   // `buildLocationStoredValueValidator` for what this rule is and what it is
   // deliberately not.
   //
-  // Emitted in react-hook-form's OBJECT form so a field-authored `validate`
-  // keeps running under its own key instead of being replaced — the same
-  // normalisation the form renderer applies when it adds its `required` entry
-  // (`packages/components/src/renderers/form/form.tsx`), spelled the same way
+  // Emitted in react-hook-form's OBJECT form, the shape the form renderer
+  // composes its own `required` entry into (`packages/components/src/renderers/form/form.tsx`),
   // so the two compose rather than clobber. RHF reports an object-form failure
-  // under its key, so this surfaces as `type: 'location'`.
+  // under its key, so this surfaces as `type: 'location'`. (It also used to
+  // keep a field-level `validate` running beside it; that key is retired,
+  // objectui#12242.)
   if (field.type === 'location') {
-    const authoredValidate = rules.validate;
     rules.validate = {
-      ...(typeof authoredValidate === 'function'
-        ? { validate: authoredValidate }
-        : (authoredValidate ?? {})),
       location: buildLocationStoredValueValidator(field),
     };
   }

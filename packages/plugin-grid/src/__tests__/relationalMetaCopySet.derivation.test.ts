@@ -279,9 +279,12 @@ describe('objectui#6875 — the copy set is derived from the consumers, not rest
     // alias because it was initialised from a member read.
     expect(reads.has('notOurs')).toBe(false);
     expect(reads.has('notOurs2')).toBe(false);
-    // The real consumer declares exactly one alias today; a second one is a new
-    // fact about the seam, not a silent widening of this sweep.
-    expect(receiverAliases(read('widgets/LookupField.tsx'), 'fieldMeta')).toEqual(['fieldMeta', 'cascadeMeta']);
+    // The real consumer declares exactly two aliases today; a third one is a
+    // new fact about the seam, not a silent widening of this sweep.
+    // objectui#12242 added `pickerConfig`, the `Pick<FormField, …>` view of
+    // `fieldMeta` through which `idField` / `picker` / `subtitle` are read
+    // since the field metadata types stopped declaring them.
+    expect(receiverAliases(read('widgets/LookupField.tsx'), 'fieldMeta')).toEqual(['fieldMeta', 'pickerConfig', 'cascadeMeta']);
     expect(receiverAliases(read('widgets/UserField.tsx'), 'meta')).toEqual(['meta']);
   });
 

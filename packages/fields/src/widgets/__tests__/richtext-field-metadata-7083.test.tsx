@@ -41,7 +41,10 @@
  *
  * `type` (`resolveRichTextFieldType`, the discriminator), `rows`
  * (`richField?.rows || 8`), `placeholder`, `mobile_fullscreen` and `label` are
- * the five keys the widget reads off this carrier on the `richtext` path; the
+ * the five keys the widget reads off this carrier on the `richtext` path
+ * (`mobile_fullscreen` is the host-written one, typed on
+ * `LongTextCarrierHandoff` since objectui#12242, so the literal below is
+ * annotated with both); the
  * readonly branch hands `field` to a `RICH_TEXT_CELL_RENDERERS` entry, and both
  * renderers there read `value` only. The sixth key, `maxLength`, is read by
  * the widget too (the native stop and the counter, objectui#8438) and by the
@@ -60,6 +63,7 @@ import { FieldSchema } from '@objectstack/spec/data';
 import type { FieldMetadata, RichtextFieldMetadata } from '@object-ui/types';
 
 import { RichTextField } from '../RichTextField';
+import type { LongTextCarrierHandoff } from '../longTextCarrierHandoff';
 
 /**
  * The whole derived read set in ONE annotated literal.
@@ -68,7 +72,7 @@ import { RichTextField } from '../RichTextField';
  * key, and judging each key is the half of this pin that a cast would have
  * silently satisfied.
  */
-const richtextField: RichtextFieldMetadata = {
+const richtextField: RichtextFieldMetadata & LongTextCarrierHandoff = {
   type: 'richtext',
   name: 'doc',
   label: 'Release notes',

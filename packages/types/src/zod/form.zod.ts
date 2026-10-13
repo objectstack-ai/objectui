@@ -1163,9 +1163,10 @@ export const FormFieldSchema = z.object({
   // entry, measured at runtime (the census and effects pins under
   // `examples/schema-catalog/test/`). The spec's `FieldSchema` members by
   // reference (`step` among them, so HTML's `'any'` is refused); `idField` /
-  // `picker` / `subtitle` stated once from the field metadata types' members
-  // the TS twin carries by reference; `capture`, `crop`, `defaultName`,
-  // `avatarField` and `className` typed as they are read.
+  // `picker` / `subtitle` stated once as the TS twin declares them (the entry
+  // is their declaring face since objectui#12242 moved them off the field
+  // metadata types); `capture`, `crop`, `defaultName`, `avatarField` and
+  // `className` typed as they are read.
   // `defaultValue` and `defaultChecked` stay undeclared: no reader asks for
   // either, and neither becomes the field's value (`FormSchema.defaultValues`
   // does). `avatar_field` stays undeclared: the second spelling of

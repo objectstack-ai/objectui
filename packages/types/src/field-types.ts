@@ -98,31 +98,19 @@ export interface BaseFieldMetadata {
    */
   system?: boolean;
 
-  /**
-   * Render a long-text field with a fullscreen-edit affordance (an "expand"
-   * button opening a full-height dialog) — the mobile UX for a textarea that
-   * would otherwise be a 4-row box wedged between other fields.
-   *
-   * **Not authored metadata, and deliberately NOT in `@objectstack/spec`.**
-   * It is a PROJECTION of the FORM-level setting
-   * `ObjectFormSchema.mobile.fullscreenLongText` onto the field metadata,
-   * with exactly one producer: `ObjectForm` (`@object-ui/plugin-form`) stamps
-   * it onto each long-text field's metadata carrier while building the form.
-   * Writing it on an object's field definition is meaningless — nothing
-   * publishes it and nothing else produces it.
-   *
-   * **Consumers**: `TextAreaField` and `RichTextField` (`@object-ui/fields`,
-   * the latter since objectui#3301 / PR #3302), which read it off `field` and
-   * nowhere else — `field` being the single metadata carrier since
-   * objectui#3233. It is declared here, on the type
-   * `FieldWidgetComponentProps.field` resolves to, so that the one legal
-   * location for the flag is a typed one rather than an untyped pun: before
-   * objectui#3245 it was stamped onto the FormField instead, where the form
-   * renderer's `field: field.field || field` forwarding could not see it and
-   * `stripRegisteredFieldProps` stripped the prop copy — so every
-   * auto-generated form silently lost the feature.
+  /*
+   * There is deliberately no `mobile_fullscreen` here (objectui#12242, ruling
+   * A). It is not authored metadata: it is a PROJECTION of the FORM-level
+   * `ObjectFormSchema.mobile.fullscreenLongText` that `ObjectForm`
+   * (`@object-ui/plugin-form`) stamps onto each long-text field's carrier
+   * while it builds the form, and `@objectstack/spec`'s `FieldSchema` refuses
+   * it by name, so no published object carries it. A key only the host
+   * writes is typed where its producer and its consumers meet, never on this
+   * authoring face (AGENTS.md #0.1): `LongTextCarrierHandoff` in
+   * `@object-ui/fields`, which `TextAreaField` and `RichTextField` read the
+   * flag through. The flag keeps its one carrier, the widget's `field`
+   * (objectui#3245); only its declaration moved.
    */
-  mobile_fullscreen?: boolean;
 
   /**
    * Placeholder text
@@ -172,10 +160,17 @@ export interface BaseFieldMetadata {
   visible_on?: never;
 
   /**
-   * Custom validation function or rules
+   * REFUSED BY NAME (objectui#12242): `@objectstack/spec`'s `FieldSchema`
+   * refuses `validate` with `unrecognized_keys`, and a field document is JSON,
+   * which cannot carry the function this member used to declare. A record's
+   * checks are the OBJECT's `validations[]` rules, which the server runs on
+   * the writes each rule names: `script` for a CEL predicate, `format` for a
+   * regex. `buildValidationRules` (`@object-ui/fields`) no longer reads this
+   * key.
+   * @deprecated Declare a `validations[]` rule on the object. Nothing reads this key.
    */
-  validate?: FieldValidationFunction | FieldConstraints;
-  
+  validate?: never;
+
   /*
    * There is deliberately no `depends_on` here (objectui#7357). It was
    * objectui's own snake_case twin of {@link BaseFieldMetadata.dependsOn} and
@@ -241,12 +236,21 @@ export type VisibilityCondition = {
 };
 
 /**
- * Validation function type
+ * Validation function type.
+ *
+ * @deprecated No member declares it since objectui#12242: it typed the
+ * function arm of the retired `BaseFieldMetadata.validate`. A record's checks
+ * are the object's `validations[]` rules, run by the server.
  */
 export type FieldValidationFunction = (value: any) => boolean | string | Promise<boolean | string>;
 
 /**
- * Validation rule type
+ * Validation rule type.
+ *
+ * @deprecated No member declares it since objectui#12242: it typed the rules
+ * arm of the retired `BaseFieldMetadata.validate`. Its `pattern` is not a
+ * field-level key either: an object's regex check is its `format` validation
+ * rule.
  */
 export type FieldConstraints = {
   required?: boolean | string;
@@ -279,8 +283,22 @@ export interface TextFieldMetadata extends BaseFieldMetadata {
    * the spec refuses by name and nothing reads.
    */
   maxLength?: SpecField['maxLength'];
-  pattern?: string | RegExp;
-  pattern_message?: string;
+  /**
+   * REFUSED BY NAME (objectui#12242): `FieldSchema` refuses `pattern` with
+   * `unrecognized_keys` and declares no field-level regex. The spec's regex
+   * check is an OBJECT-level `validations[]` rule,
+   * `{ type: 'format', name, field, regex, message }`, which the server runs
+   * on every write that touches the field and refuses with the rule's
+   * `message`. `buildValidationRules` no longer reads this key.
+   * @deprecated Declare a `format` validation rule on the object. Nothing reads this key.
+   */
+  pattern?: never;
+  /**
+   * REFUSED BY NAME (objectui#12242), as {@link pattern}: the message a
+   * failed regex check shows is the `format` rule's own `message`.
+   * @deprecated Write the `format` rule's `message`. Nothing reads this key.
+   */
+  pattern_message?: never;
 }
 
 /**
@@ -394,11 +412,15 @@ export interface HtmlFieldMetadata extends BaseFieldMetadata {
  *  - `rows` — `richField?.rows || 8`, the inline editor's height. Declared
  *    here for the same reason objectui#6140 declared it on the two siblings:
  *    the running widget honoured a key an annotated literal rejected.
- *  - `mobile_fullscreen`, `placeholder`, `label` — also read off this carrier
- *    (the expand affordance, the textarea placeholder, the dialog title), and
- *    all three already sit on {@link BaseFieldMetadata}, so they need no
- *    redeclaration here. Listed because "derived" has to name what it found,
- *    including the keys that turned out to need no line.
+ *  - `placeholder`, `label` — also read off this carrier (the textarea
+ *    placeholder, the dialog title), and both already sit on
+ *    {@link BaseFieldMetadata}, so they need no redeclaration here. Listed
+ *    because "derived" has to name what it found, including the keys that
+ *    turned out to need no line.
+ *  - `mobile_fullscreen` — the expand affordance, read off the same carrier
+ *    but written there by the host (`ObjectForm`), never authored. It is
+ *    typed on `LongTextCarrierHandoff` in `@object-ui/fields`, not on any
+ *    field metadata type (objectui#12242).
  *
  * The readonly branch hands `field` whole to the `RICH_TEXT_CELL_RENDERERS`
  * entry for the type; both renderers there destructure `value` only, so the
@@ -876,14 +898,17 @@ export interface LookupFieldMetadata extends BaseFieldMetadata {
    */
   displayField?: string;
 
-  /**
-   * Record field committed as this lookup's VALUE. Defaults to `'id'`; set it
-   * when the reference is stored by another column — e.g. an approval
-   * `position` approver stores `sys_position.name`, because the engine routes
-   * by machine name and names stay portable across environments
-   * (objectstack-ai/objectstack#3508).
+  /*
+   * There is deliberately no `idField` here (objectui#12242, ruling A). The
+   * record field a picker commits as the lookup's VALUE (default `id`; an
+   * approval `position` approver stores `sys_position.name`,
+   * objectstack-ai/objectstack#3508) is picker configuration a HOST writes,
+   * not object metadata: `@objectstack/spec`'s `FieldSchema` refuses
+   * `idField` by name, so no published object carries it. Its producers are
+   * a form entry (`FormField.idField`), an action parameter, a flow binding
+   * and a `master_detail` inline grid column, and its consumer is
+   * `LookupField`, which reads it through the form entry's own declaration.
    */
-  idField?: string;
 
   /**
    * Offer inline "create the referenced record" from an empty/zero-result
@@ -1057,20 +1082,17 @@ export interface UserFieldMetadata extends BaseFieldMetadata {
   type: 'user';
   multiple?: boolean;
 
-  /**
-   * Picker UI variant.
-   * - `'search'` — the search-first PeoplePicker (rich rows + selection tray).
-   *   Default for `user` fields.
-   * - `'default'` — the classic table-based record-picker dialog.
+  /*
+   * There is deliberately no `picker` and no `subtitle` here (objectui#12242,
+   * ruling A). The person picker's variant (`'search'`, the default, or the
+   * classic `'default'` dialog) and the record fields drawn beside each
+   * candidate are picker configuration a HOST writes, not object metadata:
+   * `@objectstack/spec`'s `FieldSchema` refuses both keys by name, so no
+   * published object carries them. `UserField` supplies both defaults
+   * itself; a form entry (`FormField.picker` / `FormField.subtitle`) and a
+   * flow binding may set them, and `LookupField` reads them through the form
+   * entry's own declaration.
    */
-  picker?: 'search' | 'default';
-
-  /**
-   * Dotted field paths shown as the candidate/row subtitle for disambiguation.
-   * Relation paths auto-expand (e.g. `primary_business_unit_id.name`).
-   * @example ['primary_business_unit_id.name', 'email']
-   */
-  subtitle?: string[];
 
   /** Field holding the avatar image URL. Default `image`. */
   avatar_field?: string;
@@ -1335,6 +1357,19 @@ export interface AddressFieldMetadata extends BaseFieldMetadata {
   type: 'address';
 }
 
+/**
+ * `geolocation` field metadata — OUT of the {@link FieldMetadata} union since
+ * objectui#12242 (ruling A). `geolocation` is not a `@objectstack/spec`
+ * `FieldType`: `FieldSchema` refuses it at `type` with `invalid_value`, so no
+ * published object can declare it, and the authoring union no longer offers
+ * it. The spec's map-point field type is `location`
+ * ({@link LocationFieldMetadata}), which renders a different widget.
+ *
+ * The `field:geolocation` widget itself stays registered in
+ * `@object-ui/fields`; only the authoring face stops offering the type value.
+ *
+ * @deprecated Not a spec field type, and no longer a member of `FieldMetadata`.
+ */
 export interface GeolocationFieldMetadata extends BaseFieldMetadata {
   type: 'geolocation';
 }
@@ -1407,7 +1442,8 @@ export type FieldMetadata =
   | SignatureFieldMetadata
   | QRCodeFieldMetadata
   | AddressFieldMetadata
-  | GeolocationFieldMetadata
+  // ⛔ No `GeolocationFieldMetadata` (objectui#12242): `geolocation` is not a
+  // spec `FieldType`, so a published object cannot declare it.
   | SliderFieldMetadata
   | RatingFieldMetadata
   | MasterDetailFieldMetadata;

@@ -34,7 +34,6 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import type { FormField } from '../form.js';
-import type { LookupFieldMetadata, UserFieldMetadata } from '../field-types.js';
 import type { Field as SpecField } from '@objectstack/spec/data';
 import { AnyComponentSchema, StrictAnyComponentSchema } from '../zod/index.zod.js';
 
@@ -208,11 +207,15 @@ export type assertionSpecMembersByReference = [
   Expect<Equal<FormField['step'], SpecField['step']>>,
 ];
 
-/** The field metadata types' members, by reference; the rest as their widgets read them. */
+/**
+ * The rest as their widgets read them. `idField` / `picker` / `subtitle` were
+ * the field metadata types' members by reference until objectui#12242 moved
+ * them off that authoring face; this entry declares them itself now.
+ */
 export type assertionLocalMembers = [
-  Expect<Equal<FormField['idField'], LookupFieldMetadata['idField']>>,
-  Expect<Equal<FormField['picker'], UserFieldMetadata['picker']>>,
-  Expect<Equal<FormField['subtitle'], UserFieldMetadata['subtitle']>>,
+  Expect<Equal<FormField['idField'], string | undefined>>,
+  Expect<Equal<FormField['picker'], 'search' | 'default' | undefined>>,
+  Expect<Equal<FormField['subtitle'], string[] | undefined>>,
   Expect<Equal<FormField['capture'], 'environment' | 'user' | false | undefined>>,
   Expect<Equal<FormField['crop'], boolean | undefined>>,
   Expect<Equal<FormField['defaultName'], string | undefined>>,

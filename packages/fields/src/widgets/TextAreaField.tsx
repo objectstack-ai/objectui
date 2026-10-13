@@ -3,6 +3,7 @@ import type { TextareaFieldMetadata } from '@object-ui/types';
 import { Textarea, EmptyValue, CharacterCount } from '@object-ui/components';
 import { FullscreenFieldEditor } from './FullscreenFieldEditor.js';
 import { FieldWidgetComponentProps } from './types.js';
+import type { LongTextCarrierHandoff } from './longTextCarrierHandoff.js';
 import { toDomProps } from './toDomProps.js';
 
 /**
@@ -65,12 +66,13 @@ export function TextAreaField({ value, onChange, field, readonly, error, ...prop
   // the moment a field toggles readonly. `maxLength` is derived here for the
   // same reason the ids are — proximity to the hook, not because the readonly
   // branch wants it.
-  // The declared metadata face — every key this widget reads off the carrier
-  // (`rows`, `maxLength`, `mobile_fullscreen`, `placeholder`, `label`) is a
+  // The declared metadata face — every authored key this widget reads off the
+  // carrier (`rows`, `maxLength`, `placeholder`, `label`) is a
   // `TextareaFieldMetadata` member, so the reads below are compiler-checked
   // (objectui#6140's de-cast sweep; the sibling `RichTextField` got the same
-  // treatment when its types gained `rows`).
-  const textareaField = field as TextareaFieldMetadata;
+  // treatment when its types gained `rows`). `mobile_fullscreen` is the one
+  // host-written key, typed on `LongTextCarrierHandoff` since objectui#12242.
+  const textareaField = field as TextareaFieldMetadata & LongTextCarrierHandoff;
   // The spec's `maxLength` (`FieldSchema.maxLength`, which
   // `TextareaFieldMetadata` declares by reference) is the one spelling read:
   // it gives the textarea its native stop and the counter its ceiling. The

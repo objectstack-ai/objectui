@@ -1178,8 +1178,64 @@ import { isEntrypoint } from './invoked-as.mjs';
  * stays in range and {@link PER_CHUNK_GZIP_CEILINGS},
  * {@link PER_CHUNK_BASELINE} and {@link PER_CHUNK_MEMBERSHIP} stand. Not
  * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}. No exemption was added.
+ *
+ * ## ⭐ LOWERED BY THE PAYBACK OF THE FOURTH RAISE (objectstack#22044, carried by objectui#12030)
+ *
+ * From 3,281,467 to 3,194,246: down by 87,221 bytes, exactly what the
+ * `@objectstack/*` 18.0.0-next.0 bump took out of the closure. The fourth raise
+ * above (objectui#11717, ruling 6027998226) filed objectstack#22044 as its
+ * payback; that card landed as `93125aeeb8`, an ancestor of the commit the
+ * 18.0.0-next.0 tags name, and objectui#12030 is the bump that resolves it.
+ * objectui#11762 held the rule this entry executes: lowered by the amount
+ * recovered, as the objectui#11101 and objectui#11438 paybacks were — ⛔ not
+ * re-derived as the new reading plus half a regression, which would also have
+ * absorbed `main`'s drift since the `f05f015` reading (a raise under another
+ * name), and ⛔ not rounded.
+ *
+ * WHAT LEFT — two console builds, one container, one instrument, each under
+ * `scripts/pm/os-verify-lock.sh`: `CI=true pnpm exec turbo run build
+ * --filter=@object-ui/console... --concurrency=2` in each tree (exit 0),
+ * reading `apps/console/dist/eager-closure.json`. `cea429b` is `main`, built in
+ * a worktree of its own after a frozen install; `5488ae7` is objectui#12030's
+ * branch, the same tree with the `next` prerelease resolved and the bump's own
+ * edits. Gzipped bytes:
+ *
+ *   | chunk                         |  `cea429b` |  `5488ae7` |   delta |
+ *   |-------------------------------|-----------:|-----------:|--------:|
+ *   | `vendor-objectstack`          |  1,599,281 |  1,512,690 | -86,591 |
+ *   | `ui-components`               |    285,771 |    284,925 |    -846 |
+ *   | everything else (70 names)    |  1,324,632 |  1,324,848 |    +216 |
+ *   | ⇒ aggregate                   |  3,209,684 |  3,122,463 | -87,221 |
+ *
+ * Both builds weigh 72 of 2255 chunks, under the same 72 names.
+ * `vendor-objectstack` is nearly the whole of it: the chunk the
+ * `@objectstack/*` packages land in. ⛔ Not attributed below the chunk. The
+ * upstream seat's figure on objectstack#22044 (−226,301 on this chunk) was
+ * taken on a spec dist built from objectstack `main` and injected, and the
+ * release carries everything else its line took on as well, so what this
+ * repository's first load gives back is the net −86,591 measured here, as
+ * objectui#11762 asked. `ui-components` moved by −846 across the bump's own
+ * edits, which reach it through `packages/components`; the +216 is spread over
+ * the other names, none by more than 145. Neither is attributed further.
+ *
+ * Headroom 71,783 bytes = 0.79x {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}
+ * over {@link BASELINE}: exactly the headroom `main` had on `cea429b` before
+ * the payback (3,281,467 − 3,209,684), because the ceiling came down by the
+ * aggregate's own delta. Left at 3,281,467, the ceiling would have stood
+ * 159,004 bytes (1.74x the regression) above this payload, and
+ * {@link evaluateHeadroomSensitivity} calls that a blind gauge (exit 2), as it
+ * did on the build of the bump commit alone. No build that passed before this
+ * edit and measures under 3,194,246 fails after it.
+ *
+ * ⛔ What moved with it, and what did not. `vendor-objectstack`'s per-chunk
+ * ceiling came down the same way, by the 86,591 bytes that chunk lost, with
+ * {@link PER_CHUNK_BASELINE}, re-pinned onto the same build; the bump commit's
+ * build had read it at 1.21x as well. The other three per-chunk rows did not
+ * move: across the two builds `ui-components` moved by −846, `framework` by −13
+ * and `i18n-locale-en` by −5. Not {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}.
+ * No exemption was added and no import was made lazy.
  */
-export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_281_467;
+export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_194_246;
 
 /**
  * The measurement the ceiling above was derived from. Exported so the two
@@ -1191,6 +1247,23 @@ export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_281_467;
 export const BASELINE = Object.freeze({
   /**
    * `emitEagerClosureReport`'s `eagerGzipBytes` on this commit.
+   *
+   * `5488ae7` is objectui#12030's branch commit: `main` at `cea429b` with
+   * `@objectstack/*` 18.0.0-next.0 resolved and the bump's own edits, re-pinned
+   * with the ceiling it was lowered with (the objectstack#22044 payback entry on
+   * {@link MAX_EAGER_CLOSURE_GZIP_BYTES} carries its table and its `cea429b`
+   * control, ⛔ not restated here). It is a branch commit for the reason the
+   * paragraphs below give for `c1d378ec`: the pull request's own diff is what
+   * moved the figure. Measured by `CI=true pnpm exec turbo run build
+   * --filter=@object-ui/console... --concurrency=2` (exit 0), reading
+   * `apps/console/dist/eager-closure.json`, under `scripts/pm/os-verify-lock.sh`,
+   * in the same container as the `cea429b` control build. The commits after
+   * `5488ae7` on the branch (one unit-test edit in `packages/types` and this
+   * re-pin) reach no bundler input, so they cannot move the figure it pins.
+   *
+   * ⚠️ The paragraph below describes the reading this one superseded, the
+   * previous baseline `f05f015` (3,235,899 across 289 of 2474 chunks), kept as
+   * its provenance.
    *
    * `f05f015` is objectui#11939's branch commit for step 2: `main` at
    * `28557855` merged into the branch that loads the built-in metadata
@@ -1317,10 +1390,10 @@ export const BASELINE = Object.freeze({
    * and not from `main` once it is squash-merged — the dead end objectui#9355
    * added `squashMerge` below to route around.
    */
-  gzipBytes: 3_235_899,
-  chunks: 289,
-  totalChunks: 2474,
-  commit: 'f05f015',
+  gzipBytes: 3_122_463,
+  chunks: 72,
+  totalChunks: 2255,
+  commit: '5488ae7',
 
   /**
    * The squash merge that carried the reading above onto `main`, recorded when
@@ -1329,8 +1402,8 @@ export const BASELINE = Object.freeze({
    * measurement gets a handle rather than a dead end.
    *
    * `null` since objectui#10996, and `null` again after objectui#11101,
-   * objectui#11438, objectui#11717, objectui#11798, objectui#11854 and
-   * objectui#11939, deliberately. This field can only ever be BACK-FILLED: a squash sha does
+   * objectui#11438, objectui#11717, objectui#11798, objectui#11854,
+   * objectui#11939 and objectui#12030, deliberately. This field can only ever be BACK-FILLED: a squash sha does
    * not exist until the pull request merges, so the change that re-pins the
    * field above ⛔ cannot write its own here. ⛔ Do not guess one: a wrong sha in
    * this position is worse than an absent one, because it RESOLVES, and a
@@ -1860,7 +1933,14 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
   // REGRESSION_THIS_GATE_MUST_CATCH_BYTES over the baseline below — the band
   // the two paybacks kept — rounded to the nearest thousand. It comes down with
   // the aggregate when objectstack#22044 pays back what it recovers.
-  'vendor-objectstack': 1_623_000,
+  //
+  // ⭐ LOWERED by that payback, carried by objectui#12030's `@objectstack/*`
+  // 18.0.0-next.0 bump (objectui#11762), from 1,623,000 by exactly the 86,591
+  // bytes this chunk lost (the table under the objectstack#22044 payback entry
+  // on MAX_EAGER_CLOSURE_GZIP_BYTES). Headroom 23,719 bytes = 0.26x
+  // REGRESSION_THIS_GATE_MUST_CATCH_BYTES over the baseline below — what this
+  // key had on `main` at `cea429b` before the payback, kept to the byte.
+  'vendor-objectstack': 1_536_409,
   // ⭐ LOWERED, and RE-KEYED, by objectui#7479 — this line used to read
   // `'i18n-locales': 465_000` and budget TEN catalogues. Nine of them are
   // `import()`ed on demand now, so the chunk that name pointed at no longer
@@ -1999,11 +2079,12 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
  * `vendor-objectstack` shared the aggregate's commit from objectui#11073 until
  * objectui#11798, `i18n-locale-en` from objectui#7479 until objectui#9251, and
  * `ui-components` from objectui#9251 until objectui#10996 re-pinned the
- * aggregate onto a `main` commit; today none does — and
+ * aggregate onto a `main` commit; since objectui#12030 `vendor-objectstack`
+ * does again — and
  * WHICH ONE IS LATER flips every time either side is re-baselined, so read the
  * commit names, never a direction asserted here. From objectui#11717 until
  * objectui#11798, `vendor-objectstack` shared the aggregate's reading:
- * objectui#11717's `c1e32e96`, the 17.7.0 bump's build, re-pinned both, as
+ * objectui#11717's `c1e32e96`, the build of that card's bump, re-pinned both, as
  * objectui#11438's `2ba091c`, objectui#11101's `4acbea07` and objectui#11073's
  * `048e7f6` had before it. objectui#11798 re-pinned the aggregate onto
  * `c1d378ec` and left this key at `c1e32e96`: that chunk moved by 0
@@ -2012,14 +2093,17 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
  * every key where it was: `vendor-objectstack`, `framework` and
  * `i18n-locale-en` moved by 0 bytes across objectui#11854's two builds and
  * `ui-components` by 9, and no ceiling moved. objectui#11939 re-pinned the
- * aggregate onto BASELINE's `f05f015` and left every key where it was too:
+ * aggregate onto `f05f015` and left every key where it was too:
  * across its two builds `vendor-objectstack` moved by −6,468 (one
  * `@objectstack/spec` entry left the first load with the designers),
  * `ui-components` by −19, `framework` by +10 and `i18n-locale-en` by 0, every
- * ceiling stayed in range, and no ceiling moved. The
- * aggregate is the later reading for every key: `c1e32e96` for
- * `vendor-objectstack`, `bbf6b02d9` (2026-09-13, objectui#9251) for `ui-components`,
- * and `3f775eeb8` for `framework`. ⚠️ `i18n-locale-en`'s commit was `755d34a5f` when it
+ * ceiling stayed in range, and no ceiling moved. objectui#12030 re-pinned the
+ * aggregate onto BASELINE's `5488ae7` and `vendor-objectstack` with it, from
+ * the same build, when the objectstack#22044 payback lowered both lines; the
+ * other three keys moved by at most 846 bytes across its two builds and stayed
+ * where they were. The aggregate is the later reading for every other key:
+ * `bbf6b02d9` (2026-09-13, objectui#9251) for `ui-components`, and `3f775eeb8`
+ * for `framework`. ⚠️ `i18n-locale-en`'s commit was `755d34a5f` when it
  * was taken and the aggregate has moved on since, which is exactly why the two
  * are named per key rather than described by a direction.
  * This paragraph asserted the reverse,
@@ -2078,14 +2162,16 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
  * measurement with no ceiling weighs nothing.
  */
 export const PER_CHUNK_BASELINE = Object.freeze({
-  // `c1e32e96`, the build BASELINE above carried from objectui#11717 until
-  // objectui#11798 (which left this key alone), re-pinned with its ceiling by
-  // the fourth raise. It supersedes objectui#11438's
+  // `5488ae7`, the build BASELINE above carries since objectui#12030, re-pinned
+  // with its ceiling by the objectstack#22044 payback. It supersedes the
+  // `c1e32e96` reading of 1,604,474, the build BASELINE carried from
+  // objectui#11717 until objectui#11798 (which left this key alone), re-pinned
+  // with its ceiling by the fourth raise, which superseded objectui#11438's
   // `2ba091c` reading of 1,420,958 (re-pinned with its ceiling by the second
   // payback), which superseded objectui#11101's `4acbea07` reading of 1,670,964, which superseded objectui#11073's
   // `048e7f6` reading of 1,703,690 (landed on `main` as `81f8498`), which
   // superseded objectui#7122's `34a1578ef` reading of 1,235,029.
-  'vendor-objectstack': 1_604_474,
+  'vendor-objectstack': 1_512_690,
   // `755d34a5f` (objectui#7479) — the SAME console build as
   // BASELINE above, so the two are directly comparable, and the same instrument
   // and container as the control build it is subtracted from. It supersedes

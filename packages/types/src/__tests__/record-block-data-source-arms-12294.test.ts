@@ -104,13 +104,17 @@ describe('a record block that reads no binding still refuses it (objectui#12294)
 
 describe('the TypeScript authoring face follows the arms (objectui#12294)', () => {
   it('a typed node literal carries the binding on the three, and is refused it on `record:path`', () => {
+    // Fresh literals, so the literal member types (`'equals'`, `'desc'`) are checked as written.
     const nodes: PublicBlockNode[] = [
-      { type: 'record:details', dataSource: BINDING },
-      { type: 'record:highlights', dataSource: BINDING },
+      { type: 'record:details', dataSource: { object: 'sys_environment', filter: [{ field: 'environment_type', operator: 'equals', value: 'production' }], limit: 1 } },
+      { type: 'record:highlights', dataSource: { object: 'sys_environment', sort: [{ field: 'created_at', order: 'desc' }], limit: 1 } },
       { type: 'record:quick_actions', dataSource: { object: 'sys_environment', limit: 1 } },
     ];
+    // Control: the same node without the binding compiles, so the refusal below is the binding's.
+    const plain: PublicBlockNode = { type: 'record:path' };
     // @ts-expect-error -- `record:path` reads no binding, so its node declares none.
-    const refused: PublicBlockNode = { type: 'record:path', dataSource: BINDING };
+    const refused: PublicBlockNode = { type: 'record:path', dataSource: { object: 'sys_environment', limit: 1 } };
+    expect(plain.type).toBe('record:path');
     expect(nodes).toHaveLength(3);
     expect(refused.type).toBe('record:path');
   });

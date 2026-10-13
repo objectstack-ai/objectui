@@ -63,11 +63,10 @@ function fakeServer() {
 /** The `AppContent` subscription, feeding the chip the header renders. */
 function HeaderChip({ adapter }: { adapter: ObjectStackAdapter }) {
   const [state, setState] = useState<ConnectionState>(adapter.getConnectionState());
-  useEffect(() => {
-    const unsubscribe = adapter.onConnectionStateChange((event) => setState(event.state));
-    setState(adapter.getConnectionState());
-    return unsubscribe;
-  }, [adapter]);
+  useEffect(
+    () => adapter.onConnectionStateChange((event) => setState(event.state)),
+    [adapter],
+  );
   return <ConnectionStatus state={state} />;
 }
 

@@ -135,6 +135,12 @@ const DECLARES_DATA_SOURCE: ReadonlySet<string> = new Set([
   // node level beside its bag, whose `object` is required only where no binding
   // names one (objectui#12056).
   'element:repeater',
+  // objectui#12294: the three one-record blocks read the binding (their
+  // renderers provide the first bound row as their record), so each arm
+  // declares it at node level, beside its bag.
+  'record:details',
+  'record:highlights',
+  'record:quick_actions',
 ]);
 
 /**

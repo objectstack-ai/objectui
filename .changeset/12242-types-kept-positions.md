@@ -9,7 +9,7 @@ Moved off the authoring face (a host writes them; behaviour is unchanged):
 - `BaseFieldMetadata`: FROM `mobile_fullscreen?: boolean` → TO not declared. It is the per-field projection of the form-level `ObjectFormSchema.mobile.fullscreenLongText` that `ObjectForm` stamps on a long-text field's carrier. `@object-ui/fields` types it on a package-local hand-off, where its readers are.
 - `LookupFieldMetadata`: FROM `idField?: string` → TO not declared.
 - `UserFieldMetadata`: FROM `picker?: 'search' | 'default'` and `subtitle?: string[]` → TO not declared.
-- `FormField` keeps all three picker keys with the same types: FROM `idField?: LookupFieldMetadata['idField']`, `picker?: UserFieldMetadata['picker']`, `subtitle?: UserFieldMetadata['subtitle']` → TO `idField?: string`, `picker?: 'search' | 'default'`, `subtitle?: string[]`, declared on the entry itself. This supersedes the pending objectui#12130 note that the entry declares them by reference to the field metadata types.
+- `FormField` keeps all three picker keys with the same types: FROM `idField?: LookupFieldMetadata['idField']`, `picker?: UserFieldMetadata['picker']`, `subtitle?: UserFieldMetadata['subtitle']` → TO `idField?: string`, `picker?: 'search' | 'default'`, `subtitle?: string[]`, declared on the entry itself.
 
 Retired as `?: never` tombstones (the spec's regex check is the object's `format` validation rule, `{ type: 'format', name, field, regex, message }`, which the server runs on save):
 

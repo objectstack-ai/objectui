@@ -282,6 +282,15 @@ function extractSaveErrorMessage(error: unknown): string {
 type RowActionDef = NonNullable<DataTableSchema['rowActionDefs']>[number];
 
 /**
+ * The per-row outcome `onBatchSave` may resolve with (objectui#12292), derived
+ * from the slot's declared return rather than restated here.
+ */
+type BatchSaveOutcome = Exclude<
+  Awaited<ReturnType<NonNullable<DataTableSchema['onBatchSave']>>>,
+  void
+>;
+
+/**
  * The authoring shape of the built-in row Edit/Delete predicates — derived from
  * `DataTableSchema`, never restated by hand (objectui#4354). Everything below
  * reads what the production caller hands it (`schema.rowEditPredicates` /
@@ -2163,30 +2172,57 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     
     setIsSaving(true);
     try {
+      // The pending key each handed-over `rowIndex` came from, so a per-row
+      // outcome can name its row back (objectui#12292).
+      const pendingKeyOf = new Map<number, number>();
       const changesToSave = Array.from(pendingChanges.entries()).map(([rowIndex, changes]) => {
         const globalIndex = (effectivePage - 1) * pageSize + rowIndex;
         const row = sortedData[manualPagination ? rowIndex : globalIndex];
+        pendingKeyOf.set(globalIndex, rowIndex);
         return { rowIndex: globalIndex, changes, row };
       });
-      
-      if (schema.onBatchSave) {
-        await schema.onBatchSave(changesToSave);
+
+      // `void` at runtime is `undefined`: the handler persisted every row.
+      const outcome = (schema.onBatchSave
+        ? await schema.onBatchSave(changesToSave)
+        : undefined) as BatchSaveOutcome | undefined;
+      const failed = outcome?.failed ?? [];
+      const failedKeys = new Set<number>();
+      for (const entry of failed) {
+        const key = pendingKeyOf.get(entry.rowIndex);
+        // A failure naming a row this batch never handed over cannot be
+        // placed, so no row can be called persisted: fall back to the
+        // all-or-nothing reading below rather than clear an unsaved edit.
+        if (key === undefined) throw entry.error;
+        failedKeys.add(key);
       }
-      
-      // Clear all pending changes
-      setPendingChanges(new Map());
+
       // Any staged editor left open (e.g. a lookup picker that keeps its widget
-      // open on pick) must exit edit mode now that every row is persisted —
+      // open on pick) must exit edit mode now that the batch has settled —
       // otherwise the edited cell stays stuck showing the editor after 全部保存.
       editingCellRef.current = null;
       setEditingCell(null);
       setEditValue('');
+      if (failedKeys.size > 0) {
+        // Per-row outcome: the rows that persisted are cleared, and only the
+        // rows that did not are kept and flagged. The server already accepted
+        // the others, so keeping them pending would report a landed write as
+        // a failed one, and a retry would send it again.
+        console.error('Failed to save rows:', failed.map((entry) => entry.error));
+        setPendingChanges(new Map(Array.from(pendingChanges).filter(([key]) => failedKeys.has(key))));
+        setErroredRows(failedKeys);
+        setSaveError(extractSaveErrorMessage(failed[0].error));
+        return;
+      }
+      // Clear all pending changes
+      setPendingChanges(new Map());
       // Saved — clear any prior errors.
       setErroredRows(new Set());
       setSaveError(null);
     } catch (error) {
-      // Batch is all-or-nothing here: keep every pending row, flag them all,
-      // and surface the reason instead of failing silently.
+      // A rejection says nothing about which rows landed, so it is read as
+      // all-or-nothing: keep every pending row, flag them all, and surface the
+      // reason instead of failing silently.
       console.error('Failed to save batch:', error);
       setSaveError(extractSaveErrorMessage(error));
       setErroredRows(new Set(pendingChanges.keys()));

@@ -988,6 +988,12 @@ const persistence = (
   - `onRowSave`: called when saving a single row
   - `onBatchSave`: called when saving multiple rows at once
   - `onCellChange`: called for each staged cell edit
+- **A concurrent write is refused, not overwritten**: the default saves send each
+  row's `updated_at` as `If-Match`, and an editable grid asks for that column even
+  when no column shows it. A row someone else saved after it was read answers
+  `409`, which opens the record page's conflict dialog (Reload latest, Overwrite
+  anyway, Cancel). "Save All" reports each row on its own: a refused row stays
+  pending and flagged, and the rows that saved are cleared.
 
 **Example Workflow:**
 1. User edits multiple cells across different rows

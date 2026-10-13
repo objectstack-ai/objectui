@@ -69,9 +69,11 @@ The field-level keys, each read under exactly this one spelling:
   the save writes the sum to. No total shows when it is unset.
 - `addLabel` — the Add button's label.
 - `sortField` — the name of a field on each **row** that the grid stamps with the
-  row's index (0, 1, 2, …) on every change, so the order a drag-reorder leaves is
-  saved with the rows. It is not one of the columns: a column of that name would
-  have its typed value overwritten. Rows carry no position when it is unset. When
+  row's index (0, 1, 2, …) whenever a row is added, removed, duplicated or moved,
+  so the order a drag-reorder leaves is saved with the rows. Editing a cell moves
+  no row and leaves every row's position as it was. It is not one of the columns:
+  a column of that name would have its typed value overwritten. Rows carry no
+  position when it is unset. When
   a master-detail form derives a detail's grid from the child object (it does
   unless the detail names its relationship field and types every column), it sets
   this to the child's first field named `position`, `sort_order`, `sequence`,

@@ -32,8 +32,9 @@
  *     `totalField` names); `amount_field` and `amountField` change nothing;
  *   - `addLabel` — declared, and it labels the Add button;
  *   - `sortField` — declared (round 9): it names the CHILD field each row is
- *     stamped with its index in, on every change, so a drag-reorder persists;
- *     with no key the rows carry no position;
+ *     stamped with its index in, on every change that adds, removes or moves a
+ *     row, so a drag-reorder persists; with no key the rows carry no position
+ *     (a cell edit leaves positions alone: `GridField.sortFieldCellEdit-12286`);
  *   - `allow_duplicate` and `show_line_numbers` — retired under ADR-0049 (no
  *     producer in either repository wrote them): the widget keeps the
  *     behaviour their defaults gave, a duplicate action whenever rows can be

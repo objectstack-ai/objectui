@@ -947,6 +947,13 @@ through the wizard, and the parent operation of a master-detail form, whose
 header is a simple or a `tabbed` form. A master-detail child row already worked
 this way (objectui#10108), and all of them use the same comparison.
 
+A master-detail edit reads each collection's lines in their stored order:
+ascending by the child's sort field (the one its line grid stamps with each
+line's position), the record id breaking ties (objectui#12286). The grid
+renumbers that field only when a line is added, removed, duplicated or moved; a
+cell edit leaves every line's position as it was read. So editing one line
+sends one update, and moving a line sends only the lines whose position changed.
+
 Before that comparison, every layout strips what a form never writes: the
 server-owned columns (record identity, audit provenance, ownership and tenancy
 — the roster in `sanitize.ts`, plus any field the object marks `system`),

@@ -484,6 +484,13 @@ Remove asks the delete grant on an edit form only: a create form saves the paren
 and one create per line, so a line removed before that first save is a draft,
 never a server delete, and stays removable for a caller who may only create.
 
+An edit `MasterDetailForm` reads each collection's lines in their stored order:
+ascending by the child's sort field (the field its grid stamps with each line's
+position), the record id breaking ties, so lines that share a position, or have
+none, open in the same order every time. Its save sends a line only when one of
+its values differs from that read: editing a cell sends that line alone, and
+moving a line sends only the lines whose position changed.
+
 ## Examples
 
 ### Form with Validation

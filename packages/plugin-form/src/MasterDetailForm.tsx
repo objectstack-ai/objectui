@@ -1396,6 +1396,14 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
       try {
         const res = await dataSource.find(d.childObject, {
           $filter: { [d.relationshipField]: schema.recordId },
+          // objectui#12286 — the lines open in their STORED order: ascending by
+          // the sort field the grid stamps, the record id breaking ties (two
+          // lines on one position, or none on any), so the same lines always
+          // open in the same order. Unsorted, the grid drew the server's order
+          // and its next renumber wrote that order over every line.
+          ...(entry.sortField
+            ? { $orderby: [{ field: entry.sortField, order: 'asc' as const }, { field: 'id', order: 'asc' as const }] }
+            : {}),
           $top: 500,
         });
         rows = (res?.data ?? []) as Record<string, any>[];

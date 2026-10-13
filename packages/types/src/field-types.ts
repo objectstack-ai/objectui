@@ -1258,10 +1258,12 @@ export interface GridFieldMetadata extends BaseFieldMetadata {
   addLabel?: string;
   /**
    * The CHILD field the grid stamps with each row's index (0, 1, 2, …) on
-   * every change, so the order a drag-reorder leaves survives a save and a
-   * reload. It names a field on the row object, not one of {@link columns}:
-   * a column that is also the sort field has its typed value overwritten on
-   * every change. Rows keep the order they were entered in when it is unset.
+   * every change that adds, removes or moves a row, so the order a
+   * drag-reorder leaves survives a save and a reload. A cell edit moves no
+   * row and leaves every row's value of it as it was. It names a field on the
+   * row object, not one of {@link columns}: a column that is also the sort
+   * field has its typed value overwritten by every such change. Rows keep the
+   * order they were entered in when it is unset.
    *
    * Its producer is `deriveDetail` in `@object-ui/plugin-form`, through
    * `MasterDetailForm`: the first of the child object's fields named

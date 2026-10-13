@@ -770,8 +770,13 @@ function GridFieldBody({
   // census having found no producer of either (objectui#11070 round 8).
   const totalField: string | undefined = cfg.totalField;
   // When set, the row's order is persisted by stamping `row[sortField] = index`
-  // on every change — so drag-reorder survives a reload (the app adds a numeric
-  // position field and lists sort by it). Without it, reorder is order-of-entry.
+  // on every change that adds, removes or moves a row — so drag-reorder
+  // survives a reload (the app adds a numeric position field and lists sort by
+  // it). Without it, reorder is order-of-entry. A cell edit moves no row, so it
+  // leaves every row's position as it was read (objectui#12286): renumbering
+  // there wrote a position onto lines the user never touched whenever the
+  // stored positions were not already 0, 1, 2, … in the order drawn (tied,
+  // empty, or gapped).
   // Declared on `GridFieldMetadata`; its producer is `deriveDetail`
   // (`@object-ui/plugin-form`, through `MasterDetailForm`), which picks the
   // child object's `position` / `sort_order` / … field (objectui#11070 round 9).
@@ -782,9 +787,10 @@ function GridFieldBody({
   // (objectui#11070 round 8).
   const allowReorder = cfg.allowReorder !== false && !readonly && !disabled;
 
+  /** Hand the next rows out; `renumber: false` is a cell edit, which moves no row. */
   const emit = useCallback(
-    (next: Row[]) => {
-      onChange?.(sortField ? next.map((r, i) => ({ ...r, [sortField]: i })) : next);
+    (next: Row[], renumber = true) => {
+      onChange?.(sortField && renumber ? next.map((r, i) => ({ ...r, [sortField]: i })) : next);
     },
     [onChange, sortField],
   );
@@ -809,7 +815,7 @@ function GridFieldBody({
         emit([...rows, computeRow(columns, { ...blankRow(), ...patch }, tenantCurrency)]);
         return;
       }
-      emit(rows.map((r, i) => (i === rowIdx ? computeRow(columns, { ...r, ...patch }, tenantCurrency) : r)));
+      emit(rows.map((r, i) => (i === rowIdx ? computeRow(columns, { ...r, ...patch }, tenantCurrency) : r)), false);
     },
     [rows, columns, maxRows, blankRow, emit, tenantCurrency],
   );

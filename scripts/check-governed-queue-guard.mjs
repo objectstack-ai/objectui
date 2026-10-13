@@ -1393,7 +1393,7 @@ export async function selfTest() {
   // workflows, not the `.github/` directory that holds them.
   assert(
     'the-rest-of-.github-is-NOT-governed',
-    governedPathsIn(['.github/dependabot.yml', '.github/ISSUE_TEMPLATE/bug_report.md', '.github/labeler.yml', '.github/prompts/component.prompt.md']).length === 0,
+    governedPathsIn(['.github/dependabot.yml', '.github/ISSUE_TEMPLATE/config.yml', '.github/labeler.yml', '.github/prompts/component.prompt.md']).length === 0,
   );
   assert('a-near-miss-workflows-path-is-not-governed', governedPathsIn(['.github/workflow/ci.yml', '.github/workflows.md']).length === 0);
   assert('ordinary-source-is-not-governed', governedPathsIn(['packages/core/src/index.ts', 'content/docs/guide/x.md', 'package.json']).length === 0);

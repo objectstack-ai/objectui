@@ -188,14 +188,10 @@ describe('the governed surface is the ruled definition, and it is real', () => {
   });
 
   it('does not govern the rest of .github/ — the ruling named the workflows, not their directory', () => {
-    expect(
-      governedPathsIn([
-        '.github/dependabot.yml',
-        '.github/ISSUE_TEMPLATE/bug_report.md',
-        '.github/labeler.yml',
-        '.github/prompts/component.prompt.md',
-      ]),
-    ).toEqual([]);
+    // YAML paths only: a markdown literal here would read, to
+    // `markdown-test-inputs.mjs`, as a document this test consumes. The self-test
+    // carries the `.github/prompts/**` negative.
+    expect(governedPathsIn(['.github/dependabot.yml', '.github/ISSUE_TEMPLATE/config.yml', '.github/labeler.yml'])).toEqual([]);
   });
 
   it('the two root rows are EXACT — a vendored copy is ordinary source', () => {

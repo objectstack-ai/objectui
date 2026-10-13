@@ -23,6 +23,7 @@ import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
 const PKG = 'com.acme.app';
@@ -162,18 +163,46 @@ async function inspectStartNode(): Promise<HTMLElement> {
   return within(rail).findByLabelText('Label', undefined, { timeout: 8000 });
 }
 
+const READ_ONLY_REASON = 'Read-only package — switch to or create a writable package to edit.';
+
+/** The element an `aria-describedby` names, or `null`. */
+const describedBy = (el: HTMLElement) => {
+  const id = el.getAttribute('aria-describedby');
+  return id ? document.getElementById(id) : null;
+};
+
 describe('Automations pillar on a read-only package (objectui#11124)', () => {
   it('disables the header "Enabled" switch, and a click on it saves nothing', async () => {
     renderPillar(true);
     const toggle = await openFlow();
 
     expect(toggle).toBeDisabled();
-    expect(toggle).toHaveAttribute('title', 'Read-only package — switch to or create a writable package to edit.');
+    // objectui#12303 — the reason moved from a `title` the disabled switch could
+    // never show into the record page's Archive pattern: the switch is
+    // described by it, and its wrapper is a tab stop described by it too.
+    expect(toggle).not.toHaveAttribute('title');
+    expect(describedBy(toggle)).toHaveTextContent(READ_ONLY_REASON);
+    const wrapper = toggle.parentElement as HTMLElement;
+    expect(wrapper).toHaveAttribute('data-disabled-reason');
+    expect(describedBy(wrapper)).toHaveTextContent(READ_ONLY_REASON);
     fireEvent.click(toggle);
     await new Promise((r) => setTimeout(r, 50));
     expect(server.saves).toHaveLength(0);
     expect(toggle).toHaveAttribute('aria-checked', 'true');
     expect(canvasStatus()).toBe(STATUS_ON);
+  });
+
+  it('a keyboard user reaches the switch’s reason: Tab lands on its wrapper, which opens the tooltip (objectui#12303)', async () => {
+    const user = userEvent.setup();
+    renderPillar(true);
+    const toggle = await openFlow();
+    const wrapper = toggle.parentElement as HTMLElement;
+
+    // The control before it in the bar, then one Tab.
+    screen.getByRole('button', { name: 'Toggle sidebar' }).focus();
+    await user.tab();
+    expect(wrapper).toHaveFocus();
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(READ_ONLY_REASON);
   });
 
   it('opens the flow inspector read-only: the node inputs are disabled', async () => {
@@ -199,6 +228,9 @@ describe('Automations pillar on a writable package — the control (objectui#111
     renderPillar(false);
     const toggle = await openFlow();
     expect(toggle).toBeEnabled();
+    // objectui#12303 — no read-only reason, and no wrapper, on a writable package.
+    expect(toggle).not.toHaveAttribute('aria-describedby');
+    expect(toggle.parentElement).not.toHaveAttribute('data-disabled-reason');
     expect(screen.getAllByRole('button', { name: 'Add connected node' }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('button', { name: 'Insert node here' }).length).toBeGreaterThan(0);
 

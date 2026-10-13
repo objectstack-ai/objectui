@@ -51,6 +51,7 @@ import {
   Lock,
   ShieldCheck,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@object-ui/components';
 import { Badge } from '@object-ui/components';
 import {
@@ -1891,6 +1892,11 @@ function MetadataResourceEditPageImpl({
       setDraft(fresh);
       draftSnapshotRef.current = fresh;
       setHasDraft(false);
+      // objectui#12303 — the discard is said, naming what it discarded, through
+      // the console's shared toast (`sonner`, the one Studio's publish uses).
+      // Only here, after the DELETE and the re-read landed: a refused discard
+      // goes to the `catch` below and keeps showing its error instead.
+      toast.success(tFormat('engine.edit.draftDiscarded', locale, { type, name: name ?? '' }));
     } catch (err: any) {
       setError(err?.message ?? String(err));
     } finally {

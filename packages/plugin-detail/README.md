@@ -58,6 +58,31 @@ and the object it was about to read, instead of an empty shell.
 Note the record id is `resourceId` here. `object-form`'s is `recordId`; the two
 blocks do not share that key.
 
+### Record blocks without a record page (`dataSource`)
+
+`record:details`, `record:highlights` and `record:quick_actions` show the record
+their record context carries: on a `type: 'record'` page, the page's record. On
+any other page, the spec's per-element `dataSource` binding supplies it — the
+block reads the FIRST row of the bound set by the binding's `sort`, under the
+caller's own identity:
+
+```json
+{
+  "type": "record:highlights",
+  "properties": { "fields": ["name", "environment_type"] },
+  "dataSource": { "object": "sys_environment", "sort": [{ "field": "created_at", "order": "desc" }], "limit": 1 }
+}
+```
+
+No row draws the block's no-record state, and `record:quick_actions` runs the
+object's declared actions against the bound row's id. The binding resolves as on
+every bound block (a named `view`, an AND-combined `filter`, its `sort`), and the
+row is re-read when a write to its object is announced. Declare `limit: 1`:
+`objectui validate` warns on a record block whose binding does not. See
+**Per-element data binding on a page** in the data-source guide
+(`content/docs/guide/data-source.md`). `record:related_list`'s `dataSource` is
+different: it binds the rows the list shows.
+
 ### Basic Example
 
 ```tsx

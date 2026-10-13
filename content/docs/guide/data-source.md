@@ -272,6 +272,9 @@ ignores would be accepted and dropped, which is the defect this binding removes.
 | `embeddable-form` | ✅ | error-checked only | — no collection query | — | — |
 | `object-master-detail-form` | ✅ | error-checked only | — no collection query | — | — |
 | `record:line_items` | ✅ (`childObject`) | filter / sort / limit | ✅ (AND parent scope) | ✅ | ✅ (`limit`) |
+| `record:details` | ✅ (its record) | filter / sort | ✅ | ✅ (picks the first row) | — one row is read |
+| `record:highlights` | ✅ (its record) | filter / sort | ✅ | ✅ (picks the first row) | — one row is read |
+| `record:quick_actions` | ✅ (its record) | filter / sort | ✅ | ✅ (picks the first row) | — one row is read |
 
 Reading the `view` column: it lists what a named saved view actually contributes
 on that block. A view name that does not resolve is reported as a configuration
@@ -286,6 +289,36 @@ object, so rebinding `object` without updating it is an authoring error the pane
 cannot paper over. A `record:line_items` node bound this way needs no `childObject`
 of its own, and the page compile accepts it; a node that names its child object in
 neither place shows a configuration hint naming `childObject` and loads nothing.
+
+The three one-record blocks — `record:details`, `record:highlights` and
+`record:quick_actions` — have no object key to land the binding on: they show
+the record their record context carries. Bound, a block reads the FIRST row of
+the bound set by the binding's `sort`, under the caller's own identity, and that
+row becomes its record, so a product page shows a record without being a
+`type: 'record'` page:
+
+```json
+{
+  "type": "record:details",
+  "properties": { "fields": ["name", "environment_type"] },
+  "dataSource": {
+    "object": "sys_environment",
+    "filter": [{ "field": "environment_type", "operator": "equals", "value": "production" }],
+    "limit": 1
+  }
+}
+```
+
+When no row matches — or the server refuses the read — the block draws what it
+draws for a record that is not there: `record:details` its "record not found"
+state, `record:highlights` nothing, `record:quick_actions` an empty bar. A read
+that fails any other way is reported in the block's place. `record:quick_actions`
+runs the object's declared actions against the bound row's id. The bound row is
+re-read whenever a write to its object is announced on the page (the data
+source's mutation events, or `notifyDataChanged`). `objectui validate` warns on a
+record block whose binding has no `limit: 1`, so the binding says which record it
+means. On a record page, a block with no `dataSource` still shows the page's
+record; a bound one shows its bound record instead, read-only.
 
 Because the binding lands on `objectName`, a node bound this way needs no
 `objectName` of its own. The schema validator (`StrictAnyComponentSchema`, which

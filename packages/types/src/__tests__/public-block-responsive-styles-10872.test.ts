@@ -141,6 +141,10 @@ const DECLARES_DATA_SOURCE: ReadonlySet<string> = new Set([
   'record:details',
   'record:highlights',
   'record:quick_actions',
+  // objectui#12302: `record:related_list`'s gate-wrapped renderer reads the
+  // binding as its CHILD rows (objectstack#6953), so its arm declares it at
+  // node level, beside its bag.
+  'record:related_list',
 ]);
 
 /**

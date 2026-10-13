@@ -1432,7 +1432,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
    *
    * `@objectstack/spec`'s `CalendarConfigSchema` is a `strictObject` whose ONE
    * required key is `startDateField`; `titleField` is optional. Re-measured on
-   * the installed 17.7.0, three legs: `{}` and `{ titleField: 't' }` both fail
+   * the installed 18.0.0-next.0 (objectui#12030), three legs: `{}` and `{ titleField: 't' }` both fail
    * `invalid_type` at `startDateField`, and `{ startDateField: 'd' }` parses
    * CLEAN. The spec's own note on that schema names THIS renderer as the
    * reason — `resolveTitle` above takes an explicit `titleField` when present

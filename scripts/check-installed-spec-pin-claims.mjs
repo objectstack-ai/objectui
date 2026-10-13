@@ -487,6 +487,14 @@ export const LEDGER = [
     why: "The `object-master-detail-form.details` pins prose: \"Since `@objectstack/spec` 17.6.0 (objectstack-ai/objectstack#21215) the spec row is an array of CLOSED entries\", the release the closed entry landed in, and \"a fork through 17.6.0, closed by `@objectstack/spec` 17.7.0\", the release that still declared `sortField`. `pinned` on that line is the verb in \"the pinned file\". Neither restamps (objectui#11717).",
   },
   {
+    file: "apps/console/src/__tests__/registry-inputs-spec-parity.test.ts",
+    package: "@objectstack/spec",
+    version: "17.7.0",
+    sites: 1,
+    class: "historical",
+    why: "The `object-master-detail-form.details` pins prose: \"a fork through 17.6.0, closed by `@objectstack/spec` 17.7.0, whose entry refuses an authored `sortField`\" names the release that CLOSED the fork (objectui#11717), not the install. The two `conditionalFormatting` lines that named 17.7.0 as the installed row were re-measured and restamped by objectui#12030.",
+  },
+  {
     file: "apps/console/src/components/FormPage.tsx",
     package: "@objectstack/spec",
     version: "17.0.0",

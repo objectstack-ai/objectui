@@ -79,9 +79,9 @@
  *
  * WARNING: `declaredMembers()` cannot derive that key's retirement. When this
  * was written the spec in the lockfile (17.4.0) still DECLARED `view` as a live
- * member. The installed `@objectstack/spec` 17.7.0 lands it as a tombstone,
- * as 17.5.0 and 17.6.0 did (objectui#11073 measured it, objectui#11438 and
- * objectui#11717 again: a `never`
+ * member. The installed `@objectstack/spec` 18.0.0-next.0 lands it as a tombstone,
+ * as 17.5.0 through 17.7.0 did (objectui#11073 measured it, objectui#11438,
+ * objectui#11717 and objectui#12030 again: a `never`
  * schema, and `{ view: 'detail' }` is
  * refused at `view` with "`view.list.navigation.view` was removed in
  * @objectstack/spec 17.5.0") -- but a tombstone is still a KEY of the shape,

@@ -72,11 +72,20 @@ import { normalizeListViewSchema } from '../normalize-list-view.js';
  */
 const REQUIRED_FLOOR = '17.3.0';
 
-/** `[major, minor, patch]` of a plain `X.Y.Z`, or `null`. */
+/**
+ * `[major, minor, patch]` of a plain `X.Y.Z`, or of a prerelease `X.Y.Z-tag`
+ * (objectui#12030 moved the range to `^18.0.0-next.0`), or `null`. A prerelease
+ * orders below its own `X.Y.Z` and above every lower release, so reading its
+ * core triple is exact whenever the triples differ. The comparator below calls
+ * an EQUAL triple satisfied, which a prerelease of the required floor would
+ * not be — so a prerelease triple equal to the floor is refused there.
+ */
 const parseVersion = (v: string): [number, number, number] | null => {
-  const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(v.trim());
+  const m = /^(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?$/.exec(v.trim());
   return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
 };
+
+const isPrerelease = (v: string): boolean => /^\d+\.\d+\.\d+-/.test(v.trim());
 
 /** The minimum version a `^X.Y.Z` range admits. */
 const floorOf = (range: string): string => range.trim().replace(/^[\^~>=\s]+/, '');
@@ -89,7 +98,7 @@ const admitsOnlyAtOrAbove = (range: string, required: string): boolean => {
   for (let i = 0; i < 3; i += 1) {
     if (low[i] !== need[i]) return low[i] > need[i];
   }
-  return true;
+  return !isPrerelease(floorOf(range));
 };
 
 const manifest = JSON.parse(
@@ -137,6 +146,12 @@ describe('the DECLARED spec floor admits only specs that accept the fold (object
       // ... and accepts the floor that measured clean, and later ones.
       expect(admitsOnlyAtOrAbove('^17.3.0', REQUIRED_FLOOR)).toBe(true);
       expect(admitsOnlyAtOrAbove('^17.4.0', REQUIRED_FLOOR)).toBe(true);
+
+      // A prerelease floor reads by its core triple: above the floor when the
+      // triple is, and refused when it is the floor's own prerelease.
+      expect(admitsOnlyAtOrAbove('^18.0.0-next.0', REQUIRED_FLOOR)).toBe(true);
+      expect(admitsOnlyAtOrAbove('^17.3.0-next.0', REQUIRED_FLOOR)).toBe(false);
+      expect(admitsOnlyAtOrAbove('^17.2.0-next.0', REQUIRED_FLOOR)).toBe(false);
 
       // A range it cannot reason about must not read as satisfied.
       expect(admitsOnlyAtOrAbove('*', REQUIRED_FLOOR)).toBe(false);

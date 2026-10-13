@@ -3546,6 +3546,18 @@ const de = {
       openApp: "{{name}} öffnen",
       deployTimeout: "Die Installation wurde erfasst, aber diese Umgebung stellt die App noch nicht bereit. Die Bereitstellung läuft möglicherweise noch – prüfen Sie es gleich erneut. Erscheint sie nie, wurde das Paket womöglich nicht geladen, enthält keine App, oder die App erfordert eine Berechtigung, die Ihnen fehlt.",
       checkAgain: "Erneut prüfen",
+      // ADR-0131 D6 — the install modes a package's manifest permits, and
+      // what an unmanaged install answers (MarketplacePackagePage).
+      mode: {
+        label: "Installationsmodus",
+        managed: "Verwaltet",
+        managedHint: "Das Paket bleibt maßgeblich: Es wird als Code registriert, erhält seine Upgrades, und seine Elemente werden hier nicht bearbeitet.",
+        unmanaged: "Nicht verwaltete Kopie",
+        unmanagedHint: "Einmalig als eigene Metadaten in dieses Laufzeitsystem kopiert: Jedes Element ist hier bearbeitbar, und die Kopie erhält kein Upgrade.",
+      },
+      unmanagedSuccess: "v{{version}} von „{{name}}“ als eigene Metadaten in dieses Laufzeitsystem kopiert, in die Basis {{base}}. Die Kopie ist bearbeitbar und erhält kein Upgrade.",
+      unmanagedStrippedLocks: "Das Paket hat diese Elemente gesperrt. Die Kopie ist bearbeitbar, daher wurden ihre Sperren nicht kopiert:",
+      unmanagedIgnored: "Dieses Laufzeitsystem unterstützt keine nicht verwalteten Installationen, daher wurde „{{name}}“ verwaltet installiert (als Code registriert) statt kopiert. Aktualisieren Sie das Laufzeitsystem, deinstallieren Sie dann das Paket und installieren Sie es erneut als nicht verwaltete Kopie.",
     },
     // objectui#12146 — the install dialog opened as an UPDATE of the copy
     // this environment holds (MarketplacePackagePage).

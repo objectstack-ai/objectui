@@ -3613,6 +3613,18 @@ const es = {
       openApp: "Abrir {{name}}",
       deployTimeout: "La instalación se registró, pero este entorno aún no ofrece la aplicación. Puede que siga desplegándose; vuelve a comprobarlo en breve. Si nunca aparece, es posible que el paquete no se haya cargado, que no incluya ninguna aplicación o que su aplicación requiera un permiso que no tienes.",
       checkAgain: "Comprobar de nuevo",
+      // ADR-0131 D6 — the install modes a package's manifest permits, and
+      // what an unmanaged install answers (MarketplacePackagePage).
+      mode: {
+        label: "Modo de instalación",
+        managed: "Administrado",
+        managedHint: "El paquete sigue siendo la autoridad: se registra como código, recibe sus actualizaciones y sus elementos no se editan aquí.",
+        unmanaged: "Copia no administrada",
+        unmanagedHint: "Se copia una sola vez en este runtime como sus propios metadatos: cada elemento se puede editar aquí y la copia no recibe actualizaciones.",
+      },
+      unmanagedSuccess: "v{{version}} de \"{{name}}\" copiado en este runtime como sus propios metadatos, en la base {{base}}. La copia se puede editar y no recibe actualizaciones.",
+      unmanagedStrippedLocks: "El paquete bloqueaba estos elementos. La copia se puede editar, así que sus bloqueos no se copiaron:",
+      unmanagedIgnored: "Este runtime no admite instalaciones no administradas, así que \"{{name}}\" se instaló como administrado (registrado como código) en lugar de copiarse. Actualiza el runtime, luego desinstala el paquete y vuelve a instalarlo como copia no administrada.",
     },
     // objectui#12146 — the install dialog opened as an UPDATE of the copy
     // this environment holds (MarketplacePackagePage).

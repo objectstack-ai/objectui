@@ -3608,6 +3608,18 @@ const pt = {
       openApp: "Abrir {{name}}",
       deployTimeout: "A instalação foi registrada, mas este ambiente ainda não está servindo o aplicativo. Ele pode ainda estar sendo implantado — verifique novamente em instantes. Se nunca aparecer, o pacote pode não ter sido carregado, pode não incluir nenhum aplicativo ou o aplicativo pode exigir uma permissão que você não tem.",
       checkAgain: "Verificar novamente",
+      // ADR-0131 D6 — the install modes a package's manifest permits, and
+      // what an unmanaged install answers (MarketplacePackagePage).
+      mode: {
+        label: "Modo de instalação",
+        managed: "Gerenciado",
+        managedHint: "O pacote continua sendo a autoridade: é registrado como código, recebe suas atualizações e seus itens não são editados aqui.",
+        unmanaged: "Cópia não gerenciada",
+        unmanagedHint: "Copiado uma única vez para este runtime como seus próprios metadados: cada item pode ser editado aqui, e a cópia não recebe atualizações.",
+      },
+      unmanagedSuccess: "v{{version}} de \"{{name}}\" copiado para este runtime como seus próprios metadados, na base {{base}}. A cópia pode ser editada e não recebe atualizações.",
+      unmanagedStrippedLocks: "O pacote bloqueava estes itens. A cópia pode ser editada, então seus bloqueios não foram copiados:",
+      unmanagedIgnored: "Este runtime não oferece suporte a instalações não gerenciadas, então \"{{name}}\" foi instalado como gerenciado (registrado como código) em vez de copiado. Atualize o runtime, depois desinstale o pacote e instale-o novamente como cópia não gerenciada.",
     },
     // objectui#12146 — the install dialog opened as an UPDATE of the copy
     // this environment holds (MarketplacePackagePage).

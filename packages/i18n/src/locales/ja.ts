@@ -3548,6 +3548,18 @@ const ja = {
       openApp: "{{name}} を開く",
       deployTimeout: "インストールは記録されましたが、この環境ではまだアプリが提供されていません。デプロイ中の可能性があります。しばらくしてから再確認してください。表示されない場合は、パッケージが読み込まれていない、アプリが含まれていない、またはアプリにあなたが持っていない権限が必要な可能性があります。",
       checkAgain: "再確認",
+      // ADR-0131 D6 — the install modes a package's manifest permits, and
+      // what an unmanaged install answers (MarketplacePackagePage).
+      mode: {
+        label: "インストール方式",
+        managed: "マネージド",
+        managedHint: "パッケージが管理元のままです。コードとして登録され、アップグレードを受け取り、その項目はここでは編集しません。",
+        unmanaged: "アンマネージドコピー",
+        unmanagedHint: "このランタイム自身のメタデータとして一度だけコピーされます。すべての項目をここで編集でき、コピーはアップグレードを受け取りません。",
+      },
+      unmanagedSuccess: "「{{name}}」の v{{version}} を、このランタイム自身のメタデータとしてベース {{base}} にコピーしました。コピーは編集でき、アップグレードは受け取りません。",
+      unmanagedStrippedLocks: "パッケージはこれらの項目をロックしていました。コピーは編集可能なため、ロックはコピーされていません：",
+      unmanagedIgnored: "このランタイムはアンマネージドインストールに対応していないため、「{{name}}」はコピーではなくマネージド（コードとして登録）でインストールされました。ランタイムをアップグレードしてから、パッケージをアンインストールし、アンマネージドコピーとして再度インストールしてください。",
     },
     // objectui#12146 — the install dialog opened as an UPDATE of the copy
     // this environment holds (MarketplacePackagePage).

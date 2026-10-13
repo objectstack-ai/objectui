@@ -3610,6 +3610,18 @@ const fr = {
       openApp: "Ouvrir {{name}}",
       deployTimeout: "L'installation a été enregistrée, mais cet environnement ne sert pas encore l'application. Le déploiement est peut-être encore en cours : vérifiez à nouveau dans un instant. Si elle n'apparaît jamais, le paquet n'a peut-être pas été chargé, ne contient aucune application, ou son application exige une autorisation que vous n'avez pas.",
       checkAgain: "Vérifier à nouveau",
+      // ADR-0131 D6 — the install modes a package's manifest permits, and
+      // what an unmanaged install answers (MarketplacePackagePage).
+      mode: {
+        label: "Mode d'installation",
+        managed: "Géré",
+        managedHint: "Le paquet reste l'autorité : il est enregistré comme code, reçoit ses mises à niveau, et ses éléments ne sont pas modifiés ici.",
+        unmanaged: "Copie non gérée",
+        unmanagedHint: "Copié une seule fois dans ce runtime comme ses propres métadonnées : chaque élément est modifiable ici, et la copie ne reçoit aucune mise à niveau.",
+      },
+      unmanagedSuccess: "v{{version}} de \"{{name}}\" copié dans ce runtime comme ses propres métadonnées, dans la base {{base}}. La copie est modifiable et ne reçoit aucune mise à niveau.",
+      unmanagedStrippedLocks: "Le paquet verrouillait ces éléments. La copie est modifiable, leurs verrous n'ont donc pas été copiés :",
+      unmanagedIgnored: "Ce runtime ne prend pas en charge les installations non gérées : \"{{name}}\" a donc été installé en mode géré (enregistré comme code) au lieu d'être copié. Mettez à niveau le runtime, puis désinstallez le paquet et réinstallez-le comme copie non gérée.",
     },
     // objectui#12146 — the install dialog opened as an UPDATE of the copy
     // this environment holds (MarketplacePackagePage).

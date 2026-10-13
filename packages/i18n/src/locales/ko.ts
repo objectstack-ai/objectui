@@ -3545,6 +3545,18 @@ const ko = {
       openApp: "{{name}} 열기",
       deployTimeout: "설치는 기록되었지만 이 환경에서 아직 앱을 제공하지 않습니다. 아직 배포 중일 수 있으니 잠시 후 다시 확인하세요. 계속 나타나지 않으면 패키지가 로드되지 않았거나, 앱이 포함되어 있지 않거나, 앱에 사용자에게 없는 권한이 필요할 수 있습니다.",
       checkAgain: "다시 확인",
+      // ADR-0131 D6 — the install modes a package's manifest permits, and
+      // what an unmanaged install answers (MarketplacePackagePage).
+      mode: {
+        label: "설치 방식",
+        managed: "관리형",
+        managedHint: "패키지가 계속 원본으로 남습니다. 코드로 등록되고 업그레이드를 받으며, 항목은 여기에서 편집하지 않습니다.",
+        unmanaged: "비관리형 사본",
+        unmanagedHint: "이 런타임의 자체 메타데이터로 한 번 복사됩니다. 모든 항목을 여기에서 편집할 수 있으며, 사본은 업그레이드를 받지 않습니다.",
+      },
+      unmanagedSuccess: "\"{{name}}\" v{{version}}을(를) 이 런타임의 자체 메타데이터로 베이스 {{base}}에 복사했습니다. 사본은 편집할 수 있으며 업그레이드를 받지 않습니다.",
+      unmanagedStrippedLocks: "패키지가 이 항목들을 잠갔습니다. 사본은 편집할 수 있으므로 잠금은 복사되지 않았습니다:",
+      unmanagedIgnored: "이 런타임은 비관리형 설치를 지원하지 않으므로 \"{{name}}\"이(가) 복사되지 않고 관리형(코드로 등록)으로 설치되었습니다. 런타임을 업그레이드한 다음 패키지를 제거하고 비관리형 사본으로 다시 설치하세요.",
     },
     // objectui#12146 — the install dialog opened as an UPDATE of the copy
     // this environment holds (MarketplacePackagePage).

@@ -84,7 +84,6 @@ const saveRowOf = (container: HTMLElement, name: string) =>
 
 /** What a Save All pressed now hands over: the edits still pending, row by row. */
 async function pendingAsSent(
-  container: HTMLElement,
   onBatchSave: ReturnType<typeof vi.fn>,
   getByText: (text: RegExp) => HTMLElement,
 ) {
@@ -116,7 +115,7 @@ describe('data-table — a save removes only what it sent (objectui#12322)', () 
 
     expect(getByText(/1 row modified/)).toBeInTheDocument();
     expect(cellOf(container, 'Bravo', 'qty')).toHaveTextContent('21');
-    expect(await pendingAsSent(container, onBatchSave, getByText)).toEqual([['b', { qty: '21' }]]);
+    expect(await pendingAsSent(onBatchSave, getByText)).toEqual([['b', { qty: '21' }]]);
   });
 
   it('Save All held open: an edit staged on another row stays pending and drawn when it settles', async () => {
@@ -139,7 +138,7 @@ describe('data-table — a save removes only what it sent (objectui#12322)', () 
     expect(getByText(/1 row modified/)).toBeInTheDocument();
     expect(cellOf(container, 'Bravo', 'qty')).toHaveTextContent('21');
     onBatchSave.mockImplementation(async () => undefined);
-    expect(await pendingAsSent(container, onBatchSave, getByText)).toEqual([['b', { qty: '21' }]]);
+    expect(await pendingAsSent(onBatchSave, getByText)).toEqual([['b', { qty: '21' }]]);
   });
 
   it.each([
@@ -163,7 +162,7 @@ describe('data-table — a save removes only what it sent (objectui#12322)', () 
     expect(getByText(/1 row modified/)).toBeInTheDocument();
     expect(cellOf(container, 'Alpha', 'qty')).toHaveTextContent('12');
     onBatchSave.mockImplementation(async () => undefined);
-    expect(await pendingAsSent(container, onBatchSave, getByText)).toEqual([['a', { qty: '12' }]]);
+    expect(await pendingAsSent(onBatchSave, getByText)).toEqual([['a', { qty: '12' }]]);
   });
 
   it('a cell re-edited back to its loaded value during its save stays pending, since the save writes the old edit', async () => {
@@ -185,7 +184,7 @@ describe('data-table — a save removes only what it sent (objectui#12322)', () 
     });
 
     expect(getByText(/1 row modified/)).toBeInTheDocument();
-    expect(await pendingAsSent(container, onBatchSave, getByText)).toEqual([['a', { qty: '10' }]]);
+    expect(await pendingAsSent(onBatchSave, getByText)).toEqual([['a', { qty: '10' }]]);
   });
 
   it('another cell of the row being saved, staged during its save, stays pending on its own', async () => {
@@ -205,7 +204,7 @@ describe('data-table — a save removes only what it sent (objectui#12322)', () 
 
     expect(getByText(/1 row modified/)).toBeInTheDocument();
     expect(cellOf(container, 'Alpha', 'note')).toHaveTextContent('reviewed');
-    expect(await pendingAsSent(container, onBatchSave, getByText)).toEqual([['a', { note: 'reviewed' }]]);
+    expect(await pendingAsSent(onBatchSave, getByText)).toEqual([['a', { note: 'reviewed' }]]);
   });
 
   it('Save All with a per-row { failed }: the failed row stays flagged, a row staged during the save stays unflagged', async () => {
@@ -236,8 +235,8 @@ describe('data-table — a save removes only what it sent (objectui#12322)', () 
     expect(rowOf(container, 'Charlie').className).not.toContain('bg-destructive/10');
     expect(rowOf(container, 'Alpha').className).not.toContain('bg-destructive/10');
 
-    onBatchSave.mockImplementation(async () => undefined);
-    expect(await pendingAsSent(container, onBatchSave, getByText)).toEqual([
+    onBatchSave.mockImplementation(async () => ({ failed: [] }));
+    expect(await pendingAsSent(onBatchSave, getByText)).toEqual([
       ['b', { qty: '21' }],
       ['c', { qty: '31' }],
     ]);

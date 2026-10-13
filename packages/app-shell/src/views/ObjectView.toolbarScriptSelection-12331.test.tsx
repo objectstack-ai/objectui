@@ -29,6 +29,11 @@
  * success toast — the action's own copy, filled from the answer's
  * `${result.*}`, or the runner's generic line when it declares none.
  *
+ * The last block replays HotCRM's own declaration: a `list_item` placement and
+ * a FIELD-BACKED param, so the dialog draws a record picker and the toast
+ * comes after a picker was used. It refuses and reports exactly as the plain
+ * fixture does.
+ *
  * "Record-scoped" is a declaration, not a guess: an action is single-record
  * when its `locations` include a record placement (`isRecordScopedAction`). An
  * action declared at `list_toolbar` alone is object-level, so zero rows
@@ -41,6 +46,11 @@ import { render, cleanup, screen, fireEvent, waitFor, act, within } from '@testi
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { toast } from 'sonner';
 import { createI18n, I18nProvider } from '@object-ui/i18n';
+import { SchemaRendererProvider } from '@object-ui/react';
+// Module scope, per AGENTS.md's test-discipline rule: the dialog reaches `LookupField` through a
+// `React.lazy` factory inside `@object-ui/fields`; this barrel statically
+// re-exports the widget modules, so no `findBy` budget is spent loading one.
+import '@object-ui/fields';
 
 vi.mock('@object-ui/permissions', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@object-ui/permissions')>();
@@ -261,5 +271,147 @@ describe('objectui#12331 — the refusal follows the `locations` declaration', (
     expect(await screen.findByText('Action completed successfully', undefined, { timeout: 5000 })).toBeInTheDocument();
     expect(actionCalls()).toHaveLength(1);
     expect(postedBody(0)).toEqual({ params: { campaign: 'cmp_webinar' } });
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* HotCRM's own declaration                                                   */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * HotCRM's `CreateCampaignAction` (objectstack-ai/hotcrm, `src/sales/actions/
+ * lead.actions.ts`), with the keys this chain reads. It differs from the
+ * fixture above in the two ways the card's reading could hinge on: the record
+ * placement is `list_item`, and its one param is FIELD-BACKED, so the dialog
+ * draws a record picker (a lookup to `crm_campaign`) instead of a text box.
+ */
+const HOTCRM_CREATE_CAMPAIGN = {
+  name: 'create_campaign',
+  label: 'Add to Campaign',
+  objectName: 'crm_lead',
+  type: 'script',
+  locations: ['list_toolbar', 'list_item'],
+  successMessage: 'Leads added to campaign!',
+  refreshAfter: true,
+  params: [{ field: 'crm_campaign', objectOverride: 'crm_campaign_member', label: 'Campaign', required: true }],
+};
+
+const CAMPAIGNS = [
+  { id: 'cmp_webinar', name: 'Cloud Migration Webinar' },
+  { id: 'cmp_summit', name: 'Partner Summit' },
+];
+
+const HOTCRM_OBJECTS = [
+  {
+    name: 'crm_lead',
+    label: 'Lead',
+    pluralLabel: 'Leads',
+    fields: {
+      id: { type: 'text', label: 'Id' },
+      name: { type: 'text', label: 'Name' },
+    },
+    actions: [HOTCRM_CREATE_CAMPAIGN],
+    listViews: {
+      all: { name: 'all', label: 'All', type: 'grid', columns: ['name'], selection: { type: 'multiple' } },
+    },
+  },
+  {
+    name: 'crm_campaign_member',
+    label: 'Campaign Member',
+    fields: {
+      crm_campaign: { type: 'lookup', label: 'Campaign', reference: 'crm_campaign', required: true },
+      crm_lead: { type: 'lookup', label: 'Lead', reference: 'crm_lead' },
+    },
+  },
+  {
+    name: 'crm_campaign',
+    label: 'Campaign',
+    pluralLabel: 'Campaigns',
+    fields: {
+      id: { type: 'text', label: 'Id' },
+      name: { type: 'text', label: 'Name' },
+    },
+  },
+];
+
+/**
+ * The page as the console mounts it: `ConsoleShell` puts a
+ * `SchemaRendererProvider` carrying the data adapter above every route, and
+ * that is where the dialog's record picker finds the source it queries.
+ */
+function mountHotcrmLeads() {
+  const i18n = createI18n({ defaultLanguage: 'en', detectBrowserLanguage: false });
+  const rowsOf = (name: string) => (name === 'crm_campaign' ? CAMPAIGNS : name === 'crm_lead' ? LEADS : []);
+  const dataSource = {
+    find: vi.fn(async (name: string) => ({ data: rowsOf(name), total: rowsOf(name).length })),
+    findOne: vi.fn(async (name: string, id: string) => rowsOf(name).find((r) => r.id === id) ?? null),
+    getObjectSchema: vi.fn(async (name: string) => HOTCRM_OBJECTS.find((o) => o.name === name) ?? null),
+    create: vi.fn(async () => ({})),
+    update: vi.fn(async () => ({})),
+    delete: vi.fn(async () => ({})),
+  };
+  render(
+    <I18nProvider instance={i18n}>
+      <ConsoleToaster />
+      <SchemaRendererProvider dataSource={dataSource as never}>
+        <ExpressionProvider user={{ id: 'u1', name: 'Sales Manager' }}>
+          <MemoryRouter initialEntries={['/apps/crm/crm_lead/view/all']}>
+            <Routes>
+              <Route
+                path="/apps/:appName/:objectName/view/:viewId"
+                element={<ObjectView dataSource={dataSource as never} objects={HOTCRM_OBJECTS} onEdit={() => {}} />}
+              />
+            </Routes>
+          </MemoryRouter>
+        </ExpressionProvider>
+      </SchemaRendererProvider>
+    </I18nProvider>,
+  );
+  return dataSource;
+}
+
+/**
+ * Click the HEADER toolbar's "Add to Campaign", pick "Cloud Migration Webinar"
+ * in the record picker, Confirm — the card's steps. `list_item` also draws the
+ * action on every row, so the header's toolbar is the first one on the page.
+ */
+async function launchHotcrmFromHeader(): Promise<void> {
+  const toolbars = await screen.findAllByRole('toolbar', undefined, { timeout: 5000 });
+  fireEvent.click(await within(toolbars[0]).findByRole('button', { name: /Add to Campaign/ }, { timeout: 5000 }));
+  const dialog = await screen.findByRole('dialog', undefined, { timeout: 5000 });
+  fireEvent.click(await within(dialog).findByTestId('lookup-trigger-crm_campaign', undefined, { timeout: 5000 }));
+  await act(async () => {
+    fireEvent.click(await screen.findByRole('option', { name: /Cloud Migration Webinar/ }, { timeout: 5000 }));
+  });
+  await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' })); });
+}
+
+describe('objectui#12331 — HotCRM\'s declaration: list_item placement, a field-backed record-picker param', () => {
+  it('0 rows: the refusal shows, and no request is sent', async () => {
+    mountHotcrmLeads();
+    await tickRows(0);
+    await launchHotcrmFromHeader();
+
+    expect(await screen.findByText(ZERO_ROW_REFUSAL, undefined, { timeout: 5000 })).toBeInTheDocument();
+    expect(actionCalls()).toHaveLength(0);
+  });
+
+  it('2 rows: the refusal shows, and no request is sent', async () => {
+    mountHotcrmLeads();
+    await tickRows(2);
+    await launchHotcrmFromHeader();
+
+    expect(await screen.findByText(MULTI_ROW_REFUSAL, undefined, { timeout: 5000 })).toBeInTheDocument();
+    expect(actionCalls()).toHaveLength(0);
+  });
+
+  it('1 row: exactly one request carries the row and the picked campaign, and the declared successMessage shows', async () => {
+    mountHotcrmLeads();
+    await tickRows(1);
+    await launchHotcrmFromHeader();
+
+    expect(await screen.findByText('Leads added to campaign!', undefined, { timeout: 5000 })).toBeInTheDocument();
+    expect(actionCalls()).toHaveLength(1);
+    expect(postedBody(0)).toEqual({ recordId: 'lead_1', params: { crm_campaign: 'cmp_webinar' } });
   });
 });

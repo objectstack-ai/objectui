@@ -273,8 +273,9 @@ describe('the dashboard-widget inspector shows the dataset text beside the names
       expect(within(pipeline).getByText('sales_pipeline')).toBeInTheDocument();
       expect(within(pipeline).getByText(`${x.pipeline} (sales_pipeline)`)).toBeInTheDocument();
       expect(within(pipeline).getByText(x.description)).toBeInTheDocument();
-      // No description declared: the option reads as it always did.
-      expect(norm(bare.textContent)).toBe('bare_metricsBare metrics (bare_metrics)');
+      // No description declared: no hint. The combo leads with the option's
+      // label and puts the machine name after it (objectui#12303).
+      expect(norm(bare.textContent)).toBe('Bare metrics (bare_metrics) bare_metrics');
     });
 
     it(`${lang}: the measure and dimension options show the label beside the name`, async () => {

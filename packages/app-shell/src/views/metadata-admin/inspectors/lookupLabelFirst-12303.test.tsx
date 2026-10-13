@@ -82,13 +82,11 @@ describe('Display field (InspectorComboField) — label first, api name second (
     expect(option.textContent!.indexOf('Email Verified')).toBeLessThan(option.textContent!.indexOf('email_verified'));
   });
 
-  it('the trigger shows a chosen option the same way: its label, then its api name', () => {
+  it('the trigger shows a chosen option by its label, in the body font even when the caller asks for `mono`', () => {
     const trigger = renderCombo('email_verified');
-    const [primary, secondary] = Array.from(trigger.querySelectorAll('span')).filter((s) => s.children.length === 0);
-    expect(primary).toHaveTextContent(/^Email Verified$/);
-    expect(primary).not.toHaveClass('font-mono');
-    expect(secondary).toHaveTextContent(/^email_verified$/);
-    expect(secondary).toHaveClass('font-mono');
+    const text = trigger.querySelector('span') as HTMLElement;
+    expect(text).toHaveTextContent(/^Email Verified$/);
+    expect(text).not.toHaveClass('font-mono');
   });
 
   it('CONTROL — an option whose label is its value shows the value alone, in monospace, as before', async () => {

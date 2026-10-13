@@ -161,9 +161,15 @@ import { isEntrypoint } from './invoked-as.mjs';
  * `merge_group` leg. Listing it here is still correct and still load-bearing:
  * this list is what `merge-queue-reporting.test.ts` derives the `merge_group`
  * subscription floor from, and a guard whose whole point is the queue build must
- * be inside that floor. It also costs a Dependabot bump nothing — such a diff
- * touches no governed path, so the check reports CLEAR without making a single
- * API call.
+ * be inside that floor. What it costs a Dependabot bump depends on the
+ * ecosystem. An `npm` bump touches no governed path, so the check reports CLEAR
+ * without making a single API call. A `github-actions` bump edits
+ * `.github/workflows/**`, which is governed since objectui#12255: on the pull
+ * request the check is still green (an early warning, one review read), so this
+ * gate still goes green and the workflow still approves and enqueues — but the
+ * approval is `github-actions[bot]`'s, outside the guard's GOVERNED_APPROVERS,
+ * so the `merge_group` leg refuses the bump until an authorized approval is on
+ * record. That wait is the ruling's consequence, not a defect of this gate.
  *
  * The four shards are spelled out individually on purpose. A single `Test`
  * entry, or any pattern match, would be satisfied by whichever shard happened

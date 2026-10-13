@@ -2,8 +2,8 @@
   "number": 12303,
   "kind": "issue",
   "title": "console UX conventions (family card): inline-edit Save All and Studio Discard draft give no feedback, and Studio's read-only Field properties controls are disabled with no reason and no keyboard path to one",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:studio",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p3"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-13T04:31:44Z",
-  "updated_at": "2026-10-13T07:07:41Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-13T09:53:03Z",
+  "closed_at": "2026-10-13T09:51:38Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12303",
   "body": "Filing-gate category ① (product defects, named landing points) and ③ — the maintainer's order in the dispatching session, verbatim: 「测试遇到的问题，可以提交issue」.\n\nQA-source: objectstack-ai/objectstack#23104 · ux-conventions.write-feedback · A0\nQA-source: objectstack-ai/objectstack#23104 · ux-conventions.disabled-control-reason · A0\nQA-source: objectstack-ai/objectstack#23104 · ux-conventions.disabled-control-reason · A1\nQA-source: objectstack-ai/objectstack#23104 · ux-conventions.disabled-control-reason · A2\n\n**Reader who acts:** the objectui `domain:ui` execution seat. A **family card**: one row per location, each independently fixable and checkable; later rows of the same family go here as comments. **Dedupe:** semantic issue search on this repo, closed included, \"inline edit Save All no success feedback toast discard draft no confirmation disabled control no reason tooltip keyboard Studio field properties\" — 31 hits, no open card covers these rows (nearest, all closed: objectui#11807 publish confirmation, objectui#11784 package discard, objectui#11781 read-only inspector wording).\n\n## Environment\n\nobjectstack `36b2889c` with the console built from objectui `1fb1ced36243` (the pin hop of objectstack-ai/objectstack#23104, since landed as `f451a5964`), stock `examples/app-showcase`, admin persona (and a member where noted). Every row reproduced at least twice on fresh loads by the runner; none is a regression of the pin hop (no hop commit touches the files named).\n\n## Rows\n\n| # | Location (objectui `1fb1ced36243`) | Reproduction | Expected |\n|---|---|---|---|\n| 1 | `packages/plugin-grid/src/ObjectGrid.tsx` `defaultBatchSave` / `defaultRowSave` (persist, then `setRefreshKey` only) | Tasks grid view, inline edit on → change a row's Priority → \"Save All (1)\". `PATCH /api/v1/data/showcase_task/ID` 200 and the value lands, but no toast, `role=status` or `role=alert` text appears within 3 s; the dirty bar just disappears (admin ×2, member ×1). Every other write surface measured in the same pass gives feedback (create, bulk delete, Mark Done, invite, import, Studio autosave/publish, settings). | Visible success feedback naming the change. |\n| 2 | `packages/app-shell/src/views/metadata-admin/ResourceEditPage.tsx` `doDiscardDraft` (resets state, no toast) | A scratch-package object with a pending draft → `/_console/apps/setup/metadata/object/OBJECT` → \"Discard draft\" → accept the confirm. `DELETE …?state=draft` 200 \"Draft discarded — object/…\", the banner goes, and nothing says so. | A visible confirmation naming what was discarded. |\n| 3 | `packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx` Field properties rail on a read-only package | `/_console/studio/com.example.showcase/data?surface=object:showcase_task` → Form → select field Priority → the rail's API name / Label / Type / Required / Unique / Description / Default value inputs and the Remove button are disabled with `title` null, no `aria-describedby`, no adjacent note (the only \"Read-only\" text is the header badge and a canvas line). | A reason on hover AND on focus — the Archive pattern (a focusable wrapper carrying `aria-describedby`, \"Not available for this record\") already passes on the record page. |\n| 4 | Studio header Publish and the automation enable toggle on a read-only package | Their reason is a `title` on a disabled `button` with no focusable wrapper: Tab from \"Changes\" skips Publish entirely, so the reason (\"Read-only package — switch to or create a writable package to edit.\") is unreachable by keyboard or assistive tech. | The reason reachable in the tab order. |\n| 5 | Record import wizard, disabled \"Next\" | Upload a CSV with no `project` column: the visible \"Can't continue — required field(s) not mapped: Project (project)…\" text is not associated with the disabled, non-focusable Next (no `aria-describedby`, no `title`). | The reason associated with the control. |\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

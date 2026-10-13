@@ -2495,6 +2495,8 @@ const fr = {
       title: "{{appName}} souhaite accéder à votre compte",
       request: "{{appName}} demande une autorisation{{suffix}}.",
       unknownApp: "une application",
+      unidentified: "Cette application n'a pas pu être identifiée.",
+      clientId: "ID client",
       willAllow: "Cette application pourra :",
       scope: {
         openid: "Confirmer votre identité",
@@ -4156,6 +4158,8 @@ const fr = {
       setDefaultFailed: "Échec de la définition de l'application par défaut : {{reason}}",
       appDeleted: "{{name}} supprimée",
       deleteFailed: "Échec de la suppression de l'application : {{reason}}",
+      nothingToDelete: "Rien à supprimer pour {{name}} : {{reason}}",
+      alreadyAtDefault: "elle est déjà à la valeur par défaut de son package",
       bulkEnabled: "{{n}} applications activées",
       bulkDisabled: "{{n}} applications désactivées",
       bulkFailed: "Échec pour {{n}} : {{details}}",

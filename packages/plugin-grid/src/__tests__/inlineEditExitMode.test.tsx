@@ -211,7 +211,9 @@ describe('ObjectGrid — injected text/number editor exits edit mode', () => {
     });
     fireEvent.click(saveAll);
 
-    await waitFor(() => expect(ds.update).toHaveBeenCalledWith(OBJECT, 'r1', { name: 'Row One SAVED' }));
+    // The fourth argument is the save's write options: this fixture's rows carry
+    // no `updated_at`, so no `ifMatch` is sent (objectui#12292).
+    await waitFor(() => expect(ds.update).toHaveBeenCalledWith(OBJECT, 'r1', { name: 'Row One SAVED' }, undefined));
     expect(ds.store.r1.name).toBe('Row One SAVED');
   });
 });

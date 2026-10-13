@@ -2448,6 +2448,8 @@ const ko = {
       title: "{{appName}}이(가) 계정에 액세스하려고 합니다",
       request: "{{appName}}이(가) 권한을 요청합니다{{suffix}}.",
       unknownApp: "어떤 애플리케이션",
+      unidentified: "이 애플리케이션을 식별할 수 없습니다.",
+      clientId: "클라이언트 ID",
       willAllow: "이 앱은 다음을 할 수 있습니다:",
       scope: {
         openid: "본인 확인",
@@ -4069,6 +4071,8 @@ const ko = {
       setDefaultFailed: "기본 앱 설정 실패: {{reason}}",
       appDeleted: "{{name}}을(를) 삭제했습니다",
       deleteFailed: "앱 삭제 실패: {{reason}}",
+      nothingToDelete: "{{name}}에 삭제할 항목이 없습니다: {{reason}}",
+      alreadyAtDefault: "이미 패키지 기본 상태입니다",
       bulkEnabled: "앱 {{n}}개를 활성화했습니다",
       bulkDisabled: "앱 {{n}}개를 비활성화했습니다",
       bulkFailed: "{{n}}개 실패: {{details}}",

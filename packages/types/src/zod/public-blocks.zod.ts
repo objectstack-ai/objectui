@@ -302,7 +302,8 @@ export function propsBag<T extends z.ZodType>(type: string, row: T, description?
  * when a producer needs them", objectui#10872). `dataSource` is declared per
  * arm where a renderer reads the binding (`element:number`,
  * `record:line_items`, the three one-record blocks `record:details`,
- * `record:highlights` and `record:quick_actions`, and the ObjectQL blocks), not here. ⛔ Not on `BaseSchema`: that widens every arm of
+ * `record:highlights` and `record:quick_actions`, `record:related_list` (its
+ * child rows), and the ObjectQL blocks), not here. ⛔ Not on `BaseSchema`: that widens every arm of
  * `AnyComponentSchema`, a different accept-set change from the arms above,
  * each of which has a measured producer.
  *
@@ -658,7 +659,9 @@ export const PageSidebarBlockSchema = BaseSchema.extend({
  * `element:number` and the ObjectQL blocks declare it. ONE constant for the
  * three arms, because it is one binding with one meaning on all three.
  * `record:related_list` is NOT one of them: its binding is the binding of its
- * CHILD rows, a different meaning (objectstack#6953).
+ * CHILD rows, a different meaning (objectstack#6953), so its arm declares the
+ * same spec schema as a member of its own, with its own description
+ * (objectui#12302).
  */
 const RECORD_BLOCK_DATA_SOURCE = stripImportedDefaults(SpecElementDataSourceSchema)
   .optional()
@@ -724,13 +727,41 @@ const RECORD_RELATED_LIST_NEITHER_CHANNEL = neitherContentChannelGuidance(
   'the records of `objectName` that point back at the current record through `relationshipField`, in `columns`',
 );
 
-/** `record:related_list` — `ComponentPropsMap['record:related_list']`. */
+/**
+ * `record:related_list` — `ComponentPropsMap['record:related_list']`, plus the
+ * node's `dataSource` binding (objectui#12302).
+ *
+ * The registration is gate-wrapped (`RecordRelatedListRenderer` is
+ * `elementDataSourceBlock`-wrapped around `ElementDataSourceGate`), and the
+ * gate maps the binding onto the keys the list reads: `object` onto
+ * `objectName`, its `filter`, `sort` and `limit` onto the list's own, and a
+ * named `view`'s columns onto `columns` (objectstack#6953).
+ * So the arm declares `dataSource` as the spec's `ElementDataSourceSchema`, by
+ * reference, as `record:line_items` does. Left undeclared, the strict face
+ * refused, as an unrecognized key, a binding the renderer honours.
+ *
+ * The binding is the binding of the CHILD rows the list shows. ⛔ It is not the
+ * parent record: the parent is still the record the block sits on, matched
+ * through `relationshipField`. So the member is NOT `RECORD_BLOCK_DATA_SOURCE`,
+ * whose one-record meaning (the first bound row becomes the block's record)
+ * belongs to `record:details`, `record:highlights` and `record:quick_actions`.
+ */
 export const RecordRelatedListBlockSchema = BaseSchema.extend({
   type: z.literal('record:related_list'),
   ...NODE_ENVELOPE,
   // objectui#10872 batch 10: a row member written flat on the node is refused by name, toward `properties.KEY`.
   ...flatPropRefusals('record:related_list', stripImportedDefaults(SpecRecordRelatedListProps)),
   properties: propsBag('record:related_list', stripImportedDefaults(SpecRecordRelatedListProps)),
+  // objectui#12302: the child-row binding this block's renderer reads (see the docblock above).
+  dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+    .optional()
+    .describe(
+      'Per-element data binding — `@objectstack/spec` `ElementDataSourceSchema`, the schema '
+      + '`PageComponentSchema.dataSource` declares, by reference. Binds the CHILD rows the list shows, '
+      + 'not the parent record: `ElementDataSourceGate` lands its `object` on `objectName`, its `filter`, '
+      + '`sort` and `limit` on the list\'s own, and a named `view`\'s columns on `columns`; the parent stays '
+      + 'the record the block sits on, matched through `relationshipField`.',
+    ),
   // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
   // kept a MEMBER (see "The content channels" above).
   body: retirementTombstone(RECORD_RELATED_LIST_NEITHER_CHANNEL),

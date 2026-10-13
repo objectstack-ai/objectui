@@ -118,7 +118,9 @@ describe('ObjectGrid — inline edit persists through save + refresh', () => {
     fireEvent.click(saveAll);
 
     await waitFor(() => expect(ds.update).toHaveBeenCalled());
-    expect(ds.update).toHaveBeenCalledWith(OBJECT, 'r1', { actual_start: '2026-06-29' });
+    // The fourth argument is the save's write options: this fixture's rows carry
+    // no `updated_at`, so no `ifMatch` is sent (objectui#12292).
+    expect(ds.update).toHaveBeenCalledWith(OBJECT, 'r1', { actual_start: '2026-06-29' }, undefined);
     expect(ds.store['r1'].actual_start).toBe('2026-06-29');
   });
 });

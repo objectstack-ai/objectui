@@ -40,17 +40,18 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
-const { saveItem, deleteItem, refresh, toastSuccess, toastError, apps } = vi.hoisted(() => ({
+const { saveItem, deleteItem, refresh, toastSuccess, toastError, toastInfo, apps } = vi.hoisted(() => ({
   saveItem: vi.fn<(type: string, name: string, item: any) => Promise<unknown>>(async () => ({})),
   deleteItem: vi.fn<(type: string, name: string) => Promise<unknown>>(async () => ({})),
   refresh: vi.fn(async () => {}),
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
+  toastInfo: vi.fn(),
   apps: { value: [] as any[] },
 }));
 
 vi.mock('sonner', () => ({
-  toast: { success: toastSuccess, error: toastError },
+  toast: { success: toastSuccess, error: toastError, info: toastInfo },
 }));
 
 vi.mock('@object-ui/app-shell', async (importOriginal) => ({
@@ -247,6 +248,37 @@ describe("the server's refusal is passed through, never translated", () => {
     await waitFor(() => expect(toastError).toHaveBeenCalled());
     expect(toastError.mock.calls[0][0]).toBe(
       '«appManagement.toast.deleteFailed»[reason=«appManagement.toast.unknownError»]',
+    );
+  });
+
+  it('keys the frame of a `reset: false` answer and passes the server sentence through (objectui#12300)', async () => {
+    // A delete with no customization row to remove: nothing was deleted, and
+    // the server says so in its own words. Those words ride the hole verbatim,
+    // exactly like a refusal's; only the frame is the page's.
+    const sentence = 'No customization overlay found for app/ops_app — already at artifact default.';
+    deleteItem.mockResolvedValueOnce({ success: true, reset: false, message: sentence });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByLabelText('«appManagement.deleteAppNamed»[name=Ops]'));
+    await user.click(screen.getByLabelText('«appManagement.confirmDeleteNamed»[name=Ops]'));
+
+    await waitFor(() => expect(toastInfo).toHaveBeenCalled());
+    expect(toastInfo.mock.calls[0][0]).toBe(`«appManagement.toast.nothingToDelete»[name=Ops|reason=${sentence}]`);
+    expect(toastSuccess).not.toHaveBeenCalled();
+  });
+
+  it('localizes what a `reset: false` answer means when the server gave no sentence (objectui#12300)', async () => {
+    deleteItem.mockResolvedValueOnce({ success: true, reset: false });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByLabelText('«appManagement.deleteAppNamed»[name=Ops]'));
+    await user.click(screen.getByLabelText('«appManagement.confirmDeleteNamed»[name=Ops]'));
+
+    await waitFor(() => expect(toastInfo).toHaveBeenCalled());
+    expect(toastInfo.mock.calls[0][0]).toBe(
+      '«appManagement.toast.nothingToDelete»[name=Ops|reason=«appManagement.toast.alreadyAtDefault»]',
     );
   });
 

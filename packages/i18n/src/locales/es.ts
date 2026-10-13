@@ -2498,6 +2498,8 @@ const es = {
       title: "{{appName}} quiere acceder a su cuenta",
       request: "{{appName}} solicita permiso{{suffix}}.",
       unknownApp: "una aplicación",
+      unidentified: "No se pudo identificar esta aplicación.",
+      clientId: "ID de cliente",
       willAllow: "Esta aplicación podrá:",
       scope: {
         openid: "Confirmar su identidad",
@@ -4159,6 +4161,8 @@ const es = {
       setDefaultFailed: "Error al establecer la aplicación predeterminada: {{reason}}",
       appDeleted: "{{name}} eliminada",
       deleteFailed: "Error al eliminar la aplicación: {{reason}}",
+      nothingToDelete: "Nada que eliminar para {{name}}: {{reason}}",
+      alreadyAtDefault: "ya está en el valor predeterminado de su paquete",
       bulkEnabled: "{{n}} aplicaciones habilitadas",
       bulkDisabled: "{{n}} aplicaciones deshabilitadas",
       bulkFailed: "Error en {{n}}: {{details}}",

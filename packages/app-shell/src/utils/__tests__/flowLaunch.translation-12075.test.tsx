@@ -7,6 +7,16 @@
  * the run belongs to out of the host's i18next instance, and hands it to
  * `interpretFlowResponse`. The instance here is a real `createI18n` one, loaded
  * through `transformSpecTranslations` the way the console loads an app bundle.
+ *
+ * ⚠️ A `.tsx` on purpose, though it renders nothing: the `.test.ts` suffix
+ * puts a file in the `unit` project, which runs with `isolate: false` (one
+ * module graph per worker, `vitest.config.mts`). There the `vi.mock('sonner')`
+ * below holds only if no earlier file in the same worker already loaded
+ * `flowLaunch` against another `sonner` — and then `launchConsoleFlow` speaks
+ * through that file's toast, never this one's, so the success-toast pin reads
+ * zero calls. Measured: green alone, red in CI's shard 4/12 and in a two-file
+ * run where a file mocking `sonner` and importing `flowLaunch` goes first. The
+ * `dom` project isolates each file, so the mock is this file's own.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';

@@ -42,6 +42,7 @@ import { assertObjectMetadataWritable } from './object-metadata-write-guard';
 import type {
   FlowRegistration,
   GetMetaItemLayeredResponse,
+  GetMetaItemsResponse,
   PublishPackageDraftsResponse,
   RuntimeAuthoringIssue,
 } from '@objectstack/spec/api';
@@ -247,9 +248,9 @@ export interface MetadataListOptions {
 }
 
 /**
- * A list read as the server answered it (`GetMetaItemsResponseSchema`), as
- * {@link MetadataClient.listResponse} returns it: the items, and what the
- * server serves BESIDE them.
+ * A list read as {@link MetadataClient.listResponse} returns it: the items, and
+ * what the server serves BESIDE them, typed by the spec's
+ * `GetMetaItemsResponse` rather than restated (its `type` key is not kept).
  *
  * `registrations` is the automation engine's verdict on each listed flow,
  * keyed by the item's `name` (`FlowRegistrationSchema`, objectstack#23316):
@@ -259,10 +260,7 @@ export interface MetadataListOptions {
  * and absence means no engine judged the flow, ⛔ never `registered`. A name
  * the map has no entry for is unjudged in the same way.
  */
-export interface MetadataListResponse<T = unknown> {
-  items: T[];
-  registrations?: Record<string, FlowRegistration>;
-}
+export type MetadataListAnswer<T = unknown> = { items: T[] } & Pick<GetMetaItemsResponse, 'registrations'>;
 
 /**
  * Keep the verdicts of a list answer's `registrations` that parse with the
@@ -1051,18 +1049,18 @@ export class MetadataClient {
   /**
    * The same list read as {@link list}, with what the server serves beside
    * the items (objectui#12349): today that is the automation engine's
-   * `registrations` on a `flow` list — see {@link MetadataListResponse}.
+   * `registrations` on a `flow` list — see {@link MetadataListAnswer}.
    *
    * One request for both methods: `list` is this read with the items picked
    * out, so a caller asking both at once shares one in-flight GET.
    */
-  async listResponse<T = unknown>(type: string, options: MetadataListOptions = {}): Promise<MetadataListResponse<T>> {
+  async listResponse<T = unknown>(type: string, options: MetadataListOptions = {}): Promise<MetadataListAnswer<T>> {
     const params: string[] = [];
     if (options.packageId) params.push(`package=${encodeURIComponent(options.packageId)}`);
     if (this.previewDrafts) params.push('preview=draft');
     const qs = params.length ? `?${params.join('&')}` : '';
     const url = `${this.base}/${encodeURIComponent(type)}${qs}`;
-    return this.shareRead('list', url, async (): Promise<MetadataListResponse<T>> => {
+    return this.shareRead('list', url, async (): Promise<MetadataListAnswer<T>> => {
       const res = await this.fetchImpl(url, { method: 'GET', headers: this.headers, cache: 'no-store' });
       if (!res.ok) throw await parseError(res);
       const data = await res.json();

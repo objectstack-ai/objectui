@@ -6926,6 +6926,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       onClose={handleBulkDialogClose}
       dataSource={dataSource!}
       resource={schema.objectName ?? ''}
+      objectDef={objectSchema}
       objectFields={objectSchema?.fields}
       runAction={runBulkActionRecord}
       runAggregate={runBulkActionAggregate}

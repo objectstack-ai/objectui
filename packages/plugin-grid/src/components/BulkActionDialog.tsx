@@ -28,7 +28,7 @@ import { getLazyFieldWidget } from '@object-ui/fields';
 // Their TSDoc carries the rationale that used to be repeated in each copy.
 // See `paramNeedsDependentValues` below for why this surface ORs them;
 // ⛔ never copied into a local literal, and ⛔ never merged into one set.
-import { CASCADE_OPTION_WIDGET_TYPES, EXPANDABLE_FIELD_TYPES } from '@object-ui/core';
+import { CASCADE_OPTION_WIDGET_TYPES, EXPANDABLE_FIELD_TYPES, getRecordDisplayName } from '@object-ui/core';
 import type { BulkActionDef, BulkActionParam } from '@object-ui/types';
 import { useBulkExecutor, type BulkExecutorOptions, type BulkResult } from '../hooks/useBulkExecutor';
 import { hasMultiValueShape, type MultiValueFieldDef } from '../hooks/multiValueFields';
@@ -71,8 +71,17 @@ export interface BulkActionDialogProps {
   open: boolean;
   /** Close handler — invoked on Cancel, on overlay click, or after Done. */
   onClose: (result?: BulkResult | null) => void;
-  /** Optional column to use as a row label in previews (defaults to 'name'). */
-  labelKey?: string;
+  /**
+   * Object definition for `resource` — what the confirm step names each
+   * affected record by (objectui#12332). Read only through the ONE ADR-0079
+   * resolver, `getRecordDisplayName` (`nameField`, then the legacy ladder),
+   * the resolver the delete confirm and the record header use. A row with no
+   * resolvable title reads `Record #<id>`, marked as an id.
+   *
+   * Replaces a `labelKey` prop that defaulted to `'name'` and that no caller
+   * ever set, so an object titled by any other field listed raw ids.
+   */
+  objectDef?: unknown;
   /**
    * Object-schema `fields` map for `resource`. Used to derive single- vs
    * multi-value semantics for `update` params whose author did not declare
@@ -124,7 +133,7 @@ export const BulkActionDialog: React.FC<BulkActionDialogProps> = ({
   dataSource,
   open,
   onClose,
-  labelKey = 'name',
+  objectDef,
   objectFields,
   runAction,
   runAggregate,
@@ -466,7 +475,9 @@ export const BulkActionDialog: React.FC<BulkActionDialogProps> = ({
               <ul className="text-xs space-y-1">
                 {previewRows.map((r, i) => (
                   <li key={String(r.id ?? i)} className="break-words">
-                    • {String(r[labelKey] ?? r.id ?? t('grid.bulk.rowFallback', { index: i + 1, defaultValue: `Row ${i + 1}` }))}
+                    • {getRecordDisplayName(objectDef, r, {
+                      fallback: t('grid.bulk.rowFallback', { index: i + 1, defaultValue: `Row ${i + 1}` }),
+                    })}
                   </li>
                 ))}
                 {restCount > 0 && (

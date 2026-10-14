@@ -1,0 +1,31 @@
+{
+  "number": 12352,
+  "kind": "issue",
+  "title": "ci: delete the spec-main-shape-gate copy — four consecutive hourly runs agree with objectstack's Spec Shape Gate, which the release gate reads (ruling B on objectstack#23238, the objectui half)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:queue",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-14T05:20:12Z",
+  "updated_at": "2026-10-14T05:58:43Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12352",
+  "body": "Filing gate: **execution of a ruling** — ruling B on objectstack-ai/objectstack#23238 (comment 6145029395, batch 336 item 3, maintainer 「其他同意」 2026-10-13): \"the spec shape gate moves to objectstack … objectui drops its copy\" once \"two consecutive hourly runs on the objectstack side agree with objectui's\". Filed by the objectstack `domain:skills` seat 1 (seat post objectstack-ai/objectstack#7623, `session_013zGKMG1cRedVzWtqGGGZW9`, huangyiirene), the seat that landed the objectstack half (objectstack-ai/objectstack#23283, `18cd410dc4`). Lane: `domain:devx` (this repo's CI workflows). ⛔ Not a claim; triage grades on first touch.\n\n## The evidence the ruling asked for (four consecutive agreeing pairs, read from both repositories' runs)\n\n| hour (UTC, 2026-10-14) | objectstack `Spec Shape Gate` (`schedule`, `main`) | objectui `spec-main-shape-gate` (`schedule`, `main`) |\n|:--|:--|:--|\n| 01:5x | run 38498460141 — `success`, 0 `spec shape break` annotations (the #23160 retirement registered → `known`) | run 38498422265 — `failure` on TS2339 ×4, TS2367 ×4, TS2678 ×2 (the #23160 retirement, unregistered here) |\n| 02:5x | run 38503562367 — `success`, 0 new-break annotations | run 38503474196 — `failure`, the same four diagnostic classes |\n| 03:5x | run 38508692416 — `success`, 0 new-break annotations | run 38508650754 — `failure`, the same four diagnostic classes |\n| 04:5x | run 38513897579 — `success`, 0 new-break annotations | run 38513810543 — `failure`, the same four diagnostic classes |\n\nBoth gates compiled objectui `main` against the spec built from objectstack `main` at the same hour; every red row on this side is a row the objectstack side reads as the registered retirement of objectstack-ai/objectstack#23160 (registered to this repo's card #12325 in `scripts/ci/spec-shape-retirements.json`). Same diagnostics, red where unregistered, known where registered — the two gates agree, and the objectstack side is the one the release gate reads (`scripts/ci/scheduled-full-run.mjs` `RELEASE_GATE_WORKFLOWS`).\n\n## What done looks like\n\n- Delete `.github/workflows/spec-main-shape-gate.yml` and `scripts/spec-main-shape-gate.mjs`, and the three pins the ruling names: `scripts/__tests__/spec-main-shape-gate.test.ts` (deleted), and the lines of `scripts/check-required-check-set.mjs` (its header comment at line 213 names the workflow) and `scripts/dependabot-merge-gate.mjs` that name the gate (read on the tree at dispatch; `git grep -n 'spec-main-shape-gate\\|Spec main shape gate\\|spec@main shape'` is the lead list — 9 hits in the test, 1 each in the two pins at filing).\n- The PR body names the objectstack gate as the successor (workflow `spec-shape-gate.yml`, hourly at `:52`, read by the release gate, red attributed to the objectstack lane that moved the shape) and the retirement registry as the place an intentional retirement is registered from now on; the `Required Check Set` pin keeps its seven ruled names unchanged (objectui#12240 took the gate out of the required set already — PR #12250 is the precedent, +236/−148).\n- objectui has no `skip-changeset` label: a CI-only diff ships in no package, so an empty-frontmatter changeset is the correct form if the changeset gate asks for one; otherwise none.\n- Governed surface: `.github/workflows/**` is on the governed register scoped to this repo (objectstack-ai/objectstack#23129) — Tier H: the PR stays a draft with the 速读 draft; the seat requests review from the approvers.\n- After the merge: the hourly `spec-main-shape-gate` runs stop; the objectstack hourly run is the one gate, and card #12325 (`pm:on-hold`) stays the downstream retirement card the registry entry names.\n\n**Workload:** S (a deletion with two pin edits); precedent objectui PR #12250.\n\n## 四维(业务立场)\n\n- 长远合理性:一道形状门,跑在上游、发版前必过、红归属到改动方;下游不再替上游体检。\n- 实际业务拉动:四对小时运行同诊断,objectui 侧连红只是未登记的已知退役,再跑一小时就是一小时无信息的红。\n- 防 AI 犯错:两处各一份结果,AI 席位会读错「哪边是权威」;删掉副本只剩一个读数。\n- 创业阶段不扩散:纯删除,不加门禁;必需检查名单(objectui#12240)不动。\n\nDedupe: objectui `labels=domain:devx&state=all&since=2026-10-01` grepped for `spec-main-shape-gate|shape gate|Spec Main Shape` (25 cards) — #12214 (the hourly run), #12240 (out of the required set; PR #12250), #12252 (the `merge_group` trigger dropped) and #12325 (the retirement card, `pm:on-hold`) are the siblings; none deletes the gate. No open objectui PR touches the gate's files at filing. Dedupe words: spec-main-shape-gate deletion · objectui gate copy retired · ruling B objectui half.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

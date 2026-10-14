@@ -222,8 +222,13 @@ describe('objectui#10872 batch 4 — the two handler keys the action renderers r
       const issue = at(result, 'onSuccess')[0];
       expect(issue?.code, face).toBe('invalid_type');
       expect(issue?.message, face).toContain('Did you mean `onSuccess` → `properties.onSuccess`?');
-      // What the remedy sends the author to is accepted.
-      expect(judge({ type, properties: { onSuccess: { navigate: '/tasks' } } }).success, face).toBe(true);
+      // What the remedy sends the author to is accepted: `properties.onSuccess` on a row
+      // whose executor carries the hop. Since @objectstack/spec 18.0.0-next.1 a row with
+      // no executor refuses `onSuccess` (objectui#12338), so the row names `api`.
+      expect(
+        judge({ type, properties: { actionType: 'api', target: '/api/tasks/archive', onSuccess: { navigate: '/tasks' } } }).success,
+        face,
+      ).toBe(true);
     }
     // The spec's own page component refuses the flat spelling as well.
     expect(PageComponentSchema.safeParse({ type, onSuccess: { navigate: '/tasks' } }).success).toBe(false);

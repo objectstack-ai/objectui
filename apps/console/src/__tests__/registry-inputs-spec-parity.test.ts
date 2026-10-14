@@ -1507,6 +1507,13 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   // entire justification for this exemption — it always was sufficient alone.
   'record:reference_rail.entries':
     'An array of {objectName, relationshipField, title, limit, displayField} objects; `inputs` is a flat scalar carrier and cannot express it. Newly judged rather than newly missing — @objectstack/spec 17.1.0 added record:reference_rail to ComponentPropsMap, and the registration (the reference_rail register call in plugin-detail/src/index.tsx) has always published only `hideEmpty` — the 17.1.0 pin, objectui#5328. The flat-carrier shape limit is the entire reason: the `icon` divergence that once also blocked an entries editor was settled by Option B (maintainer 2026-08-22, objectui#5494).',
+  // objectui#12370 (the 18.0.0-next.1 bump): objectstack#23205 declares `parentDataSource` on
+  // `record:related_list`, the parent record bound by a query of its own, for objectui#12294. The
+  // spec's own description opens "[PLANNED — not yet rendered]", and no renderer here reads it
+  // (`git grep parentDataSource -- packages` finds no read site), so publishing it now would
+  // advertise configuration the platform drops. objectui#12294 owns wiring and declaring it.
+  'record:related_list.parentDataSource':
+    'Declared by @objectstack/spec 18.0.0-next.1 (objectstack#23205) as PLANNED, not yet rendered: the parent record of a related list bound by its own query. No renderer here reads it yet; objectui#12294 wires the record blocks to their bound row and declares it on the registration.',
 
   /*
    * ⚠️ THE 17.5.0 BOOKINGS — objectui#11111 decision 3 = B (record 5902351047).

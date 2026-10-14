@@ -312,10 +312,21 @@ describe('`object-tree.data` — the members are the `{ provider, … }` configu
   });
 
   it.each([
-    ['api', { provider: 'api', read: { url: '/api/units' } }],
     ['schema', { provider: 'schema', schemaId: 'units' }],
-  ])('`{ provider: "%s" }` draws nothing and queries nothing — the tree reads neither', async (_label, data) => {
+  ])('`{ provider: "%s" }` draws nothing and queries nothing — the tree reads it not', async (_label, data) => {
     expect(specRow.safeParse({ data }).success, 'the spec row accepts the configuration').toBe(true);
+    const ds = mount({ tree: TREE, data });
+    expect(await drawn()).toEqual([]);
+    expect(screen.getByText('No records')).toBeInTheDocument();
+    expect(ds.find).not.toHaveBeenCalled();
+  });
+
+  it('`{ provider: "api" }` is refused by the spec row, and a stored one still draws nothing and queries nothing', async () => {
+    // @objectstack/spec 18.0.0-next.1 retires the view-level `api` provider
+    // (objectstack#23160), so authoring it is refused (objectui#12370); a
+    // document stored before still reaches the renderer, which reads it not.
+    const data = { provider: 'api', read: { url: '/api/units' } };
+    expect(specRow.safeParse({ data }).success, 'the spec row refuses the retired provider').toBe(false);
     const ds = mount({ tree: TREE, data });
     expect(await drawn()).toEqual([]);
     expect(screen.getByText('No records')).toBeInTheDocument();

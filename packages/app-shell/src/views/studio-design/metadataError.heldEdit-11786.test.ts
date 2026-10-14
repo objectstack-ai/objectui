@@ -199,8 +199,10 @@ describe('the Automations pillar holds a step the spec refuses for a missing inp
     }
   });
 
-  it('a Title the parse refuses for what it holds, not for being blank, is not held: its refusal shows', () => {
-    const flow = flowWithNotify({ channels: ['inbox'], recipients: ['owner'], title: 'Hi {name}' });
+  it('a Title the parse refuses for what it holds, not for being blank text, is not held: its refusal shows', () => {
+    // `null` (written through Advanced JSON) is refused at the title as a value
+    // of the wrong kind; it is not a blank the inspector offers to fill.
+    const flow = flowWithNotify({ channels: ['inbox'], recipients: ['owner'], title: null });
     expect(flowParseRefusals(flow)).toEqual(['nodes.2.config.title']);
     expect(flowHeldEdit(flow, 'en')).toBeNull();
   });

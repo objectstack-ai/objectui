@@ -343,7 +343,9 @@ export interface FlowConfigField {
   ref?: FlowReferenceSpec;
   /**
    * Data-picker brace mode override (#1934). Defaults by kind (`expression` →
-   * bare CEL, `text` / `textarea` → `{var}` template). Three overrides:
+   * bare CEL, `text` / `textarea` → a literal with no picker, objectui#12329:
+   * since spec 18 no flow string outside the text slots reads a `{…}` token,
+   * objectstack#19939 S7 having deleted the single-brace resolver). Overrides:
    *   • `'hole'` on a flow TEXT slot (objectui#11824): the slot renders ADR-0032
    *     §3 `{{ }}` template holes and the spec refuses a single-brace `{…}`
    *     token there, so the picker inserts `{{ x }}` and the inline check flags
@@ -355,16 +357,16 @@ export interface FlowConfigField {
    *     `mergeServerFlowFields`, since the published descriptor marks none of
    *     them.
    *   • `'expression'` on a code field (e.g. a script body) so the picker inserts
-   *     bare references, not `{var}` — `{x}` is a syntax error in a JS/TS script.
-   *   • `'template'` on an *expression* field whose value is really an
-   *     `interpolate()` single-brace template — it keeps the mono expression
-   *     styling and the data-picker, but the picker inserts `{var}` and the CEL
-   *     predicate brace-trap is suppressed. ⚠️ A loop/map `collection` still
-   *     carries it, but where the spec's ledger names the position a `value`
-   *     slot (a `map`, a `loop` with a `body`) `FlowNodeConfigField` renders the
-   *     ledger's literal / CEL-envelope control instead, and this mode is not
-   *     read (objectui#12372). What it still decides there is how the designer's
-   *     analysis passes read a stored string, which objectui#12329 owns.
+   *     bare references, the spelling a JS/TS script reads.
+   *   • `'template'` — no longer a picker spelling (objectui#12329). Only the
+   *     loop / map `collection` carries it. Where the spec's ledger names that
+   *     position a `value` slot (a `map`, a `loop` with a `body`)
+   *     `FlowNodeConfigField` renders the ledger's literal / CEL-envelope
+   *     control (objectui#12372). On a body-less loop, whose executor reads the
+   *     bare name of a list variable, it renders like `'expression'`: the
+   *     picker inserts the bare name and a stored `{x}` gets the brace check.
+   *     What the mark still decides is how the designer's analysis passes
+   *     (`flow-expr-problems.ts`, `flow-node-refs.ts`) read a stored string.
    */
   refMode?: 'expression' | 'template' | 'hole';
   /**
@@ -372,8 +374,8 @@ export interface FlowConfigField {
    * (raw CEL stays one click away as the escape hatch) — objectui#6226.
    *
    * OPT-IN PER DESCRIPTOR, never inferred from `kind`. `expression` is not a
-   * synonym for "record predicate": a loop's `collection` is an `interpolate()`
-   * template, a `recordId` is a scalar lookup, and a script body is code. Only a
+   * synonym for "record predicate": a loop's `collection` is a list, a
+   * `recordId` is a scalar lookup, and a script body is code. Only a
    * field that is genuinely a predicate over the TRIGGER RECORD's vocabulary
    * flags itself here.
    *
@@ -600,7 +602,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     // produced a flow that fails to load.
     //
     // `textarea` is derived, not chosen: the spec's own `message` description
-    // says it is "interpolated at run time exactly like a screen `description`",
+    // says it is "a template rendered at run time exactly like a screen `description`",
     // and that field IS a `textarea` in this table — as is the sibling
     // `message` key on `notify`. The label and placeholder are the spec's own
     // words (its describe opens "Why the run was refused", and both the

@@ -2,18 +2,22 @@
 
 /**
  * VariableTextInput — a single-line input (or textarea) for an expression /
- * template flow-config value, with a "{x}" data-picker (#1934) that inserts an
+ * template flow-config value, with a braces-icon data-picker (#1934) that inserts an
  * in-scope reference at the cursor.
  *
  * Brace handling is done FOR the author (ADR-0032): the picker inserts the BARE
- * reference (`discount_pct`) in `expression` fields, the double-brace hole
+ * reference (`discount_pct`) in `expression` fields, and the double-brace hole
  * `{{ discount_pct }}` in `hole` fields — a flow text slot that renders
- * ADR-0032 §3 template holes (objectui#11824) — and the single-brace
- * `{discount_pct}` in the remaining `template` fields, which still read that
- * dialect. That kills the recurring `{record.x}` brace-in-CEL trap. Free-text
- * typing is untouched, and the picker button is hidden entirely when nothing is
- * in scope, so an empty scope degrades to a plain input.
+ * ADR-0032 §3 template holes (objectui#11824). There is no third spelling: since
+ * `@objectstack/spec` 18 no flow string reads the single-brace dialect
+ * (objectstack#19939 S7 deleted its resolver), so the picker never writes one
+ * (objectui#12329). A literal position — a value a flow reads as written — is
+ * rendered with no `groups`, and so with no picker. That kills the recurring
+ * `{record.x}` brace-in-CEL trap. Free-text typing is untouched, and the picker
+ * button is hidden entirely when nothing is in scope, so an empty scope
+ * degrades to a plain input.
  */
+
 
 import * as React from 'react';
 import { Braces } from 'lucide-react';
@@ -35,15 +39,14 @@ import { t, useMetadataLocale } from '../i18n.js';
 
 /**
  * How the picker spells a reference: `expression` → bare CEL, `hole` → an
- * ADR-0032 §3 `{{ }}` template hole, `template` → the single-brace `{var}`
- * dialect the fields outside the flow text slots still read.
+ * ADR-0032 §3 `{{ }}` template hole (objectui#12329: the single-brace spelling
+ * is gone with the dialect).
  */
-export type VariableFieldMode = 'expression' | 'template' | 'hole';
+export type VariableFieldMode = 'expression' | 'hole';
 
 /** Wrap a bare reference token for insertion into the given field mode. */
 export function formatToken(token: string, mode: VariableFieldMode): string {
-  if (mode === 'hole') return `{{ ${token} }}`;
-  return mode === 'template' ? `{${token}}` : token;
+  return mode === 'hole' ? `{{ ${token} }}` : token;
 }
 
 /**
@@ -73,9 +76,12 @@ export interface VariableTextInputProps {
   onValueChange: (v: string) => void;
   onBlur?: () => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-  /** Brace rule: bare token for `expression`, `{{ token }}` for `hole`, `{token}` for `template`. */
-  mode: VariableFieldMode;
-  /** In-scope reference groups (from useFlowScope). Empty → no picker button. */
+  /** Brace rule: bare token for `expression` (the default), `{{ token }}` for `hole`. */
+  mode?: VariableFieldMode;
+  /**
+   * In-scope reference groups (from useFlowScope). Empty → no picker button,
+   * which is how a literal position renders (objectui#12329).
+   */
   groups: ScopeGroup[];
   placeholder?: string;
   disabled?: boolean;
@@ -97,7 +103,7 @@ export function VariableTextInput({
   onValueChange,
   onBlur,
   onKeyDown,
-  mode,
+  mode = 'expression',
   groups,
   placeholder,
   disabled,

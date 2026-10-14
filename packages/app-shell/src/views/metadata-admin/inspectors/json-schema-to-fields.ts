@@ -22,8 +22,8 @@
  * then stands in for it (`mergeServerFlowFields`, objectui#11788).
  *
  * Scope mirrors what `z.toJSONSchema` emits for real node configs:
- *   • string                      → text  (enum → select; an `xExpression` marker
- *                                   makes it a CEL expression or `{var}` template)
+ *   • string                      → text  (enum → select; an `xExpression:
+ *                                   'expression'` marker makes it a CEL expression)
  *   • number / integer            → number
  *   • boolean                     → boolean
  *   • array of string             → stringList
@@ -97,12 +97,13 @@ interface JsonSchemaNode {
   };
   /**
    * Authoring-semantics marker carried from the executor's Zod
-   * `.meta({ xExpression })` (ADR-0018), on a string property. Declares whether
-   * the string is a bare-CEL `'expression'` (a predicate / value expression) or
-   * an `interpolate()` single-brace `'template'` — so the designer renders the
-   * right editor (mono styling, data-picker brace mode, whether the CEL
-   * brace-trap applies) instead of guessing from the field name. An unknown
-   * value degrades to a plain text box.
+   * `.meta({ xExpression })` (ADR-0018), on a string property. `'expression'`
+   * declares a bare-CEL string (a predicate / value expression), so the designer
+   * renders the expression editor (mono styling, bare-reference picker, the CEL
+   * brace-trap) instead of guessing from the field name. Any other value
+   * degrades to a plain text box: a `'value'` slot is rendered from the spec's
+   * expression ledger whatever its descriptor field is, and the single-brace
+   * `'template'` marker is retired with its dialect (objectui#12329).
    */
   xExpression?: unknown;
 }
@@ -254,33 +255,33 @@ function defaultString(node: JsonSchemaNode): string | undefined {
 /**
  * Read a valid `xExpression` marker off a schema node, or undefined. The engine
  * publishes this on a string property (Zod `.meta({ xExpression })`, ADR-0018)
- * to declare its authoring semantics:
- *   • `'expression'` → bare CEL (a predicate / value expression)
- *   • `'template'`   → an `interpolate()` single-brace `{var}` template
+ * to declare its authoring semantics; `'expression'` (bare CEL, a predicate /
+ * value expression) is the one that picks an editor here.
+ *
  * Any other value degrades to undefined, so the string renders as a plain text
- * box rather than a mis-moded editor.
+ * box rather than a mis-moded editor. That includes `'template'`
+ * (objectui#12329): it marked a string read in the single-brace dialect, which
+ * objectstack#19939 S7 deleted, and the installed spec publishes it nowhere (its
+ * loop / map `collection` is marked `'value'` now). Mapping it to a picker
+ * would offer a token no flow string reads.
  */
-function exprModeOf(node: JsonSchemaNode): 'expression' | 'template' | undefined {
-  return node.xExpression === 'expression' || node.xExpression === 'template'
-    ? node.xExpression
-    : undefined;
+function exprModeOf(node: JsonSchemaNode): 'expression' | undefined {
+  return node.xExpression === 'expression' ? 'expression' : undefined;
 }
 
 /**
  * Scalar (non-object, non-array) → field kind, plus an optional data-picker
- * `refMode` when the schema marks the string as an expression / template surface
+ * `refMode` when the schema marks the string as an expression surface
  * ({@link exprModeOf}). Enum still wins (→ select). String mapping:
  *   • xExpression 'expression'  → expression (bare CEL, predicate-validated);
  *                                 multiline → textarea + refMode 'expression'
  *                                 (script-body mode — bare refs, no predicate check)
- *   • xExpression 'template'    → expression + refMode 'template' (mono, `{var}`
- *                                 picker, no predicate check); multiline → textarea
- *                                 + refMode 'template'
- *   • plain string              → text; multiline → textarea (unchanged)
+ *   • plain string (any other marker) → text; multiline → textarea: a literal,
+ *                                 with no picker
  */
 function scalarField(
   node: JsonSchemaNode,
-): { kind: FlowConfigFieldKind; refMode?: 'expression' | 'template' } | undefined {
+): { kind: FlowConfigFieldKind; refMode?: 'expression' } | undefined {
   if (Array.isArray(node.enum)) return { kind: 'select' };
   const t = schemaType(node);
   if (t === 'boolean') return { kind: 'boolean' };
@@ -290,9 +291,6 @@ function scalarField(
     const mode = exprModeOf(node);
     if (mode === 'expression') {
       return multiline ? { kind: 'textarea', refMode: 'expression' } : { kind: 'expression' };
-    }
-    if (mode === 'template') {
-      return multiline ? { kind: 'textarea', refMode: 'template' } : { kind: 'expression', refMode: 'template' };
     }
     return { kind: multiline ? 'textarea' : 'text' };
   }
@@ -377,9 +375,8 @@ function columnsFor(item: JsonSchemaNode, depth = 0): FlowConfigColumn[] {
       kind = 'number';
     } else {
       // A string column marked xExpression:'expression' becomes a CEL column
-      // (mono, predicate-checked by flow-expr-problems). 'template' and plain
-      // strings stay text — a text column already treats `{var}` as a template,
-      // and objectList columns carry no refMode to distinguish the two.
+      // (mono, predicate-checked by flow-expr-problems). Every other string
+      // column stays text: a literal cell (objectui#12329).
       kind = exprModeOf(prop) === 'expression' ? 'expression' : 'text';
     }
     cols.push({

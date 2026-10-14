@@ -373,7 +373,7 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
     return out;
   }, [node, fields]);
 
-  // `{var}` interpolation source for the screen preview — the flow's declared
+  // The `{{ }}` hole values for the screen preview — the flow's declared
   // variables and their defaults (the designer has no live run state).
   const screenVars = React.useMemo(() => {
     const decls = Array.isArray((draft as any).variables) ? ((draft as any).variables as Array<Record<string, unknown>>) : [];

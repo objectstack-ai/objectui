@@ -21,7 +21,7 @@
  *    or an EXPRESSION, stored as a CEL value envelope `{ dialect: 'cel',
  *    source }`. The caller opts in through the `valueEnvelope` prop; every
  *    other map renders exactly as before. Through `@objectstack/spec` 17 a
- *    text string was `{token}` interpolation; from 18 it is literal text, and
+ *    text string was read in the single-brace dialect; from 18 it is literal text, and
  *    the cell shows the spec's refusal of a `{…}` token in it (objectui#12030).
  *    A text cell there is a literal, so it carries no reference picker: the
  *    picker could only insert a `{var}` token the spec refuses (objectui#12101).
@@ -34,6 +34,10 @@
  *  - objectui#12372: a CRUD node's `filter` is a value slot too (the ledger's
  *    `filterOperands` row), judged per operand by the spec's filter-operand
  *    rule, which the caller passes as `valueRefusal`.
+ *  - objectui#12329: on any other map (a connector action's `input`, a legacy
+ *    action's `params`) a text value is a literal as well: objectstack#19939
+ *    S7 deleted the single-brace resolver, so no flow string outside the text
+ *    slots reads a `{…}` token. Its cell has no picker and no reference check.
  */
 
 import * as React from 'react';
@@ -237,8 +241,8 @@ export interface FlowKeyValueFieldProps {
   keyHint?: string;
   /**
    * objectui#12101: `'hole'` when every value of the map is a flow text slot
-   * that renders `{{ }}` holes. Omitted, a text value keeps the single-brace
-   * template picker, except in a value-role slot, where it has none.
+   * that renders `{{ }}` holes. Omitted, a text value is a literal, with no
+   * picker: no other flow string reads a `{…}` token (objectui#12329).
    */
   valueMode?: 'hole';
   /**
@@ -361,9 +365,11 @@ export function FlowKeyValueField({
         )}
         {rows.map((row) => {
           const expression = row.mode === 'expression';
-          // A value-role text cell is a literal: no picker (objectui#12101).
-          const pickerGroups = envelopeSlot && !expression ? [] : (scopeGroups ?? []);
-          const textMode = valueMode === 'hole' ? 'hole' : 'template';
+          // A text cell is a literal, with no picker (objectui#12101 for a
+          // value-role map, objectui#12329 for every other map), unless the
+          // map's values are `{{ }}` text slots.
+          const hole = valueMode === 'hole' && !expression;
+          const pickerGroups = expression || hole ? (scopeGroups ?? []) : [];
           const refusal = envelopeSlot && writesMap ? valueRefusal(rowValue(row)) : null;
           return (
             <div key={row.id} className="space-y-1">
@@ -381,7 +387,7 @@ export function FlowKeyValueField({
                   className="h-8 flex-1 font-mono text-xs"
                 />
                 <VariableTextInput
-                  mode={expression ? 'expression' : textMode}
+                  mode={hole ? 'hole' : 'expression'}
                   mono={expression}
                   value={row.raw}
                   onValueChange={(v) => setRowField(row.id, { raw: v })}
@@ -432,9 +438,9 @@ export function FlowKeyValueField({
                 </div>
               ) : expression ? (
                 <FlowExprIssue value={rowValue(row)} role="value" scopeGroups={scopeGroups} />
-              ) : envelopeSlot ? null : (
-                <FlowExprIssue value={row.raw} role={textMode} scopeGroups={scopeGroups} />
-              )}
+              ) : hole ? (
+                <FlowExprIssue value={row.raw} role="hole" scopeGroups={scopeGroups} />
+              ) : null}
             </div>
           );
         })}

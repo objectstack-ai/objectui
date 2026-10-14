@@ -3,8 +3,8 @@
 /**
  * FlowExprIssue — the shared inline validation line for an expression / template
  * value in the flow inspector (#1934). Renders, in precedence order:
- *   1. an ADR-0032 brace/shape ERROR (red) — CEL fields only; a genuine template
- *      uses single-brace `{var}` legally, so the brace check never runs there;
+ *   1. an ADR-0032 brace/shape ERROR (red) — the CEL brace trap on a CEL cell,
+ *      a single brace on a `{{ }}` text-slot cell;
  *   2. else a scope-aware "unknown reference" WARNING (amber) — a referenced
  *      root not in scope at the node, with a "did you mean?" hint.
  * Returns null when the value is clean (or scope is unknown). Used by the picker
@@ -31,15 +31,19 @@ import { findUnknownRefs, scopeRoots, describeUnknownRefs } from './flow-ref-che
 import type { ScopeGroup } from './useFlowScope.js';
 import { screenVisibleWhenScopeError, type ScreenPreviewNode } from '../previews/screen-spec.js';
 
+/** The positions this line judges. */
+export type FlowExprIssueRole = Exclude<ExprFieldRole, 'template'> | 'hole';
+
 export interface FlowExprIssueProps {
   value: unknown;
   /**
-   * `'predicate'` / `'value'` → CEL (brace-checked); `'template'` → `{…}` holes;
-   * `'hole'` → a flow text slot's ADR-0032 §3 `{{ }}` holes, where a single
-   * brace is flagged with the double-brace fix (objectui#12101, the check
-   * `FlowNodeConfigField` runs on a single text slot since objectui#11824).
+   * `'predicate'` / `'value'` → CEL (brace-checked); `'hole'` → a flow text
+   * slot's ADR-0032 §3 `{{ }}` holes, where a single brace is flagged with the
+   * double-brace fix (objectui#12101, the check `FlowNodeConfigField` runs on a
+   * single text slot since objectui#11824). No single-brace role: no flow
+   * string reads that dialect since spec 18 (objectui#12329).
    */
-  role: ExprFieldRole | 'hole';
+  role: FlowExprIssueRole;
   scopeGroups?: ScopeGroup[];
   /**
    * Set only on a `screen` node's `fields[].visibleWhen` cell: the node whose
@@ -57,7 +61,7 @@ export interface FlowExprIssueProps {
  */
 function flowScopeNote(
   value: unknown,
-  role: ExprFieldRole | 'hole',
+  role: FlowExprIssueRole,
   scopeGroups: ScopeGroup[] | undefined,
   locale: string,
 ): string | undefined {
@@ -67,11 +71,10 @@ function flowScopeNote(
 }
 
 export function FlowExprIssue({ value, role, scopeGroups, screenNode }: FlowExprIssueProps): React.ReactElement | null {
-  // Brace / shape error — CEL roles only (single-brace is valid in a template).
+  // Brace / shape error: a CEL role's brace trap, or a hole's single brace.
   // In the designer locale, read here as the sibling `FlowObjectListField` does (objectui#10748).
   const locale = useMetadataLocale();
-  const issue =
-    role === 'template' ? null : validateExpressionClient(role === 'hole' ? 'template' : role, value, locale);
+  const issue = validateExpressionClient(role === 'hole' ? 'template' : role, value, locale);
   if (issue) {
     return (
       <p className="text-[11px] leading-snug text-destructive" role="alert">

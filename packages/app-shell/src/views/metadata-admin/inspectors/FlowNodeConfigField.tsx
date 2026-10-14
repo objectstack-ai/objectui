@@ -143,9 +143,9 @@ function FieldValueMapField({
  * `recordId`. Each holds a literal or a CEL value envelope `{ dialect: 'cel',
  * source }` (ADR-0032 Decision 2), and the spec refuses a string carrying a
  * single-brace `{…}` token there (Decision 3). The descriptor's own control
- * (a single-brace template picker on a text field) could only author that
- * refused token, so such a field renders {@link FlowValueSlotControl}: the
- * text / expression toggle the value maps carry, on one value.
+ * (one text box) can author only one of the two forms, so such a field renders
+ * {@link FlowValueSlotControl}: the text / expression toggle the value maps
+ * carry, on one value.
  *
  * Which positions: the spec's own path walk, `resolveFlowNodeValueSlots`, asked
  * of the node as it stands with a probe at the key — so the ledger's
@@ -320,7 +320,6 @@ function FlowValueSlotControl({
         <VariableTextInput
           multiline={field.kind === 'textarea'}
           rows={4}
-          mode={expression ? 'expression' : 'template'}
           mono={expression || expressionFirst}
           value={raw}
           onValueChange={(v) => {
@@ -495,45 +494,48 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
   // AND at a site that declares the vocabulary. All three conjuncts are load
   // bearing: `conditionBuilder` keeps `expression` from meaning "predicate"
   // everywhere it appears; `triggerScope` is the declared vocabulary, absent on
-  // a trigger that binds no record; `refMode !== 'template'` keeps an
-  // `interpolate()` field (a loop `collection`) out even if one ever opts in.
+  // a trigger that binds no record; `refMode === 'expression'` keeps a
+  // body-less loop's `collection` (a variable name) out even if one ever opts in.
   const asConditionBuilder =
     field.kind === 'expression' && !!field.conditionBuilder && !!triggerScope && refMode === 'expression';
   // ADR-0032 — surface a malformed condition (e.g. the `{record.x}` brace-in-CEL
-  // mistake) inline, with the same corrective message the build/agent emit. Only
-  // for expression fields in a *predicate* mode — an expression field flagged
-  // `refMode: 'template'` (e.g. a loop/map collection authored as `{leadList}`)
-  // is an `interpolate()` single-brace template where `{var}` is legal, so the
-  // CEL brace-trap must be gated off or it false-positives on every `{…}`.
+  // mistake) inline, with the same corrective message the build/agent emit, on
+  // every expression field. objectui#12329: that includes the one expression
+  // field whose descriptor still carries `refMode: 'template'` and that the
+  // value-slot control above does not take, a body-less loop's `collection`.
+  // Its executor reads the bare name of a list variable, so a stored `{x}`
+  // names no variable, and the brace check's fix (the bare reference) is the
+  // spelling it reads.
   //
   // objectui#11824 — a flow TEXT slot (`refMode: 'hole'`) renders ADR-0032 §3
   // `{{ }}` holes, and the spec refuses a single-brace `{…}` token there. Its
   // check is the template role's: a single brace is flagged with the
   // double-brace spelling as the fix. The CEL brace check above is unchanged.
-  const isTemplate = refMode === 'template';
+  //
+  // objectui#12329 — every other text field is a LITERAL: since spec 18 no
+  // flow string outside the text slots reads a `{…}` token (objectstack#19939
+  // S7 deleted the single-brace resolver). It gets no picker, which could only
+  // insert such a token, and no reference check, which would read one.
   const isHole = refMode === 'hole';
+  const isLiteral = refMode === 'template' && field.kind !== 'expression';
   const exprIssue = valueSlot
     ? null
     : isHole
       ? validateExpressionClient('template', value, locale)
-      : field.kind === 'expression' && !isTemplate
+      : field.kind === 'expression'
         ? validateExpressionClient('predicate', value, locale)
         : null;
 
   // #1934 — pair the picker with a gentle, scope-aware "unknown reference"
-  // warning: CEL for predicate expression fields, `{…}` holes for template
-  // fields (including an expression field in template mode). Skipped for
-  // free-form code (refMode 'expression' on a textarea, e.g. a script body) and
-  // when scope is unknown. The brace error above takes precedence.
-  const scopeRole: 'predicate' | 'template' | 'hole' | null = isHole
+  // warning: CEL for expression fields, `{{ }}` holes for a text slot. Skipped
+  // for a literal, for free-form code (refMode 'expression' on a textarea, e.g.
+  // a script body) and when scope is unknown. The brace error above takes
+  // precedence.
+  const scopeRole: 'predicate' | 'hole' | null = isHole
     ? 'hole'
     : field.kind === 'expression'
-      ? isTemplate
-        ? 'template'
-        : 'predicate'
-      : refMode === 'template' && (field.kind === 'text' || field.kind === 'textarea')
-        ? 'template'
-        : null;
+      ? 'predicate'
+      : null;
   const unknownRefs =
     !valueSlot && !exprIssue && scopeRole && scopeGroups && scopeGroups.length > 0
       ? findUnknownRefs(value, scopeRole, scopeRoots(scopeGroups.flatMap((g) => g.refs)))
@@ -847,10 +849,10 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
             <VariableTextInput
               multiline
               rows={4}
-              mode={refMode}
+              mode={isHole ? 'hole' : 'expression'}
               value={value != null ? String(value) : ''}
               onValueChange={(v) => onCommit(v)}
-              groups={scopeGroups ?? []}
+              groups={isLiteral ? [] : (scopeGroups ?? [])}
               placeholder={field.placeholder}
               disabled={disabled}
               ariaRequired={required}
@@ -867,11 +869,11 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
               {required && <RequiredMarker />}
             </Label>
             <VariableTextInput
-              mode={refMode}
+              mode={isHole ? 'hole' : 'expression'}
               mono={field.kind === 'expression'}
               value={value != null ? String(value) : ''}
               onValueChange={(v) => onCommit(v)}
-              groups={scopeGroups ?? []}
+              groups={isLiteral ? [] : (scopeGroups ?? [])}
               placeholder={field.placeholder}
               disabled={disabled}
               ariaRequired={required}

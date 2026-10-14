@@ -1353,12 +1353,10 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.flowSim.note.branchMatched': 'Branch "{label}" matched (config.conditions).',
   'engine.flowSim.note.noConditionMatched': 'No entry of config.conditions matched; the branch is "{label}".',
   'engine.flowSim.note.noAssignments': 'No assignments defined.',
-  'engine.flowSim.note.unmodelledToken': '{token} in "{key}"',
-  'engine.flowSim.note.unmodelled':
-    'Kept as written, not modelled by the Debug run: {tokens}. The runtime resolves NOW() / TODAY(), $User.* and arithmetic itself, and fails the node on a call to a function it does not know.',
   'engine.flowSim.note.loopSinglePass': 'Loop simulated as a single pass (body re-execution is not modelled).',
   'engine.flowSim.note.loopCollection': 'Collection "{ref}" has {count} item(s); simulated as a single pass.',
   'engine.flowSim.note.loopNotArray': 'Collection "{ref}" is not an array; loop may not run at runtime.',
+  'engine.flowSim.note.loopCollectionNotList': 'Collection "{ref}" is not a list; the runtime fails the loop here.',
   'engine.flowSim.note.mockedCall': "Mocked call to '{fn}' (no function executed).",
   'engine.flowSim.note.retiredAction':
     "Retired '{action}' action — it never delivered anything; use a notify node (or a connector for Slack).",
@@ -4758,12 +4756,10 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowSim.note.branchMatched': '分支 “{label}” 已匹配(config.conditions)。',
   'engine.flowSim.note.noConditionMatched': 'config.conditions 中没有条目匹配;分支为 “{label}”。',
   'engine.flowSim.note.noAssignments': '未定义任何赋值。',
-  'engine.flowSim.note.unmodelledToken': '“{key}” 中的 {token}',
-  'engine.flowSim.note.unmodelled':
-    '按原样保留,调试运行未模拟:{tokens}。运行时会自行解析 NOW() / TODAY()、$User.* 与算术运算,并在调用它不认识的函数时使该节点失败。',
   'engine.flowSim.note.loopSinglePass': '循环按单次执行模拟(不模拟循环体的重复执行)。',
   'engine.flowSim.note.loopCollection': '集合 “{ref}” 有 {count} 项;按单次执行模拟。',
   'engine.flowSim.note.loopNotArray': '集合 “{ref}” 不是数组;运行时循环可能不会执行。',
+  'engine.flowSim.note.loopCollectionNotList': '集合 “{ref}” 不是列表;运行时该循环在此失败。',
   'engine.flowSim.note.mockedCall': '已模拟对 “{fn}” 的调用(未执行任何函数)。',
   'engine.flowSim.note.retiredAction':
     '已退役的 “{action}” 动作 —— 它从未投递过任何内容;请改用通知节点(Slack 请用连接器)。',

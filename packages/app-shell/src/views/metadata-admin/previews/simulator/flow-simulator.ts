@@ -10,8 +10,14 @@
  * by the same successor selection, the runtime's `traverseNext` (see
  * {@link FlowSimulator.route}). `wait`, `screen`, and `approval` PAUSE for manual continuation (an approval
  * resumes down the chosen decision's branch — approve / reject / revise). `loop` resolves its
- * collection and exposes the iterator but is a labelled single pass (the edge
- * model has no separate body/exit edge). `parallel_gateway` fans out WITHOUT
+ * collection the way its executor does and exposes the iterator, but is a
+ * labelled single pass (the edge model has no separate body/exit edge).
+ *
+ * Values are what the engine makes of them since objectstack#19939 S7 deleted
+ * its single-brace resolver (objectui#12329): a CEL value envelope is evaluated,
+ * a literal is used as written, and a `{…}` token the spec refuses at a value
+ * slot fails the node with the spec's own refusal. Nothing here reads that
+ * dialect. `parallel_gateway` fans out WITHOUT
  * join synchronization; the ADR-0031 structured containers (`parallel`,
  * `try_catch` — nested body regions), `join_gateway`, `subflow` and
  * `boundary_event` are marked unsupported rather than faked. Fault edges are
@@ -19,7 +25,11 @@
  * walked as an ordinary successor. A hard step ceiling guards cycles.
  */
 
-import { isExpressionEnvelopeShaped } from '@objectstack/spec/automation';
+import {
+  flowNodeConfigRefusals,
+  flowNodeValueTemplateRefusals,
+  isExpressionEnvelopeShaped,
+} from '@objectstack/spec/automation';
 import type {
   MockResults,
   SimEdge,
@@ -83,30 +93,36 @@ const UNSUPPORTED = new Set(['join_gateway', 'subflow', 'boundary_event', 'paral
 const edgeId = (e: SimEdge, i: number): string => e.id || `${e.source}->${e.target}#${i}`;
 const str = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined);
 
-/** A variable path the runtime's `resolveToken` looks up: `a`, `a.b`, `list.0`. */
-const VARIABLE_PATH = /^[A-Za-z_$][\w$]*(?:\.(?:[A-Za-z_$][\w$]*|\d+))*$/;
-
-/** The runtime's `resolvePath`: walk `path`, `undefined` past a non-object. */
-function resolvePath(base: unknown, path: string[]): unknown {
-  let cur: unknown = base;
-  for (const seg of path) {
-    if (cur == null || typeof cur !== 'object') return undefined;
-    cur = (cur as Record<string, unknown>)[seg];
+/**
+ * The runtime's `copyLiteral` (`value-slot-map.ts` in
+ * `@objectstack/service-automation`): a literal handed on as written, with
+ * arrays and plain objects copied at every depth so a later write never
+ * reaches the node's config. Every other value is returned as it is.
+ */
+function copyLiteral(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(copyLiteral);
+  if (value !== null && typeof value === 'object') {
+    const proto = Object.getPrototypeOf(value);
+    if (proto !== Object.prototype && proto !== null) return value;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = copyLiteral(v);
+    return out;
   }
-  return cur;
+  return value;
 }
 
-/** The runtime's `stringifyForTemplate`: a token's text inside a longer string. */
-function stringifyForTemplate(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  if (typeof value === 'object') {
-    try {
-      return JSON.stringify(value);
-    } catch {
-      return String(value);
-    }
-  }
-  return String(value);
+/**
+ * The first refusal the spec's two config judges make of `config` on a node of
+ * `type` — `flowNodeValueTemplateRefusals` (a `{…}` token at a value slot) and
+ * `flowNodeConfigRefusals` (the node's contract) — as one line naming the
+ * path, or `undefined`. They are the judges `registerFlow` and `objectstack
+ * validate` call, and an executor's run-time twin refuses the same set.
+ */
+function configRefusal(type: string, config: Record<string, unknown>): string | undefined {
+  const token = flowNodeValueTemplateRefusals(type, config)[0];
+  if (token) return `${token.label} at config.${token.path}: ${token.message}`;
+  const contract = flowNodeConfigRefusals(type, config)[0];
+  return contract ? `config.${contract.path}: ${contract.message}` : undefined;
 }
 
 export class FlowSimulator {
@@ -362,9 +378,7 @@ export class FlowSimulator {
       return this.proceed(node, 'ok', { note: this.say('engine.flowSim.note.screenNoInput') });
     }
 
-    if (type === 'loop') {
-      return this.proceed(node, 'ok', { note: this.executeLoop(node) });
-    }
+    if (type === 'loop') return this.executeLoop(node);
 
     if (MOCKED_SIDE_EFFECT.has(type) || type === 'script') {
       const wrote = this.applyMock(node);
@@ -452,8 +466,15 @@ export class FlowSimulator {
    * assignment node — set flow variables. Normalizes the three authoring
    * shapes the engine accepts (Studio's `{ assignments: { var: value } }`
    * map, the example `{ assignments: [{ variable, value }] }` array, and the
-   * legacy flat `{ var: value }`) and interpolates `{var}` templates — so the
-   * Debug run mirrors runtime instead of silently no-oping.
+   * legacy flat `{ var: value }`), so the Debug run mirrors runtime instead of
+   * silently no-oping.
+   *
+   * objectui#12329 — as the runtime's assignment executor does since
+   * objectstack#19939 S7, a value that spells a `{…}` token of the retired
+   * single-brace dialect, in any of the three shapes, fails the node before
+   * any variable is set, with the spec's refusal (`flowNodeValueTemplateRefusals`,
+   * the judge `registerFlow` refuses the flow with). Every other value is a
+   * literal, written as it is (a copy, as the runtime's `copyLiteral` makes).
    *
    * A CEL value envelope `{ dialect: 'cel', source }` is evaluated, the way the
    * runtime's assignment executor evaluates it (objectui#10537). That applies
@@ -471,6 +492,12 @@ export class FlowSimulator {
    */
   private executeAssignment(node: SimNode): SimStep {
     const cfg = node.config ?? {};
+    const refused = flowNodeValueTemplateRefusals('assignment', cfg)[0];
+    if (refused) {
+      return this.record(node.id, 'assignment', node.label, 'error', {
+        error: `${refused.label} at config.${refused.path}: ${refused.message}`,
+      });
+    }
     const raw = cfg.assignments;
     // `slot` = the pair sits in the ledger's `value` slot, where an envelope is
     // an expression. False for both legacy shapes.
@@ -490,10 +517,6 @@ export class FlowSimulator {
       for (const [k, v] of Object.entries(cfg)) pairs.push({ key: k, value: v, slot: false });
     }
     const wrote: Record<string, unknown> = {};
-    // `{token}`s kept as written because they are not modelled (see
-    // `interpolateString`), named on the step so the value is not mistaken
-    // for the runtime's.
-    const unmodelled: string[] = [];
     for (const { key, value, slot } of pairs) {
       let resolved: unknown;
       if (slot && isExpressionEnvelopeShaped(value)) {
@@ -506,115 +529,85 @@ export class FlowSimulator {
         }
         resolved = evaluated.value;
       } else {
-        const tokens: string[] = [];
-        resolved = this.interpolateValue(value, tokens);
-        for (const token of tokens) unmodelled.push(this.say('engine.flowSim.note.unmodelledToken', { token, key }));
+        resolved = copyLiteral(value);
       }
       this.state.variables[key] = resolved;
       wrote[key] = resolved;
     }
     return this.proceed(node, 'ok', {
       wrote: Object.keys(wrote).length ? wrote : undefined,
-      note: joinNotes(
-        Object.keys(wrote).length ? undefined : this.say('engine.flowSim.note.noAssignments'),
-        unmodelled.length ? this.say('engine.flowSim.note.unmodelled', { tokens: unmodelled.join(', ') }) : undefined,
-      ),
+      note: Object.keys(wrote).length ? undefined : this.say('engine.flowSim.note.noAssignments'),
     });
   }
 
   /**
-   * Resolve `{var}` templates in an assignment value against live variables,
-   * following the runtime's `interpolate` (`builtin/template.ts` in
-   * `@objectstack/service-automation`) rule for rule (objectui#10615):
+   * loop node — resolve its collection the way the runtime's `loop` executor
+   * does, and bind the iterator to the first item (the body region is not
+   * walked: a labelled single pass). objectui#12329 — two forms, as at runtime
+   * since objectstack#19939 S7:
    *
-   * - An array or a plain object is walked into a new one: every element and
-   *   every property value is interpolated. Keys are not.
-   * - Any other non-string (number, boolean, `null`) is returned unchanged.
-   * - A string with no `{` is returned unchanged.
-   * - A string that is one whole token (`'{n}'`) takes the token's value, type
-   *   kept. A token naming nothing gives `undefined`.
-   * - Tokens inside a longer string become text: `null` and `undefined` give
-   *   `''`, and an object or array gives its JSON.
-   *
-   * A token is resolved by {@link resolveToken}, which models the runtime's
-   * variable-path lookup only. A token it does not model is kept as written,
-   * whole or inside a longer string, and pushed onto `unmodelled` so the step
-   * can name it (objectui#10692): the runtime renders a value there, which the
-   * Debug run cannot produce, so it shows the token rather than a fake value.
+   * - With a `body` (the ADR-0031 container): `collection` is a value slot. The
+   *   spec's config judges refuse a `{…}` token and a bare variable name there,
+   *   and the step fails with that refusal, as the executor's config parse
+   *   fails the node. A CEL value envelope is evaluated (`evalValueEnvelope`);
+   *   an inline array is iterated as written. Anything that is not a list fails
+   *   the node, as the executor does.
+   * - Without a `body` (the legacy flat-graph form, judged by no door): the
+   *   executor reads `collection` as the name of a list variable, exactly as
+   *   written. A `{name}` string is not that name, so it finds nothing and the
+   *   loop is a pass that binds nothing.
    */
-  private interpolateValue(value: unknown, unmodelled: string[]): unknown {
-    if (typeof value === 'string') return this.interpolateString(value, unmodelled);
-    if (Array.isArray(value)) return value.map((v) => this.interpolateValue(v, unmodelled));
-    if (value && typeof value === 'object') {
-      const out: Record<string, unknown> = {};
-      for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = this.interpolateValue(v, unmodelled);
-      return out;
-    }
-    return value;
-  }
+  private executeLoop(node: SimNode): SimStep {
+    const cfg = node.config ?? {};
+    const iterVar = str(cfg.iteratorVariable);
+    const bindFirst = (items: unknown[]) => {
+      if (iterVar && items.length) this.state.variables[iterVar] = items[0];
+    };
 
-  private interpolateString(input: string, unmodelled: string[]): unknown {
-    if (!input.includes('{')) return input;
-    const whole = /^\{([^{}]+)\}$/.exec(input);
-    if (whole) {
-      const token = this.resolveToken(whole[1]);
-      if (token.modelled) return token.value;
-      unmodelled.push(input);
-      return input;
-    }
-    return input.replace(/\{([^{}]+)\}/g, (m: string, expr: string) => {
-      const token = this.resolveToken(expr);
-      if (token.modelled) return stringifyForTemplate(token.value);
-      unmodelled.push(m);
-      return m;
-    });
-  }
-
-  /**
-   * Resolve one `{…}` token the way the runtime's `resolveToken` resolves a
-   * variable path: `a.b.0` reads variable `a`, then walks `b` and index `0`;
-   * with no variable `a`, it reads a variable whose key is the whole dotted
-   * text. A path that reaches nothing is `undefined`.
-   *
-   * The runtime's other token forms are not modelled: `NOW()` / `TODAY()`,
-   * `$User.*`, function calls and arithmetic. They come back unmodelled, and
-   * `interpolateString` keeps them as written.
-   */
-  private resolveToken(token: string): { modelled: true; value: unknown } | { modelled: false } {
-    const trimmed = token.trim();
-    if (!trimmed) return { modelled: true, value: undefined };
-    if (trimmed.startsWith('$User.') || !VARIABLE_PATH.test(trimmed)) return { modelled: false };
-    const vars = this.state.variables;
-    const [head, ...path] = trimmed.split('.');
-    if (Object.prototype.hasOwnProperty.call(vars, head)) return { modelled: true, value: resolvePath(vars[head], path) };
-    return { modelled: true, value: Object.prototype.hasOwnProperty.call(vars, trimmed) ? vars[trimmed] : undefined };
-  }
-
-  /** Resolve a loop's collection and bind its iterator; returns the step's note. */
-  private executeLoop(node: SimNode): string {
-    const ref = str(node.config?.collection);
-    const iterVar = str(node.config?.iteratorVariable);
-    let note = this.say('engine.flowSim.note.loopSinglePass');
-    if (ref) {
-      const resolved = this.resolveRef(ref);
-      if (Array.isArray(resolved)) {
-        note = this.say('engine.flowSim.note.loopCollection', { ref, count: resolved.length });
-        if (iterVar && resolved.length) this.state.variables[iterVar] = resolved[0];
-      } else if (resolved !== undefined) {
-        note = this.say('engine.flowSim.note.loopNotArray', { ref });
+    if (cfg.body == null) {
+      const name = str(cfg.collection);
+      const vars = this.state.variables;
+      const resolved = name && Object.prototype.hasOwnProperty.call(vars, name) ? vars[name] : undefined;
+      if (name && Array.isArray(resolved)) {
+        bindFirst(resolved);
+        return this.proceed(node, 'ok', {
+          note: this.say('engine.flowSim.note.loopCollection', { ref: name, count: resolved.length }),
+        });
       }
+      return this.proceed(node, 'ok', {
+        note:
+          name && resolved !== undefined
+            ? this.say('engine.flowSim.note.loopNotArray', { ref: name })
+            : this.say('engine.flowSim.note.loopSinglePass'),
+      });
     }
-    return note;
+
+    const refused = configRefusal('loop', cfg);
+    if (refused) return this.record(node.id, node.type, node.label, 'error', { error: refused });
+    let items: unknown = cfg.collection;
+    let ref: string;
+    if (isExpressionEnvelopeShaped(cfg.collection)) {
+      const evaluated = evalValueEnvelope(cfg.collection, this.state.variables, this.locale);
+      if (!evaluated.ok) {
+        return this.record(node.id, node.type, node.label, 'error', { error: `collection: ${evaluated.error}` });
+      }
+      items = evaluated.value;
+      ref = String((cfg.collection as { source?: unknown }).source ?? '');
+    } else {
+      ref = JSON.stringify(cfg.collection) ?? '';
+    }
+    if (!Array.isArray(items)) {
+      return this.record(node.id, node.type, node.label, 'error', {
+        error: this.say('engine.flowSim.note.loopCollectionNotList', { ref }),
+      });
+    }
+    bindFirst(items);
+    return this.proceed(node, 'ok', {
+      note: this.say('engine.flowSim.note.loopCollection', { ref, count: items.length }),
+    });
   }
 
   // ---- helpers ------------------------------------------------------------
-
-  /** Resolve a `{var}` template ref or a plain variable name from `variables`. */
-  private resolveRef(ref: string): unknown {
-    const m = ref.match(/^\{(.+)\}$/);
-    const key = (m ? m[1] : ref).trim();
-    return this.state.variables[key];
-  }
 
   /**
    * Apply a node's mock output to the simulation variables; returns what it

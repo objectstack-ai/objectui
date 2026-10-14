@@ -97,7 +97,7 @@ describe('every colour name resolves to a light and a dark tint (objectui#12375)
 
 describe('the tint reaches the right-pinned actions column and the frozen column (objectui#12375)', () => {
   function renderGrid() {
-    const schema: any = {
+    const schema = {
       type: 'object-grid',
       objectName: 'test_object',
       columns: [
@@ -113,7 +113,7 @@ describe('the tint reaches the right-pinned actions column and the frozen column
       },
       rowActionDefs: [{ name: 'open', label: 'Open', variant: 'primary' }],
       rowColor: { field: 'priority', colors: { critical: 'red' } },
-    };
+    } as React.ComponentProps<typeof ObjectGrid>['schema'];
     return render(
       <ActionProvider>
         <ObjectGrid schema={schema} />
@@ -135,8 +135,13 @@ describe('the tint reaches the right-pinned actions column and the frozen column
 
     const sticky = stickyCells(tr);
     const actions = screen.getAllByTestId('row-action-inline-open')[0].closest('td')!;
-    expect(sticky, 'CONTROL: the frozen Name cell and the right-pinned actions cell').toHaveLength(2);
-    expect(sticky).toContain(actions);
+    // CONTROL: the row number, the frozen Name column and the right-pinned
+    // actions column (the grid shows row numbers and freezes its first
+    // column by default).
+    expect(sticky).toHaveLength(3);
+    expect(sticky[0]).toHaveTextContent('1');
+    expect(sticky[1]).toHaveTextContent('Tinted');
+    expect(sticky[2]).toBe(actions);
     for (const td of sticky) {
       const t = tokens(td.className);
       expect(t).toContain(STICKY_ROW_TINT);

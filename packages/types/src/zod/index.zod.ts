@@ -521,6 +521,11 @@ export { CloudPlanStatusSchema, CloudWorkspaceTimezoneNoticeSchema } from './clo
 export { RecordApprovalDecisionBlockSchema } from './record-approval-decision.zod.js';
 
 // ============================================================================
+// `record:approvals` / `record:attachments` - `@object-ui/app-shell`'s record panels (objectui#12363)
+// ============================================================================
+export { RecordApprovalsBlockSchema, RecordAttachmentsBlockSchema } from './record-panels.zod.js';
+
+// ============================================================================
 // Union Types - All Component Schemas
 // ============================================================================
 
@@ -544,6 +549,7 @@ import { DesignerUnionSchema } from './designer.zod.js';
 import { PublicBlockComponentSchema } from './public-blocks.zod.js';
 import { CloudPlanStatusSchema, CloudWorkspaceTimezoneNoticeSchema } from './cloud.zod.js';
 import { RecordApprovalDecisionBlockSchema } from './record-approval-decision.zod.js';
+import { RecordApprovalsBlockSchema, RecordAttachmentsBlockSchema } from './record-panels.zod.js';
 import { nestedComponentJudgment } from './nested-component-walk.js';
 
 /**
@@ -651,6 +657,9 @@ export const AnyComponentSchema = defineNodeComponentUnion(z.discriminatedUnion(
   CloudWorkspaceTimezoneNoticeSchema,
   // objectui#12342 — landed with its registration.
   RecordApprovalDecisionBlockSchema,
+  // objectui#12363 — the two record panels the default record page emits.
+  RecordApprovalsBlockSchema,
+  RecordAttachmentsBlockSchema,
 ], {
   // Zod's default message for a missed discriminator spells out EVERY accepted
   // literal — measured, 1,462 chars naming all 107. That is the "print every

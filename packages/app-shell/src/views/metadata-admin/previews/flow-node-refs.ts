@@ -8,7 +8,7 @@
  * The engine writes each node's output under `<nodeId>.<key>` (the run's
  * variable map, `AutomationEngine` in `@objectstack/service-automation`), so a
  * later node reads it by the node's id: `x.decision == 'approve'` on a branch,
- * `{x.field}` in a record field value. A node id therefore appears in four
+ * `{{x.field}}` in a notify message. A node id therefore appears in four
  * kinds of position ({@link NODE_ID_POSITION_KINDS}): an edge's `source`, an
  * edge's `target`, a boundary event's host (`boundaryConfig.attachedToNodeId`),
  * and the ROOT of an expression reference. {@link nodeIdPositions} is the one
@@ -23,22 +23,22 @@
  *
  *   1. Code — a text field the node's config descriptor marks
  *      `refMode: 'expression'` (a script body). No parser here reads it.
- *   2. CEL — a descriptor field of `kind: 'expression'` that is not a template
+ *   2. CEL — a descriptor field of `kind: 'expression'`
  *      (`fieldsForNodeType` in `flow-node-config.ts`, e.g. a start node's
- *      `criteria`), an `expression` column of an `objectList` field (a screen
+ *      `criteria`, or a body-less loop's `collection`, the bare name of a list
+ *      variable), an `expression` column of an `objectList` field (a screen
  *      field's `visibleWhen`), or a slot the spec's ledger declares
  *      `predicate` (`FLOW_NODE_EXPRESSION_PATHS`).
- *   3. Template — a descriptor text field, or a `kind: 'expression'` field the
- *      descriptor marks `refMode: 'template'` (a loop's or a map's `collection`).
- *   4. CEL — any other `condition` or `expression` key: the structural predicate
+ *   3. CEL — any other `condition` or `expression` key: the structural predicate
  *      every node and edge carries, and a key no descriptor describes (the
  *      platform linter's `CEL_KEYS` rule).
- *   5. Template — every other string in `config`, and in a connector node's
- *      `connectorConfig.input`. The engine interpolates `{token}` holes into
- *      node config strings wholesale (`interpolate` in the engine's
- *      `builtin/template.ts`), and the spec's ledger says the same of the
- *      strings it does not list ("text-with-holes, the shape essentially every
- *      node config string has").
+ *   4. Template — every other string in `config`, and in a connector node's
+ *      `connectorConfig.input`: text whose only references are ADR-0032 §3
+ *      `{{ }}` holes, the spelling the spec's text slots render
+ *      (`FLOW_NODE_TEXT_SLOTS`). A single-brace `{…}` is no reference
+ *      anywhere (objectui#12390): `@objectstack/spec` 18 deleted the flow's
+ *      single-brace interpolator (objectstack#19939), so in a string no slot
+ *      judges it is literal text, and a rename leaves it as written.
  *
  * An edge's `condition` is CEL, and a `{ dialect, source }` envelope anywhere is
  * read by its own `dialect` (an assignment or record field value).
@@ -50,12 +50,10 @@
  * AST that no comprehension macro (`all` / `exists` / `exists_one` / `map` /
  * `filter`) or `cel.bind` binds. So `x` never matches `xy` or `ax` (another
  * identifier), `.x` (a member name), `"x.decision"` (a string literal), or the
- * `x` that `rows.map(x, x.v)` declares. A template hole is the engine's own
- * `{…}` (`interpolateString`'s pattern, which takes the inner `{x.field}` of a
- * `{{x.field}}` too, so both spellings read the same reference), and its
- * content is the engine's dotted variable path, or CEL for the arithmetic a
- * hole may hold (`{round(x.total)}`); the `| formatter` of an ADR-0032 §3
- * double-brace hole is not part of the reference.
+ * `x` that `rows.map(x, x.v)` declares. A template hole is a `{{…}}`, and its
+ * content is a dotted variable path, or CEL for the arithmetic a hole may hold
+ * (`{{round(x.total)}}`); the hole's ADR-0032 §3 `| formatter` is not part of
+ * the reference.
  *
  * A source that does not parse is never rewritten. A rename that would leave
  * one naming the old id is refused instead, naming it
@@ -96,6 +94,10 @@ export interface ExprSite {
   holder: { kind: 'node'; id: string } | { kind: 'edge'; source: string; target: string };
   /** Key path from the holder to the source string, for the words that name it. */
   holderPath: Path;
+  /**
+   * `'template'` is text with ADR-0032 §3 `{{ }}` holes — the spec's
+   * `template` expression dialect, never the retired single-brace one.
+   */
   dialect: 'cel' | 'template';
   source: string;
   /** On a `start` node, whose entry condition reads the trigger record's fields bare. */
@@ -108,10 +110,9 @@ type Pattern = ReadonlyArray<string>;
 interface NodeSlots {
   code: Pattern[];
   cel: Pattern[];
-  template: Pattern[];
 }
 
-const NO_SLOTS: NodeSlots = { code: [], cel: [], template: [] };
+const NO_SLOTS: NodeSlots = { code: [], cel: [] };
 
 function columnPatterns(columns: ReadonlyArray<FlowConfigColumn> | undefined, base: Pattern, slots: NodeSlots): void {
   for (const col of columns ?? []) {
@@ -127,21 +128,22 @@ const slotCache = new Map<string, NodeSlots>();
 function slotsForType(type: string): NodeSlots {
   const cached = slotCache.get(type);
   if (cached) return cached;
-  const slots: NodeSlots = { code: [], cel: [], template: [] };
+  const slots: NodeSlots = { code: [], cel: [] };
   for (const field of fieldsForNodeType(type)) {
     if (field.path[0] !== 'config') continue;
     const at = field.path.slice(1);
-    // The descriptor's own default, as `FlowNodeConfigField` reads it.
-    const refMode = field.refMode ?? (field.kind === 'expression' ? 'expression' : 'template');
-    if (field.kind === 'expression') (refMode === 'template' ? slots.template : slots.cel).push(at);
-    else if (field.kind === 'text' || field.kind === 'textarea') (refMode === 'expression' ? slots.code : slots.template).push(at);
+    if (field.kind === 'expression') slots.cel.push(at);
+    else if ((field.kind === 'text' || field.kind === 'textarea') && field.refMode === 'expression') slots.code.push(at);
     else if (field.kind === 'objectList') columnPatterns(field.columns, at, slots);
+    // Any other text field — a literal, or a `{{ }}` text slot (`refMode: 'hole'`) —
+    // reads as every other string does: its `{{ }}` holes, nothing else.
   }
   for (const entry of FLOW_NODE_EXPRESSION_PATHS) {
     if (entry.nodeType !== type) continue;
     const at = entry.path.split('.').flatMap((seg) => (seg.endsWith('[]') ? [seg.slice(0, -2), '[]'] : [seg]));
     if (entry.role === 'predicate') slots.cel.push(at);
-    // `value`: an envelope is CEL and a string a template, read off the value itself.
+    // `value`: an envelope is read by its own dialect; a string there is a literal
+    // (a `{…}` token is refused by the spec), and reads its `{{ }}` holes only.
   }
   slotCache.set(type, slots);
   return slots;
@@ -205,13 +207,7 @@ function walkValue(w: Walk, value: unknown, rel: Path, local: Path, slots: NodeS
   if (typeof value === 'string') {
     if (slots.code.some((p) => matches(p, local))) return;
     const key = local[local.length - 1];
-    const dialect = slots.cel.some((p) => matches(p, local))
-      ? 'cel'
-      : slots.template.some((p) => matches(p, local))
-        ? 'template'
-        : key === 'condition' || key === 'expression'
-          ? 'cel'
-          : 'template';
+    const dialect = slots.cel.some((p) => matches(p, local)) || key === 'condition' || key === 'expression' ? 'cel' : 'template';
     pushSite(w, rel, dialect, value);
     return;
   }
@@ -474,9 +470,12 @@ function celIds(source: string, offset = 0): IdHit[] | null {
   return hits;
 }
 
-/** The engine's template hole (`interpolateString`): the innermost `{…}`, so `{{x}}` holds `{x}`. */
-const HOLE_RE = /\{([^{}]+)\}/g;
-/** The engine's direct variable path (`resolveToken`): a head, then identifier or index segments. */
+/**
+ * An ADR-0032 §3 template hole, `{{…}}` (objectui#12390). A single-brace `{…}`
+ * is literal text: no flow string reads one since `@objectstack/spec` 18.
+ */
+const HOLE_RE = /\{\{([^{}]+)\}\}/g;
+/** A hole's direct variable path: a head, then identifier or index segments. */
 const VARIABLE_PATH_RE = /^[A-Za-z_$][\w$]*(?:\.(?:[A-Za-z_$][\w$]*|\d+))*$/;
 
 /** Where an ADR-0032 §3 `path | formatter` pipe starts in a hole, or -1 (a `||` is CEL's or). */
@@ -525,7 +524,7 @@ export function parseExpr(dialect: ExprSite['dialect'], source: string): ParsedE
   }
   const out: ParsedExpr = { refs: [], unparsed: [] };
   for (const m of source.matchAll(HOLE_RE)) {
-    const hits = holeIds(m[1], (m.index ?? 0) + 1);
+    const hits = holeIds(m[1], (m.index ?? 0) + 2);
     if (hits) out.refs.push(...toRefs(hits));
     else out.unparsed.push(m[0]);
   }

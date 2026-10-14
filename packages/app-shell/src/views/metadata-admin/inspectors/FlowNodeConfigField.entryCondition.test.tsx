@@ -427,12 +427,12 @@ describe('#6226 fences — declared opt-in, never inferred from `kind`', () => {
     expect(isPlainTextInput(mountField({ value: 'status == "done"', triggerScope: undefined }))).toBe(true);
   });
 
-  it('a template-mode expression field is never a condition builder', () => {
-    // Belt and braces for a body-less loop's `collection` (objectui#12329): a
-    // variable name, not a predicate.
-    const templated: FlowConfigField = { ...ENTRY_CONDITION, refMode: 'template' };
-    expect(templated.conditionBuilder).toBe(true);
-    expect(isPlainTextInput(mountField({ value: 'leadList', field: templated }))).toBe(true);
+  it("a loop's collection never opts in, so it is never a condition builder (objectui#12390)", () => {
+    // A body-less loop's `collection` is a variable name, not a predicate; with
+    // the `refMode: 'template'` mark retired, the opt-in is what keeps it out.
+    const collection = fieldsForNodeType('loop').find((f) => f.id === 'collection')!;
+    expect(collection.conditionBuilder).toBeFalsy();
+    expect(isPlainTextInput(mountField({ value: 'leadList', field: collection }))).toBe(true);
   });
 });
 

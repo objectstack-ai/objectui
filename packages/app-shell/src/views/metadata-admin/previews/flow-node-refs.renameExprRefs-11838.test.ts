@@ -83,13 +83,13 @@ describe('a rename carries the expression references to the node (objectui#11838
     expect(missingNodePositions(after).filter((p) => p.kind === 'expression-root')).toEqual([]);
   });
 
-  it('a template {x.field} and {{x.field}} in a record field value follow — only the root changes', () => {
+  it('a {{x.field}} hole follows — only the root changes; a single-brace {x.field} is literal text and stays (objectui#12390)', () => {
     const at = texts(carried(card(), 'x', 'renamed'));
-    expect(at['c › config.fields.subject']).toBe('{renamed.field}');
+    expect(at['c › config.fields.subject']).toBe('{x.field}');
     expect(at['c › config.fields.note']).toBe('Approved by {{renamed.field}}');
   });
 
-  it("a {{ x.at | date }} hole, a CEL value envelope and a loop's collection follow too", () => {
+  it("a {{ x.at | date }} hole, a CEL value envelope and a body-less loop's bare-name collection follow too", () => {
     const flow = card();
     flow.nodes[3] = {
       ...flow.nodes[3],
@@ -98,29 +98,29 @@ describe('a rename carries the expression references to the node (objectui#11838
         fields: { due: 'on {{ x.at | date }}', total: { dialect: 'cel', source: 'x.amount * 2' } },
       },
     };
-    flow.nodes.push({ id: 'l', type: 'loop', label: 'Each', config: { collection: '{x.items}', iteratorVariable: 'it' } });
+    flow.nodes.push({ id: 'l', type: 'loop', label: 'Each', config: { collection: 'x.items', iteratorVariable: 'it' } });
     const at = texts(carried(flow, 'x', 'renamed'));
     expect(at['c › config.fields.due']).toBe('on {{ renamed.at | date }}');
     expect(at['c › config.fields.total.source']).toBe('renamed.amount * 2');
-    expect(at['l › config.collection']).toBe('{renamed.items}');
+    expect(at['l › config.collection']).toBe('renamed.items');
   });
 
-  it("a loop's and a map's collection are templates by their descriptor, and a map's follows a rename too (objectui#12170)", () => {
-    // The descriptor's `refMode: 'template'` is what makes this slot a template:
-    // the spec's ledger rows for it are `value`-role on objectstack `main`
-    // (objectstack-ai/objectstack#22883), which leaves the dialect to the value.
+  it("a loop's collection is CEL by its descriptor, and a map's value envelope follows a rename too (objectui#12170, objectui#12390)", () => {
+    // The descriptor marks `collection` a plain `expression` field: a body-less
+    // loop reads the bare name of a list variable, and a value-slot collection
+    // (a map's) holds a CEL value envelope, read by its own dialect.
     const flow = card();
     flow.nodes.push(
-      { id: 'l', type: 'loop', label: 'Each', config: { collection: '{x.items}', iteratorVariable: 'it' } },
-      { id: 'm', type: 'map', label: 'Each item', config: { collection: '{x.items}', flowName: 'one_task_signoff', iteratorVariable: 'it' } },
+      { id: 'l', type: 'loop', label: 'Each', config: { collection: 'x.items', iteratorVariable: 'it' } },
+      { id: 'm', type: 'map', label: 'Each item', config: { collection: { dialect: 'cel', source: 'x.items' }, flowName: 'one_task_signoff', iteratorVariable: 'it' } },
     );
     const dialects = Object.fromEntries(
       exprSites(flow)
-        .filter((s) => s.holder.kind === 'node' && s.holderPath.join('.') === 'config.collection')
+        .filter((s) => s.holder.kind === 'node' && s.holderPath[1] === 'collection')
         .map((s) => [s.holder.kind === 'node' ? s.holder.id : '', s.dialect]),
     );
-    expect(dialects).toEqual({ l: 'template', m: 'template' });
-    expect(texts(carried(flow, 'x', 'renamed'))['m › config.collection']).toBe('{renamed.items}');
+    expect(dialects).toEqual({ l: 'cel', m: 'cel' });
+    expect(texts(carried(flow, 'x', 'renamed'))['m › config.collection.source']).toBe('renamed.items');
   });
 
   it('an identifier that only contains x, a member named x, a string literal and a macro-bound x are untouched', () => {
@@ -149,7 +149,7 @@ describe('a rename carries the expression references to the node (objectui#11838
       type: 'loop',
       label: 'Each',
       config: {
-        collection: '{rows}',
+        collection: { dialect: 'cel', source: 'rows' },
         body: { nodes: [{ id: 'inner', type: 'decision', config: { condition: "x.decision == 'approve'" } }], edges: [] },
       },
     });
@@ -201,11 +201,11 @@ describe('a reference the rename cannot carry refuses it, naming the reference (
 
   it('a template hole that does not parse refuses it too, while a parsed hole beside it would have followed', () => {
     const flow = card();
-    (flow.nodes[3].config as Rec).fields = { subject: '{x.field} {x.field +}' };
+    (flow.nodes[3].config as Rec).fields = { subject: '{{x.field}} {{x.field +}}' };
     const r = expressionRefsAfterNodeRename(renamed(flow, 'x', 'renamed'), 'x', 'renamed');
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    expect(r.refusal.sites.map(describeExprSite)).toEqual(['c › config.fields.subject: `{x.field} {x.field +}`']);
+    expect(r.refusal.sites.map(describeExprSite)).toEqual(['c › config.fields.subject: `{{x.field}} {{x.field +}}`']);
   });
 
   it('control: an expression that does not parse but never reads x does not stop the rename', () => {
@@ -221,7 +221,8 @@ describe('a reference the rename cannot carry refuses it, naming the reference (
     expect(r.ok).toBe(false);
     if (r.ok) return;
     expect(r.refusal).toMatchObject({ kind: 'ambiguous', name: 'x' });
-    expect(r.refusal.sites).toHaveLength(4);
+    // The branch, the edge guard and the `{{x.field}}` hole; the `{x.field}` beside it is literal text.
+    expect(r.refusal.sites).toHaveLength(3);
   });
 
   it('a new id a comprehension macro already binds would capture the reference, and is refused', () => {
@@ -246,7 +247,7 @@ describe('the Problems check names a position left naming a missing node, as an 
     return flow;
   }
 
-  it("x.decision on a branch and an edge, {x.field} in a field: each is an error row on the node or edge that holds it", () => {
+  it("x.decision on a branch and an edge, {{x.field}} in a field: each is an error row on the node or edge that holds it", () => {
     const rows = missingNodeRefDiagnostics(stale(), 'en-US');
     const msg = (ref: string) => tFormat('engine.flowValidate.exprRefNodeMissing', 'en-US', { ref, id: 'x' });
     expect(rows).toEqual([
@@ -278,7 +279,7 @@ describe('the Problems check names a position left naming a missing node, as an 
     (flow.nodes[2].config as Rec).conditions = [
       { label: 'Yes', expression: 'deal.amount > 1 && record.owner == previous.owner && status == "open" && x.decision == "approve"' },
     ];
-    (flow.nodes[3].config as Rec).fields = { subject: '{$error.message} {$User.Id} {record.name} {deal.name}' };
+    (flow.nodes[3].config as Rec).fields = { subject: '{{$error.message}} {{$User.Id}} {{record.name}} {{deal.name}}' };
     expect(missingNodeRefDiagnostics(flow, 'en-US')).toEqual([]);
     expect(missingNodePositions(flow)).toEqual([]);
   });
@@ -292,11 +293,8 @@ describe('the Problems check names a position left naming a missing node, as an 
     );
   });
 
-  it('parseExpr reads both template spellings to the same reference, and a CEL source that does not parse as unread', () => {
-    expect(parseExpr('template', '{x.field} and {{x.field}}').refs.map((r) => [r.text, r.start])).toEqual([
-      ['x.field', 1],
-      ['x.field', 16],
-    ]);
+  it('parseExpr reads a {{ }} hole and never a single-brace {…} (objectui#12390), and a CEL source that does not parse as unread', () => {
+    expect(parseExpr('template', '{x.field} and {{x.field}}').refs.map((r) => [r.text, r.start])).toEqual([['x.field', 16]]);
     expect(parseExpr('cel', 'x.decision ==')).toEqual({ refs: [], unparsed: ['x.decision =='] });
   });
 });

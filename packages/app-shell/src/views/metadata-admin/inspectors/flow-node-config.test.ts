@@ -184,22 +184,19 @@ describe('wait node loose-config fallback (ADR-0044 showcase parity)', () => {
   });
 });
 
-describe('loop / map collection keeps its template mark, not a CEL predicate', () => {
-  // objectui#12329 — the mark no longer picks a picker spelling: a value-slot
-  // collection renders the ledger's control, and a body-less loop's renders
-  // like an expression field (the bare name). The designer's analysis passes
-  // (`flow-expr-problems.ts`, `flow-node-refs.ts`) still read the mark.
-  it('flags loop.collection as an expression field in template mode', () => {
-    const collection = fieldsForNodeType('loop').find((f) => f.id === 'collection')!;
-    expect(collection.kind).toBe('expression');
-    expect(collection.refMode).toBe('template');
-  });
-
-  it('flags map.collection as an expression field in template mode', () => {
-    const collection = fieldsForNodeType('map').find((f) => f.id === 'collection')!;
-    expect(collection.kind).toBe('expression');
-    expect(collection.refMode).toBe('template');
-  });
+describe('loop / map collection is a plain expression field — no template mark (objectui#12390)', () => {
+  // objectui#12390 — the single-brace `'template'` mark is retired with its
+  // dialect. A value-slot collection (a `map`'s, a `loop`'s with a `body`)
+  // renders the ledger's control, and a body-less loop's renders as the
+  // expression field it is (the bare name); the analysis passes ask the spec's
+  // ledger which of the two a stored collection is.
+  for (const type of ['loop', 'map']) {
+    it(`${type}.collection is an expression field with no refMode override`, () => {
+      const collection = fieldsForNodeType(type).find((f) => f.id === 'collection')!;
+      expect(collection.kind).toBe('expression');
+      expect(collection.refMode).toBeUndefined();
+    });
+  }
 
   it('leaves genuine CEL predicates (start / decision condition) in bare-expression mode', () => {
     const startCond = fieldsForNodeType('start').find((f) => f.id === 'condition')!;

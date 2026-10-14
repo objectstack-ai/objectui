@@ -110,7 +110,7 @@ const onX: MetadataSelection = { kind: 'node', id: 'x' };
 const nodeOf = (d: Draft, id: string) => (d.nodes as Rec[]).find((n) => n.id === id)!;
 
 describe('FlowNodeInspector — a rename carries the expressions that read the node (objectui#11838)', () => {
-  it("the card's pin: x → renamed — the branch, the edge guard and both template spellings follow in the one patch", () => {
+  it("the card's pin: x → renamed — the branch, the edge guard and the {{ }} hole follow in the one patch; a single-brace {x.comment} is literal and stays (objectui#12390)", () => {
     const m = mount(card(), onX);
     renameTo('renamed');
     expect(m.patches).toHaveLength(1);
@@ -119,7 +119,7 @@ describe('FlowNodeInspector — a rename carries the expressions that read the n
       { label: 'Yes', expression: "renamed.decision == 'approve'" },
       { label: 'Else', expression: 'true' },
     ]);
-    expect((nodeOf(d, 'c').config as Rec).fields).toEqual({ subject: '{renamed.comment}', note: '{{renamed.comment}}' });
+    expect((nodeOf(d, 'c').config as Rec).fields).toEqual({ subject: '{x.comment}', note: '{{renamed.comment}}' });
     expect((d.edges as Rec[]).find((e) => e.id === 'e3')).toEqual({ id: 'e3', source: 'd', target: 'c', condition: "renamed.decision == 'approve'", label: 'Yes' });
     expect(missingNodePositions(d)).toEqual([]);
     expect(refusal()).toBeNull();

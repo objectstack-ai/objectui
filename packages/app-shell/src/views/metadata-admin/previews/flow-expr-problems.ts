@@ -6,7 +6,8 @@
  *
  * Two kinds, mirroring the inline inspector checks but aggregated per node/edge:
  *   • ADR-0032 brace / shape ERRORS on every CEL field (decision conditions +
- *     branch expressions, screen `visibleWhen`, loop collection, edge guards…).
+ *     branch expressions, screen `visibleWhen`, a body-less loop's collection,
+ *     edge guards…).
  *     Deterministic, scope-free → zero false positives.
  *   • Scope-aware "unknown reference" WARNINGS — a bare root not in scope at the
  *     node. The START node is skipped: its entry condition legitimately uses the
@@ -14,10 +15,20 @@
  *     typo without the object schema (an async fetch this pure pass avoids); the
  *     inline inspector check, which does fetch, still covers it.
  *
- * Only CEL (`expression`) surfaces are scanned — template (`{var}`) values use
- * single braces legally and are left to the inline check. An `expression` field
- * flagged `refMode: 'template'` (e.g. a loop/map collection like `{leadList}`) is
- * such a template surface and is likewise skipped here.
+ * Only `expression` surfaces are scanned. No flow string reads a single-brace
+ * `{var}` token since spec 18 (objectstack#19939 deleted the dialect), so there
+ * is no template surface to skip (objectui#12390). Two kinds of `expression`
+ * descriptor field are read differently:
+ *
+ *   • A body-less `loop`'s `collection` is a bare name: its executor reads the
+ *     list variable by name. It is scanned like every CEL field, so a stored
+ *     `{leadList}` is the brace error with `leadList` as the fix, and an
+ *     unbound name is the unknown-reference warning.
+ *   • A position the spec's ledger names a `value` slot at this node (a `map`'s
+ *     `collection`, a `loop`'s once it has a `body`; `resolveFlowNodeValueSlots`)
+ *     holds a literal or a CEL value envelope and is judged by the spec's
+ *     value-slot judges, which the inline control reads. It is not scanned
+ *     here: the brace check's fix, a bare name, is what that slot refuses.
  *
  * ## A screen field's `visibleWhen` is not a flow-scope slot (objectui#10743)
  *
@@ -34,6 +45,7 @@
  * flow scope.
  */
 
+import { resolveFlowNodeValueSlots } from '@objectstack/spec/automation';
 import { fieldsForNodeType, getFieldValue, localizeFlowFields } from '../inspectors/flow-node-config.js';
 import { resolveEdgeScope, resolveFlowScope } from '../inspectors/flow-scope.js';
 import { scopeRoots, findUnknownRefs, describeUnknownRefs } from '../inspectors/flow-ref-check.js';
@@ -90,6 +102,18 @@ function checkScreenVisibleWhen(
 }
 
 /**
+ * Whether the descriptor field at `path` is one `value`-role slot of the spec's
+ * ledger on this node — asked of the node as it stands with a probe at the key,
+ * so the ledger's `onlyWithKey` (a `loop` reads `collection` as a value only
+ * with a `body`) is the spec's answer (objectui#12390).
+ */
+function isValueSlot(type: string, config: Record<string, unknown>, path: readonly string[]): boolean {
+  if (path.length !== 2 || path[0] !== 'config') return false;
+  const key = path[1];
+  return resolveFlowNodeValueSlots(type, { ...config, [key]: 'probe' }).some((found) => found.path === key);
+}
+
+/**
  * The `screen` node's `fields[].visibleWhen` column — the one `objectList`
  * expression cell that is not a flow-scope slot. Exported so the inline
  * inspector cell (`FlowObjectListField`) names the same column (objectui#10772).
@@ -130,7 +154,8 @@ export function flowExpressionProblems(draft: Record<string, unknown>, locale?: 
     // Localized as the inspector localizes them, so a row with no label of its
     // own is prefixed by the column label the author sees (objectui#10804).
     for (const field of localizeFlowFields(type, fieldsForNodeType(type), locale)) {
-      if (field.kind === 'expression' && field.refMode !== 'template') {
+      if (field.kind === 'expression') {
+        if (isValueSlot(type, asRecord(node.config), field.path)) continue;
         const hit = checkCel(getFieldValue(node, field), roots, locale);
         if (hit) out.push({ target: { kind: 'node', nodeId }, level: hit.level, message: hit.message });
       } else if (field.kind === 'objectList' && field.columns) {

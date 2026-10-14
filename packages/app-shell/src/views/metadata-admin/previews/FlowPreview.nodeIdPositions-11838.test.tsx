@@ -121,7 +121,7 @@ function every(): Draft {
         label: 'Approved?',
         config: { conditions: [{ label: 'Yes', expression: "x.decision == 'approve'" }, { label: 'Else', expression: 'true' }] },
       },
-      { id: 'c', type: 'create_record', label: 'Log', config: { objectName: 'task', fields: { subject: '{x.comment}' } } },
+      { id: 'c', type: 'create_record', label: 'Log', config: { objectName: 'task', fields: { subject: '{{x.comment}}' } } },
       { id: 'be', type: 'boundary_event', label: 'On error', boundaryConfig: { attachedToNodeId: 'x', eventType: 'error', interrupting: true } },
       { id: 'e', type: 'end', label: 'End' },
     ],
@@ -142,7 +142,7 @@ const REFUSAL_X = tFormat('engine.inspector.flowNode.removeRefused', 'en-US', {
   refs: [
     'be › boundaryConfig.attachedToNodeId: `x`',
     "d › config.conditions[0].expression: `x.decision == 'approve'`",
-    'c › config.fields.subject: `{x.comment}`',
+    'c › config.fields.subject: `{{x.comment}}`',
     "d → c › condition: `x.decision == 'approve'`",
   ].join('; '),
 });

@@ -358,17 +358,17 @@ export interface FlowConfigField {
    *     them.
    *   • `'expression'` on a code field (e.g. a script body) so the picker inserts
    *     bare references, the spelling a JS/TS script reads.
-   *   • `'template'` — no longer a picker spelling (objectui#12329). Only the
-   *     loop / map `collection` carries it. Where the spec's ledger names that
-   *     position a `value` slot (a `map`, a `loop` with a `body`)
-   *     `FlowNodeConfigField` renders the ledger's literal / CEL-envelope
-   *     control (objectui#12372). On a body-less loop, whose executor reads the
-   *     bare name of a list variable, it renders like `'expression'`: the
-   *     picker inserts the bare name and a stored `{x}` gets the brace check.
-   *     What the mark still decides is how the designer's analysis passes
-   *     (`flow-expr-problems.ts`, `flow-node-refs.ts`) read a stored string.
+   *
+   * There is no single-brace member (objectui#12390): the `'template'` mark
+   * and its dialect are retired. The loop / map `collection` carries no
+   * override — it is an `expression` field, so the picker inserts the bare
+   * name and a stored `{x}` gets the brace check, which is what a body-less
+   * loop's executor reads (the bare name of a list variable). Where the spec's
+   * ledger names the position a `value` slot (a `map`, a `loop` with a `body`)
+   * `FlowNodeConfigField` renders the ledger's literal / CEL-envelope control
+   * instead (objectui#12372), and the analysis passes ask the same ledger.
    */
-  refMode?: 'expression' | 'template' | 'hole';
+  refMode?: 'expression' | 'hole';
   /**
    * Render this `expression` field with the row-based {@link ConditionBuilder}
    * (raw CEL stays one click away as the escape hatch) — objectui#6226.
@@ -712,7 +712,6 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     // variable and which no door judges, so the descriptor control stays for it.
     cfg('collection', 'Collection', 'expression', {
       placeholder: 'leadList',
-      refMode: 'template',
       help: 'The list to iterate: a CEL expression evaluating to a list (e.g. leadList), or the items as a JSON array. A loop with no body region reads the bare name of a list variable instead.',
     }),
     // objectui#9340 — the hint is the identifier the runtime binds when this box is
@@ -734,7 +733,6 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     // or the items as an inline array (rendered from the spec's ledger).
     cfg('collection', 'Collection', 'expression', {
       placeholder: 'items',
-      refMode: 'template',
       help: 'The list to process, one item at a time: a CEL expression evaluating to a list (e.g. items), or the items as a JSON array.',
     }),
     cfg('flowName', 'Per-item flow', 'reference', { ref: { kind: 'flow' }, placeholder: 'one_task_signoff', help: 'Subflow run for each item — it may pause (e.g. an approval).' }),

@@ -30,7 +30,7 @@ function card(): Flow {
         label: 'Approved?',
         config: { conditions: [{ label: 'Yes', expression: "x.decision == 'approve' && x.comment != ''" }, { label: 'Else', expression: 'true' }] },
       },
-      { id: 'c', type: 'create_record', label: 'Log', config: { objectName: 'task', fields: { subject: '{x.comment}' } } },
+      { id: 'c', type: 'create_record', label: 'Log', config: { objectName: 'task', fields: { subject: '{{x.comment}}' } } },
       { id: 'e', type: 'end', label: 'End' },
     ],
     edges: [
@@ -54,7 +54,7 @@ describe('a removal is refused while a boundary host or an expression root names
     expect(named(nodeRemovalRefusal(card(), 'x'))).toEqual([
       'host of be',
       "d › config.conditions[0].expression: `x.decision == 'approve' && x.comment != ''`",
-      'c › config.fields.subject: `{x.comment}`',
+      'c › config.fields.subject: `{{x.comment}}`',
       "d → c › condition: `x.decision == 'approve'`",
     ]);
   });
@@ -64,7 +64,7 @@ describe('a removal is refused while a boundary host or an expression root names
     const refs = [
       'be › boundaryConfig.attachedToNodeId: `x`',
       "d › config.conditions[0].expression: `x.decision == 'approve' && x.comment != ''`",
-      'c › config.fields.subject: `{x.comment}`',
+      'c › config.fields.subject: `{{x.comment}}`',
       "d → c › condition: `x.decision == 'approve'`",
     ].join('; ');
     for (const locale of ['en-US', 'zh-CN']) {
@@ -113,7 +113,7 @@ describe('a removal is refused while a boundary host or an expression root names
           id: 'l',
           type: 'loop',
           config: {
-            collection: '{rows}',
+            collection: { dialect: 'cel', source: 'rows' },
             iteratorVariable: 'it',
             body: {
               nodes: [

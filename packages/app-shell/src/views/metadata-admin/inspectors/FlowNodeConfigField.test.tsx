@@ -4,17 +4,18 @@
  * FlowNodeConfigField — inline expression validation gating (#2670 Phase 3 B).
  * The malformed-condition brace-trap (ADR-0032) fires on a real CEL predicate.
  *
- * objectui#12329 — it fires on a field marked `refMode: 'template'` too: the
- * one such field the value-slot control does not take is a body-less loop's
- * `collection`, whose executor reads the bare name of a list variable, so a
- * stored `{leadList}` names no variable. It used to be read as a legal
- * single-brace template, a dialect objectstack#19939 S7 deleted.
+ * objectui#12329 / objectui#12390 — it fires on a body-less loop's
+ * `collection` too, the one collection the value-slot control does not take:
+ * its executor reads the bare name of a list variable, so a stored
+ * `{leadList}` names no variable. It used to be read as a legal single-brace
+ * template, a dialect objectstack#19939 S7 deleted; the descriptor now carries
+ * no override, the loop's own descriptor field is the fixture.
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { FlowNodeConfigField } from './FlowNodeConfigField';
-import type { FlowConfigField } from './flow-node-config';
+import { fieldsForNodeType, type FlowConfigField } from './flow-node-config';
 import type { ScopeGroup } from './useFlowScope';
 
 afterEach(cleanup);
@@ -30,13 +31,8 @@ function scope(tokens: string[]): ScopeGroup[] {
   ];
 }
 
-const TEMPLATE_COLLECTION: FlowConfigField = {
-  id: 'collection',
-  path: ['config', 'collection'],
-  label: 'Collection',
-  kind: 'expression',
-  refMode: 'template',
-};
+/** The loop descriptor's own `collection` field, rendered with no node (so no value-slot control). */
+const LOOP_COLLECTION: FlowConfigField = fieldsForNodeType('loop').find((f) => f.id === 'collection')!;
 
 const CEL_CONDITION: FlowConfigField = {
   id: 'condition',
@@ -49,7 +45,7 @@ describe('FlowNodeConfigField — expression validation gating', () => {
   it('flags a `{leadList}` on a body-less collection, with the bare name as the fix (objectui#12329)', () => {
     render(
       <FlowNodeConfigField
-        field={TEMPLATE_COLLECTION}
+        field={LOOP_COLLECTION}
         value="{leadList}"
         onCommit={() => {}}
         scopeGroups={scope(['leadList'])}
@@ -61,7 +57,7 @@ describe('FlowNodeConfigField — expression validation gating', () => {
   it('control: the bare name in scope is clean', () => {
     render(
       <FlowNodeConfigField
-        field={TEMPLATE_COLLECTION}
+        field={LOOP_COLLECTION}
         value="leadList"
         onCommit={() => {}}
         scopeGroups={scope(['leadList'])}
@@ -74,7 +70,7 @@ describe('FlowNodeConfigField — expression validation gating', () => {
   it('surfaces an out-of-scope bare name as a NOTE (not an error)', () => {
     render(
       <FlowNodeConfigField
-        field={TEMPLATE_COLLECTION}
+        field={LOOP_COLLECTION}
         value="leadLst"
         onCommit={() => {}}
         scopeGroups={scope(['leadList'])}

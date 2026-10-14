@@ -478,8 +478,9 @@ export interface FlowNodeConfigFieldProps {
 }
 
 export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, context, scopeGroups, approvalScopeGroups, triggerScope, inactiveRetained, onClearInactive, required, requiredColumns }: FlowNodeConfigFieldProps) {
-  const refMode: 'expression' | 'template' | 'hole' =
-    field.refMode ?? (field.kind === 'expression' ? 'expression' : 'template');
+  // A text / textarea field with no override is a literal (no picker spelling).
+  const refMode: 'expression' | 'hole' | undefined =
+    field.refMode ?? (field.kind === 'expression' ? 'expression' : undefined);
   // objectui#12372 — a field whose whole value is one `value`-role slot of the
   // spec's ledger renders the literal / CEL-envelope control, whatever brace
   // mode its descriptor (offline or served) carries.
@@ -495,17 +496,16 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
   // bearing: `conditionBuilder` keeps `expression` from meaning "predicate"
   // everywhere it appears; `triggerScope` is the declared vocabulary, absent on
   // a trigger that binds no record; `refMode === 'expression'` keeps a
-  // body-less loop's `collection` (a variable name) out even if one ever opts in.
+  // `{{ }}` text slot out even if one ever opts in.
   const asConditionBuilder =
     field.kind === 'expression' && !!field.conditionBuilder && !!triggerScope && refMode === 'expression';
   // ADR-0032 — surface a malformed condition (e.g. the `{record.x}` brace-in-CEL
   // mistake) inline, with the same corrective message the build/agent emit, on
-  // every expression field. objectui#12329: that includes the one expression
-  // field whose descriptor still carries `refMode: 'template'` and that the
-  // value-slot control above does not take, a body-less loop's `collection`.
-  // Its executor reads the bare name of a list variable, so a stored `{x}`
-  // names no variable, and the brace check's fix (the bare reference) is the
-  // spelling it reads.
+  // every expression field. objectui#12329 / objectui#12390: that includes the
+  // one `collection` the value-slot control above does not take, a body-less
+  // loop's — a plain `expression` field. Its executor reads the bare name of a
+  // list variable, so a stored `{x}` names no variable, and the brace check's
+  // fix (the bare reference) is the spelling it reads.
   //
   // objectui#11824 — a flow TEXT slot (`refMode: 'hole'`) renders ADR-0032 §3
   // `{{ }}` holes, and the spec refuses a single-brace `{…}` token there. Its
@@ -517,7 +517,7 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
   // S7 deleted the single-brace resolver). It gets no picker, which could only
   // insert such a token, and no reference check, which would read one.
   const isHole = refMode === 'hole';
-  const isLiteral = refMode === 'template' && field.kind !== 'expression';
+  const isLiteral = refMode === undefined;
   const exprIssue = valueSlot
     ? null
     : isHole

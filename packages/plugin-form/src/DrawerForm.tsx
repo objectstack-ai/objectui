@@ -54,6 +54,7 @@ import { deriveFieldGroupSections, projectSectionDivider, resolveSectionCollapse
 import {
   sanitizeFormData,
   dirtyEditPayload,
+  createOwnerPayload,
   snapshotLoadedRecord,
   advanceLoadedRecord,
   type LoadedRecordSnapshot,
@@ -559,9 +560,16 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
       // the user changed it, which is why it is handed the values as well
       // (objectui#12205). Computed ONCE so every persistence route below — the
       // host-owned seam included — writes the identical payload.
+      //
+      // A CREATE writes the owner only when the user picked one against the
+      // values this form opened with — `formData`, which on a create is the
+      // seed and nothing else (objectui#12359; `createOwnerPayload` holds the
+      // rule). A seeded owner left alone is not a pick and is not sent; the
+      // server judges a pick, and its refusal is this form's error below.
+      const owner = { values: data, objectSchema, canEdit };
       const writePayload = schema.mode === 'create'
-        ? omitServerResolvedDefaults(payload, objectSchema)
-        : dirtyEditPayload(payload, loadedRecordRef.current, schema, { values: data, objectSchema, canEdit });
+        ? omitServerResolvedDefaults(createOwnerPayload(payload, formData, owner), objectSchema)
+        : dirtyEditPayload(payload, loadedRecordRef.current, schema, owner);
 
       if (schema.submitHandler) {
         // The host owns persistence (e.g. MasterDetailForm batching the parent

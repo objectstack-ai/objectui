@@ -833,10 +833,12 @@ const COMPONENTS_SPECIAL_TARGETS: readonly Target[] = [
   // import-block comment above `AdapterCtx`). Once rows arrive the populated
   // `<ul>` carries `schema?.className` too, so this also reaches
   // `COMPONENTS_READY` and needed no override reason either. `properties`
-  // nesting for the same reason as `element:definition-list` above.
+  // nesting for the same reason as `element:definition-list` above. The query
+  // object is the node-level `dataSource` binding, the repeater's only query
+  // source (objectui#12345): the flat `properties.object` is retired and unread.
   componentsTarget(
     'element:repeater',
-    { properties: { object: 'accounts', titleField: 'name', fields: ['amount'] } },
+    { dataSource: { object: 'accounts' }, properties: { titleField: 'name', fields: ['amount'] } },
     COMPONENTS_READY,
     'repeater-adapter',
   ),

@@ -29,7 +29,7 @@ own `header` and `footer` regions are the letterhead and the footer
     {
       "name": "main",
       "components": [
-        { "type": "record:details", "properties": { "columns": 2 } },
+        { "type": "record:details" },
         {
           "type": "record:line_items",
           "properties": { "childObject": "invoice_line", "relationshipField": "invoice", "columns": [{ "name": "qty" }], "readonly": true }

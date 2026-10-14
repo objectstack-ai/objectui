@@ -127,7 +127,7 @@ const page = (print?: Record<string, unknown>) => ({
 
 describe('PageRenderer — a page that declares `print` mounts its print stylesheet, and only then (objectui#11958)', () => {
   it('a print page carries the scoping attribute, the stylesheet and the declaration for its blocks', () => {
-    const declaration = { paperSize: 'A5', repeatHeader: true };
+    const declaration = { paperSize: 'A5', repeatHeader: true } as const;
     const { container } = render(<SchemaRenderer schema={page(declaration) as any} />);
     const root = container.querySelector(`[${PRINT_PAGE_ATTRIBUTE}]`);
     expect(root).not.toBeNull();

@@ -144,8 +144,10 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
   const { fieldLabel, fieldOptionLabel, actionParamText, actionParamOptionLabel, actionDescription, actionResultDialog } = useObjectLabel();
   // Entitlement 403s render as a dialog, not a toast — its copy is localized
   // here rather than taken from the server (objectui#2458 / cloud#959).
-  // `language` also resolves inline per-locale action-param labels below.
-  const { t, language } = useObjectTranslation();
+  // `language` also resolves inline per-locale action-param labels below, and
+  // with `i18n` it is what a flow launch translates the flow's own toasts in
+  // (objectui#12075).
+  const { t, language, i18n } = useObjectTranslation();
 
   /**
    * The console's own metadata store.
@@ -658,6 +660,7 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
         recordId,
         triggerParams: params,
         objects: withKnownObjects(objects, metadata.objects),
+        translation: { i18n, language },
       });
       const judged = launch.judged;
       // Paused at a `screen` node: FlowRunner renders the form + resumes, and
@@ -683,7 +686,7 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
-  }, [authFetch, objApiName, objects, metadata, refresh]);
+  }, [authFetch, objApiName, objects, metadata, refresh, i18n, language]);
 
   // Server-side action handler — POST /api/v1/actions/{object}/{action}, built
   // from @object-ui/core's `createServerActionHandler` via the shared console

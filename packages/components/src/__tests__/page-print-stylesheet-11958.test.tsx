@@ -1,0 +1,149 @@
+/**
+ * ObjectUI
+ * Copyright (c) 2024-present ObjectStack Inc.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+/**
+ * objectui#11958 — a page that declares `print` renders its print stylesheet
+ * (card ② of the ruling of record on objectstack#8346, letter B′).
+ *
+ * Two halves, each with its control:
+ *
+ *  - the stylesheet text, one rule per declared key, as each key's
+ *    `.describe()` in `@objectstack/spec` names its print-CSS mapping, and the
+ *    defaults the spec states for an omitted key;
+ *  - the real render through `SchemaRenderer` and the registered `record`
+ *    `PageRenderer`: a print page carries the scoping attribute, the
+ *    stylesheet and the `PrintPageProvider`; the same page without `print`
+ *    carries none of them, and apart from those two additions the two pages'
+ *    DOM is byte-identical ("the page renders on screen exactly as before").
+ *
+ * ⚠️ `@media print` does not apply under happy-dom, so nothing here can show a
+ * rule MATCHING on paper; that was measured once in Chromium for the pull
+ * request (the reading is in its body), not pinned here.
+ */
+import { describe, it, expect, afterEach } from 'vitest';
+import { render, cleanup } from '@testing-library/react';
+import React from 'react';
+import { ComponentRegistry } from '@object-ui/core';
+import { SchemaRenderer, usePrintPage } from '@object-ui/react';
+import '../renderers';
+import { buildPagePrintStylesheet, PRINT_PAGE_ATTRIBUTE } from '../renderers/layout/page-print';
+
+afterEach(() => cleanup());
+
+describe('buildPagePrintStylesheet — one print-CSS rule per declared key (objectui#11958)', () => {
+  it('every rule sits inside `@media print`, so the screen is untouched', () => {
+    const css = buildPagePrintStylesheet({});
+    expect(css.startsWith('@media print {')).toBe(true);
+    expect(css.trimEnd().endsWith('}')).toBe(true);
+  });
+
+  it('`paperSize` / `orientation` → `@page { size }`, A4 portrait when omitted', () => {
+    expect(buildPagePrintStylesheet({})).toContain('size: A4 portrait;');
+    expect(buildPagePrintStylesheet({ paperSize: 'Letter', orientation: 'landscape' })).toContain('size: Letter landscape;');
+  });
+
+  it('`margins` → one `@page` margin descriptor per declared side, in millimetres', () => {
+    const css = buildPagePrintStylesheet({ margins: { top: 20, left: 15.5 } });
+    expect(css).toContain('margin-top: 20mm;');
+    expect(css).toContain('margin-left: 15.5mm;');
+    // A side left out keeps the console's default sheet margin.
+    expect(css).not.toContain('margin-right:');
+    expect(css).not.toContain('margin-bottom:');
+  });
+
+  it('only the spec’s own values reach the stylesheet (its injection boundary)', () => {
+    const css = buildPagePrintStylesheet({
+      paperSize: 'A4; } body { display: none' as never,
+      margins: { top: '1mm; } x {' as never, right: -3, bottom: Number.NaN },
+    });
+    expect(css).toContain('size: A4 portrait;');
+    expect(css).not.toContain('margin-top');
+    expect(css).not.toContain('margin-right');
+    expect(css).not.toContain('margin-bottom');
+    expect(css).not.toContain('x {');
+  });
+
+  it('`pageNumbers` → the bottom-right `@page` margin box with counter(page) / counter(pages)', () => {
+    expect(buildPagePrintStylesheet({ pageNumbers: true })).toContain('@bottom-right { content: counter(page) " / " counter(pages);');
+    expect(buildPagePrintStylesheet({})).not.toContain('counter(page)');
+  });
+
+  it('`repeatHeader` / `repeatFooter` → the header / footer region drawn as a table header / footer group', () => {
+    const css = buildPagePrintStylesheet({ repeatHeader: true, repeatFooter: true });
+    expect(css).toContain(`[${PRINT_PAGE_ATTRIBUTE}] [data-region="header"] { display: table-header-group !important; }`);
+    expect(css).toContain(`[${PRINT_PAGE_ATTRIBUTE}] [data-region="footer"] { display: table-footer-group !important; }`);
+    expect(css).toContain('display: table !important;');
+    const plain = buildPagePrintStylesheet({});
+    expect(plain).not.toContain('[data-region="header"]');
+    expect(plain).not.toContain('[data-region="footer"]');
+  });
+
+  it('`repeatTableHeaders` → `thead` as a header group, on when omitted; `false` stops the repeat', () => {
+    expect(buildPagePrintStylesheet({})).toContain(`[${PRINT_PAGE_ATTRIBUTE}] thead { display: table-header-group !important; }`);
+    expect(buildPagePrintStylesheet({ repeatTableHeaders: false })).toContain(`[${PRINT_PAGE_ATTRIBUTE}] thead { display: table-row-group !important; }`);
+  });
+
+  it('`avoidBreakInside` → `break-inside: avoid` on every block of a region, off when omitted', () => {
+    expect(buildPagePrintStylesheet({ avoidBreakInside: true })).toContain(`[${PRINT_PAGE_ATTRIBUTE}] [data-region] > * { break-inside: avoid; }`);
+    expect(buildPagePrintStylesheet({})).not.toContain('break-inside');
+  });
+
+  it('only the print page reaches paper, and its ancestors stop clipping it to one screen', () => {
+    const css = buildPagePrintStylesheet({});
+    expect(css).toContain(`body :not(:has([${PRINT_PAGE_ATTRIBUTE}])):not([${PRINT_PAGE_ATTRIBUTE}]):not([${PRINT_PAGE_ATTRIBUTE}] *) { display: none !important; }`);
+    expect(css).toContain(`:has([${PRINT_PAGE_ATTRIBUTE}]) {`);
+    expect(css).toContain('overflow: visible !important;');
+  });
+});
+
+const PRINT_PROBE = 'print-probe-11958';
+ComponentRegistry.register(PRINT_PROBE, () => {
+  const print = usePrintPage();
+  return <span data-testid="print-probe">{print ? JSON.stringify(print) : 'none'}</span>;
+});
+
+const page = (print?: Record<string, unknown>) => ({
+  type: 'record',
+  name: 'invoice_print',
+  label: 'Invoice',
+  ...(print ? { print } : {}),
+  regions: [
+    { name: 'header', components: [{ type: 'text', value: 'ACME Ltd' }] },
+    { name: 'main', components: [{ type: PRINT_PROBE }] },
+    { name: 'footer', components: [{ type: 'text', value: 'Thank you' }] },
+  ],
+});
+
+describe('PageRenderer — a page that declares `print` mounts its print stylesheet, and only then (objectui#11958)', () => {
+  it('a print page carries the scoping attribute, the stylesheet and the declaration for its blocks', () => {
+    const declaration = { paperSize: 'A5', repeatHeader: true };
+    const { container } = render(<SchemaRenderer schema={page(declaration) as any} />);
+    const root = container.querySelector(`[${PRINT_PAGE_ATTRIBUTE}]`);
+    expect(root).not.toBeNull();
+    const style = root!.querySelector('style[data-print-stylesheet]');
+    expect(style?.textContent).toBe(buildPagePrintStylesheet(declaration));
+    expect(container.querySelector('[data-testid="print-probe"]')?.textContent).toBe(JSON.stringify(declaration));
+  });
+
+  it('CONTROL — the same page without `print` carries none of them', () => {
+    const { container } = render(<SchemaRenderer schema={page() as any} />);
+    expect(container.querySelector(`[${PRINT_PAGE_ATTRIBUTE}]`)).toBeNull();
+    expect(container.querySelector('style[data-print-stylesheet]')).toBeNull();
+    expect(container.querySelector('[data-testid="print-probe"]')?.textContent).toBe('none');
+  });
+
+  it('on screen the print page is the same page: only the attribute and the stylesheet are added', () => {
+    const printed = render(<SchemaRenderer schema={page({ pageNumbers: true }) as any} />).container;
+    printed.querySelector('style[data-print-stylesheet]')!.remove();
+    printed.querySelector(`[${PRINT_PAGE_ATTRIBUTE}]`)!.removeAttribute(PRINT_PAGE_ATTRIBUTE);
+    const probe = printed.querySelector('[data-testid="print-probe"]')!;
+    probe.textContent = 'none';
+    const plainHtml = render(<SchemaRenderer schema={page() as any} />).container.innerHTML;
+    expect(printed.innerHTML).toBe(plainHtml);
+  });
+});

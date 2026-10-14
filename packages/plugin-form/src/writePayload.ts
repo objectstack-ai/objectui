@@ -34,11 +34,16 @@ export interface FormWriteSources {
   snapshot: LoadedRecordSnapshot | null | undefined;
   /**
    * On a create, the values the form OPENED with — its `seedCreateValues`
-   * result (objectui#12359). An owner the user picked against it is written;
-   * without it no pick can be told from the seed, so the owner stays off the
-   * wire as it did before. Ignored on an edit.
+   * result (objectui#12359). An owner the user picked against it is written,
+   * and one the form was seeded with and the user left alone is not. Ignored
+   * on an edit.
+   *
+   * Required, so a layout cannot forget it and silently drop a pick again —
+   * which is how every create writer behaved before. `null` says there is no
+   * opening value to judge against: no pick can then be told from a seed, so
+   * the owner stays off the wire.
    */
-  createBaseline?: Record<string, unknown> | null;
+  createBaseline: Record<string, unknown> | null;
 }
 
 export interface FormWritePayloads {

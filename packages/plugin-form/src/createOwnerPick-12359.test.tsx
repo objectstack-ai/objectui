@@ -40,6 +40,7 @@ import { SchemaRendererContext } from '@object-ui/react';
 import { MePermissionsProvider } from '@object-ui/permissions';
 import { ModalForm } from './ModalForm';
 import { DrawerForm } from './DrawerForm';
+import { ObjectForm } from './ObjectForm';
 import { createOwnerPayload, sanitizeFormData } from './sanitize';
 import { formWritePayload } from './writePayload';
 
@@ -241,11 +242,12 @@ describe('formWritePayload — a create with its opening values (objectui#12359)
     expect(writePayload).toEqual({ subject: 'Printer jam' });
   });
 
-  it('without a create baseline, the owner stays off the wire as before', () => {
+  it('with a null create baseline, the owner stays off the wire as before', () => {
     const { writePayload } = formWritePayload({ subject: 'Printer jam', owner_id: 'u2' }, form, {
       objectSchema: CASE_SCHEMA,
       canEdit: undefined,
       snapshot: null,
+      createBaseline: null,
     });
     expect(writePayload).toEqual({ subject: 'Printer jam' });
   });
@@ -293,6 +295,58 @@ describe.each([
   it('a pick over the seeded creator is sent', async () => {
     const ds = makeDS(DEFAULTED_SCHEMA);
     mount(<Form schema={createSchema({ formType })} dataSource={ds as any} />, ds);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Remove Ada Lovelace' })).toBeTruthy());
+
+    await change(await input('subject'), 'Printer jam');
+    await pickOwner('Grace Hopper');
+    await submit();
+
+    await waitFor(() => expect(ds.create).toHaveBeenCalledTimes(1));
+    expect(ds.create.mock.calls[0][1]).toEqual({ subject: 'Printer jam', owner_id: 'u2' });
+  });
+});
+
+/**
+ * The layouts `ObjectForm` routes a create through `formWritePayload`, each of
+ * which must hand over the values it OPENED with (`createBaseline`).
+ */
+const OBJECT_FORM_ROUTES: Array<{ route: string; layout: Record<string, unknown> }> = [
+  { route: 'simple (ObjectForm, finalDefaultValues)', layout: { sections: SECTIONS } },
+  { route: 'tabbed (TabbedForm, formData)', layout: { formType: 'tabbed', sections: SECTIONS } },
+  { route: 'split (SplitForm, formData)', layout: { formType: 'split', sections: SECTIONS } },
+  { route: 'wizard (WizardForm, its seed ref)', layout: { formType: 'wizard', sections: SECTIONS } },
+];
+
+describe.each(OBJECT_FORM_ROUTES)('ObjectForm $route — create (objectui#12359)', ({ layout }) => {
+  const schema = () => ({ type: 'object-form', objectName: 'crm_case', mode: 'create', ...layout }) as any;
+
+  it('a picked owner is sent', async () => {
+    const ds = makeDS();
+    mount(<ObjectForm schema={schema()} dataSource={ds as any} />, ds);
+
+    await change(await input('subject'), 'Printer jam');
+    await pickOwner('Grace Hopper');
+    await submit();
+
+    await waitFor(() => expect(ds.create).toHaveBeenCalledTimes(1));
+    expect(ds.create.mock.calls[0][1]).toEqual({ subject: 'Printer jam', owner_id: 'u2' });
+  });
+
+  it('the creator seeded by a current_user default is not a pick, and is not sent', async () => {
+    const ds = makeDS(DEFAULTED_SCHEMA);
+    mount(<ObjectForm schema={schema()} dataSource={ds as any} />, ds);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Remove Ada Lovelace' })).toBeTruthy());
+
+    await change(await input('subject'), 'Printer jam');
+    await submit();
+
+    await waitFor(() => expect(ds.create).toHaveBeenCalledTimes(1));
+    expect(ds.create.mock.calls[0][1]).toEqual({ subject: 'Printer jam' });
+  });
+
+  it('a pick over the seeded creator is sent', async () => {
+    const ds = makeDS(DEFAULTED_SCHEMA);
+    mount(<ObjectForm schema={schema()} dataSource={ds as any} />, ds);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Remove Ada Lovelace' })).toBeTruthy());
 
     await change(await input('subject'), 'Printer jam');

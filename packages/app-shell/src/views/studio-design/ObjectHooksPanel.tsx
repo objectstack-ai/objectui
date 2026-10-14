@@ -145,6 +145,12 @@ export function ObjectHooksPanel({
   React.useEffect(() => {
     forgetHookVersion();
   }, [publishNonce, forgetHookVersion]);
+  // The publish a list load started under: a load still in flight when a
+  // publish lands read the drafts that publish drained, so it records no pins.
+  const publishNonceRef = React.useRef(publishNonce);
+  React.useLayoutEffect(() => {
+    publishNonceRef.current = publishNonce;
+  });
 
   /* ─── objectui#11820 — the objects of this package, for the target picker ──
    *
@@ -212,6 +218,7 @@ export function ObjectHooksPanel({
 
   React.useEffect(() => {
     let cancelled = false;
+    const publishAtStart = publishNonceRef.current;
     setLoading(true);
     setError(null);
     (async () => {
@@ -251,6 +258,7 @@ export function ObjectHooksPanel({
         // built on: the install below does not replace that buffer either.
         const open = bufferRef.current;
         for (const [n, pin] of pins) {
+          if (publishNonceRef.current !== publishAtStart) break;
           if (!(open.dirty && open.hook === n)) recordHookRead('hook', n, packageId, pin);
         }
       } catch (e) {

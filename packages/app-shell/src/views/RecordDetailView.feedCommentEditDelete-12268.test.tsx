@@ -16,9 +16,13 @@
  *   `CommentThread` gates its own Edit and Delete on) for each row it reads,
  *   and the feed shows the controls on the rows it marked. The collaboration
  *   double below wraps the real predicate, so the page is pinned on the call.
- * - The author edits: the write is a `sys_comment` update of the text that
- *   marks the comment edited, and the row then shows the new text and reads
- *   as edited. A comment stored as edited reads as edited from the read.
+ * - The author edits: the write is a `sys_comment` update of the text and
+ *   carries neither `is_edited` nor `edited_at` (objectui#12314): the platform
+ *   stamps both when the body changes and refuses them from a client (ruling
+ *   A on objectstack-ai/objectstack#23124). The row then shows the new text
+ *   and reads as edited from the record the server answers with, so a server
+ *   that stamps nothing shows no mark. A comment stored as edited reads as
+ *   edited from the read.
  * - The author deletes: the page asks through its own `ActionConfirmDialog`
  *   (the real one, not a double), painted destructive; Cancel sends nothing;
  *   Delete deletes the row from `sys_comment` and from the feed.
@@ -199,7 +203,9 @@ function authoredPage(block: Block) {
 /**
  * The server's `sys_comment` rows for the record. A delete removes the row from
  * them and nothing else (the server keeps a deleted comment's replies), so a
- * later read answers what the server would.
+ * later read answers what the server would. An update answers with the stored
+ * record, stamped the way the platform's `beforeUpdate` hook stamps a change
+ * of the body (`is_edited`, `edited_at`; objectstack-ai/objectstack#23124).
  */
 function makeDataSource(rows: Array<Record<string, unknown>> = ROWS) {
   let stored = rows.map((c) => ({ ...c }));
@@ -211,7 +217,16 @@ function makeDataSource(rows: Array<Record<string, unknown>> = ROWS) {
     }),
     findOne: vi.fn(async (_o: string, id: string) => ({ id, subject: `Case ${id}` })),
     create: vi.fn(async (_o: string, data: any) => ({ ...data })),
-    update: vi.fn(async (_o: string, id: string, patch: any) => ({ id, ...patch })),
+    update: vi.fn(async (objectName: string, id: string, patch: any) => {
+      const row = stored.find((c) => c.id === id) ?? { id };
+      const next: Record<string, unknown> = { ...row, ...patch };
+      if (objectName === COMMENT && 'body' in patch && patch.body !== row.body) {
+        next.is_edited = true;
+        next.edited_at = '2026-10-14T12:00:00.000Z';
+      }
+      stored = stored.map((c) => (c.id === id ? next : c));
+      return { ...next };
+    }),
     delete: vi.fn(async (objectName: string, id: string) => {
       if (objectName === COMMENT) stored = stored.filter((c) => c.id !== id);
       return true;
@@ -350,7 +365,7 @@ describe.each<Block>(['record:activity', 'record:discussion'])(
       expect(within(rowOf(view, ADA_BODY)).queryByText(EN.detail.edited)).toBeNull();
     });
 
-    it('the author edits: the text is stored with the comment marked edited, and the row then shows it and reads as edited', async () => {
+    it('the author edits: the write sends the text and no edit mark, and the row then shows it and reads as edited from the server\'s answer', async () => {
       const { view, dataSource } = await mount(block);
       fireEvent.click(editIn(rowOf(view, ADA_BODY))!);
       fireEvent.change(view.getByRole('textbox', { name: EN.detail.editComment }), { target: { value: NEW_TEXT } });
@@ -361,11 +376,31 @@ describe.each<Block>(['record:activity', 'record:discussion'])(
       const [objectName, id, patch] = dataSource.update.mock.calls[0];
       expect(objectName).toBe(COMMENT);
       expect(id).toBe('c-ada');
-      expect(patch).toMatchObject({ body: NEW_TEXT, is_edited: true, mentions: '[]' });
-      expect(Number.isNaN(Date.parse(patch.edited_at))).toBe(false);
+      expect(patch).toEqual({ body: NEW_TEXT, mentions: '[]' });
+      expect(patch).not.toHaveProperty('is_edited');
+      expect(patch).not.toHaveProperty('edited_at');
       expect(view.queryByText(ADA_BODY)).toBeNull();
       const row = rowOf(view, NEW_TEXT);
       expect(within(row).getByText(EN.detail.edited)).toBeInTheDocument();
+      expect(toast.error).not.toHaveBeenCalled();
+    });
+
+    it('the mark is the server\'s: an answer that is not stamped edited leaves the row unmarked', async () => {
+      const { view, dataSource } = await mount(block);
+      dataSource.update.mockImplementationOnce(async (_o: string, id: string, patch: Record<string, unknown>) => ({
+        ...ADA_ROW,
+        id,
+        ...patch,
+        is_edited: false,
+      }));
+      fireEvent.click(editIn(rowOf(view, ADA_BODY))!);
+      fireEvent.change(view.getByRole('textbox', { name: EN.detail.editComment }), { target: { value: NEW_TEXT } });
+      await act(async () => {
+        fireEvent.click(view.getByRole('button', { name: EN.detail.save }));
+      });
+      expect(dataSource.update).toHaveBeenCalledTimes(1);
+      const row = rowOf(view, NEW_TEXT);
+      expect(within(row).queryByText(EN.detail.edited)).toBeNull();
       expect(toast.error).not.toHaveBeenCalled();
     });
 

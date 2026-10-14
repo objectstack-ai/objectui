@@ -2468,10 +2468,13 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
    * error and REJECTS back to the editor, which keeps the draft, and the row
    * keeps its old text.
    *
-   * The write marks the comment edited (`is_edited`, `edited_at`): the server
-   * stamps neither on update, so the client that makes the edit records it,
-   * and the next read shows the mark from the row itself. `mentions` is
-   * rewritten from the new text, so the row's id list stays the text's.
+   * The write sends the new text and nothing that marks the comment edited:
+   * the platform stamps `is_edited` and `edited_at` itself when the body
+   * changes, and both fields are read-only to the client (ruling A on
+   * objectstack-ai/objectstack#23124). The row reads as edited from the
+   * stored record the update answers with, the same field the next read
+   * shows it from, so the mark never says what the row does not. `mentions`
+   * is rewritten from the new text, so the row's id list stays the text's.
    */
   const handleEditComment = useCallback(
     async (itemId: string | number, text: string) => {
@@ -2491,20 +2494,20 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
       // the reaction handler refuses one (objectui#11035).
       const row = (feedItemsByRecord[key] ?? EMPTY_FEED).find(item => item.id === itemId);
       if (!row || row.type !== 'comment') return;
+      let stored: { is_edited?: unknown } | null | undefined;
       try {
-        await dataSource.update(COMMENT_OBJECT, String(itemId), {
+        stored = await dataSource.update(COMMENT_OBJECT, String(itemId), {
           body: text,
           mentions: JSON.stringify(extractMentions(text, mentionSuggestions)),
-          is_edited: true,
-          edited_at: new Date().toISOString(),
         });
       } catch (err) {
         throw editFailed(err);
       }
+      const edited = stored?.is_edited === true;
       setFeedItemsByRecord(prev => ({
         ...prev,
         [key]: (prev[key] ?? EMPTY_FEED).map(item =>
-          item.id === itemId ? { ...item, body: text, edited: true } : item,
+          item.id === itemId ? { ...item, body: text, edited } : item,
         ),
       }));
     },

@@ -99,6 +99,40 @@ row is re-read when a write to its object is announced. Declare `limit: 1`:
 (`content/docs/guide/data-source.md`). `record:related_list`'s `dataSource` is
 different: it binds the rows the list shows.
 
+### A section heading that counts a field's values (`count`)
+
+A `record:details` section can show how many values a multi-value field holds
+on the current record. `count.field` names the field, and the heading writes the
+`{{ count }}` hole where the number goes (`@objectstack/spec` 18,
+`RecordDetailsProps.sections[].count`):
+
+```json
+{
+  "type": "record:details",
+  "properties": {
+    "sections": [
+      {
+        "name": "tagging",
+        "label": "{{ count }} tags",
+        "count": { "field": "tags" },
+        "fields": ["tags"],
+        "collapsible": true,
+        "defaultCollapsed": true
+      }
+    ]
+  }
+}
+```
+
+With three tags selected the heading reads `3 tags`, collapsed or not. An absent
+or empty value counts 0, and a field the viewer may not read counts as absent.
+The hole is filled after the heading is translated, so each locale of an inline
+label map and a translated `objects.<object>._sections.<name>.label` write the
+same `{{ count }}`. `count` changes the heading only: with `hideEmpty` on (the
+default), a section whose fields are all empty is still absent. The spec refuses
+`count` beside `group`, on a section without `label`, and on a label with no
+hole. A section without `count` prints its heading as written.
+
 ### Basic Example
 
 ```tsx

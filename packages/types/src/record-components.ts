@@ -221,6 +221,17 @@ export interface RecordDetailsComponentProps {
       | 'secondary/10'
       | 'destructive/10';
     collapsible?: boolean;
+    /**
+     * Show how many values a multi-value field holds in this section's heading
+     * (`@objectstack/spec` 18 `RecordDetailsProps.sections[].count`,
+     * objectui#12192). `field` names the field by its machine name, and
+     * `label` writes the `{{ count }}` hole where the number goes:
+     * `{ label: '{{ count }} tags', count: { field: 'tags' }, fields: ['tags'] }`.
+     * `RecordDetailsRenderer` fills the hole after the heading is translated;
+     * an absent or empty value counts 0. The spec refuses `count` beside
+     * `group`, without a `label`, and on a label with no hole.
+     */
+    count?: { field: string };
   }>;
   /** Specific fields to display (overrides auto-detection from object) */
   fields?: string[];

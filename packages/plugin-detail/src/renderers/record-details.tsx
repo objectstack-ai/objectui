@@ -17,6 +17,7 @@ import { useRecordContext, useHighlightFieldNames, useSafeFieldLabel, usePredica
 import { useFieldPermissions, usePermissions } from '@object-ui/permissions';
 import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
 import type { RecordDetailsComponentProps } from '@object-ui/types';
+import { SECTION_HEADING_COUNT_HOLE } from '@objectstack/spec/ui';
 import {
   columnIdentity,
   declaredNameField,
@@ -32,6 +33,7 @@ import {
   withoutDeniedFields,
 } from '@object-ui/core';
 import { DetailView } from '../DetailView';
+import { hasCellValue } from '../emptiness';
 import { RecordPageProvenanceContext } from '../recordPageProvenance';
 import { deriveFieldGroupDetailEntries, type FieldGroupDetailEntry } from '../synth/buildDefaultPageSchema';
 import { useRecordAriaProps } from './recordComponentAria';
@@ -123,6 +125,44 @@ function reportUnresolvedSectionGroup(objectName: string, group: string): void {
 /** Test seam — forget which unresolved group references have been reported. */
 export function resetUnresolvedSectionGroupReports(): void {
   reportedUnresolvedGroups.clear();
+}
+
+/**
+ * How many values a field holds on the record — the number a section heading's
+ * `{{ count }}` hole shows (objectui#12192, the renderer half of
+ * `@objectstack/spec`'s `RecordDetailsProps.sections[].count`).
+ *
+ * - An empty value counts 0, as the spec's `count` describe states ("an absent
+ *   or empty value counts 0"). Emptiness is `hasCellValue`, this page's one
+ *   definition, so a heading never counts a value its own body draws as the
+ *   `No value` placeholder.
+ * - An array counts its entries. That is the value contract of every
+ *   multi-value field the spec allows here (`isMultiValueField` → an array of
+ *   option codes, ids, expanded records or files).
+ * - Any other non-empty value counts 1: it is one value, and the body draws it
+ *   as one (`SelectCellRenderer` renders a non-array value as a single badge).
+ *   Only a single-valued field reaches this arm, and naming one in
+ *   `count.field` is refused at authoring time by `@objectstack/lint`
+ *   (`page-section-count-not-multi-value`, ERROR). This renderer does not judge
+ *   the field's declaration again.
+ */
+function sectionHeadingCount(value: unknown): number {
+  if (!hasCellValue(value)) return 0;
+  return Array.isArray(value) ? value.length : 1;
+}
+
+/**
+ * Write `count` into every `{{ count }}` hole of an already-translated heading.
+ *
+ * ⛔ The hole grammar is the spec's own `SECTION_HEADING_COUNT_HOLE`, never a
+ * second pattern written here: the parse refinement that refuses a heading
+ * without a hole reads the same RegExp, so the two cannot disagree about what a
+ * hole is. The export is non-global on purpose (a shared `g` RegExp carries
+ * `lastIndex` between calls), and the spec asks the renderer to build its own
+ * global copy from `.source`, which is what this does.
+ */
+function fillSectionHeadingCount(heading: string, count: number): string {
+  return heading.replace(new RegExp(SECTION_HEADING_COUNT_HOLE.source, 'g'), String(count));
 }
 
 /**
@@ -851,9 +891,23 @@ const RecordDetailsBody: React.FC<RecordDetailsRendererProps> = ({
         const translatedTitle = s.name && objectName
           ? sectionLabel(objectName, s.name, rawTitle ?? s.name)
           : rawTitle;
+        // `count: { field }` (objectui#12192): fill the heading's `{{ count }}`
+        // hole with how many values that field holds on this record. Filled
+        // AFTER translation, so the inline-map arm, the bundle arm
+        // (`objects.OBJECT._sections.NAME.label`, whose `t()` pass keeps a hole
+        // it was given no value for) and the authored text all carry the same
+        // hole. Read off `data`, the record as the viewer may read it, so a
+        // field the policy denies counts as absent, never as its hidden values.
+        // A section without `count` keeps its heading exactly as written,
+        // including a literal hole. ⛔ No section, object or field is special
+        // here: `count` is generic, like every other section key.
+        const countField: unknown = s.count?.field;
+        const title = typeof countField === 'string' && typeof translatedTitle === 'string'
+          ? fillSectionHeadingCount(translatedTitle, sectionHeadingCount(data?.[countField]))
+          : translatedTitle;
         return ({
         ...s,
-        title: translatedTitle,
+        title,
         // Titled sections get a Card wrapper for visual grouping. Untitled
         // flat sections stay borderless so the page chrome alone provides
         // containment. Authors can override explicitly via `showBorder`.

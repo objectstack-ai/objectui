@@ -977,7 +977,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
           // shared query. This effect's `find` sits INSIDE the
           // `dataProvider === 'object'` arm, behind an `$expand` projection an
           // inline set has no metadata to build. Falling through here would
-          // therefore throw `DataSource required for object/api providers` on a
+          // therefore throw `DataSource required for the object provider` on a
           // map that needs no DataSource at all. So the adapter is resolved for
           // the inline provider ONLY, and the same three keys are lowered onto the same query shape.
           //
@@ -1014,7 +1014,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
         }
 
         if (!dataSource || typeof dataSource.find !== 'function') {
-          throw new Error('DataSource required for object/api providers');
+          throw new Error('DataSource required for the object provider');
         }
 
         if (dataProvider === 'object') {

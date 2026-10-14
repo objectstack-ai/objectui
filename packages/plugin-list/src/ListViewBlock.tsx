@@ -122,7 +122,7 @@ const ListViewBlock = elementDataSourceBlock(React.forwardRef<ListViewHandle, Li
       errorTitle="This list view’s data source could not be resolved"
       // A list that names its object in neither place has nothing to fetch, and
       // drew the "Nothing here yet" empty state, which reads as an empty query
-      // (objectui#11605). Inline `data` (rows, or a `value` / `api` provider) is
+      // (objectui#11605). Inline `data` (rows, or a `value` provider) is
       // the list's one other record source, so its presence opts out.
       requiresObject={props.schema?.data == null}
     >

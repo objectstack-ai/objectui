@@ -3108,8 +3108,8 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           fieldTextColor: (schema as any).fieldTextColor,
           prefixField: (schema as any).prefixField,
           showDescription: activeView?.showDescription ?? (schema as any).showDescription,
-          // ViewData source override (spec `data` key) — e.g. gantt views fed
-          // by a composite api endpoint; without this pick the api provider
+          // ViewData source override (spec `data` key) — e.g. a gantt view on
+          // inline `provider: 'value'` rows; without this pick the view's `data`
           // never reaches the renderer.
           // objectui#8980 / objectui#7928's open half: the cast on the
           // named-view config is GONE — `data` is a declared `NamedListView`

@@ -160,9 +160,11 @@ const REFUSED_AT_TYPE = 0;
  * refused at `type` by design (seat answer 6116842485), a named stopgap raise.
  * objectui#12176: minus every `field:` key, those two among them (fifty-four on
  * `main` at the time), once the `field:` namespace left the population, so a
- * field widget moves this pin no more.
+ * field widget moves this pin no more. objectui#12363: minus `record:approvals`
+ * and `record:attachments`, the two spec-18 record panels the default record
+ * page emits, armed from their `ComponentPropsMap` rows.
  */
-const NAMESPACED_REFUSED_AT_TYPE = 308;
+const NAMESPACED_REFUSED_AT_TYPE = 306;
 
 /** The bare registry keys — the population the card measured. */
 const BARE_KEYS = KNOWN_SCHEMA_TYPES.filter((key) => !key.includes(':'));
@@ -623,11 +625,23 @@ describe('registered NAMESPACED component types refused at `type` — a ratchet 
   it('counts `record:approval_decision` armed — it registered WITH its arm (objectui#12342)', () => {
     // One registry key (`skipFallback: true`, so no bare `approval_decision`),
     // armed in `@object-ui/types/zod` in the same change, so the pin above did not move.
-    // Its two spec-18 siblings, `record:approvals` and `record:attachments`, are
-    // registered without arms and stay inside the namespaced count.
+    // Its two spec-18 siblings were armed after it (objectui#12363, the row below).
     expect(NAMESPACED_KEYS).toContain('record:approval_decision');
     expect(BARE_KEYS).not.toContain('approval_decision');
     expect(refusedAtType('record:approval_decision')).toBe(false);
+  });
+
+  it('counts `record:approvals` and `record:attachments` armed — the pin fell by two (objectui#12363)', () => {
+    // Registered (`skipFallback: true`, so no bare twin) before they had arms,
+    // so both sat inside the count; their arms in `@object-ui/types/zod` took
+    // the pin down by exactly these two.
+    for (const key of ['record:approvals', 'record:attachments']) {
+      expect(NAMESPACED_KEYS, key).toContain(key);
+      expect(BARE_KEYS, key).not.toContain(key.slice('record:'.length));
+      expect(refusedAtType(key), key).toBe(false);
+    }
+    // Lit control: an unclaimed `record:` literal is still refused at `type`.
+    expect(refusedAtType('record:no_such_panel_12363')).toBe(true);
   });
 
   it('leaves a newly registered `field:` widget out of the count (objectui#12176)', () => {

@@ -853,6 +853,7 @@ import type { ObjectQLComponentSchema, ListViewSchema } from './objectql.js';
 import type { AppComponentSchema, AppSchemaRendererNodeSchema } from './app.js';
 import type { CloudPlanStatusSchema, CloudWorkspaceTimezoneNoticeSchema } from './cloud.js';
 import type { RecordApprovalDecisionBlockSchema } from './record-approval-decision.js';
+import type { RecordApprovalsBlockSchema, RecordAttachmentsBlockSchema } from './record-panels.js';
 import type {
   PageDesignerSchema,
   DataModelDesignerSchema,
@@ -988,6 +989,13 @@ export type {
   RecordApprovalDecisionBlockSchema,
 } from './record-approval-decision.js';
 
+export type {
+  // The `record:approvals` / `record:attachments` nodes' TS twins, landed with
+  // their zod arms (objectui#12363).
+  RecordApprovalsBlockSchema,
+  RecordAttachmentsBlockSchema,
+} from './record-panels.js';
+
 // The Block System re-export block is GONE, not emptied: `BlockSchema`,
 // `BlockMetadata`, `BlockVariable`, `BlockSlot`, `BlockLibraryItem`,
 // `BlockLibrarySchema`, `BlockEditorSchema`, `BlockInstanceSchema` and
@@ -1088,7 +1096,10 @@ export type AnySchema =
   // objectui#11930 — landed with its zod arm.
   | CloudWorkspaceTimezoneNoticeSchema
   // objectui#12342 — landed with its zod arm.
-  | RecordApprovalDecisionBlockSchema;
+  | RecordApprovalDecisionBlockSchema
+  // objectui#12363 — landed with their zod arms.
+  | RecordApprovalsBlockSchema
+  | RecordAttachmentsBlockSchema;
 
 /**
  * Utility type to extract the schema type from a type string.

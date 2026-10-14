@@ -4,10 +4,13 @@ import type { DataSource } from '@object-ui/types';
 import { usePredicateScope } from '../hooks/useExpression.js';
 
 /**
- * Host-provided fetch used for `provider: 'api'` view data sources so custom
- * endpoints carry the same credentials (Authorization, tenant, locale headers)
- * as the native data channel. Optional — when absent, ApiDataSource falls back
- * to the bare global fetch (cookies only).
+ * Host-provided fetch the renderers use for their own reads of the host's API
+ * (a chart's metadata reads, dataset dimension labels, record-permission
+ * probes), so those reads carry the same credentials (Authorization, tenant,
+ * locale headers) as the native data channel. Optional — when absent, those
+ * reads fall back to the bare global fetch (cookies only). A view does not
+ * reach it: a view binds `provider: 'object'` or `provider: 'value'`, and a
+ * code-built `ApiDataSource` takes its own `fetch` in its config.
  */
 export type ApiFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
@@ -60,7 +63,7 @@ export const SchemaRendererProvider = ({
 }) => {
   // Nested providers (react-page, studio preview surfaces) re-wrap with their
   // own dataSource but rarely know about the host's authenticated fetch —
-  // inherit it from the parent context so provider:'api' auth survives nesting.
+  // inherit it from the parent context so the host's auth survives nesting.
   const parent = useContext(SchemaRendererContext);
   const effectiveApiFetch = apiFetch ?? parent?.apiFetch;
   const value = useMemo(

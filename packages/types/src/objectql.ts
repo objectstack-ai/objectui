@@ -336,7 +336,7 @@ export type GanttConfig = SpecGanttConfig & {
   lockField?: string;
   /**
    * Record field carrying the row's OBJECT API NAME. Mixed-object
-   * trees (an `api` provider composing parent-object rows with child-object rows)
+   * trees (one source serving parent-object rows beside child-object rows)
    * need the detail drawer and its full-page link to follow each row's REAL
    * object — otherwise a child row's `→` link builds a URL under the view's bound
    * object and 404s. Empty/missing value → falls back to the bound object.
@@ -4207,7 +4207,7 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * (the spec's own `ObjectCalendarPropsSchema`) declares
    * `z.array(z.unknown()).optional()`, described *"Pre-fetched records — skips
    * the internal fetch"*.
-   * MEASURED on the installed artifact at `@objectstack/spec` 18.0.0-next.0 — the
+   * MEASURED on the installed artifact at `@objectstack/spec` 18.0.0-next.1 — the
    * version this repository's `pnpm-lock.yaml` resolves — through the published
    * `@objectstack/spec/ui` entry point: the provider block returns
    * `success=false` with `expected: 'array'` at `path: ['data']`, the array

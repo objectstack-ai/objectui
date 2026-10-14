@@ -22,6 +22,7 @@ import {
   PageSchema as SpecPageSchema,
   PageTypeSchema as SpecPageTypeSchema,
   PageVariableSchema as SpecPageVariableSchema,
+  checkPageComponentViewData,
   checkPageRequiresKind,
   checkPageSlotPair,
   checkPageSourceCompleteness,
@@ -1338,18 +1339,32 @@ export const PageNodeSchema = BaseSchema.extend(SpecPageFields.shape).extend({
   //  - a page that authors both `slots.details` and `slots.tabs` is refused at
   //    `slots.details`, because the `tabs` slot replaces the strip the details
   //    body lives in (`checkPageSlotPair`, objectstack#22568, the spec's 18;
-  //    attached by objectui#12030).
-  // The spec exports all three and all three are attached here as-is: they read
-  // `kind`, `source`, `requires` and `slots`, and this node carries all four by
-  // reference — none is in {@link PAGE_SPEC_EXCLUDED} nor overridden above. The
-  // spec's fourth page check, `checkPagePrintComposition`, reads `type` and
-  // `regions`, which this node does NOT carry by reference, so it is not
-  // attached; the census below records why.
+  //    attached by objectui#12030);
+  //  - a view-data component (`object-grid` / `-map` / `-gantt` / `-tree`) under
+  //    `regions` or `slots` whose `properties.data` names the retired `api`
+  //    provider is refused at that `properties.data.provider`, with the
+  //    retirement message (`checkPageComponentViewData`, objectstack#23419, the
+  //    spec's 18.0.0-next.1; attached by objectui#12370).
+  // The spec exports all four and all four are attached here as-is: the first
+  // three read `kind`, `source`, `requires` and `slots`, which this node carries
+  // by reference — none is in {@link PAGE_SPEC_EXCLUDED} nor overridden above.
+  // `checkPageComponentViewData` reads `slots` and `regions`. `slots` is carried
+  // by reference, and its children are NOT judged by the component union, so
+  // without the check a slotted page's view-data block naming `api` passed here
+  // while the spec refused it. `regions` is this node's own
+  // {@link PageNodeRegionSchema}, whose components ARE judged by the union, and
+  // the `object-grid` arm already refuses the `api` provider there; the check
+  // walks any object tree and judges only a node's `type` and `properties.data`,
+  // so attaching it over this node's regions adds no second rule (measured in
+  // `__tests__/spec-object-refinements-7715.test.ts`). The spec's fifth page check, `checkPagePrintComposition`,
+  // reads `type` and `regions` as the PAGE's own, which this node does NOT carry
+  // by reference, so it is not attached; the census below records why.
   // `__tests__/spec-object-refinements-7715.test.ts` re-derives the count, so a
   // check the spec adds to `PageSchema` later reddens there.
   .superRefine(checkPageSourceCompleteness)
   .superRefine(checkPageRequiresKind)
-  .superRefine(checkPageSlotPair);
+  .superRefine(checkPageSlotPair)
+  .superRefine(checkPageComponentViewData);
 
 /**
  * The spec page KINDS a node may carry in `type` (objectui#11440): `record`,
@@ -1397,9 +1412,10 @@ const { type: _pageNodeTypeLiteral, ...PAGE_NODE_MEMBERS } = PageNodeSchema.shap
  * member is {@link PageNodeSchema}'s own, by reference, and that node already
  * takes the spec's `PageSchema` fields by reference through
  * {@link SpecPageFields}. Its four refusals (`actions`, `breadcrumbs`,
- * `maxWidth`, `padding`), the `body` refusal and the spec's three attachable
- * object-level checks (`source`, `requires` by `kind`, and the `details` /
- * `tabs` slot pair) come with it. `regions` stays the node's own
+ * `maxWidth`, `padding`), the `body` refusal and the spec's four attachable
+ * object-level checks (`source`, `requires` by `kind`, the `details` /
+ * `tabs` slot pair, and the retired `api` view data under `regions` / `slots`)
+ * come with it. `regions` stays the node's own
  * {@link PageNodeRegionSchema}, so each region component is judged by this
  * union at every depth, as on `page`.
  *
@@ -1409,7 +1425,8 @@ const { type: _pageNodeTypeLiteral, ...PAGE_NODE_MEMBERS } = PageNodeSchema.shap
 export const PageKindNodeSchema: PageKindNodeSchemaType = BaseSchema.extend({
   ...PAGE_NODE_MEMBERS,
   type: PAGE_KIND_NODE_TYPE.describe('The spec page kind — `record`, `home` or `utility` (`@objectstack/spec` `PageTypeSchema`)'),
-}).superRefine(checkPageSourceCompleteness).superRefine(checkPageRequiresKind).superRefine(checkPageSlotPair);
+}).superRefine(checkPageSourceCompleteness).superRefine(checkPageRequiresKind).superRefine(checkPageSlotPair)
+  .superRefine(checkPageComponentViewData);
 
 /**
  * The TYPE of {@link PageKindNodeSchema}, written out BY REFERENCE to the

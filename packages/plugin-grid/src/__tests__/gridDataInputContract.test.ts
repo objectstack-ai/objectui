@@ -137,12 +137,14 @@ describe('object-grid `data` — declaration matches the contract (objectui#5090
     expect(contractAcceptedArms()).toEqual(['object']);
   });
 
-  it('each of the four providers parses, and none of them is an array', () => {
-    // What makes "the object arm" a real four-armed union rather than one
-    // accidental shape, and the direct measurement of the card's premise.
+  it('each of the three providers parses, none of them is an array, and `api` is refused', () => {
+    // What makes "the object arm" a real union rather than one accidental
+    // shape, and the direct measurement of the card's premise. Since
+    // @objectstack/spec 18.0.0-next.1 the view-level `api` provider is retired
+    // (objectstack#23160; objectui#12325 removed its readers, objectui#12370
+    // installs the release): three providers remain.
     const providers = [
       { provider: 'object', object: 'users' },
-      { provider: 'api', read: { url: 'https://example.test/rows' } },
       { provider: 'value', items: [{ id: 1 }] },
       { provider: 'schema', schemaId: 'report' },
     ];
@@ -150,6 +152,7 @@ describe('object-grid `data` — declaration matches the contract (objectui#5090
       expect(ViewDataSchema.safeParse(value).success, `${value.provider} provider`).toBe(true);
       expect(Array.isArray(value)).toBe(false);
     }
+    expect(ViewDataSchema.safeParse({ provider: 'api', read: { url: 'https://example.test/rows' } }).success).toBe(false);
   });
 
   it.each(GRID_TAGS)('$label declares the arms the contract accepts', ({ type, namespace }) => {

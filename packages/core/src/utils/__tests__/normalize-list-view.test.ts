@@ -398,8 +398,8 @@ describe('normalizeListViewSchema (#2890)', () => {
     });
 
     it('KEEPS `data` — unlike every other fold here, and deliberately', () => {
-      // `data` is not a legacy alias with one meaning: it has four providers,
-      // `api`/`value` are read live in ListView, and the whole block is
+      // `data` is not a legacy alias with one meaning: it has more providers
+      // than `object`, `value` is read live in ListView, and the whole block is
       // forwarded to child views whose own `getDataConfig` reads it BEFORE
       // `objectName`. Deleting it for one provider would rewrite what a child
       // resolves. See the note on `normalizeListViewSchema`.

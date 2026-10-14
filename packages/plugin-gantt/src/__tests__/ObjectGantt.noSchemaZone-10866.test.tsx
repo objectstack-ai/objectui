@@ -20,7 +20,7 @@
  * and a bar handed back ending on a day's midnight is written as the day
  * before it, the day it runs through. Two
  * adapters have no types to give: one with no `getObjectSchema`, and one whose
- * schema carries no fields (the `api` provider's adapter answers
+ * schema carries no fields (a code-built `ApiDataSource` answers
  * `{ fields: {} }`). A chart with a business `timeZone` takes the same split
  * through the shim, as the schema-declared pin beside this one measures.
  *

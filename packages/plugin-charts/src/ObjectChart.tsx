@@ -608,8 +608,8 @@ export const ObjectChart = (props: ObjectChartProps) => {
   // Resolve the category dimension's option colors (P3). Best-effort: any
   // failure leaves categoryColors null and the chart keeps the theme palette.
   //
-  // Both metadata reads ride the host's AUTHENTICATED fetch (#4114) — the same
-  // channel `provider: 'api'` view sources use — falling back to the global one
+  // Both metadata reads ride the host's AUTHENTICATED fetch (#4114) — the
+  // `SchemaRendererProvider`'s `apiFetch` — falling back to the global one
   // only when no host supplies it. A bearer-token session carries its
   // credential in the `Authorization` header, not a cookie, so
   // `credentials: 'include'` alone left these two reads unauthenticated in a

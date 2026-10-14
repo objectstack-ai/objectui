@@ -427,8 +427,8 @@ function readListViewKind(value: unknown): string | undefined {
  *      · an already-present `objectName` WINS — this fold only fills a gap, it
  *        never re-points a binding that already resolves;
  *      · `data` is NOT deleted. Every other fold deletes because the legacy key
- *        has one meaning and one home; `data` has four providers, `api`/`value`
- *        are read live in `ListView`, and the whole block is FORWARDED to child
+ *        has one meaning and one home; `data` has more providers than
+ *        `object`, `value` is read live in `ListView`, and the whole block is FORWARDED to child
  *        views (the gantt branch), whose own `getDataConfig` reads `data` before
  *        `objectName`. Deleting it for one provider would rewrite what a child
  *        resolves. Nothing in `ListView` reads `data.provider === 'object'`, so

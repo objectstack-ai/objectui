@@ -2,7 +2,7 @@
  * ObjectUI
  * Copyright (c) 2024-present ObjectStack Inc.
  *
- * objectui#12032 — approval requests through the standard `provider: 'api'`
+ * objectui#12032 — approval requests through a code-built `ApiDataSource`
  * door, so `ListView` reads them with `viewer` as a field and the scopes stay
  * server-side.
  *

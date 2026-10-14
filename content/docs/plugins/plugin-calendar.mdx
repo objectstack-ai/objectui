@@ -417,7 +417,7 @@ const valueProviderCalendar: ObjectCalendarSchema = {
 
 ⚠️ Since **objectui#8348** a calendar authored with a record-source *config
 object* under `data` — `{ provider: 'value', items: [...] }`,
-`{ provider: 'object', object: … }`, `{ provider: 'api', … }` — is not honoured
+`{ provider: 'object', object: … }` — is not honoured
 here. `object-calendar`'s published `data` row is an **array of pre-fetched
 records**, so the config object is refused by kind: `os validate` and the save
 gate reject it, and as of that card the renderer does too.

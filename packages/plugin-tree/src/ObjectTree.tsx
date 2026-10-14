@@ -793,7 +793,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
   const dataProvider = dataConfig?.provider;
   // NOT a delegation site for `resolveRecordSourceObjectName` (`b041b9c0c`):
   // this is the data config's OWN object, deliberately `undefined` for every
-  // other provider so an `api`/`value` tree's `objectName` changing cannot move
+  // other provider so a `value` tree's `objectName` changing cannot move
   // this dependency. The shared reader's second rung would put `objectName`
   // here and re-run the record fetch on a value it does not read.
   const dataObjectName = dataConfig?.provider === 'object' ? dataConfig.object : undefined;

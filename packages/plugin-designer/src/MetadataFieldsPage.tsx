@@ -184,7 +184,7 @@ function isDesignerAuthorableType(raw: unknown): raw is DesignerFieldType {
  * ## Why reading the retired spelling is a RENAME here and not a laundering
  *
  * `@objectstack/spec` treats the two as one key under two spellings and says
- * so in the refusal itself. Measured on the installed 18.0.0-next.0 (objectui#12030):
+ * so in the refusal itself. Measured on the installed 18.0.0-next.1 (objectui#12030, objectui#12370):
  *
  *   FieldSchema.safeParse({ type: 'lookup', label: 'L', referenceTo: 'account' })
  *     => success = false

@@ -184,10 +184,10 @@ import { createAuthenticatedFetch } from '@object-ui/auth';
 
 const authedFetch = createAuthenticatedFetch();
 
-// For fetches whose target URL comes from view metadata (`provider: 'api'`
-// data sources), restrict credential injection to the current page's origin
-// so the platform token never leaks to third-party hosts:
-const apiProviderFetch = createAuthenticatedFetch({ sameOriginOnly: true });
+// For fetches whose target URL may come from metadata (an API-call
+// action's target), restrict credential injection to the current page's
+// origin so the platform token never leaks to third-party hosts:
+const sameOriginFetch = createAuthenticatedFetch({ sameOriginOnly: true });
 ```
 
 ### getSessionOwnerChangeCount / subscribeSessionOwnerChange

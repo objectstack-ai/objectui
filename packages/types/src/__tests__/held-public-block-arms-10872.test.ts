@@ -111,15 +111,21 @@ describe('objectui#10872 batch 4 — the six held blocks are armed, by reference
   // (objectui#12030); it is the row by reference again, so it is back in this row.
   it.each(ARMS)('%s: the bag IS the spec row — nothing restated, nothing stripped', (type, arm) => {
     const row = rowOf(type);
-    // All six rows carry no default and no `z.lazy`, so the import boundary is
-    // the identity function on them (objectui#8317)…
-    expect(stripImportedDefaults(row)).toBe(row);
-    // …and the arm holds the spec's own schema: its DEFINITION is the row's.
-    // Not `toBe(row)`: 17.5.0 publishes these rows as lazy proxies whose
+    // The two element rows carry no default and no `z.lazy`, so the import
+    // boundary is the identity function on them (objectui#8317). Since
+    // @objectstack/spec 18.0.0-next.1 the four action rows take `onSuccess` as
+    // `ActionSchema`'s own block, whose `openIn` carries `.default('self')`, so
+    // the boundary rebuilds them without that default (objectui#12370).
+    const bounded = stripImportedDefaults(row);
+    if (type.startsWith('action:')) expect(bounded).not.toBe(row);
+    else expect(bounded).toBe(row);
+    // …and the arm holds the spec's own schema through that boundary: its
+    // DEFINITION is the bounded row's (memoised, so one instance per row).
+    // Not `toBe(bounded)`: 17.5.0 publishes these rows as lazy proxies whose
     // methods run on the real schema, so `.optional()` wraps the object behind
     // the proxy, and the definition is the identity that survives.
     expect((bagOf(arm) as unknown as { _zod: { def: unknown } })._zod.def)
-      .toBe((row as unknown as { _zod: { def: unknown } })._zod.def);
+      .toBe((bounded as unknown as { _zod: { def: unknown } })._zod.def);
     expect(keysOf(bagOf(arm))).toEqual(keysOf(row));
   });
 
@@ -222,8 +228,13 @@ describe('objectui#10872 batch 4 — the two handler keys the action renderers r
       const issue = at(result, 'onSuccess')[0];
       expect(issue?.code, face).toBe('invalid_type');
       expect(issue?.message, face).toContain('Did you mean `onSuccess` → `properties.onSuccess`?');
-      // What the remedy sends the author to is accepted.
-      expect(judge({ type, properties: { onSuccess: { navigate: '/tasks' } } }).success, face).toBe(true);
+      // What the remedy sends the author to is accepted: `properties.onSuccess` on a row
+      // whose executor carries the hop. Since @objectstack/spec 18.0.0-next.1 a row with
+      // no executor refuses `onSuccess` (objectui#12338), so the row names `api`.
+      expect(
+        judge({ type, properties: { actionType: 'api', target: '/api/tasks/archive', onSuccess: { navigate: '/tasks' } } }).success,
+        face,
+      ).toBe(true);
     }
     // The spec's own page component refuses the flat spelling as well.
     expect(PageComponentSchema.safeParse({ type, onSuccess: { navigate: '/tasks' } }).success).toBe(false);

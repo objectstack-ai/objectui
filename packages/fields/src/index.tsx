@@ -2797,11 +2797,15 @@ export function FormulaCellRenderer({ value, field }: CellRendererProps): React.
     return <span className="tabular-nums">{formatDate(safe as string | number, undefined, { locale })}</span>;
   }
 
-  return (
-    <span className="text-gray-700 font-mono text-sm">
-      {String(safe)}
-    </span>
-  );
+  // TEXT is drawn by the text cell (objectui#12357), declared `text` or
+  // undeclared alike, so a formula that yields a person's name reads in the
+  // column's own font beside the text fields around it. This printed every
+  // remaining result in monospace, so a Leads Name column built by a formula
+  // read as code; declaring `returnType: 'text'` changed nothing, and most
+  // code-authored formulas arrive with no `returnType` at all. An expanded
+  // record or an array is coerced to its name / joined text by the same
+  // `coerceToSafeValue` both renderers call, so it takes this face too.
+  return <TextCellRenderer value={value} field={field} />;
 }
 
 /**

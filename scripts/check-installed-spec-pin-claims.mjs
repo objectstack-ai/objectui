@@ -894,6 +894,14 @@ export const LEDGER = [
     class: "historical",
     why: "\"the row declares it since 17.6.0\" on the `keyboardNavigation` input's comment \u2014 the release `object-grid` gained the member; the line's `pinned` is the verb in \"is pinned there\". Permanently true (objectui#11717).",
   },
+  {
+    file: "scripts/check-eager-closure-budget.mjs",
+    package: "@objectstack/spec",
+    version: "18.0.0-next.0",
+    sites: 1,
+    class: "historical",
+    why: "Anchored to a named commit: \"`5488ae7` is objectui#12030's branch commit: `main` at `cea429b` with `@objectstack/*` 18.0.0-next.0 resolved\" describes the tree the eager-closure baseline was measured on. A measurement that names its tree is a record, not a claim about today (objectui#12370).",
+  },
 ];
 
 // ── The run ──────────────────────────────────────────────────────────────────

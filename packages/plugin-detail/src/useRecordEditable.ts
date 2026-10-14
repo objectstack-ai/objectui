@@ -30,7 +30,7 @@
  * user cannot act.
  *
  * The probe rides the host's AUTHENTICATED fetch (`SchemaRendererProvider`'s
- * `apiFetch`, the same channel `provider: 'api'` view sources use), not the bare
+ * `apiFetch`), not the bare
  * global one. A bearer-token session carries its credential in the
  * `Authorization` header, not a cookie, so `credentials: 'include'` alone made
  * every probe 401 on a perfectly valid admin session — the verdict then always

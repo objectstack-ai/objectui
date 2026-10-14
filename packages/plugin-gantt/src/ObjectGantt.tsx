@@ -1022,7 +1022,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       // resolved; what it is not is a reason to rebuild this callback.
       const adapter = effectiveDataSourceRef.current;
       if (!adapter || typeof adapter.find !== 'function') {
-        throw new Error('DataSource required for object/api providers');
+        throw new Error('DataSource required for the object provider');
       }
 
       // 'object' → the context adapter (resolved above).

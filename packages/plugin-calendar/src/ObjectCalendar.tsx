@@ -849,7 +849,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
           // inline set has no metadata to build and behind the
           // `objectSchemaReady` gate deliberately scoped to that same arm.
           // Falling through here would therefore throw
-          // `DataSource required for object/api providers` on a calendar that
+          // `DataSource required for the object provider` on a calendar that
           // needs no DataSource at all. So the adapter is resolved for the
           // inline provider ONLY, and the same three keys are lowered onto the same query shape.
           //
@@ -892,7 +892,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
         }
 
         if (!dataSource || typeof dataSource.find !== 'function') {
-          throw new Error('DataSource required for object/api providers');
+          throw new Error('DataSource required for the object provider');
         }
 
         if (dataProvider === 'object') {
@@ -1428,7 +1428,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
    *
    * `@objectstack/spec`'s `CalendarConfigSchema` is a `strictObject` whose ONE
    * required key is `startDateField`; `titleField` is optional. Re-measured on
-   * the installed 18.0.0-next.0 (objectui#12030), three legs: `{}` and `{ titleField: 't' }` both fail
+   * the installed 18.0.0-next.1 (objectui#12030, objectui#12370), three legs: `{}` and `{ titleField: 't' }` both fail
    * `invalid_type` at `startDateField`, and `{ startDateField: 'd' }` parses
    * CLEAN. The spec's own note on that schema names THIS renderer as the
    * reason — `resolveTitle` above takes an explicit `titleField` when present

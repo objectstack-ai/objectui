@@ -34,8 +34,8 @@ importers:
         specifier: workspace:*
         version: link:packages/test-support
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       '@playwright/test':
         specifier: ^1.62.1
         version: 1.62.1
@@ -272,14 +272,14 @@ importers:
         specifier: workspace:*
         version: link:../../packages/types
       '@objectstack/client':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       '@objectstack/lint':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       '@tailwindcss/postcss':
         specifier: ^4.3.3
         version: 4.3.3
@@ -416,8 +416,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/types
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       fumadocs-core:
         specifier: 16.15.4
         version: 16.15.4(@mdx-js/mdx@3.1.1)(@tanstack/react-router@1.170.8(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.2.18)(lucide-react@1.43.0(react@19.2.8))(next@16.3.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@playwright/test@1.62.1)(@types/node@26.2.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react-router@7.18.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(zod@4.6.5)
@@ -774,14 +774,14 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/formula':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       '@objectstack/lint':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       '@sentry/react':
         specifier: ^10.70.0
         version: 10.70.0(react@19.2.8)
@@ -871,8 +871,8 @@ importers:
   packages/auth:
     dependencies:
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       better-auth:
         specifier: ^1.7.2
         version: 1.7.2(@opentelemetry/api@1.9.1)(better-sqlite3@12.9.0)(mongodb@7.2.0(socks@2.8.9))(next@16.3.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@playwright/test@1.62.1)(@types/node@26.2.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(vitest@4.1.10)
@@ -902,8 +902,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       '@tailwindcss/postcss':
         specifier: ^4.3.3
         version: 4.3.3
@@ -970,8 +970,8 @@ importers:
         version: link:../types
     devDependencies:
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       '@types/react':
         specifier: 19.2.18
         version: 19.2.18
@@ -1006,8 +1006,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       '@radix-ui/react-accordion':
         specifier: ^1.2.20
         version: 1.2.20(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -1190,11 +1190,11 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/formula':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
     devDependencies:
       '@object-ui/test-support':
         specifier: workspace:*
@@ -1249,11 +1249,11 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/client':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
     devDependencies:
       '@object-ui/test-support':
         specifier: workspace:*
@@ -1292,8 +1292,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       lucide-react:
         specifier: ^1.43.0
         version: 1.43.0(react@19.2.8)
@@ -1396,8 +1396,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       lucide-react:
         specifier: ^1.43.0
         version: 1.43.0(react@19.2.8)
@@ -1437,8 +1437,8 @@ importers:
         version: link:../types
     devDependencies:
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       '@types/react':
         specifier: 19.2.18
         version: 19.2.18
@@ -1458,8 +1458,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
     devDependencies:
       '@types/react':
         specifier: 19.2.18
@@ -1621,8 +1621,8 @@ importers:
         specifier: workspace:*
         version: link:../test-support
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       '@types/react':
         specifier: 19.2.18
         version: 19.2.18
@@ -1663,8 +1663,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       '@radix-ui/react-slot':
         specifier: ^1.3.3
         version: 1.3.3(@types/react@19.2.18)(react@19.2.8)
@@ -1754,8 +1754,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       lucide-react:
         specifier: ^1.43.0
         version: 1.43.0(react@19.2.8)
@@ -1824,8 +1824,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -1876,8 +1876,8 @@ importers:
         specifier: workspace:*
         version: link:../i18n
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       lucide-react:
         specifier: ^1.43.0
         version: 1.43.0(react@19.2.8)
@@ -2001,8 +2001,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       lucide-react:
         specifier: ^1.43.0
         version: 1.43.0(react@19.2.8)
@@ -2062,8 +2062,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       lucide-react:
         specifier: ^1.43.0
         version: 1.43.0(react@19.2.8)
@@ -2132,8 +2132,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       '@tanstack/react-virtual':
         specifier: ^3.14.9
         version: 3.14.9(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -2306,8 +2306,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       '@types/react':
         specifier: 19.2.18
         version: 19.2.18
@@ -2483,8 +2483,8 @@ importers:
         specifier: workspace:*
         version: link:../test-support
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       '@types/node':
         specifier: ^26.2.0
         version: 26.2.0
@@ -2531,8 +2531,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -2601,8 +2601,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       lucide-react:
         specifier: ^1.43.0
         version: 1.43.0(react@19.2.8)
@@ -2674,8 +2674,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -2739,8 +2739,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       react:
         specifier: 19.2.8
         version: 19.2.8
@@ -2804,8 +2804,8 @@ importers:
         version: 1.0.7(tailwindcss@4.3.3)
     devDependencies:
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       '@tailwindcss/postcss':
         specifier: ^4.3.3
         version: 4.3.3
@@ -2846,14 +2846,14 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
 
   packages/test-support:
     devDependencies:
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       '@types/node':
         specifier: ^26.2.0
         version: 26.2.0
@@ -2867,8 +2867,8 @@ importers:
   packages/types:
     dependencies:
       '@objectstack/spec':
-        specifier: ^18.0.0-next.0
-        version: 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+        specifier: ^18.0.0-next.1
+        version: 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       zod:
         specifier: ^4.6.1
         version: 4.6.5
@@ -4229,26 +4229,26 @@ packages:
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
 
-  '@objectstack/client@18.0.0-next.0':
-    resolution: {integrity: sha512-gFflUycBVPIvc1a44psjRBQ3z1NuaDkmfBOcVRhc6nvc7paVXr4kqYG1NdlmnmCwm8qfAvGL7BuftWCYUWqtYg==}
+  '@objectstack/client@18.0.0-next.1':
+    resolution: {integrity: sha512-3KlwtJUTV7yrtWeTqs/z19iWURmoKd5smuOY/KN7a82Ffll3GDliju25Nh6JOdF4UmuJtfaoblygflS/U+tgpw==}
     engines: {node: '>=22.0.0'}
 
-  '@objectstack/core@18.0.0-next.0':
-    resolution: {integrity: sha512-6Ms8bsOdnIKxY4EwXyVl2OfQ3ydB5eH0J/u7KA1lWXquZgSDggLk05upOzf7XtuUeLb8JSLbmG25OIKuamBi3Q==}
+  '@objectstack/core@18.0.0-next.1':
+    resolution: {integrity: sha512-+d+tGi0lWeIMC3TjI6leyDYt3uVlpthifwjsgXMWl1jjMNdD8Pw3Uc2Q7QipmrVXj3CcINKEH0cri5SCYIeNPw==}
     engines: {node: '>=22.0.0'}
 
-  '@objectstack/formula@18.0.0-next.0':
-    resolution: {integrity: sha512-UyVOqJz1QLvjnr6qSCFnex6BiU1Ly3N6vLBiB6/8FmqHdnboozfNGdLgjhmS/m3wWq0ZGoY9d5RYkpDfC65UDQ==}
+  '@objectstack/formula@18.0.0-next.1':
+    resolution: {integrity: sha512-acgpTRlVuRkNHyVr+gaaKK9AhNhihyFM658qiYxMxZy0ynWHbOMTjJq6/3X18HSsWbgdAc68OILu3QJcf8Rr2g==}
 
-  '@objectstack/lint@18.0.0-next.0':
-    resolution: {integrity: sha512-cxEbba3qAbQ2Pvc76tcY+pqTMiO79XoruOo3uQCttR7w8abrikFFCXv2cprawXIEgYkshQeJaAExCdqp01aG6Q==}
+  '@objectstack/lint@18.0.0-next.1':
+    resolution: {integrity: sha512-/Ae71Tv3Nfk3xzBKMwZdGt89e32lI0+rnqHKWjuO5ZlcCvpZLIA3qPEvydwrsQV7ep7iYEjVG35cthgD/YbafQ==}
     engines: {node: '>=22.0.0'}
 
-  '@objectstack/sdui-parser@18.0.0-next.0':
-    resolution: {integrity: sha512-fACYC57H+MbpW8cfjtY4J+0HDgaxBjnVgNTMVrJ742JP2FtGn3zsgLt34EMYYoMS41w+spwaBq+5s/sWt3xheA==}
+  '@objectstack/sdui-parser@18.0.0-next.1':
+    resolution: {integrity: sha512-Jc6brfLZjz3dFss3G4Qu0jTCASIKipCUM13I5v+/Tw/cClqMbFntkudbaDEbo588+WOnqf3gLtuvghabK3/kNA==}
 
-  '@objectstack/spec@18.0.0-next.0':
-    resolution: {integrity: sha512-ASTh6+q5jo2y8VhYT5osOb4H0JUyGAVYHIUPE39OnxSAD3fYg12x1YiNz09JA0aP+8JxigeA0otHWB3j16i2Ow==}
+  '@objectstack/spec@18.0.0-next.1':
+    resolution: {integrity: sha512-pDNzwgJz1/SzVr1K7WGA3kDIR/rBVrA/K8UpVIw2P4SWJ1ONdxVy/K3+IZzl2MC3/+ye1ChePbQFw9i4gvAhFg==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
       ai: ^7.0.0
@@ -4256,8 +4256,8 @@ packages:
       ai:
         optional: true
 
-  '@objectstack/types@18.0.0-next.0':
-    resolution: {integrity: sha512-rR+m5ZnBB4zSKn3RKiTKmiksTHjUa66Iz1etHVxUf57rW2qFrp8tQtH7UJlX4V5+5O0HjiRPvPnOgOK2mvV9Qw==}
+  '@objectstack/types@18.0.0-next.1':
+    resolution: {integrity: sha512-Mjulyi0JgLMT16Qf014sK6L/QufOzfQZe7yjVFHyiO9umDDCMA59s2hA4GsYdbOSNyS/YV2WBi3NAupjSX84NA==}
     engines: {node: '>=22.0.0'}
 
   '@open-draft/deferred-promise@2.2.0':
@@ -12331,33 +12331,33 @@ snapshots:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.1
 
-  '@objectstack/client@18.0.0-next.0(ai@7.0.65(zod@4.6.5))':
+  '@objectstack/client@18.0.0-next.1(ai@7.0.65(zod@4.6.5))':
     dependencies:
-      '@objectstack/core': 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
-      '@objectstack/spec': 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+      '@objectstack/core': 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
+      '@objectstack/spec': 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
     transitivePeerDependencies:
       - ai
 
-  '@objectstack/core@18.0.0-next.0(ai@7.0.65(zod@4.6.5))':
+  '@objectstack/core@18.0.0-next.1(ai@7.0.65(zod@4.6.5))':
     dependencies:
-      '@objectstack/spec': 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
-      '@objectstack/types': 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+      '@objectstack/spec': 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
+      '@objectstack/types': 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       zod: 4.6.5
     transitivePeerDependencies:
       - ai
 
-  '@objectstack/formula@18.0.0-next.0(ai@7.0.65(zod@4.6.5))':
+  '@objectstack/formula@18.0.0-next.1(ai@7.0.65(zod@4.6.5))':
     dependencies:
       '@marcbachmann/cel-js': 8.0.0
-      '@objectstack/spec': 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+      '@objectstack/spec': 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
     transitivePeerDependencies:
       - ai
 
-  '@objectstack/lint@18.0.0-next.0(ai@7.0.65(zod@4.6.5))':
+  '@objectstack/lint@18.0.0-next.1(ai@7.0.65(zod@4.6.5))':
     dependencies:
-      '@objectstack/formula': 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
-      '@objectstack/sdui-parser': 18.0.0-next.0
-      '@objectstack/spec': 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+      '@objectstack/formula': 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
+      '@objectstack/sdui-parser': 18.0.0-next.1
+      '@objectstack/spec': 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
       ajv: 8.20.0
       ajv-formats: 3.0.1(ajv@8.20.0)
       sucrase: 3.35.1
@@ -12365,18 +12365,18 @@ snapshots:
     transitivePeerDependencies:
       - ai
 
-  '@objectstack/sdui-parser@18.0.0-next.0': {}
+  '@objectstack/sdui-parser@18.0.0-next.1': {}
 
-  '@objectstack/spec@18.0.0-next.0(ai@7.0.65(zod@4.6.5))':
+  '@objectstack/spec@18.0.0-next.1(ai@7.0.65(zod@4.6.5))':
     dependencies:
       pg-connection-string: 2.14.0
       zod: 4.6.5
     optionalDependencies:
       ai: 7.0.65(zod@4.6.5)
 
-  '@objectstack/types@18.0.0-next.0(ai@7.0.65(zod@4.6.5))':
+  '@objectstack/types@18.0.0-next.1(ai@7.0.65(zod@4.6.5))':
     dependencies:
-      '@objectstack/spec': 18.0.0-next.0(ai@7.0.65(zod@4.6.5))
+      '@objectstack/spec': 18.0.0-next.1(ai@7.0.65(zod@4.6.5))
     transitivePeerDependencies:
       - ai
 

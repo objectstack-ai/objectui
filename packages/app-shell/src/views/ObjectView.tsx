@@ -3507,7 +3507,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             // The census answers each in `ObjectView.relayRungCensus-7559.test.ts`.
             //
             // ViewData source override (spec `data` key): a view authored with
-            // `data: {provider:'api', read, write}` must survive this explicit
+            // `data: {provider:'value', items}` must survive this explicit
             // picklist, or ObjectGantt falls back to provider:'object'.
             data: (viewDef as any).data ?? (listSchema as any).data,
             // Propagate new spec properties (P0/P1/P2)

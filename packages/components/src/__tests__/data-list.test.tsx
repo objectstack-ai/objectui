@@ -66,7 +66,8 @@ describe('element:repeater', () => {
     // throwing — safe to drop into any page.
     const { getByText } = renderType({
       type: 'element:repeater',
-      properties: { object: 'showcase_category', fields: ['name'], emptyText: 'Nothing here' },
+      dataSource: { object: 'showcase_category' },
+      properties: { fields: ['name'], emptyText: 'Nothing here' },
     });
     expect(getByText('Nothing here')).toBeTruthy();
   });

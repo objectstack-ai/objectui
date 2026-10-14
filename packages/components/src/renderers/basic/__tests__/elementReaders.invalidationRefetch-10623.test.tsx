@@ -61,10 +61,10 @@ function mount(schema: Record<string, unknown>, adapter: ReturnType<typeof makeA
   );
 }
 
-// The metric reads its object from the node-level `dataSource` binding
-// (objectui#11880); the repeater from its own `properties.object`.
+// Both read their object from the node-level `dataSource` binding
+// (objectui#11880; the repeater's only query source since objectui#12345).
 const NUMBER = { type: 'element:number', id: 'n', dataSource: { object: 'contact' }, properties: { aggregate: 'count' } };
-const REPEATER = { type: 'element:repeater', id: 'rep', properties: { object: 'contact', fields: ['name'] } };
+const REPEATER = { type: 'element:repeater', id: 'rep', dataSource: { object: 'contact' }, properties: { fields: ['name'] } };
 
 const cases = [
   {

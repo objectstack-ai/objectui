@@ -258,7 +258,7 @@ ignores would be accepted and dropped, which is the defect this binding removes.
 | `object-grid` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `element:record_picker` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `element:number` | ✅ | filter | ✅ | — single value | — single value |
-| `element:repeater` | ✅ | filter / sort / limit | ✅ (AND `properties.filter`) | ✅ | ✅ |
+| `element:repeater` | ✅ | filter / sort / limit | ✅ | ✅ | ✅ |
 | `record:related_list` | ✅ | columns / filter / sort / limit | ✅ | ✅ | ✅ |
 | `object-calendar` | ✅ | filter / sort | ✅ | ✅ | — platform ceiling |
 | `object-kanban` | ✅ | filter / limit | ✅ | — no ordering | ✅ (`limit`) |
@@ -362,28 +362,18 @@ dataSource.object." notice instead of a count, and an `element:record_picker`
 offers no records. The Studio page designer writes the metric's object into
 `dataSource`.
 
-`element:repeater` reads the binding **first**, and its flat
-`properties.object`, `properties.filter`, `properties.sort` and
-`properties.limit` only as a fallback, for metadata written before
-`@objectstack/spec` retired those four keys (objectstack#11509); the spec's
-conversion moves them into `dataSource`. The repeater offers the binding alone
-(objectui#12085): it requires no prop, and the page validator accepts a repeater
-bound through `dataSource` alone and reports a flat `object`, `filter`, `sort`
-or `limit` as a prop the repeater does not have. A repeater bound only through
-`dataSource` lists the records it names, and one carrying only the flat keys
-reads them exactly as before. Where a
-node carries both, the repeater follows the precedence `ElementDataSourceGate`
-applies to the object-bound blocks above: the binding's `object` wins; `properties.filter` is AND-combined
-with the binding's filter (and its view's), so neither is dropped; and for `sort`
-and `limit` the binding's own key wins, the flat key wins over one the named
-saved view supplies, and the view's is the baseline. The spec's props row
-declares `properties.object` required, and the spec's props gate waives it when
-`dataSource.object` names an object. The schema validator (`safeValidateSchema`,
-and `objectui validate` with it) applies the same waiver. A repeater that binds
-through `dataSource.object` needs no `properties.object`. A `properties` bag
-with neither is refused at `properties.object`. The Studio page designer writes
-the repeater's object and its row limit into `dataSource`, as it does the
-metric's object.
+`element:repeater` reads its query from the binding alone. `@objectstack/spec`
+18 retired the flat `properties.object`, `properties.filter`, `properties.sort`
+and `properties.limit` (objectstack#11509), and the repeater reads none of them
+(objectui#12345); the spec's conversion moves them into `dataSource`. A node
+that still carries one is refused by the spec's row and by the
+`@object-ui/types` mirror, and the page validator reports it as a prop the
+repeater does not have. The repeater requires no prop (objectui#12085): a node
+whose `dataSource` names no object issues no query and shows its empty state.
+With a named saved view, the binding's own `sort` and `limit` win and the
+view's are the baseline, and the view's filter is AND-combined with the
+binding's. The Studio page designer writes the repeater's object and its row
+limit into `dataSource`, as it does the metric's object.
 
 ```json
 {

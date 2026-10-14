@@ -1377,10 +1377,8 @@ const ELEMENT_REPEATER_NEITHER_CHANNEL = neitherContentChannelGuidance(
  * `sort`, `limit`; objectstack#11509, ruled A-narrow), so the bag refuses each
  * by name and the query is written on the node-level `dataSource` binding,
  * declared here as the spec's `ElementDataSourceSchema`, by reference, as
- * `element:number` and `record:line_items` do. The repeater's renderer still
- * reads a stored document's flat keys as a fallback after the binding; that
- * read is the renderer's, and this face judges what is authored (see the
- * module docblock). A `fields` entry is a bare name or a strict `{ field }`; a
+ * `element:number` and `record:line_items` do. The repeater's renderer reads
+ * the binding alone (objectui#12345). A `fields` entry is a bare name or a strict `{ field }`; a
  * `label` there is refused by name, because the list has no header row to
  * print it in.
  *

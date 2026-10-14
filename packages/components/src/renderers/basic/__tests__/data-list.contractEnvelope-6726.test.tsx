@@ -57,9 +57,11 @@ function mount(envelope: Envelope) {
           {
             type: 'element:repeater',
             id: 'rep',
-            // Element config lives in the `properties` bag (`readProps`), not
-            // on the node — the same door an authored page writes through.
-            properties: { object: 'contact', fields: ['name'] },
+            // The query is the node-level `dataSource` binding and the display
+            // config the `properties` bag (`readProps`) — the doors an authored
+            // page writes through.
+            dataSource: { object: 'contact' },
+            properties: { fields: ['name'] },
           } as never
         }
       />

@@ -10,12 +10,14 @@
  * objectui#10664 (folded from objectui#10665) — `element:repeater` re-reads
  * when its `sort` changes, and only then.
  *
- * The fetch effect lowers `properties.sort` onto `$orderby`, but its dependency
+ * The fetch effect lowers the sort onto `$orderby`, but its dependency
  * list named `filterKey` and no sort at all. A mounted repeater whose sort
  * changed (a bound sort control, a live designer preview) kept the old order
  * until the object, the filter, the limit or a data-invalidation event re-ran
  * the read. The sort is now keyed the way `filterKey` keys the filter: by
- * CONTENT, so a new array with the same entries is not a change.
+ * CONTENT, so a new array with the same entries is not a change. The sort is
+ * the node-level `dataSource` binding's, the repeater's one query source
+ * (objectui#12345).
  *
  * Both halves are pinned. The CONTROL (an equal sort in a fresh array) is green
  * before the fix and after it; it goes red for a fix that keys on the array's
@@ -45,7 +47,7 @@ const Host = React.forwardRef<HostHandle, { adapter: any }>(function Host({ adap
   const [sort, setSort] = React.useState<unknown>(BY_NAME_ASC);
   React.useImperativeHandle(ref, () => ({ setSort }), []);
   const schema = React.useMemo(
-    () => ({ type: 'element:repeater', id: 'rep', properties: { object: 'contact', fields: ['name'], sort } }),
+    () => ({ type: 'element:repeater', id: 'rep', dataSource: { object: 'contact', sort }, properties: { fields: ['name'] } }),
     [sort],
   );
   return (

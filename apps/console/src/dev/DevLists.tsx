@@ -6,8 +6,11 @@
  */
 import React from 'react';
 import { SchemaRenderer } from '@object-ui/react';
+import type { DeclaredNode } from '@object-ui/types';
 
-const defList = {
+// Typed with the authoring face `SchemaRenderer` takes, never cast: a key the
+// block's spec row does not declare is refused here, at the producer.
+const defList: DeclaredNode = {
   type: 'element:definition-list',
   properties: {
     columns: 2,
@@ -20,13 +23,16 @@ const defList = {
   },
 };
 
-const repeater = {
+// The repeater's query is the node-level `dataSource` binding, the one query
+// door `@objectstack/spec` 18 keeps: its row retired the flat `object`,
+// `filter`, `sort` and `limit` (objectstack#11509), and the renderer reads
+// only the binding (objectui#12345).
+const repeater: DeclaredNode = {
   type: 'element:repeater',
+  dataSource: { object: 'showcase_category', limit: 10 },
   properties: {
-    object: 'showcase_category',
     titleField: 'name',
     fields: ['color'],
-    limit: 10,
     emptyText: 'No categories',
   },
 };
@@ -36,13 +42,13 @@ export const DevLists: React.FC = () => (
     <div>
       <h1 className="mb-3 text-lg font-semibold">Dev · element:definition-list</h1>
       <div className="rounded-lg border p-4">
-        <SchemaRenderer schema={defList as any} />
+        <SchemaRenderer schema={defList} />
       </div>
     </div>
     <div>
       <h1 className="mb-3 text-lg font-semibold">Dev · element:repeater (showcase_category)</h1>
       <div className="rounded-lg border p-4">
-        <SchemaRenderer schema={repeater as any} />
+        <SchemaRenderer schema={repeater} />
       </div>
     </div>
   </div>

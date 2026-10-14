@@ -8,36 +8,29 @@
 
 /**
  * objectui#11880 (the repeater half) — `element:repeater` reads the node-level
- * `dataSource` binding FIRST, with its flat `properties` query keys as the
- * fallback for metadata written before the spec retired them (ruling
- * objectstack-ai/objectstack#11509, A-narrow, objectui first; triage on
- * objectui#11880: direction A). Since objectui#12085 the registration publishes
- * the binding alone: the fallback is read, never offered.
+ * `dataSource` binding (ruling objectstack-ai/objectstack#11509, A-narrow,
+ * objectui first; triage on objectui#11880: direction A). Since objectui#12085
+ * the registration publishes the binding alone, and since objectui#12345 the
+ * renderer reads it alone: `@objectstack/spec` 18 retired the row's flat
+ * `object`, `filter`, `sort` and `limit`, the types mirror refuses them
+ * (`packages/types`, `element-repeater-data-source-11880.test.ts`), and the one
+ * in-repo producer that still wrote them (the console's `DevLists` dev route)
+ * writes the binding now. No grace window and no second spelling.
  *
- * ## The defect
+ * ## The defect 11880 fixed
  *
  * The repeater was the one element that read no binding: a repeater bound only
  * through `dataSource` issued no query and showed "No records" — the trap the
  * ruling's sub-question 4 names, indistinguishable from an object with no rows.
  *
- * ## The precedence, one table
+ * ## What is pinned here
  *
- * Where a node carries both, the repeater follows the table
- * `ElementDataSourceGate` applies to every gate-wrapped block, which is also
- * the precedence `element:number` read before objectui#11989 dropped its flat
- * keys (`object` from the binding, `filter` AND-combined):
- *
- *   - `object`: the binding's.
- *   - `filter`: the flat filter AND the binding's (which already ANDs its saved
- *     view's). Neither is dropped, so a flat filter beside a binding can never
- *     widen the list.
- *   - `sort` / `limit`: the binding's own key wins; the flat key wins over one
- *     the binding's saved VIEW supplied; the view's is the baseline. A cap the
- *     contract refuses is not authored (objectui#10016).
- *
- * That table is the one a mechanical move of the flat keys into `dataSource`
- * (filters concatenated, a key moved only where the binding lacks it) leaves
- * the rendered list unchanged by, which is what the v18 conversion relies on.
+ *   - a binding-only repeater lists its rows, with the binding's query;
+ *   - the flat keys are not read: alone (in either config bag) they issue no
+ *     read, and beside a binding they change nothing about the read it issues;
+ *   - the binding and its saved view compose as every bound block's do: the
+ *     binding's own `sort` and usable `limit` win, the view's are the baseline,
+ *     the two filters AND-combine (objectui#10016 for the refused cap).
  *
  * Rendered through the real `SchemaRenderer` and this package's registration,
  * with a recording adapter, and asserted at the read the repeater issues.
@@ -106,52 +99,8 @@ describe('element:repeater reads the node-level `dataSource` (objectui#11880)', 
     });
   });
 
-  it('CONTROL: the flat keys alone read exactly as before the binding was read', async () => {
-    const adapter = mount({ properties: { object: 'contact', titleField: 'name', filter: MINE, sort: BY_DATE, limit: 3 } });
-    await waitFor(() => expect(screen.getByTestId('repeater')).toHaveTextContent('Ada'));
-    expect(firstRead(adapter)).toEqual({
-      object: 'contact',
-      query: { $filter: MINE, $orderby: BY_DATE, $top: 3 },
-    });
-  });
-
-  it('CONTROL: a binding that names no object supplies nothing — the flat keys apply', async () => {
-    const adapter = mount({ dataSource: { object: '' }, properties: { object: 'contact', titleField: 'name', limit: 3 } });
-    await waitFor(() => expect(screen.getByTestId('repeater')).toHaveTextContent('Ada'));
-    expect(firstRead(adapter)).toEqual({ object: 'contact', query: { $top: 3 } });
-  });
-
-  it('beside the flat keys, the binding\'s object, sort and cap win and the two filters AND-combine', async () => {
-    const adapter = mount({
-      dataSource: { object: 'lead', filter: ACTIVE, sort: BY_NAME, limit: 5 },
-      properties: { object: 'contact', titleField: 'name', filter: MINE, sort: BY_DATE, limit: 3 },
-    });
-    await waitFor(() => expect(adapter.find).toHaveBeenCalled());
-    const { object, query } = firstRead(adapter);
-    expect(object).toBe('lead');
-    expect(query.$orderby).toEqual(BY_NAME);
-    expect(query.$top).toBe(5);
-    // Neither filter is dropped: a flat filter beside a binding narrows the
-    // list further, never widens it.
-    const filter = JSON.stringify(query.$filter);
-    expect(filter).toContain('status');
-    expect(filter).toContain('owner');
-  });
-
-  it('a binding without its own sort or cap takes the flat ones', async () => {
-    const adapter = mount({
-      dataSource: { object: 'lead' },
-      properties: { object: 'contact', titleField: 'name', sort: BY_DATE, limit: 3 },
-    });
-    await waitFor(() => expect(adapter.find).toHaveBeenCalled());
-    expect(firstRead(adapter)).toEqual({ object: 'lead', query: { $orderby: BY_DATE, $top: 3 } });
-  });
-
-  it('a named saved view is the baseline: the flat sort and cap win over the view\'s, and its filter ANDs in', async () => {
-    const adapter = mount({
-      dataSource: { object: 'contact', view: 'hot' },
-      properties: { object: 'contact', titleField: 'name', filter: MINE, sort: BY_DATE, limit: 3 },
-    });
+  it('a binding\'s own sort and cap win over its saved view\'s, and the two filters AND-combine', async () => {
+    const adapter = mount({ dataSource: { object: 'contact', view: 'hot', filter: MINE, sort: BY_DATE, limit: 3 } });
     await waitFor(() => expect(adapter.find).toHaveBeenCalled());
     const { query } = firstRead(adapter);
     expect(query.$orderby).toEqual(BY_DATE);
@@ -161,8 +110,8 @@ describe('element:repeater reads the node-level `dataSource` (objectui#11880)', 
     expect(filter).toContain('owner');
   });
 
-  it('control: with no flat sort or cap, the saved view supplies them', async () => {
-    const adapter = mount({ dataSource: { object: 'contact', view: 'hot' }, properties: { object: 'contact' } });
+  it('control: with no sort or cap of the binding\'s own, the saved view supplies them', async () => {
+    const adapter = mount({ dataSource: { object: 'contact', view: 'hot' } });
     await waitFor(() => expect(adapter.find).toHaveBeenCalled());
     const { query } = firstRead(adapter);
     expect(query.$orderby).toEqual(HOT_VIEW.sort);
@@ -170,35 +119,24 @@ describe('element:repeater reads the node-level `dataSource` (objectui#11880)', 
     expect(query.$filter).toEqual(HOT_VIEW.filter);
   });
 
-  it('a cap the contract refuses is not authored: a binding `limit: 0` yields to the flat cap', async () => {
-    const adapter = mount({ dataSource: { object: 'lead', limit: 0 }, properties: { object: 'contact', limit: 3 } });
-    await waitFor(() => expect(adapter.find).toHaveBeenCalled());
-    expect(firstRead(adapter).query.$top).toBe(3);
+  it('a cap the contract refuses is not authored: a binding `limit: 0` yields to the view\'s cap, and alone sends none', async () => {
+    const viewed = mount({ dataSource: { object: 'contact', view: 'hot', limit: 0 } });
+    await waitFor(() => expect(viewed.find).toHaveBeenCalled());
+    expect(firstRead(viewed).query.$top).toBe(7);
+    cleanup();
+    const bare = mount({ dataSource: { object: 'lead', limit: 0 } });
+    await waitFor(() => expect(bare.find).toHaveBeenCalled());
+    expect(firstRead(bare).query).not.toHaveProperty('$top');
   });
 
-  it('an unresolvable `view` reports, and the list issues no read — not even the flat one', async () => {
-    const adapter = mount({ dataSource: { object: 'contact', view: 'nope' }, properties: { object: 'contact' } });
+  it('an unresolvable `view` reports, and the list issues no read', async () => {
+    const adapter = mount({ dataSource: { object: 'contact', view: 'nope' } });
     await waitFor(() => expect(screen.getByTestId('repeater-datasource-error')).toBeInTheDocument());
     await settle();
     expect(adapter.find).not.toHaveBeenCalled();
   });
 
-  it('a flat filter the converter refuses beside a binding filter reports instead of reading', async () => {
-    // An ARRAY comparand on single-valued `equals` (objectui#8557): the
-    // lowering the merge needs refuses it.
-    const adapter = mount({
-      dataSource: { object: 'contact', filter: ACTIVE },
-      properties: { object: 'contact', filter: [{ field: 'tags', operator: 'equals', value: ['a'] }] },
-    });
-    const panel = await screen.findByTestId('repeater-datasource-error');
-    // The refusal's own subject, so the author is told which rule to fix.
-    expect(panel.textContent).toContain('tags');
-    await settle();
-    // Refused, not dropped: no list over a filter that lost a source.
-    expect(adapter.find).not.toHaveBeenCalled();
-  });
-
-  it('re-reads on the bus for the BOUND object, not for the flat one beside it', async () => {
+  it('re-reads on the bus for the BOUND object, not for a flat one beside it', async () => {
     const adapter = mount({ dataSource: { object: 'lead' }, properties: { object: 'contact', titleField: 'name' } });
     await waitFor(() => expect(adapter.find).toHaveBeenCalledTimes(1));
     await settle();
@@ -218,6 +156,53 @@ describe('element:repeater reads the node-level `dataSource` (objectui#11880)', 
   });
 });
 
+/**
+ * objectui#12345 — the four keys `@objectstack/spec` 18 retired from the row
+ * are not read, in either config bag `readProps` merges (`properties`, and the
+ * legacy `props` alias). They read as the binding's fallback before.
+ */
+describe('element:repeater does not read the retired flat query keys (objectui#12345)', () => {
+  const FLAT = { object: 'contact', filter: MINE, sort: BY_DATE, limit: 3 };
+
+  it.each([
+    ['properties', { properties: { ...FLAT, titleField: 'name' } }],
+    ['props', { props: { ...FLAT, titleField: 'name' } }],
+  ])('a node carrying only the flat keys (in `%s`) issues no read and shows the empty state', async (_bag, node) => {
+    const adapter = mount(node);
+    await waitFor(() => expect(screen.getByText('No records')).toBeInTheDocument());
+    await settle();
+    expect(adapter.find, 'the flat `object` was read as the query object').not.toHaveBeenCalled();
+  });
+
+  it('beside a binding, the flat keys change nothing: the read is the binding\'s alone', async () => {
+    const adapter = mount({
+      dataSource: { object: 'lead', filter: ACTIVE, sort: BY_NAME, limit: 5 },
+      properties: { ...FLAT, titleField: 'name' },
+    });
+    await waitFor(() => expect(adapter.find).toHaveBeenCalled());
+    expect(firstRead(adapter)).toEqual({ object: 'lead', query: { $filter: ACTIVE, $orderby: BY_NAME, $top: 5 } });
+  });
+
+  it('a binding with no query keys of its own does not borrow the flat ones', async () => {
+    const adapter = mount({ dataSource: { object: 'lead' }, properties: { ...FLAT, titleField: 'name' } });
+    await waitFor(() => expect(adapter.find).toHaveBeenCalled());
+    expect(firstRead(adapter)).toEqual({ object: 'lead', query: {} });
+  });
+
+  it('a binding that names no object issues no read, whatever flat `object` sits beside it', async () => {
+    const adapter = mount({ dataSource: { object: '' }, properties: { ...FLAT, titleField: 'name' } });
+    await waitFor(() => expect(screen.getByText('No records')).toBeInTheDocument());
+    await settle();
+    expect(adapter.find).not.toHaveBeenCalled();
+  });
+
+  it('control: the same mount bound through `dataSource` does read, so each silence above is the flat key\'s', async () => {
+    const adapter = mount({ dataSource: { object: 'contact' }, properties: { titleField: 'name' } });
+    await waitFor(() => expect(screen.getByTestId('repeater')).toHaveTextContent('Ada'));
+    expect(adapter.find).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('element:repeater publishes the binding as its one query door (objectui#11880, objectui#12085)', () => {
   const inputs = () => (ComponentRegistry.getConfig('element:repeater')?.inputs ?? []) as Array<{ name: string; required?: boolean }>;
 
@@ -231,9 +216,8 @@ describe('element:repeater publishes the binding as its one query door (objectui
   it('publishes the injected `dataSource`, and none of the flat query keys `@objectstack/spec` retires', () => {
     const names = inputs().map((input) => input.name);
     expect(names).toContain('dataSource');
-    // The renderer still READS these four as the binding's fallback (pinned
-    // above), for metadata written before the retirement; a back-compat read is
-    // not an authoring surface, so none of them is published.
+    // The spec retired all four and the renderer reads none of them (pinned
+    // above, objectui#12345), so none of them is published.
     for (const key of ['object', 'filter', 'sort', 'limit']) expect(names, key).not.toContain(key);
   });
 

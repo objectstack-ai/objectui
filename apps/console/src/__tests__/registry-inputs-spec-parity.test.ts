@@ -1573,9 +1573,8 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   // `.limit` and `element:number.object` / `.filter` — each "dies on its own at
   // the pin that carries the tombstones". `@objectstack/spec` 18 is that pin
   // (objectui#12030): every one of the six is a tombstone now, so each entry
-  // went dangling and stale and was deleted. The repeater still READS its four
-  // as a fallback for metadata written before the retirement; that read is the
-  // renderer's, and nothing here publishes the keys.
+  // went dangling and stale and was deleted. The repeater reads none of its
+  // four either (objectui#12345), and nothing here publishes the keys.
 };
 
 /**

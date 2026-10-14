@@ -194,6 +194,21 @@ export function CommitTimeline({ open, onOpenChange, packageId, onReverted }: Co
                     {c.actor ? <span>· {c.actor}</span> : null}
                     {c.createdAt ? <span>· {relativeTime(c.createdAt)}</span> : null}
                   </p>
+                  {c.memberItems ? (
+                    // objectstack#23073 — the bundle member of each touched
+                    // item that has one, so two languages of one template read
+                    // as two items. A name-only item adds nothing here.
+                    <ul className="mt-1 flex flex-col gap-0.5" data-testid="commit-member-items">
+                      {c.memberItems.map((it) => (
+                        <li
+                          key={JSON.stringify([it.type, it.name, it.member])}
+                          className="truncate font-mono text-xs text-muted-foreground"
+                        >
+                          {it.type}/{it.name} · {it.member}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </div>
                 {c.operation === 'apply' ? (
                   <Button

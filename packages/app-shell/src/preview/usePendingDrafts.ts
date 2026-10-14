@@ -39,6 +39,15 @@ export interface PendingDraftEntry {
   type: string;
   name: string;
   packageId: string | null;
+  /**
+   * The bundle member this draft is (objectstack#23073, `ListDraftsResponseSchema`
+   * `drafts[].member`): present on every draft of a type whose identity is a
+   * pair (today only `email_template`, `(name, locale)`), absent for a type
+   * identified by its name alone. Two members of one name are two entries; a
+   * caller addressing this draft through a by-name `/meta` door passes it back
+   * as `?member=`. Copied as served, never derived from the name or the body.
+   */
+  member?: string;
 }
 
 /**
@@ -124,6 +133,9 @@ export async function fetchPendingDrafts(
       type: d.type as string,
       name: d.name as string,
       packageId: typeof d.packageId === 'string' && d.packageId ? (d.packageId as string) : null,
+      // Only when served: an entry without `member` stays without one, so no
+      // caller ever sends an empty `?member=` (a blank selector is a 400).
+      ...(typeof d.member === 'string' && d.member ? { member: d.member as string } : {}),
     }));
 }
 

@@ -146,6 +146,18 @@ function commitStoreFailure(status: number, payload: unknown, fallbackMessage: s
   );
 }
 
+/** A touched item of a commit that names its bundle member (objectstack#23073). */
+export interface CommitMemberItem {
+  type: string;
+  name: string;
+  /**
+   * `ListPackageCommitsResponseSchema` `commits[].items[].member`: present on
+   * every item of a type whose identity is a pair (today only
+   * `email_template`, `(name, locale)`), absent for a name-only type.
+   */
+  member: string;
+}
+
 export interface CommitEntry {
   id: string;
   operation: 'apply' | 'revert';
@@ -154,6 +166,31 @@ export interface CommitEntry {
   aiModel?: string;
   itemCount: number;
   createdAt?: string;
+  /**
+   * The commit's touched items that carry a `member`, in served order;
+   * undefined when none does. Only these are kept: the timeline shows a member
+   * where an item carries one and nothing extra for a name-only item, so two
+   * languages of one template read as two items instead of one name twice.
+   */
+  memberItems?: CommitMemberItem[];
+}
+
+function memberItemsOf(raw: unknown): CommitMemberItem[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: CommitMemberItem[] = [];
+  for (const it of raw) {
+    const i = it as Record<string, unknown> | null;
+    if (
+      i &&
+      typeof i.type === 'string' &&
+      typeof i.name === 'string' &&
+      typeof i.member === 'string' &&
+      i.member
+    ) {
+      out.push({ type: i.type, name: i.name, member: i.member });
+    }
+  }
+  return out.length > 0 ? out : undefined;
 }
 
 export async function fetchCommits(packageId: string): Promise<CommitEntry[]> {
@@ -186,6 +223,7 @@ export async function fetchCommits(packageId: string): Promise<CommitEntry[]> {
       aiModel: typeof c.aiModel === 'string' ? c.aiModel : undefined,
       itemCount: typeof c.itemCount === 'number' ? c.itemCount : 0,
       createdAt: typeof c.createdAt === 'string' ? c.createdAt : undefined,
+      memberItems: memberItemsOf(c.items),
     } satisfies CommitEntry;
   });
 }

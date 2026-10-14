@@ -32,7 +32,7 @@
  * type, mirroring the framework's "single Zod source per type" rule.
  */
 
-import { GetMetaItemLayeredResponseSchema } from '@objectstack/spec/api';
+import { FlowRegistrationSchema, GetMetaItemLayeredResponseSchema } from '@objectstack/spec/api';
 // objectui#8676 - the object-metadata write invariant, applied HERE because this
 // is a DOOR and not a writer. Every `client.save('object', ...)` call site in the
 // repo passes through this one method, so guarding it covers a writer set that
@@ -40,6 +40,7 @@ import { GetMetaItemLayeredResponseSchema } from '@objectstack/spec/api';
 // deliberately not listed anywhere.
 import { assertObjectMetadataWritable } from './object-metadata-write-guard';
 import type {
+  FlowRegistration,
   GetMetaItemLayeredResponse,
   PublishPackageDraftsResponse,
   RuntimeAuthoringIssue,
@@ -243,6 +244,40 @@ export interface MetadataClientConfig {
 export interface MetadataListOptions {
   /** Filter by source package id (matches the `package` query param). */
   packageId?: string;
+}
+
+/**
+ * A list read as the server answered it (`GetMetaItemsResponseSchema`), as
+ * {@link MetadataClient.listResponse} returns it: the items, and what the
+ * server serves BESIDE them.
+ *
+ * `registrations` is the automation engine's verdict on each listed flow,
+ * keyed by the item's `name` (`FlowRegistrationSchema`, objectstack#23316):
+ * `registered`, `refused` with the engine's `reason` verbatim, or
+ * `unregistered`. It is absent when the server sent none — a type other than
+ * `flow`, a server with no automation service, or one that predates the key —
+ * and absence means no engine judged the flow, ⛔ never `registered`. A name
+ * the map has no entry for is unjudged in the same way.
+ */
+export interface MetadataListResponse<T = unknown> {
+  items: T[];
+  registrations?: Record<string, FlowRegistration>;
+}
+
+/**
+ * Keep the verdicts of a list answer's `registrations` that parse with the
+ * spec's `FlowRegistrationSchema`, one entry at a time. An entry that does not
+ * parse is not a verdict this client can read, so its flow is left unjudged —
+ * what absence already means — instead of guessed at; the others stand.
+ */
+function readRegistrations(raw: unknown): Record<string, FlowRegistration> | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const out: Record<string, FlowRegistration> = {};
+  for (const [name, verdict] of Object.entries(raw as Record<string, unknown>)) {
+    const parsed = FlowRegistrationSchema.safeParse(verdict);
+    if (parsed.success) out[name] = parsed.data;
+  }
+  return out;
 }
 
 /**
@@ -1010,20 +1045,33 @@ export class MetadataClient {
 
   /** List items of a metadata type (e.g. `object`, `field`, `view`). */
   async list<T = unknown>(type: string, options: MetadataListOptions = {}): Promise<T[]> {
+    return (await this.listResponse<T>(type, options)).items;
+  }
+
+  /**
+   * The same list read as {@link list}, with what the server serves beside
+   * the items (objectui#12349): today that is the automation engine's
+   * `registrations` on a `flow` list — see {@link MetadataListResponse}.
+   *
+   * One request for both methods: `list` is this read with the items picked
+   * out, so a caller asking both at once shares one in-flight GET.
+   */
+  async listResponse<T = unknown>(type: string, options: MetadataListOptions = {}): Promise<MetadataListResponse<T>> {
     const params: string[] = [];
     if (options.packageId) params.push(`package=${encodeURIComponent(options.packageId)}`);
     if (this.previewDrafts) params.push('preview=draft');
     const qs = params.length ? `?${params.join('&')}` : '';
     const url = `${this.base}/${encodeURIComponent(type)}${qs}`;
-    return this.shareRead('list', url, async () => {
+    return this.shareRead('list', url, async (): Promise<MetadataListResponse<T>> => {
       const res = await this.fetchImpl(url, { method: 'GET', headers: this.headers, cache: 'no-store' });
       if (!res.ok) throw await parseError(res);
       const data = await res.json();
-      if (Array.isArray(data)) return data as T[];
+      if (Array.isArray(data)) return { items: data as T[] };
       if (data && Array.isArray((data as { items?: unknown[] }).items)) {
-        return (data as { items: T[] }).items;
+        const registrations = readRegistrations((data as { registrations?: unknown }).registrations);
+        return { items: (data as { items: T[] }).items, ...(registrations ? { registrations } : {}) };
       }
-      return [];
+      return { items: [] };
     });
   }
 

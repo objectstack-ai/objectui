@@ -23,6 +23,7 @@
 
 import { createContext } from 'react';
 import { collectFlowGraphs } from '@objectstack/spec/automation';
+import type { FlowRegistration } from '@objectstack/spec/api';
 import { missingNodeRefDiagnostics, validateFlowDraft } from './simulator/flow-sim-validate.js';
 import type { FlowSimDiagnostic, DiagnosticLevel, SimEdge, SimNode } from './simulator/flow-sim-types.js';
 import { conditionText, edgeKey, type FlowDesignerEdge, type FlowDesignerNode } from './flow-canvas-layout.js';
@@ -337,6 +338,15 @@ export interface FlowRuntimeRow {
 /**
  * What one flow's state reads as, everywhere Studio shows it.
  *
+ * From the engine's registration verdict (objectui#12349), which decides
+ * whenever it is one of these two:
+ *   - `refused` — the engine refused to register the stored flow: it never
+ *     runs. `message` is the engine's `reason.message`, shown as sent and
+ *     ⛔ never parsed;
+ *   - `unregistered` — the engine holds no registration for the flow and
+ *     recorded no refusal: it does not run here.
+ * A `registered` verdict, and no verdict at all, leave the reading below.
+ *
  * From a runtime row (the engine's answer):
  *   - `on` — enabled and bound to its declared trigger;
  *   - `manual` — enabled, and declares no trigger: it runs when something
@@ -358,6 +368,8 @@ export type FlowRunStatus =
   | { kind: 'on' }
   | { kind: 'manual' }
   | { kind: 'not-running'; reason?: string }
+  | { kind: 'refused'; message: string }
+  | { kind: 'unregistered' }
   | { kind: 'off' }
   | { kind: 'unpublished' }
   | { kind: 'enabled' }
@@ -370,9 +382,21 @@ export type FlowRunStatus =
  *   and the engine has no row for the flow; `undefined` when there is no
  *   runtime reading to consult.
  * @param draftStatus the draft's persisted `status`, read only when `runtime`
- *   is `undefined`.
+ *   is `undefined`. The verdict below never rewrites it: what the author
+ *   declared and what the engine made of it are two facts.
+ * @param registration the engine's registration verdict on the flow, as the
+ *   metadata read serves it beside the item (`FlowRegistrationSchema`,
+ *   objectstack#23316). `refused` and `unregistered` decide; `registered`
+ *   reads as the runtime row says; `undefined` means no engine judged the
+ *   flow — ⛔ never read as `registered` — and changes nothing.
  */
-export function deriveFlowRunStatus(runtime: FlowRuntimeRow | null | undefined, draftStatus?: unknown): FlowRunStatus {
+export function deriveFlowRunStatus(
+  runtime: FlowRuntimeRow | null | undefined,
+  draftStatus?: unknown,
+  registration?: FlowRegistration,
+): FlowRunStatus {
+  if (registration?.state === 'refused') return { kind: 'refused', message: registration.reason.message };
+  if (registration?.state === 'unregistered') return { kind: 'unregistered' };
   if (runtime === undefined) {
     return draftStatus === 'obsolete' || draftStatus === 'invalid' ? { kind: 'disabled' } : { kind: 'enabled' };
   }
@@ -400,18 +424,32 @@ export function deriveFlowRunStatus(runtime: FlowRuntimeRow | null | undefined, 
  */
 export const FlowRuntimeContext = createContext<FlowRuntimeRow | null | undefined>(undefined);
 
+/**
+ * The open flow's registration verdict (objectui#12349), handed from the host
+ * that read the flow list — whose `registrations` carry it beside the items —
+ * to the flow preview, which passes it to {@link deriveFlowRunStatus} with the
+ * runtime row. `undefined` (the default, no provider, or a flow the list holds
+ * no verdict for): no engine judged it, and the run status reads as before.
+ * A context for the reason {@link FlowRuntimeContext} is one.
+ */
+export const FlowRegistrationContext = createContext<FlowRegistration | undefined>(undefined);
+
 /** How a {@link FlowRunStatus} reads: the visible words, the hover text, and a tone. */
 export interface FlowRunStatusView {
   label: string;
   title?: string;
-  /** `plain` is ordinary foreground text; nothing here is styled as an error. */
+  /**
+   * `plain` is ordinary foreground text; nothing here is styled as an error.
+   * A refused flow reads `amber`, a warning to act on, as an unpublished one.
+   */
   tone: 'green' | 'muted' | 'amber' | 'plain';
 }
 
 /**
  * The words for a {@link FlowRunStatus}, so the rail, the header and the panel
- * cannot word one state two ways. A platform `reason` is the hover text as
- * sent; every other string is a row of the designer table.
+ * cannot word one state two ways. A platform `reason`, and an engine's refusal
+ * message, are the hover text as sent; every other string is a row of the
+ * designer table.
  */
 export function describeFlowRunStatus(status: FlowRunStatus, locale?: string): FlowRunStatusView {
   switch (status.kind) {
@@ -423,6 +461,14 @@ export function describeFlowRunStatus(status: FlowRunStatus, locale?: string): F
       return {
         label: t('engine.studio.auto.notRunning', locale),
         title: status.reason ?? t('engine.studio.auto.notRunningTitle', locale),
+        tone: 'muted',
+      };
+    case 'refused':
+      return { label: t('engine.studio.auto.refused', locale), title: status.message, tone: 'amber' };
+    case 'unregistered':
+      return {
+        label: t('engine.studio.auto.notRunning', locale),
+        title: t('engine.studio.auto.unregisteredTitle', locale),
         tone: 'muted',
       };
     case 'off':

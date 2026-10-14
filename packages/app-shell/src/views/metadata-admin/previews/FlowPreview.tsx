@@ -47,6 +47,7 @@ import { FlowSimulatorPanel } from './FlowSimulatorPanel.js';
 import { FlowRunsPanel } from './FlowRunsPanel.js';
 import { ProblemsPanel } from './ProblemsPanel.js';
 import {
+  FlowRegistrationContext,
   FlowRuntimeContext,
   buildFlowProblems,
   deriveFlowRunStatus,
@@ -133,7 +134,10 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
   // Problems panel show, derived as the host's rail derives it. Read before the
   // empty-flow return below, so the hook order never depends on the draft.
   const runtime = React.useContext(FlowRuntimeContext);
-  const runStatus = deriveFlowRunStatus(runtime, d.status);
+  // objectui#12349 — and the engine's registration verdict, which decides a
+  // refused or unregistered flow's status (the stored `status` stays as read).
+  const registration = React.useContext(FlowRegistrationContext);
+  const runStatus = deriveFlowRunStatus(runtime, d.status, registration);
   const runView = describeFlowRunStatus(runStatus, locale);
 
   const designMode = !!(editing && onSelectionChange);

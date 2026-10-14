@@ -24,6 +24,7 @@ import { useAdapter, SchemaRendererProvider } from '@object-ui/react';
 // …and `dropServedPicklistOptions`, the served -> authored conversion of a
 // picklist-bound field (objectui#10202), moved here by objectui#11692.
 import { dropServedPicklistOptions, extractDraftBody, formatMetadataError } from '@object-ui/data-objectstack';
+import type { MetadataClient } from '@object-ui/data-objectstack';
 import type { FlowRuntimeState as SpecFlowRuntimeState } from '@objectstack/spec/contracts';
 import type { I18nLabel } from '@objectstack/spec/ui';
 import { StudioChatDock, type StudioSurfaceLabel } from './StudioAiCopilot.js';
@@ -186,11 +187,13 @@ import { useDisplayLocale } from '@object-ui/i18n';
 import { SuggestedBindingsPanel } from '../../components/SuggestedBindingsPanel.js';
 import { AppNavCanvas, navPayloadOf } from '../metadata-admin/previews/AppNavCanvas.js';
 import {
+  FlowRegistrationContext,
   FlowRuntimeContext,
   deriveFlowRunStatus,
   describeFlowRunStatus,
   type FlowRuntimeRow,
 } from '../metadata-admin/previews/flow-problems.js';
+import type { FlowRegistration } from '@objectstack/spec/api';
 import {
   clearedLabel,
   inheritedNavEntryText,
@@ -5782,6 +5785,13 @@ function flowRailState(s: FlowRuntimeState): FlowRailState {
  * for a flow the engine doesn't know yet (never published) — the amber
  * "unpublished draft" chip already covers that case.
  *
+ * objectui#12349 — and from the engine's registration verdict, which the flow
+ * list serves beside its items. A flow the engine REFUSED has no runtime row,
+ * so it used to render nothing here; it now reads an amber "Refused by the
+ * engine" chip titled with the engine's `reason.message`, as sent and never
+ * parsed. An `unregistered` flow reads the grey "Not running here" chip. A
+ * `registered` verdict, and none at all, leave the row's reading below.
+ *
  * The state is the run status `deriveFlowRunStatus` derives, worded by
  * `describeFlowRunStatus` — the derivation the flow header's Status pill and the
  * Problems panel read too (objectui#11779), so the three cannot disagree:
@@ -5796,11 +5806,28 @@ function flowRailState(s: FlowRuntimeState): FlowRailState {
  *   - disabled: a grey dot + "Off".
  * Nothing here is styled as an error: a deployment policy is not a defect.
  */
-export function FlowStatusDot({ state, locale }: { state?: FlowRailState; locale: string }): React.ReactElement | null {
-  if (!state) return null;
-  const status = deriveFlowRunStatus(state);
+export function FlowStatusDot({
+  state,
+  registration,
+  locale,
+}: {
+  state?: FlowRailState;
+  /** The engine's verdict on this flow, from the list's `registrations`; absent when none was served. */
+  registration?: FlowRegistration;
+  locale: string;
+}): React.ReactElement | null {
+  const decides = registration?.state === 'refused' || registration?.state === 'unregistered';
+  if (!state && !decides) return null;
+  const status = deriveFlowRunStatus(state, undefined, registration);
   const { label, title } = describeFlowRunStatus(status, locale);
-  if (status.kind === 'not-running') {
+  if (status.kind === 'refused') {
+    return (
+      <span title={title} className="inline-flex shrink-0 items-center rounded bg-amber-500/10 px-1.5 py-px text-[10px] text-amber-700 dark:text-amber-300">
+        {label}
+      </span>
+    );
+  }
+  if (status.kind === 'not-running' || status.kind === 'unregistered') {
     return (
       <span title={title} className="inline-flex shrink-0 items-center rounded bg-muted px-1.5 py-px text-[10px] text-muted-foreground">
         {label}
@@ -5816,6 +5843,29 @@ export function FlowStatusDot({ state, locale }: { state?: FlowRailState; locale
       </span>
     </span>
   );
+}
+
+/**
+ * The engine's registration verdict on each flow of the rail's scope
+ * (objectui#12349): the flow list's `registrations`, which the server serves
+ * beside the items, read through the same list read the rail's own loader
+ * makes (one request when both are in flight). Every entry is parsed with the
+ * spec's `FlowRegistrationSchema` at the client.
+ *
+ * A read that fails leaves every flow unjudged — what an absent
+ * `registrations` already means — so the rail reads as it did before the
+ * verdict existed; the rail's own list read reports a failing list.
+ */
+async function readFlowRegistrations(
+  client: { listResponse: MetadataClient['listResponse'] },
+  packageId: string | null,
+): Promise<Record<string, FlowRegistration>> {
+  try {
+    const answer = await client.listResponse('flow', packageId === null ? {} : { packageId });
+    return answer.registrations ?? {};
+  } catch {
+    return {};
+  }
 }
 
 /** The trigger the New automation dialog chose (objectui#11788). */
@@ -6003,6 +6053,10 @@ export function AutomationsPillar({
   // (nothing of it is deployed); without one, there is nothing to say about any
   // flow's live state, and the header reads the draft's own switch instead.
   const [flowStatusRead, setFlowStatusRead] = React.useState(false);
+  // objectui#12349 — the engine's registration verdict per flow, from the flow
+  // list's `registrations` (served beside the items, keyed by name). A flow
+  // with no entry is one no engine judged, which reads as before.
+  const [flowRegistrations, setFlowRegistrations] = React.useState<Record<string, FlowRegistration>>({});
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -6036,12 +6090,15 @@ export function AutomationsPillar({
         // draft exists. Mirrors the Data / Interfaces / Access pillars, which all
         // merge their drafts. Keyed on `publishNonce` too so drafts that go live
         // collapse back into the published rail after a package publish.
-        const items =
+        const [items, registrations] = await Promise.all([
           packageId === null
-            ? await loadPackageLessSurfaces(client, 'flow')
-            : await loadPackageSurfaces(client, 'flow', packageId);
+            ? loadPackageLessSurfaces(client, 'flow')
+            : loadPackageSurfaces(client, 'flow', packageId),
+          readFlowRegistrations(client, packageId),
+        ]);
         if (cancelled) return;
         setFlows(items);
+        setFlowRegistrations(registrations);
         const deepLinked = resolveSurfaceDeepLink(items, initialSurface, 'flow');
         // objectui#11553 — a deep link that NAMES a flow this rail does not
         // hold opens no other flow in its place: the first flow under the name
@@ -6450,7 +6507,7 @@ export function AutomationsPillar({
                 {/* objectui#11794 — the whole name, wrapped: `truncate` cut a
                     flow's name to a stub in this rail's width. */}
                 <span className="min-w-0 flex-1 break-words">{f.label}</span>
-                <FlowStatusDot state={flowStatus[f.name]} locale={locale} />
+                <FlowStatusDot state={flowStatus[f.name]} registration={flowRegistrations[f.name]} locale={locale} />
               </button>
             ))}
             {flows.length > 0 && shownFlows.length === 0 && (
@@ -6546,6 +6603,8 @@ export function AutomationsPillar({
               // reads: the row, `null` when the engine has none for this flow,
               // nothing while no runtime answer is in.
               <FlowRuntimeContext.Provider value={flowStatusRead ? (flowStatus[current.name] ?? null) : undefined}>
+                {/* objectui#12349 — and the engine's verdict on it, when the list served one. */}
+                <FlowRegistrationContext.Provider value={flowRegistrations[current.name]}>
                 {React.createElement(Preview, {
                   type: current.type,
                   name: current.name,
@@ -6560,6 +6619,7 @@ export function AutomationsPillar({
                   onPatch: readOnly ? undefined : onPatch,
                   locale,
                 })}
+                </FlowRegistrationContext.Provider>
               </FlowRuntimeContext.Provider>
             ) : (
               <pre className="overflow-auto text-[11px] text-muted-foreground">

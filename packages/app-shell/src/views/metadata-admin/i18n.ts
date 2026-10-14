@@ -3444,6 +3444,11 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.auto.notRunning': 'Not running here',
   'engine.studio.auto.notRunningTitle': 'Enabled, but its trigger is not armed on this deployment',
   'engine.studio.auto.unpublishedTitle': 'Not deployed yet — publish to deploy it',
+  // objectui#12349 — the engine's registration verdict on a flow. A refused
+  // flow is titled with the engine's own message, as sent; an unregistered one
+  // reads "Not running here", titled by the row below.
+  'engine.studio.auto.refused': 'Refused by the engine',
+  'engine.studio.auto.unregisteredTitle': 'The automation engine on this deployment holds no registration for this flow',
   'engine.studio.auto.enabled': 'Enabled',
   'engine.studio.auto.disabled': 'Disabled',
   'engine.studio.auto.enableTitle': 'Enable this automation (publish to apply)',
@@ -6581,6 +6586,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.auto.notRunning': '未在此运行',
   'engine.studio.auto.notRunningTitle': '已启用,但它的触发器在此部署中未生效',
   'engine.studio.auto.unpublishedTitle': '尚未部署 — 发布后才会部署',
+  'engine.studio.auto.refused': '引擎拒绝注册',
+  'engine.studio.auto.unregisteredTitle': '此部署的自动化引擎未注册该流程',
   'engine.studio.auto.enabled': '已启用',
   'engine.studio.auto.disabled': '已停用',
   'engine.studio.auto.enableTitle': '启用此自动化(发布后生效)',

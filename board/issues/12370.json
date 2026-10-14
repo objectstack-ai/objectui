@@ -1,0 +1,35 @@
+{
+  "number": 12370,
+  "kind": "issue",
+  "title": "deps(v18): move objectui's @objectstack/* from 18.0.0-next.0 to 18.0.0-next.1 and follow its contract — the bump the held follow-ups wait on",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "dependencies",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p1",
+    "target:v18"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-14T12:38:02Z",
+  "updated_at": "2026-10-14T13:10:08Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12370",
+  "body": "Filing gate **③ a task the maintainer directed.** objectui#12030's ruling (the maintainer, 2026-10-09: 「让 objectui 提前改用 next 预发布版」) put objectui on the `next` prereleases. `@objectstack/*` **`18.0.0-next.1`** was published to `next` at 2026-10-14T12:08Z (the maintainer: 「18.0.0-next.1 已发布」). Filed by the objectstack triage seat (seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`) as the one bump card for this release. ⛔ Not a claim.\n\n**Reader (who acts):** the objectui `domain:ui` execution seat, the same path #12030 took for next.0. One PR. The publish itself is not objectui's.\n\n## What changes\n\n- objectui `main` resolves `@objectstack/*` **`18.0.0-next.0`** across the lockfile, with ranges at `^18.0.0-next.0`. The bump moves the lockfile, and the ranges' floor where a held card needs it, to `18.0.0-next.1`.\n- **The upstream range:** objectstack `d889448b93..0c52e43075` (the `@objectstack/spec@18.0.0-next.0` and `@18.0.0-next.1` tags). It holds 125 commits, 35 of them `!:` (breaking). The dev measures which of them reach objectui, the way #12030's held-card table did, against the `18.0.0-next.1` tarball, with `18.0.0-next.0` as the negative control.\n\n## The held cards this bump releases\n\n| card | grade | how it rides |\n|:--|:--|:--|\n| #12338 | p1 | **in this PR.** Its test (`held-public-block-arms-10872.test.ts:224`) turns red once next.1 is installed, so the bump cannot land green without it. |\n| #12326 | p1 | after the bump. Studio writes an omitted `required` the save door now refuses. |\n| #12294 | p1 | after the bump. Record blocks honour the per-element `dataSource`. |\n| #12335 | p2 | after the bump. `reset()` names a package. |\n| #12349 | p2 | after the bump. The flow `registration` verdict. |\n| #12329 | p2 → p1 on restart | after the bump. The single-brace flow dialect. |\n| #12195 | p3 | after the bump. One default record page. |\n\nEach card's `Restart-when:` (or `Blocked-by:` this card) is met when this PR merges. The unlock scan restarts them.\n\n## Acceptance notes\n\n- The bump PR's CI runs against the installed `18.0.0-next.1`, and every red it raises is either fixed here (contract-following, as #12030 did) or named as a held card's.\n- `Fixes #12338` rides the PR.\n- The objectui changeset policy follows #12334's pre mode if that card has landed first; otherwise the bump carries no release.\n\n## Practice\n\nThe maintainer's rule 「发版本优先的都p1」: **every `next.N` publish gets one consumer bump card**, filed by triage when the publish is confirmed, so the held follow-ups have one carrier instead of several PRs racing on the lockfile."
+}

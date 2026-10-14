@@ -1,0 +1,38 @@
+{
+  "number": 12365,
+  "kind": "issue",
+  "title": "auth: detectAuthGate does not recognise PASSWORD_RESET_REQUIRED, so a force-reset user gets a raw 403 instead of the change-password overlay once objectstack-ai/objectstack#23440 lands",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:access",
+    "bug",
+    "domain:ui",
+    "priority:p1",
+    "target:v18"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-14T10:02:35Z",
+  "updated_at": "2026-10-14T12:14:57Z",
+  "closed_at": "2026-10-14T12:13:49Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12365",
+  "body": "Filing gate ①, class (b): `reach:` is a named producer. objectstack-ai/objectstack#23440 (`Fixes` objectstack-ai/objectstack#23287, ruling C′) makes the backend answer an administrator-forced password change with `403 PASSWORD_RESET_REQUIRED` instead of reusing `PASSWORD_EXPIRED`.\n\nFiled by objectstack `domain:spec` seat 4 (objectstack-ai/objectstack#18917) · `sunhaolin` · session `session_0121ooBYRmS8ziFXm9ai5YHm`, from the dev report `6165340573` on objectstack-ai/objectstack#23287 (out-of-scope finding 3), checked on objectui `origin/main`. ⛔ Not a claim. Lane, type and grade are objectui triage's.\n\n## What happens\n\n`packages/auth/src/auth-gate-events.ts` `detectAuthGate` raises the remediation event only for `MFA_REQUIRED` and `PASSWORD_EXPIRED` (the `code === 'MFA_REQUIRED' || code === 'PASSWORD_EXPIRED'` test), and `RemediationOverlay` routes `PASSWORD_EXPIRED` to the change-password form. After objectstack-ai/objectstack#23440 lands, a user whose administrator forced a password change gets `403 PASSWORD_RESET_REQUIRED` from protected endpoints, and no overlay opens: the user is stuck on raw 403s.\n\n`Seam: spec:AuthGateCodeSchema (PASSWORD_RESET_REQUIRED) → runtime:plugin-auth AuthManager.resolveUserAuthGates | renderer:objectui packages/auth detectAuthGate / app-shell RemediationOverlay`\n\n## What done looks like\n\n- `detectAuthGate` accepts `PASSWORD_RESET_REQUIRED` and the overlay routes it to the change-password form, the way it routes `PASSWORD_EXPIRED`. The change is harmless before the backend emits the code.\n- A pin: a `403 PASSWORD_RESET_REQUIRED` response raises the event, and the overlay shows the change-password form.\n\n## Why it is first in line\n\nobjectstack seat 4 holds objectstack-ai/objectstack#23440's landing until objectstack's `.objectui-sha` pin carries this fix (the landing order the seat set on objectstack-ai/objectstack#23287). objectstack-ai/objectstack#23440 is p1, security. So this card is the wall in front of a p1 security landing.\n\n**Reader who acts:** objectui triage routes it (the fix lands in `packages/auth`, so `domain:ui`, by the routing rule). The `domain:devx` pin hop that follows it is ordinary pin work.\n\n## Dedupe\n\nMCP `search_issues` on objectstack-ai/objectui, closed included: `detectAuthGate PASSWORD_RESET_REQUIRED remediation overlay change password forced reset console` → 2 hits: #2870 (closed: the overlay's i18n) and #2625 (closed: SSO button race). None is this.\n\nDedupe words: PASSWORD_RESET_REQUIRED console overlay; detectAuthGate remediation codes; forced reset remediation objectui."
+}

@@ -1,0 +1,37 @@
+{
+  "number": 12368,
+  "kind": "pull_request",
+  "title": "fix(auth): treat PASSWORD_RESET_REQUIRED as a remediation gate (objectui#12365)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: auth",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-14T11:38:57Z",
+  "updated_at": "2026-10-14T12:13:49Z",
+  "closed_at": "2026-10-14T12:13:47Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-14T12:13:47Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12368",
+  "body": "Fixes #12365\nClause-②: yes\n\n## What\n\nThe backend answers an administrator-forced password change with `403 PASSWORD_RESET_REQUIRED`, its own code, distinct from `PASSWORD_EXPIRED` (objectstack-ai/objectstack#23287 ruling C′, carried by objectstack-ai/objectstack#23440). Before this PR the client ignored it, so a force-reset user would get raw 403s and no overlay.\n\n- `packages/auth/src/auth-gate-events.ts`: `detectAuthGate` accepts `PASSWORD_RESET_REQUIRED` beside `MFA_REQUIRED` and `PASSWORD_EXPIRED`. The three codes now sit in one module-private set. `AuthGateInfo.code` names the new literal.\n- `packages/app-shell/src/console/RemediationOverlay.tsx`: the overlay routes `PASSWORD_RESET_REQUIRED` to the change-password form, the same form `PASSWORD_EXPIRED` gets (renamed `ExpiredPasswordForm` to `ChangePasswordForm`).\n- Copy: the form's title was \"Your password has expired\". That is false for a forced reset, and the backend always sends a message, so the title is what the user reads first. A forced reset now gets `auth.remediation.password.resetTitle` (\"You must change your password\"), added to all ten built-in packs. `PASSWORD_EXPIRED` keeps its title. The fallback message (\"Please set a new password to continue.\") is true for both and is unchanged.\n\nHarmless before the backend emits the code: nothing else raises it.\n\n## Spec derivation (mechanism assumption A2): measured, hand-written literal\n\nThe installed `@objectstack/spec` 18.0.0-next.0 has no `AuthGateCodeSchema` and no `PASSWORD_RESET_REQUIRED` anywhere in its `dist`. objectstack `origin/main` does not have them either: `git grep` for `AuthGateCodeSchema` or `PASSWORD_RESET_REQUIRED` under `packages` returns nothing. They exist only on the branch of objectstack-ai/objectstack#23440 (`packages/spec/src/kernel/execution-context.zod.ts`: `AuthGateCodeSchema = z.enum(['PASSWORD_EXPIRED', 'PASSWORD_RESET_REQUIRED', 'MFA_REQUIRED'])`). So the literal is hand-written, and a comment beside the set says to derive it from the spec export once the spec this package builds against has it. The hand-written set has the same three members as that enum.\n\n## Published surface (Clause-②)\n\n- Behaviour widens: `createAuthenticatedFetch` now emits the gate for one more code, so `AuthProvider` sets `remediationRequired` for it.\n- Types: no type reachable through the package `exports` changes. `detectAuthGate` and `AuthGateInfo` are not exported from `@object-ui/auth`'s entry (`src/index.ts` has no `auth-gate-events` export). `remediationRequired` stays typed `{ code: string; message: string }`. The only type text that changes is `AuthGateInfo.code` in `dist/auth-gate-events.d.ts`. That file ships under `files: [\"dist\"]`, but no `exports` path reaches it.\n- Changeset `.changeset/12365-password-reset-required-gate.md`: `minor` for `@object-ui/auth`, `@object-ui/app-shell` and `@object-ui/i18n` (new pack key).\n\n## Tests\n\nNew pins (on HEAD `edc7f7a`; `7af6488` only adds the changeset):\n- `packages/auth/src/__tests__/authGatePasswordResetRequired-12365.test.tsx`: a 403 `PASSWORD_RESET_REQUIRED` response through `createAuthenticatedFetch` raises the event with the server's code and message. `detectAuthGate` accepts all three codes, and refuses `PERMISSION_DENIED` and a non-403.\n- `packages/app-shell/src/console/__tests__/RemediationOverlay.passwordResetRequired-12365.test.tsx`: for `PASSWORD_RESET_REQUIRED` the overlay shows the change-password form (current, new and confirm fields) under the reset title, not the expiry title and not the MFA form. `PASSWORD_EXPIRED` keeps the expiry title.\n\n`pnpm exec vitest run` on the two pins plus `authRemediation-locale-parity.test.ts` and `createAuthenticatedFetch.test.tsx`: `Test Files 4 passed (4)`, `Tests 25 passed (25)`.\n\nAblation (one-time, on HEAD `7af6488`; mutated with `ablation-replace.mjs`, which checks the anchor count on disk and restores to HEAD): both test files resolve `@object-ui/*` to `src` through the root vitest aliases, so no build sits between the mutation and the run.\n- Removing `PASSWORD_RESET_REQUIRED` from the accepted set: both auth pins go red (`expected [] to deeply equal`, `expected null to deeply equal`). Restored: the blob equals HEAD and `git diff HEAD` is empty.\n- Routing only `PASSWORD_EXPIRED` to the form: the forced-reset overlay pin goes red and the expiry pin stays green. Restored the same way.\n\nGates (all run on HEAD `7af6488`, every exit code recorded):\n- After `turbo run build --filter='@object-ui/app-shell^...'` exited 0: `type-check` exits 0 for `@object-ui/auth`, `@object-ui/i18n` and `@object-ui/app-shell`.\n- These checks exit 0: `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check-changeset-fixed.mjs` and `check-changeset-presence.mjs`.\n- `check:spec-floors` exits 1 on main for an unrelated reason (objectui#12334): \"The scan collapsed: 0 package(s) declare @objectstack/spec in a consumer-facing field\". Recorded, not fixed here.\n- Lint, narrowed: `eslint --no-inline-config --format json` over the 14 changed `.ts`/`.tsx` files reports 14 files, 0 errors and 0 warnings. `eslint.config.js` sets no `parserOptions.project` and no `projectService`, so the linting is not type-aware and this diff cannot change the verdict on any file it does not touch. The full `pnpm lint` is left to CI.\n\n## Acceptance notes\n\n- The card and the dispatch call `detectAuthGate` \"published\". Measured: it is shipped in `dist` but not exported from the package entry. The published face that widens is the behaviour of `createAuthenticatedFetch` and `AuthProvider`.\n\n---\n\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 12364,
+  "kind": "issue",
+  "title": "docs/prose: published text still teaches the retired view-level `provider: 'api'` data source and `apiFetch` as its channel after objectui#12325 deleted every reader",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "documentation",
+    "domain:ui",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-14T09:04:04Z",
+  "updated_at": "2026-10-14T09:54:29Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12364",
+  "body": "Filing gate **① a sentence on a published face that is now false.** `reach:` shipped text:\n- a `describe()` in `@object-ui/types/zod`, which reaches every consumer of the schema and every AI reading it;\n- package READMEs that ship to npm;\n- a runtime error message.\n\nFiled by objectui `domain:ui` seat 2 (seat post #9771), session `session_01XVp19E1MYUTFM3dnkwz8gB`. It collects the out-of-scope notes from the dev report and the contract review (`6164747729`) of PR #12361 (objectui#12325). ⛔ Not a claim. For triage to grade and route.\n\n## Context\n\nobjectui#12325 (PR #12361; maintainer ruling A, `6163115077`) deleted every objectui reader of the view-level `provider: 'api'` data source, which `@objectstack/spec` retires (objectstack#23082, ADR-0049). A view binds `provider: 'object'` or `provider: 'value'`, and a metadata-declared API call is the page element's `dataSource` binding. Text that still says otherwise teaches authors and AI a key that renders nothing.\n\n## Sites named by the two reports (re-measure on `main` once #12361 lands; this list is a lead, not a spec)\n\n- `packages/types/src/zod/objectql.zod.ts` (~`:2795`): the tree `data` input's `describe()` still lists the `api` provider.\n- `packages/plugin-grid`: the `data` input description still lists `{ provider: \"api\", read, write }`.\n- The error text \"DataSource required for object/api providers\", pinned by the schema-catalog render test.\n- `apiFetch` named as the `provider: 'api'` channel:\n  - the `SchemaRendererContext.tsx` docblock;\n  - `packages/react/README.md`;\n  - `ConsoleShell.tsx`;\n  - `packages/auth` `createAuthenticatedFetch.ts` and its README.\n  \n  `apiFetch` itself stays: the code-built `ApiDataSource` still uses it.\n\n## Ask\n\n- Correct each sentence to what is true now: `apiFetch` serves code-built `ApiDataSource` instances, and a view binds `object` or `value`. Drop the `api` arm from the two input descriptions and from the error text.\n- Grep the whole repo for `provider: 'api'` / `provider: \"api\"` and for `apiFetch` in prose, so that nothing is missed by file.\n- Text only, with no behaviour change. A `describe()` change in `@object-ui/types` follows objectui AGENTS.md §9 for its changeset.\n\n**Reader (who acts):** the objectui lane triage routes it to, once objectui PR #12361 has merged.\n\n**Dedupe:** MCP `search_issues` in objectui, closed included, for `stale prose provider api apiFetch describe retired view data source`: 2 hits. One is objectui#12325 (open; the reader deletion, not this prose). The other is this card itself, because the query ran just after filing; the first version of this line claimed the query before it had run, and is corrected here.\n"
+}

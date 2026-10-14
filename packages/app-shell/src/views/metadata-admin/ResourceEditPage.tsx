@@ -113,7 +113,7 @@ import {
   type RichMetadataTypeEntry,
 } from './useMetadata.js';
 // objectui#11773 — the draft save's optimistic-concurrency guard and its dialog.
-import { useDraftSaveGuard } from './DraftConflictDialog.js';
+import { readDraftForSave, useDraftSaveGuard } from './DraftConflictDialog.js';
 import {
   getMetadataResource,
   resolveResourceConfig,
@@ -722,12 +722,14 @@ function MetadataResourceEditPageImpl({
   // Bumped by destructive operations (rollback / discard-draft) to
   // force the load effect to refetch layered + draft state.
   const [reloadKey, setReloadKey] = React.useState(0);
-  // objectui#11773 — the version the editor's draft was saved at, sent as
-  // `If-Match` by every draft save of an existing item. A conflict's "reload"
-  // re-runs the load effect, the same way a discard does.
+  // objectui#11773 — the pin of the row the editor's draft was built on (the
+  // load's draft read, then each save's receipt), sent by every draft save of
+  // an existing item. A conflict's "reload" re-runs the load effect, the same
+  // way a discard does.
   const reloadFromServer = React.useCallback(() => setReloadKey((k) => k + 1), []);
   const {
     save: saveDraftVersioned,
+    recordRead: recordDraftRead,
     forget: forgetDraftVersion,
     dialog: draftConflictDialog,
   } = useDraftSaveGuard(client, reloadFromServer);
@@ -1091,14 +1093,19 @@ function MetadataResourceEditPageImpl({
     (async () => {
       try {
         const scope = ownerPackageId ? { packageId: ownerPackageId } : {};
-        const [lay, draftResp] = await Promise.all([
+        // objectui#11773 — the draft is read at the address `doSave` writes
+        // (`readActivePackageBinding`, the folded `?package=`), so the version
+        // it serves is the one that save compares against.
+        const draftPackage = readActivePackageBinding();
+        const [lay, draftRead] = await Promise.all([
           client.layered<any>(type, name, scope),
           // Draft reads are best-effort — a 404/error must not block
           // the page; readers without overlay-write permission still
           // see the published item.
-          client.getDraft<any>(type, name, scope).catch(() => null),
+          readDraftForSave<any>(client, type, name, draftPackage),
         ]);
         if (cancelled) return;
+        const draftResp = draftRead.answer;
         setLayered(lay);
         // Surface server-computed load-time validation errors as inline
         // SchemaForm issues — operators see what's wrong with the
@@ -1138,8 +1145,9 @@ function MetadataResourceEditPageImpl({
         const initial = config.toDraft ? config.toDraft(rawInitial) : rawInitial;
         setDraft(initial);
         draftSnapshotRef.current = initial;
-        // objectui#11773 — a read serves no version: the next save is unpinned.
-        forgetDraftVersion();
+        // objectui#11773 — the next save is pinned to what the draft read
+        // served: its version, or "no draft row" when none was pending.
+        recordDraftRead(type, name, draftPackage, draftRead.pin);
         setHasDraft(!!draftReal);
         setLoading(false);
       } catch (err: any) {
@@ -1163,7 +1171,7 @@ function MetadataResourceEditPageImpl({
     return () => {
       cancelled = true;
     };
-  }, [client, type, name, ownerPackageId, createMode, reloadKey, locale, forgetDraftVersion]);
+  }, [client, type, name, ownerPackageId, createMode, reloadKey, locale, recordDraftRead]);
 
   // Lazy-load references the first time the References sheet opens.
   //
@@ -1638,11 +1646,12 @@ function MetadataResourceEditPageImpl({
         mode: 'draft' as const,
         ...(activePackage ? { packageId: activePackage } : {}),
       };
-      // objectui#11773 — a create sends no `If-Match` (the door cannot pin "no
-      // row yet"); a save of the item this editor loaded sends the version its
-      // last save received.
+      // objectui#11773 — a create, with nothing read, is the first-write pin
+      // (`If-None-Match: *`): the door refuses it where the name already holds
+      // a draft instead of writing over it, and reads it as a create. A save of
+      // the item this editor loaded sends the pin its load or last save held.
       if (createMode) {
-        await client.save<any>(type, savedName, itemToSave, saveOptions);
+        await client.save<any>(type, savedName, itemToSave, { ...saveOptions, ifNoneMatch: '*' });
       } else if ((await saveDraftVersioned(type, savedName, itemToSave, saveOptions)) === 'reloaded') {
         // The author chose the saved version; the load effect replaces the draft.
         return;
@@ -1803,7 +1812,8 @@ function MetadataResourceEditPageImpl({
     setError(null);
     try {
       await client.reset(type, name);
-      // objectui#11773 — the buffer below is re-read, so no version describes it.
+      // objectui#11773 — the buffer below is re-read from the layers, with no
+      // draft read behind it, so nothing pins its next save.
       forgetDraftVersion();
       if (isResetSemantic) {
         const lay = await client.layered<any>(type, name);
@@ -1845,10 +1855,13 @@ function MetadataResourceEditPageImpl({
       await client.publish<any>(type, name, {
         ...(activePackage ? { packageId: activePackage } : {}),
       });
-      const [lay, draftResp] = await Promise.all([
+      // objectui#11773 — the draft is re-read at the address the next save
+      // writes, so its answer pins that save (see the load effect).
+      const [lay, draftRead] = await Promise.all([
         client.layered<any>(type, name),
-        client.getDraft<any>(type, name).catch(() => null),
+        readDraftForSave<any>(client, type, name, activePackage),
       ]);
+      const draftResp = draftRead.answer;
       setLayered(lay);
       const draftReal = extractDraftBody(draftResp);
       setHasDraft(!!draftReal);
@@ -1863,8 +1876,10 @@ function MetadataResourceEditPageImpl({
       const fresh = config.toDraft ? config.toDraft(rawFresh) : rawFresh;
       setDraft(fresh);
       draftSnapshotRef.current = fresh;
-      // objectui#11773 — the publish dropped the draft the version named.
-      forgetDraftVersion();
+      // objectui#11773 — the publish dropped the draft the held version named;
+      // the re-read says what the next save is pinned to (normally "no draft
+      // row").
+      recordDraftRead(type, name, activePackage, draftRead.pin);
     } catch (err: any) {
       setError(err?.message ?? String(err));
     } finally {
@@ -1882,7 +1897,10 @@ function MetadataResourceEditPageImpl({
     setError(null);
     try {
       await client.reset(type, name, { state: 'draft' });
-      // objectui#11773 — the discard dropped the draft the version named.
+      // objectui#11773 — the discard dropped the draft the held version named,
+      // and no draft read follows it (the discard names no package, so "no
+      // draft row" is not known at the save's address): nothing pins the next
+      // save.
       forgetDraftVersion();
       // objectui#11799 — a discard makes no layer: an item this page loaded
       // with no layer still has none, and `/layers` would answer 404.

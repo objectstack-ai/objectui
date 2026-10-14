@@ -8,17 +8,19 @@
  * stale copy, and the server draft lost A's field with no 409, banner or toast,
  * because no draft save sent the version it was built on.
  *
- * The server double answers the way the `/meta` draft door of
- * `@objectstack/*` 17.7.0 was measured to (readings on the pull request): a
- * draft save returns its `version`; an `If-Match` that is not the current
- * draft's version is `409 METADATA_CONFLICT`; a save with no `If-Match` is
- * last-writer-wins; the draft READ serves no version. Its refusal is parsed by
- * the REAL `MetadataClient`, so the error the pillar catches is production's.
+ * The server double answers the way the `/meta` draft door of the published
+ * `@objectstack/*` 18.0.0-next.0 was measured to (readings on the pull
+ * request): a draft save returns its `version`; the draft READ serves the
+ * draft's `version` too, and no draft at all is `null` from `getDraft`; an
+ * `If-Match` that is not the current draft's version, or `If-None-Match: *`
+ * over an existing draft, is `409 METADATA_CONFLICT` carrying
+ * `currentVersion`; a save with neither is last-writer-wins. Its refusal is
+ * parsed by the REAL `MetadataClient`, so the error the pillar catches is
+ * production's.
  *
- * Every editor below has saved at least once before the race. The FIRST save
- * after a load has no version to send — the draft read serves none on 17.7.0 —
- * which is the half of the card this suite cannot pin and the pull request
- * names as the server's.
+ * The first save after a load is pinned to that load's read: `If-Match` with
+ * the draft's version, or `If-None-Match: *` when no draft was pending — so the
+ * card's literal race (two editors who each load and save ONCE) is refused too.
  *
  * The two editors are two mounted `DataPillar`s over one server double: each
  * pillar holds its own buffer and its own version, exactly as two tabs do.
@@ -49,6 +51,8 @@ interface SaveCall {
   name: string;
   body: Record<string, unknown>;
   ifMatch: string | undefined;
+  ifNoneMatch: string | undefined;
+  packageId: string | undefined;
 }
 
 const server = vi.hoisted(() => ({
@@ -70,6 +74,7 @@ async function conflictRefusal(type: string, name: string, head: string | null):
         JSON.stringify({
           error: `${type}/${name} has been modified since you loaded it. The version token sent is not the current version (current is ${head}).`,
           code: 'METADATA_CONFLICT',
+          currentVersion: head,
         }),
         { status: 409, headers: { 'content-type': 'application/json' } },
       )) as unknown as typeof fetch,
@@ -98,18 +103,21 @@ const mockClient = vi.hoisted(() => {
       const eff = server.active.get(k(type, name)) ?? null;
       return { code: null, overlay: eff, overlayScope: eff ? 'env' : null, effective: eff, editable: true, deletable: true, resettable: false, lock: 'none' };
     }),
-    // The draft read serves the body and NO version (measured on 17.7.0).
-    getDraft: vi.fn(async (type: string, name: string) => {
+    // The draft read serves the body and its version; no draft is `null`, as
+    // the real client resolves the read's 404.
+    getDraft: vi.fn(async (type: string, name: string, _options?: { packageId?: string }) => {
       const draft = server.drafts.get(k(type, name));
-      if (draft) return { type, name, item: JSON.parse(JSON.stringify(draft.body)) as Record<string, unknown> };
-      throw Object.assign(new Error(`No pending draft exists for ${type}/${name}.`), { code: 'NO_DRAFT', status: 404 });
+      if (!draft) return null;
+      return { type, name, item: JSON.parse(JSON.stringify(draft.body)) as Record<string, unknown>, version: draft.version };
     }),
-    save: vi.fn(async (type: string, name: string, item: unknown, options?: { ifMatch?: string }) => {
+    save: vi.fn(async (type: string, name: string, item: unknown, options?: { ifMatch?: string; ifNoneMatch?: string; packageId?: string }) => {
       const body = JSON.parse(JSON.stringify(item)) as Record<string, unknown>;
       const ifMatch = options?.ifMatch;
-      server.saves.push({ type, name, body, ifMatch });
+      const ifNoneMatch = options?.ifNoneMatch;
+      server.saves.push({ type, name, body, ifMatch, ifNoneMatch, packageId: options?.packageId });
       const head = server.drafts.get(k(type, name))?.version ?? null;
       if (ifMatch !== undefined && ifMatch !== head) throw await conflictRefusal(type, name, head);
+      if (ifNoneMatch !== undefined && head !== null) throw await conflictRefusal(type, name, head);
       server.seq += 1;
       const version = `hmac-sha256:v${server.seq}`;
       server.drafts.set(k(type, name), { body, version });
@@ -224,14 +232,44 @@ async function raceTwoEditors(): Promise<{ a: HTMLElement; b: HTMLElement }> {
 }
 
 describe('Data pillar — a draft saved elsewhere is not overwritten in silence (objectui#11773)', () => {
-  it('one editor: every autosave after the first sends the version the one before it received', async () => {
+  it('one editor: the first autosave is pinned to the load ("no draft"), and each later one to the receipt before it', async () => {
     const a = openEditor();
     await loaded(a, '2 fields');
     await addFieldAndSave(a);
     await addFieldAndSave(a);
     await reorderAndSave(a);
-    expect(server.saves.map((s) => s.ifMatch)).toEqual([undefined, 'hmac-sha256:v1', 'hmac-sha256:v2']);
+    expect(server.saves.map((s) => [s.ifMatch, s.ifNoneMatch])).toEqual([
+      [undefined, '*'],
+      ['hmac-sha256:v1', undefined],
+      ['hmac-sha256:v2', undefined],
+    ]);
+    // The draft was read at the package the saves write.
+    expect(mockClient.getDraft).toHaveBeenCalledWith('object', OBJECT.name, { packageId: PKG });
+    expect(server.saves.every((s) => s.packageId === PKG)).toBe(true);
     expect(screen.queryByTestId('draft-conflict-dialog')).toBeNull();
+  });
+
+  it('the card\'s race: two editors who each load and save ONCE — the later first save is refused, and the earlier one\'s field survives', async () => {
+    const a = openEditor();
+    await loaded(a, '2 fields');
+    const b = openEditor();
+    await loaded(b, '2 fields');
+    await addFieldAndSave(a); // A: + field_3, the first draft
+    expect(serverDraftFields()).toEqual(['title', 'status', 'field_3']);
+    fireEvent.click(within(b).getByTitle(/^Add a field/)); // B's first save, built on the published object
+    await screen.findByTestId('draft-conflict-dialog', undefined, { timeout: 8000 });
+    const refused = server.saves[server.saves.length - 1]!;
+    expect([refused.ifMatch, refused.ifNoneMatch]).toEqual([undefined, '*']);
+    // A's field is still in the draft: B's stale copy was not written over it.
+    expect(serverDraftFields()).toEqual(['title', 'status', 'field_3']);
+  });
+
+  it('an editor that opens on a pending draft pins its first save to the version that read served', async () => {
+    server.drafts.set(`object/${OBJECT.name}`, { body: JSON.parse(JSON.stringify(OBJECT)), version: 'hmac-sha256:pending' });
+    const a = openEditor();
+    await loaded(a, '2 fields');
+    await addFieldAndSave(a);
+    expect(server.saves.map((s) => [s.ifMatch, s.ifNoneMatch])).toEqual([['hmac-sha256:pending', undefined]]);
   });
 
   it('two editors: the stale save is refused with the conflict dialog, and the other editor\'s change survives', async () => {
@@ -251,7 +289,7 @@ describe('Data pillar — a draft saved elsewhere is not overwritten in silence 
     expect(serverDraftFields()).toEqual(['status', 'title', 'field_3']);
   });
 
-  it('"reload" replaces the stale buffer with the saved draft, and the next save is unpinned', async () => {
+  it('"reload" replaces the stale buffer with the saved draft, and the next save is pinned to that draft\'s version', async () => {
     const { a } = await raceTwoEditors();
     const savesBefore = server.saves.length;
     fireEvent.click(screen.getByTestId('draft-conflict-reload'));
@@ -261,12 +299,12 @@ describe('Data pillar — a draft saved elsewhere is not overwritten in silence 
 
     await addFieldAndSave(a);
     const next = server.saves[server.saves.length - 1]!;
-    expect(next.ifMatch).toBeUndefined();
+    expect(next.ifMatch).toBe('hmac-sha256:v2');
     // Built on B's draft: B's column order is kept.
     expect(fieldNames(next.body)).toEqual(['status', 'title', 'field_3', 'field_4']);
   });
 
-  it('"overwrite" asks again, then re-sends without If-Match and wins; the next save is pinned to it', async () => {
+  it('"overwrite" asks again, then re-sends pinned to the refusal\'s currentVersion and wins; the next save is pinned to it', async () => {
     const { a } = await raceTwoEditors();
     fireEvent.click(screen.getByTestId('draft-conflict-overwrite'));
     // The second, explicit confirmation — nothing is sent until it is given.
@@ -278,7 +316,8 @@ describe('Data pillar — a draft saved elsewhere is not overwritten in silence 
     });
     await waitFor(() => expect(server.saves.length).toBe(savesBefore + 1), { timeout: 8000 });
     const overwrite = server.saves[server.saves.length - 1]!;
-    expect(overwrite.ifMatch).toBeUndefined();
+    // B's draft is the version the refusal named.
+    expect([overwrite.ifMatch, overwrite.ifNoneMatch]).toEqual(['hmac-sha256:v2', undefined]);
     expect(serverDraftFields()).toEqual(['title', 'status', 'field_3', 'field_4']);
     await waitFor(() => expect(within(a).queryByTestId('data-autosaving')).toBeNull(), { timeout: 8000 });
 
@@ -287,8 +326,8 @@ describe('Data pillar — a draft saved elsewhere is not overwritten in silence 
   });
 });
 
-describe('Data pillar — a create sends no If-Match (objectui#11773)', () => {
-  it('the new object\'s skeleton is sent unpinned; its first edit after the load is unpinned, the next is pinned', async () => {
+describe('Data pillar — a create sends If-None-Match: * (objectui#11773)', () => {
+  it('the new object\'s skeleton is sent with the first-write pin; its first edit after the load is pinned to the read', async () => {
     server.active.clear();
     const a = openEditor();
     fireEvent.click(await within(a).findByTestId('empty-state-new-object', undefined, { timeout: 8000 }));
@@ -296,11 +335,15 @@ describe('Data pillar — a create sends no If-Match (objectui#11773)', () => {
     fireEvent.change(dialog.querySelectorAll('input')[0]!, { target: { value: 'Ticket' } });
     fireEvent.click(within(dialog).getByRole('button', { name: /save as draft/i }));
     await waitFor(() => expect(server.saves).toHaveLength(1), { timeout: 8000 });
-    expect(server.saves[0]!.ifMatch).toBeUndefined();
+    expect([server.saves[0]!.ifMatch, server.saves[0]!.ifNoneMatch]).toEqual([undefined, '*']);
 
     await loaded(a, '1 fields');
     await addFieldAndSave(a);
     await addFieldAndSave(a);
-    expect(server.saves.map((s) => s.ifMatch)).toEqual([undefined, undefined, 'hmac-sha256:v2']);
+    expect(server.saves.map((s) => [s.ifMatch, s.ifNoneMatch])).toEqual([
+      [undefined, '*'],
+      ['hmac-sha256:v1', undefined],
+      ['hmac-sha256:v2', undefined],
+    ]);
   });
 });

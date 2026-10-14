@@ -292,17 +292,41 @@ export type MetadataPublishPackageDraftsResult = Partial<PublishPackageDraftsRes
  * metadata item to a FILE — `format: json|yaml|ts`, `path`, `indent`,
  * `prettify`, `sortKeys`, `backup`, `atomic`, `loader`. Not one of those keys
  * exists here, and not one of these exists there: this is the REST client's
- * request envelope — optimistic concurrency (`ifMatch` → `If-Match`), the
- * destructive-change override, the ADR-0033 draft/publish mode, and the
- * owning package. Same words, different layer.
+ * request envelope — optimistic concurrency (`ifMatch` → `If-Match`,
+ * `ifNoneMatch` → `If-None-Match`), the destructive-change override, the
+ * ADR-0033 draft/publish mode, and the owning package. Same words, different
+ * layer.
  */
 export interface MetadataClientSaveOptions {
   /**
-   * Optimistic concurrency token (the `checksum` returned by the last
-   * read). When present, sent as the `If-Match` header so concurrent
-   * edits get a 409 instead of overwriting each other.
+   * Optimistic concurrency (ADR-0008): the `version` token of the stored row
+   * this write was built on, sent as the `If-Match` header, so a write over a
+   * row that has moved since is refused `409 METADATA_CONFLICT` instead of
+   * overwriting it.
+   *
+   * The `/meta` doors serve that token in three places, each naming the row a
+   * save to the SAME address (type, name, `?package=`, lifecycle) compares
+   * against: the item read's `version` (`?state=draft` for the draft row,
+   * declared on `GetMetaItemResponseSchema`), a save receipt's `version`, and
+   * a version conflict's `currentVersion` (`MetadataConflictErrorSchema`). A
+   * served `null` means no such row: pin with {@link ifNoneMatch} instead.
+   *
+   * ⛔ Never together with {@link ifNoneMatch}: {@link MetadataClient.save}
+   * throws before sending a request that carries both.
    */
   ifMatch?: string;
+  /**
+   * The first-write pin, sent as `If-None-Match: *`: write only where no row of
+   * this write's lifecycle exists at its address (the draft row, for
+   * `mode: 'draft'`). A create sends it, and so does the first draft save of an
+   * item with no pending draft; the door refuses it `409 METADATA_CONFLICT`,
+   * carrying the existing row's `currentVersion`, when such a row is there.
+   *
+   * `'*'` alone: the door reads no other value. ⛔ Never together with
+   * {@link ifMatch} — the door refuses that pair `400`, and
+   * {@link MetadataClient.save} throws before sending it.
+   */
+  ifNoneMatch?: '*';
   /**
    * Bypass destructive-change protection (Phase 3a). The server returns
    * `409 destructive_change` with `issues[]` if a write would drop or
@@ -1222,6 +1246,15 @@ export class MetadataClient {
           ' The PUT /meta/:type/:name route requires a name segment.',
       );
     }
+    if (options.ifMatch && options.ifNoneMatch) {
+      // objectui#11773 — the two pins can never both hold (the door refuses the
+      // pair `400`), so a caller holding both is confused about which row it
+      // was built on. Refused before any request, like the name above.
+      throw new Error(
+        `MetadataClient.save: ifMatch and ifNoneMatch are mutually exclusive (type="${type}", name="${name}").` +
+          ' Send ifMatch with the version you read, or ifNoneMatch: "*" when no row is there.',
+      );
+    }
     // objectui#8676 - before the request, so a refused body issues no PUT and the
     // half-filled draft stays in the client (objectui#7714's ruled behaviour).
     assertObjectMetadataWritable(type, item, 'MetadataClient.save');
@@ -1236,6 +1269,7 @@ export class MetadataClient {
       'Content-Type': 'application/json',
     };
     if (options.ifMatch) headers['If-Match'] = options.ifMatch;
+    if (options.ifNoneMatch) headers['If-None-Match'] = options.ifNoneMatch;
     const res = await this.sendWrite(url, {
       method: 'PUT',
       headers,

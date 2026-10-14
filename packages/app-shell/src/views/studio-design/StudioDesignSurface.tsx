@@ -140,7 +140,7 @@ import { useRegisteredMetadataDefaultInspector } from '../metadata-admin/default
 import { getMetadataResource } from '../metadata-admin/registry.js';
 import { useMetadataClient, useMetadataTypes } from '../metadata-admin/useMetadata.js';
 // objectui#11773 — every draft save of an existing item sends the version its buffer was built on.
-import { useDraftSaveGuard } from '../metadata-admin/DraftConflictDialog.js';
+import { readDraftForSave, useDraftSaveGuard } from '../metadata-admin/DraftConflictDialog.js';
 import {
   DESIGNER_SURFACE_PARAM,
   formatSurfaceParam,
@@ -1368,11 +1368,13 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
       setAppErr(null);
       try {
         const navObjects = appAddObjects ? await loadPackageObjects().catch(() => []) : [];
+        // objectui#11773 — a create is the first-write pin: refused where the
+        // name already holds a draft, instead of written over it.
         await shellClient.save(
           'app',
           name,
           buildAppSkeleton(name, label, navObjects),
-          { mode: 'draft', packageId },
+          { mode: 'draft', packageId, ifNoneMatch: '*' },
         );
         toast.success(tFormat('engine.studio.app.savedDraft', locale, { label }));
         setAppDraftPending(label);
@@ -2800,6 +2802,7 @@ export function InterfacesPillar({
   const reloadLeafDraft = React.useCallback(() => setLeafReloadNonce((n) => n + 1), []);
   const {
     save: saveLeafDraft,
+    recordRead: recordLeafRead,
     forget: forgetLeafVersion,
     dialog: leafConflictDialog,
   } = useDraftSaveGuard(client, reloadLeafDraft);
@@ -2812,7 +2815,7 @@ export function InterfacesPillar({
   }, []);
   const {
     save: saveNavDraft,
-    forget: forgetNavVersion,
+    recordRead: recordNavRead,
     dialog: navConflictDialog,
   } = useDraftSaveGuard(client, reloadNavDraft);
   // The app load also re-reads after every draft save in the package (the
@@ -3031,11 +3034,14 @@ export function InterfacesPillar({
         // in the drafts ledger: it has never been saved, so it has no layer to
         // read and `/layers` would answer 404. Its draft is the whole document.
         const saved = !!published?.[0]?.name;
-        const [layRaw, appDraftResp] = await Promise.all([
+        // objectui#11773 — the draft is read at the address the nav save writes
+        // (`?package=` this package), so the version it serves pins that save.
+        const [layRaw, appDraftRead] = await Promise.all([
           saved ? client.layered<Record<string, unknown>>('app', name) : null,
-          client.getDraft<Record<string, unknown>>('app', name).catch(() => null),
+          readDraftForSave<Record<string, unknown>>(client, 'app', name, packageId),
         ]);
         if (cancelled) return;
+        const appDraftResp = appDraftRead.answer;
         const lay = layRaw as { effective?: Record<string, unknown>; code?: Record<string, unknown> } | null;
         const eff = (lay?.effective ?? lay?.code ?? {}) as Record<string, unknown>;
         const appDraftBody = extractDraftBody(appDraftResp);
@@ -3056,9 +3062,12 @@ export function InterfacesPillar({
         if (!isSameApp || !navCommittedRef.current.dirty) {
           setAppDraft(body);
           setAppDraftFor(`app:${name}`);
-          // objectui#11773 — a read serves no version, unless it is the read-back
-          // of this pillar's own nav save (see `navEchoRef`).
-          if (!isSameApp || navEchoRef.current !== publishNonce) forgetNavVersion();
+          // objectui#11773 — the next nav save is pinned to what this read
+          // served, unless it is the read-back of this pillar's own nav save
+          // (see `navEchoRef`), whose receipt already pins it.
+          if (!isSameApp || navEchoRef.current !== publishNonce) {
+            recordNavRead('app', name, packageId, appDraftRead.pin);
+          }
           navEchoRef.current = null;
         }
         navBaselineRef.current = body;
@@ -3099,7 +3108,7 @@ export function InterfacesPillar({
     return () => {
       cancelled = true;
     };
-  }, [client, packageId, publishNonce, draftNonce, metadataRefreshNonce, navReloadNonce, forgetNavVersion]);
+  }, [client, packageId, publishNonce, draftNonce, metadataRefreshNonce, navReloadNonce, recordNavRead]);
 
   const Preview = useRegisteredMetadataPreview(current?.type ?? '');
   // Studio-canvas surface override: the SAME type can render as a different
@@ -3209,11 +3218,11 @@ export function InterfacesPillar({
     setSelection(null);
     (async () => {
       try {
-        const draftResp = await client
-          .getDraft<Record<string, unknown>>(current.type, current.name)
-          .catch(() => null);
+        // objectui#11773 — read at the address the leaf save writes, so the
+        // version it serves pins that save.
+        const draftRead = await readDraftForSave<Record<string, unknown>>(client, current.type, current.name, packageId);
         if (cancelled) return;
-        const body = extractDraftBody(draftResp);
+        const body = extractDraftBody(draftRead.answer);
         // objectui#11799 — the baseline is read only when it is used, for a
         // leaf with no pending draft. An unsaved leaf always has one, so it
         // never asks `/layers`, which answers 404 for a name with no layer.
@@ -3226,8 +3235,8 @@ export function InterfacesPillar({
         // spread over `effective` resurrects every key the draft deleted.
         setDraft(body ?? baseline);
         setDraftFor(leafKeyOf(current));
-        // objectui#11773 — a read serves no version: the next save is unpinned.
-        forgetLeafVersion();
+        // objectui#11773 — the next save is pinned to what the draft read served.
+        recordLeafRead(current.type, current.name, packageId, draftRead.pin);
         setHasDraft(!!body);
         setIfDirty(false);
       } catch (e) {
@@ -3249,7 +3258,7 @@ export function InterfacesPillar({
       // same rule.
       if (!settled) setLoading(false);
     };
-  }, [client, current, isEditable, publishNonce, leafReloadNonce, forgetLeafVersion]);
+  }, [client, current, isEditable, packageId, publishNonce, leafReloadNonce, recordLeafRead, forgetLeafVersion]);
 
   // objectui#5813 — a local dirty flag so auto-save only arms after a real
   // edit, never on the load-effect's own setDraft.
@@ -3477,7 +3486,9 @@ export function InterfacesPillar({
             : kind === 'report'
               ? buildReportSkeleton(name, label, binding)
               : buildPageSkeleton(name, label, sourceKind, t('engine.studio.interfaces.create.pageStarter', locale));
-        await client.save(kind, name, body, { mode: 'draft', packageId });
+        // objectui#11773 — and the door refuses it too (the first-write pin),
+        // for a draft that lands between the check above and this save.
+        await client.save(kind, name, body, { mode: 'draft', packageId, ifNoneMatch: '*' });
         onDraftSaved?.();
         // The entry that links it, appended to the app document and sent
         // through the nav editor's own save, as an edit there would be: its
@@ -4568,7 +4579,7 @@ export function DataPillar({
   const reloadObjDraft = React.useCallback(() => setObjReloadNonce((n) => n + 1), []);
   const {
     save: saveObjDraft,
-    forget: forgetObjVersion,
+    recordRead: recordObjRead,
     dialog: objConflictDialog,
   } = useDraftSaveGuard(client, reloadObjDraft);
   // Left-rail search + inline "new object" creator (design §4: rail = search + New).
@@ -4712,19 +4723,21 @@ export function DataPillar({
     setDirty(false);
     (async () => {
       try {
-        const [layRaw, draftResp] = await Promise.all([
+        // objectui#11773 — the draft is read at the address the object saves
+        // write, so the version it serves pins the first of them.
+        const [layRaw, draftRead] = await Promise.all([
           client.layered<Record<string, unknown>>('object', current.name),
-          client.getDraft<Record<string, unknown>>('object', current.name).catch(() => null),
+          readDraftForSave<Record<string, unknown>>(client, 'object', current.name, packageId),
         ]);
         if (cancelled) return;
         const lay = layRaw as { effective?: Record<string, unknown>; code?: Record<string, unknown> };
         const baseline = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
-        const draftBody = extractDraftBody(draftResp);
+        const draftBody = extractDraftBody(draftRead.answer);
         // Served draft as-is, baseline only without one (objectui#10765).
         setObjDraft(draftBody ?? baseline);
         setObjDraftFor(`object:${current.name}`);
-        // objectui#11773 — a read serves no version: the next save is unpinned.
-        forgetObjVersion();
+        // objectui#11773 — the next save is pinned to what the draft read served.
+        recordObjRead('object', current.name, packageId, draftRead.pin);
         // objectui#11272 — the buffer installed is clean, as every pillar's
         // is: an edit a period began while it was another object's is dropped
         // with it, never sent as this object's.
@@ -4757,7 +4770,7 @@ export function DataPillar({
         loadedNameRef.current = null;
       }
     };
-  }, [client, current, publishNonce, objReloadNonce, forgetObjVersion]);
+  }, [client, current, packageId, publishNonce, objReloadNonce, recordObjRead]);
 
   const fieldCount = React.useMemo(() => readFields(objDraft.fields).entries.length, [objDraft]);
 
@@ -4878,7 +4891,9 @@ export function DataPillar({
       setError(null);
       try {
         const body = buildObjectSkeleton(name, label, t('engine.studio.data.nameFieldLabel', locale), sharingModel);
-        await client.save('object', name, body, { mode: 'draft', packageId });
+        // objectui#11773 — a create is the first-write pin: refused where the
+        // name already holds a draft, instead of written over it.
+        await client.save('object', name, body, { mode: 'draft', packageId, ifNoneMatch: '*' });
         const surface: Surface = { type: 'object', name, label };
         setObjects((prev) => [...prev, surface]);
         setCurrent(surface);
@@ -5918,7 +5933,7 @@ export function AutomationsPillar({
   const reloadFlowDraft = React.useCallback(() => setFlowReloadNonce((n) => n + 1), []);
   const {
     save: saveFlowDraft,
-    forget: forgetFlowVersion,
+    recordRead: recordFlowRead,
     dialog: flowConflictDialog,
   } = useDraftSaveGuard(client, reloadFlowDraft);
   const [selection, setSelection] = React.useState<MetadataSelection | null>(null);
@@ -6082,7 +6097,9 @@ export function AutomationsPillar({
           },
           trigger,
         );
-        await client.save('flow', name, skeleton, { mode: 'draft', packageId: draftPackageId });
+        // objectui#11773 — a create is the first-write pin: refused where the
+        // name already holds a draft, instead of written over it.
+        await client.save('flow', name, skeleton, { mode: 'draft', packageId: draftPackageId, ifNoneMatch: '*' });
         const item: Surface = { type: 'flow', name, label };
         setFlows((fs) => [...fs.filter((f) => f.name !== name), item]);
         setCurrent(item);
@@ -6110,11 +6127,11 @@ export function AutomationsPillar({
     setSelection(null);
     (async () => {
       try {
-        const draftResp = await client
-          .getDraft<Record<string, unknown>>('flow', current.name)
-          .catch(() => null);
+        // objectui#11773 — read at the address the flow saves write, so the
+        // version it serves pins the first of them.
+        const draftRead = await readDraftForSave<Record<string, unknown>>(client, 'flow', current.name, draftPackageId);
         if (cancelled) return;
-        const draftBody = extractDraftBody(draftResp);
+        const draftBody = extractDraftBody(draftRead.answer);
         // objectui#11799 — the baseline is read only for a flow with no
         // pending draft, the one case it is used. An unsaved flow always has
         // one, so it never asks `/layers`, which answers 404 for it.
@@ -6125,8 +6142,8 @@ export function AutomationsPillar({
         // Served draft as-is, baseline only without one (objectui#10765).
         setDraft(draftBody ?? baseline);
         setDraftFor(`flow:${current.name}`);
-        // objectui#11773 — a read serves no version: the next save is unpinned.
-        forgetFlowVersion();
+        // objectui#11773 — the next save is pinned to what the draft read served.
+        recordFlowRead('flow', current.name, draftPackageId, draftRead.pin);
         setHasDraft(!!draftBody);
       } catch (e) {
         if (!cancelled) setError(plainRefusal(e));
@@ -6144,7 +6161,7 @@ export function AutomationsPillar({
       // `loading` it raised, as in InterfacesPillar's draft load.
       if (!settled) setLoading(false);
     };
-  }, [client, current, publishNonce, flowReloadNonce, forgetFlowVersion]);
+  }, [client, current, draftPackageId, publishNonce, flowReloadNonce, recordFlowRead]);
 
   // objectui#5813 — local dirty flag: auto-save arms only after a real edit.
   const [autoDirty, setAutoDirty] = React.useState(false);
@@ -6906,7 +6923,13 @@ export function AccessPillar({
       try {
         // Package door → create as a DRAFT stamped with this package (D6/D7),
         // published atomically with the rest of the package.
-        await client.save('permission', name, buildPermissionSkeleton(name, label), { mode: 'draft', packageId });
+        // objectui#11773 — a create is the first-write pin: refused where the
+        // name already holds a draft, instead of written over it.
+        await client.save('permission', name, buildPermissionSkeleton(name, label), {
+          mode: 'draft',
+          packageId,
+          ifNoneMatch: '*',
+        });
         toast.success(tFormat('engine.studio.access.created', locale, { label }));
         setCreating(false);
         onDraftSaved?.();

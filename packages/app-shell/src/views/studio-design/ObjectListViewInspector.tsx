@@ -64,7 +64,7 @@ import { useObjectFields } from '../metadata-admin/previews/useObjectFields.js';
 import { foldStoredListOptions } from '../metadata-admin/previews/ViewPreview.js';
 import { WIDGETS, type ObjectFieldOption } from '../metadata-admin/widgets.js';
 import { failed, loaded, type LoadState } from '../metadata-admin/loadState.js';
-import { useDraftSaveGuard } from '../metadata-admin/DraftConflictDialog.js';
+import { readDraftForSave, useDraftSaveGuard } from '../metadata-admin/DraftConflictDialog.js';
 import { t, tFormat } from '../metadata-admin/i18n.js';
 import { defaultListColumnsFromObject } from '../ObjectView.js';
 import { findByName } from '../../hooks/useNavTargetLabel.js';
@@ -276,7 +276,7 @@ export function useObjectListViewDraft({
   const [reloadNonce, setReloadNonce] = React.useState(0);
   const reload = React.useCallback(() => setReloadNonce((n) => n + 1), []);
   // objectui#11773 — one guard per editing buffer; a conflict's "reload" re-runs this load.
-  const { save: guardedSave, forget, dialog: conflictDialog } = useDraftSaveGuard(client, reload);
+  const { save: guardedSave, recordRead, dialog: conflictDialog } = useDraftSaveGuard(client, reload);
 
   React.useEffect(() => {
     setFailure(null);
@@ -287,8 +287,11 @@ export function useObjectListViewDraft({
     let cancelled = false;
     (async () => {
       try {
-        const draftResp = await client.getDraft<Row>('view', viewId).catch(() => null);
+        // objectui#11773 — read at the address the save below writes, so the
+        // version it serves pins that save.
+        const draftRead = await readDraftForSave<Row>(client, 'view', viewId, packageId);
         if (cancelled) return;
+        const draftResp = draftRead.answer;
         // A served draft is the whole document, taken as-is (objectui#10765);
         // the published layer only without one. Both lose the read
         // decorations a save must not send back.
@@ -300,8 +303,8 @@ export function useObjectListViewDraft({
         if (cancelled) return;
         const published = (lay as { effective?: unknown; code?: unknown } | null)?.effective ?? (lay as { code?: unknown } | null)?.code;
         const row = draft ?? (isPlainObject(published) ? (stripReadDecorations(published) as Row) : null);
-        // objectui#11773 — a read serves no version: the next save is unpinned.
-        forget();
+        // objectui#11773 — the next save is pinned to what the draft read served.
+        recordRead('view', viewId, packageId, draftRead.pin);
         setBuffer({ for: listViewBufferKey(viewId), row, dirty: false, hasDraft: !!draft });
       } catch (e) {
         if (!cancelled) setFailure({ during: 'load', error: e });
@@ -310,7 +313,7 @@ export function useObjectListViewDraft({
     return () => {
       cancelled = true;
     };
-  }, [client, viewId, publishNonce, reloadNonce, forget]);
+  }, [client, viewId, packageId, publishNonce, reloadNonce, recordRead]);
 
   const edit = React.useCallback((row: Row) => {
     setBuffer((b) => ({ ...b, row, dirty: true }));

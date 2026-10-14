@@ -38,7 +38,7 @@ import { HookTargetScopeContext, type HookTargetScope } from '../metadata-admin/
 import { loadPackageSurfaces } from './packageSurfaces.js';
 import { useMetadataClient } from '../metadata-admin/useMetadata.js';
 // objectui#11773 — the hook's draft save sends the version it was built on.
-import { useDraftSaveGuard } from '../metadata-admin/DraftConflictDialog.js';
+import { readDraftForSave, useDraftSaveGuard, type DraftPin } from '../metadata-admin/DraftConflictDialog.js';
 // objectui#11787 — a hook autosaves through the pillars' own autosave.
 import { useDraftAutoSave, type DraftSend } from './useDraftAutoSave.js';
 import { t, tFormat, useMetadataLocale } from '../metadata-admin/i18n.js';
@@ -130,14 +130,15 @@ export function ObjectHooksPanel({
   const [dirty, setDirty] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [nonce, setNonce] = React.useState(0);
-  // objectui#11773 — the version the open hook's draft was saved at, sent as
-  // `If-Match` by its next save. A save writes the list in place (objectui#11787)
-  // and the re-read that follows "+ New" reads back what was written, so the
-  // version survives both; a conflict's "reload" re-reads the list, and a
-  // publish forgets the version.
+  // objectui#11773 — each hook's pin: what the list load read for it (its
+  // draft's version, or "no draft row"), then each save's receipt. A save
+  // writes the list in place (objectui#11787) and the re-read that follows
+  // "+ New" reads back what was written, so the pin survives both; a
+  // conflict's "reload" re-reads the list, and a publish forgets every pin.
   const reloadHooks = React.useCallback(() => setNonce((n) => n + 1), []);
   const {
     save: saveHookDraft,
+    recordRead: recordHookRead,
     forget: forgetHookVersion,
     dialog: hookConflictDialog,
   } = useDraftSaveGuard(client, reloadHooks);
@@ -202,6 +203,13 @@ export function ObjectHooksPanel({
   );
   const blockingIssues = celErrors.hook === selectedHookName ? celErrors.count : 0;
 
+  // The hook the buffer holds and whether it holds an unsent edit, read by the
+  // list load (objectui#11773) and the install below (objectui#11787).
+  const bufferRef = React.useRef({ hook: draftFor, dirty });
+  React.useLayoutEffect(() => {
+    bufferRef.current = { hook: draftFor, dirty };
+  });
+
   React.useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -214,22 +222,37 @@ export function ObjectHooksPanel({
         // Drafts win over the published row of the same name.
         const [pub, draftHeaders] = await Promise.all([
           client.list('hook', { packageId }) as Promise<HookItem[]>,
-          client.listDrafts({ packageId, type: 'hook' }).catch(() => [] as Array<{ name?: string }>),
+          client.listDrafts({ packageId, type: 'hook' }).catch(() => null),
         ]);
         const draftNames = (draftHeaders || []).map((d) => String(d.name ?? '')).filter(Boolean);
-        const bodies = await Promise.all(
-          draftNames.map((n) => client.getDraft('hook', n).then(draftBody).catch(() => null)),
-        );
+        // objectui#11773 — each draft is read at the address its save writes
+        // (`?package=` this package), so the version it serves pins that save.
+        const reads = await Promise.all(draftNames.map((n) => readDraftForSave(client, 'hook', n, packageId)));
         if (cancelled) return;
         const byName = new Map<string, HookItem>();
+        // What the next save of each listed hook is pinned to. A hook this
+        // package's drafts ledger does not list has no draft at the save's
+        // address — when the ledger was read at all: an unreadable ledger says
+        // nothing, and pins nothing.
+        const pins = new Map<string, DraftPin | null>();
         for (const h of pub || []) {
-          if (h?.name && targetsObject(h, objectName)) byName.set(String(h.name), h);
+          if (h?.name && targetsObject(h, objectName)) {
+            byName.set(String(h.name), h);
+            pins.set(String(h.name), draftHeaders ? { ifNoneMatch: '*' } : null);
+          }
         }
         draftNames.forEach((n, i) => {
-          const body = bodies[i];
+          const body = draftBody(reads[i]!.answer);
           if (body && targetsObject(body, objectName)) byName.set(n, body);
+          if (byName.has(n)) pins.set(n, reads[i]!.pin);
         });
         setHooks([...byName.values()]);
+        // A hook whose buffer holds an unsent edit keeps the pin that edit was
+        // built on: the install below does not replace that buffer either.
+        const open = bufferRef.current;
+        for (const [n, pin] of pins) {
+          if (!(open.dirty && open.hook === n)) recordHookRead('hook', n, packageId, pin);
+        }
       } catch (e) {
         if (!cancelled) setError(formatMetadataError(e));
       } finally {
@@ -239,16 +262,12 @@ export function ObjectHooksPanel({
     return () => {
       cancelled = true;
     };
-  }, [client, packageId, objectName, nonce]);
+  }, [client, packageId, objectName, nonce, recordHookRead]);
 
   // Load the selected hook into an editable draft: on a selection change, and
   // when the list changes. objectui#11787 — except over an unsent edit of that
   // same hook: the list an autosave writes holds what that save sent, and an
-  // edit the author took meanwhile is newer than it.
-  const bufferRef = React.useRef({ hook: draftFor, dirty });
-  React.useLayoutEffect(() => {
-    bufferRef.current = { hook: draftFor, dirty };
-  });
+  // edit the author took meanwhile is newer than it (`bufferRef`, above).
   React.useEffect(() => {
     if (selected !== null && bufferRef.current.hook === selected && bufferRef.current.dirty) return;
     const hook = hooks.find((h) => h.name === selected) ?? null;
@@ -333,7 +352,9 @@ export function ObjectHooksPanel({
     setSaving(true);
     setError(null);
     try {
-      await client.save('hook', name, fresh, { mode: 'draft', packageId });
+      // objectui#11773 — a create is the first-write pin: refused where the
+      // name already holds a draft, instead of written over it.
+      await client.save('hook', name, fresh, { mode: 'draft', packageId, ifNoneMatch: '*' });
       // objectui#11787 — a new hook is a new draft: the count says so.
       onDraftSaved?.();
       setNonce((n) => n + 1);

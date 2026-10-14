@@ -76,7 +76,7 @@ import { PageShell } from './PageShell.js';
 import { HistoryPanel } from './ResourceHistoryPage.js';
 import { useMetadataClient, useMetadataTypes, type RichMetadataTypeEntry } from './useMetadata.js';
 // objectui#11773 — the package door's draft save sends the version it was built on.
-import { useDraftSaveGuard } from './DraftConflictDialog.js';
+import { readDraftForSave, useDraftSaveGuard } from './DraftConflictDialog.js';
 // objectui#11787 — the package door autosaves through the pillars' own autosave.
 import { useDraftAutoSave, type DraftSend } from '../studio-design/useDraftAutoSave.js';
 import { useDisplayLocale } from '@object-ui/i18n';
@@ -478,12 +478,14 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
     // is enough: the anchor is a JSON snapshot, so a copy is anchor-identical.
     setDraft({ ...next });
   }, []);
-  // objectui#11773 — the version the package door's draft was saved at, sent as
-  // `If-Match` by its next draft save. A conflict's "reload" re-runs the load.
+  // objectui#11773 — the pin of the row the package door's draft was built on
+  // (the load's draft read, then each save's receipt), sent by its next draft
+  // save. A conflict's "reload" re-runs the load.
   const [reloadNonce, setReloadNonce] = React.useState(0);
   const reloadSet = React.useCallback(() => setReloadNonce((n) => n + 1), []);
   const {
     save: saveVersioned,
+    recordRead: recordSetRead,
     forget: forgetSetVersion,
     dialog: draftConflictDialog,
   } = useDraftSaveGuard(client, reloadSet);
@@ -577,9 +579,12 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
         // metadata, so surface the PENDING draft if one exists — otherwise a
         // just-saved-not-yet-published edit would appear lost on reopen. Draft
         // reads return the `{ type, name, item }` envelope; `null` = no draft.
-        const draftRead = packageId
-          ? client.getDraft<{ item?: PermissionSetDraft } | PermissionSetDraft>(type, name, { packageId }).catch(() => null)
+        // objectui#11773 — read at the package door's save address, with the
+        // pin it serves for that address (the package door's draft save).
+        const draftReadForSave = packageId
+          ? readDraftForSave<{ item?: PermissionSetDraft } | PermissionSetDraft>(client, type, name, packageId)
           : Promise.resolve(null);
+        const draftRead = draftReadForSave.then((read) => read?.answer ?? null);
         const readLayered = () => client.layered<PermissionSetDraft>(type, name).catch(() => null);
         // objectui#11799 — a set "+ New" created and nobody published has a
         // draft and no layer, and `GET …/layers` answers 404 for it. Under the
@@ -597,7 +602,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
           packageId && type === 'permission' && publishedSets
             ? publishedSets.then((rows) => !(rows || []).some((r) => r?.name === name), () => false)
             : Promise.resolve(false);
-        const [lay, objList, pendingDraft] = await Promise.all([
+        const [lay, objList, pendingRead] = await Promise.all([
           packageId
             ? neverPublished.then((unlisted) =>
                 unlisted ? draftRead.then((d) => (d ? null : readLayered())) : readLayered(),
@@ -606,9 +611,10 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
           // In package scope, list only the objects this package declares
           // (ADR-0086 P0) — otherwise the whole environment leaks into the panel.
           client.list<any>('object', packageId ? { packageId } : {}).catch(() => []),
-          draftRead,
+          draftReadForSave,
         ]);
         if (cancelled) return;
+        const pendingDraft = pendingRead?.answer ?? null;
         // ARTIFACT tier input (objectui#4518) — the `code` layer, and its
         // `provenance` (objectui#4526), of the SAME envelope the display
         // baseline comes from, so the writability verdict and the body on
@@ -665,8 +671,11 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
         } else {
           resetDraftBaseline(full);
         }
-        // objectui#11773 — a read serves no version: the next save is unpinned.
-        forgetSetVersion();
+        // objectui#11773 — the package door's next draft save is pinned to what
+        // the draft read served. The environment door reads no draft and its
+        // live write is not pinned.
+        if (pendingRead && packageId) recordSetRead(type, name, packageId, pendingRead.pin);
+        else forgetSetVersion();
       } catch (err: any) {
         setError(err?.message ?? String(err));
       } finally {
@@ -676,7 +685,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
     return () => {
       cancelled = true;
     };
-  }, [client, type, name, packageId, publishNonce, resetDraftBaseline, reloadNonce, forgetSetVersion]);
+  }, [client, type, name, packageId, publishNonce, resetDraftBaseline, reloadNonce, recordSetRead, forgetSetVersion]);
 
   /* ── Lazy-load fields when an object is expanded ─────────── */
   async function ensureFields(objectName: string) {

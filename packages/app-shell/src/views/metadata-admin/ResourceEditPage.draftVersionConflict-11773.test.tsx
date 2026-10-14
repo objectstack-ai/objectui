@@ -12,10 +12,13 @@
  *  - `409 METADATA_CONFLICT` — the draft was saved elsewhere since this buffer
  *    was; the shared conflict dialog offers reload or overwrite.
  *
- * The door double answers the way the 17.7.0 door was measured to (readings on
- * the pull request), and its refusals are parsed by the REAL `MetadataClient`.
- * Only the page canvas is stubbed, to hand the test a way to dirty the draft;
- * the autosave, the save door and both dialogs are shipping code.
+ * The door double answers the way the published 18.0.0-next.0 door was
+ * measured to (readings on the pull request): the draft read serves the
+ * draft's `version` (no draft: `null` from `getDraft`), a stale `If-Match` or
+ * an `If-None-Match: *` over an existing draft is `409 METADATA_CONFLICT` with
+ * `currentVersion`. Its refusals are parsed by the REAL `MetadataClient`. Only
+ * the page canvas is stubbed, to hand the test a way to dirty the draft; the
+ * autosave, the save door and both dialogs are shipping code.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -40,6 +43,7 @@ interface SaveCall {
   body: Record<string, unknown>;
   force: boolean;
   ifMatch: string | undefined;
+  ifNoneMatch: string | undefined;
 }
 
 const door = {
@@ -73,17 +77,22 @@ const mockClient = {
   list: vi.fn(async () => []),
   listDrafts: vi.fn(async () => []),
   layered: vi.fn(async () => ({ effective: PAGE, code: PAGE, editable: true })),
-  // The draft read serves the body and no version (measured on 17.7.0).
-  getDraft: vi.fn(async () => (door.draft ? { type: 'page', name: 'home', item: JSON.parse(JSON.stringify(door.draft.body)) } : null)),
+  // The draft read serves the body and its version; no draft is `null`.
+  getDraft: vi.fn(async () =>
+    door.draft
+      ? { type: 'page', name: 'home', item: JSON.parse(JSON.stringify(door.draft.body)), version: door.draft.version }
+      : null,
+  ),
   get: vi.fn(async () => null),
   references: vi.fn(async () => []),
   publish: vi.fn(async () => ({ success: true })),
   reset: vi.fn(async () => ({})),
-  save: vi.fn(async (_type: string, _name: string, item: unknown, options?: { force?: boolean; ifMatch?: string }) => {
+  save: vi.fn(async (_type: string, _name: string, item: unknown, options?: { force?: boolean; ifMatch?: string; ifNoneMatch?: string }) => {
     const body = JSON.parse(JSON.stringify(item)) as Record<string, unknown>;
     const ifMatch = options?.ifMatch;
+    const ifNoneMatch = options?.ifNoneMatch;
     const force = !!options?.force;
-    door.saves.push({ body, force, ifMatch });
+    door.saves.push({ body, force, ifMatch, ifNoneMatch });
     if (body.label === DESTRUCTIVE_LABEL && !force) {
       throw await parsedRefusal({
         error: "page/home would drop or transform existing data: Field 'subject' removed. — re-submit with ?force=true to proceed.",
@@ -92,10 +101,11 @@ const mockClient = {
       });
     }
     const head = door.draft?.version ?? null;
-    if (ifMatch !== undefined && ifMatch !== head) {
+    if ((ifMatch !== undefined && ifMatch !== head) || (ifNoneMatch !== undefined && head !== null)) {
       throw await parsedRefusal({
         error: `page/home has been modified since you loaded it. The version token sent is not the current version (current is ${head}).`,
         code: 'METADATA_CONFLICT',
+        currentVersion: head,
       });
     }
     const version = writeDraft(body);
@@ -164,9 +174,10 @@ async function patchAndSave(label: string): Promise<SaveCall> {
 }
 
 describe('MetadataResourceEditPage — draft saves carry their version (objectui#11773)', () => {
-  it('the first autosave is unpinned; each later one sends the version the one before it received', async () => {
+  it('the first autosave is pinned to the load (no draft: If-None-Match); each later one sends the version the one before it received', async () => {
     renderEditor();
-    expect((await patchAndSave('One')).ifMatch).toBeUndefined();
+    const first = await patchAndSave('One');
+    expect([first.ifMatch, first.ifNoneMatch]).toEqual([undefined, '*']);
     await waitFor(() => expect(door.draft?.version).toBe('hmac-sha256:v1'), { timeout: 8000 });
     expect((await patchAndSave('Two')).ifMatch).toBe('hmac-sha256:v1');
     await waitFor(() => expect(door.draft?.version).toBe('hmac-sha256:v2'), { timeout: 8000 });
@@ -189,10 +200,52 @@ describe('MetadataResourceEditPage — draft saves carry their version (objectui
 
     fireEvent.click(screen.getByTestId('draft-conflict-reload'));
     await waitFor(() => expect(screen.queryByTestId('draft-conflict-dialog')).toBeNull(), { timeout: 8000 });
-    // The reload re-read the draft (its version was not served), so the next
-    // save is unpinned and starts from their body.
+    // The reload re-read the draft, so the next save is pinned to THEIR
+    // version and starts from their body.
     await waitFor(() => expect(mockClient.getDraft.mock.calls.length).toBeGreaterThanOrEqual(3), { timeout: 8000 });
-    expect((await patchAndSave('Three')).ifMatch).toBeUndefined();
+    expect((await patchAndSave('Three')).ifMatch).toBe('hmac-sha256:v2');
+  });
+
+  it('a load of an item with a pending draft: the first save sends If-Match with the version the read served', async () => {
+    const theirs = writeDraft({ ...PAGE, label: 'Pending' });
+    renderEditor();
+    const first = await patchAndSave('One');
+    expect([first.ifMatch, first.ifNoneMatch]).toEqual([theirs, undefined]);
+    // The draft was read at the package the save writes.
+    expect(mockClient.getDraft).toHaveBeenCalledWith('page', 'home', { packageId: 'com.acme.app' });
+    expect(screen.queryByTestId('draft-conflict-dialog')).toBeNull();
+  });
+
+  it('two editors who each load and save once: the later first save is refused, and the earlier draft survives', async () => {
+    renderEditor();
+    await screen.findByRole('button', { name: 'label One' }, { timeout: 8000 });
+    // The other editor, who opened the page at the same time, saves first.
+    writeDraft({ ...PAGE, label: 'Theirs', description: 'kept' });
+
+    const mine = await patchAndSave('One');
+    expect([mine.ifMatch, mine.ifNoneMatch]).toEqual([undefined, '*']);
+    expect(await screen.findByTestId('draft-conflict-dialog', undefined, { timeout: 8000 })).toHaveTextContent('home');
+    expect(door.draft?.body).toMatchObject({ label: 'Theirs', description: 'kept' });
+  });
+
+  it('"overwrite" after a 409 re-sends pinned to the refusal\'s currentVersion, and the next save to its receipt', async () => {
+    renderEditor();
+    await patchAndSave('One');
+    await waitFor(() => expect(door.draft?.version).toBe('hmac-sha256:v1'), { timeout: 8000 });
+    const theirs = writeDraft({ ...PAGE, label: 'Theirs' });
+
+    await patchAndSave('Two');
+    await screen.findByTestId('draft-conflict-dialog', undefined, { timeout: 8000 });
+    fireEvent.click(screen.getByTestId('draft-conflict-overwrite'));
+    const before = door.saves.length;
+    fireEvent.click(await screen.findByTestId('draft-conflict-overwrite-confirm'));
+    await waitFor(() => expect(door.saves.length).toBe(before + 1), { timeout: 8000 });
+    const overwrite = door.saves[door.saves.length - 1]!;
+    expect([overwrite.ifMatch, overwrite.ifNoneMatch, overwrite.body.label]).toEqual([theirs, undefined, 'Two']);
+    await waitFor(() => expect(door.draft?.body.label).toBe('Two'), { timeout: 8000 });
+    const overwriteReceipt = door.draft?.version;
+
+    expect((await patchAndSave('Three')).ifMatch).toBe(overwriteReceipt);
   });
 
   it('control: a destructive change still opens its own confirmation, and the forced retry keeps the version', async () => {

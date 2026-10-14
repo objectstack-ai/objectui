@@ -155,7 +155,10 @@ describe('a formula with no returnType formats a numeric result as a number (obj
   it.each(LOCALES)('%s — a string of digits stays text: only a JS number is read as a number', (locale) => {
     const { container } = renderSession(locale, formulaCell('200000'));
     expect(container.textContent).toBe('200000');
-    expect(container.querySelector('.font-mono')).not.toBeNull();
+    // Drawn by the text face, not the number face; the text face is the text
+    // cell's own, no longer monospace (objectui#12357).
+    expect(container.querySelector('.tabular-nums')).toBeNull();
+    expect(container.querySelector('.font-mono')).toBeNull();
   });
 });
 
@@ -176,6 +179,9 @@ describe('a declared returnType is read as declared (objectui#11683)', () => {
   it.each(LOCALES)("%s — returnType 'text' over a number stays text: the declaration wins", (locale) => {
     const { container } = renderSession(locale, formulaCell(200000, { returnType: 'text' }));
     expect(container.textContent).toBe('200000');
-    expect(container.querySelector('.font-mono')).not.toBeNull();
+    // Drawn by the text face, not the number face; the text face is the text
+    // cell's own, no longer monospace (objectui#12357).
+    expect(container.querySelector('.tabular-nums')).toBeNull();
+    expect(container.querySelector('.font-mono')).toBeNull();
   });
 });

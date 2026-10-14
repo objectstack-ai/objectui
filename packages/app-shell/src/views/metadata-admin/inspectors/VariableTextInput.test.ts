@@ -8,9 +8,17 @@ describe('formatToken', () => {
     expect(formatToken('discount_pct', 'expression')).toBe('discount_pct');
     expect(formatToken('record.amount', 'expression')).toBe('record.amount');
   });
-  it('wraps a token in single braces in template fields', () => {
-    expect(formatToken('discount_pct', 'template')).toBe('{discount_pct}');
-    expect(formatToken('record.amount', 'template')).toBe('{record.amount}');
+  it('has no single-brace spelling: no mode wraps a token in one brace pair (objectui#12329)', () => {
+    // The spec 18 engine reads no `{x}` token in a flow string, so the picker
+    // writes none. Single brace = an opening brace not followed by another.
+    const singleBrace = /(^|[^{])\{(?!\{)[^{}]*\}/;
+    for (const mode of ['expression', 'hole'] as const) {
+      expect(formatToken('record.amount', mode)).not.toMatch(singleBrace);
+      expect(insertToken('Hi ', mode, 'record.name', 3, 3).next).not.toMatch(singleBrace);
+    }
+    // The pattern can fire: a control on the spelling the picker used to write.
+    expect('{record.amount}').toMatch(singleBrace);
+    expect('{{ record.amount }}').not.toMatch(singleBrace);
   });
   it('wraps a token in a {{ }} hole in a flow text slot (objectui#11824)', () => {
     expect(formatToken('record.amount', 'hole')).toBe('{{ record.amount }}');
@@ -34,14 +42,14 @@ describe('insertToken (cursor splice)', () => {
     const r = insertToken('hello OLD world', 'expression', 'NEW', 6, 9);
     expect(r.next).toBe('hello NEW world');
   });
-  it('wraps with braces in template mode', () => {
-    const r = insertToken('Hi ', 'template', 'record.name', 3, 3);
-    expect(r.next).toBe('Hi {record.name}');
-    expect(r.caret).toBe('Hi {record.name}'.length);
+  it('wraps with double braces in hole mode, caret after the hole', () => {
+    const r = insertToken('Hi ', 'hole', 'record.name', 3, 3);
+    expect(r.next).toBe('Hi {{ record.name }}');
+    expect(r.caret).toBe('Hi {{ record.name }}'.length);
   });
   it('clamps out-of-range / reversed selections instead of corrupting the value', () => {
     expect(insertToken('abc', 'expression', 'X', 99, 99).next).toBe('abcX');
     expect(insertToken('abc', 'expression', 'X', 3, 1).next).toBe('aX'); // reversed [3,1] → selects 'bc', replaced
-    expect(insertToken('', 'template', 'v', -5, -5).next).toBe('{v}');
+    expect(insertToken('', 'hole', 'v', -5, -5).next).toBe('{{ v }}');
   });
 });

@@ -411,7 +411,7 @@ describe('#6226 fences — declared opt-in, never inferred from `kind`', () => {
 
   it('an `expression` field that did NOT opt in keeps the raw input', () => {
     // `expression` is not a synonym for "record predicate": a `recordId` is a
-    // scalar lookup, a `collection` is an interpolate() template. Only a flagged
+    // scalar lookup, a `collection` is a list. Only a flagged
     // descriptor may become a builder, even with a vocabulary in hand.
     const plain: FlowConfigField = {
       id: 'recordId', path: ['config', 'recordId'], label: 'Record', kind: 'expression',
@@ -428,11 +428,11 @@ describe('#6226 fences — declared opt-in, never inferred from `kind`', () => {
   });
 
   it('a template-mode expression field is never a condition builder', () => {
-    // Belt and braces for a loop/map `collection`: `{leadList}` is a legal
-    // interpolate() hole, not a predicate.
+    // Belt and braces for a body-less loop's `collection` (objectui#12329): a
+    // variable name, not a predicate.
     const templated: FlowConfigField = { ...ENTRY_CONDITION, refMode: 'template' };
     expect(templated.conditionBuilder).toBe(true);
-    expect(isPlainTextInput(mountField({ value: '{leadList}', field: templated }))).toBe(true);
+    expect(isPlainTextInput(mountField({ value: 'leadList', field: templated }))).toBe(true);
   });
 });
 

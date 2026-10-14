@@ -100,10 +100,11 @@ describe('an envelope that fails is reported, and never written as the object (o
 });
 
 describe('values that are not a map envelope keep their meaning (objectui#10537 controls)', () => {
-  it('a {token} string still interpolates', () => {
-    const { sim } = runAssignment({ assignments: { who: 'Ada', greeting: 'hi {who}', same: '{who}' } });
-    expect(sim.state.variables.greeting).toBe('hi Ada');
-    expect(sim.state.variables.same).toBe('Ada');
+  it('a {token} string is refused, not interpolated (objectui#12329)', () => {
+    const { sim, step } = runAssignment({ assignments: { who: 'Ada', greeting: 'hi {who}' } });
+    expect(step?.status).toBe('error');
+    expect('greeting' in sim.state.variables).toBe(false);
+    expect('who' in sim.state.variables).toBe(false);
   });
 
   it('a number and a plain object are written as they are', () => {

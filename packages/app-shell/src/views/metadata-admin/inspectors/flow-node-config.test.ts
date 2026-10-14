@@ -184,11 +184,11 @@ describe('wait node loose-config fallback (ADR-0044 showcase parity)', () => {
   });
 });
 
-describe('loop / map collection is a template, not a CEL predicate', () => {
-  // The collection placeholders (`{leadList}` / `{items}`) are single-brace
-  // interpolate() templates, not bare CEL — so the field is flagged
-  // refMode:'template' to keep the mono expression editor + data-picker while
-  // suppressing the CEL brace-trap that would otherwise flag `{leadList}`.
+describe('loop / map collection keeps its template mark, not a CEL predicate', () => {
+  // objectui#12329 — the mark no longer picks a picker spelling: a value-slot
+  // collection renders the ledger's control, and a body-less loop's renders
+  // like an expression field (the bare name). The designer's analysis passes
+  // (`flow-expr-problems.ts`, `flow-node-refs.ts`) still read the mark.
   it('flags loop.collection as an expression field in template mode', () => {
     const collection = fieldsForNodeType('loop').find((f) => f.id === 'collection')!;
     expect(collection.kind).toBe('expression');

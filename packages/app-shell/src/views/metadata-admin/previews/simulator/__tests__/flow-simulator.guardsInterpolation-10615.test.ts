@@ -14,14 +14,16 @@
  * read from `AutomationEngine.evaluateCondition` and `registerFlow` in
  * `@objectstack/service-automation`.
  *
- * Assignment values used to be interpolated only when the value itself was a
- * string. The runtime's `interpolate` walks arrays and objects.
+ * Assignment values were interpolated here, the way the runtime's `interpolate`
+ * walked arrays and objects. objectstack#19939 S7 deleted that interpolator:
+ * the runtime refuses a value that spells a `{…}` token, at any depth, and
+ * hands every other value on as written (objectui#12329).
  *
  * Every run goes through the real `FlowSimulator`.
  */
 
 import { describe, it, expect } from 'vitest';
-import { STRUCTURAL_CONDITION_SHAPE_REFUSAL } from '@objectstack/spec/automation';
+import { STRUCTURAL_CONDITION_SHAPE_REFUSAL, flowNodeValueTemplateRefusals } from '@objectstack/spec/automation';
 import { EVALUATED_EXPRESSION_SOURCE_REQUIRED } from '@objectstack/spec/shared';
 import { FlowSimulator } from '../flow-simulator';
 import type { SimEdge, SimNode } from '../flow-sim-types';
@@ -44,6 +46,22 @@ function runGuard(condition: unknown, seed: Record<string, unknown> = {}) {
   sim.runToEnd();
   const step = sim.state.steps.find((st) => st.nodeId === 'd');
   return { sim, step, guard: step?.edges?.find((x) => x.edgeId === 'g') };
+}
+
+/** start → assignment({ assignments }) → end, run from `seed`; the assignment's step. */
+function assignmentStep(assignments: Record<string, unknown>, seed: Record<string, unknown> = {}) {
+  const nodes: SimNode[] = [
+    { id: 's', type: 'start' },
+    { id: 'a', type: 'assignment', config: { assignments } },
+    { id: 'e', type: 'end' },
+  ];
+  const sim = new FlowSimulator(nodes, [
+    { source: 's', target: 'a' },
+    { source: 'a', target: 'e' },
+  ]);
+  sim.reset(seed);
+  sim.runToEnd();
+  return { sim, step: sim.state.steps.find((st) => st.nodeId === 'a') };
 }
 
 /** start → assignment({ assignments }) → end, run to completion from `seed`. */
@@ -199,52 +217,40 @@ describe('guard controls: answers that do not change (objectui#10615)', () => {
   });
 });
 
-describe('assignment values are interpolated the way the runtime interpolates them (objectui#10615)', () => {
-  it('a {token} inside a nested object is interpolated', () => {
-    const vars = runAssignment({ who: 'Ada', o: { greet: 'hi {who}' } });
-    expect(vars.o).toEqual({ greet: 'hi Ada' });
+describe('an assignment value is a literal; a {token} in one is refused, as the runtime refuses it (objectui#12329)', () => {
+  // The runtime's refusal is `flowNodeValueTemplateRefusals`, read here from
+  // the installed spec, so the expectation is the producer's own text.
+  const refusalOf = (assignments: Record<string, unknown>) =>
+    flowNodeValueTemplateRefusals('assignment', { assignments })[0];
+
+  const refused: Array<[string, Record<string, unknown>]> = [
+    ['a {token} inside a nested object', { who: 'Ada', o: { greet: 'hi {who}' } }],
+    ['a {token} element of an array', { who: 'Ada', list: ['{who}', 3] }],
+    ['a whole {token}', { n: 2, v: '{n}' }],
+    ['a dotted {token}', { order: { amount: 9 }, amount: '{order.amount}' }],
+    ['a {NOW()} token', { when: '{NOW()}' }],
+  ];
+  it.each(refused)('%s fails the node with the spec refusal, and nothing is written', (_name, assignments) => {
+    const expected = refusalOf(assignments);
+    expect(expected).toBeDefined();
+    const { sim, step } = assignmentStep(assignments, { keep: 1 });
+    expect(step?.status).toBe('error');
+    expect(step?.error).toContain(expected!.message);
+    expect(step?.error).toContain(`config.${expected!.path}`);
+    expect(sim.state.status).toBe('error');
+    // Refused before any variable is set, as the executor refuses it.
+    expect(sim.state.variables).toEqual({ keep: 1 });
   });
 
-  it('every element of an array is interpolated; a non-string element is kept', () => {
-    const vars = runAssignment({ who: 'Ada', list: ['{who}', 'x {who}', 3] });
-    expect(vars.list).toEqual(['Ada', 'x Ada', 3]);
-  });
-
-  it('a whole token keeps its type inside an object', () => {
-    const vars = runAssignment({ n: 2, o: { v: '{n}' } });
-    expect((vars.o as { v: unknown }).v).toBe(2);
-  });
-
-  it('a key is not interpolated', () => {
-    const vars = runAssignment({ who: 'Ada', o: { '{who}': 'v' } });
+  it('a key spelling a token is not judged: a key is a name, never a value', () => {
+    const vars = runAssignment({ o: { '{who}': 'v' } });
     expect(vars.o).toEqual({ '{who}': 'v' });
   });
 
-  it('a whole token naming no variable is undefined; inside a string it is empty', () => {
-    const vars = runAssignment({ whole: '{missing}', inside: 'a {missing} b' });
-    expect('whole' in vars).toBe(true);
-    expect(vars.whole).toBeUndefined();
-    expect(vars.inside).toBe('a  b');
-  });
-
-  it('an object token inside a string renders as JSON', () => {
-    const vars = runAssignment({ o: { x: 1 }, v: 'o={o}' });
-    expect(vars.v).toBe('o={"x":1}');
-  });
-
-  it('a dotted token walks into an object variable and indexes an array', () => {
-    const vars = runAssignment({ order: { amount: 9 }, list: ['a', 'b'], amount: '{order.amount}', second: '{list.1}' });
-    expect(vars.amount).toBe(9);
-    expect(vars.second).toBe('b');
-  });
-
-  it('control: a token-free nested value is written unchanged', () => {
-    const vars = runAssignment({ meta: { a: 1, b: 'plain', c: [true, null] } });
-    expect(vars.meta).toEqual({ a: 1, b: 'plain', c: [true, null] });
-  });
-
-  it('control: a token the simulator does not model is kept as written', () => {
-    const vars = runAssignment({ when: '{NOW()}' });
-    expect(vars.when).toBe('{NOW()}');
+  it('control: a token-free nested value is written as it is, as a copy', () => {
+    const meta = { a: 1, b: 'plain', c: [true, null] };
+    const vars = runAssignment({ meta });
+    expect(vars.meta).toEqual(meta);
+    expect(vars.meta).not.toBe(meta);
   });
 });

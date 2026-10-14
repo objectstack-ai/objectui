@@ -1,12 +1,14 @@
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * FlowNodeConfigField — inline expression/template validation gating (#2670
- * Phase 3 B). The malformed-condition brace-trap (ADR-0032) must fire on a real
- * CEL predicate but stay silent on a legitimate `interpolate()` `{var}` template
- * — an expression field flagged `refMode: 'template'` (e.g. a loop/map
- * collection). The scope-aware unknown-reference note still applies to a
- * template, using `{…}`-hole semantics rather than CEL predicate semantics.
+ * FlowNodeConfigField — inline expression validation gating (#2670 Phase 3 B).
+ * The malformed-condition brace-trap (ADR-0032) fires on a real CEL predicate.
+ *
+ * objectui#12329 — it fires on a field marked `refMode: 'template'` too: the
+ * one such field the value-slot control does not take is a body-less loop's
+ * `collection`, whose executor reads the bare name of a list variable, so a
+ * stored `{leadList}` names no variable. It used to be read as a legal
+ * single-brace template, a dialect objectstack#19939 S7 deleted.
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
@@ -43,8 +45,8 @@ const CEL_CONDITION: FlowConfigField = {
   kind: 'expression',
 };
 
-describe('FlowNodeConfigField — expression vs template validation gating', () => {
-  it('does NOT flag a `{leadList}` template on an expression field in template mode', () => {
+describe('FlowNodeConfigField — expression validation gating', () => {
+  it('flags a `{leadList}` on a body-less collection, with the bare name as the fix (objectui#12329)', () => {
     render(
       <FlowNodeConfigField
         field={TEMPLATE_COLLECTION}
@@ -53,24 +55,32 @@ describe('FlowNodeConfigField — expression vs template validation gating', () 
         scopeGroups={scope(['leadList'])}
       />,
     );
-    // The pre-fix bug: the CEL brace-trap fired on the legal single-brace hole.
-    expect(screen.queryByRole('alert')).toBeNull();
-    // In scope → no unknown-reference note either.
-    expect(screen.queryByRole('note')).toBeNull();
+    expect(screen.getByRole('alert').textContent).toContain('`leadList`');
   });
 
-  it('surfaces an out-of-scope hole as a template NOTE (not a CEL error)', () => {
+  it('control: the bare name in scope is clean', () => {
     render(
       <FlowNodeConfigField
         field={TEMPLATE_COLLECTION}
-        value="{leadLst}"
+        value="leadList"
         onCommit={() => {}}
         scopeGroups={scope(['leadList'])}
       />,
     );
-    // No brace-trap error…
     expect(screen.queryByRole('alert')).toBeNull();
-    // …but a gentle "did you mean" note, scanned as a `{…}` template hole.
+    expect(screen.queryByRole('note')).toBeNull();
+  });
+
+  it('surfaces an out-of-scope bare name as a NOTE (not an error)', () => {
+    render(
+      <FlowNodeConfigField
+        field={TEMPLATE_COLLECTION}
+        value="leadLst"
+        onCommit={() => {}}
+        scopeGroups={scope(['leadList'])}
+      />,
+    );
+    expect(screen.queryByRole('alert')).toBeNull();
     const note = screen.getByRole('note');
     expect(note.textContent).toMatch(/leadList/);
   });

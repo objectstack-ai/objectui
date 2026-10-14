@@ -144,16 +144,16 @@ describe('objectui#11824 — what stays as it was', () => {
     expect(screen.getByRole('alert').textContent).toBe(validateExpressionClient('predicate', '{record.amount} > 1')!.message);
   });
 
-  it('a slot outside the five keeps the single-brace template: no flag, the picker inserts {x}', async () => {
+  it('a text field outside the slots is a literal: no hole flag, and no picker (objectui#12329)', () => {
+    // Rendered with no node, so the value-slot control does not take it: the
+    // descriptor's own text control. Since spec 18 no such string reads a
+    // `{…}` token, so there is nothing for a picker to insert.
     const body = fieldOf('http_request', 'body');
     expect(body.refMode).toBeUndefined();
-    const commits: unknown[] = [];
-    render(<FlowNodeConfigField field={body} value="{a}" onCommit={(v) => commits.push(v)} scopeGroups={scope(['a', 'customer'])} />);
+    render(<FlowNodeConfigField field={body} value="{a}" onCommit={() => {}} scopeGroups={scope(['a', 'customer'])} />);
     expect(screen.queryByRole('alert')).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: PICK }));
-    const options = await screen.findAllByRole('option');
-    await userEvent.click(options.find((o) => o.textContent?.includes('customer'))!);
-    expect(commits[commits.length - 1]).toBe('{a}{customer}');
+    expect(screen.queryByRole('note')).toBeNull();
+    expect(screen.queryByRole('button', { name: PICK })).toBeNull();
   });
 });
 

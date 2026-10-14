@@ -1,9 +1,8 @@
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * The Debug run leaves a node, gates a screen field and renders a template
- * token the way the runtime does (objectui#10692, with objectui#10693 and
- * objectui#10695 folded in). One row per case; each expectation is the
+ * The Debug run leaves a node and gates a screen field the way the runtime
+ * does (objectui#10692, with objectui#10693 folded in). One row per case; each expectation is the
  * runtime's answer, read at objectstack main from:
  *
  * - `AutomationEngine.traverseNext` (`@objectstack/service-automation`) —
@@ -22,13 +21,13 @@
  *   and judges only its scope (objectui#10743). The runtime's resume door
  *   (`refuseInvalidScreenInput`) still reads the run's variables until
  *   objectstack#20178 lands.
- * - `interpolateString` / `resolveToken` (`builtin/template.ts`) — the
- *   runtime renders `NOW()`, `$User.*` and arithmetic tokens to a value.
  *
- * Two rows keep a rule the runtime does not share, and say so: several true
- * guards take the first (objectstack#15429, ruling pending), and a token the
- * Debug run does not model is kept as written and named on the step instead
- * of rendered.
+ * One row keeps a rule the runtime does not share, and says so: several true
+ * guards take the first (objectstack#15429, ruling pending). The rows that
+ * kept an unmodelled `{…}` token as written (objectui#10695) are gone with the
+ * runtime's single-brace interpolator (objectstack#19939 S7): an assignment
+ * value spelling one is refused, pinned in
+ * `flow-simulator.guardsInterpolation-10615.test.ts` (objectui#12329).
  *
  * Every run goes through the real `FlowSimulator`.
  */
@@ -279,46 +278,5 @@ describe('a screen field visibleWhen is decided live by the screen renderer; the
     expect(step?.status).toBe('paused');
     expect(step?.error).toMatch(/"b"/);
     expect(step?.error).not.toMatch(/"a"|"c"/);
-  });
-});
-
-describe('a template token the Debug run does not model is kept as written and named (objectui#10692, objectui#10695)', () => {
-  function assign(assignments: Record<string, unknown>, seed: Record<string, unknown> = {}) {
-    const sim = run(
-      [{ id: 's', type: 'start' }, { id: 'as', type: 'assignment', config: { assignments } }, end('e')],
-      [
-        { source: 's', target: 'as' },
-        { source: 'as', target: 'e' },
-      ],
-      seed,
-    );
-    return { vars: sim.state.variables, step: sim.state.steps.find((st) => st.nodeId === 'as') };
-  }
-
-  const embedded: Array<[string, string, Record<string, unknown>]> = [
-    ['NOW() inside a longer string', 'at {NOW()}', {}],
-    ['$User.Email inside a longer string', 'to {$User.Email}', {}],
-    ['arithmetic inside a longer string', 'v={n + 1}', { n: 2 }],
-  ];
-
-  it.each(embedded)('%s', (_name, value, seed) => {
-    // The runtime renders a value here; the Debug run cannot, so it shows
-    // the token as written rather than `''`, and names it on the step.
-    const { vars, step } = assign({ out: value }, seed);
-    expect(vars.out).toBe(value);
-    expect(step?.status).toBe('ok');
-    expect(step?.note).toContain(`in "out"`);
-  });
-
-  it('a whole unmodelled token is named on the step too', () => {
-    const { vars, step } = assign({ when: '{NOW()}' });
-    expect(vars.when).toBe('{NOW()}');
-    expect(step?.note).toContain('{NOW()} in "when"');
-  });
-
-  it('control: a modelled token renders, and the step names nothing', () => {
-    const { vars, step } = assign({ who: 'Ada', greet: 'hi {who}' });
-    expect(vars.greet).toBe('hi Ada');
-    expect(step?.note ?? '').not.toMatch(/Kept as written/);
   });
 });

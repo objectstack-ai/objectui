@@ -663,7 +663,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       // one, and FlowEdgeInspector.applyBranch() writes the marker. Saying
       // "a `true` branch IS the default path" conflated the two, which is the
       // reading that let a decision ship with a guard that did not guard.
-      help: 'Each branch has a label, a CEL expression (no {braces}), and a target node. Branches are tried in order and the first match wins. A branch whose expression is "true" is the catch-all: picking its target marks that out-edge as the default path, taken only when no other branch matched. Picking a target wires the branch’s outgoing edge (creating or updating it); clearing it detaches that edge.',
+      help: 'Each branch has a label, a CEL expression (bare references, no braces), and a target node. Branches are tried in order and the first match wins. A branch whose expression is "true" is the catch-all: picking its target marks that out-edge as the default path, taken only when no other branch matched. Picking a target wires the branch’s outgoing edge (creating or updating it); clearing it detaches that edge.',
       columns: [
         { key: 'label', label: 'Label', kind: 'text', placeholder: 'Has deals' },
         { key: 'expression', label: 'Expression', kind: 'expression', placeholder: 'expiring_deals.length > 0' },

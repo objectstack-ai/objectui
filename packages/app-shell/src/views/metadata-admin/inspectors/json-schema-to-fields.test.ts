@@ -344,15 +344,18 @@ describe('jsonSchemaToFlowFields — xExpression authoring-mode marker', () => {
     expect(f.refMode).toBeUndefined();
   });
 
-  it("maps xExpression:'template' to an expression field flagged refMode:'template'", () => {
-    const f = field(
-      { type: 'object', properties: { collection: { type: 'string', xExpression: 'template' } } },
-      'collection',
-    );
-    // mono expression styling + data-picker, but `{var}` mode and no CEL brace-trap.
-    expect(f.kind).toBe('expression');
-    expect(f.refMode).toBe('template');
-  });
+  // objectui#12329 — the single-brace dialect is deleted (objectstack#19939
+  // S7) and the installed spec publishes the mark nowhere. Mapped to a picker
+  // it would offer a token no flow string reads, so it degrades like any other
+  // unknown mark: a literal text field. So does `'value'`, which the spec now
+  // publishes on a loop / map `collection` (the ledger renders that slot).
+  for (const marker of ['template', 'value']) {
+    it(`degrades xExpression:'${marker}' to plain text (no refMode)`, () => {
+      const f = field({ type: 'object', properties: { collection: { type: 'string', xExpression: marker } } }, 'collection');
+      expect(f.kind).toBe('text');
+      expect(f.refMode).toBeUndefined();
+    });
+  }
 
   it("maps a multiline xExpression:'expression' to a textarea in bare-ref (script-body) mode", () => {
     const f = field(
@@ -363,13 +366,13 @@ describe('jsonSchemaToFlowFields — xExpression authoring-mode marker', () => {
     expect(f.refMode).toBe('expression');
   });
 
-  it("maps a multiline xExpression:'template' to a textarea in template mode", () => {
+  it("degrades a multiline xExpression:'template' to a plain textarea (objectui#12329)", () => {
     const f = field(
       { type: 'object', properties: { body: { type: 'string', format: 'multiline', xExpression: 'template' } } },
       'body',
     );
     expect(f.kind).toBe('textarea');
-    expect(f.refMode).toBe('template');
+    expect(f.refMode).toBeUndefined();
   });
 
   it('degrades an unknown xExpression value to plain text (no refMode)', () => {
@@ -403,13 +406,13 @@ describe('jsonSchemaToFlowFields — xExpression authoring-mode marker', () => {
       {
         type: 'object',
         properties: {
-          group: { type: 'object', properties: { where: { type: 'string', xExpression: 'template' } } },
+          group: { type: 'object', properties: { where: { type: 'string', format: 'multiline', xExpression: 'expression' } } },
         },
       },
       'group.where',
     );
-    expect(f.kind).toBe('expression');
-    expect(f.refMode).toBe('template');
+    expect(f.kind).toBe('textarea');
+    expect(f.refMode).toBe('expression');
   });
 
   it('maps xExpression columns: expression → CEL column, template → text (columns carry no refMode)', () => {

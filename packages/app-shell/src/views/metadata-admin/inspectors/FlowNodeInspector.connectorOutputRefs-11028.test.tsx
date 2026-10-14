@@ -71,7 +71,9 @@ function makeDraft(connectorConfig: Record<string, unknown> = { connectorId: 'sl
     nodes: [
       { id: 'start', type: 'start' },
       { id: 'fetch_history', type: 'connector_action', label: 'Read channel history', connectorConfig },
-      { id: 'each', type: 'loop', label: 'For each message', config: { collection: '{fetch_history.messages}' } },
+      // A body-less loop reads `collection` as a bare reference (objectui#12329:
+      // the single-brace spelling is retired, and the field judges it as CEL).
+      { id: 'each', type: 'loop', label: 'For each message', config: { collection: 'fetch_history.messages' } },
       { id: 'done', type: 'end' },
     ],
     edges: [

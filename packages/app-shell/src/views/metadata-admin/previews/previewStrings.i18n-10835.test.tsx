@@ -389,18 +389,18 @@ describe('the Debug run — the four named sites (objectui#10835)', () => {
 });
 
 /**
- * One run through most of what the Debug run writes: an assignment keeping an
- * unmodelled token, a mocked record read, a decision branch, a single-pass loop,
+ * One run through most of what the Debug run writes: an assignment, a mocked
+ * record read, a decision branch, a single-pass loop over a list variable,
  * a parallel split, a node kind the simulator does not model, a mocked function
  * call and the end.
  */
 const SWEEP_FLOW: { nodes: SimNode[]; edges: SimEdge[] } = {
   nodes: [
     START,
-    { id: 'setup', type: 'assignment', label: 'Setup', config: { assignments: { x: 1, when: '{NOW()}' } } },
+    { id: 'setup', type: 'assignment', label: 'Setup', config: { assignments: { x: 1, rows: ['a', 'b'] } } },
     { id: 'fetch', type: 'get_record', label: 'Fetch', config: { outputVariable: 'acct' } },
     { id: 'route', type: 'decision', label: 'Route', config: { conditions: [{ label: 'big', expression: 'x > 0' }] } },
-    { id: 'each', type: 'loop', label: 'Each', config: {} },
+    { id: 'each', type: 'loop', label: 'Each', config: { collection: 'rows' } },
     { id: 'split', type: 'parallel_gateway', label: 'Split' },
     { id: 'sub', type: 'subflow', label: 'Sub' },
     { id: 'call', type: 'script', label: 'Call', config: { function: 'notifyOwner' } },
@@ -438,13 +438,12 @@ describe('the Debug run — the other step records (objectui#10835)', () => {
   for (const lang of ['zh', 'en'] as const) {
     it(`${lang}: every note of one run reads its engine.flowSim.note.* row`, () => {
       const steps = runFlow(lang, SWEEP_FLOW);
-      const unmodelled = note(lang, 'engine.flowSim.note.unmodelledToken', { token: '{NOW()}', key: 'when' });
       expect(steps.map((s) => [s.label, s.status, s.note])).toEqual([
         ['Start', statusChip(lang, 'ok'), null],
-        ['Setup', statusChip(lang, 'ok'), note(lang, 'engine.flowSim.note.unmodelled', { tokens: unmodelled })],
+        ['Setup', statusChip(lang, 'ok'), null],
         ['Fetch', statusChip(lang, 'mocked'), note(lang, 'engine.flowSim.note.mocked', { type: 'get record' })],
         ['Route', statusChip(lang, 'ok'), note(lang, 'engine.flowSim.note.branchMatched', { label: 'big' })],
-        ['Each', statusChip(lang, 'ok'), note(lang, 'engine.flowSim.note.loopSinglePass')],
+        ['Each', statusChip(lang, 'ok'), note(lang, 'engine.flowSim.note.loopCollection', { ref: 'rows', count: 2 })],
         ['Split', statusChip(lang, 'ok'), note(lang, 'engine.flowSim.note.parallelSplit')],
         ['Sub', statusChip(lang, 'skipped'), note(lang, 'engine.flowSim.note.unsupported', { type: 'subflow' })],
         ['Call', statusChip(lang, 'mocked'), note(lang, 'engine.flowSim.note.mockedCall', { fn: 'notifyOwner' })],
@@ -452,11 +451,9 @@ describe('the Debug run — the other step records (objectui#10835)', () => {
       ]);
       if (lang === 'zh') {
         for (const k of [
-          'engine.flowSim.note.unmodelled',
-          'engine.flowSim.note.unmodelledToken',
           'engine.flowSim.note.mocked',
           'engine.flowSim.note.branchMatched',
-          'engine.flowSim.note.loopSinglePass',
+          'engine.flowSim.note.loopCollection',
           'engine.flowSim.note.parallelSplit',
           'engine.flowSim.note.unsupported',
           'engine.flowSim.note.mockedCall',
@@ -501,6 +498,32 @@ describe('the Debug run — the other step records (objectui#10835)', () => {
       // The error sentence is the CEL source and the parser's own text.
       expect(steps[1].error?.startsWith('(1 > 2: ')).toBe(true);
       if (lang === 'zh') for (const k of ['engine.flowSim.stepStatus.error', 'engine.flowSim.edge.error']) zhRow(k);
+    });
+
+    it(`${lang}: a loop whose collection is no list fails with loopCollectionNotList (objectui#12329)`, () => {
+      const steps = runFlow(
+        lang,
+        linear(
+          START,
+          {
+            id: 'each',
+            type: 'loop',
+            label: 'Each',
+            config: {
+              collection: { dialect: 'cel', source: '1 + 1' },
+              iteratorVariable: 'it',
+              body: { nodes: [{ id: 'inner', type: 'assignment' }], edges: [] },
+            },
+          },
+          END,
+        ),
+      );
+      expect(steps[1]).toMatchObject({
+        label: 'Each',
+        status: statusChip(lang, 'error'),
+        error: note(lang, 'engine.flowSim.note.loopCollectionNotList', { ref: '1 + 1' }),
+      });
+      if (lang === 'zh') zhRow('engine.flowSim.note.loopCollectionNotList');
     });
   }
 });

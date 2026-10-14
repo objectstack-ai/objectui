@@ -351,11 +351,11 @@ describe('FlowSimulator', () => {
     expect(sim.state.steps.find((st) => st.nodeId === 'scr')?.status).toBe('ok');
   });
 
-  it('applies assignment config (assignments map + {var} interpolation) to variables', () => {
+  it('applies assignment config (assignments map, literals as written) to variables', () => {
     const sim = new FlowSimulator(
       [
         { id: 's', type: 'start' },
-        { id: 'a', type: 'assignment', config: { assignments: { who: 'Ada', greeting: 'hi {who}' } } },
+        { id: 'a', type: 'assignment', config: { assignments: { who: 'Ada', greeting: 'hi Ada' } } },
         { id: 'e', type: 'end' },
       ],
       [

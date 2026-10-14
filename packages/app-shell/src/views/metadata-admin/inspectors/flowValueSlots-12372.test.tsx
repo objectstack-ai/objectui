@@ -218,17 +218,22 @@ describe('objectui#12372 — the spec decides which positions are value slots', 
     }
   });
 
-  it('a served collection marked as a template field still gets the value-slot control', () => {
-    const served = jsonSchemaToFlowFields({
-      type: 'object',
-      properties: { collection: { type: 'string', title: 'Collection', xExpression: 'template' }, flowName: { type: 'string' } },
+  // objectui#12329 — the installed spec marks the descriptor's `collection`
+  // `xExpression: 'value'`; an older server's retired `'template'` mark maps to
+  // the same plain text field. Either way the ledger decides the control.
+  for (const marker of ['value', 'template']) {
+    it(`a served collection marked '${marker}' gets the value-slot control`, () => {
+      const served = jsonSchemaToFlowFields({
+        type: 'object',
+        properties: { collection: { type: 'string', title: 'Collection', xExpression: marker }, flowName: { type: 'string' } },
+      });
+      const field = mergeServerFlowFields(served, 'map').find((f) => f.path[1] === 'collection')!;
+      expect(field.refMode).toBeUndefined();
+      renderField(field, { type: 'map', config: { flowName: 'per_item' } }, '{items}');
+      expect(screen.getByRole('button', { name: TOGGLE })).toBeInTheDocument();
+      expect(screen.getByRole('alert').textContent).toContain("{ dialect: 'cel', source: 'items' }");
     });
-    const field = mergeServerFlowFields(served, 'map').find((f) => f.path[1] === 'collection')!;
-    expect(field.refMode).toBe('template');
-    renderField(field, { type: 'map', config: { flowName: 'per_item' } }, '{items}');
-    expect(screen.getByRole('button', { name: TOGGLE })).toBeInTheDocument();
-    expect(screen.getByRole('alert').textContent).toContain("{ dialect: 'cel', source: 'items' }");
-  });
+  }
 });
 
 describe('objectui#12372 — a CRUD filter is a value map judged by the filter-operand rule', () => {

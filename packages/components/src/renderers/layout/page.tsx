@@ -21,13 +21,14 @@ import {
   PageVariablesProvider,
   PageVariableActionBridge,
   PrintPageProvider,
+  usePrintPage,
   resolveInlineAriaProps,
 } from '@object-ui/react';
 import { ComponentRegistry, toDomProps } from '@object-ui/core';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { compile, manifestFromConfigs, type Diagnostic } from '@object-ui/sdui-parser';
 import { ReactKindPage } from './react-page';
-import { PRINT_PAGE_ATTRIBUTE, buildPagePrintStylesheet, isPagePrintDeclaration } from './page-print';
+import { PRINT_PAGE_ATTRIBUTE, PRINT_RUNNING_ATTRIBUTE, buildPagePrintStylesheet, isPagePrintDeclaration } from './page-print';
 import { cn } from '../../lib/utils';
 
 // ---------------------------------------------------------------------------
@@ -213,6 +214,59 @@ const RegionContent: React.FC<{
 };
 
 // ---------------------------------------------------------------------------
+// RunningRegions — the running header and footer of a print page
+// ---------------------------------------------------------------------------
+
+/**
+ * Places a layout's `header` region, its body and its `footer` region as the
+ * layout's flex children, as they always were — unless the enclosing page
+ * declares `print.repeatHeader` / `print.repeatFooter` (objectui#11958).
+ *
+ * Then the three go into a table whose `thead` / `tfoot` hold the repeated
+ * region, because the browser repeats a table's header and footer on every
+ * sheet it runs onto, and only a REAL `thead` / `tfoot` (measured in Chromium
+ * 141: a `div` with `display: table-header-group` printed once). On screen the
+ * table, its sections, rows and cells are `display: contents`, so the regions
+ * are still the layout's flex children and the page looks as it always did;
+ * the print stylesheet (`./page-print.ts`) makes them a table on paper only.
+ * Without either flag nothing is wrapped and the DOM is unchanged.
+ */
+const RunningRegions: React.FC<{
+  header?: React.ReactNode;
+  footer?: React.ReactNode;
+  children: React.ReactNode;
+}> = ({ header, footer, children }) => {
+  const print = usePrintPage();
+  const repeatHeader = print?.repeatHeader === true && !!header;
+  const repeatFooter = print?.repeatFooter === true && !!footer;
+  if (!repeatHeader && !repeatFooter) {
+    return (
+      <>
+        {header}
+        {children}
+        {footer}
+      </>
+    );
+  }
+  const row = (content: React.ReactNode) => (
+    <tr className="contents">
+      <td className="contents">{content}</td>
+    </tr>
+  );
+  return (
+    <table className="contents" role="presentation" {...{ [PRINT_RUNNING_ATTRIBUTE]: '' }}>
+      {repeatHeader && <thead className="contents">{row(header)}</thead>}
+      <tbody className="contents">
+        {!repeatHeader && header ? row(header) : null}
+        {row(children)}
+        {!repeatFooter && footer ? row(footer) : null}
+      </tbody>
+      {repeatFooter && <tfoot className="contents">{row(footer)}</tfoot>}
+    </table>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // RegionLayout — structured layout with named slots
 // ---------------------------------------------------------------------------
 
@@ -244,43 +298,42 @@ const RegionLayout: React.FC<{
 
   return (
     <div className={cn('flex flex-col gap-6', className)} data-page-layout={pageType}>
-      {/* Header region */}
-      {header && (
-        <RegionContent
-          region={header}
-          className={cn(getRegionWidthClass(header.width as string))}
-        />
-      )}
-
-      {/* Body: sidebar + main + aside */}
-      <div className="flex flex-col md:flex-row flex-1 gap-6">
-        {sidebar && (
-          <aside className={cn('md:shrink-0', getSidebarWidthClass(sidebar.width as string || 'small'))}>
-            <RegionContent region={sidebar} />
-          </aside>
+      <RunningRegions
+        header={header && (
+          <RegionContent
+            region={header}
+            className={cn(getRegionWidthClass(header.width as string))}
+          />
         )}
+        footer={footer && (
+          <RegionContent
+            region={footer}
+            className={cn(getRegionWidthClass(footer.width as string))}
+          />
+        )}
+      >
+        {/* Body: sidebar + main + aside */}
+        <div className="flex flex-col md:flex-row flex-1 gap-6">
+          {sidebar && (
+            <aside className={cn('md:shrink-0', getSidebarWidthClass(sidebar.width as string || 'small'))}>
+              <RegionContent region={sidebar} />
+            </aside>
+          )}
 
-        <div className="flex-1 min-w-0 space-y-6">
-          {main && <RegionContent region={main} />}
-          {extras.map((region, idx) => (
-            <RegionContent key={region.name || `extra-${idx}`} region={region} />
-          ))}
+          <div className="flex-1 min-w-0 space-y-6">
+            {main && <RegionContent region={main} />}
+            {extras.map((region, idx) => (
+              <RegionContent key={region.name || `extra-${idx}`} region={region} />
+            ))}
+          </div>
+
+          {aside && (
+            <aside className={cn('md:shrink-0', getSidebarWidthClass(aside.width as string || 'small'), aside.className)}>
+              <RegionContent region={aside} />
+            </aside>
+          )}
         </div>
-
-        {aside && (
-          <aside className={cn('md:shrink-0', getSidebarWidthClass(aside.width as string || 'small'), aside.className)}>
-            <RegionContent region={aside} />
-          </aside>
-        )}
-      </div>
-
-      {/* Footer region */}
-      {footer && (
-        <RegionContent
-          region={footer}
-          className={cn(getRegionWidthClass(footer.width as string))}
-        />
-      )}
+      </RunningRegions>
     </div>
   );
 };
@@ -332,20 +385,21 @@ const HeaderSidebarMainTemplate: React.FC<{ schema: PageNodeSchema }> = ({ schem
 
   return (
     <div className="flex flex-col gap-6" data-template="header-sidebar-main">
-      {header && <RegionContent region={header} />}
-      <div className="flex flex-col md:flex-row flex-1 gap-6">
-        {sidebar && (
-          <aside className={cn('md:shrink-0', getSidebarWidthClass(sidebar.width as string || 'medium'))}>
-            <RegionContent region={sidebar} />
-          </aside>
-        )}
-        <div className="flex-1 min-w-0 space-y-6">
-          {main && <RegionContent region={main} />}
-          {extras.map((region, idx) => (
-            <RegionContent key={region.name || `extra-${idx}`} region={region} />
-          ))}
+      <RunningRegions header={header && <RegionContent region={header} />}>
+        <div className="flex flex-col md:flex-row flex-1 gap-6">
+          {sidebar && (
+            <aside className={cn('md:shrink-0', getSidebarWidthClass(sidebar.width as string || 'medium'))}>
+              <RegionContent region={sidebar} />
+            </aside>
+          )}
+          <div className="flex-1 min-w-0 space-y-6">
+            {main && <RegionContent region={main} />}
+            {extras.map((region, idx) => (
+              <RegionContent key={region.name || `extra-${idx}`} region={region} />
+            ))}
+          </div>
         </div>
-      </div>
+      </RunningRegions>
     </div>
   );
 };
@@ -364,26 +418,29 @@ const ThreeColumnTemplate: React.FC<{ schema: PageNodeSchema }> = ({ schema }) =
 
   return (
     <div className="flex flex-col gap-6" data-template="three-column">
-      {header && <RegionContent region={header} />}
-      <div className="flex flex-col md:flex-row flex-1 gap-6">
-        {sidebar && (
-          <aside className={cn('md:shrink-0', getSidebarWidthClass(sidebar.width as string || 'small'))}>
-            <RegionContent region={sidebar} />
-          </aside>
-        )}
-        <div className="flex-1 min-w-0 space-y-6">
-          {main && <RegionContent region={main} />}
-          {extras.map((region, idx) => (
-            <RegionContent key={region.name || `extra-${idx}`} region={region} />
-          ))}
+      <RunningRegions
+        header={header && <RegionContent region={header} />}
+        footer={footer && <RegionContent region={footer} />}
+      >
+        <div className="flex flex-col md:flex-row flex-1 gap-6">
+          {sidebar && (
+            <aside className={cn('md:shrink-0', getSidebarWidthClass(sidebar.width as string || 'small'))}>
+              <RegionContent region={sidebar} />
+            </aside>
+          )}
+          <div className="flex-1 min-w-0 space-y-6">
+            {main && <RegionContent region={main} />}
+            {extras.map((region, idx) => (
+              <RegionContent key={region.name || `extra-${idx}`} region={region} />
+            ))}
+          </div>
+          {aside && (
+            <aside className={cn('md:shrink-0', getSidebarWidthClass(aside.width as string || 'small'), aside.className)}>
+              <RegionContent region={aside} />
+            </aside>
+          )}
         </div>
-        {aside && (
-          <aside className={cn('md:shrink-0', getSidebarWidthClass(aside.width as string || 'small'), aside.className)}>
-            <RegionContent region={aside} />
-          </aside>
-        )}
-      </div>
-      {footer && <RegionContent region={footer} />}
+      </RunningRegions>
     </div>
   );
 };
@@ -399,13 +456,16 @@ const DashboardTemplate: React.FC<{ schema: PageNodeSchema }> = ({ schema }) => 
 
   return (
     <div className="flex flex-col gap-6" data-template="dashboard">
-      {header && <RegionContent region={header} />}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {contentRegions.map((region, idx) => (
-          <RegionContent key={region.name || `region-${idx}`} region={region} />
-        ))}
-      </div>
-      {footer && <RegionContent region={footer} />}
+      <RunningRegions
+        header={header && <RegionContent region={header} />}
+        footer={footer && <RegionContent region={footer} />}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {contentRegions.map((region, idx) => (
+            <RegionContent key={region.name || `region-${idx}`} region={region} />
+          ))}
+        </div>
+      </RunningRegions>
     </div>
   );
 };

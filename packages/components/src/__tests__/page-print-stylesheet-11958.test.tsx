@@ -20,6 +20,10 @@
  *    stylesheet and the `PrintPageProvider`; the same page without `print`
  *    carries none of them, and apart from those two additions the two pages'
  *    DOM is byte-identical ("the page renders on screen exactly as before").
+ *    The one DOM addition beyond them is the running-region table that
+ *    `repeatHeader` / `repeatFooter` need (a real `thead` / `tfoot` is what the
+ *    browser repeats); every box of it is `display: contents` on screen, so
+ *    the regions keep the layout they had.
  *
  * ⚠️ `@media print` does not apply under happy-dom, so nothing here can show a
  * rule MATCHING on paper; that was measured once in Chromium for the pull
@@ -31,7 +35,7 @@ import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer, usePrintPage } from '@object-ui/react';
 import '../renderers';
-import { buildPagePrintStylesheet, PRINT_PAGE_ATTRIBUTE } from '../renderers/layout/page-print';
+import { buildPagePrintStylesheet, PRINT_PAGE_ATTRIBUTE, PRINT_RUNNING_ATTRIBUTE } from '../renderers/layout/page-print';
 
 afterEach(() => cleanup());
 
@@ -73,19 +77,21 @@ describe('buildPagePrintStylesheet — one print-CSS rule per declared key (obje
     expect(buildPagePrintStylesheet({})).not.toContain('counter(page)');
   });
 
-  it('`repeatHeader` / `repeatFooter` → the header / footer region drawn as a table header / footer group', () => {
-    const css = buildPagePrintStylesheet({ repeatHeader: true, repeatFooter: true });
-    expect(css).toContain(`[${PRINT_PAGE_ATTRIBUTE}] [data-region="header"] { display: table-header-group !important; }`);
-    expect(css).toContain(`[${PRINT_PAGE_ATTRIBUTE}] [data-region="footer"] { display: table-footer-group !important; }`);
-    expect(css).toContain('display: table !important;');
-    const plain = buildPagePrintStylesheet({});
-    expect(plain).not.toContain('[data-region="header"]');
-    expect(plain).not.toContain('[data-region="footer"]');
+  it('`repeatHeader` / `repeatFooter` → the running-region table is a table on paper, its thead / tfoot repeating', () => {
+    const table = `[${PRINT_PAGE_ATTRIBUTE}] table[${PRINT_RUNNING_ATTRIBUTE}]`;
+    for (const css of [buildPagePrintStylesheet({ repeatHeader: true }), buildPagePrintStylesheet({ repeatFooter: true })]) {
+      expect(css).toContain(`${table} { display: table !important;`);
+      expect(css).toContain(`${table} > thead { display: table-header-group !important; }`);
+      expect(css).toContain(`${table} > tfoot { display: table-footer-group !important; }`);
+    }
+    expect(buildPagePrintStylesheet({})).not.toContain(PRINT_RUNNING_ATTRIBUTE + ']) {');
+    expect(buildPagePrintStylesheet({})).not.toContain(`${table} {`);
   });
 
-  it('`repeatTableHeaders` → `thead` as a header group, on when omitted; `false` stops the repeat', () => {
-    expect(buildPagePrintStylesheet({})).toContain(`[${PRINT_PAGE_ATTRIBUTE}] thead { display: table-header-group !important; }`);
-    expect(buildPagePrintStylesheet({ repeatTableHeaders: false })).toContain(`[${PRINT_PAGE_ATTRIBUTE}] thead { display: table-row-group !important; }`);
+  it('`repeatTableHeaders` → a table’s `thead` as a header group, on when omitted; `false` stops the repeat', () => {
+    const thead = `[${PRINT_PAGE_ATTRIBUTE}] thead:not(table[${PRINT_RUNNING_ATTRIBUTE}] > thead)`;
+    expect(buildPagePrintStylesheet({})).toContain(`${thead} { display: table-header-group !important; }`);
+    expect(buildPagePrintStylesheet({ repeatTableHeaders: false })).toContain(`${thead} { display: table-row-group !important; }`);
   });
 
   it('`avoidBreakInside` → `break-inside: avoid` on every block of a region, off when omitted', () => {
@@ -137,7 +143,32 @@ describe('PageRenderer — a page that declares `print` mounts its print stylesh
     expect(container.querySelector('[data-testid="print-probe"]')?.textContent).toBe('none');
   });
 
-  it('on screen the print page is the same page: only the attribute and the stylesheet are added', () => {
+  it('`repeatHeader` / `repeatFooter` put the header / footer region in a real thead / tfoot, drawn `display: contents` on screen', () => {
+    const { container } = render(<SchemaRenderer schema={page({ repeatHeader: true, repeatFooter: true }) as any} />);
+    const table = container.querySelector(`table[${PRINT_RUNNING_ATTRIBUTE}]`)!;
+    expect(table).not.toBeNull();
+    expect(table.querySelector(':scope > thead [data-region="header"]')).not.toBeNull();
+    expect(table.querySelector(':scope > tfoot [data-region="footer"]')).not.toBeNull();
+    expect(table.querySelector(':scope > tbody [data-region="main"]')).not.toBeNull();
+    // Every table box is `contents` on screen, so the regions stay the layout's flex children.
+    for (const el of [table, ...table.querySelectorAll(':scope > *, :scope > * > tr, :scope > * > tr > td')]) {
+      expect(el.classList.contains('contents')).toBe(true);
+    }
+  });
+
+  it('a region that is not repeated prints once, in the body of the running-region table', () => {
+    const { container } = render(<SchemaRenderer schema={page({ repeatHeader: true }) as any} />);
+    const table = container.querySelector(`table[${PRINT_RUNNING_ATTRIBUTE}]`)!;
+    expect(table.querySelector(':scope > tfoot')).toBeNull();
+    expect(table.querySelector(':scope > tbody [data-region="footer"]')).not.toBeNull();
+  });
+
+  it('CONTROL — a print page without running regions draws no running-region table', () => {
+    const { container } = render(<SchemaRenderer schema={page({ paperSize: 'A4' }) as any} />);
+    expect(container.querySelector(`table[${PRINT_RUNNING_ATTRIBUTE}]`)).toBeNull();
+  });
+
+  it('on screen a print page without running regions is the same page: only the attribute and the stylesheet are added', () => {
     const printed = render(<SchemaRenderer schema={page({ pageNumbers: true }) as any} />).container;
     printed.querySelector('style[data-print-stylesheet]')!.remove();
     printed.querySelector(`[${PRINT_PAGE_ATTRIBUTE}]`)!.removeAttribute(PRINT_PAGE_ATTRIBUTE);

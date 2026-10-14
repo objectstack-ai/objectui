@@ -23,8 +23,15 @@
  *  - `pageNumbers` → the `@page` bottom-right margin box with `counter(page)`
  *    and `counter(pages)`;
  *  - `repeatHeader` / `repeatFooter` → the page's own `header` / `footer`
- *    region drawn as a table header / footer group, which the browser repeats
- *    on every sheet the page runs onto and reserves room for;
+ *    region placed in the `thead` / `tfoot` of the running-region table
+ *    `PageRenderer` draws for them ({@link PRINT_RUNNING_ATTRIBUTE}), which
+ *    the browser repeats on every sheet the page runs onto and reserves room
+ *    for. On screen that table and its rows and cells are `display: contents`,
+ *    so the layout is the one the page always had; this sheet turns them back
+ *    into a table on paper only. It has to be a real `thead` / `tfoot`:
+ *    measured in Chromium 141, a `div` given `display: table-header-group`
+ *    printed once, on the first sheet, while a real `thead` repeated on every
+ *    sheet;
  *  - `repeatTableHeaders` (on when omitted) → `thead { display:
  *    table-header-group }`; set to `false` it is `table-row-group`, which does
  *    not repeat;
@@ -50,6 +57,9 @@ export type PagePrintDeclaration = NonNullable<PageNodeSchema['print']>;
 
 /** The DOM attribute `PageRenderer` stamps on the root of a print page; every rule below is scoped to it. */
 export const PRINT_PAGE_ATTRIBUTE = 'data-print-page';
+
+/** The DOM attribute on the running-region table `PageRenderer` draws for `repeatHeader` / `repeatFooter`. */
+export const PRINT_RUNNING_ATTRIBUTE = 'data-print-running';
 
 const PAPER_SIZES: ReadonlySet<string> = new Set(['A4', 'A5', 'Letter', 'Legal']);
 const ORIENTATIONS: ReadonlySet<string> = new Set(['portrait', 'landscape']);
@@ -81,20 +91,23 @@ function pageRule(print: PagePrintDeclaration): string {
 }
 
 /**
- * The running header and footer: the region's parent is drawn as a table, the
- * region as its header (footer) group and every sibling as a row group. A
- * table header / footer group is what the browser repeats on each sheet.
+ * The running header and footer: the running-region table, `display: contents`
+ * on screen, is a table again on paper, so its `thead` / `tfoot` repeat on each
+ * sheet. Its parent (the layout's flex column) is a block, and the gap the
+ * flex column drew between the regions is the cells' padding.
  */
 function runningRegionRules(print: PagePrintDeclaration, page: string): string[] {
-  const running: Array<['header' | 'footer', 'table-header-group' | 'table-footer-group']> = [];
-  if (print.repeatHeader === true) running.push(['header', 'table-header-group']);
-  if (print.repeatFooter === true) running.push(['footer', 'table-footer-group']);
-  if (running.length === 0) return [];
-  const parent = `${page} :has(${running.map(([name]) => `> [data-region="${name}"]`).join(', ')})`;
+  if (print.repeatHeader !== true && print.repeatFooter !== true) return [];
+  const table = `${page} table[${PRINT_RUNNING_ATTRIBUTE}]`;
   return [
-    `${parent} { display: table !important; width: 100%; }`,
-    `${parent} > * { display: table-row-group !important; }`,
-    ...running.map(([name, group]) => `${page} [data-region="${name}"] { display: ${group} !important; }`),
+    `${page} :has(> table[${PRINT_RUNNING_ATTRIBUTE}]) { display: block !important; }`,
+    `${table} { display: table !important; width: 100%; border-collapse: collapse; }`,
+    `${table} > thead { display: table-header-group !important; }`,
+    `${table} > tbody { display: table-row-group !important; }`,
+    `${table} > tfoot { display: table-footer-group !important; }`,
+    `${table} > * > tr { display: table-row !important; }`,
+    `${table} > * > tr > td { display: table-cell !important; padding: 0 0 4mm 0; vertical-align: top; }`,
+    `${table} > tfoot > tr > td { padding: 4mm 0 0 0; }`,
   ];
 }
 
@@ -117,7 +130,7 @@ export function buildPagePrintStylesheet(print: PagePrintDeclaration): string {
     `${page} { padding: 0 !important; min-height: 0 !important; }`,
     `${page} > div { max-width: none !important; }`,
     ...runningRegionRules(print, page),
-    `${page} thead { display: ${print.repeatTableHeaders === false ? 'table-row-group' : 'table-header-group'} !important; }`,
+    `${page} thead:not(table[${PRINT_RUNNING_ATTRIBUTE}] > thead) { display: ${print.repeatTableHeaders === false ? 'table-row-group' : 'table-header-group'} !important; }`,
   ];
   if (print.avoidBreakInside === true) {
     rules.push(`${page} [data-region] > * { break-inside: avoid; }`);

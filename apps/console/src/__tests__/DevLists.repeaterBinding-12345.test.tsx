@@ -15,7 +15,6 @@
  * `@object-ui/components` installs, with a recording adapter.
  */
 
-import * as React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import { AdapterCtx } from '@object-ui/react';

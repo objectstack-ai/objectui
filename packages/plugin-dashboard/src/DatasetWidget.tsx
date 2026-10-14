@@ -1818,6 +1818,19 @@ export function DatasetWidget({ widget, dataSource }: { widget: any; dataSource:
   // new string is minted.
   const measuresOnAxis = dimensions.length === 0;
   const measureAxisSeriesLabel = tt('dashboard.total', 'Total');
+  // The transposed series plots EVERY measure, so it states an aggregate only
+  // when all of them share one (objectui#11681). That is what lets a value
+  // axis over counts draw whole-number ticks; a mix states none, and the axis
+  // keeps its default.
+  const measureAxisAggregates = new Set(values.map((m) => measureField(m)?.aggregate));
+  const [measureAxisAggregate] = measureAxisAggregates;
+  const measureAxisSeries = {
+    dataKey: MEASURE_VALUE_KEY,
+    label: measureAxisSeriesLabel,
+    ...(measureAxisAggregates.size === 1 && typeof measureAxisAggregate === 'string'
+      ? { aggregate: measureAxisAggregate }
+      : {}),
+  };
   // ── A select dimension in its DECLARED order (objectui#11809) ──
   // The dataset answers its buckets in GROUP BY order — the stored values'
   // alphabetical order — so the axis read Backlog, Done, In Progress, In
@@ -1849,7 +1862,7 @@ export function DatasetWidget({ widget, dataSource }: { widget: any; dataSource:
             : {}),
         })),
         xAxisKey: MEASURE_CATEGORY_KEY,
-        series: [{ dataKey: MEASURE_VALUE_KEY, label: measureAxisSeriesLabel }],
+        series: [measureAxisSeries],
       }
     : buildChartSeries(plotRows, dimensions, values, state.fields, {
         nullCategoryLabel,
@@ -1896,11 +1909,14 @@ export function DatasetWidget({ widget, dataSource }: { widget: any; dataSource:
   // dimensionless chart (objectui#11261) — the single transposed series, whose
   // rows carry each compared measure's earlier value.
   const comparedSeries = measuresOnAxis
-    ? (comparedValues.length > 0 ? [{ dataKey: MEASURE_VALUE_KEY, label: measureAxisSeriesLabel }] : [])
-    : comparedValues.map((m) => ({ dataKey: m, label: headerLabel(m) }));
+    ? (comparedValues.length > 0 ? [measureAxisSeries] : [])
+    : comparedValues.map((m) => {
+        const aggregate = measureField(m)?.aggregate;
+        return { dataKey: m, label: headerLabel(m), ...(typeof aggregate === 'string' ? { aggregate } : {}) };
+      });
   const comparisonSeries = pivotedSeries
     ? []
-    : comparedSeries.map(({ dataKey, label }) => {
+    : comparedSeries.map(({ dataKey, label, aggregate }) => {
         // An overlay is the SAME measure one period back. It carries no mark
         // and no axis of its own, and neither does its primary: on this
         // carrier no series is authored (objectui#11315), so the renderer
@@ -1910,6 +1926,9 @@ export function DatasetWidget({ widget, dataSource }: { widget: any; dataSource:
           dataKey: compareColumn(dataKey),
           label: `${label} · ${compareLabel}`,
           variant: 'comparison' as const,
+          // The same measure one period back: the same aggregate, so it
+          // never costs its axis the whole-number ticks (objectui#11681).
+          ...(aggregate !== undefined ? { aggregate } : {}),
         };
       });
   const chartSeries = comparisonSeries.length > 0

@@ -71,9 +71,14 @@ export interface ChartRendererProps {
      * `chartType` stays on the `dataKey` arm alone: it is the renderer's
      * INTERNAL spelling of `type`, and it wins when an entry writes both.
      * Pinned at compile time in `ChartRenderer.seriesTypeArm-8086.test.ts`.
+     *
+     * `aggregate` is internal too, on the `dataKey` arm alone (objectui#11681):
+     * the measure's aggregate, carried by `buildChartSeries` from the dataset
+     * answer, so a value axis over counts draws whole-number ticks. The
+     * authoring face refuses it by name (`ChartDataSeriesSchema.aggregate`).
      */
     series?: Array<
-      | { dataKey: string; label?: string; type?: string; variant?: 'current' | 'comparison'; opacity?: number; dashArray?: string; chartType?: 'bar' | 'line' | 'area'; stack?: string; yAxis?: 'left' | 'right'; color?: string }
+      | { dataKey: string; label?: string; type?: string; variant?: 'current' | 'comparison'; opacity?: number; dashArray?: string; chartType?: 'bar' | 'line' | 'area'; stack?: string; yAxis?: 'left' | 'right'; color?: string; aggregate?: string }
       | { name: string; label?: unknown; type?: string; variant?: 'current' | 'comparison' | 'primary'; opacity?: number; dashArray?: string; stack?: string; yAxis?: 'left' | 'right'; color?: string }
     >;
     /** Spec `ChartConfig` shape — honored via `normalizeChartSchema`
@@ -157,7 +162,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ schema, onChartCli
     // `normalizeSeries` is a no-op on a well-formed internal-shaped entry apart
     // from `type`: it round-trips every other key the internal arm of
     // `ChartRendererProps.series` declares (`dataKey`/`label`/`chartType`/
-    // `variant`/`opacity`/`dashArray`/`stack`/`yAxis`/`color`) unchanged, and
+    // `variant`/`opacity`/`dashArray`/`stack`/`yAxis`/`color`/`aggregate`) unchanged, and
     // translates `type` to `chartType` — the translation this routing exists
     // for. So always taking the normalized array
     // is not a second read site for `type` (AGENTS.md #0.1) — it is routing

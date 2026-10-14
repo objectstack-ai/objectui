@@ -7,6 +7,7 @@
  */
 
 import { pickLocalized } from '@object-ui/i18n';
+import { isIntegerAggregate } from '@object-ui/core';
 import type { ObjectChartSchema } from '@object-ui/types';
 
 /**
@@ -262,6 +263,26 @@ export interface NormalizedSeries {
   /** Which y-axis this series binds to (dual-axis charts). */
   yAxis?: 'left' | 'right';
   color?: string;
+  /**
+   * The aggregate of the measure this series plots — renderer-internal, the
+   * dataset answer's `fields[].aggregate` carried by `buildChartSeries`
+   * (objectui#11681). It decides one thing: a value axis whose series all plot
+   * a count draws whole-number ticks ({@link plotsWholeNumbers}). On the
+   * authoring face it is refused by name (`ChartDataSeriesSchema.aggregate`),
+   * so an author cannot claim integer ticks for a currency sum.
+   */
+  aggregate?: string;
+}
+
+/**
+ * Whether a value axis plotting `series` should draw whole-number ticks only
+ * (objectui#11681): true exactly when at least one series is bound to it and
+ * EVERY one plots an integer aggregate (`count` / `count_distinct`). One sum,
+ * average or undeclared series on the axis keeps recharts' default ticks, so a
+ * sum over currency keeps its decimals.
+ */
+export function plotsWholeNumbers(series: readonly NormalizedSeries[]): boolean {
+  return series.length > 0 && series.every((s) => isIntegerAggregate(s.aggregate));
 }
 
 export interface NormalizedChartSchema {
@@ -387,7 +408,7 @@ function normalizeAxis(raw: unknown, language: string | null | undefined): Norma
  * - `chartType` is the RENDERER-INTERNAL carrier. It rides on the `dataKey`-
  *   shaped series that `DashboardRenderer`, `ObjectView` and the dataset path
  *   hand straight to `ChartRenderer`, which is where it is declared
- *   (`ChartRenderer.tsx:65`, on the internal series shape) and where
+ *   (the internal `dataKey` arm of `ChartRendererProps.schema.series`) and where
  *   {@link NormalizedSeries.chartType} is the output half of the same
  *   contract. On the AUTHORING face it is not a member at all: it is a named
  *   alias refusal — `ChartDataSeriesSchema.chartType`
@@ -454,6 +475,10 @@ function normalizeSeries(raw: unknown, language: string | null | undefined): Nor
   if (yAxis === 'left' || yAxis === 'right') out.yAxis = yAxis;
   const color = str(raw.color);
   if (color) out.color = color;
+  // Renderer-internal, like `chartType` on the internal shape (objectui#11681):
+  // the authoring face refuses it by name, see `NormalizedSeries.aggregate`.
+  const aggregate = str(raw.aggregate);
+  if (aggregate) out.aggregate = aggregate;
   return out;
 }
 

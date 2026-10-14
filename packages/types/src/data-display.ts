@@ -2351,6 +2351,19 @@ export interface ChartDataSeries {
    * declaration's.
    */
   chartType?: never;
+  /**
+   * NOT A KEY OF THIS SERIES — refused by name (objectui#11681).
+   *
+   * `aggregate` is the renderer-internal carrier of a dataset measure's
+   * aggregate: `buildChartSeries` (`@object-ui/core`) copies it from the
+   * dataset answer's `fields[].aggregate`, and a value axis whose series all
+   * plot a `count` / `count_distinct` draws whole-number ticks. An author has
+   * no business writing it — `aggregate: 'count'` on a currency sum would
+   * strip the decimals the axis needs — so `ChartDataSeriesSchema.aggregate`
+   * refuses it by name and this `?: never` is a `tsc` error at the authoring
+   * site. Declare the aggregate on the dataset measure instead.
+   */
+  aggregate?: never;
 }
 
 /**

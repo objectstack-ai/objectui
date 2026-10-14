@@ -50,6 +50,19 @@ export interface ChartResultField {
   name: string;
   label?: string;
   format?: string;
+  /**
+   * The aggregate the measure column carries — the spec's
+   * `AnalyticsResult.fields[].aggregate`, which the dataset answer states on
+   * every measure column whose measure declares one, labelled or not
+   * (objectstack#21995). Absent on dimension columns and derived measures.
+   *
+   * Typed `string`, not the closed vocabulary, for the reason
+   * {@link BuiltinAggregateCarrier} gives: a JSON response is handed here
+   * as-is, so the value is judged at the read ({@link isIntegerAggregate}).
+   * {@link buildChartSeries} copies it onto each series it derives from the
+   * column, so a value axis can tell a count from a sum (objectui#11681).
+   */
+  aggregate?: string;
 }
 
 /**
@@ -100,6 +113,13 @@ export type ChartMeasureField = ChartResultField & BuiltinAggregateCarrier;
 export interface ChartSeriesBinding {
   dataKey: string;
   label: string;
+  /**
+   * The aggregate of the measure this series plots, copied from its result
+   * column's `aggregate` (objectui#11681). Renderer-internal: the chart's value
+   * axis draws whole-number ticks when every series on it plots an
+   * {@link isIntegerAggregate} measure. Absent when the column states none.
+   */
+  aggregate?: string;
 }
 
 export interface ChartSeriesResult {
@@ -120,6 +140,24 @@ export const BUILTIN_AGGREGATES = ['count', 'sum', 'avg', 'min', 'max', 'count_d
 
 /** One member of {@link BUILTIN_AGGREGATES}. */
 export type BuiltinAggregate = (typeof BUILTIN_AGGREGATES)[number];
+
+/**
+ * The aggregates whose every value is a whole number: a count of rows, or of
+ * distinct values (objectui#11681, triage ruling Q3 A on that card). `sum` /
+ * `min` / `max` over an integer field would qualify too, but the answer does
+ * not state the source field's scale, so they are not judged integer here.
+ */
+export const INTEGER_AGGREGATES = ['count', 'count_distinct'] as const;
+
+/**
+ * Whether a measure column's `aggregate` makes every value a whole number — a
+ * value axis that plots only such measures takes integer ticks
+ * (objectui#11681). Judged over an untrusted wire value; anything else,
+ * absence included, answers `false`, so the axis keeps its default.
+ */
+export function isIntegerAggregate(value: unknown): boolean {
+  return typeof value === 'string' && (INTEGER_AGGREGATES as readonly string[]).includes(value);
+}
 
 /** Runtime membership test for {@link BUILTIN_AGGREGATES}, over an untrusted wire value. */
 export function isBuiltinAggregate(value: unknown): value is BuiltinAggregate {
@@ -543,6 +581,12 @@ export function buildChartSeries(
     const field = (fields ?? []).find((f) => f.name === name);
     return field ? resolveMeasureLabel(field, options?.builtinAggregateLabels) : name;
   };
+  // The measure column's own `aggregate`, spread onto each series that plots
+  // it (objectui#11681) — present only when the column states a string one.
+  const aggregateOf = (name: string): { aggregate?: string } => {
+    const aggregate = (fields ?? []).find((f) => f.name === name)?.aggregate;
+    return typeof aggregate === 'string' ? { aggregate } : {};
+  };
 
   // Multi-dimension, single-measure → pivot the second dimension into series.
   if (dims.length >= 2 && vals.length === 1) {
@@ -654,7 +698,8 @@ export function buildChartSeries(
       // server-resolved to display labels by queryDataset), except the null
       // group, which says so with the bucket label the renderer supplied. The
       // key is a separate question from the text — see `pivotSeriesBuckets`.
-      series: groups.map(({ dataKey, label }) => ({ dataKey, label })),
+      // Every group plots the one measure, so each carries its aggregate.
+      series: groups.map(({ dataKey, label }) => ({ dataKey, label, ...aggregateOf(measure) })),
     };
   }
 
@@ -678,7 +723,7 @@ export function buildChartSeries(
       ? bucketNullCategories(safeRows, xKey, options?.nullCategoryLabel ?? NULL_CATEGORY_LABEL)
       : safeRows,
     xAxisKey: xKey,
-    series: vals.map((v) => ({ dataKey: v, label: labelOf(v) })),
+    series: vals.map((v) => ({ dataKey: v, label: labelOf(v), ...aggregateOf(v) })),
   };
 }
 

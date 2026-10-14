@@ -47,7 +47,7 @@ import {
   ChartContainerConfig
 } from './ChartContainerImpl';
 import { mapScatterClick, mapTreemapClick, mapSankeyClick } from './chartDrillEvents';
-import { formatterFor, domainFor, ticksFor, RENDERABLE, SINGLE_VALUE_CHART_TYPES, TABULAR_CHART_TYPES, effectiveChartFamily, comboBaseFamily, placeYAxes, type DeclaredChartFamily, type NormalizedAxis, type NormalizedSeries, type ValueAxisSlot, type YAxisPlacement } from './normalizeChartSchema';
+import { formatterFor, domainFor, ticksFor, plotsWholeNumbers, RENDERABLE, SINGLE_VALUE_CHART_TYPES, TABULAR_CHART_TYPES, effectiveChartFamily, comboBaseFamily, placeYAxes, type DeclaredChartFamily, type NormalizedAxis, type NormalizedSeries, type ValueAxisSlot, type YAxisPlacement } from './normalizeChartSchema';
 import { buildCategoryRank, chartRowBucketId, isRealCalendarDate, toDateInputValue, toDisplayDate, type ChartSegmentClickEvent } from '@object-ui/core';
 import { useDisplayLocale, useSafeTranslate } from '@object-ui/i18n';
 
@@ -1934,10 +1934,13 @@ function AdvancedChartImplInner({
    * Every number plotted in one slot of a dual axis (or on the only axis,
    * whichever slot it sits in) — the range `stepSize` lays its ticks over.
    */
+  const slotSeries = React.useCallback(
+    (side: ValueAxisSlot): NormalizedSeries[] =>
+      series.filter((s: any) => (hasDualAxis ? (s.yAxis === 'right' ? 'right' : 'left') === side : true)),
+    [series, hasDualAxis],
+  );
   const axisValues = React.useCallback((side: ValueAxisSlot) => {
-    const keys = series
-      .filter((s: any) => (hasDualAxis ? (s.yAxis === 'right' ? 'right' : 'left') === side : true))
-      .map((s: any) => s.dataKey);
+    const keys = slotSeries(side).map((s) => s.dataKey);
     const out: number[] = [];
     for (const row of data) {
       for (const k of keys) {
@@ -1946,7 +1949,7 @@ function AdvancedChartImplInner({
       }
     }
     return out;
-  }, [data, series, hasDualAxis]);
+  }, [data, slotSeries]);
 
   /**
    * Recharts props derived from one spec y-axis (domain / scale / ticks /
@@ -1954,10 +1957,19 @@ function AdvancedChartImplInner({
    * `side` slot unless a caller drawing it ACROSS the plot (horizontal-bar's
    * value axes) passes the x-axis layout for the side it sits on.
    */
+  //
+  // A slot whose series all plot a count draws whole-number ticks
+  // (objectui#11681): recharts otherwise lays 0.5 / 0.75 steps over a small
+  // count domain. Every value axis takes its props here, the horizontal-bar
+  // number `<XAxis>` included, so each side of a dual axis decides for itself;
+  // a slot with any other measure gets no `allowDecimals` at all, so it renders
+  // exactly as before.
   const yAxisSpecProps = React.useCallback(
-    (axis: NormalizedAxis | undefined, side: ValueAxisSlot = 'left', titleLayout?: AxisTitleLayout) =>
-      numericAxisSpecProps(axis, axisValues(side), titleLayout ?? yAxisTitleLayoutFor(side)),
-    [axisValues],
+    (axis: NormalizedAxis | undefined, side: ValueAxisSlot = 'left', titleLayout?: AxisTitleLayout) => ({
+      ...(plotsWholeNumbers(slotSeries(side)) ? { allowDecimals: false } : {}),
+      ...numericAxisSpecProps(axis, axisValues(side), titleLayout ?? yAxisTitleLayoutFor(side)),
+    }),
+    [axisValues, slotSeries],
   );
 
   // `showGridLines` is per-axis in the spec; the renderer draws one grid, so
@@ -2513,7 +2525,9 @@ function AdvancedChartImplInner({
         <RadarChart data={data}>
           <PolarGrid />
           <PolarAngleAxis dataKey={xAxisKey} />
-          <PolarRadiusAxis />
+          {/* The radar's value axis: whole-number ticks when every series
+              plots a count, like the cartesian value axes (objectui#11681). */}
+          <PolarRadiusAxis {...(plotsWholeNumbers(series) ? { allowDecimals: false } : {})} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <ChartLegend
             content={<ChartLegendContent />}

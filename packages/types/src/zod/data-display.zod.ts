@@ -793,6 +793,20 @@ export const ChartDataSeriesSchema = z.object({
     + 'what the author was overriding.',
   ),
   color: z.string().optional().describe('Series color'),
+  // INTERNAL-ONLY REFUSAL (objectui#11681). `aggregate` is the renderer-internal
+  // carrier of a dataset measure's aggregate: `buildChartSeries` copies it from
+  // the answer's `fields[].aggregate`, and a value axis whose series all plot a
+  // count draws whole-number ticks. Nothing on this face may write it — an
+  // authored `aggregate: 'count'` on a currency sum would strip its decimals —
+  // and this object is NON-STRICT, so an undeclared key would be stripped in
+  // silence here while the raw node still reached the renderer. Declared and
+  // unwritable, it is refused by name instead.
+  aggregate: retirementTombstone(
+    'REFUSED (objectui#11681) — `aggregate` is the renderer\'s INTERNAL carrier of a dataset '
+    + 'measure\'s aggregate, which the chart reads from the dataset answer to decide whole-number '
+    + 'axis ticks for a count. It is not authored: declare the aggregate on the dataset measure, '
+    + 'and the chart takes it from there. Delete the key.',
+  ),
   // THE SIX KEYS THE RENDERER READS (objectui#7546). Each was undeclared, and
   // because this object is NON-STRICT the mirror STRIPPED it in silence while
   // `safeParse` reported success — the card's own measurement:

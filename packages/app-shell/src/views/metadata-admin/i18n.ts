@@ -6888,8 +6888,8 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
   },
   http_request: {
     method: { label: '方法' },
-    url: { label: 'URL' },
-    headers: { label: '请求头', help: '请求头(如 Authorization、Content-Type)。' },
+    url: { label: 'URL', help: '请求 URL。会渲染 {{ }} 占位。' },
+    headers: { label: '请求头', help: '请求头(如 Authorization、Content-Type)。每个值都会渲染 {{ }} 占位。' },
     body: { label: '请求体', help: '请求负载(JSON 或表达式)。' },
     // objectui#11968 — no `outputVariable` overlay: the `http` contract declares
     // no such key, so neither form offers a field for it.
@@ -6904,7 +6904,7 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
       opts: { invoke_function: '调用函数', email: '邮件', slack: 'Slack' },
     },
     function: { label: '函数', help: '要调用的已注册函数 —— 经 defineStack({ functions }) 声明。优先于动作类型。' },
-    inputs: { label: '输入', help: '传给函数的值;{var} 引用会按流程变量解析。' },
+    inputs: { label: '输入', help: '传给函数的值。每个值是字面量,或按流程变量求值的 CEL 表达式。' },
     outputVariable: { label: '输出变量', help: '绑定函数返回值的流程变量,供后续步骤使用。' },
     template: { label: '模板', help: '消息模板 id。' },
     recipients: { label: '收件人', help: '每行一个收件人(用户 id、字段引用或地址)。' },
@@ -6936,7 +6936,7 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
     objectName: { label: '对象表单', help: '渲染该对象完整的新建 / 编辑表单(含主从),而非扁平字段列表。' },
     idVariable: { label: '保存记录变量', help: '仅对象表单:绑定到已保存记录 id 的变量,供后续步骤使用。' },
     mode: { label: '表单模式', help: '仅对象表单。', opts: { create: '新建', edit: '编辑' } },
-    defaults: { label: '表单默认值', help: '仅对象表单:预填值(如 account → {account_id})。' },
+    defaults: { label: '表单默认值', help: '仅对象表单:预填值。每个值是字面量,或 CEL 表达式(如 account → 以表达式写的 account_id)。' },
   },
   approval: {
     approvers: {
@@ -7001,7 +7001,7 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
   },
   subflow: {
     flowName: { label: '流程' },
-    input: { label: '输入映射', help: '传给子流程输入变量的值。' },
+    input: { label: '输入映射', help: '传给子流程输入变量的值。每个值是字面量,或在本流程中求值的 CEL 表达式。' },
     outputVariable: { label: '输出变量' },
     timeoutMs: { label: '超时(毫秒)' },
   },
@@ -7034,7 +7034,7 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
     actorId: { label: '触发用户', help: '引发该事件的用户 id。' },
     // objectui#11968 — keyed `actionUrl`, the key the contract declares and both
     // forms now write; the `url` spelling is the converted alias.
-    actionUrl: { label: '链接 URL', help: '显式的点击跳转 URL;覆盖默认值。' },
+    actionUrl: { label: '链接 URL', help: '显式的点击跳转 URL;覆盖默认值。会渲染 {{ }} 占位。' },
     payload: { label: '附加数据', help: '合并进模板输入的额外数据。' },
   },
   boundary_event: {

@@ -33,8 +33,13 @@ import { screenVisibleWhenScopeError, type ScreenPreviewNode } from '../previews
 
 export interface FlowExprIssueProps {
   value: unknown;
-  /** `'predicate'` / `'value'` → CEL (brace-checked); `'template'` → `{…}` holes. */
-  role: ExprFieldRole;
+  /**
+   * `'predicate'` / `'value'` → CEL (brace-checked); `'template'` → `{…}` holes;
+   * `'hole'` → a flow text slot's ADR-0032 §3 `{{ }}` holes, where a single
+   * brace is flagged with the double-brace fix (objectui#12101, the check
+   * `FlowNodeConfigField` runs on a single text slot since objectui#11824).
+   */
+  role: ExprFieldRole | 'hole';
   scopeGroups?: ScopeGroup[];
   /**
    * Set only on a `screen` node's `fields[].visibleWhen` cell: the node whose
@@ -52,7 +57,7 @@ export interface FlowExprIssueProps {
  */
 function flowScopeNote(
   value: unknown,
-  role: ExprFieldRole,
+  role: ExprFieldRole | 'hole',
   scopeGroups: ScopeGroup[] | undefined,
   locale: string,
 ): string | undefined {
@@ -65,7 +70,8 @@ export function FlowExprIssue({ value, role, scopeGroups, screenNode }: FlowExpr
   // Brace / shape error — CEL roles only (single-brace is valid in a template).
   // In the designer locale, read here as the sibling `FlowObjectListField` does (objectui#10748).
   const locale = useMetadataLocale();
-  const issue = role === 'template' ? null : validateExpressionClient(role, value, locale);
+  const issue =
+    role === 'template' ? null : validateExpressionClient(role === 'hole' ? 'template' : role, value, locale);
   if (issue) {
     return (
       <p className="text-[11px] leading-snug text-destructive" role="alert">

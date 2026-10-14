@@ -347,11 +347,13 @@ export interface FlowConfigField {
    *   • `'hole'` on a flow TEXT slot (objectui#11824): the slot renders ADR-0032
    *     §3 `{{ }}` template holes and the spec refuses a single-brace `{…}`
    *     token there, so the picker inserts `{{ x }}` and the inline check flags
-   *     a single brace with the double-brace fix. Set on exactly the slots
-   *     objectstack#22110 converted — `notify` `title` / `message`, `screen`
-   *     `title` / `description`, `end` `message` — and carried onto a served
-   *     field of the same key by `mergeServerFlowFields`, since the published
-   *     descriptor marks none of them.
+   *     a single brace with the double-brace fix. Set on the slots the spec's
+   *     `FLOW_NODE_TEXT_SLOTS` names: `notify` `title` / `message` /
+   *     `actionUrl`, `screen` `title` / `description`, `end` `message`, `http`
+   *     `url`, and `http` `headers`, a key/value map whose every value is one
+   *     (objectui#12101) — and carried onto a served field of the same key by
+   *     `mergeServerFlowFields`, since the published descriptor marks none of
+   *     them.
    *   • `'expression'` on a code field (e.g. a script body) so the picker inserts
    *     bare references, not `{var}` — `{x}` is a syntax error in a JS/TS script.
    *   • `'template'` on an *expression* field (e.g. a loop/map `collection`) whose
@@ -749,8 +751,18 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     // is a `.default('GET')` upstream, which this table would then mirror — the
     // direction #0.1 requires (fix the contract, not the view).
     cfg('method', 'Method', 'select', { options: HTTP_METHODS }),
-    cfg('url', 'URL', 'text', { placeholder: 'https://api.example.com/v1/contracts' }),
-    cfg('headers', 'Headers', 'keyValue', { help: 'Request headers (e.g. Authorization, Content-Type).' }),
+    // objectui#12101 — `url` and each `headers` value are flow text slots
+    // (`FLOW_NODE_TEXT_SLOTS`): they render `{{ }}` holes, and the spec refuses
+    // a single-brace `{…}` token in them.
+    cfg('url', 'URL', 'text', {
+      placeholder: 'https://api.example.com/v1/contracts',
+      help: 'Request URL. Renders {{ }} holes.',
+      refMode: 'hole',
+    }),
+    cfg('headers', 'Headers', 'keyValue', {
+      help: 'Request headers (e.g. Authorization, Content-Type). Each value renders {{ }} holes.',
+      refMode: 'hole',
+    }),
     cfg('body', 'Body', 'textarea', { placeholder: '{ "key": "value" }', help: 'Request payload (JSON or expression).' }),
     // objectui#11968 — deliberately NO `outputVariable` row, the objectui#9335
     // shape on another node. The `http` executor contract (`HttpConfigSchema`,
@@ -790,7 +802,9 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       help: 'Registered function to call — declared via defineStack({ functions }). Required: it is what this step runs.',
     }),
     cfg('inputs', 'Inputs', 'keyValue', {
-      help: 'Values passed to the function; {var} references resolve against the live flow variables.',
+      // objectui#12101 — `inputs.*` is a value slot (ADR-0032 §2): a literal, or
+      // a CEL value envelope evaluated in the flow's scope.
+      help: 'Values passed to the function. Each is a literal, or a CEL expression evaluated against the flow variables.',
     }),
     cfg('outputVariable', 'Output variable', 'text', {
       placeholder: 'aiResult',
@@ -870,7 +884,9 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       help: 'Object form only.',
     }),
     cfg('defaults', 'Form defaults', 'keyValue', {
-      help: 'Object form only: prefilled values (e.g. account \u2192 {account_id}).',
+      // objectui#12101 — `defaults.*` is a value slot: a literal, or a CEL value
+      // envelope (e.g. `account_id` as an expression).
+      help: 'Object form only: prefilled values. Each is a literal, or a CEL expression (e.g. account \u2192 account_id as an expression).',
     }),
   ],
   // Approval node (ADR-0019). The node opens an approval request on entry,
@@ -1116,7 +1132,11 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
   ],
   subflow: [
     cfg('flowName', 'Flow', 'reference', { ref: { kind: 'flow' }, placeholder: 'escalation_flow' }),
-    cfg('input', 'Input mapping', 'keyValue', { help: 'Values passed to the subflow\u2019s input variables.' }),
+    // objectui#12101 — `input.*` is a value slot (ADR-0032 §2): a literal, or a
+    // CEL value envelope evaluated in the calling flow's scope.
+    cfg('input', 'Input mapping', 'keyValue', {
+      help: 'Values passed to the subflow\u2019s input variables. Each is a literal, or a CEL expression evaluated in this flow.',
+    }),
     cfg('outputVariable', 'Output variable', 'text', { placeholder: 'subResult' }),
     { id: 'timeoutMs', path: ['timeoutMs'], label: 'Timeout (ms)', kind: 'number', placeholder: '60000' },
   ],
@@ -1152,7 +1172,10 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     // engine's conversion rewrites to `actionUrl`, so the form was authoring
     // an alias rather than the contract. The online form already writes
     // `actionUrl`; a stored `url` shows in the Advanced (JSON) block.
-    cfg('actionUrl', 'Click-through URL', 'text', { help: 'Explicit link; overrides the one synthesized from Link object/record.' }),
+    cfg('actionUrl', 'Click-through URL', 'text', {
+      help: 'Explicit link; overrides the one synthesized from Link object/record. Renders {{ }} holes.',
+      refMode: 'hole',
+    }),
   ],
   connector_action: [
     at('connectorConfig', 'connectorId', 'Connector', 'reference', { ref: { kind: 'connector' }, placeholder: 'slack · email · salesforce' }),

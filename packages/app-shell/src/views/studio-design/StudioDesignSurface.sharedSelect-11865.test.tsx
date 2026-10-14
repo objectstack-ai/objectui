@@ -474,11 +474,14 @@ async function submitObject(): Promise<string> {
   return JSON.stringify((mockClient.save as ReturnType<typeof vi.fn>).mock.calls[0]);
 }
 
-/** [option label, the JSON text of the save the create made]. */
+/**
+ * [option label, the JSON text of the save the create made]. The create is the
+ * first-write pin, `ifNoneMatch: '*'` (objectui#11773).
+ */
 const OWD_WRITES: ReadonlyArray<readonly [string, string]> = [
-  [OWD_PRIVATE, '["object","visit",{"name":"visit","label":"Visit","sharingModel":"private","fields":{"name":{"type":"text","label":"Name"}}},{"mode":"draft","packageId":"com.test.crmext"}]'],
-  [OWD_PUBLIC_READ, '["object","visit",{"name":"visit","label":"Visit","sharingModel":"public_read","fields":{"name":{"type":"text","label":"Name"}}},{"mode":"draft","packageId":"com.test.crmext"}]'],
-  [OWD_PUBLIC_READ_WRITE, '["object","visit",{"name":"visit","label":"Visit","sharingModel":"public_read_write","fields":{"name":{"type":"text","label":"Name"}}},{"mode":"draft","packageId":"com.test.crmext"}]'],
+  [OWD_PRIVATE, '["object","visit",{"name":"visit","label":"Visit","sharingModel":"private","fields":{"name":{"type":"text","label":"Name"}}},{"mode":"draft","packageId":"com.test.crmext","ifNoneMatch":"*"}]'],
+  [OWD_PUBLIC_READ, '["object","visit",{"name":"visit","label":"Visit","sharingModel":"public_read","fields":{"name":{"type":"text","label":"Name"}}},{"mode":"draft","packageId":"com.test.crmext","ifNoneMatch":"*"}]'],
+  [OWD_PUBLIC_READ_WRITE, '["object","visit",{"name":"visit","label":"Visit","sharingModel":"public_read_write","fields":{"name":{"type":"text","label":"Name"}}},{"mode":"draft","packageId":"com.test.crmext","ifNoneMatch":"*"}]'],
 ];
 
 describe('New object picks its record sharing with the shared Select (objectui#11865)', () => {

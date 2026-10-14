@@ -6,9 +6,10 @@
  * button was pressed from.
  *
  * Navigation only. The create's one write — `save('app', NAME, skeleton,
- * { mode: 'draft', packageId })` — is pinned byte for byte against
- * `buildAppSkeleton`, so the card changes where the author lands and nothing
- * the server receives.
+ * { mode: 'draft', packageId, ifNoneMatch: '*' })` — is pinned byte for byte
+ * against `buildAppSkeleton`, so the card changes where the author lands and
+ * nothing the server receives. (`ifNoneMatch` is objectui#11773's first-write
+ * pin, which every create sends.)
  *
  * The departure goes through the surface's own leave guard, the one a pillar
  * link uses (objectui#2600): an unsent edit on the pillar being left asks
@@ -166,7 +167,7 @@ function expectTheCreateWriteUnchanged() {
       'app',
       'field_service',
       buildAppSkeleton('field_service', 'Field Service', [{ name: 'a_account' }]),
-      { mode: 'draft', packageId: 'app.a' },
+      { mode: 'draft', packageId: 'app.a', ifNoneMatch: '*' },
     ],
   ]);
 }
@@ -185,7 +186,7 @@ describe('Create app opens the Interfaces pillar (objectui#11794)', () => {
     await waitFor(() => expect(pathnames[pathnames.length - 1]).toBe('/studio/app.a/interfaces'));
     expect(confirmSpy).not.toHaveBeenCalled();
     // The Interfaces pillar resolved the app the create left as a draft.
-    await waitFor(() => expect(clientImpl.getDraft).toHaveBeenCalledWith('app', 'field_service'));
+    await waitFor(() => expect(clientImpl.getDraft).toHaveBeenCalledWith('app', 'field_service', { packageId: 'app.a' }));
     expectTheCreateWriteUnchanged();
   });
 
@@ -218,7 +219,7 @@ describe('Create app opens the Interfaces pillar (objectui#11794)', () => {
     const toolbar = await renderOn('interfaces');
     await createApp(toolbar);
 
-    await waitFor(() => expect(clientImpl.getDraft).toHaveBeenCalledWith('app', 'field_service'));
+    await waitFor(() => expect(clientImpl.getDraft).toHaveBeenCalledWith('app', 'field_service', { packageId: 'app.a' }));
     expect(pathnames).toEqual(['/studio/app.a/interfaces']);
     expect(confirmSpy).not.toHaveBeenCalled();
     expectTheCreateWriteUnchanged();

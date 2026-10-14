@@ -189,9 +189,16 @@ describe('an object leaf\'s Properties panel edits its list view (objectui#11823
     await addSortOnFirstField(panel);
 
     await waitFor(() => expect(viewSaves().length).toBeGreaterThan(0), { timeout: 8000 });
-    const [, name, body, options] = viewSaves().at(-1)!;
+    const [, name, body] = viewSaves().at(-1)!;
     expect(name).toBe('showcase_task.default');
-    expect(options).toEqual({ mode: 'draft', packageId: 'com.acme.app' });
+    // objectui#11773 — the view had no pending draft when the panel loaded it,
+    // so its first save is the first-write pin; a later one is pinned to the
+    // receipt before it.
+    const sentOptions = viewSaves().map((call) => call[3]);
+    expect(sentOptions[0]).toEqual({ mode: 'draft', packageId: 'com.acme.app', ifNoneMatch: '*' });
+    for (const later of sentOptions.slice(1)) {
+      expect(later).toEqual({ mode: 'draft', packageId: 'com.acme.app', ifMatch: 'v1' });
+    }
     const parsed = ViewItemSchema.safeParse(body);
     expect(parsed.success, JSON.stringify(parsed.error?.issues)).toBe(true);
     expect(body).toMatchObject({

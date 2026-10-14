@@ -166,6 +166,51 @@ describe('objectui#12030 — the Page `details` + `tabs` slot-pair refusal reach
   });
 });
 
+describe('objectui#12370 — the Page retired-`api` view-data refusal reaches objectui', () => {
+  const API = { provider: 'api', read: { url: '/api/rows' } };
+  const grid = (data: unknown) => ({ type: 'object-grid', properties: { objectName: 'task', data } });
+  const SLOTTED = (data: unknown) => ({ kind: 'slotted', slots: { details: [grid(data)] } });
+
+  it('a slot child: the spec refuses at its `properties.data.provider`, and objectui refuses with the spec\'s own issue', () => {
+    const at = 'slots.details.0.properties.data.provider';
+    const spec = SpecPageSchema.safeParse(specPage(SLOTTED(API)));
+    expect(spec.success).toBe(false);
+    const specIssue = spec.error!.issues.find((i) => i.path.join('.') === at);
+    expect(specIssue?.code).toBe('custom');
+
+    for (const r of [PageNodeSchema.safeParse(pageNode(SLOTTED(API))), safeValidateSchema(pageNode(SLOTTED(API)))]) {
+      expect(r.success).toBe(false);
+      const issues = r.error!.issues.map((i) => ({ code: i.code, path: i.path.join('.'), message: i.message }));
+      expect(issues).toContainEqual({ code: 'custom', path: at, message: specIssue!.message });
+    }
+  });
+
+  it('a region child: the spec refuses it, and objectui refuses the same child through the component union', () => {
+    // objectui's regions are its own `PageNodeRegionSchema`, judged by the component union
+    // at every depth, and the `object-grid` arm refuses the `api` provider itself; the
+    // object-level check does not run once a child has failed, so the refusal here is the
+    // union's, at the same child.
+    const regions = [{ name: 'main', components: [grid(API)] }];
+    const spec = SpecPageSchema.safeParse(specPage({ regions }));
+    const specIssue = spec.error!.issues.find((i) => i.path.join('.') === 'regions.0.components.0.properties.data.provider');
+    expect(specIssue?.code).toBe('custom');
+
+    for (const r of [PageNodeSchema.safeParse(pageNode({ regions })), safeValidateSchema(pageNode({ regions }))]) {
+      expect(r.success).toBe(false);
+      expect(r.error!.issues.map((i) => i.path.join('.'))).toContain('regions.0.components.0');
+    }
+  });
+
+  it('controls: an `object` binding in a slot and in a region passes on both doors', () => {
+    const OBJ = { provider: 'object', object: 'task' };
+    for (const extra of [SLOTTED(OBJ), { regions: [{ name: 'main', components: [grid(OBJ)] }] }]) {
+      expect(SpecPageSchema.safeParse(specPage(extra)).success).toBe(true);
+      expect(PageNodeSchema.safeParse(pageNode(extra)).success).toBe(true);
+      expect(safeValidateSchema(pageNode(extra)).success).toBe(true);
+    }
+  });
+});
+
 // ── The census: every object-level check the spec runs is accounted for ─────
 
 /**
@@ -207,7 +252,10 @@ const SITES = [
     // attached by objectui#11717: it reads `kind` and `requires`, both carried by reference.
     // `checkPageSlotPair` joined at 18 (objectstack#22568) and was attached by objectui#12030:
     // it reads `slots`, carried by reference.
-    attached: ['checkPageSourceCompleteness', 'checkPageRequiresKind', 'checkPageSlotPair'],
+    // `checkPageComponentViewData` joined at 18.0.0-next.1 (objectstack#23419) and was attached
+    // by objectui#12370: it reads `slots` (by reference) and `regions`, whose components this
+    // node's union already judges; measured in its describe block above.
+    attached: ['checkPageSourceCompleteness', 'checkPageRequiresKind', 'checkPageSlotPair', 'checkPageComponentViewData'],
     // `checkPagePrintComposition` joined at 18 (the `print` page, ruling B′ on objectstack#8346).
     // It reads `type` and `regions`, and this node carries NEITHER by reference: both are in
     // `PAGE_SPEC_EXCLUDED`, `type` being the component discriminator (`'page'`, or a page kind

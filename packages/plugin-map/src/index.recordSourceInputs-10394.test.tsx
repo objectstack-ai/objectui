@@ -35,10 +35,10 @@
  *    `objectName`; neither inline source queries the object.
  * 7. A bare array under `data` is not a record source: `staticData` beside it
  *    is what is plotted.
- * 8. The `api` provider plots no markers here, and still shadows `staticData`.
- *    This row pins a GAP, on purpose: the `data` description says so, and the
- *    day the provider is implemented this row goes red and the description
- *    has to change with it.
+ * 8. A block that still says the retired view-level `api` provider
+ *    (objectstack#23082, objectui#12325) plots no markers here, queries
+ *    nothing, and still shadows `staticData`. The `data` description does not
+ *    name it: a view binds `object` or `value` (objectui#12364).
  *
  * `filter` / `sort` on the inline rungs are pinned by
  * `ObjectMap.inlineQueryKeys-9061.test.tsx` (its `staticDataSpelling` row),
@@ -109,7 +109,6 @@ const POSITION_PHRASES: Record<string, string[]> = {
     '`{ provider, … }` data-source configuration',
     'read FIRST',
     'never reaches `staticData`',
-    'The `api` provider is not implemented on the map',
     'A bare array is not this key’s shape',
   ],
   staticData: ['read SECOND', 'a `data` configuration wins', '`objectName` is read AFTER it'],

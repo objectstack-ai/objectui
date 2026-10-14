@@ -41,9 +41,10 @@ export interface CreateAuthenticatedFetchOptions {
    * current page are passed through to the bare global fetch — no
    * Authorization, X-Tenant-ID, or Accept-Language headers are attached.
    *
-   * Use this for fetches whose target URL comes from view metadata
-   * (`provider: 'api'` data sources): those may point at third-party hosts
-   * that must never see the platform bearer token.
+   * Use this for fetches whose target URL may come from metadata (a
+   * `type: 'api'` action's target) or that a host hands to the renderers as
+   * `apiFetch`: those may point at third-party hosts that must never see the
+   * platform bearer token.
    */
   sameOriginOnly?: boolean;
 }
@@ -155,7 +156,7 @@ export function createAuthenticatedFetch(
     //
     // The console injects the same localStorage bearer from two places: the
     // AUTH lane (sign-in / get-session / the auth endpoints) and THIS one — the
-    // adapter, `provider: 'api'` data sources, and every metadata `type: 'api'`
+    // adapter, the renderers' `apiFetch`, and every metadata `type: 'api'`
     // action (`useConsoleActionRuntime`'s `apiHandler`). better-auth's
     // server-side bearer plugin hands a rotated session token back in
     // `set-auth-token` on whichever lane the call arrived over. Only the auth

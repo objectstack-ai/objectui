@@ -8,7 +8,7 @@
  *   auth lane — `createBearerFetch` inside `createAuthClient`, used by
  *               sign-in / get-session / the auth endpoints;
  *   data lane — `createAuthenticatedFetch`, used by the adapter, by
- *               `provider: 'api'` view data sources, and by EVERY metadata
+ *               the renderers' `apiFetch`, and by EVERY metadata
  *               `type: 'api'` action (`useConsoleActionRuntime`'s `apiHandler`).
  *
  * Only the auth lane read the `set-auth-token` response header better-auth's

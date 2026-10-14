@@ -84,8 +84,8 @@ describe('createAuthenticatedFetch', () => {
     expect(calls[0].headers.get('Accept-Language')).toBe('ja');
   });
 
-  // ── sameOriginOnly (#2725) — provider:'api' fetches must not leak the
-  //    bearer token to third-party hosts a view's metadata URL may name ──
+  // ── sameOriginOnly (#2725) — fetches must not leak the bearer token to
+  //    third-party hosts a metadata URL (an action's target) may name ──
 
   it('sameOriginOnly: still injects the token on same-origin API calls', async () => {
     vi.spyOn(TokenStorage, 'get').mockReturnValue('tok123');

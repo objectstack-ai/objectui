@@ -186,8 +186,8 @@ describe('ObjectGantt', () => {
     expect(screen.getByTestId('gv-field-1-1').textContent).toBe('Tags=a, b');
   });
 
-  it('falls back to quickFilters labels + ISO date sniffing when there is no object schema (api provider)', async () => {
-    // The api provider returns records but no object schema, so tooltip fields
+  it('falls back to quickFilters labels + ISO date sniffing when there is no object schema (inline value rows)', async () => {
+    // Inline `value` rows come with no object schema, so tooltip fields
     // have no defs: machine values and raw ISO strings used to leak through.
     const schema: any = {
       type: 'gantt',

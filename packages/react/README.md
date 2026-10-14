@@ -131,10 +131,11 @@ declare const schema: DeclaredNode
 
 <SchemaRendererProvider
   dataSource={adapter}
-  // Optional: host-authenticated fetch used by `provider: 'api'` view data
-  // sources, so custom endpoints carry the same credentials (Authorization,
-  // tenant, locale headers) as the native data channel. When omitted,
-  // ApiDataSource falls back to the bare global fetch (cookies only).
+  // Optional: host-authenticated fetch the renderers use for their own reads
+  // of the host's API (chart metadata, dataset dimension labels, permission
+  // probes), so they carry the same credentials (Authorization, tenant,
+  // locale headers) as the native data channel. When omitted, those reads
+  // fall back to the bare global fetch (cookies only).
   apiFetch={authenticatedFetch}
 >
   <SchemaRenderer schema={schema} />

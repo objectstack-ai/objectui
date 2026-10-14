@@ -2792,7 +2792,7 @@ const OBJECT_TREE_NEITHER_CHANNEL = neitherContentChannelGuidance(
 export const ObjectTreeSchema = BaseSchema.extend({
   type: z.literal('object-tree'),
   objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source resolveRecordSourceConfig resolves, after data and staticData; one of the three must be present'),
-  data: ViewDataSchema.optional().describe('Data source configuration — read FIRST by resolveRecordSourceConfig; the value and object providers draw rows, the api and schema providers draw none on the tree'),
+  data: ViewDataSchema.optional().describe('Data source configuration — read FIRST by resolveRecordSourceConfig; the value and object providers draw rows, the schema provider draws none on the tree'),
   staticData: z.array(z.any()).optional().describe('Inline records — read SECOND by resolveRecordSourceConfig, wrapped into a { provider: value } config'),
   tree: stripImportedDefaults(SpecTreeConfigSchema).optional().describe('Tree field configuration (parentField, labelField, fields, defaultExpandedDepth) — the spec TreeConfig, by reference'),
   navigation: stripImportedDefaults(SpecNavigationConfigSchema).optional().describe('Row-click navigation — the spec NavigationConfig, by reference; an absent key opens nothing on a standalone tree'),

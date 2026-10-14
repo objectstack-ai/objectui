@@ -226,11 +226,13 @@ export function ConnectedShell({ children }: { children: ReactNode }) {
   );
 }
 
-// Authenticated fetch for `provider: 'api'` view data sources (#2725): custom
-// endpoints get the same Authorization / X-Tenant-ID / Accept-Language headers
-// as the native adapter channel, so a cookie whose HMAC signature rotated
-// (e.g. dev-server restart) no longer strands them on 401. `sameOriginOnly`
-// keeps the bearer token off third-party hosts a view's URL may point at, and
+// The host's authenticated fetch, handed to the renderers as `apiFetch`
+// (#2725): their own reads of the host's API (chart metadata, dataset
+// dimension labels, record-permission probes) get the same Authorization /
+// X-Tenant-ID / Accept-Language headers as the native adapter channel, so a
+// cookie whose HMAC signature rotated (e.g. dev-server restart) no longer
+// strands them on 401. `sameOriginOnly` keeps the bearer token off any
+// third-party host a request may name, and
 // withSettleSignal keeps these requests visible to the ADR-0054 C5 idle probe.
 const apiProviderFetch = withSettleSignal(createAuthenticatedFetch({ sameOriginOnly: true }));
 

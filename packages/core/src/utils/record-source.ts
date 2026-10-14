@@ -47,7 +47,7 @@ import type { ViewData } from '@object-ui/types';
  * The ladder's second rung wraps inline rows as `{ provider: 'value', items }`,
  * which names no object at all. So for the object-NAME question the three-rung
  * ladder reduces to two rungs — the resolved config's object when it names one,
- * else the schema's own `objectName`, which is what a `value`/`api`-backed block
+ * else the schema's own `objectName`, which is what a `value`-backed block
  * still needs for metadata reads, i18n field labels and permission verdicts.
  * Callers pass the ALREADY-RESOLVED config (their
  * {@link resolveRecordSourceConfig} output, direct or through a local wrapper),

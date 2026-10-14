@@ -198,7 +198,7 @@ const FAILED_TO_RENDER = 'failed to render';
  * draw the primitive, so this string is what would catch them sliding back to
  * the bare keyword.
  */
-const DATASOURCE_REQUIRED = 'DataSource required for object/api providers';
+const DATASOURCE_REQUIRED = 'DataSource required for the object provider';
 
 const ALL_DIAGNOSTICS = [UNKNOWN_COMPONENT, FAILED_TO_RENDER, DATASOURCE_REQUIRED];
 

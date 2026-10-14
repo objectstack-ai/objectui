@@ -355,7 +355,7 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
   // ruling): an action's `target` comes from author-supplied metadata and may
   // name an off-origin host. Cross-origin requests pass through to the bare
   // global fetch — no Authorization, X-Tenant-ID, or Accept-Language — matching
-  // the `provider: 'api'` data-source lane (ConsoleShell). Same-origin actions
+  // the renderers' `apiFetch` lane (ConsoleShell). Same-origin actions
   // are unaffected. An off-origin integration that legitimately needs the
   // platform bearer declares itself explicitly or proxies same-origin.
   const authFetch = useMemo(() => createAuthenticatedFetch({ sameOriginOnly: true }), []);

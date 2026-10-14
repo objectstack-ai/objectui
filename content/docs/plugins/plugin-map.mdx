@@ -319,7 +319,8 @@ const staticLocations = {
 The view-level `data.provider: 'api'` is retired in `@objectstack/spec`
 (objectstack#23082), and `ObjectMap` has no branch for it: a schema that still
 carries one plots no markers and requests nothing. Without a `DataSource` it
-fails one step earlier, with `DataSource required for object/api providers`.
+fails one step earlier, with the error an object-bound map gets:
+`DataSource required for the object provider`.
 A metadata-declared API call is the page element's `dataSource` binding.
 
 Read from the database with the **Object Provider** above, or pass records you

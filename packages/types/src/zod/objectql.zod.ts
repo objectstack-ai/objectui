@@ -672,15 +672,12 @@ export const ObjectGridSchema = BaseSchema.extend({
     + 'and nothing reads it any more; the upstream protocol refuses it by name on `object-grid`. '
     + 'Rename the key to `sort` and wrap the value in an array: `sort: [{ field, order }]`.',
   ),
-  // objectui#6152 round 10 — the `object-grid` row's own `defaultFilters` member BY
-  // REFERENCE: the SAME `ViewFilterRule` array as `filter` above, with the row's
-  // refusal of the MongoDB-style record, a bare string and the AST tuple array
-  // (its message names this key as the one written). It was
-  // `z.record(z.string(), z.any())`, so the `object-view` `table` slot built from
-  // this mirror accepted the record the row refuses, and refused the rule array
-  // the row takes. The read is wider on purpose, as for
-  // `filter`: `ObjectGrid` lowers this slot through the same `toFilterNode` sink
-  // (see the TS twin's member).
+  // The `object-grid` row's own `defaultFilters` member BY REFERENCE. Since
+  // `@objectstack/spec` 18 it is a retired-key tombstone (objectstack#11509) that
+  // refuses every value by name, so this mirror and the `object-view` `table`
+  // slot built from it refuse it too, and neither `ObjectGrid` nor `ObjectView`
+  // reads it (objectui#12030; see the TS twin's member). Through 17.x it was the
+  // SAME `ViewFilterRule` array as `filter` above (objectui#6152 round 10).
   defaultFilters: stripImportedDefaults(SpecObjectGridPropsSchema).shape.defaultFilters,
   // objectui#6152 round 7 — RETIRED under ADR-0049, in lockstep with the `?: never`
   // twin on the interface. `@objectstack/spec` 17.7.0 (objectstack#21445) refuses

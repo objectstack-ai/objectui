@@ -629,7 +629,7 @@ export interface ObjectGridExternalPaginationProps
  * `@objectstack/spec/ui` owns that name, where it is the AUTHORED props
  * document of the `object-grid` element — `z.input<typeof
  * ObjectGridPropsSchema>`, i.e. serialisable authoring keys only (`label`,
- * `fields`, `defaultFilters`, `pagination`, …). This is the RENDERER's props: a
+ * `fields`, `filter`, `pagination`, …). This is the RENDERER's props: a
  * live `dataSource`, the host pagination handles below, and eleven callbacks,
  * none of which can exist in authored metadata. Two layers under one word,
  * resolved the way this repo already resolved it for `PageHeaderProps` ->

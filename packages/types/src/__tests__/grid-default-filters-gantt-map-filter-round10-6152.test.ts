@@ -27,9 +27,9 @@
  * ⚠️ `@objectstack/spec` 18 RETIRED `object-grid.defaultFilters` (objectstack#11509): the
  * row's member is a tombstone that refuses every value by name. Both faces carry it by
  * reference, so both refuse it too — the rows below that held the rule-array verdict now
- * hold the retirement (objectui#12030). `ObjectGrid` still reads a stored document's
- * `defaultFilters` as a legacy fallback when `filter` is absent; that read is the
- * renderer's, and these faces judge what is authored.
+ * hold the retirement (objectui#12030). The renderers stopped reading it in the same
+ * change: neither `ObjectGrid` nor `ObjectView` reads a stored document's
+ * `defaultFilters`, and these faces judge what is authored.
  */
 import { describe, it, expect } from 'vitest';
 

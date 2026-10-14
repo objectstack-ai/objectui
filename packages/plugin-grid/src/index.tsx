@@ -200,7 +200,9 @@ export const ObjectGridRenderer: React.FC<{ schema: any; [key: string]: any }> =
  * `selectable`, `pageSize`, `showSearch`, `showPagination`, `defaultSort`,
  * `defaultFilters`, `resizableColumns`, `title` — all tagged `@deprecated` in
  * `ObjectGridSchema`, `packages/types/src/objectql.ts`). The renderer reads
- * the rest of them as back-compat fallbacks, but publishing a deprecated alias as NEW
+ * the ones not since retired as back-compat fallbacks (`defaultSort`,
+ * `resizableColumns` and, from `@objectstack/spec` 18, `defaultFilters` are not
+ * read), but publishing a deprecated alias as NEW
  * authoring surface would harden it into a second dialect (AGENTS.md #0.1), so
  * each gets a cited exemption in the console parity gate instead. Their canonical
  * spellings — `columns`, `data`, `selection`, `pagination`, `searchableFields`,

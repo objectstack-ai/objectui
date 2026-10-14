@@ -2311,9 +2311,10 @@ export interface ObjectFormSchema extends BaseSchema {
  * The list is three groups:
  *
  *   - the keys `ObjectView` reads off `table` BY NAME when it builds the grid
- *     node: `columns` / `fields`, `filter` / `defaultFilters`, `sort`,
- *     `pagination` / `pageSize`, `selection` / `selectable`, `operations`,
- *     `title` and `className`;
+ *     node: `columns` / `fields`, `filter`, `sort`, `pagination` / `pageSize`,
+ *     `selection` / `selectable`, `operations`, `title` and `className`. The
+ *     slot still declares `defaultFilters`, typed by the `object-grid` row's
+ *     retired-key tombstone, and nothing reads it (objectui#12030);
  *   - the keys it RELAYS verbatim, `OBJECT_VIEW_TABLE_RELAY_KEYS` in
  *     `@object-ui/plugin-view`'s `ObjectView.tsx` — each one a key
  *     `ObjectGrid` reads, so a value written here reaches a read. Where the

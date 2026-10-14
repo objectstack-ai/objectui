@@ -55,7 +55,7 @@ import {
   Popover, PopoverContent, PopoverTrigger,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   RefreshIndicator,
-  DataEmptyState, resolveIcon,
+  DataEmptyState, EmptyStateLink, resolveIcon,
   toast,
 } from '@object-ui/components';
 import { usePullToRefresh } from '@object-ui/mobile';
@@ -6861,8 +6861,13 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   //
   // A member left out keeps the grid's default: `DataEmptyState`'s own glyph
   // (an icon name that resolves to nothing is the same as none), the table's
-  // "No results found" heading, and no message line. Text only, as the table's
-  // empty row is — an empty table draws no add-record row either.
+  // "No results found" heading, and no message line. No add-record action, as
+  // the table's empty row draws none either.
+  //
+  // objectui#12270 — the one action it does draw is the authored `link`,
+  // `{ label, url }`, through the one shared `EmptyStateLink` that `ListView`'s
+  // empty state draws it with, so the click is the action runner's navigation
+  // (`classifyNavigationTarget`) here too. ⛔ No scheme test of its own.
   //
   // objectui#11227 — `title` and `message` are the spec's `I18nLabel`: a plain
   // string or an inline locale map. Each is resolved against the display locale
@@ -6889,6 +6894,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       icon={AuthoredEmptyIcon ? <AuthoredEmptyIcon className="size-5 text-muted-foreground" /> : undefined}
       title={authoredEmptyTitle || t('table.noResults')}
       description={authoredEmptyMessage || undefined}
+      action={authoredEmptyState?.link
+        ? <EmptyStateLink link={authoredEmptyState.link} displayLocale={displayLocale} />
+        : undefined}
     />
   ) : gridContent;
 

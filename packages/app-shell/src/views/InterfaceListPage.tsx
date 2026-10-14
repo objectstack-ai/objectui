@@ -500,7 +500,13 @@ export function InterfaceListPage({ page, className, onConfigChange, reserveEdit
       rowColor: view.rowColor,
       pagination: view.pagination,
       searchableFields: view.searchableFields,
-      emptyState: view.emptyState,
+      // objectui#12270 — the page's own `interfaceConfig.emptyState` (the spec
+      // declares it on `InterfacePageConfigSchema` as the list view's own
+      // `EmptyStateSchema`) wins over the source view's, whole, on every
+      // visualization: the page states what belongs in its empty list. The
+      // source view's stays the fallback, as its `appearance` and
+      // `userFilters` are.
+      emptyState: cfg.emptyState ?? view.emptyState,
       kanban,
       calendar,
       gallery,

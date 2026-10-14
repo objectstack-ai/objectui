@@ -26,7 +26,7 @@
  */
 
 import * as React from 'react';
-import { Button, DataEmptyState } from '@object-ui/components';
+import { Button, DataEmptyState, EmptyStateLink } from '@object-ui/components';
 import { Inbox, Plus, type LucideIcon } from 'lucide-react';
 import type { ListViewSchema } from '@object-ui/types';
 // The spec's own resolver for an `I18nLabel` (a plain string or an inline
@@ -59,6 +59,14 @@ export interface ListEmptyStateProps {
    */
   icon?: LucideIcon | null;
   /**
+   * The authored `emptyState.link`, `{ label, url }` (objectui#12270), drawn by
+   * the one shared `EmptyStateLink` beside the add-record action. The spec
+   * keeps the two apart: the link is the empty state's own next step, the
+   * add-record entry point is the view's `addRecord` block, so either, both or
+   * neither may be drawn.
+   */
+  link?: AuthoredEmptyState['link'];
+  /**
    * The USER applied a query: the search box, the user-filter chips, the
    * filter panel. Only then is the user told to adjust or clear their filters.
    */
@@ -77,6 +85,7 @@ export function ListEmptyState({
   title: authoredTitle,
   message: authoredMessage,
   icon,
+  link,
   hasUserQuery,
   hasBaseFilter,
   onAddRecord,
@@ -119,6 +128,17 @@ export function ListEmptyState({
       : hasBaseFilter
         ? t('list.viewFilterNoMatchesMessage')
         : t('list.firstRunMessage'));
+  const addRecordAction = onAddRecord ? (
+    <Button
+      variant="default"
+      size="sm"
+      data-testid="empty-state-add-record"
+      onClick={() => onAddRecord()}
+    >
+      <Plus className="h-4 w-4 mr-1.5" />
+      {t('list.addRecord')}
+    </Button>
+  ) : undefined;
   return (
     <DataEmptyState
       data-testid="empty-state"
@@ -127,17 +147,12 @@ export function ListEmptyState({
       iconWrapperClassName="mb-3"
       title={title}
       description={description}
-      action={onAddRecord ? (
-        <Button
-          variant="default"
-          size="sm"
-          data-testid="empty-state-add-record"
-          onClick={() => onAddRecord()}
-        >
-          <Plus className="h-4 w-4 mr-1.5" />
-          {t('list.addRecord')}
-        </Button>
-      ) : undefined}
+      action={link ? (
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          {addRecordAction}
+          <EmptyStateLink link={link} displayLocale={displayLocale} />
+        </div>
+      ) : addRecordAction}
     />
   );
 }

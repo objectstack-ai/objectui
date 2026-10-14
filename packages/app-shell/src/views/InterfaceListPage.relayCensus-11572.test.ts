@@ -47,8 +47,9 @@
  * `tree`, `chart`, …). A spec view key outside both, with no page slot, is
  * `not-inherited`: the page does not take it from a reference the spec
  * deprecates. ⚠️ The literal also relays view members outside that line:
- * `grouping`, `rowColor`, `pagination`, `searchableFields` and `emptyState`,
- * and the view's `appearance` as the page's fallback. They predate this
+ * `grouping`, `rowColor`, `pagination` and `searchableFields`, and the view's
+ * `appearance` and `emptyState` as the page's fallbacks (the page's own
+ * `emptyState` wins since objectui#12270). They predate this
  * census, which counts them as relayed and neither retires nor extends them;
  * the census below, not this sentence, is what says which members are relayed.
  *

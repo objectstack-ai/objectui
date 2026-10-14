@@ -312,8 +312,9 @@ const GRID_QUERY_INPUTS: ComponentInput[] = [
   // that the spec row declares it, at 17.6.0, as the list view's own
   // `EmptyStateSchema`). Its `title` and `message` are `I18nLabel` members that
   // `ObjectGrid` resolves against the display locale. The members are pinned by
-  // `ObjectGrid.emptyStateI18nLabel-11227.test.tsx`.
-  { name: 'emptyState', type: 'object', description: 'What the grid draws in place of an empty table, `{ title, message, icon }`: a Lucide `icon` name, a `title` (default: the table\'s own "No results found") and a `message` (default: none). `title` and `message` each accept a plain string or an inline per-locale map, resolved against the display locale. Not drawn when a term typed into the grid\'s own server-side search box is what emptied it — the table and its search box stay, so the term can be cleared. Leave it out and an empty grid draws the table\'s own empty row.' },
+  // `ObjectGrid.emptyStateI18nLabel-11227.test.tsx`; its `link` (objectui#12270)
+  // by `ObjectGrid.emptyStateLink-12270.test.tsx`.
+  { name: 'emptyState', type: 'object', description: 'What the grid draws in place of an empty table, `{ title, message, icon, link }`: a Lucide `icon` name, a `title` (default: the table\'s own "No results found"), a `message` (default: none) and one `link: { label, url }` the user follows (default: none) — an in-app path, or an `http(s)://` or `mailto:` address, opened as a `url` action opens it. `title`, `message` and the link\'s `label` each accept a plain string or an inline per-locale map, resolved against the display locale. Not drawn when a term typed into the grid\'s own server-side search box is what emptied it — the table and its search box stay, so the term can be cleared. Leave it out and an empty grid draws the table\'s own empty row.' },
   // ── grouping and roll-ups ─────────────────────────────────────────────────
   { name: 'grouping', type: 'object', description: 'Group rows by one or more fields into collapsible sections.' },
   { name: 'aggregations', type: 'array', description: 'Per-group roll-ups shown in group headers, `[{ field, type: "sum" | "count" | "avg" | "min" | "max" | "count_distinct" }]`. Needs `grouping` to have anything to roll up.' },

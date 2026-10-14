@@ -5711,6 +5711,9 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
             // to the fallback here while resolving elsewhere. What an
             // unresolvable name draws is the empty state's own decision.
             icon={resolveIcon(schema.emptyState?.icon)}
+            // objectui#12270 — the authored `{ label, url }` link, followed
+            // through the action runner by the one shared `EmptyStateLink`.
+            link={schema.emptyState?.link}
             hasBaseFilter={hasDeclaredFilter(authoredFilter)}
             // The USER's query (objectui#11687): the search box, the
             // user-filter chips, the filter panel's own conditions. The view's

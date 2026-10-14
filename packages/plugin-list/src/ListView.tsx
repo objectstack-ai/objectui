@@ -2880,6 +2880,21 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           // for grouping before it.
           for (const f of collectGroupingFieldRefs(groupingConfig)) addSpeculative(f);
 
+          // [objectui#12376] The ROW COLOUR's field, which this harvest had no
+          // arm for. `useRowColor` looks each row's `row[field]` up in the
+          // `colors` map, and the spec's `rowColor.field` sets no column
+          // requirement — so a list tinted by a field that is not a column
+          // fetched rows without it and painted nothing, with no error.
+          //
+          // Read from `rowColorConfig`, the state a pick in the toolbar's
+          // Color section replaces, not from `schema.rowColor`: the projection
+          // follows the colour the list actually draws. Through
+          // `addSpeculative`, like every binding here: a field the viewer may
+          // not read is never requested (`offeredRowColorConfig` withholds the
+          // whole rule from that viewer too), and a name the object does not
+          // declare is never sent.
+          addSpeculative(rowColorConfig?.field);
+
           for (const f of collectPredicateFieldRefs(listViewPredicates({
             conditionalFormatting: schema.conditionalFormatting as unknown[] | undefined,
             /**
@@ -3187,13 +3202,18 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     // not cover, and on a switch into or out of a windowed calendar — the one
     // switch whose query changes — and on nothing else (objectui#7394).
     //
+    // objectui#12376 — `rowColorConfig?.field` is the row colour's field, which
+    // the projection asks for: a toolbar pick of another field re-reads the
+    // rows with it. A string, so a pick that only changes the colours moves
+    // nothing and re-runs nothing.
+    //
     // ⚠️ The directive below governs the NEXT LINE. Anything written between it
     // and the dependency array detaches it from the array and turns it into an
     // unused directive — which `eslint .` reports as an ERROR, and which also
     // silently un-suppresses nothing, because the finding it was suppressing
     // simply moves elsewhere. Add prose ABOVE this point, never below it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema.objectName, schema.data, dataSource, authoredFilter, effectivePageSize, currentSort, appliedFilters, appliedUserFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, schema.map, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, predicateProjectionKey, invalidationNonce, groupingNeedsHeaderQuery, calendarWindowKey, rowsCarryConcurrencyToken]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change; `rowsCarryConcurrencyToken` (objectui#12292) re-reads the rows with their token when inline edit turns on
+  }, [schema.objectName, schema.data, dataSource, authoredFilter, effectivePageSize, currentSort, appliedFilters, appliedUserFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, schema.map, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, predicateProjectionKey, invalidationNonce, groupingNeedsHeaderQuery, calendarWindowKey, rowsCarryConcurrencyToken, rowColorConfig?.field]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change; `rowsCarryConcurrencyToken` (objectui#12292) re-reads the rows with their token when inline edit turns on
 
   // Any change to the result-defining inputs (object, filters, sort, search,
   // grouping, page size) invalidates the current page number — snap back to

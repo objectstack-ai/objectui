@@ -1,0 +1,35 @@
+{
+  "number": 12377,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid): a list column's inline locale-map label heads the column (objectui#12358)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-14T15:00:53Z",
+  "updated_at": "2026-10-14T17:19:51Z",
+  "closed_at": "2026-10-14T17:19:48Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-14T17:19:48Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12377",
+  "body": "Fixes #12358\nClause-②: no\n\n## What\n\n`ListColumnSchema.label` is the spec's `I18nLabel`: a plain string or an inline locale map (`{ en: 'MAPEN Est', 'zh-CN': 'MAPZH 预计' }`). The spec documents the map as resolved by the renderer. In plugin-grid, `resolveColumnLabel` kept only a plain string and returned `undefined` for a map. The header then fell back to the field label in every locale.\n\n`resolveColumnLabel` now takes the viewer's UI language. It passes a plain string through unchanged and resolves a map through `pickLocalized` from `@object-ui/i18n`. That is the same resolver the navigation and Studio label-map fixes use, so there is no second locale-pick implementation. The fallback when the viewer's locale is absent is `pickLocalized`'s own rule: exact tag, base language, a regional sibling, `default`, `en`, then the first entry. A map with no usable entry still returns `undefined`, so the existing field-label fallback applies as before.\n\nThe locale source is `uiLanguage`, which is `useObjectTranslation().language` through the grid's `useGridTranslation`. That is the text-language channel the `pickLocalized` call sites across the plugins use. `generateColumns` now lists `uiLanguage` as a dependency.\n\n## Readers checked (mechanism assumption A1)\n\n- `resolveColumnLabel` in `ObjectGrid.tsx` is the only place in plugin-grid where a column's `label` is read. Its call site in `generateColumns` is the one changed.\n- Every downstream reader uses the resolved `header` produced there, so this fix covers them too: the column header, the client CSV export header row (`generateColumns().map(c => c.header)`), the inline-edit conflict dialog's field label (`columnHeaderOf`), the summary footer (`col.header`), and the cell face's `fieldMeta.label`.\n- The other `label` reads in plugin-grid are object **field** labels. `FieldSchema.label` is a `z.string()` in the spec, so those reads are a different key and are out of scope. The column picker and settings panel are not in plugin-grid.\n\n## Tests\n\n`packages/plugin-grid/src/__tests__/ObjectGrid.columnLabelMap-12358.test.tsx` mounts the grid under a real `I18nProvider` whose bundle translates every field. A header that fell back to the field label would therefore show the bundle's text and fail.\n- `en` shows the map's `en` entry and not the field label.\n- `zh` shows the `zh-CN` entry, not the `en` entry and not the field label. The map lists `en` first, so falling back to `en` or to the first entry would fail this case.\n- `fr`, which the map does not carry, shows `pickLocalized`'s fallback, the `en` entry.\n- Control: a plain-string `label` renders unchanged in both `en` and `zh`.\n- Control: a column with no label still shows the translated field label.\n\nAblation (one-off; the fix was committed first): `ablation-replace.mjs` swapped `return pickLocalized(label, language) || undefined;` for `return undefined;`, which is the old behaviour.\n- The anchor count went from 1 to 0 and the blob changed. The three map cases failed and the two controls passed (`Tests 3 failed | 2 passed (5)`).\n- After the restore, the blob matches HEAD and `git diff HEAD` is empty.\n\nGates and test runs on head `bacf601`:\n- Dependency closure build (`pnpm --filter '@object-ui/plugin-grid^...' build`) and `type-check` (`tsc --noEmit` plus the test tsconfig): both exit 0.\n- Targeted vitest (this file, the `authoredColumnLabel-12110` file and the `cellFaceLabel-11689` file): 14 of 14 passed.\n- Full plugin-grid suite (`pnpm exec vitest run packages/plugin-grid/`): `Test Files 213 passed (213)`, `Tests 1929 passed (1929)`.\n- Lint narrowed to the 2 changed files: `eslint` run as the package's `lint` script runs it, 0 errors. All warnings are on lines outside this diff.\n- The pre-tsc battery (phantom-deps, self-import, unreferenced-sources, doc-example-readers, handler-key-reads, side-effects-array, element-data-source-declaration, spec-symbols, action-forward-parity, designer-field-key-parity, icon-record-names, i18n-keys, i18n-drift, i18n-designer-parity), plus control-bytes, new-line-citations, `check-changeset-fixed` and `check-changeset-presence`: all exit 0.\n- `check:spec-floors` exits 1 on main for an unrelated reason: \"The scan collapsed: 0 package(s) declare @objectstack/spec\". This PR does not fix it.\n\n## Acceptance notes\n\n- Observation, not filed: several other `I18nLabel` reads in `ObjectGrid.tsx` resolve against `displayLocale` (`useDisplayLocale`: tenant regional locale first, then UI language), not the UI language. These are the view label in the export filename, the caption, the detail label, the description and the empty state. With a tenant regional locale such as `en-US` and a `zh` UI, those would pick the `en` entry while this column header picks `zh-CN`. This is a read-only inference and was not reproduced.\n\n## Changeset\n\n`.changeset/12358-grid-column-label-map.md`: `@object-ui/plugin-grid` patch.\n\nImplemented by session `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

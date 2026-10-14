@@ -1,0 +1,35 @@
+{
+  "number": 12378,
+  "kind": "pull_request",
+  "title": "fix(plugin-form): a New form saves the owner the user picks (objectui#12359)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-14T17:14:03Z",
+  "updated_at": "2026-10-14T18:17:00Z",
+  "closed_at": "2026-10-14T18:16:58Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-14T18:16:58Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12378",
+  "body": "Fixes #12359\nClause-②: no\n\n## What was wrong\n\n`sanitizeFormData` drops `owner_id` from every payload, and only the edit path added a changed owner back (objectui#12205, `dirtyEditPayload`). A New form whose layout renders Owner offered a live lookup and showed the picked user's chip. Then it created the record with no `owner_id` key, so the server stamped the creator, answered 201 and showed no error.\n\n## What changed\n\n- `sanitize.ts`: new `createOwnerPayload(payload, seed, owner)`. It judges the owner against the values the create form OPENED with (`seed`), using the same `changedOwner` judgement and the same `stripUnwritable(..., admitOwner)` door as the edit path. No second strip list and no second equality rule.\n  - Sent: a picked owner that differs from the seed.\n  - Not sent: an owner the form was seeded with and the user left alone (the acting user from a `current_user` default, or a caller prefill), an `undefined` owner, or any owner when the baseline is `null`. The rule from objectui#10108 is unchanged.\n  - Still refused: the caller's field-level security and an owner the object declares `readonly`.\n- `writePayload.ts`: `FormWriteSources.createBaseline` is now REQUIRED (`Record | null`), so a layout cannot forget it. On a create, `formWritePayload` adds a picked owner to `payload`, because a create in `ObjectForm` writes `payload`, and then runs `omitServerResolvedDefaults`.\n- The client does not decide whether the caller may transfer ownership. On insert, plugin-security admits `owner_id` equal to the acting user, auto-stamps an empty owner, and refuses another user without `allowTransfer` / `modifyAllRecords`. That refusal reaches the form through its normal error path, which a test pins.\n\n## The six create writers in plugin-form\n\n| Writer | Baseline it passes |\n|---|---|\n| `ModalForm` (the console's New dialog) | `formData`, which on a create is the seed alone |\n| `DrawerForm` | `formData`, which on a create is the seed alone |\n| `ObjectForm` simple | `formOpeningValues(schemaDefaults, initialData)`. `finalDefaultValues` now goes through the same helper, and the defaults block moved above `handleSubmit` |\n| `TabbedForm` | its seeded `formData` |\n| `SplitForm` | its seeded `formData` |\n| `WizardForm` | `createSeedRef`, set by `holdCreateSeed` at each of its three seed sites. It is held apart from `formData`, which merges every step's answers |\n\n`MasterDetailForm`'s parent goes through `ObjectForm`'s `submitHandler` seam. A flat `fields` list (simple or mobile stepper) never renders the owner, because auto-layout filters system fields, so it has nothing to pick.\n\n## Tests\n\n`createOwnerPick-12359.test.tsx` (dom project) covers:\n- unit rows for `createOwnerPayload` and `formWritePayload`;\n- `ModalForm` and `DrawerForm`: a pick is sent, an empty Owner is not sent, a seeded creator is not sent, and a pick over the seed is sent;\n- `ObjectForm` simple, tabbed, split and wizard: a pick is sent, a seeded creator is not sent, and a pick over the seed is sent;\n- `ModalForm` create refused with a 403: the error shows, `onSuccess` is not called, and the dialog stays open.\n\n`editOwnerChange-12205.test.tsx` now passes `createBaseline: null` on its edit calls, since the field is required.\n\nAblations, all through `ablation-replace.mjs`. Every mutation landed, and every restore was checked with blob == HEAD and an empty `git diff HEAD`.\n- At `ae10afa`:\n  - `createOwnerPayload` never adds the pick: 8 failed. Every \"is sent\" row went red.\n  - `changedOwner(owner, {})` ignores the seed: 4 failed. Every \"seeded owner is not sent\" row went red.\n- At `609a32b`:\n  - `WizardForm` `createBaseline: null`: 2 failed (wizard pick rows).\n  - `ObjectForm` `createBaseline: null`: 2 failed (simple pick rows).\n  - `WizardForm` `createBaseline: mergedData`: 2 failed. Using the step-merged values as the baseline drops the pick, which is why the seed ref exists.\n\nGates at `609a32b`:\n- Full plugin-form project under the lock: 183 files passed, 2244 tests passed, 1 skipped.\n- Targeted run, 12 files: 238 passed.\n- `pnpm --filter '@object-ui/plugin-form^...' build`, then `pnpm --filter @object-ui/plugin-form type-check`: exit 0.\n- eslint narrowed to the 10 changed files: 0 errors. The config has no type-aware linting.\n- Pre-tsc battery, `check:new-line-citations`, `check-changeset-fixed` and `check-changeset-presence`: exit 0.\n- `check:spec-floors`: exit 1, the known objectui#12334.\n\n## Acceptance notes\n\n- An owner a caller passes through `initialData` counts as part of the seed, not as a pick. It is not sent unless the user changes it.\n- Not fixed here, because it is a different defect: `ModalForm`'s write branch tests `schema.mode === 'create'`, while its load effect uses `isCreateFormMode`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_"
+}

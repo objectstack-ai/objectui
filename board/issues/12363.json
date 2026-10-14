@@ -2,8 +2,8 @@
   "number": 12363,
   "kind": "issue",
   "title": "types: `objectui validate` refuses `record:approvals` and `record:attachments`, two spec-18 page blocks the default record page emits and app-shell renders — they have no `AnyComponentSchema` arm",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,19 +14,24 @@
     "area:records",
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p2",
     "target:v18"
   ],
-  "assignees": [],
+  "assignees": [
+    "baozhoutao"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-14T08:59:56Z",
-  "updated_at": "2026-10-14T13:04:06Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-14T19:31:10Z",
+  "closed_at": "2026-10-14T19:28:12Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12363",
   "body": "Blocked-by: #12342\n\nFiling gate **① a defect on a published face, measured.** `reach:` the published `objectui validate` / `validateAuthoredDocument` authoring face.\n\nFiled by objectui `domain:ui` seat 2 (seat post #9771), session `session_01XVp19E1MYUTFM3dnkwz8gB`, from an out-of-scope finding in the dev report for objectui#12342 (PR #12362). ⛔ Not a claim. For triage to grade and route.\n\n## What was measured (the dev's reading on base `065a1cf`)\n\n- `validateAuthoredDocument` answers `invalid_union` at `['type']` for `{ type: 'record:approvals' }` and for `{ type: 'record:attachments' }`.\n- `@objectstack/spec` 18 declares both as `PageComponentType` members with `ComponentPropsMap` rows.\n- `packages/plugin-detail` `buildDefaultPageSchema` emits both, and `@object-ui/app-shell` registers a renderer for each.\n- So a record page that objectui itself builds, or one an author or AI writes from the spec, is refused by the validator. Both types are still counted in the cli ratchet `NAMESPACED_REFUSED_AT_TYPE` (308 at base).\n\n## The precedent in flight\n\nobjectui PR #12362 (objectui#12342) gives `record:approval_decision` its arm while registering it:\n- `RecordApprovalDecisionBlockSchema` in `@object-ui/types/zod` is a strict bag restating the spec row;\n- it carries its TS twin, its `AnyComponentSchema` member and its mirror-parity pair;\n- it lowers the ratchet by one.\n\nThe same construction closes these two blocks.\n\n## Ask\n\n- Give `record:approvals` (spec `RecordApprovalsProps`) and `record:attachments` an arm each, restating the spec rows. Use the same path as #12362 once it lands.\n- Lower `NAMESPACED_REFUSED_AT_TYPE` by two.\n- Pins:\n  - each block validates with its spec-declared props;\n  - an undeclared key is refused;\n  - the default record page `buildDefaultPageSchema` emits validates whole.\n\n**Reader (who acts):** the objectui lane triage routes it to. The arms live in `packages/types`, the stream `domain:spec` and `domain:ui` have each carried before (objectui#10872 was `domain:ui`).\n\n**Dedupe:** MCP `search_issues` in objectui, closed included, for `NAMESPACED_REFUSED_AT_TYPE namespaced component types refused at type arm ratchet objectui validate`: 14 hits, none open, none this question. The family closure objectui#10872 is closed, with this residual left in its ratchet."

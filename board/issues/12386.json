@@ -1,0 +1,31 @@
+{
+  "number": 12386,
+  "kind": "pull_request",
+  "title": "fix(app-shell): a comment edit stops writing is_edited / edited_at, the platform stamps both (objectui#12314)",
+  "state": "open",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-14T19:29:08Z",
+  "updated_at": "2026-10-14T19:34:34Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12386",
+  "body": "Fixes #12314\nClause-②: no\n\nThe objectui half of ruling A on objectstack-ai/objectstack#23124 (comment `6137155820`): the platform stamps `is_edited: true` and `edited_at` on `sys_comment` when the body changes (`stampCommentBodyEdit`, objectstack-ai/objectstack#23153, `dc93781c19`), and both fields are read-only to data entry. The console stops writing them.\n\n## What changed\n\n- `handleEditComment` in `packages/app-shell/src/views/RecordDetailView.tsx`: the `sys_comment` update now carries `body` and `mentions` only. The two-line client write of `is_edited: true` and a client-clock `edited_at` is gone. No client-side stamp is kept as a fallback.\n- Its docblock no longer says \"the server stamps neither on update\". It says the platform stamps both when the body changes, and that they are read-only to the client.\n- The row's \"edited\" mark after a save: it used to be set from the console's own copy (`edited: true` after any successful write). It is now read from the stored record the update answers with (`stored?.is_edited === true`), the same `is_edited` field the read maps with `edited: c.is_edited === true`. So the mark right after a save never says something the next read would not. The `DataSource.update` contract in `@object-ui/types` resolves to the updated record, and the platform's SQL driver answers with a read-back of the stored row, which carries the stamp the `beforeUpdate` hook wrote.\n- The read path (`edited: c.is_edited === true`) is unchanged.\n\n## Mechanism assumptions, as measured\n\n- **A1 held.** The two fields were written in `handleEditComment` exactly as the card says; removed, body and mentions kept.\n- **A2 held only in part.** The marker did NOT come from the server: after a save, the handler set `edited: true` on its own copy, and nothing refetches `sys_comment` after an edit (the feed is only re-read on mount or navigation). It now reads the server's answer. Pinned two ways: the test double now answers like the platform (it stamps `is_edited` / `edited_at` when the body changes), and the edited row shows the mark; a new case answers an unstamped row (`is_edited: false`, as a server without the stamp would) and the row shows no mark.\n- **A3.** The edit test that pinned the client write now pins its absence: the payload `toEqual({ body, mentions: '[]' })` and has neither property. No test that pins the marker display was removed; the stored-as-edited read test is unchanged.\n\n## Tests (final head `91550c68f`)\n\n- `pnpm exec vitest run --maxWorkers=2 packages/app-shell/src/views/RecordDetailView.feedCommentEditDelete-12268.test.tsx`: `Test Files 1 passed (1)`, `Tests 23 passed (23)` (21 before this change, plus the new case under both feed blocks).\n- `pnpm --filter @object-ui/app-shell type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`; the test config includes `src/**/*.test.tsx`), after `pnpm --filter '@object-ui/app-shell^...' build`: exit 0.\n- **Ablation (one-off, not kept).** The fix committed first, then `RecordDetailView.tsx` replaced by its base `fc211e817` copy under an EXIT trap (on disk: `is_edited: true,` count 1, `stored?.is_edited` count 0). The file runs from source (relative import), so no dist build is involved. Result: `Tests 4 failed | 19 passed (23)`: the payload pin and the server-mark pin, each under `record:activity` and `record:discussion`. Restored with `git checkout HEAD --`; `git diff HEAD` empty, blob hash equal to HEAD's.\n- ESLint narrowed to the two changed source files (`eslint --no-inline-config --format json`): 2 files, 0 errors. Warnings equal the base copies of the same files (113 vs 113; the one new `no-explicit-any` was removed in `91550c68f`). Repo-wide `pnpm lint` is left to CI.\n- Gate battery, exit codes: `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity` all 0. `node scripts/check-changeset-fixed.mjs` 0, `node scripts/check-changeset-presence.mjs` 0. `check:spec-floors` 1, which is already red on `main` (objectui#12334); it reports \"The scan collapsed: 0 package(s) declare @objectstack/spec\". Nothing here touches it.\n- `check-nul-bytes` OK; the control-byte self-scan of the three changed files finds nothing.\n\n## Changeset\n\n`.changeset/12314-comment-edit-stamp.md`, `patch` for `@object-ui/app-shell`.\n\n## Acceptance notes\n\n- Behaviour on a server without the stamp (a `@objectstack/plugin-audit` release before objectstack-ai/objectstack#23153): an edited comment now shows no \"edited\" mark, at once and after a re-read. That is the ruling's intent: the mark is the platform's, and objectui already resolves `@objectstack/*` `18.0.0-next.0`, which stamps.\n- The edit handler still sets `body: text` locally after a successful save rather than reading `body` from the answer. That is out of this card's scope.\n\nThe session that made this change: `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

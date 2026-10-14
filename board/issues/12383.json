@@ -1,0 +1,35 @@
+{
+  "number": 12383,
+  "kind": "pull_request",
+  "title": "fix(fields): draw a text-valued formula as text, not monospace (objectui#12357)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: fields",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-14T18:28:59Z",
+  "updated_at": "2026-10-14T19:29:35Z",
+  "closed_at": "2026-10-14T19:29:34Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-14T19:29:34Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12383",
+  "body": "Fixes #12357\nClause-②: no\n\n## What changed\n\nA text-valued formula now draws as text in both faces, whether it declares `returnType: 'text'` or no `returnType` at all.\n\n- **Table cell** (`FormulaCellRenderer`, `packages/fields/src/index.tsx`): the last branch, which printed every result that was not a number, boolean or date in a monospace span (`text-gray-700 font-mono text-sm`), now returns `TextCellRenderer` for the same value. The renderer's own block comment already said its text face \"mirrors\" `TextCellRenderer`; now it does.\n- **Form face** (`FormulaField`, `packages/fields/src/widgets/FormulaField.tsx`): the text branch now uses the same `typedClassName` (`text-sm` plus the caller's `className`) as the number, boolean and date branches. That matches what `TextField`'s read-only branch draws for a text value (a `text-sm` span), so the monospace font and `text-gray-700` are gone.\n- The choice of face still depends only on whether the result is text. The type rule is unchanged: use the declared `returnType`; with none declared, a JS number is a number and anything else is text. An undeclared string result therefore gets the text face too. The triage ruling asked for this because code-authored formulas usually arrive without a `returnType`.\n\n## What I measured against the dispatch assumptions\n\n- **A1 (confirmed):** on `origin/main` d78e70b87, both faces fell through to `font-mono` for every result that was not a number, boolean or date. The cell now calls `TextCellRenderer`. The new pin compares the cell's `innerHTML` byte for byte with `TextCellRenderer`'s for the same value. It also checks that the form face's class list equals `TextField`'s read-only class list.\n- **A2 (done):** the new sibling pin `formulaFaces.textFace-12357.test.tsx` covers a declared `returnType: 'text'` result, an undeclared string result, and a control: a numeric result, declared or undeclared, still reads `200,000` through the number face (`.tabular-nums`). The 11748 pin's equality leg (form text equals cell text) already covered declared and undeclared text and still passes.\n- **A3 (does not hold as written):** an object or array result has no face of its own. Both faces call `coerceToSafeValue` first. It turns an expanded record into its name (or label, id and so on) and joins an array into text. The text branch then prints that string. So before this change, object and array results already shared the monospace text face, and after it they share the text cell's face. Keeping monospace for them alone would need a new branch that does not exist today, so I left them in the text face. The 11748 row `text, an expanded record` (reads `Ada`) still passes in both faces.\n\n## Pins that encoded the defect (rewritten, not deleted)\n\nFour assertions used the old monospace span as a stand-in for \"drawn as text\":\n\n- 11748 pin: `no returnType: a string of digits stays text` and `returnType 'text' over a number stays text`. These now assert there is no `.font-mono`; the literal text `200000` (not `200,000`) still shows the text face was used.\n- 11683 pin (`formulaDatetimeCells.copiedText-11683.test.tsx`): the same two cases. These now assert there is no `.tabular-nums` (not the number face) and no `.font-mono`.\n\n## Evidence\n\n- Ablation at c3954f915, run with `ablation-replace.mjs`. The anchor hit once, the mutation was confirmed on disk by blob hash, and after the run the restore matched the HEAD blob and `git diff HEAD` was empty. In this package, vitest reads `src` directly, so no `dist` rebuild was involved.\n  - Cell leg: restoring the monospace span in `FormulaCellRenderer` gave `Tests 6 failed | 98 passed (104)`. The failures were the cell legs of the new pin (markup equality and no monospace, both declared and undeclared) and the two flipped 11748 cell assertions.\n  - Form leg: restoring the monospace span in `FormulaField` gave `Tests 6 failed | 98 passed (104)`. The failures were the matching form legs.\n- Targeted tests at 9126ff627: the 12357, 11748 and 11683 pins plus `summaryFaces.numberFace-11752` and `cellRenderers.fabricatedValue-8490` gave `Test Files 5 passed (5)`, `Tests 280 passed (280)`.\n- Full `packages/fields/` run at c3954f915 (`--maxWorkers=2`): `Tests 4 failed | 4062 passed | 7 skipped (4073)`. The only failures were the four 11683 assertions listed above. 9126ff627 changes only that test file, and that file passes on 9126ff627.\n- `pnpm --filter @object-ui/fields type-check` exits 0, after building the `@object-ui/fields^...` closure. That script also runs `tsc -p tsconfig.test.json`, which includes `src/**/*.test.tsx`.\n- Lint, limited to the 5 changed fields files: `eslint --format json` reported 5 files, 0 errors and 146 warnings. All the warnings were already there: `index.tsx` shows 145 both at the base and at HEAD, and the one in `FormulaField.tsx` is the existing `any` in its signature. `eslint.config.js` has no `parserOptions.project` or `projectService`, so linting is not type-aware and this diff cannot change the result for any file it does not touch.\n- Pre-tsc checks: `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift` and `i18n-designer-parity` all exit 0. `check-changeset-fixed` and `check-changeset-presence` exit 0. `check:spec-floors` exits 1 with \"The scan collapsed: 0 package(s) declare @objectstack/spec\"; this also fails on main and is tracked as objectui#12334, which this PR does not touch.\n\n## Acceptance notes\n\n- No published export, prop or accepted set changes. `TextCellRenderer` was already exported, and the component signatures are the same. Changeset: `.changeset/12357-formula-text-face.md`, a patch for `@object-ui/fields`.\n- `summary` uses the same cell renderer, so a summary roll-up with a non-numeric result also gets the text cell's face now.\n- The currency face (objectui#12111) is untouched.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

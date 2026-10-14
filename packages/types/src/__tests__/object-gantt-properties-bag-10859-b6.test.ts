@@ -245,20 +245,23 @@ describe('object-gantt validates in the spec\'s `properties` bag (objectui#10859
     expect(safeValidateSchema({ type: 'page', children: [OBJECT_BOUND, BOUND] }).success).toBe(true);
   });
 
-  it('authors no default into the document: the row\'s `api` `method` default is stripped (objectui#8317)', () => {
+  // This pin used to ride on the `api` arm's `read.method` default. That arm
+  // is retired in the spec (objectstack#23082, objectui#12325), so it rides on
+  // `navigation`, whose spec row writes defaults too.
+  it('authors no default into the document: the row\'s `navigation` defaults are stripped (objectui#8317)', () => {
     const doc = {
       type: 'object-gantt',
-      properties: { data: { provider: 'api', read: { url: '/api/tasks' } }, gantt: GANTT },
+      properties: { objectName: 'task', navigation: {}, gantt: GANTT },
     } as const;
-    // Control: the spec's own row writes a default `method` into its output.
-    const specOut = SpecObjectGanttPropsSchema.parse(doc.properties) as { data: { read: Record<string, unknown> } };
-    expect(specOut.data.read.method).toBe('GET');
+    // Control: the spec's own row writes a default `mode` into its output.
+    const specOut = SpecObjectGanttPropsSchema.parse(doc.properties) as unknown as { navigation: Record<string, unknown> };
+    expect(specOut.navigation.mode).toBe('page');
     // This face validates and writes nothing.
     const result = safeValidateSchema(doc);
     expect(result.success).toBe(true);
     if (!result.success) return;
-    const out = result.data as unknown as { properties: { data: { read: Record<string, unknown> } } };
-    expect(Object.keys(out.properties.data.read)).toEqual(['url']);
+    const out = result.data as unknown as { properties: { navigation: Record<string, unknown> } };
+    expect(Object.keys(out.properties.navigation)).toEqual([]);
   });
 });
 

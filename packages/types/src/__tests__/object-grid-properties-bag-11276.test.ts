@@ -282,12 +282,18 @@ describe('object-grid validates in the spec\'s `properties` bag (objectui#11276)
     }
   });
 
-  it('the parse authors no default into the document (objectui#8317): an `api` provider keeps no `method`', () => {
-    const doc = { type: 'object-grid', properties: { objectName: 'task', data: { provider: 'api', read: { url: '/tasks' } } } };
+  // This pin used to ride on the `api` arm's `read.method` default. That arm
+  // is retired in the spec (objectstack#23082, objectui#12325), so it rides on
+  // `navigation`, whose spec row writes defaults too.
+  it('the parse authors no default into the document (objectui#8317): `navigation` keeps no `mode`', () => {
+    const doc = { type: 'object-grid', properties: { objectName: 'task', navigation: {} } };
+    // Control: the spec's own row writes a default `mode` into its output.
+    const specOut = SpecObjectGridPropsSchema.parse(doc.properties) as unknown as { navigation: Record<string, unknown> };
+    expect(specOut.navigation.mode).toBe('page');
     const parsed = safeValidateSchema(doc);
     expect(parsed.success).toBe(true);
-    const read = (parsed.data as { properties: { data: { read: Record<string, unknown> } } }).properties.data.read;
-    expect('method' in read).toBe(false);
+    const navigation = (parsed.data as unknown as { properties: { navigation: Record<string, unknown> } }).properties.navigation;
+    expect('mode' in navigation).toBe(false);
   });
 });
 

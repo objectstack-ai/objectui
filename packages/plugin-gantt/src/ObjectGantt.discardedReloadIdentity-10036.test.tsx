@@ -224,7 +224,7 @@ describe("ObjectGantt provider:'value' — the record read survives a discarded 
     const tree = () => <ObjectGantt schema={schema} />;
 
     const restore = armDiscardProxy();
-    let mounted = 0;
+    let mounted: number;
     try {
       const { rerender } = render(tree());
       await waitFor(() => expect(log.length).toBeGreaterThan(0));

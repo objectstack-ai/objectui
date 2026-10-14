@@ -37,7 +37,8 @@ import { coerceToSafeValue } from '../coerceToSafeValue.js';
  *     it; only a JS boolean is a boolean, as there (objectui#8593).
  *   - date: `formatDate`'s DEFAULT face, as `DateField`'s read-only branch
  *     draws it (objectui#8194).
- *   - text: the value as the cell prints it, in monospace as before.
+ *   - text: the value as the cell prints it, in the font `TextField`'s
+ *     read-only branch draws (objectui#12357), declared `text` or not.
  *
  * Both faces also share the emptiness floor (`isEmptyValue` on the coerced
  * value), so an empty value reads the shared affordance in both.
@@ -130,10 +131,8 @@ export function FormulaField({ value, field, ...props }: FieldWidgetComponentPro
   }
 
   // Text: the coerced value, as the cell prints it (an expanded record reads
-  // its name, not `[object Object]`).
-  return (
-    <span className={`text-sm font-mono text-gray-700 ${props.className || ''}`}>
-      {String(safe)}
-    </span>
-  );
+  // its name, not `[object Object]`), drawn the way `TextField`'s read-only
+  // branch draws a text value (objectui#12357): the form's own font, not the
+  // monospace this used to print, which made a person's name read as code.
+  return <span className={typedClassName}>{String(safe)}</span>;
 }

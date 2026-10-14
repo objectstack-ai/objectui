@@ -168,7 +168,8 @@ describe('number: both faces draw the number face (objectui#11748)', () => {
   it.each(FACES)('%s — no returnType: a string of digits stays text (nothing says it is a quantity)', (_face, draw) => {
     const { container } = renderSession('en-US', draw('200000'));
     expect(container.textContent).toBe('200000');
-    expect(container.querySelector('.font-mono')).not.toBeNull();
+    // Text, in the text face's font (objectui#12357), not monospace.
+    expect(container.querySelector('.font-mono')).toBeNull();
   });
 });
 
@@ -291,11 +292,12 @@ describe("date: both faces draw the date field's read-only face, formatDate's de
 
 // ── text ───────────────────────────────────────────────────────────────────
 
-describe('text: the value as the cell prints it, in monospace (objectui#11748)', () => {
+describe('text: the value as the cell prints it (objectui#11748)', () => {
   it.each(FACES)("%s — returnType 'text' over a number stays text: the declaration wins", (_face, draw) => {
     const { container } = renderSession('en-US', draw(200000, { returnType: 'text' }));
     expect(container.textContent).toBe('200000');
-    expect(container.querySelector('.font-mono')).not.toBeNull();
+    // Text, in the text face's font (objectui#12357), not monospace.
+    expect(container.querySelector('.font-mono')).toBeNull();
   });
 
   // The form face read `value == null` and printed `String(value)`, so these

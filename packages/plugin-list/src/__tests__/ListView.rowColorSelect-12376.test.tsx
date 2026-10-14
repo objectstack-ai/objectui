@@ -23,8 +23,10 @@
  *   - a field the viewer may not read is not (the FLS gate inside
  *     `addSpeculative`, objectui#7216), nor is a name the object does not
  *     declare;
- *   - the projection follows `rowColorConfig`, the state a toolbar pick
- *     replaces: picking another field re-reads the rows with that field.
+ *   - the projection reads `rowColorConfig`, the state a toolbar pick
+ *     replaces. The fetch effect does not re-run on a pick: both pickers
+ *     offer the columns only, which every request already carries; the last
+ *     row pins that premise.
  */
 import '@testing-library/jest-dom/vitest';
 import React from 'react';
@@ -145,26 +147,25 @@ describe('ListView — a row colour on a non-column field is projected (objectui
     expect(sorted(params.$select)).toEqual(['id', 'subject']);
   });
 
-  it('follows a toolbar pick of another field: the rows are re-read with it', async () => {
+  // Why the fetch effect does not name the rule: both Color pickers offer the
+  // COLUMNS only, which every request already carries, so a pick needs no new
+  // request. Should a picker ever offer a non-column field, this row turns red
+  // and the dependency list beside the harvest arm has to name the rule.
+  it('the toolbar Color picker offers the columns only, so a pick needs no refetch', async () => {
     const dataSource = mount({
       userActions: { rowColor: true },
       rowColor: { field: 'is_sla_violated', colors: { true: 'red' } },
     });
     await waitFor(() => expect(dataSource.find).toHaveBeenCalled());
-    expect(sorted(dataSource.find.mock.calls.at(-1)?.[1]?.$select)).toEqual(['id', 'is_sla_violated', 'subject']);
-    const callsBefore = dataSource.find.mock.calls.length;
-
     fireEvent.click(screen.getByRole('button', { name: /^color/i }));
     const trigger = await screen.findByTestId('color-field-select');
     fireEvent.keyDown(trigger, { key: 'ArrowDown' });
     const listbox = await screen.findByRole('listbox');
-    const option = within(listbox).getAllByRole('option').find((o) => o.textContent === 'Escalated');
-    if (!option) throw new Error('the Color picker lists no "Escalated"');
-    fireEvent.click(option);
-
-    await waitFor(() => expect(dataSource.find.mock.calls.length).toBeGreaterThan(callsBefore));
-    await waitFor(() =>
-      expect(sorted(dataSource.find.mock.calls.at(-1)?.[1]?.$select)).toEqual(['id', 'is_escalated', 'subject']),
-    );
+    const labels = within(listbox).getAllByRole('option').map((o) => o.textContent);
+    // The rule in force as the outside value, which re-picking writes nothing
+    // for (`ListView.sharedSelect-11865.test.tsx`), "None", and one entry per
+    // column (`subject` is the only one; a string column is labelled by its
+    // name here). No other object field: `is_escalated` is not offered.
+    expect(labels).toEqual(['is_sla_violated', 'None', 'subject']);
   });
 });

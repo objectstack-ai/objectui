@@ -2420,6 +2420,7 @@ const ko = {
       signOut: "대신 로그아웃",
       password: {
         title: "비밀번호가 만료되었습니다",
+        resetTitle: "비밀번호를 변경해야 합니다",
         fallbackMessage: "계속하려면 새 비밀번호를 설정하세요.",
         current: "현재 비밀번호",
         next: "새 비밀번호",

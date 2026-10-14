@@ -2922,6 +2922,7 @@ const en = {
       signOut: 'Sign out instead',
       password: {
         title: 'Your password has expired',
+        resetTitle: 'You must change your password',
         fallbackMessage: 'Please set a new password to continue.',
         current: 'Current password',
         next: 'New password',

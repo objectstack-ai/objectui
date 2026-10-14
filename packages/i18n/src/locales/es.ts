@@ -2471,6 +2471,7 @@ const es = {
       signOut: "Cerrar sesión en su lugar",
       password: {
         title: "Su contraseña ha caducado",
+        resetTitle: "Debe cambiar su contraseña",
         fallbackMessage: "Establezca una nueva contraseña para continuar.",
         current: "Contraseña actual",
         next: "Nueva contraseña",

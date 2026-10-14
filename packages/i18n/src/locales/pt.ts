@@ -2466,6 +2466,7 @@ const pt = {
       signOut: "Sair da conta",
       password: {
         title: "Sua senha expirou",
+        resetTitle: "Você precisa alterar sua senha",
         fallbackMessage: "Defina uma nova senha para continuar.",
         current: "Senha atual",
         next: "Nova senha",

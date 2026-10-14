@@ -16,9 +16,10 @@ import { toCanvas } from 'qrcode';
  * ADR-0069 — full-screen remediation overlay.
  *
  * When the backend blocks a logged-in user with `403 PASSWORD_EXPIRED` /
- * `MFA_REQUIRED`, the API fetch interceptor raises `remediationRequired` on the
- * auth context. This overlay guides the user through the fix (change the
- * expired password, or enrol an authenticator) instead of leaving them staring
+ * `PASSWORD_RESET_REQUIRED` / `MFA_REQUIRED`, the API fetch interceptor raises
+ * `remediationRequired` on the auth context. This overlay guides the user
+ * through the fix (change the password — expired, or reset by an
+ * administrator — or enrol an authenticator) instead of leaving them staring
  * at failing requests. On success it reloads so the app re-fetches cleanly.
  */
 export function RemediationOverlay() {
@@ -27,8 +28,12 @@ export function RemediationOverlay() {
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-background/95 p-4 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-xl border bg-card p-6 shadow-xl">
-        {remediationRequired.code === 'PASSWORD_EXPIRED' ? (
-          <ExpiredPasswordForm message={remediationRequired.message} />
+        {remediationRequired.code === 'PASSWORD_EXPIRED' ||
+        remediationRequired.code === 'PASSWORD_RESET_REQUIRED' ? (
+          <ChangePasswordForm
+            forcedReset={remediationRequired.code === 'PASSWORD_RESET_REQUIRED'}
+            message={remediationRequired.message}
+          />
         ) : (
           <MfaEnrollForm message={remediationRequired.message} />
         )}
@@ -51,7 +56,7 @@ function SignOutLink() {
   );
 }
 
-function ExpiredPasswordForm({ message }: { message: string }) {
+function ChangePasswordForm({ forcedReset, message }: { forcedReset: boolean; message: string }) {
   const { changePassword, setRemediationRequired } = useAuth();
   const { t } = useObjectTranslation();
   const [current, setCurrent] = useState('');
@@ -78,7 +83,11 @@ function ExpiredPasswordForm({ message }: { message: string }) {
   return (
     <form onSubmit={submit} className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold">{t('auth.remediation.password.title')}</h2>
+        {/* An administrator-forced reset is not an expiry: "your password has
+            expired" would be false for it, so it gets its own title. */}
+        <h2 className="text-lg font-semibold">
+          {forcedReset ? t('auth.remediation.password.resetTitle') : t('auth.remediation.password.title')}
+        </h2>
         {/* `message` is server-authored (localized upstream or not at all); only
             the empty-message fallback is ours to translate. */}
         <p className="mt-1 text-sm text-muted-foreground">

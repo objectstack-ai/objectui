@@ -2422,6 +2422,7 @@ const ja = {
       signOut: "代わりにサインアウト",
       password: {
         title: "パスワードの有効期限が切れました",
+        resetTitle: "パスワードの変更が必要です",
         fallbackMessage: "続行するには新しいパスワードを設定してください。",
         current: "現在のパスワード",
         next: "新しいパスワード",

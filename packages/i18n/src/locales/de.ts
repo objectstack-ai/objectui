@@ -2420,6 +2420,7 @@ const de = {
       signOut: "Stattdessen abmelden",
       password: {
         title: "Ihr Passwort ist abgelaufen",
+        resetTitle: "Sie müssen Ihr Passwort ändern",
         fallbackMessage: "Bitte legen Sie ein neues Passwort fest, um fortzufahren.",
         current: "Aktuelles Passwort",
         next: "Neues Passwort",

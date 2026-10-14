@@ -2468,6 +2468,7 @@ const fr = {
       signOut: "Se déconnecter à la place",
       password: {
         title: "Votre mot de passe a expiré",
+        resetTitle: "Vous devez changer votre mot de passe",
         fallbackMessage: "Veuillez définir un nouveau mot de passe pour continuer.",
         current: "Mot de passe actuel",
         next: "Nouveau mot de passe",

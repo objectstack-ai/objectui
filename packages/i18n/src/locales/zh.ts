@@ -2500,6 +2500,7 @@ const zh = {
       signOut: '改为退出登录',
       password: {
         title: '您的密码已过期',
+        resetTitle: '您必须修改密码',
         fallbackMessage: '请设置新密码后继续。',
         current: '当前密码',
         next: '新密码',

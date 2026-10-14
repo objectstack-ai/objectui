@@ -23,7 +23,9 @@
  * transferable from a form. It stays in this roster — an untouched owner is
  * still never sent, and an auto-laid-out form still never renders it — and an
  * EDIT adds it back only when the user changed it against the record the form
- * read ({@link dirtyEditPayload}, objectui#12205). The rest of the family is
+ * read ({@link dirtyEditPayload}, objectui#12205), and a CREATE only when the
+ * user picked it against the values the form opened with
+ * ({@link createOwnerPayload}, objectui#12359). The rest of the family is
  * not reassignable from a form: the spec declares the business-unit and tenant
  * anchors `readonly`, so they stay refused even when they differ.
  *
@@ -117,7 +119,9 @@ const COMPUTED_FIELD_TYPES = new Set([
  *
  * Its output never carries the owner. An edit's changed owner is judged after
  * this, against the record the form read, by {@link dirtyEditPayload}
- * (objectui#12205) — the one place that can tell a change from an echo.
+ * (objectui#12205), and a create's picked owner against the values the form
+ * opened with, by {@link createOwnerPayload} (objectui#12359) — the two places
+ * that can tell a user's pick from an echo.
  *
  * The two server-owned branches are separate on purpose and neither subsumes
  * the other: the name roster fires with no schema at all (an inline form passes
@@ -148,10 +152,11 @@ export function sanitizeFormData(
 }
 
 /**
- * The record's owner — the one server-owned column an EDIT writes, and only
- * when the user changed it (objectui#12205). It is a member of
- * {@link SERVER_OWNED_FIELD_NAMES} and stays one; this name only marks which
- * member {@link dirtyEditPayload} may add back. ⛔ Not a second strip list.
+ * The record's owner — the one server-owned column a form writes, and only
+ * when the user changed it on an edit (objectui#12205) or picked it on a create
+ * (objectui#12359). It is a member of {@link SERVER_OWNED_FIELD_NAMES} and
+ * stays one; this name only marks which member {@link dirtyEditPayload} and
+ * {@link createOwnerPayload} may add back. ⛔ Not a second strip list.
  */
 const REASSIGNABLE_OWNER_FIELD = 'owner_id';
 
@@ -160,7 +165,8 @@ const REASSIGNABLE_OWNER_FIELD = 'owner_id';
  * the two server-owned branches and nothing else: field-level security, the
  * unknown-key strip and the computed / read-only branches still judge it, so
  * an object that declares its owner `readonly`, or a caller who may not edit
- * it, still never writes it. Only {@link dirtyEditPayload} passes `true`.
+ * it, still never writes it. Only the owner judgement behind
+ * {@link dirtyEditPayload} and {@link createOwnerPayload} passes `true`.
  */
 function stripUnwritable(
   data: Parameters<typeof sanitizeFormData>[0],
@@ -375,7 +381,51 @@ export function dirtyEditPayload(
   return Object.keys(changed).length > 0 ? changed : payload;
 }
 
-/** What an edit hands {@link dirtyEditPayload} so it can judge the owner. */
+/**
+ * The payload a CREATE save writes: `payload`, plus the owner when the user
+ * picked one on this New form (objectui#12359).
+ *
+ * `payload` is the output of {@link sanitizeFormData}, which never carries the
+ * owner. Before this, a New form that rendered Owner let the user pick a user,
+ * showed the pick, and then saved the record under the creator with no error.
+ *
+ * "Picked" means the same thing it means on an edit, judged against the values
+ * the form OPENED with instead of a record it read: `seed` is the create
+ * form's opening values (`seedCreateValues` — the declared defaults, a
+ * `current_user` default resolved to the acting user, and any caller-supplied
+ * initial values). So the owner is added when, and only when:
+ *
+ * - the caller hands a `seed` — with none, nothing proves the user set the
+ *   owner, so it stays off the wire exactly as before;
+ * - the form holds a value for it (`undefined` is not a pick) and
+ *   {@link changedFields} reports it against `seed`. An owner the form was
+ *   seeded with and the user left alone — the creator from a `current_user`
+ *   default, or a caller's prefill — is NOT a pick, and is never sent
+ *   (objectui#10108);
+ * - everything else {@link sanitizeFormData} asks still allows it: the
+ *   caller's field-level security, the object declaring it, and it not being
+ *   `readonly` or computed.
+ *
+ * The client does not guess whether the caller may assign another owner. The
+ * server judges it: an insert naming another user is refused without the
+ * transfer grant (`allowTransfer` / `modifyAllRecords`), and the form shows
+ * that refusal as its error. A caller that passes no `owner` gets `payload`.
+ */
+export function createOwnerPayload(
+  payload: Record<string, unknown>,
+  seed: Record<string, unknown> | null | undefined,
+  owner?: EditOwnerSource | null,
+): Record<string, unknown> {
+  if (!payload || typeof payload !== 'object') return payload;
+  if (!seed || typeof seed !== 'object') return payload;
+  const picked = changedOwner(owner, seed);
+  return Object.keys(picked).length > 0 ? { ...payload, ...picked } : payload;
+}
+
+/**
+ * What a save hands {@link dirtyEditPayload} (an edit) or
+ * {@link createOwnerPayload} (a create) so it can judge the owner.
+ */
 export interface EditOwnerSource {
   /** The values the form holds — BEFORE `sanitizeFormData`, which drops the owner. */
   values: Record<string, unknown>;
@@ -385,17 +435,20 @@ export interface EditOwnerSource {
   canEdit?: (fieldName: string) => boolean;
 }
 
-/** `{ owner_id }` when the user changed the owner against `loaded`, else `{}`. */
+/**
+ * `{ owner_id }` when the user changed the owner against `baseline` — the
+ * record an edit read, or the values a create opened with — else `{}`.
+ */
 function changedOwner(
   owner: EditOwnerSource | null | undefined,
-  loaded: Record<string, unknown>,
+  baseline: Record<string, unknown>,
 ): Record<string, unknown> {
   const values = owner?.values;
   if (!values || typeof values !== 'object') return {};
   const value = values[REASSIGNABLE_OWNER_FIELD];
   if (value === undefined) return {};
   const writable = stripUnwritable({ [REASSIGNABLE_OWNER_FIELD]: value }, owner.objectSchema, owner.canEdit, true);
-  return changedFields(writable, loaded);
+  return changedFields(writable, baseline);
 }
 
 /**

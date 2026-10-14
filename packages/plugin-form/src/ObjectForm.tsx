@@ -625,6 +625,19 @@ export const ObjectForm: React.FC<ObjectFormComponentProps> = ({
 /**
  * SimpleObjectForm — default form variant with auto-generated fields from ObjectQL schema.
  */
+/**
+ * A simple form's opening values: the seeded defaults (empty on an edit),
+ * overlaid with the record the form holds or the caller supplied. The form
+ * renders these, and a create save judges a picked owner against them
+ * (objectui#12359).
+ */
+function formOpeningValues(
+  schemaDefaults: Record<string, unknown>,
+  initialData: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+  return { ...schemaDefaults, ...(initialData ?? {}) };
+}
+
 const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource?: DataSource }> = ({
   schema,
   dataSource,
@@ -1209,6 +1222,37 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
     }
   }, [objectSchema, schema.fields, schema.customFields, schema.readOnly, schema.mode, schema.objectName, hasInlineFields, schema.recordId, dataSource, maxFileSizeSentence]);
 
+  // The object's declared field defaults, as this form's opening values.
+  //
+  // CREATE ONLY (#4047). This pass used to run in every mode — on an edit form
+  // it folded a default under a persisted row, so a column the record leaves
+  // unset showed the default and the next save wrote a value the user never
+  // chose. `!recordId || mode === 'create'` is the same "no persisted record"
+  // test the data-fetch effect above uses, so the two cannot drift.
+  //
+  // It also used to seed `defaultValue` VERBATIM, including the runtime
+  // instructions the server resolves per insert (`NOW()`, `current_user`, CEL
+  // envelopes) — which put the literal text `NOW()` into a datetime input and
+  // then submitted it, suppressing the resolution the declaration asked for.
+  // `schemaDefaultValues` seeds static literals only; see that module.
+  // Same shared "no persisted record" test the field builder above uses for
+  // the create-mode `required` suppression (#4069), so seeding and validation
+  // cannot disagree about which mode this form is in.
+  const isCreateForm = isCreateFormMode(schema);
+  // [#5683] `currentUserId` lets the one client-resolvable token
+  // (`current_user`) pre-fill with the id the server would stamp anyway;
+  // null/unloaded seeds nothing and keeps the omit-and-let-the-engine-resolve
+  // contract above.
+  const schemaDefaults = React.useMemo(
+    () => (isCreateForm ? schemaDefaultValues(objectSchema, { currentUserId: perms.userId }) : {}),
+    [objectSchema, isCreateForm, perms.userId],
+  );
+
+  // What the form OPENS with: the seeded defaults, overlaid with the caller's
+  // record. A create save judges a picked owner against exactly this
+  // (objectui#12359), so both readers spell it through `formOpeningValues`.
+  const finalDefaultValues = formOpeningValues(schemaDefaults, initialData);
+
   // Handle form submission
   const handleSubmit = useCallback(async (formData: any, e?: any) => {
     // An upload is still in flight (objectui#10166). A `file`/`image` value is
@@ -1282,6 +1326,11 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
       objectSchema,
       canEdit: fieldWriteGate(perms, schema.objectName, schema.mode),
       snapshot: loadedRecordRef.current,
+      // The values this create form opened with, so a picked owner is written
+      // and a seeded one left alone is not (objectui#12359). Rebuilt from the
+      // same two inputs `finalDefaultValues` reads, not from that object, so
+      // this callback does not change identity on every render.
+      createBaseline: formOpeningValues(schemaDefaults, initialData),
     });
 
     try {
@@ -1465,7 +1514,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
       
       throw err;
     }
-  }, [schema, dataSource, perms, objectSchema, saveWithOcc, initialData, uploadGate.uploading, uploadGate.reason, recordSaved, t]);
+  }, [schema, dataSource, perms, objectSchema, saveWithOcc, initialData, schemaDefaults, uploadGate.uploading, uploadGate.reason, recordSaved, t]);
 
   // Handle form cancellation
   const handleCancel = useCallback(() => {
@@ -1474,36 +1523,6 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
     }
   }, [schema]);
 
-  // The object's declared field defaults, as this form's opening values.
-  //
-  // CREATE ONLY (#4047). This pass used to run in every mode — on an edit form
-  // it folded a default under a persisted row, so a column the record leaves
-  // unset showed the default and the next save wrote a value the user never
-  // chose. `!recordId || mode === 'create'` is the same "no persisted record"
-  // test the data-fetch effect above uses, so the two cannot drift.
-  //
-  // It also used to seed `defaultValue` VERBATIM, including the runtime
-  // instructions the server resolves per insert (`NOW()`, `current_user`, CEL
-  // envelopes) — which put the literal text `NOW()` into a datetime input and
-  // then submitted it, suppressing the resolution the declaration asked for.
-  // `schemaDefaultValues` seeds static literals only; see that module.
-  // Same shared "no persisted record" test the field builder above uses for
-  // the create-mode `required` suppression (#4069), so seeding and validation
-  // cannot disagree about which mode this form is in.
-  const isCreateForm = isCreateFormMode(schema);
-  // [#5683] `currentUserId` lets the one client-resolvable token
-  // (`current_user`) pre-fill with the id the server would stamp anyway;
-  // null/unloaded seeds nothing and keeps the omit-and-let-the-engine-resolve
-  // contract above.
-  const schemaDefaults = React.useMemo(
-    () => (isCreateForm ? schemaDefaultValues(objectSchema, { currentUserId: perms.userId }) : {}),
-    [objectSchema, isCreateForm, perms.userId],
-  );
-
-  const finalDefaultValues = {
-     ...schemaDefaults,
-     ...initialData
-  };
 
   // The persisted record, for `previous`-scoped field rules and the read-only
   // submit strip (objectui#3484). Edit mode only, and WITHOUT the schema

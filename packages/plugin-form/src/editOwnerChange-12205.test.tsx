@@ -298,6 +298,7 @@ describe('formWritePayload — the layouts ObjectForm routes to (objectui#12205)
       objectSchema: CASE_SCHEMA,
       canEdit: undefined,
       snapshot,
+      createBaseline: null,
     });
     expect(writePayload).toEqual({ owner_id: 'u2' });
     expect(payload).toEqual(STORED_BUSINESS);
@@ -308,6 +309,7 @@ describe('formWritePayload — the layouts ObjectForm routes to (objectui#12205)
       objectSchema: CASE_SCHEMA,
       canEdit: undefined,
       snapshot,
+      createBaseline: null,
     });
     expect(writePayload).toEqual({ status: 'closed' });
   });
@@ -318,6 +320,7 @@ describe('formWritePayload — the layouts ObjectForm routes to (objectui#12205)
       objectSchema: CASE_SCHEMA,
       canEdit: undefined,
       snapshot,
+      createBaseline: null,
     });
     expect(writePayload).toEqual({ owner_id: null });
   });

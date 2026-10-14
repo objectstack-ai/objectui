@@ -485,6 +485,10 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
         objectSchema,
         canEdit: fieldWriteGate(perms, schema.objectName, schema.mode),
         snapshot: loadedRecordRef.current,
+        // On a create, `formData` is the seed this form opened with and
+        // nothing else, so a picked owner is written and a seeded one left
+        // alone is not (objectui#12359).
+        createBaseline: formData,
       });
 
       if (schema.submitHandler) {

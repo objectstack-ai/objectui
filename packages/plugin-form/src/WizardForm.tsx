@@ -422,6 +422,19 @@ export interface WizardFormProps {
 }
 
 /**
+ * Record a create wizard's opening values in `ref` and hand them back to seed
+ * the form with, so the seed and the baseline a save judges a picked owner
+ * against are one value (objectui#12359).
+ */
+function holdCreateSeed(
+  ref: { current: Record<string, unknown> | null },
+  seed: Record<string, unknown>,
+): Record<string, unknown> {
+  ref.current = seed;
+  return seed;
+}
+
+/**
  * WizardForm Component
  * 
  * Renders a multi-step wizard form with step indicators and navigation.
@@ -539,6 +552,11 @@ export const WizardForm: React.FC<WizardFormProps> = ({
   // wipe everything the user entered on earlier steps (the create POST then
   // carried only the final step's fields). This guard makes the seed idempotent.
   const seededRef = React.useRef(false);
+  // The values a create wizard OPENED with (objectui#12359). `formData` cannot
+  // serve: every step's answers are merged into it, so a picked owner would
+  // already be the baseline it is judged against. Set wherever the wizard is
+  // seeded, and nowhere else.
+  const createSeedRef = React.useRef<Record<string, unknown> | null>(null);
   // The record whose data `formData` currently holds. The fetch effect reads it
   // to tell a genuine record SWAP from a re-run of its own making —
   // `initialData`/`initialValues` are objects callers commonly rebuild every
@@ -622,7 +640,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
           // Declared static defaults are this wizard's opening values (#4047)
           // — see `schemaDefaults` for the create-only boundary and for why
           // runtime defaults are left to the server.
-          setFormData(seedCreateValues(objectSchema, resolveInitialRecord(schema), { currentUserId }));
+          setFormData(holdCreateSeed(createSeedRef, seedCreateValues(objectSchema, resolveInitialRecord(schema), { currentUserId })));
           seededRef.current = true;
         }
         // Not a read, so no earlier record read's failure describes the form.
@@ -961,6 +979,9 @@ export const WizardForm: React.FC<WizardFormProps> = ({
           objectSchema,
           canEdit: fieldWriteGate(perms, schema.objectName, schema.mode),
           snapshot: loadedRecordRef.current,
+          // The values this wizard OPENED with, held apart from `formData`,
+          // which accumulates every step's answers (objectui#12359).
+          createBaseline: createSeedRef.current,
         });
 
         if (schema.submitHandler) {
@@ -1046,7 +1067,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
               // Back to a fresh step 1 for the next entry — "fresh" means the
               // same opening values the wizard had, defaults included (#4047),
               // not a blank object the first entry never started from.
-              setFormData(seedCreateValues(objectSchema, resolveInitialRecord(schema), { currentUserId }));
+              setFormData(holdCreateSeed(createSeedRef, seedCreateValues(objectSchema, resolveInitialRecord(schema), { currentUserId })));
               setCompletedSteps(new Set());
               setCurrentStep(0);
               setResetNonce((n) => n + 1);
@@ -1103,7 +1124,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
           if (schema.resetOnSuccess && schema.mode === 'create') {
             // Back to a fresh step 1 for the next entry — same opening values
             // as the first entry, defaults included (#4047).
-            setFormData(seedCreateValues(objectSchema, resolveInitialRecord(schema), { currentUserId }));
+            setFormData(holdCreateSeed(createSeedRef, seedCreateValues(objectSchema, resolveInitialRecord(schema), { currentUserId })));
             setCompletedSteps(new Set());
             setCurrentStep(0);
             setResetNonce((n) => n + 1);

@@ -2872,6 +2872,7 @@ const ko = {
     loading: "로딩 중…",
     failedToLoad: "매트릭스 로드 실패: {{message}}",
     needsAcross: "매트릭스 보고서에는 하나 이상의 `groupingsAcross` 필드가 필요합니다.",
+    forbiddenMessage: "이 보고서의 데이터를 볼 수 있는 권한이 없습니다.",
     aggregate: {
       count: "개수",
       countDistinct: "고유 개수",

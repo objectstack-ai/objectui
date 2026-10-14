@@ -85,6 +85,7 @@ import { toast } from 'sonner';
 import { useConsoleActionRuntime, ConsoleActionRuntimeProvider } from '../useConsoleActionRuntime';
 import { modalTargetRefusalMessage } from '../../utils/modalTargetDiagnostics';
 import { useAction, usePageVariables, PageVariablesProvider, PageVariableActionBridge } from '@object-ui/react';
+import { resolveServerActionRecordId } from '@object-ui/core';
 
 beforeEach(() => {
   authFetchSpy.mockReset();
@@ -691,6 +692,64 @@ describe('flowHandler — list_toolbar selection fallback', () => {
     });
 
     expect(JSON.parse(authFetchSpy.mock.calls[0][1].body).recordId).toBe('row_1');
+  });
+
+  // objectui#12331 — the flow launcher and the script launcher resolve a
+  // toolbar selection by ONE rule, `@object-ui/core`'s
+  // `resolveServerActionRecordId`; the flow handler used to hold a second copy.
+  // The same action shape and selection reach both handlers here, and each
+  // answer must be the rule's own.
+  it.each([
+    ['several rows', { locations: ['list_toolbar'] }, [{ id: 'a' }, { id: 'b' }]],
+    ['zero rows on a record-scoped action', { locations: ['list_item', 'list_toolbar'] }, []],
+  ])('refuses %s with the same answer as the script launcher (objectui#12331)', async (_label, shape, rows) => {
+    const { result } = renderHook(() =>
+      useConsoleActionRuntime({ dataSource: {}, objects: [], objectName: 'inv' }),
+    );
+    const context = { selectedRecords: rows } as any;
+    const rule = resolveServerActionRecordId({ name: 'reassign', ...shape } as any, context);
+
+    let flowRes: any;
+    let scriptRes: any;
+    await act(async () => {
+      flowRes = await result.current.flowHandler(
+        { type: 'flow', name: 'reassign', target: 'reassign_wizard', ...shape } as any,
+        context,
+      );
+      scriptRes = await result.current.serverActionHandler(
+        { type: 'script', name: 'reassign', ...shape } as any,
+        context,
+      );
+    });
+
+    expect(rule.error).toBeTruthy();
+    expect(flowRes).toEqual({ success: false, error: rule.error });
+    expect(scriptRes).toEqual({ success: false, error: rule.error });
+    expect(authFetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('an aggregate launch (`_selectedIds`) is not refused for its selection, as on the script launcher (objectui#12331)', async () => {
+    authFetchSpy.mockResolvedValue({ ok: true, json: async () => ({ success: true, data: {} }) });
+    const { result } = renderHook(() =>
+      useConsoleActionRuntime({ dataSource: {}, objects: [], objectName: 'inv' }),
+    );
+
+    let res: any;
+    await act(async () => {
+      res = await result.current.flowHandler(
+        {
+          type: 'flow', name: 'bulk_close', target: 'bulk_close_flow',
+          locations: ['list_item', 'list_toolbar'],
+          params: { _selectedIds: ['a', 'b'] },
+        } as any,
+        { selectedRecords: [{ id: 'a' }, { id: 'b' }] } as any,
+      );
+    });
+
+    expect(res).toMatchObject({ success: true });
+    const body = JSON.parse(authFetchSpy.mock.calls[0][1].body);
+    expect(body.recordId ?? null).toBeNull();
+    expect(body.params._selectedIds).toEqual(['a', 'b']);
   });
 
   it('end-to-end: selection published via updateContext reaches the flow trigger', async () => {

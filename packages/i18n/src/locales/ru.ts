@@ -3001,6 +3001,7 @@ const ru = {
     loading: "Загрузка…",
     failedToLoad: "Не удалось загрузить матрицу: {{message}}",
     needsAcross: "Матричный отчёт требует хотя бы одно поле `groupingsAcross`.",
+    forbiddenMessage: "У вас нет прав на просмотр данных этого отчёта.",
     aggregate: {
       count: "Количество",
       countDistinct: "Уникальные",

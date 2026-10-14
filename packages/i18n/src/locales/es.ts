@@ -2929,6 +2929,7 @@ const es = {
     loading: "Cargando…",
     failedToLoad: "Error al cargar la matriz: {{message}}",
     needsAcross: "El informe de matriz requiere al menos un campo `groupingsAcross`.",
+    forbiddenMessage: "No tienes permiso para ver los datos de este informe.",
     aggregate: {
       count: "Contar",
       countDistinct: "Contar únicos",

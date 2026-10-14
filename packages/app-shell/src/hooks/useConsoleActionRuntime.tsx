@@ -39,7 +39,7 @@ import type {
   ResultDialogHandler,
   ToastHandler,
 } from '@object-ui/core';
-import { actionErrorDetail, captureUpdateUndoData, isRecordScopedAction, resolveRecordIdParamSeed } from '@object-ui/core';
+import { actionErrorDetail, captureUpdateUndoData, resolveRecordIdParamSeed, resolveServerActionRecordId } from '@object-ui/core';
 import { useActionModal } from './useActionModal.js';
 import { ActionConfirmDialog, type ConfirmDialogState } from '../views/ActionConfirmDialog.js';
 import { ActionParamDialog, type ParamDialogState } from '../views/ActionParamDialog.js';
@@ -619,28 +619,23 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
     try {
       const baseUrl = import.meta.env.VITE_SERVER_URL || '';
       const params = { ...(action.params || {}) } as Record<string, any>;
-      const rowRecord = params._rowRecord as Record<string, any> | undefined;
       delete params._rowRecord;
-      let recordId = params.recordId ?? rowRecord?.id;
-      // list_toolbar invocations carry no `_rowRecord` — fall back to the
-      // grid's checkbox selection, which ObjectGrid publishes into the runner
-      // context as `selectedRecords`. Flows take a single `recordId` input
-      // variable, so a multi-row selection is ambiguous: block with a message
-      // instead of triggering a run that fails at its first record-bound node.
-      // Zero selection is blocked too when the action is record-scoped (it
-      // also mounts on list rows) — otherwise the wizard opens, collects
-      // input, and dies at its first record-bound node ("Update requires an
-      // ID"). Pure object-level toolbar flows keep triggering with no record.
-      if (recordId == null) {
-        const selected = Array.isArray(context?.selectedRecords) ? context!.selectedRecords : [];
-        if (selected.length === 1) {
-          recordId = selected[0]?.id;
-        } else if (selected.length > 1) {
-          return { success: false, error: 'This flow runs on a single record — select exactly one row.' };
-        } else if (isRecordScopedAction(action)) {
-          return { success: false, error: 'This flow runs on a single record — select a row first.' };
-        }
-      }
+      // The record a launch runs on, by the ONE selection rule the `script`
+      // launcher uses (objectui#12331): `@object-ui/core`'s
+      // `resolveServerActionRecordId`. An explicit `params.recordId`, then the
+      // list_item row (`_rowRecord`), then — for a list_toolbar launch, which
+      // carries no row — the grid's checkbox selection (`selectedRecords`,
+      // published into the runner context by ObjectGrid). One row supplies the
+      // record. Several rows are refused: a flow takes a single `recordId`
+      // input, so the run would fail at its first record-bound node. Zero rows
+      // are refused when the action is record-scoped by its `locations`, so the
+      // wizard does not open, collect input and die there ("Update requires an
+      // ID"); a pure object-level toolbar flow keeps triggering with no record.
+      // This handler used to hold a second copy of that rule, worded for flows.
+      // ⛔ Never re-add one here: a rule written twice drifts.
+      const resolution = resolveServerActionRecordId(action, context);
+      if (resolution.error) return { success: false, error: resolution.error };
+      const recordId = resolution.recordId;
       if (recordId != null && params.recordId == null) params.recordId = recordId;
       // Ask the store for the object type BEFORE the lookup, as the param
       // dialog does (`6cc910b6d`): it answers from cache once warm, and it is

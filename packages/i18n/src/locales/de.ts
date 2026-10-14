@@ -2873,6 +2873,7 @@ const de = {
     loading: "Wird geladen…",
     failedToLoad: "Matrix konnte nicht geladen werden: {{message}}",
     needsAcross: "Matrixbericht erfordert mindestens ein `groupingsAcross`-Feld.",
+    forbiddenMessage: "Sie haben keine Berechtigung, die Daten dieses Berichts anzuzeigen.",
     aggregate: {
       count: "Anzahl",
       countDistinct: "Eindeutige Anzahl",

@@ -3104,6 +3104,7 @@ const ar = {
     loading: "جارٍ التحميل…",
     failedToLoad: "فشل تحميل المصفوفة: {{message}}",
     needsAcross: "يتطلب تقرير المصفوفة حقل `groupingsAcross` واحداً على الأقل.",
+    forbiddenMessage: "ليست لديك صلاحية لعرض البيانات الخاصة بهذا التقرير.",
     aggregate: {
       count: "عدد",
       countDistinct: "عدد الفريد",

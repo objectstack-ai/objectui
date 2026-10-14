@@ -1624,6 +1624,8 @@ const en = {
     loading: 'Loading…',
     failedToLoad: 'Failed to load matrix: {{message}}',
     needsAcross: 'Matrix report requires at least one `groupingsAcross` field.',
+    // objectui#12330 — the report's no-access state; its title is `dashboard.widgetForbiddenTitle`.
+    forbiddenMessage: 'You don’t have permission to view the data behind this report.',
     aggregate: {
       count: 'Count',
       countDistinct: 'Distinct Count',

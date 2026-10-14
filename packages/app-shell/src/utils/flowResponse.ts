@@ -165,12 +165,61 @@
  * run, the flow-completed sentence on a paused one. Only the author's copy is
  * shared. A `refused` or failed run never reaches a `done` arm, so neither
  * shows a success toast on either end.
+ *
+ * ## The flow's own toasts are translated here, once (objectui#12075)
+ *
+ * The engine serves the flow's `successMessage` and `errorMessage` verbatim,
+ * in the author's language, and an app's bundle translates them under
+ * `flows.FLOW.successMessage` / `flows.FLOW.errorMessage` (objectstack#22507,
+ * `FLOW_TERMINAL_MESSAGE_KEYS`). {@link interpretFlowResponse} is the one
+ * place both are lifted off the wire, so it is the one place they are
+ * translated: handed a {@link FlowCopyLocale} — the flow the run belongs to,
+ * the active `flows` bundle and its locale — it answers the `done` arm's
+ * `successMessage` and the `failed` arm's authored `errorMessage` through the
+ * spec's `translateFlow`, each falling back to the served string. That reaches
+ * `FlowRunner`'s resume and both launch hosts (through `launchConsoleFlow`)
+ * alike, so a straight-through run and a paused one close on the same words.
+ *
+ * Only what the flow AUTHORS is translated: `translateFlow` overlays a toast
+ * only where the served result carries one, so a bundle never turns a
+ * caller's default sentence into copy the author never wrote, and the engine's
+ * own failure prose (`error`) is passed through untouched — it has no key.
  */
 
 import { actionErrorDetail } from '@object-ui/core';
 import type { ActionResult } from '@object-ui/core';
 import { errorCodeIs } from '@object-ui/types';
 import type { AutomationResult } from '@objectstack/spec/contracts';
+import { translateFlow, type TranslationBundle } from '@objectstack/spec/system';
+
+/**
+ * What {@link interpretFlowResponse} needs to translate the flow's own toasts
+ * (objectui#12075 — see the header): the flow the run belongs to, the active
+ * language's `flows` bundle (`activeFlowsBundle` in `utils/flowsBundle`), and
+ * that language.
+ */
+export interface FlowCopyLocale {
+    flowName: string;
+    bundle: TranslationBundle | undefined;
+    locale: string;
+}
+
+/**
+ * One of the flow's terminal toasts as the user should read it: the bundle's
+ * `flows.FLOW.KEY` where it carries one, the served string otherwise. Asked
+ * of the spec's `translateFlow`, which overlays only a string the flow serves.
+ */
+function translatedFlowMessage(
+    key: 'successMessage' | 'errorMessage',
+    served: string,
+    copy: FlowCopyLocale | undefined,
+): string {
+    if (!copy) return served;
+    const answered = translateFlow({ name: copy.flowName, [key]: served }, copy.bundle, { locale: copy.locale })[key];
+    // `translateFlow` answers the served string back when the bundle has no
+    // key; the type says optional only because `FlowLike` declares it so.
+    return typeof answered === 'string' ? answered : served;
+}
 
 /**
  * The `AutomationResult` fields the console reads. Deliberately loose: this is
@@ -240,12 +289,13 @@ export type FlowResponseOutcome<S = unknown> =
     | ({ kind: 'done'; data: FlowRunResult | undefined; successMessage?: string } & Pick<AutomationResult, 'flowLabel'>);
 
 /**
- * A flow declares a friendly `errorMessage`; prefer it over the raw `error`,
- * then fall back to the label. `actionErrorDetail` guarantees a string.
+ * A flow declares a friendly `errorMessage`; prefer it — translated, when the
+ * bundle carries `flows.FLOW.errorMessage` (objectui#12075) — over the raw
+ * `error`, then fall back to the label. `actionErrorDetail` guarantees a string.
  */
-function flowFailureMessage(data: FlowRunResult, fallback: string): string {
+function flowFailureMessage(data: FlowRunResult, fallback: string, copy: FlowCopyLocale | undefined): string {
     const friendly = data.errorMessage;
-    if (typeof friendly === 'string' && friendly.length > 0) return friendly;
+    if (typeof friendly === 'string' && friendly.length > 0) return translatedFlowMessage('errorMessage', friendly, copy);
     return actionErrorDetail(data, fallback);
 }
 
@@ -277,12 +327,15 @@ function errorEnvelopeDetails(json: unknown): FlowRunResult {
  * `.../runs/{runId}/resume` response.
  *
  * `label` names the flow for fallback messages (e.g. `Flow "convert_lead"`).
- * `json` is the parsed body, or `null` when it could not be parsed.
+ * `json` is the parsed body, or `null` when it could not be parsed. `copy`
+ * translates the flow's own `successMessage` / `errorMessage` (objectui#12075
+ * — see the header); without it both are answered as served.
  */
 export function interpretFlowResponse<S = unknown>(
     res: { ok: boolean; status: number },
     json: any,
     label: string,
+    copy?: FlowCopyLocale,
 ): FlowResponseOutcome<S> {
     if (!res.ok) {
         // The flow RAN and failed — same event as the inner-envelope failure
@@ -295,6 +348,7 @@ export function interpretFlowResponse<S = unknown>(
                 error: flowFailureMessage(
                     errorEnvelopeDetails(json),
                     actionErrorDetail(json, `${label} failed`),
+                    copy,
                 ),
                 retryable: false,
             };
@@ -336,7 +390,7 @@ export function interpretFlowResponse<S = unknown>(
     if (data.success === false || data.status === 'failed') {
         return {
             kind: 'failed',
-            error: flowFailureMessage(data, `${label} failed`),
+            error: flowFailureMessage(data, `${label} failed`, copy),
             retryable: false,
         };
     }
@@ -366,7 +420,10 @@ export function interpretFlowResponse<S = unknown>(
     return {
         kind: 'done',
         data: json?.data as FlowRunResult | undefined,
-        successMessage: typeof data.successMessage === 'string' ? data.successMessage : undefined,
+        successMessage:
+            typeof data.successMessage === 'string'
+                ? translatedFlowMessage('successMessage', data.successMessage, copy)
+                : undefined,
         flowLabel: servedFlowLabel(data),
     };
 }
@@ -401,8 +458,10 @@ function usableCopy(copy: unknown): copy is string {
  *
  * `actionMessage` is the action's copy exactly as it reached the host's flow
  * handler, so already localized by the surface that dispatched it.
- * `flowMessage` is the served `AutomationResult.successMessage`, a plain string
- * the spec keeps off the translation surface.
+ * `flowMessage` is the flow's own `successMessage` as `interpretFlowResponse`
+ * answered it — the served `AutomationResult.successMessage`, translated
+ * against `flows.FLOW.successMessage` where the bundle carries one
+ * (objectui#12075).
  */
 export function flowSuccessCopy(actionMessage: unknown, flowMessage: unknown): FlowSuccessCopy | undefined {
     if (usableCopy(actionMessage)) return { text: actionMessage, from: 'action' };

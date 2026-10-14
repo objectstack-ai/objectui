@@ -615,6 +615,11 @@ target from that field, so a lookup param renders the record picker and the
 confirm step shows the picked record's label. A param whose field is not in
 the object metadata is refused, and the run is blocked.
 
+The confirm step lists the affected records by their display title — the
+object's `nameField`, resolved as the record header resolves it — for every
+bulk action, whether it runs once per record or once over the selection. A
+record with no title to show is listed as `Record #` followed by its id.
+
 The selection bar offers a write only to a caller who may make it. A bulk Delete
 is the `rowDelete` row of the affordance-to-grant map (`@object-ui/core`), and a
 `bulkActionDefs` entry with `operation: 'update'` — a patch written to every

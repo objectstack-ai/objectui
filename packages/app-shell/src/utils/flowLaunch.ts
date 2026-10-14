@@ -75,12 +75,23 @@
  * `silent` result), and it is spoken here, once for both hosts, the way
  * `FlowRunner` speaks a paused run's closing copy. Which copy wins is not
  * decided here: see `flowSuccessCopy` in `utils/flowResponse`.
+ *
+ * ## The flow's own toasts reach the user in their language (objectui#12075)
+ *
+ * A launch is handed the host's i18next instance and active language, reads
+ * the `flows` bundle for the flow the run belongs to (`activeFlowsBundle`, the
+ * same reader `FlowRunner` uses), and hands it to `interpretFlowResponse`,
+ * which translates the flow's `successMessage` and `errorMessage` against
+ * `flows.FLOW.successMessage` / `flows.FLOW.errorMessage`. So the toast a
+ * straight-through run closes on, and the error a failed launch hands the
+ * ActionRunner, are the words a paused run's runner shows.
  */
 
 import { toast } from 'sonner';
 import { createServerActionHandler } from '@object-ui/core';
 import type { ActionDef, ActionResult, ServerActionFetch } from '@object-ui/core';
-import { interpretFlowResponse, judgeFlowLaunch, type FlowLaunchJudgement } from './flowResponse.js';
+import { interpretFlowResponse, judgeFlowLaunch, type FlowCopyLocale, type FlowLaunchJudgement } from './flowResponse.js';
+import { activeFlowsBundle, type TranslationResourceReader } from './flowsBundle.js';
 
 /** The door a flow click went through. */
 export type ConsoleFlowLaunchDoor = 'action' | 'trigger';
@@ -133,6 +144,17 @@ export interface ConsoleFlowLaunchInput {
   triggerParams: Record<string, unknown>;
   /** The object metadata the host already holds. */
   objects: readonly unknown[] | undefined;
+  /**
+   * The host's i18next instance and active language, which the flow's own
+   * toasts are translated in (objectui#12075 — see the header).
+   */
+  translation: { i18n: TranslationResourceReader | undefined; language: string };
+}
+
+/** The translation `interpretFlowResponse` applies to `flowName`'s own toasts. */
+function flowCopyLocale(input: ConsoleFlowLaunchInput, flowName: string): FlowCopyLocale {
+  const { i18n, language } = input.translation;
+  return { flowName, bundle: activeFlowsBundle(i18n, language, flowName), locale: language };
 }
 
 export interface ConsoleFlowLaunch<S = unknown> {
@@ -188,7 +210,7 @@ export async function launchConsoleFlow<S = unknown>(
       door: 'action',
       flowName,
       judged: judgeFlowLaunch(
-        interpretFlowResponse<S>(answered.res, answered.json, `Flow "${flowName}"`),
+        interpretFlowResponse<S>(answered.res, answered.json, `Flow "${flowName}"`, flowCopyLocale(input, flowName)),
         action.refreshAfter,
         action.successMessage,
       ),
@@ -208,7 +230,7 @@ export async function launchConsoleFlow<S = unknown>(
     door: 'trigger',
     flowName: clickedFlow,
     judged: judgeFlowLaunch(
-      interpretFlowResponse<S>(res, json, `Flow "${clickedFlow}"`),
+      interpretFlowResponse<S>(res, json, `Flow "${clickedFlow}"`, flowCopyLocale(input, clickedFlow)),
       action.refreshAfter,
       action.successMessage,
     ),

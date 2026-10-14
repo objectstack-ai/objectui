@@ -988,8 +988,13 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
           `${rel} stopped destructuring t from useObjectTranslation()`,
         ).toBe(true);
       }
-      // RecordDetailView takes it from @object-ui/react's re-export, with language.
-      expect(sourceOf(RECORD_DETAIL)).toContain('const { t, language } = useObjectTranslation();');
+      // RecordDetailView takes it from @object-ui/react's re-export, with language
+      // (and, since objectui#12075, the instance its flow launches read the
+      // `flows` bundle from) — the same t-is-destructured pattern as above.
+      expect(
+        /const \{[^}]*\bt\b[^}]*\} = useObjectTranslation\(/.test(sourceOf(RECORD_DETAIL)),
+        `${RECORD_DETAIL} stopped destructuring t from useObjectTranslation()`,
+      ).toBe(true);
       // plugin-detail's three go through useDetailTranslation…
       for (const rel of [RELATED_LIST, SAVE_BAR, DETAIL_VIEW]) {
         expect(sourceOf(rel), `${rel}`).toContain("import { useDetailTranslation } from './useDetailTranslation'");

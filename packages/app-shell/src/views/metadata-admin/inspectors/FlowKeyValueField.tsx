@@ -31,6 +31,9 @@
  *    caller passes `valueMode: 'hole'`. Each value then renders ADR-0032 §3
  *    `{{ }}` holes: the picker inserts `{{ x }}` and a single brace is flagged
  *    with the double-brace fix, as on a single text slot (objectui#11824).
+ *  - objectui#12372: a CRUD node's `filter` is a value slot too (the ledger's
+ *    `filterOperands` row), judged per operand by the spec's filter-operand
+ *    rule, which the caller passes as `valueRefusal`.
  */
 
 import * as React from 'react';
@@ -238,6 +241,14 @@ export interface FlowKeyValueFieldProps {
    * template picker, except in a value-role slot, where it has none.
    */
   valueMode?: 'hole';
+  /**
+   * objectui#12372: the spec's judge of one value on this slot, when it is not
+   * the value-map rule (`valueEnvelopeRefusal`). A CRUD node's `filter` passes
+   * the filter-operand judge, under which a whole query placeholder such as
+   * `{today}` is the query engine's and is not refused. Read only with
+   * {@link valueEnvelope}.
+   */
+  valueRefusal?: (value: unknown) => string[] | null;
 }
 
 /**
@@ -273,6 +284,7 @@ export function FlowKeyValueField({
   keyOptions,
   keyHint,
   valueMode,
+  valueRefusal = valueEnvelopeRefusal,
 }: FlowKeyValueFieldProps) {
   const keyListId = React.useId();
   const suggestsKeys = !!keyOptions && keyOptions.length > 0;
@@ -352,7 +364,7 @@ export function FlowKeyValueField({
           // A value-role text cell is a literal: no picker (objectui#12101).
           const pickerGroups = envelopeSlot && !expression ? [] : (scopeGroups ?? []);
           const textMode = valueMode === 'hole' ? 'hole' : 'template';
-          const refusal = envelopeSlot && writesMap ? valueEnvelopeRefusal(rowValue(row)) : null;
+          const refusal = envelopeSlot && writesMap ? valueRefusal(rowValue(row)) : null;
           return (
             <div key={row.id} className="space-y-1">
               <div className="flex items-center gap-1.5">

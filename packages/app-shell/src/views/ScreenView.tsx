@@ -55,6 +55,7 @@ import { ObjectForm } from '@object-ui/plugin-form';
 import { evalFieldPredicate } from '@object-ui/core';
 import { getLazyFieldWidget } from '@object-ui/fields';
 import { useObjectTranslation } from '@object-ui/i18n';
+import { flowScreenFieldOptionKey } from '@objectstack/spec/automation';
 
 /**
  * The object form's lookup picker (`LookupField`), through the shared lazy
@@ -389,12 +390,23 @@ export function ScreenFieldInput({
     // object form's lookup picker shows in the same spot (objectui#11220).
     // `??`, not `||`: an authored `placeholder: ''` renders as authored.
     const placeholder = field.placeholder ?? t('common.select', { defaultValue: 'Select…' });
+    // The select addresses each item by its value read as text — the spec's
+    // `flowScreenFieldOptionKey`, the same address the `options` translation
+    // key uses — but the field BINDS the option's own value (objectui#12075):
+    // handing the text to `onChange` resumed a number- or boolean-valued
+    // option as a string. The spec refuses two options of one field that
+    // collide as text, so the text names exactly one option.
+    const options = field.options;
+    const pickOption = (key: string) => {
+      const picked = options.find((o) => flowScreenFieldOptionKey(o.value) === key);
+      if (picked) onChange(picked.value);
+    };
     return (
-      <Select value={value != null ? String(value) : undefined} onValueChange={(v) => onChange(v)}>
+      <Select value={value != null ? flowScreenFieldOptionKey(value) : undefined} onValueChange={pickOption}>
         <SelectTrigger id={id} aria-required={ariaRequired} aria-describedby={describedBy}><SelectValue placeholder={placeholder} /></SelectTrigger>
         <SelectContent>
-          {field.options.map((o, i) => (
-            <SelectItem key={i} value={String(o.value)}>{o.label}</SelectItem>
+          {options.map((o, i) => (
+            <SelectItem key={i} value={flowScreenFieldOptionKey(o.value)}>{o.label}</SelectItem>
           ))}
         </SelectContent>
       </Select>

@@ -66,15 +66,20 @@ describe('objectui#11824 — the installed spec is the contract the slots follow
     });
   }
 
-  it('every hole-mode field is a text slot the spec names, and the hole-mode set is exactly the five', () => {
+  // objectui#12101 widened the hole-mode set to every text slot the spec names
+  // (notify `actionUrl`, http `url` / `headers` joined); its own file pins the
+  // whole set against `FLOW_NODE_TEXT_SLOTS`. Here: the five are in it.
+  it('every hole-mode field is a text slot the spec names, and the five are hole-mode fields', () => {
     const specSlots = new Set(FLOW_NODE_TEXT_SLOTS.map((s) => `${s.nodeType}.${s.key}`));
+    // The designer groups the spec's `http` node under `http_request`.
+    const specType = (type: string) => (type === 'http_request' ? 'http' : type);
     const holeFields = FLOW_NODE_CONFIG_TYPES.flatMap((type) =>
       fieldsForNodeType(type)
         .filter((f) => f.refMode === 'hole')
-        .map((f) => `${type}.${f.path[1]}`),
+        .map((f) => `${specType(type)}.${f.path[1]}`),
     );
     for (const slot of holeFields) expect(specSlots.has(slot), slot).toBe(true);
-    expect(holeFields.sort()).toEqual(CONVERTED.map(([t, k]) => `${t}.${k}`).sort());
+    for (const [t, k] of CONVERTED) expect(holeFields, `${t}.${k}`).toContain(`${t}.${k}`);
   });
 });
 

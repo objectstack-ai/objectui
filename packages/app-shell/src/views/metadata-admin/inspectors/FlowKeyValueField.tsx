@@ -23,6 +23,14 @@
  *    other map renders exactly as before. Through `@objectstack/spec` 17 a
  *    text string was `{token}` interpolation; from 18 it is literal text, and
  *    the cell shows the spec's refusal of a `{…}` token in it (objectui#12030).
+ *    A text cell there is a literal, so it carries no reference picker: the
+ *    picker could only insert a `{var}` token the spec refuses (objectui#12101).
+ *    A reference is written as an expression, whose picker inserts it bare.
+ *  - objectui#12101: on a map whose every value is a flow TEXT slot (the http
+ *    node's `headers`, `eachValue` in the spec's `FLOW_NODE_TEXT_SLOTS`) the
+ *    caller passes `valueMode: 'hole'`. Each value then renders ADR-0032 §3
+ *    `{{ }}` holes: the picker inserts `{{ x }}` and a single brace is flagged
+ *    with the double-brace fix, as on a single text slot (objectui#11824).
  */
 
 import * as React from 'react';
@@ -224,6 +232,12 @@ export interface FlowKeyValueFieldProps {
   keyOptions?: ReadonlyArray<{ value: string; label: string }>;
   /** One line under the rows about where {@link keyOptions} come from. */
   keyHint?: string;
+  /**
+   * objectui#12101: `'hole'` when every value of the map is a flow text slot
+   * that renders `{{ }}` holes. Omitted, a text value keeps the single-brace
+   * template picker, except in a value-role slot, where it has none.
+   */
+  valueMode?: 'hole';
 }
 
 /**
@@ -258,6 +272,7 @@ export function FlowKeyValueField({
   required,
   keyOptions,
   keyHint,
+  valueMode,
 }: FlowKeyValueFieldProps) {
   const keyListId = React.useId();
   const suggestsKeys = !!keyOptions && keyOptions.length > 0;
@@ -334,6 +349,9 @@ export function FlowKeyValueField({
         )}
         {rows.map((row) => {
           const expression = row.mode === 'expression';
+          // A value-role text cell is a literal: no picker (objectui#12101).
+          const pickerGroups = envelopeSlot && !expression ? [] : (scopeGroups ?? []);
+          const textMode = valueMode === 'hole' ? 'hole' : 'template';
           const refusal = envelopeSlot && writesMap ? valueEnvelopeRefusal(rowValue(row)) : null;
           return (
             <div key={row.id} className="space-y-1">
@@ -351,7 +369,7 @@ export function FlowKeyValueField({
                   className="h-8 flex-1 font-mono text-xs"
                 />
                 <VariableTextInput
-                  mode={expression ? 'expression' : 'template'}
+                  mode={expression ? 'expression' : textMode}
                   mono={expression}
                   value={row.raw}
                   onValueChange={(v) => setRowField(row.id, { raw: v })}
@@ -359,7 +377,7 @@ export function FlowKeyValueField({
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                   }}
-                  groups={scopeGroups ?? []}
+                  groups={pickerGroups}
                   placeholder={expression && valueEnvelope ? valueEnvelope.expressionPlaceholder : valueLabel}
                   disabled={disabled}
                   className="flex-1"
@@ -402,8 +420,8 @@ export function FlowKeyValueField({
                 </div>
               ) : expression ? (
                 <FlowExprIssue value={rowValue(row)} role="value" scopeGroups={scopeGroups} />
-              ) : (
-                <FlowExprIssue value={row.raw} role="template" scopeGroups={scopeGroups} />
+              ) : envelopeSlot ? null : (
+                <FlowExprIssue value={row.raw} role={textMode} scopeGroups={scopeGroups} />
               )}
             </div>
           );

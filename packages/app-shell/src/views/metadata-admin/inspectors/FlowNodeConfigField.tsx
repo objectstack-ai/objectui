@@ -339,6 +339,9 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
                 expressionPlaceholder: t('engine.inspector.flowNode.kv.expressionPlaceholder', locale),
               }
             : undefined,
+          // objectui#12101 — a map whose every value is a flow text slot (http
+          // `headers`) renders `{{ }}` holes in each value cell.
+          valueMode: field.refMode === 'hole' ? 'hole' : undefined,
         };
         // objectui#11788 — a record node's field-value map: its keys are fields
         // of the node's own target object, so the key cell lists them. The

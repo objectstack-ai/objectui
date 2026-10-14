@@ -61,7 +61,9 @@ const RECORD_APPROVAL_DECISION_NEITHER_CHANNEL =
   'REFUSED (objectui#12342) — `record:approval_decision` reads NEITHER content channel: its registration '
   + '(`@object-ui/app-shell`) hands the node to `ApprovalDecisionRenderer`, which reads only `className` and '
   + 'the designer attributes off the node, and `SchemaRenderer` strips both channels out of the props bag it '
-  + 'spreads. An authored value would render NOTHING. What it renders instead: the request\'s decision '
+  + 'spreads. An authored value would render NOTHING — no render-time error or warning and no element; only '
+  + 'the parser tier\'s `not-a-container` warning (objectui#9910) noticed it, because the registration '
+  + 'declares no `children` input. What it renders instead: the request\'s decision '
   + 'progress and its declared decision actions, drawn from the approval request record the page binds.';
 
 /**

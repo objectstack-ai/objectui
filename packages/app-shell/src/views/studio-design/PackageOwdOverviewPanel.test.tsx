@@ -4,10 +4,9 @@
  * ADR-0054 testability proofs for the package OWD overview (objectui#2505):
  *   1. list render     — every package object appears with its OWD baseline.
  *   2. edit → draft     — a changed row saves as that object's package draft.
- *   3. validation block — external > internal blocks Save inline (ADR-0090 D11).
- *   4. controlled_by_parent — master link shown, no external dial.
- *   5. read-only        — badges only, no editing affordances.
- *   6. deep-link        — the highlighted object's row is marked.
+ *   3. controlled_by_parent — master link shown.
+ *   4. read-only        — badges only, no editing affordances.
+ *   5. deep-link        — the highlighted object's row is marked.
  *
  * Drives the REAL component against a fake metadata client that behaves like
  * the server (list ∪ drafts, layered read-back, save records the payload).
@@ -152,27 +151,12 @@ describe('PackageOwdOverviewPanel — edit → per-object draft', () => {
   });
 });
 
-describe('PackageOwdOverviewPanel — validation (ADR-0090 D11)', () => {
-  it('blocks Save inline when external is wider than internal', async () => {
-    const server = freshServer();
-    renderPanel(server);
-    await screen.findByTestId('owd-row-crm_contact');
-    // internal private, external public_read → wider.
-    await pickOwd('owd-external-crm_contact', OWD_LABEL.public_read);
-    expect(screen.getByTestId('owd-error-crm_contact')).toBeTruthy();
-    expect(screen.getByTestId('owd-invalid-banner')).toBeTruthy();
-    expect((screen.getByTestId('owd-save') as HTMLButtonElement).disabled).toBe(true);
-  });
-});
-
 describe('PackageOwdOverviewPanel — controlled_by_parent', () => {
-  it('shows the master link and no external dial', async () => {
+  it('shows the master link', async () => {
     renderPanel(freshServer());
     await screen.findByTestId('owd-row-crm_case');
     const master = screen.getByTestId('owd-master-crm_case');
     expect(master.textContent).toMatch(/crm_account/);
-    // No external select on a controlled_by_parent row.
-    expect(screen.queryByTestId('owd-external-crm_case')).toBeNull();
   });
 });
 

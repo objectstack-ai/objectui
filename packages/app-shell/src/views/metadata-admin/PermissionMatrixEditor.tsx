@@ -112,13 +112,12 @@ interface ObjectSummary {
    */
   accessDefault?: 'public' | 'private';
   /**
-   * [ADR-0090 D1/D11] The object's authored OWD pair. Record-level baseline
+   * [ADR-0090 D1] The object's authored OWD. Record-level baseline
    * context for the grants edited here: object CRUD in this matrix gates the
    * operation, the OWD decides WHICH records it reaches (own vs org-wide).
    * `owd` unset renders as the D1 fail-closed default (private).
    */
   owd?: string;
-  owdExternal?: string;
 }
 
 /**
@@ -649,8 +648,6 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
               label: item?.label,
               accessDefault: item?.access?.default as ObjectSummary['accessDefault'],
               owd: typeof item?.sharingModel === 'string' ? item.sharingModel : undefined,
-              owdExternal:
-                typeof item?.externalSharingModel === 'string' ? item.externalSharingModel : undefined,
             };
           })
           .filter((o) => !!o.name)
@@ -1779,15 +1776,6 @@ function PermissionTable({
                   >
                     {`OWD ${o.owd ? owdLabel(t, o.owd) : t('perm.owd.defaultPrivate')}`}
                   </Badge>
-                  {o.owdExternal && (
-                    <Badge
-                      variant="outline"
-                      className="ml-1 text-[10px] px-1.5 py-0 align-middle text-muted-foreground"
-                      title={t('perm.owd.ext.tip')}
-                    >
-                      {`Ext ${owdLabel(t, o.owdExternal)}`}
-                    </Badge>
-                  )}
                 </td>
                 {objectActions.map((a) => (
                   <td key={a.key as string} className="text-center px-2 py-1.5">

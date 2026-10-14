@@ -1,7 +1,7 @@
 // Copyright (c) 2025 ObjectStack. Licensed under the Apache-2.0 license.
 
 import { describe, it, expect } from 'vitest';
-import { OWD_MODELS, OWD_WIDTH, isExternalWider, deriveMasterObject } from './owd-sharing';
+import { OWD_MODELS, deriveMasterObject } from './owd-sharing';
 
 describe('owd-sharing — canonical values (ADR-0090 D4)', () => {
   it('offers exactly the four canonical models', () => {
@@ -11,32 +11,6 @@ describe('owd-sharing — canonical values (ADR-0090 D4)', () => {
       'public_read_write',
       'controlled_by_parent',
     ]);
-  });
-
-  it('orders only the three org-wide-visible models on the width axis', () => {
-    expect(OWD_WIDTH).toEqual({ private: 0, public_read: 1, public_read_write: 2 });
-    // controlled_by_parent deliberately has no width — it delegates to the master.
-    expect('controlled_by_parent' in OWD_WIDTH).toBe(false);
-  });
-});
-
-describe('owd-sharing — isExternalWider (ADR-0090 D11)', () => {
-  it('flags an external baseline wider than the internal one', () => {
-    expect(isExternalWider('public_read', 'public_read_write')).toBe(true);
-    expect(isExternalWider('private', 'public_read')).toBe(true);
-  });
-
-  it('stays calm when external ≤ internal', () => {
-    expect(isExternalWider('public_read_write', 'public_read')).toBe(false);
-    expect(isExternalWider('public_read', 'public_read')).toBe(false);
-    expect(isExternalWider('private', 'private')).toBe(false);
-  });
-
-  it('never trips on off-axis values (unset / controlled_by_parent)', () => {
-    expect(isExternalWider('', 'public_read_write')).toBe(false);
-    expect(isExternalWider('private', '')).toBe(false);
-    expect(isExternalWider('controlled_by_parent', 'public_read_write')).toBe(false);
-    expect(isExternalWider('private', 'controlled_by_parent')).toBe(false);
   });
 });
 

@@ -244,20 +244,18 @@ describe('PermissionMatrixEditor — private posture badge (ADR-0066 ④)', () =
   it('shows an OWD badge on every row (authored value or the D1 private default)', async () => {
     const server = freshServer();
     server.packageObjects = [
-      { name: 'a_account', label: 'Account', sharingModel: 'public_read', externalSharingModel: 'private' } as any,
+      { name: 'a_account', label: 'Account', sharingModel: 'public_read' } as any,
       { name: 'a_contact' },
     ];
     clientImpl = makeClient(server);
     renderMatrix();
 
     await screen.findByText('Account');
-    // Authored OWD pair renders both dials…
+    // An authored OWD renders its value…
     const accountRow = screen.getByText('Account').closest('tr')!;
     expect(accountRow.textContent).toContain('OWD Public read');
-    expect(accountRow.textContent).toContain('Ext Private');
-    // …an unset OWD renders the fail-closed D1 default and no Ext badge.
+    // …an unset OWD renders the fail-closed D1 default.
     const contactRow = screen.getByText('a_contact').closest('tr')!;
     expect(contactRow.textContent).toContain('OWD Private (default)');
-    expect(contactRow.textContent).not.toContain('Ext ');
   });
 });

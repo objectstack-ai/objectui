@@ -2372,7 +2372,6 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'perm.posture.private': 'Private',
   'perm.posture.private.tip': 'Secure-by-default object (access.default = private): a permission set’s “*” wildcard grant does NOT cover it. Access needs an explicit grant on this object (or View/Modify All Records). Grants you edit here apply normally.',
   'perm.owd.tip': 'Org-wide default (sharingModel): the record-level visibility baseline for internal users, applied before positions and sharing rules. Object CRUD here gates the operation; the OWD decides which records it reaches (own vs org-wide).',
-  'perm.owd.ext.tip': 'External OWD (externalSharingModel): the baseline for portal / partner principals — never wider than the internal model (ADR-0090 D11).',
   'perm.owd.defaultPrivate': 'Private (default)',
   'perm.owd.editLink': 'Edit in the package’s Record Sharing Baseline (OWD) overview',
   'perm.owd.private': 'Private',
@@ -3172,13 +3171,6 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
     'Every user in the tenant can read and edit all records.',
   'engine.studio.settings.sharingDescControlledByParent':
     'Record visibility is inherited from the parent (master) record through its master-detail relationship.',
-  'engine.studio.settings.sharingExternal':
-    'External sharing (externalSharingModel) — baseline for portal / partner principals',
-  'engine.studio.settings.sharingExternalUnset': '(not set — defaults to Private)',
-  'engine.studio.settings.sharingExternalDesc':
-    'Applies to external principals only (ADR-0090 D11). Never wider than the internal model; unset falls back to Private.',
-  'engine.studio.settings.sharingExternalWider':
-    'External baseline is WIDER than the internal sharing model — publishing will be rejected (ADR-0090 D11). Narrow it to the internal model or below (private < public read < public read/write).',
   'engine.studio.settings.capabilities': 'Capabilities (enable.*)',
   'engine.studio.settings.capabilitiesHint': 'Record-page features — every switch here is enforced by the runtime',
   'engine.studio.settings.capTrackHistory': 'History tab (trackHistory)',
@@ -3521,23 +3513,19 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.owd.title': 'Record sharing baseline (OWD)',
   'engine.studio.owd.subtitle': 'Object × org-wide default',
   'engine.studio.owd.description':
-    'The org-wide default (sharingModel / externalSharingModel) for every object this package owns — audit the baseline at a glance and batch-edit it. Changes save as per-object drafts and go live through the package Publish, exactly like the per-object Settings tab.',
+    'The org-wide default (sharingModel) for every object this package owns — audit the baseline at a glance and batch-edit it. Changes save as per-object drafts and go live through the package Publish, exactly like the per-object Settings tab.',
   'engine.studio.owd.colObject': 'Object',
-  'engine.studio.owd.colInternal': 'Internal (sharingModel)',
-  'engine.studio.owd.colExternal': 'External (externalSharingModel)',
+  'engine.studio.owd.colInternal': 'Sharing model (sharingModel)',
   'engine.studio.owd.none': 'This package declares no objects.',
   'engine.studio.owd.loadFailed': 'Failed to load this package’s objects.',
   'engine.studio.owd.save': 'Save {count} change(s)',
   'engine.studio.owd.saveNone': 'No changes',
   'engine.studio.owd.saved': 'Saved {count} object draft(s).',
   'engine.studio.owd.unsaved': 'Unsaved',
-  'engine.studio.owd.blockedSave':
-    'Some rows set the external baseline wider than the internal model (ADR-0090 D11). Narrow them before saving.',
-  'engine.studio.owd.widerError': 'External is wider than internal — narrow it (private < public read < public read/write).',
   'engine.studio.owd.byParent': 'By parent → {master}',
   'engine.studio.owd.byParentUnknown': 'By parent (master record)',
   'engine.studio.owd.masterTip':
-    'Controlled by parent — record visibility is inherited from the master record; there is no separate external dial.',
+    'Controlled by parent — record visibility is inherited from the master record.',
 
   // ── Access explain panel (ADR-0090 D6 — "why can this user access?") ────
   'engine.studio.access.explain.open': 'Explain access',
@@ -5673,7 +5661,6 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'perm.posture.private': '私有',
   'perm.posture.private.tip': '默认安全对象（access.default = private）：权限集的 “*” 通配授权不覆盖它，访问需要对此对象的显式授权（或查看/修改所有记录）。在此编辑的显式授权正常生效。',
   'perm.owd.tip': '组织级默认（sharingModel）：内部用户的记录级可见性基线，先于岗位与共享规则生效。此处的对象 CRUD 决定能否执行操作，OWD 决定操作触达哪些记录（自己的还是全组织的）。',
-  'perm.owd.ext.tip': '外部 OWD（externalSharingModel）：门户 / 合作伙伴等外部主体的基线 —— 不得宽于内部模型（ADR-0090 D11）。',
   'perm.owd.defaultPrivate': 'Private（默认）',
   'perm.owd.editLink': '在本包的“记录共享基线（OWD）”总览中编辑',
   'perm.owd.private': 'Private 私有',
@@ -6380,13 +6367,6 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
     '租户内每个用户都能读取并编辑所有记录。',
   'engine.studio.settings.sharingDescControlledByParent':
     '记录可见性通过主从(master-detail)关系继承自父级(主)记录。',
-  'engine.studio.settings.sharingExternal':
-    '外部共享模型(externalSharingModel)—— 门户 / 合作伙伴等外部主体的基线',
-  'engine.studio.settings.sharingExternalUnset': '(未设置 —— 默认 Private)',
-  'engine.studio.settings.sharingExternalDesc':
-    '仅作用于外部主体(ADR-0090 D11)。不得宽于内部模型;未设置时回落为 Private。',
-  'engine.studio.settings.sharingExternalWider':
-    '外部基线比内部共享模型更宽 —— 发布会被拒绝(ADR-0090 D11)。请收窄到不超过内部模型(private < public read < public read/write)。',
   'engine.studio.settings.capabilities': '能力开关(enable.*)',
   'engine.studio.settings.capabilitiesHint': '记录页能力 —— 这里的每个开关都由运行时真实强制',
   'engine.studio.settings.capTrackHistory': '历史标签页(trackHistory)',
@@ -6665,23 +6645,19 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.owd.title': '记录共享基线（OWD）',
   'engine.studio.owd.subtitle': '对象 × 组织级默认',
   'engine.studio.owd.description':
-    '本包每个对象的组织级默认（sharingModel / externalSharingModel）—— 一屏审计基线并批量修改。改动以“逐对象草稿”保存，随包发布上线，与对象“设置”页完全一致。',
+    '本包每个对象的组织级默认（sharingModel）—— 一屏审计基线并批量修改。改动以“逐对象草稿”保存，随包发布上线，与对象“设置”页完全一致。',
   'engine.studio.owd.colObject': '对象',
-  'engine.studio.owd.colInternal': '内部（sharingModel）',
-  'engine.studio.owd.colExternal': '外部（externalSharingModel）',
+  'engine.studio.owd.colInternal': '共享模型（sharingModel）',
   'engine.studio.owd.none': '本包未声明任何对象。',
   'engine.studio.owd.loadFailed': '加载本包对象失败。',
   'engine.studio.owd.save': '保存 {count} 处改动',
   'engine.studio.owd.saveNone': '无改动',
   'engine.studio.owd.saved': '已保存 {count} 个对象草稿。',
   'engine.studio.owd.unsaved': '未保存',
-  'engine.studio.owd.blockedSave':
-    '有行的外部基线宽于内部模型（ADR-0090 D11），请先收窄后再保存。',
-  'engine.studio.owd.widerError': '外部宽于内部 —— 请收窄（private < 公共只读 < 公共读写）。',
   'engine.studio.owd.byParent': '受父级控制 → {master}',
   'engine.studio.owd.byParentUnknown': '受父级控制（主记录）',
   'engine.studio.owd.masterTip':
-    '受父级控制 —— 记录可见性继承自主记录，没有独立的外部基线开关。',
+    '受父级控制 —— 记录可见性继承自主记录。',
 
   // ── 访问解释面板(ADR-0090 D6 —「为什么该用户可以访问?」)────────────
   'engine.studio.access.explain.open': '解释访问权限',

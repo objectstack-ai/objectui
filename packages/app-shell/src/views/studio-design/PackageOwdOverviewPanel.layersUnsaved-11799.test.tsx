@@ -143,7 +143,7 @@ async function settle() {
 /** Published in the package, no draft. */
 const ACCOUNT = { name: 'crm_account', label: 'Account', sharingModel: 'public_read', fields: { name: { type: 'text' } } };
 /** Created in the package and never published: a draft and no layer. */
-const FRESH = { name: 'crm_fresh', label: 'Fresh', sharingModel: 'private', externalSharingModel: 'private', fields: { title: { type: 'text' } } };
+const FRESH = { name: 'crm_fresh', label: 'Fresh', sharingModel: 'private', fields: { title: { type: 'text' } } };
 
 beforeEach(() => {
   server.active.clear();
@@ -180,7 +180,6 @@ describe('PackageOwdOverviewPanel — an unsaved object is not asked for /layers
     expect(row).toHaveTextContent('Fresh');
     expect(row).toHaveTextContent('Unpublished draft');
     expect(screen.getByTestId(`owd-internal-${FRESH.name}`).textContent).toBe(OWD_LABEL.private);
-    expect(screen.getByTestId(`owd-external-${FRESH.name}`).textContent).toBe(OWD_LABEL.private);
     // CONTROL: the published object's row is its baseline.
     expect(screen.getByTestId(`owd-internal-${ACCOUNT.name}`).textContent).toBe(OWD_LABEL.public_read);
   });
@@ -190,7 +189,6 @@ describe('PackageOwdOverviewPanel — an unsaved object is not asked for /layers
     const before = { fresh: layersAsked(FRESH.name), account: layersAsked(ACCOUNT.name) };
 
     await pickOwd(`owd-internal-${FRESH.name}`, OWD_LABEL.public_read);
-    await pickOwd(`owd-external-${FRESH.name}`, OWD_LABEL.public_read);
     await pickOwd(`owd-internal-${ACCOUNT.name}`, OWD_LABEL.private);
     fireEvent.click(screen.getByTestId('owd-save'));
     await waitFor(() => expect(draftPuts(FRESH.name)).toHaveLength(1));
@@ -199,8 +197,8 @@ describe('PackageOwdOverviewPanel — an unsaved object is not asked for /layers
 
     // The save itself asked nothing of the unsaved object's layer; the reload after it neither.
     expect(layersAsked(FRESH.name) - before.fresh).toBe(0);
-    // The edit landed on the draft as-is: every draft key kept, the pair replaced.
-    expect(draftPuts(FRESH.name)[0]).toEqual({ ...FRESH, sharingModel: 'public_read', externalSharingModel: 'public_read' });
+    // The edit landed on the draft as-is: every draft key kept, the model replaced.
+    expect(draftPuts(FRESH.name)[0]).toEqual({ ...FRESH, sharingModel: 'public_read' });
     // CONTROL: the published object is read as before: once for the save, and
     // once by the reload after it.
     expect(layersAsked(ACCOUNT.name) - before.account).toBe(2);

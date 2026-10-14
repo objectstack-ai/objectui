@@ -39,8 +39,7 @@ describe('ObjectSettingsPanel — record sharing (OWD)', () => {
     renderPanel(baseDraft);
     // The section header is present.
     expect(screen.getByText('Record sharing (OWD)')).toBeTruthy();
-    // Canonical OWD options are all offered (scoped to the internal dial —
-    // the external D11 dial offers the same set).
+    // Canonical OWD options are all offered.
     const internal = await openDial('owd-internal-select');
     expect(internal.getByRole('option', { name: 'Private — owner only' })).toBeTruthy();
     expect(
@@ -71,7 +70,7 @@ describe('ObjectSettingsPanel — record sharing (OWD)', () => {
     // The runtime fallback is still stated — it is what makes `private` the
     // safe pick — but as context, not as an all-clear.
     expect(desc.textContent).toMatch(/Private/);
-    // Styled as a problem, exactly like the D11 external-wider warning.
+    // Styled as a problem.
     expect(desc.className).toMatch(/amber/);
   });
 
@@ -98,35 +97,25 @@ describe('ObjectSettingsPanel — record sharing (OWD)', () => {
   });
 });
 
-describe('ObjectSettingsPanel — external OWD dial (ADR-0090 D11)', () => {
-  it('renders the external dial defaulting to unset and patches externalSharingModel', async () => {
-    const onPatch = renderPanel(baseDraft);
-    expect(screen.getByTestId('owd-external-select').textContent).toBe(t('engine.studio.settings.sharingExternalUnset', 'en-US'));
-    fireEvent.click(
-      (await openDial('owd-external-select')).getByRole('option', {
-        name: 'Public read — everyone reads, only the owner writes',
-      }),
-    );
-    expect(onPatch).toHaveBeenCalledWith({ externalSharingModel: 'public_read' });
-  });
-
-  it('clears externalSharingModel back to unset', async () => {
-    const onPatch = renderPanel({ ...baseDraft, externalSharingModel: 'private' });
-    expect(screen.getByTestId('owd-external-select').textContent).toBe('Private — owner only');
-    fireEvent.click(
-      (await openDial('owd-external-select')).getByRole('option', { name: t('engine.studio.settings.sharingExternalUnset', 'en-US') }),
-    );
-    expect(onPatch).toHaveBeenCalledWith({ externalSharingModel: undefined });
-  });
-
-  it('warns when the external baseline is wider than the internal one', () => {
-    renderPanel({ ...baseDraft, sharingModel: 'public_read', externalSharingModel: 'public_read_write' });
-    expect(screen.getByTestId('owd-external-desc').textContent).toMatch(/WIDER/);
-  });
-
-  it('stays calm when external ≤ internal', () => {
-    renderPanel({ ...baseDraft, sharingModel: 'public_read', externalSharingModel: 'private' });
-    expect(screen.getByTestId('owd-external-desc').textContent).not.toMatch(/WIDER/);
+/**
+ * objectui#12353 — `externalSharingModel` is retired by `@objectstack/spec`
+ * (objectstack#23268, ruling A): an author who sets it is refused with "delete
+ * the key". Studio no longer offers the external dial, nor the D11
+ * "external wider than internal" warning, and no pick on this panel writes the
+ * key — even on an object that still stores it.
+ */
+describe('ObjectSettingsPanel — no external OWD dial (objectui#12353)', () => {
+  it('renders no external dial or D11 warning, and a sharing-model pick patches sharingModel alone', async () => {
+    const onPatch = renderPanel({
+      ...baseDraft,
+      sharingModel: 'public_read',
+      externalSharingModel: 'public_read_write',
+    });
+    expect(screen.queryByTestId('owd-external-select')).toBeNull();
+    expect(screen.queryByTestId('owd-external-desc')).toBeNull();
+    expect(document.body.textContent).not.toMatch(/externalSharingModel/);
+    fireEvent.click((await openDial('owd-internal-select')).getByRole('option', { name: 'Private — owner only' }));
+    expect(onPatch.mock.calls).toEqual([[{ sharingModel: 'private' }]]);
   });
 });
 

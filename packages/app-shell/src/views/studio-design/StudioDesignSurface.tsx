@@ -7163,7 +7163,7 @@ export function AccessPillar({
         <main className="min-w-0 flex-1 overflow-auto">
           {owdOpen ? (
             /* Sibling surface: the package-wide OWD baseline overview
-             * (objectui#2505) — object × sharingModel × externalSharingModel,
+             * (objectui#2505) — object × sharingModel,
              * batch-edited as per-object drafts. */
             <PackageOwdOverviewPanel
               client={client}

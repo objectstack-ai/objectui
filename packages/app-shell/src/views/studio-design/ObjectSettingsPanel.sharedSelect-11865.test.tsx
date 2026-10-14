@@ -9,8 +9,8 @@
 /**
  * Studio's object settings panel picks with the shared `Select` (objectui#11865).
  *
- * The Settings tab picked the internal and external sharing model, the name
- * field, the lifecycle field and the next highlight field with browser-native
+ * The Settings tab picked the sharing model, the name field, the lifecycle
+ * field and the next highlight field with browser-native
  * selects, beside the shared Radix `Select` the rest of Studio picks with. The
  * card asks for one control for one kind of choice, surface by surface; this
  * suite covers this panel's pickers.
@@ -18,7 +18,7 @@
  * What is pinned:
  *   - each picker IS the primitive (a Radix combobox trigger), shows the
  *     object's value, and no native select is left;
- *   - the four labelled pickers keep the name their wrapping label gave the
+ *   - the three labelled pickers keep the name their wrapping label gave the
  *     native control; the "add field" picker had no label and still has no
  *     name;
  *   - every option of every picker writes the `onPatch` payload the native
@@ -68,7 +68,6 @@ const FIELDS = {
 const DRAFT: Record<string, unknown> = {
   fields: FIELDS,
   sharingModel: 'public_read',
-  externalSharingModel: 'private',
   nameField: 'name',
   stageField: 'status',
   highlightFields: ['name'],
@@ -76,7 +75,6 @@ const DRAFT: Record<string, unknown> = {
 
 const PICKERS = [
   'owd-internal-select',
-  'owd-external-select',
   'name-field-select',
   'stage-field-select',
   'highlight-add-select',
@@ -85,7 +83,6 @@ const PICKERS = [
 /** The labelled pickers, by the i18n key of the label that names each. */
 const NAMED_BY: ReadonlyArray<readonly [string, string]> = [
   ['owd-internal-select', 'engine.studio.settings.sharingModel'],
-  ['owd-external-select', 'engine.studio.settings.sharingExternal'],
   ['name-field-select', 'engine.studio.settings.nameField'],
   ['stage-field-select', 'engine.studio.settings.stageField'],
 ];
@@ -140,7 +137,6 @@ describe('the object settings pickers are the shared Select (objectui#11865)', (
     }
     expect(shown).toEqual({
       'owd-internal-select': en('engine.studio.settings.sharingPublicRead'),
-      'owd-external-select': en('engine.studio.settings.sharingPrivate'),
       'name-field-select': 'Name (name)',
       'stage-field-select': 'Status (status)',
       'highlight-add-select': en('engine.studio.settings.addFieldOption'),
@@ -176,11 +172,6 @@ const WRITES: ReadonlyArray<readonly [string, string, string | null, readonly st
   ['owd-internal-select', en('engine.studio.settings.sharingPublicRead'), null, []],
   ['owd-internal-select', en('engine.studio.settings.sharingPublicReadWrite'), '{"sharingModel":"public_read_write"}', []],
   ['owd-internal-select', en('engine.studio.settings.sharingControlledByParent'), '{"sharingModel":"controlled_by_parent"}', []],
-  ['owd-external-select', en('engine.studio.settings.sharingExternalUnset'), '{}', ['externalSharingModel']],
-  ['owd-external-select', en('engine.studio.settings.sharingPrivate'), null, []],
-  ['owd-external-select', en('engine.studio.settings.sharingPublicRead'), '{"externalSharingModel":"public_read"}', []],
-  ['owd-external-select', en('engine.studio.settings.sharingPublicReadWrite'), '{"externalSharingModel":"public_read_write"}', []],
-  ['owd-external-select', en('engine.studio.settings.sharingControlledByParent'), '{"externalSharingModel":"controlled_by_parent"}', []],
   ['name-field-select', en('engine.studio.settings.autoDerive'), '{}', ['nameField']],
   ['name-field-select', 'Name (name)', null, []],
   ['name-field-select', 'Status (status)', '{"nameField":"status"}', []],
@@ -271,10 +262,9 @@ describe('a stored value no option carries is what the trigger shows', () => {
     expect(screen.getByTestId('stage-field-select')).toHaveTextContent('name');
   });
 
-  it('a sharing model neither dial offers is shown, not "not set"', () => {
-    renderPanel({ ...DRAFT, sharingModel: 'full', externalSharingModel: 'read_write' });
+  it('a sharing model the dial does not offer is shown, not "not set"', () => {
+    renderPanel({ ...DRAFT, sharingModel: 'full' });
     expect(screen.getByTestId('owd-internal-select')).toHaveTextContent('full');
-    expect(screen.getByTestId('owd-external-select')).toHaveTextContent('read_write');
   });
 });
 

@@ -3,22 +3,21 @@
 /**
  * The package OWD overview picks with the shared `Select` (objectui#11865).
  *
- * Each row's internal and external dial was a browser-native select, beside
- * the shared Radix `Select` the rest of Studio picks with. The card asks for
- * one control for one kind of choice, surface by surface; this suite covers
- * this panel's two dials.
+ * Each row's sharing-model dial was a browser-native select, beside the
+ * shared Radix `Select` the rest of Studio picks with. The card asks for one
+ * control for one kind of choice, surface by surface; this suite covers this
+ * panel's dial.
  *
  * What is pinned:
  *   - each dial IS the primitive (a Radix combobox trigger), shows the row's
  *     value, and no native select is left;
  *   - the native dials had no label and so no accessible name; the triggers
  *     have none either;
- *   - every option of both dials, picked and saved, sends the draft save the
+ *   - every option of the dial, picked and saved, sends the draft save the
  *     native control's pick sent, compared as JSON text; re-picking the
  *     current option leaves the row clean, so Save stays disabled;
  *   - read-only draws no dial at all, as before: the row shows the label;
  *   - a stored value no option carries is what the trigger shows;
- *   - a wider external dial still wears the amber border;
  *   - the keyboard alone opens a dial and selects.
  *
  * DIRECTION, observed against the native control: every pin here is red
@@ -62,13 +61,13 @@ function makeServer(objects: Record<string, Body>) {
   return { client, saved };
 }
 
-/** One row per dial under test, each holding one of its dial's own options. */
+/** Two rows, each holding one of the dial's own options. */
 const OBJECTS = (): Record<string, Body> => ({
   p_int: { name: 'p_int', label: 'Int', sharingModel: 'public_read' },
-  p_ext: { name: 'p_ext', label: 'Ext', sharingModel: 'public_read_write', externalSharingModel: 'private' },
+  p_ext: { name: 'p_ext', label: 'Ext', sharingModel: 'public_read_write' },
 });
 
-const DIALS = ['owd-internal-p_int', 'owd-external-p_int', 'owd-internal-p_ext', 'owd-external-p_ext'] as const;
+const DIALS = ['owd-internal-p_int', 'owd-internal-p_ext'] as const;
 
 async function renderPanel(objects: Record<string, Body> = OBJECTS(), readOnly?: boolean) {
   const server = makeServer(objects);
@@ -115,9 +114,7 @@ describe('the OWD overview dials are the shared Select (objectui#11865)', () => 
     }
     expect(shown).toEqual({
       'owd-internal-p_int': en('engine.studio.settings.sharingPublicRead'),
-      'owd-external-p_int': en('engine.studio.settings.sharingExternalUnset'),
       'owd-internal-p_ext': en('engine.studio.settings.sharingPublicReadWrite'),
-      'owd-external-p_ext': en('engine.studio.settings.sharingPrivate'),
     });
   });
 
@@ -143,15 +140,11 @@ const WRITES: ReadonlyArray<readonly [string, string, string | null]> = [
   ['owd-internal-p_int', en('engine.studio.settings.sharingPublicRead'), null],
   ['owd-internal-p_int', en('engine.studio.settings.sharingPublicReadWrite'), SAVED('p_int', { name: 'p_int', label: 'Int', sharingModel: 'public_read_write' })],
   ['owd-internal-p_int', en('engine.studio.settings.sharingControlledByParent'), SAVED('p_int', { name: 'p_int', label: 'Int', sharingModel: 'controlled_by_parent' })],
-  ['owd-external-p_ext', en('engine.studio.settings.sharingExternalUnset'), SAVED('p_ext', { name: 'p_ext', label: 'Ext', sharingModel: 'public_read_write' })],
-  ['owd-external-p_ext', en('engine.studio.settings.sharingPrivate'), null],
-  ['owd-external-p_ext', en('engine.studio.settings.sharingPublicRead'), SAVED('p_ext', { name: 'p_ext', label: 'Ext', sharingModel: 'public_read_write', externalSharingModel: 'public_read' })],
-  ['owd-external-p_ext', en('engine.studio.settings.sharingPublicReadWrite'), SAVED('p_ext', { name: 'p_ext', label: 'Ext', sharingModel: 'public_read_write', externalSharingModel: 'public_read_write' })],
 ];
 
 describe('every option saves what the native dial saved', () => {
-  it('the table covers every option of both dials, in the order each lists them', async () => {
-    for (const id of ['owd-internal-p_int', 'owd-external-p_ext']) {
+  it('the table covers every option of the dial, in the order it lists them', async () => {
+    for (const id of ['owd-internal-p_int']) {
       await renderPanel();
       const listed = (await openDial(id)).map((o) => o.textContent);
       expect(listed, id).toEqual(WRITES.filter(([d]) => d === id).map(([, label]) => label));
@@ -184,40 +177,27 @@ describe('read-only draws no dial, as before', () => {
     expect(container.querySelector('select')).toBeNull();
     for (const id of DIALS) expect(screen.queryByTestId(id), id).toBeNull();
     expect(screen.getByTestId('owd-row-p_ext')).toHaveTextContent(en('engine.studio.settings.sharingPublicReadWrite'));
-    expect(screen.getByTestId('owd-row-p_ext')).toHaveTextContent(en('engine.studio.settings.sharingPrivate'));
   });
 
-  it('CONTROL — writable: the same rows draw all four dials, enabled', async () => {
+  it('CONTROL — writable: the same rows draw both dials, enabled', async () => {
     await renderPanel();
     for (const id of DIALS) expect(screen.getByTestId(id)).toBeEnabled();
   });
 });
 
 describe('a stored value no option carries is what the trigger shows', () => {
-  it('a sharing model neither dial offers is shown and listed first, and re-picking it changes nothing', async () => {
+  it('a sharing model the dial does not offer is shown and listed first, and re-picking it changes nothing', async () => {
     const { saved } = await renderPanel({
-      p_int: { name: 'p_int', label: 'Int', sharingModel: 'full', externalSharingModel: 'read_write' },
+      p_int: { name: 'p_int', label: 'Int', sharingModel: 'full' },
     });
-    // The native dials showed "not set" here, as if no model were set.
+    // The native dial showed "not set" here, as if no model were set.
     expect(screen.getByTestId('owd-internal-p_int')).toHaveTextContent('full');
-    expect(screen.getByTestId('owd-external-p_int')).toHaveTextContent('read_write');
     const listed = (await openDial('owd-internal-p_int')).map((o) => o.textContent);
     expect(listed[0]).toBe('full');
     expect(listed.slice(1)).toEqual(WRITES.filter(([d]) => d === 'owd-internal-p_int').map(([, label]) => label));
     fireEvent.click(screen.getAllByRole('option')[0]);
     expect(saveButton()).toBeDisabled();
     expect(saved).toEqual([]);
-  });
-});
-
-describe('a wider external dial is still marked', () => {
-  it('an external model wider than the internal one puts the amber border on the external trigger', async () => {
-    await renderPanel();
-    expect(screen.getByTestId('owd-external-p_int')).not.toHaveClass('border-amber-500');
-    await pick('owd-external-p_int', en('engine.studio.settings.sharingPublicReadWrite'));
-    expect(screen.getByTestId('owd-error-p_int')).toBeInTheDocument();
-    expect(screen.getByTestId('owd-external-p_int')).toHaveClass('border-amber-500');
-    expect(saveButton()).toBeDisabled();
   });
 });
 

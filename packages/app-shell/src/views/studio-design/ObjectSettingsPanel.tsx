@@ -51,14 +51,13 @@ import {
 import { useRegisteredMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry.js';
 import { readFields, type FieldEntry } from '../metadata-admin/previews/object-fields-io.js';
 import { t, tFormat, type SupportedLocale } from '../metadata-admin/i18n.js';
-import { isExternalWider } from './owd-sharing.js';
 
 /** The item a stored value none of a picker's options carries is shown by. */
 const OUTSIDE_OPTIONS = 'outside';
 
 /**
- * objectui#11865 — one of this panel's pickers (the internal and external
- * sharing model, the name field, the lifecycle field, and the highlight
+ * objectui#11865 — one of this panel's pickers (the sharing model, the name
+ * field, the lifecycle field, and the highlight
  * fields' "add field"), drawn with the shared `Select`, the control the
  * validation rule editor's pickers (`RulePicker`) pick with. They used to be
  * browser-native `<select>`s. What a pick writes is unchanged: `onPick`
@@ -193,9 +192,8 @@ export function ObjectSettingsPanel({
           : sharingModel === 'controlled_by_parent'
             ? 'engine.studio.settings.sharingDescControlledByParent'
             : 'engine.studio.settings.sharingDescUnset';
-  // Both dials offer the same models; only the unset option's wording differs.
-  const owdOptions = (unsetKey: string) => [
-    { value: '', label: t(unsetKey, locale) },
+  const owdOptions = [
+    { value: '', label: t('engine.studio.settings.sharingUnset', locale) },
     { value: 'private', label: t('engine.studio.settings.sharingPrivate', locale) },
     { value: 'public_read', label: t('engine.studio.settings.sharingPublicRead', locale) },
     { value: 'public_read_write', label: t('engine.studio.settings.sharingPublicReadWrite', locale) },
@@ -217,23 +215,6 @@ export function ObjectSettingsPanel({
     { key: 'searchable',   optIn: false, labelKey: 'engine.studio.settings.capSearchable',   descKey: 'engine.studio.settings.capSearchableDesc' },
     { key: 'clone',        optIn: false, labelKey: 'engine.studio.settings.capClone',        descKey: 'engine.studio.settings.capCloneDesc' },
   ];
-
-  // External OWD dial (ADR-0090 D11): baseline for portal/partner principals.
-  // Defaults to private when unset; must never be WIDER than the internal
-  // model (ordering: private < public_read < public_read_write — the D7
-  // security-posture linter rejects the wider shape at publish).
-  //
-  // The width comparison itself comes from `owd-sharing.ts`, which exists to be
-  // the SINGLE home for the pieces this tab and the package-level OWD overview
-  // (`PackageOwdOverviewPanel`) must agree on. This used to re-declare
-  // `OWD_WIDTH` and the comparison inline; the two were equivalent but nothing
-  // held them together, so a D11 refinement landing in the module would have
-  // left this tab — the surface an author actually sets the dial on — silently
-  // enforcing the old rule (objectui#5477). Note the argument order: the module
-  // takes (internal, external), the reverse of how the violation reads.
-  const externalSharingModel =
-    typeof draft.externalSharingModel === 'string' ? draft.externalSharingModel : '';
-  const externalWider = isExternalWider(sharingModel, externalSharingModel);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto">
@@ -279,15 +260,13 @@ export function ObjectSettingsPanel({
               disabled={disabled}
               onPick={(v) => onPatch(v ? { sharingModel: v } : { sharingModel: undefined })}
               className={PICKER_FULL}
-              options={owdOptions('engine.studio.settings.sharingUnset')}
+              options={owdOptions}
             />
           </label>
           {/* An UNSET internal OWD is not a neutral state — the publish door
-              refuses it (`security-owd-unset`). Styled as the problem it is,
-              exactly the way the D11 external-wider violation next to it is
-              (`7a90afdf9`); the two are the same class of "this authoring
-              choice will be rejected at publish" and reading them differently
-              is what let the unset case pass for a safe default. */}
+              refuses it (`security-owd-unset`). Styled as the problem it is:
+              "this authoring choice will be rejected at publish" — reading it
+              as neutral is what let the unset case pass for a safe default. */}
           <p
             data-testid="owd-internal-desc"
             className={
@@ -297,36 +276,6 @@ export function ObjectSettingsPanel({
             }
           >
             {t(sharingDescKey, locale)}
-          </p>
-          <label className="block">
-            <span className="mb-1 block text-[11px] text-muted-foreground">
-              {t('engine.studio.settings.sharingExternal', locale)}
-            </span>
-            <SettingsPicker
-              testId="owd-external-select"
-              value={externalSharingModel}
-              disabled={disabled}
-              onPick={(v) =>
-                onPatch(v ? { externalSharingModel: v } : { externalSharingModel: undefined })
-              }
-              className={PICKER_FULL}
-              options={owdOptions('engine.studio.settings.sharingExternalUnset')}
-            />
-          </label>
-          <p
-            data-testid="owd-external-desc"
-            className={
-              externalWider
-                ? 'text-[11px] text-amber-600 dark:text-amber-500'
-                : 'text-[11px] text-muted-foreground'
-            }
-          >
-            {t(
-              externalWider
-                ? 'engine.studio.settings.sharingExternalWider'
-                : 'engine.studio.settings.sharingExternalDesc',
-              locale,
-            )}
           </p>
         </div>
       </section>

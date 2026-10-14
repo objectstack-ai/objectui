@@ -6,7 +6,7 @@
  *
  * A sibling surface in the Studio Access pillar, next to the permission-set
  * rail. Where the per-object Settings tab (`ObjectSettingsPanel`) edits one
- * object's `sharingModel` / `externalSharingModel` at a time, this table
+ * object's `sharingModel` at a time, this table
  * surveys — and batch-edits — the OWD baseline of EVERY object the package
  * owns (published ∪ pending drafts, the same merge the pillars do).
  *
@@ -19,15 +19,16 @@
  *   • Save = per-object metadata DRAFTs under the package scope — byte-for-byte
  *     what the per-object Settings tab writes, just N objects in one action.
  *     Publish then flows through the unchanged package security-domain gate.
- *   • Row validation `external ≤ internal` (ADR-0090 D11) is surfaced inline
- *     and blocks Save, reusing `isExternalWider` from `owd-sharing.ts`.
- *   • `controlled_by_parent` rows show the master link (read-only) instead of
- *     an external dial, mirroring the per-object settings behavior.
+ *   • `controlled_by_parent` rows show the master link (read-only) under the
+ *     row's dial.
+ *   • There is no external column: `externalSharingModel` is retired by
+ *     `@objectstack/spec` (objectstack#23268), so Studio neither reads,
+ *     renders nor writes it (objectui#12353).
  *   • Read-only packages render badges only (the pillar's courtesy gate).
  */
 
 import * as React from 'react';
-import { ShieldCheck, Save, Loader2, Lock, ArrowUpRight, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, Save, Loader2, Lock, ArrowUpRight } from 'lucide-react';
 import type { MetadataClient, MetadataLayered } from '@object-ui/data-objectstack';
 // The ONE draft-envelope reader (objectui#8181): unwrap AND strip the
 // framework's read decorations in one place. This file used to carry its own
@@ -44,7 +45,7 @@ import {
   SelectValue,
 } from '@object-ui/components';
 import { t, tFormat, type SupportedLocale } from '../metadata-admin/i18n.js';
-import { isExternalWider, deriveMasterObject } from './owd-sharing.js';
+import { deriveMasterObject } from './owd-sharing.js';
 import { toast } from 'sonner';
 
 
@@ -57,8 +58,6 @@ interface OwdRow {
   label: string;
   /** Authored `sharingModel`; '' when unset (defaults to private, ADR-0090 D1). */
   internal: string;
-  /** Authored `externalSharingModel`; '' when unset. */
-  external: string;
   /** Master (parent) object for `controlled_by_parent` rows, if resolvable. */
   master?: string;
   /** True when this object already has an unpublished draft. */
@@ -94,7 +93,6 @@ async function readObjectBodies(
 /** The user's working value for one row ('' = unset). */
 interface OwdEdit {
   internal: string;
-  external: string;
 }
 
 const OWD_OPTION_KEYS: ReadonlyArray<{ value: string; key: string }> = [
@@ -115,14 +113,14 @@ function owdLabel(value: string, locale: SupportedLocale): string {
 const OUTSIDE_OPTIONS = 'outside';
 
 /**
- * objectui#11865 — one row's internal or external dial, drawn with the shared
+ * objectui#11865 — one row's sharing-model dial, drawn with the shared
  * `Select`, the control the object settings panel's dials (`SettingsPicker`)
  * pick with. They used to be browser-native `<select>`s. What a pick writes is
  * unchanged: `onPick` receives the picked option's own `value`, the string the
  * native control's `change` carried, and the row's working value takes it as
  * before. Re-picking the current option changes nothing, as it did there.
  *
- * - Items carry their option's INDEX, not its value: each dial opens on an
+ * - Items carry their option's INDEX, not its value: the dial opens on an
  *   option whose value is `''` ("not set"), which `SelectItem` refuses.
  * - A stored value none of the options carries gets an item of its own,
  *   labelled with the value, so the trigger shows what the object holds. The
@@ -263,7 +261,6 @@ export function PackageOwdOverviewPanel({
             name,
             label: String(body.label ?? publishedLabel.get(name) ?? name),
             internal,
-            external: typeof body.externalSharingModel === 'string' ? body.externalSharingModel : '',
             master: internal === 'controlled_by_parent' ? deriveMasterObject(body.fields) : undefined,
             hasDraft: !!draftBody,
             saved,
@@ -273,7 +270,7 @@ export function PackageOwdOverviewPanel({
       built.sort((a, b) => a.label.localeCompare(b.label) || a.name.localeCompare(b.name));
       setRows(built);
       // Reset working edits to the freshly loaded baseline.
-      setEdits(Object.fromEntries(built.map((r) => [r.name, { internal: r.internal, external: r.external }])));
+      setEdits(Object.fromEntries(built.map((r) => [r.name, { internal: r.internal }])));
     } catch (e) {
       setLoadError(formatMetadataError(e));
     } finally {
@@ -297,19 +294,16 @@ export function PackageOwdOverviewPanel({
     setEdits((prev) => ({ ...prev, [name]: { ...prev[name], ...patch } }));
   }, []);
 
-  // A row is dirty when its working value differs from the loaded baseline;
-  // invalid when the external baseline is wider than the internal one (D11).
+  // A row is dirty when its working value differs from the loaded baseline.
   const rowState = React.useMemo(() => {
     return rows.map((r) => {
-      const e = edits[r.name] ?? { internal: r.internal, external: r.external };
-      const dirty = e.internal !== r.internal || e.external !== r.external;
-      const invalid = isExternalWider(e.internal, e.external);
-      return { row: r, edit: e, dirty, invalid };
+      const e = edits[r.name] ?? { internal: r.internal };
+      const dirty = e.internal !== r.internal;
+      return { row: r, edit: e, dirty };
     });
   }, [rows, edits]);
 
   const dirtyCount = rowState.filter((s) => s.dirty).length;
-  const hasInvalid = rowState.some((s) => s.invalid);
 
   // Report dirty transitions to the host (see onDirtyChange). Ref-stabilized
   // so a non-memoized callback prop doesn't refire the effect; the unmount
@@ -331,13 +325,13 @@ export function PackageOwdOverviewPanel({
   );
 
   const doSave = React.useCallback(async () => {
-    const changed = rowState.filter((s) => s.dirty && !s.invalid);
+    const changed = rowState.filter((s) => s.dirty);
     if (changed.length === 0) return;
     setSaving(true);
     setSaveError(null);
     try {
       // Each changed row lands as that object's package-scoped DRAFT: read the
-      // fresh body (below), apply just the OWD pair (unset → drop the key), and
+      // fresh body (below), apply just `sharingModel` (unset → drop the key), and
       // save. Identical to the per-object Settings write, N times — publish
       // then goes through the same package security-domain gate unchanged.
       for (const s of changed) {
@@ -354,8 +348,6 @@ export function PackageOwdOverviewPanel({
         const next: Record<string, unknown> = { ...(draftBody ?? baseline) };
         if (s.edit.internal) next.sharingModel = s.edit.internal;
         else delete next.sharingModel;
-        if (s.edit.external) next.externalSharingModel = s.edit.external;
-        else delete next.externalSharingModel;
         // objectui#11692 — `next` is seeded from a SERVED object read, where a
         // picklist-bound field carries `picklist` beside the options the
         // runtime resolved from the list; the authoring door refuses the two
@@ -373,21 +365,13 @@ export function PackageOwdOverviewPanel({
     }
   }, [rowState, client, packageId, onDraftSaved, load, locale]);
 
-  const canSave = !readOnly && !saving && dirtyCount > 0 && !hasInvalid;
+  const canSave = !readOnly && !saving && dirtyCount > 0;
 
-  // The two dials' options, in the order the native controls listed them.
+  // The dial's options, in the order the native control listed them.
   const internalOptions = [
     { value: '', label: t('engine.studio.settings.sharingUnset', locale) },
     ...OWD_OPTION_KEYS.map((o) => ({ value: o.value, label: t(o.key, locale) })),
   ];
-  const externalOptions = [
-    { value: '', label: t('engine.studio.settings.sharingExternalUnset', locale) },
-    ...OWD_OPTION_KEYS.filter((o) => o.value !== 'controlled_by_parent').map((o) => ({
-      value: o.value,
-      label: t(o.key, locale),
-    })),
-  ];
-
   return (
     <div className="flex h-full flex-col" data-testid="owd-overview">
       <div className="flex items-center gap-3 border-b px-4 py-2.5">
@@ -427,15 +411,6 @@ export function PackageOwdOverviewPanel({
         {t('engine.studio.owd.description', locale)}
       </p>
 
-      {hasInvalid && (
-        <p
-          data-testid="owd-invalid-banner"
-          className="flex items-center gap-1.5 border-b bg-amber-400/10 px-4 py-2 text-[11px] text-amber-600 dark:text-amber-400"
-        >
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-          {t('engine.studio.owd.blockedSave', locale)}
-        </p>
-      )}
       {saveError && (
         <p className="border-b bg-destructive/10 px-4 py-2 text-[11px] text-destructive">{saveError}</p>
       )}
@@ -453,11 +428,10 @@ export function PackageOwdOverviewPanel({
               <tr className="border-b text-left text-[11px] uppercase tracking-wide text-muted-foreground">
                 <th className="px-2 py-1.5 font-medium">{t('engine.studio.owd.colObject', locale)}</th>
                 <th className="px-2 py-1.5 font-medium">{t('engine.studio.owd.colInternal', locale)}</th>
-                <th className="px-2 py-1.5 font-medium">{t('engine.studio.owd.colExternal', locale)}</th>
               </tr>
             </thead>
             <tbody>
-              {rowState.map(({ row, edit, dirty, invalid }) => {
+              {rowState.map(({ row, edit, dirty }) => {
                 const isParent = edit.internal === 'controlled_by_parent';
                 return (
                   <tr
@@ -493,7 +467,8 @@ export function PackageOwdOverviewPanel({
                       </span>
                     </td>
 
-                    {/* Internal (sharingModel) */}
+                    {/* Sharing model (sharingModel) — plus the master link for
+                        controlled_by_parent rows. */}
                     <td className="px-2 py-2">
                       {readOnly ? (
                         <span className="text-muted-foreground">{owdLabel(edit.internal, locale)}</span>
@@ -506,42 +481,17 @@ export function PackageOwdOverviewPanel({
                           options={internalOptions}
                         />
                       )}
-                    </td>
-
-                    {/* External (externalSharingModel) — or the master link for
-                        controlled_by_parent rows (no external dial). */}
-                    <td className="px-2 py-2">
-                      {isParent ? (
+                      {isParent && (
                         <span
                           data-testid={`owd-master-${row.name}`}
                           title={t('engine.studio.owd.masterTip', locale)}
-                          className="inline-flex items-center gap-1 text-muted-foreground"
+                          className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground"
                         >
                           <ArrowUpRight className="h-3.5 w-3.5" />
                           {row.master
                             ? tFormat('engine.studio.owd.byParent', locale, { master: row.master })
                             : t('engine.studio.owd.byParentUnknown', locale)}
                         </span>
-                      ) : readOnly ? (
-                        <span className="text-muted-foreground">{owdLabel(edit.external, locale)}</span>
-                      ) : (
-                        <>
-                          <OwdPicker
-                            value={edit.external}
-                            testId={`owd-external-${row.name}`}
-                            onPick={(v) => setEdit(row.name, { external: v })}
-                            className={DIAL + (invalid ? ' border-amber-500' : '')}
-                            options={externalOptions}
-                          />
-                          {invalid && (
-                            <span
-                              data-testid={`owd-error-${row.name}`}
-                              className="mt-1 block text-[11px] text-amber-600 dark:text-amber-500"
-                            >
-                              {t('engine.studio.owd.widerError', locale)}
-                            </span>
-                          )}
-                        </>
                       )}
                     </td>
                   </tr>

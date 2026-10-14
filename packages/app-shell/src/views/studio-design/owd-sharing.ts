@@ -5,10 +5,9 @@
  *
  * The per-object Settings tab (`ObjectSettingsPanel`) and the package-level
  * OWD overview (`PackageOwdOverviewPanel`) both edit the SAME record-sharing
- * baseline — `sharingModel` / `externalSharingModel` (ADR-0090 D1/D4/D11).
- * This module is the single home for the pieces they must agree on: the
- * canonical value set, the D11 "external ≤ internal" width comparison, and
- * the master-object derivation used for `controlled_by_parent` rows. Pure and
+ * baseline — `sharingModel` (ADR-0090 D1/D4). This module is the single home
+ * for the pieces they must agree on: the canonical value set and the
+ * master-object derivation used for `controlled_by_parent` rows. Pure and
  * DOM-free, so both surfaces can share one validated implementation.
  */
 
@@ -26,37 +25,6 @@ export const OWD_MODELS = [
   'controlled_by_parent',
 ] as const;
 export type OwdModel = (typeof OWD_MODELS)[number];
-
-/**
- * Relative WIDTH of the three org-wide-visible models — the D11 axis for
- * "external must never be wider than internal". `controlled_by_parent` is
- * deliberately absent: it delegates the baseline to the master record, so it
- * has no place on the private < read < write ordering (mirrors the
- * comparison ObjectSettingsPanel implemented inline).
- */
-export const OWD_WIDTH: Record<string, number> = {
-  private: 0,
-  public_read: 1,
-  public_read_write: 2,
-};
-
-/**
- * True when `external` sits WIDER than `internal` on the OWD_WIDTH axis — the
- * ADR-0090 D11 violation the publish linter rejects. Values off the axis
- * (unset, `controlled_by_parent`) never trip it.
- */
-export function isExternalWider(
-  internal: string | undefined,
-  external: string | undefined,
-): boolean {
-  return (
-    !!external &&
-    external in OWD_WIDTH &&
-    !!internal &&
-    internal in OWD_WIDTH &&
-    OWD_WIDTH[external] > OWD_WIDTH[internal]
-  );
-}
 
 /**
  * The master (parent) object a `controlled_by_parent` child inherits its

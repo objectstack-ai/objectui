@@ -35,16 +35,15 @@ async function pickOwd(testId: string, label: string): Promise<void> {
   fireEvent.click(within(listbox).getByRole('option', { name: label }));
 }
 
-/** The published object: both OWD models set, plus a description. */
+/** The published object: its OWD model set, plus a description. */
 const PUBLISHED = {
   name: 'crm_contact',
   label: 'Contact',
   sharingModel: 'private',
-  externalSharingModel: 'private',
   description: 'published description — the draft deleted this key',
 };
 
-/** The pending draft as the author left it: both models unset, description deleted. */
+/** The pending draft as the author left it: the model unset, description deleted. */
 const SERVED_DRAFT = {
   name: 'crm_contact',
   label: 'Contact',
@@ -103,8 +102,7 @@ describe('PackageOwdOverviewPanel — the pending draft is read and re-saved as-
     expect(name).toBe('crm_contact');
     expect(opts).toMatchObject({ mode: 'draft', packageId: 'com.example.showcase' });
     expect(body.sharingModel).toBe('public_read');
-    // Red on base: both came back from `effective` through the spread.
-    expect(body).not.toHaveProperty('externalSharingModel');
+    // Red on base: it came back from `effective` through the spread.
     expect(body).not.toHaveProperty('description');
     // The draft's own keys travel; the read decorations do not (objectui#8181).
     expect(body.label).toBe('Contact');

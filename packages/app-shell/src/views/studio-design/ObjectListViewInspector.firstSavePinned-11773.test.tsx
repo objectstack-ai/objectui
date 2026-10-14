@@ -157,18 +157,20 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('useObjectListViewDraft — the first save after a load is pinned (objectui#11773)', () => {
-  it('a published view with no pending draft: the first save sends If-None-Match: *, the draft read named the package', async () => {
+  it('a published view with no pending draft: the first save sends If-None-Match: *', async () => {
     server.active.set(`view/${VIEW}`, viewItem(['title']));
     await openEditAndSave(['title', 'status']);
     expect(server.puts).toEqual([{ ifMatch: null, ifNoneMatch: '*', status: 200 }]);
-    expect(server.draftReads.every((search) => new URLSearchParams(search).get('package') === PKG)).toBe(true);
-    expect(server.draftReads.length).toBeGreaterThan(0);
+    // The drafts ledger answered "none", so no `?state=draft` read was sent.
+    expect(server.draftReads).toEqual([]);
   });
 
-  it('a pending draft in the package: the first save sends If-Match with the version the read served', async () => {
+  it('a pending draft in the package: the first save sends If-Match with the version the read, at the package, served', async () => {
     server.drafts.set(`view/${VIEW}@${PKG}`, { body: viewItem(['title']), version: 'hmac-sha256:pending' });
     await openEditAndSave(['title', 'status']);
     expect(server.puts).toEqual([{ ifMatch: 'hmac-sha256:pending', ifNoneMatch: null, status: 200 }]);
+    expect(server.draftReads.length).toBeGreaterThan(0);
+    expect(server.draftReads.every((search) => new URLSearchParams(search).get('package') === PKG)).toBe(true);
   });
 
   it('a draft saved in the package while the panel was open: the first save is refused, not written over', async () => {

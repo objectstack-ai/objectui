@@ -1324,7 +1324,7 @@ describe('objectui#7779 → objectui#7928 — `listViews` was ledgered on the fa
     ])).toEqual(['label-only', 'tuple']);
   });
 
-  it('the renderer reads forty-three keys off a named view — every one of them a declared `NamedListView` member — of a declaration with 64, the reason a local key-for-key mirror was never the answer', () => {
+  it('the renderer reads forty-three keys off a named view — every one of them a declared `NamedListView` member — of a declaration with 65, the reason a local key-for-key mirror was never the answer', () => {
     // ⚠️ The REGEX instrument sees forty-two, not forty-three: `name` is read only
     // at the tab strip (`view.name`), which `currentNamedViewConfig?.KEY` cannot
     // see. The AST derivation below finds it; the gap between the two is
@@ -1631,7 +1631,7 @@ function foldFlagMap(): Record<string, string> {
   return out;
 }
 
-describe('objectui#7924 — the unread members, in the FOUR buckets the ruling was written in, derived against the installed protocol (bucket ① empty since objectui#10758)', () => {
+describe('objectui#7924 — the unread members, in the FOUR buckets the ruling was written in plus the server-enforced fifth (objectui#12341), derived against the installed protocol (bucket ① empty since objectui#10758)', () => {
   it('the protocol declares 51 keys for a named list view, and the instrument that reads them fires', () => {
     const keys = protocolListViewKeys();
     expect(keys).toEqual([...PROTOCOL_LIST_VIEW_KEYS]);

@@ -94,7 +94,7 @@ below for why this plugin deliberately does not claim it.
 | `columns` | `string[] \| ListColumn[]` | Field names or column objects — see below. |
 | `label` | `I18nLabel` | Table caption and export file title. |
 | `description` | `I18nLabel` | One line of help text above the grid — see `description` and `emptyState` below. |
-| `emptyState` | `EmptyState` (`@objectstack/spec/ui`) | `{ title?, message?, icon? }`, drawn in place of an empty table — see below. |
+| `emptyState` | `EmptyState` (`@objectstack/spec/ui`) | `{ title?, message?, icon?, link? }`, drawn in place of an empty table — see below. |
 | `filter` | `ViewFilterRule[]` | Baked into the query, lowered to `$filter`. |
 | `sort` | `[{ field, order }]` | Initial order; a header click replaces it. |
 | `pagination` | `PaginationConfig` | `{ pageSize?, pageSizeOptions? }` — **strict**, and its presence is what enables paging. |
@@ -123,15 +123,21 @@ row declares both (objectstack#20694), so both are bag members and both are in
 
 - `description` — one line of help text drawn above the grid. A string, or an
   inline locale map resolved against the display locale the way `label` is.
-- `emptyState: { title?, message?, icon? }` — the list view's own empty-state
-  shape (`EmptyState`), drawn **in place of** an empty table: a Lucide `icon`, a
-  `title` (default: the table's own "No results found") and a `message`
-  (default: none). `title` and `message` each take a string or an inline locale
-  map, resolved against the display locale; a map with no usable entry keeps
-  that member's default. It is not drawn when a term typed into the grid's own
-  server-side search box is what emptied it — the table and its search box stay,
-  so the term can be cleared. Leave the key out and an empty grid draws the
-  table's own empty row, as before.
+- `emptyState: { title?, message?, icon?, link? }` — the list view's own
+  empty-state shape (`EmptyState`), drawn **in place of** an empty table: a
+  Lucide `icon`, a `title` (default: the table's own "No results found"), a
+  `message` (default: none) and one `link: { label, url }` the user follows
+  (default: none; objectui#12270). `title`, `message` and the link's `label`
+  each take a string or an inline locale map, resolved against the display
+  locale; a map with no usable entry keeps that member's default, and a link
+  whose label resolves to no text is not drawn. The link is followed as a
+  `type: 'url'` action through the action runner, so it opens what such an
+  action opens: an in-app path (`/…` or `./…`) in place, an `http(s)://`
+  address as the runner opens an external target, and `mailto:` in place; the
+  runner refuses anything else at the click and reports it. It is not drawn when
+  a term typed into the grid's own server-side search box is what emptied it —
+  the table and its search box stay, so the term can be cleared. Leave the key
+  out and an empty grid draws the table's own empty row, as before.
 
 ```json
 {
@@ -142,7 +148,8 @@ row declares both (objectstack#20694), so both are bag members and both are in
     "emptyState": {
       "title": { "en": "No contacts yet", "fr": "Aucun contact" },
       "message": "Add one to get started",
-      "icon": "users"
+      "icon": "users",
+      "link": { "label": "How contacts work", "url": "/docs/contacts" }
     }
   }
 }

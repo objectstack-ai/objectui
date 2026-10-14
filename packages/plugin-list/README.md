@@ -246,6 +246,47 @@ const viewTypes: Record<NonNullable<ListViewSchema['viewType']>, string> = {
 export { view, richColumns, viewTypes };
 ```
 
+## Empty state
+
+When the `grid` or `gallery` visualization has no record to show, the view
+draws its `emptyState` (the spec's `EmptyState`): a Lucide `icon`, a `title`, a
+`message` and one `link: { label, url }` the user follows, such as the how-to
+page that explains what belongs in the list (objectui#12270). A member left out
+keeps the localized default copy; `title`, `message` and the link's `label`
+each take a string or an inline locale map, resolved against the display
+locale.
+
+The link is followed as a `type: 'url'` action through the action runner, so it
+opens what such an action opens: an in-app path (`/…` or `./…`) in place, an
+`http(s)://` address as the runner opens an external target, and `mailto:` in
+place. The runner refuses anything else at the click and reports it. The link
+is drawn beside the add-record action when the view's `addRecord` block offers
+one; the two are separate, and either, both or neither may be drawn.
+
+```typescript
+import type { ListViewSchema } from '@object-ui/types';
+
+const emptyTasks: ListViewSchema = {
+  type: 'list-view',
+  objectName: 'tasks',
+  viewType: 'grid',
+  columns: ['title'],
+  emptyState: {
+    title: 'No open tasks',
+    message: 'Tasks assigned to you appear here.',
+    icon: 'inbox',
+    link: { label: 'How tasks are assigned', url: '/docs/tasks' },
+  },
+};
+
+export { emptyTasks };
+```
+
+A list page (`interfaceConfig` of a `type: 'list'` page) may declare its own
+`emptyState` of the same shape. The page's own block wins, whole, over the one
+its source view declares, on every visualization; the source view's is the
+fallback when the page declares none.
+
 ## Page size and fetch batch
 
 A list view asks the server for one window of records. When

@@ -158,7 +158,7 @@ describe('bulk confirm step names records by display title (objectui#12332)', ()
 
   it('a row with no resolvable title shows its id, marked as an id', async () => {
     renderGrid({
-      fields: { id: { type: 'text' }, amount: { type: 'number' }, company: { type: 'number' } },
+      fields: { amount: { type: 'number' }, company: { type: 'number' } },
       rows: [{ id: 'q1', amount: 5, company: 1 }],
       view: { bulkActions: ['create_campaign'] },
       firstColumn: 'amount',

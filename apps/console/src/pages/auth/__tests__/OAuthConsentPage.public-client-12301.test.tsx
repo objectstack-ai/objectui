@@ -25,7 +25,7 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup, within } from '@testing-library/react';
+import { render, screen, cleanup, within, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { ObjectStackClient } from '@objectstack/client';
 import { AuthProvider } from '@object-ui/auth';
@@ -168,9 +168,14 @@ describe('OAuthConsentPage — the public-client lookup (objectui#12301)', () =>
     renderConsent();
 
     expect(await screen.findByText('an application is requesting permission for me@example.com.')).toBeTruthy();
-    expect(lookupCalls(fetchMock)).toHaveLength(1);
+    // The placeholder is drawn by the commit; the lookup starts in the passive
+    // effect that runs after it, so the call is awaited rather than counted
+    // the moment the text appears (objectui#12344).
+    await waitFor(() => expect(lookupCalls(fetchMock)).toHaveLength(1));
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.queryAllByText(CLIENT_ID, { exact: false })).toHaveLength(0);
+    // The page asks once: still exactly one lookup after the in-flight reads.
+    expect(lookupCalls(fetchMock)).toHaveLength(1);
   });
 
   it('does not ask the session-required route for a signed-out visitor', async () => {

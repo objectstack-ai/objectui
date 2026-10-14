@@ -504,7 +504,7 @@ type SpecDetailEntry = NonNullable<ObjectMasterDetailFormProps['details']>[numbe
  * The config IS the spec's entry minus `sortField`, by reference
  * (objectui#11396): a member the spec adds, drops or retypes lands on the
  * config with no hand edit, and a hand-written restatement that drifts is red
- * here before it is red anywhere else. The installed 18.0.0-next.0 entry carries a
+ * here before it is red anywhere else. The installed 18.0.0-next.1 entry carries a
  * `retiredKey()` tombstone for `sortField` (objectstack-ai/objectstack#21589);
  * 17.6.0 declared it as a string, and the subtraction removes the key either
  * way. ⛔ No row here pins which of the two shapes the spec has; the `Spec Main

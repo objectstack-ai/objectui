@@ -108,7 +108,7 @@ describe('spec sub-schema re-exports are the spec objects (by reference)', () =>
    * `stripImportedDefaults` is the identity function on a subtree with nothing
    * to strip (see its walker's identity property), so for a schema that carries
    * no `ZodDefault` the assertion above degenerates into `toBe(spec)` — the
-   * pre-objectui#8317 pin, unchanged and still load-bearing. These three are
+   * pre-objectui#8317 pin, unchanged and still load-bearing. These four are
    * that case, asserted directly so it is a MEASUREMENT rather than a claim in
    * a docblock: if the boundary ever started cloning unconditionally, this goes
    * red and the pin above would not.
@@ -117,12 +117,16 @@ describe('spec sub-schema re-exports are the spec objects (by reference)', () =>
     ['HttpMethodSchema', HttpMethodSchema, SpecHttpMethodSubsetSchema],
     ['ChartTypeSchema', ChartTypeSchema, SpecChartTypeSchema],
     ['PageTypeSchema', PageTypeSchema, SpecPageTypeSchema],
+    // Since @objectstack/spec 18.0.0-next.1 retired the view-level `api`
+    // provider (objectstack#23160), whose request block carried the defaults,
+    // `ViewDataSchema` has nothing to strip either (objectui#12370).
+    ['ViewDataSchema', ViewDataSchema, SpecViewDataSchema],
   ] as const)('%s carries no imported default, so it is still the raw spec object', (name, oui, spec) => {
     expect(oui, `${name} has nothing to strip and must stay reference-equal to the spec object`).toBe(spec);
   });
 
   /**
-   * …and the other half of the same control: the four that DID carry an
+   * …and the other half of the same control: the three that DO carry an
    * imported default are NOT the raw spec object any more. That is the
    * behaviour change objectui#8317 shipped, pinned so it cannot be undone by
    * quietly reverting the boundary — and so a reader who lands on the
@@ -131,7 +135,6 @@ describe('spec sub-schema re-exports are the spec objects (by reference)', () =>
    */
   it.each([
     ['HttpRequestSchema', HttpRequestSchema, SpecHttpRequestSchema],
-    ['ViewDataSchema', ViewDataSchema, SpecViewDataSchema],
     ['SelectionConfigSchema', SelectionConfigSchema, SpecSelectionConfigSchema],
     ['PaginationConfigSchema', PaginationConfigSchema, SpecPaginationConfigSchema],
   ] as const)('%s carried an imported default, so it is the boundary derivation', (name, oui, spec) => {

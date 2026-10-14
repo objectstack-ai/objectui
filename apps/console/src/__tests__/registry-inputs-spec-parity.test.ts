@@ -2940,7 +2940,7 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   },
   'object-grid.data': {
     file: 'packages/plugin-grid/src/__tests__/gridDataInputContract.test.ts',
-    pins: 'The `object` arm is `ViewDataSchema` discriminated on `provider`: each of the four providers parses, none of them is an array, the declaration is one shape across both registered tags so the alias cannot drift, and it is pinned at compile time too (objectui#5090).',
+    pins: 'The `object` arm is `ViewDataSchema` discriminated on `provider`: each of the three providers parses and the retired `api` one is refused (spec 18.0.0-next.1, objectui#12370), none of them is an array, the declaration is one shape across both registered tags so the alias cannot drift, and it is pinned at compile time too (objectui#5090).',
   },
   'object-grid.conditionalFormatting': {
     file: 'packages/plugin-grid/src/__tests__/gridRowDecorationMembers-8071.test.tsx',

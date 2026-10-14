@@ -129,7 +129,8 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ schema, onRefresh })
 
   // objectui#4462 — hands off to the browser's own print dialog against the
   // shared `@media print` sheet in `@object-ui/app-shell/styles.css`. It is
-  // NOT a PDF export (objectstack#1301, closed NOT_PLANNED); the neighbouring
+  // NOT a PDF export (a printable document is a page that declares `print`,
+  // objectstack#8346); the neighbouring
   // "PDF" button IS one, which is exactly why this button has to say what it
   // does. `useSafeTranslate` is this package's existing i18n channel (see
   // `DatasetReportRenderer.tsx`) — a per-call hook that needs no defaults

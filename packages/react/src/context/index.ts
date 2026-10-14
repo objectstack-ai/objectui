@@ -11,3 +11,4 @@ export * from './DiscussionContext.js';
 export * from './DrillNavigationContext.js';
 export * from './HostNavigationContext.js';
 export * from './RelatedRecordActionsContext.js';
+export * from './PrintPageContext.js';

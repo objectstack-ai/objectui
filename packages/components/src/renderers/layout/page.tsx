@@ -20,12 +20,14 @@ import {
   toRenderableSchema,
   PageVariablesProvider,
   PageVariableActionBridge,
+  PrintPageProvider,
   resolveInlineAriaProps,
 } from '@object-ui/react';
 import { ComponentRegistry, toDomProps } from '@object-ui/core';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { compile, manifestFromConfigs, type Diagnostic } from '@object-ui/sdui-parser';
 import { ReactKindPage } from './react-page';
+import { PRINT_PAGE_ATTRIBUTE, buildPagePrintStylesheet, isPagePrintDeclaration } from './page-print';
 import { cn } from '../../lib/utils';
 
 // ---------------------------------------------------------------------------
@@ -589,6 +591,15 @@ export const PageRenderer: React.FC<{
   const locale = useDisplayLocale();
   const pageAria = resolveInlineAriaProps(schema.aria, locale);
 
+  // A page that declares `print` is a print page (objectui#11958, card ② of
+  // the objectstack#8346 ruling). It renders on screen exactly as any other
+  // page: the declaration only adds a print stylesheet (`./page-print.ts`),
+  // scoped to the root below by `PRINT_PAGE_ATTRIBUTE`, and publishes itself
+  // to the page's blocks through `PrintPageProvider`, so a block that draws a
+  // window of its data on screen can stop doing so in silence on paper.
+  const print = isPagePrintDeclaration(schema.print) ? schema.print : null;
+  const printStylesheet = print ? buildPagePrintStylesheet(print) : null;
+
   // Select the layout variant based on template or page type
   const layoutElement = useMemo(() => {
     // `PageSchema['kind']` now spells the source-authored values too, matching
@@ -700,7 +711,11 @@ export const PageRenderer: React.FC<{
       style={style}
       {...pageProps}
       {...pageAria}
+      {...(print ? { [PRINT_PAGE_ATTRIBUTE]: '' } : {})}
     >
+      {printStylesheet && (
+        <style data-print-stylesheet="" dangerouslySetInnerHTML={{ __html: printStylesheet }} />
+      )}
       <div className={cn(fullBleed ? 'space-y-6' : 'mx-auto space-y-6', maxWidthClass)}>
         {/* Implicit page title — the fallback heading for a page that does NOT
             author its own `page:header`. Suppressed whenever that component
@@ -728,6 +743,8 @@ export const PageRenderer: React.FC<{
     </div>
   );
 
+  const content = print ? <PrintPageProvider value={print}>{pageContent}</PrintPageProvider> : pageContent;
+
   // Wrap with PageVariablesProvider when variables are defined
   if (schema.variables && schema.variables.length > 0) {
     return (
@@ -735,12 +752,12 @@ export const PageRenderer: React.FC<{
         {/* Publish the live page-variable snapshot into the action runtime so a
             submit button can post `{{page.<var>}}` values (SDUI form data-entry). */}
         <PageVariableActionBridge />
-        {pageContent}
+        {content}
       </PageVariablesProvider>
     );
   }
 
-  return pageContent;
+  return content;
 };
 
 // ---------------------------------------------------------------------------

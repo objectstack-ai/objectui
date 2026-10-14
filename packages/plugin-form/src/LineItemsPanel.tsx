@@ -29,7 +29,7 @@ import {
 import { LineItemsField, type GridColumn } from '@object-ui/fields';
 import type { GridFieldMetadata } from '@object-ui/types';
 import { createSafeTranslation } from '@object-ui/i18n';
-import { useSchemaContext, useRecordContext, useFilterScope, useResolvedFilter, useDataInvalidation } from '@object-ui/react';
+import { useSchemaContext, useRecordContext, useFilterScope, useResolvedFilter, useDataInvalidation, usePrintPage, NonGridRowCeilingNote } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
 import { buildMasterDetailEditBatch, sumRows } from './masterDetailTx';
 import { applyColumnPermissions } from './fieldWriteGate';
@@ -294,6 +294,16 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
   } | null>(null);
   const heldReloadRef = useRef(false);
   const [heldReplay, setHeldReplay] = useState(0);
+  // objectui#11958 — on a page that declares `print`, the row cap is not
+  // allowed to cut lines off in silence: a printed document that carries part
+  // of its lines with nothing on the paper saying so is the failure the
+  // printable block subset exists to prevent. The read asks for one PROBE row
+  // past the cap and for the count (the `applyNonGridRowCeiling` construction
+  // in `@object-ui/core`), and when the probe comes back the panel draws the
+  // cap's rows and the shared row-ceiling note under them, on screen and on
+  // paper. Off a print page the read and the panel are unchanged.
+  const printing = usePrintPage() !== null;
+  const [rowCap, setRowCap] = useState<{ shown: number; total?: number } | null>(null);
   // objectui#10814 — an in-place re-read is in flight: the grid stays drawn over
   // the rows it already shows, and takes no input until the answer lands.
   const [refreshing, setRefreshing] = useState(false);
@@ -523,7 +533,7 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
             ? parentScope
             : mergeFilterNodes(parentScope, listFilterNode),
         ...(orderBy ? { $orderby: orderBy } : {}),
-        $top: top,
+        ...(printing ? { $top: top + 1, $count: true } : { $top: top }),
       });
       // objectui#10712 — a run a newer one has superseded (another `parentId`,
       // say, while this read was in flight) commits nothing: not the rows, not
@@ -535,7 +545,14 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
       // the same); first, it ended the loading state and drew the grid while
       // the current read was pending.
       if (!isCurrent()) return;
-      const data = (res?.data ?? []) as Record<string, any>[];
+      const fetched = (res?.data ?? []) as Record<string, any>[];
+      const capped = printing && fetched.length > top;
+      const data = capped ? fetched.slice(0, top) : fetched;
+      setRowCap(
+        capped
+          ? { shown: data.length, total: typeof res?.total === 'number' ? res.total : undefined }
+          : null,
+      );
       setRows(data.map((r) => ({ ...r })));
       setOriginal(data.map((r) => ({ ...r })));
       setDirty(false);
@@ -584,6 +601,7 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
     orderBy,
     filterKey,
     sortKey,
+    printing,
   ]);
 
   // objectui#10712 — the panel's latest `load` and the parent it reads, for the
@@ -839,18 +857,25 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
             {t('form.lineItems.notLoaded')}
           </p>
         ) : (
-          <LineItemsField
-            value={rows}
-            onChange={onChange}
-            field={gridField}
-            readonly={schema.readonly}
-            // No input while the save is in flight (objectui#10631): `save`
-            // reloads the rows once the batch lands, so a line edited in the
-            // meantime was overwritten by that reload and the panel read clean.
-            // The same holds while an in-place re-read is in flight
-            // (objectui#10814): its commit replaces the rows drawn here.
-            disabled={saving || refreshing}
-          />
+          <>
+            <LineItemsField
+              value={rows}
+              onChange={onChange}
+              field={gridField}
+              readonly={schema.readonly}
+              // No input while the save is in flight (objectui#10631): `save`
+              // reloads the rows once the batch lands, so a line edited in the
+              // meantime was overwritten by that reload and the panel read clean.
+              // The same holds while an in-place re-read is in flight
+              // (objectui#10814): its commit replaces the rows drawn here.
+              disabled={saving || refreshing}
+            />
+            {rowCap && (
+              <NonGridRowCeilingNote
+                result={{ rows: Array.from({ length: rowCap.shown }), total: rowCap.total, truncated: true }}
+              />
+            )}
+          </>
         )}
       </CardContent>
     </Card>

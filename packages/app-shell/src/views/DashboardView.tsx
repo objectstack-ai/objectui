@@ -123,10 +123,10 @@ export function DashboardView({ dataSource }: { dataSource?: any }) {
     () => ({
       // objectui#4462 — this handler has always been a bare `window.print()`,
       // and the toast used to announce it as "Preparing PDF export…". No PDF
-      // was ever produced: a real print/PDF primitive is objectstack#1301,
-      // closed NOT_PLANNED. That copy was the single most literal instance of
-      // the "export to PDF" misreading the issue reports, so it now names what
-      // actually happens. The action ID stays `export_dashboard_pdf` because
+      // was ever produced: a dashboard prints as shown, and a printable
+      // document is a page that declares `print` (objectstack#8346). That copy
+      // was the single most literal instance of the "export to PDF"
+      // misreading the issue reports, so it now names what actually happens. The action ID stays `export_dashboard_pdf` because
       // it is the identifier server-driven dashboard metadata declares —
       // renaming it is a spec-side change, not a copy fix.
       //

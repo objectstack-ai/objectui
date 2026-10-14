@@ -75,9 +75,13 @@
  * browser printed the WHOLE console: sidebar, top bar, chat rail, toasts —
  * and the data table clipped to one viewport, because the shell is a
  * viewport-height flex chain (`h-svh` on the SidebarProvider, `flex-1
- * min-h-0 overflow-hidden` all the way down to the grid's scroller). A real
- * print/PDF primitive was closed NOT_PLANNED as objectstack#1301, so this
- * sheet is the fix: make the browser's own dialog produce a usable page.
+ * min-h-0 overflow-hidden` all the way down to the grid's scroller). This
+ * sheet is the fix: make the browser's own dialog produce a usable page. It
+ * prints a screen as shown; a printable DOCUMENT (an invoice, a delivery
+ * order, a letter) is a page that declares `print` (objectstack#8346, ruling
+ * B′), and `PageRenderer` in `@object-ui/components` mounts that page's own
+ * print sheet (`@page` size and margins, running header and footer) beside
+ * this one.
  *
  * ## Why it lives HERE and not in each plugin
  *

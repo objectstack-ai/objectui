@@ -26,7 +26,7 @@ import {
   LazyIcon,
 } from '@object-ui/components';
 import { ChevronDown, ChevronRight, Copy, Check, Eye, EyeOff, Pencil } from 'lucide-react';
-import { SchemaRenderer, toRenderableSchema, useInlineEdit } from '@object-ui/react';
+import { SchemaRenderer, toRenderableSchema, useInlineEdit, usePrintPage } from '@object-ui/react';
 import { resolveFieldAffordance } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import {
@@ -155,7 +155,13 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
   dataSource,
   virtualScroll,
 }) => {
-  const [isCollapsed, setIsCollapsed] = React.useState(section.defaultCollapsed ?? false);
+  const [collapsedState, setIsCollapsed] = React.useState(section.defaultCollapsed ?? false);
+  // objectui#11958 — on a page that declares `print`, a collapsible section
+  // draws open: Radix unmounts a closed section's content, so a section
+  // collapsed on screen never reaches paper, and `record:details` is in the
+  // printable block subset because it prints every field it declares. Off a
+  // print page the toggle is unchanged.
+  const isCollapsed = usePrintPage() === null && collapsedState;
   const [copiedField, setCopiedField] = React.useState<string | null>(null);
   const [visibleCount, setVisibleCount] = React.useState<number | undefined>(undefined);
   const [showEmptyOverride, setShowEmptyOverride] = React.useState(false);

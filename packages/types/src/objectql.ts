@@ -757,12 +757,16 @@ export interface BulkActionDef {
 /**
  * Export formats a list view may offer (objectui#4535).
  *
- * `'pdf'` is NOT here: PDF export was declined platform-side
- * (objectstack#1301 NOT_PLANNED) and the value left the spec's format enum in
+ * `'pdf'` is NOT here: the value left the spec's format enum in
  * `@objectstack/spec` 17.0.0 (objectstack#8010), where declaring it is now a
  * parse-time refusal carrying a migration prescription. It was never
  * renderable on this side either — no ObjectUI export path has ever produced a
- * PDF, so a declared `'pdf'` only ever reached the user as a console line.
+ * PDF, so a declared `'pdf'` only ever reached the user as a console line. A
+ * list export does not produce documents: to let users print a list as shown,
+ * set the view's `allowPrinting`; a printable document (an invoice, a delivery
+ * order, a letter) is a page that declares `print` — its paper, margins and
+ * running header and footer — with its blocks in `regions` (objectstack#8346,
+ * ruling B′).
  * `'xlsx'` is delivered by the server stream alone; the client fallback path
  * produces `'csv'` and `'json'`.
  */

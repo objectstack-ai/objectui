@@ -2076,8 +2076,9 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   }, [schema.exportOptions]);
 
   // Formats this list can actually deliver (objectui#2942): the server stream
-  // handles csv/xlsx/json, the client fallback only csv/json, and pdf exists
-  // nowhere (declined platform-side — objectstack#1301). Declared-but-dead
+  // handles csv/xlsx/json, the client fallback only csv/json, and pdf is no
+  // export format (a printable document is a page that declares `print` —
+  // objectstack#8346). Declared-but-dead
   // formats used to render as menu items whose click did nothing; now they're
   // dropped from the menu (with a one-time warning for the app author).
   // Annotated `string[]` rather than inferred: `resolvedExportOptions.formats`
@@ -5479,8 +5480,9 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
 
           {/* Print — hands off to the browser's own print dialog against the
               shared `@media print` sheet in `@object-ui/app-shell/styles.css`.
-              It is NOT a PDF export (that primitive is objectstack#1301,
-              closed NOT_PLANNED), and it was being accepted against "export
+              It is NOT a PDF export: a list export produces no documents, and
+              a printable document is a page that declares `print`
+              (objectstack#8346). It was being accepted against "export
               PDF" requirements precisely because nothing said so
               (objectui#4462). `aria-label` + `title` carry that sentence —
               same two-attribute shape as the density button below. */}

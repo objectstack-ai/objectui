@@ -19,7 +19,7 @@ import { ActionProvider, useObjectTranslation, useObjectLabel, useActionTextLoca
 import { buildExpandFields, captureUpdateUndoData, recordDelete, resolveAffordance, resolveRecordIdParamSeed, userActionPredicates, withoutDeniedFields, type AffordanceGrantPrincipal, type SchemaLike } from '@object-ui/core';
 import { toast } from 'sonner';
 import { useRecordPresence, PresenceAvatars, isCommentAuthor } from '@object-ui/collaboration';
-import { Database, ChevronLeft, Lock, AlertTriangle, RotateCw } from 'lucide-react';
+import { Database, ChevronLeft, Lock, AlertTriangle, RotateCw, Printer } from 'lucide-react';
 import { MetadataPanel, useMetadataInspector } from './MetadataInspector.js';
 import { SkeletonDetail } from '../skeletons/index.js';
 import { ManagedByBadge } from '../components/ManagedByBadge.js';
@@ -3378,6 +3378,18 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // that tree would double-render the panel (tab + bottom fallback).
   const hasApprovalsNode = hasExplicitApprovals(renderedPage as any);
 
+  // objectui#11958 (card ② of the objectstack#8346 ruling, M1, zero server) —
+  // the record page's "print" action. The page this view renders for the
+  // record is the page bound to it, and when that page declares `print` it is
+  // a print page: `PageRenderer` mounts its print stylesheet, which puts only
+  // the page on paper (this view's own chrome and fallback panels included in
+  // what it hides). The action is the browser's print preview of it, and it is
+  // offered only where the page declares `print`, so every other record page
+  // is unchanged.
+  const pagePrint = (renderedPage as { print?: unknown } | null | undefined)?.print;
+  const pageDeclaresPrint = typeof pagePrint === 'object' && pagePrint !== null && !Array.isArray(pagePrint);
+  const printHint = t('common.printDialogHint');
+
   return (
     <div className="h-full bg-background overflow-hidden flex flex-col relative">
       {/* Shared cross-cutting chrome: lifecycle badge + presence avatars —
@@ -3390,6 +3402,21 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           <PresenceAvatars users={recordPresence} size="sm" maxVisible={3} showStatus />
         )}
         <ManagedByBadge managedBy={(objectDef as any)?.managedBy} />
+        {pageDeclaresPrint && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 bg-background/90"
+            onClick={() => window.print()}
+            aria-label={`${t('list.print')}: ${printHint}`}
+            title={printHint}
+            data-testid="record-print-button"
+          >
+            <Printer className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">{t('list.print')}</span>
+          </Button>
+        )}
       </div>
 
       <RecordContextProvider

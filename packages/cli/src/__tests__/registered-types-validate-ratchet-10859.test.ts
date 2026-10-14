@@ -620,6 +620,16 @@ describe('registered NAMESPACED component types refused at `type` — a ratchet 
     expect(refusedAtType('cloud:workspace-timezone-notice')).toBe(false);
   });
 
+  it('counts `record:approval_decision` armed — it registered WITH its arm (objectui#12342)', () => {
+    // One registry key (`skipFallback: true`, so no bare `approval_decision`),
+    // armed in `@object-ui/types/zod` in the same change, so the pin above did not move.
+    // Its two spec-18 siblings, `record:approvals` and `record:attachments`, are
+    // registered without arms and stay inside the namespaced count.
+    expect(NAMESPACED_KEYS).toContain('record:approval_decision');
+    expect(BARE_KEYS).not.toContain('approval_decision');
+    expect(refusedAtType('record:approval_decision')).toBe(false);
+  });
+
   it('leaves a newly registered `field:` widget out of the count (objectui#12176)', () => {
     // A field widget registers with no arm, as every one does. Lit control: the
     // probe is refused at `type`, so it would count if it reached the

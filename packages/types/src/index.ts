@@ -852,6 +852,7 @@ import type { CRUDComponentSchema } from './crud.js';
 import type { ObjectQLComponentSchema, ListViewSchema } from './objectql.js';
 import type { AppComponentSchema, AppSchemaRendererNodeSchema } from './app.js';
 import type { CloudPlanStatusSchema, CloudWorkspaceTimezoneNoticeSchema } from './cloud.js';
+import type { RecordApprovalDecisionBlockSchema } from './record-approval-decision.js';
 import type {
   PageDesignerSchema,
   DataModelDesignerSchema,
@@ -981,6 +982,12 @@ export type {
   CloudWorkspaceTimezoneNoticeSchema,
 } from './cloud.js';
 
+export type {
+  // The `record:approval_decision` node's TS twin, landed with its zod arm
+  // and its `@object-ui/app-shell` registration (objectui#12342).
+  RecordApprovalDecisionBlockSchema,
+} from './record-approval-decision.js';
+
 // The Block System re-export block is GONE, not emptied: `BlockSchema`,
 // `BlockMetadata`, `BlockVariable`, `BlockSlot`, `BlockLibraryItem`,
 // `BlockLibrarySchema`, `BlockEditorSchema`, `BlockInstanceSchema` and
@@ -1079,7 +1086,9 @@ export type AnySchema =
   | AppSchemaRendererNodeSchema
   | CloudPlanStatusSchema
   // objectui#11930 — landed with its zod arm.
-  | CloudWorkspaceTimezoneNoticeSchema;
+  | CloudWorkspaceTimezoneNoticeSchema
+  // objectui#12342 — landed with its zod arm.
+  | RecordApprovalDecisionBlockSchema;
 
 /**
  * Utility type to extract the schema type from a type string.

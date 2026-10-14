@@ -116,6 +116,7 @@ import '../../../app-launcher-renderer.js';
 import '../../../global-notifications-renderer.js';
 import '../../../global-search-renderer.js';
 import '../../../nav-menu-renderer.js';
+import '../../../record-approval-decision-renderer.js';
 import '../../../record-approvals-renderer.js';
 import '../../../record-attachments-renderer.js';
 import { PALETTE_EXCLUSIONS } from '../block-types';

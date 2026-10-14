@@ -239,7 +239,7 @@ export const PALETTE_EXCLUSIONS: Record<string, string> = {
   // true of the block today.
   'record:approvals': 'renders (registered by `@object-ui/app-shell`), not yet offered: `@objectstack/spec` 18 added the type, and offering it in the palette is a Studio decision the version bump does not make',
   'record:attachments': 'renders (registered by `@object-ui/app-shell`), not yet offered: `@objectstack/spec` 18 added the type, and offering it in the palette is a Studio decision the version bump does not make',
-  'record:approval_decision': 'not yet registered as a page block — `ApprovalDecisionRenderer` (`@object-ui/app-shell`) is written and no registration mounts it yet; `@objectstack/spec` 18 added the type, and registering and offering it is follow-up work',
+  'record:approval_decision': 'renders (registered by `@object-ui/app-shell`), not yet offered: `@objectstack/spec` 18 added the type, and offering it in the palette is a Studio decision its registration does not make',
 };
 
 /**

@@ -347,6 +347,9 @@ import './views/record-attachments-renderer.js';
 // `record:approvals` — schema-addressable approval panel referenced by
 // synthesized record pages when the record has approval requests (#3461).
 import './views/record-approvals-renderer.js';
+// `record:approval_decision` — an approval request page's decision panel, the
+// third record block `@objectstack/spec` 18 declares (objectui#12342).
+import './views/record-approval-decision-renderer.js';
 // A2's record card as the details grid's face for a `referenceVia` pointer
 // pair, registered under `@object-ui/fields`' `RECORD_POINTER_CARD_TYPE`
 // (objectui#12045).

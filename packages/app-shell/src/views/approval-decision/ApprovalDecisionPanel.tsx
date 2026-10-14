@@ -8,8 +8,8 @@
 
 /**
  * The decision panel of an approval request's record page (objectui#12045, B1
- * of objectui#2763; ruling 6079807016, letter 乙), proposed to the spec as the
- * page component type `record:approval_decision`.
+ * of objectui#2763; ruling 6079807016, letter 乙), the page component type
+ * `record:approval_decision`.
  *
  * One node, two parts, both already shipped and both reused as they are:
  *
@@ -31,10 +31,10 @@
  * The panel reads the record context and nothing else: the request row the
  * page bound (with its `viewer` and `decision_progress`, which the approvals
  * get route serves and the data API does not) and the object's declared
- * actions. objectstack-ai/objectstack#22472 proposes exactly this contract
- * for the spec, a `ComponentPropsMap` row that is an empty strict object, so a
- * misspelled key on an authored node is a validation finding instead of a
- * silently ignored prop.
+ * actions. `@objectstack/spec` 18 declares exactly this contract
+ * (objectstack-ai/objectstack#22472), a `ComponentPropsMap` row that is an
+ * empty strict object, so a misspelled key on an authored node is a
+ * validation finding instead of a silently ignored prop.
  *
  * Outside a `sys_approval_request` record page there is no request to decide
  * on, so the node draws a short notice saying it works only on approval request
@@ -51,20 +51,16 @@
  * decision appends a `sys_approval_action` row), both through the
  * invalidation bus their readers already subscribe to.
  *
- * ## Module-internal until the spec row exists
+ * ## Registered as `record:approval_decision`
  *
- * Nothing registers this renderer yet, and nothing re-exports it from the
- * package entry (claim amendment 3 on objectui#12045, `6081385696`). A
- * registered type that page metadata can reference needs an arm in
- * `@object-ui/types/zod`, and an arm is derived from the spec's
- * `ComponentPropsMap` row, which `@objectstack/spec` 17.7.0 does not carry for
- * this type (objectstack-ai/objectstack#22472 adds it on v18). Registering it
- * without one is what `registered-types-validate-ratchet-10859` in
- * `@object-ui/cli` refuses. So the registration under the name the spec seat
- * settles, its side-effect import from `src/index.ts`, its
- * `known-schema-types.ts` line and its zod arm land together in the page-mount
- * step. Until then spec 17.7.0's lint and `objectui validate` both refuse an
- * authored node of this type, consistently.
+ * `@objectstack/spec` 18 declares the type and its `ComponentPropsMap` row
+ * (an empty strict object). The registration lives in the leaf
+ * `../record-approval-decision-renderer.tsx` (objectui#12342), imported for
+ * its side effect from `src/index.ts`, and it landed together with the type's
+ * arm in `@object-ui/types/zod` and its `known-schema-types.ts` line, so
+ * `registered-types-validate-ratchet-10859` in `@object-ui/cli` does not rise.
+ * Nothing re-exports the renderer from the package entry: a page reaches it
+ * through the registry, by type.
  *
  * It lives in app-shell rather than plugin-detail for the reason
  * `record:approvals` does: the bar's runtime depends on `@object-ui/auth`,

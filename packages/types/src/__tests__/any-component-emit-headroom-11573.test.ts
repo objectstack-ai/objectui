@@ -315,6 +315,7 @@ describe('`AnyComponentSchema` declaration emit headroom (objectui#11573)', () =
       { member: 'PublicBlockComponentSchema', kind: 'category union', printsAs: 'PublicBlockComponentZodType' },
       { member: 'CloudPlanStatusSchema', kind: 'arm', printsAs: 'inline' },
       { member: 'CloudWorkspaceTimezoneNoticeSchema', kind: 'arm', printsAs: 'inline' },
+      { member: 'RecordApprovalDecisionBlockSchema', kind: 'arm', printsAs: 'inline' },
     ]);
   });
 

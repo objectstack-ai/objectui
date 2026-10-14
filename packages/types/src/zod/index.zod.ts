@@ -516,6 +516,11 @@ export {
 export { CloudPlanStatusSchema, CloudWorkspaceTimezoneNoticeSchema } from './cloud.zod.js';
 
 // ============================================================================
+// `record:approval_decision` - `@object-ui/app-shell`'s approval decision panel (objectui#12342)
+// ============================================================================
+export { RecordApprovalDecisionBlockSchema } from './record-approval-decision.zod.js';
+
+// ============================================================================
 // Union Types - All Component Schemas
 // ============================================================================
 
@@ -538,6 +543,7 @@ import { AIComponentSchema } from './ai.zod.js';
 import { DesignerUnionSchema } from './designer.zod.js';
 import { PublicBlockComponentSchema } from './public-blocks.zod.js';
 import { CloudPlanStatusSchema, CloudWorkspaceTimezoneNoticeSchema } from './cloud.zod.js';
+import { RecordApprovalDecisionBlockSchema } from './record-approval-decision.zod.js';
 import { nestedComponentJudgment } from './nested-component-walk.js';
 
 /**
@@ -643,6 +649,8 @@ export const AnyComponentSchema = defineNodeComponentUnion(z.discriminatedUnion(
   PublicBlockComponentSchema,
   CloudPlanStatusSchema,
   CloudWorkspaceTimezoneNoticeSchema,
+  // objectui#12342 — landed with its registration.
+  RecordApprovalDecisionBlockSchema,
 ], {
   // Zod's default message for a missed discriminator spells out EVERY accepted
   // literal — measured, 1,462 chars naming all 107. That is the "print every

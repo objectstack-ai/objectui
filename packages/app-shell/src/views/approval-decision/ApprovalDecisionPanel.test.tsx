@@ -9,9 +9,9 @@
 /**
  * The approval decision panel (objectui#12045, B1 of objectui#2763): how it
  * composes A3's progress with the request's declared decision actions over the
- * bound record, and that this round registers it as no type (claim amendment 3,
- * `6081385696`: the registration lands with its zod arm, derived from the v18
- * spec row, in the page-mount step).
+ * bound record, and that the package registers it as the page block
+ * `record:approval_decision` `@objectstack/spec` 18 declares (objectui#12342),
+ * so a page node of that type reaches it through the real `SchemaRenderer`.
  *
  * The bar is doubled to a probe that records the props it was handed: what is
  * under test here is the panel's wiring (which object, which record, which
@@ -37,10 +37,13 @@ vi.mock('../DeclaredActionsBar.js', () => ({
 }));
 
 import { ComponentRegistry } from '@object-ui/core';
-import { RecordContextProvider, subscribeDataChanges, type DataChange } from '@object-ui/react';
+import { RecordContextProvider, SchemaRenderer, subscribeDataChanges, type DataChange } from '@object-ui/react';
 import { I18nProvider } from '@object-ui/i18n';
 import { builtInLocales } from '@object-ui/i18n/locales';
 import { ApprovalDecisionRenderer } from './ApprovalDecisionPanel';
+// The package's registration leaf, imported for its side effect as the
+// package entry imports it (objectui#12342).
+import '../record-approval-decision-renderer';
 
 afterEach(() => {
   cleanup();
@@ -77,9 +80,21 @@ const packNotice = (language: string): unknown =>
 const noticeText = () => screen.getByTestId('approval-decision-off-request-page').textContent;
 
 describe('the approval decision panel (objectui#12045)', () => {
-  it('is module-internal this round: loading it registers no component type', () => {
-    expect(ComponentRegistry.has('record:approval_decision')).toBe(false);
-    expect(ComponentRegistry.has('approval_decision')).toBe(false);
+  it('is registered as `record:approval_decision`, and under no bare name (objectui#12342)', () => {
+    expect(ComponentRegistry.has('record:approval_decision')).toBe(true);
+    expect(ComponentRegistry.get('record:approval_decision')).toBe(ApprovalDecisionRenderer);
+    expect(ComponentRegistry.has('approval_decision'), 'skipFallback: no bare twin').toBe(false);
+  });
+
+  it('a page node of that type renders the panel through the real SchemaRenderer (objectui#12342)', () => {
+    render(
+      <RecordContextProvider objectName="sys_approval_request" recordId={REQUEST.id} data={REQUEST}>
+        <SchemaRenderer schema={{ type: 'record:approval_decision' }} />
+      </RecordContextProvider>,
+    );
+    expect(screen.getByTestId('approval-decision-panel')).toBeTruthy();
+    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('1');
+    expect(barProps[barProps.length - 1]).toMatchObject({ objectName: 'sys_approval_request', location: 'record_section' });
   });
 
   it("draws the request's tally and runs its declared actions at record_section against the request row", () => {

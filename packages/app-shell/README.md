@@ -1042,6 +1042,26 @@ submitter's remind posts the existing `POST /approvals/requests/:id/remind`
 (throttled server-side). Copy reuses the Approval Center's
 `approvalsInbox.*` i18n keys so the two surfaces never drift.
 
+## Approval request decision panel (`record:approval_decision`)
+
+An approval request's own record page (`sys_approval_request`) decides the
+request through the `record:approval_decision` block, which this package
+registers:
+
+```json
+{ "type": "record:approval_decision" }
+```
+
+The block takes no props — its `properties` bag accepts only `{}`. It draws
+from the request record the page binds: the server-computed decision progress
+(when the request is pending and aggregates more than one decision) above the
+request's own declared decision actions at `record_section`, each shown or
+hidden by its `visible` predicate over the request's `viewer` block. A decided
+request, or a viewer who may not decide, gets no decision buttons. After a
+decision the request record and its timeline are re-read in place. Placed on
+any other page, the block draws a short notice that it works only on approval
+request pages. `className` styles the wrapper.
+
 ## User-scoped state (favorites, recent items)
 
 `<ConsoleShell>` includes `FavoritesProvider` and `RecentItemsProvider` —

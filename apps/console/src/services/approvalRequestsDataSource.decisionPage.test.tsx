@@ -10,12 +10,11 @@
  * plugin-approvals: a `kind: 'slotted'` record page for `sys_approval_request`
  * whose `actions` slot holds the decision panel and whose discussion is empty.
  *
- * The panel is module-internal this round (claim amendment 3 on objectui#12045,
- * `6081385696`): nothing in source registers it, because a registered type
- * needs a zod arm derived from the v18 spec row (objectstack-ai/objectstack#22472).
- * So this file registers the shipped renderer itself, under the proposed name,
- * before anything renders, as the page-mount step's registration will.
- * Everything else on it is synthesized from the object, as on a served page.
+ * The panel is the page block `record:approval_decision`, and this file does
+ * NOT register it: the registration is the one `@object-ui/app-shell` ships
+ * (objectui#12342), reached through the package entry this file imports, so a
+ * page that names the block draws the panel only because the package registers
+ * it. Everything else on it is synthesized from the object, as on a served page.
  * Only the HTTP transport and the console adapter are doubled, so what the page
  * reads, and from where, is what the shipped code sends:
  *
@@ -31,7 +30,7 @@
  * pins that the request's record page is the routed one.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup, waitFor, fireEvent, within } from '@testing-library/react';
+import { render, screen, cleanup, waitFor, fireEvent, within, act } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 
 vi.mock('@object-ui/auth', async (importOriginal) => ({
@@ -63,16 +62,9 @@ import { approvalRequestRoutes } from '../AppContent';
 import { PageSchema } from '@objectstack/spec/ui';
 import { ComponentRegistry } from '@object-ui/core';
 
-// The shipped renderer, from its module (the package entry does not export it),
-// registered here under the proposed type name; see the header.
-const { ApprovalDecisionRenderer } = await vi.importActual<{
-  ApprovalDecisionRenderer: Parameters<typeof ComponentRegistry.register>[1];
-}>('../../../../packages/app-shell/src/views/approval-decision/ApprovalDecisionPanel');
-ComponentRegistry.register('approval_decision', ApprovalDecisionRenderer, { namespace: 'record', skipFallback: true });
-
 const REQ = 'req_12045';
 const VIEWER = { can_act: true, is_submitter: false, can_override: false };
-const ROW = {
+const PENDING_ROW = {
   id: REQ,
   process_name: 'invoice_approval',
   object_name: 'invoice',
@@ -82,6 +74,25 @@ const ROW = {
   viewer: VIEWER,
   decision_progress: { behavior: 'quorum', got: 1, need: 2 },
 };
+/**
+ * The same request once decided, as the approvals get route serves it: the
+ * server clears the pending approvers and the tally, and the viewer may no
+ * longer act.
+ */
+const DECIDED_ROW = {
+  ...PENDING_ROW,
+  status: 'approved',
+  pending_approvers: [],
+  viewer: { can_act: false, is_submitter: false, can_override: false },
+  decision_progress: undefined,
+};
+/** The pending request, read by its submitter: a viewer who may not decide. */
+const SUBMITTER_ROW = {
+  ...PENDING_ROW,
+  viewer: { can_act: false, is_submitter: true, can_override: false },
+};
+/** The request row the approvals get route serves in the current test. */
+let ROW: Record<string, unknown> = PENDING_ROW;
 const TIMELINE = [
   { id: 'act_1', request_id: REQ, action: 'submit', comment: 'Please review the laptop order', created_at: '2026-10-01T09:00:00Z' },
   { id: 'act_2', request_id: REQ, action: 'approve', comment: 'Budget checked', created_at: '2026-10-02T09:00:00Z' },
@@ -115,6 +126,14 @@ const REQUEST_DEF = {
       name: 'approval_reject', label: 'Reject', type: 'api', method: 'POST',
       target: '/api/v1/approvals/requests/{id}/reject', params: DECISION_PARAMS,
       visible: DECIDE, locations: ['record_section', 'list_item'], refreshAfter: true,
+    },
+    {
+      // The submitter's own control on a pending request: drawn by the same bar,
+      // so a viewer who may not decide still sees the bar evaluate its actions.
+      name: 'approval_recall', label: 'Recall', type: 'api', method: 'POST',
+      target: '/api/v1/approvals/requests/{id}/recall',
+      visible: { dialect: 'cel', source: "record.viewer.is_submitter && record.status == 'pending'" },
+      locations: ['record_section'], refreshAfter: true,
     },
   ],
 };
@@ -207,7 +226,7 @@ const metadata = {
   apps: [], objects: [REQUEST_DEF, ACTION_DEF, INVOICE_DEF], dashboards: [], reports: [],
   pages: [REQUEST_PAGE], loading: false, error: null,
   refresh: async () => {}, invalidate: () => {}, ensureType: async () => [],
-  getItem: async (type: string, name: string) => (type === 'object' ? (DEFS[name] ?? null) : null),
+  getItem: vi.fn(async (type: string, name: string) => (type === 'object' ? (DEFS[name] ?? null) : null)),
   getItemsByType: () => [],
   getTypeStatus: () => 'ready' as const,
 };
@@ -244,6 +263,7 @@ const requestGets = () => wire.filter((w) => w.method === 'GET' && w.path === `/
 
 afterEach(() => {
   cleanup();
+  ROW = PENDING_ROW;
   wire = [];
   host.find.mockClear();
   host.findOne.mockClear();
@@ -253,6 +273,10 @@ describe("an approval request's record page with record:approval_decision (objec
   it('the page fixture parses as a spec page', () => {
     const parsed = PageSchema.safeParse(REQUEST_PAGE);
     expect(parsed.success, JSON.stringify(parsed.error?.issues ?? [])).toBe(true);
+  });
+
+  it('the block is registered by the package this file imports, not by this file (objectui#12342)', () => {
+    expect(ComponentRegistry.has('record:approval_decision')).toBe(true);
   });
 
   it("the decision panel draws the request's tally and its declared decisions, gated by the served viewer block", async () => {
@@ -311,6 +335,51 @@ describe("an approval request's record page with record:approval_decision (objec
     expect(host.find.mock.calls.some(([resource]) => resource === APPROVAL_ACTION_OBJECT)).toBe(false);
     // `useRecordApprovals` is skipped on the request's own page.
     expect(wire.some((w) => w.path.startsWith(`/api/v1/approvals/requests?object=${APPROVAL_REQUEST_OBJECT}`))).toBe(false);
+  });
+});
+
+/** The request's declared actions have reached the page: the object read resolved and the page settled. */
+async function settledOnDeclaredActions() {
+  await waitFor(
+    () => expect(metadata.getItem).toHaveBeenCalledWith('object', APPROVAL_REQUEST_OBJECT),
+    { timeout: 8000 },
+  );
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  });
+}
+
+describe('record:approval_decision on a decided request, and for a viewer who may not decide (objectui#12342)', () => {
+  it('a decided request: the panel draws, with no tally and no decision', async () => {
+    ROW = DECIDED_ROW;
+    openRequestPage();
+    const panel = await screen.findByTestId('approval-decision-panel', undefined, { timeout: 8000 });
+    await settledOnDeclaredActions();
+    expect(within(panel).queryByRole('progressbar'), 'a decided request carries no tally').toBeNull();
+    expect(within(panel).queryByTestId('declared-action-approval_approve')).toBeNull();
+    expect(within(panel).queryByTestId('declared-action-approval_reject')).toBeNull();
+    expect(within(panel).queryByTestId('declared-action-approval_recall'), 'recall is for a pending request').toBeNull();
+    expect(requestGets().length).toBeGreaterThan(0);
+  });
+
+  it('a viewer who may not decide (the submitter): the tally and the recall, and no decision', async () => {
+    ROW = SUBMITTER_ROW;
+    openRequestPage();
+    const panel = await screen.findByTestId('approval-decision-panel', undefined, { timeout: 8000 });
+    const bar = await within(panel).findByRole('progressbar', undefined, { timeout: 8000 });
+    expect(bar.getAttribute('aria-valuenow')).toBe('1');
+    // The bar evaluated the request's actions for this viewer: the submitter's own control is drawn.
+    expect(await within(panel).findByTestId('declared-action-approval_recall', undefined, { timeout: 8000 })).toBeTruthy();
+    expect(within(panel).queryByTestId('declared-action-approval_approve')).toBeNull();
+    expect(within(panel).queryByTestId('declared-action-approval_reject')).toBeNull();
+  });
+
+  it('CONTROL: the viewer who may decide sees both decisions and no recall', async () => {
+    openRequestPage();
+    const panel = await screen.findByTestId('approval-decision-panel', undefined, { timeout: 8000 });
+    expect(await within(panel).findByTestId('declared-action-approval_approve', undefined, { timeout: 8000 })).toBeTruthy();
+    expect(within(panel).getByTestId('declared-action-approval_reject')).toBeTruthy();
+    expect(within(panel).queryByTestId('declared-action-approval_recall')).toBeNull();
   });
 });
 

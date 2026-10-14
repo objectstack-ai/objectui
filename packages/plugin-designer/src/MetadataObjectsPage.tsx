@@ -107,6 +107,27 @@ function toObjectDefinition(raw: ServerObjectSchema): ObjectDefinition {
   };
 }
 
+/**
+ * The value the server stamps as `_packageId` on a row bound to NO package. It
+ * names no package, so it is never sent as one.
+ */
+const PACKAGELESS_SENTINEL = 'sys_metadata';
+
+/**
+ * The package a listed object is served from (its served `_packageId`), or
+ * `undefined` for an object no package owns (objectui#12335).
+ *
+ * The same reading the metadata list uses to put `?package=` on an item's edit
+ * link, which the editor then states on its save, publish and reset: one
+ * served value, one meaning across the console.
+ */
+function owningPackage(raw: ServerObjectSchema | undefined): string | undefined {
+  const packageId = raw?._packageId;
+  return typeof packageId === 'string' && packageId !== '' && packageId !== PACKAGELESS_SENTINEL
+    ? packageId
+    : undefined;
+}
+
 interface ServerObjectsState {
   loading: boolean;
   error: string | null;
@@ -210,7 +231,11 @@ export function MetadataObjectsPage({
     for (const name of prev.keys()) {
       if (!nextByName.has(name)) {
         try {
-          await client.reset('object', name);
+          // objectui#12335 — name the package of the row this page lists, so a
+          // name two packages hold is not refused `409 RESOURCE_CONFLICT`. A
+          // row no package owns sends none, and a refusal lands in `errors`.
+          const packageId = owningPackage(prev.get(name));
+          await client.reset('object', name, packageId ? { packageId } : {});
         } catch (err) {
           errors.push(`Delete ${name}: ${err instanceof Error ? err.message : String(err)}`);
         }

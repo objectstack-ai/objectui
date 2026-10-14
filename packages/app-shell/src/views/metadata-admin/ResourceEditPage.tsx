@@ -1811,7 +1811,17 @@ function MetadataResourceEditPageImpl({
     setSaving(true);
     setError(null);
     try {
-      await client.reset(type, name);
+      // objectui#12335 — name the package whose row this removes: the SAME
+      // binding the save and the publish of this loop state, read from the
+      // same source, so the row reset is the row the loop wrote. Absent (not
+      // empty) when the editor holds no binding; the door then resolves the
+      // item's one package itself, and an item two packages hold is refused
+      // `409 RESOURCE_CONFLICT`, which the `catch` below shows with the door's
+      // own sentence, as every refused write on this page is shown.
+      const activePackage = readActivePackageBinding();
+      await client.reset(type, name, {
+        ...(activePackage ? { packageId: activePackage } : {}),
+      });
       // objectui#11773 — the buffer below is re-read from the layers, with no
       // draft read behind it, so nothing pins its next save.
       forgetDraftVersion();
@@ -1896,11 +1906,16 @@ function MetadataResourceEditPageImpl({
     setSaving(true);
     setError(null);
     try {
-      await client.reset(type, name, { state: 'draft' });
+      // objectui#12335 — the draft row the save wrote at `?package=` is
+      // discarded at that same address, as `doReset` above does for the
+      // active row; package-less when the editor holds no binding.
+      const activePackage = readActivePackageBinding();
+      await client.reset(type, name, {
+        state: 'draft',
+        ...(activePackage ? { packageId: activePackage } : {}),
+      });
       // objectui#11773 — the discard dropped the draft the held version named,
-      // and no draft read follows it (the discard names no package, so "no
-      // draft row" is not known at the save's address): nothing pins the next
-      // save.
+      // and no draft read follows it: nothing pins the next save.
       forgetDraftVersion();
       // objectui#11799 — a discard makes no layer: an item this page loaded
       // with no layer still has none, and `/layers` would answer 404.

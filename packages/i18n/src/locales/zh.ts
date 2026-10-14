@@ -283,6 +283,8 @@ const zh = {
       exceedsMaxSize: '“{{name}}” 超过大小上限（{{max}} MB）',
       uploadFailed: '上传 “{{name}}” 失败：{{error}}',
       uploadIncomplete: '“{{name}}” 上传未完成：未返回文件 ID，未保存任何内容',
+      restricted: '受限文件',
+      restrictedHint: '你无权查看此文件的详细信息',
     },
     image: {
       upload: '上传图片',

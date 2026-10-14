@@ -41,6 +41,9 @@
  */
 
 import { isFileIdToken } from '@objectstack/spec/data';
+// Deliberately from a module the package barrel does not re-export: the
+// published surface this card adds is `FileValueView.metadataRefused` alone.
+import { isFileRefusedValue } from './file-refused.js';
 
 /** A file value normalised for rendering, whatever form it arrived in. */
 export interface FileValueView {
@@ -57,6 +60,17 @@ export interface FileValueView {
   url?: string;
   size?: number;
   mimeType?: string;
+  /**
+   * `true` when the value is the platform's refused marker
+   * `{ id, metadataRefused: true }` (`FileRefusedValueSchema`): the reader may
+   * read the record but not this file's `sys_file` metadata, so no name, size,
+   * MIME type or URL was served. The view still carries `id` and the
+   * id-derived `url` — the download endpoint judges its own access and may
+   * answer `403 FILE_DOWNLOAD_DENIED` — but a renderer draws a restricted
+   * state rather than a generic file chip, and never attempts a thumbnail
+   * (objectui#12339). Absent on every other form.
+   */
+  metadataRefused?: true;
   /** The value as it arrived, so callers can pass it through untouched. */
   raw: unknown;
 }
@@ -171,6 +185,20 @@ export function readFileValue(value: unknown, fallbackName = 'File'): FileValueV
   }
 
   if (typeof value === 'object') {
+    // The refused marker (objectui#12339): the id the record holds and nothing
+    // else. Its URL is derived from the id exactly as for a bare reference, and
+    // it is flagged so a renderer can say "restricted" instead of drawing the
+    // fallback name as if it were an ordinary file. No `mimeType`: none was
+    // served, so no thumbnail can be attempted.
+    if (isFileRefusedValue(value)) {
+      return {
+        id: value.id,
+        name: fallbackName,
+        url: fileUrlFromId(value.id),
+        metadataRefused: true,
+        raw: value,
+      };
+    }
     const o = value as Record<string, unknown>;
     const str = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
     const id = fileIdOf(o);

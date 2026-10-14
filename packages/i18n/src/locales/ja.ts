@@ -292,6 +292,8 @@ const ja = {
       exceedsMaxSize: '「{{name}}」は最大サイズ（{{max}} MB）を超えています',
       uploadFailed: '「{{name}}」のアップロードに失敗しました：{{error}}',
       uploadIncomplete: '「{{name}}」のアップロードが完了しませんでした：ファイル ID が返されなかったため、何も保存されていません',
+      restricted: '制限付きファイル',
+      restrictedHint: 'このファイルの詳細を表示する権限がありません',
     },
     richText: {
       format: "フォーマット: {{format}}",

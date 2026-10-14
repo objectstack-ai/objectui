@@ -366,7 +366,7 @@ import { readFileValue, readFileValues, type FileValueView } from './widgets/fil
 // The one view/download affordance every `file` surface renders (objectui#9161).
 // Shared with `FileField` rather than copied into it; deliberately NOT
 // re-exported below, so this package's published surface is unchanged.
-import { FileValueAffordance } from './widgets/file-affordance.js';
+import { FileValueAffordance, RestrictedFileAffordance } from './widgets/file-affordance.js';
 
 /**
  * Cell renderer props
@@ -2224,8 +2224,11 @@ export function FileCellRenderer({ value, field }: CellRendererProps): React.Rea
  * such image `Image` on every locale and left the translated alt unreachable.
  */
 function displayableImagesOf(value: unknown): Array<{ url: string; name?: string }> {
+  // A file the reader may not open (`metadataRefused`) is not drawable: its
+  // URL is the download door, which may refuse, and no MIME type was served
+  // (objectui#12339). `ImageCellRenderer` draws it as the restricted state.
   return readFileValues(value, '')
-    .filter((v) => v.url)
+    .filter((v) => v.url && !v.metadataRefused)
     .map((v) => ({ url: v.url as string, name: v.name || undefined }));
 }
 
@@ -2247,12 +2250,34 @@ export function ImageCellRenderer({ value }: CellRendererProps): React.ReactElem
   const [lightboxIndex, setLightboxIndex] = React.useState<number | null>(null);
 
   const imgs = React.useMemo(() => displayableImagesOf(value), [value]);
+  // Images the reader may not open (the refused marker `{ id, metadataRefused:
+  // true }`): drawn as a compact restricted state, never as a thumbnail
+  // (objectui#12339). The lock stays a link to the id-derived download door.
+  const restricted = React.useMemo(
+    () => readFileValues(value, '').filter((v) => v.metadataRefused),
+    [value],
+  );
 
   // THE FLOOR, EXTENDED twice (objectui#8496): every falsy scalar, and every
   // value that resolves to no displayable image. `[]` is covered by the second
   // extension rather than by a floor call — unlike `FileCellRenderer` next
-  // door, an image cell has no count to state.
-  if (!value || imgs.length === 0) return <EmptyValue />;
+  // door, an image cell has no count to state. A restricted image is not
+  // "no value": the record holds a file this reader may not see.
+  if (!value || (imgs.length === 0 && restricted.length === 0)) return <EmptyValue />;
+
+  const restrictedMarks = restricted.length > 0 && (
+    <span className="inline-flex items-center gap-1 align-middle">
+      {restricted.map((view, idx) => (
+        <RestrictedFileAffordance
+          key={idx}
+          view={view}
+          compact
+          className="size-8 justify-center rounded-md border bg-muted"
+        />
+      ))}
+    </span>
+  );
+  if (imgs.length === 0) return <>{restrictedMarks}</>;
 
   const imageAlt = (idx: number, name?: string) =>
     name || t('fields.image.imageAlt', { index: idx + 1 });
@@ -2295,6 +2320,7 @@ export function ImageCellRenderer({ value }: CellRendererProps): React.ReactElem
             </button>
           )}
         </div>
+        {restrictedMarks}
         {lightbox}
       </>
     );
@@ -2308,6 +2334,7 @@ export function ImageCellRenderer({ value }: CellRendererProps): React.ReactElem
         onClick={open(0)}
         className="size-10 cursor-zoom-in rounded-md object-cover transition-transform hover:scale-105"
       />
+      {restrictedMarks}
       {lightbox}
     </>
   );

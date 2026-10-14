@@ -37,8 +37,90 @@
  */
 import React from 'react';
 import { cn } from '@object-ui/components';
-import { File as FileIcon } from 'lucide-react';
+import { useObjectTranslation } from '@object-ui/i18n';
+import { File as FileIcon, Lock } from 'lucide-react';
 import type { FileValueView } from './file-value.js';
+
+/**
+ * The translated label and hint for a file the reader may not open
+ * (objectui#12339): a value that arrived as the refused marker
+ * `{ id, metadataRefused: true }` carries no name of its own, and drawing the
+ * generic `fields.file.fileFallback` for it would read as an ordinary file.
+ */
+export function useRestrictedFileText(): { label: string; hint: string } {
+  const { t } = useObjectTranslation();
+  return {
+    label: t('fields.file.restricted', { defaultValue: 'Restricted file' }),
+    hint: t('fields.file.restrictedHint', {
+      defaultValue: 'You do not have access to the details of this file',
+    }),
+  };
+}
+
+/**
+ * The restricted state of one file value (`view.metadataRefused`): a lock
+ * and the translated "Restricted file" label instead of a name, and ⛔ no
+ * thumbnail — no MIME type was served, so there is nothing to decide one on.
+ *
+ * It stays an anchor to the view's id-derived URL: whether this reader may
+ * download the file is the download endpoint's own decision, and it may
+ * answer `403 FILE_DOWNLOAD_DENIED`. The accessible name is the visible
+ * label; the hint rides on `title`.
+ *
+ * `compact` draws the lock alone, for a cell or tile that has no room for
+ * the label — the label then becomes the anchor's `aria-label`.
+ */
+export function RestrictedFileAffordance({
+  view,
+  className,
+  compact = false,
+  icon = true,
+}: {
+  view: FileValueView;
+  className?: string;
+  compact?: boolean;
+  /** Suppressed where the row already draws its own icon to the left. */
+  icon?: boolean;
+}): React.ReactElement {
+  const { label, hint } = useRestrictedFileText();
+  const href = view.url?.trim();
+  const body = (
+    <>
+      {(icon || compact) && <Lock className="size-3 shrink-0" aria-hidden="true" />}
+      {!compact && <span className="truncate">{label}</span>}
+    </>
+  );
+  const classes = cn(
+    'inline-flex min-w-0 max-w-full items-center gap-1 align-middle text-muted-foreground',
+    className,
+  );
+  if (!href) {
+    return (
+      <span
+        className={classes}
+        title={hint}
+        data-slot="file-restricted"
+        {...(compact ? { role: 'img', 'aria-label': label } : {})}
+      >
+        {body}
+      </span>
+    );
+  }
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={hint}
+      onClick={(e) => e.stopPropagation()}
+      data-slot="file-restricted"
+      aria-label={compact ? label : undefined}
+      className={cn(classes, 'hover:text-foreground hover:underline')}
+    >
+      {body}
+    </a>
+  );
+}
 
 /**
  * One file: a keyboard-reachable view/download link when it resolves, and the
@@ -76,6 +158,11 @@ export function FileValueAffordance({
   /** Suppressed where the row already draws its own icon or thumbnail. */
   icon?: boolean;
 }): React.ReactElement {
+  // A file the reader may not open draws its own state, never the fallback
+  // name as though it were an ordinary file (objectui#12339).
+  if (view.metadataRefused) {
+    return <RestrictedFileAffordance view={view} className={className} icon={icon} />;
+  }
   // Trimmed, because whitespace is not a destination: a value of `'   '`
   // reaches `readFileValue`'s string arm and comes back as a "URL", and an
   // anchor built on it is precisely the dead affordance this module refuses.

@@ -396,6 +396,8 @@ const en = {
       exceedsMaxSize: '"{{name}}" exceeds max size ({{max}} MB)',
       uploadFailed: 'Failed to upload "{{name}}": {{error}}',
       uploadIncomplete: 'Upload of "{{name}}" did not complete: no file id was returned, so nothing was saved',
+      restricted: 'Restricted file',
+      restrictedHint: 'You do not have access to the details of this file',
     },
     image: {
       upload: 'Upload image',

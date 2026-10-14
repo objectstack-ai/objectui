@@ -314,6 +314,8 @@ const ru = {
       exceedsMaxSize: '«{{name}}» превышает максимальный размер ({{max}} МБ)',
       uploadFailed: 'Не удалось загрузить «{{name}}»: {{error}}',
       uploadIncomplete: 'Загрузка «{{name}}» не завершена: идентификатор файла не получен, ничего не сохранено',
+      restricted: 'Файл с ограниченным доступом',
+      restrictedHint: 'У вас нет доступа к сведениям об этом файле',
     },
     richText: {
       format: "Формат: {{format}}",

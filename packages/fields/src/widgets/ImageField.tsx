@@ -24,6 +24,9 @@ import {
   withRecentUploads,
   type FileValueView,
 } from './file-value.js';
+import { fileValueForResubmit } from './file-refused.js';
+// The restricted state a file the reader may not open draws (objectui#12339).
+import { RestrictedFileAffordance } from './file-affordance.js';
 
 // Lazy-load the cropper so the dialog (canvas + crop logic) is not in the initial
 // ImageField bundle. Consumers that never crop pay zero cost.
@@ -113,7 +116,7 @@ export function ImageField({ value, onChange, field, readonly, onUploadingChange
         const next = fileValueForSubmit(result, name);
         remember(result, name);
         if (multiple) {
-          const updated = [...images];
+          const updated = images.map(fileValueForResubmit);
           updated[cropTarget.index] = next;
           onChange(updated);
         } else {
@@ -135,36 +138,59 @@ export function ImageField({ value, onChange, field, readonly, onUploadingChange
   const openCropper = useCallback(
     (index: number) => {
       const img = views[index];
-      if (!img?.url) return;
+      if (!img?.url || img.metadataRefused) return;
       setCropTarget({ index, src: img.url, name: img.name || `image-${index}.png` });
     },
     [views],
   );
 
-  const lightboxImages = views.filter((v) => v.url).map((v) => ({ url: v.url as string, name: v.name }));
+  // A file the reader may not open (`metadataRefused`) is never drawn as a
+  // thumbnail — no MIME type was served, and its URL is the download door,
+  // which may refuse — so it is left out of the lightbox and drawn as the
+  // restricted state in its own place (objectui#12339).
+  const lightboxImages = views
+    .filter((v) => v.url && !v.metadataRefused)
+    .map((v) => ({ url: v.url as string, name: v.name }));
+  const hasRestricted = views.some((v) => v.metadataRefused);
 
   if (readonly) {
-    if (!value || lightboxImages.length === 0) return <EmptyValue />;
+    if (!value || (lightboxImages.length === 0 && !hasRestricted)) return <EmptyValue />;
 
+    let lightboxPos = -1;
     return (
       <>
         <div className="flex flex-wrap gap-2">
-          {lightboxImages.map((img, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => setLightboxIndex(idx)}
-              className="group relative overflow-hidden rounded-md border border-border focus:outline-none focus:ring-2 focus:ring-ring"
-              aria-label={t('fields.image.enlarge', { name: img.name || t('fields.image.imageAlt', { index: idx + 1 }) })}
-            >
-              <img
-                src={img.url}
-                alt={img.name || t('fields.image.imageAlt', { index: idx + 1 })}
-                className="size-20 object-cover transition-transform duration-150 group-hover:scale-105"
-              />
-              <span className="pointer-events-none absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/10" />
-            </button>
-          ))}
+          {views.map((view, viewIdx) => {
+            if (view.metadataRefused) {
+              return (
+                <RestrictedFileAffordance
+                  key={viewIdx}
+                  view={view}
+                  compact
+                  className="size-20 justify-center rounded-md border border-border bg-muted"
+                />
+              );
+            }
+            if (!view.url) return null;
+            const idx = ++lightboxPos;
+            const img = lightboxImages[idx];
+            return (
+              <button
+                key={viewIdx}
+                type="button"
+                onClick={() => setLightboxIndex(idx)}
+                className="group relative overflow-hidden rounded-md border border-border focus:outline-none focus:ring-2 focus:ring-ring"
+                aria-label={t('fields.image.enlarge', { name: img.name || t('fields.image.imageAlt', { index: idx + 1 }) })}
+              >
+                <img
+                  src={img.url}
+                  alt={img.name || t('fields.image.imageAlt', { index: idx + 1 })}
+                  className="size-20 object-cover transition-transform duration-150 group-hover:scale-105"
+                />
+                <span className="pointer-events-none absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/10" />
+              </button>
+            );
+          })}
         </div>
         {lightboxIndex !== null && (
           <ImageLightbox
@@ -232,7 +258,8 @@ export function ImageField({ value, onChange, field, readonly, onUploadingChange
       if (imageIds.length === 0) return;
 
       if (multiple) {
-        onChange([...images, ...imageIds]);
+        // The refused marker goes back as its bare id (objectui#12339).
+        onChange([...images.map(fileValueForResubmit), ...imageIds]);
       } else {
         onChange(imageIds[0]);
       }
@@ -244,7 +271,9 @@ export function ImageField({ value, onChange, field, readonly, onUploadingChange
 
   const handleRemove = (index: number) => {
     if (multiple) {
-      const newImages = images.filter((_: any, i: number) => i !== index);
+      const newImages = images
+        .filter((_: any, i: number) => i !== index)
+        .map(fileValueForResubmit);
       onChange(newImages.length > 0 ? newImages : null);
     } else {
       onChange(null);
@@ -267,13 +296,21 @@ export function ImageField({ value, onChange, field, readonly, onUploadingChange
           <div className="grid grid-cols-4 gap-2">
             {views.map((img, idx) => (
               <div key={idx} className="relative group">
-                <img
-                  src={img.url || ''}
-                  alt={img.name || t('fields.image.imageAlt', { index: idx + 1 })}
-                  className="size-20 rounded-md object-cover border border-gray-200"
-                />
+                {img.metadataRefused ? (
+                  <RestrictedFileAffordance
+                    view={img}
+                    compact
+                    className="size-20 justify-center rounded-md border border-gray-200 bg-muted"
+                  />
+                ) : (
+                  <img
+                    src={img.url || ''}
+                    alt={img.name || t('fields.image.imageAlt', { index: idx + 1 })}
+                    className="size-20 rounded-md object-cover border border-gray-200"
+                  />
+                )}
                 <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {cropEnabled && (
+                  {cropEnabled && !img.metadataRefused && (
                     <Button
                       type="button"
                       variant="secondary"

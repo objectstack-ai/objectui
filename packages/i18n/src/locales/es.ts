@@ -303,6 +303,8 @@ const es = {
       exceedsMaxSize: '«{{name}}» supera el tamaño máximo ({{max}} MB)',
       uploadFailed: 'Error al subir «{{name}}»: {{error}}',
       uploadIncomplete: 'La subida de «{{name}}» no se completó: no se devolvió ningún identificador de archivo, así que no se guardó nada',
+      restricted: 'Archivo restringido',
+      restrictedHint: 'No tienes acceso a los detalles de este archivo',
     },
     richText: {
       format: "Formato: {{format}}",

@@ -2,7 +2,7 @@ import React from 'react';
 import { Avatar, AvatarFallback, AvatarImage, Button } from '@object-ui/components';
 import { useUpload } from '@object-ui/providers';
 import { useObjectTranslation } from '@object-ui/i18n';
-import { Upload, X, Loader2 } from 'lucide-react';
+import { Upload, X, Loader2, Lock } from 'lucide-react';
 import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { useUploadingSignal } from './useUploadingSignal.js';
@@ -18,6 +18,7 @@ import {
   withRecentUploads,
   type FileValueView,
 } from './file-value.js';
+import { useRestrictedFileText } from './file-affordance.js';
 
 /**
  * Avatar field widget - provides an avatar/profile picture uploader.
@@ -57,7 +58,13 @@ export function AvatarField({ value, onChange, field, readonly, onUploadingChang
   const holdScope = useUploadingScopeHold();
 
   const avatarField = field as any;
-  const src = withRecentUploads(readFileValues(value, ''), recent)[0]?.url;
+  const view = withRecentUploads(readFileValues(value, ''), recent)[0];
+  // A picture the reader may not open (the refused marker) is never fetched:
+  // no MIME type was served and the download door may refuse it, so the
+  // avatar draws a lock in place of the initials instead (objectui#12339).
+  const restrictedView = !!view?.metadataRefused;
+  const src = restrictedView ? undefined : view?.url;
+  const restricted = useRestrictedFileText();
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -114,11 +121,19 @@ export function AvatarField({ value, onChange, field, readonly, onUploadingChang
       .slice(0, 2);
   };
 
+  const fallback = restrictedView ? (
+    <AvatarFallback title={restricted.hint} data-slot="file-restricted">
+      <Lock className="size-5 text-muted-foreground" role="img" aria-label={restricted.label} />
+    </AvatarFallback>
+  ) : (
+    <AvatarFallback>{getInitials()}</AvatarFallback>
+  );
+
   if (readonly) {
     return (
       <Avatar className="w-16 h-16">
         {src && <AvatarImage src={src} alt={avatarField?.label} />}
-        <AvatarFallback>{getInitials()}</AvatarFallback>
+        {fallback}
       </Avatar>
     );
   }
@@ -132,7 +147,7 @@ export function AvatarField({ value, onChange, field, readonly, onUploadingChang
       >
         <Avatar className="w-16 h-16">
           {src && <AvatarImage src={src} alt={avatarField?.label} />}
-          <AvatarFallback>{getInitials()}</AvatarFallback>
+          {fallback}
         </Avatar>
         {!readonly && isHovered && value && (
           <button

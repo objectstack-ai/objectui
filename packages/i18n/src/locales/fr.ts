@@ -299,6 +299,8 @@ const fr = {
       exceedsMaxSize: '« {{name}} » dépasse la taille maximale ({{max}} Mo)',
       uploadFailed: 'Échec du téléversement de « {{name}} » : {{error}}',
       uploadIncomplete: 'Le téléversement de « {{name}} » n’a pas abouti : aucun identifiant de fichier n’a été renvoyé, rien n’a été enregistré',
+      restricted: 'Fichier restreint',
+      restrictedHint: 'Vous n’avez pas accès aux détails de ce fichier',
     },
     richText: {
       format: "Format : {{format}}",

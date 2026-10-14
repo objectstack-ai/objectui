@@ -332,6 +332,8 @@ const ar = {
       exceedsMaxSize: '"{{name}}" يتجاوز الحجم الأقصى ({{max}} ميغابايت)',
       uploadFailed: 'فشل رفع "{{name}}": {{error}}',
       uploadIncomplete: 'لم يكتمل رفع "{{name}}": لم يتم إرجاع معرّف الملف، ولم يُحفظ شيء',
+      restricted: 'ملف مقيد',
+      restrictedHint: 'ليس لديك صلاحية الوصول إلى تفاصيل هذا الملف',
     },
     richText: {
       format: "التنسيق: {{format}}",

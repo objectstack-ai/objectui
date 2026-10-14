@@ -2,7 +2,7 @@ import React, { useRef, useState, useCallback } from 'react';
 import { Button, EmptyValue } from '@object-ui/components';
 import { useUpload } from '@object-ui/providers';
 import { useObjectTranslation } from '@object-ui/i18n';
-import { Upload, X, File as FileIcon, ImageIcon, Camera, Loader2 } from 'lucide-react';
+import { Upload, X, File as FileIcon, ImageIcon, Camera, Loader2, Lock } from 'lucide-react';
 import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { toHostGroupProps } from './toHostGroupProps.js';
@@ -18,9 +18,10 @@ import {
   isImageValue,
   type FileValueView,
 } from './file-value.js';
+import { fileValueForResubmit } from './file-refused.js';
 // The one view/download affordance every `file` surface renders
 // (objectui#9161) — shared with `FileCellRenderer` rather than copied.
-import { FileValueAffordance } from './file-affordance.js';
+import { FileValueAffordance, useRestrictedFileText } from './file-affordance.js';
 
 /**
  * Shared upload pipeline for the file widgets: validates size, uploads through
@@ -120,7 +121,9 @@ function useFileUploads(opts: {
 
       const nextValues = successful.map(({ value }) => value);
       if (multiple) {
-        onChange([...files, ...nextValues]);
+        // The values already on the field go back as they came, except the
+        // refused marker, which is reduced to its bare id (objectui#12339).
+        onChange([...files.map(fileValueForResubmit), ...nextValues]);
       } else {
         onChange(nextValues[0]);
       }
@@ -246,7 +249,9 @@ export function FileField({ value, onChange, field, readonly, onUploadingChange,
 
   const handleRemove = (index: number) => {
     if (multiple) {
-      const newFiles = files.filter((_: any, i: number) => i !== index);
+      const newFiles = files
+        .filter((_: any, i: number) => i !== index)
+        .map(fileValueForResubmit);
       onChange(newFiles.length > 0 ? newFiles : null);
     } else {
       onChange(null);
@@ -388,7 +393,11 @@ export function FileField({ value, onChange, field, readonly, onUploadingChange,
                 className="flex items-center justify-between gap-2 p-2 bg-muted/50 rounded-md border"
               >
                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                  {isImageValue(file) && file.url ? (
+                  {file.metadataRefused ? (
+                    // A file the reader may not open: no thumbnail, its
+                    // MIME type was never served (objectui#12339).
+                    <Lock className="size-4 text-muted-foreground shrink-0" aria-hidden="true" />
+                  ) : isImageValue(file) && file.url ? (
                     <img src={file.url} alt={file.name} className="size-8 object-cover rounded shrink-0" />
                   ) : isImageValue(file) ? (
                     <ImageIcon className="size-4 text-muted-foreground shrink-0" />
@@ -490,10 +499,16 @@ export function FileCell({
   });
   const fallbackName = t('fields.file.fileFallback', { defaultValue: 'File' });
   const views = withRecentUploads(readFileValues(value, fallbackName), recent);
+  const restricted = useRestrictedFileText();
+  // A restricted file has no name of its own; the chip's tooltip and its
+  // remove button name it by the restricted label (objectui#12339).
+  const chipName = (file: FileValueView) => (file.metadataRefused ? restricted.label : file.name);
 
   const removeAt = (index: number) => {
     if (multiple) {
-      const next = files.filter((_: any, i: number) => i !== index);
+      const next = files
+        .filter((_: any, i: number) => i !== index)
+        .map(fileValueForResubmit);
       onChange(next.length > 0 ? next : null);
     } else {
       onChange(null);
@@ -519,10 +534,12 @@ export function FileCell({
         <span
           key={idx}
           className="inline-flex max-w-40 items-center gap-1 rounded border bg-muted/50 px-1 py-0.5 text-xs"
-          title={file.name}
+          title={file.metadataRefused ? restricted.hint : file.name}
           data-testid="file-cell-chip"
         >
-          {isImageValue(file) && file.url ? (
+          {file.metadataRefused ? (
+            <Lock className="size-3 shrink-0 text-muted-foreground" aria-hidden="true" />
+          ) : isImageValue(file) && file.url ? (
             <img src={file.url} alt={file.name} className="size-5 shrink-0 rounded object-cover" />
           ) : (
             <FileIcon className="size-3 shrink-0 text-muted-foreground" />
@@ -545,7 +562,7 @@ export function FileCell({
             <button
               type="button"
               className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
-              aria-label={t('fields.file.remove', { defaultValue: `Remove ${file.name}`, name: file.name })}
+              aria-label={t('fields.file.remove', { defaultValue: `Remove ${chipName(file)}`, name: chipName(file) })}
               onClick={() => removeAt(idx)}
             >
               <X className="size-3" />

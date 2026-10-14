@@ -298,6 +298,8 @@ const pt = {
       exceedsMaxSize: '"{{name}}" excede o tamanho máximo ({{max}} MB)',
       uploadFailed: 'Falha ao enviar "{{name}}": {{error}}',
       uploadIncomplete: 'O envio de "{{name}}" não foi concluído: nenhum ID de arquivo foi retornado, então nada foi salvo',
+      restricted: 'Arquivo restrito',
+      restrictedHint: 'Você não tem acesso aos detalhes deste arquivo',
     },
     richText: {
       format: "Formato: {{format}}",

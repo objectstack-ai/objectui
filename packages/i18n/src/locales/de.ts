@@ -292,6 +292,8 @@ const de = {
       exceedsMaxSize: '„{{name}}“ überschreitet die maximale Größe ({{max}} MB)',
       uploadFailed: 'Hochladen von „{{name}}“ fehlgeschlagen: {{error}}',
       uploadIncomplete: 'Hochladen von „{{name}}“ wurde nicht abgeschlossen: Es wurde keine Datei-ID zurückgegeben, nichts wurde gespeichert',
+      restricted: 'Eingeschränkte Datei',
+      restrictedHint: 'Sie haben keinen Zugriff auf die Details dieser Datei',
     },
     richText: {
       format: "Format: {{format}}",

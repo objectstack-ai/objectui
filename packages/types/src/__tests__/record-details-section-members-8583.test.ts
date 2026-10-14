@@ -19,6 +19,10 @@
  *   window (director seat, decision batch #101, applying batch #87 — this repo
  *   does not declare a key the spec refuses by name — and the 2026-08-27
  *   retirement-pacing ruling). `defaultCollapsed` is the surviving spelling.
+ * - **objectui#12348** — this type declares `hideEmpty`, which the spec
+ *   declares and the renderer reads, and the pin now holds the WHOLE member
+ *   set to the installed spec in both directions (key set and each member's
+ *   type), so the next spec member cannot go missing unnoticed.
  *
  * ## Why this pin is compile-time, and why a runtime pin alone measures nothing
  *
@@ -108,6 +112,45 @@ type _ShowBorder = Expect<Equal<Section['showBorder'], SpecSection['showBorder']
 type _DefaultCollapsed = Expect<Equal<Section['defaultCollapsed'], SpecSection['defaultCollapsed']>>;
 /** RED before objectui#8583, green after — the closed six-token vocabulary, not `string`. */
 type _HeaderColor = Expect<Equal<Section['headerColor'], SpecSection['headerColor']>>;
+
+/* ── objectui#12348: `hideEmpty`, and the WHOLE member set, both directions ─── */
+
+/**
+ * RED before objectui#12348 (`Property 'hideEmpty' does not exist on type …`),
+ * green after. Spec 17.3.0+ declares it on the section; `RecordDetailsRenderer`
+ * reads it (`s.hideEmpty ?? true`).
+ */
+type _HideEmpty = Expect<Equal<Section['hideEmpty'], SpecSection['hideEmpty']>>;
+
+/**
+ * The drift guard objectui#12348 adds, so a member cannot go missing again one
+ * key at a time: the section entry's KEY SET equals the installed spec's, in
+ * both directions at once. A member the spec gains and this type omits, or a
+ * member this type declares and the spec does not, turns `Equal` false and
+ * this line red under `type-check`. The per-key `Equal` pins above say WHICH
+ * type each member carries; this line says no member is missing or extra.
+ */
+type _KeySetMirrorsSpec = Expect<Equal<keyof Section, keyof SpecSection>>;
+
+/**
+ * Every member, each with the spec's own authoring type — the mapped form of
+ * the per-key pins above, so a member added on both sides later is held to the
+ * spec's type without anyone remembering to write its line.
+ */
+type MemberTypeMirrors = { [K in keyof SpecSection]-?: Equal<Section[K & keyof Section], SpecSection[K]> };
+type _EveryMemberTypeMirrorsSpec = Expect<Equal<MemberTypeMirrors[keyof MemberTypeMirrors], true>>;
+
+/**
+ * The same member set as a runtime list, for the vitest half (vitest strips
+ * types, so the line above is invisible to it). The annotation below ties the
+ * list to the TYPE in both directions; the `it` below ties it to the INSTALLED
+ * spec's shape in both directions. Together: type == list == spec.
+ */
+const MIRRORED_SECTION_KEYS = [
+  'name', 'label', 'columns', 'group', 'fields', 'hideEmpty', 'collapsible',
+  'showBorder', 'defaultCollapsed', 'icon', 'description', 'headerColor', 'count',
+] as const;
+type _ListIsTheTypesKeySet = Expect<Equal<(typeof MIRRORED_SECTION_KEYS)[number], keyof Section>>;
 
 /* ── Literals: what an author can now write, and what they still cannot ────── */
 
@@ -286,6 +329,37 @@ describe('record:details `sections[]` mirrors the spec member set, both directio
     expect(parsed.success).toBe(false);
     expect(parsed.error?.issues.map((i) => i.code)).toContain('unrecognized_keys');
     expect(refusedKeys(parsed.error?.issues)).toEqual(['collapsed']);
+  });
+
+  it('objectui#12348 — the section member set equals the installed spec\'s, both directions', () => {
+    // Both directions in one equality: a key the spec gains that the list (and,
+    // through `_ListIsTheTypesKeySet`, the type) lacks fails it, and so does a
+    // key the list keeps after the spec drops it. The 'all six' check above is
+    // one-directional (`arrayContaining`); this one is not.
+    expect([...specSectionKeys()].sort()).toEqual([...MIRRORED_SECTION_KEYS].sort());
+  });
+
+  it('objectui#12348 — `hideEmpty` is accepted by the spec, survives the parse, and is permitted beside `group`', () => {
+    const enumerated: Section = { ...canonicalSection, hideEmpty: false };
+    const parsed = RecordDetailsProps.safeParse({ sections: [enumerated] });
+    expect(parsed.error?.issues ?? []).toEqual([]);
+    expect(parsed.data?.sections?.[0]).toMatchObject({ hideEmpty: false });
+
+    // The card's shape against a group reference: `hideEmpty` is not one of
+    // the keys a group declares, so the spec admits it beside `group`.
+    const grouped: RecordDetailsComponentProps = { sections: [{ group: 'terms', hideEmpty: false }] };
+    const groupedParsed = RecordDetailsProps.safeParse(grouped);
+    expect(groupedParsed.error?.issues ?? []).toEqual([]);
+    expect(groupedParsed.data?.sections?.[0]).toMatchObject({ group: 'terms', hideEmpty: false });
+
+    // Control: the same position refuses a VALUE of the wrong type, so the
+    // acceptance above is about `hideEmpty` being declared as a boolean.
+    const wrongValue = RecordDetailsProps.safeParse({ sections: [{ ...canonicalSection, hideEmpty: 'no' }] });
+    expect(wrongValue.success).toBe(false);
+    expect(wrongValue.error?.issues.map((i) => [i.code, i.path.join('.')])).toContainEqual([
+      'invalid_type',
+      'sections.0.hideEmpty',
+    ]);
   });
 
   it('keeps the compile-time literals alive at runtime', () => {

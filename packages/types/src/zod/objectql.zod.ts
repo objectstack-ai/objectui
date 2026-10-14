@@ -780,7 +780,7 @@ export const ObjectGridSchema = BaseSchema.extend({
   // `icon` is a string. Mirrored by the interface's `SpecEmptyState`.
   emptyState: stripImportedDefaults(SpecEmptyStateSchema)
     .optional()
-    .describe('What the grid draws instead of an empty table: `{ title, message, icon }`, the spec EmptyState by reference'),
+    .describe('What the grid draws instead of an empty table: `{ title, message, icon, link }`, the spec EmptyState by reference'),
   editable: z.boolean().optional(),
   keyboardNavigation: z.boolean().optional(),
   frozenColumns: z.number().optional(),

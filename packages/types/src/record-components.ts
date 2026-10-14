@@ -220,6 +220,19 @@ export interface RecordDetailsComponentProps {
       | 'primary/10'
       | 'secondary/10'
       | 'destructive/10';
+    /**
+     * Hide this section's empty fields (`sections[].hideEmpty`, `z.boolean()`
+     * on the spec row since 17.3.0). Unauthored, `RecordDetailsRenderer` reads
+     * it as on (`s.hideEmpty ?? true`), and a section whose fields are ALL
+     * empty then renders nothing; `false` keeps the empty rows and the
+     * section's heading skeleton. Permitted beside `group`.
+     *
+     * Missing here until objectui#12348: the spec declared it and the renderer
+     * honoured it, so this published face was the one layer that gave a
+     * spec-valid section TS2353. objectui#7129's refusal premise was superseded
+     * by the objectui#8603 ruling — objectui follows the protocol.
+     */
+    hideEmpty?: boolean;
     collapsible?: boolean;
     /**
      * Show how many values a multi-value field holds in this section's heading

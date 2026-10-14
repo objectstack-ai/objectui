@@ -128,7 +128,7 @@ const page = (print?: Record<string, unknown>) => ({
 describe('PageRenderer — a page that declares `print` mounts its print stylesheet, and only then (objectui#11958)', () => {
   it('a print page carries the scoping attribute, the stylesheet and the declaration for its blocks', () => {
     const declaration = { paperSize: 'A5', repeatHeader: true } as const;
-    const { container } = render(<SchemaRenderer schema={page(declaration) as any} />);
+    const { container } = render(<SchemaRenderer schema={page(declaration) as never} />);
     const root = container.querySelector(`[${PRINT_PAGE_ATTRIBUTE}]`);
     expect(root).not.toBeNull();
     const style = root!.querySelector('style[data-print-stylesheet]');
@@ -137,14 +137,14 @@ describe('PageRenderer — a page that declares `print` mounts its print stylesh
   });
 
   it('CONTROL — the same page without `print` carries none of them', () => {
-    const { container } = render(<SchemaRenderer schema={page() as any} />);
+    const { container } = render(<SchemaRenderer schema={page() as never} />);
     expect(container.querySelector(`[${PRINT_PAGE_ATTRIBUTE}]`)).toBeNull();
     expect(container.querySelector('style[data-print-stylesheet]')).toBeNull();
     expect(container.querySelector('[data-testid="print-probe"]')?.textContent).toBe('none');
   });
 
   it('`repeatHeader` / `repeatFooter` put the header / footer region in a real thead / tfoot, drawn `display: contents` on screen', () => {
-    const { container } = render(<SchemaRenderer schema={page({ repeatHeader: true, repeatFooter: true }) as any} />);
+    const { container } = render(<SchemaRenderer schema={page({ repeatHeader: true, repeatFooter: true }) as never} />);
     const table = container.querySelector(`table[${PRINT_RUNNING_ATTRIBUTE}]`)!;
     expect(table).not.toBeNull();
     expect(table.querySelector(':scope > thead [data-region="header"]')).not.toBeNull();
@@ -157,24 +157,24 @@ describe('PageRenderer — a page that declares `print` mounts its print stylesh
   });
 
   it('a region that is not repeated prints once, in the body of the running-region table', () => {
-    const { container } = render(<SchemaRenderer schema={page({ repeatHeader: true }) as any} />);
+    const { container } = render(<SchemaRenderer schema={page({ repeatHeader: true }) as never} />);
     const table = container.querySelector(`table[${PRINT_RUNNING_ATTRIBUTE}]`)!;
     expect(table.querySelector(':scope > tfoot')).toBeNull();
     expect(table.querySelector(':scope > tbody [data-region="footer"]')).not.toBeNull();
   });
 
   it('CONTROL — a print page without running regions draws no running-region table', () => {
-    const { container } = render(<SchemaRenderer schema={page({ paperSize: 'A4' }) as any} />);
+    const { container } = render(<SchemaRenderer schema={page({ paperSize: 'A4' }) as never} />);
     expect(container.querySelector(`table[${PRINT_RUNNING_ATTRIBUTE}]`)).toBeNull();
   });
 
   it('on screen a print page without running regions is the same page: only the attribute and the stylesheet are added', () => {
-    const printed = render(<SchemaRenderer schema={page({ pageNumbers: true }) as any} />).container;
+    const printed = render(<SchemaRenderer schema={page({ pageNumbers: true }) as never} />).container;
     printed.querySelector('style[data-print-stylesheet]')!.remove();
     printed.querySelector(`[${PRINT_PAGE_ATTRIBUTE}]`)!.removeAttribute(PRINT_PAGE_ATTRIBUTE);
     const probe = printed.querySelector('[data-testid="print-probe"]')!;
     probe.textContent = 'none';
-    const plainHtml = render(<SchemaRenderer schema={page() as any} />).container.innerHTML;
+    const plainHtml = render(<SchemaRenderer schema={page() as never} />).container.innerHTML;
     expect(printed.innerHTML).toBe(plainHtml);
   });
 });

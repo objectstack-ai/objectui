@@ -67,11 +67,11 @@ function makeDataSource() {
   return {
     find: vi.fn(async () => ({ data: [], total: 0, hasMore: false, pageSize: 50 })),
     findOne: vi.fn(async () => ({ id: REC, name: 'INV-0001' })),
-    create: vi.fn(async (_o: string, row: any) => row),
+    create: vi.fn(async (_o: string, row: unknown) => row),
     update: vi.fn(async () => ({})),
     delete: vi.fn(async () => ({})),
     getObjectSchema: async () => objectDef,
-  } as Record<string, any>;
+  };
 }
 
 /** The record page bound to the object: the invoice document, with or without `print`. */
@@ -89,13 +89,13 @@ function boundPage(print?: Record<string, unknown>) {
   };
 }
 
-function makeMetadata(pages: any[]) {
+function makeMetadata(pages: unknown[]) {
   return {
     objects: [], pages, loading: false, error: null,
     refresh: async () => {}, invalidate: () => {},
     ensureType: async () => pages, getItem: async () => null,
     getItemsByType: () => pages,
-  } as any;
+  } as never;
 }
 
 async function mount(page: Record<string, unknown>) {

@@ -61,8 +61,8 @@ function makeAdapter(rows: number, total?: number) {
 
 function renderPanel(adapter: ReturnType<typeof makeAdapter>, printing: boolean) {
   const tree = (
-    <SchemaRendererProvider dataSource={adapter as any}>
-      <SchemaRenderer schema={panel as any} />
+    <SchemaRendererProvider dataSource={adapter as never}>
+      <SchemaRenderer schema={panel as never} />
     </SchemaRendererProvider>
   );
   return render(printing ? <PrintPageProvider value={{ paperSize: 'A4' }}>{tree}</PrintPageProvider> : tree);

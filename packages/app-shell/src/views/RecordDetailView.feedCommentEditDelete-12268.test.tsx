@@ -387,7 +387,7 @@ describe.each<Block>(['record:activity', 'record:discussion'])(
 
     it('the mark is the server\'s: an answer that is not stamped edited leaves the row unmarked', async () => {
       const { view, dataSource } = await mount(block);
-      dataSource.update.mockImplementationOnce(async (_o: string, id: string, patch: any) => ({
+      dataSource.update.mockImplementationOnce(async (_o: string, id: string, patch: Record<string, unknown>) => ({
         ...ADA_ROW,
         id,
         ...patch,

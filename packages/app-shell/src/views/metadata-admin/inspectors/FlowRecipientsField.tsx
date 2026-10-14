@@ -176,7 +176,7 @@ export function writeRecipients(
 
 /** The reference each picked type resolves through (`FlowReferenceField`'s combobox). */
 const KIND_REF: Partial<Record<RecipientKind, ResolvedRef>> = {
-  // `$trigger`: the Start node's object, the record `{record.*}` binds.
+  // `$trigger`: the Start node's object, the record `record.*` names.
   field: { kind: 'object-field', objectSource: '$trigger' },
   user: { kind: 'user' },
   team: { kind: 'team' },

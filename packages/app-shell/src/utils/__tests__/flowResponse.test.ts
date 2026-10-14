@@ -470,3 +470,58 @@ describe("judgeFlowLaunch — a straight-through run's success copy (objectui#12
         expect(failed.successToast).toBeUndefined();
     });
 });
+
+describe("interpretFlowResponse — the flow's own toasts in the active language (objectui#12075)", () => {
+    // `flows.FLOW.successMessage` / `errorMessage` (objectstack#22507). The
+    // bundle shape is the spec's `TranslationBundle`, keyed by locale.
+    const copy = {
+        flowName: 'case_escalate',
+        locale: 'zh-CN',
+        bundle: {
+            'zh-CN': {
+                flows: { case_escalate: { successMessage: '工单已升级', errorMessage: '升级失败' } },
+            },
+        },
+    };
+
+    it('translates the served successMessage on a done run, and the launch speaks the translation', () => {
+        const json = { success: true, data: { success: true, status: 'completed', successMessage: 'Case escalated' } };
+        const out = interpretFlowResponse(ok, json, 'Flow "case_escalate"', copy);
+        expect(out).toMatchObject({ kind: 'done', successMessage: '工单已升级' });
+        expect(judgeFlowLaunch(out, undefined).successToast).toBe('工单已升级');
+    });
+
+    it('translates the authored errorMessage on a 200 flow failure', () => {
+        const out = interpretFlowResponse(ok, {
+            success: true,
+            data: { success: false, error: 'boom', errorMessage: 'Escalation failed' },
+        }, 'Resume', copy);
+        expect(out).toMatchObject({ kind: 'failed', retryable: false, error: '升级失败' });
+    });
+
+    it('translates the authored errorMessage carried in a 400 FLOW_FAILED envelope', () => {
+        const out = interpretFlowResponse(
+            { ok: false, status: 400 },
+            errorEnvelope(400, 'FLOW_FAILED', 'engine prose', { errorMessage: 'Escalation failed' }),
+            'Resume',
+            copy,
+        );
+        expect(out).toMatchObject({ kind: 'failed', retryable: false, error: '升级失败' });
+    });
+
+    it('adds no toast the flow does not author, and leaves the engine prose untranslated', () => {
+        const done = interpretFlowResponse(ok, { success: true, data: { success: true } }, 'Flow "x"', copy);
+        expect(done).toMatchObject({ kind: 'done', successMessage: undefined });
+        const failed = interpretFlowResponse(ok, { success: true, data: { success: false, error: 'boom' } }, 'Resume', copy);
+        expect(failed).toMatchObject({ kind: 'failed', error: 'boom' });
+    });
+
+    it('answers the served strings where the bundle carries no key, or there is no bundle', () => {
+        const json = { success: true, data: { success: true, status: 'completed', successMessage: 'Case escalated' } };
+        const otherFlow = { ...copy, flowName: 'other_flow' };
+        expect(interpretFlowResponse(ok, json, 'Flow "other_flow"', otherFlow)).toMatchObject({ successMessage: 'Case escalated' });
+        expect(interpretFlowResponse(ok, json, 'Flow "case_escalate"', { ...copy, bundle: undefined }))
+            .toMatchObject({ successMessage: 'Case escalated' });
+        expect(interpretFlowResponse(ok, json, 'Flow "case_escalate"')).toMatchObject({ successMessage: 'Case escalated' });
+    });
+});

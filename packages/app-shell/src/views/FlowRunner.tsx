@@ -106,48 +106,46 @@
  * (objectui#12274). This file adds only its own default, the catalog's
  * sentence.
  *
- * ## The AUTHOR's copy is localized here; the chrome is not (objectui#5920)
+ * ## The AUTHOR's copy is localized; the chrome is not (objectui#5920, objectui#12075)
  *
- * A screen's heading and each field's `label` / `placeholder` are the flow
- * author's words, and an app's translation bundle carries them under
- * `flows.<flow>.screens.<node_id>` (`TranslationData.flows`, the vocabulary
- * objectstack#7646 declared). The server puts them on the wire in the source
- * language, so the overlay is applied on this side of it — the client already
- * holds both addresses, `ScreenSpec.nodeId` and `ScreenFieldSpec.name`, which
- * is why objectstack#11287 picked the client side.
+ * A screen's heading, its body text, each field's copy and each option's
+ * label, and the flow's own completion and failure toasts are the flow
+ * author's words; an app's translation bundle carries them under `flows.FLOW`
+ * (`TranslationData.flows`, the vocabulary objectstack#7646 declared and
+ * objectstack#22507 extended). Who translates each is the spec's ruling:
  *
- * WHAT resolves is the spec's decision, not this file's: the heading goes
- * through `resolveFlowScreenTitle`, and the per-field overlay walks
- * `FLOW_SCREEN_FIELD_COPY_KEYS` — imported, never retyped, so a key the spec
- * adds or drops reaches this dialog without an edit here. Every key falls back
- * to the authored string on its own: a bundle that translates the heading but
- * not a field leaves that field in the author's language, never blank.
+ * - **The heading and the body text are served already translated.** Both
+ *   are `{{ }}` templates the engine renders per run, so it picks the
+ *   translated template in the run's locale before it fills the holes
+ *   (maintainer ruling A on objectstack#22507: "a client overlay never
+ *   touches a server-rendered slot"). This dialog draws `ScreenSpec.title`
+ *   and `ScreenSpec.description` exactly as served, and overlays neither —
+ *   an overlay here would put the raw translated template back, holes drawn
+ *   literally.
+ * - **Each field's copy and option labels are overlaid here.** The server
+ *   forwards a field verbatim, and the client already holds both addresses,
+ *   `ScreenSpec.nodeId` and `ScreenFieldSpec.name` (why objectstack#11287
+ *   picked the client side). The per-field overlay walks the spec's
+ *   `FLOW_SCREEN_FIELD_COPY_KEYS` (`label`, `placeholder`, `inlineHelpText`
+ *   today) — imported, never retyped, so a key the spec adds or drops reaches
+ *   this dialog without an edit here — and a field's `options` go through the
+ *   spec's `resolveFlowScreenFieldOptions`, each option addressed by its value
+ *   read as text. Every key, and every option, falls back to the authored
+ *   string on its own.
+ * - **The flow's own toasts** — `FlowSchema.successMessage` and
+ *   `errorMessage`, served verbatim on the run result — are translated by
+ *   `interpretFlowResponse` (`utils/flowResponse`), handed this run's flow and
+ *   bundle, so the resume and both launch hosts answer the same words.
  *
- * WHERE the bundle comes from is the channel the console already has: the
- * provider's `loadLanguage` hands the app's translation payload to i18next
- * (`transformSpecTranslations` forwards `flows` verbatim under the app
- * namespace), and {@link activeFlowsBundle} reads it back out of that resource
- * tree for the active language. There is no second loader.
+ * WHERE the bundle comes from is the channel the console already has:
+ * `activeFlowsBundle` (`utils/flowsBundle`) reads the `flows` group back out
+ * of the i18next resource tree the provider loaded, for the active language.
+ * There is no second loader.
  *
- * Deliberately NOT localized here, each by ruling rather than by omission:
- *
- * - the screen `description` — outside the spec's flows face (in neither key
- *   list), so an off-spec `description` a bundle carries anyway is ignored and
- *   the authored text is drawn;
- * - a field's `inlineHelpText` (objectstack#17306) — drawn as authored for as
- *   long as the spec's per-field face leaves it out of
- *   `FLOW_SCREEN_FIELD_COPY_KEYS`. The overlay walks that constant, so the day
- *   the spec lists it the help text is translated with no edit here;
- * - the runner chrome (Cancel / Submit / Submitting… / the terminal toast's
- *   sentence) — the console's own words, ruled into its message catalog
- *   (objectstack#7646). The flow NAME inside that toast is not chrome; see the
- *   objectui#11092 section below;
- * - `FlowSchema.successMessage` — off the translation surface by design.
- *
- * ⚠️ One boundary of the client-side pick: the server interpolates `{var}`
- * tokens in the heading before it reaches the wire, and the wire does not carry
- * the variables, so a translated heading is drawn exactly as the bundle wrote
- * it — a token inside it renders literally.
+ * Deliberately NOT localized here: the runner chrome (Cancel / Submit /
+ * Submitting… / the terminal toast's default sentence) — the console's own
+ * words, ruled into its message catalog (objectstack#7646). The flow NAME
+ * inside that sentence is not chrome; see the objectui#11092 section below.
  *
  * ## The flow is named by its label, in the user's language (objectui#11092)
  *
@@ -207,10 +205,9 @@ import {
 import { notifyDataChanged, useObjectTranslation } from '@object-ui/react';
 import {
   FLOW_SCREEN_FIELD_COPY_KEYS,
-  resolveFlowScreenTitle,
+  resolveFlowScreenFieldOptions,
   translateFlow,
   type TranslationBundle,
-  type TranslationData,
 } from '@objectstack/spec/system';
 import type { AutomationResult } from '@objectstack/spec/contracts';
 import { toast } from 'sonner';
@@ -225,6 +222,7 @@ import {
   type ScreenSpec,
 } from './ScreenView.js';
 import { flowSuccessCopy, interpretFlowResponse } from '../utils/flowResponse.js';
+import { activeFlowsBundle, type FlowsTranslation } from '../utils/flowsBundle.js';
 
 export type { ScreenSpec, ScreenFieldSpec } from './ScreenView.js';
 
@@ -238,51 +236,10 @@ export type { ScreenSpec, ScreenFieldSpec } from './ScreenView.js';
  */
 const NARROW_SCREEN_MAX_FIELDS = 8;
 
-/** The `flows` group of a spec `TranslationData` — typed by the spec, so the address below is checked against it. */
-type FlowsTranslation = NonNullable<TranslationData['flows']>;
-
 /** The per-field copy node, `flows.<flow>.screens.<node_id>.fields.<field_name>`. */
 type FlowScreenFieldTranslation = NonNullable<
   NonNullable<NonNullable<FlowsTranslation[string]['screens']>[string]['fields']>[string]
 >;
-
-/**
- * The one member of the i18next instance the bundle read needs. Optional,
- * because outside a provider react-i18next hands back a placeholder object
- * that has none — and then there is no bundle, only the authored copy.
- */
-interface TranslationResourceReader {
-  getResourceBundle?: (lng: string, ns: string) => unknown;
-}
-
-/**
- * The active language's `flows` group as a spec `TranslationBundle`, read out
- * of the i18next resource tree the console already loaded (see the header), or
- * `undefined` when that tree translates nothing for `flowName`.
- *
- * App translations sit under an app namespace at the top of that tree (`app`
- * for a spec payload, whatever the payload named for an already-namespaced
- * one), so the first namespace whose `flows` group addresses this flow is the
- * one read. The bundle is keyed by `language` itself, and the resolvers are
- * asked for `language` with no fallback chain: a string the active language
- * does not carry falls back to the author's copy, never to a third locale.
- */
-function activeFlowsBundle(
-  i18n: TranslationResourceReader | undefined,
-  language: string,
-  flowName: string,
-): TranslationBundle | undefined {
-  if (!flowName || typeof i18n?.getResourceBundle !== 'function') return undefined;
-  const tree = i18n.getResourceBundle(language, 'translation');
-  if (!tree || typeof tree !== 'object') return undefined;
-  for (const namespace of Object.values(tree as Record<string, unknown>)) {
-    const flows = (namespace as { flows?: unknown } | null)?.flows;
-    if (flows && typeof flows === 'object' && (flows as Record<string, unknown>)[flowName]) {
-      return { [language]: { flows: flows as FlowsTranslation } };
-    }
-  }
-  return undefined;
-}
 
 /** One field with the spec's per-field copy keys overlaid, each key falling back to the authored value. */
 function overlayFieldCopy(field: ScreenFieldSpec, copy: FlowScreenFieldTranslation | undefined): ScreenFieldSpec {
@@ -296,10 +253,40 @@ function overlayFieldCopy(field: ScreenFieldSpec, copy: FlowScreenFieldTranslati
 }
 
 /**
- * The screen as the user should read it: the heading through the spec's
- * `resolveFlowScreenTitle`, the fields through `FLOW_SCREEN_FIELD_COPY_KEYS`.
- * Everything else — `description` included — is the payload, untouched. With
- * no bundle the input comes back as-is.
+ * One field's option labels through the spec's `resolveFlowScreenFieldOptions`
+ * (objectui#12075), each option addressed by its value read as text and
+ * falling back to its authored label. The field comes back as-is when the
+ * resolver answers the same array, its "nothing resolved" signal.
+ */
+function overlayFieldOptions(
+  field: ScreenFieldSpec,
+  flowName: string,
+  nodeId: string,
+  bundle: TranslationBundle,
+  language: string,
+): ScreenFieldSpec {
+  // Handed the two members it reads: the served `ScreenFieldSpec` is an
+  // interface, so it does not meet the resolver's open `FlowScreenFieldLike`.
+  const options = resolveFlowScreenFieldOptions(
+    bundle,
+    flowName,
+    nodeId,
+    { name: field.name, options: field.options },
+    { locale: language },
+  );
+  if (options === field.options) return field;
+  // The resolver copies each served option and replaces only its `label` with
+  // a string, so the answer has the served shape.
+  return { ...field, options: options as ScreenFieldSpec['options'] };
+}
+
+/**
+ * The screen as the user should read it: each field's copy through
+ * `FLOW_SCREEN_FIELD_COPY_KEYS` and its option labels through
+ * `resolveFlowScreenFieldOptions`. The heading and the body text are drawn as
+ * served — the engine already translated them (objectstack#22507 ruling A, see
+ * the header) — and everything else is the payload, untouched. With no bundle
+ * the input comes back as-is.
  */
 function localizeScreen(
   screen: ScreenSpec,
@@ -307,14 +294,12 @@ function localizeScreen(
   bundle: TranslationBundle | undefined,
   language: string,
 ): ScreenSpec {
-  if (!bundle) return screen;
-  const title = resolveFlowScreenTitle(bundle, flowName, screen, { locale: language });
+  if (!bundle || !Array.isArray(screen.fields)) return screen;
   const fieldCopy = bundle[language]?.flows?.[flowName]?.screens?.[screen.nodeId]?.fields;
-  const fields =
-    fieldCopy && Array.isArray(screen.fields)
-      ? screen.fields.map((field) => overlayFieldCopy(field, fieldCopy[field.name]))
-      : screen.fields;
-  return { ...screen, title, fields };
+  const fields = screen.fields.map((field) =>
+    overlayFieldOptions(overlayFieldCopy(field, fieldCopy?.[field.name]), flowName, screen.nodeId, bundle, language),
+  );
+  return { ...screen, fields };
 }
 
 /**
@@ -468,7 +453,10 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
     // STRING: handing the nested `{code, message}` object to `toast.error()`
     // renders nothing at best and crashes the page as a React child (React
     // #31). See utils/flowResponse.
-    const outcome = interpretFlowResponse<ScreenSpec>(res, json, 'Resume');
+    // Handed this run's flow and bundle, it also answers the flow's own
+    // `successMessage` / `errorMessage` in the active language (objectui#12075
+    // — see the header).
+    const outcome = interpretFlowResponse<ScreenSpec>(res, json, 'Resume', { flowName, bundle, locale: language });
     if (outcome.kind === 'failed') {
       // Two carriers on purpose (`c40f3b8ca`): the toast is the console's
       // viewport-fixed failure idiom; the inline Alert stays in the dialog,
@@ -503,9 +491,10 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
     } else {
       // Terminal success — the invoking action's own `successMessage` first
       // (objectui#12234 — see the header), then the flow's declared completion
-      // message, by the one precedence a straight-through run follows too
-      // (objectui#12274); else the catalog's sentence naming the flow by the
-      // label this answer served.
+      // message, already translated against `flows.FLOW.successMessage` by
+      // `interpretFlowResponse` (objectui#12075), by the one precedence a
+      // straight-through run follows too (objectui#12274); else the catalog's
+      // sentence naming the flow by the label this answer served.
       toast.success(
         flowSuccessCopy(state.actionSuccessMessage, outcome.successMessage)?.text
           || t('flowRunner.completed', {
@@ -618,8 +607,9 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
               which stays the dialog's title. */}
           <p className="text-xs font-medium text-muted-foreground">{shownFlowLabel}</p>
           <DialogTitle>{shown.title || t('flowRunner.title', { defaultValue: 'Input' })}</DialogTitle>
-          {/* Authored and untranslated on purpose: `description` is outside the
-              spec's flows face (see the header). */}
+          {/* Heading and body text are drawn as served: the engine already
+              translated both in the run's locale (objectstack#22507 ruling A,
+              see the header), so neither is overlaid here. */}
           {shown.description && <DialogDescription>{shown.description}</DialogDescription>}
         </DialogHeader>
 

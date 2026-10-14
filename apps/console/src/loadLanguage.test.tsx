@@ -138,9 +138,12 @@ describe('loadLanguage — a spec payload is recognised by any group it carries 
     );
 
     const dialog = within(screen.getByRole('dialog'));
-    expect(dialog.getByRole('heading', { name: '转化详情' })).toBeInTheDocument();
     expect(dialog.getByText('商机名称')).toBeInTheDocument();
-    expect(dialog.queryByText('Conversion Details')).not.toBeInTheDocument();
+    expect(dialog.queryByText('Opportunity Name')).not.toBeInTheDocument();
+    // The heading is drawn as served: the engine translates it in the run's
+    // locale (objectstack#22507 ruling A), so the bundle's `title` is never
+    // overlaid on the client (objectui#12075).
+    expect(dialog.getByRole('heading', { name: 'Conversion Details' })).toBeInTheDocument();
   });
 });
 

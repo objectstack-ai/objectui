@@ -17,10 +17,17 @@
  * bundle any other way, so a green run is a statement about that channel.
  *
  * Pins, one per acceptance line of the card:
- *   - a zh-CN bundle with `flows` entries → translated heading, label, placeholder;
+ *   - a zh-CN bundle with `flows` entries → translated field label, placeholder;
  *   - the `en` / no-bundle path → the authored copy, unchanged;
  *   - an authored key the bundle does not carry → the authored copy, key by key;
- *   - a key outside the spec's lists (`description`) → NOT translated.
+ *   - the screen heading and `description` → drawn as SERVED, never overlaid.
+ *
+ * The heading pins changed meaning with objectstack#22507's ruling A
+ * (objectui#12075): the engine picks the translated heading and body text in
+ * the run's locale before it fills their holes, so the served `ScreenSpec`
+ * already carries them translated and a client overlay "never touches a
+ * server-rendered slot". The runner used to overlay the bundle's `title`; it
+ * now draws the served one, which these pins read.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
@@ -114,15 +121,17 @@ beforeEach(() => {
 });
 
 describe('FlowRunner — the `flows` translation overlay (objectui#5920)', () => {
-  it('draws the zh-CN heading, field label and placeholder from the bundle', () => {
+  it('draws the zh-CN field label and placeholder from the bundle, and the heading as served', () => {
     const dialog = renderRunner(CONVERSION, i18nWith('zh-CN', 'zh-CN', ZH_CN));
 
-    expect(dialog.getByRole('heading', { name: '转化详情' })).toBeInTheDocument();
+    // The served heading is drawn as served (objectstack#22507 ruling A): the
+    // bundle's `title` is the engine's to pick, never overlaid here.
+    expect(dialog.getByRole('heading', { name: 'Conversion Details' })).toBeInTheDocument();
+    expect(dialog.queryByText('转化详情')).not.toBeInTheDocument();
     expect(dialog.getByText('创建商机？')).toBeInTheDocument();
     expect(dialog.getByText('商机名称')).toBeInTheDocument();
     expect(dialog.getByPlaceholderText('例如：年度续约')).toBeInTheDocument();
     // The authored English is gone wherever the bundle answered.
-    expect(dialog.queryByText('Conversion Details')).not.toBeInTheDocument();
     expect(dialog.queryByText('Opportunity Name')).not.toBeInTheDocument();
     expect(dialog.queryByPlaceholderText('e.g. Annual renewal')).not.toBeInTheDocument();
   });
@@ -165,7 +174,7 @@ describe('FlowRunner — the `flows` translation overlay (objectui#5920)', () =>
     expect(dialog.getByPlaceholderText('0.00')).toBeInTheDocument();
   });
 
-  it('falls back per KEY within one entry, and to the authored heading for an untranslated screen', () => {
+  it('falls back per KEY within one entry', () => {
     const labelOnly: TranslationData = {
       ...ZH_CN,
       flows: {
@@ -185,25 +194,32 @@ describe('FlowRunner — the `flows` translation overlay (objectui#5920)', () =>
     expect(dialog.getByPlaceholderText('e.g. Annual renewal')).toBeInTheDocument();
   });
 
-  it('does NOT translate a screen `description` a bundle carries off-spec', () => {
-    // `description` is outside the spec's flows face — the schema refuses it
-    // with guidance, and the resolver family ignores it by design. A bundle
-    // that carries it anyway (nothing validates the tree client-side) must not
-    // reach the dialog through the runner.
-    const offSpec = {
+  it('does NOT overlay the screen heading or `description` the bundle carries', () => {
+    // Both are templates the engine renders per run, so it picks their
+    // translations in the run's locale and serves them filled
+    // (objectstack#22507 ruling A). An overlay here would put the raw
+    // translated template back over the served text.
+    const withScreenCopy: TranslationData = {
       ...ZH_CN,
       flows: {
         lead_conversion: {
           screens: {
-            screen_1: { title: '转化详情', description: '转化前请核对线索。' },
+            screen_1: {
+              title: '转化详情',
+              description: '转化前请核对线索。',
+              fields: { opportunityName: { label: '商机名称' } },
+            },
           },
         },
       },
-    } as unknown as TranslationData;
-    const dialog = renderRunner(CONVERSION, i18nWith('zh-CN', 'zh-CN', offSpec));
+    };
+    const dialog = renderRunner(CONVERSION, i18nWith('zh-CN', 'zh-CN', withScreenCopy));
 
-    // The heading proves the bundle IS being read on this screen …
-    expect(dialog.getByRole('heading', { name: '转化详情' })).toBeInTheDocument();
+    // The field label proves the bundle IS being read on this screen …
+    expect(dialog.getByText('商机名称')).toBeInTheDocument();
+    // … and the heading the dialog draws is the served one.
+    expect(dialog.getByRole('heading', { name: 'Conversion Details' })).toBeInTheDocument();
+    expect(dialog.queryByText('转化详情')).not.toBeInTheDocument();
     // … and the description the dialog draws — its accessible description —
     // is still the authored one.
     expect(screen.getByRole('dialog')).toHaveAccessibleDescription('Review the lead before converting it.');

@@ -1936,7 +1936,7 @@ function AdvancedChartImplInner({
    */
   const slotSeries = React.useCallback(
     (side: ValueAxisSlot): NormalizedSeries[] =>
-      series.filter((s: any) => (hasDualAxis ? (s.yAxis === 'right' ? 'right' : 'left') === side : true)),
+      series.filter((s) => (hasDualAxis ? (s.yAxis === 'right' ? 'right' : 'left') === side : true)),
     [series, hasDualAxis],
   );
   const axisValues = React.useCallback((side: ValueAxisSlot) => {

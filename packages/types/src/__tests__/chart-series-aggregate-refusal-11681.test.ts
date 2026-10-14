@@ -28,11 +28,16 @@ import { ChartDataSeriesSchema, ChartSchema } from '../zod/data-display.zod';
 type Eq<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
 
 type Issue = { code: string; path: string; message: string };
-const issuesOf = (schema: { safeParse: (v: unknown) => any }, input: unknown): Issue[] | null => {
+type Parser = {
+  safeParse: (v: unknown) =>
+    | { success: true }
+    | { success: false; error: { issues: Array<{ code: string; path: PropertyKey[]; message: string }> } };
+};
+const issuesOf = (schema: Parser, input: unknown): Issue[] | null => {
   const r = schema.safeParse(input);
   return r.success
     ? null
-    : r.error.issues.map((i: any) => ({ code: i.code, path: i.path.join('.'), message: i.message }));
+    : r.error.issues.map((i) => ({ code: i.code, path: i.path.map(String).join('.'), message: i.message }));
 };
 
 const NODE = { type: 'chart', chartType: 'bar', series: [{ name: 'task_count' }] } as const;

@@ -90,14 +90,23 @@ describe('ImportWizard preview: picklist values, one findings list, the import c
     expect(screen.queryByTestId('import-findings')).not.toBeInTheDocument();
   });
 
-  it('with Keep unknown option values on, still marks the value the server refuses', async () => {
-    // Measured on the server: coercion keeps `Bogus`, then the engine's write
-    // validation refuses it. Only a match-only (readonly) target escapes that.
+  it('with Keep unknown option values on, leaves an unknown value on a writable field unmarked and counts its row (objectui#11970)', async () => {
+    // Measured on the server: coercion keeps `Bogus`, and the engine's option
+    // check admits exactly the values that import kept (objectstack#22183).
+    const button = await openPreview('Title\tPriority\nAlpha\tHigh\nBeta\tBogus');
+    expect(cell(1, 1)).toHaveAttribute('aria-invalid', 'true');
+    expect(button).toHaveTextContent('Import 1 Row');
+    fireEvent.click(within(screen.getByTestId('import-opt-create-options')).getByRole('checkbox'));
+    await waitFor(() => expect(cell(1, 1)).toHaveAttribute('aria-invalid', 'false'));
+    expect(button).toHaveTextContent('Import 2 Rows');
+    expect(screen.queryByTestId('import-findings')).not.toBeInTheDocument();
+  });
+
+  it('with Keep unknown option values on, still marks a bad number on the same row', async () => {
     const button = await openPreview(REPORTED);
     fireEvent.click(within(screen.getByTestId('import-opt-create-options')).getByRole('checkbox'));
-    await waitFor(() => expect(within(screen.getByTestId('import-opt-create-options')).getByRole('checkbox'))
-      .toHaveAttribute('data-state', 'checked'));
-    expect(cell(1, 1)).toHaveAttribute('aria-invalid', 'true');
+    await waitFor(() => expect(cell(1, 1)).toHaveAttribute('aria-invalid', 'false'));
+    expect(cell(1, 2)).toHaveAttribute('aria-invalid', 'true');
     expect(button).toHaveTextContent('Import 1 Row');
   });
 

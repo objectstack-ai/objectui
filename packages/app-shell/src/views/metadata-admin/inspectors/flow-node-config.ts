@@ -343,7 +343,15 @@ export interface FlowConfigField {
   ref?: FlowReferenceSpec;
   /**
    * Data-picker brace mode override (#1934). Defaults by kind (`expression` →
-   * bare CEL, `text` / `textarea` → `{var}` template). Two overrides:
+   * bare CEL, `text` / `textarea` → `{var}` template). Three overrides:
+   *   • `'hole'` on a flow TEXT slot (objectui#11824): the slot renders ADR-0032
+   *     §3 `{{ }}` template holes and the spec refuses a single-brace `{…}`
+   *     token there, so the picker inserts `{{ x }}` and the inline check flags
+   *     a single brace with the double-brace fix. Set on exactly the slots
+   *     objectstack#22110 converted — `notify` `title` / `message`, `screen`
+   *     `title` / `description`, `end` `message` — and carried onto a served
+   *     field of the same key by `mergeServerFlowFields`, since the published
+   *     descriptor marks none of them.
    *   • `'expression'` on a code field (e.g. a script body) so the picker inserts
    *     bare references, not `{var}` — `{x}` is a syntax error in a JS/TS script.
    *   • `'template'` on an *expression* field (e.g. a loop/map `collection`) whose
@@ -352,7 +360,7 @@ export interface FlowConfigField {
    *     `{var}` and the CEL predicate brace-trap is suppressed (`{leadList}` is a
    *     legal template here, not a malformed condition).
    */
-  refMode?: 'expression' | 'template';
+  refMode?: 'expression' | 'template' | 'hole';
   /**
    * Render this `expression` field with the row-based {@link ConditionBuilder}
    * (raw CEL stays one click away as the escape hatch) — objectui#6226.
@@ -572,9 +580,9 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       defaultValue: 'completed',
       // `refused` carries a cross-field rule the spec states and this form has
       // no typed control for yet: it REQUIRES a `message` saying why, as a
-      // {token} template. Named here so picking it is not a one-click route to
+      // `{{ }}` template. Named here so picking it is not a one-click route to
       // a flow that will not load; the key itself stays authorable in Advanced.
-      help: 'How the run ends here. "Completed" is the ordinary terminal and is what an omitted key applies. "Refused" records a first-class refusal — a successful evaluation that says no — and requires a message saying why (a {token} template), authored in the field below.',
+      help: 'How the run ends here. "Completed" is the ordinary terminal and is what an omitted key applies. "Refused" records a first-class refusal — a successful evaluation that says no — and requires a message saying why (a {{ }} template), authored in the field below.',
     }),
     // objectui#9336 — the other half of that cross-field rule, which
     // `EndConfigSchema` enforces in BOTH directions via a `superRefine`:
@@ -607,9 +615,10 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     // so the key goes away rather than becoming `''`, which this schema refuses
     // under BOTH outcomes (`min(1)`, and the completed-forbids-message rule).
     cfg('message', 'Why the run was refused', 'textarea', {
-      placeholder: 'Refused: {record.name} is a confirmed duplicate',
-      help: 'Required when the outcome is "Refused", and refused on a completed end — a completion renders nothing, so the key would be a silent no-op. A {token} template interpolated at run time (e.g. {record.name}), exactly like a screen Description.',
+      placeholder: 'Refused: {{ record.name }} is a confirmed duplicate',
+      help: 'Required when the outcome is "Refused", and refused on a completed end — a completion renders nothing, so the key would be a silent no-op. A {{ }} template rendered at run time (e.g. {{ record.name }}), exactly like a screen Description.',
       showWhen: { field: 'outcome', equals: ['refused'] },
+      refMode: 'hole',
     }),
     // objectui#9335 — there is deliberately NO `outputVariable` row here.
     //
@@ -813,14 +822,15 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
   ],
   // Screen — collect input (a flat `fields` list) OR render an object's full
   // create/edit form (`objectName`, master-detail). `title`/`description`
-  // head the screen (description interpolates {var}); `waitForInput` forces a
+  // head the screen (both render `{{ }}` holes); `waitForInput` forces a
   // pause on a field-less message/confirmation screen. All optional and shown
   // together so neither a message screen nor an object-form step needs JSON.
   screen: [
-    cfg('title', 'Title', 'text', { placeholder: 'Request a discount', help: 'Heading shown above the screen.' }),
+    cfg('title', 'Title', 'text', { placeholder: 'Request a discount', help: 'Heading shown above the screen.', refMode: 'hole' }),
     cfg('description', 'Description', 'textarea', {
       placeholder: 'Enter the deal amount and the discount you want.',
-      help: 'Body text. Interpolates {var} references (e.g. {approval_path}).',
+      help: 'Body text. Renders {{ }} holes (e.g. {{ approval_path }}).',
+      refMode: 'hole',
     }),
     cfg('fields', 'Fields', 'objectList', {
       help: 'Input fields collected on this screen. Leave empty for a message-only screen.',
@@ -1122,8 +1132,8 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     // takes a string or a string array), so `mergeServerFlowFields` keeps this
     // editor for it rather than leaving the key to Advanced (JSON).
     cfg('recipients', 'Recipients', 'recipients', { help: 'Who receives the notification: a field of the trigger record, a user, a team or an email address. At least one is required.' }),
-    cfg('title', 'Title', 'text', { placeholder: 'Your request was approved', help: 'Notification title (required).' }),
-    cfg('message', 'Message', 'textarea', { placeholder: 'Supports {var} template references.', help: 'Notification body.' }),
+    cfg('title', 'Title', 'text', { placeholder: 'Your request was approved', help: 'Notification title (required).', refMode: 'hole' }),
+    cfg('message', 'Message', 'textarea', { placeholder: 'Supports {{ var }} template holes.', help: 'Notification body.', refMode: 'hole' }),
     cfg('channels', 'Channels', 'stringList', { help: 'Channels to fan out to (default: inbox — e.g. inbox · email · push).' }),
     cfg('topic', 'Topic', 'text', { placeholder: 'notify', help: 'Event topic (default: "notify").' }),
     cfg('severity', 'Severity', 'select', {
@@ -1297,6 +1307,13 @@ function isConfigRooted(field: FlowConfigField): boolean {
  * the field the offline form shows, and the author met the key only as Advanced
  * (JSON). A key the schema does not declare is never brought back: the engine
  * rejects undeclared config keys at `registerFlow()`.
+ *
+ * objectui#11824 — a served field keeps the hand-written field's `refMode:
+ * 'hole'` for the same config key. The descriptor publishes a flow text slot
+ * (`screen` `title` / `description`) as a plain string, with no marker naming
+ * the `{{ }}` dialect, so the mapped field would default to the single-brace
+ * template mode and its picker would insert a token the spec refuses there.
+ * Only the brace mode is carried; the label, help and kind stay the server's.
  */
 export function mergeServerFlowFields(
   serverFields: FlowConfigField[] | null | undefined,
@@ -1311,7 +1328,10 @@ export function mergeServerFlowFields(
   const serverConfigFields = serverFields.filter(isConfigRooted);
   const preserved = handWritten.filter((f) => !isConfigRooted(f));
   const preservedKeys = new Set(preserved.map((f) => f.path[f.path.length - 1]));
-  const served = serverConfigFields.filter((f) => !preservedKeys.has(f.path[f.path.length - 1]));
+  const holeKeys = new Set(handWritten.filter((f) => isConfigRooted(f) && f.refMode === 'hole').map((f) => f.path[1]));
+  const served = serverConfigFields
+    .filter((f) => !preservedKeys.has(f.path[f.path.length - 1]))
+    .map((f) => (f.path.length === 2 && holeKeys.has(f.path[1]) ? { ...f, refMode: 'hole' as const } : f));
   return [...withUnmappedDeclaredKeys(served, handWritten, preservedKeys, declaredKeys), ...preserved];
 }
 

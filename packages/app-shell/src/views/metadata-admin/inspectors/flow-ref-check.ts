@@ -19,7 +19,9 @@
  *   • String-literal contents are stripped before scanning.
  *   • Runtime globals the engine injects (`env`, `$error`, `data`, …) and CEL
  *     keywords/literals are allow-listed.
- *   • For templates only the inside of single-brace `{…}` holes is scanned.
+ *   • For templates only the inside of single-brace `{…}` holes is scanned;
+ *     for a flow text slot (`'hole'`, objectui#11824) only the variable path of
+ *     each `{{ }}` hole — the part before a `|` formatter, which is no root.
  *
  * The caller supplies the in-scope ROOT names (see {@link scopeRoots}); an empty
  * set means "scope unknown" and the check is skipped (returns nothing).
@@ -149,7 +151,7 @@ function rootIdentifiers(src: string): string[] {
  * Find referenced roots that are not in scope. Returns [] when clean, when the
  * source is empty, or when `knownRoots` is empty (scope unknown → don't guess).
  */
-export function findUnknownRefs(source: unknown, role: ExprFieldRole, knownRoots: Set<string>): UnknownRef[] {
+export function findUnknownRefs(source: unknown, role: ExprFieldRole | 'hole', knownRoots: Set<string>): UnknownRef[] {
   let raw = '';
   if (typeof source === 'string') raw = source;
   else if (source && typeof source === 'object') raw = String((source as { source?: string }).source ?? '');
@@ -160,6 +162,10 @@ export function findUnknownRefs(source: unknown, role: ExprFieldRole, knownRoots
     const holes = raw.match(/\{([^{}]+)\}/g);
     if (!holes) return [];
     scan = holes.map((h) => h.slice(1, -1)).join(' ; ');
+  } else if (role === 'hole') {
+    const paths = Array.from(raw.matchAll(/\{\{([^{}]*)\}\}/g), (m) => m[1].split('|')[0].trim()).filter(Boolean);
+    if (paths.length === 0) return [];
+    scan = paths.join(' ; ');
   }
 
   const seen = new Set<string>();

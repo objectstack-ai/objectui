@@ -6,11 +6,13 @@
  * in-scope reference at the cursor.
  *
  * Brace handling is done FOR the author (ADR-0032): the picker inserts the BARE
- * reference (`discount_pct`) in `expression` fields and the braced
- * `{discount_pct}` in `template` (text / textarea) fields — killing the
- * recurring `{record.x}` brace-in-CEL trap. Free-text typing is untouched, and
- * the picker button is hidden entirely when nothing is in scope, so an empty
- * scope degrades to a plain input.
+ * reference (`discount_pct`) in `expression` fields, the double-brace hole
+ * `{{ discount_pct }}` in `hole` fields — a flow text slot that renders
+ * ADR-0032 §3 template holes (objectui#11824) — and the single-brace
+ * `{discount_pct}` in the remaining `template` fields, which still read that
+ * dialect. That kills the recurring `{record.x}` brace-in-CEL trap. Free-text
+ * typing is untouched, and the picker button is hidden entirely when nothing is
+ * in scope, so an empty scope degrades to a plain input.
  */
 
 import * as React from 'react';
@@ -31,10 +33,16 @@ import {
 import type { ScopeGroup } from './useFlowScope.js';
 import { t, useMetadataLocale } from '../i18n.js';
 
-export type VariableFieldMode = 'expression' | 'template';
+/**
+ * How the picker spells a reference: `expression` → bare CEL, `hole` → an
+ * ADR-0032 §3 `{{ }}` template hole, `template` → the single-brace `{var}`
+ * dialect the fields outside the flow text slots still read.
+ */
+export type VariableFieldMode = 'expression' | 'template' | 'hole';
 
 /** Wrap a bare reference token for insertion into the given field mode. */
 export function formatToken(token: string, mode: VariableFieldMode): string {
+  if (mode === 'hole') return `{{ ${token} }}`;
   return mode === 'template' ? `{${token}}` : token;
 }
 
@@ -65,7 +73,7 @@ export interface VariableTextInputProps {
   onValueChange: (v: string) => void;
   onBlur?: () => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-  /** Brace rule: bare token for `expression`, `{token}` for `template`. */
+  /** Brace rule: bare token for `expression`, `{{ token }}` for `hole`, `{token}` for `template`. */
   mode: VariableFieldMode;
   /** In-scope reference groups (from useFlowScope). Empty → no picker button. */
   groups: ScopeGroup[];

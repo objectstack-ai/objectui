@@ -1177,12 +1177,14 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.recipients.kind.user': 'User',
   'engine.inspector.recipients.kind.team': 'Team',
   'engine.inspector.recipients.kind.email': 'Email address',
+  'engine.inspector.recipients.kind.expression': 'Expression',
   'engine.inspector.recipients.kind.custom': 'Other',
   'engine.inspector.recipients.placeholder.field': 'Field of the trigger record',
   'engine.inspector.recipients.placeholder.user': 'Pick a user',
   'engine.inspector.recipients.placeholder.team': 'Pick a team',
   'engine.inspector.recipients.placeholder.email': 'name@example.com',
-  'engine.inspector.recipients.placeholder.custom': 'Saved as typed, e.g. {ownerId}',
+  'engine.inspector.recipients.placeholder.expression': 'CEL, e.g. ownerId',
+  'engine.inspector.recipients.placeholder.custom': 'Saved as typed, e.g. role:admin',
   'engine.inspector.recipients.add': 'Add recipient',
   'engine.inspector.recipients.remove': 'Remove recipient',
   'engine.inspector.recipients.empty': 'No recipients yet.',
@@ -4548,12 +4550,14 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.recipients.kind.user': '用户',
   'engine.inspector.recipients.kind.team': '团队',
   'engine.inspector.recipients.kind.email': '邮箱地址',
+  'engine.inspector.recipients.kind.expression': '表达式',
   'engine.inspector.recipients.kind.custom': '其他',
   'engine.inspector.recipients.placeholder.field': '触发记录的字段',
   'engine.inspector.recipients.placeholder.user': '选择用户',
   'engine.inspector.recipients.placeholder.team': '选择团队',
   'engine.inspector.recipients.placeholder.email': 'name@example.com',
-  'engine.inspector.recipients.placeholder.custom': '按原样保存，例如 {ownerId}',
+  'engine.inspector.recipients.placeholder.expression': 'CEL 表达式，例如 ownerId',
+  'engine.inspector.recipients.placeholder.custom': '按原样保存，例如 role:admin',
   'engine.inspector.recipients.add': '添加收件人',
   'engine.inspector.recipients.remove': '移除收件人',
   'engine.inspector.recipients.empty': '还没有收件人。',
@@ -6849,14 +6853,14 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
   end: {
     outcome: {
       label: '结果',
-      help: '运行在此处如何结束。“已完成”是普通终态,也是省略该键时的取值。“已拒绝”把拒绝记为一等结果 —— 它是一次成功的评估,只是结论为否 —— 并要求在下方字段中给出拒绝理由 message({token} 模板)。',
+      help: '运行在此处如何结束。“已完成”是普通终态,也是省略该键时的取值。“已拒绝”把拒绝记为一等结果 —— 它是一次成功的评估,只是结论为否 —— 并要求在下方字段中给出拒绝理由 message({{ }} 模板)。',
       opts: { completed: '已完成', refused: '已拒绝' },
     },
     // objectui#9336 —— 仅在“结果”选为“已拒绝”时出现(见 flow-node-config 的
     // `showWhen`);契约两个方向都校验:已拒绝必须有 message,已完成则拒收它。
     message: {
       label: '拒绝原因',
-      help: '当结果为“已拒绝”时必填;结果为“已完成”时则被拒收 —— 已完成的结束节点不渲染任何文本,该键会成为静默的空操作。支持 {token} 模板(如 {record.name}),与屏幕节点的“描述”一致。',
+      help: '当结果为“已拒绝”时必填;结果为“已完成”时则被拒收 —— 已完成的结束节点不渲染任何文本,该键会成为静默的空操作。支持 {{ }} 模板(如 {{ record.name }}),与屏幕节点的“描述”一致。',
     },
     // objectui#9335 — an `outputVariable` overlay lived here and went with the
     // descriptor it localized: `EndConfigSchema` refuses that key by name, so
@@ -6937,7 +6941,7 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
   },
   screen: {
     title: { label: '标题', help: '显示在页面上方的标题。' },
-    description: { label: '描述', help: '正文文本。会插值 {var} 引用(如 {approval_path})。' },
+    description: { label: '描述', help: '正文文本。会渲染 {{ }} 占位(如 {{ approval_path }})。' },
     fields: {
       label: '字段',
       help: '此页面收集的输入字段。留空则为纯消息页面。',

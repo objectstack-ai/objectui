@@ -7,29 +7,38 @@
  * "notify the owner when the ticket is done" flow is built without typing an
  * audience selector by hand:
  *
- * | Type          | Picked with                                   | Stored as          |
- * |---------------|-----------------------------------------------|--------------------|
- * | Record field  | the trigger object's fields                   | `{record.FIELD}`   |
- * | User          | a `sys_user` lookup                           | the user id        |
- * | Team          | a `sys_team` lookup                           | `team:ID`          |
- * | Email address | free text, checked for an email's shape       | the address        |
- * | Other         | free text with the `{var}` picker             | exactly as typed   |
+ * | Type          | Picked with                                   | Stored as                                  |
+ * |---------------|-----------------------------------------------|--------------------------------------------|
+ * | Record field  | the trigger object's fields                   | `{ dialect: 'cel', source: 'record.FIELD' }` |
+ * | User          | a `sys_user` lookup                           | the user id                                |
+ * | Team          | a `sys_team` lookup                           | `team:ID`                                  |
+ * | Email address | free text, checked for an email's shape       | the address                                |
+ * | Expression    | CEL with the bare-reference picker            | `{ dialect: 'cel', source }`               |
+ * | Other         | free text                                     | exactly as typed                           |
  *
- * The spellings are the ones the platform already reads, never new ones:
- * `NotifyConfigSchema.recipients` (in `@objectstack/spec/automation`) is a
- * string or a string array whose `{token}` templates resolve per run, and each
- * resolved string is an audience spec for the messaging service's
- * `RecipientResolver` (objectstack `service-messaging`, ADR-0030): a bare user
- * id, `team:ID`, or an email-shaped value resolved to a user. The user and team
- * lookups are the ones the approval node's approvers already use, so the
- * committed column is the spec's `APPROVER_VALUE_SOURCES` binding (`sys_user.id`,
- * `sys_team.id`).
+ * The spellings are the ones `NotifyConfigSchema.recipients` (in
+ * `@objectstack/spec/automation`) accepts: a recipient string, a list of them,
+ * each a string or a CEL value envelope evaluated per run, or one envelope.
+ * `recipients` is a VALUE slot: a string is the literal text it spells, and a
+ * `{…}` template token in one is refused (objectui#11824, the ADR-0032 §3
+ * cutover; the spec prescribes `{ dialect: 'cel', source: 'record.owner' }`
+ * for `{record.owner}`). Each resolved value is an audience spec for the
+ * messaging service's `RecipientResolver` (objectstack `service-messaging`,
+ * ADR-0030): a bare user id, `team:ID`, or an email-shaped value resolved to a
+ * user. The user and team lookups are the ones the approval node's approvers
+ * already use, so the committed column is the spec's `APPROVER_VALUE_SOURCES`
+ * binding (`sys_user.id`, `sys_team.id`).
  *
- * "Other" keeps every stored value editable that is none of the four — a flow
- * variable (`{ownerId}`), a `role:NAME` or `owner_of:OBJECT:ID` selector, or a
- * `user:ID` — byte for byte: reading a flow and saving it again never rewrites
- * a recipient. A stored single string stays a single string while it holds one
- * recipient; the offline `stringList` editor used to read it as an empty list.
+ * "Other" keeps every stored string editable that is none of the four — a
+ * `role:NAME` or `owner_of:OBJECT:ID` selector, a `user:ID`, or a stored
+ * single-brace token such as `{ownerId}` — byte for byte, and an unedited
+ * envelope is written back as it was read: reading a flow and saving it again
+ * never rewrites a recipient. A stored `{record.FIELD}` string is NOT read as a
+ * Record field row: the spec refuses it, and the platform ships no conversion
+ * for it (an absent key wrote nothing under the template and fails under CEL),
+ * so the rewrite is the author's call. A stored single value stays single while
+ * it holds one recipient; the offline `stringList` editor used to read a string
+ * as an empty list.
  */
 
 import * as React from 'react';
@@ -47,25 +56,48 @@ import {
 import { RequiredMarker, uniqueId } from './_shared.js';
 import { ReferenceCombobox, type FlowReferenceContext, type ResolvedRef } from './FlowReferenceField.js';
 import { VariableTextInput } from './VariableTextInput.js';
+import { FlowExprIssue } from './FlowExprIssue.js';
 import type { ScopeGroup } from './useFlowScope.js';
 import { t, type SupportedLocale } from '../i18n.js';
 
 /** The recipient types a row can hold. `custom` is "Other": stored as typed. */
-export type RecipientKind = 'field' | 'user' | 'team' | 'email' | 'custom';
+export type RecipientKind = 'field' | 'user' | 'team' | 'email' | 'expression' | 'custom';
 
-export const RECIPIENT_KINDS: readonly RecipientKind[] = ['field', 'user', 'team', 'email', 'custom'];
+export const RECIPIENT_KINDS: readonly RecipientKind[] = ['field', 'user', 'team', 'email', 'expression', 'custom'];
+
+/** A CEL value envelope, the computed form of a recipient (spec `NotifyRecipientsSlotSchema`). */
+export interface CelValueEnvelope {
+  dialect: 'cel';
+  source: string;
+  [key: string]: unknown;
+}
+
+/** One stored recipient: a literal string, or a CEL value envelope. */
+export type StoredRecipient = string | CelValueEnvelope;
 
 export interface RecipientEntry {
   kind: RecipientKind;
-  /** The field name, user id, team id or address — or the raw text for `custom`. */
+  /** The field name, user id, team id, address or CEL source — or the raw text for `custom`. */
   value: string;
+  /** The envelope as read, written back while the row is unedited (it may carry `ast` / `meta`). */
+  stored?: CelValueEnvelope;
 }
 
 /** The `team:` audience prefix `RecipientResolver` expands to the team's members. */
 const TEAM_PREFIX = 'team:';
 
-/** `{record.FIELD}` — one field of the trigger record, as a flow template. */
-const RECORD_FIELD_TEMPLATE = /^\{record\.([A-Za-z_][A-Za-z0-9_]*)\}$/;
+/** `record.FIELD` — one field of the trigger record, as a CEL source. */
+const RECORD_FIELD_SOURCE = /^record\.([A-Za-z_][A-Za-z0-9_]*)$/;
+
+export function isCelValueEnvelope(v: unknown): v is CelValueEnvelope {
+  return (
+    v !== null &&
+    typeof v === 'object' &&
+    !Array.isArray(v) &&
+    (v as { dialect?: unknown }).dialect === 'cel' &&
+    typeof (v as { source?: unknown }).source === 'string'
+  );
+}
 
 /**
  * Whether `s` has an email's shape — the same linear test `RecipientResolver`
@@ -83,10 +115,12 @@ export function looksLikeEmail(s: string): boolean {
   return dot > 0 && dot < domain.length - 1;
 }
 
-/** Classify one stored recipient string. Never rewrites it: see {@link writeRecipient}. */
-export function readRecipient(raw: string): RecipientEntry {
-  const field = RECORD_FIELD_TEMPLATE.exec(raw);
-  if (field) return { kind: 'field', value: field[1] };
+/** Classify one stored recipient. Never rewrites it: see {@link writeRecipient}. */
+export function readRecipient(raw: StoredRecipient): RecipientEntry {
+  if (typeof raw !== 'string') {
+    const field = RECORD_FIELD_SOURCE.exec(raw.source.trim());
+    return field ? { kind: 'field', value: field[1], stored: raw } : { kind: 'expression', value: raw.source, stored: raw };
+  }
   if (raw.startsWith(TEAM_PREFIX) && raw.length > TEAM_PREFIX.length && !/[\s{}]/.test(raw)) {
     return { kind: 'team', value: raw.slice(TEAM_PREFIX.length) };
   }
@@ -97,13 +131,16 @@ export function readRecipient(raw: string): RecipientEntry {
   return { kind: 'custom', value: raw };
 }
 
-/** The stored string for one entry; `''` for an entry with no value yet. */
-export function writeRecipient(entry: RecipientEntry): string {
+/** The stored value for one entry; `''` for an entry with no value yet. */
+export function writeRecipient(entry: RecipientEntry): StoredRecipient {
+  if (entry.stored) return entry.stored;
   const v = entry.value.trim();
   if (!v) return '';
   switch (entry.kind) {
     case 'field':
-      return `{record.${v}}`;
+      return { dialect: 'cel', source: `record.${v}` };
+    case 'expression':
+      return { dialect: 'cel', source: v };
     case 'team':
       return `${TEAM_PREFIX}${v}`;
     default:
@@ -111,22 +148,30 @@ export function writeRecipient(entry: RecipientEntry): string {
   }
 }
 
-/** Read the stored `recipients` value (a string or a string array) as entries. */
+/** Whether the stored `recipients` value is one recipient rather than a list. */
+export function isSingleRecipient(value: unknown): boolean {
+  return typeof value === 'string' || isCelValueEnvelope(value);
+}
+
+/** Read the stored `recipients` value (one recipient, or a list of them) as entries. */
 export function readRecipients(value: unknown): RecipientEntry[] {
-  const list = Array.isArray(value) ? value : typeof value === 'string' ? [value] : [];
+  const list: unknown[] = Array.isArray(value) ? value : isSingleRecipient(value) ? [value] : [];
   return list
-    .filter((v): v is string => typeof v === 'string' && v.trim() !== '')
+    .filter((v): v is StoredRecipient => (typeof v === 'string' && v.trim() !== '') || isCelValueEnvelope(v))
     .map((v) => readRecipient(v));
 }
 
 /**
- * The value to store for `entries`: `undefined` for none, a single string when
- * the stored value was one and still holds one recipient, else a string array.
+ * The value to store for `entries`: `undefined` for none, a single value when
+ * the stored value was one and still holds one recipient, else a list.
  */
-export function writeRecipients(entries: RecipientEntry[], storedAsString: boolean): string | string[] | undefined {
+export function writeRecipients(
+  entries: RecipientEntry[],
+  storedAsSingle: boolean,
+): StoredRecipient | StoredRecipient[] | undefined {
   const list = entries.map(writeRecipient).filter((s) => s !== '');
   if (list.length === 0) return undefined;
-  return storedAsString && list.length === 1 ? list[0] : list;
+  return storedAsSingle && list.length === 1 ? list[0] : list;
 }
 
 /** The reference each picked type resolves through (`FlowReferenceField`'s combobox). */
@@ -143,6 +188,7 @@ const KIND_LABEL_KEYS: Record<RecipientKind, string> = {
   user: 'engine.inspector.recipients.kind.user',
   team: 'engine.inspector.recipients.kind.team',
   email: 'engine.inspector.recipients.kind.email',
+  expression: 'engine.inspector.recipients.kind.expression',
   custom: 'engine.inspector.recipients.kind.custom',
 };
 const KIND_PLACEHOLDER_KEYS: Record<RecipientKind, string> = {
@@ -150,6 +196,7 @@ const KIND_PLACEHOLDER_KEYS: Record<RecipientKind, string> = {
   user: 'engine.inspector.recipients.placeholder.user',
   team: 'engine.inspector.recipients.placeholder.team',
   email: 'engine.inspector.recipients.placeholder.email',
+  expression: 'engine.inspector.recipients.placeholder.expression',
   custom: 'engine.inspector.recipients.placeholder.custom',
 };
 
@@ -169,12 +216,12 @@ function toRows(entries: RecipientEntry[]): Row[] {
 export interface FlowRecipientsFieldProps {
   label: string;
   value: unknown;
-  onCommit: (value: string | string[] | undefined) => void;
+  onCommit: (value: StoredRecipient | StoredRecipient[] | undefined) => void;
   disabled?: boolean;
   locale?: SupportedLocale | string;
   /** Draft + node, so a Record field row can read the trigger object. */
   context?: FlowReferenceContext;
-  /** In-scope references for an Other row's `{var}` picker. */
+  /** In-scope references for an Expression row's picker. */
   scopeGroups?: ScopeGroup[];
   /** The spec requires this key (objectui#10948). */
   required?: boolean;
@@ -190,10 +237,10 @@ export function FlowRecipientsField({
   scopeGroups,
   required,
 }: FlowRecipientsFieldProps) {
-  const storedAsString = typeof value === 'string';
+  const storedAsSingle = isSingleRecipient(value);
   const external = React.useMemo(
-    () => JSON.stringify(writeRecipients(readRecipients(value), storedAsString) ?? null),
-    [value, storedAsString],
+    () => JSON.stringify(writeRecipients(readRecipients(value), storedAsSingle) ?? null),
+    [value, storedAsSingle],
   );
   const [rows, setRows] = React.useState<Row[]>(() => toRows(readRecipients(value)));
   const lastCommitted = React.useRef(external);
@@ -208,15 +255,17 @@ export function FlowRecipientsField({
   }, [external, value]);
 
   const flush = (next: Row[]) => {
-    const out = writeRecipients(next, storedAsString);
+    const out = writeRecipients(next, storedAsSingle);
     lastCommitted.current = JSON.stringify(out ?? null);
     onCommit(out);
   };
 
   // Each handler derives the next rows from the rows on screen and commits
-  // outside the state updater, so a commit runs once per gesture.
+  // outside the state updater, so a commit runs once per gesture. An edited
+  // row is written from its type and value: the envelope it was read from is
+  // dropped.
   const patchRow = (id: string, patch: Partial<RecipientEntry>, commit: boolean) => {
-    const next = rows.map((r) => (r.id === id ? { ...r, ...patch } : r));
+    const next = rows.map((r) => (r.id === id ? { ...r, ...patch, stored: undefined } : r));
     setRows(next);
     if (commit) flush(next);
   };
@@ -283,9 +332,10 @@ export function FlowRecipientsField({
                       context={context}
                       ariaLabel={kindLabel(row.kind)}
                     />
-                  ) : row.kind === 'custom' ? (
+                  ) : row.kind === 'expression' ? (
                     <VariableTextInput
-                      mode="template"
+                      mode="expression"
+                      mono
                       value={row.value}
                       onValueChange={(v) => patchRow(row.id, { value: v }, false)}
                       onBlur={() => flush(rows)}
@@ -293,8 +343,21 @@ export function FlowRecipientsField({
                         if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                       }}
                       groups={scopeGroups ?? []}
-                      placeholder={placeholder('custom')}
+                      placeholder={placeholder('expression')}
                       disabled={disabled}
+                    />
+                  ) : row.kind === 'custom' ? (
+                    <Input
+                      value={row.value}
+                      onChange={(e) => patchRow(row.id, { value: e.target.value }, false)}
+                      onBlur={() => flush(rows)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                      }}
+                      placeholder={placeholder('custom')}
+                      aria-label={kindLabel('custom')}
+                      disabled={disabled}
+                      className="h-8 text-sm"
                     />
                   ) : (
                     <Input
@@ -326,6 +389,9 @@ export function FlowRecipientsField({
                   <X className="h-3.5 w-3.5" />
                 </Button>
               </div>
+              {row.kind === 'expression' && row.value.trim() !== '' && (
+                <FlowExprIssue value={row.value} role="value" scopeGroups={scopeGroups} />
+              )}
               {notEmail && (
                 <p className="text-[11px] leading-snug text-amber-700 dark:text-amber-400" role="note">
                   {t('engine.inspector.recipients.notEmail', locale)}

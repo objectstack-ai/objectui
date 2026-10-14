@@ -3,7 +3,7 @@
 /**
  * screen-spec — pure helpers that map a flow `screen` node's authored `config`
  * onto the runtime `ScreenSpec` (the contract {@link ScreenView} renders), plus
- * `{var}` interpolation for the title/description and the Studio's diagnostics
+ * `{{ }}` hole rendering for the title/description and the Studio's diagnostics
  * for a field's `visibleWhen`. Kept framework-free so {@link ScreenPreview}
  * stays a thin component and these stay unit-testable.
  *
@@ -65,24 +65,37 @@ export interface ScreenPreviewNode {
 }
 
 /**
- * One `{…}` template reference: the token {@link interpolate} substitutes, and
- * the one the engine's `interpolateString` resolves when a screen pauses. It
- * is shared with {@link defaultValueTemplates}, which only DETECTS a token (it
- * never substitutes one), so "is this a template" and "what the preview
- * substitutes" cannot read two different grammars.
+ * One `{…}` template reference: the token the engine's `interpolateString`
+ * resolves in a field's `defaultValue` when a screen pauses.
+ * {@link defaultValueTemplates} only DETECTS one (it never substitutes it).
+ * The title and description are flow text slots and read `{{ }}` holes
+ * instead ({@link interpolateHoles}, objectui#11824).
  */
 const TEMPLATE_TOKEN = /\{([^{}]+)\}/g;
 
+/** One ADR-0032 §3 hole: a variable path, then an optional `| formatter`. */
+const HOLE_TOKEN = /\{\{([^{}]*)\}\}/g;
+
 /**
- * Interpolate `{var}` references, mirroring the simulator's `{var}` syntax
- * (flow-simulator.ts). Known vars are substituted; unknown refs stay literal so
- * the author still sees the dependency in the design preview.
+ * Render the `{{ }}` holes of a screen `title` / `description` — flow text
+ * slots, which the engine renders as ADR-0032 §3 templates and where the spec
+ * refuses a single-brace `{…}` token (objectui#11824). A hole whose variable
+ * path resolves in `vars` (dotted segments walk nested values) is replaced by
+ * the value; a `| formatter` is not modelled, so the raw value is shown. An
+ * unresolved hole stays literal, so the author still sees the dependency, and
+ * a single-brace token is left exactly as written: it is no placeholder there.
  */
-export function interpolate(text: string | undefined, vars: Record<string, unknown> | undefined): string {
+export function interpolateHoles(text: string | undefined, vars: Record<string, unknown> | undefined): string {
   if (!text) return '';
   if (!vars) return text;
-  return text.replace(TEMPLATE_TOKEN, (m, k) => {
-    const v = vars[String(k).trim()];
+  return text.replace(HOLE_TOKEN, (m, inner: string) => {
+    const path = inner.split('|')[0].trim();
+    if (!path) return m;
+    let v: unknown = vars;
+    for (const segment of path.split('.')) {
+      if (v === null || typeof v !== 'object' || !(segment in (v as Record<string, unknown>))) return m;
+      v = (v as Record<string, unknown>)[segment];
+    }
     return v === undefined || v === null ? m : String(v);
   });
 }

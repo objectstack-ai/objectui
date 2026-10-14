@@ -41,16 +41,16 @@ afterEach(() => {
 });
 
 describe('ScreenPreview — flat fields', () => {
-  it('renders the title + description with {var} interpolation against supplied variables', () => {
+  it('renders the title + description {{ }} holes against supplied variables (objectui#11824)', () => {
     render(
       <ScreenPreview
-        node={{ id: 's1', config: { title: 'Discount for {customer}', description: 'Deal {deal_id} · owner {missing}' } }}
+        node={{ id: 's1', config: { title: 'Discount for {{ customer }}', description: 'Deal {{ deal_id }} · owner {{ missing }}' } }}
         variables={{ customer: 'Acme', deal_id: 42 }}
       />,
     );
     expect(screen.getByText('Discount for Acme')).toBeInTheDocument();
-    // Known var substituted; unknown ref kept literal so the author sees it.
-    expect(screen.getByText('Deal 42 · owner {missing}')).toBeInTheDocument();
+    // Known var substituted; unknown hole kept literal so the author sees it.
+    expect(screen.getByText('Deal 42 · owner {{ missing }}')).toBeInTheDocument();
   });
 
   it('renders each input field (label, required marker) and a non-functional Submit', () => {

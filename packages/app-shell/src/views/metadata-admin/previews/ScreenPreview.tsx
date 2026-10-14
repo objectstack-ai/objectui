@@ -7,8 +7,8 @@
  * It builds a runtime `ScreenSpec` from the node's authored `config` and hands
  * it to the shared {@link ScreenView} — the SAME renderer the runtime
  * FlowRunner uses — so the preview can never drift from runtime (the
- * design↔runtime divergence #1927 set out to kill). `{var}` references in the
- * title/description are interpolated against the supplied `variables` (the
+ * design↔runtime divergence #1927 set out to kill). `{{ }}` holes in the
+ * title/description are rendered against the supplied `variables` (the
  * flow's declared defaults in the inspector, or the live simulated values when
  * paused in the Debug simulator). A field's `visibleWhen` is NOT decided here:
  * it reaches `ScreenView` raw, and the renderer decides it live over the
@@ -54,7 +54,7 @@ import {
 import {
   buildScreenSpec,
   defaultValueTemplates,
-  interpolate,
+  interpolateHoles,
   hiddenFieldCount,
   type ScreenPreviewNode,
 } from './screen-spec.js';
@@ -66,9 +66,9 @@ export interface ScreenPreviewProps {
   /** The screen node to preview. */
   node: ScreenPreviewNode;
   /**
-   * Variable values for `{var}` interpolation in the title/description. The
+   * Variable values for the `{{ }}` holes in the title/description. The
    * inspector passes the flow's declared defaults; the simulator passes the live
-   * run state at the pause point. Unknown `{var}` refs stay literal. They play
+   * run state at the pause point. Unknown holes stay literal. They play
    * no part in a field's `visibleWhen`: a screen predicate binds the screen's
    * own declared fields plus the values being collected, and `ScreenView`
    * decides it live (objectui#10743).
@@ -88,8 +88,8 @@ export function ScreenPreview({ node, variables, className, locale }: ScreenPrev
   // list the runtime FlowRunner gets. Only read in object-form mode so a plain
   // field screen never triggers the all-objects fetch.
   const objects = isObjectForm ? meta.objects : undefined;
-  const title = interpolate(spec.title, variables);
-  const description = interpolate(spec.description, variables);
+  const title = interpolateHoles(spec.title, variables);
+  const description = interpolateHoles(spec.description, variables);
 
   // Reset transient input state when the screen's STRUCTURE changes (fields
   // added/removed/retyped/regated, or object-form target/mode), or a field's

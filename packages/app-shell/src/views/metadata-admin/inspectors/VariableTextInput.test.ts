@@ -12,6 +12,10 @@ describe('formatToken', () => {
     expect(formatToken('discount_pct', 'template')).toBe('{discount_pct}');
     expect(formatToken('record.amount', 'template')).toBe('{record.amount}');
   });
+  it('wraps a token in a {{ }} hole in a flow text slot (objectui#11824)', () => {
+    expect(formatToken('record.amount', 'hole')).toBe('{{ record.amount }}');
+    expect(insertToken('Hi ', 'hole', 'record.name', 3, 3)).toEqual({ next: 'Hi {{ record.name }}', caret: 20 });
+  });
 });
 
 describe('insertToken (cursor splice)', () => {

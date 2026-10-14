@@ -5,14 +5,16 @@
  * of the trigger record, a user, a team or an email address.
  *
  * What is pinned:
- *   1. the stored spellings are the ones the platform reads — a `{record.FIELD}`
- *      template, a bare user id, `team:ID`, an address — and every value the
- *      picker writes passes the installed spec's `NotifyConfigSchema`;
+ *   1. the stored spellings are the ones the platform reads — a CEL value
+ *      envelope over `record.FIELD`, a bare user id, `team:ID`, an address, a
+ *      CEL expression — and every value the picker writes passes the installed
+ *      spec's `NotifyConfigSchema` (objectui#11824: `recipients` is a value
+ *      slot, so the Record field row no longer writes `{record.FIELD}`);
  *   2. reading a stored value and writing it back never rewrites it, including
- *      the values that are none of the four ("Other": a flow variable, a
- *      `role:` or `owner_of:` selector, a `user:ID`);
- *   3. a stored single string reads as one recipient (the free-text list read
- *      it as none) and stays a string while it holds one;
+ *      the values that are none of the types ("Other": a `role:` or
+ *      `owner_of:` selector, a `user:ID`, a stored single-brace token);
+ *   3. a stored single value reads as one recipient (the free-text list read
+ *      it as none) and stays single while it holds one;
  *   4. each type commits through its own picker: the trigger object's field
  *      catalog, the `sys_user` / `sys_team` record lookups, an email box that
  *      warns on a value without an email's shape.
@@ -129,16 +131,14 @@ const row = (i: number) => document.querySelector(`[data-recipient-row="${i}"]`)
 const notifyAccepts = (recipients: unknown) =>
   NotifyConfigSchema.safeParse({ recipients, title: 'Ticket done' }).success;
 
+const cel = (source: string) => ({ dialect: 'cel' as const, source });
+
 describe('objectui#11788 — the stored spellings', () => {
   const CASES: Array<[string, string, string]> = [
-    ['{record.owner}', 'field', 'owner'],
     ['usr_ada', 'user', 'usr_ada'],
     ['team:team_ops', 'team', 'team_ops'],
     ['ops@example.com', 'email', 'ops@example.com'],
     // "Other": kept as typed.
-    ['{ownerId}', 'custom', '{ownerId}'],
-    ['{task.owner}', 'custom', '{task.owner}'],
-    ['{record.owner.manager}', 'custom', '{record.owner.manager}'],
     ['role:admin', 'custom', 'role:admin'],
     ['owner_of:ticket:t1', 'custom', 'owner_of:ticket:t1'],
     ['user:usr_ada', 'custom', 'user:usr_ada'],
@@ -152,30 +152,42 @@ describe('objectui#11788 — the stored spellings', () => {
     });
   }
 
-  it('every written value is one the spec\'s NotifyConfigSchema accepts — but the PENDING `{…}` spellings (objectui#12030)', () => {
-    const all = CASES.map(([stored]) => stored);
-    const written = writeRecipients(readRecipients(all), false);
-    expect(written).toEqual(all);
-    // ⚠️ PENDING, not accepted (objectui#12030). `@objectstack/spec` 18 made
-    // `recipients` a VALUE slot: a string there is the literal text it spells,
-    // and a `{…}` token in it is refused, with a CEL value envelope prescribed
-    // in its place (`{ dialect: 'cel', source: 'record.owner' }`). This field
-    // still writes `{record.FIELD}` for a Record field row and keeps the other
-    // `{…}` spellings as typed, so a flow it writes is refused by an 18 server.
-    // What the row writes instead, and whether a stored `{…}` value is read or
-    // rewritten, is a flow-dialect decision the version bump does not make; it
-    // is reported, and this pin names exactly the spellings it covers, so any
-    // OTHER refused spelling still fails here.
-    const PENDING_TEMPLATE_SPELLINGS = all.filter((stored) => /[{}]/.test(stored));
-    expect(PENDING_TEMPLATE_SPELLINGS).toEqual(['{record.owner}', '{ownerId}', '{task.owner}', '{record.owner.manager}']);
-    expect(notifyAccepts((written as string[]).filter((stored) => !PENDING_TEMPLATE_SPELLINGS.includes(stored)))).toBe(true);
-    for (const stored of PENDING_TEMPLATE_SPELLINGS) expect(notifyAccepts([stored]), stored).toBe(false);
+  it('a Record field row is a CEL value envelope over record.FIELD, and any other envelope is an Expression row (objectui#11824)', () => {
+    expect(writeRecipient({ kind: 'field', value: 'owner' })).toEqual(cel('record.owner'));
+    expect(readRecipient(cel('record.owner'))).toMatchObject({ kind: 'field', value: 'owner' });
+    expect(writeRecipient({ kind: 'expression', value: 'ownerId' })).toEqual(cel('ownerId'));
+    expect(readRecipient(cel('record.owner.manager'))).toMatchObject({ kind: 'expression', value: 'record.owner.manager' });
+    // An unedited envelope is written back as read, keys the row does not edit included.
+    const withMeta = { ...cel('task.owner'), meta: { rationale: 'the assignee' } };
+    expect(writeRecipient(readRecipient(withMeta))).toBe(withMeta);
   });
 
-  it('a single stored string stays a string while it holds one recipient; none writes no key', () => {
-    expect(writeRecipients(readRecipients('{record.owner}'), true)).toBe('{record.owner}');
-    expect(writeRecipients([...readRecipients('{record.owner}'), { kind: 'team', value: 't' }], true)).toEqual([
-      '{record.owner}',
+  it('every value the picker writes is one the spec\'s NotifyConfigSchema accepts (objectui#11824)', () => {
+    const written = writeRecipients(
+      [
+        { kind: 'field', value: 'owner' },
+        { kind: 'expression', value: 'ownerId' },
+        ...readRecipients(CASES.map(([stored]) => stored)),
+      ],
+      false,
+    );
+    expect(written).toEqual([cel('record.owner'), cel('ownerId'), ...CASES.map(([stored]) => stored)]);
+    expect(notifyAccepts(written)).toBe(true);
+  });
+
+  it('a stored single-brace token is Other, kept as typed — the spec refuses it, and no conversion rewrites it', () => {
+    for (const stored of ['{record.owner}', '{ownerId}', '{task.owner}', '{record.owner.manager}']) {
+      expect(readRecipient(stored), stored).toEqual({ kind: 'custom', value: stored });
+      expect(writeRecipient(readRecipient(stored)), stored).toBe(stored);
+      expect(notifyAccepts([stored]), stored).toBe(false);
+    }
+  });
+
+  it('a single stored value stays single while it holds one recipient; none writes no key', () => {
+    expect(writeRecipients(readRecipients('usr_ada'), true)).toBe('usr_ada');
+    expect(writeRecipients(readRecipients(cel('record.owner')), true)).toEqual(cel('record.owner'));
+    expect(writeRecipients([...readRecipients('usr_ada'), { kind: 'team', value: 't' }], true)).toEqual([
+      'usr_ada',
       'team:t',
     ]);
     expect(writeRecipients([], false)).toBeUndefined();
@@ -184,14 +196,14 @@ describe('objectui#11788 — the stored spellings', () => {
 });
 
 describe('objectui#11788 — the picker', () => {
-  it('reads a stored single string as one Record field row (the free-text list read it as none)', () => {
-    mount('{record.owner}');
+  it('reads a stored single envelope as one Record field row (the free-text list read it as none)', () => {
+    mount(cel('record.owner'));
     expect(within(row(0)).getByRole('combobox', { name: 'Recipient type' }).textContent).toBe('Record field');
     expect(within(row(0)).getByDisplayValue('owner')).toBeInTheDocument();
     expect(row(1)).toBeNull();
   });
 
-  it('a new row picks a field of the trigger object and stores it as {record.FIELD}', () => {
+  it('a new row picks a field of the trigger object and stores it as a CEL value envelope over record.FIELD (objectui#11824)', () => {
     const { last } = mount(undefined);
     fireEvent.click(screen.getByRole('button', { name: 'Add recipient' }));
     const options = Array.from(document.querySelectorAll('datalist option')).map((o) => (o as HTMLOptionElement).value);
@@ -199,15 +211,13 @@ describe('objectui#11788 — the picker', () => {
     const input = within(row(0)).getByPlaceholderText('Field of the trigger record');
     fireEvent.change(input, { target: { value: 'owner' } });
     fireEvent.blur(input);
-    expect(last()).toEqual(['{record.owner}']);
-    // ⚠️ PENDING (objectui#12030): `@objectstack/spec` 18 refuses this spelling in
-    // the `recipients` value slot — see the stored-spellings pin above.
-    expect(notifyAccepts(last())).toBe(false);
+    expect(last()).toEqual([cel('record.owner')]);
+    expect(notifyAccepts(last())).toBe(true);
   });
 
   it('a Team row commits the picked sys_team row as team:ID', async () => {
     state.adapter = { find: vi.fn() };
-    const { last } = mount(['{record.owner}']);
+    const { last } = mount([cel('record.owner')]);
     fireEvent.click(screen.getByRole('button', { name: 'Add recipient' }));
     await userEvent.click(within(row(1)).getByRole('combobox', { name: 'Recipient type' }));
     await userEvent.click(await screen.findByRole('option', { name: 'Team' }));
@@ -215,7 +225,7 @@ describe('objectui#11788 — the picker', () => {
     expect(lookup.dataset.object).toBe('sys_team');
     expect(lookup.dataset.valueField).toBe('id');
     fireEvent.click(lookup);
-    expect(last()).toEqual(['{record.owner}', 'team:team_ops']);
+    expect(last()).toEqual([cel('record.owner'), 'team:team_ops']);
   });
 
   it('a User row commits the picked sys_user row as its bare id', async () => {
@@ -244,7 +254,22 @@ describe('objectui#11788 — the picker', () => {
     expect(last()).toEqual(['ops@example.com']);
   });
 
-  it('a stored value that is none of the four stays as typed under Other, and a remove keeps the rest unchanged', () => {
+  it('an Expression row commits a CEL value envelope, and its brace check is the CEL one (objectui#11824)', async () => {
+    const { last } = mount([]);
+    fireEvent.click(screen.getByRole('button', { name: 'Add recipient' }));
+    await userEvent.click(within(row(0)).getByRole('combobox', { name: 'Recipient type' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Expression' }));
+    const box = within(row(0)).getByPlaceholderText('CEL, e.g. ownerId');
+    fireEvent.change(box, { target: { value: '{ownerId}' } });
+    expect(within(row(0)).getByRole('alert')).toBeInTheDocument();
+    fireEvent.change(box, { target: { value: 'ownerId' } });
+    expect(within(row(0)).queryByRole('alert')).toBeNull();
+    fireEvent.blur(box);
+    expect(last()).toEqual([cel('ownerId')]);
+    expect(notifyAccepts(last())).toBe(true);
+  });
+
+  it('a stored value that is none of the types stays as typed under Other, and a remove keeps the rest unchanged', () => {
     const { last } = mount(['role:admin', '{ownerId}', 'team:team_ops']);
     expect(within(row(0)).getByRole('combobox', { name: 'Recipient type' }).textContent).toBe('Other');
     expect(within(row(0)).getByDisplayValue('role:admin')).toBeInTheDocument();

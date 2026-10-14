@@ -68,7 +68,7 @@ const INHERITED_MEMBERS: string[] = [
 const LOWERCASE_INHERITED_MEMBERS: string[] = ['constructor', '__proto__'];
 
 /**
- * The degenerate control. `open` -> `bg-green-100` is the fixture that proves
+ * The degenerate control. `open` -> the green tint is the fixture that proves
  * the guard did not simply switch ordinary lookups off; it is asserted first,
  * and it is green both before and after the fix.
  */
@@ -80,8 +80,10 @@ const CONTROL_CONFIG: RowColorConfig = {
 describe('useRowColor — ordinary lookups still work (degenerate control)', () => {
   it('resolves an authored colour name to its Tailwind class', () => {
     const resolve = resolverFor(CONTROL_CONFIG);
-    expect(resolve({ status: 'open' })).toBe('bg-green-100');
-    expect(resolve({ status: 'closed' })).toBe('bg-red-100');
+    // Each name resolves to its tint (objectui#12375); its light half names
+    // the colour, so two names give two different classes.
+    expect(resolve({ status: 'open' })).toContain('[--os-row-tint:var(--color-green-100)]');
+    expect(resolve({ status: 'closed' })).toContain('[--os-row-tint:var(--color-red-100)]');
   });
 
   it('passes a value that is already a bg-* class through untouched', () => {

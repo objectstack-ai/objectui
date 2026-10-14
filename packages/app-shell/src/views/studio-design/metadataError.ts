@@ -25,7 +25,7 @@ import {
   type MetadataError,
   type MetadataValidationIssue,
 } from '@object-ui/data-objectstack';
-import { resolveFlowTriggerKind } from '@objectstack/spec/automation';
+import { FlowSchema, resolveFlowTriggerKind } from '@objectstack/spec/automation';
 import { DashboardWidgetSchema, resolveI18nLabel, type I18nLabel } from '@objectstack/spec/ui';
 import type { RegisteredErrorCode } from '@objectstack/spec/api';
 import type { NavTargetLabelResolver } from '@object-ui/layout';
@@ -36,6 +36,7 @@ import {
   getFieldValue,
   isFieldVisible,
   localizeFlowFields,
+  type FlowConfigField,
 } from '../metadata-admin/inspectors/flow-node-config.js';
 import { specRequiresField } from '../metadata-admin/inspectors/flow-required-keys.js';
 import { navEntryLabelText, type NavEntryLike } from '../metadata-admin/previews/navItemLabel.js';
@@ -438,6 +439,23 @@ export function objectHeldEdit(body: SentBody, locale: string): StudioHeld | nul
 }
 
 /**
+ * Whether `value` is a BLANK text (objectui#12343): a string with nothing in it
+ * but whitespace, by the notion of blank the spec's own text-slot judge applies
+ * (its `NON_BLANK_STRING` rule, `source.trim().length > 0`, not exported). Only
+ * asked of a value the flow parse already refuses at its input, so this only
+ * sorts a refusal into "unfinished" or "finished but wrong"; it never adds one.
+ */
+function isBlankText(value: unknown): boolean {
+  return typeof value === 'string' && value.trim() === '';
+}
+
+/** The path below the node that holds `field`'s value: its own, else its `fallbackPath`. */
+function valuePathOf(node: SentBody, field: FlowConfigField): readonly string[] {
+  if (!field.fallbackPath) return field.path;
+  return getFieldValue(node, { ...field, fallbackPath: undefined }) !== undefined ? field.path : field.fallbackPath;
+}
+
+/**
  * The first input of `node`'s inspector table that holds no value while the
  * installed spec refuses the node without it, or `null`.
  *
@@ -445,14 +463,26 @@ export function objectHeldEdit(body: SentBody, locale: string): StudioHeld | nul
  * state the spec's judges refuse, and what `specRequiresField` asks about. An
  * input it shows only in another configuration is not asked, so a step is held
  * only for an input its inspector offers to fill.
+ *
+ * objectui#12343 — "no value" is also a BLANK text the flow parse refuses at
+ * that input (`refusedAt`), as objectui#11951 ruled for a widget's emptied
+ * binding: `@objectstack/spec` 18 refuses a blank Notify `title`. The parse's
+ * refusal at the input is the condition, so a blank the contract accepts (a
+ * Screen's `title`) is sent as before, and a non-blank value the parse
+ * refuses is finished but wrong: its refusal shows.
  */
-function heldInputOf(node: SentBody, flowKind: ReturnType<typeof resolveFlowTriggerKind>) {
+function heldInputOf(
+  node: SentBody,
+  flowKind: ReturnType<typeof resolveFlowTriggerKind>,
+  refusedAt: (path: readonly string[]) => boolean,
+) {
   if (typeof node.type !== 'string') return null;
   const fields = fieldsForNodeType(node.type);
   for (const field of fields) {
-    if (getFieldValue(node, field) !== undefined) continue;
+    const value = getFieldValue(node, field);
+    if (value !== undefined && !isBlankText(value)) continue;
     if (!isFieldVisible(field, node, fields, flowKind)) continue;
-    if (specRequiresField(node, field)) return field;
+    if (value === undefined ? specRequiresField(node, field) : refusedAt(valuePathOf(node, field))) return field;
   }
   return null;
 }
@@ -460,15 +490,25 @@ function heldInputOf(node: SentBody, flowKind: ReturnType<typeof resolveFlowTrig
 /**
  * The edit the Automations pillar holds for `draft`, the flow its autosave
  * would send, or `null`: the first top-level step one of whose inspector inputs
- * the spec requires and the step leaves out. A step inside a container region
- * is not asked; its refusal shows as the server words it.
+ * the spec requires and the step leaves out, or holds blank where the flow
+ * parse refuses a blank. A step inside a container region is not asked; its
+ * refusal shows as the server words it.
  */
 export function flowHeldEdit(draft: SentBody, locale: string): StudioHeld | null {
   if (!Array.isArray(draft.nodes)) return null;
   const flowKind = resolveFlowTriggerKind(draft);
-  for (const node of draft.nodes) {
+  // The flow parse's issue paths, read once and only when a blank asks.
+  let refused: ReadonlySet<string> | null = null;
+  const refusedPaths = (): ReadonlySet<string> => {
+    if (!refused) {
+      const result = FlowSchema.safeParse(draft);
+      refused = new Set(result.success ? [] : result.error.issues.map((issue) => issue.path.map(String).join('.')));
+    }
+    return refused;
+  };
+  for (const [index, node] of draft.nodes.entries()) {
     if (!isSentBody(node) || typeof node.id !== 'string' || node.id === '') continue;
-    const field = heldInputOf(node, flowKind);
+    const field = heldInputOf(node, flowKind, (path) => refusedPaths().has(['nodes', index, ...path].join('.')));
     if (!field) continue;
     const step = typeof node.label === 'string' && node.label.trim() !== '' ? node.label.trim() : node.id;
     const input = flowInputLabel(node.type, field.path, locale) ?? field.label;

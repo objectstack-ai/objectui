@@ -159,17 +159,63 @@ describe('the Automations pillar holds a step the spec refuses for a missing inp
     }
   });
 
-  it('a BLANK Title: the flow parse refuses it since `@objectstack/spec` 18, and it is not held — its refusal shows (objectui#12030)', () => {
+  it('a BLANK Title: the flow parse refuses it since `@objectstack/spec` 18, and it is held like a missing one (objectui#12343)', () => {
     // Through 17.x a blank title was a value: accepted, and sent. 18 refuses a
-    // blank Notify title at the title. The hold asks only about an ABSENT key
-    // (`heldInputOf`), so a title the author emptied is sent and the server's
-    // refusal shows, as for any finished-but-refused input. That is the
-    // behaviour this bump keeps; whether an emptied input should be held like
-    // an absent one (as objectui#11951 ruled for a widget's binding) is a
-    // design question left open, not answered here. The hold stays no stricter
-    // than the contract either way.
-    const flow = flowWithNotify({ channels: ['inbox'], recipients: ['owner'], title: '' });
+    // blank Notify title at the title (objectui#12030 pinned it sent, PENDING).
+    // A title the author emptied is held like an absent one, as objectui#11951
+    // ruled for a widget's emptied binding. Blank is the spec's own notion
+    // (`trim()` empty): `''`, and the spaces a cleared-then-retyped control
+    // leaves (the inspector deletes a `''` it is handed, so spaces are the
+    // reachable case).
+    for (const title of ['', '   ', '\t']) {
+      const flow = flowWithNotify({ channels: ['inbox'], recipients: ['owner'], title });
+      expect(flowParseRefusals(flow)).toEqual(['nodes.2.config.title']);
+      expect(flowHeldEdit(flow, 'en')).toEqual({
+        clause: tFormat('engine.studio.held.needsInput', 'en', { input: 'Title', step: 'Notify' }),
+        target: { kind: 'node', id: 'notify_1' },
+      });
+    }
+  });
+
+  it('zh: a BLANK Title is held, named by the inspector\'s zh label (objectui#12343)', () => {
+    const flow = flowWithNotify({ channels: ['inbox'], recipients: ['owner'], title: ' ' });
     expect(flowParseRefusals(flow)).toEqual(['nodes.2.config.title']);
+    expect(flowHeldEdit(flow, 'zh-CN')).toEqual({
+      clause: tFormat('engine.studio.held.needsInput', 'zh-CN', { input: '标题', step: 'Notify' }),
+      target: { kind: 'node', id: 'notify_1' },
+    });
+  });
+
+  // CONTROLS (objectui#12343): the hold is no stricter than the flow parse.
+  it('a filled Title, a `{{ }}` template Title, or a template in its place: not held', () => {
+    for (const config of [
+      { channels: ['inbox'], recipients: ['owner'], title: 'Approved' },
+      { channels: ['inbox'], recipients: ['owner'], title: '{{ record.name }} approved' },
+      { channels: ['inbox'], recipients: ['owner'], template: 'approval_done' },
+    ]) {
+      const flow = flowWithNotify(config);
+      expect(flowParseRefusals(flow)).toEqual([]);
+      expect(flowHeldEdit(flow, 'en')).toBeNull();
+    }
+  });
+
+  it('a Title the parse refuses for what it holds, not for being blank, is not held: its refusal shows', () => {
+    const flow = flowWithNotify({ channels: ['inbox'], recipients: ['owner'], title: 'Hi {name}' });
+    expect(flowParseRefusals(flow)).toEqual(['nodes.2.config.title']);
+    expect(flowHeldEdit(flow, 'en')).toBeNull();
+  });
+
+  it('a BLANK Title on a step whose contract does not refuse it (a Screen): not held', () => {
+    const flow = flowWithNotify(undefined);
+    flow.nodes = [
+      ...(flow.nodes as unknown[]).slice(0, 2),
+      { id: 'screen_1', type: 'screen', label: 'Screen', config: { title: ' ', fields: [] } },
+    ];
+    flow.edges = [
+      { id: 'e1', source: 'start', target: 'screen_1' },
+      { id: 'edge', source: 'screen_1', target: 'end' },
+    ];
+    expect(flowParseRefusals(flow)).toEqual([]);
     expect(flowHeldEdit(flow, 'en')).toBeNull();
   });
 

@@ -2525,9 +2525,7 @@ function AdvancedChartImplInner({
         <RadarChart data={data}>
           <PolarGrid />
           <PolarAngleAxis dataKey={xAxisKey} />
-          {/* The radar's value axis: whole-number ticks when every series
-              plots a count, like the cartesian value axes (objectui#11681). */}
-          <PolarRadiusAxis {...(plotsWholeNumbers(series) ? { allowDecimals: false } : {})} />
+          <PolarRadiusAxis />
           <ChartTooltip content={<ChartTooltipContent />} />
           <ChartLegend
             content={<ChartLegendContent />}

@@ -6854,13 +6854,16 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
     assignments: { label: '赋值', help: '设置变量:每个键为一个变量,值为表达式或字面量。' },
   },
   loop: {
-    collection: { label: '集合', help: '解析为待遍历项的表达式。' },
+    collection: {
+      label: '集合',
+      help: '要遍历的列表:求值为列表的 CEL 表达式(如 leadList),或以 JSON 数组写出的各项。没有循环体区域的循环改为读取列表变量的裸名称。',
+    },
     iteratorVariable: { label: '当前项变量', help: '存放当前项的循环变量。' },
     indexVariable: { label: '索引变量', help: '存放当前索引的可选循环变量。' },
     maxIterations: { label: '最大迭代次数' },
   },
   map: {
-    collection: { label: '集合', help: '解析为待逐项处理数组的表达式。' },
+    collection: { label: '集合', help: '要逐项处理的列表:求值为列表的 CEL 表达式(如 items),或以 JSON 数组写出的各项。' },
     flowName: { label: '每项子流程', help: '为每一项运行的子流程 —— 它可以暂停(如审批)。' },
     iteratorVariable: { label: '当前项变量' },
     itemObject: { label: '项对象', help: '当项为记录时,它们所属的对象(将每项暴露为子流程的记录)。' },
@@ -6873,16 +6876,16 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
   },
   update_record: {
     objectName: { label: '对象' },
-    filter: { label: '筛选', help: '标识待更新记录的字段 / 值对(如 id → {recordId})。' },
+    filter: { label: '筛选', help: '标识待更新记录的字段 / 值对。每个值是字面量,或 CEL 表达式(如 id → 以表达式写的 recordId)。' },
     fields: { label: '字段值', help: '要写入的字段值。' },
   },
   delete_record: {
     objectName: { label: '对象' },
-    filter: { label: '筛选', help: '标识待删除记录的字段 / 值对。' },
+    filter: { label: '筛选', help: '标识待删除记录的字段 / 值对。每个值是字面量,或 CEL 表达式。' },
   },
   get_record: {
     objectName: { label: '对象' },
-    filter: { label: '筛选', help: '待匹配的字段 / 值对(如 status → active)。像 {"$ne": null} 这样的运算符值会被保留。' },
+    filter: { label: '筛选', help: '待匹配的字段 / 值对(如 status → active)。每个值是字面量,或 CEL 表达式。像 {"$ne": null} 这样的运算符值会被保留。' },
     limit: { label: '数量上限' },
     outputVariable: { label: '输出变量' },
   },
@@ -6890,7 +6893,7 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
     method: { label: '方法' },
     url: { label: 'URL', help: '请求 URL。会渲染 {{ }} 占位。' },
     headers: { label: '请求头', help: '请求头(如 Authorization、Content-Type)。每个值都会渲染 {{ }} 占位。' },
-    body: { label: '请求体', help: '请求负载(JSON 或表达式)。' },
+    body: { label: '请求体', help: '请求负载:按原样发送的 JSON,或求值为负载的 CEL 表达式。' },
     // objectui#11968 — no `outputVariable` overlay: the `http` contract declares
     // no such key, so neither form offers a field for it.
     durable: { label: '持久化(异步)', help: '通过持久化队列即发即忘(异步投递)。' },
@@ -7030,7 +7033,7 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
     topic: { label: '主题', help: '事件主题(默认 "notify")。' },
     severity: { label: '级别', help: 'info | warning | critical' },
     sourceObject: { label: '来源对象', help: '通知所关联记录的对象名。' },
-    sourceId: { label: '来源记录', help: '通知链接到的记录 id。' },
+    sourceId: { label: '来源记录', help: '通知链接到的记录 id(需配合来源对象):以文本写出的 id,或 CEL 表达式(如 record.id)。' },
     actorId: { label: '触发用户', help: '引发该事件的用户 id。' },
     // objectui#11968 — keyed `actionUrl`, the key the contract declares and both
     // forms now write; the `url` spelling is the converted alias.

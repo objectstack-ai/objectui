@@ -19,9 +19,24 @@ import {
   RequiredMarker,
   flagUnknownValue,
 } from './_shared.js';
-import { Button, Label } from '@object-ui/components';
+import { Button, Label, cn } from '@object-ui/components';
+import { Code2 } from 'lucide-react';
+import {
+  FLOW_NODE_EXPRESSION_PATHS,
+  flowNodeConfigRefusals,
+  flowNodeValueTemplateRefusals,
+  isExpressionEnvelopeShaped,
+  resolveFlowNodeValueSlots,
+  valueSlotTemplateRefusals,
+} from '@objectstack/spec/automation';
 import { FlowKeyValueField, type FlowKeyValueFieldProps } from './FlowKeyValueField.js';
-import { isValueEnvelopeSlot } from './flow-value-envelope.js';
+import { FlowExprIssue } from './FlowExprIssue.js';
+import {
+  isEditableValueEnvelope,
+  isValueEnvelopeSlot,
+  valueEnvelopeRefusal,
+  writeValueEnvelope,
+} from './flow-value-envelope.js';
 import { FlowStringListField } from './FlowStringListField.js';
 import { FlowRecipientsField } from './FlowRecipientsField.js';
 import { FlowObjectListField } from './FlowObjectListField.js';
@@ -115,6 +130,235 @@ function FieldValueMapField({
           : t('engine.inspector.fieldMap.chooseObject', locale)
       }
     />
+  );
+}
+
+/*
+ * ── objectui#12372: a field whose WHOLE value is one `value`-role slot ─────
+ *
+ * The spec's expression ledger (`FLOW_NODE_EXPRESSION_PATHS`) names, beside the
+ * value MAPS objectui#7588 / objectui#12101 render per row, positions whose
+ * whole value is one value slot: a `map`'s `collection` (a `loop`'s too, while
+ * it has a `body`), a `notify` `sourceId`, an `http` `body`, a `screen`
+ * `recordId`. Each holds a literal or a CEL value envelope `{ dialect: 'cel',
+ * source }` (ADR-0032 Decision 2), and the spec refuses a string carrying a
+ * single-brace `{…}` token there (Decision 3). The descriptor's own control
+ * (a single-brace template picker on a text field) could only author that
+ * refused token, so such a field renders {@link FlowValueSlotControl}: the
+ * text / expression toggle the value maps carry, on one value.
+ *
+ * Which positions: the spec's own path walk, `resolveFlowNodeValueSlots`, asked
+ * of the node as it stands with a probe at the key — so the ledger's
+ * `onlyWithKey` (a `loop` reads `collection` as a value only with a `body`) is
+ * the spec's answer, not one restated here. What is refused: the two config
+ * judges `registerFlow` and `objectstack validate` share, read at the key.
+ */
+
+/** The node's `config`, or an empty one. */
+function configOf(node: Record<string, unknown> | null | undefined): Record<string, unknown> {
+  const cfg = node?.config;
+  return cfg && typeof cfg === 'object' && !Array.isArray(cfg) ? (cfg as Record<string, unknown>) : {};
+}
+
+/** Whether `path` on `node` is one `value`-role slot of the spec's ledger (objectui#12372). */
+function isScalarValueSlot(
+  node: Record<string, unknown> | null | undefined,
+  path: readonly string[],
+): boolean {
+  const type = node?.type;
+  if (typeof type !== 'string' || path.length !== 2 || path[0] !== 'config') return false;
+  const key = path[1];
+  const probe = { ...configOf(node), [key]: 'probe' };
+  return resolveFlowNodeValueSlots(type, probe).some((found) => found.path === key && found.entry.eachElement !== true);
+}
+
+/**
+ * Whether `path` on a node of `nodeType` is a CRUD `filter`, whose every
+ * operand is a value slot (the ledger's `filterOperands` row, objectui#12372).
+ */
+function isFilterOperandSlot(nodeType: unknown, path: readonly string[]): boolean {
+  if (typeof nodeType !== 'string' || path.length !== 2 || path[0] !== 'config') return false;
+  return FLOW_NODE_EXPRESSION_PATHS.some(
+    (entry) => entry.nodeType === nodeType && entry.role === 'value' && entry.filterOperands === true && entry.path === path[1],
+  );
+}
+
+/**
+ * The spec's refusal of one filter operand, or `null`. An envelope is judged by
+ * the value-slot envelope rule; anything else by the filter-operand rule, under
+ * which a whole query placeholder (`{today}`) is the query engine's and passes.
+ */
+function filterOperandRefusal(value: unknown): string[] | null {
+  if (isExpressionEnvelopeShaped(value)) return valueEnvelopeRefusal(value);
+  const refusals = valueSlotTemplateRefusals(value, { filterOperand: true });
+  return refusals.length > 0 ? refusals.map((r) => r.message) : null;
+}
+
+/** What the spec's config judges refuse at `key` of `config` on a node of `nodeType`. */
+function valueSlotRefusals(nodeType: string, config: Record<string, unknown>, key: string): string[] {
+  const at = (path: string) => path === key || path.startsWith(`${key}.`) || path.startsWith(`${key}[`);
+  const messages = [...flowNodeValueTemplateRefusals(nodeType, config), ...flowNodeConfigRefusals(nodeType, config)]
+    .filter((refusal) => at(refusal.path))
+    .map((refusal) => refusal.message);
+  return [...new Set(messages)];
+}
+
+/**
+ * A text cell's literal: JSON spelling an object or a list is that value (an
+ * `http` body object, a `collection`'s inline array); anything else is the text
+ * as typed. Blank is no value.
+ */
+function parseSlotLiteral(raw: string): unknown {
+  const s = raw.trim();
+  if (s === '') return undefined;
+  if ((s.startsWith('{') && s.endsWith('}')) || (s.startsWith('[') && s.endsWith(']'))) {
+    try {
+      return JSON.parse(s);
+    } catch {
+      // Not JSON: the text itself, which the spec judges like any string.
+    }
+  }
+  return raw;
+}
+
+/** The cell text for a stored value: an envelope's source, a string as is, else its JSON. */
+function slotRaw(value: unknown): string {
+  if (isEditableValueEnvelope(value)) return value.source;
+  if (value === undefined || value === null) return '';
+  return typeof value === 'string' ? value : JSON.stringify(value);
+}
+
+type SlotMode = 'text' | 'expression';
+
+function slotMode(value: unknown, expressionFirst: boolean): SlotMode {
+  if (isEditableValueEnvelope(value)) return 'expression';
+  return isUnsetFieldValue(value) && expressionFirst ? 'expression' : 'text';
+}
+
+/**
+ * One value slot: a TEXT cell that is a literal, with no reference picker (the
+ * picker could only insert a `{var}` token the spec refuses), or an EXPRESSION
+ * cell stored as a CEL value envelope, whose picker inserts the bare reference.
+ * The toggle carries the typed text over, as a value map's row does. An
+ * `expression` descriptor (a `collection`, whose literal is never a string)
+ * opens on the expression cell.
+ */
+function FlowValueSlotControl({
+  field,
+  value,
+  onCommit,
+  disabled,
+  required,
+  locale,
+  scopeGroups,
+  refusals,
+}: {
+  field: FlowConfigField;
+  value: unknown;
+  onCommit: (value: unknown) => void;
+  disabled?: boolean;
+  required?: boolean;
+  locale?: string;
+  scopeGroups?: ScopeGroup[];
+  refusals: readonly string[];
+}) {
+  const expressionFirst = field.kind === 'expression';
+  const [mode, setMode] = React.useState<SlotMode>(() => slotMode(value, expressionFirst));
+  const [raw, setRaw] = React.useState(() => slotRaw(value));
+  // The last value this control committed, so an EXTERNAL change (another
+  // node, an undo) re-reads the cell and its own commits do not.
+  const lastCommitted = React.useRef(JSON.stringify(value ?? null));
+  React.useEffect(() => {
+    const seen = JSON.stringify(value ?? null);
+    if (seen === lastCommitted.current) return;
+    lastCommitted.current = seen;
+    setMode(slotMode(value, expressionFirst));
+    setRaw(slotRaw(value));
+  }, [value, expressionFirst]);
+
+  const commit = (nextMode: SlotMode, nextRaw: string) => {
+    let out: unknown =
+      nextMode === 'expression'
+        ? nextRaw.trim() === ''
+          ? undefined
+          : writeValueEnvelope(value, nextRaw)
+        : parseSlotLiteral(nextRaw);
+    // Text whose JSON is a CEL value envelope IS an expression (the spec tells
+    // the forms apart by shape), so the cell shows it as one.
+    if (nextMode === 'text' && isEditableValueEnvelope(out)) {
+      setMode('expression');
+      setRaw(out.source);
+      out = writeValueEnvelope(out, out.source);
+    }
+    lastCommitted.current = JSON.stringify(out ?? null);
+    onCommit(out);
+  };
+
+  const expression = mode === 'expression';
+  const toggle = () => {
+    const next: SlotMode = expression ? 'text' : 'expression';
+    setMode(next);
+    commit(next, raw);
+  };
+  const toggleLabel = t('engine.inspector.flowNode.kv.asExpression', locale);
+  const placeholder = expression
+    ? expressionFirst
+      ? field.placeholder
+      : t('engine.inspector.flowNode.kv.expressionPlaceholder', locale)
+    : expressionFirst
+      ? undefined
+      : field.placeholder;
+  const stored = expression && raw.trim() !== '' ? writeValueEnvelope(value, raw) : undefined;
+
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs text-muted-foreground">
+        {field.label}
+        {required && <RequiredMarker />}
+      </Label>
+      <div className="flex items-start gap-1.5">
+        <VariableTextInput
+          multiline={field.kind === 'textarea'}
+          rows={4}
+          mode={expression ? 'expression' : 'template'}
+          mono={expression || expressionFirst}
+          value={raw}
+          onValueChange={(v) => {
+            setRaw(v);
+            commit(mode, v);
+          }}
+          groups={expression ? (scopeGroups ?? []) : []}
+          placeholder={placeholder}
+          disabled={disabled}
+          ariaRequired={required}
+          className="flex-1"
+        />
+        <Button
+          type="button"
+          variant={expression ? 'secondary' : 'ghost'}
+          size="sm"
+          className={cn('h-8 w-8 shrink-0 p-0', expression ? 'text-foreground' : 'text-muted-foreground')}
+          onClick={toggle}
+          disabled={disabled}
+          aria-pressed={expression}
+          aria-label={toggleLabel}
+          title={toggleLabel}
+        >
+          <Code2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+      {refusals.length > 0 ? (
+        <div className="space-y-0.5" role="alert">
+          {refusals.map((message, i) => (
+            <p key={i} className="text-[11px] leading-snug text-destructive">
+              {message}
+            </p>
+          ))}
+        </div>
+      ) : stored !== undefined ? (
+        <FlowExprIssue value={stored} role="value" scopeGroups={scopeGroups} />
+      ) : null}
+    </div>
   );
 }
 
@@ -237,6 +481,16 @@ export interface FlowNodeConfigFieldProps {
 export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, context, scopeGroups, approvalScopeGroups, triggerScope, inactiveRetained, onClearInactive, required, requiredColumns }: FlowNodeConfigFieldProps) {
   const refMode: 'expression' | 'template' | 'hole' =
     field.refMode ?? (field.kind === 'expression' ? 'expression' : 'template');
+  // objectui#12372 — a field whose whole value is one `value`-role slot of the
+  // spec's ledger renders the literal / CEL-envelope control, whatever brace
+  // mode its descriptor (offline or served) carries.
+  const valueSlot =
+    (field.kind === 'text' || field.kind === 'textarea' || field.kind === 'expression') &&
+    isScalarValueSlot(context?.node, field.path);
+  const valueSlotIssues =
+    valueSlot && typeof context?.node?.type === 'string' && !isUnsetFieldValue(value)
+      ? valueSlotRefusals(context.node.type, { ...configOf(context.node), [field.path[1]]: value }, field.path[1])
+      : [];
   // objectui#6226 — the row-based condition builder, on the fields that opted in
   // AND at a site that declares the vocabulary. All three conjuncts are load
   // bearing: `conditionBuilder` keeps `expression` from meaning "predicate"
@@ -258,11 +512,13 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
   // double-brace spelling as the fix. The CEL brace check above is unchanged.
   const isTemplate = refMode === 'template';
   const isHole = refMode === 'hole';
-  const exprIssue = isHole
-    ? validateExpressionClient('template', value, locale)
-    : field.kind === 'expression' && !isTemplate
-      ? validateExpressionClient('predicate', value, locale)
-      : null;
+  const exprIssue = valueSlot
+    ? null
+    : isHole
+      ? validateExpressionClient('template', value, locale)
+      : field.kind === 'expression' && !isTemplate
+        ? validateExpressionClient('predicate', value, locale)
+        : null;
 
   // #1934 — pair the picker with a gentle, scope-aware "unknown reference"
   // warning: CEL for predicate expression fields, `{…}` holes for template
@@ -279,12 +535,26 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
         ? 'template'
         : null;
   const unknownRefs =
-    !exprIssue && scopeRole && scopeGroups && scopeGroups.length > 0
+    !valueSlot && !exprIssue && scopeRole && scopeGroups && scopeGroups.length > 0
       ? findUnknownRefs(value, scopeRole, scopeRoots(scopeGroups.flatMap((g) => g.refs)))
       : [];
 
   const secretId = React.useId();
   const control = (() => {
+    if (valueSlot) {
+      return (
+        <FlowValueSlotControl
+          field={field}
+          value={value}
+          onCommit={onCommit}
+          disabled={disabled}
+          required={required}
+          locale={locale}
+          scopeGroups={scopeGroups}
+          refusals={valueSlotIssues}
+        />
+      );
+    }
     if (asConditionBuilder && triggerScope) {
       return (
         <ConditionBuilder
@@ -333,7 +603,11 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
           // only on a map the spec's expression ledger
           // (`FLOW_NODE_EXPRESSION_PATHS`) declares `value`-role for this
           // node type.
-          valueEnvelope: isValueEnvelopeSlot(context?.node?.type, field.path)
+          // objectui#12372 — so is a CRUD node's `filter`, whose every operand
+          // is a value slot (the ledger's `filterOperands` row), judged by the
+          // spec's filter-operand rule.
+          valueEnvelope:
+            isValueEnvelopeSlot(context?.node?.type, field.path) || isFilterOperandSlot(context?.node?.type, field.path)
             ? {
                 toggleLabel: t('engine.inspector.flowNode.kv.asExpression', locale),
                 expressionPlaceholder: t('engine.inspector.flowNode.kv.expressionPlaceholder', locale),
@@ -342,6 +616,7 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
           // objectui#12101 — a map whose every value is a flow text slot (http
           // `headers`) renders `{{ }}` holes in each value cell.
           valueMode: field.refMode === 'hole' ? 'hole' : undefined,
+          valueRefusal: isFilterOperandSlot(context?.node?.type, field.path) ? filterOperandRefusal : undefined,
         };
         // objectui#11788 — a record node's field-value map: its keys are fields
         // of the node's own target object, so the key cell lists them. The

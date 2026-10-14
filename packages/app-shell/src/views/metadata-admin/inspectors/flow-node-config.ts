@@ -356,11 +356,15 @@ export interface FlowConfigField {
    *     them.
    *   • `'expression'` on a code field (e.g. a script body) so the picker inserts
    *     bare references, not `{var}` — `{x}` is a syntax error in a JS/TS script.
-   *   • `'template'` on an *expression* field (e.g. a loop/map `collection`) whose
-   *     value is really an `interpolate()` single-brace template — it keeps the
-   *     mono expression styling and the data-picker, but the picker inserts
-   *     `{var}` and the CEL predicate brace-trap is suppressed (`{leadList}` is a
-   *     legal template here, not a malformed condition).
+   *   • `'template'` on an *expression* field whose value is really an
+   *     `interpolate()` single-brace template — it keeps the mono expression
+   *     styling and the data-picker, but the picker inserts `{var}` and the CEL
+   *     predicate brace-trap is suppressed. ⚠️ A loop/map `collection` still
+   *     carries it, but where the spec's ledger names the position a `value`
+   *     slot (a `map`, a `loop` with a `body`) `FlowNodeConfigField` renders the
+   *     ledger's literal / CEL-envelope control instead, and this mode is not
+   *     read (objectui#12372). What it still decides there is how the designer's
+   *     analysis passes read a stored string, which objectui#12329 owns.
    */
   refMode?: 'expression' | 'template' | 'hole';
   /**
@@ -698,7 +702,17 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     }),
   ],
   loop: [
-    cfg('collection', 'Collection', 'expression', { placeholder: '{leadList}', refMode: 'template', help: 'Expression resolving to the items to iterate.' }),
+    // objectui#12372 — with a `body`, `collection` is a value slot (the spec's
+    // ledger row, `onlyWithKey: 'body'`): a CEL value envelope evaluating to a
+    // list, or the items as an inline array. `FlowNodeConfigField` renders that
+    // slot's literal / expression control from the ledger. A body-less loop is
+    // the legacy flat-graph form, whose executor reads the bare name of a list
+    // variable and which no door judges, so the descriptor control stays for it.
+    cfg('collection', 'Collection', 'expression', {
+      placeholder: 'leadList',
+      refMode: 'template',
+      help: 'The list to iterate: a CEL expression evaluating to a list (e.g. leadList), or the items as a JSON array. A loop with no body region reads the bare name of a list variable instead.',
+    }),
     // objectui#9340 — the hint is the identifier the runtime binds when this box is
     // left blank, so it may not name a DIFFERENT one. It hinted `currentItem` while
     // `LoopConfigSchema` applies its own default to the omitted key: an author who
@@ -714,7 +728,13 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
   // Sequential multi-instance (ADR-0037 A2): a per-item subflow, one at a time;
   // each item may durably pause (e.g. a per-item approval).
   map: [
-    cfg('collection', 'Collection', 'expression', { placeholder: '{items}', refMode: 'template', help: 'Expression resolving to the array to process, one item at a time.' }),
+    // objectui#12372 — a value slot: a CEL value envelope evaluating to a list,
+    // or the items as an inline array (rendered from the spec's ledger).
+    cfg('collection', 'Collection', 'expression', {
+      placeholder: 'items',
+      refMode: 'template',
+      help: 'The list to process, one item at a time: a CEL expression evaluating to a list (e.g. items), or the items as a JSON array.',
+    }),
     cfg('flowName', 'Per-item flow', 'reference', { ref: { kind: 'flow' }, placeholder: 'one_task_signoff', help: 'Subflow run for each item — it may pause (e.g. an approval).' }),
     cfg('iteratorVariable', 'Item variable', 'text', { placeholder: 'item' }),
     cfg('itemObject', 'Item object', 'reference', { ref: { kind: 'object' }, help: 'When items are records, the object they belong to (exposes each item as the child’s record).' }),
@@ -727,16 +747,24 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
   ],
   update_record: [
     cfg('objectName', 'Object', 'reference', { ref: { kind: 'object' } }),
-    cfg('filter', 'Filter', 'keyValue', { help: 'Field/value pairs identifying the record(s) to update (e.g. id → {recordId}).' }),
+    // objectui#12372 — each `filter` operand is a value slot (the ledger's
+    // `filterOperands` row): a literal, or a CEL value envelope.
+    cfg('filter', 'Filter', 'keyValue', {
+      help: 'Field/value pairs identifying the record(s) to update. Each value is a literal, or a CEL expression (e.g. id \u2192 recordId as an expression).',
+    }),
     cfg('fields', 'Field values', 'keyValue', { help: 'Field values to write.' }),
   ],
   delete_record: [
     cfg('objectName', 'Object', 'reference', { ref: { kind: 'object' } }),
-    cfg('filter', 'Filter', 'keyValue', { help: 'Field/value pairs identifying the record(s) to delete.' }),
+    cfg('filter', 'Filter', 'keyValue', {
+      help: 'Field/value pairs identifying the record(s) to delete. Each value is a literal, or a CEL expression.',
+    }),
   ],
   get_record: [
     cfg('objectName', 'Object', 'reference', { ref: { kind: 'object' } }),
-    cfg('filter', 'Filter', 'keyValue', { help: 'Field/value pairs to match (e.g. status → active). Operator values like {"$ne": null} are preserved.' }),
+    cfg('filter', 'Filter', 'keyValue', {
+      help: 'Field/value pairs to match (e.g. status \u2192 active). Each value is a literal, or a CEL expression. Operator values like {"$ne": null} are preserved.',
+    }),
     cfg('limit', 'Limit', 'number', { placeholder: '100' }),
     cfg('outputVariable', 'Output variable', 'text', { placeholder: 'records' }),
   ],
@@ -763,7 +791,14 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       help: 'Request headers (e.g. Authorization, Content-Type). Each value renders {{ }} holes.',
       refMode: 'hole',
     }),
-    cfg('body', 'Body', 'textarea', { placeholder: '{ "key": "value" }', help: 'Request payload (JSON or expression).' }),
+    // objectui#12372 — `body` is a value slot: a literal sent as written (JSON
+    // typed here is stored as the object or list it spells), or a CEL value
+    // envelope evaluated to the payload. A string carrying a `{…}` token is
+    // refused, so the text cell has no reference picker.
+    cfg('body', 'Body', 'textarea', {
+      placeholder: '{ "key": "value" }',
+      help: 'Request payload: JSON sent as written, or a CEL expression evaluated to the payload.',
+    }),
     // objectui#11968 — deliberately NO `outputVariable` row, the objectui#9335
     // shape on another node. The `http` executor contract (`HttpConfigSchema`,
     // reached through the spec's `getBuiltinNodeConfigContracts()`) is strict
@@ -1166,7 +1201,10 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     }),
     // Click-through target (objectstack-ai/objectstack#2675): deep-link the notification to a record.
     cfg('sourceObject', 'Link object', 'text', { placeholder: 'sys_approval_request', help: 'Object of the record the notification links to (requires Link record id).' }),
-    cfg('sourceId', 'Link record id', 'text', { help: 'Record id the notification links to (requires Link object).' }),
+    // objectui#12372 — a value slot: the id as a string, or a CEL value envelope.
+    cfg('sourceId', 'Link record id', 'text', {
+      help: 'Record id the notification links to (requires Link object): the id as text, or a CEL expression (e.g. record.id).',
+    }),
     // objectui#11968 — the canonical key. This row wrote `url`, which
     // `NotifyConfigSchema` does not declare: it is the converted spelling the
     // engine's conversion rewrites to `actionUrl`, so the form was authoring

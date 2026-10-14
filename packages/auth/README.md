@@ -184,7 +184,7 @@ import { createAuthenticatedFetch } from '@object-ui/auth';
 
 const authedFetch = createAuthenticatedFetch();
 
-// For fetches whose target URL may come from metadata (a `type: 'api'`
+// For fetches whose target URL may come from metadata (an API-call
 // action's target), restrict credential injection to the current page's
 // origin so the platform token never leaks to third-party hosts:
 const sameOriginFetch = createAuthenticatedFetch({ sameOriginOnly: true });

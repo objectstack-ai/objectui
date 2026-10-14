@@ -944,6 +944,52 @@ not apply it for you: the client cannot tell a served copy from an author who
 wrote `picklist` and `options` together, and that second case should stay the
 server's refusal, which says which key to delete.
 
+## Saving Only Over the Version You Read
+
+Two editors of one metadata item overwrite each other unless each save says
+which stored row it was built on. `MetadataClient.save` takes that precondition
+as one of two options, never both:
+
+- `ifMatch: version`, sent as `If-Match`: save only over that row. The token is
+  the `version` the `/meta` door served for the same address (type, name,
+  `packageId`, and the draft or active lifecycle): from the item read
+  (`getDraft` hands back the envelope, `version` included), from a save
+  receipt, or as `currentVersion` on a `409 METADATA_CONFLICT` refusal.
+- `ifNoneMatch: '*'`, sent as `If-None-Match: *`: save only where no row of that
+  lifecycle exists yet. A create sends it, and so does the first draft save of
+  an item with no pending draft, or one whose read served `version: null`.
+
+```ts
+import { MetadataClient } from '@object-ui/data-objectstack';
+
+const client = new MetadataClient({ baseUrl: '/api/v1' });
+
+const read = await client.getDraft<{ item: Record<string, unknown>; version?: string | null }>(
+  'object',
+  'account',
+  { packageId: 'com.acme.crm' },
+);
+// No pending draft, or none at this address: the save creates the draft row.
+// A server that serves no `version` at all leaves the save unpinned.
+const pin =
+  read === null || read.version === null
+    ? { ifNoneMatch: '*' as const }
+    : read.version
+      ? { ifMatch: read.version }
+      : {};
+await client.save('object', 'account', { name: 'account', label: 'Customer' }, {
+  mode: 'draft',
+  packageId: 'com.acme.crm',
+  ...pin,
+});
+```
+
+Read at the package the save writes: a read that names no package serves a
+package-bound draft with `version: null`, which says nothing about a save that
+names the package. A save that sets both options throws before any request;
+the door refuses the pair with a `400`. A save whose pin no longer holds is
+refused `409 METADATA_CONFLICT`, and nothing is written.
+
 ## User-Scoped State Adapter
 
 In addition to the main `DataSource` adapter, this package ships

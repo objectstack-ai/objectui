@@ -117,11 +117,15 @@ const METADATA: MetadataContextValue = {
 
 const LEAF: Surface = { type: 'object', name: 'showcase_task', label: 'Tasks' };
 
-const hook = { current: null as ObjectListViewDraft | null };
+/** The hook's latest answer, handed out by the probe after each commit. */
+const hook = React.createRef<ObjectListViewDraft>() as React.MutableRefObject<ObjectListViewDraft | null>;
 
-function Probe() {
-  hook.current = useObjectListViewDraft({ client, packageId: PKG, leaf: LEAF, publishNonce: 0 });
-  return hook.current.conflictDialog;
+function Probe({ hookRef }: { hookRef: React.MutableRefObject<ObjectListViewDraft | null> }) {
+  const draft = useObjectListViewDraft({ client, packageId: PKG, leaf: LEAF, publishNonce: 0 });
+  React.useLayoutEffect(() => {
+    hookRef.current = draft;
+  });
+  return draft.conflictDialog;
 }
 
 async function flush() {
@@ -134,7 +138,7 @@ async function flush() {
 async function openEditAndSave(columns: string[]) {
   render(
     <MetadataCtx.Provider value={METADATA}>
-      <Probe />
+      <Probe hookRef={hook} />
     </MetadataCtx.Provider>,
   );
   await flush();
@@ -171,7 +175,7 @@ describe('useObjectListViewDraft — the first save after a load is pinned (obje
     server.active.set(`view/${VIEW}`, viewItem(['title']));
     render(
       <MetadataCtx.Provider value={METADATA}>
-        <Probe />
+        <Probe hookRef={hook} />
       </MetadataCtx.Provider>,
     );
     await flush();

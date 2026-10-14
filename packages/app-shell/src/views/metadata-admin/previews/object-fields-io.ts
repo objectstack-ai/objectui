@@ -237,6 +237,15 @@ export function newField(name: string, type: FieldTypeId, label?: string): Field
   if (type === 'select' || type === 'multiselect' || type === 'radio' || type === 'checkboxes') {
     def.options = [];
   }
+  // objectui#12326 — a master-detail field starts required. On a
+  // `controlled_by_parent` object the spec admits no other value (ADR-0055 §1),
+  // and the save door refuses an omitted one. This builder does not see the
+  // object, so it applies everywhere: elsewhere a non-required `master_detail`
+  // is what the platform lint flags as a likely mistake
+  // (`relationship/master-detail-required`), and the author can still clear it.
+  if (type === 'master_detail') {
+    def.required = true;
+  }
   return { name, def };
 }
 

@@ -73,7 +73,7 @@ function freshServer(): Server {
         name: 'crm_case',
         label: 'Case',
         sharingModel: 'controlled_by_parent',
-        fields: { account: { type: 'master_detail', reference: 'crm_account' } },
+        fields: { account: { type: 'master_detail', reference: 'crm_account', required: true } },
       },
     },
     draftOnly: [],

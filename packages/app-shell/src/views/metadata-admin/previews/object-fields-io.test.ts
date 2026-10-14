@@ -1,7 +1,9 @@
 // Copyright (c) 2025 ObjectStack. Licensed under the Apache-2.0 license.
 
 import { describe, it, expect } from 'vitest';
+import { ObjectSchema } from '@objectstack/spec/data';
 import {
+  newField,
   readFields,
   writeFields,
   toFieldName,
@@ -366,5 +368,33 @@ describe('toFieldNameLoose (prefix-stable — for live keystroke input)', () => 
     expect(simulateTyping(toFieldNameLoose, 'repair_ticket')).toBe('repair_ticket');
     expect(simulateTyping(toFieldNameLoose, 'in_progress')).toBe('in_progress');
     expect(simulateTyping(toFieldNameLoose, 'estimated_cost')).toBe('estimated_cost');
+  });
+});
+
+/**
+ * objectui#12326 — a master-detail field starts required. Added to a
+ * `controlled_by_parent` object, it is the one required `master_detail` the
+ * installed spec derives the master from (ADR-0055 §1); without `required` the
+ * same object is refused. The spec's `ObjectSchema` is the oracle.
+ */
+describe('newField — a master-detail field starts required (objectui#12326)', () => {
+  const cbpObject = (def: Record<string, unknown>) => ({
+    name: 'crm_case',
+    sharingModel: 'controlled_by_parent',
+    fields: { account: { ...def, reference: 'crm_account' } },
+  });
+
+  it('emits required: true for master_detail, and the controlled_by_parent object it lands on parses', () => {
+    const { def } = newField('account', 'master_detail');
+    expect(def.required).toBe(true);
+    expect(ObjectSchema.safeParse(cbpObject(def)).success).toBe(true);
+    // The control leg: the same field without `required` is refused.
+    const { required: _omitted, ...withoutRequired } = def;
+    expect(ObjectSchema.safeParse(cbpObject(withoutRequired)).success).toBe(false);
+  });
+
+  it('leaves every other type without required', () => {
+    expect('required' in newField('owner', 'lookup').def).toBe(false);
+    expect('required' in newField('subject', 'text').def).toBe(false);
   });
 });

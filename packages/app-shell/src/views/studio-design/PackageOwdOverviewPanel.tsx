@@ -45,7 +45,7 @@ import {
   SelectValue,
 } from '@object-ui/components';
 import { t, tFormat, type SupportedLocale } from '../metadata-admin/i18n.js';
-import { deriveMasterObject } from './owd-sharing.js';
+import { deriveMasterObject, requireCbpMasterDetails } from './owd-sharing.js';
 import { toast } from 'sonner';
 
 
@@ -58,7 +58,16 @@ interface OwdRow {
   label: string;
   /** Authored `sharingModel`; '' when unset (defaults to private, ADR-0090 D1). */
   internal: string;
-  /** Master (parent) object for `controlled_by_parent` rows, if resolvable. */
+  /**
+   * The master (parent) object the row derives under `controlled_by_parent`:
+   * the reference of its one required `master_detail` (objectui#12326). For a
+   * row loaded as `controlled_by_parent` it is read from the body as stored,
+   * which is what the runtime derives. For any other row it is the master the
+   * row would derive once switched and saved here, since that save sets
+   * `required: true` on its `master_detail` fields. Undefined = no master: zero
+   * `master_detail` fields, or two or more, an authoring error the save door
+   * refuses.
+   */
   master?: string;
   /** True when this object already has an unpublished draft. */
   hasDraft: boolean;
@@ -261,7 +270,9 @@ export function PackageOwdOverviewPanel({
             name,
             label: String(body.label ?? publishedLabel.get(name) ?? name),
             internal,
-            master: internal === 'controlled_by_parent' ? deriveMasterObject(body.fields) : undefined,
+            master: deriveMasterObject(
+              internal === 'controlled_by_parent' ? body.fields : requireCbpMasterDetails(body.fields),
+            ),
             hasDraft: !!draftBody,
             saved,
           };
@@ -348,6 +359,12 @@ export function PackageOwdOverviewPanel({
         const next: Record<string, unknown> = { ...(draftBody ?? baseline) };
         if (s.edit.internal) next.sharingModel = s.edit.internal;
         else delete next.sharingModel;
+        // objectui#12326 — switching to `controlled_by_parent` sets
+        // `required: true` on every `master_detail` field, as the per-object
+        // Settings tab does: the save door refuses an omitted one there.
+        if (s.edit.internal === 'controlled_by_parent' && next.fields !== undefined) {
+          next.fields = requireCbpMasterDetails(next.fields);
+        }
         // objectui#11692 — `next` is seeded from a SERVED object read, where a
         // picklist-bound field carries `picklist` beside the options the
         // runtime resolved from the list; the authoring door refuses the two
@@ -490,7 +507,7 @@ export function PackageOwdOverviewPanel({
                           <ArrowUpRight className="h-3.5 w-3.5" />
                           {row.master
                             ? tFormat('engine.studio.owd.byParent', locale, { master: row.master })
-                            : t('engine.studio.owd.byParentUnknown', locale)}
+                            : t('engine.studio.owd.byParentNoMaster', locale)}
                         </span>
                       )}
                     </td>

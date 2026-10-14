@@ -51,6 +51,7 @@ import {
 import { useRegisteredMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry.js';
 import { readFields, type FieldEntry } from '../metadata-admin/previews/object-fields-io.js';
 import { t, tFormat, type SupportedLocale } from '../metadata-admin/i18n.js';
+import { cbpMasterRefusal, requireCbpMasterDetails } from './owd-sharing.js';
 
 /** The item a stored value none of a picker's options carries is shown by. */
 const OUTSIDE_OPTIONS = 'outside';
@@ -199,6 +200,30 @@ export function ObjectSettingsPanel({
     { value: 'public_read_write', label: t('engine.studio.settings.sharingPublicReadWrite', locale) },
     { value: 'controlled_by_parent', label: t('engine.studio.settings.sharingControlledByParent', locale) },
   ];
+  // objectui#12326 — choosing `controlled_by_parent` sets `required: true` on
+  // every `master_detail` field in the same patch: the spec admits no other
+  // value there (ADR-0055 §1), and the save door refuses an omitted one. The
+  // fields are written only when that changes them.
+  const pickSharingModel = (v: string) => {
+    if (!v) {
+      onPatch({ sharingModel: undefined });
+      return;
+    }
+    if (v !== 'controlled_by_parent') {
+      onPatch({ sharingModel: v });
+      return;
+    }
+    const fieldsNext = requireCbpMasterDetails(draft.fields);
+    onPatch(fieldsNext === draft.fields ? { sharingModel: v } : { sharingModel: v, fields: fieldsNext });
+  };
+  // The spec's own refusal when the object still does not derive exactly one
+  // master: no `master_detail` at all, or two or more (the designer never picks
+  // one of them for the author).
+  const objectName = draft.name ?? name;
+  const cbpRefusal = React.useMemo(
+    () => (sharingModel === 'controlled_by_parent' ? cbpMasterRefusal(objectName, draft.fields) : undefined),
+    [sharingModel, objectName, draft.fields],
+  );
 
   // Capabilities (`enable.*`, framework#2707/#2727). Checked = the flag's
   // EFFECTIVE runtime value; toggling writes an explicit boolean into the
@@ -258,7 +283,7 @@ export function ObjectSettingsPanel({
               testId="owd-internal-select"
               value={sharingModel}
               disabled={disabled}
-              onPick={(v) => onPatch(v ? { sharingModel: v } : { sharingModel: undefined })}
+              onPick={pickSharingModel}
               className={PICKER_FULL}
               options={owdOptions}
             />
@@ -277,6 +302,11 @@ export function ObjectSettingsPanel({
           >
             {t(sharingDescKey, locale)}
           </p>
+          {cbpRefusal && (
+            <p data-testid="owd-cbp-refusal" role="alert" className="text-[11px] text-destructive">
+              {cbpRefusal}
+            </p>
+          )}
         </div>
       </section>
 

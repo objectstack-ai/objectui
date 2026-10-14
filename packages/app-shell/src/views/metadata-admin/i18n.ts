@@ -2616,6 +2616,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'designer.field.labelTranslated': 'Shown as “{label}” in {language}: the app’s translation bundle overrides this label.',
   'designer.field.type': 'Type',
   'designer.field.required': 'Required',
+  'designer.field.requiredCbpMaster':
+    'Required is locked on: this object is controlled by parent, and it derives its master from this master-detail field, which must be required.',
   'designer.field.unique': 'Unique',
   'designer.field.description': 'Description',
   'designer.field.readonly': 'Read-only',
@@ -3523,7 +3525,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.owd.saved': 'Saved {count} object draft(s).',
   'engine.studio.owd.unsaved': 'Unsaved',
   'engine.studio.owd.byParent': 'By parent → {master}',
-  'engine.studio.owd.byParentUnknown': 'By parent (master record)',
+  'engine.studio.owd.byParentNoMaster': 'By parent — no master: the object needs exactly one required master-detail field',
   'engine.studio.owd.masterTip':
     'Controlled by parent — record visibility is inherited from the master record.',
 
@@ -5859,6 +5861,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'designer.field.labelTranslated': '在 {language} 中显示为“{label}”：应用的翻译包覆盖了此显示名。',
   'designer.field.type': '类型',
   'designer.field.required': '必填',
+  'designer.field.requiredCbpMaster':
+    '必填已锁定:该对象受父级控制,其主记录由这个主从字段推导,该字段必须必填。',
   'designer.field.unique': '唯一',
   'designer.field.description': '描述',
   'designer.field.readonly': '只读',
@@ -6655,7 +6659,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.owd.saved': '已保存 {count} 个对象草稿。',
   'engine.studio.owd.unsaved': '未保存',
   'engine.studio.owd.byParent': '受父级控制 → {master}',
-  'engine.studio.owd.byParentUnknown': '受父级控制（主记录）',
+  'engine.studio.owd.byParentNoMaster': '受父级控制 —— 没有主记录:该对象需要恰好一个必填的主从字段',
   'engine.studio.owd.masterTip':
     '受父级控制 —— 记录可见性继承自主记录。',
 

@@ -708,13 +708,32 @@ export function ObjectFieldInspector({
     writeView({ shape: view.shape, entries: nextEntries });
   };
 
-  /** A retype keeps a picklist binding only on a type the spec lets name one. */
+  /**
+   * objectui#12326 — on a `controlled_by_parent` object a `master_detail` field
+   * is `required: true` and its Required box is locked on: the object derives
+   * its master from exactly one required `master_detail` (ADR-0055 §1), and the
+   * save door refuses any other value. `ObjectSettingsPanel` sets it when the
+   * sharing model is chosen; this inspector keeps it from being cleared.
+   */
+  const cbpMasterDetail = draft.sharingModel === 'controlled_by_parent' && type === 'master_detail';
+
+  /**
+   * A retype keeps a picklist binding only on a type the spec lets name one.
+   * A retype to `master_detail` starts the field required, as `newField` does
+   * (objectui#12326): always on a `controlled_by_parent` object, and elsewhere
+   * when the field says nothing about `required`.
+   */
   const changeType = (nextType: string) => {
+    const requireMaster =
+      nextType === 'master_detail'
+      && def.required !== true
+      && (draft.sharingModel === 'controlled_by_parent' || def.required === undefined);
     if (def.picklist === undefined || takesPicklist(nextType)) {
-      patchDef({ type: nextType });
+      patchDef(requireMaster ? { type: nextType, required: true } : { type: nextType });
       return;
     }
     const nextDef: Record<string, unknown> = { ...def, type: nextType };
+    if (requireMaster) nextDef.required = true;
     delete nextDef.picklist;
     const nextEntries = [...view.entries];
     nextEntries[idx] = { ...entry, def: nextDef };
@@ -990,7 +1009,9 @@ export function ObjectFieldInspector({
             label={tr('designer.field.required')}
             value={!!def.required}
             onCommit={(v) => patchDef({ required: v || undefined })}
-            disabled={readOnly}
+            // Locked once it is on: the box can still be ticked on a stored
+            // master that lacks it, never cleared (objectui#12326).
+            disabled={readOnly || (cbpMasterDetail && def.required === true)}
           />
           <InspectorCheckboxField
             label={tr('designer.field.unique')}
@@ -999,6 +1020,11 @@ export function ObjectFieldInspector({
             disabled={readOnly}
           />
         </div>
+        {cbpMasterDetail && (
+          <p data-testid="field-required-cbp-master" className="text-[11px] text-muted-foreground">
+            {tr('designer.field.requiredCbpMaster')}
+          </p>
+        )}
         <TextareaField
           label={tr('designer.field.description')}
           value={typeof def.description === 'string' ? (def.description as string) : ''}

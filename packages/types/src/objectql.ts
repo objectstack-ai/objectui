@@ -3199,6 +3199,28 @@ export interface NamedListView {
    * objectui#8980 with it.
    */
   tree?: ListViewSchema['tree'];
+
+  /**
+   * The audience gate — `@objectstack/spec` 18's one list-view capability key
+   * (objectstack#22611, ruling A): a list of capabilities, ALL required, with
+   * the app / navigation-item / action meaning. Taken from the protocol by
+   * reference through {@link ListViewSchema}, whose member is the spec slot
+   * (`specFieldsExcept`), so the two faces are one type (objectui#12341).
+   *
+   * ⭐ THE SERVER ENFORCES IT, and that is the whole enforcement: objectstack
+   * PR #22731 lists only the views a caller may open on `GET /meta/view`,
+   * answers a by-name read the caller cannot open with `403
+   * PERMISSION_DENIED`, and prunes an object's `listViews` the same way
+   * (ADR-0106 D4's metadata-reader class excepted). The console surfaces that
+   * refusal (objectui#12112).
+   *
+   * ⛔ No renderer reads it, by design: a second, client-side gate would be a
+   * second answer to a question the server already answered. The census in
+   * `__tests__/object-view-unmirrored-keys-7779.test.ts` holds it in its own
+   * SERVER-ENFORCED bucket, ⛔ not in bucket ① ("implementation owed").
+   * `sharing` above is ownership and locking, ⛔ not audience.
+   */
+  requiredPermissions?: ListViewSchema['requiredPermissions'];
 }
 
 /**

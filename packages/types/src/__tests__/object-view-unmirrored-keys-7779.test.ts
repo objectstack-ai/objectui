@@ -223,7 +223,7 @@ const NAMED_VIEW_READS = [
  * that moves between the two sets — in EITHER direction — fails by name.
  */
 
-/** Every top-level member `NamedListView` declares. 64 today (47 + objectui#8980's seventeen), sorted. */
+/** Every top-level member `NamedListView` declares. 65 today (47 + objectui#8980's seventeen + objectui#12341's `requiredPermissions`), sorted. */
 const NAMED_LIST_VIEW_DECLARED = [
   'addDeleteRecordsInline', 'addRecord', 'addRecordViaForm', 'allowExport', 'allowPrinting',
   'appearance', 'aria', 'bulkActionDefs', 'bulkActions', 'calendar', 'chart',
@@ -231,7 +231,7 @@ const NAMED_LIST_VIEW_DECLARED = [
   'conditionalFormatting', 'data', 'densityMode', 'description', 'emptyState', 'exportOptions',
   'fieldOrder', 'fieldTextColor', 'filter', 'filterableFields', 'gallery', 'gantt', 'grouping',
   'hiddenFields', 'inlineEdit', 'kanban', 'label', 'map', 'name', 'navigation', 'options',
-  'pageName', 'pagination', 'prefixField', 'resizable', 'rowActions', 'rowColor', 'rowHeight',
+  'pageName', 'pagination', 'prefixField', 'requiredPermissions', 'resizable', 'rowActions', 'rowColor', 'rowHeight',
   'searchableFields', 'selection', 'sharing', 'showColor', 'showDensity', 'showDescription',
   'showFilters', 'showGroup', 'showHideFields', 'showRecordCount', 'showSearch', 'showSort',
   'sort', 'tabs', 'timeline', 'tree', 'type', 'userActions', 'userFilters', 'wrapHeaders',
@@ -270,12 +270,14 @@ const NAMED_VIEW_READ_DECLARED = [
 const NAMED_VIEW_READ_UNDECLARED = [] as const;
 
 /**
- * The census result: declared, and NOT read off a named view. 21 today: the
+ * The census result: declared, and NOT read off a named view. 22 today: the
  * 44 of objectui#7928 minus bucket ①'s twenty-three, which objectui#10758 made
- * the host delegation read off the named view. What is left is bucket ② (the
- * legacy `show*` spellings), bucket ③ (objectui-only members) and the two
- * members `@objectstack/spec` 17.5.0 retired ({@link BUCKET_PROTOCOL_RETIRED_TOMBSTONED})
- * — no LIVE protocol member is on it.
+ * the host delegation read off the named view, plus `requiredPermissions`
+ * (objectui#12341). What is left is bucket ② (the legacy `show*` spellings),
+ * bucket ③ (objectui-only members), the two members `@objectstack/spec` 17.5.0
+ * retired ({@link BUCKET_PROTOCOL_RETIRED_TOMBSTONED}) and the one LIVE
+ * protocol member the SERVER enforces ({@link BUCKET_SERVER_ENFORCED_UNREAD}) —
+ * no other live protocol member is on it.
  *
  * ⭐ TWO OF THEM WERE objectui#8980's OWN, the ruled outcome then: `tabs` and
  * `pageName`. Since objectui#11073 both are `?: never` tombstones, following the
@@ -292,7 +294,7 @@ const NAMED_VIEW_READ_UNDECLARED = [] as const;
 const NAMED_LIST_VIEW_UNREAD = [
   'addDeleteRecordsInline', 'addRecordViaForm', 'allowExport', 'clickIntoRecordDetails',
   'collapseAllByDefault', 'color', 'densityMode', 'fieldTextColor', 'options', 'pageName',
-  'prefixField', 'showColor', 'showDensity', 'showDescription', 'showFilters', 'showGroup',
+  'prefixField', 'requiredPermissions', 'showColor', 'showDensity', 'showDescription', 'showFilters', 'showGroup',
   'showHideFields', 'showSearch', 'showSort', 'tabs', 'wrapHeaders',
 ] as const;
 
@@ -362,14 +364,23 @@ const PROTOCOL_LIST_VIEW_KEYS = [
 const PROTOCOL_RETIRED_KEYS = ['bordered', 'pageName', 'performance', 'responsive', 'striped', 'tabs', 'virtualScroll'] as const;
 
 /**
- * Live protocol members of a named list view that objectui does not declare
- * yet, each PENDING a ruling rather than accepted as narrowness (objectui#12030).
- * `requiredPermissions` is the ADR-0066 audience gate `@objectstack/spec` 18
- * adds; the server enforces it before the view is served, so no renderer reads
- * it — which is exactly the case the four disposition buckets below do not
- * name. ⛔ Not a place to park a key the renderer should read.
+ * The FIFTH bucket — LIVE protocol members DECLARED here and read off no named view BY
+ * DESIGN, because the SERVER enforces them before a view is served.
+ *
+ * `requiredPermissions` is the audience gate `@objectstack/spec` 18 adds
+ * (objectstack#22611, ruling A). objectui#12030 pinned it here as PENDING, the
+ * one live protocol key objectui did not declare; objectui#12341 declared it
+ * (by reference, `ListViewSchema['requiredPermissions']`) and moved the pin to
+ * this bucket. The server lists only the views a caller may open, refuses a
+ * by-name read with `403` and prunes an object's `listViews` (objectstack PR
+ * #22731); the console surfaces the refusal (objectui#12112). A renderer read
+ * would be a second, client-side gate, which the card forbids — so this member
+ * is NOT bucket ① ("implementation owed"), and the census keeps it apart.
+ *
+ * ⛔ Not a place to park a key the renderer should read: a member lands here
+ * only with a named server-side enforcement point.
  */
-const PENDING_SERVER_ENFORCED_DECLARATION = ['requiredPermissions'] as const;
+const BUCKET_SERVER_ENFORCED_UNREAD = ['requiredPermissions'] as const;
 
 /** The marker every protocol tombstone's description opens with. */
 const PROTOCOL_TOMBSTONE_MARKER = '[REMOVED]';
@@ -1352,8 +1363,8 @@ describe('objectui#7779 → objectui#7928 — `listViews` was ledgered on the fa
     // figures could stale silently in either direction.
     expect(
       declared,
-      'NamedListView\'s top-level member count moved (was 64 — 47 plus objectui#8980\'s seventeen). Re-derive it with this file\'s own namedListViewMemberCount() regex, then update the "64 declared / 43 unread" figures in the three files that carry them together — .changeset/object-view-unmirrored-keys-7779.md, packages/types/src/zod/objectql.zod.ts and packages/types/src/__tests__/zod-mirror-parity.test.ts — plus this file\'s own header. A shrink toward the read set also re-opens the listViews decision (objectui#7928).',
-    ).toBe(64);
+      'NamedListView\'s top-level member count moved (was 65 — 47 plus objectui#8980\'s seventeen plus objectui#12341\'s requiredPermissions). Re-derive it with this file\'s own namedListViewMemberCount() regex, then update the "64 declared / 43 unread" figures in the three files that carry them together — .changeset/object-view-unmirrored-keys-7779.md, packages/types/src/zod/objectql.zod.ts and packages/types/src/__tests__/zod-mirror-parity.test.ts — plus this file\'s own header. A shrink toward the read set also re-opens the listViews decision (objectui#7928).',
+    ).toBe(65);
     expect(declared).toBeGreaterThan(NAMED_VIEW_READS.length);
   });
 
@@ -1385,15 +1396,15 @@ describe('objectui#7924 — the per-member liveness census on `NamedListView`, r
 
   it('the declared member set is EXACTLY the census, by name', () => {
     expect([...namedListViewMembers().names].sort()).toEqual([...NAMED_LIST_VIEW_DECLARED].sort());
-    expect(NAMED_LIST_VIEW_DECLARED).toHaveLength(64);
-    expect(new Set<string>(NAMED_LIST_VIEW_DECLARED).size).toBe(64);
+    expect(NAMED_LIST_VIEW_DECLARED).toHaveLength(65);
+    expect(new Set<string>(NAMED_LIST_VIEW_DECLARED).size).toBe(65);
   });
 
   it('all three instruments read the same declaration, and the two that disagree disagree for a stated reason', () => {
     const ast = namedListViewMembers().names.length;
     // The parser and the strict regex agree — that agreement is what licenses
     // replacing the regex without re-opening the number.
-    expect(ast).toBe(64);
+    expect(ast).toBe(65);
     expect(namedListViewMemberCount()).toBe(ast);
     // …and the loose regex does NOT, by 9, because it also counts nested
     // object-literal lines. The gap stayed exactly 12 through objectui#8980:
@@ -1402,9 +1413,11 @@ describe('objectui#7924 — the per-member liveness census on `NamedListView`, r
     // over-count. objectui#11227 took it from 12 to 9: `emptyState` stopped
     // restating `{ title, message, icon }` as a nested literal and indexes
     // `ListViewSchema['emptyState']` instead, so its three nested lines left
-    // and the member count did not move. Pinned so "a figure between two
+    // and the member count did not move. objectui#12341's `requiredPermissions`
+    // is a single-line type reference too, so it moved both counts by one and
+    // left the gap at 9. Pinned so "a figure between two
     // instruments is neither" stays a reading rather than a remembered sentence.
-    expect(namedListViewLooseMemberCount()).toBe(73);
+    expect(namedListViewLooseMemberCount()).toBe(74);
     expect(namedListViewLooseMemberCount()).toBeGreaterThan(ast);
   });
 
@@ -1453,7 +1466,7 @@ describe('objectui#7924 — the per-member liveness census on `NamedListView`, r
     expect(d.readSites.name.length, '`name` is read at exactly one site: the tab strip\'s display fallback').toBe(1);
   });
 
-  it('the census partitions the declaration exactly: 43 read + 21 unread = 64, disjoint and exhaustive', () => {
+  it('the census partitions the declaration exactly: 43 read + 22 unread = 65, disjoint and exhaustive', () => {
     const declared = new Set(namedListViewMembers().names);
     const reads = new Set(deriveNamedViewReads().reads);
     const read = [...declared].filter((m) => reads.has(m)).sort();
@@ -1461,7 +1474,7 @@ describe('objectui#7924 — the per-member liveness census on `NamedListView`, r
     expect(read).toEqual([...NAMED_VIEW_READ_DECLARED]);
     expect(unread).toEqual([...NAMED_LIST_VIEW_UNREAD]);
     expect(read).toHaveLength(43);
-    expect(unread).toHaveLength(21);
+    expect(unread).toHaveLength(22);
     expect(read.length + unread.length).toBe(declared.size);
     expect(read.filter((m) => unread.includes(m))).toEqual([]);
   });
@@ -1656,7 +1669,7 @@ describe('objectui#7924 — the unread members, in the FOUR buckets the ruling w
     expect(PROTOCOL_RETIRED_KEYS.filter((k) => tombstones.includes(k))).toEqual([...BUCKET_PROTOCOL_RETIRED_TOMBSTONED]);
   });
 
-  it('objectui declares every LIVE protocol key on this surface but the one pending its ruling — the narrower-than-protocol direction is otherwise EMPTY', () => {
+  it('objectui declares every LIVE protocol key on this surface — the narrower-than-protocol direction is EMPTY (inverted from "but the one pending its ruling" at objectui#12341)', () => {
     const declared = new Set(namedListViewMembers().names);
     const live = protocolListViewKeys().filter((k) => !protocolRetiredKeys().includes(k));
     expect(live).toHaveLength(44);
@@ -1666,15 +1679,13 @@ describe('objectui#7924 — the unread members, in the FOUR buckets the ruling w
     // records it. ⛔ A name appearing here is objectui going narrower than the
     // protocol — the direction the maintainer principle forbids.
     //
-    // ⚠️ ONE name stands here since `@objectstack/spec` 18, and it is PENDING,
-    // not accepted: `requiredPermissions`, the ADR-0066 audience gate the SERVER
-    // enforces before it serves a view (objectui#12030). Declaring it is what
-    // objectui#8980 rules; but a declared member no renderer reads lands in
-    // bucket ①, whose emptiness says "implementation owed", and a server-side
-    // gate owes the renderer nothing. Which way the census reads such a member
-    // is the seat's call, so the declaration is left out of objectui#12030 and
-    // the name is pinned here exactly, so a second missing key still fails.
-    expect(missing, 'objectui is narrower than the protocol on these live keys').toEqual([...PENDING_SERVER_ENFORCED_DECLARATION]);
+    // ⚠️ ONE name stood here from `@objectstack/spec` 18 until objectui#12341,
+    // pinned PENDING by objectui#12030: `requiredPermissions`, the audience gate
+    // the SERVER enforces before it serves a view. objectui#12341 declared it
+    // and the census reads it in its own server-enforced bucket
+    // ({@link BUCKET_SERVER_ENFORCED_UNREAD}), ⛔ not bucket ①.
+    expect(missing, 'objectui is narrower than the protocol on these live keys').toEqual([]);
+    for (const key of BUCKET_SERVER_ENFORCED_UNREAD) expect(declared.has(key)).toBe(true);
     // The control for that zero: the SAME set difference over the SAME two key
     // sets is non-empty in the other direction, so the emptiness is a reading.
     const localOnly = [...declared].filter((k) => !protocolListViewKeys().includes(k)).sort();
@@ -1722,13 +1733,16 @@ describe('objectui#7924 — the unread members, in the FOUR buckets the ruling w
     }
   });
 
-  it('the 21 unread members partition FOUR ways — 0 + 8 + 11 + 2 since objectui#10758 (23 + 8 + 11 + 2 before it) — disjoint and exhaustive', () => {
+  it('the 22 unread members partition FIVE ways — 0 + 8 + 11 + 2 + 1 since objectui#12341 (0 + 8 + 11 + 2 before it, 23 + 8 + 11 + 2 before objectui#10758) — disjoint and exhaustive', () => {
     const unread = new Set(NAMED_LIST_VIEW_UNREAD as readonly string[]);
     const protocolKeys = new Set(protocolListViewKeys());
     const retiredTombstoned = new Set<string>(BUCKET_PROTOCOL_RETIRED_TOMBSTONED);
+    const serverEnforced = new Set<string>(BUCKET_SERVER_ENFORCED_UNREAD);
     const spellings = new Set<string>(BUCKET_LEGACY_SHOW_SPELLINGS);
 
-    const protocolDeclared = [...unread].filter((m) => protocolKeys.has(m) && !retiredTombstoned.has(m)).sort();
+    const protocolLive = [...unread].filter((m) => protocolKeys.has(m) && !retiredTombstoned.has(m));
+    const protocolDeclared = protocolLive.filter((m) => !serverEnforced.has(m)).sort();
+    expect(protocolLive.filter((m) => serverEnforced.has(m)).sort()).toEqual([...BUCKET_SERVER_ENFORCED_UNREAD]);
     const localOnly = [...unread].filter((m) => !protocolKeys.has(m)).sort();
     const legacy = localOnly.filter((m) => spellings.has(m)).sort();
     const inventedOnly = localOnly.filter((m) => !spellings.has(m)).sort();
@@ -1744,12 +1758,15 @@ describe('objectui#7924 — the unread members, in the FOUR buckets the ruling w
     expect(legacy).toHaveLength(8);
     expect(inventedOnly).toHaveLength(11);
     expect(BUCKET_PROTOCOL_RETIRED_TOMBSTONED).toHaveLength(2);
+    expect(BUCKET_SERVER_ENFORCED_UNREAD).toHaveLength(1);
     // Exhaustive and disjoint against the census's own unread set: a member that
     // lands in no bucket, or in two, fails here — which is the event that makes
     // the 2026-09-16 disposition ruling stale.
-    const union = [...protocolDeclared, ...legacy, ...inventedOnly, ...BUCKET_PROTOCOL_RETIRED_TOMBSTONED];
-    expect(union).toHaveLength(21);
-    expect(new Set(union).size).toBe(21);
+    const union = [
+      ...protocolDeclared, ...legacy, ...inventedOnly, ...BUCKET_PROTOCOL_RETIRED_TOMBSTONED, ...BUCKET_SERVER_ENFORCED_UNREAD,
+    ];
+    expect(union).toHaveLength(22);
+    expect(new Set(union).size).toBe(22);
     expect([...union].sort()).toEqual([...unread].sort());
   });
 
@@ -1776,8 +1793,11 @@ describe('objectui#7924 — the unread members, in the FOUR buckets the ruling w
     const declared = namedListViewMembers().names;
     const unreadProtocol = live.filter((k) => declared.includes(k) && !reads.includes(k)).sort();
     // Was the objectui#8980 pair until `@objectstack/spec` 17.5.0 retired both;
-    // a retired key is not live, so the set is empty (objectui#11073).
-    expect(unreadProtocol).toEqual([]);
+    // a retired key is not live, so the set was empty (objectui#11073). Since
+    // objectui#12341 it holds exactly the server-enforced bucket — a live
+    // protocol member read off no named view BY DESIGN — and nothing else.
+    expect(unreadProtocol).toEqual([...BUCKET_SERVER_ENFORCED_UNREAD]);
+    expect(unreadProtocol.filter((k) => !(BUCKET_SERVER_ENFORCED_UNREAD as readonly string[]).includes(k))).toEqual([]);
     // Control on the same derivation: it still finds the bucket-② / ③ members
     // unread, so the empty bucket is a reading and not a probe that reads all.
     expect(declared.filter((k) => !reads.includes(k))).toContain(NAMED_VIEW_UNREAD_CONTROL);

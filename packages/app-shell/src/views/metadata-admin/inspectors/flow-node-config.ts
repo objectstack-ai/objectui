@@ -755,7 +755,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     // (`FLOW_NODE_TEXT_SLOTS`): they render `{{ }}` holes, and the spec refuses
     // a single-brace `{…}` token in them.
     cfg('url', 'URL', 'text', {
-      placeholder: 'https://api.example.com/v1/contracts/{{ contract_id }}',
+      placeholder: 'https://api.example.com/v1/contracts',
       help: 'Request URL. Renders {{ }} holes.',
       refMode: 'hole',
     }),

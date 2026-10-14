@@ -34,6 +34,15 @@ whose adapter registers the file with the platform (`createObjectStackUploadAdap
 record written before file-as-reference may still hold: the widgets still render it,
 and never write a new one.
 
+**Restricted files.** When the reader may read the record but not a file's `sys_file`
+metadata, the platform sends that file as `{ id, metadataRefused: true }`
+(`FileRefusedValueSchema` in `@objectstack/spec/data`). `readFileValue` flags it as
+`metadataRefused: true` on the `FileValueView`, and every file, image and avatar renderer
+shows a lock with a translated "Restricted file" label (`fields.file.restricted`) instead of a
+name or a thumbnail. The open link still points to the id-derived download endpoint, which
+decides access itself. An editable widget that re-submits the field's values sends such a
+file back as its bare id.
+
 ```ts
 import type { FileFieldMetadata, UploadedFileMetadata } from '@object-ui/types';
 

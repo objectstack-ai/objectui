@@ -23,6 +23,8 @@ image is the bare `sys_file` id the upload adapter minted, the same value shape 
 field stores: see the
 [File Field](/docs/fields/file) for the refusal when no id comes back, and for
 `UploadedFileMetadata`, the legacy inline shape an older record may still hold.
+An image the reader may not open (`{ id, metadataRefused: true }`) renders as a restricted
+lock tile, never a thumbnail; see **Restricted files** on the [File Field](/docs/fields/file).
 
 ```ts
 import type { ImageFieldMetadata } from '@object-ui/types';

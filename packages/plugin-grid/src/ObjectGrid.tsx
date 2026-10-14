@@ -36,7 +36,7 @@ import { createSafeTranslation } from '@object-ui/i18n';
 import { resolveGridCellRendering, gridCellRendererForFixedKey, linkCellRenderer, BADGE_PREFIX_RENDERER_KEY } from './cellRendererResolution';
 import { isMaskedGridColumn, isWithheldGridColumn } from './maskedColumn';
 import { formatCurrency, formatCompactCurrency, formatDate, formatPercent, percentCellScale, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue, MaskedCellRenderer, withKnownObjects } from '@object-ui/fields';
-import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
+import { useLocalization, useDisplayLocale, resolveFieldCurrency, pickLocalized } from '@object-ui/i18n';
 // Two resolvers, two vocabularies — the repo spells the distinction into the
 // NAMES (objectui#4167). `resolveInlineI18nLabel` is the spec's own
 // `resolveI18nLabel`: it resolves the INLINE per-locale map
@@ -510,10 +510,23 @@ const GRID_DEFAULT_TRANSLATIONS: Record<string, string> = {
  */
 const useGridTranslation = createSafeTranslation(GRID_DEFAULT_TRANSLATIONS, 'grid.actions');
 
-/** Resolve an I18nLabel (string) to a plain string. */
-function resolveColumnLabel(label: string | I18nLabel | undefined): string | undefined {
+/**
+ * Resolve a column header `label` (`ListColumnSchema.label`, the spec's
+ * `I18nLabel`) to the string the header prints, in the viewer's `language`.
+ *
+ * A plain string passes through unchanged. An inline locale map
+ * (`{ en: 'Amount', 'zh-CN': '金额' }`) is picked by `pickLocalized` — the one
+ * locale pick the console uses for `I18nLabel`, with its own floor when the
+ * viewer's locale is absent — rather than a second implementation here.
+ * objectui#12358: this used to keep only a plain string and answer `undefined`
+ * for a map, so an authored map header silently fell back to the field label.
+ * A map with no usable entry still answers `undefined`, so the field-label
+ * fallback at the call site applies exactly as for an absent label.
+ */
+function resolveColumnLabel(label: string | I18nLabel | undefined, language: string | undefined): string | undefined {
   if (label == null) return undefined;
-  return typeof label === 'string' ? label : undefined;
+  if (typeof label === 'string') return label;
+  return pickLocalized(label, language) || undefined;
 }
 
 /**
@@ -3645,8 +3658,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             // { field } shows an English name-derived header (e.g. "Request
             // title") even when the field has a localized label (e.g. "申请标题")
             // on a non-English app.
-            const authoredHeader = resolveColumnLabel(col.label);
-            const rawHeader = resolveColumnLabel(objectFields?.[col.field]?.label)
+            const authoredHeader = resolveColumnLabel(col.label, uiLanguage);
+            const rawHeader = resolveColumnLabel(objectFields?.[col.field]?.label, uiLanguage)
               || col.field.charAt(0).toUpperCase() + col.field.slice(1).replace(/_/g, ' ');
             const header = authoredHeader
               || (schema.objectName ? resolveFieldLabel(schema.objectName, col.field, rawHeader) : rawHeader);
@@ -4274,7 +4287,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     });
 
     return generatedColumns;
-  }, [objectSchema, objectFields, objectTypesPending, schemaFields, schemaColumns, dataConfig, hasInlineData, objectName, navigation.handleClick, executeAction, data, resolveFieldLabel, translateOptions, schema.objectName, perms]);
+  }, [objectSchema, objectFields, objectTypesPending, schemaFields, schemaColumns, dataConfig, hasInlineData, objectName, navigation.handleClick, executeAction, data, resolveFieldLabel, translateOptions, schema.objectName, perms, uiLanguage]);
 
   // Formats this grid can actually deliver (objectui#2942): the server stream
   // handles csv/xlsx/json, the client fallback only csv/json. Declared-but-dead

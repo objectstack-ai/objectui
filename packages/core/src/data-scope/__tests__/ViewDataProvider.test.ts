@@ -58,89 +58,28 @@ describe('ViewDataProvider', () => {
     });
   });
 
-  // ===== API Provider =====
-  describe('api provider', () => {
-    it('returns error when no fetchUrl implementation', async () => {
-      const config: ViewDataConfig = {
-        provider: 'api',
-        read: { url: 'https://api.example.com/records' },
-      };
-
-      const result = await provider.resolve(config);
-      expect(result.error).toContain('No fetchUrl implementation');
-    });
-
-    it('fetches data from API URL', async () => {
+  // ===== Retired API provider (objectui#12325) =====
+  // The view-level `api` data source is retired in @objectstack/spec
+  // (objectstack#23082). It used to resolve through `fetcher.fetchUrl`; it now
+  // has no arm, so a config that still names it is an unknown provider: an
+  // error naming it, no records, and nothing fetched on its behalf.
+  describe('retired api provider', () => {
+    it('resolves as an unknown provider and fetches nothing', async () => {
       const fetcher: DataFetcher = {
-        fetchRecords: vi.fn(),
-        fetchUrl: vi.fn().mockResolvedValue({
-          records: [{ id: 1 }],
-          total: 1,
-        }),
+        fetchRecords: vi.fn().mockResolvedValue({ records: [{ id: 1 }], total: 1 }),
       };
       provider.setFetcher(fetcher);
 
-      const result = await provider.resolve({
+      const retired = {
         provider: 'api',
         read: { url: 'https://api.example.com/data', method: 'GET' },
-      });
+      } as unknown as ViewDataConfig;
+      const result = await provider.resolve(retired);
 
-      expect(result.records).toHaveLength(1);
-      expect(result.total).toBe(1);
-      expect(fetcher.fetchUrl).toHaveBeenCalledWith(
-        'https://api.example.com/data',
-        {
-          method: 'GET',
-          headers: undefined,
-        },
-      );
-    });
-
-    it('handles array response shape', async () => {
-      const fetcher: DataFetcher = {
-        fetchRecords: vi.fn(),
-        fetchUrl: vi.fn().mockResolvedValue([{ id: 1 }, { id: 2 }]),
-      };
-      provider.setFetcher(fetcher);
-
-      const result = await provider.resolve({
-        provider: 'api',
-        read: { url: 'https://api.example.com/data' },
-      });
-
-      expect(result.records).toHaveLength(2);
-      expect(result.total).toBe(2);
-    });
-
-    it('handles { data: [] } response shape', async () => {
-      const fetcher: DataFetcher = {
-        fetchRecords: vi.fn(),
-        fetchUrl: vi.fn().mockResolvedValue({ data: [{ id: 1 }] }),
-      };
-      provider.setFetcher(fetcher);
-
-      const result = await provider.resolve({
-        provider: 'api',
-        read: { url: 'https://api.example.com/data' },
-      });
-
-      expect(result.records).toHaveLength(1);
-    });
-
-    it('handles API errors gracefully', async () => {
-      const fetcher: DataFetcher = {
-        fetchRecords: vi.fn(),
-        fetchUrl: vi.fn().mockRejectedValue(new Error('Network error')),
-      };
-      provider.setFetcher(fetcher);
-
-      const result = await provider.resolve({
-        provider: 'api',
-        read: { url: 'https://api.example.com/data' },
-      });
-
-      expect(result.error).toBe('Network error');
-      expect(result.records).toHaveLength(0);
+      expect(result.error).toBe('Unknown data provider: api');
+      expect(result.records).toEqual([]);
+      expect(result.total).toBe(0);
+      expect(fetcher.fetchRecords).not.toHaveBeenCalled();
     });
   });
 

@@ -62,37 +62,31 @@ describe('resolveDataSource', () => {
   });
 
   // -----------------------------------------------------------------------
-  // provider: 'api'
+  // provider: 'api' — retired (objectstack#23082, objectui#12325)
   // -----------------------------------------------------------------------
+  // These cases used to pin that an `api` block built an `ApiDataSource` from
+  // its `read` / `write`. The view-level `api` data source is retired in the
+  // spec, so the arm is gone: the block is an unknown provider and gets an
+  // unknown provider's answer. The `ApiDataSource` class itself stays, for
+  // code that constructs it (ApiDataSource.test.ts pins that).
 
-  it('should create ApiDataSource for provider: "api"', () => {
-    const viewData: ViewData = {
-      provider: 'api',
-      read: { url: '/api/contacts' },
-    };
-    const ds = resolveDataSource(viewData);
-    expect(ds).toBeInstanceOf(ApiDataSource);
-  });
-
-  it('should create ApiDataSource with read and write configs', () => {
-    const viewData: ViewData = {
+  it('builds no ApiDataSource for a retired provider: "api" block; it falls back like an unknown provider', () => {
+    const retired = {
       provider: 'api',
       read: { url: '/api/contacts', method: 'GET' },
       write: { url: '/api/contacts', method: 'POST' },
-    };
-    const ds = resolveDataSource(viewData);
-    expect(ds).toBeInstanceOf(ApiDataSource);
+    } as unknown as ViewData;
+    const withFallback = resolveDataSource(retired, mockFallback);
+    expect(withFallback).toBe(mockFallback);
+    expect(withFallback).not.toBeInstanceOf(ApiDataSource);
+    expect(resolveDataSource(retired)).toBeNull();
   });
 
-  it('should pass adapter options to ApiDataSource', () => {
-    const viewData: ViewData = {
-      provider: 'api',
-      read: { url: '/api/contacts' },
-    };
-    const ds = resolveDataSource(viewData, null, {
-      defaultHeaders: { Authorization: 'Bearer test' },
-    });
-    expect(ds).toBeInstanceOf(ApiDataSource);
+  it('answers a retired provider: "api" block exactly as it answers any unknown provider', () => {
+    const retired = { provider: 'api', read: { url: '/api/contacts' } } as unknown as ViewData;
+    const unknown = { provider: 'nonexistent' } as unknown as ViewData;
+    expect(resolveDataSource(retired, mockFallback)).toBe(resolveDataSource(unknown, mockFallback));
+    expect(resolveDataSource(retired)).toBe(resolveDataSource(unknown));
   });
 
   // -----------------------------------------------------------------------

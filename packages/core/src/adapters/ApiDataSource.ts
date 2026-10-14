@@ -5,8 +5,11 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * A DataSource adapter for the `provider: 'api'` ViewData mode.
- * Makes raw HTTP requests using the HttpRequest configs from ViewData.
+ * A DataSource adapter over raw HTTP, built in code from an
+ * `ApiDataSourceConfig` (e.g. the console's approvals inbox). It is not a
+ * `ViewData` mode: the view-level `provider: 'api'` is retired in
+ * `@objectstack/spec` (objectstack#23082), and `resolveDataSource` builds no
+ * `ApiDataSource` (objectui#12325).
  */
 
 import type {
@@ -126,8 +129,9 @@ function mergeHeaders(
 /**
  * ApiDataSource — a DataSource adapter for raw HTTP APIs.
  *
- * Used when `ViewData.provider === 'api'`. The read and write HttpRequest
- * configs define the endpoints; all CRUD methods map onto HTTP verbs.
+ * Constructed in code — never resolved from a `ViewData` block (see the file
+ * header). The read and write HttpRequest configs define the endpoints; all
+ * CRUD methods map onto HTTP verbs.
  *
  * Read operations use the `read` config, write operations use the `write` config.
  * Both fall back to each other when one is not provided.
@@ -172,7 +176,7 @@ export class ApiDataSource<T = any> implements DataSource<T> {
     if (!base) {
       throw new Error(
         'ApiDataSource: No HTTP configuration provided for this operation. ' +
-          'Ensure the ViewData has read/write configs.',
+          'Ensure the ApiDataSourceConfig has read/write configs.',
       );
     }
 

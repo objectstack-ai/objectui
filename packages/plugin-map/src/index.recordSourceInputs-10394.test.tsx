@@ -231,7 +231,11 @@ describe('objectui#10394 — what the declared descriptions claim, through Schem
     expect(lats).toEqual(latsOf(STATIC_ROWS));
   });
 
-  it.each(MAP_KEYS)('$label — the api provider plots no markers and still shadows staticData', async ({ type }) => {
+  // objectui#12325 — the view-level `api` data source is retired in the spec
+  // (objectstack#23082). The map's `api` arm, which only warned "not yet
+  // implemented", is deleted: a block that still says `api` plots nothing,
+  // queries nothing, still shadows `staticData`, and no arm answers for it.
+  it.each(MAP_KEYS)('$label — a retired api block plots no markers, still shadows staticData, and has no arm', async ({ type }) => {
     warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { lats, queried } = await plot(type, {
       data: { provider: 'api', read: { url: '/api/stores' } },
@@ -239,7 +243,7 @@ describe('objectui#10394 — what the declared descriptions claim, through Schem
     });
     expect(lats).toEqual([]);
     expect(queried).toEqual([]);
-    expect(warn.mock.calls.map((call: unknown[]) => String(call[0]))).toContain(
+    expect(warn.mock.calls.map((call: unknown[]) => String(call[0]))).not.toContain(
       'API provider not yet implemented for ObjectMap',
     );
   });

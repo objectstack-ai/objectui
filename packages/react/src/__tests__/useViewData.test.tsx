@@ -422,66 +422,55 @@ describe('useViewData — edge cases', () => {
 });
 
 // ---------------------------------------------------------------------------
-// provider: 'api' — host-authenticated fetch (#2725)
+// provider: 'api' — retired (objectstack#23082, objectui#12325)
 // ---------------------------------------------------------------------------
+// This block used to pin that an `api` view block fetched its `read.url`
+// through the context `apiFetch`. The view-level `api` data source is retired
+// in the spec, and `resolveDataSource` has no arm for it, so the block is an
+// unknown provider: it falls back to the context DataSource, and its URL is
+// requested through no channel at all.
 
-describe("useViewData — provider: 'api' host auth fetch", () => {
-  const apiViewData: ViewData = {
+describe("useViewData — a retired provider: 'api' block", () => {
+  const retiredViewData = {
     provider: 'api',
     read: { url: '/api/gantt/tree', method: 'GET' },
-  } as ViewData;
+  } as unknown as ViewData;
 
-  function jsonResponse() {
-    return new Response(JSON.stringify({ data: [{ id: '1' }], total: 1 }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
+  it('requests its URL through neither the context apiFetch nor the global fetch', async () => {
+    const apiFetch = vi.fn(async () => new Response('{}', { status: 200 })) as unknown as typeof fetch;
+    const bareFetch = vi.fn(async () => new Response('{}', { status: 200 }));
+    vi.stubGlobal('fetch', bareFetch);
+    const contextDS = {
+      find: vi.fn().mockResolvedValue({ data: [{ id: 'ctx-1' }], total: 1 }),
+      findOne: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+    } as unknown as DataSource;
 
-  function apiFetchWrapper(apiFetch: typeof fetch) {
-    return ({ children }: { children: React.ReactNode }) =>
-      React.createElement(
-        SchemaRendererContext.Provider,
-        { value: { dataSource: null, apiFetch } },
-        children,
+    try {
+      const wrapper = ({ children }: { children: React.ReactNode }) =>
+        React.createElement(
+          SchemaRendererContext.Provider,
+          { value: { dataSource: contextDS, apiFetch } },
+          children,
+        );
+      const { result } = renderHook(
+        () => useViewData({ viewData: retiredViewData, resource: 'tasks' }),
+        { wrapper },
       );
-  }
 
-  it('routes api-provider requests through the context apiFetch', async () => {
-    const apiFetch = vi.fn(async () => jsonResponse()) as unknown as typeof fetch;
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
 
-    const { result } = renderHook(
-      () => useViewData({ viewData: apiViewData, resource: 'tasks' }),
-      { wrapper: apiFetchWrapper(apiFetch) },
-    );
-
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false);
-    });
-
-    expect(apiFetch).toHaveBeenCalled();
-    expect(result.current.data).toEqual([{ id: '1' }]);
-  });
-
-  it('lets an explicit adapterOptions.fetch win over the context apiFetch', async () => {
-    const contextFetch = vi.fn(async () => jsonResponse()) as unknown as typeof fetch;
-    const explicitFetch = vi.fn(async () => jsonResponse()) as unknown as typeof fetch;
-
-    const { result } = renderHook(
-      () =>
-        useViewData({
-          viewData: apiViewData,
-          resource: 'tasks',
-          adapterOptions: { fetch: explicitFetch },
-        }),
-      { wrapper: apiFetchWrapper(contextFetch) },
-    );
-
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false);
-    });
-
-    expect(explicitFetch).toHaveBeenCalled();
-    expect(contextFetch).not.toHaveBeenCalled();
+      // The unknown-provider answer: the context DataSource, read for `resource`.
+      expect(result.current.dataSource).toBe(contextDS);
+      expect(contextDS.find).toHaveBeenCalledWith('tasks', undefined);
+      expect(apiFetch).not.toHaveBeenCalled();
+      expect(bareFetch).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

@@ -18,9 +18,9 @@ them from `@object-ui/core`.
 
 | Export | Kind | Role |
 | --- | --- | --- |
-| `ApiDataSource` | class | `provider: 'api'` — raw HTTP against the `HttpRequest` configs carried in `ViewData` |
+| `ApiDataSource` | class | raw HTTP against the `HttpRequest` configs it is constructed with — built in code, never from a `ViewData` block |
 | `ValueDataSource` | class | `provider: 'value'` — an in-memory array; no network at all |
-| `resolveDataSource` | function | builds the adapter a `ViewData` config asks for (`object` / `api` / `value`) |
+| `resolveDataSource` | function | builds the adapter a `ViewData` config asks for (`object` / `value`) |
 | `runBatchTransaction` / `emulateBatchTransaction` | functions | ordered cross-object save — the adapter's own `batchTransaction` when it has one, a sequential non-atomic emulation when it does not |
 
 Backend-specific adapters live in their own packages rather than here; today
@@ -28,7 +28,11 @@ that is `@object-ui/data-objectstack`.
 
 ### `ApiDataSource`
 
-For `provider: 'api'`. The endpoint comes from the `HttpRequest` configs, not
+Built in code from an `ApiDataSourceConfig` — the console's approvals inbox is
+one such caller. It is not a `ViewData` mode: the view-level `provider: 'api'`
+is retired in `@objectstack/spec` (objectstack#23082), so `resolveDataSource`
+never builds one, and a metadata-declared API call is the page element's
+`dataSource` binding instead. The endpoint comes from the `HttpRequest` configs, not
 from the `resource` argument — `find`/`findOne` use `read`, and
 `create`/`update`/`delete` use `write` (falling back to `read` when `write` is
 absent). `QueryParams` are flattened onto the query string.
@@ -273,7 +277,7 @@ import type { DataSource } from '@object-ui/types';
 declare const contextDataSource: DataSource;
 
 const dataSource = resolveDataSource(
-  { provider: 'api', read: { url: '/api/users' } },
+  { provider: 'value', items: [{ id: '1', name: 'Ada' }] },
   contextDataSource, // used for `provider: 'object'`, and as the fallback
 );
 ```
@@ -281,9 +285,8 @@ const dataSource = resolveDataSource(
 | `viewData.provider` | Result |
 | --- | --- |
 | `'object'` | the `fallback` — the `DataSource` from context, typically `ObjectStackAdapter` |
-| `'api'` | a new `ApiDataSource` built from `read` / `write` |
 | `'value'` | a new `ValueDataSource` over `items` |
-| unknown, or no `viewData` | the `fallback`, else `null` |
+| unknown (the retired `'api'` included), or no `viewData` | the `fallback`, else `null` |
 
 ### `runBatchTransaction` / `emulateBatchTransaction`
 

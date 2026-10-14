@@ -800,7 +800,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
   const dataProvider = dataConfig?.provider;
   // NOT a delegation site for `resolveRecordSourceObjectName` (`b041b9c0c`):
   // this is the data config's OWN object, deliberately `undefined` for every
-  // other provider so an `api`/`value` map's `objectName` changing cannot move
+  // other provider so a `value` map's `objectName` changing cannot move
   // this dependency. The shared reader's second rung would put `objectName`
   // here and re-run both effects on a value they do not read.
   const dataObjectName = dataConfig?.provider === 'object' ? dataConfig.object : undefined;
@@ -979,8 +979,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
           // inline set has no metadata to build. Falling through here would
           // therefore throw `DataSource required for object/api providers` on a
           // map that needs no DataSource at all. So the adapter is resolved for
-          // the inline provider ONLY — `api` keeps exactly the behaviour it had
-          // — and the same three keys are lowered onto the same query shape.
+          // the inline provider ONLY, and the same three keys are lowered onto the same query shape.
           //
           // Built here rather than memoised at render scope so this effect goes
           // on reading only the primitive fields objectui#6592 named
@@ -1087,10 +1086,10 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
 
           const capped = applyNonGridRowCeiling(result);
           commit(capped.rows, capped);
-        } else if (dataProvider === 'api') {
-          console.warn('API provider not yet implemented for ObjectMap');
-          commit([], null);
         }
+        // No `api` arm: the view-level `api` data source is retired in
+        // `@objectstack/spec` (objectstack#23082) and read by nothing here
+        // (objectui#12325).
       } catch (err) {
         if (silent) {
           // A failed re-read of the query on screen keeps the last good rows

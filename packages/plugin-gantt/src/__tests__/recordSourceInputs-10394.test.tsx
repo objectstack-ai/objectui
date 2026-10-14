@@ -35,8 +35,9 @@
  * make, measured rather than assumed:
  * 6. `data` wins over `staticData` and `objectName`; `staticData` wins over
  *    `objectName`; neither inline source queries the object.
- * 7. An `object` provider queries its own object, not `objectName`; an `api`
- *    provider reads through its request.
+ * 7. An `object` provider queries its own object, not `objectName`; a retired
+ *    `api` block (objectstack#23082, objectui#12325) requests nothing and is
+ *    answered like an unknown provider: `objectName` is queried.
  * 8. A bare array under `data` is not a record source: `staticData` beside it
  *    is what is charted.
  *
@@ -229,21 +230,17 @@ describe('objectui#10394 — what the declared descriptions claim, through Schem
     expect(queried).toEqual(['task']);
   });
 
-  it('an api provider reads through its request', async () => {
+  it('a retired api block requests nothing and is answered like an unknown provider', async () => {
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(
-      async () =>
-        new Response(
-          JSON.stringify({ data: [{ id: 'a1', subject: 'A1', visible_from: '2026-01-01', due_date: '2026-01-02' }] }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        ),
+      async () => new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } }),
     );
     const { ids, queried } = await chart(
       { data: { provider: 'api', read: { url: 'https://api.test/tasks' } }, objectName: 'account' },
-      'a1',
+      'f1',
     );
-    expect(ids).toBe('a1');
-    expect(queried).toEqual([]);
-    expect(fetchSpy.mock.calls.map((call: unknown[]) => String(call[0]).split('?')[0])).toContain('https://api.test/tasks');
+    expect(ids).toBe('f1');
+    expect(queried).toEqual(['account']);
+    expect(fetchSpy.mock.calls.map((call: unknown[]) => String(call[0]).split('?')[0])).not.toContain('https://api.test/tasks');
   });
 
   it('a bare array under data is not a record source', async () => {

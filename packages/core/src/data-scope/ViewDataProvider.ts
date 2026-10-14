@@ -10,11 +10,14 @@
  * @object-ui/core - View Data Provider
  *
  * Resolves @objectstack/spec ViewData discriminated union into
- * a unified data access interface. Supports three data modes:
+ * a unified data access interface. Supports two data modes:
  *
  * 1. 'object' — Metadata-driven via ObjectStack API (object name → fields/records)
- * 2. 'api' — Custom REST API endpoints (read/write URLs)
- * 3. 'value' — Static data (pre-loaded items array)
+ * 2. 'value' — Static data (pre-loaded items array)
+ *
+ * The view-level `'api'` mode is retired in `@objectstack/spec`
+ * (objectstack#23082, ADR-0049) and has no arm here (objectui#12325): a
+ * config that still names it resolves as an unknown provider, with an error.
  *
  * @module data-scope
  * @packageDocumentation
@@ -33,11 +36,6 @@ import {
 /** ViewData union — matches @objectstack/spec ViewDataSchema */
 export type ViewDataConfig =
   | { provider: 'object'; object: string }
-  | {
-      provider: 'api';
-      read: { url: string; method?: string; headers?: Record<string, string> };
-      write?: { url: string; method?: string; headers?: Record<string, string> };
-    }
   | { provider: 'value'; items: any[] };
 
 /**
@@ -72,16 +70,6 @@ export interface DataFetcher {
       required?: boolean;
     }>;
   }>;
-
-  /** Fetch from a custom API URL */
-  fetchUrl?(
-    url: string,
-    options?: {
-      method?: string;
-      headers?: Record<string, string>;
-      body?: any;
-    },
-  ): Promise<any>;
 
   /**
    * Fetch the object's saved views, so an `ElementDataSource.view` name can be
@@ -118,20 +106,11 @@ export interface ResolvedData {
     }>;
   };
   /** Provider type */
-  provider: 'object' | 'api' | 'value';
+  provider: 'object' | 'value';
   /** Loading state */
   loading: boolean;
   /** Error */
   error?: string;
-}
-
-/** Extract records array from various common API response shapes */
-function extractRecords(data: any): any[] {
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.records)) return data.records;
-  if (Array.isArray(data?.data)) return data.data;
-  if (Array.isArray(data?.items)) return data.items;
-  return [];
 }
 
 /**
@@ -169,8 +148,6 @@ export class ViewDataProvider {
     switch (config.provider) {
       case 'value':
         return this.resolveValue(config);
-      case 'api':
-        return this.resolveApi(config);
       case 'object':
         return this.resolveObject(config, options);
       default:
@@ -196,48 +173,6 @@ export class ViewDataProvider {
       provider: 'value',
       loading: false,
     };
-  }
-
-  /** Resolve API-based data */
-  private async resolveApi(config: {
-    provider: 'api';
-    read: { url: string; method?: string; headers?: Record<string, string> };
-  }): Promise<ResolvedData> {
-    if (!this.fetcher?.fetchUrl) {
-      return {
-        records: [],
-        total: 0,
-        provider: 'api',
-        loading: false,
-        error: 'No fetchUrl implementation available for API data provider',
-      };
-    }
-
-    try {
-      const data = await this.fetcher.fetchUrl(config.read.url, {
-        method: config.read.method,
-        headers: config.read.headers,
-      });
-
-      // Handle common response shapes
-      const records = extractRecords(data);
-      const total = data?.total ?? data?.count ?? records.length;
-
-      return {
-        records,
-        total,
-        provider: 'api',
-        loading: false,
-      };
-    } catch (error) {
-      return {
-        records: [],
-        total: 0,
-        provider: 'api',
-        loading: false,
-        error: (error as Error).message,
-      };
-    }
   }
 
   /** Resolve object-based data (metadata-driven) */

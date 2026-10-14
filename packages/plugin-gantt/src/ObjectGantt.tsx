@@ -19,10 +19,10 @@
  * - Task dependencies visualization
  * - Date range display
  * - Auto-scrolling timeline
- * - Works with object/api/value data providers
+ * - Works with object/value data providers
  */
 
-import React, { useContext, useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import type { ObjectGanttSchema, DataSource, GanttConfig } from '@object-ui/types';
 import { GanttConfigSchema } from '@objectstack/spec/ui';
@@ -35,7 +35,6 @@ import { resolveFieldScale } from '@objectstack/spec/data';
 import {
   useNavigationOverlay,
   useSettledSchema,
-  SchemaRendererContext,
   NonGridRowCeilingNote,
   useDataInvalidation,
   useFilterScope,
@@ -448,7 +447,7 @@ function readTaskEnd(raw: unknown, chartZone: ChartZone): Date {
  * midnight names the PREVIOUS day everywhere east of UTC.
  * Any other declared type (`datetime`) keeps its instant, exactly as before.
  *
- * With no declared type to ask (an `api` provider has no object schema), the
+ * With no declared type to ask (an inline `value` provider has no object schema), the
  * stored value's own shape answers: the same split {@link readTaskDate} and
  * {@link readTaskEnd} made when they read the value, so a write never
  * disagrees with the read.
@@ -752,8 +751,8 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
    * `effectiveDataSource` like every other provider. That memo intentionally
    * keeps `dataConfig` as a dependency (not just its `object`/`items`
    * primitives), because `resolveDataSource` reads a provider-shaped slice of
-   * it — the whole `read`/`write` request config on `api` — which cannot be
-   * flattened to a fixed primitive list. Authored items therefore still reach
+   * it, which cannot be flattened to a fixed primitive list. Authored items
+   * therefore still reach
    * `reload`: new items → new `dataConfig` (deep-compared above) → new
    * adapter → new `reload`. The primitive is redundant, and a binding
    * documented as "the field `reload` reads" that `reload` does not read is
@@ -762,19 +761,16 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
 
   // Resolve the ViewData config into a concrete DataSource adapter:
   //   provider: 'object' → the context DataSource passed via props (unchanged)
-  //   provider: 'api'    → an ApiDataSource that executes the read/write HttpRequest config
   //   provider: 'value'  → an in-memory ValueDataSource
-  // Every read AND write-back below goes through this single adapter, so the
-  // 'api' provider now supports reschedule / dependency / delete / inline-edit
-  // write-backs — not just object-backed views.
-  // Host-authenticated fetch (SchemaRendererContext.apiFetch) so the 'api'
-  // provider's custom endpoints carry the same Authorization/tenant headers
-  // as native requests instead of relying on cookies alone (#2725).
-  const apiFetch = useContext(SchemaRendererContext)?.apiFetch;
+  // Every read AND write-back below goes through this single adapter.
+  // There is no `api` arm: the view-level `api` data source is retired in
+  // `@objectstack/spec` (objectstack#23082), so a block that still names it is
+  // an unknown provider to `resolveDataSource` and no request is built from
+  // its `read` / `write` (objectui#12325).
   const effectiveDataSource = useMemo(
-    () => resolveDataSource(dataConfig, dataSource ?? null, { fetch: apiFetch }),
+    () => resolveDataSource(dataConfig, dataSource ?? null),
     // dataConfig is already memoized by deep value above.
-    [dataConfig, dataSource, apiFetch],
+    [dataConfig, dataSource],
   );
   /**
    * The adapter, reachable from the fetch path WITHOUT that path depending on
@@ -785,8 +781,8 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
    * recompute even when the dependency list compares equal, and `useCallback`
    * is the same hint over a function. The memo above is not value-stable
    * under that — `resolveDataSource` returns the context adapter UNCHANGED for
-   * `provider: 'object'`, but CONSTRUCTS a new `ApiDataSource` /
-   * `ValueDataSource` for `'api'` and `'value'`. So on those two providers a
+   * `provider: 'object'`, but CONSTRUCTS a new `ValueDataSource` for
+   * `'value'`. So on that provider a
    * discard alone handed `reload` a brand-new adapter for a byte-identical
    * authored config, rebuilt `reload`, and re-fired the mount effect below —
    * one redundant round trip, per discard, on a component nobody had touched.
@@ -795,7 +791,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
    * there and this one stayed on it.
    *
    * ⇒ `reload` READS the adapter through this ref and KEYS on the values that
-   * determine it: `adapterInputsKey` below, plus `dataSource` and `apiFetch` —
+   * determine it: `adapterInputsKey` below, plus `dataSource` —
    * this memo's own dependency list, with the memoised `dataConfig` replaced by
    * the VALUES `resolveDataSource` reads out of it. A genuine change to any of
    * them still rebuilds `reload` and still refetches; a discard alone no longer
@@ -810,9 +806,8 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
    *
    * ⛔ Deliberately NOT `dataConfigKey`, the whole config's deep value. The
    * note above `dataItems` says such a flattening "cannot be flattened to a
-   * fixed primitive list" — true of a fixed LIST, and the reason that note
-   * gives is exactly right: the `api` arm's input is a whole `read`/`write`
-   * request config. A per-arm VALUE, however, is expressible, and it has to be
+   * fixed primitive list" — true of a fixed LIST. A per-arm VALUE, however,
+   * is expressible, and it has to be
    * the per-arm one rather than the whole config, because the whole config is
    * WIDER than the adapter's inputs. `ObjectGantt.discardedConfigMemo.test.tsx`
    * measures the difference: it moves an inert field inside `schema.data` that
@@ -821,24 +816,21 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
    * the `object` provider, where the adapter is the context DataSource and the
    * config contributes nothing to it at all.
    *
-   * ⚠️ The arms below mirror `resolveDataSource` (`@object-ui/core`) — `read` +
-   * `write` for `'api'`, `items` for `'value'`, nothing but the fallback for
-   * `'object'` and for an unknown provider. Everything else the record query
-   * derives from the config reaches the list through its own binding
+   * ⚠️ The arms below mirror `resolveDataSource` (`@object-ui/core`) — `items`
+   * for `'value'`, nothing but the fallback for `'object'` and for an unknown
+   * provider (the retired `'api'` included, objectui#12325). Everything else
+   * the record query derives from the config reaches the list through its own binding
    * (`resource`, `dataProvider`, `hasInlineData`), so this key answers for the
    * ADAPTER and only the adapter.
    */
   const adapterInputsKey = JSON.stringify(
-    rawDataConfig?.provider === 'api'
-      ? { provider: 'api', read: rawDataConfig.read, write: rawDataConfig.write }
-      : rawDataConfig?.provider === 'value'
-        ? { provider: 'value', items: rawDataConfig.items }
-        : { provider: rawDataConfig?.provider ?? null },
+    rawDataConfig?.provider === 'value'
+      ? { provider: 'value', items: rawDataConfig.items }
+      : { provider: rawDataConfig?.provider ?? null },
   );
 
-  // Unified resource name for find/update/delete. For 'object' it's the bound
-  // object; for 'api' the adapter ignores it (the URL carries the endpoint),
-  // so an empty string is fine there.
+  // Unified resource name for find/update/delete: the bound object for
+  // 'object', `schema.objectName` otherwise.
   const resource = resolveRecordSourceObjectName(schema, dataConfig) ?? '';
 
   /**
@@ -1033,9 +1025,9 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
         throw new Error('DataSource required for object/api providers');
       }
 
-      // 'object' → context adapter, 'api' → ApiDataSource (both resolved above).
+      // 'object' → the context adapter (resolved above).
       // Auto-inject $expand for lookup/master_detail fields when a schema is
-      // available; api adapters return an empty field map, so expand stays off.
+      // available.
       //
       // [objectui#7230] FIELD-LEVEL SECURITY ON `$expand`, the gate
       // objectui#7215 / PR #7229 put on the two projection sites in its scope.
@@ -1149,7 +1141,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
     // `ObjectGantt.discardedReloadIdentity-10036.test.tsx` hold the two in
     // parity by exercising each entry.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `searchFields` is keyed by its serialised value, `searchFieldsKey`; the host rows are read through `hostRowsRef` (objectui#7333)
-  }, [adapterInputsKey, dataSource, apiFetch, resource, hasInlineData, dataProvider, queryFilter, schema.sort, searchTerm, searchFieldsKey, objectSchema, perms]);
+  }, [adapterInputsKey, dataSource, resource, hasInlineData, dataProvider, queryFilter, schema.sort, searchTerm, searchFieldsKey, objectSchema, perms]);
 
   /**
    * Does the query this effect is about to issue DERIVE anything from the
@@ -1212,7 +1204,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   useEffect(() => {
     if (recordQueryDerivesExpand && !objectSchemaReady) return;
     reloadRef.current(loadedOnceRef.current ? { inPlace: true } : {});
-  }, [adapterInputsKey, dataSource, apiFetch, resource, hasInlineData, dataProvider, queryFilter, schema.sort, searchTerm, searchFieldsKey, objectSchema, perms, recordQueryDerivesExpand, objectSchemaReady]);
+  }, [adapterInputsKey, dataSource, resource, hasInlineData, dataProvider, queryFilter, schema.sort, searchTerm, searchFieldsKey, objectSchema, perms, recordQueryDerivesExpand, objectSchemaReady]);
 
   /**
    * objectui#10035 — the refresh input this gantt had none of, so a host could
@@ -1264,7 +1256,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
     const resolveBorderColorFieldValue = createFieldColorResolver(fieldDefs[borderColorField ?? '']);
 
     // Fallback value→label maps from the view's quickFilters config. When the
-    // data comes from an `api` provider there is no object schema, so select
+    // data comes from an inline `value` provider there is no object schema, so select
     // fields have no option defs — but the same view often declares the exact
     // label pairs as quick-filter options (e.g. status: completed → "Completed").
     // Reuse them so the tooltip shows display labels, not raw machine values.
@@ -1338,7 +1330,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
         const opt = options.find((o) => String(o.value) === String(value));
         if (opt) return opt.label;
       }
-      // No schema options (api provider has no object schema) → quick-filter
+      // No schema options (an inline `value` provider has no object schema) → quick-filter
       // options declared for the same field carry the display labels.
       if (typeof value !== 'object') {
         const qfLabel = quickFilterLabels.get(fieldName)?.get(String(value));
@@ -2045,11 +2037,10 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   // `GanttView` hands `onTaskClick` a task and not a DOM event.
   const { anchorRef, anchorCaptureProps } = useOverlayAnchor();
 
-  // #2473: an `api`-provider row is a composed render payload (bar_color,
-  // node_type, sort_key…), not the business record — and a foreign-object row
-  // has no schema at all, so the drawer degraded to humanized English labels.
-  // When the drawer opens, fetch the REAL record (and its schema for foreign
-  // objects) through the context DataSource; fall back to the raw row when
+  // #2473: a foreign-object row (its `objectField` names another object than
+  // the bound one) has no schema loaded, so the drawer degraded to humanized
+  // English labels. When the drawer opens, fetch the REAL record (and its
+  // schema) through the context DataSource; fall back to the raw row when
   // there's no context DS or the fetch fails (inline `value` demos keep
   // working unchanged).
   const [drawerFetch, setDrawerFetch] = useState<{ key: string; record: any; schema: any } | null>(null);
@@ -2061,7 +2052,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
     const detail = recordDetailHref(drawerRec);
     if (!detail) { setDrawerFetch(null); return; }
     const { objectName, recordId } = detail;
-    const needsRealRecord = dataConfig?.provider === 'api' || objectName !== resource;
+    const needsRealRecord = objectName !== resource;
     if (!needsRealRecord || !dataSource || typeof dataSource.findOne !== 'function') {
       setDrawerFetch(null);
       return;
@@ -2071,9 +2062,8 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
     (async () => {
       try {
         // Schema comes from the SAME context DataSource as the record — the
-        // component-level `objectSchema` state is unusable here: under the
-        // 'api' provider it's the adapter's `{fields: {}}` stub, which blanks
-        // every field label in the drawer.
+        // component-level `objectSchema` state is the BOUND object's, not
+        // this row's.
         const [record, schema] = await Promise.all([
           dataSource.findOne(objectName, String(recordId)),
           typeof dataSource.getObjectSchema === 'function'
@@ -2087,7 +2077,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       }
     })();
     return () => { cancelled = true; };
-  }, [drawerRec, recordDetailHref, dataConfig?.provider, resource, dataSource]);
+  }, [drawerRec, recordDetailHref, resource, dataSource]);
 
   // Persist a drag-driven reschedule back to the data source. Mirrors
   // ObjectCalendar.handleEventDropDefault: optimistic local patch, then
@@ -2579,10 +2569,10 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
           }
           inlineEdit
           onRefresh={
-            // Only meaningful when there's a live source to re-read (object or
-            // api provider); inline `value` items and the data prop are owned
-            // by the host.
-            (dataConfig?.provider === 'object' || dataConfig?.provider === 'api') &&
+            // Only meaningful when there's a live source to re-read (the
+            // object provider); inline `value` items and the data prop are
+            // owned by the host.
+            dataConfig?.provider === 'object' &&
             typeof effectiveDataSource?.find === 'function'
               ? () => reload({ silent: true })
               : undefined

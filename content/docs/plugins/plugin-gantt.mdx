@@ -21,7 +21,7 @@ The `@object-ui/plugin-gantt` plugin provides Gantt chart visualization for Obje
 
 ## Features
 
-- **ObjectQL Integration**: Works seamlessly with object/api/value data providers
+- **ObjectQL Integration**: Works seamlessly with object/value data providers
 - **Automatic Field Mapping**: Maps database fields to Gantt tasks
 - **Task Timeline**: Visual bars showing task duration
 - **Progress Tracking**: Display task completion percentage (0-100%)
@@ -332,35 +332,14 @@ const valueProviderGantt: ObjectGanttBlockNode = {
 };
 ```
 
-### API Provider
+### No API provider
 
-```tsx
-import type { ObjectGanttBlockNode } from '@object-ui/types';
-
-const apiProviderGantt: ObjectGanttBlockNode = {
-  type: 'object-gantt',
-  properties: {
-    data: {
-      provider: 'api',
-      // the api member is `read` / `write` HTTP requests — there is no
-      // top-level `endpoint` key, and nothing reads one
-      read: { url: '/api/project/tasks', method: 'GET' }
-    },
-    gantt: {
-      startDateField: 'startDate',
-      endDateField: 'endDate',
-      titleField: 'taskName',
-      progressField: 'percentComplete'
-    }
-  }
-};
-```
-
-When the view renders inside a `SchemaRendererProvider` that supplies an
-`apiFetch` (the console host wires an authenticated fetch there), api-provider
-requests carry the same credentials — `Authorization`, tenant, and locale
-headers — as native platform requests. Without it, requests fall back to the
-bare global fetch and rely on same-origin cookies alone.
+The view-level `{ provider: 'api', read, write }` data source is retired in
+`@objectstack/spec` (objectstack#23082). A gantt reads its object
+(`provider: 'object'`) or inline rows (`provider: 'value'`); a
+metadata-declared API call is the page element's `dataSource` binding. A
+gantt that still carries an `api` block is not read through it: its `read` /
+`write` URLs are never requested.
 
 ## Event Handling
 

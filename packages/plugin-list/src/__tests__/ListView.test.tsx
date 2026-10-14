@@ -2706,24 +2706,19 @@ describe('ListView — inline-edit toggle drives grid editability', () => {
   });
 });
 
-describe('ListView — gantt view fed by an api-provider ViewData', () => {
-  // A gantt view authored with `data: {provider:'api', read, write}` is fed by
-  // a composite endpoint that ObjectGantt resolves itself (resolveDataSource →
-  // ApiDataSource). ListView must (a) forward schema.data into the gantt
-  // component schema, (b) NOT fetch schema.objectName rows itself, and (c) NOT
-  // pass its rows `data` prop down.
+describe('ListView — gantt view whose ViewData is a retired api block', () => {
+  // This block used to pin that a gantt view authored with `data: {provider:
+  // 'api', read, write}` was "renderer-owned": ListView stood down (no fetch of
+  // schema.objectName, no rows prop) because ObjectGantt resolved an
+  // ApiDataSource for it. The view-level `api` data source is retired in
+  // @objectstack/spec (objectstack#23082) and ObjectGantt builds no adapter
+  // from it any more (objectui#12325), so ListView no longer stands down
+  // either: the block is just a non-`value` provider, and the view fetches
+  // its bound object and hands the rows down like any other list.
   //
-  // (c) is asserted against the props-recording STUB below, which is the only
-  // place it is observable at all: the real `object-gantt` renderer forwards no
-  // host prop but `schema`, so nothing ListView puts on this element reaches
-  // the chart today (objectui#7222; pinned one package over in
-  // `plugin-gantt/src/ObjectGantt.hostDataProp-7210.test.tsx`). That makes (c)
-  // a guard on a path the registry does not currently reach — keep it. The day
-  // that wrapper forwards host props (objectui#7210, half 2, an open maintainer
-  // decision) it becomes load-bearing: this view's rows array is not the
-  // endpoint's answer, and `ObjectGantt` adopts any NON-EMPTY host array as its
-  // rows. (An EMPTY one no longer blanks the chart: it reads as "no host rows
-  // yet" and the chart still queries its endpoint, objectui#7333.)
+  // The rows prop is asserted against the props-recording STUB below: the real
+  // `object-gantt` renderer forwards no host prop but `schema` (objectui#7222;
+  // pinned in `plugin-gantt/src/ObjectGantt.hostDataProp-7210.test.tsx`).
   let prevObjectGantt: ReturnType<typeof ComponentRegistry.get>;
   let ganttCalls: any[];
 
@@ -2746,34 +2741,35 @@ describe('ListView — gantt view fed by an api-provider ViewData', () => {
     mockDataSource.find.mockClear();
   });
 
-  const apiData = {
-    provider: 'api' as const,
-    read: { url: '/api/gantt/tree', method: 'GET' as const },
-    write: { url: '/api/gantt/task', method: 'PATCH' as const },
+  const retiredApiData = {
+    provider: 'api',
+    read: { url: '/api/gantt/tree', method: 'GET' },
+    write: { url: '/api/gantt/task', method: 'PATCH' },
   };
 
-  it('forwards schema.data to the gantt schema, skips its own fetch, and withholds the rows prop', async () => {
+  it('no longer stands down: it fetches the bound object and passes the rows down', async () => {
+    mockDataSource.find.mockResolvedValue([
+      { id: '1', name: 'P1', start_date: '2026-01-01', end_date: '2026-01-02' },
+    ]);
     const schema = {
       type: 'list-view',
       objectName: 'production_plan',
       viewType: 'gantt',
       fields: ['name'],
-      data: apiData,
+      data: retiredApiData,
       gantt: { startDateField: 'start_date', endDateField: 'end_date' },
     } as unknown as ListViewSchema;
 
     renderWithProvider(<ListView schema={schema} dataSource={mockDataSource} />);
     expect(await screen.findByTestId('gantt-stub')).toBeInTheDocument();
 
-    // (a) the ViewData config reached the component schema
-    const last = ganttCalls.at(-1);
-    expect(last?.schema?.data).toEqual(apiData);
-    // (b) ListView did not query the bound object itself
-    expect(mockDataSource.find).not.toHaveBeenCalled();
-    // (c) no rows array prop — the schema-spread `data` (the ViewData object)
-    // must be what arrives. Not observable through the real renderer today
-    // (see the note on this describe block); this pins ListView's own output.
-    expect(Array.isArray(last?.data)).toBe(false);
+    await vi.waitFor(() => {
+      const last = ganttCalls.at(-1);
+      expect(Array.isArray(last?.data)).toBe(true);
+      expect(last?.data).toHaveLength(1);
+    });
+    expect(mockDataSource.find).toHaveBeenCalled();
+    expect(mockDataSource.find.mock.calls[0][0]).toBe('production_plan');
   });
 
   it('keeps the legacy object-provider path: ListView fetches and passes rows down', async () => {

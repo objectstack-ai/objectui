@@ -100,7 +100,7 @@ export type { ObjectCalendarBlockConfig } from './zod/objectql.zod.js';
 export type { HttpMethodSubset as HttpMethod } from '@objectstack/spec/ui';
 
 /**
- * HTTP Request Configuration for API Provider
+ * HTTP Request Configuration (the shape `ApiDataSource` is constructed with).
  * Canonical definition from @objectstack/spec/ui.
  */
 export type { HttpRequest } from '@objectstack/spec/ui';
@@ -109,10 +109,13 @@ export type { HttpRequest } from '@objectstack/spec/ui';
  * View Data Source Configuration
  * Canonical definition from @objectstack/spec/ui.
  *
- * Supports three modes:
+ * The modes a view binds:
  * 1. 'object': Standard Protocol - Auto-connects to ObjectStack Metadata and Data APIs
- * 2. 'api': Custom API - Explicitly provided API URLs
- * 3. 'value': Static Data - Hardcoded data array
+ * 2. 'value': Static Data - Hardcoded data array
+ *
+ * The view-level 'api' mode is retired in @objectstack/spec (objectstack#23082):
+ * a metadata-declared API call is the page element's `dataSource` binding, and
+ * nothing in objectui reads a view's 'api' block (objectui#12325).
  */
 export type { ViewData } from '@objectstack/spec/ui';
 

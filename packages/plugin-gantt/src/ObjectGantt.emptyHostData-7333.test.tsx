@@ -28,18 +28,24 @@
  * spreads the prop in, as a direct caller would have to.
  *
  * Cases 1 and 4 are the pins; 2 and 3 are their controls, and 5 is the "yet":
- *   1. api provider + host `[]` ⇒ the endpoint is read and its rows paint;
- *   2. api provider + host rows ⇒ those rows paint, the endpoint is never read;
- *   3. api provider + no host `data` ⇒ the endpoint is read;
+ *   1. own source + host `[]` ⇒ the source is read and its rows paint;
+ *   2. own source + host rows ⇒ those rows paint, the source is never read;
+ *   3. own source + no host `data` ⇒ the source is read;
  *   4. object provider + host `[]` ⇒ the query waits for the object schema and
  *      goes out ONCE, already expanded (the gating flag's half);
  *   5. host rows that arrive after an empty first render are adopted.
+ *
+ * Cases 1–3 and 5 used to name an `api`-provider gantt's endpoint as its own
+ * source. The view-level `api` data source is retired in `@objectstack/spec`
+ * (objectstack#23082) and ObjectGantt builds no adapter from it
+ * (objectui#12325), so the own source here is the bound object, read through
+ * the context adapter — the predicate under test does not depend on which
+ * provider supplies it.
  */
 
 import React from 'react';
 import { render, screen, waitFor, act } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { SchemaRendererProvider } from '@object-ui/react';
+import { describe, it, expect, vi } from 'vitest';
 import { ObjectGantt } from './ObjectGantt';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
@@ -60,10 +66,10 @@ vi.mock('@object-ui/plugin-detail', async (importOriginal) => ({
   deriveRecordPageHref: () => null,
 }));
 
-/** What the gantt's own `api` endpoint answers with. */
-const ENDPOINT_ROWS = [
-  { id: 'e1', name: 'Endpoint task 1', start_date: '2026-01-01', end_date: '2026-01-05' },
-  { id: 'e2', name: 'Endpoint task 2', start_date: '2026-01-02', end_date: '2026-01-06' },
+/** What the gantt's own source (the bound object) answers with. */
+const SOURCE_ROWS = [
+  { id: 'e1', name: 'Source task 1', start_date: '2026-01-01', end_date: '2026-01-05' },
+  { id: 'e2', name: 'Source task 2', start_date: '2026-01-02', end_date: '2026-01-06' },
 ];
 
 /** What a host hands down as `data` when it DOES have rows. */
@@ -71,37 +77,29 @@ const HOST_ROWS = [
   { id: 'h1', name: 'Host task 1', start_date: '2026-02-01', end_date: '2026-02-03' },
 ];
 
-const ENDPOINT = '/api/gantt/tree';
-
-function apiSchema(): any {
+function ownSourceSchema(): any {
   return {
     type: 'object-gantt',
     objectName: 'tasks',
     gantt: { titleField: 'name', startDateField: 'start_date', endDateField: 'end_date' },
-    data: { provider: 'api', read: { url: ENDPOINT, method: 'GET' } },
   };
 }
 
-function makeApiFetch() {
-  return vi.fn(async () =>
-    new Response(JSON.stringify({ data: ENDPOINT_ROWS, total: ENDPOINT_ROWS.length }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    }),
-  );
+function makeSource() {
+  return {
+    find: vi.fn(async () => ({ data: SOURCE_ROWS, total: SOURCE_ROWS.length })),
+    findOne: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    getObjectSchema: vi.fn(async () => ({ name: 'tasks', fields: {} })),
+  } as any;
 }
 
-/** The URLs the endpoint was read at, in order. */
-function readUrls(apiFetch: ReturnType<typeof makeApiFetch>): string[] {
-  return (apiFetch.mock.calls as unknown as Array<[unknown]>).map(([url]) => String(url));
-}
-
-/** Renders an api-provider gantt, spreading `hostProps` in as a direct caller would. */
-function renderApiGantt(apiFetch: ReturnType<typeof makeApiFetch>, hostProps: Record<string, unknown>) {
+/** Renders an object-bound gantt, spreading `hostProps` in as a direct caller would. */
+function renderOwnSourceGantt(source: ReturnType<typeof makeSource>, hostProps: Record<string, unknown>) {
   const tree = (props: Record<string, unknown>) => (
-    <SchemaRendererProvider dataSource={null} apiFetch={apiFetch as any}>
-      <ObjectGantt schema={apiSchema()} {...(props as any)} />
-    </SchemaRendererProvider>
+    <ObjectGantt schema={ownSourceSchema()} dataSource={source} {...(props as any)} />
   );
   const utils = render(tree(hostProps));
   return { ...utils, rerenderWith: (props: Record<string, unknown>) => utils.rerender(tree(props)) };
@@ -112,54 +110,42 @@ const taskCount = () => screen.getByTestId('gantt-view').getAttribute('data-task
 /** Lets every in-flight read settle, so a query that would follow is counted. */
 const settle = () => act(() => new Promise<void>((resolve) => setTimeout(resolve, 100)));
 
-describe('objectui#7333 — an api-provider gantt handed an EMPTY host array still reads its endpoint', () => {
-  // No test here may reach the network through the bare global fetch.
-  const bareFetch = vi.fn(async () => new Response('{}', { status: 599 }));
+describe('objectui#7333 — a gantt handed an EMPTY host array still reads its own source', () => {
+  it('host `data: []` ⇒ the source is read and its rows paint', async () => {
+    const source = makeSource();
 
-  beforeEach(() => {
-    bareFetch.mockClear();
-    vi.stubGlobal('fetch', bareFetch);
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it('host `data: []` ⇒ the endpoint is read and its rows paint', async () => {
-    const apiFetch = makeApiFetch();
-
-    renderApiGantt(apiFetch, { data: [] });
+    renderOwnSourceGantt(source, { data: [] });
 
     await waitFor(() => expect(screen.getByTestId('gv-task-e2')).toBeTruthy());
-    expect(taskCount()).toBe(String(ENDPOINT_ROWS.length));
-    expect(readUrls(apiFetch).some((url) => url.includes(ENDPOINT))).toBe(true);
-    expect(bareFetch).not.toHaveBeenCalled();
+    expect(taskCount()).toBe(String(SOURCE_ROWS.length));
+    expect(source.find).toHaveBeenCalledWith('tasks', expect.anything());
   });
 
-  it('CONTROL — host `data` with rows ⇒ those rows paint and the endpoint is never read', async () => {
-    const apiFetch = makeApiFetch();
+  it('CONTROL — host `data` with rows ⇒ those rows paint and the source is never read', async () => {
+    const source = makeSource();
 
-    renderApiGantt(apiFetch, { data: HOST_ROWS });
+    renderOwnSourceGantt(source, { data: HOST_ROWS });
 
     await waitFor(() => expect(screen.getByTestId('gv-task-h1')).toBeTruthy());
+    await settle();
     expect(taskCount()).toBe(String(HOST_ROWS.length));
     expect(screen.queryByTestId('gv-task-e1')).toBeNull();
-    expect(apiFetch).not.toHaveBeenCalled();
+    expect(source.find).not.toHaveBeenCalled();
   });
 
-  it('CONTROL — no host `data` ⇒ the endpoint is read', async () => {
-    const apiFetch = makeApiFetch();
+  it('CONTROL — no host `data` ⇒ the source is read', async () => {
+    const source = makeSource();
 
-    renderApiGantt(apiFetch, {});
+    renderOwnSourceGantt(source, {});
 
     await waitFor(() => expect(screen.getByTestId('gv-task-e2')).toBeTruthy());
-    expect(readUrls(apiFetch).some((url) => url.includes(ENDPOINT))).toBe(true);
+    expect(source.find).toHaveBeenCalledWith('tasks', expect.anything());
   });
 
   it('host rows that arrive after an empty first render are adopted', async () => {
-    const apiFetch = makeApiFetch();
+    const source = makeSource();
 
-    const { rerenderWith } = renderApiGantt(apiFetch, { data: [] });
+    const { rerenderWith } = renderOwnSourceGantt(source, { data: [] });
     await waitFor(() => expect(screen.getByTestId('gv-task-e2')).toBeTruthy());
 
     rerenderWith({ data: HOST_ROWS });

@@ -851,8 +851,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
           // Falling through here would therefore throw
           // `DataSource required for object/api providers` on a calendar that
           // needs no DataSource at all. So the adapter is resolved for the
-          // inline provider ONLY — `api` keeps exactly the behaviour it had —
-          // and the same three keys are lowered onto the same query shape.
+          // inline provider ONLY, and the same three keys are lowered onto the same query shape.
           //
           // Built here rather than memoised at render scope so this effect goes
           // on reading only the primitive fields objectui#6592 named
@@ -976,13 +975,10 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
             // a run starts: until rows land, the report stays.
             setError(null);
           }
-        } else if (dataProvider === 'api') {
-          console.warn('API provider not yet implemented for ObjectCalendar');
-          if (isMounted) {
-            setData([]);
-            setError(null);
-          }
         }
+        // No `api` arm: the view-level `api` data source is retired in
+        // `@objectstack/spec` (objectstack#23082) and read by nothing here
+        // (objectui#12325).
         
         if (isMounted) setLoading(false);
       } catch (err) {

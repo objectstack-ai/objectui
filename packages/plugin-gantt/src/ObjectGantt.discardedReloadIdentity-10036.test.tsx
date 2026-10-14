@@ -15,10 +15,11 @@
  *
  *   1. `reload`'s dependency list named `effectiveDataSource`, a `useMemo`
  *      result. `resolveDataSource` returns the context adapter UNCHANGED for
- *      `provider: 'object'`, but CONSTRUCTS a new `ApiDataSource` /
- *      `ValueDataSource` for `provider: 'api'` and `'value'` — so on those two
- *      providers a discarded memo hands back a fresh adapter for a byte-
- *      identical config, and `reload` is rebuilt for no authored reason.
+ *      `provider: 'object'`, but CONSTRUCTS a new `ValueDataSource` for
+ *      `provider: 'value'` (and, until objectui#12325 retired that arm, a new
+ *      `ApiDataSource` for `'api'`) — so there a discarded memo hands back a
+ *      fresh adapter for a byte-identical config, and `reload` is rebuilt for
+ *      no authored reason.
  *   2. The mount effect named `reload`, a `useCallback` result — and a
  *      discarded `useCallback` yields a fresh function whatever its own
  *      dependency list says, INCLUDING an empty one. So fixing (1) alone
@@ -48,24 +49,26 @@
  * would leave `reload`'s own `useCallback` un-discarded, which is exactly the
  * half of the seam (2) names.
  *
- * ⚠️ THE OBSERVABLE IS A REQUEST COUNT, NOT AN IDENTITY COMPARE. An identity
- * comparison can hold while the effect re-runs for some other reason. Requests
- * are served by a double passed as `SchemaRendererProvider`'s `apiFetch`, so
- * nothing here reaches happy-dom's `http://localhost:3000` and is attributed
- * to this file by the network-escape guard (objectui#8537).
+ * ⚠️ THE OBSERVABLE IS A READ COUNT, NOT AN IDENTITY COMPARE. An identity
+ * comparison can hold while the effect re-runs for some other reason. Reads
+ * are counted on `ValueDataSource.prototype.find`, which every adapter the
+ * memo constructs shares, so a fresh adapter is counted like the first one.
  *
- * ⚠️ THE PROVIDER IS `'api'` ON PURPOSE. `ObjectGantt.discardedConfigMemo.test.tsx`
+ * ⚠️ THE PROVIDER IS `'value'` ON PURPOSE. `ObjectGantt.discardedConfigMemo.test.tsx`
  * records why an `object`-provider pin cannot see this: `resolveDataSource`
  * answers that provider with the `fallback` context DataSource UNCHANGED, so
  * `effectiveDataSource`'s VALUE is referentially stable there even when its
  * memo reruns. That file names the gap it leaves as a "Known boundary" for the
- * `api` / `value` providers. This is that boundary, measured.
+ * constructing providers. This is that boundary, measured. It was measured on
+ * the `'api'` provider until the view-level `api` data source was retired in
+ * `@objectstack/spec` (objectstack#23082, objectui#12325); `'value'` is the
+ * constructing provider that remains.
  */
 
 import React from 'react';
 import { render, act, cleanup, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { SchemaRendererProvider } from '@object-ui/react';
+import { ValueDataSource } from '@object-ui/core';
 import type { DataSource } from '@object-ui/types';
 import { ObjectGantt } from './ObjectGantt';
 
@@ -142,40 +145,39 @@ const GANTT = { titleField: 'name', startDateField: 'start_date', endDateField: 
 /**
  * ⛔ Deliberately NO `objectName`. `resolveRecordSourceObjectName` answers
  * `schema.objectName` for every non-`object` provider, so naming one here would
- * give `useSettledSchema` a key to read and put a SECOND fetch — the object
- * schema read, whose own effect keys on the adapter this card is about — into
- * the numbers below. With no key that hook settles immediately with `def: null`
- * on every render, so `objectSchemaReady` / `objectSchema` are constants here
- * and the record fetch is the only thing being counted.
+ * give `useSettledSchema` a key to read and put a SECOND read into the numbers
+ * below. With no key that hook settles immediately with `def: null` on every
+ * render, so `objectSchemaReady` / `objectSchema` are constants here and the
+ * record read is the only thing being counted.
  */
-function apiSchema(url = '/api/gantt/tasks', extra: Record<string, unknown> = {}): any {
+function valueSchema(items: unknown[] = ROWS, extra: Record<string, unknown> = {}): any {
   return {
     type: 'gantt',
     gantt: GANTT,
-    data: { provider: 'api', read: { url, method: 'GET' } },
+    data: { provider: 'value', items },
     ...extra,
   };
 }
 
 /**
- * A fetch double that records WHICH double ran and WHICH endpoint it was asked
- * for. The query string is dropped from the record on purpose: `reload` lowers
- * the platform row ceiling into `$top` on every read (objectui#7210), so
- * keeping it would pin that unrelated ruling's number in this file.
+ * Count every `find` any `ValueDataSource` serves, recording the first row's
+ * id so a read of NEW items is distinguishable from a re-read of the old ones.
  */
-function makeApiFetch(log: string[], tag = 'A') {
-  return vi.fn(async (input: RequestInfo | URL) => {
-    log.push(`${tag} ${String(input).split('?')[0]}`);
-    return new Response(JSON.stringify({ data: ROWS, total: ROWS.length }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }) as any;
+function countValueReads(log: string[]) {
+  const real = ValueDataSource.prototype.find;
+  return vi.spyOn(ValueDataSource.prototype, 'find').mockImplementation(async function (
+    this: ValueDataSource,
+    ...args: Parameters<typeof real>
+  ) {
+    const result = await real.apply(this, args);
+    log.push(`read ${String((result.data?.[0] as any)?.id ?? '-')}`);
+    return result;
+  });
 }
 
 /**
- * Give a re-fired effect a real turn to issue its request. Asserting the
- * ABSENCE of a round trip needs a settle window; `waitFor` cannot express one.
+ * Give a re-fired effect a real turn to issue its read. Asserting the
+ * ABSENCE of a read needs a settle window; `waitFor` cannot express one.
  */
 const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 0)); });
 
@@ -208,30 +210,39 @@ describe('the discard proxy really reaches the bindings ObjectGantt uses (object
   });
 });
 
-describe("ObjectGantt provider:'api' — the record fetch survives a discarded cache (objectui#10036)", () => {
-  it('costs no redundant round trip when a discard rebuilds the adapter and the callback, config unchanged', async () => {
+describe("ObjectGantt provider:'value' — the record read survives a discarded cache (objectui#10036)", () => {
+  let readSpy: ReturnType<typeof countValueReads> | undefined;
+  afterEach(() => {
+    readSpy?.mockRestore();
+    readSpy = undefined;
+  });
+
+  it('costs no redundant read when a discard rebuilds the adapter and the callback, config unchanged', async () => {
     const log: string[] = [];
-    const apiFetch = makeApiFetch(log);
-    const schema = apiSchema();
-    const tree = () => (
-      <SchemaRendererProvider dataSource={null} apiFetch={apiFetch}>
-        <ObjectGantt schema={schema} />
-      </SchemaRendererProvider>
-    );
+    readSpy = countValueReads(log);
+    const schema = valueSchema();
+    const tree = () => <ObjectGantt schema={schema} />;
 
     const restore = armDiscardProxy();
+    let mounted = 0;
     try {
       const { rerender } = render(tree());
-      await waitFor(() => expect(log).toHaveLength(1));
+      await waitFor(() => expect(log.length).toBeGreaterThan(0));
+      await settle();
+      // The baseline is MEASURED, not assumed: an inline-provider gantt reads
+      // its items more than once while it mounts, for a reason outside this
+      // card (see the PR body of objectui#12325). What this pin owns is that
+      // nothing after the mount adds a read.
+      mounted = log.length;
 
-      // Armed but NOT fired: an ordinary re-render must not refetch either.
+      // Armed but NOT fired: an ordinary re-render must not re-read either.
       rerender(tree());
       await settle();
-      expect(log).toHaveLength(1);
+      expect(log).toHaveLength(mounted);
 
       // Two discards, each followed by a re-render with the SAME authored
-      // config, the SAME `apiFetch` and the SAME (absent) context adapter.
-      // Nothing an author or a host controls has changed.
+      // config and the SAME (absent) context adapter. Nothing an author or a
+      // host controls has changed.
       discardNow();
       rerender(tree());
       await settle();
@@ -242,79 +253,56 @@ describe("ObjectGantt provider:'api' — the record fetch survives a discarded c
       restore();
     }
 
-    // THE observable this card names: a request count, not an identity compare.
-    expect(log).toEqual(['A /api/gantt/tasks']);
+    // THE observable this card names: a read count, not an identity compare.
+    expect(log).toHaveLength(mounted);
   });
 
   /**
    * The non-regression axis, taken from the plausible WRONG fix rather than
    * from the defect's shape: dropping the dependency altogether would also
-   * stop the redundant round trip — and would stop every LEGITIMATE refetch
-   * with it. These pins fail on such a fix. Together they cover the authored
-   * config, the host's fetch and the host's adapter, which is the parity
-   * claim: the fix removes React's licence to re-fire and narrows nothing
-   * else. (`resource`, `dataProvider`, `hasInlineData` are all DERIVED from
-   * the authored config the first two pins move; `objectSchema` and `perms`
-   * are unchanged members of the same list.)
+   * stop the redundant read — and would stop every LEGITIMATE re-read with
+   * it. These pins fail on such a fix. Together with the `object`-provider
+   * block below they cover the authored config and the host's adapter, which
+   * is the parity claim: the fix removes React's licence to re-fire and
+   * narrows nothing else. (`resource`, `dataProvider`, `hasInlineData` are all
+   * DERIVED from the authored config the two pins here move; `objectSchema`
+   * and `perms` are unchanged members of the same list.)
    */
-  it('still refetches when the authored endpoint genuinely changes', async () => {
+  it('still re-reads when the authored items genuinely change', async () => {
     const log: string[] = [];
-    const apiFetch = makeApiFetch(log);
-    const tree = (schema: any) => (
-      <SchemaRendererProvider dataSource={null} apiFetch={apiFetch}>
-        <ObjectGantt schema={schema} />
-      </SchemaRendererProvider>
-    );
+    readSpy = countValueReads(log);
+    const tree = (schema: any) => <ObjectGantt schema={schema} />;
+    const NEXT = [{ ...ROWS[0], id: '2', name: 'Task B' }];
 
-    const { rerender } = render(tree(apiSchema('/api/gantt/v1')));
-    await waitFor(() => expect(log).toHaveLength(1));
-
-    rerender(tree(apiSchema('/api/gantt/v2')));
-    await waitFor(() => expect(log).toHaveLength(2));
+    const { rerender } = render(tree(valueSchema(ROWS)));
+    await waitFor(() => expect(log.length).toBeGreaterThan(0));
     await settle();
-    expect(log).toEqual(['A /api/gantt/v1', 'A /api/gantt/v2']);
+    const mounted = log.length;
+    expect(log.every((e) => e === 'read 1')).toBe(true);
+
+    rerender(tree(valueSchema(NEXT)));
+    await waitFor(() => expect(log.length).toBeGreaterThan(mounted));
+    await settle();
+    // Not merely "a read happened": the NEW items are what was read.
+    expect(log.slice(mounted).every((e) => e === 'read 2')).toBe(true);
   });
 
-  it('still refetches when the authored filter genuinely changes', async () => {
+  it('still re-reads when the authored filter genuinely changes', async () => {
     const log: string[] = [];
-    const apiFetch = makeApiFetch(log);
-    const tree = (schema: any) => (
-      <SchemaRendererProvider dataSource={null} apiFetch={apiFetch}>
-        <ObjectGantt schema={schema} />
-      </SchemaRendererProvider>
-    );
+    readSpy = countValueReads(log);
+    const tree = (schema: any) => <ObjectGantt schema={schema} />;
 
-    const { rerender } = render(tree(apiSchema('/api/gantt/tasks', { filter: [['status', '=', 'open']] })));
-    await waitFor(() => expect(log).toHaveLength(1));
-
-    rerender(tree(apiSchema('/api/gantt/tasks', { filter: [['status', '=', 'done']] })));
-    await waitFor(() => expect(log).toHaveLength(2));
+    const { rerender } = render(tree(valueSchema(ROWS, { filter: [['name', '=', 'Task A']] })));
+    await waitFor(() => expect(log.length).toBeGreaterThan(0));
     await settle();
-    expect(log).toHaveLength(2);
-  });
+    const mounted = log.length;
+    expect(log.every((e) => e === 'read 1')).toBe(true);
 
-  it('still refetches when the host swaps the authenticated fetch itself', async () => {
-    // ⚠️ Two CONCRETE, distinguishable doubles. Swapping one `undefined` for
-    // another would prove nothing: it is green on a fix that never refetches at
-    // all, because the two compare equal.
-    const log: string[] = [];
-    const fetchA = makeApiFetch(log, 'A');
-    const fetchB = makeApiFetch(log, 'B');
-    const schema = apiSchema();
-    const tree = (f: any) => (
-      <SchemaRendererProvider dataSource={null} apiFetch={f}>
-        <ObjectGantt schema={schema} />
-      </SchemaRendererProvider>
-    );
-
-    const { rerender } = render(tree(fetchA));
-    await waitFor(() => expect(log).toHaveLength(1));
-
-    rerender(tree(fetchB));
-    // Not merely "a request happened": the NEW fetch must be the one that runs.
-    await waitFor(() => expect(log).toHaveLength(2));
+    rerender(tree(valueSchema(ROWS, { filter: [['name', '!=', 'Task A']] })));
+    await waitFor(() => expect(log.length).toBeGreaterThan(mounted));
     await settle();
-    expect(log).toEqual(['A /api/gantt/tasks', 'B /api/gantt/tasks']);
+    // The new filter excludes the only row, so the re-read answers nothing.
+    expect(log.slice(mounted).every((e) => e === 'read -')).toBe(true);
   });
 });
 

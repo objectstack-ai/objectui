@@ -69,8 +69,10 @@ export interface UseViewDataResult<T = any> {
  *
  * 1. Resolves the ViewData config to the right DataSource adapter
  *    - `provider: 'object'` → context DataSource (ObjectStackAdapter)
- *    - `provider: 'api'`    → ApiDataSource (raw HTTP)
  *    - `provider: 'value'`  → ValueDataSource (in-memory)
+ *    The view-level `provider: 'api'` is retired in `@objectstack/spec`
+ *    (objectstack#23082) and has no arm in `resolveDataSource`: a block that
+ *    still names it is an unknown provider there (objectui#12325).
  * 2. Fetches data automatically on mount
  * 3. Provides loading/error states and refresh capability
  *
@@ -99,30 +101,19 @@ export function useViewData<T = any>(options: UseViewDataOptions<T>): UseViewDat
     skip = false,
   } = options;
 
-  // Get context DataSource + host-authenticated fetch
+  // Get context DataSource
   const context = useContext(SchemaRendererContext);
   const contextDataSource = context?.dataSource ?? null;
-  const contextApiFetch = context?.apiFetch;
 
   // Resolve the DataSource — memoize to prevent re-creation on every render.
   // We key on the viewData provider + config identity.
   const resolvedDataSource = useMemo(() => {
     if (explicitDataSource) return explicitDataSource;
-    // Default the 'api' provider's fetch to the host's authenticated fetch
-    // (SchemaRendererContext.apiFetch) so custom endpoints carry the same
-    // credentials as native requests; explicit adapterOptions still win.
-    return resolveDataSource<T>(viewData, contextDataSource, {
-      fetch: contextApiFetch,
-      ...adapterOptions,
-    });
+    return resolveDataSource<T>(viewData, contextDataSource, adapterOptions);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     explicitDataSource,
-    contextApiFetch,
     viewData?.provider,
-    // For 'api' provider, key on read/write URLs
-    viewData?.provider === 'api' ? (viewData as any).read?.url : undefined,
-    viewData?.provider === 'api' ? (viewData as any).write?.url : undefined,
     // For 'value' provider, key on items reference (or length as proxy)
     viewData?.provider === 'value' ? (viewData as any).items?.length : undefined,
     contextDataSource,

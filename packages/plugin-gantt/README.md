@@ -287,11 +287,15 @@ const recordSource = {
 };
 ```
 
-`data` is the spec's `ViewData` union. This chart reads three of its arms:
-`{ provider: 'object', object }`, `{ provider: 'value', items }` and
-`{ provider: 'api', read, write }`. The fourth, `{ provider: 'schema', schemaId }`,
-is accepted by the spec and is not a source this chart reads: measured, a gantt
-carrying it queries `objectName` instead.
+`data` is the spec's `ViewData` union. This chart reads two of its arms:
+`{ provider: 'object', object }` and `{ provider: 'value', items }`.
+`{ provider: 'schema', schemaId }` is accepted by the spec and is not a source
+this chart reads: measured, a gantt carrying it queries `objectName` instead.
+The view-level `{ provider: 'api', read, write }` arm is retired in the spec
+(objectstack#23082) and nothing here reads it either: a gantt still carrying
+one is answered the same way, and its `read` / `write` URLs are never
+requested. A metadata-declared API call is the page element's `dataSource`
+binding.
 
 **The provider does not change which query keys apply.** An authored `filter`
 and `sort` narrow and order the rows on **every** provider, inline ones

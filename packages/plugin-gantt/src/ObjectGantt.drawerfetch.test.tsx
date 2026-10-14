@@ -1,10 +1,9 @@
 /**
  * Drawer must show the real record, not the composed row (#2473 第 1 项).
  *
- * With `provider: 'api'` the rows are render payloads (bar colors, sort keys,
- * node types…) composed by the endpoint — not business records. And with
- * `objectField` a row can belong to a different object than the bound one,
- * for which no schema is loaded. Rendering that raw payload in the drawer
+ * Rows can be render payloads (bar colors, sort keys, node types…) rather
+ * than business records, and with `objectField` a row can belong to a
+ * different object than the bound one, for which no schema is loaded. Rendering that raw payload in the drawer
  * degrades every field to a humanized English label. When a context
  * DataSource is available, ObjectGantt must fetch the actual record (and the
  * foreign object's schema) and hand THAT to the drawer; the raw row stays as
@@ -51,7 +50,7 @@ vi.mock('@object-ui/plugin-detail', async (importOriginal) => ({
   deriveRecordPageHref: () => null,
 }));
 
-// Composed rows as an api endpoint would return them: render-only keys, and
+// Composed rows: render-only keys, and
 // row 1 belongs to a foreign object (`object_name` ≠ bound object). Row
 // `grp_1` is a synthetic group header — no object_name, its id is not a real
 // record id.

@@ -9,14 +9,9 @@
  */
 
 import type { DataSource, ViewData } from '@object-ui/types';
-import { ApiDataSource, type ApiDataSourceConfig } from './ApiDataSource.js';
 import { ValueDataSource } from './ValueDataSource.js';
 
 export interface ResolveDataSourceOptions {
-  /** Custom fetch implementation passed to ApiDataSource */
-  fetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
-  /** Default headers for API requests */
-  defaultHeaders?: Record<string, string>;
   /** Custom ID field for ValueDataSource */
   idField?: string;
 }
@@ -25,8 +20,15 @@ export interface ResolveDataSourceOptions {
  * Resolve a ViewData configuration into a concrete DataSource instance.
  *
  * - `provider: 'object'` → returns `fallback` (the context DataSource — typically ObjectStackAdapter)
- * - `provider: 'api'`    → returns a new `ApiDataSource`
  * - `provider: 'value'`  → returns a new `ValueDataSource`
+ *
+ * There is no `provider: 'api'` arm. The view-level `api` data source is
+ * retired in `@objectstack/spec` (objectstack#23082, ADR-0049): a view binds
+ * its object or static rows, and a metadata-declared API call is the page
+ * element's `dataSource` binding. A view block that still says `api` is an
+ * unknown provider here and gets the same answer as one, so no request is
+ * ever built from its `read` / `write` (objectui#12325). Code that needs raw
+ * HTTP constructs `ApiDataSource` itself, from an `ApiDataSourceConfig`.
  *
  * @param viewData - The ViewData configuration from the schema
  * @param fallback - The default DataSource from context (for `provider: 'object'`)
@@ -36,7 +38,7 @@ export interface ResolveDataSourceOptions {
  * @example
  * ```ts
  * const ds = resolveDataSource(
- *   { provider: 'api', read: { url: '/api/users' } },
+ *   { provider: 'value', items: [{ id: '1', name: 'Ada' }] },
  *   contextDataSource,
  * );
  * const result = await ds.find('users');
@@ -55,16 +57,6 @@ export function resolveDataSource<T = any>(
     case 'object':
       // Delegate to the context DataSource (ObjectStackAdapter, etc.)
       return fallback ?? null;
-
-    case 'api': {
-      const config: ApiDataSourceConfig = {
-        read: viewData.read,
-        write: viewData.write,
-        fetch: options?.fetch,
-        defaultHeaders: options?.defaultHeaders,
-      };
-      return new ApiDataSource<T>(config);
-    }
 
     case 'value':
       return new ValueDataSource<T>({

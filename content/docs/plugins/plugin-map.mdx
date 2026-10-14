@@ -314,13 +314,13 @@ const staticLocations = {
 };
 ```
 
-### API Provider — not implemented
+### No API provider
 
-`data.provider: 'api'` has no fetch implementation in `ObjectMap`. A schema that
-reaches this branch logs `API provider not yet implemented for ObjectMap`, sets
-the record set to empty and renders a map with no markers; `endpoint` and
-`method` have no read point anywhere in the package. Without a `DataSource` it
+The view-level `data.provider: 'api'` is retired in `@objectstack/spec`
+(objectstack#23082), and `ObjectMap` has no branch for it: a schema that still
+carries one plots no markers and requests nothing. Without a `DataSource` it
 fails one step earlier, with `DataSource required for object/api providers`.
+A metadata-declared API call is the page element's `dataSource` binding.
 
 Read from the database with the **Object Provider** above, or pass records you
 already hold with the **Value Provider**.

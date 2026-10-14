@@ -1596,17 +1596,6 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     ) {
       return false;
     }
-    // Renderer-owned data (gantt + api provider): ListView never fetches,
-    // so don't flash its skeleton either.
-    if (
-      schema.viewType === 'gantt' &&
-      schema.data &&
-      typeof schema.data === 'object' &&
-      !Array.isArray(schema.data) &&
-      (schema.data as any).provider === 'api'
-    ) {
-      return false;
-    }
     return true;
   });
   const [objectDef, setObjectDef] = React.useState<any>(null);
@@ -2346,41 +2335,6 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     schema.objectName,
   ]);
 
-  // A gantt view whose `data` names the api provider is fed by a composite
-  // endpoint that ObjectGantt resolves itself (resolveDataSource →
-  // ApiDataSource, reads AND write-backs). ListView must neither fetch
-  // schema.objectName rows for it nor hand its rows `data` prop down.
-  //
-  // ⛔ What the second half does NOT do (objectui#7222). It does not
-  // "short-circuit the renderer's own fetch" — an earlier version of this
-  // comment said it did, and believing that is exactly what made objectui#7210's
-  // double fetch invisible on a read-through. No host prop reaches the chart at
-  // all: the registered `object-gantt` renderer (`plugin-gantt/src/index.tsx`)
-  // destructures `({ schema })` and hands `ObjectGantt` exactly `schema` and
-  // `dataSource`, so `data`, `onRowClick`, `rowHeight` and the rest of
-  // `baseProps` are dropped one layer up, and the chart queries for itself
-  // whichever branch the render below takes. It is the one view wrapper that
-  // forwards nothing — `object-grid`, `object-kanban`, `object-calendar`,
-  // `object-map` and `object-tree` all spread `{...props}`. Pinned
-  // behaviourally, one package over, in
-  // `plugin-gantt/src/ObjectGantt.hostDataProp-7210.test.tsx`.
-  //
-  // The withholding is kept anyway: it is unreachable, not wrong, and it stops
-  // being unreachable the moment that wrapper forwards host props — whether a
-  // non-grid view may fetch unbounded at all is an open maintainer decision
-  // (objectui#7210, half 2). This view's rows array is not the endpoint's
-  // answer (the fetch effect below returns early for it), and `ObjectGantt`
-  // adopts any NON-EMPTY host `data` array as its rows. An EMPTY one no longer
-  // blanks the chart: it reads as "no host rows yet" and the chart still
-  // queries its endpoint (objectui#7333). So the withholding guards against
-  // this array ever being adopted in the endpoint's place.
-  const ganttOwnsData =
-    currentView === 'gantt' &&
-    !!schema.data &&
-    typeof schema.data === 'object' &&
-    !Array.isArray(schema.data) &&
-    (schema.data as any).provider === 'api';
-
   /**
    * Does a GROUPED grid query for itself? (objectui#7189, maintainer ruling A)
    *
@@ -2494,10 +2448,10 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // below names it, so the rows are re-read in place (`RefreshIndicator` over
   // the current rows, no remount). A page action over raw HTTP fires no
   // `onMutation`, so the subscription above cannot see it; the bus can.
-  // Subscribed only when the list fetches for itself — inline rows and a
-  // gantt that owns its endpoint are not this effect's query.
+  // Subscribed only when the list fetches for itself — inline rows are not
+  // this effect's query.
   const listFetchesForItself =
-    !Array.isArray(schema.data) && (schema.data as any)?.provider !== 'value' && !ganttOwnsData;
+    !Array.isArray(schema.data) && (schema.data as any)?.provider !== 'value';
   const invalidationNonce = useDataInvalidation(listFetchesForItself ? schema.objectName || undefined : undefined);
 
   /**
@@ -2643,14 +2597,6 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         );
       }
       setData(items);
-      setLoading(false);
-      setDataLimitReached(false);
-      return;
-    }
-
-    // Renderer-owned data (gantt + api provider): the view component fetches
-    // from its endpoint itself; just clear the loading state.
-    if (ganttOwnsData) {
       setLoading(false);
       setDataLimitReached(false);
       return;
@@ -3204,9 +3150,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     // Naming `currentView` therefore re-issued an identical `find` on every
     // switch — measured in a browser as two byte-identical
     // `GET /api/v1/data/showcase_task?top=100&select=…` round trips for one
-    // board. `ganttOwnsData` and `groupingConfig` stay named: the first flips
-    // this effect between fetching and standing down, and the second changes
-    // the projection it asks for, so both move the request itself.
+    // board. `groupingConfig` stays named: it changes the projection the
+    // effect asks for, so it moves the request itself.
     //
     // ⭐ TWO names left this list, not one: `serverPage` went with
     // `currentView`, and that is the SAME removal rather than a second,
@@ -3228,9 +3173,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     // the user leaves it for a board — a second identical request under the old
     // list. Read it as a claim about this definition, ⛔ not as a measured one.
     //
-    // objectui#10881 — `groupingNeedsHeaderQuery` is named for the reason
-    // `ganttOwnsData` is: it flips this effect between fetching and standing
-    // down. It reads `currentView`, so leaving a refused grouped grid for a
+    // objectui#10881 — `groupingNeedsHeaderQuery` is named because it flips
+    // this effect between fetching and standing down. It reads `currentView`, so leaving a refused grouped grid for a
     // board re-runs this effect once, and that run is the board's fetch.
     //
     // objectui#10689 — `predicateProjectionKey` is the harvested predicate
@@ -3248,7 +3192,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     // silently un-suppresses nothing, because the finding it was suppressing
     // simply moves elsewhere. Add prose ABOVE this point, never below it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema.objectName, schema.data, dataSource, authoredFilter, effectivePageSize, currentSort, appliedFilters, appliedUserFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, schema.map, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, predicateProjectionKey, ganttOwnsData, invalidationNonce, groupingNeedsHeaderQuery, calendarWindowKey, rowsCarryConcurrencyToken]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change; `rowsCarryConcurrencyToken` (objectui#12292) re-reads the rows with their token when inline edit turns on
+  }, [schema.objectName, schema.data, dataSource, authoredFilter, effectivePageSize, currentSort, appliedFilters, appliedUserFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, schema.map, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, predicateProjectionKey, invalidationNonce, groupingNeedsHeaderQuery, calendarWindowKey, rowsCarryConcurrencyToken]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change; `rowsCarryConcurrencyToken` (objectui#12292) re-reads the rows with their token when inline edit turns on
 
   // Any change to the result-defining inputs (object, filters, sort, search,
   // grouping, page size) invalidates the current page number — snap back to
@@ -3604,7 +3548,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * this component's fetch and nothing the user could see:
    *
    *   - `gantt`: the registered `object-gantt` renderer forwards no host prop
-   *     (see `ganttOwnsData` above) and `ObjectGantt.reload` hands
+   *     (`plugin-gantt/src/ObjectGantt.hostDataProp-7210.test.tsx` pins that)
+   *     and `ObjectGantt.reload` hands
    *     `schema.filter` to `$filter`;
    *   - `tree`: `ObjectTree`'s object-provider branch runs its own `find` with
    *     `$filter: schema.filter`, and it runs BEFORE its host-`data` branch;
@@ -4085,8 +4030,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           // ⛔ This is route A only. Forwarding host PROPS to the chart is
           // objectui#7210 half 2's scope and collides with objectui#7333.
           ...(schema.navigation ? { navigation: schema.navigation } : {}),
-          // ViewData pass-through: a view authored with `data: {provider:'api',
-          // read, write}` (composite endpoint) must reach ObjectGantt, whose
+          // ViewData pass-through: a view authored with a `data` provider
+          // block (`object` / `value`) must reach ObjectGantt, whose
           // getDataConfig prefers schema.data over the objectName fallback.
           ...(schema.data ? { data: schema.data } : {}),
           ...(startDateField ? { startDateField } : {}),
@@ -5731,12 +5676,10 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           <SchemaRenderer
             schema={viewComponentSchema}
             {...props}
-            {...(ganttOwnsData || gridOwnsGroupedFetch
-              // Withheld, not dropped. See `ganttOwnsData` above for why this
-              // branch cannot be observed at the chart today (objectui#7222)
-              // and why it is still the correct value to hand down; and
-              // `gridOwnsGroupedFetch` for the grouped grid, which a window of
-              // rows would turn back into page-scoped grouping (objectui#7189).
+            {...(gridOwnsGroupedFetch
+              // Withheld, not dropped. See `gridOwnsGroupedFetch` for the
+              // grouped grid, which a window of rows would turn back into
+              // page-scoped grouping (objectui#7189).
               ? {}
               : { data })}
             {...(gridOwnsGroupedFetch

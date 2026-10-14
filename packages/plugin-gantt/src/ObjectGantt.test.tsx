@@ -372,66 +372,12 @@ describe('ObjectGantt', () => {
     expect(del.mock.calls[0][1]).toBe('1');
   });
 
-  // --- API provider: read + write-back over HTTP (no object backend) --------
-  it('api provider: reads via fetch and persists a drag update via write config', async () => {
-    // A Response-like stub carrying JSON.
-    const jsonResponse = (payload: unknown) => ({
-      ok: true,
-      status: 200,
-      statusText: 'OK',
-      headers: { get: (k: string) => (k.toLowerCase() === 'content-type' ? 'application/json' : null) },
-      json: async () => payload,
-      text: async () => JSON.stringify(payload),
-    });
-    const fetchMock = vi.fn(async (_url: any, init?: any) => {
-      // GET → read config returns the task list; anything else → write ack.
-      if ((init?.method ?? 'GET') === 'GET') return jsonResponse({ data: mockData }) as any;
-      return jsonResponse({}) as any;
-    });
-    vi.stubGlobal('fetch', fetchMock);
-
-    try {
-      const schema: any = {
-        type: 'gantt',
-        gantt: { titleField: 'name', startDateField: 'start_date', endDateField: 'end_date' },
-        // Pure API view — no objectName, no context dataSource prop.
-        data: {
-          provider: 'api',
-          read: { url: 'https://api.test/tasks' },
-          write: { url: 'https://api.test/tasks', method: 'PATCH' },
-        },
-      };
-      // NOTE: no `dataSource` prop — proves the api provider stands alone.
-      render(<ObjectGantt schema={schema} />);
-
-      // Read: rows come from the GET on the read url.
-      await waitFor(() => expect(screen.getAllByTestId('gantt-task')).toHaveLength(2));
-      expect(fetchMock).toHaveBeenCalled();
-      expect(String(fetchMock.mock.calls[0][0])).toContain('https://api.test/tasks');
-
-      // Write-back: dragging task 1 issues a PATCH to the write url with the
-      // rescheduled dates in the body.
-      fetchMock.mockClear();
-      fireEvent.click(screen.getByTestId('gv-update-1'));
-
-      await waitFor(() => {
-        const patch = fetchMock.mock.calls.find((c) => (c[1] as any)?.method === 'PATCH');
-        expect(patch).toBeTruthy();
-      });
-      const patchCall = fetchMock.mock.calls.find((c) => (c[1] as any)?.method === 'PATCH')!;
-      expect(String(patchCall[0])).toContain('https://api.test/tasks/1');
-      // No object schema on the api provider: the stored `2024-01-01` shape
-      // says the field is date-only, so the write is the calendar day
-      // (objectui#10866). This case used to expect the `toISOString()`
-      // spelling, i.e. it pinned the defect.
-      expect(JSON.parse((patchCall[1] as any).body)).toMatchObject({
-        start_date: '2024-02-01',
-        end_date: '2024-02-05',
-      });
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
+  // --- No API provider (objectui#12325) ----------------------------------------
+  // A case here used to pin that `data: {provider:'api', read, write}` read
+  // over fetch and persisted a drag through the write config. The view-level
+  // `api` data source is retired in @objectstack/spec (objectstack#23082), and
+  // ObjectGantt builds no adapter from it: the new meaning is pinned in
+  // `ObjectGantt.retiredApiProvider-12325.test.tsx`.
 
   // --- Dependency edit writeback (依赖增删 + 类型选择) -----------------------
   const depData = [

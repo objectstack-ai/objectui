@@ -6,8 +6,9 @@
  * `ListView` for a list, `RecordDetailView` for one request. Both take ONE
  * `dataSource`. `RecordDetailView` also sends its side reads through it
  * (`sys_user`, comments, activities, history). So this source routes. Reads of
- * `sys_approval_request` go to the approvals routes through the existing
- * `provider: 'api'` door (`ApiDataSource`). Every other resource, and every
+ * `sys_approval_request` go to the approvals routes through an `ApiDataSource`
+ * built here in code (not a view's `provider: 'api'` block, which is retired —
+ * objectui#12325). Every other resource, and every
  * other method, goes to the host adapter unchanged. The rows come back exactly
  * as the approvals service serves them, so `viewer` (list and get) and
  * `decision_progress` (get only, by contract) are ordinary fields a view binds.

@@ -265,7 +265,15 @@ function overlayFieldOptions(
   bundle: TranslationBundle,
   language: string,
 ): ScreenFieldSpec {
-  const options = resolveFlowScreenFieldOptions(bundle, flowName, nodeId, field, { locale: language });
+  // Handed the two members it reads: the served `ScreenFieldSpec` is an
+  // interface, so it does not meet the resolver's open `FlowScreenFieldLike`.
+  const options = resolveFlowScreenFieldOptions(
+    bundle,
+    flowName,
+    nodeId,
+    { name: field.name, options: field.options },
+    { locale: language },
+  );
   if (options === field.options) return field;
   // The resolver copies each served option and replaces only its `label` with
   // a string, so the answer has the served shape.

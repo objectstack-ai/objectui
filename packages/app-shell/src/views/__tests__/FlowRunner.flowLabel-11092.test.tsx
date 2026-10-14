@@ -45,13 +45,17 @@ const PAUSED: ScreenFlowState = {
   },
 };
 
-/** The zh-CN payload: the flow's label AND the screen heading are translated. */
+/**
+ * The zh-CN payload: the flow's label AND the screen's copy are translated.
+ * The `title` rides along to show it is NOT overlaid: the engine serves the
+ * heading already translated (objectstack#22507 ruling A, objectui#12075).
+ */
 const ZH_CN: TranslationData = {
   objects: { crm_lead: { label: '线索' } },
   flows: {
     lead_conversion: {
       label: '线索转化',
-      screens: { screen_1: { title: '转化详情' } },
+      screens: { screen_1: { title: '转化详情', fields: { note: { label: '备注' } } } },
     },
   },
 };
@@ -59,7 +63,7 @@ const ZH_CN: TranslationData = {
 /** A zh-CN payload that translates this flow's screen but not its label. */
 const ZH_CN_SCREEN_ONLY: TranslationData = {
   objects: { crm_lead: { label: '线索' } },
-  flows: { lead_conversion: { screens: { screen_1: { title: '转化详情' } } } },
+  flows: { lead_conversion: { screens: { screen_1: { fields: { note: { label: '备注' } } } } } },
 };
 
 function i18nWith(language: string, payloadLanguage: string, payload: TranslationData) {
@@ -112,8 +116,11 @@ describe('FlowRunner — the flow is named by its label (objectui#11092)', () =>
     const dialog = renderRunner(PAUSED, instance);
 
     expect(dialog.getByText('线索转化')).toBeInTheDocument();
-    // The screen heading is still the dialog's title, and still translated.
-    expect(dialog.getByRole('heading', { name: '转化详情' })).toBeInTheDocument();
+    // The screen heading is still the dialog's title, drawn as served — the
+    // engine translates it (objectstack#22507 ruling A) — while the field
+    // copy is the bundle's.
+    expect(dialog.getByRole('heading', { name: 'Conversion Details' })).toBeInTheDocument();
+    expect(dialog.getByText('备注')).toBeInTheDocument();
     expect(dialog.queryByText(SERVED_LABEL)).not.toBeInTheDocument();
     expect(dialog.queryByText('lead_conversion')).not.toBeInTheDocument();
 
@@ -140,8 +147,8 @@ describe('FlowRunner — the flow is named by its label (objectui#11092)', () =>
     const instance = i18nWith('zh-CN', 'zh-CN', ZH_CN_SCREEN_ONLY);
     const dialog = renderRunner(PAUSED, instance);
 
-    // The heading proves the bundle IS read for this flow …
-    expect(dialog.getByRole('heading', { name: '转化详情' })).toBeInTheDocument();
+    // The field label proves the bundle IS read for this flow …
+    expect(dialog.getByText('备注')).toBeInTheDocument();
     // … and the label, which it does not carry, is the author's.
     expect(dialog.getByText(SERVED_LABEL)).toBeInTheDocument();
     expect(dialog.queryByText('lead_conversion')).not.toBeInTheDocument();

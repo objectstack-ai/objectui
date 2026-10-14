@@ -430,6 +430,25 @@ This is not the reader `SchemaRenderer` applies to a node's FLAT `ariaLabel`,
 which is objectui's keyed `{ key, defaultValue }` form. Each resolver returns
 nothing useful for the other's shape, so the two stay separate (objectui#4580).
 
+### usePrintPage / PrintPageProvider
+
+`usePrintPage()` returns the `print` declaration of the page the component
+renders in, or `null` outside a print page (objectui#11958). `PageRenderer` in
+`@object-ui/components` mounts `PrintPageProvider` for a page whose `print` is
+an object. A block that draws only part of its data on screen reads it so that
+a printed copy does not drop data in silence:
+
+```tsx
+import type { ReactNode } from 'react'
+import { usePrintPage } from '@object-ui/react'
+
+function Section({ collapsed, children }: { collapsed: boolean; children: ReactNode }) {
+  // A collapsed section never reaches paper, so a print page draws it open.
+  const open = usePrintPage() !== null || !collapsed
+  return open ? <section>{children}</section> : null
+}
+```
+
 ### ComponentRegistry
 
 There is no registry hook: the registry is a process-level singleton exported

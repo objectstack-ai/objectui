@@ -14,8 +14,8 @@ that are awkward to express as nested JSON:
 | `"html"` | Constrained JSX/HTML | **No** — parsed into a schema tree | Untrusted OK |
 | `"react"` | Real React (hooks, handlers, arbitrary JS) | **Yes** — in the main React tree | Trusted only |
 
-Both set `source` and leave `regions` unused. `"jsx"` is a deprecated alias for
-`"html"` and is still accepted.
+Both set `source` and leave `regions` unused. The former alias `"jsx"` was retired
+in `@objectstack/spec` 18 and is refused; author `"html"`.
 
 > Page `kind` also carries the record-page override values `"full"` (default)
 > and `"slotted"` — a different axis, covered in [Slotted Pages](./slotted-pages.md).

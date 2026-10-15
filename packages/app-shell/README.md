@@ -1135,7 +1135,11 @@ own `CommandPaletteProvider`. It leaves out every app-scoped group and the
 full-search command (their links start with `/apps/APP`), and lists the Studio's
 packages, their objects and their flows, each opening its Studio page. The
 header's search trigger is drawn wherever a provider is mounted, so `AppHeader`
-with `variant="studio"` shows it there.
+with `variant="studio"` shows it there. Inside an app, on every route
+(`system/*` included) from the `lg` breakpoint up, `AppHeader` draws it as the
+bar's middle zone, centered between the left group and the utility cluster. In
+the `home`, `orgs` and `studio` frames, and below `lg` (as an icon button), it
+sits at the utility cluster's left edge.
 
 ```tsx
 import { useCommandPalette } from '@object-ui/app-shell';

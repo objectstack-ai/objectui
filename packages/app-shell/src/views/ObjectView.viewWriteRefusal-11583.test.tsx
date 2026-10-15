@@ -112,13 +112,17 @@ vi.mock('./MetadataInspector', () => ({
 }));
 vi.mock('./RecordDetailView', () => ({ RecordDetailView: () => null }));
 
-/** The list schema the object page hands down: captured, not rendered. */
+/**
+ * The list schema the object page hands down: captured, not rendered. The
+ * stand-in draws only the page's `toolbarLeading` node — the view tab strip
+ * rides the list's toolbar row since objectui#12440.
+ */
 let listSchema: any = null;
 vi.mock('@object-ui/plugin-list', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@object-ui/plugin-list')>()),
   ListView: (props: any) => {
     listSchema = props.schema;
-    return null;
+    return props.toolbarLeading ?? null;
   },
 }));
 

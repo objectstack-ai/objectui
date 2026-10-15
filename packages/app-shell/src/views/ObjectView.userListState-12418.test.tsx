@@ -94,13 +94,17 @@ vi.mock('./MetadataInspector', () => ({
 }));
 vi.mock('./RecordDetailView', () => ({ RecordDetailView: () => null }));
 
-/** The props the object page hands its list: captured, not rendered. */
+/**
+ * The props the object page hands its list: captured, not rendered. The
+ * stand-in draws only the page's `toolbarLeading` node — the view tab strip
+ * rides the list's toolbar row since objectui#12440.
+ */
 let listProps: any = null;
 vi.mock('@object-ui/plugin-list', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@object-ui/plugin-list')>()),
   ListView: (props: any) => {
     listProps = props;
-    return null;
+    return props.toolbarLeading ?? null;
   },
 }));
 

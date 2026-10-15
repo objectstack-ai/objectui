@@ -20,10 +20,20 @@
  * found afterwards can only have come from the entry. Identity, not presence:
  * the registered component must BE the built-in one.
  *
- * The built-in components are imported at module scope, which loads the
- * designers' module graph in the import phase; the entry's own `import()` then
+ * The module the entry's `import()` names is imported at module scope too, so
+ * its whole graph (every Preview and Inspector, about 35 modules) loads in the
+ * import phase, where no test timeout applies; the entry's own `import()` then
  * resolves from the module cache, and the wait below covers only its `.then`
- * (AGENTS.md 测试纪律). Nothing here CALLS `registerBuiltinDesigners`.
+ * (AGENTS.md 测试纪律). Importing the three components alone left the other
+ * ~32 modules to load inside the wait's 1000 ms: measured ~920 ms of it on a
+ * quiet box, and a slow CI shard missed it (objectui#12478); with the module
+ * imported here the wait takes under 10 ms.
+ *
+ * That import runs nothing: `register-builtin-designers.ts` performs no
+ * load-time effect, it only exports the function. Nothing here CALLS
+ * `registerBuiltinDesigners`, and the registries are read empty after every
+ * import above has evaluated, so a registrar sneaking into that graph would
+ * turn the first assertion red.
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -33,6 +43,9 @@ import { getMetadataDefaultInspector } from '../views/metadata-admin/default-ins
 import { FlowPreview } from '../views/metadata-admin/previews/FlowPreview';
 import { FlowInspector } from '../views/metadata-admin/inspectors/FlowInspector';
 import { HookDefaultInspector } from '../views/metadata-admin/inspectors/HookDefaultInspector';
+// Load, never call: the entry's dynamic import resolves from this cache entry
+// (objectui#12478; see the header).
+import '../views/metadata-admin/register-builtin-designers';
 
 const typesBeforeTheEntry = listMetadataPreviewTypes();
 await import('../index');

@@ -96,7 +96,7 @@ import { t as translate, tFormat, translateMetadataType, useMetadataLocale } fro
 import { PermissionAdvancedFacets } from './PermissionAdvancedFacets.js';
 import { AssignedUsersSection } from './AssignedUsersSection.js';
 import { isEnvironmentScope, useWalledCatalogReadOnly } from './catalog-scope.js';
-import { useCanAuthorMetadata } from '../../hooks/useCanAuthorMetadata.js';
+import { useCanAuthorMetadata, useCanReadAuthoringTrail } from '../../hooks/useCanAuthorMetadata.js';
 import { errorCodeIs } from '@object-ui/types';
 import { PermissionSetCloneDialog } from './PermissionSetCloneDialog.js';
 import type { PermissionSetCloned } from './permission-set-clone.js';
@@ -470,6 +470,10 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   // (`useCanAuthorMetadata`); the door then answers 403, shown as sent. Its
   // reason is named in the body below.
   const canAuthor = useCanAuthorMetadata();
+  // objectui#12475 — History reads the authoring-trail door, which
+  // objectstack#23546 narrowed to `studio.access` / `manage_metadata`: a
+  // `setup.access`-only caller is offered no History. Unknown fails open.
+  const canReadTrail = useCanReadAuthoringTrail();
   // objectui#12183 — and under a wall the security catalog is the platform
   // operator's: the `/meta` doors and the clone door refuse a non-operator's
   // write of a permission set, `manage_metadata` or not (objectstack ADR-0131
@@ -1553,7 +1557,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
           here: under a packageId the set is package METADATA whose truth moves
           via draft + atomic Publish (ADR-0086 D6/D7); a rollback would write a
           live overlay behind the draft flow's back. */}
-      {embedded && (
+      {embedded && canReadTrail && (
         <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
           <SheetContent side="right" className="w-[92vw] sm:max-w-[720px] p-0 flex flex-col gap-0">
             <SheetHeader className="px-4 py-3 border-b">
@@ -1616,10 +1620,18 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
             <>
               {autosaveStatusEl}
               {chrome.actions}
-              <button type="button" className={chipButton} onClick={() => setHistoryOpen(true)}>
-                <HistoryIcon className="h-3.5 w-3.5" />
-                {t('engine.edit.history')}
-              </button>
+              {/* objectui#12475 — offered only to a caller the trail door admits. */}
+              {canReadTrail && (
+                <button
+                  type="button"
+                  className={chipButton}
+                  data-testid="history-button"
+                  onClick={() => setHistoryOpen(true)}
+                >
+                  <HistoryIcon className="h-3.5 w-3.5" />
+                  {t('engine.edit.history')}
+                </button>
+              )}
               {envSaveEl}
               {lockedByArtifactTier && cloneButton}
               <DropdownMenu>
@@ -1772,17 +1784,20 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
       readOnly={readOnly}
       actions={
         <>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() =>
-              embedded
-                ? setHistoryOpen(true)
-                : navigate(`./history?type=${encodeURIComponent(type)}`)
-            }
-          >
-            <HistoryIcon className="h-4 w-4 mr-1" /> {t('engine.edit.history')}
-          </Button>
+          {canReadTrail && (
+            <Button
+              variant="ghost"
+              size="sm"
+              data-testid="history-button"
+              onClick={() =>
+                embedded
+                  ? setHistoryOpen(true)
+                  : navigate(`./history?type=${encodeURIComponent(type)}`)
+              }
+            >
+              <HistoryIcon className="h-4 w-4 mr-1" /> {t('engine.edit.history')}
+            </Button>
+          )}
           {envSaveEl}
           {autosaveStatusEl}
           {/* objectui#5987 — the locked editor's PRIMARY action, in the slot Save

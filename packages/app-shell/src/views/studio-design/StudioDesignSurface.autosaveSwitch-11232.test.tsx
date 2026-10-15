@@ -189,6 +189,7 @@ vi.mock('./StudioAiCopilot', () => ({ StudioChatDock: () => null }));
 vi.mock('../../preview/DraftChangesPanel', () => ({ DraftChangesPanel: () => null }));
 
 import { AutomationsPillar, DataPillar, InterfacesPillar, StudioDesignSurface } from './StudioDesignSurface';
+import { ADD_FIELD_OFFERED, addFieldFromMoreMenu } from './__tests__/dataPillarAddField';
 import { createEmptyDataSource } from './__tests__/emptyDataSource';
 import { registerMetadataPreview } from '../metadata-admin/preview-registry';
 import { registerMetadataInspector } from '../metadata-admin/inspector-registry';
@@ -424,7 +425,7 @@ describe('Data pillar — an object switch inside the debounce, the control (obj
     );
     await waitFor(() => expect(screen.getByText(/^\d+ fields$/)).toHaveTextContent('2 fields'), SLOW);
 
-    fireEvent.click(screen.getByTitle(/^Add a field/));
+    await addFieldFromMoreMenu();
     const release = holdLoad('object', 'acme_note');
     fireEvent.click(screen.getByRole('button', { name: /Note/ }));
     await pastDebounce();
@@ -437,7 +438,7 @@ describe('Data pillar — an object switch inside the debounce, the control (obj
     await pastDebounce(1800);
     expect(server.saves).toEqual([]);
     // The control's own control: an edit on the opened object saves to it.
-    fireEvent.click(screen.getByTitle(/^Add a field/));
+    await addFieldFromMoreMenu();
     await waitFor(() => expect(server.saves).toHaveLength(1), SLOW);
     expect(savesOf('object', 'acme_note').map((b) => readFields(b.fields).entries.map((e) => e.name))).toEqual([
       ['body', 'field_2'],
@@ -675,13 +676,14 @@ describe("the load window: nothing of the previous item is offered, shown or sav
 
     const release = holdLoad('object', 'acme_note');
     fireEvent.click(screen.getByRole('button', { name: /Note/ }));
-    const offered = screen.queryByTitle(/^Add a field/);
-    if (offered) fireEvent.click(offered);
+    // objectui#12450 — Add field lives in the header's More menu, drawn
+    // exactly when it is offered.
+    if (screen.queryByTestId(ADD_FIELD_OFFERED)) await addFieldFromMoreMenu();
     await pastDebounce();
     expect(savesRead()).toEqual([]);
     const shownDuringLoad = {
       fieldCount: screen.queryByText(/^\d+ fields$/) !== null,
-      addField: screen.queryByTitle(/^Add a field/) !== null,
+      addField: screen.queryByTestId(ADD_FIELD_OFFERED) !== null,
     };
 
     await release();
@@ -690,7 +692,7 @@ describe("the load window: nothing of the previous item is offered, shown or sav
     expect(server.saves).toEqual([]);
 
     // The control: a field added after the load saves once, to its own object.
-    fireEvent.click(screen.getByTitle(/^Add a field/));
+    await addFieldFromMoreMenu();
     await waitFor(() => expect(server.saves).toHaveLength(1), SLOW);
     expect(server.saves.map((s) => [s.type, s.name, s.body.label, fieldNamesOf(s.body)])).toEqual([
       ['object', 'acme_note', 'Note', ['body', 'field_2']],
@@ -744,7 +746,7 @@ describe('a package switch: Automations and Data open nothing of the previous pa
     await switchToBeta();
     await screen.findByRole('button', { name: /Beta item/ }, SLOW);
     await waitFor(() => expect(screen.getByText(/^\d+ fields$/)).toBeInTheDocument(), SLOW);
-    fireEvent.click(screen.getByTitle(/^Add a field/));
+    await addFieldFromMoreMenu();
     await waitFor(() => expect(server.saves).toHaveLength(1), SLOW);
     expect(server.saves.map((s) => [s.type, s.name, s.packageId, s.body.label, fieldNamesOf(s.body)])).toEqual([
       ['object', 'beta_item', PKG_B, 'Beta item', ['name', 'field_2']],

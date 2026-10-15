@@ -61,15 +61,23 @@ vi.mock('sonner', () => ({
   }),
 }));
 
+// objectui#12440 — the page hands its tab strip to the list as the
+// `toolbarLeading` host prop, so the list stand-in draws that node and the
+// plugin view stand-in calls the page's `renderListView`, as the real one does.
 vi.mock('@object-ui/plugin-list', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@object-ui/plugin-list')>()),
-  ListView: () => null,
+  ListView: (props: { toolbarLeading?: React.ReactNode }) => <>{props.toolbarLeading ?? null}</>,
 }));
 // The list area and the switcher, reduced to the view each was handed.
 vi.mock('@object-ui/plugin-view', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  ObjectView: (props: { activeViewId?: string }) => (
-    <div data-testid="plugin-object-view" data-active-view={props.activeViewId} />
+  ObjectView: (props: {
+    activeViewId?: string;
+    renderListView?: (args: { schema: Record<string, unknown> }) => React.ReactNode;
+  }) => (
+    <div data-testid="plugin-object-view" data-active-view={props.activeViewId}>
+      {props.renderListView?.({ schema: { type: 'list-view' } })}
+    </div>
   ),
   ViewTabBar: (props: { activeViewId: string; views: Array<{ id: string }> }) => (
     <div data-testid="view-tab-bar" data-active-view={props.activeViewId}>

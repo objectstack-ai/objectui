@@ -6,8 +6,14 @@
  *
  * Before: a rail of flows with no search, each label in a `truncate` span in a
  * narrow rail, so a long name read as its first few words and an ellipsis. Now a
- * search box above the list matches the label or the machine name, a search
- * that matches nothing says so, and the label wraps.
+ * search box above the list matches the label or the machine name, and a search
+ * that matches nothing says so.
+ *
+ * objectui#12454 — the redesign groups the rail by object and gives each row
+ * one 32 px line, so the label truncates again, as the card's rail does; the
+ * whole name moved to the row's title. The second describe pins that the name
+ * is still whole on the row, where a pointer reads it. The rows are read by
+ * their test id, so a group header (also a button) is never counted as a row.
  *
  * The REAL `AutomationsPillar`. The rail lists what `loadPackageSurfaces`
  * merges: published rows by their label, a draft-only row by its name. The
@@ -111,10 +117,9 @@ async function renderRail(): Promise<HTMLElement> {
 
 /** The rail rows' visible names, in order. */
 function rowNames(rail: HTMLElement): string[] {
-  return within(rail)
-    .queryAllByRole('button')
-    .filter((b) => b.querySelector('svg') && b.title !== t('engine.studio.auto.newTitle', 'en'))
-    .map((b) => (b.textContent ?? '').trim());
+  return Array.from(rail.querySelectorAll<HTMLElement>('[data-testid^="auto-rail-row-"]')).map(
+    (b) => b.querySelector('span.min-w-0')?.textContent?.trim() ?? '',
+  );
 }
 
 describe('the Automations rail search (objectui#11794)', () => {
@@ -154,15 +159,17 @@ describe('the Automations rail search (objectui#11794)', () => {
   });
 });
 
-describe('a flow’s name in the Automations rail is not cut to a stub (objectui#11794)', () => {
-  it('the long label is the row’s whole text, in a wrapping span, not a truncating one', async () => {
+describe('a flow’s name in the Automations rail is not cut to a stub (objectui#11794, objectui#12454)', () => {
+  it('the long label is the row’s whole text on one line, and the row’s title holds it whole', async () => {
     const rail = await renderRail();
     const row = within(rail).getByRole('button', { name: new RegExp(LONG_LABEL) });
     const label = within(row).getByText(LONG_LABEL);
     // jsdom lays nothing out, so the class that decides clipping is what is
     // read: `truncate` is `overflow: hidden; text-overflow: ellipsis;
-    // white-space: nowrap`, the stub the card measured.
-    expect(label).not.toHaveClass('truncate');
-    expect(label).toHaveClass('break-words');
+    // white-space: nowrap` — the 32 px row of objectui#12454.
+    expect(label).toHaveClass('truncate');
+    expect(label).toHaveTextContent(new RegExp(`^${LONG_LABEL}$`));
+    // The whole name is still on the row, where hovering it reads it.
+    expect(row.getAttribute('title') ?? '').toMatch(new RegExp(`^${LONG_LABEL} · `));
   });
 });

@@ -2263,6 +2263,12 @@ const es = {
       launcherLabel: "Lanzador de aplicaciones",
       menuLabel: "Navegación de la aplicación",
       menuEmpty: "Esta aplicación no tiene entradas de navegación que puedas abrir.",
+      itemMenu: "Más acciones para {{name}}",
+      openInNewTab: "Abrir en nueva pestaña",
+      copyLink: "Copiar enlace",
+      linkCopied: "Enlace copiado al portapapeles",
+      linkCopyFailed: "No se pudo copiar el enlace",
+      design: "Diseñar",
     },
   },
   auth: {

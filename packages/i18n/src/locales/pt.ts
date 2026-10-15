@@ -2258,6 +2258,12 @@ const pt = {
       launcherLabel: "Iniciador de aplicativos",
       menuLabel: "Navegação do aplicativo",
       menuEmpty: "Este aplicativo não tem entradas de navegação que você possa abrir.",
+      itemMenu: "Mais ações para {{name}}",
+      openInNewTab: "Abrir em nova aba",
+      copyLink: "Copiar link",
+      linkCopied: "Link copiado para a área de transferência",
+      linkCopyFailed: "Falha ao copiar o link",
+      design: "Projetar",
     },
   },
   auth: {

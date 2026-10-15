@@ -2420,6 +2420,12 @@ const ar = {
       launcherLabel: "مشغّل التطبيقات",
       menuLabel: "تنقّل التطبيق",
       menuEmpty: "لا توجد في هذا التطبيق عناصر تنقّل يمكنك فتحها.",
+      itemMenu: "المزيد من الإجراءات لـ {{name}}",
+      openInNewTab: "فتح في علامة تبويب جديدة",
+      copyLink: "نسخ الرابط",
+      linkCopied: "تم نسخ الرابط إلى الحافظة",
+      linkCopyFailed: "فشل نسخ الرابط",
+      design: "تصميم",
     },
   },
   auth: {

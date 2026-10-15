@@ -2214,6 +2214,12 @@ const ja = {
       launcherLabel: "アプリランチャー",
       menuLabel: "アプリナビゲーション",
       menuEmpty: "このアプリには開けるナビゲーション項目がありません。",
+      itemMenu: "{{name}} のその他の操作",
+      openInNewTab: "新しいタブで開く",
+      copyLink: "リンクをコピー",
+      linkCopied: "リンクをクリップボードにコピーしました",
+      linkCopyFailed: "リンクのコピーに失敗しました",
+      design: "デザイン",
     },
   },
   auth: {

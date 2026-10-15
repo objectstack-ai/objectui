@@ -1739,6 +1739,12 @@ const zh = {
       launcherLabel: '应用启动台',
       menuLabel: '应用导航',
       menuEmpty: '此应用没有你可以打开的导航项。',
+      itemMenu: '{{name}} 的更多操作',
+      openInNewTab: '在新标签页打开',
+      copyLink: '复制链接',
+      linkCopied: '链接已复制到剪贴板',
+      linkCopyFailed: '复制链接失败',
+      design: '设计',
     },
     settingsHub: {
       title: '设置',

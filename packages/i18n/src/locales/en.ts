@@ -2049,6 +2049,13 @@ const en = {
       launcherLabel: 'App launcher',
       menuLabel: 'App navigation',
       menuEmpty: 'This app has no navigation entries you can open.',
+      // objectui#12427 — the ⋯ menu a sidebar entry shows on hover (`SidebarItemMenu`).
+      itemMenu: 'More actions for {{name}}',
+      openInNewTab: 'Open in new tab',
+      copyLink: 'Copy link',
+      linkCopied: 'Link copied to clipboard',
+      linkCopyFailed: 'Failed to copy link',
+      design: 'Design',
     },
     settingsHub: {
       title: 'Settings',

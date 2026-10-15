@@ -2260,6 +2260,12 @@ const fr = {
       launcherLabel: "Lanceur d'applications",
       menuLabel: "Navigation de l'application",
       menuEmpty: "Cette application n'a aucune entrée de navigation que vous pouvez ouvrir.",
+      itemMenu: "Plus d'actions pour {{name}}",
+      openInNewTab: "Ouvrir dans un nouvel onglet",
+      copyLink: "Copier le lien",
+      linkCopied: "Lien copié dans le presse-papiers",
+      linkCopyFailed: "Impossible de copier le lien",
+      design: "Concevoir",
     },
   },
   auth: {

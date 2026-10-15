@@ -2624,7 +2624,6 @@ const es = {
     area: "Área",
     scope: "Ámbito",
     recent: "Reciente",
-    favorites: "Favoritos",
     starred: "Destacados",
     removeFromFavorites: "Quitar {{name}} de favoritos",
   },

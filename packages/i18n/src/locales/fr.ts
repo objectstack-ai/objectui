@@ -2621,7 +2621,6 @@ const fr = {
     area: "Zone",
     scope: "Périmètre",
     recent: "Récent",
-    favorites: "Favoris",
     starred: "Étoilés",
     removeFromFavorites: "Retirer {{name}} des favoris",
   },

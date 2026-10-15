@@ -2652,7 +2652,6 @@ const zh = {
     packageManagement: '软件包管理',
     searchNavigation: '搜索导航…',
     recent: '最近使用',
-    favorites: '收藏',
     starred: '已收藏',
     removeFromFavorites: '从收藏中移除 {{name}}',
   },

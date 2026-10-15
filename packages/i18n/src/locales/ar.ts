@@ -2781,7 +2781,6 @@ const ar = {
     area: "المنطقة",
     scope: "النطاق",
     recent: "الأخيرة",
-    favorites: "المفضلة",
     starred: "المميزة",
     removeFromFavorites: "إزالة {{name}} من المفضلة",
   },

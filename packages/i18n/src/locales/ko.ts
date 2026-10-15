@@ -2573,7 +2573,6 @@ const ko = {
     area: "영역",
     scope: "범위",
     recent: "최근",
-    favorites: "즐겨찾기",
     starred: "즐겨찾기",
     removeFromFavorites: "즐겨찾기에서 {{name}} 제거",
   },

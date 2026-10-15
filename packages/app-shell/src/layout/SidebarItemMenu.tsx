@@ -67,6 +67,20 @@ export function sidebarItemDesignPath(item: NavigationItem, basePath: string): s
   return `${basePath}/metadata/${item.type}/${encodeURIComponent(target)}`;
 }
 
+/**
+ * The designer route for a favorite that is not a navigation entry, read from
+ * its id (`object:NAME`, `dashboard:NAME`, `page:NAME`), on the same
+ * metadata-admin route {@link sidebarItemDesignPath} uses. Any other id (a
+ * record, a report, an app) has none. The id, not the stored `type`, decides:
+ * an app favorite is stored with `type: 'object'` and an `app:` id, and has no
+ * object to design.
+ */
+export function favoriteDesignPath(favoriteId: string, basePath: string): string | null {
+  const match = /^(object|dashboard|page):(.+)$/.exec(favoriteId);
+  if (!match) return null;
+  return `${basePath}/metadata/${match[1]}/${encodeURIComponent(match[2])}`;
+}
+
 export interface SidebarItemMenuProps {
   /** The entry's own label, as its row shows it. Names the trigger. */
   label: string;

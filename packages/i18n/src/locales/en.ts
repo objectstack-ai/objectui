@@ -3087,7 +3087,6 @@ const en = {
     packageManagement: 'Package management',
     searchNavigation: 'Search navigation…',
     recent: 'Recent',
-    favorites: 'Favorites',
     starred: 'Starred',
     removeFromFavorites: 'Remove {{name}} from favorites',
   },

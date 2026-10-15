@@ -2575,7 +2575,6 @@ const ja = {
     area: "エリア",
     scope: "スコープ",
     recent: "最近",
-    favorites: "お気に入り",
     starred: "スター付き",
     removeFromFavorites: "お気に入りから {{name}} を削除",
   },

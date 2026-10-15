@@ -2687,7 +2687,6 @@ const ru = {
     area: "Область",
     scope: "Область",
     recent: "Недавние",
-    favorites: "Избранное",
     starred: "Отмеченные",
     removeFromFavorites: "Убрать {{name}} из избранного",
   },

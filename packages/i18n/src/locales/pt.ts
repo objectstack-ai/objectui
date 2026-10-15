@@ -2619,7 +2619,6 @@ const pt = {
     area: "Área",
     scope: "Escopo",
     recent: "Recente",
-    favorites: "Favoritos",
     starred: "Favoritos",
     removeFromFavorites: "Remover {{name}} dos favoritos",
   },

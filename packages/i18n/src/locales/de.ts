@@ -2573,7 +2573,6 @@ const de = {
     area: "Bereich",
     scope: "Bereich",
     recent: "Zuletzt",
-    favorites: "Favoriten",
     starred: "Markiert",
     removeFromFavorites: "{{name}} aus Favoriten entfernen",
   },

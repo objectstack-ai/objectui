@@ -10,7 +10,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom';
-import { activityRowToFeedItem, InlineEditSaveBar, RecordMetaFooter, buildDefaultPageSchema, deriveFieldGroupDetailSections, extractMentions, isRefusedFeedRead, resolveTitleField, useRecordEditable } from '@object-ui/plugin-detail';
+import { activityRowToFeedItem, InlineEditSaveBar, RecordMetaFooter, buildDefaultPageSchema, extractMentions, isRefusedFeedRead, resolveTitleField, useRecordEditable } from '@object-ui/plugin-detail';
 import { Empty, EmptyTitle, EmptyDescription, Button } from '@object-ui/components';
 import { useAuth, createAuthenticatedFetch } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
@@ -42,7 +42,7 @@ import { useRecordBreadcrumbTitle } from '../context/NavigationContext.js';
 // Audit provenance renders as the one-line <RecordMetaFooter>; the other
 // framework-injected bookkeeping columns are hidden from the body outright.
 // Both sets are derived, not restated — see record-detail-system-fields.ts.
-import { AUDIT_FIELD_NAMES, HIDDEN_SYSTEM_FIELD_NAMES } from './record-detail-system-fields.js';
+import { deriveRecordDetailSections } from './recordDetailSections.js';
 import type { DataSource, FeedItem, Reaction } from '@object-ui/types';
 import type { ActionDef, ActionParamDef, ConfirmationHandler } from '@object-ui/core';
 import type { ConsoleActionDispatch } from '../consoleActionDispatch.js';
@@ -138,39 +138,10 @@ export function resolveActionUser(
     : identity;
 }
 
-/**
- * Field-type signals that suggest a "secondary / system / metadata"
- * placement when auto-grouping fields. These move out of the main
- * section and into a collapsible "More details" section by default,
- * keeping the primary section dense with business-critical fields.
- *
- * The heuristic is conservative: when no objectDef metadata is available
- * we surface most fields in the main section; long-form text and
- * audit-by-name fields drop down.
- */
-const SECONDARY_FIELD_NAME_HINTS = ['description', 'notes', 'note', 'remark', 'remarks', 'comments'];
-/**
- * Matched against the RAW `objectDef.fields[x].type`, so every member must be a
- * `@objectstack/spec` `FieldType` name. `rich-text` was not one: the spec spells
- * the type `richtext` and REJECTS `rich-text`, which survives only as a typo key
- * in the spec's own `suggestFieldType` table — a spelling no producer can emit.
- * The member therefore demoted nothing while a real `richtext` field stayed in
- * the dense primary section, and the same field failed to read wide in the
- * detail and form auto-layouts, which carried the identical hole (#4250).
- */
-const SECONDARY_FIELD_TYPES = new Set(['textarea', 'markdown', 'html', 'richtext', 'json', 'code']);
-
-/**
- * Exported for the cross-surface pin in `richtextSurfaceParity.test.ts` — the
- * rule is the behaviour under test, not the set's string membership. Not
- * re-exported from the package barrel (`views/index.ts` names `RecordDetailView`
- * only), so this widens no public API.
- */
-export function isSecondaryField(fieldName: string, fieldDef: any): boolean {
-  if (SECONDARY_FIELD_TYPES.has(fieldDef?.type)) return true;
-  const lc = fieldName.toLowerCase();
-  return SECONDARY_FIELD_NAME_HINTS.some((hint) => lc === hint || lc.endsWith(`_${hint}`));
-}
+// The secondary-field rule moved with the section derivation into
+// `recordDetailSections.ts` (objectui#12442); re-exported for the
+// cross-surface pin in `richtextSurfaceParity.test.tsx`.
+export { isSecondaryField } from './recordDetailSections.js';
 
 /**
  * The discussion feed of a record that has none. A module-level constant, not
@@ -2810,104 +2781,9 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     // customization goes through an assigned Page schema):
     //   1) sections derived from the object's `fieldGroups`;
     //   2) auto-grouping (primary + collapsible "More details").
-    const sections = (() => {
-          const toField = (key: string) => {
-            const fieldDef = objectDef.fields[key];
-            // objectui#6837 half 2 — maintainer 2026-08-31: protocol normalization
-            // belongs on the SERVER, the front end just executes the protocol.
-            // `reference` is the only target spelling `@objectstack/spec`'s
-            // `FieldSchema` declares; it refuses `reference_to` by name with its own
-            // "did you mean -> `reference`?" rename. objectstack#13847 rewrites
-            // stored `reference_to` on the serve path and in `os migrate meta`. A
-            // legacy-only def is canonicalised ONCE at the ingestion choke point
-            // (`normalizeSchemaReferenceKeys`, which warns in dev) — never here.
-            const refTarget = fieldDef.reference;
-            return {
-              name: key,
-              label: fieldDef.label || key,
-              type: fieldDef.type || 'text',
-              ...(fieldDef.options && { options: fieldDef.options }),
-              ...(refTarget && { reference: refTarget }),
-              ...(fieldDef.reference_field && { reference_field: fieldDef.reference_field }),
-              ...(fieldDef.currency && { currency: fieldDef.currency }),
-            };
-          };
-
-          // Auto-grouping (platform B): split fields into a primary section
-          // and a collapsible "More details" section so long-form/secondary
-          // fields don't dilute the main grid. The primary section stays
-          // untitled so DetailSection still flattens its chrome when alone.
-          // Shared by the pure-fallback path and the ungrouped remainder of
-          // the fieldGroups path below.
-          const splitPrimarySecondary = (keys: string[]) => {
-            const primaryKeys = keys.filter((k) => !isSecondaryField(k, objectDef.fields[k]));
-            const secondaryKeys = keys.filter((k) => isSecondaryField(k, objectDef.fields[k]));
-
-            // Keep the legacy single-untitled-section behaviour when the
-            // split would leave one side empty.
-            if (secondaryKeys.length === 0 || primaryKeys.length === 0) {
-              return [
-                {
-                  showBorder: false as const,
-                  fields: keys.map(toField),
-                },
-              ];
-            }
-
-            return [
-              {
-                showBorder: false as const,
-                fields: primaryKeys.map(toField),
-              },
-              {
-                name: 'details',
-                // The heading rides `label` — the one slot `record:details`
-                // reads and `@object-ui/types` declares (objectui#6190). This
-                // section is authored HERE, not emitted by the synthesizer, so
-                // it has to carry the declared slot at its own source.
-                label: sectionLabel(objectDef.name, 'details', t('detail.sectionMoreDetails', 'More details')),
-                collapsible: true,
-                defaultCollapsed: false,
-                showBorder: true as const,
-                fields: secondaryKeys.map(toField),
-              },
-            ];
-          };
-
-          // 1) fieldGroups-derived sections (the ADR-0085 semantic role,
-          //    same shared derivation the runtime form honours). Declared
-          //    groups render as titled cards in declared order; the
-          //    trailing untitled bucket (ungrouped fields) still goes
-          //    through the primary/"More details" split so long-form
-          //    fields stay tucked away.
-          const grouped = deriveFieldGroupDetailSections(objectDef as any);
-          if (grouped) {
-            return grouped.flatMap<Record<string, unknown>>((sec: any) => {
-              if (!sec.name) {
-                return splitPrimarySecondary(
-                  (sec.fields as any[]).map((f: any) => f.name),
-                );
-              }
-              // A declared group is written as the spec's own REFERENCE form,
-              // `{ group: KEY }` (`RecordDetailsProps.sections[].group`,
-              // ADR-0085 §5), never as an enumerated copy of the group
-              // (objectui#11630). `record:details` resolves it against the
-              // object's `fieldGroups` — members, heading (through the same
-              // per-object i18n convention, `sectionLabel`), icon,
-              // description, collapse — and evaluates the group's
-              // `visibleWhen` against this record, which an enumerated copy
-              // cannot carry: the spec refuses `visibleWhen` on one. The
-              // Card chrome stays this page's layout choice, a key the spec
-              // permits beside `group`.
-              return [{ group: sec.name as string, showBorder: true as const }];
-            });
-          }
-
-          // 3) Pure auto-grouping fallback.
-          const allFields = Object.keys(objectDef.fields || {})
-            .filter((key) => !AUDIT_FIELD_NAMES.has(key) && !HIDDEN_SYSTEM_FIELD_NAMES.has(key) && !objectDef.fields[key]?.hidden);
-          return splitPrimarySecondary(allFields);
-        })();
+    const sections = deriveRecordDetailSections(objectDef, {
+      moreDetails: sectionLabel(objectDef.name, 'details', t('detail.sectionMoreDetails', 'More details')),
+    });
 
     // Audit fields (created_at/created_by/updated_at/updated_by) are NOT
     // appended as a section here — they are surfaced by `<RecordMetaFooter>`

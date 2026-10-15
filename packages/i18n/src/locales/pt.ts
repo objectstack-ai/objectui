@@ -2149,6 +2149,8 @@ const pt = {
       systemViewReadonly: "Exibição do sistema definida no código — somente leitura.",
       cannotEditMetaView: "Esta exibição é integrada e definida no código — não é possível alterá-la.",
       viewConfigPermissionDenied: "As configurações da exibição se aplicam a todos os usuários que a utilizam, portanto alterá-las exige a permissão 'Gerenciar metadados'. Peça a um administrador para fazer essa alteração.",
+      resetView: "Redefinir exibição",
+      resetViewTitle: "Retornar esta exibição à sua própria ordenação, filtros e larguras de coluna. Apenas as suas configurações mudam.",
       cannotDeleteMetaView: "Esta exibição é integrada e definida no código — não é possível excluí-la.",
       expandToPage: "Abrir como página inteira",
       objectNotFound: "Objeto não encontrado",

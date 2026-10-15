@@ -35,8 +35,12 @@
  * the parsed value (so it drops what the door drops), and answers the PUT the
  * way the door was measured to answer it: with no row. `ListView` is stubbed to
  * capture the schema the page hands it, so a toolbar change is the page's own
- * `onDensityChange` / `onSortChange` callback. A "reload" unmounts the page and
- * mounts it again over a fresh adapter on the same store.
+ * `onDensityChange` / `onHiddenFieldsChange` callback. A "reload" unmounts the
+ * page and mounts it again over a fresh adapter on the same store.
+ *
+ * The second change was the header sort until objectui#12418 made the sort the
+ * user's own list state (`sys_user_preference`, never the view). The hide-field
+ * toggle is a view write still, and it rides the same `persistViewPatch`.
  *
  * ## Direction, written before the reverse-verification run
  *
@@ -176,9 +180,8 @@ const DEFINED_VIEWS = {
   [OVERLAY_ID]: { ...DONE_SOURCE },
 };
 
-/** The sort the header click emits — the console's row `id` included, which the door strips. */
-const HEADER_SORT = [{ id: 'row-1', field: 'title', order: 'asc' }];
-const STORED_SORT = [{ field: 'title', order: 'asc' }];
+/** The field the Hide Fields popover hides: the second toolbar change. */
+const HIDDEN = ['status'];
 
 /**
  * A `sys_metadata`-shaped store: every PUT is judged by the spec's
@@ -285,15 +288,15 @@ async function reload(meta: any, viewId: string) {
   await waitFor(() => expect(listSchema?.options).toBeTruthy());
   return {
     rowHeight: (normalizeListViewSchema(listSchema) as { rowHeight?: unknown }).rowHeight,
-    sort: listSchema.sort,
+    hiddenFields: listSchema.hiddenFields,
   };
 }
 
-/** Density, wait past the 300 ms debounce and the round trip, then a header sort. */
-async function densityThenSort(gapMs = 600) {
+/** Density, wait past the 300 ms debounce and the round trip, then a hidden field. */
+async function densityThenHide(gapMs = 600) {
   act(() => listSchema.onDensityChange('comfortable'));
   await wait(gapMs);
-  act(() => listSchema.onSortChange(HEADER_SORT));
+  act(() => listSchema.onHiddenFieldsChange(HIDDEN));
   await wait(600);
 }
 
@@ -319,50 +322,50 @@ describe('objectui#11642 — two toolbar changes in one session both survive a r
   it('envelope row: the second write carries the first change, inside `config`', async () => {
     const { meta, rows, bodies } = makeStore([ENVELOPE_ROW]);
     const ds = await openView(meta, ENVELOPE_ID);
-    await densityThenSort();
+    await densityThenHide();
 
     expect(ds.updateViewConfig).toHaveBeenCalledTimes(2);
     expect(toast.error).not.toHaveBeenCalled();
     // The second body was built from the row the first write stored.
     expect(bodies[1].config.rowHeight).toBe('medium');
-    expect(bodies[1].config.sort).toEqual(HEADER_SORT);
+    expect(bodies[1].config.hiddenFields).toEqual(HIDDEN);
 
     const stored = rows.get(ENVELOPE_ID);
     expect(stored.config.rowHeight).toBe('medium');
-    expect(stored.config.sort).toEqual(STORED_SORT);
+    expect(stored.config.hiddenFields).toEqual(HIDDEN);
     // The rest of the view is still the view.
     expect(stored.config.filter).toEqual(ENVELOPE_ROW.config.filter);
     expect(stored.config.columns).toEqual(ENVELOPE_ROW.config.columns);
     expect(stored).not.toHaveProperty('_isOverride');
 
-    expect(await reload(meta, ENVELOPE_ID)).toEqual({ rowHeight: 'medium', sort: STORED_SORT });
+    expect(await reload(meta, ENVELOPE_ID)).toEqual({ rowHeight: 'medium', hiddenFields: HIDDEN });
   });
 
   it('flat row: the second write carries the first change, flat', async () => {
     const { meta, rows, bodies } = makeStore([FLAT_ROW]);
     const ds = await openView(meta, FLAT_ID);
-    await densityThenSort();
+    await densityThenHide();
 
     expect(ds.updateViewConfig).toHaveBeenCalledTimes(2);
     expect(toast.error).not.toHaveBeenCalled();
     expect(bodies[1]).not.toHaveProperty('config');
     expect(bodies[1].rowHeight).toBe('medium');
-    expect(bodies[1].sort).toEqual(HEADER_SORT);
+    expect(bodies[1].hiddenFields).toEqual(HIDDEN);
 
     const stored = rows.get(FLAT_ID);
     expect(stored.rowHeight).toBe('medium');
-    expect(stored.sort).toEqual(STORED_SORT);
+    expect(stored.hiddenFields).toEqual(HIDDEN);
     expect(stored.filter).toEqual(FLAT_ROW.filter);
     expect(stored.columns).toEqual(FLAT_ROW.columns);
     expect(stored).not.toHaveProperty('_isOverride');
 
-    expect(await reload(meta, FLAT_ID)).toEqual({ rowHeight: 'medium', sort: STORED_SORT });
+    expect(await reload(meta, FLAT_ID)).toEqual({ rowHeight: 'medium', hiddenFields: HIDDEN });
   });
 
   it('overlay: the overlay becomes the patches composed, and still freezes nothing the shadowed view owns', async () => {
     const { meta, rows, bodies } = makeStore([OVERLAY_ROW]);
     const ds = await openView(meta, OVERLAY_ID);
-    await densityThenSort();
+    await densityThenHide();
 
     expect(ds.updateViewConfig).toHaveBeenCalledTimes(2);
     expect(toast.error).not.toHaveBeenCalled();
@@ -374,12 +377,12 @@ describe('objectui#11642 — two toolbar changes in one session both survive a r
     // The second body is the stored overlay plus the new patch — the earlier
     // session's column widths and this session's density ride along.
     expect(bodies[1].rowHeight).toBe('medium');
-    expect(bodies[1].sort).toEqual(HEADER_SORT);
+    expect(bodies[1].hiddenFields).toEqual(HIDDEN);
     expect(bodies[1].columnState).toEqual(OVERLAY_ROW.columnState);
 
     const stored = rows.get(OVERLAY_ID);
     expect(stored.rowHeight).toBe('medium');
-    expect(stored.sort).toEqual(STORED_SORT);
+    expect(stored.hiddenFields).toEqual(HIDDEN);
     expect(stored.columnState).toEqual(OVERLAY_ROW.columnState);
     expect(stored._isOverride).toBe(true);
     // objectui#5233 — the console sends no copy of the source view's keys, on
@@ -395,7 +398,7 @@ describe('objectui#11642 — two toolbar changes in one session both survive a r
     expect(stored).not.toHaveProperty('columns');
     expect(stored).not.toHaveProperty('config');
 
-    expect(await reload(meta, OVERLAY_ID)).toEqual({ rowHeight: 'medium', sort: STORED_SORT });
+    expect(await reload(meta, OVERLAY_ID)).toEqual({ rowHeight: 'medium', hiddenFields: HIDDEN });
     // …and the source view's own filter still reaches the reloaded tab.
     expect(listSchema.filter).toEqual(DONE_SOURCE.filter);
   });
@@ -407,28 +410,28 @@ describe('objectui#11642 — the debounce and the write chain', () => {
     const ds = await openView(meta, ENVELOPE_ID);
     act(() => listSchema.onDensityChange('comfortable'));
     await wait(50);
-    act(() => listSchema.onSortChange(HEADER_SORT));
+    act(() => listSchema.onHiddenFieldsChange(HIDDEN));
     await wait(700);
 
     expect(ds.updateViewConfig).toHaveBeenCalledTimes(1);
     const stored = rows.get(ENVELOPE_ID);
     expect(stored.config.rowHeight).toBe('medium');
-    expect(stored.config.sort).toEqual(STORED_SORT);
+    expect(stored.config.hiddenFields).toEqual(HIDDEN);
   });
 
   it('a change made while the previous write is still in flight starts from the row that write stored', async () => {
-    // The first PUT takes 500 ms. The sort is made 400 ms after the density,
+    // The first PUT takes 500 ms. The hide is made 400 ms after the density,
     // so its debounce fires while that PUT is still in flight: a read taken
     // then returns the row from BEFORE the first write.
     const { meta, rows, bodies } = makeStore([ENVELOPE_ROW], { putDelayMs: (n) => (n === 1 ? 500 : 0) });
     const ds = await openView(meta, ENVELOPE_ID);
-    await densityThenSort(400);
+    await densityThenHide(400);
     await wait(600);
 
     expect(ds.updateViewConfig).toHaveBeenCalledTimes(2);
     expect(bodies[1].config.rowHeight).toBe('medium');
     const stored = rows.get(ENVELOPE_ID);
     expect(stored.config.rowHeight).toBe('medium');
-    expect(stored.config.sort).toEqual(STORED_SORT);
+    expect(stored.config.hiddenFields).toEqual(HIDDEN);
   });
 });

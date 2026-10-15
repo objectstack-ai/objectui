@@ -38,9 +38,13 @@
  *
  * Reverse verification (direction predicted before running, and it holds):
  * restoring `const updateView = (dataSource as any).updateView` inside
- * {@link dispatchViewPatches} turns the set-default and reorder blocks RED with
- * that same TypeError, while the control block stays green — it pins the failure
- * mode itself, which this change does not move.
+ * {@link dispatchViewPatches} turns the set-default block RED with that same
+ * TypeError, while the control block stays green — it pins the failure mode
+ * itself, which this change does not move.
+ *
+ * The reorder block left with objectui#12418: a drag-reorder is the user's own
+ * tab order (`sys_user_preference`), and it writes no view any more, so there
+ * is no `sortOrder` patch list left to dispatch.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -48,7 +52,6 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
   dispatchViewPatches,
-  reorderViewPatches,
   setDefaultViewPatches,
 } from './ObjectView';
 // @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
@@ -180,65 +183,6 @@ describe('set as default (#4463)', () => {
         patch: { isDefault: true },
       },
     ]);
-  });
-});
-
-describe('reorder views (#4463)', () => {
-  it('issues a dense `sortOrder` per saved view with `this` intact', async () => {
-    const ds = new FakeViewAdapter();
-    const ordered = ['showcase_task.rt5_board', 'showcase_task.mine'];
-
-    await Promise.all(
-      dispatchViewPatches(ds, OBJECT, reorderViewPatches(SAVED_VIEWS, ordered)),
-    );
-
-    expect(ds.writes).toEqual([
-      {
-        objectName: OBJECT,
-        viewName: 'showcase_task.rt5_board',
-        patch: { sortOrder: 0 },
-      },
-      {
-        objectName: OBJECT,
-        viewName: 'showcase_task.mine',
-        patch: { sortOrder: 1 },
-      },
-    ]);
-    expect(ds.connectCount).toBe(2);
-  });
-
-  it('skips metadata-only views and keeps `sortOrder` dense over the rest', async () => {
-    const ds = new FakeViewAdapter();
-    // `all` and `recent` are metadata-defined — no `sys_view` row to write.
-    const ordered = [
-      'all',
-      'showcase_task.rt5_board',
-      'recent',
-      'showcase_task.mine',
-    ];
-
-    await Promise.all(
-      dispatchViewPatches(ds, OBJECT, reorderViewPatches(SAVED_VIEWS, ordered)),
-    );
-
-    expect(ds.writes.map(w => [w.viewName, w.patch])).toEqual([
-      ['showcase_task.rt5_board', { sortOrder: 0 }],
-      ['showcase_task.mine', { sortOrder: 1 }],
-    ]);
-  });
-
-  it('issues nothing when no reordered id is a saved view', async () => {
-    const ds = new FakeViewAdapter();
-
-    await Promise.all(
-      dispatchViewPatches(
-        ds,
-        OBJECT,
-        reorderViewPatches(SAVED_VIEWS, ['all', 'recent']),
-      ),
-    );
-
-    expect(ds.writes).toEqual([]);
   });
 });
 

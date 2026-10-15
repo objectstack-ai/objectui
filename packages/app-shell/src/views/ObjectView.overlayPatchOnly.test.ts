@@ -575,8 +575,14 @@ describe('objectui#5233 ratchet — the owned-key list tracks the writers', () =
         // is session state and no longer persists `inlineEdit`. The adapter
         // still lists `inlineEdit` as an owned key, so an overlay an earlier
         // console wrote is still read; that is the reading the ruling keeps.
-        expect(written.length).toBeGreaterThanOrEqual(4);
+        // Two since objectui#12418: the sort and the column layout are the
+        // user's own list state, written to `sys_user_preference`, never to a
+        // view. The adapter still owns both keys, so an overlay an earlier
+        // console wrote is still read.
+        expect(written.length).toBeGreaterThanOrEqual(2);
         expect(written).not.toContain('inlineEdit');
+        expect(written).not.toContain('sort');
+        expect(written).not.toContain('columnState');
         for (const key of written) {
             expect(
                 VIEW_OVERLAY_OWNED_KEYS as readonly string[],

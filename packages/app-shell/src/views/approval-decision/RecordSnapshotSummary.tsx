@@ -60,8 +60,9 @@
  * non-zero `currency` field: the summarized object's, through the same
  * `useMetadataItem` path, and only ONE such object, the one the first such
  * summary rolls up. A `sum` over another object stays an ordinary row. The
- * summary waits for that answer, so the amount does not move in after the
- * rows are drawn.
+ * summary first draws once that answer is in, so the amount does not move in
+ * after the rows are drawn; a definition answered for another object is never
+ * read as this one's.
  *
  * Module-internal: nothing re-exports it from the package entry.
  */

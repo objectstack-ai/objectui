@@ -1,0 +1,5 @@
+---
+'@object-ui/app-shell': patch
+---
+
+The approval decision panel's declared amount also takes a roll-up total (objectui#12534): a field the target object declares `type: 'summary'` whose `summaryOperations` is a `sum` over a field the summarized object declares `type: 'currency'`. So on the request page objectstack serves, an expense report's or an invoice's summed total leads the snapshot summary, as the approvals inbox's sheet shows it. Across both kinds the first non-zero amount leads, else the first one; the total is drawn through its own field's cell, as the record page draws it. The summarized object's definition is read from the metadata store, for one object at most, and only when such a roll-up comes before a non-zero currency field; the summary waits for that answer. A summary that is not a `sum`, a `sum` over a field that is not `currency`, a `sum` whose summarized definition cannot be read, and a key that only looks like an amount by its name are ordinary rows. No page, prop, export or spec change.

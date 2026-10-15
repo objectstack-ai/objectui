@@ -1112,9 +1112,15 @@ request pages. `className` styles the wrapper.
 Above the progress, the block shows what was submitted, from the request row's
 record snapshot (`payload`) and the server's display values
 (`payload_display`), against the target object's declared fields: the
-declared amount (the first field declared `type: 'currency'`), then the first
-six business fields, each under its declared label and through the record
-page's own cell. A key the object does not declare, a framework column, an
+declared amount (the first non-zero field declared `type: 'currency'`, or
+declared `type: 'summary'` with a `summaryOperations` `sum` over a field the
+summarized object declares `type: 'currency'`; else the first such field),
+then the first six business fields, each under its declared label and through
+the record page's own cell. Telling a roll-up total apart reads the
+summarized object's definition from the metadata store, for one object at
+most; if that definition cannot be read, the roll-up is an ordinary row. A
+key that only looks like an amount by its name never leads. A key the object
+does not declare, a framework column, an
 unresolved reference id, a field declared `hidden: true` and a field the
 reader may not read take no row. Without the target object's definition, the
 summary is not drawn.

@@ -11,6 +11,10 @@
  * posture (`isMobile` + `open`) is the one the pillars already had: the rail
  * slides in over the canvas below the mobile breakpoint; the backdrop that
  * closes it stays with the pillar, outside this element.
+ *
+ * The width is `STUDIO_RAIL_WIDTH` in every pillar and every mode, with no
+ * override: an Interfaces rail that widened while its navigation was being
+ * edited moved the content column on every Edit and Done (objectui#12519).
  */
 
 import * as React from 'react';
@@ -58,8 +62,6 @@ export interface StudioRailProps {
   /** Mobile overlay posture, as the pillars already compute it. */
   isMobile?: boolean;
   open?: boolean;
-  /** Width override for a pillar that needs more (nav editing); default 240 px. */
-  width?: string;
   testId?: string;
   'aria-label'?: string;
   className?: string;
@@ -78,7 +80,6 @@ export function StudioRail({
   footer,
   isMobile = false,
   open = false,
-  width,
   testId,
   className,
   children,
@@ -91,7 +92,7 @@ export function StudioRail({
       aria-label={rest['aria-label']}
       className={cn(
         'flex shrink-0 flex-col border-r bg-sidebar',
-        width ?? STUDIO_RAIL_WIDTH,
+        STUDIO_RAIL_WIDTH,
         isMobile && 'absolute inset-y-0 left-0 z-20 shadow-lg transition-transform duration-200',
         isMobile && !open && '-translate-x-full',
         className,

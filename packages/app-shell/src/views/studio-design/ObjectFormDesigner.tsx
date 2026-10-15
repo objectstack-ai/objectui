@@ -381,6 +381,9 @@ function SortableField({
           ? tFormat('engine.studio.designer.fieldAriaReadOnly', locale, { label })
           : tFormat('engine.studio.designer.fieldAria', locale, { label })
       }
+      // objectui#12453 — what a click still does on a read-only package, the
+      // half of the retired toolbar hint that was not "read-only".
+      title={readOnly ? t('engine.studio.designer.fieldTitleReadOnly', locale) : undefined}
       // objectui#12451 — a field card: a transparent border that turns muted on
       // hover; selected, a primary border with a soft primary ring, and the
       // type tag turns primary.
@@ -800,11 +803,12 @@ export function ObjectFormDesigner({
       <FormToolbar
         leading={modeControl}
         hint={
-          <span className="text-xs text-muted-foreground">
-            {/* objectui#11781 — a read-only package has no drag and no edit, so
-                its hint says what it is and what a click still does. */}
-            {readOnly ? t('engine.studio.designer.hintReadOnly', locale) : t('engine.studio.designer.toolbarHint', locale)}
-          </span>
+          // objectui#12453 — a read-only package says so in the app chip and
+          // the item header's link, not here; what a click still does is each
+          // field card's title.
+          readOnly ? undefined : (
+            <span className="text-xs text-muted-foreground">{t('engine.studio.designer.toolbarHint', locale)}</span>
+          )
         }
       >
         {!readOnly && (

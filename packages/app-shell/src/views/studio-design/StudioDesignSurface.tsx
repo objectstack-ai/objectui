@@ -40,6 +40,7 @@ import {
 } from './studio-tokens.js';
 import { StudioInspector } from './StudioInspector.js';
 import { StudioItemHeader, StudioTab } from './StudioItemHeader.js';
+import { overlayPath } from './BuilderLanding.js';
 import { DATA_CONTENT_CONTAINER, DATA_TAB_FLAT_ONLY, DATA_TAB_FOLDED_ONLY } from './dataTabsFold.js';
 import { StudioRail, StudioRailGroup, StudioRailRow } from './StudioRail.js';
 import { FLOW_TRIGGER_GLYPHS, flowTriggerGlyph, groupFlowsByObject, type FlowTriggerGlyph } from './flowGrouping.js';
@@ -125,6 +126,7 @@ import {
   Clock,
   MousePointerClick,
   CornerDownRight,
+  Layers,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -492,6 +494,37 @@ export function StudioRefusalStrip({
  * reporting it three times is noise that would get the report muted.
  */
 const PACKAGE_LIST_TOAST_ID = 'studio-package-list';
+
+/**
+ * objectui#12453 — a read-only package says so twice: the lock in the app
+ * chip, and this link at the right of the open item's header, in every
+ * pillar. It names the one way to change an installed package, an
+ * environment overlay, and lands on the package's metadata directory
+ * (`overlayPath`, the Studio home's read-only package card's route), where
+ * each type says whether it accepts an overlay. The pillar's read-only
+ * sentence (objectui#11781) is its title.
+ */
+function StudioReadOnlyLink({
+  packageId,
+  title,
+  locale,
+}: {
+  packageId: string;
+  title: string;
+  locale: string;
+}): React.ReactElement {
+  return (
+    <Link
+      to={overlayPath(packageId)}
+      title={title}
+      data-testid="studio-readonly-link"
+      className="inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md bg-amber-400/15 px-2.5 text-xs font-medium text-amber-700 hover:bg-amber-400/25 dark:text-amber-300"
+    >
+      <Layers className="h-3.5 w-3.5" aria-hidden="true" />
+      {t('engine.studio.pkg.readonlyLink', locale)}
+    </Link>
+  );
+}
 
 function PackageSwitcher({
   packageId,
@@ -922,9 +955,16 @@ function PackageSwitcher({
               <AlertTriangle className="h-2.5 w-2.5" /> {t('engine.studio.loadFailed', locale)}
             </span>
           )}
+          {/* objectui#12453 — the chip's half of the read-only posture: a
+              lock and the word, muted, after the name. The reason is its
+              title; the item header's link says what to do about it. */}
           {current && !current.writable && (
-            <span className="inline-flex items-center gap-0.5 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-normal text-amber-600 dark:text-amber-300">
-              <Lock className="h-2.5 w-2.5" /> {t('engine.studio.pkg.readonly', locale)}
+            <span
+              data-testid="studio-pkg-readonly"
+              title={t('engine.studio.pkg.readonlyHint', locale)}
+              className="inline-flex shrink-0 items-center gap-1 text-[11px] font-normal text-muted-foreground"
+            >
+              <Lock className="h-3 w-3" aria-hidden="true" /> {t('engine.studio.pkg.readonly', locale)}
             </span>
           )}
           <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
@@ -3882,6 +3922,9 @@ export function InterfacesPillar({
               {t('engine.studio.autoSaving', locale)}
             </span>
           )}
+          {readOnly && (
+            <StudioReadOnlyLink packageId={packageId} title={t('engine.studio.pkg.readonlyHint', locale)} locale={locale} />
+          )}
           {isObjectLeaf && openSurface && current && (
             <button
               type="button"
@@ -4452,7 +4495,6 @@ export function InterfacesPillar({
               )}
             </>
           }
-          width={editNav ? 'w-72' : undefined}
           isMobile={isMobile}
           open={railOpen}
         >
@@ -4543,7 +4585,8 @@ export function InterfacesPillar({
                 // closes the aside in this layout, so it carries no second one.
                 onClose={navInspectorHead ? () => setNavSel(null) : selection && !StudioCanvas ? () => setSelection(null) : undefined}
                 closeLabel={t('engine.studio.deselect', locale)}
-                footer={t('engine.studio.inspector.draftFooter', locale)}
+                // objectui#12453 — a read-only package saves no draft: no footer.
+                footer={readOnly ? null : t('engine.studio.inspector.draftFooter', locale)}
                 bodyClassName="flex min-h-0 flex-1 flex-col"
               >
                 {inspectorBodyEl}
@@ -4573,7 +4616,8 @@ export function InterfacesPillar({
                 // properties toggle opens and closes this aside.
                 onClose={navInspectorHead ? () => setNavSel(null) : selection && !StudioCanvas ? () => setSelection(null) : undefined}
                 closeLabel={t('engine.studio.deselect', locale)}
-                footer={t('engine.studio.inspector.draftFooter', locale)}
+                // objectui#12453 — a read-only package saves no draft: no footer.
+                footer={readOnly ? null : t('engine.studio.inspector.draftFooter', locale)}
                 bodyClassName="flex min-h-0 flex-1 flex-col"
               >
                 {inspectorBodyEl}
@@ -5413,10 +5457,11 @@ export function DataPillar({
         // disabled and the designer has no draggable at all (objectui#4036).
         // Say it only when it is true: real local edits, on a surface that can
         // save them. A read-only package is asked first: it has no draft layout
-        // at all, so neither draft caption is true of it (objectui#11781).
+        // at all, so neither draft caption is true of it (objectui#11781), and
+        // its read-only sentence is the header link's title (objectui#12453).
         title={
           readOnly
-            ? t('engine.studio.data.form.layoutBadgeReadOnly', locale)
+            ? undefined
             : dirty
               ? t('engine.studio.data.form.layoutBadge', locale)
               : t('engine.studio.data.form.layoutBadgeClean', locale)
@@ -5596,6 +5641,19 @@ export function DataPillar({
                     Records grid's own "+" column, both running `addField`. The
                     More menu went with it, since the header has no object-level
                     action left to put in one. */}
+                {/* objectui#12453 — on the Form tab it carries the layout's
+                    read-only sentence the Layout control no longer does. */}
+                {readOnly && (
+                  <StudioReadOnlyLink
+                    packageId={packageId}
+                    title={
+                      viewMode === 'form'
+                        ? t('engine.studio.data.form.layoutBadgeReadOnly', locale)
+                        : t('engine.studio.pkg.readonlyHint', locale)
+                    }
+                    locale={locale}
+                  />
+                )}
               </>
             }
             tabs={dataTabRowEl}
@@ -5911,7 +5969,8 @@ export function DataPillar({
             id={fieldSel.id}
             onClose={() => setFieldSel(null)}
             closeLabel={t('engine.studio.close', locale)}
-            footer={t('engine.studio.inspector.draftFooter', locale)}
+            // objectui#12453 — a read-only package saves no draft: no footer.
+            footer={readOnly ? null : t('engine.studio.inspector.draftFooter', locale)}
             bodyClassName="flex min-h-0 flex-1 flex-col"
           >
             {(() => {
@@ -6929,6 +6988,14 @@ export function AutomationsPillar({
       {extra?.badge}
     </StudioTab>
   );
+  // objectui#12453 — with a flow open, the header row already holds the
+  // flow's meta and its Enabled switch, and at the 1280 px design width the
+  // link there truncated the flow's label; it sits at the tab row's right
+  // end, the slot objectui#12456 gave the Access note for the same reason.
+  const autoReadOnlyLinkEl =
+    readOnly && packageId !== null ? (
+      <StudioReadOnlyLink packageId={packageId} title={t('engine.studio.pkg.readonlyHint', locale)} locale={locale} />
+    ) : null;
   const flowTabsEl =
     flowOpen ? (
       <>
@@ -6956,6 +7023,7 @@ export function AutomationsPillar({
             ) : undefined,
         })}
         {flowTab('debug', t('engine.flowPreview.debug', locale))}
+        {autoReadOnlyLinkEl && <span className="ml-auto flex items-center self-center pl-3">{autoReadOnlyLinkEl}</span>}
       </>
     ) : undefined;
 
@@ -7138,6 +7206,7 @@ export function AutomationsPillar({
                   </span>
                 )}
                 {flowSwitchEl}
+                {!flowTabsEl && autoReadOnlyLinkEl}
               </>
             }
             tabs={flowTabsEl}
@@ -7266,7 +7335,8 @@ export function AutomationsPillar({
               title={heading?.title}
               onClose={selection ? () => setSelection(null) : undefined}
               closeLabel={t('engine.studio.deselect', locale)}
-              footer={t('engine.studio.inspector.draftFooter', locale)}
+              // objectui#12453 — a read-only package saves no draft: no footer.
+              footer={readOnly ? null : t('engine.studio.inspector.draftFooter', locale)}
               // objectui#12454 — a selection's inspector brings its own padding
               // (the metadata inspector shell); only the empty sentence takes the aside's.
               bodyClassName={heading ? 'p-0' : undefined}
@@ -7650,25 +7720,25 @@ export function AccessPillar({
       <Menu className="h-4 w-4" />
     </button>
   );
-  const accessNoteEl =
-    // objectui#11781 — "saved as draft" is what an editable package does;
-    // a read-only one saves nothing, so it says what it is, in the muted
-    // look of the rail's own read-only note rather than the draft amber.
-    readOnly ? (
-      <span
-        title={t('engine.studio.access.bannerTitleReadOnly', locale)}
-        className="rounded bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
-      >
-        {t('engine.studio.access.bannerReadOnly', locale)}
-      </span>
-    ) : (
-      <span
-        title={t('engine.studio.access.bannerTitle', locale)}
-        className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300"
-      >
-        {t('engine.studio.access.banner', locale)}
-      </span>
-    );
+  // objectui#11781 — "saved as draft" is what an editable package does. A
+  // read-only one saves nothing: objectui#12453 puts the read-only link where
+  // the note was, and the link's title carries the note's sentence. An open
+  // set's header draws it at the tab row's right end (objectui#12456: the
+  // title row truncated the set's label at the 1280 px design width).
+  const accessNoteEl = readOnly ? (
+    <StudioReadOnlyLink
+      packageId={packageId}
+      title={t('engine.studio.access.bannerTitleReadOnly', locale)}
+      locale={locale}
+    />
+  ) : (
+    <span
+      title={t('engine.studio.access.bannerTitle', locale)}
+      className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300"
+    >
+      {t('engine.studio.access.banner', locale)}
+    </span>
+  );
   const accessExplainEl = (
     <button
       type="button"
@@ -7686,8 +7756,13 @@ export function AccessPillar({
       icon={owdOpen ? ShieldCheck : Shield}
       title={owdOpen ? t('engine.studio.owd.title', locale) : t('engine.studio.access.title', locale)}
       meta={owdOpen ? t('engine.studio.owd.subtitle', locale) : t('engine.studio.access.subtitle', locale)}
-      chips={accessNoteEl}
-      actions={accessExplainEl}
+      chips={readOnly ? undefined : accessNoteEl}
+      actions={
+        <>
+          {readOnly && accessNoteEl}
+          {accessExplainEl}
+        </>
+      }
     />
   );
 

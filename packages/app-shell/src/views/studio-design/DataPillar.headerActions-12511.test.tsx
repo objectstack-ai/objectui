@@ -145,6 +145,10 @@ describe('the Data pillar’s object header actions (objectui#12511)', () => {
     const seen = await controlsPerTab();
     expect(seen.form).toEqual(seen.records);
     expect(seen.settings).toEqual(seen.records);
-    expect(seen.records).toEqual([`button||${TOGGLE_RAIL}|`]);
+    // objectui#12453 — plus the read-only link, which is not an object action.
+    expect(seen.records).toEqual([
+      `button||${TOGGLE_RAIL}|`,
+      `a|studio-readonly-link||${t('engine.studio.pkg.readonlyLink', 'en-US')}`,
+    ]);
   });
 });

@@ -95,20 +95,29 @@ async function openForm(readOnly: boolean): Promise<HTMLElement> {
 }
 
 describe('Data pillar Form view — a read-only package reads as read-only (objectui#11781)', () => {
-  // objectui#12451 — the layout caption is the Layout item's title now, and
-  // the writable hint is the Form toolbar's.
-  it('read-only: the layout caption, the designer hint and the field card say read-only', async () => {
+  // objectui#12451 — the layout caption is the Layout item's title, and the
+  // writable hint is the Form toolbar's. objectui#12453 — on a read-only
+  // package the layout's sentence is the header link's title, and what a
+  // click still does is the field card's.
+  it('read-only: the header link carries the layout sentence, and the field card says read-only', async () => {
     const card = await openForm(true);
 
-    expect(screen.getByTitle(row('engine.studio.data.form.layoutBadgeReadOnly'))).toBeInTheDocument();
+    const link = screen.getByTestId('studio-readonly-link');
+    expect(link).toHaveAttribute('title', row('engine.studio.data.form.layoutBadgeReadOnly'));
+    expect(screen.getByRole('button', { name: row('engine.studio.data.form.layout') })).not.toHaveAttribute('title');
     expect(screen.queryByTitle(absent('engine.studio.data.form.layoutBadgeClean'), { exact: true })).toBeNull();
     expect(screen.queryByTitle(absent('engine.studio.data.form.layoutBadge'))).toBeNull();
 
-    expect(screen.getByText(row('engine.studio.designer.hintReadOnly'))).toBeInTheDocument();
     expect(screen.queryByText(absent('engine.studio.designer.toolbarHint'))).toBeNull();
 
     expect(card).toHaveAttribute('aria-label', row('engine.studio.designer.fieldAriaReadOnly', { label: 'Title' }));
+    expect(card).toHaveAttribute('title', row('engine.studio.designer.fieldTitleReadOnly'));
     expect(card).not.toHaveClass('cursor-grab');
+
+    // A click still opens the field's aside; it says nothing about drafts.
+    fireEvent.click(card);
+    expect(await screen.findByTestId('data-field-inspector')).toBeInTheDocument();
+    expect(screen.queryByText(absent('engine.studio.inspector.draftFooter'))).toBeNull();
   });
 
   it('CONTROL — writable: the draft caption, the drag hint and a draggable card', async () => {
@@ -116,12 +125,17 @@ describe('Data pillar Form view — a read-only package reads as read-only (obje
 
     expect(screen.getByTitle(row('engine.studio.data.form.layoutBadgeClean'), { exact: true })).toBeInTheDocument();
     expect(screen.queryByTitle(absent('engine.studio.data.form.layoutBadgeReadOnly'))).toBeNull();
+    expect(screen.queryByTestId('studio-readonly-link')).toBeNull();
 
     expect(screen.getByText(row('engine.studio.designer.toolbarHint'))).toBeInTheDocument();
-    expect(screen.queryByText(absent('engine.studio.designer.hintReadOnly'))).toBeNull();
 
     expect(card).toHaveAttribute('aria-label', row('engine.studio.designer.fieldAria', { label: 'Title' }));
+    expect(card).not.toHaveAttribute('title');
     expect(card).toHaveClass('cursor-grab');
+
+    fireEvent.click(card);
+    const aside = await screen.findByTestId('data-field-inspector');
+    expect(aside).toHaveTextContent(row('engine.studio.inspector.draftFooter'));
   });
 });
 
@@ -134,11 +148,13 @@ describe('Access pillar banner — a read-only package saves no draft (objectui#
     );
   }
 
+  // objectui#12453 — the read-only note retires; its sentence is the header
+  // link's title.
   it('read-only: says read-only, not "saved as draft"', async () => {
     renderAccess(true);
 
-    const banner = await screen.findByText(row('engine.studio.access.bannerReadOnly'));
-    expect(banner).toHaveAttribute('title', row('engine.studio.access.bannerTitleReadOnly'));
+    const link = await screen.findByTestId('studio-readonly-link');
+    expect(link).toHaveAttribute('title', row('engine.studio.access.bannerTitleReadOnly'));
     expect(screen.queryByText(absent('engine.studio.access.banner'))).toBeNull();
   });
 
@@ -147,6 +163,6 @@ describe('Access pillar banner — a read-only package saves no draft (objectui#
 
     const banner = await screen.findByText(row('engine.studio.access.banner'));
     expect(banner).toHaveAttribute('title', row('engine.studio.access.bannerTitle'));
-    expect(screen.queryByText(absent('engine.studio.access.bannerReadOnly'))).toBeNull();
+    expect(screen.queryByTestId('studio-readonly-link')).toBeNull();
   });
 });

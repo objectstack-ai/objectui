@@ -18,7 +18,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useDisplayLocale } from '@object-ui/i18n';
-import { useAdapter, useMetadata, FlowRunner, type ScreenFlowState } from '@object-ui/app-shell';
+import { ConsolePageHeader, useAdapter, useMetadata, FlowRunner, type ScreenFlowState } from '@object-ui/app-shell';
 import { createAuthenticatedFetch } from '@object-ui/auth';
 import {
   Card,
@@ -243,17 +243,17 @@ export function FlowRunsPage() {
   );
 
   return (
+    <div>
+    {/* The console's one page header (objectui#12553), the one an object list,
+        a dashboard and the Approvals Inbox draw: icon chip, title, and the
+        subtitle beside the title from `sm` up, in one row across the page
+        above the padded body. Below `sm` the header hides the subtitle. */}
+    <ConsolePageHeader
+      title="Flow Runs"
+      subtitle="Pick a flow, trigger a test run with sample inputs, and inspect recent run history"
+      icon={<Workflow className="h-4 w-4" />}
+    />
     <div className="flex flex-col gap-4 p-4 sm:p-6">
-      <div className="min-w-0">
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2">
-          <Workflow className="h-5 w-5" />
-          Flow Runs
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Pick a flow, trigger a test run with sample inputs, and inspect recent run history
-        </p>
-      </div>
-
       <Card>
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -302,6 +302,7 @@ export function FlowRunsPage() {
           />
         </div>
       )}
+    </div>
     </div>
   );
 }

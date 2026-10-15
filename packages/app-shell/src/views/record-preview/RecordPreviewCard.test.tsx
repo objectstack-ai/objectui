@@ -9,7 +9,9 @@
 /**
  * RecordPreviewCard (objectui#12029) — the four states, the title rule, the
  * shared definition read, and the two isolation properties the module header
- * claims (field-level security, the host's inline-edit session).
+ * claims (field-level security, the host's inline-edit session). Since
+ * objectui#12557, also the readable state's link, built by the host's
+ * record-URL builder, and its absence in every other state.
  *
  * States are read from the card's `data-record-preview` attribute, never from
  * its copy: the unreadable pin compares whole renderings across causes instead
@@ -19,8 +21,14 @@
 
 import * as React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { act, render, screen, waitFor } from '@testing-library/react';
-import { InlineEditProvider, MetadataCtx, notifyDataChanged, useInlineEdit } from '@object-ui/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  InlineEditProvider,
+  MetadataCtx,
+  notifyDataChanged,
+  RelatedRecordActionsProvider,
+  useInlineEdit,
+} from '@object-ui/react';
 import { PermissionProvider } from '@object-ui/permissions';
 import { MetadataProvider } from '../../providers/MetadataProvider';
 import { RecordPreviewCard, type RecordPreviewSource } from './RecordPreviewCard';
@@ -328,5 +336,176 @@ describe('RecordPreviewCard — isolation (objectui#12029)', () => {
     expect(screen.getByText('Quarterly batch')).toBeInTheDocument();
     expect(screen.queryByText('Host draft value')).toBeNull();
     expect(container.querySelector('input, textarea')).toBeNull();
+  });
+});
+
+describe('RecordPreviewCard — the readable state links to the record (objectui#12557)', () => {
+  const HREF = '/apps/probe_app/invoice_12029/record/INV-1';
+
+  /**
+   * A host's record-URL builder, as `RelatedRecordActionsBridge` publishes it:
+   * an href for the objects it can route to, `null` for any other.
+   */
+  function host(routable: readonly string[] = [OBJECT], withOpen = true) {
+    const recordHref = vi.fn((objectName: string, recordId: string | number) =>
+      (routable.includes(objectName) ? `/apps/probe_app/${objectName}/record/${encodeURIComponent(String(recordId))}` : null));
+    const openRecord = vi.fn();
+    const value = { resolve: () => ({}), recordHref, ...(withOpen ? { openRecord } : {}) };
+    return { value, recordHref, openRecord };
+  }
+
+  function mountUnder(value: React.ComponentProps<typeof RelatedRecordActionsProvider>['value'], ui: React.ReactElement, defs?: Record<string, unknown>) {
+    return mount(<RelatedRecordActionsProvider value={value}>{ui}</RelatedRecordActionsProvider>, defs);
+  }
+
+  const links = (container: HTMLElement) => Array.from(container.querySelectorAll('a[href]'));
+
+  it('links the title, and only the title, to the href the host answers for the record', async () => {
+    const h = host();
+    const ds = source(() => ({ ...RECORD }));
+    const { container } = mountUnder(h.value, <RecordPreviewCard objectName={OBJECT} recordId="INV-1" dataSource={ds} />);
+    await settle(container, 'readable');
+
+    expect(links(container)).toHaveLength(1);
+    const link = screen.getByRole('link', { name: 'Laptop refresh' });
+    expect(link.getAttribute('href')).toBe(HREF);
+    expect(h.recordHref).toHaveBeenCalledWith(OBJECT, 'INV-1');
+    // The title itself is the link, and nothing else in the card is inside it.
+    expect(link.textContent).toBe('Laptop refresh');
+    expect(link.closest('[data-record-preview]')?.getAttribute('data-record-preview')).toBe('readable');
+  });
+
+  it('a plain left click navigates in-app through the host, and does not reach the row the card sits in', async () => {
+    const h = host();
+    const rowClick = vi.fn();
+    const ds = source(() => ({ ...RECORD }));
+    const { container } = mountUnder(
+      h.value,
+      <div onClick={rowClick}>
+        <RecordPreviewCard objectName={OBJECT} recordId="INV-1" dataSource={ds} />
+      </div>,
+    );
+    await settle(container, 'readable');
+
+    const notPrevented = fireEvent.click(screen.getByRole('link', { name: 'Laptop refresh' }), { button: 0 });
+    expect(notPrevented).toBe(false);
+    expect(h.openRecord).toHaveBeenCalledTimes(1);
+    expect(h.openRecord).toHaveBeenCalledWith(OBJECT, 'INV-1');
+    expect(rowClick).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['ctrl', { ctrlKey: true }],
+    ['meta', { metaKey: true }],
+    ['shift', { shiftKey: true }],
+    ['alt', { altKey: true }],
+    ['middle button', { button: 1 }],
+  ])('a %s click is left to the browser and its href', async (_case, init) => {
+    const h = host();
+    const rowClick = vi.fn();
+    const ds = source(() => ({ ...RECORD }));
+    const { container } = mountUnder(
+      h.value,
+      <div onClick={rowClick}>
+        <RecordPreviewCard objectName={OBJECT} recordId="INV-1" dataSource={ds} />
+      </div>,
+    );
+    await settle(container, 'readable');
+
+    const notPrevented = fireEvent.click(screen.getByRole('link', { name: 'Laptop refresh' }), init);
+    expect(notPrevented).toBe(true);
+    expect(h.openRecord).not.toHaveBeenCalled();
+    expect(rowClick).not.toHaveBeenCalled();
+  });
+
+  it('with a host that has no in-app navigator, a plain click is the anchor\'s own', async () => {
+    const h = host([OBJECT], false);
+    const ds = source(() => ({ ...RECORD }));
+    const { container } = mountUnder(h.value, <RecordPreviewCard objectName={OBJECT} recordId="INV-1" dataSource={ds} />);
+    await settle(container, 'readable');
+
+    expect(fireEvent.click(screen.getByRole('link', { name: 'Laptop refresh' }), { button: 0 })).toBe(true);
+  });
+
+  it("Enter on the link does not reach the row's key handler", async () => {
+    const h = host();
+    const rowKeyDown = vi.fn((e: React.KeyboardEvent) => e.preventDefault());
+    const ds = source(() => ({ ...RECORD }));
+    const { container } = mountUnder(
+      h.value,
+      <div onKeyDown={rowKeyDown}>
+        <RecordPreviewCard objectName={OBJECT} recordId="INV-1" dataSource={ds} />
+      </div>,
+    );
+    await settle(container, 'readable');
+
+    expect(fireEvent.keyDown(screen.getByRole('link', { name: 'Laptop refresh' }), { key: 'Enter' })).toBe(true);
+    expect(rowKeyDown).not.toHaveBeenCalled();
+  });
+
+  it('never nests one anchor in another: a lookup in the highlight strip is a link of its own', async () => {
+    const withAccount = { ...DEF, highlightFields: ['account', 'note'] };
+    const h = host([OBJECT, 'account']);
+    const ds = source(() => ({ ...RECORD, account: { id: 'A1', name: 'Northwind' } }));
+    const { container } = mountUnder(
+      h.value,
+      <RecordPreviewCard objectName={OBJECT} recordId="INV-1" dataSource={ds} />,
+      { [OBJECT]: withAccount },
+    );
+    await settle(container, 'readable');
+
+    const anchors = links(container);
+    expect(anchors.map((a) => a.getAttribute('href'))).toEqual([HREF, '/apps/probe_app/account/record/A1']);
+    expect(container.querySelectorAll('a a')).toHaveLength(0);
+  });
+
+  it('CONTROL: with no host the title is plain text, and the card holds no link', async () => {
+    const ds = source(() => ({ ...RECORD }));
+    const { container } = mount(<RecordPreviewCard objectName={OBJECT} recordId="INV-1" dataSource={ds} />);
+    await settle(container, 'readable');
+
+    expect(screen.getByTitle('Laptop refresh')).toHaveTextContent('Laptop refresh');
+    expect(links(container)).toHaveLength(0);
+  });
+
+  it('CONTROL: a host that cannot route to the object answers no href, and the card holds no link', async () => {
+    const h = host(['some_other_object']);
+    const ds = source(() => ({ ...RECORD }));
+    const { container } = mountUnder(h.value, <RecordPreviewCard objectName={OBJECT} recordId="INV-1" dataSource={ds} />);
+    await settle(container, 'readable');
+
+    expect(h.recordHref).toHaveBeenCalledWith(OBJECT, 'INV-1');
+    expect(screen.getByTitle('Laptop refresh')).toHaveTextContent('Laptop refresh');
+    expect(links(container)).toHaveLength(0);
+  });
+
+  it.each([
+    ['the read resolved with no record', () => null],
+    ['the read was refused', () => {
+      throw Object.assign(new Error('Forbidden'), { httpStatus: 403, code: 'PERMISSION_DENIED' });
+    }],
+  ])('CONTROL: unreadable (%s) draws no link, and never asks the host for one', async (_case, impl) => {
+    const h = host();
+    const ds = source(impl);
+    const { container } = mountUnder(h.value, <RecordPreviewCard objectName={OBJECT} recordId="INV-1" dataSource={ds} />);
+    await settle(container, 'unreadable');
+
+    expect(links(container)).toHaveLength(0);
+    expect(h.recordHref).not.toHaveBeenCalled();
+  });
+
+  it('CONTROL: absent and loading draw no link, and never ask the host for one', async () => {
+    const h = host();
+    const absent = mountUnder(h.value, <RecordPreviewCard objectName={OBJECT} recordId={null} dataSource={source(() => RECORD)} />);
+    expect(stateOf(absent.container)).toBe('absent');
+    expect(links(absent.container)).toHaveLength(0);
+    absent.unmount();
+
+    const pending = source(() => new Promise(() => {}));
+    const loading = mountUnder(h.value, <RecordPreviewCard objectName={OBJECT} recordId="INV-1" dataSource={pending} />);
+    await waitFor(() => expect(pending.findOne).toHaveBeenCalledTimes(1));
+    expect(stateOf(loading.container)).toBe('loading');
+    expect(links(loading.container)).toHaveLength(0);
+    expect(h.recordHref).not.toHaveBeenCalled();
   });
 });

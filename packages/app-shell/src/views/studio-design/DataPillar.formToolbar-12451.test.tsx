@@ -7,11 +7,12 @@
  * section and Add field at the right. The caption that used to trail the
  * control is each item's title (pinned in `DataPillar.layoutBadge.test.tsx`).
  *
- * The toolbar's Add field and the object header's More → Add field are one
- * action: each adds one field card and opens its inspector.
+ * The toolbar's Add field and the Records grid's "+" column are one action:
+ * each adds one field card and opens its inspector (objectui#12511 — the
+ * object header's More → Add field, this pin's other entry before, retired).
  *
- * The REAL `DataPillar`; the records grid is stubbed, because the Records tab
- * is not under test.
+ * The REAL `DataPillar`; the records grid is stubbed to its "+" column, drawn
+ * from the grid's authoring context the way the real grid draws it.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -51,13 +52,27 @@ vi.mock('@object-ui/react', async (importOriginal) => {
 
 vi.mock('@object-ui/plugin-view', async (importOriginal) => {
   const mod = await importOriginal<Record<string, unknown>>();
-  return { ...mod, ObjectView: () => <div data-testid="records-panel" /> };
+  const { useGridFieldAuthoring } = await import('@object-ui/components');
+  function GridDouble() {
+    const authoring = useGridFieldAuthoring();
+    return (
+      <div data-testid="records-panel">
+        {authoring?.onAddColumn && (
+          <button type="button" data-testid="grid-add-column" onClick={authoring.onAddColumn}>
+            Add column
+          </button>
+        )}
+      </div>
+    );
+  }
+  return { ...mod, ObjectView: GridDouble };
 });
 
 import { DataPillar } from './StudioDesignSurface';
 import { t } from '../metadata-admin/i18n';
 
 const FORM = t('engine.studio.data.tab.form', 'en');
+const RECORDS = t('engine.studio.data.tab.records', 'en');
 const ADD_FIELD = t('engine.studio.data.addField', 'en');
 const ADD_GROUP = t('engine.studio.designer.addGroup', 'en');
 const HINT = t('engine.studio.designer.toolbarHint', 'en');
@@ -109,15 +124,17 @@ describe('Data pillar Form tab — one toolbar row (objectui#12451)', () => {
     expect(bar.queryByRole('button', { name: ADD_FIELD })).toBeNull();
   });
 
-  it('the toolbar Add field and More → Add field are one action', async () => {
+  it('the toolbar Add field and the Records grid "+" are one action', async () => {
     await openForm();
     const before = cards().length;
     await userEvent.click(within(screen.getByTestId('form-toolbar')).getByRole('button', { name: ADD_FIELD }));
     expect(cards()).toHaveLength(before + 1);
     expect(await screen.findByTestId('data-field-inspector')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByTestId('data-object-more'));
-    await userEvent.click(await screen.findByRole('menuitem', { name: ADD_FIELD }));
+    await userEvent.click(screen.getAllByRole('button', { name: RECORDS })[0]);
+    await userEvent.click(await screen.findByTestId('grid-add-column'));
+    expect(await screen.findByTestId('data-field-inspector')).toBeInTheDocument();
+    await userEvent.click(screen.getAllByRole('button', { name: FORM })[0]);
     await waitFor(() => expect(cards()).toHaveLength(before + 2));
   });
 

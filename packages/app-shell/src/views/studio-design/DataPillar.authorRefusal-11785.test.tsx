@@ -75,7 +75,7 @@ vi.mock('@object-ui/react', async (importOriginal) => {
 });
 
 import { DataPillar } from './StudioDesignSurface';
-import { addFieldFromMoreMenu } from './__tests__/dataPillarAddField';
+import { addFieldFromFormToolbar } from './__tests__/dataPillarAddField';
 import { createEmptyDataSource } from './__tests__/emptyDataSource';
 import { registerBuiltinInspectors } from '../metadata-admin/inspectors';
 import { t, tFormat } from '../metadata-admin/i18n';
@@ -103,7 +103,7 @@ describe('Studio data page — a held Picklist reads as a sentence (objectui#117
       </MemoryRouter>,
     );
     fireEvent.click(await screen.findByRole('button', { name: 'Form' }));
-    await addFieldFromMoreMenu();
+    await addFieldFromFormToolbar();
     await screen.findByText('Type', { selector: 'label' }, { timeout: 4000 });
     const apiName = (controlUnder('API name') as HTMLInputElement).value;
     const label = (controlUnder('Label') as HTMLInputElement).value;
@@ -139,7 +139,7 @@ describe('Studio data page — a held Picklist reads as a sentence (objectui#117
       </MemoryRouter>,
     );
     fireEvent.click(await screen.findByRole('button', { name: 'Form' }));
-    await addFieldFromMoreMenu();
+    await addFieldFromFormToolbar();
     await screen.findByText('Type', { selector: 'label' }, { timeout: 4000 });
     const apiName = (controlUnder('API name') as HTMLInputElement).value;
     await userEvent.click(controlUnder('Type'));

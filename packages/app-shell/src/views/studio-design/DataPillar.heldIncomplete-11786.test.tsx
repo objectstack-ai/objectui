@@ -78,7 +78,7 @@ vi.mock('@object-ui/react', async (importOriginal) => {
 });
 
 import { DataPillar } from './StudioDesignSurface';
-import { addFieldFromMoreMenu } from './__tests__/dataPillarAddField';
+import { addFieldFromFormToolbar } from './__tests__/dataPillarAddField';
 import { createEmptyDataSource } from './__tests__/emptyDataSource';
 import { registerBuiltinInspectors } from '../metadata-admin/inspectors';
 import { t, tFormat } from '../metadata-admin/i18n';
@@ -122,7 +122,7 @@ async function addFieldAs(typeOption: RegExp): Promise<{ name: string; label: st
     </MemoryRouter>,
   );
   fireEvent.click(await screen.findByRole('button', { name: 'Form' }));
-  await addFieldFromMoreMenu();
+  await addFieldFromFormToolbar();
   await screen.findByText('Type', { selector: 'label' }, { timeout: 4000 });
   const name = (controlUnder('API name') as HTMLInputElement).value;
   const label = (controlUnder('Label') as HTMLInputElement).value;
@@ -207,7 +207,7 @@ describe('Studio data page — complete bodies are sent as before (objectui#1178
       </MemoryRouter>,
     );
     fireEvent.click(await screen.findByRole('button', { name: 'Form' }));
-    await addFieldFromMoreMenu();
+    await addFieldFromFormToolbar();
     await waitFor(() => expect(puts.length).toBe(1), { timeout: 4000 });
     expect(screen.queryByTestId('studio-held')).toBeNull();
   });
@@ -230,7 +230,7 @@ describe('Studio data page — complete bodies are sent as before (objectui#1178
       </MemoryRouter>,
     );
     fireEvent.click(await screen.findByRole('button', { name: 'Form' }));
-    await addFieldFromMoreMenu();
+    await addFieldFromFormToolbar();
     const strip = await screen.findByTestId('studio-refusal', undefined, { timeout: 4000 });
     expect(puts.length).toBe(1);
     expect(within(strip).getByTestId('studio-refusal-message')).toHaveTextContent(

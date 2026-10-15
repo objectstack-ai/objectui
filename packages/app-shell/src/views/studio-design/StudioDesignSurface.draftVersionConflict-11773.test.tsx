@@ -152,9 +152,17 @@ vi.mock('@object-ui/plugin-view', async (importOriginal) => {
     const authoring = useGridFieldAuthoring();
     const cols = schema?.table?.fields ?? [];
     return (
-      <button type="button" onClick={() => authoring?.onReorderFields?.([...cols].reverse())}>
-        Reverse columns
-      </button>
+      <>
+        <button type="button" onClick={() => authoring?.onReorderFields?.([...cols].reverse())}>
+          Reverse columns
+        </button>
+        {/* objectui#12511 — the grid's "+" column, drawn from the same context. */}
+        {authoring?.onAddColumn && (
+          <button type="button" data-testid="grid-add-column" onClick={authoring.onAddColumn}>
+            Add column
+          </button>
+        )}
+      </>
     );
   }
   return { ...mod, ObjectView: GridDouble };
@@ -163,7 +171,7 @@ vi.mock('@object-ui/plugin-view', async (importOriginal) => {
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), dismiss: vi.fn() } }));
 
 import { DataPillar } from './StudioDesignSurface';
-import { addFieldFromMoreMenu } from './__tests__/dataPillarAddField';
+import { addFieldFromFormToolbar, addFieldFromGrid } from './__tests__/dataPillarAddField';
 import { createEmptyDataSource } from './__tests__/emptyDataSource';
 import { readFields } from '../metadata-admin/previews/object-fields-io';
 
@@ -201,10 +209,14 @@ async function loaded(editor: HTMLElement, count: string): Promise<void> {
   await waitFor(() => expect(fieldCount(editor)).toBe(count), { timeout: 8000 });
 }
 
-/** Add a field and wait until the autosave carrying it has landed. */
-async function addFieldAndSave(editor: HTMLElement): Promise<void> {
+/**
+ * Add a field and wait until the autosave carrying it has landed. From the
+ * Records grid's "+" column by default; a draft-only object has no grid, so
+ * its case adds from the Form toolbar (objectui#12511).
+ */
+async function addFieldAndSave(editor: HTMLElement, add = addFieldFromGrid): Promise<void> {
   const before = server.saves.length;
-  await addFieldFromMoreMenu(editor);
+  await add(editor);
   await waitFor(() => expect(server.saves.length).toBe(before + 1), { timeout: 8000 });
   await waitFor(() => expect(within(editor).queryByTestId('data-autosaving')).toBeNull(), { timeout: 8000 });
 }
@@ -230,7 +242,7 @@ async function raceTwoEditors(): Promise<{ a: HTMLElement; b: HTMLElement }> {
   await loaded(b, '3 fields');
   await reorderAndSave(b); // B: status before title
   expect(serverDraftFields()).toEqual(['status', 'title', 'field_3']);
-  await addFieldFromMoreMenu(a); // A's stale copy + field_4
+  await addFieldFromGrid(a); // A's stale copy + field_4
   await screen.findByTestId('draft-conflict-dialog', undefined, { timeout: 8000 });
   return { a, b };
 }
@@ -260,7 +272,7 @@ describe('Data pillar — a draft saved elsewhere is not overwritten in silence 
     await loaded(b, '2 fields');
     await addFieldAndSave(a); // A: + field_3, the first draft
     expect(serverDraftFields()).toEqual(['title', 'status', 'field_3']);
-    await addFieldFromMoreMenu(b); // B's first save, built on the published object
+    await addFieldFromGrid(b); // B's first save, built on the published object
     await screen.findByTestId('draft-conflict-dialog', undefined, { timeout: 8000 });
     const refused = server.saves[server.saves.length - 1]!;
     expect([refused.ifMatch, refused.ifNoneMatch]).toEqual([undefined, '*']);
@@ -342,8 +354,9 @@ describe('Data pillar — a create sends If-None-Match: * (objectui#11773)', () 
     expect([server.saves[0]!.ifMatch, server.saves[0]!.ifNoneMatch]).toEqual([undefined, '*']);
 
     await loaded(a, '1 fields');
-    await addFieldAndSave(a);
-    await addFieldAndSave(a);
+    fireEvent.click(within(a).getAllByRole('button', { name: 'Form' })[0]!);
+    await addFieldAndSave(a, addFieldFromFormToolbar);
+    await addFieldAndSave(a, addFieldFromFormToolbar);
     expect(server.saves.map((s) => [s.ifMatch, s.ifNoneMatch])).toEqual([
       [undefined, '*'],
       ['hmac-sha256:v1', undefined],

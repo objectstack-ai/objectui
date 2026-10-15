@@ -31,7 +31,13 @@ import { StudioChatDock, type StudioSurfaceLabel } from './StudioAiCopilot.js';
 import { nextCenterTab, type StudioCenterTab } from './centerTab.js';
 import { AUTOMATIONS_CONFIG_FOLD_WIDTH, useIsNarrowerThan, useIsWideViewport } from './wideViewport.js';
 import { AppMark, type AppMarkApp } from '../../layout/AppMark.js';
-import { STUDIO_HEADER, STUDIO_HEADER_ICON_BUTTON, STUDIO_KIND_CHIP } from './studio-tokens.js';
+import {
+  STUDIO_HEADER,
+  STUDIO_HEADER_ICON_BUTTON,
+  STUDIO_HEADER_PILLAR,
+  STUDIO_HEADER_PILLAR_NAV,
+  STUDIO_KIND_CHIP,
+} from './studio-tokens.js';
 import { StudioInspector } from './StudioInspector.js';
 import { StudioItemHeader, StudioTab } from './StudioItemHeader.js';
 import { DATA_CONTENT_CONTAINER, DATA_TAB_FLAT_ONLY, DATA_TAB_FOLDED_ONLY } from './dataTabsFold.js';
@@ -105,13 +111,11 @@ import {
   ChevronDown,
   Lock,
   Settings,
-  Settings2,
   Home as HomeIcon,
   Shield,
   ShieldCheck,
   ShieldQuestion,
   Menu,
-  MoreHorizontal,
   PanelRightClose,
   PanelRightOpen,
   Play,
@@ -884,7 +888,7 @@ function PackageSwitcher({
              SAME string in all three states for a package that declares no
              name, so the state cannot be recovered from the text. */
           data-pkg-list-state={pkgListState}
-          className="flex h-8 max-w-[180px] items-center gap-2 whitespace-nowrap rounded-md py-0.5 pl-1 pr-2 text-[13px] font-semibold hover:bg-muted xl:max-w-[280px]"
+          className="flex h-8 min-w-0 max-w-[180px] items-center gap-2 whitespace-nowrap rounded-md py-0.5 pl-1 pr-2 text-[13px] font-semibold hover:bg-muted xl:max-w-[280px]"
           title={t('engine.studio.pkg.switchTitle', locale)}
         >
           {/* objectui#11553 — the package-less scope names itself; there is
@@ -1578,17 +1582,12 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
         ) : null}
 
         <div className="flex min-w-0 flex-1 flex-col">
-          {/* `overflow-x-auto` — none of Package/pillars/Publish shrink (all
-            * `shrink-0`, and PackageSwitcher's trigger is `whitespace-nowrap`),
-            * so on a narrow viewport this whole strip overflows instead of any
-            * one piece silently clipping off past the screen edge. Scrolling
-            * the header is a worse look than a proper responsive redesign, but
-            * it guarantees every pillar and the Publish button stay reachable. */}
           <header className={STUDIO_HEADER} data-testid="studio-shell-header">
             {/* objectui#12459 — three columns: the package at the left, the
-                pillars centered whatever the two sides weigh, the package
-                actions at the right. The strip no longer scrolls on a narrow
-                viewport: each group shrinks inside its own column instead. */}
+                pillars centered, the package actions at the right.
+                objectui#12509 — below `sm` the pillars take a second row of
+                their own (`STUDIO_HEADER_PILLAR_NAV`), and on any row the
+                package chip is the piece that gives way. */}
             <div className="flex min-w-0 items-center gap-1">
               {/* Never a dead end: walk back to the platform Home / builder landing. */}
               <button
@@ -1602,11 +1601,11 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
               >
                 <HomeIcon className="h-4 w-4" />
               </button>
-              <div className="min-w-0">
+              <div className="flex min-w-0">
                 <PackageSwitcher packageId={packageId} tab={tab} beforeNavigate={confirmLeavePillar} app={packageApp} />
               </div>
             </div>
-            <nav className="flex items-center gap-0.5 rounded-lg bg-muted p-[3px]" data-testid="studio-pillar-nav">
+            <nav className={STUDIO_HEADER_PILLAR_NAV} data-testid="studio-pillar-nav">
               {/* objectui#11553 — the package-less scope offers its one pillar. */}
               {(packageId === null ? PILLARS.filter((p) => p.key === STUDIO_ORG_SCOPE_PILLAR) : PILLARS).map((p) => (
                 <Link
@@ -1624,7 +1623,8 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                   }}
                   title={t(`engine.studio.pillar.${p.key}`, locale)}
                   className={
-                    'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-[13px] transition-colors xl:px-3 ' +
+                    STUDIO_HEADER_PILLAR +
+                    ' ' +
                     (tab === p.key
                       ? 'bg-background font-medium text-foreground shadow-sm'
                       : 'text-muted-foreground hover:text-foreground')
@@ -5357,8 +5357,6 @@ export function DataPillar({
     { key: 'settings', label: t('engine.studio.data.tab.settings', locale) },
   ];
   const activeAdvancedTab = advancedDataTabs.find((tabDef) => tabDef.key === viewMode);
-  // The two views Add field serves; `addField` itself refuses the rest.
-  const addFieldOffered = Boolean(current) && (viewMode === 'grid' || viewMode === 'form') && !readOnly && objLoaded;
   // objectui#12450 — the Records grid draws flush with the content column.
   const recordsFlush = Boolean(current) && objLoaded && viewMode === 'grid' && hasBaseline;
   // objectui#12451 — so does the Form tab: its one toolbar row spans the
@@ -5560,52 +5558,13 @@ export function DataPillar({
                     })}
                   </span>
                 ) : null}
-                {/* objectui#12450 — the header's two icon buttons. Object
-                    settings opens the Settings panel (a shortcut that still
-                    works when that tab is folded into Advanced); More holds
-                    Add field, which left the header row for it. Add field
-                    stays reachable from the grid's own "+" column and the form
-                    designer's button too. More is drawn only when it holds
-                    something: Add field is not offered on a read-only package,
-                    before the object loads, or on the five power panels. */}
-                {current && (
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => selectViewMode('settings')}
-                      aria-label={t('engine.studio.data.objectSettings', locale)}
-                      title={t('engine.studio.data.objectSettings', locale)}
-                      data-testid="data-object-settings"
-                      className={STUDIO_HEADER_ICON_BUTTON}
-                    >
-                      <Settings2 className="h-4 w-4" />
-                    </button>
-                    {addFieldOffered && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            type="button"
-                            aria-label={t('engine.studio.data.moreActions', locale)}
-                            title={t('engine.studio.data.moreActions', locale)}
-                            data-testid="data-object-more"
-                            className={STUDIO_HEADER_ICON_BUTTON}
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onSelect={addField}
-                            title={t('engine.studio.data.addFieldTitle', locale)}
-                            data-testid="data-object-add-field"
-                          >
-                            <Plus className="h-3.5 w-3.5" /> {t('engine.studio.data.addField', locale)}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </div>
-                )}
+                {/* objectui#12511 — the header holds no actions of its own, so
+                    it reads the same on every tab. Object settings retired: the
+                    Settings tab is that control. Add field is a field action,
+                    offered where fields are laid out: the Form toolbar and the
+                    Records grid's own "+" column, both running `addField`. The
+                    More menu went with it, since the header has no object-level
+                    action left to put in one. */}
               </>
             }
             tabs={dataTabRowEl}

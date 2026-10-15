@@ -1,8 +1,9 @@
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * objectui#12450 — the Data pillar's flat tab row, and the object header's two
- * icon buttons.
+ * objectui#12450 — the Data pillar's flat tab row. The object header's icon
+ * buttons this file also pinned retired with objectui#12511; the header's
+ * actions are pinned in `DataPillar.headerActions-12511.test.tsx`.
  *
  * Decision B of epic objectui#12446 (maintainer, 2026-10-15): seven flat tabs
  * — Records, Form, Validations, Hooks, Actions, API, Settings — when the
@@ -173,40 +174,5 @@ describe('the Data pillar’s seven flat tabs (objectui#12450)', () => {
     expect(screen.queryByTestId('rules-panel')).toBeNull();
     expect(validations).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByTestId('data-tab-flat-settings')).toHaveAttribute('aria-pressed', 'true');
-  });
-});
-
-describe('the object header’s icon buttons (objectui#12450)', () => {
-  const OBJECT_SETTINGS = t('engine.studio.data.objectSettings', 'en');
-  const MORE_ACTIONS = t('engine.studio.data.moreActions', 'en');
-  const ADD_FIELD = t('engine.studio.data.addField', 'en');
-
-  it('each is named by an aria-label; Object settings opens the Settings panel', async () => {
-    await renderPillar();
-    const header = screen.getByTestId('data-object-header');
-    const settings = within(header).getByRole('button', { name: OBJECT_SETTINGS });
-    expect(settings).toHaveAttribute('aria-label', OBJECT_SETTINGS);
-    expect(within(header).getByRole('button', { name: MORE_ACTIONS })).toHaveAttribute('aria-label', MORE_ACTIONS);
-
-    await userEvent.click(settings);
-    await waitFor(() => expect(screen.getByTestId('settings-panel')).toBeInTheDocument());
-    expect(screen.getByTestId('data-tab-flat-settings')).toHaveAttribute('aria-pressed', 'true');
-  });
-
-  it('More holds Add field, which adds a field and opens its inspector', async () => {
-    await renderPillar();
-    // Add field left the header row: no labelled button for it there now.
-    const header = screen.getByTestId('data-object-header');
-    expect(within(header).queryByRole('button', { name: ADD_FIELD })).toBeNull();
-
-    await userEvent.click(screen.getByTestId('data-object-more'));
-    await userEvent.click(await screen.findByRole('menuitem', { name: ADD_FIELD }));
-    expect(await screen.findByTestId('data-field-inspector', undefined, { timeout: 4000 })).toBeInTheDocument();
-  });
-
-  it('CONTROL: a read-only package keeps Object settings and draws no More, whose one entry it does not offer', async () => {
-    await renderPillar({ readOnly: true });
-    expect(screen.getByTestId('data-object-settings')).toBeInTheDocument();
-    expect(screen.queryByTestId('data-object-more')).toBeNull();
   });
 });

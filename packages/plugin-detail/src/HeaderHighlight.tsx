@@ -110,7 +110,25 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
         )}
         aria-label={t('detail.highlightsLabel')}
       >
-        <div className={cn('flex flex-wrap gap-y-4')}>
+        <div
+          className={cn(
+            'flex flex-wrap gap-y-4',
+            // A chip's left border separates it from the chip BEFORE it on its
+            // line (objectui#12523). The first chip of every WRAPPED line used
+            // to keep that border and its left padding, so a second line read
+            // as an indented list under a flush first line. No selector can
+            // name "the first chip of a line", so from `sm` up the row is
+            // pulled left by exactly one chip's border and left padding, and
+            // a clip at the strip's own left edge hides whatever lands there:
+            // that is every line-start border and nothing else. The clip
+            // leaves `--spacing * 1.5` of the padding visible, the bleed of an
+            // editable value's hover background (`-mx-1.5`), and does not clip
+            // the other three sides. Below `sm` there is no border to hide
+            // (each chip is its own line, see the chip classes).
+            'sm:-ml-[calc(var(--spacing)*5+1px)]',
+            'sm:[clip-path:inset(-100vmax_-100vmax_-100vmax_calc(var(--spacing)*3.5+1px))]',
+          )}
+        >
           {visibleFields.map((field) => {
             const rawValue = data[field.name];
             // Enrich field metadata from objectSchema
@@ -172,11 +190,15 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
             const canInlineEditField = canEdit && fieldEditable;
             const editorActive = editing && canInlineEditField;
 
+            // The renderer the chip DRAWS, which a declared `format` can change:
+            // a `text` field with `format: 'phone'` draws the phone cell
+            // (objectui#12523). Both the renderer and the wide-basis rule below
+            // read this one value, so a chip is sized for what it shows.
+            const drawnType = resolveCellRendererType(enrichedField as any) || resolvedType || 'text';
+
             // Use type-aware cell renderer — all renderers coerce values via
             // coerceToSafeValue() so even object/array data is safe (no error #310).
-            const CellRenderer = getCellRenderer(
-              resolveCellRendererType(enrichedField as any) || resolvedType || 'text',
-            );
+            const CellRenderer = getCellRenderer(drawnType);
 
             const isKpi =
               resolvedType === 'number' ||
@@ -211,11 +233,19 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
             // Pinned by an identity spy on that `has`. Extending this surface
             // later: OR in another surface-local disjunct, the way (1) is
             // written. Never `new Set([...EXPANDABLE_FIELD_TYPES, ...])`.
+            //
+            // (1) reads `drawnType`, not `resolvedType` (objectui#12523): it is
+            // about what the chip DISPLAYS. A `text` field declared
+            // `format: 'phone'` drew the phone cell on the 9rem basis, which
+            // is the cut objectui#11659 gave phones the wide basis to stop;
+            // the HotCRM lead read "+1-555-0" that way. (2) is about the
+            // editor, which the declared type picks, so it keeps
+            // `resolvedType`.
             const isWide =
-              resolvedType === 'email' ||
-              resolvedType === 'url' ||
-              resolvedType === 'phone' ||
-              resolvedType === 'textarea' ||
+              drawnType === 'email' ||
+              drawnType === 'url' ||
+              drawnType === 'phone' ||
+              drawnType === 'textarea' ||
               (!!resolvedType && EXPANDABLE_FIELD_TYPES.has(resolvedType));
             const isBoolean = resolvedType === 'boolean';
             // The SAME definition the body grid draws its em-dash from
@@ -251,15 +281,39 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
             // The floor is a min-width as well as the basis, so a short value
             // keeps its 9rem column. The `min(…, 100%)` lets a column narrow to
             // the row when the row itself is narrower than the floor.
+            //
+            // What a chip that runs out of line does (objectui#12523): no chip
+            // is ever wider than its line — the floors decide the lines and
+            // `grow` only hands out what is left — so a value is cut by the
+            // value span below, never by the row. That span draws an ellipsis
+            // and carries the whole value as its `title`; the link cells
+            // (email / url / phone) used to defeat the ellipsis, because each
+            // was one atomic inline box, and now fit a bounded slot themselves
+            // (`@object-ui/fields`). `max-w-max` stays: it is what passes a
+            // fitting chip's share of the free width on to the chips that
+            // still need it.
+            //
+            // Every chip carries the separator; the row hides it at the start
+            // of each line (see the row above), so a wrapped line starts flush
+            // like the first one.
+            //
+            // Below `sm` the strip is ONE layout (objectui#12523): every chip
+            // is a full-width line with no separator and no padding. At a
+            // 358px row two columns leave a value about 150px, which cuts the
+            // HotCRM lead's phone number and email, while a full line shows
+            // both whole; and a touch screen cannot hover a `title`. The
+            // classes are the same for every chip, wide or not, so no chip
+            // can fall back to the wrapping layout.
             return (
               <div
                 key={field.name}
                 className={cn(
-                  'group flex flex-col gap-1 px-5 border-l border-border/60 first:border-l-0 first:pl-0',
+                  'group flex flex-col gap-1 px-5 border-l border-border/60',
                   'grow max-w-max',
                   useWide
                     ? 'basis-[16rem] min-w-[min(16rem,100%)]'
                     : 'basis-[9rem] min-w-[min(9rem,100%)]',
+                  'max-sm:basis-full max-sm:max-w-full max-sm:border-l-0 max-sm:px-0',
                 )}
               >
                 <span className="text-xs font-medium text-muted-foreground">

@@ -12,12 +12,14 @@
  *
  * What this file pins, through the real `AppHeader` under a real
  * `I18nProvider` (the published packs, `en` and `zh`):
- *   - on `/apps/APP/dashboard/NAME` and `/apps/APP/report/NAME` the crumbs
- *     after the app pill are exactly the item;
- *   - the other route types keep their segments: a page is the page alone, and
- *     a `system/*` route still draws its 「System」 type crumb from the pack.
- *     An object list and a record drew the object (then the record) until
- *     objectui#12461; they now draw no crumb, and the cells say so.
+ *   - on `/apps/APP/report/NAME` the crumbs after the app pill are exactly the
+ *     item; `/apps/APP/dashboard/NAME` drew the dashboard alone until
+ *     objectui#12526, and now draws no crumb at all, with no type crumb back;
+ *   - the other route types: a page drew the page alone until objectui#12526
+ *     and now draws none, and a `system/*` route still draws its 「System」
+ *     type crumb from the pack. An object list and a record drew the object
+ *     (then the record) until objectui#12461; they now draw no crumb, and the
+ *     cells say so.
  *     That last case is the CONTROL: a type crumb whose key survives still
  *     renders through this harness, so the absence on the dashboard and report
  *     routes is a reading, not a harness that cannot see a pack crumb.
@@ -196,9 +198,11 @@ function crumbLabels(): string[] {
 }
 
 describe('a dashboard or report route\'s breadcrumb goes from the app to the item (objectui#12273)', () => {
-  it.each(LANGS)('%s: a dashboard route — one crumb after the app pill, the dashboard; no type crumb', (lang) => {
+  // A dashboard route draws no crumb since objectui#12526: its page header
+  // names it. `AppHeader.dashboardPageNoCrumb-12526` pins the rest of that bar.
+  it.each(LANGS)('%s: a dashboard route — no crumb after the app pill, and no type crumb (objectui#12526)', (lang) => {
     renderAt('/apps/crm/dashboard/ops_board', lang);
-    expect(crumbLabels()).toEqual(['Ops Board']);
+    expect(crumbLabels()).toEqual([]);
   });
 
   it.each(LANGS)('%s: a report route — one crumb after the app pill, the report; no type crumb', (lang) => {
@@ -208,9 +212,9 @@ describe('a dashboard or report route\'s breadcrumb goes from the app to the ite
 });
 
 describe('the other route types keep their segments (objectui#12273)', () => {
-  it('a page route is the page alone (objectui#12198)', () => {
+  it('a page route draws no crumb (objectui#12198, objectui#12526)', () => {
     renderAt('/apps/crm/page/welcome', 'en');
-    expect(crumbLabels()).toEqual(['Welcome']);
+    expect(crumbLabels()).toEqual([]);
   });
 
   // An object route draws no crumb since objectui#12461: the page header names

@@ -384,6 +384,43 @@ The schema-driven renderers live elsewhere: `DashboardRenderer` in
 `@object-ui/plugin-dashboard`, and everything else through `SchemaRenderer` in
 `@object-ui/react`, which resolves `type` against the component registry.
 
+`DashboardView` names the dashboard with the console page header below: its
+`label` as the title and its `description` beside it. The top bar draws no
+breadcrumb on a dashboard or page route (objectui#12526).
+
+### ConsolePageHeader
+
+The console's page header: an icon chip, the title, a secondary line beside the
+title from the `sm` breakpoint up, and actions on the right, in one row. Object
+lists and dashboards draw it, and a console page outside this package imports it
+to draw the same header. Below `sm` it draws the icon, the title and the actions;
+the secondary line is hidden there.
+
+Its props are the exported `ConsolePageHeaderProps`: `title` (required),
+`subtitle`, `icon` (a rendered element, sized by the chip), `actions`,
+`accentColor`, `sticky`, `className` and `data-testid`. The secondary line is
+`subtitle`; there is no `description` prop.
+
+```tsx
+import { ConsolePageHeader } from '@object-ui/app-shell';
+import { Button } from '@object-ui/components';
+
+declare const reload: () => void;
+
+<ConsolePageHeader
+  title="Approvals Inbox"
+  subtitle="Review and act on approval requests."
+  actions={
+    <Button variant="outline" size="sm" onClick={reload}>
+      Refresh
+    </Button>
+  }
+/>;
+```
+
+It is not `@object-ui/layout`'s `PageHeader`, a different component whose
+`title` and `subtitle` are strings and whose `actions` are action definitions.
+
 ### ActionParamDialog
 
 Collects user input for a declared action's `params` before execution. Every
@@ -454,13 +491,23 @@ Inside a running app, workspace admins get an "Edit app" button in the top bar
 Studio" row to the same target — that deep-links to the app's owning package on
 the Studio design surface. When the current route names a specific interface — a
 dashboard, page, or report — it opens straight to that surface in the Interfaces
-pillar (`/studio/:packageId/interfaces?surface=<type>:<name>`); on object routes
-and the app root it opens the package's Data tab (`/studio/:packageId/data`).
+pillar (`/studio/:packageId/interfaces?surface=<type>:<name>`); on an object
+route it opens that object in the Data pillar
+(`/studio/:packageId/data?surface=object:<name>`), and at the app root the
+package's Data tab (`/studio/:packageId/data`).
 The route-type → surface-type decision lives in `appStudioRoutePath`. It is the
 reverse of the builder's "Open app" bridge (ADR-0080): the entry only renders
 for admins and only when the app has an owning package (`_packageId`), and
 package writability stays a server-side concern — a read-only package opens in
 Studio as browse-only.
+
+The sidebar's ⋯ menu offers the same bridge per entry: the **Design** entry of an
+`object`, `dashboard` or `page` navigation entry, and of the matching favorites,
+asks `appStudioRoutePath` for the route that entry opens, so it lands where
+"Edit app" lands on that item's own page (objectui#12520). A favorite resolves in
+the app its own address names, which can differ from the app the sidebar is
+drawn in. The entry follows the same rules as the button: it shows only to an
+admin who may author metadata, and only when the app has an owning package.
 
 ### Studio package scope
 

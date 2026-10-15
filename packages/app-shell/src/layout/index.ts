@@ -15,4 +15,8 @@ export { PreviewBadge } from './PreviewBadge.js';
 export type { PreviewBadgeProps } from './PreviewBadge.js';
 export { AuthPageLayout } from './AuthPageLayout.js';
 export { PageHeader } from './PageHeader.js';
+// The package root publishes the console page header under this name
+// (objectui#12526), not as `PageHeader`: `@object-ui/layout` exports a
+// different component by that name.
+export { PageHeader as ConsolePageHeader } from './PageHeader.js';
 export type { ConsolePageHeaderProps } from './PageHeader.js';

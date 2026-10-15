@@ -873,13 +873,19 @@ export function useSharedActivityFeed(): ActivityFeedReading {
   const readable = !perms.isLoaded || perms.can(ACTIVITY_OBJECT, 'read');
   const adapter = adapterKey(dataSource);
   const { apps, getTypeStatus } = useMetadata();
-  const gates = useNavMemberGates();
+  const { evaluateVisibility, checkPermission, checkCapability, can } = useNavMemberGates();
   const appsSettled = metadataTypeSettled(getTypeStatus?.('app'));
   // Memoised for cost only: the feed keys on the joined STRING below, never
   // on this array's identity (AGENTS.md #10).
   const roster = useMemo(
-    () => activityObjectRoster(apps as RosterApp[] | undefined, gates),
-    [apps, gates.evaluateVisibility, gates.checkPermission, gates.checkCapability, gates.can],
+    () =>
+      activityObjectRoster(apps as RosterApp[] | undefined, {
+        evaluateVisibility,
+        checkPermission,
+        checkCapability,
+        can,
+      }),
+    [apps, evaluateVisibility, checkPermission, checkCapability, can],
   );
   const rosterKey = roster.join(',');
 

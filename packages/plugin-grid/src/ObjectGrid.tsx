@@ -2078,6 +2078,14 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // verdict landing does not cost a second fetch. A read-only principal is
   // sent one column it does not use.
   const carriesConcurrencyToken = schema.editable === true;
+  // [objectui#12393] The row colour's field, which the projection asks for
+  // (see `rowColorFields` in the load effect). A string, so the fetch effect
+  // can name it: a host can replace the rule on a mounted grid (`ListView`
+  // hands the grid its toolbar pick as `rowColor`), and a new field no
+  // request carried would otherwise never be fetched. The `colors` map is a
+  // render-time concern the projection cannot see, so changing it costs no
+  // round trip.
+  const rowColorField = schema.rowColor?.field || undefined;
   // [objectui#7179] The fetch effect's dep on the grouping block, as a CONTENT
   // key over the field NAMES alone.
   //
@@ -2693,9 +2701,24 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                   .filter((f) => isProjectableField(f, declared as Record<string, unknown>))
                   .filter((f) => passesProjectionGate(f))
               : [];
+            // [objectui#12393] The ROW COLOUR's field. `useRowColor` paints a
+            // row from `row[rowColor.field]`, and the spec sets no column
+            // requirement on that field, so a grid tinted by a field no column
+            // shows fetched rows without it and painted nothing, with no error.
+            // `ListView`'s harvest gained this arm in objectui#12376, but a
+            // grouped grid owns its fetch (`gridOwnsGroupedFetch`) and so does
+            // a standalone `object-grid`: this projection is the one their rows
+            // arrive through. The same two gates as the harvests above: a field
+            // the object declares (or a platform column), and one this
+            // principal may read.
+            const rowColorFields = rowColorField && declared
+              ? [rowColorField]
+                  .filter((f) => isProjectableField(f, declared as Record<string, unknown>))
+                  .filter((f) => passesProjectionGate(f))
+              : [];
             // A UNION, never an append: a grouping field that IS also a column
             // must not produce a duplicate `$select` entry.
-            const extraFields = [...predicateFields, ...groupingFields, ...concurrencyFields];
+            const extraFields = [...predicateFields, ...groupingFields, ...concurrencyFields, ...rowColorFields];
             const withHarvestedFields = (list: any[]): any[] => {
               if (extraFields.length === 0) return list;
               const names = new Set(list.map((f: any) => columnIdentity(f)));
@@ -2957,7 +2980,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // a string compared by value — see their declarations above.
   // `carriesConcurrencyToken` (objectui#12292): a boolean, so turning inline
   // edit on re-reads the rows WITH their token — see its declaration above.
-  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaSort, headerSort, querySearchTerm, schemaPagination, schemaPageSize, serverPage, fetchWindow, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey, predicateProjectionKey, searchFieldsKey, invalidationNonce, serverGroupedFetch, groupingNeedsHeaderQuery, carriesConcurrencyToken]);
+  // `rowColorField` (objectui#12393): a string, so a rule naming a new field
+  // re-reads the rows with it — see its declaration above.
+  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaSort, headerSort, querySearchTerm, schemaPagination, schemaPageSize, serverPage, fetchWindow, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey, predicateProjectionKey, searchFieldsKey, invalidationNonce, serverGroupedFetch, groupingNeedsHeaderQuery, carriesConcurrencyToken, rowColorField]);
 
   // The same reset, for the path the loader above never runs on (objectui#4501
   // clause 2). "All N matching are selected" is a claim about ONE query, so it

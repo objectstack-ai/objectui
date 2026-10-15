@@ -7383,10 +7383,16 @@ export {
 export type { MetadataCacheStats } from './cache/MetadataCache';
 
 // User-scoped persistence adapter (favorites / recent items / …)
-export { createObjectStackUserStateAdapter } from './userState';
+export {
+  createObjectStackUserStateAdapter,
+  createObjectStackUserPreferenceFamily,
+  PREFERENCE_FAMILY_ROW_LIMIT,
+} from './userState';
 export type {
   ObjectStackUserStateAdapterOptions,
+  ObjectStackUserPreferenceFamilyOptions,
   UserDataAdapter,
+  UserPreferenceFamily,
 } from './userState';
 
 // Metadata API client — read/write protocol metadata via /api/v1/meta/*.

@@ -8,6 +8,7 @@
 '@object-ui/react': patch
 '@object-ui/components': patch
 '@object-ui/plugin-detail': patch
+'@object-ui/console': patch
 ---
 
 The console's list toolbar no longer has a write into the shared view, and the data-source method that write used is retired (objectui#12504).
@@ -18,4 +19,4 @@ Since objectui#12418 and objectui#12474, the toolbar's sort, column layout, dens
 
 Personalization rows that earlier consoles wrote into `/meta/view` stay readable: the overlay marker, `narrowPersonalizationOverlay` and `listViews()` exclusion still apply to them. Nothing new writes such a row.
 
-`@object-ui/i18n` drops `console.objectView.viewConfigPermissionDenied` from all ten packs. It was the toast the retired write raised when the gate refused it. The other packages change only in comments that named the retired path.
+`@object-ui/i18n` drops `console.objectView.viewConfigPermissionDenied` from all ten packs. It was the toast the retired write raised when the gate refused it. The other packages change only in comments and tests that named the retired path.

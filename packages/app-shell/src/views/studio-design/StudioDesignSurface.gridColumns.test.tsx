@@ -97,6 +97,7 @@ vi.mock('@object-ui/react', async (importOriginal) => {
 });
 
 import { DataPillar } from './StudioDesignSurface';
+import { addFieldFromMoreMenu } from './__tests__/dataPillarAddField';
 
 beforeEach(() => {
   dataSource = createDataSource();
@@ -185,7 +186,7 @@ describe('Studio Data pillar grid — the columns array keeps a stable identity 
   it('a fresh columns array of EQUAL content still refetches — identity-churn liveness', async () => {
     const before = await mountSettledGrid();
 
-    fireEvent.click(screen.getAllByRole('button', { name: /Add field/i })[0]);
+    await addFieldFromMoreMenu();
 
     await waitFor(() => expect(dataSource.find.mock.calls.length).toBeGreaterThan(before), {
       timeout: 4000,

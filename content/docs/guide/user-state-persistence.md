@@ -208,6 +208,7 @@ Each provider keeps a monotonic `hydrationToken`. If the user switches accounts 
 | `useRecentItemLabel()` | `@object-ui/app-shell` | `(item) => string` — a recent entry's label, resolved on render from the item's metadata in the current language. |
 | `useFlowPaletteRecents()` | `@object-ui/app-shell` | `{ recents, recordRecent }` — flow-designer add-node MRU; falls back to localStorage outside a provider. |
 | `createObjectStackUserStateAdapter(opts)` | `@object-ui/data-objectstack` | Official adapter over the platform's `sys_user_preference` store. `{ dataSource, userId, key, resource?, onError? }` — one instance per `(user, key)` pair. |
+| `createObjectStackUserPreferenceFamily(opts)` | `@object-ui/data-objectstack` | Every row whose key starts with a prefix, loaded in the same shared read. `{ dataSource, userId, prefix, resource?, onError? }` → `{ load(): Record<key, value>, save(key, value) }`. The console uses it for `ui.list.<object>`. |
 
 ## Limits
 
@@ -240,6 +241,44 @@ UIs that surface "favorites" (HomePage Starred, the sidebar Favorites section) f
 ### Ordering the sidebar
 
 The Pinned section is the only part of the console sidebar a user orders. They drag a pinned row by the row itself (no grip is drawn at rest; the cursor turns to a grab hand and a line marks where the row will land), or, with the row's link focused, press Space to pick it up, the arrow keys to move it, and Space to drop it (Escape cancels). The order is saved through `reorderPins`. The app's own menu is not reorderable in the console: its order is the one authored for the app in Studio, and every user sees that order.
+
+## List state (sort, filters, column layout, tab order)
+
+What a user does to a list for themselves is their own state: the order of an
+object's view tabs (dragged in Manage Views), and for each view the sort, the
+Filter panel's conditions and the grid's column order and widths. It follows
+them to another browser, and it never changes the view for anyone else. The
+view's authored `sort`, filter, columns and tab order stay the default for
+every user with no state of their own. The view editor (the view settings
+panel, Studio) is where an author changes the view for everyone. A list's
+density and hidden fields are not list state: they are still saved to the
+view.
+
+| Where | Key | Holds |
+|---|---|---|
+| `sys_user_preference` | `ui.list.<objectName>` | `{ viewOrder?, perView?: { <viewId>: { sort?, filters?, columnState? } } }` |
+| `localStorage` | `list-state:<userId>:<objectName>` | The same value: the write-through cache, and the only store with no adapter |
+
+- **One read.** The console's bridge attaches a key family
+  (`createObjectStackUserPreferenceFamily`, prefix `ui.list.`) beside the three
+  slots above. Its load rides the same shared read, so a console load is still
+  one `sys_user_preference` request.
+- **Opening a list.** The page waits for that read (2.5 s at most) and opens
+  the list on the user's stored sort and filters. A link that carries list
+  state in its `uf_*` params still wins, whole.
+- **Writes.** A header sort, a column drag or resize, a Filter panel change and
+  a Manage Views drag write the object's row (500 ms debounce) and never
+  `/meta/view`. They work under a walled posture, where a tenant's metadata
+  writes are refused.
+- **Reset.** The Filter panel's "Clear all" clears the stored filters for the
+  view. The **Reset view** entry of the page header's ⋯ menu, shown while the user has
+  stored something for the active view, drops that view's sort, filters and
+  column layout. An administrator can delete the row under Setup → User
+  Preferences.
+- **Older keys.** The first read of an object with nothing cached takes that
+  browser's `viewOrder:<objectName>` tab order and each view's Filter panel
+  group from `list-filters:<userId>:<objectName>:<viewId>`. The search term
+  stays in that key.
 
 ## Record-overlay width
 

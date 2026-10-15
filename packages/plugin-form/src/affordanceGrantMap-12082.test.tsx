@@ -722,9 +722,9 @@ const WRITE_SITES: Record<string, WriteSite> = {
   'packages/data-objectstack/src/index.ts :: ObjectStackAdapter > batchTransaction :: batch': door(ADAPTER),
   'packages/data-objectstack/src/index.ts :: ObjectStackAdapter > fallbackToEmulation :: batch': door(ADAPTER),
   'packages/data-objectstack/src/index.ts :: ObjectStackAdapter > bulk :: update': door(ADAPTER),
-  'packages/data-objectstack/src/userState.ts :: createObjectStackUserStateAdapter > upsert :: update':
+  'packages/data-objectstack/src/userState.ts :: createPreferenceRowWriter > upsert :: update':
     outOfFamily("the caller's OWN per-user state rows (saved view state), written on the caller's behalf; no console affordance offers them as a record write"),
-  'packages/data-objectstack/src/userState.ts :: createObjectStackUserStateAdapter > upsert :: create':
+  'packages/data-objectstack/src/userState.ts :: createPreferenceRowWriter > upsert :: create':
     outOfFamily("the caller's OWN per-user state rows (saved view state), written on the caller's behalf; no console affordance offers them as a record write"),
   // ── fields ──
   'packages/fields/src/widgets/LookupField.tsx :: LookupField > handleCreateNew :: create':

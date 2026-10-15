@@ -93,6 +93,7 @@ vi.mock('@object-ui/react', async (importOriginal) => {
 });
 
 import { DataPillar } from './StudioDesignSurface';
+import { addFieldFromMoreMenu } from './__tests__/dataPillarAddField';
 import { createEmptyDataSource } from './__tests__/emptyDataSource';
 import { registerBuiltinInspectors } from '../metadata-admin/inspectors';
 import { tFormat } from '../metadata-admin/i18n';
@@ -159,7 +160,7 @@ async function addFieldAndType(typeLabel: RegExp): Promise<string> {
     </MemoryRouter>,
   );
   fireEvent.click(await screen.findByRole('button', { name: 'Form' }));
-  fireEvent.click(await screen.findByTitle(/^Add a field/));
+  await addFieldFromMoreMenu();
   await screen.findByText('Type', { selector: 'label' }, { timeout: 4000 });
   const fieldName = (controlUnder('API name') as HTMLInputElement).value;
   expect(fieldName, 'the new field has no API name: the harness is dead').not.toBe('');

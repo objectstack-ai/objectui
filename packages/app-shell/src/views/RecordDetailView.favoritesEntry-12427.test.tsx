@@ -15,6 +15,13 @@
  * reads "Add to favorites", then "Remove from favorites" once the record is
  * one.
  *
+ * It is the page's ONE favorites control: the record header draws no star.
+ * This page no longer hands the record context an `onToggleFavorite`, and the
+ * `page:header` chrome draws its star only for a host that does (the
+ * components pin `page-header-star-host-toggle-12427`). Updated deliberately
+ * by the record-star remainder of objectui#12427: the header star that sat
+ * beside this entry is gone, in both favorite states.
+ *
  * Harness: the `RecordDetailView.deleteConfirmDialog-11001` mount (the real
  * record page under a real `I18nProvider` and a metadata context), plus the
  * real `FavoritesProvider`, on the record route so the page knows its app.
@@ -122,6 +129,14 @@ async function mountRecordPage() {
   await waitFor(() => expect(document.querySelector('[role="toolbar"]')).toBeTruthy());
 }
 
+/** The record header's favorite star, by either of its two names. */
+function headerStars(): HTMLElement[] {
+  return [
+    ...screen.queryAllByRole('button', { name: 'Add to favorites' }),
+    ...screen.queryAllByRole('button', { name: 'Remove from favorites' }),
+  ];
+}
+
 /** Opens the header's overflow and returns its entries' text. */
 async function openOverflow(): Promise<string[]> {
   const trigger = screen.getByRole('button', { name: 'More actions' });
@@ -155,6 +170,22 @@ describe('record page: the favorites entry is in the overflow, ahead of Share (o
     const items = await openOverflow();
     expect(items.indexOf('Add to favorites')).toBe(0);
     expect(items.indexOf('Share')).toBe(1);
+  });
+
+  it('the record header draws no star, so the overflow entry is the one favorites control', async () => {
+    await mountRecordPage();
+    // The record chip is drawn (its copy-id button sits in the star's row),
+    // so "no star" cannot pass on a header that drew no chip at all.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Copy record ID' })).toBeInTheDocument());
+    expect(headerStars()).toHaveLength(0);
+
+    const items = await openOverflow();
+    expect(items.filter((text) => /favorites$/.test(text))).toEqual(['Add to favorites']);
+
+    // Still none once the record is a favorite.
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Add to favorites' }));
+    await waitFor(() => expect(stored()).toHaveLength(1));
+    expect(headerStars()).toHaveLength(0);
   });
 
   it('choosing it writes the record favorite, and the entry then reads Remove from favorites', async () => {

@@ -2488,6 +2488,66 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   // renderer's markup, not this table's, and taking it out of the sequence
   // would leave it with no keyboard path at all.
   const tableRef = useRef<HTMLTableElement | null>(null);
+
+  /**
+   * objectui#12463 — the right-edge scroll shadow: drawn while more columns
+   * remain to the right of the box (`scrollLeft + clientWidth < scrollWidth`)
+   * and gone at the far right. It replaces the box's static inset shadow,
+   * which the table cells' own opaque backgrounds painted over, so it never
+   * showed. The overlay sits beside the box (not inside it, or it would scroll
+   * away with the content), at the seam where the content slides under the
+   * right-pinned columns (the auto-pinned row-actions column), and clear of
+   * the box's own vertical scrollbar. `pointer-events-none`: it never takes a
+   * click, and being absolutely positioned it moves no layout. A grouped
+   * sub-table (`disableInnerScroll`) scrolls in a shared ancestor and draws
+   * none.
+   */
+  const scrollBoxRef = useRef<HTMLDivElement | null>(null);
+  const [rightShadow, setRightShadow] = useState<{ right: number; bottom: number } | null>(null);
+  useLayoutEffect(() => {
+    const box = scrollBoxRef.current;
+    if (disableInnerScroll || !box) {
+      setRightShadow(null);
+      return;
+    }
+    const measure = () => {
+      const more = box.scrollLeft + box.clientWidth < box.scrollWidth - 1;
+      if (!more) {
+        setRightShadow((prev) => (prev === null ? prev : null));
+        return;
+      }
+      const cs = typeof getComputedStyle === 'function' ? getComputedStyle(box) : null;
+      const borderX = cs ? (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.borderRightWidth) || 0) : 0;
+      const borderY = cs ? (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.borderBottomWidth) || 0) : 0;
+      const scrollbarY = Math.max(0, box.offsetWidth - box.clientWidth - borderX);
+      const scrollbarX = Math.max(0, box.offsetHeight - box.clientHeight - borderY);
+      let pinnedRight = 0;
+      const headerRow = headerRowRef.current;
+      if (headerRow) {
+        columns.forEach((col, index) => {
+          if (!isPinnedRightColumn(col)) return;
+          const cell = headerRow.children[leadingCellCount + index] as HTMLElement | undefined;
+          if (cell) pinnedRight += cell.getBoundingClientRect().width;
+        });
+      }
+      const right = Math.round(scrollbarY + pinnedRight + (cs ? parseFloat(cs.borderRightWidth) || 0 : 0));
+      const bottom = Math.round(scrollbarX + (cs ? parseFloat(cs.borderBottomWidth) || 0 : 0));
+      setRightShadow((prev) => (prev && prev.right === right && prev.bottom === bottom ? prev : { right, bottom }));
+    };
+    measure();
+    box.addEventListener('scroll', measure, { passive: true });
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(measure);
+      observer.observe(box);
+      if (tableRef.current) observer.observe(tableRef.current);
+    }
+    return () => {
+      box.removeEventListener('scroll', measure);
+      observer?.disconnect();
+    };
+  }, [disableInnerScroll, columns, leadingCellCount, paginatedData.length]);
+
   const [rovingCell, setRovingCell] = useState<{ rowIndex: number; colIndex: number }>({ rowIndex: 0, colIndex: 0 });
   const rovingRowIndex = Math.max(0, Math.min(rovingCell.rowIndex, paginatedData.length - 1));
   const rovingColIndex = Math.max(0, Math.min(rovingCell.colIndex, columns.length - 1));
@@ -2851,11 +2911,14 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
         </div>
       )}
 
-      {/* Table - horizontal scroll indicator via inset shadow on mobile.
-          When `borderless`, drop the rounded frame AND the inset shadow so
-          the table sits flush against its container without a floating
-          right-edge gradient that looked odd without a surrounding border. */}
-      <div className={cn(
+      {/* Table. When `borderless`, drop the rounded frame so the table sits
+          flush against its container. The outer box holds the scroll box and
+          the right-edge scroll shadow beside it (objectui#12463). */}
+      <div className={cn("relative", !disableInnerScroll && "flex flex-col flex-1 min-h-0")}>
+      <div
+        ref={scrollBoxRef}
+        data-testid="data-table-scroll-box"
+        className={cn(
         "relative bg-background",
         // When embedded in a shared scroll container (grouped grid), let the
         // table overflow outward instead of creating its own scrollbar so all
@@ -2863,7 +2926,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
         disableInnerScroll
           ? "overflow-visible"
           : "flex-1 min-h-0 overflow-auto [-webkit-overflow-scrolling:touch]",
-        !borderless && "rounded-md border shadow-[inset_-8px_0_8px_-8px_rgba(0,0,0,0.08)]",
+        !borderless && "rounded-md border",
       )}>
         {/* This div is already the (bounded) scroll container for BOTH axes —
             or, in grouped mode, the table overflows into a shared ancestor
@@ -3704,6 +3767,17 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
             )}
           </TableBody>
         </Table>
+      </div>
+      {rightShadow && (
+        <div
+          aria-hidden="true"
+          data-testid="data-table-scroll-shadow-right"
+          className="pointer-events-none absolute top-0 z-30 w-6 bg-gradient-to-l from-foreground/10 to-transparent"
+          // Measured offsets, like the frozen cells' `left` in this file: the
+          // seam before the right-pinned columns and the box's scrollbars.
+          style={{ right: rightShadow.right, bottom: rightShadow.bottom }}
+        />
+      )}
       </div>
 
       {/* Pagination — hidden when only one page (no controls would be actionable) */}

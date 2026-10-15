@@ -34,6 +34,7 @@ import { AppMark, type AppMarkApp } from '../../layout/AppMark.js';
 import { STUDIO_HEADER, STUDIO_HEADER_ICON_BUTTON, STUDIO_KIND_CHIP } from './studio-tokens.js';
 import { StudioInspector } from './StudioInspector.js';
 import { StudioItemHeader, StudioTab } from './StudioItemHeader.js';
+import { DATA_CONTENT_CONTAINER, DATA_TAB_FLAT_ONLY, DATA_TAB_FOLDED_ONLY } from './dataTabsFold.js';
 import { StudioRail, StudioRailGroup, StudioRailRow } from './StudioRail.js';
 import { FLOW_TRIGGER_GLYPHS, flowTriggerGlyph, groupFlowsByObject, type FlowTriggerGlyph } from './flowGrouping.js';
 import {
@@ -102,11 +103,13 @@ import {
   ChevronDown,
   Lock,
   Settings,
+  Settings2,
   Home as HomeIcon,
   Shield,
   ShieldCheck,
   ShieldQuestion,
   Menu,
+  MoreHorizontal,
   PanelRightClose,
   PanelRightOpen,
   Zap,
@@ -283,10 +286,15 @@ const OWD_OPTION_DESC_KEY: Record<OwdCreateModel, string> = {
   public_read_write: 'engine.studio.settings.sharingDescPublicReadWrite',
 };
 
+// objectui#12452 — Access is the fourth segment, and the "More" overflow that
+// held it alone (objectui#5813) is retired. If a second overflow pillar is ever
+// added, More returns with the objectui#11794 behaviour: its trigger keeps the
+// name More whichever of its pillars is open.
 const PILLARS: ReadonlyArray<{ key: string; label: string; Icon: LucideIcon }> = [
   { key: 'data', label: 'Data', Icon: Database },
   { key: 'automations', label: 'Automations', Icon: Workflow },
   { key: 'interfaces', label: 'Interfaces', Icon: LayoutDashboard },
+  { key: 'access', label: 'Access', Icon: Shield },
 ];
 /**
  * objectui#11357 — the body the Interfaces pillar saves for its open leaf. A
@@ -370,15 +378,6 @@ export function StudioHeldNotice({
     </div>
   );
 }
-
-// objectui#5813 — Access is a low-frequency ADMIN surface, demoted from the
-// top-level pillar row into the "More" overflow (maintainer ruling
-// 2026-08-24: primary nav aligns with the Data/Automations/Interfaces maker
-// mental model). The PAGE is untouched: the /studio/:pkg/access route, the
-// pillar dispatch and PILLAR_FOR_SURFACE_TYPE all still point here.
-const OVERFLOW_PILLARS: ReadonlyArray<{ key: string; label: string; Icon: LucideIcon }> = [
-  { key: 'access', label: 'Access', Icon: Shield },
-];
 
 /**
  * Which pillar owns a surface type — the routing half of a live surface
@@ -1603,6 +1602,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                 <Link
                   key={p.key}
                   to={`/studio/${scopeSegment}/${p.key}`}
+                  aria-current={tab === p.key ? 'page' : undefined}
                   onClick={(e) => {
                     // Re-clicking the open pillar re-navigates to the same URL —
                     // nothing unmounts. Modified/aux clicks open a new tab and
@@ -1626,60 +1626,6 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                   <span className="sr-only xl:not-sr-only">{t(`engine.studio.pillar.${p.key}`, locale)}</span>
                 </Link>
               ))}
-              {/* objectui#5813 — low-frequency surfaces live in "More". The
-                  trigger keeps its own name, More, whichever of them is open
-                  (objectui#11794, the rule the Data pillar's Advanced trigger
-                  follows): renamed to the open pillar ("Access ▾") it hid the
-                  one word that says this is the overflow menu. Where you are
-                  still shows twice — the trigger takes the active pillar
-                  styling while one of its pillars is open, and inside the menu
-                  that pillar's link is the current page (`aria-current`). Each
-                  item is a real router Link carrying the SAME dirty-guard as
-                  the primary pillars — an overflow entry must not become the
-                  one door that silently discards edits. None of them is in the
-                  package-less scope (objectui#11553). */}
-              {packageId !== null && (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    data-testid="studio-nav-more"
-                    className={
-                      'inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-3 text-[13px] transition-colors ' +
-                      (OVERFLOW_PILLARS.some((p) => tab === p.key)
-                        ? 'bg-background font-medium text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground')
-                    }
-                  >
-                    {t('engine.studio.more', locale)}
-                    <ChevronDown className="h-3 w-3" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-44 p-1">
-                  {OVERFLOW_PILLARS.map((p) => (
-                    <Link
-                      key={p.key}
-                      to={`/studio/${scopeSegment}/${p.key}`}
-                      aria-current={tab === p.key ? 'page' : undefined}
-                      onClick={(e) => {
-                        if (tab === p.key) return;
-                        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-                        if (!confirmLeavePillar()) e.preventDefault();
-                      }}
-                      className={
-                        'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs transition-colors ' +
-                        (tab === p.key
-                          ? 'bg-primary/10 font-medium text-primary'
-                          : 'text-muted-foreground hover:bg-muted hover:text-foreground')
-                      }
-                    >
-                      <p.Icon className="h-3.5 w-3.5" />
-                      {t(`engine.studio.pillar.${p.key}`, locale)}
-                    </Link>
-                  ))}
-                </PopoverContent>
-              </Popover>
-              )}
             </nav>
 
             {/* Package-level draft review + one atomic publish (replaces per-item Publish) */}
@@ -4481,11 +4427,26 @@ export function renderStudioGridList(props: {
           // the channel and dropped the leftover parameter).
           ...listSchema,
           viewType: 'grid',
-          showSearch: true,
-          showSort: true,
-          showFilters: true,
-          showGroup: true,
-          showHideFields: true,
+          // objectui#12450 — the Records toolbar the Data pillar's artboard
+          // draws: Hide fields, Filter, Group and Sort as labelled buttons,
+          // then Refresh, Search and Add record. That is the list's wide form
+          // (`compactToolbar: false`, one button per control); the bundled
+          // Display form the console's list pages default to (objectui#12423)
+          // would fold Hide fields and Group away. Density is not offered: the
+          // artboard has no density control. The toggles are spelled in
+          // `userActions`, the protocol's home for them (the bare `show*`
+          // spellings this used are retired tombstones, objectui#7924), and
+          // the slot's own `userActions` — what a view declares — still wins.
+          compactToolbar: false,
+          userActions: {
+            search: true,
+            sort: true,
+            filter: true,
+            group: true,
+            hideFields: true,
+            rowHeight: false,
+            ...(listSchema.userActions as Record<string, unknown> | undefined),
+          },
           inlineEdit: true,
           addDeleteRecordsInline: true,
           // Fold "+ New" into this toolbar (next to Hide fields/Filter/Group/
@@ -5120,15 +5081,13 @@ export function DataPillar({
   // rendered fills the field rail below without a remount.
   const inspector = useRegisteredMetadataInspector('object');
 
-  // The object-level tabs (Data pillar). A shadcn/HIG segmented control: a
-  // recessed `bg-muted` track with an elevated `bg-background` pill on the
-  // active segment — the inverse of the old transparent-track/grey-active
-  // styling, which read as toolbar chrome rather than a distinct nav layer.
+  // The object-level tabs (Data pillar): underline tabs in the item header.
   // objectui#5813 — the 90% path is Records / Form (fields ARE the grid's
-  // columns, with Add field right beside them, so a separate fields tab would
-  // ADD a surface, not remove one). The five power tabs keep their panels
-  // untouched behind one "Advanced" menu — capability stays, the default view
-  // stops taxing every visit with seven choices (maintainer ruling 2026-08-24).
+  // columns, so a separate fields tab would ADD a surface, not remove one).
+  // objectui#12450 — the five power panels are flat tabs beside them when the
+  // content column has room, and fold back into one "Advanced" menu when it
+  // does not (maintainer ruling 2026-10-15, decision B of epic objectui#12446;
+  // the rule lives in `dataTabsFold.ts`).
   const dataTabs: ReadonlyArray<{ key: typeof viewMode; label: string }> = [
     { key: 'grid', label: t('engine.studio.data.tab.records', locale) },
     { key: 'form', label: t('engine.studio.data.tab.form', locale) },
@@ -5141,6 +5100,10 @@ export function DataPillar({
     { key: 'settings', label: t('engine.studio.data.tab.settings', locale) },
   ];
   const activeAdvancedTab = advancedDataTabs.find((tabDef) => tabDef.key === viewMode);
+  // The two views Add field serves; `addField` itself refuses the rest.
+  const addFieldOffered = Boolean(current) && (viewMode === 'grid' || viewMode === 'form') && !readOnly && objLoaded;
+  // objectui#12450 — the Records grid draws flush with the content column.
+  const recordsFlush = Boolean(current) && objLoaded && viewMode === 'grid' && hasBaseline;
 
   // The selected object's own icon (from its metadata) — prefer the loaded
   // draft body, fall back to the rail header. getIcon degrades to Database.
@@ -5149,12 +5112,15 @@ export function DataPillar({
   );
 
   // objectui#12459 — the object's tab row lives in the item header (the
-  // skeleton's scaffold): the two primary tabs flat, "Advanced" as the
-  // overflow it was (objectui#5813). The trigger keeps its own name whichever
-  // panel is open (objectui#11794): renamed to the panel ("Validations ▾") it
-  // hid the one word that says sibling panels sit behind it. Where you are
-  // still shows twice — the trigger takes the active look while one of its
-  // panels is open, and the menu marks that panel as the checked radio item.
+  // skeleton's scaffold). objectui#12450 — seven flat tabs at a content column
+  // of `DATA_TABS_FOLD_WIDTH` and wider; narrower, the five power panels fold
+  // into "Advanced". Both forms are rendered and a container query on the
+  // content column displays exactly one of them (see `dataTabsFold.ts`).
+  // Folded, the trigger keeps its own name whichever panel is open
+  // (objectui#11794): renamed to the panel ("Validations ▾") it hid the one
+  // word that says sibling panels sit behind it. Where you are still shows
+  // twice — the trigger takes the active look while one of its panels is
+  // open, and the menu marks that panel as the checked radio item.
   const dataTabRowEl = current ? (
     <>
       {dataTabs.map((tab) => (
@@ -5162,9 +5128,20 @@ export function DataPillar({
           {tab.label}
         </StudioTab>
       ))}
+      {advancedDataTabs.map((tab) => (
+        <StudioTab
+          key={tab.key}
+          data-testid={`data-tab-flat-${tab.key}`}
+          active={viewMode === tab.key}
+          onClick={() => selectViewMode(tab.key)}
+          className={DATA_TAB_FLAT_ONLY}
+        >
+          {tab.label}
+        </StudioTab>
+      ))}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <StudioTab data-testid="data-tabs-advanced" active={Boolean(activeAdvancedTab)}>
+          <StudioTab data-testid="data-tabs-advanced" active={Boolean(activeAdvancedTab)} className={DATA_TAB_FOLDED_ONLY}>
             {t('engine.studio.data.tab.advanced', locale)}
             <ChevronDown className="h-3 w-3" />
           </StudioTab>
@@ -5236,7 +5213,7 @@ export function DataPillar({
             })}
         </StudioRail>
 
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div className={cn('flex min-w-0 flex-1 flex-col overflow-hidden', DATA_CONTENT_CONTAINER)} data-testid="data-content-column">
           {/* objectui#12459 — the object header sits inside the content column,
               over the thing it names, instead of spanning the rail. */}
           <StudioItemHeader
@@ -5280,21 +5257,61 @@ export function DataPillar({
                     })}
                   </span>
                 ) : null}
-                {current && (viewMode === 'grid' || viewMode === 'form') && !readOnly && objLoaded && (
-                  <button
-                    type="button"
-                    onClick={addField}
-                    title={t('engine.studio.data.addFieldTitle', locale)}
-                    className="inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> {t('engine.studio.data.addField', locale)}
-                  </button>
+                {/* objectui#12450 — the header's two icon buttons. Object
+                    settings opens the Settings panel (a shortcut that still
+                    works when that tab is folded into Advanced); More holds
+                    Add field, which left the header row for it. Add field
+                    stays reachable from the grid's own "+" column and the form
+                    designer's button too. More is drawn only when it holds
+                    something: Add field is not offered on a read-only package,
+                    before the object loads, or on the five power panels. */}
+                {current && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => selectViewMode('settings')}
+                      aria-label={t('engine.studio.data.objectSettings', locale)}
+                      title={t('engine.studio.data.objectSettings', locale)}
+                      data-testid="data-object-settings"
+                      className={STUDIO_HEADER_ICON_BUTTON}
+                    >
+                      <Settings2 className="h-4 w-4" />
+                    </button>
+                    {addFieldOffered && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            aria-label={t('engine.studio.data.moreActions', locale)}
+                            title={t('engine.studio.data.moreActions', locale)}
+                            data-testid="data-object-more"
+                            className={STUDIO_HEADER_ICON_BUTTON}
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onSelect={addField}
+                            title={t('engine.studio.data.addFieldTitle', locale)}
+                            data-testid="data-object-add-field"
+                          >
+                            <Plus className="h-3.5 w-3.5" /> {t('engine.studio.data.addField', locale)}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
                 )}
               </>
             }
             tabs={dataTabRowEl}
           />
-          <main className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 py-4">
+          {/* objectui#12450 — the Records grid runs flush with the column: no
+              body padding and no framed card around the list, so its toolbar,
+              grid and footer span the column's full width. Every other view
+              keeps the padded body. */}
+          <main className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', recordsFlush ? null : 'px-6 py-4')}>
           {!current ? (
             objectsLoaded && objects.length === 0 ? (
               /* Fresh package: the first act is creating an object — say so and
@@ -5326,7 +5343,7 @@ export function DataPillar({
                   locale={locale}
                   // objectui#11785 — "Show me" opens the named field's inspector.
                   onShow={(target) => setFieldSel({ kind: target.kind, id: target.id })}
-                  className="mb-2 px-3 py-1.5 text-[11px]"
+                  className={cn('mb-2 px-3 py-1.5 text-[11px]', recordsFlush && 'mx-6 mt-3')}
                 />
               )}
               {objHeld && (
@@ -5339,7 +5356,7 @@ export function DataPillar({
                       ? undefined
                       : (target) => setFieldSel({ kind: target.kind, id: target.id })
                   }
-                  className="mb-2 px-3 py-1.5 text-[11px]"
+                  className={cn('mb-2 px-3 py-1.5 text-[11px]', recordsFlush && 'mx-6 mt-3')}
                 />
               )}
               {!objLoaded ? (
@@ -5410,7 +5427,7 @@ export function DataPillar({
               {/* Records grid — fields are the columns. Header "+" adds a field, the
                 * per-column edit affordance opens the field editor, and dragging a
                 * column header reorders the object's fields (all via the context). */}
-              <div className="min-h-0 flex-1 overflow-auto rounded-lg border bg-background">
+              <div className="min-h-0 flex-1 overflow-auto bg-background" data-testid="data-records-body">
                 <GridFieldAuthoringProvider
                   value={{
                     // Read-only package: keep the per-column inspector (view props)

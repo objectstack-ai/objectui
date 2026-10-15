@@ -189,7 +189,9 @@ describe('Data pillar consumers with the registries POPULATED (#6846 contrast)',
     assertRegistriesPopulated();
     renderPillar();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Actions' }));
+    // objectui#12450 — the flat tab; the passthrough menu draws the folded
+    // entry as a second button of the same name.
+    fireEvent.click(await screen.findByTestId('data-tab-flat-actions'));
     // `ActionDefaultInspector`'s Name control, carrying the action's identifier.
     expect(await screen.findByDisplayValue('send_email')).toBeInTheDocument();
     expectNoEmptyStateSentence();
@@ -199,7 +201,9 @@ describe('Data pillar consumers with the registries POPULATED (#6846 contrast)',
     assertRegistriesPopulated();
     renderPillar();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Hooks' }));
+    // objectui#12450 — the flat tab; the passthrough menu draws the folded
+    // entry as a second button of the same name.
+    fireEvent.click(await screen.findByTestId('data-tab-flat-hooks'));
     fireEvent.click(await screen.findByText('Guard'));
     // Controls only `HookDefaultInspector` renders…
     expect(await screen.findByTestId('hook-name')).toBeInTheDocument();
@@ -214,7 +218,9 @@ describe('Data pillar consumers with the registries POPULATED (#6846 contrast)',
     assertRegistriesPopulated();
     renderPillar();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Settings' }));
+    // objectui#12450 — the flat tab; the passthrough menu draws the folded
+    // entry as a second button of the same name.
+    fireEvent.click(await screen.findByTestId('data-tab-flat-settings'));
     // `ObjectDefaultInspector`'s Name control, carrying the object's name.
     expect(await screen.findByTestId('object-name-input')).toHaveValue('showcase_task');
     expect(screen.getByTestId('object-access-posture')).toBeInTheDocument();

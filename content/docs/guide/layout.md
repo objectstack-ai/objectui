@@ -370,7 +370,7 @@ does not render.
     subtitle?: string | Record<string, string>, // secondary line; same interpolation
     actions?: string[],               // action ids, resolved against the object's own actions
     recordChrome?: boolean,           // default true — the record chip on a record page
-    showStar?: boolean,               // default true
+    showStar?: boolean,               // default true; drawn only where the host wires a favorites toggle
     showCopyId?: boolean,             // default true
     maxVisible?: number,              // positive integer; inline action buttons (renderer default 3)
     mobileMaxVisible?: number,        // positive integer; the same on mobile (renderer default 1)

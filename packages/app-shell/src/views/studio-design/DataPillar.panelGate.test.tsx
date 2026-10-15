@@ -135,7 +135,9 @@ async function openRuleGuard() {
       <DataPillar packageId="com.example.showcase" />
     </MemoryRouter>,
   );
-  fireEvent.click(await screen.findByRole('button', { name: 'Validations' }));
+  // objectui#12450 — the flat tab; the passthrough menu draws the folded
+  // entry as a second button of the same name.
+  fireEvent.click(await screen.findByTestId('data-tab-flat-rules'));
   fireEvent.click(await screen.findByText('Expression'));
   return screen.getAllByRole('combobox').find((el) => el.tagName === 'TEXTAREA') as HTMLTextAreaElement;
 }

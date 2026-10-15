@@ -14,9 +14,10 @@
  * `I18nProvider` (the published packs, `en` and `zh`):
  *   - on `/apps/APP/dashboard/NAME` and `/apps/APP/report/NAME` the crumbs
  *     after the app pill are exactly the item;
- *   - the other route types keep their segments: a page is the page alone, an
- *     object list is the object, a record is the object then the record, and a
- *     `system/*` route still draws its 「System」 type crumb from the pack.
+ *   - the other route types keep their segments: a page is the page alone, and
+ *     a `system/*` route still draws its 「System」 type crumb from the pack.
+ *     An object list and a record drew the object (then the record) until
+ *     objectui#12461; they now draw no crumb, and the cells say so.
  *     That last case is the CONTROL: a type crumb whose key survives still
  *     renders through this harness, so the absence on the dashboard and report
  *     routes is a reading, not a harness that cannot see a pack crumb.
@@ -212,15 +213,17 @@ describe('the other route types keep their segments (objectui#12273)', () => {
     expect(crumbLabels()).toEqual(['Welcome']);
   });
 
-  it('an object list route is the object, linked to its list', () => {
+  // An object route draws no crumb since objectui#12461: the page header names
+  // the page. `AppHeader.appBarLeftGroup-12461` pins the rest of that bar.
+  it('an object list route draws no crumb (objectui#12461)', () => {
     renderAt('/apps/crm/account', 'en');
-    expect(crumbLabels()).toEqual(['Accounts']);
-    expect(document.querySelector('a[href="/apps/crm/account"]')).not.toBeNull();
+    expect(crumbLabels()).toEqual([]);
+    expect(document.querySelector('a[href="/apps/crm/account"]')).toBeNull();
   });
 
-  it('a record route is the object, then the record', () => {
+  it('a record route draws no crumb (objectui#12461)', () => {
     renderAt('/apps/crm/account/record/acc1', 'en');
-    expect(crumbLabels()).toEqual(['Accounts', '#acc1']);
+    expect(crumbLabels()).toEqual([]);
   });
 
   it.each([

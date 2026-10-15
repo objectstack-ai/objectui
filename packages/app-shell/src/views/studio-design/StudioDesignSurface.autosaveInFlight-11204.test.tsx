@@ -156,6 +156,7 @@ vi.mock('@object-ui/plugin-view', async (importOriginal) => {
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), dismiss: vi.fn() } }));
 
 import { AutomationsPillar, DataPillar, InterfacesPillar } from './StudioDesignSurface';
+import { addFieldFromMoreMenu } from './__tests__/dataPillarAddField';
 import { createEmptyDataSource } from './__tests__/emptyDataSource';
 import { registerMetadataPreview } from '../metadata-admin/preview-registry';
 import { registerMetadataInspector } from '../metadata-admin/inspector-registry';
@@ -270,17 +271,17 @@ describe('Data pillar — an edit taken while an object save is in flight (objec
   }
   const fieldNames = (body: Record<string, unknown>) => readFields(body.fields).entries.map((e) => e.name);
   const fieldCountShown = () => screen.getByText(/^\d+ fields$/).textContent;
-  const addField = () => fireEvent.click(screen.getByTitle(/^Add a field/));
+  const addField = () => addFieldFromMoreMenu();
 
   it('the autosave: an added field stays on screen and lands in the next save', async () => {
     renderData();
     await waitFor(() => expect(fieldCountShown()).toBe('2 fields'), { timeout: 8000 });
 
     const release = holdNextSave();
-    addField();
+    await addField();
     await screen.findByTestId('data-autosaving', undefined, { timeout: 8000 });
     expect(savesOf('object').map(fieldNames)).toEqual([['title', 'status', 'field_3']]);
-    addField();
+    await addField();
     expect(fieldCountShown()).toBe('4 fields');
 
     await release();
@@ -300,7 +301,7 @@ describe('Data pillar — an edit taken while an object save is in flight (objec
     fireEvent.click(await screen.findByRole('button', { name: 'Reverse columns' }, { timeout: 8000 }));
     await screen.findByTestId('data-autosaving', undefined, { timeout: 8000 });
     expect(savesOf('object').map(fieldNames)).toEqual([['status', 'title']]);
-    addField();
+    await addField();
     expect(fieldCountShown()).toBe('3 fields');
 
     await release();

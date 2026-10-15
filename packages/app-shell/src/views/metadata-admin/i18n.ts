@@ -2798,7 +2798,6 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // `studio-design/StudioDesignSurface.createAppAccessibleName.test.tsx`.
   'engine.studio.createDraft': 'Save as draft',
   'engine.studio.saveDraft': 'Save draft',
-  'engine.studio.more': 'More',
   'engine.studio.autoSaving': 'Saving…',
   // objectui#11773 — the draft-save version conflict (`DraftConflictDialog.tsx`):
   // a draft save the server refused because the draft was saved elsewhere after
@@ -3394,6 +3393,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.hooks.newLabel': 'New hook',
   'engine.studio.data.addFieldTitle': 'Add a field (then set its type and properties on the right)',
   'engine.studio.data.addField': 'Add field',
+  'engine.studio.data.objectSettings': 'Object settings',
+  'engine.studio.data.moreActions': 'More actions',
   'engine.studio.data.editFieldProps': 'Edit field properties',
   'engine.studio.data.draftObjectTitle': 'Unpublished new object',
   'engine.studio.data.draftObjectHint':
@@ -6038,7 +6039,6 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   // run with `engine.studio.app.create`, which opens the same dialog.
   'engine.studio.createDraft': '存为草稿',
   'engine.studio.saveDraft': '保存草稿',
-  'engine.studio.more': '更多',
   'engine.studio.autoSaving': '保存中…',
   'engine.draftConflict.title': '此草稿在你打开后已被修改',
   'engine.draftConflict.description':
@@ -6554,6 +6554,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.hooks.newLabel': '新钩子',
   'engine.studio.data.addFieldTitle': '添加一个字段(随后在右侧设置类型与属性)',
   'engine.studio.data.addField': '添加字段',
+  'engine.studio.data.objectSettings': '对象设置',
+  'engine.studio.data.moreActions': '更多操作',
   'engine.studio.data.editFieldProps': '编辑字段属性',
   'engine.studio.data.draftObjectTitle': '未发布的新对象',
   'engine.studio.data.draftObjectHint':

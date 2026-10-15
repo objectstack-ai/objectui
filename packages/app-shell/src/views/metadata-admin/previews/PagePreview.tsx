@@ -10,7 +10,7 @@
  */
 
 import * as React from 'react';
-import { SchemaRenderer, RecordContextProvider } from '@object-ui/react';
+import { SchemaRenderer, RecordContextProvider, useObjectTranslation, useObjectLabel } from '@object-ui/react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@object-ui/components';
 import { buildExpandFields } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
@@ -20,6 +20,7 @@ import { PreviewShell, PreviewErrorBoundary, PreviewMessage } from './PreviewShe
 import { OutlineStrip } from './OutlineStrip.js';
 import { SourcePageEditor } from './SourcePageEditor.js';
 import { pageKindNode } from '../../pageKindNode.js';
+import { deriveStudioDetailSections } from '../../recordDetailSections.js';
 import { PageBlockCanvas } from './PageBlockCanvas.js';
 import { InterfaceListPage } from '../../InterfaceListPage.js';
 import { t as tr, tFormat } from '../i18n.js';
@@ -292,17 +293,31 @@ export function PagePreview({ draft, editing, selection, onSelectionChange, onPa
   // while authored slots (highlights/tabs/…) override in place. Non-slotted
   // pages render their authored schema unchanged.
   const isSlotted = (draft as { kind?: string })?.kind === 'slotted';
+  // The "More details" heading, resolved exactly as the running app resolves it
+  // (`RecordDetailView`): the object's `_sections.details` label, else the
+  // shell's `detail.sectionMoreDetails` text.
+  const { t } = useObjectTranslation();
+  const { sectionLabel } = useObjectLabel();
+  const moreDetailsLabel = sectionLabel(
+    String(recordSchema?.name ?? ''),
+    'details',
+    t('detail.sectionMoreDetails', 'More details'),
+  );
   const renderSchema = React.useMemo(() => {
     if (!isSlotted) return schema;
     try {
       const slots = (draft as { slots?: Record<string, unknown> })?.slots ?? {};
       // `recordSchema` arrives async; until then synthesize with no objectDef
       // (structure renders immediately, field-level detail fills in on load).
-      return buildDefaultPageSchema(recordSchema ?? undefined, { slots }) as Record<string, unknown>;
+      // The running app's detail sections, from the one derivation it uses
+      // and with the heading it translates (objectui#12442) — without them an
+      // object with no `fieldGroups` previewed a bare `record:details`.
+      const sections = deriveStudioDetailSections(recordSchema, { moreDetails: moreDetailsLabel });
+      return buildDefaultPageSchema(recordSchema ?? undefined, sections ? { slots, sections: sections as any } : { slots }) as Record<string, unknown>;
     } catch {
       return schema;
     }
-  }, [isSlotted, schema, draft, recordSchema]);
+  }, [isSlotted, schema, draft, recordSchema, moreDetailsLabel]);
   // Wrap record-page content in the record context (+ a sample-record picker)
   // so detail/highlights/path/alert blocks render real data. No-op for
   // non-record pages and for record pages with no rows yet (renders the node

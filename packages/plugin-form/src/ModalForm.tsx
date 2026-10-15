@@ -48,6 +48,7 @@ import {
   filterSystemFields,
   inferColumns,
   inferModalSize,
+  sectionedGridLayout,
   CONTAINER_GRID_COLS,
 } from './autoLayout';
 import { deriveFieldGroupSections, projectSectionDivider, resolveSectionCollapse } from './fieldGroups';
@@ -834,7 +835,9 @@ export const ModalForm: React.FC<ModalFormProps> = ({
       // The form is ONE grid. Its width is the explicit form `columns`, else the
       // widest section; each section then lays ITS fields out at its own
       // declared density within that grid via colSpan (objectstack-ai/objectstack#2578), exactly like the
-      // full-page sectioned form.
+      // full-page sectioned form — by the one sectioned-form rule, which
+      // switches to a 12-track grid when the sections' counts do not all fit
+      // the widest one (objectui#12548).
       const clampCol = (n: unknown): number | undefined =>
         typeof n === 'number' && n > 0 ? Math.min(Math.floor(n), 4) : undefined;
       const declaredCols = sections
@@ -842,7 +845,8 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         .filter((c): c is number => c != null);
       const formColumns = (clampCol(schema.columns)
         ?? (declaredCols.length ? Math.max(...declaredCols) : 1)) as 1 | 2 | 3 | 4;
-      const containerFieldClass = CONTAINER_GRID_COLS[formColumns];
+      const sectionGrid = sectionedGridLayout(formColumns, sections.map((s) => clampCol(s.columns)));
+      const containerFieldClass = sectionGrid.fieldContainerClass;
 
       // FLS first, so a section whose every field is non-readable drops out
       // entirely (header included) instead of leaving an empty group.
@@ -872,9 +876,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
             visibleWhen: section.visibleWhen,
             className: section.className,
             gridClassName: section.gridClassName,
-            fields: formColumns > 1
-              ? applyAutoColSpan(body, formColumns, clampCol(section.columns))
-              : body,
+            fields: sectionGrid.layOut(body, clampCol(section.columns)),
           };
         })
         .filter((g) => g.fields.length > 0);

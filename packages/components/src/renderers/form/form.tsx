@@ -241,6 +241,60 @@ const BARE_SPAN_CLASS: Record<number, string> = {
 };
 
 /**
+ * The tier class of a 12-track field container — one column below `@md`,
+ * twelve tracks from `@md` up. `@object-ui/plugin-form` draws a sectioned form
+ * on it when the sections' `columns` counts do not all fit one 1–4 grid
+ * (objectui#12548), and a field's `colSpan` there is in TWELFTHS of the row.
+ *
+ * ⛔ Kept a whole literal: it is also what puts the utility into this
+ * package's published `style.css`, whose Tailwind scan reads only this
+ * package's source.
+ */
+const TWELVE_TRACK_TIER = '@md:grid-cols-12';
+
+const isTwelveTrackContainer = (containerClass: string): boolean =>
+  containerClass.split(/\s+/).includes(TWELVE_TRACK_TIER);
+
+/**
+ * The col-span classes of a twelfths `colSpan` on a {@link TWELVE_TRACK_TIER} container.
+ *
+ * A share of the row that a 1–4 column count yields (12 / 6 / 4 / 3, and the
+ * 8 and 9 an authored `colSpan` of 2 of 3 or 3 of 4 yields) keeps the step
+ * ladder the 1–4 container classes give that count: at most two fields per row
+ * at `@md`, three at `@2xl`, four at `@4xl` — the tiers of
+ * `grid-cols-1 @md:grid-cols-2 @2xl:grid-cols-3 @4xl:grid-cols-4`. So a
+ * 3-column section reads two per row at `@md` and three from `@2xl`, exactly as
+ * it does on its own grid. A share reduces to lowest terms `k / d` and draws
+ * `min(k, p) / p` of the row at a tier allowing `p = min(d, tier)` per row.
+ * Other twelfths are no 1–4 count's share and are drawn as written.
+ *
+ * Every tier earns a class from `@md`, because the base tier is one column and
+ * the twelve-track tiers have no cell narrower than a twelfth to fall back to.
+ *
+ * ⛔ Literals, never assembled: Tailwind's scanner reads source text.
+ */
+const TWELVE_TRACK_SPAN_CLASS: Record<number, string> = {
+  1: '@md:col-span-1',
+  2: '@md:col-span-2',
+  3: '@md:col-span-6 @2xl:col-span-4 @4xl:col-span-3',
+  4: '@md:col-span-6 @2xl:col-span-4',
+  5: '@md:col-span-5',
+  6: '@md:col-span-6',
+  7: '@md:col-span-7',
+  8: '@md:col-span-12 @2xl:col-span-8',
+  9: '@md:col-span-12 @4xl:col-span-9',
+  10: '@md:col-span-10',
+  11: '@md:col-span-11',
+  12: '@md:col-span-12',
+};
+
+/** {@link TWELVE_TRACK_SPAN_CLASS} for a field's `colSpan`; none set ⇒ one track, as the grid draws it. */
+function twelveTrackSpanClass(colSpan: number | undefined): string {
+  if (!colSpan || !(colSpan >= 1)) return '';
+  return TWELVE_TRACK_SPAN_CLASS[Math.min(Math.floor(colSpan), 12)];
+}
+
+/**
  * The col-span classes a field must carry to occupy `targetCols` cells of
  * `containerClass` — ONE CLASS PER TIER, not one class for the widest tier
  * (`bd0995738`).
@@ -3328,7 +3382,9 @@ ComponentRegistry.register('form',
       const pickSpanClass = (targetCols: number): string =>
         spanLadderFor(containerClass, targetCols);
 
-      const colSpanClass = colSpan && colSpan > 1
+      const colSpanClass = isTwelveTrackContainer(containerClass)
+        ? twelveTrackSpanClass(colSpan)
+        : colSpan && colSpan > 1
         ? colSpan === 2 ? pickSpanClass(2)
         : colSpan === 3 ? pickSpanClass(3)
         : colSpan >= 4 ? pickSpanClass(4)

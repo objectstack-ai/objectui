@@ -27,9 +27,10 @@
  *   'Failed to set default view', with no description, so the refusal's own
  *   reason never reached the user (the objectui#11583 patch round).
  *
- * Rename already said a refusal; it is pinned here as a control, so the
- * census in `writeRefusalCensus-11583.test.ts` can name a pin for every
- * surfaced row.
+ * - `handleRenameView` said a refusal with the translated
+ *   `objectViewActions.renameFailed` title and no description, so the
+ *   server's sentence reached `console.error` alone (objectui#12417, this
+ *   family's last silent view-write row).
  *
  * - `handleDeleteView` said a refusal with the translated
  *   `objectViewActions.deleteFailed` title and no description, so the
@@ -450,19 +451,20 @@ describe('set-as-default says a refused write with the door\'s message (objectui
   });
 });
 
-describe('rename already said a refusal (control, objectui#11583: handleRenameView)', () => {
-  it('a refused rename raises a toast', async () => {
+describe('rename says a refused write with the door\'s message (objectui#12417, handleRenameView)', () => {
+  it('a refused rename keeps its translated title and shows the door\'s message as the description', async () => {
     const dataSource = makeDataSource({
-      updateView: vi.fn(async () => { throw refusal('Renaming refused'); }),
+      updateView: vi.fn(async () => { throw refusal('Renaming views requires the Manage Metadata permission'); }),
     });
     await mountOnSavedView(dataSource);
     await act(async () => {
       fireEvent.click(screen.getByTestId('stub-rename'));
     });
     await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(toast.error).mock.calls[0][0]).toBe('objectViewActions.renameFailed');
+    expect(errorDescription()).toContain('Renaming views requires the Manage Metadata permission');
     expect((dataSource as any).updateView).toHaveBeenCalledWith(OBJECT_NAME, SAVED_ID, { label: 'Renamed' });
   });
-
 });
 
 describe('delete says a refused write with the door\'s message (objectui#12398, handleDeleteView)', () => {

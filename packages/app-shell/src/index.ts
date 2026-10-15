@@ -152,8 +152,13 @@ export {
   ModeToggle,
   PreviewBadge,
   AuthPageLayout,
+  // The console page header — icon chip, title, secondary line, actions —
+  // that object lists and dashboards draw, for console pages outside this
+  // package (objectui#12526). Named so it cannot be mistaken for
+  // `@object-ui/layout`'s `PageHeader`, a different component.
+  ConsolePageHeader,
 } from './layout/index.js';
-export type { ActivityItem, PreviewBadgeProps } from './layout/index.js';
+export type { ActivityItem, PreviewBadgeProps, ConsolePageHeaderProps } from './layout/index.js';
 
 // Top-level chrome (dialogs, providers, error boundaries)
 export {

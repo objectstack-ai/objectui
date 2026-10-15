@@ -384,6 +384,43 @@ The schema-driven renderers live elsewhere: `DashboardRenderer` in
 `@object-ui/plugin-dashboard`, and everything else through `SchemaRenderer` in
 `@object-ui/react`, which resolves `type` against the component registry.
 
+`DashboardView` names the dashboard with the console page header below: its
+`label` as the title and its `description` beside it. The top bar draws no
+breadcrumb on a dashboard or page route (objectui#12526).
+
+### ConsolePageHeader
+
+The console's page header: an icon chip, the title, a secondary line beside the
+title from the `sm` breakpoint up, and actions on the right, in one row. Object
+lists and dashboards draw it, and a console page outside this package imports it
+to draw the same header. Below `sm` it draws the icon, the title and the actions;
+the secondary line is hidden there.
+
+Its props are the exported `ConsolePageHeaderProps`: `title` (required),
+`subtitle`, `icon` (a rendered element, sized by the chip), `actions`,
+`accentColor`, `sticky`, `className` and `data-testid`. The secondary line is
+`subtitle`; there is no `description` prop.
+
+```tsx
+import { ConsolePageHeader } from '@object-ui/app-shell';
+import { Button } from '@object-ui/components';
+
+declare const reload: () => void;
+
+<ConsolePageHeader
+  title="Approvals Inbox"
+  subtitle="Review and act on approval requests."
+  actions={
+    <Button variant="outline" size="sm" onClick={reload}>
+      Refresh
+    </Button>
+  }
+/>;
+```
+
+It is not `@object-ui/layout`'s `PageHeader`, a different component whose
+`title` and `subtitle` are strings and whose `actions` are action definitions.
+
 ### ActionParamDialog
 
 Collects user input for a declared action's `params` before execution. Every

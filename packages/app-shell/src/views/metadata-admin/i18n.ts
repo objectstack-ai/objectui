@@ -2798,7 +2798,6 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // `studio-design/StudioDesignSurface.createAppAccessibleName.test.tsx`.
   'engine.studio.createDraft': 'Save as draft',
   'engine.studio.saveDraft': 'Save draft',
-  'engine.studio.more': 'More',
   'engine.studio.autoSaving': 'Saving…',
   // objectui#11773 — the draft-save version conflict (`DraftConflictDialog.tsx`):
   // a draft save the server refused because the draft was saved elsewhere after
@@ -6030,7 +6029,6 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   // run with `engine.studio.app.create`, which opens the same dialog.
   'engine.studio.createDraft': '存为草稿',
   'engine.studio.saveDraft': '保存草稿',
-  'engine.studio.more': '更多',
   'engine.studio.autoSaving': '保存中…',
   'engine.draftConflict.title': '此草稿在你打开后已被修改',
   'engine.draftConflict.description':

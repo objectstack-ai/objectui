@@ -267,7 +267,8 @@ describe('the package-less scope lists a package-less flow and opens it editable
     expect(screen.getByRole('link', { name: /Automations/ })).toHaveAttribute('href', '/studio/~org/automations');
     expect(screen.queryByRole('link', { name: /^Data$/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Interfaces/ })).not.toBeInTheDocument();
-    expect(screen.queryByTestId('studio-nav-more')).not.toBeInTheDocument();
+    // objectui#12452 — Access is a package pillar segment now, not a More entry.
+    expect(screen.queryByRole('link', { name: /Access/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Create app/ })).not.toBeInTheDocument();
     expect(chatDock.mounts).toBe(0);
     expect(screen.getByTitle('Switch / create package')).toHaveTextContent('Organization flows');

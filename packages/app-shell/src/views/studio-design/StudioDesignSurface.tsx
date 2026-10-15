@@ -278,7 +278,7 @@ import { ObjectHooksPanel } from './ObjectHooksPanel.js';
 import { ObjectActionsPanel } from './ObjectActionsPanel.js';
 import { getIcon } from '../../utils/getIcon.js';
 import { fetchPackages, prefixObjectName, type PkgEntry } from './packages-io.js';
-import { DraftChangesPanel } from '../../preview/DraftChangesPanel.js';
+import { DraftChangesPanel, type DraftChangesPosture } from '../../preview/DraftChangesPanel.js';
 import { toast } from 'sonner';
 
 // ADR-0057 P3c follow-up (#2477 item 3) — the folded layout's side-by-side
@@ -1202,6 +1202,9 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   // one atomic pass (POST /packages/:id/publish-drafts), reviewed as a whole in
   // DraftChangesPanel. There is no per-item publish.
   const [changesOpen, setChangesOpen] = React.useState(false);
+  // objectui#12517 — which trigger opened the sheet: Publish opens it to
+  // confirm (rows expanded, focus on Publish all), Changes opens it to review.
+  const [changesPosture, setChangesPosture] = React.useState<DraftChangesPosture>('review');
   const [publishing, setPublishing] = React.useState(false);
   const [publishNonce, setPublishNonce] = React.useState(0); // ↑ → pillars re-read the published baseline
   const [draftNonce, setDraftNonce] = React.useState(0); // ↑ → a draft save landed (`onDraftSaved`)
@@ -1578,8 +1581,12 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
       type="button"
       // Publish is review-then-confirm: open the pending-changes panel,
       // whose footer button fires the actual atomic package publish —
-      // never straight from this header click (objectui#2261).
-      onClick={() => setChangesOpen(true)}
+      // never straight from this header click (objectui#2261). It opens the
+      // panel in its confirm posture (objectui#12517).
+      onClick={() => {
+        setChangesPosture('confirm');
+        setChangesOpen(true);
+      }}
       disabled={publishing || !hasPending || readOnly}
       aria-describedby={
         readOnly
@@ -1710,7 +1717,10 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
               {/* objectui#12459 — the pending count is a pill, not "· N" text. */}
               <button
                 type="button"
-                onClick={() => setChangesOpen(true)}
+                onClick={() => {
+                  setChangesPosture('review');
+                  setChangesOpen(true);
+                }}
                 className="inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[13px] text-foreground hover:bg-muted"
               >
                 <GitBranch className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1886,6 +1896,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
           include={packageId === null ? isOrgScopeDraft : undefined}
           onPublish={readOnly ? undefined : doPublish}
           publishing={publishing}
+          posture={changesPosture}
         />
 
         <CreateItemDialog

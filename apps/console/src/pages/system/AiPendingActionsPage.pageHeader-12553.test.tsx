@@ -24,7 +24,8 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 
-vi.mock('@object-ui/plugin-chatbot', () => ({
+vi.mock('@object-ui/plugin-chatbot', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   AiPendingActionsInbox: ({ title }: { title?: string }) => title ?? null,
 }));
 

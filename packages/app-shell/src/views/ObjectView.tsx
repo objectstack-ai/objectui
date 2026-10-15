@@ -43,6 +43,7 @@ import {
   Button,
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
   Empty,
   EmptyTitle,
@@ -3937,23 +3938,6 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                         The favorites entry is in the overflow menu at the end
                         of this row (objectui#12427). */}
 
-                    {/* objectui#12418 — the user's own list state for this
-                        view (sort, filters, column layout) back to the view's.
-                        Only while they have stored some. */}
-                    {activeViewHasPreference && (
-                    <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={handleResetView}
-                        className="shadow-none gap-1.5 sm:gap-2 h-8 sm:h-9"
-                        title={t('console.objectView.resetViewTitle')}
-                        data-testid="object-view-reset-view-button"
-                    >
-                        <RotateCcw className="h-4 w-4" />
-                        <span className="hidden sm:inline">{t('console.objectView.resetView')}</span>
-                    </Button>
-                    )}
-
                     {/* Primary action.
                         [#5153] `objectCanCreate && createVisible` — the
                         object-level verdict, then the toolbar-scope
@@ -4010,8 +3994,11 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                     {/* The page's overflow menu (objectui#12427), last in the
                         row: the favorites entry that replaced the header star.
                         Favorites is a once-and-forget act, so it lives behind
-                        the ⋯ rather than in the header's most prominent slot. */}
-                    {listFavorite && (
+                        the ⋯ rather than in the header's most prominent slot.
+                        "Reset view" (objectui#12418) is the same kind of act and
+                        lives beside it, so the one-row header keeps its shape
+                        as the user sorts. The ⋯ is drawn when either applies. */}
+                    {(listFavorite || activeViewHasPreference) && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
@@ -4025,11 +4012,26 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <FavoriteMenuItem
-                            isFavorite={listFavorite.isFavorite}
-                            onToggle={listFavorite.toggle}
-                            testId="object-view-favorite"
-                          />
+                          {listFavorite && (
+                            <FavoriteMenuItem
+                              isFavorite={listFavorite.isFavorite}
+                              onToggle={listFavorite.toggle}
+                              testId="object-view-favorite"
+                            />
+                          )}
+                          {/* objectui#12418 — the user's own list state for
+                              this view (sort, filters, column layout) back to
+                              the view's. Only while they have stored some. */}
+                          {activeViewHasPreference && (
+                            <DropdownMenuItem
+                              onSelect={handleResetView}
+                              title={t('console.objectView.resetViewTitle')}
+                              data-testid="object-view-reset-view-button"
+                            >
+                              <RotateCcw className="h-4 w-4" />
+                              <span>{t('console.objectView.resetView')}</span>
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     )}

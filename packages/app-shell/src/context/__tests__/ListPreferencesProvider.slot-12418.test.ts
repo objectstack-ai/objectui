@@ -5,8 +5,9 @@
  *   - A stored value keeps only what the slot declares, well formed: a
  *     malformed piece is dropped, never coerced into another meaning.
  *   - A view's entry: an empty sort is the user's choice and is KEPT (the list
- *     then asks for no order); a filter group with no condition and an empty
- *     column layout CLEAR their part; a view left with nothing is removed.
+ *     then asks for no order), distinct from a `null` sort, which clears it; a
+ *     filter group with no condition and an empty column layout CLEAR their
+ *     part; a view left with nothing is removed.
  *   - "Reset view" removes one view's entry and leaves the tab order.
  *   - The older per-browser keys are folded into the first read of an object
  *     with no cached entry, and only then.
@@ -56,6 +57,16 @@ describe('the slot keeps only what it declares (objectui#12418)', () => {
 describe('a view entry\'s patch (objectui#12418)', () => {
   it('keeps an empty sort — the user cleared the order, which is not the view\'s order', () => {
     expect(patchViewPreference({}, 'v1', { sort: [] })).toEqual({ perView: { v1: { sort: [] } } });
+  });
+
+  it('`sort: []` stores "no sort"; `sort: null` (or undefined) clears the stored sort — two different facts', () => {
+    const sorted = patchViewPreference({}, 'v1', { sort: [{ field: 'name', order: 'asc' }], filters: GROUP });
+    const noSort = patchViewPreference(sorted, 'v1', { sort: [] });
+    const cleared = patchViewPreference(sorted, 'v1', { sort: null });
+    expect(noSort).toEqual({ perView: { v1: { sort: [], filters: GROUP } } });
+    expect(cleared).toEqual({ perView: { v1: { filters: GROUP } } });
+    expect(patchViewPreference(sorted, 'v1', { sort: undefined })).toEqual(cleared);
+    expect(noSort).not.toEqual(cleared);
   });
 
   it('clears the filters on a group with no condition, and drops a view left empty', () => {

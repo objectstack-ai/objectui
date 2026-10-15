@@ -31,8 +31,9 @@
  *   4. Cross-device: a fresh browser opens on the user's stored order, sort
  *      and filters once the family has loaded; another user sees the view's
  *      authored defaults. The list waits for that load.
- *   5. "Reset view" drops the user's state for the view and the list opens
- *      on the view's own sort again.
+ *   5. "Reset view", an entry of the header's ⋯ menu shown only while the
+ *      user has stored state for the view, drops that state and the list
+ *      opens on the view's own sort again.
  *   6. CONTROL — no provider (a host without the console shell): the state is
  *      this browser's, as the tab order and filters were before; a sort still
  *      writes no view; the older `viewOrder:<object>` key is still honoured.
@@ -251,6 +252,23 @@ async function listReady() {
   await wait(50);
 }
 
+/** Open the header's ⋯ menu (keyboard, as Radix opens it under test) and find one entry. */
+async function openOverflowItem(testId: string): Promise<HTMLElement> {
+  fireEvent.keyDown(screen.getByRole('button', { name: 'More actions' }), { key: 'Enter' });
+  return screen.findByTestId(testId);
+}
+
+/** The ⋯ menu's entries by test id; `[]` when the page draws no ⋯ at all. */
+async function overflowTestIds(): Promise<string[]> {
+  const trigger = screen.queryByRole('button', { name: 'More actions' });
+  if (!trigger) return [];
+  fireEvent.keyDown(trigger, { key: 'Enter' });
+  const items = await screen.findAllByRole('menuitem');
+  const ids = items.map((el) => el.getAttribute('data-testid') ?? '');
+  fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+  return ids;
+}
+
 /** Every view write the page can make, counted. */
 function viewWrites(ds: any) {
   return ds.updateView.mock.calls.length + ds.updateViewConfig.mock.calls.length + puts.length;
@@ -400,6 +418,8 @@ describe('the user\'s state follows them, and only them (objectui#12418)', () =>
     expect(listProps.initialFilters).toBeUndefined();
     // No layout of anyone's: the grid is handed none, so its own cache cannot stand in.
     expect(listProps.schema.columnState).toEqual({});
+    // Nothing of theirs to reset: the ⋯ menu carries no "Reset view".
+    expect(await overflowTestIds()).not.toContain('object-view-reset-view-button');
   });
 
   it('"Reset view" drops the user\'s state for the view and the list opens on the view\'s own sort again', async () => {
@@ -410,8 +430,17 @@ describe('the user\'s state follows them, and only them (objectui#12418)', () =>
     expect(listProps.schema.sort).toEqual([{ field: 'amount', order: 'desc' }]);
     const before = listProps;
 
+    // An entry of the header's ⋯ menu, not a header button: nothing of it is
+    // drawn until the menu opens, so the one-row header keeps its shape.
+    expect(screen.queryByTestId('object-view-reset-view-button')).toBeNull();
+    const item = await openOverflowItem('object-view-reset-view-button');
+    expect(item.getAttribute('role')).toBe('menuitem');
+    // This harness mounts no I18nProvider, so `t` answers with the key: the pin
+    // is WHICH key labels the entry and which titles it, not the English copy.
+    expect(item.textContent?.trim()).toBe('console.objectView.resetView');
+    expect(item.getAttribute('title')).toBe('console.objectView.resetViewTitle');
     await act(async () => {
-      fireEvent.click(screen.getByTestId('object-view-reset-view-button'));
+      fireEvent.click(item);
     });
     await wait(700);
 
@@ -423,8 +452,8 @@ describe('the user\'s state follows them, and only them (objectui#12418)', () =>
     expect(listProps.schema.sort).toEqual(AUTHORED_SORT);
     expect(listProps.initialFilters).toBeUndefined();
     expect(listProps.schema.columnState).toEqual({});
-    // Nothing stored for the view any more: nothing to reset.
-    expect(screen.queryByTestId('object-view-reset-view-button')).toBeNull();
+    // Nothing stored for the view any more: nothing to reset, so no entry.
+    expect(await overflowTestIds()).not.toContain('object-view-reset-view-button');
   });
 
   it('"Clear all" in the Filter panel clears the user\'s filters for the view', async () => {

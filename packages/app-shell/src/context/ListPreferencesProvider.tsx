@@ -171,9 +171,12 @@ export function sanitizeObjectListPreference(v: unknown): ObjectListPreference {
 }
 
 /**
- * A patch to one view's entry. A key present with `undefined` (or an empty
- * value: no sort level, no filter condition, no column state) CLEARS that part;
- * a view left with nothing is removed.
+ * A patch to one view's entry. A key present with `undefined` or `null` CLEARS
+ * that part, and so does a filter group with no condition or a column state
+ * with no order and no width. An empty sort is NOT a clear: `sort: []` is kept,
+ * because a user who removed every sort level (the Sort builder emits `[]`)
+ * chose "no sort", which is not the view's authored sort. "Reset view" is the
+ * way back to that. A view left with nothing is removed.
  */
 export type ListViewPreferencePatch = {
   sort?: ReadonlyArray<{ field: string; order?: string }> | null;

@@ -68,6 +68,9 @@ vi.mock('../../providers/AdapterProvider', () => ({ useAdapter: () => fakeAdapte
 
 import { useSharedActivityFeed, __resetSharedUserFeeds } from '../sharedUserFeeds';
 import { resetUnmappedActivityTypeWarnings } from '../../layout/activityItemType';
+// The feed reads only the objects an app lists (objectui#12530); these rows'
+// objects are on the default roster, so the mapping is all this file sees.
+import { withRoster } from './activityRoster';
 
 const settle = () => act(async () => { await vi.advanceTimersByTimeAsync(0); });
 
@@ -94,7 +97,7 @@ afterEach(() => {
 
 /** id -> type, so a failure names the row rather than an array index. */
 async function typesByRow(): Promise<Record<string, string>> {
-  const { result } = renderHook(() => useSharedActivityFeed());
+  const { result } = renderHook(() => useSharedActivityFeed(), { wrapper: withRoster() });
   await settle();
   return Object.fromEntries(result.current.value.map((a) => [a.id, a.type]));
 }
@@ -116,7 +119,7 @@ describe('objectui#6730 — the shared activity feed no longer calls everything 
   });
 
   it('keeps the unrecognised row rather than dropping it, and says so once', async () => {
-    const { result } = renderHook(() => useSharedActivityFeed());
+    const { result } = renderHook(() => useSharedActivityFeed(), { wrapper: withRoster() });
     await settle();
 
     // A bucket, not a drop: every row that named an action and said something
@@ -136,7 +139,7 @@ describe('objectui#6730 — the shared activity feed no longer calls everything 
   });
 
   it('resolves the `"NOW()"` sentinel to `created_at` on this surface', async () => {
-    const { result } = renderHook(() => useSharedActivityFeed());
+    const { result } = renderHook(() => useSharedActivityFeed(), { wrapper: withRoster() });
     await settle();
 
     const nowRow = result.current.value.find((a) => a.id === 'r7');

@@ -31,6 +31,9 @@ import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import { MePermissionsProvider, type MePermissionsResponse } from '@object-ui/permissions';
+// The feed reads only the objects an app lists (objectui#12530); `crm_lead` is
+// on the default roster, so the grant is all this file varies.
+import { withRoster } from './activityRoster';
 
 /** Who is signed in — mutable so the cache-key case can switch users in one tab. */
 let currentUser: { id: string } | null = { id: 'u1' };
@@ -91,8 +94,12 @@ const MEMBER = payload({
 
 /** Mount the feed under these permissions — or under no provider at all. */
 async function mountFeed(perms: MePermissionsResponse | null) {
-  const wrapper = ({ children }: { children: React.ReactNode }) =>
-    perms ? <MePermissionsProvider initialPermissions={perms}>{children}</MePermissionsProvider> : <>{children}</>;
+  const Roster = withRoster();
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <Roster>
+      {perms ? <MePermissionsProvider initialPermissions={perms}>{children}</MePermissionsProvider> : children}
+    </Roster>
+  );
   const view = renderHook(() => useSharedActivityFeed(), { wrapper });
   await settle();
   return view;
@@ -131,7 +138,7 @@ describe('a loaded refusal sends nothing, and says so (objectui#12081)', () => {
 
 describe('every uncertainty still reads — a wrong skip is the expensive mistake (objectui#12081)', () => {
   it('a caller holding the grant reads and gets the rows (the control)', async () => {
-    const { result } = await mountFeed(payload({ objects: { sys_activity: { allowRead: true } } }));
+    const { result } = await mountFeed(payload({ objects: { sys_activity: { allowRead: true }, crm_lead: { allowRead: true } } }));
     expect(reads).toEqual(['u1']);
     expect(result.current).toMatchObject({ readable: true, status: 'ready' });
     expect(result.current.value.map((a) => a.id)).toEqual(['act_u1']);
@@ -156,7 +163,7 @@ describe('a read that is refused anyway is not an empty feed (objectui#12081)', 
       httpStatus: 403,
       code: 'PERMISSION_DENIED',
     });
-    const { result } = await mountFeed(payload({ objects: { sys_activity: { allowRead: true } } }));
+    const { result } = await mountFeed(payload({ objects: { sys_activity: { allowRead: true }, crm_lead: { allowRead: true } } }));
     expect(reads).toEqual(['u1']);
     expect(result.current).toMatchObject({ readable: true, status: 'error', value: [] });
   });
@@ -172,7 +179,7 @@ describe("the next user in the tab is not served the previous user's rows (objec
     first.unmount();
 
     currentUser = { id: 'u2' };
-    const second = renderHook(() => useSharedActivityFeed());
+    const second = renderHook(() => useSharedActivityFeed(), { wrapper: withRoster() });
     // Before the second read lands: nothing of u1's on screen.
     expect(second.result.current.value.map((a) => a.id)).not.toContain('act_u1');
     await settle();

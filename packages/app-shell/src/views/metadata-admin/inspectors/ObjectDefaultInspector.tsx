@@ -26,6 +26,7 @@ import { Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } 
 import { toFieldNameLoose } from '../previews/object-fields-io.js';
 import { slugify } from '../createDerive.js';
 import { t } from '../i18n.js';
+import { IconPickerWidget } from '../widgets.js';
 
 export function ObjectDefaultInspector({
   name,
@@ -41,6 +42,7 @@ export function ObjectDefaultInspector({
 
   // Auto-derive name from label until the user edits name directly.
   const nameTouched = React.useRef(false);
+  const iconFieldId = React.useId();
 
   const setLabel = (v: string) => {
     const patch: Record<string, unknown> = { label: v || undefined };
@@ -91,16 +93,20 @@ export function ObjectDefaultInspector({
           disabled={readOnly}
           placeholder={tr('designer.object.pluralPlaceholder')}
         />
-        <Field hint={tr('designer.object.iconHint')}>
-          <InspectorTextField
-            label={tr('designer.object.icon')}
+        {/* objectui#12531 — the icon is picked from the catalog the console
+            ships (preview, search, an inline warning on a name that matches no
+            icon) rather than typed blind. Clearing it patches `icon: undefined`,
+            as the text field this replaced did. */}
+        <div className="space-y-1">
+          <Label htmlFor={iconFieldId} className="text-xs text-muted-foreground">{tr('designer.object.icon')}</Label>
+          <IconPickerWidget
+            id={iconFieldId}
+            schema={{ type: 'string' }}
             value={str('icon')}
-            onCommit={(v) => onPatch({ icon: v || undefined })}
-            disabled={readOnly}
-            mono
-            placeholder="building"
+            onChange={(v) => onPatch({ icon: typeof v === 'string' && v !== '' ? v : undefined })}
+            readOnly={readOnly}
           />
-        </Field>
+        </div>
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">{tr('designer.object.description')}</Label>
           <textarea

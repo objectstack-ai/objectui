@@ -138,7 +138,7 @@ import {
   StudioCanvasNavEntryContext,
   type StudioCanvasNavEntry,
 } from './studio-canvas-preview.js';
-import { ObjectListViewInspector, useObjectListViewDraft } from './ObjectListViewInspector.js';
+import { ObjectListViewInspector, useObjectListViewDraft, type DraftOnlyObjects } from './ObjectListViewInspector.js';
 import {
   DEFAULT_PAGE_SOURCE_KIND,
   NO_REPORT_BINDING,
@@ -3130,9 +3130,14 @@ export function InterfacesPillar({
     () => Object.fromEntries(pkgObjects.map((o) => [o.name, o.icon])),
     [pkgObjects],
   );
+  // objectui#12508 — the package's draft-only objects (a pending draft, no
+  // published row), stamped with the publish they were read under: the
+  // list-view buffer skips `/layers` for a view of one of them.
+  const [draftOnlyObjects, setDraftOnlyObjects] = React.useState<DraftOnlyObjects | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
+    const readUnder = publishNonce;
     (async () => {
       try {
         const [pub, drafts] = await Promise.all([
@@ -3148,6 +3153,13 @@ export function InterfacesPillar({
           byName.set(name, { name, label: String(o.label ?? o.name ?? name), icon: o.icon ? String(o.icon) : undefined });
         }
         setPkgObjects([...byName.values()]);
+        const publishedNames = new Set((pub || []).map((o) => String((o as Record<string, unknown>).name ?? '')));
+        const draftOnly = new Set<string>();
+        for (const d of drafts || []) {
+          const name = String((d as Record<string, unknown>).name ?? '');
+          if (name && !publishedNames.has(name)) draftOnly.add(name);
+        }
+        setDraftOnlyObjects({ publishNonce: readUnder, names: draftOnly });
       } catch {
         /* non-fatal — picker just stays empty */
       }
@@ -3489,7 +3501,7 @@ export function InterfacesPillar({
   // objectui#11823 — an `object` leaf's list view: the third buffer, edited in
   // the Properties panel and shown on the canvas, autosaved to the package
   // draft like the other two. Blocked on `readOnly` like them.
-  const listView = useObjectListViewDraft({ client, packageId, leaf: current, publishNonce, onDraftSaved });
+  const listView = useObjectListViewDraft({ client, packageId, leaf: current, publishNonce, draftOnlyObjects, onDraftSaved });
   useDraftAutoSave({
     target: listView.targetKey,
     loadedFor: listView.loadedFor,
@@ -4884,6 +4896,10 @@ export function DataPillar({
   // Tracks which object's baseline is currently loaded — so we (re)load exactly
   // once per selected object and never clobber an in-progress draft.
   const loadedNameRef = React.useRef<string | null>(null);
+  // objectui#12508 — the names the package's published list answered at the
+  // rail's last read; `null` until it has answered. The object load below
+  // reads it to tell a draft-only object from a published one.
+  const publishedObjectNamesRef = React.useRef<ReadonlySet<string> | null>(null);
   // objectui#11773 — the version `objDraft` was saved at, sent as `If-Match` by
   // every save of this buffer (the autosave and the column reorder). A
   // conflict's "reload" re-runs the load below for the open object.
@@ -4993,6 +5009,7 @@ export function DataPillar({
           .map((o) => ({ type: 'object', name: String(o.name ?? ''), label: String(o.label ?? o.name ?? ''), icon: o.icon ? String(o.icon) : undefined }))
           .filter((o) => o.name);
         const known = new Set(items.map((o) => o.name));
+        publishedObjectNamesRef.current = new Set(known);
         for (const d of draftHeaders) {
           if (d.name && !known.has(d.name)) {
             items.push({ type: 'object', name: d.name, label: draftLabels.get(d.name) ?? d.name, icon: undefined });
@@ -5039,10 +5056,24 @@ export function DataPillar({
       try {
         // objectui#11773 — the draft is read at the address the object saves
         // write, so the version it serves pins the first of them.
-        const [layRaw, draftRead] = await Promise.all([
-          client.layered<Record<string, unknown>>('object', current.name),
-          readDraftForSave<Record<string, unknown>>(client, 'object', current.name, packageId),
-        ]);
+        const readLayers = () => client.layered<Record<string, unknown>>('object', current.name);
+        const readDraft = () => readDraftForSave<Record<string, unknown>>(client, 'object', current.name, packageId);
+        // objectui#12508 — a draft-only object (a pending draft, and no row in
+        // the package's published list) has no layer, and `/layers` answers
+        // 404 for it. So for a name the published list does not hold, the
+        // draft is read first and the layers only without one: a name
+        // published since the rail's read has no pending draft either, so it
+        // is still asked. A published name reads both at once, as before.
+        const publishedNames = publishedObjectNamesRef.current;
+        let layRaw: unknown;
+        let draftRead: Awaited<ReturnType<typeof readDraft>>;
+        if (publishedNames && !publishedNames.has(current.name)) {
+          draftRead = await readDraft();
+          if (cancelled) return;
+          layRaw = extractDraftBody(draftRead.answer) ? {} : await readLayers();
+        } else {
+          [layRaw, draftRead] = await Promise.all([readLayers(), readDraft()]);
+        }
         if (cancelled) return;
         const lay = layRaw as { effective?: Record<string, unknown>; code?: Record<string, unknown> };
         const baseline = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;

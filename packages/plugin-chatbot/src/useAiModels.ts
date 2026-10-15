@@ -42,6 +42,21 @@ interface RawModel {
   [key: string]: unknown;
 }
 
+/**
+ * objectui#12508 — the model URLs that answered 501 Not Implemented in this
+ * session: the server mounts no AI service there (`@objectstack/service-ai`
+ * is absent). Unlike the cold-boot answers the retry below waits out, a 501
+ * does not change while the page lives, so such a URL is asked once per
+ * session and never again: not retried, not on a remount, not on a route
+ * change.
+ */
+const noAiServiceUrls = new Set<string>();
+
+/** Test-only: forget the session's 501 answers. Not exported from the package. */
+export function resetAiModelsSession(): void {
+  noAiServiceUrls.clear();
+}
+
 function normalize(raw: RawModel[]): ChatbotModelOption[] {
   return raw
     .filter((m) => typeof m?.id === 'string' && (m.id as string).length > 0)
@@ -74,6 +89,8 @@ export function useAiModels(options: UseAiModelsOptions = {}): UseAiModelsReturn
     const controller = new AbortController();
     let cancelled = false;
     const url = `${apiBase.replace(/\/$/, '')}/models`;
+    // No AI service here, already answered this session: nothing to ask.
+    if (noAiServiceUrls.has(url)) return;
 
     // The env runtime may cold-boot its per-env kernel on first access, so the
     // very first /models hit can transiently 404/503 or return an empty set
@@ -93,6 +110,15 @@ export function useAiModels(options: UseAiModelsOptions = {}): UseAiModelsReturn
           credentials: 'include',
           signal: controller.signal,
         });
+        if (res.status === 501) {
+          // No AI service: an empty picker, not an error, and never asked again.
+          noAiServiceUrls.add(url);
+          if (cancelled) return;
+          setModels([]);
+          setDefaultModelId(undefined);
+          setIsLoading(false);
+          return;
+        }
         if (!res.ok) throw new Error(`Failed to load AI models (${res.status})`);
         const payload = (await res.json()) as { models?: RawModel[]; defaultModel?: string } | RawModel[];
         if (cancelled) return;

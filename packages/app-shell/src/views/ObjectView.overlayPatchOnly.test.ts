@@ -55,7 +55,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ObjectStackAdapter, VIEW_OVERLAY_OWNED_KEYS } from '@object-ui/data-objectstack';
 import { buildPersistedViewBody, buildViewTabs, loadViewOverrides, sanitizeViewOverride } from './ObjectView';
-import { stripComments } from '../../../../scripts/js-comment-mask.mjs';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { stripComments as stripCommentsUntyped } from '../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const stripComments: (source: string) => string = stripCommentsUntyped;
 
 const OBJECT_NAME = 'crm_lead';
 const VIEW_ID = 'crm_lead.default';

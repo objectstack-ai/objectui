@@ -311,10 +311,13 @@ function readRegistrations(raw: unknown): Record<string, FlowRegistration> | und
  * a server version it cannot check.
  */
 export interface MetadataDraftHeader
-  extends Pick<
-    ListDraftsResponse['drafts'][number],
-    'type' | 'name' | 'member' | 'packageId' | 'updatedAt' | 'updatedBy'
-  > {}
+  extends Pick<ListDraftsRow, 'type' | 'name' | 'packageId' | 'updatedAt' | 'updatedBy'> {
+  /** The bundle member, typed by the spec row's own `member` (see above). */
+  member?: ListDraftsRow['member'];
+}
+
+/** One element of `ListDraftsResponseSchema.drafts`, the spec row `MetadataDraftHeader` derives from. */
+type ListDraftsRow = ListDraftsResponse['drafts'][number];
 
 /**
  * What {@link MetadataClient.publishPackageDrafts} resolves with — the "publish

@@ -104,6 +104,15 @@ function graphOrder(flow: Rec): Rec[] {
   return ordered;
 }
 
+/** Every graph of a flow, regions included; a definition the walk cannot read has none. */
+function flowGraphs(flow: Rec): ReturnType<typeof collectFlowGraphs> {
+  try {
+    return collectFlowGraphs(flow as Parameters<typeof collectFlowGraphs>[0]);
+  } catch {
+    return [];
+  }
+}
+
 /**
  * The object one flow is grouped under, or `null` (see the file header for the
  * order of the questions). `inScope` says whether an object is one of the
@@ -123,13 +132,7 @@ export function flowGroupObject(flow: unknown, inScope: (objectName: string) => 
     const object = nonEmpty(configOf(node).objectName);
     if (object && inScope(object)) return object;
   }
-  let graphs: ReturnType<typeof collectFlowGraphs> = [];
-  try {
-    graphs = collectFlowGraphs(flow as Parameters<typeof collectFlowGraphs>[0]);
-  } catch {
-    graphs = [];
-  }
-  for (const graph of graphs) {
+  for (const graph of flowGraphs(flow)) {
     for (const node of graph.nodes) {
       if (!WRITE_NODE_TYPES.has(node.type)) continue;
       const object = nonEmpty(isRec(node.config) ? node.config.objectName : undefined);

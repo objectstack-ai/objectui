@@ -207,7 +207,7 @@ import {
 } from '../metadata-admin/previews/flow-problems.js';
 import {
   FlowMetaPills,
-  FlowPreviewChromeContext,
+  FlowPreviewChromeProvider,
   type FlowPreviewSection,
   type FlowProblemTally,
 } from '../metadata-admin/previews/FlowPreview.js';
@@ -6311,7 +6311,7 @@ export function AutomationsPillar({
         const item: Surface = { type: 'flow', name, label };
         setFlows((fs) => [...fs.filter((f) => f.name !== name), item]);
         // objectui#12454 — and groups by what it was born with.
-        setFlowDefinitions((m) => new Map(m).set(name, skeleton));
+        setFlowDefinitions((m) => new Map([...m, [name, skeleton]]));
         setCurrent(item);
         setHasDraft(true);
         setCreating(false);
@@ -6580,7 +6580,7 @@ export function AutomationsPillar({
   // an edit to its Start node moves its row as it moves the header's Trigger.
   const liveFlowDefinitions = React.useMemo(() => {
     if (!current || draftFor !== `flow:${current.name}`) return flowDefinitions;
-    return new Map(flowDefinitions).set(current.name, draft);
+    return new Map<string, unknown>([...flowDefinitions, [current.name, draft]]);
   }, [flowDefinitions, current, draftFor, draft]);
   const railGroups = React.useMemo(
     () =>
@@ -6926,7 +6926,7 @@ export function AutomationsPillar({
                   <FlowRegistrationContext.Provider value={flowRegistrations[current.name]}>
                     {/* objectui#12454 — the header holds the meta and the tabs, so the
                         preview shows the open tab's section and draws no bar of its own. */}
-                    <FlowPreviewChromeContext.Provider
+                    <FlowPreviewChromeProvider
                       value={{ section, onSectionChange: setFlowSection, onProblemsChange: setProblemTally }}
                     >
                       {React.createElement(Preview, {
@@ -6943,7 +6943,7 @@ export function AutomationsPillar({
                         onPatch: readOnly ? undefined : onPatch,
                         locale,
                       })}
-                    </FlowPreviewChromeContext.Provider>
+                    </FlowPreviewChromeProvider>
                   </FlowRegistrationContext.Provider>
                 </FlowRuntimeContext.Provider>
               ) : (

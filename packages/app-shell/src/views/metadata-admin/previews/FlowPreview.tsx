@@ -110,7 +110,12 @@ export interface FlowPreviewChrome {
   onProblemsChange: (tally: FlowProblemTally) => void;
 }
 
-export const FlowPreviewChromeContext = React.createContext<FlowPreviewChrome | null>(null);
+const FlowPreviewChromeContext = React.createContext<FlowPreviewChrome | null>(null);
+
+/** Provides {@link FlowPreviewChrome} to the flow preview below it. */
+export function FlowPreviewChromeProvider({ value, children }: { value: FlowPreviewChrome; children?: React.ReactNode }) {
+  return <FlowPreviewChromeContext.Provider value={value}>{children}</FlowPreviewChromeContext.Provider>;
+}
 
 /**
  * The header's Trigger pill (objectui#11779): the trigger the engine arms this

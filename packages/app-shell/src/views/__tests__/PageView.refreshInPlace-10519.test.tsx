@@ -374,14 +374,15 @@ describe('a page action refreshes the page in place (objectui#10519)', () => {
 
   it('interface branch: the same list re-issues its query once', async () => {
     const ds = mount(INTERFACE_PAGE);
-    // A node rendered INSIDE `ListView` (its toolbar's own refresh control) —
-    // replaced wholesale by a key remount of the branch above it.
-    await waitFor(() => expect(screen.getByTestId('refresh-button')).toBeTruthy());
+    // A node rendered INSIDE `ListView` (its toolbar's own Display control,
+    // which holds the refresh entry since objectui#12423) — replaced wholesale
+    // by a key remount of the branch above it.
+    await waitFor(() => expect(screen.getByTestId('toolbar-display-trigger')).toBeTruthy());
     await waitFor(() => expect(listQueries(ds)).toBeGreaterThan(0));
     await settle();
 
     const page = screen.getByTestId('interface-list-page');
-    const node = screen.getByTestId('refresh-button');
+    const node = screen.getByTestId('toolbar-display-trigger');
     const before = listQueries(ds);
 
     await runPageAction();
@@ -391,7 +392,7 @@ describe('a page action refreshes the page in place (objectui#10519)', () => {
       '(a) The page action REMOUNTED the interface page: the refresh counter is back in the\n'
         + '`<InterfaceListPage>` key (AGENTS.md #8: refresh data, don\'t rebuild UI).',
     ).toBe(page);
-    expect(screen.getByTestId('refresh-button'), '(a) the action REMOUNTED the list').toBe(node);
+    expect(screen.getByTestId('toolbar-display-trigger'), '(a) the action REMOUNTED the list').toBe(node);
     expect(
       listQueries(ds) - before,
       '(b) The list did not re-query after the action, or re-queried more than once. It reads\n'

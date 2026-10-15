@@ -68,6 +68,7 @@ import {
   Settings2,
   ChevronDown,
   ListOrdered,
+  Check,
 } from 'lucide-react';
 import {
   DndContext,
@@ -412,7 +413,7 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
   const measureKey = useMemo(
     () => JSON.stringify([
       activeViewId,
-      sortedViews.map(v => [v.id, v.label, v.type, !!v.isPinned, !!v.isDefault, !!v.readonly, v.visibility ?? '']),
+      sortedViews.map(v => [v.id, v.label, v.type, !!v.isPinned, !!v.readonly, v.visibility ?? '']),
     ]),
     [activeViewId, sortedViews],
   );
@@ -571,6 +572,25 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
 
     const visibilityIcon = getVisibilityIcon(view);
 
+    /**
+     * The "Set as default" entry, which since objectui#12423 also carries the
+     * state the tab's star used to show: on the default view the star is
+     * filled and a check closes the row, and the item says `aria-current`.
+     */
+    const defaultEntryFace = (
+      <>
+        <Star className={cn('h-4 w-4 mr-2', view.isDefault && 'fill-amber-500 text-amber-500')} />
+        {viewTabLabel('view.setAsDefault', 'Set as default')}
+        {view.isDefault && (
+          <Check
+            aria-hidden="true"
+            data-testid={`view-tab-default-check-${view.id}`}
+            className="ml-auto pl-2 h-4 w-6 shrink-0"
+          />
+        )}
+      </>
+    );
+
     const hasActionsMenu = isActive && dropdownHasEntry;
 
     const buildTabFace = (dragHandleProps?: { isDragging?: boolean }) => (
@@ -625,9 +645,8 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
             </TooltipContent>
           </Tooltip>
         )}
-        {view.isDefault && (
-          <Star className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0" />
-        )}
+        {/* No default-view star on the tab since objectui#12423: the tab's
+            "Set as default" entry says which view is the default. */}
       </>
     );
 
@@ -689,9 +708,10 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
               {setDefaultAction && (
                 <DropdownMenuItem
                   data-testid={`view-tab-menu-default-${view.id}`}
+                  aria-current={view.isDefault ? 'true' : undefined}
                   onClick={() => setDefaultAction(view.id)}
                 >
-                  <Star className="h-4 w-4 mr-2" /> {viewTabLabel('view.setAsDefault', 'Set as default')}
+                  {defaultEntryFace}
                 </DropdownMenuItem>
               )}
               {pinAction && (
@@ -841,9 +861,10 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
             {setDefaultAction && (
               <ContextMenuItem
                 data-testid={`context-menu-default-${view.id}`}
+                aria-current={view.isDefault ? 'true' : undefined}
                 onClick={() => setDefaultAction(view.id)}
               >
-                <Star className="h-4 w-4 mr-2" /> {viewTabLabel('view.setAsDefault', 'Set as default')}
+                {defaultEntryFace}
               </ContextMenuItem>
             )}
             {pinAction && (

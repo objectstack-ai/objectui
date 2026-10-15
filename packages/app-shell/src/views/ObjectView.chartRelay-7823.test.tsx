@@ -252,6 +252,12 @@ const queryViewOption = (name: string) =>
  */
 async function chartOffered(view: Record<string, unknown>): Promise<boolean> {
   await mountObjectList({ appearance: { allowedVisualizations: ['grid', 'chart'] }, ...view });
+  // objectui#12423 — the switcher is the Display panel's Layout row by default.
+  const display = screen.queryByTestId('toolbar-display-trigger');
+  if (display) {
+    fireEvent.click(display);
+    await screen.findByTestId('view-settings-content');
+  }
   const trigger = screen.queryByTestId('view-switcher-dropdown');
   if (trigger) fireEvent.click(trigger);
   return Boolean(queryViewOption('Chart'));

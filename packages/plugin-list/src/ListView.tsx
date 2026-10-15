@@ -5385,6 +5385,10 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               button above; the panel adds no storage of its own. Drawn on
               mobile too (icon only): Refresh and Export live in it. */}
           {toolbarFlags.compactToolbar && (
+            viewSwitcherOffered || toolbarFlags.showGroup || toolbarFlags.showColor || toolbarFlags.showDensity
+            || toolbarFlags.showHideFields || currentView === 'grid' || toolbarFlags.showRefresh
+            || (resolvedExportOptions && exportPermitted && exportableFormats.length > 0)
+          ) && (
             <ViewSettingsPopover
               t={t as any}
               allFields={allFields as any}

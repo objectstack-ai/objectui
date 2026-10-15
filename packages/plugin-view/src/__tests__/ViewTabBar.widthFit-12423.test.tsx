@@ -40,9 +40,13 @@ const ICONS: ViewTabBarProps['viewTypeIcons'] = {
 /** A tab draws 98 px; with the strip's 2 px gap that is 100 px a tab. */
 const TAB_PX = 98;
 
+/** The ▾ actions button on the current tab adds this much to its frame. */
+const CHEVRON_PX = 24;
+
 /**
  * Lay the strip out at `stripPx`: 612 px holds six tabs (6 × 100) plus a
- * trigger of up to 88 px at 700, and never seven (714 + trigger).
+ * trigger of up to 88 px at 700, and never seven (714 + trigger). A frame
+ * holding the current tab's actions button is `CHEVRON_PX` wider.
  */
 function layOut(stripPx: number) {
   return vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
@@ -50,7 +54,7 @@ function layOut(stripPx: number) {
       this.getAttribute('data-testid') === 'view-tab-strip'
         ? stripPx
         : this.hasAttribute('data-view-tab-frame')
-          ? TAB_PX
+          ? TAB_PX + (this.querySelector('[data-testid^="view-tab-actions-"]') ? CHEVRON_PX : 0)
           : 0;
     return { width, height: 0, top: 0, left: 0, right: width, bottom: 0, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
   });
@@ -115,6 +119,15 @@ describe('ViewTabBar fits its tabs to the strip width (objectui#12423)', () => {
     expect(screen.getByTestId('view-tab-overflow')).toHaveTextContent('5 more');
   });
 
+  it('the current tab\'s ▾ menu button counts toward the width: six plain tabs fit, five once it is drawn', () => {
+    layOut(700);
+    render(bar({ onRenameView: vi.fn() }));
+    // 124 + 4 × 100 = 524, + 80 for the trigger = 604 ≤ 700; a sixth tab makes 704.
+    expect(screen.getByTestId('view-tab-actions-v1')).toBeInTheDocument();
+    expect(shownTabs()).toEqual(['v1', 'v2', 'v3', 'v4', 'v5']);
+    expect(screen.getByTestId('view-tab-overflow')).toHaveTextContent('3 more');
+  });
+
   it('a width that holds every view draws no "more" trigger', () => {
     layOut(1200);
     render(bar());
@@ -166,6 +179,32 @@ describe('ViewTabBar tab faces (objectui#12423)', () => {
     expect(screen.queryByTestId('view-tab-type-icon-all')).toBeNull();
     // A type the host maps no icon to draws none, rather than a table glyph.
     expect(screen.queryByTestId('view-tab-type-icon-odd')).toBeNull();
+  });
+
+  it('the default view draws no star on its tab; its "Set as default" entry carries the state', () => {
+    const views: ViewTabItem[] = [
+      { id: 'all', label: 'All', type: 'grid', isDefault: true },
+      { id: 'mine', label: 'Mine', type: 'grid' },
+    ];
+    const { rerender } = render(bar({ views, activeViewId: 'all', onSetDefaultView: vi.fn() }));
+    expect(screen.getByTestId('view-tab-all').querySelectorAll('svg')).toHaveLength(0);
+
+    const openMenu = (id: string) => {
+      const trigger = screen.getByTestId(`view-tab-actions-${id}`);
+      fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+      fireEvent.click(trigger);
+      return screen.getByRole('menu');
+    };
+    const onDefault = within(openMenu('all')).getByTestId('view-tab-menu-default-all');
+    expect(onDefault).toHaveAttribute('aria-current', 'true');
+    expect(within(onDefault).getByTestId('view-tab-default-check-all')).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+
+    // Control: a view that is not the default says nothing of the kind.
+    rerender(bar({ views, activeViewId: 'mine', onSetDefaultView: vi.fn() }));
+    const offDefault = within(openMenu('mine')).getByTestId('view-tab-menu-default-mine');
+    expect(offDefault).not.toHaveAttribute('aria-current');
+    expect(within(offDefault).queryByTestId('view-tab-default-check-mine')).toBeNull();
   });
 
   it('a view passed with hasActiveFilters / hasActiveSort draws no filter or sort glyph on its tab', () => {

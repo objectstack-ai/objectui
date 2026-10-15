@@ -51,7 +51,7 @@ import type { ConsolePageHeaderProps } from '../PageHeader';
 import type { PageHeaderComponentProps as LayoutPageHeaderProps } from '@object-ui/layout';
 
 describe('the secondary line renders from `subtitle`', () => {
-  it('draws it beneath the title, inside the header', () => {
+  it('draws it after the title, inside the header', () => {
     render(<PageHeader title="Accounts" subtitle="Everything your team owns" />);
 
     const header = screen.getByTestId('page-header');
@@ -59,8 +59,9 @@ describe('the secondary line renders from `subtitle`', () => {
     const line = screen.getByText('Everything your team owns');
 
     expect(h1?.textContent).toBe('Accounts');
-    // A `<p>`, in the same title block as the `<h1>`, positioned after it —
-    // i.e. the line a reader sees UNDER the title, not a stray node parked
+    // A `<p>`, in the same title row as the `<h1>`, positioned after it —
+    // i.e. the line a reader sees beside the title (one row since
+    // objectui#12423; it sat under the title before), not a stray node parked
     // elsewhere in the header that happens to carry the text.
     expect(line.tagName).toBe('P');
     expect(header.contains(line)).toBe(true);

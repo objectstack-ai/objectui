@@ -214,7 +214,9 @@ describe('ResourceEditPage — one server verdict drives icon, confirm and branc
 
     await userEvent.click(btn);
 
-    await waitFor(() => expect(mockClient.reset).toHaveBeenCalledWith('object', 'showcase_account'));
+    // No `?package=` on this editor's URL, so the options carry no package
+    // key at all (objectui#12335): absent, never empty.
+    await waitFor(() => expect(mockClient.reset).toHaveBeenCalledWith('object', 'showcase_account', {}));
     expect(confirmMessages).toEqual([
       'Delete object/showcase_account? This cannot be undone.',
     ]);
@@ -232,7 +234,7 @@ describe('ResourceEditPage — one server verdict drives icon, confirm and branc
 
     await userEvent.click(btn);
 
-    await waitFor(() => expect(mockClient.reset).toHaveBeenCalledWith('object', 'showcase_account'));
+    await waitFor(() => expect(mockClient.reset).toHaveBeenCalledWith('object', 'showcase_account', {}));
     expect(confirmMessages).toEqual(['Reset overlay for object/showcase_account?']);
     // The reset branch re-reads the layered envelope in place …
     await waitFor(() => expect(mockClient.layered.mock.calls.length).toBeGreaterThan(1));

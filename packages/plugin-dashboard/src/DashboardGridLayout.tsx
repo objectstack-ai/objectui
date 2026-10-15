@@ -637,6 +637,15 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
             // and border like its neighbours, instead of showing as bare text
             // (`DashboardRenderer`'s `isSelfContained`, same rule, same reason).
             const isSelfContained = resolveWidgetType(widget) === 'metric' && !datasetBound;
+            // objectui#12573 — a dataset-bound METRIC tile draws no card
+            // header, as on `DashboardRenderer` (objectui#12528): the header
+            // (title) over the tile (value, then the measure label) stacked
+            // three lines for one number. The surface hands `DatasetWidget` a
+            // `heading` instead, and `DatasetWidget` draws the title and the
+            // measure label on one line above the value — the one derivation
+            // of that line for both surfaces. In edit mode the drag handle the
+            // header carried sits over the tile's top-right corner.
+            const datasetMetric = datasetBound && resolveWidgetType(widget) === 'metric';
             // `DashboardWidget.title` is the spec's `I18nLabel`: since
             // 17.0.0-rc.6 an author may inline a per-locale map
             // (`{ en: 'Pipeline', 'zh-CN': '销售漏斗' }`) instead of a string.
@@ -660,9 +669,15 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
                   <Card className={cn(
                     "h-full overflow-hidden border-border/50 shadow-sm transition-all",
                     "bg-card/50 backdrop-blur-sm",
-                    editMode && "ring-2 ring-primary/20"
+                    editMode && "ring-2 ring-primary/20",
+                    datasetMetric && "relative"
                   )}>
-                    {widgetTitle && (
+                    {datasetMetric && editMode && (
+                      <div className="drag-handle absolute top-2 right-2 z-10 cursor-move p-1 bg-background/80 rounded border border-border">
+                        <GripVertical className="h-4 w-4" />
+                      </div>
+                    )}
+                    {widgetTitle && !datasetMetric && (
                       <CardHeader className="pb-2 border-b border-border/40 bg-muted/20 flex flex-row items-center justify-between">
                         <CardTitle className="text-base font-medium tracking-tight truncate" title={widgetTitle}>
                           {widgetTitle}
@@ -675,7 +690,7 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
                       </CardHeader>
                     )}
                     <CardContent className="p-0 h-full">
-                      <div className={cn("h-full w-full overflow-auto p-4")}>
+                      <div className={cn("h-full w-full overflow-auto p-4", datasetMetric && editMode && "pr-10")}>
                         {/*
                           The fork itself, mirroring `DashboardRenderer`'s.
                           The widget arm is passed whole: DatasetWidget reads
@@ -695,6 +710,12 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
                           ? <DatasetWidget
                               widget={datasetWidget}
                               dataSource={dataSource}
+                              heading={datasetMetric
+                                ? {
+                                    title: widgetTitle,
+                                    description: pickLocalized(datasetWidget.description, language) || undefined,
+                                  }
+                                : undefined}
                             />
                           : <SchemaRenderer schema={componentSchema} />}
                       </div>

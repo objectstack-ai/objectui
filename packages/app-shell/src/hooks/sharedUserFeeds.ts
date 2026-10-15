@@ -71,7 +71,8 @@ import { errorCodeIs } from '@object-ui/types';
 // so a consumer that stubs the provider stubs this too.
 import { useAdapter } from '../providers/AdapterProvider.js';
 import type { NavigationItem } from '@object-ui/types';
-import { useMetadata } from '@object-ui/react';
+// Through the provider module, as `useNavMemberGates` reads it: one app list.
+import { useMetadata } from '../providers/MetadataProvider.js';
 import { metadataTypeSettled, useObjectPresence } from './useObjectPresence.js';
 import { navEntriesShownToMember, useNavMemberGates, type NavMemberGates } from './useNavMemberGates.js';
 import { filterActiveApps } from '../utils/appRoute.js';

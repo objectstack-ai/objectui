@@ -151,8 +151,11 @@ vi.mock('@object-ui/auth', async (importOriginal) => ({
   useWorkspaceAdminStatus: () => ({ isAdmin: false, isResolved: true }),
 }));
 
+// One app listing `hr_contract`: the bell's Activity tab reads only the objects
+// an app lists (objectui#12530), and `ACTIVITY_ROW` below is one of its rows.
+const EHR_APP = { name: 'ehr', label: 'EHR', navigation: [{ id: 'nav_contract', type: 'object', objectName: 'hr_contract' }] };
 vi.mock('../../providers/MetadataProvider', () => ({
-  useMetadata: () => ({ apps: [], dashboards: [], pages: [], reports: [] }),
+  useMetadata: () => ({ apps: [EHR_APP], dashboards: [], pages: [], reports: [] }),
 }));
 
 // ── The inbox fixture: exactly what MessagingService materializes ────────────
@@ -807,6 +810,9 @@ describe('AppHeader — the Activity tab asks only a caller who may read sys_act
     objects: {
       ...MEMBER.objects,
       sys_activity: { allowRead: true, allowCreate: false, allowEdit: false, allowDelete: false },
+      // The object its app lists: the roster is pruned by the same read gate
+      // the sidebar applies (objectui#12530).
+      hr_contract: { allowRead: true, allowCreate: false, allowEdit: false, allowDelete: false },
     },
   };
 

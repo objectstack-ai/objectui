@@ -83,19 +83,19 @@ describe('autoLayout', () => {
   });
 
   describe('inferModalSize', () => {
-    it('returns default for 0 or 1 column', () => {
-      expect(inferModalSize(0)).toBe('default');
-      expect(inferModalSize(1)).toBe('default');
+    it('returns lg for 0 or 1 column', () => {
+      expect(inferModalSize(0)).toBe('lg');
+      expect(inferModalSize(1)).toBe('lg');
     });
 
     it('returns xl for 2 columns', () => {
       expect(inferModalSize(2)).toBe('xl');
     });
 
-    it('returns full for 3+ columns', () => {
-      expect(inferModalSize(3)).toBe('full');
-      expect(inferModalSize(4)).toBe('full');
-      expect(inferModalSize(5)).toBe('full');
+    it('stays bounded at xl for 3+ columns, never full (objectui#12521)', () => {
+      expect(inferModalSize(3)).toBe('xl');
+      expect(inferModalSize(4)).toBe('xl');
+      expect(inferModalSize(5)).toBe('xl');
     });
   });
 

@@ -357,18 +357,23 @@ export function sectionFormLayout(
 }
 
 /**
- * Infer an appropriate modal size based on the number of layout columns.
- * Used to auto-upgrade the modal width when auto-layout detects multi-column forms.
+ * Infer the modal size for a dialog whose author declared none, from the
+ * number of layout columns it will show.
  *
  * Mapping:
- * - 1 column   → 'default' (max-w-lg)
- * - 2 columns  → 'xl'      (max-w-5xl)
- * - 3+ columns → 'full'    (max-w-[95vw])
+ * - 0–1 column → 'lg' (max-w-2xl)
+ * - 2+ columns → 'xl' (max-w-5xl)
+ *
+ * ⛔ Never 'full' (objectui#12521): a derived dialog is bounded, and its width
+ * follows its content (the objectui#12080 ruling). 'full' (95vw) stays
+ * available to an author who declares `modalSize: 'full'`. The bound changes
+ * no grid class an authored layout carries: the field grid's tiers are
+ * container queries, so an authored section draws as many of its columns as
+ * the bounded dialog's width admits.
  */
 export function inferModalSize(columns: number): 'sm' | 'default' | 'lg' | 'xl' | 'full' {
-  if (columns <= 1) return 'default';
-  if (columns === 2) return 'xl';
-  return 'full';
+  if (columns <= 1) return 'lg';
+  return 'xl';
 }
 
 /**

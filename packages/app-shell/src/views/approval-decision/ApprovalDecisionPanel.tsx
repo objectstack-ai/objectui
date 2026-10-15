@@ -11,13 +11,17 @@
  * of objectui#2763; ruling 6079807016, letter 乙), the page component type
  * `record:approval_decision`.
  *
- * One node, two parts, both already shipped and both reused as they are:
+ * One node, three parts, each drawn by a piece already shipped:
  *
  *  1. **Progress** — `DecisionProgressIndicator` (A3), drawn from the request's
  *     server-computed `decision_progress` tally. It is present only on a
  *     pending node that aggregates more than one decision, and the panel draws
  *     it only then; nothing is re-derived here.
- *  2. **Decisions** — `DeclaredActionsBar` over `sys_approval_request`'s OWN
+ *  2. **Who the pending step waits on** (objectui#12482) — each pending
+ *     approver named, with a position's label and the countersign group the
+ *     slot fills, as the approvals inbox's request sheet names them. See
+ *     "Naming the pending approvers" below.
+ *  3. **Decisions** — `DeclaredActionsBar` over `sys_approval_request`'s OWN
  *     declared actions at `record_section`, the location and the bar the
  *     business record page already runs them through (objectui#3055). Every
  *     decision is an ordinary declared `type:'api'` action, its form is
@@ -25,6 +29,33 @@
  *     whether a viewer sees one is the action's own `visible` predicate over
  *     the request's server-computed `viewer` block. The panel adds no
  *     per-action code, so a new decision action is metadata alone.
+ *
+ * ## Naming the pending approvers (objectui#12482)
+ *
+ * The request row the page binds already carries everything a name needs:
+ * `pending_approvers` (the slots), `pending_approver_names` (the server's own
+ * id -> name answer for user ids, from the same approvals get) and, on a
+ * `per_group` node, `pending_approver_groups` (slot -> the group or groups it
+ * fills). So the names are drawn here, from that row, with no prop, no page
+ * edit and no spec row.
+ *
+ * The drawing is app-shell's one approver-naming path, the one the business
+ * record's approvals panel already draws its "Waiting on" chips with:
+ * `approverChips` (collapsed by name and group, so one person holding three
+ * quorum slots is one chip with a count, and two people sharing a name in two
+ * groups stay two chips) over `approverDisplay`. A reference the server left
+ * unnamed (`position:<name>`, `team:<id>`, …) is looked up once per slate by
+ * `useApproverDirectory`, whose module cache the decision buttons on the same
+ * request share; a slate the server named whole asks nothing. An id nothing
+ * can name keeps the identity formatter's face, the one the inbox's sheet
+ * draws for it, and every raw slot stays in the chip's `title`.
+ *
+ * Why not inside `DecisionProgressIndicator`: the indicator draws a tally, and
+ * a `first_response` node carries none, so the indicator is not drawn there at
+ * all while its approvers still wait. The inbox's sheet and the business
+ * record's panel both draw the tally and the names as two parts under two
+ * gates (a tally present; a pending request with a slot), and so does this
+ * panel.
  *
  * ## No authorable props
  *
@@ -69,11 +100,18 @@
 
 import * as React from 'react';
 import { notifyDataChanged, useObjectTranslation, useRecordContext } from '@object-ui/react';
-import { cn } from '@object-ui/components';
+import { cn, Badge } from '@object-ui/components';
 import { DecisionProgressIndicator } from '../approval-progress/DecisionProgressIndicator.js';
 import { DeclaredActionsBar } from '../DeclaredActionsBar.js';
+import { approverChips } from '../RecordApprovalsPanel.js';
 import { RECORD_APPROVAL_ACTION_LOCATION, SYS_APPROVAL_REQUEST_OBJECT } from '../recordApprovalActions.js';
 import type { ApprovalRequestLite } from '../../hooks/useRecordApprovals.js';
+import { useApproverDirectory } from '../../hooks/useApproverDirectory.js';
+import {
+  approverCopyFrom,
+  unresolvedApproverRefs,
+  type ApproverDisplayCopy,
+} from '../../utils/approverIdentity.js';
 
 /** The timeline object a decision appends a row to. */
 const APPROVAL_ACTION_OBJECT = 'sys_approval_action';
@@ -88,7 +126,57 @@ export interface ApprovalDecisionPanelProps {
   className?: string;
 }
 
-/** The two parts over one request row. Module-internal: no package export. */
+/**
+ * Who the pending step waits on: one chip per approver, named, with a
+ * position's label and the countersign group the slot fills (objectui#12482).
+ * Drawn on a pending request with at least one slot, as the inbox's sheet
+ * draws its "Waiting on" row; nothing otherwise.
+ */
+function PendingApprovers({ request }: { request: ApprovalRequestLite }) {
+  const { t } = useObjectTranslation();
+  const pending = request.status === 'pending';
+  // Only the references the server left unnamed, and none on a decided
+  // request, so a slate the approvals get named whole costs no request.
+  const refs = React.useMemo(
+    () => (pending ? unresolvedApproverRefs(request) : []),
+    [pending, request],
+  );
+  const directory = useApproverDirectory(refs);
+  const copy = React.useMemo<ApproverDisplayCopy>(
+    () => approverCopyFrom(t as unknown as Parameters<typeof approverCopyFrom>[0]),
+    [t],
+  );
+  if (!pending) return null;
+  const chips = approverChips(request, { directory, copy });
+  if (chips.length === 0) return null;
+  return (
+    <div data-testid="approval-decision-pending-approvers">
+      <div className="text-[11px] text-muted-foreground mb-1">
+        {String(t('approvalsInbox.waitingOn', { defaultValue: 'Waiting on' }))}
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {chips.map((chip, i) => (
+          <Badge
+            key={`${chip.label}-${chip.group ?? ''}-${i}`}
+            variant="outline"
+            className="text-[11px]"
+            // The raw slot belongs on hover, never as the identification.
+            title={chip.title}
+            data-testid="approver-chip"
+            data-unstaffed={chip.unstaffed ? 'true' : undefined}
+          >
+            {chip.label}
+            {chip.detail && <span className="ml-1 text-muted-foreground">· {chip.detail}</span>}
+            {chip.group && <span className="ml-1 text-muted-foreground">· {chip.group}</span>}
+            {chip.count > 1 && <span className="ml-1 text-muted-foreground">×{chip.count}</span>}
+          </Badge>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** The three parts over one request row. Module-internal: no package export. */
 export function ApprovalDecisionPanel({ request, className }: ApprovalDecisionPanelProps) {
   const progress = request.decision_progress;
   const eligible = (request.pending_approvers || []).length;
@@ -102,6 +190,7 @@ export function ApprovalDecisionPanel({ request, className }: ApprovalDecisionPa
   return (
     <div className={cn('space-y-3', className)} data-testid="approval-decision-panel">
       {progress && <DecisionProgressIndicator progress={progress} eligibleApprovers={eligible} />}
+      <PendingApprovers request={request} />
       <DeclaredActionsBar
         objectName={SYS_APPROVAL_REQUEST_OBJECT}
         record={request}

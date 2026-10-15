@@ -140,6 +140,15 @@ const at = (pack: unknown, path: string): unknown =>
  * eight new keys label the dataset, measure and dimension picks (`dataset`,
  * `datasetHelp`, `chartMeasure`, `chartMeasureHelp`, `chartDimension`,
  * `chartDimensionHelp`, `viewTypeUnavailableDataset`, `noDatasetMeasure`).
+ *
+ * ## The objectui#12504 change — 123 retired become 124
+ *
+ * `viewConfigPermissionDenied` (objectui#5232's addition, above) was the toast
+ * the console's toolbar write raised when the adapter's capability gate refused
+ * an org-wide view-config change. The maintainer's ruling on objectui#12504
+ * retired that write (`persistViewPatch`) with the adapter method and its gate
+ * (`updateViewConfig`), and the toast was its only producer, so the key left
+ * all ten packs. A retirement moves the split, not the total.
  */
 const RETIRED_OBJECT_VIEW_KEYS = [
   'accessibility',
@@ -269,17 +278,20 @@ const RETIRED_OBJECT_VIEW_KEYS = [
   'xAxisFieldHelp',
   'yAxisField',
   'yAxisFieldHelp',
+  // objectui#12504 — the refused toolbar view-write's toast; the write and the
+  // adapter gate that refused it retired together, and it had no other reader.
+  'viewConfigPermissionDenied',
 ] as const;
 
 /** How many keys the namespace keeps — the live + indirect-reference remainder. */
-const SURVIVING_KEY_COUNT = 104;
+const SURVIVING_KEY_COUNT = 103;
 
 describe('console.objectView config-panel keys are retired (objectui#4730)', () => {
   it('the retired list is the measured set', () => {
     // Guards the premise the rest of the file rests on. If this arithmetic ever
     // stops holding, the assertions below are checking a set nobody chose.
-    expect(RETIRED_OBJECT_VIEW_KEYS).toHaveLength(123);
-    expect(new Set(RETIRED_OBJECT_VIEW_KEYS).size).toBe(123);
+    expect(RETIRED_OBJECT_VIEW_KEYS).toHaveLength(124);
+    expect(new Set(RETIRED_OBJECT_VIEW_KEYS).size).toBe(124);
     // 209 at objectui#4730's landing; 210 since objectui#5232 added
     // `viewConfigPermissionDenied`; 211 since objectui#10636 added
     // `recordCountOne`, the record-count footer's singular; 217 since
@@ -287,7 +299,9 @@ describe('console.objectView config-panel keys are retired (objectui#4730)', () 
     // which moved the split, not the total); 225 since objectui#11576 added the
     // create-view dialog's eight dataset-binding keys (and retired its four axis
     // keys); 227 since objectui#12418 added `resetView` and `resetViewTitle`,
-    // the header's "Reset view" entry. The RETIRED half is a ratchet that never
+    // the header's "Reset view" entry (and objectui#12504 retired
+    // `viewConfigPermissionDenied`, which moved the split, not the total). The
+    // RETIRED half is a ratchet that never
     // runs BACKWARDS — it is pinned twice above, and objectui#8754 advanced it
     // 116 -> 118 — while the surviving half is a live namespace that grows on a
     // new key and shrinks by exactly what the retired half gains. Splitting

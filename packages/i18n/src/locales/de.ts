@@ -2109,7 +2109,6 @@ const de = {
       viewNameInvalid: "Verwenden Sie Kleinbuchstaben, Ziffern und Unterstriche; beginnen Sie mit einem Buchstaben oder Unterstrich.",
       systemViewReadonly: "Systemansicht — im Code definiert, schreibgeschützt.",
       cannotEditMetaView: "Diese Ansicht ist integriert und im Code definiert – sie kann nicht geändert werden.",
-      viewConfigPermissionDenied: "Ansichtseinstellungen gelten für alle Benutzer dieser Ansicht. Ihre Änderung erfordert daher die Berechtigung „Metadaten verwalten“. Bitten Sie einen Administrator, diese Änderung vorzunehmen.",
       resetView: "Ansicht zurücksetzen",
       resetViewTitle: "Sortierung, Filter und Spaltenbreiten dieser Ansicht auf ihre eigenen Einstellungen zurücksetzen. Nur Ihre Einstellungen ändern sich.",
       cannotDeleteMetaView: "Diese Ansicht ist integriert und im Code definiert – sie kann nicht gelöscht werden.",

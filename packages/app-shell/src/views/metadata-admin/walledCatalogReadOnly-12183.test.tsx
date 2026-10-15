@@ -192,6 +192,10 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  // objectui#12496 — the page now reopens the sheet a `?tab=` in the window
+  // URL names, and opening one writes it there; reset it so a sheet one test
+  // opened does not open in the next test's mount.
+  window.history.replaceState({}, '', '/');
   vi.unstubAllGlobals();
 });
 

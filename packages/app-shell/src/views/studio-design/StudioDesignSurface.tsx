@@ -31,7 +31,13 @@ import { StudioChatDock, type StudioSurfaceLabel } from './StudioAiCopilot.js';
 import { nextCenterTab, type StudioCenterTab } from './centerTab.js';
 import { AUTOMATIONS_CONFIG_FOLD_WIDTH, useIsNarrowerThan, useIsWideViewport } from './wideViewport.js';
 import { AppMark, type AppMarkApp } from '../../layout/AppMark.js';
-import { STUDIO_HEADER, STUDIO_HEADER_ICON_BUTTON, STUDIO_KIND_CHIP } from './studio-tokens.js';
+import {
+  STUDIO_HEADER,
+  STUDIO_HEADER_ICON_BUTTON,
+  STUDIO_HEADER_PILLAR,
+  STUDIO_HEADER_PILLAR_NAV,
+  STUDIO_KIND_CHIP,
+} from './studio-tokens.js';
 import { StudioInspector } from './StudioInspector.js';
 import { StudioItemHeader, StudioTab } from './StudioItemHeader.js';
 import { DATA_CONTENT_CONTAINER, DATA_TAB_FLAT_ONLY, DATA_TAB_FOLDED_ONLY } from './dataTabsFold.js';
@@ -874,7 +880,7 @@ function PackageSwitcher({
              SAME string in all three states for a package that declares no
              name, so the state cannot be recovered from the text. */
           data-pkg-list-state={pkgListState}
-          className="flex h-8 max-w-[180px] items-center gap-2 whitespace-nowrap rounded-md py-0.5 pl-1 pr-2 text-[13px] font-semibold hover:bg-muted xl:max-w-[280px]"
+          className="flex h-8 min-w-0 max-w-[180px] items-center gap-2 whitespace-nowrap rounded-md py-0.5 pl-1 pr-2 text-[13px] font-semibold hover:bg-muted xl:max-w-[280px]"
           title={t('engine.studio.pkg.switchTitle', locale)}
         >
           {/* objectui#11553 — the package-less scope names itself; there is
@@ -1568,17 +1574,12 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
         ) : null}
 
         <div className="flex min-w-0 flex-1 flex-col">
-          {/* `overflow-x-auto` — none of Package/pillars/Publish shrink (all
-            * `shrink-0`, and PackageSwitcher's trigger is `whitespace-nowrap`),
-            * so on a narrow viewport this whole strip overflows instead of any
-            * one piece silently clipping off past the screen edge. Scrolling
-            * the header is a worse look than a proper responsive redesign, but
-            * it guarantees every pillar and the Publish button stay reachable. */}
           <header className={STUDIO_HEADER} data-testid="studio-shell-header">
             {/* objectui#12459 — three columns: the package at the left, the
-                pillars centered whatever the two sides weigh, the package
-                actions at the right. The strip no longer scrolls on a narrow
-                viewport: each group shrinks inside its own column instead. */}
+                pillars centered, the package actions at the right.
+                objectui#12509 — below `sm` the pillars take a second row of
+                their own (`STUDIO_HEADER_PILLAR_NAV`), and on any row the
+                package chip is the piece that gives way. */}
             <div className="flex min-w-0 items-center gap-1">
               {/* Never a dead end: walk back to the platform Home / builder landing. */}
               <button
@@ -1592,11 +1593,11 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
               >
                 <HomeIcon className="h-4 w-4" />
               </button>
-              <div className="min-w-0">
+              <div className="flex min-w-0">
                 <PackageSwitcher packageId={packageId} tab={tab} beforeNavigate={confirmLeavePillar} app={packageApp} />
               </div>
             </div>
-            <nav className="flex items-center gap-0.5 rounded-lg bg-muted p-[3px]" data-testid="studio-pillar-nav">
+            <nav className={STUDIO_HEADER_PILLAR_NAV} data-testid="studio-pillar-nav">
               {/* objectui#11553 — the package-less scope offers its one pillar. */}
               {(packageId === null ? PILLARS.filter((p) => p.key === STUDIO_ORG_SCOPE_PILLAR) : PILLARS).map((p) => (
                 <Link
@@ -1614,7 +1615,8 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                   }}
                   title={t(`engine.studio.pillar.${p.key}`, locale)}
                   className={
-                    'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-[13px] transition-colors xl:px-3 ' +
+                    STUDIO_HEADER_PILLAR +
+                    ' ' +
                     (tab === p.key
                       ? 'bg-background font-medium text-foreground shadow-sm'
                       : 'text-muted-foreground hover:text-foreground')

@@ -272,7 +272,7 @@ const RETIRED_OBJECT_VIEW_KEYS = [
 ] as const;
 
 /** How many keys the namespace keeps — the live + indirect-reference remainder. */
-const SURVIVING_KEY_COUNT = 102;
+const SURVIVING_KEY_COUNT = 104;
 
 describe('console.objectView config-panel keys are retired (objectui#4730)', () => {
   it('the retired list is the measured set', () => {
@@ -286,13 +286,14 @@ describe('console.objectView config-panel keys are retired (objectui#4730)', () 
     // objectui#11445 added six count-family slots (and retired `recordCountOne`,
     // which moved the split, not the total); 225 since objectui#11576 added the
     // create-view dialog's eight dataset-binding keys (and retired its four axis
-    // keys). The RETIRED half is a ratchet that never
+    // keys); 227 since objectui#12418 added `resetView` and `resetViewTitle`,
+    // the header's "Reset view" entry. The RETIRED half is a ratchet that never
     // runs BACKWARDS — it is pinned twice above, and objectui#8754 advanced it
     // 116 -> 118 — while the surviving half is a live namespace that grows on a
     // new key and shrinks by exactly what the retired half gains. Splitting
     // them is the point: folding a new key into the total would be
     // indistinguishable from a retired key coming back.
-    expect(RETIRED_OBJECT_VIEW_KEYS.length + SURVIVING_KEY_COUNT).toBe(225);
+    expect(RETIRED_OBJECT_VIEW_KEYS.length + SURVIVING_KEY_COUNT).toBe(227);
     expect(LANGS).toHaveLength(10);
   });
 

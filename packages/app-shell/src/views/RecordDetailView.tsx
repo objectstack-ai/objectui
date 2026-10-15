@@ -515,7 +515,8 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // explicit history-state `from` (legacy, in-session only), then falls back
   // to the last ancestor in the `?from=` URL trail — which, unlike history
   // state, survives refresh and shared links. This is the immediate-parent
-  // affordance; the full clickable path lives in the top-bar breadcrumb.
+  // affordance, and since the top bar draws no record crumb (objectui#12461)
+  // the only one: each parent's own link carries the trail above it.
   const originFromState = (location.state as any)?.from as { pathname?: string; label?: string } | undefined;
   const originFrom = useMemo<{ pathname?: string; label?: string } | undefined>(() => {
     if (originFromState?.pathname && originFromState?.label) return originFromState;

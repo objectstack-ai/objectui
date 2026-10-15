@@ -270,10 +270,15 @@ const OWD_OPTION_DESC_KEY: Record<OwdCreateModel, string> = {
   public_read_write: 'engine.studio.settings.sharingDescPublicReadWrite',
 };
 
+// objectui#12452 — Access is the fourth segment, and the "More" overflow that
+// held it alone (objectui#5813) is retired. If a second overflow pillar is ever
+// added, More returns with the objectui#11794 behaviour: its trigger keeps the
+// name More whichever of its pillars is open.
 const PILLARS: ReadonlyArray<{ key: string; label: string; Icon: LucideIcon }> = [
   { key: 'data', label: 'Data', Icon: Database },
   { key: 'automations', label: 'Automations', Icon: Workflow },
   { key: 'interfaces', label: 'Interfaces', Icon: LayoutDashboard },
+  { key: 'access', label: 'Access', Icon: Shield },
 ];
 /**
  * objectui#11357 — the body the Interfaces pillar saves for its open leaf. A
@@ -357,15 +362,6 @@ export function StudioHeldNotice({
     </div>
   );
 }
-
-// objectui#5813 — Access is a low-frequency ADMIN surface, demoted from the
-// top-level pillar row into the "More" overflow (maintainer ruling
-// 2026-08-24: primary nav aligns with the Data/Automations/Interfaces maker
-// mental model). The PAGE is untouched: the /studio/:pkg/access route, the
-// pillar dispatch and PILLAR_FOR_SURFACE_TYPE all still point here.
-const OVERFLOW_PILLARS: ReadonlyArray<{ key: string; label: string; Icon: LucideIcon }> = [
-  { key: 'access', label: 'Access', Icon: Shield },
-];
 
 /**
  * Which pillar owns a surface type — the routing half of a live surface
@@ -1590,6 +1586,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                 <Link
                   key={p.key}
                   to={`/studio/${scopeSegment}/${p.key}`}
+                  aria-current={tab === p.key ? 'page' : undefined}
                   onClick={(e) => {
                     // Re-clicking the open pillar re-navigates to the same URL —
                     // nothing unmounts. Modified/aux clicks open a new tab and
@@ -1613,60 +1610,6 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                   <span className="sr-only xl:not-sr-only">{t(`engine.studio.pillar.${p.key}`, locale)}</span>
                 </Link>
               ))}
-              {/* objectui#5813 — low-frequency surfaces live in "More". The
-                  trigger keeps its own name, More, whichever of them is open
-                  (objectui#11794, the rule the Data pillar's Advanced trigger
-                  follows): renamed to the open pillar ("Access ▾") it hid the
-                  one word that says this is the overflow menu. Where you are
-                  still shows twice — the trigger takes the active pillar
-                  styling while one of its pillars is open, and inside the menu
-                  that pillar's link is the current page (`aria-current`). Each
-                  item is a real router Link carrying the SAME dirty-guard as
-                  the primary pillars — an overflow entry must not become the
-                  one door that silently discards edits. None of them is in the
-                  package-less scope (objectui#11553). */}
-              {packageId !== null && (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    data-testid="studio-nav-more"
-                    className={
-                      'inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-3 text-[13px] transition-colors ' +
-                      (OVERFLOW_PILLARS.some((p) => tab === p.key)
-                        ? 'bg-background font-medium text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground')
-                    }
-                  >
-                    {t('engine.studio.more', locale)}
-                    <ChevronDown className="h-3 w-3" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-44 p-1">
-                  {OVERFLOW_PILLARS.map((p) => (
-                    <Link
-                      key={p.key}
-                      to={`/studio/${scopeSegment}/${p.key}`}
-                      aria-current={tab === p.key ? 'page' : undefined}
-                      onClick={(e) => {
-                        if (tab === p.key) return;
-                        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-                        if (!confirmLeavePillar()) e.preventDefault();
-                      }}
-                      className={
-                        'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs transition-colors ' +
-                        (tab === p.key
-                          ? 'bg-primary/10 font-medium text-primary'
-                          : 'text-muted-foreground hover:bg-muted hover:text-foreground')
-                      }
-                    >
-                      <p.Icon className="h-3.5 w-3.5" />
-                      {t(`engine.studio.pillar.${p.key}`, locale)}
-                    </Link>
-                  ))}
-                </PopoverContent>
-              </Popover>
-              )}
             </nav>
 
             {/* Package-level draft review + one atomic publish (replaces per-item Publish) */}

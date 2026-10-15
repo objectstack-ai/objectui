@@ -3,14 +3,18 @@
  *
  * Supabase-style top bar used across the whole console:
  *   [Logo] [Product / Section]                            [actions] [user ▾]
- *   [App ▾] [/ Object ▾ ...]              (inside an app) [actions] [user ▾]
+ *   [App ▾] [Preview]                     (inside an app) [actions] [user ▾]
  *
  * Variants:
  *   - `app`  (default when `appName` is present): sidebar trigger + AppSwitcher
- *              + breadcrumb path. Used by `ConsoleLayout` inside `/apps/:appName/*`.
- *              The bar starts with the app pill — the app's glyph and name —
- *              and carries no platform mark: one brand mark per screen, and
- *              inside an app that mark is the app's (objectui#12201).
+ *              + the platform-stage chip. Used by `ConsoleLayout` inside
+ *              `/apps/:appName/*`. The bar starts with the app pill — the
+ *              app's glyph and name — and carries no platform mark: one brand
+ *              mark per screen, and inside an app that mark is the app's
+ *              (objectui#12201). An object route (its list, a view, a record)
+ *              draws no crumb after the pill: the page header is the one place
+ *              that page is named (objectui#12461). A dashboard, page, report
+ *              or `system/*` route still draws its crumb.
  *   - `home` : no breadcrumb; displays the product wordmark (from
  *              `getProductName()`, default "ObjectOS") next to the brand
  *              logo. Used by `/home`.
@@ -80,7 +84,7 @@ import { useMobileViewSwitcher } from './MobileViewSwitcherContext.js';
 import { useNavigationContext } from '../context/NavigationContext.js';
 import { useCommandPalette, useCommandPaletteProviderMounted } from '../context/CommandPaletteProvider.js';
 import { useUrlOverlay } from '../hooks/useUrlOverlay.js';
-import { KEYBOARD_SHORTCUTS_PARAM, RECORD_TRAIL_PARAM, decodeRecordTrail, buildRecordTrailHref } from '../urlParams.js';
+import { KEYBOARD_SHORTCUTS_PARAM } from '../urlParams.js';
 import { useAiSurfaceEnabled } from '../hooks/useAiSurface.js';
 import { useCanAuthorMetadata } from '../hooks/useCanAuthorMetadata.js';
 import { useSharedActivityFeed, type ActivityFeedReading } from '../hooks/sharedUserFeeds.js';
@@ -331,26 +335,13 @@ export function AppHeader({
   const pathParts = location.pathname.split('/').filter(Boolean);
   const appNameFromRoute = params.appName || pathParts[1];
   const routeType = pathParts[2];
-  const baseHref = `/apps/${appNameFromRoute}`;
 
   const safeObjects = objects ?? [];
 
-  // Filter objects to only those belonging to the current app via its navigation
+  // The app the route is in.
   const appNameKey = activeAppName || currentAppName || appNameFromRoute;
   // ADR-0048 (A) — appNameKey may be a package id (route segment); match by it.
   const currentApp = matchAppBySegment(metadataApps || [], appNameKey);
-  const appNavObjectNames = new Set<string>();
-  const collectNavObjects = (items: any[]) => {
-    for (const item of items || []) {
-      if (item.type === 'object' && item.objectName) appNavObjectNames.add(item.objectName);
-      if (item.children) collectNavObjects(item.children);
-    }
-  };
-  collectNavObjects(currentApp?.navigation || []);
-  for (const area of currentApp?.areas || []) collectNavObjects(area.navigation || []);
-  const appObjects = appNavObjectNames.size > 0
-    ? safeObjects.filter((o: any) => appNavObjectNames.has(o.name))
-    : safeObjects.filter((o: any) => !o.name.startsWith('sys_') && !o.name.startsWith('auth_'));
 
   // Help menu — docs owned by the current app (matched by package id, the
   // precise owner link; ADR-0048). Empty when not inside an app, the app
@@ -381,17 +372,19 @@ export function AppHeader({
     ? appStudioRoutePath(currentApp, canDesignInStudio, { type: routeType, name: pathParts[3] })
     : null;
 
-  // An object crumb — this segment, its "Switch Object" siblings and the
-  // ancestor trail's object crumbs — links to that object's LIST, so it names
-  // the list: the plural, as the page it opens is titled and as the nav entry
-  // reads (objectui#11696). It is one crumb on every route under the object,
-  // so it does not turn singular when the trail continues into a record.
-  const objectSiblings = appObjects.map((o: any) => ({
-    label: objectPluralLabel(o),
-    href: `${baseHref}/${o.name}`,
-  }));
-
+  // The crumbs drawn after the app pill from `sm` up: a dashboard, page,
+  // report or `system/*` route's.
   const extraSegments: BreadcrumbItemType[] = [];
+  // An object route — the object's list, one of its views, one of its records
+  // — draws NO crumb after the pill (objectui#12461): its page header names
+  // the page, the sidebar's active entry names the object and the saved-view
+  // strip names the view, so a crumb said the same name a third time. The
+  // crumb's 「Switch Object」 menu went with it: the sidebar switches objects
+  // and the view strip switches views. What is left is the page's name for
+  // the phone bar's compact title below `sm`, which this card leaves as it
+  // was: the record, else the view, else the object's list, named by its
+  // plural as the list page is titled (objectui#11696).
+  let objectRouteTitle: string | undefined;
 
   if (isApp) {
     if (routeType === 'dashboard') {
@@ -442,42 +435,18 @@ export function AppHeader({
     } else if (routeType) {
       const currentObject = safeObjects.find((o: any) => o.name === routeType);
       if (currentObject) {
-        // Ancestor trail (record → related-record drill-in, `?from=`). Prepend
-        // an object-list + record segment per ancestor so the path reads
-        // `Accounts → #parent → Invoices → #child`, each crumb a link back. The
-        // ancestor record crumb carries its OWN ancestors so mid-path clicks
-        // preserve everything above them.
-        if (pathParts[3] === 'record' && pathParts[4]) {
-          const trail = decodeRecordTrail(new URLSearchParams(location.search).get(RECORD_TRAIL_PARAM));
-          trail.forEach((entry, k) => {
-            const ancObj = safeObjects.find((o: any) => o.name === entry.o);
-            extraSegments.push({
-              label: ancObj ? objectPluralLabel(ancObj) : humanizeSlug(entry.o),
-              href: `${baseHref}/${entry.o}`,
-            });
-            const ancShortId = entry.i.length > 12 ? `${entry.i.slice(0, 8)}…` : entry.i;
-            extraSegments.push({
-              label: entry.t || `#${ancShortId}`,
-              href: buildRecordTrailHref(baseHref, entry, trail.slice(0, k)),
-            });
-          });
-        }
-        extraSegments.push({
-          label: objectPluralLabel(currentObject),
-          href: `${baseHref}/${routeType}`,
-          siblings: objectSiblings,
-        });
+        objectRouteTitle = objectPluralLabel(currentObject);
         if (pathParts[3] === 'record' && pathParts[4]) {
           const shortId = pathParts[4].length > 12 ? `${pathParts[4].slice(0, 8)}…` : pathParts[4];
           const trimmedTitle = recordTitle?.trim();
           const displayTitle = trimmedTitle && trimmedTitle.length > 48
             ? `${trimmedTitle.slice(0, 45)}…`
             : trimmedTitle;
-          extraSegments.push({ label: displayTitle || `#${shortId}` });
+          objectRouteTitle = displayTitle || `#${shortId}`;
         } else if (pathParts[3] === 'view' && pathParts[4]) {
           // Prefer the view's metadata label (e.g. "Lead Pipeline") over a
-          // humanized slug ("Kanban By Status") so the breadcrumb matches the
-          // tab label users clicked.
+          // humanized slug ("Kanban By Status") so the title matches the tab
+          // label users clicked.
           const viewName = pathParts[4];
           // `listViews` is canonical (#5362; @objectstack/spec declares only camelCase). The
           // `list_views` leg is a compatibility READ for stored pre-settlement documents
@@ -486,7 +455,7 @@ export function AppHeader({
           // The URL may name the view bare (`/view/in_progress`, as a nav entry
           // writes it) while its tab id is qualified (`<object>.in_progress`):
           // matched by `resolveViewId`, the one matcher the object page uses to
-          // open it, so the crumb names the view the page shows (objectui#11295).
+          // open it, so the title names the view the page shows (objectui#11295).
           const viewId = resolveViewId(viewName, Object.keys(definedViews), currentObject.name);
           const viewDef = viewId ? (definedViews as Record<string, any>)[viewId] : undefined;
           const fallbackLabel = (viewDef && (viewDef.label || viewDef.title)) || humanizeSlug(viewName);
@@ -495,13 +464,13 @@ export function AppHeader({
           const localizedViewLabel = viewDef && isServedView(servedViews, currentObject.name, viewId)
             ? fallbackLabel
             : viewLabel(currentObject.name, viewName, fallbackLabel);
-          extraSegments.push({ label: localizedViewLabel });
+          objectRouteTitle = localizedViewLabel;
         }
       }
     }
   }
 
-  const lastSegmentLabel = extraSegments[extraSegments.length - 1]?.label || appName || '';
+  const lastSegmentLabel = objectRouteTitle || extraSegments[extraSegments.length - 1]?.label || appName || '';
 
   return (
     <div className="flex items-center justify-between w-full h-full">
@@ -547,10 +516,10 @@ export function AppHeader({
 
         {/* Platform-stage chip — rides along on every console surface while
             the whole platform is in preview. On platform surfaces it sits in
-            the brand zone, beside the mark; inside an app it sits on the
-            right, beside the search box, so the bar's left edge is the app
-            (objectui#12201 item 5). Desktop-only to spare the crowded mobile
-            top bar; renders nothing once runtime-config reports GA. */}
+            the brand zone, beside the mark; inside an app it sits beside the
+            app pill, below (objectui#12461). Desktop-only to spare the
+            crowded mobile top bar; renders nothing once runtime-config
+            reports GA. */}
         {!isApp && <PreviewBadge className="ml-2 hidden sm:inline-flex" />}
 
         {/* Organization context — "which org am I in", right after the brand and
@@ -600,42 +569,24 @@ export function AppHeader({
               <span className="hidden sm:inline text-sm font-medium text-foreground/80 px-1.5">{appName}</span>
             ) : null}
 
-            {/* Extra path segments */}
+            {/* Platform-stage chip, inside an app — beside the app's name, so
+                the pill and its stage are the bar's left group
+                (objectui#12461; objectui#12201 item 5 had put it beside the
+                search box). Before any crumb, so it holds its place whatever
+                the route draws after the pill. */}
+            <PreviewBadge className="ml-2 hidden sm:inline-flex" />
+
+            {/* The crumbs after the pill — a dashboard, page, report or
+                `system/*` route's; an object route draws none (see
+                `objectRouteTitle`). Plain text: none of them links. */}
             {extraSegments.map((seg, i) => {
               const isLast = i === extraSegments.length - 1;
               return (
                 <span key={i} className="hidden sm:flex items-center min-w-0">
                   <PathSep />
-                  {seg.siblings && seg.siblings.length > 1 ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger className={`flex items-center gap-1 rounded-md px-1.5 py-1 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring hover:bg-accent hover:text-foreground ${!isLast ? 'text-foreground/60' : 'text-foreground/80'}`}>
-                        {seg.label}
-                        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" sideOffset={8} className="w-56 max-h-72 overflow-y-auto">
-                        <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
-                          {t('topbar.switchObject', { defaultValue: 'Switch Object' })}
-                        </DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        {seg.siblings.map((sibling) => (
-                          <DropdownMenuItem key={sibling.href} asChild>
-                            <Link to={sibling.href} className="w-full">{sibling.label}</Link>
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ) : seg.href ? (
-                    <Link
-                      to={seg.href}
-                      className={`rounded-md px-1.5 py-1 text-sm font-medium transition-colors hover:bg-accent hover:text-foreground truncate max-w-[160px] ${isLast ? 'text-foreground/80' : 'text-foreground/60'}`}
-                    >
-                      {seg.label}
-                    </Link>
-                  ) : (
-                    <span className={`px-1.5 py-1 text-sm font-medium truncate max-w-[160px] ${isLast ? 'text-foreground/80' : 'text-foreground/60'}`}>
-                      {seg.label}
-                    </span>
-                  )}
+                  <span className={`px-1.5 py-1 text-sm font-medium truncate max-w-[160px] ${isLast ? 'text-foreground/80' : 'text-foreground/60'}`}>
+                    {seg.label}
+                  </span>
                 </span>
               );
             })}
@@ -718,11 +669,6 @@ export function AppHeader({
           </div>
         )}
 
-        {/* Platform-stage chip, inside an app — beside the search box
-            (objectui#12201 item 5); on platform surfaces it stays in the
-            brand zone on the left. */}
-        {isApp && <PreviewBadge className="hidden sm:inline-flex" />}
-
         {/* Group 1: Search */}
         {/* Only where a palette is mounted (objectui#11912) — see `hasCommandPalette`. */}
         {hasCommandPalette && (
@@ -762,21 +708,20 @@ export function AppHeader({
         {/* Group 2: Edit app, Inbox (notifications + approvals + activity) & Help */}
         <div data-topbar-group className="flex items-center gap-0.5 shrink-0">
           {/* Edit app — the app → builder reverse bridge (ADR-0080), at the
-              left edge of this utility cluster, labelled so a viewer can tell
-              what it does (objectui#12201 item 6). Admins jump from the
-              running app to its owning package's design surface; on a
-              dashboard route it deep-links to that dashboard's design page in
-              the Interfaces pillar
+              left edge of this utility cluster (objectui#12201 item 6).
+              Admins jump from the running app to its owning package's design
+              surface; on a dashboard route it deep-links to that dashboard's
+              design page in the Interfaces pillar
               (/studio/:packageId/interfaces?surface=dashboard:NAME), otherwise
               the package's Data tab. Hidden for everyone else and for apps
-              with no owning package. From `lg` up it reads 「Edit app」 beside
-              its pencil; narrower, the pencil alone, named by its aria-label
-              and its tooltip. */}
+              with no owning package. An icon button at every width, like the
+              bell beside it (objectui#12461): the pencil alone, named
+              「Edit app」 by its aria-label and its tooltip. */}
           {studioDesignPath && (
             <Button
-              variant="outline"
-              size="sm"
-              className="h-8 w-8 shrink-0 gap-1.5 px-0 mr-1 lg:w-auto lg:px-2.5"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0"
               asChild
               data-testid="app-design-in-studio-button"
               aria-label={t('topbar.editApp', { defaultValue: 'Edit app' })}
@@ -784,9 +729,6 @@ export function AppHeader({
             >
               <Link to={studioDesignPath}>
                 <Pencil className="h-4 w-4" />
-                <span className="hidden lg:inline" data-testid="app-design-in-studio-label">
-                  {t('topbar.editApp', { defaultValue: 'Edit app' })}
-                </span>
               </Link>
             </Button>
           )}

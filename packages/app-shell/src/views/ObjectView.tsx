@@ -9,7 +9,7 @@
  * - ListView delegation for non-grid view types (kanban, calendar, chart, etc.)
  */
 
-import { useMemo, useState, useCallback, useEffect, useRef, lazy, Suspense, type ComponentType } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef, lazy, Suspense, createElement, type ComponentType } from 'react';
 import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { resolveFilterPlaceholders, DENSITY_MODE_TO_ROW_HEIGHT, normalizeListViewSchema, leadWithNameField, resolveAffordance, type FilterTokenScope, type SchemaLike } from '@object-ui/core';
 import {
@@ -3266,10 +3266,6 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             );
         }
 
-        // ADR-0053 wrong-context authoring: userFilters/quickFilters on an
-        // object list view are suppressed below — say so instead of letting
-        // the author stare at a toolbar with nothing where their filter
-        // controls should be (#2219).
         // objectui#12418 — the list opens on the user's stored sort and
         // filters, which are read in the console's one preference read; until
         // that read has answered, there is nothing to open on yet.
@@ -3277,6 +3273,10 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             return <div className="h-full w-full" aria-busy="true" data-testid="object-view-list-preferences-pending" />;
         }
 
+        // ADR-0053 wrong-context authoring: userFilters/quickFilters on an
+        // object list view are suppressed below — say so instead of letting
+        // the author stare at a toolbar with nothing where their filter
+        // controls should be (#2219).
         warnSuppressedListNav(objectDef.name, viewDef.id || viewDef.name || '', viewDef as any, listSchema as any);
 
         // objectui#7029: present only when the view actually declared one.
@@ -3911,7 +3911,10 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                    </span>
                  }
                  subtitle={objectDef.description ? objectDesc(objectDef) : undefined}
-                 icon={(() => { const I = getIcon((objectDef as any)?.icon); return <I className="h-4 w-4" />; })()}
+                 // `createElement`, not a JSX tag: the looked-up icon is a value,
+                 // which react-hooks/static-components refuses in tag position
+                 // (the convention ObjectDataPage set).
+                 icon={createElement(getIcon((objectDef as any)?.icon), { className: 'h-4 w-4' })}
                  actions={
                    <>
                     {/* No favorite star here since objectui#12423: the one-row

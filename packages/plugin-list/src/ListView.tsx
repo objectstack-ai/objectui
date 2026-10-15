@@ -415,6 +415,20 @@ export interface ListViewProps {
   onEdit?: (record: any) => void;
   onDelete?: (record: any) => void;
   onBulkDelete?: (records: any[]) => void;
+  /**
+   * A host-drawn node rendered FIRST in the toolbar row's left group, before
+   * the user filters, in a `min-w-0 flex-1` wrapper: it takes the width the
+   * right-hand tool cluster leaves (objectui#12440). The console passes its
+   * saved-view `ViewTabBar` here, so the view tabs and Filter · Sort ·
+   * Display · Search share one row.
+   *
+   * A HOST prop on the React component, never a schema key: it is a React
+   * node a host composes, nothing an author writes, and the list view's own
+   * `tabs` key is retired from the protocol (objectui#11073). It is
+   * destructured by name so it never rides the `{...props}` forward into the
+   * active view component. Absent ⇒ the toolbar row is exactly what it was.
+   */
+  toolbarLeading?: React.ReactNode;
 }
 
 // Helper to convert FilterBuilder group to ObjectStack AST.
@@ -1331,6 +1345,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   onUserFilterSelectionsChange,
   initialFilters,
   initialSearchTerm,
+  toolbarLeading,
   ...props
 }: ListViewProps & { [key: string]: any }, ref) => {
   // The switcher can be enabled either by the host component (prop) or by
@@ -4927,6 +4942,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    */
   const viewDescription = pickLocalized(schema.description, displayLocale);
 
+  // objectui#12440 — the host's leading toolbar node. `null`, `undefined` and
+  // `false` draw nothing in React, so they draw no wrapper either: a host that
+  // passes one of them gets today's row.
+  const hasToolbarLeading = toolbarLeading != null && toolbarLeading !== false;
+
   return (
     <div
       ref={pullRef}
@@ -4957,7 +4977,16 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           with vertical dividers (Linear / Notion style) so utility buttons
           read as one segmented control rather than a loose bag of icons. */}
       <div className="border-b px-2 sm:px-4 py-1.5 flex items-center justify-between gap-1 sm:gap-2 bg-background">
-        <div className="flex items-center gap-2 overflow-x-auto min-w-0">
+        {/* With a host's leading node the left group grows (`flex-1`) so that
+            node's `flex-1` wrapper has the width the tool cluster leaves —
+            a width-fitted tab strip folds whatever does not fit
+            (objectui#12440). Without one, the group is unchanged. */}
+        <div className={hasToolbarLeading ? 'flex flex-1 items-center gap-2 overflow-x-auto min-w-0' : 'flex items-center gap-2 overflow-x-auto min-w-0'}>
+          {hasToolbarLeading && (
+            <div className="flex min-w-0 flex-1 items-center" data-testid="list-toolbar-leading">
+              {toolbarLeading}
+            </div>
+          )}
           {/* User Filters — filter elements (dropdown chips / preset tabs /
               toggles). Mutually exclusive with view tabs above, so at most
               one filter element group ever renders here. On mobile we keep

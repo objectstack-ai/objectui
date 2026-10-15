@@ -1542,6 +1542,36 @@ export interface ConsoleObjectViewProps {
  * data, and the maintainer's ruling rejects migrating it. Declaring
  * `userActions.editInline: true` on such a view brings the toggle back.
  */
+/**
+ * Tailwind's `sm` breakpoint (px): from here up the list page draws its
+ * saved-view tabs in the list toolbar; below it the app bar's mobile view
+ * switcher is the page's only view control (objectui#12440).
+ */
+const VIEW_TABS_MIN_WIDTH = 640;
+
+/**
+ * Is the viewport at least {@link VIEW_TABS_MIN_WIDTH} wide? The matchMedia
+ * idiom of `useIsMobile` / `useIsWideViewport`, except the first answer is
+ * read synchronously: the tab strip is the first thing on the page's list row,
+ * and resolving it in an effect would draw the row once without it and then
+ * jump. objectui#12440 — this decides whether the strip is HANDED to the list
+ * at all, so below `sm` nothing is passed and nothing is drawn (the CSS
+ * `hidden sm:block` it replaces only hid it).
+ */
+function useViewTabsFit(): boolean {
+    const read = () => typeof window !== 'undefined' && window.innerWidth >= VIEW_TABS_MIN_WIDTH;
+    const [fits, setFits] = useState<boolean>(read);
+    useEffect(() => {
+        if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+        const mql = window.matchMedia(`(min-width: ${VIEW_TABS_MIN_WIDTH}px)`);
+        const onChange = () => setFits(read());
+        mql.addEventListener('change', onChange);
+        setFits(read());
+        return () => mql.removeEventListener('change', onChange);
+    }, []);
+    return fits;
+}
+
 function keepInlineEditModeForTheSession(): void {
     // Deliberately empty: see the docblock.
 }
@@ -3121,6 +3151,62 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     // effect, so each host re-render re-issued the identical list query.
     const heldListFilter = useRef<unknown>(undefined);
 
+    /*
+     * View Tabs — Airtable-style switcher with rename / delete / duplicate /
+     * pin / set-default / drag-reorder. Built-in views (sourced from
+     * objectDef.listViews) only support switching; mutating callbacks
+     * short-circuit with a toast.
+     *
+     * objectui#12440 — the strip is no longer a row of its own above the list:
+     * it is handed to `ListView` as its `toolbarLeading` host prop, so the tabs
+     * and the list's Filter · Sort · Display · Search share one row. From
+     * `sm` up only; below it nothing is handed over and the app bar's mobile
+     * view switcher (registered above) stays the phone's view control.
+     */
+    const viewTabsFit = useViewTabsFit();
+    const viewTabItems: ViewTabItem[] = views.map((view: any) => {
+        const saved = savedViews.find((sv: any) => viewRowId(sv) === view.id);
+        // System views (loaded from objectDef.listViews / metadata) are
+        // *read-only*. Only sys_view-backed records can be mutated by
+        // the user; admins must duplicate a system view to customize it.
+        const isSystem = !saved;
+        return {
+            id: view.id,
+            label: viewTabLabel(view, objectDef.name, servedViews, viewLabel),
+            type: view.type,
+            hasActiveFilters: Array.isArray(view.filter) && view.filter.length > 0,
+            hasActiveSort: Array.isArray(view.sort) && view.sort.length > 0,
+            isDefault: !!(saved?.isDefault ?? view.isDefault),
+            isPinned: !!(saved?.isPinned ?? view.isPinned),
+            visibility: saved?.visibility ?? view.visibility,
+            readonly: isSystem,
+            readonlyReason: isSystem
+                ? t('console.objectView.systemViewReadonly')
+                : undefined,
+        } as ViewTabItem;
+    });
+    const viewTabBar = viewTabsFit && views.length >= 1 ? (
+        <ViewTabBar
+            views={viewTabItems}
+            activeViewId={viewAccess.refusal ? '' : activeViewId}
+            onViewChange={handleViewChange}
+            viewTypeIcons={VIEW_TYPE_ICONS}
+            config={{
+                reorderable: false,
+                showAddButton: isAdmin,
+                showPinnedSection: true,
+                showVisibilityGroups: true,
+            }}
+            onAddView={isAdmin ? handleAddView : undefined}
+            onRenameView={isAdmin ? handleRenameView : undefined}
+            onDeleteView={isAdmin ? handleDeleteView : undefined}
+            onPinView={isAdmin ? handlePinView : undefined}
+            onSetDefaultView={isAdmin ? handleSetDefaultView : undefined}
+            onConfigView={isAdmin ? handleConfigView : undefined}
+            onManageViews={isAdmin ? () => setManageViewsOpen(true) : undefined}
+        />
+    ) : null;
+
     // Render multi-view content via ListView plugin (for kanban, calendar, etc.)
     const renderListView = useCallback(({ schema: listSchema, dataSource: ds, onEdit: editHandler, className, refreshKey: pluginRefreshKey }: any) => {
         // Combine local refreshKey with the plugin ObjectView's refreshKey for full propagation
@@ -3785,10 +3871,13 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 onUserFilterSelectionsChange={handleUserFilterSelectionsChange}
                 initialFilters={listSeed?.filters}
                 initialSearchTerm={listSeed?.search}
+                // objectui#12440 — the saved-view tabs, on the list's own
+                // toolbar row (see `viewTabBar`). `undefined` below `sm`.
+                toolbarLeading={viewTabBar ?? undefined}
                 dataSource={ds}
             />
         );
-    }, [activeView, activeViewDeclaresColumns, objectDef, objectName, refreshKey, navOverlay, actions, persistViewPatch, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, writeListUrlState, user?.id, pageOffersCreate]);
+    }, [activeView, activeViewDeclaresColumns, objectDef, objectName, refreshKey, navOverlay, actions, persistViewPatch, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, writeListUrlState, user?.id, pageOffersCreate, viewTabBar]);
 
     // Memoize the merged views array so PluginObjectView doesn't get a new
     // reference on every render (which would trigger unnecessary data refetches).
@@ -4050,76 +4139,34 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                </Suspense>
              )}
 
-             {/* View Tabs — Airtable-style switcher with rename / delete /
-                 duplicate / pin / set-default / drag-reorder. Built-in views
-                 (sourced from objectDef.listViews) only support switching;
-                 mutating callbacks short-circuit with a toast. */}
-             {views.length >= 1 && (() => {
-               const viewTabItems: ViewTabItem[] = views.map((view: any) => {
-                 const saved = savedViews.find((sv: any) => viewRowId(sv) === view.id);
-                 // System views (loaded from objectDef.listViews / metadata) are
-                 // *read-only*. Only sys_view-backed records can be mutated by
-                 // the user; admins must duplicate a system view to customize it.
-                 const isSystem = !saved;
-                 return {
-                   id: view.id,
-                   label: viewTabLabel(view, objectDef.name, servedViews, viewLabel),
-                   type: view.type,
-                   hasActiveFilters: Array.isArray(view.filter) && view.filter.length > 0,
-                   hasActiveSort: Array.isArray(view.sort) && view.sort.length > 0,
-                   isDefault: !!(saved?.isDefault ?? view.isDefault),
-                   isPinned: !!(saved?.isPinned ?? view.isPinned),
-                   visibility: saved?.visibility ?? view.visibility,
-                   readonly: isSystem,
-                   readonlyReason: isSystem
-                     ? t('console.objectView.systemViewReadonly')
-                     : undefined,
-                 } as ViewTabItem;
-               });
-               return (
-               <>
-               <div className="hidden sm:block border-b px-3 sm:px-4 bg-background overflow-x-auto shrink-0">
-                 <ViewTabBar
-                   views={viewTabItems}
-                   activeViewId={viewAccess.refusal ? '' : activeViewId}
-                   onViewChange={handleViewChange}
-                   viewTypeIcons={VIEW_TYPE_ICONS}
-                   config={{
-                     reorderable: false,
-                     showAddButton: isAdmin,
-                     showPinnedSection: true,
-                     showVisibilityGroups: true,
-                   }}
-                   onAddView={isAdmin ? handleAddView : undefined}
-                   onRenameView={isAdmin ? handleRenameView : undefined}
-                   onDeleteView={isAdmin ? handleDeleteView : undefined}
-                   onPinView={isAdmin ? handlePinView : undefined}
-                   onSetDefaultView={isAdmin ? handleSetDefaultView : undefined}
-                   onConfigView={isAdmin ? handleConfigView : undefined}
-                   onManageViews={isAdmin ? () => setManageViewsOpen(true) : undefined}
-                 />
-                 {isAdmin && (
-                   <ManageViewsDialog
-                     open={manageViewsOpen}
-                     onOpenChange={setManageViewsOpen}
-                     views={viewTabItems}
-                     activeViewId={activeViewId}
-                     viewTypeIcons={VIEW_TYPE_ICONS}
-                     onRename={handleRenameView}
-                     onDelete={handleDeleteView}
-                     onSetDefault={handleSetDefaultView}
-                     onSetPinned={handlePinView}
-                     onReorder={handleReorderViews}
-                     onAddView={handleAddView}
-                     onConfigView={handleConfigView}
-                   />
-                 )}
+             {/* View Tabs — drawn in the list's toolbar row (`viewTabBar`,
+                 objectui#12440). The one exception is a view the server
+                 refused: no list is drawn, so no toolbar can carry the strip,
+                 and the tabs are the way off that view — they keep a row of
+                 their own there. Below `sm` the mobile view switcher is
+                 rendered by AppHeader via MobileViewSwitcherContext
+                 (registered above). */}
+             {refusedViewFace && viewTabBar && (
+               <div className="border-b px-3 sm:px-4 bg-background overflow-x-auto shrink-0" data-testid="view-tab-row">
+                 {viewTabBar}
                </div>
-               {/* Mobile view switcher is rendered by AppHeader via
-                   MobileViewSwitcherContext (registered above). */}
-               </>
-               );
-             })()}
+             )}
+             {isAdmin && views.length >= 1 && (
+               <ManageViewsDialog
+                 open={manageViewsOpen}
+                 onOpenChange={setManageViewsOpen}
+                 views={viewTabItems}
+                 activeViewId={activeViewId}
+                 viewTypeIcons={VIEW_TYPE_ICONS}
+                 onRename={handleRenameView}
+                 onDelete={handleDeleteView}
+                 onSetDefault={handleSetDefaultView}
+                 onSetPinned={handlePinView}
+                 onReorder={handleReorderViews}
+                 onAddView={handleAddView}
+                 onConfigView={handleConfigView}
+               />
+             )}
 
              {/* 2. Content — Plugin ObjectView with ViewSwitcher + Filter + Sort */}
              <div className="flex-1 overflow-hidden relative flex flex-row">

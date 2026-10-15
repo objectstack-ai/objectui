@@ -918,6 +918,30 @@ function isMaskedColumnKey(columns: readonly TableColumn[], accessorKey: string)
 }
 
 /**
+ * A row tint reaching the row's STICKY cells (objectui#12375).
+ *
+ * A row may carry a tint as the `--os-row-tint` custom property: `ObjectGrid`'s
+ * `rowColor` does, through `rowClassName` (`useRowColor` in
+ * `@object-ui/plugin-grid`). The row paints it through its own background, but
+ * a sticky cell paints an opaque `bg-background` of its own, because content
+ * scrolls beneath it, so the tint stopped at the selection checkbox, the row
+ * number and every frozen column. This layers the same tint over that opaque
+ * fill as a background image: the cell shows the row's colour and stays
+ * opaque in both themes, even where the tint itself is translucent.
+ *
+ * Every row sets `--os-row-tint: transparent` unless its `rowClassName` sets a
+ * tint, and suspends it while hovered or selected, when the row's own fill
+ * gives way to the hover and selection fills. So an untinted row's sticky
+ * cells paint `bg-background` alone, as before, and a tint never outlives the
+ * row's own. A right-pinned column's cells carry the same literal from their
+ * producer (`ObjectGrid`'s right-pinned cell classes).
+ *
+ * One complete literal: Tailwind v4 builds only from scanned source text.
+ */
+const STICKY_ROW_TINT =
+  'bg-[image:linear-gradient(var(--os-row-tint,transparent),var(--os-row-tint,transparent))]';
+
+/**
  * A right-pinned column: its sticky utilities arrive on `col.className` (the
  * auto-pinned row-actions column, and an author's `pinned: 'right'`, both
  * from `ObjectGrid`).
@@ -3128,6 +3152,10 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                         // TableRow defaults (which we cannot edit directly per
                         // No-Touch-Zone policy).
                         "bg-background border-b border-border/60 group/row transition-colors",
+                        // The row's tint, as its sticky cells read it
+                        // (`STICKY_ROW_TINT`): none unless `rowClassName`
+                        // sets one, and suspended under hover and selection.
+                        "[--os-row-tint:transparent] hover:[--os-row-tint:transparent] data-[state=selected]:[--os-row-tint:transparent]",
                         "hover:bg-muted/40",
                         "data-[state=selected]:bg-primary/5 data-[state=selected]:hover:bg-primary/10",
                         "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset",
@@ -3176,7 +3204,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                       }}
                     >
                       {selectable && (
-                        <TableCell className={cn(cellClassName, "px-3", frozenColumns > 0 && "sticky left-0 z-10 bg-background")}>
+                        <TableCell className={cn(cellClassName, "px-3", frozenColumns > 0 && ["sticky left-0 z-10 bg-background", STICKY_ROW_TINT])}>
                           {/* Always visible: the hover-only `selectionStyle` was retired
                               (objectui#6152 round 5) — nothing authored or produced it. */}
                           {/* A checkbox drawn alone in its cell has no label of its
@@ -3190,7 +3218,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                         </TableCell>
                       )}
                       {showRowNumbers && (
-                        <TableCell className={cn("text-center w-10 relative", cellClassName, frozenColumns > 0 && "sticky z-10 bg-background")} style={frozenColumns > 0 ? { left: measuredStickyLefts?.[selectable ? 1 : 0] ?? (selectable ? 40 : 0) } : undefined}>
+                        <TableCell className={cn("text-center w-10 relative", cellClassName, frozenColumns > 0 && ["sticky z-10 bg-background", STICKY_ROW_TINT])} style={frozenColumns > 0 ? { left: measuredStickyLefts?.[selectable ? 1 : 0] ?? (selectable ? 40 : 0) } : undefined}>
                           <span className={cn("text-xs text-muted-foreground tabular-nums select-none", !selectable && schema.onRowClick && "group-hover/row:invisible")}>
                             {globalIndex + 1}
                           </span>
@@ -3297,7 +3325,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                               isFit ? 'whitespace-nowrap' : 'overflow-hidden',
                               isEditable && !isEditing && "cursor-text hover:bg-muted/50",
                               hasPendingChange && "font-semibold text-amber-700 dark:text-amber-400",
-                              isFrozen && 'sticky z-10 bg-background',
+                              isFrozen && ['sticky z-10 bg-background', STICKY_ROW_TINT],
                               isFrozen && colIndex === frozenColumns - 1 && 'border-r-2 border-border shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]',
                             )}
                             style={{

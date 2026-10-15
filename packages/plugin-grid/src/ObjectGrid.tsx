@@ -4837,6 +4837,14 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   const unpinnedCols = columnsWithActions.filter((c: any) => !c.pinned);
   const hasPinnedColumns = pinnedLeftCols.length > 0 || pinnedRightCols.length > 0;
   const rightPinnedClasses = 'sticky right-0 z-10 bg-background border-l border-border';
+  // A body cell also layers the row's `--os-row-tint` (set by `useRowColor`)
+  // over its opaque `bg-background`, so a tinted row's colour reaches its
+  // right-pinned cells while they stay opaque over the content scrolling
+  // beneath them (objectui#12375). The same literal as `data-table`'s
+  // `STICKY_ROW_TINT` for its frozen cells; an untinted row resolves it to
+  // nothing.
+  const rightPinnedCellClasses =
+    'sticky right-0 z-10 bg-background bg-[image:linear-gradient(var(--os-row-tint,transparent),var(--os-row-tint,transparent))] border-l border-border';
   // The `_actions` column is auto-pinned right (above), so it must be excluded
   // from the frozen-column decision — otherwise every list with row actions
   // would trip `hasPinnedColumns` and lose the implicit left-freeze of its
@@ -4991,7 +4999,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         ...pinnedRightCols.map((col: any) => ({
           ...applyColumnChrome(col),
           className: ['px-3', col.className, rightPinnedClasses].filter(Boolean).join(' '),
-          cellClassName: [rowHeightCellClass, col.cellClassName, rightPinnedClasses].filter(Boolean).join(' '),
+          cellClassName: [rowHeightCellClass, col.cellClassName, rightPinnedCellClasses].filter(Boolean).join(' '),
         })),
       ]
     : columnsWithActions.map(applyColumnChrome);

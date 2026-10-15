@@ -596,17 +596,22 @@ function splitImportMultiValue(cell: string): string[] {
  * when it takes the cell. The option types come from the spec, as the server
  * reads them: a multi-option type is split and each token matched.
  *
- * Two readings are not the server's exactly, and both err towards taking a cell:
+ * One reading is not the server's exactly, and it errs towards taking a cell:
+ * a `select` / `radio` flagged `multiple: true` is split by the server as well,
+ * and the wizard's field shape does not carry `multiple`. So a single-option
+ * cell is refused only when both readings refuse it: as one value, and as a
+ * split list.
  *
- * - A `select` / `radio` flagged `multiple: true` is split by the server as
- *   well, and the wizard's field shape does not carry `multiple`. So a
- *   single-option cell is refused only when both readings refuse it: as one
- *   value, and as a split list.
- * - With *Keep unknown option values* on, the server's coercion keeps an unknown
- *   value, but the engine's write validation still refuses a value outside the
- *   options. It skips that check for a readonly field only, and such a field
- *   reaches the wizard as `matchOnly`. So the setting spares match-only fields
- *   alone.
+ * With *Keep unknown option values* on (the request's `createMissingOptions`),
+ * the server takes every option cell, on a writable field and a `matchOnly`
+ * one alike: its coercion keeps a value that matches no option (a single-value
+ * cell trimmed, each unmatched item of a multi-value cell), and the engine's
+ * option check admits exactly the values that import kept, on that import's
+ * writes, dry run included (objectstack#22183). So the setting spares every
+ * option field. The field's options do not change. The one case the server
+ * still refuses with the setting on is a field bound to a shared picklist that
+ * did not resolve; the wizard's field shape does not say a field is bound to a
+ * picklist, so the preview does not model that case either way.
  */
 function refusedOptionValue(
   cell: string,
@@ -615,7 +620,7 @@ function refusedOptionValue(
 ): string | undefined {
   const options = field.options ?? [];
   if (options.length === 0) return undefined;
-  if (keepUnknownOptions && field.matchOnly) return undefined;
+  if (keepUnknownOptions) return undefined;
   const fits = (token: string) => matchesImportOption(token, options);
   if (MULTI_OPTION_TYPES.has(field.type)) return splitImportMultiValue(cell).find((token) => !fits(token));
   if (!SINGLE_OPTION_TYPES.has(field.type)) return undefined;

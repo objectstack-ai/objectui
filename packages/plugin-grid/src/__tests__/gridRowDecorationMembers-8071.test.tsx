@@ -85,14 +85,18 @@ function renderGrid(rows: Record<string, unknown>[], opts: Record<string, unknow
  * The colour classes `useRowColor` emitted onto one row, isolated from the
  * table's own base classes.
  *
- * `<tr>` always carries `bg-background`, `hover:bg-muted/40` and two
- * `data-[state=selected]:bg-…` tokens, so a bare "contains `bg-`" reads TRUE on
- * every row of every grid and would make each absence below vacuous. The shape
- * matched here is exactly what `colorToClass` can emit — a bare, unprefixed
- * `bg-<hue>-<step>` — which is also the `bg-*` pass-through arm.
+ * `<tr>` always carries `bg-background`, `hover:bg-muted/40`, two
+ * `data-[state=selected]:bg-…` tokens and an untinted `--os-row-tint`, so a
+ * bare "contains `bg-`" reads TRUE on every row of every grid and would make
+ * each absence below vacuous. The shapes matched here are exactly what
+ * `colorToClass` can emit: a named colour's tint, which sets `--os-row-tint`
+ * to a palette colour (objectui#12375), and the `bg-*` pass-through arm, a
+ * bare, unprefixed `bg-<hue>-<step>`.
  */
 function rowColourClasses(tr: HTMLTableRowElement): string[] {
-  return tr.className.split(/\s+/).filter((c) => /^bg-[a-z]+-\d+$/.test(c));
+  return tr.className
+    .split(/\s+/)
+    .filter((c) => /^bg-[a-z]+-\d+$/.test(c) || c.startsWith('[--os-row-tint:var(--color-'));
 }
 
 /** The `<tr>` the browser would paint for the row whose `name` is `label`. */
@@ -118,8 +122,8 @@ describe('object-grid `rowColor` — the two members the row-className resolver 
 
     // The member pair is a LOOKUP, not a constant: two rows of the same grid
     // get two different classes, decided by the value in the named field.
-    expect(rowOf('Open row').className).toContain('bg-green-100');
-    expect(rowOf('Closed row').className).toContain('bg-red-100');
+    expect(rowOf('Open row').className).toContain('var(--color-green-100)');
+    expect(rowOf('Closed row').className).toContain('var(--color-red-100)');
     // …and a value the author did not declare gets NO colour class at all —
     // the control that keeps the two rows above from reading as "some class
     // is always added".
@@ -137,12 +141,12 @@ describe('object-grid `rowColor` — the two members the row-className resolver 
     );
 
     // `String(row[field] ?? '')`: a number matches the map's string key…
-    expect(rowOf('Numeric row').className).toContain('bg-blue-100');
+    expect(rowOf('Numeric row').className).toContain('var(--color-blue-100)');
     // …and BOTH ways of having no value collapse onto the SAME `''` entry,
     // which is the only way an author can colour "not set yet". Drop the
     // `?? ''` and `null` becomes the key `"null"`, which no author writes.
-    expect(rowOf('Empty row').className).toContain('bg-gray-100');
-    expect(rowOf('Null row').className).toContain('bg-gray-100');
+    expect(rowOf('Empty row').className).toContain('var(--color-gray-100)');
+    expect(rowOf('Null row').className).toContain('var(--color-gray-100)');
   });
 
   it('requires BOTH members — `field` without `colors` colours nothing', () => {
@@ -163,7 +167,7 @@ describe('object-grid `rowColor` — the two members the row-className resolver 
     renderGrid([{ id: '1', name: 'Alone', status: 'open' }], {
       rowColor: { field: 'status', colors: { open: 'green' } },
     });
-    expect(rowOf('Alone').className).toContain('bg-green-100');
+    expect(rowOf('Alone').className).toContain('var(--color-green-100)');
   });
 
   it('reads a map VALUE as a colour NAME or an already-built `bg-*` class, and hands back nothing for anything else', () => {
@@ -181,7 +185,7 @@ describe('object-grid `rowColor` — the two members the row-className resolver 
       },
     );
 
-    expect(rowOf('Named').className).toContain('bg-teal-100');
+    expect(rowOf('Named').className).toContain('var(--color-teal-100)');
     expect(rowOf('Prebuilt').className).toContain('bg-red-200');
     // A colour Tailwind has no static class for is dropped rather than emitted
     // as a class attribute of its own — a `class="#663399"` would be a silent
@@ -349,7 +353,7 @@ describe('object-grid — the two decoration keys reach the SAME row and neither
     });
 
     const tr = rowOf('Decorated');
-    expect(tr.className).toContain('bg-green-100');
+    expect(tr.className).toContain('var(--color-green-100)');
     expect(tr.style.backgroundColor).toBe('rgb(13, 13, 13)');
   });
 
@@ -357,7 +361,7 @@ describe('object-grid — the two decoration keys reach the SAME row and neither
     renderGrid([{ id: '1', name: 'ColourOnly', status: 'open' }], {
       rowColor: { field: 'status', colors: { open: 'green' } },
     });
-    expect(rowOf('ColourOnly').className).toContain('bg-green-100');
+    expect(rowOf('ColourOnly').className).toContain('var(--color-green-100)');
     expect(rowOf('ColourOnly').style.backgroundColor).toBe('');
     cleanup();
 

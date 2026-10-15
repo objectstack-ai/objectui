@@ -79,19 +79,30 @@ describe('checkImportCell: select and multiselect cells against the field option
     expect(checkImportCell('high, Bogus', PRIORITY, OFF)).toEqual({ code: 'invalid_option', value: 'high, Bogus' });
   });
 
-  it('with Keep unknown option values on, still refuses an unknown value on a writable field', () => {
-    // The server's coercion keeps the value; the engine's write validation
-    // then refuses it ("Priority must be one of: …").
-    expect(checkImportCell('Bogus', PRIORITY, KEEP)).toEqual({ code: 'invalid_option', value: 'Bogus' });
-    expect(checkImportCell('red, x', TAGS, KEEP)).toEqual({ code: 'invalid_option', value: 'x' });
+  it('with Keep unknown option values on, takes an unknown value on a writable field (objectui#11970)', () => {
+    // The server's coercion keeps the value, and the engine's option check
+    // admits exactly the values that import kept (objectstack#22183).
+    expect(checkImportCell('Bogus', PRIORITY, KEEP)).toBeUndefined();
+    expect(checkImportCell('high, Bogus', PRIORITY, KEEP)).toBeUndefined();
+    expect(checkImportCell('red, x', TAGS, KEEP)).toBeUndefined();
   });
 
   it('with Keep unknown option values on, takes an unknown value on a match-only field', () => {
-    // A readonly field reaches the wizard as match-only, and the engine checks
-    // only the shape of a readonly value.
     const code = { ...PRIORITY, name: 'code', label: 'Code', matchOnly: true };
     expect(checkImportCell('Zed', code, KEEP)).toBeUndefined();
+  });
+
+  it('with Keep unknown option values off, refuses an unknown value on a writable and a match-only field alike', () => {
+    const code = { ...PRIORITY, name: 'code', label: 'Code', matchOnly: true };
+    expect(checkImportCell('Bogus', PRIORITY, OFF)).toEqual({ code: 'invalid_option', value: 'Bogus' });
+    expect(checkImportCell('red, x', TAGS, OFF)).toEqual({ code: 'invalid_option', value: 'x' });
     expect(checkImportCell('Zed', code, OFF)).toEqual({ code: 'invalid_option', value: 'Zed' });
+  });
+
+  it('with Keep unknown option values on, still refuses a bad cell of a type that is not an option type', () => {
+    // The setting reaches the option check only.
+    expect(checkImportCell('abc', { name: 'n', label: 'N', type: 'number' }, KEEP))
+      .toEqual({ code: 'invalid_number', value: 'abc' });
   });
 });
 

@@ -25,9 +25,12 @@
  *     as A2's card;
  *   - the decision as the declared action's POST, through `ActionParamDialog`.
  *
- * The last describe block mounts the console's own route for this object
- * beside the generic record route, as `AppContent` hands both to the shell, and
- * pins that the request's record page is the routed one.
+ * The page reads through `routeApprovalRecordReads`, the console's adapter
+ * with a request's record reads routed, as every surface reads it. The last
+ * describe block mounts the generic record route under the console's
+ * `ApprovalRecordReads` provider, as `AppContent` wraps the shell, and pins
+ * that the request's record page is the routed one. The page objectstack
+ * actually serves is pinned in `approvalRequestsDataSource.servedPage.test.tsx`.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor, fireEvent, within, act } from '@testing-library/react';
@@ -49,16 +52,16 @@ vi.mock('sonner', () => ({
   }),
 }));
 
-import { AdapterCtx, MetadataCtx } from '@object-ui/react';
+import { AdapterCtx, MetadataCtx, useAdapter } from '@object-ui/react';
 import { I18nProvider, type I18nConfig } from '@object-ui/i18n';
 import { RecordDetailView } from '@object-ui/app-shell';
 import type { DataSource } from '@object-ui/types';
 import {
   APPROVAL_ACTION_OBJECT,
   APPROVAL_REQUEST_OBJECT,
-  createApprovalRequestsDataSource,
+  routeApprovalRecordReads,
 } from './approvalRequestsDataSource';
-import { approvalRequestRoutes } from '../AppContent';
+import { ApprovalRecordReads } from '../AppContent';
 import { PageSchema } from '@objectstack/spec/ui';
 import { ComponentRegistry } from '@object-ui/core';
 
@@ -234,9 +237,7 @@ const metadata = {
 const EN: I18nConfig = { defaultLanguage: 'en', detectBrowserLanguage: false };
 
 function openRequestPage() {
-  const ds = createApprovalRequestsDataSource({
-    host: host as unknown as DataSource,
-    scope: { kind: 'all' },
+  const ds = routeApprovalRecordReads(host as unknown as DataSource, {
     fetch: transport,
     baseUrl: 'http://test.local/api/v1',
   });
@@ -383,37 +384,51 @@ describe('record:approval_decision on a decided request, and for a viewer who ma
   });
 });
 
-describe("the console's route for this object (objectui#12045)", () => {
-  it('wins over the generic record route and reads the request through the approvals get', async () => {
+/** `DefaultAppContent`'s generic record route: the view over `useAdapter()`. */
+function GenericRecordRoute() {
+  return <RecordDetailView dataSource={useAdapter()} objects={metadata.objects as never} onEdit={() => {}} />;
+}
+
+describe("the console's adapter layer for this object (objectui#12045)", () => {
+  it('the generic record route, under ApprovalRecordReads, reads the request through the approvals get', async () => {
     render(
       <I18nProvider config={EN} persistLanguage={false}>
         <MemoryRouter initialEntries={[`/${APPROVAL_REQUEST_OBJECT}/record/${REQ}`]}>
           <MetadataCtx.Provider value={metadata as never}>
             <AdapterCtx.Provider value={host as never}>
-              <Routes>
-                <Route path=":objectName/record/:recordId" element={<div data-testid="generic-record-route" />} />
-                {approvalRequestRoutes}
-              </Routes>
+              <ApprovalRecordReads>
+                <Routes>
+                  <Route path=":objectName/record/:recordId" element={<GenericRecordRoute />} />
+                </Routes>
+              </ApprovalRecordReads>
             </AdapterCtx.Provider>
           </MetadataCtx.Provider>
         </MemoryRouter>
       </I18nProvider>,
     );
     expect(await screen.findByTestId('approval-decision-panel', undefined, { timeout: 8000 })).toBeTruthy();
-    expect(screen.queryByTestId('generic-record-route')).toBeNull();
     expect(requestGets().length).toBeGreaterThan(0);
     expect(host.findOne.mock.calls.some(([resource]) => resource === APPROVAL_REQUEST_OBJECT)).toBe(false);
   });
 
-  it('control: another object still takes the generic record route', async () => {
+  it('control: without the provider, the same route reads the request from the adapter', async () => {
     render(
-      <MemoryRouter initialEntries={['/invoice/record/inv_1']}>
-        <Routes>
-          <Route path=":objectName/record/:recordId" element={<div data-testid="generic-record-route" />} />
-          {approvalRequestRoutes}
-        </Routes>
-      </MemoryRouter>,
+      <I18nProvider config={EN} persistLanguage={false}>
+        <MemoryRouter initialEntries={[`/${APPROVAL_REQUEST_OBJECT}/record/${REQ}`]}>
+          <MetadataCtx.Provider value={metadata as never}>
+            <AdapterCtx.Provider value={host as never}>
+              <Routes>
+                <Route path=":objectName/record/:recordId" element={<GenericRecordRoute />} />
+              </Routes>
+            </AdapterCtx.Provider>
+          </MetadataCtx.Provider>
+        </MemoryRouter>
+      </I18nProvider>,
     );
-    expect(screen.getByTestId('generic-record-route')).toBeTruthy();
+    await waitFor(
+      () => expect(host.findOne.mock.calls.some(([resource]) => resource === APPROVAL_REQUEST_OBJECT)).toBe(true),
+      { timeout: 8000 },
+    );
+    expect(requestGets()).toHaveLength(0);
   });
 });

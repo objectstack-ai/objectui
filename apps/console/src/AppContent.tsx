@@ -4,19 +4,21 @@
  * The full inner-SPA shell (ConsoleLayout, CommandPalette, ObjectView etc.)
  * lives in @object-ui/app-shell as DefaultAppContent. This wrapper only
  * injects console-specific system routes (AppManagement / Profile / Settings
- * and the legacy-URL redirects) — third-party hosts that don't need those
- * routes use DefaultAppContent directly.
+ * and the legacy-URL redirects) and routes an approval request's record reads
+ * to the approvals routes (`ApprovalRecordReads`) — third-party hosts that
+ * don't need those use DefaultAppContent directly.
  */
 
-import { lazy, Suspense, useMemo } from 'react';
-import { Route, useParams, useLocation, useNavigate, Navigate } from 'react-router-dom';
-import { DefaultAppContent, ENVIRONMENT_SCOPE_QUERY, LoadingScreen, RecordDetailView, useAdapter, useMetadata } from '@object-ui/app-shell';
+import { lazy, Suspense, useMemo, type ReactNode } from 'react';
+import { Route, useParams, useLocation, Navigate } from 'react-router-dom';
+import { DefaultAppContent, ENVIRONMENT_SCOPE_QUERY, LoadingScreen, useAdapter } from '@object-ui/app-shell';
+import { AdapterCtx } from '@object-ui/react';
 import { MePermissionsProvider } from '@object-ui/permissions';
 import { createAuthenticatedFetch } from '@object-ui/auth';
 import type { DataSource } from '@object-ui/types';
 import { LocalizationFetchProvider } from './LocalizationFetchProvider';
 import { WorkspaceTimezonePrompt } from './pages/settings/WorkspaceTimezonePrompt';
-import { APPROVAL_REQUEST_OBJECT, createApprovalRequestsDataSource } from './services/approvalRequestsDataSource';
+import { routeApprovalRecordReads } from './services/approvalRequestsDataSource';
 
 const AppManagementPage = lazy(() => import('./pages/system/AppManagementPage').then(m => ({ default: m.AppManagementPage })));
 const ProfilePage = lazy(() => import('./pages/system/ProfilePage').then(m => ({ default: m.ProfilePage })));
@@ -294,56 +296,51 @@ export const systemRoutes = (
   </>
 );
 
-/**
- * Every `sys_approval_request` record page reads through the approvals routes
- * (objectui#12045, B1 of objectui#2763).
- *
- * The generic record route (`:objectName/record/:recordId`, declared by
- * `DefaultAppContent` in `@object-ui/app-shell`) hands `RecordDetailView` the
- * console's adapter, the data API. For an approval request that read is the
- * wrong door: the data API attaches neither the `viewer` block the request's
- * declared decision actions gate on nor the `decision_progress` tally, and it
- * refuses the request's timeline (`sys_approval_action`) to an ordinary
- * approver. The approvals routes answer all three for anyone who is a party to
- * the request. So this route, more specific than the generic one and therefore
- * the one React Router picks for this object, mounts the same view over the
- * routed approvals source (`createApprovalRequestsDataSource`): the request is
- * read from `GET /approvals/requests/:id`, its timeline from
- * `GET /approvals/requests/:id/actions`, and every other read the page makes
- * goes to the adapter unchanged.
- *
- * The page lists no requests of its own; the source's `all` scope only means
- * one would be read within the approvals service's own visibility. Records of
- * this object are engine-owned, so the page offers no edit; the handler opens
- * the record's edit route, which is where the generic route's page-mode edit
- * goes.
- */
-function ApprovalRequestRecordRoute() {
-  const adapter = useAdapter();
-  const { objects } = useMetadata();
-  const navigate = useNavigate();
-  const dataSource = useMemo<DataSource | null>(
-    () =>
-      adapter
-        ? createApprovalRequestsDataSource({ host: adapter, scope: { kind: 'all' } })
-        : null,
-    [adapter],
-  );
-  return (
-    <RecordDetailView
-      dataSource={dataSource}
-      objects={objects}
-      objectNameOverride={APPROVAL_REQUEST_OBJECT}
-      onEdit={() => navigate('edit')}
-    />
-  );
+/** One routed adapter per console adapter, keyed on the adapter object itself. */
+const recordReadsByAdapter = new WeakMap<object, unknown>();
+
+function approvalRecordReadsFor<T extends DataSource>(adapter: T): T {
+  const hit = recordReadsByAdapter.get(adapter) as T | undefined;
+  if (hit) return hit;
+  const routed = routeApprovalRecordReads(adapter);
+  recordReadsByAdapter.set(adapter, routed);
+  return routed;
 }
 
-// Exported for `services/approvalRequestsDataSource.recordRoute.test.tsx`,
-// which mounts this exact fragment beside the generic record route.
-export const approvalRequestRoutes = (
-  <Route path={`${APPROVAL_REQUEST_OBJECT}/record/:recordId`} element={<ApprovalRequestRecordRoute />} />
-);
+/**
+ * Every surface that opens an approval request reads it through the approvals
+ * routes (objectui#12045, B1 of objectui#2763).
+ *
+ * The console's adapter is the data API. For an approval request that is the
+ * wrong door for a record page: it attaches neither the `viewer` block the
+ * request's declared decision actions gate on nor the `decision_progress`
+ * tally, and it refuses the request's timeline (`sys_approval_action`) to an
+ * ordinary approver. The approvals routes answer all three for anyone who is a
+ * party to the request.
+ *
+ * A request opens on more than one surface, and `DefaultAppContent` hands each
+ * of them the adapter this context provides: its record route, an
+ * `ObjectView` drawer or split overlay (when a view authors one; with none,
+ * the object's field count opens the record route), and the record views
+ * embedded in the object data page and in an interface list page. So the
+ * re-routing is done once, here, for all of them, rather than once per
+ * surface: below this provider, `useAdapter()` answers the console's adapter
+ * with a request's `findOne` and its timeline read sent to the approvals
+ * routes (`routeApprovalRecordReads`). Lists of requests, and every other
+ * read and member, stay the adapter's.
+ *
+ * The routed adapter is cached on the adapter object in a `WeakMap`, never in
+ * a `useMemo`: every surface below keys its reads on this identity, and
+ * React may discard a memo (AGENTS.md #10).
+ */
+export function ApprovalRecordReads({ children }: { children: ReactNode }) {
+  const adapter = useAdapter();
+  return (
+    <AdapterCtx.Provider value={adapter ? approvalRecordReadsFor(adapter) : null}>
+      {children}
+    </AdapterCtx.Provider>
+  );
+}
 
 export function AppContent() {
   const serverUrl = import.meta.env.VITE_SERVER_URL || '';
@@ -380,10 +377,12 @@ export function AppContent() {
       errorFallback={(err, retry) => <LoadingScreen error={err.message} onRetry={retry} />}
     >
       <LocalizationFetchProvider endpoint={localizationEndpoint}>
-        <DefaultAppContent
-          extraRoutes={<>{systemRoutes}{approvalRequestRoutes}</>}
-          extraRoutesNoApp={systemRoutes}
-        />
+        <ApprovalRecordReads>
+          <DefaultAppContent
+            extraRoutes={systemRoutes}
+            extraRoutesNoApp={systemRoutes}
+          />
+        </ApprovalRecordReads>
       </LocalizationFetchProvider>
       {/* objectui#11758 — asks an administrator once to set a still-default
           workspace timezone. Here, inside `MePermissionsProvider`, because

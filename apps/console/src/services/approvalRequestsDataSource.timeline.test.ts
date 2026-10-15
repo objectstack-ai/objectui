@@ -103,6 +103,14 @@ describe("one request's timeline reads the actions route (objectui#12045)", () =
     ]);
   });
 
+  it("honours $count: a tab strip's count probe reads the timeline's total from the route, and is never refused", async () => {
+    const result = await source().find(APPROVAL_ACTION_OBJECT, { $filter: { request_id: 'req_1' }, $top: 1, $count: true });
+    expect(result.total).toBe(3);
+    expect(ids(result)).toEqual(['act_1']);
+    expect(wire).toEqual(['/api/v1/approvals/requests/req_1/actions']);
+    expect(host.find).not.toHaveBeenCalled();
+  });
+
   it('drops $select and $expand: they shape columns, not which rows come back', async () => {
     const result = await source().find(APPROVAL_ACTION_OBJECT, {
       $filter: { request_id: 'req_1' },

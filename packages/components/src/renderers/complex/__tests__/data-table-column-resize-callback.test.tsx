@@ -14,7 +14,8 @@
  * (`data-display.ts:791`) all along, and this renderer invoked it NOWHERE — the
  * resize drag mutated local `columnWidths` state and stopped there. ObjectGrid's
  * `saveColumnState` hung off exactly that key, so no user-dragged column width
- * ever reached `localStorage` or the host's `dataSource.updateViewConfig`.
+ * ever reached `localStorage` or the host's own store (then the shared view,
+ * through `dataSource.updateViewConfig`, since retired in objectui#12504).
  *
  * ⚠️ These assertions observe the CALL, not a rendered width: the drag already
  * applied the width to local state before the fix, so anything that only inspects

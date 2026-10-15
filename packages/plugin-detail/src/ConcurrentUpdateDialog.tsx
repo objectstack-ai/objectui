@@ -229,8 +229,7 @@ export default ConcurrentUpdateDialog;
  * cross-realm discriminator, and it stays: a host that bundles the adapter
  * twice makes `instanceof` fail, leaving the class name as the only thing
  * left to match on. The rationale is recorded above `isConcurrentUpdateError`
- * in `packages/data-objectstack/src/index.ts` and, in full, above
- * `isViewConfigPermissionDeniedError` in the same file.
+ * in `packages/data-objectstack/src/index.ts`.
  *
  * That limb is also why `code` is declared OPTIONAL below (objectui#6421). An
  * error matched by `name` alone carries no `code` at all, so promising

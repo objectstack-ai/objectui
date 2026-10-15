@@ -211,7 +211,7 @@ describe('ListView sort picker — the served sortability signal (#6108)', () =>
    * only exists after this card. A view saved before the signal existed can
    * name a field the platform now refuses; withholding the option unconditionally
    * would render a blank row the user cannot remove — and re-emit the refused
-   * entry into the next `persistViewPatch({ sort })`.
+   * entry into the next sort the host stores.
    */
   it('keeps a platform-refused field the CURRENT sort already names, so it can be removed', async () => {
     await openSortPopover({ ...baseSchema, sort: [{ field: 'remote_status', order: 'asc' }] } as any);

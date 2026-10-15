@@ -22,7 +22,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, it, expect, vi } from 'vitest';
 import React from 'react';
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 vi.mock('@object-ui/i18n', async (importOriginal) => ({
@@ -157,17 +157,14 @@ describe('desktop: the app bar trigger collapses the sidebar to the icon rail an
     expect(trigger()).toHaveAttribute('aria-expanded', 'true');
   });
 
-  it('the tooltip names the shortcut, and the shortcut toggles the state the trigger reports', async () => {
+  it('the tooltip names the trigger and its shortcut', async () => {
+    // The shortcut itself is unchanged and pinned where it is advertised:
+    // `KeyboardShortcutsDialog.wiredOnly-11674.test.tsx` fires it.
     renderShell(1280);
     fireEvent.focus(trigger());
     const caps = await screen.findAllByTestId('sidebar-trigger-shortcut');
     expect(caps[0]).toHaveTextContent('⌘B');
-
-    act(() => {
-      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'b', ctrlKey: true }));
-    });
-    expect(desktopSidebar()).toHaveAttribute('data-state', 'collapsed');
-    expect(trigger()).toHaveAttribute('aria-expanded', 'false');
+    expect(caps[0].parentElement).toHaveTextContent('Toggle sidebar');
   });
 
   it('between the mobile breakpoint and lg (900 px): still one trigger, and it collapses the sidebar', () => {

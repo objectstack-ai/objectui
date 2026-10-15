@@ -1,0 +1,103 @@
+## open Studio Data pillar
+GET /api/v1/runtime/config → 200
+GET /api/v1/runtime/config → 200
+   [console.error] Failed to load resource: the server responded with a status of 404 (Not Found)
+GET /api/v1/auth/me/localization → 200
+GET /api/v1/auth/get-session → 200
+GET /api/v1/auth/get-session → 200
+GET /api/v1/discovery → 200
+GET /api/v1/i18n/translations/en-US → 200
+GET /api/v1/auth/organization/list → 200
+GET /api/v1/i18n/locales → 200
+GET /api/v1/auth/config → 200
+GET /api/v1/meta/object → 200
+GET /api/v1/meta/view → 200
+GET /api/v1/meta/app → 200
+GET /api/v1/auth/organization/get-full-organization → 200
+GET /api/v1/meta/object → 200
+GET /api/v1/meta/view → 200
+GET /api/v1/meta/app → 200
+GET /api/v1/auth/organization/get-active-member → 200
+GET /api/v1/data/sys_user_preference?FILTER → 200
+GET /api/v1/auth/me/permissions → 200
+GET /api/v1/auth/me/permissions → 200
+GET /api/v1/packages → 200
+GET /api/v1/meta → 200
+GET /api/v1/meta/object?package=com.default.studio-test → 200
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test&type=object → 200
+GET /api/v1/ai/agents → 200
+GET /api/v1/meta/object?package=com.default.studio-test&preview=draft → 200
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test → 200
+GET /api/v1/meta/app?package=com.default.studio-test → 200
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test&type=app → 200
+GET /api/v1/data/sys_user_preference?FILTER → 200
+POST /api/v1/data/sys_user_preference → 201
+## create object Ticket (draft)
+PUT /api/v1/meta/object/st_ticket?mode=draft&package=com.default.studio-test → 200
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test → 200
+GET /api/v1/meta/_drafts → 200
+GET /api/v1/meta/app?package=com.default.studio-test → 200
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test&type=app → 200
+GET /api/v1/meta/object/st_ticket?state=draft&package=com.default.studio-test → 200
+## Interfaces pillar, create app Tickets (opens the st_ticket entry)
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test&type=object → 200
+GET /api/v1/meta/object?package=com.default.studio-test → 200
+GET /api/v1/meta/app?package=com.default.studio-test → 200
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test&type=app → 200
+GET /api/v1/meta/object?package=com.default.studio-test → 200
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test&type=object → 200
+PUT /api/v1/meta/app/tickets?mode=draft&package=com.default.studio-test → 200
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test → 200
+GET /api/v1/meta/object?package=com.default.studio-test → 200
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test&type=object → 200
+GET /api/v1/meta/app?package=com.default.studio-test → 200
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test&type=app → 200
+GET /api/v1/meta/_drafts → 200
+GET /api/v1/meta/app/tickets?state=draft&package=com.default.studio-test → 200
+GET /api/v1/meta/_drafts → 200
+GET /api/v1/meta/object/st_ticket?preview=draft → 200
+## create page Home (draft)
+GET /api/v1/meta/_drafts?type=page → 200
+GET /api/v1/meta/page → 200
+PUT /api/v1/meta/page/home?mode=draft&package=com.default.studio-test → 200
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test → 200
+PUT /api/v1/meta/app/tickets?mode=draft&package=com.default.studio-test → 200
+GET /api/v1/meta/object?package=com.default.studio-test → 200
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test&type=object → 200
+GET /api/v1/meta/app?package=com.default.studio-test → 200
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test → 200
+GET /api/v1/meta/_drafts → 200
+GET /api/v1/meta/object?package=com.default.studio-test → 200
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test&type=object → 200
+GET /api/v1/meta/app?package=com.default.studio-test → 200
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test&type=app → 200
+GET /api/v1/meta/page/home?state=draft&package=com.default.studio-test → 200
+GET /api/v1/meta/_drafts → 200
+GET /api/v1/meta/app/tickets?state=draft&package=com.default.studio-test → 200
+   [console.error] Failed to load resource: net::ERR_TUNNEL_CONNECTION_FAILED
+## back to the st_ticket entry
+GET /api/v1/meta/_drafts → 200
+GET /api/v1/meta/object/st_ticket?preview=draft → 200
+## publish the package
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test → 200
+GET /api/v1/meta/object → 200
+GET /api/v1/meta/app → 200
+GET /api/v1/meta/page → 200
+GET /api/v1/meta/object/st_ticket?state=draft&package=com.default.studio-test → 200
+POST /api/v1/packages/com.default.studio-test/publish-drafts → 200
+   (t+6s: 'Loading grid...' visible: false, empty state: 0)
+GET /api/v1/meta/app → 200
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test → 200
+GET /api/v1/meta/object → 200
+GET /api/v1/meta/app?package=com.default.studio-test → 200
+GET /api/v1/meta/view → 200
+GET /api/v1/meta/object?package=com.default.studio-test → 200
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test&type=object → 200
+GET /api/v1/meta/_drafts → 200
+GET /api/v1/meta/app/tickets/layers → 200
+   [console.error] Failed to load resource: the server responded with a status of 404 (Not Found)
+GET /api/v1/meta/object/st_ticket → 200
+GET /api/v1/meta/view/st_ticket.default/layers → 404
+GET /api/v1/data/st_ticket?top=50&skip=0&select=id,name → 200
+   (t+12s: 'Loading grid...' visible: false, empty state: 0)
+   (t+20s: 'Loading grid...' visible: false, empty state: 0)

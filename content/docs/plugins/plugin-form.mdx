@@ -178,6 +178,16 @@ resolve it that way, so the same metadata lays out identically in every host
 so each keeps its own authored width). The grid is applied to the field container
 inside the form, never wrapped around the `<form>`.
 
+One default differs: a dialog. `ModalForm`, whether `ObjectForm` opens it with
+`formType: 'modal'` or a host mounts it directly, defaults to two columns from
+the container's `@md` tier up when nothing declares `columns`. That applies to
+the flat field list, to the object's `fieldGroups`, and to sections that declare
+none. Every field takes one cell; a wide kind (textarea, rich text, markdown,
+html) and a `span: 'full'` field take the row. Below `@md`, as on a phone, it is
+one column. A dialog with no `modalSize` is bounded: `lg` for a short form or a
+single column, `xl` otherwise, and never `full`. Declare `modalSize: 'full'` for
+the 95vw dialog.
+
 ### Tabbed field layout (`fieldTabs`)
 
 A sectioned form stays **one** form: declare the tabs on it and the renderer

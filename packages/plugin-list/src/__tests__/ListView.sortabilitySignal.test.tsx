@@ -203,7 +203,7 @@ describe('ListView sort picker — the served sortability signal (#6108)', () =>
     // that order means nothing beside a column of names. Folding this into the
     // signal would hand every relational field its option back.
     expect(await sortFieldOptions()).not.toContain('Owner');
-    expect(screen.getByTestId('sort-relational-hint')).toBeInTheDocument();
+    expect(screen.getByTestId('sort-relational-info')).toBeInTheDocument();
   });
 
   /**

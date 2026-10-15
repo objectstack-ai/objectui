@@ -97,9 +97,7 @@ describe('ListView sort picker — relational fields (objectui#3096)', () => {
     expect(await sortFieldOptions()).toEqual(['Name', 'Amount']);
     // The four relational types the renderer expands are all withheld:
     // lookup / master_detail / user / tree.
-    expect(screen.getByTestId('sort-relational-hint')).toHaveTextContent(
-      /can only be sorted by the stored ID/i,
-    );
+    expect(screen.getByTestId('sort-relational-info')).toHaveAttribute('title', expect.stringMatching(/can only be sorted by the stored ID/i));
   });
 
   /**
@@ -117,13 +115,14 @@ describe('ListView sort picker — relational fields (objectui#3096)', () => {
   it('points at a stored denormalised field, never a formula field (objectui#4294)', async () => {
     await openSortPopover({ ...baseSchema, sort: [{ field: 'name', order: 'asc' }] } as any);
 
-    const hint = screen.getByTestId('sort-relational-hint');
-    expect(hint).toHaveTextContent(/denormalize it onto this object as a stored field/i);
+    // objectui#12528 — the note is the info control's tooltip now.
+    const hint = screen.getByTestId('sort-relational-info').getAttribute('title') ?? '';
+    expect(hint).toMatch(/denormalize it onto this object as a stored field/i);
     // A formula field is still named — to be ruled OUT. So the pin cannot be
     // "the word formula is absent"; it is the recommendation shape that must
     // have flipped, in both directions.
-    expect(hint).toHaveTextContent(/not a formula field/i);
-    expect(hint.textContent ?? '').not.toMatch(/add a formula field/i);
+    expect(hint).toMatch(/not a formula field/i);
+    expect(hint).not.toMatch(/add a formula field/i);
   });
 
   /**
@@ -184,6 +183,38 @@ describe('ListView sort picker — relational fields (objectui#3096)', () => {
     await waitFor(() => expect(flatDataSource.getObjectSchema).toHaveBeenCalled());
     fireEvent.click(screen.getByRole('button', { name: /^sort/i }));
     await screen.findByText('Sort Records');
+    expect(screen.queryByTestId('sort-relational-info')).toBeNull();
+  });
+});
+
+/**
+ * objectui#12528 nail 2 — the note is no longer a standing paragraph that took
+ * about half the popover on every open: it is an info control beside the
+ * popover's title, the note as its tooltip and accessible name, and one line
+ * under the rows only while the current sort names a linked column.
+ */
+describe('ListView sort popover — the relational note as an info control (objectui#12528)', () => {
+  it('draws no paragraph: an info control carries the note', async () => {
+    await openSortPopover({ ...baseSchema, sort: [{ field: 'name', order: 'asc' }] } as any);
+
     expect(screen.queryByTestId('sort-relational-hint')).toBeNull();
+    const info = screen.getByTestId('sort-relational-info');
+    expect(info).toHaveAttribute('title', expect.stringMatching(/can only be sorted by the stored ID/i));
+    expect(info).toHaveAttribute('aria-label', info.getAttribute('title')!);
+    expect(info.textContent).toBe('');
+  });
+
+  it('says in one line that a linked column in the current sort orders by ID', async () => {
+    await openSortPopover({ ...baseSchema, sort: [{ field: 'owner', order: 'asc' }] } as any);
+
+    expect(screen.getByTestId('sort-relational-picked')).toHaveTextContent(
+      'A linked column sorts by the stored ID, not the name shown.',
+    );
+  });
+
+  it('CONTROL: a sort on a plain field shows no one-line hint', async () => {
+    await openSortPopover({ ...baseSchema, sort: [{ field: 'name', order: 'asc' }] } as any);
+
+    expect(screen.queryByTestId('sort-relational-picked')).toBeNull();
   });
 });

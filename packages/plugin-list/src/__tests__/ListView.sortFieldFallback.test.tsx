@@ -224,9 +224,7 @@ describe('objectui#4243 part 1 — the sort picker no longer reuses `filterableF
     await openSortPanel();
 
     expect(await optionsOf(sortRowTriggers()[0])).not.toContain('Owner');
-    expect(screen.getByTestId('sort-relational-hint')).toHaveTextContent(
-      /can only be sorted by the stored ID/i,
-    );
+    expect(screen.getByTestId('sort-relational-info')).toHaveAttribute('title', expect.stringMatching(/can only be sorted by the stored ID/i));
   });
 
   it('CONTROL — the FILTER builder still honours `filterableFields`', async () => {

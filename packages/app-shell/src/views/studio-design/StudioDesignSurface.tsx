@@ -43,6 +43,7 @@ import { StudioItemHeader, StudioTab } from './StudioItemHeader.js';
 import { overlayPath } from './BuilderLanding.js';
 import { DATA_CONTENT_CONTAINER, DATA_TAB_FLAT_ONLY, DATA_TAB_FOLDED_ONLY } from './dataTabsFold.js';
 import { StudioRail, StudioRailGroup, StudioRailRow } from './StudioRail.js';
+import { StudioEmptyState, StudioEmptyStateAction } from './StudioEmptyState.js';
 import { FLOW_TRIGGER_GLYPHS, flowTriggerGlyph, groupFlowsByObject, type FlowTriggerGlyph } from './flowGrouping.js';
 import {
   GridFieldAuthoringProvider,
@@ -7026,6 +7027,25 @@ export function AutomationsPillar({
     }
   }, [saveFlowDraft, current, draft, draftPackageId, onDraftSaved, locale, readOnly, sendingFlowDraft]);
 
+  // The rail's "+" — and the empty block's button, which runs this same
+  // handler (objectui#12514). objectui#11553 — no "New" in the package-less
+  // scope: new authoring stays package-first, and this scope reaches flows
+  // that already exist without a package.
+  const openCreateFlow =
+    !readOnly && packageId !== null
+      ? () => {
+          setError(null);
+          setNewTrigger('');
+          setNewTriggerObject('');
+          setNewChoice(FLOW_PRESETS[0]);
+          setNewNeeds(null);
+          setCreating(true);
+        }
+      : undefined;
+  // objectui#12514 — a listed package with no flow: one centered block in the
+  // content column, and no aside while there is nothing to select.
+  const flowsEmpty = listed && !error && flows.length === 0;
+
   // The Configuration's body, in the aside beside the canvas or, on a folded
   // row, in the drawer over it (objectui#11795).
   const configBodyEl =
@@ -7048,7 +7068,8 @@ export function AutomationsPillar({
         <Ban className="h-5 w-5" />
         {t('engine.studio.auto.designersMissing', locale)}
       </div>
-    ) : (
+    ) : !current ? null : (
+      // objectui#12514 — the node prompt only where there are nodes to click.
       <div className="flex flex-col items-center gap-2 px-2 py-10 text-center text-xs text-muted-foreground">
         <MousePointer2 className="h-5 w-5" />
         {t('engine.studio.auto.emptyLine1', locale)}
@@ -7260,21 +7281,7 @@ export function AutomationsPillar({
           testId="studio-rail-automations"
           heading={t('engine.studio.auto.heading', locale)}
           count={flows.length}
-          onAdd={
-            // objectui#11553 — no "New" in the package-less scope: new
-            // authoring stays package-first, and this scope reaches flows
-            // that already exist without a package.
-            !readOnly && packageId !== null
-              ? () => {
-                  setError(null);
-                  setNewTrigger('');
-                  setNewTriggerObject('');
-                  setNewChoice(FLOW_PRESETS[0]);
-                  setNewNeeds(null);
-                  setCreating(true);
-                }
-              : undefined
-          }
+          onAdd={openCreateFlow}
           addLabel={t('engine.studio.auto.newTitle', locale)}
           addTestId="studio-rail-add"
           search={{
@@ -7345,15 +7352,13 @@ export function AutomationsPillar({
               {tFormat('engine.list.emptyQuery', locale, { query: railQuery.trim() })}
             </p>
           )}
-          {flows.length === 0 && !creating && (
+          {flows.length === 0 && !creating && (error || !listed || openCreateFlow) && (
             <p className="px-2 py-3 text-[11px] text-muted-foreground">
               {error
                 ? t('engine.studio.loadFailed', locale)
                 : !listed
                   ? t('engine.studio.loading', locale)
-                  : packageId === null
-                    ? t('engine.studio.org.none', locale)
-                    : t('engine.studio.auto.none', locale)}
+                  : t('engine.studio.auto.none', locale)}
             </p>
           )}
         </StudioRail>
@@ -7464,13 +7469,30 @@ export function AutomationsPillar({
               * height instead of shrinking to FlowCanvas's intrinsic content height. */}
             <div className="min-h-0 flex-1">
               {!current ? (
-                <div className="py-16 text-center text-sm text-muted-foreground">
-                  {/* objectui#11553 — a deep link that named a flow this rail
-                      does not hold says so, instead of opening another. */}
-                  {missingFlow
-                    ? tFormat('engine.studio.auto.deepLinkMissing', locale, { name: missingFlow })
-                    : t('engine.studio.auto.pick', locale)}
-                </div>
+                missingFlow ? (
+                  <div className="py-16 text-center text-sm text-muted-foreground">
+                    {/* objectui#11553 — a deep link that named a flow this rail
+                        does not hold says so, instead of opening another. */}
+                    {tFormat('engine.studio.auto.deepLinkMissing', locale, { name: missingFlow })}
+                  </div>
+                ) : flowsEmpty ? (
+                  <div className="flex h-full">
+                    <StudioEmptyState
+                      testId="auto-empty"
+                      icon={Workflow}
+                      sentence={t(packageId === null ? 'engine.studio.org.none' : 'engine.studio.auto.emptyMain', locale)}
+                      action={
+                        openCreateFlow && (
+                          <StudioEmptyStateAction
+                            data-testid="auto-empty-new"
+                            label={t('engine.studio.auto.newTitle', locale)}
+                            onClick={openCreateFlow}
+                          />
+                        )
+                      }
+                    />
+                  </div>
+                ) : null
               ) : loading || !flowLoaded ? (
                 // objectui#11272 — nothing of another flow's buffer under this
                 // one; after a failed load, the error above says why.
@@ -7518,7 +7540,7 @@ export function AutomationsPillar({
           </main>
         </div>
 
-        {configFolded ? (
+        {flowsEmpty ? null : configFolded ? (
           // objectui#11795 — the folded row: no aside reserving width beside
           // the canvas; the selection's configuration opens over it, and
           // closing the drawer clears the selection, as the aside's ✕ does.
@@ -7967,6 +7989,17 @@ export function AccessPillar({
       {t('engine.studio.access.explain.open', locale)}
     </button>
   );
+  // The rail's "+" — and the empty block's button, which runs this same
+  // handler (objectui#12514). Creating a set lands on the new set's matrix — a
+  // remount of the open matrix, or a swap out of the OWD overview — so gate
+  // the flow up front.
+  const openCreateSet = readOnly
+    ? undefined
+    : () => {
+        if (!confirmDiscardEdits()) return;
+        setCreateErr(null);
+        setCreating(true);
+      };
   const accessHeaderEl = (
     <StudioItemHeader
       testId="access-item-header"
@@ -8041,18 +8074,7 @@ export function AccessPillar({
           testId="studio-rail-access"
           heading={t('engine.studio.access.heading', locale)}
           count={perms.length}
-          onAdd={
-            readOnly
-              ? undefined
-              : () => {
-                  // Creating a set lands on the new set's matrix — a remount
-                  // of the open matrix, or a swap out of the OWD overview —
-                  // so gate the flow up front.
-                  if (!confirmDiscardEdits()) return;
-                  setCreateErr(null);
-                  setCreating(true);
-                }
-          }
+          onAdd={openCreateSet}
           addLabel={t('engine.studio.access.new', locale)}
           addTestId="studio-rail-add"
           search={{ value: query, onChange: setQuery, placeholder: t('engine.studio.access.search', locale) }}
@@ -8086,7 +8108,9 @@ export function AccessPillar({
           isMobile={isMobile}
           open={railOpen}
         >
-          {perms.length === 0 && (
+          {/* objectui#12514 — the empty sentence names the "+" it points at;
+              without one, the content column's block speaks alone. */}
+          {perms.length === 0 && (error || !loaded || openCreateSet) && (
             <p className="px-2 py-3 text-[11px] text-muted-foreground">
               {error ? t('engine.studio.loadFailed', locale) : loaded ? t('engine.studio.access.none', locale) : t('engine.studio.loading', locale)}
             </p>
@@ -8171,11 +8195,25 @@ export function AccessPillar({
                 setOwdOpen(true);
               }}
             />
-          ) : (
-            <div className="py-16 text-center text-sm text-muted-foreground">
-              {loaded && perms.length === 0 ? t('engine.studio.access.emptyMain', locale) : t('engine.studio.access.pick', locale)}
+          ) : loaded && !error && perms.length === 0 ? (
+            // objectui#12514 — one centered block whose button runs the rail's "+".
+            <div className="flex h-full">
+              <StudioEmptyState
+                testId="access-empty"
+                icon={Shield}
+                sentence={t('engine.studio.access.emptyMain', locale)}
+                action={
+                  openCreateSet && (
+                    <StudioEmptyStateAction
+                      data-testid="access-empty-new"
+                      label={t('engine.studio.access.new', locale)}
+                      onClick={openCreateSet}
+                    />
+                  )
+                }
+              />
             </div>
-          )}
+          ) : null}
           </main>
         </div>
       </div>

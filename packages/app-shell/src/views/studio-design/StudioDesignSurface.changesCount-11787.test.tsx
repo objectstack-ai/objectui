@@ -128,7 +128,8 @@ async function drain() {
 }
 
 async function createSetThroughTheDialog() {
-  fireEvent.click(await screen.findByRole('button', { name: t('engine.studio.access.new', 'en') }));
+  // The rail's "+" (the empty block's button shares its name since objectui#12514).
+  fireEvent.click(await screen.findByTestId('studio-rail-add'));
   const dialog = await screen.findByRole('dialog');
   fireEvent.change(within(dialog).getByPlaceholderText(t('engine.studio.access.labelPlaceholder', 'en')), {
     target: { value: 'Set C' },

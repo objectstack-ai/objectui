@@ -57,6 +57,7 @@ import {
   type ActionPresetPlan,
   type ActionPresetFieldOpt,
 } from './actionPresets.js';
+import { StudioEmptyState, StudioEmptyStateAction } from './StudioEmptyState.js';
 
 interface ActionItem {
   name?: string;
@@ -272,6 +273,9 @@ export function ObjectActionsPanel({
   const [addOpen, setAddOpen] = React.useState(false);
   const [advancedOpen, setAdvancedOpen] = React.useState(false);
   const presetIds = React.useId();
+  // objectui#12514 — the header's "New": where the menu hands focus back once
+  // the empty block that opened it has given way to the list.
+  const headerNewRef = React.useRef<HTMLButtonElement>(null);
 
   /**
    * objectui#11861 — the seed the blank action starts from (name, label,
@@ -304,6 +308,118 @@ export function ObjectActionsPanel({
     [actions, heldNeeds, objectName, onPatch],
   );
 
+  const headerTrigger = (
+    <button
+      ref={headerNewRef}
+      type="button"
+      className="ml-auto inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] hover:bg-muted"
+    >
+      <Plus className="h-3 w-3" /> {t('engine.studio.new', locale)}
+      <ChevronDown className="h-3 w-3 text-muted-foreground" />
+    </button>
+  );
+  // objectui#12514 — the one "New" menu. While the object holds no action it
+  // opens from the empty block's button, and once the first one lists it hands
+  // focus to the header's "New", the trigger that is then on the page.
+  const menuFromEmpty = listed.length === 0;
+  const addMenu = (
+    <Popover
+      open={addOpen}
+      onOpenChange={(open) => {
+        setAddOpen(open);
+        // Every opening starts on the presets, Advanced folded.
+        if (open) setAdvancedOpen(false);
+      }}
+    >
+      <PopoverTrigger asChild>
+        {menuFromEmpty ? (
+          <StudioEmptyStateAction data-testid="actions-empty-new" label={t('engine.studio.actions.newButton', locale)} />
+        ) : (
+          headerTrigger
+        )}
+      </PopoverTrigger>
+      <PopoverContent
+        align={menuFromEmpty ? 'center' : 'end'}
+        sideOffset={4}
+        className="w-64 p-1"
+        onCloseAutoFocus={(e) => {
+          if (menuFromEmpty && headerNewRef.current) {
+            e.preventDefault();
+            headerNewRef.current.focus();
+          }
+        }}
+      >
+        <p className="px-2 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          {t('engine.studio.actions.presets', locale)}
+        </p>
+        {presetPlans.map(({ preset, plan }) => (
+          <button
+            key={preset.id}
+            type="button"
+            data-testid={`action-preset-${preset.id}`}
+            disabled={!plan.ready}
+            aria-labelledby={`${presetIds}-${preset.id}-label`}
+            aria-describedby={plan.hint ? `${presetIds}-${preset.id}-hint` : undefined}
+            onClick={() => {
+              if (!plan.ready) return;
+              addPreset(plan);
+              setAddOpen(false);
+            }}
+            className="flex w-full flex-col items-start rounded-md px-2 py-1.5 text-left hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+          >
+            <span id={`${presetIds}-${preset.id}-label`} className="text-[12px]">
+              {t(preset.labelKey, locale)}
+            </span>
+            {plan.hint && (
+              <span id={`${presetIds}-${preset.id}-hint`} className="text-[11px] text-muted-foreground">
+                {plan.hint}
+              </span>
+            )}
+          </button>
+        ))}
+        <div className="my-1 border-t" />
+        <button
+          type="button"
+          aria-expanded={advancedOpen}
+          // Names the list only while it is on the page.
+          aria-controls={advancedOpen ? `${presetIds}-advanced` : undefined}
+          onClick={() => setAdvancedOpen((v) => !v)}
+          className="flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-left text-[12px] text-muted-foreground hover:bg-muted"
+        >
+          {advancedOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+          {/* The Validations menu's own word for the same fold. */}
+          {t('engine.studio.rules.advanced', locale)}
+        </button>
+        {/* The blank action, unchanged and named as before, folded under Advanced. */}
+        {advancedOpen && (
+          <div id={`${presetIds}-advanced`}>
+            <button
+              type="button"
+              onClick={() => {
+                addAction();
+                setAddOpen(false);
+              }}
+              className="flex w-full items-center rounded-md px-2 py-1.5 text-left text-[12px] hover:bg-muted"
+            >
+              {t('engine.studio.actions.newLabel', locale)}
+            </button>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+
+  if (listed.length === 0) {
+    return (
+      <StudioEmptyState
+        testId="actions-empty"
+        icon={Zap}
+        sentence={t('engine.studio.actions.none', locale)}
+        action={disabled ? undefined : addMenu}
+      />
+    );
+  }
+
   return (
     <div className="flex min-h-0 flex-1 gap-4">
       {/* action list */}
@@ -312,123 +428,40 @@ export function ObjectActionsPanel({
           <Zap className="h-3.5 w-3.5" />
           <span className="text-[13px] font-medium">{t('engine.studio.data.tab.actions', locale)}</span>
           <span className="text-[11px] text-muted-foreground">({listed.length})</span>
-          {!disabled && (
-            <Popover
-              open={addOpen}
-              onOpenChange={(open) => {
-                setAddOpen(open);
-                // Every opening starts on the presets, Advanced folded.
-                if (open) setAdvancedOpen(false);
-              }}
-            >
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="ml-auto inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] hover:bg-muted"
-                >
-                  <Plus className="h-3 w-3" /> {t('engine.studio.new', locale)}
-                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent align="end" sideOffset={4} className="w-64 p-1">
-                <p className="px-2 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                  {t('engine.studio.actions.presets', locale)}
-                </p>
-                {presetPlans.map(({ preset, plan }) => (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    data-testid={`action-preset-${preset.id}`}
-                    disabled={!plan.ready}
-                    aria-labelledby={`${presetIds}-${preset.id}-label`}
-                    aria-describedby={plan.hint ? `${presetIds}-${preset.id}-hint` : undefined}
-                    onClick={() => {
-                      if (!plan.ready) return;
-                      addPreset(plan);
-                      setAddOpen(false);
-                    }}
-                    className="flex w-full flex-col items-start rounded-md px-2 py-1.5 text-left hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
-                  >
-                    <span id={`${presetIds}-${preset.id}-label`} className="text-[12px]">
-                      {t(preset.labelKey, locale)}
-                    </span>
-                    {plan.hint && (
-                      <span id={`${presetIds}-${preset.id}-hint`} className="text-[11px] text-muted-foreground">
-                        {plan.hint}
-                      </span>
-                    )}
-                  </button>
-                ))}
-                <div className="my-1 border-t" />
-                <button
-                  type="button"
-                  aria-expanded={advancedOpen}
-                  // Names the list only while it is on the page.
-                  aria-controls={advancedOpen ? `${presetIds}-advanced` : undefined}
-                  onClick={() => setAdvancedOpen((v) => !v)}
-                  className="flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-left text-[12px] text-muted-foreground hover:bg-muted"
-                >
-                  {advancedOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                  {/* The Validations menu's own word for the same fold. */}
-                  {t('engine.studio.rules.advanced', locale)}
-                </button>
-                {/* The blank action, unchanged and named as before, folded under Advanced. */}
-                {advancedOpen && (
-                  <div id={`${presetIds}-advanced`}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        addAction();
-                        setAddOpen(false);
-                      }}
-                      className="flex w-full items-center rounded-md px-2 py-1.5 text-left text-[12px] hover:bg-muted"
-                    >
-                      {t('engine.studio.actions.newLabel', locale)}
-                    </button>
-                  </div>
-                )}
-              </PopoverContent>
-            </Popover>
-          )}
+          {!disabled && addMenu}
         </header>
         <div className="min-h-0 flex-1 overflow-auto">
-          {listed.length === 0 ? (
-            <p className="px-3 py-6 text-center text-[11px] leading-5 text-muted-foreground">
-              {t('engine.studio.actions.none', locale)}
-            </p>
-          ) : (
-            listed.map((a) => {
-              const Icon = getIcon(typeof a.icon === 'string' ? a.icon : undefined);
-              const type = typeof a.type === 'string' ? a.type : '';
-              const needs = heldNeeds.get(String(a.name ?? '')) ?? null;
-              return (
-                <button
-                  key={String(a.name)}
-                  type="button"
-                  onClick={() => setSelected(a.name ?? null)}
-                  className={
-                    'flex w-full items-center gap-2 border-b px-3 py-2 text-left text-[12px] ' +
-                    (effectiveSelected === a.name ? 'bg-muted' : 'hover:bg-muted/50')
-                  }
-                >
-                  <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{labelText(a.label, String(a.name ?? ''), locale)}</span>
-                    {needs && (
-                      <span data-testid="action-not-saved" className="block truncate text-[11px] italic text-muted-foreground">
-                        {tFormat('engine.studio.actions.notSaved', locale, { input: t(needs, locale) })}
-                      </span>
-                    )}
-                  </span>
-                  {type && (
-                    <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                      {type}
+          {listed.map((a) => {
+            const Icon = getIcon(typeof a.icon === 'string' ? a.icon : undefined);
+            const type = typeof a.type === 'string' ? a.type : '';
+            const needs = heldNeeds.get(String(a.name ?? '')) ?? null;
+            return (
+              <button
+                key={String(a.name)}
+                type="button"
+                onClick={() => setSelected(a.name ?? null)}
+                className={
+                  'flex w-full items-center gap-2 border-b px-3 py-2 text-left text-[12px] ' +
+                  (effectiveSelected === a.name ? 'bg-muted' : 'hover:bg-muted/50')
+                }
+              >
+                <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{labelText(a.label, String(a.name ?? ''), locale)}</span>
+                  {needs && (
+                    <span data-testid="action-not-saved" className="block truncate text-[11px] italic text-muted-foreground">
+                      {tFormat('engine.studio.actions.notSaved', locale, { input: t(needs, locale) })}
                     </span>
                   )}
-                </button>
-              );
-            })
-          )}
+                </span>
+                {type && (
+                  <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                    {type}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -450,11 +483,9 @@ export function ObjectActionsPanel({
             })}
           </p>
         )}
-        {!sel ? (
-          <div className="flex flex-1 items-center justify-center p-6 text-center text-[12px] text-muted-foreground">
-            {t('engine.studio.actions.pick', locale)}
-          </div>
-        ) : Inspector ? (
+        {/* The list always selects an action, so this pane is never blank for
+            want of a pick (objectui#12514 retired that sentence). */}
+        {!sel ? null : Inspector ? (
           <>
             {!disabled && (
               <div className="flex shrink-0 items-center justify-end border-b px-2 py-1">

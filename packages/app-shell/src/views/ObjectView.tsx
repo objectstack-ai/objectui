@@ -1558,15 +1558,17 @@ const VIEW_TABS_MIN_WIDTH = 640;
  * at all, so below `sm` nothing is passed and nothing is drawn (the CSS
  * `hidden sm:block` it replaces only hid it).
  */
+function viewTabsFitNow(): boolean {
+    return typeof window !== 'undefined' && window.innerWidth >= VIEW_TABS_MIN_WIDTH;
+}
+
 function useViewTabsFit(): boolean {
-    const read = () => typeof window !== 'undefined' && window.innerWidth >= VIEW_TABS_MIN_WIDTH;
-    const [fits, setFits] = useState<boolean>(read);
+    const [fits, setFits] = useState<boolean>(viewTabsFitNow);
     useEffect(() => {
         if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
         const mql = window.matchMedia(`(min-width: ${VIEW_TABS_MIN_WIDTH}px)`);
-        const onChange = () => setFits(read());
+        const onChange = () => setFits(viewTabsFitNow());
         mql.addEventListener('change', onChange);
-        setFits(read());
         return () => mql.removeEventListener('change', onChange);
     }, []);
     return fits;

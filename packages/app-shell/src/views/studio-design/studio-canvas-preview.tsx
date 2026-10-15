@@ -228,6 +228,11 @@ export function navEntryListTarget(
  * The panel holds the view this canvas opens (the entry's named view, else the
  * object's default list view, as the running app opens it).
  *
+ * objectui#12508 — an object the Interfaces pillar names draft-only
+ * ({@link StudioCanvasDraftOnlyObjectsContext}) has no runtime yet: no schema
+ * and no records to read. The canvas says it is not published instead of
+ * mounting the grid, whose reads would answer 404.
+ *
  * Exported so downstream renderers can compose/wrap it; override the default
  * wholesale via `registerStudioCanvasPreview('object', …)`.
  */

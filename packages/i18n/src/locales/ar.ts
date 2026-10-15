@@ -899,6 +899,7 @@ const ar = {
     search: "بحث",
     filter: "تصفية",
     filterRecords: "تصفية السجلات",
+    filterActive: "تصفية، {{count}} نشطة",
     sort: "ترتيب",
     sortRecords: "ترتيب السجلات",
     sortByIdSuffix: "(حسب المعرّف)",

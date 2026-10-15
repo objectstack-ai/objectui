@@ -765,6 +765,7 @@ const zh = {
     search: '搜索',
     filter: '筛选',
     filterRecords: '筛选记录',
+    filterActive: '筛选，{{count}} 个生效',
     sort: '排序',
     sortRecords: '排序记录',
     sortByIdSuffix: '(按 ID)',

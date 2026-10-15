@@ -808,6 +808,7 @@ const pt = {
     search: "Pesquisar",
     filter: "Filtrar",
     filterRecords: "Filtrar registros",
+    filterActive: "Filtrar, {{count}} ativos",
     sort: "Ordenar",
     sortRecords: "Ordenar registros",
     sortByIdSuffix: "(por ID)",

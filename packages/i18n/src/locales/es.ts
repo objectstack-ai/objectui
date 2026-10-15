@@ -813,6 +813,7 @@ const es = {
     search: "Buscar",
     filter: "Filtrar",
     filterRecords: "Filtrar registros",
+    filterActive: "Filtrar, {{count}} activos",
     sort: "Ordenar",
     sortRecords: "Ordenar registros",
     sortByIdSuffix: "(por ID)",

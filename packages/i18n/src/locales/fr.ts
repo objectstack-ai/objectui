@@ -809,6 +809,7 @@ const fr = {
     search: "Rechercher",
     filter: "Filtrer",
     filterRecords: "Filtrer les enregistrements",
+    filterActive: "Filtrer, {{count}} actifs",
     sort: "Trier",
     sortRecords: "Trier les enregistrements",
     sortByIdSuffix: "(par ID)",

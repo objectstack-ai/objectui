@@ -845,6 +845,7 @@ const ru = {
     search: "Поиск",
     filter: "Фильтр",
     filterRecords: "Фильтр записей",
+    filterActive: "Фильтр, активных: {{count}}",
     sort: "Сортировка",
     sortRecords: "Сортировка записей",
     sortByIdSuffix: "(по ID)",

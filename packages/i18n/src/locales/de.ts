@@ -784,6 +784,7 @@ const de = {
     search: "Suche",
     filter: "Filtern",
     filterRecords: "Datensätze filtern",
+    filterActive: "Filtern, {{count}} aktiv",
     sort: "Sortieren",
     sortRecords: "Datensätze sortieren",
     sortByIdSuffix: "(nach ID)",

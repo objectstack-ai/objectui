@@ -7,12 +7,15 @@
  * - Item 4: the platform mark leaves the bar in app context — the bar starts
  *   with the app pill, and no path separator precedes it. Platform surfaces
  *   (`home`, `orgs`, `studio` variants) keep the mark.
- * - Item 5: the PREVIEW stage chip sits on the right, beside the search box,
- *   inside an app; on platform surfaces it stays beside the mark.
- * - Item 6: the Studio entry is a labelled outline button 「Edit app」 with a
- *   pencil, at the left edge of the right-hand utility cluster: the label from
- *   `lg` up, the pencil alone with a tooltip below that. The app pill's
- *   dropdown row takes the button's own target. A member sees neither.
+ * - Item 5: the PREVIEW stage chip; on platform surfaces it stays beside the
+ *   mark. Inside an app it sat on the right, beside the search box, until
+ *   objectui#12461 moved it beside the app pill — the cells below read that.
+ * - Item 6: the Studio entry 「Edit app」 with a pencil, at the left edge of the
+ *   right-hand utility cluster. The app pill's dropdown row takes the button's
+ *   own target. A member sees neither. The button carried its label as text
+ *   from `lg` up until objectui#12461 made it an icon button at every width —
+ *   the cells below read that; `AppHeader.appBarLeftGroup-12461` pins it
+ *   through the real `Button`.
  *
  * Real subject: `AppHeader`, under the real `MePermissionsProvider` seeded
  * with each persona's `/me/permissions` payload — the harness of
@@ -232,13 +235,16 @@ describe('inside an app the bar starts with the app pill (objectui#12201 item 4)
   });
 });
 
-describe('the PREVIEW chip moves beside the search box inside an app (objectui#12201 item 5)', () => {
-  it('app context: in the right-hand cluster, immediately before the search group', () => {
+describe('the PREVIEW chip (objectui#12201 item 5, objectui#12461)', () => {
+  it('app context: beside the app pill, ahead of any crumb (objectui#12461)', () => {
     mountApp();
     const badges = screen.getAllByTestId('preview-badge-stub');
     expect(badges).toHaveLength(1);
-    const search = screen.getByTestId('action:command-palette:open');
-    expect(badges[0].nextElementSibling).toContainElement(search);
+    expect(screen.getByTestId('app-switcher-stub').parentElement!.nextElementSibling).toBe(badges[0]);
+    // `/apps/cloud_control/page/welcome` keeps its one crumb, after the chip.
+    const separators = [...document.querySelectorAll('span[aria-hidden]')].filter((s) => s.textContent?.trim() === '/');
+    expect(separators).toHaveLength(1);
+    expect(follows(badges[0], separators[0])).toBe(true);
   });
 
   it('CONTROL — a platform surface keeps it in the brand zone, after the mark', () => {
@@ -251,16 +257,14 @@ describe('the PREVIEW chip moves beside the search box inside an app (objectui#1
   });
 });
 
-describe('the Studio entry is a labelled 「Edit app」 button (objectui#12201 item 6)', () => {
-  it('an outline button with a pencil, labelled from `lg` up, pencil-only with a tooltip below', () => {
+describe('the Studio entry 「Edit app」 (objectui#12201 item 6, objectui#12461)', () => {
+  it('a pencil icon button at every width, named and tooltipped 「Edit app」 (objectui#12461)', () => {
     mountApp();
     const bridge = screen.getByTestId('app-design-in-studio-button');
-    expect(bridge).toHaveAttribute('data-variant', 'outline');
-    const label = screen.getByTestId('app-design-in-studio-label');
-    expect(label).toHaveTextContent('Edit app');
-    expect(label.className.split(' ')).toEqual(expect.arrayContaining(['hidden', 'lg:inline']));
-    // Narrow widths: a square pencil button, named and tooltipped by the label.
-    expect(bridge.className.split(' ')).toEqual(expect.arrayContaining(['w-8', 'lg:w-auto']));
+    expect(bridge).toHaveAttribute('data-variant', 'ghost');
+    expect(bridge.textContent?.trim()).toBe('');
+    expect(bridge.className.split(' ')).toEqual(expect.arrayContaining(['h-8', 'w-8']));
+    expect(bridge.className.split(' ')).not.toContain('lg:w-auto');
     expect(bridge).toHaveAttribute('aria-label', 'Edit app');
     expect(bridge).toHaveAttribute('title', 'Edit app');
   });

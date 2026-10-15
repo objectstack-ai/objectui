@@ -2664,7 +2664,6 @@ const zh = {
     offline: '离线',
     usersOnline: '当前在线用户',
     switchView: '切换视图',
-    switchObject: '切换对象',
     connection: {
       connected: '已连接',
       connecting: '连接中…',

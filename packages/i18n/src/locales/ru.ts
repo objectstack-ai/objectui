@@ -2696,7 +2696,6 @@ const ru = {
     offline: "Не в сети",
     usersOnline: "Пользователи сейчас в сети",
     switchView: "Сменить представление",
-    switchObject: "Сменить объект",
     connection: {
       connected: "Подключено",
       connecting: "Подключение…",

@@ -3099,7 +3099,6 @@ const en = {
     offline: 'Offline',
     usersOnline: 'Users currently online',
     switchView: 'Switch view',
-    switchObject: 'Switch Object',
     connection: {
       connected: 'Connected',
       connecting: 'Connecting…',

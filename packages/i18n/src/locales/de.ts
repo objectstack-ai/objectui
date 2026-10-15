@@ -2582,7 +2582,6 @@ const de = {
     offline: "Offline",
     usersOnline: "Aktuell online befindliche Benutzer",
     switchView: "Ansicht wechseln",
-    switchObject: "Objekt wechseln",
     connection: {
       connected: "Verbunden",
       connecting: "Verbindung wird hergestellt…",

@@ -2628,7 +2628,6 @@ const pt = {
     offline: "Off-line",
     usersOnline: "Usuários on-line no momento",
     switchView: "Trocar de visão",
-    switchObject: "Trocar de objeto",
     connection: {
       connected: "Conectado",
       connecting: "Conectando…",

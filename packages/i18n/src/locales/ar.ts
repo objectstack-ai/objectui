@@ -2790,7 +2790,6 @@ const ar = {
     offline: "غير متصل",
     usersOnline: "المستخدمون المتصلون الآن",
     switchView: "تبديل العرض",
-    switchObject: "تبديل الكائن",
     connection: {
       connected: "متصل",
       connecting: "جارٍ الاتصال…",

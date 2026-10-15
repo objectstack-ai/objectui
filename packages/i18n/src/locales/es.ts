@@ -2633,7 +2633,6 @@ const es = {
     offline: "Sin conexión",
     usersOnline: "Usuarios conectados ahora mismo",
     switchView: "Cambiar de vista",
-    switchObject: "Cambiar de objeto",
     connection: {
       connected: "Conectado",
       connecting: "Conectando…",

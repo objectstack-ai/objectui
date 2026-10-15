@@ -2584,7 +2584,6 @@ const ja = {
     offline: "オフライン",
     usersOnline: "現在オンラインのユーザー",
     switchView: "ビューを切り替え",
-    switchObject: "オブジェクトを切り替え",
     connection: {
       connected: "接続済み",
       connecting: "接続中…",

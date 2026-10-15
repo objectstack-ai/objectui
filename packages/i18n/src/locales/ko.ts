@@ -2582,7 +2582,6 @@ const ko = {
     offline: "오프라인",
     usersOnline: "현재 접속 중인 사용자",
     switchView: "뷰 전환",
-    switchObject: "객체 전환",
     connection: {
       connected: "연결됨",
       connecting: "연결 중…",

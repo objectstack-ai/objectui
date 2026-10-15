@@ -2630,7 +2630,6 @@ const fr = {
     offline: "Hors ligne",
     usersOnline: "Utilisateurs actuellement en ligne",
     switchView: "Changer de vue",
-    switchObject: "Changer d'objet",
     connection: {
       connected: "Connecté",
       connecting: "Connexion…",

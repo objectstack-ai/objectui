@@ -43,6 +43,7 @@ import type {
   FlowRegistration,
   GetMetaItemLayeredResponse,
   GetMetaItemsResponse,
+  ListDraftsResponse,
   PublishPackageDraftsResponse,
   RuntimeAuthoringIssue,
 } from '@objectstack/spec/api';
@@ -105,6 +106,15 @@ export interface MetadataSaveAdvisoryEvent {
   type: string;
   /** Item name saved. */
   name: string;
+  /**
+   * The bundle member the write named (objectui#12413), when it named one:
+   * set by {@link MetadataClient.publishDraft} from its `options.member`, so
+   * an advisory raised on one language's publish of an `email_template` is
+   * attributed to that member and not to the whole template. Absent for every
+   * write that names no member. Typed from {@link MetadataDraftHeader}'s
+   * `member`, the value the caller read off the draft row.
+   */
+  member?: MetadataDraftHeader['member'];
   /**
    * The save mode the call used. `'draft'` writes are **never gated** — the
    * framework returns at `runtime-authoring-gate.ts`'s D1 early-return
@@ -282,14 +292,29 @@ function readRegistrations(raw: unknown): Record<string, FlowRegistration> | und
  * A pending DRAFT metadata item (ADR-0033), as returned by {@link MetadataClient.listDrafts}.
  * Light header — no body — carrying the owning package so the console can group
  * pending changes by app package.
+ *
+ * DERIVED from the spec's row, `ListDraftsResponseSchema.drafts[]`, rather than
+ * re-spelled (objectui#12413): the key names and their types come from the
+ * spec symbol, so a key the spec renames or retypes fails the type-check here
+ * instead of drifting past it.
+ *
+ * - `member` — the bundle member this draft is (objectstack#23073): present on
+ *   every draft of a type whose identity is a pair (today only
+ *   `email_template`, `(name, locale)`), absent for a type identified by its
+ *   name alone. It is the value the by-name doors take back as `?member=`
+ *   ({@link MetadataClient.publishDraft}'s `options.member`).
+ *
+ * ⛔ The pick is deliberate: the five keys this interface declared before keep
+ * their exact types, and `member` is the one key added. The spec row's `label`
+ * is not picked here: it is declared REQUIRED there, and this client talks to
+ * runtimes of several vintages, so claiming it would be this client asserting
+ * a server version it cannot check.
  */
-export interface MetadataDraftHeader {
-  type: string;
-  name: string;
-  packageId: string | null;
-  updatedAt: string | null;
-  updatedBy: string | null;
-}
+export interface MetadataDraftHeader
+  extends Pick<
+    ListDraftsResponse['drafts'][number],
+    'type' | 'name' | 'member' | 'packageId' | 'updatedAt' | 'updatedBy'
+  > {}
 
 /**
  * What {@link MetadataClient.publishPackageDrafts} resolves with — the "publish
@@ -1438,7 +1463,15 @@ export class MetadataClient {
     // reports the same way, and now off the SAME object: the response body
     // itself. `advisories` is declared at the TOP LEVEL of
     // `PublishMetaItemResponse`, which is what this route answers (`7b433197d`).
-    this.emitAdvisories(body, { type, name, door: 'publish', mode: 'publish' });
+    this.emitAdvisories(body, {
+      type,
+      name,
+      // objectui#12413 — the member this publish named, under the same rule as
+      // the query parameter above: present only when the caller had one.
+      ...(options.member ? { member: options.member } : {}),
+      door: 'publish',
+      mode: 'publish',
+    });
     return body as any;
   }
 

@@ -50,7 +50,7 @@ export function usePublishAllDrafts(t: TranslateFn) {
   const publishAll = useCallback(async (): Promise<PublishAllResult> => {
     setPublishing(true);
     try {
-      const pending = (((await client.listDrafts?.({})) as any[]) || [])
+      const pending = ((await client.listDrafts?.({})) || [])
         .filter((d) => d && typeof d.type === 'string' && typeof d.name === 'string')
         .map((d) => ({
           type: d.type as string,
@@ -61,8 +61,9 @@ export function usePublishAllDrafts(t: TranslateFn) {
           // type whose identity is a pair, today `email_template`). Two
           // languages of one template are two rows with one `type` and
           // `name`; only `member` tells them apart. Kept when it is a
-          // non-empty string, absent otherwise.
-          ...(typeof d.member === 'string' && d.member ? { member: d.member as string } : {}),
+          // non-empty string, absent otherwise. Read through the declared row,
+          // `MetadataDraftHeader.member` (objectui#12413), not through a cast.
+          ...(typeof d.member === 'string' && d.member ? { member: d.member } : {}),
         }));
       if (pending.length === 0) {
         toast.info(t('home.pendingDrafts.nothing', { defaultValue: 'Nothing to publish.' }));

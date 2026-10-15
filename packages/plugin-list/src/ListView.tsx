@@ -5571,6 +5571,10 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                   )}
                   data-testid="search-icon-button"
                   title={searchTerm ? `${t('list.search')}: ${searchTerm}` : t('list.search')}
+                  // An icon-only button names itself (objectui#12450), the same
+                  // two-attribute shape as Refresh: `title` alone is a tooltip,
+                  // and with a keyword the button's text was the bare keyword.
+                  aria-label={searchTerm ? `${t('list.search')}: ${searchTerm}` : t('list.search')}
                 >
                   <Search className="h-3.5 w-3.5" />
                   {/* Persisted keyword restored from storage keeps filtering after

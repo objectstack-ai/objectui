@@ -137,7 +137,6 @@ vi.mock('@object-ui/react', async (importOriginal) => {
 });
 
 import { DataPillar, InterfacesPillar } from './StudioDesignSurface';
-import { ADD_FIELD_OFFERED } from './__tests__/dataPillarAddField';
 import { registerMetadataPreview } from '../metadata-admin/preview-registry';
 import { DashboardPreview } from '../metadata-admin/previews/DashboardPreview';
 import { createEmptyDataSource, failOnAbsorbedFetchError } from './__tests__/emptyDataSource';
@@ -155,9 +154,11 @@ afterEach(() => {
 });
 
 const NO_DESIGNER = /cannot be previewed or designed here/;
-// objectui#12450 — "the object opened" reads as "Add field is offered": the
-// header's More menu, which holds it, is drawn exactly then.
-const ADD_FIELD = ADD_FIELD_OFFERED;
+// "The object opened" reads as its Records body being drawn: the pillar draws
+// it once the object loaded. (objectui#12511 — it read the header's More menu,
+// which retired; the grid here is the real one over an empty data source, so
+// it draws its empty state, not its "+" column.)
+const OBJECT_OPENED = 'data-records-body';
 
 /** The pillar's canvas: each pillar renders exactly one `main`. */
 function canvas(): HTMLElement {
@@ -228,7 +229,7 @@ describe('Data pillar — a new metadata client while the open object loads (obj
     rerender(dataTree());
     await openAccount();
 
-    expect(await screen.findByTestId(ADD_FIELD)).toBeInTheDocument();
+    expect(await screen.findByTestId(OBJECT_OPENED)).toBeInTheDocument();
     expect(within(canvas()).queryByText('Loading…')).toBeNull();
     // Read once by the cancelled load and once by its replacement.
     expect(reads('object', 'acme_account')).toBe(2);
@@ -240,13 +241,13 @@ describe('Data pillar — a new metadata client while the open object loads (obj
     await waitFor(() => expect(reads('object', 'acme_account')).toBe(1));
     await openAccount();
 
-    expect(await screen.findByTestId(ADD_FIELD)).toBeInTheDocument();
+    expect(await screen.findByTestId(OBJECT_OPENED)).toBeInTheDocument();
     expect(within(canvas()).queryByText('Loading…')).toBeNull();
   });
 
   it('a new client after the object loaded reads nothing again: the buffer is kept', async () => {
     const { rerender } = render(dataTree());
-    expect(await screen.findByTestId(ADD_FIELD)).toBeInTheDocument();
+    expect(await screen.findByTestId(OBJECT_OPENED)).toBeInTheDocument();
     expect(reads('object', 'acme_account')).toBe(1);
 
     remintClient();
@@ -259,6 +260,6 @@ describe('Data pillar — a new metadata client while the open object loads (obj
     });
 
     expect(reads('object', 'acme_account')).toBe(1);
-    expect(screen.getByTestId(ADD_FIELD)).toBeInTheDocument();
+    expect(screen.getByTestId(OBJECT_OPENED)).toBeInTheDocument();
   });
 });

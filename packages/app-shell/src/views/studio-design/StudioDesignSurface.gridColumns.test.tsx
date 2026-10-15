@@ -57,10 +57,14 @@ const mockClient = {
   save: vi.fn(async () => ({})),
 };
 
-/** The counting dataSource — `find` is the measurement. */
+/**
+ * The counting dataSource — `find` is the measurement. It answers one row:
+ * with none the list draws its empty state instead of the grid, and the grid's
+ * header is where its "+" column (Add field, objectui#12511) lives.
+ */
 function createDataSource() {
   return {
-    find: vi.fn(async () => []),
+    find: vi.fn(async () => [{ id: 't1', name: 'Task one', status: 'open' }]),
     findOne: vi.fn(async () => null),
     create: vi.fn(async () => ({})),
     update: vi.fn(async () => ({})),
@@ -97,15 +101,24 @@ vi.mock('@object-ui/react', async (importOriginal) => {
 });
 
 import { DataPillar } from './StudioDesignSurface';
-import { addFieldFromMoreMenu } from './__tests__/dataPillarAddField';
+import { addFieldFromGrid } from './__tests__/dataPillarAddField';
 
 beforeEach(() => {
   dataSource = createDataSource();
+  // A grid with a row asks the server for that row's edit verdict
+  // (`POST /api/v1/security/explain`); answer it from a double so it never
+  // reaches a socket. The answer does not matter here: `find` is the
+  // measurement, and the verdict is a separate request.
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => ({ ok: false, status: 404, json: async () => ({}) })),
+  );
 });
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });
 
 /** Long enough for the mount's own fetch to settle before a measurement. */
@@ -186,7 +199,7 @@ describe('Studio Data pillar grid — the columns array keeps a stable identity 
   it('a fresh columns array of EQUAL content still refetches — identity-churn liveness', async () => {
     const before = await mountSettledGrid();
 
-    await addFieldFromMoreMenu();
+    await addFieldFromGrid();
 
     await waitFor(() => expect(dataSource.find.mock.calls.length).toBeGreaterThan(before), {
       timeout: 4000,

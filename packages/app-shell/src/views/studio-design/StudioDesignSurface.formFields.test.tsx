@@ -141,7 +141,7 @@ vi.mock('@object-ui/plugin-form', async (importOriginal) => {
 });
 
 import { DataPillar } from './StudioDesignSurface';
-import { addFieldFromMoreMenu } from './__tests__/dataPillarAddField';
+import { addFieldFromFormToolbar } from './__tests__/dataPillarAddField';
 
 beforeEach(() => {
   dataSource = createDataSource();
@@ -232,18 +232,23 @@ describe('Studio Data pillar form preview — `fields` keeps a stable identity (
   /**
    * The dependency must stay LIVE, not be defeated. Mirrors the
    * must-not-change pin in StudioDesignSurface.gridColumns.test.tsx
-   * (objectui#4567): "+ Add field" mutates `objDraft.fields` via `onPatch`,
-   * which does NOT remount the form preview — its key is
-   * `${current.name}:${gridVer}:form` and neither part changes — so a NEW
-   * `fields` identity can only have arrived through the memo's live
-   * dependency. A memo that froze the array (or returned a constant) would
-   * turn this red.
+   * (objectui#4567): "+ Add field" mutates `objDraft.fields`, so a NEW
+   * `fields` identity can only arrive through the memo's live dependency. A
+   * memo that froze the array (or returned a constant) would turn this red.
+   *
+   * objectui#12511 — Preview offers no Add field (the object header no longer
+   * holds one), so the field is added from the Layout toolbar and the preview
+   * is opened again. `DataPillar` itself stays mounted across the round trip,
+   * so its memo is the same one: a frozen memo hands the re-mounted
+   * `ObjectForm` the very array it had before, and this stays red.
    */
   it('a REAL field change still produces a NEW `fields` identity', async () => {
     await mountSettledFormPreview();
     const before = fieldsSnapshots[fieldsSnapshots.length - 1];
 
-    await addFieldFromMoreMenu();
+    fireEvent.click(screen.getByRole('button', { name: 'Layout' }));
+    await addFieldFromFormToolbar();
+    fireEvent.click(screen.getByRole('button', { name: 'Preview' }));
 
     await waitFor(
       () => {

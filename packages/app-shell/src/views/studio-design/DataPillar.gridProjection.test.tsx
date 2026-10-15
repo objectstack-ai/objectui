@@ -73,20 +73,32 @@ vi.mock('@object-ui/react', async (importOriginal) => {
 const seenColumns: string[][] = [];
 vi.mock('@object-ui/plugin-view', async (importOriginal) => {
   const mod = await importOriginal<Record<string, unknown>>();
+  const { useGridFieldAuthoring } = await import('@object-ui/components');
   return {
     ...mod,
     // The pillar imports this as `PluginObjectView`; the projection it renders
     // with is `schema.table.fields`.
     ObjectView: ({ schema }: { schema?: { table?: { fields?: string[] } } }) => {
+      const authoring = useGridFieldAuthoring();
       const cols = schema?.table?.fields ?? [];
       seenColumns.push(cols);
-      return <div data-testid="grid-columns">{cols.join(',')}</div>;
+      return (
+        <>
+          <div data-testid="grid-columns">{cols.join(',')}</div>
+          {/* objectui#12511 — the grid's "+" column, drawn from its authoring context. */}
+          {authoring?.onAddColumn && (
+            <button type="button" data-testid="grid-add-column" onClick={authoring.onAddColumn}>
+              Add column
+            </button>
+          )}
+        </>
+      );
     },
   };
 });
 
 import { DataPillar } from './StudioDesignSurface';
-import { addFieldFromMoreMenu } from './__tests__/dataPillarAddField';
+import { addFieldFromGrid } from './__tests__/dataPillarAddField';
 import { SurfaceDeepLinkProvider } from './surfaceDeepLinkChannel';
 import { registerBuiltinInspectors } from '../metadata-admin/inspectors';
 
@@ -120,7 +132,7 @@ describe('DataPillar grid projection (cloud#1652)', () => {
     renderPillar();
     await waitFor(() => expect(columnsNow()).toContain('book_name'));
 
-    await addFieldFromMoreMenu();
+    await addFieldFromGrid();
 
     // The draft grew a `field_<N>`; the projection must not have.
     await waitFor(() => expect(columnsNow()).toContain('book_name'));

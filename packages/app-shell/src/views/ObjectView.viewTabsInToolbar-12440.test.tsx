@@ -74,6 +74,13 @@ vi.mock('./RecordDetailView', () => ({ RecordDetailView: () => null }));
 import { ObjectView } from './ObjectView';
 import { ExpressionProvider } from '../providers/ExpressionProvider';
 
+// The page's own reads (the security `explain` probe among them) are relative
+// fetches, which happy-dom would send to a real socket. One double, installed
+// at module scope and never torn down, so no read the mounted tree issues
+// after a test body returns can reach the network.
+vi.stubGlobal('fetch', vi.fn(async () =>
+  new Response(JSON.stringify({ data: [] }), { status: 200, headers: { 'content-type': 'application/json' } })));
+
 /** Eight grid views, so a narrow strip has something to fold. */
 const LIST_VIEWS = Object.fromEntries(
   Array.from({ length: 8 }, (_, i) => [
@@ -102,8 +109,9 @@ function setViewportWidth(px: number) {
 }
 
 /** Lay the strip out at `stripPx`; every tab frame is 98 px (as in the widthFit pins). */
+let layoutSpy: { mockRestore: () => void } | undefined;
 function layOutStrip(stripPx: number) {
-  return vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+  layoutSpy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
     const width =
       this.getAttribute('data-testid') === 'view-tab-strip'
         ? stripPx
@@ -147,7 +155,8 @@ const listToolbar = () =>
 
 afterEach(() => {
   cleanup();
-  vi.restoreAllMocks();
+  layoutSpy?.mockRestore();
+  layoutSpy = undefined;
   setViewportWidth(DESKTOP_WIDTH);
 });
 

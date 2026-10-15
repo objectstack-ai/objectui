@@ -8,4 +8,4 @@ Below 640 px the header now takes two rows: home, the package chip and the packa
 
 From 640 px up the header stays one 48 px row. Between 640 and about 710 px the Create app button used to slide under the switcher. The actions now keep their full width and the switcher moves left instead. The package name shortens when the row is tight. From 1280 px up, nothing changes.
 
-Each pillar keeps its name as the link's accessible name and tooltip. The "Studio is built for a desktop screen" note is unchanged. The `STUDIO_HEADER` class string changes, and two new class strings join it in the Studio tokens: `STUDIO_HEADER_PILLAR_NAV` and `STUDIO_HEADER_PILLAR`. No language-pack key changes.
+Each pillar keeps its name as the link's accessible name and tooltip. The "Studio is built for a desktop screen" note is unchanged. No export, prop or language-pack key changes.

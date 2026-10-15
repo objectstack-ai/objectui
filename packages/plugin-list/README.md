@@ -212,6 +212,12 @@ set it. Without it the toolbar row is unchanged. The console uses it to put its
 saved-view tabs on the same row as Filter, Sort, Display and Search.
 
 ```tsx
+import { ListView } from '@object-ui/plugin-list';
+
+function MyViewTabs() {
+  return <nav aria-label="Views">…</nav>;
+}
+
 <ListView
   schema={{ type: 'list-view', objectName: 'tasks', columns: ['title', 'status'] }}
   toolbarLeading={<MyViewTabs />}

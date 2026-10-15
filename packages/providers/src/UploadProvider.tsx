@@ -27,6 +27,7 @@ import React, {
   useRef,
   type ReactNode,
 } from 'react';
+import type { API } from '@object-ui/types';
 
 export interface UploadResult {
   /** Canonical, shareable URL (e.g. https://my-bucket.s3.amazonaws.com/avatars/abc.png). */
@@ -204,14 +205,17 @@ export interface ObjectStackUploadAdapterOptions {
   /**
    * The storage scope the server files every upload from this adapter
    * under, sent as the presigned upload request's `scope`. It is not a key
-   * prefix or folder. The server accepts only the values of the `scope`
-   * select on its `sys_file` object (`@objectstack/service-storage`) and
-   * refuses any other value; `attachments`, for example, is the scope of
-   * files joined to records through `sys_attachment`. Omit it and the
-   * request carries no scope, so the server applies its default
-   * (objectui#12055).
+   * prefix or folder. Its values are the spec's upload-scope vocabulary,
+   * `UploadScope` from `@objectstack/spec/api` (reached here as
+   * `API.UploadScope` from `@object-ui/types`): the one list the upload
+   * request, the `scope` select on `sys_file` and the upload doors share.
+   * A value outside it does not compile, and the server refuses it with
+   * `400`. `attachments`, for example, is the scope of files joined to
+   * records through `sys_attachment`. Omit it and the request carries no
+   * scope, so the server applies the default the spec's upload request
+   * declares (objectui#12055).
    */
-  scope?: string;
+  scope?: API.UploadScope;
   /** Override `fetch` (tests, ServiceWorker queues). */
   fetchImpl?: typeof fetch;
   /**

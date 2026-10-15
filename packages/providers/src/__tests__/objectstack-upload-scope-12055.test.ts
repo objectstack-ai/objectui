@@ -17,11 +17,17 @@
  *
  * These pins read the presign request body the adapter actually sends,
  * through an injected `fetchImpl` (no global is replaced).
+ *
+ * The option's TYPE is the spec's upload-scope vocabulary, `UploadScope` from
+ * `@objectstack/spec/api`, reached through `@object-ui/types`'s `API`
+ * namespace. The compile-time pins at the end of this file are checked by
+ * `tsconfig.test.json`, which `type-check` chains after the source program.
  */
 
 import { describe, it, expect } from 'vitest';
+import type { API } from '@object-ui/types';
 
-import { createObjectStackUploadAdapter } from '../UploadProvider';
+import { createObjectStackUploadAdapter, type ObjectStackUploadAdapterOptions } from '../UploadProvider';
 
 const FILE_ID = 'f-12055';
 
@@ -103,5 +109,41 @@ describe('the in-repo upload shapes send the same request as before (objectui#12
       size: 5,
       scope: 'attachments',
     });
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* Compile-time pins — compiled by tsconfig.test.json, chained off type-check. */
+/* -------------------------------------------------------------------------- */
+
+type Assert<T extends true> = T;
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+type IsAny<T> = 0 extends 1 & T ? true : false;
+
+describe("the scope option is typed from the spec's upload-scope vocabulary (objectui#12055)", () => {
+  it('is the spec type itself: not a free string, not a local copy', () => {
+    type Scope = NonNullable<ObjectStackUploadAdapterOptions['scope']>;
+    // The spec type resolved (an unresolved import would read as `any` and
+    // make every pin below vacuous).
+    type _SpecTypeIsReal = Assert<Equal<IsAny<API.UploadScope>, false>>;
+    // Exactly the spec's type: a member the spec adds or retires moves the
+    // option with it, and no consumer-side list can drift from it.
+    type _OptionIsTheSpecType = Assert<Equal<Scope, API.UploadScope>>;
+    // Not widened back to an open string.
+    type _NotAnOpenString = Assert<Equal<string extends Scope ? true : false, false>>;
+
+    expect(true).toBe(true);
+  });
+
+  it("refuses a scope outside the vocabulary at the authoring site: 'avatars' does not compile", () => {
+    // The pin is this directive: with `scope` widened to `string` the line
+    // compiles, the directive goes unused, and `type-check` fails (TS2578).
+    // @ts-expect-error -- 'avatars' is a key prefix, not an upload scope; the server refuses it with 400.
+    const refused: ObjectStackUploadAdapterOptions = { scope: 'avatars' };
+    void refused;
+    // The in-repo producer's value compiles (RecordAttachmentsPanel builds its adapter with it).
+    const accepted: ObjectStackUploadAdapterOptions = { scope: 'attachments' };
+
+    expect(accepted.scope).toBe('attachments');
   });
 });

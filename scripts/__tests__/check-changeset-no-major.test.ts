@@ -54,6 +54,7 @@ const mask: (source: string) => string = maskComments;
  * trigger stops matching.
  */
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const changesetDir = path.join(repoRoot, '.changeset');
 const workflowDir = path.join(repoRoot, '.github/workflows');
 const GATE = path.join(repoRoot, 'scripts/check-changeset-no-major.mjs');
 
@@ -384,6 +385,20 @@ describe('the repository itself', () => {
     delete env.OBJECTUI_ALLOW_MAJOR; // a retired switch must not decide this
     const run = spawnSync(process.execPath, [GATE], { cwd: repoRoot, env, encoding: 'utf8' });
     expect(run.status, `${run.stdout}${run.stderr}`).toBe(0);
+  });
+
+  it('reads exactly the pending set: every top-level `.changeset/*.md` but the README, never `pre/`', () => {
+    // Enumerated here independently of the gate's reader, from the live tree.
+    // In pre mode `.changeset/pre/` holds consumed changesets; a reader that
+    // walked into it would refuse the consumed synchronized major.
+    const listed = fs
+      .readdirSync(changesetDir, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.md') && entry.name !== 'README.md')
+      .map((entry) => path.join('.changeset', entry.name))
+      .sort();
+    const read = (gate.readPendingChangesets(changesetDir) as { file: string }[]).map(({ file }) => file);
+    expect(read).toEqual(listed);
+    expect(read.some((file) => file.includes(`${path.sep}pre${path.sep}`))).toBe(false);
   });
 
   it('agrees in-process: nothing pending is refused', () => {

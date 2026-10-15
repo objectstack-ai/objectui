@@ -191,6 +191,16 @@ interface DraftSendClaim {
   unmoved: () => boolean;
 }
 
+/**
+ * The package's draft-only objects (a pending draft, no published row), as
+ * the pillar last read them, stamped with the `publishNonce` the read ran
+ * under (objectui#12508). A view of such an object has no published layer.
+ */
+export interface DraftOnlyObjects {
+  publishNonce: number;
+  names: ReadonlySet<string>;
+}
+
 export interface ObjectListViewDraft {
   /** The view the open leaf's panel edits; `null` on a leaf that is not an `object`. */
   target: ListViewTarget | null;
@@ -235,6 +245,7 @@ export function useObjectListViewDraft({
   packageId,
   leaf,
   publishNonce,
+  draftOnlyObjects,
   onDraftSaved,
 }: {
   client: MetadataClient;
@@ -242,6 +253,11 @@ export function useObjectListViewDraft({
   leaf: Surface | null;
   /** Bumped by a publish: the draft is gone, and the view is re-read. */
   publishNonce: number;
+  /**
+   * The package's draft-only objects (objectui#12508). Read when a load
+   * decides, never a reason to reload: a newer answer does not re-read.
+   */
+  draftOnlyObjects?: DraftOnlyObjects | null;
   onDraftSaved?: () => void;
 }): ObjectListViewDraft {
   const metadata = useMetadata();
@@ -277,6 +293,11 @@ export function useObjectListViewDraft({
   const reload = React.useCallback(() => setReloadNonce((n) => n + 1), []);
   // objectui#11773 — one guard per editing buffer; a conflict's "reload" re-runs this load.
   const { save: guardedSave, recordRead, dialog: conflictDialog } = useDraftSaveGuard(client, reload);
+  // Declared before the load effect, so a commit updates it first.
+  const draftOnlyRef = React.useRef(draftOnlyObjects);
+  React.useEffect(() => {
+    draftOnlyRef.current = draftOnlyObjects;
+  }, [draftOnlyObjects]);
 
   React.useEffect(() => {
     setFailure(null);
@@ -299,7 +320,14 @@ export function useObjectListViewDraft({
         // objectui#11799 — so the published layer is read only for a view with
         // no pending draft. A view the panel created and nobody published has
         // a draft and no layer, and `GET …/layers` answers 404 for it.
-        const lay = draft ? null : await client.layered<Row>('view', viewId);
+        // objectui#12508 — nor for a view of a draft-only object: nothing of
+        // that object is published, so its view has no layer either. Only an
+        // answer read under this same publish counts: one read before it may
+        // name an object the publish has just made live.
+        const known = draftOnlyRef.current;
+        const objectDraftOnly =
+          !!objectName && !!known && known.publishNonce === publishNonce && known.names.has(objectName);
+        const lay = draft || objectDraftOnly ? null : await client.layered<Row>('view', viewId);
         if (cancelled) return;
         const published = (lay as { effective?: unknown; code?: unknown } | null)?.effective ?? (lay as { code?: unknown } | null)?.code;
         const row = draft ?? (isPlainObject(published) ? (stripReadDecorations(published) as Row) : null);
@@ -313,7 +341,7 @@ export function useObjectListViewDraft({
     return () => {
       cancelled = true;
     };
-  }, [client, viewId, packageId, publishNonce, reloadNonce, recordRead]);
+  }, [client, viewId, objectName, packageId, publishNonce, reloadNonce, recordRead]);
 
   const edit = React.useCallback((row: Row) => {
     setBuffer((b) => ({ ...b, row, dirty: true }));

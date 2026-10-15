@@ -1805,7 +1805,10 @@ export function ChatPane({
   // surface. The footer <select> in ChatbotEnhanced renders only for 2+ models,
   // so free / single-model envs see nothing. Mirrors ConsoleFloatingChatbot;
   // the chosen model rides each request via useObjectChat's `model` below.
-  const { models: aiModels, defaultModelId } = useAiModels({ apiBase });
+  // objectui#12508 — asked only once the agent catalog names an agent: the
+  // pane mounts while the catalog is still loading, and a server without an
+  // AI service answers that catalog empty and `/models` with a 501.
+  const { models: aiModels, defaultModelId } = useAiModels({ apiBase, enabled: agents.length > 0 });
   const [selectedModelId, setSelectedModelId] = useState<string | undefined>(undefined);
   const effectiveModelId = selectedModelId ?? defaultModelId;
 

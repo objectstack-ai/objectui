@@ -14,8 +14,9 @@
  *              mark per screen, and inside an app that mark is the app's
  *              (objectui#12201). An object route (its list, a view, a record)
  *              draws no crumb after the pill: the page header is the one place
- *              that page is named (objectui#12461). A dashboard, page, report
- *              or `system/*` route still draws its crumb. From `lg` up the
+ *              that page is named (objectui#12461). A dashboard or page route
+ *              draws none either (objectui#12526). A report or `system/*`
+ *              route still draws its crumb. From `lg` up the
  *              bar is three zones, with the search trigger centered between
  *              the left group and the utility cluster, on every route inside
  *              the app, `system/*` included (objectui#12472).
@@ -377,27 +378,27 @@ export function AppHeader({
     ? appStudioRoutePath(currentApp, canDesignInStudio, { type: routeType, name: pathParts[3] })
     : null;
 
-  // The crumbs drawn after the app pill from `sm` up: a dashboard, page,
-  // report or `system/*` route's.
+  // The crumbs drawn after the app pill from `sm` up: a report or `system/*`
+  // route's.
   const extraSegments: BreadcrumbItemType[] = [];
   // An object route — the object's list, one of its views, one of its records
   // — draws NO crumb after the pill (objectui#12461): its page header names
   // the page, the sidebar's active entry names the object and the saved-view
   // strip names the view, so a crumb said the same name a third time. The
   // crumb's 「Switch Object」 menu went with it: the sidebar switches objects
-  // and the view strip switches views. What is left is the page's name for
-  // the phone bar's compact title below `sm`, which this card leaves as it
-  // was: the record, else the view, else the object's list, named by its
-  // plural as the list page is titled (objectui#11696).
-  let objectRouteTitle: string | undefined;
+  // and the view strip switches views. A dashboard route and a page route
+  // draw none either (objectui#12526): the dashboard's page header and the
+  // page's own heading name them. What is left on those routes is the page's
+  // name for the phone bar's compact title below `sm`, unchanged: the
+  // record, else the view, else the object's list, named by its plural as the
+  // list page is titled (objectui#11696); the dashboard; the page.
+  let routeTitle: string | undefined;
 
   if (isApp) {
     if (routeType === 'dashboard') {
-      // No type crumb ahead of the dashboard (objectui#12273), as for pages
-      // below (objectui#12198, the maintainer's ruling on
-      // objectstack-ai/cloud#2768): a 「Dashboards」 crumb named a metadata
-      // type, not a place the user went, and linked only to the app's base,
-      // which the app pill already opens.
+      // No crumb at all since objectui#12526 (no 「Dashboards」 type crumb
+      // since objectui#12273): `DashboardView`'s page header names the
+      // dashboard. The label below names it in the phone bar only.
       if (pathParts[3]) {
         const dashboardName = pathParts[3];
         // ADR-0048 Phase 2 — prefer the current app's package (container-scoped).
@@ -407,21 +408,20 @@ export function AppHeader({
         // is drawn as given — the page header draws it the same way. Only the
         // humanized slug, which no server translated, goes through the bundle
         // (objectui#11295).
-        extraSegments.push({
-          label: dashboardDef?.label || dashboardLabel({ name: dashboardName, label: humanizeSlug(dashboardName) }),
-        });
+        routeTitle = dashboardDef?.label || dashboardLabel({ name: dashboardName, label: humanizeSlug(dashboardName) });
       }
     } else if (routeType === 'page') {
-      // No type crumb ahead of the page (objectui#12198, the maintainer's
-      // ruling on objectstack-ai/cloud#2768): a 「Pages」 crumb named a
-      // metadata type, not a place the user went, and linked only to the
-      // app's base, which the app pill before it already opens. The trail
-      // goes from the app straight to the page.
+      // No crumb at all since objectui#12526 (no 「Pages」 type crumb since
+      // objectui#12198, the maintainer's ruling on
+      // objectstack-ai/cloud#2768): the page names itself from `sm` up — a
+      // page that is not a record page draws its label as its heading unless
+      // its own `page:header` does, and an interface page draws its label
+      // above its list. The label below names it in the phone bar only.
       if (pathParts[3]) {
         const pageName = pathParts[3];
         const pageDef = preferLocal(metadataPages as any[], pageName, (currentApp as any)?._packageId);
         const fallback = pageDef?.label || humanizeSlug(pageName);
-        extraSegments.push({ label: pageLabel({ name: pageName, label: fallback }) });
+        routeTitle = pageLabel({ name: pageName, label: fallback });
       }
     } else if (routeType === 'report') {
       // No 「Reports」 type crumb either (objectui#12273), for the dashboard
@@ -440,14 +440,14 @@ export function AppHeader({
     } else if (routeType) {
       const currentObject = safeObjects.find((o: any) => o.name === routeType);
       if (currentObject) {
-        objectRouteTitle = objectPluralLabel(currentObject);
+        routeTitle = objectPluralLabel(currentObject);
         if (pathParts[3] === 'record' && pathParts[4]) {
           const shortId = pathParts[4].length > 12 ? `${pathParts[4].slice(0, 8)}…` : pathParts[4];
           const trimmedTitle = recordTitle?.trim();
           const displayTitle = trimmedTitle && trimmedTitle.length > 48
             ? `${trimmedTitle.slice(0, 45)}…`
             : trimmedTitle;
-          objectRouteTitle = displayTitle || `#${shortId}`;
+          routeTitle = displayTitle || `#${shortId}`;
         } else if (pathParts[3] === 'view' && pathParts[4]) {
           // Prefer the view's metadata label (e.g. "Lead Pipeline") over a
           // humanized slug ("Kanban By Status") so the title matches the tab
@@ -469,13 +469,13 @@ export function AppHeader({
           const localizedViewLabel = viewDef && isServedView(servedViews, currentObject.name, viewId)
             ? fallbackLabel
             : viewLabel(currentObject.name, viewName, fallbackLabel);
-          objectRouteTitle = localizedViewLabel;
+          routeTitle = localizedViewLabel;
         }
       }
     }
   }
 
-  const lastSegmentLabel = objectRouteTitle || extraSegments[extraSegments.length - 1]?.label || appName || '';
+  const lastSegmentLabel = routeTitle || extraSegments[extraSegments.length - 1]?.label || appName || '';
 
   // objectui#12472 — inside an app, from `lg` up, the bar is three zones: the
   // left group, the search trigger in the middle, and the utility cluster on
@@ -618,9 +618,9 @@ export function AppHeader({
                 the route draws after the pill. */}
             <PreviewBadge className="ml-2 hidden sm:inline-flex" />
 
-            {/* The crumbs after the pill — a dashboard, page, report or
-                `system/*` route's; an object route draws none (see
-                `objectRouteTitle`). Plain text: none of them links. */}
+            {/* The crumbs after the pill — a report or `system/*` route's;
+                an object, dashboard or page route draws none (see
+                `routeTitle`). Plain text: none of them links. */}
             {extraSegments.map((seg, i) => {
               const isLast = i === extraSegments.length - 1;
               return (

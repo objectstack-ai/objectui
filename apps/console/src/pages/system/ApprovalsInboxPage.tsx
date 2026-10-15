@@ -26,7 +26,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { DeclaredActionsBar, isViaOverrideRow, useAdapter } from '@object-ui/app-shell';
+import { ConsolePageHeader, DeclaredActionsBar, isViaOverrideRow, useAdapter } from '@object-ui/app-shell';
 import { createAuthenticatedFetch } from '@object-ui/auth';
 import {
   Button,
@@ -1794,23 +1794,26 @@ export function ApprovalsInboxPage() {
   };
 
   return (
-    <div className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6 max-w-6xl">
-      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
-            <CheckSquare className="h-6 w-6" />
-            {tr('title', 'Approvals Inbox')}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {tr('subtitle', 'Review and act on approval requests.')}
-          </p>
-        </div>
-        <Button variant="outline" size="sm" onClick={load} disabled={loading} className="self-start sm:self-auto">
+    <div>
+    {/* The console's one page header, the one an object list and a dashboard
+        draw (objectui#12526): icon chip, title, the subtitle beside the title
+        from `sm` up, and Refresh at the right, in one row across the page's
+        full width, above the padded body. It stays below `sm`, as this
+        page's header always has: on the component route the phone bar names
+        the app, not this page. There it draws the icon, title and Refresh;
+        the header itself hides the subtitle below `sm`. */}
+    <ConsolePageHeader
+      title={tr('title', 'Approvals Inbox')}
+      subtitle={tr('subtitle', 'Review and act on approval requests.')}
+      icon={<CheckSquare className="h-4 w-4" />}
+      actions={
+        <Button variant="outline" size="sm" onClick={load} disabled={loading}>
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
           {tr('refresh', 'Refresh')}
         </Button>
-      </header>
-
+      }
+    />
+    <div className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6 max-w-6xl">
       {error && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
@@ -2878,6 +2881,7 @@ export function ApprovalsInboxPage() {
           ) : null}
         </SheetContent>
       </Sheet>
+    </div>
     </div>
   );
 }

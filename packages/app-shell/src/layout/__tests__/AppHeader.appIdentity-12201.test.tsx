@@ -222,9 +222,11 @@ describe('inside an app the bar starts with the app pill (objectui#12201 item 4)
     mountApp();
     const pill = screen.getByTestId('app-switcher-stub');
     const separators = [...document.querySelectorAll('span[aria-hidden]')].filter((s) => s.textContent?.trim() === '/');
-    // `/apps/cloud_control/page/welcome` — one crumb, Welcome: a page route
-    // carries no 「Pages」 type crumb (objectui#12198).
-    expect(separators).toHaveLength(1);
+    // `/apps/cloud_control/page/welcome` — no crumb: a page route carries no
+    // 「Pages」 type crumb (objectui#12198), and no crumb for the page since
+    // objectui#12526. Separators after the pill, on a route that still draws
+    // them, are `AppHeader.appBarLeftGroup-12461`'s `system/*` CONTROL.
+    expect(separators).toHaveLength(0);
     for (const sep of separators) expect(follows(pill, sep)).toBe(true);
   });
 
@@ -241,10 +243,11 @@ describe('the PREVIEW chip (objectui#12201 item 5, objectui#12461)', () => {
     const badges = screen.getAllByTestId('preview-badge-stub');
     expect(badges).toHaveLength(1);
     expect(screen.getByTestId('app-switcher-stub').parentElement!.nextElementSibling).toBe(badges[0]);
-    // `/apps/cloud_control/page/welcome` keeps its one crumb, after the chip.
+    // `/apps/cloud_control/page/welcome` draws no crumb since objectui#12526;
+    // that the chip precedes a route's crumbs is
+    // `AppHeader.appBarLeftGroup-12461`'s `system/*` CONTROL.
     const separators = [...document.querySelectorAll('span[aria-hidden]')].filter((s) => s.textContent?.trim() === '/');
-    expect(separators).toHaveLength(1);
-    expect(follows(badges[0], separators[0])).toBe(true);
+    expect(separators).toHaveLength(0);
   });
 
   it('CONTROL — a platform surface keeps it in the brand zone, after the mark', () => {

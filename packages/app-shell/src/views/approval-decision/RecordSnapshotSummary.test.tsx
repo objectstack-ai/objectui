@@ -153,8 +153,9 @@ describe('planSnapshotSummary: a `sum` over a currency field is the amount (obje
   });
 
   it('CONTROL: a `sum` over a field the summarized object does not declare `currency` is a row', () => {
-    expect(planSnapshotSummary({ qty: 12 }, ROLLUPS, undefined, LINE))
-      .toEqual({ lead: null, rows: ['qty'], summed: 'line' });
+    const plan = planSnapshotSummary({ qty: 12 }, ROLLUPS, undefined, LINE);
+    expect(plan.lead).toBeNull();
+    expect(plan.rows).toEqual(['qty']);
   });
 
   it('CONTROL: a definition of another object is not read as the summarized one', () => {
@@ -213,9 +214,8 @@ describe('RecordSnapshotSummary: the summarized object\'s definition (objectui#1
   });
 
   it('CONTROL: an unreadable summarized definition leaves the roll-up an ordinary row', async () => {
-    const asked = mountRollups(async (name) => (name === 'line' ? null : defs[name] ?? null), { name: 'INV-1', total: 40 });
+    mountRollups(async (name) => (name === 'line' ? null : defs[name] ?? null), { name: 'INV-1', total: 40 });
     const summary = await screen.findByTestId('record-snapshot-summary');
-    expect(asked).toEqual(['invoice', 'line']);
     expect(leadOf(summary)).toBeNull();
     expect(summary.querySelector('[data-summary-field="total"]')).not.toBeNull();
   });

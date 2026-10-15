@@ -41,6 +41,11 @@ import type { NavigationItem } from '@object-ui/types';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { useWorkspaceAdminStatus } from '@object-ui/auth';
 import { useCanAuthorMetadata } from '../hooks/useCanAuthorMetadata.js';
+import { useFavorites } from '../hooks/useFavorites.js';
+import { useNavPins } from '../hooks/useNavPins.js';
+import { useNavMemberGates, navEntriesShownToMember } from '../hooks/useNavMemberGates.js';
+import { useMetadata } from '../providers/MetadataProvider.js';
+import { matchAppBySegment } from '../utils/index.js';
 
 /**
  * The router path of the designer for what a navigation entry opens, in the
@@ -79,6 +84,117 @@ export function favoriteDesignPath(favoriteId: string, basePath: string): string
   const match = /^(object|dashboard|page):(.+)$/.exec(favoriteId);
   if (!match) return null;
   return `${basePath}/metadata/${match[1]}/${encodeURIComponent(match[2])}`;
+}
+
+/**
+ * The favorites entry every ⋯ menu leads with (objectui#12427): Add to
+ * favorites, or Remove from favorites once the target is one. The sidebar's
+ * entry menu and the list page's overflow menu draw this one item, so the two
+ * places say the same thing in the same words.
+ */
+export function FavoriteMenuItem({
+  isFavorite,
+  onToggle,
+  testId,
+}: {
+  isFavorite: boolean;
+  onToggle: () => void;
+  testId?: string;
+}) {
+  const { t } = useObjectTranslation();
+  return (
+    <DropdownMenuItem data-testid={testId} onSelect={onToggle}>
+      {isFavorite ? <StarOff className="h-4 w-4" /> : <Star className="h-4 w-4" />}
+      <span>
+        {isFavorite
+          ? t('common.removeFromFavorites', { defaultValue: 'Remove from favorites' })
+          : t('common.addToFavorites', { defaultValue: 'Add to favorites' })}
+      </span>
+    </DropdownMenuItem>
+  );
+}
+
+/**
+ * The first entry of the app's navigation, as the member is shown it, that opens
+ * the list of `objectName`: an `object` entry naming it and no single record
+ * (an entry with `recordId` opens one record, not the list). The areas are
+ * searched in order, then the app's own navigation. A member who cannot see an
+ * entry gets none, since a pin on it would draw nowhere.
+ */
+/** The parts of an app this file reads: its route identity, state and navigation. */
+type NavApp = {
+  name?: unknown;
+  _packageId?: unknown;
+  active?: unknown;
+  navigation?: NavigationItem[];
+  areas?: Array<{ navigation?: NavigationItem[] }>;
+} & Record<string, unknown>;
+
+function objectListNavEntry(
+  app: NavApp | undefined,
+  objectName: string,
+  gates: ReturnType<typeof useNavMemberGates>,
+): NavigationItem | null {
+  if (!app) return null;
+  const trees = [...(app.areas ?? []).map((area) => area.navigation ?? []), app.navigation ?? []];
+  const find = (items: NavigationItem[]): NavigationItem | null => {
+    for (const item of items) {
+      if (item.type === 'object' && item.objectName === objectName && !item.recordId) return item;
+      if (item.type === 'group' && item.children?.length) {
+        const found = find(item.children);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+  for (const tree of trees) {
+    const found = find(navEntriesShownToMember(tree, gates));
+    if (found) return found;
+  }
+  return null;
+}
+
+/**
+ * The favorites toggle of an object's list page (objectui#12427), which the
+ * page header's overflow menu offers.
+ *
+ * When the current app's navigation has an entry that opens this list, the
+ * toggle pins or unpins THAT entry through `useNavPins().togglePin`, exactly
+ * as the entry's own ⋯ menu in the sidebar does, so the result is the entry
+ * in the sidebar's Favorites section and one `nav:ID` favorite, never a
+ * second `object:` favorite for the same wish. Otherwise (an object the app
+ * does not list) it toggles the object favorite, `object:NAME`, which the same
+ * section draws as a row of its own.
+ */
+export function useObjectListFavorite({
+  appSegment,
+  objectName,
+  label,
+}: {
+  appSegment: string | undefined;
+  objectName: string | undefined;
+  label: string;
+}): { isFavorite: boolean; toggle: () => void } | null {
+  const { apps } = useMetadata();
+  const gates = useNavMemberGates();
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const { isPinned, togglePin } = useNavPins();
+  if (!appSegment || !objectName) return null;
+  const basePath = `/apps/${appSegment}`;
+  const app = matchAppBySegment(
+    ((apps ?? []) as NavApp[]).filter((a) => a.active !== false),
+    appSegment,
+  );
+  const entry = objectListNavEntry(app, objectName, gates);
+  if (entry) {
+    const pinned = isPinned(entry.id);
+    return { isFavorite: pinned, toggle: () => togglePin(entry.id, !pinned, entry, basePath) };
+  }
+  const id = `object:${objectName}`;
+  return {
+    isFavorite: isFavorite(id),
+    toggle: () => toggleFavorite({ id, label, href: `${basePath}/${objectName}`, type: 'object' }),
+  };
 }
 
 export interface SidebarItemMenuProps {
@@ -155,10 +271,6 @@ export function SidebarItemMenu({
   const documentAddress = !href ? null : offConsole ? href : routerHref;
   const canDesign = !!designPath && isAdmin && canAuthorMetadata;
 
-  const favoriteLabel = isFavorite
-    ? t('common.removeFromFavorites', { defaultValue: 'Remove from favorites' })
-    : t('common.addToFavorites', { defaultValue: 'Add to favorites' });
-
   const copyLink = async () => {
     if (!documentAddress) return;
     try {
@@ -182,10 +294,7 @@ export function SidebarItemMenu({
         </SidebarMenuAction>
       </DropdownMenuTrigger>
       <DropdownMenuContent side="right" align="start" className="min-w-44">
-        <DropdownMenuItem data-testid="sidebar-item-menu-favorite" onSelect={onToggleFavorite}>
-          {isFavorite ? <StarOff className="h-4 w-4" /> : <Star className="h-4 w-4" />}
-          <span>{favoriteLabel}</span>
-        </DropdownMenuItem>
+        <FavoriteMenuItem isFavorite={isFavorite} onToggle={onToggleFavorite} testId="sidebar-item-menu-favorite" />
         {documentAddress && (
           <DropdownMenuItem
             data-testid="sidebar-item-menu-open-new-tab"

@@ -2138,6 +2138,7 @@ const pt = {
       system: "Sistema",
     },
     objectView: {
+      moreActions: "Mais ações",
       viewTypeTree: "Árvore",
       viewTypeTreeDesc: "Aninha registros autorreferenciados em uma hierarquia por um campo pai.",
       parentField: "Campo pai",

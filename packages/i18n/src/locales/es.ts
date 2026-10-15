@@ -2143,6 +2143,7 @@ const es = {
       system: "Sistema",
     },
     objectView: {
+      moreActions: "Más acciones",
       viewTypeTree: "Árbol",
       viewTypeTreeDesc: "Anida los registros autorreferenciados en una jerarquía mediante un campo principal.",
       parentField: "Campo principal",

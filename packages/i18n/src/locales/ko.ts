@@ -2095,6 +2095,7 @@ const ko = {
       system: "시스템",
     },
     objectView: {
+      moreActions: "더 많은 작업",
       viewTypeTree: "트리",
       viewTypeTreeDesc: "상위 필드를 기준으로 자기 참조 레코드를 계층 구조로 중첩합니다.",
       parentField: "상위 필드",

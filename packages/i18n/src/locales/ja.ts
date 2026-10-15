@@ -2097,6 +2097,7 @@ const ja = {
       system: "システム",
     },
     objectView: {
+      moreActions: "その他の操作",
       viewTypeTree: "ツリー",
       viewTypeTreeDesc: "親項目によって自己参照レコードを階層に入れ子にします。",
       parentField: "親項目",

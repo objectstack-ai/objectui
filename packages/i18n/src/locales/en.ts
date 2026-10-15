@@ -2589,6 +2589,8 @@ const en = {
       passwordsDownload: 'Download CSV',
     },
     objectView: {
+      // objectui#12427 — the list header's overflow menu trigger.
+      moreActions: 'More actions',
       objectNotFound: 'Object Not Found',
       objectNotFoundDescription: 'The object "{{objectName}}" does not exist in the current configuration.',
       objectNotFoundHint: 'Check your app navigation settings or select a different object from the sidebar.',

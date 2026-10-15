@@ -3234,6 +3234,24 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         onClick: () => onEdit({ id: pureRecordId }),
       } as any);
     }
+    // The record's favorites entry (objectui#12427), in the `⋯` overflow ahead
+    // of Share. A record is never a navigation entry, so this toggles the
+    // `record:` favorite, which the sidebar draws in its Favorites section at
+    // the top.
+    if (favoriteRecord) {
+      items.push({
+        name: 'sys_favorite',
+        label: isRecordFavorite
+          ? t('common.removeFromFavorites', { defaultValue: 'Remove from favorites' })
+          : t('common.addToFavorites', { defaultValue: 'Add to favorites' }),
+        type: 'script',
+        locations: ['record_header'],
+        variant: 'outline',
+        order: 105,
+        component: 'action:menu',
+        onClick: handleToggleRecordFavorite,
+      } as any);
+    }
     items.push({
       name: 'sys_share',
       label: t('detail.share', { defaultValue: 'Share' }),

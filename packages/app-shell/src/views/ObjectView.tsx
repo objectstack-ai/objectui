@@ -3983,7 +3983,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                             size="sm"
                             variant="ghost"
                             className="shadow-none h-8 sm:h-9 px-2"
-                            aria-label={t('console.objectView.moreActions', { defaultValue: 'More actions' })}
+                            aria-label={t('detail.moreActions', { defaultValue: 'More actions' })}
                             data-testid="object-view-more-actions"
                           >
                             <MoreHorizontal className="h-4 w-4" />

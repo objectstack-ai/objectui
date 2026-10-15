@@ -2140,7 +2140,6 @@ const fr = {
       system: "Système",
     },
     objectView: {
-      moreActions: "Plus d'actions",
       viewTypeTree: "Arborescence",
       viewTypeTreeDesc: "Imbriquer les enregistrements auto-référencés en hiérarchie via un champ parent.",
       parentField: "Champ parent",

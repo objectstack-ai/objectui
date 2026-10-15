@@ -2095,7 +2095,6 @@ const de = {
       system: "System",
     },
     objectView: {
-      moreActions: "Weitere Aktionen",
       viewTypeTree: "Baum",
       viewTypeTreeDesc: "Selbstreferenzierende Datensätze über ein übergeordnetes Feld zu einer Hierarchie verschachteln.",
       parentField: "Übergeordnetes Feld",

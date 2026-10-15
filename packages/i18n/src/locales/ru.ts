@@ -2200,7 +2200,6 @@ const ru = {
       system: "Системная",
     },
     objectView: {
-      moreActions: "Другие действия",
       viewTypeTree: "Дерево",
       viewTypeTreeDesc: "Выстраивает самоссылающиеся записи в иерархию по родительскому полю.",
       parentField: "Родительское поле",

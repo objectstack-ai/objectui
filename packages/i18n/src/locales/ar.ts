@@ -2288,7 +2288,6 @@ const ar = {
       system: "النظام",
     },
     objectView: {
-      moreActions: "المزيد من الإجراءات",
       viewTypeTree: "شجرة",
       viewTypeTreeDesc: "يرتّب السجلات ذاتية المرجعية في تسلسل هرمي عبر حقل أب.",
       parentField: "الحقل الأب",

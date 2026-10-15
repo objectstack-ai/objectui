@@ -6680,9 +6680,6 @@ export function AutomationsPillar({
             ) : undefined,
         })}
         {flowTab('debug', t('engine.flowPreview.debug', locale))}
-        <span id={canvasHintId} className="sr-only">
-          {t('engine.studio.auto.canvasHint', locale)}
-        </span>
       </>
     ) : undefined;
 
@@ -6827,17 +6824,26 @@ export function AutomationsPillar({
                 : { className: 'text-[13px] font-normal text-muted-foreground' }
             }
             // objectui#12454 — the open flow's Trigger, Status, Run as and
-            // version, as the designer's info bar reads them; the canvas hint
-            // moved to the Canvas tab's title. Without designers the line says
+            // version, as the designer's info bar reads them. The canvas hint
+            // the row printed stays in it for a reader (visually hidden; the
+            // Canvas tab's description and title), so the row still reads it
+            // whole as objectui#11665 pins. Without designers the line says
             // so, and yields to the label on a narrow row as it did.
             meta={
-              flowOpen && headerRunStatus ? (
-                <span data-testid="auto-flow-meta" className="inline-flex min-w-0">
-                  <FlowMetaPills draft={draft} runStatus={headerRunStatus} locale={locale} variant="header" />
-                </span>
-              ) : !isEditable ? (
+              isEditable ? (
+                <>
+                  <span id={canvasHintId} className="sr-only">
+                    {t('engine.studio.auto.canvasHint', locale)}
+                  </span>
+                  {flowOpen && headerRunStatus && (
+                    <span data-testid="auto-flow-meta" className="inline-flex min-w-0">
+                      <FlowMetaPills draft={draft} runStatus={headerRunStatus} locale={locale} variant="header" />
+                    </span>
+                  )}
+                </>
+              ) : (
                 <span className="hidden 2xl:inline">{t('engine.studio.auto.designersMissing', locale)}</span>
-              ) : undefined
+              )
             }
             chips={
               hasDraft && flowLoaded ? (

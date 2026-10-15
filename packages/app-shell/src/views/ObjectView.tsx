@@ -40,13 +40,17 @@ import { RECORD_DRAWER_PARAM } from '../urlParams.js';
 // Do NOT add eager `import '@object-ui/plugin-*'` side-effect imports here.
 import {
   Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
   Empty,
   EmptyTitle,
   EmptyDescription,
   NavigationOverlay,
   isFilterValueComplete,
 } from '@object-ui/components';
-import { Plus, Upload, Table as TableIcon, KanbanSquare, Calendar, LayoutGrid, Activity, GanttChart, MapPin, BarChart3, Lock } from 'lucide-react';
+import { Plus, Upload, Table as TableIcon, KanbanSquare, Calendar, LayoutGrid, Activity, GanttChart, MapPin, BarChart3, Lock, MoreHorizontal } from 'lucide-react';
+import { FavoriteMenuItem, useObjectListFavorite } from '../layout/SidebarItemMenu.js';
 import { useMetaItemRefusal } from '../hooks/useMetaItemRefusal.js';
 import { useTenancyPosture } from '../hooks/useTenancyPosture.js';
 import { useServedViewItems, isServedView } from '../hooks/useServedViewItems.js';
@@ -1593,7 +1597,7 @@ export function ObjectView({ dataSource, objects, onEdit, externalRefreshKey }: 
  */
 function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: ConsoleObjectViewProps) {
     const navigate = useNavigate();
-    const { objectName, viewId } = useParams();
+    const { appName, objectName, viewId } = useParams();
     const [searchParams, setSearchParams] = useSearchParams();
     const location = useLocation();
     const { showDebug } = useMetadataInspector();
@@ -1923,6 +1927,17 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     // missing-object case, so this always resolves while this component is
     // mounted — every hook below can therefore run unconditionally.
     const objectDef = objects.find((o: any) => o.name === objectName);
+
+    // The page's favorites entry, in the header's overflow menu (objectui#12427):
+    // it pins the app's own navigation entry for this list when the app has one,
+    // and keeps an `object:` favorite only for an object the app does not list.
+    // The entry the list is starred under is named with the plural the title
+    // reads (objectui#11733).
+    const listFavorite = useObjectListFavorite({
+        appSegment: appName,
+        objectName,
+        label: objectPluralLabel(objectDef),
+    });
 
     // Refresh trigger — bumped after view CRUD or this page's own data writes.
     const [ownRefreshKey, setRefreshKey] = useState(0);
@@ -3901,8 +3916,8 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                    <>
                     {/* No favorite star here since objectui#12423: the one-row
                         header is icon, title, description and these actions.
-                        Favorites themselves (the hook, the record page, the
-                        sidebar) are untouched. */}
+                        The favorites entry is in the overflow menu at the end
+                        of this row (objectui#12427). */}
 
                     {/* Primary action.
                         [#5153] `objectCanCreate && createVisible` — the
@@ -3955,6 +3970,33 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                       ) : (
                       <SchemaRenderer schema={toolbarBar} />
                       )
+                    )}
+
+                    {/* The page's overflow menu (objectui#12427), last in the
+                        row: the favorites entry that replaced the header star.
+                        Favorites is a once-and-forget act, so it lives behind
+                        the ⋯ rather than in the header's most prominent slot. */}
+                    {listFavorite && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="shadow-none h-8 sm:h-9 px-2"
+                            aria-label={t('detail.moreActions', { defaultValue: 'More actions' })}
+                            data-testid="object-view-more-actions"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <FavoriteMenuItem
+                            isFavorite={listFavorite.isFavorite}
+                            onToggle={listFavorite.toggle}
+                            testId="object-view-favorite"
+                          />
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
 
                     {/*

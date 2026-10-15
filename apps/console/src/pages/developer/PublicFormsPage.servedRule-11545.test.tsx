@@ -151,9 +151,20 @@ function publishedNames(container: HTMLElement): string[] {
   );
 }
 
+/** The table row the page lists for `name`. */
+function rowOf(container: HTMLElement, name: string): HTMLElement {
+  const row = Array.from(container.querySelectorAll('tbody tr')).find(
+    (tr) => tr.querySelector('td code')?.textContent === name,
+  );
+  expect(row, `the page lists ${name}`).toBeTruthy();
+  return row as HTMLElement;
+}
+
 async function mount() {
   const view = render(<PublicFormsPage />, { wrapper: MemoryRouter });
-  await screen.findByRole('button', { name: /Edit sharing & post-submit behavior/i });
+  // All rows, not one: a page listing more than it should must fail on the
+  // pins below, not on this wait.
+  await screen.findAllByRole('button', { name: /Edit sharing & post-submit behavior/i });
   return view;
 }
 
@@ -204,14 +215,14 @@ describe('Public Forms lists a form as published by the server’s rule (objectu
   it('a fully opted-in form is listed, under the slug the rule yields', async () => {
     const { container } = await mount();
 
-    expect(publishedNames(container)).toEqual([CONTACT]);
-    const row = container.querySelector('tbody tr') as HTMLElement;
+    const row = rowOf(container, CONTACT);
     expect(within(row).getByText('contact-us')).toBeInTheDocument();
     expect(within(row).getByText('showcase_inquiry')).toBeInTheDocument();
     expect(within(row).getByRole('link')).toHaveAttribute(
       'href',
       `${window.location.origin}/f/contact-us`,
     );
+    expect(publishedNames(container), 'and nothing else is').toEqual([CONTACT]);
   });
 
   it('offers the forms the rule does not open for publishing, and no list view', async () => {
@@ -255,8 +266,10 @@ describe('the Publish and Edit writers write the form under config (objectui#115
   });
 
   it('Edit reads and writes config.submitBehavior and config.sharing, and the rule opens what it wrote', async () => {
-    await mount();
-    fireEvent.click(screen.getByRole('button', { name: /Edit sharing & post-submit behavior/i }));
+    const { container } = await mount();
+    fireEvent.click(
+      within(rowOf(container, CONTACT)).getByRole('button', { name: /Edit sharing & post-submit behavior/i }),
+    );
     const dialog = await screen.findByRole('dialog');
 
     // The stored behaviour is read from config, where the producer wrote it.

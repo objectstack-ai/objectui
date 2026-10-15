@@ -56,6 +56,13 @@ export function usePublishAllDrafts(t: TranslateFn) {
           type: d.type as string,
           name: d.name as string,
           packageId: typeof d.packageId === 'string' && d.packageId ? (d.packageId as string) : null,
+          // objectui#12402 — the row's bundle member, as `_drafts` served it
+          // (`ListDraftsResponseSchema.drafts[].member`, present only for a
+          // type whose identity is a pair, today `email_template`). Two
+          // languages of one template are two rows with one `type` and
+          // `name`; only `member` tells them apart. Kept when it is a
+          // non-empty string, absent otherwise.
+          ...(typeof d.member === 'string' && d.member ? { member: d.member as string } : {}),
         }));
       if (pending.length === 0) {
         toast.info(t('home.pendingDrafts.nothing', { defaultValue: 'Nothing to publish.' }));
@@ -112,7 +119,11 @@ export function usePublishAllDrafts(t: TranslateFn) {
         ...orphans.filter((d) => d.type === 'seed'),
       ];
       for (const d of ordered) {
-        const res = await client.publishDraft(d.type, d.name);
+        // A member row publishes THAT member (`?member=`); a by-name publish
+        // naming none promotes the canonical member's draft instead. A row
+        // without one sends no selector — the door refuses it on a type with
+        // no members.
+        const res = await client.publishDraft(d.type, d.name, d.member ? { member: d.member } : {});
         const seedApplied = (res as any)?.seedApplied;
         if (seedApplied && seedApplied.success === false) {
           seedProblems.push(seedApplied.error ?? `${d.name}: sample data failed to load`);

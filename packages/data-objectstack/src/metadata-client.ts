@@ -1399,15 +1399,34 @@ export class MetadataClient {
    * {@link listDrafts} reads `data?.data?.drafts` because `GET /meta/_drafts`
    * IS a dispatcher route, and `publishHealthFromResponse` unwraps because the
    * batch door really is enveloped. The rule is per-route, not per-file.
+   *
+   * ## The bundle member (objectui#12402)
+   *
+   * Pass `member` to publish one member of a type whose identity is a pair
+   * (today only `email_template`, `(name, locale)`), sent as `?member=` — the
+   * selector the by-name doors read since objectstack `038d4c958`, and the
+   * value a `GET /meta/_drafts` row carries as `member`. A publish that names
+   * none promotes the CANONICAL member's draft, so two languages of one
+   * template drafted outside a package cannot both be published by name
+   * without it. The parameter is OMITTED, never sent empty, when the caller
+   * has no member: the door refuses a blank selector, and refuses any
+   * selector on a type with no members.
    */
   async publishDraft(
     type: string,
     name: string,
+    options: { member?: string } = {},
   ): Promise<{
     success?: boolean;
     seedApplied?: { success: boolean; inserted?: number; updated?: number; error?: string; errors?: unknown[] };
   } & Record<string, unknown>> {
-    const url = `${this.base}/${encodeURIComponent(type)}/${encodeURIComponent(name)}/publish`;
+    // Same param-building shape as `reset()`, same wire spelling as the
+    // by-name reads in `DraftChangesPanel` (`member=`): present only when the
+    // caller has a member, absent otherwise.
+    const params: string[] = [];
+    if (options.member) params.push(`member=${encodeURIComponent(options.member)}`);
+    const qs = params.length ? `?${params.join('&')}` : '';
+    const url = `${this.base}/${encodeURIComponent(type)}/${encodeURIComponent(name)}/publish${qs}`;
     const res = await this.sendWrite(url, {
       method: 'POST',
       headers: { ...this.headers, 'Content-Type': 'application/json', Accept: 'application/json' },

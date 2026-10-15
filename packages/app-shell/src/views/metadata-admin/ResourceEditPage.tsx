@@ -1203,14 +1203,31 @@ function MetadataResourceEditPageImpl({
     [type, createMode, embedded],
   );
 
-  // Read ?tab and ?open on first mount so deep-links work. Embedded
-  // items are not deep-linkable (they live in the parent body and need
-  // the parent payload to materialise) so we only restore metadata
-  // targets here.
-  const initialTabRef = React.useRef<string | null>(null);
+  // objectui#12475 — History and Audit read the authoring-trail doors, which
+  // objectstack#23546 narrowed to `studio.access` / `manage_metadata`: a
+  // `setup.access`-only caller is offered neither entry, and neither sheet is
+  // mounted for that caller. Unknown fails open.
+  const canReadTrail = useCanReadAuthoringTrail();
 
+  // objectui#12496 — the open sheet is SEEDED from the `?tab=` deep link the
+  // URL-sync effect below writes, so a shared or refreshed link reopens it.
+  // It is read here, in the state's initializer, and not in a mount effect:
+  // the sync effect's mount pass ran first with no sheet open and deleted
+  // `tab` before any later reader could see it. Only a sheet this page offers
+  // THIS caller is accepted — the same conditions the header buttons render
+  // on. Anything else (an unknown value, a gated sheet, `review`, which needs
+  // a loaded draft) opens nothing, and the sync effect drops it from the URL.
+  // Embedded items are not deep-linkable: they live in the parent body and
+  // need the parent payload to materialise.
   const [openSheet, setOpenSheet] =
-    React.useState<'layers' | 'references' | 'related' | 'history' | 'audit' | 'review' | null>(null);
+    React.useState<'layers' | 'references' | 'related' | 'history' | 'audit' | 'review' | null>(() => {
+      if (typeof window === 'undefined' || embedded || createMode) return null;
+      const tab = new URLSearchParams(window.location.search).get('tab');
+      if (tab === 'layers' || tab === 'references') return tab;
+      if (tab === 'related') return hasAnchors ? tab : null;
+      if (tab === 'history' || tab === 'audit') return canReadTrail ? tab : null;
+      return null;
+    });
 
   // ADR-0033 Phase B — `?review=1` arrival (from the chat's "Review N change(s)"
   // affordance). The AI may have drafted this item *after* the page mounted, so
@@ -1245,7 +1262,9 @@ function MetadataResourceEditPageImpl({
     React.useState<'properties' | 'source'>('properties');
 
   // When the References sheet opens, lazy-load the data (idempotent).
-  // Also keep the URL `?tab=` query in sync so deep-links round-trip.
+  // Also keep the URL `?tab=` query in sync so deep-links round-trip: the
+  // state's initializer above reads the link, so this mount pass keeps an
+  // accepted `tab` and drops one that opened nothing.
   React.useEffect(() => {
     if (openSheet === 'references') {
       void loadReferences();
@@ -1486,12 +1505,6 @@ function MetadataResourceEditPageImpl({
   const walled = useWalledCatalogReadOnly(type);
   const walledDeciding = walled && itemWritable;
   const canWrite = itemWritable && canAuthor && !walled;
-  // objectui#12475 — History and Audit read the authoring-trail doors, which
-  // objectstack#23546 narrowed to `studio.access` / `manage_metadata`: a
-  // `setup.access`-only caller is offered neither entry, and neither sheet is
-  // mounted for that caller. Unknown fails open.
-  const canReadTrail = useCanReadAuthoringTrail();
-
   // Auto-enable design mode for designer-capable types. We do this once
   // per (type,name) navigation so the user lands in the productive
   // state instead of having to click "Edit". An item this caller cannot
@@ -1538,12 +1551,9 @@ function MetadataResourceEditPageImpl({
 
   React.useEffect(() => {
     if (typeof window === 'undefined' || embedded) return;
+    // `?open=` on first mount restores the Related drawer target. `?tab=` is
+    // read by `openSheet`'s initializer, not here (objectui#12496).
     const sp = new URLSearchParams(window.location.search);
-    const tab = sp.get('tab');
-    if (tab === 'layers' || tab === 'references' || tab === 'related' || tab === 'audit') {
-      setOpenSheet(tab);
-    }
-    initialTabRef.current = tab;
     const open = sp.get('open');
     if (open && open.includes(':')) {
       const [t, n] = open.split(':', 2);

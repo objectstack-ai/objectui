@@ -96,7 +96,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ObjectStackClient } from '@objectstack/client';
-import { useMetadata, useAdapter } from '@object-ui/app-shell';
+import { ConsolePageHeader, useMetadata, useAdapter } from '@object-ui/app-shell';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { resolveKeyedI18nLabel } from '../../utils';
 
@@ -458,22 +458,26 @@ export function AppManagementPage() {
   }, [apps, selectedIds, refresh, metaClient, t, appTitle, unknownError]);
 
   return (
-    <div className="flex flex-col gap-4 p-4 sm:p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
-            {t('appManagement.title', { defaultValue: 'Applications' })}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {t('appManagement.subtitle', { defaultValue: 'Manage all configured applications' })}
-          </p>
-        </div>
-        <Button onClick={() => navigate(`${basePath}/create-app`)} data-testid="create-app-btn">
+    <div>
+    {/* The console's one page header (objectui#12553), the one an object list,
+        a dashboard and the Approvals Inbox draw: the title, the subtitle
+        beside it from `sm` up, and New App at the right, in one row across
+        the page above the padded body. This page draws no icon, so the header
+        draws no chip. New App is `size="sm"`, as every header action is, so
+        it does not make this header taller than the others. Below `sm` the
+        header hides the subtitle and keeps the title and New App in its one
+        row. */}
+    <ConsolePageHeader
+      title={t('appManagement.title', { defaultValue: 'Applications' })}
+      subtitle={t('appManagement.subtitle', { defaultValue: 'Manage all configured applications' })}
+      actions={
+        <Button size="sm" onClick={() => navigate(`${basePath}/create-app`)} data-testid="create-app-btn">
           <Plus className="h-4 w-4 mr-2" />
           {t('appManagement.newApp', { defaultValue: 'New App' })}
         </Button>
-      </div>
-
+      }
+    />
+    <div className="flex flex-col gap-4 p-4 sm:p-6">
       {/* Search & Bulk Actions */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
         <div className="relative flex-1 max-w-sm">
@@ -659,6 +663,7 @@ export function AppManagementPage() {
           })}
         </div>
       )}
+    </div>
     </div>
   );
 }

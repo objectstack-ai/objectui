@@ -60,7 +60,7 @@ import {
   Separator,
 } from '@object-ui/components';
 import { LookupField } from '@object-ui/fields';
-import { useAdapter } from '@object-ui/app-shell';
+import { ConsolePageHeader, useAdapter } from '@object-ui/app-shell';
 import { RefreshCw, Search, X, AlertCircle, ScrollText } from 'lucide-react';
 import { ACTION_OPTIONS, ACTION_VARIANT } from './auditLogActions';
 
@@ -275,21 +275,24 @@ export function AuditLogPage() {
   }, [actionFilter, objectFilter, actorFilter, fromDate, toDate]);
 
   return (
-    <div className="p-6 space-y-4 max-w-screen-2xl mx-auto">
-      <div className="flex items-center gap-3">
-        <ScrollText className="h-6 w-6 text-muted-foreground" />
-        <div className="flex-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Audit Log</h1>
-          <p className="text-sm text-muted-foreground">
-            Read-only system activity and record changes. Newest first.
-          </p>
-        </div>
+    <div>
+    {/* The console's one page header (objectui#12553), the one an object list,
+        a dashboard and the Approvals Inbox draw: icon chip, title, the
+        subtitle beside the title from `sm` up, and Refresh at the right, in
+        one row across the page above the padded body. Below `sm` the header
+        hides the subtitle and keeps the icon, title and Refresh. */}
+    <ConsolePageHeader
+      title="Audit Log"
+      subtitle="Read-only system activity and record changes. Newest first."
+      icon={<ScrollText className="h-4 w-4" />}
+      actions={
         <Button variant="outline" size="sm" onClick={load} disabled={loading}>
           <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
-      </div>
-
+      }
+    />
+    <div className="p-6 space-y-4 max-w-screen-2xl mx-auto">
       {/* Filter bar */}
       <Card>
         <CardContent className="p-4 grid grid-cols-1 md:grid-cols-5 gap-3">
@@ -515,6 +518,7 @@ export function AuditLogPage() {
           )}
         </SheetContent>
       </Sheet>
+    </div>
     </div>
   );
 }

@@ -164,8 +164,11 @@ export function PageHeader({
       <div className="flex justify-between items-center gap-3 py-2.5 sm:py-2 px-4 sm:px-6">
         {/* One row: icon, title, then the subtitle behind a hairline — all
             siblings of this flex row, so nothing wraps beneath the title
-            (objectui#12423). */}
-        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            (objectui#12423). `min-h-9` floors the row at the chip's `h-9`, so
+            a header with no icon and no action is as tall as one with them
+            (objectui#12553). It sits here, not on the padded row above: under
+            `border-box` a min-height there would count that row's padding. */}
+        <div className="flex items-center gap-2.5 min-w-0 flex-1 min-h-9">
           {icon && (
             <div
               className={cn(

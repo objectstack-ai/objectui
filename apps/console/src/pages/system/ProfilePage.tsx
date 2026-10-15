@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from '@object-ui/components';
 import { useUpload } from '@object-ui/providers';
+import { ConsolePageHeader } from '@object-ui/app-shell';
 import { useObjectTranslation, type TranslateFn } from '@object-ui/i18n';
 import { useAdapter, extractFieldErrors, extractWriteErrorMessage } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
@@ -136,16 +137,17 @@ export function ProfilePage() {
   if (!user) return null;
 
   return (
+    <div>
+    {/* The console's one page header (objectui#12553), the one an object list,
+        a dashboard and the Approvals Inbox draw: the title, and the subtitle
+        beside it from `sm` up, in one row across the page above the padded
+        body. This page draws no icon, so the header draws no chip. Below `sm`
+        the header hides the subtitle. */}
+    <ConsolePageHeader
+      title={t('profile.title', { defaultValue: 'Profile' })}
+      subtitle={t('profile.subtitle', { defaultValue: 'Manage your account settings' })}
+    />
     <div className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6 max-w-2xl">
-      <div className="min-w-0">
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
-          {t('profile.title', { defaultValue: 'Profile' })}
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {t('profile.subtitle', { defaultValue: 'Manage your account settings' })}
-        </p>
-      </div>
-
       {/* Avatar & Identity */}
       <Card>
         <CardContent className="pt-6">
@@ -303,6 +305,7 @@ export function ProfilePage() {
         setInitialPassword={setInitialPassword}
         hasLocalPassword={hasLocalPassword}
       />
+    </div>
     </div>
   );
 }

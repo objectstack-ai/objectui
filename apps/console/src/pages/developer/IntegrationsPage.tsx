@@ -17,6 +17,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { ConsolePageHeader } from '@object-ui/app-shell';
 import {
   Card,
   CardContent,
@@ -114,16 +115,17 @@ export function IntegrationsPage() {
   ];
 
   return (
+    <div>
+    {/* The console's one page header (objectui#12553), the one an object list,
+        a dashboard and the Approvals Inbox draw: icon chip, title, and the
+        subtitle beside the title from `sm` up, in one row across the page
+        above the padded body. Below `sm` the header hides the subtitle. */}
+    <ConsolePageHeader
+      title="Integrations & APIs"
+      subtitle="Every object you build is instantly a REST API. Drive your app from code or an agent."
+      icon={<Plug className="h-4 w-4" />}
+    />
     <div className="flex flex-col gap-6 p-4 sm:p-6">
-      <div className="min-w-0">
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2">
-          <Plug className="size-5 text-primary" /> Integrations &amp; APIs
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Every object you build is instantly a REST API. Drive your app from code or an agent.
-        </p>
-      </div>
-
       {/* Base URL */}
       <Card>
         <CardHeader className="pb-2">
@@ -210,6 +212,7 @@ export function IntegrationsPage() {
           <pre className="overflow-x-auto rounded bg-muted p-3 font-mono text-xs leading-relaxed">{curl}</pre>
         </CardContent>
       </Card>
+    </div>
     </div>
   );
 }

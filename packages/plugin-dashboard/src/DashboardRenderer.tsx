@@ -21,7 +21,7 @@ import {
   chartConfigPresentation,
 } from '@object-ui/core';
 import { cn, Card, CardHeader, CardTitle, CardContent, Button, getLazyIcon } from '@object-ui/components';
-import { forwardRef, useState, useEffect, useCallback, useMemo, Fragment } from 'react';
+import { forwardRef, useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, Fragment } from 'react';
 import type { HTMLAttributes } from 'react';
 import { RefreshCw } from 'lucide-react';
 import {
@@ -45,7 +45,7 @@ import { classifyWidgetType, METRIC_LIKE_TYPES, DASHBOARD_NODE_TYPES, toDashboar
 import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget, isRetiredEnvelopeNode } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
 import type { DashboardChartRenderSchema } from './chartRenderHandoff';
-import { useDashboardAutoRefresh } from './useDashboardAutoRefresh';
+import { useDashboardAutoRefresh, type DashboardAutoRefresh } from './useDashboardAutoRefresh';
 import { DashboardFilterBar } from './DashboardFilterBar';
 
 /**
@@ -284,6 +284,33 @@ export interface DashboardRendererProps
    */
   hideHeaderText?: boolean;
   /**
+   * The host draws the "Refresh All" control, in its own chrome, and this is
+   * how it learns what to draw (objectui#12554). Set it and the renderer draws
+   * no refresh button of its own; leave it unset and the renderer draws one
+   * whenever `onRefresh` is wired, exactly as before.
+   *
+   * The auto-refresh timer is untouched: it stays this renderer's, armed by
+   * `onRefresh` and the authored `refreshIntervalSeconds`, so a host that
+   * draws the button runs no timer of its own. What the renderer hands over is
+   * the state of that one refresh implementation (`useDashboardAutoRefresh`):
+   *
+   * - `refreshing`, true while a run is in flight, manual or timed: spin the
+   *   icon and disable the button on it, as the renderer's own control does;
+   * - `handleRefresh`, the run the renderer's button calls: wire the host's
+   *   button to it, so a click shows the same indicator and calls `onRefresh`.
+   *
+   * It is called on mount, again each time `refreshing` changes, and with
+   * `null` when there is nothing to draw: no `onRefresh` is wired, or the
+   * renderer unmounted. The renderer reads it through a ref, so a host may
+   * pass a new function on every render (a `useState` setter is enough).
+   *
+   * The record-count badge (`recordCount`) is not part of the hand-over; it
+   * stays where the renderer draws it. The console's dashboard page
+   * (`DashboardView`) sets this, and draws the button among its page header's
+   * actions.
+   */
+  onRefreshStateChange?: (state: DashboardAutoRefresh | null) => void;
+  /**
    * The document arrives already translated for the active language: the host
    * read it from the server's `/meta` route, which resolves the packaged
    * catalog per request locale and keeps a published edit over it (an explicit
@@ -307,7 +334,7 @@ export interface DashboardRendererProps
 }
 
 const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps>(
-  ({ schema, className, dataSource: dataSourceProp, onRefresh, recordCount, userActions, designMode, selectedWidgetId, onWidgetClick, onWidgetsReorder, modalHandler, scriptHandlers, hideHeaderText, localized, ...props }: DashboardRendererProps & { [key: string]: any }, ref) => {
+  ({ schema, className, dataSource: dataSourceProp, onRefresh, recordCount, userActions, designMode, selectedWidgetId, onWidgetClick, onWidgetsReorder, modalHandler, scriptHandlers, hideHeaderText, onRefreshStateChange, localized, ...props }: DashboardRendererProps & { [key: string]: any }, ref) => {
     // objectui#10815 — the adapter every child of this dashboard reads, resolved
     // ONCE here the way the page-embeddable blocks of the family resolve theirs
     // (`useResolvedDataSource`, the `object-grid` / `object-form` /
@@ -535,6 +562,33 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
     // `DashboardGridLayout` (objectui#8820), which is also the only place
     // `refreshIntervalSeconds` is read.
     const { refreshing, handleRefresh } = useDashboardAutoRefresh(schema, onRefresh);
+
+    // A host that draws the refresh control itself (`onRefreshStateChange`,
+    // objectui#12554) is handed that same state; the timer above stays the one
+    // timer. The reports are keyed on VALUES only: whether the host takes the
+    // control, whether a handler is wired, and the indicator. The host's
+    // callback and the hook's `handleRefresh` are read through refs, so a new
+    // identity of either (an inline host arrow, a memo React discards) neither
+    // re-reports nor loops a host that stores the report in state (AGENTS.md
+    // #10). Layout effects, so a host's header draws the button in the same
+    // paint as the dashboard, not one frame later.
+    const hostDrawsRefresh = Boolean(onRefreshStateChange);
+    const refreshWired = Boolean(onRefresh);
+    const onRefreshStateChangeRef = useRef(onRefreshStateChange);
+    const handleRefreshRef = useRef(handleRefresh);
+    useLayoutEffect(() => {
+      onRefreshStateChangeRef.current = onRefreshStateChange;
+      handleRefreshRef.current = handleRefresh;
+    });
+    useLayoutEffect(() => {
+      if (!hostDrawsRefresh) return;
+      onRefreshStateChangeRef.current?.(
+        refreshWired ? { refreshing, handleRefresh: () => handleRefreshRef.current() } : null,
+      );
+    }, [hostDrawsRefresh, refreshWired, refreshing]);
+    // On unmount the host is told there is nothing left to draw, so it does not
+    // keep a button wired to a dashboard that is gone.
+    useLayoutEffect(() => () => onRefreshStateChangeRef.current?.(null), []);
 
     const handleWidgetClick = useCallback((e: React.MouseEvent, widgetId: string | undefined) => {
       if (!designMode || !onWidgetClick || !widgetId) return;
@@ -1152,20 +1206,28 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
      * nearest the data it refreshes); else the header's row, when this
      * renderer draws one; else it stands alone, in a row sized to its content
      * (see `leadingRows` below).
+     *
+     * A host that draws the button itself (`onRefreshStateChange`,
+     * objectui#12554) takes the button out of it; the record-count badge stays.
+     * With no badge either there is no control, so the row it would have
+     * shared or stood in costs nothing.
      */
-    const refreshControl = onRefresh && (
+    const refreshButton = onRefresh && !hostDrawsRefresh && (
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={handleRefresh}
+        disabled={refreshing}
+        aria-label={tt('dashboard.refreshDashboard', 'Refresh dashboard')}
+      >
+        <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
+        {refreshing ? tt('dashboard.refreshing', 'Refreshing…') : tt('dashboard.refreshAll', 'Refresh All')}
+      </Button>
+    );
+    const refreshControl = onRefresh && (refreshButton || recordCountBadge) && (
       <div className="ml-auto flex shrink-0 items-center gap-3">
         {recordCountBadge}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={refreshing}
-          aria-label={tt('dashboard.refreshDashboard', 'Refresh dashboard')}
-        >
-          <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
-          {refreshing ? tt('dashboard.refreshing', 'Refreshing…') : tt('dashboard.refreshAll', 'Refresh All')}
-        </Button>
+        {refreshButton}
       </div>
     );
     const refreshInHeader = !!refreshControl && filterDefs.length === 0;

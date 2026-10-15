@@ -293,8 +293,11 @@ export function useObjectListViewDraft({
   const reload = React.useCallback(() => setReloadNonce((n) => n + 1), []);
   // objectui#11773 — one guard per editing buffer; a conflict's "reload" re-runs this load.
   const { save: guardedSave, recordRead, dialog: conflictDialog } = useDraftSaveGuard(client, reload);
+  // Declared before the load effect, so a commit updates it first.
   const draftOnlyRef = React.useRef(draftOnlyObjects);
-  draftOnlyRef.current = draftOnlyObjects;
+  React.useEffect(() => {
+    draftOnlyRef.current = draftOnlyObjects;
+  }, [draftOnlyObjects]);
 
   React.useEffect(() => {
     setFailure(null);

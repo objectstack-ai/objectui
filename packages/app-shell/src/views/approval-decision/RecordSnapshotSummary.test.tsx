@@ -18,7 +18,8 @@ import * as React from 'react';
 import { describe, it, expect, afterEach } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { MetadataCtx } from '@object-ui/react';
-import { RecordSnapshotSummary, distinctLabels, planSnapshotSummary } from './RecordSnapshotSummary';
+import { RecordSnapshotSummary } from './RecordSnapshotSummary';
+import { distinctLabels, planSnapshotSummary } from './snapshotSummaryPlan';
 
 afterEach(cleanup);
 

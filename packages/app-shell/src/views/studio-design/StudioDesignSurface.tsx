@@ -4777,6 +4777,61 @@ export function renderStudioGridList(props: {
   );
 }
 
+/**
+ * The form fields of an object definition's `fields`, in metadata order: the
+ * platform's injected-and-hidden fields (objectui#11780) and the audit fields
+ * dropped. Read for the draft (`formFields`) and the published baseline.
+ */
+function formFieldNames(fields: unknown): string[] {
+  return readFields(fields)
+    .entries.filter((e) => !isStudioHiddenSystemField(e.def))
+    .map((e) => e.name)
+    .filter((n) => !STUDIO_SYSTEM_FIELD_NAMES.has(n));
+}
+
+/** The data-source writes the Form tab's Preview refuses (objectui#12515). */
+const PREVIEW_REFUSED_WRITES = new Set<PropertyKey>(['create', 'update', 'delete', 'bulk', 'bulkUpdate', 'bulkDelete']);
+
+/**
+ * objectui#12515 — the data source the Form tab's Preview hands the runtime
+ * `ObjectForm`, the same renderer the app's record form uses.
+ *
+ * The form reads the object's definition only through
+ * `dataSource.getObjectSchema(name)`. With `draft` given, that read answers for
+ * the open object from the pillar's buffer (the draft as served, plus the
+ * edits not yet saved), so a draft-only object previews without a server read
+ * and a published one previews its pending change. Every other read (another
+ * object's definition, a lookup's options) goes to the real adapter.
+ *
+ * Preview never saves: the writes in `PREVIEW_REFUSED_WRITES` reject, in the
+ * Draft and the Published preview alike.
+ */
+function formPreviewSource(
+  adapter: object | null,
+  draft: { name: string; definition: Record<string, unknown> } | null,
+): object | null {
+  // No adapter, no data source: the form says so, as it does today.
+  if (!adapter) return null;
+  return new Proxy(adapter, {
+    get(target, prop) {
+      if (PREVIEW_REFUSED_WRITES.has(prop)) {
+        return () => Promise.reject(new Error('The form preview does not save.'));
+      }
+      if (draft && prop === 'getObjectSchema') {
+        const read = Reflect.get(target, prop, target) as ((name: string) => Promise<unknown>) | undefined;
+        return (name: string) =>
+          name === draft.name
+            ? Promise.resolve(structuredClone({ ...draft.definition, name: draft.name }))
+            : read
+              ? read.call(target, name)
+              : Promise.reject(new Error(`No definition for "${name}".`));
+      }
+      const value = Reflect.get(target, prop, target);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+}
+
 // Exported for tests (StudioDesignSurface.emptyPackage.test.tsx) — the empty-
 // package behavior (no forced creator modal, empty-state CTA) lives here.
 export function DataPillar({
@@ -4937,6 +4992,10 @@ export function DataPillar({
   // Within the Form view: Layout (WYSIWYG drag/section designer) ⇄ Preview
   // (live form).
   const [formMode, setFormMode] = React.useState<'layout' | 'preview'>('layout');
+  // objectui#12515 — which definition Preview renders when the object has a
+  // published version AND a pending change: the draft (the default) or the
+  // published one. Without a published version only the draft exists.
+  const [previewSource, setPreviewSource] = React.useState<'draft' | 'published'>('draft');
   // Tracks which object's baseline is currently loaded — so we (re)load exactly
   // once per selected object and never clobber an in-progress draft.
   const loadedNameRef = React.useRef<string | null>(null);
@@ -4983,6 +5042,10 @@ export function DataPillar({
    * is the wrong source for a projection even after a successful save.
    */
   const [publishedFieldNames, setPublishedFieldNames] = React.useState<Set<string>>(new Set());
+  // objectui#12515 — the Published preview's field list: the published
+  // definition's own form fields, in its order. Set where the load installs the
+  // baseline, so its identity changes only with it (see `formFields`).
+  const [publishedFormFields, setPublishedFormFields] = React.useState<string[]>([]);
   // The package's object-name namespace (framework#2694). New objects are
   // auto-prefixed with `<namespace>_` so an author can never draft a prefix-less
   // object that publish would later reject (code NAMESPACE_PREFIX).
@@ -5138,6 +5201,7 @@ export function DataPillar({
         // the editor and wrong for a `select`: a draft-only field is not a
         // column the data API can answer yet (see `gridColumns`).
         setPublishedFieldNames(new Set(readFields(baseline.fields).entries.map((e) => e.name)));
+        setPublishedFormFields(formFieldNames(baseline.fields));
       } catch (e) {
         if (!cancelled) setError(plainRefusal(e));
       } finally {
@@ -5246,14 +5310,23 @@ export function DataPillar({
    * `fields` identical, so the looser key would churn (and re-run the form's
    * field-generation effect) on every unrelated draft edit (icon, label).
    */
-  const formFields = React.useMemo(
+  const formFields = React.useMemo(() => formFieldNames(objDraft.fields), [objDraft.fields]);
+
+  // objectui#12515 — what the Form tab's Preview renders. The draft differs
+  // from the published definition when there is no published one, a pending
+  // draft, or an unsaved edit; then Preview shows the draft unless the author
+  // picked Published (offered only when a published version exists).
+  const draftDiffers = !hasBaseline || hasDraft || dirty;
+  const previewShowsDraft = !hasBaseline || (draftDiffers && previewSource === 'draft');
+  const previewDraft = previewShowsDraft ? objDraft : null;
+  const previewObjectName = current?.name ?? '';
+  const previewDataSource = React.useMemo(
     () =>
-      readFields(objDraft.fields)
-        // objectui#11780 — the same injected-and-hidden test as `gridColumns`.
-        .entries.filter((e) => !isStudioHiddenSystemField(e.def))
-        .map((e) => e.name)
-        .filter((n) => !STUDIO_SYSTEM_FIELD_NAMES.has(n)),
-    [objDraft.fields],
+      formPreviewSource(
+        adapter,
+        previewDraft ? { name: previewObjectName, definition: previewDraft } : null,
+      ),
+    [adapter, previewObjectName, previewDraft],
   );
 
   const onPatch = React.useCallback((patch: Record<string, unknown>) => {
@@ -5860,27 +5933,50 @@ export function DataPillar({
               <FormToolbar
                 leading={formModeControl}
                 hint={
-                  /* Preview renders the PUBLISHED definition on purpose: a draft with
-                   * structural changes has no physical columns yet (DDL lands at
-                   * publish), so a draft-with-data preview would break. Publishing is
-                   * a deliberate user action — say so instead of silently lying. */
-                  (dirty || hasDraft) && (
-                    <span className="inline-flex items-center gap-1 rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300">
-                      {t('engine.studio.data.form.previewWarn', locale)}
-                    </span>
-                  )
+                  /* objectui#12515 — Preview renders the runtime form from the draft
+                   * definition (the open object's buffer, unsaved edits included):
+                   * a create form reads no record, so a draft-only object needs no
+                   * table to preview. The chip says which definition is on screen;
+                   * the toggle appears only when a published version exists. */
+                  <>
+                    {previewShowsDraft && (
+                      <span
+                        data-testid="form-preview-draft-chip"
+                        title={t('engine.studio.data.form.draftChipTitle', locale)}
+                        className="inline-flex h-6 items-center rounded bg-primary/10 px-2 text-[11px] font-medium text-primary"
+                      >
+                        {t('engine.studio.data.form.draftChip', locale)}
+                      </span>
+                    )}
+                    {hasBaseline && draftDiffers && (
+                      <div
+                        role="group"
+                        aria-label={t('engine.studio.data.form.sourceLabel', locale)}
+                        data-testid="form-preview-source"
+                        className="inline-flex items-center gap-0.5 rounded-md bg-muted p-0.5"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setPreviewSource('draft')}
+                          aria-pressed={previewShowsDraft}
+                          className={formModeItem(previewShowsDraft)}
+                        >
+                          {t('engine.studio.data.form.sourceDraft', locale)}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewSource('published')}
+                          aria-pressed={!previewShowsDraft}
+                          className={formModeItem(!previewShowsDraft)}
+                        >
+                          {t('engine.studio.data.form.sourcePublished', locale)}
+                        </button>
+                      </div>
+                    )}
+                  </>
                 }
               />
               <div className="flex min-h-0 flex-1 flex-col overflow-auto bg-sidebar p-6">
-              {!hasBaseline ? (
-                /* Draft-only object: there is no published definition to preview yet. */
-                <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed bg-background text-center">
-                  <p className="text-sm font-medium">{t('engine.studio.data.form.noPublishedTitle', locale)}</p>
-                  <p className="max-w-md text-[11px] leading-5 text-muted-foreground">
-                    {t('engine.studio.data.form.noPublishedHint', locale)}
-                  </p>
-                </div>
-              ) : (
               <>
               {/* Form — the real runtime ObjectForm ("same renderer"): the object's
                 * form exactly as an end user sees it. Clicking any rendered field
@@ -5916,7 +6012,7 @@ export function DataPillar({
                     }
                   }}
                 >
-                  <SchemaRendererProvider dataSource={adapter as never}>
+                  <SchemaRendererProvider dataSource={previewDataSource as never}>
                     <ObjectForm
                       key={`${current.name}:${gridVer}:form`}
                       schema={
@@ -5928,16 +6024,17 @@ export function DataPillar({
                           // IDENTITY is a dependency of ObjectForm's field-generation
                           // effect, so rebuilding it inline here re-ran that effect on
                           // every keystroke-level render of the pillar (objectui#4574).
-                          fields: formFields,
+                          // The Published preview lists the published fields
+                          // (objectui#12515), set where the baseline loads.
+                          fields: previewShowsDraft ? formFields : publishedFormFields,
                         } as never
                       }
-                      dataSource={adapter as never}
+                      dataSource={previewDataSource as never}
                     />
                   </SchemaRendererProvider>
                 </div>
               </div>
               </>
-              )}
               </div>
               </>
               )}

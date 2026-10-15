@@ -3451,12 +3451,15 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.data.form.layoutBadgeClean': 'Draft layout',
   // objectui#11781 — a read-only package has no draft layout: it says what it is.
   'engine.studio.data.form.layoutBadgeReadOnly': 'Read-only layout — this package cannot be edited',
-  'engine.studio.data.form.previewBadge': 'Preview of the published version',
-  'engine.studio.data.form.previewWarn':
-    'You have unpublished changes — this preview shows the pre-publish (published) state; confirm the draft in “Layout”, and to see the post-publish result, click “Publish” in the top bar first.',
-  'engine.studio.data.form.noPublishedTitle': 'No published definition yet',
-  'engine.studio.data.form.noPublishedHint':
-    '“Preview” renders the published runtime form, but this object isn’t published yet. Confirm the draft in “Layout”, then click “Publish” in the top bar to preview.',
+  'engine.studio.data.form.previewBadge': 'Preview the form as the app renders it',
+  // objectui#12515 — Preview renders the draft definition; the chip says so,
+  // and the toggle (shown only beside a published version) picks the source.
+  'engine.studio.data.form.draftChip': 'Draft preview',
+  'engine.studio.data.form.draftChipTitle':
+    'This preview renders the draft definition, unsaved changes included. Nothing is saved from here.',
+  'engine.studio.data.form.sourceLabel': 'Preview source',
+  'engine.studio.data.form.sourceDraft': 'Draft',
+  'engine.studio.data.form.sourcePublished': 'Published',
   'engine.studio.data.fieldProps': 'Field properties',
   'engine.studio.data.groupProps': 'Group properties',
   'engine.studio.data.fieldInspectorMissing':
@@ -6658,12 +6661,12 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.data.form.layoutBadge': '草稿布局 · 含未保存改动',
   'engine.studio.data.form.layoutBadgeClean': '草稿布局',
   'engine.studio.data.form.layoutBadgeReadOnly': '只读布局 · 本软件包不可编辑',
-  'engine.studio.data.form.previewBadge': '预览已发布版本(不含草稿改动)',
-  'engine.studio.data.form.previewWarn':
-    '有未发布改动 — 此预览为发布前(已发布)的效果;草稿确认用「布局」,看发布后效果请先点顶栏「发布」',
-  'engine.studio.data.form.noPublishedTitle': '尚无已发布定义',
-  'engine.studio.data.form.noPublishedHint':
-    '「预览」渲染已发布的运行态表单,而这个对象还未发布。在「布局」里确认草稿,点顶栏「发布」后即可预览。',
+  'engine.studio.data.form.previewBadge': '按应用中的样子预览表单',
+  'engine.studio.data.form.draftChip': '草稿预览',
+  'engine.studio.data.form.draftChipTitle': '此预览渲染草稿定义,含未保存的改动。这里不会保存任何内容。',
+  'engine.studio.data.form.sourceLabel': '预览来源',
+  'engine.studio.data.form.sourceDraft': '草稿',
+  'engine.studio.data.form.sourcePublished': '已发布',
   'engine.studio.data.fieldProps': '字段属性',
   'engine.studio.data.groupProps': '分组属性',
   'engine.studio.data.fieldInspectorMissing': '本次会话没有注册字段检查器,因此无法在这里编辑该字段的属性。',

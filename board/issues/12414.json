@@ -1,0 +1,35 @@
+{
+  "number": 12414,
+  "kind": "pull_request",
+  "title": "fix(app-shell): a refused Delete view shows the server's reason as the toast description",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T02:57:27Z",
+  "updated_at": "2026-10-15T03:23:43Z",
+  "closed_at": "2026-10-15T03:23:41Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-15T03:23:41Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12414",
+  "body": "Fixes #12398\nClause-②: no\n\n## What this does\n\n`handleDeleteView` in `packages/app-shell/src/views/ObjectView.tsx` showed a refused Delete view as the translated `objectViewActions.deleteFailed` title with no options, so the server's reason reached `console.error` alone. The `catch` now passes the door's sentence as the toast description, through the same channel objectui#11583 gave the view saves: `formatMetadataError(err)` from `@object-ui/data-objectstack`, with the `whitespace-pre-line` class. The translated title stays. There is no second extraction and no parsing of the message text. `deleteView` still sends no `?package=` (out of scope, as the card rules).\n\nClause-② measured: no published `@object-ui/*` export, prop, type member or language-pack key moves. The change is the body of one internal handler.\n\n## Tests\n\n- **Pin:** `ObjectView.viewWriteRefusal-11583.test.tsx` gets its own describe for `handleDeleteView`. A `deleteView` that throws a 409 `RESOURCE_CONFLICT` refusal raises one `toast.error`. Its title is `objectViewActions.deleteFailed`, and its description contains the door's sentence. The old \"a refused delete raises a toast\" control is replaced by this pin. Rename stays a control.\n- **Census:** the `handleDeleteView` row of `writeRefusalCensus-11583.test.ts` keeps its kind and pin. Its reason is reworded to say what the tree now does.\n- **Ablation (one-time, not committed):** the fix was committed first. Then the description options were removed with an anchored Python replace. On disk, the marker count read 1 and the replaced anchor read 0. Result: `Tests 1 failed | 13 passed (14)`. The only failure was the new pin, with `expected 'undefined' to contain 'held by two packages'`. Restored with `git checkout HEAD -- PATH`, with `git diff HEAD` empty and the blob hash equal to the HEAD blob (`be657576`).\n- **At head `b693066ff`:**\n  - The harness plus census: 2 files, 21 tests, passed.\n  - Every `packages/app-shell/src/views/ObjectView.*` test plus the census: 65 files, 587 tests, passed.\n  - `pnpm --filter @object-ui/app-shell type-check` (both `tsc --noEmit` and `tsconfig.test.json`): exit 0, after the `@object-ui/app-shell^...` closure build (exit 0).\n- **NOT MEASURED: the full app-shell project and the whole `src/views/` directory.** Reason: `vitest run packages/app-shell/src/views/` was killed at its 540s timeout under the shared lock (exit 124). It is declared to CI.\n- **Lint, narrowed to the 3 changed source files:** eslint `--format json` read 3 files with 0 errors. The warnings on changed lines are pre-existing: `react-hooks/exhaustive-deps` on the handler's unchanged dependency list, and `no-explicit-any` on the existing `(dataSource as any).deleteView` assertion. The narrowing excludes nothing: the root `eslint.config.js` enables no type-aware parser options, so this diff cannot move the verdict on any untouched file.\n- **Gate battery, each exit 0:** `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity` and `control-bytes`. Also exit 0: `node scripts/check-changeset-fixed.mjs` and `node scripts/check-changeset-presence.mjs`. `check:spec-floors` exits 1 (\"The scan collapsed: 0 package(s) declare @objectstack/spec…\"). That failure is already on main (objectui#12334) and is recorded here, not fixed.\n\n## Acceptance notes\n\n- **The headline 409 reaches the user only when the draft half refuses.** This was measured with a throwaway probe that was not committed. The probe used the real `ObjectStackAdapter.deleteView` with the `deleteView.homes.test.ts` wire harness. A two-package `409 RESOURCE_CONFLICT` on the draft-state DELETE comes back as the server's sentence, and with this change the toast shows it. On the published DELETE, the adapter wraps the refusal in its own `Error`: \"deleteView: view … is NOT fully removed — the draft home was already absent, but deleting the published overlay failed. The published row is still serving the view; retry the delete.\" The server's sentence survives only on `err.cause`. `formatMetadataError` reads the outer error, so the toast says \"retry the delete\", which cannot succeed for a view two packages hold. It does not show the `?package=` remedy. objectstack#23165's rule (\"the row of the one package the item's rows at the deleted state are bound to\") points to the published half as the usual 409 site, because a view with no pending draft answers the draft DELETE with a 200 `reset:false`. The fix belongs in the producer (`packages/data-objectstack/src/index.ts`, `deleteView`'s published-half wrap), not in a second reader here. That is outside this card's file surface and is reported for a separate card.\n- **Rename has the same gap.** `handleRenameView` still shows `objectViewActions.renameFailed` with no description. That is outside this card's file surface and is reported, not touched.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

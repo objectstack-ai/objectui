@@ -1,0 +1,36 @@
+{
+  "number": 12439,
+  "kind": "issue",
+  "title": "app-shell: a backgrounded tab polls approvals + inbox every 60 s forever, so a forgotten tab keeps scale-to-zero servers (staging) awake 24/7: stop polling after N minutes hidden",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "enhancement",
+    "priority:p3"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T06:29:00Z",
+  "updated_at": "2026-10-15T08:30:35Z",
+  "closed_at": "2026-10-15T08:25:43Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12439",
+  "body": "## Problem\n\nA tab left open on a console page never lets its server go idle. `packages/app-shell/src/hooks/sharedUserFeeds.ts` keeps polling while the tab is hidden: `HIDDEN_POLL_MS = 60_000` against `APPROVALS_POLL_MS = 30_000` / `INBOX_POLL_MS = 10_000` in the foreground. So a backgrounded tab still sends `GET /api/v1/approvals/requests` and `GET /api/v1/data/sys_inbox_message` every 60 s, forever.\n\nThat matters wherever the backend scales to zero. Since cloud#2766 (2026-10-12), the staging runtime and control-plane containers sleep after 15 / 30 idle minutes, and a 60 s poll is always inside that window. Measured with Cloudflare HTTP analytics:\n\n| window (UTC) | host | approvals/requests | sys_inbox_message | cadence |\n|---|---|---|---|---|\n| 10-13 15:00–20:00 | `cloud.objectos.app` (staging console) | 607 | 588 | ~30 s, foreground |\n| 10-14 12:00–18:00 | `os-4x2mxc.objectos.app` (a staging environment) | 345 | 355 | ~60 s, hidden |\n\nBoth came from a single Chrome-on-macOS tab. The staging runtime also calls the control plane on each request (`objectos-runtime` → `/api/v1/cloud/environments/…`), so that one tab kept **both** staging containers awake around the clock. Staging container cost stayed at about $1.5/day where it should be close to zero. In the hours with no tab open (10-13 14:00–20:00), the runtime did sleep, with 0 GiB allocated.\n\n## Proposal\n\nStop polling once the tab has been hidden for a while, and keep the immediate refetch when the user comes back:\n\n- After the tab has been continuously hidden for **N minutes (suggest 10)**, the shared feeds stop arming their timer. `onVisibilityChange` already refetches immediately when the tab becomes visible again (the #4225 behaviour), so the bell is current a beat after the user looks at it.\n- While hidden but under N minutes, keep today's 60 s cadence, so a tab switched away briefly still behaves exactly as now.\n- Apply the same rule to any other poller that reads `document.hidden` / `visibilityState` (for example `useAiUsage`), so one stray poller cannot keep the server awake by itself.\n\n## The trade-off (needs an explicit yes)\n\n`useInboxArrivalNotifier` raises a **desktop notification** for new inbox messages while the tab is hidden, and its header accepts \"up to about a minute late\" as the cost of the 60 s hidden cadence. With this change, a message that arrives after the tab has been hidden for more than N minutes gets **no desktop notification until the user returns to the tab**. At that point it appears as the normal in-page toast or bell badge. The maintainer asked for this card knowing the trade-off. Pick N, or make it configurable, with that cost in mind.\n\n## Done when\n\n- A hidden tab issues no feed requests after N minutes (test: fake timers plus a `document.hidden` driver, as `sharedInboxFeed.cadence-7249.test.tsx` already does).\n- Returning to the tab triggers exactly one immediate refetch per feed, then the foreground cadence.\n- The `useInboxArrivalNotifier` module header and the `HIDDEN_POLL_MS` comment are updated to describe the new behaviour.\n\nRelated: #4225 (consolidated the bell's poller and kept the 60 s hidden cadence), #7249 (cadence test), #7011 (desktop notifications), cloud#2766 (staging scales to zero).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

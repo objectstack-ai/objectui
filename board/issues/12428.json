@@ -1,0 +1,35 @@
+{
+  "number": 12428,
+  "kind": "pull_request",
+  "title": "fix(providers): type the upload adapter's scope from the spec's UploadScope (objectui#12055)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: providers",
+    "tests"
+  ],
+  "assignees": [
+    "sunhaolin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T04:59:53Z",
+  "updated_at": "2026-10-15T05:40:57Z",
+  "closed_at": "2026-10-15T05:40:55Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-15T05:40:55Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12428",
+  "body": "Fixes #12055\nClause-②: no (narrowing)\n\n## What changes\n\n`createObjectStackUploadAdapter`'s `scope` option (`ObjectStackUploadAdapterOptions.scope` in `@object-ui/providers`) was an open `string`. It is now `API.UploadScope`: the spec's upload-scope vocabulary, `UploadScope` from `@objectstack/spec/api`, reached through the `API` namespace that `@object-ui/types` already re-exports (`export type * as API from '@objectstack/spec/api'`). This is the type half triage's answer C left on the card; the shared half (the `path` fallback removed) landed as PR #12058.\n\n- **No hand copy, no new dependency, no new export.** `@object-ui/providers` already depends on `@object-ui/types`, and `@object-ui/types` depends on `@objectstack/spec`, so `package.json` and the lockfile do not change. The emitted `UploadProvider.d.ts` gains one type-only line, `import type { API } from '@object-ui/types'`, and the emitted JS is unchanged (the import is erased: 0 hits in `dist/UploadProvider.js`). Named here for the contract review, as the dispatch asked.\n- **Docblock.** It names the values by reference to the spec type, says a value outside it does not compile and is refused by the server with `400`, and says an omitted scope sends none, so the server applies the default the spec's upload request declares. It no longer points at the `sys_file` select in `@objectstack/service-storage` as the authority.\n- **Callers.** The only in-repo caller that passes a scope is `RecordAttachmentsPanel` (`scope: 'attachments'`), which is in the vocabulary and still compiles. The console's app-wide adapter passes none. Neither source file changes.\n\n## Measured before editing (installed `@objectstack/spec` `18.0.0-next.1`)\n\n- `UploadScopeSchema` and `type UploadScope = z.input of UploadScopeSchema` are exported from the `./api` subpath; the package root does not export them. Members: `tenant`, `user`, `private`, `temp`, `attachments` (`public` is not one). The card body's list still names `public`; the type follows the spec, so it does not apply.\n- `GetPresignedUrlRequestSchema.scope` is `UploadScopeSchema.default(\"user\")` in the installed JS.\n\n## Pins (`packages/providers/src/__tests__/objectstack-upload-scope-12055.test.ts`)\n\n- Compile-time, checked by `tsconfig.test.json` (chained after the source program in `type-check`):\n  - the option type, without `undefined`, is exactly `API.UploadScope`, and `API.UploadScope` is not `any`;\n  - an open `string` is not assignable to it;\n  - `@ts-expect-error` on `{ scope: 'avatars' }` typed as `ObjectStackUploadAdapterOptions`.\n- Runtime: the existing pins stay as they were: `scope: 'attachments'` is forwarded unchanged, an adapter built without a scope sends none (with or without a `path`).\n\n## Evidence (head `7d5d8f2dd`, every run after the last commit)\n\n- `pnpm --filter @object-ui/providers type-check` (echoes `tsc --noEmit && tsc -p tsconfig.test.json`): VERDICT command-exit 0. `tsc -p tsconfig.test.json --listFiles` lists the test file once, and lists the spec's `dist/api/index.d.mts`.\n- `pnpm exec vitest run packages/providers/` plus the two adapter-factory suites (`RecordAttachmentsPanel.affordanceGrant-12047`, `App.uploadAltitude-10131`): `Test Files 5 passed (5)`, `Tests 23 passed (23)`; the 12055 file runs 6 tests, all passed.\n- `pnpm --filter @object-ui/app-shell type-check`, after building its 29-package dependency closure at this branch: VERDICT command-exit 0.\n- **Ablation** (the change committed first; mutation and restore through `ablation-replace.mjs` with an exit/int/term trap): `scope?: API.UploadScope;` widened to `scope?: string;` (anchor 1 to 0, blob changed). `tsc -p tsconfig.test.json` then fails with exit 2: two TS2344 (the identity pin and the not-an-open-string pin) and TS2578 (unused `@ts-expect-error` on `'avatars'`). Restored: blob equal to HEAD, `git diff HEAD` empty.\n- **Reverse probe across packages** (proves app-shell reads the rebuilt declaration, not a cached one): `RecordAttachmentsPanel`'s `scope: 'attachments'` changed to `'avatars'`, then app-shell `tsc --noEmit` fails with exit 2: TS2322, `Type '\"avatars\"' is not assignable to type '\"tenant\" | \"user\" | \"private\" | \"temp\" | \"attachments\" | undefined'`. Restored: blob equal to HEAD, `git diff HEAD` empty.\n- Local gates, each exit captured before any pipe, all 0: `check-changeset-presence` (1 changeset declared), `check-changeset-no-major`, `check-changeset-fixed`, `check-changeset-overwrite` (0 modified), `check-changeset-claims`, `check-control-bytes`, `check-new-cross-file-line-citations` (0 new), `check-test-path-roots`, `check-vi-mock-specifiers`, `check-phantom-dependencies`; `check-governed-queue-guard --test` on the 3 paths: NOT GOVERNED. ESLint on the 2 touched files: 0 errors, 7 warnings (`react-refresh/only-export-components` and `react-hooks/refs`), none on a line this PR changes. Repo-wide lint and the rest of the farm are CI's.\n- Not run, not owed: `check:spec-floors`, `check:self-import` (no `package.json` changes).\n\n## Changeset\n\n`.changeset/12055-upload-scope-type.md`: `@object-ui/providers` `minor`, with the breaking meaning (TypeScript only: a scope outside the vocabulary no longer compiles; the server already refused it) and the remedy, and `Clause-②: no (narrowing)`.\n\n## Acceptance notes\n\n- The pending changeset `.changeset/12055-upload-path-not-scope.md` (from PR #12058, not yet released) says \"The option's type is unchanged (`string`).\" This PR makes that sentence false before it ships. It is left untouched because the claim's file surface names one changeset; the new changeset says it supersedes that note. If the seat prefers one coherent CHANGELOG entry, the remedy is to delete that one sentence.\n- The claim's line is `Clause-②: no`; this body carries `Clause-②: no (narrowing)` as the dispatch asked. No objectui gate reads the line.\n\nSession: `https://claude.ai/code/session_01JZnppgHRp4sREcouhkQYDB`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01JZnppgHRp4sREcouhkQYDB)_\n"
+}

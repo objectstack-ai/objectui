@@ -1,0 +1,31 @@
+{
+  "number": 12438,
+  "kind": "issue",
+  "title": "[Decision] approvals inbox: what opening a request shows — keep the hand-built side sheet, replace it with the served request page now, or build the page's missing faces first (B1 of objectui#2763)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:workflow",
+    "domain:ui",
+    "needs-user-decision",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T06:18:11Z",
+  "updated_at": "2026-10-15T06:18:11Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12438",
+  "body": "Filing gate: **a decision card, opened on the maintainer's instruction**, quoted verbatim: 「#12045 收件箱点开审批请求时打开什么，开决策卡」.\n\n- **Filed by:** objectui `domain:ui` seat 1 (seat post #5560) · `session_01JZnppgHRp4sREcouhkQYDB`.\n- **Anchor:** objectui#12045 (B1's page-mount step). Its analysis comment `6185241431` is carried here and refreshed; this card supersedes it as the place to rule. objectui#12045 goes to `pm:blocked` with `Blocked-by:` this card.\n- **Reader who acts:** the maintainer, who answers one letter.\n\nGoverning text:\n- Ruling `6079807016` on objectui#12045 (letter 乙): \"the page is metadata in plugin-approvals … objectui registers the renderers and mounts `RecordDetailView`\"; \"⛔ Not taken: 甲 (the placement stays in React, the drift this epic cures; a 甲-then-乙 transition would need named external-user evidence …)\".\n- objectui `docs/adr/0060-product-neutral-renderer.md`:\n  - rule 2: \"A page that cannot be composed is fixed generically … a generic block in objectui … or a contract door in `@objectstack/spec`\";\n  - rule 3: \"What already exists stays until its page migrates, and may only shrink.\"\n- objectui#2763's B1 scope, as quoted in objectui#12045's body: \"mounted where the inbox's drawer is today\".\n\n## 一句话问题\n\n审批人在收件箱点开一条审批请求,今天看到的是手写侧栏,上面十几项信息都是用户报过、已经修好的(待谁审批及其职位、金额摘要、原始数据权限闸、已删除记录的墓碑、多步进度条……)。父单 B1 的范围写的是「把服务端页面挂到今天侧栏的位置」,可服务端页面目前画不出这些信息,直接替换会让这些修复全部倒退。\n\n## 背景与实测(前提已于本卡立卡时刷新)\n\n- **服务端页面已能用,但只能在别处打开:**\n  - `sys_approval_request_detail` 在真实 `RecordDetailView` 上能画出决策面板(计票、批准、驳回、回复)、去掉 `record_id` 的高亮条,以及 Details、Timeline 两个标签页。\n  - PR #12432(`bedf41c1c`,已落地)让所有打开请求的入口统一走审批路由读数:记录路由、ObjectView 抽屉/分屏、两个嵌入记录视图。\n  - 收件箱仍走侧栏。\n- **缺口表(侧栏有、页面没有,均有钉子):**\n  - 待审批人芯片,含职位标签与会签分组(objectui#12110,characterizationPins);\n  - 声明金额与载荷摘要,含声明标签、字段面、隐藏字段裁剪(objectui#11677,hiddenFieldTrim);\n  - 流程发起来源;\n  - `studio.access` 才可见的原始数据面板(objectui#5553);\n  - 目标记录链接的保留/撤回、墓碑与不可解析态(objectui#11878 等);\n  - 竖向多步进度条。\n- **页面的 Details 标签页目前是空白:** spec 声明省略 `sections` 时退回 `highlightFields`,渲染器没有兑现。已立 objectui#12433,分诊定 p1,**已派发、正在做**;无论选哪个字母,它都会落地。\n- **前提复核命令:**\n  - `git ls-tree --name-only origin/main apps/console/src/pages/system/ | grep -c 'ApprovalsInboxPage\\..*test'` 应为 12 个钉子文件;\n  - 服务端页面的槽位见 objectstack `packages/plugins/plugin-approvals/src/sys-approval-request.page.ts`。\n\n## 选项 × 代价 × 工作量\n\n| 选项 | 做什么 | 客户可感知后果 | 工作量 |\n|:--|:--|:--|:--|\n| **A** 侧栏保留,加一个「整页打开」链接 | 侧栏不动,加一条通往请求记录页的链接;B1 的「挂到侧栏位置」从 epic 范围撤下 | 审批人体验不变,多一个入口 | console · 1 PR · S(约半轮;无直接先例) |\n| **B** 页面立即替换侧栏 | 收件箱点开即服务端页面,删除侧栏及其钉子 | 上面缺口表里的修复全部消失 | console · 1 PR · M |\n| **C** 页面先补齐信息面,再替换侧栏 | objectui#12433 先行(已在做);之后按拉动逐项补通用块,每项走 spec 行 + plugin-approvals + objectui;齐了再替换侧栏 | 过渡期审批人照常用侧栏,零倒退;终态全部由元数据驱动 | spec + services + ui · ≥5 张卡 · L(先例:B1 本链 objectstack#22472 + #22473 + PR #12062 +1,517/−6) |\n\nC 要补的通用块包括:审批人芯片、载荷摘要、步骤条、记录引用三态、按权限显示的原始面板。\n\n**业务含义直译:**\n- A = 新楼盖好了先不搬,门口挂个指路牌;\n- B = 直接搬进还没装修完的新楼,很多设施没了;\n- C = 按清单把新楼装修齐再搬,旧楼期间照常用。\n\n## 四维分析(业务立场)\n\n- **项目长远合理性(决定字母):** 两年后审批请求应是一张元数据页面,和主流平台一致:Salesforce 的审批项是标准记录页加 Approval History 组件,ServiceNow 的 approval 记录是表单页加相关列表。\n  - C 直达这个终态,符合 ADR-0060 规则 2(缺口用通用块补)。\n  - A 让手写侧栏长期存在,正是本 epic 要治的漂移。\n  - B 方向对,但以倒退的方式到达。\n- **实际业务需求:** 侧栏上的信息面都来自真实报告(objectui#5553、#11677、#11878、#12110),B 会让审批人立刻失去它们。C 的新块,今天的拉动只来自这一个页面,但这个页面就是全部审批人每天用的入口。\n- **防 AI 犯错:** C 之后,AI 改审批页只能写经 spec 校验的元数据,写错会被响亮拒绝。A 维持现状,侧栏仍是 React,AI 改它没有任何闸,出错时用户直接看到错的界面。\n- **创业阶段不扩散:** A 不新增任何声明面;C 新增约 5 个通用页面块,每个都是永久义务;B 不新增,但删掉已交付的价值。\n\n## 推荐\n\n**C**,按 ADR-0060 规则 3 分期:\n- 侧栏保留不动,也不加链接(规则 3 只许缩小);\n- 第一步 objectui#12433 已在做;\n- 之后每个信息面一张卡,按拉动排序;\n- 齐了再替换侧栏。\n\n**回退:A。** 若认为这些通用块当下不值得扩 spec,就把 B1 的挂载从 epic 范围撤下,侧栏作为请求的长期工作面,加一个整页链接。\n\n**置信缺口:** 各新块的 spec 形状尚未设计,「≥5 张卡」是按缺口表计数,不是按设计计数;审批人最常用侧栏上的哪几项,本席没有使用数据。\n\n自检:只看①选 C;②③④ 是否翻转:否(② 与 ④ 只影响分期顺序与节奏,不改终态)。\n\n## 裁后执行\n\n- **选 C:**\n  - 本席把 objectui#12045 的挂载步骤改为「待信息面齐备」,另立收口卡,用 `Blocked-by:` 指向各信息面卡;\n  - 信息面卡按缺口表逐张立在落地仓:spec 行在 objectstack spec 车道,渲染在 objectui;\n  - objectui#12077(待审批人显示为原始 id)并入「审批人芯片」那一张。\n- **选 A:**\n  - 本席派一个 S 级 console 改动:侧栏加整页链接,文案先测 i18n 门是否接受复用 `console.objectView.expandToPage`;\n  - B1 挂载从父单 objectui#2763 范围撤下,并在父单记录。\n- **选 B:** 本席派 M 级替换,PR 正文逐条列出删除的钉子及对应的用户报告。\n\n<!-- os-decision-facets -->\nos-decision-facets\n- ① 项目长远合理性:C 收窄特例(手写侧栏退场)但新增约 5 个通用块;A 保留特例;B 收窄特例但以倒退为代价。\n- ② 实际业务拉动:今天全部审批人都用侧栏,其信息面来自 4 个以上真实报告;新块的拉动只来自本页面。\n- ③ 防 AI 犯错:C 之后审批页由 spec 校验、写错响亮拒绝;A、B 之外侧栏仍是无闸 React。\n- ④ 创业阶段不扩散:A 零新增;C 新增约 5 个声明面(永久义务);B 零新增但删已交付价值。\nPrior rulings read: inbox / drawer / B1 / page mount on objectui#12045, #2763 → 2 hits (`5166015115`, `6079807016`); ADR-0060 rules 2–3; thread: 6185616257\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

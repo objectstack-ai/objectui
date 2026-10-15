@@ -1,0 +1,35 @@
+{
+  "number": 12437,
+  "kind": "pull_request",
+  "title": "fix(app-shell): an app opens on the first navigation entry the member is shown (objectui#12426)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T06:08:23Z",
+  "updated_at": "2026-10-15T06:34:21Z",
+  "closed_at": "2026-10-15T06:34:19Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-15T06:34:19Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12437",
+  "body": "Fixes #12426\nClause-②: no\n\n## What changed\n\nOpening an app at its root used to send the member to the first entry of the SERVED navigation tree. The sidebar hides an entry whose `visible` does not hold for the member, or an `object` entry on an object they may not read; the landing applied neither, so the member was sent to a page the sidebar hides (measured on HotCRM: a `service_agent` landed on a dashboard built on an object they cannot read).\n\n- **One place for the member gates.** `useNavMemberGates` (new internal hook, `packages/app-shell/src/hooks/useNavMemberGates.ts`) builds the three callbacks the sidebar handed `@object-ui/layout`'s item guard (`evaluateVisibility`, `checkPermission`, `checkCapability`) plus the object-read verdict `can`. The code moved out of `UnifiedSidebar` unchanged; the sidebar now destructures the same four values from the hook, so what it draws is unchanged.\n- **The landing reads the tree as the member is shown it.** `navEntriesShownToMember` (same module) applies `withoutUnreadableObjectEntries` and then the layout's own per-node predicate, `hasVisibleNavigationItems([item], guards)`, at every group depth: the shape objectui#11362 used for the tab bar. No second guard is written.\n- **The app root is a component, `AppRootLanding`** (in `AppContent.tsx`), because the `visible` evaluator is the `ExpressionProvider` mounted inside `AppContent`'s own render. `resolveLandingRoute` now takes that gated tree.\n- **Loud absence.** A member shown no entry (top level and every area, after the gates) gets the existing `AppNoAccessEmptyState` (\"Nothing in APP is available to you yet\"), through the existing `appServesNoNavigation` asked of the gated trees. No new string.\n\n## Mechanism assumptions, measured\n\n- A1 held: `findFirstRoute` applied no gate. The sidebar's gates were inline in `UnifiedSidebar` (`evalVis`, `checkPerm`, `checkCap`) plus the shared `withoutUnreadableObjectEntries`. So extraction needed a home: a new module, declared below.\n- A3: the console mounts `MePermissionsProvider` above the whole shell (`apps/console/src/AppContent.tsx`), and it renders its loading fallback, not its children, until it holds an answer. The landing reads `usePermissions()` from that same provider, so it cannot run on an unchecked member. Pinned by the readiness test (a held `/me/permissions` answer: no navigation, no empty state; on release it lands on the readable entry).\n\n## Pins and ablation\n\n`packages/app-shell/src/console/__tests__/AppContent.landingMemberGates-12426.test.tsx`, through the real `AppContent`, `ExpressionProvider` and `MePermissionsProvider`: first entry `visible: false` (HotCRM's dashboard shape); first entry with a `visible` expression that holds for admins only; first `object` entry on an unreadable object; a group whose every child is hidden; no entry shown (empty state at the app root); control: an admin lands on the first entry; readiness; and a source pin that both call sites go through `useNavMemberGates()` and the sidebar builds no gate of its own.\n\nAblation (committed fix, then `ablation-replace.mjs` with an anchor that must hit): the landing's `navEntriesShownToMember(...)` replaced by the served tree. Anchor 1 to 0, blob `884ef09e0694` to `e0dec3f50acb`; **6 failed, 2 passed** (the two that stay green are the admin control and the source pin, as expected). Restored: blob equals HEAD, `git diff HEAD` empty.\n\n## Verification (head `c22c5d7f8`)\n\n- Closure build `turbo run build --filter=@object-ui/app-shell^...`: 28/28 tasks, exit 0. `pnpm --filter @object-ui/app-shell run type-check` (src and `tsconfig.test.json`, which includes tests): exit 0.\n- vitest `packages/app-shell/src/layout/` + `packages/app-shell/src/console/` + `navObjectReadGate-12109.test.ts` + `AppPreview.componentLanding-12113.test.tsx`: 213 files, 1451 tests passed. The full app-shell project is declared to CI (the subset alone held the lock 9m21s on a shared box).\n- eslint on the 4 changed source files (`--format json`): 4 files, 0 errors.\n- Gates, exit 0: `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `control-bytes`, `test-path-roots`, `vi-mock-specifiers`, `vi-mock-inherit`, `vi-mock-override-shape`, `new-line-citations`, `scripts/check-changeset-fixed.mjs`, `scripts/check-changeset-presence.mjs`. `check:spec-floors` exits 1, as it does on main (objectui#12334); this diff touches no manifest.\n\n## Clause-② measured\n\nNothing reaches the package entry: `packages/app-shell/src/index.ts` and `layout/index.ts` are untouched, `layout/index.ts` re-exports `UnifiedSidebar` by name only, and the new hook module is not re-exported. No prop or type member changed. The changeset is `@object-ui/app-shell: patch`.\n\n## Acceptance notes\n\n- File surface: the new module `hooks/useNavMemberGates.ts` is outside the claimed list. The gates had no module of their own (inline in the sidebar component); exporting a hook from `UnifiedSidebar.tsx` would trip `react-refresh/only-export-components`, and putting it in `utils/navObjectReadGate.ts` would pull React providers into a pure module that `ObjectView` and a node-project unit test import.\n- Out of scope, noted: `AppPreview.tsx`'s `findFirstLanding` mirrors `findFirstRoute` for the designer preview, which has no member; not changed here.\n- The landing does not ask the sidebar's `doc` readability check; it never lands on a `doc` entry, and a served `doc` entry counts as content for the empty-state question (defence in depth behind the server, which already drops an unreadable one).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

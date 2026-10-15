@@ -1,0 +1,34 @@
+{
+  "number": 12415,
+  "kind": "pull_request",
+  "title": "test: move two whole-repo / whole-program costs out of the 15 s test window (objectui#12405)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T02:59:26Z",
+  "updated_at": "2026-10-15T03:27:22Z",
+  "closed_at": "2026-10-15T03:27:21Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-15T03:27:21Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12415",
+  "body": "Fixes #12405\nClause-②: no\n\n## What made each test slow\n\n- `packages/vscode-extension/src/__tests__/export-to-react-compiles.test.ts`: the two objectui#11515 tests each built a whole TypeScript program over `@object-ui/types`' source. That is about 280 files: its `src`, the `@objectstack/spec` declarations it imports, and `lib.dom.d.ts`. Profiled on this branch, one such program costs about 2.7 s of parsing and 4.0 s of checking. Both tests parsed the identical on-disk files, inside the 15 s `testTimeout`.\n- `scripts/__tests__/check-object-metadata-write-doors.test.ts`: the two `this repository` tests each called `analyze(repoRoot)`. That walk parses 1,698 source files, and the parse is about 80% of it (3.2 s parse, 0.4 s spelling expansion, measured with the gate's own exported `parse` and `spellingsIn`). Both tests ran the identical walk. The gate script does no redundant work of its own, so it is unchanged.\n\n## The fix (tests only)\n\n- **Write-doors:** one `analyze(repoRoot)` at module scope (`REPOSITORY_SCAN`), read by both tests.\n- **Export to React:** the two real-prop compiles run once each at module scope (`DOC_SAMPLE_DIAGNOSTICS`, `NOT_A_NODE_DIAGNOSTICS`). The compiler host now parses on-disk files once per (options, file) and shares them across programs (`ON_DISK_SOURCE_FILES`). The candidate file and its stubs are still parsed fresh every time. Each compile still builds its own program and its own checker. The cache re-reads each file's text and compares it, so an edited file is never served stale.\n- **Why module scope and not `beforeAll`:** this is the move objectui `AGENTS.md`'s test discipline section prescribes. It is also the precedent of #8380 (`check-unused-dependencies.test.ts` `REPOSITORY_SCAN`) and #8074 (`check-i18n-call-site-keys.test.ts` `REPO_ANALYSIS`). The import phase is governed by no timeout, and a hook would trade the 15 s `testTimeout` for the narrower 10 s `hookTimeout`.\n- No timeout raise, no per-test `timeout`, no skip, no quarantine, no retry. Every assertion is byte-identical: each test reads the same diagnostics or verdict from the same computation it ran before. The in-file positive controls still execute on the shared results. The no-node schema yields exactly one `TS2322` at the `const schema` line, read from the second program, which reused the first one's parsed files.\n\n## Measured (3 runs each, same machine, shared box; median)\n\n| test | before (ms) | after (ms) |\n|:--|--:|--:|\n| write-doors · is green, and every counter … is non-zero | 6697 (5690 / 6697 / 7033) | 0 (0 / 0 / 1) |\n| write-doors · finds the three doors this card measured | 5911 (5237 / 5911 / 5962) | 0 (0 / 0 / 0) |\n| export-to-react · compiles the documented sample … | 6735 (6632 / 6735 / 7164) | 0 (0 / 0 / 0) |\n| export-to-react · a schema that is no node is refused AT the constant | 5641 (5612 / 5641 / 6563) | 1 (1 / 1 / 1) |\n\n- **Margin under the 15 s `testTimeout`:** every one of the four now sits at 2 ms or less in its test window. At the measured 2x slow-runner factor that is still under 10 ms, far past the 2x target of 7.5 s.\n- **Where the cost went:** it moved to the import phase, where no timeout applies, and it also got smaller. Both files run together:\n  - Before: `import 1.28–1.37s, tests 23.92–27.29s`, wall 13.88–15.35 s.\n  - After: `import 17.32–17.66s, tests 0.24–0.25s`, wall 11.42–11.61 s.\n  - Aggregate work fell from about 25–28 s to about 17.6–17.9 s. That is one repository walk instead of two, plus one parse of the `@object-ui/types` closure instead of two.\n- **Each file alone, after:** export-to-react `import 10.66s, tests 197ms`; write-doors `import 6.59s, tests 36ms`.\n\n## Gates (head `56802f1bf`; exit codes captured by redirect before any pipe)\n\n- `pnpm run type-check` in `packages/vscode-extension` (`tsc --noEmit && tsc -p tsconfig.test.json`; the script name is echoed in the output): 0.\n- `pnpm exec vitest run packages/vscode-extension/`: 0, 4 files, 29 tests.\n- `pnpm exec vitest run scripts/__tests__/`: 0, 187 passed and 2 skipped files; 5658 passed and 2 skipped tests.\n- Root `eslint --no-inline-config` on the two changed files: 0, 2 files, 0 errors, 0 warnings. Narrowing proof:\n  - Both files are in the config's population: `--print-config` resolves for each, and no ignored-file warning appears.\n  - The file count of 2 is read from `--format json`.\n  - `eslint.config.js` sets no `parserOptions.project` or `projectService`. Linting is not type-aware, so this diff cannot move a verdict on any untouched file.\n- Pre-tsc battery, all 0: `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `control-bytes`, `metadata-write-doors`.\n- `node scripts/check-changeset-fixed.mjs`: 0. `node scripts/check-changeset-presence.mjs`: 0, with an empty-frontmatter changeset.\n- `check:spec-floors`: 1. It is red on `main` too (#12334 remains open), and it is not touched here.\n\n## Acceptance notes\n\n- Changeset `.changeset/12405-slow-test-cost.md` has empty frontmatter: tests only, and no package is released.\n- Not done here: no shared-helper extraction, and no narrowing of `lib` or of the `@object-ui/types` closure. Either would change what the compile asserts.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

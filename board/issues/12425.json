@@ -1,0 +1,35 @@
+{
+  "number": 12425,
+  "kind": "pull_request",
+  "title": "fix(data-objectstack): deleteView carries the server reason when the published half is refused",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "data-adapter",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T04:40:04Z",
+  "updated_at": "2026-10-15T05:07:19Z",
+  "closed_at": "2026-10-15T05:07:17Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-15T05:07:17Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12425",
+  "body": "Fixes #12416\nClause-②: no\n\n## What changed\n\n`ObjectStackAdapter.deleteView` deletes the draft home, then the published home. When the published delete failed, it threw its own sentence (\"... is NOT fully removed ... retry the delete\") and kept the server's error only on `cause`. That was the only throw in `deleteView` that wraps a server refusal; a draft-half refusal is thrown as served.\n\n- The thrown error's message is now the adapter's sentence, then a newline, then the server's reason.\n- The server's reason is rendered by `formatMetadataError(cause)`: the cause's issue lines when it carries any, otherwise the served message, unchanged. It is not parsed.\n- The sentence still says the view is NOT fully removed and the published row is still serving it.\n- \"retry the delete\" is said only when the failure is not a 4xx refusal (the cause's `status`). A refusal's own sentence names its remedy; a 409 sent again unchanged cannot succeed. A 5xx or a status-less (network) failure keeps the retry advice.\n- `cause` and `outcome` are unchanged (additive). app-shell is untouched: no `cause` reader is added.\n\n**Which channel `formatMetadataError` reads:** it reads the error's `issues` first, then its own `message`. A delete refusal measured here (the 409 `RESOURCE_CONFLICT`) has no issues, so `message` is the channel. The thrown error satisfies that reader through `message`. It does not copy `issues` onto the wrapper: doing so would make the reader print only the issue lines and drop the \"NOT fully removed\" sentence. Any issue lines on the cause still reach the message, in the reader's own grammar.\n\n## Pins (`deleteView.homes.test.ts` wire harness)\n\nThe harness's failure answer now takes an optional served body (`failBody`).\n\n- Published-half 409 with the door's `?package=` sentence: `formatMetadataError(err)` contains the remedy and the full served sentence, still says `NOT fully removed`, and does not say `retry the delete`. `err.cause` is still the 409 with code `RESOURCE_CONFLICT`.\n- Draft-half 409: unchanged. `formatMetadataError(err)` equals the served sentence, `status` 409, and only the draft home was addressed.\n- Published-half 500: still says `NOT fully removed` and `retry the delete`, and now also shows the server text.\n\n## Verification (head 53f4e22dd)\n\n- Targeted: `pnpm exec vitest run --maxWorkers=2` on `deleteView.homes`, `deleteView.resetPackage-12335` and `deleteViewContract.types`: Test Files 3 passed (3), Tests 27 passed (27), lock VERDICT command-exit 0.\n- Full package: `pnpm exec vitest run --maxWorkers=2 packages/data-objectstack/`: Test Files 93 passed (93), Tests 1163 passed (1163), VERDICT command-exit 0.\n- Closure build `pnpm --workspace-concurrency=2 --filter '@object-ui/data-objectstack^...' build`, then `pnpm --filter @object-ui/data-objectstack type-check` (its tsconfig includes `src/**/*`, so the tests are in the program): VERDICT command-exit 0.\n- Ablation, one time, not committed. The fix was committed first. `scripts/ablation-replace.mjs` (objectstack) replaced `formatMetadataError(err),` in the throw with a literal. On disk the anchor went x1 to x0 and the replacement x0 to x1. Result: Tests 2 failed, 16 passed (18). The two failures were the published-409 pin (\"expected ... to contain 'on the REST door add ?package= with t...'\") and the 500 pin (\"to contain 'boom'\"). The draft-half pin stayed green, as it should, because it does not depend on this change. Restore: blob after restore equals the HEAD blob (bb5697b2), and `git diff HEAD` is empty. The test imports `./index` from src, so there was no dist leg.\n- Lint, narrowed: `eslint --format json` over the 2 changed TS files read 2 files, 0 errors. The warnings on changed lines are `no-explicit-any` in the test, which follows the harness's existing `err: any` idiom. The population is the root `eslint.config.js`. It has no `parserOptions.project` or `projectService`, so linting is not type-aware and this diff cannot move the verdict on any untouched file.\n- Gates, all exit 0: `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `control-bytes`, `new-line-citations`, plus `node scripts/check-changeset-fixed.mjs` and `check-changeset-presence.mjs` (2 source files of 1 released package, 1 changeset).\n- `check:spec-floors` exits 1. This is pre-existing on main (objectui#12334); it was recorded and not fixed.\n\n## Acceptance notes\n\n- Clause-② check: no published export, type or accept set moves. `formatMetadataError` was already exported, and the change only adds an internal import of it in `index.ts`.\n- The console toast that reads this error landed in objectui#12414 (`4b0a087`). It needs no change.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

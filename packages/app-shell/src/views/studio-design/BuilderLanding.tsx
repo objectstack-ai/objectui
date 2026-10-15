@@ -20,7 +20,7 @@
 
 import * as React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Boxes, Building2, Clock, Hammer, Layers, Lock, Plus, Loader2, Copy, Store } from 'lucide-react';
+import { ArrowUpRight, Boxes, Building2, Clock, Hammer, Lock, Plus, Loader2, Copy, Store } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRecentItems, type RecentNamedItem } from '../../context/RecentItemsProvider.js';
 import { useRecentItemLabel } from '../../hooks/useRecentItemLabel.js';
@@ -30,6 +30,7 @@ import { isMarketplaceEnabled } from '../../runtime-config.js';
 import { fetchPackages, duplicatePackage, isSpecPackageId, type PkgEntry } from './packages-io.js';
 import { PackageIdInput } from './PackageIdInput.js';
 import { studioOrgScopePath } from './studioScope.js';
+import { componentRefToUrlSegments } from '../../services/componentRegistry.js';
 
 /**
  * objectui#11808 — the two places a read-only package's card sends the author.
@@ -47,6 +48,17 @@ import { studioOrgScopePath } from './studioScope.js';
 const MARKETPLACE_PATH = '/apps/setup/system/marketplace';
 export const overlayPath = (packageId: string) =>
   `/apps/setup/metadata?package=${encodeURIComponent(packageId)}`;
+
+/**
+ * objectui#12513 — Setup › Packaged automation, where a packaged flow is
+ * cloned into the organization's own package-less flows. The Setup app's
+ * navigation reaches the page by its component ref (`automation:packaged`,
+ * registered in `builtinComponents`), so the URL is built from that ref the
+ * way the console's component route reads it, never spelled out by hand.
+ */
+const PACKAGED_AUTOMATION_REF = 'automation:packaged';
+export const packagedAutomationPath = () =>
+  `/apps/setup/component/${componentRefToUrlSegments(PACKAGED_AUTOMATION_REF).join('/')}`;
 
 /** objectui#11863 — how many recent packages the landing lists: one row of cards. */
 const RECENT_PACKAGES_SHOWN = 3;
@@ -360,7 +372,10 @@ export function BuilderLanding(): React.ReactElement {
                     data-testid="studio-landing-overlay"
                     className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground hover:underline"
                   >
-                    <Layers className="h-3 w-3" /> {t('engine.studio.landing.overlay', locale)}
+                    {/* objectui#12513 — the link leaves Studio for Setup: its
+                        name says where it goes, the arrow that it goes out. */}
+                    {t('engine.studio.landing.overlay', locale)}
+                    <ArrowUpRight aria-hidden="true" className="h-3 w-3" />
                   </Link>
                 </div>
               </div>

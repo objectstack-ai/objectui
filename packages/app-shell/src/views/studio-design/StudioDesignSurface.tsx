@@ -40,7 +40,7 @@ import {
 } from './studio-tokens.js';
 import { StudioInspector } from './StudioInspector.js';
 import { StudioItemHeader, StudioTab } from './StudioItemHeader.js';
-import { overlayPath } from './BuilderLanding.js';
+import { overlayPath, packagedAutomationPath } from './BuilderLanding.js';
 import { DATA_CONTENT_CONTAINER, DATA_TAB_FLAT_ONLY, DATA_TAB_FOLDED_ONLY } from './dataTabsFold.js';
 import { StudioRail, StudioRailGroup, StudioRailRow } from './StudioRail.js';
 import { StudioEmptyState, StudioEmptyStateAction } from './StudioEmptyState.js';
@@ -53,6 +53,7 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
+  Button,
   Popover,
   PopoverTrigger,
   PopoverContent,
@@ -128,6 +129,7 @@ import {
   MousePointerClick,
   CornerDownRight,
   Layers,
+  ArrowUpRight,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -529,6 +531,9 @@ function StudioReadOnlyLink({
     </Link>
   );
 }
+
+/** objectui#12513 — the Studio landing (`BuilderLanding`), where the header's first button and the switcher's first row lead. */
+const STUDIO_LANDING_PATH = '/studio';
 
 function PackageSwitcher({
   packageId,
@@ -976,6 +981,24 @@ function PackageSwitcher({
       </PopoverTrigger>
 
       <PopoverContent align="start" sideOffset={6} className="w-80 rounded-lg p-1.5">
+            {/* objectui#12513 — the Studio landing leads the list: the way
+                back to every package, recent ones and the organization's
+                flows. Gated like every other row here. */}
+            <div className="mb-1 border-b pb-1.5">
+              <button
+                type="button"
+                data-testid="studio-switcher-home"
+                onClick={() => {
+                  setOpen(false);
+                  if (beforeNavigate && !beforeNavigate()) return;
+                  navigate(STUDIO_LANDING_PATH);
+                }}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted/60"
+              >
+                <HomeIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 flex-1 truncate">{t('engine.studio.landingHome', locale)}</span>
+              </button>
+            </div>
             <p className="px-2 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
               {t('engine.studio.pkg.heading', locale)}
             </p>
@@ -1399,9 +1422,6 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   // package ships an app, offer Open app — opened in a new tab so the builder
   // context survives. (App → builder is the reverse bridge, tracked separately.)
   const shellNavigate = useNavigate();
-  // objectui#7373 — the header's Home button walks back to the DECLARED
-  // landing; the environment launcher only where nothing is declared.
-  const shellHomePath = useHomePath();
   // objectui#11181 — `label` is the app's own `I18nLabel` (a plain string or an
   // inline locale map), held as the spec types it and never `String()`ed: a map
   // would read `[object Object]`. Only the presence of `packageApp` is read
@@ -1633,14 +1653,18 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                 their own (`STUDIO_HEADER_PILLAR_NAV`), and on any row the
                 package chip is the piece that gives way. */}
             <div className="flex min-w-0 items-center gap-1">
-              {/* Never a dead end: walk back to the platform Home / builder landing. */}
+              {/* Never a dead end: walk back to the Studio landing
+                  (objectui#12513), where the author picks the next package.
+                  The console home stays one click away from there, through
+                  the landing's own top bar. */}
               <button
                 type="button"
+                data-testid="studio-home"
                 onClick={() => {
                   if (!confirmLeavePillar()) return;
-                  shellNavigate(shellHomePath);
+                  shellNavigate(STUDIO_LANDING_PATH);
                 }}
-                title={t('engine.studio.home', locale)}
+                title={t('engine.studio.landingHome', locale)}
                 className={STUDIO_HEADER_ICON_BUTTON}
               >
                 <HomeIcon className="h-4 w-4" />
@@ -7482,12 +7506,24 @@ export function AutomationsPillar({
                       icon={Workflow}
                       sentence={t(packageId === null ? 'engine.studio.org.none' : 'engine.studio.auto.emptyMain', locale)}
                       action={
-                        openCreateFlow && (
-                          <StudioEmptyStateAction
-                            data-testid="auto-empty-new"
-                            label={t('engine.studio.auto.newTitle', locale)}
-                            onClick={openCreateFlow}
-                          />
+                        packageId === null ? (
+                          // objectui#12513 — the package-less scope creates
+                          // nothing; its way in is the Setup list the sentence
+                          // names, so the action is a link that says it leaves.
+                          <Button asChild size="sm" variant="outline">
+                            <Link to={packagedAutomationPath()} data-testid="auto-empty-open-setup">
+                              {t('engine.studio.org.openSetup', locale)}
+                              <ArrowUpRight aria-hidden="true" className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                        ) : (
+                          openCreateFlow && (
+                            <StudioEmptyStateAction
+                              data-testid="auto-empty-new"
+                              label={t('engine.studio.auto.newTitle', locale)}
+                              onClick={openCreateFlow}
+                            />
+                          )
                         )
                       }
                     />

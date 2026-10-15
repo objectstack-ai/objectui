@@ -172,7 +172,7 @@ async function renderSurfaceOnAccess() {
     <MemoryRouter initialEntries={['/studio/app.a/access']}>
       <Routes>
         <Route path="/studio/:packageId/:tab" element={<StudioDesignSurface />} />
-        <Route path="/home" element={<div data-testid="home-page" />} />
+        <Route path="/studio" element={<div data-testid="studio-landing-page" />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -290,19 +290,19 @@ describe('Studio header — unsaved pillar edits guard (#2600)', () => {
     matrixEditSurvived();
   });
 
-  it('gates the Home button; cancel stays, confirm leaves the studio', async () => {
+  it('gates the Studio home button; cancel stays, confirm returns to the Studio landing', async () => {
     await renderSurfaceOnAccess();
     dirtyTheMatrix();
 
     confirmSpy.mockReturnValueOnce(false);
-    fireEvent.click(screen.getByTitle('Back to home'));
+    fireEvent.click(screen.getByTitle('Studio home'));
     expect(confirmSpy).toHaveBeenCalledTimes(1);
     expect(inSetHeader().getByText('set_a')).toBeInTheDocument();
     matrixEditSurvived();
 
     confirmSpy.mockReturnValueOnce(true);
-    fireEvent.click(screen.getByTitle('Back to home'));
-    expect(await screen.findByTestId('home-page')).toBeInTheDocument();
+    fireEvent.click(screen.getByTitle('Studio home'));
+    expect(await screen.findByTestId('studio-landing-page')).toBeInTheDocument();
   });
 
   it('gates a package switch; cancel keeps the edits in place', async () => {

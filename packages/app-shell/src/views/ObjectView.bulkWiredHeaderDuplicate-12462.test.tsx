@@ -260,7 +260,11 @@ describe('objectui#12462 — the deep link arms only what the header draws', () 
   it('on the view that wires it as bulk, the link is not armed: nothing runs and the link stays in the URL', async () => {
     linkTo('all_leads');
     mountLeads('all_leads');
-    await headerWithToolbar();
+    // The header has drawn its toolbar and the grid its rows, so an armed link
+    // would have run by now. `hidden: true`: an open param dialog takes the
+    // page out of the accessibility tree, and this wait must not be what fails.
+    const header = await screen.findByTestId('page-header', undefined, { timeout: 5000 });
+    await within(header).findByRole('button', { name: /Refresh Scores/, hidden: true }, { timeout: 5000 });
     await rowBoxes();
 
     expect(screen.queryByRole('dialog')).toBeNull();

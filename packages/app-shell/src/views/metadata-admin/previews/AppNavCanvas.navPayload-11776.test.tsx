@@ -12,8 +12,8 @@
  *
  * 2. The row's remove control is reachable by keyboard. It was mounted only
  *    while a mouse hovered the card, so Tab never reached it. Now it is always
- *    in the tab order, shown on hover and on focus, and Enter or Space removes
- *    the entry. Whether it is VISIBLE when focused is a stylesheet question no
+ *    in the tab order and always drawn (objectui#12519: at reduced opacity,
+ *    full on hover and on focus), and Enter or Space removes the entry. Whether it is VISIBLE when focused is a stylesheet question no
  *    DOM double answers: the classes are pinned here, and the rendered result
  *    was read once in Chromium for the pull request — nothing here re-reads it.
  */
@@ -177,7 +177,7 @@ describe('AppNavCanvas — the remove control is reachable by keyboard (objectui
     expect(within(card('Home')).getByRole('button', { name: 'Remove nav item' })).toHaveAttribute('tabindex', '0');
   });
 
-  it('Tab reaches it straight after its card, and it is shown on focus as on hover', async () => {
+  it('Tab reaches it straight after its card, and it is shown in full on focus as on hover', async () => {
     const user = userEvent.setup();
     renderCanvas();
     const home = card('Home');
@@ -185,18 +185,15 @@ describe('AppNavCanvas — the remove control is reachable by keyboard (objectui
     home.focus();
     await user.tab();
     expect(remove).toHaveFocus();
-    // Hidden it takes no room; the card's hover, the card's keyboard focus and
-    // its own keyboard focus each show it at full size.
+    // Drawn at a fixed 24 px either way (objectui#12519); the card's hover,
+    // the card's keyboard focus and its own keyboard focus each raise it to
+    // full opacity.
     expect(remove.className.split(/\s+/)).toEqual(
       expect.arrayContaining([
-        'opacity-0',
-        'w-0',
+        'w-6',
         'group-hover:opacity-100',
-        'group-hover:w-6',
         'group-focus-visible:opacity-100',
-        'group-focus-visible:w-6',
         'focus-visible:opacity-100',
-        'focus-visible:w-6',
       ]),
     );
     // The card is the `group` those variants read.

@@ -4440,7 +4440,6 @@ export function InterfacesPillar({
               )}
             </>
           }
-          width={editNav ? 'w-72' : undefined}
           isMobile={isMobile}
           open={railOpen}
         >

@@ -52,6 +52,8 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   Badge,
@@ -112,6 +114,9 @@ import {
   MoreHorizontal,
   PanelRightClose,
   PanelRightOpen,
+  Play,
+  Minus,
+  Trash2,
   Zap,
   Clock,
   MousePointerClick,
@@ -190,12 +195,13 @@ import { useHomePath } from '../../hooks/useHomePath.js';
 import { resolveSurface, findSurfaceInTree, isSameSurface, type NavNode, type Surface } from './navSurface.js';
 import { useSurfaceDeepLink, resolveSurfaceDeepLink, type SurfaceTarget } from './useSurfaceDeepLink.js';
 import { isStudioRunLanding } from './studioLanding.js';
-import { SurfaceDeepLinkProvider, useRequestedSurface } from './surfaceDeepLinkChannel.js';
+import { SurfaceDeepLinkProvider, useRequestedSurface, useSurfaceNavigator } from './surfaceDeepLinkChannel.js';
 import { buildObjectSkeleton, buildFlowSkeleton, buildAppSkeleton, buildPermissionSkeleton, type AppNavSeed } from './skeletons.js';
 import { OWD_CREATE_MODELS, OWD_DEFAULT, type OwdCreateModel } from './owd-sharing.js';
 import { t, tFormat, translateMetadataType, useMetadataLocale } from '../metadata-admin/i18n.js';
 import { fieldsForNodeType, localizeFlowFields, type FlowConfigField } from '../metadata-admin/inspectors/flow-node-config.js';
 import { ObjectPicker } from '../metadata-admin/inspectors/ObjectPicker.js';
+import { IconPickerWidget } from '../metadata-admin/widgets.js';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { SuggestedBindingsPanel } from '../../components/SuggestedBindingsPanel.js';
 import { AppNavCanvas, navPayloadOf } from '../metadata-admin/previews/AppNavCanvas.js';
@@ -211,9 +217,11 @@ import {
 import {
   FlowMetaPills,
   FlowPreviewChromeProvider,
+  flowSelectionHeading,
   type FlowPreviewSection,
   type FlowProblemTally,
 } from '../metadata-admin/previews/FlowPreview.js';
+import { InspectorShellHostProvider } from '../metadata-admin/inspectors/_shared.js';
 import type { FlowRegistration } from '@objectstack/spec/api';
 import {
   clearedLabel,
@@ -234,6 +242,7 @@ import {
   retypedNavEntry,
 } from '../metadata-admin/inspectors/nav-target.js';
 import type { NavigationItemType } from '@object-ui/types';
+import type { NavTargetLabelResolver } from '@object-ui/layout';
 import {
   readFields,
   writeFields,
@@ -407,6 +416,7 @@ const KIND_ICON: Record<string, LucideIcon> = {
   url: LinkIcon,
   component: Puzzle,
   doc: BookOpen,
+  separator: Minus,
 };
 const navIcon = (type?: string): LucideIcon => KIND_ICON[type ?? ''] ?? Compass;
 
@@ -1892,7 +1902,113 @@ function StudioNameLabel({ label, name }: { label: string; name?: string }): Rea
 }
 
 /**
+ * The kind tag a nav entry carries at the right of its rail row, and the kind
+ * an entry is named by in the header chip and the inspector's eyebrow
+ * (objectui#12455). A type the console also names as a metadata type (object,
+ * page, dashboard, report) is translated by that one helper, so the rail, the
+ * breadcrumb and the canvas caption say the same word; an `object` entry bound
+ * to a named view reads "View"; the types that open no design surface (url,
+ * action, component, doc) and the two structural ones are named from the
+ * Studio's own table. `''` for an entry with no type the spec declares.
+ */
+function navKindName(node: Pick<NavNode, 'type' | 'viewName'>, locale: string): string {
+  const type = node.type ?? '';
+  if (type === 'object' && typeof node.viewName === 'string' && node.viewName) {
+    return t('engine.studio.if.kind.view', locale);
+  }
+  if (type === 'object' || type === 'page' || type === 'dashboard' || type === 'report') {
+    return translateMetadataType(type, locale);
+  }
+  if (isNavEntryType(type)) return t(`engine.studio.if.kind.${type}`, locale);
+  return '';
+}
+
+/**
+ * Whether `nodes` hold, at any depth, the entry that opens `active` — so a
+ * group the sidebar would collapse opens when the open leaf is inside it.
+ */
+function navTreeHoldsActive(
+  nodes: NavNode[] | undefined,
+  active: Surface | null,
+  locale: string,
+  targetLabel: NavTargetLabelResolver,
+): boolean {
+  if (!active || !nodes) return false;
+  return nodes.some((node) => {
+    if (Array.isArray(node.children) && node.children.length) {
+      return navTreeHoldsActive(node.children, active, locale, targetLabel);
+    }
+    const surface = resolveSurface(node, locale, targetLabel);
+    return !!surface && isSameSurface(active, surface);
+  });
+}
+
+/** The sidebar's threshold: a group with this many children starts collapsed unless it says otherwise. */
+const NAV_GROUP_AUTO_COLLAPSE = 8;
+
+/**
+ * One group header and its children (objectui#12455). Open or closed as the
+ * running app's sidebar opens it (`NavigationRenderer` in `@object-ui/layout`):
+ * the spec's `expanded` when the author set it, else open unless the group is
+ * long, and always open when the open leaf is inside it. Collapsible by its
+ * header, as the sidebar's is. A group with nothing in it says so in its place
+ * instead of drawing a bare header.
+ */
+function NavTreeGroup({
+  node,
+  labelText,
+  active,
+  onPick,
+  objectIcons,
+  depth,
+}: {
+  node: NavNode;
+  labelText: string;
+  active: Surface | null;
+  onPick: (s: Surface) => void;
+  objectIcons?: Record<string, string | undefined>;
+  depth: number;
+}): React.ReactElement {
+  const locale = useMetadataLocale();
+  const targetLabel = useNavTargetLabel();
+  const children = node.children ?? [];
+  const holdsActive = navTreeHoldsActive(children, active, locale, targetLabel);
+  const [open, setOpen] = React.useState(() => {
+    if (holdsActive) return true;
+    if (typeof node.expanded === 'boolean') return node.expanded;
+    return children.length < NAV_GROUP_AUTO_COLLAPSE;
+  });
+  // A leaf opened from elsewhere (a deep link, a create) inside a closed
+  // group opens the group, as the sidebar does for the route it is on.
+  // Adjusted while rendering, on the change, so no effect re-renders it.
+  const [heldActive, setHeldActive] = React.useState(holdsActive);
+  if (holdsActive !== heldActive) {
+    setHeldActive(holdsActive);
+    if (holdsActive) setOpen(true);
+  }
+  return (
+    <StudioRailGroup label={labelText} collapsed={!open} onToggle={() => setOpen((v) => !v)}>
+      {children.length === 0 ? (
+        <p className="flex h-7 items-center pl-[22px] text-xs text-muted-foreground">
+          {t('engine.studio.if.emptyGroup', locale)}
+        </p>
+      ) : (
+        <NavTree nodes={children} active={active} onPick={onPick} objectIcons={objectIcons} depth={depth + 1} />
+      )}
+    </StudioRailGroup>
+  );
+}
+
+/**
  * Recursive App-navigation tree: groups, separators and typed leaves.
+ *
+ * objectui#12455 (epic objectui#12446, decision 5) — the rail shows the app's
+ * navigation as the shipped sidebar renders it: the same order, the same
+ * groups (collapsible, opened as the sidebar opens them, see `NavTreeGroup`),
+ * the same icons. Each leaf is one 32 px row: its icon, its label, and its
+ * kind as a tag at the right (`navKindName`). The internal `type · name` pair
+ * lives on the row's tooltip (objectui#7254), which is also its accessible
+ * description; the visible text is what an author reads.
  *
  * objectui#11791 — the rail draws a `separator` and a leaf's `badge` /
  * `badgeVariant` with the decisions the running app's sidebar makes
@@ -1907,12 +2023,15 @@ function NavTree({
   active,
   onPick,
   objectIcons,
+  depth = 0,
 }: {
   nodes: NavNode[];
   active: Surface | null;
   onPick: (s: Surface) => void;
   /** object name → its metadata icon, so object nav items show their own glyph. */
   objectIcons?: Record<string, string | undefined>;
+  /** Nesting depth: a row under a group header is indented one step. */
+  depth?: number;
 }): React.ReactElement {
   const locale = useMetadataLocale();
   // What a label-less row inherits is asked of the console's own resolver, so
@@ -1928,26 +2047,25 @@ function NavTree({
         // objectui#11196 — an ABSENT label shows the text the entry inherits:
         // the runtime's own rule, never a second copy of it.
         // objectui#11791 — a `separator` is a rule between rows, not an entry.
-        // It used to fall through to the leaf branch below, which drew it as a
-        // disabled, unlabeled button with the generic glyph. The sidebar's
-        // decision, mirrored: a decorative `Separator` (`role="none"`), so it
-        // is no row to click, no stop for the keyboard, and nothing a screen
-        // reader announces. The spec's separator carries `type`, `id` and
-        // `order` only, so there is no label or badge to draw.
+        // The sidebar's decision, mirrored: a decorative `Separator`
+        // (`role="none"`), so it is no row to click, no stop for the keyboard,
+        // and nothing a screen reader announces. The spec's separator carries
+        // `type`, `id` and `order` only, so there is no label or badge to draw.
         if (node.type === 'separator') {
           return <Separator key={node.id ?? i} className="my-2" />;
         }
         const labelText = navEntryLabelText(node, locale, targetLabel);
         if (node.type === 'group' || (Array.isArray(node.children) && node.children.length)) {
           return (
-            <div key={node.id ?? i} className="mb-1">
-              <p className="flex items-center gap-1 px-2 pb-1 pt-3 text-[11px] text-muted-foreground">
-                <Folder className="h-3 w-3" /> {labelText}
-              </p>
-              <div className="pl-1.5">
-                <NavTree nodes={node.children ?? []} active={active} onPick={onPick} objectIcons={objectIcons} />
-              </div>
-            </div>
+            <NavTreeGroup
+              key={node.id ?? i}
+              node={node}
+              labelText={labelText}
+              active={active}
+              onPick={onPick}
+              objectIcons={objectIcons}
+              depth={depth}
+            />
           );
         }
         // The same resolver names the Surface a click opens, so the caption,
@@ -1960,58 +2078,56 @@ function NavTree({
         // (`navPayloadOf` leaves exactly these entries out), and an authored
         // label still renders verbatim.
         const untitled = node.label === undefined && navPayloadOf([node]).length === 0;
+        // objectui#7254 — a nav item with no declared label used to render an
+        // EMPTY row. It shows what it inherits (objectui#11196): its target's
+        // current label, else the target's internal name, which is the
+        // fallback #7254 chose. `surface?.name` stays for a label that is
+        // present but resolves to nothing (an empty map).
         const rowText = untitled ? tFormat('engine.appNav.item', locale, { n: i + 1 }) : labelText || surface?.name || '';
-        // Icon precedence: the nav item's own `icon` (honoured — it was ignored
-        // before), then an object surface's own metadata icon, then the
-        // type-generic fallback.
+        // Icon precedence: the nav item's own `icon`, then an object surface's
+        // own metadata icon, then the type-generic fallback.
         const objIcon = surface?.type === 'object' ? objectIcons?.[surface.name] : undefined;
         const Icon: React.ElementType = node.icon ? getIcon(node.icon) : objIcon ? getIcon(objIcon) : navIcon(node.type);
         // objectui#11774 — the ENTRY is active, not every entry of its target:
         // compared by nav id when both carry one (see `isSameSurface`).
         const isActive = !!surface && !!active && isSameSurface(active, surface);
+        const kind = navKindName(node, locale);
         return (
-          <button type="button"
+          <StudioRailRow
             key={node.id ?? i}
             onClick={() => surface && onPick(surface)}
             disabled={!surface}
+            active={isActive}
+            indent={depth > 0}
+            // objectui#11862 — the label is what the row says; the machine
+            // name is the secondary information, on the tooltip with the type.
             title={surface ? `${surface.type} · ${surface.name}` : rowText || undefined}
-            className={
-              'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs disabled:opacity-40 ' +
-              (isActive ? 'bg-muted font-medium' : 'text-foreground/90 hover:bg-muted/60')
+            className="disabled:opacity-40"
+            icon={<Icon className="h-4 w-4 shrink-0" />}
+            trailing={
+              <>
+                {/* objectui#11791 — the spec's `badge` / `badgeVariant`, drawn
+                    when the sidebar row draws them (a present `badge`, a count
+                    `0` included) with the same `Badge` and the same variant: an
+                    absent `badgeVariant` is `Badge`'s own default, which is the
+                    sidebar's. On every leaf, a disabled one too; never on a
+                    group heading, where the sidebar draws none. Before the kind
+                    tag, so the pill sits beside the text it qualifies. */}
+                {node.badge != null && (
+                  <Badge variant={node.badgeVariant} className="shrink-0 px-1.5 py-0 text-[10px]">
+                    {node.badge}
+                  </Badge>
+                )}
+                {kind && (
+                  <span className="shrink-0 text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+                    {kind}
+                  </span>
+                )}
+              </>
             }
           >
-            <Icon className="h-3.5 w-3.5 shrink-0" />
-            {/* objectui#7254 — a nav item with no declared label used to render
-                an EMPTY row. It now shows what it inherits (objectui#11196): its
-                target's current label, else the target's internal name, which
-                is the fallback #7254 chose. `surface?.name` stays for a label
-                that is present but resolves to nothing (an empty map).
-                objectui#11862 — the label is the primary text and the target's
-                machine name the secondary text, shown when the two differ. */}
-            <StudioNameLabel label={rowText} name={surface?.name} />
-            {/* objectui#11791 — the spec's `badge` / `badgeVariant`, drawn when
-                the sidebar row draws them (a present `badge`, a count `0`
-                included) with the same `Badge` and the same variant: an absent
-                `badgeVariant` is `Badge`'s own default, which is the
-                sidebar's. On every leaf, a disabled one too, as the sidebar
-                draws it on every entry it draws; never on a group heading,
-                where the sidebar draws none. Before the label's kind chip, so
-                the pill sits beside the text it qualifies. */}
-            {node.badge != null && (
-              <Badge variant={node.badgeVariant} className="shrink-0 px-1.5 py-0 text-[10px]">
-                {node.badge}
-              </Badge>
-            )}
-            {surface && surface.type !== 'page' && (
-              // The kind chip was the raw English metadata type in an otherwise
-              // localized rail. `uppercase` is dropped with it: it is a
-              // Latin-script affordance that does nothing for CJK and mangles
-              // nothing else only by luck.
-              <span className="text-[9px] tracking-wide text-muted-foreground/60">
-                {translateMetadataType(surface.type, locale)}
-              </span>
-            )}
-          </button>
+            {rowText}
+          </StudioRailRow>
         );
       })}
     </>
@@ -2097,6 +2213,7 @@ export function StudioNavItemInspector({
   // The console's own resolver for what a label-less entry inherits.
   const targetLabel = useNavTargetLabel();
   const typeGroupName = React.useId();
+  const iconFieldId = React.useId();
   const idx = React.useMemo(() => {
     const m = /^navigation\[(\d+)\]$/.exec(navId);
     return m ? Number(m[1]) : -1;
@@ -2354,13 +2471,55 @@ export function StudioNavItemInspector({
       ) : (
         <p className="text-[11px] text-muted-foreground">{t('engine.inspector.appNav.separatorHint', locale)}</p>
       )}
-      <button
-        type="button"
-        onClick={onClear}
-        className="text-[11px] text-muted-foreground underline-offset-2 hover:underline"
-      >
-        {t('engine.studio.deselect', locale)}
-      </button>
+      {navEntryOffersField(kind, 'icon') && (
+        // objectui#12455 — the entry's own `icon`, a Lucide name, as the rail
+        // and the running sidebar draw it, picked from the catalog with the
+        // console's icon picker (a preview beside the name). Clearing it
+        // removes the key (the rail then falls back to the target's icon),
+        // never writes `''`.
+        <div>
+          <label htmlFor={iconFieldId} className="mb-1 block text-[11px] font-medium text-muted-foreground">
+            {t('engine.studio.nav.icon', locale)}
+          </label>
+          <IconPickerWidget
+            id={iconFieldId}
+            schema={{ type: 'string' }}
+            value={str(node.icon)}
+            onChange={(v) => setTarget('icon', typeof v === 'string' ? v : '')}
+          />
+        </div>
+      )}
+      {node.visible !== undefined && (
+        // objectui#12455 — the entry's `visible` predicate, shown as authored:
+        // read here, written where the app's metadata is written.
+        <div>
+          <span className="mb-1 block text-[11px] font-medium text-muted-foreground">{t('engine.studio.nav.visibleWhen', locale)}</span>
+          <p className="break-all rounded border bg-muted/40 px-2 py-1.5 font-mono text-xs" data-testid="nav-visible-when">
+            {typeof node.visible === 'string' ? node.visible : JSON.stringify(node.visible)}
+          </p>
+        </div>
+      )}
+      <div className="flex items-center justify-between gap-2 border-t pt-3">
+        <button
+          type="button"
+          data-testid="nav-remove-item"
+          onClick={() => {
+            onNavPatch({ navigation: nav.filter((_, i) => i !== idx) });
+            onClear();
+          }}
+          className="inline-flex h-7 items-center gap-1.5 rounded-md border border-destructive/40 px-2.5 text-xs text-destructive hover:bg-destructive/10"
+        >
+          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+          {t('engine.appNav.removeItem', locale)}
+        </button>
+        <button
+          type="button"
+          onClick={onClear}
+          className="text-[11px] text-muted-foreground underline-offset-2 hover:underline"
+        >
+          {t('engine.studio.deselect', locale)}
+        </button>
+      </div>
     </div>
   );
 }
@@ -3450,6 +3609,30 @@ export function InterfacesPillar({
     setPageKind(DEFAULT_PAGE_SOURCE_KIND);
     setCreateKind(kind);
   }, []);
+  // objectui#12455 — the "+" kind picker's other kinds: the entry is added
+  // where "Add nav item" adds one (the end of the top level, an id minted the
+  // way `AppNavCanvas` mints it), born with no label (objectui#11196) and, for
+  // a kind with a target, unbound until the inspector picks one: the save
+  // leaves it out until then and the editor keeps it in its place
+  // (`navPayloadOf`, objectui#11776). A group is born with the empty list its
+  // member requires. Nav editing opens on it, so the inspector beside the
+  // canvas edits it and the nav autosave sends it.
+  const addNavEntry = React.useCallback(
+    (kind: NavigationItemType) => {
+      if (readOnly || !appName) return;
+      const navigation = Array.isArray(appDraft.navigation) ? (appDraft.navigation as NavNode[]) : [];
+      const taken = new Set(navigation.map((n) => (typeof n.id === 'string' ? n.id : '')).filter(Boolean));
+      let id = `nav_item_${navigation.length + 1}`;
+      for (let n = navigation.length + 2; taken.has(id); n++) id = `nav_item_${n}`;
+      const entry: NavNode = kind === 'group' ? { id, type: 'group', children: [] } : { id, type: kind };
+      onNavPatch({ navigation: [...navigation, entry] });
+      setEditNav(true);
+      setNavSel({ kind: 'nav', id: `navigation[${navigation.length}]` });
+      setInspectorCollapsed(false);
+      if (isMobile) setRailOpen(false);
+    },
+    [readOnly, appName, appDraft, onNavPatch, setInspectorCollapsed, isMobile],
+  );
   const doCreateSurface = React.useCallback(
     async (
       kind: InterfaceCreateKind,
@@ -3564,25 +3747,46 @@ export function InterfacesPillar({
     !StudioCanvas &&
     !isSourcePage &&
     !!Preview;
+  // objectui#12455 — the nav entry the open leaf came from, at any depth: the
+  // header names it by its kind and its icon, as the rail row does.
+  const currentNavId = current?.navId;
+  const currentNavEntry = React.useMemo(() => {
+    if (!currentNavId) return null;
+    const find = (nodes: NavNode[]): NavNode | null => {
+      for (const node of nodes) {
+        if (node.id === currentNavId) return node;
+        if (Array.isArray(node.children)) {
+          const hit = find(node.children);
+          if (hit) return hit;
+        }
+      }
+      return null;
+    };
+    return find(navTree);
+  }, [currentNavId, navTree]);
   // objectui#12459 — the item header inside the content column. objectui#7254:
   // the entry's label with its translated KIND beside it; the internal
-  // `type · name` pair stays on the tooltip. objectui#11196: with no label
-  // declared the header shows what the entry inherits, as the rail does.
-  // The Design ⇄ Run switch (objectui#5800) and the properties toggle sit in
-  // the actions slot; the breadcrumb band above the rail retires.
+  // `type · name` pair stays on the tooltip, so the header carries no api
+  // chip. objectui#11196: with no label declared the header shows what the
+  // entry inherits, as the rail does.
+  // objectui#12455 — the Design ⇄ Run switch (objectui#5800) is a 26 px
+  // segmented control with its glyphs, then a divider and the properties
+  // toggle, which says whether the aside is open (`aria-pressed`) and is the
+  // one control that opens and closes it in this layout.
   const canvasModeToggleEl = (
     <>
         {!StudioCanvas && (
-        <div className="inline-flex items-center gap-0.5 rounded-lg bg-muted p-1" data-testid="canvas-mode-toggle">
+        <div className="inline-flex h-[26px] items-center rounded-md border bg-muted/40 p-0.5" data-testid="canvas-mode-toggle">
           <button
             type="button"
             onClick={() => setCanvasMode('design')}
             aria-pressed={designing}
             className={
-              'rounded-md px-2.5 py-0.5 text-[11px] transition-all ' +
+              'inline-flex h-5 items-center gap-1 rounded px-2 text-xs transition-all ' +
               (designing ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')
             }
           >
+            <Pencil className="h-3 w-3" aria-hidden="true" />
             {t('engine.studio.if.modeDesign', locale)}
           </button>
           <button
@@ -3590,26 +3794,31 @@ export function InterfacesPillar({
             onClick={() => setCanvasMode('run')}
             aria-pressed={!designing}
             className={
-              'rounded-md px-2.5 py-0.5 text-[11px] transition-all ' +
+              'inline-flex h-5 items-center gap-1 rounded px-2 text-xs transition-all ' +
               (!designing ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')
             }
           >
+            <Play className="h-3 w-3" aria-hidden="true" />
             {t('engine.studio.if.modeRun', locale)}
           </button>
         </div>
         )}
     </>
   );
-  const ifHeaderIcon = !current
+  const ifHeaderIcon: React.ElementType | undefined = !current
     ? undefined
-    : current.type === 'dashboard'
-      ? LayoutDashboard
-      : current.type === 'report'
-        ? BarChart3
-        : current.type === 'page'
-          ? FileText
-          : Boxes;
+    : currentNavEntry?.icon
+      ? getIcon(currentNavEntry.icon)
+      : current.type === 'object' && objectIconMap[current.name]
+        ? getIcon(objectIconMap[current.name] as string)
+        : navIcon(currentNavEntry?.type ?? current.type);
+  const ifKindName = current ? navKindName(currentNavEntry ?? { type: current.type }, locale) || translateMetadataType(current.type, locale) : '';
   const ifInternalId = current ? `${t('engine.studio.if.internalId', locale)}: ${current.type} · ${current.name}` : undefined;
+  // objectui#12455 — an object entry's structure is the Data pillar's: the
+  // header offers to open it there, through the host's surface channel (no
+  // channel, no chip: the hint under the tab row still names the pillar).
+  const openSurface = useSurfaceNavigator();
+  const isObjectLeaf = current?.type === 'object';
   const ifHeaderEl = (
     <StudioItemHeader
       testId="if-item-header"
@@ -3628,7 +3837,7 @@ export function InterfacesPillar({
         current ? (
           <>
             {current.label || current.name}
-            <span className="sr-only"> · {translateMetadataType(current.type, locale)}</span>
+            <span className="sr-only"> · {ifKindName}</span>
           </>
         ) : (
           navItemLabelText(appLabel, locale)
@@ -3643,7 +3852,7 @@ export function InterfacesPillar({
         current ? (
           <span className={STUDIO_KIND_CHIP} data-testid="if-canvas-caption" title={ifInternalId}>
             <span className="sr-only">{current.label || current.name} · </span>
-            {translateMetadataType(current.type, locale)}
+            {ifKindName}
           </span>
         ) : undefined
       }
@@ -3661,19 +3870,52 @@ export function InterfacesPillar({
               {t('engine.studio.autoSaving', locale)}
             </span>
           )}
-          {canvasModeToggleEl}
-          {!foldInspector && inspectorCollapsed && (
+          {isObjectLeaf && openSurface && current && (
             <button
               type="button"
-              onClick={() => setInspectorCollapsed(false)}
-              className={STUDIO_HEADER_ICON_BUTTON}
-              aria-label={t('engine.studio.inspector.expand', locale)}
-              title={t('engine.studio.inspector.props', locale)}
+              data-testid="if-open-in-data"
+              onClick={() => openSurface({ type: 'object', name: current.name })}
+              className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border bg-background px-2.5 text-xs text-foreground hover:bg-muted"
             >
-              <PanelRightOpen className="h-4 w-4" />
+              <Database className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+              {t('engine.studio.if.openInData', locale)}
             </button>
           )}
+          {canvasModeToggleEl}
+          {canCollapseInspector && (
+            <>
+              <span className="mx-0.5 h-5 w-px shrink-0 bg-border" aria-hidden="true" />
+              <button
+                type="button"
+                data-testid="if-properties-toggle"
+                onClick={() => setInspectorCollapsed(!inspectorCollapsed)}
+                aria-pressed={!inspectorCollapsed}
+                className={cn(STUDIO_HEADER_ICON_BUTTON, !inspectorCollapsed && 'bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary')}
+                aria-label={t(inspectorCollapsed ? 'engine.studio.inspector.expand' : 'engine.studio.inspector.collapse', locale)}
+                title={t(inspectorCollapsed ? 'engine.studio.inspector.expand' : 'engine.studio.inspector.collapse', locale)}
+              >
+                {inspectorCollapsed ? <PanelRightOpen className="h-4 w-4" /> : <PanelRightClose className="h-4 w-4" />}
+              </button>
+            </>
+          )}
         </>
+      }
+      tabs={
+        current ? (
+          <>
+            {/* objectui#12455 — the canvas is the one view of an entry here; an
+                object entry's is the running list, so its tab says Preview
+                and the line beside it says where the structure is edited. */}
+            <StudioTab active data-testid="if-tab-canvas">
+              {t(isObjectLeaf ? 'engine.studio.if.tabPreview' : 'engine.studio.if.tabCanvas', locale)}
+            </StudioTab>
+            {!isEditable && isObjectLeaf ? (
+              <p className="ml-auto flex min-w-0 items-center gap-1 self-center truncate pl-3 text-xs text-muted-foreground">
+                {t('engine.studio.if.objectHintPre', locale)}<span className="font-medium">{t('engine.studio.pillar.data', locale)}</span>{t('engine.studio.if.objectHintPost', locale)}
+              </p>
+            ) : null}
+          </>
+        ) : undefined
       }
     />
   );
@@ -3802,14 +4044,27 @@ export function InterfacesPillar({
           </div>
         )}
       </div>
-      {!isEditable && current?.type === 'object' ? (
-        <p className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground">
-          <Database className="h-3 w-3" /> {t('engine.studio.if.objectHintPre', locale)}<span className="font-medium">{t('engine.studio.pillar.data', locale)}</span>{t('engine.studio.if.objectHintPost', locale)}
-        </p>
-      ) : null}
     </main>
   );
 
+  // objectui#12455 — while a nav entry is open in the inspector, the aside
+  // names it as the shared aside names anything: "Nav item · Kind", the
+  // entry's label (what it inherits when it declares none), and its nav id.
+  // Top-level entries only, as `StudioNavItemInspector` edits only those.
+  const navInspectorHead = React.useMemo(() => {
+    if (!editNav || !navSel) return null;
+    const m = /^navigation\[(\d+)\]$/.exec(navSel.id);
+    const node = m ? navTree[Number(m[1])] : undefined;
+    if (!node) return null;
+    const untitled = node.label === undefined && navPayloadOf([node]).length === 0;
+    return {
+      eyebrow: tFormat('engine.studio.nav.eyebrow', locale, { kind: navKindName(node, locale) }),
+      title: untitled
+        ? tFormat('engine.appNav.item', locale, { n: Number(m![1]) + 1 })
+        : navEntryLabelText(node, locale, targetLabel) || undefined,
+      id: typeof node.id === 'string' ? node.id : undefined,
+    };
+  }, [editNav, navSel, navTree, locale, targetLabel]);
   const inspectorHeaderEl = (
     <header className="flex shrink-0 items-center gap-2 border-b bg-background/95 px-3 py-2">
       <SlidersHorizontal className="h-3.5 w-3.5" />
@@ -4102,34 +4357,54 @@ export function InterfacesPillar({
           heading={tFormat('engine.studio.if.navHeading', locale, { app: navItemLabelText(appLabel, locale) })}
           headerExtra={
             <>
-              {/* objectui#11823 (steps 2 and 3) — New dashboard / report /
-                  page: an app to link it from, a writable package, nav editing
-                  closed (see `doCreateSurface`). */}
+              {/* objectui#12455 — the "+" offers every kind of nav entry the
+                  spec declares (`NAV_ENTRY_TYPES`, pinned by objectui#11790),
+                  each with its glyph, name and one line on what it opens. A
+                  page, a dashboard or a report continues into today's create
+                  flow (objectui#11823 steps 2 and 3: the item's draft and the
+                  entry that links it); every other kind adds its entry,
+                  unbound where it has a target, and opens it in the nav-item
+                  inspector. Offered while nav editing is closed and the
+                  package is writable, as the create flow always was. */}
               {appStatus === 'ready' && !readOnly && !editNav && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
                       data-testid="if-create-menu"
-                      title={t('engine.studio.interfaces.create.menuTitle', locale)}
-                      className="ml-auto inline-flex shrink-0 items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-muted"
+                      aria-label={t('engine.studio.if.addMenuTitle', locale)}
+                      title={t('engine.studio.if.addMenuTitle', locale)}
+                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                     >
-                      <Plus className="h-3 w-3" /> {t('engine.studio.new', locale)}
+                      <Plus className="h-4 w-4" />
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem data-testid="if-create-dashboard" onSelect={() => openCreate('dashboard')}>
-                      <LayoutDashboard className="mr-2 h-3.5 w-3.5" />
-                      {t('engine.studio.interfaces.create.dashboard', locale)}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem data-testid="if-create-report" onSelect={() => openCreate('report')}>
-                      <BarChart3 className="mr-2 h-3.5 w-3.5" />
-                      {t('engine.studio.interfaces.create.report', locale)}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem data-testid="if-create-page" onSelect={() => openCreate('page')}>
-                      <FileText className="mr-2 h-3.5 w-3.5" />
-                      {t('engine.studio.interfaces.create.page', locale)}
-                    </DropdownMenuItem>
+                  <DropdownMenuContent align="start" className="w-[268px] p-1.5" data-testid="if-add-kind-menu">
+                    <DropdownMenuLabel className="px-2 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                      {t('engine.studio.if.addMenuTitle', locale)}
+                    </DropdownMenuLabel>
+                    {NAV_ENTRY_TYPES.map((kind) => {
+                      const KindIcon = navIcon(kind);
+                      const creates = kind === 'page' || kind === 'dashboard' || kind === 'report';
+                      return (
+                        <React.Fragment key={kind}>
+                          {kind === 'group' && <DropdownMenuSeparator />}
+                          <DropdownMenuItem
+                            data-testid={creates ? `if-create-${kind}` : `if-add-nav-${kind}`}
+                            onSelect={() => (creates ? openCreate(kind) : addNavEntry(kind))}
+                            className="items-start gap-2.5 px-2 py-1.5"
+                          >
+                            <KindIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                            <span className="flex min-w-0 flex-col">
+                              <span className="text-[13px] font-medium leading-tight">{navKindName({ type: kind }, locale)}</span>
+                              <span className="text-[11px] leading-snug text-muted-foreground">
+                                {t(`engine.studio.if.kindDesc.${kind}`, locale)}
+                              </span>
+                            </span>
+                          </DropdownMenuItem>
+                        </React.Fragment>
+                      );
+                    })}
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
@@ -4244,26 +4519,17 @@ export function InterfacesPillar({
             {inspectorCollapsed ? null : (
               <StudioInspector
                 testId="if-inspector"
-                eyebrow={t('engine.studio.inspector.props', locale)}
+                eyebrow={navInspectorHead?.eyebrow ?? t('engine.studio.inspector.props', locale)}
+                title={navInspectorHead?.title}
+                id={navInspectorHead?.id}
                 width={
                   isSourcePage && !(selection && Inspector && current) && !(editNav && navSel)
                     ? 'w-[24rem] xl:w-[30rem] 2xl:w-[36rem]'
                     : undefined
                 }
-                actions={
-                  canCollapseInspector ? (
-                    <button
-                      type="button"
-                      onClick={() => setInspectorCollapsed(true)}
-                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                      aria-label={t('engine.studio.inspector.collapse', locale)}
-                      title={t('engine.studio.inspector.collapse', locale)}
-                    >
-                      <PanelRightClose className="h-4 w-4" />
-                    </button>
-                  ) : undefined
-                }
-                onClose={selection && !StudioCanvas ? () => setSelection(null) : undefined}
+                // objectui#12455 — the header's properties toggle opens and
+                // closes the aside in this layout, so it carries no second one.
+                onClose={navInspectorHead ? () => setNavSel(null) : selection && !StudioCanvas ? () => setSelection(null) : undefined}
                 closeLabel={t('engine.studio.deselect', locale)}
                 footer={t('engine.studio.inspector.draftFooter', locale)}
                 bodyClassName="flex min-h-0 flex-1 flex-col"
@@ -4283,26 +4549,17 @@ export function InterfacesPillar({
             {inspectorCollapsed ? null : (
               <StudioInspector
                 testId="if-inspector"
-                eyebrow={t('engine.studio.inspector.props', locale)}
+                eyebrow={navInspectorHead?.eyebrow ?? t('engine.studio.inspector.props', locale)}
+                title={navInspectorHead?.title}
+                id={navInspectorHead?.id}
                 width={
                   isSourcePage && !(selection && Inspector && current) && !(editNav && navSel)
                     ? 'w-[24rem] xl:w-[30rem] 2xl:w-[36rem]'
                     : undefined
                 }
-                actions={
-                  canCollapseInspector ? (
-                    <button
-                      type="button"
-                      onClick={() => setInspectorCollapsed(true)}
-                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                      aria-label={t('engine.studio.inspector.collapse', locale)}
-                      title={t('engine.studio.inspector.collapse', locale)}
-                    >
-                      <PanelRightClose className="h-4 w-4" />
-                    </button>
-                  ) : undefined
-                }
-                onClose={selection && !StudioCanvas ? () => setSelection(null) : undefined}
+                // objectui#12455 — as in the classic layout: the header's
+                // properties toggle opens and closes this aside.
+                onClose={navInspectorHead ? () => setNavSel(null) : selection && !StudioCanvas ? () => setSelection(null) : undefined}
                 closeLabel={t('engine.studio.deselect', locale)}
                 footer={t('engine.studio.inspector.draftFooter', locale)}
                 bodyClassName="flex min-h-0 flex-1 flex-col"
@@ -7005,18 +7262,33 @@ export function AutomationsPillar({
             </SheetContent>
           </Sheet>
         ) : (
-        <StudioInspector
-          testId="auto-config-aside"
-          eyebrow={t('engine.studio.auto.config', locale)}
-          onClose={selection ? () => setSelection(null) : undefined}
-          closeLabel={t('engine.studio.deselect', locale)}
-          footer={t('engine.studio.inspector.draftFooter', locale)}
-          // objectui#12454 — a selection's inspector brings its own padding
-          // (the metadata inspector shell); only the empty sentence takes the aside's.
-          bodyClassName={selection && inspector && current && flowLoaded ? 'p-0' : undefined}
-        >
-          {configBodyEl}
-        </StudioInspector>
+        (() => {
+          // objectui#12488 — one header: the aside's names the selection
+          // ("Node · Decision", its label, close) and the inspector below
+          // draws none of its own (`InspectorShellHostProvider`). With nothing
+          // selected the aside keeps its "Configuration" eyebrow.
+          const heading =
+            selection && inspector && current && flowLoaded ? flowSelectionHeading(draft, selection, locale) : null;
+          return (
+            <StudioInspector
+              testId="auto-config-aside"
+              eyebrow={heading?.eyebrow ?? t('engine.studio.auto.config', locale)}
+              title={heading?.title}
+              onClose={selection ? () => setSelection(null) : undefined}
+              closeLabel={t('engine.studio.deselect', locale)}
+              footer={t('engine.studio.inspector.draftFooter', locale)}
+              // objectui#12454 — a selection's inspector brings its own padding
+              // (the metadata inspector shell); only the empty sentence takes the aside's.
+              bodyClassName={heading ? 'p-0' : undefined}
+            >
+              {heading ? (
+                <InspectorShellHostProvider value={{ onSelectionChange: setSelection }}>{configBodyEl}</InspectorShellHostProvider>
+              ) : (
+                configBodyEl
+              )}
+            </StudioInspector>
+          );
+        })()
         )}
       </div>
 

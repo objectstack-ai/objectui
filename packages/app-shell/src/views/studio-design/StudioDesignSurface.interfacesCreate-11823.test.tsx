@@ -142,9 +142,11 @@ async function ready() {
   await screen.findByTitle('dashboard · home_dash', undefined, { timeout: 8000 });
 }
 
+// objectui#12455 — the rail's "+" lists every nav kind; its Dashboard and
+// Report items continue into the create flow, addressed by their test ids.
 async function openCreate(item: 'New dashboard' | 'New report') {
   await userEvent.click(await screen.findByTestId('if-create-menu'));
-  await userEvent.click(await screen.findByRole('menuitem', { name: item }));
+  await userEvent.click(await screen.findByTestId(item === 'New dashboard' ? 'if-create-dashboard' : 'if-create-report'));
   return screen.findByRole('dialog');
 }
 

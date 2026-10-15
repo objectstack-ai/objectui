@@ -185,14 +185,16 @@ describe("objectui#11862 — the Interfaces nav editor names a draft-only target
   it('the rail: a draft-only object entry reads as its label, its machine name as secondary text', async () => {
     renderSurface();
     const row = await screen.findByRole('button', { name: 'Repair Ticket Object' }, { timeout: 8000 });
-    expect(within(row).getByText('repairs_ticket')).toHaveClass('font-mono', 'text-[10px]');
-    expect(within(row).getByText('repairs_ticket')).toHaveAttribute('aria-hidden', 'true');
+    // objectui#12455 — the machine name is the row's tooltip, not a second line.
+    expect(row).toHaveAttribute('title', 'object · repairs_ticket');
+    expect(row).not.toHaveTextContent('repairs_ticket');
   });
 
   it('the rail: a draft-only dashboard entry reads as its label, its machine name as secondary text', async () => {
     renderSurface();
     const row = await screen.findByRole('button', { name: 'Ops board Dashboard' }, { timeout: 8000 });
-    expect(within(row).getByText('ops_board')).toHaveClass('font-mono');
+    expect(row).toHaveAttribute('title', 'dashboard · ops_board');
+    expect(row).not.toHaveTextContent('ops_board');
   });
 
   it('CONTROL: a `_drafts` row whose label is null leaves the machine name alone, once', async () => {

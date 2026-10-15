@@ -176,7 +176,8 @@ async function bind(node: Record<string, unknown>, objectName: string): Promise<
     />,
   );
   const object = PICKER_OBJECTS.find((o) => o.name === objectName)!;
-  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowDown' });
+  // objectui#12455 — the inspector also offers an Icon picker (a combobox), so the object picker is addressed by its test id.
+  fireEvent.keyDown(screen.getByTestId('nav-link-object'), { key: 'ArrowDown' });
   fireEvent.click(await screen.findByRole('option', { name: `${object.label} (${object.name})` }));
   expect(onNavPatch).toHaveBeenCalledTimes(1);
   return (onNavPatch.mock.calls[0][0] as { navigation: Array<Record<string, unknown>> }).navigation[0];

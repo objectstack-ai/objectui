@@ -3083,6 +3083,12 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
       items.push({
         name: 'sys_edit',
         label: t('detail.edit', { defaultValue: 'Edit' }),
+        // objectui#12529 — each system entry declares its icon through the
+        // same `icon` key the app's actions use, so the `⋯` menu draws one
+        // kind of row. When this CTA folds into the `⋯` because the row is
+        // full, `page:header` keeps an icon-only twin of it (this pencil)
+        // beside the `⋯`.
+        icon: 'pencil',
         type: 'script',
         locations: ['record_header'],
         variant: 'default',
@@ -3121,6 +3127,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         label: isRecordFavorite
           ? t('common.removeFromFavorites', { defaultValue: 'Remove from favorites' })
           : t('common.addToFavorites', { defaultValue: 'Add to favorites' }),
+        icon: 'star',
         type: 'script',
         locations: ['record_header'],
         variant: 'outline',
@@ -3132,6 +3139,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     items.push({
       name: 'sys_share',
       label: t('detail.share', { defaultValue: 'Share' }),
+      icon: 'share',
       type: 'script',
       locations: ['record_header'],
       variant: 'outline',
@@ -3168,6 +3176,9 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
       items.push({
         name: 'sys_delete',
         label: t('detail.delete', { defaultValue: 'Delete' }),
+        // Last in the `⋯`, behind a separator: `page:header` sets every
+        // destructive entry apart at the bottom of the menu (objectui#12529).
+        icon: 'trash',
         type: 'script',
         locations: ['record_header'],
         variant: 'destructive',

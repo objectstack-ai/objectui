@@ -109,9 +109,11 @@ function invalidChildErrors(): unknown[][] {
   );
 }
 
-const TEXT: Record<Language, { home: string; main: string; reports: string; docs: string }> = {
-  en: { home: 'Home', main: 'Main', reports: 'Reports', docs: 'Docs' },
-  zh: { home: '首页', main: '主要', reports: '报表', docs: '文档' },
+// objectui#12455 — every rail row carries its kind as a tag after the label,
+// so a page row is named by its label and "Page".
+const TEXT: Record<Language, { home: string; main: string; reports: string; docs: string; page: string }> = {
+  en: { home: 'Home', main: 'Main', reports: 'Reports', docs: 'Docs', page: 'Page' },
+  zh: { home: '首页', main: '主要', reports: '报表', docs: '文档', page: '页面' },
 };
 
 describe('the objectui#11158 fixture is what the spec accepts', () => {
@@ -127,9 +129,9 @@ for (const language of ['en', 'zh'] as const) {
     it('renders every row, maps as their text, the plain string as authored, with no React error', async () => {
       renderPillar(language);
 
-      expect(await screen.findByRole('button', { name: text.home }, { timeout: 8000 })).toBeEnabled();
-      expect(screen.getByRole('button', { name: 'Landing' })).toBeEnabled();
-      expect(screen.getByRole('button', { name: text.reports })).toBeEnabled();
+      expect(await screen.findByRole('button', { name: `${text.home} ${text.page}` }, { timeout: 8000 })).toBeEnabled();
+      expect(screen.getByRole('button', { name: `Landing ${text.page}` })).toBeEnabled();
+      expect(screen.getByRole('button', { name: `${text.reports} ${text.page}` })).toBeEnabled();
       expect(screen.getByText(text.main)).toBeInTheDocument();
       // A row with no design surface is disabled and titled by its label.
       expect(screen.getByTitle(text.docs)).toBeDisabled();

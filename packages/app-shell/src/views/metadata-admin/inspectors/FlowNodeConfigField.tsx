@@ -39,7 +39,8 @@ import {
 } from './flow-value-envelope.js';
 import { FlowStringListField } from './FlowStringListField.js';
 import { FlowRecipientsField } from './FlowRecipientsField.js';
-import { FlowObjectListField } from './FlowObjectListField.js';
+import { decisionEdgeBranches, FlowObjectListField } from './FlowObjectListField.js';
+import type { FlowDesignerEdge } from '../previews/flow-canvas-layout.js';
 import { FlowReferenceField, type FlowReferenceContext } from './FlowReferenceField.js';
 import { validateExpressionClient } from './expression-validate.js';
 import { VariableTextInput } from './VariableTextInput.js';
@@ -679,7 +680,20 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
             emptyLabel={t('engine.inspector.flowNode.list.empty', locale)}
           />
         );
-      case 'objectList':
+      case 'objectList': {
+        // objectui#12488 — a top-level decision's Branches (the list that
+        // carries the virtual Target column) draw as branch cards; while the
+        // list is empty, the decision's out-edge branches show read-only.
+        const decisionBranches =
+          context?.node?.type === 'decision' &&
+          field.path.length === 2 &&
+          field.path[0] === 'config' &&
+          field.path[1] === 'conditions' &&
+          (field.columns ?? []).some((c) => c.key === 'target');
+        const draftEdges = Array.isArray(context?.draft?.edges) ? (context.draft.edges as FlowDesignerEdge[]) : [];
+        const draftNodes = Array.isArray(context?.draft?.nodes)
+          ? (context.draft.nodes as Array<{ id?: unknown; label?: unknown } | null>)
+          : [];
         return (
           <FlowObjectListField
             label={field.label}
@@ -687,7 +701,13 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
             value={value}
             onCommit={(v) => onCommit(v)}
             disabled={disabled}
-            addLabel={t('engine.inspector.flowNode.list.add', locale)}
+            variant={decisionBranches ? 'branches' : undefined}
+            edgeBranches={
+              decisionBranches && typeof context?.node?.id === 'string'
+                ? decisionEdgeBranches(context.node.id, draftEdges, draftNodes)
+                : undefined
+            }
+            addLabel={t(decisionBranches ? 'engine.inspector.flowNode.branch.add' : 'engine.inspector.flowNode.list.add', locale)}
             removeLabel={t('engine.inspector.flowNode.list.remove', locale)}
             emptyLabel={t('engine.inspector.flowNode.list.empty', locale)}
             itemLabel={t('engine.inspector.flowNode.list.item', locale)}
@@ -701,6 +721,7 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
             requiredColumns={requiredColumns}
           />
         );
+      }
       case 'number':
         return (
           <InspectorNumberField

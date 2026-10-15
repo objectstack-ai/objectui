@@ -211,9 +211,11 @@ import {
 import {
   FlowMetaPills,
   FlowPreviewChromeProvider,
+  flowSelectionHeading,
   type FlowPreviewSection,
   type FlowProblemTally,
 } from '../metadata-admin/previews/FlowPreview.js';
+import { InspectorShellHostProvider } from '../metadata-admin/inspectors/_shared.js';
 import type { FlowRegistration } from '@objectstack/spec/api';
 import {
   clearedLabel,
@@ -6993,18 +6995,33 @@ export function AutomationsPillar({
             </SheetContent>
           </Sheet>
         ) : (
-        <StudioInspector
-          testId="auto-config-aside"
-          eyebrow={t('engine.studio.auto.config', locale)}
-          onClose={selection ? () => setSelection(null) : undefined}
-          closeLabel={t('engine.studio.deselect', locale)}
-          footer={t('engine.studio.inspector.draftFooter', locale)}
-          // objectui#12454 — a selection's inspector brings its own padding
-          // (the metadata inspector shell); only the empty sentence takes the aside's.
-          bodyClassName={selection && inspector && current && flowLoaded ? 'p-0' : undefined}
-        >
-          {configBodyEl}
-        </StudioInspector>
+        (() => {
+          // objectui#12488 — one header: the aside's names the selection
+          // ("Node · Decision", its label, close) and the inspector below
+          // draws none of its own (`InspectorShellHostProvider`). With nothing
+          // selected the aside keeps its "Configuration" eyebrow.
+          const heading =
+            selection && inspector && current && flowLoaded ? flowSelectionHeading(draft, selection, locale) : null;
+          return (
+            <StudioInspector
+              testId="auto-config-aside"
+              eyebrow={heading?.eyebrow ?? t('engine.studio.auto.config', locale)}
+              title={heading?.title}
+              onClose={selection ? () => setSelection(null) : undefined}
+              closeLabel={t('engine.studio.deselect', locale)}
+              footer={t('engine.studio.inspector.draftFooter', locale)}
+              // objectui#12454 — a selection's inspector brings its own padding
+              // (the metadata inspector shell); only the empty sentence takes the aside's.
+              bodyClassName={heading ? 'p-0' : undefined}
+            >
+              {heading ? (
+                <InspectorShellHostProvider value={{ onSelectionChange: setSelection }}>{configBodyEl}</InspectorShellHostProvider>
+              ) : (
+                configBodyEl
+              )}
+            </StudioInspector>
+          );
+        })()
         )}
       </div>
 

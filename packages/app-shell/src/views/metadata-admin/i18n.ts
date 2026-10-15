@@ -480,6 +480,10 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.flowNode.list.item': 'Value',
   'engine.inspector.flowNode.list.remove': 'Remove item',
   'engine.inspector.flowNode.list.empty': 'No items yet.',
+  'engine.inspector.flowNode.branch.add': 'Add branch',
+  'engine.inspector.flowNode.branch.fromEdges': 'This decision routes on its connections’ conditions. Each card is one connection; edit its condition on the connection.',
+  'engine.inspector.flowNode.branch.openEdge': 'Edit connection',
+  'engine.inspector.flowNode.branch.noCondition': 'No condition',
   'engine.inspector.flowNode.remove': 'Remove node',
   // Flow edge (connection) inspector
   'engine.inspector.flowEdge.kind': 'Connection',
@@ -3895,6 +3899,10 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.flowNode.list.item': '值',
   'engine.inspector.flowNode.list.remove': '删除项',
   'engine.inspector.flowNode.list.empty': '暂无项。',
+  'engine.inspector.flowNode.branch.add': '添加分支',
+  'engine.inspector.flowNode.branch.fromEdges': '此决策按其连线上的条件路由。每张卡片是一条连线，请在连线上编辑它的条件。',
+  'engine.inspector.flowNode.branch.openEdge': '编辑连线',
+  'engine.inspector.flowNode.branch.noCondition': '无条件',
   'engine.inspector.flowNode.remove': '删除节点',
   // Flow edge (connection) inspector
   'engine.inspector.flowEdge.kind': '连线',

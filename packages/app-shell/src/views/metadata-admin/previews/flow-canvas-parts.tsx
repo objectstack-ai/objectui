@@ -126,88 +126,94 @@ interface NodeTone {
   accent: string;
   /** Small type-label text color. */
   label: string;
-  /** Tinted icon-chip background + ring — the card's primary color cue. */
+  /** The icon tile's tint — the card's primary color cue. */
   chip: string;
 }
 
+/**
+ * objectui#12488 — the card's 28 px tile is a solid tint of the kind's hue with
+ * the glyph in its deep shade (the Studio artboard's swatches): start green,
+ * screen pink, record blue, decision amber, loop violet, end grey. The other
+ * kinds take the same form in their own hue, kept apart from those six.
+ */
 const TONES: Record<string, NodeTone> = {
   start: {
-    icon: 'text-emerald-600 dark:text-emerald-400',
+    icon: 'text-emerald-700 dark:text-emerald-300',
     accent: 'border-l-emerald-500',
-    label: 'text-emerald-600 dark:text-emerald-400',
-    chip: 'bg-emerald-500/10 ring-1 ring-inset ring-emerald-500/20 dark:bg-emerald-400/10',
+    label: 'text-emerald-700 dark:text-emerald-400',
+    chip: 'bg-emerald-100 dark:bg-emerald-500/15',
   },
   end: {
-    icon: 'text-rose-600 dark:text-rose-400',
-    accent: 'border-l-rose-500',
-    label: 'text-rose-600 dark:text-rose-400',
-    chip: 'bg-rose-500/10 ring-1 ring-inset ring-rose-500/20 dark:bg-rose-400/10',
+    icon: 'text-muted-foreground',
+    accent: 'border-l-slate-400',
+    label: 'text-muted-foreground',
+    chip: 'bg-muted',
   },
   decision: {
-    icon: 'text-amber-600 dark:text-amber-400',
+    icon: 'text-amber-700 dark:text-amber-300',
     accent: 'border-l-amber-500',
-    label: 'text-amber-600 dark:text-amber-400',
-    chip: 'bg-amber-500/10 ring-1 ring-inset ring-amber-500/20 dark:bg-amber-400/10',
+    label: 'text-amber-700 dark:text-amber-400',
+    chip: 'bg-amber-100 dark:bg-amber-500/15',
   },
   wait: {
-    icon: 'text-blue-600 dark:text-blue-400',
-    accent: 'border-l-blue-500',
-    label: 'text-blue-600 dark:text-blue-400',
-    chip: 'bg-blue-500/10 ring-1 ring-inset ring-blue-500/20 dark:bg-blue-400/10',
+    icon: 'text-sky-700 dark:text-sky-300',
+    accent: 'border-l-sky-500',
+    label: 'text-sky-700 dark:text-sky-400',
+    chip: 'bg-sky-100 dark:bg-sky-500/15',
   },
   signal: {
-    icon: 'text-violet-600 dark:text-violet-400',
-    accent: 'border-l-violet-500',
-    label: 'text-violet-600 dark:text-violet-400',
-    chip: 'bg-violet-500/10 ring-1 ring-inset ring-violet-500/20 dark:bg-violet-400/10',
+    icon: 'text-fuchsia-700 dark:text-fuchsia-300',
+    accent: 'border-l-fuchsia-500',
+    label: 'text-fuchsia-700 dark:text-fuchsia-400',
+    chip: 'bg-fuchsia-100 dark:bg-fuchsia-500/15',
   },
   subflow: {
-    icon: 'text-indigo-600 dark:text-indigo-400',
+    icon: 'text-indigo-700 dark:text-indigo-300',
     accent: 'border-l-indigo-500',
-    label: 'text-indigo-600 dark:text-indigo-400',
-    chip: 'bg-indigo-500/10 ring-1 ring-inset ring-indigo-500/20 dark:bg-indigo-400/10',
+    label: 'text-indigo-700 dark:text-indigo-400',
+    chip: 'bg-indigo-100 dark:bg-indigo-500/15',
   },
   task: {
-    icon: 'text-slate-500 dark:text-slate-400',
+    icon: 'text-slate-600 dark:text-slate-300',
     accent: 'border-l-slate-400',
-    label: 'text-slate-500 dark:text-slate-400',
-    chip: 'bg-slate-500/10 ring-1 ring-inset ring-slate-500/20 dark:bg-slate-400/10',
+    label: 'text-slate-600 dark:text-slate-400',
+    chip: 'bg-slate-100 dark:bg-slate-500/15',
   },
   record: {
-    icon: 'text-cyan-600 dark:text-cyan-400',
-    accent: 'border-l-cyan-500',
-    label: 'text-cyan-600 dark:text-cyan-400',
-    chip: 'bg-cyan-500/10 ring-1 ring-inset ring-cyan-500/20 dark:bg-cyan-400/10',
+    icon: 'text-blue-700 dark:text-blue-300',
+    accent: 'border-l-blue-500',
+    label: 'text-blue-700 dark:text-blue-400',
+    chip: 'bg-blue-100 dark:bg-blue-500/15',
   },
   integration: {
-    icon: 'text-fuchsia-600 dark:text-fuchsia-400',
-    accent: 'border-l-fuchsia-500',
-    label: 'text-fuchsia-600 dark:text-fuchsia-400',
-    chip: 'bg-fuchsia-500/10 ring-1 ring-inset ring-fuchsia-500/20 dark:bg-fuchsia-400/10',
+    icon: 'text-orange-700 dark:text-orange-300',
+    accent: 'border-l-orange-500',
+    label: 'text-orange-700 dark:text-orange-400',
+    chip: 'bg-orange-100 dark:bg-orange-500/15',
   },
   approval: {
-    icon: 'text-teal-600 dark:text-teal-400',
+    icon: 'text-teal-700 dark:text-teal-300',
     accent: 'border-l-teal-500',
-    label: 'text-teal-600 dark:text-teal-400',
-    chip: 'bg-teal-500/10 ring-1 ring-inset ring-teal-500/20 dark:bg-teal-400/10',
+    label: 'text-teal-700 dark:text-teal-400',
+    chip: 'bg-teal-100 dark:bg-teal-500/15',
   },
   loop: {
-    icon: 'text-sky-600 dark:text-sky-400',
-    accent: 'border-l-sky-500',
-    label: 'text-sky-600 dark:text-sky-400',
-    chip: 'bg-sky-500/10 ring-1 ring-inset ring-sky-500/20 dark:bg-sky-400/10',
+    icon: 'text-violet-700 dark:text-violet-300',
+    accent: 'border-l-violet-500',
+    label: 'text-violet-700 dark:text-violet-400',
+    chip: 'bg-violet-100 dark:bg-violet-500/15',
   },
   screen: {
-    icon: 'text-pink-600 dark:text-pink-400',
+    icon: 'text-pink-700 dark:text-pink-300',
     accent: 'border-l-pink-500',
-    label: 'text-pink-600 dark:text-pink-400',
-    chip: 'bg-pink-500/10 ring-1 ring-inset ring-pink-500/20 dark:bg-pink-400/10',
+    label: 'text-pink-700 dark:text-pink-400',
+    chip: 'bg-pink-100 dark:bg-pink-500/15',
   },
   assignment: {
-    icon: 'text-purple-600 dark:text-purple-400',
+    icon: 'text-purple-700 dark:text-purple-300',
     accent: 'border-l-purple-500',
-    label: 'text-purple-600 dark:text-purple-400',
-    chip: 'bg-purple-500/10 ring-1 ring-inset ring-purple-500/20 dark:bg-purple-400/10',
+    label: 'text-purple-700 dark:text-purple-400',
+    chip: 'bg-purple-100 dark:bg-purple-500/15',
   },
 };
 
@@ -557,30 +563,35 @@ export function NodeCard({
         // #2670: the header band stays exactly one node tall even when the card
         // grows to hold its expanded region tray below.
         style={{ height: NODE_H }}
+        // objectui#12488 — the Studio artboard's card: 8 px radius, a 1 px
+        // border that darkens on hover, and the primary border with a 3 px soft
+        // ring when selected. The run overlay and the invalid mark keep their
+        // own colors. Width and height stay the layout engine's.
         className={cn(
-          'group flex w-full items-center gap-3 rounded-xl border bg-card px-2.5 py-2 text-left shadow-sm outline-none',
-          'transition-[transform,box-shadow,border-color] duration-150 ease-out will-change-transform',
-          'hover:-translate-y-0.5 hover:shadow-lg hover:shadow-foreground/[0.06] focus-visible:ring-2 focus-visible:ring-primary/40',
+          'group flex w-full items-center gap-2.5 rounded-lg border bg-card px-3 py-2.5 text-left shadow-sm outline-none',
+          'transition-[box-shadow,border-color] duration-150 ease-out',
+          'focus-visible:ring-2 focus-visible:ring-primary/40',
           editable ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
           runState === 'active'
             ? 'border-sky-500 shadow-md shadow-sky-500/20 ring-2 ring-sky-400/60'
             : runState === 'visited'
               ? 'border-emerald-500/70 ring-1 ring-emerald-400/40'
               : selected
-                ? 'border-primary shadow-md ring-2 ring-primary/30'
+                ? 'border-primary ring-[3px] ring-primary/15'
                 : invalid
                   ? 'border-destructive ring-2 ring-destructive/50'
-                  : 'border-border/80',
+                  : 'border-border hover:border-foreground/25',
         )}
       >
         <div
+          data-testid="flow-node-tile"
           className={cn(
-            'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-transform duration-150 group-hover:scale-105',
+            'flex h-7 w-7 shrink-0 items-center justify-center rounded-md',
             tone.chip,
             runState === 'active' && 'animate-pulse',
           )}
         >
-          <NodeTypeIcon type={type} className={cn('h-[18px] w-[18px]', tone.icon)} />
+          <NodeTypeIcon type={type} className={cn('h-3.5 w-3.5', tone.icon)} />
         </div>
         <div className="min-w-0 flex-1">
           {/* Label gets the full card width (the summary moved to line 2), and a
@@ -589,11 +600,18 @@ export function NodeCard({
             {label}
           </div>
           <div className="mt-1 flex items-baseline gap-1.5 leading-tight">
-            <span className={cn('shrink-0 text-[10px] font-semibold uppercase tracking-[0.08em]', tone.label)}>
-              {type}
+            {/* objectui#12488 — the kind by its display name (the palette's,
+                in the designer locale), not the raw type id; the raw id stays
+                on the tooltip. */}
+            <span
+              data-testid="flow-node-kind"
+              title={type}
+              className={cn('shrink-0 text-[10px] font-semibold uppercase tracking-[0.05em]', tone.label)}
+            >
+              {defaultNodeLabel(type, locale)}
             </span>
             {summary && (
-              <span className="min-w-0 truncate font-mono text-[10px] text-muted-foreground" title={summary}>
+              <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground" title={summary}>
                 {summary}
               </span>
             )}

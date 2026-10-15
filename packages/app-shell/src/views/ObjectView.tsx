@@ -2468,7 +2468,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
         const wired = new Set<string>(JSON.parse(bulkWiredNamesKey) as string[]);
         if (wired.size === 0) return localizedToolbarActions;
         return localizedToolbarActions.filter(
-            (a: any) => !(typeof a?.name === 'string' && wired.has(a.name) && isRecordScopedAction(a)),
+            (a) => !(typeof a?.name === 'string' && wired.has(a.name) && isRecordScopedAction(a)),
         );
     }, [localizedToolbarActions, bulkWiredNamesKey]);
 

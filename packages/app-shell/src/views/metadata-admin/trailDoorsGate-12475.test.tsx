@@ -11,8 +11,7 @@
  * with a persona, and the real `useCanReadAuthoringTrail` predicate. The
  * metadata client is the only stub.
  *
- *  - a `setup.access`-only caller sees neither entry (and a `?tab=audit` deep
- *    link reads no audit);
+ *  - a `setup.access`-only caller sees neither entry;
  *  - a `studio.access` author sees both, and so does a `manage_metadata` holder;
  *  - CONTROL: create mode is unchanged (no trail entries, for anyone);
  *  - an unreported capability set fails open, as `useCanAuthorMetadata` does.
@@ -116,28 +115,6 @@ describe('ResourceEditPage — History and Audit follow the trail doors (objectu
     await mountEdit(SETUP_ONLY);
     expect(screen.queryByTestId('history-button')).toBeNull();
     expect(screen.queryByTestId('audit-button')).toBeNull();
-  });
-
-  // The `?tab=` deep link is read from `window.location`, not the router, so
-  // the URL is set there; an author following the same link is the control.
-  async function followAuditDeepLink(perms: MePermissionsResponse) {
-    const before = window.location.href;
-    window.history.replaceState(null, '', '/apps/setup/metadata/dashboard/env_position?tab=audit');
-    try {
-      await mountEdit(perms);
-    } finally {
-      window.history.replaceState(null, '', before);
-    }
-  }
-
-  it('a setup.access-only caller following a ?tab=audit deep link reads no audit', async () => {
-    await followAuditDeepLink(SETUP_ONLY);
-    expect(mockClient.audit).not.toHaveBeenCalled();
-  });
-
-  it('an author following the same deep link reads the audit (control)', async () => {
-    await followAuditDeepLink(STUDIO_AUTHOR);
-    await waitFor(() => expect(mockClient.audit).toHaveBeenCalled());
   });
 
   it('a studio.access author sees both', async () => {

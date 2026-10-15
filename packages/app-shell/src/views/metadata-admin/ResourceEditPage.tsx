@@ -1488,8 +1488,8 @@ function MetadataResourceEditPageImpl({
   const canWrite = itemWritable && canAuthor && !walled;
   // objectui#12475 — History and Audit read the authoring-trail doors, which
   // objectstack#23546 narrowed to `studio.access` / `manage_metadata`: a
-  // `setup.access`-only caller is offered neither entry nor its sheet (a
-  // `?tab=audit` deep link included). Unknown fails open.
+  // `setup.access`-only caller is offered neither entry, and neither sheet is
+  // mounted for that caller. Unknown fails open.
   const canReadTrail = useCanReadAuthoringTrail();
 
   // Auto-enable design mode for designer-capable types. We do this once

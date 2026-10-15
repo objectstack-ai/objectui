@@ -17,6 +17,8 @@
  * Enhanced with:
  * - Search filtering across navigation tree
  * - Pin/favorite navigation items (pinned items in "Favorites" section)
+ * - A host control on every entry in place of the pin action, and host rows
+ *   in the Favorites section (objectui#12427)
  * - The pinned section in the user's order, rearranged by dragging a row
  *   (via @dnd-kit). The app's own menu is never reorderable here: its order
  *   is authored in Studio (objectui#12059).
@@ -167,6 +169,25 @@ export type NavLabelTarget =
  */
 export type NavTargetLabelResolver = (target: NavLabelTarget) => string | undefined;
 
+/**
+ * What a host's per-entry control is told about the row it sits in
+ * (objectui#12427, {@link NavigationRendererProps.renderItemAction}).
+ */
+export interface NavItemActionContext {
+  /**
+   * The row's href, as its link renders it ({@link resolveHref}). Absent for an
+   * `action` entry, which runs something and navigates nowhere, and for an
+   * entry whose target resolves to no address (`#`).
+   */
+  href?: string;
+  /** `href` leaves the console: the row opens it in a new tab. */
+  external: boolean;
+  /** The text the row shows ({@link resolveNavItemLabel}). */
+  label: string;
+  /** The renderer's `basePath`. */
+  basePath: string;
+}
+
 export interface NavigationRendererProps {
   /** Navigation items to render */
   items: NavigationItem[];
@@ -225,6 +246,32 @@ export interface NavigationRendererProps {
     item?: NavigationItem,
     basePath?: string,
   ) => void;
+
+  /**
+   * The host's control for one entry (objectui#12427), drawn on every leaf and
+   * `action` row where the pin action sits, IN PLACE of it: a row this fills
+   * draws no pin action, so the host's control owns pinning (the console's ⋯
+   * menu offers Add to / Remove from favorites, through the same pin store).
+   * The control is a `SidebarMenuAction` (or renders one), so it sits where the
+   * pin action sat and follows the row's hover.
+   *
+   * Drawn whatever `enablePinning` says, which keeps deciding the Favorites
+   * section alone: a host that wants no control on a screen (a phone) does not
+   * pass this there. Omitted ⇒ the pin action under `enablePinning` +
+   * `onPinToggle`, as before. Groups and separators get none.
+   */
+  renderItemAction?: (item: NavigationItem, context: NavItemActionContext) => React.ReactNode;
+
+  /**
+   * Rows the host appends to the Favorites section, after the pinned entries
+   * (objectui#12427): favorites that are not navigation entries, such as a
+   * record. Each row is a `SidebarMenuItem`; the renderer lists them in a
+   * `SidebarMenu` of their own, outside the pinned entries' drag order. The
+   * section renders when it has a pinned entry (under `enablePinning`) or one
+   * of these rows; `null`, `false` and an empty array are no rows. Omitted ⇒
+   * the section holds pinned entries only, as before.
+   */
+  extraFavorites?: React.ReactNode;
 
   // RETIRED (objectui#12059): `enableReorder` / `onReorder`, drag-to-reorder of
   // the app's menu. A menu's order is authored in Studio and every user sees
@@ -1186,6 +1233,7 @@ interface NavRowProps {
   onAction?: (item: NavigationItem) => void;
   enablePinning?: boolean;
   onPinToggle?: (itemId: string, pinned: boolean, item?: NavigationItem, basePath?: string) => void;
+  renderItemAction?: NavigationRendererProps['renderItemAction'];
   resolveTargetLabel?: NavTargetLabelResolver;
   locale?: string;
   t?: NavigationRendererProps['t'];
@@ -1353,6 +1401,7 @@ function NavigationItemRenderer({
   onAction,
   enablePinning,
   onPinToggle,
+  renderItemAction,
   dragActivator,
   row,
   inList = true,
@@ -1370,6 +1419,7 @@ function NavigationItemRenderer({
   onAction?: (item: NavigationItem) => void;
   enablePinning?: boolean;
   onPinToggle?: (itemId: string, pinned: boolean, item?: NavigationItem, basePath?: string) => void;
+  renderItemAction?: NavigationRendererProps['renderItemAction'];
   /** The row's own link or button starts its drag, when the pinned section's sortable list draws it. */
   dragActivator?: NavDragActivator;
   /** The sortable node this row is, when the pinned section's sortable list draws it. */
@@ -1478,6 +1528,7 @@ function NavigationItemRenderer({
       onAction,
       enablePinning,
       onPinToggle,
+      renderItemAction,
       resolveTargetLabel,
       locale,
       t: tProp,
@@ -1556,7 +1607,9 @@ function NavigationItemRenderer({
             </Badge>
           )}
         </SidebarMenuButton>
-        {enablePinning && onPinToggle && (
+        {renderItemAction
+          ? renderItemAction(item, { external: false, label: actionLabel, basePath })
+          : enablePinning && onPinToggle && (
           <SidebarMenuAction
             showOnHover
             onClick={() => onPinToggle(item.id, !item.pinned, item, basePath)}
@@ -1622,7 +1675,9 @@ function NavigationItemRenderer({
           </Link>
         )}
       </SidebarMenuButton>
-      {enablePinning && onPinToggle && (
+      {renderItemAction
+        ? renderItemAction(item, { href: href === '#' ? undefined : href, external, label: itemLabel, basePath })
+        : enablePinning && onPinToggle && (
         <SidebarMenuAction
           showOnHover
           onClick={() => onPinToggle(item.id, !item.pinned, item, basePath)}
@@ -1663,6 +1718,9 @@ function NavigationItemRenderer({
  * - Search filtering across navigation tree
  * - Pin/favorite items with dedicated "Favorites" section, in the user's
  *   order and reorderable by dragging a pinned row (objectui#12059)
+ * - A host control on every entry in place of the pin action
+ *   (`renderItemAction`), and host rows after the pinned ones in the Favorites
+ *   section (`extraFavorites`) (objectui#12427)
  *
  * @example
  * ```tsx
@@ -1690,6 +1748,8 @@ export function NavigationRenderer({
   searchQuery,
   enablePinning,
   onPinToggle,
+  renderItemAction,
+  extraFavorites,
   pinnedOrder,
   onPinnedReorder,
   resolveTargetLabel,
@@ -1749,6 +1809,7 @@ export function NavigationRenderer({
     onAction,
     enablePinning,
     onPinToggle,
+    renderItemAction,
     resolveTargetLabel,
     locale,
     t: tProp,
@@ -1758,15 +1819,19 @@ export function NavigationRenderer({
   const hasGroups = sorted.some((i) => i.type === 'group');
 
   // --- Favorites section (pinned items) --- the one place a user orders the
-  // sidebar (objectui#12059): sortable when the host stores the order.
-  const favoritesSection = pinnedItems.length > 0 && enablePinning ? (
+  // sidebar (objectui#12059): sortable when the host stores the order. The
+  // host's own favorite rows follow the pinned ones (objectui#12427), outside
+  // that order, and the section draws when either kind is there.
+  const showPinned = !!enablePinning && pinnedItems.length > 0;
+  const hasExtraFavorites = React.Children.toArray(extraFavorites).length > 0;
+  const favoritesSection = showPinned || hasExtraFavorites ? (
     <SidebarGroup>
       <SidebarGroupLabel className="flex items-center gap-1.5">
         <Star className="h-3.5 w-3.5" />
         {tProp ? tProp('console.nav.favorites', { defaultValue: 'Favorites' }) : 'Favorites'}
       </SidebarGroupLabel>
       <SidebarGroupContent>
-        {onPinnedReorder ? (
+        {showPinned && (onPinnedReorder ? (
           <PinnedNavigationList items={pinnedItems} onReorder={onPinnedReorder} rowProps={itemProps} />
         ) : (
           <SidebarMenu>
@@ -1777,6 +1842,11 @@ export function NavigationRenderer({
                 {...itemProps}
               />
             ))}
+          </SidebarMenu>
+        ))}
+        {hasExtraFavorites && (
+          <SidebarMenu className={cn(showPinned && 'mt-1')}>
+            {extraFavorites}
           </SidebarMenu>
         )}
       </SidebarGroupContent>

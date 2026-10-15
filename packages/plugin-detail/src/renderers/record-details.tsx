@@ -784,7 +784,35 @@ const RecordDetailsBody: React.FC<RecordDetailsRendererProps> = ({
     });
   };
 
-  const filteredFields = dropHidden(normaliseList(filterList(schema.fields as any[])));
+  // ── The declared fallback body (objectui#12433) ─────────────────────────
+  //
+  // `@objectstack/spec` declares what a node with no authored body draws, on
+  // `RecordDetailsProps`' retired `layout` entry: "`sections` renders the
+  // explicit groups (the old `custom`), and omitting it falls back to the
+  // object's `highlightFields` (the old `auto`)"; its `fields` describe says
+  // the same from the other side ("overrides highlightFields"). This renderer
+  // published both sentences in its registry `inputs` and honoured neither: a
+  // bare node handed `DetailView` no body at all, so objectstack's served
+  // `sys_approval_request_detail` Details tab was empty for every approver.
+  //
+  // ⭐ "Omitted" means the author wrote neither key. An authored `sections` or
+  // `fields` is the body, an empty one included: `[]` is not omission. The
+  // test is on the AUTHORED keys, never on what the fold below leaves, so a
+  // list the field-security fold empties stays empty and is never re-derived
+  // (the objectui#9053 hazard on `record:related_list`).
+  //
+  // The list then takes the path an authored `fields` list takes: the fold
+  // (`enforceFieldSecurity` / `redactFields`), the label ladder, and the
+  // dedupe against the mounted strip and the page H1 (`dropHidden`).
+  //
+  // ⛔ An object that declares no `highlightFields` draws what it drew before,
+  // an empty body: the spec names no further fallback, and none is invented
+  // here. Pinned in `__tests__/record-details.highlightFieldsFallback-12433.test.tsx`.
+  const bodyFieldsOmitted = schema.sections === undefined && schema.fields === undefined;
+  const bodyFields: string[] | undefined = bodyFieldsOmitted
+    ? (Array.isArray(objSchema?.highlightFields) ? objSchema.highlightFields : undefined)
+    : schema.fields;
+  const filteredFields = dropHidden(normaliseList(filterList(bodyFields)));
 
   // ── `sections[].group` — the ADR-0085 §5 REFERENCE form ──────────────────
   //
@@ -1025,7 +1053,8 @@ const RecordDetailsBody: React.FC<RecordDetailsRendererProps> = ({
     // never permitted, so both legal values took this same branch. What
     // actually chooses the body is what you author: `sections` renders the
     // explicit groups, omitting it falls back to the object's highlightFields
-    // (see `filteredSections` / `filteredFields` above). objectui#3818.
+    // (see `filteredSections` / `filteredFields` above; the fallback itself
+    // landed with objectui#12433). objectui#3818.
     layout: 'vertical',
     // objectui#9056 — the protocol's STRING width becomes the internal node's
     // NUMBER here, and only here. See `detailBodyColumns` above for why the

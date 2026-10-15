@@ -2151,6 +2151,9 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.form.chooseIcon': 'Choose an icon',
   'engine.form.iconsTruncated': 'Showing the first {shown} of {total} — type to narrow.',
   'engine.form.noMatchingIcons': 'No matching icons.',
+  // objectui#12531 — the icon picker's inline warning on a stored name that
+  // matches no icon in the catalog it offers. `{name}` is the stored value.
+  'engine.form.unknownIcon': 'No icon is named “{name}”. Choose one from the list.',
   'engine.form.keep': 'Keep',
   'engine.form.addField': 'Add field…',
   'engine.form.addFieldPlain': 'Add field',
@@ -2726,7 +2729,6 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'designer.object.pluralLabel': 'Plural label',
   'designer.object.pluralPlaceholder': 'e.g. Accounts',
   'designer.object.icon': 'Icon',
-  'designer.object.iconHint': 'Lucide icon name (e.g. “building”, “users”)',
   'designer.object.description': 'Description',
   'designer.object.descriptionPlaceholder': 'What this object represents',
   // Access controls (ADR-0066 D2/D3/④/⑤)
@@ -5504,6 +5506,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.form.chooseIcon': '选择图标',
   'engine.form.iconsTruncated': '显示前 {shown} 个，共 {total} 个 —— 继续输入以缩小范围。',
   'engine.form.noMatchingIcons': '没有匹配的图标。',
+  'engine.form.unknownIcon': '没有名为“{name}”的图标。请从列表中选择一个。',
   'engine.form.keep': '保留',
   'engine.form.addField': '添加字段…',
   'engine.form.addFieldPlain': '添加字段',
@@ -6039,7 +6042,6 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'designer.object.pluralLabel': '复数显示名',
   'designer.object.pluralPlaceholder': '如：客户列表',
   'designer.object.icon': '图标',
-  'designer.object.iconHint': 'Lucide 图标名称（如 “building”、“users”）',
   'designer.object.description': '描述',
   'designer.object.descriptionPlaceholder': '该对象代表什么',
   // Access controls (ADR-0066 D2/D3/④/⑤)

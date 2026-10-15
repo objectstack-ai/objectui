@@ -86,13 +86,15 @@ const FLOW = {
   },
 };
 
-/** A published public form — the page lists a row only when both
- *  `sharing.allowAnonymous` and a parseable `publicLink` are present. */
+/** A published public form, on the `ViewItem` shape `GET /meta/view` serves:
+ *  the form under `config`, opened to anonymous intake by the server's rule
+ *  (`sharing.enabled`, `allowAnonymous` and a `publicLink`; objectui#11545). */
 const FORM = {
-  spec: {
-    name: 'showcase_task.public',
-    label: 'Log Time',
-    object: 'showcase_task',
+  name: 'showcase_task.public',
+  label: 'Log Time',
+  object: 'showcase_task',
+  viewKind: 'form',
+  config: {
     type: 'simple',
     sections: [{ label: 'Task', fields: ['title'] }],
     sharing: { enabled: true, allowAnonymous: true, publicLink: '/forms/log-time' },

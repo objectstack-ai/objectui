@@ -4450,57 +4450,6 @@ function nativeNumberStep(carrier: Record<string, unknown> | undefined): number 
   return typeof scale === 'number' ? Math.pow(10, -scale) : 'any';
 }
 
-/**
- * A registered field widget behind a `<Suspense>` boundary of the field's own
- * (objectui#12559).
- *
- * The widgets `@object-ui/fields` registers are `React.lazy` — each type's
- * chunk is fetched the first time a form draws that type. Without a boundary
- * here, that first render suspended past the form to the HOST's nearest
- * `<Suspense>`, whatever and wherever it is. For the console's record dialog
- * that is the shell's root boundary — the dialog mounts beside the routes, not
- * inside the route boundary — so expanding a collapsed section whose fields
- * used a type not yet loaded swapped the WHOLE console, dialog included, for
- * the root fallback while the chunk loaded. The full-page form hid only its
- * page, because its nearest boundary is the route's. The renderer that introduces the laziness
- * is the one that owns the wait: a pending widget draws a placeholder in its
- * own slot, and nothing above the field is ever hidden or torn down.
- *
- * The bounded twin is cached PER WIDGET COMPONENT, so its identity is as
- * stable as the registration it wraps: a fresh wrapper per render would
- * remount every widget on every render. It receives the props `<FormControl>`'s
- * Slot merges onto it (`id`, `aria-*`, `ref` — a plain prop under React 19)
- * and hands them all to the widget unchanged.
- */
-type RegisteredFieldWidget = React.ComponentType<RenderFieldProps>;
-
-const boundedFieldWidgets = new WeakMap<RegisteredFieldWidget, RegisteredFieldWidget>();
-
-function boundedFieldWidget(Widget: RegisteredFieldWidget): RegisteredFieldWidget {
-  let Bounded = boundedFieldWidgets.get(Widget);
-  if (!Bounded) {
-    const BoundedFieldWidget = (props: RenderFieldProps) => (
-      <React.Suspense fallback={<FieldWidgetPending />}>
-        <Widget {...props} />
-      </React.Suspense>
-    );
-    Bounded = BoundedFieldWidget;
-    boundedFieldWidgets.set(Widget, Bounded);
-  }
-  return Bounded;
-}
-
-/** The slot a field widget holds while its chunk loads: the height of a control, nothing to read. */
-function FieldWidgetPending() {
-  return (
-    <div
-      className="h-9 w-full animate-pulse rounded-md bg-muted"
-      aria-hidden="true"
-      data-field-widget-pending=""
-    />
-  );
-}
-
 function renderFieldComponent(type: string, props: RenderFieldProps) {
   // 1. Resolve the specialized FIELD WIDGET — and only a field widget.
   //    A form field's type either names a `field:`-namespaced widget or takes
@@ -4562,12 +4511,7 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
     // `field || schema` to `field` on this path every time — which is why
     // dropping the key here changes no payload, only the number of spellings
     // a widget author has to know.
-    //
-    // Drawn through its BOUNDED twin (objectui#12559): a registered widget is
-    // typically `React.lazy`, so its first render suspends — see
-    // `boundedFieldWidget` for why that suspension must stop at this field.
-    const Bounded = boundedFieldWidget(RegisteredComponent as RegisteredFieldWidget);
-    return <Bounded {...stripRegisteredFieldProps(type, props)} />;
+    return <RegisteredComponent {...stripRegisteredFieldProps(type, props)} />;
   }
 
   const { inputType, options = [], placeholder, readonly, emptyHint, ...fieldProps } = props;

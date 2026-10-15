@@ -14,14 +14,13 @@
  * `React.lazy`: a type's chunk is fetched the first time a form draws it. A
  * section that starts collapsed holds its fields out of the DOM, so the click
  * that opens it is often the first render of a type (`currency`, `url`,
- * `address`…). The form renderer drew that lazy widget with no boundary of its
- * own, so the suspension left the form, left `ModalForm`, and landed on the
- * HOST's nearest `<Suspense>`. The console mounts the record dialog beside its
- * routes, under the shell's root boundary, with no route boundary in between —
- * so the whole console, dialog included, was swapped for the root fallback
- * while the chunk loaded. The full-page form hid only its page: its nearest
- * boundary is the route's. The fix is a boundary per registered field widget
- * in the form renderer (`boundedFieldWidget` in `form.tsx`).
+ * `address`…). Nothing inside the dialog caught that suspension, so it left
+ * `ModalForm` and landed on the HOST's nearest `<Suspense>`. The console mounts
+ * the record dialog beside its routes, under the shell's root boundary, with no
+ * route boundary in between — so the whole console, dialog included, was
+ * swapped for the root fallback while the chunk loaded. The full-page form hid
+ * only its page: its nearest boundary is the route's. The fix is a boundary
+ * around the dialog's body (`ModalFormBodyPending` in `ModalForm.tsx`).
  *
  * NOT the producer, read off the code: the collapse state lives in
  * `ModalForm`'s own `useState` (not above the dialog's key), and the console's
@@ -165,13 +164,12 @@ describe('ModalForm — a collapsed section opens in place (objectui#12559)', ()
 
     fireEvent.click(sectionHeader('Company Information')!);
 
-    // Mid-load: the field's own slot waits; nothing above the form does.
+    // Mid-load: the dialog's body waits; nothing above the dialog does.
     expect(counts.hostFallbackMounts).toBe(fallbacksBefore);
     expect(screen.queryByTestId('host-fallback')).toBeNull();
     expect(dialogShown()).toBe(true);
-    expect(sectionHeader('Company Information')?.getAttribute('aria-expanded')).toBe('true');
-    expect(drawnFields()).toEqual(expect.arrayContaining(['company', 'website']));
-    expect(document.body.querySelector('[data-field="website"] [data-field-widget-pending]')).not.toBeNull();
+    expect(screen.getByRole('dialog').textContent).toContain('Create Lead');
+    expect(screen.getByRole('dialog').querySelector('[data-testid="modal-form-body-pending"]')).not.toBeNull();
 
     release();
     await screen.findByTestId('deferred-url-widget');
@@ -181,8 +179,10 @@ describe('ModalForm — a collapsed section opens in place (objectui#12559)', ()
     expect(counts.hostMounts).toBe(1);
     expect(ds.getObjectSchema).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId('modal-form-skeleton')).toBeNull();
+    expect(screen.queryByTestId('modal-form-body-pending')).toBeNull();
     expect(firstNameInput()!.value).toBe('Ada');
     expect(sectionHeader('Company Information')?.getAttribute('aria-expanded')).toBe('true');
+    expect(drawnFields()).toEqual(expect.arrayContaining(['company', 'website']));
   });
 
   it('the toggled state is owned by the dialog: a host re-render with a fresh schema keeps the section open', async () => {

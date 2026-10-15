@@ -13,7 +13,7 @@
  * Aligns with @objectstack/spec FormView type: 'modal'
  */
 
-import React, { useState, useCallback, useEffect, useMemo, useId, useRef } from 'react';
+import React, { Suspense, useState, useCallback, useEffect, useMemo, useId, useRef } from 'react';
 import type { FormField, FormSchema, DataSource, ObjectFormSchema, ObjectFormSection } from '@object-ui/types';
 import {
   Dialog,
@@ -1068,6 +1068,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
             </DialogHeader>
           )}
           <div className="@container flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+            <Suspense fallback={<ModalFormBodyPending />}>
             <MasterDetailForm
               schema={{
                 type: 'object-master-detail-form',
@@ -1090,6 +1091,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
               }}
               dataSource={dataSource}
             />
+            </Suspense>
           </div>
         </MobileDialogContent>
       </Dialog>
@@ -1127,7 +1129,11 @@ export const ModalForm: React.FC<ModalFormProps> = ({
               a section, a tab, a subform row (objectui#10166). */}
           <UploadGateProvider gate={uploadGate}>
             {closedAffordanceNotice}
-            {renderContent()}
+            {/* The dialog owns its body's wait (objectui#12559) — see
+                `ModalFormBodyPending`. */}
+            <Suspense fallback={<ModalFormBodyPending />}>
+              {renderContent()}
+            </Suspense>
           </UploadGateProvider>
         </div>
 
@@ -1197,5 +1203,39 @@ export const ModalForm: React.FC<ModalFormProps> = ({
     </Dialog>
   );
 };
+
+/**
+ * What the dialog's body shows while a field widget's code loads
+ * (objectui#12559).
+ *
+ * The field widgets `@object-ui/fields` registers are `React.lazy`: a type's
+ * chunk is fetched the first time a form draws it, and that first render
+ * SUSPENDS. With no boundary inside the dialog, the suspension left the dialog
+ * and landed on the HOST's nearest `<Suspense>`. A record dialog is an overlay
+ * a host mounts beside its pages — the console mounts this one beside its
+ * routes, under the shell's root boundary — so expanding a collapsed section
+ * whose fields used a type not loaded yet swapped the WHOLE console, dialog
+ * included, for the root fallback while the chunk loaded. A full-page form
+ * sits inside its route's boundary and hid only its page.
+ *
+ * So the dialog owns its body's wait, the shape `FlowRunner` gives its screen
+ * body: the header and footer stay, the body shows this placeholder, and the
+ * form underneath is hidden, not unmounted — React keeps its state, so the
+ * section the user opened is open and every typed value is kept when the
+ * widget lands. Distinct from `modal-form-skeleton`, which is the record READ's
+ * loading state.
+ */
+function ModalFormBodyPending() {
+  return (
+    <div className="space-y-4" data-testid="modal-form-body-pending" aria-hidden="true">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="space-y-2">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default ModalForm;

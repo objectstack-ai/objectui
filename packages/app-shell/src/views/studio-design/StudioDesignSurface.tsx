@@ -2019,9 +2019,12 @@ function NavTreeGroup({
   });
   // A leaf opened from elsewhere (a deep link, a create) inside a closed
   // group opens the group, as the sidebar does for the route it is on.
-  React.useEffect(() => {
+  // Adjusted while rendering, on the change, so no effect re-renders it.
+  const [heldActive, setHeldActive] = React.useState(holdsActive);
+  if (holdsActive !== heldActive) {
+    setHeldActive(holdsActive);
     if (holdsActive) setOpen(true);
-  }, [holdsActive]);
+  }
   return (
     <StudioRailGroup label={labelText} collapsed={!open} onToggle={() => setOpen((v) => !v)}>
       {children.length === 0 ? (

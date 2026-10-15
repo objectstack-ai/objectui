@@ -112,6 +112,10 @@ describe('ModalForm tabbed sections — per-tab form state (#2959)', () => {
     );
 
     await waitFor(() => expect(screen.getByTestId('modal-form-footer')).toBeTruthy());
+    // The footer is drawn while the body still waits on a field widget's code
+    // (objectui#12559: the dialog owns that wait), so the form is read once
+    // the body's placeholder has gone.
+    await waitFor(() => expect(screen.queryByTestId('modal-form-body-pending')).toBeNull());
 
     // ONE form for all three sections — the shared-`formId` duplicate <form>
     // elements are what stranded section 2+ outside the submit (#2153).

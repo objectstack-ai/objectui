@@ -310,7 +310,7 @@ describe('objectui#5144 (ruling E) — the console inline-edit toggle writes not
     // last of them, is the user's own list state), so the write is the
     // adapter's own, the call the density toggle used to reach.
     await act(async () => {
-      await ds.updateViewConfig(OPTED_IN_OBJECT.name, 'all', { rowHeight: 'medium' }, { isSavedView: false });
+      await ds.updateViewConfig(OPTED_IN_OBJECT.name, 'all', { rowHeight: 'medium', viewKind: 'list' }, { isSavedView: false });
     });
     expect(ds.updateViewConfig).toHaveBeenCalledTimes(1);
     expect(rows.get('all').rowHeight).toBe('medium');

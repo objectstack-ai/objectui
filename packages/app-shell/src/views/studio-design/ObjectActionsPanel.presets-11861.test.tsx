@@ -127,7 +127,8 @@ function Harness({ onPatch, initial }: { onPatch: (p: Record<string, unknown>) =
 }
 
 // Exactly "New": the blank action under Advanced is named "New action".
-const openNew = () => fireEvent.click(screen.getByRole('button', { name: 'New' }));
+// The empty block's button while no action is listed (objectui#12514).
+const openNew = () => fireEvent.click(screen.queryByTestId('actions-empty-new') ?? screen.getByRole('button', { name: 'New' }));
 const presetButton = (id: string) => screen.getByTestId(`action-preset-${id}`);
 
 /** The last action the panel wrote, as the save sends it (through the JSON wire). */

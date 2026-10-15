@@ -431,7 +431,8 @@ describe('a deep-link miss and an empty list show no "no designers" notice (obje
       undefined,
       { timeout: 8000 },
     );
-    expect(screen.getByText('Select an automation')).toBeInTheDocument();
+    // objectui#12514 — the sentence is the content column's one block now.
+    expect(screen.getByTestId('auto-empty')).toHaveTextContent('No flows outside a package yet.');
     expect(getMetadataPreview('flow')).toBe(FlowPreview);
     expect(document.body.textContent).not.toContain(NO_DESIGNERS);
     expect(document.body.textContent).not.toContain('The link names flow');

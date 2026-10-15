@@ -6806,30 +6806,29 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // `FooterSummaryReport` mounted where the row would be, what it would have
   // drawn. Mounted in the same place, so whatever withholds the row (a
   // grouped grid, the card view, a loading or error face) reports `null`.
+  const summaryColumnsShown: Array<{ accessorKey: string; header?: React.ReactNode }> = hasSummary
+    ? orderedColumns.filter((col: { accessorKey: string }) => summaries.has(col.accessorKey))
+    : [];
   const summaryFooter = hasSummary && onColumnSummaryChange ? (
     <FooterSummaryReport
-      summaries={orderedColumns
-        .filter((col: any) => summaries.has(col.accessorKey))
-        .map((col: any) => ({
-          key: String(col.accessorKey),
-          header: typeof col.header === 'string' ? col.header : String(col.accessorKey),
-          label: summaries.get(col.accessorKey)!.label,
-        }))}
+      summaries={summaryColumnsShown.map((col) => ({
+        key: String(col.accessorKey),
+        header: typeof col.header === 'string' ? col.header : String(col.accessorKey),
+        label: summaries.get(col.accessorKey)!.label,
+      }))}
       onChange={onColumnSummaryChange}
     />
   ) : hasSummary ? (
     <div className="border-t bg-muted/30 px-2 py-1.5" data-testid="column-summary-footer">
       <div className="flex gap-4 text-xs text-muted-foreground font-medium">
-        {orderedColumns
-          .filter((col: any) => summaries.has(col.accessorKey))
-          .map((col: any) => {
-            const summary = summaries.get(col.accessorKey)!;
-            return (
-              <span key={col.accessorKey} data-testid={`summary-${col.accessorKey}`}>
-                {col.header}: {summary.label}
-              </span>
-            );
-          })}
+        {summaryColumnsShown.map((col) => {
+          const summary = summaries.get(col.accessorKey)!;
+          return (
+            <span key={col.accessorKey} data-testid={`summary-${col.accessorKey}`}>
+              {col.header}: {summary.label}
+            </span>
+          );
+        })}
       </div>
     </div>
   ) : null;

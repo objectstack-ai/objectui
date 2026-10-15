@@ -39,7 +39,7 @@ import {
   STUDIO_KIND_CHIP,
 } from './studio-tokens.js';
 import { StudioInspector } from './StudioInspector.js';
-import { StudioItemHeader, StudioTab } from './StudioItemHeader.js';
+import { StudioItemHeader, StudioStatusChip, StudioTab, type StudioItemStatus } from './StudioItemHeader.js';
 import { overlayPath } from './BuilderLanding.js';
 import { DATA_CONTENT_CONTAINER, DATA_TAB_FLAT_ONLY, DATA_TAB_FOLDED_ONLY } from './dataTabsFold.js';
 import { StudioRail, StudioRailGroup, StudioRailRow } from './StudioRail.js';
@@ -4014,13 +4014,11 @@ export function InterfacesPillar({
           </span>
         ) : undefined
       }
+      // objectui#12524 — the draft status sits after the kind chip, as in
+      // every pillar; the right slot holds actions only.
+      status={hasDraft && draftLoaded ? { label: t('engine.studio.unpublishedDraft', locale) } : undefined}
       actions={
         <>
-          {hasDraft && draftLoaded && (
-            <span className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300">
-              {t('engine.studio.unpublishedDraft', locale)}
-            </span>
-          )}
           {/* objectui#5813 — drafts auto-save; the spinner is the affordance. */}
           {saving === 'draft' && (
             <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground" data-testid="if-autosaving">
@@ -5805,13 +5803,7 @@ export function DataPillar({
             titleProps={current ? undefined : { className: 'text-[13px] font-normal text-muted-foreground' }}
             apiName={current?.name}
             meta={current && objLoaded ? tFormat('engine.studio.data.fieldCount', locale, { count: fieldCount }) : undefined}
-            chips={
-              hasDraft && objLoaded ? (
-                <span className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300">
-                  {t('engine.studio.unpublishedDraft', locale)}
-                </span>
-              ) : undefined
-            }
+            status={hasDraft && objLoaded ? { label: t('engine.studio.unpublishedDraft', locale) } : undefined}
             actions={
               <>
                 {/* objectui#5813 — drafts auto-save (see useDraftAutoSave above); the
@@ -7412,13 +7404,7 @@ export function AutomationsPillar({
                 <span className="hidden 2xl:inline">{t('engine.studio.auto.designersMissing', locale)}</span>
               )
             }
-            chips={
-              hasDraft && flowLoaded ? (
-                <span className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300">
-                  {t('engine.studio.unpublishedDraft', locale)}
-                </span>
-              ) : undefined
-            }
+            status={hasDraft && flowLoaded ? { label: t('engine.studio.unpublishedDraft', locale) } : undefined}
             actions={
               <>
                 {/* objectui#5813 — drafts auto-save; the spinner is the affordance. */}
@@ -7965,19 +7951,20 @@ export function AccessPillar({
   // the note was, and the link's title carries the note's sentence. An open
   // set's header draws it at the tab row's right end (objectui#12456: the
   // title row truncated the set's label at the 1280 px design width).
-  const accessNoteEl = readOnly ? (
+  // objectui#12524 — the writable note is this pillar's draft status: the
+  // header draws it in the status place every pillar shares. The read-only
+  // link is an action, so it stays in the actions slot.
+  const accessStatus: StudioItemStatus | undefined = readOnly
+    ? undefined
+    : { label: t('engine.studio.access.banner', locale), title: t('engine.studio.access.bannerTitle', locale) };
+  const accessNoteEl = accessStatus ? (
+    <StudioStatusChip {...accessStatus} />
+  ) : (
     <StudioReadOnlyLink
       packageId={packageId}
       title={t('engine.studio.access.bannerTitleReadOnly', locale)}
       locale={locale}
     />
-  ) : (
-    <span
-      title={t('engine.studio.access.bannerTitle', locale)}
-      className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300"
-    >
-      {t('engine.studio.access.banner', locale)}
-    </span>
   );
   const accessExplainEl = (
     <button
@@ -8007,7 +7994,7 @@ export function AccessPillar({
       icon={owdOpen ? ShieldCheck : Shield}
       title={owdOpen ? t('engine.studio.owd.title', locale) : t('engine.studio.access.title', locale)}
       meta={owdOpen ? t('engine.studio.owd.subtitle', locale) : t('engine.studio.access.subtitle', locale)}
-      chips={readOnly ? undefined : accessNoteEl}
+      status={accessStatus}
       actions={
         <>
           {readOnly && accessNoteEl}

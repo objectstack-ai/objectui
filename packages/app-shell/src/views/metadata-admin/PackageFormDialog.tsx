@@ -20,6 +20,11 @@
  * {@link PackageIdInput} (objectui#11792): it follows the display name until
  * the author edits it, and the dialog submits only an id the installed
  * `ManifestSchema` accepts — the rule `POST /api/v1/packages` refuses by.
+ *
+ * Create mode opens on the display name (objectui#12512): the id, namespace
+ * and version below it in the same card are filled in for the author, each
+ * says so until edited, and focusing one selects its whole value so typing
+ * replaces it.
  */
 
 import * as React from 'react';
@@ -40,17 +45,114 @@ import {
 } from '@object-ui/components';
 import { useMetadataLocale, t, tFormat, tOptional } from './i18n.js';
 import { SchemaForm, type SchemaFormIssue } from './SchemaForm.js';
+import type { FormFieldSpec, FormViewSpec } from './form-spec.js';
 import { getPackageSchema, getPackageForm } from './package-schema.js';
 import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
 
 const API = '/api/v1/packages';
 
 /**
- * Create mode renders the id through {@link PackageIdInput} above the spec
- * form, so the form's own text field for it is hidden (still preserved on
- * save). Edit and view keep the form's locked id field (objectui#11792).
+ * Create mode renders the id through {@link PackageIdInput}, so the form's own
+ * text field for it is hidden (still preserved on save). Edit and view keep
+ * the form's locked id field (objectui#11792).
  */
 const CREATE_HIDDEN_FIELDS = ['id'];
+
+/**
+ * The fields create mode lays out itself, in one Basics card and in this
+ * order (objectui#12512): the display name first, because the id, namespace
+ * and version are filled in from it, then those three, then the rest of the
+ * curated Basics fields. Every row except the id is still the spec form's
+ * own field, taken from {@link getPackageForm} by name.
+ */
+const CREATE_BASICS_TAIL = ['type', 'description'] as const;
+const CREATE_HOSTED_FIELDS: readonly string[] = ['name', 'id', 'namespace', 'version', ...CREATE_BASICS_TAIL];
+
+function fieldName(f: string | FormFieldSpec): string {
+  return typeof f === 'string' ? f : f.field;
+}
+
+/** A one-section form view holding `names` from `form`, in that order. */
+function pickFormFields(form: FormViewSpec, names: readonly string[]): FormViewSpec {
+  const byName = new Map<string, string | FormFieldSpec>();
+  for (const s of form.sections ?? []) {
+    if (!s.fields) continue; // a `{ group }` section hosts none of these fields
+    for (const f of s.fields) byName.set(fieldName(f), f);
+  }
+  const fields = names.flatMap((n) => {
+    const f = byName.get(n);
+    return f === undefined ? [] : [f];
+  });
+  return { type: form.type, sections: [{ columns: 1, fields }] };
+}
+
+/** `form` without the sections whose fields create mode hosts in its Basics card. */
+function withoutHostedSections(form: FormViewSpec): FormViewSpec {
+  const sections = (form.sections ?? []).filter(
+    (s) => !s.fields || !s.fields.some((f) => CREATE_HOSTED_FIELDS.includes(fieldName(f))),
+  );
+  return { type: form.type, sections };
+}
+
+/**
+ * The spec form draws each section as its own bordered card. Inside the
+ * Basics card the picked one-section forms drop that frame so the rows read
+ * as one card, not a card per row.
+ */
+const FLUSH_SECTION =
+  '[&>div>section]:rounded-none [&>div>section]:border-0 [&>div>section]:bg-transparent [&>div>section]:p-0';
+
+/**
+ * One field the dialog fills in for the author (objectui#12512). While the
+ * value is still the filled-in one, the field says so under its row and
+ * focusing it selects the whole value, so the next keystroke replaces it
+ * instead of being appended to text the author never typed.
+ */
+function DerivedField({
+  derived,
+  hint,
+  testId,
+  children,
+}: {
+  derived: boolean;
+  hint: string;
+  testId: string;
+  children: React.ReactNode;
+}) {
+  // A click focuses on mousedown; the mouseup that ends the same click would
+  // collapse the selection to a caret, so that one mouseup is cancelled.
+  const keepSelection = React.useRef(false);
+  return (
+    <div
+      className="space-y-1.5"
+      data-testid={testId}
+      data-derived={derived ? 'true' : 'false'}
+      onFocus={(e) => {
+        if (!derived || !(e.target instanceof HTMLInputElement)) return;
+        e.target.select();
+        keepSelection.current = true;
+      }}
+      onMouseUp={(e) => {
+        if (!keepSelection.current) return;
+        keepSelection.current = false;
+        e.preventDefault();
+      }}
+      onKeyDown={() => {
+        keepSelection.current = false;
+      }}
+      onBlur={() => {
+        keepSelection.current = false;
+      }}
+    >
+      {children}
+      {derived && (
+        <p className="text-xs text-muted-foreground" data-testid={`${testId}-derived`}>
+          {hint}
+        </p>
+      )}
+    </div>
+  );
+}
 
 /**
  * Is `v` a package version the INSTALLED `@objectstack/spec` accepts?
@@ -236,11 +338,15 @@ export function PackageFormDialog({
   // On create the id tracks the display name (objectui#11792) the same way,
   // until the author types into the id field.
   const idTouched = React.useRef(false);
+  // The prefilled create version is the dialog's default, not the author's,
+  // until they type into the field (objectui#12512).
+  const versionTouched = React.useRef(false);
 
   React.useEffect(() => {
     if (!open) return;
     nsTouched.current = false;
     idTouched.current = false;
+    versionTouched.current = false;
     if (createMode) {
       // Defaults for a new WRITABLE base package. Deliberately no `scope`:
       // a runtime-created base is writable, whereas `scope: 'project'` marks a
@@ -268,6 +374,7 @@ export function PackageFormDialog({
         return;
       }
       setDraft((prev) => {
+        if (next.version !== prev.version) versionTouched.current = true;
         let id = next.id;
         if (!idTouched.current && next.name !== prev.name) {
           id = deriveCreatePackageId(String(next.name ?? ''), orgSlug) ?? '';
@@ -343,6 +450,33 @@ export function PackageFormDialog({
   // prefixed with it. On edit it's immutable and not resubmitted.
   const nsOk = !createMode || NAMESPACE_RE.test(String(draft.namespace ?? '').trim());
   const canSubmit = !readOnly && nameOk && versionOk && idOk && nsOk && !busy;
+
+  // objectui#12512 — every field that keeps Create disabled says why under its
+  // row. The spec form already does for the name and the version, and the id
+  // input for a malformed id; an EMPTY id or namespace is the case nothing
+  // else explains (the id is not a spec-form row on create, and the manifest
+  // declares `namespace` optional, so its parse raises no issue). Both wait
+  // for a cause, as the spec form's own lines do: a name that derived no id
+  // (a CJK-only name), an id that derived no namespace, or the author
+  // clearing the field.
+  const idStr = String(draft.id ?? '').trim();
+  const idMissing = createMode && !idStr && (idTouched.current || nameOk);
+  const nsMissing =
+    createMode && !String(draft.namespace ?? '').trim() && (nsTouched.current || !!idStr);
+
+  const createForms = React.useMemo(
+    () =>
+      createMode
+        ? {
+            name: pickFormFields(form, ['name']),
+            namespace: pickFormFields(form, ['namespace']),
+            version: pickFormFields(form, ['version']),
+            tail: pickFormFields(form, CREATE_BASICS_TAIL),
+            rest: withoutHostedSections(form),
+          }
+        : null,
+    [createMode, form],
+  );
 
   async function submit() {
     if (!canSubmit) return;
@@ -433,6 +567,18 @@ export function PackageFormDialog({
     }
   }
 
+  // What every spec-form instance below shares; create mode mounts several,
+  // each with its own slice of the curated form.
+  const formProps = {
+    schema,
+    value: draft,
+    onChange: handleChange,
+    issues,
+    hiddenFields: createMode ? CREATE_HIDDEN_FIELDS : undefined,
+    readOnly,
+    createMode,
+  };
+
   const title =
     mode === 'create'
       ? t('engine.packages.create.title', locale)
@@ -457,37 +603,79 @@ export function PackageFormDialog({
         </DialogHeader>
 
         <div className="py-1" data-testid="package-form">
-          {createMode && (
-            <div className="mb-4 space-y-1.5" data-testid="package-form-id">
-              <Label htmlFor={idInputId} className="text-sm font-medium">
-                {t('engine.packages.create.id', locale)}
-                <span className="ml-0.5 text-destructive" aria-hidden="true">
-                  *
-                </span>
-              </Label>
-              <PackageIdInput
-                id={idInputId}
-                value={String(draft.id ?? '')}
-                onChange={handleIdChange}
-                placeholder="com.acme.crm"
-                locale={locale}
-                inputClassName="h-10 px-3 py-2 text-base md:text-sm"
-                testId="package-form-id-input"
-              />
-              {idHelp && <p className="text-xs text-muted-foreground">{idHelp}</p>}
-              <p className="text-xs text-muted-foreground">{t('engine.packages.idRule.derived', locale)}</p>
+          {createForms ? (
+            <div className="space-y-4">
+              <section
+                className="space-y-4 rounded-md border border-border/40 bg-card/30 p-4"
+                data-testid="package-form-basics"
+              >
+                <header>
+                  <h3 className="text-sm font-semibold text-foreground/90">
+                    {t('engine.packages.form.basics', locale)}
+                  </h3>
+                </header>
+                <div className={FLUSH_SECTION}>
+                  <SchemaForm {...formProps} form={createForms.name} />
+                </div>
+                <DerivedField
+                  derived={!idTouched.current}
+                  hint={t('engine.packages.idRule.derived', locale)}
+                  testId="package-form-id"
+                >
+                  <Label htmlFor={idInputId} className="text-sm font-medium">
+                    {t('engine.packages.create.id', locale)}
+                    <span className="ml-0.5 text-destructive" aria-hidden="true">
+                      *
+                    </span>
+                  </Label>
+                  <PackageIdInput
+                    id={idInputId}
+                    value={String(draft.id ?? '')}
+                    onChange={handleIdChange}
+                    placeholder="com.acme.crm"
+                    locale={locale}
+                    inputClassName="h-10 px-3 py-2 text-base md:text-sm"
+                    testId="package-form-id-input"
+                  />
+                  {idMissing && (
+                    <p className="text-xs text-destructive" data-testid="package-form-id-missing">
+                      {tFormat('engine.packages.idRule.formatHint', locale, { example: 'com.acme.crm' })}
+                    </p>
+                  )}
+                  {idHelp && <p className="text-xs text-muted-foreground">{idHelp}</p>}
+                </DerivedField>
+                <DerivedField
+                  derived={!nsTouched.current}
+                  hint={t('engine.packages.nsRule.derived', locale)}
+                  testId="package-form-namespace"
+                >
+                  <div className={FLUSH_SECTION}>
+                    <SchemaForm {...formProps} form={createForms.namespace} />
+                  </div>
+                  {nsMissing && (
+                    <p className="text-xs text-destructive" data-testid="package-form-namespace-missing">
+                      {t('engine.packages.nsRule.required', locale)}
+                    </p>
+                  )}
+                </DerivedField>
+                <DerivedField
+                  derived={!versionTouched.current}
+                  hint={t('engine.packages.versionRule.default', locale)}
+                  testId="package-form-version"
+                >
+                  <div className={FLUSH_SECTION}>
+                    <SchemaForm {...formProps} form={createForms.version} />
+                  </div>
+                </DerivedField>
+                <div className={FLUSH_SECTION}>
+                  <SchemaForm {...formProps} form={createForms.tail} />
+                </div>
+              </section>
+              <SchemaForm {...formProps} form={createForms.rest} />
             </div>
+          ) : (
+            <SchemaForm {...formProps} form={form} />
           )}
-          <SchemaForm
-            schema={schema}
-            form={form}
-            value={draft}
-            onChange={handleChange}
-            issues={issues}
-            hiddenFields={createMode ? CREATE_HIDDEN_FIELDS : undefined}
-            readOnly={readOnly}
-            createMode={createMode}
-          />
         </div>
 
         {error && (

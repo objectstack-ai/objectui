@@ -92,7 +92,7 @@ const SECTIONS = (company: Record<string, unknown>) => [
 /** The console's mount, reduced: root boundary → host → keyed dialog. */
 function mountConsoleShaped(ds: any, company: Record<string, unknown>) {
   const counts = { hostFallbackMounts: 0, hostMounts: 0 };
-  let rerenderHost: () => void = () => {};
+  const handle = { rerender: () => {} };
   function HostFallback() {
     React.useEffect(() => { counts.hostFallbackMounts++; }, []);
     return <div data-testid="host-fallback">loading</div>;
@@ -100,7 +100,9 @@ function mountConsoleShaped(ds: any, company: Record<string, unknown>) {
   function Host() {
     const [mountId] = useState(() => ++counts.hostMounts);
     const [, setTick] = useState(0);
-    rerenderHost = () => act(() => setTick((n) => n + 1));
+    React.useEffect(() => {
+      handle.rerender = () => act(() => setTick((n) => n + 1));
+    }, []);
     return (
       <div data-testid="host-mount-id" data-mount={mountId}>
         <ModalForm
@@ -125,7 +127,7 @@ function mountConsoleShaped(ds: any, company: Record<string, unknown>) {
       <Host />
     </Suspense>,
   );
-  return { counts, rerenderHost: () => rerenderHost() };
+  return { counts, rerenderHost: () => handle.rerender() };
 }
 
 const sectionHeader = (label: string) =>

@@ -4472,12 +4472,14 @@ function nativeNumberStep(carrier: Record<string, unknown> | undefined): number 
  * Slot merges onto it (`id`, `aria-*`, `ref` — a plain prop under React 19)
  * and hands them all to the widget unchanged.
  */
-const boundedFieldWidgets = new WeakMap<React.ComponentType<any>, React.ComponentType<any>>();
+type RegisteredFieldWidget = React.ComponentType<RenderFieldProps>;
 
-function boundedFieldWidget(Widget: React.ComponentType<any>): React.ComponentType<any> {
+const boundedFieldWidgets = new WeakMap<RegisteredFieldWidget, RegisteredFieldWidget>();
+
+function boundedFieldWidget(Widget: RegisteredFieldWidget): RegisteredFieldWidget {
   let Bounded = boundedFieldWidgets.get(Widget);
   if (!Bounded) {
-    const BoundedFieldWidget = (props: Record<string, any>) => (
+    const BoundedFieldWidget = (props: RenderFieldProps) => (
       <React.Suspense fallback={<FieldWidgetPending />}>
         <Widget {...props} />
       </React.Suspense>
@@ -4564,7 +4566,7 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
     // Drawn through its BOUNDED twin (objectui#12559): a registered widget is
     // typically `React.lazy`, so its first render suspends — see
     // `boundedFieldWidget` for why that suspension must stop at this field.
-    const Bounded = boundedFieldWidget(RegisteredComponent);
+    const Bounded = boundedFieldWidget(RegisteredComponent as RegisteredFieldWidget);
     return <Bounded {...stripRegisteredFieldProps(type, props)} />;
   }
 

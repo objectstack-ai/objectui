@@ -218,13 +218,16 @@ function AttachFamily({ family }: { family: any }) {
   return null;
 }
 
-function page(dataSource: ConsoleObjectViewProps['dataSource'], viewId: string) {
+function page(dataSource: ConsoleObjectViewProps['dataSource'], viewId: string, opts: { app?: boolean } = {}) {
+  // `app: false` mounts the page with no app segment, the one case in which
+  // the page has no favorites entry (`useObjectListFavorite` answers null).
+  const withApp = opts.app !== false;
   return (
     <ExpressionProvider user={{ id: session.userId, name: 'Ada', profile: 'admin' }}>
-      <MemoryRouter initialEntries={[`/apps/demo/${OBJECT_NAME}/view/${viewId}`]}>
+      <MemoryRouter initialEntries={[withApp ? `/apps/demo/${OBJECT_NAME}/view/${viewId}` : `/${OBJECT_NAME}/view/${viewId}`]}>
         <Routes>
           <Route
-            path="/apps/:appName/:objectName/view/:viewId"
+            path={withApp ? '/apps/:appName/:objectName/view/:viewId' : '/:objectName/view/:viewId'}
             element={<ObjectView dataSource={dataSource} objects={[OBJECT as any]} onEdit={() => {}} />}
           />
         </Routes>
@@ -234,11 +237,11 @@ function page(dataSource: ConsoleObjectViewProps['dataSource'], viewId: string) 
 }
 
 /** Mount the page in the console's preference providers, with `family` attached. */
-function mountWithFamily(dataSource: ConsoleObjectViewProps['dataSource'], family: any, viewId = SYSTEM_ID) {
+function mountWithFamily(dataSource: ConsoleObjectViewProps['dataSource'], family: any, viewId = SYSTEM_ID, opts: { app?: boolean } = {}) {
   return render(
     <UserStateAdaptersProvider>
       <AttachFamily family={family} />
-      <ListPreferencesProvider>{page(dataSource, viewId)}</ListPreferencesProvider>
+      <ListPreferencesProvider>{page(dataSource, viewId, opts)}</ListPreferencesProvider>
     </UserStateAdaptersProvider>,
   );
 }
@@ -454,6 +457,21 @@ describe('the user\'s state follows them, and only them (objectui#12418)', () =>
     expect(listProps.schema.columnState).toEqual({});
     // Nothing stored for the view any more: nothing to reset, so no entry.
     expect(await overflowTestIds()).not.toContain('object-view-reset-view-button');
+  });
+
+  it('with no favorites entry (no app segment), the ⋯ is drawn for "Reset view" alone, and only while there is state to reset', async () => {
+    const ds = makeDataSource();
+    const { family } = makeFamily(structuredClone(STORED));
+    mountWithFamily(ds, family, SYSTEM_ID, { app: false });
+    await listReady();
+
+    expect(await overflowTestIds()).toEqual(['object-view-reset-view-button']);
+    await act(async () => {
+      fireEvent.click(await openOverflowItem('object-view-reset-view-button'));
+    });
+    await wait(700);
+    // Nothing left to reset and no favorites entry: no ⋯ at all.
+    expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
   });
 
   it('"Clear all" in the Filter panel clears the user\'s filters for the view', async () => {

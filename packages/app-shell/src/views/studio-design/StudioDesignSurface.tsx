@@ -103,13 +103,11 @@ import {
   ChevronDown,
   Lock,
   Settings,
-  Settings2,
   Home as HomeIcon,
   Shield,
   ShieldCheck,
   ShieldQuestion,
   Menu,
-  MoreHorizontal,
   PanelRightClose,
   PanelRightOpen,
   Zap,
@@ -5100,8 +5098,6 @@ export function DataPillar({
     { key: 'settings', label: t('engine.studio.data.tab.settings', locale) },
   ];
   const activeAdvancedTab = advancedDataTabs.find((tabDef) => tabDef.key === viewMode);
-  // The two views Add field serves; `addField` itself refuses the rest.
-  const addFieldOffered = Boolean(current) && (viewMode === 'grid' || viewMode === 'form') && !readOnly && objLoaded;
   // objectui#12450 — the Records grid draws flush with the content column.
   const recordsFlush = Boolean(current) && objLoaded && viewMode === 'grid' && hasBaseline;
   // objectui#12451 — so does the Form tab: its one toolbar row spans the
@@ -5303,52 +5299,13 @@ export function DataPillar({
                     })}
                   </span>
                 ) : null}
-                {/* objectui#12450 — the header's two icon buttons. Object
-                    settings opens the Settings panel (a shortcut that still
-                    works when that tab is folded into Advanced); More holds
-                    Add field, which left the header row for it. Add field
-                    stays reachable from the grid's own "+" column and the form
-                    designer's button too. More is drawn only when it holds
-                    something: Add field is not offered on a read-only package,
-                    before the object loads, or on the five power panels. */}
-                {current && (
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => selectViewMode('settings')}
-                      aria-label={t('engine.studio.data.objectSettings', locale)}
-                      title={t('engine.studio.data.objectSettings', locale)}
-                      data-testid="data-object-settings"
-                      className={STUDIO_HEADER_ICON_BUTTON}
-                    >
-                      <Settings2 className="h-4 w-4" />
-                    </button>
-                    {addFieldOffered && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            type="button"
-                            aria-label={t('engine.studio.data.moreActions', locale)}
-                            title={t('engine.studio.data.moreActions', locale)}
-                            data-testid="data-object-more"
-                            className={STUDIO_HEADER_ICON_BUTTON}
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onSelect={addField}
-                            title={t('engine.studio.data.addFieldTitle', locale)}
-                            data-testid="data-object-add-field"
-                          >
-                            <Plus className="h-3.5 w-3.5" /> {t('engine.studio.data.addField', locale)}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </div>
-                )}
+                {/* objectui#12511 — the header holds no actions of its own, so
+                    it reads the same on every tab. Object settings retired: the
+                    Settings tab is that control. Add field is a field action,
+                    offered where fields are laid out: the Form toolbar and the
+                    Records grid's own "+" column, both running `addField`. The
+                    More menu went with it, since the header has no object-level
+                    action left to put in one. */}
               </>
             }
             tabs={dataTabRowEl}

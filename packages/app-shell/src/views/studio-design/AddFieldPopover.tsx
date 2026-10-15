@@ -66,15 +66,6 @@ export function AddFieldPopover({
   const titleId = React.useId();
   const labelId = React.useId();
 
-  // A controlled popover reports itself closed when it unmounts (the Records
-  // grid left for another tab or object), so the host's state does not bring
-  // it back open on return.
-  const onOpenChangeRef = React.useRef(onOpenChange);
-  React.useEffect(() => {
-    onOpenChangeRef.current = onOpenChange;
-  });
-  React.useEffect(() => () => onOpenChangeRef.current?.(false), []);
-
   const setOpen = (next: boolean) => {
     if (openProp === undefined) setOpenState(next);
     onOpenChange?.(next);

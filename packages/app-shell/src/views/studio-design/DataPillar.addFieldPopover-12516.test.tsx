@@ -221,8 +221,8 @@ describe('Data pillar — Add field asks for the label and type first (objectui#
     await renderPillar();
     await userEvent.click(screen.getByTestId('grid-add-column'));
     await screen.findByTestId('add-field-popover');
-    // The tab row is outside the popover: a click there dismisses it, and the
-    // grid unmounts with the tab.
+    // The tab row is outside the popover: a click there dismisses it (the
+    // host's open state with it) before the grid unmounts with the tab.
     await userEvent.click(screen.getAllByRole('button', { name: FORM })[0]);
     await screen.findByTestId('form-toolbar');
     await userEvent.click(screen.getAllByRole('button', { name: t('engine.studio.data.tab.records', 'en') })[0]);

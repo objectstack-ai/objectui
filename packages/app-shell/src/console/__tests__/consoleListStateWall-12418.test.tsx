@@ -37,6 +37,7 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, waitFor, act, screen, fireEvent, cleanup } from '@testing-library/react';
+import { useEffect } from 'react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 
 vi.mock('sonner', () => ({
@@ -146,7 +147,9 @@ let pageAdapter: any = null;
 /** The object page over the shell's adapter, as the console's routes mount it. */
 function Page() {
   const adapter = useAdapter();
-  pageAdapter = adapter;
+  useEffect(() => {
+    pageAdapter = adapter;
+  }, [adapter]);
   if (!adapter) return null;
   return <ObjectView dataSource={adapter as any} objects={[OBJECT as any]} onEdit={() => {}} />;
 }

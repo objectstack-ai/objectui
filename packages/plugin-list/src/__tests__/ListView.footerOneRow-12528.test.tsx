@@ -21,7 +21,7 @@
  */
 import React from 'react';
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ComponentRegistry } from '@object-ui/core';
 import { I18nProvider, SchemaRendererProvider } from '@object-ui/react';
@@ -41,11 +41,19 @@ const SUMMARIES = [
 ];
 
 let reported: typeof SUMMARIES | null = SUMMARIES;
+/** Every report the probe made, so a test can wait until one has happened. */
+const reports = vi.fn();
 
-/** Stands in for `ObjectGrid`: reports its summaries the way the grid does. */
+/**
+ * Stands in for `ObjectGrid`: reports its summaries the way the grid does —
+ * from a passive effect, which runs AFTER the commit that draws the count
+ * row. So the summaries reach the row one render later, and every assertion
+ * about them (present or absent) waits for the report first.
+ */
 function GridProbe(props: { onColumnSummaryChange?: (s: typeof SUMMARIES | null) => void }) {
   const { onColumnSummaryChange } = props;
   React.useEffect(() => {
+    reports(reported);
     onColumnSummaryChange?.(reported);
   }, [onColumnSummaryChange]);
   return <div data-testid="grid-probe" />;
@@ -58,6 +66,7 @@ beforeAll(() => {
 });
 beforeEach(() => {
   reported = SUMMARIES;
+  reports.mockClear();
   ComponentRegistry.register('object-grid', GridProbe as never);
 });
 afterEach(() => {
@@ -97,7 +106,7 @@ describe('ListView — one footer row with the count and the column summaries (o
 
     const bar = await screen.findByTestId('record-count-bar');
     await waitFor(() => expect(within(bar).getByText('9 records')).toBeInTheDocument());
-    const summaries = within(bar).getByTestId('record-count-summaries');
+    const summaries = await within(bar).findByTestId('record-count-summaries');
     expect(summaries).toHaveTextContent(SUMMARY_TEXT);
     // Truncated when it does not fit, with the full text as its tooltip.
     expect(summaries).toHaveAttribute('title', SUMMARY_TEXT);
@@ -113,6 +122,10 @@ describe('ListView — one footer row with the count and the column summaries (o
 
     const bar = await screen.findByTestId('record-count-bar');
     await waitFor(() => expect(within(bar).getByText('9 records')).toBeInTheDocument());
-    expect(within(bar).queryByTestId('record-count-summaries')).toBeNull();
+    // Not vacuous: the grid has reported (its `null`), and the row it would
+    // have changed has re-rendered, before the absence is read.
+    await waitFor(() => expect(reports).toHaveBeenCalledWith(null));
+    await act(async () => {});
+    expect(within(screen.getByTestId('record-count-bar')).queryByTestId('record-count-summaries')).toBeNull();
   });
 });

@@ -803,6 +803,12 @@ object's set of saved views (Airtable / Notion-style):
   disabled — reordering happens in `<ManageViewsDialog>` to avoid the
   ambiguity of "does dragging the visible tab change the global order or
   just the visible subset?".)
+  A tab item's optional `description` (`ViewTabItem.description`) is the
+  view's description, already resolved to the viewer's language and already
+  gated by the host on `appearance.showDescription` (leave it out when that is
+  `false`). The strip draws it on the active tab only: as the tab's tooltip and
+  as the header of its chevron menu. The console's object page passes it, so a
+  list it hosts draws no description row of its own (objectui#12528).
 - **`<ManageViewsDialog>`** — a Shadcn `Dialog` containing a vertical sortable
   list of **every** view (visible + overflow + metadata-defined). Supports
   drag-reorder, search, inline rename, pin / set-default toggles, and a per-row

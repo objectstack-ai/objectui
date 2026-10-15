@@ -278,6 +278,31 @@ search is one.
 The footer row renders only when at least one column resolves to a summary — a
 view whose columns are all `none` (or carry no `summary`) has no footer.
 
+**A host that draws its own footer row (objectui#12528).** `ObjectGrid`'s
+`onColumnSummaryChange` prop hands the summaries to the host instead. When it is
+passed, the grid draws no summary row and calls it, in column order, with one
+`ObjectGridFooterSummary` per summary — `{ key, header, label }`, e.g. `amount`,
+`Amount`, `Sum: 350` — and with `null` when it would draw none (no summary, a
+grouped grid, a loading or error face, unmounted). It is called again only when
+that text changes. `ListView` passes it and draws the summaries at the right of
+its record-count row, so an aggregated list has one footer row. It is a React
+prop for a host, not a column or view key.
+
+```tsx
+import * as React from 'react';
+import { ObjectGrid, type ObjectGridComponentProps, type ObjectGridFooterSummary } from '@object-ui/plugin-grid';
+
+function Footer({ schema, dataSource }: Pick<ObjectGridComponentProps, 'schema' | 'dataSource'>) {
+  const [summaries, setSummaries] = React.useState<readonly ObjectGridFooterSummary[] | null>(null);
+  return (
+    <>
+      <ObjectGrid schema={schema} dataSource={dataSource} onColumnSummaryChange={setSummaries} />
+      <div>{summaries?.map((s) => `${s.header}: ${s.label}`).join(' · ')}</div>
+    </>
+  );
+}
+```
+
 ## Usage
 
 ### Registration is a side effect of the import

@@ -1507,13 +1507,11 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   // entire justification for this exemption — it always was sufficient alone.
   'record:reference_rail.entries':
     'An array of {objectName, relationshipField, title, limit, displayField} objects; `inputs` is a flat scalar carrier and cannot express it. Newly judged rather than newly missing — @objectstack/spec 17.1.0 added record:reference_rail to ComponentPropsMap, and the registration (the reference_rail register call in plugin-detail/src/index.tsx) has always published only `hideEmpty` — the 17.1.0 pin, objectui#5328. The flat-carrier shape limit is the entire reason: the `icon` divergence that once also blocked an entries editor was settled by Option B (maintainer 2026-08-22, objectui#5494).',
-  // objectui#12370 (the 18.0.0-next.1 bump): objectstack#23205 declares `parentDataSource` on
-  // `record:related_list`, the parent record bound by a query of its own, for objectui#12294. The
-  // spec's own description opens "[PLANNED — not yet rendered]", and no renderer here reads it
-  // (`git grep parentDataSource -- packages` finds no read site), so publishing it now would
-  // advertise configuration the platform drops. objectui#12294 owns wiring and declaring it.
-  'record:related_list.parentDataSource':
-    'Declared by @objectstack/spec 18.0.0-next.1 (objectstack#23205) as PLANNED, not yet rendered: the parent record of a related list bound by its own query. No renderer here reads it yet; objectui#12294 wires the record blocks to their bound row and declares it on the registration.',
+  // `record:related_list.parentDataSource` — booked here by objectui#12370 (the 18.0.0-next.1 bump)
+  // while no renderer read it — is STRUCK: objectui#12294's related-list leg wired the read
+  // (`ParentRecordBinding`) and declared the key on the registration, with its member pin in
+  // `MEMBER_PINS`, so the entry went stale and `carries no stale unpublished-key exemption` would
+  // refuse it.
 
   /*
    * ⚠️ THE 17.5.0 BOOKINGS — objectui#11111 decision 3 = B (record 5902351047).
@@ -3402,6 +3400,10 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   'record:related_list.filter': {
     file: 'packages/plugin-detail/src/__tests__/RelatedList.listFilter.test.tsx',
     pins: 'Members are spec `ViewFilterRule` entries, pinned at the WIRE rather than at a prop: `{ field, operator, value }` reaches `dataSource.find` as `[[field, operator, value]]` through the shared sink, ANDed BEHIND the parent relationship so "additional criteria" can only ever narrow this record\'s children. The negatives are what make it a member contract: an empty `filter: []` is unauthored (the query stays the byte-identical MongoDB-style object, not a freshly lowered AST that means the same), the composed AST a binding leaves on this key is accepted WITHOUT being converted twice, the filter survives onto the windowed fetch, and on the raw-URL fallback — a channel that cannot carry an operator — the block REFUSES to fetch rather than answering wider than the metadata asked. Pre-existing file, promoted after being read (objectui#8071).',
+  },
+  'record:related_list.parentDataSource': {
+    file: 'packages/plugin-detail/src/renderers/__tests__/record-related-list.parentDataSource-12294.test.tsx',
+    pins: 'The PARENT binding\'s own members, through the real `SchemaRenderer`, this block\'s registration and the real `RelatedList`, authored in the `properties` bag on an `app` page: `object` is the object the parent row is read from, the binding\'s `filter` reaches that read, `sort` decides WHICH row is the parent (the first by `sort`, read as one row, `$top: 1`, whatever `limit` says), and a `view` that does not resolve draws the configuration panel and reads nothing. The parent row is asserted at the CHILD query the list sends (`$filter` scoped to its id, or to its `relationshipValueField`) and at the rows it draws. No row, or a read the server refuses, draws the loud absence and sends no child query; a failed read draws the error panel. Without the key the record page\'s record is the parent and nothing is read for one (objectui#12294, ruling B on objectui#12296).',
   },
   'record:related_list.redactFields': {
     file: 'packages/plugin-detail/src/__tests__/RecordRelatedListRenderer.redactedDerivation-9053.test.tsx',

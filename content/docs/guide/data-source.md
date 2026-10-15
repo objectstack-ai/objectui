@@ -388,6 +388,43 @@ limit into `dataSource`, as it does the metric's object.
 }
 ```
 
+#### A related list's parent record: `parentDataSource`
+
+`record:related_list` reads two bindings. Its `dataSource` is the CHILD rows the
+list draws (its row in the table above). Its parent record — the record the
+list hangs off — is the record page's record, or, when the block's
+`properties` carry `parentDataSource`, the record that binding reads. The key
+is a member of the spec's `record:related_list` row and takes the same object
+binding `dataSource` takes. It is read the way the three one-record blocks
+above read their record: the FIRST row of the binding by its `sort`, under the
+caller's own identity, re-read whenever a write to its object is announced.
+The list then draws that record's children through `relationshipField`, and
+`relationshipValueField` is read on that row. So a product page lists a
+record's children without being a `type: 'record'` page:
+
+```json
+{
+  "type": "record:related_list",
+  "properties": {
+    "objectName": "sys_member",
+    "relationshipField": "environment_id",
+    "parentDataSource": {
+      "object": "sys_environment",
+      "filter": [{ "field": "environment_type", "operator": "equals", "value": "production" }],
+      "limit": 1
+    }
+  }
+}
+```
+
+When no row matches — or the server refuses the read — the block says so in its
+place, naming the object, and draws no list: an empty list would read as "this
+record has no related records". A read that fails any other way is reported in
+the block's place. `objectui validate` warns on a `parentDataSource` without
+`limit: 1`, and refuses the key written on the node instead of in `properties`.
+On a record page, a related list without `parentDataSource` lists the page
+record's children, as before; with it, it lists the bound record's children.
+
 #### Scoping a filter to the record in view: `{record_id}`
 
 On a `type: 'record'` page, a filter value can name the record the page shows

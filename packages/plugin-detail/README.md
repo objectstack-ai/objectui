@@ -99,6 +99,25 @@ row is re-read when a write to its object is announced. Declare `limit: 1`:
 (`content/docs/guide/data-source.md`). `record:related_list`'s `dataSource` is
 different: it binds the rows the list shows.
 
+A related list's PARENT record has a binding of its own, `parentDataSource` in
+its `properties` (the spec row's member). It is read by the same one-record
+rule — the first row by `sort`, re-read when its object is written — and the
+list draws that record's children:
+
+```json
+{
+  "type": "record:related_list",
+  "properties": {
+    "objectName": "sys_member",
+    "relationshipField": "environment_id",
+    "parentDataSource": { "object": "sys_environment", "sort": [{ "field": "created_at", "order": "desc" }], "limit": 1 }
+  }
+}
+```
+
+No row draws a notice in the block's place, never an empty list. Without the
+key, the parent is the record page's record.
+
 ### A section heading that counts a field's values (`count`)
 
 A `record:details` section can show how many values a multi-value field holds

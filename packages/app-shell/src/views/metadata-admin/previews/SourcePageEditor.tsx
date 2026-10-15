@@ -104,6 +104,57 @@ function configureMonacoForSource(monaco: MonacoNS): void {
   });
 }
 
+/**
+ * The plain-textarea fallback (objectui#12522), for an install with no Monaco
+ * (offline, air-gapped, a strict CSP): it reads like the editor it replaces —
+ * 12 px mono, a line-number gutter, long lines wrapped, the panel's full
+ * height. A textarea draws no gutter, so every source line is mirrored in an
+ * invisible row with the same font, width and wrapping, its number set in the
+ * left padding; the textarea lies over the rows and grows with them, and the
+ * one box around both scrolls. A number therefore sits on the first visual row
+ * of its line however many rows the line wraps to.
+ */
+function SourceTextarea({
+  value,
+  onChange,
+  readOnly,
+  label,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  readOnly?: boolean;
+  label: string;
+}) {
+  const lines = value.split('\n');
+  return (
+    <div className="h-full overflow-auto bg-background" data-testid="source-page-textarea">
+      <div className="relative min-h-full py-3 pl-12 pr-3 font-mono text-xs leading-5">
+        <div aria-hidden="true">
+          {lines.map((line, i) => (
+            <div key={i} className="relative whitespace-pre-wrap break-words">
+              <span
+                data-testid="source-line-number"
+                className="absolute -left-12 w-9 select-none text-right text-muted-foreground/70"
+              >
+                {i + 1}
+              </span>
+              <span className="invisible">{line || ' '}</span>
+            </div>
+          ))}
+        </div>
+        <textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          readOnly={readOnly}
+          spellCheck={false}
+          aria-label={label}
+          className="absolute inset-0 resize-none overflow-hidden whitespace-pre-wrap break-words bg-transparent py-3 pl-12 pr-3 font-mono text-xs leading-5 text-foreground outline-none"
+        />
+      </div>
+    </div>
+  );
+}
+
 export function SourcePageEditor({
   draft,
   onPatch,
@@ -165,13 +216,11 @@ export function SourcePageEditor({
   const editorEl = (
     <div ref={containerRef} className="h-full min-h-[260px] overflow-hidden bg-background">
       {monacoStatus === 'unavailable' ? (
-        <textarea
+        <SourceTextarea
           value={text}
-          onChange={(e) => handleChange(e.target.value)}
+          onChange={handleChange}
           readOnly={readOnly}
-          spellCheck={false}
-          aria-label={tr('engine.sourcePageEditor.source', locale)}
-          className="h-full w-full resize-none bg-background p-3 font-mono text-xs leading-relaxed outline-none"
+          label={tr('engine.sourcePageEditor.source', locale)}
         />
       ) : monacoStatus === 'loading' ? (
         <Skeleton className="h-full w-full" />

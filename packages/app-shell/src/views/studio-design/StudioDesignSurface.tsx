@@ -172,6 +172,7 @@ import {
 } from '../metadata-admin/nav-selection.js';
 import { useNavSelDeepLink } from '../metadata-admin/useNavSelDeepLink.js';
 import { SourcePageEditor } from '../metadata-admin/previews/SourcePageEditor.js';
+import { SourcePageProperties, type SourcePageNavEntry } from '../metadata-admin/previews/SourcePageProperties.js';
 import { fetchPendingDrafts, usePendingDrafts } from '../../preview/usePendingDrafts.js';
 import { emitMetadataRefresh, subscribeMetadataRefresh } from '../../assistant/assistantBus.js';
 import {
@@ -3483,6 +3484,10 @@ export function InterfacesPillar({
   // objectui#5813 — a local dirty flag so auto-save only arms after a real
   // edit, never on the load-effect's own setDraft.
   const [ifDirty, setIfDirty] = React.useState(false);
+  // objectui#12522 — when this pillar's own save last landed a leaf's draft,
+  // stamped with the leaf it saved, so it reads for that leaf only and expires
+  // by construction when another leaf opens. A source page's editor says it.
+  const [leafSavedAt, setLeafSavedAt] = React.useState<{ key: string; at: Date } | null>(null);
   const onPatch = React.useCallback(
     (patch: Record<string, unknown>) => {
       setDraft((d) => ({ ...d, ...patch }));
@@ -3502,6 +3507,7 @@ export function InterfacesPillar({
       // objectui#11773 — the author chose the saved version; the load replaces the buffer.
       if (outcome === 'reloaded') return;
       setHasDraft(true);
+      setLeafSavedAt({ key: leafKeyOf(current), at: new Date() });
       // objectui#11204 — clean only if nothing was edited while it was in flight.
       if (sent.unmoved()) setIfDirty(false);
       onDraftSaved?.();
@@ -3816,6 +3822,49 @@ export function InterfacesPillar({
     };
     return find(navTree);
   }, [currentNavId, navTree]);
+  // objectui#12522 — a source page's Properties tab lists the navigation entries
+  // that open it: a read of the tree this pillar already holds, every `page`
+  // entry whose target is this page, at any depth, named as the rail names it
+  // and with the groups it sits in.
+  const currentPageName = isSourcePage ? current?.name : undefined;
+  const sourcePageNavEntries = React.useMemo<SourcePageNavEntry[]>(() => {
+    if (!currentPageName) return [];
+    const out: SourcePageNavEntry[] = [];
+    const walk = (nodes: NavNode[], trail: string[]) => {
+      for (const node of nodes) {
+        const text = navEntryLabelText(node as NavEntryLike, locale, targetLabel);
+        if (node.type === 'page' && (node as { pageName?: unknown }).pageName === currentPageName) {
+          out.push({ id: String(node.id), label: text, trail });
+        }
+        if (Array.isArray(node.children)) walk(node.children, [...trail, text]);
+      }
+    };
+    walk(navTree, []);
+    return out;
+  }, [currentPageName, navTree, locale, targetLabel]);
+  // objectui#12522 — the one-line status under a source page's editor: the
+  // pillar's own dirty flag and the time its last save of this leaf landed.
+  // A clean buffer nothing was saved from in this visit is the stored draft
+  // (or the published page) as it was read: saved, with no time to give.
+  const displayLocale = useDisplayLocale();
+  const leafSavedTime = leafSavedAt && leafSavedAt.key === leafKey ? leafSavedAt.at : null;
+  const sourcePageStatusEl =
+    isSourcePage && !readOnly ? (
+      <div
+        className="shrink-0 border-t px-3 py-1.5 text-[11px] text-muted-foreground"
+        data-testid="source-page-status"
+        data-state={ifDirty || saving === 'draft' ? 'unsaved' : 'saved'}
+        aria-live="polite"
+      >
+        {ifDirty || saving === 'draft'
+          ? t('engine.studio.if.pageUnsaved', locale)
+          : leafSavedTime
+            ? tFormat('engine.studio.if.pageSavedAt', locale, {
+                time: leafSavedTime.toLocaleTimeString(displayLocale, { hour: '2-digit', minute: '2-digit' }),
+              })
+            : t('engine.studio.if.pageSaved', locale)}
+      </div>
+    ) : null;
   // objectui#12459 — the item header inside the content column. objectui#7254:
   // the entry's label with its translated KIND beside it; the internal
   // `type · name` pair stays on the tooltip, so the header carries no api
@@ -3825,37 +3874,79 @@ export function InterfacesPillar({
   // segmented control with its glyphs, then a divider and the properties
   // toggle, which says whether the aside is open (`aria-pressed`) and is the
   // one control that opens and closes it in this layout.
-  const canvasModeToggleEl = (
-    <>
-        {!StudioCanvas && (
-        <div className="inline-flex h-[26px] items-center rounded-md border bg-muted/40 p-0.5" data-testid="canvas-mode-toggle">
-          <button
-            type="button"
-            onClick={() => setCanvasMode('design')}
-            aria-pressed={designing}
-            className={
-              'inline-flex h-5 items-center gap-1 rounded px-2 text-xs transition-all ' +
-              (designing ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')
-            }
+  // objectui#12522 — a source page has no designer chrome: Design and Run draw
+  // the same live preview, so the switch is offered disabled, and its reason
+  // rides the objectui#12303 pattern (a wrapper that is the tooltip trigger and
+  // a tab stop, with a visually hidden copy both point `aria-describedby` at).
+  const sourceModeReasonId = React.useId();
+  const sourceModeReason = isSourcePage
+    ? tFormat('engine.studio.if.modeSourcePage', locale, {
+        kind:
+          sourcePageKind === 'react'
+            ? t('engine.studio.interfaces.create.pageKindReact', locale)
+            : t('engine.studio.interfaces.create.pageKindHtml', locale),
+      })
+    : '';
+  const canvasModeSwitch = (
+    <div
+      className={cn(
+        'inline-flex h-[26px] items-center rounded-md border bg-muted/40 p-0.5',
+        isSourcePage && 'opacity-60',
+      )}
+      data-testid="canvas-mode-toggle"
+      data-disabled={isSourcePage ? '' : undefined}
+    >
+      <button
+        type="button"
+        onClick={() => setCanvasMode('design')}
+        aria-pressed={designing}
+        disabled={isSourcePage}
+        aria-describedby={isSourcePage ? sourceModeReasonId : undefined}
+        className={
+          'inline-flex h-5 items-center gap-1 rounded px-2 text-xs transition-all disabled:pointer-events-none ' +
+          (designing ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')
+        }
+      >
+        <Pencil className="h-3 w-3" aria-hidden="true" />
+        {t('engine.studio.if.modeDesign', locale)}
+      </button>
+      <button
+        type="button"
+        onClick={() => setCanvasMode('run')}
+        aria-pressed={!designing}
+        disabled={isSourcePage}
+        aria-describedby={isSourcePage ? sourceModeReasonId : undefined}
+        className={
+          'inline-flex h-5 items-center gap-1 rounded px-2 text-xs transition-all disabled:pointer-events-none ' +
+          (!designing ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')
+        }
+      >
+        <Play className="h-3 w-3" aria-hidden="true" />
+        {t('engine.studio.if.modeRun', locale)}
+      </button>
+    </div>
+  );
+  const canvasModeToggleEl = StudioCanvas ? null : isSourcePage ? (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            tabIndex={0}
+            aria-describedby={sourceModeReasonId}
+            data-disabled-reason=""
+            className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
-            <Pencil className="h-3 w-3" aria-hidden="true" />
-            {t('engine.studio.if.modeDesign', locale)}
-          </button>
-          <button
-            type="button"
-            onClick={() => setCanvasMode('run')}
-            aria-pressed={!designing}
-            className={
-              'inline-flex h-5 items-center gap-1 rounded px-2 text-xs transition-all ' +
-              (!designing ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')
-            }
-          >
-            <Play className="h-3 w-3" aria-hidden="true" />
-            {t('engine.studio.if.modeRun', locale)}
-          </button>
-        </div>
-        )}
-    </>
+            {canvasModeSwitch}
+            <span id={sourceModeReasonId} className="sr-only" data-testid="canvas-mode-reason">
+              {sourceModeReason}
+            </span>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>{sourceModeReason}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  ) : (
+    canvasModeSwitch
   );
   const ifHeaderIcon: React.ElementType | undefined = !current
     ? undefined
@@ -4249,14 +4340,17 @@ export function InterfacesPillar({
         // empty state pointing back at Source).
         // objectui#11136 — the editor's own read-only contract ("onPatch:
         // undefined in read-only mode"), fed by the pillar's real flag.
-        <div className="mt-2 min-h-0 flex-1 border-t">
-          <SourcePageEditor
-            mode="editor"
-            draft={draft}
-            onPatch={readOnly ? undefined : onPatch}
-            readOnly={readOnly}
-            locale={locale}
-          />
+        <div className="mt-2 flex min-h-0 flex-1 flex-col border-t">
+          <div className="min-h-0 flex-1">
+            <SourcePageEditor
+              mode="editor"
+              draft={draft}
+              onPatch={readOnly ? undefined : onPatch}
+              readOnly={readOnly}
+              locale={locale}
+            />
+          </div>
+          {sourcePageStatusEl}
         </div>
       ) : (
       <Tabs
@@ -4272,22 +4366,31 @@ export function InterfacesPillar({
             {t('engine.studio.inspector.tabProps', locale)}
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="source" className="mt-2 min-h-0 flex-1 border-t">
-          <SourcePageEditor
-            mode="editor"
-            draft={draft}
-            onPatch={readOnly ? undefined : onPatch}
-            readOnly={readOnly}
-            locale={locale}
-          />
-        </TabsContent>
-        <TabsContent value="props" className="mt-0 min-h-0 flex-1 overflow-auto p-3">
-          <div className="flex flex-col items-center gap-2 px-2 py-10 text-center text-xs text-muted-foreground">
-            <Code2 className="h-5 w-5" />
-            {tFormat('engine.studio.inspector.sourcePageLine1', locale, { kind: sourcePageKind! })}
-            <br />
-            {t('engine.studio.inspector.sourcePageLine2', locale)}
+        {/* objectui#12522 — the editor fills the tab, its status line under it. */}
+        <TabsContent value="source" className="mt-2 min-h-0 flex-1 flex-col border-t data-[state=active]:flex">
+          <div className="min-h-0 flex-1">
+            <SourcePageEditor
+              mode="editor"
+              draft={draft}
+              onPatch={readOnly ? undefined : onPatch}
+              readOnly={readOnly}
+              locale={locale}
+            />
           </div>
+          {sourcePageStatusEl}
+        </TabsContent>
+        {/* objectui#12522 — what the page IS, for a page with no block tree. */}
+        <TabsContent value="props" className="mt-0 min-h-0 flex-1 overflow-auto p-3">
+          {current && (
+            <SourcePageProperties
+              draft={draft}
+              name={current.name}
+              navEntries={sourcePageNavEntries}
+              onPatch={readOnly ? undefined : onPatch}
+              readOnly={readOnly}
+              locale={locale}
+            />
+          )}
         </TabsContent>
       </Tabs>
       )

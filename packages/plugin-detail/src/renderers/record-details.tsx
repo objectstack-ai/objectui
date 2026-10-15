@@ -809,9 +809,9 @@ const RecordDetailsBody: React.FC<RecordDetailsRendererProps> = ({
   // an empty body: the spec names no further fallback, and none is invented
   // here. Pinned in `__tests__/record-details.highlightFieldsFallback-12433.test.tsx`.
   const bodyFieldsOmitted = schema.sections === undefined && schema.fields === undefined;
-  const bodyFields: any[] | undefined = bodyFieldsOmitted
+  const bodyFields: string[] | undefined = bodyFieldsOmitted
     ? (Array.isArray(objSchema?.highlightFields) ? objSchema.highlightFields : undefined)
-    : (schema.fields as any[] | undefined);
+    : schema.fields;
   const filteredFields = dropHidden(normaliseList(filterList(bodyFields)));
 
   // ── `sections[].group` — the ADR-0085 §5 REFERENCE form ──────────────────

@@ -26,6 +26,8 @@ vi.mock('./PageBlockCanvas', () => ({
 }));
 
 import { PagePreview } from './PagePreview';
+import { buildDefaultPageSchema } from '@object-ui/plugin-detail';
+import { deriveRecordDetailSections, MORE_DETAILS_DEFAULT_LABEL } from '../../recordDetailSections';
 
 afterEach(cleanup);
 
@@ -149,5 +151,85 @@ describe('PagePreview — slotted record page synthesis', () => {
     // No synthesis — the authored single-region layout passes through as-is.
     expect(rendered.regions).toHaveLength(1);
     expect(rendered.regions[0].components).toEqual([{ type: 'record:details' }]);
+  });
+});
+
+/**
+ * objectui#12442 — the slotted preview draws the running app's detail sections.
+ *
+ * `RecordDetailView` passes `buildDefaultPageSchema` explicit sections (the
+ * object's field groups, else the visible-field split); the preview passed
+ * none, so on an object with no `fieldGroups` it drew a bare `record:details`.
+ * It now takes them from the same derivation, `deriveRecordDetailSections`.
+ * The seed's half and the one-derivation source pin are in
+ * `recordDetailSections.agreement-12442.test.ts`.
+ */
+describe('PagePreview — slotted record page detail sections (objectui#12442)', () => {
+  const flatDef = {
+    name: 'os_12442_ticket',
+    fields: {
+      name: { label: 'Ticket Name', type: 'text' },
+      subject: { label: 'Subject', type: 'text' },
+      notes: { label: 'Notes', type: 'textarea' },
+    },
+  };
+  const groupedDef = {
+    name: 'os_12442_account',
+    fieldGroups: [{ key: 'basic_info', label: 'Basic Information' }],
+    fields: {
+      name: { label: 'Account Name', type: 'text' },
+      industry: { label: 'Industry', type: 'text', group: 'basic_info' },
+      notes: { label: 'Notes', type: 'textarea' },
+    },
+  };
+  const slots = { highlights: [{ type: 'record:highlights', fields: ['name'] }] };
+  const draftFor = (object: string) => ({ name: `${object}_record`, type: 'record', object, kind: 'slotted', regions: [], slots });
+
+  beforeEach(() => { schemaSpy.mockClear(); });
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  /** Serve `def` as the object schema; no sample records. */
+  function serve(def: unknown) {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => ({
+      json: async () => (url.startsWith('/api/v1/meta/object/') ? { item: def } : { records: [] }),
+    })));
+  }
+
+  /** The `record:details` node of the last schema the preview rendered once the schema has loaded. */
+  async function previewDetails(def: { name: string }) {
+    serve(def);
+    render(<PagePreview type="page" name={`${def.name}_record`} draft={draftFor(def.name)} />);
+    let node: any;
+    await waitFor(() => {
+      const rendered = schemaSpy.mock.calls.at(-1)?.[0];
+      const tabs = rendered?.regions?.find((r: any) => r.name === 'main')?.components?.find((c: any) => c.type === 'page:tabs');
+      node = tabs?.properties?.items?.[0]?.children?.find((c: any) => c.type === 'record:details');
+      // Before the schema read settles the preview synthesizes with no object
+      // (a bare node); both fixtures carry sections once it has loaded.
+      expect(node?.properties?.sections).toBeDefined();
+    });
+    return node;
+  }
+
+  /** The same node, synthesized with no preview in between. */
+  function synthesizedDetails(def: unknown, sections?: unknown) {
+    const page = buildDefaultPageSchema(def as any, sections ? { slots, sections: sections as any } : { slots }) as any;
+    const tabs = page.regions.find((r: any) => r.name === 'main').components.find((c: any) => c.type === 'page:tabs');
+    return tabs.properties.items[0].children.find((c: any) => c.type === 'record:details');
+  }
+
+  it('an object with no fieldGroups: the preview carries the runtime sections, not a bare record:details', async () => {
+    const runtimeSections = deriveRecordDetailSections(flatDef, { moreDetails: MORE_DETAILS_DEFAULT_LABEL });
+    // Firing control: the split really yields two sections for this fixture.
+    expect(runtimeSections).toHaveLength(2);
+    const node = await previewDetails(flatDef);
+    expect(node.properties.sections).toEqual(runtimeSections);
+    expect(node).toEqual(synthesizedDetails(flatDef, runtimeSections));
+  });
+
+  it('CONTROL: an object with fieldGroups previews exactly what the synthesizer alone writes', async () => {
+    const node = await previewDetails(groupedDef);
+    expect(node).toEqual(synthesizedDetails(groupedDef));
+    expect(node.properties.sections[0]).toEqual(expect.objectContaining({ group: 'basic_info' }));
   });
 });

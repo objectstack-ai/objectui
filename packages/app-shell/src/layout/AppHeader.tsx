@@ -507,6 +507,15 @@ export function AppHeader({
     <div className="flex items-center justify-between w-full h-full">
       {/* ── LEFT: Logo / App / Object path ── */}
       <div className="flex items-center min-w-0 flex-1">
+        {/* The shell's one sidebar trigger, at every width (objectui#12429):
+            the drawer button on a phone, the collapse/expand toggle for the
+            sidebar and its icon rail above that. It is the bar's leftmost
+            control inside an app, so it never moves when the sidebar
+            collapses; the sidebar itself carries no trigger. */}
+        {isApp && (
+          <LocalizedSidebarTrigger className="shrink-0 mr-1" aria-label={t('common.toggleSidebar', { defaultValue: 'Toggle sidebar' })} />
+        )}
+
         {/* Platform logo — links to home. Platform surfaces only (Home,
             organizations, the Studio front door): inside an app the bar
             starts with the app pill instead, and the way back to Home is the
@@ -573,10 +582,6 @@ export function AppHeader({
 
         {isApp && (
           <>
-            {/* Keep the sidebar trigger visible through narrow desktop widths,
-                where the sidebar may already be collapsed into icon mode. */}
-            <LocalizedSidebarTrigger className="lg:hidden shrink-0 ml-1" aria-label={t('common.toggleSidebar', { defaultValue: 'Toggle sidebar' })} />
-
             {/* App pill — the app's glyph and name, and its switcher. It
                 starts the path, so no separator precedes it. Desktop/tablet
                 only: on mobile the drawer header names the active app, so a

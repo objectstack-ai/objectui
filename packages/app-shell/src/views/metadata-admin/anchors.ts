@@ -205,7 +205,17 @@ export function registerBuiltinAnchors(): void {
         const objectDef = await client.get('object', String(draft.object));
         if (!objectDef || typeof objectDef !== 'object') return {};
         const { buildDefaultPageSchema } = await import('@object-ui/plugin-detail');
-        const synth = buildDefaultPageSchema(objectDef as any) as Record<string, any>;
+        // The running app's detail sections, from the one derivation it uses
+        // (objectui#12442) — without them an object with no `fieldGroups`
+        // seeded a bare `record:details`. Written in the persisted shape (field
+        // NAMES); the heading is the English default, since a seed has no
+        // translator and the section's `name` keeps the per-object i18n anchor.
+        const { deriveStudioDetailSections, toAuthoredDetailSections, MORE_DETAILS_DEFAULT_LABEL } =
+          await import('../recordDetailSections.js');
+        const sections = toAuthoredDetailSections(
+          deriveStudioDetailSections(objectDef as any, { moreDetails: MORE_DETAILS_DEFAULT_LABEL }),
+        );
+        const synth = buildDefaultPageSchema(objectDef as any, sections ? { sections: sections as any } : undefined) as Record<string, any>;
         const seed: Record<string, unknown> = {};
         if (Array.isArray(synth?.regions) && synth.regions.length) seed.regions = synth.regions;
         if (synth?.template) seed.template = synth.template;

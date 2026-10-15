@@ -1572,7 +1572,15 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   // when they don't want a record chip (e.g. a non-record landing page).
   const disableRecordChrome =
     schema?.recordChrome === false || schema?.properties?.recordChrome === false;
-  const showStar = schema?.showStar !== false && schema?.properties?.showStar !== false;
+  // The favorite star is a control that stores something, so it draws only
+  // where the host wires a toggle: the `RecordContext` carries
+  // `onToggleFavorite` (objectui#12427). Without one, the chip used to draw a
+  // star that flipped on its own local state and stored nothing. The authored
+  // `showStar: false` still hides it on a host that does wire one.
+  const showStar =
+    !!ctx?.onToggleFavorite &&
+    schema?.showStar !== false &&
+    schema?.properties?.showStar !== false;
   const showCopyId = schema?.showCopyId !== false && schema?.properties?.showCopyId !== false;
 
   // Inline header actions — authored pages embed action buttons directly on
@@ -2537,10 +2545,10 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
             resourceId={data?.id ? String(data.id) : undefined}
             showStar={showStar}
             showCopyId={showCopyId}
-            isFavorite={(ctx as any)?.isFavorite}
+            isFavorite={ctx?.isFavorite}
             onToggleFavorite={
-              (ctx as any)?.onToggleFavorite
-                ? () => (ctx as any).onToggleFavorite()
+              ctx?.onToggleFavorite
+                ? () => ctx.onToggleFavorite?.()
                 : undefined
             }
           />

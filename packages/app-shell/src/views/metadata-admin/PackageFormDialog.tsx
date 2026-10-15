@@ -119,29 +119,13 @@ function DerivedField({
   testId: string;
   children: React.ReactNode;
 }) {
-  // A click focuses on mousedown; the mouseup that ends the same click would
-  // collapse the selection to a caret, so that one mouseup is cancelled.
-  const keepSelection = React.useRef(false);
   return (
     <div
       className="space-y-1.5"
       data-testid={testId}
       data-derived={derived ? 'true' : 'false'}
       onFocus={(e) => {
-        if (!derived || !(e.target instanceof HTMLInputElement)) return;
-        e.target.select();
-        keepSelection.current = true;
-      }}
-      onMouseUp={(e) => {
-        if (!keepSelection.current) return;
-        keepSelection.current = false;
-        e.preventDefault();
-      }}
-      onKeyDown={() => {
-        keepSelection.current = false;
-      }}
-      onBlur={() => {
-        keepSelection.current = false;
+        if (derived && e.target instanceof HTMLInputElement) e.target.select();
       }}
     >
       {children}

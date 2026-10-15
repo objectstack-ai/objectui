@@ -232,6 +232,10 @@ describe('CONTROL: an authored body is the body, and the fallback does not run (
 });
 
 describe('the fallback list goes through the field-security fold (objectui#12433)', () => {
+  // Two layers drop this row: the block's own fold and `DetailView`'s
+  // field-read gate, which runs whenever a permission provider is loaded. So
+  // this case holds the outcome, and the redact case below is the one that
+  // fails if the fallback list skips the block's fold.
   it('a highlight field the caller may not read is not drawn (enforceFieldSecurity)', () => {
     renderPage({
       details: { enforceFieldSecurity: true },

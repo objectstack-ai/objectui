@@ -118,7 +118,9 @@ describe('DataPillar — the field inspector belongs to the view that opened it 
   ])('switching from Form to %s closes it', async (tabKey) => {
     await openInspectorOnForm();
 
-    fireEvent.click(screen.getByRole('button', { name: L(tabKey) }));
+    // objectui#12450 — the first match is the flat tab: the passthrough menu
+    // draws a power panel's folded entry as a second button of the same name.
+    fireEvent.click(screen.getAllByRole('button', { name: L(tabKey) })[0]);
 
     await waitFor(() => expect(rail()).toBeNull());
   });

@@ -26,7 +26,7 @@
 import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
+import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 /** The object as the SERVER has it: two published, materialised fields. */
@@ -86,6 +86,7 @@ vi.mock('@object-ui/plugin-view', async (importOriginal) => {
 });
 
 import { DataPillar } from './StudioDesignSurface';
+import { addFieldFromMoreMenu } from './__tests__/dataPillarAddField';
 import { SurfaceDeepLinkProvider } from './surfaceDeepLinkChannel';
 import { registerBuiltinInspectors } from '../metadata-admin/inspectors';
 
@@ -119,8 +120,7 @@ describe('DataPillar grid projection (cloud#1652)', () => {
     renderPillar();
     await waitFor(() => expect(columnsNow()).toContain('book_name'));
 
-    const addField = screen.getByRole('button', { name: /添加|add field/i });
-    fireEvent.click(addField);
+    await addFieldFromMoreMenu();
 
     // The draft grew a `field_<N>`; the projection must not have.
     await waitFor(() => expect(columnsNow()).toContain('book_name'));

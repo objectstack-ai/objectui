@@ -106,6 +106,30 @@ export function getResponsiveSpanClass(span: number | undefined, columns: number
  */
 const ignoreReadOnlyChange = (): void => {};
 
+/**
+ * Whether a key pressed on a copy-on-activate row is the ROW's own activation
+ * (objectui#12569): Enter or Space, aimed at the row itself.
+ *
+ * The row is a `role="button"` with its own tab stop, but its value cell can
+ * draw focusable content of its own: a lookup's link to the referenced record,
+ * the record-pointer card's links, the row's hover copy button. A key pressed
+ * on any of those bubbles to the row's handler, and a `preventDefault` there
+ * cancels the descendant's own activation, so Enter on a link inside the row
+ * copied the row's raw value instead of following the link.
+ *
+ * So the row acts only when the event's target IS the row. A key aimed at
+ * anything inside it is left to that element: no `preventDefault`, no copy. A
+ * link opens; the hover copy button still copies, through its own click.
+ *
+ * Both row shapes (the mobile grouped-inset row and the default row) read this
+ * one predicate. ⛔ Not a `stopPropagation` on each link instead: that fixes
+ * one descendant kind at a time and leaves the next one cancelled.
+ */
+function isRowActivationKey(e: React.KeyboardEvent<HTMLElement>): boolean {
+  if (e.target !== e.currentTarget) return false;
+  return e.key === 'Enter' || e.key === ' ';
+}
+
 export interface VirtualScrollOptions {
   /** Enable virtual scrolling for large field sets */
   enabled?: boolean;
@@ -535,8 +559,8 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
             copyOffered && "cursor-pointer active:bg-muted/40 transition-colors",
           )}
           onClick={copyOffered ? () => handleCopyField(field.name, value) : undefined}
-          onKeyDown={copyOffered ? (e: React.KeyboardEvent) => {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCopyField(field.name, value); }
+          onKeyDown={copyOffered ? (e: React.KeyboardEvent<HTMLElement>) => {
+            if (isRowActivationKey(e)) { e.preventDefault(); handleCopyField(field.name, value); }
           } : undefined}
           role={copyOffered ? 'button' : undefined}
           tabIndex={copyOffered ? 0 : undefined}
@@ -602,8 +626,8 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
           )}
           onClick={copyInteractive ? () => handleCopyField(field.name, value) : undefined}
           onDoubleClick={canInlineEditField ? () => onEnterInlineEdit?.(field.name) : undefined}
-          onKeyDown={copyInteractive ? (e: React.KeyboardEvent) => {
-            if (e.key === 'Enter' || e.key === ' ') {
+          onKeyDown={copyInteractive ? (e: React.KeyboardEvent<HTMLElement>) => {
+            if (isRowActivationKey(e)) {
               e.preventDefault();
               handleCopyField(field.name, value);
             }

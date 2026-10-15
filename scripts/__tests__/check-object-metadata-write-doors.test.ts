@@ -240,9 +240,25 @@ export async function put(body: unknown) {
   });
 });
 
+/**
+ * objectui#12405 — ONE walk of this repository, in the IMPORT phase, read by
+ * both tests below. `analyze(repoRoot)` parses every source file in the
+ * `src` directory of each package and app (1,698 files measured on this
+ * branch; the parse is ~80% of the walk, so the gate itself has no redundant
+ * work to remove). Each test used to run that identical walk inside its own
+ * 15 s `testTimeout`, at 5.2–7.0 s apiece here and 8.5 s on a normal CI VM, so
+ * a 1.6–2.0x slow runner crosses the timeout with the gate green. Module
+ * scope, not `beforeAll`: the import phase is governed by no timeout, whereas
+ * a hook would trade the 15 s `testTimeout` for the narrower 10 s
+ * `hookTimeout` (objectui `AGENTS.md`, the test discipline section). Safe to
+ * share: `analyze` is pure over its root, and neither test mutates what it
+ * returns. Each test asserts exactly what it asserted before.
+ */
+const REPOSITORY_SCAN = analyze(repoRoot);
+
 describe('this repository', () => {
   it('is green, and every counter that makes a green mean something is non-zero', () => {
-    const { findings, counters, collapsed } = analyze(repoRoot);
+    const { findings, counters, collapsed } = REPOSITORY_SCAN;
     expect(collapsed).toBe(false);
     expect(counters.raw).toBeGreaterThan(0);
     expect(counters.sdk).toBeGreaterThan(0);
@@ -252,7 +268,7 @@ describe('this repository', () => {
   });
 
   it('finds the three doors this card measured, by transport rather than by list', () => {
-    const { doors, capable } = analyze(repoRoot);
+    const { doors, capable } = REPOSITORY_SCAN;
     // Named here as an ASSERTION ABOUT COVERAGE, not as the gate's input: the
     // gate derives these. If a door moves or is renamed, this row is what says
     // the derivation stopped reaching it.

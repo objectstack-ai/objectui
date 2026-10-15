@@ -55,6 +55,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ObjectStackAdapter, VIEW_OVERLAY_OWNED_KEYS } from '@object-ui/data-objectstack';
 import { buildPersistedViewBody, buildViewTabs, loadViewOverrides, sanitizeViewOverride } from './ObjectView';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { stripComments as stripCommentsUntyped } from '../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const stripComments: (source: string) => string = stripCommentsUntyped;
 
 const OBJECT_NAME = 'crm_lead';
 const VIEW_ID = 'crm_lead.default';
@@ -569,20 +574,15 @@ describe('objectui#5233 ratchet — the owned-key list tracks the writers', () =
 
     it('every key the toolbar persists is a key the overlay is allowed to own', () => {
         const written = [...new Set([...objectViewSrc.matchAll(PERSIST_CALLS)].map((m) => m[1]!))];
-        // Vacuous-pass guard: the call sites are the evidence, so an empty
-        // match set means the regex stopped matching, not that nothing writes.
         // Four since objectui#5144 (triage's ruling E): the inline-edit toggle
-        // is session state and no longer persists `inlineEdit`. The adapter
-        // still lists `inlineEdit` as an owned key, so an overlay an earlier
-        // console wrote is still read; that is the reading the ruling keeps.
-        // Two since objectui#12418: the sort and the column layout are the
-        // user's own list state, written to `sys_user_preference`, never to a
-        // view. The adapter still owns both keys, so an overlay an earlier
-        // console wrote is still read.
-        expect(written.length).toBeGreaterThanOrEqual(2);
-        expect(written).not.toContain('inlineEdit');
-        expect(written).not.toContain('sort');
-        expect(written).not.toContain('columnState');
+        // is session state and no longer persists `inlineEdit`. Two since
+        // objectui#12418: the sort and the column layout are the user's own
+        // list state. NONE since objectui#12474: the density and the hidden
+        // fields are the user's too (`sys_user_preference`, never a view). The
+        // adapter still owns all of these keys, so an overlay an earlier
+        // console wrote is still read. The census below is what proves the
+        // empty set is real rather than a regex that stopped matching.
+        expect(written).toEqual([]);
         for (const key of written) {
             expect(
                 VIEW_OVERLAY_OWNED_KEYS as readonly string[],
@@ -590,5 +590,30 @@ describe('objectui#5233 ratchet — the owned-key list tracks the writers', () =
                 + 'add it to VIEW_OVERLAY_OWNED_KEYS (@object-ui/data-objectstack) or stop persisting it (objectui#5233)',
             ).toContain(key);
         }
+    });
+
+    /**
+     * objectui#12474 — the census: no list toolbar control reaches
+     * `persistViewPatch`. The sort and the column layout left it in
+     * objectui#12418, the density and the Hide Fields popover here, so the
+     * shared view is written only by an explicit save (the view editor's,
+     * `handleViewConfigSave`; pinned live by
+     * `ObjectView.userListState-12418.test.tsx`). Read off the code, comments
+     * stripped, so a call, a reference handed to a prop and a re-export are all
+     * counted; only the declaration itself is allowed.
+     */
+    it('no list toolbar door reaches `persistViewPatch` (objectui#12474 census)', () => {
+        // The one comment reader (`scripts/js-comment-mask.mjs`); the census
+        // reports no line or offset, so the stripped projection is enough.
+        const code = stripComments(objectViewSrc);
+        const refs = [...code.matchAll(/\bpersistViewPatch\b/g)].length;
+        const declarations = [...code.matchAll(/\bconst\s+persistViewPatch\s*=/g)].length;
+        // Vacuous-pass guard: the declaration is still found, so the reader is
+        // reading the function this census is about.
+        expect(declarations).toBe(1);
+        expect(refs - declarations, 'a list toolbar door reaches `persistViewPatch` again').toBe(0);
+        // The two doors this card moved write the user's own list state.
+        expect(code).toMatch(/onDensityChange:\s*\(mode\)\s*=>\s*\{\s*listPrefs\.patchView\(/);
+        expect(code).toMatch(/const persistHiddenFields = \(hidden: string\[\]\) => \{[\s\S]{0,120}?listPrefs\.patchView\(viewDef\.id, \{ hiddenFields: hidden \}\)/);
     });
 });

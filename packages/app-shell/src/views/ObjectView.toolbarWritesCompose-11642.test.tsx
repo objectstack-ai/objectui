@@ -39,8 +39,11 @@
  * page and mounts it again over a fresh adapter on the same store.
  *
  * The second change was the header sort until objectui#12418 made the sort the
- * user's own list state (`sys_user_preference`, never the view). The hide-field
- * toggle is a view write still, and it rides the same `persistViewPatch`.
+ * user's own list state (`sys_user_preference`, never the view). Since
+ * objectui#12474 the density and the hide-field toggle are the user's too, so
+ * no toolbar change writes the view at all: each case now pins that both
+ * changes survive the reload from the user's state while the stored row stays
+ * exactly as it was. The direction note below is the original fix's.
  *
  * ## Direction, written before the reverse-verification run
  *
@@ -303,6 +306,7 @@ async function densityThenHide(gapMs = 600) {
 beforeEach(() => {
   cleanup();
   listSchema = null;
+  localStorage.clear();
   vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ data: [] }), {
     status: 200,
     headers: { 'content-type': 'application/json' },
@@ -319,119 +323,46 @@ afterEach(() => {
 });
 
 describe('objectui#11642 — two toolbar changes in one session both survive a reload, on every row kind', () => {
-  it('envelope row: the second write carries the first change, inside `config`', async () => {
-    const { meta, rows, bodies } = makeStore([ENVELOPE_ROW]);
-    const ds = await openView(meta, ENVELOPE_ID);
+  /**
+   * objectui#12474 — the density and the hidden fields are the USER's own
+   * list state now (`listPrefs`, beside the sort and the column layout), so
+   * neither change writes the view on any row kind: each row is left exactly
+   * as stored, and the reload shows both changes from the user's state. This
+   * harness mounts no preference provider, so that state is this browser's
+   * (the provider-less fallback); the cross-device half is
+   * `ObjectView.userListState-12418.test.tsx`'s.
+   */
+  async function bothSurviveWithNoViewWrite(seed: Record<string, any>, viewId: string) {
+    const { meta, rows } = makeStore([seed]);
+    const ds = await openView(meta, viewId);
     await densityThenHide();
 
-    expect(ds.updateViewConfig).toHaveBeenCalledTimes(2);
+    expect(ds.updateViewConfig).not.toHaveBeenCalled();
+    expect(meta.saveItem).not.toHaveBeenCalled();
     expect(toast.error).not.toHaveBeenCalled();
-    // The second body was built from the row the first write stored.
-    expect(bodies[1].config.rowHeight).toBe('medium');
-    expect(bodies[1].config.hiddenFields).toEqual(HIDDEN);
+    // The stored row is the view, untouched.
+    expect(rows.get(viewId)).toEqual(seed);
 
-    const stored = rows.get(ENVELOPE_ID);
-    expect(stored.config.rowHeight).toBe('medium');
-    expect(stored.config.hiddenFields).toEqual(HIDDEN);
-    // The rest of the view is still the view.
-    expect(stored.config.filter).toEqual(ENVELOPE_ROW.config.filter);
-    expect(stored.config.columns).toEqual(ENVELOPE_ROW.config.columns);
-    expect(stored).not.toHaveProperty('_isOverride');
+    expect(await reload(meta, viewId)).toEqual({ rowHeight: 'medium', hiddenFields: HIDDEN });
+  }
 
-    expect(await reload(meta, ENVELOPE_ID)).toEqual({ rowHeight: 'medium', hiddenFields: HIDDEN });
+  it('envelope row: both changes are the user\'s, and the row is not written', async () => {
+    await bothSurviveWithNoViewWrite(ENVELOPE_ROW, ENVELOPE_ID);
   });
 
-  it('flat row: the second write carries the first change, flat', async () => {
-    const { meta, rows, bodies } = makeStore([FLAT_ROW]);
-    const ds = await openView(meta, FLAT_ID);
-    await densityThenHide();
-
-    expect(ds.updateViewConfig).toHaveBeenCalledTimes(2);
-    expect(toast.error).not.toHaveBeenCalled();
-    expect(bodies[1]).not.toHaveProperty('config');
-    expect(bodies[1].rowHeight).toBe('medium');
-    expect(bodies[1].hiddenFields).toEqual(HIDDEN);
-
-    const stored = rows.get(FLAT_ID);
-    expect(stored.rowHeight).toBe('medium');
-    expect(stored.hiddenFields).toEqual(HIDDEN);
-    expect(stored.filter).toEqual(FLAT_ROW.filter);
-    expect(stored.columns).toEqual(FLAT_ROW.columns);
-    expect(stored).not.toHaveProperty('_isOverride');
-
-    expect(await reload(meta, FLAT_ID)).toEqual({ rowHeight: 'medium', hiddenFields: HIDDEN });
+  it('flat row: both changes are the user\'s, and the row is not written', async () => {
+    await bothSurviveWithNoViewWrite(FLAT_ROW, FLAT_ID);
   });
 
-  it('overlay: the overlay becomes the patches composed, and still freezes nothing the shadowed view owns', async () => {
-    const { meta, rows, bodies } = makeStore([OVERLAY_ROW]);
-    const ds = await openView(meta, OVERLAY_ID);
-    await densityThenHide();
-
-    expect(ds.updateViewConfig).toHaveBeenCalledTimes(2);
-    expect(toast.error).not.toHaveBeenCalled();
-    // Both writes take the overlay branch: the row keeps its marker.
-    expect(ds.updateViewConfig.mock.calls.map((c: any[]) => c[3])).toEqual([
-      { isSavedView: false },
-      { isSavedView: false },
-    ]);
-    // The second body is the stored overlay plus the new patch — the earlier
-    // session's column widths and this session's density ride along.
-    expect(bodies[1].rowHeight).toBe('medium');
-    expect(bodies[1].hiddenFields).toEqual(HIDDEN);
-    expect(bodies[1].columnState).toEqual(OVERLAY_ROW.columnState);
-
-    const stored = rows.get(OVERLAY_ID);
-    expect(stored.rowHeight).toBe('medium');
-    expect(stored.hiddenFields).toEqual(HIDDEN);
-    expect(stored.columnState).toEqual(OVERLAY_ROW.columnState);
-    expect(stored._isOverride).toBe(true);
-    // objectui#5233 — the console sends no copy of the source view's keys, on
-    // the second composed write as on the first, and none is at rest.
-    for (const body of bodies) {
-      expect(body).not.toHaveProperty('filter');
-      expect(body).not.toHaveProperty('columns');
-      expect(body).not.toHaveProperty('label');
-      expect(body).not.toHaveProperty('type');
-      expect(body).not.toHaveProperty('config');
-    }
-    expect(stored).not.toHaveProperty('filter');
-    expect(stored).not.toHaveProperty('columns');
-    expect(stored).not.toHaveProperty('config');
-
-    expect(await reload(meta, OVERLAY_ID)).toEqual({ rowHeight: 'medium', hiddenFields: HIDDEN });
+  it('overlay: both changes are the user\'s, the overlay is not written, and the source view still reaches the tab', async () => {
+    await bothSurviveWithNoViewWrite(OVERLAY_ROW, OVERLAY_ID);
     // …and the source view's own filter still reaches the reloaded tab.
     expect(listSchema.filter).toEqual(DONE_SOURCE.filter);
   });
 });
 
-describe('objectui#11642 — the debounce and the write chain', () => {
-  it('two changes inside the 300 ms debounce coalesce into ONE write carrying both', async () => {
-    const { meta, rows } = makeStore([ENVELOPE_ROW]);
-    const ds = await openView(meta, ENVELOPE_ID);
-    act(() => listSchema.onDensityChange('comfortable'));
-    await wait(50);
-    act(() => listSchema.onHiddenFieldsChange(HIDDEN));
-    await wait(700);
-
-    expect(ds.updateViewConfig).toHaveBeenCalledTimes(1);
-    const stored = rows.get(ENVELOPE_ID);
-    expect(stored.config.rowHeight).toBe('medium');
-    expect(stored.config.hiddenFields).toEqual(HIDDEN);
-  });
-
-  it('a change made while the previous write is still in flight starts from the row that write stored', async () => {
-    // The first PUT takes 500 ms. The hide is made 400 ms after the density,
-    // so its debounce fires while that PUT is still in flight: a read taken
-    // then returns the row from BEFORE the first write.
-    const { meta, rows, bodies } = makeStore([ENVELOPE_ROW], { putDelayMs: (n) => (n === 1 ? 500 : 0) });
-    const ds = await openView(meta, ENVELOPE_ID);
-    await densityThenHide(400);
-    await wait(600);
-
-    expect(ds.updateViewConfig).toHaveBeenCalledTimes(2);
-    expect(bodies[1].config.rowHeight).toBe('medium');
-    const stored = rows.get(ENVELOPE_ID);
-    expect(stored.config.rowHeight).toBe('medium');
-    expect(stored.config.hiddenFields).toEqual(HIDDEN);
-  });
-});
+// The debounce-and-chain cases this file carried pinned `persistViewPatch`'s
+// own write queue (a 300 ms debounce, then each PUT waiting for the previous
+// one). Since objectui#12474 no list toolbar control reaches that function, so
+// there is no toolbar write left to queue; the user's state has its own
+// debounce, pinned by `ObjectView.userListState-12418.test.tsx`.

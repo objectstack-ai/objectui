@@ -22,7 +22,9 @@
  *   drag is the user's own tab order, and its block pins that instead.)
  * - `persistViewPatch` (the toolbar toggles' `updateViewConfig`) said only the
  *   client-side permission gate's refusal; every other refusal, a server 403
- *   included, was `console.error` only.
+ *   included, was `console.error` only. (Since objectui#12474 no toolbar
+ *   toggle writes a view: the density and the hidden fields are the user's
+ *   own list state, and its block pins that instead.)
  *
  * - `handleSetDefaultView` raised the untranslated literal
  *   'Failed to set default view', with no description, so the refusal's own
@@ -380,45 +382,30 @@ describe('reorder is no view write any more (objectui#12418, handleReorderViews)
   });
 });
 
-describe('a toolbar toggle says a refused write (objectui#11583, persistViewPatch)', () => {
-  /** Toggle the density, as the list toolbar does, and wait past the 300ms debounce. */
-  async function toggleDensity() {
+describe('a toolbar toggle is no view write any more (objectui#12474, density and Hide Fields)', () => {
+  // objectui#11583 pinned a refused toolbar `updateViewConfig` here (the
+  // density toggle through `persistViewPatch`). Since objectui#12474 the
+  // density and the hidden fields are the user's own list state, as the sort
+  // and the column layout became in objectui#12418: nothing reaches a view, so
+  // a view write that would be refused is never attempted, and nothing is said.
+  it('a density change and a Hide Fields change write no view and raise nothing, even where every view write is refused', async () => {
+    const dataSource = makeDataSource({
+      updateViewConfig: vi.fn(async () => { throw new ViewConfigPermissionDeniedError(OBJECT_NAME, SAVED_ID); }),
+      updateView: vi.fn(async () => { throw refusal('View settings are refused for this session'); }),
+    });
+    await mountOnSavedView(dataSource);
     await waitFor(() => expect(typeof listSchema?.onDensityChange).toBe('function'));
     act(() => {
       listSchema.onDensityChange('compact');
+      listSchema.onHiddenFieldsChange(['name']);
     });
-    await act(() => new Promise<void>((resolve) => setTimeout(resolve, 600)));
-  }
+    // Past the 300 ms debounce the toolbar's view write used to wait out.
+    await settle();
+    await settle();
 
-  it('a server refusal raises the door\'s message', async () => {
-    const dataSource = makeDataSource({
-      updateViewConfig: vi.fn(async () => { throw refusal('View settings are refused for this session'); }),
-    });
-    await mountOnSavedView(dataSource);
-    await toggleDensity();
-
-    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
-    expect(errorDescription()).toContain('View settings are refused for this session');
-    expect((dataSource as any).updateViewConfig).toHaveBeenCalledTimes(1);
-  });
-
-  it('the client-side permission gate keeps its own message (control)', async () => {
-    const dataSource = makeDataSource({
-      updateViewConfig: vi.fn(async () => { throw new ViewConfigPermissionDeniedError(OBJECT_NAME, SAVED_ID); }),
-    });
-    await mountOnSavedView(dataSource);
-    await toggleDensity();
-
-    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
-    const [, options] = vi.mocked(toast.error).mock.calls[0] as [unknown, unknown];
-    expect(options).toBeUndefined();
-  });
-
-  it('a toggle that lands raises nothing (control)', async () => {
-    const dataSource = makeDataSource();
-    await mountOnSavedView(dataSource);
-    await toggleDensity();
-    await waitFor(() => expect((dataSource as any).updateViewConfig).toHaveBeenCalledTimes(1));
+    expect((dataSource as any).updateViewConfig).not.toHaveBeenCalled();
+    expect((dataSource as any).updateView).not.toHaveBeenCalled();
+    expect(puts).toEqual([]);
     expect(toast.error).not.toHaveBeenCalled();
   });
 });

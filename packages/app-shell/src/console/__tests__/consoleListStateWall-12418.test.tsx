@@ -25,13 +25,19 @@
  *
  *   1. A header sort and a drag-reorder put NO metadata write on the wire,
  *      raise no error, and land as ONE preference write of the object's row.
- *   2. CONTROL — the wall is live: a change that is still a VIEW write (the
- *      density) is refused by it, and the refusal is said.
+ *   2. objectui#12474 — the density toggle and a Hide Fields change each put
+ *      NO metadata write on the wire, raise no error, and land as ONE
+ *      preference write each, of the same row.
+ *   3. CONTROL — the wall is live: a metadata write made in this same tree
+ *      (the real adapter's own view write, the call the density toggle used
+ *      to reach) is answered 403. Since objectui#12474 no list toolbar control
+ *      makes one, so the control is the adapter's call itself.
  */
 
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, waitFor, act, screen, fireEvent, cleanup } from '@testing-library/react';
+import { useEffect } from 'react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 
 vi.mock('sonner', () => ({
@@ -135,9 +141,15 @@ const STORE = { u1: { 'ui.list.account': { viewOrder: [ALL_ID, MINE_ID] } } };
 
 let fake: PreferenceFramework;
 
+/** The shell's adapter, as the page was handed it (the CONTROL writes through it). */
+let pageAdapter: any = null;
+
 /** The object page over the shell's adapter, as the console's routes mount it. */
 function Page() {
   const adapter = useAdapter();
+  useEffect(() => {
+    pageAdapter = adapter;
+  }, [adapter]);
   if (!adapter) return null;
   return <ObjectView dataSource={adapter as any} objects={[OBJECT as any]} onEdit={() => {}} />;
 }
@@ -160,6 +172,7 @@ const wait = (ms: number) => act(() => new Promise<void>((resolve) => setTimeout
 
 beforeEach(() => {
   listProps = null;
+  pageAdapter = null;
   localStorage.clear();
   fake = createPreferenceFramework(STORE, { walled: true });
   vi.stubGlobal('fetch', vi.fn(fake.fetch));
@@ -205,15 +218,62 @@ describe('a user\'s list state under a walled posture (objectui#12418)', () => {
     });
   });
 
-  it('CONTROL: the wall is live — a change that is still a view write (the density) is refused, and said', async () => {
+  it('a density toggle and a Hide Fields change write no metadata, raise no error, and land as one preference write each (objectui#12474)', async () => {
     boot();
     await waitFor(() => expect(typeof listProps?.schema?.onDensityChange).toBe('function'), { timeout: 5000 });
     await wait(100);
+    const readsBefore = fake.wire.gets.length;
 
     act(() => {
-      listProps.schema.onDensityChange('compact');
+      listProps.schema.onDensityChange('comfortable');
     });
-    await waitFor(() => expect(toast.error).toHaveBeenCalled(), { timeout: 3000 });
+    // Past the preference debounce (500 ms) and the round trip.
+    await waitFor(() => expect(fake.wire.writes).toHaveLength(1), { timeout: 3000 });
+    await wait(400);
+    expect(fake.wire.metaWrites).toEqual([]);
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(fake.wire.writes).toHaveLength(1);
+    expect(fake.wire.writes[0].id).toBe(preferenceRowId('u1', 'ui.list.account'));
+    expect(fake.wire.writes[0].value).toEqual({
+      viewOrder: [ALL_ID, MINE_ID],
+      perView: { [ALL_ID]: { rowHeight: 'medium' } },
+    });
+    // The list is handed the user's density back.
+    expect(listProps.schema.rowHeight).toBe('medium');
+
+    act(() => {
+      listProps.onHiddenFieldsChange(['name']);
+    });
+    await waitFor(() => expect(fake.wire.writes).toHaveLength(2), { timeout: 3000 });
+    await wait(400);
+    expect(fake.wire.metaWrites).toEqual([]);
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(fake.wire.writes).toHaveLength(2);
+    expect(fake.wire.writes[1].id).toBe(preferenceRowId('u1', 'ui.list.account'));
+    expect(fake.wire.writes[1].value).toEqual({
+      viewOrder: [ALL_ID, MINE_ID],
+      perView: { [ALL_ID]: { rowHeight: 'medium', hiddenFields: ['name'] } },
+    });
+    expect(listProps.schema.hiddenFields).toEqual(['name']);
+    // No second read: each write updates the row the boot read found.
+    expect(fake.wire.gets.length).toBe(readsBefore);
+  });
+
+  it('CONTROL: the wall is live — a metadata write made in this tree is refused', async () => {
+    boot();
+    await waitFor(() => expect(typeof listProps?.schema?.onDensityChange).toBe('function'), { timeout: 5000 });
+    await wait(100);
+    expect(typeof pageAdapter?.updateViewConfig).toBe('function');
+
+    let refused: unknown = null;
+    await act(async () => {
+      try {
+        await pageAdapter.updateViewConfig(OBJECT_NAME, ALL_ID, { rowHeight: 'compact' }, { isSavedView: false });
+      } catch (err) {
+        refused = err;
+      }
+    });
+    expect(refused).toBeTruthy();
     expect(fake.wire.metaWrites.length).toBeGreaterThan(0);
     expect(fake.wire.writes).toEqual([]);
   });

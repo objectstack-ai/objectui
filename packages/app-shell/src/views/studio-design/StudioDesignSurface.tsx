@@ -144,7 +144,7 @@ import {
   type PageSourceKind,
   type ReportBinding,
 } from './interfaceCreate.js';
-import { PermissionMatrixEditPage } from '../metadata-admin/PermissionMatrixEditor.js';
+import { PermissionMatrixEditPage, type PermissionStudioTab } from '../metadata-admin/PermissionMatrixEditor.js';
 import { AccessExplainPanel } from '../metadata-admin/AccessExplainPanel.js';
 import {
   useRegisteredMetadataInspector,
@@ -250,7 +250,7 @@ import {
   PackageDetailSheet,
   type InstalledPackageRow,
 } from '../metadata-admin/PackagesPage.js';
-import { ObjectFormDesigner } from './ObjectFormDesigner.js';
+import { FormToolbar, ObjectFormDesigner } from './ObjectFormDesigner.js';
 import { isStudioHiddenSystemField } from './studioHiddenSystemField.js';
 import { ObjectGroupInspector } from './ObjectGroupInspector.js';
 import { ObjectValidationsPanel } from './ObjectValidationsPanel.js';
@@ -5106,6 +5106,52 @@ export function DataPillar({
   const addFieldOffered = Boolean(current) && (viewMode === 'grid' || viewMode === 'form') && !readOnly && objLoaded;
   // objectui#12450 — the Records grid draws flush with the content column.
   const recordsFlush = Boolean(current) && objLoaded && viewMode === 'grid' && hasBaseline;
+  // objectui#12451 — so does the Form tab: its one toolbar row spans the
+  // column, and the canvas below it carries its own padding.
+  const formFlush = Boolean(current) && objLoaded && viewMode === 'form';
+  const bodyFlush = recordsFlush || formFlush;
+  // objectui#12451 — the Form tab's compact Layout / Preview control (24 px
+  // items). The caption that used to trail it is each item's title.
+  const formModeItem = (active: boolean) =>
+    cn(
+      'h-6 rounded px-2.5 text-xs transition-colors',
+      active ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+    );
+  const formModeControl = (
+    <div className="inline-flex items-center gap-0.5 rounded-md bg-muted p-0.5">
+      <button
+        type="button"
+        onClick={() => setFormMode('layout')}
+        aria-pressed={formMode === 'layout'}
+        // The caption used to assert "your unsaved changes" from `formMode`
+        // alone — a TAB selector — so it claimed pending edits on every clean
+        // layout tab, including in a read-only package where `Save draft` is
+        // disabled and the designer has no draggable at all (objectui#4036).
+        // Say it only when it is true: real local edits, on a surface that can
+        // save them. A read-only package is asked first: it has no draft layout
+        // at all, so neither draft caption is true of it (objectui#11781).
+        title={
+          readOnly
+            ? t('engine.studio.data.form.layoutBadgeReadOnly', locale)
+            : dirty
+              ? t('engine.studio.data.form.layoutBadge', locale)
+              : t('engine.studio.data.form.layoutBadgeClean', locale)
+        }
+        className={formModeItem(formMode === 'layout')}
+      >
+        {t('engine.studio.data.form.layout', locale)}
+      </button>
+      <button
+        type="button"
+        onClick={() => setFormMode('preview')}
+        aria-pressed={formMode === 'preview'}
+        title={t('engine.studio.data.form.previewBadge', locale)}
+        className={formModeItem(formMode === 'preview')}
+      >
+        {t('engine.studio.data.form.preview', locale)}
+      </button>
+    </div>
+  );
 
   // The selected object's own icon (from its metadata) — prefer the loaded
   // draft body, fall back to the rail header. getIcon degrades to Database.
@@ -5313,7 +5359,7 @@ export function DataPillar({
               body padding and no framed card around the list, so its toolbar,
               grid and footer span the column's full width. Every other view
               keeps the padded body. */}
-          <main className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', recordsFlush ? null : 'px-6 py-4')}>
+          <main className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', bodyFlush ? null : 'px-6 py-4')}>
           {!current ? (
             objectsLoaded && objects.length === 0 ? (
               /* Fresh package: the first act is creating an object — say so and
@@ -5345,7 +5391,7 @@ export function DataPillar({
                   locale={locale}
                   // objectui#11785 — "Show me" opens the named field's inspector.
                   onShow={(target) => setFieldSel({ kind: target.kind, id: target.id })}
-                  className={cn('mb-2 px-3 py-1.5 text-[11px]', recordsFlush && 'mx-6 mt-3')}
+                  className={cn('mb-2 px-3 py-1.5 text-[11px]', bodyFlush && 'mx-6 mt-3')}
                 />
               )}
               {objHeld && (
@@ -5358,7 +5404,7 @@ export function DataPillar({
                       ? undefined
                       : (target) => setFieldSel({ kind: target.kind, id: target.id })
                   }
-                  className={cn('mb-2 px-3 py-1.5 text-[11px]', recordsFlush && 'mx-6 mt-3')}
+                  className={cn('mb-2 px-3 py-1.5 text-[11px]', bodyFlush && 'mx-6 mt-3')}
                 />
               )}
               {!objLoaded ? (
@@ -5488,65 +5534,10 @@ export function DataPillar({
               ) : (
               <>
               {/* form sub-mode: Layout (WYSIWYG drag/section designer) ⇄
-                  Preview (live form) */}
-              <div className="mb-3 flex items-center gap-2">
-                <div className="inline-flex items-center gap-0.5 rounded-lg bg-muted p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setFormMode('layout')}
-                    aria-pressed={formMode === 'layout'}
-                    className={
-                      'rounded-md px-2.5 py-0.5 text-[12px] transition-all ' +
-                      (formMode === 'layout' ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')
-                    }
-                  >
-                    {t('engine.studio.data.form.layout', locale)}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormMode('preview')}
-                    aria-pressed={formMode === 'preview'}
-                    className={
-                      'rounded-md px-2.5 py-0.5 text-[12px] transition-all ' +
-                      (formMode === 'preview' ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')
-                    }
-                  >
-                    {t('engine.studio.data.form.preview', locale)}
-                  </button>
-                </div>
-                <span className="text-[11px] text-muted-foreground">
-                  {formMode === 'layout' ? (
-                    // The caption used to assert "your unsaved changes" from
-                    // `formMode` alone — a TAB selector — so it claimed pending
-                    // edits on every clean layout tab, including in a read-only
-                    // package where `Save draft` is disabled and the designer has
-                    // no draggable at all (objectui#4036). Say it only when it
-                    // is true: real local edits, on a surface that can save
-                    // them. A read-only package is asked first: it has no draft
-                    // layout at all, so neither draft caption is true of it
-                    // (objectui#11781), and "no unsaved-changes claim where
-                    // nothing can be saved" stays a property of this line
-                    // rather than an inference about a state machine two
-                    // hundred lines up.
-                    readOnly
-                      ? t('engine.studio.data.form.layoutBadgeReadOnly', locale)
-                      : dirty
-                        ? t('engine.studio.data.form.layoutBadge', locale)
-                        : t('engine.studio.data.form.layoutBadgeClean', locale)
-                  ) : (
-                    t('engine.studio.data.form.previewBadge', locale)
-                  )}
-                </span>
-                {/* Preview renders the PUBLISHED definition on purpose: a draft with
-                  * structural changes has no physical columns yet (DDL lands at
-                  * publish), so a draft-with-data preview would break. Publishing is
-                  * a deliberate user action — say so instead of silently lying. */}
-                {formMode === 'preview' && (dirty || hasDraft) && (
-                  <span className="inline-flex items-center gap-1 rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300">
-                    {t('engine.studio.data.form.previewWarn', locale)}
-                  </span>
-                )}
-              </div>
+                  Preview (live form). objectui#12451 — the control sits at the
+                  left of the Form tab's one toolbar row (the designer's in
+                  Layout, `FormToolbar` in Preview), and the caption that used
+                  to trail it is each item's title. */}
               {formMode === 'layout' ? (
                 <ObjectFormDesigner
                   draft={objDraft}
@@ -5559,10 +5550,28 @@ export function DataPillar({
                   onSelectGroup={(key) => setFieldSel({ kind: 'group', id: key })}
                   onAddField={addField}
                   readOnly={readOnly}
+                  modeControl={formModeControl}
                 />
-              ) : !hasBaseline ? (
+              ) : (
+              <>
+              <FormToolbar
+                leading={formModeControl}
+                hint={
+                  /* Preview renders the PUBLISHED definition on purpose: a draft with
+                   * structural changes has no physical columns yet (DDL lands at
+                   * publish), so a draft-with-data preview would break. Publishing is
+                   * a deliberate user action — say so instead of silently lying. */
+                  (dirty || hasDraft) && (
+                    <span className="inline-flex items-center gap-1 rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300">
+                      {t('engine.studio.data.form.previewWarn', locale)}
+                    </span>
+                  )
+                }
+              />
+              <div className="flex min-h-0 flex-1 flex-col overflow-auto bg-sidebar p-6">
+              {!hasBaseline ? (
                 /* Draft-only object: there is no published definition to preview yet. */
-                <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed bg-muted/20 text-center">
+                <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed bg-background text-center">
                   <p className="text-sm font-medium">{t('engine.studio.data.form.noPublishedTitle', locale)}</p>
                   <p className="max-w-md text-[11px] leading-5 text-muted-foreground">
                     {t('engine.studio.data.form.noPublishedHint', locale)}
@@ -5589,7 +5598,7 @@ export function DataPillar({
                     : ''
                 }
               `}</style>
-              <div className="min-h-0 flex-1 overflow-auto rounded-lg border bg-background p-6">
+              <div className="rounded-lg border bg-background p-6">
                 {/* Match the real display: the runtime form auto-widens (a
                     field-heavy record opens in a near-full-width modal), so its
                     container queries reach up to 4 columns on wide screens. A
@@ -5623,6 +5632,9 @@ export function DataPillar({
                     />
                   </SchemaRendererProvider>
                 </div>
+              </div>
+              </>
+              )}
               </div>
               </>
               )}
@@ -7238,6 +7250,10 @@ export function AccessPillar({
   const [busy, setBusy] = React.useState(false);
   // [ADR-0090 D6] "why can this user access?" — right-side explain sheet.
   const [explainOpen, setExplainOpen] = React.useState(false);
+  // objectui#12456 — the open set's tab (epic objectui#12446, decision C):
+  // Objects, System capabilities, Row-level security, Tab visibility,
+  // Delegated admin. Objects is the landing; the choice holds across sets.
+  const [accessTab, setAccessTab] = React.useState<PermissionStudioTab>('objects');
   // Both main-panel surfaces hold unsaved edits and unmount on a rail-driven
   // swap: the matrix page is keyed by `current` (and unmounts entirely when
   // the OWD overview swaps in), and the OWD overview batch-editor unmounts
@@ -7373,64 +7389,60 @@ export function AccessPillar({
       p.name.toLowerCase().includes(query.trim().toLowerCase()),
   );
 
-  // objectui#12459 — the item header inside the content column: the open
-  // set (or the OWD overview) as the title, the matrix's one-line summary as
-  // meta, Explain access and the draft / read-only note in the actions slot.
-  // The "Permission matrix" band above the rail retires.
-  const accessCurrentSet = !owdOpen && current ? perms.find((s) => s.name === current) ?? null : null;
+  // objectui#12459 — the item header inside the content column. The
+  // "Permission matrix" band above the rail retires. objectui#12456 — an
+  // open set's header is the matrix page's own (its label, api name, Package
+  // chip, granted / override counts, History, the tab row), fed the three
+  // pieces below; this pillar draws the header for the OWD overview and for
+  // the empty states.
+  const accessRailToggleEl = (
+    <button
+      type="button"
+      onClick={() => setRailOpen((v) => !v)}
+      aria-label={t('engine.studio.toggleRail', locale)}
+      className="-ml-1 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground md:hidden"
+    >
+      <Menu className="h-4 w-4" />
+    </button>
+  );
+  const accessNoteEl =
+    // objectui#11781 — "saved as draft" is what an editable package does;
+    // a read-only one saves nothing, so it says what it is, in the muted
+    // look of the rail's own read-only note rather than the draft amber.
+    readOnly ? (
+      <span
+        title={t('engine.studio.access.bannerTitleReadOnly', locale)}
+        className="rounded bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
+      >
+        {t('engine.studio.access.bannerReadOnly', locale)}
+      </span>
+    ) : (
+      <span
+        title={t('engine.studio.access.bannerTitle', locale)}
+        className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300"
+      >
+        {t('engine.studio.access.banner', locale)}
+      </span>
+    );
+  const accessExplainEl = (
+    <button
+      type="button"
+      onClick={() => setExplainOpen(true)}
+      className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground"
+    >
+      <ShieldQuestion className="h-3.5 w-3.5" />
+      {t('engine.studio.access.explain.open', locale)}
+    </button>
+  );
   const accessHeaderEl = (
     <StudioItemHeader
       testId="access-item-header"
-      leading={
-        <button
-          type="button"
-          onClick={() => setRailOpen((v) => !v)}
-          aria-label={t('engine.studio.toggleRail', locale)}
-          className="-ml-1 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground md:hidden"
-        >
-          <Menu className="h-4 w-4" />
-        </button>
-      }
+      leading={accessRailToggleEl}
       icon={owdOpen ? ShieldCheck : Shield}
-      title={
-        owdOpen
-          ? t('engine.studio.owd.railLabel', locale)
-          : accessCurrentSet
-            ? accessCurrentSet.label || accessCurrentSet.name
-            : t('engine.studio.access.title', locale)
-      }
-      apiName={accessCurrentSet?.name}
-      meta={t('engine.studio.access.subtitle', locale)}
-      chips={
-        // objectui#11781 — "saved as draft" is what an editable package does;
-        // a read-only one saves nothing, so it says what it is, in the muted
-        // look of the rail's own read-only note rather than the draft amber.
-        readOnly ? (
-          <span
-            title={t('engine.studio.access.bannerTitleReadOnly', locale)}
-            className="rounded bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
-          >
-            {t('engine.studio.access.bannerReadOnly', locale)}
-          </span>
-        ) : (
-          <span
-            title={t('engine.studio.access.bannerTitle', locale)}
-            className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300"
-          >
-            {t('engine.studio.access.banner', locale)}
-          </span>
-        )
-      }
-      actions={
-        <button
-          type="button"
-          onClick={() => setExplainOpen(true)}
-          className="inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground"
-        >
-          <ShieldQuestion className="h-3.5 w-3.5" />
-          {t('engine.studio.access.explain.open', locale)}
-        </button>
-      }
+      title={owdOpen ? t('engine.studio.owd.title', locale) : t('engine.studio.access.title', locale)}
+      meta={owdOpen ? t('engine.studio.owd.subtitle', locale) : t('engine.studio.access.subtitle', locale)}
+      chips={accessNoteEl}
+      actions={accessExplainEl}
     />
   );
 
@@ -7556,6 +7568,9 @@ export function AccessPillar({
                 if (isMobile) setRailOpen(false);
               }}
               icon={<Shield className="h-4 w-4 shrink-0 text-muted-foreground" />}
+              // objectui#12456 — two-line rows (label, then the api name in
+              // mono) at 36 px: the one height the shared rail lets differ.
+              className="h-9"
               trailing={
                 p.isDefault ? (
                   <span className="text-[9px] uppercase tracking-wide text-muted-foreground/60">default</span>
@@ -7572,7 +7587,7 @@ export function AccessPillar({
         </StudioRail>
 
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          {accessHeaderEl}
+          {(owdOpen || !current) && accessHeaderEl}
           <main className="min-h-0 flex-1 overflow-auto">
           {owdOpen ? (
             /* Sibling surface: the package-wide OWD baseline overview
@@ -7589,10 +7604,10 @@ export function AccessPillar({
               onDirtyChange={setOwdDirty}
             />
           ) : current ? (
-            /* The existing Salesforce-style matrix page, embedded unchanged —
-             * objects × CRUD/VAMA/lifecycle up top, per-object field-level R/W
-             * below, its own autosave + destructive-change guard included. The
-             * read-only OWD badge deep-links to the overview above. */
+            /* The existing Salesforce-style matrix page in its Studio
+             * presentation (objectui#12456): the item header and five tabs
+             * are the page's own, its autosave + destructive-change guard
+             * included. The OWD chip deep-links to the overview above. */
             <PermissionMatrixEditPage
               key={current}
               type="permission"
@@ -7603,6 +7618,13 @@ export function AccessPillar({
               readOnly={readOnly}
               onDirtyChange={setMatrixDirty}
               embedded
+              studio={{
+                tab: accessTab,
+                onTabChange: setAccessTab,
+                leading: accessRailToggleEl,
+                chips: accessNoteEl,
+                actions: accessExplainEl,
+              }}
               onOpenOwd={(objectName) => {
                 // The badge deep-link swaps this page out for the OWD
                 // overview — same remount, same guard.

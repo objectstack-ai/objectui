@@ -191,7 +191,10 @@ function openEditor(): HTMLElement {
 }
 
 const fieldNames = (body: Record<string, unknown>) => readFields(body.fields).entries.map((e) => e.name);
-const fieldCount = (editor: HTMLElement) => within(editor).getByText(/^\d+ fields$/).textContent;
+// The object header's count: since objectui#12451 each Form section card
+// counts its own fields with the same words, so the read is scoped.
+const fieldCount = (editor: HTMLElement) =>
+  within(within(editor).getByTestId('data-object-header')).getByText(/^\d+ fields$/).textContent;
 const serverDraftFields = () => fieldNames(server.drafts.get(`object/${OBJECT.name}`)!.body);
 
 async function loaded(editor: HTMLElement, count: string): Promise<void> {

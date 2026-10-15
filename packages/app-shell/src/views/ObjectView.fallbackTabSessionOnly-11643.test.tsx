@@ -36,6 +36,15 @@
  * A "reload" unmounts the page and mounts it again over a fresh adapter on the
  * same store.
  *
+ * ## Since objectui#12418 and objectui#12474
+ *
+ * No list toolbar control writes a view any more: the sort and the column
+ * layout (objectui#12418), the density and the hidden fields (objectui#12474)
+ * are the user's own list state. The console-made tab still sends nothing; the
+ * real rows beside it, which this file pinned keeping their save path, now
+ * keep the change as the user's state too and are not written. The direction
+ * note below is the original fix's.
+ *
  * ## Direction of the reverse-verification run
  *
  * - Guard removed: every case that drives the console-made tab goes red on its
@@ -286,6 +295,7 @@ beforeEach(() => {
   cleanup();
   listProps = null;
   listSchema = null;
+  localStorage.clear();
   vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ data: [] }), {
     status: 200,
     headers: { 'content-type': 'application/json' },
@@ -300,6 +310,27 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.clearAllMocks();
 });
+
+/**
+ * objectui#12474 — a density change on a real row used to be written into
+ * it (the save path this file kept open beside the console-made tab). The
+ * density is the user's own list state now, on every tab, so a real row is
+ * not written either: the change survives the reload from the user's state
+ * (this harness mounts no preference provider, so that state is this
+ * browser's), and the row stays exactly as stored.
+ */
+async function densityIsTheUsers(meta: any, rows: Map<string, any>, object: Record<string, any>, viewId: string) {
+  const before = structuredClone(rows.get(viewId));
+  const ds = await openPage(meta, object, viewId);
+  act(() => listSchema.onDensityChange('comfortable'));
+  await wait(700);
+
+  expect(ds.updateViewConfig).not.toHaveBeenCalled();
+  expect(meta.saveItem).not.toHaveBeenCalled();
+  expect(toast.error).not.toHaveBeenCalled();
+  expect(rows.get(viewId)).toEqual(before);
+  expect(await reload(meta, object, viewId)).toBe('medium');
+}
 
 describe('objectui#11643 — the console-made tab of a view-less object keeps its toolbar changes for the session', () => {
   it('every toolbar control on it sends no metadata write and raises no error', async () => {
@@ -333,7 +364,7 @@ describe('objectui#11643 — the console-made tab of a view-less object keeps it
     expect(persistFailuresLogged()).toEqual([]);
   });
 
-  it('a saved view beside it is a real row: its density change is still written and survives a reload', async () => {
+  it('a saved view beside it is a real row: its density change is the user\'s, writes no row, and survives a reload', async () => {
     const { meta, rows } = makeStore([SAVED_ROW]);
 
     // The console-made tab sits beside the saved view and still sends nothing.
@@ -345,60 +376,22 @@ describe('objectui#11643 — the console-made tab of a view-less object keeps it
     expect(meta.saveItem).not.toHaveBeenCalled();
 
     cleanup();
-    const onSaved = await openPage(meta, VIEWLESS_OBJECT, SAVED_ID);
+    await densityIsTheUsers(meta, rows, VIEWLESS_OBJECT, SAVED_ID);
     expect(listSchema.label).toBe('Mine');
-    act(() => listSchema.onDensityChange('comfortable'));
-    await wait(700);
-
-    expect(onSaved.updateViewConfig).toHaveBeenCalledTimes(1);
-    expect(onSaved.updateViewConfig.mock.calls[0][1]).toBe(SAVED_ID);
-    expect(onSaved.updateViewConfig.mock.calls[0][3]).toEqual({ isSavedView: true });
-    expect(toast.error).not.toHaveBeenCalled();
-    const stored = rows.get(SAVED_ID);
-    expect(stored.config.rowHeight).toBe('medium');
-    expect(stored.config.filter).toEqual(SAVED_ROW.config.filter);
-    expect(stored).not.toHaveProperty('_isOverride');
-
-    expect(await reload(meta, VIEWLESS_OBJECT, SAVED_ID)).toBe('medium');
   });
 });
 
 describe('objectui#11643 — provenance decides, not the id `all`', () => {
-  it('a served view whose tab id is `all` keeps its overlay save path', async () => {
+  it('a served view whose tab id is `all`: its density change is the user\'s and writes no overlay', async () => {
     const { meta, rows } = makeStore([SERVED_ALL_OVERLAY]);
-    const ds = await openPage(meta, SERVED_ALL_OBJECT, 'all');
+    await densityIsTheUsers(meta, rows, SERVED_ALL_OBJECT, 'all');
     expect(listSchema.label).toBe('All notes');
-    act(() => listSchema.onDensityChange('comfortable'));
-    await wait(700);
-
-    expect(ds.updateViewConfig).toHaveBeenCalledTimes(1);
-    expect(ds.updateViewConfig.mock.calls[0][1]).toBe('all');
-    expect(ds.updateViewConfig.mock.calls[0][3]).toEqual({ isSavedView: false });
-    expect(toast.error).not.toHaveBeenCalled();
-    const stored = rows.get('all');
-    expect(stored.rowHeight).toBe('medium');
-    expect(stored.columnState).toEqual(SERVED_ALL_OVERLAY.columnState);
-    expect(stored._isOverride).toBe(true);
-
-    expect(await reload(meta, SERVED_ALL_OBJECT, 'all')).toBe('medium');
   });
 
-  it('a stored row named `all` that shadows the console-made tab is a real row and keeps its save path', async () => {
+  it('a stored row named `all` that shadows the console-made tab: its density change is the user\'s and writes no row', async () => {
     const { meta, rows } = makeStore([STORED_ALL_ROW]);
-    const ds = await openPage(meta, VIEWLESS_OBJECT, 'all');
+    await densityIsTheUsers(meta, rows, VIEWLESS_OBJECT, 'all');
     // The stored row's own label: the switcher merged it onto the tab the page made.
     expect(listSchema.label).toBe('All (stored)');
-    act(() => listSchema.onDensityChange('comfortable'));
-    await wait(700);
-
-    expect(ds.updateViewConfig).toHaveBeenCalledTimes(1);
-    expect(ds.updateViewConfig.mock.calls[0][3]).toEqual({ isSavedView: true });
-    expect(toast.error).not.toHaveBeenCalled();
-    const stored = rows.get('all');
-    expect(stored.rowHeight).toBe('medium');
-    expect(stored.columns).toEqual(STORED_ALL_ROW.columns);
-    expect(stored).not.toHaveProperty('_isOverride');
-
-    expect(await reload(meta, VIEWLESS_OBJECT, 'all')).toBe('medium');
   });
 });

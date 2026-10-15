@@ -224,11 +224,24 @@ interface FacetSectionProps {
   count?: number;
   children: React.ReactNode;
   defaultOpen?: boolean;
+  /**
+   * objectui#12456 — the section is a tab body of the Studio Access pillar:
+   * no collapsible trigger (the tab names it), the editor always open, and
+   * `shown` false hides it while it stays mounted.
+   */
+  flat?: { shown: boolean; testId: string };
 }
 
 /** A collapsible facet section so the three editors don't crowd the matrix. */
-function FacetSection({ title, icon, count, children, defaultOpen }: FacetSectionProps) {
+function FacetSection({ title, icon, count, children, defaultOpen, flat }: FacetSectionProps) {
   const [open, setOpen] = React.useState(!!defaultOpen);
+  if (flat) {
+    return (
+      <section aria-label={title} hidden={!flat.shown} data-testid={flat.testId} className="px-6 py-4">
+        {children}
+      </section>
+    );
+  }
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="border-b">
       <CollapsibleTrigger className="flex w-full items-center gap-2 px-6 py-2.5 text-left hover:bg-muted/40">
@@ -270,6 +283,14 @@ export interface PermissionAdvancedFacetsProps {
    */
   onCelErrorsChange?: (count: number) => void;
   t: (k: string) => string;
+  /**
+   * objectui#12456 — the Studio Access pillar shows each facet as its own tab.
+   * When set, the three sections render flat (no collapsible trigger) and only
+   * the named one is shown; `null` hides all three. The other two stay
+   * MOUNTED, so the CEL lint of a policy keeps reporting to the host's Save
+   * gate while its tab is not the open one. Omitted: the stacked collapsibles.
+   */
+  only?: 'rls' | 'tabs' | 'admin' | null;
 }
 
 export function PermissionAdvancedFacets({
@@ -280,7 +301,10 @@ export function PermissionAdvancedFacets({
   loadObjectFields,
   onCelErrorsChange,
   t,
+  only,
 }: PermissionAdvancedFacetsProps) {
+  const flatFor = (section: 'rls' | 'tabs' | 'admin') =>
+    only === undefined ? undefined : { shown: only === section, testId: `perm-facet-${section}` };
   const policies = React.useMemo<RlsPolicy[]>(
     () => asArray<RlsPolicy>(draft.rowLevelSecurity).map(stripRetiredRlsKeys),
     [draft.rowLevelSecurity],
@@ -402,9 +426,10 @@ export function PermissionAdvancedFacets({
   const tabEntries = Object.entries(tabs);
 
   return (
-    <div className="border-b bg-muted/10">
+    <div className={only === undefined ? 'border-b bg-muted/10' : undefined}>
       {/* Row-Level Security */}
       <FacetSection
+        flat={flatFor('rls')}
         title={t('perm.rls.title')}
         icon={<Lock className="h-4 w-4 text-muted-foreground" />}
         count={policies.length}
@@ -558,6 +583,7 @@ export function PermissionAdvancedFacets({
 
       {/* Tab Visibility */}
       <FacetSection
+        flat={flatFor('tabs')}
         title={t('perm.tabs.title')}
         icon={<PanelTop className="h-4 w-4 text-muted-foreground" />}
         count={tabEntries.length}
@@ -620,6 +646,7 @@ export function PermissionAdvancedFacets({
 
       {/* Delegated Admin Scope */}
       <FacetSection
+        flat={flatFor('admin')}
         title={t('perm.admin.title')}
         icon={<Shield className="h-4 w-4 text-muted-foreground" />}
         count={scopeConfigured ? 1 : 0}

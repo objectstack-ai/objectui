@@ -34,7 +34,8 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Plus, Trash2, ChevronUp, ChevronDown, Rows3, Settings2 } from 'lucide-react';
+import { GripVertical, Plus, Trash2, ChevronUp, ChevronDown, ChevronsUpDown, PanelTop, Settings2 } from 'lucide-react';
+import { cn } from '@object-ui/components';
 import { inferColumns, containerGridColsFor, isWideFieldType } from '@object-ui/plugin-form';
 import { toFormFieldType } from './formFieldType.js';
 import {
@@ -245,12 +246,44 @@ export interface ObjectFormDesignerProps {
   onSelectGroup?: (key: string) => void;
   /** Courtesy gate: layout stays viewable, but add/rename/reorder/delete are off. */
   readOnly?: boolean;
+  /**
+   * The host's Layout / Preview control, drawn at the left of the designer's
+   * toolbar so the Form tab keeps one toolbar row (objectui#12451).
+   */
+  modeControl?: React.ReactNode;
 }
 
-/** A faithful, non-interactive preview of a field's control (by type). */
+/**
+ * The Form tab's one toolbar row (objectui#12451): the host's mode control and
+ * a hint at the left, the actions at the right. The designer draws it in Layout;
+ * the host draws it in Preview, so both modes keep the same row.
+ */
+export function FormToolbar({
+  leading,
+  hint,
+  children,
+}: {
+  leading?: React.ReactNode;
+  hint?: React.ReactNode;
+  children?: React.ReactNode;
+}): React.ReactElement {
+  return (
+    <div data-testid="form-toolbar" className="flex shrink-0 flex-wrap items-center gap-2 border-b bg-background px-6 py-3">
+      {leading}
+      {hint}
+      {children ? <div className="ml-auto flex items-center gap-1.5">{children}</div> : null}
+    </div>
+  );
+}
+
+/**
+ * A skeleton of a field's control (by type): a 32 px box, 56 px for the
+ * multi-line widgets, and a select box with a chevron for the pickers
+ * (objectui#12451).
+ */
 function FieldControlPreview({ type }: { type: string }): React.ReactElement {
   const locale = useMetadataLocale();
-  const box = 'mt-1 flex items-center rounded-md border bg-muted/30 px-2 text-[11px] text-muted-foreground';
+  const box = 'flex items-center rounded-md border bg-sidebar px-2.5 text-xs text-muted-foreground';
   switch (type) {
     case 'select':
     case 'radio':
@@ -259,9 +292,9 @@ function FieldControlPreview({ type }: { type: string }): React.ReactElement {
     case 'user':
     case 'multiselect':
       return (
-        <div className={`${box} h-7 justify-between`}>
+        <div className={`${box} h-8 justify-between`}>
           <span>{type === 'lookup' || type === 'reference' || type === 'user' ? t('engine.studio.designer.search', locale) : t('engine.studio.designer.select', locale)}</span>
-          <span>▾</span>
+          <ChevronsUpDown className="h-3 w-3" aria-hidden="true" />
         </div>
       );
     case 'textarea':
@@ -269,25 +302,25 @@ function FieldControlPreview({ type }: { type: string }): React.ReactElement {
     case 'markdown':
     case 'json':
     case 'code':
-      return <div className={`${box} h-14 items-start pt-1.5`}>…</div>;
+      return <div className={`${box} h-14`} />;
     case 'boolean':
     case 'checkbox':
     case 'switch':
       return (
-        <div className="mt-1 flex items-center">
+        <div className="flex h-8 items-center">
           <span className="h-4 w-7 rounded-full bg-muted" />
         </div>
       );
     case 'number':
     case 'currency':
     case 'percent':
-      return <div className={`${box} h-7`}>0.00</div>;
+      return <div className={`${box} h-8`}>0.00</div>;
     case 'date':
     case 'datetime':
     case 'time':
-      return <div className={`${box} h-7`}>{t('engine.studio.designer.pickDate', locale)}</div>;
+      return <div className={`${box} h-8`}>{t('engine.studio.designer.pickDate', locale)}</div>;
     default:
-      return <div className={`${box} h-7`}>&nbsp;</div>;
+      return <div className={`${box} h-8`} />;
   }
 }
 
@@ -348,29 +381,32 @@ function SortableField({
           ? tFormat('engine.studio.designer.fieldAriaReadOnly', locale, { label })
           : tFormat('engine.studio.designer.fieldAria', locale, { label })
       }
-      className={
-        'group relative flex touch-none select-none items-start gap-1.5 rounded-md border bg-background px-2 py-2 ' +
-        (readOnly ? 'cursor-pointer ' : 'cursor-grab active:cursor-grabbing ') +
-        (spanFull ? 'col-span-full ' : '') +
-        (selected ? 'ring-2 ring-primary' : 'hover:border-foreground/25') +
-        (isDragging ? ' opacity-40' : '')
-      }
-    >
-      {!readOnly && (
-        <span className="mt-0.5 text-muted-foreground opacity-0 group-hover:opacity-100">
-          <GripVertical className="h-3.5 w-3.5" />
-        </span>
+      // objectui#12451 — a field card: a transparent border that turns muted on
+      // hover; selected, a primary border with a soft primary ring, and the
+      // type tag turns primary.
+      className={cn(
+        'flex touch-none select-none flex-col gap-2 rounded-md border px-3 py-2.5',
+        readOnly ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing',
+        spanFull && 'col-span-full',
+        selected ? 'border-primary bg-background ring-[3px] ring-primary/10' : 'border-transparent hover:border-border',
+        isDragging && 'opacity-40',
       )}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1 text-xs font-medium">
+    >
+      <div className="flex min-w-0 items-baseline gap-2">
+        <span className="flex min-w-0 items-baseline gap-1 text-[13px] font-medium">
           <span className="truncate">{label}</span>
           {required && <span className="text-destructive">*</span>}
-          {/* Quiet type hint — a faint label, not a boxed chip on every row,
-              so a form full of fields doesn't read as a wall of grey tags. */}
-          <span className="ml-1 text-[9px] uppercase tracking-wide text-muted-foreground/70">{type}</span>
-        </div>
-        <FieldControlPreview type={type} />
+        </span>
+        <span
+          className={cn(
+            'shrink-0 text-[10px] font-semibold uppercase tracking-wider',
+            selected ? 'text-primary' : 'text-muted-foreground',
+          )}
+        >
+          {type}
+        </span>
       </div>
+      <FieldControlPreview type={type} />
     </div>
   );
 }
@@ -419,14 +455,18 @@ function Section({
   // `@container` scopes the field grid's container queries to THIS section's
   // width, so a wide screen spreads fields to the same column count the real
   // form uses — while a narrow panel collapses to one column.
+  // objectui#12451 — a section card: white, 1 px border, 8 px radius, a 44 px
+  // header (title, field count, then the group's controls with its settings
+  // at the right).
   const stateCls = isOver
-    ? 'border-primary bg-primary/5'
+    ? 'border-primary ring-[3px] ring-primary/10'
     : selected
-      ? 'border-primary/50 bg-primary/5 ring-2 ring-primary'
-      : 'bg-muted/20';
+      ? 'border-primary ring-[3px] ring-primary/10'
+      : '';
+  const iconBtn = 'inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted';
   return (
-    <div className={'@container rounded-lg border ' + stateCls}>
-      <div className="flex items-center gap-1 border-b px-3 py-1.5">
+    <div className={cn('@container rounded-lg border bg-background', stateCls)}>
+      <div className="flex h-11 items-center gap-2 border-b px-4">
         {isDeclared && !readOnly ? (
           <input
             defaultValue={title}
@@ -434,56 +474,59 @@ function Section({
             onKeyDown={(e) => {
               if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
             }}
-            className="min-w-0 flex-1 rounded bg-transparent px-1 py-0.5 text-[13px] font-medium outline-none hover:bg-muted focus:bg-background focus:ring-1 focus:ring-primary"
+            className="field-sizing-content min-w-0 max-w-full rounded bg-transparent px-1 py-0.5 text-sm font-semibold outline-none hover:bg-muted focus:bg-background focus:ring-1 focus:ring-primary"
           />
         ) : (
-          <span className="flex-1 px-1 text-[13px] font-medium text-muted-foreground">{title}</span>
+          <span className={cn('px-1 text-sm font-semibold', !isDeclared && 'text-muted-foreground')}>{title}</span>
         )}
-        {isDeclared && onSelect && (
-          <button
-            type="button"
-            onClick={onSelect}
-            aria-label={t('engine.studio.designer.group.settings', locale)}
-            title={t('engine.studio.designer.group.settings', locale)}
-            className={
-              'rounded p-0.5 hover:bg-muted ' +
-              (selected ? 'text-primary' : 'text-muted-foreground hover:text-foreground')
-            }
-          >
-            <Settings2 className="h-3.5 w-3.5" />
-          </button>
-        )}
-        {isDeclared && !readOnly && (
-          <>
+        <span className="shrink-0 text-xs text-muted-foreground">
+          {tFormat('engine.studio.data.fieldCount', locale, { count: fieldIds.length })}
+        </span>
+        <div className="ml-auto flex items-center gap-0.5">
+          {isDeclared && !readOnly && (
+            <>
+              <button
+                type="button"
+                disabled={!canMoveUp}
+                onClick={() => onMove(-1)}
+                aria-label={t('engine.studio.designer.groupUp', locale)}
+                className={cn(iconBtn, 'disabled:opacity-30')}
+              >
+                <ChevronUp className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                disabled={!canMoveDown}
+                onClick={() => onMove(1)}
+                aria-label={t('engine.studio.designer.groupDown', locale)}
+                className={cn(iconBtn, 'disabled:opacity-30')}
+              >
+                <ChevronDown className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={onDelete}
+                aria-label={t('engine.studio.designer.groupDelete', locale)}
+                title={t('engine.studio.designer.groupDeleteTitle', locale)}
+                className={cn(iconBtn, 'hover:bg-destructive/10 hover:text-destructive')}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </>
+          )}
+          {isDeclared && onSelect && (
+            // The section settings trigger: opens ObjectGroupInspector.
             <button
               type="button"
-              disabled={!canMoveUp}
-              onClick={() => onMove(-1)}
-              aria-label={t('engine.studio.designer.groupUp', locale)}
-              className="rounded p-0.5 text-muted-foreground hover:bg-muted disabled:opacity-30"
+              onClick={onSelect}
+              aria-label={t('engine.studio.designer.group.settings', locale)}
+              title={t('engine.studio.designer.group.settings', locale)}
+              className={cn(iconBtn, selected ? 'text-primary' : 'hover:text-foreground')}
             >
-              <ChevronUp className="h-3.5 w-3.5" />
+              <Settings2 className="h-[15px] w-[15px]" />
             </button>
-            <button
-              type="button"
-              disabled={!canMoveDown}
-              onClick={() => onMove(1)}
-              aria-label={t('engine.studio.designer.groupDown', locale)}
-              className="rounded p-0.5 text-muted-foreground hover:bg-muted disabled:opacity-30"
-            >
-              <ChevronDown className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={onDelete}
-              aria-label={t('engine.studio.designer.groupDelete', locale)}
-              title={t('engine.studio.designer.groupDeleteTitle', locale)}
-              className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          </>
-        )}
+          )}
+        </div>
       </div>
       <SortableContext items={fieldIds} strategy={verticalListSortingStrategy}>
         {/* Field grid mirrors the real form's density: container-query columns
@@ -491,7 +534,9 @@ function Section({
             designer matches what end users actually see. */}
         <div
           ref={setNodeRef}
-          className={'min-h-[52px] p-2.5 ' + (containerGridColsFor(columns) ?? 'grid grid-cols-1 gap-4')}
+          // The column steps are the runtime form's; only the gap is the
+          // card's 8 px (objectui#12451).
+          className={cn('min-h-[52px] p-3', containerGridColsFor(columns) ?? 'grid grid-cols-1', 'gap-2')}
         >
           {fieldIds.length === 0 && (
             <div className="col-span-full flex items-center justify-center rounded-md border border-dashed py-3 text-[11px] text-muted-foreground">
@@ -531,6 +576,7 @@ export function ObjectFormDesigner({
   selectedGroup,
   onSelectGroup,
   readOnly = false,
+  modeControl,
 }: ObjectFormDesignerProps): React.ReactElement {
   const locale = useMetadataLocale();
   const view = React.useMemo(() => readFields(draft.fields), [draft.fields]);
@@ -750,85 +796,100 @@ export function ObjectFormDesigner({
   const activeEntry = activeId && !activeId.startsWith('g:') ? entryByName.get(unFid(activeId)) : null;
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto rounded-lg border bg-background p-4">
-      <div className="mb-3 flex items-center gap-2">
-        <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-          {/* objectui#11781 — a read-only package has no drag and no edit, so
-              its hint says what it is and what a click still does. */}
-          <Rows3 className="h-3.5 w-3.5" />{' '}
-          {readOnly ? t('engine.studio.designer.hintReadOnly', locale) : t('engine.studio.designer.hint', locale)}
-        </span>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <FormToolbar
+        leading={modeControl}
+        hint={
+          <span className="text-xs text-muted-foreground">
+            {/* objectui#11781 — a read-only package has no drag and no edit, so
+                its hint says what it is and what a click still does. */}
+            {readOnly ? t('engine.studio.designer.hintReadOnly', locale) : t('engine.studio.designer.toolbarHint', locale)}
+          </span>
+        }
+      >
         {!readOnly && (
           <>
             <button
               type="button"
               onClick={addSection}
-              className="ml-auto inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-xs text-foreground/80 hover:bg-muted hover:text-foreground"
             >
-              <Plus className="h-3.5 w-3.5" /> {t('engine.studio.designer.addGroup', locale)}
+              <PanelTop className="h-3.5 w-3.5 text-muted-foreground" /> {t('engine.studio.designer.addGroup', locale)}
             </button>
             {onAddField && (
               <button
                 type="button"
                 onClick={onAddField}
-                className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="inline-flex h-7 items-center gap-1.5 rounded-md bg-primary/10 px-2.5 text-xs font-medium text-primary hover:bg-primary/15"
               >
                 <Plus className="h-3.5 w-3.5" /> {t('engine.studio.data.addField', locale)}
               </button>
             )}
           </>
         )}
+      </FormToolbar>
+
+      <div className="min-h-0 flex-1 overflow-auto bg-sidebar p-6">
+        <DndContext
+          sensors={readOnly ? [] : sensors}
+          collisionDetection={formCollision((id) => keyboardOverAt(items, id, keyboardSlot))}
+          accessibility={dndAccessibility}
+          onDragStart={onDragStart}
+          onDragOver={onDragOver}
+          onDragEnd={onDragEnd}
+          onDragCancel={() => setActiveId(null)}
+        >
+          <div className="mx-auto flex max-w-6xl flex-col gap-4">
+            {containerOrder.map((c) => {
+              const isUngrouped = c === cid(UNGROUPED);
+              // Hide the ungrouped bucket only when it is empty AND groups exist.
+              if (isUngrouped && (items[c]?.length ?? 0) === 0 && groups.length > 0) return null;
+              const declaredIdx = groups.findIndex((g) => cid(g.key) === c);
+              return (
+                <Section
+                  key={c}
+                  containerId={c}
+                  title={labelOf.get(c) ?? t('engine.studio.designer.ungrouped', locale)}
+                  fieldIds={items[c] ?? []}
+                  columns={formColumns}
+                  isDeclared={!isUngrouped}
+                  canMoveUp={declaredIdx > 0}
+                  canMoveDown={declaredIdx >= 0 && declaredIdx < groups.length - 1}
+                  entryByName={entryByName}
+                  fieldLabelOf={fieldLabelOf}
+                  selectedField={selectedField}
+                  onSelectField={onSelectField}
+                  selected={!isUngrouped && selectedGroup === unCid(c)}
+                  onSelect={!isUngrouped && onSelectGroup ? () => onSelectGroup(unCid(c)) : undefined}
+                  onRename={(label) => renameSection(unCid(c), label)}
+                  onDelete={() => deleteSection(unCid(c))}
+                  onMove={(dir) => moveSection(unCid(c), dir)}
+                  readOnly={readOnly}
+                />
+              );
+            })}
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={addSection}
+                data-testid="form-designer-add-section-footer"
+                className="flex h-11 items-center justify-center gap-1.5 rounded-lg border border-dashed border-muted-foreground/30 text-xs text-muted-foreground hover:border-muted-foreground/60 hover:text-foreground"
+              >
+                <Plus className="h-3.5 w-3.5" /> {t('engine.studio.designer.addGroup', locale)}
+              </button>
+            )}
+          </div>
+
+          <DragOverlay>
+            {activeEntry ? (
+              <div className="flex items-center gap-1.5 rounded-md border bg-background px-2 py-2 shadow-lg">
+                <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium">{fieldLabelOf(activeEntry)}</span>
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       </div>
-
-      <DndContext
-        sensors={readOnly ? [] : sensors}
-        collisionDetection={formCollision((id) => keyboardOverAt(items, id, keyboardSlot))}
-        accessibility={dndAccessibility}
-        onDragStart={onDragStart}
-        onDragOver={onDragOver}
-        onDragEnd={onDragEnd}
-        onDragCancel={() => setActiveId(null)}
-      >
-        <div className="mx-auto flex max-w-6xl flex-col gap-3">
-          {containerOrder.map((c) => {
-            const isUngrouped = c === cid(UNGROUPED);
-            // Hide the ungrouped bucket only when it is empty AND groups exist.
-            if (isUngrouped && (items[c]?.length ?? 0) === 0 && groups.length > 0) return null;
-            const declaredIdx = groups.findIndex((g) => cid(g.key) === c);
-            return (
-              <Section
-                key={c}
-                containerId={c}
-                title={labelOf.get(c) ?? t('engine.studio.designer.ungrouped', locale)}
-                fieldIds={items[c] ?? []}
-                columns={formColumns}
-                isDeclared={!isUngrouped}
-                canMoveUp={declaredIdx > 0}
-                canMoveDown={declaredIdx >= 0 && declaredIdx < groups.length - 1}
-                entryByName={entryByName}
-                fieldLabelOf={fieldLabelOf}
-                selectedField={selectedField}
-                onSelectField={onSelectField}
-                selected={!isUngrouped && selectedGroup === unCid(c)}
-                onSelect={!isUngrouped && onSelectGroup ? () => onSelectGroup(unCid(c)) : undefined}
-                onRename={(label) => renameSection(unCid(c), label)}
-                onDelete={() => deleteSection(unCid(c))}
-                onMove={(dir) => moveSection(unCid(c), dir)}
-                readOnly={readOnly}
-              />
-            );
-          })}
-        </div>
-
-        <DragOverlay>
-          {activeEntry ? (
-            <div className="flex items-center gap-1.5 rounded-md border bg-background px-2 py-2 shadow-lg">
-              <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-medium">{fieldLabelOf(activeEntry)}</span>
-            </div>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
     </div>
   );
 }

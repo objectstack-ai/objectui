@@ -116,3 +116,46 @@ describe('this browser\'s cache and the older keys (objectui#12418)', () => {
     expect(localStorage.getItem(localListStateKey('u1', 'deal'))).toBe('{}');
   });
 });
+
+describe('the density and the hidden fields are two more parts of a view\'s entry (objectui#12474)', () => {
+  it('keeps a spec row height and drops any other value, never coercing it', () => {
+    expect(sanitizeObjectListPreference({
+      perView: {
+        v1: { rowHeight: 'medium' },
+        v2: { rowHeight: 'comfortable' },
+        v3: { rowHeight: 7 },
+      },
+    })).toEqual({ perView: { v1: { rowHeight: 'medium' } } });
+  });
+
+  it('keeps the hidden fields as names, once each, and keeps an empty list as the user\'s choice', () => {
+    expect(sanitizeObjectListPreference({
+      perView: {
+        v1: { hiddenFields: ['amount', 3, '', 'amount', 'stage'] },
+        v2: { hiddenFields: [] },
+        v3: { hiddenFields: 'amount' },
+      },
+    })).toEqual({ perView: { v1: { hiddenFields: ['amount', 'stage'] }, v2: { hiddenFields: [] } } });
+  });
+
+  it('a patch sets each part beside the others, and `null` clears only its own part', () => {
+    let state = patchViewPreference({}, 'v1', { sort: [{ field: 'name', order: 'asc' }] });
+    state = patchViewPreference(state, 'v1', { rowHeight: 'compact' });
+    state = patchViewPreference(state, 'v1', { hiddenFields: ['amount'] });
+    expect(state).toEqual({
+      perView: { v1: { sort: [{ field: 'name', order: 'asc' }], rowHeight: 'compact', hiddenFields: ['amount'] } },
+    });
+    state = patchViewPreference(state, 'v1', { rowHeight: null });
+    expect(state).toEqual({ perView: { v1: { sort: [{ field: 'name', order: 'asc' }], hiddenFields: ['amount'] } } });
+    state = patchViewPreference(state, 'v1', { hiddenFields: null, sort: null });
+    expect(state).toEqual({});
+  });
+
+  it('"Reset view" drops the density and the hidden fields with the rest of the view\'s entry', () => {
+    const state = {
+      viewOrder: ['v2', 'v1'],
+      perView: { v1: { rowHeight: 'tall' as const, hiddenFields: [] }, v2: { rowHeight: 'short' as const } },
+    };
+    expect(resetViewPreference(state, 'v1')).toEqual({ viewOrder: ['v2', 'v1'], perView: { v2: { rowHeight: 'short' } } });
+  });
+});

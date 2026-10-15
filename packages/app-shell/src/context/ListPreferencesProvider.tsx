@@ -3,8 +3,9 @@
  * (objectui#12418).
  *
  * What a user does to a list for themselves — the order of the view tabs, and
- * per view the sort, the Filter panel's conditions and the column order and
- * widths — is THEIR preference: it follows them to another browser, and it
+ * per view the sort, the Filter panel's conditions, the column order and
+ * widths, the row density and the hidden fields (objectui#12474) — is THEIR
+ * preference: it follows them to another browser, and it
  * never changes the view for anyone else. It used to live in two wrong places:
  * the tab order and the filters in this browser's localStorage only, and the
  * sort and the column layout written INTO the shared view (`/meta/view`), so
@@ -17,7 +18,8 @@
  *
  * ```json
  * { "viewOrder": ["<view id>", …],
- *   "perView": { "<view id>": { "sort": […], "filters": {…}, "columnState": {…} } } }
+ *   "perView": { "<view id>": { "sort": […], "filters": {…}, "columnState": {…},
+ *                               "rowHeight": "medium", "hiddenFields": ["<field>", …] } } }
  * ```
  *
  * The rows are loaded by prefix in the console's ONE preference read per load
@@ -36,8 +38,8 @@
  * ## What it is not
  *
  * Not a saved view, and not a change to one: the view's authored `sort`, tab
- * order, filter and columns stay the default for every user with no
- * preference. The view editor's explicit save still writes `/meta/view`.
+ * order, filter, columns, `rowHeight` and `hiddenFields` stay the default for
+ * every user with no preference. The view editor's explicit save still writes `/meta/view`.
  *
  * @module
  */
@@ -53,6 +55,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useAuth } from '@object-ui/auth';
+import { ROW_HEIGHT_TO_DENSITY_MODE, type RowHeight } from '@object-ui/core';
 import type { UserPreferenceFamily } from '@object-ui/data-objectstack';
 import { useListStateFamily } from './UserStateAdapters.js';
 
@@ -84,6 +87,21 @@ export interface ListViewPreference {
   sort?: ListSortPreference[];
   filters?: ListFilterGroupPreference;
   columnState?: ListColumnStatePreference;
+  /**
+   * objectui#12474 — the toolbar density this user chose, in the spec's
+   * `rowHeight` vocabulary (the value the density toggle maps its mode to).
+   * The view's authored `rowHeight` is the default while this is absent.
+   */
+  rowHeight?: RowHeight;
+  /**
+   * objectui#12474 — the columns this user hid with the Hide Fields popover:
+   * a SUBTRACTION from the columns the view declares, never an addition (the
+   * list draws `columns` minus these). The whole list the popover emits, so
+   * an empty list is kept: it is "show every column", which is not the view's
+   * authored `hiddenFields`. The view's own list is the default while this is
+   * absent.
+   */
+  hiddenFields?: string[];
 }
 
 /** A user's state for one object: the `ui.list.<object>` row's value. */
@@ -142,6 +160,18 @@ function sanitizeColumnState(v: unknown): ListColumnStatePreference | undefined 
   return out.order || out.widths ? out : undefined;
 }
 
+/** One of the spec's five row heights, or nothing. */
+function sanitizeRowHeight(v: unknown): RowHeight | undefined {
+  return typeof v === 'string' && Object.prototype.hasOwnProperty.call(ROW_HEIGHT_TO_DENSITY_MODE, v)
+    ? (v as RowHeight)
+    : undefined;
+}
+
+function sanitizeHiddenFields(v: unknown): string[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  return [...new Set(v.filter((x): x is string => typeof x === 'string' && x.length > 0))];
+}
+
 function sanitizeView(v: unknown): ListViewPreference | undefined {
   if (!isRecord(v)) return undefined;
   const out: ListViewPreference = {};
@@ -151,6 +181,10 @@ function sanitizeView(v: unknown): ListViewPreference | undefined {
   if (filters) out.filters = filters;
   const columnState = sanitizeColumnState(v.columnState);
   if (columnState) out.columnState = columnState;
+  const rowHeight = sanitizeRowHeight(v.rowHeight);
+  if (rowHeight) out.rowHeight = rowHeight;
+  const hiddenFields = sanitizeHiddenFields(v.hiddenFields);
+  if (hiddenFields) out.hiddenFields = hiddenFields;
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
@@ -175,14 +209,19 @@ export function sanitizeObjectListPreference(v: unknown): ObjectListPreference {
  * that part, and so does a filter group with no condition or a column state
  * with no order and no width. An empty sort is NOT a clear: `sort: []` is kept,
  * because a user who removed every sort level (the Sort builder emits `[]`)
- * chose "no sort", which is not the view's authored sort. "Reset view" is the
- * way back to that. A view left with nothing is removed.
+ * chose "no sort", which is not the view's authored sort. The same holds for
+ * `hiddenFields: []` ("show every column"). "Reset view" is the way back to
+ * the view's own. A view left with nothing is removed.
  */
 export type ListViewPreferencePatch = {
   sort?: ReadonlyArray<{ field: string; order?: string }> | null;
   filters?: ListFilterGroupPreference | null;
   columnState?: ListColumnStatePreference | null;
+  rowHeight?: RowHeight | null;
+  hiddenFields?: readonly string[] | null;
 };
+
+const VIEW_PREFERENCE_PARTS = ['sort', 'filters', 'columnState', 'rowHeight', 'hiddenFields'] as const;
 
 /** Apply a patch to one view's entry of an object's state. Pure. */
 export function patchViewPreference(
@@ -191,7 +230,7 @@ export function patchViewPreference(
   patch: ListViewPreferencePatch,
 ): ObjectListPreference {
   const current: Record<string, unknown> = { ...(state.perView?.[viewId] ?? {}) };
-  for (const key of ['sort', 'filters', 'columnState'] as const) {
+  for (const key of VIEW_PREFERENCE_PARTS) {
     if (!(key in patch)) continue;
     const value = patch[key];
     if (value === undefined || value === null) delete current[key];
@@ -207,7 +246,10 @@ export function patchViewPreference(
   return next;
 }
 
-/** Remove one view's entry (its sort, filters and column state). Pure. */
+/**
+ * Remove one view's entry — every part of it: the sort, filters, column state,
+ * density and hidden fields (objectui#12474). Pure.
+ */
 export function resetViewPreference(state: ObjectListPreference, viewId: string): ObjectListPreference {
   if (!state.perView || !(viewId in state.perView)) return state;
   const perView = { ...state.perView };
@@ -448,7 +490,7 @@ export interface ObjectListPreferences {
   setViewOrder(ids: readonly string[]): void;
   /** Store (or clear, see {@link ListViewPreferencePatch}) part of one view's state. */
   patchView(viewId: string, patch: ListViewPreferencePatch): void;
-  /** Drop one view's sort, filters and column state: back to the view's own. */
+  /** Drop one view's whole entry (sort, filters, columns, density, hidden fields): back to the view's own. */
   resetView(viewId: string): void;
 }
 

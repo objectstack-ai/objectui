@@ -49,6 +49,8 @@ import {
   ChevronRight,
   Copy,
   Lock,
+  MoreHorizontal,
+  Shield,
 } from 'lucide-react';
 import { Button } from '@object-ui/components';
 import { Badge } from '@object-ui/components';
@@ -56,6 +58,13 @@ import { Input } from '@object-ui/components';
 import { Label } from '@object-ui/components';
 import { Switch } from '@object-ui/components';
 import { Checkbox } from '@object-ui/components';
+import { cn } from '@object-ui/components';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@object-ui/components';
 import {
   Dialog,
   DialogContent,
@@ -79,6 +88,9 @@ import { useMetadataClient, useMetadataTypes, type RichMetadataTypeEntry } from 
 import { readDraftForSave, useDraftSaveGuard } from './DraftConflictDialog.js';
 // objectui#11787 — the package door autosaves through the pillars' own autosave.
 import { useDraftAutoSave, type DraftSend } from '../studio-design/useDraftAutoSave.js';
+// objectui#12456 — the Studio Access pillar's presentation draws the shared item header.
+import { StudioItemHeader, StudioTab } from '../studio-design/StudioItemHeader.js';
+import { STUDIO_KIND_CHIP } from '../studio-design/studio-tokens.js';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { t as translate, tFormat, translateMetadataType, useMetadataLocale } from './i18n.js';
 import { PermissionAdvancedFacets } from './PermissionAdvancedFacets.js';
@@ -220,6 +232,34 @@ function getObjectActions(
   ];
 }
 
+/**
+ * objectui#12456 — the five tabs of the Studio Access pillar's permission-set
+ * page (epic objectui#12446, decision C): each holds one of the sections the
+ * routed page stacks in one column.
+ */
+export type PermissionStudioTab = 'objects' | 'capabilities' | 'rls' | 'tabs' | 'admin';
+
+export const PERMISSION_STUDIO_TABS: ReadonlyArray<{ key: PermissionStudioTab; labelKey: string }> = [
+  { key: 'objects', labelKey: 'engine.studio.access.tab.objects' },
+  { key: 'capabilities', labelKey: 'engine.studio.access.tab.capabilities' },
+  { key: 'rls', labelKey: 'engine.studio.access.tab.rls' },
+  { key: 'tabs', labelKey: 'engine.studio.access.tab.tabs' },
+  { key: 'admin', labelKey: 'engine.studio.access.tab.admin' },
+];
+
+/** What the Studio Access pillar hands the page for its tabbed presentation. */
+export interface PermissionStudioChrome {
+  /** The open tab; the pillar holds it (default `objects`). */
+  tab: PermissionStudioTab;
+  onTabChange: (tab: PermissionStudioTab) => void;
+  /** Before the header's icon tile (the pillar's mobile rail toggle). */
+  leading?: React.ReactNode;
+  /** The pillar's draft / read-only note, at the right end of the tab row. */
+  chips?: React.ReactNode;
+  /** Before History in the header's actions (the pillar's Explain access). */
+  actions?: React.ReactNode;
+}
+
 export interface PermissionMatrixEditPageProps {
   type: string;
   name: string;
@@ -276,13 +316,23 @@ export interface PermissionMatrixEditPageProps {
    * `/metadata` links (same rule as MetadataResourceEditPage's `embedded`).
    */
   embedded?: boolean;
+  /**
+   * objectui#12456 — the Studio Access pillar's presentation (set with
+   * `embedded`). The page draws the Studio item header (the set's label, api
+   * name, Package chip, granted / override counts, History and a more menu
+   * holding the name / label editor) instead of the PageShell breadcrumb,
+   * badge row and collapsible set header, and splits its sections into five
+   * tabs, all kept mounted. Presentation only: every write, gate and autosave
+   * is the routed page's. Omitted (Setup's permission page): unchanged.
+   */
+  studio?: PermissionStudioChrome;
 }
 
 /* ────────────────────────────────────────────────────────────────── */
 /* Component                                                          */
 /* ────────────────────────────────────────────────────────────────── */
 
-export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, publishNonce, onOpenOwd, onDirtyChange, readOnly = false, embedded = false }: PermissionMatrixEditPageProps) {
+export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, publishNonce, onOpenOwd, onDirtyChange, readOnly = false, embedded = false, studio }: PermissionMatrixEditPageProps) {
   const navigate = useNavigate();
   const client = useMetadataClient();
   // The editor reads no record: the capability picker lists the capability
@@ -1144,6 +1194,565 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
     </Button>
   );
 
+  // objectui#12456 — the pieces both presentations draw: the routed page
+  // (PageShell) and the Studio Access pillar's tabbed one (`studio`).
+  const envSaveEl = (
+    <>
+      {/* ADR-0086 D7 — the environment door's explicit Save: a live write. */}
+      {writable && !packageId && (
+        <Button
+          size="sm"
+          onClick={() => doSave(false)}
+          disabled={saving || celErrorCount > 0}
+          title={celErrorCount > 0 ? t('perm.cel.saveBlocked') : undefined}
+        >
+          {saving ? (
+            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4 mr-1" />
+          )}
+          {t('engine.edit.save')}
+        </Button>
+      )}
+    </>
+  );
+  const autosaveStatusEl = (
+    <>
+      {/* objectui#11787 — the package door autosaves (see the autosave
+          above), so its Save button gives way to the status line every
+          Studio pillar shows: saving while in flight, the last-saved time
+          once landed, and why an edit is held when a CEL error holds it. */}
+      {writable && packageId && (
+        saving ? (
+          <span
+            className="inline-flex items-center gap-1 text-[11px] text-muted-foreground"
+            data-testid="perm-autosaving"
+          >
+            <Loader2 className="h-3 w-3 animate-spin" />
+            {t('engine.studio.autoSaving')}
+          </span>
+        ) : celErrorCount > 0 && isDirty ? (
+          <span className="text-[11px] text-destructive" data-testid="perm-autosave-held">
+            {t('perm.cel.saveBlocked')}
+          </span>
+        ) : savedAt && !isDirty ? (
+          <span className="text-[11px] text-muted-foreground" data-testid="perm-saved-at">
+            {tFormat('engine.studio.data.lastSaved', locale, {
+              time: savedAt.toLocaleTimeString(displayLocale, { hour: '2-digit', minute: '2-digit' }),
+            })}
+          </span>
+        ) : null
+      )}
+    </>
+  );
+  const noticesEl = (
+    <>
+      {error && (
+        <div className="m-4 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* objectui#7611 — the caller cannot author this set at all: say so,
+          once, instead of a matrix whose controls are disabled for no visible
+          reason. The host and type gates keep their own badges. */}
+      {/* objectui#12183 — under a wall the server rule is the reason, not a
+          missing permission: the capability does not admit a tenant there. */}
+      {walledReadOnly && (
+        <div
+          role="note"
+          data-testid="perm-walled-readonly"
+          className="m-4 rounded-md border bg-muted/40 p-3 text-sm flex items-start gap-2"
+        >
+          <Lock className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+          <span>
+            {tFormat('engine.catalog.readOnly.walled', locale, {
+              type: translateMetadataType(type, locale, entry?.label ?? type),
+            })}
+          </span>
+        </div>
+      )}
+      {!canAuthor && !readOnly && !walledReadOnly && (
+        <div
+          role="note"
+          data-testid="perm-capability-readonly"
+          className="m-4 rounded-md border bg-muted/40 p-3 text-sm flex items-start gap-2"
+        >
+          <Lock className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+          <span>{t('engine.edit.capabilityReadOnly')}</span>
+        </div>
+      )}
+
+      {/* objectui#5987 — the locked-state guidance, visible rather than
+          tooltip-only, naming the ruled path first. The badge in the identity
+          strip below still carries the full reasoning in its hint. */}
+      {lockedByArtifactTier && (
+        <div
+          role="note"
+          className="m-4 rounded-md border bg-muted/40 p-3 text-sm flex items-start gap-2"
+        >
+          <Lock className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+          <span>{t('perm.clone.guidance')}</span>
+        </div>
+      )}
+
+      {/* objectui#5987 (item 3) — a save that reached the server and was
+          refused as a PACKAGED set: the same guidance as the lock, with the
+          same primary action, and the server's own sentence kept underneath
+          for diagnosis. `role="alert"`: this IS a failed save. */}
+      {saveRefusedAsLocked !== null && (
+        <div
+          role="alert"
+          className="m-4 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive flex flex-col gap-2"
+        >
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>{t('perm.save.locked')}</span>
+          </div>
+          <div className="flex items-start gap-3 pl-6">
+            {cloneButton}
+            <span className="text-xs text-muted-foreground">{saveRefusedAsLocked}</span>
+          </div>
+        </div>
+      )}
+
+      {/* objectui#5987 — the copy the clone door saved: on the copy itself
+          once the routed hop opens it, or, on an embedded host (no route to
+          open it on), announced by name on this set. The server's notice
+          (what was not copied, and that the copy is held by nobody yet) is
+          shown as sent (advisory, like the re-read notice below). */}
+      {cloned !== null && (embedded || cloned.name === name) && (cloned.name !== name || !!cloned.notice) && (
+        <div
+          role="status"
+          data-testid="perm-clone-notice"
+          className="m-4 rounded-md border border-amber-300/60 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-800 dark:text-amber-200 flex items-start gap-2"
+        >
+          <Copy className="h-4 w-4 mt-0.5 shrink-0" />
+          <div className="space-y-1">
+            {cloned.name !== name && <p>{tFormat('perm.clone.done', locale, { name: cloned.name })}</p>}
+            {cloned.notice && <p>{cloned.notice}</p>}
+          </div>
+        </div>
+      )}
+
+      {/* objectui#9484 — the save LANDED and only its confirming re-read did
+          not, so this is advisory (amber, `role="status"`), not the
+          destructive-toned error strip above. Rendered separately rather than
+          folded into `error` so the two can never be mistaken for each other
+          on a permission surface. */}
+      {postSaveRereadFailed && (
+        <div
+          role="status"
+          className="m-4 rounded-md border border-amber-300/60 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-800 dark:text-amber-200 flex items-start gap-2"
+        >
+          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+          <span>{t('perm.save.rereadStale')}</span>
+        </div>
+      )}
+    </>
+  );
+  const provenanceBadgesEl = (
+    <>
+      {/* [A4 framework#2920] Provenance tri-state — platform / package /
+          admin(custom) — mirrors the unified sys_* `managed_by` vocab.
+          objectui#7611 (F2): "Package" also reads the layered envelope
+          this editor already fetches (`codeIsArtifact`, the artifact
+          gate's own input). The registry serves no `managedBy`, and at
+          the environment scope there is no `packageId`, so a set a code
+          package ships read "Custom" beside its own lock. */}
+      <Badge variant="outline" className="text-[10px] shrink-0" data-testid="perm-provenance-badge">
+        {draft.managedBy === 'platform'
+          ? t('perm.badge.platform')
+          : draft.managedBy === 'package' || packageId || codeIsArtifact
+            ? t('perm.badge.package')
+            : t('perm.badge.custom')}
+      </Badge>
+      {!!draft.isDefault && (
+        <Badge variant="secondary" className="text-[10px] shrink-0">{t('perm.badge.default')}</Badge>
+      )}
+    </>
+  );
+  const lockBadgeEl = writable ? null : (
+    // Same badge slot, three distinct reasons, and each names the gate
+    // that ACTUALLY tripped (objectui#4446, #4518):
+    //
+    //  • host gate — a read-only PACKAGE; mirror the top-bar wording
+    //    so the screen is not self-contradictory.
+    //  • artifact gate — a code package SHIPS this set and the type
+    //    has not opted into per-org overlay, or the server's served
+    //    `editable` refuses the set (a hatch-elevated type, whose
+    //    hatch never opens a set a package ships: ADR-0131 D6,
+    //    objectui#12169), so an environment-scope
+    //    write of it is refused (403 `not_overridable`). Naming the
+    //    type here would be a lie in the other direction: the type
+    //    DOES have a runtime write channel — a brand-new set authored
+    //    here saves fine — it is this PARTICULAR set that is packaged.
+    //  • type gate — the metadata type offers no runtime write
+    //    channel at all (`allowEnvironmentOverlay` AND `allowRuntimeCreate`
+    //    both false). It used to read "OS_METADATA_WRITABLE not
+    //    enabled", which blamed a deployment env var for what is a
+    //    per-type registry declaration. That wording had NO reachable
+    //    honest case: `OS_METADATA_WRITABLE` does not sit beside
+    //    `allowEnvironmentOverlay`, it FLIPS it — `getMetaTypes` emits
+    //    `allowEnvironmentOverlay: base.allowEnvironmentOverlay || isEnvOverridden`
+    //    — so whenever the hatch is on for this type the type gate is
+    //    open and this label is never the one shown (a set a package
+    //    ships is then the artifact gate's). The env var is a
+    //    documented REMEDY (it appears in the server's own 403 text),
+    //    never the cause, so it belongs in the hint, not the label.
+    <Badge
+      variant="secondary"
+      className={studio ? 'shrink-0' : 'ml-auto shrink-0'}
+      title={
+        readOnly
+          ? t('engine.studio.pkg.readonlyHint')
+          : walledReadOnly
+            ? tFormat('engine.catalog.readOnly.walled', locale, {
+                type: translateMetadataType(type, locale, entry?.label ?? type),
+              })
+            : lockedByArtifactTier
+              ? t('perm.readOnly.artifact.hint')
+              : t('perm.readOnly.hint')
+      }
+    >
+      {readOnly
+        ? t('engine.studio.pkg.readonly')
+        : walledReadOnly
+          ? t('perm.readOnly.walled')
+          : lockedByArtifactTier
+            ? t('perm.readOnly.artifact')
+            : t('perm.readOnly')}
+    </Badge>
+  );
+  const basicsFieldsEl = (
+    <div className="px-6 pb-3 flex flex-wrap items-end gap-4">
+      <div className="space-y-1">
+        <Label htmlFor="perm-name" className="text-xs">{t('perm.field.name')}</Label>
+        <Input
+          id="perm-name"
+          value={draft.name}
+          // objectui#11787 — on the package door the api name is the
+          // set's identity in the package's drafts: the autosave writes
+          // the draft under `draft.name`, so an editable name would
+          // stage a new set at every pause while typing. It is set once,
+          // by "+ New". The environment door keeps it editable.
+          disabled={!writable || !!packageId}
+          onChange={(e) => setDraft((p) => ({ ...p, name: e.target.value }))}
+          className="h-8 w-56"
+        />
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor="perm-label" className="text-xs">{t('perm.field.label')}</Label>
+        <Input
+          id="perm-label"
+          value={draft.label ?? ''}
+          disabled={!writable}
+          onChange={(e) => setDraft((p) => ({ ...p, label: e.target.value }))}
+          className="h-8 w-72"
+        />
+      </div>
+    </div>
+  );
+  const capabilitiesEl = (
+    <>
+      {/* System Capabilities (ADR-0056 P2) — set-level platform/org
+          capabilities (e.g. studio.access, manage_users). Designed here in
+          Studio; Setup renders them read-only (PermissionFacetLink). Stored
+          as PermissionSetDraft.systemPermissions (string[]); the picker
+          round-trips via a JSON string, so parse back into the array the
+          draft model uses. Persisted by the whole-record Save at env scope. */}
+      {writable && (draft.systemPermissions ?? []).length === 0 && !capsOpen ? (
+        // objectui#2600 B1 — zero-grant writable sets used to render the full
+        // picker's option chips, which read as already-owned capabilities.
+        // Collapse to an explicit "none granted · add" affordance instead.
+        <div className="px-6 py-2.5 border-b flex items-center gap-2 text-xs">
+          <Label className="text-xs text-muted-foreground">{t('perm.field.systemCapabilities')}</Label>
+          <span className="text-muted-foreground">·</span>
+          <span className="text-muted-foreground">{t('perm.cap.none')}</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs"
+            onClick={() => setCapsOpen(true)}
+          >
+            + {t('perm.cap.add')}
+          </Button>
+        </div>
+      ) : (
+        <div className="px-6 py-3 border-b">
+          <Label className="text-xs">{t('perm.field.systemCapabilities')}</Label>
+          <p className="text-xs text-muted-foreground mt-0.5 mb-2">
+            {t('perm.field.systemCapabilitiesHelp')}
+          </p>
+          {/* objectui#3332 — the capability chip wall grows with the
+              capability registry (44+ nav capabilities → 20+ rows). It is
+              a non-shrinking sibling of the flex-1 matrix, so unbounded it
+              squeezes the object list to ~0px with no page scrollbar. Cap it
+              to a viewport share and scroll internally; the matrix keeps the
+              remaining height (per #2600 B1 the picker itself stays inline). */}
+          <div
+            data-testid="capability-scroll"
+            className="max-h-[30vh] overflow-y-auto overscroll-contain"
+          >
+            <CapabilityMultiSelectField
+              value={JSON.stringify(draft.systemPermissions ?? [])}
+              onChange={(v: unknown) =>
+                setDraft((p) => ({ ...p, systemPermissions: parseCapabilityNames(v) }))
+              }
+              field={{ name: 'system_permissions' } as any}
+              readonly={!writable}
+            />
+          </div>
+        </div>
+      )}
+    </>
+  );
+  const dialogsEl = (
+    <>
+      {cloneOpen && (
+        <PermissionSetCloneDialog
+          source={name}
+          locale={locale}
+          onClose={() => setCloneOpen(false)}
+          onCloned={onCloned}
+        />
+      )}
+
+      {/* Destructive-change dialog */}
+      <Dialog open={!!destructive} onOpenChange={(open) => !open && setDestructive(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-500" /> {t('engine.edit.destructive')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('engine.edit.destructiveHint')}
+            </DialogDescription>
+          </DialogHeader>
+          <ul className="text-sm space-y-1 max-h-64 overflow-auto">
+            {destructive?.issues.map((i, idx) => (
+              <li key={idx} className="border-l-2 border-amber-500 pl-2">
+                {i.kind && <Badge variant="outline" className="mr-2">{i.kind}</Badge>}
+                {i.message ?? JSON.stringify(i)}
+              </li>
+            ))}
+          </ul>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDestructive(null)}>{t('engine.cancel')}</Button>
+            <Button
+              variant="destructive"
+              onClick={() => destructive && doSave(true, destructive.pending)}
+              disabled={saving}
+            >
+              {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              {t('engine.edit.forceSave')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Embedded-mode History sheet — the routed history page doesn't exist
+          under the host's router scope (see `embedded` prop doc). No rollback
+          here: under a packageId the set is package METADATA whose truth moves
+          via draft + atomic Publish (ADR-0086 D6/D7); a rollback would write a
+          live overlay behind the draft flow's back. */}
+      {embedded && canReadTrail && (
+        <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
+          <SheetContent side="right" className="w-[92vw] sm:max-w-[720px] p-0 flex flex-col gap-0">
+            <SheetHeader className="px-4 py-3 border-b">
+              <SheetTitle className="text-base">{t('engine.edit.history')}</SheetTitle>
+              <SheetDescription className="text-xs">
+                {type} / {name}
+              </SheetDescription>
+            </SheetHeader>
+            <div className="flex-1 min-h-0 overflow-auto p-4">
+              {historyOpen && <HistoryPanel type={type} name={name} client={client} />}
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
+      {draftConflictDialog}
+    </>
+  );
+
+  /* ── Studio presentation (objectui#12456) ─────────────────── */
+  function renderStudio(chrome: PermissionStudioChrome) {
+    const objectsGranted = stats[0].value;
+    const fieldOverrides = stats[1].value;
+    const meta = loading
+      ? undefined
+      : `${tFormat(objectsGranted === 1 ? 'engine.studio.access.grantedOne' : 'engine.studio.access.grantedOther', locale, { count: objectsGranted })} · ${tFormat(
+          fieldOverrides === 1 ? 'engine.studio.access.overridesOne' : 'engine.studio.access.overridesOther',
+          locale,
+          { count: fieldOverrides },
+        )}`;
+    const chipButton =
+      'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground';
+    const facetTab = chrome.tab === 'rls' || chrome.tab === 'tabs' || chrome.tab === 'admin' ? chrome.tab : null;
+    return (
+      <div className="flex h-full flex-col">
+        <StudioItemHeader
+          testId="access-item-header"
+          leading={chrome.leading}
+          icon={Shield}
+          title={draft.label || name}
+          apiName={name}
+          chips={
+            <>
+              {/* The provenance chip in the artboard's kind-chip look; same
+                  test id and the same three answers as the page's badge. */}
+              <span className={STUDIO_KIND_CHIP} data-testid="perm-provenance-badge">
+                {draft.managedBy === 'platform'
+                  ? t('perm.badge.platform')
+                  : draft.managedBy === 'package' || packageId || codeIsArtifact
+                    ? t('perm.badge.package')
+                    : t('perm.badge.custom')}
+              </span>
+              {!!draft.isDefault && <span className={STUDIO_KIND_CHIP}>{t('perm.badge.default')}</span>}
+              {/* A host-locked package says so in the pillar's note; the
+                  other gates (type, artifact, wall) keep their own badge. */}
+              {!readOnly && lockBadgeEl}
+            </>
+          }
+          meta={meta}
+          actions={
+            <>
+              {autosaveStatusEl}
+              {chrome.actions}
+              {/* objectui#12475 — offered only to a caller the trail door admits. */}
+              {canReadTrail && (
+                <button
+                  type="button"
+                  className={chipButton}
+                  data-testid="history-button"
+                  onClick={() => setHistoryOpen(true)}
+                >
+                  <HistoryIcon className="h-3.5 w-3.5" />
+                  {t('engine.edit.history')}
+                </button>
+              )}
+              {envSaveEl}
+              {lockedByArtifactTier && cloneButton}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label={t('engine.studio.access.more')}
+                    title={t('engine.studio.access.more')}
+                    data-testid="perm-more"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => setBasicsOpen((o) => !o)}>
+                    {t('perm.basics.editHint')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          }
+          tabs={
+            <>
+              {PERMISSION_STUDIO_TABS.map((tab) => (
+                <StudioTab
+                  key={tab.key}
+                  active={chrome.tab === tab.key}
+                  data-testid={`perm-tab-${tab.key}`}
+                  onClick={() => chrome.onTabChange(tab.key)}
+                >
+                  {t(tab.labelKey)}
+                </StudioTab>
+              ))}
+              {/* The pillar's draft / read-only note, whole, at the tab row's
+                  right: in the title row it squeezed the label and the counts
+                  at the 1280 px design width. */}
+              {chrome.chips && <span className="ml-auto flex items-center self-center pl-3">{chrome.chips}</span>}
+            </>
+          }
+        />
+        {loading ? (
+          <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> {t('perm.loading').replace('{name}', name)}
+          </div>
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            {noticesEl}
+            {basicsOpen && (
+              <div className="shrink-0 border-b pt-3" data-testid="perm-basics">
+                {basicsFieldsEl}
+              </div>
+            )}
+            {/* Every tab body stays mounted and the closed ones are hidden:
+                the facets' CEL lint reports to the Save gate from any tab,
+                and nothing an author typed is lost by switching. */}
+            <div
+              hidden={chrome.tab !== 'objects'}
+              data-testid="perm-tabpanel-objects"
+              className="min-h-0 flex-1 flex-col overflow-hidden data-[open=true]:flex"
+              data-open={chrome.tab === 'objects'}
+            >
+              <StudioObjectsToolbar
+                shown={filteredObjects.length}
+                total={objects.length}
+                filter={filter}
+                onFilter={setFilter}
+                onlyGranted={showOnlyEnabled}
+                onOnlyGranted={setShowOnlyEnabled}
+                locale={locale}
+                t={t}
+              />
+              <div className="min-h-0 flex-1 overflow-auto">
+                <StudioObjectMatrix
+                  objects={filteredObjects}
+                  draft={draft}
+                  expanded={expanded}
+                  fieldsByObject={fieldsByObject}
+                  writable={writable}
+                  objectActions={OBJECT_ACTIONS}
+                  t={t}
+                  onToggleExpand={toggleExpand}
+                  onObjectPerm={updateObjectPerm}
+                  onFieldPerm={updateFieldPerm}
+                  onBulkSet={bulkSetObject}
+                  onFieldBulk={bulkSetFields}
+                  onOpenOwd={onOpenOwd}
+                />
+              </div>
+              {writable && (
+                <p className="shrink-0 border-t px-6 py-2.5 text-xs text-muted-foreground">
+                  {t('engine.studio.access.bulkHint')}
+                </p>
+              )}
+            </div>
+            <div hidden={chrome.tab !== 'capabilities'} data-testid="perm-tabpanel-capabilities" className="min-h-0 flex-1 overflow-auto">
+              {capabilitiesEl}
+            </div>
+            <div hidden={facetTab === null} data-testid="perm-tabpanel-facets" className="min-h-0 flex-1 overflow-auto">
+              <PermissionAdvancedFacets
+                draft={draft}
+                setDraft={setDraft}
+                writable={writable}
+                allSetNames={allSetNames}
+                loadObjectFields={loadObjectFields}
+                onCelErrorsChange={setCelErrorCount}
+                t={t}
+                only={facetTab}
+              />
+            </div>
+          </div>
+        )}
+        {dialogsEl}
+      </div>
+    );
+  }
+
+  if (studio) {
+    return renderStudio(studio);
+  }
+
   if (loading) {
     return (
       <PageShell entry={entry} itemName={name} embedded={embedded} readOnly={readOnly}>
@@ -1189,47 +1798,8 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
               <HistoryIcon className="h-4 w-4 mr-1" /> {t('engine.edit.history')}
             </Button>
           )}
-          {/* ADR-0086 D7 — the environment door's explicit Save: a live write. */}
-          {writable && !packageId && (
-            <Button
-              size="sm"
-              onClick={() => doSave(false)}
-              disabled={saving || celErrorCount > 0}
-              title={celErrorCount > 0 ? t('perm.cel.saveBlocked') : undefined}
-            >
-              {saving ? (
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4 mr-1" />
-              )}
-              {t('engine.edit.save')}
-            </Button>
-          )}
-          {/* objectui#11787 — the package door autosaves (see the autosave
-              above), so its Save button gives way to the status line every
-              Studio pillar shows: saving while in flight, the last-saved time
-              once landed, and why an edit is held when a CEL error holds it. */}
-          {writable && packageId && (
-            saving ? (
-              <span
-                className="inline-flex items-center gap-1 text-[11px] text-muted-foreground"
-                data-testid="perm-autosaving"
-              >
-                <Loader2 className="h-3 w-3 animate-spin" />
-                {t('engine.studio.autoSaving')}
-              </span>
-            ) : celErrorCount > 0 && isDirty ? (
-              <span className="text-[11px] text-destructive" data-testid="perm-autosave-held">
-                {t('perm.cel.saveBlocked')}
-              </span>
-            ) : savedAt && !isDirty ? (
-              <span className="text-[11px] text-muted-foreground" data-testid="perm-saved-at">
-                {tFormat('engine.studio.data.lastSaved', locale, {
-                  time: savedAt.toLocaleTimeString(displayLocale, { hour: '2-digit', minute: '2-digit' }),
-                })}
-              </span>
-            ) : null
-          )}
+          {envSaveEl}
+          {autosaveStatusEl}
           {/* objectui#5987 — the locked editor's PRIMARY action, in the slot Save
               would occupy: a code package ships this set, so the ruled path is
               to clone it and edit the clone. Only where the artifact tier is
@@ -1241,109 +1811,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
       }
     >
       <div className="flex flex-col h-full overflow-hidden">
-        {error && (
-          <div className="m-4 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive flex items-start gap-2">
-            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {/* objectui#7611 — the caller cannot author this set at all: say so,
-            once, instead of a matrix whose controls are disabled for no visible
-            reason. The host and type gates keep their own badges. */}
-        {/* objectui#12183 — under a wall the server rule is the reason, not a
-            missing permission: the capability does not admit a tenant there. */}
-        {walledReadOnly && (
-          <div
-            role="note"
-            data-testid="perm-walled-readonly"
-            className="m-4 rounded-md border bg-muted/40 p-3 text-sm flex items-start gap-2"
-          >
-            <Lock className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
-            <span>
-              {tFormat('engine.catalog.readOnly.walled', locale, {
-                type: translateMetadataType(type, locale, entry?.label ?? type),
-              })}
-            </span>
-          </div>
-        )}
-        {!canAuthor && !readOnly && !walledReadOnly && (
-          <div
-            role="note"
-            data-testid="perm-capability-readonly"
-            className="m-4 rounded-md border bg-muted/40 p-3 text-sm flex items-start gap-2"
-          >
-            <Lock className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
-            <span>{t('engine.edit.capabilityReadOnly')}</span>
-          </div>
-        )}
-
-        {/* objectui#5987 — the locked-state guidance, visible rather than
-            tooltip-only, naming the ruled path first. The badge in the identity
-            strip below still carries the full reasoning in its hint. */}
-        {lockedByArtifactTier && (
-          <div
-            role="note"
-            className="m-4 rounded-md border bg-muted/40 p-3 text-sm flex items-start gap-2"
-          >
-            <Lock className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
-            <span>{t('perm.clone.guidance')}</span>
-          </div>
-        )}
-
-        {/* objectui#5987 (item 3) — a save that reached the server and was
-            refused as a PACKAGED set: the same guidance as the lock, with the
-            same primary action, and the server's own sentence kept underneath
-            for diagnosis. `role="alert"`: this IS a failed save. */}
-        {saveRefusedAsLocked !== null && (
-          <div
-            role="alert"
-            className="m-4 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive flex flex-col gap-2"
-          >
-            <div className="flex items-start gap-2">
-              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>{t('perm.save.locked')}</span>
-            </div>
-            <div className="flex items-start gap-3 pl-6">
-              {cloneButton}
-              <span className="text-xs text-muted-foreground">{saveRefusedAsLocked}</span>
-            </div>
-          </div>
-        )}
-
-        {/* objectui#5987 — the copy the clone door saved: on the copy itself
-            once the routed hop opens it, or, on an embedded host (no route to
-            open it on), announced by name on this set. The server's notice
-            (what was not copied, and that the copy is held by nobody yet) is
-            shown as sent (advisory, like the re-read notice below). */}
-        {cloned !== null && (embedded || cloned.name === name) && (cloned.name !== name || !!cloned.notice) && (
-          <div
-            role="status"
-            data-testid="perm-clone-notice"
-            className="m-4 rounded-md border border-amber-300/60 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-800 dark:text-amber-200 flex items-start gap-2"
-          >
-            <Copy className="h-4 w-4 mt-0.5 shrink-0" />
-            <div className="space-y-1">
-              {cloned.name !== name && <p>{tFormat('perm.clone.done', locale, { name: cloned.name })}</p>}
-              {cloned.notice && <p>{cloned.notice}</p>}
-            </div>
-          </div>
-        )}
-
-        {/* objectui#9484 — the save LANDED and only its confirming re-read did
-            not, so this is advisory (amber, `role="status"`), not the
-            destructive-toned error strip above. Rendered separately rather than
-            folded into `error` so the two can never be mistaken for each other
-            on a permission surface. */}
-        {postSaveRereadFailed && (
-          <div
-            role="status"
-            className="m-4 rounded-md border border-amber-300/60 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-800 dark:text-amber-200 flex items-start gap-2"
-          >
-            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-            <span>{t('perm.save.rereadStale')}</span>
-          </div>
-        )}
+        {noticesEl}
 
         {/* Identity summary — collapsible (objectui#2600 B1). Name/label change
             rarely, so the strip collapses to a one-line summary and the matrix
@@ -1363,160 +1831,20 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
             {/* The api-name already sits in the PageShell breadcrumb (font-mono),
                 so the summary carries the human label — no need to repeat it. */}
             <span className="font-medium truncate">{draft.label || draft.name}</span>
-            {/* [A4 framework#2920] Provenance tri-state — platform / package /
-                admin(custom) — mirrors the unified sys_* `managed_by` vocab.
-                objectui#7611 (F2): "Package" also reads the layered envelope
-                this editor already fetches (`codeIsArtifact`, the artifact
-                gate's own input). The registry serves no `managedBy`, and at
-                the environment scope there is no `packageId`, so a set a code
-                package ships read "Custom" beside its own lock. */}
-            <Badge variant="outline" className="text-[10px] shrink-0" data-testid="perm-provenance-badge">
-              {draft.managedBy === 'platform'
-                ? t('perm.badge.platform')
-                : draft.managedBy === 'package' || packageId || codeIsArtifact
-                  ? t('perm.badge.package')
-                  : t('perm.badge.custom')}
-            </Badge>
-            {!!draft.isDefault && (
-              <Badge variant="secondary" className="text-[10px] shrink-0">{t('perm.badge.default')}</Badge>
-            )}
+            {provenanceBadgesEl}
             {writable && (
               <span className="text-xs text-muted-foreground shrink-0">{t('perm.basics.editHint')}</span>
             )}
             {!writable && (
-              // Same badge slot, three distinct reasons, and each names the gate
-              // that ACTUALLY tripped (objectui#4446, #4518):
-              //
-              //  • host gate — a read-only PACKAGE; mirror the top-bar wording
-              //    so the screen is not self-contradictory.
-              //  • artifact gate — a code package SHIPS this set and the type
-              //    has not opted into per-org overlay, or the server's served
-              //    `editable` refuses the set (a hatch-elevated type, whose
-              //    hatch never opens a set a package ships: ADR-0131 D6,
-              //    objectui#12169), so an environment-scope
-              //    write of it is refused (403 `not_overridable`). Naming the
-              //    type here would be a lie in the other direction: the type
-              //    DOES have a runtime write channel — a brand-new set authored
-              //    here saves fine — it is this PARTICULAR set that is packaged.
-              //  • type gate — the metadata type offers no runtime write
-              //    channel at all (`allowEnvironmentOverlay` AND `allowRuntimeCreate`
-              //    both false). It used to read "OS_METADATA_WRITABLE not
-              //    enabled", which blamed a deployment env var for what is a
-              //    per-type registry declaration. That wording had NO reachable
-              //    honest case: `OS_METADATA_WRITABLE` does not sit beside
-              //    `allowEnvironmentOverlay`, it FLIPS it — `getMetaTypes` emits
-              //    `allowEnvironmentOverlay: base.allowEnvironmentOverlay || isEnvOverridden`
-              //    — so whenever the hatch is on for this type the type gate is
-              //    open and this label is never the one shown (a set a package
-              //    ships is then the artifact gate's). The env var is a
-              //    documented REMEDY (it appears in the server's own 403 text),
-              //    never the cause, so it belongs in the hint, not the label.
-              <Badge
-                variant="secondary"
-                className="ml-auto shrink-0"
-                title={
-                  readOnly
-                    ? t('engine.studio.pkg.readonlyHint')
-                    : walledReadOnly
-                      ? tFormat('engine.catalog.readOnly.walled', locale, {
-                          type: translateMetadataType(type, locale, entry?.label ?? type),
-                        })
-                      : lockedByArtifactTier
-                        ? t('perm.readOnly.artifact.hint')
-                        : t('perm.readOnly.hint')
-                }
-              >
-                {readOnly
-                  ? t('engine.studio.pkg.readonly')
-                  : walledReadOnly
-                    ? t('perm.readOnly.walled')
-                    : lockedByArtifactTier
-                      ? t('perm.readOnly.artifact')
-                      : t('perm.readOnly')}
-              </Badge>
+              lockBadgeEl
             )}
           </button>
           {basicsOpen && (
-            <div className="px-6 pb-3 flex flex-wrap items-end gap-4">
-              <div className="space-y-1">
-                <Label htmlFor="perm-name" className="text-xs">{t('perm.field.name')}</Label>
-                <Input
-                  id="perm-name"
-                  value={draft.name}
-                  // objectui#11787 — on the package door the api name is the
-                  // set's identity in the package's drafts: the autosave writes
-                  // the draft under `draft.name`, so an editable name would
-                  // stage a new set at every pause while typing. It is set once,
-                  // by "+ New". The environment door keeps it editable.
-                  disabled={!writable || !!packageId}
-                  onChange={(e) => setDraft((p) => ({ ...p, name: e.target.value }))}
-                  className="h-8 w-56"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="perm-label" className="text-xs">{t('perm.field.label')}</Label>
-                <Input
-                  id="perm-label"
-                  value={draft.label ?? ''}
-                  disabled={!writable}
-                  onChange={(e) => setDraft((p) => ({ ...p, label: e.target.value }))}
-                  className="h-8 w-72"
-                />
-              </div>
-            </div>
+            basicsFieldsEl
           )}
         </div>
 
-        {/* System Capabilities (ADR-0056 P2) — set-level platform/org
-            capabilities (e.g. studio.access, manage_users). Designed here in
-            Studio; Setup renders them read-only (PermissionFacetLink). Stored
-            as PermissionSetDraft.systemPermissions (string[]); the picker
-            round-trips via a JSON string, so parse back into the array the
-            draft model uses. Persisted by the whole-record Save at env scope. */}
-        {writable && (draft.systemPermissions ?? []).length === 0 && !capsOpen ? (
-          // objectui#2600 B1 — zero-grant writable sets used to render the full
-          // picker's option chips, which read as already-owned capabilities.
-          // Collapse to an explicit "none granted · add" affordance instead.
-          <div className="px-6 py-2.5 border-b flex items-center gap-2 text-xs">
-            <Label className="text-xs text-muted-foreground">{t('perm.field.systemCapabilities')}</Label>
-            <span className="text-muted-foreground">·</span>
-            <span className="text-muted-foreground">{t('perm.cap.none')}</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-xs"
-              onClick={() => setCapsOpen(true)}
-            >
-              + {t('perm.cap.add')}
-            </Button>
-          </div>
-        ) : (
-          <div className="px-6 py-3 border-b">
-            <Label className="text-xs">{t('perm.field.systemCapabilities')}</Label>
-            <p className="text-xs text-muted-foreground mt-0.5 mb-2">
-              {t('perm.field.systemCapabilitiesHelp')}
-            </p>
-            {/* objectui#3332 — the capability chip wall grows with the
-                capability registry (44+ nav capabilities → 20+ rows). It is
-                a non-shrinking sibling of the flex-1 matrix, so unbounded it
-                squeezes the object list to ~0px with no page scrollbar. Cap it
-                to a viewport share and scroll internally; the matrix keeps the
-                remaining height (per #2600 B1 the picker itself stays inline). */}
-            <div
-              data-testid="capability-scroll"
-              className="max-h-[30vh] overflow-y-auto overscroll-contain"
-            >
-              <CapabilityMultiSelectField
-                value={JSON.stringify(draft.systemPermissions ?? [])}
-                onChange={(v: unknown) =>
-                  setDraft((p) => ({ ...p, systemPermissions: parseCapabilityNames(v) }))
-                }
-                field={{ name: 'system_permissions' } as any}
-                readonly={!writable}
-              />
-            </div>
-          </div>
-        )}
+        {capabilitiesEl}
 
         {/* Filter bar */}
         <div className="px-6 py-3 border-b flex items-center gap-3">
@@ -1592,69 +1920,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
         )}
       </div>
 
-      {cloneOpen && (
-        <PermissionSetCloneDialog
-          source={name}
-          locale={locale}
-          onClose={() => setCloneOpen(false)}
-          onCloned={onCloned}
-        />
-      )}
-
-      {/* Destructive-change dialog */}
-      <Dialog open={!!destructive} onOpenChange={(open) => !open && setDestructive(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-500" /> {t('engine.edit.destructive')}
-            </DialogTitle>
-            <DialogDescription>
-              {t('engine.edit.destructiveHint')}
-            </DialogDescription>
-          </DialogHeader>
-          <ul className="text-sm space-y-1 max-h-64 overflow-auto">
-            {destructive?.issues.map((i, idx) => (
-              <li key={idx} className="border-l-2 border-amber-500 pl-2">
-                {i.kind && <Badge variant="outline" className="mr-2">{i.kind}</Badge>}
-                {i.message ?? JSON.stringify(i)}
-              </li>
-            ))}
-          </ul>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setDestructive(null)}>{t('engine.cancel')}</Button>
-            <Button
-              variant="destructive"
-              onClick={() => destructive && doSave(true, destructive.pending)}
-              disabled={saving}
-            >
-              {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-              {t('engine.edit.forceSave')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Embedded-mode History sheet — the routed history page doesn't exist
-          under the host's router scope (see `embedded` prop doc). No rollback
-          here: under a packageId the set is package METADATA whose truth moves
-          via draft + atomic Publish (ADR-0086 D6/D7); a rollback would write a
-          live overlay behind the draft flow's back. */}
-      {embedded && canReadTrail && (
-        <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
-          <SheetContent side="right" className="w-[92vw] sm:max-w-[720px] p-0 flex flex-col gap-0">
-            <SheetHeader className="px-4 py-3 border-b">
-              <SheetTitle className="text-base">{t('engine.edit.history')}</SheetTitle>
-              <SheetDescription className="text-xs">
-                {type} / {name}
-              </SheetDescription>
-            </SheetHeader>
-            <div className="flex-1 min-h-0 overflow-auto p-4">
-              {historyOpen && <HistoryPanel type={type} name={name} client={client} />}
-            </div>
-          </SheetContent>
-        </Sheet>
-      )}
-      {draftConflictDialog}
+      {dialogsEl}
     </PageShell>
   );
 }
@@ -1853,6 +2119,315 @@ function PermissionTable({
         })}
       </tbody>
     </table>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────── */
+/* Subcomponents: the Studio Objects tab (objectui#12456)             */
+/* ────────────────────────────────────────────────────────────────── */
+
+/** The artboard's short legend labels, keyed like `getObjectActions`. */
+const STUDIO_LEGEND_KEYS: Partial<Record<keyof ObjectPerm, string>> = {
+  allowCreate: 'engine.studio.access.legend.create',
+  allowRead: 'engine.studio.access.legend.read',
+  allowEdit: 'engine.studio.access.legend.edit',
+  allowDelete: 'engine.studio.access.legend.delete',
+  allowTransfer: 'engine.studio.access.legend.transfer',
+  viewAllRecords: 'engine.studio.access.legend.viewAll',
+  modifyAllRecords: 'engine.studio.access.legend.modifyAll',
+};
+
+/** The sharing group (Transfer, View all, Modify all) opens behind a divider. */
+const STUDIO_SHARING_GROUP_START: keyof ObjectPerm = 'allowTransfer';
+
+function StudioObjectsToolbar({
+  shown,
+  total,
+  filter,
+  onFilter,
+  onlyGranted,
+  onOnlyGranted,
+  locale,
+  t,
+}: {
+  shown: number;
+  total: number;
+  filter: string;
+  onFilter: (v: string) => void;
+  onlyGranted: boolean;
+  onOnlyGranted: (v: boolean) => void;
+  locale: string;
+  t: (key: string) => string;
+}) {
+  const switchId = React.useId();
+  const legend = getObjectActions(locale);
+  return (
+    <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3" data-testid="perm-objects-toolbar">
+      <span className="text-[13px] text-muted-foreground" data-testid="perm-object-count">
+        {shown === total
+          ? tFormat(total === 1 ? 'engine.studio.access.objectCountOne' : 'engine.studio.access.objectCountOther', locale, { count: total })
+          : tFormat('engine.studio.access.objectCountFiltered', locale, { shown, count: total })}
+      </span>
+      <Input
+        placeholder={t('perm.filter.placeholder')}
+        aria-label={t('perm.filter.placeholder')}
+        value={filter}
+        onChange={(e) => onFilter(e.target.value)}
+        className="h-7 w-44 text-[12px]"
+      />
+      <div className="flex items-center gap-2">
+        <Switch id={switchId} checked={onlyGranted} onCheckedChange={(v) => onOnlyGranted(!!v)} />
+        <Label htmlFor={switchId} className="text-[13px] font-normal">
+          {t('perm.filter.onlyGranted')}
+        </Label>
+      </div>
+      <div className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+        {legend.map((a) => (
+          <span key={a.key as string} className="whitespace-nowrap" title={a.tip}>
+            <span className="font-semibold text-foreground">{a.short}</span>{' '}
+            {t(STUDIO_LEGEND_KEYS[a.key] ?? '') || a.tip}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** The OWD chip's tint: Private muted, the public values green, by-parent blue. */
+function owdChipTone(owd: string | undefined): string {
+  switch (owd) {
+    case 'public_read':
+    case 'public_read_write':
+      return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400';
+    case 'controlled_by_parent':
+      return 'bg-blue-500/10 text-blue-700 dark:text-blue-400';
+    default:
+      return 'bg-muted text-muted-foreground';
+  }
+}
+
+function StudioObjectMatrix({
+  objects,
+  draft,
+  expanded,
+  fieldsByObject,
+  writable,
+  objectActions,
+  t,
+  onToggleExpand,
+  onObjectPerm,
+  onFieldPerm,
+  onBulkSet,
+  onFieldBulk,
+  onOpenOwd,
+}: PermissionTableProps) {
+  const sharingStart = objectActions.findIndex((a) => a.key === STUDIO_SHARING_GROUP_START);
+  const divider = (i: number) => (i === 0 || i === sharingStart ? 'border-l' : '');
+  return (
+    <table className="w-full min-w-[960px] border-collapse text-[13px]" data-testid="perm-studio-matrix">
+      <thead className="sticky top-0 z-10">
+        <tr className="h-9 border-y bg-sidebar text-xs font-medium text-muted-foreground">
+          <th className="pl-6 pr-3 text-left font-medium">{t('perm.col.object')}</th>
+          <th className="w-28 px-3 text-left font-medium">{t('engine.studio.access.colOwd')}</th>
+          {objectActions.map((a, i) => (
+            <th key={a.key as string} title={a.tip} className={cn('w-[52px] px-1 text-center font-medium', divider(i))}>
+              {a.short}
+            </th>
+          ))}
+          <th className="w-56 border-l px-3 font-medium">
+            <span className="sr-only">{t('perm.col.bulk')}</span>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {objects.length === 0 && (
+          <tr>
+            <td colSpan={objectActions.length + 3} className="px-6 py-8 text-center text-muted-foreground">
+              {t('perm.filter.empty')}
+            </td>
+          </tr>
+        )}
+        {objects.map((o) => (
+          <StudioObjectRow
+            key={o.name}
+            object={o}
+            perm={draft.objects[o.name] ?? {}}
+            open={expanded.has(o.name)}
+            fieldsState={draft.fields ?? {}}
+            fields={fieldsByObject[o.name]}
+            writable={writable}
+            objectActions={objectActions}
+            divider={divider}
+            t={t}
+            onToggleExpand={onToggleExpand}
+            onObjectPerm={onObjectPerm}
+            onFieldPerm={onFieldPerm}
+            onBulkSet={onBulkSet}
+            onFieldBulk={onFieldBulk}
+            onOpenOwd={onOpenOwd}
+          />
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function StudioObjectRow({
+  object: o,
+  perm,
+  open,
+  fieldsState,
+  fields,
+  writable,
+  objectActions,
+  divider,
+  t,
+  onToggleExpand,
+  onObjectPerm,
+  onFieldPerm,
+  onBulkSet,
+  onFieldBulk,
+  onOpenOwd,
+}: {
+  object: ObjectSummary;
+  perm: ObjectPerm;
+  open: boolean;
+  fieldsState: Record<string, FieldPerm>;
+  fields: FieldSummary[] | undefined;
+  writable: boolean;
+  objectActions: ReturnType<typeof getObjectActions>;
+  divider: (i: number) => string;
+  t: (key: string) => string;
+  onToggleExpand: (objectName: string) => void;
+  onObjectPerm: (objectName: string, action: keyof ObjectPerm, value: boolean) => void;
+  onFieldPerm: (objectName: string, fieldName: string, action: keyof FieldPerm, value: boolean) => void;
+  onBulkSet: (objectName: string, action: 'all' | 'none' | 'crud' | 'read') => void;
+  onFieldBulk: (objectName: string, action: 'readable' | 'writable' | 'clear', fieldNames: string[]) => void;
+  onOpenOwd?: (objectName: string) => void;
+}) {
+  // The bulk strip draws on the row under the pointer, and on the row that
+  // holds keyboard focus — read from the focus events themselves, so a Tab
+  // into the row's first checkbox brings the strip into the tab order.
+  const [hovered, setHovered] = React.useState(false);
+  const [focused, setFocused] = React.useState(false);
+  const active = hovered || focused;
+  const bulk: Array<{ action: 'read' | 'crud' | 'all' | 'none'; key: string }> = [
+    { action: 'read', key: 'perm.bulk.read' },
+    { action: 'crud', key: 'perm.bulk.crud' },
+    { action: 'all', key: 'perm.bulk.all' },
+    { action: 'none', key: 'perm.bulk.none' },
+  ];
+  return (
+    <>
+      <tr
+        data-testid={`perm-row-${o.name}`}
+        data-active={active || undefined}
+        className={cn('h-10 border-b', active && 'bg-primary/5')}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onFocus={() => setFocused(true)}
+        onBlur={(e) => {
+          // Focus moving between the row's own controls keeps the strip.
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocused(false);
+        }}
+      >
+        <td className="py-1 pl-6 pr-3 align-middle">
+          <button
+            type="button"
+            onClick={() => onToggleExpand(o.name)}
+            aria-expanded={open}
+            className="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap text-left"
+          >
+            {/* The chevron opens the object's field-level R/W, as on the page. */}
+            {open ? (
+              <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            )}
+            <span className="font-medium text-foreground">{o.label ?? o.name}</span>
+            {o.label && <span className="font-mono text-[11px] text-muted-foreground">{o.name}</span>}
+          </button>
+          {o.accessDefault === 'private' && (
+            <Badge
+              variant="outline"
+              className="ml-2 border-amber-500/50 px-1.5 py-0 align-middle text-[10px] text-amber-600 dark:text-amber-400"
+              title={t('perm.posture.private.tip')}
+            >
+              {t('perm.posture.private')}
+            </Badge>
+          )}
+        </td>
+        <td className="px-3 py-1 align-middle">
+          <span
+            className={cn(
+              'inline-flex h-[22px] items-center rounded px-1.5 text-[11px] font-medium',
+              owdChipTone(o.owd),
+              onOpenOwd && 'cursor-pointer hover:ring-1 hover:ring-border focus:outline-none focus-visible:ring-1 focus-visible:ring-primary',
+            )}
+            title={onOpenOwd ? t('perm.owd.editLink') : t('perm.owd.tip')}
+            {...(onOpenOwd
+              ? {
+                  role: 'button',
+                  tabIndex: 0,
+                  'data-testid': `owd-badge-${o.name}`,
+                  onClick: () => onOpenOwd(o.name),
+                  onKeyDown: (ev: React.KeyboardEvent) => {
+                    if (ev.key === 'Enter' || ev.key === ' ') {
+                      ev.preventDefault();
+                      onOpenOwd(o.name);
+                    }
+                  },
+                }
+              : {})}
+          >
+            {o.owd ? owdLabel(t, o.owd) : t('perm.owd.defaultPrivate')}
+          </span>
+        </td>
+        {objectActions.map((a, i) => (
+          <td key={a.key as string} className={cn('px-1 py-1 text-center align-middle', divider(i))}>
+            <Checkbox
+              checked={!!perm[a.key]}
+              disabled={!writable}
+              onCheckedChange={(v) => onObjectPerm(o.name, a.key, !!v)}
+              aria-label={`${o.name} ${a.tip}`}
+              className="h-[18px] w-[18px] rounded border-muted-foreground/40 align-middle data-[state=checked]:border-primary"
+            />
+          </td>
+        ))}
+        <td className="border-l px-3 py-1 align-middle">
+          {active && (
+            <span className="flex items-center gap-1" data-testid={`perm-bulk-${o.name}`}>
+              {bulk.map((b) => (
+                <button
+                  key={b.action}
+                  type="button"
+                  disabled={!writable}
+                  onClick={() => onBulkSet(o.name, b.action)}
+                  className="inline-flex h-6 items-center rounded border bg-background px-2 text-[11px] font-medium text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {t(b.key)}
+                </button>
+              ))}
+            </span>
+          )}
+        </td>
+      </tr>
+      {open && (
+        <tr className="border-b bg-muted/10">
+          <td colSpan={objectActions.length + 3} className="py-3 pl-12 pr-6">
+            <FieldsSubTable
+              objectName={o.name}
+              fields={fields}
+              fieldsState={fieldsState}
+              writable={writable}
+              t={t}
+              onFieldPerm={onFieldPerm}
+              onFieldBulk={onFieldBulk}
+            />
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 

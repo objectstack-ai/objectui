@@ -1700,6 +1700,13 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     // it into a ref on every render instead (same pattern as
     // `identityPolicyRef` above), read only from inside the callback body.
     const savedViewsRef = useRef<any[]>([]);
+    // ⚠️ objectui#12474 — NO caller. It was the list toolbar's write into the
+    // shared view; the sort and the column layout left it in objectui#12418,
+    // the density and the Hide Fields popover in objectui#12474, and all four
+    // are the user's own list state (`listPrefs`). ⛔ Do not wire a toolbar
+    // control back to it: `ObjectView.overlayPatchOnly.test.ts` counts its
+    // references. Its retirement (with the adapter's `updateViewConfig`, which
+    // it was the last caller of) is a separate decision.
     const persistViewPatch = useCallback(
         (viewIdLocal: string, baseViewDef: Record<string, any>, patch: Record<string, any>) => {
             if (!dataSource?.updateViewConfig || !objectName || !viewIdLocal) return;
@@ -3453,19 +3460,28 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
         const legacyOptions = storedLegacyOptions(viewDef);
 
         /**
-         * objectui#10694, ruling 5839344270 (B) — where the hide-column
-         * toggle's choice is stored. On a view that declares no projection
-         * the relay applies no `hiddenFields` (see `activeViewDeclaresColumns`),
-         * so an overlay write of one would be read by nothing. A SYSTEM view's
-         * overlay cannot carry `columns` either (`VIEW_OVERLAY_OWNED_KEYS`), so
-         * there the toggle is session-only: `ListView` still hides the column
-         * in its own state, and nothing is written. A SAVED view's write is
-         * the whole view, drawn `columns` included, so it keeps persisting.
-         * The author's remedy on a system view is to declare `columns`.
+         * objectui#12474 — the Hide Fields popover's choice is the USER's: it
+         * is stored on their own list state (`listPrefs`, beside the sort and
+         * the column layout), never written into the shared view, so one
+         * user's click no longer hides a column for everyone and a walled
+         * tenant member is not refused. It is a SUBTRACTION from the columns
+         * the view declares: the popover offers only those (and, objectui#11984,
+         * only the ones the caller may read), and the list draws `columns`
+         * minus this list, so it can never add a column.
+         *
+         * objectui#10694, ruling 5839344270 (B) — on a view that declares no
+         * projection the relay applies no `hiddenFields` (see
+         * `activeViewDeclaresColumns`), so a stored choice would be read by
+         * nothing: there the toggle is session-only. `ListView` still hides
+         * the column in its own state, and nothing is stored. That now holds
+         * for a SAVED view too: its hide used to persist only because the
+         * shared write sent the whole view, the drawn defaults included as its
+         * `columns`, which declared a projection for every user. The author's
+         * remedy is to declare `columns`.
          */
         const persistHiddenFields = (hidden: string[]) => {
-            if (!activeViewDeclaresColumns && !isSavedViewId(savedViewsRef.current, viewDef.id)) return;
-            persistViewPatch(viewDef.id, viewDef, { hiddenFields: hidden });
+            if (!activeViewDeclaresColumns) return;
+            listPrefs.patchView(viewDef.id, { hiddenFields: hidden });
         };
 
 
@@ -3525,15 +3541,18 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             // fold, view over list, the same route as the `userActions` rung
             // below. A stored view that still spells it `densityMode` arrives
             // here as `rowHeight`, and this relay never names the retired key.
+            // objectui#12474 — the density this user chose is laid over it:
+            // the view's own is the default for a user who has not chosen.
             rowHeight:
-                (normalizeListViewSchema(viewDef ?? {}) as Pick<ListViewSchema, 'rowHeight'>).rowHeight
+                viewPref?.rowHeight
+                ?? (normalizeListViewSchema(viewDef ?? {}) as Pick<ListViewSchema, 'rowHeight'>).rowHeight
                 ?? listSchema.rowHeight,
-            // Hydrate the persisted view settings so they survive reload.
-            // Density and hidden fields are the VIEW's (objectstack#7494's
-            // ruling: org-wide, through the persistViewPatch helper, which
-            // debounces and batches concurrent toggles). The sort and the
-            // column layout are the USER's since objectui#12418: they are
-            // read from and written to `listPrefs`, never `/meta/view`.
+            // Hydrate the persisted settings so they survive reload. The sort
+            // and the column layout (objectui#12418), the density and the
+            // hidden fields (objectui#12474) are the USER's: they are read
+            // from and written to `listPrefs`, never `/meta/view`. No list
+            // toolbar control writes the shared view; the view editor's
+            // explicit save does.
             //
             // objectui#11860 — a sort the URL carries is applied over the
             // view's: an opened link sorts as it was sorted. Without a link,
@@ -3581,7 +3600,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
              * already carries the host's echo of the view's keys.
              */
             hiddenFields: activeViewDeclaresColumns
-                ? ((viewDef as any).hiddenFields ?? listSchema.hiddenFields)
+                // objectui#12474 — this user's own hidden fields over the
+                // view's (a subtraction from the same `columns`).
+                ? (viewPref?.hiddenFields ?? (viewDef as any).hiddenFields ?? listSchema.hiddenFields)
                 : undefined,
             /**
              * The per-view ORDERING of the field composition
@@ -3608,10 +3629,10 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             // "Reset view" must reach the grid).
             columnState: viewPref?.columnState ?? (viewDef as any).columnState ?? (listSchema as any).columnState ?? {},
             onDensityChange: (mode) => {
-                // Persist the spec-canonical `rowHeight` (#2890). Writing the
-                // legacy `densityMode` here is what kept re-seeding it into
-                // stored view metadata after every toolbar toggle.
-                persistViewPatch(viewDef.id, viewDef, {
+                // objectui#12474 — the USER's density, on their own list state,
+                // never the shared view. Stored as the spec-canonical
+                // `rowHeight` (#2890), the vocabulary the rung above reads.
+                listPrefs.patchView(viewDef.id, {
                     rowHeight: DENSITY_MODE_TO_ROW_HEIGHT[mode],
                 });
             },
@@ -3973,7 +3994,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 dataSource={ds}
             />
         );
-    }, [activeView, activeViewDeclaresColumns, objectDef, objectName, refreshKey, navOverlay, actions, persistViewPatch, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, writeListUrlState, user?.id, pageOffersCreate, listIdentityKey, listPrefs.ready, listPrefs.preference, listPrefs.patchView, viewTabBar]);
+    }, [activeView, activeViewDeclaresColumns, objectDef, objectName, refreshKey, navOverlay, actions, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, writeListUrlState, user?.id, pageOffersCreate, listIdentityKey, listPrefs.ready, listPrefs.preference, listPrefs.patchView, viewTabBar]);
 
     // Memoize the merged views array so PluginObjectView doesn't get a new
     // reference on every render (which would trigger unnecessary data refetches).

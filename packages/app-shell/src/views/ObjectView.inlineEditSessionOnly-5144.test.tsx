@@ -272,6 +272,7 @@ beforeEach(() => {
   cleanup();
   listProps = null;
   listSchema = null;
+  localStorage.clear();
   vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ data: [] }), {
     status: 200,
     headers: { 'content-type': 'application/json' },
@@ -288,7 +289,7 @@ afterEach(() => {
 });
 
 describe('objectui#5144 (ruling E) — the console inline-edit toggle writes nothing', () => {
-  it('switching the toggle on a served view sends no write; a density change beside it does', async () => {
+  it('switching the toggle on a served view sends no write; the store records a view write when one is made', async () => {
     const { meta, rows, bodies } = makeStore([SERVED_OVERLAY]);
     const ds = await openPage(meta, OPTED_IN_OBJECT, 'all');
     expect(listSchema.label).toBe('All notes');
@@ -304,10 +305,13 @@ describe('objectui#5144 (ruling E) — the console inline-edit toggle writes not
     expect(meta.saveItem).not.toHaveBeenCalled();
     expect(rows.get('all')).toEqual(SERVED_OVERLAY);
 
-    // Firing control: the same page, the same view, a toolbar control that is
-    // still persisted.
-    act(() => listSchema.onDensityChange('comfortable'));
-    await wait(700);
+    // Firing control: the store records a view write when one is made. No
+    // list toolbar control makes one since objectui#12474 (the density, the
+    // last of them, is the user's own list state), so the write is the
+    // adapter's own, the call the density toggle used to reach.
+    await act(async () => {
+      await ds.updateViewConfig(OPTED_IN_OBJECT.name, 'all', { rowHeight: 'medium', viewKind: 'list' }, { isSavedView: false });
+    });
     expect(ds.updateViewConfig).toHaveBeenCalledTimes(1);
     expect(rows.get('all').rowHeight).toBe('medium');
     expect(rows.get('all')).not.toHaveProperty('inlineEdit');
@@ -343,15 +347,14 @@ describe('objectui#5144 (ruling E) — the console inline-edit toggle writes not
     expect(ds.updateViewConfig).not.toHaveBeenCalled();
     expect(meta.saveItem).not.toHaveBeenCalled();
 
-    // Firing control: a density change on the same saved view writes its row
-    // whole. The row's own `inlineEdit` rides along unchanged, never the
-    // toggle's `false`.
+    // Since objectui#12474 a density change on the same saved view writes no
+    // row either (it is the user's own list state), so the row's own
+    // `inlineEdit` is untouched and no body carries the toggle's `false`.
     act(() => listSchema.onDensityChange('comfortable'));
     await wait(700);
-    expect(ds.updateViewConfig).toHaveBeenCalledTimes(1);
-    expect(rows.get(SAVED_ID).config.rowHeight).toBe('medium');
+    expect(ds.updateViewConfig).not.toHaveBeenCalled();
     expect(rows.get(SAVED_ID).config.inlineEdit).toBe(true);
-    expect(bodiesCarryingInlineEdit(bodies).every((b) => (b.config ?? b).inlineEdit === true)).toBe(true);
+    expect(bodiesCarryingInlineEdit(bodies)).toEqual([]);
 
     cleanup();
     await openPage(meta, PLAIN_OBJECT, SAVED_ID);

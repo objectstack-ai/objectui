@@ -22,7 +22,7 @@
 
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 let clientImpl: any;
@@ -148,15 +148,21 @@ async function renderPillarOnSetA() {
 
 /**
  * objectui#11862 — the rail shows each set's machine name as secondary text, so
- * an open set's name is on the page twice: in the rail and in its matrix. "The
- * matrix shows set X" is asked of the pillar's main panel alone.
+ * an open set's name is on the page more than once. objectui#12456 — the open
+ * set's api name is its item header's mono chip (the Delegated admin tab, kept
+ * mounted, lists every set name too), so "the matrix shows set X" is asked of
+ * that header alone.
  */
-const inMatrix = () => within(screen.getByRole('main'));
-const findInMatrix = async (text: string) => within(await screen.findByRole('main')).findByText(text);
+const inSetHeader = () => within(screen.getByTestId('access-item-header'));
+// The header is re-queried on each retry: the pillar's own header stands in
+// while no set is open, and the set's header replaces it once the page loads.
+const findInSetHeader = (text: string) => waitFor(() => inSetHeader().getByText(text));
 
 /** Flip a cell in the open matrix so the editor reports dirty. */
 function dirtyTheMatrix() {
   const row = screen.getByText('a_account').closest('tr')!;
+  // objectui#12456 — the bulk strip draws on the row under the pointer.
+  fireEvent.mouseEnter(row);
   fireEvent.click(within(row).getByRole('button', { name: 'None' }));
 }
 
@@ -171,7 +177,7 @@ describe('AccessPillar — unsaved matrix edits guard', () => {
     expect(confirmSpy).toHaveBeenCalledTimes(1);
     // Still on set A, and the edit survived (row "None" left Read unchecked —
     // a remount would have reloaded allowRead: true).
-    expect(inMatrix().getByText('set_a')).toBeInTheDocument();
+    expect(inSetHeader().getByText('set_a')).toBeInTheDocument();
     const row = screen.getByText('a_account').closest('tr')!;
     expect(within(row).getByRole('checkbox', { name: 'a_account Read' })).not.toBeChecked();
 
@@ -179,7 +185,7 @@ describe('AccessPillar — unsaved matrix edits guard', () => {
     confirmSpy.mockReturnValueOnce(true);
     fireEvent.click(screen.getByRole('button', { name: 'Set B' }));
     expect(confirmSpy).toHaveBeenCalledTimes(2);
-    await findInMatrix('set_b');
+    await findInSetHeader('set_b');
   });
 
   it('switches sets without prompting when the matrix is clean', async () => {
@@ -188,7 +194,7 @@ describe('AccessPillar — unsaved matrix edits guard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Set B' }));
 
     expect(confirmSpy).not.toHaveBeenCalled();
-    await findInMatrix('set_b');
+    await findInSetHeader('set_b');
   });
 
   it('gates the OWD overview swap too, and a confirmed discard clears the guard', async () => {
@@ -209,7 +215,7 @@ describe('AccessPillar — unsaved matrix edits guard', () => {
     // Back to a set: the discarded editor must NOT have left the guard armed.
     fireEvent.click(screen.getByRole('button', { name: 'Set A' }));
     expect(confirmSpy).toHaveBeenCalledTimes(2);
-    await findInMatrix('set_a');
+    await findInSetHeader('set_a');
   });
 
   it('never prompts when re-clicking the already-open set (nothing remounts)', async () => {
@@ -258,7 +264,7 @@ describe('AccessPillar — unsaved OWD overview edits guard (#2600)', () => {
     confirmSpy.mockReturnValueOnce(true);
     fireEvent.click(screen.getByRole('button', { name: 'Set A' }));
     expect(confirmSpy).toHaveBeenCalledTimes(2);
-    await findInMatrix('set_a');
+    await findInSetHeader('set_a');
 
     // The discarded panel reset the guard on unmount — swapping back to the
     // overview must NOT prompt, and it reloads the untouched baseline.
@@ -301,7 +307,7 @@ describe('AccessPillar — unsaved OWD overview edits guard (#2600)', () => {
     // objectui#11787 — the create dialog's one label: it writes a draft.
     fireEvent.click(within(dialog).getByRole('button', { name: t('engine.studio.createDraft', 'en-US') }));
 
-    await findInMatrix('set_c');
+    await findInSetHeader('set_c');
     expect(screen.queryByTestId('owd-overview')).not.toBeInTheDocument();
   });
 });

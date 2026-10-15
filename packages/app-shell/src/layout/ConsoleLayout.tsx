@@ -185,7 +185,19 @@ export function ConsoleLayout({
             onAppChange={onAppChange}
           />
       }
-      className="!p-0 overflow-y-auto overflow-x-hidden bg-muted/5"
+      // objectui#12463 — from `lg` up the inset is a flex column. A route
+      // page that bounds itself (`h-full` + its own inner scroller, as the
+      // object list page does) then takes the height LEFT after the banners
+      // above it, instead of 100% of the inset on top of them; the old block
+      // layout overflowed the inset by the banners' height, so the inset
+      // scrolled as a second scroller over the table's own and pushed the
+      // record-count footer below the fold. A natural-height page (search
+      // results, marketplace) cannot shrink below its content and keeps
+      // scrolling the inset exactly as before (its content overflows its box
+      // and the inset's scroll height is unchanged). `min-h-0` on the inset's
+      // children is what lets an `h-full` page shrink at all: its automatic
+      // minimum would otherwise be its own 100%. The phone keeps block layout.
+      className="!p-0 overflow-y-auto overflow-x-hidden bg-muted/5 lg:flex lg:flex-col lg:[&>*]:min-h-0"
       rightRail={
         dockEnabled && dock.expanded && !isMobile ? (
           <ChatDockPanel
@@ -222,6 +234,9 @@ export function ConsoleLayout({
       <ConsoleLayoutInner>
         {/* ADR-0037: unmistakable watermark while rendering the draft overlay
             (?preview=draft) — with one-click exit and one-click Publish. */}
+        {/* objectui#12463 — the banners sit in one non-shrinking box, so in
+            the `lg` flex column above only the route page gives up height. */}
+        <div data-testid="console-banners" className="shrink-0">
         <DraftPreviewBar />
         {/* ADR-0045: materialized-but-unlisted app — real and interactive,
             invisible to end users until the Publish visibility flip. */}
@@ -230,6 +245,7 @@ export function ConsoleLayout({
             route content and below the two preview bars — a banner states a
             standing condition, same as its neighbours here. */}
         <ConsoleNotificationBanners />
+        </div>
         {children}
       </ConsoleLayoutInner>
 

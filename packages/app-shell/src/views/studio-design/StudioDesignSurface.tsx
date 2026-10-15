@@ -235,7 +235,7 @@ import {
   PackageDetailSheet,
   type InstalledPackageRow,
 } from '../metadata-admin/PackagesPage.js';
-import { ObjectFormDesigner } from './ObjectFormDesigner.js';
+import { FormToolbar, ObjectFormDesigner } from './ObjectFormDesigner.js';
 import { isStudioHiddenSystemField } from './studioHiddenSystemField.js';
 import { ObjectGroupInspector } from './ObjectGroupInspector.js';
 import { ObjectValidationsPanel } from './ObjectValidationsPanel.js';
@@ -5091,6 +5091,52 @@ export function DataPillar({
   const addFieldOffered = Boolean(current) && (viewMode === 'grid' || viewMode === 'form') && !readOnly && objLoaded;
   // objectui#12450 — the Records grid draws flush with the content column.
   const recordsFlush = Boolean(current) && objLoaded && viewMode === 'grid' && hasBaseline;
+  // objectui#12451 — so does the Form tab: its one toolbar row spans the
+  // column, and the canvas below it carries its own padding.
+  const formFlush = Boolean(current) && objLoaded && viewMode === 'form';
+  const bodyFlush = recordsFlush || formFlush;
+  // objectui#12451 — the Form tab's compact Layout / Preview control (24 px
+  // items). The caption that used to trail it is each item's title.
+  const formModeItem = (active: boolean) =>
+    cn(
+      'h-6 rounded px-2.5 text-xs transition-colors',
+      active ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+    );
+  const formModeControl = (
+    <div className="inline-flex items-center gap-0.5 rounded-md bg-muted p-0.5">
+      <button
+        type="button"
+        onClick={() => setFormMode('layout')}
+        aria-pressed={formMode === 'layout'}
+        // The caption used to assert "your unsaved changes" from `formMode`
+        // alone — a TAB selector — so it claimed pending edits on every clean
+        // layout tab, including in a read-only package where `Save draft` is
+        // disabled and the designer has no draggable at all (objectui#4036).
+        // Say it only when it is true: real local edits, on a surface that can
+        // save them. A read-only package is asked first: it has no draft layout
+        // at all, so neither draft caption is true of it (objectui#11781).
+        title={
+          readOnly
+            ? t('engine.studio.data.form.layoutBadgeReadOnly', locale)
+            : dirty
+              ? t('engine.studio.data.form.layoutBadge', locale)
+              : t('engine.studio.data.form.layoutBadgeClean', locale)
+        }
+        className={formModeItem(formMode === 'layout')}
+      >
+        {t('engine.studio.data.form.layout', locale)}
+      </button>
+      <button
+        type="button"
+        onClick={() => setFormMode('preview')}
+        aria-pressed={formMode === 'preview'}
+        title={t('engine.studio.data.form.previewBadge', locale)}
+        className={formModeItem(formMode === 'preview')}
+      >
+        {t('engine.studio.data.form.preview', locale)}
+      </button>
+    </div>
+  );
 
   // The selected object's own icon (from its metadata) — prefer the loaded
   // draft body, fall back to the rail header. getIcon degrades to Database.
@@ -5298,7 +5344,7 @@ export function DataPillar({
               body padding and no framed card around the list, so its toolbar,
               grid and footer span the column's full width. Every other view
               keeps the padded body. */}
-          <main className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', recordsFlush ? null : 'px-6 py-4')}>
+          <main className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', bodyFlush ? null : 'px-6 py-4')}>
           {!current ? (
             objectsLoaded && objects.length === 0 ? (
               /* Fresh package: the first act is creating an object — say so and
@@ -5330,7 +5376,7 @@ export function DataPillar({
                   locale={locale}
                   // objectui#11785 — "Show me" opens the named field's inspector.
                   onShow={(target) => setFieldSel({ kind: target.kind, id: target.id })}
-                  className={cn('mb-2 px-3 py-1.5 text-[11px]', recordsFlush && 'mx-6 mt-3')}
+                  className={cn('mb-2 px-3 py-1.5 text-[11px]', bodyFlush && 'mx-6 mt-3')}
                 />
               )}
               {objHeld && (
@@ -5343,7 +5389,7 @@ export function DataPillar({
                       ? undefined
                       : (target) => setFieldSel({ kind: target.kind, id: target.id })
                   }
-                  className={cn('mb-2 px-3 py-1.5 text-[11px]', recordsFlush && 'mx-6 mt-3')}
+                  className={cn('mb-2 px-3 py-1.5 text-[11px]', bodyFlush && 'mx-6 mt-3')}
                 />
               )}
               {!objLoaded ? (
@@ -5473,65 +5519,10 @@ export function DataPillar({
               ) : (
               <>
               {/* form sub-mode: Layout (WYSIWYG drag/section designer) ⇄
-                  Preview (live form) */}
-              <div className="mb-3 flex items-center gap-2">
-                <div className="inline-flex items-center gap-0.5 rounded-lg bg-muted p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setFormMode('layout')}
-                    aria-pressed={formMode === 'layout'}
-                    className={
-                      'rounded-md px-2.5 py-0.5 text-[12px] transition-all ' +
-                      (formMode === 'layout' ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')
-                    }
-                  >
-                    {t('engine.studio.data.form.layout', locale)}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormMode('preview')}
-                    aria-pressed={formMode === 'preview'}
-                    className={
-                      'rounded-md px-2.5 py-0.5 text-[12px] transition-all ' +
-                      (formMode === 'preview' ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')
-                    }
-                  >
-                    {t('engine.studio.data.form.preview', locale)}
-                  </button>
-                </div>
-                <span className="text-[11px] text-muted-foreground">
-                  {formMode === 'layout' ? (
-                    // The caption used to assert "your unsaved changes" from
-                    // `formMode` alone — a TAB selector — so it claimed pending
-                    // edits on every clean layout tab, including in a read-only
-                    // package where `Save draft` is disabled and the designer has
-                    // no draggable at all (objectui#4036). Say it only when it
-                    // is true: real local edits, on a surface that can save
-                    // them. A read-only package is asked first: it has no draft
-                    // layout at all, so neither draft caption is true of it
-                    // (objectui#11781), and "no unsaved-changes claim where
-                    // nothing can be saved" stays a property of this line
-                    // rather than an inference about a state machine two
-                    // hundred lines up.
-                    readOnly
-                      ? t('engine.studio.data.form.layoutBadgeReadOnly', locale)
-                      : dirty
-                        ? t('engine.studio.data.form.layoutBadge', locale)
-                        : t('engine.studio.data.form.layoutBadgeClean', locale)
-                  ) : (
-                    t('engine.studio.data.form.previewBadge', locale)
-                  )}
-                </span>
-                {/* Preview renders the PUBLISHED definition on purpose: a draft with
-                  * structural changes has no physical columns yet (DDL lands at
-                  * publish), so a draft-with-data preview would break. Publishing is
-                  * a deliberate user action — say so instead of silently lying. */}
-                {formMode === 'preview' && (dirty || hasDraft) && (
-                  <span className="inline-flex items-center gap-1 rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300">
-                    {t('engine.studio.data.form.previewWarn', locale)}
-                  </span>
-                )}
-              </div>
+                  Preview (live form). objectui#12451 — the control sits at the
+                  left of the Form tab's one toolbar row (the designer's in
+                  Layout, `FormToolbar` in Preview), and the caption that used
+                  to trail it is each item's title. */}
               {formMode === 'layout' ? (
                 <ObjectFormDesigner
                   draft={objDraft}
@@ -5544,10 +5535,28 @@ export function DataPillar({
                   onSelectGroup={(key) => setFieldSel({ kind: 'group', id: key })}
                   onAddField={addField}
                   readOnly={readOnly}
+                  modeControl={formModeControl}
                 />
-              ) : !hasBaseline ? (
+              ) : (
+              <>
+              <FormToolbar
+                leading={formModeControl}
+                hint={
+                  /* Preview renders the PUBLISHED definition on purpose: a draft with
+                   * structural changes has no physical columns yet (DDL lands at
+                   * publish), so a draft-with-data preview would break. Publishing is
+                   * a deliberate user action — say so instead of silently lying. */
+                  (dirty || hasDraft) && (
+                    <span className="inline-flex items-center gap-1 rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300">
+                      {t('engine.studio.data.form.previewWarn', locale)}
+                    </span>
+                  )
+                }
+              />
+              <div className="flex min-h-0 flex-1 flex-col overflow-auto bg-sidebar p-6">
+              {!hasBaseline ? (
                 /* Draft-only object: there is no published definition to preview yet. */
-                <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed bg-muted/20 text-center">
+                <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed bg-background text-center">
                   <p className="text-sm font-medium">{t('engine.studio.data.form.noPublishedTitle', locale)}</p>
                   <p className="max-w-md text-[11px] leading-5 text-muted-foreground">
                     {t('engine.studio.data.form.noPublishedHint', locale)}
@@ -5574,7 +5583,7 @@ export function DataPillar({
                     : ''
                 }
               `}</style>
-              <div className="min-h-0 flex-1 overflow-auto rounded-lg border bg-background p-6">
+              <div className="rounded-lg border bg-background p-6">
                 {/* Match the real display: the runtime form auto-widens (a
                     field-heavy record opens in a near-full-width modal), so its
                     container queries reach up to 4 columns on wide screens. A
@@ -5608,6 +5617,9 @@ export function DataPillar({
                     />
                   </SchemaRendererProvider>
                 </div>
+              </div>
+              </>
+              )}
               </div>
               </>
               )}

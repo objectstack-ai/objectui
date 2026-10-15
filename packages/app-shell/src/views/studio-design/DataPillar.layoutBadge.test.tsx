@@ -73,6 +73,9 @@ afterEach(cleanup);
 
 const CLAIM = /your unsaved changes/i;
 
+// objectui#12451 — the caption moved from a sentence beside the Layout /
+// Preview control into the Layout item's title, so it is read by title.
+
 /** Render the pillar, land on the auto-selected object, open 表单 (Form). */
 async function openFormTab(props: Partial<React.ComponentProps<typeof DataPillar>> = {}) {
   render(
@@ -92,11 +95,11 @@ describe('DataPillar form tab — the layout caption tells the truth (#4036)', (
   it('read-only package: no unsaved-changes claim where nothing can be saved', async () => {
     await openFormTab({ readOnly: true });
 
-    expect(screen.queryByText(CLAIM)).toBeNull();
+    expect(screen.queryByTitle(CLAIM)).toBeNull();
     // Nor a draft caption at all: a read-only package has no draft layout, so
     // its caption says what it is (objectui#11781 — pinned by key, with its
     // writable control, in StudioDesignSurface.readOnlyWording-11781.test.tsx).
-    expect(screen.queryByText('Draft layout', { exact: true })).toBeNull();
+    expect(screen.queryByTitle('Draft layout', { exact: true })).toBeNull();
   });
 
   it('writable package, nothing edited yet: still no claim', async () => {
@@ -104,8 +107,8 @@ describe('DataPillar form tab — the layout caption tells the truth (#4036)', (
 
     // The other half of the same defect — before the fix the caption was a
     // constant, so a clean writable draft lied in exactly the same way.
-    expect(screen.queryByText(CLAIM)).toBeNull();
-    expect(screen.getByText('Draft layout', { exact: true })).toBeInTheDocument();
+    expect(screen.queryByTitle(CLAIM)).toBeNull();
+    expect(screen.getByTitle('Draft layout', { exact: true })).toBeInTheDocument();
   });
 
   it('writable package with real unsaved edits: the claim renders', async () => {
@@ -116,7 +119,7 @@ describe('DataPillar form tab — the layout caption tells the truth (#4036)', (
     // form designer's own); either does.
     fireEvent.click(screen.getAllByRole('button', { name: /Add field/i })[0]);
 
-    expect(await screen.findByText(CLAIM)).toBeInTheDocument();
+    expect(await screen.findByTitle(CLAIM)).toBeInTheDocument();
   });
 
   it('CONTROL — gating is untouched: read-only offers no edit affordance', async () => {

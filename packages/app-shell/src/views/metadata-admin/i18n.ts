@@ -3067,6 +3067,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.designer.newGroup': 'New group',
   'engine.studio.designer.hint': 'Drag to reorder / move across groups · click a field to edit its properties',
   'engine.studio.designer.hintReadOnly': 'Read-only package · click a field to view its properties',
+  // objectui#12451 — the Form tab toolbar's hint.
+  'engine.studio.designer.toolbarHint': 'Drag fields to arrange · click a field to edit its properties',
   'engine.studio.designer.addGroup': 'Add group',
   // What the form designer's drag live region says (objectui#11802): labels,
   // never the canvas's internal ids, and the place as "N of M" in the group.
@@ -6273,6 +6275,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.designer.newGroup': '新分组',
   'engine.studio.designer.hint': '拖动字段排序 / 拖到其它分组 · 点选字段改属性',
   'engine.studio.designer.hintReadOnly': '只读软件包 · 点选字段查看属性',
+  'engine.studio.designer.toolbarHint': '拖动字段排布 · 点选字段编辑属性',
   'engine.studio.designer.addGroup': '添加分组',
   'engine.studio.formDnd.instructions':
     '按空格键或回车键拿起字段。拖动时用方向键移动，再按空格键或回车键放到新位置，按 Esc 键取消。',

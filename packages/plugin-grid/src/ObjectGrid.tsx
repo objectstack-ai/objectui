@@ -35,7 +35,7 @@ import { createSafeTranslation } from '@object-ui/i18n';
 // what stops a seventh site picking a convention of its own.
 import { resolveGridCellRendering, gridCellRendererForFixedKey, linkCellRenderer, BADGE_PREFIX_RENDERER_KEY } from './cellRendererResolution';
 import { isMaskedGridColumn, isWithheldGridColumn } from './maskedColumn';
-import { formatCurrency, formatCompactCurrency, formatDate, formatPercent, percentCellScale, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue, MaskedCellRenderer, withKnownObjects } from '@object-ui/fields';
+import { formatCurrency, formatCompactCurrency, formatDate, formatPercent, percentCellScale, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue, MaskedCellRenderer, withKnownObjects, RICH_TEXT_FIELD_TYPES } from '@object-ui/fields';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency, pickLocalized } from '@object-ui/i18n';
 // Two resolvers, two vocabularies — the repo spells the distinction into the
 // NAMES (objectui#4167). `resolveInlineI18nLabel` is the spec's own
@@ -5024,7 +5024,44 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     return isUnmaterializedFieldType(fieldDef) ? { ...col, sortable: false } : col;
   };
 
-  const applyColumnChrome = (col: any) => withSortability(applyDensity(col));
+  /**
+   * objectui#12480 — a rich-content cell keeps the grid's one-line row.
+   *
+   * `data-table` clamps a cell body to one line with `truncate` unless the
+   * column is authored `wrap: true`. `truncate` (nowrap + overflow hidden +
+   * ellipsis) bounds INLINE content only: it never bounds a body's height. The
+   * three rich-content renderers (`markdown`, `html`, `richtext` — the
+   * `RICH_TEXT_FIELD_TYPES` table in `@object-ui/fields`) draw a BLOCK document
+   * (paragraphs, headings, lists), and blocks stack under nowrap, so one such
+   * value grew its whole row to the document's height. Measured in Chromium at
+   * 1280 x 900 on HotCRM's `crm_account` shape: one long `description` made its
+   * row 456 px tall; the rows after it fell below the scroll box's fold while
+   * the footer still counted them, which read as "fewer rows drawn, a gap
+   * before the last one". Every other cell renderer stays within one line
+   * (measured per type on the same harness; the readings are in the PR).
+   *
+   * So a rich-content column that is not `wrap: true` wraps its renderer's
+   * output in a one-line clamp: the first line of the document shows, the rest
+   * is cut. The renderer itself is unchanged (its sanitising pipeline stays the
+   * trust boundary), and `wrap: true` keeps the whole document, as authored.
+   */
+  const withOneLineRichText = (col: any) => {
+    if (col.wrap === true || typeof col.cell !== 'function') return col;
+    const fieldDef = (objectSchema as any)?.fields?.[col.accessorKey];
+    const { rendererType } = resolveGridCellRendering(fieldDef);
+    if (!rendererType || !(RICH_TEXT_FIELD_TYPES as readonly string[]).includes(rendererType)) return col;
+    const cell = col.cell;
+    return {
+      ...col,
+      cell: (value: any, row: any) => (
+        <div className="line-clamp-1" data-testid="grid-rich-text-one-line">
+          {cell(value, row)}
+        </div>
+      ),
+    };
+  };
+
+  const applyColumnChrome = (col: any) => withOneLineRichText(withSortability(applyDensity(col)));
 
   const orderedColumns = hasPinnedColumns
     ? [

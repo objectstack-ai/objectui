@@ -85,10 +85,10 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-async function mountEdit(perms: MePermissionsResponse, opts: { search?: string; createMode?: boolean } = {}) {
+async function mountEdit(perms: MePermissionsResponse, opts: { createMode?: boolean } = {}) {
   render(
     <MePermissionsProvider initialPermissions={perms}>
-      <MemoryRouter initialEntries={[`/apps/setup/metadata/dashboard/env_position${opts.search ?? ''}`]}>
+      <MemoryRouter initialEntries={[`/apps/setup/metadata/dashboard/env_position`]}>
         <MetadataResourceEditPage type="dashboard" name={opts.createMode ? '' : 'env_position'} createMode={opts.createMode} />
       </MemoryRouter>
     </MePermissionsProvider>,
@@ -118,10 +118,26 @@ describe('ResourceEditPage — History and Audit follow the trail doors (objectu
     expect(screen.queryByTestId('audit-button')).toBeNull();
   });
 
+  // The `?tab=` deep link is read from `window.location`, not the router, so
+  // the URL is set there; an author following the same link is the control.
+  async function followAuditDeepLink(perms: MePermissionsResponse) {
+    const before = window.location.href;
+    window.history.replaceState(null, '', '/apps/setup/metadata/dashboard/env_position?tab=audit');
+    try {
+      await mountEdit(perms);
+    } finally {
+      window.history.replaceState(null, '', before);
+    }
+  }
+
   it('a setup.access-only caller following a ?tab=audit deep link reads no audit', async () => {
-    await mountEdit(SETUP_ONLY, { search: '?tab=audit' });
-    expect(screen.queryByText('Audit')).toBeNull();
+    await followAuditDeepLink(SETUP_ONLY);
     expect(mockClient.audit).not.toHaveBeenCalled();
+  });
+
+  it('an author following the same deep link reads the audit (control)', async () => {
+    await followAuditDeepLink(STUDIO_AUTHOR);
+    await waitFor(() => expect(mockClient.audit).toHaveBeenCalled());
   });
 
   it('a studio.access author sees both', async () => {

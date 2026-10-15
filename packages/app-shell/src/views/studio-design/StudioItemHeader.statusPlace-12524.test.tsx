@@ -11,9 +11,9 @@
  *
  * `StudioItemHeader` now takes the status as data (`status`) and draws the
  * chip itself, after the identity (title, api-name or kind chips) and before
- * the meta; the right slot holds actions only. The identity sits in one
- * `contents` wrapper, so the chip is the same child of the same row whatever
- * identity chips a pillar shows.
+ * the meta; the right slot holds actions only. The identity chips sit in
+ * one `contents` wrapper, so the chip is the same child of the same row
+ * whatever identity chips a pillar shows.
  *
  * The REAL four pillars against one server double that serves a pending draft
  * for the open object, the open flow and the open page. Access has no
@@ -208,7 +208,7 @@ async function openHeader(c: PillarCase, readOnly = false): Promise<HTMLElement>
 
 /** The header's title row: the row that holds the item's title. */
 function titleRow(header: HTMLElement): HTMLElement {
-  const row = header.querySelector('h1')?.parentElement?.parentElement;
+  const row = header.querySelector('h1')?.parentElement;
   expect(row, 'the header has no title row: the harness is dead').toBeTruthy();
   return row as HTMLElement;
 }
@@ -228,12 +228,16 @@ describe('the status chip sits in the same place in every pillar’s item header
       const { index, chip, row } = await statusPlace(header);
       // A child of the title row, never of the actions slot.
       expect(chip.parentElement, c.pillar).toBe(row);
-      // Right after the identity: the wrapper that holds the title and its chips.
-      const identity = row.children[index - 1];
-      expect(identity?.querySelector('h1'), `${c.pillar}: the chip does not follow the identity`).not.toBeNull();
+      // Right after the identity: the title, then the wrapper of its chips.
+      expect(row.children[index - 2]?.tagName, `${c.pillar}: the chip does not follow the title`).toBe('H1');
+      expect(row.children[index - 1], `${c.pillar}: the chip does not follow the identity chips`).toHaveAttribute(
+        'data-slot',
+        'identity-chips',
+      );
       // Nothing after it is identity: the meta and the actions follow.
       for (const later of Array.from(row.children).slice(index + 1)) {
-        expect(later.querySelector('h1'), c.pillar).toBeNull();
+        expect(later.tagName, c.pillar).not.toBe('H1');
+        expect(later.getAttribute('data-slot'), c.pillar).not.toBe('identity-chips');
       }
       places.push({ pillar: c.pillar, index, text: chip.textContent ?? '' });
       cleanup();

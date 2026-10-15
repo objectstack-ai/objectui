@@ -178,7 +178,7 @@ describe('objectui#11364: the spec-declared nodes have a TypeScript authoring fa
 
   it('a stored page document is typed under its page kind', () => {
     const home: PageDocumentNode = { type: 'home', kind: 'html', name: 'landing', label: 'Landing', source: '<Page />' };
-    // @ts-expect-error `kind` is the spec's override mode (full | slotted | html | react | jsx)
+    // @ts-expect-error `kind` is the spec's override mode (full | slotted | html | react)
     const badKind: PageDocumentNode = { type: 'home', kind: 'markdown', name: 'landing', label: 'Landing' };
     // @ts-expect-error `type` is the page kind the registry dispatches on, so the node must carry it
     const untyped: PageDocumentNode = { name: 'landing', label: 'Landing' };

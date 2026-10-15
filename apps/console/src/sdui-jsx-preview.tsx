@@ -1,4 +1,4 @@
-/* ADR-0080 browser preview: a kind:'jsx' page rendered through the real
+/* ADR-0080 browser preview: a kind:'html' page rendered through the real
  * PageRenderer (compile -> SchemaRenderer).
  *
  * ADR-0080 EXCEPTION — Tailwind in page source
@@ -12,7 +12,7 @@
  *
  * It renders fully styled HERE only because this harness file is itself inside
  * the scanned `src` — precisely the "works only by coincidence" failure mode
- * ADR-0065 names. This file is a renderer-PLUMBING preview (does the jsx tier
+ * ADR-0065 names. This file is a renderer-PLUMBING preview (does the html tier
  * compile and mount the registered blocks), not an authoring example: DO NOT
  * copy its source string into a page. The authoring example is
  * `sdui-tiers-preview.tsx`, whose sources carry no className at all and style
@@ -84,7 +84,7 @@ const source = `
   </grid>
 </flex>`;
 
-const page = { type: 'home', kind: 'jsx', name: 'command_center', label: 'Command Center', source };
+const page = { type: 'home', kind: 'html', name: 'command_center', label: 'Command Center', source };
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

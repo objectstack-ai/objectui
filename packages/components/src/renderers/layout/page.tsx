@@ -662,17 +662,22 @@ export const PageRenderer: React.FC<{
 
   // Select the layout variant based on template or page type
   const layoutElement = useMemo(() => {
-    // `PageSchema['kind']` now spells the source-authored values too, matching
-    // @objectstack/spec — no cast needed to read what the renderer dispatches on.
-    const kind = schema.kind;
+    // Read as the stored WIRE value, not as the authoring type. `PageNodeSchema['kind']`
+    // follows @objectstack/spec 18, which retired `'jsx'` (objectui#12464); a
+    // server still on a spec release built before that retirement can serve a
+    // stored `jsx` page that spec 18's rehydration would have turned into
+    // `html`. Widening (not a cast) keeps the `'jsx'` arm below compiling until
+    // the resolved spec carries the retirement and that arm is dropped.
+    const kind: string | undefined = schema.kind;
     // `kind:'react'` — TRUSTED execution tier: real React, run (not parsed) by
     // @object-ui/react-runtime, gated behind the host CAP_REACT_PAGES flag.
     if (kind === 'react') {
       return <ReactKindPage schema={schema} />;
     }
     // `kind:'html'` (formerly 'jsx') — author-written constrained JSX compiled
-    // (parsed, never executed) to a SchemaNode tree and rendered. The legacy
-    // 'jsx' value is still accepted as a deprecated alias.
+    // (parsed, never executed) to a SchemaNode tree and rendered. A stored
+    // 'jsx' page is still rendered as html until the resolved spec carries its
+    // retirement; it can no longer be authored against the types.
     // Styling on this tier is the blocks' own structured props
     // (`<flex direction gap>`, `<grid columns>`) plus a JSON `style` object —
     // NOT Tailwind utility classes. `source` is runtime metadata, so the build's

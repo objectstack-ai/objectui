@@ -1305,7 +1305,12 @@ export const PageNodeSchema = BaseSchema.extend(SpecPageFields.shape).extend({
     .optional()
     .describe('Page override mode (full | slotted | html | react)'),
   object: z.string().optional().describe('Bound object name (for record pages)'),
-  template: z.string().optional().describe('Layout template name'),
+  // objectstack#23610: the spec's own member, by reference, mirroring the TS
+  // face's `PageNodeSchema.template` (`SpecPage['template']`). A `z.string()`
+  // here accepts every name, so once the spec closes the set of layout names it
+  // measures WIDER than the TS face and accepts the `full-width` the spec
+  // retires. Against a spec whose member is still a string, it is unchanged.
+  template: stripImportedDefaults(SpecPageSchema).shape.template.describe('Layout template name'),
   variables: z.array(PageVariableSchema).optional().describe('Local page state variables'),
   regions: z.array(PageNodeRegionSchema).optional().describe('Page layout regions'),
   body: aliasKeyRefusal(

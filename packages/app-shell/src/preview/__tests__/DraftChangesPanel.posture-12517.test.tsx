@@ -94,7 +94,17 @@ function expectReviewPosture() {
 
 describe('objectui#12517 — the pending-changes sheet opens in a posture', () => {
   it('confirm: every row expanded, the summary line counted by type, focus on Publish all', async () => {
+    // No frame shows a collapsed row: the expansion lands in the commit that
+    // first renders the list, not in a passive effect after it is painted
+    // (under load the observer below fired in that gap, and so would a paint).
+    let collapsedSeen = 0;
+    const observer = new MutationObserver(() => {
+      collapsedSeen += document.querySelectorAll('[data-testid="draft-entry-toggle"][aria-expanded="false"]').length;
+    });
+    observer.observe(document.body, { subtree: true, childList: true, attributes: true });
     await renderHost('confirm');
+    observer.disconnect();
+    expect(collapsedSeen).toBe(0);
     expect(screen.getByTestId('draft-changes-panel')).toHaveAttribute('data-posture', 'confirm');
     for (const toggle of toggles()) expect(toggle).toHaveAttribute('aria-expanded', 'true');
     await waitFor(() => expect(screen.getAllByTestId('draft-entry-detail')).toHaveLength(DRAFT_ROWS.length));

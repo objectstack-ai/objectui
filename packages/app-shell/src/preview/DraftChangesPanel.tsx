@@ -24,7 +24,7 @@
  * publish action itself still belongs to the caller.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Equal, FilePlus2, FilePen, Loader2, Rocket, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -534,6 +534,8 @@ export function DraftChangesPanel({
    * below re-map the entries. Focus lands on the list at open (the Publish
    * all button does not exist until the list loads) and moves to Publish all
    * on that same arrival — only if the author has not moved it meanwhile.
+   * Layout effects, so the frame that first paints the list already paints
+   * it expanded: a passive effect let one collapsed frame through first.
    */
   const listRef = useRef<HTMLDivElement>(null);
   const publishRef = useRef<HTMLButtonElement>(null);
@@ -541,14 +543,14 @@ export function DraftChangesPanel({
   // The list as it stood when the sheet opened: the previous open's, until
   // this open's load replaces it. Only a list newer than that one settles.
   const entriesAtOpenRef = useRef<DraftChangeEntry[] | null>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
     settledRef.current = false;
     entriesAtOpenRef.current = entries;
     setExpanded(new Set());
     // Keyed on the open transition alone: `entries` is read, not watched.
   }, [open]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open || settledRef.current || entries === null || entries === entriesAtOpenRef.current) return;
     settledRef.current = true;
     if (posture !== 'confirm') return;

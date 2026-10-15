@@ -9,7 +9,7 @@
 /**
  * objectui#12393 — the grid half of objectui#12376, and the family pin.
  *
- * `ListView.rowColorSelect-12376.test.tsx` pins `ListView`'s own `$select`
+ * plugin-list's `ListView.rowColorSelect-12376.test.tsx` pins `ListView`'s own `$select`
  * asking for a non-column `rowColor.field`. That projection does not reach
  * every row the list draws: a GROUPED grid over a data source that answers the
  * group header query owns its fetch (`gridOwnsGroupedFetch`), and its rows

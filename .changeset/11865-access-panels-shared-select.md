@@ -2,7 +2,7 @@
 '@object-ui/app-shell': patch
 ---
 
-Studio's package record sharing overview picks each object's internal and external sharing model with the shared `Select`. That is the control Studio's object Settings tab already uses for the same two sharing models (objectui#11865, the overview's part of that card). A permission set's advanced facets keep their native selects for now: the shared `Select` adds bytes to the console's first load there, and the first-load budget has no room for them yet.
+Studio's package record sharing overview picks each object's internal and external sharing model with the shared `Select` (the external dial is gone in 18: Studio no longer offers `externalSharingModel`, see objectui#12353). That is the control Studio's object Settings tab already uses for the same two sharing models (objectui#11865, the overview's part of that card). A permission set's advanced facets keep their native selects for now: the shared `Select` adds bytes to the console's first load there, and the first-load budget has no room for them yet.
 
 The overview's two dials were browser-native selects, so they looked and behaved differently from Studio's other dropdowns. They now use the shared Radix `Select`: the same trigger, dropdown and keyboard behaviour.
 

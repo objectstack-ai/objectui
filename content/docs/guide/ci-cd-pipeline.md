@@ -2576,8 +2576,13 @@ Runs `scripts/check-changeset-no-major.mjs`, which fails if any pending changese
 breaking changes of our own as `minor` and describe the break in the changeset body.
 
 The one release that legitimately bumps the major is the one following `@objectstack` across
-its major; it sets `OBJECTUI_ALLOW_MAJOR=1`. `pnpm test` asserts the same repository state, so
-the rule survives this workflow being skipped.
+its major, and the script admits it by itself, with no switch to set: a `major` on a `fixed`-group
+package passes only when the group's current major plus one equals the major of the
+`@objectstack/spec` range the group's own manifests declare in `dependencies`,
+`peerDependencies` or `optionalDependencies`; every other `major` is refused. In Changesets pre
+mode, a changeset that `changeset version` has consumed moves to `.changeset/pre/` and is no longer
+read. The script's header is the authoritative statement of the criterion. `pnpm test` asserts
+the same repository state, so the rule survives this workflow being skipped.
 
 #### Second job: Changeset Overwrite Report
 

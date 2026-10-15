@@ -2,7 +2,7 @@
 '@object-ui/app-shell': patch
 ---
 
-Studio's object Settings tab picks the sharing model, the external sharing model, the name field, the lifecycle field and the next highlight field with the shared `Select`, the control Studio's validation rule editor already picks with (objectui#11865, the object settings part of that card).
+Studio's object Settings tab picks the sharing model, the external sharing model (gone in 18: Studio no longer offers `externalSharingModel`, see objectui#12353), the name field, the lifecycle field and the next highlight field with the shared `Select`, the control Studio's validation rule editor already picks with (objectui#11865, the object settings part of that card).
 
 The five pickers were browser-native selects, so they looked and behaved differently from Studio's other dropdowns. They now use the shared Radix `Select`: the same trigger, dropdown and keyboard behaviour.
 

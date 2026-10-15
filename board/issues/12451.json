@@ -14,7 +14,6 @@
     "area:studio",
     "domain:ui",
     "enhancement",
-    "pm:dispatched",
     "pm:epic",
     "priority:p2"
   ],
@@ -24,7 +23,7 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-15T07:58:36Z",
-  "updated_at": "2026-10-15T14:24:09Z",
+  "updated_at": "2026-10-15T14:25:29Z",
   "closed_at": "2026-10-15T14:24:09Z",
   "closed_by": {
     "login": "objectstack-fleet[bot]",

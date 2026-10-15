@@ -1,0 +1,37 @@
+{
+  "number": 12527,
+  "kind": "issue",
+  "title": "record page History: an activity row with no actor at all (actor_id and actor_name both null: seed and system writes) reads \"Unknown user\" with a \"?\" avatar — it reads System",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T14:27:14Z",
+  "updated_at": "2026-10-15T17:02:40Z",
+  "closed_at": "2026-10-15T17:00:43Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12527",
+  "body": "Filing gate ① (a product defect, measured on `main`), filed on the maintainer's word (chat, 2026-10-15, session `session_019YFzJp4o8Ck4NsT1toC4UP`, seat account os-bill): the seat ran a functional audit of the HotCRM console on objectui `main` `720f6d4` (report, private to the maintainer: https://claude.ai/artifact/XPrn5eZMsQaKUgasMJEMmR, finding F9, figure 10), and the maintainer answered 「同意开卡，使用 pm-dispatch 创建卡片」. Quota note: the audit's cards exceed the filing gate's three-per-fire quota on that word, which approved the report's card list as a set.\n\nParent: #12444. The third pin of #12067 (closed by PR #12070) covers the row this card measures: \"a row with neither renders the existing fallback\". This card changes what that fallback says. Blocks nothing; nothing blocks it.\n\n**Reader who acts:** the `domain:ui` lane's next dispatch (seat post #9800), one dev round in `@object-ui/plugin-detail` (`HistoryTimeline.tsx`, `renderers/record-history.tsx`) and the ten `@object-ui/i18n` packs, size S.\n\n**Dedupe** (MCP `search_issues`, scope objectstack-ai/objectui, all states, read 2026-10-15T14:14Z): \"record history timeline Unknown user for system or seed writes actor missing show System\" → 3, all closed: #12067 (rows with `actor_id` and no `actor_name` read Unknown user; fixed by PR #12070, which resolves `actor_id`), #11701, #11697 (the audit log's actor column). None is this card: #12067 left the no-actor row on the fallback by design and this card names that row.\n\n## What happens\n\nThe HotCRM lead \"Mira Costa\" → History shows three entries, each with a \"?\" avatar and the name \"Unknown user\": 「UPDATED · Lead Owner: ∅ → Dev Admin」, 「UPDATED · Updated Lead \"Mira Costa - Atlas Construction\"」, 「CREATED · Created Lead \"Mira Costa - Atlas Construction\"」. A reader is told a person they cannot identify changed the record; the writer was the seed's owner backfill, with no user in context.\n\n## Readings (objectui `origin/main` `720f6d4`, read 2026-10-15T14:15Z)\n\n1. API reading (HotCRM backend, admin): `GET /api/v1/data/sys_activity?filter=[\"object_name\",\"=\",\"crm_lead\"]&sort=-timestamp` → 28 rows, each with `actor_id: null`, `actor_name: null`, `actor_avatar_url: null`, `created_by: null`; `summary` \"Lead Owner: ∅ → Dev Admin\", `metadata` `{\"old\":{\"owner_id\":null},\"new\":{\"owner_id\":\"ZgyhVWT4…\"}}`. A login's `sys_user` row, by contrast, carries `actor_id` and `actor_name` \"Dev Admin\".\n2. `packages/plugin-detail/src/renderers/record-history.tsx` line 147 reads `schema.unknownUserText`; line 217 passes it to `HistoryTimeline`; `HistoryTimeline.tsx` lines 60, 168 and 213: the fallback label for an entry with no user, defaulting to the \"Unknown user\" string (i18n `unknownUser` at `packages/i18n/src/locales/en.ts` line 1468 is the shorter \"Unknown\" used elsewhere).\n3. PR #12070 (#12067): an entry with `actor_id` only now resolves the user's name; an entry with neither keeps the fallback.\n\n## What to build\n\n1. An entry whose row carries neither `actor_id` nor `actor_name` is a system write: it renders the label \"System\" (new i18n key in all ten packs, e.g. `detail.history.systemActor`) with a system glyph (a cog or the platform mark) in place of the \"?\" avatar, never a person-shaped unknown.\n2. \"Unknown user\" stays for the only case that is unknown: an `actor_id` the user lookup cannot resolve (a deleted user).\n3. `unknownUserText` keeps overriding the unknown case; a new `systemActorText` override is not added unless the schema already has a slot for it.\n\n## Acceptance\n\n- `HistoryTimeline` tests: a row with no actor renders \"System\" and the system glyph; a row with an unresolvable `actor_id` renders \"Unknown user\"; the #12067 pins (resolved `actor_id`, `actor_name` wins) unchanged.\n- Browser reading by the landing seat on the HotCRM lead above: the three seed entries read \"System\".\n- `pnpm test` from the repo root green on the affected files; `check:i18n-keys` green; a changeset (patch) for `@object-ui/plugin-detail` and `@object-ui/i18n`.\n\n## Out of scope\n\n- The writer (objectstack's seed and hooks setting an actor); the audit log browser's actor column (#11701).\n\nAttribution: written by the domain:ui seat in session `session_019YFzJp4o8Ck4NsT1toC4UP` (account os-bill) on the maintainer's words quoted above.\n\n## Screenshots (added 2026-10-15T14:41Z, on the maintainer's word 「专用分支存图，卡里嵌 raw 链接」)\n\nThe images live on the attachment branch `claude/ui-audit-2026-10-15-shots` of objectstack-ai/objectui (commit `918a251`, never merged; index at https://github.com/objectstack-ai/objectui/blob/918a2510a54bd6875b90eb6996d098c3ec0451dd/docs/design/console-audit-2026-10-15/README.md). Full set and figure numbers: the audit report linked above.\n\n**History tab: three \"Unknown user\" entries with \"?\" avatars for the seed's writes**\n\n![record-history.png](https://raw.githubusercontent.com/objectstack-ai/objectui/918a2510a54bd6875b90eb6996d098c3ec0451dd/docs/design/console-audit-2026-10-15/record-history.png)\n"
+}

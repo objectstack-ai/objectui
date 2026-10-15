@@ -1,0 +1,35 @@
+{
+  "number": 12547,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail): a History entry with no actor reads \"System\", not \"Unknown user\"",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T16:30:56Z",
+  "updated_at": "2026-10-15T17:00:44Z",
+  "closed_at": "2026-10-15T17:00:42Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-15T17:00:42Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12547",
+  "body": "Fixes #12527\nClause-②: no\n\n## What changed\n\nA record page History entry with **no actor at all** (neither a resolved name nor a user id, the shape seed backfills and hooks with no user in context write) now reads **System** with a cog glyph (lucide `Cog`) in place of the \"?\" avatar. **Unknown user** stays for the one case that is unknown: a user id that resolved to no name (a deleted or unreadable user); `unknownUserText` keeps overriding that case only.\n\n- `HistoryTimeline.tsx`: three actor faces. Name resolved: the name. No name and no `user_id`: `detail.systemActor` + cog glyph. `user_id` with no name: `unknownUserText` or \"Unknown user\" + \"?\".\n- `renderers/record-history.tsx`: the self-fetch now carries the row's actor id (`activityActorId`: the bare `actor_id`, or the expanded user record's `id`) onto `HistoryEntry.user_id`, which the type already declared. Without it the timeline could not tell a system write from an unresolvable user. The name resolution from objectui#12067 (`activityActorName`) is untouched.\n- No new schema override (no `systemActorText`): the schema has no slot for one, per the card.\n\n### Deviation from the dispatch: no new i18n key\n\nThe card and dispatch asked for one new key (e.g. `detail.history.systemActor`) in all ten packs. Measured on `origin/main`: `detail.systemActor` already exists, is translated in all ten packs (en System, zh 系统, ja システム, ko 시스템, ar النظام, ru Система, de System, fr Système, es/pt Sistema), and is the label `record:activity` already renders for the same no-actor row (`tt('detail.systemActor', 'System')` in `record-activity.tsx`). A second key would fork one word across ten packs and let the two record tabs drift. So this PR reuses it and touches no locale pack; the changeset covers `@object-ui/plugin-detail` only. The ruling's end (a properly translated \"System\" in all ten packs) holds; the zh pin below proves the pack lookup.\n\n## Pins\n\n- `__tests__/HistoryTimeline.test.tsx`: no-actor entry renders \"System\" + `history-system-actor-glyph`, and neither the unknown label, its override, nor \"?\"; an unresolvable `user_id` renders \"Unknown user\" + \"?\" and no glyph; a zh `I18nProvider` renders 系统.\n- `renderers/__tests__/record-history.actorId-12067.test.tsx`: the third pin (\"a row with neither renders the existing fallback\") is the row this card re-rules: the no-actor row now reads System (one glyph), the unreadable id keeps `unknownUserText`. The other #12067 pins (resolved `actor_id`; `actor_name` wins; one read per page) are unchanged.\n\n## Evidence (head `c18550e40`)\n\n- Touched + history tests: `pnpm exec vitest run` on `HistoryTimeline.test.tsx` and the three `record-history.*` files: Test Files 4 passed, Tests 39 passed.\n- Whole package: `pnpm exec vitest run --maxWorkers=2 packages/plugin-detail/`: Test Files 271 passed / 1 skipped, Tests 2630 passed / 14 skipped, exit 0.\n- Ablation (committed fix, `ablation-replace.mjs` anchor hit 1 to 0, blob moved, then restored to the HEAD blob with `git diff HEAD` empty): `isSystemActor` forced to `false` turns 3 pins red (the two System pins in `HistoryTimeline.test.tsx` and the re-ruled #12067 pin); the \"Unknown user stays\" pin stays green, as it should.\n- Closure build `pnpm --filter '@object-ui/plugin-detail^...' build` exit 0; `type-check` for `@object-ui/plugin-detail` and `@object-ui/i18n` exit 0 (both legs echoed).\n- Gates, each exit 0: `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:control-bytes`; `node scripts/check-changeset-fixed.mjs` and `node scripts/check-changeset-presence.mjs` exit 0.\n- ESLint, narrowed: the 4 changed TS/TSX files (count from `--format json`), 0 errors; the warnings are pre-existing (`record-history.tsx` carries 8 at base and 8 now). Narrowing is sound because the config enables no type-aware linting, so this diff cannot move the verdict on any untouched file. Repo-wide `pnpm lint` is CI's.\n\n## Acceptance notes\n\n- Browser reading on the HotCRM lead (the three seed entries read \"System\") is the landing seat's, per the dispatch.\n- Out of scope, untouched: the writer side, and the audit log browser's actor column (#11701 is not addressed here).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

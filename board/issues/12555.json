@@ -1,0 +1,36 @@
+{
+  "number": 12555,
+  "kind": "pull_request",
+  "title": "fix(app-shell): flow canvas branch pills read the edge's own label, clamped to 32 characters (objectui#12507)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T17:32:30Z",
+  "updated_at": "2026-10-15T18:02:55Z",
+  "closed_at": "2026-10-15T18:02:09Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-15T18:02:08Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12555",
+  "body": "Fixes #12507\nClause-②: no\n\n## What changed\n\nOn the flow canvas, a branch edge's pill now reads the edge's own `label` first. An edge without one reads `if ` and its condition, and a default edge still reads `else`. The text is one line of at most 32 characters, then an ellipsis. The pill's `title` carries the full wording: the label and the whole condition, one per line. The edge inspector still edits the condition and is not touched.\n\nThe pill's box may be as wide as a node card (`NODE_W`), but stops 8px short of the nearest other pill on the same band, so two sibling outcomes of one decision never draw over each other. The designer's insert-node handle now sits just past the drawn pill instead of at a fixed offset that assumed a 120px pill.\n\nOn HotCRM `campaign_enrollment`, the two outcomes of \"Campaign Open?\" now read \"Open · Leads\" and \"Open · Contacts\". Before, both read the same truncated `if has(vars.campaign…`.\n\nThe canvas is one renderer for Studio and the metadata-admin designer (epic objectui#12446, decision D), so both get this change.\n\n## Deviations\n\n- The card's \"strings run across each other and across the nodes\" did not reproduce: on `d4bc81eab` and on main the pill already sat in a 120px box with CSS truncation, and the card's own screenshot shows two pills that do not overlap and read the same text. The fix targets what was actually wrong: the label precedence, which made the two pills impossible to tell apart.\n- Width cap: the card names 260px from the artboard. The code's node width is 240 (`NODE_W`), and sibling edge midpoints are (`NODE_W` + `H_GAP`) / 2 = 142px apart, so a flat node-width cap would let two long pills overlap. Each box is the smaller of `NODE_W` and the distance to the nearest pill on its band minus 8px. In a two-way fan-out, a clamped 32-character condition still truncates inside its box, and the full text is in `title`.\n- The insert handle's x position changed. It was hard-coded to the old 120px pill, so a wider pill would have sat under it.\n- The edge's anchor computation moved verbatim into an `edgeEnds` closure so the pill widths can be chosen from every pill's anchor. Edge paths and anchors are unchanged, so routing and semantics are untouched.\n- The clamp counts code points (`Array.from`). There is no `Intl` call.\n\n## Screenshots\n\nHotCRM `campaign_enrollment` in the Studio Automations pillar, 1280 × 900:\n\n- `docs/design/studio-redesign/after/12507-flow-edge-labels-before-light.png`\n- `docs/design/studio-redesign/after/12507-flow-edge-labels-before-dark.png`\n- `docs/design/studio-redesign/after/12507-flow-edge-labels-after-light.png`\n- `docs/design/studio-redesign/after/12507-flow-edge-labels-after-dark.png`\n\n## Test evidence (HEAD `b516167`)\n\n- New `FlowCanvas.branchLabels-12507.test.tsx`, 6 tests: a 150-character condition renders as 32 characters plus the ellipsis with the full condition in `title`; an own label shows unclamped when it fits; a long own label is clamped; `else` is unchanged; a lone pill is node-width and sibling pills leave clear space; the insert handle clears the pill.\n- `pnpm exec vitest run` over every `FlowCanvas.*`, `flow-problems.*`, `flow-canvas-parts.*` and `AutomationsPillar.*` test, `flowFieldChrome.i18n-10862-s4` and the new file: 20 files, 178 tests passed.\n- Ablation, each new pin once: precedence reversed, clamp bound raised, neighbour limit removed, handle back at +66 and title dropped each turned the new tests red; `git diff HEAD` was empty after each restore.\n- `pnpm check:i18n-keys`, `pnpm check:i18n-drift`, `node scripts/check-changeset-presence.mjs`, `pnpm check:new-line-citations`, `pnpm --filter @object-ui/app-shell type-check` (tests included) and `pnpm --filter @object-ui/app-shell build`: all exit 0. eslint on the touched files reports 0 errors; its one warning is on an existing `useCallback` dependency array that this diff does not touch.\n\n## Acceptance notes\n\n- Pills still sit at the edge midpoint (unchanged). An edge that skips a layer has its midpoint inside the intermediate row, so a labelled skip edge could place its pill over a node card there. This is not reproduced; `campaign_enrollment` has no such edge.\n- Not carried: the decision node's outcome count in `nodeSummary`, the open question on PR objectui#12543.\n\nImplemented in session `https://claude.ai/code/session_01XQJAgrVmJoDoSahLkQ6WMf`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XQJAgrVmJoDoSahLkQ6WMf)_"
+}

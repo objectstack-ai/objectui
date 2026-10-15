@@ -2,8 +2,8 @@
   "number": 12456,
   "kind": "issue",
   "title": "Access pillar: the \"Permission matrix\" band retires into a permission-set header; Objects / System capabilities / Row-level security / Tab visibility / Delegated admin become tabs; the object matrix gets OWD chips, 18 px checkboxes and hover-only bulk actions",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:studio",
     "domain:ui",
     "enhancement",
-    "pm:dispatched",
     "pm:epic",
     "priority:p2"
   ],
@@ -24,11 +23,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-15T08:01:02Z",
-  "updated_at": "2026-10-15T12:33:23Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-15T14:56:47Z",
+  "closed_at": "2026-10-15T14:54:58Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12456",
   "body": "## Source\n\nEpic objectstack-ai/objectui#12446, decisions 1 and 3, open decision C. Measured on objectui main `a2225f91` at `/studio/app.objectstack.hotcrm/access?surface=permission:guest_portal`: a full-width band \"Permission matrix · Objects × CRUD · field-level R/W … Explain access … This package's objects · read-only\"; a rail with \"Record sharing (OWD)\" and the permission sets; a content column that opens with a breadcrumb (\"Permission Set › guest_portal\"), a row of badges (SECURITY, read-only, Permission set, OBJECTS GRANTED 1, FIELD OVERRIDES 0, History), a collapsible set header, then one scrolling page: System Capabilities, the object matrix (legend, \"Only granted\", 15 rows with an OWD line and a RCRUDAllNone bulk strip on every row), Row-Level Security, Tab Visibility, Delegated Admin Scope.\n\n## Target\n\n1. **Rail** (shared rail card): a pinned \"Record sharing (OWD)\" row above a rule, then the \"Permission sets\" heading with count and add, search, and rows with a shield glyph, the label and the api name in a second 10 px mono line (36 px rows for this rail, the one exception the shared rail allows).\n2. **Item header row**: a shield tile, the set label at 18 px / 600, the api name mono chip, a \"Package\" chip for packaged sets, \"N objects granted · M field overrides\" at 12 px muted; at the right \"Explain access\" and \"History\" as outline chips, a more button. The band, the breadcrumb and the badge row retire; \"Explain access\" keeps opening the existing panel.\n3. **Tab row** (decision C, answered 2026-10-15: as designed): Objects, System capabilities, Row-level security, Tab visibility, Delegated admin. Each today's section becomes a tab body; the Objects tab is the landing.\n4. **Objects tab**: a toolbar with \"N objects\", the \"Only granted\" switch, and the legend at the right (C Create · R Read · U Edit · D Delete · Tr Transfer · VA View all · MA Modify all, bold keys); a flush table with a sidebar-tinted header (Object, OWD, C R U D | Tr VA MA, a blank bulk column), 40 px rows: the object label with its api name in mono, the OWD as a tinted chip (Private muted, Public read green, By parent blue), 18 px checkboxes with a 4 px radius (checked = primary fill with a white check), vertical dividers between the CRUD and the sharing groups, and the bulk strip (R · CRUD · All · None) rendered only on the hovered or focused row. The matrix's write semantics and the read-only posture are unchanged.\n5. **Inspector**: none by default on this pillar; the aside slot stays available for a future field-level editor.\n\n## File surface\n\n`packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx` (`AccessPillar`: band, rail, header, sections), `PackageOwdOverviewPanel.tsx` (header only), `packages/app-shell/src/views/metadata-admin/i18n.ts` (tab labels; `engine.studio.access.*` keys stay).\n\n## Acceptance\n\n1. With `guest_portal` open the header reads the label, `guest_portal`, Package, \"1 object granted · 0 field overrides\"; the band is gone.\n2. Five tabs; Objects is the landing; the other four show their existing content.\n3. On the Objects tab only the hovered row shows the bulk strip; keyboard focus on a row's first checkbox shows it too.\n4. `StudioDesignSurface.accessGuard`, `accessRailLabels-11862`, `PackageOwdOverviewPanel.*` and the access explain tests stay green or are updated in the same PR, each ablated once.\n5. Before/after screenshots at 1280 px, light and dark.\n\n## Constraints\n\n- Tailwind utilities and theme tokens only; no inline style.\n- Existing `data-testid`s and i18n keys stay.\n- Gates: `pnpm --filter @object-ui/app-shell test`, `lint`, `build`.\n- Lands after the shared rail and inspector cards (the Blocked-by lines below).\n\n## Reference artboard\n\n`docs/design/studio-redesign/access.html` on objectui main (landed in objectstack-ai/objectui#12458); `access.png` is its 1280 px render. The folder's README carries the shared numbers and what a pull request against this card must show: two screenshots per artboard it touches (light and dark, 1280 px, cropped to the artboard's region), a deviation list with a reason per line, and the card's named tests green or updated. Where this card and the artboard disagree, this card's numbers win and the disagreement is reported here.\n\nBlocked-by: #12459\n\n\n<sub>Body refreshed 2026-10-15T09:53Z by the epic PM session: a Reference artboard section added now that objectstack-ai/objectui#12458 is on main. Earlier refresh 2026-10-15T09:13Z: decision C answered; the earlier refresh of 2026-10-15T08:56Z pointed the Blocked-by line at #12459.</sub>\n\nParent: objectstack-ai/objectui#12446\n\n\n"

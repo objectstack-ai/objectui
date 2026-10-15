@@ -1,0 +1,35 @@
+{
+  "number": 12538,
+  "kind": "pull_request",
+  "title": "fix(app-shell): a ?tab= deep link on a metadata item page opens its sheet (objectui#12496)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T15:21:28Z",
+  "updated_at": "2026-10-15T16:17:33Z",
+  "closed_at": "2026-10-15T16:17:31Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-15T16:17:31Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12538",
+  "body": "Fixes #12496\nClause-②: no\n\n## What\n\nA `?tab=SHEET` deep link on a metadata item page (`MetadataResourceEditPage`) now opens the sheet it names, and the URL keeps `tab` afterwards.\n\nThe URL-sync effect (\"keep the URL `?tab=` query in sync so deep-links round-trip\") ran its mount pass with no sheet open and deleted `tab` before the first-mount reader effect read it. So no link opened a sheet, and a refresh closed an open one.\n\n## How\n\n- `openSheet` is now **seeded in its `useState` initializer** from the initial `tab` (read once from the window location), not set by a mount effect. Effect order no longer matters: the sync effect's mount pass sees the seeded sheet and keeps `tab`.\n- Only a sheet the page offers **this caller** is accepted, on the same conditions the header buttons render on:\n  - `layers` and `references`: not create mode;\n  - `related`: `hasAnchors` (an item type with related anchors);\n  - `history` and `audit`: not create mode **and** `canReadTrail` (the objectui#12475 gate, `useCanReadAuthoringTrail`).\n- Anything else opens nothing: an unknown value, a gated sheet, `review` (it needs a loaded draft; its own `?review=1` arrival is unchanged), embedded mode, create mode. The sync effect then drops `tab` from the URL.\n- To read the gate in the initializer, the `canReadTrail` line (the hook call and its comment) moved up from below the item-load code to just above the sheet state. It is the same unconditional hook call, earlier in the same component, before any early return.\n- The `tab` half of the first-mount reader effect is removed, along with `initialTabRef`, which was written and never read. The `?open=` half (the Related drawer target) is unchanged.\n- Closing a sheet removes `tab`, as before.\n\n## Tests\n\nNew: `ResourceEditPage.tabDeepLink-12496.test.tsx`, which renders the real page under the real `MePermissionsProvider`. Only the metadata client is stubbed.\n\n- `?tab=audit` with a `studio.access` caller opens Audit, and the URL keeps `tab=audit`.\n- `?tab=history` with a `studio.access` caller opens History, and the URL keeps `tab=history`.\n- `?tab=history` with a `setup.access`-only caller opens nothing, and `tab` is dropped (the #12475 gate).\n- An unknown `?tab=` value opens nothing, and `tab` is dropped.\n- CONTROL: no `tab` opens nothing.\n- Closing the deep-linked sheet removes `tab`.\n\n**Test isolation.** Three existing files beside the page opened a sheet and never reset the window URL: `ResourceEditPage.layersUnsaved-11799`, `ResourceEditPage.referencesErrorState` and `walledCatalogReadOnly-12183`. Now that `tab` is read back, the next test's mount reopened that sheet, which left the body at `pointer-events: none`. Five tests went red in the first run on this branch. Each file's `afterEach` now resets the URL.\n\n**Ablation**, on commit `d775a738e`, with `ablation-replace.mjs` (auto-restore). The initializer was changed to `return null` (anchor 1 → 0, blob `aaaf16dde553` → `0cc32e8af15f`):\n- red: the audit pin, the history pin and the close pin (3 failed, 3 passed);\n- still green: the gated, unknown and no-tab controls;\n- restore: blob equals HEAD, and `git diff HEAD` is empty.\n\n## Gates (at `1497b62f3`)\n\n- closure build `pnpm --workspace-concurrency=2 --filter '@object-ui/app-shell^...' run build`: exit 0.\n- `pnpm --filter @object-ui/app-shell run type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`; the test project compiles the tests): exit 0.\n- vitest: the new file, `trailDoorsGate-12475`, all `ResourceEditPage*` tests and every other test file that imports the page, 46 files in all. A first run of 31 files (`ResourceEditPage*` and `trailDoorsGate-12475`) had 2 files red, 5 tests, from the URL leak described above. After resetting the URL in those two files, the 46-file run had 45 passed and 1 failed (`walledCatalogReadOnly-12183`, the same leak). After its reset, the 5 affected files re-ran: 55/55 passed. The other 41 files passed in the 46-file run, and nothing they import has changed since.\n- eslint on the 5 changed `.ts`/`.tsx` files, with the package's config as `pnpm lint` runs it: 0 errors. Under `--no-inline-config`, `ResourceEditPage.tsx` has 3 `react-hooks/static-components` errors, and **base `78e9fb2e9` has the same 3** (measured on the base blob). The config is not type-aware (no `project` / `projectService`), so this diff cannot move the verdict on an untouched file.\n- `pnpm check:control-bytes`: exit 0. `node scripts/check-changeset-fixed.mjs`: exit 0. `node scripts/check-changeset-presence.mjs`: exit 0 (1 changeset declared).\n- `scripts/__tests__/check-hand-rolled-comment-mask.test.ts`: not run. The new tests do not read source text.\n- Narrowing: the whole app-shell suite is not run locally. A test elsewhere that opens one of these sheets through another route and leaves `tab` in the window URL would show up in CI's full run.\n\n## Acceptance notes\n\n- `review` is written to `tab` while the review sheet is open, but it is not deep-linkable: it needs a loaded draft, and `?review=1` is its arrival path. A refresh with `tab=review` drops it, as the ruling asks for any value the page does not offer on mount.\n- Changeset: `.changeset/12496-tab-deep-link.md`, `@object-ui/app-shell: patch`.\n\n---\n\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

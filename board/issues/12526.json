@@ -1,0 +1,37 @@
+{
+  "number": 12526,
+  "kind": "issue",
+  "title": "console page headers: object lists, dashboards and component pages draw three header shapes and dashboards keep an app-bar crumb — one PageHeader for all three, the page named once",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "domain:ui",
+    "enhancement",
+    "priority:p2"
+  ],
+  "assignees": [
+    "sunhaolin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T14:26:53Z",
+  "updated_at": "2026-10-15T17:49:44Z",
+  "closed_at": "2026-10-15T17:48:23Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12526",
+  "body": "Filing gate ③, on the maintainer's word (chat, 2026-10-15, session `session_019YFzJp4o8Ck4NsT1toC4UP`, seat account os-bill): the seat ran a functional audit of the HotCRM console on objectui `main` `720f6d4` (report, private to the maintainer: https://claude.ai/artifact/XPrn5eZMsQaKUgasMJEMmR, finding F6, figures 17 and 18), listed this as a proposed card, and the maintainer answered 「同意开卡，使用 pm-dispatch 创建卡片」. Quota note: the audit's cards exceed the filing gate's three-per-fire quota on that word, which approved the report's card list as a set.\n\nParent: #12444; the design is the reference page's main board (https://claude.ai/artifact/JCzrzHxTxzD4EEKCTtDaNA, `main-1440.png`: one page-header row, icon · title · description · actions). Follows #12461 (merged `d9d9d98`), which removed the object route's crumb; this card does the same for the other page kinds and gives them the same header. Blocks nothing; nothing blocks it.\n\n**Reader who acts:** the `domain:ui` lane's next dispatch (seat post #9800), one dev round in `@object-ui/app-shell` (`layout/PageHeader.tsx`, `views/DashboardView.tsx`, the component-page host, `layout/AppHeader.tsx` for the dashboard crumb), size M.\n\n**Dedupe** (MCP `search_issues`, scope objectstack-ai/objectui, all states, read 2026-10-15T14:14Z): \"page header inconsistent between object list dashboard and component pages unify PageHeader title description breadcrumb\" → 25, top 8 read: #11166 (the `page:header` breadcrumb slot), #12461 (the object route's crumb, merged), #12198 (the page route's 「页面」 crumb), #6645, #12188, #11733 (the plural label everywhere), #11173, #4761 (a second `PageHeader` in app-shell with a different subtitle key, closed). None is this card; #4761 is the history: two header components, one spelling.\n\n## What happens\n\nThree page kinds, three headers, on the same app:\n\n1. An object list (Leads): one 52 px row, icon chip · \"Leads\" · \"Potential customers not yet qualified\" · New · Import · ⋯; the app bar shows only the app pill and PREVIEW (#12461).\n2. A dashboard (Sales Performance, Executive Overview): a 26 px bold title with the description on a second line, about 110 px of header, and the app bar still draws a crumb 「PREVIEW / Sales Performance」, so the page is named twice.\n3. A component page (Approvals Inbox): icon · 26 px bold title · a subtitle line · a Refresh button on the right; no crumb.\n\nThe same user moving between the three sees the title size, the icon's presence, the description's placement and the header's height change with the page kind.\n\n## Readings (objectui `origin/main` `720f6d4`, read 2026-10-15T14:15Z)\n\n1. `packages/app-shell/src/layout/PageHeader.tsx`: the console `PageHeader` (`ConsolePageHeaderProps`), used by `views/ObjectView.tsx` line 4073 for object lists.\n2. `packages/app-shell/src/views/DashboardView.tsx` line 287: its own `h1` (`text-lg sm:text-xl md:text-2xl font-bold tracking-tight truncate`) and description, not `PageHeader`.\n3. The Approvals Inbox page (i18n `approvals.inbox.title` at `packages/i18n/src/locales/en.ts` line 4376) draws its own header through the component-page host.\n4. `packages/app-shell/src/layout/AppHeader.tsx` lines 394–480: the crumb segments; #12461 removed them on an object route only; a dashboard route still appends the dashboard's label.\n5. Browser readings (1440): list header 52 px, dashboard header about 110 px with the crumb above it, component page about 90 px.\n\n## What to build\n\n1. One `PageHeader` for the three kinds: icon chip (the object's, the dashboard's, the page's), title, description beside the title (the one-row shape of #12423), actions at the right (a dashboard's Refresh All, a component page's own buttons, a list's New / Import / ⋯). Dashboards and component pages render it instead of their own `h1`.\n2. The app bar draws no crumb on a dashboard, page or component route, as #12461 did for objects: the page header names the page once.\n3. The header's props stay the console `PageHeader`'s (`title`, `description`, `icon`, `actions`); no product-named widget. Below `sm` the phone bar keeps naming the page as today.\n\n## Acceptance\n\n- `DashboardView` and the component-page host tests: they render `PageHeader` with the page's title, description and icon, and no `h1` of their own; `AppHeader` test: a dashboard route draws no crumb segment.\n- Browser reading by the landing seat at 1440 on HotCRM: the Leads list, Sales Performance and Approvals Inbox headers measure the same height, same title size, same icon chip, description beside the title; the app bar's left group is the app pill and PREVIEW on all three.\n- `pnpm test` from the repo root green on the affected files; a changeset (minor) for `@object-ui/app-shell`.\n\n## Out of scope\n\n- The dashboard filter bar and KPI cards (the density card filed with this one); the Studio shell header (#12447); the `page:header` renderer in `@object-ui/components`.\n\nAttribution: written by the domain:ui seat in session `session_019YFzJp4o8Ck4NsT1toC4UP` (account os-bill) on the maintainer's words quoted above.\n\n## Screenshots (added 2026-10-15T14:41Z, on the maintainer's word 「专用分支存图，卡里嵌 raw 链接」)\n\nThe images live on the attachment branch `claude/ui-audit-2026-10-15-shots` of objectstack-ai/objectui (commit `918a251`, never merged; index at https://github.com/objectstack-ai/objectui/blob/918a2510a54bd6875b90eb6996d098c3ec0451dd/docs/design/console-audit-2026-10-15/README.md). Full set and figure numbers: the audit report linked above.\n\n**An object list: the one-row page header**\n\n![leads-1440.png](https://raw.githubusercontent.com/objectstack-ai/objectui/918a2510a54bd6875b90eb6996d098c3ec0451dd/docs/design/console-audit-2026-10-15/leads-1440.png)\n\n**A dashboard: large title, description below, and the app-bar crumb above**\n\n![dashboard.png](https://raw.githubusercontent.com/objectstack-ai/objectui/918a2510a54bd6875b90eb6996d098c3ec0451dd/docs/design/console-audit-2026-10-15/dashboard.png)\n\n**A component page (Approvals Inbox): icon, large title, subtitle, Refresh**\n\n![inbox.png](https://raw.githubusercontent.com/objectstack-ai/objectui/918a2510a54bd6875b90eb6996d098c3ec0451dd/docs/design/console-audit-2026-10-15/inbox.png)\n"
+}

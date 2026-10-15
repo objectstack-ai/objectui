@@ -1,0 +1,35 @@
+{
+  "number": 12536,
+  "kind": "pull_request",
+  "title": "fix(app-shell): a URL parameter never sends a message on the AI build page (objectui#12493)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T15:02:38Z",
+  "updated_at": "2026-10-15T15:26:45Z",
+  "closed_at": "2026-10-15T15:26:43Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-15T15:26:43Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12536",
+  "body": "Fixes #12493\nClause-②: no\n\n## What changed\n\nThe AI build page (`packages/app-shell/src/console/ai/AiChatPage.tsx`) no longer reads `?handoffPrompt=` from the URL. A URL can no longer send a message to the build agent on the signed-in user's behalf. A stale parameter in an old link is ignored, and the existing URL mirror drops it once the conversation id is in the URL.\n\n- **The in-app handoff moved to navigation state.** The `ask` surface's \"Open in Builder\" handoff (ADR-0057 P4, ADR-0063 decline-and-redirect) now calls `navigate('/ai/build', { state: { handoffPrompt, parentConversationId } })`. The page reads it with `useLocation().state`. Only the app's own `navigate()` call can set that state. The user's click on the handoff card is the action, so the handed-off text is still sent once on arrival, as before. `?package=` stays in the URL because it only scopes the surface and sends nothing.\n- **The prompt is consumed once.** Browser history keeps an entry's state across a reload. So as the page seeds the prompt, it replaces that history entry's state with one that has no `handoffPrompt`, and a reload does not send it again. `parentConversationId` stays in the entry until the URL mirror navigates to `/ai/build/ID` without state, as the URL parameter did before. Seeding is armed once per history entry (`location.key`), not per prompt value, so a second handoff with the same text still seeds. The seed effect now runs before the route canonicalization and URL mirror effects. If they all run in the same flush, the mirror's navigation therefore wins over this same-URL replace.\n- No confirm dialog was added: the rule is that the URL never sends.\n\n## Census\n\n- `searchParams.get` / `useSearchParams` in `packages/app-shell/src/console/ai/`: only `AiChatPage.tsx` reads URL parameters (`new`, `package`, `agent`, and before this change `handoffPrompt` / `parentConversationId`). `new`, `package` and `agent` only select or scope a conversation and send nothing.\n- `stashPendingFirstMessage`, `autoSend`, `initialPrompt` and `pendingFirstMessageRef.current =` across `packages/app-shell/src` and `packages/plugin-chatbot/src`: the handoff seed was the only out-of-band seed.\n- `handoffPrompt` across the repo (packages, apps, docs, tests): the only producer was `openBuilder` in this file. The other hits are CHANGELOG entries. No other producer needs a URL, so no prefill seam is kept.\n\n## Tests\n\nNew: `packages/app-shell/src/console/ai/__tests__/AiChatPage.handoffNeverFromUrl-12493.test.tsx`. It renders the real page and fakes the chat hook so that every `sendMessage` call is recorded.\n- A page loaded with `?handoffPrompt=` on the build route sends nothing (`sent` stays `[]` after the conversation mints and the mirror lands).\n- The in-app handoff, through the real `openBuilder` reached from the pane's `onOpenBuilder`, sends its text exactly once. The URL never carries it, and the build agent's first turn carries the source conversation id.\n- A reload of that history entry (a remount on the same pathname, search and state) sends nothing. The entry's state no longer has `handoffPrompt`.\n- CONTROL: a user-typed first message sends.\n\nGate readings, at head `ea7adc772`:\n- `pnpm --workspace-concurrency=2 --filter '@object-ui/app-shell^...' build`: exit 0.\n- `pnpm --filter @object-ui/app-shell type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`; the test project compiles `__tests__`): exit 0.\n- `pnpm exec vitest run --maxWorkers=2 packages/app-shell/src/console/ai/`: exit 0, `Test Files 36 passed (36)`, `Tests 210 passed (210)`.\n- `pnpm check:control-bytes`, `check:i18n-keys`, `check:handler-key-reads` and `check:unreferenced-sources`, plus `node scripts/check-changeset-fixed.mjs`: all exit 0.\n- Narrowed eslint (`eslint --no-inline-config`) on the 2 changed source files: 0 errors and 34 warnings. All 34 warnings are in `AiChatPage.tsx`, and the base file at `1c3b0699a` has the same count (0 errors, 34 warnings). ① Population: `eslint.config.js` lints both files (`--format json` returned 2 file results). ② File count: 2, read from that JSON. ③ Invariance: type-aware linting is not enabled (no `parserOptions.project` / `projectService` in `eslint.config.js`), so this diff cannot change the verdict on any untouched file. The repo-wide `pnpm lint` is left to CI.\n\nAblation, done after the fix was committed. `node scripts/ablation-replace.mjs` (from objectstack) restored the URL read in the seed effect, using the old value-keyed guard. The anchor count went 1 to 0 and the blob changed from `8b7df383` to `bb8a2768`. Result: `× a page loaded with ?handoffPrompt= sends nothing`, with `AssertionError: expected [ ... ] to deeply equal []` and `Tests 1 failed | 3 passed (4)`. The other three pins stayed green. Restore was proven by `blob == HEAD (8b7df3836950)` and an empty `git diff HEAD`.\n\n## Acceptance notes\n\n- `packages/plugin-chatbot/src/useObjectChat.ts` (around lines 800-805) has a comment saying the URL mirror strips \"the param\" after a handoff send. The behaviour it describes still holds, because the mirror's state-less navigation drops `parentConversationId`. Only the wording is stale. It is outside this card's file surface, so it is left for whoever next edits that file.\n- Reach: the same auto-send ships in the objectstack console pin and in the released 17.7.0 console (see the triage). Bumping the console pin is the triage seat's follow-up.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

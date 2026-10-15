@@ -1,0 +1,36 @@
+{
+  "number": 12551,
+  "kind": "pull_request",
+  "title": "feat(app-shell): new package form opens on the display name; derived id, namespace and version are replaced on edit",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T16:44:19Z",
+  "updated_at": "2026-10-15T17:18:31Z",
+  "closed_at": "2026-10-15T17:17:25Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-15T17:17:25Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12551",
+  "body": "Fixes #12512\nClause-②: no\n\n## What changed\n\nThe New package dialog (Studio home, New package (writable base); also the Packages page) now opens on the display name.\n\n- **Layout (target 1).** Create mode renders one Basics card: Display name, Package ID (the shared `PackageIdInput`, objectui#11792), Object namespace, Version, then Type and Description. Advanced stays below, collapsed. Every row except the id is still the spec form's own field, picked by name from `getPackageForm`, so labels, help text and validation are unchanged. Edit and view modes render as before.\n- **Derived marks and replace-on-edit (target 2).** While the dialog's value is still in them, the id, namespace and version each carry a hint line under the row. The id keeps its existing 'Filled in from the display name until you edit it.' line, now shown only while the id is still derived. The namespace says 'Filled in from the package ID until you edit it.' and the version says 'A starting version, kept until you edit it.' Focusing a field that still carries its mark selects the whole value, so typing replaces it. Editing a field clears that field's mark only; the namespace keeps following an edited id, as before. The touched flags moved from refs into state beside the draft, so the marks render from state.\n- **Create gating (target 4).** Create package was already gated on the id (`isSpecPackageId`), name, namespace (`NAMESPACE_RE`) and version (the installed `ManifestSchema` version schema). The gate itself is unchanged. What was missing was an inline reason for an empty id or namespace: on create the id is not a spec-form row, and the manifest declares `namespace` optional, so its parse raises no issue. Both now say why under the field once there is a cause: a name that derived no id (a CJK-only name), an id that derived no namespace, or the author clearing the field. Nothing shows before the author types.\n- **i18n.** Three new keys in en-US and zh-CN: `engine.packages.nsRule.derived`, `engine.packages.nsRule.required`, `engine.packages.versionRule.default`. No existing key changed or was removed.\n- The id rule, the server-side validation and the create request body are unchanged.\n\n## Not in this PR: target 3 (initials namespace)\n\nThe card asks for `Studio Test` to derive `st`. The namespace comes from the spec's `deriveNamespaceFromPackageId` (`@objectstack/spec/kernel`), which takes the id's last segment: `com.default.studio-test` gives `studio_test`, measured against the installed `@objectstack/spec` 18.0.0-next.1. objectui does not fork a second derivation; changing it is a spec decision, raised with the dispatching seat as an open question. So the card's acceptance test 'a two-word name derives a two-letter namespace' is not added here. With target 2, the author replaces the derived namespace by clicking into it and typing `st`.\n\n## Deviations\n\n- The version's mark reads 'a starting version' rather than 'derived from the name': the version is a fixed default, not derived from the name.\n- The marks are hint lines under each row (the card allowed 'a small chip or the existing hint'); the id reuses its existing hint.\n- Create mode mounts the spec form five times (name; namespace; version; type and description; Advanced). Each is a one-section slice of the curated form, with utility classes dropping the inner section frame inside the Basics card. `PackageIdInput` has to sit between the name and the namespace, and `SchemaForm` has no slot or registry for a host widget (`WIDGETS` in `widgets.tsx` is a static object). `package-schema.ts` and `PackageIdInput.tsx` are untouched.\n- A mouseup guard against the click collapsing the selection was written and then removed: in real Chromium the focus handler's selection survives the click with and without it. WebKit and Firefox were not measured.\n- The org-slug effect now updates the combined draft-and-touched state, and eslint's react-hooks set-state-in-effect warning names it: 3 warnings on the file against 2 on main, the same pattern as the open effect.\n\n## Screenshots (1280 px, HotCRM `63db83e` under `objectstack dev --fresh`)\n\n- `docs/design/studio-redesign/after/12512-new-package-before-light.png`\n- `docs/design/studio-redesign/after/12512-new-package-before-dark.png`\n- `docs/design/studio-redesign/after/12512-new-package-after-light.png`\n- `docs/design/studio-redesign/after/12512-new-package-after-dark.png`\n\nBefore: 'Studio Test' typed, then a click into the namespace and `st` typed, which reads `studio_testst`. After: 'Studio Test' typed, with the id, namespace and version marked. Measured in Chromium in both themes. Before, the click left the caret at 11 of 11 and typing `st` gave `studio_testst`. After, the click selected 0 to 11 and typing gave `st`.\n\n## Test evidence (HEAD `910a057`)\n\n- vitest: 15 files and 143 tests passed. This covers every PackageFormDialog, CreatePackageDialog, EditPackageDialog, PackageIdInput and BuilderLanding test, the new `PackageFormDialog.derivedFields-12512.test.tsx` (12 tests) and `machineLocaleCensus-9909` (the diff adds no `Intl` call).\n- `type-check` exit 0. `build` exit 0. eslint on the touched files exit 0. `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:i18n-dead-keys`, `check:new-line-citations` and `check:test-path-roots` all exit 0. `check-changeset-presence` exit 0.\n- Ablations on `910a057`, each restored to the HEAD blob with `git diff HEAD` empty: select-on-focus removed, 4 failed; display name moved after the version, 3 failed; a version edit not clearing its mark, 1 failed; namespace reason forced off, 1 failed; id reason forced off, 1 failed.\n\n## Acceptance notes\n\n- Read from the code, not exercised: a whitespace-only display name keeps Create disabled without an inline reason (the dialog trims it; the manifest accepts the untrimmed string). Observation, not filed.\n\nImplemented in session `https://claude.ai/code/session_01CBdmXKZZFem3WB6fiqnYLw`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01CBdmXKZZFem3WB6fiqnYLw)_"
+}

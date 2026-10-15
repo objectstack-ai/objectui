@@ -1,0 +1,36 @@
+{
+  "number": 12545,
+  "kind": "pull_request",
+  "title": "fix(app-shell,components): record header ⋯ menu draws iconed system entries, sets Delete apart, keeps an Edit icon button when the row is full (objectui#12529)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: components",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T16:29:13Z",
+  "updated_at": "2026-10-15T16:59:36Z",
+  "closed_at": "2026-10-15T16:59:34Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-15T16:59:34Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12545",
+  "body": "Fixes #12529\nClause-②: no\n\n## What changed\n\nThe record page header's `⋯` menu now draws one kind of row, sets Delete apart, and keeps Edit one click away when the header row is full.\n\n1. **Icons on the four system entries** (`packages/app-shell/src/views/RecordDetailView.tsx`). `sys_edit`, `sys_favorite`, `sys_share` and `sys_delete` declare `icon` (`pencil`, `star`, `share`, `trash`) through the same `icon` key the app's own actions use. `page:header` already drew an icon for any action that declares one, so no renderer change was needed for this part. All four names are lucide names already used elsewhere in the repo, and `check:icon-record-names` is green.\n2. **Overflow bands and a separator** (`packages/components/src/renderers/layout/containers.tsx`, `page:header`'s `renderHeaderActions`). The `⋯` menu is now three bands, each keeping the `order` sort it had: authored actions first, then the host's chrome (Edit leads it when it folded, then favorites, then Share), then every destructive entry last. A `DropdownMenuSeparator` sits above the first destructive entry unless it opens the menu. \"Host\" is the test the disabled-reason branch already uses (a key no authored action holds came from `RecordContext.headerSystemActions`). \"Destructive\" is the menu's existing red-row test (`variant: 'destructive'` or `sys_delete`). **No new key on any schema**: the separator mechanism is derived from `variant`, which the actions already carry. That keeps this Clause-② no.\n3. **Icon-only Edit beside the `⋯`** (same file). When a host action placed as a button (today only `sys_edit`) folds into the `⋯` because the app's actions fill the inline slots, `page:header` renders an icon-only twin of it right before the `⋯`. The twin is an outline `sm` button styled like the `⋯` and the refresh button. Its `aria-label` and tooltip are the action's resolved label (`detail.edit`, so \"Edit\"). It honours the same disabled verdict and runs the same `onClick` the folded row runs, so both open one edit session. With room in the row nothing folds, so Edit stays today's labelled button and no twin renders.\n\n## Tests\n\nNew `packages/app-shell/src/views/RecordDetailView.headerMenuIcons-12529.test.tsx`, which mounts the real record page:\n- each of the four system entries in the `⋯` carries its lucide icon (`svg.lucide-pencil` / `-star` / `-share` / `-trash`);\n- the menu's rows read `Edit, Add to favorites, Share, separator, Delete`;\n- with three app actions, the toolbar reads `Convert Lead, Schedule Follow-up, Log a Call, Edit (icon-only), More actions`, and clicking the icon button calls `onEdit` with the same arguments the folded `Edit` row does;\n- CONTROL: with one app action, Edit is the labelled button, no `[data-folded-header-action]` exists, and the menu reads `Add to favorites, Share, separator, Delete`.\n\nAblation (once, through `ablation-replace.mjs` with an on-disk anchor check and a restore checked against HEAD): replacing `{foldedHostButtons.map(renderFoldedIconButton)}` with `{null}` made the icon-button test fail (`expected [ 'Convert Lead', …(3) ] to deeply equal [ 'Convert Lead', …(4) ]`, 1 failed / 3 passed). After the restore the blob equals HEAD and `git diff HEAD` is empty. The test resolves `@object-ui/components` to `src` through the root vitest alias, so no dist rebuild was needed.\n\nGate readings are in the PR's report comment on the card. Each is listed with its exit code.\n\n## Acceptance notes\n\n- **Out of scope, left for the landing seat:** the browser reading at 1440 on the HotCRM lead.\n- **Generic effect beyond the card's four entries:** an authored action with `variant: 'destructive'` in the `⋯` now also moves to the bottom band, behind the separator. Authored actions that folded or were pinned to `action:menu` or `record_more` now come before the host chrome. Before this change, host chrome that folded could come before an authored `action:menu` entry, and an authored `record_more` entry could follow Delete. No existing `page-header*` or `RecordDetailView*` test changed (78 files, 588 tests green).\n- **Not changed:** the highlight strip's inline pencil and the record form.\n\nWritten by the os-dev run for `domain:ui#2` in session `session_01XVp19E1MYUTFM3dnkwz8gB`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

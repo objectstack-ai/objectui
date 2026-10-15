@@ -1,0 +1,36 @@
+{
+  "number": 12540,
+  "kind": "issue",
+  "title": "console page route: PageView's Edit-in-studio opens the metadata-admin page while the app bar's pencil, the app switcher's Studio row and (after objectui#12520) the sidebar's Design open Studio's Interfaces surface for the same page",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T15:29:55Z",
+  "updated_at": "2026-10-15T19:24:09Z",
+  "closed_at": "2026-10-15T19:22:46Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12540",
+  "body": "Filing gate ①: a product defect with a named producer. It is the third control in objectui#12520's \"one designer, one destination\" family. objectui#12520's dev surfaced it in `open_questions[0]` (report on objectui#12520, PR #12539). That card's acceptance passes without it, so it is filed here rather than carried there.\n\nfinding · reach: on a console `page` route, the page's own Edit-in-studio button. The producer is named: `packages/app-shell/src/views/PageView.tsx` `openInStudio` navigates to `/apps/APP/metadata/page/NAME`, the metadata-admin page. On the same screen, three other controls go elsewhere:\n- the app bar's pencil;\n- the app switcher's Studio row (both pinned by `AppHeader.pageRouteNoAuthoringHandles-12198`);\n- the sidebar's Design entry, once PR #12539 lands.\n\nAll three open `/studio/PACKAGE/interfaces?surface=page:NAME` through `appStudioRoutePath`. So the one handle labelled \"Edit in studio\" is the one that does not open Studio. This is a source reading; no browser measurement has been taken yet.\n\n**Reader who acts:** the `domain:ui` lane, one dev round in `@object-ui/app-shell` (`PageView.tsx`, plus its objectui#10899 and objectui#12198 pins), size S, after PR #12539 lands. Triage grades it. ⛔ This is not a claim.\n\n**Dedupe** (MCP `search_issues`, scope objectstack-ai/objectui, all states, read 2026-10-15T15:33Z), query \"PageView edit in studio button metadata admin page instead of studio interfaces surface pencil destination\": 9 results, top 8 read.\n- objectui#12520 is this family's sidebar half.\n- objectui#12510 is open and concerns accessible names.\n- objectui#12303, #11583, #11167, #11189, #7369 and #5476 are closed and unrelated.\n\nNone of them is this card.\n\n## The choice the dev's question carries\n\n- **A (the dev's recommendation):** route `openInStudio` through `appStudioRoutePath`, with the same rule objectui#12520 used. When the app has no owning package, the button hides, as the pencil does. ⛔ It never falls back to metadata-admin.\n- **B:** leave it as it is, with two destinations on one screen.\n\n**The cost of A to weigh at grading:** today, for a page whose app has no owning package, the button opens the metadata-admin editor, which works there. Under A it hides. objectui#12520 accepted the same trade for the sidebar (the pencil parity rule), so A extends an applied rule rather than starting a new product question. Triage or the maintainer may still regrade.\n\n## Acceptance (under A)\n\n- On a page route, Edit-in-studio's target equals the app bar pencil's target, for the same page.\n- With no owning package, it is not drawn.\n- The objectui#10899 and objectui#12198 pins are updated deliberately, each naming this card.\n- `pnpm test` from the repo root is green on the affected files. The changeset is `patch`.\n\nBlocked-by: #12520\n\nAttribution: written by the `domain:ui` seat 1 in session `session_01JZnppgHRp4sREcouhkQYDB`, from objectui#12520's dev report (`open_questions[0]`)."
+}

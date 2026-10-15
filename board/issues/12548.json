@@ -1,0 +1,37 @@
+{
+  "number": 12548,
+  "kind": "issue",
+  "title": "console record forms: a section whose authored `columns` does not divide the form's one grid draws the wrong number of fields per row (HotCRM Leads → New: a two-column section draws one field per row)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [
+    "sunhaolin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T16:37:34Z",
+  "updated_at": "2026-10-15T18:35:40Z",
+  "closed_at": "2026-10-15T18:33:56Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12548",
+  "body": "Derived in-flight sub-issue of #12521. It carries the half that dev report `6197105887` names Q2 and `out_of_scope_findings[0]`: authored sections with mixed `columns` densities render wrong. It inherits `domain:ui` and `priority:p1` from #12521, by the dispatch seat's ruling (`domain:ui` seat 1, session `session_01JZnppgHRp4sREcouhkQYDB`). #12521 keeps the other half, the dialog's default size, which waits on a maintainer decision.\n\nParent: #12521. Nothing blocks this card. It does not wait on #12521's decision, because an authored layout renders as written whatever size the dialog is.\n\n**Reader who acts:** the `domain:ui` lane's next dispatch, in `@object-ui/plugin-form`, size M–L. It fits a cloud session.\n\n**Dedupe** (MCP `search_issues`, scope objectstack-ai/objectui, all states, read 2026-10-15T16:40Z): \"form section columns mixed density one field per row col-span rounding authored sections\" → 6 results, all read.\n- #2128 (closed 2026-07-01) moved a section's multi-column grid from around the whole form onto the fields. This card is that family's residue for mixed densities.\n- #2153 (closed) is ModalForm multi-section submit; #12451 is Studio's form tab.\n- None is this card.\n\n## What happens\n\nHotCRM's `crm_lead` form view authors six sections with `columns` 2 / 3 / 2 / 2 / 1 / 2 (hotcrm `src/sales/views/lead.view.ts` `:245`–`:380`; `last_name` has `span: 'full'`). On Leads → New at 1440:\n- the Contact Information section (`columns: 2`) draws ONE field per row, at 841 px, and leaves the right third of the form empty;\n- `last_name` spans 1270 px;\n- the Lead Classification section (`columns: 3`) draws three per row, at 413 px.\n\nThese are #12521's readings 4 and figure 1. The dev re-measured them with a real-`ModalForm` probe on `main` `521817ce9d`.\n\n## Mechanism (measured by the #12521 dev, `6197105887`)\n\n- A sectioned form draws ONE field grid, sized by its widest section. Here that is `grid gap-4 grid-cols-1 @md:grid-cols-2 @2xl:grid-cols-3`.\n- Each field's span is `Math.round(grid / sectionColumns)` (`packages/plugin-form/src/autoLayout.ts`, `resolveColSpan`):\n  - a `columns: 2` section's fields get `@md:col-span-2`, two of three cells, so one field per row;\n  - `span: 'full'` gets `@md:col-span-2 @2xl:col-span-3`;\n  - a `columns: 3` section's fields get no span, so one cell each.\n- By the same arithmetic, which was NOT probed, a `columns: 3` section on a four-wide grid would draw four per row.\n- Shared call sites: `applyAutoColSpan(body, formColumns, sectionColumns)` in `ModalForm`, `ObjectForm`, `SplitForm`, `TabbedForm` and `WizardForm`.\n\n## Governing text\n\n`@objectstack/spec` `FormSectionSchema.columns` (`packages/spec/src/ui/view.zod.ts:3783`): `1 | 2 | 3 | 4`, default `1`. That is a per-section column count. The renderer draws a different count when sections disagree, so this is a declared-but-not-honoured defect, fixed in the implementation.\n\n## What to build\n\n1. Every authored section renders its own `columns` count per row, from the breakpoint where multi-column starts. This holds whatever the other sections declare, on all five sectioned hosts.\n2. One shared rule serves the five hosts, not five copies. Two examples, the dev's measurement to choose:\n   - a 12-track grid where 1 / 2 / 3 / 4 per row are spans 12 / 6 / 4 / 3;\n   - per-section field containers inside the one form.\n3. `span: 'full'` takes the row. An authored `colSpan` keeps winning. A single-density form renders unchanged; pin it at class level.\n4. A form with no section `columns` is outside this card. That is #12521's half (PR #12546).\n\n## Acceptance\n\n- Per host, tests that a 2 / 3 / 1 mixed-density form renders 2 / 3 / 1 fields per row, with `span: 'full'` taking the row.\n  - CONTROL: a single-density form's grid and span classes are byte-identical before and after.\n  - Ablation: the old rounding reds the mixed pins.\n- Browser reading by the landing seat at 1440 on HotCRM Leads → New:\n  - Contact Information reads two fields per row, of one width;\n  - Lead Classification reads three per row;\n  - nothing in the form's right third is empty except a row's natural remainder.\n- `pnpm test` from the repo root is green on the affected files. One changeset for `@object-ui/plugin-form`, patch or minor, never major.\n\n## Out of scope\n\n- The dialog's default size (#12521's decision).\n- Field order, and the HotCRM form's own authoring.\n\nAttribution: filed by the `domain:ui` seat 1 in session `session_01JZnppgHRp4sREcouhkQYDB` (account `sunhaolin`), from the #12521 dev report above."
+}

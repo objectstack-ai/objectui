@@ -1,0 +1,36 @@
+{
+  "number": 12530,
+  "kind": "issue",
+  "title": "console inbox and home: the Activity feed lists platform events (JWKS keys, data migrations, owner backfills, every login) to business users — the feed reads the app's business objects only",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T14:31:00Z",
+  "updated_at": "2026-10-15T16:51:51Z",
+  "closed_at": "2026-10-15T16:45:27Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12530",
+  "body": "Filing gate ① (a product defect, measured on `main`), filed on the maintainer's word (chat, 2026-10-15, session `session_019YFzJp4o8Ck4NsT1toC4UP`, seat account os-bill): the seat ran a functional audit of the HotCRM console on objectui `main` `720f6d4` (report, private to the maintainer: https://claude.ai/artifact/XPrn5eZMsQaKUgasMJEMmR, finding F5, figure 13), and the maintainer answered 「同意开卡，使用 pm-dispatch 创建卡片」. Quota note: the audit's cards exceed the filing gate's three-per-fire quota on that word, which approved the report's card list as a set.\n\nParent: #12444. Blocks nothing; nothing blocks it.\n\n**Reader who acts:** the `domain:ui` lane's next dispatch (seat post #9800), one dev round in `@object-ui/app-shell` (`hooks/sharedUserFeeds.ts`, `layout/ActivityFeed.tsx`, the console home's feed), size S–M.\n\n**Dedupe** (MCP `search_issues`, scope objectstack-ai/objectui, all states, read 2026-10-15T14:14Z): \"activity feed shows system events JWKS key data migration sys objects inbox notifications filter business objects only\" → 0. None is this card.\n\n## What happens\n\nThe bell's Activity feed tab and the console home's Activity feed card show, to the HotCRM admin a minute after a fresh seed: 「Dev Admin Created JWKS Key \"QdKJl6LTc2jHmOx3…\"」 (JWKS Key), 「Created Data Migration \"adr-0104-value-shapes\"」 and 「\"adr-0104-file-references\"」 (Data Migration), 「Owner: ∅ → Dev Admin · Knowledge Article」 twice, then the user's own 「Updated User \"Dev Admin\"」 on every login (the `last_login_at` write). A sales user reading this feed sees platform plumbing named after ADRs and key ids; the business events (a lead created, an opportunity's stage changed) are below them or off the page of twenty.\n\n## Readings (objectui `origin/main` `720f6d4`, read 2026-10-15T14:15Z)\n\n1. `packages/app-shell/src/hooks/sharedUserFeeds.ts` line 10 (the feed table) and line 685 (`ACTIVITY_OBJECT = 'sys_activity'`): the recent-activity feed is `find('sys_activity', top 20, sort -timestamp)` with no filter on `object_name`; lines 622–645 map rows to items by `type`.\n2. `packages/app-shell/src/layout/ActivityFeed.tsx` lines 55–70 and 122: the only filter is `isKindEnabled(notificationPreferences, a.type)` (the user's per-kind switches); nothing filters by object.\n3. `packages/app-shell/src/hooks/useHomeInbox.ts` feeds the console home's card from the same reading.\n4. API reading (HotCRM backend, admin): `GET /api/v1/data/sys_activity?top=20&sort=-timestamp` returns rows with `object_name` `sys_user` (every login writes one), `sys_jwks_key`, `sys_data_migration`, `knowledge_article`, then `crm_lead`; the `sys_*` rows carry `organization_id: null`.\n\n## What to build\n\n1. The user-facing feeds (the bell's Activity tab, the console home card) read business activity only: rows whose `object_name` is an object of an installed app the user can open, which excludes the platform's `sys_*` objects and system-only writes (an `object_name` the app roster does not list). The exclusion is derived from the object roster the shell already holds, not a hand-written list of names.\n2. The user's own `sys_user` login write (`last_login_at`) is never feed material, whatever the roster says.\n3. The platform events stay where an admin looks for them: the Setup / audit surfaces read the same `sys_activity` unfiltered, as today. The query's `top` applies after the filter (a filtered read, not a client-side drop that empties the page).\n\n## Acceptance\n\n- `sharedUserFeeds` tests: with a roster of two app objects, the activity reading's filter names those objects and the mapped items contain no `sys_*` row; a `sys_user` `last_login_at` update row is excluded even when `sys_user` is in the roster; the Setup audit reading is unchanged.\n- Browser reading by the landing seat on HotCRM after a fresh seed: the bell's Activity feed lists leads, accounts, opportunities and tasks; no JWKS key, migration or login row.\n- `pnpm test` from the repo root green on the affected files; a changeset (minor) for `@object-ui/app-shell`.\n\n## Out of scope\n\n- The Notifications and Approvals tabs; the per-kind preference switches; the writer side (objectstack) of `sys_activity`.\n\nAttribution: written by the domain:ui seat in session `session_019YFzJp4o8Ck4NsT1toC4UP` (account os-bill) on the maintainer's words quoted above.\n\n## Screenshots (added 2026-10-15T14:40Z, on the maintainer's word 「专用分支存图，卡里嵌 raw 链接」)\n\nThe images live on the attachment branch `claude/ui-audit-2026-10-15-shots` of objectstack-ai/objectui (commit `918a251`, never merged; index at https://github.com/objectstack-ai/objectui/blob/918a2510a54bd6875b90eb6996d098c3ec0451dd/docs/design/console-audit-2026-10-15/README.md). Full set and figure numbers: the audit report linked above.\n\n**The bell's Activity feed on HotCRM: JWKS Key, Data Migration and Knowledge Article rows ahead of any lead**\n\n![activity-feed.png](https://raw.githubusercontent.com/objectstack-ai/objectui/918a2510a54bd6875b90eb6996d098c3ec0451dd/docs/design/console-audit-2026-10-15/activity-feed.png)\n"
+}

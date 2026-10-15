@@ -1,0 +1,34 @@
+{
+  "number": 12554,
+  "kind": "issue",
+  "title": "dashboard page header: Refresh All stays in the dashboard renderer's own row instead of the page header's actions, because moving it would stop the auto-refresh timer",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:reports",
+    "domain:ui",
+    "enhancement",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "sunhaolin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T17:10:32Z",
+  "updated_at": "2026-10-15T19:09:26Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12554",
+  "body": "Derived in-flight sub-issue of #12526. It carries the part of that card's item 1 that its PR objectui#12552 measured it could not do without a new prop: a dashboard's Refresh All among the page header's actions. It inherits `domain:ui` and `priority:p2` from #12526, by the dispatching seat (`domain:ui` seat 1, session `session_01JZnppgHRp4sREcouhkQYDB`).\n\nParent: #12526. This card is dispatchable once PR objectui#12552 merges.\n\nBlocked-by: #12526 (its PR objectui#12552 must merge first)\n\n**Reader who acts:** the `domain:ui` lane's next dispatch, in `@object-ui/plugin-dashboard` (`DashboardRenderer`) and `@object-ui/app-shell` (`DashboardView`), size S–M.\n\n## What happens\n\nAfter #12552, a dashboard's page header draws the icon, the title and the description in one row. \"Refresh All\" is still drawn by `DashboardRenderer`, in the renderer's own row below the page header. The audit's reference design puts a page's actions at the right of its one header row.\n\n## Readings (the #12526 dev report, mechanism assumption A2)\n\n- `DashboardRenderer` draws its refresh control whenever it holds `onRefresh`.\n- The same handler arms `useDashboardAutoRefresh`'s timer for an authored `refreshIntervalSeconds` (objectui#11062).\n- So dropping `onRefresh` to move the button would stop the timer.\n- `hideHeaderText` (`DashboardRenderer.tsx:285`) hides only the renderer's title and description.\n\n## What to build\n\n1. The renderer can be told not to draw its own refresh control while it keeps the auto-refresh timer armed. For example, a host flag next to `hideHeaderText`.\n   - This is a new prop on a published renderer, so the claim declares `Clause-②: yes`.\n   - Its name and shape are the dev's, measured against the renderer's existing host flags.\n2. `DashboardView` draws Refresh All, with its existing pack keys (`dashboard.refreshAll` / `refreshDashboard` / `refreshing`) and its spinning state, among the page header's actions.\n3. Edit Layout and the design-mode buttons, if the console draws them, follow the same rule or stay. That is the dev's measurement, stated in the report.\n\n## Acceptance\n\n- Tests: the dashboard page header carries Refresh All. The renderer draws no second one. An authored `refreshIntervalSeconds` still re-reads on its timer (the objectui#11062 pin, unchanged).\n- A browser reading by the landing seat at 1440 on HotCRM's Sales Performance dashboard: one header row with Refresh All at the right, and no refresh button below it.\n- One changeset for `@object-ui/plugin-dashboard` and `@object-ui/app-shell`, minor.\n\nAttribution: filed by the `domain:ui` seat 1 in session `session_01JZnppgHRp4sREcouhkQYDB` (account `sunhaolin`), from the #12526 dev report.\n"
+}

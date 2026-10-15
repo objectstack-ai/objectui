@@ -2,8 +2,8 @@
   "number": 12509,
   "kind": "issue",
   "title": "Studio shell header: the pillar segmented control and Changes overlap below 640 px",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -11,18 +11,27 @@
     "type": "Bot"
   },
   "labels": [
-    "pm:epic domain:ui area:studio priority:p2 bug"
+    "area:studio",
+    "bug",
+    "domain:ui",
+    "priority:p2"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-sales"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-15T14:17:42Z",
-  "updated_at": "2026-10-15T14:17:42Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-15T17:21:35Z",
+  "closed_at": "2026-10-15T17:18:51Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 2,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12509",
-  "body": "## Source\n\nMeasured on objectui main `d4bc81eab` (after #12459 and #12452) in a 558 × 326 viewport: the shell header draws its three groups on one 48 px row; the segmented control's fourth segment (Access) sits under the Changes button and the Publish button is clipped at the right edge. The \"Studio is built for a desktop screen\" note (`engine.studio.desktopHint`) shows below the header, but the header itself is still broken. The header grid is `grid-cols-[1fr_auto_1fr]` from `studio-tokens.ts`; below `xl` the segments are icon-only already, which is not enough below `sm`.\n\n## Target\n\n1. Below the `sm` breakpoint (640 px) the header stacks: row one is home, app chip, Changes, Publish; row two is the segmented control at full width with icon-only segments. Nothing overlaps from 360 px to 640 px.\n2. From `sm` to `xl` the single row stays with icon-only segments, as today; `xl` and above shows labels.\n3. The mobile note stays as it is.\n\n## File surface\n\n`packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx` (shell header), `studio-tokens.ts` (`STUDIO_HEADER`), a test beside them.\n\n## Acceptance\n\n1. Screenshots at 375 px and 560 px, light and dark: no overlap, Publish fully visible.\n2. A test asserts the header's stacked classes below `sm` (the token string) and the single-row classes above.\n3. `StudioDesignSurface.*.test.tsx` green.\n\n## Constraints\n\n- Tailwind utilities only.\n- The More overflow does not return; objectui#12452's ruling stands.\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-15 Studio test pass: objectui main `d4bc81eab`, HotCRM `63db83e2`, the vite console on :5180 against `objectstack serve --dev` on :4001, viewport 1482 × 1119, dark theme with a light-theme check.</sub>\n\nParent: objectstack-ai/objectui#12446"
+  "body": "## Source\n\nMeasured on objectui main `d4bc81eab` (after #12459 and #12452) in a 558 × 326 viewport: the shell header draws its three groups on one 48 px row; the segmented control's fourth segment (Access) sits under the Changes button and the Publish button is clipped at the right edge. The \"Studio is built for a desktop screen\" note (`engine.studio.desktopHint`) shows below the header, but the header itself is still broken. The header grid is `grid-cols-[1fr_auto_1fr]` from `studio-tokens.ts`; below `xl` the segments are icon-only already, which is not enough below `sm`.\n\n## Target\n\n1. Below the `sm` breakpoint (640 px) the header stacks: row one is home, app chip, Changes, Publish; row two is the segmented control at full width with icon-only segments. Nothing overlaps from 360 px to 640 px.\n2. From `sm` to `xl` the single row stays with icon-only segments, as today; `xl` and above shows labels.\n3. The mobile note stays as it is.\n\n## File surface\n\n`packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx` (shell header), `studio-tokens.ts` (`STUDIO_HEADER`), a test beside them.\n\n## Acceptance\n\n1. Screenshots at 375 px and 560 px, light and dark: no overlap, Publish fully visible.\n2. A test asserts the header's stacked classes below `sm` (the token string) and the single-row classes above.\n3. `StudioDesignSurface.*.test.tsx` green.\n\n## Constraints\n\n- Tailwind utilities only.\n- The More overflow does not return; objectui#12452's ruling stands.\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-15 Studio test pass: objectui main `d4bc81eab`, HotCRM `63db83e2`, the vite console on :5180 against `objectstack serve --dev` on :4001, viewport 1482 × 1119, dark theme with a light-theme check.</sub>\n\n## Evidence\n\nScreenshots from the test pass, kept on the temporary branch `claude/studio-test-pass-evidence-20261015` of objectstack-ai/objectui (commit `72115588c`, never merged: the maintainer ruled that screenshots do not enter main, and asked for a temporary branch referenced from the card). The branch's `docs/design/studio-redesign/findings/2026-10-15/README.md` maps every file to its card. Pane captures, 800 × 604 of a 1482 × 1119 viewport, dark unless named light.\n\n![header overlap 558px inspector](https://github.com/objectstack-ai/objectui/blob/72115588c/docs/design/studio-redesign/findings/2026-10-15/12509-header-overlap-558px-inspector.jpg?raw=true)\n`docs/design/studio-redesign/findings/2026-10-15/12509-header-overlap-558px-inspector.jpg` — header overlap 558px inspector.\n\n![header overlap 558px](https://github.com/objectstack-ai/objectui/blob/72115588c/docs/design/studio-redesign/findings/2026-10-15/12509-header-overlap-558px.jpg?raw=true)\n`docs/design/studio-redesign/findings/2026-10-15/12509-header-overlap-558px.jpg` — header overlap 558px.\n\nParent: objectstack-ai/objectui#12446\n\n<sub>Body refreshed 2026-10-15T15:21Z by the epic PM session: the Evidence section, first added at 2026-10-15T14:42Z, now names the temporary branch the screenshots live on instead of a pull request to main.</sub>\n"
 }

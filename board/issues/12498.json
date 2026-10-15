@@ -2,8 +2,8 @@
   "number": 12498,
   "kind": "issue",
   "title": "console: the served approval request page's highlights strip prints the submitter as a bare user id (submitter_id, a sys_user lookup), though the approvals read serves submitter_name beside it",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -13,18 +13,23 @@
   "labels": [
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p2"
   ],
-  "assignees": [],
+  "assignees": [
+    "sunhaolin"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-15T13:42:30Z",
-  "updated_at": "2026-10-15T14:00:14Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-15T20:11:38Z",
+  "closed_at": "2026-10-15T17:39:00Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12498",
   "body": "Filing gate ①: a product defect with a named producer. It is an out-of-scope finding from objectui#12482's dev report (PR #12497), class a.\n\nfinding · reach: the served `sys_approval_request_detail` record page, which every approver opens. The dev measured it on the real `RecordDetailView`, under the console's `ApprovalRecordReads`, with only the transport, the console adapter and the metadata store doubled.\n- The highlights strip draws `submitter_id` as the bare user id. The object declares the field as `Field.lookup('sys_user')`.\n- The approvals read serves the id with `submitter_name` beside it, never an expansion.\n- The strip made no label read: no host `findOne`, no `sys_user` read, and the served `submitter_name` was not shown.\n- The dev saw the same before and after PR #12497. That PR names the pending approvers and does not touch the strip.\n\n**A possible origin to check first.** objectui#12077's measurement recorded the page header naming the submitter. Since then, this seat's PR #12432 (`bedf41c1c`, objectui#12045 part) routed request reads through the approvals read for every entry point. If the strip named the submitter before that routing and not after, this is a regression of PR #12432, and this seat owns it. The dev did not bisect.\n\n**Reader who acts:** the `domain:ui` lane, one dev round in `@object-ui/app-shell` / `apps/console` (the approvals record-read routing, or the `record:highlights` lookup cell), after triage grades this card. ⛔ This is not a claim.\n\n**Dedupe** (MCP `search_issues`, scope objectstack-ai/objectui, all states, read 2026-10-15T13:48Z): \"approval request page submitter raw user id highlights submitter_id lookup not resolved submitter_name\" → 1 result: objectui#12077, closed and folded into objectui#12482. That card concerns the pending approvers; it is not this card.\n\n## The seam (named in the dev report)\n\n`spec: sys_approval_request.submitter_id` (lookup `sys_user`) → `runtime: the approvals read's row` (`submitter_id` bare, `submitter_name` beside it) → `renderer: record:highlights`' lookup cell.\n\n## What to decide first, by measurement\n\n1. **Bisect against PR #12432.** Does the served page's strip name the submitter on `main` before `bedf41c1c` and not after?\n2. **Which layer owns the fix:**\n   - (a) the console's approvals record-read routing serves the lookup in the shape every other record read gives a lookup cell, the expanded or labelled form the cell already reads;\n   - (b) the lookup cell resolves an unexpanded `sys_user` id through the read path it uses elsewhere.\n\n   ⛔ Never a consumer-side special case keyed on `submitter_name` in a product-neutral cell (ADR-0060 rule 2).\n\n## Acceptance\n\n- On the served page, the highlights strip names the submitter, and no raw `sys_user` id is visible there.\n- A pin on the real `RecordDetailView` over the routed approvals source, plus a CONTROL on a business record's lookup cell, which stays unchanged.\n- `pnpm test` from the repo root is green on the affected files. The changeset is `patch`, never `major`.\n\nAttribution: written by the `domain:ui` seat 1 in session `session_01JZnppgHRp4sREcouhkQYDB`, from objectui#12482's dev report (`out_of_scope_findings[0]`)."

@@ -1,0 +1,36 @@
+{
+  "number": 12549,
+  "kind": "pull_request",
+  "title": "fix(app-shell): the Studio header stacks below 640 px instead of overlapping (objectui#12509)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T16:44:07Z",
+  "updated_at": "2026-10-15T17:20:22Z",
+  "closed_at": "2026-10-15T17:18:49Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-15T17:18:49Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12549",
+  "body": "Fixes #12509\nClause-②: no\n\n## What changed\n\nThe Studio shell header no longer overlaps on a narrow window.\n\n- Below `sm` (640 px) the header is two rows. Row one: home, the package chip, Create app, Changes, Publish. Row two: the pillar switcher at full width, each segment an equal share and icon-only, its name kept as the link's accessible name and tooltip.\n- From `sm` up the header stays one 48 px row of three columns. The right column is now `minmax(max-content,1fr)`: it never drops below Create app + Changes + Publish, so on a tight row the switcher moves left and the package chip truncates. Before, the Create app button slid under Access at exactly 640 px.\n- The package chip's trigger can shrink (`min-w-0`) inside its column.\n- 1280 px and up is unchanged; every measured coordinate matches before and after.\n- All of it is Tailwind classes in `studio-tokens.ts`: `STUDIO_HEADER` changes and `STUDIO_HEADER_PILLAR_NAV` and `STUDIO_HEADER_PILLAR` are new. No JS width read, no inline style, no More overflow (objectui#12452's ruling stands), and every testid and i18n key is unchanged. The desktop note (`engine.studio.desktopHint`) is unchanged.\n\nMeasured live (HotCRM 63db83e plus a local writable package with one draft object, console against `objectstack dev --fresh`), header rectangles before and after:\n\n| width | before | after |\n| --- | --- | --- |\n| 375 | switcher under Changes, chip under Create app | 2 rows, 91 px, no overlap |\n| 558 | Access under Changes (353 vs 328) | 2 rows, no overlap |\n| 640 | Create app under Access (370 vs 394) | 1 row, 48 px, nav ends at 354, Create app starts at 366 |\n| 1280 | 1 row | identical |\n\n## Deviations\n\n- Two new tokens beside `STUDIO_HEADER` (same file): the stacked layout needs the switcher's order and column span and the segments' share, and keeping them as tokens lets one test read them.\n- `min-w-0` on the package chip trigger (inside `PackageSwitcher`, the chip of the claimed header region): without it the chip ran under Create app at 375 px.\n- The card asked for the `sm`-to-`xl` single row 'as today', but today's row overlaps at 640 to about 710 px. The right column's `max-content` floor fixes that. Above about 710 px the columns are equal again and the switcher stays centred.\n- The stale `overflow-x-auto` comment above the header is removed; it described the scrolling strip objectui#12459 retired.\n\n## Screenshots\n\n- `docs/design/studio-redesign/after/12509-header-375-light.png`\n- `docs/design/studio-redesign/after/12509-header-375-dark.png`\n- `docs/design/studio-redesign/after/12509-header-560-light.png`\n- `docs/design/studio-redesign/after/12509-header-560-dark.png`\n- `docs/design/studio-redesign/after/12509-header-1280-light.png` (control, single row unchanged)\n\n## Test evidence (head `744b899`)\n\n- New `StudioDesignSurface.narrowHeader-12509.test.tsx`: the token's unprefixed half is the stacked layout (two columns, no fixed height, switcher `order-last col-span-2`, segments `flex-1`); its `sm:` half is the single 48 px row with the right column's `max-content` floor; the real surface wears the tokens, every segment keeps its accessible name and `sr-only xl:not-sr-only` label, and the chip trigger has `min-w-0`.\n- `pnpm exec vitest run` on narrowHeader-12509, desktopHint-11795, accessSegment-12452, pillarNavGuard, packageLessFlows-11553, interfacePolish: 6 files, 38 tests passed. All 78 `StudioDesignSurface.*.test.tsx` files: 129 + 170 + 227 tests passed in three batches.\n- Ablation, once each, restored to HEAD with `git diff HEAD` empty: the old one-row `STUDIO_HEADER` turns the two token pins red; the nav's old inline class turns the render pin red.\n- `type-check` and `build` for `@object-ui/app-shell` pass, as does the 28/28 closure build. eslint on the touched files: 0 errors, and no warning in a changed hunk. `check:i18n-keys`, `check:i18n-drift`, `check-changeset-presence`, `check-changeset-no-major`, `check:changeset-claims`, `check:new-line-citations`, `check:test-path-roots` and `check:pending-changeset-literals` all exit 0.\n\n## Acceptance notes\n\n- Out of this card's region: at 375 px the Data pillar's item header hides the object title beside the api chip and the draft badge (see the 375 screenshots). It belongs to the DataPillar header (objectui#12511's region).\n- Not measured: a long pending-app pill on a narrow screen; the live package showed Create app instead.\n\nImplemented in session `https://claude.ai/code/session_01KQyLt9mekyay9X1dPEawfd`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01KQyLt9mekyay9X1dPEawfd)_"
+}

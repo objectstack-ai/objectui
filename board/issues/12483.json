@@ -2,8 +2,8 @@
   "number": 12483,
   "kind": "issue",
   "title": "approvals face 2 of 5 (ruling C on objectui#12438): the served sys_approval_request page shows the declared amount and a payload summary with declared labels, field faces and hidden-field trimming, as the inbox side sheet does",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:workflow",
     "domain:ui",
     "enhancement",
-    "pm:dispatched",
     "priority:p3"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-15T11:50:36Z",
-  "updated_at": "2026-10-15T14:07:31Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-15T15:18:30Z",
+  "closed_at": "2026-10-15T15:15:43Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12483",
   "body": "Filing gate ④: a cross-layer coordination node, filed as ruling `6190549995` on objectui#12438 directs (letter C, the maintainer's 「C (推荐)」, director seat summon #42, items 2–4). It is face 2 of at most 5, second in the ruling's order by pull: \"declared amount and payload summary (objectui#11677)\".\n\nParent: #2763 (B1 of the epic). The closing card waits on this one.\n\nBlocked-by: #12482\n\nSerial after face 1 (#12482): both edit the same served page, `plugin-approvals`' `sys-approval-request.page.ts`, and the ruling orders the faces by pull.\n\n**Reader who acts:** the `domain:ui` seat 1 (the epic's seat, seat post #5560). Once face 1 lands, it dispatches step 1 here, the fit check.\n\n**Dedupe** (MCP `search_issues`, scope objectstack-ai/objectui, all states, read 2026-10-15T11:50Z): \"approval request served page payload summary declared amount hidden field trim record summary\" → 3 results:\n- #11677 closed: the sheet's summary, fixed in the sheet;\n- #8464 closed: record summary chips;\n- #5565 closed: the sheet's hidden-field leak.\n\nNone of them is this card.\n\n## The face\n\n- **The side sheet shows it today, pinned:**\n  - the request's declared amount;\n  - a payload summary with the declared labels, each field drawn through its field type (not raw stored values), and the object's `hidden: true` fields trimmed.\n\n  The pins are `ApprovalsInboxPage.summaryFaces-11677.test.tsx`, `ApprovalsInboxPage.hiddenFieldTrim.test.tsx` and `ApprovalsInboxPage.queueHiddenAmount.test.tsx`, all under `apps/console/src/pages/system/`.\n- **The served page does not show it.** Its highlights drop `record_id` (`sys-approval-request.page.ts:28` at objectstack `c5dd7fce30`, per the director's delta `6189625854`). Its Details tab draws the request's `highlightFields` since objectui#12433 (PR #12441). Neither summarizes the payload against the target object's declared fields.\n\n## Steps (ADR-0060 rule 2; the ruling's item 2, \"fit before build\")\n\n1. **Fit check, objectui.** Size the face against the existing generic blocks first:\n   - `record:details` with explicit sections;\n   - the record preview card (`RecordPreviewCard`, epic A2);\n   - the field renderers it already uses, with their field-level security fold.\n\n   A new block is opened only if no existing block can carry it. Report which, with the readings.\n2. **Spec row** (objectstack `domain:spec`), only if a declared key is needed.\n3. **Served page edit** (objectstack `plugin-approvals`, `domain:services`).\n4. **objectui block or wiring**, pinned.\n\nSteps 2 and 3 are filed in objectstack, chained with `Blocked-by:`, only when step 1 says they are needed.\n\n## Acceptance\n\n- On the served page, the declared amount and the payload summary match the sheet's pins: declared labels, type-aware values, and hidden fields trimmed. A field the caller may not read is never drawn.\n- ⛔ The side sheet is not touched (ADR-0060 rule 3).\n\nAttribution: written by the `domain:ui` seat 1 in session `session_01JZnppgHRp4sREcouhkQYDB`, executing ruling `6190549995`."

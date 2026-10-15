@@ -1,0 +1,35 @@
+{
+  "number": 12535,
+  "kind": "pull_request",
+  "title": "fix(app-shell): Studio flow CEL checker follows the engine-bound roots (vars, current_user, previous; user flagged)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T14:58:43Z",
+  "updated_at": "2026-10-15T15:24:14Z",
+  "closed_at": "2026-10-15T15:24:11Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-15T15:24:11Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12535",
+  "body": "Fixes #12499\nClause-②: no\n\n## What changed\n\n`packages/app-shell/src/views/metadata-admin/inspectors/flow-ref-check.ts` — `findUnknownRefs`, in the CEL roles (`predicate`, `value`) only:\n\n- accepts `previous`, `vars` and `current_user` as roots (new exported `FLOW_CEL_ENGINE_BOUND_ROOTS`), the roots the flow engine binds on every run;\n- reports `user` as unknown with suggestion `current_user` (a flow variable named `user` is in the graph scope and still passes);\n- the `template` and `hole` roles and the other `RUNTIME_GLOBALS` entries are unchanged, per the card's Fix 3 and 4.\n\n**One source, measured.** Neither export exists at the pinned versions (`@objectstack/spec` 18.0.0-next.1, `@objectstack/lint` from the same range). Importing both modules from `packages/app-shell` shows that `FLOW_SCOPE_CLAIMED_IDENTIFIERS` is missing from `@objectstack/spec` and from `@objectstack/spec/automation`, and that `ENGINE_BOUND_ROOTS` is missing from `@objectstack/lint`. In the objectstack source it is a module-local `const` in `packages/lint/src/flow-cel-root-scope.ts`. So the set is a mirror: its comment names that file, and `flow-ref-check.test.ts` pins its members.\n\n## Tests (head `5b1130ebc`)\n\nNew describe block `findUnknownRefs (CEL roles follow the engine-bound roots) (objectui#12499)` in `flow-ref-check.test.ts`:\n- `vars.x`, `vars[\"$error\"]`, `current_user.id` and `previous` report nothing, in both `predicate` and `value`;\n- `user.id` reports `{ token: 'user', suggestion: 'current_user' }`, in both roles;\n- a flow variable named `user` still passes;\n- CONTROL: an undeclared `foo` beside `vars.x` is still reported;\n- the template and hole roles still accept `user` (this pins the ruling, not a measurement);\n- the mirror pin asserts the members `current_user`, `previous`, `vars`.\n\n**Ablation (one-off, not kept).** I committed the fix first. Then `scripts/ablation-replace.mjs` (objectstack) replaced the line `if (cel && FLOW_CEL_ENGINE_BOUND_ROOTS.has(root)) continue;` with a marker. On disk the marker count went 0 to 1 and the anchor count 1 to 0. The test file went red with 3 failed and 26 passed: both \"reports nothing\" cases, plus the CONTROL case, which then also reported `vars`. The restore leg left the blob equal to HEAD (`42ca4f058b70`), and `git diff HEAD` was empty.\n\n**Gates** (exit codes):\n- closure build `turbo run build --filter='@object-ui/app-shell^...' --concurrency=2`: 28 of 28 tasks;\n- `pnpm --filter @object-ui/app-shell type-check`, which runs `tsc --noEmit` plus `tsconfig.test.json`, the project that compiles the tests: 0;\n- `vitest run packages/app-shell/src/views/metadata-admin/inspectors/`: 161 files passed, 2190 tests passed, 1 skipped, exit 0, all three steps under `os-verify-lock`;\n- narrowed eslint (`--no-inline-config --format json`) on the 2 changed files: 2 files linted, 0 errors, 0 warnings. `eslint.config.js` sets no `parserOptions.project`, so linting is not type-aware and this diff cannot move the verdict on an untouched file;\n- `pnpm check:control-bytes`, `check:spec-symbols`, `check:unreferenced-sources`: 0;\n- `node scripts/check-changeset-fixed.mjs`, `check-changeset-presence.mjs`, `check-changeset-no-major.mjs`: 0.\n\n## Acceptance notes\n\n- **Acceptance 1 (the HotCRM screenshot) was not taken.** HotCRM is not in this container. The seat or the maintainer has to read the Problems panel for `campaign_enrollment` edges `e4` and `e7`.\n- **Screen field `visibleWhen` is not judged by this module.** On a `screen` node's `fields[].visibleWhen` cell, `FlowExprIssue` and the Problems panel route to `screenVisibleWhenScopeError` in `previews/screen-spec.ts`, not to `findUnknownRefs`. That rule binds the screen's declared fields (objectui#10743, objectui#10772), and its header names `vars` as a root the screen renderer never binds. So that slot is unchanged here: the card's Fix 1 listed it among the CEL roles, but this module never reached it. Other object-list expression columns do go through `findUnknownRefs` (`predicate`) and get the fix.\n- The spec's `FLOW_SCOPE_CLAIMED_IDENTIFIERS` is not exported from the `@objectstack/spec` barrel or from `/automation`. If it ever is, the mirror can become an import.\n\n## Changeset\n\n`.changeset/12499-flow-cel-roots.md`: `@object-ui/app-shell: patch`.\n\nSession: `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB` (os-dev, seat `domain:ui#2`).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 12557,
+  "kind": "issue",
+  "title": "record pointer card: a readable target draws no link to its record (the served approval request page's target reference; the inbox sheet links it)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:workflow",
+    "domain:ui",
+    "enhancement",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "sunhaolin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T18:14:46Z",
+  "updated_at": "2026-10-15T19:36:08Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12557",
+  "body": "Derived in-flight sub-issue of #12489. It carries the objectui-only half of that card's fit check (dev report `6198994393`): the readable state's missing link. It inherits `domain:ui` and `priority:p3` from #12489, by the dispatching seat (`domain:ui` seat 1, session `session_01JZnppgHRp4sREcouhkQYDB`). The other half, the tombstone, needs a spec declaration and waits on a decision on #12489. This card does not wait for it.\n\nParent: #12489 (face 3 of ruling `6190549995` on objectui#12438).\n\n**Reader who acts:** the `domain:ui` lane's next dispatch, in `@object-ui/app-shell` (`views/record-preview/RecordPreviewCard.tsx`) or the pointer card renderer that mounts it, size S.\n\n## What happens\n\nOn the served `sys_approval_request_detail` page, the Details tab draws the request's `record_id` / `object_name` `referenceVia` pair through `RecordPreviewCard` (via the record-pointer card renderer). When the approver may read the target record, the card shows it, for example \"Invoice · INV-1010 · Invoice Amount 12,500.00\", but draws **no link**: 0 anchors in the card, and 0 links to the target anywhere on the page.\n\nThat was measured on the real `RecordDetailView` under `ApprovalRecordReads` with the root `SchemaRendererProvider`, at objectui `main` `518a8e3084` (`6198994393`, gap table, row 1). The inbox side sheet links the same reference to the app-scoped record path. Its pin is `apps/console/src/pages/system/ApprovalsInboxPage.recordLink.test.tsx`.\n\n## What to build\n\n1. In its readable state only, the card links to the target's record page, at the app-scoped record path the console uses for a record. The link carries the card's own visible title.\n2. A refused, absent or unresolvable target never yields a link: the `unreadable` and `absent` states are unchanged (objectui#11878).\n3. The card stays generic. It is not keyed on `sys_approval_request` (ADR-0060 rule 2), and the inbox sheet is not touched (ADR-0060 rule 3).\n4. Measure which other surfaces mount `RecordPreviewCard` or the pointer card renderer, and state in the report that a link there is right. A pointer to a record the reader may open is a navigation affordance.\n\n## Acceptance\n\n- Pins on the real `RecordDetailView` over the routed approvals source, under the root `SchemaRendererProvider` (as `ConsoleShell.tsx:306` mounts it):\n  - readable draws one link to the app-scoped record path;\n  - refused draws none (CONTROL);\n  - unresolvable draws none (CONTROL).\n- A browser reading by the landing seat on a served request page:\n  - the target card links to the record, and the link opens it;\n  - the highlights strip's Submitter chip shows a name and no 24-or-more-character id (the re-check `6198410345` carries).\n- One changeset, `patch`.\n\nAttribution: filed by the `domain:ui` seat 1 in session `session_01JZnppgHRp4sREcouhkQYDB` (account `sunhaolin`), from #12489's dev report."
+}

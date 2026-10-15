@@ -2,8 +2,8 @@
   "number": 12453,
   "kind": "issue",
   "title": "Studio read-only posture: a lock in the app chip and one \"Read-only · Customize with an overlay\" link in the item header replace the banner, the rail footer, the amber badge and the form strips",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -17,15 +17,21 @@
     "pm:epic",
     "priority:p2"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-sales"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-15T07:59:33Z",
-  "updated_at": "2026-10-15T09:53:11Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-15T19:58:50Z",
+  "closed_at": "2026-10-15T19:56:26Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 3,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12453",
   "body": "## Source\n\nEpic objectstack-ai/objectui#12446, decision 4. Measured on objectui main `a2225f91` with the read-only `app.objectstack.hotcrm` package open: the Data pillar says read-only in five places at once — the amber \"Read-only\" badge beside the package name in the shell header, the full-width banner \"Read-only package — switch to or create a writable package to edit.\", the rail footer \"Read-only\", the Form tab's \"Read-only layout — this package cannot be edited\" badge, and the Form canvas strip \"Read-only package · click a field to view its properties\". The Automations and Access pillars add their own copies of the banner.\n\n## Target\n\nTwo signals, the same in every pillar:\n\n1. **App chip.** After the package name, a 12 px lock glyph and the word \"Read-only\" at 11 px muted, with a title that carries the current `engine.studio.pkg.readonlyHint` sentence. This replaces the amber badge.\n2. **Item header.** At the right of the item header row (object, flow, nav entry, permission set), one amber-tinted link, 28 px, 12 px / 500, with a layers glyph: \"Read-only · Customize with an overlay\", pointing at the package's metadata directory (`/apps/setup/metadata?package=app.objectstack.hotcrm` (the package id in the query), the route `BuilderLanding` already uses). For pillars whose item has no overlay route, the same chip renders without the link half.\n\nRetired: the full-width banner in all pillars, the rail footer, the Form tab's read-only badge and the canvas strip (the Form tab keeps its plain Layout / Preview control; the sentence \"click a field to view its properties\" survives as the field card's title attribute). Publish drops to the outline disabled variant it already has; the rail's add button hides; \"Add record\" and record editing stay available because records are not metadata.\n\nThe wording ruling of objectui#11781 (`StudioDesignSurface.readOnlyWording-11781.test.tsx`) is kept: the sentence it pins moves into the chip's title and the link's title rather than disappearing.\n\n## File surface\n\n`packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx` (shell header chip, the `readOnly` banner in each pillar, the Data rail footer, the Form tab badge and strip), `ObjectFormDesigner.tsx` (the read-only strip), `packages/app-shell/src/views/metadata-admin/i18n.ts` (new key for the chip label; retired keys for the banner and footer in every locale).\n\n## Acceptance\n\n1. With the read-only package open, the string \"Read-only\" appears exactly twice in each pillar's DOM: the chip and the header link.\n2. The header link lands on `/apps/setup/metadata?package=app.objectstack.hotcrm`.\n3. `readOnlyWording-11781`, `interfacesReadOnly-11136`, `automationsReadOnly-11124`, `automationsReadOnlySelect-11546`, `navEditClosesOnReadOnly-11167`, `ObjectValidationsPanel.readOnlyLook-11781` and `ObjectFormDesigner.readOnlyDescription-11924` stay green or are updated in the same PR with the moved sentence, each ablated once.\n4. Before/after screenshots of Data Records and Automations with the read-only package, light and dark.\n\n## Constraints\n\n- Tailwind utilities and theme tokens only.\n- Gates: `pnpm --filter @object-ui/app-shell test`, `lint`, `build`, `pnpm check:i18n`.\n- Lands after the shell header card (it edits the chip that card introduces).\n\n## Reference artboard\n\n`docs/design/studio-redesign/data-records-readonly.html` on objectui main (landed in objectstack-ai/objectui#12458); `data-records-readonly.png` is its 1280 px render. The folder's README carries the shared numbers and what a pull request against this card must show: two screenshots per artboard it touches (light and dark, 1280 px, cropped to the artboard's region), a deviation list with a reason per line, and the card's named tests green or updated. Where this card and the artboard disagree, this card's numbers win and the disagreement is reported here.\n\nBlocked-by: #12459\n\n<sub>Body refreshed 2026-10-15T09:53Z by the epic PM session: a Reference artboard section added now that objectstack-ai/objectui#12458 is on main. Earlier refresh 2026-10-15T08:56Z: the Blocked-by line now names the layout skeleton card #12459, which supersedes #12447, #12448 and #12449.</sub>\n\nParent: objectstack-ai/objectui#12446\n\n"

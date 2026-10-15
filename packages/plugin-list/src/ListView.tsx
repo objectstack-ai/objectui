@@ -9,7 +9,7 @@
 import * as React from 'react';
 import { cn, Button, Input, Popover, PopoverContent, PopoverTrigger, FilterBuilder, SortBuilder, NavigationOverlay, GroupingEditor, RefreshIndicator, DataErrorState, resolveIcon, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@object-ui/components';
 import type { SortItem } from '@object-ui/components';
-import { Search, SlidersHorizontal, ArrowUpDown, X, EyeOff, Pencil, Group, Paintbrush, Download, Rows4, Rows3, Rows2, Share2, Printer, Plus, Trash2, CheckSquare, AlertTriangle, ShieldAlert, RotateCw, Loader2 } from 'lucide-react';
+import { Search, SlidersHorizontal, ArrowUpDown, X, EyeOff, Pencil, Group, Paintbrush, Download, Rows4, Rows3, Rows2, Share2, Printer, Plus, Trash2, CheckSquare, AlertTriangle, ShieldAlert, RotateCw, Loader2, Info } from 'lucide-react';
 import type { FilterBuilderRowGroup } from '@object-ui/components';
 import { VALUELESS_FILTER_BUILDER_OPERATORS, isFilterValueComplete } from '@object-ui/components';
 import { ViewSwitcherDropdown } from './ViewSwitcher';
@@ -427,6 +427,12 @@ export interface ListViewProps {
    * `tabs` key is retired from the protocol (objectui#11073). It is
    * destructured by name so it never rides the `{...props}` forward into the
    * active view component. Absent ⇒ the toolbar row is exactly what it was.
+   *
+   * A host that passes it carries the view's DESCRIPTION too (objectui#12528):
+   * the console's `ViewTabBar` draws it as the active tab's tooltip and ▾ menu
+   * header, so the list draws none. Without it the list draws the description
+   * itself, as an info control at the start of the toolbar row — never as a
+   * row of its own, so the toolbar sits at one height with or without one.
    */
   toolbarLeading?: React.ReactNode;
 }
@@ -978,6 +984,9 @@ export const LIST_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'list.sort': 'Sort',
   'list.sortRecords': 'Sort Records',
   'list.sortByIdSuffix': '(by ID)',
+  // objectui#12528 — the one line under the sort rows while the current sort
+  // names a linked column (shown with the `(by ID)` suffix above).
+  'list.sortRelationalPicked': 'A linked column sorts by the stored ID, not the name shown.',
   // objectui#4294 — the remedy sentence must match `en`'s byte for byte. It is
   // this copy, not the pack, that renders on a provider-less host (and in this
   // package's own tests), so a pack-only reword would leave the old advice —
@@ -1892,6 +1901,14 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // (objectui#12423). Session-only and in memory: nothing stores it, and it
   // opens on the grid's own default (on) with every list.
   const [rowNumbers, setRowNumbers] = React.useState(true);
+
+  // objectui#12528 — the grid's column summaries, drawn at the right of the
+  // record-count row instead of a second footer row of the grid's own. The
+  // grid reports them through its `onColumnSummaryChange` host channel (by
+  // content, `null` when it draws none), and draws no summary row itself.
+  const [gridSummaries, setGridSummaries] = React.useState<
+    ReadonlyArray<{ key: string; header: string; label: string }> | null
+  >(null);
 
   // Export State
   const [showExport, setShowExport] = React.useState(false);
@@ -4466,9 +4483,13 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     [objectDef],
   );
 
-  const { sortFields, sortHasRelationalField } = React.useMemo(() => {
+  const { sortFields, sortHasRelationalField, sortPicksRelationalField } = React.useMemo(() => {
     const inUse = new Set(currentSort.map((item) => item.field).filter(Boolean));
     let excluded = false;
+    // objectui#12528 — the current sort names a relational field (a stored or
+    // URL sort; the picker never offers one), so the list IS sorted by the
+    // stored ID: said in one line under the rows, only while it is true.
+    let picked = false;
     const fields: Array<{ value: string; label: string; disabled?: boolean }> = [];
     for (const field of candidateFields) {
       const readable = canReadField(perms, schema.objectName, field.value);
@@ -4482,6 +4503,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         continue;
       }
       if (inUse.has(field.value)) {
+        if (relational) picked = true;
         // Listed only because the current sort names it: `disabled`, so its
         // own row shows it and can drop it, and nothing can choose it anew.
         fields.push({
@@ -4493,7 +4515,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       }
       if (relational) excluded = true;
     }
-    return { sortFields: fields, sortHasRelationalField: excluded };
+    return { sortFields: fields, sortHasRelationalField: excluded, sortPicksRelationalField: picked };
   }, [candidateFields, currentSort, t, platformSortability, perms, schema.objectName]);
 
   /**
@@ -4937,8 +4959,9 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * `i18nLabel-resolver-parity.test.ts` in this package.
    *
    * Guarding on the RESOLVED text rather than on `schema.description` is what
-   * keeps a map with no usable entry from rendering an empty strip: the raw
-   * value is a truthy object, its resolution is `''`.
+   * keeps a map with no usable entry from drawing an info control with no
+   * text (once an empty strip, objectui#12528): the raw value is a truthy
+   * object, its resolution is `''`.
    */
   const viewDescription = pickLocalized(schema.description, displayLocale);
 
@@ -4946,6 +4969,26 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // `false` draw nothing in React, so they draw no wrapper either: a host that
   // passes one of them gets today's row.
   const hasToolbarLeading = toolbarLeading != null && toolbarLeading !== false;
+
+  // objectui#12528 — the description no longer takes a row above the toolbar
+  // (it moved the toolbar down by a line on the views that have one). A host
+  // tab strip carries it on the active tab (see `toolbarLeading`); without one
+  // — the console below `sm`, any other host — it is this info control's
+  // tooltip and accessible name, inside the toolbar row's own height.
+  // `appearance.showDescription: false` still shows it nowhere.
+  const showDescriptionInfo =
+    !!viewDescription && schema.appearance?.showDescription !== false && !hasToolbarLeading;
+
+  // objectui#12528 — the footer row's two halves. The summaries only ever come
+  // from the grid (`gridSummaries`), so they are read only while it is the view
+  // on screen; the row draws for either half, so `showRecordCount: false` does
+  // not take the summaries down with the count.
+  const recordCountShown =
+    !loading && data.length > 0 && surfaceDrawsFetchedRows && schema.showRecordCount !== false;
+  const footerSummaryText =
+    currentView === 'grid' && gridSummaries && gridSummaries.length > 0
+      ? gridSummaries.map((s) => `${s.header}: ${s.label}`).join(' · ')
+      : '';
 
   return (
     <div
@@ -4965,12 +5008,6 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           {isRefreshing ? t('list.refreshing') : t('list.pullToRefresh')}
         </div>
       )}
-      {/* View Description (single line, no border duplication) */}
-      {viewDescription && (schema.appearance?.showDescription !== false) && (
-        <div className="px-4 pt-1.5 text-xs text-muted-foreground bg-background" data-testid="view-description">
-          {viewDescription}
-        </div>
-      )}
 
       {/* Unified toolbar — Tabs + UserFilters (left) + Tool buttons (right) on one row.
           The right-hand cluster is wrapped in a single rounded pill container
@@ -4982,6 +5019,18 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
             a width-fitted tab strip folds whatever does not fit
             (objectui#12440). Without one, the group is unchanged. */}
         <div className={hasToolbarLeading ? 'flex flex-1 items-center gap-2 overflow-x-auto min-w-0' : 'flex items-center gap-2 overflow-x-auto min-w-0'}>
+          {showDescriptionInfo && (
+            <span
+              role="img"
+              tabIndex={0}
+              title={viewDescription}
+              aria-label={viewDescription}
+              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              data-testid="view-description-info"
+            >
+              <Info className="h-3.5 w-3.5" aria-hidden="true" />
+            </span>
+          )}
           {hasToolbarLeading && (
             <div className="flex min-w-0 flex-1 items-center" data-testid="list-toolbar-leading">
               {toolbarLeading}
@@ -5239,7 +5288,27 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
             <PopoverContent align="start" className="w-[calc(100vw-2rem)] sm:w-[600px] max-w-[600px] p-3 sm:p-4">
               <div className="space-y-4">
                 <div className="flex items-center justify-between border-b pb-2">
-                  <h4 className="font-medium text-sm">{t('list.sortRecords')}</h4>
+                  <div className="flex items-center gap-1">
+                    <h4 className="font-medium text-sm">{t('list.sortRecords')}</h4>
+                    {/* objectui#12528 — the note on why linked columns are not
+                        listed, as this control's tooltip and accessible name
+                        beside the field list, instead of a standing paragraph
+                        that took about half the popover on every open. Drawn
+                        under the paragraph's own condition: a relational field
+                        was left out. */}
+                    {sortHasRelationalField && (
+                      <span
+                        role="img"
+                        tabIndex={0}
+                        title={t('list.sortRelationalHint')}
+                        aria-label={t('list.sortRelationalHint')}
+                        className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        data-testid="sort-relational-info"
+                      >
+                        <Info className="h-3.5 w-3.5" aria-hidden="true" />
+                      </span>
+                    )}
+                  </div>
                   {/* Reset to the view's declared sort (objectui#4243).
                       Rendered only when the view DECLARES one: with nothing
                       declared there is no default to return to, and a control
@@ -5274,9 +5343,9 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                     emitSortChange(newSort);
                   }}
                 />
-                {sortHasRelationalField && (
-                  <p className="text-xs text-muted-foreground" data-testid="sort-relational-hint">
-                    {t('list.sortRelationalHint')}
+                {sortPicksRelationalField && (
+                  <p className="truncate text-xs text-muted-foreground" data-testid="sort-relational-picked">
+                    {t('list.sortRelationalPicked')}
                   </p>
                 )}
               </div>
@@ -5838,7 +5907,9 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
             {...(viewComponentSchema.type === 'object-grid'
               // objectui#12423 — the Display control's Row numbers switch, on
               // the grid's host channel (a React prop, never a node key).
-              ? { showRowNumbers: rowNumbers }
+              // objectui#12528 — and the column summaries, drawn in the
+              // record-count row below rather than in a row of the grid's own.
+              ? { showRowNumbers: rowNumbers, onColumnSummaryChange: setGridSummaries }
               : {})}
             // [objectui#12081] A windowed calendar keeps drawing while the
             // next window loads (the refresh bar above says so), and shows its
@@ -5981,13 +6052,17 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         </div>
       )}
 
-      {/* Record count status bar (Airtable-style) */}
-      {!loading && data.length > 0 && surfaceDrawsFetchedRows && schema.showRecordCount !== false && (
+      {/* Record count status bar (Airtable-style). One footer row
+          (objectui#12528): the count at the left, the grid's column summaries
+          at the right of the same row, truncated with the full text as their
+          tooltip when they do not fit. */}
+      {(recordCountShown || footerSummaryText) && (
         <div
           className="border-t px-4 py-2 flex items-center gap-3 text-xs text-muted-foreground bg-background shrink-0"
           data-testid="record-count-bar"
         >
-          <span className="font-medium text-foreground/80">
+          {recordCountShown && (
+          <span className="shrink-0 font-medium text-foreground/80">
             {/* Under server pagination `data` is only the current page, so the
                 honest record count is the server's grand total (#586). When the
                 whole result set is in memory, serverTotal is null and data.length
@@ -5995,11 +6070,12 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
             {/* One count family (objectui#11445): i18next picks the CLDR slot. */}
             {t('list.recordCount', { count: serverTotal ?? data.length })}
           </span>
+          )}
           {/* The cap warning is about rows the user CANNOT REACH. A paged grid
               with a known total can reach them all through its pager, so the
               warning stays off there — the gate the fetch used to apply when it
               wrote this flag (objectui#7394). */}
-          {dataLimitReached && !(paginate && serverTotal != null) && (
+          {recordCountShown && dataLimitReached && !(paginate && serverTotal != null) && (
             <span className="text-amber-600" data-testid="data-limit-warning">
               {t('list.dataLimitReached', { limit: effectivePageSize })}
             </span>
@@ -6029,6 +6105,15 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                 }}
               />
             </div>
+          )}
+          {footerSummaryText && (
+            <span
+              className="ml-auto min-w-0 truncate text-right font-medium"
+              title={footerSummaryText}
+              data-testid="record-count-summaries"
+            >
+              {footerSummaryText}
+            </span>
           )}
         </div>
       )}

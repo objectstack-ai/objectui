@@ -87,7 +87,7 @@ import { resolveViewId } from '../utils/resolveViewId.js';
 import { defaultListViewId, viewRowId, isSavedViewId, viewEntry } from '../utils/viewIdentity.js';
 import { warnSuppressedListNav } from '../utils/warnSuppressedListNav.js';
 import { useObjectActions } from '../hooks/useObjectActions.js';
-import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
+import { useObjectTranslation, useObjectLabel, useDisplayLocale, pickLocalized } from '@object-ui/i18n';
 import { usePermissions } from '@object-ui/permissions';
 import { useAuth, useWorkspaceAdminStatus } from '@object-ui/auth';
 import { useRealtimeSubscription, useConflictResolution } from '@object-ui/collaboration';
@@ -3249,6 +3249,12 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
      * view switcher (registered above) stays the phone's view control.
      */
     const viewTabsFit = useViewTabsFit();
+    // objectui#12528 — the view's description rides on its tab (the active
+    // tab's tooltip and ▾ menu header) instead of a row above the toolbar.
+    // Resolved the way `ListView` resolves the same text (`pickLocalized` on
+    // the display locale), and gated on the same switch the relay below hands
+    // `ListView` as `appearance.showDescription`: `false` shows it nowhere.
+    const displayLocale = useDisplayLocale();
     const viewTabItems: ViewTabItem[] = views.map((view: any) => {
         const saved = savedViews.find((sv: any) => viewRowId(sv) === view.id);
         // System views (loaded from objectDef.listViews / metadata) are
@@ -3268,6 +3274,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             readonlyReason: isSystem
                 ? t('console.objectView.systemViewReadonly')
                 : undefined,
+            description: (view.showDescription ?? view.appearance?.showDescription) === false
+                ? undefined
+                : pickLocalized(view.description, displayLocale) || undefined,
         } as ViewTabItem;
     });
     const viewTabBar = viewTabsFit && views.length >= 1 ? (

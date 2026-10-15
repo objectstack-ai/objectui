@@ -813,6 +813,7 @@ const pt = {
     sortByIdSuffix: "(por ID)",
     sortRelationalHint:
       "As colunas que apontam para outro registro não são listadas: elas só podem ser ordenadas pelo ID armazenado, não pelo nome exibido na célula. Para ordenar por esse nome, desnormalize-o neste objeto como um campo armazenado, gravado quando a origem muda, e ordene por ele. Não um campo de fórmula: ele é virtual, nenhuma coluna é armazenada para ele e o servidor recusa ordenar por ele.",
+    sortRelationalPicked: "Uma coluna vinculada é ordenada pelo ID armazenado, não pelo nome exibido.",
     resetSortToDefault: "Restaurar o padrão da exibição",
     group: "Agrupar",
     groupBy: "Agrupar por",

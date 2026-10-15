@@ -254,7 +254,7 @@ export interface PermissionStudioChrome {
   onTabChange: (tab: PermissionStudioTab) => void;
   /** Before the header's icon tile (the pillar's mobile rail toggle). */
   leading?: React.ReactNode;
-  /** After the Package chip (the pillar's draft / read-only note). */
+  /** The pillar's draft / read-only note, at the right end of the tab row. */
   chips?: React.ReactNode;
   /** Before History in the header's actions (the pillar's Explain access). */
   actions?: React.ReactNode;
@@ -1606,7 +1606,6 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
                     : t('perm.badge.custom')}
               </span>
               {!!draft.isDefault && <span className={STUDIO_KIND_CHIP}>{t('perm.badge.default')}</span>}
-              {chrome.chips}
               {/* A host-locked package says so in the pillar's note; the
                   other gates (type, artifact, wall) keep their own badge. */}
               {!readOnly && lockBadgeEl}
@@ -1655,6 +1654,10 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
                   {t(tab.labelKey)}
                 </StudioTab>
               ))}
+              {/* The pillar's draft / read-only note, whole, at the tab row's
+                  right: in the title row it squeezed the label and the counts
+                  at the 1280 px design width. */}
+              {chrome.chips && <span className="ml-auto flex items-center self-center pl-3">{chrome.chips}</span>}
             </>
           }
         />
@@ -2318,7 +2321,7 @@ function StudioObjectRow({
             type="button"
             onClick={() => onToggleExpand(o.name)}
             aria-expanded={open}
-            className="inline-flex min-w-0 items-center gap-1.5 text-left"
+            className="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap text-left"
           >
             {/* The chevron opens the object's field-level R/W, as on the page. */}
             {open ? (
@@ -2372,7 +2375,7 @@ function StudioObjectRow({
               disabled={!writable}
               onCheckedChange={(v) => onObjectPerm(o.name, a.key, !!v)}
               aria-label={`${o.name} ${a.tip}`}
-              className="h-[18px] w-[18px] rounded border-input align-middle data-[state=checked]:border-primary"
+              className="h-[18px] w-[18px] rounded border-muted-foreground/40 align-middle data-[state=checked]:border-primary"
             />
           </td>
         ))}

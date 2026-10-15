@@ -92,6 +92,14 @@ export interface DraftChangeEntry {
   type: string;
   name: string;
   packageId: string | null;
+  /**
+   * The bundle member this draft is, exactly as `_drafts` served it
+   * (objectstack#23073): present for a type whose identity is a pair (today
+   * only `email_template`, `(name, locale)`), absent otherwise. Every by-name
+   * `/meta` read below passes it as `?member=`, so two members of one name are
+   * two rows, each with its own reads; an entry without one sends no selector.
+   */
+  member?: string;
   /** `new` = no published version; `update` = overwrites one; undefined = probing. */
   kind?: 'new' | 'update';
 }
@@ -124,7 +132,18 @@ async function listPendingDrafts(packageId?: string | null): Promise<DraftChange
       type: canonicalMetaUrlType(d.type),
       name: d.name,
       packageId: d.packageId,
+      ...(d.member ? { member: d.member } : {}),
     }));
+}
+
+/**
+ * A row's identity: type, name AND member (objectstack#23073). Two members of
+ * one `email_template` share `type` and `name`, so a `type:name` key made them
+ * one React row, one expanded state and one no-change mark. Serialized as a
+ * JSON tuple so no name or member spelling can collide with another entry.
+ */
+function entryKey(entry: Pick<DraftChangeEntry, 'type' | 'name' | 'member'>): string {
+  return JSON.stringify([entry.type, entry.name, entry.member ?? null]);
 }
 
 /**
@@ -192,12 +211,16 @@ function unwrapItem(payload: unknown): Record<string, unknown> | null {
 async function fetchItemBody(
   type: string,
   name: string,
-  opts: { draft?: boolean; packageId?: string | null } = {},
+  opts: { draft?: boolean; packageId?: string | null; member?: string } = {},
 ): Promise<Record<string, unknown> | null> {
   // `type` is already the canonical singular — folded in `listPendingDrafts`.
   const params: string[] = [];
   if (opts.draft) params.push('state=draft');
   if (opts.packageId) params.push(`package=${encodeURIComponent(opts.packageId)}`);
+  // The by-name doors' bundle-member selector (objectstack `038d4c958`). Sent
+  // only for an entry `_drafts` served a member for: the doors refuse it on a
+  // type with no members, and refuse a blank one.
+  if (opts.member) params.push(`member=${encodeURIComponent(opts.member)}`);
   const qs = params.length ? `?${params.join('&')}` : '';
   const res = await fetch(
     `/api/v1/meta/${encodeURIComponent(type)}/${encodeURIComponent(name)}${qs}`,
@@ -322,8 +345,12 @@ function EntryDetail({
       try {
         const [published, draft] = await Promise.all([
           // A NEW item 404s on the published read — that's data, not an error.
-          fetchItemBody(entry.type, entry.name, { packageId: entry.packageId }),
-          fetchItemBody(entry.type, entry.name, { draft: true, packageId: entry.packageId }),
+          fetchItemBody(entry.type, entry.name, { packageId: entry.packageId, member: entry.member }),
+          fetchItemBody(entry.type, entry.name, {
+            draft: true,
+            packageId: entry.packageId,
+            member: entry.member,
+          }),
         ]);
         if (cancelled) return;
         const computed = computeChangeDetail(published, draft);
@@ -336,7 +363,7 @@ function EntryDetail({
     return () => {
       cancelled = true;
     };
-  }, [entry.type, entry.name, entry.packageId]);
+  }, [entry.type, entry.name, entry.packageId, entry.member]);
 
   if (error) {
     return (
@@ -514,9 +541,38 @@ export function DraftChangesPanel({
       // Classify new-vs-update per TYPE: one published-list read covers every
       // draft of that type. A type whose read fails stays unclassified
       // (rendered neutrally) rather than failing the whole panel.
-      const types = [...new Set(drafts.map((d) => d.type))];
-      await Promise.all(
-        types.map(async (type) => {
+      //
+      // A member entry is classified by its OWN published read instead
+      // (objectstack#23073): the name list says the NAME is published, which
+      // for `email_template` is true as soon as any one language is — so the
+      // first `zh-CN` draft of a published `en-US` template read *Update*.
+      // Whether this member is published is answered by the by-name door with
+      // its `?member=`; nothing here derives a member from the name.
+      const memberEntries = drafts.filter((d) => d.member);
+      const types = [...new Set(drafts.filter((d) => !d.member).map((d) => d.type))];
+      const classifyMembers = memberEntries.map(async (target) => {
+        let exists: boolean;
+        try {
+          exists =
+            (await fetchItemBody(target.type, target.name, {
+              packageId: target.packageId,
+              member: target.member,
+            })) !== null;
+        } catch {
+          return;
+        }
+        const key = entryKey(target);
+        setEntries((prev) =>
+          prev
+            ? prev.map((entry) =>
+                entryKey(entry) === key ? { ...entry, kind: exists ? 'update' : 'new' } : entry,
+              )
+            : prev,
+        );
+      });
+      await Promise.all([
+        ...classifyMembers,
+        ...types.map(async (type) => {
           let published: Set<string> | null = null;
           try {
             published = await publishedNamesOf(type);
@@ -526,14 +582,14 @@ export function DraftChangesPanel({
           setEntries((prev) =>
             prev
               ? prev.map((entry) =>
-                  entry.type === type
+                  entry.type === type && !entry.member
                     ? { ...entry, kind: published!.has(entry.name) ? 'update' : 'new' }
                     : entry,
                 )
               : prev,
           );
         }),
-      );
+      ]);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -624,7 +680,7 @@ export function DraftChangesPanel({
                 </h4>
                 <ul className="flex flex-col gap-1">
                   {items.map((entry) => {
-                    const key = `${entry.type}:${entry.name}`;
+                    const key = entryKey(entry);
                     const isExpanded = expanded.has(key);
                     // objectui#11807 — the drill-in found nothing this publish
                     // changes: not an UPDATE, whatever the name list said.
@@ -661,6 +717,16 @@ export function DraftChangesPanel({
                             <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
                           )}
                           <span className="min-w-0 flex-1 truncate font-mono text-xs">{entry.name}</span>
+                          {entry.member ? (
+                            // The member is what tells two rows of one name
+                            // apart (objectstack#23073); shown as served.
+                            <span
+                              className="shrink-0 font-mono text-xs text-muted-foreground"
+                              data-testid="draft-entry-member"
+                            >
+                              {entry.member}
+                            </span>
+                          ) : null}
                           {!isUnchanged && entry.kind ? (
                             <Badge
                               variant="outline"

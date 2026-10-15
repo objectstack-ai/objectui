@@ -1647,13 +1647,28 @@ export class MetadataClient {
    * Idempotent: returns the result even when no overlay row existed.
    * Pass `state: 'draft'` to discard the pending draft only (keeps the
    * published overlay intact) — useful for a Studio "Discard draft" button.
+   *
+   * Pass `packageId` to name the package whose row the delete removes, sent
+   * as `?package=`. A delete that names none addresses the one package that
+   * holds the item; when two or more packages hold it the door refuses it
+   * `409 RESOURCE_CONFLICT`, deletes nothing, and names `?package=` as the
+   * remedy. That refusal is thrown like any other {@link MetadataError}.
    */
   async reset<T = unknown>(
     type: string,
     name: string,
     options: MetadataDeleteOptions = {},
   ): Promise<T> {
-    const qs = options.state === 'draft' ? '?state=draft' : '';
+    // objectui#12335 — the delete door reads `?package=` since objectstack
+    // `543b33dee` (`@objectstack/rest` 18.0.0-next.1). Before it the door
+    // refused the parameter 400 as unknown, so this method sent none, and the
+    // `packageId` its options type already inherited was silently dropped.
+    // Same wire spelling and same conditional as `save()` and `publish()`:
+    // present when the caller has a binding, OMITTED (never empty) when not.
+    const params: string[] = [];
+    if (options.state === 'draft') params.push('state=draft');
+    if (options.packageId) params.push(`package=${encodeURIComponent(options.packageId)}`);
+    const qs = params.length ? `?${params.join('&')}` : '';
     const url = `${this.base}/${encodeURIComponent(type)}/${encodeURIComponent(name)}${qs}`;
     const headers: Record<string, string> = { ...this.headers };
     if (options.ifMatch) headers['If-Match'] = options.ifMatch;

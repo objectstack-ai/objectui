@@ -58,6 +58,15 @@
  *   `_packageId`), as the console's other package-aware writes do, and a
  *   package-less app sends no scope at all.
  *
+ * ## A delete names the package whose row it removes (objectui#12397)
+ *
+ * Since objectstack#23165, a delete that names no package of an app two
+ * packages hold is refused `409 RESOURCE_CONFLICT`: nothing is deleted, and the
+ * refusal names `?package=` as the remedy. The page already knows the owner, so
+ * Delete sends it the way the saves do, through the client's
+ * `DeleteMetaItemOptions.packageId` (objectstack#23293). A package-less app
+ * sends no scope, and a refusal is still shown in the server's own words.
+ *
  * After every write, whatever it answered, the page re-reads the list, so each
  * row shows the state the server serves. No row is patched locally ahead of
  * that read.
@@ -142,6 +151,22 @@ function saveApp(
   return packageId
     ? meta.saveItem('app', app.name, body, { packageId })
     : meta.saveItem('app', app.name, body);
+}
+
+/**
+ * Delete one app's row in the scope it is served from (objectui#12397).
+ *
+ * The same reading as {@link saveApp}: a package-owned app is deleted with
+ * `{ packageId }`, which the SDK sends as `?package=`, so a name two packages
+ * hold is not refused for naming neither. A package-less app is deleted with
+ * no third argument, because there is no package to name. Never a guess: the
+ * scope comes only from the served `_packageId`.
+ */
+function deleteApp(meta: MetaWriteClient, app: { name: string; _packageId?: unknown }) {
+  const packageId = owningPackage(app);
+  return packageId
+    ? meta.deleteItem('app', app.name, { packageId })
+    : meta.deleteItem('app', app.name);
 }
 
 /**
@@ -337,7 +362,7 @@ export function AppManagementPage() {
     }
     setProcessing(true);
     try {
-      const answer = await meta.deleteItem('app', appToDelete.name);
+      const answer = await deleteApp(meta, appToDelete);
       setConfirmDelete(null);
       if (answer.reset === false) {
         // The door found no customization row to remove: the app already is

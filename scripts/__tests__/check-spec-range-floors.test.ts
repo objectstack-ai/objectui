@@ -12,10 +12,12 @@ import {
   collectSpecUsage,
   compareVersions,
   declaredExportNames,
+  FLOOR_VERSION,
   effectiveFloor,
   isNameableArtifact,
   lowestSatisfyingVersion,
   minVersionOf,
+  replacementFloorLine,
   resolveExportTarget,
   specSubpathOf,
   specSubpathsFromLiterals,
@@ -116,6 +118,20 @@ describe('the declared floor', () => {
     expect(minVersionOf('>=17.1.0 <18.0.0')).toBe('17.1.0');
   });
 
+  it('reads a PRERELEASE floor as that exact prerelease — the 18 line exists only as one', () => {
+    // objectui#12334. The workspace declares `^18.0.0-next.N` since objectui#12030;
+    // when this threw, no package counted as floored and the run stopped at the
+    // collapse alarm, cancelling `pnpm changeset:publish`.
+    expect(minVersionOf('^18.0.0-next.1')).toBe('18.0.0-next.1');
+    expect(minVersionOf('~18.0.0-rc.2')).toBe('18.0.0-rc.2');
+    expect(minVersionOf('18.0.0-next.1')).toBe('18.0.0-next.1');
+    expect(minVersionOf('>=18.0.0-next.1 <19.0.0')).toBe('18.0.0-next.1');
+    expect(FLOOR_VERSION.test('18.0.0-next.1')).toBe(true);
+    expect(FLOOR_VERSION.test('18.0.0')).toBe(true);
+    expect(FLOOR_VERSION.test('18.0.0-')).toBe(false);
+    expect(FLOOR_VERSION.test('18.0.0-next.1+build.5')).toBe(false);
+  });
+
   it('takes the LOWEST branch of a `||` union — a consumer may satisfy any one', () => {
     expect(minVersionOf('^17.1.0 || ^18.0.0')).toBe('17.1.0');
     expect(minVersionOf('^18.0.0 || ^17.0.0')).toBe('17.0.0');
@@ -125,9 +141,12 @@ describe('the declared floor', () => {
     // The direction that matters. A range silently read as "floor 0.0.0" is
     // satisfied by every version ever published, and the gate goes green while
     // asserting nothing — which is precisely the state this card found.
-    for (const range of ['*', '', 'latest', '>17.0.0', 'workspace:*', '^17.0.0-rc.1']) {
+    for (const range of ['*', '', 'latest', '>17.0.0', 'workspace:*', '^18.0.0-next.1+build.5', '^18.0.0-', '>18.0.0-next.1']) {
       expect(() => minVersionOf(range), range).toThrow();
     }
+    // Reading a prerelease is not ORDERING one: the lowest branch of a union
+    // is an ordering, so a union with a prerelease branch is still unread.
+    expect(() => minVersionOf('^17.1.0 || ^18.0.0-next.1')).toThrow(/cannot order/);
     // An UPPER bound alone. Added because a mutation battery found it: every
     // range above is rejected while parsing a comparator, so none of them ever
     // reached the "parsed fine, named no floor" branch — and a mutation
@@ -146,6 +165,20 @@ describe('the declared floor', () => {
     // A consumer install must satisfy both at once, so 17.0.0 is not admitted.
     expect(floor?.version).toBe('17.2.0');
     expect(floor?.ranges).toHaveLength(2);
+  });
+
+  it('takes a prerelease floor declared twice, and refuses two DIFFERENT ones rather than order them', () => {
+    const same = effectiveFloor({
+      dependencies: { [SPEC_PACKAGE]: '^18.0.0-next.1' },
+      peerDependencies: { [SPEC_PACKAGE]: '^18.0.0-next.1' },
+    });
+    expect(same?.version).toBe('18.0.0-next.1');
+    expect(() =>
+      effectiveFloor({
+        dependencies: { [SPEC_PACKAGE]: '^18.0.0-next.1' },
+        peerDependencies: { [SPEC_PACKAGE]: '^18.0.0-next.2' },
+      }),
+    ).toThrow(/peerDependencies.*does not order prereleases/);
   });
 
   it('is null when only `devDependencies` declares it — that floors nobody', () => {
@@ -336,6 +369,24 @@ describe('the verdict', () => {
     expect(lowestSatisfyingVersion(wanted, ['17.0.0', '17.1.0', '17.2.0'], load)).toBe('17.1.0');
     expect(lowestSatisfyingVersion(wanted, ['17.0.0'], load)).toBeNull();
   });
+
+  it('names no replacement for a PRERELEASE floor, and never searches for one', () => {
+    // Finding a replacement orders published versions against the floor, and
+    // this gate does not order prereleases.
+    const wanted = new Map([['./ui', new Map([['ReferenceRailEntry', ['dist/a.d.ts']]])]]);
+    const load = () => {
+      throw new Error('searched for a replacement of a prerelease floor');
+    };
+    const line = replacementFloorLine('@object-ui/plugin-detail', '18.0.0-next.1', wanted, ['17.7.0'], load);
+    expect(line).toContain('18.0.0-next.1 is a prerelease');
+    expect(line).not.toMatch(/"\^/);
+
+    // A release floor keeps the search it always had.
+    const found = replacementFloorLine('@object-ui/plugin-detail', '17.0.0', wanted, ['17.0.0', '17.1.0'], (v: string) =>
+      fakeSpec(v, { './ui': v === '17.0.0' ? [] : ['ReferenceRailEntry'] }),
+    );
+    expect(found).toContain(`"${SPEC_PACKAGE}": "^17.1.0"`);
+  });
 });
 
 // ── 6. the export surface is read from the fetched manifest, ESM half ────────
@@ -456,6 +507,59 @@ describe('where the gate is wired', () => {
 });
 
 // ── 8. the vacuous verdict is RED ────────────────────────────────────────────
+
+describe('a prerelease floor is judged like any other', () => {
+  /** One package declaring the spec at a prerelease floor, with one artifact. */
+  function prereleaseCheckout(artifact: string) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-range-floors-pre-'));
+    fixtures.push(root);
+    fs.mkdirSync(path.join(root, 'packages/detail/dist'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'packages/detail/dist/index.d.ts'), artifact);
+    const manifest = { name: '@object-ui/plugin-detail', dependencies: { [SPEC_PACKAGE]: '^18.0.0-next.1' } };
+    return { root, packages: [{ name: manifest.name, dir: 'packages/detail', manifest }] };
+  }
+
+  it('fetches THAT prerelease and reds on a symbol it does not export', async () => {
+    const { analyze } = await import('../check-spec-range-floors.mjs');
+    const { root, packages } = prereleaseCheckout(`export type { ReferenceRailEntry } from '@objectstack/spec/ui';`);
+    const asked: string[] = [];
+    const result = analyze(root, {
+      packages,
+      load: (version: string) => {
+        asked.push(version);
+        return fakeSpec(version, { './ui': ['defineView'] });
+      },
+    }) as { findings: Finding[]; counters: { floored: number } };
+
+    expect(asked).toEqual(['18.0.0-next.1']);
+    expect(result.counters.floored).toBe(1);
+    expect(result.findings.map((f) => `${f.reason} ${f.symbol}`)).toEqual(['floor-too-low ReferenceRailEntry']);
+  });
+
+  it('goes GREEN when that prerelease exports the symbol', async () => {
+    const { analyze } = await import('../check-spec-range-floors.mjs');
+    const { root, packages } = prereleaseCheckout(`export type { ReferenceRailEntry } from '@objectstack/spec/ui';`);
+    const result = analyze(root, {
+      packages,
+      load: (version: string) => fakeSpec(version, { './ui': ['ReferenceRailEntry'] }),
+    }) as { findings: Finding[] };
+    expect(result.findings).toEqual([]);
+  });
+
+  it('still reports a range it cannot read, and does not count it as floored', async () => {
+    const { analyze } = await import('../check-spec-range-floors.mjs');
+    const { root, packages } = prereleaseCheckout('export {};');
+    packages[0].manifest.dependencies[SPEC_PACKAGE] = '>18.0.0-next.1';
+    const result = analyze(root, {
+      packages,
+      load: () => {
+        throw new Error('the gate fetched a spec version for a range it could not read');
+      },
+    }) as { findings: Finding[]; counters: { floored: number } };
+    expect(result.counters.floored).toBe(0);
+    expect(result.findings.map((f) => f.reason)).toEqual(['unreadable-range']);
+  });
+});
 
 describe('nothing to inspect is a FAILURE, not a pass', () => {
   it('reports a package that declares the spec and produced no build output', async () => {

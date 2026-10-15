@@ -180,12 +180,35 @@ export const MIN_FLOORED_PACKAGES = 8;
 // ── range arithmetic, deliberately narrow ────────────────────────────────────
 
 /**
- * The versions this gate can reason about: `X.Y.Z`, no prerelease, no build
- * metadata. Prereleases are dropped rather than ordered because a floor
- * expressed as one is a question this card never had to answer, and a wrong
- * answer here would read as a verdict.
+ * The versions this gate can ORDER: `X.Y.Z`, no prerelease, no build metadata.
+ * Prereleases are never ordered — not against each other, not against a
+ * release — because semver's prerelease precedence is a question this gate has
+ * never had to answer, and a wrong answer here would read as a verdict.
  */
 export const RELEASE_VERSION = /^(\d+)\.(\d+)\.(\d+)$/;
+
+/**
+ * The versions this gate can READ AS A FLOOR: a plain release, or a prerelease
+ * of one (`18.0.0-next.1`), still with no build metadata (objectui#12334).
+ *
+ * A prerelease floor is judged exactly like a release floor: that exact version
+ * is fetched from the registry and its own export surface is read. It became
+ * necessary when the workspace moved onto `@objectstack/*` 18, which exists only
+ * as prereleases on the `next` dist-tag (objectui#12030): every range read
+ * `^18.0.0-next.N`, every one threw here, no package counted as floored, and
+ * the run stopped at the collapse alarm — so `pnpm changeset:publish`, which
+ * runs this gate first, could publish nothing.
+ *
+ * Reading one is not ordering one. Where a floor would have to be COMPARED —
+ * two consumer-facing fields naming different floors, a `||` union, the search
+ * for a replacement floor — a prerelease still throws or names nothing, as
+ * before. Two fields naming the SAME floor need no comparison.
+ */
+const FLOOR_SPELLING = String.raw`\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?`;
+export const FLOOR_VERSION = new RegExp(`^${FLOOR_SPELLING}$`);
+
+/** One lower-bound comparator: an optional operator, then a FLOOR_VERSION. */
+const LOWER_BOUND = new RegExp(String.raw`^(\^|~|>=|=)?(${FLOOR_SPELLING})$`);
 
 /** `[major, minor, patch]`, or `null` when `version` is not a plain release. */
 export function parseVersion(version) {
@@ -229,9 +252,12 @@ export function majorOf(version) {
  *
  * Supported: `X.Y.Z`, `=X.Y.Z`, `^X.Y.Z`, `~X.Y.Z`, `>=X.Y.Z`, and a
  * space-separated comparator set carrying exactly one of those as its lower
- * bound (`>=17.1.0 <18.0.0`). A `||` union takes the LOWEST branch: a consumer
- * may satisfy the range through any alternative, so the lowest is what the
- * range admits.
+ * bound (`>=17.1.0 <18.0.0`). Each lower bound may name a prerelease
+ * (`^18.0.0-next.1`), which is then the floor itself: the lowest version such a
+ * range admits is that exact prerelease (FLOOR_VERSION above). A `||` union
+ * takes the LOWEST branch: a consumer may satisfy the range through any
+ * alternative, so the lowest is what the range admits — and since finding the
+ * lowest is an ordering, a union with a prerelease branch still throws.
  */
 export function minVersionOf(range) {
   const text = String(range).trim();
@@ -244,7 +270,7 @@ export function minVersionOf(range) {
 
   let floor = null;
   for (const comparator of text.split(/\s+/).filter(Boolean)) {
-    const lower = /^(\^|~|>=|=)?(\d+\.\d+\.\d+)$/.exec(comparator);
+    const lower = LOWER_BOUND.exec(comparator);
     if (lower) {
       if (floor !== null) {
         throw new Error(`range "${text}" carries more than one lower bound; this gate reads exactly one.`);
@@ -292,7 +318,21 @@ export function effectiveFloor(manifest, fields = RUNTIME_FIELDS) {
       );
     }
     // Highest minimum wins: a consumer must satisfy every declared field at once.
-    if (floor === null || compareVersions(min, floor) > 0) floor = min;
+    // Two fields naming the SAME floor need no ordering, which is what lets a
+    // prerelease floor declared twice through; two different prerelease floors
+    // would need one, and stay unreadable (FLOOR_VERSION above).
+    if (floor === null || min === floor) {
+      floor = min;
+      continue;
+    }
+    try {
+      if (compareVersions(min, floor) > 0) floor = min;
+    } catch (error) {
+      throw new Error(
+        `${ranges.map((r) => `${r.field}["${SPEC_PACKAGE}"] = "${r.range}"`).join(', ')}: ${error.message}. ` +
+          'Two different floors have to be ordered to name the effective one, and this gate does not order prereleases.',
+      );
+    }
   }
   return { version: floor, ranges };
 }
@@ -769,6 +809,30 @@ export function lowestSatisfyingVersion(wanted, candidates, load) {
   return null;
 }
 
+/**
+ * The remedy line printed under the `floor-too-low` findings for one package:
+ * the lowest published release of the floor's major that exports every symbol
+ * the package references, or the statement that none does.
+ *
+ * A PRERELEASE floor names no replacement. Finding one means ordering published
+ * versions against the floor, and this gate does not order prereleases
+ * (FLOOR_VERSION above) — so it says that, rather than offering a release it
+ * reached by an ordering it does not define.
+ */
+export function replacementFloorLine(pkg, floor, wanted, versions, load) {
+  if (parseVersion(floor) === null) {
+    return (
+      `      ${pkg}  →  its floor ${floor} is a prerelease, which this gate does not order, so it names no ` +
+      `replacement: raise the range to a published ${SPEC_PACKAGE} that exports the symbols above.`
+    );
+  }
+  const candidates = versions.filter((v) => compareVersions(v, floor) > 0 && majorOf(v) === majorOf(floor));
+  const answer = lowestSatisfyingVersion(wanted, candidates, load);
+  return answer
+    ? `      ${pkg}  →  "${SPEC_PACKAGE}": "^${answer}"`
+    : `      ${pkg}  →  no published ${majorOf(floor)}.x carries every symbol it references; the spec side is what is wrong.`;
+}
+
 /** Published versions of the spec, oldest first, prereleases dropped. */
 export function publishedVersions(run = () => execFileSync('npm', ['view', SPEC_PACKAGE, 'versions', '--json'], { encoding: 'utf8' })) {
   const parsed = JSON.parse(run());
@@ -916,13 +980,7 @@ export async function main(argv = process.argv.slice(2)) {
     for (const pkg of [...new Set(tooLow.map((f) => f.pkg))].sort()) {
       const wanted = tooLow.find((f) => f.pkg === pkg).usage;
       const floor = tooLow.find((f) => f.pkg === pkg).floor;
-      const candidates = versions.filter((v) => compareVersions(v, floor) > 0 && majorOf(v) === majorOf(floor));
-      const answer = lowestSatisfyingVersion(wanted, candidates, (v) => loadPublishedSpec(v, cacheRoot, { log }));
-      console.error(
-        answer
-          ? `      ${pkg}  →  "${SPEC_PACKAGE}": "^${answer}"`
-          : `      ${pkg}  →  no published ${majorOf(floor)}.x carries every symbol it references; the spec side is what is wrong.`,
-      );
+      console.error(replacementFloorLine(pkg, floor, wanted, versions, (v) => loadPublishedSpec(v, cacheRoot, { log })));
     }
   }
 

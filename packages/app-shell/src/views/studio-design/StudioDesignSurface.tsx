@@ -5479,9 +5479,6 @@ export function DataPillar({
   // take focus back when the popover closes.
   const [gridAddFieldOpen, setGridAddFieldOpen] = React.useState(false);
   const gridAddFieldButton = React.useRef<HTMLElement | null>(null);
-  // Leaving the grid (another tab or object) unmounts the popover; it does not
-  // come back open on return.
-  React.useEffect(() => setGridAddFieldOpen(false), [viewMode, current?.name]);
 
   // Drag-reorder columns → reorder the object's `fields` metadata (field display
   // order follows metadata order), saved as a DRAFT. Published later via the

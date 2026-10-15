@@ -217,6 +217,19 @@ describe('Data pillar — Add field asks for the label and type first (objectui#
     expect(within(inspector).getByText('region')).toBeInTheDocument();
   });
 
+  it('leaving the Records grid with the popover open does not bring it back open on return', async () => {
+    await renderPillar();
+    await userEvent.click(screen.getByTestId('grid-add-column'));
+    await screen.findByTestId('add-field-popover');
+    // The tab row is outside the popover: a click there dismisses it, and the
+    // grid unmounts with the tab.
+    await userEvent.click(screen.getAllByRole('button', { name: FORM })[0]);
+    await screen.findByTestId('form-toolbar');
+    await userEvent.click(screen.getAllByRole('button', { name: t('engine.studio.data.tab.records', 'en') })[0]);
+    await screen.findByTestId('grid-add-column');
+    expect(screen.queryByTestId('add-field-popover')).toBeNull();
+  });
+
   it('CONTROL — read-only: no Add field, so no popover', async () => {
     await renderPillar({ readOnly: true });
     expect(screen.queryByTestId('grid-add-column')).toBeNull();

@@ -6153,8 +6153,8 @@ export function AutomationsPillar({
   const newChoiceGroup = React.useId();
   // objectui#12303 — the read-only reason the header's status switch is described by.
   const toggleReadOnlyReasonId = React.useId();
-  // objectui#12454 — and the "off by default" sentence the retired band said.
-  const toggleDefaultOffId = React.useId();
+  // objectui#12454 — the canvas hint the header used to print describes the Canvas tab.
+  const canvasHintId = React.useId();
   // objectui#11591 — keyed on the pillar's one type, as the inspector beside
   // it is, never on the open flow's: with no flow open (a deep link naming one
   // this rail does not hold, or an empty rail) a selection-keyed read found no
@@ -6507,8 +6507,9 @@ export function AutomationsPillar({
   // objectui#12459 — the switch and the "off by default" sentence sit in the
   // item header's actions slot; the full-width band above the rail retires.
   // objectui#12454 — the sentence is the switch's own: the first line of its
-  // title, and its description for a reader (the visually hidden line beside
-  // it), instead of a second line of header text.
+  // title, and a visually hidden line right after it for a reader, instead of a
+  // second line of header text. It is not wired as the switch's description:
+  // that stays the read-only reason alone (objectui#12303, owned by #12453).
   // objectui#11272 — the switch reads and saves the open flow's own
   // document, so it waits for it: not offered over another's.
   const flowSwitchEl =
@@ -6522,7 +6523,7 @@ export function AutomationsPillar({
               aria-checked={flowEnabled}
               onClick={toggleEnabled}
               disabled={!isEditable || !!saving || readOnly}
-              aria-describedby={readOnly ? `${toggleReadOnlyReasonId} ${toggleDefaultOffId}` : toggleDefaultOffId}
+              aria-describedby={readOnly ? toggleReadOnlyReasonId : undefined}
               // A read-only package's reason is the wrapper's (objectui#12303),
               // not a `title` the disabled button can never show.
               title={
@@ -6541,11 +6542,7 @@ export function AutomationsPillar({
               {flowEnabled ? t('engine.studio.auto.enabled', locale) : t('engine.studio.auto.disabled', locale)}
             </button>
           );
-          const defaultOffLine = (
-            <span id={toggleDefaultOffId} className="sr-only">
-              {defaultOff}
-            </span>
-          );
+          const defaultOffLine = <span className="sr-only">{defaultOff}</span>;
           if (!readOnly)
             return (
               <>
@@ -6554,25 +6551,27 @@ export function AutomationsPillar({
               </>
             );
           return (
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span
-                    tabIndex={0}
-                    aria-describedby={toggleReadOnlyReasonId}
-                    data-disabled-reason=""
-                    className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  >
-                    {toggle}
-                    <span id={toggleReadOnlyReasonId} className="sr-only">
-                      {t('engine.studio.pkg.readonlyHint', locale)}
+            <>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      tabIndex={0}
+                      aria-describedby={toggleReadOnlyReasonId}
+                      data-disabled-reason=""
+                      className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                      {toggle}
+                      <span id={toggleReadOnlyReasonId} className="sr-only">
+                        {t('engine.studio.pkg.readonlyHint', locale)}
+                      </span>
                     </span>
-                    {defaultOffLine}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>{t('engine.studio.pkg.readonlyHint', locale)}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+                  </TooltipTrigger>
+                  <TooltipContent>{t('engine.studio.pkg.readonlyHint', locale)}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              {defaultOffLine}
+            </>
           );
         })()
       : null;
@@ -6631,19 +6630,23 @@ export function AutomationsPillar({
   // The Status the meta shows is the one the preview's Problems note reads
   // (objectui#11779): the runtime row while one is in, the draft otherwise.
   const flowOpen = !!current && flowLoaded && isEditable;
-  const flowHasNodes = Array.isArray(draft.nodes) && draft.nodes.length > 0;
   // The engine keys run history by the flow's name, as the preview's Runs did.
   const flowHasRuns = typeof draft.name === 'string' && draft.name.length > 0;
   const section: FlowPreviewSection = flowSection === 'runs' && !flowHasRuns ? 'canvas' : flowSection;
   const headerRunStatus = current
     ? deriveFlowRunStatus(flowStatusRead ? (flowStatus[current.name] ?? null) : undefined, draft.status, flowRegistrations[current.name])
     : null;
-  const flowTab = (key: FlowPreviewSection, label: string, extra?: { title?: string; badge?: React.ReactNode }) => (
+  const flowTab = (
+    key: FlowPreviewSection,
+    label: string,
+    extra?: { title?: string; badge?: React.ReactNode; describedBy?: string },
+  ) => (
     <StudioTab
       key={key}
       active={section === key}
       onClick={() => setFlowSection(key)}
       title={extra?.title}
+      aria-describedby={extra?.describedBy}
       data-testid={`auto-tab-${key}`}
     >
       {label}
@@ -6651,9 +6654,12 @@ export function AutomationsPillar({
     </StudioTab>
   );
   const flowTabsEl =
-    flowOpen && flowHasNodes ? (
+    flowOpen ? (
       <>
-        {flowTab('canvas', t('engine.studio.if.tabCanvas', locale), { title: t('engine.studio.auto.canvasHint', locale) })}
+        {flowTab('canvas', t('engine.studio.if.tabCanvas', locale), {
+          title: t('engine.studio.auto.canvasHint', locale),
+          describedBy: canvasHintId,
+        })}
         {flowTab('variables', t('engine.flowPreview.variables', locale))}
         {flowHasRuns && flowTab('runs', t('engine.flowPreview.runs', locale), { title: t('engine.flowPreview.runsTitle', locale) })}
         {flowTab('problems', t('engine.flowPreview.problems', locale), {
@@ -6674,6 +6680,9 @@ export function AutomationsPillar({
             ) : undefined,
         })}
         {flowTab('debug', t('engine.flowPreview.debug', locale))}
+        <span id={canvasHintId} className="sr-only">
+          {t('engine.studio.auto.canvasHint', locale)}
+        </span>
       </>
     ) : undefined;
 

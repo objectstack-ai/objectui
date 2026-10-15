@@ -11,9 +11,10 @@
  * flow's label, and hovering shows the API name; en follows the same rule.
  *
  * The pillar is the real `AutomationsPillar` with the real registered
- * `FlowPreview`, so the neighbouring chip is the one an author sees
- * (`canvasHint`, not the "no designers registered" line, which names a flow in
- * English). The client is a server double. The flow's API name is chosen to
+ * `FlowPreview`, so the neighbouring text is the one an author sees: since
+ * objectui#12454 the flow's meta (Trigger · Status · Run as · version), which
+ * replaced the `canvasHint` chip in the header row — not the "no designers
+ * registered" line, which names a flow in English. The client is a server double. The flow's API name is chosen to
  * carry no `flow` token, so "the header holds no `flow`" cannot be satisfied
  * by the name alone.
  */
@@ -129,9 +130,10 @@ function renderPillar(language: 'zh' | 'en') {
   );
 }
 
-/** The canvas caption of the open flow, and the header strip that holds it. */
+/** The canvas caption of the open flow, and the header strip that holds it, once the flow's meta is in it. */
 async function caption(): Promise<{ chip: HTMLElement; header: HTMLElement }> {
   const chip = await screen.findByTestId('auto-canvas-caption', undefined, { timeout: 8000 });
+  await screen.findByTestId('auto-flow-meta', undefined, { timeout: 8000 });
   return { chip, header: chip.parentElement as HTMLElement };
 }
 
@@ -147,7 +149,9 @@ describe('the automation canvas header names the open flow by its label (objectu
     expect(chip).toHaveTextContent(/^每日摘要$/);
     expect(chip).toHaveAttribute('title', `API 名称: ${API_NAME}`);
     // The neighbouring chip is the real zh `canvasHint`, so the header read is the whole strip.
-    expect(header).toHaveTextContent('点选画布上的节点即可配置');
+    // The neighbouring meta is the real zh row, so the header is read in zh.
+    expect(header).toHaveTextContent('运行身份');
+    expect(header).toHaveTextContent('自动启动');
     expect(header.textContent ?? '').not.toMatch(TYPE_WORD);
     expect(header.textContent ?? '').not.toContain(API_NAME);
     expect(chip.getAttribute('title') ?? '').not.toMatch(TYPE_WORD);
@@ -160,7 +164,8 @@ describe('the automation canvas header names the open flow by its label (objectu
 
     expect(chip).toHaveTextContent(/^Nightly digest$/);
     expect(chip).toHaveAttribute('title', `API name: ${API_NAME}`);
-    expect(header).toHaveTextContent('Visual orchestration');
+    expect(header).toHaveTextContent('Run as:');
+    expect(header).toHaveTextContent('autolaunched');
     expect(header.textContent ?? '').not.toMatch(TYPE_WORD);
     expect(header.textContent ?? '').not.toContain(API_NAME);
     expect(chip.getAttribute('title') ?? '').not.toMatch(TYPE_WORD);

@@ -407,7 +407,9 @@ describe('a deep-link miss and an empty list show no "no designers" notice (obje
     // Control: the designers are registered, so the notice would be false.
     expect(getMetadataPreview('flow')).toBe(FlowPreview);
     expect(document.body.textContent).not.toContain(NO_DESIGNERS);
-    expect(screen.getByText('Visual orchestration · click a node to configure')).toBeInTheDocument();
+    // objectui#12454 — the canvas hint is the Canvas tab's description now, and
+    // with no flow open there is no tab row to carry it.
+    expect(screen.queryByTestId('auto-tab-canvas')).toBeNull();
     // No flow was opened in the missing one's place.
     expect(mockClient.layered).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: /QA urgent alert clone/ })).toBeInTheDocument();

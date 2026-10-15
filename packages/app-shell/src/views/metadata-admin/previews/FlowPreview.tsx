@@ -377,67 +377,69 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
   // Run history needs the published flow name (the engine keys runs by it).
   const flowName = typeof d.name === 'string' && d.name ? d.name : '';
 
-  if (nodes.length === 0) {
-    const empty = canEdit ? (
-      <div className="p-3">
-        <button
-          type="button"
-          className="inline-flex items-center gap-1 rounded border border-dashed px-3 py-2 text-xs text-muted-foreground hover:bg-muted/30 hover:text-foreground"
-          onClick={handleAddNode}
-        >
-          <Plus className="h-3 w-3" />
-          {tr('engine.inspector.add.node', locale)}
-        </button>
-      </div>
-    ) : (
-      <PreviewMessage>{tr('engine.flowPreview.emptyHint', locale)}</PreviewMessage>
-    );
-    // objectui#12454 — under a host's chrome, no frame of its own.
-    if (chrome) return <div className="h-full">{empty}</div>;
+  const empty = canEdit ? (
+    <div className="p-3">
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 rounded border border-dashed px-3 py-2 text-xs text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+        onClick={handleAddNode}
+      >
+        <Plus className="h-3 w-3" />
+        {tr('engine.inspector.add.node', locale)}
+      </button>
+    </div>
+  ) : (
+    <PreviewMessage>{tr('engine.flowPreview.emptyHint', locale)}</PreviewMessage>
+  );
+  if (nodes.length === 0 && !chrome) {
     return <PreviewShell hint={`flow${designMode ? ' · design' : ''}`}>{empty}</PreviewShell>;
   }
 
-  // The canvas, the same element in both chromes (objectui#12454).
-  const canvasEl = (
-      <FlowCanvas
-        nodes={nodes}
-        edges={edges}
-        editable={canEdit}
-        designMode={designMode}
-        selectedId={selectedId}
-        selectedEdgeId={selectedEdgeId}
-        locale={locale}
-        activeNodeId={runHL?.activeNodeId ?? null}
-        visitedNodeIds={runHL?.visitedNodeIds}
-        traversedEdgeIds={runHL?.traversedEdgeIds}
-        invalidNodeIds={invalidNodeIds}
-        invalidEdges={invalidEdges}
-        onRevealProblem={handleSelectProblem}
-        problems={problems}
-        revealSignal={reveal}
-        onSelect={(n) =>
-          n
-            ? onSelectionChange?.({ kind: 'node', id: n.id, label: n.label || n.id })
-            : onSelectionChange?.(null)
-        }
-        onSelectEdge={(e, key) =>
-          e
-            ? onSelectionChange?.({ kind: 'edge', id: key, label: `${e.source} → ${e.target}` })
-            : onSelectionChange?.(null)
-        }
-        selectedNestedPath={selectedNestedPath}
-        onSelectNested={(path, node) =>
-          path
-            ? onSelectionChange?.({
-                kind: NESTED_NODE_KIND,
-                id: encodeNestedNodeId(path),
-                label: node?.label || path.nodeId,
-              })
-            : onSelectionChange?.(null)
-        }
-        onPatch={onPatch}
-        mintNodeId={mintNodeId}
-      />
+  // The canvas, the same element in both chromes (objectui#12454). Under a
+  // host's chrome a flow with no node yet keeps its tabs: the canvas section
+  // offers the first node, and the other sections read as they do.
+  const canvasEl = nodes.length === 0 ? (
+    <div className="h-full">{empty}</div>
+  ) : (
+    <FlowCanvas
+      nodes={nodes}
+      edges={edges}
+      editable={canEdit}
+      designMode={designMode}
+      selectedId={selectedId}
+      selectedEdgeId={selectedEdgeId}
+      locale={locale}
+      activeNodeId={runHL?.activeNodeId ?? null}
+      visitedNodeIds={runHL?.visitedNodeIds}
+      traversedEdgeIds={runHL?.traversedEdgeIds}
+      invalidNodeIds={invalidNodeIds}
+      invalidEdges={invalidEdges}
+      onRevealProblem={handleSelectProblem}
+      problems={problems}
+      revealSignal={reveal}
+      onSelect={(n) =>
+        n
+          ? onSelectionChange?.({ kind: 'node', id: n.id, label: n.label || n.id })
+          : onSelectionChange?.(null)
+      }
+      onSelectEdge={(e, key) =>
+        e
+          ? onSelectionChange?.({ kind: 'edge', id: key, label: `${e.source} → ${e.target}` })
+          : onSelectionChange?.(null)
+      }
+      selectedNestedPath={selectedNestedPath}
+      onSelectNested={(path, node) =>
+        path
+          ? onSelectionChange?.({
+              kind: NESTED_NODE_KIND,
+              id: encodeNestedNodeId(path),
+              label: node?.label || path.nodeId,
+            })
+          : onSelectionChange?.(null)
+      }
+      onPatch={onPatch}
+      mintNodeId={mintNodeId}
+    />
   );
 
   // The bar's four panel toggles, as the designer has them: one panel at a time beside the canvas.

@@ -344,8 +344,8 @@ describe('ci.yml wires the selector fail-open (objectui#12214)', () => {
   });
 
   it('keeps the matrix width and the full-suite command for the full battery', () => {
-    const run = code.slice(code.indexOf('- name: Run tests (shard ${{ matrix.shard }}/12)'));
-    expect(run).toContain('pnpm test --shard=${{ matrix.shard }}/12');
-    expect(run).toContain('pnpm exec vitest run --shard=${{ matrix.shard }}/12 "${filters[@]}"');
+    const run = code.slice(code.indexOf('- name: Run tests (shard ${{ matrix.shard }}/16)'));
+    expect(run).toContain('pnpm test --shard=${{ matrix.shard }}/16');
+    expect(run).toContain('pnpm exec vitest run --shard=${{ matrix.shard }}/16 "${filters[@]}"');
   });
 });

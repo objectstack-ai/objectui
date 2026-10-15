@@ -22,7 +22,7 @@
  *   `main` whose M test shards ALL reported success and whose M timing
  *   artifacts are all still there.
  *
- *     node scripts/test-file-timings.mjs select --shards 12 --limit 6 > runs.json
+ *     node scripts/test-file-timings.mjs select --shards 16 --limit 6 > runs.json
  *
  *   THE GENERATOR, `merge`: one directory per run (the run id is the
  *   directory's name), every report under it read; per run a file's

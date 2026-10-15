@@ -582,7 +582,7 @@ describe('the declared buckets partition what a pull request actually produces',
   it('found the workflows and the shard matrix (the parser still parses)', () => {
     expect(workflows.map((w) => w.file)).toContain('ci.yml');
     expect([...produced.keys()]).toEqual(
-      expect.arrayContaining(['Test (shard 1/12)', 'Test (shard 12/12)', 'Test', 'Lint', 'dependabot', 'label']),
+      expect.arrayContaining(['Test (shard 1/16)', 'Test (shard 16/16)', 'Test', 'Lint', 'dependabot', 'label']),
     );
     // No unexpanded template survived the matrix expansion.
     for (const name of produced.keys()) expect(name).not.toContain('${{');

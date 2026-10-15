@@ -244,16 +244,16 @@ export const OPTIONAL_CONTEXTS = Object.freeze({
  * The coverage shards share one reason, spelled once (objectui#5403 split the
  * single `test-coverage` job into a 4-way matrix plus a merge job;
  * objectui#12256 widened it to 8). They are listed individually rather than
- * matched by pattern, for the same reason the twelve PR shards below are: a
+ * matched by pattern, for the same reason the sixteen PR shards below are: a
  * pattern is satisfied by whichever shard happens to exist. The count is held
  * to ci.yml's own matrix by the partition test in `dependabot-merge-gate.test.ts`,
  * which expands the matrix and fails on any produced name this list lacks.
  */
 const COVERAGE_SHARD_NOT_A_GATE =
-  "ci.yml's coverage lane runs on the full battery's events only (`push` and the hourly `schedule`, objectui#12214), so on a pull request it reports conclusion=skipped by design. Coverage is deliberately not recomputed per pull request — v8 instrumentation adds 40-100% overhead — so the PR lane is the `Test (shard N/12)` matrix, which reports through the `Test` aggregator above. ⛔ This lane's own sharding (4-way since objectui#5403, 8-way since objectui#12256) is unrelated to that matrix's width; objectui#9499 and objectui#12208 widened that matrix without touching this one.";
+  "ci.yml's coverage lane runs on the full battery's events only (`push` and the hourly `schedule`, objectui#12214), so on a pull request it reports conclusion=skipped by design. Coverage is deliberately not recomputed per pull request — v8 instrumentation adds 40-100% overhead — so the PR lane is the `Test (shard N/16)` matrix, which reports through the `Test` aggregator above. ⛔ This lane's own sharding (4-way since objectui#5403, 8-way since objectui#12256) is unrelated to that matrix's width; objectui#9499 and objectui#12208 widened that matrix without touching this one.";
 
 /**
- * The twelve test shards share one reason, spelled once. Every one of them is
+ * The sixteen test shards share one reason, spelled once. Every one of them is
  * a real blocking leg — the difference from the coverage shards above is that
  * something else reports their verdict, not that they have none.
  *
@@ -275,24 +275,28 @@ const PR_TEST_SHARD_NOT_A_GATE =
  * defaulting into silence.
  */
 export const NOT_A_GATE = Object.freeze({
-  'Test (shard 1/12)': PR_TEST_SHARD_NOT_A_GATE,
-  'Test (shard 2/12)': PR_TEST_SHARD_NOT_A_GATE,
-  'Test (shard 3/12)': PR_TEST_SHARD_NOT_A_GATE,
-  'Test (shard 4/12)': PR_TEST_SHARD_NOT_A_GATE,
-  'Test (shard 5/12)': PR_TEST_SHARD_NOT_A_GATE,
-  'Test (shard 6/12)': PR_TEST_SHARD_NOT_A_GATE,
-  'Test (shard 7/12)': PR_TEST_SHARD_NOT_A_GATE,
-  'Test (shard 8/12)': PR_TEST_SHARD_NOT_A_GATE,
-  'Test (shard 9/12)': PR_TEST_SHARD_NOT_A_GATE,
-  'Test (shard 10/12)': PR_TEST_SHARD_NOT_A_GATE,
-  'Test (shard 11/12)': PR_TEST_SHARD_NOT_A_GATE,
-  'Test (shard 12/12)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 1/16)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 2/16)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 3/16)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 4/16)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 5/16)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 6/16)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 7/16)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 8/16)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 9/16)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 10/16)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 11/16)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 12/16)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 13/16)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 14/16)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 15/16)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 16/16)': PR_TEST_SHARD_NOT_A_GATE,
   'Test (dist pins)':
     "ci.yml's built-artifact pin lane, lifted out of the shard matrix by objectui#9499 (the lane itself is objectui#7183). Same reading as the shards above: it is blocking, and the `Test` aggregator asserts its result — `needs.test-dist-pins.result` is one job's own conclusion, so `skipped` is visible there without an API read — so the whole test lane still speaks through one required name.",
   dependabot:
     'This workflow itself. The gate runs inside this job, so requiring it would deadlock at its own deadline.',
   'Test (coverage)':
-    "ci.yml's full-battery lane (`push` and the hourly `schedule`, objectui#12214), so on a pull request it reports conclusion=skipped by design. Since objectui#5403 this is the job at the END of the coverage lane — it merges every shard's blob report into one complete report, enforces the configured coverage thresholds over it, publishes it as the `coverage-report` artifact, and goes red whenever any of that did not happen (the Codecov upload it also carried was retired by objectui#5436). The PR lane is the `Test (shard N/12)` matrix, reported through the `Test` aggregator above.",
+    "ci.yml's full-battery lane (`push` and the hourly `schedule`, objectui#12214), so on a pull request it reports conclusion=skipped by design. Since objectui#5403 this is the job at the END of the coverage lane — it merges every shard's blob report into one complete report, enforces the configured coverage thresholds over it, publishes it as the `coverage-report` artifact, and goes red whenever any of that did not happen (the Codecov upload it also carried was retired by objectui#5436). The PR lane is the `Test (shard N/16)` matrix, reported through the `Test` aggregator above.",
   'Test (coverage shard 1/8)': COVERAGE_SHARD_NOT_A_GATE,
   'Test (coverage shard 2/8)': COVERAGE_SHARD_NOT_A_GATE,
   'Test (coverage shard 3/8)': COVERAGE_SHARD_NOT_A_GATE,

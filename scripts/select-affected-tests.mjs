@@ -10,7 +10,7 @@
  *
  * The LAST line on stdout is the verdict, one of:
  *
- *   mode=full       run the whole suite (`pnpm test --shard=N/12`)
+ *   mode=full       run the whole suite (`pnpm test --shard=N/16`)
  *   mode=affected   run the vitest filters written to `--out`, one per line
  *
  * Exit 0 means a verdict was reached -- either one. Any other exit means the
@@ -21,7 +21,7 @@
  * ## The two speeds
  *
  * `push` to `main` and the hourly `schedule` run carry the FULL battery: every
- * test file, twelve shards, plus the four-shard coverage lane. Nothing reads
+ * test file, sixteen shards, plus the sharded coverage lane. Nothing reads
  * this script there. A `pull_request` or `merge_group` run carries the FAST
  * SET this script selects. Whatever the fast set misses, the full battery on
  * `main` still runs within the hour -- that is the doctrine's trade, stated so

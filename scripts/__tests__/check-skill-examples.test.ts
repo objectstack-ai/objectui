@@ -51,7 +51,7 @@ import {
  *
  * Everything here runs on an UNBUILT tree: the fence scanner, the marker
  * convention, the JSON dialects, and the wiring. That boundary is not tidiness —
- * this suite runs inside `ci.yml`'s `Test (shard N/12)` jobs, which do not build
+ * this suite runs inside `ci.yml`'s `Test (shard N/16)` jobs, which do not build
  * the workspace, and a test that needed `dist/*.d.ts` would either be flaky or
  * would quietly assert nothing there.
  *

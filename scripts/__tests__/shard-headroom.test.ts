@@ -78,7 +78,7 @@ describe('⛔ not a gate', () => {
   });
 
   it('exits 0 when the jobs API cannot be read', async () => {
-    const code = await main(['--job', 'Test (shard {n}/12)', '--shards', '12', '--cap-minutes', '20', '--target-minutes', '10']);
+    const code = await main(['--job', 'Test (shard {n}/16)', '--shards', '16', '--cap-minutes', '20', '--target-minutes', '10']);
     expect(code).toBe(EXIT_OK);
   });
 
@@ -89,7 +89,7 @@ describe('⛔ not a gate', () => {
   });
 
   it('exits 2 only for a malformed invocation', async () => {
-    expect(await main(['--job', 'Test', '--shards', '12', '--cap-minutes', '20', '--target-minutes', '10'])).toBe(EXIT_USAGE);
+    expect(await main(['--job', 'Test', '--shards', '16', '--cap-minutes', '20', '--target-minutes', '10'])).toBe(EXIT_USAGE);
   });
 });
 

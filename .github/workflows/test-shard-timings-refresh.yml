@@ -21,7 +21,7 @@
 # fetched "the newest timings artifact" at their own start could straddle a
 # refresh, and two legs on different weights run some files twice and others
 # never, with every leg green. The committed file also makes a partition move a
-# reviewed, reproducible event -- `pnpm test --shard=3/12` on a laptop runs the
+# reviewed, reproducible event -- `pnpm test --shard=3/16` on a laptop runs the
 # same files CI's leg 3 ran -- and the dataset is in the root config's import
 # closure, so the pull request that moves it runs the full suite on the new
 # split before it lands (`scripts/select-affected-tests.mjs`).
@@ -51,12 +51,21 @@
 #
 # `scripts/test-file-timings.mjs select`: the newest completed `CI` runs on
 # `main` from the full battery's events (`push` and the hourly `schedule`,
-# objectui#12214) whose twelve `Test (shard N/12)` legs all reported success
-# and whose twelve `test-file-timings-N` artifacts are all present; at most
+# objectui#12214) whose sixteen `Test (shard N/16)` legs all reported success
+# and whose sixteen `test-file-timings-N` artifacts are all present; at most
 # six, and a file keeps the median of the runs that ran it. When no run
 # qualifies -- before the first full battery has uploaded, or after a week of
 # red -- it prints NOT MEASURED, writes nothing and exits green, because
 # nothing failed; a NOT MEASURED that persists is the finding.
+#
+# The `--shards` it selects by is the `test` matrix's width, and it moves with
+# it: a run of another width names other legs (`Test (shard 1/12)` is not
+# `Test (shard 1/16)`), so it is never eligible, and a stale value here selects
+# nothing forever -- the silent NOT MEASURED above, not a red run. Right after
+# a widening, the old-width runs are skipped by name and the first full
+# battery at the new width that goes green is the first one taken; a refresh
+# that fires before it exists keeps the committed file, which the sequencer
+# reads per file and never by width.
 #
 # ## The pull-request leg
 #
@@ -119,10 +128,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           status=0
-          node scripts/test-file-timings.mjs select --shards 12 --limit 6 > "$RUNNER_TEMP/runs.json" || status=$?
+          node scripts/test-file-timings.mjs select --shards 16 --limit 6 > "$RUNNER_TEMP/runs.json" || status=$?
           echo "status=$status" >> "$GITHUB_OUTPUT"
           if [ "$status" -eq 3 ]; then
-            echo "::warning title=Test shard timings::NOT MEASURED: no completed full-battery run on main has all twelve test shards green and all twelve timing artifacts. scripts/test-shard-timings.json is untouched."
+            echo "::warning title=Test shard timings::NOT MEASURED: no completed full-battery run on main has all sixteen test shards green and all sixteen timing artifacts. scripts/test-shard-timings.json is untouched."
             exit 0
           fi
           if [ "$status" -ne 0 ]; then

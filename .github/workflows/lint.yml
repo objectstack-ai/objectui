@@ -398,7 +398,7 @@ jobs:
       #
       # This step is a SECOND signal, not the gate. The gate is
       # `scripts/__tests__/check-test-path-roots.test.ts`, which runs inside
-      # `Test (shard N/12)`. Those shards are not required contexts themselves
+      # `Test (shard N/16)`. Those shards are not required contexts themselves
       # since objectui#9499 — the `Test` aggregator reports for all of them, and
       # it is required and subscribes `merge_group` — so the verdict still
       # blocks a queue build, through one name instead of N. This step reaches the same verdict sooner

@@ -8,7 +8,7 @@
  * `Test` aggregator prints the longest shard's headroom against the cap as a
  * report-only reading (⛔ not a gate)"; objectstack#22998's timing rule).
  *
- *   node scripts/shard-headroom.mjs --job 'Test (shard {n}/12)' --shards 12 --cap-minutes 20 --target-minutes 10
+ *   node scripts/shard-headroom.mjs --job 'Test (shard {n}/16)' --shards 16 --cap-minutes 20 --target-minutes 10
  *   node scripts/shard-headroom.mjs ... --fixture <jobs.json>
  *
  * `ci.yml`'s two aggregators run it: `test-aggregate` (`Test`) for the `test`

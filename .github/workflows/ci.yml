@@ -53,7 +53,7 @@ on:
   # A `pull_request` or `merge_group` run carries the FAST SET: the `test`
   # matrix below runs the test files the change affects, selected by
   # `scripts/select-affected-tests.mjs`. `push` to `main` and this hourly
-  # `schedule` carry the FULL BATTERY: every test file in twelve shards, plus
+  # `schedule` carry the FULL BATTERY: every test file in sixteen shards, plus
   # the eight-shard coverage lane. Nothing is deleted or weakened; the whole
   # suite moved to `main`, where it runs on every merge and at least hourly.
   # GitHub runs `schedule` on the default branch only. The minute is off the
@@ -921,8 +921,9 @@ jobs:
           path: .turbo/cache
           key: turbo-${{ runner.os }}-type-check-${{ github.sha }}
 
-  # PRs run the suite split across 8 runners. The suite is dominated by fixed
-  # per-file cost rather than by the assertions: a PR run reported 495s wall
+  # PRs run the suite split across the runners of the `shard:` matrix below.
+  # The suite is dominated by fixed per-file cost rather than by the
+  # assertions: a PR run reported 495s wall
   # clock of which only 178s was `tests` — the rest was `setup` (831s
   # cumulative), `import` (199s) and `environment` (156s), each paid once per
   # test file because `isolate: true` re-executes the module graph per file
@@ -960,7 +961,7 @@ jobs:
   # over half again as many runners. Duration-balanced sharding is that
   # card's second pull request, not this edit. The width is one number on
   # both speeds (objectui#12214): the affected run on a pull request or queue
-  # build and the full battery on `push` and `schedule` both use these twelve
+  # build and the full battery on `push` and `schedule` both use these same
   # legs, so `test-aggregate`'s `--shards` has one value to agree with.
   #
   # ⭐ Duration-balanced (objectui#12208, the same ruling's second pull
@@ -969,8 +970,25 @@ jobs:
   # lucky-heavy leg is the one the cap cancels. The note on the `Run tests`
   # step below says what replaced it; `test-aggregate` prints the longest leg's
   # headroom on every run.
+  #
+  # ⭐ 12 -> 16 (objectui#12384; the same ruling's width rule, "the width
+  # derived from the total measured duration at a target of about 10 minutes
+  # per shard"). Balanced, the twelve legs were no longer heavy -- measured on
+  # that card over the 50 hours after the balanced plan landed, 11.3 min
+  # median and 12.6 min p99 per finished leg -- but the runners under them
+  # were not all equally fast: the cap cancelled legs in 12 of the 279 runs
+  # that ran tests, with no hang, every file on those VMs running 1.6x to 2.0x
+  # slower than the same files on a normal one, episodically (13 of the 16
+  # cancelled legs fell on one afternoon, 2026-10-14) and with no runner label
+  # that tells such a VM apart. Twelve legs left a p99 leg 1.59x (20 / 12.6)
+  # of slack, below that factor; sixteen legs carry 0.75 of the load each,
+  # which moves the break-even slow factor to about 2.1x. The same three
+  # refusals hold: ⛔ the ceiling is NOT raised, ⛔ no test is skipped, and ⛔
+  # the relevance gate is not widened. A runner pin was not taken: there was
+  # no measured runner class to pin. Whether the width still fits is
+  # `test-aggregate`'s headroom reading on every run, not this comment.
   test:
-    name: Test (shard ${{ matrix.shard }}/12)
+    name: Test (shard ${{ matrix.shard }}/16)
     # Coverage instrumentation (v8 adds 40-100% overhead) is skipped on PRs;
     # the `test-coverage` job below runs the coverage lane on push.
     #
@@ -979,8 +997,9 @@ jobs:
     # that runs no tests is the hole this repository just paid for. `push` is
     # still excluded because the coverage lane below is the push lane: it is
     # sharded of its own since objectui#5403 (4 ways, 8 since objectui#12256) --
-    # ⛔ INDEPENDENTLY of the matrix above, which objectui#9499 widened to 8 and
-    # objectui#12208 to 12 without touching it: the two lanes declare their own
+    # ⛔ INDEPENDENTLY of the matrix above, which objectui#9499 widened to 8,
+    # objectui#12208 to 12 and objectui#12384 to 16 without touching it: the
+    # two lanes declare their own
     # `shard:` matrix and their own `--shard=N/M`, and the coverage blobs are
     # named `blob-N-M.json` by the coverage job's own flag -- and its
     # `coverage-report` job merges every shard's blob report into ONE complete
@@ -1005,7 +1024,7 @@ jobs:
       # Report every shard's failures, not just the first one to break.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
 
     steps:
       - name: Checkout code
@@ -1188,7 +1207,7 @@ jobs:
             merge_group) base="$QUEUE_BASE" ;;
             *)
               echo 'mode=full' >> "$GITHUB_OUTPUT"
-              echo "A $EVENT run is the full battery: every test file, twelve shards."
+              echo "A $EVENT run is the full battery: every test file, sixteen shards."
               exit 0
               ;;
           esac
@@ -1235,7 +1254,7 @@ jobs:
       # `scripts/__tests__/test-file-timings.test.ts` pins all three. The
       # writer never throws into the run: no report is one stderr line, never
       # a red leg.
-      - name: Run tests (shard ${{ matrix.shard }}/12)
+      - name: Run tests (shard ${{ matrix.shard }}/16)
         if: steps.relevant.outputs.should_run == 'true'
         env:
           MODE: ${{ steps.select.outputs.mode }}
@@ -1243,10 +1262,10 @@ jobs:
         run: |
           if [ "$MODE" = 'mode=affected' ]; then
             mapfile -t filters < "$RUNNER_TEMP/affected-tests.txt"
-            echo "Affected speed: ${#filters[@]} vitest filter(s), shard ${{ matrix.shard }} of 12."
-            pnpm exec vitest run --shard=${{ matrix.shard }}/12 "${filters[@]}"
+            echo "Affected speed: ${#filters[@]} vitest filter(s), shard ${{ matrix.shard }} of 16."
+            pnpm exec vitest run --shard=${{ matrix.shard }}/16 "${filters[@]}"
           else
-            pnpm test --shard=${{ matrix.shard }}/12 --reporter=default --reporter=github-actions --reporter=./scripts/test-file-timings.mjs
+            pnpm test --shard=${{ matrix.shard }}/16 --reporter=default --reporter=github-actions --reporter=./scripts/test-file-timings.mjs
           fi
 
       # The full battery's per-file timings, for the weekly refresh of
@@ -1269,7 +1288,7 @@ jobs:
   # ── The built-artifact pin lane, lifted out of the shard matrix ──────────
   # (objectui#7183 for the lane itself; objectui#9499 for this job.)
   #
-  # `pnpm test --shard=N/12` above resolves every workspace package to its `src`
+  # `pnpm test --shard=N/16` above resolves every workspace package to its `src`
   # -- that is what the root alias map is for -- so no test in it can observe
   # its own package's BUILT output. This is the only place a `dist`-importing
   # pin runs, and `turbo run test:dist` carries `dependsOn: ["build"]` for the
@@ -1398,7 +1417,7 @@ jobs:
   # ⚠️ `needs.test.result` ALONE WOULD BE A PHANTOM GATE, and that is why this
   # job runs a script rather than reading an expression. A matrix job's
   # `needs.<job>.result` is a single ROLLUP over every leg, and a rollup cannot
-  # distinguish "all twelve ran green" from "nine ran green and three were
+  # distinguish "all sixteen ran green" from "thirteen ran green and three were
   # SKIPPED". A shard dropped from the matrix, or given a job-level `if:` that
   # is false, would leave this context GREEN while a fraction of the suite never
   # ran -- the objectui#8857 / objectui#3523 shape, a check reporting success
@@ -1443,7 +1462,7 @@ jobs:
           TEST_MATRIX_ROLLUP: ${{ needs.test.result }}
         run: |
           echo "needs.test.result (the matrix rollup this gate deliberately does NOT trust) = $TEST_MATRIX_ROLLUP"
-          node scripts/check-test-shard-results.mjs --shards 12 --job-name 'Test'
+          node scripts/check-test-shard-results.mjs --shards 16 --job-name 'Test'
 
       # The dist-pin lane is NOT a matrix, so its `needs` result is that one
       # job's own conclusion and `skipped` is visible in it -- no API read is
@@ -1473,7 +1492,7 @@ jobs:
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/shard-headroom.mjs --job 'Test (shard {n}/12)' --shards 12 --cap-minutes 20 --target-minutes 10
+        run: node scripts/shard-headroom.mjs --job 'Test (shard {n}/16)' --shards 16 --cap-minutes 20 --target-minutes 10
 
   # Push to main/develop: the coverage lane, sharded 4 ways with a blob-report
   # merge (objectui#5403). The comment that used to sit here declined to shard

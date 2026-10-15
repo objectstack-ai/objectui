@@ -187,10 +187,10 @@ export const SchemaRenderer = ({ schema }: { schema: BaseSchema }) => {
 ```bash
 pnpm exec vitest run packages/<pkg>/src/<file>.test.ts   # 只跑一个文件
 pnpm exec vitest run packages/<pkg>/                     # 只跑一个包
-pnpm test                                                # 全量(CI 就是它,可加 --shard=1/12)
+pnpm test                                                # 全量(CI 就是它,可加 --shard=1/16)
 ```
 
-`--shard=K/N` 在本地也经根 config 的 `sequence.sequencer`(`scripts/test-shard-sequencer.mjs`)分腿:按 `scripts/test-shard-timings.json` 里实测的每文件耗时,不按路径哈希,开跑前打印一行 `test-shard-sequencer:` 读数。分配只由文件集、那份 timings 与 N 决定(`scripts/test-shard-partition.mjs` 文件头),所以 N 取 CI 某个 matrix 的宽度时,同一 checkout 上不带路径的 `pnpm test --shard=K/N` 跑的就是那个 matrix 全量运行时第 K 腿的文件;带了路径,文件集变了,分配也跟着变。N 以 `ci.yml` 为准 —— `test` 与 `test-coverage` 两个 matrix 各自声明宽度;示例里的 `12` 是写下时 `test` matrix 的读数,本文件不复核它(诫条 #9)。
+`--shard=K/N` 在本地也经根 config 的 `sequence.sequencer`(`scripts/test-shard-sequencer.mjs`)分腿:按 `scripts/test-shard-timings.json` 里实测的每文件耗时,不按路径哈希,开跑前打印一行 `test-shard-sequencer:` 读数。分配只由文件集、那份 timings 与 N 决定(`scripts/test-shard-partition.mjs` 文件头),所以 N 取 CI 某个 matrix 的宽度时,同一 checkout 上不带路径的 `pnpm test --shard=K/N` 跑的就是那个 matrix 全量运行时第 K 腿的文件;带了路径,文件集变了,分配也跟着变。N 以 `ci.yml` 为准 —— `test` 与 `test-coverage` 两个 matrix 各自声明宽度;示例里的 `16` 是写下时 `test` matrix 的读数,本文件不复核它(诫条 #9)。
 
 AGENTS.md 的「只跑受影响的包」指的是**用上面的路径过滤缩小范围**,不是 `cd` 进包里。
 `pnpm --filter <pkg> test` 与 `turbo run test` **不再静默假绿**(objectui#3240):每个包的

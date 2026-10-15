@@ -207,6 +207,19 @@ describe("ci.yml spells what this file spells (objectui#12208)", () => {
     expect(run!.env?.[OUT_ENV], `the run step must name ${OUT_ENV}`).toMatch(/test-file-timings\/shard-\$\{\{ matrix\.shard \}\}\.json$/);
   });
 
+  it('has the weekly refresh select runs at the width the `test` matrix runs (objectui#12384)', () => {
+    // The selector judges a run by the leg NAMES of one width, so a refresh
+    // left on an old width after the matrix moves takes no run, ever -- and
+    // that ends in its NOT MEASURED warning, a green job, and a dataset that
+    // silently stops being refreshed. Held here, locally and loudly, the way
+    // `test-aggregate`'s `--shards` is held in `check-test-shard-results.test.ts`.
+    const refresh = fs.readFileSync(path.join(repoRoot, '.github/workflows/test-shard-timings-refresh.yml'), 'utf8');
+    const selects = [...refresh.matchAll(/test-file-timings\.mjs select --shards (\d+)\b/g)].map((m) => Number(m[1]));
+    expect(selects, 'the refresh must run the selector exactly once').toHaveLength(1);
+    expect(width, 'ci.yml must still declare a `shard:` matrix on `test`').toBeGreaterThan(0);
+    expect(selects[0], "the refresh's --shards and ci.yml's `test` matrix have drifted apart").toBe(width);
+  });
+
   it('uploads each shard under the artifact name the selector requires, on the full battery only', () => {
     const upload = test.steps?.find((s) => s.uses?.startsWith('actions/upload-artifact@') && String(s.with?.name).startsWith('test-file-timings-'));
     expect(upload, "the `test` job no longer uploads its per-file timings").toBeDefined();

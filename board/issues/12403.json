@@ -1,0 +1,36 @@
+{
+  "number": 12403,
+  "kind": "pull_request",
+  "title": "fix(studio): read the engine registration verdict on a flow, so a refused flow no longer reads as unpublished or enabled",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "data-adapter",
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T00:45:52Z",
+  "updated_at": "2026-10-15T01:17:52Z",
+  "closed_at": "2026-10-15T01:17:50Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-15T01:17:50Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12403",
+  "body": "Fixes #12349\nClause-②: yes (widening) — measured correction of the claim's `no`: `@object-ui/data-objectstack` gains `MetadataClient.listResponse` and the exported type `MetadataListAnswer`. Nothing is removed or retyped; `@object-ui/app-shell`'s exports are unchanged (`FlowStatusDot`, `flow-problems` are not exported from its index).\n\n## What changes\n\nA flow the automation engine refused at boot no longer reads \"Unpublished draft\" in the flow header or nothing in the Automations rail. Studio reads the engine's verdict that objectstack PR #23358 serves beside the flow list's items (`registrations`, keyed by name, `FlowRegistrationSchema`, in the installed `@objectstack/spec` 18.0.0-next.1):\n\n| verdict | rail | header Status pill |\n|:---|:---|:---|\n| `refused` | amber \"Refused by the engine\", title = `reason.message` as sent | same |\n| `unregistered` | grey \"Not running here\" (existing label), title = new row `engine.studio.auto.unregisteredTitle` | same |\n| `registered` | as today (the `_status` row decides) | as today |\n| absent | as today | as today |\n\n- `deriveFlowRunStatus` takes the verdict as a third argument; `refused` and `unregistered` decide, `registered` and absence leave the two-argument reading. Absence is never read as `registered`.\n- The stored `status` is never rewritten, and `reason.message` is never parsed (a pin feeds it a message made of status words and the reading does not move).\n- `FlowRegistrationContext` hands the open flow's verdict to `FlowPreview`, beside the existing `FlowRuntimeContext`.\n- New strings in en and zh: `engine.studio.auto.refused`, `engine.studio.auto.unregisteredTitle`.\n\n## Where the verdict is read, and why there\n\nNo existing Studio read carried it: `MetadataClient.list` returned `items` only, and `get` unwraps the item envelope (the open flow is read through the draft read and `/layers` anyway, neither of which carries `registration`). The smallest place is the flow list the rail already makes: `MetadataClient.listResponse` is that same read returning `{ items, registrations? }`, each verdict parsed with the spec's `FlowRegistrationSchema` (an entry that does not parse is left unjudged, which is what absence means). `list` is now `listResponse(...).items`, under the same in-flight share key, so the rail's `list` and the pillar's `listResponse` send one request. The answer type is derived from the spec's `GetMetaItemsResponse` (`Pick` of `registrations`), not restated.\n\nA failed verdict read leaves every flow unjudged (today's reading); the rail's own list read still reports a failing list.\n\n## Tests\n\nAt `23145e359`:\n- `flow-problems.runStatus-12349.test.ts`: one pin per verdict plus absence, verdicts built with `FlowRegistrationSchema.parse`.\n- `FlowStatusDot.registration-12349.test.tsx`: the rail chip per verdict plus absence.\n- `StudioDesignSurface.flowRegistration-12349.test.tsx`: the real `AutomationsPillar` and `FlowPreview`, one flow per verdict plus one with none; asserts nothing is saved.\n- `metadata-client.listRegistrations-12349.test.ts`: verdicts served, absence kept absent, malformed entries left unjudged, one shared request with `list`.\n- Targeted run (the four above, the `runStatus-11779` pin, `FlowStatusDot.test.tsx`, `flowStatusTruth-11779`, `metadata-client.test.ts`, `inflightShare-11797`): 9 files, 83 tests passed. Full `packages/data-objectstack/`: 90 files, 1146 tests passed.\n- Reverse check (committed first, restored from `HEAD`, `git diff HEAD` empty afterwards): removing the two verdict lines from `deriveFlowRunStatus` turns the 12349 derivation and pillar pins red (9 failed, 3 passed: the registered and absence pins stay green, as they should).\n- `type-check` for app-shell and data-objectstack after the closure build (28 tasks): exit 0.\n- `eslint --no-inline-config` on the 10 changed files: 5 errors and 150 warnings, the same 5 errors (different lines) and the same 150 warnings as the 6 changed source files at `28fb2a001`; the 4 new test files add none. Type-aware linting is not enabled in `eslint.config.js`, so this diff cannot move the verdict on any untouched file.\n- Gate battery (phantom-deps, self-import, unreferenced-sources, doc-example-readers, handler-key-reads, side-effects-array, element-data-source-declaration, spec-symbols, action-forward-parity, designer-field-key-parity, icon-record-names, i18n-keys, i18n-drift, i18n-designer-parity, control-bytes, new-line-citations, changeset-fixed, changeset-presence): all exit 0. `check:spec-floors` exits 1 as on main (objectui#12334).\n- NOT MEASURED locally: the other app-shell tests that render the Automations pillar or `FlowPreview` (45 files). The shared verify lock was held by one full `packages/app-shell/` run for over 36 minutes; declared to CI.\n\n## Acceptance notes\n\n- The Problems panel's run note still shows only `not-running`; a refused flow's reason shows in the header pill and the rail, not as a panel note. Carrier: none.\n- Setup's Packaged automations page (`packagedFlows.ts`) builds its rows from `_status`, so a refused packaged flow is not listed there at all, by that file's own documented design. Read-only observation, not exercised in a running app. Carrier: none.\n\n## Changeset\n\n`.changeset/12349-flow-registration-verdict.md`: `@object-ui/app-shell` patch (its exports are unchanged), `@object-ui/data-objectstack` minor (the widened client surface named on the second line).\n\n---\n\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

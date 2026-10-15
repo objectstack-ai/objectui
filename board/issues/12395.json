@@ -1,0 +1,35 @@
+{
+  "number": 12395,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid): Import Wizard preview spares every option field when Keep unknown option values is ticked",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-14T23:43:32Z",
+  "updated_at": "2026-10-15T00:12:40Z",
+  "closed_at": "2026-10-15T00:12:38Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-15T00:12:38Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12395",
+  "body": "Fixes #11970\nClause-②: no (a client preview follows the installed server; no `@object-ui/*` export or accept set moves: `refusedOptionValue` is module-private, reached through `__testables` only)\n\n## What changed\n\n`packages/plugin-grid/src/ImportWizard.tsx`, `refusedOptionValue`: with *Keep unknown option values* ticked (the request's `createMissingOptions`), the preview now spares every option field, writable and `matchOnly` alike. The guard went from \"ticked and `matchOnly`\" to \"ticked\". Unticked is unchanged: an unknown option value is refused on every field. The docblock now states the server's reading: coercion keeps the unmatched value (a single-value cell trimmed, each unmatched item of a multi-value cell) and the engine's option check admits exactly the values that import kept, on that import's writes, dry run included (objectstack#22183, objectstack PR #22282, `4578c56e65`).\n\n**The unresolved shared picklist.** The server still refuses a field bound to a shared picklist that did not resolve, ticked or not. The wizard's field shape (`ImportTargetField`) carries no picklist binding, so the preview does not model that case (a field with no options is taken, as before, both ways). Nothing to keep refusing; the docblock says so.\n\n## The installed server carries the fix (A2)\n\nobjectui `main` installs `@objectstack/core` `18.0.0-next.1` (`node_modules/.pnpm/@objectstack+core@18.0.0-next.1_ai@7.0.65_zod@4.6.5_`). Its `dist/index.js`, in `coerceFieldValue`'s option arm, reads:\n\n```\nreturn { value: keptValue, keptOptionValues: [keptValue] };\n```\n\nand the multi-value arm reads `kept.push(part);`. The installed `@objectstack/spec` declares `ExecutionContext.keptOptionValues` (\"The write-path option check admits exactly these values on this write (and still refuses every other value outside the options)\").\n\n## Tests\n\nAll at `5918b3115`. Session `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`.\n\n- `ImportWizard.cellCheck-11814.test.ts`: the old pin \"with Keep unknown option values on, still refuses an unknown value on a writable field\" pinned exactly the branch this removes, so it is replaced: ticked takes an unknown value on a writable `select`, a mixed list, and a `multiselect`; ticked takes it on a match-only field; unticked refuses it on writable and match-only fields alike; ticked still refuses a bad number.\n- `ImportWizard.previewFindings-11814.test.tsx`: the old pin \"with Keep unknown option values on, still marks the value the server refuses\" is replaced by: ticking the box unmarks `Bogus` on a writable Priority and the button goes from \"Import 1 Row\" to \"Import 2 Rows\" with no findings list; and on the reported two-row file the bad number on the same row still holds the row out. The match-only pin is unchanged.\n- Targeted: 2 files, 31 tests passed (`os-verify-lock` VERDICT command-exit 0).\n- **Ablation** (fix committed first; the mutation put back `if (keepUnknownOptions && field.matchOnly) return undefined;`, through `ablation-replace.mjs`, anchor 1 to 0, blob `88e448b9c254` to `ce0541e99cc8`): 3 failed, 28 passed. The three are the new writable-field pins; the match-only and unticked pins stay green, as they should. Restore: blob equals HEAD and `git diff HEAD` empty. The tests import `./ImportWizard` from source, so no `dist/` leg.\n- `@object-ui/plugin-grid` closure build (`--filter '@object-ui/plugin-grid^...' build`) exit 0; `type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`) exit 0.\n- Full plugin-grid (`pnpm exec vitest run packages/plugin-grid/`): 213 files, 1932 tests passed.\n- `eslint --no-inline-config` on the three changed source files (eslint's own JSON: 3 files, 0 errors, 9 warnings, all on lines this diff does not touch). The config has no type-aware linting (no `parserOptions.project` / `projectService`), so this diff cannot move another file's verdict.\n- Gates exit 0: `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `control-bytes`, `new-line-citations`, `scripts/check-changeset-fixed.mjs`, `scripts/check-changeset-presence.mjs`. `check:spec-floors` exits 1 (\"The scan collapsed: 0 package(s) declare @objectstack/spec in a consumer-facing field\"), the `main`-side failure tracked on objectui#12334; this diff touches no manifest. Recorded, not touched.\n\nChangeset: `.changeset/11970-import-kept-options.md`, `@object-ui/plugin-grid: patch`.\n\n## Acceptance notes\n\n- After this lands, the preview and the server agree on ticked writable option fields. The dry run's own findings were already right (the server's dry run admits the same values).\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md, Product-neutral renderer)\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

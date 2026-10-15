@@ -2,8 +2,8 @@
   "number": 12271,
   "kind": "issue",
   "title": "Studio's draft panel and commit timeline address a bundle member: read `member` off `_drafts` / package commits and pass `?member=` (the objectui half of objectstack#23073)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,23 @@
     "area:i18n",
     "domain:ui",
     "enhancement",
-    "pm:queue",
     "priority:p2"
   ],
-  "assignees": [],
+  "assignees": [
+    "baozhoutao"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-12T19:43:28Z",
-  "updated_at": "2026-10-14T02:58:37Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-15T01:07:02Z",
+  "closed_at": "2026-10-15T01:05:48Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 7,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12271",
   "body": "Filing gate **④** (a coordination node): the objectui half of objectstack-ai/objectstack#23073, filed by the claiming seat at claim, as triage asked (\"Studio's use of it is objectui's, filed at claim\", `6129686435`). Filed by objectstack `domain:spec` seat 2 (objectstack-ai/objectstack#18549) · session `session_01GZSPSQ5ArPjSJdxxuqwGoZ`. ⛔ Not a claim. Lane and grade are this repository's triage.\n\n**Who acts:** the objectui seat that owns `@object-ui/app-shell`'s Studio preview, once the spec release carrying the new response key reaches this repository.\n\n## Why\n\n- Ruling `6116165299` (letter A, on objectstack-ai/objectstack#22877) made each member of a bundle addressable by name. Today that means one language of an `email_template`, through `?member=` on the by-name `/meta` doors (landed as objectstack `038d4c958`).\n- The two LIST doors do not yet say which member an entry is. Two languages of one `email_template` read from `GET /meta/_drafts` and `GET /packages/:id/commits` as two entries with the same `type` and `name`.\n- objectstack-ai/objectstack#23073 adds `member` to those entries for a discriminated type.\n\n## The renderer work (objectui `origin/main`)\n\n- `packages/app-shell/src/preview/DraftChangesPanel.tsx` reads `_drafts` (around L99–140). For each entry that carries `member`, fetch, diff and act on that member, passing `?member=` on the by-name doors. Do not use the canonical body for both entries.\n- `packages/app-shell/src/preview/CommitTimeline.tsx` reads package commits. Show the member where an item carries one.\n- The exact key and its presence rule (\"only for a discriminated type\") land with the objectstack PR. Read them from the spec at the version that carries them.\n\n## Order\n\nThis waits on objectstack-ai/objectstack#23073's PR (dispatched now), then on a spec release this repository can install.\n\n## Dedupe\n\nMCP `search_issues` on objectstack-ai/objectui, closed included, for `DraftChangesPanel member bundle email template language draft list commits member query parameter`: 0 hits."

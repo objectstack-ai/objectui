@@ -1,0 +1,35 @@
+{
+  "number": 12392,
+  "kind": "pull_request",
+  "title": "fix(plugin-list): ListView projects the row colour's field (objectui#12376)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-14T22:30:29Z",
+  "updated_at": "2026-10-14T22:59:46Z",
+  "closed_at": "2026-10-14T22:59:45Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-14T22:59:45Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12392",
+  "body": "Fixes #12376\nClause-②: no\n\n## What changed\n\n`ListView`'s `$select` harvest (`packages/plugin-list/src/ListView.tsx`, `selectFields`) gains a row-colour arm: `addSpeculative(rowColorConfig?.field)`, beside the grouping arm. A list whose `rowColor.field` is not a column now fetches that field, so `useRowColor` finds `row[field]` and tints the matching rows.\n\n- It reads `rowColorConfig` (the state a toolbar Color pick replaces), not `schema.rowColor`, so the projection follows the rule the list draws.\n- It goes through `addSpeculative`, so the known-field gate keeps an undeclared name out and the FLS gate (objectui#7216) keeps a field the viewer may not read out. `offeredRowColorConfig` already withholds the whole rule from that viewer.\n- No lint or validator refusal, and authors are not asked to add a column: the spec's `ListViewSchema.rowColor.field` sets no column requirement (triage ruling).\n\n## Mechanism assumption A3, measured and changed\n\nThe dispatch assumed the fetch effect's dependency list already names `rowColorConfig`. It does not: the list at about line 4177 that names it belongs to the view-schema memo, not to the fetch effect (about line 3196). I first added `rowColorConfig?.field` to the fetch effect, then measured the pick path: both Color pickers (the toolbar's and `ViewSettingsPopover`'s) offer `allFields`, which is the columns only, plus the rule in force as the outside value. A pick therefore always names a field every request already carries, so a refetch on a pick would only cost a request. The dependency is left out, with a comment at the arm saying why, and the pin's last row asserts the premise (the picker lists the rule in force, None and the columns, and no other object field). If a picker ever offers a non-column field, that row turns red and the dependency has to be added.\n\n## Pin\n\n`packages/plugin-list/src/__tests__/ListView.rowColorSelect-12376.test.tsx`, beside the objectui#10370 map pin and in its shape (same permissions stub, last-request params):\n\n1. a non-column `rowColor.field` is in `$select`: `['id', 'is_sla_violated', 'subject']`;\n2. control: a `rowColor.field` that is a column is sent once;\n3. a field the viewer may not read is not requested;\n4. a name the object does not declare is not sent;\n5. the toolbar Color picker offers the columns only (the A3 premise).\n\nAblation (one-off, `node ../objectstack/scripts/ablation-replace.mjs`, anchor `addSpeculative(rowColorConfig?.field);` hit x1 then x0, blob bfd37826 to 893bcc0e): row 1 fails (`1 failed | 4 passed`); rows 3 and 4 stay green, as expected, since they assert absence. Restored: blob equals HEAD bfd37826 and `git diff HEAD` is empty.\n\n## Verification (at 4aaa4ec98)\n\n- Targeted vitest, run outside the shared lock (declared narrowing: the lock was held by two consecutive `packages/app-shell/` full runs, about 50 minutes each, and two 9-minute queue attempts did not get a turn): ten ListView projection, FLS and row-colour files, `10 passed (10)`, `147 passed (147)`; plus `ListView.test.tsx`, both `ObjectView.rowColorRelay-7218` tests and `ViewSettingsPopover.rowColorTitle`, `4 passed (4)`, `162 passed (162)`.\n- Full `packages/plugin-list/` project: NOT MEASURED locally (lock queue-timeout, exit 99, twice); left to CI.\n- `pnpm --filter \"@object-ui/plugin-list^...\" build && pnpm --filter @object-ui/plugin-list type-check` under the lock: VERDICT command-exit 0. `tsconfig.test.json --listFiles` includes the new test.\n- eslint on the two changed source files with `--no-inline-config`: 0 errors. `ListView.tsx` has 195 warnings, the same count as on origin/main; the new test has 3 `no-explicit-any` warnings, the shape of the objectui#10370 pin.\n- Gate battery, all exit 0: `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `control-bytes`, `scripts/check-changeset-fixed.mjs`, `scripts/check-changeset-presence.mjs`.\n- `check:spec-floors` exits 1, as it does on main (objectui#12334); recorded, not fixed.\n\n## Changeset\n\n`.changeset/12376-rowcolor-select-arm.md`: `@object-ui/plugin-list: patch`. No export, prop, type member or accept set moves, so `Clause-②: no` stands as measured.\n\n## Acceptance notes\n\n- Same family, not fixed here (outside this card's file surface): `plugin-grid`'s `ObjectGrid` builds its own `$select` when it owns the fetch (the grouped grid, `gridOwnsGroupedFetch`). Read on origin/main, that projection unions the columns, predicate operands, grouping fields and the concurrency token, and has no row-colour arm. So a grouped grid whose `rowColor.field` is not a column likely still paints nothing. This is read inference only, not measured through a public entry point. Carrier: none.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

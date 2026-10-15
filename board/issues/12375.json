@@ -2,8 +2,8 @@
   "number": 12375,
   "kind": "issue",
   "title": "grid: a `rowColor` row in dark mode keeps its light-mode fill (`bg-*-100`) under the dark theme's light text, so the row is unreadable; the tint also skips the frozen columns",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,23 @@
     "area:records",
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p2"
   ],
-  "assignees": [],
+  "assignees": [
+    "baozhoutao"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-14T14:23:14Z",
-  "updated_at": "2026-10-14T14:53:35Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-15T00:03:09Z",
+  "closed_at": "2026-10-15T00:02:02Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12375",
   "body": "Filing gate ①: a user-visible defect, measured in a browser.\n`reach:` the console, measured by the maintainer in a dark-theme browser on a local HotCRM console (`/_console/apps/app.objectstack.hotcrm/crm_case`, the Cases list, `All Cases` view): every Critical row is a pale pink band whose Subject and Account text is close to invisible.\nFiled by the `repo:hotcrm` seat (`session_01P8mZuzuyZAHSrgQKmv6ASv`) on the maintainer's direct question in that session's chat. ⛔ Not a claim.\nReader: objectui triage, then the lane that owns `packages/plugin-grid` and `packages/components` (`renderers/complex/data-table.tsx`).\nDedupe (MCP `search_issues`, objectui, open + closed): \"grid rowColor row background tint unreadable in dark mode\" → 1 hit; \"COLOR_TO_CLASS bg-red-100 dark variant pinned frozen column row color\" → 1 hit. Both hits are objectui#758 (closed, row colour across view types); neither covers the dark theme or the frozen columns.\n\n## What happens\n\nIn the screenshot, with the dark theme on:\n\n- The Critical rows (`rowColor: { field: 'priority', colors: { critical: 'red', … } }`) render a light pink fill. The cell text keeps the dark theme's light foreground, so Subject (`Demo case 00016 — critical feature_requ…`) and Account (`ACC-000005 - Wayne E…`) are light text on a light fill and close to unreadable. The badges stay readable because they carry their own dark-mode pair.\n- The fill stops at the frozen columns. The checkbox, `#`, `Case Number` (`pinned: 'left'`) and the right-pinned `Actions` column keep the page background, so every tinted row has dark gaps at both ends. The gaps come from the cell markup, so they show in the light theme too.\n\n## Producer (read on objectui `origin/main` `df05784`)\n\n- `packages/plugin-grid/src/useRowColor.ts`, `COLOR_TO_CLASS`: each colour name maps to one light-only class (`red: 'bg-red-100'`, `green: 'bg-green-100'`, … 23 entries) with no `dark:` partner. `ObjectGrid.tsx:5897` hands that class to the table as `rowClassName`.\n- `packages/components/src/renderers/complex/data-table.tsx` (around line 3124): the row is `cn(\"bg-background …\", …, rowClassName(row))`, so the authored class replaces `bg-background` in both themes. The row sets no foreground, so the text is the theme's `foreground`, which is light in the dark theme.\n- The same file's frozen cells paint their own `bg-background` (`sticky left-0 z-10 bg-background` at about lines 3179 and 3193, and `isFrozen && 'sticky z-10 bg-background'` at about line 3300). That is the hole in the tint. The right-pinned actions column does the same through `rightPinnedClasses` (`packages/plugin-grid/src/ObjectGrid.tsx:4826`, `sticky right-0 z-10 bg-background border-l border-border`).\n- The workspace already has the dark-safe pair for this vocabulary. `BADGE_COLOR_MAP` in `packages/fields/src/index.tsx` (around line 1428) uses `bg-red-50 … dark:bg-red-950/40`. The data table's own unsaved-row fill uses `bg-amber-50 dark:bg-amber-950/20`, and its error fill uses `bg-destructive/10 dark:bg-destructive/15`.\n\n## Fix direction (for the implementer to measure, ⛔ not a ruling)\n\n- Make every `COLOR_TO_CLASS` value a complete light and dark literal pair on the same surface shades the badge palette uses, for example `red: 'bg-red-50 dark:bg-red-950/40'`. Write each class out in full in the source: Tailwind v4 builds only from scanned source text, as `packages/plugin-detail/src/headerColor.ts` documents (objectui#6178).\n- Keep the theme foreground. A tint is a surface and must not need its own text colour.\n- Carry the tint into the frozen and right-pinned cells. Those cells sit over scrolled content, so their fill has to stay opaque in both themes. A translucent dark tint alone would let the content scrolling under them show through.\n- A value an author writes as a `bg-*` class still passes through verbatim. Whether it suits the dark theme is that author's choice, and the `rowColor` docs could say so in one line.\n\n## Acceptance\n\n- In both themes, the text and badges on a `rowColor` row are as readable as on an untinted row. Body text meets WCAG AA (4.5:1) against the tint.\n- The tint covers the whole row: checkbox, row number, frozen columns and the right-pinned actions column included.\n- Every one of the 23 colour names resolves to a light and dark pair.\n\nHotCRM declares `rowColor` on nine list views (Cases ×2, Accounts, Events, Event Attendees, Leads, Opportunities, Tasks, Knowledge Articles), always with colour names: never a hex value or a class. So the fix belongs entirely in the renderer, and HotCRM will not restyle around it (HotCRM AGENTS.md §4).\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

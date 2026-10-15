@@ -2,8 +2,8 @@
   "number": 12335,
   "kind": "issue",
   "title": "metadata-client: `reset()` cannot name a package — after objectstack#23165 a console reset or discard of an item two packages hold answers 409, and the remedy `?package=` is one the console cannot send",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -13,19 +13,24 @@
   "labels": [
     "area:studio",
     "domain:ui",
-    "pm:queue",
     "priority:p2",
     "target:v18"
   ],
-  "assignees": [],
+  "assignees": [
+    "sunhaolin"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-13T15:56:25Z",
-  "updated_at": "2026-10-14T20:05:01Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-15T00:59:50Z",
+  "closed_at": "2026-10-15T00:57:55Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12335",
   "body": "Blocked-by: #12370\n\nRestart-when: `npm view @objectstack/rest@next time --json` lists a version published after 2026-10-13T15:54:13Z, the merge of objectstack `543b33dee`, i.e. one whose `DELETE /api/v1/meta/TYPE/NAME` accepts `?package=`\n\nFiling gate: cross-repo rule 3. An accepted objectstack PR's product flows into this repo, and the accepting seat files the consumer's follow-up when it lands. This card is held (`pm:on-hold`) until the release is installable: against today's released server, a `DELETE` carrying `?package=` is refused 400 as an unknown parameter, so sending it early would break every reset. The `Restart-when:` line above is the unlock criterion; objectstack-ai/objectui#12030 (objectui onto the `next` prereleases) is the path by which it reaches this repo.\n\nFiled by objectstack `domain:spec` seat 2 (objectstack-ai/objectstack#18549) · `os-justin` · session `session_01BRQ9Mp1yH7R1az6MaUM18H`. ⛔ Not a claim. Reader who acts: objectui triage, to route it. The upstream PR body named objectstack-ai/objectui#12300 as this half's carrier, but #12300 closed at 07:26Z (PR objectstack-ai/objectui#12313), before the upstream door existed, so this card carries it.\n\n## What landed upstream\n\n- objectstack-ai/objectstack#23165 (triage direction `6141939797`, option B under ADR-0070) was carried by PR objectstack-ai/objectstack#23290, merged as `543b33dee` at 2026-10-13T15:54Z.\n- A save or delete that names no package now addresses the one package that holds the item. When two or more packages hold the name, it is refused `409 RESOURCE_CONFLICT`, naming them, with `?package=` as the remedy; nothing is written or deleted.\n- `DELETE /api/v1/meta/TYPE/NAME?package=PACKAGE_ID` is new: before it, the delete door could not name a package at any layer. The delete receipt names the package it removed from, and names the row still stored when another one remains.\n\n## The reader here, measured at objectui `origin/main` `72594f29`\n\n- `packages/data-objectstack/src/metadata-client.ts`, `reset()`: it sends `DELETE` with `?state=draft` at most, and never a package. `save()` and `publish()` in the same file already send `?package=` when the item is package-bound, with one spelling for both.\n- Its callers: `packages/app-shell/src/views/metadata-admin/ResourceEditPage.tsx:1805` (reset) and `:1884` (discard draft), `packages/app-shell/src/views/runtime-metadata-persistence.ts:356` (discard draft), and `packages/plugin-designer/src/MetadataObjectsPage.tsx:213` (reset an object); plus Setup › Apps' delete, which objectstack-ai/objectui#12300 made honest about `reset: false`.\n- So after the release, a console reset or discard of an item two packages hold answers 409 with a remedy the console cannot send.\n\n## Acceptance\n\nRun on the installed release:\n\n- `reset()` takes a `packageId` option and sends `?package=` when it is set, omitted (never empty) when it is not, the spelling `save()` and `publish()` use.\n- Each caller above that knows the item's package binding passes it. A caller that does not know it keeps the package-less call, and a 409 from it is shown with its remedy, not swallowed.\n- Pins: a reset of a package-bound item sends `?package=`; a package-less reset sends none; a 409 `RESOURCE_CONFLICT` reaches the user as an error.\n- The SDK side, `@objectstack/client`'s `meta.deleteItem`, is objectstack-ai/objectstack#23293 and is not this card.\n\n## Dedupe\n\nMCP `search_issues` on objectstack-ai/objectui, closed included: `metadata client reset delete package query parameter console discard draft two packages 409` → 6 hits, all closed: #12300 (the Setup › Apps half named above), #11784, #11797, #11203, #5359 and #2555, about other delete, discard and draft questions. None is this.\n\nDedupe words: metadata-client reset no package; DELETE meta package query; console discard draft two packages 409.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

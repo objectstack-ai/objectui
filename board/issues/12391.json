@@ -1,0 +1,35 @@
+{
+  "number": 12391,
+  "kind": "pull_request",
+  "title": "fix(studio): a controlled_by_parent object's master_detail is required, and the overview names the one required master",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-14T22:24:05Z",
+  "updated_at": "2026-10-14T23:19:49Z",
+  "closed_at": "2026-10-14T23:19:47Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-14T23:19:47Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12391",
+  "body": "Fixes #12326\nClause-②: no\n\n## What this does\n\nSince `@objectstack/spec` 18.0.0-next.1 (objectstack#23100, ruling B; ADR-0055 §1), a `controlled_by_parent` object derives its master from exactly one `master_detail` field declared `required: true`, and `ObjectSchema` refuses any other shape at the save door. Studio was the measured producer of the refused shape: a `master_detail` that omits `required`. This PR makes Studio **force** the value (this seat's call, per the dispatch: the protocol admits no other value), and makes the OWD overview name the master the runtime derives.\n\n| path | before | after |\n|---|---|---|\n| Settings tab, choose `controlled_by_parent` (`ObjectSettingsPanel`) | wrote `sharingModel` only | the same patch sets `required: true` on every `master_detail` field (fields are written only when that changes them) |\n| package OWD overview, switch a row to `controlled_by_parent` and save (`PackageOwdOverviewPanel.doSave`) | wrote `sharingModel` only | same force on the saved draft |\n| Required box on a `master_detail` of a `controlled_by_parent` object (`ObjectFieldInspector`) | `required: v \\|\\| undefined`, free | locked on once true, with a one-line reason; a stored master that lacks it can still be ticked, never cleared |\n| retype a field to `master_detail` (`ObjectFieldInspector.changeType`) | type only | also `required: true` (always under `controlled_by_parent`; elsewhere when `required` was absent) |\n| add a `master_detail` field (`newField`) | `{ type, label }` | `{ type, label, required: true }` |\n| `deriveMasterObject` (overview's master link) | first `master_detail` by order, required or not | the reference of the ONE required `master_detail`; undefined for zero or two or more |\n| overview row with no derivable master | \"By parent (master record)\" | \"By parent — no master: the object needs exactly one required master-detail field\" (en + zh; key `engine.studio.owd.byParentNoMaster` replaces `byParentUnknown`, which had no other reader) |\n\n**Two or more `master_detail` fields: nothing is picked.** The force makes each of them required, and the Settings tab shows the installed spec's own refusal (\"Keep `master_detail` on the one master, and declare every other parent as a `lookup` field\"). The same tab shows the spec's refusal for a `controlled_by_parent` object with no `master_detail` at all.\n\n**The designer's error text is the spec's.** The spec exports no standalone check (`refuseControlledByParentWithoutOneMaster` and `create()`'s `forceCbpMasterDetailRequired` are module-private), so `cbpMasterRefusal` parses a probe with `ObjectSchema.safeParse` — the object's name, `sharingModel`, and its relationship fields reduced to `type` / `reference` / boolean `required` — and keeps the custom issue at `sharingModel` or `fields`. The probe is needed because, measured on next.1, a whole-draft parse that hits another issue first (an unknown key on an unrelated field, a missing `name`) never reaches the master check and would read a refused object as accepted; a pin covers that case.\n\n**`newField` applies to every object.** It does not see the object (its caller, `ObjectFormCanvas`, is outside this card's file surface). Outside `controlled_by_parent` a non-required `master_detail` is what the platform lint reports as a likely mistake (`relationship/master-detail-required`, warning tier), and the author can still clear the box there.\n\n## Tests (at `b73833409`)\n\n- Targeted vitest, six files, `Test Files 6 passed (6)` / `Tests 84 passed (84)`: `owd-sharing.test.ts`, `ObjectSettingsPanel.cbpRequiredMaster-12326.test.tsx`, `PackageOwdOverviewPanel.cbpRequiredMaster-12326.test.tsx`, `PackageOwdOverviewPanel.test.tsx`, `ObjectFieldInspector.cbpRequiredMaster-12326.test.tsx`, `object-fields-io.test.ts`. Every write path and the display reader is judged with the installed spec's `ObjectSchema.safeParse` as the oracle, each with a control leg (the unforced shape is refused).\n- Ablation, run once per seam with `ablation-replace.mjs` (mutation landed on disk, restore proven `git diff HEAD` empty): dropping the `required === true` filter from `deriveMasterObject` turned 3 tests red; disabling the force in `requireCbpMasterDetails` turned 6 tests red across 3 files.\n- `pnpm --filter @object-ui/app-shell type-check` (both `tsc --noEmit` and `tsconfig.test.json`) after the `@object-ui/app-shell^...` closure build: exit 0.\n- `eslint` on the 12 changed TS files (config is not type-aware: no `projectService` / `parserOptions.project`), honouring inline config as the package `lint` script does: 0 errors, 13 warnings, all on lines this PR does not change.\n- Gate battery: `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `new-line-citations`, `check-changeset-fixed`, `check-changeset-presence`: all exit 0. `check:spec-floors` exits 1 (\"The scan collapsed: 0 package(s) declare @objectstack/spec in a consumer-facing field\"), the known red tracked on objectui#12334; this PR changes no `package.json`.\n- The full app-shell project result is in the dev report on the card.\n\n## Acceptance notes\n\n- The stored-row side is the platform's: the D2 `cbp-master-detail-required-defaulted` converts a stored row in the old shape on load. This PR covers the live writer.\n- The refusal is shown in English on both locales, because it is the spec's own text.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

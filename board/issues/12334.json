@@ -2,8 +2,8 @@
   "number": 12334,
   "kind": "issue",
   "title": "release(v18): objectui's first 18.x release — the sync `major`, Changesets pre mode on `next`, and the two gate edits (the maintainer's ruling on #12030), after #12030 lands",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -13,19 +13,24 @@
   "labels": [
     "area:devpath",
     "domain:ui",
-    "pm:queue",
     "priority:p1",
     "target:v18"
   ],
-  "assignees": [],
+  "assignees": [
+    "sunhaolin"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-13T15:45:29Z",
-  "updated_at": "2026-10-14T12:44:18Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-15T02:03:27Z",
+  "closed_at": "2026-10-15T01:40:12Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
   "merged_at": null,
-  "comments": 6,
+  "comments": 14,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12334",
   "body": "Filing gate **③ the maintainer's direct order**, verbatim: 「objectui 的下一个版本，发 v18，其他问题你判断或者开决策卡。」 Its timing: 「我今天不着急发版本」. The scope split that moved this work off objectui#12030: 「现在是要升级 objectstack 的版本号，而不是着急发 objectui 的版本」.\n- **Filed by:** objectui `domain:ui` seat 1 (seat post #5560) · `session_01CsyMRsFJBKNEMa4oPY1b5z`.\n- **Who acts:** the `domain:ui` seat that holds #12030, once #12030 lands. Its dev makes one PR. The release itself stays the maintainer's act: merging the version PR #11600 publishes.\n- **Dedupe:** MCP `search_issues` in objectui, closed included:\n  - `objectui 18 release sync major Changesets pre mode next dist-tag first 18.0.0-next release`: 12 hits, none this card. The nearest are #12030 (the dependency move this card follows) and #4709 (closed: objectui declared `^17.0.0-rc.6` after 17.0.0 GA).\n  - The two gate queries run for the ruling `6149296149` (67 and 2 hits) found no card on either gate edit.\n\n## What this card delivers\n\nobjectui's first 18.x release becomes possible, as `18.0.0-next.N` on npm dist-tag `next`, with `latest` staying on 17.7.0. Four parts, one PR:\n\n1. **The sync `major`.** One changeset declares `major` for the fixed group. It is the one `major` AGENTS.md §版本号策略 admits: following `@objectstack` from 17 to 18.\n2. **Changesets pre mode on tag `next`.** Run `pnpm changeset pre enter next`, which writes `.changeset/pre.json` as `{ \"mode\": \"pre\", \"tag\": \"next\" }`.\n3. **`scripts/check-changeset-no-major.mjs` and its repo-state test**, by the maintainer's ruling `6149296149`, verbatim: 「同意：dev 起草了一个最窄的改法：只有当 major 正好把 objectui 带到 @objectstack/spec 依赖的那个大版本时才放行，其他 PR 照旧拦。」\n   - A `major` passes only when it carries the fixed group exactly onto the major of the `@objectstack/spec` range the group declares. Every other `major` is still refused.\n   - `OBJECTUI_ALLOW_MAJOR` is set nowhere under `.github/`. It retires, together with the AGENTS.md sentence that names it.\n   - No workflow file changes.\n4. **`scripts/check-spec-range-floors.mjs` reads a prerelease floor** (seat judgment under 「其他问题你判断」).\n   - Today `minVersionOf` reads only `X.Y.Z`. Once objectui declares `^18.0.0-next.0`, the scan collapses with \"0 package(s) declare @objectstack/spec in a consumer-facing field\", and `pnpm changeset:publish` cancels the release.\n   - The gate reads a prerelease floor as that exact prerelease and judges it the same way: fetch that tarball, check the symbols.\n   - It is not loosened: an unrecognised spelling still throws, and no ordering across prereleases is added.\n\n## Measured already (on #12030's branch at `2e80824ea`, before the split reverted parts 1 and 2 there)\n\n- With the sync `major` and `pre.json` in place, `changeset version` on a scratch copy took the fixed group to `18.0.0-next.0`. `changeset publish-plan` planned 39 packages at `18.0.0-next.0`, every one on dist-tag `next`. The release workflow needed no change.\n- `node scripts/check-changeset-no-major.mjs` exited 1, which turns `Changeset Bump Policy` red. The repo-state case in `scripts/__tests__/check-changeset-no-major.test.ts` fails inside the required `Test`.\n- `pnpm check:spec-floors` exited 1 with the collapse message above.\n- The bump gate was added by #3237 (`c3194207d`, 2026-08-03), after `@object-ui/core` 17.1.0 (2026-07-31), so it has never seen a sync `major`.\n\n## Acceptance\n\n- **Positive controls:**\n  - This PR's changeset passes the bump gate.\n  - `pnpm check:spec-floors` reads every floor at `18.0.0-next.N` and exits 0 on a built workspace.\n  - `changeset version` plus `changeset publish-plan` on a scratch copy plan every package at `18.0.0-next.N` on `next`.\n- **Negative controls:**\n  - A `major` when the group's major already equals the spec's major is refused.\n  - A `major` two above the group's major is refused.\n  - An unreadable range still fails the floor gate.\n- **The `.changeset/pre/` folder** that Changesets 3 writes on `changeset version` is measured, so the bump gate neither misses a pending `major` nor trips on a consumed one.\n- **One ablation leg:** restoring the base `check-changeset-no-major.mjs` turns the repo-state test red again.\n- After it lands, the nightly `Spec Range Floors` alarm on `main` is green again. #12030's merge turns it red by design, as the fail-safe recorded in `6149376719`.\n\n## Restart when\n\nobjectui#12030 has merged. Probe: `gh api repos/objectstack-ai/objectui/issues/12030 --jq .state` answers `closed` with `state_reason` `completed`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

@@ -454,13 +454,23 @@ Inside a running app, workspace admins get an "Edit app" button in the top bar
 Studio" row to the same target — that deep-links to the app's owning package on
 the Studio design surface. When the current route names a specific interface — a
 dashboard, page, or report — it opens straight to that surface in the Interfaces
-pillar (`/studio/:packageId/interfaces?surface=<type>:<name>`); on object routes
-and the app root it opens the package's Data tab (`/studio/:packageId/data`).
+pillar (`/studio/:packageId/interfaces?surface=<type>:<name>`); on an object
+route it opens that object in the Data pillar
+(`/studio/:packageId/data?surface=object:<name>`), and at the app root the
+package's Data tab (`/studio/:packageId/data`).
 The route-type → surface-type decision lives in `appStudioRoutePath`. It is the
 reverse of the builder's "Open app" bridge (ADR-0080): the entry only renders
 for admins and only when the app has an owning package (`_packageId`), and
 package writability stays a server-side concern — a read-only package opens in
 Studio as browse-only.
+
+The sidebar's ⋯ menu offers the same bridge per entry: the **Design** entry of an
+`object`, `dashboard` or `page` navigation entry, and of the matching favorites,
+asks `appStudioRoutePath` for the route that entry opens, so it lands where
+"Edit app" lands on that item's own page (objectui#12520). A favorite resolves in
+the app its own address names, which can differ from the app the sidebar is
+drawn in. The entry follows the same rules as the button: it shows only to an
+admin who may author metadata, and only when the app has an owning package.
 
 ### Studio package scope
 

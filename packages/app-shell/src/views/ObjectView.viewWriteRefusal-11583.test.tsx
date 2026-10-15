@@ -24,7 +24,8 @@
  *   client-side permission gate's refusal; every other refusal, a server 403
  *   included, was `console.error` only. (Since objectui#12474 no toolbar
  *   toggle writes a view: the density and the hidden fields are the user's
- *   own list state, and its block pins that instead.)
+ *   own list state, and its block pins that instead. objectui#12504 retired
+ *   the write itself, with its gate.)
  *
  * - `handleSetDefaultView` raised the untranslated literal
  *   'Failed to set default view', with no description, so the refusal's own
@@ -65,7 +66,7 @@ import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, cleanup, act, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { MetadataClient, ViewConfigPermissionDeniedError } from '@object-ui/data-objectstack';
+import { MetadataClient } from '@object-ui/data-objectstack';
 import { toast } from 'sonner';
 
 vi.mock('@object-ui/permissions', async (importOriginal) => {
@@ -217,7 +218,7 @@ const FIELDS = {
 /** The saved view: an overlay row the adapter's `listViews` serves. */
 const SAVED_ROW = { name: SAVED_ID, object: OBJECT_NAME, label: 'Pipeline', type: 'grid', columns: ['name'] };
 
-/** A refusal as the adapter's `updateView` / `updateViewConfig` raise it. */
+/** A refusal as the adapter's `updateView` raises it. */
 const refusal = (message: string) => Object.assign(new Error(message), { status: 403 });
 
 function makeDataSource(writes: Record<string, unknown> = {}) {
@@ -230,7 +231,6 @@ function makeDataSource(writes: Record<string, unknown> = {}) {
     getObjectSchema: vi.fn(async () => ({ name: OBJECT_NAME, fields: {} })),
     listViews: vi.fn(async () => [SAVED_ROW]),
     updateView: vi.fn(async () => ({})),
-    updateViewConfig: vi.fn(async () => ({})),
     deleteView: vi.fn(async () => ({})),
     ...writes,
   } as unknown as ConsoleObjectViewProps['dataSource'];
@@ -376,7 +376,6 @@ describe('reorder is no view write any more (objectui#12418, handleReorderViews)
     await settle();
 
     expect((dataSource as any).updateView).not.toHaveBeenCalled();
-    expect((dataSource as any).updateViewConfig).not.toHaveBeenCalled();
     expect(puts).toEqual([]);
     expect(toast.error).not.toHaveBeenCalled();
   });
@@ -388,9 +387,9 @@ describe('a toolbar toggle is no view write any more (objectui#12474, density an
   // density and the hidden fields are the user's own list state, as the sort
   // and the column layout became in objectui#12418: nothing reaches a view, so
   // a view write that would be refused is never attempted, and nothing is said.
+  // objectui#12504 retired that toolbar write and the adapter method with it.
   it('a density change and a Hide Fields change write no view and raise nothing, even where every view write is refused', async () => {
     const dataSource = makeDataSource({
-      updateViewConfig: vi.fn(async () => { throw new ViewConfigPermissionDeniedError(OBJECT_NAME, SAVED_ID); }),
       updateView: vi.fn(async () => { throw refusal('View settings are refused for this session'); }),
     });
     await mountOnSavedView(dataSource);
@@ -403,7 +402,6 @@ describe('a toolbar toggle is no view write any more (objectui#12474, density an
     await settle();
     await settle();
 
-    expect((dataSource as any).updateViewConfig).not.toHaveBeenCalled();
     expect((dataSource as any).updateView).not.toHaveBeenCalled();
     expect(puts).toEqual([]);
     expect(toast.error).not.toHaveBeenCalled();

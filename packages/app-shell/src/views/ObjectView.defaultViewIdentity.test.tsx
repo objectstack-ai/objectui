@@ -290,12 +290,15 @@ describe('default list view identity → _views translation key (objectui#3770)'
 /**
  * Stored-data surface, measured before the behaviour change and pinned here.
  *
- * `ObjectView.persistViewPatch` writes a view override by VIEW ID:
- * `dataSource.updateViewConfig(objectName, view.id, cfg)` →
- * `client.meta.saveItem('view', view.id, { …cfg, object, name: view.id })`, i.e.
- * one `sys_metadata` row of type `view` NAMED by the id. The id therefore doubles
- * as the persistence key, and `ViewItemNameSchema` is the spec's judgment on
- * which strings are legal view identities:
+ * A view's stored row is keyed by VIEW ID: the explicit save writes
+ * `persistRuntimeMetadata('view', vid, …)`, and the override rows the page
+ * reads back (`loadViewOverrides`) are found by the same id — one
+ * `sys_metadata` row of type `view` NAMED by the id. (The toolbar's
+ * `persistViewPatch` → `updateViewConfig` wrote its overlays the same way,
+ * `saveItem('view', view.id, { …cfg, object, name: view.id })`, until
+ * objectui#12504 retired it; those rows are still at rest.) The id therefore
+ * doubles as the persistence key, and `ViewItemNameSchema` is the spec's
+ * judgment on which strings are legal view identities:
  *
  *   /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/
  *

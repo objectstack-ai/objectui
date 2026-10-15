@@ -13,25 +13,27 @@
  * The view's `inlineEdit` and `userActions.editInline` are the author's
  * permission keys, and `normalizeListViewSchema` folds the first into the
  * second. The toggle used to persist a user's edit mode into `inlineEdit`
- * through `persistViewPatch`. After the fold, switching it off stored
+ * through `persistViewPatch` (the toolbar's view write, retired in
+ * objectui#12504). After the fold, switching it off stored
  * `inlineEdit: false`, which reads as "not offered", so the toggle was gone
  * from the next load. Ruling E removes that write.
  *
  * ## What runs
  *
  * The harness of `ObjectView.fallbackTabSessionOnly-11643.test.tsx`: the real
- * object page and the real `persistViewPatch` (its 300 ms debounce included),
- * over the real `ObjectStackAdapter`, whose metadata client is a store that
- * judges every PUT with the spec's `ViewMetadataSchema`. `ListView` is stubbed
+ * object page over the real `ObjectStackAdapter`, whose metadata client is a
+ * store that judges every PUT with the spec's `ViewMetadataSchema`. `ListView` is stubbed
  * to capture what the page hands it. Whether the toggle is OFFERED is
  * `ListView`'s `inlineEditOffered`, which reads the folded
  * `userActions.editInline` (pinned in `@object-ui/plugin-list`'s
  * `ListView.permissions.test.tsx`). These cases read that input: the schema the
  * page hands `ListView`, through the fold.
  *
- * Every "writes nothing" case carries its firing control: a density change on
- * the same view in the same test DOES write, so an empty write log is a
- * reading of the toggle and not of a harness that cannot see writes.
+ * The first "writes nothing" case carries its firing control: a view write
+ * made in the same test through the real adapter IS recorded by the store, so
+ * an empty write log is a reading of the toggle and not of a harness that
+ * cannot see writes. (It was a density change on the same view until
+ * objectui#12474 made the density the user's own list state.)
  */
 
 import * as React from 'react';
@@ -105,6 +107,8 @@ import { ExpressionProvider } from '../providers/ExpressionProvider';
 
 const OBJECT_NAME = 'track_note';
 const SAVED_ID = `${OBJECT_NAME}.mine`;
+/** The firing control's own view: a write beside the views under test. */
+const PROBE_ID = `${OBJECT_NAME}.probe`;
 
 const FIELDS = {
   id: { type: 'text', label: 'Id' },
@@ -155,6 +159,19 @@ const SERVED_OVERLAY = {
   viewKind: 'list',
   columnState: { widths: { title: 240 } },
   _isOverride: true,
+};
+
+/** The firing control's write: a new view beside the served one, carrying no `inlineEdit`. */
+const PROBE_ROW = {
+  name: PROBE_ID,
+  object: OBJECT_NAME,
+  viewKind: 'list',
+  label: 'Probe',
+  config: {
+    type: 'grid',
+    data: { provider: 'object', object: OBJECT_NAME },
+    columns: ['title'],
+  },
 };
 
 /** An overlay the OLD toggle wrote on the served view: `inlineEdit: false`. */
@@ -225,8 +242,7 @@ function pageDataSource(meta: any) {
     listViews: (objectName: string, o?: any) => ds.listViews(objectName, o),
     listViewOverrides: (objectName: string) => ds.listViewOverrides(objectName),
     getView: (objectName: string, viewId: string) => ds.getView(objectName, viewId),
-    updateViewConfig: vi.fn((objectName: string, viewId: string, config: any, o?: any) =>
-      ds.updateViewConfig(objectName, viewId, config, o)),
+    createView: vi.fn((objectName: string, spec: any) => ds.createView(objectName, spec)),
   } as any;
 }
 
@@ -299,22 +315,21 @@ describe('objectui#5144 (ruling E) — the console inline-edit toggle writes not
       listProps.onInlineEditChange(true);
       listProps.onInlineEditChange(false);
     });
-    // Past the 300 ms debounce and any round trip it would have started.
+    // Past the old toolbar write's 300 ms debounce, with room to spare.
     await wait(700);
-    expect(ds.updateViewConfig).not.toHaveBeenCalled();
     expect(meta.saveItem).not.toHaveBeenCalled();
     expect(rows.get('all')).toEqual(SERVED_OVERLAY);
 
     // Firing control: the store records a view write when one is made. No
-    // list toolbar control makes one since objectui#12474 (the density, the
-    // last of them, is the user's own list state), so the write is the
-    // adapter's own, the call the density toggle used to reach.
+    // list toolbar control makes one (objectui#12474, and objectui#12504
+    // retired the toolbar's view write), so the write is the real adapter's
+    // own, a view created beside the served one.
     await act(async () => {
-      await ds.updateViewConfig(OPTED_IN_OBJECT.name, 'all', { rowHeight: 'medium', viewKind: 'list' }, { isSavedView: false });
+      await ds.createView(OPTED_IN_OBJECT.name, PROBE_ROW);
     });
-    expect(ds.updateViewConfig).toHaveBeenCalledTimes(1);
-    expect(rows.get('all').rowHeight).toBe('medium');
-    expect(rows.get('all')).not.toHaveProperty('inlineEdit');
+    expect(meta.saveItem).toHaveBeenCalledTimes(1);
+    expect(rows.get(PROBE_ID).label).toBe('Probe');
+    expect(rows.get('all')).toEqual(SERVED_OVERLAY);
     expect(bodiesCarryingInlineEdit(bodies)).toEqual([]);
     expect(toast.error).not.toHaveBeenCalled();
   });
@@ -338,13 +353,12 @@ describe('objectui#5144 (ruling E) — the console inline-edit toggle writes not
   it('a saved view: the toggle switched off writes nothing, and the stored `inlineEdit: true` is what the next load reads', async () => {
     // Recorded cost of ruling E: the edit mode is not remembered across loads.
     const { meta, rows, bodies } = makeStore([SAVED_ROW]);
-    const ds = await openPage(meta, PLAIN_OBJECT, SAVED_ID);
+    await openPage(meta, PLAIN_OBJECT, SAVED_ID);
     expect(listSchema.label).toBe('Mine');
     expect(folded()).toEqual({ editInline: true, inlineEdit: true });
 
     act(() => listProps.onInlineEditChange(false));
     await wait(700);
-    expect(ds.updateViewConfig).not.toHaveBeenCalled();
     expect(meta.saveItem).not.toHaveBeenCalled();
 
     // Since objectui#12474 a density change on the same saved view writes no
@@ -352,7 +366,7 @@ describe('objectui#5144 (ruling E) — the console inline-edit toggle writes not
     // `inlineEdit` is untouched and no body carries the toggle's `false`.
     act(() => listSchema.onDensityChange('comfortable'));
     await wait(700);
-    expect(ds.updateViewConfig).not.toHaveBeenCalled();
+    expect(meta.saveItem).not.toHaveBeenCalled();
     expect(rows.get(SAVED_ID).config.inlineEdit).toBe(true);
     expect(bodiesCarryingInlineEdit(bodies)).toEqual([]);
 

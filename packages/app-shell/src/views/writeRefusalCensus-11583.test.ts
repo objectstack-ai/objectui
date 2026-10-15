@@ -18,11 +18,13 @@
  *     TypeScript parser, so a comment or doc that names a write is never
  *     counted. The callee is matched by NAME in any spelling: a bare call, a
  *     method call, `?.`, `(x as any).name(…)`. The population is the ruling's
- *     five names plus three of the same family: `updateViewConfig` (the
+ *     five names plus two of the same family: `deleteView` (`updateView`'s
+ *     sibling on the adapter), and any symbol a `relays` row names (a helper
+ *     that hands the write's promise back to its callers, whose own calls are
+ *     then the rows that answer). It counted a third, `updateViewConfig` (the
  *     toolbar toggles' write, the site triage named beyond the card's table),
- *     `deleteView` (`updateView`'s sibling on the adapter), and any symbol a
- *     `relays` row names (a helper that hands the write's promise back to
- *     its callers, whose own calls are then the rows that answer).
+ *     until objectui#12504 retired that method and its one call site; its
+ *     absence is pinned by `ObjectView.overlayPatchOnly.test.ts`.
  *
  *   SITE KEY — `file › enclosing symbol › callee`, never a line address
  *     (AGENTS.md #11: a stored line number is a ledger key that rots). The
@@ -66,7 +68,7 @@ const VIEWS_DIR = 'packages/app-shell/src/views';
 /** The seam's four writes (`runtime-metadata-persistence.ts`). */
 const SEAM_WRITES = ['createRuntimeMetadata', 'persistRuntimeMetadata', 'publishRuntimeMetadata', 'discardRuntimeDraft'];
 /** The adapter's view writes. */
-const ADAPTER_WRITES = ['updateView', 'updateViewConfig', 'deleteView'];
+const ADAPTER_WRITES = ['updateView', 'deleteView'];
 const WRITE_NAMES = [...SEAM_WRITES, ...ADAPTER_WRITES];
 
 type Row =
@@ -84,11 +86,6 @@ const LEDGER: Row[] = [
     file: 'ObjectView.tsx', symbol: 'dispatchViewPatches', callee: 'updateView', calls: 1,
     kind: 'relays',
     reason: 'Issues one `updateView` per patch and hands every promise back; set-as-default and reorder await them and answer for the refusal.',
-  },
-  {
-    file: 'ObjectView.tsx', symbol: 'persistViewPatch', callee: 'updateViewConfig', calls: 1,
-    kind: 'surfaces', pin: 'ObjectView.viewWriteRefusal-11583.test.tsx',
-    reason: 'The toolbar toggles (density, sort, columns, hidden fields): the client gate\'s refusal keeps its own message; every other refusal is a toast with the door\'s message (objectui#11583).',
   },
   {
     file: 'ObjectView.tsx', symbol: 'handleViewConfigSave', callee: 'persistRuntimeMetadata', calls: 1,
@@ -273,7 +270,7 @@ for (const rel of FILES) {
     }
     // An adapter write read off its object as a value that escapes: stored,
     // assigned, passed or returned. A probe (`typeof o.updateView`,
-    // `!o?.updateViewConfig`) reads no write and is not this.
+    // `!o?.deleteView`) reads no write and is not this.
     if (ts.isPropertyAccessExpression(node) && ADAPTER_WRITES.includes(node.name.text)) {
       let up: ts.Node = node;
       while (

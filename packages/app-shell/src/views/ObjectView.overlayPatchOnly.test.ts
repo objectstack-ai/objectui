@@ -9,52 +9,47 @@
 /**
  * objectui#5233 — a personalization overlay must not freeze the source view.
  *
- * `persistViewPatch` sends `{ ...baseViewDef, ...patch }`, so an overlay
- * written by a mere column drag copies the view's CURRENT effective `filter`
- * (and `columns`, `label`, `type`, `isDefault` …) into the stored row. The
- * display merge is `{ ...source, ...override }`, so that copy then outranks
- * the source view forever: an admin edits the view's filter and every user who
- * once resized a column keeps the old filter, with nothing reporting it.
+ * The console's toolbar write (`persistViewPatch` → `updateViewConfig`) used
+ * to send `{ ...baseViewDef, ...patch }`, so an overlay written by a mere
+ * column drag copied the view's CURRENT effective `filter` (and `columns`,
+ * `label`, `type`, `isDefault` …) into the stored row. The display merge is
+ * `{ ...source, ...override }`, so that copy then outranked the source view
+ * forever: an admin edits the view's filter and every user who once resized a
+ * column keeps the old filter, with nothing reporting it.
  *
  * Ruled by the maintainer on 2026-08-12 (objectstack#7494, comment
  * 5261754173): "`persistViewPatch` 只存 patch,不存 merged base … 这与 per-user
  * 之争无关,是纯粹的存储形状错误."
- *
- * BOTH halves are pinned here now.
  *
  * - **read** (PR #5272): an overlay contributes only the keys it owns
  *   (`VIEW_OVERLAY_OWNED_KEYS`), so every base key already frozen into every
  *   stored row stops shadowing the source. That is the issue's third
  *   disposition for existing rows — tolerate on read — chosen deliberately and
  *   pinned rather than assumed, which is the difference the issue draws between
- *   tolerance and SILENT tolerance.
- * - **write** (this change): `persistViewPatch` stores the PATCH ALONE for a
- *   system view's overlay ({@link buildPersistedViewBody}), so no new row
- *   freezes anything — and because `saveItem` is a whole-document PUT, the next
- *   toggle also strips an old fat row. It was blocked until `columnState` was
- *   admitted to the view-metadata surface as an explicitly runtime-only overlay
- *   key (objectstack#9933, released in `@objectstack/spec` 17.1.0); before that
- *   a `columnState`-only patch was refused `422 INVALID_METADATA` and the fat
- *   copy was the only thing supplying a recognized key.
+ *   tolerance and SILENT tolerance. It still runs: the rows are at rest.
+ * - **write**: the toolbar write stored the patch alone from objectui#5233 on,
+ *   and since objectui#12504 there is no toolbar write at all — the sort and
+ *   the column layout (objectui#12418), the density and the hidden fields
+ *   (objectui#12474) are the user's own list state, and the writer retired
+ *   with the adapter method it was the last caller of. The census at the end of
+ *   this file pins that absence. Every overlay this file reads is therefore a
+ *   row an install already carries, put in the store in the shape the retired
+ *   write stored it (`object`, `name` and the `_isOverride` marker stamped on
+ *   the body).
  *
- * A *saved* view's own row is deliberately NOT narrowed: for it the body IS the
- * view, `saveItem` PUTs the whole document, and a patch-only write would delete
- * the user's view rather than narrow it. That branch is pinned too — a guard
- * that correctly SURVIVES is the one that says the narrowing stopped where it
- * should.
- *
- * Written round-trip through the REAL adapter write + read and the REAL
- * consumer merge (`loadViewOverrides` → `buildViewTabs`), not against a
- * hand-written override fixture: the defect lives in what the write path
- * stores, so a fixture is exactly where it would hide.
+ * Read through the REAL adapter read and the REAL consumer merge
+ * (`loadViewOverrides` → `buildViewTabs`), not against a hand-written
+ * override map: the merge is where a frozen copy would win.
  */
 
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ObjectStackAdapter, VIEW_OVERLAY_OWNED_KEYS } from '@object-ui/data-objectstack';
-import { buildPersistedViewBody, buildViewTabs, loadViewOverrides, sanitizeViewOverride } from './ObjectView';
+import type { DataSource } from '@object-ui/types';
+import * as dataObjectstack from '@object-ui/data-objectstack';
+import { ObjectStackAdapter } from '@object-ui/data-objectstack';
+import { buildViewTabs, loadViewOverrides, sanitizeViewOverride } from './ObjectView';
 // @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
 import { stripComments as stripCommentsUntyped } from '../../../../scripts/js-comment-mask.mjs';
 
@@ -122,6 +117,15 @@ function makeAdapter(meta: any) {
     return ds;
 }
 
+/**
+ * Put a personalization overlay in the store the way the retired toolbar write
+ * (`updateViewConfig`, objectui#12504) stored one: the body, with `object`,
+ * `name` and the `_isOverride` marker stamped on it.
+ */
+function plantOverlay(rows: Map<string, any>, body: Record<string, unknown>) {
+    rows.set(`view::${VIEW_ID}`, { ...body, object: OBJECT_NAME, name: VIEW_ID, _isOverride: true });
+}
+
 const fallbackTab = () => ({ id: 'all', label: 'All records', type: 'grid', columns: [] });
 
 /** The tab the switcher renders for `VIEW_ID`, built the way `ObjectView` builds it. */
@@ -138,19 +142,14 @@ async function tabAfterAdminEdit(ds: any) {
 
 describe('objectui#5233 — a source-view filter change reaches users who have an overlay', () => {
     it('a PRE-FIX fat overlay no longer shadows the source view on read', async () => {
-        const { meta } = makeMetaStore();
+        const { meta, rows } = makeMetaStore();
         const ds = makeAdapter(meta);
 
-        // EXACTLY what `persistViewPatch` USED TO send for a column drag on a
-        // system view: the whole active tab, plus the one key the user
-        // actually changed. Since the write half landed it sends the patch
-        // alone (pinned in the WRITE describe below), so this body is now a
-        // row an install has been carrying since before the fix — written here
-        // through the REAL adapter rather than dropped into the store, so the
-        // legacy shape is produced by a real write path and not by a fixture.
-        // `isSavedView` is omitted — this is the system-view case, the one
-        // that lays an overlay ON TOP of a code-defined view.
-        await ds.updateViewConfig(OBJECT_NAME, VIEW_ID, {
+        // EXACTLY what the retired toolbar write stored for a column drag on a
+        // system view before objectui#5233: the whole active tab, plus the one
+        // key the user actually changed, with the marker the write stamped. A
+        // row an install has been carrying since then.
+        plantOverlay(rows, {
             ...SOURCE_VIEW_AT_WRITE_TIME,
             columnState: { order: ['status', 'name'], widths: { name: 220 } },
         });
@@ -170,10 +169,10 @@ describe('objectui#5233 — a source-view filter change reaches users who have a
     });
 
     it('the overlay still carries what it was written for', async () => {
-        const { meta } = makeMetaStore();
+        const { meta, rows } = makeMetaStore();
         const ds = makeAdapter(meta);
 
-        await ds.updateViewConfig(OBJECT_NAME, VIEW_ID, {
+        plantOverlay(rows, {
             ...SOURCE_VIEW_AT_WRITE_TIME,
             columnState: { order: ['status', 'name'], widths: { name: 220 } },
             sort: [{ field: 'created_at', order: 'desc' }],
@@ -192,251 +191,6 @@ describe('objectui#5233 — a source-view filter change reaches users who have a
         // Narrowing is not amnesia: the personalization survives a reload,
         // which is the whole reason these rows exist.
         expect(tab.filter).toEqual(SOURCE_VIEW_AFTER_ADMIN_EDIT.filter);
-    });
-});
-
-/**
- * The write half — the ruled change, and the one this card was reopened for.
- *
- * Driven through the REAL seam `persistViewPatch` calls
- * ({@link buildPersistedViewBody}) and the REAL adapter write + read, not a
- * hand-written body: the defect lives in what the write path stores, so a
- * fixture is exactly where it would hide.
- */
-describe('objectui#5233 WRITE — a system view\'s overlay stores the patch ONLY', () => {
-    /** The active tab a column drag fires on: source view + its runtime id. */
-    const ACTIVE_TAB = { id: VIEW_ID, viewKind: 'list', ...SOURCE_VIEW_AT_WRITE_TIME };
-    const DRAG = { columnState: { order: ['status', 'name'], widths: { name: 220 } } };
-
-    it('the body carries the patch and NOTHING the source view owns', () => {
-        const body = buildPersistedViewBody(ACTIVE_TAB, DRAG, { isSavedView: false });
-
-        expect(body.columnState).toEqual(DRAG.columnState);
-        // Every key the old `{ ...baseViewDef, ...patch }` spread copied in.
-        // Spelled out one per line rather than as a key-set equality so a
-        // failure names the key that leaked.
-        expect(body).not.toHaveProperty('filter');
-        expect(body).not.toHaveProperty('columns');
-        expect(body).not.toHaveProperty('label');
-        expect(body).not.toHaveProperty('type');
-        expect(body).not.toHaveProperty('isDefault');
-        expect(body).not.toHaveProperty('id');
-        expect(body).not.toHaveProperty('name');
-        // Identity the reader keeps (`VIEW_OVERLAY_IDENTITY_KEYS`) — `object`,
-        // `name` and the marker are stamped by `updateViewConfig` itself.
-        expect(body.viewKind).toBe('list');
-        expect(Object.keys(body).sort()).toEqual(['columnState', 'viewKind']);
-    });
-
-    it('omits `viewKind` when the active tab has none — it is inherited, not invented', () => {
-        const { viewKind: _dropped, ...tabWithoutKind } = ACTIVE_TAB;
-        const body = buildPersistedViewBody(tabWithoutKind, DRAG, { isSavedView: false });
-        expect(Object.keys(body)).toEqual(['columnState']);
-    });
-
-    it('writes a row that carries no source key AT REST, and the admin edit still reaches the user', async () => {
-        const { meta } = makeMetaStore();
-        const ds = makeAdapter(meta);
-
-        // What `persistViewPatch` now sends for that drag.
-        await ds.updateViewConfig(
-            OBJECT_NAME,
-            VIEW_ID,
-            buildPersistedViewBody(ACTIVE_TAB, DRAG, { isSavedView: false }),
-        );
-
-        // Half one of the pair: the stored BYTES. `listViewOverrides` answers
-        // with the stored document (it does not narrow — that is
-        // `sanitizeViewOverride`'s job), so this reads the row as any consumer
-        // outside objectui sees it: Studio, the server-side switcher.
-        const stored = (await ds.listViewOverrides(OBJECT_NAME))[VIEW_ID];
-        expect(stored).toBeDefined();
-        expect(stored).not.toHaveProperty('filter');
-        expect(stored).not.toHaveProperty('columns');
-        expect(stored).not.toHaveProperty('label');
-        expect(stored).not.toHaveProperty('type');
-        expect(stored).not.toHaveProperty('isDefault');
-        expect(stored.columnState).toEqual(DRAG.columnState);
-        // Still addressable, and still says what kind of row it is.
-        expect(stored.name).toBe(VIEW_ID);
-        expect(stored.object).toBe(OBJECT_NAME);
-        expect(stored.viewKind).toBe('list');
-        expect(stored._isOverride).toBe(true);
-
-        // Half two: the user-visible defect. The admin edits the view's filter
-        // and the user who dragged a column sees the NEW one.
-        const tab = await tabAfterAdminEdit(ds);
-        expect(tab.filter).toEqual(SOURCE_VIEW_AFTER_ADMIN_EDIT.filter);
-        expect(tab.columns).toEqual(SOURCE_VIEW_AFTER_ADMIN_EDIT.columns);
-        expect(tab.label).toBe(SOURCE_VIEW_AFTER_ADMIN_EDIT.label);
-        // Narrowing is not amnesia — the drag survived the reload.
-        expect(tab.columnState).toEqual(DRAG.columnState);
-    });
-
-    it('a reader OUTSIDE objectui — no read-side narrowing — now sees the admin edit too', async () => {
-        // The half the read-side narrowing could never reach, and the reason
-        // the maintainer called the surviving fat write a transition rather
-        // than an end state: `narrowPersonalizationOverlay` lives in objectui's
-        // own merge seam. Studio and the server-side switcher merge the STORED
-        // DOCUMENT over the source view with no such pass, so for them the
-        // frozen copy still won. Modelled as the bare merge those readers do.
-        const { meta } = makeMetaStore();
-        const ds = makeAdapter(meta);
-        const rawMerge = async () => ({
-            ...SOURCE_VIEW_AFTER_ADMIN_EDIT,
-            ...(await ds.listViewOverrides(OBJECT_NAME))[VIEW_ID],
-        });
-
-        // Control first — the SAME reader against a pre-fix row, so the
-        // assertions below are a measurement and not a tautology.
-        await ds.updateViewConfig(OBJECT_NAME, VIEW_ID, { ...SOURCE_VIEW_AT_WRITE_TIME, ...DRAG });
-        const before: any = await rawMerge();
-        expect(before.filter).toEqual(SOURCE_VIEW_AT_WRITE_TIME.filter);
-        expect(before.label).toBe(SOURCE_VIEW_AT_WRITE_TIME.label);
-        expect(before.columns).toEqual(SOURCE_VIEW_AT_WRITE_TIME.columns);
-
-        // The same drag, written the way it is written now.
-        await ds.updateViewConfig(
-            OBJECT_NAME,
-            VIEW_ID,
-            buildPersistedViewBody(ACTIVE_TAB, DRAG, { isSavedView: false }),
-        );
-        const after: any = await rawMerge();
-        expect(after.filter).toEqual(SOURCE_VIEW_AFTER_ADMIN_EDIT.filter);
-        expect(after.label).toBe(SOURCE_VIEW_AFTER_ADMIN_EDIT.label);
-        expect(after.columns).toEqual(SOURCE_VIEW_AFTER_ADMIN_EDIT.columns);
-        expect(after.columnState).toEqual(DRAG.columnState);
-    });
-
-    it('the batched multi-key patch is written whole, and still carries nothing else', async () => {
-        const { meta } = makeMetaStore();
-        const ds = makeAdapter(meta);
-
-        // `persistViewPatch` debounces concurrent toggles into ONE payload, so
-        // the seam must pass a merged multi-key patch through unfiltered — all
-        // five owned keys at once is the widest real payload.
-        const batched = {
-            ...DRAG,
-            sort: [{ field: 'created_at', order: 'desc' }],
-            hiddenFields: ['owner'],
-            rowHeight: 'compact',
-            inlineEdit: true,
-        };
-        await ds.updateViewConfig(
-            OBJECT_NAME,
-            VIEW_ID,
-            buildPersistedViewBody(ACTIVE_TAB, batched, { isSavedView: false }),
-        );
-
-        const stored = (await ds.listViewOverrides(OBJECT_NAME))[VIEW_ID];
-        expect(stored).not.toHaveProperty('filter');
-        for (const key of VIEW_OVERLAY_OWNED_KEYS) {
-            expect(stored, `the write dropped the owned key \`${key}\``).toHaveProperty(key);
-        }
-
-        const tab = await tabAfterAdminEdit(ds);
-        expect(tab.sort).toEqual(batched.sort);
-        expect(tab.hiddenFields).toEqual(['owner']);
-        expect(tab.rowHeight).toBe('compact');
-        expect(tab.inlineEdit).toBe(true);
-        expect(tab.filter).toEqual(SOURCE_VIEW_AFTER_ADMIN_EDIT.filter);
-    });
-
-    it('the NEXT write strips a row already stored in the fat shape — PUT replaces the document', async () => {
-        const { meta, rows } = makeMetaStore();
-        const ds = makeAdapter(meta);
-
-        // An install that has been running the pre-fix write path.
-        rows.set(`view::${VIEW_ID}`, {
-            ...SOURCE_VIEW_AT_WRITE_TIME,
-            object: OBJECT_NAME,
-            viewKind: 'list',
-            columnState: { order: ['name', 'status'] },
-            _isOverride: true,
-        });
-
-        // The user drags a column once more.
-        await ds.updateViewConfig(
-            OBJECT_NAME,
-            VIEW_ID,
-            buildPersistedViewBody(ACTIVE_TAB, DRAG, { isSavedView: false }),
-        );
-
-        // `client.meta.saveItem` is a PUT of the whole document, so the frozen
-        // copy is gone from the BYTES — not merely masked on read. This is the
-        // issue's "strip on next write" disposition arriving as a consequence
-        // of the narrowing, alongside the tolerate-on-read half that already
-        // shipped; neither is silent, both are pinned.
-        const stored = (await ds.listViewOverrides(OBJECT_NAME))[VIEW_ID];
-        expect(stored).not.toHaveProperty('filter');
-        expect(stored).not.toHaveProperty('columns');
-        expect(stored.columnState).toEqual(DRAG.columnState);
-    });
-});
-
-describe('objectui#5233 WRITE — a SAVED view\'s own row is deliberately not narrowed', () => {
-    const SAVED_ID = 'crm_lead.my_pipeline';
-
-    /**
-     * The row a user's own view has, and the tab `buildViewTabs` builds from
-     * it (flattened — `...sv` spreads the row's top-level keys onto the tab).
-     */
-    const SAVED_ROW = {
-        name: SAVED_ID,
-        object: OBJECT_NAME,
-        viewKind: 'list',
-        label: 'My Pipeline',
-        type: 'kanban',
-        columns: ['name', 'owner'],
-        filter: [{ field: 'owner', operator: 'equals', value: 'u1' }],
-        config: { type: 'kanban', columns: ['name', 'owner'] },
-    };
-    const SAVED_TAB = { id: SAVED_ID, ...SAVED_ROW };
-
-    it('carries the whole body — a patch-only PUT here would DELETE the user\'s view', () => {
-        const body = buildPersistedViewBody(SAVED_TAB, { sort: [{ field: 'name', order: 'asc' }] }, { isSavedView: true });
-
-        // This is the guard that must SURVIVE the narrowing, and it is worth
-        // more than the ones that had to move: it says where the fix stops.
-        // The row IS the view here — there is no source view underneath it for
-        // a copied key to shadow, so the ruled harm cannot arise, while a
-        // patch-only write would drop `config`/`columns`/`filter`/`label` on a
-        // whole-document PUT and take the user's view with it.
-        //
-        // objectui#11625 — this row carries a `config`, so the door judges it
-        // by the spec's `viewItem` member and strips its top level: the patch
-        // is written INSIDE `config` (a top-level `sort` here was answered
-        // `200` and dropped), and nothing else in the body moves.
-        expect(body.config).toEqual({ ...SAVED_ROW.config, sort: [{ field: 'name', order: 'asc' }] });
-        expect(body.columns).toEqual(SAVED_ROW.columns);
-        expect(body.filter).toEqual(SAVED_ROW.filter);
-        expect(body.label).toBe('My Pipeline');
-        expect(body).not.toHaveProperty('sort');
-    });
-
-    it('a toolbar toggle on a saved view leaves its definition intact at rest', async () => {
-        const { meta, rows } = makeMetaStore();
-        const ds = makeAdapter(meta);
-        rows.set(`view::${SAVED_ID}`, { ...SAVED_ROW });
-
-        await ds.updateViewConfig(
-            OBJECT_NAME,
-            SAVED_ID,
-            buildPersistedViewBody(SAVED_TAB, { rowHeight: 'compact' }, { isSavedView: true }),
-            { isSavedView: true },
-        );
-
-        const stored = rows.get(`view::${SAVED_ID}`);
-        // objectui#11625 — the density is stored where the door keeps it on
-        // an envelope-shaped row: inside `config`, beside the definition.
-        expect(stored.config).toEqual({ ...SAVED_ROW.config, rowHeight: 'compact' });
-        expect(stored.columns).toEqual(SAVED_ROW.columns);
-        expect(stored.filter).toEqual(SAVED_ROW.filter);
-        expect(stored.label).toBe('My Pipeline');
-        expect(stored).not.toHaveProperty('rowHeight');
-        // The marker stays withheld: stamping it would make `listViews()`
-        // exclude the user's own view from the switcher (objectui#4227).
-        expect(stored).not.toHaveProperty('_isOverride');
     });
 });
 
@@ -532,88 +286,94 @@ describe('objectui#5233 — what must NOT be narrowed', () => {
     });
 });
 
-describe('objectui#5233 ratchet — the owned-key list tracks the writers', () => {
+/**
+ * objectui#12504 — THE ABSENCE CENSUS: the toolbar-to-view write family is
+ * retired, and none of it comes back.
+ *
+ * objectui#12474 left `persistViewPatch` with no caller and pinned that here
+ * as a reference count. The maintainer's ruling on objectui#12504 (letter A)
+ * retired the whole family at once: the in-component writer and its machinery,
+ * `DataSource.updateViewConfig` (`@object-ui/types`) and
+ * `ObjectStackAdapter.updateViewConfig` (`@object-ui/data-objectstack`) with
+ * the capability gate that only that method read. The shared view is written
+ * by an explicit save alone. So the census now pins ABSENCE, on all three
+ * homes, each with a control that proves the reader is reading the real thing.
+ *
+ * Read off the code with comments stripped (`scripts/js-comment-mask.mjs`), so
+ * the docblocks that tell the history do not count, and a call, a reference
+ * handed to a prop and a re-export all do. `DataSource` is pinned twice: off
+ * its source (red under `vitest`), and as a type (red under this package's
+ * `type-check`, which compiles its tests — a member declared any other way,
+ * inherited or as a property, is caught there).
+ */
+describe('objectui#12504 census — the toolbar-to-view write family is retired', () => {
     const here = path.dirname(fileURLToPath(import.meta.url));
-    const objectViewSrc = readFileSync(path.join(here, 'ObjectView.tsx'), 'utf8');
+    const objectViewCode = stripComments(readFileSync(path.join(here, 'ObjectView.tsx'), 'utf8'));
+    const dataSourceCode = stripComments(
+        readFileSync(path.join(here, '..', '..', '..', 'types', 'src', 'data.ts'), 'utf8'),
+    );
 
-    /**
-     * Every `persistViewPatch(…, { key … })` in the file. The overlay's owned
-     * keys and the calls that WRITE them are two statements of one fact, in two
-     * packages; when they drift, the read silently drops a key the user just
-     * set and nothing fails. This is the guard that makes that drift loud.
-     */
-    const PERSIST_CALLS = /persistViewPatch\s*\([^;]*?\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*[:,}]/gs;
+    /** Every name of the retired family that `ObjectView.tsx` used to define or call. */
+    const RETIRED_IN_OBJECT_VIEW = [
+        'persistViewPatch',
+        'buildPersistedViewBody',
+        'toolbarWriteInputs',
+        'CONSOLE_MADE_TAB',
+        'updateViewConfig',
+        'setSystemCapabilities',
+        'isViewConfigPermissionDeniedError',
+        'viewConfigPermissionDenied',
+    ];
 
-    it('the ratchet is reading real source', () => {
-        expect(objectViewSrc.length).toBeGreaterThan(10_000);
-        expect(objectViewSrc).toContain('persistViewPatch');
+    it('ObjectView.tsx defines and reaches none of the family', () => {
+        const present = RETIRED_IN_OBJECT_VIEW.filter((name) => new RegExp(`\\b${name}\\b`).test(objectViewCode));
+        expect(present, 'a toolbar-to-view writer is back in ObjectView.tsx').toEqual([]);
     });
 
-    /**
-     * The seam above is pure and exported, so its behaviour is pinned without
-     * mounting the view — but nothing in those assertions says `ObjectView`
-     * still USES it. A revert to the old spread would leave every
-     * `buildPersistedViewBody` test green while the product went back to
-     * freezing the source view, which is the one failure this file exists to
-     * make impossible. Source-level because that wiring has no other seam: the
-     * caller is a `useCallback` inside a ~2700-line component.
-     */
-    it('the toolbar write routes its body through `buildPersistedViewBody`', () => {
-        // The call is an optional member call since objectui#7483 typed the
-        // `dataSource` prop (the contract declares `updateViewConfig` optional
-        // and the guard above the debounce does not narrow into its closure),
-        // so both spellings of the call site are the same call site.
-        const call = objectViewSrc.match(/dataSource\.updateViewConfig(?:\?\.)?\(([\s\S]{0,400}?)\{\s*isSavedView/);
-        // Vacuous-pass guard: no match means the call site was renamed or
-        // restructured, not that it is clean.
-        expect(call, 'the `dataSource.updateViewConfig(...)` call site was not found').toBeTruthy();
-        expect(call![1]).toContain('buildPersistedViewBody(');
-        // The exact spread the ruling removed, in the shape it had.
-        expect(call![1]).not.toMatch(/\.\.\.\s*baseViewDef/);
+    it('CONTROL: the explicit save still writes the shared view through `persistRuntimeMetadata`', () => {
+        // The reader is reading the real component, and the one write path to
+        // the shared view this retirement keeps is still there.
+        expect(objectViewCode.length).toBeGreaterThan(10_000);
+        expect(objectViewCode).toMatch(/const handleViewConfigSave = useCallback\(/);
+        expect(objectViewCode).toMatch(/await persistRuntimeMetadata\('view', vid, buildViewConfigSaveBody\(objectName, draft\)/);
     });
 
-    it('every key the toolbar persists is a key the overlay is allowed to own', () => {
-        const written = [...new Set([...objectViewSrc.matchAll(PERSIST_CALLS)].map((m) => m[1]!))];
-        // Four since objectui#5144 (triage's ruling E): the inline-edit toggle
-        // is session state and no longer persists `inlineEdit`. Two since
-        // objectui#12418: the sort and the column layout are the user's own
-        // list state. NONE since objectui#12474: the density and the hidden
-        // fields are the user's too (`sys_user_preference`, never a view). The
-        // adapter still owns all of these keys, so an overlay an earlier
-        // console wrote is still read. The census below is what proves the
-        // empty set is real rather than a regex that stopped matching.
-        expect(written).toEqual([]);
-        for (const key of written) {
-            expect(
-                VIEW_OVERLAY_OWNED_KEYS as readonly string[],
-                `\`persistViewPatch\` writes \`${key}\`, which a personalization overlay is not allowed to own — `
-                + 'add it to VIEW_OVERLAY_OWNED_KEYS (@object-ui/data-objectstack) or stop persisting it (objectui#5233)',
-            ).toContain(key);
-        }
+    it('CONTROL: the doors objectui#12474 moved still write the user\'s own list state', () => {
+        expect(objectViewCode).toMatch(/onDensityChange:\s*\(mode\)\s*=>\s*\{\s*listPrefs\.patchView\(/);
+        expect(objectViewCode).toMatch(/const persistHiddenFields = \(hidden: string\[\]\) => \{[\s\S]{0,120}?listPrefs\.patchView\(viewDef\.id, \{ hiddenFields: hidden \}\)/);
     });
 
-    /**
-     * objectui#12474 — the census: no list toolbar control reaches
-     * `persistViewPatch`. The sort and the column layout left it in
-     * objectui#12418, the density and the Hide Fields popover here, so the
-     * shared view is written only by an explicit save (the view editor's,
-     * `handleViewConfigSave`; pinned live by
-     * `ObjectView.userListState-12418.test.tsx`). Read off the code, comments
-     * stripped, so a call, a reference handed to a prop and a re-export are all
-     * counted; only the declaration itself is allowed.
-     */
-    it('no list toolbar door reaches `persistViewPatch` (objectui#12474 census)', () => {
-        // The one comment reader (`scripts/js-comment-mask.mjs`); the census
-        // reports no line or offset, so the stripped projection is enough.
-        const code = stripComments(objectViewSrc);
-        const refs = [...code.matchAll(/\bpersistViewPatch\b/g)].length;
-        const declarations = [...code.matchAll(/\bconst\s+persistViewPatch\s*=/g)].length;
-        // Vacuous-pass guard: the declaration is still found, so the reader is
-        // reading the function this census is about.
-        expect(declarations).toBe(1);
-        expect(refs - declarations, 'a list toolbar door reaches `persistViewPatch` again').toBe(0);
-        // The two doors this card moved write the user's own list state.
-        expect(code).toMatch(/onDensityChange:\s*\(mode\)\s*=>\s*\{\s*listPrefs\.patchView\(/);
-        expect(code).toMatch(/const persistHiddenFields = \(hidden: string\[\]\) => \{[\s\S]{0,120}?listPrefs\.patchView\(viewDef\.id, \{ hiddenFields: hidden \}\)/);
+    it('`DataSource` declares no `updateViewConfig` (@object-ui/types)', () => {
+        // Vacuous-pass guard: the interface and its surviving view writes are read.
+        expect(dataSourceCode).toMatch(/export interface DataSource<T = any> \{/);
+        expect(dataSourceCode).toMatch(/\bupdateView\?\(objectName: string, viewName: string/);
+        expect(dataSourceCode).not.toMatch(/\bupdateViewConfig\b/);
+
+        // The same fact as a type, red under `type-check`.
+        type Absent = 'updateViewConfig' extends keyof DataSource ? false : true;
+        const absent: Absent = true;
+        expect(absent).toBe(true);
+    });
+
+    it('`ObjectStackAdapter` has no `updateViewConfig`, and the package exports none of its gate (@object-ui/data-objectstack)', () => {
+        // CONTROL first: the probe reads the real class, which keeps its other view writes.
+        expect(typeof ObjectStackAdapter.prototype.updateView).toBe('function');
+        expect(typeof ObjectStackAdapter.prototype.createView).toBe('function');
+        expect('updateViewConfig' in ObjectStackAdapter.prototype).toBe(false);
+        expect('setSystemCapabilities' in ObjectStackAdapter.prototype).toBe(false);
+
+        // The gate only `updateViewConfig` read, exported for its one caller.
+        const exported = Object.keys(dataObjectstack);
+        expect(exported).toContain('ObjectStackAdapter');
+        expect(exported.filter((name) => [
+            'ViewConfigPermissionDeniedError',
+            'isViewConfigPermissionDeniedError',
+            'VIEW_CONFIG_CAPABILITY',
+        ].includes(name))).toEqual([]);
+
+        // The same fact as a type, red under `type-check`.
+        type Absent = 'updateViewConfig' extends keyof ObjectStackAdapter ? false : true;
+        const absent: Absent = true;
+        expect(absent).toBe(true);
     });
 });

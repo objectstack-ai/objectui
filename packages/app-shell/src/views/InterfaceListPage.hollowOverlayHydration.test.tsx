@@ -9,7 +9,7 @@
  *   > DOCUMENT … and `InterfaceListPage` hydrates a hollow view out of that
  *   > document.
  *
- * `InterfaceListPage`'s hollow-view hydration effect (lines ~270-315) fetches
+ * `InterfaceListPage`'s hollow-view hydration effect fetches
  * a view's per-view overlay row through `listViewOverrides`/`getView` — the
  * SAME undocked-narrowing read path the docblock is talking about — whenever
  * the ADR-0017 expansion serves a source view with no `columns`. Before
@@ -17,17 +17,19 @@
  * `{ ...baseViewDef, ...patch }`, so that row carried a frozen COPY of the
  * source view's columns at write time; the merge `{ ...resolvedView,
  * ...hydratedView }` picked those up and the page rendered STALE columns.
- * After #5233 the same write site stores the patch alone — no `columns` key
+ * After #5233 the same write site stored the patch alone — no `columns` key
  * — so the merge contributes nothing towards `hasColumns`, and the page's own
  * defaulting (`defaultColumnsFromObject`) fires instead.
  *
- * This is the card's step 1: CONSTRUCT the case (a hollow ADR-0017 expansion
- * item for a system view that also carries a personalization overlay row),
- * driven through the REAL `ObjectStackAdapter` write (`updateViewConfig` /
- * `buildPersistedViewBody`, the same seam `ObjectView.overlayPatchOnly.test.ts`
- * uses) and the REAL `InterfaceListPage` render — not reasoned about, and not
- * a hand-written override fixture, because the coupling lives in what the
- * hydration effect does with a row it actually fetched.
+ * That write site is retired (objectui#12504: `persistViewPatch` and the
+ * adapter's `updateViewConfig`), so both row shapes are now rows an install
+ * already carries, and the hydration effect still reads them. This is the
+ * card's step 1: CONSTRUCT the case (a hollow ADR-0017 expansion item for a
+ * system view that also carries a personalization overlay row), with the row
+ * put in the store in the shape the retired write stored it, read through the
+ * REAL `ObjectStackAdapter` and the REAL `InterfaceListPage` render — not
+ * reasoned about, because the coupling lives in what the hydration effect does
+ * with a row it actually fetched.
  *
  * Two cases, so the second is a control that PROVES the first discriminates
  * something real: with the CURRENT (post-#5233) thin overlay shape the page
@@ -87,7 +89,6 @@ vi.mock('@object-ui/react', async (importOriginal) => {
 });
 
 import { ObjectStackAdapter } from '@object-ui/data-objectstack';
-import { buildPersistedViewBody } from './ObjectView';
 import { InterfaceListPage } from './InterfaceListPage';
 
 const OBJECT_NAME = 'crm_lead';
@@ -117,6 +118,15 @@ function makeMetaStore() {
     }),
   };
   return { meta, rows };
+}
+
+/**
+ * Put a personalization overlay in the store the way the retired toolbar write
+ * (`updateViewConfig`, objectui#12504) stored one: the body, with `object`,
+ * `name` and the `_isOverride` marker stamped on it.
+ */
+function plantOverlay(rows: Map<string, any>, body: Record<string, unknown>) {
+  rows.set(`view::${VIEW_ID}`, { ...body, object: OBJECT_NAME, name: VIEW_ID, _isOverride: true });
 }
 
 function makeAdapter(meta: any) {
@@ -162,20 +172,15 @@ const page = {
 
 describe('objectui#5773 — InterfaceListPage hollow view + personalization overlay hydration', () => {
   it('REACHABLE: a hollow system view + a thin post-#5233 overlay row hydrates to renderer DEFAULTS, not a hollow grid', async () => {
-    const { meta } = makeMetaStore();
+    const { meta, rows } = makeMetaStore();
     const ds = makeAdapter(meta);
     testDataSource = ds;
     testObjects = [makeObjectDef()];
 
-    // The CURRENT `persistViewPatch` write for a toolbar toggle on this
-    // system view (a density change) — patch alone, no `columns`, exactly
-    // objectui#5233's write half. Written through the REAL adapter, not
-    // dropped into the store as a fixture.
-    await ds.updateViewConfig(
-      OBJECT_NAME,
-      VIEW_ID,
-      buildPersistedViewBody({ viewKind: 'list' }, { rowHeight: 'compact' }, { isSavedView: false }),
-    );
+    // The LAST shape the retired toolbar write stored for a toggle on this
+    // system view (a density change): the patch alone plus the tab's
+    // `viewKind`, no `columns` — objectui#5233's write half.
+    plantOverlay(rows, { rowHeight: 'compact', viewKind: 'list' });
 
     // Confirms the row really is thin at rest — the premise this case
     // depends on, measured rather than assumed.
@@ -198,18 +203,17 @@ describe('objectui#5773 — InterfaceListPage hollow view + personalization over
   });
 
   it('CONTROL: the same hollow view with a PRE-#5233 fat overlay row still renders the frozen stale columns (proves the pin discriminates old vs. new row shapes)', async () => {
-    const { meta } = makeMetaStore();
+    const { meta, rows } = makeMetaStore();
     const ds = makeAdapter(meta);
     testDataSource = ds;
     testObjects = [makeObjectDef()];
 
-    // What `persistViewPatch` USED TO send — the whole active tab (frozen at
-    // write time) plus the one changed key. An install that has not touched
-    // this view since before objectui#5233 is still carrying a row shaped
-    // exactly like this one (`ObjectView.overlayPatchOnly.test.ts`'s own
-    // "PRE-FIX" framing) — this is that row, written through the REAL write
-    // path (`updateViewConfig`), not hand-assembled as a display fixture.
-    await ds.updateViewConfig(OBJECT_NAME, VIEW_ID, {
+    // What `persistViewPatch` USED TO send before objectui#5233 — the whole
+    // active tab (frozen at write time) plus the one changed key. An install
+    // that has not touched this view since then is still carrying a row
+    // shaped exactly like this one (`ObjectView.overlayPatchOnly.test.ts`'s
+    // own "PRE-FIX" framing).
+    plantOverlay(rows, {
       viewKind: 'list',
       type: 'grid',
       columns: ['status'],

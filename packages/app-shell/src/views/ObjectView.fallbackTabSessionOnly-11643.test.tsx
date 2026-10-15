@@ -15,7 +15,8 @@
  *
  * `buildViewTabs` pushes a console-made fallback tab when an object declares no
  * defined or primary view. Its toolbar changes went down `persistViewPatch`'s
- * overlay branch like a served view's: measured live on objectstack `main`
+ * overlay branch (the toolbar's view write, retired in objectui#12504) like a
+ * served view's: measured live on objectstack `main`
  * (showcase, `showcase_account`), a density toggle sent `PUT
  * /api/v1/meta/view/all` with `{ rowHeight, object, name: 'all', _isOverride }`
  * and no `viewKind`, the door answered `422 INVALID_METADATA`, and the density
@@ -28,13 +29,12 @@
  * ## What runs
  *
  * The harness of `ObjectView.toolbarWritesCompose-11642.test.tsx`: the real
- * object page and the real `persistViewPatch` (its 300 ms debounce included),
- * over the real `ObjectStackAdapter`, whose metadata client is a store that
- * judges every PUT with the spec's own `ViewMetadataSchema` and keeps the parsed
- * value. `ListView` is stubbed to capture what the page hands it, so a toolbar
- * change is the page's own callback — every one that reaches `persistViewPatch`.
- * A "reload" unmounts the page and mounts it again over a fresh adapter on the
- * same store.
+ * object page over the real `ObjectStackAdapter`, whose metadata client is a
+ * store that judges every PUT with the spec's own `ViewMetadataSchema` and
+ * keeps the parsed value. `ListView` is stubbed to capture what the page hands
+ * it, so a toolbar change is the page's own callback — every one that used to
+ * reach the toolbar's view write. A "reload" unmounts the page and mounts it
+ * again over a fresh adapter on the same store.
  *
  * ## Since objectui#12418 and objectui#12474
  *
@@ -42,8 +42,11 @@
  * layout (objectui#12418), the density and the hidden fields (objectui#12474)
  * are the user's own list state. The console-made tab still sends nothing; the
  * real rows beside it, which this file pinned keeping their save path, now
- * keep the change as the user's state too and are not written. The direction
- * note below is the original fix's.
+ * keep the change as the user's state too and are not written. objectui#12504
+ * retired the toolbar's view write itself (`persistViewPatch`, with the
+ * console-made tab's mark that guarded it, and the adapter's
+ * `updateViewConfig`), so these cases now pin that no toolbar control on any
+ * tab writes a view. The direction note below is the original fix's.
  *
  * ## Direction of the reverse-verification run
  *
@@ -246,8 +249,6 @@ function pageDataSource(meta: any) {
     listViews: (objectName: string, o?: any) => ds.listViews(objectName, o),
     listViewOverrides: (objectName: string) => ds.listViewOverrides(objectName),
     getView: (objectName: string, viewId: string) => ds.getView(objectName, viewId),
-    updateViewConfig: vi.fn((objectName: string, viewId: string, config: any, o?: any) =>
-      ds.updateViewConfig(objectName, viewId, config, o)),
   } as any;
 }
 
@@ -285,7 +286,7 @@ async function reload(meta: any, object: Record<string, any>, viewId: string) {
   return (normalizeListViewSchema(listSchema) as { rowHeight?: unknown }).rowHeight;
 }
 
-/** The refusal `persistViewPatch` logs before it toasts. */
+/** What a refused view write logs (the view-config panel's save still does) before it toasts. */
 function persistFailuresLogged(): unknown[][] {
   return (console.error as unknown as { mock: { calls: unknown[][] } }).mock.calls
     .filter((call) => String(call[0]).includes('Failed to persist view config'));
@@ -321,11 +322,10 @@ afterEach(() => {
  */
 async function densityIsTheUsers(meta: any, rows: Map<string, any>, object: Record<string, any>, viewId: string) {
   const before = structuredClone(rows.get(viewId));
-  const ds = await openPage(meta, object, viewId);
+  await openPage(meta, object, viewId);
   act(() => listSchema.onDensityChange('comfortable'));
   await wait(700);
 
-  expect(ds.updateViewConfig).not.toHaveBeenCalled();
   expect(meta.saveItem).not.toHaveBeenCalled();
   expect(toast.error).not.toHaveBeenCalled();
   expect(rows.get(viewId)).toEqual(before);
@@ -335,12 +335,12 @@ async function densityIsTheUsers(meta: any, rows: Map<string, any>, object: Reco
 describe('objectui#11643 — the console-made tab of a view-less object keeps its toolbar changes for the session', () => {
   it('every toolbar control on it sends no metadata write and raises no error', async () => {
     const { meta, rows } = makeStore([]);
-    const ds = await openPage(meta, VIEWLESS_OBJECT);
+    await openPage(meta, VIEWLESS_OBJECT);
     // The page opened the tab it made: the object declares nothing else.
     expect(listSchema.label).toBe(FALLBACK_TAB_LABEL);
 
-    // Every control that reaches `persistViewPatch`, through both the schema's
-    // and the list's own spelling of it. `onInlineEditChange` no longer reaches
+    // Every control that used to reach the toolbar's view write, through both
+    // the schema's and the list's own spelling of it. `onInlineEditChange` no longer reaches
     // it at all (objectui#5144, ruling E: the toggle is session-only); it stays
     // here because it must still write nothing.
     act(() => {
@@ -356,7 +356,6 @@ describe('objectui#11643 — the console-made tab of a view-less object keeps it
     // Past the 300 ms debounce and any round trip it would have started.
     await wait(700);
 
-    expect(ds.updateViewConfig).not.toHaveBeenCalled();
     expect(meta.saveItem).not.toHaveBeenCalled();
     expect(meta.getItem).not.toHaveBeenCalled();
     expect(rows.size).toBe(0);
@@ -368,11 +367,10 @@ describe('objectui#11643 — the console-made tab of a view-less object keeps it
     const { meta, rows } = makeStore([SAVED_ROW]);
 
     // The console-made tab sits beside the saved view and still sends nothing.
-    const onFallback = await openPage(meta, VIEWLESS_OBJECT, 'all');
+    await openPage(meta, VIEWLESS_OBJECT, 'all');
     expect(listSchema.label).toBe(FALLBACK_TAB_LABEL);
     act(() => listSchema.onDensityChange('comfortable'));
     await wait(700);
-    expect(onFallback.updateViewConfig).not.toHaveBeenCalled();
     expect(meta.saveItem).not.toHaveBeenCalled();
 
     cleanup();

@@ -5,8 +5,9 @@
  *
  * ## The defect this pins
  *
- * A header sort went through `persistViewPatch` into the view (`/meta/view`),
- * a column drag the same way, and a Manage Views drag PATCHed a `sortOrder`
+ * A header sort went through `persistViewPatch` (the toolbar's view write,
+ * retired in objectui#12504) into the view (`/meta/view`), a column drag the
+ * same way, and a Manage Views drag PATCHed a `sortOrder`
  * onto every saved view's row: one user's click changed the list for every
  * user. The Filter panel and the tab order lived in this browser only, so they
  * were gone on another device.
@@ -17,7 +18,7 @@
  * debounce included) and a list-state family that records its `load` and
  * `save` the way `@object-ui/data-objectstack`'s does (`sys_user_preference`,
  * one `ui.list.<object>` row per object). The view writes are the adapter's
- * `updateView` / `updateViewConfig` spies and, for the view editor's save, a
+ * `updateView` spy and, for the view editor's save, a
  * real `MetadataClient` whose `PUT /meta/view/…` is counted. `ListView` is
  * captured (a toolbar change is the page's own callback) and Manage Views is
  * reduced to its reorder and its config entry.
@@ -204,7 +205,6 @@ function makeDataSource(savedRow: Record<string, unknown> = SAVED_ROW) {
     getObjectSchema: vi.fn(async () => ({ name: OBJECT_NAME, fields: {} })),
     listViews: vi.fn(async () => [savedRow]),
     updateView: vi.fn(async () => ({})),
-    updateViewConfig: vi.fn(async () => ({})),
     deleteView: vi.fn(async () => ({})),
   } as unknown as ConsoleObjectViewProps['dataSource'];
 }
@@ -291,7 +291,7 @@ async function overflowTestIds(): Promise<string[]> {
 
 /** Every view write the page can make, counted. */
 function viewWrites(ds: any) {
-  return ds.updateView.mock.calls.length + ds.updateViewConfig.mock.calls.length + puts.length;
+  return ds.updateView.mock.calls.length + puts.length;
 }
 
 beforeEach(() => {

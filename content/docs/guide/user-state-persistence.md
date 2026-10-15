@@ -271,7 +271,7 @@ view.
   `/meta/view`. They work under a walled posture, where a tenant's metadata
   writes are refused.
 - **Reset.** The Filter panel's "Clear all" clears the stored filters for the
-  view. The page header's **Reset view** button, shown while the user has
+  view. The **Reset view** entry of the page header's ⋯ menu, shown while the user has
   stored something for the active view, drops that view's sort, filters and
   column layout. An administrator can delete the row under Setup → User
   Preferences.

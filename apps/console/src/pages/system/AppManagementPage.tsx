@@ -463,13 +463,15 @@ export function AppManagementPage() {
         a dashboard and the Approvals Inbox draw: the title, the subtitle
         beside it from `sm` up, and New App at the right, in one row across
         the page above the padded body. This page draws no icon, so the header
-        draws no chip. Below `sm` the header hides the subtitle and keeps the
-        title and New App in its one row. */}
+        draws no chip. New App is `size="sm"`, as every header action is, so
+        it does not make this header taller than the others. Below `sm` the
+        header hides the subtitle and keeps the title and New App in its one
+        row. */}
     <ConsolePageHeader
       title={t('appManagement.title', { defaultValue: 'Applications' })}
       subtitle={t('appManagement.subtitle', { defaultValue: 'Manage all configured applications' })}
       actions={
-        <Button onClick={() => navigate(`${basePath}/create-app`)} data-testid="create-app-btn">
+        <Button size="sm" onClick={() => navigate(`${basePath}/create-app`)} data-testid="create-app-btn">
           <Plus className="h-4 w-4 mr-2" />
           {t('appManagement.newApp', { defaultValue: 'New App' })}
         </Button>

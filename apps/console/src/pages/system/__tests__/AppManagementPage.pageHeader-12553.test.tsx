@@ -75,6 +75,10 @@ describe('Applications — the console page header (objectui#12553)', () => {
 
     const newApp = within(header).getByTestId('create-app-btn');
     expect(newApp).toHaveTextContent('«appManagement.newApp»');
+    // The size every header action takes (`size="sm"`, `h-9`, the chip's
+    // height), so New App does not make this header taller than the others.
+    expect(newApp.className.split(/\s+/)).toContain('h-9');
+    expect(newApp.className.split(/\s+/)).not.toContain('h-10');
     // New App is drawn once: the header's, not a second copy in the body.
     expect(screen.getAllByTestId('create-app-btn')).toHaveLength(1);
 

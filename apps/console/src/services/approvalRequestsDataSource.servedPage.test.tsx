@@ -349,20 +349,16 @@ describe('ApprovalRecordReads (objectui#12045)', () => {
   });
 
   it("sends a request's findOne to the approvals get, and leaves another object's read and a list of requests to the adapter", async () => {
-    let routed: { findOne: typeof host.findOne; find: typeof host.find } | null = null;
-    function Capture() {
-      routed = useAdapter() as never;
-      return null;
-    }
+    const seen: unknown[] = [];
     render(
       <AdapterCtx.Provider value={host as never}>
         <ApprovalRecordReads>
-          <Capture />
+          <Probe seen={seen} />
         </ApprovalRecordReads>
       </AdapterCtx.Provider>,
     );
-    expect(routed).not.toBeNull();
-    const source = routed as unknown as { findOne: typeof host.findOne; find: typeof host.find };
+    expect(seen[0]).toBeTruthy();
+    const source = seen[0] as { findOne: typeof host.findOne; find: typeof host.find };
     await expect(source.findOne(APPROVAL_REQUEST_OBJECT, REQ)).resolves.toMatchObject({ id: REQ, viewer: ROW.viewer });
     await source.findOne('invoice', 'inv_1');
     await source.find(APPROVAL_REQUEST_OBJECT, { $filter: { status: 'pending' } });

@@ -1,7 +1,38 @@
 /**
- * Public Forms — surfaces every `view` metadata item with
- * `sharing.allowAnonymous === true && sharing.publicLink`, and lets devs
- * publish a non-public FormView or tweak sharing / submitBehavior.
+ * Public Forms — lists every form the server's anonymous form routes serve,
+ * and lets devs publish a FormView those routes do not serve yet, or tweak a
+ * published one's sharing / submitBehavior.
+ *
+ * ## "Published" is the server's one rule, imported, never a second reading
+ *
+ * The anonymous routes (`GET /forms/:slug`, `POST /forms/:slug/submit`) serve a
+ * form only when its `sharing` declares all three of `enabled === true`,
+ * `allowAnonymous === true` and a `publicLink` slug. That rule is
+ * `anonymousFormIntakeCandidates`, exported by `@objectstack/spec/ui` and
+ * re-exported by `@objectstack/metadata-core` to the routes themselves, which
+ * scan the same `GET /meta/view` list this page reads. So the page lists a form
+ * exactly when that function yields it for a served item, under the slug it
+ * yields. The page used to decide on `allowAnonymous` and a parseable link
+ * alone (objectui#11545): a form withdrawn by clearing `enabled`, which the
+ * routes answer with a 404, still showed as published. ⛔ No local reading of
+ * the three keys here: a copy agrees with the routes only until either moves.
+ *
+ * Two inputs the routes also consult are not on the list read, so they are not
+ * reflected here: a withdrawal in another metadata layer, and whether the
+ * deployment's tenancy posture lets the bound object take an anonymous
+ * submission. A form in either state is listed, and the routes answer it 404.
+ *
+ * ## The list serves ViewItems, so the form lives under `config`
+ *
+ * `GET /meta/view` enumerates `ViewItem`s (`name`, `object`, `viewKind`,
+ * `config`) and never the aggregated `defineView` container, so a form view
+ * reaches this page as `viewKind: 'form'` with its body, its `sharing` and its
+ * `submitBehavior` under `config`. The page used to look for the form at the
+ * item's top level, which matched no served form at all, and its two writers
+ * put `sharing` and `submitBehavior` there: `ViewItemSchema` refuses both keys
+ * at that level, and the save path's wire schema drops them, so a publish saved
+ * without publishing anything. Both writers now write the item's `config`,
+ * which is the `form` the rule reads on a served item.
  *
  * Console is not project-scoped, so there is no `useParams().package`, no
  * `<Link>` to the legacy metadata editor, and no `useMetadataHmr` polling —
@@ -77,29 +108,29 @@ import {
 } from '@object-ui/components';
 import { Copy, ExternalLink, FormInput, RefreshCw, Code2, Link2, Settings2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
+import { anonymousFormIntakeCandidates } from '@objectstack/spec/ui';
 import { checkSubmitRedirectUrl } from '../../components/submitRedirect';
+
+/** One `view` item as `GET /meta/view` serves it: a `ViewItem` (module header). */
+type ServedViewItem = Record<string, any>;
 
 interface PublicFormRow {
   name: string;
   label?: string;
   object?: string;
+  /** The slug the server's rule yields for this form. */
   slug: string;
-  publicLink: string;
-  updatedAt?: string;
-  spec: any;
+  /** The served item, saved back whole with its `config` replaced. */
+  item: ServedViewItem;
+  /** The form the rule found open: the item's `config` on a served ViewItem. */
+  form: Record<string, any>;
 }
 
 interface PublishableFormRow {
   name: string;
   label?: string;
   object?: string;
-  spec: any;
-}
-
-function slugFromLink(link?: string): string | null {
-  if (!link) return null;
-  const m = link.replace(/^\/+/, '').match(/^forms\/([^/?#]+)/i);
-  return m?.[1] ?? null;
+  item: ServedViewItem;
 }
 
 function sanitizeSlug(s: string): string {
@@ -229,37 +260,34 @@ export function PublicFormsPage() {
           : [];
       const forms: PublicFormRow[] = [];
       const candidates: PublishableFormRow[] = [];
-      for (const it of items) {
-        const spec = it?.spec ?? it;
-        const isForm = !!(
-          spec?.sections ||
-          spec?.groups ||
-          spec?.form ||
-          spec?.type === 'simple' ||
-          spec?.type === 'tabbed' ||
-          spec?.type === 'wizard' ||
-          spec?.viewType === 'form'
-        );
-        if (!isForm) continue;
-        const sharing = spec?.sharing;
-        const link: string | undefined = sharing?.publicLink;
-        const slug = slugFromLink(link);
-        if (sharing?.allowAnonymous && slug && link) {
+      for (const item of items) {
+        if (!item || typeof item !== 'object') continue;
+        // The server's own rule, asked of the item exactly as it was served
+        // (module header): what it yields is what the anonymous routes serve.
+        const open = anonymousFormIntakeCandidates(item);
+        for (const candidate of open) {
           forms.push({
-            name: spec?.name ?? it?.name,
-            label: spec?.label,
-            object: spec?.object,
-            slug,
-            publicLink: link,
-            updatedAt: it?.updatedAt ?? it?.updated_at,
-            spec,
+            name: item.name,
+            label: item.label,
+            object: item.object,
+            slug: candidate.slug,
+            item,
+            form: candidate.form,
           });
-        } else {
+        }
+        // A served form view the rule does not open is what Publish offers:
+        // its form body is its `config`, which is where Publish writes.
+        if (
+          open.length === 0 &&
+          item.viewKind === 'form' &&
+          item.config &&
+          typeof item.config === 'object'
+        ) {
           candidates.push({
-            name: spec?.name ?? it?.name,
-            label: spec?.label,
-            object: spec?.object,
-            spec,
+            name: item.name,
+            label: item.label,
+            object: item.object,
+            item,
           });
         }
       }
@@ -309,13 +337,18 @@ export function PublicFormsPage() {
       toast.error('Invalid slug');
       return;
     }
+    // The form body of a served ViewItem is its `config` (module header).
+    const config = cand.item.config;
     const next = {
-      ...cand.spec,
-      sharing: {
-        ...(cand.spec.sharing ?? {}),
-        enabled: true,
-        allowAnonymous: true,
-        publicLink: `/forms/${slug}`,
+      ...cand.item,
+      config: {
+        ...config,
+        sharing: {
+          ...(config.sharing ?? {}),
+          enabled: true,
+          allowAnonymous: true,
+          publicLink: `/forms/${slug}`,
+        },
       },
     };
     setPublishing(true);
@@ -336,7 +369,7 @@ export function PublicFormsPage() {
   const openEditor = (row: PublicFormRow) => {
     setEditRow(row);
     setEditSlug(row.slug);
-    const sb = row.spec?.submitBehavior;
+    const sb = row.form.submitBehavior;
     const kind = (sb?.kind as any) ?? 'thank-you';
     setEditBehavior(kind);
     setEditBehaviorTitle(sb?.title ?? '');
@@ -380,15 +413,21 @@ export function PublicFormsPage() {
         submitBehavior = { kind: editBehavior };
         break;
     }
+    // `sharing` and `submitBehavior` both belong to the form, which on a served
+    // ViewItem is its `config` (module header).
+    const form = editRow.form;
     const next = {
-      ...editRow.spec,
-      sharing: {
-        ...(editRow.spec.sharing ?? {}),
-        enabled: true,
-        allowAnonymous: true,
-        publicLink: `/forms/${slug}`,
+      ...editRow.item,
+      config: {
+        ...form,
+        sharing: {
+          ...(form.sharing ?? {}),
+          enabled: true,
+          allowAnonymous: true,
+          publicLink: `/forms/${slug}`,
+        },
+        submitBehavior,
       },
-      submitBehavior,
     };
     setSaving(true);
     try {
@@ -467,7 +506,7 @@ export function PublicFormsPage() {
                 {rows.map((row) => {
                   const url = formatPublicUrl(row.slug);
                   return (
-                    <TableRow key={row.name}>
+                    <TableRow key={`${row.name}:${row.slug}`}>
                       <TableCell>
                         <div className="flex flex-col">
                           <span className="font-medium">{row.label ?? row.name}</span>
@@ -545,9 +584,11 @@ export function PublicFormsPage() {
           <DialogHeader>
             <DialogTitle>Publish a FormView</DialogTitle>
             <DialogDescription>
-              Pick an existing FormView and turn it into a public form by
-              enabling <code className="text-xs">sharing.allowAnonymous</code>{' '}
-              and setting <code className="text-xs">publicLink</code>.
+              Pick an existing FormView to open it to anonymous visitors.
+              Publishing sets <code className="text-xs">sharing.enabled</code>,{' '}
+              <code className="text-xs">sharing.allowAnonymous</code> and{' '}
+              <code className="text-xs">sharing.publicLink</code> in its config: the
+              public form route serves a form only when all three are set.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">

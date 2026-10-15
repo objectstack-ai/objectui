@@ -11,21 +11,23 @@
  * `objectPluralLabel`: the translated plural, else the declared one, else the
  * singular.
  *
- * It is ONE crumb on every route under the object, so it stays plural when the
- * trail continues into a record (`Projects › Apollo`); what the record page
- * itself calls the object is not this crumb's business.
+ * Since objectui#12461 an object route draws no crumb from `sm` up, and the
+ * 「Switch Object」 menu went with it (`AppHeader.appBarLeftGroup-12461` pins
+ * both). What this file still reads is the one place the bar names an
+ * object's list: the phone bar's compact title below `sm`, on the list route,
+ * which keeps the plural. On a record route that title is the record.
  *
  * Harness: `AppHeader.servedLabels-11295`'s mocks, except that the dropdown
- * content renders (so the siblings are on the page) and the navigation
- * context's record title is settable. `useObjectLabel` is REAL — the bundle
- * lookup is the subject.
+ * content renders (so a menu's entries would be on the page) and the
+ * navigation context's record title is settable. `useObjectLabel` is REAL —
+ * the bundle lookup is the subject.
  * The `zh-CN` plural differs from the `zh-CN` label on purpose, so the
  * assertion can tell which key was read.
  *
- * Direction, written before the run: the plural cells RED with the four
- * `objectPluralLabel` calls in `AppHeader` put back to `objectLabel` (the trail
- * draws `Project` / `项目`), GREEN after; the no-plural control GREEN on both
- * sides.
+ * Direction, written before the objectui#11696 run (when the trail made four
+ * `objectPluralLabel` calls; one is left): the plural cells RED with those
+ * calls put back to `objectLabel` (the trail drew `Project` / `项目`), GREEN
+ * after; the no-plural control GREEN on both sides.
  */
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, afterEach } from 'vitest';
@@ -56,8 +58,8 @@ vi.mock('@object-ui/components', async (importOriginal) => {
     ),
     DropdownMenu: Pass,
     DropdownMenuTrigger: Pass,
-    // Rendered (not nulled, as in the 11295 suite) so the "Switch Object"
-    // siblings' labels are on the page.
+    // Rendered (not nulled, as in the 11295 suite) so a menu's entries would
+    // be on the page.
     DropdownMenuContent: Pass,
     DropdownMenuItem: Pass,
     DropdownMenuLabel: () => null,
@@ -207,15 +209,15 @@ function linkTextTo(objectName: string): string[] {
 }
 
 describe('AppHeader — an object crumb names the list (objectui#11696)', () => {
-  it('en: the list page\'s crumb reads the plural', () => {
+  it('en: the list page\'s phone title reads the plural', () => {
     renderAt('/apps/showcase_app/showcase_project', 'en');
 
-    // The last segment is drawn twice — the desktop trail and the compact title.
-    expect(screen.getAllByText('Projects').length).toBeGreaterThan(0);
+    // Drawn once, by the compact title below `sm` (objectui#12461).
+    expect(screen.getAllByText('Projects')).toHaveLength(1);
     expect(screen.queryAllByText('Project')).toHaveLength(0);
   });
 
-  it('zh-CN: the list page\'s crumb reads the translated plural', () => {
+  it('zh-CN: the list page\'s phone title reads the translated plural', () => {
     renderAt('/apps/showcase_app/showcase_project', 'zh-CN');
 
     expect(screen.getAllByText('项目清单').length).toBeGreaterThan(0);
@@ -223,19 +225,19 @@ describe('AppHeader — an object crumb names the list (objectui#11696)', () => 
     expect(screen.queryAllByText('Projects')).toHaveLength(0);
   });
 
-  it('the "Switch Object" siblings read the plural, and fall back to the singular', () => {
+  it('no 「Switch Object」 menu links another object\'s list (objectui#12461)', () => {
     renderAt('/apps/showcase_app/showcase_project', 'en');
 
-    expect(linkTextTo('showcase_task')).toEqual(['Tasks']);
-    expect(linkTextTo('showcase_note')).toEqual(['Note']);
+    expect(linkTextTo('showcase_task')).toEqual([]);
+    expect(linkTextTo('showcase_note')).toEqual([]);
   });
 
-  it('the crumb stays plural when the trail continues into a record', () => {
+  it('on a record route the phone title is the record, and nothing names the object (objectui#12461)', () => {
     renderAt('/apps/showcase_app/showcase_project/record/p1', 'en', 'Apollo');
 
-    expect(screen.getAllByText('Projects').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Apollo')).toHaveLength(1);
+    expect(screen.queryAllByText('Projects')).toHaveLength(0);
     expect(screen.queryAllByText('Project')).toHaveLength(0);
-    expect(screen.getAllByText('Apollo').length).toBeGreaterThan(0);
   });
 
   it('control: an object that declares no plural keeps its singular', () => {

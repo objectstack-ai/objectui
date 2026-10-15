@@ -22,11 +22,17 @@
  * Off a request page the node draws a localized notice instead of nothing
  * (objectui#12072), so a block placed on the wrong page is visible to its
  * author. On a request page whose row has not loaded it still draws nothing.
+ *
+ * On a pending request the panel names who the step waits on (objectui#12482),
+ * from the row it is bound to, as the approvals inbox's request sheet names
+ * them. The same face on the real record page, over the console's routed
+ * approvals source and objectstack's served page, is pinned in the console's
+ * `approvalRequestsDataSource.servedPageApprovers-12482.test.tsx`.
  */
 
 import * as React from 'react';
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 
 const barProps: Array<Record<string, unknown>> = [];
 vi.mock('../DeclaredActionsBar.js', () => ({
@@ -37,10 +43,18 @@ vi.mock('../DeclaredActionsBar.js', () => ({
 }));
 
 import { ComponentRegistry } from '@object-ui/core';
-import { RecordContextProvider, SchemaRenderer, subscribeDataChanges, type DataChange } from '@object-ui/react';
+import {
+  AdapterCtx,
+  MetadataCtx,
+  RecordContextProvider,
+  SchemaRenderer,
+  subscribeDataChanges,
+  type DataChange,
+} from '@object-ui/react';
 import { I18nProvider } from '@object-ui/i18n';
 import { builtInLocales } from '@object-ui/i18n/locales';
 import { ApprovalDecisionRenderer } from './ApprovalDecisionPanel';
+import { resetApproverDirectoryCache } from '../../hooks/useApproverDirectory';
 // The package's registration leaf, imported for its side effect as the
 // package entry imports it (objectui#12342).
 import '../record-approval-decision-renderer';
@@ -190,5 +204,142 @@ describe('off an approval request page, a localized notice instead of nothing (o
     );
     expect(noticeText()).toBe(packNotice('en'));
     expect(packNotice('zh')).not.toBe(packNotice('en'));
+  });
+});
+
+describe('names who the pending step waits on (objectui#12482)', () => {
+  /** The `position` registry, as the console's metadata store lists it. */
+  const POSITIONS = [{ name: 'sales_manager', label: 'Regional Sales Manager' }];
+
+  /** The directory reads behind a position: who holds the seat. */
+  function directoryAdapter() {
+    return {
+      find: vi.fn(async (object: string) => {
+        if (object === 'sys_user_position') return { data: [{ position: 'sales_manager', user_id: 'u_7' }] };
+        if (object === 'sys_user') return { data: [{ id: 'u_7', full_name: 'Grace Hopper' }] };
+        return { data: [] };
+      }),
+    };
+  }
+
+  function mountNamed(data: Record<string, unknown>) {
+    const adapter = directoryAdapter();
+    const ensureType = vi.fn(async (type: string) => (type === 'position' ? POSITIONS : []));
+    const store = { ensureType } as unknown as React.ContextType<typeof MetadataCtx>;
+    render(
+      <MetadataCtx.Provider value={store}>
+        <AdapterCtx.Provider value={adapter as never}>
+          <RecordContextProvider objectName="sys_approval_request" recordId={String(data.id)} data={data}>
+            <ApprovalDecisionRenderer />
+          </RecordContextProvider>
+        </AdapterCtx.Provider>
+      </MetadataCtx.Provider>,
+    );
+    return { adapter, ensureType };
+  }
+
+  const chips = () => screen.queryAllByTestId('approver-chip');
+  const panelText = () => screen.getByTestId('approval-decision-panel').textContent ?? '';
+
+  beforeEach(() => resetApproverDirectoryCache());
+
+  it('two people sharing one name in two countersign groups stay two chips, each named and labelled with its group', () => {
+    mountNamed({
+      ...REQUEST,
+      pending_approvers: ['u_fin', 'u_leg'],
+      pending_approver_names: { u_fin: 'Dev Admin', u_leg: 'Dev Admin' },
+      pending_approver_groups: { u_fin: ['Finance'], u_leg: ['Legal'] },
+      decision_progress: {
+        behavior: 'per_group',
+        got: 0,
+        need: 2,
+        groups: [
+          { group: 'Finance', got: 0, need: 1, satisfied: false },
+          { group: 'Legal', got: 0, need: 1, satisfied: false },
+        ],
+      },
+    });
+    const row = screen.getByTestId('approval-decision-pending-approvers');
+    expect(row.textContent).toContain('Waiting on');
+    expect(chips().map((chip) => chip.textContent)).toEqual(['Dev Admin· Finance', 'Dev Admin· Legal']);
+    expect(chips().map((chip) => chip.getAttribute('title'))).toEqual(['u_fin', 'u_leg']);
+    expect(panelText()).not.toContain('u_fin');
+    expect(panelText()).not.toContain('u_leg');
+  });
+
+  it('one person holding three quorum slots is one named chip with a count, never the raw id (objectui#12077)', () => {
+    const id = 'usr_qFpo8Zk2LmN4pR7t';
+    mountNamed({
+      ...REQUEST,
+      pending_approvers: [id, id, id],
+      pending_approver_names: { [id]: 'Ada Lovelace' },
+    });
+    expect(chips().map((chip) => chip.textContent)).toEqual(['Ada Lovelace×3']);
+    expect(chips()[0].getAttribute('title')).toBe(id);
+    expect(panelText()).not.toContain('qFpo');
+  });
+
+  it("a position the server left unnamed reads its registry label and its holder, never the raw reference", async () => {
+    const { ensureType, adapter } = mountNamed({ ...REQUEST, pending_approvers: ['position:sales_manager'] });
+    // Re-queried each time: the chip is keyed by its label, so it is a new
+    // element once the label resolves.
+    await waitFor(() =>
+      expect(screen.getByTitle('position:sales_manager').textContent).toBe('Regional Sales Manager· Grace Hopper'),
+    );
+    expect(ensureType).toHaveBeenCalledWith('position');
+    expect(adapter.find.mock.calls.map(([object]) => object)).toEqual(['sys_user_position', 'sys_user']);
+    expect(panelText()).not.toContain('position:');
+    expect(panelText()).not.toContain('positi…');
+  });
+
+  it("CONTROL: the server's own name wins, and the directory is asked nothing", () => {
+    const { ensureType, adapter } = mountNamed({
+      ...REQUEST,
+      pending_approvers: ['position:sales_manager'],
+      pending_approver_names: { 'position:sales_manager': 'Sales Manager (served)' },
+    });
+    expect(screen.getByTitle('position:sales_manager').textContent).toBe('Sales Manager (served)');
+    expect(ensureType).not.toHaveBeenCalled();
+    expect(adapter.find).not.toHaveBeenCalled();
+  });
+
+  it('CONTROL: an id nothing can name keeps the face the inbox sheet draws for it, the raw id on hover only', () => {
+    mountNamed({ ...REQUEST, pending_approvers: ['zzUnresolvedIdXyz123'] });
+    const chip = screen.getByTitle('zzUnresolvedIdXyz123');
+    expect(chip.textContent).toBe('zzUnre…z123');
+    expect(panelText()).not.toContain('zzUnresolvedIdXyz123');
+  });
+
+  it('CONTROL: a request with no pending approvers draws no "Waiting on" row, and still its tally and decisions', () => {
+    mountNamed({ ...REQUEST, pending_approvers: [] });
+    expect(screen.queryByTestId('approval-decision-pending-approvers')).toBeNull();
+    expect(chips()).toHaveLength(0);
+    expect(screen.getByRole('progressbar')).toBeTruthy();
+    expect(screen.getByTestId('declared-actions-probe')).toBeTruthy();
+  });
+
+  it('CONTROL: a decided request names no one, even when its row still lists slots', () => {
+    const { ensureType, adapter } = mountNamed({
+      ...REQUEST,
+      status: 'approved',
+      decision_progress: undefined,
+      pending_approvers: ['u_fin', 'position:sales_manager'],
+      pending_approver_names: { u_fin: 'Dev Admin' },
+    });
+    expect(screen.queryByTestId('approval-decision-pending-approvers')).toBeNull();
+    expect(within(screen.getByTestId('approval-decision-panel')).queryByText(/Dev Admin/)).toBeNull();
+    expect(ensureType).not.toHaveBeenCalled();
+    expect(adapter.find).not.toHaveBeenCalled();
+  });
+
+  it('a first_response node, which carries no tally, still names who it waits on', () => {
+    mountNamed({
+      ...REQUEST,
+      decision_progress: undefined,
+      pending_approvers: ['u_fin'],
+      pending_approver_names: { u_fin: 'Dev Admin' },
+    });
+    expect(screen.queryByRole('progressbar')).toBeNull();
+    expect(chips().map((chip) => chip.textContent)).toEqual(['Dev Admin']);
   });
 });

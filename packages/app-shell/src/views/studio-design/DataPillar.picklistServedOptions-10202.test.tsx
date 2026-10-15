@@ -132,6 +132,7 @@ vi.mock('@object-ui/plugin-view', async (importOriginal) => {
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), dismiss: vi.fn() } }));
 
 import { DataPillar } from './StudioDesignSurface';
+import { addFieldFromMoreMenu } from './__tests__/dataPillarAddField';
 import { createEmptyDataSource } from './__tests__/emptyDataSource';
 
 const dataSource = createEmptyDataSource();
@@ -178,7 +179,7 @@ describe('Studio data page — a picklist-bound field is saved without its serve
   it('the draft autosave (an added field) sends no bound field with `options`, and the inline select byte-identical', async () => {
     renderData();
     await waitFor(() => expect(fieldCountShown()).toBe('3 fields'), { timeout: 8000 });
-    fireEvent.click(screen.getByTitle(/^Add a field/));
+    await addFieldFromMoreMenu();
     await outlastDebounce();
     await waitFor(() => expect(puts.length).toBeGreaterThan(0), { timeout: 4000 });
 

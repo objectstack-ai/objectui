@@ -67,13 +67,15 @@ export function AppSwitcher({ activeAppName, onAppChange, designInStudioPath }: 
 
   const appLabelText = appLabel({ name: activeApp.name, label: resolveKeyedI18nLabel(activeApp.label, t) });
 
+  // `min-w-0` lets the pill shrink inside the bar's left zone, so a long app
+  // name truncates instead of spilling over the search (objectui#12472).
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
           data-testid="app-switcher-trigger"
-          className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-sm font-medium text-foreground/80 hover:bg-accent hover:text-foreground transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring max-w-[40vw] sm:max-w-none"
+          className="flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-sm font-medium text-foreground/80 hover:bg-accent hover:text-foreground transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring max-w-[40vw] sm:max-w-none"
         >
           <AppMark app={activeApp} size="sm" />
           <span className="truncate whitespace-nowrap">{appLabelText}</span>

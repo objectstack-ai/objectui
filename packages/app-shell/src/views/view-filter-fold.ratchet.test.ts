@@ -118,14 +118,15 @@ describe('objectui#4155 ratchet — the filter panel persists nothing', () => {
 
     it('no toolbar filter handler reaches ANY persist call', () => {
         const sites = [...objectViewSrc.matchAll(/onFilterChange[=:]/g)];
-        // The surviving handler is session state (localStorage) only. If every
+        // The surviving handler is the user's own state only (objectui#12418:
+        // their list-state row, cached in localStorage). If every
         // handler is gone the loop is vacuous, so pin that at least one exists —
         // the session restore is a feature, not an accident.
         expect(sites.length, 'expected at least one onFilterChange handler').toBeGreaterThanOrEqual(1);
         for (const site of sites) {
             // Window = this handler only. It ends where the NEXT `onXxx`
             // binding starts, so the sibling handlers (which legitimately call
-            // `persistViewPatch` for sort / hiddenFields / columnState) stay
+            // `persistViewPatch` for density / hiddenFields) stay
             // out of the assertion.
             const rest = objectViewSrc.slice(site.index! + 1, site.index! + 401);
             const next = rest.search(/\bon[A-Z]\w*\s*[=:]/);
@@ -138,7 +139,10 @@ describe('objectui#4155 ratchet — the filter panel persists nothing', () => {
     });
 
     it('the surviving handler still keeps SESSION state — the panel is not amnesiac', () => {
-        expect(objectViewSrc).toMatch(/onFilterChange=\{[^}]*writeListFilterState/s);
+        // Since objectui#12418 the conditions are the user's own list state
+        // (`listPrefs`, a `sys_user_preference` row), not this browser's
+        // localStorage alone: still never the view's stored body.
+        expect(objectViewSrc).toMatch(/onFilterChange=\{[^}]*listPrefs\.patchView\(viewDef\.id, \{ filters/s);
     });
 
     it('the EXPLICIT save path is untouched — this is the control', () => {

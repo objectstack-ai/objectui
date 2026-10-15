@@ -2151,6 +2151,8 @@ const fr = {
       systemViewReadonly: "Vue système définie dans le code — en lecture seule.",
       cannotEditMetaView: "Cette vue est intégrée et définie dans le code — elle ne peut pas être modifiée.",
       viewConfigPermissionDenied: "Les paramètres de vue s’appliquent à tous les utilisateurs de cette vue ; les modifier requiert donc l’autorisation « Gérer les métadonnées ». Demandez à un administrateur d’effectuer ce changement.",
+      resetView: "Réinitialiser la vue",
+      resetViewTitle: "Rétablir le tri, les filtres et les largeurs de colonnes propres à cette vue. Seuls vos réglages changent.",
       cannotDeleteMetaView: "Cette vue est intégrée et définie dans le code — elle ne peut pas être supprimée.",
       expandToPage: "Ouvrir en pleine page",
       objectNotFound: "Objet introuvable",
@@ -2630,7 +2632,6 @@ const fr = {
     offline: "Hors ligne",
     usersOnline: "Utilisateurs actuellement en ligne",
     switchView: "Changer de vue",
-    switchObject: "Changer d'objet",
     connection: {
       connected: "Connecté",
       connecting: "Connexion…",

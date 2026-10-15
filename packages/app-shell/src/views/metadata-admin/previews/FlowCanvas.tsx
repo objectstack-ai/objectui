@@ -875,9 +875,9 @@ export function FlowCanvas({
           )}
         </div>
       )}
-      {/* Toolbar */}
-      <div className="absolute right-2 top-2 z-30 flex items-center gap-1.5">
-        {editable && (
+      {/* Toolbar: Add node at the top right, while the canvas is editable. */}
+      {editable && (
+        <div className="absolute right-3 top-3 z-30 flex items-center gap-1.5">
           <NodePalette {...paletteFor('toolbar')} onPick={(type) => addAfter(selectedId, type)}>
             <button
               type="button"
@@ -887,39 +887,42 @@ export function FlowCanvas({
               {tr('engine.inspector.add.node', locale)}
             </button>
           </NodePalette>
-        )}
-        <div className="flex items-center rounded-lg border bg-background/90 shadow-sm backdrop-blur-sm">
-          <button
-            type="button"
-            title={tr('engine.flowCanvas.zoomOut', locale)}
-            aria-label={tr('engine.flowCanvas.zoomOut', locale)}
-            onClick={() => setZoom((z) => clampZoom(z - 0.15))}
-            className="inline-flex h-7 w-7 items-center justify-center text-muted-foreground hover:text-foreground"
-          >
-            <ZoomOut className="h-3.5 w-3.5" />
-          </button>
-          <span className="w-10 text-center text-[11px] tabular-nums text-muted-foreground">
-            {Math.round(zoom * 100)}%
-          </span>
-          <button
-            type="button"
-            title={tr('engine.flowCanvas.zoomIn', locale)}
-            aria-label={tr('engine.flowCanvas.zoomIn', locale)}
-            onClick={() => setZoom((z) => clampZoom(z + 0.15))}
-            className="inline-flex h-7 w-7 items-center justify-center text-muted-foreground hover:text-foreground"
-          >
-            <ZoomIn className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            title={tr('engine.flowCanvas.fit', locale)}
-            aria-label={tr('engine.flowCanvas.fit', locale)}
-            onClick={fitToView}
-            className="inline-flex h-7 w-7 items-center justify-center border-l text-muted-foreground hover:text-foreground"
-          >
-            <Maximize2 className="h-3.5 w-3.5" />
-          </button>
         </div>
+      )}
+      {/* objectui#12454 — the zoom control floats at the bottom right: −,
+          the percentage, +, then fit after a divider. */}
+      <div className="absolute bottom-4 right-4 z-30 flex items-center gap-0.5 rounded-lg border bg-background p-[3px] shadow-sm">
+        <button
+          type="button"
+          title={tr('engine.flowCanvas.zoomOut', locale)}
+          aria-label={tr('engine.flowCanvas.zoomOut', locale)}
+          onClick={() => setZoom((z) => clampZoom(z - 0.15))}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <ZoomOut className="h-3.5 w-3.5" />
+        </button>
+        <span className="min-w-[44px] text-center text-xs tabular-nums text-foreground/80">
+          {Math.round(zoom * 100)}%
+        </span>
+        <button
+          type="button"
+          title={tr('engine.flowCanvas.zoomIn', locale)}
+          aria-label={tr('engine.flowCanvas.zoomIn', locale)}
+          onClick={() => setZoom((z) => clampZoom(z + 0.15))}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <ZoomIn className="h-3.5 w-3.5" />
+        </button>
+        <span aria-hidden className="mx-0.5 h-[18px] w-px bg-border" />
+        <button
+          type="button"
+          title={tr('engine.flowCanvas.fit', locale)}
+          aria-label={tr('engine.flowCanvas.fit', locale)}
+          onClick={fitToView}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <Maximize2 className="h-3.5 w-3.5" />
+        </button>
       </div>
 
       {/* Viewport */}
@@ -938,18 +941,15 @@ export function FlowCanvas({
           onBgPointerUp(e);
           onNodePointerUp(e);
         }}
-        className={cn(
-          'h-full w-full cursor-grab outline-none active:cursor-grabbing',
-          'bg-muted/15 dark:bg-background/30',
-          // Subtle inset vignette gives the canvas surface depth.
-          'shadow-[inset_0_0_90px_rgba(0,0,0,0.05)]',
-        )}
+        // objectui#12454 — the sidebar surface with a 20 px dot grid, as the
+        // redesign's canvas reads; the dots stay on the border token.
+        className="h-full w-full cursor-grab bg-sidebar outline-none active:cursor-grabbing"
         style={{
           // Dot grid tied to pan + zoom so the surface tracks the diagram
           // (rather than floating behind a static texture).
           backgroundImage:
             'radial-gradient(circle at 1px 1px, hsl(var(--border)) 1px, transparent 0)',
-          backgroundSize: `${18 * zoom}px ${18 * zoom}px`,
+          backgroundSize: `${20 * zoom}px ${20 * zoom}px`,
           backgroundPosition: `${pan.x}px ${pan.y}px`,
         }}
       >

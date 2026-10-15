@@ -23,7 +23,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { UserDataAdapter } from '@object-ui/data-objectstack';
+import type { UserDataAdapter, UserPreferenceFamily } from '@object-ui/data-objectstack';
 
 // ---------------------------------------------------------------------------
 // Adapter contract
@@ -42,10 +42,18 @@ interface UserStateAdaptersValue {
   favorites: UserDataAdapter<any> | null;
   recent: UserDataAdapter<any> | null;
   flowPaletteRecents: UserDataAdapter<any> | null;
+  /**
+   * objectui#12418 — the per-object list state (`ui.list.<object>`), a key
+   * FAMILY rather than one list: one row per object, loaded together by prefix
+   * in the same shared read as the three slots above. Console-internal, so it
+   * is not one of the public {@link UserStateKind}s.
+   */
+  listState: UserPreferenceFamily<any> | null;
 }
 
 interface AttachApi {
   attach(kind: UserStateKind, adapter: UserDataAdapter<any> | null): void;
+  attachListState(family: UserPreferenceFamily<any> | null): void;
 }
 
 // ---------------------------------------------------------------------------
@@ -56,6 +64,7 @@ const ReadCtx = createContext<UserStateAdaptersValue>({
   favorites: null,
   recent: null,
   flowPaletteRecents: null,
+  listState: null,
 });
 const WriteCtx = createContext<AttachApi | null>(null);
 
@@ -68,12 +77,16 @@ export function UserStateAdaptersProvider({ children }: { children: ReactNode })
     favorites: null,
     recent: null,
     flowPaletteRecents: null,
+    listState: null,
   });
 
   // Stable attach API so bridge useEffect deps don't churn.
   const attachRef = useRef<AttachApi>({
     attach: (kind, adapter) => {
       setAdapters(prev => (prev[kind] === adapter ? prev : { ...prev, [kind]: adapter }));
+    },
+    attachListState: (family) => {
+      setAdapters(prev => (prev.listState === family ? prev : { ...prev, listState: family }));
     },
   });
 
@@ -102,6 +115,22 @@ export function useAttachUserStateAdapters() {
   return useCallback(
     (kind: UserStateKind, adapter: UserDataAdapter<any> | null) => {
       ctx?.attach(kind, adapter);
+    },
+    [ctx],
+  );
+}
+
+/** The attached per-object list-state family (objectui#12418), or null. */
+export function useListStateFamily<T>(): UserPreferenceFamily<T> | null {
+  return useContext(ReadCtx).listState as UserPreferenceFamily<T> | null;
+}
+
+/** Plug the list-state family in/out. Stable across re-renders. */
+export function useAttachListStateFamily() {
+  const ctx = useContext(WriteCtx);
+  return useCallback(
+    (family: UserPreferenceFamily<any> | null) => {
+      ctx?.attachListState(family);
     },
     [ctx],
   );

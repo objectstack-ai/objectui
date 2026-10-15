@@ -1,7 +1,7 @@
 // Copyright (c) 2025 ObjectStack. Licensed under the Apache-2.0 license.
 
 import { describe, it, expect } from 'vitest';
-import { findUnknownRefs, scopeRoots } from './flow-ref-check';
+import { FLOW_CEL_ENGINE_BOUND_ROOTS, findUnknownRefs, scopeRoots } from './flow-ref-check';
 import type { ScopeRef } from './flow-scope';
 
 const roots = (...tokens: string[]) =>
@@ -125,5 +125,41 @@ describe('findUnknownRefs (template)', () => {
     const u = findUnknownRefs('Path: {aproval_path}', 'template', known);
     expect(u).toHaveLength(1);
     expect(u[0]).toEqual({ token: 'aproval_path', suggestion: 'approval_path' });
+  });
+});
+
+describe('findUnknownRefs (CEL roles follow the engine-bound roots) (objectui#12499)', () => {
+  // A scope that offers none of the engine-bound roots, so each pass below is
+  // the engine-bound allow-list's doing, not the graph scope's.
+  const known = roots('lead_score', 'record');
+
+  it('mirrors the members of ENGINE_BOUND_ROOTS in objectstack packages/lint/src/flow-cel-root-scope.ts', () => {
+    expect([...FLOW_CEL_ENGINE_BOUND_ROOTS].sort()).toEqual(['current_user', 'previous', 'vars']);
+  });
+
+  it.each(['predicate', 'value'] as const)('reports nothing for vars, current_user and previous in the %s role', (role) => {
+    expect(findUnknownRefs('has(vars.campaignRecord) && vars.campaignRecord.status == "open"', role, known)).toEqual([]);
+    expect(findUnknownRefs('vars["$error"] != null', role, known)).toEqual([]);
+    expect(findUnknownRefs('current_user.id == record.owner', role, known)).toEqual([]);
+    expect(findUnknownRefs('previous != null', role, known)).toEqual([]);
+    expect(findUnknownRefs({ dialect: 'cel', source: 'previous.status != record.status' }, role, known)).toEqual([]);
+  });
+
+  it.each(['predicate', 'value'] as const)('reports user in the %s role, with current_user as the suggestion', (role) => {
+    expect(findUnknownRefs('user.id == "u1"', role, known)).toEqual([{ token: 'user', suggestion: 'current_user' }]);
+  });
+
+  it('accepts user when the flow declares a variable of that name', () => {
+    expect(findUnknownRefs('user.id == "u1"', 'predicate', roots('user', 'record'))).toEqual([]);
+  });
+
+  it('CONTROL: still reports an undeclared root beside the engine-bound ones', () => {
+    expect(findUnknownRefs('vars.x && foo.bar', 'predicate', known)).toEqual([{ token: 'foo', suggestion: undefined }]);
+  });
+
+  it('leaves the template and hole roles on the runtime globals alone', () => {
+    // The ruling keeps those roles' allow-list as it was; only the CEL roles moved.
+    expect(findUnknownRefs('Hi {user.name}', 'template', known)).toEqual([]);
+    expect(findUnknownRefs('Hi {{user.name}}', 'hole', known)).toEqual([]);
   });
 });

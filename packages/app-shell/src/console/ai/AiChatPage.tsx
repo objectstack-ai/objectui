@@ -14,7 +14,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@object-ui/auth';
 import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
 import { toast } from 'sonner';
@@ -757,6 +757,33 @@ export function resolveCollapseToDockTarget(
  *  render would churn the pane's `initialMessages` identity for no reason. */
 const EMPTY_INITIAL_MESSAGES: HydratedUIMessage[] = [];
 
+/**
+ * objectui#12493 — the ADR-0057 P4 Builder handoff ("Open in Builder →" on the
+ * `ask` surface) travels as react-router NAVIGATION STATE, never as a URL
+ * parameter. A URL can be written by anyone and opened by a signed-in user in
+ * one click; the build surface sends its seeded first message with no further
+ * user action, so a URL-borne prompt would let a link author (and, with
+ * `autoPublishAiBuilds`, publish) metadata as that user. Navigation state can
+ * only be set by this app's own in-app `navigate()` call.
+ */
+interface BuilderHandoffState {
+  /** The build prompt the `ask` agent handed off; sent once as the build surface's first message. */
+  handoffPrompt?: string;
+  /** The source `ask` conversation id, forwarded as the build agent's first-turn context (cloud#817). */
+  parentConversationId?: string;
+}
+
+/** Reads the handoff from `location.state`; anything that is not a non-empty string is absent. */
+function readBuilderHandoffState(state: unknown): BuilderHandoffState {
+  if (!state || typeof state !== 'object') return {};
+  const record = state as Record<string, unknown>;
+  const text = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
+  return {
+    handoffPrompt: text(record.handoffPrompt),
+    parentConversationId: text(record.parentConversationId),
+  };
+}
+
 export interface PendingFirstMessage {
   content: string;
   files?: File[];
@@ -877,17 +904,20 @@ export function AiChatPage({ apiBase: apiBaseProp, defaultAgent: defaultAgentPro
   // message (the agent seeds it as the conversation's active package).
   const editPackageId = searchParams.get('package')?.trim() || undefined;
   // ADR-0057 P4 — a build prompt handed off from the `ask` surface's
-  // "Open in Builder →" (suggest_builder). Seeded as the build surface's first
-  // message below; the URL-mirror strips it once the conversation is minted.
-  const handoffPrompt = searchParams.get('handoffPrompt')?.trim() || undefined;
+  // "Open in Builder →" (suggest_builder), carried as NAVIGATION STATE
+  // (objectui#12493): the URL is never read for it, so no link can put a message
+  // in the user's mouth. Seeded as the build surface's first message below, and
+  // consumed from the history entry as it is seeded, so a reload never re-sends.
+  const location = useLocation();
+  const builderHandoff = useMemo(() => readBuilderHandoffState(location.state), [location.state]);
+  const handoffPrompt = builderHandoff.handoffPrompt;
   // ADR-0057 P4 / cloud#817 — the source `ask` conversation id handed off to the
-  // Builder alongside the prompt. Forwarded to ChatPane → useObjectChat, which
-  // sends it as `context.parentConversationId` on the build surface's FIRST turn
-  // so the agent starts with the ask thread as context (never a cold start). The
-  // URL-mirror below drops it once the build conversation id is minted, exactly
-  // like `handoffPrompt`, so a reload never re-carries it.
-  const handoffParentConversationId =
-    searchParams.get('parentConversationId')?.trim() || undefined;
+  // Builder alongside the prompt (same navigation state). Forwarded to ChatPane →
+  // useObjectChat, which sends it as `context.parentConversationId` on the build
+  // surface's FIRST turn so the agent starts with the ask thread as context
+  // (never a cold start). The URL-mirror below navigates without state once the
+  // build conversation id is minted, which drops it.
+  const handoffParentConversationId = builderHandoff.parentConversationId;
   const navigate = useNavigate();
   // objectui#7373 — both exits out of this page (the "no agent here" screen's
   // Home button, and the collapse-to-dock landing on a cold deep link) follow
@@ -1030,6 +1060,65 @@ export function AiChatPage({ apiBase: apiBaseProp, defaultAgent: defaultAgentPro
   const scopeMatched = conversationScope === chatScope;
   const paneConversationId = scopeMatched ? conversationId : undefined;
   const paneInitialMessages = scopeMatched ? initialMessages : EMPTY_INITIAL_MESSAGES;
+
+  // Holds an empty-state first message submitted before the conversation id was
+  // minted. Owned by the PAGE (not the keyed <ChatPane>) so it survives the
+  // remount that the id-resolution triggers; the freshly-mounted pane replays it
+  // via useDeferredFirstSend. See that hook for the full race.
+  const pendingFirstMessageRef = useRef<PendingFirstMessage | null>(null);
+  // Bumped whenever the pending ref is set OUT OF BAND (the handoff seed below).
+  // ChatPane's deferred-send replay lists this in its deps, so it re-runs and
+  // fires the seed even when the conversation id was ALREADY minted. Without it a
+  // seed that lands after the id resolves is never replayed — the swallow (the
+  // replay otherwise only re-runs on id / doSend changes).
+  const [pendingFirstMessageSeq, setPendingFirstMessageSeq] = useState(0);
+  const stashPendingFirstMessage = useCallback((m: PendingFirstMessage) => {
+    pendingFirstMessageRef.current = m;
+    setPendingFirstMessageSeq((s) => s + 1);
+  }, []);
+
+  // ADR-0057 P4 — seed the handed-off build prompt as this surface's first
+  // message; `useDeferredFirstSend` (in ChatPane) replays it once the id lands.
+  // Gate on the ROUTE (`agentSegment`), known synchronously — NOT on the
+  // async-resolved `activeAgent`, which can settle AFTER the id is minted and so
+  // seed too late for the replay to see it (the swallow race, cloud#817 P4
+  // follow-up #1). Arm once per history entry (`location.key`), so a SECOND
+  // handoff re-seeds into the singleton build conversation (#2) even with the
+  // same text.
+  //
+  // objectui#12493 — the prompt is CONSUMED from the history entry as it is
+  // seeded: the entry's state is replaced by one without `handoffPrompt` (the
+  // parent conversation id stays until the URL-mirror drops it). Browser
+  // history keeps state across a reload, so without this a reload would send
+  // the prompt again. Declared BEFORE the canonicalization and URL-mirror
+  // effects so that, in a shared effect flush, their later navigations win
+  // over this same-URL replace.
+  const lastSeededHandoffKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!handoffPrompt || agentSegment !== 'build') return;
+    if (lastSeededHandoffKeyRef.current === location.key) return;
+    lastSeededHandoffKeyRef.current = location.key;
+    // Target the stash at the BUILD pane (#2450): mid ask→build transition a
+    // doomed pane (stale conversation id, about to remount) must not consume it.
+    stashPendingFirstMessage({ content: handoffPrompt, targetAgentRoute: 'build' });
+    const remaining: BuilderHandoffState | null = handoffParentConversationId
+      ? { parentConversationId: handoffParentConversationId }
+      : null;
+    navigate(
+      { pathname: location.pathname, search: location.search, hash: location.hash },
+      { replace: true, state: remaining },
+    );
+  }, [
+    handoffPrompt,
+    handoffParentConversationId,
+    agentSegment,
+    location.key,
+    location.pathname,
+    location.search,
+    location.hash,
+    navigate,
+    stashPendingFirstMessage,
+  ]);
 
   // ── Route canonicalization ──────────────────────────────────────────────
   // Back-compat redirects (the agent is now in the path): bare `/ai` → the
@@ -1227,40 +1316,6 @@ export function AiChatPage({ apiBase: apiBaseProp, defaultAgent: defaultAgentPro
       current[conversationId] === hint ? current : { ...current, [conversationId]: hint },
     );
   }, [conversationId, initialMessages]);
-
-  // Holds an empty-state first message submitted before the conversation id was
-  // minted. Owned by the PAGE (not the keyed <ChatPane>) so it survives the
-  // remount that the id-resolution triggers; the freshly-mounted pane replays it
-  // via useDeferredFirstSend. See that hook for the full race.
-  const pendingFirstMessageRef = useRef<PendingFirstMessage | null>(null);
-  // Bumped whenever the pending ref is set OUT OF BAND (the handoff seed below).
-  // ChatPane's deferred-send replay lists this in its deps, so it re-runs and
-  // fires the seed even when the conversation id was ALREADY minted. Without it a
-  // seed that lands after the id resolves is never replayed — the swallow (the
-  // replay otherwise only re-runs on id / doSend changes).
-  const [pendingFirstMessageSeq, setPendingFirstMessageSeq] = useState(0);
-  const stashPendingFirstMessage = useCallback((m: PendingFirstMessage) => {
-    pendingFirstMessageRef.current = m;
-    setPendingFirstMessageSeq((s) => s + 1);
-  }, []);
-
-  // ADR-0057 P4 — seed the handed-off build prompt as this surface's first
-  // message; `useDeferredFirstSend` (in ChatPane) replays it once the id lands.
-  // Gate on the ROUTE (`agentSegment`), known synchronously — NOT on the
-  // async-resolved `activeAgent`, which can settle AFTER the id is minted and so
-  // seed too late for the replay to see it (the swallow race, cloud#817 P4
-  // follow-up #1). Re-arm on each new `handoffPrompt` VALUE so a SECOND handoff
-  // re-seeds into the singleton build conversation (#2). The URL-mirror strips
-  // `?handoffPrompt` after the send, so a reload never re-fires.
-  const lastSeededHandoffPromptRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!handoffPrompt || agentSegment !== 'build') return;
-    if (lastSeededHandoffPromptRef.current === handoffPrompt) return;
-    lastSeededHandoffPromptRef.current = handoffPrompt;
-    // Target the stash at the BUILD pane (#2450): mid ask→build transition a
-    // doomed pane (stale conversation id, about to remount) must not consume it.
-    stashPendingFirstMessage({ content: handoffPrompt, targetAgentRoute: 'build' });
-  }, [handoffPrompt, agentSegment, stashPendingFirstMessage]);
 
   const handleSent = useCallback(
     (firstUserMessage?: string) => {
@@ -1557,7 +1612,7 @@ interface ChatPaneProps {
    *  keeping it in the bind effect's deps re-fires the notification when the
    *  mirror lands, covering a hydrated bound thread opened via bare `/ai/build`. */
   canBind?: boolean;
-  /** ADR-0057 P4 / cloud#817 — source `ask` conversation id (from `?parentConversationId=`),
+  /** ADR-0057 P4 / cloud#817 — source `ask` conversation id (from the handoff's navigation state),
    *  forwarded to the build agent's FIRST turn as `context.parentConversationId` so it
    *  starts with the ask thread as context. Undefined outside a handoff. */
   parentHandoffConversationId?: string;
@@ -1624,21 +1679,22 @@ export function ChatPane({
   const showAgentLauncher = launcherAgents.length > 1;
 
   // ADR-0057 P4 — the `ask` agent declined an authoring request (suggest_builder).
-  // Open the full-page BUILD surface seeded with the handoff prompt (carried as
-  // `?handoffPrompt=`, auto-sent on arrival; ADR-0063 decline-and-redirect — an
-  // explicit, user-initiated switch, never a silent re-route). Prefer the
-  // handoff's own packageId, else this surface's edit package. cloud#817: also
-  // carry THIS (ask) thread's id as `?parentConversationId=` so the Builder's
-  // first turn starts with the ask conversation as context, not a cold start.
+  // Open the full-page BUILD surface seeded with the handoff prompt, sent on
+  // arrival because the user's click on the card is the action (ADR-0063
+  // decline-and-redirect — an explicit, user-initiated switch, never a silent
+  // re-route). The prompt rides NAVIGATION STATE, never the URL
+  // (objectui#12493): only this in-app call can set it, so no link can make the
+  // build agent receive a message the user did not send. Prefer the handoff's
+  // own packageId, else this surface's edit package (`?package=` only scopes the
+  // surface; it sends nothing). cloud#817: also carry THIS (ask) thread's id so
+  // the Builder's first turn starts with the ask conversation as context.
   const openBuilder = useCallback(
     (handoff: { prompt: string; packageId?: string }) => {
-      const params = new URLSearchParams();
       const pkg = handoff.packageId || editPackageId;
-      if (pkg) params.set('package', pkg);
-      if (handoff.prompt) params.set('handoffPrompt', handoff.prompt);
-      if (conversationId) params.set('parentConversationId', conversationId);
-      const qs = params.toString();
-      navigate(`/ai/build${qs ? `?${qs}` : ''}`);
+      const state: BuilderHandoffState = {};
+      if (handoff.prompt) state.handoffPrompt = handoff.prompt;
+      if (conversationId) state.parentConversationId = conversationId;
+      navigate(`/ai/build${pkg ? `?package=${encodeURIComponent(pkg)}` : ''}`, { state });
     },
     [navigate, editPackageId, conversationId],
   );

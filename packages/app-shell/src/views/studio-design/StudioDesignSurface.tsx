@@ -26,7 +26,7 @@ import { useAdapter, SchemaRendererProvider } from '@object-ui/react';
 import { dropServedPicklistOptions, extractDraftBody, formatMetadataError } from '@object-ui/data-objectstack';
 import type { MetadataClient } from '@object-ui/data-objectstack';
 import type { FlowRuntimeState as SpecFlowRuntimeState } from '@objectstack/spec/contracts';
-import type { I18nLabel } from '@objectstack/spec/ui';
+import { resolveI18nLabel, type I18nLabel } from '@objectstack/spec/ui';
 import { StudioChatDock, type StudioSurfaceLabel } from './StudioAiCopilot.js';
 import { nextCenterTab, type StudioCenterTab } from './centerTab.js';
 import { AUTOMATIONS_CONFIG_FOLD_WIDTH, useIsNarrowerThan, useIsWideViewport } from './wideViewport.js';
@@ -34,7 +34,9 @@ import { AppMark, type AppMarkApp } from '../../layout/AppMark.js';
 import { STUDIO_HEADER, STUDIO_HEADER_ICON_BUTTON, STUDIO_KIND_CHIP } from './studio-tokens.js';
 import { StudioInspector } from './StudioInspector.js';
 import { StudioItemHeader, StudioTab } from './StudioItemHeader.js';
+import { DATA_CONTENT_CONTAINER, DATA_TAB_FLAT_ONLY, DATA_TAB_FOLDED_ONLY } from './dataTabsFold.js';
 import { StudioRail, StudioRailGroup, StudioRailRow } from './StudioRail.js';
+import { FLOW_TRIGGER_GLYPHS, flowTriggerGlyph, groupFlowsByObject, type FlowTriggerGlyph } from './flowGrouping.js';
 import {
   GridFieldAuthoringProvider,
   cn,
@@ -103,16 +105,22 @@ import {
   ChevronDown,
   Lock,
   Settings,
+  Settings2,
   Home as HomeIcon,
   Shield,
   ShieldCheck,
   ShieldQuestion,
   Menu,
+  MoreHorizontal,
   PanelRightClose,
   PanelRightOpen,
   Play,
   Minus,
   Trash2,
+  Zap,
+  Clock,
+  MousePointerClick,
+  CornerDownRight,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -141,7 +149,7 @@ import {
   type PageSourceKind,
   type ReportBinding,
 } from './interfaceCreate.js';
-import { PermissionMatrixEditPage } from '../metadata-admin/PermissionMatrixEditor.js';
+import { PermissionMatrixEditPage, type PermissionStudioTab } from '../metadata-admin/PermissionMatrixEditor.js';
 import { AccessExplainPanel } from '../metadata-admin/AccessExplainPanel.js';
 import {
   useRegisteredMetadataInspector,
@@ -202,8 +210,16 @@ import {
   FlowRuntimeContext,
   deriveFlowRunStatus,
   describeFlowRunStatus,
+  type FlowRunStatus,
+  type FlowRunStatusView,
   type FlowRuntimeRow,
 } from '../metadata-admin/previews/flow-problems.js';
+import {
+  FlowMetaPills,
+  FlowPreviewChromeProvider,
+  type FlowPreviewSection,
+  type FlowProblemTally,
+} from '../metadata-admin/previews/FlowPreview.js';
 import type { FlowRegistration } from '@objectstack/spec/api';
 import {
   clearedLabel,
@@ -239,7 +255,7 @@ import {
   PackageDetailSheet,
   type InstalledPackageRow,
 } from '../metadata-admin/PackagesPage.js';
-import { ObjectFormDesigner } from './ObjectFormDesigner.js';
+import { FormToolbar, ObjectFormDesigner } from './ObjectFormDesigner.js';
 import { isStudioHiddenSystemField } from './studioHiddenSystemField.js';
 import { ObjectGroupInspector } from './ObjectGroupInspector.js';
 import { ObjectValidationsPanel } from './ObjectValidationsPanel.js';
@@ -277,10 +293,15 @@ const OWD_OPTION_DESC_KEY: Record<OwdCreateModel, string> = {
   public_read_write: 'engine.studio.settings.sharingDescPublicReadWrite',
 };
 
+// objectui#12452 — Access is the fourth segment, and the "More" overflow that
+// held it alone (objectui#5813) is retired. If a second overflow pillar is ever
+// added, More returns with the objectui#11794 behaviour: its trigger keeps the
+// name More whichever of its pillars is open.
 const PILLARS: ReadonlyArray<{ key: string; label: string; Icon: LucideIcon }> = [
   { key: 'data', label: 'Data', Icon: Database },
   { key: 'automations', label: 'Automations', Icon: Workflow },
   { key: 'interfaces', label: 'Interfaces', Icon: LayoutDashboard },
+  { key: 'access', label: 'Access', Icon: Shield },
 ];
 /**
  * objectui#11357 — the body the Interfaces pillar saves for its open leaf. A
@@ -364,15 +385,6 @@ export function StudioHeldNotice({
     </div>
   );
 }
-
-// objectui#5813 — Access is a low-frequency ADMIN surface, demoted from the
-// top-level pillar row into the "More" overflow (maintainer ruling
-// 2026-08-24: primary nav aligns with the Data/Automations/Interfaces maker
-// mental model). The PAGE is untouched: the /studio/:pkg/access route, the
-// pillar dispatch and PILLAR_FOR_SURFACE_TYPE all still point here.
-const OVERFLOW_PILLARS: ReadonlyArray<{ key: string; label: string; Icon: LucideIcon }> = [
-  { key: 'access', label: 'Access', Icon: Shield },
-];
 
 /**
  * Which pillar owns a surface type — the routing half of a live surface
@@ -1598,6 +1610,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                 <Link
                   key={p.key}
                   to={`/studio/${scopeSegment}/${p.key}`}
+                  aria-current={tab === p.key ? 'page' : undefined}
                   onClick={(e) => {
                     // Re-clicking the open pillar re-navigates to the same URL —
                     // nothing unmounts. Modified/aux clicks open a new tab and
@@ -1621,60 +1634,6 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                   <span className="sr-only xl:not-sr-only">{t(`engine.studio.pillar.${p.key}`, locale)}</span>
                 </Link>
               ))}
-              {/* objectui#5813 — low-frequency surfaces live in "More". The
-                  trigger keeps its own name, More, whichever of them is open
-                  (objectui#11794, the rule the Data pillar's Advanced trigger
-                  follows): renamed to the open pillar ("Access ▾") it hid the
-                  one word that says this is the overflow menu. Where you are
-                  still shows twice — the trigger takes the active pillar
-                  styling while one of its pillars is open, and inside the menu
-                  that pillar's link is the current page (`aria-current`). Each
-                  item is a real router Link carrying the SAME dirty-guard as
-                  the primary pillars — an overflow entry must not become the
-                  one door that silently discards edits. None of them is in the
-                  package-less scope (objectui#11553). */}
-              {packageId !== null && (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    data-testid="studio-nav-more"
-                    className={
-                      'inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-3 text-[13px] transition-colors ' +
-                      (OVERFLOW_PILLARS.some((p) => tab === p.key)
-                        ? 'bg-background font-medium text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground')
-                    }
-                  >
-                    {t('engine.studio.more', locale)}
-                    <ChevronDown className="h-3 w-3" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-44 p-1">
-                  {OVERFLOW_PILLARS.map((p) => (
-                    <Link
-                      key={p.key}
-                      to={`/studio/${scopeSegment}/${p.key}`}
-                      aria-current={tab === p.key ? 'page' : undefined}
-                      onClick={(e) => {
-                        if (tab === p.key) return;
-                        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-                        if (!confirmLeavePillar()) e.preventDefault();
-                      }}
-                      className={
-                        'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs transition-colors ' +
-                        (tab === p.key
-                          ? 'bg-primary/10 font-medium text-primary'
-                          : 'text-muted-foreground hover:bg-muted hover:text-foreground')
-                      }
-                    >
-                      <p.Icon className="h-3.5 w-3.5" />
-                      {t(`engine.studio.pillar.${p.key}`, locale)}
-                    </Link>
-                  ))}
-                </PopoverContent>
-              </Popover>
-              )}
             </nav>
 
             {/* Package-level draft review + one atomic publish (replaces per-item Publish) */}
@@ -4723,11 +4682,26 @@ export function renderStudioGridList(props: {
           // the channel and dropped the leftover parameter).
           ...listSchema,
           viewType: 'grid',
-          showSearch: true,
-          showSort: true,
-          showFilters: true,
-          showGroup: true,
-          showHideFields: true,
+          // objectui#12450 — the Records toolbar the Data pillar's artboard
+          // draws: Hide fields, Filter, Group and Sort as labelled buttons,
+          // then Refresh, Search and Add record. That is the list's wide form
+          // (`compactToolbar: false`, one button per control); the bundled
+          // Display form the console's list pages default to (objectui#12423)
+          // would fold Hide fields and Group away. Density is not offered: the
+          // artboard has no density control. The toggles are spelled in
+          // `userActions`, the protocol's home for them (the bare `show*`
+          // spellings this used are retired tombstones, objectui#7924), and
+          // the slot's own `userActions` — what a view declares — still wins.
+          compactToolbar: false,
+          userActions: {
+            search: true,
+            sort: true,
+            filter: true,
+            group: true,
+            hideFields: true,
+            rowHeight: false,
+            ...(listSchema.userActions as Record<string, unknown> | undefined),
+          },
           inlineEdit: true,
           addDeleteRecordsInline: true,
           // Fold "+ New" into this toolbar (next to Hide fields/Filter/Group/
@@ -5362,15 +5336,13 @@ export function DataPillar({
   // rendered fills the field rail below without a remount.
   const inspector = useRegisteredMetadataInspector('object');
 
-  // The object-level tabs (Data pillar). A shadcn/HIG segmented control: a
-  // recessed `bg-muted` track with an elevated `bg-background` pill on the
-  // active segment — the inverse of the old transparent-track/grey-active
-  // styling, which read as toolbar chrome rather than a distinct nav layer.
+  // The object-level tabs (Data pillar): underline tabs in the item header.
   // objectui#5813 — the 90% path is Records / Form (fields ARE the grid's
-  // columns, with Add field right beside them, so a separate fields tab would
-  // ADD a surface, not remove one). The five power tabs keep their panels
-  // untouched behind one "Advanced" menu — capability stays, the default view
-  // stops taxing every visit with seven choices (maintainer ruling 2026-08-24).
+  // columns, so a separate fields tab would ADD a surface, not remove one).
+  // objectui#12450 — the five power panels are flat tabs beside them when the
+  // content column has room, and fold back into one "Advanced" menu when it
+  // does not (maintainer ruling 2026-10-15, decision B of epic objectui#12446;
+  // the rule lives in `dataTabsFold.ts`).
   const dataTabs: ReadonlyArray<{ key: typeof viewMode; label: string }> = [
     { key: 'grid', label: t('engine.studio.data.tab.records', locale) },
     { key: 'form', label: t('engine.studio.data.tab.form', locale) },
@@ -5383,6 +5355,56 @@ export function DataPillar({
     { key: 'settings', label: t('engine.studio.data.tab.settings', locale) },
   ];
   const activeAdvancedTab = advancedDataTabs.find((tabDef) => tabDef.key === viewMode);
+  // The two views Add field serves; `addField` itself refuses the rest.
+  const addFieldOffered = Boolean(current) && (viewMode === 'grid' || viewMode === 'form') && !readOnly && objLoaded;
+  // objectui#12450 — the Records grid draws flush with the content column.
+  const recordsFlush = Boolean(current) && objLoaded && viewMode === 'grid' && hasBaseline;
+  // objectui#12451 — so does the Form tab: its one toolbar row spans the
+  // column, and the canvas below it carries its own padding.
+  const formFlush = Boolean(current) && objLoaded && viewMode === 'form';
+  const bodyFlush = recordsFlush || formFlush;
+  // objectui#12451 — the Form tab's compact Layout / Preview control (24 px
+  // items). The caption that used to trail it is each item's title.
+  const formModeItem = (active: boolean) =>
+    cn(
+      'h-6 rounded px-2.5 text-xs transition-colors',
+      active ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+    );
+  const formModeControl = (
+    <div className="inline-flex items-center gap-0.5 rounded-md bg-muted p-0.5">
+      <button
+        type="button"
+        onClick={() => setFormMode('layout')}
+        aria-pressed={formMode === 'layout'}
+        // The caption used to assert "your unsaved changes" from `formMode`
+        // alone — a TAB selector — so it claimed pending edits on every clean
+        // layout tab, including in a read-only package where `Save draft` is
+        // disabled and the designer has no draggable at all (objectui#4036).
+        // Say it only when it is true: real local edits, on a surface that can
+        // save them. A read-only package is asked first: it has no draft layout
+        // at all, so neither draft caption is true of it (objectui#11781).
+        title={
+          readOnly
+            ? t('engine.studio.data.form.layoutBadgeReadOnly', locale)
+            : dirty
+              ? t('engine.studio.data.form.layoutBadge', locale)
+              : t('engine.studio.data.form.layoutBadgeClean', locale)
+        }
+        className={formModeItem(formMode === 'layout')}
+      >
+        {t('engine.studio.data.form.layout', locale)}
+      </button>
+      <button
+        type="button"
+        onClick={() => setFormMode('preview')}
+        aria-pressed={formMode === 'preview'}
+        title={t('engine.studio.data.form.previewBadge', locale)}
+        className={formModeItem(formMode === 'preview')}
+      >
+        {t('engine.studio.data.form.preview', locale)}
+      </button>
+    </div>
+  );
 
   // The selected object's own icon (from its metadata) — prefer the loaded
   // draft body, fall back to the rail header. getIcon degrades to Database.
@@ -5391,12 +5413,15 @@ export function DataPillar({
   );
 
   // objectui#12459 — the object's tab row lives in the item header (the
-  // skeleton's scaffold): the two primary tabs flat, "Advanced" as the
-  // overflow it was (objectui#5813). The trigger keeps its own name whichever
-  // panel is open (objectui#11794): renamed to the panel ("Validations ▾") it
-  // hid the one word that says sibling panels sit behind it. Where you are
-  // still shows twice — the trigger takes the active look while one of its
-  // panels is open, and the menu marks that panel as the checked radio item.
+  // skeleton's scaffold). objectui#12450 — seven flat tabs at a content column
+  // of `DATA_TABS_FOLD_WIDTH` and wider; narrower, the five power panels fold
+  // into "Advanced". Both forms are rendered and a container query on the
+  // content column displays exactly one of them (see `dataTabsFold.ts`).
+  // Folded, the trigger keeps its own name whichever panel is open
+  // (objectui#11794): renamed to the panel ("Validations ▾") it hid the one
+  // word that says sibling panels sit behind it. Where you are still shows
+  // twice — the trigger takes the active look while one of its panels is
+  // open, and the menu marks that panel as the checked radio item.
   const dataTabRowEl = current ? (
     <>
       {dataTabs.map((tab) => (
@@ -5404,9 +5429,20 @@ export function DataPillar({
           {tab.label}
         </StudioTab>
       ))}
+      {advancedDataTabs.map((tab) => (
+        <StudioTab
+          key={tab.key}
+          data-testid={`data-tab-flat-${tab.key}`}
+          active={viewMode === tab.key}
+          onClick={() => selectViewMode(tab.key)}
+          className={DATA_TAB_FLAT_ONLY}
+        >
+          {tab.label}
+        </StudioTab>
+      ))}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <StudioTab data-testid="data-tabs-advanced" active={Boolean(activeAdvancedTab)}>
+          <StudioTab data-testid="data-tabs-advanced" active={Boolean(activeAdvancedTab)} className={DATA_TAB_FOLDED_ONLY}>
             {t('engine.studio.data.tab.advanced', locale)}
             <ChevronDown className="h-3 w-3" />
           </StudioTab>
@@ -5478,7 +5514,7 @@ export function DataPillar({
             })}
         </StudioRail>
 
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div className={cn('flex min-w-0 flex-1 flex-col overflow-hidden', DATA_CONTENT_CONTAINER)} data-testid="data-content-column">
           {/* objectui#12459 — the object header sits inside the content column,
               over the thing it names, instead of spanning the rail. */}
           <StudioItemHeader
@@ -5522,21 +5558,61 @@ export function DataPillar({
                     })}
                   </span>
                 ) : null}
-                {current && (viewMode === 'grid' || viewMode === 'form') && !readOnly && objLoaded && (
-                  <button
-                    type="button"
-                    onClick={addField}
-                    title={t('engine.studio.data.addFieldTitle', locale)}
-                    className="inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> {t('engine.studio.data.addField', locale)}
-                  </button>
+                {/* objectui#12450 — the header's two icon buttons. Object
+                    settings opens the Settings panel (a shortcut that still
+                    works when that tab is folded into Advanced); More holds
+                    Add field, which left the header row for it. Add field
+                    stays reachable from the grid's own "+" column and the form
+                    designer's button too. More is drawn only when it holds
+                    something: Add field is not offered on a read-only package,
+                    before the object loads, or on the five power panels. */}
+                {current && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => selectViewMode('settings')}
+                      aria-label={t('engine.studio.data.objectSettings', locale)}
+                      title={t('engine.studio.data.objectSettings', locale)}
+                      data-testid="data-object-settings"
+                      className={STUDIO_HEADER_ICON_BUTTON}
+                    >
+                      <Settings2 className="h-4 w-4" />
+                    </button>
+                    {addFieldOffered && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            aria-label={t('engine.studio.data.moreActions', locale)}
+                            title={t('engine.studio.data.moreActions', locale)}
+                            data-testid="data-object-more"
+                            className={STUDIO_HEADER_ICON_BUTTON}
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onSelect={addField}
+                            title={t('engine.studio.data.addFieldTitle', locale)}
+                            data-testid="data-object-add-field"
+                          >
+                            <Plus className="h-3.5 w-3.5" /> {t('engine.studio.data.addField', locale)}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
                 )}
               </>
             }
             tabs={dataTabRowEl}
           />
-          <main className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 py-4">
+          {/* objectui#12450 — the Records grid runs flush with the column: no
+              body padding and no framed card around the list, so its toolbar,
+              grid and footer span the column's full width. Every other view
+              keeps the padded body. */}
+          <main className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', bodyFlush ? null : 'px-6 py-4')}>
           {!current ? (
             objectsLoaded && objects.length === 0 ? (
               /* Fresh package: the first act is creating an object — say so and
@@ -5568,7 +5644,7 @@ export function DataPillar({
                   locale={locale}
                   // objectui#11785 — "Show me" opens the named field's inspector.
                   onShow={(target) => setFieldSel({ kind: target.kind, id: target.id })}
-                  className="mb-2 px-3 py-1.5 text-[11px]"
+                  className={cn('mb-2 px-3 py-1.5 text-[11px]', bodyFlush && 'mx-6 mt-3')}
                 />
               )}
               {objHeld && (
@@ -5581,7 +5657,7 @@ export function DataPillar({
                       ? undefined
                       : (target) => setFieldSel({ kind: target.kind, id: target.id })
                   }
-                  className="mb-2 px-3 py-1.5 text-[11px]"
+                  className={cn('mb-2 px-3 py-1.5 text-[11px]', bodyFlush && 'mx-6 mt-3')}
                 />
               )}
               {!objLoaded ? (
@@ -5652,7 +5728,7 @@ export function DataPillar({
               {/* Records grid — fields are the columns. Header "+" adds a field, the
                 * per-column edit affordance opens the field editor, and dragging a
                 * column header reorders the object's fields (all via the context). */}
-              <div className="min-h-0 flex-1 overflow-auto rounded-lg border bg-background">
+              <div className="min-h-0 flex-1 overflow-auto bg-background" data-testid="data-records-body">
                 <GridFieldAuthoringProvider
                   value={{
                     // Read-only package: keep the per-column inspector (view props)
@@ -5711,65 +5787,10 @@ export function DataPillar({
               ) : (
               <>
               {/* form sub-mode: Layout (WYSIWYG drag/section designer) ⇄
-                  Preview (live form) */}
-              <div className="mb-3 flex items-center gap-2">
-                <div className="inline-flex items-center gap-0.5 rounded-lg bg-muted p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setFormMode('layout')}
-                    aria-pressed={formMode === 'layout'}
-                    className={
-                      'rounded-md px-2.5 py-0.5 text-[12px] transition-all ' +
-                      (formMode === 'layout' ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')
-                    }
-                  >
-                    {t('engine.studio.data.form.layout', locale)}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormMode('preview')}
-                    aria-pressed={formMode === 'preview'}
-                    className={
-                      'rounded-md px-2.5 py-0.5 text-[12px] transition-all ' +
-                      (formMode === 'preview' ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')
-                    }
-                  >
-                    {t('engine.studio.data.form.preview', locale)}
-                  </button>
-                </div>
-                <span className="text-[11px] text-muted-foreground">
-                  {formMode === 'layout' ? (
-                    // The caption used to assert "your unsaved changes" from
-                    // `formMode` alone — a TAB selector — so it claimed pending
-                    // edits on every clean layout tab, including in a read-only
-                    // package where `Save draft` is disabled and the designer has
-                    // no draggable at all (objectui#4036). Say it only when it
-                    // is true: real local edits, on a surface that can save
-                    // them. A read-only package is asked first: it has no draft
-                    // layout at all, so neither draft caption is true of it
-                    // (objectui#11781), and "no unsaved-changes claim where
-                    // nothing can be saved" stays a property of this line
-                    // rather than an inference about a state machine two
-                    // hundred lines up.
-                    readOnly
-                      ? t('engine.studio.data.form.layoutBadgeReadOnly', locale)
-                      : dirty
-                        ? t('engine.studio.data.form.layoutBadge', locale)
-                        : t('engine.studio.data.form.layoutBadgeClean', locale)
-                  ) : (
-                    t('engine.studio.data.form.previewBadge', locale)
-                  )}
-                </span>
-                {/* Preview renders the PUBLISHED definition on purpose: a draft with
-                  * structural changes has no physical columns yet (DDL lands at
-                  * publish), so a draft-with-data preview would break. Publishing is
-                  * a deliberate user action — say so instead of silently lying. */}
-                {formMode === 'preview' && (dirty || hasDraft) && (
-                  <span className="inline-flex items-center gap-1 rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300">
-                    {t('engine.studio.data.form.previewWarn', locale)}
-                  </span>
-                )}
-              </div>
+                  Preview (live form). objectui#12451 — the control sits at the
+                  left of the Form tab's one toolbar row (the designer's in
+                  Layout, `FormToolbar` in Preview), and the caption that used
+                  to trail it is each item's title. */}
               {formMode === 'layout' ? (
                 <ObjectFormDesigner
                   draft={objDraft}
@@ -5782,10 +5803,28 @@ export function DataPillar({
                   onSelectGroup={(key) => setFieldSel({ kind: 'group', id: key })}
                   onAddField={addField}
                   readOnly={readOnly}
+                  modeControl={formModeControl}
                 />
-              ) : !hasBaseline ? (
+              ) : (
+              <>
+              <FormToolbar
+                leading={formModeControl}
+                hint={
+                  /* Preview renders the PUBLISHED definition on purpose: a draft with
+                   * structural changes has no physical columns yet (DDL lands at
+                   * publish), so a draft-with-data preview would break. Publishing is
+                   * a deliberate user action — say so instead of silently lying. */
+                  (dirty || hasDraft) && (
+                    <span className="inline-flex items-center gap-1 rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300">
+                      {t('engine.studio.data.form.previewWarn', locale)}
+                    </span>
+                  )
+                }
+              />
+              <div className="flex min-h-0 flex-1 flex-col overflow-auto bg-sidebar p-6">
+              {!hasBaseline ? (
                 /* Draft-only object: there is no published definition to preview yet. */
-                <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed bg-muted/20 text-center">
+                <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed bg-background text-center">
                   <p className="text-sm font-medium">{t('engine.studio.data.form.noPublishedTitle', locale)}</p>
                   <p className="max-w-md text-[11px] leading-5 text-muted-foreground">
                     {t('engine.studio.data.form.noPublishedHint', locale)}
@@ -5812,7 +5851,7 @@ export function DataPillar({
                     : ''
                 }
               `}</style>
-              <div className="min-h-0 flex-1 overflow-auto rounded-lg border bg-background p-6">
+              <div className="rounded-lg border bg-background p-6">
                 {/* Match the real display: the runtime form auto-widens (a
                     field-heavy record opens in a near-full-width modal), so its
                     container queries reach up to 4 columns on wide screens. A
@@ -5846,6 +5885,9 @@ export function DataPillar({
                     />
                   </SchemaRendererProvider>
                 </div>
+              </div>
+              </>
+              )}
               </div>
               </>
               )}
@@ -6067,23 +6109,28 @@ function flowRailState(s: FlowRuntimeState): FlowRailState {
  *
  * objectui#12349 — and from the engine's registration verdict, which the flow
  * list serves beside its items. A flow the engine REFUSED has no runtime row,
- * so it used to render nothing here; it now reads an amber "Refused by the
- * engine" chip titled with the engine's `reason.message`, as sent and never
- * parsed. An `unregistered` flow reads the grey "Not running here" chip. A
- * `registered` verdict, and none at all, leave the row's reading below.
+ * so it used to render nothing here; it now reads "Refused by the engine",
+ * titled with the engine's `reason.message`, as sent and never parsed. An
+ * `unregistered` flow reads "Not running here". A `registered` verdict, and
+ * none at all, leave the row's reading below.
  *
  * The state is the run status `deriveFlowRunStatus` derives, worded by
  * `describeFlowRunStatus` — the derivation the flow header's Status pill and the
  * Problems panel read too (objectui#11779), so the three cannot disagree:
- *   - enabled and bound, or enabled with no declared trigger: a green dot +
- *     "On", titled "bound to its trigger" / "no trigger (run manually)" — a flow
- *     that runs when invoked is never called "not running";
- *   - enabled, with a declared trigger the engine has not armed: a grey
- *     "Not running here" chip — visible without hovering, since the deployment
- *     will never run it on that trigger. Its title is the platform's `reason`,
- *     verbatim (objectui#11281), or, from a backend that predates the field, the
- *     contract's own reading of the row: its trigger is not armed here;
- *   - disabled: a grey dot + "Off".
+ *   - enabled and bound, or enabled with no declared trigger: "On", titled
+ *     "bound to its trigger" / "no trigger (run manually)" — a flow that runs
+ *     when invoked is never called "not running";
+ *   - enabled, with a declared trigger the engine has not armed: "Not running
+ *     here". Its title is the platform's `reason`, verbatim (objectui#11281),
+ *     or, from a backend that predates the field, the contract's own reading of
+ *     the row: its trigger is not armed here;
+ *   - disabled: "Off".
+ *
+ * objectui#12454 — drawn as a 6 px dot, as the redesign's rail draws it: green
+ * for On, grey for Not running here, amber for Refused, a hollow ring for Off
+ * (`flowDotClass`). The words are the element's visually hidden text and the
+ * row's title (the dot no longer prints them), and the dot's own title is the
+ * reason it always carried. The rail's legend names each look.
  * Nothing here is styled as an error: a deployment policy is not a defect.
  */
 export function FlowStatusDot({
@@ -6096,34 +6143,73 @@ export function FlowStatusDot({
   registration?: FlowRegistration;
   locale: string;
 }): React.ReactElement | null {
-  const decides = registration?.state === 'refused' || registration?.state === 'unregistered';
-  if (!state && !decides) return null;
-  const status = deriveFlowRunStatus(state, undefined, registration);
-  const { label, title } = describeFlowRunStatus(status, locale);
-  if (status.kind === 'refused') {
-    return (
-      <span title={title} className="inline-flex shrink-0 items-center rounded bg-amber-500/10 px-1.5 py-px text-[10px] text-amber-700 dark:text-amber-300">
-        {label}
-      </span>
-    );
-  }
-  if (status.kind === 'not-running' || status.kind === 'unregistered') {
-    return (
-      <span title={title} className="inline-flex shrink-0 items-center rounded bg-muted px-1.5 py-px text-[10px] text-muted-foreground">
-        {label}
-      </span>
-    );
-  }
-  const enabled = status.kind !== 'off';
+  const reading = flowRailStatus(state, registration, locale);
+  if (!reading) return null;
+  const { status, view } = reading;
+  // objectui#12454 — a 6 px dot; the status words stay the element's text
+  // (visually hidden, so a reader and a search still find them) and the hover
+  // text stays the reason as it was.
   return (
-    <span title={title} className="inline-flex shrink-0 items-center gap-1">
-      <span className={'h-1.5 w-1.5 rounded-full ' + (enabled ? 'bg-emerald-500' : 'bg-muted-foreground/40')} />
-      <span className={'text-[10px] ' + (enabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground')}>
-        {label}
-      </span>
+    <span title={view.title} data-status={status.kind} className="inline-flex h-4 w-3 shrink-0 items-center justify-center">
+      <span aria-hidden className={'h-1.5 w-1.5 rounded-full ' + flowDotClass(status)} />
+      <span className="sr-only">{view.label}</span>
     </span>
   );
 }
+
+/**
+ * The rail's reading of one flow: the run status `FlowStatusDot` draws and the
+ * row's title names, or `null` when there is nothing to say — a flow the engine
+ * does not know yet and holds no verdict on (the amber "unpublished draft" chip
+ * already covers that case).
+ */
+function flowRailStatus(
+  state: FlowRailState | undefined,
+  registration: FlowRegistration | undefined,
+  locale: string,
+): { status: FlowRunStatus; view: FlowRunStatusView } | null {
+  const decides = registration?.state === 'refused' || registration?.state === 'unregistered';
+  if (!state && !decides) return null;
+  const status = deriveFlowRunStatus(state, undefined, registration);
+  return { status, view: describeFlowRunStatus(status, locale) };
+}
+
+/**
+ * The dot's look per run status (objectui#12454): green when the flow runs
+ * (bound, or run by hand), grey when this deployment does not run it, amber
+ * when the engine refused it, and a hollow ring when it is switched off.
+ * Nothing here is styled as an error: a deployment policy is not a defect.
+ */
+function flowDotClass(status: FlowRunStatus): string {
+  switch (status.kind) {
+    case 'on':
+    case 'manual':
+      return 'bg-emerald-500';
+    case 'refused':
+      return 'bg-amber-500';
+    case 'off':
+      return 'border border-muted-foreground/70';
+    default:
+      return 'bg-muted-foreground/50';
+  }
+}
+
+/** Each trigger kind's 14 px glyph and its words, in the rail rows and the legend (objectui#12454). */
+const FLOW_GLYPH_ICON: Record<FlowTriggerGlyph, LucideIcon> = {
+  record: Zap,
+  scheduled: Clock,
+  screen: MousePointerClick,
+  autolaunched: CornerDownRight,
+};
+const FLOW_GLYPH_LABEL_KEY: Record<FlowTriggerGlyph, string> = {
+  record: 'engine.studio.auto.kind.record',
+  scheduled: 'engine.studio.auto.kind.scheduled',
+  screen: 'engine.studio.auto.kind.screen',
+  autolaunched: 'engine.studio.auto.kind.autolaunched',
+};
+
+/** The React key of the trailing group, whose grouping key is the empty string. */
+const NO_OBJECT_GROUP_KEY = '__no_object__';
 
 /**
  * The engine's registration verdict on each flow of the rail's scope
@@ -6146,6 +6232,57 @@ async function readFlowRegistrations(
   } catch {
     return {};
   }
+}
+
+/**
+ * Each flow's definition in the rail's scope, by name (objectui#12454): what
+ * the rail's grouping and trigger glyphs read. Read with the drafts overlaid,
+ * so a draft-only flow, and a published one whose draft moved its trigger,
+ * group as the author's draft has them; a server that refuses that read gives
+ * the published list, and a failing list gives none, which groups every flow
+ * under "No object" rather than failing the rail.
+ */
+async function readFlowDefinitions(client: MetadataClient, packageId: string | null): Promise<Map<string, unknown>> {
+  const scope = packageId === null ? {} : { packageId };
+  const read = async (): Promise<Array<Record<string, unknown>> | null | undefined> => {
+    try {
+      return await client.withPreviewDrafts(true).list<Record<string, unknown>>('flow', scope);
+    } catch {
+      return await client.list<Record<string, unknown>>('flow', scope);
+    }
+  };
+  const definitions = new Map<string, unknown>();
+  try {
+    for (const flow of (await read()) ?? []) {
+      if (flow && typeof flow.name === 'string' && flow.name) definitions.set(flow.name, flow);
+    }
+  } catch {
+    /* no definitions: every flow groups under "No object" */
+  }
+  return definitions;
+}
+
+/**
+ * The scope's objects, name → label in the designer locale (objectui#12454):
+ * the rail's group headers and their order, and which objects count as the
+ * scope's own when a flow is grouped by the data it touches. The package's
+ * object list, as the Data rail reads it; unscoped in the package-less scope.
+ * A failing read gives an empty index, which `groupFlowsByObject` reads as
+ * "every object is the scope's".
+ */
+async function readObjectLabels(client: MetadataClient, packageId: string | null, locale: string): Promise<Map<string, string>> {
+  const labels = new Map<string, string>();
+  try {
+    const objects = await client.list<Record<string, unknown>>('object', packageId === null ? {} : { packageId });
+    for (const object of objects ?? []) {
+      if (!object || typeof object.name !== 'string' || !object.name) continue;
+      const label = resolveI18nLabel(object.label as I18nLabel | undefined, locale)?.trim();
+      labels.set(object.name, label || object.name);
+    }
+  } catch {
+    /* an empty index */
+  }
+  return labels;
 }
 
 /** The trigger the New automation dialog chose (objectui#11788). */
@@ -6238,9 +6375,8 @@ export function AutomationsPillar({
   // or the machine name. Ephemeral (AGENTS.md #8): nobody expects it back.
   const [railQuery, setRailQuery] = React.useState('');
   const railNeedle = railQuery.trim().toLowerCase();
-  const shownFlows = railNeedle
-    ? flows.filter((f) => f.label.toLowerCase().includes(railNeedle) || f.name.toLowerCase().includes(railNeedle))
-    : flows;
+  const flowMatches = (f: Surface) => f.label.toLowerCase().includes(railNeedle) || f.name.toLowerCase().includes(railNeedle);
+  const shownFlows = railNeedle ? flows.filter(flowMatches) : flows;
   // objectui#7255 — same live-pulse subscription as the sibling rails; this
   // one only replaces the flow LIST, so it needs no edit-buffer hold either.
   const metadataRefreshNonce = useMetadataRefreshNonce();
@@ -6301,6 +6437,8 @@ export function AutomationsPillar({
   const newChoiceGroup = React.useId();
   // objectui#12303 — the read-only reason the header's status switch is described by.
   const toggleReadOnlyReasonId = React.useId();
+  // objectui#12454 — the canvas hint the header used to print describes the Canvas tab.
+  const canvasHintId = React.useId();
   // objectui#11591 — keyed on the pillar's one type, as the inspector beside
   // it is, never on the open flow's: with no flow open (a deep link naming one
   // this rail does not hold, or an empty rail) a selection-keyed read found no
@@ -6337,6 +6475,17 @@ export function AutomationsPillar({
   // list's `registrations` (served beside the items, keyed by name). A flow
   // with no entry is one no engine judged, which reads as before.
   const [flowRegistrations, setFlowRegistrations] = React.useState<Record<string, FlowRegistration>>({});
+  // objectui#12454 — the rail groups flows by the object each is about and
+  // marks each with its trigger kind, both read off the flow's definition as
+  // served (`flowGrouping.ts`), with the scope's objects naming the groups.
+  const [flowDefinitions, setFlowDefinitions] = React.useState<ReadonlyMap<string, unknown>>(() => new Map());
+  const [objectLabels, setObjectLabels] = React.useState<ReadonlyMap<string, string>>(() => new Map());
+  // Which groups the author folded. Ephemeral (AGENTS.md #8), as the search is.
+  const [foldedGroups, setFoldedGroups] = React.useState<ReadonlySet<string>>(() => new Set());
+  // objectui#12454 — the tab the item header's tab row has open over the flow,
+  // and the problem tally its Problems tab carries (reported by the preview).
+  const [flowSection, setFlowSection] = React.useState<FlowPreviewSection>('canvas');
+  const [problemTally, setProblemTally] = React.useState<FlowProblemTally>({ count: 0, errors: 0 });
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -6372,15 +6521,19 @@ export function AutomationsPillar({
         // collapse back into the published rail after a package publish.
         // objectui#11862 — a draft-only flow reads as the label its `_drafts`
         // row carries, resolved in the designer locale.
-        const [items, registrations] = await Promise.all([
+        const [items, registrations, definitions, objects] = await Promise.all([
           packageId === null
             ? loadPackageLessSurfaces(client, 'flow', locale)
             : loadPackageSurfaces(client, 'flow', packageId, locale),
           readFlowRegistrations(client, packageId),
+          readFlowDefinitions(client, packageId),
+          readObjectLabels(client, packageId, locale),
         ]);
         if (cancelled) return;
         setFlows(items);
         setFlowRegistrations(registrations);
+        setFlowDefinitions(definitions);
+        setObjectLabels(objects);
         const deepLinked = resolveSurfaceDeepLink(items, initialSurface, 'flow');
         // objectui#11553 — a deep link that NAMES a flow this rail does not
         // hold opens no other flow in its place: the first flow under the name
@@ -6441,6 +6594,8 @@ export function AutomationsPillar({
         await client.save('flow', name, skeleton, { mode: 'draft', packageId: draftPackageId, ifNoneMatch: '*' });
         const item: Surface = { type: 'flow', name, label };
         setFlows((fs) => [...fs.filter((f) => f.name !== name), item]);
+        // objectui#12454 — and groups by what it was born with.
+        setFlowDefinitions((m) => new Map([...m, [name, skeleton]]));
         setCurrent(item);
         setHasDraft(true);
         setCreating(false);
@@ -6635,11 +6790,16 @@ export function AutomationsPillar({
 
   // objectui#12459 — the switch and the "off by default" sentence sit in the
   // item header's actions slot; the full-width band above the rail retires.
+  // objectui#12454 — the sentence is the switch's own: the first line of its
+  // title, and a visually hidden line right after it for a reader, instead of a
+  // second line of header text. It is not wired as the switch's description:
+  // that stays the read-only reason alone (objectui#12303, owned by #12453).
   // objectui#11272 — the switch reads and saves the open flow's own
   // document, so it waits for it: not offered over another's.
   const flowSwitchEl =
     current && flowLoaded
       ? (() => {
+          const defaultOff = t('engine.studio.auto.defaultOff', locale);
           const toggle = (
             <button
               type="button"
@@ -6653,9 +6813,7 @@ export function AutomationsPillar({
               title={
                 readOnly
                   ? undefined
-                  : flowEnabled
-                    ? t('engine.studio.auto.disableTitle', locale)
-                    : t('engine.studio.auto.enableTitle', locale)
+                  : `${defaultOff}\n${flowEnabled ? t('engine.studio.auto.disableTitle', locale) : t('engine.studio.auto.enableTitle', locale)}`
               }
               className={
                 'inline-flex h-7 items-center gap-2 rounded-md px-1 text-[12px] text-foreground hover:bg-muted disabled:opacity-50' +
@@ -6668,29 +6826,146 @@ export function AutomationsPillar({
               {flowEnabled ? t('engine.studio.auto.enabled', locale) : t('engine.studio.auto.disabled', locale)}
             </button>
           );
-          if (!readOnly) return toggle;
+          const defaultOffLine = <span className="sr-only">{defaultOff}</span>;
+          if (!readOnly)
+            return (
+              <>
+                {toggle}
+                {defaultOffLine}
+              </>
+            );
           return (
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span
-                    tabIndex={0}
-                    aria-describedby={toggleReadOnlyReasonId}
-                    data-disabled-reason=""
-                    className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  >
-                    {toggle}
-                    <span id={toggleReadOnlyReasonId} className="sr-only">
-                      {t('engine.studio.pkg.readonlyHint', locale)}
+            <>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      tabIndex={0}
+                      aria-describedby={toggleReadOnlyReasonId}
+                      data-disabled-reason=""
+                      className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                      {toggle}
+                      <span id={toggleReadOnlyReasonId} className="sr-only">
+                        {t('engine.studio.pkg.readonlyHint', locale)}
+                      </span>
                     </span>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>{t('engine.studio.pkg.readonlyHint', locale)}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+                  </TooltipTrigger>
+                  <TooltipContent>{t('engine.studio.pkg.readonlyHint', locale)}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              {defaultOffLine}
+            </>
           );
         })()
       : null;
+
+  // objectui#12454 — the open flow groups and reads by the draft on screen, so
+  // an edit to its Start node moves its row as it moves the header's Trigger.
+  const liveFlowDefinitions = React.useMemo(() => {
+    if (!current || draftFor !== `flow:${current.name}`) return flowDefinitions;
+    return new Map<string, unknown>([...flowDefinitions, [current.name, draft]]);
+  }, [flowDefinitions, current, draftFor, draft]);
+  const railGroups = React.useMemo(
+    () =>
+      groupFlowsByObject(flows, liveFlowDefinitions, objectLabels, {
+        noObjectLabel: t('engine.studio.auto.group.noObject', locale),
+        locale,
+      }),
+    [flows, liveFlowDefinitions, objectLabels, locale],
+  );
+
+  // The legend under the rail: the four trigger glyphs and the dots. Off and
+  // Refused are named only while some flow in the rail reads so.
+  const railStatusKinds = new Set(
+    flows.map((f) => flowRailStatus(flowStatus[f.name], flowRegistrations[f.name], locale)?.status.kind),
+  );
+  const legendDot = (kind: FlowRunStatus, words: string) => (
+    <span key={kind.kind} className="inline-flex items-center gap-1">
+      <span aria-hidden className={'h-1.5 w-1.5 rounded-full ' + flowDotClass(kind)} />
+      {words}
+    </span>
+  );
+  const railLegend =
+    flows.length > 0 ? (
+      <div
+        role="note"
+        aria-label={t('engine.studio.auto.legend', locale)}
+        data-testid="auto-rail-legend"
+        className="flex flex-wrap gap-x-2.5 gap-y-1 text-[10px] text-muted-foreground"
+      >
+        {FLOW_TRIGGER_GLYPHS.map((glyph) => {
+          const Glyph = FLOW_GLYPH_ICON[glyph];
+          return (
+            <span key={glyph} className="inline-flex items-center gap-1">
+              <Glyph aria-hidden className="h-3 w-3" />
+              {t(FLOW_GLYPH_LABEL_KEY[glyph], locale)}
+            </span>
+          );
+        })}
+        {legendDot({ kind: 'on' }, t('engine.studio.auto.on', locale))}
+        {legendDot({ kind: 'not-running' }, t('engine.studio.auto.notRunning', locale))}
+        {railStatusKinds.has('off') && legendDot({ kind: 'off' }, t('engine.studio.auto.off', locale))}
+        {railStatusKinds.has('refused') && legendDot({ kind: 'refused', message: '' }, t('engine.studio.auto.refused', locale))}
+      </div>
+    ) : undefined;
+
+  // objectui#12454 — the item header's meta and tab row over the open flow.
+  // The Status the meta shows is the one the preview's Problems note reads
+  // (objectui#11779): the runtime row while one is in, the draft otherwise.
+  const flowOpen = !!current && flowLoaded && isEditable;
+  // The engine keys run history by the flow's name, as the preview's Runs did.
+  const flowHasRuns = typeof draft.name === 'string' && draft.name.length > 0;
+  const section: FlowPreviewSection = flowSection === 'runs' && !flowHasRuns ? 'canvas' : flowSection;
+  const headerRunStatus = current
+    ? deriveFlowRunStatus(flowStatusRead ? (flowStatus[current.name] ?? null) : undefined, draft.status, flowRegistrations[current.name])
+    : null;
+  const flowTab = (
+    key: FlowPreviewSection,
+    label: string,
+    extra?: { title?: string; badge?: React.ReactNode; describedBy?: string },
+  ) => (
+    <StudioTab
+      key={key}
+      active={section === key}
+      onClick={() => setFlowSection(key)}
+      title={extra?.title}
+      aria-describedby={extra?.describedBy}
+      data-testid={`auto-tab-${key}`}
+    >
+      {label}
+      {extra?.badge}
+    </StudioTab>
+  );
+  const flowTabsEl =
+    flowOpen ? (
+      <>
+        {flowTab('canvas', t('engine.studio.if.tabCanvas', locale), {
+          title: t('engine.studio.auto.canvasHint', locale),
+          describedBy: canvasHintId,
+        })}
+        {flowTab('variables', t('engine.flowPreview.variables', locale))}
+        {flowHasRuns && flowTab('runs', t('engine.flowPreview.runs', locale), { title: t('engine.flowPreview.runsTitle', locale) })}
+        {flowTab('problems', t('engine.flowPreview.problems', locale), {
+          title: t('engine.flowPreview.problemsTitle', locale),
+          badge:
+            problemTally.count > 0 ? (
+              <span
+                data-testid="auto-problems-count"
+                className={
+                  'inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-[5px] text-[11px] font-semibold ' +
+                  (problemTally.errors > 0
+                    ? 'bg-destructive/15 text-destructive'
+                    : 'bg-amber-500/15 text-amber-700 dark:text-amber-300')
+                }
+              >
+                {problemTally.count}
+              </span>
+            ) : undefined,
+        })}
+        {flowTab('debug', t('engine.flowPreview.debug', locale))}
+      </>
+    ) : undefined;
 
   return (
     <div className="flex h-full flex-col">
@@ -6730,26 +7005,63 @@ export function AutomationsPillar({
             placeholder: t('engine.studio.designer.search', locale),
             testId: 'auto-rail-search',
           }}
+          footer={railLegend}
           isMobile={isMobile}
           open={railOpen}
         >
-          {shownFlows.map((f) => (
-            <StudioRailRow
-              key={f.name}
-              // objectui#11794 — the whole name, wrapped: truncation cut a
-              // flow's name to a stub in this rail's width.
-              wrap
-              active={current?.name === f.name}
-              onClick={() => {
-                setCurrent(f);
-                if (isMobile) setRailOpen(false);
-              }}
-              icon={<Workflow className="h-4 w-4 shrink-0" />}
-              trailing={<FlowStatusDot state={flowStatus[f.name]} registration={flowRegistrations[f.name]} locale={locale} />}
-            >
-              {f.label}
-            </StudioRailRow>
-          ))}
+          {/* objectui#12454 — grouped by the object each flow is about, in the
+              order of the objects' labels, "No object" last; a search filters
+              within the groups and shows every group that holds a match,
+              folded or not. Each row: its trigger glyph, its label on one
+              line (the row's title holds it whole, with its trigger kind and
+              status words — the redesign trades objectui#11794's wrap for the
+              32 px row), and its status dot. */}
+          {railGroups.map((group) => {
+            const items = railNeedle ? group.items.filter(flowMatches) : group.items;
+            if (items.length === 0) return null;
+            const groupKey = group.key || NO_OBJECT_GROUP_KEY;
+            return (
+              <StudioRailGroup
+                key={groupKey}
+                testId={`auto-rail-group-${group.key || 'none'}`}
+                label={group.label}
+                count={items.length}
+                collapsed={!railNeedle && foldedGroups.has(groupKey)}
+                onToggle={() =>
+                  setFoldedGroups((folded) => {
+                    const next = new Set(folded);
+                    if (!next.delete(groupKey)) next.add(groupKey);
+                    return next;
+                  })
+                }
+              >
+                {items.map((f) => {
+                  const active = current?.name === f.name;
+                  const glyph = flowTriggerGlyph(liveFlowDefinitions.get(f.name));
+                  const Glyph = FLOW_GLYPH_ICON[glyph];
+                  const reading = flowRailStatus(flowStatus[f.name], flowRegistrations[f.name], locale);
+                  return (
+                    <StudioRailRow
+                      key={f.name}
+                      indent
+                      active={active}
+                      data-testid={`auto-rail-row-${f.name}`}
+                      data-trigger={glyph}
+                      title={[f.label, t(FLOW_GLYPH_LABEL_KEY[glyph], locale), reading?.view.label].filter(Boolean).join(' · ')}
+                      onClick={() => {
+                        setCurrent(f);
+                        if (isMobile) setRailOpen(false);
+                      }}
+                      icon={<Glyph aria-hidden className={'h-3.5 w-3.5 shrink-0' + (active ? '' : ' text-muted-foreground')} />}
+                      trailing={<FlowStatusDot state={flowStatus[f.name]} registration={flowRegistrations[f.name]} locale={locale} />}
+                    >
+                      {f.label}
+                    </StudioRailRow>
+                  );
+                })}
+              </StudioRailGroup>
+            );
+          })}
           {flows.length > 0 && shownFlows.length === 0 && (
             <p className="px-2 py-3 text-[11px] text-muted-foreground">
               {tFormat('engine.list.emptyQuery', locale, { query: railQuery.trim() })}
@@ -6795,11 +7107,27 @@ export function AutomationsPillar({
                 ? { 'data-testid': 'auto-canvas-caption', title: `${t('designer.field.apiName', locale)}: ${current.name}` }
                 : { className: 'text-[13px] font-normal text-muted-foreground' }
             }
-            // The hint yields to the label on a narrow row: the title never truncates for it.
+            // objectui#12454 — the open flow's Trigger, Status, Run as and
+            // version, as the designer's info bar reads them. The canvas hint
+            // the row printed stays in it for a reader (visually hidden; the
+            // Canvas tab's description and title), so the row still reads it
+            // whole as objectui#11665 pins. Without designers the line says
+            // so, and yields to the label on a narrow row as it did.
             meta={
-              <span className="hidden 2xl:inline">
-                {isEditable ? t('engine.studio.auto.canvasHint', locale) : t('engine.studio.auto.designersMissing', locale)}
-              </span>
+              isEditable ? (
+                <>
+                  <span id={canvasHintId} className="sr-only">
+                    {t('engine.studio.auto.canvasHint', locale)}
+                  </span>
+                  {flowOpen && headerRunStatus && (
+                    <span data-testid="auto-flow-meta" className="inline-flex min-w-0">
+                      <FlowMetaPills draft={draft} runStatus={headerRunStatus} locale={locale} variant="header" />
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="hidden 2xl:inline">{t('engine.studio.auto.designersMissing', locale)}</span>
+              )
             }
             chips={
               hasDraft && flowLoaded ? (
@@ -6817,85 +7145,97 @@ export function AutomationsPillar({
                     {t('engine.studio.autoSaving', locale)}
                   </span>
                 )}
-                <span className="hidden text-[11px] text-muted-foreground xl:inline">{t('engine.studio.auto.defaultOff', locale)}</span>
                 {flowSwitchEl}
               </>
             }
+            tabs={flowTabsEl}
           />
-          <main className="flex min-h-0 flex-1 flex-col overflow-auto bg-muted/30 px-6 py-4">
-          {error && (
-            <StudioRefusalStrip
-              refusal={error}
-              locale={locale}
-              // objectui#11785 — "Show me" selects the named step, which opens
-              // its inspector in the right rail.
-              onShow={(target) => setSelection({ kind: target.kind, id: target.id })}
-              className="mb-3 shrink-0 px-3 py-2 text-xs"
-            />
-          )}
-          {flowHeld && (
-            <StudioHeldNotice
-              held={flowHeld}
-              locale={locale}
-              // objectui#11786 — no "Show me" while that step is the one open.
-              onShow={
-                selection?.kind === flowHeld.target.kind && selection.id === flowHeld.target.id
-                  ? undefined
-                  : (target) => setSelection({ kind: target.kind, id: target.id })
-              }
-              className="mb-3 shrink-0 px-3 py-2 text-xs"
-            />
-          )}
-          {/* `flex-1 min-h-0` so the canvas fills the pillar's full remaining
-            * height instead of shrinking to FlowCanvas's intrinsic content
-            * height and leaving a dead band below the bordered frame. */}
-          <div className="min-h-0 flex-1 rounded-lg border bg-background p-4">
-            {!current ? (
-              <div className="py-16 text-center text-sm text-muted-foreground">
-                {/* objectui#11553 — a deep link that named a flow this rail
-                    does not hold says so, instead of opening another. */}
-                {missingFlow
-                  ? tFormat('engine.studio.auto.deepLinkMissing', locale, { name: missingFlow })
-                  : t('engine.studio.auto.pick', locale)}
+          {/* objectui#12454 — the body is the flow, flush under the tab row:
+              no padded band and no bordered card around the canvas. A refusal
+              or a held edit sits above it, inside the column's gutter. */}
+          <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            {(error || flowHeld) && (
+              <div className="shrink-0 space-y-2 px-6 pb-1 pt-3">
+                {error && (
+                  <StudioRefusalStrip
+                    refusal={error}
+                    locale={locale}
+                    // objectui#11785 — "Show me" selects the named step, which opens
+                    // its inspector in the right rail.
+                    onShow={(target) => setSelection({ kind: target.kind, id: target.id })}
+                    className="shrink-0 px-3 py-2 text-xs"
+                  />
+                )}
+                {flowHeld && (
+                  <StudioHeldNotice
+                    held={flowHeld}
+                    locale={locale}
+                    // objectui#11786 — no "Show me" while that step is the one open.
+                    onShow={
+                      selection?.kind === flowHeld.target.kind && selection.id === flowHeld.target.id
+                        ? undefined
+                        : (target) => setSelection({ kind: target.kind, id: target.id })
+                    }
+                    className="shrink-0 px-3 py-2 text-xs"
+                  />
+                )}
               </div>
-            ) : loading || !flowLoaded ? (
-              // objectui#11272 — nothing of another flow's buffer under this
-              // one; after a failed load, the error above says why.
-              error && !loading ? null : (
-                <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" /> {t('engine.studio.loading', locale)}
-                </div>
-              )
-            ) : Preview ? (
-              // objectui#11779 — the open flow's runtime row, so the flow
-              // header and its Problems panel read the run status this rail
-              // reads: the row, `null` when the engine has none for this flow,
-              // nothing while no runtime answer is in.
-              <FlowRuntimeContext.Provider value={flowStatusRead ? (flowStatus[current.name] ?? null) : undefined}>
-                {/* objectui#12349 — and the engine's verdict on it, when the list served one. */}
-                <FlowRegistrationContext.Provider value={flowRegistrations[current.name]}>
-                {React.createElement(Preview, {
-                  type: current.type,
-                  name: current.name,
-                  draft,
-                  editing: true,
-                  selection,
-                  onSelectionChange: setSelection,
-                  // objectui#11124 — a read-only package gets no `onPatch`: per
-                  // the preview contract the canvas is then read-only (no add,
-                  // insert, drag or delete — each a doomed write), while node and
-                  // edge selection still open the inspector read-only below.
-                  onPatch: readOnly ? undefined : onPatch,
-                  locale,
-                })}
-                </FlowRegistrationContext.Provider>
-              </FlowRuntimeContext.Provider>
-            ) : (
-              <pre className="overflow-auto text-[11px] text-muted-foreground">
-                {JSON.stringify(draft, null, 2)}
-              </pre>
             )}
-          </div>
+            {/* `flex-1 min-h-0` so the canvas fills the pillar's full remaining
+              * height instead of shrinking to FlowCanvas's intrinsic content height. */}
+            <div className="min-h-0 flex-1">
+              {!current ? (
+                <div className="py-16 text-center text-sm text-muted-foreground">
+                  {/* objectui#11553 — a deep link that named a flow this rail
+                      does not hold says so, instead of opening another. */}
+                  {missingFlow
+                    ? tFormat('engine.studio.auto.deepLinkMissing', locale, { name: missingFlow })
+                    : t('engine.studio.auto.pick', locale)}
+                </div>
+              ) : loading || !flowLoaded ? (
+                // objectui#11272 — nothing of another flow's buffer under this
+                // one; after a failed load, the error above says why.
+                error && !loading ? null : (
+                  <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> {t('engine.studio.loading', locale)}
+                  </div>
+                )
+              ) : Preview ? (
+                // objectui#11779 — the open flow's runtime row, so the flow
+                // header and its Problems panel read the run status this rail
+                // reads: the row, `null` when the engine has none for this flow,
+                // nothing while no runtime answer is in.
+                <FlowRuntimeContext.Provider value={flowStatusRead ? (flowStatus[current.name] ?? null) : undefined}>
+                  {/* objectui#12349 — and the engine's verdict on it, when the list served one. */}
+                  <FlowRegistrationContext.Provider value={flowRegistrations[current.name]}>
+                    {/* objectui#12454 — the header holds the meta and the tabs, so the
+                        preview shows the open tab's section and draws no bar of its own. */}
+                    <FlowPreviewChromeProvider
+                      value={{ section, onSectionChange: setFlowSection, onProblemsChange: setProblemTally }}
+                    >
+                      {React.createElement(Preview, {
+                        type: current.type,
+                        name: current.name,
+                        draft,
+                        editing: true,
+                        selection,
+                        onSelectionChange: setSelection,
+                        // objectui#11124 — a read-only package gets no `onPatch`: per
+                        // the preview contract the canvas is then read-only (no add,
+                        // insert, drag or delete — each a doomed write), while node and
+                        // edge selection still open the inspector read-only below.
+                        onPatch: readOnly ? undefined : onPatch,
+                        locale,
+                      })}
+                    </FlowPreviewChromeProvider>
+                  </FlowRegistrationContext.Provider>
+                </FlowRuntimeContext.Provider>
+              ) : (
+                <pre className="h-full overflow-auto px-6 py-4 text-[11px] text-muted-foreground">
+                  {JSON.stringify(draft, null, 2)}
+                </pre>
+              )}
+            </div>
           </main>
         </div>
 
@@ -6926,6 +7266,9 @@ export function AutomationsPillar({
           onClose={selection ? () => setSelection(null) : undefined}
           closeLabel={t('engine.studio.deselect', locale)}
           footer={t('engine.studio.inspector.draftFooter', locale)}
+          // objectui#12454 — a selection's inspector brings its own padding
+          // (the metadata inspector shell); only the empty sentence takes the aside's.
+          bodyClassName={selection && inspector && current && flowLoaded ? 'p-0' : undefined}
         >
           {configBodyEl}
         </StudioInspector>
@@ -7145,6 +7488,10 @@ export function AccessPillar({
   const [busy, setBusy] = React.useState(false);
   // [ADR-0090 D6] "why can this user access?" — right-side explain sheet.
   const [explainOpen, setExplainOpen] = React.useState(false);
+  // objectui#12456 — the open set's tab (epic objectui#12446, decision C):
+  // Objects, System capabilities, Row-level security, Tab visibility,
+  // Delegated admin. Objects is the landing; the choice holds across sets.
+  const [accessTab, setAccessTab] = React.useState<PermissionStudioTab>('objects');
   // Both main-panel surfaces hold unsaved edits and unmount on a rail-driven
   // swap: the matrix page is keyed by `current` (and unmounts entirely when
   // the OWD overview swaps in), and the OWD overview batch-editor unmounts
@@ -7280,64 +7627,60 @@ export function AccessPillar({
       p.name.toLowerCase().includes(query.trim().toLowerCase()),
   );
 
-  // objectui#12459 — the item header inside the content column: the open
-  // set (or the OWD overview) as the title, the matrix's one-line summary as
-  // meta, Explain access and the draft / read-only note in the actions slot.
-  // The "Permission matrix" band above the rail retires.
-  const accessCurrentSet = !owdOpen && current ? perms.find((s) => s.name === current) ?? null : null;
+  // objectui#12459 — the item header inside the content column. The
+  // "Permission matrix" band above the rail retires. objectui#12456 — an
+  // open set's header is the matrix page's own (its label, api name, Package
+  // chip, granted / override counts, History, the tab row), fed the three
+  // pieces below; this pillar draws the header for the OWD overview and for
+  // the empty states.
+  const accessRailToggleEl = (
+    <button
+      type="button"
+      onClick={() => setRailOpen((v) => !v)}
+      aria-label={t('engine.studio.toggleRail', locale)}
+      className="-ml-1 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground md:hidden"
+    >
+      <Menu className="h-4 w-4" />
+    </button>
+  );
+  const accessNoteEl =
+    // objectui#11781 — "saved as draft" is what an editable package does;
+    // a read-only one saves nothing, so it says what it is, in the muted
+    // look of the rail's own read-only note rather than the draft amber.
+    readOnly ? (
+      <span
+        title={t('engine.studio.access.bannerTitleReadOnly', locale)}
+        className="rounded bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
+      >
+        {t('engine.studio.access.bannerReadOnly', locale)}
+      </span>
+    ) : (
+      <span
+        title={t('engine.studio.access.bannerTitle', locale)}
+        className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300"
+      >
+        {t('engine.studio.access.banner', locale)}
+      </span>
+    );
+  const accessExplainEl = (
+    <button
+      type="button"
+      onClick={() => setExplainOpen(true)}
+      className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground"
+    >
+      <ShieldQuestion className="h-3.5 w-3.5" />
+      {t('engine.studio.access.explain.open', locale)}
+    </button>
+  );
   const accessHeaderEl = (
     <StudioItemHeader
       testId="access-item-header"
-      leading={
-        <button
-          type="button"
-          onClick={() => setRailOpen((v) => !v)}
-          aria-label={t('engine.studio.toggleRail', locale)}
-          className="-ml-1 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground md:hidden"
-        >
-          <Menu className="h-4 w-4" />
-        </button>
-      }
+      leading={accessRailToggleEl}
       icon={owdOpen ? ShieldCheck : Shield}
-      title={
-        owdOpen
-          ? t('engine.studio.owd.railLabel', locale)
-          : accessCurrentSet
-            ? accessCurrentSet.label || accessCurrentSet.name
-            : t('engine.studio.access.title', locale)
-      }
-      apiName={accessCurrentSet?.name}
-      meta={t('engine.studio.access.subtitle', locale)}
-      chips={
-        // objectui#11781 — "saved as draft" is what an editable package does;
-        // a read-only one saves nothing, so it says what it is, in the muted
-        // look of the rail's own read-only note rather than the draft amber.
-        readOnly ? (
-          <span
-            title={t('engine.studio.access.bannerTitleReadOnly', locale)}
-            className="rounded bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
-          >
-            {t('engine.studio.access.bannerReadOnly', locale)}
-          </span>
-        ) : (
-          <span
-            title={t('engine.studio.access.bannerTitle', locale)}
-            className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300"
-          >
-            {t('engine.studio.access.banner', locale)}
-          </span>
-        )
-      }
-      actions={
-        <button
-          type="button"
-          onClick={() => setExplainOpen(true)}
-          className="inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground"
-        >
-          <ShieldQuestion className="h-3.5 w-3.5" />
-          {t('engine.studio.access.explain.open', locale)}
-        </button>
-      }
+      title={owdOpen ? t('engine.studio.owd.title', locale) : t('engine.studio.access.title', locale)}
+      meta={owdOpen ? t('engine.studio.owd.subtitle', locale) : t('engine.studio.access.subtitle', locale)}
+      chips={accessNoteEl}
+      actions={accessExplainEl}
     />
   );
 
@@ -7463,6 +7806,9 @@ export function AccessPillar({
                 if (isMobile) setRailOpen(false);
               }}
               icon={<Shield className="h-4 w-4 shrink-0 text-muted-foreground" />}
+              // objectui#12456 — two-line rows (label, then the api name in
+              // mono) at 36 px: the one height the shared rail lets differ.
+              className="h-9"
               trailing={
                 p.isDefault ? (
                   <span className="text-[9px] uppercase tracking-wide text-muted-foreground/60">default</span>
@@ -7479,7 +7825,7 @@ export function AccessPillar({
         </StudioRail>
 
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          {accessHeaderEl}
+          {(owdOpen || !current) && accessHeaderEl}
           <main className="min-h-0 flex-1 overflow-auto">
           {owdOpen ? (
             /* Sibling surface: the package-wide OWD baseline overview
@@ -7496,10 +7842,10 @@ export function AccessPillar({
               onDirtyChange={setOwdDirty}
             />
           ) : current ? (
-            /* The existing Salesforce-style matrix page, embedded unchanged —
-             * objects × CRUD/VAMA/lifecycle up top, per-object field-level R/W
-             * below, its own autosave + destructive-change guard included. The
-             * read-only OWD badge deep-links to the overview above. */
+            /* The existing Salesforce-style matrix page in its Studio
+             * presentation (objectui#12456): the item header and five tabs
+             * are the page's own, its autosave + destructive-change guard
+             * included. The OWD chip deep-links to the overview above. */
             <PermissionMatrixEditPage
               key={current}
               type="permission"
@@ -7510,6 +7856,13 @@ export function AccessPillar({
               readOnly={readOnly}
               onDirtyChange={setMatrixDirty}
               embedded
+              studio={{
+                tab: accessTab,
+                onTabChange: setAccessTab,
+                leading: accessRailToggleEl,
+                chips: accessNoteEl,
+                actions: accessExplainEl,
+              }}
               onOpenOwd={(objectName) => {
                 // The badge deep-link swaps this page out for the OWD
                 // overview — same remount, same guard.

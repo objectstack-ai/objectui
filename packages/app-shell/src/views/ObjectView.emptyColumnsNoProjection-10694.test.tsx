@@ -36,6 +36,16 @@
  * view, drawn `columns` included, so it keeps persisting and the reload
  * applies it.
  *
+ * ## Since objectui#12474
+ *
+ * The toggle's choice is the USER's own list state, not a view write: on a view
+ * that declares `columns` it is stored there and applied over the view's
+ * `columns` on reload; on a view that declares none (system or saved) it is
+ * session-only and nothing is stored. A saved view's hide no longer persists
+ * through a whole-view write that declared the drawn defaults as `columns`.
+ * This file also measures the card's premise with the real `ListView`: the
+ * user's list subtracts from `columns` and never adds a column.
+ *
  * ## A config-panel draft is not a declaration
  *
  * `ViewConfigPanel` seeds its draft from the active view, whose `columns` on an
@@ -59,17 +69,22 @@ import { render, cleanup, screen, fireEvent, waitFor, within } from '@testing-li
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { ComponentRegistry } from '@object-ui/core';
 
+/** objectui#12474 — fields the caller may not read (field security, objectui#11984). */
+const { unreadable } = vi.hoisted(() => ({ unreadable: new Set<string>() }));
+
 vi.mock('@object-ui/permissions', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@object-ui/permissions')>();
   // Stable identities — `ListView` names `perms` in its fetch dependencies.
   const perms = {
     check: () => ({ allowed: true }),
-    checkField: () => true,
+    checkField: (_object: string, field: string) => !unreadable.has(field),
     getFieldPermissions: () => [],
     getRowFilter: () => undefined,
     getObjectApiOperations: () => undefined,
     roles: [],
-    isLoaded: false,
+    // Loaded only while a case withholds a field, so the gate is otherwise
+    // deferred exactly as before.
+    get isLoaded() { return unreadable.size > 0; },
     hasCapabilities: () => true,
     can: () => true,
     cannot: () => false,
@@ -152,6 +167,7 @@ vi.mock('@object-ui/plugin-view', async (importOriginal) => {
 
 import { ObjectView } from './ObjectView';
 import { ExpressionProvider } from '../providers/ExpressionProvider';
+import { localListStateKey } from '../context/ListPreferencesProvider';
 
 const OBJECT_NAME = 'duly_task';
 
@@ -259,7 +275,17 @@ async function hideThroughToggle(field: string): Promise<void> {
 const hiddenFieldsWrites = (dataSource: any) =>
   dataSource.updateViewConfig.mock.calls.filter((call: any[]) => call[2] && 'hiddenFields' in call[2]);
 
-/** Longer than `persistViewPatch`'s 300ms debounce, with room to spare. */
+/**
+ * objectui#12474 — the hidden fields this user stored for `viewId`, read off
+ * their list state. This harness mounts no preference provider, so the state
+ * is this browser's cache (the provider-less fallback).
+ */
+function storedHiddenFields(viewId: string): unknown {
+  const raw = localStorage.getItem(localListStateKey('u1', OBJECT_NAME));
+  return raw ? JSON.parse(raw)?.perView?.[viewId]?.hiddenFields : undefined;
+}
+
+/** Longer than the old view write's 300ms debounce, with room to spare. */
 const PAST_DEBOUNCE_MS = 900;
 
 /** Open the view config panel on the active view, as the host's `settings` action does. */
@@ -294,9 +320,12 @@ async function expectSessionOnlyToggle(dataSource: any): Promise<void> {
   await waitFor(() => expect(drawn).not.toContain('region'));
   await new Promise((resolve) => setTimeout(resolve, PAST_DEBOUNCE_MS));
   expect(hiddenFieldsWrites(dataSource)).toEqual([]);
+  expect(storedHiddenFields(PROBE_ID)).toBeUndefined();
 }
 
 beforeEach(() => {
+  localStorage.clear();
+  unreadable.clear();
   vi.stubGlobal(
     'fetch',
     vi.fn(async () =>
@@ -350,33 +379,39 @@ describe('an unprojected view applies neither hiddenFields nor fieldOrder on the
     await hideThroughToggle('region');
     // The column goes, in this session.
     await waitFor(() => expect(drawn).not.toContain('region'));
-    // And nothing is written: an overlay `hiddenFields` on this view would be
-    // read by nothing on reload (the CONTROL below shows the write is live).
+    // And nothing is written or stored: a `hiddenFields` on this view would
+    // be read by nothing on reload (the CONTROL below shows the store is live).
     await new Promise((resolve) => setTimeout(resolve, PAST_DEBOUNCE_MS));
     expect(hiddenFieldsWrites(dataSource)).toEqual([]);
+    expect(storedHiddenFields(PROBE_ID)).toBeUndefined();
   });
 
-  it('CONTROL: on a system view that declares `columns`, the toggle still persists to the overlay', async () => {
+  it('CONTROL: on a system view that declares `columns`, the toggle is stored as the user\'s own, and the view is not written (objectui#12474)', async () => {
     const dataSource = makeDataSource({ updateViewConfig: vi.fn(async () => ({})) });
-    await mountRoute(
-      {
-        [PROBE_ID]: {
-          name: PROBE_ID, label: 'Probe', type: 'grid',
-          columns: ['name', 'stage', 'region'], userActions: { hideFields: true },
-        },
+    const listViews = {
+      [PROBE_ID]: {
+        name: PROBE_ID, label: 'Probe', type: 'grid',
+        columns: ['name', 'stage', 'region'], userActions: { hideFields: true },
       },
-      PROBE_ID,
-      dataSource,
-    );
+    };
+    await mountRoute(listViews, PROBE_ID, dataSource);
     await hideThroughToggle('region');
-    await waitFor(() => expect(hiddenFieldsWrites(dataSource)).toHaveLength(1), { timeout: 3000 });
-    const [, viewId, body, opts] = hiddenFieldsWrites(dataSource)[0];
-    expect(viewId).toBe(PROBE_ID);
-    expect(body).toEqual({ hiddenFields: ['region'] });
-    expect(opts).toEqual({ isSavedView: false });
+    await waitFor(() => expect(storedHiddenFields(PROBE_ID)).toEqual(['region']), { timeout: 3000 });
+    await waitFor(() => expect(drawn).toEqual(['name', 'stage']));
+    await new Promise((resolve) => setTimeout(resolve, PAST_DEBOUNCE_MS));
+    expect(dataSource.updateViewConfig).not.toHaveBeenCalled();
+    cleanup();
+
+    // Reload: the user's choice is applied over the view's own `columns`.
+    await mountRoute(listViews, PROBE_ID, makeDataSource());
+    await waitFor(() => expect(drawn).toEqual(['name', 'stage']));
   });
 
-  it('CONTROL: a saved view with no `columns` keeps persisting, and the reload applies it', async () => {
+  it('THE CHANGE (objectui#12474): a saved view with no `columns` is session-only too, and its row is not written', async () => {
+    // Its hide used to persist only because the shared write sent the whole
+    // view, the drawn defaults included as its `columns`, which declared a
+    // projection for every user. A user's own state cannot declare one, and a
+    // stored `hiddenFields` on an unprojected view would be read by nothing.
     const savedId = `${OBJECT_NAME}.mine`;
     const savedRow = { name: savedId, label: 'Mine', type: 'grid', userActions: { hideFields: true } };
     // A system view beside it, so the saved one is not the only tab.
@@ -391,21 +426,65 @@ describe('an unprojected view applies neither hiddenFields nor fieldOrder on the
     await mountRoute(systemViews, savedId, first);
     await waitFor(() => expect(drawn).toContain('region'), { timeout: 5000 });
     await hideThroughToggle('region');
-    await waitFor(() => expect(hiddenFieldsWrites(first)).toHaveLength(1), { timeout: 3000 });
-    const [, viewId, body, opts] = hiddenFieldsWrites(first)[0];
-    expect(viewId).toBe(savedId);
-    expect(opts).toEqual({ isSavedView: true });
-    // The whole view is written, the drawn columns with it: the reload reads
-    // a view that declares a projection.
-    expect(body.hiddenFields).toEqual(['region']);
-    expect(Array.isArray(body.columns) && body.columns.length > 0).toBe(true);
-    expect(body.columns).toContain('region');
+    await waitFor(() => expect(drawn).not.toContain('region'));
+    await new Promise((resolve) => setTimeout(resolve, PAST_DEBOUNCE_MS));
+    expect(first.updateViewConfig).not.toHaveBeenCalled();
+    expect(storedHiddenFields(savedId)).toBeUndefined();
+  });
+
+  it('PREMISE (objectui#12474): a user\'s hidden fields subtract from the view\'s `columns` and never add a column', async () => {
+    // The view hides `stage`; this user has stored "show every column" ([])
+    // and, from some other source, a name the view does not declare.
+    const listViews = {
+      [PROBE_ID]: {
+        name: PROBE_ID, label: 'Probe', type: 'grid',
+        columns: ['name', 'stage', 'owner'], hiddenFields: ['stage'], userActions: { hideFields: true },
+      },
+    };
+    const own = makeDataSource();
+    await mountRoute(listViews, PROBE_ID, own);
+    await waitFor(() => expect(drawn).toEqual(['name', 'owner']));
     cleanup();
 
-    // Reload: the saved row is now what the toggle wrote.
-    const reloaded = makeDataSource({ listViews: vi.fn(async () => [body]) });
-    await mountRoute(systemViews, savedId, reloaded);
-    await waitFor(() => expect(drawn).toEqual(body.columns.filter((c: string) => c !== 'region')), { timeout: 5000 });
+    localStorage.setItem(
+      localListStateKey('u1', OBJECT_NAME),
+      JSON.stringify({ perView: { [PROBE_ID]: { hiddenFields: ['region'] } } }),
+    );
+    await mountRoute(listViews, PROBE_ID, makeDataSource());
+    // `stage` is back (it is in `columns`); `region` is in no `columns`, so
+    // naming it hides nothing and adds nothing.
+    await waitFor(() => expect(drawn).toEqual(['name', 'stage', 'owner']));
+    cleanup();
+
+    // On a view that declares no projection the stored list is not applied.
+    const unprojected = { [PROBE_ID]: { name: PROBE_ID, label: 'Probe', type: 'grid', columns: [] } };
+    const defaults = await drawView({ columns: [] });
+    localStorage.setItem(
+      localListStateKey('u1', OBJECT_NAME),
+      JSON.stringify({ perView: { [PROBE_ID]: { hiddenFields: ['stage'] } } }),
+    );
+    await mountRoute(unprojected, PROBE_ID, makeDataSource());
+    await waitFor(() => expect(drawn).toEqual(defaults));
+  });
+
+  it('FIELD SECURITY (objectui#11984, objectui#12474): a field the caller may not read is not offered, and the stored list keeps a withheld entry', async () => {
+    unreadable.add('owner');
+    const listViews = {
+      [PROBE_ID]: {
+        name: PROBE_ID, label: 'Probe', type: 'grid',
+        columns: ['name', 'stage', 'owner', 'region'], hiddenFields: ['owner'], userActions: { hideFields: true },
+      },
+    };
+    await mountRoute(listViews, PROBE_ID, makeDataSource());
+    fireEvent.click(screen.getByTestId('toolbar-display-trigger'));
+    const panel = await screen.findByTestId('view-settings-content');
+    fireEvent.click(within(panel).getByRole('button', { name: 'Hide Fields' }));
+    await within(panel).findByText(/^region$/i);
+    expect(within(panel).queryByText(/^owner$/i)).toBeNull();
+
+    await hideThroughToggle('region');
+    await waitFor(() => expect(storedHiddenFields(PROBE_ID)).toEqual(expect.arrayContaining(['region', 'owner'])), { timeout: 3000 });
+    expect(drawn).not.toContain('owner');
   });
 
   it('THE FIX: after a panel edit of an unrelated field, the view stays unprojected', async () => {

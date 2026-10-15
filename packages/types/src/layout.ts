@@ -1773,8 +1773,8 @@ export interface PageNodeSchema extends BaseSchema, Omit<SpecPage, (typeof PAGE_
    * - `"html"`: constrained JSX, PARSED into a SchemaNode tree and
    *   rendered. Never executed — safe for untrusted authors. Styled with
    *   the blocks' own structured props (`<flex direction gap>`,
-   *   `<grid columns>`) plus a JSON `style` object. `"jsx"` is a
-   *   deprecated alias, still accepted.
+   *   `<grid columns>`) plus a JSON `style` object. Its former alias
+   *   `"jsx"` was retired in `@objectstack/spec` 18 and is refused here.
    * - `"react"`: real React, transpiled and EVALUATED in the main tree.
    *   No sandbox; gated behind the `react-pages` host capability. Styled
    *   with inline `style` objects.
@@ -1792,7 +1792,7 @@ export interface PageNodeSchema extends BaseSchema, Omit<SpecPage, (typeof PAGE_
    *
    * @default 'full'
    */
-  kind?: 'full' | 'slotted' | 'html' | 'jsx' | 'react';
+  kind?: 'full' | 'slotted' | 'html' | 'react';
   /**
    * Slotted override map. Each slot accepts a single SchemaNode or an
    * array (arrays are flattened into the slot position). Slots not

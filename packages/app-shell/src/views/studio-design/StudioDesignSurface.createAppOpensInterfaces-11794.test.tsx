@@ -175,6 +175,8 @@ function expectTheCreateWriteUnchanged() {
 /** Flip a matrix cell so the Access pillar reports an unsent edit. */
 function dirtyTheMatrix() {
   const row = screen.getByText('a_account').closest('tr')!;
+  // objectui#12456 — the bulk strip draws on the row under the pointer.
+  fireEvent.mouseEnter(row);
   fireEvent.click(within(row).getByRole('button', { name: 'None' }));
 }
 

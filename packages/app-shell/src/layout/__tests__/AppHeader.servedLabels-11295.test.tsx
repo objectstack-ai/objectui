@@ -4,6 +4,10 @@
  * objectui#11295 — the breadcrumb names a SERVED view (and a served dashboard)
  * as served.
  *
+ * Since objectui#12461 a view route draws no crumb from `sm` up: the view's
+ * name in the bar is the phone title below `sm`, which is what the view cells
+ * read now. The dashboard cells still read its crumb.
+ *
  * ## What was measured
  *
  * objectstack#20730's browser reading, at the console's pinned objectui: with

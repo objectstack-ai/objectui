@@ -95,15 +95,17 @@ async function openForm(readOnly: boolean): Promise<HTMLElement> {
 }
 
 describe('Data pillar Form view — a read-only package reads as read-only (objectui#11781)', () => {
+  // objectui#12451 — the layout caption is the Layout item's title now, and
+  // the writable hint is the Form toolbar's.
   it('read-only: the layout caption, the designer hint and the field card say read-only', async () => {
     const card = await openForm(true);
 
-    expect(screen.getByText(row('engine.studio.data.form.layoutBadgeReadOnly'))).toBeInTheDocument();
-    expect(screen.queryByText(absent('engine.studio.data.form.layoutBadgeClean'), { exact: true })).toBeNull();
-    expect(screen.queryByText(absent('engine.studio.data.form.layoutBadge'))).toBeNull();
+    expect(screen.getByTitle(row('engine.studio.data.form.layoutBadgeReadOnly'))).toBeInTheDocument();
+    expect(screen.queryByTitle(absent('engine.studio.data.form.layoutBadgeClean'), { exact: true })).toBeNull();
+    expect(screen.queryByTitle(absent('engine.studio.data.form.layoutBadge'))).toBeNull();
 
     expect(screen.getByText(row('engine.studio.designer.hintReadOnly'))).toBeInTheDocument();
-    expect(screen.queryByText(absent('engine.studio.designer.hint'))).toBeNull();
+    expect(screen.queryByText(absent('engine.studio.designer.toolbarHint'))).toBeNull();
 
     expect(card).toHaveAttribute('aria-label', row('engine.studio.designer.fieldAriaReadOnly', { label: 'Title' }));
     expect(card).not.toHaveClass('cursor-grab');
@@ -112,10 +114,10 @@ describe('Data pillar Form view — a read-only package reads as read-only (obje
   it('CONTROL — writable: the draft caption, the drag hint and a draggable card', async () => {
     const card = await openForm(false);
 
-    expect(screen.getByText(row('engine.studio.data.form.layoutBadgeClean'), { exact: true })).toBeInTheDocument();
-    expect(screen.queryByText(absent('engine.studio.data.form.layoutBadgeReadOnly'))).toBeNull();
+    expect(screen.getByTitle(row('engine.studio.data.form.layoutBadgeClean'), { exact: true })).toBeInTheDocument();
+    expect(screen.queryByTitle(absent('engine.studio.data.form.layoutBadgeReadOnly'))).toBeNull();
 
-    expect(screen.getByText(row('engine.studio.designer.hint'))).toBeInTheDocument();
+    expect(screen.getByText(row('engine.studio.designer.toolbarHint'))).toBeInTheDocument();
     expect(screen.queryByText(absent('engine.studio.designer.hintReadOnly'))).toBeNull();
 
     expect(card).toHaveAttribute('aria-label', row('engine.studio.designer.fieldAria', { label: 'Title' }));

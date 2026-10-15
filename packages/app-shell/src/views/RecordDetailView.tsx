@@ -515,7 +515,8 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // explicit history-state `from` (legacy, in-session only), then falls back
   // to the last ancestor in the `?from=` URL trail — which, unlike history
   // state, survives refresh and shared links. This is the immediate-parent
-  // affordance; the full clickable path lives in the top-bar breadcrumb.
+  // affordance, and since the top bar draws no record crumb (objectui#12461)
+  // the only one: each parent's own link carries the trail above it.
   const originFromState = (location.state as any)?.from as { pathname?: string; label?: string } | undefined;
   const originFrom = useMemo<{ pathname?: string; label?: string } | undefined>(() => {
     if (originFromState?.pathname && originFromState?.label) return originFromState;
@@ -3328,9 +3329,11 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         embedded={embedded}
         refresh={headerRefresh}
         headerSystemActions={synthSystemActions}
-        isFavorite={isRecordFavorite}
-        onToggleFavorite={favoriteRecord ? handleToggleRecordFavorite : undefined}
       >
+        {/* No `isFavorite` / `onToggleFavorite` here (objectui#12427): the
+            record's favorites entry is the `sys_favorite` item in the header's
+            `⋯` overflow, and the `page:header` chrome draws its star only for
+            a host that wires `onToggleFavorite`, so this page draws none. */}
         {/* objectui#2407 P2 — ONE record-level inline-edit session spanning
             the highlights strip AND the details body (both descend from this
             provider), committed together by the single <InlineEditSaveBar>

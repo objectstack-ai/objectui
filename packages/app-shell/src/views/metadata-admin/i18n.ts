@@ -2798,7 +2798,6 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // `studio-design/StudioDesignSurface.createAppAccessibleName.test.tsx`.
   'engine.studio.createDraft': 'Save as draft',
   'engine.studio.saveDraft': 'Save draft',
-  'engine.studio.more': 'More',
   'engine.studio.autoSaving': 'Saving…',
   // objectui#11773 — the draft-save version conflict (`DraftConflictDialog.tsx`):
   // a draft save the server refused because the draft was saved elsewhere after
@@ -3068,6 +3067,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.designer.newGroup': 'New group',
   'engine.studio.designer.hint': 'Drag to reorder / move across groups · click a field to edit its properties',
   'engine.studio.designer.hintReadOnly': 'Read-only package · click a field to view its properties',
+  // objectui#12451 — the Form tab toolbar's hint.
+  'engine.studio.designer.toolbarHint': 'Drag fields to arrange · click a field to edit its properties',
   'engine.studio.designer.addGroup': 'Add group',
   // What the form designer's drag live region says (objectui#11802): labels,
   // never the canvas's internal ids, and the place as "N of M" in the group.
@@ -3425,6 +3426,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.hooks.newLabel': 'New hook',
   'engine.studio.data.addFieldTitle': 'Add a field (then set its type and properties on the right)',
   'engine.studio.data.addField': 'Add field',
+  'engine.studio.data.objectSettings': 'Object settings',
+  'engine.studio.data.moreActions': 'More actions',
   'engine.studio.data.editFieldProps': 'Edit field properties',
   'engine.studio.data.draftObjectTitle': 'Unpublished new object',
   'engine.studio.data.draftObjectHint':
@@ -3507,6 +3510,14 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.auto.emptyLine2': 'and its configuration appears here.',
   'engine.studio.auto.designersMissing':
     'No metadata designers are registered in this session, so this flow cannot be designed here.',
+  // objectui#12454 — the rail's groups and legend: a flow's trigger kind, and
+  // the trailing group of flows that name no object.
+  'engine.studio.auto.group.noObject': 'No object',
+  'engine.studio.auto.kind.record': 'Record-triggered',
+  'engine.studio.auto.kind.scheduled': 'Scheduled',
+  'engine.studio.auto.kind.screen': 'Screen',
+  'engine.studio.auto.kind.autolaunched': 'Autolaunched',
+  'engine.studio.auto.legend': 'Legend',
   // Access pillar
   'engine.studio.access.created': 'Permission set “{label}” created',
   'engine.studio.access.title': 'Permission matrix',
@@ -3544,6 +3555,29 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.access.new': 'New permission set',
   'engine.studio.access.emptyMain': 'Create a permission set to start configuring',
   'engine.studio.access.pick': 'Select a permission set',
+  // objectui#12456 — the open set's item header and its five tabs.
+  'engine.studio.access.tab.objects': 'Objects',
+  'engine.studio.access.tab.capabilities': 'System capabilities',
+  'engine.studio.access.tab.rls': 'Row-level security',
+  'engine.studio.access.tab.tabs': 'Tab visibility',
+  'engine.studio.access.tab.admin': 'Delegated admin',
+  'engine.studio.access.grantedOne': '{count} object granted',
+  'engine.studio.access.grantedOther': '{count} objects granted',
+  'engine.studio.access.overridesOne': '{count} field override',
+  'engine.studio.access.overridesOther': '{count} field overrides',
+  'engine.studio.access.objectCountOne': '{count} object',
+  'engine.studio.access.objectCountOther': '{count} objects',
+  'engine.studio.access.objectCountFiltered': '{shown} of {count} objects',
+  'engine.studio.access.more': 'More actions',
+  'engine.studio.access.colOwd': 'OWD',
+  'engine.studio.access.legend.create': 'Create',
+  'engine.studio.access.legend.read': 'Read',
+  'engine.studio.access.legend.edit': 'Edit',
+  'engine.studio.access.legend.delete': 'Delete',
+  'engine.studio.access.legend.transfer': 'Transfer',
+  'engine.studio.access.legend.viewAll': 'View all',
+  'engine.studio.access.legend.modifyAll': 'Modify all',
+  'engine.studio.access.bulkHint': 'Bulk actions (R · CRUD · All · None) appear on the row under the pointer or with keyboard focus.',
 
   // ── Record Sharing Baseline (OWD) overview (objectui#2505) ──────────────
   'engine.studio.owd.railLabel': 'Record sharing (OWD)',
@@ -6061,7 +6095,6 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   // run with `engine.studio.app.create`, which opens the same dialog.
   'engine.studio.createDraft': '存为草稿',
   'engine.studio.saveDraft': '保存草稿',
-  'engine.studio.more': '更多',
   'engine.studio.autoSaving': '保存中…',
   'engine.draftConflict.title': '此草稿在你打开后已被修改',
   'engine.draftConflict.description':
@@ -6304,6 +6337,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.designer.newGroup': '新分组',
   'engine.studio.designer.hint': '拖动字段排序 / 拖到其它分组 · 点选字段改属性',
   'engine.studio.designer.hintReadOnly': '只读软件包 · 点选字段查看属性',
+  'engine.studio.designer.toolbarHint': '拖动字段排布 · 点选字段编辑属性',
   'engine.studio.designer.addGroup': '添加分组',
   'engine.studio.formDnd.instructions':
     '按空格键或回车键拿起字段。拖动时用方向键移动，再按空格键或回车键放到新位置，按 Esc 键取消。',
@@ -6601,6 +6635,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.hooks.newLabel': '新钩子',
   'engine.studio.data.addFieldTitle': '添加一个字段(随后在右侧设置类型与属性)',
   'engine.studio.data.addField': '添加字段',
+  'engine.studio.data.objectSettings': '对象设置',
+  'engine.studio.data.moreActions': '更多操作',
   'engine.studio.data.editFieldProps': '编辑字段属性',
   'engine.studio.data.draftObjectTitle': '未发布的新对象',
   'engine.studio.data.draftObjectHint':
@@ -6669,6 +6705,12 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.auto.emptyLine1': '在画布里点选一个节点,',
   'engine.studio.auto.emptyLine2': '它的配置会在这里显示。',
   'engine.studio.auto.designersMissing': '本次会话没有注册任何元数据设计器,因此无法在这里设计该流程。',
+  'engine.studio.auto.group.noObject': '无对象',
+  'engine.studio.auto.kind.record': '记录触发',
+  'engine.studio.auto.kind.scheduled': '定时',
+  'engine.studio.auto.kind.screen': '交互页面',
+  'engine.studio.auto.kind.autolaunched': '自动启动',
+  'engine.studio.auto.legend': '图例',
   // Access pillar
   'engine.studio.access.created': '权限集「{label}」已创建',
   'engine.studio.access.title': '权限矩阵',
@@ -6703,6 +6745,29 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.access.new': '新建权限集',
   'engine.studio.access.emptyMain': '新建一个权限集开始配置',
   'engine.studio.access.pick': '选择一个权限集',
+  'engine.studio.access.tab.objects': '对象',
+  'engine.studio.access.tab.capabilities': '系统能力',
+  'engine.studio.access.tab.rls': '行级安全',
+  'engine.studio.access.tab.tabs': '标签页可见性',
+  'engine.studio.access.tab.admin': '委派管理',
+  // zh has one plural form, so each `…One` / `…Other` pair carries the same row.
+  'engine.studio.access.grantedOne': '已授权 {count} 个对象',
+  'engine.studio.access.grantedOther': '已授权 {count} 个对象',
+  'engine.studio.access.overridesOne': '{count} 个字段覆盖',
+  'engine.studio.access.overridesOther': '{count} 个字段覆盖',
+  'engine.studio.access.objectCountOne': '{count} 个对象',
+  'engine.studio.access.objectCountOther': '{count} 个对象',
+  'engine.studio.access.objectCountFiltered': '{count} 个对象中的 {shown} 个',
+  'engine.studio.access.more': '更多操作',
+  'engine.studio.access.colOwd': 'OWD',
+  'engine.studio.access.legend.create': '创建',
+  'engine.studio.access.legend.read': '读取',
+  'engine.studio.access.legend.edit': '编辑',
+  'engine.studio.access.legend.delete': '删除',
+  'engine.studio.access.legend.transfer': '转移',
+  'engine.studio.access.legend.viewAll': '查看全部',
+  'engine.studio.access.legend.modifyAll': '修改全部',
+  'engine.studio.access.bulkHint': '批量操作(R · CRUD · All · None)显示在指针所在或获得键盘焦点的行上。',
 
   // ── 记录共享基线（OWD）总览 (objectui#2505) ──────────────────────────
   'engine.studio.owd.railLabel': '记录共享（OWD）',

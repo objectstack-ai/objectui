@@ -46,3 +46,30 @@ export function useCanAuthorMetadata(): boolean {
   const { hasCapabilities } = usePermissions();
   return hasCapabilities([AUTHORING_CAPABILITY]);
 }
+
+/**
+ * objectui#12475 — the capabilities the item-scoped AUTHORING TRAIL doors admit:
+ * `GET /meta/:type/:name/history`, `/audit` and `/diff`. objectstack#23546
+ * (ruling A1) narrowed them to `system`, `studio.access` and `manage_metadata`;
+ * `setup.access` no longer opens them. `system` is a principal flag, not a
+ * capability `/auth/me/permissions` reports, so it has no client half here: a
+ * console session is never a system principal.
+ */
+export const AUTHORING_TRAIL_CAPABILITIES: readonly string[] = ['studio.access', AUTHORING_CAPABILITY];
+
+/**
+ * May this session read an item's authoring trail (its history, audit and diff)?
+ *
+ * The ONE answer the editors that offer History and Audit ask, so the entries
+ * are shown only to a caller the doors admit: an organization admin holding
+ * `setup.access` alone is offered no button that always answers 403. The
+ * doors admit ANY of the capabilities above, so each is asked on its own
+ * (`hasCapabilities` answers "holds ALL of"). Unknown fails OPEN, exactly as
+ * {@link useCanAuthorMetadata} does: `hasCapabilities` itself returns `true`
+ * when the backend never reported `systemPermissions`, and the server
+ * enforces regardless.
+ */
+export function useCanReadAuthoringTrail(): boolean {
+  const { hasCapabilities } = usePermissions();
+  return AUTHORING_TRAIL_CAPABILITIES.some((capability) => hasCapabilities([capability]));
+}

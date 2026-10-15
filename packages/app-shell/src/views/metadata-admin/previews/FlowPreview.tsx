@@ -55,6 +55,7 @@ import {
   describeFlowRunStatus,
   freshNodeId,
   type FlowProblem,
+  type FlowRunStatus,
   type FlowRunStatusView,
 } from './flow-problems.js';
 import { useConnectorRegistry } from '../inspectors/connector-input-fields.js';
@@ -73,6 +74,48 @@ import { fieldsForNodeType, localizeFlowFields } from '../inspectors/flow-node-c
  */
 type FlowNode = FlowDesignerNode;
 type FlowEdge = FlowDesignerEdge;
+
+/** The sections a host's tab row offers over one flow (objectui#12454). */
+export type FlowPreviewSection = 'canvas' | 'variables' | 'runs' | 'problems' | 'debug';
+
+/** The problem count a host's Problems tab carries: all of them, and how many are errors. */
+export interface FlowProblemTally {
+  count: number;
+  errors: number;
+}
+
+/**
+ * Host chrome for the flow preview (objectui#12454).
+ *
+ * A host whose own item header already carries the flow's meta and a tab row
+ * over {@link FlowPreviewSection} — the Studio's Automations pillar — provides
+ * this. The preview then draws no info bar and no frame of its own, and shows
+ * the section the host's tab row has open: the canvas; the variables, the run
+ * history or the problem list as the section's body; or the canvas with the
+ * debug simulator beside it, since the simulator paints its run on the canvas.
+ *
+ * Without it — the metadata-admin designer, which has no item header — the
+ * preview is as it was: its info bar holds the meta pills and the Variables,
+ * Runs, Problems and Debug buttons, each opening a panel beside the canvas.
+ */
+export interface FlowPreviewChrome {
+  section: FlowPreviewSection;
+  /** Open a section. Picking a problem in the Problems body opens the canvas on the element it reveals. */
+  onSectionChange: (section: FlowPreviewSection) => void;
+  /**
+   * Receives the problem tally for the host's Problems tab. Called from an
+   * effect keyed on the tally's numbers and on this function, so hand in a
+   * state setter (whose identity React keeps), never a fresh closure.
+   */
+  onProblemsChange: (tally: FlowProblemTally) => void;
+}
+
+const FlowPreviewChromeContext = React.createContext<FlowPreviewChrome | null>(null);
+
+/** Provides {@link FlowPreviewChrome} to the flow preview below it. */
+export function FlowPreviewChromeProvider({ value, children }: { value: FlowPreviewChrome; children?: React.ReactNode }) {
+  return <FlowPreviewChromeContext.Provider value={value}>{children}</FlowPreviewChromeContext.Provider>;
+}
 
 /**
  * The header's Trigger pill (objectui#11779): the trigger the engine arms this
@@ -112,6 +155,94 @@ function flowTriggerLabel(d: Record<string, unknown>, nodes: FlowNode[], locale?
   return typeof object === 'string' && object ? `${label} · ${object}` : label;
 }
 
+/**
+ * The flow's meta — Trigger, Status, Run as, version and, when set, On error —
+ * as the designer's info bar shows it and as the Studio's item header shows it
+ * (objectui#12454). One component, so the two read one trigger and one run
+ * status the same way (objectui#11779). `bar` keeps the info bar's glyphs;
+ * `header` drops them and separates the items with dots, at the header's meta
+ * size. Each item keeps its `Label:` caption and its value as sibling spans.
+ */
+export function FlowMetaPills({
+  draft,
+  runStatus,
+  locale,
+  variant = 'bar',
+}: {
+  draft: Record<string, unknown>;
+  runStatus: FlowRunStatus;
+  locale?: string;
+  variant?: 'bar' | 'header';
+}) {
+  const nodes = Array.isArray(draft.nodes) ? (draft.nodes as FlowNode[]) : [];
+  const runView = describeFlowRunStatus(runStatus, locale);
+  const runAs = String(draft.runAs ?? 'user');
+  const version = draft.version != null ? String(draft.version) : undefined;
+  const errorStrategy = (draft.errorHandling as { strategy?: unknown } | undefined)?.strategy;
+  const onError = typeof errorStrategy === 'string' && errorStrategy ? errorStrategy : undefined;
+  const header = variant === 'header';
+  const items: React.ReactNode[] = [
+    <Pill
+      key="trigger"
+      icon={header ? undefined : Zap}
+      label={tr('engine.flowPreview.pill.trigger', locale)}
+      value={flowTriggerLabel(draft, nodes, locale)}
+      compact={header}
+    />,
+    <Pill
+      key="status"
+      icon={header ? undefined : CircleDot}
+      label={tr('engine.flowPreview.pill.status', locale)}
+      value={runView.label}
+      tone={runView.tone}
+      title={runView.title}
+      compact={header}
+    />,
+    <Pill
+      key="runAs"
+      icon={header ? undefined : Settings2}
+      label={tr('engine.flowPreview.pill.runAs', locale)}
+      value={translateFlowMeta('runAs', runAs, locale)}
+      compact={header}
+    />,
+  ];
+  if (version) {
+    items.push(
+      header ? (
+        <span key="version">v{version}</span>
+      ) : (
+        <Pill key="version" label="v" value={version} />
+      ),
+    );
+  }
+  if (onError) {
+    items.push(
+      <Pill
+        key="onError"
+        icon={header ? undefined : GitBranch}
+        label={tr('engine.flowPreview.pill.onError', locale)}
+        value={translateFlowMeta('onError', onError, locale)}
+        compact={header}
+      />,
+    );
+  }
+  if (!header) return <>{items}</>;
+  return (
+    <span className="inline-flex min-w-0 items-center gap-1.5">
+      {items.map((item, i) => (
+        <React.Fragment key={i}>
+          {i > 0 && (
+            <span aria-hidden className="text-muted-foreground/50">
+              ·
+            </span>
+          )}
+          {item}
+        </React.Fragment>
+      ))}
+    </span>
+  );
+}
+
 interface FlowVariable {
   name: string;
   type?: string;
@@ -138,7 +269,8 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
   // refused or unregistered flow's status (the stored `status` stays as read).
   const registration = React.useContext(FlowRegistrationContext);
   const runStatus = deriveFlowRunStatus(runtime, d.status, registration);
-  const runView = describeFlowRunStatus(runStatus, locale);
+  // objectui#12454 — a host that carries the meta and the tab row itself.
+  const chrome = React.useContext(FlowPreviewChromeContext);
 
   const designMode = !!(editing && onSelectionChange);
   const canEdit = designMode && !!onPatch;
@@ -178,6 +310,12 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
     [nodes, edges, diagnostics, d.variables, locale, connectors],
   );
   const errorCount = problems.filter((p) => p.level === 'error').length;
+  // objectui#12454 — the host's Problems tab carries the count. Keyed on the
+  // two numbers and the host's setter, never on the memoised list (AGENTS.md #10).
+  const reportProblems = chrome?.onProblemsChange;
+  React.useEffect(() => {
+    reportProblems?.({ count: problems.length, errors: errorCount });
+  }, [reportProblems, problems.length, errorCount]);
   // Red error ring/stroke derived from the same list (errors only; a cycle
   // paints its whole loop) — no second validateFlowDraft pass.
   const { invalidNodeIds, invalidEdges } = React.useMemo(
@@ -243,28 +381,139 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
 
   // Run history needs the published flow name (the engine keys runs by it).
   const flowName = typeof d.name === 'string' && d.name ? d.name : '';
-  const runAs = String(d.runAs ?? 'user');
-  const version = d.version != null ? String(d.version) : undefined;
-  const errorStrategy = (d.errorHandling as any)?.strategy as string | undefined;
 
-  if (nodes.length === 0) {
+  const empty = canEdit ? (
+    <div className="p-3">
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 rounded border border-dashed px-3 py-2 text-xs text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+        onClick={handleAddNode}
+      >
+        <Plus className="h-3 w-3" />
+        {tr('engine.inspector.add.node', locale)}
+      </button>
+    </div>
+  ) : (
+    <PreviewMessage>{tr('engine.flowPreview.emptyHint', locale)}</PreviewMessage>
+  );
+  if (nodes.length === 0 && !chrome) {
+    return <PreviewShell hint={`flow${designMode ? ' · design' : ''}`}>{empty}</PreviewShell>;
+  }
+
+  // The canvas, the same element in both chromes (objectui#12454). Under a
+  // host's chrome a flow with no node yet keeps its tabs: the canvas section
+  // offers the first node, and the other sections read as they do.
+  const canvasEl = nodes.length === 0 ? (
+    <div className="h-full">{empty}</div>
+  ) : (
+    <FlowCanvas
+      nodes={nodes}
+      edges={edges}
+      editable={canEdit}
+      designMode={designMode}
+      selectedId={selectedId}
+      selectedEdgeId={selectedEdgeId}
+      locale={locale}
+      activeNodeId={runHL?.activeNodeId ?? null}
+      visitedNodeIds={runHL?.visitedNodeIds}
+      traversedEdgeIds={runHL?.traversedEdgeIds}
+      invalidNodeIds={invalidNodeIds}
+      invalidEdges={invalidEdges}
+      onRevealProblem={handleSelectProblem}
+      problems={problems}
+      revealSignal={reveal}
+      onSelect={(n) =>
+        n
+          ? onSelectionChange?.({ kind: 'node', id: n.id, label: n.label || n.id })
+          : onSelectionChange?.(null)
+      }
+      onSelectEdge={(e, key) =>
+        e
+          ? onSelectionChange?.({ kind: 'edge', id: key, label: `${e.source} → ${e.target}` })
+          : onSelectionChange?.(null)
+      }
+      selectedNestedPath={selectedNestedPath}
+      onSelectNested={(path, node) =>
+        path
+          ? onSelectionChange?.({
+              kind: NESTED_NODE_KIND,
+              id: encodeNestedNodeId(path),
+              label: node?.label || path.nodeId,
+            })
+          : onSelectionChange?.(null)
+      }
+      onPatch={onPatch}
+      mintNodeId={mintNodeId}
+    />
+  );
+
+  // The bar's four panel toggles, as the designer has them: one panel at a time beside the canvas.
+  const togglePanel = (panel: 'vars' | 'runs' | 'problems' | 'debug') => {
+    if (panel === 'vars') {
+      setShowVars((v) => !v);
+      return;
+    }
+    setShowRuns((v) => (panel === 'runs' ? !v : false));
+    setShowProblems((v) => (panel === 'problems' ? !v : false));
+    setShowDebug((v) => (panel === 'debug' ? !v : false));
+  };
+
+  if (chrome) {
+    // objectui#12454 — the host's item header holds the meta and the tab row,
+    // so the preview draws neither, and no frame: the section fills the body.
+    const section = chrome.section;
+    const panelBody = section === 'variables' || section === 'runs' || section === 'problems';
     return (
-      <PreviewShell hint={`flow${designMode ? ' · design' : ''}`}>
-        {canEdit ? (
-          <div className="p-3">
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 rounded border border-dashed px-3 py-2 text-xs text-muted-foreground hover:bg-muted/30 hover:text-foreground"
-              onClick={handleAddNode}
-            >
-              <Plus className="h-3 w-3" />
-              {tr('engine.inspector.add.node', locale)}
-            </button>
+      <PreviewErrorBoundary fallbackHint={tr('engine.flowPreview.malformed', locale)}>
+        <div
+          data-testid="flow-preview-section"
+          data-section={section}
+          className={'grid h-full min-h-0 gap-0 ' + (section === 'debug' ? 'lg:grid-cols-[1fr_240px]' : 'grid-cols-1')}
+        >
+          {/* Kept mounted under a body section, so its pan, zoom and opened
+              regions are where the author left them when the canvas returns. */}
+          <div className={panelBody ? 'hidden' : 'flex min-h-0 min-w-0 flex-col'}>
+            <div className="min-h-0 flex-1">{canvasEl}</div>
           </div>
-        ) : (
-          <PreviewMessage>{tr('engine.flowPreview.emptyHint', locale)}</PreviewMessage>
-        )}
-      </PreviewShell>
+          {section === 'debug' && (
+            <div className="border-l bg-muted/20">
+              <FlowSimulatorPanel nodes={nodes} edges={edges} variables={variables} locale={locale} onRunStateChange={setRunHL} />
+            </div>
+          )}
+          {section === 'variables' && (
+            <div className="min-h-0 overflow-auto">
+              <div className="mx-auto max-w-3xl space-y-2 px-6 py-5 text-xs">
+                <FlowVariablesList variables={variables} locale={locale} />
+              </div>
+            </div>
+          )}
+          {section === 'runs' && (
+            <div className="min-h-0 overflow-hidden">
+              <div className="mx-auto h-full max-w-3xl px-3 py-2">
+                {/* The engine keys runs by the flow's name; the host offers this section only with one. */}
+                {flowName && <FlowRunsPanel flowName={flowName} locale={locale} />}
+              </div>
+            </div>
+          )}
+          {section === 'problems' && (
+            <div className="min-h-0 overflow-hidden">
+              <div className="mx-auto h-full max-w-3xl px-3 py-2">
+                <ProblemsPanel
+                  problems={problems}
+                  selectedKey={selectedKey}
+                  onSelectProblem={(p) => {
+                    handleSelectProblem(p);
+                    // The problem's element is selected and revealed on the canvas.
+                    if (p.target.kind !== 'flow') chrome.onSectionChange('canvas');
+                  }}
+                  locale={locale}
+                  runStatus={runStatus}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </PreviewErrorBoundary>
     );
   }
 
@@ -278,22 +527,12 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
           {/* Visual canvas */}
           <div className="flex flex-col min-w-0 min-h-0">
             <div className="rounded-none border-b bg-muted/30 px-3 py-2 text-xs flex flex-wrap items-center gap-x-4 gap-y-1">
-              <Pill icon={Zap} label={tr('engine.flowPreview.pill.trigger', locale)} value={flowTriggerLabel(d, nodes, locale)} />
-              <Pill
-                icon={CircleDot}
-                label={tr('engine.flowPreview.pill.status', locale)}
-                value={runView.label}
-                tone={runView.tone}
-                title={runView.title}
-              />
-              <Pill icon={Settings2} label={tr('engine.flowPreview.pill.runAs', locale)} value={translateFlowMeta('runAs', runAs, locale)} />
-              {version && <Pill label="v" value={version} />}
-              {errorStrategy && <Pill icon={GitBranch} label={tr('engine.flowPreview.pill.onError', locale)} value={translateFlowMeta('onError', errorStrategy, locale)} />}
+              <FlowMetaPills draft={d} runStatus={runStatus} locale={locale} />
               <div className="ml-auto flex items-center gap-1.5">
                 {!showDebug && !showRuns && !showProblems && (
                   <button
                     type="button"
-                    onClick={() => setShowVars((v) => !v)}
+                    onClick={() => togglePanel('vars')}
                     className={
                       'inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] font-medium transition-colors ' +
                       (showVars
@@ -308,11 +547,7 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
                 {flowName && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setShowRuns((v) => !v);
-                      setShowDebug(false);
-                      setShowProblems(false);
-                    }}
+                    onClick={() => togglePanel('runs')}
                     className={
                       'inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] font-medium transition-colors ' +
                       (showRuns
@@ -326,11 +561,7 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
                 )}
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowProblems((v) => !v);
-                    setShowDebug(false);
-                    setShowRuns(false);
-                  }}
+                  onClick={() => togglePanel('problems')}
                   className={
                     'inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] font-medium transition-colors ' +
                     (showProblems
@@ -353,11 +584,7 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowDebug((v) => !v);
-                    setShowRuns(false);
-                    setShowProblems(false);
-                  }}
+                  onClick={() => togglePanel('debug')}
                   className={
                     'inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] font-medium transition-colors ' +
                     (showDebug
@@ -369,47 +596,7 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
                 </button>
               </div>
             </div>
-            <div className="flex-1 min-h-0">
-              <FlowCanvas
-                nodes={nodes}
-                edges={edges}
-                editable={canEdit}
-                designMode={designMode}
-                selectedId={selectedId}
-                selectedEdgeId={selectedEdgeId}
-                locale={locale}
-                activeNodeId={runHL?.activeNodeId ?? null}
-                visitedNodeIds={runHL?.visitedNodeIds}
-                traversedEdgeIds={runHL?.traversedEdgeIds}
-                invalidNodeIds={invalidNodeIds}
-                invalidEdges={invalidEdges}
-                onRevealProblem={handleSelectProblem}
-                problems={problems}
-                revealSignal={reveal}
-                onSelect={(n) =>
-                  n
-                    ? onSelectionChange?.({ kind: 'node', id: n.id, label: n.label || n.id })
-                    : onSelectionChange?.(null)
-                }
-                onSelectEdge={(e, key) =>
-                  e
-                    ? onSelectionChange?.({ kind: 'edge', id: key, label: `${e.source} → ${e.target}` })
-                    : onSelectionChange?.(null)
-                }
-                selectedNestedPath={selectedNestedPath}
-                onSelectNested={(path, node) =>
-                  path
-                    ? onSelectionChange?.({
-                        kind: NESTED_NODE_KIND,
-                        id: encodeNestedNodeId(path),
-                        label: node?.label || path.nodeId,
-                      })
-                    : onSelectionChange?.(null)
-                }
-                onPatch={onPatch}
-                mintNodeId={mintNodeId}
-              />
-            </div>
+            <div className="flex-1 min-h-0">{canvasEl}</div>
           </div>
 
           {/* Right side panel: Variables (default), the debug simulator, or
@@ -441,43 +628,11 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
             </div>
           ) : showVars ? (
             <div className="border-l bg-muted/20 p-3 text-xs space-y-2">
-            <div className="flex items-center gap-1.5 font-medium text-muted-foreground">
-              <Variable className="h-3 w-3" /> {tr('engine.flowPreview.variables', locale)}
+              <div className="flex items-center gap-1.5 font-medium text-muted-foreground">
+                <Variable className="h-3 w-3" /> {tr('engine.flowPreview.variables', locale)}
+              </div>
+              <FlowVariablesList variables={variables} locale={locale} />
             </div>
-            {variables.length === 0 ? (
-              <EmptyDescription className="text-xs italic">{tr('engine.flowPreview.noVars', locale)}</EmptyDescription>
-            ) : (
-              <ul className="space-y-1.5">
-                {variables.map((v, i) => (
-                  <li key={v.name || i} className="rounded border bg-background p-1.5">
-                    <div className="flex items-baseline gap-1 flex-wrap">
-                      <span className="font-mono">{v.name}</span>
-                      {v.type && (
-                        <span className="text-[10px] uppercase text-muted-foreground">
-                          {v.type}
-                        </span>
-                      )}
-                      {v.isInput && (
-                        <span className="text-[9px] font-semibold uppercase px-1 rounded bg-sky-100 text-sky-700">
-                          {tr('engine.flowPreview.varIn', locale)}
-                        </span>
-                      )}
-                      {v.isOutput && (
-                        <span className="text-[9px] font-semibold uppercase px-1 rounded bg-emerald-100 text-emerald-700">
-                          {tr('engine.flowPreview.varOut', locale)}
-                        </span>
-                      )}
-                    </div>
-                    {v.defaultValue !== undefined && (
-                      <div className="text-[10px] text-muted-foreground font-mono truncate">
-                        = {String(v.defaultValue)}
-                      </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
           ) : null}
         </div>
       </PreviewErrorBoundary>
@@ -491,6 +646,7 @@ function Pill({
   value,
   tone = 'plain',
   title,
+  compact = false,
 }: {
   icon?: React.ComponentType<{ className?: string }>;
   label: string;
@@ -498,20 +654,60 @@ function Pill({
   tone?: FlowRunStatusView['tone'];
   /** Hover text — the run status's reason, for the Status pill. */
   title?: string;
+  /** The item header's meta (objectui#12454): the value at the caption's weight, plain text muted. */
+  compact?: boolean;
 }) {
   const cls =
     tone === 'green'
       ? 'text-emerald-700 dark:text-emerald-400'
       : tone === 'amber'
         ? 'text-amber-700 dark:text-amber-300'
-        : tone === 'muted'
+        : tone === 'muted' || compact
           ? 'text-muted-foreground'
           : 'text-foreground';
   return (
-    <span className="inline-flex items-center gap-1" title={title}>
+    <span className={compact ? 'inline-flex shrink-0 items-center gap-1 whitespace-nowrap' : 'inline-flex items-center gap-1'} title={title}>
       {Icon && <Icon className="h-3 w-3 text-muted-foreground" />}
       <span className="text-muted-foreground">{label}:</span>
-      <span className={`font-medium ${cls}`}>{value}</span>
+      <span className={compact ? cls : `font-medium ${cls}`}>{value}</span>
     </span>
+  );
+}
+
+/** The flow's declared variables: the designer's side panel, and the Studio's Variables body (objectui#12454). */
+function FlowVariablesList({ variables, locale }: { variables: FlowVariable[]; locale?: string }) {
+  if (variables.length === 0) {
+    return <EmptyDescription className="text-xs italic">{tr('engine.flowPreview.noVars', locale)}</EmptyDescription>;
+  }
+  return (
+    <ul className="space-y-1.5">
+      {variables.map((v, i) => (
+        <li key={v.name || i} className="rounded border bg-background p-1.5">
+          <div className="flex items-baseline gap-1 flex-wrap">
+            <span className="font-mono">{v.name}</span>
+            {v.type && (
+              <span className="text-[10px] uppercase text-muted-foreground">
+                {v.type}
+              </span>
+            )}
+            {v.isInput && (
+              <span className="text-[9px] font-semibold uppercase px-1 rounded bg-sky-100 text-sky-700">
+                {tr('engine.flowPreview.varIn', locale)}
+              </span>
+            )}
+            {v.isOutput && (
+              <span className="text-[9px] font-semibold uppercase px-1 rounded bg-emerald-100 text-emerald-700">
+                {tr('engine.flowPreview.varOut', locale)}
+              </span>
+            )}
+          </div>
+          {v.defaultValue !== undefined && (
+            <div className="text-[10px] text-muted-foreground font-mono truncate">
+              = {String(v.defaultValue)}
+            </div>
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }

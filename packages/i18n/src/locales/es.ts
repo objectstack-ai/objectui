@@ -2154,6 +2154,8 @@ const es = {
       systemViewReadonly: "Vista del sistema definida en el código: solo lectura.",
       cannotEditMetaView: "Esta vista está integrada y definida en el código: no se puede modificar.",
       viewConfigPermissionDenied: "La configuración de la vista se aplica a todos los usuarios que la utilizan, por lo que modificarla requiere el permiso «Administrar metadatos». Pida a un administrador que realice este cambio.",
+      resetView: "Restablecer vista",
+      resetViewTitle: "Devolver esta vista a su propia ordenación, filtros y anchos de columna. Solo cambia su configuración.",
       cannotDeleteMetaView: "Esta vista está integrada y definida en el código: no se puede eliminar.",
       expandToPage: "Abrir como página completa",
       objectNotFound: "Objeto no encontrado",
@@ -2633,7 +2635,6 @@ const es = {
     offline: "Sin conexión",
     usersOnline: "Usuarios conectados ahora mismo",
     switchView: "Cambiar de vista",
-    switchObject: "Cambiar de objeto",
     connection: {
       connected: "Conectado",
       connecting: "Conectando…",

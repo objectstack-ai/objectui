@@ -48,7 +48,8 @@ vi.mock('./AssignedUsersSection', () => ({
 }));
 
 let canAuthor = true;
-vi.mock('../../hooks/useCanAuthorMetadata', () => ({
+vi.mock('../../hooks/useCanAuthorMetadata', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   useCanAuthorMetadata: () => canAuthor,
 }));
 

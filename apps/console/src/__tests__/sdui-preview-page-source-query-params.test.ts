@@ -125,7 +125,7 @@ describe('ADR-0080 preview harnesses — page-source query params', () => {
     expect(pages.length).toBeGreaterThanOrEqual(4);
     expect(pages.map((p) => `${p.file}:${p.name}:${p.kind}`)).toEqual(
       expect.arrayContaining([
-        'sdui-jsx-preview.tsx:command_center:jsx',
+        'sdui-jsx-preview.tsx:command_center:html',
         'sdui-tiers-preview.tsx:release_notes:html',
         'sdui-tiers-preview.tsx:pipeline_react:react',
         'sdui-workbench-preview.tsx:crm_workbench:react',

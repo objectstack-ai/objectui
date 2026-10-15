@@ -14,15 +14,35 @@
  */
 
 import { isExpandableFieldType } from '@object-ui/core';
-import { isSystemManagedField } from '@object-ui/types';
+import { isSystemManagedField, type SummaryFieldMetadata } from '@object-ui/types';
 
 /** One field's declaration as the object definition serves it. */
 export type FieldDef = Readonly<Record<string, unknown>>;
+
+/** An object's declared fields, keyed by field name. */
+type FieldDefs = Readonly<Record<string, FieldDef | undefined>>;
 
 /** The rows a snapshot draws: the declared amount, then the business fields. */
 export interface SnapshotSummaryPlan {
   lead: string | null;
   rows: string[];
+  /**
+   * The object a `sum` summary ahead of the amount rolls up, whose definition
+   * decides whether that summary is the amount (objectui#12534); null when no
+   * such summary is drawn. At most one, so a page reads at most one more
+   * definition.
+   */
+  summed: string | null;
+}
+
+/** A roll-up as `@objectstack/spec`'s `FieldSchema.summaryOperations` declares it. */
+type SummaryOperations = NonNullable<SummaryFieldMetadata['summaryOperations']>;
+
+/** The roll-up a field declares when it is a `summary` whose function is `sum`. */
+function declaredSum(def: FieldDef | undefined): SummaryOperations | null {
+  if (def?.type !== 'summary') return null;
+  const ops = def.summaryOperations as SummaryOperations | undefined;
+  return ops?.function === 'sum' ? ops : null;
 }
 
 /** How many business-field rows the summary draws below the amount. */
@@ -37,11 +57,17 @@ function numeric(value: unknown): number | null {
 /**
  * Which keys of `snapshot` are drawn, in snapshot order. Pure: the reader's
  * field permissions are applied to `snapshot` before it gets here.
+ *
+ * `summarized` is the definition of the object the plan's `summed` names, once
+ * it answered, else null: a `sum` summary is the amount only when that object
+ * declares the summed field `type: 'currency'`, and without its definition the
+ * summary is an ordinary row.
  */
 export function planSnapshotSummary(
   snapshot: Readonly<Record<string, unknown>>,
-  fields: Readonly<Record<string, FieldDef | undefined>>,
+  fields: FieldDefs,
   display: Readonly<Record<string, string>> | undefined,
+  summarized: { name: string; fields: FieldDefs } | null = null,
   max: number = SNAPSHOT_SUMMARY_ROWS,
 ): SnapshotSummaryPlan {
   const candidates: string[] = [];
@@ -58,10 +84,19 @@ export function planSnapshotSummary(
 
   let lead: string | null = null;
   let leadZero: string | null = null;
+  let summed: string | null = null;
   for (const key of candidates) {
-    if (fields[key]?.type !== 'currency') continue;
     const n = numeric(snapshot[key]);
     if (n === null) continue;
+    if (fields[key]?.type !== 'currency') {
+      const sum = declaredSum(fields[key]);
+      if (!sum) continue;
+      // The first `sum` ahead of the amount names the one definition read;
+      // a sum over any other object stays an ordinary row.
+      summed ??= sum.object;
+      if (sum.object !== summed || summarized?.name !== summed) continue;
+      if (summarized.fields[sum.field]?.type !== 'currency') continue;
+    }
     if (n !== 0) {
       lead = key;
       break;
@@ -70,7 +105,7 @@ export function planSnapshotSummary(
   }
   lead ??= leadZero;
 
-  return { lead, rows: candidates.filter((key) => key !== lead).slice(0, max) };
+  return { lead, rows: candidates.filter((key) => key !== lead).slice(0, max), summed };
 }
 
 /**

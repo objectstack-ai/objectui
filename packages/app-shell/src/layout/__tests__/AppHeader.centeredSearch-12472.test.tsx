@@ -26,8 +26,10 @@
  *     `lg`, and the cluster drops the divider the group after it would draw.
  *
  * CONTROLS: below `lg` the search is the icon button in the cluster, in its
- * divider group, before the Edit app group; a `system/*` route, the `studio`
- * variant and a bar with no palette keep the two-zone bar.
+ * divider group, before the Edit app group; a `system/*` route inside an app
+ * centers the search like an object route, its crumbs still in the left group
+ * (the seat's answer on objectui#12472); the `studio` variant and a bar with
+ * no palette keep the two-zone bar.
  *
  * Layout is not measured — jsdom applies no stylesheet — so, as in
  * `AppHeader.appBarLeftGroup-12461`, the structure and the responsive classes
@@ -287,16 +289,27 @@ describe('CONTROLS (objectui#12472)', () => {
     expect(group.nextElementSibling).toHaveAttribute('data-topbar-group');
   });
 
-  it('a `system/*` route keeps the two-zone bar: the trigger stays in the cluster', () => {
+  it('a `system/*` route inside an app centers the search like an object route; its crumbs stay in the left group', () => {
     mount({ pathname: '/apps/crm/system/settings' });
 
     const trigger = screen.getByTestId(DESKTOP);
-    expect(rootOf().children).toHaveLength(2);
-    expect(clusterOf()).toContainElement(trigger);
-    expect(trigger.parentElement).toBe(screen.getByTestId(MOBILE).parentElement);
-    expect(classesOf(trigger.parentElement!)).not.toContain('lg:hidden');
-    expect(classesOf(clusterOf())).not.toContain('lg:flex-1');
-    expect(document.querySelector('[data-topbar-zone]')).toBeNull();
+    const root = rootOf();
+    const left = leftOf();
+    const cluster = clusterOf();
+    expect(root.children).toHaveLength(3);
+    expect(root.children[1]).toContainElement(trigger);
+    expect(left).not.toContainElement(trigger);
+    expect(cluster).not.toContainElement(trigger);
+    expect(classesOf(cluster)).toEqual(expect.arrayContaining(['lg:flex-1', 'lg:justify-end', 'lg:min-w-max']));
+    expect(classesOf(screen.getByTestId(MOBILE).parentElement!)).toContain('lg:hidden');
+
+    // The crumbs are the left group's, as before: what they read is
+    // `AppHeader.systemBreadcrumbs-10969`'s and `AppHeader.appBarLeftGroup-12461`'s pin.
+    const separators = [...left.querySelectorAll('span[aria-hidden]')].filter((s) => s.textContent?.trim() === '/');
+    expect(separators).toHaveLength(2);
+    for (const outside of [root.children[1], cluster]) {
+      expect([...outside.querySelectorAll('span[aria-hidden]')].filter((s) => s.textContent?.trim() === '/')).toEqual([]);
+    }
   });
 
   it('the `studio` variant keeps the two-zone bar: the trigger stays in the cluster', () => {

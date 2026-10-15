@@ -17,8 +17,8 @@
  *              that page is named (objectui#12461). A dashboard, page, report
  *              or `system/*` route still draws its crumb. From `lg` up the
  *              bar is three zones, with the search trigger centered between
- *              the left group and the utility cluster (objectui#12472;
- *              `system/*` routes excepted).
+ *              the left group and the utility cluster, on every route inside
+ *              the app, `system/*` included (objectui#12472).
  *   - `home` : no breadcrumb; displays the product wordmark (from
  *              `getProductName()`, default "ObjectOS") next to the brand
  *              logo. Used by `/home`.
@@ -485,10 +485,11 @@ export function AppHeader({
   // app pill truncates inside it; the cluster never shrinks below its
   // content (`lg:min-w-max`), so when the utilities need more than half the
   // bar the search yields to the left instead of overlapping them. App
-  // context only: the `home` / `orgs` / `studio` variants and the `system/*`
-  // routes keep the search at the cluster's left edge, and below `lg` the
-  // search is the icon button in the cluster everywhere.
-  const centersSearch = isApp && hasCommandPalette && routeType !== 'system';
+  // context only, on every route inside the app, `system/*` included: the
+  // `home` / `orgs` / `studio` variants keep the search at the cluster's left
+  // edge, and below `lg` the search is the icon button in the cluster
+  // everywhere.
+  const centersSearch = isApp && hasCommandPalette;
 
   // Search — desktop. One element, drawn in the middle zone or in the
   // cluster's search group (see `centersSearch`).

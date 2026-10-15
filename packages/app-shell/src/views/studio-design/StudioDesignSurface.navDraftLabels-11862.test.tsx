@@ -203,12 +203,13 @@ describe("objectui#11862 — the Interfaces nav editor names a draft-only target
     expect(within(row).getAllByText('b2r4_bare')).toHaveLength(1);
   });
 
-  it('the edit-mode cards read the same label, the machine name beside it', async () => {
+  it('the edit-mode cards read the same label, the machine name on their title', async () => {
     renderSurface();
     await screen.findByRole('button', { name: 'Repair Ticket Object' }, { timeout: 8000 });
     fireEvent.click(screen.getByTitle(/^Edit navigation/));
     const card = await screen.findByRole('button', { name: /^Repair Ticket/ });
-    expect(within(card).getByText('repairs_ticket')).toBeInTheDocument();
+    // objectui#12519 — the api name moved from the row onto its title.
+    expect(card).toHaveAttribute('title', 'Repair Ticket · repairs_ticket');
     expect(screen.queryByRole('button', { name: /^repairs_ticket/ })).toBeNull();
   });
 });

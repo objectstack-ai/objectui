@@ -109,6 +109,7 @@ import { InterfacesPillar } from './StudioDesignSurface';
 // goes through, registered at load exactly as the package entry registers it.
 import '../../services/builtinComponents.js';
 import { getMetadataResource } from '../metadata-admin/registry';
+import { t } from '../metadata-admin/i18n';
 import { createEmptyDataSource, failOnAbsorbedFetchError } from './__tests__/emptyDataSource';
 import { registerMetadataPreview } from '../metadata-admin/preview-registry';
 import { registerMetadataInspector } from '../metadata-admin/inspector-registry';
@@ -136,6 +137,8 @@ beforeEach(() => {
 });
 
 afterEach(cleanup);
+
+const DRAFT_FOOTER = t('engine.studio.inspector.draftFooter', 'en');
 
 function renderPillar(readOnly: boolean, opts: { foldInspector?: boolean } = {}) {
   return render(
@@ -231,6 +234,16 @@ describe('Interfaces pillar on a read-only package (objectui#11136)', () => {
     expect(screen.getByRole('button', { name: 'Select hello' })).toHaveAttribute('draggable', 'false');
   });
 
+  // objectui#12453 — a read-only package saves no draft: the properties aside
+  // does not say edits do.
+  it('the properties aside carries no draft footer (objectui#12453)', async () => {
+    renderPillar(true);
+    await openHome();
+
+    expect(rail()).toBeInTheDocument();
+    expect(screen.queryByText(DRAFT_FOOTER)).toBeNull();
+  });
+
   it("opens a source page's code editor read-only", async () => {
     renderPillar(true);
     const editor = await openLanding();
@@ -247,6 +260,13 @@ describe('Interfaces pillar on a read-only package (objectui#11136)', () => {
 });
 
 describe('Interfaces pillar on a writable package — the control (objectui#11136)', () => {
+  it('the properties aside says edits save as drafts (objectui#12453)', async () => {
+    renderPillar(false);
+    await openHome();
+
+    expect(within(rail()).getByText(DRAFT_FOOTER)).toBeInTheDocument();
+  });
+
   it('the default inspector edits, and the edit autosaves', async () => {
     renderPillar(false);
     await openHome();

@@ -3030,6 +3030,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.pkg.switchTitle': 'Switch / create package',
   'engine.studio.pkg.readonly': 'Read-only',
   'engine.studio.pkg.readonlyHint': 'Read-only package — switch to or create a writable package to edit.',
+  // objectui#12453 — the item header's read-only link, every pillar.
+  'engine.studio.pkg.readonlyLink': 'Read-only · Customize with an overlay',
   'engine.studio.app.scaffoldNav': "Add this package's objects as menu items",
   'engine.studio.landing.title': 'App Builder',
   'engine.studio.landing.description': 'Design objects, forms, automations and interfaces inside a writable package; edits save as drafts and the whole package publishes in one release. Code and installed packages are read-only: browse them here, and customize them with an environment overlay.',
@@ -3074,8 +3076,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.designer.dropHere': 'Drag fields here',
   'engine.studio.designer.ungrouped': 'Ungrouped',
   'engine.studio.designer.newGroup': 'New group',
-  'engine.studio.designer.hint': 'Drag to reorder / move across groups · click a field to edit its properties',
-  'engine.studio.designer.hintReadOnly': 'Read-only package · click a field to view its properties',
+  // objectui#12453 — a read-only field card's title: what a click still does.
+  'engine.studio.designer.fieldTitleReadOnly': 'Click a field to view its properties',
   // objectui#12451 — the Form tab toolbar's hint.
   'engine.studio.designer.toolbarHint': 'Drag fields to arrange · click a field to edit its properties',
   'engine.studio.designer.addGroup': 'Add group',
@@ -3531,10 +3533,9 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.access.bannerTitle':
     'This matrix lists only the objects this package declares, and “Save” merges just that slice — grants contributed by other packages are preserved. Edits are saved as package drafts and go live when you Publish the package (top bar), exactly like Data and Interfaces.',
   'engine.studio.access.banner': 'This package’s objects · saved as draft',
-  // objectui#11781 — a read-only package saves no draft: the banner says what it is.
+  // objectui#11781 — a read-only package saves no draft; objectui#12453 makes this the header link's title.
   'engine.studio.access.bannerTitleReadOnly':
     'This matrix lists only the objects this package declares. The package is read-only: its permission sets can be viewed here, but not changed.',
-  'engine.studio.access.bannerReadOnly': 'This package’s objects · read-only',
   // ADR-0090 D5/D9 — pending suggested audience bindings (isDefault sets
   // awaiting the admin's confirm; the server never auto-binds).
   'engine.studio.access.suggestPromptEveryone': 'This package suggests granting "{set}" to all signed-in users (Everyone).',
@@ -6308,6 +6309,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.pkg.switchTitle': '切换 / 新建软件包',
   'engine.studio.pkg.readonly': '只读',
   'engine.studio.pkg.readonlyHint': '只读软件包 — 请切换或新建可写软件包后再编辑。',
+  'engine.studio.pkg.readonlyLink': '只读 · 用覆盖定制',
   'engine.studio.app.scaffoldNav': '将本包的对象添加为菜单项',
   'engine.studio.landing.title': '应用构建',
   'engine.studio.landing.description': '在一个可写软件包里设计对象、表单、自动化与界面;编辑存为草稿,整包一次发布。源码与已安装的软件包为只读：可在此浏览，并用环境覆盖进行定制。',
@@ -6348,8 +6350,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.designer.dropHere': '拖字段到这里',
   'engine.studio.designer.ungrouped': '未分组',
   'engine.studio.designer.newGroup': '新分组',
-  'engine.studio.designer.hint': '拖动字段排序 / 拖到其它分组 · 点选字段改属性',
-  'engine.studio.designer.hintReadOnly': '只读软件包 · 点选字段查看属性',
+  'engine.studio.designer.fieldTitleReadOnly': '点选字段查看属性',
   'engine.studio.designer.toolbarHint': '拖动字段排布 · 点选字段编辑属性',
   'engine.studio.designer.addGroup': '添加分组',
   'engine.studio.formDnd.instructions':
@@ -6730,7 +6731,6 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.access.banner': '仅本包对象 · 保存为草稿',
   'engine.studio.access.bannerTitleReadOnly':
     '此矩阵仅列出本包声明的对象。本软件包为只读:其权限集可在此查看,但不能修改。',
-  'engine.studio.access.bannerReadOnly': '仅本包对象 · 只读',
   // ADR-0090 D5/D9 — 待确认的受众绑定建议(isDefault 权限集,管理员确认后生效,服务端绝不自动绑定)
   'engine.studio.access.suggestPromptEveryone': '此包建议将「{set}」授予所有已登录用户(Everyone 岗位)。',
   'engine.studio.access.suggestPromptGuest': '此包建议将「{set}」授予未登录访客(Guest 岗位)。',

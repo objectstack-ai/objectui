@@ -29,7 +29,9 @@
  * Node refuses every deep subpath that could reach it with
  * `ERR_PACKAGE_PATH_NOT_EXPORTED`. With no supported import path there was
  * nothing to keep compatible, and a renderer-side alias would have been exactly
- * the second dialect AGENTS.md #0.1 forbids.
+ * the second dialect AGENTS.md #0.1 forbids. (That reading is of the rename.
+ * objectui#12526 later exported the component from the package root as
+ * `ConsolePageHeader`, spelled `subtitle` from its first published day.)
  *
  * WHAT THIS FILE PINS. Both directions of the convergence, so the next agent
  * finds an answer instead of re-opening the drift:
@@ -79,8 +81,8 @@ describe('the secondary line renders from `subtitle`', () => {
 
   it('keeps the line reachable from the `sm` breakpoint up', () => {
     // The class contract, pinned as a string because happy-dom evaluates no
-    // Tailwind: `hidden sm:block` is "hidden on phones, shown from 640px up",
-    // and both call sites already hide the whole header below `sm`. Dropping
+    // Tailwind: `hidden sm:block` is "hidden on phones, shown from 640px up";
+    // below `sm` the header draws its icon, title and actions only. Dropping
     // the `sm:block` half would leave a bare `hidden` — an element that passes
     // every DOM assertion above while being invisible at every width. That is
     // the failure this case exists to catch; it is not a claim about computed

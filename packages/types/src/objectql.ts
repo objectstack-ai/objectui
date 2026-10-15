@@ -2860,10 +2860,12 @@ export interface NamedListView {
   showDensity?: never;
 
   /**
-   * Collapse the appearance/grouping cluster (Group + Color + Density + Hide Fields)
-   * into a single "View settings" popover button. Reduces toolbar clutter on
-   * data-heavy lists. Filter / Sort / Export remain top-level chips.
-   * @default false
+   * Collapse the toolbar's settings into the single "Display" popover: the
+   * bar keeps Filter, Sort, Display and Search, and Display carries the
+   * layout switcher, Group, Color, Hide fields, Density, Row numbers, Edit
+   * inline, Refresh and Export. On unless a view writes `false`, which keeps
+   * one toolbar button per control (objectui#12423).
+   * @default true
    */
   compactToolbar?: boolean;
 

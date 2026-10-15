@@ -1303,9 +1303,12 @@ export interface DataTableSchema extends BaseSchema {
    */
   selectable?: boolean | 'single' | 'multiple';
   /**
-   * RETIRED (objectui#6152 round 5, ADR-0049) — a selectable table always shows
-   * its row checkboxes; there is no hover-only style. Delete the key: `selectable`
-   * alone turns selection on.
+   * RETIRED (objectui#6152 round 5, ADR-0049) — there is no authored checkbox
+   * style. Delete the key: `selectable` alone turns selection on. How the
+   * checkbox shows is the table's own (objectui#12423): it sits in the row's
+   * leading cell — beside the row number when `showRowNumbers` is on — and is
+   * revealed on row hover, on focus, on a coarse pointer and on every row
+   * while any row is selected.
    *
    * It was `'always' | 'hover'`, and `data-table` honoured `'hover'` (the checkbox
    * cell faded in on row hover) — but nothing wrote it. Measured on the retiring
@@ -1324,8 +1327,8 @@ export interface DataTableSchema extends BaseSchema {
    * excess-property check), so a stale `'hover'` would type-check in silence. The
    * zod twin refuses the key by name.
    *
-   * @deprecated Not part of this contract — selection checkboxes are always
-   * visible.
+   * @deprecated Not part of this contract — the table decides how its
+   * selection checkboxes show.
    */
   selectionStyle?: never;
   /**
@@ -1653,8 +1656,9 @@ export interface DataTableSchema extends BaseSchema {
    * Extra CSS classes folded into the table's UTILITY body cells
    * (`bf97b98c8`) — and ONLY those three, each rendered only when its
    * feature is on: the leading selection-checkbox cell (`selectable`), the
-   * row-number cell (`showRowNumbers`), and the trailing row-actions cell
-   * (`rowActions`).
+   * row-number cell (`showRowNumbers` without `selectable` — with both on the
+   * number is drawn inside the selection cell, objectui#12423), and the
+   * trailing row-actions cell (`rowActions`).
    *
    * ⚠️ It does NOT reach a data cell. A data cell folds
    * {@link TableColumn.cellClassName} — the per-column key — and nothing else,
@@ -1688,7 +1692,10 @@ export interface DataTableSchema extends BaseSchema {
    */
   frozenColumns?: number;
   /**
-   * Show row numbers in the first column (Airtable-style)
+   * Show row numbers in the first column (Airtable-style). With `selectable`
+   * on too, the number and the checkbox share that one leading cell: the
+   * number by default, the checkbox on row hover, on focus and while any row
+   * is selected (objectui#12423).
    * @default false
    */
   showRowNumbers?: boolean;

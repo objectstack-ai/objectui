@@ -13,8 +13,8 @@
  * ## Retired on both faces
  *
  *   - `data-table.selectionStyle` — read by `data-table` (a hover-only checkbox style),
- *     but authored and produced nowhere, so the hover branch is dropped and selection
- *     checkboxes are always visible;
+ *     but authored and produced nowhere, so the authored hover branch is dropped
+ *     (how a checkbox shows is the table's own call since objectui#12423);
  *   - `chatbot.floatingConfig` — ZERO reads on a `chatbot` node (only the
  *     `chatbot-floating` registration reads it). `ChatbotFloatingSchema` never inherited
  *     the base member and keeps its own declaration, on both faces.
@@ -104,7 +104,7 @@ describe('objectui#6152 round 5 — keys RETIRED on both faces', () => {
   it('each is a `tsc` error on its interface, while a live neighbour type-checks', () => {
     // The directives are real enforcement: this package type-checks its tests
     // (`tsconfig.test.json`), so re-declaring a key fails on the unused directive.
-    // @ts-expect-error `selectionStyle` is RETIRED (objectui#6152) — checkboxes are always visible
+    // @ts-expect-error `selectionStyle` is RETIRED (objectui#6152) — no authored checkbox style
     const table: TsDataTableSchema = { type: 'data-table', columns: [], data: [], selectionStyle: 'hover' };
     // @ts-expect-error `floatingConfig` is RETIRED on `chatbot` (objectui#6152) — author `chatbot-floating`
     const chat: TsChatbotSchema = { type: 'chatbot', messages: [], floatingConfig: { title: 'Support' } };

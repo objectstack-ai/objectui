@@ -55,6 +55,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ObjectStackAdapter, VIEW_OVERLAY_OWNED_KEYS } from '@object-ui/data-objectstack';
 import { buildPersistedViewBody, buildViewTabs, loadViewOverrides, sanitizeViewOverride } from './ObjectView';
+import { stripComments } from '../../../../scripts/js-comment-mask.mjs';
 
 const OBJECT_NAME = 'crm_lead';
 const VIEW_ID = 'crm_lead.default';
@@ -598,9 +599,9 @@ describe('objectui#5233 ratchet — the owned-key list tracks the writers', () =
      * counted; only the declaration itself is allowed.
      */
     it('no list toolbar door reaches `persistViewPatch` (objectui#12474 census)', () => {
-        const code = objectViewSrc
-            .replace(/\/\*[\s\S]*?\*\//g, '')
-            .replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
+        // The one comment reader (`scripts/js-comment-mask.mjs`); the census
+        // reports no line or offset, so the stripped projection is enough.
+        const code = stripComments(objectViewSrc);
         const refs = [...code.matchAll(/\bpersistViewPatch\b/g)].length;
         const declarations = [...code.matchAll(/\bconst\s+persistViewPatch\s*=/g)].length;
         // Vacuous-pass guard: the declaration is still found, so the reader is

@@ -9,5 +9,3 @@ The Studio's Automations pillar takes the redesign's layout (objectui#12454, epi
 - **The item header** carries the flow's Trigger, Status, Run as and version, the meta the canvas's info bar used to show, and the Enabled switch, whose title carries "Off by default · review before enabling".
 - **A tab row** — Canvas, Variables, Runs, Problems (with its count) and Debug — replaces the info bar's buttons. Variables, Runs and Problems open as the tab's body; picking a problem opens the canvas on its element. Debug keeps the canvas beside the simulator.
 - **The canvas** sits flush under the tabs on the sidebar surface with a 20 px dot grid, and its zoom control floats at the bottom right; the metadata-admin designer's flow preview shares the canvas look and keeps its info bar.
-
-Clause-②: no — nothing on the package entry changes.

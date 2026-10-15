@@ -5,9 +5,11 @@
  * metadata, no authoring handle (objectui#12198, executing the maintainer's
  * ruling on objectstack-ai/cloud#2768).
  *
- * - The crumb: a page route's trail goes from the app pill straight to the
+ * - The crumb: a page route's trail went from the app pill straight to the
  *   page. The 「Pages」 crumb named a metadata type, not a place the user went,
  *   and linked only to the app's base; it is gone, and its pack key with it.
+ *   Since objectui#12526 the page's own crumb is gone too: the page names
+ *   itself, and the bar draws nothing after the pill.
  * - The handles: a page route offers three Studio entries — the page's pencil
  *   (`PageView`), the top bar's 「Edit app」 button and the app pill's
  *   「Edit APP in Studio」 row (`AppHeader`, `AppSwitcher`). A caller without
@@ -270,15 +272,15 @@ beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ data: [] }) })));
 });
 
-describe('a page route\'s breadcrumb goes from the app to the page (objectui#12198)', () => {
-  it('one crumb after the app pill — the page itself; no 「Pages」 type crumb', () => {
+describe('a page route\'s breadcrumb (objectui#12198, objectui#12526)', () => {
+  it('no 「Pages」 type crumb, and since objectui#12526 no crumb for the page either', () => {
     render(
       <MePermissionsProvider initialPermissions={MEMBER}>
         <AppHeader variant="app" appName="Cloud" activeAppName="cloud_control" onAppChange={vi.fn()} objects={[]} />
       </MePermissionsProvider>,
     );
     expect(screen.getByTestId('app-switcher-trigger')).toBeInTheDocument();
-    expect(crumbLabels()).toEqual(['Welcome']);
+    expect(crumbLabels()).toEqual([]);
   });
 });
 

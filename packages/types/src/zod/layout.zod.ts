@@ -1293,6 +1293,17 @@ export const PageNodeSchema = BaseSchema.extend(SpecPageFields.shape).extend({
   icon: z.string().optional().describe('Page icon (Lucide icon name)'),
   description: z.string().optional().describe('Page description'),
   pageType: PageTypeSchema.optional().describe('Page type (record, home, app, utility)'),
+  // objectui#12464: the page kind `jsx` retired in @objectstack/spec 18
+  // (objectstack-ai/objectstack#23638), naming `html`. Picked out of the spec's
+  // own enum by reference (`.extract`), the way `PAGE_KIND_NODE_TYPE` is below:
+  // identical to the spec's enum once the resolved spec carries the
+  // retirement, it refuses `jsx` before that, and a kind the spec drops fails to
+  // compile here. Mirrors the TS face's `PageNodeSchema.kind`.
+  kind: stripImportedDefaults(SpecPageSchema)
+    .shape.kind.unwrap()
+    .extract(['full', 'slotted', 'html', 'react'])
+    .optional()
+    .describe('Page override mode (full | slotted | html | react)'),
   object: z.string().optional().describe('Bound object name (for record pages)'),
   template: z.string().optional().describe('Layout template name'),
   variables: z.array(PageVariableSchema).optional().describe('Local page state variables'),

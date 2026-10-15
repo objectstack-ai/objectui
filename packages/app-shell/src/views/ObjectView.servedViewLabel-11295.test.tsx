@@ -92,9 +92,11 @@ vi.mock('sonner', () => ({
 }));
 
 // The list body is not the subject: stubbed, so only the tab bar draws text.
+// The stand-in draws the page's `toolbarLeading` node, where the tab strip
+// rides since objectui#12440 (the list's own toolbar row).
 vi.mock('@object-ui/plugin-list', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@object-ui/plugin-list')>()),
-  ListView: () => null,
+  ListView: (props: { toolbarLeading?: React.ReactNode }) => <>{props.toolbarLeading ?? null}</>,
 }));
 
 // `ViewTabBar` stays REAL — it is what draws the label under test.

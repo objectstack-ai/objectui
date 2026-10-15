@@ -202,6 +202,28 @@ import { ListView } from '@object-ui/plugin-list';
 />
 ```
 
+### Host slot: `toolbarLeading`
+
+A host can draw its own node at the start of the list toolbar row, before the
+user-filter chips, with the `toolbarLeading` prop. The node sits in a
+`min-w-0 flex-1` wrapper, so it gets the width the right-hand controls leave.
+This is a React prop for the host app, not a schema key: list metadata cannot
+set it. Without it the toolbar row is unchanged. The console uses it to put its
+saved-view tabs on the same row as Filter, Sort, Display and Search.
+
+```tsx
+import { ListView } from '@object-ui/plugin-list';
+
+function MyViewTabs() {
+  return <nav aria-label="Views">…</nav>;
+}
+
+<ListView
+  schema={{ type: 'list-view', objectName: 'tasks', columns: ['title', 'status'] }}
+  toolbarLeading={<MyViewTabs />}
+/>
+```
+
 ## Schema
 
 The ListView component accepts a `ListViewSchema`, exported from

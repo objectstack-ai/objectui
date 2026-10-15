@@ -129,6 +129,8 @@ describe('objectui#12442 — the page-create seed carries the runtime detail sec
 
   it('the seeded sections are spec-legal: they parse under RecordDetailsProps', async () => {
     const seeded = theDetailsNode(await seedFor(flatDef));
+    // Firing control: an absent `sections` parses too, and would say nothing.
+    expect(seeded.properties?.sections).toHaveLength(2);
     const parsed = RecordDetailsProps.safeParse({ sections: seeded.properties.sections });
     expect(parsed.success, JSON.stringify(parsed.error?.issues)).toBe(true);
   });

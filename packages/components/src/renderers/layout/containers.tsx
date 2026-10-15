@@ -2079,9 +2079,9 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     };
     const overflowPool = [...foldedButtons, ...menuOnly, ...moreOnlyActions];
     const overflowActions = [
-      ...overflowPool.filter((a: any) => !isDestructiveAction(a) && !isHostAction(a)),
-      ...overflowPool.filter((a: any) => !isDestructiveAction(a) && isHostAction(a)),
-      ...overflowPool.filter((a: any) => isDestructiveAction(a)),
+      ...overflowPool.filter((a) => !isDestructiveAction(a) && !isHostAction(a)),
+      ...overflowPool.filter((a) => !isDestructiveAction(a) && isHostAction(a)),
+      ...overflowPool.filter(isDestructiveAction),
     ];
     // The first destructive entry gets a separator above it, unless it opens
     // the menu (a separator under nothing sets nothing apart).
@@ -2093,7 +2093,7 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     // since an icon is all the twin draws; with room in the row nothing folds
     // and nothing extra renders.
     const foldedHostButtons = foldedButtons.filter(
-      (a: any) => isHostAction(a) && !isDestructiveAction(a) && typeof a?.icon === 'string',
+      (a) => isHostAction(a) && !isDestructiveAction(a) && typeof a?.icon === 'string',
     );
     const useOverflow = overflowActions.length > 0;
     // Resolve a `disabled` predicate against the record — a boolean OR an

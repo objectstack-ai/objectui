@@ -66,7 +66,10 @@ describe('ObjectDefaultInspector — basics', () => {
     );
     fireEvent.change(labelledInput('Plural label'), { target: { value: 'Accounts' } });
     expect(onPatch).toHaveBeenCalledWith({ pluralLabel: 'Accounts' });
-    fireEvent.change(labelledInput('Icon'), { target: { value: 'building' } });
+    // The Icon field is the icon picker (objectui#12531): pick, don't type.
+    fireEvent.click(screen.getByRole('combobox', { name: 'Icon' }));
+    fireEvent.change(screen.getByLabelText('Search icons…'), { target: { value: 'building' } });
+    fireEvent.click(screen.getAllByRole('option').find((o) => o.getAttribute('title') === 'building')!);
     expect(onPatch).toHaveBeenCalledWith({ icon: 'building' });
   });
 });
@@ -160,7 +163,7 @@ describe('ObjectDefaultInspector — read-only', () => {
     );
     expect(labelledInput('Label')).toBeDisabled();
     expect(labelledInput('Plural label')).toBeDisabled();
-    expect(labelledInput('Icon')).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: 'Icon' })).toBeDisabled();
   });
 });
 

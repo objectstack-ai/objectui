@@ -6954,6 +6954,14 @@ export function AutomationsPillar({
       {extra?.badge}
     </StudioTab>
   );
+  // objectui#12453 — with a flow open, the header row already holds the
+  // flow's meta and its Enabled switch, and at the 1280 px design width the
+  // link there truncated the flow's label; it sits at the tab row's right
+  // end, the slot objectui#12456 gave the Access note for the same reason.
+  const autoReadOnlyLinkEl =
+    readOnly && packageId !== null ? (
+      <StudioReadOnlyLink packageId={packageId} title={t('engine.studio.pkg.readonlyHint', locale)} locale={locale} />
+    ) : null;
   const flowTabsEl =
     flowOpen ? (
       <>
@@ -6981,6 +6989,7 @@ export function AutomationsPillar({
             ) : undefined,
         })}
         {flowTab('debug', t('engine.flowPreview.debug', locale))}
+        {autoReadOnlyLinkEl && <span className="ml-auto flex items-center self-center pl-3">{autoReadOnlyLinkEl}</span>}
       </>
     ) : undefined;
 
@@ -7163,13 +7172,7 @@ export function AutomationsPillar({
                   </span>
                 )}
                 {flowSwitchEl}
-                {readOnly && packageId !== null && (
-                  <StudioReadOnlyLink
-                    packageId={packageId}
-                    title={t('engine.studio.pkg.readonlyHint', locale)}
-                    locale={locale}
-                  />
-                )}
+                {!flowTabsEl && autoReadOnlyLinkEl}
               </>
             }
             tabs={flowTabsEl}
@@ -7683,9 +7686,17 @@ export function AccessPillar({
     </button>
   );
   // objectui#11781 — "saved as draft" is what an editable package does. A
-  // read-only one saves nothing: objectui#12453 retires its note, and the
-  // header's read-only link carries what it said, as its title.
-  const accessNoteEl = readOnly ? null : (
+  // read-only one saves nothing: objectui#12453 puts the read-only link where
+  // the note was, and the link's title carries the note's sentence. An open
+  // set's header draws it at the tab row's right end (objectui#12456: the
+  // title row truncated the set's label at the 1280 px design width).
+  const accessNoteEl = readOnly ? (
+    <StudioReadOnlyLink
+      packageId={packageId}
+      title={t('engine.studio.access.bannerTitleReadOnly', locale)}
+      locale={locale}
+    />
+  ) : (
     <span
       title={t('engine.studio.access.bannerTitle', locale)}
       className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300"
@@ -7694,23 +7705,14 @@ export function AccessPillar({
     </span>
   );
   const accessExplainEl = (
-    <>
-      {readOnly && (
-        <StudioReadOnlyLink
-          packageId={packageId}
-          title={t('engine.studio.access.bannerTitleReadOnly', locale)}
-          locale={locale}
-        />
-      )}
-      <button
-        type="button"
-        onClick={() => setExplainOpen(true)}
-        className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground"
-      >
-        <ShieldQuestion className="h-3.5 w-3.5" />
-        {t('engine.studio.access.explain.open', locale)}
-      </button>
-    </>
+    <button
+      type="button"
+      onClick={() => setExplainOpen(true)}
+      className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground"
+    >
+      <ShieldQuestion className="h-3.5 w-3.5" />
+      {t('engine.studio.access.explain.open', locale)}
+    </button>
   );
   const accessHeaderEl = (
     <StudioItemHeader
@@ -7719,8 +7721,13 @@ export function AccessPillar({
       icon={owdOpen ? ShieldCheck : Shield}
       title={owdOpen ? t('engine.studio.owd.title', locale) : t('engine.studio.access.title', locale)}
       meta={owdOpen ? t('engine.studio.owd.subtitle', locale) : t('engine.studio.access.subtitle', locale)}
-      chips={accessNoteEl}
-      actions={accessExplainEl}
+      chips={readOnly ? undefined : accessNoteEl}
+      actions={
+        <>
+          {readOnly && accessNoteEl}
+          {accessExplainEl}
+        </>
+      }
     />
   );
 

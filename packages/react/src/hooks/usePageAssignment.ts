@@ -6,9 +6,10 @@
  * LICENSE file in the root directory of this source tree.
  *
  * `usePageAssignment` — resolve the record PageSchema that should be rendered
- * for a given object. Walks the metadata cache exposed by `<MetadataProvider>`
- * and returns the first PageSchema whose `type === 'record'` and `object`
- * matches the requested name.
+ * for a given object. Walks the metadata cache exposed by `<MetadataProvider>`,
+ * keeps the PageSchemas whose `type === 'record'` and `object` matches the
+ * requested name, and returns the object's DEFAULT record page among them
+ * (`isDefault: true`), else the first of them.
  *
  * Returns a discriminated result by `PageSchema.kind`:
  *   - `kind === 'full'` (default): the schema fully describes the page;
@@ -18,16 +19,21 @@
  *     `buildDefaultPageSchema(objectDef, { slots })` so omitted slots
  *     fall through to synthesized defaults.
  *
- * Selection is by DECLARATION ORDER: the first matching page wins, so callers
- * can deterministically fall back to the auto-generated DetailView when no
- * record Page is authored.
+ * Selection is by the declared `PageSchema.isDefault`, then by DECLARATION
+ * ORDER among pages that are not the default: the spec allows one default
+ * record page per object, so the flag needs no tie-break here, and with no
+ * default the first matching page wins. No match returns null, so callers can
+ * deterministically fall back to the auto-generated DetailView when no record
+ * Page is authored.
  *
  * Future work (deferred): recordType / profile / app / formFactor filtering.
- * Any author-driven ordering would have to be DECLARED on `PageSchema` in
- * `@objectstack/spec` first — see the note on the selection itself below.
+ * Any further author-driven ordering would have to be DECLARED on
+ * `PageSchema` in `@objectstack/spec` first — see the note on the selection
+ * itself below.
  */
 
 import { useEffect, useMemo, useState } from 'react';
+import { defaultRecordPageObject } from '@objectstack/spec/ui';
 import { useMetadata } from '../context/AppShellContext.js';
 
 export interface PageAssignmentOptions {
@@ -143,22 +149,38 @@ export function usePageAssignment(
 
     if (!candidates.length) return null;
 
-    // Declaration order decides: the first match wins.
+    // The object's DEFAULT record page decides; with none, declaration order.
     //
-    // This used to sort on a `priority` key read off the candidate. No author
-    // could ever set it: `PageSchema` is a `strictObject` and does not declare
-    // `priority`, so a page carrying one is a HARD PARSE ERROR, not a page that
-    // sorts first. Every candidate therefore read `0`, the comparator returned
-    // `0` for every pair, and a stable sort left declaration order untouched —
-    // the sort documented an affordance the schema refuses (objectui#7298).
+    // At most one `isDefault: true` record page may exist for an object in a
+    // deployment. That is the spec's rule on `PageSchema.isDefault` (maintainer
+    // ruling A on objectstack#23015, record 6134056653), and the platform
+    // refuses a second default, naming both pages, at every door that can add
+    // one: `defineStack` / `composeStacks` (so `os validate` and a source boot),
+    // package registration, and metadata save. So this hook honours the flag
+    // with NO tie-break of its own. It asks `defaultRecordPageObject`, the one
+    // reading of "the default record page of an object" each of those doors
+    // asks, so the page the platform judges to be the default is the page that
+    // opens. Replacing a platform record page stays an ADR-0005 overlay by name
+    // (the same page, not a second default) or host composition; neither a
+    // second default nor an earlier position in the served list overrides one.
     //
-    // `isDefault` is not consulted here either. It IS declared on `PageSchema`,
-    // so unlike `priority` it is writable — but nothing in this decision reads
-    // it, which makes the flag on a shipped page (e.g. the platform's
-    // `sys_user_detail`) inert while looking decisive. Reading it would be new
-    // behaviour, not a repair; it is recorded here so the next reader does not
-    // mistake the flag for the thing that picks the page.
-    return candidates[0];
+    // Boundary, stated rather than left implicit: at a cold boot every package
+    // registers before the environment's stored pages hydrate, so a stored
+    // default saved while no package held that object's default, and a package
+    // that adds one later, both reach the registry unrefused
+    // (objectstack#23213, closed not_planned). This hook invents no precedence
+    // for that pair (no layer, package or recency rung); served order stays the
+    // only order it has, so the first default served wins.
+    //
+    // Among pages that are not the default, declaration order is the last
+    // resort: the first match wins. This used to sort on a `priority` key read
+    // off the candidate. No author could ever set it: `PageSchema` is a
+    // `strictObject` and does not declare `priority`, so a page carrying one is
+    // a HARD PARSE ERROR, not a page that sorts first. Every candidate therefore
+    // read `0`, the comparator returned `0` for every pair, and a stable sort
+    // left declaration order untouched — the sort documented an affordance the
+    // schema refuses (objectui#7298).
+    return candidates.find(p => defaultRecordPageObject(p) === objectName) ?? candidates[0];
   }, [meta.pages, objectName, opts.pageName, opts.recordType, opts.profile, opts.app, opts.formFactor]);
 
   // Discriminate by `kind`: full pages populate `page`, slotted pages

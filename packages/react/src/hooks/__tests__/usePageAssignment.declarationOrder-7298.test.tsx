@@ -16,6 +16,14 @@
  * ordering rule is nailed down rather than implied — and the last block pins
  * the CONTRACT the removal rests on, so that if `priority` is ever declared
  * upstream (route A on that card) this file reds and points back here.
+ *
+ * Declaration order is the rule among pages that are NOT the object's default
+ * record page. Since objectui#12195 the declared `isDefault` decides first:
+ * maintainer ruling A on objectstack#23015 (record 6134056653) allows at most
+ * one default record page per object per deployment, and the renderer honours
+ * it with no tie-break. Three pins below used to say the flag was inert; they
+ * now pin the ruled behaviour, and `usePageAssignment.isDefault-12195.test.tsx`
+ * carries the rule's own pins and controls.
  */
 
 import React from 'react';
@@ -81,7 +89,7 @@ const SYS_USER_DETAIL = {
   slots: { discussion: [] },
 };
 
-describe('usePageAssignment — selection is by declaration order', () => {
+describe('usePageAssignment — among pages that are not the default, selection is by declaration order', () => {
   it('returns the FIRST matching candidate, naming it', async () => {
     const result = await assign(
       [full('first_page', 'sys_user'), full('second_page', 'sys_user'), full('third_page', 'sys_user')],
@@ -90,7 +98,7 @@ describe('usePageAssignment — selection is by declaration order', () => {
     expect(result.current.page?.name).toBe('first_page');
   });
 
-  it('reversing the declaration order reverses the winner — position is the whole rule', async () => {
+  it('reversing the declaration order reverses the winner — with no default, position is the whole rule', async () => {
     const a = full('alpha', 'sys_user');
     const b = full('beta', 'sys_user');
 
@@ -98,15 +106,16 @@ describe('usePageAssignment — selection is by declaration order', () => {
     expect((await assign([b, a], 'sys_user')).current.page?.name).toBe('beta');
   });
 
-  it('`isDefault` on a later candidate does NOT promote it', async () => {
+  it('`isDefault` on a later candidate promotes it over an earlier page that is not the default (ruling A)', async () => {
     const result = await assign(
       [full('authored', 'sys_user'), full('marked_default', 'sys_user', { isDefault: true })],
       'sys_user',
     );
-    // Declared and writable, but this decision never reads it: inert while
-    // looking decisive. Pinned so a future reader does not mistake the flag
-    // for the thing that picks the page.
-    expect(result.current.page?.name).toBe('authored');
+    // This pin used to read 'authored': the flag was declared and writable but
+    // nothing read it. Ruling A on objectstack#23015 (record 6134056653) makes
+    // the default record page the one that opens, so declaration order only
+    // decides among the pages that are not the default.
+    expect(result.current.page?.name).toBe('marked_default');
   });
 
   it('skips pages for other objects and other page types while ordering the rest', async () => {
@@ -129,19 +138,25 @@ describe('usePageAssignment — selection is by declaration order', () => {
 
 describe('usePageAssignment — the collision every stock install has (objectui#7298)', () => {
   // `@objectstack/platform-objects` ships `sys_user_detail`, so ANY app that
-  // authors its own `sys_user` record page has exactly two candidates.
+  // authors its own `sys_user` record page has exactly two candidates. The
+  // platform's page is the object's default record page; the app's is not.
 
-  it('the app page wins when it is declared first', async () => {
+  it('the app page declared first no longer wins: the platform default does (ruling A)', async () => {
     const result = await assign(
       [full('app_user_detail', 'sys_user'), SYS_USER_DETAIL],
       'sys_user',
     );
-    expect(result.current.page?.name).toBe('app_user_detail');
-    // The app page is `kind: 'full'`, so it populates `page`, never `slots`.
-    expect(result.current.slots).toBeNull();
+    // This pin used to read 'app_user_detail': declaration order was the only
+    // override an app had. Ruling A on objectstack#23015 (record 6134056653)
+    // keeps two override paths, an ADR-0005 overlay by name and host
+    // composition; an earlier position in the served list is not one.
+    // `sys_user_detail` is `kind: 'slotted'`, so its win shows up as populated
+    // `slots` and a null `page`.
+    expect(result.current.page).toBeNull();
+    expect(result.current.slots).toEqual({ discussion: [] });
   });
 
-  it('the platform page wins when IT is declared first — nothing authored breaks the tie', async () => {
+  it('the platform page wins when IT is declared first as well — the default wins from either position', async () => {
     const result = await assign(
       [SYS_USER_DETAIL, full('app_user_detail', 'sys_user')],
       'sys_user',
@@ -152,13 +167,23 @@ describe('usePageAssignment — the collision every stock install has (objectui#
     expect(result.current.slots).toEqual({ discussion: [] });
   });
 
-  it('`isDefault: true` on the platform page does not make it win from second place', async () => {
-    const result = await assign(
-      [full('app_user_detail', 'sys_user'), SYS_USER_DETAIL],
+  it('`isDefault: true` on the platform page makes it win from second place — the flag, not the position, decides', async () => {
+    const served = [full('app_user_detail', 'sys_user'), SYS_USER_DETAIL];
+    expect(SYS_USER_DETAIL.isDefault).toBe(true);
+    // This pin used to read 'app_user_detail' (the flag was inert). Ruling A
+    // on objectstack#23015 (record 6134056653): the default opens.
+    const withFlag = await assign(served, 'sys_user');
+    expect(withFlag.current.page).toBeNull();
+    expect(withFlag.current.slots).toEqual({ discussion: [] });
+
+    // The same two pages in the same order, the platform page's flag the only
+    // change: declaration order decides again, so the flag is the variable.
+    const withoutFlag = await assign(
+      [full('app_user_detail', 'sys_user'), { ...SYS_USER_DETAIL, isDefault: false }],
       'sys_user',
     );
-    expect(SYS_USER_DETAIL.isDefault).toBe(true);
-    expect(result.current.page?.name).toBe('app_user_detail');
+    expect(withoutFlag.current.page?.name).toBe('app_user_detail');
+    expect(withoutFlag.current.slots).toBeNull();
   });
 });
 

@@ -201,6 +201,10 @@ function deriveCreatePackageId(name: string, orgSlug: string | null | undefined)
   return isSpecPackageId(candidate) ? candidate : null;
 }
 
+/** Which filled-in create fields the author has edited (objectui#12512). */
+type Touched = { id: boolean; namespace: boolean; version: boolean };
+const UNTOUCHED: Touched = { id: false, namespace: false, version: false };
+
 export type PackageFormMode = 'create' | 'edit' | 'view';
 
 /** A package manifest as a loose record (spec `ManifestSchema` shape). */
@@ -329,33 +333,30 @@ export function PackageFormDialog({
   const createMode = mode === 'create';
   const readOnly = mode === 'view';
 
-  const [draft, setDraft] = React.useState<ManifestRecord>({});
+  // The draft, and which of the fields the dialog fills in on create the
+  // author has since edited. One state, so a keystroke updates both together
+  // and the derived marks render from state (objectui#12512):
+  //   • id — follows the display name (objectui#11792) until typed into;
+  //   • namespace — follows the id (framework#2694) until typed into;
+  //   • version — the prefilled default until typed into.
+  const [{ draft, touched }, setForm] = React.useState<{ draft: ManifestRecord; touched: Touched }>({
+    draft: {},
+    touched: UNTOUCHED,
+  });
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  // Object-name namespace (framework#2694) tracks the id-derived default until
-  // the user edits it directly.
-  const nsTouched = React.useRef(false);
-  // On create the id tracks the display name (objectui#11792) the same way,
-  // until the author types into the id field.
-  const idTouched = React.useRef(false);
-  // The prefilled create version is the dialog's default, not the author's,
-  // until they type into the field (objectui#12512).
-  const versionTouched = React.useRef(false);
 
   React.useEffect(() => {
     if (!open) return;
-    nsTouched.current = false;
-    idTouched.current = false;
-    versionTouched.current = false;
     if (createMode) {
       // Defaults for a new WRITABLE base package. Deliberately no `scope`:
       // a runtime-created base is writable, whereas `scope: 'project'` marks a
       // read-only CODE package (packages-io writability heuristic). Sending it
       // would make every new package render as 只读. `defaultDatasource` is
       // likewise left to the server so we don't pin a datasource on create.
-      setDraft({ version: '0.1.0', type: 'app' });
+      setForm({ draft: { version: '0.1.0', type: 'app' }, touched: UNTOUCHED });
     } else {
-      setDraft({ ...(manifest ?? {}) });
+      setForm({ draft: { ...(manifest ?? {}) }, touched: UNTOUCHED });
     }
     setError(null);
     setBusy(false);
@@ -370,28 +371,29 @@ export function PackageFormDialog({
   const handleChange = React.useCallback(
     (next: ManifestRecord) => {
       if (!createMode) {
-        setDraft(next);
+        setForm((prev) => ({ ...prev, draft: next }));
         return;
       }
-      setDraft((prev) => {
-        if (next.version !== prev.version) versionTouched.current = true;
+      setForm(({ draft: prev, touched: was }) => {
+        const touchedNow = { ...was };
+        if (next.version !== prev.version) touchedNow.version = true;
         let id = next.id;
-        if (!idTouched.current && next.name !== prev.name) {
+        if (!touchedNow.id && next.name !== prev.name) {
           id = deriveCreatePackageId(String(next.name ?? ''), orgSlug) ?? '';
         }
         let namespace = next.namespace;
         if (namespace !== prev.namespace) {
           // Direct edit — stop tracking the id and sanitize to the allowed
           // namespace alphabet (lowercase letters, digits, underscore).
-          nsTouched.current = true;
+          touchedNow.namespace = true;
           namespace = String(namespace ?? '')
             .toLowerCase()
             .replace(/[^a-z0-9_]/g, '');
         }
-        if (!nsTouched.current && id !== prev.id) {
+        if (!touchedNow.namespace && id !== prev.id) {
           namespace = deriveNamespaceFromPackageId(String(id ?? '')) ?? '';
         }
-        return { ...next, id, namespace };
+        return { draft: { ...next, id, namespace }, touched: touchedNow };
       });
     },
     [createMode, orgSlug],
@@ -401,11 +403,11 @@ export function PackageFormDialog({
   // Typing into it ends the name derivation for this opening of the dialog;
   // the namespace keeps following the id exactly as above.
   const handleIdChange = React.useCallback((id: string) => {
-    idTouched.current = true;
-    setDraft((prev) => {
-      if (id === prev.id) return prev;
-      const namespace = nsTouched.current ? prev.namespace : (deriveNamespaceFromPackageId(id) ?? '');
-      return { ...prev, id, namespace };
+    setForm(({ draft: prev, touched: was }) => {
+      const touchedNow = was.id ? was : { ...was, id: true };
+      if (id === prev.id) return { draft: prev, touched: touchedNow };
+      const namespace = touchedNow.namespace ? prev.namespace : (deriveNamespaceFromPackageId(id) ?? '');
+      return { draft: { ...prev, id, namespace }, touched: touchedNow };
     });
   }, []);
 
@@ -413,16 +415,15 @@ export function PackageFormDialog({
   // (the session's organization list loads on its own schedule); an id still
   // following the name picks the segment up then.
   React.useEffect(() => {
-    if (!open || !createMode || idTouched.current) return;
-    setDraft((prev) => {
-      const name = String(prev.name ?? '');
-      if (!name.trim()) return prev;
+    if (!open || !createMode) return;
+    setForm((prev) => {
+      const { draft: was, touched: t } = prev;
+      const name = String(was.name ?? '');
+      if (t.id || !name.trim()) return prev;
       const id = deriveCreatePackageId(name, orgSlug) ?? '';
-      if (id === prev.id) return prev;
-      const namespace = nsTouched.current
-        ? prev.namespace
-        : (deriveNamespaceFromPackageId(id) ?? '');
-      return { ...prev, id, namespace };
+      if (id === was.id) return prev;
+      const namespace = t.namespace ? was.namespace : (deriveNamespaceFromPackageId(id) ?? '');
+      return { draft: { ...was, id, namespace }, touched: t };
     });
   }, [open, createMode, orgSlug]);
 
@@ -460,9 +461,9 @@ export function PackageFormDialog({
   // (a CJK-only name), an id that derived no namespace, or the author
   // clearing the field.
   const idStr = String(draft.id ?? '').trim();
-  const idMissing = createMode && !idStr && (idTouched.current || nameOk);
+  const idMissing = createMode && !idStr && (touched.id || nameOk);
   const nsMissing =
-    createMode && !String(draft.namespace ?? '').trim() && (nsTouched.current || !!idStr);
+    createMode && !String(draft.namespace ?? '').trim() && (touched.namespace || !!idStr);
 
   const createForms = React.useMemo(
     () =>
@@ -618,7 +619,7 @@ export function PackageFormDialog({
                   <SchemaForm {...formProps} form={createForms.name} />
                 </div>
                 <DerivedField
-                  derived={!idTouched.current}
+                  derived={!touched.id}
                   hint={t('engine.packages.idRule.derived', locale)}
                   testId="package-form-id"
                 >
@@ -645,7 +646,7 @@ export function PackageFormDialog({
                   {idHelp && <p className="text-xs text-muted-foreground">{idHelp}</p>}
                 </DerivedField>
                 <DerivedField
-                  derived={!nsTouched.current}
+                  derived={!touched.namespace}
                   hint={t('engine.packages.nsRule.derived', locale)}
                   testId="package-form-namespace"
                 >
@@ -659,7 +660,7 @@ export function PackageFormDialog({
                   )}
                 </DerivedField>
                 <DerivedField
-                  derived={!versionTouched.current}
+                  derived={!touched.version}
                   hint={t('engine.packages.versionRule.default', locale)}
                   testId="package-form-version"
                 >

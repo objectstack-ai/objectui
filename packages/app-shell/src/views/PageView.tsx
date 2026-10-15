@@ -4,9 +4,12 @@
  * Renders a custom page based on the pageName parameter. Page *authoring*
  * happens in the metadata studio (canvas + inspector), not here — runtime is
  * pure rendering. For parity with the view/report/dashboard runtime editors,
- * admins get a lightweight "Edit in studio" affordance that deep-links to the
- * page's studio editor (`/apps/:app/metadata/page/:name`) rather than
- * embedding the heavyweight page canvas in the runtime.
+ * metadata authors get a lightweight "Edit in studio" affordance that
+ * deep-links to the page's design surface in Studio's Interfaces pillar
+ * (`/studio/PACKAGE/interfaces?surface=page:NAME`) rather than embedding the
+ * heavyweight page canvas in the runtime. It is the path the app bar's pencil,
+ * the app switcher's Studio row and the sidebar's Design open for the same
+ * page, built by the same `appStudioRoutePath` (objectui#12540).
  */
 
 import { lazy, Suspense } from 'react';
@@ -25,6 +28,7 @@ import { MetadataPanel, useMetadataInspector } from './MetadataInspector.js';
 import { useMetadata } from '../providers/MetadataProvider.js';
 import { useExpressionContext } from '../providers/ExpressionProvider.js';
 import { preferLocal } from '../utils/preferLocal.js';
+import { appStudioRoutePath } from '../utils/appRoute.js';
 import { ConsoleActionRuntimeProvider } from '../hooks/useConsoleActionRuntime.js';
 import { useCanAuthorMetadata } from '../hooks/useCanAuthorMetadata.js';
 import { pageRecordActionsValue } from './pageRecordActions.js';
@@ -122,13 +126,24 @@ export function PageView() {
 
   const params = Object.fromEntries(searchParams.entries());
 
-  // Resolve the app slug from the path (`/apps/:app/page/:name`) so the deep
-  // link survives whatever Router basename the host mounts under.
+  // Resolve the app slug from the path (`/apps/:app/page/:name`) so the record
+  // navigator's links survive whatever Router basename the host mounts under.
   const appName = location.pathname.match(/\/apps\/([^/]+)/)?.[1];
-  const canEditInStudio = isAdmin && canAuthorMetadata && !!appName && !!pageName;
+  // Where "Edit in studio" goes: the page's surface in Studio's Interfaces
+  // pillar, through the one derivation the app bar's pencil, the app
+  // switcher's Studio row and the sidebar's Design share (objectui#12540, the
+  // rule objectui#12520 applied to the sidebar). `null` answers both "may this
+  // caller author metadata" (the gate above) and "does the app have an owning
+  // package Studio can open"; with either answer no, the button is not drawn.
+  // ⛔ No fallback to the metadata-admin page: one intent, one destination.
+  const studioPath = appStudioRoutePath(activeApp, isAdmin && canAuthorMetadata, {
+    type: 'page',
+    name: pageName,
+  });
+  const canEditInStudio = studioPath !== null;
   const openInStudio = () => {
-    if (!canEditInStudio) return;
-    navigate(`/apps/${appName}/metadata/page/${encodeURIComponent(pageName!)}`);
+    if (studioPath === null) return;
+    navigate(studioPath);
   };
   // The record navigator the page's blocks open a record through
   // (objectui#11293). Not memoised: the schema below is rebuilt on every

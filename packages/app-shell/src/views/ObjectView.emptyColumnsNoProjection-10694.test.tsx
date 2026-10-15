@@ -40,11 +40,18 @@
  *
  * The toggle's choice is the USER's own list state, not a view write: on a view
  * that declares `columns` it is stored there and applied over the view's
- * `columns` on reload; on a view that declares none (system or saved) it is
- * session-only and nothing is stored. A saved view's hide no longer persists
- * through a whole-view write that declared the drawn defaults as `columns`.
- * This file also measures the card's premise with the real `ListView`: the
- * user's list subtracts from `columns` and never adds a column.
+ * `columns` on reload. A saved view's hide no longer persists through a
+ * whole-view write that declared the drawn defaults as `columns`. This file
+ * also measures the card's premise with the real `ListView`: the user's list
+ * subtracts from `columns` and never adds a column.
+ *
+ * ## Since objectui#12505
+ *
+ * On a SAVED view that declares no `columns`, the user's choice is stored too
+ * and subtracted from the defaults the views memo draws; the view's own
+ * authored `hiddenFields` stays unapplied there, a stale name is inert, and a
+ * field the caller may not read is neither offered nor stored. On a SYSTEM
+ * view that declares none the toggle stays session-only (ruling B above).
  *
  * ## A config-panel draft is not a declaration
  *
@@ -314,6 +321,21 @@ const UNPROJECTED_WITH_TOGGLE = {
   },
 };
 
+/** objectui#12505 — a SAVED view (a row `listViews` serves) that declares no `columns`. */
+const SAVED_ID = `${OBJECT_NAME}.mine`;
+/** A system view beside the saved one, so the saved one is not the only tab. */
+const SAVED_BESIDE = {
+  [`${OBJECT_NAME}.other`]: { name: `${OBJECT_NAME}.other`, label: 'Other', type: 'grid', columns: ['name'] },
+};
+/** A data source serving the saved row (plus `extra` on it), with a view-write spy. */
+function savedViewSource(extra: Record<string, unknown> = {}) {
+  const savedRow = { name: SAVED_ID, label: 'Mine', type: 'grid', userActions: { hideFields: true }, ...extra };
+  return makeDataSource({
+    updateViewConfig: vi.fn(async () => ({})),
+    listViews: vi.fn(async () => [savedRow]),
+  });
+}
+
 /** The toggle on an unprojected system view hides in-session and writes nothing. */
 async function expectSessionOnlyToggle(dataSource: any): Promise<void> {
   await hideThroughToggle('region');
@@ -407,29 +429,83 @@ describe('an unprojected view applies neither hiddenFields nor fieldOrder on the
     await waitFor(() => expect(drawn).toEqual(['name', 'stage']));
   });
 
-  it('THE CHANGE (objectui#12474): a saved view with no `columns` is session-only too, and its row is not written', async () => {
-    // Its hide used to persist only because the shared write sent the whole
-    // view, the drawn defaults included as its `columns`, which declared a
-    // projection for every user. A user's own state cannot declare one, and a
-    // stored `hiddenFields` on an unprojected view would be read by nothing.
-    const savedId = `${OBJECT_NAME}.mine`;
-    const savedRow = { name: savedId, label: 'Mine', type: 'grid', userActions: { hideFields: true } };
-    // A system view beside it, so the saved one is not the only tab.
-    const systemViews = {
-      [`${OBJECT_NAME}.other`]: { name: `${OBJECT_NAME}.other`, label: 'Other', type: 'grid', columns: ['name'] },
-    };
-
-    const first = makeDataSource({
-      updateViewConfig: vi.fn(async () => ({})),
-      listViews: vi.fn(async () => [savedRow]),
-    });
-    await mountRoute(systemViews, savedId, first);
+  it('THE FIX (objectui#12505): on a saved view with no `columns`, the hide is this user\'s own and survives a reload; the row is not written', async () => {
+    // objectui#12474 made the hide session-only here (it used to persist only
+    // through a whole-view write that declared the drawn defaults as `columns`
+    // for every user). It is now stored on the user's own list state and
+    // subtracted from the drawn defaults, with no view write.
+    const first = savedViewSource();
+    await mountRoute(SAVED_BESIDE, SAVED_ID, first);
     await waitFor(() => expect(drawn).toContain('region'), { timeout: 5000 });
+    const defaults = drawn!;
     await hideThroughToggle('region');
-    await waitFor(() => expect(drawn).not.toContain('region'));
+    await waitFor(() => expect(storedHiddenFields(SAVED_ID)).toEqual(['region']), { timeout: 3000 });
+    await waitFor(() => expect(drawn).toEqual(defaults.filter((f) => f !== 'region')));
     await new Promise((resolve) => setTimeout(resolve, PAST_DEBOUNCE_MS));
+    // No `/meta/view` write: the adapter's view write is never called.
     expect(first.updateViewConfig).not.toHaveBeenCalled();
-    expect(storedHiddenFields(savedId)).toBeUndefined();
+    cleanup();
+
+    // Reload: the stored list is applied over the drawn defaults.
+    await mountRoute(SAVED_BESIDE, SAVED_ID, savedViewSource());
+    await waitFor(() => expect(drawn).toEqual(defaults.filter((f) => f !== 'region')), { timeout: 5000 });
+  });
+
+  it('THE FIX (objectui#12505): the saved view\'s own authored `hiddenFields` stays unapplied; only the user\'s list subtracts', async () => {
+    const own = savedViewSource({ hiddenFields: ['stage'] });
+    await mountRoute(SAVED_BESIDE, SAVED_ID, own);
+    await waitFor(() => expect(drawn).toContain('region'), { timeout: 5000 });
+    // The view's key declares nothing on an unprojected view (objectui#10694).
+    expect(drawn).toContain('stage');
+    const defaults = drawn!;
+    cleanup();
+
+    localStorage.setItem(
+      localListStateKey('u1', OBJECT_NAME),
+      JSON.stringify({ perView: { [SAVED_ID]: { hiddenFields: ['amount'] } } }),
+    );
+    await mountRoute(SAVED_BESIDE, SAVED_ID, savedViewSource({ hiddenFields: ['stage'] }));
+    await waitFor(() => expect(drawn).toEqual(defaults.filter((f) => f !== 'amount')), { timeout: 5000 });
+  });
+
+  it('THE FIX (objectui#12505): a stored name the drawn defaults lack is inert and adds no column', async () => {
+    await mountRoute(SAVED_BESIDE, SAVED_ID, savedViewSource());
+    await waitFor(() => expect(drawn).toContain('region'), { timeout: 5000 });
+    const defaults = drawn!;
+    // `id` is a field the defaults leave out; `ghost` is no field at all.
+    expect(defaults).not.toContain('id');
+    cleanup();
+
+    localStorage.setItem(
+      localListStateKey('u1', OBJECT_NAME),
+      JSON.stringify({ perView: { [SAVED_ID]: { hiddenFields: ['ghost', 'id', 'region'] } } }),
+    );
+    await mountRoute(SAVED_BESIDE, SAVED_ID, savedViewSource());
+    await waitFor(() => expect(drawn).toEqual(defaults.filter((f) => f !== 'region')), { timeout: 5000 });
+  });
+
+  it('FIELD SECURITY (objectui#11984, objectui#12505): on a saved view with no `columns`, a drawn field the caller may not read is not offered and not stored', async () => {
+    unreadable.add('owner');
+    await mountRoute(SAVED_BESIDE, SAVED_ID, savedViewSource());
+    await waitFor(() => expect(drawn).toContain('region'), { timeout: 5000 });
+    expect(drawn).not.toContain('owner');
+    fireEvent.click(screen.getByTestId('toolbar-display-trigger'));
+    const panel = await screen.findByTestId('view-settings-content');
+    fireEvent.click(within(panel).getByRole('button', { name: 'Hide Fields' }));
+    await within(panel).findByText(/^region$/i);
+    expect(within(panel).queryByText(/^owner$/i)).toBeNull();
+
+    await hideThroughToggle('region');
+    await waitFor(() => expect(storedHiddenFields(SAVED_ID)).toEqual(['region']), { timeout: 3000 });
+  });
+
+  it('CONTROL (objectui#12505): a stored list on a SYSTEM view with no `columns` is still not applied (ruling 5839344270, B)', async () => {
+    const defaults = await drawView({ columns: [] });
+    localStorage.setItem(
+      localListStateKey('u1', OBJECT_NAME),
+      JSON.stringify({ perView: { [PROBE_ID]: { hiddenFields: ['region'] } } }),
+    );
+    expect(await drawView({ columns: [] })).toEqual(defaults);
   });
 
   it('PREMISE (objectui#12474): a user\'s hidden fields subtract from the view\'s `columns` and never add a column', async () => {

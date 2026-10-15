@@ -64,6 +64,16 @@ vi.mock('@object-ui/react', async (importOriginal) => ({
 }));
 
 import { PageView } from '../PageView';
+import { ExpressionProvider } from '../../providers/ExpressionProvider';
+
+/**
+ * The app the route is in, owned by a package. Since objectui#12540 the pencil
+ * opens that package's Studio surface and is drawn only when there is one, so
+ * the app is an input here too, held constant: this file pins the AUTHORING
+ * gate, and `PageView.editInStudioOpensStudio-12540` pins the package half.
+ */
+const APP = { name: 'cloud_control', label: 'Cloud', _packageId: 'com.objectstack.cloud' };
+const EXPRESSION_USER = {};
 
 /** `/me/permissions` for a persona, with the fields this surface does not read left empty. */
 function mePermissions(systemPermissions: string[] | undefined): MePermissionsResponse {
@@ -87,7 +97,9 @@ const AUTHOR = mePermissions(['manage_metadata', 'studio.access', 'setup.access'
 function mount(perms: MePermissionsResponse) {
   return render(
     <MePermissionsProvider initialPermissions={perms}>
-      <PageView />
+      <ExpressionProvider user={EXPRESSION_USER} app={APP}>
+        <PageView />
+      </ExpressionProvider>
     </MePermissionsProvider>,
   );
 }

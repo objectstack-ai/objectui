@@ -9,7 +9,7 @@
  * so there is a single, consistent authoring surface.
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type ComponentProps } from 'react';
 import { useParams } from 'react-router-dom';
 import { DashboardRenderer } from '@object-ui/plugin-dashboard';
 import { DrillNavigationProvider, notifyDataChanged } from '@object-ui/react';
@@ -17,11 +17,13 @@ import { useOpenRecordList } from './useOpenRecordList.js';
 import { toast } from 'sonner';
 import type { ActionDef, ActionContext, ActionResult } from '@object-ui/core';
 import {
+  Button,
+  cn,
   Empty,
   EmptyTitle,
   EmptyDescription,
 } from '@object-ui/components';
-import { LayoutDashboard, Lock } from 'lucide-react';
+import { LayoutDashboard, Lock, RefreshCw } from 'lucide-react';
 import { MetadataPanel, useMetadataInspector } from './MetadataInspector.js';
 import { useActionModal } from '../hooks/useActionModal.js';
 import { useMetaItemRefusal } from '../hooks/useMetaItemRefusal.js';
@@ -32,7 +34,7 @@ import { useMetadata } from '../providers/MetadataProvider.js';
 import { useExpressionContext } from '../providers/ExpressionProvider.js';
 import { resolveKeyedI18nLabel, preferLocal } from '../utils/index.js';
 import { useAdapter } from '../providers/AdapterProvider.js';
-import { useObjectTranslation } from '@object-ui/i18n';
+import { useObjectTranslation, useSafeTranslate } from '@object-ui/i18n';
 
 /**
  * One refresh of this dashboard's data: the `onRefresh` handed to
@@ -41,8 +43,8 @@ import { useObjectTranslation } from '@object-ui/i18n';
  * Without a handler, the renderer's `useDashboardAutoRefresh` arms no timer, so
  * a period an author set in Studio (`refreshIntervalSeconds`) did nothing in
  * the console. This handler owns no timer: the hook runs it once per authored
- * period, and the renderer's "Refresh All" button, which it shows whenever a
- * handler is wired, runs it on demand.
+ * period, and the "Refresh All" button this view draws in its page header
+ * runs it on demand, through the renderer's own refresh (objectui#12554).
  *
  * It declares a change on the data-invalidation bus and rebuilds nothing
  * (AGENTS.md #8's corollary: refresh data, don't rebuild UI). The widgets that
@@ -77,6 +79,16 @@ function refreshDashboardData(): void {
   notifyDataChanged({ objectName: '*' });
 }
 
+/**
+ * What `DashboardRenderer` hands a host that draws its refresh control
+ * (`onRefreshStateChange`, objectui#12554): the indicator and the run its own
+ * button would call, or `null` when there is nothing to draw. Read off the
+ * prop, so this view and the renderer cannot drift apart.
+ */
+type DashboardRefreshState = Parameters<
+  NonNullable<ComponentProps<typeof DashboardRenderer>['onRefreshStateChange']>
+>[0];
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -88,7 +100,13 @@ export function DashboardView({ dataSource }: { dataSource?: any }) {
   const { showDebug } = useMetadataInspector();
   const adapter = useAdapter();
   const { t } = useObjectTranslation();
+  // The refresh button's copy: the three pack keys the renderer's own button
+  // reads, with the same English fallbacks, through the same `tt`.
+  const tt = useSafeTranslate();
   const [isLoading, setIsLoading] = useState(true);
+  // The renderer's refresh state, reported by the renderer itself: this view
+  // draws the button, the renderer keeps the one timer (objectui#12554).
+  const [refreshState, setRefreshState] = useState<DashboardRefreshState>(null);
 
   /**
    * Client-side modal transport for header `modal` actions — the SHARED
@@ -297,10 +315,14 @@ export function DashboardView({ dataSource }: { dataSource?: any }) {
           (`newDashboardNavigationItem`). A dashboard document has no icon of
           its own: `DashboardSchema` declares none.
 
-          No actions here. "Refresh All" stays where `DashboardRenderer` draws
-          it: the renderer shows it whenever it holds `onRefresh`, and the same
-          handler arms the authored `refreshIntervalSeconds` timer, so dropping
-          the handler to move the button would stop that timer (objectui#11062).
+          The one action is "Refresh All", at the right of this row
+          (objectui#12554). The renderer keeps `onRefresh`, which arms the
+          authored `refreshIntervalSeconds` timer (objectui#11062), so the timer
+          stays the renderer's one timer; `onRefreshStateChange` below takes
+          the button out of the renderer and hands this view its state. The
+          button here is the renderer's button: the same three pack keys, icon,
+          spin and disabled-while-refreshing, and a click runs the renderer's
+          own refresh, so the indicator shows on manual and timed runs alike.
           `hideHeaderText` below keeps the renderer from drawing the title and
           description a second time.
 
@@ -311,6 +333,18 @@ export function DashboardView({ dataSource }: { dataSource?: any }) {
         title={display}
         subtitle={desc || undefined}
         icon={<LayoutDashboard className="h-4 w-4" />}
+        actions={refreshState && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refreshState.handleRefresh}
+            disabled={refreshState.refreshing}
+            aria-label={tt('dashboard.refreshDashboard', 'Refresh dashboard')}
+          >
+            <RefreshCw className={cn('h-4 w-4 mr-2', refreshState.refreshing && 'animate-spin')} />
+            {refreshState.refreshing ? tt('dashboard.refreshing', 'Refreshing…') : tt('dashboard.refreshAll', 'Refresh All')}
+          </Button>
+        )}
       />
 
       {/* ── Main area ────────────────────────────────────────────── */}
@@ -327,6 +361,7 @@ export function DashboardView({ dataSource }: { dataSource?: any }) {
                 modalHandler={modalHandler}
                 scriptHandlers={scriptHandlers}
                 onRefresh={refreshDashboardData}
+                onRefreshStateChange={setRefreshState}
                 hideHeaderText
               />
             </DrillNavigationProvider>

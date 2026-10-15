@@ -2579,6 +2579,12 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     const activeViewDeclaresColumns = draftColumnsEdited
         ? Array.isArray(viewDraft!.columns) && viewDraft!.columns.length > 0
         : activeTabDeclaresColumns;
+    // objectui#12505 — is the active tab a SAVED view (a row the adapter's
+    // `listViews` serves), by the classifier every mutating handler asks
+    // (`isSavedViewId`)? It decides where the user's own Hide Fields choice
+    // applies on a tab that declares no projection (see `persistHiddenFields`).
+    // A boolean, so the relay keys on a value (AGENTS.md #10).
+    const activeViewIsSaved = !!baseView && isSavedViewId(savedViews, baseView.id);
 
     /**
      * objectui#11860 — the list's toolbar state in the URL: the Filter panel's
@@ -3469,18 +3475,27 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
          * only the ones the caller may read), and the list draws `columns`
          * minus this list, so it can never add a column.
          *
-         * objectui#10694, ruling 5839344270 (B) — on a view that declares no
-         * projection the relay applies no `hiddenFields` (see
-         * `activeViewDeclaresColumns`), so a stored choice would be read by
-         * nothing: there the toggle is session-only. `ListView` still hides
-         * the column in its own state, and nothing is stored. That now holds
-         * for a SAVED view too: its hide used to persist only because the
-         * shared write sent the whole view, the drawn defaults included as its
-         * `columns`, which declared a projection for every user. The author's
-         * remedy is to declare `columns`.
+         * On a view that declares no projection (objectui#10694: the views
+         * memo DRAWS default columns into it, and the relay applies none of
+         * the VIEW's `hiddenFields` there, see `activeViewDeclaresColumns`)
+         * the rule splits by the kind of view:
+         *
+         * - A SAVED view (objectui#12505): the choice is stored all the same,
+         *   and the relay's `hiddenFields` rung applies it — this user's list
+         *   only, never the view's authored key — as a subtraction from the
+         *   columns the view draws by default. It never adds a column: a
+         *   stored name the drawn set lacks (a field since removed, a column
+         *   the view later stops drawing) matches nothing and stays inert.
+         *   Another user, with no list of their own, sees the defaults.
+         * - A SYSTEM view, or the console-made fallback tab: session-only,
+         *   per objectui#10694's ruling 5839344270 (B), whose operative
+         *   sentence names "an object-route view that declares no projection
+         *   and is not a saved view". `ListView` still hides the column in its
+         *   own state, and nothing is stored. The author's remedy there is to
+         *   declare `columns`.
          */
         const persistHiddenFields = (hidden: string[]) => {
-            if (!activeViewDeclaresColumns) return;
+            if (!activeViewDeclaresColumns && !activeViewIsSaved) return;
             listPrefs.patchView(viewDef.id, { hiddenFields: hidden });
         };
 
@@ -3603,7 +3618,13 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 // objectui#12474 — this user's own hidden fields over the
                 // view's (a subtraction from the same `columns`).
                 ? (viewPref?.hiddenFields ?? (viewDef as any).hiddenFields ?? listSchema.hiddenFields)
-                : undefined,
+                // objectui#12505 — on an unprojected SAVED view, this user's
+                // own list alone, subtracted from the drawn defaults; the
+                // view's authored key stays unapplied, as above. See
+                // `persistHiddenFields` for why a system view gets none.
+                : activeViewIsSaved
+                    ? viewPref?.hiddenFields
+                    : undefined,
             /**
              * The per-view ORDERING of the field composition
              * `columns` x `hiddenFields` x `fieldOrder` (objectui#7516) —
@@ -3994,7 +4015,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 dataSource={ds}
             />
         );
-    }, [activeView, activeViewDeclaresColumns, objectDef, objectName, refreshKey, navOverlay, actions, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, writeListUrlState, user?.id, pageOffersCreate, listIdentityKey, listPrefs.ready, listPrefs.preference, listPrefs.patchView, viewTabBar]);
+    }, [activeView, activeViewDeclaresColumns, activeViewIsSaved, objectDef, objectName, refreshKey, navOverlay, actions, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, writeListUrlState, user?.id, pageOffersCreate, listIdentityKey, listPrefs.ready, listPrefs.preference, listPrefs.patchView, viewTabBar]);
 
     // Memoize the merged views array so PluginObjectView doesn't get a new
     // reference on every render (which would trigger unnecessary data refetches).

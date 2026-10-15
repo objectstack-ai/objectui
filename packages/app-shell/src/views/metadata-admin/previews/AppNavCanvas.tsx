@@ -2,10 +2,11 @@
 
 /**
  * AppNavCanvas — form-canvas-style editor for an App's top-level
- * navigation tree. Each nav entry becomes a card with a drag handle,
- * a kind icon, an inline-rename label, the metadata record it targets,
- * and a remove affordance shown on hover or keyboard focus. Drag-drop
- * reorders within the root list.
+ * navigation tree. Each nav entry becomes a 32 px card with a drag handle,
+ * an inline-rename label, a kind chip and a remove control that is always
+ * drawn; the metadata record it targets is the card's `title`, so the row
+ * fits the Studio's 240 px rail (objectui#12519). Drag-drop reorders within
+ * the root list.
  *
  * Kind and target are read from the spec's discriminated union — `type`
  * plus that branch's own target key — never inferred from off-spec keys
@@ -35,23 +36,7 @@
  */
 
 import * as React from 'react';
-import {
-  BarChart3,
-  BookOpen,
-  Compass,
-  Database,
-  FileText,
-  Folder,
-  GripVertical,
-  LayoutDashboard,
-  Link as LinkIcon,
-  Minus,
-  MousePointerClick,
-  Plus,
-  Puzzle,
-  Trash2,
-  type LucideIcon,
-} from 'lucide-react';
+import { GripVertical, Plus, Trash2 } from 'lucide-react';
 import type { I18nLabel } from '@objectstack/spec/ui';
 import { Badge, cn } from '@object-ui/components';
 import type { NavTargetLabelResolver } from '@object-ui/layout';
@@ -94,74 +79,38 @@ function navKind(it: RawNav): string {
   return typeof it.type === 'string' && it.type ? it.type : 'untyped';
 }
 
-function kindIcon(kind: string): LucideIcon {
-  switch (kind) {
-    case 'object':
-      return Database;
-    case 'page':
-      return FileText;
-    case 'dashboard':
-      return LayoutDashboard;
-    case 'report':
-      return BarChart3;
-    case 'url':
-      return LinkIcon;
-    case 'group':
-      return Folder;
-    case 'action':
-      return MousePointerClick;
-    case 'component':
-      return Puzzle;
-    case 'doc':
-      return BookOpen;
-    case 'separator':
-      return Minus;
-    default:
-      return Compass;
-  }
-}
-
 /**
  * Per-kind color tone — keeps nav kinds scannable at a glance and
  * mirrors the field-type category tinting used elsewhere in Studio.
  * Class strings are written out in full so Tailwind's JIT emits them.
  */
 interface KindTone {
-  icon: string;
   badge: string;
 }
 
 const KIND_TONE: Record<string, KindTone> = {
   object: {
-    icon: 'text-blue-500',
     badge: 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300',
   },
   page: {
-    icon: 'text-violet-500',
     badge: 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300',
   },
   dashboard: {
-    icon: 'text-teal-500',
     badge: 'border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-300',
   },
   report: {
-    icon: 'text-amber-500',
     badge: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300',
   },
   url: {
-    icon: 'text-indigo-500',
     badge: 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-300',
   },
   group: {
-    icon: 'text-slate-500',
     badge: 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-300',
   },
   action: {
-    icon: 'text-rose-500',
     badge: 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300',
   },
   component: {
-    icon: 'text-cyan-500',
     badge: 'border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-900 dark:bg-cyan-950/40 dark:text-cyan-300',
   },
   /**
@@ -170,11 +119,9 @@ const KIND_TONE: Record<string, KindTone> = {
    * warning — below.
    */
   doc: {
-    icon: 'text-emerald-500',
     badge: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300',
   },
   separator: {
-    icon: 'text-zinc-400',
     badge: 'border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400',
   },
   /**
@@ -183,10 +130,16 @@ const KIND_TONE: Record<string, KindTone> = {
    * missing discriminator, and the badge should read that way.
    */
   untyped: {
-    icon: 'text-amber-500',
     badge: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300',
   },
 };
+
+/**
+ * A nested entry's indent, 16 px a level (objectui#12519: classes, not an
+ * inline style). The spec nests one level under a `group`; deeper trees take
+ * the last step.
+ */
+const DEPTH_INDENT = ['', 'pl-4', 'pl-8'] as const;
 
 function kindTone(kind: string): KindTone {
   return KIND_TONE[kind] ?? KIND_TONE.untyped;
@@ -407,7 +360,9 @@ export function AppNavCanvas({
 
   return (
     <div className="rounded-md border bg-card/40">
-      <div className="flex items-center justify-between border-b px-3 py-2">
+      {/* objectui#12519 — in the Studio's 240 px rail the add button takes a
+          line of its own rather than folding its words. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 border-b px-3 py-2">
         <div className="flex items-center gap-2 text-xs">
           <span className="font-medium uppercase tracking-wide text-muted-foreground">
             {t('engine.appNav.heading', locale)}
@@ -419,7 +374,7 @@ export function AppNavCanvas({
         {onPatch && (
           <button
             type="button"
-            className="inline-flex items-center gap-1 rounded border border-dashed px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+            className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded border border-dashed px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted/30 hover:text-foreground"
             onClick={addItem}
           >
             <Plus className="h-3 w-3" /> {t('engine.appNav.addItem', locale)}
@@ -587,7 +542,6 @@ function NavCard({
   onDropBefore: () => void;
 }) {
   const kind = navKind(item);
-  const Icon = kindIcon(kind);
   const tone = kindTone(kind);
   const target = navTarget(item);
   const label = navLabel(item, index, locale, targetLabel);
@@ -603,7 +557,7 @@ function NavCard({
   }, [authored, editing]);
 
   return (
-    <div className="relative" style={{ paddingLeft: depth * 16 }}>
+    <div className={cn('relative', DEPTH_INDENT[Math.min(depth, DEPTH_INDENT.length - 1)])}>
       {dropPos === 'before' && (
         <div className="pointer-events-none absolute inset-x-0 -top-0.5 h-0.5 rounded bg-primary" />
       )}
@@ -635,17 +589,19 @@ function NavCard({
         }}
         onClick={onClick}
         aria-pressed={isSelected}
-        className={`group flex w-full items-center gap-2 rounded-md border bg-card px-2.5 py-2 text-left text-xs transition-colors hover:border-primary/40 ${
+        // objectui#12519 — the api name lives here, not in the row: the row
+        // keeps the handle, the label, the kind chip and the trash, which fit
+        // the Studio's 240 px rail.
+        title={target ? `${label} · ${target}` : label}
+        className={`group flex h-8 w-full items-center gap-1.5 rounded-md border bg-card px-1.5 text-left text-xs transition-colors hover:border-primary/40 ${
           isSelected ? 'border-primary ring-1 ring-primary' : 'border-border'
         } ${canEdit && !editing ? 'cursor-grab active:cursor-grabbing' : ''}`}
       >
         {canEdit ? (
-          <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50 group-hover:text-muted-foreground" />
+          <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/50 group-hover:text-muted-foreground" />
         ) : (
-          <span className="w-3.5" />
+          <span className="w-4 shrink-0" />
         )}
-        {/* eslint-disable-next-line react-hooks/static-components -- kindIcon returns a stable icon component from a static registry, not one created during render */}
-        <Icon className={cn('h-3.5 w-3.5 shrink-0', tone.icon)} />
         {editing ? (
           <input
             autoFocus
@@ -686,19 +642,14 @@ function NavCard({
             {label}
           </span>
         )}
-        <Badge variant="outline" className={cn('text-[10px] font-medium', tone.badge)}>
+        <Badge variant="outline" className={cn('h-5 shrink-0 px-1.5 py-0 text-[10px] font-medium', tone.badge)}>
           {kind}
         </Badge>
-        {target && (
-          <code className="ml-0 text-[10px] text-muted-foreground truncate max-w-[10rem]">
-            {target}
-          </code>
-        )}
-        {/* objectui#11776 — always in the tab order, shown on hover AND on
-            keyboard focus (the card's, or its own). It was mounted only while
-            a mouse hovered the card, so no keyboard path could reach it.
-            Hidden, it takes no room (no width, and its margin gives back the
-            row's gap), so the card lays out as it did when it was absent. */}
+        {/* objectui#11776 — always in the tab order (it was mounted only while
+            a mouse hovered the card, so no keyboard path could reach it).
+            objectui#12519 — and always drawn: a fixed 24 px at reduced
+            opacity, full on the card's hover, the card's keyboard focus or
+            its own, so showing it never moves the label. */}
         {canEdit && !editing && (
           <span
             role="button"
@@ -714,7 +665,7 @@ function NavCard({
                 onRemove();
               }
             }}
-            className="-ml-2 inline-flex h-6 w-0 items-center justify-center overflow-hidden rounded text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:ml-0 group-hover:w-6 group-hover:opacity-100 group-focus-visible:ml-0 group-focus-visible:w-6 group-focus-visible:opacity-100 focus-visible:ml-0 focus-visible:w-6 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground opacity-50 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 group-focus-visible:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             aria-label={t('engine.appNav.removeItem', locale)}
           >
             <Trash2 className="h-3 w-3" />

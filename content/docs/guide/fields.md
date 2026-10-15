@@ -143,9 +143,12 @@ record `object_name` names, and `sys_activity.source_id` at the one
 with `resolveRecordPointer(field, row)` and draws it with the renderer
 registered under `RECORD_POINTER_CARD_TYPE`. The fields package's default draws
 the record id as text; the console registers a record preview card there, so a
-pointer field on a record page shows the record it points at. Nothing is
-authored for this: the `referenceVia` declaration on the field is the whole
-contract. List cells are not a call site yet.
+pointer field on a record page shows the record it points at. When the card
+could read that record, its title links to the record's page in the current
+app, built by the same record-link builder the page's lookup values use; a
+record the reader cannot read is drawn with no link, and the card never says
+why. Nothing is authored for this: the `referenceVia` declaration on the field
+is the whole contract. List cells are not a call site yet.
 
 ## Naming a registry item by name (`position-ref`, `permission-ref`)
 

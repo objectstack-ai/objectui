@@ -73,7 +73,10 @@ export function useIsWideViewport(): boolean {
  * changes); the aside (`w-72`, 288px); and one flow column at 100% (`NODE_W`
  * plus the layout's `PADDING` on both sides — the width a linear flow draws at).
  */
-export const AUTOMATIONS_CONFIG_FOLD_WIDTH = 208 + 68 + 288 + NODE_W + 2 * PADDING;
+// objectui#12459 — the skeleton widened the rail to 240px (`w-60`) and the
+// aside to 300px, and the canvas body now sits at `px-6` inside the content
+// column (24px a side, plus the framed card's `p-4` and borders: 84px).
+export const AUTOMATIONS_CONFIG_FOLD_WIDTH = 240 + 84 + 300 + NODE_W + 2 * PADDING;
 
 /**
  * Is the element `ref` points at narrower than `px`? Measured before paint and

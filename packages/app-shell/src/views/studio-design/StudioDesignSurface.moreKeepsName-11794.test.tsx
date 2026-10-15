@@ -101,7 +101,11 @@ const MORE = t('engine.studio.more', 'en');
 const ACCESS = t('engine.studio.pillar.access', 'en');
 const INTERFACES = t('engine.studio.pillar.interfaces', 'en');
 /** The class tokens an open pillar link carries in the header row. */
-const ACTIVE = ['bg-primary/10', 'font-medium', 'text-primary'];
+// objectui#12459 — the pillars are a segmented control: the open one sits on
+// the card surface with a shadow; the tokens below are that look.
+const ACTIVE = ['bg-background', 'font-medium', 'text-foreground', 'shadow-sm'];
+// The menu's items keep the tinted look: the open pillar's link inside More.
+const MENU_ACTIVE = ['bg-primary/10', 'font-medium', 'text-primary'];
 
 beforeEach(() => {
   clientImpl = makeClient();
@@ -142,15 +146,15 @@ describe('the Studio header’s More trigger keeps its own name (objectui#11794)
     expect(trigger).not.toHaveTextContent(ACCESS);
     expect(trigger).toHaveClass(...ACTIVE);
     // No primary pillar link is the open one.
-    expect(within(header).getByRole('link', { name: INTERFACES })).not.toHaveClass('bg-primary/10');
+    expect(within(header).getByRole('link', { name: INTERFACES })).not.toHaveClass('shadow-sm');
   });
 
   it('control: with a primary pillar open the trigger reads More with no active styling, which the open pillar link has', async () => {
     const { header, trigger } = await renderOn('interfaces');
 
     expect(trigger).toHaveTextContent(MORE);
-    expect(trigger).not.toHaveClass('bg-primary/10');
-    expect(trigger).not.toHaveClass('text-primary');
+    expect(trigger).not.toHaveClass('shadow-sm');
+    expect(trigger).not.toHaveClass('text-foreground');
     // Lit control: the same tokens mark the open primary pillar.
     expect(within(header).getByRole('link', { name: INTERFACES })).toHaveClass(...ACTIVE);
   });
@@ -159,7 +163,7 @@ describe('the Studio header’s More trigger keeps its own name (objectui#11794)
     const onAccess = await renderOn('access');
     const openLink = await accessLinkInMenu(onAccess.trigger);
     expect(openLink).toHaveAttribute('aria-current', 'page');
-    expect(openLink).toHaveClass(...ACTIVE);
+    expect(openLink).toHaveClass(...MENU_ACTIVE);
     cleanup();
 
     const onInterfaces = await renderOn('interfaces');

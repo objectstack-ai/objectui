@@ -11,8 +11,14 @@
  * of objectui#2763; ruling 6079807016, letter 乙), the page component type
  * `record:approval_decision`.
  *
- * One node, three parts, each drawn by a piece already shipped:
+ * One node, four parts, each drawn by a piece already shipped:
  *
+ *  0. **What was submitted** (objectui#12483) — the declared amount and a
+ *     summary of the request's record snapshot, under the target object's
+ *     declared labels and through the record page's own cells, with the
+ *     object's `hidden: true` fields and the reader's unreadable fields left
+ *     out. `RecordSnapshotSummary` draws it from the bound row's `payload`
+ *     and `payload_display`; see its header for what it reads.
  *  1. **Progress** — `DecisionProgressIndicator` (A3), drawn from the request's
  *     server-computed `decision_progress` tally. It is present only on a
  *     pending node that aggregates more than one decision, and the panel draws
@@ -104,8 +110,10 @@ import { cn, Badge } from '@object-ui/components';
 import { DecisionProgressIndicator } from '../approval-progress/DecisionProgressIndicator.js';
 import { DeclaredActionsBar } from '../DeclaredActionsBar.js';
 import { approverChips } from '../RecordApprovalsPanel.js';
+import { RecordSnapshotSummary } from './RecordSnapshotSummary.js';
 import { RECORD_APPROVAL_ACTION_LOCATION, SYS_APPROVAL_REQUEST_OBJECT } from '../recordApprovalActions.js';
 import type { ApprovalRequestLite } from '../../hooks/useRecordApprovals.js';
+import type { ApprovalRequestRow } from '@objectstack/spec/contracts';
 import { useApproverDirectory } from '../../hooks/useApproverDirectory.js';
 import {
   approverCopyFrom,
@@ -122,7 +130,7 @@ export interface ApprovalDecisionPanelProps {
    * the declared actions run against (`{id}` resolves to it) and the `viewer`
    * block their `visible` predicates read.
    */
-  request: ApprovalRequestLite & { viewer?: unknown };
+  request: ApprovalRequestLite & { viewer?: unknown } & Pick<ApprovalRequestRow, 'payload' | 'payload_display'>;
   className?: string;
 }
 
@@ -189,6 +197,11 @@ export function ApprovalDecisionPanel({ request, className }: ApprovalDecisionPa
 
   return (
     <div className={cn('space-y-3', className)} data-testid="approval-decision-panel">
+      <RecordSnapshotSummary
+        objectName={request.object_name}
+        snapshot={request.payload}
+        display={request.payload_display}
+      />
       {progress && <DecisionProgressIndicator progress={progress} eligibleApprovers={eligible} />}
       <PendingApprovers request={request} />
       <DeclaredActionsBar
@@ -246,7 +259,7 @@ export const ApprovalDecisionRenderer: React.FC<ApprovalDecisionRendererProps> =
   if (row == null || typeof row !== 'object' || (row as { id?: unknown }).id == null) return null;
   return (
     <div className={className} {...designer}>
-      <ApprovalDecisionPanel request={row as ApprovalRequestLite} />
+      <ApprovalDecisionPanel request={row as ApprovalDecisionPanelProps['request']} />
     </div>
   );
 };

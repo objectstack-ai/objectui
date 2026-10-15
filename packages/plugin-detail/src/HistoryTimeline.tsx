@@ -8,8 +8,14 @@
  * - Mirrors the patterns used by mainstream products (Salesforce / HubSpot /
  *   Jira / Linear / GitHub): avatar + display name + relative time, with
  *   per-field old → new diff when available. We never render a raw user UUID
- *   as the actor label; if no display name is resolved we fall back to
- *   "Unknown user".
+ *   as the actor label.
+ * - Three actor faces (objectui#12527): a resolved `user_name` names the
+ *   person; an entry that carries NEITHER a name NOR a `user_id` is a system
+ *   write (seed backfills, hooks with no user in context) and reads "System"
+ *   (`detail.systemActor`, the label `record:activity` already uses) with a
+ *   cog glyph; an entry whose `user_id` could not be resolved to a name (a
+ *   deleted or unreadable user) is the only unknown, and reads "Unknown user"
+ *   (or `unknownUserText`) with a "?" avatar.
  * - Never re-fetches data on its own; relies on the caller to resolve
  *   `user_name` / `user_avatar` from `user_id` and to provide a pre-computed
  *   `changes` diff so this component stays presentation-only and SSR-safe.
@@ -27,7 +33,8 @@ import {
   TooltipTrigger,
   cn,
 } from '@object-ui/components';
-import { useDisplayLocale } from '@object-ui/i18n';
+import { useDisplayLocale, useSafeTranslate } from '@object-ui/i18n';
+import { Cog } from 'lucide-react';
 import { hasCellValue } from './emptiness';
 
 export interface HistoryChange {
@@ -56,7 +63,11 @@ export interface HistoryTimelineProps {
   entries: HistoryEntry[];
   loading?: boolean;
   emptyText?: string;
-  /** Localized fallback for entries with no resolved actor name. Defaults to "Unknown user". */
+  /**
+   * Localized label for an entry whose `user_id` resolved to no name.
+   * Defaults to "Unknown user". An entry with no `user_id` at all is a system
+   * write and reads `detail.systemActor` instead (objectui#12527).
+   */
   unknownUserText?: string;
   className?: string;
   /**
@@ -173,6 +184,8 @@ export function HistoryTimeline({
   // Read before the early returns below so the hook order never varies.
   const displayLocale = useDisplayLocale();
   const resolvedLocale = locale ?? displayLocale;
+  const tt = useSafeTranslate();
+  const systemActorText = tt('detail.systemActor', 'System');
   if (loading) {
     return (
       <div className={cn('space-y-3', className)}>
@@ -208,10 +221,15 @@ export function HistoryTimeline({
         {entries.map((entry, idx) => {
           const action = (entry.action ?? '').toLowerCase();
           const variant = ACTION_VARIANT[action] ?? 'outline';
+          const resolvedName =
+            (typeof entry.user_name === 'string' && entry.user_name.trim()) || '';
+          // No name AND no id: nobody acted, so this is a system write, not
+          // an unknown person (objectui#12527).
+          const isSystemActor =
+            !resolvedName && (entry.user_id == null || entry.user_id === '');
           const displayName =
-            (typeof entry.user_name === 'string' && entry.user_name.trim()) ||
-            unknownUserText ||
-            'Unknown user';
+            resolvedName ||
+            (isSystemActor ? systemActorText : unknownUserText || 'Unknown user');
           const absoluteWhen = formatAbsolute(entry.created_at, resolvedLocale);
           const relativeWhen = formatRelative(entry.created_at, resolvedLocale);
           const avatarUrl = typeof entry.user_avatar === 'string' ? entry.user_avatar : undefined;
@@ -220,7 +238,15 @@ export function HistoryTimeline({
               <Avatar className="h-8 w-8 mt-0.5 shrink-0">
                 {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName} /> : null}
                 <AvatarFallback className="text-[10px] font-medium">
-                  {initialsFromName(entry.user_name)}
+                  {isSystemActor ? (
+                    <Cog
+                      className="h-4 w-4 text-muted-foreground"
+                      aria-hidden="true"
+                      data-testid="history-system-actor-glyph"
+                    />
+                  ) : (
+                    initialsFromName(entry.user_name)
+                  )}
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">

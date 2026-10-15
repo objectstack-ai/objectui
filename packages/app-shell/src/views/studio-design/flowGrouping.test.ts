@@ -200,7 +200,7 @@ describe('the order of the questions (objectui#12454)', () => {
       [{ name: 'ping' }, { name: 'unknown_draft' }, { name: 'lead_flow' }],
       local,
       HOTCRM_OBJECTS,
-      { noObjectLabel: NO_OBJECT },
+      { noObjectLabel: NO_OBJECT, locale: 'en' },
     );
     expect(groups.map((g) => [g.label, g.items.map((f) => f.name)])).toEqual([
       ['Lead', ['lead_flow']],
@@ -208,6 +208,25 @@ describe('the order of the questions (objectui#12454)', () => {
     ]);
     expect(groups[1].objectName).toBeNull();
     expect(groups[1].key).toBe('');
+  });
+
+  it("the group order follows the locale it is handed, not the machine's (objectui#9909)", () => {
+    // 安装 (an-zhuang) and 保单 (bao-dan): pinyin order under zh-CN, code-point
+    // order under en-US — the two locales the pillar hands in.
+    const local = new Map<string, unknown>([
+      ['install_flow', { type: 'record_change', nodes: [start({ triggerType: 'record-after-create', objectName: 'install' })], edges: [] }],
+      ['policy_flow', { type: 'record_change', nodes: [start({ triggerType: 'record-after-create', objectName: 'policy' })], edges: [] }],
+    ]);
+    const labels = new Map([
+      ['install', '安装'],
+      ['policy', '保单'],
+    ]);
+    const order = (locale: string) =>
+      groupFlowsByObject([{ name: 'policy_flow' }, { name: 'install_flow' }], local, labels, { noObjectLabel: NO_OBJECT, locale }).map(
+        (g) => g.label,
+      );
+    expect(order('zh-CN')).toEqual(['安装', '保单']);
+    expect(order('en-US')).toEqual(['保单', '安装']);
   });
 
   it('a malformed definition answers no object instead of throwing', () => {

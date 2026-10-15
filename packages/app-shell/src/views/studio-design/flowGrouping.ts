@@ -142,15 +142,6 @@ export function flowGroupObject(flow: unknown, inScope: (objectName: string) => 
   return null;
 }
 
-/** The designer locale's collation; a tag `Intl` refuses collates as the default locale does. */
-function collatorFor(locale: string | undefined): Intl.Collator {
-  try {
-    return new Intl.Collator(locale, { sensitivity: 'base' });
-  } catch {
-    return new Intl.Collator(undefined, { sensitivity: 'base' });
-  }
-}
-
 /** One group of the rail: an object (or none) and the flows under it. */
 export interface FlowRailGroup<T> {
   /** A stable key: the object name, or the empty string for "No object". */
@@ -166,8 +157,12 @@ export interface FlowRailGroup<T> {
 export interface GroupFlowsOptions {
   /** The trailing group's header words. */
   noObjectLabel: string;
-  /** The collation the object order follows. */
-  locale?: string;
+  /**
+   * The collation the object order follows: the locale the pillar reads its
+   * labels in. Required, because the group order is author-visible and the
+   * machine's locale is neither of the repo's locale channels (objectui#9909).
+   */
+  locale: string;
 }
 
 /**
@@ -198,7 +193,7 @@ export function groupFlowsByObject<T extends { name: string }>(
     }
     group.items.push(flow);
   }
-  const collator = collatorFor(locale);
+  const collator = new Intl.Collator(locale, { sensitivity: 'base' });
   const groups = [...byObject.values()].sort(
     (a, b) => collator.compare(a.label, b.label) || collator.compare(a.key, b.key),
   );

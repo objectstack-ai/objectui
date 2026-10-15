@@ -37,6 +37,7 @@ import { deriveRecordSurface, deriveRecordFlowSurface } from '@object-ui/plugin-
 import { RECORD_FORM_PARAM, RECORD_FORM_OBJECT_PARAM, RECORD_FORM_LINK_PARAM } from '../urlParams.js';
 import { appRouteSegment, matchAppBySegment } from '../utils/appRoute.js';
 import { resolveHref, type NavTemplateContext } from '@object-ui/layout';
+import type { NavigationItem } from '@object-ui/types';
 
 // Components (eagerly loaded — always needed)
 import { ConsoleLayout } from '../layout/ConsoleLayout.js';
@@ -51,6 +52,7 @@ import { RouteFader } from '../chrome/RouteFader.js';
 import { NavigationSyncEffect } from '../hooks/useNavigationSync.js';
 import { AppNoAccessEmptyState } from './AppNoAccessEmptyState.js';
 import { appServesNoNavigation } from './appServesNoNavigation.js';
+import { useNavMemberGates, navEntriesShownToMember } from '../hooks/useNavMemberGates.js';
 import { resolveSetupAppPath } from './ConsoleShell.js';
 
 // Route-based code splitting — lazy-load less-frequently-used routes
@@ -1089,37 +1091,13 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
                 <Routes>
                 <Route
                   path="/"
-                  element={(() => {
-                    // The app's landing is its first navigation item that
-                    // addresses a page inside the app (`resolveLandingRoute`).
-                    // The Studio app lands on its first entry too
-                    // (objectui#12113).
-                    const landing = resolveLandingRoute(activeApp, { currentUserId: user?.id ?? null });
-                    if (landing) return <Navigate to={landing} replace />;
-                    // objectui#12079 — an app that serves this caller NO
-                    // navigation (every group gated on a capability they do
-                    // not hold) is an app they have no access in yet. Say so,
-                    // and offer Setup to a caller who can grant access: the
-                    // same `isWorkspaceAdmin` read the no-app empty state
-                    // above gates its Setup button on, and the same Setup
-                    // URL the `/setup` deep link resolves.
-                    if (appServesNoNavigation(activeApp)) {
-                      return (
-                        <AppNoAccessEmptyState
-                          app={activeApp}
-                          setupPath={isWorkspaceAdmin ? resolveSetupAppPath(apps) : null}
-                        />
-                      );
-                    }
-                    // A navigation with no landing: every entry the sidebar
-                    // draws is a `url`, `action` or `doc` link, or the items
-                    // live only under `areas`, which the resolver does not
-                    // walk. The root renders no page of its own and the
-                    // sidebar offers the entries. It used to render the
-                    // Studio app's overview, `StudioHomePage`, which
-                    // objectui#12113 retired.
-                    return null;
-                  })()}
+                  element={
+                    <AppRootLanding
+                      app={activeApp}
+                      ctx={{ currentUserId: user?.id ?? null }}
+                      setupPath={isWorkspaceAdmin ? resolveSetupAppPath(apps) : null}
+                    />
+                  }
                 />
                 {/* Metadata admin routes — declared BEFORE the generic
                     `:objectName/...` routes so the static `metadata` prefix
@@ -1323,7 +1301,8 @@ function buildItemRoute(item: any, ctx?: NavTemplateContext): string {
 /**
  * Resolves the route to navigate to when the user lands on the bare
  * `/console/apps/:appName` URL: the app's landing page is its FIRST reachable
- * navigation item, in `order` — `findFirstRoute` walks groups and lands on an
+ * navigation item, in `order`, among the entries the member is shown
+ * (`navigation` arrives already gated, objectui#12426) — `findFirstRoute` walks groups and lands on an
  * `object`, `page`, `dashboard`, `report` or `component` entry (objectui#12113
  * added `component`). It skips the item types that address nothing inside
  * the app (`url`, `separator`, `action`), and a `doc` entry is never the
@@ -1338,8 +1317,63 @@ function buildItemRoute(item: any, ctx?: NavTemplateContext): string {
  * which cannot dangle — hence this function is kept as the seam even though it
  * now has a single expression.
  */
-function resolveLandingRoute(activeApp: any, ctx?: NavTemplateContext): string {
-  return findFirstRoute(activeApp?.navigation || [], ctx);
+function resolveLandingRoute(navigation: NavigationItem[], ctx?: NavTemplateContext): string {
+  return findFirstRoute(navigation, ctx);
+}
+
+/**
+ * The app root (`/apps/:appName`): navigates to the app's landing, or says the
+ * member has nothing here.
+ *
+ * The landing is the first entry THIS MEMBER is shown (objectui#12426): the
+ * tree is read through `navEntriesShownToMember` with the gates
+ * `useNavMemberGates` builds, the very gates `UnifiedSidebar` draws with: the
+ * `visible` evaluation, `requiredPermissions`, the runtime-capability gates and
+ * the object-read prune. It used to read the SERVED tree, so a member whose
+ * first entry the sidebar hid was sent to it anyway: on HotCRM a
+ * `service_agent` landed on a dashboard built on an object they may not read,
+ * with no active sidebar entry.
+ *
+ * It is a component, not an expression in `AppContent`'s render, because the
+ * `visible` evaluator is the `ExpressionProvider` mounted INSIDE that render;
+ * read from `AppContent` itself it would be an outer one, not the sidebar's.
+ */
+function AppRootLanding({
+  app,
+  ctx,
+  setupPath,
+}: {
+  app: any;
+  ctx: NavTemplateContext;
+  setupPath: string | null;
+}) {
+  const gates = useNavMemberGates();
+  const navigation = navEntriesShownToMember(app?.navigation || [], gates);
+  const landing = resolveLandingRoute(navigation, ctx);
+  if (landing) return <Navigate to={landing} replace />;
+  // objectui#12079 — an app that shows this member NO navigation (every entry
+  // gated away from them, or none served at all) is an app they have no access
+  // in yet. Say so, and offer Setup to a caller who can grant access: the
+  // same `isWorkspaceAdmin` read the no-app empty state gates its Setup button
+  // on, and the same Setup URL the `/setup` deep link resolves. The question is
+  // asked of the trees as this member is shown them (objectui#12426), so a
+  // member who can see no entry gets this answer, never a page the sidebar
+  // hides.
+  const shownApp = {
+    navigation,
+    areas: (app?.areas || []).map((area: any) => ({
+      navigation: navEntriesShownToMember(area?.navigation || [], gates),
+    })),
+  };
+  if (appServesNoNavigation(shownApp)) {
+    return <AppNoAccessEmptyState app={app} setupPath={setupPath} />;
+  }
+  // A navigation with no landing: every entry the sidebar draws is a `url`,
+  // `action` or `doc` link, or the items live only under `areas`, which the
+  // resolver does not walk. The root renders no page of its own and the
+  // sidebar offers the entries. It used to render the Studio app's overview,
+  // `StudioHomePage`, which objectui#12113 retired.
+  return null;
 }
 
 /**

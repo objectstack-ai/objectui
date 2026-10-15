@@ -41,8 +41,6 @@ import {
 import { NavigationRenderer, hasVisibleNavigationItems } from '@object-ui/layout';
 import type { NavigationArea, NavigationItem } from '@object-ui/types';
 import { useMetadata } from '../providers/MetadataProvider.js';
-import { useExpressionContext, evaluateVisibility } from '../providers/ExpressionProvider.js';
-import { usePermissions } from '@object-ui/permissions';
 import { useAuth, useWorkspaceAdminStatus } from '@object-ui/auth';
 import { useRecentItems } from '../hooks/useRecentItems.js';
 import { useRecentItemLabel } from '../hooks/useRecentItemLabel.js';
@@ -51,6 +49,7 @@ import { useNavPins } from '../hooks/useNavPins.js';
 import { useNavActionDispatch } from '../hooks/useNavActionDispatch.js';
 import { useNavTargetLabel } from '../hooks/useNavTargetLabel.js';
 import { useNavDocTargetCheck } from '../hooks/useNavDocTargetCheck.js';
+import { useNavMemberGates } from '../hooks/useNavMemberGates.js';
 import { matchAppBySegment, appRouteSegment, resolveKeyedI18nLabel } from '../utils/index.js';
 import { withoutUnreadableObjectEntries } from '../utils/navObjectReadGate.js';
 import { useHomePath } from '../hooks/useHomePath.js';
@@ -151,7 +150,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   const recentLabel = useRecentItemLabel();
   const { favorites, removeFavorite } = useFavorites();
 
-  const { apps: metadataApps, objects: metadataObjects } = useMetadata();
+  const { apps: metadataApps } = useMetadata();
   const apps = metadataApps || [];
   // objectui#7256 — every "Home" row below follows the product's DECLARED
   // landing, so the sidebar cannot offer a second home the top bar disowns.
@@ -173,53 +172,16 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   // order. A stored `objectui-nav-order-<app>` key from before is not read.
   const { togglePin, applyPins, pinnedIds, reorderPins } = useNavPins();
 
-  // Visibility evaluation
-  const { evaluator } = useExpressionContext();
-  const evalVis = React.useCallback(
-    (expr: string | boolean | undefined) => evaluateVisibility(expr, evaluator),
-    [evaluator],
-  );
-
-  // Permission check for nav `requiredPermissions` entries.
-  //
-  // Two authored forms:
-  //  - `object:action` → object CRUD gate.
-  //  - bare name → an ADR-0066 system capability, checked against the union of
-  //    the user's permission-set `systemPermissions` (from /me/permissions) —
-  //    the SAME subset rule the server applies to `AppSchema.requiredPermissions`.
-  //    This used to be misread as `can(<name>, 'read')` only, so a nav item
-  //    requiring a capability was hidden even from users whose permission set
-  //    granted it (admins included) — `requiredPermissions` degenerated into a
-  //    "hide from everyone" switch. The object-read fallback stays for nav
-  //    items that gate on a plain object name.
-  const { can, hasCapabilities } = usePermissions();
-  const checkPerm = React.useCallback(
-    (permissions: string[]) => permissions.every((perm: string) => {
-      const parts = perm.split(':');
-      if (parts.length >= 2) {
-        return can(parts[0], parts[1] as any);
-      }
-      return hasCapabilities([perm]) || can(perm, 'read');
-    }),
-    [can, hasCapabilities],
-  );
-
-  // Runtime capability gate: hide nav items targeting objects/services
-  // not registered in this runtime (e.g. cloud-only `sys_app`).
-  const registeredObjectNames = React.useMemo(
-    () => new Set<string>((metadataObjects || []).map((o: any) => o?.name).filter(Boolean)),
-    [metadataObjects],
-  );
-  const checkCap = React.useCallback(
-    (kind: 'object' | 'service', name: string): boolean => {
-      if (kind === 'object') {
-        if (registeredObjectNames.size === 0) return true;
-        return registeredObjectNames.has(name);
-      }
-      return true;
-    },
-    [registeredObjectNames],
-  );
+  // The member's gates: `visible`, `requiredPermissions`, runtime
+  // capabilities, and the object-read verdict the tree is pruned by. Built in
+  // `useNavMemberGates`, which the app root's landing reads too, so the first
+  // entry a member is sent to is one this sidebar draws (objectui#12426).
+  const {
+    evaluateVisibility: evalVis,
+    checkPermission: checkPerm,
+    checkCapability: checkCap,
+    can,
+  } = useNavMemberGates();
 
   // Area management.
   //

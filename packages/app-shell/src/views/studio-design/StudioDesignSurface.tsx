@@ -134,8 +134,10 @@ import {
 } from '../metadata-admin/preview-registry.js';
 import {
   getStudioCanvasPreview,
+  StudioCanvasDraftOnlyObjectsContext,
   StudioCanvasListViewContext,
   StudioCanvasNavEntryContext,
+  type StudioCanvasDraftOnlyObjects,
   type StudioCanvasNavEntry,
 } from './studio-canvas-preview.js';
 import { ObjectListViewInspector, useObjectListViewDraft, type DraftOnlyObjects } from './ObjectListViewInspector.js';
@@ -3134,6 +3136,15 @@ export function InterfacesPillar({
   // published row), stamped with the publish they were read under: the
   // list-view buffer skips `/layers` for a view of one of them.
   const [draftOnlyObjects, setDraftOnlyObjects] = React.useState<DraftOnlyObjects | null>(null);
+  // objectui#12508 — the same names for the canvas: an answer read under an
+  // earlier publish is pending, never used.
+  const canvasDraftOnly = React.useMemo<StudioCanvasDraftOnlyObjects>(
+    () =>
+      draftOnlyObjects && draftOnlyObjects.publishNonce === publishNonce
+        ? { status: 'known', names: draftOnlyObjects.names }
+        : { status: 'pending' },
+    [draftOnlyObjects, publishNonce],
+  );
 
   React.useEffect(() => {
     let cancelled = false;
@@ -3162,6 +3173,9 @@ export function InterfacesPillar({
         setDraftOnlyObjects({ publishNonce: readUnder, names: draftOnly });
       } catch {
         /* non-fatal — picker just stays empty */
+        // objectui#12508 — and no name is known draft-only, so the canvas
+        // renders the records grid as it did before, rather than wait.
+        if (!cancelled) setDraftOnlyObjects({ publishNonce: readUnder, names: new Set() });
       }
     })();
     return () => {
@@ -4019,9 +4033,13 @@ export function InterfacesPillar({
           // them (`StudioCanvasPreviewProps` is a published face): the default
           // object canvas previews the entry's slice or named view.
           // objectui#11823 — and so does the list view the panel is editing.
+          // objectui#12508 — and the package's draft-only objects, which have
+          // no runtime yet: the default canvas shows them as not published.
           <StudioCanvasNavEntryContext.Provider value={canvasNavEntry}>
             <StudioCanvasListViewContext.Provider value={listView.canvas}>
-              <StudioCanvas type={current.type} name={current.name} draft={draft} locale={locale} />
+              <StudioCanvasDraftOnlyObjectsContext.Provider value={canvasDraftOnly}>
+                <StudioCanvas type={current.type} name={current.name} draft={draft} locale={locale} />
+              </StudioCanvasDraftOnlyObjectsContext.Provider>
             </StudioCanvasListViewContext.Provider>
           </StudioCanvasNavEntryContext.Provider>
         ) : isSourcePage ? (

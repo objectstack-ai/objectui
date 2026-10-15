@@ -3235,6 +3235,9 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.if.tabCanvas': 'Canvas',
   'engine.studio.if.noAppTitle': 'This package has no app yet',
   'engine.studio.if.noAppHint': 'Create an app to design its navigation and interfaces.',
+  // objectui#12508 — the canvas of an object that has only a draft: no runtime yet.
+  'engine.studio.if.objectUnpublishedTitle': 'This object is not published yet',
+  'engine.studio.if.objectUnpublishedHint': 'Publish the package to see its records here.',
   /* objectui#6795 part C — the three designer registries (`preview-registry`,
    * `inspector-registry`, `default-inspector-registry`) were plain `Map`s with
    * no change notification, so a consumer that read one before registration
@@ -6499,6 +6502,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.if.tabCanvas': '画布',
   'engine.studio.if.noAppTitle': '这个软件包还没有应用',
   'engine.studio.if.noAppHint': '创建一个应用来设计它的导航与界面。',
+  'engine.studio.if.objectUnpublishedTitle': '这个对象还没有发布',
+  'engine.studio.if.objectUnpublishedHint': '发布软件包后,这里会显示它的记录。',
   'engine.studio.if.designersMissing': '本次会话没有注册任何元数据设计器,因此无法在这里预览或设计 {type}。',
   'engine.studio.if.noDesigner': '没有为 {type} 注册设计器,因此无法在这里预览或设计。',
   'engine.studio.if.objectHintPre': '运行态列表预览 · 改字段 / 结构请到「',

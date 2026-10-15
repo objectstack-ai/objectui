@@ -33,7 +33,7 @@ import { render, screen, waitFor, cleanup, within } from '@testing-library/react
 import { MetadataCtx } from '@object-ui/react';
 import { I18nProvider } from '@object-ui/i18n';
 
-const meta = vi.hoisted(() => ({ value: null as any }));
+const meta = vi.hoisted(() => ({ value: null as unknown }));
 vi.mock('../providers/MetadataProvider', () => ({ useMetadata: () => meta.value }));
 
 vi.mock('react-router-dom', () => ({
@@ -89,7 +89,7 @@ async function mount(doc: Record<string, unknown>) {
   };
   const view = render(
     <I18nProvider config={{ defaultLanguage: 'en', detectBrowserLanguage: false }}>
-      <MetadataCtx.Provider value={meta.value as any}>
+      <MetadataCtx.Provider value={meta.value as React.ContextType<typeof MetadataCtx>}>
         <DashboardView />
       </MetadataCtx.Provider>
     </I18nProvider>,

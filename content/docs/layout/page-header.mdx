@@ -46,7 +46,7 @@ absent.
 | `subtitle` | string, or an inline locale map | — | The secondary line under the title. Same interpolation as `title`. |
 | `actions` | array of action ids | — | Names of actions declared on the object's own metadata, drawn as the header's button row. |
 | `recordChrome` | boolean | `true` (*spec*) | On a record page, renders the title as the record chip. `false` keeps the bare heading. |
-| `showStar` | boolean | `true` (*spec*) | The follow star beside the record title. Part of the record chip. |
+| `showStar` | boolean | `true` (*spec*) | The favorite star beside the record title. Part of the record chip, and drawn only where the host wires a favorites toggle (the record context carries `onToggleFavorite`); `false` hides it even then. |
 | `showCopyId` | boolean | `true` (*spec*) | The copy-record-id button beside the record title. Part of the record chip. |
 | `maxVisible` | positive integer | `3` (*renderer*) | How many header actions render as inline buttons before the rest fold into the `⋯` menu. |
 | `mobileMaxVisible` | positive integer | `1` (*renderer*) | The same budget on a mobile viewport. |

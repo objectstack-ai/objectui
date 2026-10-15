@@ -46,11 +46,11 @@ const transport = vi.fn(async (input: RequestInfo | URL): Promise<Response> => {
 class FakeAdapter {
   readonly connected = true;
   find = vi.fn(async (_resource: string, _params?: unknown) => ({ data: [{ id: 'from_host' }], total: 1 }));
-  findOne = vi.fn(async (_resource: string, id: string) => ({ id, from: 'host' }));
+  findOne = vi.fn(async (_resource: string, id: string, _params?: unknown) => ({ id, from: 'host' }));
   create = vi.fn(async () => ({}));
   update = vi.fn(async () => ({}));
   delete = vi.fn(async () => true);
-  aggregate = vi.fn(async () => [{ status: 'pending', count: 3 }]);
+  aggregate = vi.fn(async (_resource: string, _params?: unknown) => [{ status: 'pending', count: 3 }]);
   getObjectSchema = vi.fn(async () => ({}));
 }
 
@@ -94,7 +94,7 @@ describe('lists of requests, and everything else, stay the adapter\'s (objectui#
     const source = routed();
     await source.findOne('invoice', 'inv_1');
     await source.find(APPROVAL_ACTION_OBJECT, { $filter: { actor_id: 'u1' } });
-    await source.aggregate?.(APPROVAL_REQUEST_OBJECT, { field: 'status', function: 'count', groupBy: 'status' } as never);
+    await source.aggregate(APPROVAL_REQUEST_OBJECT, { field: 'status', function: 'count', groupBy: 'status' });
     expect(host.findOne).toHaveBeenCalledWith('invoice', 'inv_1', undefined);
     expect(host.find).toHaveBeenCalledWith(APPROVAL_ACTION_OBJECT, { $filter: { actor_id: 'u1' } });
     expect(host.aggregate).toHaveBeenCalledTimes(1);

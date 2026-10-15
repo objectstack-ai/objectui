@@ -110,7 +110,8 @@
  * `sys_approval_request` (Setup's list views, with their filters and sorts,
  * and the timeline's label read of its `request_id` column, which asks for
  * `{ id: { $in: [...] } }`) stays on the data API, which serves each caller
- * the requests the approvals door would. Every other member is the host's.
+ * the requests the approvals door would (objectstack's request read gate,
+ * objectstack-ai/objectstack#22559). Every other member is the host's.
  */
 import { ApiDataSource } from '@object-ui/core';
 import { createAuthenticatedFetch } from '@object-ui/auth';

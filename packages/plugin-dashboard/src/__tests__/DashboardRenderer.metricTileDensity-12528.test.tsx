@@ -67,13 +67,15 @@ function renderDashboard(...widgets: Record<string, unknown>[]) {
 describe('DashboardRenderer — a dataset-bound metric tile on two lines (objectui#12528)', () => {
   it('draws the title and the measure label on one line, above the value', async () => {
     const { container } = renderDashboard(METRIC);
-    const heading = await screen.findByTestId('dataset-metric-heading');
+    // The answered tile, not the loading one: a loading tile draws the same
+    // heading line without the measure label, which only the answer names.
+    const value = await screen.findByText('1964500');
+    const heading = screen.getByTestId('dataset-metric-heading');
 
     expect(within(heading).getByTestId('dataset-metric-title')).toHaveTextContent('Total Pipeline');
     expect(within(heading).getByTestId('dataset-metric-label')).toHaveTextContent('Total Amount');
     // The heading line comes first, then the value, and nothing after it: the
     // measure label is not drawn a second time under the value.
-    const value = await screen.findByText('1964500');
     expect(heading.compareDocumentPosition(value) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(value.nextElementSibling).toBeNull();
     expect(container.textContent?.match(/Total Amount/g)).toHaveLength(1);

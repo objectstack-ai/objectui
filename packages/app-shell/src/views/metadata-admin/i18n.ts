@@ -3477,6 +3477,14 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.auto.emptyLine2': 'and its configuration appears here.',
   'engine.studio.auto.designersMissing':
     'No metadata designers are registered in this session, so this flow cannot be designed here.',
+  // objectui#12454 — the rail's groups and legend: a flow's trigger kind, and
+  // the trailing group of flows that name no object.
+  'engine.studio.auto.group.noObject': 'No object',
+  'engine.studio.auto.kind.record': 'Record-triggered',
+  'engine.studio.auto.kind.scheduled': 'Scheduled',
+  'engine.studio.auto.kind.screen': 'Screen',
+  'engine.studio.auto.kind.autolaunched': 'Autolaunched',
+  'engine.studio.auto.legend': 'Legend',
   // Access pillar
   'engine.studio.access.created': 'Permission set “{label}” created',
   'engine.studio.access.title': 'Permission matrix',
@@ -6616,6 +6624,12 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.auto.emptyLine1': '在画布里点选一个节点,',
   'engine.studio.auto.emptyLine2': '它的配置会在这里显示。',
   'engine.studio.auto.designersMissing': '本次会话没有注册任何元数据设计器,因此无法在这里设计该流程。',
+  'engine.studio.auto.group.noObject': '无对象',
+  'engine.studio.auto.kind.record': '记录触发',
+  'engine.studio.auto.kind.scheduled': '定时',
+  'engine.studio.auto.kind.screen': '交互页面',
+  'engine.studio.auto.kind.autolaunched': '自动启动',
+  'engine.studio.auto.legend': '图例',
   // Access pillar
   'engine.studio.access.created': '权限集「{label}」已创建',
   'engine.studio.access.title': '权限矩阵',

@@ -26,7 +26,7 @@ import { useAdapter, SchemaRendererProvider } from '@object-ui/react';
 import { dropServedPicklistOptions, extractDraftBody, formatMetadataError } from '@object-ui/data-objectstack';
 import type { MetadataClient } from '@object-ui/data-objectstack';
 import type { FlowRuntimeState as SpecFlowRuntimeState } from '@objectstack/spec/contracts';
-import type { I18nLabel } from '@objectstack/spec/ui';
+import { resolveI18nLabel, type I18nLabel } from '@objectstack/spec/ui';
 import { StudioChatDock, type StudioSurfaceLabel } from './StudioAiCopilot.js';
 import { nextCenterTab, type StudioCenterTab } from './centerTab.js';
 import { AUTOMATIONS_CONFIG_FOLD_WIDTH, useIsNarrowerThan, useIsWideViewport } from './wideViewport.js';
@@ -35,7 +35,8 @@ import { STUDIO_HEADER, STUDIO_HEADER_ICON_BUTTON, STUDIO_KIND_CHIP } from './st
 import { StudioInspector } from './StudioInspector.js';
 import { StudioItemHeader, StudioTab } from './StudioItemHeader.js';
 import { DATA_CONTENT_CONTAINER, DATA_TAB_FLAT_ONLY, DATA_TAB_FOLDED_ONLY } from './dataTabsFold.js';
-import { StudioRail, StudioRailRow } from './StudioRail.js';
+import { StudioRail, StudioRailGroup, StudioRailRow } from './StudioRail.js';
+import { FLOW_TRIGGER_GLYPHS, flowTriggerGlyph, groupFlowsByObject, type FlowTriggerGlyph } from './flowGrouping.js';
 import {
   GridFieldAuthoringProvider,
   cn,
@@ -111,6 +112,10 @@ import {
   MoreHorizontal,
   PanelRightClose,
   PanelRightOpen,
+  Zap,
+  Clock,
+  MousePointerClick,
+  CornerDownRight,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -199,8 +204,16 @@ import {
   FlowRuntimeContext,
   deriveFlowRunStatus,
   describeFlowRunStatus,
+  type FlowRunStatus,
+  type FlowRunStatusView,
   type FlowRuntimeRow,
 } from '../metadata-admin/previews/flow-problems.js';
+import {
+  FlowMetaPills,
+  FlowPreviewChromeProvider,
+  type FlowPreviewSection,
+  type FlowProblemTally,
+} from '../metadata-admin/previews/FlowPreview.js';
 import type { FlowRegistration } from '@objectstack/spec/api';
 import {
   clearedLabel,
@@ -5829,23 +5842,28 @@ function flowRailState(s: FlowRuntimeState): FlowRailState {
  *
  * objectui#12349 — and from the engine's registration verdict, which the flow
  * list serves beside its items. A flow the engine REFUSED has no runtime row,
- * so it used to render nothing here; it now reads an amber "Refused by the
- * engine" chip titled with the engine's `reason.message`, as sent and never
- * parsed. An `unregistered` flow reads the grey "Not running here" chip. A
- * `registered` verdict, and none at all, leave the row's reading below.
+ * so it used to render nothing here; it now reads "Refused by the engine",
+ * titled with the engine's `reason.message`, as sent and never parsed. An
+ * `unregistered` flow reads "Not running here". A `registered` verdict, and
+ * none at all, leave the row's reading below.
  *
  * The state is the run status `deriveFlowRunStatus` derives, worded by
  * `describeFlowRunStatus` — the derivation the flow header's Status pill and the
  * Problems panel read too (objectui#11779), so the three cannot disagree:
- *   - enabled and bound, or enabled with no declared trigger: a green dot +
- *     "On", titled "bound to its trigger" / "no trigger (run manually)" — a flow
- *     that runs when invoked is never called "not running";
- *   - enabled, with a declared trigger the engine has not armed: a grey
- *     "Not running here" chip — visible without hovering, since the deployment
- *     will never run it on that trigger. Its title is the platform's `reason`,
- *     verbatim (objectui#11281), or, from a backend that predates the field, the
- *     contract's own reading of the row: its trigger is not armed here;
- *   - disabled: a grey dot + "Off".
+ *   - enabled and bound, or enabled with no declared trigger: "On", titled
+ *     "bound to its trigger" / "no trigger (run manually)" — a flow that runs
+ *     when invoked is never called "not running";
+ *   - enabled, with a declared trigger the engine has not armed: "Not running
+ *     here". Its title is the platform's `reason`, verbatim (objectui#11281),
+ *     or, from a backend that predates the field, the contract's own reading of
+ *     the row: its trigger is not armed here;
+ *   - disabled: "Off".
+ *
+ * objectui#12454 — drawn as a 6 px dot, as the redesign's rail draws it: green
+ * for On, grey for Not running here, amber for Refused, a hollow ring for Off
+ * (`flowDotClass`). The words are the element's visually hidden text and the
+ * row's title (the dot no longer prints them), and the dot's own title is the
+ * reason it always carried. The rail's legend names each look.
  * Nothing here is styled as an error: a deployment policy is not a defect.
  */
 export function FlowStatusDot({
@@ -5858,34 +5876,73 @@ export function FlowStatusDot({
   registration?: FlowRegistration;
   locale: string;
 }): React.ReactElement | null {
-  const decides = registration?.state === 'refused' || registration?.state === 'unregistered';
-  if (!state && !decides) return null;
-  const status = deriveFlowRunStatus(state, undefined, registration);
-  const { label, title } = describeFlowRunStatus(status, locale);
-  if (status.kind === 'refused') {
-    return (
-      <span title={title} className="inline-flex shrink-0 items-center rounded bg-amber-500/10 px-1.5 py-px text-[10px] text-amber-700 dark:text-amber-300">
-        {label}
-      </span>
-    );
-  }
-  if (status.kind === 'not-running' || status.kind === 'unregistered') {
-    return (
-      <span title={title} className="inline-flex shrink-0 items-center rounded bg-muted px-1.5 py-px text-[10px] text-muted-foreground">
-        {label}
-      </span>
-    );
-  }
-  const enabled = status.kind !== 'off';
+  const reading = flowRailStatus(state, registration, locale);
+  if (!reading) return null;
+  const { status, view } = reading;
+  // objectui#12454 — a 6 px dot; the status words stay the element's text
+  // (visually hidden, so a reader and a search still find them) and the hover
+  // text stays the reason as it was.
   return (
-    <span title={title} className="inline-flex shrink-0 items-center gap-1">
-      <span className={'h-1.5 w-1.5 rounded-full ' + (enabled ? 'bg-emerald-500' : 'bg-muted-foreground/40')} />
-      <span className={'text-[10px] ' + (enabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground')}>
-        {label}
-      </span>
+    <span title={view.title} data-status={status.kind} className="inline-flex h-4 w-3 shrink-0 items-center justify-center">
+      <span aria-hidden className={'h-1.5 w-1.5 rounded-full ' + flowDotClass(status)} />
+      <span className="sr-only">{view.label}</span>
     </span>
   );
 }
+
+/**
+ * The rail's reading of one flow: the run status `FlowStatusDot` draws and the
+ * row's title names, or `null` when there is nothing to say — a flow the engine
+ * does not know yet and holds no verdict on (the amber "unpublished draft" chip
+ * already covers that case).
+ */
+function flowRailStatus(
+  state: FlowRailState | undefined,
+  registration: FlowRegistration | undefined,
+  locale: string,
+): { status: FlowRunStatus; view: FlowRunStatusView } | null {
+  const decides = registration?.state === 'refused' || registration?.state === 'unregistered';
+  if (!state && !decides) return null;
+  const status = deriveFlowRunStatus(state, undefined, registration);
+  return { status, view: describeFlowRunStatus(status, locale) };
+}
+
+/**
+ * The dot's look per run status (objectui#12454): green when the flow runs
+ * (bound, or run by hand), grey when this deployment does not run it, amber
+ * when the engine refused it, and a hollow ring when it is switched off.
+ * Nothing here is styled as an error: a deployment policy is not a defect.
+ */
+function flowDotClass(status: FlowRunStatus): string {
+  switch (status.kind) {
+    case 'on':
+    case 'manual':
+      return 'bg-emerald-500';
+    case 'refused':
+      return 'bg-amber-500';
+    case 'off':
+      return 'border border-muted-foreground/70';
+    default:
+      return 'bg-muted-foreground/50';
+  }
+}
+
+/** Each trigger kind's 14 px glyph and its words, in the rail rows and the legend (objectui#12454). */
+const FLOW_GLYPH_ICON: Record<FlowTriggerGlyph, LucideIcon> = {
+  record: Zap,
+  scheduled: Clock,
+  screen: MousePointerClick,
+  autolaunched: CornerDownRight,
+};
+const FLOW_GLYPH_LABEL_KEY: Record<FlowTriggerGlyph, string> = {
+  record: 'engine.studio.auto.kind.record',
+  scheduled: 'engine.studio.auto.kind.scheduled',
+  screen: 'engine.studio.auto.kind.screen',
+  autolaunched: 'engine.studio.auto.kind.autolaunched',
+};
+
+/** The React key of the trailing group, whose grouping key is the empty string. */
+const NO_OBJECT_GROUP_KEY = '__no_object__';
 
 /**
  * The engine's registration verdict on each flow of the rail's scope
@@ -5908,6 +5965,57 @@ async function readFlowRegistrations(
   } catch {
     return {};
   }
+}
+
+/**
+ * Each flow's definition in the rail's scope, by name (objectui#12454): what
+ * the rail's grouping and trigger glyphs read. Read with the drafts overlaid,
+ * so a draft-only flow, and a published one whose draft moved its trigger,
+ * group as the author's draft has them; a server that refuses that read gives
+ * the published list, and a failing list gives none, which groups every flow
+ * under "No object" rather than failing the rail.
+ */
+async function readFlowDefinitions(client: MetadataClient, packageId: string | null): Promise<Map<string, unknown>> {
+  const scope = packageId === null ? {} : { packageId };
+  const read = async (): Promise<Array<Record<string, unknown>> | null | undefined> => {
+    try {
+      return await client.withPreviewDrafts(true).list<Record<string, unknown>>('flow', scope);
+    } catch {
+      return await client.list<Record<string, unknown>>('flow', scope);
+    }
+  };
+  const definitions = new Map<string, unknown>();
+  try {
+    for (const flow of (await read()) ?? []) {
+      if (flow && typeof flow.name === 'string' && flow.name) definitions.set(flow.name, flow);
+    }
+  } catch {
+    /* no definitions: every flow groups under "No object" */
+  }
+  return definitions;
+}
+
+/**
+ * The scope's objects, name → label in the designer locale (objectui#12454):
+ * the rail's group headers and their order, and which objects count as the
+ * scope's own when a flow is grouped by the data it touches. The package's
+ * object list, as the Data rail reads it; unscoped in the package-less scope.
+ * A failing read gives an empty index, which `groupFlowsByObject` reads as
+ * "every object is the scope's".
+ */
+async function readObjectLabels(client: MetadataClient, packageId: string | null, locale: string): Promise<Map<string, string>> {
+  const labels = new Map<string, string>();
+  try {
+    const objects = await client.list<Record<string, unknown>>('object', packageId === null ? {} : { packageId });
+    for (const object of objects ?? []) {
+      if (!object || typeof object.name !== 'string' || !object.name) continue;
+      const label = resolveI18nLabel(object.label as I18nLabel | undefined, locale)?.trim();
+      labels.set(object.name, label || object.name);
+    }
+  } catch {
+    /* an empty index */
+  }
+  return labels;
 }
 
 /** The trigger the New automation dialog chose (objectui#11788). */
@@ -6000,9 +6108,8 @@ export function AutomationsPillar({
   // or the machine name. Ephemeral (AGENTS.md #8): nobody expects it back.
   const [railQuery, setRailQuery] = React.useState('');
   const railNeedle = railQuery.trim().toLowerCase();
-  const shownFlows = railNeedle
-    ? flows.filter((f) => f.label.toLowerCase().includes(railNeedle) || f.name.toLowerCase().includes(railNeedle))
-    : flows;
+  const flowMatches = (f: Surface) => f.label.toLowerCase().includes(railNeedle) || f.name.toLowerCase().includes(railNeedle);
+  const shownFlows = railNeedle ? flows.filter(flowMatches) : flows;
   // objectui#7255 — same live-pulse subscription as the sibling rails; this
   // one only replaces the flow LIST, so it needs no edit-buffer hold either.
   const metadataRefreshNonce = useMetadataRefreshNonce();
@@ -6063,6 +6170,8 @@ export function AutomationsPillar({
   const newChoiceGroup = React.useId();
   // objectui#12303 — the read-only reason the header's status switch is described by.
   const toggleReadOnlyReasonId = React.useId();
+  // objectui#12454 — the canvas hint the header used to print describes the Canvas tab.
+  const canvasHintId = React.useId();
   // objectui#11591 — keyed on the pillar's one type, as the inspector beside
   // it is, never on the open flow's: with no flow open (a deep link naming one
   // this rail does not hold, or an empty rail) a selection-keyed read found no
@@ -6099,6 +6208,17 @@ export function AutomationsPillar({
   // list's `registrations` (served beside the items, keyed by name). A flow
   // with no entry is one no engine judged, which reads as before.
   const [flowRegistrations, setFlowRegistrations] = React.useState<Record<string, FlowRegistration>>({});
+  // objectui#12454 — the rail groups flows by the object each is about and
+  // marks each with its trigger kind, both read off the flow's definition as
+  // served (`flowGrouping.ts`), with the scope's objects naming the groups.
+  const [flowDefinitions, setFlowDefinitions] = React.useState<ReadonlyMap<string, unknown>>(() => new Map());
+  const [objectLabels, setObjectLabels] = React.useState<ReadonlyMap<string, string>>(() => new Map());
+  // Which groups the author folded. Ephemeral (AGENTS.md #8), as the search is.
+  const [foldedGroups, setFoldedGroups] = React.useState<ReadonlySet<string>>(() => new Set());
+  // objectui#12454 — the tab the item header's tab row has open over the flow,
+  // and the problem tally its Problems tab carries (reported by the preview).
+  const [flowSection, setFlowSection] = React.useState<FlowPreviewSection>('canvas');
+  const [problemTally, setProblemTally] = React.useState<FlowProblemTally>({ count: 0, errors: 0 });
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -6134,15 +6254,19 @@ export function AutomationsPillar({
         // collapse back into the published rail after a package publish.
         // objectui#11862 — a draft-only flow reads as the label its `_drafts`
         // row carries, resolved in the designer locale.
-        const [items, registrations] = await Promise.all([
+        const [items, registrations, definitions, objects] = await Promise.all([
           packageId === null
             ? loadPackageLessSurfaces(client, 'flow', locale)
             : loadPackageSurfaces(client, 'flow', packageId, locale),
           readFlowRegistrations(client, packageId),
+          readFlowDefinitions(client, packageId),
+          readObjectLabels(client, packageId, locale),
         ]);
         if (cancelled) return;
         setFlows(items);
         setFlowRegistrations(registrations);
+        setFlowDefinitions(definitions);
+        setObjectLabels(objects);
         const deepLinked = resolveSurfaceDeepLink(items, initialSurface, 'flow');
         // objectui#11553 — a deep link that NAMES a flow this rail does not
         // hold opens no other flow in its place: the first flow under the name
@@ -6203,6 +6327,8 @@ export function AutomationsPillar({
         await client.save('flow', name, skeleton, { mode: 'draft', packageId: draftPackageId, ifNoneMatch: '*' });
         const item: Surface = { type: 'flow', name, label };
         setFlows((fs) => [...fs.filter((f) => f.name !== name), item]);
+        // objectui#12454 — and groups by what it was born with.
+        setFlowDefinitions((m) => new Map([...m, [name, skeleton]]));
         setCurrent(item);
         setHasDraft(true);
         setCreating(false);
@@ -6397,11 +6523,16 @@ export function AutomationsPillar({
 
   // objectui#12459 — the switch and the "off by default" sentence sit in the
   // item header's actions slot; the full-width band above the rail retires.
+  // objectui#12454 — the sentence is the switch's own: the first line of its
+  // title, and a visually hidden line right after it for a reader, instead of a
+  // second line of header text. It is not wired as the switch's description:
+  // that stays the read-only reason alone (objectui#12303, owned by #12453).
   // objectui#11272 — the switch reads and saves the open flow's own
   // document, so it waits for it: not offered over another's.
   const flowSwitchEl =
     current && flowLoaded
       ? (() => {
+          const defaultOff = t('engine.studio.auto.defaultOff', locale);
           const toggle = (
             <button
               type="button"
@@ -6415,9 +6546,7 @@ export function AutomationsPillar({
               title={
                 readOnly
                   ? undefined
-                  : flowEnabled
-                    ? t('engine.studio.auto.disableTitle', locale)
-                    : t('engine.studio.auto.enableTitle', locale)
+                  : `${defaultOff}\n${flowEnabled ? t('engine.studio.auto.disableTitle', locale) : t('engine.studio.auto.enableTitle', locale)}`
               }
               className={
                 'inline-flex h-7 items-center gap-2 rounded-md px-1 text-[12px] text-foreground hover:bg-muted disabled:opacity-50' +
@@ -6430,29 +6559,146 @@ export function AutomationsPillar({
               {flowEnabled ? t('engine.studio.auto.enabled', locale) : t('engine.studio.auto.disabled', locale)}
             </button>
           );
-          if (!readOnly) return toggle;
+          const defaultOffLine = <span className="sr-only">{defaultOff}</span>;
+          if (!readOnly)
+            return (
+              <>
+                {toggle}
+                {defaultOffLine}
+              </>
+            );
           return (
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span
-                    tabIndex={0}
-                    aria-describedby={toggleReadOnlyReasonId}
-                    data-disabled-reason=""
-                    className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  >
-                    {toggle}
-                    <span id={toggleReadOnlyReasonId} className="sr-only">
-                      {t('engine.studio.pkg.readonlyHint', locale)}
+            <>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      tabIndex={0}
+                      aria-describedby={toggleReadOnlyReasonId}
+                      data-disabled-reason=""
+                      className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                      {toggle}
+                      <span id={toggleReadOnlyReasonId} className="sr-only">
+                        {t('engine.studio.pkg.readonlyHint', locale)}
+                      </span>
                     </span>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>{t('engine.studio.pkg.readonlyHint', locale)}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+                  </TooltipTrigger>
+                  <TooltipContent>{t('engine.studio.pkg.readonlyHint', locale)}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              {defaultOffLine}
+            </>
           );
         })()
       : null;
+
+  // objectui#12454 — the open flow groups and reads by the draft on screen, so
+  // an edit to its Start node moves its row as it moves the header's Trigger.
+  const liveFlowDefinitions = React.useMemo(() => {
+    if (!current || draftFor !== `flow:${current.name}`) return flowDefinitions;
+    return new Map<string, unknown>([...flowDefinitions, [current.name, draft]]);
+  }, [flowDefinitions, current, draftFor, draft]);
+  const railGroups = React.useMemo(
+    () =>
+      groupFlowsByObject(flows, liveFlowDefinitions, objectLabels, {
+        noObjectLabel: t('engine.studio.auto.group.noObject', locale),
+        locale,
+      }),
+    [flows, liveFlowDefinitions, objectLabels, locale],
+  );
+
+  // The legend under the rail: the four trigger glyphs and the dots. Off and
+  // Refused are named only while some flow in the rail reads so.
+  const railStatusKinds = new Set(
+    flows.map((f) => flowRailStatus(flowStatus[f.name], flowRegistrations[f.name], locale)?.status.kind),
+  );
+  const legendDot = (kind: FlowRunStatus, words: string) => (
+    <span key={kind.kind} className="inline-flex items-center gap-1">
+      <span aria-hidden className={'h-1.5 w-1.5 rounded-full ' + flowDotClass(kind)} />
+      {words}
+    </span>
+  );
+  const railLegend =
+    flows.length > 0 ? (
+      <div
+        role="note"
+        aria-label={t('engine.studio.auto.legend', locale)}
+        data-testid="auto-rail-legend"
+        className="flex flex-wrap gap-x-2.5 gap-y-1 text-[10px] text-muted-foreground"
+      >
+        {FLOW_TRIGGER_GLYPHS.map((glyph) => {
+          const Glyph = FLOW_GLYPH_ICON[glyph];
+          return (
+            <span key={glyph} className="inline-flex items-center gap-1">
+              <Glyph aria-hidden className="h-3 w-3" />
+              {t(FLOW_GLYPH_LABEL_KEY[glyph], locale)}
+            </span>
+          );
+        })}
+        {legendDot({ kind: 'on' }, t('engine.studio.auto.on', locale))}
+        {legendDot({ kind: 'not-running' }, t('engine.studio.auto.notRunning', locale))}
+        {railStatusKinds.has('off') && legendDot({ kind: 'off' }, t('engine.studio.auto.off', locale))}
+        {railStatusKinds.has('refused') && legendDot({ kind: 'refused', message: '' }, t('engine.studio.auto.refused', locale))}
+      </div>
+    ) : undefined;
+
+  // objectui#12454 — the item header's meta and tab row over the open flow.
+  // The Status the meta shows is the one the preview's Problems note reads
+  // (objectui#11779): the runtime row while one is in, the draft otherwise.
+  const flowOpen = !!current && flowLoaded && isEditable;
+  // The engine keys run history by the flow's name, as the preview's Runs did.
+  const flowHasRuns = typeof draft.name === 'string' && draft.name.length > 0;
+  const section: FlowPreviewSection = flowSection === 'runs' && !flowHasRuns ? 'canvas' : flowSection;
+  const headerRunStatus = current
+    ? deriveFlowRunStatus(flowStatusRead ? (flowStatus[current.name] ?? null) : undefined, draft.status, flowRegistrations[current.name])
+    : null;
+  const flowTab = (
+    key: FlowPreviewSection,
+    label: string,
+    extra?: { title?: string; badge?: React.ReactNode; describedBy?: string },
+  ) => (
+    <StudioTab
+      key={key}
+      active={section === key}
+      onClick={() => setFlowSection(key)}
+      title={extra?.title}
+      aria-describedby={extra?.describedBy}
+      data-testid={`auto-tab-${key}`}
+    >
+      {label}
+      {extra?.badge}
+    </StudioTab>
+  );
+  const flowTabsEl =
+    flowOpen ? (
+      <>
+        {flowTab('canvas', t('engine.studio.if.tabCanvas', locale), {
+          title: t('engine.studio.auto.canvasHint', locale),
+          describedBy: canvasHintId,
+        })}
+        {flowTab('variables', t('engine.flowPreview.variables', locale))}
+        {flowHasRuns && flowTab('runs', t('engine.flowPreview.runs', locale), { title: t('engine.flowPreview.runsTitle', locale) })}
+        {flowTab('problems', t('engine.flowPreview.problems', locale), {
+          title: t('engine.flowPreview.problemsTitle', locale),
+          badge:
+            problemTally.count > 0 ? (
+              <span
+                data-testid="auto-problems-count"
+                className={
+                  'inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-[5px] text-[11px] font-semibold ' +
+                  (problemTally.errors > 0
+                    ? 'bg-destructive/15 text-destructive'
+                    : 'bg-amber-500/15 text-amber-700 dark:text-amber-300')
+                }
+              >
+                {problemTally.count}
+              </span>
+            ) : undefined,
+        })}
+        {flowTab('debug', t('engine.flowPreview.debug', locale))}
+      </>
+    ) : undefined;
 
   return (
     <div className="flex h-full flex-col">
@@ -6492,26 +6738,63 @@ export function AutomationsPillar({
             placeholder: t('engine.studio.designer.search', locale),
             testId: 'auto-rail-search',
           }}
+          footer={railLegend}
           isMobile={isMobile}
           open={railOpen}
         >
-          {shownFlows.map((f) => (
-            <StudioRailRow
-              key={f.name}
-              // objectui#11794 — the whole name, wrapped: truncation cut a
-              // flow's name to a stub in this rail's width.
-              wrap
-              active={current?.name === f.name}
-              onClick={() => {
-                setCurrent(f);
-                if (isMobile) setRailOpen(false);
-              }}
-              icon={<Workflow className="h-4 w-4 shrink-0" />}
-              trailing={<FlowStatusDot state={flowStatus[f.name]} registration={flowRegistrations[f.name]} locale={locale} />}
-            >
-              {f.label}
-            </StudioRailRow>
-          ))}
+          {/* objectui#12454 — grouped by the object each flow is about, in the
+              order of the objects' labels, "No object" last; a search filters
+              within the groups and shows every group that holds a match,
+              folded or not. Each row: its trigger glyph, its label on one
+              line (the row's title holds it whole, with its trigger kind and
+              status words — the redesign trades objectui#11794's wrap for the
+              32 px row), and its status dot. */}
+          {railGroups.map((group) => {
+            const items = railNeedle ? group.items.filter(flowMatches) : group.items;
+            if (items.length === 0) return null;
+            const groupKey = group.key || NO_OBJECT_GROUP_KEY;
+            return (
+              <StudioRailGroup
+                key={groupKey}
+                testId={`auto-rail-group-${group.key || 'none'}`}
+                label={group.label}
+                count={items.length}
+                collapsed={!railNeedle && foldedGroups.has(groupKey)}
+                onToggle={() =>
+                  setFoldedGroups((folded) => {
+                    const next = new Set(folded);
+                    if (!next.delete(groupKey)) next.add(groupKey);
+                    return next;
+                  })
+                }
+              >
+                {items.map((f) => {
+                  const active = current?.name === f.name;
+                  const glyph = flowTriggerGlyph(liveFlowDefinitions.get(f.name));
+                  const Glyph = FLOW_GLYPH_ICON[glyph];
+                  const reading = flowRailStatus(flowStatus[f.name], flowRegistrations[f.name], locale);
+                  return (
+                    <StudioRailRow
+                      key={f.name}
+                      indent
+                      active={active}
+                      data-testid={`auto-rail-row-${f.name}`}
+                      data-trigger={glyph}
+                      title={[f.label, t(FLOW_GLYPH_LABEL_KEY[glyph], locale), reading?.view.label].filter(Boolean).join(' · ')}
+                      onClick={() => {
+                        setCurrent(f);
+                        if (isMobile) setRailOpen(false);
+                      }}
+                      icon={<Glyph aria-hidden className={'h-3.5 w-3.5 shrink-0' + (active ? '' : ' text-muted-foreground')} />}
+                      trailing={<FlowStatusDot state={flowStatus[f.name]} registration={flowRegistrations[f.name]} locale={locale} />}
+                    >
+                      {f.label}
+                    </StudioRailRow>
+                  );
+                })}
+              </StudioRailGroup>
+            );
+          })}
           {flows.length > 0 && shownFlows.length === 0 && (
             <p className="px-2 py-3 text-[11px] text-muted-foreground">
               {tFormat('engine.list.emptyQuery', locale, { query: railQuery.trim() })}
@@ -6557,11 +6840,27 @@ export function AutomationsPillar({
                 ? { 'data-testid': 'auto-canvas-caption', title: `${t('designer.field.apiName', locale)}: ${current.name}` }
                 : { className: 'text-[13px] font-normal text-muted-foreground' }
             }
-            // The hint yields to the label on a narrow row: the title never truncates for it.
+            // objectui#12454 — the open flow's Trigger, Status, Run as and
+            // version, as the designer's info bar reads them. The canvas hint
+            // the row printed stays in it for a reader (visually hidden; the
+            // Canvas tab's description and title), so the row still reads it
+            // whole as objectui#11665 pins. Without designers the line says
+            // so, and yields to the label on a narrow row as it did.
             meta={
-              <span className="hidden 2xl:inline">
-                {isEditable ? t('engine.studio.auto.canvasHint', locale) : t('engine.studio.auto.designersMissing', locale)}
-              </span>
+              isEditable ? (
+                <>
+                  <span id={canvasHintId} className="sr-only">
+                    {t('engine.studio.auto.canvasHint', locale)}
+                  </span>
+                  {flowOpen && headerRunStatus && (
+                    <span data-testid="auto-flow-meta" className="inline-flex min-w-0">
+                      <FlowMetaPills draft={draft} runStatus={headerRunStatus} locale={locale} variant="header" />
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="hidden 2xl:inline">{t('engine.studio.auto.designersMissing', locale)}</span>
+              )
             }
             chips={
               hasDraft && flowLoaded ? (
@@ -6579,85 +6878,97 @@ export function AutomationsPillar({
                     {t('engine.studio.autoSaving', locale)}
                   </span>
                 )}
-                <span className="hidden text-[11px] text-muted-foreground xl:inline">{t('engine.studio.auto.defaultOff', locale)}</span>
                 {flowSwitchEl}
               </>
             }
+            tabs={flowTabsEl}
           />
-          <main className="flex min-h-0 flex-1 flex-col overflow-auto bg-muted/30 px-6 py-4">
-          {error && (
-            <StudioRefusalStrip
-              refusal={error}
-              locale={locale}
-              // objectui#11785 — "Show me" selects the named step, which opens
-              // its inspector in the right rail.
-              onShow={(target) => setSelection({ kind: target.kind, id: target.id })}
-              className="mb-3 shrink-0 px-3 py-2 text-xs"
-            />
-          )}
-          {flowHeld && (
-            <StudioHeldNotice
-              held={flowHeld}
-              locale={locale}
-              // objectui#11786 — no "Show me" while that step is the one open.
-              onShow={
-                selection?.kind === flowHeld.target.kind && selection.id === flowHeld.target.id
-                  ? undefined
-                  : (target) => setSelection({ kind: target.kind, id: target.id })
-              }
-              className="mb-3 shrink-0 px-3 py-2 text-xs"
-            />
-          )}
-          {/* `flex-1 min-h-0` so the canvas fills the pillar's full remaining
-            * height instead of shrinking to FlowCanvas's intrinsic content
-            * height and leaving a dead band below the bordered frame. */}
-          <div className="min-h-0 flex-1 rounded-lg border bg-background p-4">
-            {!current ? (
-              <div className="py-16 text-center text-sm text-muted-foreground">
-                {/* objectui#11553 — a deep link that named a flow this rail
-                    does not hold says so, instead of opening another. */}
-                {missingFlow
-                  ? tFormat('engine.studio.auto.deepLinkMissing', locale, { name: missingFlow })
-                  : t('engine.studio.auto.pick', locale)}
+          {/* objectui#12454 — the body is the flow, flush under the tab row:
+              no padded band and no bordered card around the canvas. A refusal
+              or a held edit sits above it, inside the column's gutter. */}
+          <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            {(error || flowHeld) && (
+              <div className="shrink-0 space-y-2 px-6 pb-1 pt-3">
+                {error && (
+                  <StudioRefusalStrip
+                    refusal={error}
+                    locale={locale}
+                    // objectui#11785 — "Show me" selects the named step, which opens
+                    // its inspector in the right rail.
+                    onShow={(target) => setSelection({ kind: target.kind, id: target.id })}
+                    className="shrink-0 px-3 py-2 text-xs"
+                  />
+                )}
+                {flowHeld && (
+                  <StudioHeldNotice
+                    held={flowHeld}
+                    locale={locale}
+                    // objectui#11786 — no "Show me" while that step is the one open.
+                    onShow={
+                      selection?.kind === flowHeld.target.kind && selection.id === flowHeld.target.id
+                        ? undefined
+                        : (target) => setSelection({ kind: target.kind, id: target.id })
+                    }
+                    className="shrink-0 px-3 py-2 text-xs"
+                  />
+                )}
               </div>
-            ) : loading || !flowLoaded ? (
-              // objectui#11272 — nothing of another flow's buffer under this
-              // one; after a failed load, the error above says why.
-              error && !loading ? null : (
-                <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" /> {t('engine.studio.loading', locale)}
-                </div>
-              )
-            ) : Preview ? (
-              // objectui#11779 — the open flow's runtime row, so the flow
-              // header and its Problems panel read the run status this rail
-              // reads: the row, `null` when the engine has none for this flow,
-              // nothing while no runtime answer is in.
-              <FlowRuntimeContext.Provider value={flowStatusRead ? (flowStatus[current.name] ?? null) : undefined}>
-                {/* objectui#12349 — and the engine's verdict on it, when the list served one. */}
-                <FlowRegistrationContext.Provider value={flowRegistrations[current.name]}>
-                {React.createElement(Preview, {
-                  type: current.type,
-                  name: current.name,
-                  draft,
-                  editing: true,
-                  selection,
-                  onSelectionChange: setSelection,
-                  // objectui#11124 — a read-only package gets no `onPatch`: per
-                  // the preview contract the canvas is then read-only (no add,
-                  // insert, drag or delete — each a doomed write), while node and
-                  // edge selection still open the inspector read-only below.
-                  onPatch: readOnly ? undefined : onPatch,
-                  locale,
-                })}
-                </FlowRegistrationContext.Provider>
-              </FlowRuntimeContext.Provider>
-            ) : (
-              <pre className="overflow-auto text-[11px] text-muted-foreground">
-                {JSON.stringify(draft, null, 2)}
-              </pre>
             )}
-          </div>
+            {/* `flex-1 min-h-0` so the canvas fills the pillar's full remaining
+              * height instead of shrinking to FlowCanvas's intrinsic content height. */}
+            <div className="min-h-0 flex-1">
+              {!current ? (
+                <div className="py-16 text-center text-sm text-muted-foreground">
+                  {/* objectui#11553 — a deep link that named a flow this rail
+                      does not hold says so, instead of opening another. */}
+                  {missingFlow
+                    ? tFormat('engine.studio.auto.deepLinkMissing', locale, { name: missingFlow })
+                    : t('engine.studio.auto.pick', locale)}
+                </div>
+              ) : loading || !flowLoaded ? (
+                // objectui#11272 — nothing of another flow's buffer under this
+                // one; after a failed load, the error above says why.
+                error && !loading ? null : (
+                  <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> {t('engine.studio.loading', locale)}
+                  </div>
+                )
+              ) : Preview ? (
+                // objectui#11779 — the open flow's runtime row, so the flow
+                // header and its Problems panel read the run status this rail
+                // reads: the row, `null` when the engine has none for this flow,
+                // nothing while no runtime answer is in.
+                <FlowRuntimeContext.Provider value={flowStatusRead ? (flowStatus[current.name] ?? null) : undefined}>
+                  {/* objectui#12349 — and the engine's verdict on it, when the list served one. */}
+                  <FlowRegistrationContext.Provider value={flowRegistrations[current.name]}>
+                    {/* objectui#12454 — the header holds the meta and the tabs, so the
+                        preview shows the open tab's section and draws no bar of its own. */}
+                    <FlowPreviewChromeProvider
+                      value={{ section, onSectionChange: setFlowSection, onProblemsChange: setProblemTally }}
+                    >
+                      {React.createElement(Preview, {
+                        type: current.type,
+                        name: current.name,
+                        draft,
+                        editing: true,
+                        selection,
+                        onSelectionChange: setSelection,
+                        // objectui#11124 — a read-only package gets no `onPatch`: per
+                        // the preview contract the canvas is then read-only (no add,
+                        // insert, drag or delete — each a doomed write), while node and
+                        // edge selection still open the inspector read-only below.
+                        onPatch: readOnly ? undefined : onPatch,
+                        locale,
+                      })}
+                    </FlowPreviewChromeProvider>
+                  </FlowRegistrationContext.Provider>
+                </FlowRuntimeContext.Provider>
+              ) : (
+                <pre className="h-full overflow-auto px-6 py-4 text-[11px] text-muted-foreground">
+                  {JSON.stringify(draft, null, 2)}
+                </pre>
+              )}
+            </div>
           </main>
         </div>
 
@@ -6688,6 +6999,9 @@ export function AutomationsPillar({
           onClose={selection ? () => setSelection(null) : undefined}
           closeLabel={t('engine.studio.deselect', locale)}
           footer={t('engine.studio.inspector.draftFooter', locale)}
+          // objectui#12454 — a selection's inspector brings its own padding
+          // (the metadata inspector shell); only the empty sentence takes the aside's.
+          bodyClassName={selection && inspector && current && flowLoaded ? 'p-0' : undefined}
         >
           {configBodyEl}
         </StudioInspector>

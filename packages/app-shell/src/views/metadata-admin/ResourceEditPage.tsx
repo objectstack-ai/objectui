@@ -139,7 +139,7 @@ import { validateMetadataDraft, hasClientValidator, type DraftMode } from './cli
 import { describeIssuePath, issueSlicePath, issueSliceFingerprint } from './issuePath.js';
 import { buildCreateModeBody } from './createBody.js';
 import { errorCodeIs, errorCodeIsAnyOf } from '@object-ui/types';
-import { useCanAuthorMetadata } from '../../hooks/useCanAuthorMetadata.js';
+import { useCanAuthorMetadata, useCanReadAuthoringTrail } from '../../hooks/useCanAuthorMetadata.js';
 import { environmentScopeSuffix, isEnvironmentScope, useWalledCatalogReadOnly } from './catalog-scope.js';
 import { PositionHoldersSection } from './PositionHoldersSection.js';
 
@@ -1486,6 +1486,11 @@ function MetadataResourceEditPageImpl({
   const walled = useWalledCatalogReadOnly(type);
   const walledDeciding = walled && itemWritable;
   const canWrite = itemWritable && canAuthor && !walled;
+  // objectui#12475 — History and Audit read the authoring-trail doors, which
+  // objectstack#23546 narrowed to `studio.access` / `manage_metadata`: a
+  // `setup.access`-only caller is offered neither entry, and neither sheet is
+  // mounted for that caller. Unknown fails open.
+  const canReadTrail = useCanReadAuthoringTrail();
 
   // Auto-enable design mode for designer-capable types. We do this once
   // per (type,name) navigation so the user lands in the productive
@@ -2304,10 +2309,11 @@ function MetadataResourceEditPageImpl({
               <Boxes className="h-3.5 w-3.5" />
             </Button>
           )}
-          {!createMode && (
+          {!createMode && canReadTrail && (
             <Button
               variant="ghost"
               size="sm"
+              data-testid="history-button"
               onClick={() => setOpenSheet('history')}
               title={t('engine.edit.history', locale)}
               className="h-7 w-7 p-0"
@@ -2315,10 +2321,11 @@ function MetadataResourceEditPageImpl({
               <History className="h-3.5 w-3.5" />
             </Button>
           )}
-          {!createMode && (
+          {!createMode && canReadTrail && (
             <Button
               variant="ghost"
               size="sm"
+              data-testid="audit-button"
               onClick={() => setOpenSheet('audit')}
               title={t('engine.edit.auditTab', locale)}
               className="h-7 w-7 p-0"
@@ -3231,7 +3238,7 @@ function MetadataResourceEditPageImpl({
         </Sheet>
       )}
 
-      {!createMode && (
+      {!createMode && canReadTrail && (
         <Sheet
           open={openSheet === 'history'}
           onOpenChange={(o) => !o && setOpenSheet(null)}
@@ -3266,7 +3273,7 @@ function MetadataResourceEditPageImpl({
         </Sheet>
       )}
 
-      {!createMode && (
+      {!createMode && canReadTrail && (
         <Sheet
           open={openSheet === 'audit'}
           onOpenChange={(o) => !o && setOpenSheet(null)}

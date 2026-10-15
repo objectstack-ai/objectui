@@ -3,7 +3,8 @@
  *
  * Supabase-style top bar used across the whole console:
  *   [Logo] [Product / Section]                            [actions] [user ▾]
- *   [App ▾] [Preview]                     (inside an app) [actions] [user ▾]
+ *   [App ▾] [Preview]          [Search ⌘K]                [actions] [user ▾]
+ *                       (inside an app, from `lg` up: the search is centered)
  *
  * Variants:
  *   - `app`  (default when `appName` is present): sidebar trigger + AppSwitcher
@@ -14,7 +15,10 @@
  *              (objectui#12201). An object route (its list, a view, a record)
  *              draws no crumb after the pill: the page header is the one place
  *              that page is named (objectui#12461). A dashboard, page, report
- *              or `system/*` route still draws its crumb.
+ *              or `system/*` route still draws its crumb. From `lg` up the
+ *              bar is three zones, with the search trigger centered between
+ *              the left group and the utility cluster, on every route inside
+ *              the app, `system/*` included (objectui#12472).
  *   - `home` : no breadcrumb; displays the product wordmark (from
  *              `getProductName()`, default "ObjectOS") next to the brand
  *              logo. Used by `/home`.
@@ -41,6 +45,7 @@ import {
   Avatar,
   AvatarImage,
   AvatarFallback,
+  cn,
 } from '@object-ui/components';
 import {
   Search,
@@ -472,6 +477,41 @@ export function AppHeader({
 
   const lastSegmentLabel = objectRouteTitle || extraSegments[extraSegments.length - 1]?.label || appName || '';
 
+  // objectui#12472 — inside an app, from `lg` up, the bar is three zones: the
+  // left group, the search trigger in the middle, and the utility cluster on
+  // the right. The two side zones grow from the same zero basis (`flex-1`
+  // here, `lg:flex-1` on the cluster), so the middle zone sits at the bar's
+  // center whatever either side holds. The left zone keeps `min-w-0`, and the
+  // app pill truncates inside it; the cluster never shrinks below its
+  // content (`lg:min-w-max`), so when the utilities need more than half the
+  // bar the search yields to the left instead of overlapping them. App
+  // context only, on every route inside the app, `system/*` included: the
+  // `home` / `orgs` / `studio` variants keep the search at the cluster's left
+  // edge, and below `lg` the search is the icon button in the cluster
+  // everywhere.
+  const centersSearch = isApp && hasCommandPalette;
+
+  // Search — desktop. One element, drawn in the middle zone or in the
+  // cluster's search group (see `centersSearch`).
+  const desktopSearchTrigger = (
+    <button
+      type="button"
+      data-testid="action:command-palette:open"
+      aria-label={t('console.search', { defaultValue: 'Search…' })}
+      aria-keyshortcuts="Meta+K Control+K"
+      onClick={openCommandPalette}
+      className="hidden lg:flex relative items-center gap-2 w-48 xl:w-64 h-8 px-3 text-sm rounded-md border bg-muted/50 text-muted-foreground hover:bg-muted transition-colors"
+    >
+      <Search className="h-3.5 w-3.5 shrink-0" />
+      <span className="flex-1 text-left text-xs">
+        {t('console.search', { defaultValue: 'Search…' })}
+      </span>
+      <kbd className="pointer-events-none inline-flex h-5 items-center gap-0.5 rounded border bg-background px-1.5 text-[10px] font-medium text-muted-foreground">
+        <span className="text-xs">⌘</span>K
+      </kbd>
+    </button>
+  );
+
   return (
     <div className="flex items-center justify-between w-full h-full">
       {/* ── LEFT: Logo / App / Object path ── */}
@@ -556,9 +596,11 @@ export function AppHeader({
                 only: on mobile the drawer header names the active app, so a
                 second app pill in the topbar is pure noise. The dropdown's
                 Studio row takes the Studio button's own target, so the two
-                cannot disagree (objectui#12201 item 6). */}
+                cannot disagree (objectui#12201 item 6). `min-w-0` here and
+                on the pill's button lets a long app name truncate in the
+                pill rather than spill out of the left zone (objectui#12472). */}
             {activeAppName && onAppChange ? (
-              <div className="hidden sm:flex items-center">
+              <div className="hidden sm:flex items-center min-w-0">
                 <AppSwitcher
                   activeAppName={activeAppName}
                   onAppChange={onAppChange}
@@ -649,8 +691,25 @@ export function AppHeader({
         )}
       </div>
 
-      {/* ── RIGHT: actions (grouped: search | notifications/help | preferences/account) ── */}
-      <div className="flex items-center gap-0.5 sm:gap-1 shrink-0 [&>*+*[data-topbar-group]]:ml-1 [&>[data-topbar-group]+[data-topbar-group]]:border-l [&>[data-topbar-group]+[data-topbar-group]]:border-border/60 [&>[data-topbar-group]+[data-topbar-group]]:pl-1 sm:[&>[data-topbar-group]+[data-topbar-group]]:pl-2 sm:[&>[data-topbar-group]+[data-topbar-group]]:ml-2">
+      {/* ── MIDDLE: the search, inside an app from `lg` up (objectui#12472) ── */}
+      {centersSearch && (
+        <div data-topbar-zone="search" className="hidden lg:flex shrink-0 items-center justify-center px-3">
+          {desktopSearchTrigger}
+        </div>
+      )}
+
+      {/* ── RIGHT: actions (grouped: search | notifications/help | preferences/account) ──
+          With the search centered, the search group here holds only the icon
+          button and leaves at `lg`; the three `lg:` rules keyed on
+          `data-topbar-search` keep the group after it from drawing a divider
+          next to nothing. */}
+      <div
+        className={cn(
+          'flex items-center gap-0.5 sm:gap-1 shrink-0 [&>*+*[data-topbar-group]]:ml-1 [&>[data-topbar-group]+[data-topbar-group]]:border-l [&>[data-topbar-group]+[data-topbar-group]]:border-border/60 [&>[data-topbar-group]+[data-topbar-group]]:pl-1 sm:[&>[data-topbar-group]+[data-topbar-group]]:pl-2 sm:[&>[data-topbar-group]+[data-topbar-group]]:ml-2',
+          centersSearch &&
+            'lg:flex-1 lg:min-w-max lg:justify-end lg:[&>[data-topbar-search]+[data-topbar-group]]:ml-1 lg:[&>[data-topbar-search]+[data-topbar-group]]:border-l-0 lg:[&>[data-topbar-search]+[data-topbar-group]]:pl-0',
+        )}
+      >
         {/* Offline indicator */}
         {!isOnline && (
           <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 text-xs font-medium">
@@ -672,24 +731,13 @@ export function AppHeader({
         {/* Group 1: Search */}
         {/* Only where a palette is mounted (objectui#11912) — see `hasCommandPalette`. */}
         {hasCommandPalette && (
-          <div data-topbar-group className="flex items-center gap-0.5 sm:gap-1 shrink-0">
-            {/* Search — desktop */}
-            <button
-              type="button"
-              data-testid="action:command-palette:open"
-              aria-label={t('console.search', { defaultValue: 'Search…' })}
-              aria-keyshortcuts="Meta+K Control+K"
-              onClick={openCommandPalette}
-              className="hidden lg:flex relative items-center gap-2 w-48 xl:w-64 h-8 px-3 text-sm rounded-md border bg-muted/50 text-muted-foreground hover:bg-muted transition-colors"
-            >
-              <Search className="h-3.5 w-3.5 shrink-0" />
-              <span className="flex-1 text-left text-xs">
-                {t('console.search', { defaultValue: 'Search…' })}
-              </span>
-              <kbd className="pointer-events-none inline-flex h-5 items-center gap-0.5 rounded border bg-background px-1.5 text-[10px] font-medium text-muted-foreground">
-                <span className="text-xs">⌘</span>K
-              </kbd>
-            </button>
+          <div
+            data-topbar-group
+            data-topbar-search
+            className={cn('flex items-center gap-0.5 sm:gap-1 shrink-0', centersSearch && 'lg:hidden')}
+          >
+            {/* Search — desktop, unless the middle zone draws it */}
+            {!centersSearch && desktopSearchTrigger}
 
             {/* Search — mobile/tablet */}
             <Button

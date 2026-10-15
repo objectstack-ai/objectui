@@ -42,7 +42,7 @@ import { useRecordBreadcrumbTitle } from '../context/NavigationContext.js';
 // Audit provenance renders as the one-line <RecordMetaFooter>; the other
 // framework-injected bookkeeping columns are hidden from the body outright.
 // Both sets are derived, not restated — see record-detail-system-fields.ts.
-import { deriveRecordDetailSections, MORE_DETAILS_DEFAULT_LABEL } from './recordDetailSections.js';
+import { deriveRecordDetailSections } from './recordDetailSections.js';
 import type { DataSource, FeedItem, Reaction } from '@object-ui/types';
 import type { ActionDef, ActionParamDef, ConfirmationHandler } from '@object-ui/core';
 import type { ConsoleActionDispatch } from '../consoleActionDispatch.js';
@@ -2782,7 +2782,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     //   1) sections derived from the object's `fieldGroups`;
     //   2) auto-grouping (primary + collapsible "More details").
     const sections = deriveRecordDetailSections(objectDef, {
-      moreDetails: sectionLabel(objectDef.name, 'details', t('detail.sectionMoreDetails', MORE_DETAILS_DEFAULT_LABEL)),
+      moreDetails: sectionLabel(objectDef.name, 'details', t('detail.sectionMoreDetails', 'More details')),
     });
 
     // Audit fields (created_at/created_by/updated_at/updated_by) are NOT

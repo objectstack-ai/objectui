@@ -74,9 +74,11 @@ export interface RecordDetailSectionLabels {
 }
 
 /**
- * The English heading of the "More details" section — the default text of the
- * `detail.sectionMoreDetails` bundle key, and the text a surface writes when it
- * has no translator to hand (the Studio page-create seed, which persists it).
+ * The English heading of the "More details" section, for a surface with no
+ * translator to hand: the Studio page-create seed, which persists it. It is the
+ * en text of the `detail.sectionMoreDetails` key the runtime and the preview
+ * translate (their call sites keep the literal default so `check:i18n-keys`
+ * judges it against the en pack).
  */
 export const MORE_DETAILS_DEFAULT_LABEL = 'More details';
 

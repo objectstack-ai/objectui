@@ -20,7 +20,7 @@ import { PreviewShell, PreviewErrorBoundary, PreviewMessage } from './PreviewShe
 import { OutlineStrip } from './OutlineStrip.js';
 import { SourcePageEditor } from './SourcePageEditor.js';
 import { pageKindNode } from '../../pageKindNode.js';
-import { deriveStudioDetailSections, MORE_DETAILS_DEFAULT_LABEL } from '../../recordDetailSections.js';
+import { deriveStudioDetailSections } from '../../recordDetailSections.js';
 import { PageBlockCanvas } from './PageBlockCanvas.js';
 import { InterfaceListPage } from '../../InterfaceListPage.js';
 import { t as tr, tFormat } from '../i18n.js';
@@ -296,12 +296,12 @@ export function PagePreview({ draft, editing, selection, onSelectionChange, onPa
   // The "More details" heading, resolved exactly as the running app resolves it
   // (`RecordDetailView`): the object's `_sections.details` label, else the
   // shell's `detail.sectionMoreDetails` text.
-  const { t: objectT } = useObjectTranslation();
+  const { t } = useObjectTranslation();
   const { sectionLabel } = useObjectLabel();
   const moreDetailsLabel = sectionLabel(
     String(recordSchema?.name ?? ''),
     'details',
-    objectT('detail.sectionMoreDetails', MORE_DETAILS_DEFAULT_LABEL),
+    t('detail.sectionMoreDetails', 'More details'),
   );
   const renderSchema = React.useMemo(() => {
     if (!isSlotted) return schema;

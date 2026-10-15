@@ -1041,6 +1041,38 @@ If the backend doesn't yet expose `sys_user_preference`, every call
 [User-Scoped State Persistence](../../content/docs/guide/user-state-persistence.md)
 for the full design.
 
+### Key families
+
+Some state is one row per subject, and which subjects exist is only known
+from the rows: the console keeps each object's list state under
+`ui.list.<object>`. `createObjectStackUserPreferenceFamily` loads every row
+whose key starts with a prefix, and writes one key's row at a time:
+
+```typescript
+import { createObjectStackUserPreferenceFamily, type ObjectStackAdapter } from '@object-ui/data-objectstack';
+
+declare const dataSource: ObjectStackAdapter;
+declare const user: { id: string };
+
+const lists = createObjectStackUserPreferenceFamily<{ viewOrder?: string[] }>({
+  dataSource,
+  userId: user.id,
+  prefix: 'ui.list.',
+});
+
+const rows = await lists.load();                 // { 'ui.list.account': { viewOrder: [...] }, ... }
+await lists.save('ui.list.account', { viewOrder: ['account.mine', 'account.all'] });
+```
+
+A family's `load()` joins the same shared read as the per-key adapters' loads
+issued in the same tick, so the console's slots and its families are still
+ONE request per load. That read asks for its keys or the prefix, and its
+`$top` is the key count plus `PREFERENCE_FAMILY_ROW_LIMIT` rows per prefix.
+When an answer fills that `$top`, a key whose row is missing from it reads
+its own row. Only rows whose value is a JSON object are returned. A failed
+read loads as `{}`, and a failed write is reported to `onError` and
+swallowed. A key outside the family is refused and nothing is written.
+
 ## API Reference
 
 ### ObjectStackAdapter

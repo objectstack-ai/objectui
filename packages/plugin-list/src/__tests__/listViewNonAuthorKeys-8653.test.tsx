@@ -104,6 +104,10 @@ import { ListViewSchema as ListViewMirror, ObjectGridSchema as ObjectGridMirror 
 import type { ListViewSchema } from '@object-ui/types';
 import { ListView } from '../ListView';
 
+
+/** objectui#12423 — Display is the toolbar default; this file drives the WIDE form's buttons. */
+const WIDE_TOOLBAR = { compactToolbar: false } as const;
+
 /* ═══════════════════════════════════════════════════════════════════════════
  * 1. THE CONTRACT — what the platform accepts, per key, per surface.
  *
@@ -244,7 +248,7 @@ async function renderList(overrides: Record<string, unknown>) {
   const dataSource = makeDataSource();
   render(
     <SchemaRendererProvider dataSource={dataSource as never}>
-      <ListView schema={{ ...BASE_SCHEMA, ...overrides } as ListViewSchema} dataSource={dataSource as never} />
+      <ListView schema={{ ...WIDE_TOOLBAR, ...BASE_SCHEMA, ...overrides } as ListViewSchema} dataSource={dataSource as never} />
     </SchemaRendererProvider>,
   );
   await waitFor(() => expect(dataSource.getObjectSchema).toHaveBeenCalled());

@@ -48,6 +48,10 @@ import { render, waitFor, screen, fireEvent } from '@testing-library/react';
 import { ListView } from '../ListView';
 import { SchemaRendererProvider } from '@object-ui/react';
 
+
+/** objectui#12423 — Display is the toolbar default; this file drives the WIDE form's buttons. */
+const WIDE_TOOLBAR = { compactToolbar: false } as const;
+
 let captured: Array<Record<string, any>> = [];
 
 ComponentRegistry.register(
@@ -80,7 +84,7 @@ const renderSwitcher = (view: Record<string, unknown>) => {
   const dataSource = makeDataSource() as any;
   const utils = render(
     <SchemaRendererProvider dataSource={dataSource}>
-      <ListView schema={{ ...BASE, ...view } as never} dataSource={dataSource} showViewSwitcher />
+      <ListView schema={{ ...WIDE_TOOLBAR, ...BASE, ...view } as never} dataSource={dataSource} showViewSwitcher />
     </SchemaRendererProvider>,
   );
   const trigger = screen.queryByTestId('view-switcher-dropdown');
@@ -191,7 +195,7 @@ describe('the capability gate resolves `chart` from a declared chart block (obje
     });
     const { rerender } = render(
       <SchemaRendererProvider dataSource={dataSource}>
-        <ListView schema={view({}) as never} dataSource={dataSource} showViewSwitcher />
+        <ListView schema={{ ...WIDE_TOOLBAR, ...view({}) } as never} dataSource={dataSource} showViewSwitcher />
       </SchemaRendererProvider>,
     );
     expect(queryViewOption('Chart')).toBeNull();
@@ -199,7 +203,7 @@ describe('the capability gate resolves `chart` from a declared chart block (obje
     rerender(
       <SchemaRendererProvider dataSource={dataSource}>
         <ListView
-          schema={view({ chart: { dataset: 'ds', values: ['n'] } }) as never}
+          schema={{ ...WIDE_TOOLBAR, ...view({ chart: { dataset: 'ds', values: ['n'] } }) } as never}
           dataSource={dataSource}
           showViewSwitcher
         />
@@ -260,7 +264,7 @@ describe('the gate and the render branch answer from one source (objectui#7544)'
     const dataSource = makeDataSource() as any;
     render(
       <SchemaRendererProvider dataSource={dataSource}>
-        <ListView schema={{ ...BASE, viewType: 'chart', ...view } as never} dataSource={dataSource} />
+        <ListView schema={{ ...WIDE_TOOLBAR, ...BASE, viewType: 'chart', ...view } as never} dataSource={dataSource} />
       </SchemaRendererProvider>,
     );
     await waitFor(() => expect(captured.length).toBeGreaterThan(0));

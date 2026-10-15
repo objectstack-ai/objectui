@@ -58,6 +58,10 @@ import { SchemaRendererProvider } from '@object-ui/react';
 import type { DataSource, ListViewSchema } from '@object-ui/types';
 import { ListView } from '../ListView';
 
+
+/** objectui#12423 — Display is the toolbar default; this file drives the WIDE form's buttons. */
+const WIDE_TOOLBAR = { compactToolbar: false } as const;
+
 afterEach(() => cleanup());
 
 /** The row-colour config the view last handed its grid. */
@@ -95,7 +99,7 @@ function mount(schemaExtra: Record<string, unknown>, props: Record<string, unkno
   const schema = { type: 'list-view', objectName: OBJECT, ...schemaExtra } as unknown as ListViewSchema;
   render(
     <SchemaRendererProvider dataSource={dataSource as unknown as DataSource}>
-      <ListView schema={schema} dataSource={dataSource as unknown as DataSource} {...props} />
+      <ListView schema={{ ...WIDE_TOOLBAR, ...schema }} dataSource={dataSource as unknown as DataSource} {...props} />
     </SchemaRendererProvider>,
   );
   return dataSource;

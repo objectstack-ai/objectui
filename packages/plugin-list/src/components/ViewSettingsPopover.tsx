@@ -1,23 +1,25 @@
 /**
- * ViewSettingsPopover
+ * ViewSettingsPopover — the list toolbar's "Display" control.
  *
- * UX Sprint 2 (P1-4): consolidates four small toolbar controls that the
- * UX audit flagged as "too many top-level chips":
- *   - Group by
- *   - Row color
+ * Since objectui#12423 this is the DEFAULT desktop shape of the list toolbar:
+ * the bar keeps Filter, Sort, Display and Search, and everything else sits
+ * here, in this order —
+ *   - Layout (the visualization switcher; only when the list offers a choice)
+ *   - Group, Row color, Hide fields
  *   - Density
- *   - Hide fields
+ *   - Row numbers (a session-only switch, grid only)
+ *   - Edit inline (a switch, grid only, when the principal may edit)
+ *   - footer: Reset to view default · Refresh · Export
  *
- * into a single "View settings" popover keyed by a gear icon. Filter and
- * Sort remain top-level because they're primary data operations, but the
- * appearance/grouping cluster collapses behind one trigger that opens an
- * accordion-style sheet.
+ * It began as UX Sprint 2 (P1-4)'s "View settings" gear behind
+ * `compactToolbar: true`; the wide form — one toolbar button per control — is
+ * what a host gets with `compactToolbar: false`, and ListView.tsx keeps it.
+ * Content is duplicated between the two forms: change one, change both.
  *
- * Implementation notes:
- *   - Each section is collapsible (default open) so users can focus on one.
- *   - Content is duplicated from the original inline popovers; if you change
- *     behavior, update both this and the legacy code path in ListView.tsx
- *     (kept behind `appearance.compactToolbar: false` for back-compat).
+ * Every control persists exactly what its wide-form twin persists; this
+ * component writes nothing itself. The trigger's count is the number of
+ * settings that differ from the view's own (the host computes it), and Reset
+ * hands every one of them back.
  *
  * @module
  */
@@ -35,6 +37,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Switch,
 } from '@object-ui/components';
 import {
   Settings2,
@@ -42,6 +45,10 @@ import {
   Rows3,
   Rows2,
   ChevronDown,
+  RotateCw,
+  Download,
+  Loader2,
+  Undo2,
 } from 'lucide-react';
 
 export interface ViewSettingsField {
@@ -57,6 +64,12 @@ export interface ViewSettingsDensity {
 export interface ViewSettingsPopoverProps {
   t: (key: string, opts?: any) => string;
   allFields: ViewSettingsField[];
+
+  /**
+   * The Layout row: the visualization switcher, drawn as handed. The host
+   * passes it only when the list offers more than one visualization.
+   */
+  layout?: React.ReactNode;
 
   showGroup?: boolean;
   groupingConfig?: any;
@@ -74,6 +87,13 @@ export interface ViewSettingsPopoverProps {
   updateHiddenFields?: (next: Set<string>) => void;
 
   /**
+   * Row numbers on the grid's leading cell — a session-only setting the host
+   * holds in memory (objectui#12423). Offered only when `setRowNumbers` is.
+   */
+  rowNumbers?: boolean;
+  setRowNumbers?: (next: boolean) => void;
+
+  /**
    * Record editing — toggle the grid's inline-edit mode. `setInlineEdit` hands
    * the change to the host, which decides what it does with it; the console
    * keeps it session-only and writes nothing to the view (objectui#5144,
@@ -82,6 +102,25 @@ export interface ViewSettingsPopoverProps {
   showInlineEdit?: boolean;
   inlineEdit?: boolean;
   setInlineEdit?: (next: boolean) => void;
+
+  /**
+   * How many of the settings above differ from the view's own. Drawn as the
+   * trigger's count; zero draws none. The host computes it — only it knows
+   * what the view declared.
+   */
+  changedCount?: number;
+  /** Hand every changed setting back to the view's own. Drawn when wired. */
+  onReset?: () => void;
+
+  /** Footer: re-fetch the list. Drawn when wired. */
+  onRefresh?: () => void;
+  refreshing?: boolean;
+
+  /** Footer: one export entry per format. Drawn when there is a format. */
+  exportFormats?: string[];
+  onExport?: (format: string) => void;
+  exportBusy?: boolean;
+  exportError?: string | null;
 }
 
 interface SectionProps {
@@ -179,10 +218,38 @@ function ColorFieldPicker({
   );
 }
 
+/**
+ * One on/off row of the panel: the words on the left, a `role="switch"` on the
+ * right. The words are the switch's `<label>`, so a click on either toggles it
+ * and the switch is named by them.
+ */
+function SwitchRow({
+  label,
+  checked,
+  onCheckedChange,
+  testId,
+}: {
+  label: string;
+  checked: boolean;
+  onCheckedChange: (next: boolean) => void;
+  testId: string;
+}) {
+  const id = React.useId();
+  return (
+    <div className="flex items-center justify-between gap-3 border-b px-3 py-2 last:border-b-0">
+      <label htmlFor={id} className="text-xs font-medium text-foreground/80 cursor-pointer">
+        {label}
+      </label>
+      <Switch id={id} checked={checked} onCheckedChange={onCheckedChange} data-testid={testId} />
+    </div>
+  );
+}
+
 export function ViewSettingsPopover(props: ViewSettingsPopoverProps) {
   const {
     t,
     allFields,
+    layout,
     showGroup,
     groupingConfig,
     setGroupingConfig,
@@ -194,26 +261,29 @@ export function ViewSettingsPopover(props: ViewSettingsPopoverProps) {
     showHideFields,
     hiddenFields,
     updateHiddenFields,
+    rowNumbers,
+    setRowNumbers,
     showInlineEdit,
     inlineEdit,
     setInlineEdit,
+    changedCount = 0,
+    onReset,
+    onRefresh,
+    refreshing,
+    exportFormats,
+    onExport,
+    exportBusy,
+    exportError,
   } = props;
 
   const [open, setOpen] = React.useState(false);
 
-  // Active count: how many of the 4 controls have non-default state.
-  const activeCount = [
-    !!groupingConfig?.fields?.length,
-    !!rowColorConfig?.field,
-    density && density.mode !== 'compact',
-    (hiddenFields?.size ?? 0) > 0,
-    !!inlineEdit,
-  ].filter(Boolean).length;
-
   const DensityIcon =
     density?.mode === 'compact' ? Rows4 : density?.mode === 'comfortable' ? Rows3 : Rows2;
 
-  const triggerLabel = t('list.viewSettings', { defaultValue: 'View settings' });
+  const triggerLabel = t('list.display', { defaultValue: 'Display' });
+  const hasExport = !!onExport && !!exportFormats && exportFormats.length > 0;
+  const hasFooter = !!onReset || !!onRefresh || hasExport;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -225,94 +295,129 @@ export function ViewSettingsPopover(props: ViewSettingsPopoverProps) {
           title={triggerLabel}
           className={cn(
             'h-7 px-2 text-muted-foreground hover:text-primary text-xs transition-colors duration-150',
-            activeCount > 0 && 'text-foreground font-medium',
+            changedCount > 0 && 'text-foreground font-medium',
           )}
-          data-testid="view-settings-trigger"
+          data-testid="toolbar-display-trigger"
         >
           <Settings2 className="h-3.5 w-3.5 sm:mr-1.5" />
           <span className="hidden sm:inline">{triggerLabel}</span>
-          {activeCount > 0 && (
-            <span className="ml-1 flex h-4 min-w-[16px] items-center justify-center text-[10px] font-medium text-muted-foreground tabular-nums">
-              {activeCount}
+          {changedCount > 0 && (
+            <span
+              className="ml-1 flex h-4 min-w-[16px] items-center justify-center text-[10px] font-medium text-muted-foreground tabular-nums"
+              data-testid="toolbar-display-count"
+            >
+              {changedCount}
             </span>
           )}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-0" data-testid="view-settings-content">
-        <div className="px-3 py-2 border-b">
-          <div className="text-sm font-semibold">{triggerLabel}</div>
-          <div className="text-[11px] text-muted-foreground">
-            {t('list.viewSettingsHint', {
-              defaultValue: 'Grouping, color, density, and visible fields. Applies to everyone who uses this view.',
-            })}
-          </div>
-        </div>
+        <div className="max-h-[min(70vh,560px)] overflow-y-auto">
+          {layout && (
+            <div className="flex items-center justify-between gap-3 border-b px-3 py-2" data-testid="display-layout-row">
+              <span className="text-xs font-medium text-foreground/80">
+                {t('list.layout', { defaultValue: 'Layout' })}
+              </span>
+              {layout}
+            </div>
+          )}
 
-        {showGroup && setGroupingConfig && (
-          <Section
-            title={t('list.group', { defaultValue: 'Group' })}
-            badge={groupingConfig?.fields?.length || 0}
-            onClear={groupingConfig ? () => setGroupingConfig(undefined) : undefined}
-            clearLabel={t('list.clear', { defaultValue: 'Clear' })}
-          >
-            <GroupingEditor
-              value={groupingConfig as any}
-              fieldOptions={allFields.map((f) => ({ value: f.name, label: f.label || f.name }))}
-              maxLevels={3}
-              labels={{
-                addGroup: t('list.addGroup', 'Add group field'),
-                collapseTitle: t('list.collapsedByDefault', 'Collapsed by default'),
-                removeTitle: t('list.removeGroup', 'Remove'),
-              }}
-              onChange={(next) => setGroupingConfig(next as any)}
-            />
-          </Section>
-        )}
+          {showGroup && setGroupingConfig && (
+            <Section
+              title={t('list.group', { defaultValue: 'Group' })}
+              badge={groupingConfig?.fields?.length || 0}
+              onClear={groupingConfig ? () => setGroupingConfig(undefined) : undefined}
+              clearLabel={t('list.clear', { defaultValue: 'Clear' })}
+            >
+              <GroupingEditor
+                value={groupingConfig as any}
+                fieldOptions={allFields.map((f) => ({ value: f.name, label: f.label || f.name }))}
+                maxLevels={3}
+                labels={{
+                  addGroup: t('list.addGroup', 'Add group field'),
+                  collapseTitle: t('list.collapsedByDefault', 'Collapsed by default'),
+                  removeTitle: t('list.removeGroup', 'Remove'),
+                }}
+                onChange={(next) => setGroupingConfig(next as any)}
+              />
+            </Section>
+          )}
 
-        {/* `list.rowColor` names the SECTION; `list.color` is the compact
-            toolbar-BUTTON label for the same feature — ListView renders the
-            button with `list.color` and the panel it opens with
-            `list.rowColor`. This Section is that panel's counterpart on the
-            collapsed/mobile surface, so it takes the panel's key
-            (objectui#4118). */}
-        {showColor && setRowColorConfig && (
-          <Section
-            title={t('list.rowColor', { defaultValue: 'Row Color' })}
-            onClear={rowColorConfig ? () => setRowColorConfig(undefined) : undefined}
-            clearLabel={t('list.clear', { defaultValue: 'Clear' })}
-            defaultOpen={!!rowColorConfig}
-          >
-            <label className="block text-[11px] text-muted-foreground mb-1">
-              {t('list.colorByField', { defaultValue: 'Color by field' })}
-            </label>
-            <ColorFieldPicker
-              value={rowColorConfig?.field || ''}
-              options={[
-                { value: '', label: t('list.none', { defaultValue: 'None' }) },
-                ...allFields.map((field) => ({ value: field.name, label: field.label || field.name })),
-              ]}
-              onPick={(field) => {
-                if (!field) {
-                  setRowColorConfig(undefined);
-                } else {
-                  setRowColorConfig({ field, colors: rowColorConfig?.colors || {} });
-                }
-              }}
-            />
-          </Section>
-        )}
+          {/* `list.rowColor` names the SECTION; `list.color` is the wide
+              toolbar-BUTTON label for the same feature — ListView renders the
+              button with `list.color` and the panel it opens with
+              `list.rowColor`. This Section is that panel's counterpart here,
+              so it takes the panel's key (objectui#4118). */}
+          {showColor && setRowColorConfig && (
+            <Section
+              title={t('list.rowColor', { defaultValue: 'Row Color' })}
+              onClear={rowColorConfig ? () => setRowColorConfig(undefined) : undefined}
+              clearLabel={t('list.clear', { defaultValue: 'Clear' })}
+              defaultOpen={!!rowColorConfig}
+            >
+              <label className="block text-[11px] text-muted-foreground mb-1">
+                {t('list.colorByField', { defaultValue: 'Color by field' })}
+              </label>
+              <ColorFieldPicker
+                value={rowColorConfig?.field || ''}
+                options={[
+                  { value: '', label: t('list.none', { defaultValue: 'None' }) },
+                  ...allFields.map((field) => ({ value: field.name, label: field.label || field.name })),
+                ]}
+                onPick={(field) => {
+                  if (!field) {
+                    setRowColorConfig(undefined);
+                  } else {
+                    setRowColorConfig({ field, colors: rowColorConfig?.colors || {} });
+                  }
+                }}
+              />
+            </Section>
+          )}
 
-        {showDensity && density && (
-          <Section
-            title={t('grid.toolbar.densityMode', { defaultValue: 'Density' })}
-            defaultOpen={density.mode !== 'compact'}
-          >
-            <div className="flex items-center gap-2">
+          {showHideFields && hiddenFields && updateHiddenFields && (
+            <Section
+              title={t('list.hideFieldsTitle', { defaultValue: 'Hide Fields' })}
+              badge={hiddenFields.size}
+              onClear={hiddenFields.size > 0 ? () => updateHiddenFields(new Set()) : undefined}
+              clearLabel={t('list.showAll', { defaultValue: 'Show all' })}
+              defaultOpen={hiddenFields.size > 0}
+            >
+              <div className="max-h-48 overflow-y-auto space-y-0.5">
+                {allFields.map((field) => (
+                  <label
+                    key={field.name}
+                    className="flex items-center gap-2 text-xs py-1 px-1 rounded hover:bg-muted cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!hiddenFields.has(field.name)}
+                      onChange={() => {
+                        const next = new Set(hiddenFields);
+                        if (next.has(field.name)) next.delete(field.name);
+                        else next.add(field.name);
+                        updateHiddenFields(next);
+                      }}
+                      className="rounded border-input"
+                    />
+                    <span className="truncate">{field.label || field.name}</span>
+                  </label>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {showDensity && density && (
+            <div className="flex items-center justify-between gap-3 border-b px-3 py-2">
+              <span className="text-xs font-medium text-foreground/80">
+                {t('grid.toolbar.densityMode', { defaultValue: 'Density' })}
+              </span>
               <Button
                 variant="outline"
                 size="sm"
                 className="h-7 gap-1.5"
                 onClick={density.cycle}
+                title={t('grid.toolbar.densityCycleShortHint', { defaultValue: 'Click to cycle' })}
                 data-testid="view-settings-density-cycle"
               >
                 <DensityIcon className="h-3.5 w-3.5" />
@@ -324,67 +429,82 @@ export function ViewSettingsPopover(props: ViewSettingsPopoverProps) {
                       : t('grid.toolbar.densitySpacious', { defaultValue: 'Spacious' })}
                 </span>
               </Button>
-              <span className="text-[11px] text-muted-foreground">
-                {t('grid.toolbar.densityCycleShortHint', {
-                  defaultValue: 'Click to cycle',
-                })}
-              </span>
             </div>
-          </Section>
-        )}
+          )}
 
-        {showInlineEdit && setInlineEdit && (
-          <Section
-            title={t('list.recordEditingTitle', { defaultValue: 'Record editing' })}
-            defaultOpen={!!inlineEdit}
-          >
-            <label className="flex items-center gap-2 text-xs py-1 px-1 rounded hover:bg-muted cursor-pointer">
-              <input
-                type="checkbox"
-                checked={!!inlineEdit}
-                onChange={() => setInlineEdit(!inlineEdit)}
-                className="rounded border-input"
-                data-testid="view-settings-inline-edit"
-              />
-              <span>
-                {t('list.inlineEditLabel', {
-                  defaultValue: 'Edit records inline (click a cell to edit)',
-                })}
-              </span>
-            </label>
-          </Section>
-        )}
+          {setRowNumbers && (
+            <SwitchRow
+              label={t('list.rowNumbers', { defaultValue: 'Row numbers' })}
+              checked={!!rowNumbers}
+              onCheckedChange={setRowNumbers}
+              testId="display-row-numbers-toggle"
+            />
+          )}
 
-        {showHideFields && hiddenFields && updateHiddenFields && (
-          <Section
-            title={t('list.hideFieldsTitle', { defaultValue: 'Hide Fields' })}
-            badge={hiddenFields.size}
-            onClear={hiddenFields.size > 0 ? () => updateHiddenFields(new Set()) : undefined}
-            clearLabel={t('list.showAll', { defaultValue: 'Show all' })}
-            defaultOpen={hiddenFields.size > 0}
-          >
-            <div className="max-h-48 overflow-y-auto space-y-0.5">
-              {allFields.map((field) => (
-                <label
-                  key={field.name}
-                  className="flex items-center gap-2 text-xs py-1 px-1 rounded hover:bg-muted cursor-pointer"
+          {showInlineEdit && setInlineEdit && (
+            <SwitchRow
+              label={t('list.inlineEditShort', { defaultValue: 'Edit inline' })}
+              checked={!!inlineEdit}
+              onCheckedChange={setInlineEdit}
+              testId="toolbar-inline-edit-toggle"
+            />
+          )}
+        </div>
+
+        {hasFooter && (
+          <div className="flex flex-wrap items-center gap-1 border-t bg-muted/30 px-2 py-1.5" data-testid="display-footer">
+            {onReset && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                disabled={changedCount === 0}
+                onClick={onReset}
+                data-testid="display-reset-button"
+              >
+                <Undo2 className="h-3.5 w-3.5 mr-1.5" />
+                {t('list.resetToViewDefault', { defaultValue: 'Reset to view default' })}
+              </Button>
+            )}
+            <div className="ml-auto flex items-center gap-1">
+              {onRefresh && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
+                  onClick={onRefresh}
+                  disabled={refreshing}
+                  title={t('list.refresh', { defaultValue: 'Refresh' })}
+                  aria-label={t('list.refresh', { defaultValue: 'Refresh' })}
+                  data-testid="refresh-button"
                 >
-                  <input
-                    type="checkbox"
-                    checked={!hiddenFields.has(field.name)}
-                    onChange={() => {
-                      const next = new Set(hiddenFields);
-                      if (next.has(field.name)) next.delete(field.name);
-                      else next.add(field.name);
-                      updateHiddenFields(next);
-                    }}
-                    className="rounded border-input"
-                  />
-                  <span className="truncate">{field.label || field.name}</span>
-                </label>
-              ))}
+                  <RotateCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
+                </Button>
+              )}
+              {hasExport &&
+                exportFormats!.map((format) => (
+                  <Button
+                    key={format}
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    disabled={exportBusy}
+                    onClick={() => onExport!(format)}
+                    data-testid={`display-export-${format}`}
+                  >
+                    {exportBusy
+                      ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                      : <Download className="h-3.5 w-3.5 mr-1.5" />}
+                    {t('list.exportAs', { format: format.toUpperCase(), defaultValue: `Export as ${format.toUpperCase()}` })}
+                  </Button>
+                ))}
             </div>
-          </Section>
+            {exportError && (
+              <div className="basis-full px-1 pt-1 text-xs text-destructive" role="alert">
+                {exportError}
+              </div>
+            )}
+          </div>
         )}
       </PopoverContent>
     </Popover>

@@ -41,6 +41,10 @@ import { render, screen } from '@testing-library/react';
 import { ListView } from '../ListView';
 import { SchemaRendererProvider } from '@object-ui/react';
 
+
+/** objectui#12423 — Display is the toolbar default; this file drives the WIDE form's buttons. */
+const WIDE_TOOLBAR = { compactToolbar: false } as const;
+
 const makeDataSource = () =>
   ({
     find: vi.fn().mockResolvedValue([]),
@@ -78,7 +82,7 @@ const chromeDrawn = (view: Record<string, unknown>) => {
   const dataSource = makeDataSource();
   render(
     <SchemaRendererProvider dataSource={dataSource}>
-      <ListView schema={{ ...BASE, ...view } as never} dataSource={dataSource} showViewSwitcher />
+      <ListView schema={{ ...WIDE_TOOLBAR, ...BASE, ...view } as never} dataSource={dataSource} showViewSwitcher />
     </SchemaRendererProvider>,
   );
   return Boolean(anySwitcher());
@@ -144,6 +148,7 @@ describe('the switcher is drawn for the RESOLVED list, not the whitelist (object
         <ListView
           schema={
             {
+              ...WIDE_TOOLBAR,
               ...BASE,
               appearance: { allowedVisualizations: ['grid', 'kanban'] },
               kanban: { groupByField: 'stage' },

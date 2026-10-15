@@ -834,14 +834,15 @@ const fr = {
     print: "Imprimer",
     hideFieldsTitle: "Masquer les champs",
     dataLimitReached: "Les {{limit}} premiers enregistrements sont affichés. Il peut y avoir plus de données disponibles.",
-    viewSettings: "Paramètres de vue",
-    viewSettingsHint: "Regroupement, couleur, densité et champs visibles. S’applique à tous les utilisateurs de cette vue.",
+    display: "Affichage",
+    layout: "Disposition",
+    rowNumbers: "Numéros de ligne",
+    resetToViewDefault: "Rétablir les valeurs par défaut de la vue",
     addGroup: "Ajouter un champ de groupe",
     collapsedByDefault: "Réduit par défaut",
     removeGroup: "Supprimer",
     inlineEditShort: "Édition en ligne",
     inlineEditLabel: "Modifier les enregistrements en ligne (cliquez sur une cellule pour modifier)",
-    recordEditingTitle: "Modification des enregistrements",
   },
   managedByBadge: {
     systemWritable: {

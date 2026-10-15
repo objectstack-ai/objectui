@@ -123,6 +123,10 @@ function listFor(schemaExtra: Record<string, unknown>, props: Record<string, unk
     userActions: { hideFields: true, rowColor: true },
     // Derived from the definition's select fields, so they also say when it has loaded.
     userFilters: { element: 'dropdown' },
+    // objectui#12423 — the Display form is the toolbar's default; these cases
+    // reach the WIDE form's per-control popovers unless they set
+    // `compactToolbar: true` themselves.
+    compactToolbar: false,
     ...schemaExtra,
   } as unknown as ListViewSchema;
   return <ListView schema={schema} dataSource={dataSource} {...props} />;
@@ -183,8 +187,9 @@ async function inPopover<T>(trigger: HTMLElement, read: (content: HTMLElement) =
 const toolbarButton = (name: RegExp) => screen.getByRole('button', { name });
 
 function checkboxLabels(scope: HTMLElement): string[] {
+  // The Display panel's Edit inline entry is a `role="switch"` button since
+  // objectui#12423, so every checkbox here is a field's.
   return Array.from(scope.querySelectorAll('input[type="checkbox"]'))
-    .filter((box) => box.getAttribute('data-testid') !== 'view-settings-inline-edit')
     .map((box) => text(box.closest('label')));
 }
 
@@ -210,9 +215,10 @@ const FIELD_LIST_TRIGGERS: Record<'wide' | 'compact', string[]> = {
   // The Filter panel (`filterFields`), the Sort picker (`sortFields`), and
   // the three `allFields` lists: hide fields, the Group editor, Row color.
   wide: ['Color', 'Filter', 'Group', 'Hide fields', 'Sort'],
-  // The compact toolbar folds Group, Row color and Hide fields into View
-  // settings, which reads `allFields` for all three.
-  compact: ['Filter', 'Sort', 'View settings'],
+  // The compact toolbar folds Group, Row color and Hide fields into Display
+  // (objectui#12423; "View settings" before it), which reads `allFields` for
+  // all three.
+  compact: ['Display', 'Filter', 'Sort'],
 };
 
 interface Sweep {
@@ -291,7 +297,7 @@ interface Position {
   read: () => Promise<string[]>;
 }
 
-const viewSettings = () => screen.getByTestId('view-settings-trigger');
+const viewSettings = () => screen.getByTestId('toolbar-display-trigger');
 
 const POSITIONS: Position[] = [
   {

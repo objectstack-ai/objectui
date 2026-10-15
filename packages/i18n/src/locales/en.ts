@@ -1061,14 +1061,15 @@ const en = {
     print: 'Print',
     hideFieldsTitle: 'Hide Fields',
     dataLimitReached: 'Showing first {{limit}} records. More data may be available.',
-    viewSettings: 'View settings',
-    viewSettingsHint: 'Grouping, color, density, and visible fields. Applies to everyone who uses this view.',
+    display: 'Display',
+    layout: 'Layout',
+    rowNumbers: 'Row numbers',
+    resetToViewDefault: 'Reset to view default',
     addGroup: 'Add group field',
     collapsedByDefault: 'Collapsed by default',
     removeGroup: 'Remove',
     inlineEditShort: 'Edit inline',
     inlineEditLabel: 'Edit records inline (click a cell to edit)',
-    recordEditingTitle: 'Record editing',
   },
   managedByBadge: {
     config: {

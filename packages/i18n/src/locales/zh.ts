@@ -834,14 +834,15 @@ const zh = {
     print: '打印',
     hideFieldsTitle: '隐藏字段',
     dataLimitReached: '显示前 {{limit}} 条记录。可能有更多数据。',
-    viewSettings: '视图设置',
-    viewSettingsHint: '分组、行颜色、密度与可见字段。对所有使用该视图的用户生效。',
+    display: '显示',
+    layout: '布局',
+    rowNumbers: '行号',
+    resetToViewDefault: '恢复视图默认设置',
     addGroup: '添加分组字段',
     collapsedByDefault: '默认折叠',
     removeGroup: '删除',
     inlineEditShort: '行内编辑',
     inlineEditLabel: '行内编辑记录(点击单元格进行编辑)',
-    recordEditingTitle: '记录编辑',
   },
   managedByBadge: {
     config: {

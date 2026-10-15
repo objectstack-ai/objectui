@@ -72,7 +72,7 @@ function renderPopover(config: RowColor) {
       setRowColorConfig={setRowColorConfig}
     />,
   );
-  fireEvent.click(screen.getByTestId('view-settings-trigger'));
+  fireEvent.click(screen.getByTestId('toolbar-display-trigger'));
   // With no config the section starts collapsed, as it did with the native control.
   if (!config) fireEvent.click(screen.getByRole('button', { name: 'Row Color' }));
   return { setRowColorConfig, trigger: screen.getByTestId('color-field-select') };

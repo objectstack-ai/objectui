@@ -55,6 +55,10 @@ import { ListView } from '../ListView';
 import { SchemaRendererProvider } from '@object-ui/react';
 import type { ListViewSchema } from '@object-ui/types';
 
+
+/** objectui#12423 — Display is the toolbar default; this file drives the WIDE form's buttons. */
+const WIDE_TOOLBAR = { compactToolbar: false } as const;
+
 const TOTAL = 40;
 const PAGE_SIZE = 2;
 
@@ -132,7 +136,7 @@ afterEach(() => { cleanup(); lastGridProps = null; lastKanbanProps = null; });
 function renderList(ds: any, overrides: Partial<ListViewSchema> = {}) {
   return render(
     <SchemaRendererProvider dataSource={ds}>
-      <ListView schema={{ ...schema, ...overrides } as any} dataSource={ds} showViewSwitcher />
+      <ListView schema={{ ...WIDE_TOOLBAR, ...schema, ...overrides } as any} dataSource={ds} showViewSwitcher />
     </SchemaRendererProvider>,
   );
 }
@@ -194,7 +198,7 @@ describe('objectui#7394 — a visualization switch does not re-issue the same qu
     const ds = makeDataSource();
     const { rerender } = render(
       <SchemaRendererProvider dataSource={ds}>
-        <ListView schema={schema as any} dataSource={ds} showViewSwitcher />
+        <ListView schema={{ ...WIDE_TOOLBAR, ...schema } as any} dataSource={ds} showViewSwitcher />
       </SchemaRendererProvider>,
     );
     await waitFor(() => expect(ds.find).toHaveBeenCalledTimes(1));
@@ -210,7 +214,7 @@ describe('objectui#7394 — a visualization switch does not re-issue the same qu
       rerender(
         <SchemaRendererProvider dataSource={ds}>
           <ListView
-            schema={{ ...schema, filter: [['status', '=', 'done']] } as any}
+            schema={{ ...WIDE_TOOLBAR, ...schema, filter: [['status', '=', 'done']] } as any}
             dataSource={ds}
             showViewSwitcher
           />

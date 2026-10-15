@@ -5900,7 +5900,11 @@ export function DataPillar({
                 className="relative min-h-0 flex-1 overflow-auto bg-background"
                 data-testid="data-records-body"
                 onClickCapture={(e) => {
-                  gridAddFieldButton.current = e.target instanceof Element ? e.target.closest('button') : null;
+                  // React carries a click inside the (portalled) popover here
+                  // too; only a click in the body's own DOM is the grid's.
+                  if (e.target instanceof Element && e.currentTarget.contains(e.target)) {
+                    gridAddFieldButton.current = e.target.closest('button');
+                  }
                 }}
               >
                 {!readOnly && (

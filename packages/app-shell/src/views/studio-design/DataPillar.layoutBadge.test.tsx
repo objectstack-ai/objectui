@@ -25,6 +25,7 @@ import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { completeAddFieldPopover } from './__tests__/dataPillarAddField';
 import { MemoryRouter } from 'react-router-dom';
 
 const objectDef = {
@@ -116,8 +117,10 @@ describe('DataPillar form tab — the layout caption tells the truth (#4036)', (
 
     // "+ Add field" is an edit path — it sets the pillar's `dirty` flag. Two
     // buttons drive the same `addField` callback (the pillar toolbar's and the
-    // form designer's own); either does.
+    // form designer's own); either does. Since objectui#12516 it opens a
+    // popover that asks for the label first.
     fireEvent.click(screen.getAllByRole('button', { name: /Add field/i })[0]);
+    await completeAddFieldPopover();
 
     expect(await screen.findByTitle(CLAIM)).toBeInTheDocument();
   });

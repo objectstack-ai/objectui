@@ -452,7 +452,7 @@ describe('Data pillar — an object switch inside the debounce, the control (obj
     await addFieldFromGrid();
     await waitFor(() => expect(server.saves).toHaveLength(1), SLOW);
     expect(savesOf('object', 'acme_note').map((b) => readFields(b.fields).entries.map((e) => e.name))).toEqual([
-      ['body', 'field_2'],
+      ['body', 'new_field'],
     ]);
   }, 30000);
 });
@@ -706,7 +706,7 @@ describe("the load window: nothing of the previous item is offered, shown or sav
     await addFieldFromGrid();
     await waitFor(() => expect(server.saves).toHaveLength(1), SLOW);
     expect(server.saves.map((s) => [s.type, s.name, s.body.label, fieldNamesOf(s.body)])).toEqual([
-      ['object', 'acme_note', 'Note', ['body', 'field_2']],
+      ['object', 'acme_note', 'Note', ['body', 'new_field']],
     ]);
     // No field count or add-field of `acme_task` was shown under `acme_note`.
     expect(shownDuringLoad).toEqual({ fieldCount: false, addField: false });
@@ -760,7 +760,7 @@ describe('a package switch: Automations and Data open nothing of the previous pa
     await addFieldFromGrid();
     await waitFor(() => expect(server.saves).toHaveLength(1), SLOW);
     expect(server.saves.map((s) => [s.type, s.name, s.packageId, s.body.label, fieldNamesOf(s.body)])).toEqual([
-      ['object', 'beta_item', PKG_B, 'Beta item', ['name', 'field_2']],
+      ['object', 'beta_item', PKG_B, 'Beta item', ['name', 'new_field']],
     ]);
   }, 30000);
 });

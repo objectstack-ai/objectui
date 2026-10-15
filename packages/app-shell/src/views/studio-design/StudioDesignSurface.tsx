@@ -112,6 +112,7 @@ import {
   PanelRightOpen,
   Play,
   Minus,
+  Trash2,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -186,7 +187,7 @@ import { useHomePath } from '../../hooks/useHomePath.js';
 import { resolveSurface, findSurfaceInTree, isSameSurface, type NavNode, type Surface } from './navSurface.js';
 import { useSurfaceDeepLink, resolveSurfaceDeepLink, type SurfaceTarget } from './useSurfaceDeepLink.js';
 import { isStudioRunLanding } from './studioLanding.js';
-import { SurfaceDeepLinkProvider, useRequestedSurface } from './surfaceDeepLinkChannel.js';
+import { SurfaceDeepLinkProvider, useRequestedSurface, useSurfaceNavigator } from './surfaceDeepLinkChannel.js';
 import { buildObjectSkeleton, buildFlowSkeleton, buildAppSkeleton, buildPermissionSkeleton, type AppNavSeed } from './skeletons.js';
 import { OWD_CREATE_MODELS, OWD_DEFAULT, type OwdCreateModel } from './owd-sharing.js';
 import { t, tFormat, translateMetadataType, useMetadataLocale } from '../metadata-admin/i18n.js';
@@ -403,6 +404,19 @@ const KIND_ICON: Record<string, LucideIcon> = {
   separator: Minus,
 };
 const navIcon = (type?: string): LucideIcon => KIND_ICON[type ?? ''] ?? Compass;
+/** The Lucide name of a kind's fallback glyph, offered as the Icon field's placeholder. */
+const KIND_ICON_NAME: Record<string, string> = {
+  group: 'folder',
+  page: 'file-text',
+  object: 'database',
+  dashboard: 'layout-dashboard',
+  report: 'bar-chart-3',
+  action: 'mouse-pointer-2',
+  url: 'link',
+  component: 'puzzle',
+  doc: 'book-open',
+};
+const navIconName = (type: string): string | undefined => KIND_ICON_NAME[type];
 
 
 /**
@@ -2247,6 +2261,7 @@ export function StudioNavItemInspector({
   // The console's own resolver for what a label-less entry inherits.
   const targetLabel = useNavTargetLabel();
   const typeGroupName = React.useId();
+  const iconFieldId = React.useId();
   const idx = React.useMemo(() => {
     const m = /^navigation\[(\d+)\]$/.exec(navId);
     return m ? Number(m[1]) : -1;
@@ -2345,6 +2360,7 @@ export function StudioNavItemInspector({
     });
   const str = (v: unknown): string => (typeof v === 'string' ? v : '');
   const actionDef = node.actionDef as { actionName?: unknown } | undefined;
+  const IconPreview: React.ElementType = str(node.icon) ? getIcon(str(node.icon)) : navIcon(kind ?? undefined);
   // Whether the entry names a target for its type yet (a group and a
   // separator name none, and are never unbound).
   const unbound =
@@ -2504,13 +2520,60 @@ export function StudioNavItemInspector({
       ) : (
         <p className="text-[11px] text-muted-foreground">{t('engine.inspector.appNav.separatorHint', locale)}</p>
       )}
-      <button
-        type="button"
-        onClick={onClear}
-        className="text-[11px] text-muted-foreground underline-offset-2 hover:underline"
-      >
-        {t('engine.studio.deselect', locale)}
-      </button>
+      {navEntryOffersField(kind, 'icon') && (
+        // objectui#12455 — the entry's own `icon`, a Lucide name, as the rail
+        // and the running sidebar draw it: a preview tile beside the name.
+        // Emptying the field removes the key (the rail then falls back to the
+        // target's icon), never writes `''`.
+        <div>
+          <label htmlFor={iconFieldId} className="mb-1 block text-[11px] font-medium text-muted-foreground">
+            {t('engine.studio.nav.icon', locale)}
+          </label>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border bg-background text-muted-foreground">
+              <IconPreview className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <input
+              id={iconFieldId}
+              value={str(node.icon)}
+              onChange={(e) => setTarget('icon', e.target.value.trim())}
+              placeholder={kind ? navIconName(kind) : undefined}
+              className="h-8 min-w-0 flex-1 rounded border bg-background px-2 font-mono text-xs"
+            />
+          </div>
+        </div>
+      )}
+      {node.visible !== undefined && (
+        // objectui#12455 — the entry's `visible` predicate, shown as authored:
+        // read here, written where the app's metadata is written.
+        <div>
+          <span className="mb-1 block text-[11px] font-medium text-muted-foreground">{t('engine.studio.nav.visibleWhen', locale)}</span>
+          <p className="break-all rounded border bg-muted/40 px-2 py-1.5 font-mono text-xs" data-testid="nav-visible-when">
+            {typeof node.visible === 'string' ? node.visible : JSON.stringify(node.visible)}
+          </p>
+        </div>
+      )}
+      <div className="flex items-center justify-between gap-2 border-t pt-3">
+        <button
+          type="button"
+          data-testid="nav-remove-item"
+          onClick={() => {
+            onNavPatch({ navigation: nav.filter((_, i) => i !== idx) });
+            onClear();
+          }}
+          className="inline-flex h-7 items-center gap-1.5 rounded-md border border-destructive/40 px-2.5 text-xs text-destructive hover:bg-destructive/10"
+        >
+          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+          {t('engine.appNav.removeItem', locale)}
+        </button>
+        <button
+          type="button"
+          onClick={onClear}
+          className="text-[11px] text-muted-foreground underline-offset-2 hover:underline"
+        >
+          {t('engine.studio.deselect', locale)}
+        </button>
+      </div>
     </div>
   );
 }
@@ -3738,25 +3801,46 @@ export function InterfacesPillar({
     !StudioCanvas &&
     !isSourcePage &&
     !!Preview;
+  // objectui#12455 — the nav entry the open leaf came from, at any depth: the
+  // header names it by its kind and its icon, as the rail row does.
+  const currentNavId = current?.navId;
+  const currentNavEntry = React.useMemo(() => {
+    if (!currentNavId) return null;
+    const find = (nodes: NavNode[]): NavNode | null => {
+      for (const node of nodes) {
+        if (node.id === currentNavId) return node;
+        if (Array.isArray(node.children)) {
+          const hit = find(node.children);
+          if (hit) return hit;
+        }
+      }
+      return null;
+    };
+    return find(navTree);
+  }, [currentNavId, navTree]);
   // objectui#12459 — the item header inside the content column. objectui#7254:
   // the entry's label with its translated KIND beside it; the internal
-  // `type · name` pair stays on the tooltip. objectui#11196: with no label
-  // declared the header shows what the entry inherits, as the rail does.
-  // The Design ⇄ Run switch (objectui#5800) and the properties toggle sit in
-  // the actions slot; the breadcrumb band above the rail retires.
+  // `type · name` pair stays on the tooltip, so the header carries no api
+  // chip. objectui#11196: with no label declared the header shows what the
+  // entry inherits, as the rail does.
+  // objectui#12455 — the Design ⇄ Run switch (objectui#5800) is a 26 px
+  // segmented control with its glyphs, then a divider and the properties
+  // toggle, which says whether the aside is open (`aria-pressed`) and is the
+  // one control that opens and closes it in this layout.
   const canvasModeToggleEl = (
     <>
         {!StudioCanvas && (
-        <div className="inline-flex items-center gap-0.5 rounded-lg bg-muted p-1" data-testid="canvas-mode-toggle">
+        <div className="inline-flex h-[26px] items-center rounded-md border bg-muted/40 p-0.5" data-testid="canvas-mode-toggle">
           <button
             type="button"
             onClick={() => setCanvasMode('design')}
             aria-pressed={designing}
             className={
-              'rounded-md px-2.5 py-0.5 text-[11px] transition-all ' +
+              'inline-flex h-5 items-center gap-1 rounded px-2 text-xs transition-all ' +
               (designing ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')
             }
           >
+            <Pencil className="h-3 w-3" aria-hidden="true" />
             {t('engine.studio.if.modeDesign', locale)}
           </button>
           <button
@@ -3764,26 +3848,31 @@ export function InterfacesPillar({
             onClick={() => setCanvasMode('run')}
             aria-pressed={!designing}
             className={
-              'rounded-md px-2.5 py-0.5 text-[11px] transition-all ' +
+              'inline-flex h-5 items-center gap-1 rounded px-2 text-xs transition-all ' +
               (!designing ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')
             }
           >
+            <Play className="h-3 w-3" aria-hidden="true" />
             {t('engine.studio.if.modeRun', locale)}
           </button>
         </div>
         )}
     </>
   );
-  const ifHeaderIcon = !current
+  const ifHeaderIcon: React.ElementType | undefined = !current
     ? undefined
-    : current.type === 'dashboard'
-      ? LayoutDashboard
-      : current.type === 'report'
-        ? BarChart3
-        : current.type === 'page'
-          ? FileText
-          : Boxes;
+    : currentNavEntry?.icon
+      ? getIcon(currentNavEntry.icon)
+      : current.type === 'object' && objectIconMap[current.name]
+        ? getIcon(objectIconMap[current.name] as string)
+        : navIcon(currentNavEntry?.type ?? current.type);
+  const ifKindName = current ? navKindName(currentNavEntry ?? { type: current.type }, locale) || translateMetadataType(current.type, locale) : '';
   const ifInternalId = current ? `${t('engine.studio.if.internalId', locale)}: ${current.type} · ${current.name}` : undefined;
+  // objectui#12455 — an object entry's structure is the Data pillar's: the
+  // header offers to open it there, through the host's surface channel (no
+  // channel, no chip: the hint under the tab row still names the pillar).
+  const openSurface = useSurfaceNavigator();
+  const isObjectLeaf = current?.type === 'object';
   const ifHeaderEl = (
     <StudioItemHeader
       testId="if-item-header"
@@ -3802,7 +3891,7 @@ export function InterfacesPillar({
         current ? (
           <>
             {current.label || current.name}
-            <span className="sr-only"> · {translateMetadataType(current.type, locale)}</span>
+            <span className="sr-only"> · {ifKindName}</span>
           </>
         ) : (
           navItemLabelText(appLabel, locale)
@@ -3817,7 +3906,7 @@ export function InterfacesPillar({
         current ? (
           <span className={STUDIO_KIND_CHIP} data-testid="if-canvas-caption" title={ifInternalId}>
             <span className="sr-only">{current.label || current.name} · </span>
-            {translateMetadataType(current.type, locale)}
+            {ifKindName}
           </span>
         ) : undefined
       }
@@ -3835,19 +3924,52 @@ export function InterfacesPillar({
               {t('engine.studio.autoSaving', locale)}
             </span>
           )}
-          {canvasModeToggleEl}
-          {!foldInspector && inspectorCollapsed && (
+          {isObjectLeaf && openSurface && current && (
             <button
               type="button"
-              onClick={() => setInspectorCollapsed(false)}
-              className={STUDIO_HEADER_ICON_BUTTON}
-              aria-label={t('engine.studio.inspector.expand', locale)}
-              title={t('engine.studio.inspector.props', locale)}
+              data-testid="if-open-in-data"
+              onClick={() => openSurface({ type: 'object', name: current.name })}
+              className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border bg-background px-2.5 text-xs text-foreground hover:bg-muted"
             >
-              <PanelRightOpen className="h-4 w-4" />
+              <Database className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+              {t('engine.studio.if.openInData', locale)}
             </button>
           )}
+          {canvasModeToggleEl}
+          {canCollapseInspector && (
+            <>
+              <span className="mx-0.5 h-5 w-px shrink-0 bg-border" aria-hidden="true" />
+              <button
+                type="button"
+                data-testid="if-properties-toggle"
+                onClick={() => setInspectorCollapsed(!inspectorCollapsed)}
+                aria-pressed={!inspectorCollapsed}
+                className={cn(STUDIO_HEADER_ICON_BUTTON, !inspectorCollapsed && 'bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary')}
+                aria-label={t(inspectorCollapsed ? 'engine.studio.inspector.expand' : 'engine.studio.inspector.collapse', locale)}
+                title={t(inspectorCollapsed ? 'engine.studio.inspector.expand' : 'engine.studio.inspector.collapse', locale)}
+              >
+                {inspectorCollapsed ? <PanelRightOpen className="h-4 w-4" /> : <PanelRightClose className="h-4 w-4" />}
+              </button>
+            </>
+          )}
         </>
+      }
+      tabs={
+        current ? (
+          <>
+            {/* objectui#12455 — the canvas is the one view of an entry here; an
+                object entry's is the running list, so its tab says Preview
+                and the line beside it says where the structure is edited. */}
+            <StudioTab active data-testid="if-tab-canvas">
+              {t(isObjectLeaf ? 'engine.studio.if.tabPreview' : 'engine.studio.if.tabCanvas', locale)}
+            </StudioTab>
+            {!isEditable && isObjectLeaf ? (
+              <p className="ml-auto flex min-w-0 items-center gap-1 self-center truncate pl-3 text-xs text-muted-foreground">
+                {t('engine.studio.if.objectHintPre', locale)}<span className="font-medium">{t('engine.studio.pillar.data', locale)}</span>{t('engine.studio.if.objectHintPost', locale)}
+              </p>
+            ) : null}
+          </>
+        ) : undefined
       }
     />
   );
@@ -3976,14 +4098,27 @@ export function InterfacesPillar({
           </div>
         )}
       </div>
-      {!isEditable && current?.type === 'object' ? (
-        <p className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground">
-          <Database className="h-3 w-3" /> {t('engine.studio.if.objectHintPre', locale)}<span className="font-medium">{t('engine.studio.pillar.data', locale)}</span>{t('engine.studio.if.objectHintPost', locale)}
-        </p>
-      ) : null}
     </main>
   );
 
+  // objectui#12455 — while a nav entry is open in the inspector, the aside
+  // names it as the shared aside names anything: "Nav item · Kind", the
+  // entry's label (what it inherits when it declares none), and its nav id.
+  // Top-level entries only, as `StudioNavItemInspector` edits only those.
+  const navInspectorHead = React.useMemo(() => {
+    if (!editNav || !navSel) return null;
+    const m = /^navigation\[(\d+)\]$/.exec(navSel.id);
+    const node = m ? navTree[Number(m[1])] : undefined;
+    if (!node) return null;
+    const untitled = node.label === undefined && navPayloadOf([node]).length === 0;
+    return {
+      eyebrow: tFormat('engine.studio.nav.eyebrow', locale, { kind: navKindName(node, locale) }),
+      title: untitled
+        ? tFormat('engine.appNav.item', locale, { n: Number(m![1]) + 1 })
+        : navEntryLabelText(node, locale, targetLabel) || undefined,
+      id: typeof node.id === 'string' ? node.id : undefined,
+    };
+  }, [editNav, navSel, navTree, locale, targetLabel]);
   const inspectorHeaderEl = (
     <header className="flex shrink-0 items-center gap-2 border-b bg-background/95 px-3 py-2">
       <SlidersHorizontal className="h-3.5 w-3.5" />
@@ -4438,26 +4573,17 @@ export function InterfacesPillar({
             {inspectorCollapsed ? null : (
               <StudioInspector
                 testId="if-inspector"
-                eyebrow={t('engine.studio.inspector.props', locale)}
+                eyebrow={navInspectorHead?.eyebrow ?? t('engine.studio.inspector.props', locale)}
+                title={navInspectorHead?.title}
+                id={navInspectorHead?.id}
                 width={
                   isSourcePage && !(selection && Inspector && current) && !(editNav && navSel)
                     ? 'w-[24rem] xl:w-[30rem] 2xl:w-[36rem]'
                     : undefined
                 }
-                actions={
-                  canCollapseInspector ? (
-                    <button
-                      type="button"
-                      onClick={() => setInspectorCollapsed(true)}
-                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                      aria-label={t('engine.studio.inspector.collapse', locale)}
-                      title={t('engine.studio.inspector.collapse', locale)}
-                    >
-                      <PanelRightClose className="h-4 w-4" />
-                    </button>
-                  ) : undefined
-                }
-                onClose={selection && !StudioCanvas ? () => setSelection(null) : undefined}
+                // objectui#12455 — the header's properties toggle opens and
+                // closes the aside in this layout, so it carries no second one.
+                onClose={navInspectorHead ? () => setNavSel(null) : selection && !StudioCanvas ? () => setSelection(null) : undefined}
                 closeLabel={t('engine.studio.deselect', locale)}
                 footer={t('engine.studio.inspector.draftFooter', locale)}
                 bodyClassName="flex min-h-0 flex-1 flex-col"
@@ -4477,26 +4603,17 @@ export function InterfacesPillar({
             {inspectorCollapsed ? null : (
               <StudioInspector
                 testId="if-inspector"
-                eyebrow={t('engine.studio.inspector.props', locale)}
+                eyebrow={navInspectorHead?.eyebrow ?? t('engine.studio.inspector.props', locale)}
+                title={navInspectorHead?.title}
+                id={navInspectorHead?.id}
                 width={
                   isSourcePage && !(selection && Inspector && current) && !(editNav && navSel)
                     ? 'w-[24rem] xl:w-[30rem] 2xl:w-[36rem]'
                     : undefined
                 }
-                actions={
-                  canCollapseInspector ? (
-                    <button
-                      type="button"
-                      onClick={() => setInspectorCollapsed(true)}
-                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                      aria-label={t('engine.studio.inspector.collapse', locale)}
-                      title={t('engine.studio.inspector.collapse', locale)}
-                    >
-                      <PanelRightClose className="h-4 w-4" />
-                    </button>
-                  ) : undefined
-                }
-                onClose={selection && !StudioCanvas ? () => setSelection(null) : undefined}
+                // objectui#12455 — as in the classic layout: the header's
+                // properties toggle opens and closes this aside.
+                onClose={navInspectorHead ? () => setNavSel(null) : selection && !StudioCanvas ? () => setSelection(null) : undefined}
                 closeLabel={t('engine.studio.deselect', locale)}
                 footer={t('engine.studio.inspector.draftFooter', locale)}
                 bodyClassName="flex min-h-0 flex-1 flex-col"

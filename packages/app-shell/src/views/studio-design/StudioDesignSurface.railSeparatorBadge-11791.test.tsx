@@ -117,7 +117,8 @@ async function renderRail(): Promise<HTMLElement> {
       </MemoryRouter>
     </I18nProvider>,
   );
-  const home = await screen.findByRole('button', { name: 'Home' }, { timeout: 8000 });
+  // objectui#12455 — a page row is named by its label and its kind tag.
+  const home = await screen.findByRole('button', { name: 'Home Page' }, { timeout: 8000 });
   const rail = home.closest('nav');
   expect(rail).not.toBeNull();
   return rail as HTMLElement;

@@ -137,7 +137,7 @@ async function ready() {
 
 async function openNewPage() {
   await userEvent.click(await screen.findByTestId('if-create-menu'));
-  await userEvent.click(await screen.findByRole('menuitem', { name: 'New page' }));
+  await userEvent.click(await screen.findByTestId('if-create-page'));
   return screen.findByRole('dialog');
 }
 
@@ -279,12 +279,26 @@ describe('the Interfaces pillar creates a page and opens it on source plus live 
   });
 
   describe('controls', () => {
+    // objectui#12455 — the menu is the rail's "+" kind picker: the ten nav
+    // kinds, in the spec's order, and the create flow still behind Page,
+    // Dashboard and Report.
     it('the New menu still offers New dashboard and New report, beside New page', async () => {
       mountPillar();
       await ready();
       await userEvent.click(await screen.findByTestId('if-create-menu'));
       const items = await screen.findAllByRole('menuitem');
-      expect(items.map((i) => i.textContent)).toEqual(['New dashboard', 'New report', 'New page']);
+      expect(items.map((i) => i.getAttribute('data-testid'))).toEqual([
+        'if-add-nav-object',
+        'if-create-page',
+        'if-create-dashboard',
+        'if-create-report',
+        'if-add-nav-url',
+        'if-add-nav-action',
+        'if-add-nav-component',
+        'if-add-nav-doc',
+        'if-add-nav-group',
+        'if-add-nav-separator',
+      ]);
     });
 
     it('a read-only package shows no New menu', async () => {

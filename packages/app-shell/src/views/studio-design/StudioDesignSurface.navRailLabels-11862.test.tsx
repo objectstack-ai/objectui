@@ -8,14 +8,22 @@
  * On the maintainer's word 「所有地方以标签为主，机器名只作为次要信息」:
  *
  *  - a label-less object entry shows its object's label, with the object's
- *    machine name beneath it (small, monospace);
- *  - an authored label shows verbatim, with the target's machine name beneath;
+ *    machine name as the secondary information on the row's tooltip;
+ *  - an authored label shows verbatim, with the target's machine name on the
+ *    tooltip;
  *  - an entry that names no target yet ("Add nav item" left unbound) reads as
  *    the editor's untitled wording, "Item N" by its place, never its id;
  *  - CONTROL: a target with no label in hand shows its machine name alone,
  *    once;
  *  - the secondary name is not part of the row's accessible name, which stays
  *    the label and the kind it was.
+ *
+ * objectui#12455 (epic objectui#12446, decision 5) moved the machine name from
+ * a second line under the label to the row's tooltip: the rail is the app's
+ * navigation as the shipped sidebar draws it, one 32 px row per entry, and the
+ * card keeps "the id and the bound target in the row's title". The tooltip is
+ * still secondary information beside a primary label, which is what the
+ * ruling asks; the assertions below read it there.
  *
  * The inspector beside the rail offers the same untitled wording as its Label
  * placeholder for an unbound entry.
@@ -105,23 +113,27 @@ function renderPillar() {
 describe('objectui#11862 — the Interfaces rail: label first, machine name second', () => {
   it("a label-less object entry shows its object's label, its machine name as secondary text", async () => {
     renderPillar();
-    // The accessible name is the label and the kind, as before: the secondary
-    // name is hidden from it.
+    // The accessible name is the label and the kind, as before: the machine
+    // name is its description, on the tooltip, never the visible text.
     const row = await screen.findByRole('button', { name: 'Customers Object' });
     expect(within(row).getByText('Customers')).toBeInTheDocument();
-    expect(within(row).getByText('b2r4_customer')).toHaveClass('font-mono', 'text-[10px]');
-    expect(within(row).getByText('b2r4_customer')).toHaveAttribute('aria-hidden', 'true');
+    expect(row).toHaveAttribute('title', 'object · b2r4_customer');
+    expect(row).toHaveAccessibleDescription('object · b2r4_customer');
+    expect(row).not.toHaveTextContent('b2r4_customer');
   });
 
   it("an authored label shows verbatim, the target's machine name beneath it", async () => {
     renderPillar();
     const row = await screen.findByRole('button', { name: 'Ops board Dashboard' });
-    expect(within(row).getByText('ops_board')).toHaveClass('font-mono');
+    expect(row).toHaveAttribute('title', 'dashboard · ops_board');
+    expect(row).not.toHaveTextContent('ops_board');
   });
 
   it('an entry that names no target reads as the untitled wording by its place, never its id', async () => {
     renderPillar();
-    const row = await screen.findByRole('button', { name: 'Item 3' });
+    // objectui#12455 — its kind is known (it was born an object entry), so
+    // its tag says so.
+    const row = await screen.findByRole('button', { name: 'Item 3 Object' });
     expect(row).toBeDisabled();
     expect(row).not.toHaveTextContent('nav_item_7');
     expect(row).not.toHaveAttribute('title', 'nav_item_7');

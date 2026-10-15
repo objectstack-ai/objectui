@@ -21,9 +21,9 @@
  */
 
 import * as React from 'react';
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { cleanup, render, waitFor } from '@testing-library/react';
-import { AdapterCtx, MetadataCtx } from '@object-ui/react';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
+import { AdapterCtx, MetadataCtx, RelatedRecordActionsProvider } from '@object-ui/react';
 import { getCellRenderer, RECORD_POINTER_CARD_TYPE } from '@object-ui/fields';
 import { DetailSection } from '@object-ui/plugin-detail';
 import type { DetailViewSection } from '@object-ui/types';
@@ -53,7 +53,12 @@ const RECORDS: Record<string, Record<string, unknown>> = {
   'sys_email::em_7': { id: 'em_7', subject: 'Re: renewal terms' },
 };
 
-function mount(objectSchema: Record<string, unknown>, fields: string[], data: Record<string, unknown>) {
+function mount(
+  objectSchema: Record<string, unknown>,
+  fields: string[],
+  data: Record<string, unknown>,
+  wrap: (ui: React.ReactElement) => React.ReactElement = (ui) => ui,
+) {
   const findOne = vi.fn(async (objectName: string, id: string) => RECORDS[`${objectName}::${id}`] ?? null);
   const metadata = {
     apps: [], objects: [], dashboards: [], reports: [], pages: [],
@@ -66,12 +71,14 @@ function mount(objectSchema: Record<string, unknown>, fields: string[], data: Re
   const utils = render(
     <MetadataCtx.Provider value={metadata as never}>
       <AdapterCtx.Provider value={{ findOne } as never}>
-        <DetailSection
-          section={{ title: 'Details', fields: fields.map((name) => ({ name, label: name })) } as DetailViewSection}
-          data={data}
-          objectSchema={objectSchema}
-          objectName="probe_12045"
-        />
+        {wrap(
+          <DetailSection
+            section={{ title: 'Details', fields: fields.map((name) => ({ name, label: name })) } as DetailViewSection}
+            data={data}
+            objectSchema={objectSchema}
+            objectName="probe_12045"
+          />,
+        )}
       </AdapterCtx.Provider>
     </MetadataCtx.Provider>,
   );
@@ -128,5 +135,72 @@ describe('the record card is the pointer face (objectui#12045)', () => {
     expect(container.textContent).toContain('inv_1');
     expect(cardState(container)).toBeUndefined();
     expect(findOne).not.toHaveBeenCalled();
+  });
+});
+
+describe("the pointer card's link sits in the details row without firing it (objectui#12557)", () => {
+  const APPROVAL = {
+    fields: {
+      object_name: { type: 'text', label: 'Object' },
+      record_id: { type: 'text', label: 'Record', referenceVia: 'object_name' },
+    },
+  };
+
+  /** The record page's builder, reduced: one route shape, any object it can route to. */
+  function underHost(ui: React.ReactElement) {
+    const value = {
+      resolve: () => ({}),
+      recordHref: (objectName: string, recordId: string | number) =>
+        `/apps/probe_app/${objectName}/record/${encodeURIComponent(String(recordId))}`,
+      openRecord: vi.fn(),
+    };
+    return { value, ui: <RelatedRecordActionsProvider value={value}>{ui}</RelatedRecordActionsProvider> };
+  }
+
+  let writeText: ReturnType<typeof vi.fn>;
+  const ownClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+  beforeEach(() => {
+    writeText = vi.fn(async () => {});
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+  });
+  afterEach(() => {
+    if (ownClipboard) Object.defineProperty(navigator, 'clipboard', ownClipboard);
+    else delete (navigator as { clipboard?: unknown }).clipboard;
+  });
+
+  it('a click on the link opens the record and does not copy the row; Enter on it is not cancelled by the row', async () => {
+    let host: ReturnType<typeof underHost>['value'] | null = null;
+    const { container } = mount(APPROVAL, ['record_id'], { object_name: 'invoice', record_id: 'inv_1' }, (ui) => {
+      const h = underHost(ui);
+      host = h.value;
+      return h.ui;
+    });
+    await waitFor(() => expect(cardState(container)).toBe('readable'));
+
+    const link = container.querySelector('[data-record-preview] a[href]') as HTMLAnchorElement;
+    expect(link.getAttribute('href')).toBe('/apps/probe_app/invoice/record/inv_1');
+    // The host this pin is about: the row is the details grid's copy button.
+    expect(link.closest('[role="button"]')).not.toBeNull();
+
+    fireEvent.click(link, { button: 0 });
+    expect(host!.openRecord).toHaveBeenCalledWith('invoice', 'inv_1');
+    expect(writeText).not.toHaveBeenCalled();
+
+    expect(fireEvent.keyDown(link, { key: 'Enter' })).toBe(true);
+    expect(writeText).not.toHaveBeenCalled();
+  });
+
+  it("CONTROL: the row's own copy still answers a click beside the card", async () => {
+    const { container } = mount(APPROVAL, ['record_id'], { object_name: 'invoice', record_id: 'inv_1' }, (ui) => underHost(ui).ui);
+    await waitFor(() => expect(cardState(container)).toBe('readable'));
+
+    fireEvent.click(container.querySelector('[data-record-preview]')!.closest('[role="button"]')!);
+    expect(writeText).toHaveBeenCalledWith('inv_1');
+  });
+
+  it('CONTROL: an unreadable target under the same host draws no link', async () => {
+    const { container } = mount(APPROVAL, ['record_id'], { object_name: 'invoice', record_id: 'inv_404' }, (ui) => underHost(ui).ui);
+    await waitFor(() => expect(cardState(container)).toBe('unreadable'));
+    expect(container.querySelectorAll('a[href]')).toHaveLength(0);
   });
 });

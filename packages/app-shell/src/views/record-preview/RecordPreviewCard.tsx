@@ -65,6 +65,29 @@
  *   its own read that a record is gone. A deletion the platform asserts (an
  *   approval's `record_deleted`) is the caller's to render, not this card's.
  *
+ * ## The link: `readable` only, built by the host (objectui#12557)
+ *
+ * In its `readable` state the card's title links to the record's page, as the
+ * Approvals Inbox sheet links the same reference. No other state links: the
+ * card has no record in hand there, and a refused or unresolvable target
+ * never yields a link (objectui#11878).
+ *
+ * The URL is not built here. The card asks the host's record-URL builder,
+ * `recordHref` / `openRecord` on `RelatedRecordActionsContext`, the one the
+ * lookup values on the same page link through (`ReferencedRecordLink` in
+ * `@object-ui/fields`). On a record page that is the console's
+ * `RelatedRecordActionsBridge`: the app-scoped record path, in the current
+ * app. A host that publishes no builder, or one that cannot route to the
+ * target object, answers no href, and the title is drawn as plain text.
+ *
+ * The link is drawn the way that one is: a real `href`, so a middle-click or a
+ * modifier click opens a new tab, and a plain left click handed to the host
+ * for in-app navigation. It wraps the title, never the card: the highlight
+ * strip draws a lookup value as a link of its own under the same host, and a
+ * link wrapping the card would nest one anchor inside another. The details
+ * grid's row carries its own click and key handlers (copy the value), so the
+ * link keeps its click and its Enter to itself.
+ *
  * ## Cost
  *
  * - The definition comes from `useMetadataItem('object', name)`: a cache hit
@@ -91,6 +114,7 @@ import {
   useMetadataItem,
   useObjectLabel,
   useObjectTranslation,
+  useRelatedRecordActions,
 } from '@object-ui/react';
 import type { QueryParams } from '@object-ui/types';
 import { Link2Off, Loader2 } from 'lucide-react';
@@ -195,6 +219,8 @@ export function RecordPreviewCard({ objectName, recordId, dataSource, className 
 
   const { t } = useObjectTranslation();
   const { objectLabel } = useObjectLabel();
+  // The host's record-URL builder (see "The link" in the module header).
+  const recordLinks = useRelatedRecordActions();
 
   if (targetObject === null) {
     return <EmptyValue className={className} data-record-preview="absent" />;
@@ -223,12 +249,41 @@ export function RecordPreviewCard({ objectName, recordId, dataSource, className 
     const row = withoutDeniedFields(current.record, perms, targetObject);
     const title = getRecordDisplayName(def, row);
     const typeLabel = objectLabel({ name: targetObject, label: def.label || targetObject });
+    // Asked only here, where the read returned the record (objectui#12557).
+    const href =
+      targetRecord !== null && recordLinks?.recordHref ? recordLinks.recordHref(targetObject, targetRecord) : null;
     return (
       <Card data-record-preview="readable" className={cn('min-w-0 shadow-none', className)}>
         <CardHeader className="space-y-0.5 p-3">
           <span className="truncate text-xs text-muted-foreground">{typeLabel}</span>
           <CardTitle className="truncate text-sm leading-snug" title={title}>
-            {title}
+            {href === null || targetRecord === null ? (
+              title
+            ) : (
+              <a
+                href={href}
+                className="text-primary underline-offset-4 hover:underline"
+                onClick={(e) => {
+                  // The details grid's row copies its value on click; following
+                  // the record must not also do that.
+                  e.stopPropagation();
+                  // Modifier and non-primary clicks belong to the browser (new
+                  // tab, new window): that is what the real href is for.
+                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                  // No in-app navigator: the anchor navigates on its own.
+                  if (!recordLinks?.openRecord) return;
+                  e.preventDefault();
+                  recordLinks.openRecord(targetObject, targetRecord);
+                }}
+                onKeyDown={(e) => {
+                  // The row's Enter copies and prevents the default, which
+                  // would cancel the link's own activation.
+                  if (e.key === 'Enter') e.stopPropagation();
+                }}
+              >
+                {title}
+              </a>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="px-3 pb-3 pt-0 empty:hidden">

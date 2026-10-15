@@ -45,15 +45,18 @@ function makeDS(answers: { draft: () => Response; published: () => Response }) {
     }
     return json({ success: true, data: { capabilities: {}, routes: {} } });
   });
-  const ds: any = new ObjectStackAdapter({ baseUrl: 'http://test.local', fetch: fetchImpl as unknown as typeof fetch });
-  ds.connected = true;
-  ds.connectionState = 'connected';
-  ds.metadataCache = {
-    get: async (_key: string, loader: () => Promise<unknown>) => loader(),
-    invalidate: () => {},
-    getCachedSync: () => undefined,
-    getStats: () => ({}),
-  };
+  const ds = new ObjectStackAdapter({ baseUrl: 'http://test.local', fetch: fetchImpl as unknown as typeof fetch });
+  // Connected, with a pass-through metadata cache, as `deleteView.homes.test.ts` sets it up.
+  Object.assign(ds as unknown as Record<string, unknown>, {
+    connected: true,
+    connectionState: 'connected',
+    metadataCache: {
+      get: async (_key: string, loader: () => Promise<unknown>) => loader(),
+      invalidate: () => {},
+      getCachedSync: () => undefined,
+      getStats: () => ({}),
+    },
+  });
   return { ds, deletes };
 }
 

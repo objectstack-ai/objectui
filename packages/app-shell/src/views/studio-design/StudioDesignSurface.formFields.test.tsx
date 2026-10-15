@@ -141,6 +141,7 @@ vi.mock('@object-ui/plugin-form', async (importOriginal) => {
 });
 
 import { DataPillar } from './StudioDesignSurface';
+import { addFieldFromMoreMenu } from './__tests__/dataPillarAddField';
 
 beforeEach(() => {
   dataSource = createDataSource();
@@ -242,7 +243,7 @@ describe('Studio Data pillar form preview — `fields` keeps a stable identity (
     await mountSettledFormPreview();
     const before = fieldsSnapshots[fieldsSnapshots.length - 1];
 
-    fireEvent.click(screen.getAllByRole('button', { name: /Add field/i })[0]);
+    await addFieldFromMoreMenu();
 
     await waitFor(
       () => {

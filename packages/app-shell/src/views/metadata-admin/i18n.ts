@@ -3393,6 +3393,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.hooks.newLabel': 'New hook',
   'engine.studio.data.addFieldTitle': 'Add a field (then set its type and properties on the right)',
   'engine.studio.data.addField': 'Add field',
+  'engine.studio.data.objectSettings': 'Object settings',
+  'engine.studio.data.moreActions': 'More actions',
   'engine.studio.data.editFieldProps': 'Edit field properties',
   'engine.studio.data.draftObjectTitle': 'Unpublished new object',
   'engine.studio.data.draftObjectHint':
@@ -6544,6 +6546,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.hooks.newLabel': '新钩子',
   'engine.studio.data.addFieldTitle': '添加一个字段(随后在右侧设置类型与属性)',
   'engine.studio.data.addField': '添加字段',
+  'engine.studio.data.objectSettings': '对象设置',
+  'engine.studio.data.moreActions': '更多操作',
   'engine.studio.data.editFieldProps': '编辑字段属性',
   'engine.studio.data.draftObjectTitle': '未发布的新对象',
   'engine.studio.data.draftObjectHint':

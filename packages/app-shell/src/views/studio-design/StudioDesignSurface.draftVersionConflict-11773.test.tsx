@@ -163,6 +163,7 @@ vi.mock('@object-ui/plugin-view', async (importOriginal) => {
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), dismiss: vi.fn() } }));
 
 import { DataPillar } from './StudioDesignSurface';
+import { addFieldFromMoreMenu } from './__tests__/dataPillarAddField';
 import { createEmptyDataSource } from './__tests__/emptyDataSource';
 import { readFields } from '../metadata-admin/previews/object-fields-io';
 
@@ -200,7 +201,7 @@ async function loaded(editor: HTMLElement, count: string): Promise<void> {
 /** Add a field and wait until the autosave carrying it has landed. */
 async function addFieldAndSave(editor: HTMLElement): Promise<void> {
   const before = server.saves.length;
-  fireEvent.click(within(editor).getByTitle(/^Add a field/));
+  await addFieldFromMoreMenu(editor);
   await waitFor(() => expect(server.saves.length).toBe(before + 1), { timeout: 8000 });
   await waitFor(() => expect(within(editor).queryByTestId('data-autosaving')).toBeNull(), { timeout: 8000 });
 }
@@ -226,7 +227,7 @@ async function raceTwoEditors(): Promise<{ a: HTMLElement; b: HTMLElement }> {
   await loaded(b, '3 fields');
   await reorderAndSave(b); // B: status before title
   expect(serverDraftFields()).toEqual(['status', 'title', 'field_3']);
-  fireEvent.click(within(a).getByTitle(/^Add a field/)); // A's stale copy + field_4
+  await addFieldFromMoreMenu(a); // A's stale copy + field_4
   await screen.findByTestId('draft-conflict-dialog', undefined, { timeout: 8000 });
   return { a, b };
 }
@@ -256,7 +257,7 @@ describe('Data pillar — a draft saved elsewhere is not overwritten in silence 
     await loaded(b, '2 fields');
     await addFieldAndSave(a); // A: + field_3, the first draft
     expect(serverDraftFields()).toEqual(['title', 'status', 'field_3']);
-    fireEvent.click(within(b).getByTitle(/^Add a field/)); // B's first save, built on the published object
+    await addFieldFromMoreMenu(b); // B's first save, built on the published object
     await screen.findByTestId('draft-conflict-dialog', undefined, { timeout: 8000 });
     const refused = server.saves[server.saves.length - 1]!;
     expect([refused.ifMatch, refused.ifNoneMatch]).toEqual([undefined, '*']);

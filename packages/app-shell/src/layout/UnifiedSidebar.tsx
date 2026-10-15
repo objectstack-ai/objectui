@@ -38,7 +38,7 @@ import {
   LayoutGrid,
   Layers,
 } from 'lucide-react';
-import { NavigationRenderer, hasVisibleNavigationItems } from '@object-ui/layout';
+import { NavigationRenderer, hasVisibleNavigationItems, type NavItemActionContext } from '@object-ui/layout';
 import type { NavigationArea, NavigationItem } from '@object-ui/types';
 import { useMetadata } from '../providers/MetadataProvider.js';
 import { useAuth, useWorkspaceAdminStatus } from '@object-ui/auth';
@@ -70,6 +70,7 @@ import {
 } from './ContextSelectors.js';
 import { LocalizedSidebarTrigger } from './LocalizedSidebarTrigger.js';
 import { AppMark } from './AppMark.js';
+import { SidebarItemMenu, sidebarItemDesignPath, favoriteDesignPath } from './SidebarItemMenu.js';
 
 /**
  * Lazy-resolved Lucide icon — see ../utils/getIcon for impl.
@@ -391,6 +392,51 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   // Recent section collapsed by default
   const [recentExpanded, setRecentExpanded] = React.useState(false);
 
+  // One ⋯ menu on every entry, in place of the pin action (objectui#12427):
+  // its first entry adds the entry to Favorites or removes it, through the
+  // same pin store the pin action wrote. Not on a phone, where the sidebar
+  // draws no per-entry control (objectui#1055) and pinning stays off.
+  const renderNavItemAction = (item: NavigationItem, row: NavItemActionContext) => (
+    <SidebarItemMenu
+      label={row.label}
+      href={row.href}
+      external={row.external}
+      isFavorite={!!item.pinned}
+      onToggleFavorite={() => togglePin(item.id, !item.pinned, item, row.basePath)}
+      designPath={sidebarItemDesignPath(item, row.basePath)}
+    />
+  );
+
+  // The favorites that are not navigation entries (an object, a record, a
+  // dashboard, a page or an app the user starred) are rows of the same
+  // Favorites section, after the pinned entries, at the top of the sidebar
+  // (objectui#12427). They used to be a group of their own after Recent, below
+  // the fold on a long menu. Each row shows its stored label (the store's
+  // `refreshLabel` keeps it current) and carries the same ⋯ menu, whose
+  // favorites entry removes it. A phone keeps the control it had (no hover).
+  const contentFavorites = favorites.filter(f => f.type !== 'nav').slice(0, 8);
+  const contentFavoriteRows = contentFavorites.length > 0
+    ? contentFavorites.map(item => (
+        <SidebarMenuItem key={item.id}>
+          <SidebarMenuButton asChild tooltip={item.label}>
+            <Link to={item.href}>
+              <span className="text-muted-foreground">
+                {item.type === 'dashboard' ? '📊' : item.type === 'report' ? '📈' : item.type === 'page' ? '📄' : '📋'}
+              </span>
+              <span className="truncate">{item.label}</span>
+            </Link>
+          </SidebarMenuButton>
+          <SidebarItemMenu
+            label={item.label}
+            href={item.href}
+            isFavorite
+            onToggleFavorite={() => removeFavorite(item.id)}
+            designPath={favoriteDesignPath(item.id, basePath)}
+          />
+        </SidebarMenuItem>
+      ))
+    : null;
+
   return (
     <>
     <Sidebar collapsible="icon" className="!top-14 !h-[calc(100svh-3.5rem)]">
@@ -478,7 +524,8 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
              checkCapability={checkCap}
              checkDocTarget={checkDocTarget}
              enablePinning={!isMobile}
-             onPinToggle={togglePin}
+             renderItemAction={isMobile ? undefined : renderNavItemAction}
+             extraFavorites={contentFavoriteRows}
              pinnedOrder={pinnedIds}
              onPinnedReorder={reorderPins}
              resolveTargetLabel={resolveNavTargetLabel}
@@ -517,41 +564,6 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
                  </SidebarMenu>
                </SidebarGroupContent>
                )}
-             </SidebarGroup>
-           )}
-
-           {/* Favorites — nav-pinned entries (type 'nav') are rendered in
-               the Pinned section above by NavigationRenderer, so we filter
-               them out here to avoid showing them twice. */}
-           {favorites.some(f => f.type !== 'nav') && (
-             <SidebarGroup>
-               <SidebarGroupLabel className="flex items-center gap-1.5">
-                 <Star className="h-3.5 w-3.5" />
-                 {t('sidebar.favorites', { defaultValue: 'Favorites' })}
-               </SidebarGroupLabel>
-               <SidebarGroupContent>
-                 <SidebarMenu>
-                   {favorites.filter(f => f.type !== 'nav').slice(0, 8).map(item => (
-                     <SidebarMenuItem key={item.id}>
-                       <SidebarMenuButton asChild tooltip={item.label}>
-                         <Link to={item.href}>
-                           <span className="text-muted-foreground">
-                             {item.type === 'dashboard' ? '📊' : item.type === 'report' ? '📈' : item.type === 'page' ? '📄' : '📋'}
-                           </span>
-                           <span className="truncate">{item.label}</span>
-                         </Link>
-                       </SidebarMenuButton>
-                       <SidebarMenuAction
-                         showOnHover
-                         onClick={(e: any) => { e.stopPropagation(); removeFavorite(item.id); }}
-                         aria-label={t('sidebar.removeFromFavorites', { defaultValue: 'Remove {{name}} from favorites', name: item.label })}
-                       >
-                         <StarOff className="h-3 w-3" />
-                       </SidebarMenuAction>
-                     </SidebarMenuItem>
-                   ))}
-                 </SidebarMenu>
-               </SidebarGroupContent>
              </SidebarGroup>
            )}
            </>

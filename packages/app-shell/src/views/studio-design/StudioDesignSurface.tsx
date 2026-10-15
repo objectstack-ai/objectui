@@ -30,6 +30,11 @@ import type { I18nLabel } from '@objectstack/spec/ui';
 import { StudioChatDock, type StudioSurfaceLabel } from './StudioAiCopilot.js';
 import { nextCenterTab, type StudioCenterTab } from './centerTab.js';
 import { AUTOMATIONS_CONFIG_FOLD_WIDTH, useIsNarrowerThan, useIsWideViewport } from './wideViewport.js';
+import { AppMark, type AppMarkApp } from '../../layout/AppMark.js';
+import { STUDIO_HEADER, STUDIO_HEADER_ICON_BUTTON, STUDIO_KIND_CHIP } from './studio-tokens.js';
+import { StudioInspector } from './StudioInspector.js';
+import { StudioItemHeader, StudioTab } from './StudioItemHeader.js';
+import { StudioRail, StudioRailRow } from './StudioRail.js';
 import {
   GridFieldAuthoringProvider,
   cn,
@@ -466,7 +471,10 @@ function PackageSwitcher({
   packageId,
   tab,
   beforeNavigate,
+  app = null,
 }: {
+  /** The package's app, drawn as the chip's icon tile (objectui#12459); `null` draws the neutral tile. */
+  app?: AppMarkApp | null;
   /** The open package, or `null` in the package-less scope (objectui#11553). */
   packageId: string | null;
   tab: string;
@@ -854,7 +862,7 @@ function PackageSwitcher({
              SAME string in all three states for a package that declares no
              name, so the state cannot be recovered from the text. */
           data-pkg-list-state={pkgListState}
-          className="flex items-center gap-1.5 whitespace-nowrap rounded-md px-1.5 py-0.5 text-[13px] font-medium hover:bg-muted"
+          className="flex h-8 max-w-[180px] items-center gap-2 whitespace-nowrap rounded-md py-0.5 pl-1 pr-2 text-[13px] font-semibold hover:bg-muted xl:max-w-[280px]"
           title={t('engine.studio.pkg.switchTitle', locale)}
         >
           {/* objectui#11553 — the package-less scope names itself; there is
@@ -865,7 +873,8 @@ function PackageSwitcher({
             </>
           ) : (
             <>
-              <Boxes className="h-4 w-4" /> {current?.name ?? packageId}
+              <AppMark app={app} size="md" />
+              <span className="truncate">{current?.name ?? packageId}</span>
             </>
           )}
           {/* ⛔ Not a replacement for the id (objectui#7368): the id is the one
@@ -1328,7 +1337,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   // would read `[object Object]`. Only the presence of `packageApp` is read
   // today; a reader of `label` resolves it in the designer locale at render,
   // through `navItemLabelText`, as the Interfaces rail heading does.
-  const [packageApp, setPackageApp] = React.useState<{ name: string; label: I18nLabel } | null>(null);
+  const [packageApp, setPackageApp] = React.useState<{ name: string; label: I18nLabel; icon?: string; branding?: AppMarkApp['branding'] } | null>(null);
   // Create app (package has no app yet): create a draft `app` item — the
   // published front-end's on-ramp. The button flips to Open app after the
   // package publish.
@@ -1417,12 +1426,20 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
     try {
       const apps = (await shellClient.list('app', { packageId })) as Array<Record<string, unknown>>;
       let first = (apps || [])
-        .map((a) => ({ name: String(a.name ?? ''), label: (a.label ?? a.name ?? '') as I18nLabel }))
+        .map((a) => ({
+          name: String(a.name ?? ''),
+          label: (a.label ?? a.name ?? '') as I18nLabel,
+          // objectui#12459 — the chip in the shell header draws the app's own
+          // tile (icon on its brand color), as Home's app tile and the app
+          // switcher do through `AppMark`.
+          icon: typeof a.icon === 'string' ? a.icon : undefined,
+          branding: a.branding && typeof a.branding === 'object' ? (a.branding as AppMarkApp['branding']) : undefined,
+        }))
         .filter((a) => a.name)[0];
       if (!first) {
         const drafts = await shellClient.listDrafts?.({ packageId, type: 'app' });
         const d = drafts?.[0] as { name?: unknown; label?: I18nLabel } | undefined;
-        if (d?.name) first = { name: String(d.name), label: d.label ?? String(d.name) };
+        if (d?.name) first = { name: String(d.name), label: d.label ?? String(d.name), icon: undefined, branding: undefined };
       }
       setPackageApp(first ?? null);
     } catch {
@@ -1516,7 +1533,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
       // on the page dimmed only by `disabled:opacity-50`.
       className={cn(
         // The border is on both states so the swap never shifts the bar.
-        'inline-flex items-center gap-1.5 rounded-md border px-3 py-1 text-xs font-medium',
+        'inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[13px] font-medium',
         publishing || (hasPending && !readOnly)
           ? 'border-transparent bg-primary text-primary-foreground disabled:opacity-50'
           : 'text-muted-foreground',
@@ -1545,24 +1562,29 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
             * one piece silently clipping off past the screen edge. Scrolling
             * the header is a worse look than a proper responsive redesign, but
             * it guarantees every pillar and the Publish button stay reachable. */}
-          <header className="flex items-center gap-3 overflow-x-auto border-b px-3 py-2">
-            {/* Never a dead end: walk back to the platform Home / builder landing. */}
-            <button
-              type="button"
-              onClick={() => {
-                if (!confirmLeavePillar()) return;
-                shellNavigate(shellHomePath);
-              }}
-              title={t('engine.studio.home', locale)}
-              className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
-              <HomeIcon className="h-4 w-4" />
-            </button>
-            <div className="shrink-0">
-              <PackageSwitcher packageId={packageId} tab={tab} beforeNavigate={confirmLeavePillar} />
+          <header className={STUDIO_HEADER} data-testid="studio-shell-header">
+            {/* objectui#12459 — three columns: the package at the left, the
+                pillars centered whatever the two sides weigh, the package
+                actions at the right. The strip no longer scrolls on a narrow
+                viewport: each group shrinks inside its own column instead. */}
+            <div className="flex min-w-0 items-center gap-1">
+              {/* Never a dead end: walk back to the platform Home / builder landing. */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (!confirmLeavePillar()) return;
+                  shellNavigate(shellHomePath);
+                }}
+                title={t('engine.studio.home', locale)}
+                className={STUDIO_HEADER_ICON_BUTTON}
+              >
+                <HomeIcon className="h-4 w-4" />
+              </button>
+              <div className="min-w-0">
+                <PackageSwitcher packageId={packageId} tab={tab} beforeNavigate={confirmLeavePillar} app={packageApp} />
+              </div>
             </div>
-            <span className="shrink-0 text-muted-foreground">·</span>
-            <nav className="flex shrink-0 gap-1">
+            <nav className="flex items-center gap-0.5 rounded-lg bg-muted p-[3px]" data-testid="studio-pillar-nav">
               {/* objectui#11553 — the package-less scope offers its one pillar. */}
               {(packageId === null ? PILLARS.filter((p) => p.key === STUDIO_ORG_SCOPE_PILLAR) : PILLARS).map((p) => (
                 <Link
@@ -1577,15 +1599,18 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
                     if (!confirmLeavePillar()) e.preventDefault();
                   }}
+                  title={t(`engine.studio.pillar.${p.key}`, locale)}
                   className={
-                    'inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ' +
+                    'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-[13px] transition-colors xl:px-3 ' +
                     (tab === p.key
-                      ? 'bg-primary/10 font-medium text-primary'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground')
+                      ? 'bg-background font-medium text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground')
                   }
                 >
-                  <p.Icon className="h-3.5 w-3.5" />
-                  {t(`engine.studio.pillar.${p.key}`, locale)}
+                  <p.Icon className={'h-3.5 w-3.5 ' + (tab === p.key ? 'text-primary' : '')} />
+                  {/* Below the 1280px design width the pillars read as icons;
+                      the name stays in the accessible name and the tooltip. */}
+                  <span className="sr-only xl:not-sr-only">{t(`engine.studio.pillar.${p.key}`, locale)}</span>
                 </Link>
               ))}
               {/* objectui#5813 — low-frequency surfaces live in "More". The
@@ -1607,10 +1632,10 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                     type="button"
                     data-testid="studio-nav-more"
                     className={
-                      'inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ' +
+                      'inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-3 text-[13px] transition-colors ' +
                       (OVERFLOW_PILLARS.some((p) => tab === p.key)
-                        ? 'bg-primary/10 font-medium text-primary'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground')
+                        ? 'bg-background font-medium text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground')
                     }
                   >
                     {t('engine.studio.more', locale)}
@@ -1645,7 +1670,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
             </nav>
 
             {/* Package-level draft review + one atomic publish (replaces per-item Publish) */}
-            <div className="ml-auto flex shrink-0 items-center gap-2">
+            <div className="flex min-w-0 items-center justify-end gap-2">
               {/* objectui#5800 — the Open app teleport is retired: the canvas's
                   Run mode IS the way to try the app without leaving the
                   workbench. The published-app state needs no chrome at all.
@@ -1663,26 +1688,38 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                   onClick={() => setAppCreating(true)}
                   disabled={readOnly}
                   title={readOnly ? t('engine.studio.pkg.readonlyHint', locale) : t('engine.studio.app.noneTitle', locale)}
-                  className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[13px] text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  {t('engine.studio.app.create', locale)}
+                  <span className="sr-only xl:not-sr-only">{t('engine.studio.app.create', locale)}</span>
                 </button>
               )}
+              {/* objectui#12459 — the pending count is a pill, not "· N" text. */}
               <button
                 type="button"
                 onClick={() => setChangesOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[13px] text-foreground hover:bg-muted"
               >
-                <GitBranch className="h-3.5 w-3.5" />
-                {t('engine.studio.changes', locale)}{hasPending ? ` · ${shownPendingCount}` : ''}
+                <GitBranch className="h-3.5 w-3.5 text-muted-foreground" />
+                {t('engine.studio.changes', locale)}
+                {hasPending && <span className="sr-only"> · </span>}
+                {hasPending && (
+                  <span
+                    data-testid="studio-changes-count"
+                    className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground"
+                  >
+                    {shownPendingCount}
+                  </span>
+                )}
               </button>
-              {/* objectui#8219 — with nothing to publish, say so on the page
-                  rather than only in the hover tooltip. */}
+              {/* objectui#8219 — with nothing to publish, say so on the page;
+                  objectui#12459 moves the sentence off the strip into the
+                  Publish button's description, where readers and the tooltip
+                  still find it. */}
               {!hasPending && !readOnly && !publishing && (
                 <span
                   id={publishNoneReasonId}
-                  className="text-[11px] text-muted-foreground"
+                  className="sr-only"
                   data-testid="publish-none-reason"
                 >
                   {t('engine.studio.publishNoneTitle', locale)}
@@ -3568,23 +3605,14 @@ export function InterfacesPillar({
     !StudioCanvas &&
     !isSourcePage &&
     !!Preview;
-  const canvasEl = (
-    <main className="flex min-w-0 flex-1 flex-col overflow-auto bg-muted/30 p-4">
-      <div className="mb-3 flex shrink-0 items-center gap-2">
-        {/* objectui#5800 — the Design ⇄ Run switch replaces the static Live
-            preview chip: same renderer either way, the switch only adds/removes
-            the design affordances.
-
-            objectui#7121 — ...but only where a renderer READS the mode. `editing`
-            is handed to exactly one canvas branch (`Preview`, below); a
-            studio-canvas leaf renders `StudioCanvas`, whose props
-            (`StudioCanvasPreviewProps`) carry no `editing` by contract — it is
-            the running app, not an editable draft. So on those leaves the
-            switch moved `canvasMode` and nothing else: a live-looking control
-            wired to nothing. Gated on `StudioCanvas` — the SAME value that
-            selects the canvas branch — and deliberately NOT on `isEditable`,
-            which is `!!Preview && !StudioCanvas` and would also strip the
-            switch from the no-designer leaves that #6795 part C pinned. */}
+  // objectui#12459 — the item header inside the content column. objectui#7254:
+  // the entry's label with its translated KIND beside it; the internal
+  // `type · name` pair stays on the tooltip. objectui#11196: with no label
+  // declared the header shows what the entry inherits, as the rail does.
+  // The Design ⇄ Run switch (objectui#5800) and the properties toggle sit in
+  // the actions slot; the breadcrumb band above the rail retires.
+  const canvasModeToggleEl = (
+    <>
         {!StudioCanvas && (
         <div className="inline-flex items-center gap-0.5 rounded-lg bg-muted p-1" data-testid="canvas-mode-toggle">
           <button
@@ -3611,24 +3639,87 @@ export function InterfacesPillar({
           </button>
         </div>
         )}
-        {/* objectui#7254 — the canvas caption names WHAT you are editing, in
-            the author's own vocabulary: the item's metadata label plus its
-            translated KIND ("Pipeline · Dashboard"). The internal `type · name`
-            pair it used to print verbatim is developer identity and moves to
-            the tooltip, which the ruling keeps as its allowed home. With no
-            label declared the caption shows what the entry inherits
-            (objectui#11196), as the rail does; the internal name is left for a
-            label that is present but resolves to nothing. */}
-        {current && (
-          <span
-            className="text-[11px] text-muted-foreground"
-            title={`${t('engine.studio.if.internalId', locale)}: ${current.type} · ${current.name}`}
-            data-testid="if-canvas-caption"
-          >
-            {current.label || current.name} · {translateMetadataType(current.type, locale)}
+    </>
+  );
+  const ifHeaderIcon = !current
+    ? undefined
+    : current.type === 'dashboard'
+      ? LayoutDashboard
+      : current.type === 'report'
+        ? BarChart3
+        : current.type === 'page'
+          ? FileText
+          : Boxes;
+  const ifInternalId = current ? `${t('engine.studio.if.internalId', locale)}: ${current.type} · ${current.name}` : undefined;
+  const ifHeaderEl = (
+    <StudioItemHeader
+      testId="if-item-header"
+      leading={
+        <button
+          type="button"
+          onClick={() => setRailOpen((v) => !v)}
+          aria-label={t('engine.studio.toggleRail', locale)}
+          className="-ml-1 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground md:hidden"
+        >
+          <Menu className="h-4 w-4" />
+        </button>
+      }
+      icon={ifHeaderIcon}
+      title={
+        current ? (
+          <>
+            {current.label || current.name}
+            <span className="sr-only"> · {translateMetadataType(current.type, locale)}</span>
+          </>
+        ) : (
+          navItemLabelText(appLabel, locale)
+        )
+      }
+      titleProps={
+        current
+          ? { 'data-testid': 'if-breadcrumb', title: ifInternalId }
+          : { className: 'text-[13px] font-normal text-muted-foreground' }
+      }
+      chips={
+        current ? (
+          <span className={STUDIO_KIND_CHIP} data-testid="if-canvas-caption" title={ifInternalId}>
+            <span className="sr-only">{current.label || current.name} · </span>
+            {translateMetadataType(current.type, locale)}
           </span>
-        )}
-      </div>
+        ) : undefined
+      }
+      actions={
+        <>
+          {hasDraft && draftLoaded && (
+            <span className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300">
+              {t('engine.studio.unpublishedDraft', locale)}
+            </span>
+          )}
+          {/* objectui#5813 — drafts auto-save; the spinner is the affordance. */}
+          {saving === 'draft' && (
+            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground" data-testid="if-autosaving">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              {t('engine.studio.autoSaving', locale)}
+            </span>
+          )}
+          {canvasModeToggleEl}
+          {!foldInspector && inspectorCollapsed && (
+            <button
+              type="button"
+              onClick={() => setInspectorCollapsed(false)}
+              className={STUDIO_HEADER_ICON_BUTTON}
+              aria-label={t('engine.studio.inspector.expand', locale)}
+              title={t('engine.studio.inspector.props', locale)}
+            >
+              <PanelRightOpen className="h-4 w-4" />
+            </button>
+          )}
+        </>
+      }
+    />
+  );
+  const canvasEl = (
+    <main className="flex min-w-0 flex-1 flex-col overflow-auto bg-muted/30 px-6 py-4">
       {(error || navError || leafHeld) && (
         <div className="mb-3 flex shrink-0 flex-col gap-1.5">
           {/* objectui#11776 — the pillar's failure and the nav editor's own,
@@ -3800,21 +3891,6 @@ export function InterfacesPillar({
 
   // Collapsed state — a thin rail on the right with an expand affordance, so the
   // canvas reclaims the ~288px the properties aside otherwise holds.
-  const inspectorCollapsedRailEl = (
-    <aside className="flex w-9 shrink-0 flex-col items-center gap-1.5 border-l bg-background py-2">
-      <button
-        type="button"
-        onClick={() => setInspectorCollapsed(false)}
-        className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-        aria-label={t('engine.studio.inspector.expand', locale)}
-        title={t('engine.studio.inspector.props', locale)}
-      >
-        <PanelRightOpen className="h-4 w-4" />
-      </button>
-      <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
-    </aside>
-  );
-
   const inspectorBodyEl =
     editNav && navSel ? (
       <div className="min-h-0 flex-1 overflow-auto p-3">
@@ -4053,49 +4129,6 @@ export function InterfacesPillar({
           if (createKind) void doCreateSurface(createKind, label, name, reportBinding, pageKind);
         }}
       />
-      <div className="flex items-center gap-2 border-b px-3 py-1.5">
-        <button
-          type="button"
-          onClick={() => setRailOpen((v) => !v)}
-          aria-label={t('engine.studio.toggleRail', locale)}
-          className="-ml-1 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground md:hidden"
-        >
-          <Menu className="h-4 w-4" />
-        </button>
-        {/* objectui#7254 — the breadcrumb's chip carried the raw
-            `dashboard · customer_dashboard` beside a Chinese label, so the same
-            strip spoke two vocabularies at once. The chip now carries the
-            translated KIND; the internal identity is on the tooltip. */}
-        {current ? (
-          <span
-            className="flex items-center gap-1.5 text-[11px] text-muted-foreground"
-            title={`${t('engine.studio.if.internalId', locale)}: ${current.type} · ${current.name}`}
-            data-testid="if-breadcrumb"
-          >
-            <span className="text-[13px] font-medium text-foreground">
-              {current.label || current.name}
-            </span>
-            <span className="rounded bg-muted px-1.5 py-0.5">
-              {translateMetadataType(current.type, locale)}
-            </span>
-          </span>
-        ) : (
-          <span className="text-[11px] text-muted-foreground">{t('engine.studio.if.pickLeft', locale)}</span>
-        )}
-        {hasDraft && draftLoaded && (
-          <span className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300">
-            {t('engine.studio.unpublishedDraft', locale)}
-          </span>
-        )}
-        {/* objectui#5813 — drafts auto-save; the spinner is the affordance. */}
-        {saving === 'draft' && (
-          <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-muted-foreground" data-testid="if-autosaving">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            {t('engine.studio.autoSaving', locale)}
-          </span>
-        )}
-      </div>
-
       <div className="relative flex min-h-0 flex-1">
         {isMobile && railOpen && (
           <div
@@ -4105,16 +4138,11 @@ export function InterfacesPillar({
           />
         )}
         {/* real App navigation tree */}
-        <nav
-          className={cn(
-            (editNav ? 'w-72' : 'w-52') + ' flex shrink-0 flex-col border-r bg-background',
-            isMobile && 'absolute inset-y-0 left-0 z-20 shadow-lg transition-transform duration-200',
-            isMobile && !railOpen && '-translate-x-full',
-          )}
-        >
-          <div className="shrink-0 border-b px-2 py-1.5">
-            <div className="flex items-center justify-between gap-1">
-              <p className="truncate text-[11px] font-medium text-muted-foreground">{tFormat('engine.studio.if.navHeading', locale, { app: navItemLabelText(appLabel, locale) })}</p>
+        <StudioRail
+          testId="studio-rail-interfaces"
+          heading={tFormat('engine.studio.if.navHeading', locale, { app: navItemLabelText(appLabel, locale) })}
+          headerExtra={
+            <>
               {/* objectui#11823 (steps 2 and 3) — New dashboard / report /
                   page: an app to link it from, a writable package, nav editing
                   closed (see `doCreateSurface`). */}
@@ -4176,8 +4204,13 @@ export function InterfacesPillar({
                   )}
                 </button>
               )}
-            </div>
-            {editNav && (
+            </>
+          }
+          width={editNav ? 'w-72' : undefined}
+          isMobile={isMobile}
+          open={railOpen}
+        >
+          {editNav && (
               <div className="mt-1.5 flex items-center gap-1.5">
                 {navHasDraft && (
                   <span className="rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] text-amber-600 dark:text-amber-300">
@@ -4191,9 +4224,7 @@ export function InterfacesPillar({
                   </span>
                 )}
               </div>
-            )}
-          </div>
-          <div className="min-h-0 flex-1 overflow-auto p-2">
+          )}
             {appStatus === 'missing' && !error ? (
               <div className="px-2 py-3">
                 <p className="text-[11px] text-muted-foreground">{t('engine.studio.if.noApp', locale)}</p>
@@ -4237,9 +4268,11 @@ export function InterfacesPillar({
                 }}
               />
             )}
-          </div>
-        </nav>
+        </StudioRail>
 
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden" data-testid="if-content-column">
+          {ifHeaderEl}
+          <div className="flex min-h-0 flex-1">
         {!foldInspector ? (
           <>
             {/* canvas */}
@@ -4249,18 +4282,35 @@ export function InterfacesPillar({
                 top-to-bottom instead of squeezing into a fixed height with dead
                 space below. Widens for source pages so code has room. Collapses
                 to a thin rail to hand the width back to the canvas. */}
-            {inspectorCollapsed ? inspectorCollapsedRailEl : (
-              <aside
-                className={cn(
-                  'flex shrink-0 flex-col overflow-hidden border-l',
+            {inspectorCollapsed ? null : (
+              <StudioInspector
+                testId="if-inspector"
+                eyebrow={t('engine.studio.inspector.props', locale)}
+                width={
                   isSourcePage && !(selection && Inspector && current) && !(editNav && navSel)
                     ? 'w-[24rem] xl:w-[30rem] 2xl:w-[36rem]'
-                    : 'w-72',
-                )}
+                    : undefined
+                }
+                actions={
+                  canCollapseInspector ? (
+                    <button
+                      type="button"
+                      onClick={() => setInspectorCollapsed(true)}
+                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                      aria-label={t('engine.studio.inspector.collapse', locale)}
+                      title={t('engine.studio.inspector.collapse', locale)}
+                    >
+                      <PanelRightClose className="h-4 w-4" />
+                    </button>
+                  ) : undefined
+                }
+                onClose={selection && !StudioCanvas ? () => setSelection(null) : undefined}
+                closeLabel={t('engine.studio.deselect', locale)}
+                footer={t('engine.studio.inspector.draftFooter', locale)}
+                bodyClassName="flex min-h-0 flex-1 flex-col"
               >
-                {inspectorHeaderEl}
                 {inspectorBodyEl}
-              </aside>
+              </StudioInspector>
             )}
           </>
         ) : isWide ? (
@@ -4271,19 +4321,35 @@ export function InterfacesPillar({
           // keeps usable width once the ~420px dock is also on screen.
           <>
             {canvasEl}
-            {inspectorCollapsed ? inspectorCollapsedRailEl : (
-              <aside
-                data-testid="studio-folded-inspector"
-                className={cn(
-                  'flex shrink-0 flex-col overflow-hidden border-l',
+            {inspectorCollapsed ? null : (
+              <StudioInspector
+                testId="if-inspector"
+                eyebrow={t('engine.studio.inspector.props', locale)}
+                width={
                   isSourcePage && !(selection && Inspector && current) && !(editNav && navSel)
-                    ? 'w-[22rem] 2xl:w-[28rem]'
-                    : 'w-72 2xl:w-80',
-                )}
+                    ? 'w-[24rem] xl:w-[30rem] 2xl:w-[36rem]'
+                    : undefined
+                }
+                actions={
+                  canCollapseInspector ? (
+                    <button
+                      type="button"
+                      onClick={() => setInspectorCollapsed(true)}
+                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                      aria-label={t('engine.studio.inspector.collapse', locale)}
+                      title={t('engine.studio.inspector.collapse', locale)}
+                    >
+                      <PanelRightClose className="h-4 w-4" />
+                    </button>
+                  ) : undefined
+                }
+                onClose={selection && !StudioCanvas ? () => setSelection(null) : undefined}
+                closeLabel={t('engine.studio.deselect', locale)}
+                footer={t('engine.studio.inspector.draftFooter', locale)}
+                bodyClassName="flex min-h-0 flex-1 flex-col"
               >
-                {inspectorHeaderEl}
                 {inspectorBodyEl}
-              </aside>
+              </StudioInspector>
             )}
           </>
         ) : (
@@ -4320,6 +4386,8 @@ export function InterfacesPillar({
             </TabsContent>
           </Tabs>
         )}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -5067,58 +5135,45 @@ export function DataPillar({
     objLoaded && typeof objDraft.icon === 'string' ? (objDraft.icon as string) : current?.icon,
   );
 
+  // objectui#12459 — the object's tab row lives in the item header (the
+  // skeleton's scaffold): the two primary tabs flat, "Advanced" as the
+  // overflow it was (objectui#5813). The trigger keeps its own name whichever
+  // panel is open (objectui#11794): renamed to the panel ("Validations ▾") it
+  // hid the one word that says sibling panels sit behind it. Where you are
+  // still shows twice — the trigger takes the active look while one of its
+  // panels is open, and the menu marks that panel as the checked radio item.
+  const dataTabRowEl = current ? (
+    <>
+      {dataTabs.map((tab) => (
+        <StudioTab key={tab.key} active={viewMode === tab.key} onClick={() => selectViewMode(tab.key)}>
+          {tab.label}
+        </StudioTab>
+      ))}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <StudioTab data-testid="data-tabs-advanced" active={Boolean(activeAdvancedTab)}>
+            {t('engine.studio.data.tab.advanced', locale)}
+            <ChevronDown className="h-3 w-3" />
+          </StudioTab>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          {/* The group only marks which item is checked; each item
+              selects its own panel, as the plain items did. */}
+          <DropdownMenuRadioGroup value={activeAdvancedTab?.key ?? ''}>
+            {advancedDataTabs.map((tab) => (
+              <DropdownMenuRadioItem key={tab.key} value={tab.key} onSelect={() => selectViewMode(tab.key)}>
+                {tab.label}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
+  ) : undefined;
+
   return (
     <div ref={pillarRef} className="flex h-full flex-col">
       {objConflictDialog}
-      <div className="flex items-center gap-3 border-b px-3 py-2">
-        <button
-          type="button"
-          onClick={() => setRailOpen((v) => !v)}
-          aria-label={t('engine.studio.toggleRail', locale)}
-          className="-ml-1 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground md:hidden"
-        >
-          <Menu className="h-4 w-4" />
-        </button>
-        {current ? (
-          <span className="flex min-w-0 items-center gap-2">
-            {/* eslint-disable-next-line react-hooks/static-components -- getIcon returns a stable icon component from a static registry, not one created during render */}
-            <HeaderIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <span className="truncate text-[15px] font-semibold leading-none text-foreground">{current.label}</span>
-            <span className="shrink-0 rounded bg-muted/70 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-              {current.name}
-            </span>
-            {/* objectui#11272 — the count reads the buffer: this object's only. */}
-            {objLoaded && (
-              <span className="shrink-0 text-[11px] text-muted-foreground">
-                {tFormat('engine.studio.data.fieldCount', locale, { count: fieldCount })}
-              </span>
-            )}
-          </span>
-        ) : (
-          <span className="text-[11px] text-muted-foreground">{t('engine.studio.data.pickObject', locale)}</span>
-        )}
-        {hasDraft && objLoaded && (
-          <span className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300">
-            {t('engine.studio.unpublishedDraft', locale)}
-          </span>
-        )}
-        {/* objectui#5813 — drafts auto-save (see useDraftAutoSave above); the
-            hint is the whole affordance: saving spinner while in flight, the
-            last-saved time once landed. The old Save draft button is retired. */}
-        {saving === 'draft' ? (
-          <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-muted-foreground" data-testid="data-autosaving">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            {t('engine.studio.autoSaving', locale)}
-          </span>
-        ) : savedAt && !dirty ? (
-          <span className="ml-auto text-[11px] text-muted-foreground" data-testid="data-saved-at">
-            {tFormat('engine.studio.data.lastSaved', locale, {
-              time: savedAt.toLocaleTimeString(displayLocale, { hour: '2-digit', minute: '2-digit' }),
-            })}
-          </span>
-        ) : null}
-      </div>
-
       <div className="relative flex min-h-0 flex-1">
         {isMobile && railOpen && (
           <div
@@ -5127,76 +5182,106 @@ export function DataPillar({
             aria-hidden="true"
           />
         )}
-        <nav
-          className={cn(
-            'flex w-52 shrink-0 flex-col border-r bg-background',
-            isMobile && 'absolute inset-y-0 left-0 z-20 shadow-lg transition-transform duration-200',
-            isMobile && !railOpen && '-translate-x-full',
-          )}
+        <StudioRail
+          testId="studio-rail-data"
+          heading={t('engine.studio.data.objects', locale)}
+          count={objects.length}
+          onAdd={readOnly ? undefined : openCreateDialog}
+          addLabel={t('engine.studio.data.newObject', locale)}
+          addTestId="studio-rail-add"
+          search={{ value: query, onChange: setQuery, placeholder: t('engine.studio.data.searchObjects', locale) }}
+          isMobile={isMobile}
+          open={railOpen}
         >
-          <div className="shrink-0 p-2 pb-1">
-            <p className="px-2 pb-1 pt-1 text-[11px] font-medium text-muted-foreground">{t('engine.studio.data.objects', locale)}</p>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t('engine.studio.data.searchObjects', locale)}
-              className="h-7 w-full rounded-md border bg-background px-2 text-[11px] outline-none placeholder:text-muted-foreground/70 focus:ring-1 focus:ring-primary"
-            />
-          </div>
-          <div className="min-h-0 flex-1 overflow-auto p-2 pt-1">
-            {objects.length === 0 && (
-              <p className="px-2 py-3 text-[11px] text-muted-foreground">
-                {error ? t('engine.studio.loadFailed', locale) : objectsLoaded ? t('engine.studio.data.noObjects', locale) : t('engine.studio.loading', locale)}
-              </p>
-            )}
-            {objects
-              .filter(
-                (o) =>
-                  !query.trim() ||
-                  o.label.toLowerCase().includes(query.trim().toLowerCase()) ||
-                  o.name.toLowerCase().includes(query.trim().toLowerCase()),
-              )
-              .map((o) => {
-                const Icon = getIcon(o.icon);
-                return (
-                  <button type="button"
-                    key={o.name}
-                    onClick={() => {
-                      setCurrent(o);
-                      if (isMobile) setRailOpen(false);
-                    }}
-                    className={
-                      'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs ' +
-                      (current?.name === o.name ? 'bg-muted font-medium' : 'text-foreground/90 hover:bg-muted/60')
-                    }
-                  >
-                    <Icon className="h-3.5 w-3.5 shrink-0" />
-                    <span className="flex-1 truncate">{o.label}</span>
-                  </button>
-                );
-              })}
-          </div>
-          <div className="shrink-0 border-t p-2">
-            {readOnly ? (
-              <p
-                title={t('engine.studio.pkg.readonlyHint', locale)}
-                className="flex items-center gap-1.5 px-2 py-1.5 text-[11px] text-muted-foreground"
-              >
-                <Lock className="h-3 w-3" /> {t('engine.studio.pkg.readonly', locale)}
-              </p>
-            ) : (
+          {objects.length === 0 && (
+            <p className="px-2 py-3 text-[11px] text-muted-foreground">
+              {error ? t('engine.studio.loadFailed', locale) : objectsLoaded ? t('engine.studio.data.noObjects', locale) : t('engine.studio.loading', locale)}
+            </p>
+          )}
+          {objects
+            .filter(
+              (o) =>
+                !query.trim() ||
+                o.label.toLowerCase().includes(query.trim().toLowerCase()) ||
+                o.name.toLowerCase().includes(query.trim().toLowerCase()),
+            )
+            .map((o) => {
+              const Icon = getIcon(o.icon);
+              return (
+                <StudioRailRow
+                  key={o.name}
+                  active={current?.name === o.name}
+                  onClick={() => {
+                    setCurrent(o);
+                    if (isMobile) setRailOpen(false);
+                  }}
+                  icon={<Icon className="h-4 w-4 shrink-0" />}
+                >
+                  {o.label}
+                </StudioRailRow>
+              );
+            })}
+        </StudioRail>
+
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          {/* objectui#12459 — the object header sits inside the content column,
+              over the thing it names, instead of spanning the rail. */}
+          <StudioItemHeader
+            testId="data-object-header"
+            leading={
               <button
                 type="button"
-                onClick={openCreateDialog}
-                className="inline-flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                onClick={() => setRailOpen((v) => !v)}
+                aria-label={t('engine.studio.toggleRail', locale)}
+                className="-ml-1 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground md:hidden"
               >
-                <Plus className="h-3.5 w-3.5" /> {t('engine.studio.data.newObject', locale)}
+                <Menu className="h-4 w-4" />
               </button>
-            )}
-          </div>
-        </nav>
-
-        <main className="flex min-w-0 flex-1 flex-col overflow-hidden p-4">
+            }
+            icon={current ? HeaderIcon : undefined}
+            title={current ? current.label : t('engine.studio.data.objects', locale)}
+            titleProps={current ? undefined : { className: 'text-[13px] font-normal text-muted-foreground' }}
+            apiName={current?.name}
+            meta={current && objLoaded ? tFormat('engine.studio.data.fieldCount', locale, { count: fieldCount }) : undefined}
+            chips={
+              hasDraft && objLoaded ? (
+                <span className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300">
+                  {t('engine.studio.unpublishedDraft', locale)}
+                </span>
+              ) : undefined
+            }
+            actions={
+              <>
+                {/* objectui#5813 — drafts auto-save (see useDraftAutoSave above); the
+                    hint is the whole affordance: saving spinner while in flight, the
+                    last-saved time once landed. The old Save draft button is retired. */}
+                {saving === 'draft' ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground" data-testid="data-autosaving">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    {t('engine.studio.autoSaving', locale)}
+                  </span>
+                ) : savedAt && !dirty ? (
+                  <span className="text-[11px] text-muted-foreground" data-testid="data-saved-at">
+                    {tFormat('engine.studio.data.lastSaved', locale, {
+                      time: savedAt.toLocaleTimeString(displayLocale, { hour: '2-digit', minute: '2-digit' }),
+                    })}
+                  </span>
+                ) : null}
+                {current && (viewMode === 'grid' || viewMode === 'form') && !readOnly && objLoaded && (
+                  <button
+                    type="button"
+                    onClick={addField}
+                    title={t('engine.studio.data.addFieldTitle', locale)}
+                    className="inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> {t('engine.studio.data.addField', locale)}
+                  </button>
+                )}
+              </>
+            }
+            tabs={dataTabRowEl}
+          />
+          <main className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 py-4">
           {!current ? (
             objectsLoaded && objects.length === 0 ? (
               /* Fresh package: the first act is creating an object — say so and
@@ -5222,74 +5307,6 @@ export function DataPillar({
             )
           ) : (
             <>
-              <div className="mb-4 flex shrink-0 items-center gap-3">
-                {/* Object-level segmented control — the primary nav layer for
-                    the selected object (recessed track, elevated active pill). */}
-                <div className="inline-flex items-center gap-0.5 rounded-lg bg-muted p-1">
-                  {dataTabs.map((tab) => (
-                    <button
-                      key={tab.key}
-                      type="button"
-                      onClick={() => selectViewMode(tab.key)}
-                      aria-pressed={viewMode === tab.key}
-                      className={
-                        'rounded-md px-3 py-1 text-[13px] transition-all ' +
-                        (viewMode === tab.key
-                          ? 'bg-background font-medium text-foreground shadow-sm'
-                          : 'text-muted-foreground hover:text-foreground')
-                      }
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                  {/* "Advanced" — the five power panels (objectui#5813). The
-                      trigger keeps its own name whichever panel is open
-                      (objectui#11794): renamed to the panel ("Validations ▾") it
-                      hid the one word that says sibling panels sit behind it.
-                      Where you are still shows twice — the trigger takes the
-                      active pill while one of its panels is open, and the menu
-                      marks that panel as the checked radio item. */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        data-testid="data-tabs-advanced"
-                        aria-pressed={Boolean(activeAdvancedTab)}
-                        className={
-                          'inline-flex items-center gap-1 rounded-md px-3 py-1 text-[13px] transition-all ' +
-                          (activeAdvancedTab
-                            ? 'bg-background font-medium text-foreground shadow-sm'
-                            : 'text-muted-foreground hover:text-foreground')
-                        }
-                      >
-                        {t('engine.studio.data.tab.advanced', locale)}
-                        <ChevronDown className="h-3 w-3" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                      {/* The group only marks which item is checked; each item
-                          selects its own panel, as the plain items did. */}
-                      <DropdownMenuRadioGroup value={activeAdvancedTab?.key ?? ''}>
-                        {advancedDataTabs.map((tab) => (
-                          <DropdownMenuRadioItem key={tab.key} value={tab.key} onSelect={() => selectViewMode(tab.key)}>
-                            {tab.label}
-                          </DropdownMenuRadioItem>
-                        ))}
-                      </DropdownMenuRadioGroup>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-                {(viewMode === 'grid' || viewMode === 'form') && !readOnly && objLoaded && (
-                  <button
-                    type="button"
-                    onClick={addField}
-                    title={t('engine.studio.data.addFieldTitle', locale)}
-                    className="ml-auto inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> {t('engine.studio.data.addField', locale)}
-                  </button>
-                )}
-              </div>
               {error && (
                 <StudioRefusalStrip
                   refusal={error}
@@ -5581,7 +5598,8 @@ export function DataPillar({
               )}
             </>
           )}
-        </main>
+          </main>
+        </div>
 
         {/* Right rail — property inspector. Fields reuse the shared
           * ObjectFieldInspector; a selected group opens ObjectGroupInspector
@@ -5597,21 +5615,16 @@ export function DataPillar({
           * click. (Unreachable in production today only because registration is
           * eager — the very thing part A wants to make lazy.) */}
         {current && fieldSel && objLoaded && (
-          <aside className="flex w-80 shrink-0 flex-col border-l">
-            <header className="sticky top-0 z-10 flex items-center gap-2 border-b bg-background/95 px-3 py-2 backdrop-blur">
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-              <span id={fieldRailTitleId} className="text-[13px] font-medium">
-                {t(fieldSel.kind === 'group' ? 'engine.studio.data.groupProps' : 'engine.studio.data.fieldProps', locale)}
-              </span>
-              <button
-                type="button"
-                onClick={() => setFieldSel(null)}
-                className="ml-auto rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label={t('engine.studio.close', locale)}
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </header>
+          <StudioInspector
+            testId="data-field-inspector"
+            eyebrow={t(fieldSel.kind === 'group' ? 'engine.studio.data.groupProps' : 'engine.studio.data.fieldProps', locale)}
+            eyebrowId={fieldRailTitleId}
+            id={fieldSel.id}
+            onClose={() => setFieldSel(null)}
+            closeLabel={t('engine.studio.close', locale)}
+            footer={t('engine.studio.inspector.draftFooter', locale)}
+            bodyClassName="flex min-h-0 flex-1 flex-col"
+          >
             {(() => {
               const railContent = fieldSel.kind === 'group' ? (
                 <ObjectGroupInspector
@@ -5680,7 +5693,7 @@ export function DataPillar({
                 </TooltipProvider>
               );
             })()}
-          </aside>
+          </StudioInspector>
         )}
       </div>
 
@@ -6365,39 +6378,23 @@ export function AutomationsPillar({
       </div>
     );
 
-  return (
-    <div className="flex h-full flex-col">
-      {flowConflictDialog}
-      <div className="flex items-center gap-2 border-b px-3 py-1.5">
-        <button
-          type="button"
-          onClick={() => setRailOpen((v) => !v)}
-          aria-label={t('engine.studio.toggleRail', locale)}
-          className="-ml-1 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground md:hidden"
-        >
-          <Menu className="h-4 w-4" />
-        </button>
-        <span className="text-[11px] text-muted-foreground">{t('engine.studio.auto.defaultOff', locale)}</span>
-        {hasDraft && flowLoaded && (
-          <span className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300">
-            {t('engine.studio.unpublishedDraft', locale)}
-          </span>
-        )}
-        {/* objectui#11272 — the switch reads and saves the open flow's own
-            document, so it waits for it: not offered over another's. */}
-        {current && flowLoaded && (() => {
+  // objectui#12459 — the switch and the "off by default" sentence sit in the
+  // item header's actions slot; the full-width band above the rail retires.
+  // objectui#11272 — the switch reads and saves the open flow's own
+  // document, so it waits for it: not offered over another's.
+  const flowSwitchEl =
+    current && flowLoaded
+      ? (() => {
           const toggle = (
             <button
               type="button"
               role="switch"
               aria-checked={flowEnabled}
               onClick={toggleEnabled}
-              // objectui#11124 — a read-only package takes no status change: the
-              // draft save would be refused (`ITEM_LOCKED`).
               disabled={!isEditable || !!saving || readOnly}
               aria-describedby={readOnly ? toggleReadOnlyReasonId : undefined}
-              // A read-only package's reason is the wrapper's below
-              // (objectui#12303), not a `title` the disabled switch can never show.
+              // A read-only package's reason is the wrapper's (objectui#12303),
+              // not a `title` the disabled button can never show.
               title={
                 readOnly
                   ? undefined
@@ -6406,21 +6403,17 @@ export function AutomationsPillar({
                     : t('engine.studio.auto.enableTitle', locale)
               }
               className={
-                'inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] hover:bg-muted disabled:opacity-50' +
+                'inline-flex h-7 items-center gap-2 rounded-md px-1 text-[12px] text-foreground hover:bg-muted disabled:opacity-50' +
                 (readOnly ? ' disabled:pointer-events-none' : '')
               }
             >
-              <span className={'relative inline-flex h-3.5 w-6 shrink-0 items-center rounded-full transition-colors ' + (flowEnabled ? 'bg-emerald-500' : 'bg-muted-foreground/40')}>
-                <span className={'inline-block h-2.5 w-2.5 rounded-full bg-white transition-transform ' + (flowEnabled ? 'translate-x-3' : 'translate-x-0.5')} />
+              <span className={'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ' + (flowEnabled ? 'bg-emerald-500' : 'bg-muted-foreground/40')}>
+                <span className={'inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ' + (flowEnabled ? 'translate-x-[18px]' : 'translate-x-0.5')} />
               </span>
               {flowEnabled ? t('engine.studio.auto.enabled', locale) : t('engine.studio.auto.disabled', locale)}
             </button>
           );
           if (!readOnly) return toggle;
-          // objectui#12303 — the record page's Archive pattern
-          // (`DeclaredActionsBar`, objectui#11811), as the header's Publish
-          // takes it: the span is the tooltip trigger and a tab stop, and the
-          // switch and the span both point at an `sr-only` copy of the reason.
           return (
             <TooltipProvider delayDuration={200}>
               <Tooltip>
@@ -6441,16 +6434,12 @@ export function AutomationsPillar({
               </Tooltip>
             </TooltipProvider>
           );
-        })()}
-        {/* objectui#5813 — drafts auto-save; the spinner is the affordance. */}
-        {saving === 'draft' && (
-          <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-muted-foreground" data-testid="auto-autosaving">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            {t('engine.studio.autoSaving', locale)}
-          </span>
-        )}
-      </div>
+        })()
+      : null;
 
+  return (
+    <div className="flex h-full flex-col">
+      {flowConflictDialog}
       <div ref={layoutRowRef} data-testid="auto-layout-row" className="relative flex min-h-0 flex-1">
         {isMobile && railOpen && (
           <div
@@ -6459,115 +6448,126 @@ export function AutomationsPillar({
             aria-hidden="true"
           />
         )}
-        <nav
-          className={cn(
-            'flex w-52 shrink-0 flex-col border-r bg-background',
-            isMobile && 'absolute inset-y-0 left-0 z-20 shadow-lg transition-transform duration-200',
-            isMobile && !railOpen && '-translate-x-full',
-          )}
+        <StudioRail
+          testId="studio-rail-automations"
+          heading={t('engine.studio.auto.heading', locale)}
+          count={flows.length}
+          onAdd={
+            // objectui#11553 — no "New" in the package-less scope: new
+            // authoring stays package-first, and this scope reaches flows
+            // that already exist without a package.
+            !readOnly && packageId !== null
+              ? () => {
+                  setError(null);
+                  setNewTrigger('');
+                  setNewTriggerObject('');
+                  setNewChoice(FLOW_PRESETS[0]);
+                  setNewNeeds(null);
+                  setCreating(true);
+                }
+              : undefined
+          }
+          addLabel={t('engine.studio.auto.newTitle', locale)}
+          addTestId="studio-rail-add"
+          search={{
+            value: railQuery,
+            onChange: setRailQuery,
+            placeholder: t('engine.studio.designer.search', locale),
+            testId: 'auto-rail-search',
+          }}
+          isMobile={isMobile}
+          open={railOpen}
         >
-          {/* objectui#11794 — the heading, New and the search stay put while
-              the list under them scrolls, as the Data pillar's object rail. */}
-          <div className="shrink-0 p-2 pb-1">
-            <div className="flex items-center gap-1 px-2 pb-1 pt-1">
-              <p className="flex-1 text-[11px] font-medium text-muted-foreground">{t('engine.studio.auto.heading', locale)}</p>
-              {/* objectui#11553 — no "New" in the package-less scope: new
-                  authoring stays package-first, and this scope reaches flows
-                  that already exist without a package. */}
-              {!readOnly && packageId !== null && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setError(null);
-                    setNewTrigger('');
-                    setNewTriggerObject('');
-                    setNewChoice(FLOW_PRESETS[0]);
-                    setNewNeeds(null);
-                    setCreating(true);
-                  }}
-                  title={t('engine.studio.auto.newTitle', locale)}
-                  className="inline-flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-[11px] hover:bg-muted"
-                >
-                  <Plus className="h-3 w-3" /> {t('engine.studio.new', locale)}
-                </button>
-              )}
-            </div>
-            {/* objectui#11794 — a long rail had no way to find one flow. The
-                search matches the label and the machine name, as the object
-                rail's does. */}
-            <input
-              value={railQuery}
-              onChange={(e) => setRailQuery(e.target.value)}
-              placeholder={t('engine.studio.designer.search', locale)}
-              data-testid="auto-rail-search"
-              className="h-7 w-full rounded-md border bg-background px-2 text-[11px] outline-none placeholder:text-muted-foreground/70 focus:ring-1 focus:ring-primary"
-            />
-          </div>
-          <div className="min-h-0 flex-1 overflow-auto p-2 pt-1">
-            {shownFlows.map((f) => (
+          {shownFlows.map((f) => (
+            <StudioRailRow
+              key={f.name}
+              // objectui#11794 — the whole name, wrapped: truncation cut a
+              // flow's name to a stub in this rail's width.
+              wrap
+              active={current?.name === f.name}
+              onClick={() => {
+                setCurrent(f);
+                if (isMobile) setRailOpen(false);
+              }}
+              icon={<Workflow className="h-4 w-4 shrink-0" />}
+              trailing={<FlowStatusDot state={flowStatus[f.name]} registration={flowRegistrations[f.name]} locale={locale} />}
+            >
+              {f.label}
+            </StudioRailRow>
+          ))}
+          {flows.length > 0 && shownFlows.length === 0 && (
+            <p className="px-2 py-3 text-[11px] text-muted-foreground">
+              {tFormat('engine.list.emptyQuery', locale, { query: railQuery.trim() })}
+            </p>
+          )}
+          {flows.length === 0 && !creating && (
+            <p className="px-2 py-3 text-[11px] text-muted-foreground">
+              {error
+                ? t('engine.studio.loadFailed', locale)
+                : !listed
+                  ? t('engine.studio.loading', locale)
+                  : packageId === null
+                    ? t('engine.studio.org.none', locale)
+                    : t('engine.studio.auto.none', locale)}
+            </p>
+          )}
+        </StudioRail>
+
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          {/* objectui#11665 — the header names the open flow by its LABEL,
+              the string its rail row prints, never by `flow · NAME`: the
+              metadata type word was developer vocabulary inside the
+              author's own copy (objectui#11659 ruling 6). The API name
+              moves to the tooltip for the authors who need it, as the
+              Interfaces caption keeps its internal id (objectui#7254). A
+              label that resolves to nothing falls back to the name. */}
+          <StudioItemHeader
+            testId="auto-flow-header"
+            leading={
               <button
                 type="button"
-                key={f.name}
-                onClick={() => {
-                  setCurrent(f);
-                  if (isMobile) setRailOpen(false);
-                }}
-                className={
-                  'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs ' +
-                  (current?.name === f.name ? 'bg-muted font-medium' : 'text-foreground/90 hover:bg-muted/60')
-                }
+                onClick={() => setRailOpen((v) => !v)}
+                aria-label={t('engine.studio.toggleRail', locale)}
+                className="-ml-1 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground md:hidden"
               >
-                <Workflow className="h-3.5 w-3.5 shrink-0" />
-                {/* objectui#11794 — the whole name, wrapped: `truncate` cut a
-                    flow's name to a stub in this rail's width. */}
-                <span className="min-w-0 flex-1 break-words">{f.label}</span>
-                <FlowStatusDot state={flowStatus[f.name]} registration={flowRegistrations[f.name]} locale={locale} />
+                <Menu className="h-4 w-4" />
               </button>
-            ))}
-            {flows.length > 0 && shownFlows.length === 0 && (
-              <p className="px-2 py-3 text-[11px] text-muted-foreground">
-                {tFormat('engine.list.emptyQuery', locale, { query: railQuery.trim() })}
-              </p>
-            )}
-            {flows.length === 0 && !creating && (
-              <p className="px-2 py-3 text-[11px] text-muted-foreground">
-                {error
-                  ? t('engine.studio.loadFailed', locale)
-                  : !listed
-                    ? t('engine.studio.loading', locale)
-                    : packageId === null
-                      ? t('engine.studio.org.none', locale)
-                      : t('engine.studio.auto.none', locale)}
-              </p>
-            )}
-          </div>
-        </nav>
-
-        <main className="flex min-w-0 flex-1 flex-col overflow-auto bg-muted/30 p-4">
-          <div className="mb-3 flex shrink-0 items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
-              <Workflow className="h-3 w-3" />{' '}
-              {isEditable
-                ? t('engine.studio.auto.canvasHint', locale)
-                : t('engine.studio.auto.designersMissing', locale)}
-            </span>
-            {/* objectui#11665 — the header names the open flow by its LABEL,
-                the string its rail row prints, never by `flow · NAME`: the
-                metadata type word was developer vocabulary inside the
-                author's own copy (objectui#11659 ruling 6). The API name
-                moves to the tooltip for the authors who need it, as the
-                Interfaces caption keeps its internal id (objectui#7254). A
-                label that resolves to nothing falls back to the name. */}
-            {current && (
-              <span
-                className="text-[11px] text-muted-foreground"
-                title={`${t('designer.field.apiName', locale)}: ${current.name}`}
-                data-testid="auto-canvas-caption"
-              >
-                {current.label || current.name}
+            }
+            icon={current ? Workflow : undefined}
+            title={current ? current.label || current.name : t('engine.studio.auto.heading', locale)}
+            titleProps={
+              current
+                ? { 'data-testid': 'auto-canvas-caption', title: `${t('designer.field.apiName', locale)}: ${current.name}` }
+                : { className: 'text-[13px] font-normal text-muted-foreground' }
+            }
+            // The hint yields to the label on a narrow row: the title never truncates for it.
+            meta={
+              <span className="hidden 2xl:inline">
+                {isEditable ? t('engine.studio.auto.canvasHint', locale) : t('engine.studio.auto.designersMissing', locale)}
               </span>
-            )}
-          </div>
+            }
+            chips={
+              hasDraft && flowLoaded ? (
+                <span className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300">
+                  {t('engine.studio.unpublishedDraft', locale)}
+                </span>
+              ) : undefined
+            }
+            actions={
+              <>
+                {/* objectui#5813 — drafts auto-save; the spinner is the affordance. */}
+                {saving === 'draft' && (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground" data-testid="auto-autosaving">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    {t('engine.studio.autoSaving', locale)}
+                  </span>
+                )}
+                <span className="hidden text-[11px] text-muted-foreground xl:inline">{t('engine.studio.auto.defaultOff', locale)}</span>
+                {flowSwitchEl}
+              </>
+            }
+          />
+          <main className="flex min-h-0 flex-1 flex-col overflow-auto bg-muted/30 px-6 py-4">
           {error && (
             <StudioRefusalStrip
               refusal={error}
@@ -6641,7 +6641,8 @@ export function AutomationsPillar({
               </pre>
             )}
           </div>
-        </main>
+          </main>
+        </div>
 
         {configFolded ? (
           // objectui#11795 — the folded row: no aside reserving width beside
@@ -6664,23 +6665,15 @@ export function AutomationsPillar({
             </SheetContent>
           </Sheet>
         ) : (
-        <aside className="w-72 shrink-0 overflow-auto border-l">
-          <header className="sticky top-0 z-10 flex items-center gap-2 border-b bg-background/95 px-3 py-2 backdrop-blur">
-            <SlidersHorizontal className="h-3.5 w-3.5" />
-            <span className="text-[13px] font-medium">{t('engine.studio.auto.config', locale)}</span>
-            {selection && (
-              <button
-                type="button"
-                onClick={() => setSelection(null)}
-                className="ml-auto rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label={t('engine.studio.deselect', locale)}
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </header>
-          <div className="p-3">{configBodyEl}</div>
-        </aside>
+        <StudioInspector
+          testId="auto-config-aside"
+          eyebrow={t('engine.studio.auto.config', locale)}
+          onClose={selection ? () => setSelection(null) : undefined}
+          closeLabel={t('engine.studio.deselect', locale)}
+          footer={t('engine.studio.inspector.draftFooter', locale)}
+        >
+          {configBodyEl}
+        </StudioInspector>
         )}
       </div>
 
@@ -7032,9 +7025,15 @@ export function AccessPillar({
       p.name.toLowerCase().includes(query.trim().toLowerCase()),
   );
 
-  return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 border-b px-3 py-1.5">
+  // objectui#12459 — the item header inside the content column: the open
+  // set (or the OWD overview) as the title, the matrix's one-line summary as
+  // meta, Explain access and the draft / read-only note in the actions slot.
+  // The "Permission matrix" band above the rail retires.
+  const accessCurrentSet = !owdOpen && current ? perms.find((s) => s.name === current) ?? null : null;
+  const accessHeaderEl = (
+    <StudioItemHeader
+      testId="access-item-header"
+      leading={
         <button
           type="button"
           onClick={() => setRailOpen((v) => !v)}
@@ -7043,23 +7042,22 @@ export function AccessPillar({
         >
           <Menu className="h-4 w-4" />
         </button>
-        <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <Shield className="h-3.5 w-3.5" />
-          <span className="text-[13px] font-medium text-foreground">{t('engine.studio.access.title', locale)}</span>
-          <span className="rounded bg-muted px-1.5 py-0.5">{t('engine.studio.access.subtitle', locale)}</span>
-        </span>
-        <button
-          type="button"
-          onClick={() => setExplainOpen(true)}
-          className="ml-auto flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
-        >
-          <ShieldQuestion className="h-3.5 w-3.5" />
-          {t('engine.studio.access.explain.open', locale)}
-        </button>
-        {/* objectui#11781 — "saved as draft" is what an editable package does;
-            a read-only one saves nothing, so it says what it is, in the muted
-            look of the rail's own read-only note rather than the draft amber. */}
-        {readOnly ? (
+      }
+      icon={owdOpen ? ShieldCheck : Shield}
+      title={
+        owdOpen
+          ? t('engine.studio.owd.railLabel', locale)
+          : accessCurrentSet
+            ? accessCurrentSet.label || accessCurrentSet.name
+            : t('engine.studio.access.title', locale)
+      }
+      apiName={accessCurrentSet?.name}
+      meta={t('engine.studio.access.subtitle', locale)}
+      chips={
+        // objectui#11781 — "saved as draft" is what an editable package does;
+        // a read-only one saves nothing, so it says what it is, in the muted
+        // look of the rail's own read-only note rather than the draft amber.
+        readOnly ? (
           <span
             title={t('engine.studio.access.bannerTitleReadOnly', locale)}
             className="rounded bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
@@ -7073,9 +7071,23 @@ export function AccessPillar({
           >
             {t('engine.studio.access.banner', locale)}
           </span>
-        )}
-      </div>
+        )
+      }
+      actions={
+        <button
+          type="button"
+          onClick={() => setExplainOpen(true)}
+          className="inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <ShieldQuestion className="h-3.5 w-3.5" />
+          {t('engine.studio.access.explain.open', locale)}
+        </button>
+      }
+    />
+  );
 
+  return (
+    <div className="flex h-full flex-col">
       {/* ADR-0090 D5/D9 — this package's suggested audience bindings
           (isDefault sets shipped by the package) and the deployment's
           decision on each. Renders nothing when there are none or for a
@@ -7127,117 +7139,93 @@ export function AccessPillar({
             aria-hidden="true"
           />
         )}
-        <nav
-          className={cn(
-            'flex w-52 shrink-0 flex-col border-r bg-background',
-            isMobile && 'absolute inset-y-0 left-0 z-20 shadow-lg transition-transform duration-200',
-            isMobile && !railOpen && '-translate-x-full',
-          )}
-        >
-          {/* Pinned sibling surface: the package-wide Record Sharing Baseline
-              (OWD) overview (objectui#2505). Same package-author ownership as
-              the sets below, but a distinct surface — not a permission set. */}
-          <div className="border-b p-2 pb-2">
-            <button
-              type="button"
-              onClick={() => {
-                // Re-clicking the open overview is a no-op — nothing
-                // remounts, so no confirm (mirrors the set re-click below).
-                if (owdOpen) {
-                  setOwdHighlight(null);
-                  if (isMobile) setRailOpen(false);
-                  return;
-                }
-                if (!confirmDiscardEdits()) return;
-                setOwdOpen(true);
-                setOwdHighlight(null);
-                if (isMobile) setRailOpen(false);
-              }}
-              className={
-                'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs ' +
-                (owdOpen ? 'bg-muted font-medium' : 'text-foreground/90 hover:bg-muted/60')
-              }
-            >
-              <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              <span className="flex-1 truncate">{t('engine.studio.owd.railLabel', locale)}</span>
-            </button>
-          </div>
-          <div className="p-2 pb-0">
-            <p className="px-2 pb-1 pt-1 text-[11px] font-medium text-muted-foreground">{t('engine.studio.access.heading', locale)}</p>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t('engine.studio.access.search', locale)}
-              className="mb-1 h-7 w-full rounded-md border bg-background px-2 text-[11px] outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-          <div className="min-h-0 flex-1 overflow-auto p-2 pt-1">
-            {perms.length === 0 && (
-              <p className="px-2 py-3 text-[11px] text-muted-foreground">
-                {error ? t('engine.studio.loadFailed', locale) : loaded ? t('engine.studio.access.none', locale) : t('engine.studio.loading', locale)}
-              </p>
-            )}
-            {filtered.map((p) => (
-              <button type="button"
-                key={p.name}
-                onClick={() => {
-                  // Re-clicking the already-open set is a no-op — nothing
-                  // remounts, so no confirm.
-                  if (!owdOpen && current === p.name) {
-                    if (isMobile) setRailOpen(false);
-                    return;
-                  }
-                  if (!confirmDiscardEdits()) return;
-                  setOwdOpen(false);
-                  setCurrent(p.name);
-                  if (isMobile) setRailOpen(false);
-                }}
-                className={
-                  'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs ' +
-                  (!owdOpen && current === p.name ? 'bg-muted font-medium' : 'text-foreground/90 hover:bg-muted/60')
-                }
-              >
-                <Shield className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                {/* objectui#11862 — the set's label first, its machine name as
-                    secondary text. A draft-only set's label is the one its
-                    `_drafts` row carries; with none, its name is the text. */}
-                <StudioNameLabel label={p.label} name={p.name} />
-                {p.isDefault && (
-                  <span className="text-[9px] uppercase tracking-wide text-muted-foreground/60">
-                    default
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-          <div className="shrink-0 border-t p-2">
-            {readOnly ? (
-              <p
-                title={t('engine.studio.pkg.readonlyHint', locale)}
-                className="flex items-center gap-1.5 px-2 py-1.5 text-[11px] text-muted-foreground"
-              >
-                <Lock className="h-3 w-3" /> {t('engine.studio.pkg.readonly', locale)}
-              </p>
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
+        <StudioRail
+          testId="studio-rail-access"
+          heading={t('engine.studio.access.heading', locale)}
+          count={perms.length}
+          onAdd={
+            readOnly
+              ? undefined
+              : () => {
                   // Creating a set lands on the new set's matrix — a remount
                   // of the open matrix, or a swap out of the OWD overview —
                   // so gate the flow up front.
                   if (!confirmDiscardEdits()) return;
                   setCreateErr(null);
                   setCreating(true);
+                }
+          }
+          addLabel={t('engine.studio.access.new', locale)}
+          addTestId="studio-rail-add"
+          search={{ value: query, onChange: setQuery, placeholder: t('engine.studio.access.search', locale) }}
+          pinned={
+            // Pinned sibling surface: the package-wide Record Sharing Baseline
+            // (OWD) overview (objectui#2505). Same package-author ownership as
+            // the sets below, but a distinct surface — not a permission set.
+            <div className="border-b px-2 pb-2 pt-2">
+              <StudioRailRow
+                active={owdOpen}
+                onClick={() => {
+                  // Re-clicking the open overview is a no-op — nothing
+                  // remounts, so no confirm (mirrors the set re-click below).
+                  if (owdOpen) {
+                    setOwdHighlight(null);
+                    if (isMobile) setRailOpen(false);
+                    return;
+                  }
+                  if (!confirmDiscardEdits()) return;
+                  setOwdOpen(true);
+                  setOwdHighlight(null);
+                  if (isMobile) setRailOpen(false);
                 }}
-                className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                icon={<ShieldCheck className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                className="font-medium"
               >
-                <Plus className="h-3.5 w-3.5" /> {t('engine.studio.access.new', locale)}
-              </button>
-            )}
-          </div>
-        </nav>
+                {t('engine.studio.owd.railLabel', locale)}
+              </StudioRailRow>
+            </div>
+          }
+          isMobile={isMobile}
+          open={railOpen}
+        >
+          {perms.length === 0 && (
+            <p className="px-2 py-3 text-[11px] text-muted-foreground">
+              {error ? t('engine.studio.loadFailed', locale) : loaded ? t('engine.studio.access.none', locale) : t('engine.studio.loading', locale)}
+            </p>
+          )}
+          {filtered.map((p) => (
+            <StudioRailRow
+              key={p.name}
+              active={!owdOpen && current === p.name}
+              onClick={() => {
+                if (!owdOpen && current === p.name) {
+                  if (isMobile) setRailOpen(false);
+                  return;
+                }
+                if (!confirmDiscardEdits()) return;
+                setOwdOpen(false);
+                setCurrent(p.name);
+                if (isMobile) setRailOpen(false);
+              }}
+              icon={<Shield className="h-4 w-4 shrink-0 text-muted-foreground" />}
+              trailing={
+                p.isDefault ? (
+                  <span className="text-[9px] uppercase tracking-wide text-muted-foreground/60">default</span>
+                ) : undefined
+              }
+            >
+              {/* objectui#11862 — the set's label first, its machine name as
+                  secondary text. A set listed from its draft header alone
+                  has no label in hand (the header carries none), so its
+                  name is the text, as before. */}
+              <StudioNameLabel label={p.label} name={p.name} />
+            </StudioRailRow>
+          ))}
+        </StudioRail>
 
-        <main className="min-w-0 flex-1 overflow-auto">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          {accessHeaderEl}
+          <main className="min-h-0 flex-1 overflow-auto">
           {owdOpen ? (
             /* Sibling surface: the package-wide OWD baseline overview
              * (objectui#2505) — object × sharingModel,
@@ -7280,7 +7268,8 @@ export function AccessPillar({
               {loaded && perms.length === 0 ? t('engine.studio.access.emptyMain', locale) : t('engine.studio.access.pick', locale)}
             </div>
           )}
-        </main>
+          </main>
+        </div>
       </div>
 
       <AccessExplainPanel open={explainOpen} onOpenChange={setExplainOpen} packageId={packageId} />

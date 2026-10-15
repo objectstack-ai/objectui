@@ -18,9 +18,14 @@
  *
  * `Equal` (not `Extends`) on the whole union: re-adding `'jsx'` widens it, and
  * only an exact comparison fails on a widening.
+ *
+ * The zod face (`zod/layout.zod.ts` `PageNodeSchema`) refuses the same value
+ * at `kind`: it picks its enum out of the spec's by reference, so it does not
+ * wait for the resolved spec to carry the retirement.
  */
 import { describe, expect, it } from 'vitest';
 import type { PageNodeSchema } from '../layout';
+import { PageNodeSchema as PageNodeZod } from '../zod/layout.zod';
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 type Assert<T extends true> = T;
@@ -35,5 +40,12 @@ describe('PageNodeSchema.kind no longer declares the retired page kind jsx (obje
     // @ts-expect-error `jsx` was retired from the page kind in @objectstack/spec 18; author `html`
     const jsx: PageNodeSchema = { type: 'page', kind: 'jsx', source: '<Page />' };
     expect([html.kind, jsx.kind]).toEqual(['html', 'jsx']);
+  });
+
+  it('the zod face refuses kind jsx at kind and accepts html', () => {
+    const jsx = PageNodeZod.safeParse({ type: 'page', kind: 'jsx', source: '<Page />' });
+    expect(jsx.success).toBe(false);
+    expect(jsx.error?.issues.map((i) => i.path.join('.'))).toEqual(['kind']);
+    expect(PageNodeZod.safeParse({ type: 'page', kind: 'html', source: '<Page />' }).success).toBe(true);
   });
 });

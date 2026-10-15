@@ -29,6 +29,7 @@ import { render, screen, waitFor, act, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ComponentRegistry } from '@object-ui/core';
 import { RecordContextProvider, SchemaRenderer, SchemaRendererProvider, notifyDataChanged } from '@object-ui/react';
+import type { DataSource, DeclaredNode } from '@object-ui/types';
 import '../../index';
 
 /** `RelatedList` never reads over the network with an adapter; answered anyway, as the sibling suites do. */
@@ -68,7 +69,7 @@ type Row = Record<string, unknown>;
  * scope selected.
  */
 function makeAdapter(store: { parents: Row[]; children: Row[] }, opts: { rejectParent?: unknown } = {}) {
-  const find = vi.fn(async (object: string, params?: Record<string, any>) => {
+  const find = vi.fn(async (object: string, params?: Record<string, unknown>) => {
     if (object === PARENT_OBJECT) {
       if (opts.rejectParent) throw opts.rejectParent;
       let out = store.parents.map((r) => ({ ...r }));
@@ -100,7 +101,7 @@ function makeAdapter(store: { parents: Row[]; children: Row[] }, opts: { rejectP
 type Adapter = ReturnType<typeof makeAdapter>;
 
 const readsOf = (adapter: Adapter, object: string) =>
-  adapter.find.mock.calls.filter(([o]) => o === object).map(([, params]) => params as Record<string, any>);
+  adapter.find.mock.calls.filter(([o]) => o === object).map(([, params]) => params as Record<string, unknown>);
 
 const PRODUCTION = [{ field: 'environment_type', operator: 'equals', value: 'production' }];
 const BY_RANK = [{ field: 'rank', order: 'asc' }];
@@ -130,8 +131,8 @@ const node = (parentDataSource?: unknown, extra: Row = {}) => ({
 /** An `app` page: the adapter, and no record context anywhere. */
 function mountOnAppPage(schema: Row, adapter: Adapter) {
   return render(
-    <SchemaRendererProvider dataSource={adapter as any}>
-      <SchemaRenderer schema={schema as any} />
+    <SchemaRendererProvider dataSource={adapter as unknown as DataSource}>
+      <SchemaRenderer schema={schema as unknown as DeclaredNode} />
     </SchemaRendererProvider>,
   );
 }
@@ -139,14 +140,14 @@ function mountOnAppPage(schema: Row, adapter: Adapter) {
 /** A record page: the page's own record in the record context, as `RecordDetailView` provides it. */
 function mountOnRecordPage(schema: Row, adapter: Adapter) {
   return render(
-    <SchemaRendererProvider dataSource={adapter as any}>
+    <SchemaRendererProvider dataSource={adapter as unknown as DataSource}>
       <RecordContextProvider
         objectName={PARENT_OBJECT}
         recordId="env-page"
         data={{ id: 'env-page', name: 'Page env', code: 'PAGE' }}
-        dataSource={adapter as any}
+        dataSource={adapter as unknown as DataSource}
       >
-        <SchemaRenderer schema={schema as any} />
+        <SchemaRenderer schema={schema as unknown as DeclaredNode} />
       </RecordContextProvider>
     </SchemaRendererProvider>,
   );

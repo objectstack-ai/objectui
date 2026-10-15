@@ -111,8 +111,18 @@ const contact = {
   },
 };
 
+/** The parts of a served `ViewItem`, and of its form under `config`, these pins read. */
+interface Served {
+  name: string;
+  config: {
+    sharing?: { enabled?: boolean; allowAnonymous?: boolean; publicLink?: string };
+    sections?: unknown;
+    submitBehavior?: unknown;
+  };
+}
+
 /** The served `ViewItem`s, composed by the spec's own expansion (module header). */
-const FIXTURE: Record<string, any>[] = [
+const FIXTURE = [
   ...expandViewContainer(
     'showcase_inquiry',
     defineView({
@@ -132,7 +142,7 @@ const FIXTURE: Record<string, any>[] = [
       two_keys: { ...contact, sharing: { allowAnonymous: true, publicLink: '/forms/inquiry-two-keys' } },
     },
   }),
-];
+] as unknown as Served[];
 
 const CONTACT = 'showcase_inquiry.contact';
 const WITHDRAWN = 'showcase_inquiry.withdrawn';
@@ -189,8 +199,8 @@ describe('the fixture is the served shape (objectui#11545)', () => {
     // CONTROL: the two siblings carry the keys the old reading accepted.
     for (const name of [WITHDRAWN, TWO_KEYS]) {
       const sharing = FIXTURE.find((i) => i.name === name)?.config.sharing;
-      expect(sharing.allowAnonymous, `${name} still allows anonymous access`).toBe(true);
-      expect(sharing.publicLink, `${name} still names a link`).toMatch(/^\/forms\//);
+      expect(sharing?.allowAnonymous, `${name} still allows anonymous access`).toBe(true);
+      expect(sharing?.publicLink, `${name} still names a link`).toMatch(/^\/forms\//);
     }
     expect(FIXTURE.filter((i) => anonymousFormIntakeCandidates(i).length > 0).map((i) => i.name)).toEqual([
       CONTACT,
@@ -247,7 +257,7 @@ describe('the Publish and Edit writers write the form under config (objectui#115
     fireEvent.click(screen.getByRole('button', { name: /^Publish$/ }));
 
     await waitFor(() => expect(saveItem).toHaveBeenCalledTimes(1));
-    const [type, name, body] = saveItem.mock.calls[0] as unknown as [string, string, Record<string, any>];
+    const [type, name, body] = saveItem.mock.calls[0] as unknown as [string, string, Served];
     expect([type, name]).toEqual(['view', WITHDRAWN]);
     expect(body).not.toHaveProperty('sharing');
     expect(body.config.sharing).toEqual({
@@ -256,7 +266,7 @@ describe('the Publish and Edit writers write the form under config (objectui#115
       publicLink: '/forms/inquiry-again',
     });
     // The rest of the form is what was served.
-    const servedItem = FIXTURE.find((i) => i.name === WITHDRAWN) as Record<string, any>;
+    const servedItem = FIXTURE.find((i) => i.name === WITHDRAWN) as Served;
     expect(body.config.sections).toEqual(servedItem.config.sections);
     expect(body.config.submitBehavior).toEqual(servedItem.config.submitBehavior);
 
@@ -279,7 +289,7 @@ describe('the Publish and Edit writers write the form under config (objectui#115
     fireEvent.click(within(dialog).getByRole('button', { name: /^Save$/ }));
 
     await waitFor(() => expect(saveItem).toHaveBeenCalledTimes(1));
-    const [type, name, body] = saveItem.mock.calls[0] as unknown as [string, string, Record<string, any>];
+    const [type, name, body] = saveItem.mock.calls[0] as unknown as [string, string, Served];
     expect([type, name]).toEqual(['view', CONTACT]);
     expect(body).not.toHaveProperty('sharing');
     expect(body).not.toHaveProperty('submitBehavior');

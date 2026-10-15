@@ -142,8 +142,12 @@ describe.each(SURFACES)('%s — a dataset-bound KPI tile draws no sub-caption (o
   });
 });
 
-describe('DashboardRenderer — `widget.description` is still the header subtitle (objectui#11389)', () => {
-  it('L2 draws the translated `widget.description` over a dataset tile whose `options.description` draws nothing', async () => {
+describe('DashboardRenderer — `widget.description` is still drawn, as the tile title tooltip (objectui#11389, objectui#12528)', () => {
+  // objectui#12528 moved the dataset-bound metric's description out of a
+  // header paragraph and onto the title's tooltip; what this lit control
+  // proves is unchanged: `widget.description` still reaches the tile,
+  // translated, while `options.description` reaches nothing.
+  it('L2 carries the translated `widget.description` on a dataset tile whose `options.description` draws nothing', async () => {
     const container = await renderSurface(
       SURFACES[0]![1],
       dashboard(datasetMetric('revenue', {
@@ -151,7 +155,7 @@ describe('DashboardRenderer — `widget.description` is still the header subtitl
         options: { description: 'Won this quarter' },
       })),
     );
-    expect(screen.getByText('卡片头部描述')).toBeTruthy();
+    expect(screen.getByTestId('dataset-metric-title').getAttribute('title')).toBe('卡片头部描述');
     expect(captionOf(container)).toBeNull();
     expect(container.textContent).not.toContain('Won this quarter');
     expect(container.textContent).not.toContain('本季度已赢单');

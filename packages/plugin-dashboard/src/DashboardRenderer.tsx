@@ -1019,6 +1019,14 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
         // a title + border like the kpi/gauge widgets (otherwise it shows as bare
         // text with no title, inconsistent with its neighbours).
         const isSelfContained = entryType === 'metric' && !datasetBound;
+        // objectui#12528 — a dataset-bound METRIC tile draws no card header:
+        // the header (title, then a description paragraph under a rule) and
+        // the tile (value, then the measure label) stacked four lines for one
+        // number. The tile draws the title and the measure label on one line
+        // above the value instead, and the description is the title's tooltip.
+        // The spec declares no widget key to show it inline, so it shows
+        // nowhere else. Every other widget keeps the frame as it was.
+        const datasetMetric = datasetBound && entryType === 'metric';
         const resolvedTitle = tWidgetTitle(widget);
         const resolvedDescription = tWidgetDescription(widget);
         const widgetKey = widget.id || resolvedTitle || `widget-${index}`;
@@ -1075,7 +1083,7 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                 style={innerGridSpanStyle}
                 {...designModeProps}
             >
-                {resolvedTitle && (
+                {resolvedTitle && !datasetMetric && (
                     <CardHeader className="pb-2 border-b border-border/40 bg-muted/20 px-3 sm:px-6">
                         <CardTitle className="text-sm sm:text-base font-medium tracking-tight truncate" title={resolvedTitle}>
                             {resolvedTitle}
@@ -1086,11 +1094,14 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                     </CardHeader>
                 )}
                 <CardContent className="p-0">
-                    <div className={cn("h-full w-full", "p-3 sm:p-4 md:p-6", designMode && "pointer-events-none")}>
+                    <div className={cn("h-full w-full", datasetMetric ? "p-3 sm:p-4" : "p-3 sm:p-4 md:p-6", designMode && "pointer-events-none")}>
                         {datasetWidget
                           ? <DatasetWidget
                               widget={datasetWidget}
                               dataSource={dataSource}
+                              heading={datasetMetric
+                                ? { title: resolvedTitle || '', description: resolvedDescription || undefined }
+                                : undefined}
                             />
                           : <SchemaRenderer schema={componentSchema} dataSource={dataSource} />}
                     </div>

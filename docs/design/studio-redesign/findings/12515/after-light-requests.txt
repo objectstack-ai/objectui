@@ -1,0 +1,69 @@
+## after · light · open Studio Data pillar
+GET /api/v1/runtime/config → 200
+GET /api/v1/auth/me/localization → 200
+GET /api/v1/auth/get-session → 200
+GET /api/v1/runtime/config → 200
+GET /api/v1/runtime/config → 200
+GET /api/v1/auth/get-session → 200
+GET /api/v1/auth/get-session → 200
+GET /api/v1/auth/get-session → 200
+GET /api/v1/discovery → 200
+GET /api/v1/auth/organization/list → 200
+GET /api/v1/i18n/locales → 200
+GET /api/v1/i18n/translations/en-US → 200
+GET /api/v1/auth/config → 200
+GET /api/v1/meta/object → 200
+GET /api/v1/meta/view → 200
+GET /api/v1/auth/organization/get-full-organization → 200
+GET /api/v1/meta/app → 200
+GET /api/v1/meta/object → 200
+GET /api/v1/meta/view → 200
+GET /api/v1/auth/organization/get-active-member → 200
+GET /api/v1/meta/app → 200
+GET /api/v1/data/sys_user_preference?FILTER → 200
+GET /api/v1/auth/me/permissions → 200
+GET /api/v1/auth/me/permissions → 200
+GET /api/v1/packages → 200
+GET /api/v1/meta → 200
+GET /api/v1/meta/object?package=com.default.studio-test → 200
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test&type=object → 200
+GET /api/v1/meta/object?package=com.default.studio-test&preview=draft → 200
+GET /api/v1/ai/agents → 200
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test → 200
+GET /api/v1/meta/app?package=com.default.studio-test → 200
+GET /api/v1/meta/_drafts → 200
+GET /api/v1/meta/object/st_asset/layers → 200
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test&type=app → 200
+GET /api/v1/meta/object/st_asset?state=draft&package=com.default.studio-test → 200
+GET /api/v1/meta/object/st_asset → 200
+GET /api/v1/data/st_asset?populate=owner_id&top=50&select=id,owner_id,name,serial,updated_at → 200
+## select Ticket
+GET /api/v1/meta/_drafts → 200
+GET /api/v1/meta/object/st_ticket?state=draft&package=com.default.studio-test → 200
+## Ticket · Form tab
+## Ticket · Preview
+GET /api/v1/packages → 200
+GET /api/v1/meta → 200
+GET /api/v1/meta/object?package=com.default.studio-test → 200
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test&type=object → 200
+GET /api/v1/meta/object?package=com.default.studio-test&preview=draft → 200
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test → 200
+  console.error: Failed to load resource: the server responded with a status of 404 (Not Found)
+GET /api/v1/meta/app?package=com.default.studio-test → 200
+GET /api/v1/meta/object/st_project → 404
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test&type=app → 200
+## select Asset
+GET /api/v1/meta/_drafts → 200
+GET /api/v1/meta/object/st_asset/layers → 200
+GET /api/v1/meta/object/st_asset?state=draft&package=com.default.studio-test → 200
+## Asset · Form tab
+## Asset · Preview
+GET /api/v1/packages → 200
+GET /api/v1/meta → 200
+GET /api/v1/meta/object?package=com.default.studio-test → 200
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test&type=object → 200
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test → 200
+GET /api/v1/meta/object?package=com.default.studio-test&preview=draft → 200
+GET /api/v1/meta/app?package=com.default.studio-test → 200
+GET /api/v1/meta/_drafts?packageId=com.default.studio-test&type=app → 200
+## Asset · Preview · Published

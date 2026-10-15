@@ -28,6 +28,14 @@
  * speeding the poll up would trade a server-wide cost for one surface's
  * latency, which is the trade the card refused.
  *
+ * And the 60 s holds only for the first 10 minutes of a continuous hide
+ * (`HIDDEN_POLL_STOP_MS`, `hiddenTabPollStop.ts`, objectui#12439). After that
+ * the shared feed stops polling, so a message that arrives later raises NO
+ * desktop notification while the tab stays hidden: nothing reads it until the
+ * user comes back, when the feed refetches at once and the message arrives as
+ * the ordinary in-page toast and bell badge. That cost was accepted so that a
+ * forgotten tab stops keeping a scale-to-zero backend awake around the clock.
+ *
  * ## The two surfaces are mutually exclusive, by the tab's visibility
  *
  * A visible tab gets the in-page toast; a hidden one gets the system

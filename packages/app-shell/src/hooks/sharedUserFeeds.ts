@@ -43,6 +43,23 @@
  * is mounted by four different layouts). The dedupe is structural: consumers
  * cannot opt out of it by mounting somewhere unexpected.
  *
+ * ## A forgotten tab goes quiet (objectui#12439)
+ *
+ * A backgrounded tab polls at `HIDDEN_POLL_MS`, but only for a while: once it
+ * has been hidden continuously for `HIDDEN_POLL_STOP_MS` (10 minutes), every
+ * feed here stops arming its timer, and a tick that comes due after that point
+ * sends nothing. The reason is the backend, not the browser: wherever the
+ * server scales to zero, a poll inside its idle window keeps it awake, and a
+ * 60 s poll is always inside it — one tab left open on a console page kept two
+ * staging containers running around the clock. Coming back to the tab is
+ * unchanged: `onVisibilityChange` refetches each feed once, immediately, and
+ * the foreground cadence resumes from there.
+ *
+ * The clock is not this module's: it lives in `hiddenTabPollStop.ts`, which
+ * every timer poller that reads the tab's visibility consults, so there is one
+ * definition of "hidden for too long" rather than one per poller. The cost is
+ * the inbox's desktop notification — see `useInboxArrivalNotifier`.
+ *
  * @module
  */
 import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
@@ -54,6 +71,7 @@ import { errorCodeIs } from '@object-ui/types';
 import { useAdapter } from '../providers/AdapterProvider.js';
 import { useObjectPresence } from './useObjectPresence.js';
 import { bearerAuthHeaders } from '../utils/authToken.js';
+import { __resetHiddenTabClock, isPollingSuspended } from './hiddenTabPollStop.js';
 import type { ActivityItem } from '../layout/ActivityFeed.js';
 import { activityRowToActivityItem } from '../layout/activityItemType.js';
 import type { InboxNotification } from '../layout/inboxGrouping.js';
@@ -68,6 +86,11 @@ const INBOX_POLL_MS = 10_000;
  * user comes back, and consolidating the poll into the store had to bring
  * both along — a shared feed that polled a hidden tab at its foreground rate
  * would have been a regression riding in on a de-duplication fix (#4225).
+ *
+ * It holds only for the first `HIDDEN_POLL_STOP_MS` of a continuous hide
+ * (`hiddenTabPollStop.ts`, objectui#12439): after that the feeds stop arming
+ * their timers altogether, so a forgotten tab stops keeping a scale-to-zero
+ * backend awake. The immediate refetch on return is what makes that cheap.
  */
 const HIDDEN_POLL_MS = 60_000;
 /**
@@ -361,6 +384,9 @@ class SharedFeed<T> {
 
   private schedule(): void {
     if (this.timer) return;
+    // A tab hidden for too long arms nothing — poll or probe alike — and the
+    // return to the tab re-arms through `onVisibilityChange` (objectui#12439).
+    if (isPollingSuspended()) return;
     // A retired feed schedules PROBES, not polls — including a feed whose
     // `pollMs` is 0 (`sys_activity` fetches once), whose only other re-read
     // point is a consumer attaching and which the retirement therefore used to
@@ -369,6 +395,7 @@ class SharedFeed<T> {
       if (this.probesLeft <= 0) return;
       this.timer = setTimeout(() => {
         this.timer = null;
+        if (isPollingSuspended()) return;
         void this.refresh(true);
       }, UNAVAILABLE_PROBE_MS);
       return;
@@ -380,6 +407,10 @@ class SharedFeed<T> {
     const delay = hidden ? Math.max(HIDDEN_POLL_MS, this.backoffMs) : this.backoffMs;
     this.timer = setTimeout(() => {
       this.timer = null;
+      // A tick armed before the cut-off can come due after it; it sends
+      // nothing and arms nothing, so the last request a hidden tab makes is
+      // inside the window (objectui#12439).
+      if (isPollingSuspended()) return;
       // `refresh` re-arms in its own `finally`, for the poll tick and the probe
       // tick alike — one re-arm point, so a feed that changes state mid-read
       // (a poll that retires, a probe that revives) cannot end up scheduling
@@ -392,6 +423,11 @@ class SharedFeed<T> {
    * Coming back to the tab refetches immediately rather than waiting out a
    * hidden-cadence tick, so the bell is current within a beat of the user
    * looking at it — the behaviour its own poller had before #4225 moved it.
+   *
+   * It is also the ONLY way out of a hidden-tab suspension (objectui#12439):
+   * a tab hidden past `HIDDEN_POLL_STOP_MS` has no timer left to wake it, so
+   * this read is the one immediate request per feed, and the `schedule` in its
+   * `finally` re-arms the foreground cadence.
    */
   private readonly onVisibilityChange = (): void => {
     if (typeof document === 'undefined' || document.hidden) return;
@@ -962,6 +998,7 @@ export function useSharedInboxFeed(): SharedFeedSnapshot<InboxNotification[]> {
  * cases do not inherit each other's reads. Not part of the public surface.
  */
 export function __resetSharedUserFeeds(): void {
+  __resetHiddenTabClock();
   approvalsFeed.reset();
   activityFeed.reset();
   inboxFeed.reset();

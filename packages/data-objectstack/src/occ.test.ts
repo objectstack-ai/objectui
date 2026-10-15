@@ -160,9 +160,8 @@ describe('Optimistic Concurrency Control errors', () => {
   // The accepted set of the exported predicate, pinned because objectui#6375
   // DECIDED to keep its `name === 'ConcurrentUpdateError'` limb rather than
   // narrow it to the code. The limb is the cross-realm discriminator — see
-  // the rationale quoted in the doc comment above `isConcurrentUpdateError`
-  // and stated in full above `isViewConfigPermissionDeniedError`. A future
-  // reader who removes it as drift meets this row first.
+  // the rationale stated in the doc comment above `isConcurrentUpdateError`.
+  // A future reader who removes it as drift meets this row first.
   describe('isConcurrentUpdateError: code OR class name, and never the status', () => {
     it('accepts the class name with no wire code — the cross-realm limb', () => {
       expect(isConcurrentUpdateError({ name: 'ConcurrentUpdateError' })).toBe(true);

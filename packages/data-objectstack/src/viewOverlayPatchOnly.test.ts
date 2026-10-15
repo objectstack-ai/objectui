@@ -14,17 +14,19 @@
  * this adapter persists what it is given, so a row written by a column drag
  * carried the whole source view — `filter` included — as of that moment. The
  * display merge is `{ ...source, ...override }`, which handed that stale copy
- * authority over the source declaration it was copied from. The write half has
- * since landed (`buildPersistedViewBody` in app-shell's `ObjectView`), so a fat
- * row is now a LEGACY shape — which is exactly what the fixtures below model,
- * and why this read-side policy still has work to do.
+ * authority over the source declaration it was copied from. The write half
+ * landed (objectui#5233: the toolbar wrote the patch alone), and the toolbar's
+ * write itself is retired since objectui#12504 (`persistViewPatch` and this
+ * adapter's `updateViewConfig`), so a fat row is a LEGACY shape — which is
+ * exactly what the fixtures below model, and why this read-side policy still
+ * has work to do.
  *
  * {@link narrowPersonalizationOverlay} is the read-side half: the policy for
  * WHAT an overlay may contribute, owned by this package because this package
- * owns the row's shape (it stamps the marker `listViews()` excludes rows by).
- * The end-to-end pin — write, read, merge, admin edits the source filter, user
- * sees the new one — lives beside the consumer that does the merging,
- * `packages/app-shell/src/views/ObjectView.overlayPatchOnly.test.ts`.
+ * owns the row's shape (its retired writer stamped the marker `listViews()`
+ * excludes rows by). The end-to-end pin — read, merge, admin edits the source
+ * filter, user sees the new one — lives beside the consumer that does the
+ * merging, `packages/app-shell/src/views/ObjectView.overlayPatchOnly.test.ts`.
  *
  * Deliberately NOT applied inside {@link ObjectStackAdapter.listViewOverrides}
  * or {@link ObjectStackAdapter.getView}: both answer with the stored DOCUMENT,
@@ -195,7 +197,7 @@ describe('narrowPersonalizationOverlay — what an overlay may contribute', () =
     expect(narrowPersonalizationOverlay(arr)).toBe(arr);
   });
 
-  it('the owned-key list is the five the toolbar writes, and is frozen', () => {
+  it('the owned-key list is the five the retired toolbar write wrote, and is frozen', () => {
     expect([...VIEW_OVERLAY_OWNED_KEYS]).toEqual(
       ['rowHeight', 'sort', 'hiddenFields', 'columnState', 'inlineEdit'],
     );
@@ -204,11 +206,13 @@ describe('narrowPersonalizationOverlay — what an overlay may contribute', () =
 });
 
 describe('narrowPersonalizationOverlay — the round trip it is defined against', () => {
-  it('a real updateViewConfig write comes back narrowed to its patch', async () => {
-    const { meta } = makeMetaStore();
+  it('a fat overlay row at rest comes back narrowed to its patch', async () => {
+    const { meta, rows } = makeMetaStore();
     const ds = makeDS(meta);
 
-    await ds.updateViewConfig('crm_lead', 'crm_lead.default', { ...FAT_WRITE });
+    // The row the retired `updateViewConfig` (objectui#12504) stored for this
+    // write: the body, with `object`, `name` and the marker stamped on it.
+    rows.set('view::crm_lead.default', { ...FAT_WRITE, object: 'crm_lead', _isOverride: true });
 
     const stored = (await ds.listViewOverrides('crm_lead'))['crm_lead.default'];
     // The document readers still get the document — this is the boundary, and

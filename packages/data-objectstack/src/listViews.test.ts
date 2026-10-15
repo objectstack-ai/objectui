@@ -115,9 +115,10 @@ describe('ObjectStackDataSource.listViews', () => {
   //    the guess is rewritten to pin the ruled rule, not deleted.
   describe('excludes personalization overlays (objectui#4227)', () => {
     it('excludes a row carrying the explicit write-side marker', async () => {
-      // Exactly what `updateViewConfig` writes today: the marker plus a full
-      // copy of the system view's body (`persistViewPatch` USED TO spread the whole
-      // active tab into the write).
+      // Exactly what the toolbar's `updateViewConfig` wrote (retired in
+      // objectui#12504; the rows are still at rest): the marker plus a full
+      // copy of the system view's body (`persistViewPatch` USED TO spread the
+      // whole active tab into the write).
       const override = {
         name: 'crm_lead.default', object: 'crm_lead', type: 'grid',
         data: { provider: 'object', object: 'crm_lead' }, columns: ['name'],
@@ -155,8 +156,8 @@ describe('ObjectStackDataSource.listViews', () => {
 
     it('does NOT exclude a genuine ViewItem-record saved view, even one named like a system view', async () => {
       // The nested `config` wrapper is only ever produced by an explicit
-      // create/save path (createView / the ADR-0034 seam) — never by
-      // `updateViewConfig`, marker or no marker.
+      // create/save path (createView / the ADR-0034 seam) — never by the
+      // retired `updateViewConfig`, marker or no marker.
       const savedRecord = {
         name: 'crm_lead.default', object: 'crm_lead', viewKind: 'list', label: 'My Rebuild',
         config: { type: 'grid', data: { provider: 'object', object: 'crm_lead' }, columns: ['name'] },

@@ -3380,7 +3380,8 @@ export interface ListViewRuntimeProps {
 
   /**
    * Callback fired when the user toggles row density/height via the toolbar. Lets the host
-   * persist the choice (e.g. dataSource.updateViewConfig). Without it the toggle is local-only.
+   * persist the choice (the console keeps it as the signed-in user's own list state). Without
+   * it the toggle is local-only.
    */
   onDensityChange?: (mode: 'compact' | 'comfortable' | 'spacious') => void;
 

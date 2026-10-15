@@ -1,0 +1,37 @@
+{
+  "number": 12464,
+  "kind": "issue",
+  "title": "types, components, console: spec 18 refuses the page kind `jsx` (objectstack#23543 F5-jsx) — move the console sample to `html`, then drop the `'jsx'` member of `PageNodeSchema.kind` and the page renderer's `'jsx'` branch",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p1",
+    "target:v18"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T09:54:05Z",
+  "updated_at": "2026-10-15T12:48:09Z",
+  "closed_at": "2026-10-15T12:45:13Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12464",
+  "body": "Filing gate **④, a cross-repo child**: the objectui layer of objectstack-ai/objectstack#23543 family F5-jsx. That family landed as objectstack-ai/objectstack#23638 (`c5dd7fce30`, merged 2026-10-15T09:48Z).\n\nBlocked-by: objectstack-ai/objectstack#23638\n\n- **Filed by:** objectstack `domain:spec` seat 2 (seat post objectstack-ai/objectstack#18549) · session `session_01LFqdRsuM5nkqoJdHd5ztVk`. This seat accepted that PR, so it files the consumer follow-up (cross-repo coordination, rule 3).\n- **Who acts:** the objectui seat that triage routes this card to. Its dev makes one PR here. The grade and the route are triage's.\n- **Why a new card:** the maintainer's ruling put the console sample's move \"on objectui#12334\" (objectstack-ai/objectstack#23543, comment `6182001882`, item 5). #12334 closed on 2026-10-15T01:40Z without it, and no open objectui card carries it.\n- **Dedupe:** MCP `search_issues` in objectui, closed included:\n  - `jsx page kind html 23543`: 6 hits, all closed, none this card. The nearest are #5469 (the ADR-0080 styling-retraction prose) and #7006 (`react-pages.md`).\n  - `jsx is:open`: 0 hits.\n  - `page kind jsx retired html console sample spec 18 consumer follow-up`: 16 hits, none this card.\n\n## What spec 18 changed\n\nThe ruling, verbatim:\n\n> 5. **F5-jsx A:** `'jsx'` retires from `PageSchema.kind` through `enumWithRetiredValues` naming `html`, together with the `COMPILED_PAGE_KINDS` branch; the entry retires; objectui's console sample moves to `html` (one line, on objectui#12334).\n\nFrom the landed changeset (`.changeset/23543-f5-jsx-retire-page-kind-jsx.md`):\n\n- An authored `kind: 'jsx'` is refused at parse, with a prescription naming `html`. This covers `os validate`, `os build`, the metadata save door (`422`) and `defineStack`, and it no longer compiles in TypeScript.\n- Stored metadata needs no edit. Every stored-row rehydration seam replays the retired conversion, so a `sys_metadata` page row written as `jsx` loads as an `html` page.\n\nThe spec contract door is `PageSchema.kind` in `@objectstack/spec` 18.\n\n## The objectui sites (`main` at `cf430cd10`)\n\n1. `apps/console/src/sdui-jsx-preview.tsx:87`: `const page = { type: 'home', kind: 'jsx', … }` becomes `kind: 'html'`. This is the ruling's one line. The header comment (lines 1 and 15) names the jsx tier and moves with it.\n2. `packages/types/src/layout.ts:1795`, `PageNodeSchema.kind`: `kind?: 'full' | 'slotted' | 'html' | 'jsx' | 'react';` still declares the value spec 18 refuses, though the renderer's own comment says this type matches `@objectstack/spec`. The `@ts-expect-error` comment at `packages/types/src/__tests__/authoring-nodes-11364.test.ts:181` lists `jsx` among the spec's modes and moves with it.\n3. `packages/components/src/renderers/layout/page.tsx:682`: `if (kind === 'html' || kind === 'jsx')` keeps a consumer-side tolerance, and the comment at `:673`–`:675` calls `'jsx'` \"a deprecated alias\".\n\nSites 2 and 3 are not named by the ruling's one line. They are the same narrowing's type mirror and renderer, so they are this card's consumer follow-up.\n\n`packages/types/src/zod/` carries no `'jsx'` page kind (measured at `cf430cd10`), so there is no zod mirror to change.\n\n**Pin reading at dispatch:** `packages/types` pins `@objectstack/spec` `^18.0.0-next.1`, and `c5dd7fce30` is in no published spec release yet. The dispatching seat runs the pin coverage reading (REST `compare`) before it dispatches. If the pin does not cover `c5dd7fce30`, the PR body records the window.\n\n**Done when:** none of the sites above reads or writes the page kind `'jsx'`, and the console preview renders as `html` exactly as it does today as `jsx`."
+}

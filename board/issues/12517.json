@@ -1,0 +1,32 @@
+{
+  "number": 12517,
+  "kind": "issue",
+  "title": "Publish opens the pending-changes sheet in a confirmation posture; Changes opens it in review posture",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "domain:ui",
+    "enhancement",
+    "pm:epic",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T14:24:06Z",
+  "updated_at": "2026-10-15T14:24:06Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12517",
+  "body": "## Source\n\nMeasured on objectui main `d4bc81eab`, 2026-10-15: the shell header's Changes button and its Publish button open the same right-hand sheet, \"Pending changes — What publishing will change. New items are added; updates overwrite the live version\", with one collapsed row per item (\"OBJECT · 1 › Ticket st_ticket · New\") and a footer \"Publishing releases the 1 pending draft of this package atomically · Publish all\". Nothing distinguishes the two entries, so Publish is a second Changes button.\n\n## Target\n\n1. Publish opens the sheet in a confirmation posture: every item expanded to show what changes, a summary line above the list (\"3 items · 1 object · 1 app · 1 page\"), focus on Publish all.\n2. Changes opens it in a review posture: items collapsed, focus on the list, the footer button present but not focused.\n3. One sheet, one component, one `posture` prop.\n\n## File surface\n\n`packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx` (the pending-changes sheet and the two triggers), tests beside.\n\n## Acceptance\n\n1. Tests: Publish opens with rows expanded and focus on Publish all; Changes opens collapsed.\n2. Screenshots of both postures, light and dark.\n3. `StudioDesignSurface.*.test.tsx` green.\n\n## Constraints\n\n- objectui#12303: when nothing is pending, Publish stays disabled with its tooltip reason (`publish-none-reason`).\n- Existing `data-testid`s (`studio-changes-count`) stay.\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-15 Studio test pass: objectui main `d4bc81eab`, HotCRM `63db83e2`, the vite console on :5180 against `objectstack serve --dev` on :4001, viewport 1482 × 1119, dark theme with a light-theme check.</sub>\n\nParent: objectstack-ai/objectui#12446"
+}

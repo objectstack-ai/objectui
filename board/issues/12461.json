@@ -1,0 +1,37 @@
+{
+  "number": 12461,
+  "kind": "issue",
+  "title": "console app bar: the object breadcrumb after the app switcher goes, the Preview badge stays beside the app name, and Edit app is an icon button at every width — the page header is the one place a page is named",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "domain:ui",
+    "enhancement",
+    "priority:p1"
+  ],
+  "assignees": [
+    "sunhaolin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T09:02:12Z",
+  "updated_at": "2026-10-15T11:25:54Z",
+  "closed_at": "2026-10-15T11:24:50Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12461",
+  "body": "Filing gate ③, on the maintainer's word (chat, 2026-10-15, session `session_019YFzJp4o8Ck4NsT1toC4UP`, seat account os-bill): after the post-merge screenshots the maintainer said 「和你的设计图差距还是比较大，后续还有哪些任务你给我具体解释一下」, the seat listed the remaining gaps, and the maintainer answered 「同意开卡」. The design is the main board of the reference page https://claude.ai/artifact/JCzrzHxTxzD4EEKCTtDaNA (`main-1440.png`; prototype https://claude.ai/artifact/8JLqDFmcuK82RS1Cb8219f): the app bar is app switcher · Preview badge · centered search · Edit app icon · bell · help · avatar, and nothing names the page but the page header.\n\nParent: #12444. Blocks nothing; nothing blocks it. Same file as #12429 (`AppHeader.tsx`), different regions (this card: the crumb and the Edit app button; #12429: the sidebar trigger at lines 578 and 747): dispatchable in parallel; the second to land merges `main` again.\n\n**Reader who acts:** the `domain:ui` lane's next dispatch, one dev round in `@object-ui/app-shell` (plus the ten `@object-ui/i18n` packs only if a label changes), size S.\n\n**Dedupe** (MCP `search_issues`, scope objectstack-ai/objectui, all states, read 2026-10-15T08:58Z): \"app header breadcrumb object name duplicate remove Preview badge Edit app icon button console top bar\" → 16, top 8 read: #12427 (this parent's child), #12447 closed (Studio shell header), #12201 closed (the maintainer's 2026-10-12 ruling that moved the app identity into the top bar — the precedent this card continues), #6645, #11173, #4842, #10040, #11698 (closed, unrelated). None is this card.\n\n## The problem\n\nOn the Leads list at 1440 px the top bar reads \"HotCRM ▾ / Leads ▾ · PREVIEW\", then the search, then a text button \"Edit app\", the bell, help and the avatar. \"Leads\" is also the sidebar's active entry and the page header's title: the same name three times across 80 px of height. The crumb's ▾ offers a switch the sidebar and the saved-view strip already offer. The design keeps the app switcher pill (with the Preview badge beside it, as #12201 placed the app identity), centers the search, and turns Edit app into an icon button; the page header alone names the page.\n\n## Readings (objectui `origin/main` `a8e5b73`, read 2026-10-15T08:58Z)\n\n1. `packages/app-shell/src/layout/AppHeader.tsx`: in app context the breadcrumb path after the app switcher is built from `extraSegments` (lines 394–480; line 479 humanizes a view slug so the crumb matches the open view) and rendered after the switcher; `PreviewBadge` is drawn at line 719 in app context (545 on platform surfaces); the Edit app button is lines 757–783: an icon below `lg`, icon plus the text 「Edit app」 from `lg` up (`topbar.editApp`).\n2. The `home`, `orgs`, `studio` and `system/*` variants of the same component (lines 14–19, 100–115) draw their own crumbs and are not this card.\n3. The phone top bar (below `sm`) shows the app name over the page title (the 390 board); unchanged here.\n\n## What to build\n\n1. In app context, no object or view crumb after the app switcher: the switcher pill (app icon + name + ▾, #12201) and the Preview badge beside it are the bar's left group. The crumb's dropdown goes with it; its two destinations are covered by the sidebar (objects) and the saved-view strip (views).\n2. Edit app is an icon-only button at every width, keeping its `aria-label` and `title` (`topbar.editApp`) and the ADR-0080 bridge it opens.\n3. The search stays centered; bell, help and avatar unchanged. The `home` / `orgs` / `studio` / `system` variants and the phone bar unchanged.\n\n## Acceptance\n\n- `AppHeader` test (app context, desktop width): the bar renders the app switcher, the Preview badge, the search, an Edit app button with no visible text and the accessible name 「Edit app」, and no element whose text is the current object's label; the existing crumb pins for `home` / `orgs` / `studio` / `system` pass unchanged; below `sm` the bar is as today.\n- Browser reading by the landing seat at 1440 on the HotCRM Leads list: the top bar's left group is the switcher pill and PREVIEW; \"Leads\" appears in the page header and the sidebar only.\n- `pnpm test` from the repo root green on the affected files; a changeset (minor) for `@object-ui/app-shell`.\n\n## Out of scope\n\n- The sidebar trigger's position (#12429); the Studio header (#12447); the app switcher's contents; the phone bar.\n\nAttribution: written by the domain:ui seat in session `session_019YFzJp4o8Ck4NsT1toC4UP` (account os-bill) on the maintainer's words quoted above."
+}

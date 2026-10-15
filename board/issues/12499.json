@@ -1,0 +1,34 @@
+{
+  "number": 12499,
+  "kind": "issue",
+  "title": "Studio flow checker: a flow CEL guard reading `vars.x` or `current_user.x` is flagged \"not a reference in scope\", though the engine binds both roots, while `user.x`, which the engine does not bind, passes silently",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T13:50:33Z",
+  "updated_at": "2026-10-15T14:24:36Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12499",
+  "body": "Filing gate: ① — a product defect with a named location, reproduced in the Studio Problems panel on shipped HotCRM metadata.\n\n## Symptom\n\nHotCRM's flow `campaign_enrollment` has two edges, `e4` and `e7`, out of the decision `check_campaign_open`. Both guards begin `has(vars.campaignRecord) && has(vars.campaignRecord.status) && …`.\n\nMeasured on HotCRM `63db83e` in a local console, at `/studio/app.objectstack.hotcrm/automations?surface=flow:campaign_enrollment` (1440 × 900):\n- The Problems panel lists this warning twice, once per edge: `` `vars` is not a reference in scope at this step. ``\n- Each of the two edges carries a canvas warning mark with the same text.\n- The edge inspector repeats the warning inline under the Condition field.\n\nreach: the Studio Automations pillar's Problems panel (a UI door), measured once as above.\n\n## Cause\n\n`packages/app-shell/src/views/metadata-admin/inspectors/flow-ref-check.ts:40` (objectui `03cf7b2`) allow-lists these runtime roots:\n\n```ts\nconst RUNTIME_GLOBALS = new Set(['env', 'request', 'context', 'user', 'now', 'today', 'self', 'data']);\n```\n\n`findUnknownRefs` consults it at :176. The engine's flow CEL scope is a different set.\n\n**The engine binds roots the list lacks.**\n- objectstack's `AutomationEngine.celScope` spreads the flow's variables, then binds `vars` (the variables namespace) and `current_user` after the spread.\n- `seedRunVariables` binds `previous` on every run.\n- objectstack's build-time judge states the same set. `packages/lint/src/flow-cel-root-scope.ts:184` (objectstack `09dd53719`) declares `ENGINE_BOUND_ROOTS = ['previous', 'vars', 'current_user']`.\n- The spec carries `FLOW_SCOPE_CLAIMED_IDENTIFIERS = {vars, current_user}` in `packages/spec/src/automation/flow-template-token.ts:174`. The package barrel does not export it, so objectui mirrors the set with a pointer rather than importing it.\n\n**The list carries a root the engine does not bind.**\n- The same lint module records that `user.id == \"u1\"`, `ctx.user.id` and `os.user.id` each fail a run with `Unknown variable`, because flow CEL binds the run's user as `current_user` only.\n- Studio allow-lists `user`, so that case passes the checker silently.\n\n**Effect.** The guard an author is steered towards for a sparse output is flagged: `has(vars.x)`, the totality pattern HotCRM's comments document, and `vars[\"$error\"]` for a `$`-named variable. A root that fails at run time is not flagged.\n\n## Fix\n\n1. For the CEL roles, accept `previous`, `vars` and `current_user` as roots, with a comment that points at objectstack's `ENGINE_BOUND_ROOTS`. The CEL roles are an edge `condition`, a node `condition`, a decision branch `expression`, a screen field's `visibleWhen` and the CEL value envelopes.\n2. In the CEL roles, report `user` as an unknown root and suggest `current_user`, as the objectstack lint does.\n3. Leave the template and `hole` roles' allow-list as it is. Those slots bind through the text-slot rule, which is not measured here.\n4. Leave the other entries of `RUNTIME_GLOBALS` as they are on this card.\n\n## Acceptance\n\n1. HotCRM's `campaign_enrollment` opens in Studio with no `vars` warning on `e4` or `e7`. Show it with a screenshot of the Problems panel. The separate decision warning on `check_campaign_open` belongs to HotCRM and may still show.\n2. Unit tests beside `flow-ref-check.ts`:\n   - In a CEL role, `vars.x`, `vars[\"$error\"]`, `current_user.id` and `previous` report nothing.\n   - In a CEL role, `user.id` reports `user` with suggestion `current_user`.\n   - CONTROL: an undeclared `foo.bar` is still reported.\n   - The existing template-role tests stay green.\n\n## Who acts\n\nTriage grades and routes it. The fix reader is the `domain:ui` lane that owns the Studio flow designer. It is not part of epic objectstack-ai/objectui#12446: that epic restyles the Automations pillar, and the checker's logic is outside its cards.\n\n## Dedupe (2026-10-15, MCP `search_issues` on objectstack-ai/objectui, open and closed)\n\n- \"flow checker vars is not a reference in scope at this step false positive\": 1 hit, objectui#10772 (closed). It is about the `visibleWhen` cell offering the flow scope, not this defect.\n- \"flow-ref-check RUNTIME_GLOBALS vars current_user edge condition warning Studio\": 6 hits, none this defect. They are the same family with different roots, all closed:\n  - objectui#11085: a connector action's outputs, and an edge guard's source-node outputs;\n  - objectui#11789: `record.x` in an entry condition;\n  - objectui#10538: a comprehension macro's bound variable.\n\nFiled by seat `domain:ui#4` (session `session_01SJn1GEkrbbBQkhGC26wEDw`) from a Studio walk of HotCRM requested by the maintainer.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,28 @@
+{
+  "number": 12511,
+  "kind": "issue",
+  "title": "Data pillar header: actions change per tab, the ⋯ menu holds one item, Object settings duplicates the Settings tab",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "pm:epic domain:ui area:studio priority:p2 bug"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T14:17:49Z",
+  "updated_at": "2026-10-15T14:17:49Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12511",
+  "body": "## Source\n\nMeasured on objectui main `d4bc81eab` (after #12450) on a writable object (`st_ticket`) at 1482 px. Records and Form tabs: the object header's right slot shows \"Saved 09:23 PM\", an Object settings icon button and a ⋯ More actions button whose menu holds exactly one item, \"Add a field (then set its type and properties on the right)\" (`engine.studio.data.addFieldTitle`). Settings tab: the ⋯ button is gone. The Object settings icon switches to the Settings tab, which the tab row already does one line below.\n\n## Target\n\n1. The header's right slot renders the same controls on every tab: the saved-at meta and one actions group.\n2. A menu with a single item is a button: \"Add field\" shows as a button on the Form tab only (the Form toolbar already has it, so the header drops it) and the ⋯ menu returns only when it holds at least two object-level actions; the lane lists in the PR which object-level actions exist today (for example copy api name, open in the app, delete the draft object) and keeps the menu if two or more do.\n3. The Object settings icon retires; the Settings tab is the control.\n\n## File surface\n\n`packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx` (`DataPillar` header, `StudioItemHeader` actions slot), i18n keys for retired strings in every locale.\n\n## Acceptance\n\n1. A test asserts the header's action set is identical across Records, Form and Settings.\n2. Screenshots of the header on Records, Form and Settings at 1280 px, light and dark.\n3. `DataPillar.*.test.tsx` and `StudioDesignSurface.*.test.tsx` green.\n\n## Constraints\n\n- objectui#12303: a disabled control explains itself through the tooltip wrapper, never `title`.\n- Existing `data-testid`s stay; `data-object-header` keeps its shape.\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-15 Studio test pass: objectui main `d4bc81eab`, HotCRM `63db83e2`, the vite console on :5180 against `objectstack serve --dev` on :4001, viewport 1482 × 1119, dark theme with a light-theme check.</sub>\n\nParent: objectstack-ai/objectui#12446"
+}

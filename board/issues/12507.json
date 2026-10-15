@@ -1,0 +1,28 @@
+{
+  "number": 12507,
+  "kind": "issue",
+  "title": "Flow canvas: decision edge labels print the whole CEL condition and overlap (campaign_enrollment)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "pm:epic domain:ui area:studio priority:p2 bug"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T14:17:34Z",
+  "updated_at": "2026-10-15T14:17:34Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12507",
+  "body": "## Source\n\n`packages/app-shell/src/views/metadata-admin/previews/FlowCanvas.tsx` labels a branch edge with `edge.isDefault ? 'else' : cond ? \\`if ${cond}\\` : edge.label` and draws the string at the edge midpoint. On HotCRM \"Enroll Members in Campaign\" (`campaign_enrollment`, Automations pillar, 100 % zoom, 1482 px) the two edges out of \"Campaign Open?\" carry `if has(vars.campaignRecord) && has(vars.campaignRecord.status) && (vars.campaignRecord.status == \"planning\" || vars.campaignRecord.status == \"in_progress\") && vars.memberSource != \"contacts\"` (147 characters) and its `== \"contacts\"` twin; the two strings run across each other and across the \"Find Eligible Leads\" and \"Find Eligible Contacts\" nodes, and neither can be read.\n\n## Target\n\n1. An edge label is one line of at most 32 characters: the edge's own label when it has one, otherwise `if ` followed by the condition clamped with an ellipsis; `else` unchanged. The label sits in a pill on the canvas background so it never draws over a node card or another label.\n2. The full condition is in the pill's `title` and in the edge inspector (`FlowEdgeInspector.tsx`), which already edits it.\n3. Labels longer than the pill wrap nowhere; the pill's width is capped at the node width (260 px on the artboard `automations.html`).\n\n## File surface\n\n`packages/app-shell/src/views/metadata-admin/previews/FlowCanvas.tsx` (branch label), `flow-canvas-parts.tsx` if the label element lives there, tests beside them.\n\n## Acceptance\n\n1. A test gives a decision edge a 150-character condition and asserts the rendered label is at most 32 characters plus the ellipsis with the full condition in `title`; a second asserts an edge with its own label shows that label unclamped when it fits.\n2. `campaign_enrollment` at 1280 px before/after, light and dark: both labels legible, no overlap.\n3. Every `FlowCanvas.*.test.tsx` and `flow-problems.*.test.ts` green.\n\n## Constraints\n\n- No change to edge semantics, routing or the inspector's editing.\n- Lands after #12454, whose claim names presentation-only edits to `FlowCanvas.tsx`; rebase on it.\n\nBlocked-by: #12454\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-15 Studio test pass: objectui main `d4bc81eab`, HotCRM `63db83e2`, the vite console on :5180 against `objectstack serve --dev` on :4001, viewport 1482 × 1119, dark theme with a light-theme check.</sub>\n\nParent: objectstack-ai/objectui#12446"
+}

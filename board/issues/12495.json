@@ -1,0 +1,35 @@
+{
+  "number": 12495,
+  "kind": "pull_request",
+  "title": "fix(app-shell): show History and Audit only to callers the trail doors admit (objectui#12475)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T13:31:47Z",
+  "updated_at": "2026-10-15T13:58:52Z",
+  "closed_at": "2026-10-15T13:58:49Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-15T13:58:49Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12495",
+  "body": "Fixes #12475\nClause-②: no\n\nServer half: objectstack-ai/objectstack#23546 (ruling `6190477105`, Q1 A1, `/diff` included) narrows `GET /meta/:type/:name/history`, `/audit` and `/diff` to `system`, `studio.access` and `manage_metadata`. This is the objectui companion the ruling asks for. The two may land in either order (triage `6191531169`). The objectstack pin bump is not in this PR.\n\n## What changes\n\n- **One predicate, beside the existing idiom.** `useCanReadAuthoringTrail()` is added to `packages/app-shell/src/hooks/useCanAuthorMetadata.ts`, next to `useCanAuthorMetadata`. It uses the same `usePermissions().hasCapabilities` idiom: no new capability-reading mechanism, and one definition that both editors import. The doors admit ANY of the capabilities, and `hasCapabilities` answers \"holds ALL of\", so each capability is asked on its own. An unreported capability set fails open, as `useCanAuthorMetadata` does.\n- **`ResourceEditPage`**: the History and Audit toolbar buttons and both sheets render under `!createMode && canReadTrail`.\n- **`PermissionMatrixEditor`**: the History button, routed or embedded, and the embedded History sheet render under `canReadTrail`.\n- `system` is a principal flag (`isSystem`), not a capability that `/auth/me/permissions` reports. It has no client half, and a console session is never a system principal.\n- **Diff entry:** no entry in these editors calls `/meta/:type/:name/diff`. A search of app-shell for client `diff` calls finds none. The review sheet (`DraftReviewPanel`) and the layers sheet (`LayeredDiff`) compare locally from the layered read.\n\n## Pins (`trailDoorsGate-12475.test.tsx`)\n\nThe pins use the real `MePermissionsProvider` and the real predicate. Only the metadata client is stubbed.\n\n- A `setup.access`-only caller (`manage_org_users`, `setup.access`, `setup.write`) sees neither History nor Audit in `ResourceEditPage`, and no History in the matrix editor, routed or embedded.\n- A `studio.access` author sees both. A `manage_metadata` holder sees both. An unreported set fails open.\n- CONTROL: in create mode nobody sees trail entries, the author included. This is unchanged.\n\n**Ablation:** the predicate body was replaced with `return true` through `ablation-replace.mjs`, which checked that the mutation landed (anchor 1 to 0, blob `a310f6a66200` to `cfd334cfc0c0`). On head `b5b00b7f0` the pin file reads `Tests 7 passed (7)`. Under the mutation, the two setup-only pins went red: `Tests 2 failed | 5 passed (7)`. The tool then restored the file to blob == HEAD with `git diff HEAD` empty. Tests import the source directly, so no `dist` was involved.\n\nThree existing tests mocked `../../hooks/useCanAuthorMetadata` with a factory that did not spread the original module: `ResourceEditPage.setupCatalog-7611`, `PermissionMatrixEditor.setupCatalog-7611` and `PermissionMatrixEditor.cloneToCustomize`. They now spread `importOriginal()`, the form `walledCatalogReadOnly-12183.test.tsx` already uses, so the new export resolves.\n\n## Acceptance notes\n\n- **The `?tab=` deep link is dead on main (not fixed here).** `ResourceEditPage` declares the effect that syncs `?tab=` from `openSheet` before the first-mount effect that reads `?tab=` from `window.location`. On mount the sync runs first with `openSheet === null` and deletes `tab`, so the reader finds nothing. A component test with the real page measured this: the search was `?tab=audit` before mount, and the reader effect logged an empty search. A `?tab=audit`, `layers`, `references` or `related` link therefore opens no sheet, for any caller. A first draft of this PR pinned \"a setup-only deep link reads no audit\". That pin stayed green under the ablation, because the deep link opens nothing for anyone, so it was dropped rather than kept as a pin that cannot fail. The trail sheets are still not mounted for a refused caller, so this gate holds once the deep link is repaired.\n- **The routed `MetadataResourceHistoryPage`** (`/metadata/:type/:name/history`) is not guarded. Reached by URL, a `setup.access`-only caller gets `HistoryPanel`'s error state, which shows the server's 403 message. No toast appears. A guard there would need a refusal render, not a one-line reuse of the predicate, so it is outside this card. With the button gone, no entry from these editors leads there.\n\n## Local verification (head `b5b00b7f0`)\n\n- `pnpm --workspace-concurrency=2 --filter '@object-ui/app-shell^...' build`: exit 0.\n- `pnpm --filter @object-ui/app-shell run type-check` (`tsc --noEmit` plus `tsconfig.test.json`, which includes the `*.test.tsx` files): exit 0.\n- `pnpm exec vitest run --maxWorkers=2 packages/app-shell/src/views/metadata-admin/ packages/app-shell/src/hooks/`: `Test Files 557 passed (557)`, `Tests 6184 passed | 1 skipped`.\n- eslint on the 7 changed files, with the package's own `eslint .` config: 0 errors and 0 findings on changed lines. The config is not type-aware (no `projectService` or type-checked preset), so this diff cannot move a verdict on an untouched file.\n- Pre-tsc battery: `phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity` and `control-bytes` all exit 0. `check-changeset-fixed` and `check-changeset-presence` exit 0. `check:spec-floors` exits 1 with `no-artifact` (it needs a full workspace build). It is known red on main, objectui#12334, and is recorded here, not fixed.\n\nChangeset: `.changeset/12475-trail-doors-gate.md`, `@object-ui/app-shell: patch`.\n\nImplemented under session `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB` (seat `domain:ui#2`).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

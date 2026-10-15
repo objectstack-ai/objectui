@@ -1,0 +1,33 @@
+{
+  "number": 12474,
+  "kind": "issue",
+  "title": "console list toolbar: the density toggle and Hide Fields still write the shared view, so one user's click changes the list for everyone and a walled tenant is refused (the rest of objectui#12418's family)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T10:48:49Z",
+  "updated_at": "2026-10-15T14:05:33Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12474",
+  "body": "Filing gate ①: a product defect with named producers and a measured reach. It is an out-of-scope finding from objectui#12418's dev report, class a. That card moves a list's sort, column layout, Filter panel and tab order onto each user's own `sys_user_preference` row (PR #12471). Two toolbar doors of the same family were left writing the shared view, and this card is them.\n\nfinding · reach: the console list toolbar's Display popover (density) and its Hide Fields popover are public UI doors. Each click ends in a `/meta/view` write, through `persistViewPatch` (the producers below). That write changes the view for every user. Under a walled posture (`group` / `isolated`), environment metadata writes are refused to everyone but the platform operator (objectstack `walledCatalogWriteVerdict`, ADR-0131 D12 items 7–8, the premise objectui#12418 was filed on), so the click is answered 403 and toasted as an error. PR #12471's `consoleListStateWall-12418.test.tsx` CONTROL leg measures that refusal under the budget test's fake framework.\n\n**Reader who acts:** the `domain:ui` lane, one dev round in `@object-ui/app-shell` after PR #12471 lands, on the `ui.list.<object>` slot that PR adds. Triage grades this card; ⛔ it is not a claim.\n\n**Dedupe** (MCP `search_issues`, scope objectstack-ai/objectui, all states, read 2026-10-15T10:55Z): \"list toolbar density toggle hidden fields writes shared view metadata per-user preference\" → 8. Read:\n- #12418 (the parent family; it left these two out);\n- #12423 closed (the Display popover);\n- #11984 closed (Hide Fields field security);\n- #11642 and #11643 closed (density write races);\n- #11583 closed (refused-write toasts);\n- #10512 and #724 closed (unrelated).\n\nNone is this card.\n\n## Producers (objectui `origin/main` `e869e41275`, `packages/app-shell/src/views/ObjectView.tsx`, read 2026-10-15T10:55Z)\n\n1. **Density.** The relay's `onDensityChange` (line 3438) calls `persistViewPatch(viewDef.id, viewDef, { rowHeight })`, writing the spec-canonical `rowHeight` (#2890).\n2. **Hide Fields.** `persistHiddenFields` (lines 3298–3301) calls `persistViewPatch(viewDef.id, viewDef, { hiddenFields })` on a view that declares `columns` or is a saved view. On a system view with no `columns` it already writes nothing and is session-only (its docblock, lines 3290–3296).\n3. **Census of the remaining toolbar doors.** On PR #12471's head `ec82faf2e1`, `persistViewPatch(` is called at two lines (3301 and 3447), and those are exactly these two. Sort and column state moved to the user's slot.\n\n## What to build\n\n1. **Density.** Move it to the user's slot, beside `sort` and `columnState`: `perView[viewId].rowHeight` on the same `ui.list.<object>` row. The view's authored `rowHeight` stays the default for a user who has not chosen one.\n2. **Hidden fields, with a premise the dev checks first.** The premise: a user's hidden fields are stored per user as a subtraction from the columns the view draws, and never add a column the view does not declare. The interaction to measure is objectui#10694's authored-columns projection (the relay applies `hiddenFields` only where `activeViewDeclaresColumns`).\n   - If the premise holds, `perView[viewId].hiddenFields` joins the slot under the same field-security rule as objectui#11984: a field the caller may not read is never offered.\n   - If it does not hold, report a fork with the measurements. ⛔ Do not build it anyway, and do not quietly keep the `/meta/view` write.\n3. **Reset view** (PR #12471) also drops these two parts.\n4. **The census pin.** No toolbar door reaches `persistViewPatch`, and the view editor's explicit save still does.\n\n## Acceptance\n\n- Pins under the budget test's fake framework: a density toggle and a Hide Fields change each issue no `/meta/view` write (0 PUTs) and one preference `save()`.\n- Under a walled-posture fake, neither click toasts an error.\n- A second browser (fresh localStorage) shows the same user's density and hidden fields, and another user sees the authored ones.\n- The census pin of item 4.\n- `pnpm test` from the repo root is green on the affected files, and the changeset is `minor` or `patch`, never `major`.\n\nBlocked-by: #12418\n\nAttribution: written by the `domain:ui` seat 1 in session `session_01JZnppgHRp4sREcouhkQYDB`, from objectui#12418's dev report (`out_of_scope_findings[0]`)."
+}

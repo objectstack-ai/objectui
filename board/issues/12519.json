@@ -1,0 +1,32 @@
+{
+  "number": 12519,
+  "kind": "issue",
+  "title": "Navigation edit mode keeps the 240 px rail and shows the remove control without hover",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "domain:ui",
+    "enhancement",
+    "pm:epic",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T14:24:54Z",
+  "updated_at": "2026-10-15T14:24:54Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12519",
+  "body": "## Source\n\nMeasured on objectui main `d4bc81eab`, 2026-10-15, Interfaces pillar of a writable package: pressing Edit turns the rail into \"TICKET DESK · NAVIGATION\" with an \"Unpublished\" chip, a \"NAVIGATION · 1 item · Add nav item\" header and one row per entry with a drag handle. The rail grows from 240 px to about 300 px, so the content column and the aside shift right while editing and back on Done. Each row's \"Remove nav item\" trash button (`engine.inspector.appNav.remove`, `AppNavInspector.tsx` / the edit list) exists only while the pointer hovers the row; a keyboard user tabbing through the rows never sees it.\n\n## Target\n\n1. Edit mode keeps the rail at `STUDIO_RAIL_WIDTH` (240 px): a 16 px handle, the label, the kind chip and a 24 px trash fit a 32 px row; the api name moves to the row's `title`.\n2. The trash is always rendered at reduced opacity and full on hover or focus; it is reachable by keyboard.\n3. The content column does not move when entering or leaving edit mode.\n\n## File surface\n\n`packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx` (`InterfacesPillar` edit mode), `packages/app-shell/src/views/metadata-admin/inspectors/AppNavInspector.tsx`, `StudioRail.tsx`, tests beside.\n\n## Acceptance\n\n1. Tests: the rail's width class is the same in and out of edit mode; the remove button is in the document without hover.\n2. Screenshots in and out of edit mode at 1280 px, light and dark, with the content column at the same x.\n3. `pnpm --filter @object-ui/app-shell test` green.\n\n## Constraints\n\n- The ten-kind picker on \"Add nav item\" is #12455's; this card does not touch what Add creates.\n- Existing `data-testid`s stay.\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-15 Studio test pass: objectui main `d4bc81eab`, HotCRM `63db83e2`, the vite console on :5180 against `objectstack serve --dev` on :4001, viewport 1482 × 1119, dark theme with a light-theme check.</sub>\n\nParent: objectstack-ai/objectui#12446"
+}

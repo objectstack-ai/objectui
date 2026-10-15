@@ -1,0 +1,34 @@
+{
+  "number": 12460,
+  "kind": "pull_request",
+  "title": "feat(app-shell): Studio layout skeleton: the shell header, one rail, one inspector aside and the item-header scaffold the four pillars share (objectui#12459)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T09:00:35Z",
+  "updated_at": "2026-10-15T09:22:18Z",
+  "closed_at": "2026-10-15T09:22:15Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-15T09:22:15Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12460",
+  "body": "## What\n\nThe structural half of the Studio design-surface redesign (epic #12446): one skeleton that the four pillars share, so the later pillar cards restyle bodies inside a frame that already sits at the same offsets everywhere.\n\n- **Shell header, 48 px, a three-column grid.** Left: home, then the package switcher drawn as an app chip (the app's own tile through `AppMark`, with its brand color or logo). Center: the pillars as a segmented control, centered whatever the two sides weigh; below the 1280 px design width the pillars read as icons with the name in the accessible name and tooltip. Right: Changes with the pending count as a pill (the readable text stays \"Changes · N\"), Publish unchanged, including the objectui#12303 read-only tooltip wrapper. The \"·\" separator is gone and the strip no longer scrolls.\n- **`StudioRail`** — the 240 px rail every pillar mounts: a 44 px heading row (uppercase label, count pill, add button), a 32 px search, 32 px rows (`StudioRailRow`, truncating or wrapping), group headers (`StudioRailGroup`) for the pillar cards that group. Data, Automations, Interfaces and Access all render through it; each keeps its own rows, search behavior, badges and separators. The Data rail's read-only footer retires (its signal returns in #12453).\n- **`StudioInspector`** — the 300 px aside: an eyebrow (the kind), a title, a mono id, a close button, the pillar's body, and a pinned \"Edits save as drafts. Publish the package to apply them.\" footer (new i18n key, en + zh). The Automations aside, the Interfaces aside (with its collapse button; the `w-9` strip is replaced by an expand button in the item header) and the Data field inspector render through it. The Automations sheet fold keeps its threshold, recomputed for the new rail and aside widths.\n- **`StudioItemHeader` + `StudioTab`** — the content column's item header row (32 px icon tile, 18 px title, mono api chip, kind chips, meta slot, actions slot) and underline tab row, placed above each pillar's `main`. The three pillar-specific bands retire into it: Automations' Enabled switch (with its objectui#12303 read-only wrapper) and \"off by default\" sentence, Interfaces' label + kind crumb (objectui#7254: the internal pair stays on the tooltip, no api name on screen; objectui#11665 likewise for flows), Access' subtitle, draft / read-only note and Explain access. Data's object header moves from above the rail into the column; Records / Form / Advanced become the tab row with the objectui#11794 overflow unchanged.\n- **`studio-tokens.ts`** — the shared measurements as class strings, so the pillar cards compose them instead of restating numbers.\n\nReference: `docs/design/studio-redesign/` (#12458) holds the artboards; `docs/design/studio-redesign/after/` in this PR holds the four pillars after this change at 1280 px, light and dark.\n\n## Deviations from the artboards\n\n- Pillar bodies are untouched: the Records grid keeps its framed card and toolbar, the Form tab its sub-tabs, Access its inner breadcrumb and badge row, Interfaces its canvas chrome. Those are #12450, #12451, #12454, #12455, #12456.\n- The read-only posture is unchanged (amber badge in the chip, rail add button hidden, Publish outline): #12453.\n- Access stays a fourth-pillar question for the epic (decision A); More keeps its name and the objectui#11794 behavior, now styled as a segment.\n- The Automations rail is flat; grouping by object is #12454.\n\n## Tests\n\n- `pnpm exec vitest run packages/app-shell/src/views/studio-design`: 173 files, 1275 tests, green.\n- `StudioDesignSurface.moreKeepsName-11794.test.tsx` updated for the segmented control's active tokens (the ruling it pins, the trigger's name, is unchanged); every other test in the folder passes as written, including the objectui#12303 read-only reason tests, the flow canvas chip ruling and the surface-identity tooltip rule.\n- `tsc --noEmit` on app-shell clean; eslint on the touched files reports no errors.\n- A `minor` changeset for `@object-ui/app-shell` is included (`scripts/check-changeset-presence.mjs` asks for one: four published source files changed).\n\n## Ruling\n\nMaintainer, in the epic PM session on 2026-10-15, verbatim:\n\n> 我建议你先派一张整体布局的卡，你负责改了。\n\nUnder that ruling the epic PM session implements this one card itself.\n\nFixes #12459. Part of #12446.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_cdb7a717-def7-4e71-9988-f089fbaa18ff)_\n"
+}

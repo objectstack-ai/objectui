@@ -2,8 +2,8 @@
   "number": 12449,
   "kind": "issue",
   "title": "Studio inspector aside: one 300 px panel shape (kind eyebrow, title, api name, close; sectioned body; \"Edits save as drafts\" footer) for field, column, flow-node, nav-item and widget properties",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "duplicate",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -21,11 +21,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-15T07:57:35Z",
-  "updated_at": "2026-10-15T07:57:35Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-15T08:56:47Z",
+  "closed_at": "2026-10-15T08:56:47Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 1,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12449",
   "body": "## Source\n\nEpic objectstack-ai/objectui#12446, decisions 1 and 3. Measured on objectui main `a2225f91`: the right-hand panels differ per pillar — the Automations aside is `w-72` with a sticky 13 px \"Configuration\" header; the Interfaces inspector is a tab (\"Properties\") beside \"Canvas\" with a `w-9` icon strip; the Data column inspector and field properties open in their own shapes; empty states are centered sentences with a cursor glyph.\n\n## Target\n\nOne shared aside shell (`StudioInspector.tsx`) that every pillar mounts at the right of its content body:\n\n- Width 300 px, white, left border, full height of the content body; collapsible by a header toggle button (panel-right glyph, `aria-pressed`) that each item header row shows at its right.\n- **Header**, 14 px top / 12 px bottom padding, bottom border: an 11 px uppercase eyebrow naming the kind (\"Field\", \"Column\", \"Node · Decision\", \"Nav item · Page\", \"Widget · Metric\"), the title at 15 px / 600, the api name or id as 11 px mono muted, and a 28 px close button at the right.\n- **Body**, 16 px padding, 14 px gaps: labelled rows (12 px / 500 labels, 32 px inputs, 36 by 20 px switches), 1 px dividers, 11 px uppercase section eyebrows.\n- **Footer**, pinned to the bottom, 12 px muted: \"Edits save as drafts. Publish the package to apply them.\" (one new i18n key; the read-only package renders the read-only card's sentence instead).\n- **Empty state**: the eyebrow reads the kind the pillar selects (\"Node\", \"Widget\"), the body shows one 13 px muted sentence (\"Click a node on the canvas to configure it.\").\n\nThe Interfaces \"Canvas / Properties\" tab pair becomes Canvas as the only content tab plus this aside; on rows narrower than 1000 px the aside folds into the existing sheet (the objectui#11795 narrow-row behavior, `AutomationsPillar.narrowRow-11795.test.tsx`) for every pillar, not only Automations.\n\n## File surface\n\nNew `packages/app-shell/src/views/studio-design/StudioInspector.tsx`; `StudioDesignSurface.tsx` (the Automations aside, the Interfaces inspector and its `w-9` strip, the Data column/field inspector mounts, `StudioNavItemInspector` header), `ObjectListViewInspector.tsx` (header only), `packages/app-shell/src/views/metadata-admin/i18n.ts` (the footer sentence).\n\n## Acceptance\n\n1. All four pillars mount the aside at 300 px with the header's eyebrow / title / close at identical y offsets (screenshot of four side by side).\n2. The fold-to-sheet behavior works in all four pillars below 1000 px, pinned by extending the narrow-row test to one more pillar.\n3. `StudioDesignSurface.navItemInspector`, `navItemInspectorLabel-11196`, `navItemInspectorLabelMaps-11148`, `canvasMode`, `interfacePolish`, `DataPillar.inspectorBelongsToView-11781`, `ObjectListViewInspector.*` stay green or are updated for the moved header, each ablated once.\n4. Before/after screenshots, light and dark.\n\n## Constraints\n\n- Tailwind utilities and theme tokens only; no inline style.\n- Existing `data-testid`s and i18n keys stay.\n- Gates: `pnpm --filter @object-ui/app-shell test`, `lint`, `build`.\n- Depended on by the Data, Form, Automations, Interfaces and Access cards; lands with or right after the rail card.\n\nParent: objectstack-ai/objectui#12446"

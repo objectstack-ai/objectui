@@ -1,0 +1,37 @@
+{
+  "number": 12463,
+  "kind": "issue",
+  "title": "console list page: on desktop the table scrolls inside the page under a sticky header while the app bar, page header, view row and footer stay put; at 1024 the first and the actions column stick and a right-edge shadow says more columns follow",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "domain:ui",
+    "enhancement",
+    "priority:p1"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T09:03:30Z",
+  "updated_at": "2026-10-15T12:09:18Z",
+  "closed_at": "2026-10-15T12:08:15Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12463",
+  "body": "Filing gate ③, on the maintainer's word (chat, 2026-10-15, session `session_019YFzJp4o8Ck4NsT1toC4UP`, seat account os-bill): after the post-merge screenshots the maintainer said 「和你的设计图差距还是比较大，后续还有哪些任务你给我具体解释一下」, the seat listed the remaining gaps, and the maintainer answered 「同意开卡」. The design is the main and laptop boards of the reference page https://claude.ai/artifact/JCzrzHxTxzD4EEKCTtDaNA (`main-1440.png`, `laptop-1024.png`; the designer's notes: 「桌面端表格在页内滚动，表头吸顶」 and 「表格超出时横向滚动，首列与操作列 sticky，右缘滚动阴影提示还有列」).\n\nParent: #12444. Blocks nothing; nothing blocks it. Shares `ListView.tsx` with #12440 (the toolbar row) and the selection-bar card: this card touches the root and body wrappers (lines 4933 and 5634) and the data-table's scroll box, different regions; dispatchable in parallel; the second to land merges `main` again.\n\n**Reader who acts:** the `domain:ui` lane's next dispatch, one dev round across `@object-ui/app-shell`, `@object-ui/plugin-list` and `@object-ui/components`, size M.\n\n**Dedupe** (MCP `search_issues`, scope objectstack-ai/objectui, all states, read 2026-10-15T08:58Z): \"list table scrolls inside the page sticky header pinned footer desktop page scroll sticky first column scroll shadow\" → 0; the two sibling queries in the same run returned 16 and 3 hits, so the channel was live. None is this card.\n\n## The problem\n\nOn the Leads list at 1440×1000 the console's main area is the scroll container (`ConsoleLayout`'s `SidebarInset`, `overflow-y-auto`): scrolling the rows moves the page header, the view row and the toolbar away, and the record-count footer sits at the end of the content. The design keeps the chrome in place and scrolls the table inside the page, with the table header sticky under the toolbar and the footer (record count) pinned at the bottom; at 1024 the table scrolls sideways with the first column and the actions column sticky and a shadow at the right edge while more columns remain. The data-table's header already declares `sticky top-0` (it sticks only inside a scrolling box that is the table's own); the wrappers above it are `overflow-hidden` without a bounded height chain, so there is no such box.\n\n## Readings (objectui `origin/main` `a8e5b73`, read 2026-10-15T08:58Z)\n\n1. `packages/app-shell/src/layout/ConsoleLayout.tsx` line 188: the main inset is `!p-0 overflow-y-auto overflow-x-hidden`, the page's scroll container today.\n2. `packages/app-shell/src/views/ObjectView.tsx` line 3886: the page root `h-full flex flex-col bg-background min-w-0 overflow-hidden`; lines 4167, 4178, 4225: `flex-1 overflow-hidden relative` wrappers around the list; `ListView` mounted at 3744.\n3. `packages/plugin-list/src/ListView.tsx` line 4933: the list root `flex flex-col h-full … overflow-hidden`; line 5634: the view body `flex-1 min-h-0 … overflow-hidden`; the `21 records` footer after it.\n4. `packages/components/src/renderers/complex/data-table.tsx` line 2883: `TableHeader className=\"sticky top-0 bg-background z-10\"`; the table's own box and its horizontal scroll are what this card bounds; `frozenColumns` and `measuredStickyLefts` (the sticky-left machinery) exist from #12436's leading-cell work.\n\n## What to build\n\n1. Desktop (`lg` and up), grid view: the chain from the main inset down to the data-table's box gives the table a bounded height (`min-h-0` / `flex-1` through the wrappers, `overflow-auto` on the table's box), so the table scrolls inside the page; the app bar, page header, view row and toolbar stay put; the existing `sticky top-0` header now sticks; the list footer stays visible below the box. The main inset no longer scrolls on this page (its `scrollTop` stays 0).\n2. Horizontal: when columns exceed the width, the table box scrolls sideways; the leading cell plus the first data column, and the actions column, are sticky (the existing frozen-column machinery, `frozenColumns: 1` as the console's default for the grid when the host passes none); a right-edge shadow shows while `scrollLeft + clientWidth < scrollWidth` and none at the end.\n3. Other visualizations (kanban, calendar, gallery, …) keep their own scrolling as today; the phone keeps today's page scroll.\n\n## Acceptance\n\n- `ListView` / data-table test: with 50 rows in a 600 px tall host, the table's box has `overflow-y: auto` and the rows scroll inside it while the toolbar row's bounding box does not move; the footer's record count is in the DOM below the box and visible.\n- Browser reading by the landing seat at 1440×800 on the HotCRM Leads list (21 rows): scrolling over the rows moves only the rows; the app bar, page header, view row, toolbar and `21 records` footer keep their y; the console main's `scrollTop` reads 0. At 1024: the Full Name column and the actions column stay in place while scrolling sideways; a right-edge shadow is visible at `scrollLeft` 0 and absent at the far right.\n- `pnpm test` from the repo root green on the affected files; a changeset (minor) for each published package touched.\n\n## Out of scope\n\n- Row virtualization; column widths; the other visualizations' scrolling; the phone.\n\nAttribution: written by the domain:ui seat in session `session_019YFzJp4o8Ck4NsT1toC4UP` (account os-bill) on the maintainer's words quoted above."
+}

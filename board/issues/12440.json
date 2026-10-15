@@ -2,8 +2,8 @@
   "number": 12440,
   "kind": "issue",
   "title": "console list page: the saved-view tab strip and the toolbar's four controls share one row — ListView takes a leading toolbar slot as a host prop and the console passes ViewTabBar into it",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:records",
     "domain:ui",
     "enhancement",
-    "pm:dispatched",
     "priority:p1"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-15T06:38:56Z",
-  "updated_at": "2026-10-15T08:25:52Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-15T12:46:53Z",
+  "closed_at": "2026-10-15T12:45:12Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 6,
+  "comments": 10,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12440",
   "body": "Filing gate ③, the follow-up the maintainer's dispatched design still owes after #12423 landed its items A–F. The maintainer's words, verbatim (chat, 2026-10-15, session `session_019YFzJp4o8Ck4NsT1toC4UP`, seat account os-bill): the dispatch order 「按这个方案在 objectui 开一个 issue，使用 dispatch 技能，然后你负责派发开发。开发完了使用右侧的浏览器测试验证并给我看效果。」 and, on the delivered screenshots, 「你觉得达到你设计的改动效果了吗？」. The approved design is the prototype at https://claude.ai/artifact/8JLqDFmcuK82RS1Cb8219f (private to the maintainer): its main artboard draws the saved-view tabs and Filter · Sort · Display · Search on ONE bordered row. The dev of #12423 raised exactly this as the open question of its report (comment 6185623889 on #12423, option B) and the seat's contract review on PR #12436 escalated it here.\n\nBlocked-by: #12427\n\nSerial after #12423's PR #12436: both edit `packages/plugin-list/src/ListView.tsx` and `packages/app-shell/src/views/ObjectView.tsx`.\n\n**Reader who acts:** the `domain:ui` lane, seat 3 (this session), one dev round across `@object-ui/plugin-list` and `@object-ui/app-shell`, after #12436 merges.\n\n**Dedupe** (MCP `search_issues`, scope objectstack-ai/objectui, all states, read 2026-10-15T06:40Z): \"list view tabs and toolbar share one row ListView leading host slot ViewTabBar console\" → 9 (#12423 the parent card; #12418 open, per-user persistence; #753, #809, #724, #833, #7218, #11395 closed, none about the toolbar row). None is this card.\n\n## The problem in one screen\n\nAfter #12436 the Leads list of the HotCRM demo at 1440 px still spends two bordered rows on list chrome: the saved-view tab strip (the console's own row above the list) and the list toolbar (tabs' user filters on the left, the four controls on the right). Measured on the PR head: the first data row sits at y≈242 (base ≈262); the approved prototype puts the tabs and the four controls on one row and gains the remaining ~40 px. The two rows exist because `ListView` has no place to draw a host's tab strip: its own toolbar row has a left group (user filters) and a right cluster, and the console mounts `ViewTabBar` in a separate `div` above the list.\n\n## Readings (objectui PR #12436 head `4ba299c`, read 2026-10-15T06:30Z; the base lines are the same)\n\n1. `packages/app-shell/src/views/ObjectView.tsx` 4098–4099: a `div` with classes `hidden sm:block border-b px-3 sm:px-4 bg-background overflow-x-auto shrink-0` wrapping the `ViewTabBar` element — a row of its own, drawn from `sm` up; a second `ViewTabBar` mount at 4124 is the same strip's other branch. Below `sm` there is no strip: the console registers the app bar's mobile view switcher instead (`useMobileViewSwitcherRegistration`, 2597–2607).\n2. `packages/plugin-list/src/ListView.tsx` 4902–4935: the \"Unified toolbar\" row — a `border-b … flex items-center justify-between` row whose left group holds only `user-filters` (`UserFilters`, `maxVisible={3}`) and whose right cluster is the tool pill. Nothing a host hands in renders on the left.\n3. `packages/types/src/objectql.ts` 3140: `tabs?: never` — the list view's own `tabs` key was RETIRED from the protocol (objectui#11073); every `listViews` entry is a tab in the saved-view switcher. So the slot must be a HOST prop on the `ListView` React component, like `showRowNumbers` on `ObjectGrid` in #12436, and never a node key.\n4. `packages/plugin-view/src/ViewTabBar.tsx` (after #12436): the strip is `flex min-w-0 flex-1` and derives its visible count from its own width, so inside a shared row it folds whatever the right cluster leaves no room for; `maxVisibleTabs` caps it.\n\n## What to build\n\n1. `ListView` takes a host prop `toolbarLeading?: React.ReactNode` (name by the convention of the file; a React prop, never a schema key). It renders FIRST in the toolbar row's left group, before `user-filters`, in a `min-w-0 flex-1` wrapper so the tab strip's width is what the four controls leave. Absent ⇒ the row is exactly today's.\n2. The console (`ObjectView.tsx` 4098) stops drawing its own tab row and passes the `ViewTabBar` element (with the \"+\" add-view and \"Unsaved changes\" affordances it already carries) through the slot, from `sm` up only — the `hidden sm:block` behaviour moves with it, so below `sm` nothing is passed and the app bar's mobile switcher stays the phone's only view control.\n3. `UserFilters` keeps its place after the tabs. Row height, the right cluster, the Display panel and persistence are untouched.\n4. The view description line (`view-description`, drawn above the toolbar when a view has one) is unchanged.\n\n## Acceptance\n\n- `ListView` test: with `toolbarLeading` passed, its node renders inside the toolbar row before `user-filters`; without it, the row's DOM equals today's (an existing toolbar pin stays green unchanged).\n- `ObjectView` test: at a desktop width the page renders no standalone tab row; the `view-tab-bar` test id is inside the list's toolbar row; the `view-tab-overflow` fold still works there (the `ViewTabBar.widthFit-12423` pins stay green); at a phone width no `view-tab-bar` renders, as today.\n- Browser check by the seat at 1440 on the HotCRM demo: one bordered row carries the tabs on the left and Filter · Sort · Display · Search on the right; the first data row sits about 40 px higher than on #12436's head.\n- `pnpm test` from the repo root green on the affected files; a changeset (minor) for `@object-ui/plugin-list` and `@object-ui/app-shell`.\n\n## Out of scope\n\n- Per-user persistence (#12418); the sidebar cards (#12427, #12429); any protocol key for the slot; the mobile layout; the breadcrumb row.\n\nAttribution: written by the domain:ui seat in session `session_019YFzJp4o8Ck4NsT1toC4UP` (account os-bill) on the maintainer's instruction quoted above."

@@ -2,8 +2,8 @@
   "number": 12452,
   "kind": "issue",
   "title": "Studio pillar nav: Access sits in the segmented control and the More overflow retires while it holds a single pillar (reverses the objectui#11794 More ruling; decision anchored in the epic)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -17,16 +17,22 @@
     "pm:epic",
     "priority:p2"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-sales"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-15T07:59:03Z",
-  "updated_at": "2026-10-15T07:59:03Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-15T11:03:24Z",
+  "closed_at": "2026-10-15T11:02:05Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12452",
-  "body": "## Source\n\nEpic objectstack-ai/objectui#12446, open decision A. Measured on objectui main `a2225f91`: `OVERFLOW_PILLARS` holds exactly one entry, Access, so the More trigger (`data-testid=\"studio-nav-more\"`) opens a one-item menu. objectui#11794 ruled that the trigger keeps the name More whichever overflow pillar is open, and `StudioDesignSurface.moreKeepsName-11794.test.tsx` pins that.\n\n## Prior ruling this card reverses\n\nobjectui#11794, \"the trigger keeps its own name, More\". The reason recorded in the source comment: renamed to the open pillar it hid the one word that says this is the overflow menu. That reasoning holds for an overflow of several pillars. With one pillar there is nothing to overflow, and the maintainer-reviewed canvas places Access as the fourth segment.\n\n**This card is not claimed until the maintainer answers decision A on the epic.** If the answer keeps More, close this card as not planned and leave the shell header card's center group reading Data, Automations, Interfaces, More.\n\n## Target\n\n- The pillar segmented control reads Data, Automations, Interfaces, Access; Access carries the shield icon the Access pillar already uses.\n- `OVERFLOW_PILLARS` and the More popover are removed together with `studio-nav-more` and `engine.studio.more`; the dirty-guard `onClick` the overflow links carried moves onto the Access link exactly as the primary pillars have it.\n- The package-less scope (objectui#11553) still shows its single pillar and nothing else.\n- If a second overflow pillar is ever added, the More menu returns with the objectui#11794 behavior; leave a one-line comment at the pillar list saying so, so the ruling is not lost.\n\n## File surface\n\n`packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx` (pillar list, `PILLARS` / `OVERFLOW_PILLARS`, the shell header's nav), `packages/app-shell/src/views/metadata-admin/i18n.ts` (retire `engine.studio.more` in every locale), `StudioDesignSurface.moreKeepsName-11794.test.tsx` (replaced by a test that pins Access as a first-class segment and the dirty guard on it).\n\n## Acceptance\n\n1. Four segments at 1280 px, Access active when `/studio/app.objectstack.hotcrm/access` (any package id) is open.\n2. Leaving a dirty pillar through Access prompts exactly as through Data (the `confirmLeavePillar` path), pinned by a test.\n3. No `studio-nav-more` in the DOM; `engine.studio.more` absent from every locale file.\n4. `StudioDesignSurface.accessGuard.test.tsx` and `pillarNavGuard` stay green.\n\n## Constraints\n\n- Tailwind utilities and theme tokens only.\n- Gates: `pnpm --filter @object-ui/app-shell test`, `lint`, `build`, `pnpm check:i18n` for the retired key.\n- The objectstack pin bump is not part of this card.\n\nParent: objectstack-ai/objectui#12446"
+  "body": "## Source\n\nEpic objectstack-ai/objectui#12446, open decision A. Measured on objectui main `a2225f91`: `OVERFLOW_PILLARS` holds exactly one entry, Access, so the More trigger (`data-testid=\"studio-nav-more\"`) opens a one-item menu. objectui#11794 ruled that the trigger keeps the name More whichever overflow pillar is open, and `StudioDesignSurface.moreKeepsName-11794.test.tsx` pins that.\n\n## Prior ruling this card reverses\n\nobjectui#11794, \"the trigger keeps its own name, More\". The reason recorded in the source comment: renamed to the open pillar it hid the one word that says this is the overflow menu. That reasoning holds for an overflow of several pillars. With one pillar there is nothing to overflow, and the maintainer-reviewed canvas places Access as the fourth segment.\n\n**Decision A was answered on 2026-10-15: as designed, Access in the nav and More retired.** The ruling comment on the epic quotes the maintainer's words and names the premise to re-check first (`OVERFLOW_PILLARS` holds exactly one pillar). This card is dispatched once the layout skeleton #12459 lands, since that card rewrote the shell header this one changes.\n\n## Target\n\n- The pillar segmented control reads Data, Automations, Interfaces, Access; Access carries the shield icon the Access pillar already uses.\n- `OVERFLOW_PILLARS` and the More popover are removed together with `studio-nav-more` and `engine.studio.more`; the dirty-guard `onClick` the overflow links carried moves onto the Access link exactly as the primary pillars have it.\n- The package-less scope (objectui#11553) still shows its single pillar and nothing else.\n- If a second overflow pillar is ever added, the More menu returns with the objectui#11794 behavior; leave a one-line comment at the pillar list saying so, so the ruling is not lost.\n\n## File surface\n\n`packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx` (pillar list, `PILLARS` / `OVERFLOW_PILLARS`, the shell header's nav), `packages/app-shell/src/views/metadata-admin/i18n.ts` (retire `engine.studio.more` in every locale), `StudioDesignSurface.moreKeepsName-11794.test.tsx` (replaced by a test that pins Access as a first-class segment and the dirty guard on it).\n\n## Acceptance\n\n1. Four segments at 1280 px, Access active when `/studio/app.objectstack.hotcrm/access` (any package id) is open.\n2. Leaving a dirty pillar through Access prompts exactly as through Data (the `confirmLeavePillar` path), pinned by a test.\n3. No `studio-nav-more` in the DOM; `engine.studio.more` absent from every locale file.\n4. `StudioDesignSurface.accessGuard.test.tsx` and `pillarNavGuard` stay green.\n\n## Constraints\n\n- Tailwind utilities and theme tokens only.\n- Gates: `pnpm --filter @object-ui/app-shell test`, `lint`, `build`, `pnpm check:i18n` for the retired key.\n- The objectstack pin bump is not part of this card.\n\n## Reference artboard\n\nevery artboard's shell header, `docs/design/studio-redesign/data-records.html` first (Access as the fourth segment, no More) on objectui main (landed in objectstack-ai/objectui#12458); `data-records.png` is its 1280 px render. The folder's README carries the shared numbers and what a pull request against this card must show: two screenshots per artboard it touches (light and dark, 1280 px, cropped to the artboard's region), a deviation list with a reason per line, and the card's named tests green or updated. Where this card and the artboard disagree, this card's numbers win and the disagreement is reported here.\n\nBlocked-by: #12459\n\n<sub>Body refreshed 2026-10-15T09:53Z by the epic PM session: a Reference artboard section added now that objectstack-ai/objectui#12458 is on main. Earlier refresh 2026-10-15T09:13Z: decision A answered; a Blocked-by line on the layout skeleton added.</sub>\n\nParent: objectstack-ai/objectui#12446\n\n"
 }

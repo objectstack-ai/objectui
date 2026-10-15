@@ -2,8 +2,8 @@
   "number": 12429,
   "kind": "issue",
   "title": "console shell: the sidebar collapse toggle moves from the sidebar footer to the app bar's left slot at every width, where the drawer button already sits below lg",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:devpath",
     "domain:ui",
     "enhancement",
-    "pm:dispatched",
     "priority:p1"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-15T05:02:11Z",
-  "updated_at": "2026-10-15T08:27:16Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-15T10:42:22Z",
+  "closed_at": "2026-10-15T10:40:59Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 4,
+  "comments": 7,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12429",
   "body": "Filing gate ③, a task the maintainer dispatched in person (chat, 2026-10-15, session `session_019YFzJp4o8Ck4NsT1toC4UP`, seat account os-bill). The maintainer's words, verbatim: 「还有左侧菜单的折叠按钮原来在左下角，是否建议调整位置」, and, on the seat's proposal to move it to the app bar's left slot: 「接受你的建议」. The design is the prototype at https://claude.ai/artifact/8JLqDFmcuK82RS1Cb8219f (private to the maintainer; the main artboard's app bar and the 1024 artboard's collapsed rail).\n\nBlocked-by: #12427\n\nSerial after #12427: both cards edit `UnifiedSidebar.tsx`.\n\n**Reader who acts:** the `domain:ui` lane, one small dev round in `@object-ui/app-shell` (plus the ten `@object-ui/i18n` packs only if a label changes), after #12427 merges.\n\n**Dedupe** (MCP `search_issues`, scope objectstack-ai/objectui, all states, read 2026-10-15T05:02Z): \"sidebar collapse toggle button position footer app bar\" → 1 (#1000, closed, the mobile duplicate-toggle cleanup; it is the reason the app bar's trigger is hidden at lg and above today). None is this card.\n\n## The problem\n\nThe desktop control that collapses the sidebar sits at the sidebar's bottom-left, inside its footer. It is far from where the pointer works, it is the last thing in a long navigation, and it is the only navigation control that lives in a different place from its phone counterpart (the drawer button in the app bar). The agreed shape: the app bar's left slot is the navigation control at every width: the drawer button below lg, the collapse/expand toggle at lg and above, and the collapsed icon rail keeps the toggle in that same spot so it never moves.\n\n## Readings (objectui `origin/main` `fc528c3`, read 2026-10-15T05:00Z)\n\n1. `packages/app-shell/src/layout/UnifiedSidebar.tsx` line 434: `<Sidebar collapsible=\"icon\" …>`, so the collapsed form is already the icon rail; lines 689–691: the only desktop trigger is a `LocalizedSidebarTrigger` inside `SidebarFooter` at the sidebar's bottom.\n2. `packages/app-shell/src/layout/AppHeader.tsx` lines 577–578: the app bar already carries a `LocalizedSidebarTrigger`, but `lg:hidden`, so it is the drawer button below lg only (the duplicate-toggle cleanup of #1000).\n3. `packages/components/src/ui/sidebar.tsx` lines 42 and 112–126: the keyboard shortcut (Cmd or Ctrl + B) already toggles the sidebar; nothing here changes it.\n\n## What to build\n\n1. The app bar's trigger renders at every width, in the left slot before the app switcher (the slot it already uses below lg), with `aria-expanded` reflecting the sidebar state and a tooltip that names the shortcut.\n2. The `SidebarFooter` trigger is removed; the footer goes with it if nothing else is in it.\n3. The collapsed icon rail carries no trigger of its own; the app bar's trigger expands it, from the same spot.\n4. No change to how the collapsed state is persisted, to the icon rail's contents, or to the shortcut.\n\n## Acceptance\n\n- At lg and above: the app bar renders exactly one sidebar trigger at its far left and the sidebar footer renders none; one click collapses to the icon rail, a second expands; Cmd/Ctrl + B unchanged.\n- Below lg: exactly one trigger, as today (#1000's pin stays green).\n- Existing tests touching the footer trigger are updated deliberately; `pnpm test` from the repo root green on the affected files; a changeset (minor) for app-shell.\n\n## Out of scope\n\n- Sidebar width, a resizable sidebar, the icon rail's contents, the mobile drawer.\n\nAttribution: written by the domain:ui seat in session `session_019YFzJp4o8Ck4NsT1toC4UP` (account os-bill) on the maintainer's instruction quoted above."

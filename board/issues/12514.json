@@ -1,0 +1,32 @@
+{
+  "number": 12514,
+  "kind": "issue",
+  "title": "Studio empty states carry the primary action (Validations, Hooks, Actions, Automations, Access)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "domain:ui",
+    "enhancement",
+    "pm:epic",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T14:21:38Z",
+  "updated_at": "2026-10-15T14:21:38Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12514",
+  "body": "## Source\n\nMeasured on objectui main `d4bc81eab`, 2026-10-15, in a writable package with one object and nothing else:\n\n- Validations, Hooks and Actions tabs (`ObjectValidationsPanel.tsx` and its two siblings): a list card about 150 px wide with a \"New\" button and \"No validation rules yet…\", beside a card that fills the rest of the column reading \"Select a rule on the left, or click New to create one\" (`engine.studio.rules.pick`); Hooks says \"Select a hook to edit it\", Actions \"Select an action to edit its properties\".\n- Automations pillar with no flow: the rail says \"No automations yet — click New to start\" (`engine.studio.auto.none`) while the control is a \"+\" icon with no visible word; the canvas card reads \"Select an automation\" (`engine.studio.auto.pick`); the aside reads \"Click a node on the canvas, and its configuration appears here\". Three columns, all empty.\n- Access pillar with no permission set: the content reads \"Create a permission set to start configuring\" (`engine.studio.access.emptyMain`) with no control; the \"+\" is in the rail header.\n\n## Target\n\n1. Each empty surface is one centered block in the content column: the pillar's icon, one sentence, a primary button that opens the same create dialog as the rail's \"+\" (New validation rule / New hook / New action / New automation / New permission set).\n2. The aside and the right card show nothing while there is nothing to select; the \"Select…\" sentences retire.\n3. The rail's empty sentence names the control it points at, or the control is a labelled button inside the rail's empty state.\n\n## File surface\n\n`packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx` (Automations and Access empty branches), `ObjectValidationsPanel.tsx`, `ObjectHooksPanel.tsx`, the actions panel beside them, `packages/app-shell/src/views/metadata-admin/i18n.ts` (retired and new keys in every locale), tests beside.\n\n## Acceptance\n\n1. Tests: each empty state's button opens the create dialog (the same handler as the rail's \"+\").\n2. Screenshots of the five empty states at 1280 px, light and dark.\n3. `pnpm --filter @object-ui/app-shell test` green.\n\n## Constraints\n\n- Lands after #12454 (its claim covers the `AutomationsPillar` region); the Access branch coordinates with #12456 if that card is claimed first.\n- Existing `data-testid`s stay.\n\nBlocked-by: #12454\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-15 Studio test pass: objectui main `d4bc81eab`, HotCRM `63db83e2`, the vite console on :5180 against `objectstack serve --dev` on :4001, viewport 1482 × 1119, dark theme with a light-theme check.</sub>\n\nParent: objectstack-ai/objectui#12446"
+}

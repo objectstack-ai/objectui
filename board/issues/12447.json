@@ -2,8 +2,8 @@
   "number": 12447,
   "kind": "issue",
   "title": "Studio shell header: a 48 px three-column grid (app chip, centered pillar switcher, Changes with a count badge and Publish) and the type scale the four pillars share",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "duplicate",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -21,11 +21,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-15T07:56:32Z",
-  "updated_at": "2026-10-15T07:56:32Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-15T08:55:15Z",
+  "closed_at": "2026-10-15T08:55:15Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 1,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12447",
   "body": "## Source\n\nEpic objectstack-ai/objectui#12446, decisions 2 and 3. Measured on objectui main `a2225f91`: `StudioDesignSurface.tsx` renders the shell header element as one flex row — home button, `PackageSwitcher`, a literal \"·\" span, the pillar links, then `ml-auto` Changes and Publish — at `px-3 py-2` with 12 px link text. The package switcher, the primary navigation and the package actions have equal visual weight, and the strip overflows horizontally on narrow viewports by design.\n\n## Target\n\nThe header becomes a 48 px CSS grid with three columns (`1fr auto 1fr`), so the pillar switcher is centered regardless of what the left and right groups weigh:\n\n- **Left.** The home icon button (32 px square), then an app chip: a 24 px rounded tile showing the app's icon on its color (the same icon and color the console Home tile uses for that package; a generic package glyph when the package has no app), the package name at 13 px / 600, a chevron. The chip is the `PackageSwitcher` trigger; the switcher's popover is unchanged.\n- **Center.** The pillars as a segmented control: a 3 px padded muted track, 28 px items, the active item on a white (card) surface with a 1 px shadow and its icon in the primary color; inactive items in muted foreground. Items read Data, Automations, Interfaces, then whatever the pillar nav card decides for Access / More.\n- **Right.** Changes as an outline button whose pending count is an 18 px primary pill (no \"· 3\" text); Publish as the primary button. The \"nothing to publish\" sentence stays as the Publish button's title, not as inline text.\n- The \"·\" separator span is removed.\n\nShared constants, exported from a small `studio-tokens.ts` (or the existing surface module) and consumed by the other children: item title 18 px / 600; body 13 px; meta 12 px; label 11 px uppercase with 0.06 em tracking; rail width 240 px; rail row 32 px; table row 40 px; aside width 300 px; radius 8 px. Tailwind classes only (`text-[18px]`, `h-8`, `w-60`, `w-[300px]`…); the file exists so four pillars stop restating the numbers.\n\n## File surface\n\n`packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx` (shell header, `PackageSwitcher` trigger), a new `packages/app-shell/src/views/studio-design/studio-tokens.ts`, `packages/app-shell/src/views/metadata-admin/i18n.ts` only if a key changes.\n\n## Acceptance\n\n1. At 1280 px the segmented control's center is the viewport's center within 4 px while the left group holds a 14-character package name and the right group holds \"Changes · 3\" and Publish.\n2. The app chip shows the HotCRM icon tile for `app.objectstack.hotcrm` and a generic tile for a package with no app.\n3. The pending count renders as a pill; with zero pending the pill is absent and Publish is the outline variant it already uses.\n4. `StudioDesignSurface.changesCount-11787.test.tsx`, `publishCount-11807`, `pillarNavGuard`, `zhPillarNames-11801` and `createAppAccessibleName` stay green; any that assert the \"·\" separator or the \"Changes · N\" text are updated in the same PR, each ablated once.\n5. Before/after screenshots at 1280 px, light and dark.\n\n## Constraints\n\n- Tailwind utilities and theme tokens only; no inline style, so `.dark` stays a real variant.\n- Existing `data-testid`s (`studio-nav-more` until the pillar nav card removes it) and i18n keys stay.\n- Gates: `pnpm --filter @object-ui/app-shell test`, `lint`, `build`.\n- The objectstack pin bump is not part of this card.\n\nParent: objectstack-ai/objectui#12446"

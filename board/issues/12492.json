@@ -1,0 +1,35 @@
+{
+  "number": 12492,
+  "kind": "pull_request",
+  "title": "test(app-shell): load the designers module at module scope so the entry registration wait covers only its .then (objectui#12478)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T12:51:58Z",
+  "updated_at": "2026-10-15T13:26:35Z",
+  "closed_at": "2026-10-15T13:26:33Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-15T13:26:33Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12492",
+  "body": "Fixes #12478\nClause-②: no\n\n## What changed\n\n`packages/app-shell/src/__tests__/entryRegistersBuiltinDesigners-11939.test.tsx` now imports `../views/metadata-admin/register-builtin-designers` at module scope. It imports the module and never calls it. The header comment is corrected. `packages/app-shell/src/index.ts` is unchanged. The change set also has an empty-frontmatter changeset because only the test changed.\n\n## Why: the race, measured\n\nThe PM's mechanism assumption was that the test's module-scope imports had already cached the designers' module graph. That was only partly true. The test imported 3 components (`FlowPreview`, `FlowInspector`, `HookDefaultInspector`). The module the entry's `import()` names pulls `previews/index.ts` (22 previews) and `inspectors/index.ts` (13 inspector modules), so about 32 modules were still uncached. They were transformed and evaluated inside `vi.waitFor`'s default 1000 ms window. Since objectui#12187 the entry hands the loader to `deferBuiltinDesigners`. The test's own read before the entry import (`listMetadataPreviewTypes()`) sets `wanted`, so the loader starts as soon as the entry is evaluated.\n\nMeasured with scratch copies of the test (later deleted), 3 runs each, `--maxWorkers=1`, on a shared box. \"tests\" is the in-test wait:\n\n| shape | tests time |\n|---|---|\n| main's imports (3 components) | 917 ms, 924 ms, 935 ms |\n| plus `register-builtin-designers` at module scope | 9 ms, 8 ms, 6 ms |\n\nSo on a quiet box main already used about 92% of the 1000 ms budget, and a slow CI shard (`import 584.89s`) went over it. This is the AGENTS.md 测试纪律 pattern: the unbounded module load moves to the import phase, where no test timeout applies.\n\n## Why this option and not a longer timeout\n\n- No timeout was raised. AGENTS.md 测试纪律 rules out raising timeouts as a flake fix. The default `vi.waitFor` now covers only the `.then` microtasks.\n- No new export, public or internal. The loader's promise is discarded (`void loader()` in `builtin-designers-loader.ts`), so awaiting it would have needed a new handle. Moving the import needed none.\n- The test still proves the same thing:\n  - `register-builtin-designers.ts` has no load-time effect. It only exports `registerBuiltinDesigners`, and so do `previews/index.ts` and `inspectors/index.ts`.\n  - Nothing in the test calls it.\n  - The registries are still read empty after every static import has evaluated, so a registrar added to that graph would turn `typesBeforeTheEntry` red.\n  - The identity assertions are unchanged.\n\n## Evidence (head `dbf8bc3ad`)\n\n- **20× loop, under the shared lock:** `PASS_COUNT=20/20`. In-test time per run was 6 to 11 ms.\n- **Ablation:** run with `scripts/ablation-replace.mjs`. The entry's `.then(({ registerBuiltinDesigners }) => registerBuiltinDesigners())` was replaced with `.then(() => undefined)`.\n  - The anchor went from 1 hit to 0, and the blob changed from `498f6b8705dd` to `c4e9bf077780`.\n  - The test went red: `AssertionError: expected undefined to be [Function FlowPreview]` after 1017 ms, `Tests 1 failed (1)`.\n  - Restore: the blob is back to `498f6b8705dd`, matching HEAD, and `git diff HEAD` is empty.\n  - So the test still fails when the entry stops registering.\n- **`packages/app-shell/src/__tests__/` (whole directory):** `Test Files 22 passed (22)`, `Tests 436 passed (436)`.\n- **`pnpm --filter @object-ui/app-shell type-check`:** exit 0, run after building the dependency closure (`--filter '@object-ui/app-shell^...' build`, exit 0). `tsconfig.test.json --listFilesOnly` lists this test file.\n- **ESLint (`--no-inline-config`, changed file only):**\n  - 1 file, 0 errors, 0 warnings (counts read from `--format json`).\n  - No ESLint rule uses type information (no `parserOptions.project` in `eslint.config.js`), so this change cannot change lint results for files it does not touch.\n- **`pnpm check:control-bytes`:** exit 0.\n- **`node scripts/check-changeset-fixed.mjs`:** exit 0.\n\n## Acceptance notes\n\n- `register-builtin-designers.ts`'s header comment says the entry calls the loader \"at its own module scope\". Since objectui#12187 the entry hands it to `deferBuiltinDesigners`, and the first registry read runs it. That comment is out of date, but this PR does not touch that file. Carrier: none.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

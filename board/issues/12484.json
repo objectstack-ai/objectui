@@ -1,0 +1,32 @@
+{
+  "number": 12484,
+  "kind": "issue",
+  "title": "approvals B1 closing card (ruling C on objectui#12438): the inbox opens a request on the served sys_approval_request page where the side sheet is, deletes the sheet, and lists each retired pin against its user report",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:workflow",
+    "domain:ui",
+    "enhancement",
+    "pm:blocked",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T11:51:15Z",
+  "updated_at": "2026-10-15T12:48:42Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12484",
+  "body": "Filing gate ④: a coordination node, the closing card that ruling `6190549995` on objectui#12438 directs (letter C, the maintainer's 「C (推荐)」, director seat summon #42, items 1 and 4). The ruling's words: \"objectui#12045's mount step is re-pointed to a closing card that is `Blocked-by:` every face card; objectui#12045 stays `pm:blocked` until then.\"\n\nParent: #2763 (B1 of the epic). objectui#12045 waits on this card.\n\nBlocked-by: #12482\nBlocked-by: #12483\nBlocked-by: #12489\nBlocked-by: #12490\nBlocked-by: #12491\n\nFaces 3 to 5 were filed in the seat's next fire: objectui#12489 (record-reference states, objectui#11878), objectui#12490 (the gated raw panel, objectui#5553), and objectui#12491 (flow origin and the vertical step line). This card is dispatched only when all five face cards have closed.\n\n**Reader who acts:** the `domain:ui` seat 1 (the epic's seat, seat post #5560). It dispatches one replacement PR in objectui after the last face lands.\n\n**Dedupe** (MCP `search_issues`, scope objectstack-ai/objectui, all states, read 2026-10-15T11:50Z): \"approvals inbox replace side sheet drawer with served request page mount RecordDetailView\" → 11 results, top 10 read:\n- #12438 (the ruling);\n- #12045 (B1, whose mount step this card now carries);\n- #2763 (the epic);\n- closed: #11677, #11775, #12032, #11902, #10853, #5553 and #2678.\n\nNone of them is this card.\n\n## What to build (once every face has landed), the ruling's item 1\n\n1. **One PR mounts the served page where the sheet is.** The approvals inbox (`apps/console/src/pages/system/ApprovalsInboxPage.tsx`) opens a request on the served `sys_approval_request_detail` page, mounted on the standard `RecordDetailView` over the approval routing (PR #12432), in the place the side sheet occupies today.\n2. **The same PR deletes the side sheet.**\n3. **The PR body lists each retired pin against the user report it came from.** These are the 13 `ApprovalsInboxPage.*.test.tsx` files at objectui `d9d9d98684`:\n   - `approverHeadline-12110` → face objectui#12482;\n   - `summaryFaces-11677`, `hiddenFieldTrim` and `queueHiddenAmount` → face objectui#12483;\n   - `recordLink`, `recordLinkRefused-11878`, `tombstone` and `unresolvableReference` → face objectui#12489;\n   - `rawPayloadGate` → face objectui#12490;\n   - `stepProgressVertical` → face objectui#12491;\n   - `characterizationPins`, `cellIdentity` and `displayLocale-10375`: queue-list pins; read each at that time, and retire or keep it with its reason.\n\n   A pin whose face has a pinned counterpart on the served page retires. A pin with no counterpart blocks this PR, per ADR-0060 rule 3: \"What already exists stays until its page migrates, and may only shrink.\"\n\n## Acceptance\n\n- The inbox opens a request on the served page. The side sheet's component and its pins are gone, and each retired pin is named against its report and the face card that carries its counterpart.\n- No face regresses: each face card's served-page pin is green on the merge.\n\nAttribution: written by the `domain:ui` seat 1 in session `session_01JZnppgHRp4sREcouhkQYDB`, executing ruling `6190549995`."
+}

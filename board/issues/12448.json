@@ -2,8 +2,8 @@
   "number": 12448,
   "kind": "issue",
   "title": "Studio pillar rail: one 240 px rail (uppercase heading with count and an add button, search, 32 px rows, group headers) replaces the four per-pillar w-52 rails",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "duplicate",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -21,11 +21,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-15T07:57:02Z",
-  "updated_at": "2026-10-15T07:57:02Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-15T08:56:14Z",
+  "closed_at": "2026-10-15T08:56:14Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 1,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12448",
   "body": "## Source\n\nEpic objectstack-ai/objectui#12446, decisions 1 and 3. Measured on objectui main `a2225f91`: `DataPillar`, `AutomationsPillar` and `AccessPillar` each render their own `flex w-52 shrink-0 flex-col border-r` rail with an 11 px muted heading, a search input and 13 px rows; `InterfacesPillar` renders a nav tree with two-line rows. Headings sit at different y offsets from the content column's first control, and the Data rail ends in a \"Read-only\" footer.\n\n## Target\n\nOne shared rail component (`StudioRail.tsx`) used by all four pillars:\n\n- Width 240 px, `bg-sidebar`-style surface, right border, full height under the shell header.\n- Header row, 44 px: an 11 px uppercase heading with 0.06 em tracking, an 18 px count pill, and at the right a 28 px add button (hidden when the package is read-only; the read-only card owns that rule).\n- Search input, 32 px, with a leading search glyph; placeholder per pillar from the existing keys.\n- Rows, 32 px, 6 px radius, 13 px text, 10 px side padding: a 16 px glyph slot, a truncating label, an optional trailing slot (a status dot, a kind tag, a count). Active row: primary-soft background, primary text, 500 weight. Hover: a muted wash.\n- Group header row, 28 px, 6 px top margin: an 11 px uppercase label, a trailing chevron; child rows indent by 12 px. Groups collapse and remember their state per pillar in session memory (not persisted metadata).\n- An empty-group row: 28 px, 12 px muted text (\"No items in this package\").\n- Optional legend slot at the bottom (the Automations card uses it).\n\nThe Data rail's \"Read-only\" footer is removed here; the read-only card re-states that signal elsewhere. The Objects rail keeps the per-object icons from metadata; a `data-testid` per pillar rail (`studio-rail-data`, `-automations`, `-interfaces`, `-access`) is added for the pillar cards' tests.\n\n## File surface\n\nNew `packages/app-shell/src/views/studio-design/StudioRail.tsx`; `StudioDesignSurface.tsx` (the four rail blocks swap to the component; row content stays as each pillar renders it today). Rail search behavior (`AutomationsPillar.railSearch-11794`, `navRailLabels-11862`, `accessRailLabels-11862`, `railLabelInherits-11196`, `railSeparatorBadge-11791`, `railUnboundReason-11281`) is preserved, not redesigned, by this card.\n\n## Acceptance\n\n1. All four pillars render the rail at 240 px with the heading, count, add button and search at identical y offsets (screenshot of the four side by side at 1280 px).\n2. Row height 32 px and the active-row style verified by a test that mounts two pillars and compares computed classes.\n3. The six rail tests above stay green unchanged.\n4. Before/after screenshots, light and dark.\n\n## Constraints\n\n- Tailwind utilities and theme tokens only; no inline style.\n- Existing `data-testid`s and i18n keys stay; new test ids listed above.\n- Gates: `pnpm --filter @object-ui/app-shell test`, `lint`, `build`.\n- Depended on by the Data, Automations, Interfaces and Access pillar cards; land it first.\n\nParent: objectstack-ai/objectui#12446"

@@ -1,0 +1,28 @@
+{
+  "number": 12509,
+  "kind": "issue",
+  "title": "Studio shell header: the pillar segmented control and Changes overlap below 640 px",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "pm:epic domain:ui area:studio priority:p2 bug"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T14:17:42Z",
+  "updated_at": "2026-10-15T14:17:42Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12509",
+  "body": "## Source\n\nMeasured on objectui main `d4bc81eab` (after #12459 and #12452) in a 558 × 326 viewport: the shell header draws its three groups on one 48 px row; the segmented control's fourth segment (Access) sits under the Changes button and the Publish button is clipped at the right edge. The \"Studio is built for a desktop screen\" note (`engine.studio.desktopHint`) shows below the header, but the header itself is still broken. The header grid is `grid-cols-[1fr_auto_1fr]` from `studio-tokens.ts`; below `xl` the segments are icon-only already, which is not enough below `sm`.\n\n## Target\n\n1. Below the `sm` breakpoint (640 px) the header stacks: row one is home, app chip, Changes, Publish; row two is the segmented control at full width with icon-only segments. Nothing overlaps from 360 px to 640 px.\n2. From `sm` to `xl` the single row stays with icon-only segments, as today; `xl` and above shows labels.\n3. The mobile note stays as it is.\n\n## File surface\n\n`packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx` (shell header), `studio-tokens.ts` (`STUDIO_HEADER`), a test beside them.\n\n## Acceptance\n\n1. Screenshots at 375 px and 560 px, light and dark: no overlap, Publish fully visible.\n2. A test asserts the header's stacked classes below `sm` (the token string) and the single-row classes above.\n3. `StudioDesignSurface.*.test.tsx` green.\n\n## Constraints\n\n- Tailwind utilities only.\n- The More overflow does not return; objectui#12452's ruling stands.\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-15 Studio test pass: objectui main `d4bc81eab`, HotCRM `63db83e2`, the vite console on :5180 against `objectstack serve --dev` on :4001, viewport 1482 × 1119, dark theme with a light-theme check.</sub>\n\nParent: objectstack-ai/objectui#12446"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 12512,
+  "kind": "issue",
+  "title": "New package form: display name first; derived id, namespace and version are replaced on edit, not appended to",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "domain:ui",
+    "enhancement",
+    "pm:epic",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T14:19:32Z",
+  "updated_at": "2026-10-15T14:19:32Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12512",
+  "body": "## Source\n\n`packages/app-shell/src/views/metadata-admin/PackageFormDialog.tsx`, opened from the Studio home's \"New package (writable base)\" on 2026-10-15. Field order: Package ID (required, placeholder `com.acme.crm`, hint \"Filled in from the display name until you edit it\", key `engine.packages.idRule.derived`), then a Basics card with Display name, Object namespace, Version, Type (app) and Description, then Advanced. Typing \"Studio Test\" into Display name filled the id `com.default.studio-test` and the namespace `studio_test`, and Version came prefilled `0.1.0`. Clicking into the namespace and typing `st` produced `studio_testst`; clicking into Version and typing `0.1.0` produced `0.1.00.1.0`: the caret lands at the end of a value the user did not type, so the natural next keystrokes append.\n\n## Target\n\n1. Display name is the first field; Package ID, Object namespace and Version follow it inside the same card, each marked \"derived from the name\" until edited (a small chip or the existing hint next to each).\n2. Focusing a derived field selects its whole value, so typing replaces it; editing clears the derived mark for that field only.\n3. The namespace derivation is short: the name's initials when it has two or more words (`Studio Test` → `st`), the first word otherwise, lower-case; the hint already says it prefixes every object name.\n4. Create package stays disabled until id, name, namespace and version validate; each invalid field says why inline.\n\n## File surface\n\n`packages/app-shell/src/views/metadata-admin/PackageFormDialog.tsx`, `packages/app-shell/src/views/metadata-admin/i18n.ts` (hints in every locale), tests beside.\n\n## Acceptance\n\n1. Tests: typing a display name fills id, namespace and version; focusing a derived field and typing replaces the value; a two-word name derives a two-letter namespace.\n2. Screenshot of the dialog before/after at 1280 px, light and dark.\n3. `pnpm --filter @object-ui/app-shell test` green.\n\n## Constraints\n\n- The id rule (reverse-domain) and the server-side validation do not change.\n- Existing i18n keys stay; new ones in every locale.\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-15 Studio test pass: objectui main `d4bc81eab`, HotCRM `63db83e2`, the vite console on :5180 against `objectstack serve --dev` on :4001, viewport 1482 × 1119, dark theme with a light-theme check.</sub>\n\nParent: objectstack-ai/objectui#12446"
+}

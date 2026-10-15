@@ -1,0 +1,37 @@
+{
+  "number": 12472,
+  "kind": "issue",
+  "title": "console app bar: inside an app, the search trigger sits centered between the left group and the utility cluster from lg up, the design's middle zone that objectui#12461 measured missing",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "domain:ui",
+    "enhancement",
+    "priority:p1"
+  ],
+  "assignees": [
+    "sunhaolin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T10:43:43Z",
+  "updated_at": "2026-10-15T14:09:17Z",
+  "closed_at": "2026-10-15T14:03:06Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12472",
+  "body": "This card carries the centered-search half of objectui#12461's design target; objectui#12461 (PR #12469) keeps the other half: the left group (no object crumb, the PREVIEW chip beside the app pill) and the icon-only Edit app button.\n\nFiling gate ③, a task the maintainer dispatched in person, derived from an in-flight card. The maintainer's 「同意开卡」 (chat, 2026-10-15, session `session_019YFzJp4o8Ck4NsT1toC4UP`, quoted on objectui#12461) covers the design's app bar: app switcher · Preview badge · centered search · Edit app icon · bell · help · avatar. objectui#12461's build item 3 read \"The search stays centered\"; its dev measured that premise false (dev report `6190092384`, `open_questions[1]`, recommendation A: a child card, scoped to app context first). As an in-flight derivation, this card inherits objectui#12461's domain and priority, and the seat that claimed objectui#12461 dispatches it.\n\nParent: #12444. Derived from: #12461.\n\nBlocked-by: #12461\n\nSerial after #12461: PR #12469 moves the PREVIEW chip out of the right-hand cluster, from the slot right before the search group this card re-zones. objectui#12429 already landed (PR #12466, `e869e41275`), so the sidebar trigger's left slot is settled.\n\n**Reader who acts:** the `domain:ui` seat 1 (the seat that claimed objectui#12461), one dev round in `@object-ui/app-shell`, size S, after PR #12469 merges.\n\n**Dedupe** (MCP `search_issues`, scope objectstack-ai/objectui, all states, read 2026-10-15T10:42Z): \"app bar search centered AppHeader search position top bar three zones\" → 3: #12461 (the in-flight card this one derives from), #12201 closed (the app identity moved into the top bar), #11912 closed (the Search ⌘K trigger opened nothing outside an app). None is this card.\n\n## The problem\n\nInside an app at 1440 px, the search trigger is the first item of the right-hand utility cluster. It sits at that cluster's left edge, right of the bar's center, and it moves whenever the cluster's contents change (presence avatars, the offline chip, the connection status). The design puts it in the bar's middle zone: centered, with the app's left group on one side and the utility cluster on the other.\n\n## Readings (objectui `origin/main` `e869e41275`, read 2026-10-15T10:42Z)\n\n1. `packages/app-shell/src/layout/AppHeader.tsx` line 507: the root is `flex items-center justify-between w-full h-full`. Line 509: the left group is `flex items-center min-w-0 flex-1`.\n2. Line 702: the right-hand cluster is `shrink-0`. Its first children are the offline chip, the connection status and the presence avatars (lines 704–719), then the PREVIEW chip inside an app (line 724, which PR #12469 moves), then the search group (lines 726–760): the desktop trigger `hidden lg:flex … w-48 xl:w-64`, and the icon button `lg:hidden` below lg.\n3. The search group renders only where a command palette is mounted (`hasCommandPalette`, objectui#11912), so the `home` / `orgs` / `studio` variants draw no search today.\n\n## What to build\n\n1. Inside an app, from `lg` up, the bar is three zones: the left group, the search trigger centered in the bar, and the utility cluster on the right. The trigger's center stays at the bar's center whatever the two side zones contain. The left group truncates (it keeps `min-w-0`) and never pushes the trigger off center.\n2. Below `lg` the search stays the icon button in the utility cluster, as today. The phone bar is unchanged.\n3. The `home`, `orgs`, `studio` and `system/*` variants are unchanged. If scoping the three zones to app context costs more than applying them wherever the search renders, report that with both shapes measured. Do not build both.\n4. No change to the trigger itself: its width classes, `aria-label`, `aria-keyshortcuts`, `data-testid` and the palette it opens.\n\n## Acceptance\n\n- An `AppHeader` test (app context, desktop width) pins the structure: the search trigger is neither inside the left group nor inside the utility cluster, and the two side zones share the same flex or grid sizing, so the middle zone is centered. The existing `home` / `orgs` / `studio` / `system` pins and the phone-bar pins pass unchanged.\n- Browser reading by the landing seat on the HotCRM Leads list. At 1440: the trigger's horizontal center is within 8 px of the bar's center. At 1024: nothing overlaps, and a long app name truncates in the pill. At 390: the bar is as today.\n- `pnpm test` from the repo root green on the affected files; a changeset (`patch` or `minor`, never `major`) for `@object-ui/app-shell`.\n\n## Out of scope\n\n- The search trigger's width and the command palette's contents; the left group (objectui#12461); the sidebar trigger (objectui#12429, landed); the dashboard, page and report crumbs (the maintainer's open question on PR #12469).\n\nAttribution: written by the `domain:ui` seat 1 in session `session_01JZnppgHRp4sREcouhkQYDB`, as the in-flight derivation of objectui#12461 under the maintainer's words quoted above."
+}

@@ -2,8 +2,8 @@
   "number": 12457,
   "kind": "issue",
   "title": "docs: the console layout design reference (three artboard PNGs and the targets table) lands under docs/design/console-layout-2026-10-15/ so every dev and seat of #12444 builds and reviews against the same picture",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -13,20 +13,21 @@
   "labels": [
     "documentation",
     "domain:ui",
-    "pm:dispatched",
     "priority:p1"
   ],
-  "assignees": [
-    "baozhoutao"
-  ],
+  "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-15T08:09:37Z",
-  "updated_at": "2026-10-15T08:30:33Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-15T09:46:28Z",
+  "closed_at": "2026-10-15T09:46:28Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12457",
   "body": "Filing gate ③, on the maintainer's question in chat (2026-10-15, session `session_019YFzJp4o8Ck4NsT1toC4UP`, seat account os-bill), verbatim: 「如何确保车道能严格按照你的设计开发，这个你要综合评估，或者issue写的更详细，或者截图？」 and, on where the follow-ups live, 「后续的任务还是可以挂在这个专题下，我派一个 ui 车道的项目经理接手。」 The seat's answer, recorded on #12444: the card text is the spec of record, and the picture must live in the repository, where a dev's worktree and a reviewer's diff can reach it; today it lives only in a private design artifact that no dev has opened.\n\nParent: #12444 (this card is a child of that parent; it blocks nothing and nothing blocks it).\n\n**Reader who acts:** the `domain:ui` lane's next dispatch, one docs-only round, size S; no code.\n\n**Dedupe** (MCP `search_issues`, scope objectstack-ai/objectui, all states, read 2026-10-15T08:14Z): \"design reference assets committed under content/docs/design console layout artboard PNG prototype documentation\" → 3 (#12449 Studio inspector aside, #12446 the Studio design-surface epic, #12444 this card's parent). None is this card.\n\n## The problem\n\n#12423 delivered two rows where the approved board draws one, because the board was not where the dev looked: the prototype is a private artifact, the card quoted its shape in words, and words that did not say \"one row\" lost to no picture at all. The three artboards now exist as PNGs on a reference page (https://claude.ai/artifact/JCzrzHxTxzD4EEKCTtDaNA, readable by sessions of this account and shareable by the maintainer), but GitHub cannot render them from there and a dev subagent does not browse. The repository already keeps product screenshots under `docs/screenshots/` (`automation.png`, `calendar.png`, `dashboard.png`, `hero-sdui.png`, `modeling.png`) beside `docs/adr/` and `docs/audits/`, so a design reference has a natural home one folder over.\n\n## What to build\n\n1. `docs/design/console-layout-2026-10-15/README.md`: the targets table and the designer's notes copied from the reference page (copied, not linked only: the page is private), a line naming the source artifacts (the reference page above and the prototype https://claude.ai/artifact/8JLqDFmcuK82RS1Cb8219f), and the acceptance protocol (a landing seat's browser readings before merge; the maintainer's post-merge screenshots beside the PNGs). Link back to #12444.\n2. The three PNGs beside it: `main-1440.png` (1440×1040), `laptop-1024.png` (1024×768), `phone-390.png` (390×844 at 2×), fetched from the reference page's files (a session of this account: `Artifact` tool, action `read`, `url` = the reference page, `path` = the file name) or handed over by the maintainer. Embedded in the README so GitHub renders them.\n3. Nothing else: no interactive HTML (the prototype's runtime belongs to the design tool, not this repository), no change under `content/docs/**` (the docs site), no code.\n4. Docs-only PR with the empty-frontmatter changeset this repository uses for a change that publishes nothing; `Fixes` this card. On merge, the dispatching seat puts the raw image links on #12444 so the parent renders the boards inline.\n\n## Acceptance\n\n- The three PNGs and the README are on `main` under `docs/design/console-layout-2026-10-15/`; the README renders the three images on GitHub; its targets table matches the reference page's row for row.\n- `Build Docs` and the rest of CI green (the folder is outside `content/docs`, so the docs site build is untouched).\n\n## Out of scope\n\n- Any change to the child cards' acceptance lists (they stay the spec); any HotCRM metadata; the prototype's interactive form.\n\nAttribution: written by the domain:ui seat in session `session_019YFzJp4o8Ck4NsT1toC4UP` (account os-bill) on the maintainer's words quoted above."

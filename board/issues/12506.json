@@ -1,0 +1,28 @@
+{
+  "number": 12506,
+  "kind": "issue",
+  "title": "Records grid: a long-text cell with line breaks stretches its row to 457 px (crm_account row 9)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "pm:epic domain:ui area:studio priority:p2 bug"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T14:17:28Z",
+  "updated_at": "2026-10-15T14:17:28Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12506",
+  "body": "## Source\n\nMeasured on objectui main `d4bc81eab` with HotCRM open at `/studio/app.objectstack.hotcrm/data?surface=object:crm_account`, Records tab, 1482 px wide, dark and light. Row 9 (ACC-000001, Acme Corporation) is 457 px tall and row 10 (ACC-000007, Vertex Analytics) is tall the same way; the other eight rows are one line each. The cell that sets the height is Description: its inner element is a `div.truncate.w-full` whose content is 448 px high because the value holds hard line breaks (\"Strategic Customer · Enterprise Tier\", a blank line, then paragraphs) and the text is laid out with its line breaks preserved. `truncate` (nowrap + hidden overflow + ellipsis) clips a long single line; it does not clip a block that wraps on its own line breaks, so the whole value is drawn and the row grows with it. `ObjectGrid.tsx` documents the cell class as `isFit ? 'w-full whitespace-nowrap' : 'truncate w-full'` with a `title` carrying the full text, so the title is already there to show the rest.\n\n## Target\n\n1. Every body row of the Records grid has the same height whatever a textarea, markdown, html or rich-text value contains: the cell renders the value's first line only (line breaks collapse to a space, no `whitespace-pre-wrap` on the cell), with an ellipsis and the full text in the cell's existing `title`.\n2. The same rule in the shared data-table renderer when it draws long-text columns, so the Interfaces pillar's runtime list preview and the app's own lists agree.\n3. The row height stays the one the Data pillar card set (40 px body rows on the artboard `data-records.html`).\n\n## File surface\n\n`packages/plugin-grid/src/ObjectGrid.tsx` (the non-fit cell renderer and its `title`), `packages/components/src/renderers/complex/data-table.tsx` if it shares the class, tests beside each.\n\n## Acceptance\n\n1. A plugin-grid test renders a textarea value containing two line breaks and asserts the cell draws one line (no `pre-wrap`, `truncate` effective) and the full value in `title`.\n2. HotCRM Account Records at 1280 px: ten rows of equal height; before/after screenshots, light and dark.\n3. `pnpm --filter @object-ui/plugin-grid test` and `pnpm --filter @object-ui/components test` green.\n\n## Constraints\n\n- Tailwind utilities only; no inline style.\n- The record page's full-text rendering of the same field does not change.\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-15 Studio test pass: objectui main `d4bc81eab`, HotCRM `63db83e2`, the vite console on :5180 against `objectstack serve --dev` on :4001, viewport 1482 × 1119, dark theme with a light-theme check.</sub>\n\nParent: objectstack-ai/objectui#12446"
+}

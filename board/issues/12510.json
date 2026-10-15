@@ -1,0 +1,28 @@
+{
+  "number": 12510,
+  "kind": "issue",
+  "title": "Studio: controls without an accessible name (records toolbar, flow nodes, sheets, landing cards)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "pm:epic domain:ui area:studio priority:p2 bug a11y"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T14:17:46Z",
+  "updated_at": "2026-10-15T14:17:46Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12510",
+  "body": "## Source\n\nRead from the accessibility tree on objectui main `d4bc81eab`, 2026-10-15, Studio home and the four pillars with HotCRM and a writable package open. Buttons and links whose accessible name is empty:\n\n- Records toolbar (Data pillar, Records tab): Hide fields, Filter, Group, Sort and the \"+\" that adds a field all read as `button` with no name, although their text is visible. Refresh, Search and Add record have names.\n- Flow canvas: the Start and End node buttons (the nodes are buttons) have no name; \"Insert node here\" and \"Add connected node\" have one.\n- Pending changes sheet (Changes and Publish): the per-item expander and the sheet's close button have no name.\n- Access rail: the pinned \"Record sharing (OWD)\" row is a button with no name.\n- Explain access sheet: the User picker (combobox) and the close button have no name.\n- Studio home (`BuilderLanding.tsx`): the recently-viewed package links, the \"My packages\" card, the installed-package cards, the \"Organization flows\" card and the avatar button in the top bar have no name; the New package dialog's close button has none.\n- Data rail object rows read as unnamed buttons in the same tree; Interfaces rows read \"object · st_ticket\". Verify with the same tool before changing: the row's visible label may already name it and the reading may be the tool's.\n\n## Target\n\n1. Every control above has an accessible name: a visible label names its control (no `aria-hidden` on the only text), icon-only buttons carry `aria-label` with the same words their tooltip shows, cards that act as links or buttons are named by their title.\n2. The name is the label the user sees (objectui#11862: label first), never the api name alone.\n\n## File surface\n\n`packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx` (toolbar host, flow canvas node buttons if they are rendered here, Changes sheet, Access rail), `StudioRail.tsx`, `StudioInspector.tsx`, `BuilderLanding.tsx`, `packages/app-shell/src/views/metadata-admin/PackageFormDialog.tsx`, `packages/app-shell/src/views/metadata-admin/previews/FlowCanvas.tsx` (node buttons), `packages/plugin-list/src/ListView.tsx` if the toolbar buttons are its; tests beside each.\n\n## Acceptance\n\n1. Tests query each control by role and name: `getByRole('button', { name: 'Hide fields' })`, `… 'Filter'`, `… 'Group'`, `… 'Sort'`, `… 'Add field'`; `getByRole('button', { name: /Start/ })` on the canvas; `getByRole('button', { name: /close/i })` in the sheet; `getByRole('link', { name: /HotCRM/ })` on the landing.\n2. The accessibility tree of each surface, pasted in the PR, shows no unnamed button, link or combobox.\n3. `pnpm --filter @object-ui/app-shell test` green.\n\n## Constraints\n\n- Visual output unchanged; names only.\n- Existing `data-testid`s stay.\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-15 Studio test pass: objectui main `d4bc81eab`, HotCRM `63db83e2`, the vite console on :5180 against `objectstack serve --dev` on :4001, viewport 1482 × 1119, dark theme with a light-theme check.</sub>\n\nParent: objectstack-ai/objectui#12446"
+}

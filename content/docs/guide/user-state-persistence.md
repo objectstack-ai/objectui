@@ -270,10 +270,14 @@ the view.
   density change, a Hide Fields change and a Manage Views drag write the
   object's row (500 ms debounce) and never `/meta/view`. They work under a
   walled posture, where a tenant's metadata writes are refused.
-- **Hidden fields only subtract.** A user's `hiddenFields` apply only on a view
-  that declares `columns`, and only remove columns from them: they never add a
-  column the view does not declare. On a view that declares no `columns`,
-  hiding a column lasts for the session and is not stored.
+- **Hidden fields only subtract.** A user's `hiddenFields` only remove columns
+  from the ones the view shows: they never add a column. On a view that
+  declares `columns`, they subtract from those. On a **saved** view that
+  declares no `columns`, they subtract from the default columns the list draws
+  for it, and a stored name the defaults lack hides nothing; the view's own
+  `hiddenFields` does not apply there. On a **system** view that declares no
+  `columns`, hiding a column lasts for the session and is not stored; its
+  author's remedy is to declare `columns`.
 - **Reset.** The Filter panel's "Clear all" clears the stored filters for the
   view. The **Reset view** entry of the page header's ⋯ menu, shown while the user has
   stored something for the active view, drops that view's sort, filters,

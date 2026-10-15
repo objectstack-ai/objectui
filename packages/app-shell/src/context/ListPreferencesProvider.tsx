@@ -301,7 +301,10 @@ export function writeLocalListState(
 interface ListPreferencesContextValue {
   /** Objects whose state this session holds (remote rows and local writes). */
   states: Record<string, ObjectListPreference>;
-  /** The first load of the attached family has settled, or none is attached. */
+  /**
+   * The signed-in user's state has been read: the attached family's first load
+   * has settled, or the wait for it ran out. Always true with no user.
+   */
   ready: boolean;
   update(objectName: string, fn: (prev: ObjectListPreference) => ObjectListPreference): void;
 }
@@ -402,7 +405,22 @@ export function ListPreferencesProvider({ children }: { children: ReactNode }) {
     [userId, family, flushOne],
   );
 
-  const ready = !family || settledFor === family;
+  // A signed-in user's family is attached by the console's bridge in the
+  // first commit's effects, so the page's first render runs before it: until
+  // it attaches (or the same wait runs out, for a host with no bridge), there
+  // is no state to open a list on yet. With no user there is none to wait for.
+  const [noFamilyWaitOverFor, setNoFamilyWaitOverFor] = useState<string | null>(null);
+  useEffect(() => {
+    if (family || !userId) return;
+    const wait = setTimeout(() => setNoFamilyWaitOverFor(userId), LIST_PREFERENCES_WAIT_MS);
+    return () => clearTimeout(wait);
+  }, [family, userId]);
+
+  const ready = !userId
+    ? true
+    : family
+      ? settledFor === family
+      : noFamilyWaitOverFor === userId;
   const value = useMemo<ListPreferencesContextValue>(
     () => ({ states, ready, update }),
     [states, ready, update],

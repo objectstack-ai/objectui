@@ -809,14 +809,15 @@ const de = {
     print: "Drucken",
     hideFieldsTitle: "Felder ausblenden",
     dataLimitReached: "Die ersten {{limit}} Datensätze werden angezeigt. Möglicherweise sind weitere Daten verfügbar.",
-    viewSettings: "Ansichtseinstellungen",
-    viewSettingsHint: "Gruppierung, Farbe, Dichte und sichtbare Felder. Gilt für alle Benutzer dieser Ansicht.",
+    display: "Anzeige",
+    layout: "Layout",
+    rowNumbers: "Zeilennummern",
+    resetToViewDefault: "Auf Standard der Ansicht zurücksetzen",
     addGroup: "Gruppenfeld hinzufügen",
     collapsedByDefault: "Standardmäßig eingeklappt",
     removeGroup: "Entfernen",
     inlineEditShort: "Inline bearbeiten",
     inlineEditLabel: "Datensätze inline bearbeiten (Zelle anklicken zum Bearbeiten)",
-    recordEditingTitle: "Datensatzbearbeitung",
   },
   managedByBadge: {
     systemWritable: {

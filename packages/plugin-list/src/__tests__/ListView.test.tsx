@@ -162,6 +162,7 @@ describe('ListView', () => {
   it('should persist view preference to localStorage', () => {
     const schema: ListViewSchema = {
       type: 'list-view',
+      compactToolbar: false,
       objectName: 'contacts',
       viewType: 'grid',
       fields: ['name', 'email'],
@@ -323,6 +324,7 @@ describe('ListView', () => {
   it('should render hide fields popover', () => {
     const schema: ListViewSchema = {
       type: 'list-view',
+      compactToolbar: false,
       objectName: 'contacts',
       viewType: 'grid',
       fields: ['name', 'email', 'phone'],
@@ -338,6 +340,7 @@ describe('ListView', () => {
   it('should render density mode button', () => {
     const schema: ListViewSchema = {
       type: 'list-view',
+      compactToolbar: false,
       objectName: 'contacts',
       viewType: 'grid',
       fields: ['name', 'email'],
@@ -354,6 +357,7 @@ describe('ListView', () => {
   it('should render export button when exportOptions configured', () => {
     const schema: ListViewSchema = {
       type: 'list-view',
+      compactToolbar: false,
       objectName: 'contacts',
       viewType: 'grid',
       fields: ['name', 'email'],
@@ -401,6 +405,7 @@ describe('ListView', () => {
   it('keeps export button when operations is set but export is omitted (default-allow)', () => {
     const schema: ListViewSchema = {
       type: 'list-view',
+      compactToolbar: false,
       objectName: 'contacts',
       viewType: 'grid',
       fields: ['name', 'email'],
@@ -430,6 +435,7 @@ describe('ListView', () => {
 
     const schema: ListViewSchema = {
       type: 'list-view',
+      compactToolbar: false,
       objectName: 'contacts',
       viewType: 'grid',
       fields: ['name', 'email'],
@@ -475,6 +481,7 @@ describe('ListView', () => {
 
     const schema: ListViewSchema = {
       type: 'list-view',
+      compactToolbar: false,
       objectName: 'contacts',
       viewType: 'grid',
       fields: ['name', 'email'],
@@ -540,6 +547,7 @@ describe('ListView', () => {
   it('should map rowHeight to density mode', () => {
     const schema: ListViewSchema = {
       type: 'list-view',
+      compactToolbar: false,
       objectName: 'contacts',
       viewType: 'grid',
       fields: ['name', 'email'],
@@ -558,6 +566,7 @@ describe('ListView', () => {
     // every other legacy/canonical pair.
     const schema: ListViewSchema = {
       type: 'list-view',
+      compactToolbar: false,
       objectName: 'contacts',
       viewType: 'grid',
       columns: ['name', 'email'],
@@ -575,6 +584,7 @@ describe('ListView', () => {
     // folds it into `rowHeight` at the component boundary.
     const schema: ListViewSchema = {
       type: 'list-view',
+      compactToolbar: false,
       objectName: 'contacts',
       viewType: 'grid',
       columns: ['name', 'email'],
@@ -1192,6 +1202,7 @@ describe('ListView', () => {
     it('should show Group button by default (showGroup undefined)', () => {
       const schema: ListViewSchema = {
         type: 'list-view',
+        compactToolbar: false,
         objectName: 'contacts',
         viewType: 'grid',
         fields: ['name', 'email'],
@@ -1244,6 +1255,7 @@ describe('ListView', () => {
     it('should show Density button by default (showDensity undefined)', () => {
       const schema: ListViewSchema = {
         type: 'list-view',
+        compactToolbar: false,
         objectName: 'contacts',
         viewType: 'grid',
         fields: ['name', 'email'],
@@ -1268,9 +1280,11 @@ describe('ListView', () => {
       expect(screen.queryByRole('button', { name: /export/i })).not.toBeInTheDocument();
     });
 
-    // P1-4: compactToolbar collapses appearance/grouping cluster
+    // P1-4: compactToolbar collapses appearance/grouping cluster — and since
+    // objectui#12423 that bundled "Display" form is the default; the cases in
+    // this file that drive a wide-form button say `compactToolbar: false`.
     describe('compactToolbar', () => {
-      it('renders View settings trigger when compactToolbar=true', () => {
+      it('renders the Display trigger when compactToolbar=true', () => {
         const schema: ListViewSchema = {
           type: 'list-view',
           objectName: 'contacts',
@@ -1282,12 +1296,12 @@ describe('ListView', () => {
           compactToolbar: true,
         };
         renderWithProvider(<ListView schema={schema} />);
-        expect(screen.getByTestId('view-settings-trigger')).toBeInTheDocument();
+        expect(screen.getByTestId('toolbar-display-trigger')).toBeInTheDocument();
         // legacy density button hidden in compact mode
         expect(screen.queryByLabelText('Density: Compact')).not.toBeInTheDocument();
       });
 
-      it('renders legacy buttons when compactToolbar is unset', () => {
+      it('renders the Display trigger when compactToolbar is unset (the default, objectui#12423)', () => {
         const schema: ListViewSchema = {
           type: 'list-view',
           objectName: 'contacts',
@@ -1296,7 +1310,21 @@ describe('ListView', () => {
           showDensity: true,
         };
         renderWithProvider(<ListView schema={schema} />);
-        expect(screen.queryByTestId('view-settings-trigger')).not.toBeInTheDocument();
+        expect(screen.getByTestId('toolbar-display-trigger')).toBeInTheDocument();
+        expect(screen.queryByLabelText('Density: Compact')).not.toBeInTheDocument();
+      });
+
+      it('renders legacy buttons when compactToolbar=false', () => {
+        const schema: ListViewSchema = {
+          type: 'list-view',
+          objectName: 'contacts',
+          viewType: 'grid',
+          fields: ['name', 'email'],
+          showDensity: true,
+          compactToolbar: false,
+        };
+        renderWithProvider(<ListView schema={schema} />);
+        expect(screen.queryByTestId('toolbar-display-trigger')).not.toBeInTheDocument();
         expect(screen.getByLabelText('Density: Compact')).toBeInTheDocument();
       });
     });
@@ -1399,6 +1427,7 @@ describe('ListView', () => {
     it('should map rowHeight short to compact density', () => {
       const schema: ListViewSchema = {
         type: 'list-view',
+        compactToolbar: false,
         objectName: 'contacts',
         viewType: 'grid',
         fields: ['name', 'email'],
@@ -1414,6 +1443,7 @@ describe('ListView', () => {
     it('should map rowHeight extra_tall to spacious density', () => {
       const schema: ListViewSchema = {
         type: 'list-view',
+        compactToolbar: false,
         objectName: 'contacts',
         viewType: 'grid',
         fields: ['name', 'email'],
@@ -1687,6 +1717,7 @@ describe('ListView', () => {
     it('should show Hide fields when userActions.hideFields is true', () => {
       const schema = {
         type: 'list-view',
+        compactToolbar: false,
         objectName: 'contacts',
         viewType: 'grid',
         columns: ['name', 'email'],
@@ -1714,6 +1745,7 @@ describe('ListView', () => {
       // Folded by normalizeListViewSchema, so the renderer sees only userActions.
       const schema = {
         type: 'list-view',
+        compactToolbar: false,
         objectName: 'contacts',
         viewType: 'grid',
         columns: ['name', 'email'],
@@ -1741,6 +1773,7 @@ describe('ListView', () => {
     it('should show toolbar buttons when userActions are true', () => {
       const schema: ListViewSchema = {
         type: 'list-view',
+        compactToolbar: false,
         objectName: 'contacts',
         viewType: 'grid',
         fields: ['name', 'email'],
@@ -1776,6 +1809,7 @@ describe('ListView', () => {
     it('should restrict ViewSwitcher to allowedVisualizations', () => {
       const schema: ListViewSchema = {
         type: 'list-view',
+        compactToolbar: false,
         objectName: 'contacts',
         viewType: 'grid',
         fields: ['name', 'email'],
@@ -1802,6 +1836,7 @@ describe('ListView', () => {
     it('should use spec kanban config over legacy options', () => {
       const schema: ListViewSchema = {
         type: 'list-view',
+        compactToolbar: false,
         objectName: 'contacts',
         viewType: 'grid',
         fields: ['name', 'email'],
@@ -1819,6 +1854,7 @@ describe('ListView', () => {
     it('should use spec gallery config over legacy options', () => {
       const schema: ListViewSchema = {
         type: 'list-view',
+        compactToolbar: false,
         objectName: 'contacts',
         viewType: 'grid',
         fields: ['name', 'email'],
@@ -1833,6 +1869,7 @@ describe('ListView', () => {
     it('should use spec timeline config over legacy options', () => {
       const schema: ListViewSchema = {
         type: 'list-view',
+        compactToolbar: false,
         objectName: 'contacts',
         viewType: 'grid',
         fields: ['name', 'email'],
@@ -1847,6 +1884,7 @@ describe('ListView', () => {
     it('should use spec calendar config over legacy options', () => {
       const schema: ListViewSchema = {
         type: 'list-view',
+        compactToolbar: false,
         objectName: 'contacts',
         viewType: 'grid',
         fields: ['name', 'email'],
@@ -1861,6 +1899,7 @@ describe('ListView', () => {
     it('should use spec gantt config over legacy options', () => {
       const schema: ListViewSchema = {
         type: 'list-view',
+        compactToolbar: false,
         objectName: 'contacts',
         viewType: 'grid',
         fields: ['name', 'email'],
@@ -2106,6 +2145,7 @@ describe('ListView', () => {
     it('should render enabled Group button (not disabled)', () => {
       const schema: ListViewSchema = {
         type: 'list-view',
+        compactToolbar: false,
         objectName: 'contacts',
         viewType: 'grid',
         fields: ['name', 'email'],
@@ -2120,6 +2160,7 @@ describe('ListView', () => {
     it('should open grouping popover on click', async () => {
       const schema: ListViewSchema = {
         type: 'list-view',
+        compactToolbar: false,
         objectName: 'contacts',
         viewType: 'grid',
         fields: ['name', 'email'],
@@ -2138,6 +2179,7 @@ describe('ListView', () => {
     it('should render active grouping badge when groupingConfig is set via schema', () => {
       const schema: ListViewSchema = {
         type: 'list-view',
+        compactToolbar: false,
         objectName: 'contacts',
         viewType: 'grid',
         fields: ['name', 'email', 'status'],
@@ -2158,6 +2200,7 @@ describe('ListView', () => {
     it('should render enabled Color button (not disabled)', () => {
       const schema: ListViewSchema = {
         type: 'list-view',
+        compactToolbar: false,
         objectName: 'contacts',
         viewType: 'grid',
         fields: ['name', 'email'],
@@ -2173,6 +2216,7 @@ describe('ListView', () => {
     it('should open color popover on click', async () => {
       const schema: ListViewSchema = {
         type: 'list-view',
+        compactToolbar: false,
         objectName: 'contacts',
         viewType: 'grid',
         fields: ['name', 'email'],
@@ -2197,6 +2241,7 @@ describe('ListView', () => {
     it('should render export button when exportOptions is a string array', () => {
       const schema: ListViewSchema = {
         type: 'list-view',
+        compactToolbar: false,
         objectName: 'contacts',
         viewType: 'grid',
         fields: ['name', 'email'],
@@ -2211,6 +2256,7 @@ describe('ListView', () => {
     it('should render export button when exportOptions is an object', () => {
       const schema: ListViewSchema = {
         type: 'list-view',
+        compactToolbar: false,
         objectName: 'contacts',
         viewType: 'grid',
         fields: ['name', 'email'],
@@ -2239,6 +2285,7 @@ describe('ListView', () => {
     it('hides pdf from the export menu even when declared', async () => {
       const schema: ListViewSchema = {
         type: 'list-view',
+        compactToolbar: false,
         objectName: 'contacts',
         viewType: 'grid',
         fields: ['name', 'email'],
@@ -2259,6 +2306,7 @@ describe('ListView', () => {
     it('hides xlsx when the data source has no server export stream', async () => {
       const schema: ListViewSchema = {
         type: 'list-view',
+        compactToolbar: false,
         objectName: 'contacts',
         viewType: 'grid',
         fields: ['name', 'email'],
@@ -2651,6 +2699,7 @@ describe('ListView — inline-edit toggle drives grid editability', () => {
     const onInlineEditChange = vi.fn();
     const schema: ListViewSchema = {
       type: 'list-view',
+      compactToolbar: false,
       objectName: 'contacts',
       viewType: 'grid',
       fields: ['name', 'email'],
@@ -2685,6 +2734,7 @@ describe('ListView — inline-edit toggle drives grid editability', () => {
     mockDataSource.find.mockResolvedValue([{ id: '1', name: 'Alice', email: 'alice@test.com' }]);
     const schema: ListViewSchema = {
       type: 'list-view',
+      compactToolbar: false,
       objectName: 'contacts',
       viewType: 'grid',
       fields: ['name', 'email'],

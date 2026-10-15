@@ -12,8 +12,9 @@
  * A reusable view tab bar with:
  * - Inline "+" Add View button
  * - Right-click context menu (rename, duplicate, delete, set as default, share)
- * - Overflow → "More" dropdown when maxVisibleTabs exceeded
- * - Filter/sort indicator badges on tabs
+ * - Tabs sized to the strip's width; the rest fold into a "N more" dropdown
+ *   (`maxVisibleTabs` is an optional cap on top of the width, objectui#12423)
+ * - A view-type icon on non-table tabs only (a grid tab is its label alone)
  * - "Save as View" button when user filters differ from saved state
  * - Double-click to rename view tab inline
  * - Drag-reorder view tabs (Phase 2)
@@ -22,7 +23,7 @@
  * - Personal vs. shared views grouping (Phase 2)
  */
 
-import React, { useState, useRef, useEffect, useCallback, useMemo, type ComponentType } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, type ComponentType } from 'react';
 import {
   cn,
   ContextMenu,
@@ -67,8 +68,7 @@ import {
   Settings2,
   ChevronDown,
   ListOrdered,
-  Filter as FilterIcon,
-  ArrowUpDown,
+  Check,
 } from 'lucide-react';
 import {
   DndContext,
@@ -109,6 +109,57 @@ const VISIBILITY_ORDER: Record<string, number> = { private: 0, team: 1, organiza
 /** Minimum drag distance in pixels to activate reorder (large enough to avoid blocking clicks) */
 const DRAG_ACTIVATION_DISTANCE = 8;
 
+/**
+ * View types drawn as a table. Their tab carries no type icon: the table is
+ * what a list is, so the icon only says something on a board, a calendar, a
+ * gallery and the rest (objectui#12423).
+ */
+const TABULAR_VIEW_TYPES: ReadonlySet<string> = new Set(['grid', 'list']);
+
+/** The `gap-0.5` between two tabs in the strip, in pixels. */
+const TAB_GAP_PX = 2;
+
+/**
+ * The width the "N more" trigger is assumed to take before it has been drawn
+ * once. Measured and remembered after its first draw.
+ */
+const OVERFLOW_TRIGGER_ESTIMATE_PX = 80;
+
+/**
+ * How many tabs fit in `available` pixels (objectui#12423).
+ *
+ * `widths` are the tabs' drawn widths in strip order, each including the gap
+ * that follows it; `activeIndex` is the current view's place in that order
+ * (`-1` when it is not among them). Every tab fits ⇒ all of them, and no
+ * "N more" trigger is drawn. Otherwise the trigger takes `overflowWidth` and
+ * the largest head that fits beside it wins — counting the CURRENT view in
+ * place of the head's last tab when the current view sits in the tail, since
+ * the strip swaps it in (the active-in-tail swap). Never fewer than one.
+ */
+export function fitVisibleTabCount(
+  widths: readonly number[],
+  available: number,
+  overflowWidth: number,
+  activeIndex: number,
+): number {
+  const total = widths.reduce((sum, w) => sum + w, 0);
+  if (total <= available) return widths.length;
+  for (let count = widths.length - 1; count > 1; count--) {
+    let used = 0;
+    for (let i = 0; i < count; i++) used += widths[i];
+    if (activeIndex >= count) used += widths[activeIndex] - widths[count - 1];
+    if (used + overflowWidth <= available) return count;
+  }
+  return 1;
+}
+
+/** Width of an element as laid out, `0` where there is no layout. */
+function layoutWidth(el: Element | null | undefined): number {
+  if (!el) return 0;
+  const w = el.getBoundingClientRect().width;
+  return Number.isFinite(w) && w > 0 ? w : 0;
+}
+
 /** A single view definition for the tab bar */
 export interface ViewTabItem {
   /** Unique view identifier */
@@ -117,9 +168,13 @@ export interface ViewTabItem {
   label: string;
   /** View type (grid, kanban, calendar, etc.) */
   type: string;
-  /** Whether this view has active filters */
+  /**
+   * Whether this view has active filters. Kept so a host may pass it; the
+   * strip draws nothing for it since objectui#12423 — the toolbar's Filter
+   * count says it once the view is open.
+   */
   hasActiveFilters?: boolean;
-  /** Whether this view has active sort */
+  /** Whether this view has active sort. Drawn nothing for, like `hasActiveFilters`. */
   hasActiveSort?: boolean;
   /** Whether this is the default view */
   isDefault?: boolean;
@@ -268,8 +323,7 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
     inlineRename = true,
     contextMenu: enableContextMenu = true,
     reorderable = false,
-    maxVisibleTabs = 4,
-    showIndicators = true,
+    maxVisibleTabs,
     showSaveAsView = true,
     showPinnedSection = true,
     showVisibilityGroups = false,
@@ -345,13 +399,77 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
     return sorted;
   }, [views, showPinnedSection, showVisibilityGroups]);
 
+  // --- How many tabs the strip shows (objectui#12423) ---
+  // Derived from the strip's width: every tab is drawn once and measured
+  // before paint (a layout effect), then the ones that do not fit fold into
+  // the "N more" menu. A resize re-fits from the remembered widths without
+  // re-drawing. Where nothing is laid out (no layout engine, a hidden strip)
+  // the width answers nothing and every tab shows. `maxVisibleTabs` caps the
+  // count on top of the width; it no longer decides it alone.
+  const stripRef = useRef<HTMLDivElement>(null);
+  const tabWidthsRef = useRef(new Map<string, number>());
+  const overflowWidthRef = useRef(OVERFLOW_TRIGGER_ESTIMATE_PX);
+  /** Everything a tab's drawn width depends on; a change re-measures. */
+  const measureKey = useMemo(
+    () => JSON.stringify([
+      activeViewId,
+      sortedViews.map(v => [v.id, v.label, v.type, !!v.isPinned, !!v.readonly, v.visibility ?? '']),
+    ]),
+    [activeViewId, sortedViews],
+  );
+  const [fit, setFit] = useState<{ key: string; count: number | null } | null>(null);
+  const measuring = fit?.key !== measureKey;
+
+  const fitFromWidths = useCallback((): number | null => {
+    const available = layoutWidth(stripRef.current);
+    if (available === 0) return null;
+    const widths = sortedViews.map(v => (tabWidthsRef.current.get(v.id) ?? 0) + TAB_GAP_PX);
+    const activeIndex = sortedViews.findIndex(v => v.id === activeViewId);
+    return fitVisibleTabCount(widths, available, overflowWidthRef.current, activeIndex);
+  }, [sortedViews, activeViewId]);
+
+  useLayoutEffect(() => {
+    if (!measuring) return;
+    const strip = stripRef.current;
+    if (strip) {
+      for (const frame of Array.from(strip.querySelectorAll<HTMLElement>('[data-view-tab-frame]'))) {
+        const id = frame.getAttribute('data-view-tab-frame');
+        if (id != null) tabWidthsRef.current.set(id, layoutWidth(frame));
+      }
+    }
+    setFit({ key: measureKey, count: fitFromWidths() });
+  }, [measuring, measureKey, fitFromWidths]);
+
+  useEffect(() => {
+    const strip = stripRef.current;
+    if (!strip || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => {
+      const count = fitFromWidths();
+      setFit(prev => (prev && prev.key === measureKey && prev.count === count ? prev : { key: measureKey, count }));
+    });
+    observer.observe(strip);
+    return () => observer.disconnect();
+  }, [measureKey, fitFromWidths]);
+
+  // The trigger's own width, remembered from its last draw for the next fit.
+  const overflowTriggerRef = useRef<HTMLButtonElement>(null);
+  useLayoutEffect(() => {
+    const w = layoutWidth(overflowTriggerRef.current);
+    if (w > 0) overflowWidthRef.current = w + TAB_GAP_PX;
+  });
+
+  const visibleCount = Math.min(
+    measuring || fit?.count == null ? sortedViews.length : fit.count,
+    typeof maxVisibleTabs === 'number' && maxVisibleTabs > 0 ? maxVisibleTabs : Infinity,
+  );
+
   // --- Overflow ---
   // Ensure the active view is always visible (Airtable parity) — promote it
   // from overflow into the visible set so users never lose track of where
   // they are after creating/duplicating a view.
   const { visibleViews, overflowViews } = useMemo(() => {
-    const head = sortedViews.slice(0, maxVisibleTabs);
-    const tail = sortedViews.slice(maxVisibleTabs);
+    const head = sortedViews.slice(0, visibleCount);
+    const tail = sortedViews.slice(visibleCount);
     const activeInTail = tail.findIndex(v => v.id === activeViewId);
     if (activeInTail === -1) return { visibleViews: head, overflowViews: tail };
     const promoted = tail[activeInTail];
@@ -360,7 +478,7 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
     const newTail = tail.filter((_, i) => i !== activeInTail);
     if (demoted) newTail.unshift(demoted);
     return { visibleViews: newHead, overflowViews: newTail };
-  }, [sortedViews, maxVisibleTabs, activeViewId]);
+  }, [sortedViews, visibleCount, activeViewId]);
 
   // --- Drag-reorder sensors ---
   const sensors = useSensors(
@@ -392,9 +510,10 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
   // --- Render a single tab ---
   const renderTab = (view: ViewTabItem, index: number) => {
     const isActive = view.id === activeViewId;
-    const ViewIcon = viewTypeIcons[view.type] || DefaultIcon;
+    // A table tab is its label alone; any other type shows the icon the host
+    // maps it to, and none when the host maps none (objectui#12423).
+    const ViewIcon = TABULAR_VIEW_TYPES.has(view.type) ? undefined : viewTypeIcons[view.type];
     const isRenaming = renamingViewId === view.id;
-    const hasIndicator = showIndicators && (view.hasActiveFilters || view.hasActiveSort);
     const showSeparator = shouldShowVisibilitySeparator(index);
     /**
      * System / read-only views suppress mutation menu items so the UI does
@@ -453,6 +572,25 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
 
     const visibilityIcon = getVisibilityIcon(view);
 
+    /**
+     * The "Set as default" entry, which since objectui#12423 also carries the
+     * state the tab's star used to show: on the default view the star is
+     * filled and a check closes the row, and the item says `aria-current`.
+     */
+    const defaultEntryFace = (
+      <>
+        <Star className={cn('h-4 w-4 mr-2', view.isDefault && 'fill-amber-500 text-amber-500')} />
+        {viewTabLabel('view.setAsDefault', 'Set as default')}
+        {view.isDefault && (
+          <Check
+            aria-hidden="true"
+            data-testid={`view-tab-default-check-${view.id}`}
+            className="ml-auto pl-2 h-4 w-6 shrink-0"
+          />
+        )}
+      </>
+    );
+
     const hasActionsMenu = isActive && dropdownHasEntry;
 
     const buildTabFace = (dragHandleProps?: { isDragging?: boolean }) => (
@@ -474,7 +612,7 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
           <Pin data-testid={`view-tab-pin-indicator-${view.id}`} className="h-3 w-3 text-primary shrink-0" />
         )}
         {visibilityIcon}
-        <ViewIcon className="h-3.5 w-3.5" />
+        {ViewIcon && <ViewIcon data-testid={`view-tab-type-icon-${view.id}`} className="h-3.5 w-3.5" />}
         {isRenaming ? (
           <Input
             ref={renameInputRef}
@@ -507,25 +645,8 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
             </TooltipContent>
           </Tooltip>
         )}
-        {hasIndicator && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span
-                data-testid={`view-tab-indicator-${view.id}`}
-                className="ml-1 inline-flex items-center gap-0.5 h-4 px-1 rounded-full bg-primary/10 text-primary shrink-0"
-              >
-                {view.hasActiveFilters && <FilterIcon className="h-2.5 w-2.5" />}
-                {view.hasActiveSort && <ArrowUpDown className="h-2.5 w-2.5" />}
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">
-              {[view.hasActiveFilters && 'Active filters', view.hasActiveSort && 'Active sort'].filter(Boolean).join(', ')}
-            </TooltipContent>
-          </Tooltip>
-        )}
-        {view.isDefault && (
-          <Star className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0" />
-        )}
+        {/* No default-view star on the tab since objectui#12423: the tab's
+            "Set as default" entry says which view is the default. */}
       </>
     );
 
@@ -587,9 +708,10 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
               {setDefaultAction && (
                 <DropdownMenuItem
                   data-testid={`view-tab-menu-default-${view.id}`}
+                  aria-current={view.isDefault ? 'true' : undefined}
                   onClick={() => setDefaultAction(view.id)}
                 >
-                  <Star className="h-4 w-4 mr-2" /> {viewTabLabel('view.setAsDefault', 'Set as default')}
+                  {defaultEntryFace}
                 </DropdownMenuItem>
               )}
               {pinAction && (
@@ -669,8 +791,9 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
       isDragging?: boolean;
     }) => (
       <div
+        data-view-tab-frame={view.id}
         className={cn(
-          'group/tab inline-flex items-center text-sm font-medium border-b-2 transition-colors whitespace-nowrap relative',
+          'group/tab inline-flex shrink-0 items-center text-sm font-medium border-b-2 transition-colors whitespace-nowrap relative',
           isActive
             ? 'border-primary text-primary'
             : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
@@ -738,9 +861,10 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
             {setDefaultAction && (
               <ContextMenuItem
                 data-testid={`context-menu-default-${view.id}`}
+                aria-current={view.isDefault ? 'true' : undefined}
                 onClick={() => setDefaultAction(view.id)}
               >
-                <Star className="h-4 w-4 mr-2" /> {viewTabLabel('view.setAsDefault', 'Set as default')}
+                {defaultEntryFace}
               </ContextMenuItem>
             )}
             {pinAction && (
@@ -822,7 +946,7 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
           )}
           <SortableTab id={view.id}>
             {({ setNodeRef, style, listeners, attributes, isDragging }) => (
-              <div ref={setNodeRef} style={style} className={cn('flex', isDragging && 'z-10')}>
+              <div ref={setNodeRef} style={style} className={cn('flex shrink-0', isDragging && 'z-10')}>
                 {wrapWithContextMenu(buildTabContent({ listeners, attributes, isDragging }))}
               </div>
             )}
@@ -851,8 +975,17 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
     <TooltipProvider>
       <div
         data-testid="view-tab-bar"
-        className={cn('flex items-center gap-0.5 -mb-px', className)}
+        className={cn('flex min-w-0 items-center gap-0.5 -mb-px', className)}
       >
+        {/* The strip: the tabs and their "N more" trigger, in whatever width
+            the bar's other controls leave. `flex-1` with a zero basis, so its
+            width never depends on how many tabs it holds — that is what lets
+            the count be derived from it (objectui#12423). */}
+        <div
+          ref={stripRef}
+          data-testid="view-tab-strip"
+          className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-clip"
+        >
         {/* Visible tabs — optionally wrapped with DndContext for reorder */}
         {reorderable && onReorderViews ? (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -871,8 +1004,9 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button type="button"
+                ref={overflowTriggerRef}
                 data-testid="view-tab-overflow"
-                className="inline-flex items-center gap-1 px-2 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="inline-flex shrink-0 items-center gap-1 px-2 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
                 <MoreHorizontal className="h-4 w-4" />
                 <span className="text-xs">{viewTabLabel('view.moreViews', `${overflowViews.length} more`, { count: overflowViews.length })}</span>
@@ -902,18 +1036,13 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
                     {view.isPinned && <Pin className="h-3 w-3 mr-1 text-primary shrink-0" />}
                     <ViewIcon className="h-4 w-4 mr-2" />
                     {view.label}
-                    {showIndicators && (view.hasActiveFilters || view.hasActiveSort) && (
-                      <span className="ml-auto inline-flex items-center gap-0.5 h-4 px-1 rounded-full bg-primary/10 text-primary">
-                        {view.hasActiveFilters && <FilterIcon className="h-2.5 w-2.5" />}
-                        {view.hasActiveSort && <ArrowUpDown className="h-2.5 w-2.5" />}
-                      </span>
-                    )}
                   </DropdownMenuItem>
                 );
               })}
             </DropdownMenuContent>
           </DropdownMenu>
         )}
+        </div>
 
         {/* Inline "+" Add View button — an icon alone names nothing, so the
             tooltip's words are its accessible name too (objectui#11690). */}
@@ -924,7 +1053,7 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
                 data-testid="view-tab-add"
                 onClick={onAddView}
                 aria-label={addViewLabel}
-                className="inline-flex items-center px-2 py-2 text-muted-foreground hover:text-foreground transition-colors"
+                className="inline-flex shrink-0 items-center px-2 py-2 text-muted-foreground hover:text-foreground transition-colors"
               >
                 <Plus className="h-4 w-4" />
               </button>
@@ -937,7 +1066,7 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
         {showSaveAsView && hasUnsavedChanges && (
           <div
             data-testid="view-tab-save-as"
-            className="flex items-center gap-1 ml-2 text-xs text-amber-600 dark:text-amber-400"
+            className="flex shrink-0 items-center gap-1 ml-2 text-xs text-amber-600 dark:text-amber-400"
           >
             <Save className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Unsaved changes</span>

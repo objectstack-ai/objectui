@@ -64,6 +64,10 @@ vi.mock('@object-ui/permissions', async (importOriginal) => {
 import { ListView } from '../ListView';
 import { SchemaRendererProvider } from '@object-ui/react';
 
+
+/** objectui#12423 — Display is the toolbar default; this file drives the WIDE form's buttons. */
+const WIDE_TOOLBAR = { compactToolbar: false } as const;
+
 const OBJECT = 'crm_case';
 
 const objectDef = {
@@ -102,7 +106,7 @@ function mount(schemaExtra: Record<string, unknown>) {
   };
   render(
     <SchemaRendererProvider dataSource={dataSource}>
-      <ListView schema={schema} dataSource={dataSource} />
+      <ListView schema={{ ...WIDE_TOOLBAR, ...schema }} dataSource={dataSource} />
     </SchemaRendererProvider>,
   );
   return dataSource;

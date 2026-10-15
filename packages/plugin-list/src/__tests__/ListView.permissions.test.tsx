@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, waitFor, screen, cleanup, fireEvent } from '@testing-library/react';
+import { render, waitFor, screen, cleanup, fireEvent, within } from '@testing-library/react';
 import { ComponentRegistry } from '@object-ui/core';
 import { ListView } from '../ListView';
 import { SchemaRendererProvider } from '@object-ui/react';
@@ -323,7 +323,9 @@ function renderInlineEdit(
 ) {
   const view = (
     <ListView
-      schema={{ ...inlineEditSchema, ...schemaOverride } as ListViewSchema}
+      // objectui#12423 — the WIDE toolbar (its inline-edit button sits in the
+      // bar) unless a case asks for the Display form with `compactToolbar: true`.
+      schema={{ compactToolbar: false, ...inlineEditSchema, ...schemaOverride } as ListViewSchema}
       dataSource={mockDataSource as any}
       onInlineEditChange={onInlineEditChange}
     />
@@ -398,22 +400,22 @@ describe('ListView – inline-edit toggle vs the principal permission gate (#464
     // alone — it never even required the host callback, so gating only the wide
     // toolbar would have left the affordance reachable on mobile.
     //
-    // Two layers have to be opened before an absence means anything, or the
-    // assertion passes for every input including a completely ungated one:
-    // the entry lives inside `PopoverContent` (closed until the trigger is
-    // clicked) and inside a `Section` that renders its children only when
-    // expanded — and that section's `defaultOpen` is `!!inlineEdit`. Hence the
-    // seeded `inlineEdit: true`, which is also the realistic shape of this
-    // regression: a stored view already in inline-edit mode, reopened by a
-    // principal who has since lost `update`.
+    // The panel has to be opened before an absence means anything, or the
+    // assertion passes for every input including a completely ungated one: the
+    // entry lives inside `PopoverContent`, closed until the trigger is clicked.
+    // Since objectui#12423 it is a switch row of the Display panel rather than
+    // a collapsible section, so no second layer hides it. The seeded
+    // `inlineEdit: true` is the realistic shape of this regression: a stored
+    // view already in inline-edit mode, reopened by a principal who has since
+    // lost `update`.
     renderInlineEdit(makeUpdatePermissions(false), {
       compactToolbar: true,
       inlineEdit: true,
     } as Partial<ListViewSchema>);
     await waitFor(() => expect(screen.getByTestId('grid-stub')).toBeInTheDocument());
-    fireEvent.click(screen.getByTestId('view-settings-trigger'));
+    fireEvent.click(screen.getByTestId('toolbar-display-trigger'));
     await screen.findByTestId('view-settings-content');
-    expect(screen.queryByTestId('view-settings-inline-edit')).toBeNull();
+    expect(screen.queryByTestId('toolbar-inline-edit-toggle')).toBeNull();
   });
 
   it('…and a permitted principal keeps that compact entry', async () => {
@@ -424,9 +426,9 @@ describe('ListView – inline-edit toggle vs the principal permission gate (#464
       inlineEdit: true,
     } as Partial<ListViewSchema>);
     await waitFor(() => expect(screen.getByTestId('grid-stub')).toBeInTheDocument());
-    fireEvent.click(screen.getByTestId('view-settings-trigger'));
+    fireEvent.click(screen.getByTestId('toolbar-display-trigger'));
     await screen.findByTestId('view-settings-content');
-    expect(screen.queryByTestId('view-settings-inline-edit')).not.toBeNull();
+    expect(screen.queryByTestId('toolbar-inline-edit-toggle')).not.toBeNull();
   });
 });
 
@@ -490,18 +492,16 @@ describe('ListView – the declared userActions.editInline switch (#4647 gap 2)'
   });
 
   it('…and the COMPACT entry is offered for an absent editInline too', async () => {
-    // The second render site of the same verdict. The entry's checkbox sits in
-    // a section whose `defaultOpen` is `!!inlineEdit`, so with `inlineEdit`
-    // absent the checkbox itself is not rendered. The section's TITLE renders
-    // whether or not the section is open, so the title is what this case and
-    // its control below look for.
+    // The second render site of the same verdict: the Display panel's Edit
+    // inline switch (objectui#12423), drawn with `inlineEdit` absent too. It
+    // and its control below look for the switch itself.
     renderInlineEdit(makeUpdatePermissions(true), {
       compactToolbar: true,
     } as Partial<ListViewSchema>);
     await waitFor(() => expect(screen.getByTestId('grid-stub')).toBeInTheDocument());
-    fireEvent.click(screen.getByTestId('view-settings-trigger'));
+    fireEvent.click(screen.getByTestId('toolbar-display-trigger'));
     const content = await screen.findByTestId('view-settings-content');
-    expect(content).toHaveTextContent('Record editing');
+    expect(within(content).getByTestId('toolbar-inline-edit-toggle')).toHaveAttribute('role', 'switch');
   });
 
   it('…control: the same compact popover withholds the entry once the view declares `editInline: false`', async () => {
@@ -510,9 +510,9 @@ describe('ListView – the declared userActions.editInline switch (#4647 gap 2)'
       ...OPTED_OUT,
     } as Partial<ListViewSchema>);
     await waitFor(() => expect(screen.getByTestId('grid-stub')).toBeInTheDocument());
-    fireEvent.click(screen.getByTestId('view-settings-trigger'));
+    fireEvent.click(screen.getByTestId('toolbar-display-trigger'));
     const content = await screen.findByTestId('view-settings-content');
-    expect(content).not.toHaveTextContent('Record editing');
+    expect(within(content).queryByTestId('toolbar-inline-edit-toggle')).toBeNull();
   });
 });
 

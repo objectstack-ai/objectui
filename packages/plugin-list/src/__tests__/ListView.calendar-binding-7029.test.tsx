@@ -40,6 +40,10 @@ import { render, waitFor, screen, cleanup, fireEvent } from '@testing-library/re
 import { ListView } from '../ListView';
 import { SchemaRendererProvider } from '@object-ui/react';
 
+
+/** objectui#12423 — Display is the toolbar default; this file drives the WIDE form's buttons. */
+const WIDE_TOOLBAR = { compactToolbar: false } as const;
+
 const rows = [
   { id: '1', name: 'Ada out', start_date: '2099-09-01', end_date: '2099-09-03' },
   { id: '2', name: 'Grace out', start_date: '2099-10-01', end_date: '2099-10-02' },
@@ -89,7 +93,7 @@ async function calendarProps(schema: Record<string, any>) {
   const dataSource = makeDataSource();
   render(
     <SchemaRendererProvider dataSource={dataSource}>
-      <ListView schema={schema as never} dataSource={dataSource} />
+      <ListView schema={{ ...WIDE_TOOLBAR, ...schema } as never} dataSource={dataSource} />
     </SchemaRendererProvider>,
   );
   await waitFor(() => expect(captured.length).toBeGreaterThan(0));
@@ -168,7 +172,7 @@ describe('ListView capability gate — the Calendar toggle follows the binding (
     const dataSource = makeDataSource();
     render(
       <SchemaRendererProvider dataSource={dataSource}>
-        <ListView schema={schema as never} dataSource={dataSource} showViewSwitcher />
+        <ListView schema={{ ...WIDE_TOOLBAR, ...schema } as never} dataSource={dataSource} showViewSwitcher />
       </SchemaRendererProvider>,
     );
     await waitFor(() => expect(dataSource.find).toHaveBeenCalled());

@@ -870,14 +870,15 @@ const ru = {
     print: "Печать",
     hideFieldsTitle: "Скрыть поля",
     dataLimitReached: "Отображаются первые {{limit}} записей. Возможно, есть ещё данные.",
-    viewSettings: "Настройки представления",
-    viewSettingsHint: "Группировка, цвет, плотность и отображаемые поля. Применяется ко всем пользователям этого представления.",
+    display: "Отображение",
+    layout: "Макет",
+    rowNumbers: "Номера строк",
+    resetToViewDefault: "Сбросить к настройкам представления",
     addGroup: "Добавить поле группировки",
     collapsedByDefault: "Свёрнуто по умолчанию",
     removeGroup: "Удалить",
     inlineEditShort: "Встроенное редактирование",
     inlineEditLabel: "Редактировать записи в таблице (щёлкните ячейку для редактирования)",
-    recordEditingTitle: "Редактирование записей",
   },
   managedByBadge: {
     systemWritable: {

@@ -47,6 +47,10 @@ import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRendererProvider } from '@object-ui/react';
 import { ListView } from '../ListView';
 
+
+/** objectui#12423 — Display is the toolbar default; this file drives the WIDE form's buttons. */
+const WIDE_TOOLBAR = { compactToolbar: false } as const;
+
 const VIEW_NODE_TYPES = [
   'object-grid',
   'object-kanban',
@@ -138,7 +142,7 @@ function mount(view: Record<string, unknown>, listProps: Record<string, unknown>
   const schema = { type: 'list-view', objectName: 'duly_task', columns: ['subject'], ...view };
   render(
     <SchemaRendererProvider dataSource={dataSource as never}>
-      <ListView schema={schema as never} dataSource={dataSource as never} {...listProps} />
+      <ListView schema={{ ...WIDE_TOOLBAR, ...schema } as never} dataSource={dataSource as never} {...listProps} />
     </SchemaRendererProvider>,
   );
   return dataSource;

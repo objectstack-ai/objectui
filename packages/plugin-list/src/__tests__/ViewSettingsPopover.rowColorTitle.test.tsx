@@ -55,7 +55,7 @@ function openPopover() {
       <Harness />
     </I18nProvider>,
   );
-  fireEvent.click(screen.getByTestId('view-settings-trigger'));
+  fireEvent.click(screen.getByTestId('toolbar-display-trigger'));
 }
 
 describe('ViewSettingsPopover — the colour section takes the section key (objectui#4118)', () => {

@@ -809,14 +809,15 @@ const ja = {
     print: "印刷",
     hideFieldsTitle: "フィールドを非表示",
     dataLimitReached: "最初の {{limit}} 件のレコードを表示しています。さらにデータがある場合があります。",
-    viewSettings: "ビュー設定",
-    viewSettingsHint: "グループ化、色、密度、表示フィールド。このビューを使用するすべてのユーザーに適用されます。",
+    display: "表示",
+    layout: "レイアウト",
+    rowNumbers: "行番号",
+    resetToViewDefault: "ビューの既定に戻す",
     addGroup: "グループフィールドを追加",
     collapsedByDefault: "デフォルトで折りたたむ",
     removeGroup: "削除",
     inlineEditShort: "インライン編集",
     inlineEditLabel: "レコードをインラインで編集(セルをクリックして編集)",
-    recordEditingTitle: "レコード編集",
   },
   managedByBadge: {
     systemWritable: {

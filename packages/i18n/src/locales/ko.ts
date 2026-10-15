@@ -809,14 +809,15 @@ const ko = {
     print: "인쇄",
     hideFieldsTitle: "필드 숨기기",
     dataLimitReached: "처음 {{limit}}개 레코드를 표시합니다. 더 많은 데이터가 있을 수 있습니다.",
-    viewSettings: "보기 설정",
-    viewSettingsHint: "그룹화, 색상, 밀도 및 표시 필드. 이 보기를 사용하는 모든 사용자에게 적용됩니다.",
+    display: "표시",
+    layout: "레이아웃",
+    rowNumbers: "행 번호",
+    resetToViewDefault: "보기 기본값으로 재설정",
     addGroup: "그룹 필드 추가",
     collapsedByDefault: "기본적으로 접힘",
     removeGroup: "제거",
     inlineEditShort: "인라인 편집",
     inlineEditLabel: "레코드를 인라인으로 편집(셀을 클릭하여 편집)",
-    recordEditingTitle: "레코드 편집",
   },
   managedByBadge: {
     systemWritable: {

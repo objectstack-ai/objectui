@@ -46,8 +46,7 @@ import {
   NavigationOverlay,
   isFilterValueComplete,
 } from '@object-ui/components';
-import { Plus, Upload, Star, StarOff, Table as TableIcon, KanbanSquare, Calendar, LayoutGrid, Activity, GanttChart, MapPin, BarChart3, Lock } from 'lucide-react';
-import { useFavorites } from '../hooks/useFavorites.js';
+import { Plus, Upload, Table as TableIcon, KanbanSquare, Calendar, LayoutGrid, Activity, GanttChart, MapPin, BarChart3, Lock } from 'lucide-react';
 import { useMetaItemRefusal } from '../hooks/useMetaItemRefusal.js';
 import { useTenancyPosture } from '../hooks/useTenancyPosture.js';
 import { useServedViewItems, isServedView } from '../hooks/useServedViewItems.js';
@@ -1594,7 +1593,7 @@ export function ObjectView({ dataSource, objects, onEdit, externalRefreshKey }: 
  */
 function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: ConsoleObjectViewProps) {
     const navigate = useNavigate();
-    const { appName, objectName, viewId } = useParams();
+    const { objectName, viewId } = useParams();
     const [searchParams, setSearchParams] = useSearchParams();
     const location = useLocation();
     const { showDebug } = useMetadataInspector();
@@ -1606,7 +1605,6 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     const servedViews = useServedViewItems();
     // label + confirmText + successMessage through ONE call (objectui#4265).
     const localizeActionTexts = useActionTextLocalizer();
-    const { isFavorite, toggleFavorite } = useFavorites();
     // ADR-0105: under group posture default list columns get a trailing
     // organization_id attribution column (reads span all the user's orgs).
     const orgAttribution = useTenancyPosture() === 'group';
@@ -3901,31 +3899,10 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                  icon={(() => { const I = getIcon((objectDef as any)?.icon); return <I className="h-4 w-4" />; })()}
                  actions={
                    <>
-                    {/* Favorite toggle. The entry opens this list, so it is
-                        named with the plural the title above reads
-                        (objectui#11733). */}
-                    {objectName && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => toggleFavorite({
-                          id: `object:${objectName}`,
-                          label: objectPluralLabel(objectDef),
-                          href: `/apps/${appName}/${objectName}`,
-                          type: 'object',
-                        })}
-                        className="h-8 sm:h-9 px-2"
-                        aria-pressed={isFavorite(`object:${objectName}`)}
-                        aria-label={isFavorite(`object:${objectName}`)
-                          ? t('common.removeFromFavorites', { defaultValue: 'Remove from favorites' })
-                          : t('common.addToFavorites', { defaultValue: 'Add to favorites' })}
-                        data-testid={`object-favorite-btn-${objectName}`}
-                      >
-                        {isFavorite(`object:${objectName}`)
-                          ? <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                          : <StarOff className="h-4 w-4" />}
-                      </Button>
-                    )}
+                    {/* No favorite star here since objectui#12423: the one-row
+                        header is icon, title, description and these actions.
+                        Favorites themselves (the hook, the record page, the
+                        sidebar) are untouched. */}
 
                     {/* Primary action.
                         [#5153] `objectCanCreate && createVisible` — the

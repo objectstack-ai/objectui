@@ -12,6 +12,10 @@ import { SchemaRendererProvider } from '@object-ui/react';
 import type { DataSource, ListViewSchema } from '@object-ui/types';
 import { ListView } from '../ListView';
 
+
+/** objectui#12423 — Display is the toolbar default; this file drives the WIDE form's buttons. */
+const WIDE_TOOLBAR = { compactToolbar: false } as const;
+
 /**
  * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
  * it feeds — declare the published `DataSource` adapter contract. The values
@@ -66,7 +70,7 @@ const renderListView = (rowHeight?: unknown) => {
 
   return render(
     <SchemaRendererProvider dataSource={mockDataSource as unknown as DataSource}>
-      <ListView schema={schema} />
+      <ListView schema={{ ...WIDE_TOOLBAR, ...schema }} />
     </SchemaRendererProvider>,
   );
 };

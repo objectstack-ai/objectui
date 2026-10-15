@@ -28,6 +28,10 @@ import { I18nProvider } from '@object-ui/i18n';
 import { SchemaRendererProvider } from '@object-ui/react';
 import { ListView } from '../ListView';
 
+
+/** objectui#12423 — Display is the toolbar default; this file drives the WIDE form's buttons. */
+const WIDE_TOOLBAR = { compactToolbar: false } as const;
+
 beforeEach(() => {
   // The provider persists the last language; keep one case from leaking into the next.
   window.localStorage.clear();
@@ -65,7 +69,7 @@ async function readBarNameDuringReRead(config: typeof ZH) {
     <I18nProvider config={config}>
       <SchemaRendererProvider dataSource={ds}>
         <ListView
-          schema={{ type: 'list-view', objectName: 'proj', fields: ['name'] } as any}
+          schema={{ ...WIDE_TOOLBAR, type: 'list-view', objectName: 'proj', fields: ['name'] } as any}
           dataSource={ds}
         />
       </SchemaRendererProvider>

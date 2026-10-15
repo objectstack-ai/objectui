@@ -64,8 +64,16 @@ reach **disjoint** cells — neither is a superset of the other, and no cell get
 
 - `TableColumn.cellClassName` — the **data** cells of that one column.
 - `DataTableSchema.cellClassName` — the table's **utility** cells only: the leading
-  selection-checkbox cell (`selectable`), the row-number cell (`showRowNumbers`), and
-  the trailing row-actions cell (`rowActions`). It never reaches a data cell.
+  selection-checkbox cell (`selectable`), the row-number cell (`showRowNumbers` without
+  `selectable`), and the trailing row-actions cell (`rowActions`). It never reaches a
+  data cell.
+
+With `selectable` and `showRowNumbers` both on, the number and the checkbox share one
+leading cell: the number by default, the checkbox on row hover, on keyboard focus, on a
+touch screen and on every row while any row is selected. The header keeps its
+select-all box. With row numbers off the leading cell is empty until hover. The
+row-actions button shows on hover, on focus and on a selected row, and is hidden by
+opacity only, so it stays reachable by keyboard.
 
 (The empty-state cell and the add-record row take neither.)
 

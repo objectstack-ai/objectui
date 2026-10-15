@@ -43,6 +43,10 @@ import { render, waitFor, screen, fireEvent } from '@testing-library/react';
 import { ListView } from '../ListView';
 import { SchemaRendererProvider } from '@object-ui/react';
 
+
+/** objectui#12423 — Display is the toolbar default; this file drives the WIDE form's buttons. */
+const WIDE_TOOLBAR = { compactToolbar: false } as const;
+
 let captured: Array<Record<string, any>> = [];
 
 ComponentRegistry.register(
@@ -76,7 +80,7 @@ async function mapSchemaFor(view: Record<string, unknown>) {
   const dataSource = makeDataSource() as any;
   render(
     <SchemaRendererProvider dataSource={dataSource}>
-      <ListView schema={{ ...BASE, ...view } as never} dataSource={dataSource} />
+      <ListView schema={{ ...WIDE_TOOLBAR, ...BASE, ...view } as never} dataSource={dataSource} />
     </SchemaRendererProvider>,
   );
   await waitFor(() => expect(captured.length).toBeGreaterThan(0));
@@ -222,7 +226,7 @@ describe('ListView offers `map` in the switcher from the view-level block (objec
     render(
       <SchemaRendererProvider dataSource={dataSource}>
         <ListView
-          schema={{ ...BASE, viewType: 'grid', ...view } as never}
+          schema={{ ...WIDE_TOOLBAR, ...BASE, viewType: 'grid', ...view } as never}
           dataSource={dataSource}
           showViewSwitcher
         />

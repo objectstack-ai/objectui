@@ -10,12 +10,10 @@
  * objectui#11733 — what the object list page hands OUT names the list with the
  * object's PLURAL label, as its own title does since objectui#11696.
  *
- * Two hand-offs, both read here from a real `ObjectView` mount inside a real
+ * The hand-off is read here from a real `ObjectView` mount inside a real
  * i18next instance booted in the language under test (the
  * `ObjectView.listTitlePlural-11696` harness):
  *
- *  - the favorite the star button saves: an `object` favorite opens this list,
- *    and the sidebar shows the `label` it was saved with;
  *  - the record page's way back (`location.state.from.label`), when the open
  *    view has no label of its own. Both builders are driven: the list schema's
  *    `onNavigate` (the plugin list's row open) and the record-link bridge's
@@ -29,6 +27,10 @@
  * Direction, written before the run: with the three sites put back to
  * `objectLabel`, every plural cell RED (`Project` / `项目`), the controls
  * GREEN on both sides.
+ *
+ * The favorite the header's star button saved was a second hand-off here. The
+ * list page draws no star since objectui#12423 (the one-row header is icon,
+ * title, description and actions), so what is pinned of it now is its absence.
  */
 
 import * as React from 'react';
@@ -36,8 +38,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, cleanup, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { createI18n, I18nProvider } from '@object-ui/i18n';
-
-const { favoriteCalls } = vi.hoisted(() => ({ favoriteCalls: [] as Array<Record<string, unknown>> }));
 
 vi.mock('@object-ui/permissions', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@object-ui/permissions')>();
@@ -74,16 +74,6 @@ vi.mock('sonner', () => ({
   toast: Object.assign(vi.fn(), {
     success: vi.fn(), error: vi.fn(), info: vi.fn(),
     warning: vi.fn(), loading: vi.fn(), dismiss: vi.fn(),
-  }),
-}));
-
-// The favorite the star button saves is the subject, so the call is recorded.
-vi.mock('../hooks/useFavorites', () => ({
-  useFavorites: () => ({
-    isFavorite: () => false,
-    toggleFavorite: (item: Record<string, unknown>) => {
-      favoriteCalls.push(item);
-    },
   }),
 }));
 
@@ -151,7 +141,6 @@ function OriginProbe() {
 }
 
 beforeEach(() => {
-  favoriteCalls.length = 0;
   vi.stubGlobal(
     'fetch',
     vi.fn(async () =>
@@ -199,16 +188,6 @@ async function mountList(lang: Lang, objectName: string): Promise<void> {
   await screen.findByRole('heading', { level: 1 }, { timeout: 5000 });
 }
 
-/** The label of the favorite the star button saves. */
-async function favoriteLabel(lang: Lang, objectName: string): Promise<unknown> {
-  await mountList(lang, objectName);
-  fireEvent.click(screen.getByTestId(`object-favorite-btn-${objectName}`));
-  expect(favoriteCalls).toHaveLength(1);
-  // The entry opens this list.
-  expect(favoriteCalls[0]).toMatchObject({ type: 'object', href: `/apps/demo/${objectName}` });
-  return favoriteCalls[0].label;
-}
-
 /** The way-back label the record page receives, opened through `probe`. */
 async function originLabel(lang: Lang, objectName: string, probe: 'open-by-schema' | 'open-by-bridge'): Promise<string> {
   await mountList(lang, objectName);
@@ -216,17 +195,13 @@ async function originLabel(lang: Lang, objectName: string, probe: 'open-by-schem
   return (await screen.findByTestId('origin-label')).textContent ?? '';
 }
 
-describe('ObjectView — the favorite names the list with the plural (objectui#11733)', () => {
-  it('en: "Projects"', async () => {
-    expect(await favoriteLabel('en', 'showcase_project')).toBe('Projects');
-  });
-
-  it('zh-CN: the translated plural', async () => {
-    expect(await favoriteLabel('zh-CN', 'showcase_project')).toBe('项目清单');
-  });
-
-  it('control: an object that declares no plural is saved with its label', async () => {
-    expect(await favoriteLabel('en', 'showcase_note')).toBe('Note');
+describe('ObjectView — the list page header draws no favorite star (objectui#12423)', () => {
+  it('the header holds the title and no favorite button', async () => {
+    await mountList('en', 'showcase_project');
+    // Control: the header is up and titled with the plural.
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Projects');
+    expect(screen.queryByTestId('object-favorite-btn-showcase_project')).toBeNull();
+    expect(screen.queryByRole('button', { name: /favorites/i })).toBeNull();
   });
 });
 

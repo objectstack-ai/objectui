@@ -27,13 +27,17 @@ import { ListView } from '../ListView';
 import { SchemaRendererProvider } from '@object-ui/react';
 import type { ListViewSchema } from '@object-ui/types';
 
+
+/** objectui#12423 — Display is the toolbar default; this file drives the WIDE form's buttons. */
+const WIDE_TOOLBAR = { compactToolbar: false } as const;
+
 function harness(schema: ListViewSchema) {
   const exportDownload = vi.fn().mockResolvedValue(new Blob(['x'], { type: 'text/csv' }));
   const find = vi.fn().mockResolvedValue({ data: [], total: 0 });
   const ds: any = { find, findOne: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn(), exportDownload };
   render(
     <SchemaRendererProvider dataSource={ds}>
-      <ListView schema={schema} dataSource={ds} />
+      <ListView schema={{ ...WIDE_TOOLBAR, ...schema }} dataSource={ds} />
     </SchemaRendererProvider>,
   );
   return { exportDownload };

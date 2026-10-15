@@ -38,6 +38,10 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { ListView } from '../ListView';
 import { SchemaRendererProvider } from '@object-ui/react';
 
+
+/** objectui#12423 — Display is the toolbar default; this file drives the WIDE form's buttons. */
+const WIDE_TOOLBAR = { compactToolbar: false } as const;
+
 const makeDataSource = () => ({
   find: vi.fn().mockResolvedValue([]),
   findOne: vi.fn(),
@@ -64,7 +68,7 @@ const renderSwitcher = (view: Record<string, unknown>) => {
       {/* `as never`: some arms carry the legacy `imageField`, which the typed
           bag refuses by name; a stored row may still carry it, and this file
           pins how the gate answers for it. */}
-      <ListView schema={{ ...BASE, ...view } as never} dataSource={dataSource} showViewSwitcher />
+      <ListView schema={{ ...WIDE_TOOLBAR, ...BASE, ...view } as never} dataSource={dataSource} showViewSwitcher />
     </SchemaRendererProvider>,
   );
   const trigger = screen.queryByTestId('view-switcher-dropdown');

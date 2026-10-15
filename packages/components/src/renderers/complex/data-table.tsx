@@ -779,9 +779,14 @@ const DataTableRowActionsMenu: React.FC<{
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8"
+          // objectui#12423 — shown on row hover, on focus-within, on a selected
+          // row, while its menu is open and on a coarse pointer; hidden by
+          // OPACITY only, so it keeps its Tab stop and its accessible name.
+          // `RowActionMenu` (`@object-ui/plugin-grid`) carries the same set.
+          className="h-8 w-8 opacity-0 transition-opacity group-hover/row:opacity-100 group-focus-within/row:opacity-100 group-data-[state=selected]/row:opacity-100 data-[state=open]:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
           onClick={(e) => e.stopPropagation()}
           aria-label={t('table.rowActions')}
+          data-testid="data-table-row-actions"
         >
           <MoreHorizontal className="h-4 w-4" />
         </Button>
@@ -1169,6 +1174,16 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   // select-all header; every truthy legacy value keeps meaning 'multiple'.
   const selectionMode = resolveSelectionMode(selectableProp);
   const selectable = selectionMode !== 'none';
+  /**
+   * objectui#12423 — the row's LEADING cell is one cell. With selection on it
+   * holds the checkbox, and the row number too when `showRowNumbers` is on:
+   * the number by default, the checkbox on row hover, on focus-within, on a
+   * coarse pointer (no hover to reveal it) and on every row while anything is
+   * selected. The two are swapped by CSS classes on one fixed-width cell,
+   * never mounted and unmounted, so nothing shifts. Without selection it is
+   * the row-number cell alone, as before.
+   */
+  const leadingCellCount = selectable || showRowNumbers ? 1 : 0;
 
   // Ambient design-surface affordance: when a host (Studio) provides it, render
   // a trailing "+ add field" column header. `null` for every runtime table, so
@@ -1428,6 +1443,8 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   // case in data-table-manual-sorting.test.tsx.
   const [sortDirection, setSortDirection] = useState<SortDirection | null>(null);
   const [selectedRowIds, setSelectedRowIds] = useState<Set<any>>(new Set());
+  /** Anything selected ⇒ every row shows its checkbox (objectui#12423). */
+  const selectionActive = selectedRowIds.size > 0;
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(initialPageSize);
   const [columns, setColumns] = useState(initialColumns);
@@ -1444,7 +1461,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   const headerRowRef = useRef<HTMLTableRowElement | null>(null);
   const [measuredStickyLefts, setMeasuredStickyLefts] = useState<number[] | null>(null);
   const stickyLeadingCount = frozenColumns > 0
-    ? (selectable ? 1 : 0) + (showRowNumbers ? 1 : 0) + Math.min(frozenColumns, columns.length)
+    ? leadingCellCount + Math.min(frozenColumns, columns.length)
     : 0;
 
   useLayoutEffect(() => {
@@ -1489,7 +1506,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   const [measuredStickyRights, setMeasuredStickyRights] = useState<Record<string, number> | null>(null);
   useLayoutEffect(() => {
     const headerRow = headerRowRef.current;
-    const leading = (selectable ? 1 : 0) + (showRowNumbers ? 1 : 0);
+    const leading = leadingCellCount;
     const pinned = columns
       .map((col, index) => ({ key: col.accessorKey, index, col }))
       .filter(({ col }) => isPinnedRightColumn(col));
@@ -1512,7 +1529,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     const observer = new ResizeObserver(measure);
     cells.forEach((cell) => observer.observe(cell as HTMLElement));
     return () => observer.disconnect();
-  }, [selectable, showRowNumbers, columns]);
+  }, [leadingCellCount, columns]);
   const [draggedColumn, setDraggedColumn] = useState<number | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<number | null>(null);
   // Keyed by the record, like a pending edit (objectui#12310): a re-read that
@@ -2879,8 +2896,10 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                   )}
                 </TableHead>
               )}
-              {showRowNumbers && (
-                <TableHead className={cn("w-10 bg-background text-center px-3", frozenColumns > 0 && "sticky z-20")} style={frozenColumns > 0 ? { left: measuredStickyLefts?.[selectable ? 1 : 0] ?? (selectable ? 40 : 0) } : undefined}>
+              {/* With selection on, the row number shares the select-all
+                  column's cell (objectui#12423), so `#` heads it only alone. */}
+              {showRowNumbers && !selectable && (
+                <TableHead className={cn("w-10 bg-background text-center px-3", frozenColumns > 0 && "sticky left-0 z-20")}>
                   <span className="text-xs text-muted-foreground">#</span>
                 </TableHead>
               )}
@@ -2904,14 +2923,14 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                 const isPinnedRight = isPinnedRightColumn(col);
                 const pinnedRightOffset = isPinnedRight ? measuredStickyRights?.[col.accessorKey] : undefined;
                 const frozenOffset = isFrozen
-                  ? measuredStickyLefts?.[(selectable ? 1 : 0) + (showRowNumbers ? 1 : 0) + index]
+                  ? measuredStickyLefts?.[leadingCellCount + index]
                     ?? columns.slice(0, index).reduce((sum, c, i) => {
                       if (i < frozenColumns) {
                         const w = columnWidths[c.accessorKey] || c.width || autoSizedWidths[c.accessorKey];
                         return sum + (typeof w === 'number' ? w : w ? parseInt(String(w), 10) || 150 : 150);
                       }
                       return sum;
-                    }, (selectable ? 40 : 0) + (showRowNumbers ? 40 : 0))
+                    }, leadingCellCount * 40)
                   : undefined;
                 
                 return (
@@ -3032,7 +3051,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
             {paginatedData.length === 0 ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell
-                  colSpan={columns.length + (selectable ? 1 : 0) + (showRowNumbers ? 1 : 0) + (rowActions ? 1 : 0) + (addColumnEnabled ? 1 : 0)}
+                  colSpan={columns.length + leadingCellCount + (rowActions ? 1 : 0) + (addColumnEnabled ? 1 : 0)}
                   className="h-48 text-center text-muted-foreground border-0"
                 >
                   <div className="flex flex-col items-center justify-center gap-3">
@@ -3204,21 +3223,53 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                       }}
                     >
                       {selectable && (
-                        <TableCell className={cn(cellClassName, "px-3", frozenColumns > 0 && ["sticky left-0 z-10 bg-background", STICKY_ROW_TINT])}>
-                          {/* Always visible: the hover-only `selectionStyle` was retired
-                              (objectui#6152 round 5) — nothing authored or produced it. */}
-                          {/* A checkbox drawn alone in its cell has no label of its
-                              own; the name is the action, as the header's is
-                              (objectui#11690). */}
-                          <Checkbox
-                            checked={isSelected}
-                            onCheckedChange={(checked) => handleSelectRow(rowId, checked as boolean)}
-                            aria-label={t('table.selectRow')}
-                          />
+                        <TableCell
+                          data-slot="row-leading-cell"
+                          className={cn(cellClassName, "w-10 px-3 relative", showRowNumbers && "text-center", frozenColumns > 0 && ["sticky left-0 z-10 bg-background", STICKY_ROW_TINT])}
+                        >
+                          {/* objectui#12423 — the leading cell (see
+                              `leadingCellCount`): the row number by default,
+                              the checkbox on hover / focus-within / a coarse
+                              pointer, and on every row while any is selected.
+                              The checkbox is hidden by OPACITY only, so it
+                              stays in the tab order and reachable by assistive
+                              tech; focusing it reveals it. */}
+                          {showRowNumbers && (
+                            <span
+                              data-slot="row-number"
+                              aria-hidden={selectionActive || undefined}
+                              className={cn(
+                                "text-xs text-muted-foreground tabular-nums select-none",
+                                selectionActive
+                                  ? "invisible"
+                                  : "group-hover/row:invisible group-focus-within/row:invisible pointer-coarse:invisible",
+                              )}
+                            >
+                              {globalIndex + 1}
+                            </span>
+                          )}
+                          <span
+                            data-slot="row-select"
+                            className={cn(
+                              "flex items-center transition-opacity",
+                              showRowNumbers && "absolute inset-0 justify-center",
+                              !selectionActive
+                                && "opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 pointer-coarse:opacity-100",
+                            )}
+                          >
+                            {/* A checkbox drawn alone in its cell has no label of its
+                                own; the name is the action, as the header's is
+                                (objectui#11690). */}
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={(checked) => handleSelectRow(rowId, checked as boolean)}
+                              aria-label={t('table.selectRow')}
+                            />
+                          </span>
                         </TableCell>
                       )}
-                      {showRowNumbers && (
-                        <TableCell className={cn("text-center w-10 relative", cellClassName, frozenColumns > 0 && ["sticky z-10 bg-background", STICKY_ROW_TINT])} style={frozenColumns > 0 ? { left: measuredStickyLefts?.[selectable ? 1 : 0] ?? (selectable ? 40 : 0) } : undefined}>
+                      {showRowNumbers && !selectable && (
+                        <TableCell className={cn("text-center w-10 relative", cellClassName, frozenColumns > 0 && ["sticky left-0 z-10 bg-background", STICKY_ROW_TINT])}>
                           <span className={cn("text-xs text-muted-foreground tabular-nums select-none", !selectable && schema.onRowClick && "group-hover/row:invisible")}>
                             {globalIndex + 1}
                           </span>
@@ -3302,14 +3353,14 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                         const isEditable = editable && col.editable !== false && !col.masked;
                         const isFrozen = frozenColumns > 0 && colIndex < frozenColumns;
                         const frozenOffset = isFrozen
-                          ? measuredStickyLefts?.[(selectable ? 1 : 0) + (showRowNumbers ? 1 : 0) + colIndex]
+                          ? measuredStickyLefts?.[leadingCellCount + colIndex]
                             ?? columns.slice(0, colIndex).reduce((sum, c, i) => {
                               if (i < frozenColumns) {
                                 const w = columnWidths[c.accessorKey] || c.width || autoSizedWidths[c.accessorKey];
                                 return sum + (typeof w === 'number' ? w : w ? parseInt(String(w), 10) || 150 : 150);
                               }
                               return sum;
-                            }, (selectable ? 40 : 0) + (showRowNumbers ? 40 : 0))
+                            }, leadingCellCount * 40)
                           : undefined;
                         
                         return (
@@ -3635,7 +3686,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                     onClick={() => schema.onAddRecord?.()}
                   >
                     <TableCell
-                      colSpan={columns.length + (selectable ? 1 : 0) + (showRowNumbers ? 1 : 0) + (rowActions ? 1 : 0) + (addColumnEnabled ? 1 : 0)}
+                      colSpan={columns.length + leadingCellCount + (rowActions ? 1 : 0) + (addColumnEnabled ? 1 : 0)}
                       className="h-9 px-3 py-1.5"
                     >
                       <span className="flex items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground transition-colors">

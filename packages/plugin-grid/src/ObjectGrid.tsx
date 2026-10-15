@@ -697,6 +697,14 @@ export interface ObjectGridComponentProps extends ObjectGridExternalPaginationPr
    */
   objectFields?: Readonly<Record<string, unknown>>;
   /**
+   * [objectui#12423] Row numbers on the leading cell, as a HOST says: `ListView`
+   * passes its Display control's Row numbers switch here (session-only, never
+   * stored). Absent ⇒ on, the grid's default since it drew them. A RUNTIME
+   * prop: the protocol declares no row-number key on a view, and none is read
+   * off the node.
+   */
+  showRowNumbers?: boolean;
+  /**
    * [objectui#8674] Narrow ONE row's generic Edit / Delete entries — the layer
    * that lets a host withhold an operation the record itself cannot accept.
    *
@@ -1609,6 +1617,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   findParams: hostFindParams,
   onColumnStateChange,
   objectFields: hostObjectFields,
+  showRowNumbers: hostShowRowNumbers,
 }) => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -5910,7 +5919,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           : rowHeightMode === 'extra_tall'
             ? 'px-3 py-3.5 text-sm leading-relaxed'
             : 'px-3 py-1.5 text-[13px] leading-normal',
-    showRowNumbers: true,
+    // objectui#12423 — the host's Row numbers switch; on unless a host says off.
+    showRowNumbers: hostShowRowNumbers ?? true,
     // [#5148] The authored request ∧ the principal's verdict — the conjunction
     // #5143 spelled for `editable` and #4646 / PR #5145 spelled for the
     // related-list "+ New" (`objectCanCreate = affordances.create ∧

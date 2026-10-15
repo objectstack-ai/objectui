@@ -36,8 +36,10 @@
  * renders the table with every utility column switched ON, takes the one body
  * row, classifies its cells by CONTENT (checkbox / row number / value / actions
  * container), and reads the class list off each. The classification is total —
- * four cells, four roles, each matched exactly once — so a cell that changed
- * role or count is reported as such rather than silently skipped.
+ * every cell matches exactly one role — so a cell that changed role or count is
+ * reported as such rather than silently skipped. Since objectui#12423 the
+ * checkbox and the row number share ONE leading cell when both are on, a role
+ * of its own here; the row-number cell alone is measured without selection.
  *
  * ## ⛔ The fence, as a pin
  *
@@ -72,7 +74,7 @@
  * pinned by `packages/plugin-grid/src/__tests__/cellClassNameCensusProse-6921.test.ts`.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
@@ -111,7 +113,7 @@ function bodyRowCells(): HTMLTableCellElement[] {
   return Array.from(row.querySelectorAll('td'));
 }
 
-type Role = 'selection' | 'row-number' | 'data' | 'row-actions';
+type Role = 'selection' | 'row-number' | 'leading' | 'data' | 'row-actions';
 
 /**
  * Classify a body cell by what it CONTAINS, never by position: the selection
@@ -123,6 +125,9 @@ type Role = 'selection' | 'row-number' | 'data' | 'row-actions';
  */
 function classify(td: HTMLTableCellElement): Role | 'UNCLASSIFIED' {
   const hits: Role[] = [];
+  // objectui#12423 — with selection AND row numbers on, both share ONE
+  // leading cell: the checkbox and the number `1`.
+  if (td.querySelector('[role="checkbox"]') && td.textContent?.trim() === '1') return 'leading';
   if (td.querySelector('[role="checkbox"]')) hits.push('selection');
   if (td.textContent?.trim() === '1') hits.push('row-number');
   if (td.textContent?.includes(VALUE)) hits.push('data');
@@ -168,25 +173,31 @@ describe('data-table: which body cells the SCHEMA-level cellClassName reaches (o
    * key, named one by one so a dropped fold reports WHICH cell lost it.
    */
   it('the selection, row-number and row-actions cells each fold the schema-level cellClassName', () => {
-    renderTable({ selectable: true, showRowNumbers: true, rowActions: true });
-    const cells = cellsByRole();
-    for (const role of ['selection', 'row-number', 'row-actions'] as const) {
-      expect(cells[role], `${role} cell should carry the schema-level class`).toHaveClass(SCHEMA_SLOT);
+    // The row-number cell is its own cell only without selection
+    // (objectui#12423), so the three sites are measured over two tables.
+    renderTable({ selectable: true, showRowNumbers: false, rowActions: true });
+    const withSelection = cellsByRole();
+    for (const role of ['selection', 'row-actions'] as const) {
+      expect(withSelection[role], `${role} cell should carry the schema-level class`).toHaveClass(SCHEMA_SLOT);
     }
+    cleanup();
+    renderTable({ selectable: false, showRowNumbers: true, rowActions: false });
+    expect(cellsByRole()['row-number'], 'row-number cell should carry the schema-level class').toHaveClass(SCHEMA_SLOT);
   });
 
   /**
-   * THE CENSUS AS A NUMBER: exactly four body cells, exactly three carry the
-   * schema-level class, exactly one carries the column class, and no cell
-   * carries both — the two slots style disjoint cells.
+   * THE CENSUS AS A NUMBER, every utility column on: three body cells (the
+   * shared leading cell, the data cell, the row-actions cell), exactly two
+   * carry the schema-level class, exactly one carries the column class, and no
+   * cell carries both — the two slots style disjoint cells.
    */
-  it('the schema-level class reaches exactly three cells, the column class exactly one, and they are disjoint', () => {
+  it('every utility column on: the schema-level class reaches the leading and row-actions cells, the column class the data cell, disjoint', () => {
     renderTable({ selectable: true, showRowNumbers: true, rowActions: true });
     const cells = bodyRowCells();
-    expect(cells).toHaveLength(4);
+    expect(cells).toHaveLength(3);
     const withSchema = cells.filter((td) => td.classList.contains(SCHEMA_SLOT));
     const withColumn = cells.filter((td) => td.classList.contains(COLUMN_SLOT));
-    expect(withSchema.map(classify).sort()).toEqual(['row-actions', 'row-number', 'selection']);
+    expect(withSchema.map(classify).sort()).toEqual(['leading', 'row-actions']);
     expect(withColumn.map(classify)).toEqual(['data']);
     expect(cells.filter((td) => td.classList.contains(SCHEMA_SLOT) && td.classList.contains(COLUMN_SLOT))).toHaveLength(0);
   });

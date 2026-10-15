@@ -55,7 +55,7 @@
 
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
-import { render, cleanup, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, cleanup, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { ComponentRegistry } from '@object-ui/core';
 
@@ -237,11 +237,21 @@ async function drawView(view: Record<string, unknown>): Promise<string[] | undef
   return got;
 }
 
-/** Untick `field` in `ListView`'s hide-fields popover, as a user does. */
+/**
+ * Untick `field` in `ListView`'s hide-fields list, as a user does: since
+ * objectui#12423 a section of the toolbar's Display panel, collapsed while
+ * nothing is hidden.
+ */
 async function hideThroughToggle(field: string): Promise<void> {
-  fireEvent.click(screen.getByRole('button', { name: /hide fields/i }));
-  await screen.findByText('Hide Fields');
-  const label = await screen.findByText(new RegExp(`^${field}$`, 'i'));
+  if (!screen.queryByTestId('view-settings-content')) {
+    fireEvent.click(screen.getByTestId('toolbar-display-trigger'));
+  }
+  const panel = await screen.findByTestId('view-settings-content');
+  const name = new RegExp(`^${field}$`, 'i');
+  if (!within(panel).queryByText(name)) {
+    fireEvent.click(within(panel).getByRole('button', { name: 'Hide Fields' }));
+  }
+  const label = await within(panel).findByText(name);
   fireEvent.click(label.closest('label')!.querySelector('input')!);
 }
 

@@ -459,9 +459,9 @@ export const DataTableSchema = BaseSchema.extend({
   // retired on both faces now (the census and the route are on the
   // `DataTableSchema.selectionStyle` member in `../data-display.ts`).
   selectionStyle: retirementTombstone(
-    'RETIRED (objectui#6152, ADR-0049) — a selectable table always shows its row checkboxes, and there is '
-    + 'no hover-only style: nothing authored or produced this key, so the hover branch was dropped. Delete the '
-    + 'key; `selectable` alone turns selection on.',
+    'RETIRED (objectui#6152, ADR-0049) — there is no authored checkbox style: nothing authored or produced this '
+    + 'key. A selectable table draws each row checkbox in its leading cell, shown on row hover, on focus and while '
+    + 'any row is selected (objectui#12423). Delete the key; `selectable` alone turns selection on.',
   ),
   sortable: z.boolean().optional().describe('Enable sorting'),
   exportable: z.boolean().optional().describe('Enable data export'),

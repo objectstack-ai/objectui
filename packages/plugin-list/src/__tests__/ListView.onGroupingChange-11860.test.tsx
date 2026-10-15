@@ -49,6 +49,9 @@ function schemaWith(extra: Partial<ListViewSchema> = {}): ListViewSchema {
     objectName: 'contacts',
     viewType: 'grid',
     fields: ['name', 'email', 'status'],
+    // objectui#12423 — the WIDE toolbar's Group panel, unless a case asks for
+    // the Display form (the default) with `compactToolbar: true`.
+    compactToolbar: false,
     ...extra,
   } as ListViewSchema;
 }
@@ -111,12 +114,12 @@ describe('ListView reports a user grouping change to its host (objectui#11860)',
     expect(onGroupingChange).toHaveBeenCalledWith(undefined);
   });
 
-  it('the compact View settings popover: adding a level and its Clear report the same way', async () => {
+  it('the compact Display popover: adding a level and its Clear report the same way', async () => {
     const onGroupingChange = vi.fn();
     mount(schemaWith({ compactToolbar: true }), onGroupingChange);
     // The compact toolbar draws no Group button of its own.
     expect(screen.queryByTestId('group-field-list')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('view-settings-trigger'));
+    fireEvent.click(screen.getByTestId('toolbar-display-trigger'));
     await vi.waitFor(() => expect(screen.getByTestId('view-settings-content')).toBeInTheDocument());
 
     const content = screen.getByTestId('view-settings-content');

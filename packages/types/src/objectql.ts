@@ -2767,9 +2767,18 @@ export interface ViewTabBarConfig {
   contextMenu?: boolean;
   /** Allow drag-reorder of view tabs @default false */
   reorderable?: boolean;
-  /** Max visible tabs before overflow → "More" dropdown @default 6 */
+  /**
+   * An optional CAP on the visible tabs. How many show is derived from the
+   * strip's width; this caps that count, and the rest fold into the "More"
+   * dropdown either way. No default: unset, the width alone decides
+   * (objectui#12423).
+   */
   maxVisibleTabs?: number;
-  /** Show filter/sort indicator badges on tabs @default true */
+  /**
+   * @deprecated Draws nothing since objectui#12423: the tab bar no longer
+   * marks a view's filter or sort (the toolbar's Filter and Sort counts say
+   * it for the open view). Kept so an existing caller still compiles.
+   */
   showIndicators?: boolean;
   /** Show "Save as View" when filters differ from saved @default true */
   showSaveAsView?: boolean;
@@ -2851,10 +2860,12 @@ export interface NamedListView {
   showDensity?: never;
 
   /**
-   * Collapse the appearance/grouping cluster (Group + Color + Density + Hide Fields)
-   * into a single "View settings" popover button. Reduces toolbar clutter on
-   * data-heavy lists. Filter / Sort / Export remain top-level chips.
-   * @default false
+   * Collapse the toolbar's settings into the single "Display" popover: the
+   * bar keeps Filter, Sort, Display and Search, and Display carries the
+   * layout switcher, Group, Color, Hide fields, Density, Row numbers, Edit
+   * inline, Refresh and Export. On unless a view writes `false`, which keeps
+   * one toolbar button per control (objectui#12423).
+   * @default true
    */
   compactToolbar?: boolean;
 

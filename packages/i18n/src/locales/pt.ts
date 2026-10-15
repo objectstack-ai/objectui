@@ -833,14 +833,15 @@ const pt = {
     print: "Imprimir",
     hideFieldsTitle: "Ocultar campos",
     dataLimitReached: "Os primeiros {{limit}} registros estão sendo exibidos. Pode haver mais dados disponíveis.",
-    viewSettings: "Configurações de exibição",
-    viewSettingsHint: "Agrupamento, cor, densidade e campos visíveis. Aplica-se a todos os usuários desta exibição.",
+    display: "Exibição",
+    layout: "Layout",
+    rowNumbers: "Números de linha",
+    resetToViewDefault: "Restaurar o padrão da exibição",
     addGroup: "Adicionar campo de grupo",
     collapsedByDefault: "Recolhido por padrão",
     removeGroup: "Remover",
     inlineEditShort: "Edição em linha",
     inlineEditLabel: "Editar registros em linha (clique em uma célula para editar)",
-    recordEditingTitle: "Edição de registros",
   },
   managedByBadge: {
     systemWritable: {

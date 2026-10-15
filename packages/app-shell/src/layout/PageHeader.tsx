@@ -13,10 +13,10 @@
  * Provides consistent typography, icon framing, and action grouping so
  * individual screens don't reinvent the title row.
  *
- * Layout:
+ * Layout — ONE row from the `sm` breakpoint up (objectui#12423):
  *   [accent hairline]
- *   [icon]  Title             [actions...]
- *           subtitle
+ *   [icon] Title | subtitle…                       [actions...]
+ * Below `sm` the subtitle is hidden, so a phone draws icon, title and actions.
  */
 
 import * as React from 'react';
@@ -53,8 +53,9 @@ export interface ConsolePageHeaderProps {
   /** Page title (required, becomes <h1>). */
   title: React.ReactNode;
   /**
-   * Optional secondary line shown beneath the title. `subtitle` is the only
-   * spelling this component accepts.
+   * Optional secondary line, drawn inline after the title behind a hairline
+   * divider and truncated to the row (objectui#12423; it sat beneath the
+   * title before). `subtitle` is the only spelling this component accepts.
    *
    * It used to be `description`, which made one concept carry two key names
    * one package apart: `@objectstack/spec/ui`'s `PageHeaderProps` declares
@@ -152,16 +153,19 @@ export function PageHeader({
         }}
       />
 
-      <div className="flex justify-between items-center gap-3 py-2.5 sm:py-3 px-4 sm:px-6">
-        <div className="flex items-center gap-3 min-w-0 flex-1">
+      <div className="flex justify-between items-center gap-3 py-2.5 sm:py-2 px-4 sm:px-6">
+        {/* One row: icon, title, then the subtitle behind a hairline — all
+            siblings of this flex row, so nothing wraps beneath the title
+            (objectui#12423). */}
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
           {icon && (
             <div
               className={cn(
                 'shrink-0 inline-flex items-center justify-center rounded-lg',
-                'h-9 w-9 sm:h-10 sm:w-10',
+                'h-9 w-9',
                 // Auto-size any nested SVG so callers don't have to think
                 // about sizing inside the chip.
-                '[&_svg]:h-[18px] [&_svg]:w-[18px] sm:[&_svg]:h-5 sm:[&_svg]:w-5',
+                '[&_svg]:h-[18px] [&_svg]:w-[18px]',
               )}
               style={{
                 color: 'var(--page-header-accent)',
@@ -174,16 +178,17 @@ export function PageHeader({
               {icon}
             </div>
           )}
-          <div className="min-w-0">
-            <h1 className="text-base sm:text-lg lg:text-xl font-semibold tracking-tight text-foreground truncate leading-tight">
-              {title}
-            </h1>
-            {subtitle && (
-              <p className="text-xs sm:text-sm text-muted-foreground truncate hidden sm:block max-w-xl mt-0.5">
+          <h1 className="min-w-0 max-w-full sm:max-w-[60%] shrink-0 text-base sm:text-lg font-semibold tracking-tight text-foreground truncate leading-tight">
+            {title}
+          </h1>
+          {subtitle && (
+            <>
+              <span aria-hidden="true" className="hidden sm:block h-4 w-px shrink-0 bg-border" />
+              <p className="hidden sm:block min-w-0 flex-1 truncate text-sm text-muted-foreground">
                 {subtitle}
               </p>
-            )}
-          </div>
+            </>
+          )}
         </div>
 
         {actions && (

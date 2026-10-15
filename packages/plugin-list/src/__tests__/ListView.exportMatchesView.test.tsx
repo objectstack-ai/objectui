@@ -30,6 +30,10 @@ import { ListView } from '../ListView';
 import { SchemaRendererProvider } from '@object-ui/react';
 import type { ListViewSchema } from '@object-ui/types';
 
+
+/** objectui#12423 — Display is the toolbar default; this file drives the WIDE form's buttons. */
+const WIDE_TOOLBAR = { compactToolbar: false } as const;
+
 const RECORDS = [{ id: '1', name: 'Acme', stage: 'won' }];
 
 function harness(schema: ListViewSchema, props: Record<string, unknown> = {}) {
@@ -38,7 +42,7 @@ function harness(schema: ListViewSchema, props: Record<string, unknown> = {}) {
   const ds: any = { find, findOne: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn(), exportDownload };
   render(
     <SchemaRendererProvider dataSource={ds}>
-      <ListView schema={schema} dataSource={ds} {...props} />
+      <ListView schema={{ ...WIDE_TOOLBAR, ...schema }} dataSource={ds} {...props} />
     </SchemaRendererProvider>,
   );
   return { exportDownload, find };

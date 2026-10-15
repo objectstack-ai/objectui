@@ -1017,8 +1017,11 @@ export const LIST_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'grid.toolbar.densitySpacious': 'Spacious',
   'grid.toolbar.densityCycleHint': '{{label}} (click to cycle)',
   'grid.toolbar.densityCycleShortHint': 'Click to cycle',
-  'list.viewSettings': 'View settings',
-  'list.viewSettingsHint': 'Grouping, color, density, and visible fields. Applies to everyone who uses this view.',
+  // The toolbar's Display control (objectui#12423).
+  'list.display': 'Display',
+  'list.layout': 'Layout',
+  'list.rowNumbers': 'Row numbers',
+  'list.resetToViewDefault': 'Reset to view default',
   // Heading of the record-detail overlay this view opens when a child view's
   // row is clicked (objectui#3426). Borrowed from the `detail.*` namespace
   // rather than minted as `list.recordDetail`: `NavigationOverlay` already
@@ -1491,7 +1494,10 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       showGroup: ua?.group !== false,
       showHideFields: ua?.hideFields === true,
       showColor: ua?.rowColor === true,
-      compactToolbar: schema.compactToolbar === true,
+      // The bundled "Display" form is the default (objectui#12423): the bar
+      // keeps Filter, Sort, Display and Search. `compactToolbar: false` is the
+      // way back to one toolbar button per control.
+      compactToolbar: schema.compactToolbar !== false,
       // Position-independent switch (empty-state CTA) + the two placement
       // slots. `position: 'both'` renders both buttons — it used to collapse
       // to `top` through a binary ternary (#2941).
@@ -1866,6 +1872,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     },
     [onInlineEditChange]
   );
+
+  // Row numbers on the grid's leading cell — the Display control's switch
+  // (objectui#12423). Session-only and in memory: nothing stores it, and it
+  // opens on the grid's own default (on) with every list.
+  const [rowNumbers, setRowNumbers] = React.useState(true);
 
   // Export State
   const [showExport, setShowExport] = React.useState(false);
@@ -4799,6 +4810,48 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     rowColorConfig && canReadField(perms, schema.objectName, rowColorConfig.field) ? rowColorConfig : undefined;
 
   /**
+   * objectui#12423 — what the Display control counts on its trigger and what
+   * its "Reset to view default" hands back: each setting it offers whose value
+   * differs from the one this list was handed in `schema` (the view's own, as
+   * the host composed it). A setting the host persists back into the view
+   * (density and hidden fields in the console) stops counting once the write
+   * comes back, because the view's own value has moved with it. Plain
+   * per-render values, never memo identities (AGENTS.md #10).
+   */
+  const authoredGalleryCardSize: GalleryCardSize = (schema.gallery?.cardSize as GalleryCardSize | undefined) ?? 'medium';
+  const sortedNames = (names: Iterable<string> | undefined) => JSON.stringify([...(names ?? [])].sort());
+  const displayDeviation = {
+    layout: viewSwitcherOffered && !!schema.viewType && currentView !== schema.viewType,
+    group: toolbarFlags.showGroup
+      && JSON.stringify(groupingConfig?.fields ?? []) !== JSON.stringify(initialGroupingConfig?.fields ?? []),
+    color: toolbarFlags.showColor && (rowColorConfig?.field ?? '') !== (schema.rowColor?.field ?? ''),
+    hiddenFields: toolbarFlags.showHideFields && sortedNames(hiddenFields) !== sortedNames(schema.hiddenFields),
+    density: toolbarFlags.showDensity && (currentView === 'gallery'
+      ? galleryCardSize !== authoredGalleryCardSize
+      : density.mode !== resolvedDensity),
+    rowNumbers: currentView === 'grid' && !rowNumbers,
+    inlineEdit: currentView === 'grid' && inlineEditOffered && inlineEdit !== !!schema.inlineEdit,
+  };
+  const displayChangedCount = Object.values(displayDeviation).filter(Boolean).length;
+  /** Every setting back to the view's own, each through the door its control writes through. */
+  const resetDisplayToViewDefault = () => {
+    if (displayDeviation.layout) handleViewChange(schema.viewType as ListViewVisualization);
+    if (displayDeviation.group) changeGrouping(initialGroupingConfig);
+    if (displayDeviation.color) setRowColorConfig(schema.rowColor);
+    if (displayDeviation.hiddenFields) updateHiddenFields(new Set(schema.hiddenFields || []));
+    if (displayDeviation.density) {
+      if (currentView === 'gallery') {
+        setGalleryCardSize(authoredGalleryCardSize);
+        try { window.localStorage.setItem(galleryDensityKey, authoredGalleryCardSize); } catch { /* private mode */ }
+      } else {
+        density.setMode(resolvedDensity);
+      }
+    }
+    if (displayDeviation.rowNumbers) setRowNumbers(true);
+    if (displayDeviation.inlineEdit) updateInlineEdit(!!schema.inlineEdit);
+  };
+
+  /**
    * The user-filter chips the toolbar renders (ADR-0053: `userFilters`, dropdown
    * or tabs, is the sole page filter control).
    *
@@ -4938,8 +4991,9 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         <div className="flex items-center gap-0 shrink-0 rounded-lg border border-border bg-muted/40 p-0.5 shadow-sm" data-print-hide>
           {/* Visualization switcher — compact dropdown (Airtable-style
               "List ▾"), first slot of the right tool cluster so the whole
-              toolbar stays a single row. */}
-          {viewSwitcherOffered && (
+              toolbar stays a single row. The Display form carries it as its
+              Layout row instead (objectui#12423). */}
+          {viewSwitcherOffered && !toolbarFlags.compactToolbar && (
             <>
               <ViewSwitcherDropdown
                 currentView={currentView}
@@ -5051,6 +5105,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                   "h-7 px-2 text-muted-foreground hover:text-primary text-xs transition-colors duration-150",
                   hasFilters && "text-foreground font-medium"
                 )}
+                data-testid="toolbar-filter-trigger"
               >
                 <SlidersHorizontal className="h-3.5 w-3.5 mr-1.5" />
                 <span className="hidden sm:inline">{t('list.filter')}</span>
@@ -5141,6 +5196,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                   "hidden sm:inline-flex h-7 px-2 text-muted-foreground hover:text-primary text-xs transition-colors duration-150",
                   currentSort.length > 0 && "text-foreground font-medium"
                 )}
+                data-testid="toolbar-sort-trigger"
               >
                 <ArrowUpDown className="h-3.5 w-3.5 mr-1.5" />
                 <span className="hidden sm:inline">{t('list.sort')}</span>
@@ -5322,22 +5378,27 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
             );
           })()}
 
-          {/* (Removed) Previously a mobile-only ViewSettingsPopover gear was
-              rendered here to expose HideFields / Group / Color / Density on
-              phones. Those controls are essentially no-ops on a single-column
-              mobile layout, so on mobile we now drop the gear entirely. The
-              same controls remain available on desktop via the individual
-              buttons above, and on tablet via the existing compactToolbar
-              gear below. */}
-
-          {/* Compact View Settings popover (P1-4): bundles Group + Color + Density + Hide Fields
-              into a single gear button when schema.compactToolbar is enabled. */}
+          {/* Display (objectui#12423) — the default form of this cluster:
+              Layout, Group, Color, Hide fields, Density, Row numbers and Edit
+              inline in one panel, with Reset / Refresh / Export in its footer.
+              Every control writes through the same door as its wide-form
+              button above; the panel adds no storage of its own. Drawn on
+              mobile too (icon only): Refresh and Export live in it. */}
           {toolbarFlags.compactToolbar && (
-            toolbarFlags.showGroup || toolbarFlags.showColor || toolbarFlags.showDensity || toolbarFlags.showHideFields
+            viewSwitcherOffered || toolbarFlags.showGroup || toolbarFlags.showColor || toolbarFlags.showDensity
+            || toolbarFlags.showHideFields || currentView === 'grid' || toolbarFlags.showRefresh
+            || (resolvedExportOptions && exportPermitted && exportableFormats.length > 0)
           ) && (
             <ViewSettingsPopover
               t={t as any}
               allFields={allFields as any}
+              layout={viewSwitcherOffered ? (
+                <ViewSwitcherDropdown
+                  currentView={currentView}
+                  availableViews={availableViews}
+                  onViewChange={handleViewChange}
+                />
+              ) : undefined}
               showGroup={toolbarFlags.showGroup}
               groupingConfig={groupingConfig}
               setGroupingConfig={changeGrouping}
@@ -5345,32 +5406,48 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               rowColorConfig={offeredRowColorConfig}
               setRowColorConfig={setRowColorConfig}
               showDensity={toolbarFlags.showDensity}
-              density={density as any}
+              density={currentView === 'gallery'
+                ? {
+                    mode: galleryCardSize === 'small' ? 'compact' : galleryCardSize === 'medium' ? 'comfortable' : 'spacious',
+                    cycle: cycleGalleryDensity,
+                  }
+                : density as any}
               showHideFields={toolbarFlags.showHideFields}
               hiddenFields={offeredHiddenFields}
               updateHiddenFields={updateOfferedHiddenFields}
-              /* [#4647] The compact toolbar's inline-edit entry — the SECOND
+              rowNumbers={rowNumbers}
+              setRowNumbers={currentView === 'grid' ? setRowNumbers : undefined}
+              /* [#4647] The Display panel's inline-edit entry — the SECOND
                  render site for this affordance, and the one with no gate at
                  all: it never even required `onInlineEditChange`. Same
                  `inlineEditOffered` verdict as the wide toolbar's toggle, or a
-                 read-only principal would keep the entry on mobile after
-                 losing it on desktop. */
+                 read-only principal would keep the entry here after losing it
+                 there. */
               showInlineEdit={currentView === 'grid' && inlineEditOffered}
               inlineEdit={inlineEdit}
               setInlineEdit={updateInlineEdit}
+              changedCount={displayChangedCount}
+              onReset={resetDisplayToViewDefault}
+              onRefresh={toolbarFlags.showRefresh ? () => setRefreshKey(k => k + 1) : undefined}
+              refreshing={loading}
+              exportFormats={resolvedExportOptions && exportPermitted && exportableFormats.length > 0 ? exportableFormats : undefined}
+              onExport={(format) => handleExport(format as 'csv' | 'xlsx' | 'json' | 'pdf')}
+              exportBusy={exportBusy}
+              exportError={exportError}
             />
           )}
 
-          {/* --- Separator: Appearance | Export --- */}
-          {(toolbarFlags.showColor || toolbarFlags.showDensity || toolbarFlags.compactToolbar) && resolvedExportOptions && exportPermitted && exportableFormats.length > 0 && (
+          {/* --- Separator: Appearance | Export (wide form) --- */}
+          {!toolbarFlags.compactToolbar && (toolbarFlags.showColor || toolbarFlags.showDensity) && resolvedExportOptions && exportPermitted && exportableFormats.length > 0 && (
             <div className="h-5 w-px bg-border/50 mx-1 shrink-0" />
           )}
 
           {/* Refresh — re-fetch the current view from the backend without a full page
               reload. Filters / sort / pagination / search all live in component state,
-              so bumping refreshKey re-queries while preserving the view. Always visible
-              (mobile + desktop) since reloading data is a primary list action. */}
-          {toolbarFlags.showRefresh && (
+              so bumping refreshKey re-queries while preserving the view. In the wide
+              form a bar button (mobile + desktop); in the Display form it sits in
+              the panel's footer. */}
+          {toolbarFlags.showRefresh && !toolbarFlags.compactToolbar && (
             <Button
               variant="ghost"
               size="sm"
@@ -5385,8 +5462,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
             </Button>
           )}
 
-          {/* Export */}
-          {resolvedExportOptions && exportPermitted && exportableFormats.length > 0 && (
+          {/* Export — wide form only; the Display form's footer carries it. */}
+          {!toolbarFlags.compactToolbar && resolvedExportOptions && exportPermitted && exportableFormats.length > 0 && (
             <Popover open={showExport} onOpenChange={setShowExport}>
               <PopoverTrigger asChild>
                 <Button
@@ -5471,7 +5548,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
 
           {/* --- Separator: Print/Share/Export | Search --- */}
           {(() => {
-            const hasLeftSideItems = schema.allowPrinting || !!schema.sharing?.type || (resolvedExportOptions && exportPermitted && exportableFormats.length > 0);
+            const hasLeftSideItems = schema.allowPrinting || !!schema.sharing?.type
+              || (!toolbarFlags.compactToolbar && resolvedExportOptions && exportPermitted && exportableFormats.length > 0);
             return toolbarFlags.showSearch && hasLeftSideItems ? (
               <div className="h-5 w-px bg-border/50 mx-1 shrink-0" />
             ) : null;
@@ -5723,6 +5801,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               // one, and this React prop is not authored. Only the grid reads
               // it, so only the grid is handed it.
               ? { objectFields: objectDef.fields }
+              : {})}
+            {...(viewComponentSchema.type === 'object-grid'
+              // objectui#12423 — the Display control's Row numbers switch, on
+              // the grid's host channel (a React prop, never a node key).
+              ? { showRowNumbers: rowNumbers }
               : {})}
             // [objectui#12081] A windowed calendar keeps drawing while the
             // next window loads (the refresh bar above says so), and shows its

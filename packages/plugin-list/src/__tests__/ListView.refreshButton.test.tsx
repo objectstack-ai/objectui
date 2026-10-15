@@ -23,6 +23,10 @@ import { ListView } from '../ListView';
 import type { ListViewSchema } from '@object-ui/types';
 import { SchemaRendererProvider } from '@object-ui/react';
 
+
+/** objectui#12423 — Display is the toolbar default; this file drives the WIDE form's buttons. */
+const WIDE_TOOLBAR = { compactToolbar: false } as const;
+
 beforeAll(() => {
   Object.defineProperty(window, 'localStorage', {
     value: (() => {
@@ -53,7 +57,7 @@ function renderList(schema: Partial<ListViewSchema>, ds: any) {
   return render(
     <SchemaRendererProvider dataSource={ds}>
       <ListView
-        schema={{ type: 'list-view', objectName: 'proj', fields: ['name'], ...schema } as any}
+        schema={{ ...WIDE_TOOLBAR, type: 'list-view', objectName: 'proj', fields: ['name'], ...schema } as any}
         dataSource={ds}
       />
     </SchemaRendererProvider>,

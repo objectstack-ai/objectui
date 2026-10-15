@@ -924,14 +924,15 @@ const ar = {
     print: "طباعة",
     hideFieldsTitle: "إخفاء الحقول",
     dataLimitReached: "يتم عرض أول {{limit}} سجل. قد تتوفر بيانات إضافية.",
-    viewSettings: "إعدادات العرض",
-    viewSettingsHint: "التجميع واللون والكثافة والحقول المرئية. ينطبق على جميع المستخدمين الذين يستخدمون هذا العرض.",
+    display: "العرض",
+    layout: "التخطيط",
+    rowNumbers: "أرقام الصفوف",
+    resetToViewDefault: "إعادة التعيين إلى الإعدادات الافتراضية للعرض",
     addGroup: "إضافة حقل مجموعة",
     collapsedByDefault: "مطوي افتراضياً",
     removeGroup: "إزالة",
     inlineEditShort: "تحرير مضمّن",
     inlineEditLabel: "حرّر السجلات مباشرة (انقر خلية للتحرير)",
-    recordEditingTitle: "تحرير السجلات",
   },
   managedByBadge: {
     systemWritable: {

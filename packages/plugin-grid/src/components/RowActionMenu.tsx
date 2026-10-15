@@ -626,7 +626,11 @@ export const RowActionMenu: React.FC<RowActionMenuProps> = ({
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0"
+              // objectui#12423 — shown on row hover, on focus-within, on a
+              // selected row, while its menu is open and on a coarse pointer;
+              // hidden by OPACITY only, so it keeps its Tab stop and its name.
+              // The `data-table` row menu trigger carries the same set.
+              className="h-8 w-8 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 opacity-0 transition-opacity group-hover/row:opacity-100 group-focus-within/row:opacity-100 group-data-[state=selected]/row:opacity-100 data-[state=open]:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
               data-testid="row-action-trigger"
             >
               <MoreVertical className="h-4 w-4" />

@@ -20,6 +20,15 @@ The toolbar and cell renderers are tuned for low visual noise on dense tables:
 - **Unified toolbar row**: view tabs (`schema.tabs`), user filters and tool
   buttons share a single bordered row. The previous stacked rows (`tabs` /
   `description` / `toolbar`) are collapsed into one separator line.
+- **Four tool buttons by default**: the right side of the row is Filter, Sort,
+  Display and Search. **Display** holds the rest — a Layout row (the
+  visualization switcher, when the list offers more than one), Group, Row
+  color, Hide fields, Density, a session-only Row numbers switch and an Edit
+  inline switch, with Reset to view default, Refresh and Export in its footer.
+  Its trigger counts the settings that differ from the view's own. Each
+  control saves what its own toolbar button saves; the panel stores nothing
+  of its own. A view that sets `compactToolbar: false` gets one toolbar
+  button per control instead (objectui#12423).
 - **Flat user-filter pills**: `userFilters` (dropdown mode) render as ghost
   text + count. Active state is shown via `text-foreground font-medium`
   rather than a filled / bordered pill.
@@ -109,7 +118,7 @@ import { ListView } from '@object-ui/plugin-list';
 
 When both are present, `grouping` wins. End users can also add or remove
 grouping fields at runtime via the Group toolbar button. Every such edit, in
-the toolbar's Group panel or in the compact toolbar's View settings popover
+the Display panel's Group section or in the wide toolbar's Group panel
 (Clear included), fires `onGroupingChange` with the spec `GroupingConfig`, or
 with `undefined` when the grouping is cleared. A changed `schema.grouping` that
 the list re-reads does not fire it: that value came from the host

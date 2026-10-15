@@ -51,6 +51,10 @@ import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRendererProvider } from '@object-ui/react';
 import { ListView } from '../ListView';
 
+
+/** objectui#12423 — Display is the toolbar default; this file drives the WIDE form's buttons. */
+const WIDE_TOOLBAR = { compactToolbar: false } as const;
+
 /** The protocol's display default, read the way the renderer reads it. */
 const SPEC_DISPLAY_DEFAULT: number = PaginationConfigSchema.parse({}).pageSize;
 
@@ -134,6 +138,7 @@ const renderList = (schemaExtra: Record<string, unknown>, ds: any, props: Record
     <SchemaRendererProvider dataSource={ds}>
       <ListView
         schema={{
+          ...WIDE_TOOLBAR,
           type: 'list-view',
           objectName: 'task',
           columns: ['name', 'status'],

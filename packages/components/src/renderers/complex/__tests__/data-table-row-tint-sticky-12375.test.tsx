@@ -77,13 +77,13 @@ const stickyCells = (tr: HTMLTableRowElement) => cellsOf(tr).filter((td) => toke
 afterEach(() => cleanup());
 
 describe('data-table carries a row tint into the row\'s sticky cells (objectui#12375)', () => {
-  it('CONTROL: checkbox, row number, the frozen column and the right-pinned column are the sticky cells', () => {
+  it('CONTROL: the leading cell, the frozen column and the right-pinned column are the sticky cells', () => {
     renderTable();
     const tr = rowOf('Tinted');
     const cells = cellsOf(tr);
-    // checkbox · # · Name · Owner · Actions
-    expect(cells).toHaveLength(5);
-    expect(stickyCells(tr)).toEqual([cells[0], cells[1], cells[2], cells[4]]);
+    // checkbox-and-number (one leading cell since objectui#12423) · Name · Owner · Actions
+    expect(cells).toHaveLength(4);
+    expect(stickyCells(tr)).toEqual([cells[0], cells[1], cells[3]]);
   });
 
   it('a tinted row\'s sticky cells layer the tint over an opaque fill', () => {

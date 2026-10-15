@@ -33,7 +33,7 @@
 
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, cleanup, act, fireEvent, screen } from '@testing-library/react';
+import { render, cleanup, act, fireEvent, screen, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, useNavigate, useLocation, useNavigationType } from 'react-router-dom';
 
 const { perms } = vi.hoisted(() => ({
@@ -476,9 +476,17 @@ const groupParamOf = (host: Host) => {
 };
 const BY_PRIORITY = { fields: [{ field: 'priority', order: 'desc', collapsed: false }] };
 
+/** Since objectui#12423 the Group editor is a section of the toolbar's Display panel. */
 async function openGroupPanel() {
-  fireEvent.click(screen.getByRole('button', { name: /^group/i }));
+  fireEvent.click(screen.getByTestId('toolbar-display-trigger'));
   await settle();
+}
+
+/** The Group section's own Clear, inside the Display panel. */
+function clearGrouping() {
+  const panel = screen.getByTestId('view-settings-content');
+  const title = within(panel).getByRole('button', { name: /^group/i });
+  fireEvent.click(within(title.parentElement!).getByRole('button', { name: 'Clear' }));
 }
 
 describe('the toolbar grouping is in the URL too (objectui#11860)', () => {
@@ -512,7 +520,7 @@ describe('the toolbar grouping is in the URL too (objectui#11860)', () => {
     // The list is grouped by what the URL now says.
     expect(groupedBy()).toEqual([written.fields[0].field]);
 
-    fireEvent.click(screen.getByTestId('clear-grouping'));
+    clearGrouping();
     await settle();
     expect(groupParamOf(host)).toBeNull();
 
@@ -540,7 +548,7 @@ describe('the toolbar grouping is in the URL too (objectui#11860)', () => {
     const before = host.search();
     const navigationsBefore = host.navigations().length;
     await openGroupPanel();
-    expect(screen.getByTestId('group-field-list')).toBeDefined();
+    expect(within(screen.getByTestId('view-settings-content')).getByTestId('grouping-add')).toBeDefined();
     fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
     await settle();
     expect(host.search()).toBe(before);

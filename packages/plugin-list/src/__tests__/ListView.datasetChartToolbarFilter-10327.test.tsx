@@ -38,6 +38,10 @@ import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRendererProvider } from '@object-ui/react';
 import { ListView } from '../ListView';
 
+
+/** objectui#12423 — Display is the toolbar default; this file drives the WIDE form's buttons. */
+const WIDE_TOOLBAR = { compactToolbar: false } as const;
+
 let chartNodes: Array<Record<string, unknown>> = [];
 
 ComponentRegistry.register(
@@ -81,7 +85,7 @@ function mount(view: Record<string, unknown>) {
   const schema = { type: 'list-view', objectName: 'duly_task', columns: ['subject'], userFilters: TOGGLE_CHIP, ...view };
   render(
     <SchemaRendererProvider dataSource={dataSource}>
-      <ListView schema={schema as never} dataSource={dataSource} showViewSwitcher />
+      <ListView schema={{ ...WIDE_TOOLBAR, ...schema } as never} dataSource={dataSource} showViewSwitcher />
     </SchemaRendererProvider>,
   );
   return dataSource;

@@ -83,13 +83,14 @@ describe('StudioNavItemInspector — object binding (objectui#4881)', () => {
     // so this assertion fails loudly on the old reading rather than degrading
     // to an empty value. The picker is the shared `Select` since objectui#11865:
     // its trigger shows the chosen option's label.
-    expect(screen.getByRole('combobox').textContent).toBe('Leads (crm_lead)');
+    // objectui#12455 — the inspector also offers an Icon picker (a combobox), so the object picker is addressed by its test id.
+    expect(screen.getByTestId('nav-link-object').textContent).toBe('Leads (crm_lead)');
   });
 
   it('picking an object writes a nav item the spec accepts whole', async () => {
     // The entry as the canvas births it: label-less since objectui#11196.
     const onNavPatch = renderInspector({ id: 'nav_lead', type: 'object' });
-    fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowDown' });
+    fireEvent.keyDown(screen.getByTestId('nav-link-object'), { key: 'ArrowDown' });
     fireEvent.click(await screen.findByRole('option', { name: 'Leads (crm_lead)' }));
 
     expect(onNavPatch).toHaveBeenCalledTimes(1);

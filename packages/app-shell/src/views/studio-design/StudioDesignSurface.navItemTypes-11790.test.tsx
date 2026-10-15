@@ -413,7 +413,8 @@ describe('StudioNavItemInspector — each target-bearing type picks a target and
   it('the control: *Link to object* binds an object entry as before', async () => {
     render(<InspectorHost entry={BORN} />);
     // The object entry's only combobox is its object picker.
-    fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowDown' });
+    // objectui#12455 — the inspector also offers an Icon picker (a combobox), so the object picker is addressed by its test id.
+    fireEvent.keyDown(screen.getByTestId('nav-link-object'), { key: 'ArrowDown' });
     fireEvent.click(await screen.findByRole('option', { name: 'Task (acme_task)' }));
     const entry = entryNow();
     expect(entry).toEqual({ id: 'nav_item_3', type: 'object', objectName: 'acme_task' });

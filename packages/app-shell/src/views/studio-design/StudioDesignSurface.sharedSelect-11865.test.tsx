@@ -342,7 +342,8 @@ describe('the nav-item inspector picks with the shared Select (objectui#11865)',
     for (const key of ['objBorn', 'pageBorn', 'dashBound', 'reportBorn', 'actionBorn', 'compBorn', 'docBorn', 'urlDefault']) {
       renderEntry(key);
       names[key] = screen.getAllByRole('combobox').map((c) => {
-        const named = ['Page', 'Dashboard', 'Report', 'Action', 'Component', 'Doc page', 'Book', 'Open in'].find(
+        // objectui#12455 — the inspector's Icon picker is a combobox named by its label too.
+        const named = ['Page', 'Dashboard', 'Report', 'Action', 'Component', 'Doc page', 'Book', 'Open in', 'Icon'].find(
           (n) => screen.queryByRole('combobox', { name: n }) === c,
         );
         return named ?? '';
@@ -350,14 +351,14 @@ describe('the nav-item inspector picks with the shared Select (objectui#11865)',
       cleanup();
     }
     expect(names).toEqual({
-      objBorn: [''],
-      pageBorn: ['Page'],
-      dashBound: ['Dashboard'],
-      reportBorn: ['Report'],
-      actionBorn: ['Action'],
-      compBorn: ['Component'],
-      docBorn: ['Doc page', 'Book'],
-      urlDefault: ['Open in'],
+      objBorn: ['', 'Icon'],
+      pageBorn: ['Page', 'Icon'],
+      dashBound: ['Dashboard', 'Icon'],
+      reportBorn: ['Report', 'Icon'],
+      actionBorn: ['Action', 'Icon'],
+      compBorn: ['Component', 'Icon'],
+      docBorn: ['Doc page', 'Book', 'Icon'],
+      urlDefault: ['Open in', 'Icon'],
     });
     renderEntry('objBorn');
     expect(screen.getByTestId(OBJECT_PICKER)).not.toHaveAccessibleName();

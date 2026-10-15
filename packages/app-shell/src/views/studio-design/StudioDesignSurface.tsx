@@ -193,6 +193,7 @@ import { OWD_CREATE_MODELS, OWD_DEFAULT, type OwdCreateModel } from './owd-shari
 import { t, tFormat, translateMetadataType, useMetadataLocale } from '../metadata-admin/i18n.js';
 import { fieldsForNodeType, localizeFlowFields, type FlowConfigField } from '../metadata-admin/inspectors/flow-node-config.js';
 import { ObjectPicker } from '../metadata-admin/inspectors/ObjectPicker.js';
+import { IconPickerWidget } from '../metadata-admin/widgets.js';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { SuggestedBindingsPanel } from '../../components/SuggestedBindingsPanel.js';
 import { AppNavCanvas, navPayloadOf } from '../metadata-admin/previews/AppNavCanvas.js';
@@ -404,19 +405,6 @@ const KIND_ICON: Record<string, LucideIcon> = {
   separator: Minus,
 };
 const navIcon = (type?: string): LucideIcon => KIND_ICON[type ?? ''] ?? Compass;
-/** The Lucide name of a kind's fallback glyph, offered as the Icon field's placeholder. */
-const KIND_ICON_NAME: Record<string, string> = {
-  group: 'folder',
-  page: 'file-text',
-  object: 'database',
-  dashboard: 'layout-dashboard',
-  report: 'bar-chart-3',
-  action: 'mouse-pointer-2',
-  url: 'link',
-  component: 'puzzle',
-  doc: 'book-open',
-};
-const navIconName = (type: string): string | undefined => KIND_ICON_NAME[type];
 
 
 /**
@@ -2360,7 +2348,6 @@ export function StudioNavItemInspector({
     });
   const str = (v: unknown): string => (typeof v === 'string' ? v : '');
   const actionDef = node.actionDef as { actionName?: unknown } | undefined;
-  const IconPreview: React.ElementType = str(node.icon) ? getIcon(str(node.icon)) : navIcon(kind ?? undefined);
   // Whether the entry names a target for its type yet (a group and a
   // separator name none, and are never unbound).
   const unbound =
@@ -2522,25 +2509,20 @@ export function StudioNavItemInspector({
       )}
       {navEntryOffersField(kind, 'icon') && (
         // objectui#12455 — the entry's own `icon`, a Lucide name, as the rail
-        // and the running sidebar draw it: a preview tile beside the name.
-        // Emptying the field removes the key (the rail then falls back to the
-        // target's icon), never writes `''`.
+        // and the running sidebar draw it, picked from the catalog with the
+        // console's icon picker (a preview beside the name). Clearing it
+        // removes the key (the rail then falls back to the target's icon),
+        // never writes `''`.
         <div>
           <label htmlFor={iconFieldId} className="mb-1 block text-[11px] font-medium text-muted-foreground">
             {t('engine.studio.nav.icon', locale)}
           </label>
-          <div className="flex items-center gap-2">
-            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border bg-background text-muted-foreground">
-              <IconPreview className="h-4 w-4" aria-hidden="true" />
-            </span>
-            <input
-              id={iconFieldId}
-              value={str(node.icon)}
-              onChange={(e) => setTarget('icon', e.target.value.trim())}
-              placeholder={kind ? navIconName(kind) : undefined}
-              className="h-8 min-w-0 flex-1 rounded border bg-background px-2 font-mono text-xs"
-            />
-          </div>
+          <IconPickerWidget
+            id={iconFieldId}
+            schema={{ type: 'string' }}
+            value={str(node.icon)}
+            onChange={(v) => setTarget('icon', typeof v === 'string' ? v : '')}
+          />
         </div>
       )}
       {node.visible !== undefined && (

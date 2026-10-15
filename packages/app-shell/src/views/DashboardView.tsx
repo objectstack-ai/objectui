@@ -27,6 +27,7 @@ import { useActionModal } from '../hooks/useActionModal.js';
 import { useMetaItemRefusal } from '../hooks/useMetaItemRefusal.js';
 import { usePreviewDrafts } from '../preview/PreviewModeContext.js';
 import { SkeletonDashboard } from '../skeletons/index.js';
+import { PageHeader } from '../layout/PageHeader.js';
 import { useMetadata } from '../providers/MetadataProvider.js';
 import { useExpressionContext } from '../providers/ExpressionProvider.js';
 import { resolveKeyedI18nLabel, preferLocal } from '../utils/index.js';
@@ -242,62 +243,75 @@ export function DashboardView({ dataSource }: { dataSource?: any }) {
   }
 
 
+  // Header source: `label`, then the raw `name`. There is no `title` arm — the
+  // legacy root `title` read RETIRED here under ADR-0049 (objectui#7509,
+  // maintainer ruling 2026-09-04), together with the four sibling arms in
+  // `DashboardRenderer`, `DashboardGridLayout`, `DashboardEditor` and
+  // `DashboardDesignPage`, so one spelling answers on every surface instead of
+  // two disagreeing.
+  //
+  // Measured on @objectstack/spec 17.2.0: `DashboardSchema` refuses `title` BY
+  // NAME (`unrecognized_keys(title)` at the document root) and spells the
+  // display name `label`, which is REQUIRED; `header` declares `showTitle` /
+  // `showDescription` / `actions` only, so it TOGGLES a title and never carries
+  // one. Writing `title` earns a `422 INVALID_METADATA` from the save route
+  // before persistence (see `MetadataService`), not a header — so no authored
+  // document can acquire the key, and what retired is legacy-document
+  // compatibility only. A spec-valid stored document always carries `label`,
+  // so a legacy document holding BOTH now shows its `label`; one holding
+  // `title` and no `label` was already invalid and falls through to `name`.
+  //
+  // ⛔ Widget-level `widget.title` is a DIFFERENT, DECLARED key
+  // (`DashboardWidget.title`, the spec's `I18nLabel`) and is untouched. Root
+  // and widget arms are told apart by RECEIVER.
+  //
+  // `previewSchema` was never a host-supplied preview channel — it is this
+  // view's own widget-pruned copy of `dashboard` (above) — so the retired arm
+  // read the same stored document either way, which is why it is gone rather
+  // than re-pointed.
+  //
+  // Drawn as served, with no client bundle pass (objectui#11295): `dashboard`
+  // is the `/meta` read's document, already translated for this language by
+  // the server, which keeps a published edit over the packaged catalog. A
+  // `dashboards.<name>.label` lookup here answered the catalog a second time
+  // and won it back.
+  const display = resolveKeyedI18nLabel(dashboard.label, t) || dashboard.name;
+  const headerSrc = (previewSchema as any) || dashboard;
+  const rawDesc = headerSrc.description ?? dashboard.description;
+  // Served, like the label above: drawn as given (objectui#11295).
+  const desc = resolveKeyedI18nLabel(rawDesc, t);
+
   return (
     <div className="flex flex-col h-full overflow-hidden bg-background">
-      {/* ── Header ───────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 sm:gap-4 p-4 sm:p-6 border-b shrink-0">
-        <div className="min-w-0 flex-1">
-          {(() => {
-            // Header source: `label`, then the raw `name`. There is no `title`
-            // arm — the legacy root `title` read RETIRED here under ADR-0049
-            // (objectui#7509, maintainer ruling 2026-09-04), together with the
-            // four sibling arms in `DashboardRenderer`, `DashboardGridLayout`,
-            // `DashboardEditor` and `DashboardDesignPage`, so one spelling
-            // answers on every surface instead of two disagreeing.
-            //
-            // Measured on @objectstack/spec 17.2.0: `DashboardSchema` refuses
-            // `title` BY NAME (`unrecognized_keys(title)` at the document root)
-            // and spells the display name `label`, which is REQUIRED; `header`
-            // declares `showTitle` / `showDescription` / `actions` only, so it
-            // TOGGLES a title and never carries one. Writing `title` earns a
-            // `422 INVALID_METADATA` from the save route before persistence
-            // (see `MetadataService`), not a header — so no authored document
-            // can acquire the key, and what retired is legacy-document
-            // compatibility only. A spec-valid stored document always carries
-            // `label`, so a legacy document holding BOTH now shows its `label`;
-            // one holding `title` and no `label` was already invalid and falls
-            // through to `name`.
-            //
-            // ⛔ Widget-level `widget.title` is a DIFFERENT, DECLARED key
-            // (`DashboardWidget.title`, the spec's `I18nLabel`) and is
-            // untouched. Root and widget arms are told apart by RECEIVER.
-            //
-            // `previewSchema` was never a host-supplied preview channel — it is
-            // this view's own widget-pruned copy of `dashboard` (above) — so
-            // the retired arm read the same stored document either way, which
-            // is why it is gone rather than re-pointed.
-            //
-            // Drawn as served, with no client bundle pass (objectui#11295):
-            // `dashboard` is the `/meta` read's document, already translated
-            // for this language by the server, which keeps a published edit
-            // over the packaged catalog. A `dashboards.<name>.label` lookup
-            // here answered the catalog a second time and won it back.
-            const display = resolveKeyedI18nLabel(dashboard.label, t) || dashboard.name;
-            return (
-              <h1 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight truncate">{display}</h1>
-            );
-          })()}
-          {(() => {
-            const headerSrc = (previewSchema as any) || dashboard;
-            const rawDesc = headerSrc.description ?? dashboard.description;
-            // Served, like the label above: drawn as given (objectui#11295).
-            const desc = resolveKeyedI18nLabel(rawDesc, t);
-            return desc ? (
-              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{desc}</p>
-            ) : null;
-          })()}
-        </div>
-      </div>
+      {/* ── Header ───────────────────────────────────────────────────
+          The console's one page header, the one an object list draws
+          (objectui#12526): icon chip, title, the description beside the
+          title from `sm` up, in one row. The app bar draws no crumb on a
+          dashboard route, so this row is the one place the dashboard is
+          named from `sm` up; below `sm` the phone bar names it too, and this
+          row draws the icon and title only (the console `PageHeader` hides
+          its secondary line there, objectui#12423).
+
+          The icon is the dashboard kind's — `LayoutDashboard`, the glyph the
+          console writes on a dashboard's navigation entry
+          (`newDashboardNavigationItem`). A dashboard document has no icon of
+          its own: `DashboardSchema` declares none.
+
+          No actions here. "Refresh All" stays where `DashboardRenderer` draws
+          it: the renderer shows it whenever it holds `onRefresh`, and the same
+          handler arms the authored `refreshIntervalSeconds` timer, so dropping
+          the handler to move the button would stop that timer (objectui#11062).
+          `hideHeaderText` below keeps the renderer from drawing the title and
+          description a second time.
+
+          `header.showTitle` / `header.showDescription` are not read here, as
+          they were not before: they toggle the renderer's own header, which
+          `hideHeaderText` already suppresses. */}
+      <PageHeader
+        title={display}
+        subtitle={desc || undefined}
+        icon={<LayoutDashboard className="h-4 w-4" />}
+      />
 
       {/* ── Main area ────────────────────────────────────────────── */}
       <div className="flex-1 overflow-hidden flex flex-col sm:flex-row relative">

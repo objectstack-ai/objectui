@@ -35,7 +35,7 @@ import { closedFormAffordance, fieldWriteGate, gateFormFields } from './fieldWri
 import { ClosedAffordanceNotice } from './closedAffordanceNotice';
 import { snapshotLoadedRecord, advanceLoadedRecord, type LoadedRecordSnapshot } from './sanitize';
 import { formWritePayload } from './writePayload';
-import { applyAutoColSpan, containerGridColsFor } from './autoLayout';
+import { sectionedGridLayout } from './autoLayout';
 import { useOccSave } from './occSave';
 import {
   NO_LOAD_FAILURES,
@@ -500,7 +500,10 @@ export const SplitForm: React.FC<SplitFormProps> = ({
     .filter((c): c is number => c != null);
   const formColumns = (clampCol(schema.columns)
     ?? (declaredCols.length ? Math.max(...declaredCols) : 1)) as 1 | 2 | 3 | 4;
-  const containerFieldClass = containerGridColsFor(formColumns);
+  // The one sectioned-form rule (objectui#12548): each section at its own
+  // count on the shared grid — 12 tracks wide when the counts do not all fit.
+  const sectionGrid = sectionedGridLayout(formColumns, schema.sections.map((s) => clampCol(s.columns)));
+  const containerFieldClass = sectionGrid.fieldContainerClass;
 
   /**
    * One panel's field list: each section contributes an inline `section-divider`
@@ -528,11 +531,7 @@ export const SplitForm: React.FC<SplitFormProps> = ({
           className: section.className,
         } as any);
       }
-      out.push(
-        ...(formColumns > 1
-          ? applyAutoColSpan(body, formColumns, clampCol(section.columns))
-          : body),
-      );
+      out.push(...sectionGrid.layOut(body, clampCol(section.columns)));
     });
     return out;
   };

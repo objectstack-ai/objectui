@@ -29,7 +29,7 @@ import { closedFormAffordance, fieldWriteGate, gateFormFields } from './fieldWri
 import { ClosedAffordanceNotice } from './closedAffordanceNotice';
 import { snapshotLoadedRecord, advanceLoadedRecord, type LoadedRecordSnapshot } from './sanitize';
 import { formWritePayload } from './writePayload';
-import { applyAutoColSpan, containerGridColsFor } from './autoLayout';
+import { sectionedGridLayout } from './autoLayout';
 import { resolveSuccessNavigate, type SubmitBehavior } from './successBehavior';
 import { resolveSubmitRedirect, submitRedirectScope } from './submitRedirect';
 import {
@@ -1230,7 +1230,11 @@ export const WizardForm: React.FC<WizardFormProps> = ({
   const clampCol = (n: unknown): number | undefined =>
     typeof n === 'number' && n > 0 ? Math.min(Math.floor(n), 4) : undefined;
   const stepGridColumns = clampCol(schema.columns) ?? clampCol(currentSection?.columns) ?? 1;
-  const stepFieldContainerClass = containerGridColsFor(stepGridColumns);
+  // The one sectioned-form rule (objectui#12548), over the one section this
+  // step draws: a form-level grid wider than the step's own count goes 12
+  // tracks wide, so the step still draws its own count per row.
+  const stepGrid = sectionedGridLayout(stepGridColumns, [clampCol(currentSection?.columns)]);
+  const stepFieldContainerClass = stepGrid.fieldContainerClass;
 
   // The current step's child `form` node, typed as the node it is
   // (objectui#11354). `SchemaRenderer`'s `schema` slot is `BaseSchema`, so a
@@ -1251,9 +1255,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
     // Unlike the tabbed/split hosts there is no widest-section
     // fallback: wizard steps never share a viewport, so there is no
     // shared grid to size, and each step keeps its authored width.
-    fields: stepGridColumns > 1
-      ? applyAutoColSpan(currentSectionFields, stepGridColumns, clampCol(currentSection?.columns))
-      : currentSectionFields,
+    fields: stepGrid.layOut(currentSectionFields, clampCol(currentSection?.columns)),
     columns: stepGridColumns,
     ...(stepFieldContainerClass ? { fieldContainerClass: stepFieldContainerClass } : {}),
     layout: 'vertical',

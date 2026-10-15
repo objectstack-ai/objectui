@@ -6,7 +6,8 @@
  *
  * Since objectui#12461 a view route draws no crumb from `sm` up: the view's
  * name in the bar is the phone title below `sm`, which is what the view cells
- * read now. The dashboard cells still read its crumb.
+ * read now. Since objectui#12526 the same holds for a dashboard route, and the
+ * dashboard cells read its phone title, fed by the same label reads.
  *
  * ## What was measured
  *
@@ -315,8 +316,9 @@ describe('AppHeader — a served dashboard is named as served (objectui#11295)',
   });
 
   it('control — a dashboard the `/meta` read did not serve is named by the bundle', () => {
-    // No served document under this name: the crumb's text is the humanized
-    // slug, which no server translated, so the bundle is its translation.
+    // No served document under this name: the phone title's text is the
+    // humanized slug, which no server translated, so the bundle is its
+    // translation.
     const objects = world(EDITED_VIEW, EDITED_DASHBOARD);
     meta.value = { ...meta.value, dashboards: [] };
     renderAt('/apps/showcase_app/dashboard/ops_board', 'zh-CN', objects);

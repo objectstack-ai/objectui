@@ -40,6 +40,7 @@ import {
 } from './studio-tokens.js';
 import { StudioInspector } from './StudioInspector.js';
 import { StudioItemHeader, StudioTab } from './StudioItemHeader.js';
+import { overlayPath } from './BuilderLanding.js';
 import { DATA_CONTENT_CONTAINER, DATA_TAB_FLAT_ONLY, DATA_TAB_FOLDED_ONLY } from './dataTabsFold.js';
 import { StudioRail, StudioRailGroup, StudioRailRow } from './StudioRail.js';
 import { FLOW_TRIGGER_GLYPHS, flowTriggerGlyph, groupFlowsByObject, type FlowTriggerGlyph } from './flowGrouping.js';
@@ -498,10 +499,10 @@ const PACKAGE_LIST_TOAST_ID = 'studio-package-list';
  * objectui#12453 — a read-only package says so twice: the lock in the app
  * chip, and this link at the right of the open item's header, in every
  * pillar. It names the one way to change an installed package, an
- * environment overlay, and lands on the package's metadata directory: the
- * route `BuilderLanding`'s `overlayPath` spells for a read-only package's
- * card, where each type says whether it accepts an overlay. The pillar's
- * read-only sentence (objectui#11781) is its title.
+ * environment overlay, and lands on the package's metadata directory
+ * (`overlayPath`, the Studio home's read-only package card's route), where
+ * each type says whether it accepts an overlay. The pillar's read-only
+ * sentence (objectui#11781) is its title.
  */
 function StudioReadOnlyLink({
   packageId,
@@ -514,7 +515,7 @@ function StudioReadOnlyLink({
 }): React.ReactElement {
   return (
     <Link
-      to={`/apps/setup/metadata?package=${encodeURIComponent(packageId)}`}
+      to={overlayPath(packageId)}
       title={title}
       data-testid="studio-readonly-link"
       className="inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md bg-amber-400/15 px-2.5 text-xs font-medium text-amber-700 hover:bg-amber-400/25 dark:text-amber-300"
@@ -4573,7 +4574,8 @@ export function InterfacesPillar({
                 // closes the aside in this layout, so it carries no second one.
                 onClose={navInspectorHead ? () => setNavSel(null) : selection && !StudioCanvas ? () => setSelection(null) : undefined}
                 closeLabel={t('engine.studio.deselect', locale)}
-                footer={t('engine.studio.inspector.draftFooter', locale)}
+                // objectui#12453 — a read-only package saves no draft: no footer.
+                footer={readOnly ? null : t('engine.studio.inspector.draftFooter', locale)}
                 bodyClassName="flex min-h-0 flex-1 flex-col"
               >
                 {inspectorBodyEl}
@@ -4603,7 +4605,8 @@ export function InterfacesPillar({
                 // properties toggle opens and closes this aside.
                 onClose={navInspectorHead ? () => setNavSel(null) : selection && !StudioCanvas ? () => setSelection(null) : undefined}
                 closeLabel={t('engine.studio.deselect', locale)}
-                footer={t('engine.studio.inspector.draftFooter', locale)}
+                // objectui#12453 — a read-only package saves no draft: no footer.
+                footer={readOnly ? null : t('engine.studio.inspector.draftFooter', locale)}
                 bodyClassName="flex min-h-0 flex-1 flex-col"
               >
                 {inspectorBodyEl}
@@ -5936,7 +5939,8 @@ export function DataPillar({
             id={fieldSel.id}
             onClose={() => setFieldSel(null)}
             closeLabel={t('engine.studio.close', locale)}
-            footer={t('engine.studio.inspector.draftFooter', locale)}
+            // objectui#12453 — a read-only package saves no draft: no footer.
+            footer={readOnly ? null : t('engine.studio.inspector.draftFooter', locale)}
             bodyClassName="flex min-h-0 flex-1 flex-col"
           >
             {(() => {
@@ -7301,7 +7305,8 @@ export function AutomationsPillar({
               title={heading?.title}
               onClose={selection ? () => setSelection(null) : undefined}
               closeLabel={t('engine.studio.deselect', locale)}
-              footer={t('engine.studio.inspector.draftFooter', locale)}
+              // objectui#12453 — a read-only package saves no draft: no footer.
+              footer={readOnly ? null : t('engine.studio.inspector.draftFooter', locale)}
               // objectui#12454 — a selection's inspector brings its own padding
               // (the metadata inspector shell); only the empty sentence takes the aside's.
               bodyClassName={heading ? 'p-0' : undefined}

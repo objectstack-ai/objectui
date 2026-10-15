@@ -148,6 +148,7 @@ function canvasStatus(): string {
 }
 const STATUS_ON = t('engine.studio.auto.enabled', 'en');
 const STATUS_OFF = t('engine.studio.auto.disabled', 'en');
+const DRAFT_FOOTER = t('engine.studio.inspector.draftFooter', 'en');
 
 async function openFlow(): Promise<HTMLElement> {
   await waitFor(() => expect(canvasStatus()).toBe(STATUS_ON), { timeout: 8000 });
@@ -221,9 +222,28 @@ describe('Automations pillar on a read-only package (objectui#11124)', () => {
     expect(screen.queryAllByRole('button', { name: 'Add connected node' })).toHaveLength(0);
     expect(screen.queryAllByRole('button', { name: 'Insert node here' })).toHaveLength(0);
   });
+
+  // objectui#12453 — a read-only package saves no draft, so its aside does not
+  // say edits do; the chip and the header link already say read-only.
+  it('the configuration aside carries no draft footer (objectui#12453)', async () => {
+    renderPillar(true);
+    await openFlow();
+
+    expect(await screen.findByTestId('auto-config-aside')).toBeInTheDocument();
+    expect(screen.queryByText(DRAFT_FOOTER)).toBeNull();
+  });
 });
 
 describe('Automations pillar on a writable package — the control (objectui#11124)', () => {
+  it('the configuration aside says edits save as drafts (objectui#12453)', async () => {
+    renderPillar(false);
+    await openFlow();
+
+    const aside = await screen.findByTestId('auto-config-aside');
+    expect(within(aside).getByText(DRAFT_FOOTER)).toBeInTheDocument();
+  });
+
+
   it('the switch, the inspector and the canvas all still edit', async () => {
     renderPillar(false);
     const toggle = await openFlow();

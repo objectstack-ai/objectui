@@ -113,6 +113,11 @@ describe('Data pillar Form view — a read-only package reads as read-only (obje
     expect(card).toHaveAttribute('aria-label', row('engine.studio.designer.fieldAriaReadOnly', { label: 'Title' }));
     expect(card).toHaveAttribute('title', row('engine.studio.designer.fieldTitleReadOnly'));
     expect(card).not.toHaveClass('cursor-grab');
+
+    // A click still opens the field's aside; it says nothing about drafts.
+    fireEvent.click(card);
+    expect(await screen.findByTestId('data-field-inspector')).toBeInTheDocument();
+    expect(screen.queryByText(absent('engine.studio.inspector.draftFooter'))).toBeNull();
   });
 
   it('CONTROL — writable: the draft caption, the drag hint and a draggable card', async () => {
@@ -127,6 +132,10 @@ describe('Data pillar Form view — a read-only package reads as read-only (obje
     expect(card).toHaveAttribute('aria-label', row('engine.studio.designer.fieldAria', { label: 'Title' }));
     expect(card).not.toHaveAttribute('title');
     expect(card).toHaveClass('cursor-grab');
+
+    fireEvent.click(card);
+    const aside = await screen.findByTestId('data-field-inspector');
+    expect(aside).toHaveTextContent(row('engine.studio.inspector.draftFooter'));
   });
 });
 

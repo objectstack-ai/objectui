@@ -34,7 +34,11 @@
  *   5. "Reset view", an entry of the header's ⋯ menu shown only while the
  *      user has stored state for the view, drops that state and the list
  *      opens on the view's own sort again.
- *   6. CONTROL — no provider (a host without the console shell): the state is
+ *   6. objectui#12474 — the density toggle and a Hide Fields change are the
+ *      user's too: each writes no view and lands as ONE save; a fresh browser
+ *      opens on them, another user sees the view's own, and "Reset view"
+ *      drops them.
+ *   7. CONTROL — no provider (a host without the console shell): the state is
  *      this browser's, as the tab order and filters were before; a sort still
  *      writes no view; the older `viewOrder:<object>` key is still honoured.
  */
@@ -170,6 +174,9 @@ const FIELDS = {
   amount: { type: 'number', label: 'Amount' },
 };
 const AUTHORED_SORT = [{ field: 'name', order: 'asc' }];
+/** objectui#12474 — the view's own density and hidden fields: every user's default. */
+const AUTHORED_ROW_HEIGHT = 'tall';
+const AUTHORED_HIDDEN = ['amount'];
 /** The saved view: an overlay row the adapter's `listViews` serves. */
 const SAVED_ROW = { name: SAVED_ID, object: OBJECT_NAME, label: 'Pipeline', type: 'grid', columns: ['name'] };
 const OBJECT = {
@@ -177,7 +184,10 @@ const OBJECT = {
   label: 'Deal',
   fields: FIELDS,
   listViews: {
-    [SYSTEM_ID]: { name: SYSTEM_ID, label: 'All', type: 'grid', columns: ['name'], sort: AUTHORED_SORT },
+    [SYSTEM_ID]: {
+      name: SYSTEM_ID, label: 'All', type: 'grid', columns: ['name', 'amount'], sort: AUTHORED_SORT,
+      rowHeight: AUTHORED_ROW_HEIGHT, hiddenFields: AUTHORED_HIDDEN,
+    },
   },
 };
 
@@ -492,6 +502,90 @@ describe('the user\'s state follows them, and only them (objectui#12418)', () =>
     const saved = family.save.mock.calls[0][1] as any;
     expect(saved.perView[SYSTEM_ID]).not.toHaveProperty('filters');
     expect(saved.perView[SYSTEM_ID].sort).toEqual([{ field: 'amount', order: 'desc' }]);
+  });
+});
+
+describe('the density and the hidden fields are the user\'s too (objectui#12474)', () => {
+  it('a density toggle writes no view and lands as one save of the object\'s row', async () => {
+    const ds = makeDataSource();
+    const { family } = makeFamily({});
+    mountWithFamily(ds, family);
+    await listReady();
+    expect(listProps.schema.rowHeight).toBe(AUTHORED_ROW_HEIGHT);
+
+    act(() => listProps.schema.onDensityChange('compact'));
+    await wait(700);
+
+    expect(viewWrites(ds)).toBe(0);
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(family.save).toHaveBeenCalledTimes(1);
+    expect(family.save).toHaveBeenCalledWith(LIST_KEY, { perView: { [SYSTEM_ID]: { rowHeight: 'compact' } } });
+    expect(listProps.schema.rowHeight).toBe('compact');
+  });
+
+  it('a Hide Fields change writes no view and lands as one save of the object\'s row', async () => {
+    const ds = makeDataSource();
+    const { family } = makeFamily({});
+    mountWithFamily(ds, family);
+    await listReady();
+    expect(listProps.schema.hiddenFields).toEqual(AUTHORED_HIDDEN);
+
+    // The whole list the popover emits: the user showed `amount` and hid `name`.
+    act(() => listProps.onHiddenFieldsChange(['name']));
+    await wait(700);
+
+    expect(viewWrites(ds)).toBe(0);
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(family.save).toHaveBeenCalledTimes(1);
+    expect(family.save).toHaveBeenCalledWith(LIST_KEY, { perView: { [SYSTEM_ID]: { hiddenFields: ['name'] } } });
+    expect(listProps.schema.hiddenFields).toEqual(['name']);
+  });
+
+  const STORED = {
+    [LIST_KEY]: { perView: { [SYSTEM_ID]: { rowHeight: 'compact', hiddenFields: [] } } },
+  };
+
+  it('a fresh browser opens on the stored density and hidden fields once the family has loaded', async () => {
+    const ds = makeDataSource();
+    const { family, release } = makeFamily(structuredClone(STORED), { held: true });
+    mountWithFamily(ds, family);
+    await screen.findByTestId('object-view-list-preferences-pending');
+    await act(async () => release());
+    await listReady();
+
+    expect(listProps.schema.rowHeight).toBe('compact');
+    // An empty list is the user's choice ("show every column"), not the view's.
+    expect(listProps.schema.hiddenFields).toEqual([]);
+  });
+
+  it('another user, with no state of their own, sees the view\'s authored density and hidden fields', async () => {
+    session.userId = 'u2';
+    const ds = makeDataSource();
+    const { family } = makeFamily({});
+    mountWithFamily(ds, family);
+    await listReady();
+
+    expect(listProps.schema.rowHeight).toBe(AUTHORED_ROW_HEIGHT);
+    expect(listProps.schema.hiddenFields).toEqual(AUTHORED_HIDDEN);
+  });
+
+  it('"Reset view" drops the stored density and hidden fields, and the list opens on the view\'s own', async () => {
+    const ds = makeDataSource();
+    const { family } = makeFamily(structuredClone(STORED));
+    mountWithFamily(ds, family);
+    await listReady();
+    expect(listProps.schema.rowHeight).toBe('compact');
+
+    await act(async () => {
+      fireEvent.click(await openOverflowItem('object-view-reset-view-button'));
+    });
+    await wait(700);
+
+    expect(viewWrites(ds)).toBe(0);
+    expect(family.save).toHaveBeenCalledTimes(1);
+    expect(family.save).toHaveBeenCalledWith(LIST_KEY, {});
+    expect(listProps.schema.rowHeight).toBe(AUTHORED_ROW_HEIGHT);
+    expect(listProps.schema.hiddenFields).toEqual(AUTHORED_HIDDEN);
   });
 });
 

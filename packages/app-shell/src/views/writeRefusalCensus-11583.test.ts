@@ -108,7 +108,7 @@ const LEDGER: Row[] = [
   {
     file: 'ObjectView.tsx', symbol: 'handleDeleteView', callee: 'deleteView', calls: 1,
     kind: 'surfaces', pin: 'ObjectView.viewWriteRefusal-11583.test.tsx',
-    reason: 'Delete: says `objectViewActions.deleteFailed`; predates this census.',
+    reason: 'Delete: the translated `objectViewActions.deleteFailed` title, with the door\'s message as the description (objectui#12398).',
   },
   {
     file: 'ObjectView.tsx', symbol: 'handlePinView', callee: 'updateView', calls: 1,

@@ -2679,7 +2679,13 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             setRefreshKey(k => k + 1);
         } catch (err) {
             console.error('[ViewTabBar] Failed to delete view:', err);
-            toast.error(t('objectViewActions.deleteFailed'));
+            // objectui#12398: a refused delete is said with the door's own
+            // message, through the channel objectui#11583 gave the view saves
+            // (a 409 for a view two packages hold names its remedy there).
+            toast.error(t('objectViewActions.deleteFailed'), {
+                description: formatMetadataError(err),
+                classNames: { description: 'whitespace-pre-line' },
+            });
         }
     }, [dataSource, isSavedView, activeViewId, views, viewId, navigate, t, confirmHandler]);
 

@@ -27,9 +27,15 @@
  *   'Failed to set default view', with no description, so the refusal's own
  *   reason never reached the user (the objectui#11583 patch round).
  *
- * Rename and delete already said a refusal; they are pinned here as
- * controls, so the census in `writeRefusalCensus-11583.test.ts` can name a
- * pin for every surfaced row.
+ * Rename already said a refusal; it is pinned here as a control, so the
+ * census in `writeRefusalCensus-11583.test.ts` can name a pin for every
+ * surfaced row.
+ *
+ * - `handleDeleteView` said a refusal with the translated
+ *   `objectViewActions.deleteFailed` title and no description, so the
+ *   server's sentence (a 409 naming the `?package=` remedy for a view two
+ *   packages hold, a permission refusal) reached `console.error` alone
+ *   (objectui#12398, this family's delete row).
  *
  * ## What runs
  *
@@ -444,7 +450,7 @@ describe('set-as-default says a refused write with the door\'s message (objectui
   });
 });
 
-describe('rename and delete already said a refusal (controls, objectui#11583: handleRenameView, handleDeleteView)', () => {
+describe('rename already said a refusal (control, objectui#11583: handleRenameView)', () => {
   it('a refused rename raises a toast', async () => {
     const dataSource = makeDataSource({
       updateView: vi.fn(async () => { throw refusal('Renaming refused'); }),
@@ -457,9 +463,17 @@ describe('rename and delete already said a refusal (controls, objectui#11583: ha
     expect((dataSource as any).updateView).toHaveBeenCalledWith(OBJECT_NAME, SAVED_ID, { label: 'Renamed' });
   });
 
-  it('a refused delete raises a toast', async () => {
+});
+
+describe('delete says a refused write with the door\'s message (objectui#12398, handleDeleteView)', () => {
+  it('a refused delete keeps its translated title and shows the door\'s message as the description', async () => {
     const dataSource = makeDataSource({
-      deleteView: vi.fn(async () => { throw refusal('Deleting refused'); }),
+      deleteView: vi.fn(async () => {
+        throw Object.assign(
+          new Error("view 'crm_deal.pipeline' is held by two packages (com.acme.a, com.acme.b); name one with ?package="),
+          { status: 409, code: 'RESOURCE_CONFLICT' },
+        );
+      }),
     });
     await mountOnSavedView(dataSource);
     await act(async () => {
@@ -472,6 +486,8 @@ describe('rename and delete already said a refusal (controls, objectui#11583: ha
       fireEvent.click(buttons[buttons.length - 1]);
     });
     await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(toast.error).mock.calls[0][0]).toBe('objectViewActions.deleteFailed');
+    expect(errorDescription()).toContain('held by two packages');
     expect((dataSource as any).deleteView).toHaveBeenCalledWith(OBJECT_NAME, SAVED_ID);
   });
 });

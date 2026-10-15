@@ -2106,6 +2106,8 @@ const ko = {
       systemViewReadonly: "시스템 보기는 코드에 정의되어 있어 읽기 전용입니다.",
       cannotEditMetaView: "이 보기는 코드에 정의된 기본 제공 보기이므로 변경할 수 없습니다.",
       viewConfigPermissionDenied: "보기 설정은 이 보기를 사용하는 모든 사용자에게 적용되므로 변경하려면 '메타데이터 관리' 권한이 필요합니다. 관리자에게 변경을 요청하세요.",
+      resetView: "보기 재설정",
+      resetViewTitle: "이 보기의 정렬, 필터, 열 너비를 보기 자체의 설정으로 되돌립니다. 본인의 설정만 변경됩니다.",
       cannotDeleteMetaView: "이 보기는 코드에 정의된 기본 제공 보기이므로 삭제할 수 없습니다.",
       expandToPage: "전체 페이지로 열기",
       objectNotFound: "객체를 찾을 수 없음",

@@ -2108,6 +2108,8 @@ const ja = {
       systemViewReadonly: "システムビューはコードで定義されており、読み取り専用です。",
       cannotEditMetaView: "このビューはコードで定義された組み込みビューのため、変更できません。",
       viewConfigPermissionDenied: "ビュー設定はこのビューを使用するすべてのユーザーに適用されるため、変更には「メタデータの管理」権限が必要です。管理者に変更を依頼してください。",
+      resetView: "ビューをリセット",
+      resetViewTitle: "このビューの並べ替え、フィルター、列幅をビュー本来の設定に戻します。変わるのはあなたの表示だけです。",
       cannotDeleteMetaView: "このビューはコードで定義された組み込みビューのため、削除できません。",
       expandToPage: "フルページで開く",
       objectNotFound: "オブジェクトが見つかりません",

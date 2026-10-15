@@ -9,7 +9,7 @@
  * - ListView delegation for non-grid view types (kanban, calendar, chart, etc.)
  */
 
-import { useMemo, useState, useCallback, useEffect, useRef, lazy, Suspense, type ComponentType } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef, lazy, Suspense, createElement, type ComponentType } from 'react';
 import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { resolveFilterPlaceholders, DENSITY_MODE_TO_ROW_HEIGHT, normalizeListViewSchema, leadWithNameField, resolveAffordance, type FilterTokenScope, type SchemaLike } from '@object-ui/core';
 import {
@@ -22,6 +22,7 @@ import {
     type ListUrlState,
 } from './userFilterUrlState.js';
 import { buildListFilterKey, readListFilterState, writeListFilterState } from './listFilterStorage.js';
+import { useObjectListPreferences, type ListViewPreference } from '../context/ListPreferencesProvider.js';
 import { VALUELESS_FILTER_OPERATORS } from './viewFilterFold.js';
 import { parseUrlEqualityFilterTriples } from './drillUrlFilters.js';
 import { narrowPersonalizationOverlay, isViewConfigPermissionDeniedError, formatMetadataError, VIEW_OVERLAY_OWNED_KEYS } from '@object-ui/data-objectstack';
@@ -42,6 +43,7 @@ import {
   Button,
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
   Empty,
   EmptyTitle,
@@ -49,7 +51,7 @@ import {
   NavigationOverlay,
   isFilterValueComplete,
 } from '@object-ui/components';
-import { Plus, Upload, Table as TableIcon, KanbanSquare, Calendar, LayoutGrid, Activity, GanttChart, MapPin, BarChart3, Lock, MoreHorizontal } from 'lucide-react';
+import { Plus, Upload, Table as TableIcon, KanbanSquare, Calendar, LayoutGrid, Activity, GanttChart, MapPin, BarChart3, Lock, MoreHorizontal, RotateCcw } from 'lucide-react';
 import { FavoriteMenuItem, useObjectListFavorite } from '../layout/SidebarItemMenu.js';
 import { useMetaItemRefusal } from '../hooks/useMetaItemRefusal.js';
 import { useTenancyPosture } from '../hooks/useTenancyPosture.js';
@@ -1098,30 +1100,13 @@ export function setDefaultViewPatches(
 }
 
 /**
- * The `updateView` writes a drag-reorder must issue (objectui#4463) —
- * `sortOrder` per saved view, in the new order.
- *
- * Metadata-only views are filtered out: they have no `sys_view` row to write,
- * and their position is carried by the `viewOrder:<object>` localStorage key the
- * handler writes first. `sortOrder` is the index **after** that filter, so the
- * persisted sequence is dense over the saved views alone.
- */
-export function reorderViewPatches(
-    savedViews: readonly any[],
-    orderedIds: readonly string[],
-): Array<{ viewId: string; patch: { sortOrder: number } }> {
-    const savedIdSet = new Set(savedViews.map((sv: any) => viewRowId(sv)));
-    return orderedIds
-        .filter(id => savedIdSet.has(id))
-        .map((id, idx) => ({ viewId: id, patch: { sortOrder: idx } }));
-}
-
-/**
  * Issue one `updateView` per patch — **as a method call on the adapter**
  * (objectui#4463).
  *
  * This exists to make one specific bug unwritable. `handleSetDefaultView` and
- * `handleReorderViews` both used to detach the method before calling it:
+ * `handleReorderViews` both used to detach the method before calling it (the
+ * reorder no longer writes a view at all since objectui#12418 — it is the
+ * user's preference):
  *
  * ```ts
  * const updateView = (dataSource as any).updateView;   // detached
@@ -1137,7 +1122,7 @@ export function reorderViewPatches(
  * `handlePinView` always called it as a method, which is the in-file convention
  * this restores.
  *
- * Both call sites now route through here, so there is a single place in the file
+ * The call site routes through here, so there is a single place in the file
  * that calls `updateView` over a patch list — and it has no local to detach into.
  */
 export function dispatchViewPatches(
@@ -1249,8 +1234,8 @@ export function dispatchViewPatches(
  * {@link toolbarWriteInputs}. This function's shapes are unchanged.
  *
  * Extracted from `persistViewPatch` so the write shape is assertable without
- * mounting the view, the same reason `buildViewTabs`, `setDefaultViewPatches`
- * and `reorderViewPatches` above are exported.
+ * mounting the view, the same reason `buildViewTabs` and
+ * `setDefaultViewPatches` above are exported.
  */
 export function buildPersistedViewBody(
     baseViewDef: Record<string, any> | null | undefined,
@@ -1761,9 +1746,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     /*
      * There is deliberately NO `persistViewFilter` here (objectui#4155).
      *
-     * The list toolbar's filter panel is TRANSIENT state — it belongs to the
-     * session (and to `writeListFilterState`'s per-browser restore), not to the
-     * view's stored body. It used to persist: every `onFilterChange` the panel
+     * The list toolbar's filter panel is the USER's state — it belongs to the
+     * session and to that user's own list state (`listPrefs`, objectui#12418),
+     * not to the view's stored body. It used to persist: every `onFilterChange` the panel
      * emitted was folded and written to the view overlay, so merely opening the
      * panel and clicking `Add filter` wrote an incomplete `field equals ''`
      * condition into `sys_metadata` — which then REPLACED the source-declared
@@ -2248,6 +2233,17 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     // listViews.
     const [savedViews, setSavedViews] = useState<any[]>([]);
     savedViewsRef.current = savedViews;
+
+    // objectui#12418 — the signed-in user's OWN list state for this object:
+    // the tab order, and per view the sort, the Filter panel's conditions and
+    // the column layout. A toolbar change writes here (`sys_user_preference`
+    // `ui.list.<object>`, localStorage as the cache), never into the shared
+    // view: the view's authored values stay the default for every user with
+    // no preference. See `ListPreferencesProvider`.
+    const listPrefs = useObjectListPreferences(objectName);
+    // Content keys, not identities (AGENTS.md #10): the views memo and the list
+    // relay re-run when what the user stored changes, and on nothing else.
+    const prefViewOrderKey = JSON.stringify(listPrefs.preference.viewOrder ?? []);
     useEffect(() => {
         let cancelled = false;
         if (!objectName) {
@@ -2386,17 +2382,12 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             }
         }
 
-        // Stable sort: respect a per-user view-order preference (for both
-        // metadata and saved views). Falls back to: metadata views first
-        // in declared order, then saved views by `sortOrder` / created_at.
+        // Stable sort: respect the user's own view-order preference (for both
+        // metadata and saved views; objectui#12418, `listPrefs`). Falls back
+        // to: metadata views first in declared order, then saved views by
+        // `sortOrder` / created_at — the authored order, every user's default.
         const indexOf = new Map(viewList.map((v, i) => [v.id, i]));
-        let userOrder: string[] = [];
-        try {
-            const raw = typeof window !== 'undefined'
-                ? window.localStorage?.getItem(`viewOrder:${objectDef.name}`)
-                : null;
-            if (raw) userOrder = JSON.parse(raw);
-        } catch { /* ignore */ }
+        const userOrder: string[] = JSON.parse(prefViewOrderKey);
         const userOrderIndex = new Map(userOrder.map((id, i) => [id, i]));
         viewList.sort((a, b) => {
             const aUser = userOrderIndex.get(a.id);
@@ -2425,7 +2416,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
         });
 
         return { list: viewList, derivedColumnViewIds: derived };
-    }, [objectDef, savedViews, viewOverrides, t, orgAttribution]);
+    }, [objectDef, savedViews, viewOverrides, t, orgAttribution, prefViewOrderKey]);
 
     // Active View State — merge saved draft if available for this view.
     // Resolution priority: URL viewId → ?view= → user-marked default → first.
@@ -2502,8 +2493,12 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
      *    the per-browser cache is not consulted, so a shared link opens the
      *    same list for everyone who may read it. A piece the URL lacks is
      *    absent, not filled from storage.
-     * 2. Otherwise the per-user cache (`listFilterStorage`, unchanged) for the
-     *    Filter panel and the search; the view's own sort and grouping.
+     * 2. Otherwise the user's own state (objectui#12418, `listPrefs`): the
+     *    Filter panel's conditions and the sort they left this view with, and
+     *    the search term from the per-user cache (`listFilterStorage`); the
+     *    view's own sort when they stored none, and its own grouping. The
+     *    seed waits until that state has been read (`listPrefs.ready`), so a
+     *    second browser opens on it rather than on an empty cache.
      *
      * Then the seed is written back into the URL (replace, never a new history
      * entry), so the address bar shows the list on screen: a restored filter
@@ -2519,10 +2514,17 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
      * view switch navigates to a path with no query string, so it starts from
      * the cache, and the ad-hoc params never follow the user into another view.
      */
-    const listIdentityKey = activeView?.id ? `${objectName}-${activeView.id}` : undefined;
+    // objectui#12418 — "Reset view" opens the list again as the view declares
+    // it: the identity moves, so the list remounts and re-seeds. A reset is the
+    // one case that WANTS the list's own state thrown away (AGENTS.md #8 is
+    // about refreshing data, which never does).
+    const [listResetGeneration, setListResetGeneration] = useState(0);
+    const listIdentityKey = activeView?.id
+        ? `${objectName}-${activeView.id}${listResetGeneration ? `~${listResetGeneration}` : ''}`
+        : undefined;
     const listSeedRef = useRef<{ key: string; source: 'url' | 'storage'; state: ListUrlState } | undefined>(undefined);
     const ownListParamsRef = useRef<string | undefined>(undefined);
-    if (listIdentityKey && listSeedRef.current?.key !== listIdentityKey) {
+    if (listIdentityKey && listPrefs.ready && listSeedRef.current?.key !== listIdentityKey) {
         const carried = userFilterParamsKey(searchParams);
         if (carried && carried !== ownListParamsRef.current) {
             // A field the object does not declare (a stale link) or one this
@@ -2538,12 +2540,14 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             };
         } else {
             const stored = readListFilterState(buildListFilterKey(user?.id, objectName, activeView.id));
+            const viewPref = listPrefs.preference.perView?.[activeView.id];
             listSeedRef.current = {
                 key: listIdentityKey,
                 source: 'storage',
                 state: {
-                    filters: (stored?.filters ?? undefined) as ListUrlState['filters'],
+                    filters: (viewPref?.filters ?? undefined) as ListUrlState['filters'],
                     search: stored?.search || undefined,
+                    sort: viewPref?.sort,
                 },
             };
         }
@@ -2563,9 +2567,10 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
         if (seed.source === 'storage') ownListParamsRef.current = userFilterParamsKey(next);
         if (next.toString() !== searchParams.toString()) setSearchParams(next, { replace: true });
         // Once per list identity, by design: later URL writes are the list's
-        // own changes, already on screen.
+        // own changes, already on screen. (`listPrefs.ready` because the seed
+        // is taken only once the user's own state has been read.)
         // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
-    }, [listIdentityKey]);
+    }, [listIdentityKey, listPrefs.ready]);
     /** Write the list's own change into the URL — replace, never a history entry per keystroke. */
     const writeListUrlState = useCallback(
         (patch: ListStatePatch) => {
@@ -2577,6 +2582,18 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
         },
         [setSearchParams],
     );
+
+    /**
+     * objectui#12418 — "Reset view": drop this user's sort, filters and column
+     * layout for the active view, and open the list again as the view declares
+     * it. Offered only while they have stored something for it.
+     */
+    const activeViewHasPreference = !!(activeView?.id && listPrefs.preference.perView?.[activeView.id]);
+    const handleResetView = useCallback(() => {
+        if (!activeView?.id) return;
+        listPrefs.resetView(activeView.id);
+        setListResetGeneration(g => g + 1);
+    }, [activeView?.id, listPrefs.resetView]);
 
     /** Real-time draft field update — propagates each toggle/input change immediately */
     const handleViewUpdate = useCallback((field: string, value: any) => {
@@ -2760,40 +2777,21 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
         }
     }, [dataSource, objectName, savedViews, isSavedView, t]);
 
-    const handleReorderViews = useCallback(async (orderedIds: string[]) => {
-        // Persist order for ALL views (incl. metadata) in localStorage so the
-        // UI immediately reflects the new ordering, including reorderings
-        // that involve metadata-only views.
-        try {
-            if (typeof window !== 'undefined') {
-                window.localStorage?.setItem(`viewOrder:${objectName}`, JSON.stringify(orderedIds));
-            }
-        } catch { /* ignore */ }
-        // Best-effort: also persist `sortOrder` on each saved view so other
-        // sessions / users can pick up the order from the backend.
-        // The localStorage write above is deliberately outside this guard — the
-        // UI ordering must survive even when there is no adapter half to persist.
-        if (objectName && typeof (dataSource as any)?.updateView === 'function') {
-            const updates = dispatchViewPatches(
-                dataSource,
-                objectName,
-                reorderViewPatches(savedViews, orderedIds),
-            );
-            try {
-                await Promise.all(updates);
-            } catch (err) {
-                console.error('[ViewTabBar] Failed to reorder views:', err);
-                // objectui#11583: the new order still shows from this
-                // browser's copy, but other sessions read the server's, so a
-                // refused write is said, with the door's message.
-                toast.error(t('form.saveError'), {
-                    description: formatMetadataError(err),
-                    classNames: { description: 'whitespace-pre-line' },
-                });
-            }
-        }
-        setRefreshKey(k => k + 1);
-    }, [dataSource, savedViews, objectName, t]);
+    /**
+     * A drag in Manage Views reorders the tabs FOR THIS USER (objectui#12418).
+     *
+     * It used to write `viewOrder:<object>` to this browser and then PATCH a
+     * `sortOrder` onto every saved view's shared row, "so other sessions /
+     * users can pick up the order": one user's drag reordered the tabs for
+     * everyone, and under a walled posture the metadata write was refused. The
+     * order is now the user's preference (the `ui.list.<object>` row, through
+     * `listPrefs`), and nothing here writes `/meta/view`. The authored order —
+     * the declared sequence, then a stored `sortOrder` — stays every user's
+     * default, and the view editor is where an author changes it.
+     */
+    const handleReorderViews = useCallback((orderedIds: string[]) => {
+        listPrefs.setViewOrder(orderedIds);
+    }, [listPrefs.setViewOrder]);
 
     const handleConfigView = useCallback((vid: string) => {
         // System (metadata-defined) views are read-only — opening the
@@ -3151,15 +3149,27 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
         // visualizations that query for themselves (`gantt`, `chart`) refetch
         // in place on the data-invalidation bus (see `refreshData`). ⛔ Do not
         // put the counter back in the key.
-        const identityKey = `${objectName}-${activeView.id}`;
+        // `listIdentityKey` is this same identity plus the "Reset view"
+        // generation (objectui#12418), which is the one other remount.
+        const identityKey = listIdentityKey ?? `${objectName}-${activeView.id}`;
         const viewDef = activeView;
 
-        // Per-user, per-view runtime-filter cache (advanced filter + search).
-        // Restored into ListView at mount so leaving via a nav link and coming
-        // back keeps what the user was filtering — URL params alone don't
-        // survive that (the nav link has no query string). Keyed on the signed-in
-        // user so two accounts on one browser never share filter values.
+        // Per-user, per-view search-term cache. Restored into ListView at mount
+        // so leaving via a nav link and coming back keeps what the user was
+        // searching — URL params alone don't survive that (the nav link has no
+        // query string). Keyed on the signed-in user so two accounts on one
+        // browser never share it. The Filter panel's conditions are the user's
+        // list state since objectui#12418 (`listPrefs`), not this cache.
         const listFilterKey = buildListFilterKey(user?.id, objectName, activeView.id);
+        // objectui#12418 — this user's own state for this view: its sort and
+        // filters arrive through the seed below, its column layout here.
+        const viewPref: ListViewPreference | undefined = listPrefs.preference.perView?.[viewDef.id];
+        const persistListSort = (sort: Array<{ field: string; order?: string }>) => {
+            listPrefs.patchView(viewDef.id, { sort });
+        };
+        const persistListColumnState = (state: { order?: string[]; widths?: Record<string, number> }) => {
+            listPrefs.patchView(viewDef.id, { columnState: state });
+        };
         // objectui#11860 — what the list opens with: the URL's state, else this
         // cache (see `listSeedRef`). Same identity as the list's `key`.
         const listSeed = listSeedRef.current?.key === identityKey ? listSeedRef.current.state : undefined;
@@ -3272,6 +3282,13 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             );
         }
 
+        // objectui#12418 — the list opens on the user's stored sort and
+        // filters, which are read in the console's one preference read; until
+        // that read has answered, there is nothing to open on yet.
+        if (!listPrefs.ready) {
+            return <div className="h-full w-full" aria-busy="true" data-testid="object-view-list-preferences-pending" />;
+        }
+
         // ADR-0053 wrong-context authoring: userFilters/quickFilters on an
         // object list view are suppressed below — say so instead of letting
         // the author stare at a toolbar with nothing where their filter
@@ -3360,19 +3377,19 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             rowHeight:
                 (normalizeListViewSchema(viewDef ?? {}) as Pick<ListViewSchema, 'rowHeight'>).rowHeight
                 ?? listSchema.rowHeight,
-            // Hydrate the persisted view settings so they survive reload
-            // (Airtable-style toolbar config — objectstack#7494's ruling:
-            // ORG-WIDE shared, not a per-user preference; a true per-user
-            // scope is a parked v18 direction, not something to fake
-            // client-side). All four below go through the same
-            // persistViewPatch helper which debounces and batches concurrent
-            // toggles.
+            // Hydrate the persisted view settings so they survive reload.
+            // Density and hidden fields are the VIEW's (objectstack#7494's
+            // ruling: org-wide, through the persistViewPatch helper, which
+            // debounces and batches concurrent toggles). The sort and the
+            // column layout are the USER's since objectui#12418: they are
+            // read from and written to `listPrefs`, never `/meta/view`.
             //
             // objectui#11860 — a sort the URL carries is applied over the
-            // view's: an opened link sorts as it was sorted. `ListView` reads
-            // this as the list's declared sort too, so its "reset to default"
-            // returns to the sort the link opened with, the way it returns to
-            // a stored one.
+            // view's: an opened link sorts as it was sorted. Without a link,
+            // the seed carries the sort this user left the view with
+            // (objectui#12418). `ListView` reads this as the list's declared
+            // sort too, so its "reset to default" returns to the sort the list
+            // opened with; "Reset view" returns to the view's own.
             sort: listSeed?.sort ?? (viewDef as any).sort ?? listSchema.sort,
             // objectui#11860 — and a grouping the URL carries is laid over the
             // view's, which the caller composed into `listSchema` (the census
@@ -3434,7 +3451,11 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             fieldOrder: activeViewDeclaresColumns
                 ? (viewDef.fieldOrder ?? listSchema.fieldOrder)
                 : undefined,
-            columnState: (viewDef as any).columnState ?? (listSchema as any).columnState,
+            // objectui#12418 — the user's column layout over the view's. `{}`
+            // when neither has one: this host persists the layout, so the
+            // grid's own per-browser fallback must not stand in for it (and a
+            // "Reset view" must reach the grid).
+            columnState: viewPref?.columnState ?? (viewDef as any).columnState ?? (listSchema as any).columnState ?? {},
             onDensityChange: (mode) => {
                 // Persist the spec-canonical `rowHeight` (#2890). Writing the
                 // legacy `densityMode` here is what kept re-seeding it into
@@ -3443,16 +3464,12 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                     rowHeight: DENSITY_MODE_TO_ROW_HEIGHT[mode],
                 });
             },
-            onSortChange: (sort: any) => {
-                persistViewPatch(viewDef.id, viewDef, { sort });
-            },
+            onSortChange: persistListSort,
             // NO `onFilterChange` (objectui#4155): the filter panel is session
             // state. ListView keeps it in `currentFilters` and applies it to the
             // live query; nothing about it reaches the stored view.
             onHiddenFieldsChange: persistHiddenFields,
-            onColumnStateChange: (state: { order?: string[]; widths?: Record<string, number> }) => {
-                persistViewPatch(viewDef.id, viewDef, { columnState: state });
-            },
+            onColumnStateChange: persistListColumnState,
             // objectui#11013 — `inlineEdit` only. The `editRecordsInline`
             // spelling this also read has no producer: no console surface
             // writes it and the spec's view schema refuses it by name.
@@ -3768,21 +3785,22 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                     handleRowClick(record, event);
                 }}
                 onSortChange={(sort: any) => {
-                    persistViewPatch(viewDef.id, viewDef, { sort });
+                    // objectui#12418 — this user's sort, not the view's.
+                    persistListSort(sort);
                     writeListUrlState({ sort });
                 }}
                 // objectui#11860 — the URL only: nothing else stores the
                 // toolbar grouping, and the view's own stays as authored.
                 onGroupingChange={(grouping) => writeListUrlState({ grouping: grouping ?? null })}
                 onFilterChange={(filter: any) => {
-                    // SESSION state only (objectui#4155) — localStorage keeps
+                    // The USER's state (objectui#12418), never the view's
+                    // stored body (objectui#4155) — the user's list state keeps
                     // the BUILDER's group verbatim, read back into
                     // `initialFilters`, which needs `conditions` (and the row
-                    // ids) to rehydrate the toolbar. This restore is per
-                    // browser and the panel's own "Clear all" clears it: it
-                    // writes an empty group through this same handler. Nothing
-                    // here touches the view's stored body.
-                    writeListFilterState(listFilterKey, { filters: filter });
+                    // ids) to rehydrate the toolbar. It follows the user to
+                    // another browser, and the panel's own "Clear all" clears
+                    // it: it writes an empty group through this same handler.
+                    listPrefs.patchView(viewDef.id, { filters: filter });
                     // objectui#11860 — and the URL, so the list is a link.
                     writeListUrlState({ filters: filter });
                 }}
@@ -3793,9 +3811,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 onHiddenFieldsChange={persistHiddenFields}
                 // objectui#5144 (ruling E): session-only, writes nothing.
                 onInlineEditChange={keepInlineEditModeForTheSession}
-                onColumnStateChange={(state: { order?: string[]; widths?: Record<string, number> }) => {
-                    persistViewPatch(viewDef.id, viewDef, { columnState: state });
-                }}
+                onColumnStateChange={persistListColumnState}
                 userFilterSelections={initialUfSelections}
                 onUserFilterSelectionsChange={handleUserFilterSelectionsChange}
                 initialFilters={listSeed?.filters}
@@ -3803,7 +3819,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 dataSource={ds}
             />
         );
-    }, [activeView, activeViewDeclaresColumns, objectDef, objectName, refreshKey, navOverlay, actions, persistViewPatch, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, writeListUrlState, user?.id, pageOffersCreate]);
+    }, [activeView, activeViewDeclaresColumns, objectDef, objectName, refreshKey, navOverlay, actions, persistViewPatch, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, writeListUrlState, user?.id, pageOffersCreate, listIdentityKey, listPrefs.ready, listPrefs.preference, listPrefs.patchView]);
 
     // Memoize the merged views array so PluginObjectView doesn't get a new
     // reference on every render (which would trigger unnecessary data refetches).
@@ -3911,7 +3927,10 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                    </span>
                  }
                  subtitle={objectDef.description ? objectDesc(objectDef) : undefined}
-                 icon={(() => { const I = getIcon((objectDef as any)?.icon); return <I className="h-4 w-4" />; })()}
+                 // `createElement`, not a JSX tag: the looked-up icon is a value,
+                 // which react-hooks/static-components refuses in tag position
+                 // (the convention ObjectDataPage set).
+                 icon={createElement(getIcon((objectDef as any)?.icon), { className: 'h-4 w-4' })}
                  actions={
                    <>
                     {/* No favorite star here since objectui#12423: the one-row
@@ -3975,8 +3994,11 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                     {/* The page's overflow menu (objectui#12427), last in the
                         row: the favorites entry that replaced the header star.
                         Favorites is a once-and-forget act, so it lives behind
-                        the ⋯ rather than in the header's most prominent slot. */}
-                    {listFavorite && (
+                        the ⋯ rather than in the header's most prominent slot.
+                        "Reset view" (objectui#12418) is the same kind of act and
+                        lives beside it, so the one-row header keeps its shape
+                        as the user sorts. The ⋯ is drawn when either applies. */}
+                    {(listFavorite || activeViewHasPreference) && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
@@ -3990,11 +4012,26 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <FavoriteMenuItem
-                            isFavorite={listFavorite.isFavorite}
-                            onToggle={listFavorite.toggle}
-                            testId="object-view-favorite"
-                          />
+                          {listFavorite && (
+                            <FavoriteMenuItem
+                              isFavorite={listFavorite.isFavorite}
+                              onToggle={listFavorite.toggle}
+                              testId="object-view-favorite"
+                            />
+                          )}
+                          {/* objectui#12418 — the user's own list state for
+                              this view (sort, filters, column layout) back to
+                              the view's. Only while they have stored some. */}
+                          {activeViewHasPreference && (
+                            <DropdownMenuItem
+                              onSelect={handleResetView}
+                              title={t('console.objectView.resetViewTitle')}
+                              data-testid="object-view-reset-view-button"
+                            >
+                              <RotateCcw className="h-4 w-4" />
+                              <span>{t('console.objectView.resetView')}</span>
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     )}

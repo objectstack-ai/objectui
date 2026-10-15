@@ -18,7 +18,8 @@
  *   the refused edit could not be retried.
  * - `handlePinView` caught a refused `updateView` with `console.error` only.
  * - `handleReorderViews` caught a refused `sortOrder` write with
- *   `console.error` only.
+ *   `console.error` only. (Since objectui#12418 it writes no view at all: the
+ *   drag is the user's own tab order, and its block pins that instead.)
  * - `persistViewPatch` (the toolbar toggles' `updateViewConfig`) said only the
  *   client-side permission gate's refusal; every other refusal, a server 403
  *   included, was `console.error` only.
@@ -354,8 +355,11 @@ describe('pin says a refused write (objectui#11583, handlePinView)', () => {
   });
 });
 
-describe('reorder says a refused write (objectui#11583, handleReorderViews)', () => {
-  it('a refused sortOrder write raises the door\'s message, once', async () => {
+describe('reorder is no view write any more (objectui#12418, handleReorderViews)', () => {
+  // objectui#11583 pinned a refused `sortOrder` write here. Since objectui#12418
+  // the drag is the user's own tab order: nothing reaches a view, so a view
+  // write that would be refused is never attempted, and nothing is said.
+  it('a reorder writes no view and raises nothing, even where every view write is refused', async () => {
     const dataSource = makeDataSource({
       updateView: vi.fn(async () => { throw refusal('Reordering views requires the Manage Metadata permission'); }),
     });
@@ -363,20 +367,11 @@ describe('reorder says a refused write (objectui#11583, handleReorderViews)', ()
     await act(async () => {
       fireEvent.click(screen.getByTestId('stub-reorder'));
     });
-
-    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
-    expect(errorDescription()).toContain('Reordering views requires the Manage Metadata permission');
-    expect((dataSource as any).updateView).toHaveBeenCalledWith(OBJECT_NAME, SAVED_ID, { sortOrder: 0 });
-  });
-
-  it('a reorder that lands raises nothing (control)', async () => {
-    const dataSource = makeDataSource();
-    await mountOnSavedView(dataSource);
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('stub-reorder'));
-    });
-    await waitFor(() => expect((dataSource as any).updateView).toHaveBeenCalledTimes(1));
     await settle();
+
+    expect((dataSource as any).updateView).not.toHaveBeenCalled();
+    expect((dataSource as any).updateViewConfig).not.toHaveBeenCalled();
+    expect(puts).toEqual([]);
     expect(toast.error).not.toHaveBeenCalled();
   });
 });

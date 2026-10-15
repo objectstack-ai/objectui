@@ -28,7 +28,7 @@
  */
 
 import * as React from 'react';
-import { ShieldCheck, Save, Loader2, Lock, ArrowUpRight } from 'lucide-react';
+import { Save, Loader2, Lock, ArrowUpRight } from 'lucide-react';
 import type { MetadataClient, MetadataLayered } from '@object-ui/data-objectstack';
 // The ONE draft-envelope reader (objectui#8181): unwrap AND strip the
 // framework's read decorations in one place. This file used to carry its own
@@ -391,20 +391,15 @@ export function PackageOwdOverviewPanel({
   ];
   return (
     <div className="flex h-full flex-col" data-testid="owd-overview">
-      <div className="flex items-center gap-3 border-b px-4 py-2.5">
-        <span className="flex min-w-0 items-center gap-2">
-          <ShieldCheck className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <span className="truncate text-[15px] font-semibold leading-none text-foreground">
-            {t('engine.studio.owd.title', locale)}
-          </span>
-          <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
-            {t('engine.studio.owd.subtitle', locale)}
-          </span>
-        </span>
+      {/* objectui#12456 — the overview's title and subtitle are the Access
+          pillar's item header above this panel, so its own header is the
+          toolbar row: what the dials decide, and Save. */}
+      <div className="flex items-center gap-3 border-b px-6 py-3">
+        <p className="min-w-0 flex-1 text-xs text-muted-foreground">{t('engine.studio.owd.description', locale)}</p>
         {readOnly ? (
           <span
             title={t('engine.studio.pkg.readonlyHint', locale)}
-            className="ml-auto flex items-center gap-1.5 text-[11px] text-muted-foreground"
+            className="flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground"
           >
             <Lock className="h-3 w-3" /> {t('engine.studio.pkg.readonly', locale)}
           </span>
@@ -414,7 +409,7 @@ export function PackageOwdOverviewPanel({
             onClick={() => void doSave()}
             disabled={!canSave}
             data-testid="owd-save"
-            className="ml-auto inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50"
+            className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground disabled:opacity-50"
           >
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
             {dirtyCount > 0
@@ -423,10 +418,6 @@ export function PackageOwdOverviewPanel({
           </button>
         )}
       </div>
-
-      <p className="border-b px-4 py-2 text-[11px] text-muted-foreground">
-        {t('engine.studio.owd.description', locale)}
-      </p>
 
       {saveError && (
         <p className="border-b bg-destructive/10 px-4 py-2 text-[11px] text-destructive">{saveError}</p>

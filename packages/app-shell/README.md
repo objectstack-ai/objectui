@@ -1062,6 +1062,16 @@ decision the request record and its timeline are re-read in place. Placed on
 any other page, the block draws a short notice that it works only on approval
 request pages. `className` styles the wrapper.
 
+Above the progress, the block shows what was submitted, from the request row's
+record snapshot (`payload`) and the server's display values
+(`payload_display`), against the target object's declared fields: the
+declared amount (the first field declared `type: 'currency'`), then the first
+six business fields, each under its declared label and through the record
+page's own cell. A key the object does not declare, a framework column, an
+unresolved reference id, a field declared `hidden: true` and a field the
+reader may not read take no row. Without the target object's definition, the
+summary is not drawn.
+
 ## User-scoped state (favorites, recent items)
 
 `<ConsoleShell>` includes `FavoritesProvider` and `RecentItemsProvider` —

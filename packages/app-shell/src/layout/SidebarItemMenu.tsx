@@ -9,11 +9,12 @@
  * 1. Add to favorites / Remove from favorites, always, first.
  * 2. Open in new tab and Copy link, for an entry that goes somewhere (an
  *    `action` entry runs something and has no address to open or copy).
- * 3. Design, for an entry whose target has a designer in the console's
- *    metadata-admin router ({@link sidebarItemDesignPath}), shown only to a
- *    principal who may author metadata: `isAdmin && canAuthorMetadata`, the
- *    gate `PageView`'s Edit-in-studio button reads. The server refuses the
- *    write either way; this is the presentational half.
+ * 3. Design, for an entry whose target has a designer: it opens what the app
+ *    bar's Edit app opens for that item, the item's Studio surface
+ *    ({@link sidebarItemDesignPath}, objectui#12520). Shown only to a principal
+ *    who may author metadata: `isAdmin && canAuthorMetadata`, the gate the app
+ *    bar's Edit app reads. The server refuses the write either way; this is the
+ *    presentational half.
  *
  * The trigger is hover-revealed, as the pin icon it replaces was
  * (objectui#1055): nothing is permanently visible. A right-click anywhere on the
@@ -46,21 +47,60 @@ import { useNavPins } from '../hooks/useNavPins.js';
 import { useNavMemberGates, navEntriesShownToMember } from '../hooks/useNavMemberGates.js';
 import { useMetadata } from '../providers/MetadataProvider.js';
 import { matchAppBySegment } from '../utils/index.js';
+import { appStudioRoutePath } from '../utils/appRoute.js';
 
 /**
- * The router path of the designer for what a navigation entry opens, in the
- * console's metadata-admin router (`metadata/:type/:name`, declared by
- * `DefaultAppContent`), or `null` when the entry's type has no designer.
- *
- * `basePath` is the sidebar's app prefix (`/apps/<app segment>`), so a `page`
- * entry lands where `PageView`'s Edit-in-studio button sends it:
- * `/apps/<app>/metadata/page/<name>`. An `object` entry opens the object
- * designer and a `dashboard` entry the dashboard designer, on the same route.
- * Every other type (`url`, `component`, `separator`, `group`, `action`, and the
- * types the card leaves undecided) has none.
+ * The route an entry of a designable type opens, in the shape the app bar reads
+ * a route in: `type` is the first segment after `/apps/<app>/`, `name` the
+ * second. An object's list is `/apps/<app>/<object>`, so its first segment IS
+ * the object's name; a dashboard is `/apps/<app>/dashboard/<name>` and a page
+ * `/apps/<app>/page/<name>`. Any other type, and an entry naming no target, has
+ * no designer here: `null`.
  */
-export function sidebarItemDesignPath(item: NavigationItem, basePath: string): string | null {
-  const target =
+function designableRoute(
+  type: string,
+  name: string | undefined,
+): { type: string; name?: string } | null {
+  if (!name) return null;
+  if (type === 'object') return { type: name };
+  if (type === 'dashboard' || type === 'page') return { type, name };
+  return null;
+}
+
+/**
+ * Where Design takes an item of `app`: the path the app bar's Edit app opens on
+ * the item's own route, through the one derivation both controls share,
+ * `appStudioRoutePath` (objectui#12520). An `object` opens Studio's Data
+ * surface (`surface=object:NAME`), a `dashboard` or a `page` its Interfaces
+ * surface (`surface=dashboard:NAME`, `surface=page:NAME`). `null` when the app
+ * has no owning package Studio can open, so the entry hides as the app bar's
+ * pencil does; there is no other destination to fall back to.
+ *
+ * The principal gate is not read here: `SidebarItemMenu` reads it where the
+ * entry is drawn, so this answers for a principal who passes it.
+ */
+function studioDesignPath(
+  app: NavApp | null | undefined,
+  type: string,
+  name: string | undefined,
+): string | null {
+  const route = designableRoute(type, name);
+  if (!route) return null;
+  return appStudioRoutePath(app, true, route);
+}
+
+/**
+ * The designer of what a navigation entry opens, in the app whose navigation
+ * draws it ({@link studioDesignPath}), or `null` when the entry's type has no
+ * designer: only `object`, `dashboard` and `page` entries have one. Every other
+ * type (`url`, `component`, `separator`, `group`, `action`, and the types
+ * objectui#12427 left undecided) has none.
+ */
+export function sidebarItemDesignPath(
+  item: NavigationItem,
+  app: NavApp | null | undefined,
+): string | null {
+  const name =
     item.type === 'object'
       ? item.objectName
       : item.type === 'dashboard'
@@ -68,22 +108,28 @@ export function sidebarItemDesignPath(item: NavigationItem, basePath: string): s
         : item.type === 'page'
           ? item.pageName
           : undefined;
-  if (!target) return null;
-  return `${basePath}/metadata/${item.type}/${encodeURIComponent(target)}`;
+  return studioDesignPath(app, item.type, name);
 }
 
 /**
- * The designer route for a favorite that is not a navigation entry, read from
- * its id (`object:NAME`, `dashboard:NAME`, `page:NAME`), on the same
- * metadata-admin route {@link sidebarItemDesignPath} uses. Any other id (a
- * record, a report, an app) has none. The id, not the stored `type`, decides:
- * an app favorite is stored with `type: 'object'` and an `app:` id, and has no
- * object to design.
+ * The designer of a favorite that is not a navigation entry, read from its id
+ * (`object:NAME`, `dashboard:NAME`, `page:NAME`), in the app the favorite opens:
+ * the one its `href` names (`/apps/<app>/...`), which need not be the app the
+ * sidebar is drawn in. Any other id (a record, a report, an app) has none. The
+ * id, not the stored `type`, decides: an app favorite is stored with
+ * `type: 'object'` and an `app:` id, and has no object to design. A favorite
+ * whose `href` names no app in `apps` has none either.
  */
-export function favoriteDesignPath(favoriteId: string, basePath: string): string | null {
-  const match = /^(object|dashboard|page):(.+)$/.exec(favoriteId);
+export function favoriteDesignPath(
+  favorite: { id: string; href: string },
+  apps: readonly NavApp[] | null | undefined,
+): string | null {
+  const match = /^(object|dashboard|page):(.+)$/.exec(favorite.id);
   if (!match) return null;
-  return `${basePath}/metadata/${match[1]}/${encodeURIComponent(match[2])}`;
+  const segment = /^\/apps\/([^/?#]+)/.exec(favorite.href)?.[1];
+  const app = matchAppBySegment(apps ?? [], segment);
+  if (!app) return null;
+  return studioDesignPath(app, match[1], match[2]);
 }
 
 /**

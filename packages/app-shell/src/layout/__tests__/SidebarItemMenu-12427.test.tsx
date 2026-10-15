@@ -12,7 +12,8 @@
  * Harness: the real component in a real `SidebarMenuItem` row, the real router
  * and the real `resolveHref` of `@object-ui/layout` for the entry's address;
  * the translator returns each call site's inline default, and the two
- * principal answers are stand-ins.
+ * principal answers are stand-ins. The entry's app is owned by a package, so
+ * Design has a Studio surface to open (objectui#12520).
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -54,6 +55,8 @@ import { resolveHref } from '@object-ui/layout';
 import { SidebarItemMenu, sidebarItemDesignPath } from '../SidebarItemMenu';
 
 const BASE_PATH = '/apps/crm';
+/** The app the entries belong to, owned by a package Studio can open. */
+const APP = { name: 'crm', _packageId: 'com.acme.crm' };
 
 const LEADS = { id: 'nav_leads', type: 'object', objectName: 'crm_lead', label: 'Leads' } as NavigationItem;
 const HELP = { id: 'nav_help', type: 'url', url: 'https://example.com/help', label: 'Help' } as NavigationItem;
@@ -61,7 +64,7 @@ const RUN = { id: 'nav_run', type: 'action', label: 'Run' } as NavigationItem;
 
 function Where() {
   const location = useLocation();
-  return <output data-testid="where">{location.pathname}</output>;
+  return <output data-testid="where">{`${location.pathname}${location.search}`}</output>;
 }
 
 interface RowOptions {
@@ -69,10 +72,11 @@ interface RowOptions {
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
   basename?: string;
+  app?: { name?: string; _packageId?: string };
 }
 
 /** One sidebar row, drawn the way the sidebar draws an entry, with the menu beside its link. */
-function renderRow({ item = LEADS, isFavorite = false, onToggleFavorite = vi.fn(), basename }: RowOptions = {}) {
+function renderRow({ item = LEADS, isFavorite = false, onToggleFavorite = vi.fn(), basename, app = APP }: RowOptions = {}) {
   const { href, external } = resolveHref(item, BASE_PATH);
   const label = String(item.label);
   const address = item.type === 'action' ? undefined : href;
@@ -90,7 +94,7 @@ function renderRow({ item = LEADS, isFavorite = false, onToggleFavorite = vi.fn(
               external={external}
               isFavorite={isFavorite}
               onToggleFavorite={onToggleFavorite}
-              designPath={sidebarItemDesignPath(item, BASE_PATH)}
+              designPath={sidebarItemDesignPath(item, app)}
             />
           </SidebarMenuItem>
         </SidebarMenu>
@@ -151,11 +155,13 @@ describe('SidebarItemMenu: the entries an object entry offers (objectui#12427)',
 });
 
 describe('SidebarItemMenu: what each entry does (objectui#12427)', () => {
-  it('Design opens the object designer for the entry\'s object', async () => {
+  it('Design opens Studio\'s Data surface for the entry\'s object (objectui#12520)', async () => {
     renderRow();
     await openMenu();
     fireEvent.click(screen.getByRole('menuitem', { name: 'Design' }));
-    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/apps/crm/metadata/object/crm_lead'));
+    await waitFor(() =>
+      expect(screen.getByTestId('where')).toHaveTextContent('/studio/com.acme.crm/data?surface=object:crm_lead'),
+    );
   });
 
   it('the favorites entry reflects the state and flips it once per select', async () => {
@@ -218,23 +224,23 @@ describe('SidebarItemMenu: right-click (objectui#12427)', () => {
   });
 });
 
-describe('sidebarItemDesignPath: the designer route per entry type (objectui#12427)', () => {
-  it('a page entry lands where PageView\'s Edit-in-studio button sends it', () => {
-    const page = { id: 'p', type: 'page', pageName: 'home page', label: 'Home' } as NavigationItem;
-    expect(sidebarItemDesignPath(page, BASE_PATH)).toBe('/apps/crm/metadata/page/home%20page');
+describe('sidebarItemDesignPath: the Studio surface per entry type (objectui#12427, objectui#12520)', () => {
+  it('a page entry opens its Interfaces surface, as the app bar does on the page', () => {
+    const page = { id: 'p', type: 'page', pageName: 'home_page', label: 'Home' } as NavigationItem;
+    expect(sidebarItemDesignPath(page, APP)).toBe('/studio/com.acme.crm/interfaces?surface=page:home_page');
   });
 
-  it('an object entry opens the object designer, a dashboard entry the dashboard designer', () => {
-    expect(sidebarItemDesignPath(LEADS, BASE_PATH)).toBe('/apps/crm/metadata/object/crm_lead');
+  it('an object entry opens the Data surface, a dashboard entry the Interfaces surface', () => {
+    expect(sidebarItemDesignPath(LEADS, APP)).toBe('/studio/com.acme.crm/data?surface=object:crm_lead');
     const dash = { id: 'd', type: 'dashboard', dashboardName: 'sales', label: 'Sales' } as NavigationItem;
-    expect(sidebarItemDesignPath(dash, BASE_PATH)).toBe('/apps/crm/metadata/dashboard/sales');
+    expect(sidebarItemDesignPath(dash, APP)).toBe('/studio/com.acme.crm/interfaces?surface=dashboard:sales');
   });
 
   it('url, component and separator entries have no designer', () => {
     const component = { id: 'c', type: 'component', componentRef: 'x:y', label: 'C' } as NavigationItem;
     const separator = { id: 's', type: 'separator' } as NavigationItem;
-    expect(sidebarItemDesignPath(HELP, BASE_PATH)).toBeNull();
-    expect(sidebarItemDesignPath(component, BASE_PATH)).toBeNull();
-    expect(sidebarItemDesignPath(separator, BASE_PATH)).toBeNull();
+    expect(sidebarItemDesignPath(HELP, APP)).toBeNull();
+    expect(sidebarItemDesignPath(component, APP)).toBeNull();
+    expect(sidebarItemDesignPath(separator, APP)).toBeNull();
   });
 });

@@ -21,8 +21,9 @@
  * Pinned:
  *  - a draft-only object with three draft fields shows the three fields, with
  *    the chip and no toggle, and the adapter is never asked for its definition;
- *  - a published object with a pending change shows the draft (the new field),
- *    and the toggle's Published side shows the published definition;
+ *  - a published object with a pending change shows the draft (a field added,
+ *    one removed), and the toggle's Published side shows the published
+ *    definition's fields;
  *  - CONTROL: a published object with no pending change has neither chip nor
  *    toggle, and its definition is the adapter's;
  *  - Preview never saves: a submitted preview form writes nothing.
@@ -120,7 +121,10 @@ const ticket = {
     due_on: { type: 'date', label: 'Due On' },
   },
 };
-/** A published object, and a pending draft of it that adds one field. */
+/**
+ * A published object, and a pending draft of it that adds one field and
+ * removes one: each side of the toggle lists its own definition's fields.
+ */
 const asset = {
   name: 'st_asset',
   label: 'Asset',
@@ -128,7 +132,7 @@ const asset = {
 };
 const assetDraft = {
   ...asset,
-  fields: { ...asset.fields, warranty_ends: { type: 'date', label: 'Warranty Ends' } },
+  fields: { name: asset.fields.name, warranty_ends: { type: 'date', label: 'Warranty Ends' } },
 };
 
 beforeEach(() => {
@@ -189,6 +193,7 @@ describe('DataPillar Form Preview renders the draft definition (objectui#12515)'
     await openPreview();
 
     expect(await screen.findByText('Warranty Ends')).toBeInTheDocument();
+    expect(screen.queryByText('Serial Number')).toBeNull();
     expect(toolbar().getByText(DRAFT_CHIP)).toBeInTheDocument();
     expect(toolbar().getByRole('button', { name: DRAFT, pressed: true })).toBeInTheDocument();
     expect(asked('st_asset')).toBe(0);
@@ -204,6 +209,7 @@ describe('DataPillar Form Preview renders the draft definition (objectui#12515)'
     fireEvent.click(toolbar().getByRole('button', { name: DRAFT }));
     await settle();
     expect(await screen.findByText('Warranty Ends')).toBeInTheDocument();
+    expect(screen.queryByText('Serial Number')).toBeNull();
   });
 
   it('CONTROL: a published object with no pending change has neither chip nor toggle', async () => {

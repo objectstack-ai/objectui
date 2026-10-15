@@ -58,17 +58,26 @@ import '@testing-library/jest-dom';
 import { MemoryRouter } from 'react-router-dom';
 
 /**
- * Two published public forms — one declaring an `object`, one not. Both need
- * `sharing.allowAnonymous` and a parseable `publicLink` to reach the table.
+ * Two published public forms — one declaring an `object`, one not — on the
+ * `ViewItem` shape `GET /meta/view` serves: the form under `config`, opened to
+ * anonymous intake by the server's rule (`sharing.enabled`, `allowAnonymous`
+ * and a `publicLink`; objectui#11545).
+ *
+ * `ViewItemSchema` requires `object`, so the objectless row is not a valid
+ * ViewItem: it pins how the page draws a served item that names no object,
+ * which is what the shared placeholder is for.
  */
 const { ADAPTER } = vi.hoisted(() => {
   const form = (name: string, slug: string, object?: string) => ({
     name,
     label: name,
     ...(object ? { object } : {}),
-    type: 'simple',
-    sections: [{ label: 'Task', fields: ['title'] }],
-    sharing: { enabled: true, allowAnonymous: true, publicLink: `/forms/${slug}` },
+    viewKind: 'form',
+    config: {
+      type: 'simple',
+      sections: [{ label: 'Task', fields: ['title'] }],
+      sharing: { enabled: true, allowAnonymous: true, publicLink: `/forms/${slug}` },
+    },
   });
   // A STABLE singleton: a fresh object per render loops the page's load effect.
   const ADAPTER = {
@@ -77,8 +86,8 @@ const { ADAPTER } = vi.hoisted(() => {
         getItems: async (type: string) =>
           type === 'view'
             ? [
-                { spec: form('objectless_form', 'objectless') },
-                { spec: form('task_form', 'log-time', 'showcase_task') },
+                form('objectless_form', 'objectless'),
+                form('showcase_task.task_form', 'log-time', 'showcase_task'),
               ]
             : [],
         saveItem: async () => ({ ok: true }),

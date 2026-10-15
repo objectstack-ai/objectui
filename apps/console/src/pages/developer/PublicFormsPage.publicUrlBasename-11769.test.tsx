@@ -39,13 +39,15 @@ import '@testing-library/jest-dom';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 /** One published public form, and one FormView not yet published (so the
- *  Publish dialog, which needs a candidate, can be opened). */
+ *  Publish dialog, which needs a candidate, can be opened), on the `ViewItem`
+ *  shape `GET /meta/view` serves: the form under `config` (objectui#11545). */
 const { ADAPTER } = vi.hoisted(() => {
   const form = (name: string, sharing?: Record<string, unknown>) => ({
-    spec: {
-      name,
-      label: name,
-      object: 'lead',
+    name,
+    label: name,
+    object: 'lead',
+    viewKind: 'form',
+    config: {
       type: 'simple',
       sections: [{ label: 'Lead', fields: ['email'] }],
       ...(sharing ? { sharing } : {}),
@@ -58,12 +60,12 @@ const { ADAPTER } = vi.hoisted(() => {
         getItems: async (type: string) =>
           type === 'view'
             ? [
-                form('lead_contact_us', {
+                form('lead.contact_us', {
                   enabled: true,
                   allowAnonymous: true,
                   publicLink: '/forms/contact-us',
                 }),
-                form('lead_internal'),
+                form('lead.internal'),
               ]
             : [],
         saveItem: async () => ({ ok: true }),

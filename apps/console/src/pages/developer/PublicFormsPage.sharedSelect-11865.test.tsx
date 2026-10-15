@@ -29,7 +29,9 @@
  * pre-conversion page's native control, then the same Publish or Save click,
  * led to that same `saveItem` JSON, read once on that page with these
  * fixtures. The names and the stored-kind reading were taken there the same
- * way.
+ * way. objectui#11545 then moved the fixtures and both writers to the
+ * `ViewItem` shape `GET /meta/view` serves, so each literal below is that same
+ * write with the form under `config`: the same view, the same values.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -42,7 +44,10 @@ import { MemoryRouter } from 'react-router-dom';
 /**
  * One published public form (whose stored `submitBehavior` each case sets) and
  * two FormViews that are not public yet: one with a label and an object, one
- * with neither.
+ * with neither. All three are on the `ViewItem` shape `GET /meta/view` serves,
+ * the form under `config` (objectui#11545). `ViewItemSchema` requires `object`,
+ * so the survey is not a valid ViewItem: it pins how the picker labels a
+ * served item that names neither.
  */
 const { saveItem, stored, ADAPTER } = vi.hoisted(() => {
   const stored: { submitBehavior: unknown } = { submitBehavior: undefined };
@@ -50,26 +55,29 @@ const { saveItem, stored, ADAPTER } = vi.hoisted(() => {
     name: 'showcase_task.public',
     label: 'Log Time',
     object: 'showcase_task',
-    type: 'simple',
-    sections: [{ label: 'Task', fields: ['title'] }],
-    sharing: { enabled: true, allowAnonymous: true, publicLink: '/forms/log-time' },
-    ...(stored.submitBehavior ? { submitBehavior: stored.submitBehavior } : {}),
+    viewKind: 'form',
+    config: {
+      type: 'simple',
+      sections: [{ label: 'Task', fields: ['title'] }],
+      sharing: { enabled: true, allowAnonymous: true, publicLink: '/forms/log-time' },
+      ...(stored.submitBehavior ? { submitBehavior: stored.submitBehavior } : {}),
+    },
   });
   const lead = {
     name: 'lead.intake',
     label: 'Lead intake',
     object: 'lead',
-    type: 'simple',
-    sections: [{ label: 'Lead', fields: ['name'] }],
+    viewKind: 'form',
+    config: { type: 'simple', sections: [{ label: 'Lead', fields: ['name'] }] },
   };
-  const survey = { name: 'survey.form', viewType: 'form', sections: [] };
+  const survey = { name: 'survey.form', viewKind: 'form', config: { sections: [] } };
   const saveItem = vi.fn(async () => ({ ok: true }));
   // A STABLE singleton: a fresh object per render loops the page's load effect.
   const ADAPTER = {
     getClient: () => ({
       meta: {
         getItems: async (type: string) =>
-          type === 'view' ? [{ spec: published() }, { spec: lead }, { spec: survey }] : [],
+          type === 'view' ? [published(), lead, survey] : [],
         saveItem,
       },
     }),
@@ -171,16 +179,18 @@ describe('the Public Forms pickers are the shared Select (objectui#11865)', () =
 const PUBLISH_WRITES: ReadonlyArray<readonly [label: string, json: string]> = [
   [
     LEAD,
-    '["view","lead.intake",{"name":"lead.intake","label":"Lead intake","object":"lead","type":"simple","sections":[{"label":"Lead","fields":["name"]}],"sharing":{"enabled":true,"allowAnonymous":true,"publicLink":"/forms/contact-us"}}]',
+    '["view","lead.intake",{"name":"lead.intake","label":"Lead intake","object":"lead","viewKind":"form","config":{"type":"simple","sections":[{"label":"Lead","fields":["name"]}],"sharing":{"enabled":true,"allowAnonymous":true,"publicLink":"/forms/contact-us"}}}]',
   ],
   [
     SURVEY,
-    '["view","survey.form",{"name":"survey.form","viewType":"form","sections":[],"sharing":{"enabled":true,"allowAnonymous":true,"publicLink":"/forms/contact-us"}}]',
+    '["view","survey.form",{"name":"survey.form","viewKind":"form","config":{"sections":[],"sharing":{"enabled":true,"allowAnonymous":true,"publicLink":"/forms/contact-us"}}}]',
   ],
 ];
 
-const SAVED_SPEC =
-  '"name":"showcase_task.public","label":"Log Time","object":"showcase_task","type":"simple","sections":[{"label":"Task","fields":["title"]}],"sharing":{"enabled":true,"allowAnonymous":true,"publicLink":"/forms/log-time"}';
+/** The published item's own keys, and its form (`config`) up to `submitBehavior`. */
+const SAVED_ITEM = '"name":"showcase_task.public","label":"Log Time","object":"showcase_task","viewKind":"form"';
+const SAVED_FORM =
+  '"type":"simple","sections":[{"label":"Task","fields":["title"]}],"sharing":{"enabled":true,"allowAnonymous":true,"publicLink":"/forms/log-time"}';
 
 /** [the stored submitBehavior, option label, the `submitBehavior` JSON Save wrote]. */
 const BEHAVIOR_WRITES: ReadonlyArray<readonly [from: unknown, label: string, json: string]> = [
@@ -232,7 +242,7 @@ describe('every option writes what the native control wrote', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
     await waitFor(() => expect(saveItem).toHaveBeenCalledTimes(1));
     expect(JSON.stringify(saveItem.mock.calls[0])).toBe(
-      `["view","showcase_task.public",{${SAVED_SPEC},"submitBehavior":${json}}]`,
+      `["view","showcase_task.public",{${SAVED_ITEM},"config":{${SAVED_FORM},"submitBehavior":${json}}}]`,
     );
   });
 });

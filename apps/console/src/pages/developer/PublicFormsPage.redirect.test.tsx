@@ -56,25 +56,29 @@ import { MemoryRouter } from 'react-router-dom';
 import { FormViewSchema } from '@objectstack/spec/ui';
 
 /**
- * One published public form: `isForm` needs a form-ish shape, and the page only
- * lists a row when `sharing.allowAnonymous` and a parseable `publicLink` are
- * both present.
+ * One published public form, on the `ViewItem` shape `GET /meta/view` serves:
+ * the form under `config`, opened to anonymous intake by the server's rule
+ * (`sharing.enabled`, `allowAnonymous` and a `publicLink`; objectui#11545). The
+ * Edit dialog writes `submitBehavior` back under `config`, beside `sharing`.
  */
 const { saveItem, ADAPTER } = vi.hoisted(() => {
-  const spec = {
+  const item = {
     name: 'showcase_task.public',
     label: 'Log Time',
     object: 'showcase_task',
-    type: 'simple',
-    sections: [{ label: 'Task', fields: ['title'] }],
-    sharing: { enabled: true, allowAnonymous: true, publicLink: '/forms/log-time' },
+    viewKind: 'form',
+    config: {
+      type: 'simple',
+      sections: [{ label: 'Task', fields: ['title'] }],
+      sharing: { enabled: true, allowAnonymous: true, publicLink: '/forms/log-time' },
+    },
   };
   const saveItem = vi.fn(async () => ({ ok: true }));
   // A STABLE singleton: a fresh object per render loops the page's load effect.
   const ADAPTER = {
     getClient: () => ({
       meta: {
-        getItems: async (type: string) => (type === 'view' ? [{ spec }] : []),
+        getItems: async (type: string) => (type === 'view' ? [item] : []),
         saveItem,
       },
     }),
@@ -227,7 +231,9 @@ describe('in-contract values still save (#4990)', () => {
     expect(saveItem).toHaveBeenCalledWith(
       'view',
       'showcase_task.public',
-      expect.objectContaining({ submitBehavior: { kind: 'redirect', url } }),
+      expect.objectContaining({
+        config: expect.objectContaining({ submitBehavior: { kind: 'redirect', url } }),
+      }),
     );
   });
 
@@ -253,11 +259,13 @@ describe('in-contract values still save (#4990)', () => {
       'view',
       'showcase_task.public',
       expect.objectContaining({
-        submitBehavior: {
-          kind: 'thank-you',
-          title: 'https://example.com/thanks',
-          message: 'See javascript:alert(1) below',
-        },
+        config: expect.objectContaining({
+          submitBehavior: {
+            kind: 'thank-you',
+            title: 'https://example.com/thanks',
+            message: 'See javascript:alert(1) below',
+          },
+        }),
       }),
     );
   });

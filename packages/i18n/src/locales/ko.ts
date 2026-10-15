@@ -785,6 +785,8 @@ const ko = {
     filter: "필터",
     filterRecords: "레코드 필터",
     filterActive: "필터, {{count}}개 적용됨",
+    filterActive_one: "필터, {{count}}개 적용됨",
+    filterActive_other: "필터, {{count}}개 적용됨",
     sort: "정렬",
     sortRecords: "레코드 정렬",
     sortByIdSuffix: "(ID 기준)",

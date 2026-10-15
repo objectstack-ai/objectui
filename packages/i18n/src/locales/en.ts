@@ -993,6 +993,8 @@ const en = {
     filter: 'Filter',
     filterRecords: 'Filter Records',
     filterActive: 'Filter, {{count}} active',
+    filterActive_one: 'Filter, {{count}} active',
+    filterActive_other: 'Filter, {{count}} active',
     sort: 'Sort',
     sortRecords: 'Sort Records',
     sortByIdSuffix: '(by ID)',

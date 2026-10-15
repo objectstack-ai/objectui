@@ -785,6 +785,8 @@ const ja = {
     filter: "フィルター",
     filterRecords: "レコードをフィルター",
     filterActive: "フィルター、{{count}} 件適用中",
+    filterActive_one: "フィルター、{{count}} 件適用中",
+    filterActive_other: "フィルター、{{count}} 件適用中",
     sort: "並べ替え",
     sortRecords: "レコードを並べ替え",
     sortByIdSuffix: "(ID順)",

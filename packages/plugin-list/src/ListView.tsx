@@ -977,8 +977,10 @@ export const LIST_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'list.filterRecords': 'Filter Records',
   // The Filter trigger's accessible name while filters are active: its
   // `aria-label` replaces the count badge in the name, so the count rides
-  // here (objectui#12500).
+  // here (objectui#12500). A count family, like `list.recordCount`.
   'list.filterActive': 'Filter, {{count}} active',
+  'list.filterActive_one': 'Filter, {{count}} active',
+  'list.filterActive_other': 'Filter, {{count}} active',
   'list.sort': 'Sort',
   'list.sortRecords': 'Sort Records',
   'list.sortByIdSuffix': '(by ID)',

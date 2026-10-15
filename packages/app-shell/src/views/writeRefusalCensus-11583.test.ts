@@ -103,7 +103,7 @@ const LEDGER: Row[] = [
   {
     file: 'ObjectView.tsx', symbol: 'handleRenameView', callee: 'updateView', calls: 1,
     kind: 'surfaces', pin: 'ObjectView.viewWriteRefusal-11583.test.tsx',
-    reason: 'Rename: says `objectViewActions.renameFailed`; predates this census.',
+    reason: 'Rename: the translated `objectViewActions.renameFailed` title, with the door\'s message as the description (objectui#12417).',
   },
   {
     file: 'ObjectView.tsx', symbol: 'handleDeleteView', callee: 'deleteView', calls: 1,

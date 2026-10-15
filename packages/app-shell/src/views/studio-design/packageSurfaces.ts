@@ -17,20 +17,32 @@
  * the sole rail that listed only published items and hid draft-only flows, and
  * (b) makes the behaviour unit-testable without rendering a heavy pillar tree.
  *
- * Draft headers carry no label (they are light rows — no body), so a draft-only
- * item shows its machine name until the draft body loads on selection, matching
- * the sibling pillars.
+ * A draft-only item reads as the label its `_drafts` row carries
+ * (objectui#11862): since objectstack-ai/objectstack#22200 each row carries the
+ * draft body's own label, or `null` when the body declares none, so the label
+ * is read off the row and the item is never read for it (seat ruling
+ * `6053526025`, question 1). A locale map resolves in the `locale` the rail is
+ * drawn in, through the spec's own `resolveI18nLabel`. Only a row with no label
+ * shows its machine name.
  */
 
+import { resolveI18nLabel, type I18nLabel } from '@objectstack/spec/ui';
 import { isPackageLessDraft, isPackageLessItem } from './studioScope.js';
 
 /** Minimal structural view of the metadata client this helper needs. */
 export interface PackageSurfaceClient {
   list(type: string, options?: { packageId?: string }): Promise<unknown>;
+  /**
+   * The `_drafts` rows: the members read here are the name, the package and
+   * the label the draft body declares (`ListDraftsResponseSchema` `drafts[]`).
+   */
   listDrafts(
     options?: { packageId?: string; type?: string },
-  ): Promise<Array<{ name?: string | null; packageId?: string | null }>>;
+  ): Promise<Array<{ name?: string | null; packageId?: string | null; label?: I18nLabel | null }>>;
 }
+
+/** One `_drafts` row, as {@link PackageSurfaceClient.listDrafts} answers it. */
+type DraftRow = Awaited<ReturnType<PackageSurfaceClient['listDrafts']>>[number];
 
 /** One rail entry — mirrors the `Surface` shape used by the pillars. */
 export interface PackageSurface {
@@ -42,7 +54,8 @@ export interface PackageSurface {
 /**
  * Fetch published + pending-draft items of `type` for `packageId` and merge them
  * into rail entries. Published rows win on name collision (their real label is
- * kept); draft-only names are appended with the machine name as the label.
+ * kept); draft-only items are appended with the label their `_drafts` row
+ * carries, in `locale`, else the machine name.
  *
  * `listDrafts` failures are tolerated (an older server without the drafts
  * endpoint, or a transient error) — the rail still renders the published set
@@ -52,14 +65,15 @@ export async function loadPackageSurfaces(
   client: PackageSurfaceClient,
   type: string,
   packageId: string,
+  locale?: string,
 ): Promise<PackageSurface[]> {
   const [published, draftHeaders] = await Promise.all([
     client.list(type, { packageId }) as Promise<Array<Record<string, unknown>> | null | undefined>,
     client
       .listDrafts({ packageId, type })
-      .catch(() => [] as Array<{ name?: string | null }>),
+      .catch(() => [] as DraftRow[]),
   ]);
-  return mergeSurfaces(type, published, draftHeaders);
+  return mergeSurfaces(type, published, draftHeaders, locale);
 }
 
 /**
@@ -78,17 +92,19 @@ export async function loadPackageSurfaces(
 export async function loadPackageLessSurfaces(
   client: PackageSurfaceClient,
   type: string,
+  locale?: string,
 ): Promise<PackageSurface[]> {
   const [published, draftHeaders] = await Promise.all([
     client.list(type) as Promise<Array<Record<string, unknown>> | null | undefined>,
     client
       .listDrafts({ type })
-      .catch(() => [] as Array<{ name?: string | null; packageId?: string | null }>),
+      .catch(() => [] as DraftRow[]),
   ]);
   return mergeSurfaces(
     type,
     (published || []).filter((o) => isPackageLessItem(o)),
     (draftHeaders || []).filter((d) => isPackageLessDraft(d)),
+    locale,
   );
 }
 
@@ -96,7 +112,8 @@ export async function loadPackageLessSurfaces(
 function mergeSurfaces(
   type: string,
   published: Array<Record<string, unknown>> | null | undefined,
-  draftHeaders: Array<{ name?: string | null }> | null | undefined,
+  draftHeaders: DraftRow[] | null | undefined,
+  locale: string | undefined,
 ): PackageSurface[] {
   const items: PackageSurface[] = (published || [])
     .map((o) => ({
@@ -110,7 +127,8 @@ function mergeSurfaces(
   for (const d of draftHeaders || []) {
     const name = String(d?.name ?? '');
     if (name && !known.has(name)) {
-      items.push({ type, name, label: name });
+      const label = resolveI18nLabel(d?.label ?? undefined, locale)?.trim();
+      items.push({ type, name, label: label || name });
       known.add(name);
     }
   }

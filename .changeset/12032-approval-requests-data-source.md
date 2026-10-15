@@ -11,3 +11,5 @@ Approval requests can now be read by the standard list and record views, and `Ap
 Nothing is added to any package entry: no export, prop, type member or language-pack key.
 
 **Superseded in part (objectui#12045):** the console now mounts this source on the `sys_approval_request` record route, so the sentence above saying nothing mounts it no longer holds when both changes release together.
+
+**Superseded again (objectui#12045, the page-mount step):** the console no longer declares a record route of its own for `sys_approval_request`. On every surface that opens a request, the console-wide `ApprovalRecordReads` layer sends the request's single read to `GET /approvals/requests/:id` and one request's timeline to `GET /approvals/requests/:id/actions`; lists of requests, and every other read, stay on the console's adapter, the data API.

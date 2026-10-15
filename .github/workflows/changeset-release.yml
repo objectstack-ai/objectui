@@ -938,15 +938,26 @@ jobs:
       # failing anywhere. That is this file's own failure class, on the other
       # lane. What objectui#6081 deleted is the PREDICTION, not the event scoping.
       #
-      # ⚠️ ONE CASE WHERE THIS STEP IS NOT LITERALLY A NO-OP — dormant here, real
-      # later. In PRE mode, the ids already listed in `pre.json.changesets` are
-      # consumed records; the deleted mirror filtered them out and this step does
-      # not, so it removes them (measured: `Removed 2`) while `pre.json` itself
-      # SURVIVES, so pre mode is still detected. Harmless on three independent
-      # grounds — the deletion is runner-local (property (2) above), the next
-      # `changeset version` deletes those records anyway, and this repository has
-      # no `pre.json` and no `.changeset/pre/` directory today. Written down
-      # because a pre-release is precisely when nobody wants to rediscover it.
+      # ⚠️ ONE CASE WHERE THIS STEP IS NOT LITERALLY A NO-OP: PRE MODE. Under
+      # `@changesets/cli` 3, `.changeset/pre.json` holds only `mode` and `tag`.
+      # Each pre-mode `changeset version` MOVES the changesets it consumes into
+      # `.changeset/pre/` instead of deleting them; later pre-mode runs skip
+      # them, and the version run after `changeset pre exit` deletes them
+      # together with `pre.json`. This step's glob takes `.changeset/pre/*.md`
+      # too, so on a pre-mode tree it removes those consumed records along with
+      # anything pending, while `pre.json` itself SURVIVES (it is not a `.md`),
+      # so pre mode is still detected. Harmless on two independent grounds —
+      # the deletion is runner-local (property (2) above), so on `main` the
+      # records stay where the version run put them; and `changeset publish`
+      # takes its dist-tag from `pre.json` and reads no changeset file. Neither
+      # a count nor the repository's mode is written down here, because both
+      # move: the step's `Removed N` line prints the count on every run (on a
+      # pre-mode tree it includes every consumed record), and whether
+      # `.changeset/pre.json` exists, and what it says, is the record of the
+      # mode. The layout above was read from the CLI 3 source and measured once
+      # on a scratch tree; nothing re-derives it, so re-read it when the CLI
+      # major moves. Written down because a pre-release is precisely when
+      # nobody wants to rediscover it.
       - name: Clear pending changesets for the publish branch
         if: github.event_name == 'push'
         run: |

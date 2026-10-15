@@ -9,15 +9,16 @@
 /**
  * objectui#12393 — the grid half of objectui#12376, and the family pin.
  *
- * `ListView.rowColorSelect-12376.test.tsx` pins `ListView`'s own `$select`
+ * plugin-list's `ListView.rowColorSelect-12376.test.tsx` pins `ListView`'s own `$select`
  * asking for a non-column `rowColor.field`. That projection does not reach
  * every row the list draws: a GROUPED grid over a data source that answers the
  * group header query owns its fetch (`gridOwnsGroupedFetch`), and its rows
  * arrive through `ObjectGrid`'s own `$select`, which had no row-colour arm. So
  * a grouped list tinted by a field no column shows painted nothing.
  *
- * Both blocks below take the same two steps, because plugin-list's tests run
- * without the grid registered (`vitest.setup.dom-light.tsx`):
+ * Both blocks below take the same two steps, with a stub `object-grid`
+ * registered over whatever the registry holds (the `@object-ui/plugin-grid`
+ * import registers the real one; `afterAll` puts it back):
  *   1. mount `ListView` with a stub `object-grid` and keep the node it hands
  *      the grid, and the `$select` of its own window fetch;
  *   2. render the real `ObjectGrid` with that node, and read the `$select` of
@@ -72,11 +73,14 @@ vi.mock('@object-ui/permissions', async (importOriginal) => {
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRendererProvider, ActionProvider } from '@object-ui/react';
 import { registerAllFields } from '@object-ui/fields';
-import { ListView } from '../ListView';
-// The real grid, by path: plugin-list declares no dependency on plugin-grid
-// (it renders the grid through the registry), and this file needs the
-// component itself.
-import { ObjectGrid } from '../../../plugin-grid/src/ObjectGrid';
+// Both components by package name. This file lives in app-shell because
+// app-shell declares both packages; plugin-list declares no dependency on
+// plugin-grid (it renders the grid through the registry). It used to sit in
+// plugin-list and reach the grid by a relative path, so plugin-list's
+// type-check compiled `ObjectGrid` and its `@object-ui/plugin-detail` import
+// without any declared edge ordering that build first (objectui#12422).
+import { ListView } from '@object-ui/plugin-list';
+import { ObjectGrid } from '@object-ui/plugin-grid';
 
 const OBJECT = 'crm_case';
 

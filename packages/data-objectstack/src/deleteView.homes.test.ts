@@ -9,6 +9,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { ObjectStackAdapter } from './index';
 import { MetadataClient } from './metadata-client';
+import { formatMetadataError } from './metadata-error';
 
 /**
  * `deleteView` removes every home the view has (#4479).
@@ -114,8 +115,8 @@ interface Harness {
  * @param opts.published  receipt (or Error/status) for `DELETE ...` (active)
  */
 function makeDS(opts: {
-  draft?: unknown | { failStatus: number };
-  published?: unknown | { failStatus: number };
+  draft?: unknown | { failStatus: number; failBody?: unknown };
+  published?: unknown | { failStatus: number; failBody?: unknown };
 } = {}): Harness {
   const deletes: Call[] = [];
   const invalidated: string[] = [];
@@ -130,7 +131,8 @@ function makeDS(opts: {
   const answer = (spec: unknown) => {
     if (spec && typeof spec === 'object' && 'failStatus' in (spec as any)) {
       const status = (spec as any).failStatus as number;
-      return json({ error: { message: 'boom', code: 'server_error' } }, status);
+      const body = (spec as any).failBody ?? { error: { message: 'boom', code: 'server_error' } };
+      return json(body, status);
     }
     return json(spec);
   };
@@ -354,6 +356,17 @@ describe('deleteView removes every home the view has (#4479)', () => {
       expect(err.cause).toBeDefined();
     });
 
+    it('a non-refusal published failure still says the view is served and to retry, with the server text', async () => {
+      const h = makeDS({ draft: DRAFT_DISCARDED, published: { failStatus: 500 } });
+
+      const err: any = await h.ds.deleteView('account', VIEW).catch((e: any) => e);
+      const shown = formatMetadataError(err);
+
+      expect(shown).toContain('NOT fully removed');
+      expect(shown).toContain('retry the delete');
+      expect(shown).toContain('boom');
+    });
+
     it('still invalidates the view cache keys when a half fails', async () => {
       const h = makeDS({ draft: DRAFT_DISCARDED, published: { failStatus: 500 } });
 
@@ -363,6 +376,53 @@ describe('deleteView removes every home the view has (#4479)', () => {
       // full TTL. #4363's asymmetry decides it: an unnecessary invalidation
       // costs one refetch, a missed one costs five minutes of stale overrides.
       expect(h.invalidated).toEqual([`view:account:${VIEW}`, 'view-overrides:account']);
+    });
+  });
+
+  // ── A refused half reaches formatMetadataError (objectui#12416) ─────────
+  //
+  // Since `@objectstack/rest` 18.0.0-next.1 a package-less delete of a view
+  // two packages hold is refused `409 RESOURCE_CONFLICT`, and the door's
+  // sentence names the remedy (`?package=`). Callers render a caught error
+  // through `formatMetadataError(err)` (the console's Delete view toast,
+  // objectui#12398), which reads the error's issues or its OWN message — not
+  // `cause`. These pins hold that the remedy reaches that reader from either
+  // half, and that a refusal is not answered with "retry".
+  describe('a refused half surfaces the server reason through formatMetadataError (objectui#12416)', () => {
+    const REMEDY = 'on the REST door add ?package= with the package id';
+    const CONFLICT = {
+      error:
+        `Name the package this delete is for, then send it again: ${REMEDY}, ` +
+        `in process pass packageId. Nothing was deleted. view '${VIEW}' belongs to 2 packages ` +
+        "('com.acme.alpha', 'com.acme.beta'), and a delete that names none has no single row to remove.",
+      code: 'RESOURCE_CONFLICT',
+    };
+
+    it('published-half 409: the remedy is shown, the partial state is still said, no retry advice', async () => {
+      const h = makeDS({ draft: NO_DRAFT, published: { failStatus: 409, failBody: CONFLICT } });
+
+      const err: any = await h.ds.deleteView('account', VIEW).catch((e: any) => e);
+      const shown = formatMetadataError(err);
+
+      expect(shown).toContain(REMEDY);
+      expect(shown).toContain(CONFLICT.error);
+      expect(shown).toContain('NOT fully removed');
+      expect(shown).not.toContain('retry the delete');
+      // Additive: the served error is still the cause, status and code intact.
+      expect(err.cause?.status).toBe(409);
+      expect(err.cause?.code).toBe('RESOURCE_CONFLICT');
+      expect(err.outcome?.published?.removed).toBe(false);
+    });
+
+    it('draft-half 409: unchanged, the served error itself is thrown', async () => {
+      const h = makeDS({ draft: { failStatus: 409, failBody: CONFLICT }, published: PUBLISHED_DELETED });
+
+      const err: any = await h.ds.deleteView('account', VIEW).catch((e: any) => e);
+
+      expect(formatMetadataError(err)).toBe(CONFLICT.error);
+      expect(err.status).toBe(409);
+      expect(err.code).toBe('RESOURCE_CONFLICT');
+      expect(h.order()).toEqual(['draft']);
     });
   });
 

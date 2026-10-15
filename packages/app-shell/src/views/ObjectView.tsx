@@ -2646,7 +2646,13 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             setRefreshKey(k => k + 1);
         } catch (err) {
             console.error('[ViewTabBar] Failed to rename view:', err);
-            toast.error(t('objectViewActions.renameFailed'));
+            // objectui#12417: a refused rename is said with the door's own
+            // message, through the channel objectui#11583 gave the view saves
+            // and objectui#12398 gave Delete view.
+            toast.error(t('objectViewActions.renameFailed'), {
+                description: formatMetadataError(err),
+                classNames: { description: 'whitespace-pre-line' },
+            });
         }
     }, [dataSource, objectName, isSavedView, t]);
 

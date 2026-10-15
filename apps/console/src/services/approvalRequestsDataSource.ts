@@ -79,6 +79,10 @@
  *     value, as the data API orders them;
  *   - `$top` / `$skip` window the ordered rows, and `total` is the timeline's
  *     length, so a paged list pages over the right set;
+ *   - `$count` is honoured as it stands: it asks for `total`, which every
+ *     timeline read returns. A tab strip probes a related list's size with
+ *     `{ $filter, $top: 1, $count: true }`; refusing it would leave the
+ *     request's Timeline tab without its count;
  *   - `$select` and `$expand` are dropped: they shape columns, never which
  *     rows come back, and the route serves its own display names
  *     (`actor_name`) in place of an expansion;
@@ -87,6 +91,27 @@
  *
  * A read of `sys_approval_action` with any other filter is not one request's
  * timeline, and goes to the host unchanged.
+ *
+ * ## Every record surface reads a request through the same doors
+ * (objectui#12045, the page-mount step)
+ *
+ * A request opens on more than one surface: the record route, an `ObjectView`
+ * drawer or split overlay, and the record views embedded in the object data
+ * page and an interface list page. Every one of them takes its `dataSource`
+ * from the console's adapter. `routeApprovalRecordReads` wraps that adapter so
+ * the reads that make a request's record page right go to the approvals
+ * routes on every surface, and nothing else changes:
+ *
+ *   - a `findOne` of `sys_approval_request` reads `GET /approvals/requests/:id`,
+ *     the one door that serves the `viewer` block and the decision tally;
+ *   - one request's timeline reads the actions route, as above.
+ *
+ * Unlike a scoped source, it serves no list of requests: a `find` of
+ * `sys_approval_request` (Setup's list views, with their filters and sorts,
+ * and the timeline's label read of its `request_id` column, which asks for
+ * `{ id: { $in: [...] } }`) stays on the data API, which serves each caller
+ * the requests the approvals door would (objectstack's request read gate,
+ * objectstack-ai/objectstack#22559). Every other member is the host's.
  */
 import { ApiDataSource } from '@object-ui/core';
 import { createAuthenticatedFetch } from '@object-ui/auth';
@@ -191,8 +216,11 @@ function timelineRequestId(params: QueryParams | undefined): string | null {
   return typeof id === 'string' && id.trim() !== '' ? id : null;
 }
 
-/** Names a timeline read applies itself, or drops because they shape columns. */
-const TIMELINE_APPLIED = new Set(['$filter', '$orderby', '$top', '$skip']);
+/**
+ * Names a timeline read applies itself, or drops because they shape columns.
+ * `$count` asks for `total`, which every timeline read returns.
+ */
+const TIMELINE_APPLIED = new Set(['$filter', '$orderby', '$top', '$skip', '$count']);
 const TIMELINE_DROPPED = new Set(['$select', '$expand']);
 
 /** The refusal a timeline read throws: the same code `ListView` classifies. */
@@ -244,20 +272,22 @@ function windowBound(name: '$top' | '$skip', value: unknown): number | undefined
   return n;
 }
 
-/**
- * Build the routed source for one scope. Hand it to `ListView` /
- * `RecordDetailView` as their `dataSource`; mount one per scope.
- */
-export function createApprovalRequestsDataSource(
-  options: ApprovalRequestsDataSourceOptions,
-): DataSource {
-  const { host, scope } = options;
+/** The approvals routes a request's record page reads, built once per source. */
+interface ApprovalReadDoors {
+  /** `GET /approvals/requests` — the list route, for a scoped source. */
+  url: string;
+  fetchFn: NonNullable<ApprovalRequestsDataSourceOptions['fetch']>;
+  /** One request, from `GET /approvals/requests/:id` (`null` only on a 404). */
+  findRequest(id: string): Promise<unknown>;
+  /** One request's timeline, from the actions route, ordered and windowed here. */
+  findTimeline(requestId: string, params: QueryParams): Promise<QueryResult<unknown>>;
+}
+
+function approvalReadDoors(options: Pick<ApprovalRequestsDataSourceOptions, 'fetch' | 'baseUrl'>): ApprovalReadDoors {
   const fetchFn = options.fetch ?? createAuthenticatedFetch();
   const url = `${(options.baseUrl ?? API_BASE).replace(/\/+$/, '')}/approvals/requests`;
-  const scopeParams = toScopeParams(scope);
   const itemDoor = new ApiDataSource<ApprovalRequestRow>({ read: { url, method: 'GET' }, fetch: fetchFn });
 
-  /** One request's timeline, from the actions route, ordered and windowed here. */
   const findTimeline = async (requestId: string, params: QueryParams): Promise<QueryResult<unknown>> => {
     const refused = Object.keys(params)
       .filter((key) => !TIMELINE_APPLIED.has(key) && !TIMELINE_DROPPED.has(key))
@@ -287,47 +317,103 @@ export function createApprovalRequestsDataSource(
     return { data: page, total: rows.length };
   };
 
+  return {
+    url,
+    fetchFn,
+    findRequest: (id) => itemDoor.findOne(APPROVAL_REQUEST_OBJECT, encodeURIComponent(id)),
+    findTimeline,
+  };
+}
+
+/**
+ * The host's other members, bound to it, and cached per host function so a
+ * consumer reads one identity for a method across renders. `wrap` replaces a
+ * method's implementation; it sees the host's own, already bound.
+ */
+function forwardToHost<T extends object>(
+  host: T,
+  own: Readonly<Record<string, unknown>>,
+  wrap?: (prop: string, method: (...args: unknown[]) => unknown) => ((...args: unknown[]) => unknown) | undefined,
+): T {
+  const bound = new Map<PropertyKey, { source: unknown; fn: unknown }>();
+  return new Proxy(host, {
+    get(target, prop) {
+      if (typeof prop === 'string' && Object.prototype.hasOwnProperty.call(own, prop)) return own[prop];
+      const value = Reflect.get(target, prop, target);
+      if (typeof value !== 'function') return value;
+      const hit = bound.get(prop);
+      if (hit && hit.source === value) return hit.fn;
+      const method = (value as (...args: unknown[]) => unknown).bind(target);
+      const fn = (typeof prop === 'string' && wrap?.(prop, method)) || method;
+      bound.set(prop, { source: value, fn });
+      return fn;
+    },
+  });
+}
+
+/**
+ * Build the routed source for one scope. Hand it to `ListView` /
+ * `RecordDetailView` as their `dataSource`; mount one per scope.
+ */
+export function createApprovalRequestsDataSource(
+  options: ApprovalRequestsDataSourceOptions,
+): DataSource {
+  const { host, scope } = options;
+  const doors = approvalReadDoors(options);
+  const scopeParams = toScopeParams(scope);
+
   const find = async (resource: string, params?: QueryParams): Promise<QueryResult<unknown>> => {
     if (resource === APPROVAL_ACTION_OBJECT) {
       const requestId = timelineRequestId(params);
-      return requestId === null ? host.find(resource, params) : findTimeline(requestId, params ?? {});
+      return requestId === null ? host.find(resource, params) : doors.findTimeline(requestId, params ?? {});
     }
     if (resource !== APPROVAL_REQUEST_OBJECT) return host.find(resource, params);
     const query = toListQuery(params);
     if (scopeParams === null) return { data: [], total: 0 };
     const listDoor = new ApiDataSource<ApprovalRequestRow>({
-      read: { url, method: 'GET', params: { ...scopeParams, ...query } },
-      fetch: fetchFn,
+      read: { url: doors.url, method: 'GET', params: { ...scopeParams, ...query } },
+      fetch: doors.fetchFn,
     });
     return listDoor.find(resource);
   };
 
   const findOne = async (resource: string, id: string, params?: QueryParams): Promise<unknown> => {
     if (resource !== APPROVAL_REQUEST_OBJECT) return host.findOne(resource, id, params);
-    return itemDoor.findOne(resource, encodeURIComponent(id));
+    return doors.findRequest(id);
   };
 
-  // Every other member is the host's, bound to it, and cached per host function
-  // so a consumer reads one identity for a method across renders.
-  const bound = new Map<PropertyKey, { source: unknown; fn: unknown }>();
-  return new Proxy(host, {
-    get(target, prop) {
-      if (prop === 'find') return find;
-      if (prop === 'findOne') return findOne;
-      const value = Reflect.get(target, prop, target);
-      if (typeof value !== 'function') return value;
-      const hit = bound.get(prop);
-      if (hit && hit.source === value) return hit.fn;
-      const method = value as (...args: unknown[]) => unknown;
-      const fn =
-        typeof prop === 'string' && REFUSED_HOST_READS.has(prop)
-          ? (resource: unknown, ...rest: unknown[]) =>
-              resource === APPROVAL_REQUEST_OBJECT
-                ? Promise.reject(refusal(prop))
-                : method.call(target, resource, ...rest)
-          : method.bind(target);
-      bound.set(prop, { source: value, fn });
-      return fn;
-    },
-  });
+  return forwardToHost(host, { find, findOne }, (prop, method) =>
+    REFUSED_HOST_READS.has(prop)
+      ? (resource: unknown, ...rest: unknown[]) =>
+          resource === APPROVAL_REQUEST_OBJECT ? Promise.reject(refusal(prop)) : method(resource, ...rest)
+      : undefined,
+  );
+}
+
+/**
+ * The console's adapter, with the reads a request's record page makes routed
+ * to the approvals routes on every surface (objectui#12045): a `findOne` of
+ * `sys_approval_request` and one request's `sys_approval_action` timeline.
+ * Every other read, a `find` of `sys_approval_request` included, and every
+ * other member are the host's. See the module doc for why lists stay on the
+ * data API.
+ *
+ * Returns the host's own type: the result IS the host, with two reads
+ * re-routed, so whatever reads the host reads it.
+ */
+export function routeApprovalRecordReads<T extends DataSource>(
+  host: T,
+  options: Pick<ApprovalRequestsDataSourceOptions, 'fetch' | 'baseUrl'> = {},
+): T {
+  const doors = approvalReadDoors(options);
+
+  const find = async (resource: string, params?: QueryParams): Promise<QueryResult<unknown>> => {
+    const requestId = resource === APPROVAL_ACTION_OBJECT ? timelineRequestId(params) : null;
+    return requestId === null ? host.find(resource, params) : doors.findTimeline(requestId, params ?? {});
+  };
+
+  const findOne = async (resource: string, id: string, params?: QueryParams): Promise<unknown> =>
+    resource === APPROVAL_REQUEST_OBJECT ? doors.findRequest(id) : host.findOne(resource, id, params);
+
+  return forwardToHost(host, { find, findOne });
 }

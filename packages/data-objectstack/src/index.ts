@@ -80,6 +80,7 @@ import {
 } from '@object-ui/core';
 import { MetadataCache } from './cache/MetadataCache';
 import { MetadataClient } from './metadata-client';
+import { formatMetadataError } from './metadata-error';
 import {
   ObjectStackError,
   MetadataNotFoundError,
@@ -6226,6 +6227,10 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    *   the PUBLISHED half after the draft was discarded carries the partial
    *   state on the error's `outcome` — "draft gone, overlay left" is exactly
    *   what the old `{ deleted: boolean }` could not express.
+   *   Its message is the adapter's "NOT fully removed" sentence followed, on
+   *   the next line, by the server's own reason (objectui#12416), so
+   *   `formatMetadataError(err)` shows the remedy a refusal names; the
+   *   original error stays on `cause`.
    *
    * Invalidates through {@link invalidateViewKeys}: the deleted row leaves the
    * batch override map too, and a ghost entry there is what the object page
@@ -6257,12 +6262,25 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
           draft,
           published: { removed: false },
         };
+        // objectui#12416 — the server's reason travels on the error's OWN
+        // message, after the adapter's sentence, so the one reader callers
+        // use (`formatMetadataError(err)`) shows it; on `cause` alone it was
+        // invisible to that reader, and the toast told the user to retry a
+        // delete a `409` had already said how to fix. The reason is rendered
+        // by that same reader (issue lines when the refusal carries them,
+        // else the served message verbatim), never parsed. "Retry" is said
+        // only when the failure is not a 4xx refusal: a refusal's own
+        // sentence names its remedy, and repeating the same request cannot
+        // succeed.
+        const status = (err as { status?: unknown } | null | undefined)?.status;
+        const refused = typeof status === 'number' && status >= 400 && status < 500;
         throw Object.assign(
           new Error(
             `deleteView: view "${viewName}" on object "${objectName}" is NOT fully removed` +
               ` — the draft home was ${draft.removed ? 'discarded' : 'already absent'},` +
               ' but deleting the published overlay failed. The published row is still' +
-              ' serving the view; retry the delete.',
+              ` serving the view${refused ? '.' : '; retry the delete.'}\n` +
+              formatMetadataError(err),
           ),
           { cause: err, outcome },
         );

@@ -9,8 +9,14 @@
  *  - a set with a label reads as the label, with its machine name beneath it
  *    (small, monospace), and the row's accessible name stays the label;
  *  - CONTROL: a set with no label reads as its name alone, once;
- *  - CONTROL: a set listed from its draft header alone reads as its name
- *    alone — the draft header carries no label, and none is fetched for it.
+ *  - a set that exists only as a draft reads as the label its `_drafts` row
+ *    carries (objectstack-ai/objectstack#22200, ruling `6053526025` question 1),
+ *    with its machine name beneath it. The label is read off that row: the
+ *    set itself is not read for it;
+ *  - a draft's locale-map label reads in the designer locale, never as
+ *    `[object Object]`;
+ *  - CONTROL: a draft whose `_drafts` row carries no label (`null`, the
+ *    producer's honest answer) reads as its name alone, once.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -24,8 +30,13 @@ const mockClient = {
     if (type === 'object') return [{ name: 'a_account' }];
     return [];
   }),
-  // A draft-only set: the `_drafts` header carries its name and no label.
-  listDrafts: vi.fn(async () => [{ type: 'permission', name: 'dispatcher', packageId: 'app.a' }]),
+  // Draft-only sets: each `_drafts` row carries the draft body's own label,
+  // or `null` when the body declares none (objectstack-ai/objectstack#22200).
+  listDrafts: vi.fn(async () => [
+    { type: 'permission', name: 'dispatcher', packageId: 'app.a', label: 'Dispatcher' },
+    { type: 'permission', name: 'night_shift', packageId: 'app.a', label: { en: 'Night shift', 'zh-CN': '夜班' } },
+    { type: 'permission', name: 'auditor', packageId: 'app.a', label: null },
+  ]),
   layered: vi.fn(async (_type: string, name: string) => ({
     effective: { name, label: name === 'technician' ? 'Technician' : undefined, objects: {}, fields: {} },
     code: null,
@@ -92,9 +103,27 @@ describe('objectui#11862 — the permission-set list: label first, machine name 
     expect(within(row).getAllByText('field_lead')).toHaveLength(1);
   });
 
-  it('CONTROL: a set listed from its draft header alone reads as its name alone', async () => {
+  it("a draft-only set reads as its `_drafts` row's label, its machine name as secondary text", async () => {
     renderPillar();
-    const row = await screen.findByRole('button', { name: 'dispatcher' });
-    expect(within(row).getAllByText('dispatcher')).toHaveLength(1);
+    const row = await screen.findByRole('button', { name: 'Dispatcher' });
+    expect(within(row).getByText('Dispatcher')).toBeInTheDocument();
+    expect(within(row).getByText('dispatcher')).toHaveClass('font-mono', 'text-[10px]');
+    expect(within(row).getByText('dispatcher')).toHaveAttribute('aria-hidden', 'true');
+    // Read off the row: the draft-only set is never read for its label.
+    const reads = [...mockClient.layered.mock.calls, ...mockClient.getDraft.mock.calls, ...mockClient.get.mock.calls];
+    expect(reads.filter((call) => (call as unknown[])[1] === 'dispatcher')).toEqual([]);
+  });
+
+  it("a draft's locale-map label reads in the designer locale", async () => {
+    renderPillar();
+    const row = await screen.findByRole('button', { name: 'Night shift' });
+    expect(within(row).getByText('night_shift')).toHaveClass('font-mono');
+    expect(row).not.toHaveTextContent('[object Object]');
+  });
+
+  it('CONTROL: a draft whose `_drafts` row carries no label reads as its name alone, once', async () => {
+    renderPillar();
+    const row = await screen.findByRole('button', { name: 'auditor' });
+    expect(within(row).getAllByText('auditor')).toHaveLength(1);
   });
 });

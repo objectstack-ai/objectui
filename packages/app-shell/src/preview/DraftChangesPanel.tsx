@@ -72,6 +72,7 @@ import { useObjectTranslation } from '@object-ui/i18n';
 // refuses, and a faithful copy is exactly the fork that guard exists to prevent.
 import { fetchPendingDrafts } from './usePendingDrafts.js';
 import { canonicalMetaUrlType } from '@objectstack/spec/shared';
+import { resolveI18nLabel, type I18nLabel } from '@objectstack/spec/ui';
 import { stripReadDecorations } from '@objectstack/spec/kernel';
 import { diffFields } from '../views/metadata-admin/previews/object-fields-io.js';
 // The live `?surface=` channel, and NOT `useSurfaceDeepLink` beside it: this
@@ -100,6 +101,13 @@ export interface DraftChangeEntry {
    * two rows, each with its own reads; an entry without one sends no selector.
    */
   member?: string;
+  /**
+   * The label this draft's `_drafts` row carries (objectui#11862): the draft
+   * body's own label, read off the row (objectstack-ai/objectstack#22200).
+   * Absent when the body declares none. The row leads with it and shows the
+   * name beneath it; with none, the name alone is the row's text.
+   */
+  label?: I18nLabel;
   /** `new` = no published version; `update` = overwrites one; undefined = probing. */
   kind?: 'new' | 'update';
 }
@@ -133,6 +141,7 @@ async function listPendingDrafts(packageId?: string | null): Promise<DraftChange
       name: d.name,
       packageId: d.packageId,
       ...(d.member ? { member: d.member } : {}),
+      ...(d.label !== undefined ? { label: d.label } : {}),
     }));
 }
 
@@ -472,7 +481,7 @@ export function DraftChangesPanel({
   onPublish,
   publishing = false,
 }: DraftChangesPanelProps) {
-  const { t } = useObjectTranslation();
+  const { t, language } = useObjectTranslation();
   const [entries, setEntries] = useState<DraftChangeEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   /**
@@ -685,6 +694,13 @@ export function DraftChangesPanel({
                     // objectui#11807 — the drill-in found nothing this publish
                     // changes: not an UPDATE, whatever the name list said.
                     const isUnchanged = unchanged.has(key);
+                    // objectui#11862 — the row's label leads, in the console
+                    // language, for a NEW row and an UPDATE row alike: the one
+                    // `_drafts` serves, so this list never chooses between a
+                    // published and a draft label. The name follows as
+                    // secondary text, or is the row's text when there is no
+                    // label.
+                    const labelText = resolveI18nLabel(entry.label, language)?.trim() ?? '';
                     return (
                       <li key={key} className="rounded-md border text-sm">
                         <button
@@ -716,7 +732,18 @@ export function DraftChangesPanel({
                           ) : (
                             <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
                           )}
-                          <span className="min-w-0 flex-1 truncate font-mono text-xs">{entry.name}</span>
+                          {labelText ? (
+                            <span className="flex min-w-0 flex-1 flex-col">
+                              <span className="truncate">{labelText}</span>
+                              {labelText !== entry.name ? (
+                                <span className="truncate font-mono text-[11px] leading-tight text-muted-foreground">
+                                  {entry.name}
+                                </span>
+                              ) : null}
+                            </span>
+                          ) : (
+                            <span className="min-w-0 flex-1 truncate font-mono text-xs">{entry.name}</span>
+                          )}
                           {entry.member ? (
                             // The member is what tells two rows of one name
                             // apart (objectstack#23073); shown as served.

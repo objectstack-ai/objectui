@@ -17,7 +17,7 @@ import { loadPackageLessSurfaces, loadPackageSurfaces, type PackageSurfaceClient
 
 function makeClient(
   published: Array<Record<string, unknown>>,
-  drafts: Array<{ name?: string | null; packageId?: string | null }> | Error,
+  drafts: Array<{ name?: string | null; packageId?: string | null; label?: unknown }> | Error,
 ): PackageSurfaceClient {
   return {
     list: vi.fn(async () => published),
@@ -145,5 +145,67 @@ describe('loadPackageLessSurfaces (objectui#11553)', () => {
     const items = await loadPackageLessSurfaces(client, 'flow');
 
     expect(items).toEqual([{ type: 'flow', name: 'qa_urgent_alert_clone', label: 'QA urgent alert clone' }]);
+  });
+});
+
+/**
+ * objectui#11862 — a draft-only item reads as the label its `_drafts` row
+ * carries. Since objectstack-ai/objectstack#22200 each row carries the draft
+ * body's own label, or `null` when the body declares none; the seat ruling
+ * `6053526025` (question 1, A at the producer) has every rail read it off that
+ * row. The rail used to name such an item by its machine name until its body
+ * was opened. A published row still wins, with its own label.
+ */
+describe("a draft-only item reads as its `_drafts` row's label (objectui#11862)", () => {
+  it("a draft-only flow takes the label its `_drafts` row carries", async () => {
+    const client = makeClient([], [{ name: 'ft_draft_only', label: 'Draft only flow' }]);
+
+    const items = await loadPackageSurfaces(client, 'flow', 'pkg');
+
+    expect(items).toEqual([{ type: 'flow', name: 'ft_draft_only', label: 'Draft only flow' }]);
+  });
+
+  it('a locale-map label resolves in the locale the rail is drawn in, never as [object Object]', async () => {
+    const client = makeClient([], [{ name: 'ft_map', label: { en: 'Approval', 'zh-CN': '审批' } }]);
+
+    expect(await loadPackageSurfaces(client, 'flow', 'pkg', 'zh-CN')).toEqual([
+      { type: 'flow', name: 'ft_map', label: '审批' },
+    ]);
+    expect(await loadPackageSurfaces(client, 'flow', 'pkg', 'en-US')).toEqual([
+      { type: 'flow', name: 'ft_map', label: 'Approval' },
+    ]);
+  });
+
+  it("CONTROL: a row whose label is null, or blank, reads as its name", async () => {
+    const client = makeClient([], [
+      { name: 'ft_null', label: null },
+      { name: 'ft_blank', label: '  ' },
+    ]);
+
+    const items = await loadPackageSurfaces(client, 'flow', 'pkg');
+
+    expect(items).toEqual([
+      { type: 'flow', name: 'ft_null', label: 'ft_null' },
+      { type: 'flow', name: 'ft_blank', label: 'ft_blank' },
+    ]);
+  });
+
+  it("a published row still wins over a same-named draft's label", async () => {
+    const client = makeClient(
+      [{ name: 'shared', label: 'Published Label' }],
+      [{ name: 'shared', label: 'Draft Label' }],
+    );
+
+    expect(await loadPackageSurfaces(client, 'flow', 'pkg')).toEqual([
+      { type: 'flow', name: 'shared', label: 'Published Label' },
+    ]);
+  });
+
+  it('the package-less loader reads the same label', async () => {
+    const client = makeClient([], [{ name: 'org_draft_only', packageId: null, label: 'Org draft' }]);
+
+    expect(await loadPackageLessSurfaces(client, 'flow')).toEqual([
+      { type: 'flow', name: 'org_draft_only', label: 'Org draft' },
+    ]);
   });
 });

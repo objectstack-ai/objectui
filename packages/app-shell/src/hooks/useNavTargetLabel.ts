@@ -44,9 +44,22 @@
  *
  * A target with no label answers `undefined` — the renderer then falls through
  * the spec's ladder and, at the bottom, to the target's machine name.
+ *
+ * ## A designer's pending drafts — the last rung (objectui#11862)
+ *
+ * A draft-only object or dashboard is in no published list, so the metadata
+ * above cannot name it, and a label-less entry that opens one read as its
+ * machine name in the Studio's nav editor. Where a designer holds its
+ * package's pending drafts, it hands them to {@link DraftTargetLabels}, and the
+ * label a draft's `_drafts` row carries (objectstack-ai/objectstack#22200) is
+ * asked last: only when the metadata has no label for the target, so a
+ * published label still wins. Nothing is fetched for it — the rows are the
+ * ones the designer already read. Without a provider the list is empty and
+ * this hook answers exactly as before, which is the console's case.
  */
 
-import { useMemo } from 'react';
+import { createContext, useContext, useMemo } from 'react';
+import { canonicalMetaUrlType } from '@objectstack/spec/shared';
 import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui';
 import { resolveViewId } from '@object-ui/core';
 import { useObjectLabel, useObjectTranslation } from '@object-ui/i18n';
@@ -83,6 +96,36 @@ export function findByName(items: readonly unknown[] | undefined, name: string):
   );
 }
 
+/**
+ * A pending draft as a designer holds it: the type its row is stored under,
+ * its name, and the label its `_drafts` row carries (absent or `null` when the
+ * draft body declares none).
+ */
+export interface DraftTargetLabel {
+  type: string;
+  name: string;
+  label?: unknown;
+}
+
+/**
+ * The pending drafts a designer holds, for the last rung above. Internal to
+ * app-shell: the Studio surface provides the `_drafts` rows it reads for its
+ * Changes count; nothing else does.
+ */
+export const DraftTargetLabels = createContext<ReadonlyArray<DraftTargetLabel>>([]);
+
+/** The label of the pending draft of `type` named `name`, as display text, or `undefined`. */
+function draftText(
+  drafts: ReadonlyArray<DraftTargetLabel>,
+  type: string,
+  name: string,
+  language: string | undefined,
+): string | undefined {
+  // A stored type spelling is folded as every `/meta` reader folds it.
+  const draft = drafts.find((d) => d.name === name && canonicalMetaUrlType(d.type) === type);
+  return draft ? metadataText(draft.label, language) : undefined;
+}
+
 /** An object's merged `listViews` map (`<object>.<key>` → view), or `{}` when it has none. */
 function listViewsOf(def: LabelledRecord | undefined): Record<string, LabelledRecord | undefined> {
   const views = def?.listViews;
@@ -93,13 +136,15 @@ export function useNavTargetLabel(): NavTargetLabelResolver {
   const metadata = useMetadata();
   const { objectLabel, viewLabel, dashboardLabel } = useObjectLabel();
   const { language } = useObjectTranslation();
+  const drafts = useContext(DraftTargetLabels);
 
   return useMemo<NavTargetLabelResolver>(
     () => (target: NavLabelTarget) => {
       switch (target.kind) {
         case 'object': {
           const def = findByName(metadata.objects, target.objectName);
-          const text = metadataText(def?.label, language);
+          const text =
+            metadataText(def?.label, language) ?? draftText(drafts, 'object', target.objectName, language);
           return nonEmpty(objectLabel({ name: target.objectName, label: text ?? '' }));
         }
         case 'view': {
@@ -110,13 +155,14 @@ export function useNavTargetLabel(): NavTargetLabelResolver {
         }
         case 'dashboard': {
           const def = findByName(metadata.dashboards, target.dashboardName);
-          const text = metadataText(def?.label, language);
+          const text =
+            metadataText(def?.label, language) ?? draftText(drafts, 'dashboard', target.dashboardName, language);
           return nonEmpty(dashboardLabel({ name: target.dashboardName, label: text ?? '' }));
         }
         default:
           return undefined;
       }
     },
-    [metadata, objectLabel, viewLabel, dashboardLabel, language],
+    [metadata, objectLabel, viewLabel, dashboardLabel, language, drafts],
   );
 }

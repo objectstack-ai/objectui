@@ -154,6 +154,21 @@ const GENERATED_PATH = '/objectui-7862/Generated.tsx';
 const STUB_PATH = '/objectui-7862/stubs.d.ts';
 
 /**
+ * objectui#12405 — parsed ON-DISK source files, shared by every program this
+ * file builds with the same options. The real-prop leg below reaches
+ * `@object-ui/types` from source, which pulls about 280 files (its `src`, the
+ * `@objectstack/spec` declarations it imports, `lib.dom.d.ts`) into each
+ * program; measured on this branch, parsing them was ~2.7 s of the ~6.5 s
+ * each of that leg's two compiles cost, and both compiles parsed the identical
+ * files. Only the parse is shared: each compile still builds its own program
+ * and its own checker, so a diagnostic is still the verdict of a whole fresh
+ * compile of that candidate. Keyed by the options too, because binding a file
+ * can depend on them; the text is re-read and compared, so an edited file is
+ * never served stale.
+ */
+const ON_DISK_SOURCE_FILES = new Map<string, ts.SourceFile>();
+
+/**
  * Compile one candidate file and return its diagnostics, formatted.
  *
  * `stubs` replaces the module declarations above (objectui#11515's real-type
@@ -193,15 +208,26 @@ function compile(
     virtual.get(fileName) ??
     (existsSync(fileName) ? readFileSync(fileName, 'utf8') : undefined);
 
+  const optionsKey = JSON.stringify(options);
   const libDirectory = dirname(ts.getDefaultLibFilePath(options));
   const host: ts.CompilerHost = {
     fileExists: (fileName) => virtual.has(fileName) || existsSync(fileName),
     readFile: read,
     getSourceFile: (fileName, languageVersion) => {
       const text = read(fileName);
-      return text === undefined
-        ? undefined
-        : ts.createSourceFile(fileName, text, languageVersion, true);
+      if (text === undefined) return undefined;
+      // The candidate and its stubs are parsed fresh every time: they are the
+      // input under test. An ON-DISK file is parsed once per (options, file):
+      // see ON_DISK_SOURCE_FILES.
+      if (virtual.has(fileName)) {
+        return ts.createSourceFile(fileName, text, languageVersion, true);
+      }
+      const key = `${optionsKey}|${JSON.stringify(languageVersion)}|${fileName}`;
+      const cached = ON_DISK_SOURCE_FILES.get(key);
+      if (cached && cached.text === text) return cached;
+      const parsed = ts.createSourceFile(fileName, text, languageVersion, true);
+      ON_DISK_SOURCE_FILES.set(key, parsed);
+      return parsed;
     },
     getDefaultLibFileName: () => join(libDirectory, 'lib.es2020.d.ts'),
     getDefaultLibLocation: () => libDirectory,
@@ -530,9 +556,28 @@ function compileAgainstRealProp(schemaJson: string): string[] {
   );
 }
 
+/** A schema that is no node: it names no `type`. */
+const NOT_A_NODE_SCHEMA = JSON.stringify({ className: 'p-4' }, null, 2);
+
+/**
+ * objectui#12405 — the two real-prop compiles run in the IMPORT phase, once
+ * each, and the tests below read their verdicts. Each is a whole TypeScript
+ * program over `@object-ui/types`' source; measured on this branch they cost
+ * 5.6–7.2 s apiece inside the 15 s `testTimeout`, and 17.3 / 17.6 s on a slow
+ * CI runner (job 116029528393), where both tests timed out with the compile
+ * itself correct. Module scope, not `beforeAll`: the import phase is governed
+ * by no timeout, whereas a hook would trade the 15 s `testTimeout` for the
+ * narrower 10 s `hookTimeout` (objectui `AGENTS.md`, the test discipline
+ * section; the same move as `check-unused-dependencies.test.ts`'s
+ * `REPOSITORY_SCAN`). Nothing asserted changed: each test reads the same
+ * diagnostics from the same compile it ran before.
+ */
+const DOC_SAMPLE_DIAGNOSTICS = compileAgainstRealProp(DOC_SAMPLE_SCHEMA);
+const NOT_A_NODE_DIAGNOSTICS = compileAgainstRealProp(NOT_A_NODE_SCHEMA);
+
 describe('Export to React — the schema constant against the real prop type (objectui#11515)', () => {
   it('compiles the documented sample, annotated, against SchemaRendererProps[\'schema\']', () => {
-    expect(compileAgainstRealProp(DOC_SAMPLE_SCHEMA)).toEqual([]);
+    expect(DOC_SAMPLE_DIAGNOSTICS).toEqual([]);
   });
 
   it('is a harness that can fail — a schema that is no node is refused AT the constant', () => {
@@ -540,9 +585,9 @@ describe('Export to React — the schema constant against the real prop type (ob
     // would read as an error type and this would compile. The refusal lands on
     // the annotated line, which is what the annotation buys: the error is
     // reported where the schema is written, not at the JSX element.
-    const product = generatedFile().replace(SAMPLE_SCHEMA, JSON.stringify({ className: 'p-4' }, null, 2));
+    const product = generatedFile().replace(SAMPLE_SCHEMA, NOT_A_NODE_SCHEMA);
     const constLine = product.split('\n').findIndex((line) => /^const schema\b/.test(line)) + 1;
-    const diagnostics = compileAgainstRealProp(JSON.stringify({ className: 'p-4' }, null, 2));
+    const diagnostics = NOT_A_NODE_DIAGNOSTICS;
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0]).toContain(`${GENERATED_PATH}(${constLine},`);
     expect(diagnostics[0]).toContain('error TS2322');

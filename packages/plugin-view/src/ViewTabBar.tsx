@@ -973,9 +973,16 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
 
   return (
     <TooltipProvider>
+      {/* The bar takes its container's width (`w-full`), whatever the host:
+          in a flex slot (the list toolbar's leading slot, objectui#12440) a
+          bar without it is sized by its content, so the strip below measures
+          the tabs it is drawing and the fit answers its own last answer — once
+          one tab is drawn, one tab is all that fits (objectui#12518). `w-full`
+          rather than `flex-1` so a column-flex host is not grown vertically;
+          in a block host it is the width the bar already had. */}
       <div
         data-testid="view-tab-bar"
-        className={cn('flex min-w-0 items-center gap-0.5 -mb-px', className)}
+        className={cn('flex w-full min-w-0 items-center gap-0.5 -mb-px', className)}
       >
         {/* The strip: the tabs and their "N more" trigger, in whatever width
             the bar's other controls leave. `flex-1` with a zero basis, so its

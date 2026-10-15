@@ -32,6 +32,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { I18nLabel } from '@objectstack/spec/ui';
 import { subscribeMetadataRefresh } from '../assistant/assistantBus.js';
 
 export interface PendingDraftEntry {
@@ -48,6 +49,26 @@ export interface PendingDraftEntry {
    * as `?member=`. Copied as served, never derived from the name or the body.
    */
   member?: string;
+  /**
+   * The draft body's own label, as `_drafts` served it
+   * (objectstack-ai/objectstack#22200, `ListDraftsResponseSchema`
+   * `drafts[].label`): a plain string, or on the UI types an inline locale map
+   * the reader resolves (`resolveI18nLabel`). Absent when the row's label is
+   * `null` — the producer's answer for a body that declares none — so a caller
+   * shows the name only where there is truly no label (objectui#11862). Copied
+   * as served; never a fallback to the name.
+   */
+  label?: I18nLabel;
+}
+
+/**
+ * A `_drafts` row's `label`, as served: a non-blank string or a locale map,
+ * else `undefined` (`null` and anything else).
+ */
+function servedLabel(raw: unknown): I18nLabel | undefined {
+  if (typeof raw === 'string') return raw.trim() ? raw : undefined;
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) return raw as I18nLabel;
+  return undefined;
 }
 
 /**
@@ -129,14 +150,19 @@ export async function fetchPendingDrafts(
   const list = Array.isArray(data) ? data : (data?.drafts ?? data?.data?.drafts ?? []);
   return (Array.isArray(list) ? list : [])
     .filter((d) => typeof d?.type === 'string' && typeof d?.name === 'string')
-    .map((d) => ({
-      type: d.type as string,
-      name: d.name as string,
-      packageId: typeof d.packageId === 'string' && d.packageId ? (d.packageId as string) : null,
-      // Only when served: an entry without `member` stays without one, so no
-      // caller ever sends an empty `?member=` (a blank selector is a 400).
-      ...(typeof d.member === 'string' && d.member ? { member: d.member as string } : {}),
-    }));
+    .map((d) => {
+      // objectui#11862 — the label, read off the row it arrived on.
+      const label = servedLabel(d.label);
+      return {
+        type: d.type as string,
+        name: d.name as string,
+        packageId: typeof d.packageId === 'string' && d.packageId ? (d.packageId as string) : null,
+        // Only when served: an entry without `member` stays without one, so no
+        // caller ever sends an empty `?member=` (a blank selector is a 400).
+        ...(typeof d.member === 'string' && d.member ? { member: d.member as string } : {}),
+        ...(label !== undefined ? { label } : {}),
+      };
+    });
 }
 
 export interface UsePendingDraftsOptions {

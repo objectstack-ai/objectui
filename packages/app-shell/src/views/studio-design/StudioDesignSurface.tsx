@@ -202,7 +202,7 @@ import {
   renamedLabel,
   type NavEntryLike,
 } from '../metadata-admin/previews/navItemLabel.js';
-import { useNavTargetLabel } from '../../hooks/useNavTargetLabel.js';
+import { DraftTargetLabels, useNavTargetLabel } from '../../hooks/useNavTargetLabel.js';
 import { listAppComponents } from '../../services/componentRegistry.js';
 import {
   NAV_ENTRY_TYPES,
@@ -1792,20 +1792,27 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
               // draft; the previous package's page stayed open and saved into
               // the next one. One reset, of all of it. This is a new document,
               // not a data refresh, which Commandment #8 keeps from a key bump.
-              <InterfacesPillar
-                key={packageId}
-                packageId={packageId}
-                publishNonce={publishNonce}
-                draftNonce={draftNonce}
-                onDraftSaved={onDraftSaved}
-                onCreateApp={readOnly ? undefined : () => setAppCreating(true)}
-                readOnly={readOnly}
-                readOnlySettled={pkgWritable !== undefined}
-                foldInspector={chatDockMode}
-                onDirtyChange={setPillarDirty}
-                onSurfaceLabelChange={setSurfaceLabel}
-                onHeldEditChange={setHeldEdit}
-              />
+              // objectui#11862 — the pending drafts read above (the Changes
+              // count's `_drafts` rows, each with its label) are the last rung
+              // of the nav editor's label resolver: a label-less entry that
+              // opens a draft-only object or dashboard reads as that draft's
+              // label, not its machine name. No read is added for it.
+              <DraftTargetLabels.Provider value={pendingEntries}>
+                <InterfacesPillar
+                  key={packageId}
+                  packageId={packageId}
+                  publishNonce={publishNonce}
+                  draftNonce={draftNonce}
+                  onDraftSaved={onDraftSaved}
+                  onCreateApp={readOnly ? undefined : () => setAppCreating(true)}
+                  readOnly={readOnly}
+                  readOnlySettled={pkgWritable !== undefined}
+                  foldInspector={chatDockMode}
+                  onDirtyChange={setPillarDirty}
+                  onSurfaceLabelChange={setSurfaceLabel}
+                  onHeldEditChange={setHeldEdit}
+                />
+              </DraftTargetLabels.Provider>
             )}
           </div>
         </div>
@@ -2431,9 +2438,12 @@ function usePackageNavTargets(
           if (!name || byName.has(name) || !isNavTargetRow(metaType, row)) continue;
           byName.set(name, { name, label: row.label as I18nLabel | undefined });
         }
-        for (const draft of drafts ?? []) {
+        // objectui#11862 — a draft-only target carries the label its `_drafts`
+        // row serves (objectstack-ai/objectstack#22200), so the picker offers
+        // it by that label, as it offers a published one.
+        for (const draft of (drafts ?? []) as Array<{ name?: string | null; label?: I18nLabel | null }>) {
           const name = typeof draft?.name === 'string' ? draft.name : '';
-          if (name && !byName.has(name)) byName.set(name, { name });
+          if (name && !byName.has(name)) byName.set(name, { name, label: draft.label ?? undefined });
         }
       } catch {
         /* non-fatal — the picker just stays empty */
@@ -4647,7 +4657,9 @@ export function DataPillar({
         // whose objects are all drafts would render an empty (previously:
         // forever-"loading") rail.
         //
-        // objectui#11843 — a draft header carries no label, so a draft-only
+        // objectui#11843 — written when a draft header carried no label (since
+        // objectstack-ai/objectstack#22200 the `_drafts` row carries one; this
+        // read predates it and still works, objectui#11862), a draft-only
         // object takes its label from the draft-overlaid list
         // (`GET /meta/object?package=…&preview=draft`), which serves each
         // pending draft of the package with its own label and a `_draft` mark.
@@ -6090,10 +6102,12 @@ export function AutomationsPillar({
         // draft exists. Mirrors the Data / Interfaces / Access pillars, which all
         // merge their drafts. Keyed on `publishNonce` too so drafts that go live
         // collapse back into the published rail after a package publish.
+        // objectui#11862 — a draft-only flow reads as the label its `_drafts`
+        // row carries, resolved in the designer locale.
         const [items, registrations] = await Promise.all([
           packageId === null
-            ? loadPackageLessSurfaces(client, 'flow')
-            : loadPackageSurfaces(client, 'flow', packageId),
+            ? loadPackageLessSurfaces(client, 'flow', locale)
+            : loadPackageSurfaces(client, 'flow', packageId, locale),
           readFlowRegistrations(client, packageId),
         ]);
         if (cancelled) return;
@@ -6108,7 +6122,7 @@ export function AutomationsPillar({
         const named = initialSurface?.type === 'flow' ? initialSurface.name : null;
         if (named && !deepLinked && packageId !== null && !deepLinkProbedRef.current) {
           deepLinkProbedRef.current = true;
-          const packageLess = await loadPackageLessSurfaces(client, 'flow').catch(() => []);
+          const packageLess = await loadPackageLessSurfaces(client, 'flow', locale).catch(() => []);
           if (cancelled) return;
           if (packageLess.some((f) => f.name === named)) {
             navigate(studioOrgScopePath({ type: 'flow', name: named }), { replace: true });
@@ -6125,7 +6139,7 @@ export function AutomationsPillar({
     return () => {
       cancelled = true;
     };
-  }, [client, packageId, publishNonce, metadataRefreshNonce]);
+  }, [client, packageId, publishNonce, metadataRefreshNonce, locale]);
 
   const doCreateFlow = React.useCallback(
     async (label: string, name: string, trigger: NewFlowTrigger | null) => {
@@ -6945,10 +6959,14 @@ export function AccessPillar({
           isDefault: !!(p as Record<string, unknown>).isDefault,
         });
       }
-      for (const d of (drafts as Array<{ name?: string }>) || []) {
+      // objectui#11862 — a draft-only set reads as the label its `_drafts` row
+      // carries (objectstack-ai/objectstack#22200), in the designer locale; the
+      // set is not read for it (ruling `6053526025`, question 1). A row with
+      // no label leaves `label` empty, and the rail shows the name alone.
+      for (const d of (drafts as Array<{ name?: string; label?: I18nLabel | null }>) || []) {
         const name = String(d?.name ?? '');
         if (!name || byName.has(name)) continue;
-        byName.set(name, { name, label: name });
+        byName.set(name, { name, label: navItemLabelText(d?.label ?? undefined, locale).trim() });
       }
       const scoped = [...byName.values()];
       setPerms(scoped);
@@ -6967,7 +6985,7 @@ export function AccessPillar({
     } finally {
       setLoaded(true);
     }
-  }, [client, packageId]);
+  }, [client, packageId, locale]);
 
   React.useEffect(() => {
     void load();
@@ -7181,9 +7199,8 @@ export function AccessPillar({
               >
                 <Shield className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 {/* objectui#11862 — the set's label first, its machine name as
-                    secondary text. A set listed from its draft header alone
-                    has no label in hand (the header carries none), so its
-                    name is the text, as before. */}
+                    secondary text. A draft-only set's label is the one its
+                    `_drafts` row carries; with none, its name is the text. */}
                 <StudioNameLabel label={p.label} name={p.name} />
                 {p.isDefault && (
                   <span className="text-[9px] uppercase tracking-wide text-muted-foreground/60">

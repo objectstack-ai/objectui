@@ -170,10 +170,12 @@ vi.mock('@object-ui/auth', async (importOriginal) => ({
 }));
 
 // The control plane's own app, owned by a package — so the Studio bridge has
-// a target — and its `welcome` page.
+// a target — and its `welcome` page. `PageView` is mounted under the same app
+// document (objectui#12540).
+const CLOUD_APP = vi.hoisted(() => ({ name: 'cloud_control', label: 'Cloud', _packageId: 'com.objectstack.cloud' }));
 vi.mock('../../providers/MetadataProvider', () => ({
   useMetadata: () => ({
-    apps: [{ name: 'cloud_control', label: 'Cloud', _packageId: 'com.objectstack.cloud' }],
+    apps: [CLOUD_APP],
     dashboards: [],
     pages: [{ name: 'welcome', type: 'page', label: 'Welcome' }],
     reports: [],
@@ -188,7 +190,6 @@ vi.mock('../../providers/AdapterProvider', () => ({
 import { AppHeader } from '../AppHeader';
 import { PageView } from '../../views/PageView';
 import { ExpressionProvider } from '../../providers/ExpressionProvider';
-import { useMetadata } from '../../providers/MetadataProvider';
 
 /** `/me/permissions` for a persona, with the fields these surfaces do not read left empty. */
 function mePermissions(systemPermissions: string[]): MePermissionsResponse {
@@ -245,7 +246,7 @@ async function studioEntriesOnPageRoute(perms: MePermissionsResponse): Promise<S
   // (objectui#12540).
   const page = render(
     <MePermissionsProvider initialPermissions={perms}>
-      <ExpressionProvider user={EXPRESSION_USER} app={useMetadata().apps[0]}>
+      <ExpressionProvider user={EXPRESSION_USER} app={CLOUD_APP}>
         <PageView />
       </ExpressionProvider>
     </MePermissionsProvider>,

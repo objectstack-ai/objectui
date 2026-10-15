@@ -740,10 +740,14 @@ const RECORD_RELATED_LIST_NEITHER_CHANNEL = neitherContentChannelGuidance(
  * refused, as an unrecognized key, a binding the renderer honours.
  *
  * The binding is the binding of the CHILD rows the list shows. ⛔ It is not the
- * parent record: the parent is still the record the block sits on, matched
- * through `relationshipField`. So the member is NOT `RECORD_BLOCK_DATA_SOURCE`,
- * whose one-record meaning (the first bound row becomes the block's record)
- * belongs to `record:details`, `record:highlights` and `record:quick_actions`.
+ * parent record: the parent is the record the block sits on, matched through
+ * `relationshipField` — or, when the node's bag carries `parentDataSource`, the
+ * first row of THAT binding (objectui#12294, ruling B on objectui#12296). The
+ * parent binding is a member of the spec row, so `properties` carries it by
+ * reference and this arm declares nothing for it. So the member here is NOT
+ * `RECORD_BLOCK_DATA_SOURCE`, whose one-record meaning (the first bound row
+ * becomes the block's record) belongs to `record:details`, `record:highlights`
+ * and `record:quick_actions`.
  */
 export const RecordRelatedListBlockSchema = BaseSchema.extend({
   type: z.literal('record:related_list'),
@@ -758,8 +762,9 @@ export const RecordRelatedListBlockSchema = BaseSchema.extend({
       'Per-element data binding — `@objectstack/spec` `ElementDataSourceSchema`, the schema '
       + '`PageComponentSchema.dataSource` declares, by reference. Binds the CHILD rows the list shows, '
       + 'not the parent record: `ElementDataSourceGate` lands its `object` on `objectName`, its `filter`, '
-      + '`sort` and `limit` on the list\'s own, and a named `view`\'s columns on `columns`; the parent stays '
-      + 'the record the block sits on, matched through `relationshipField`.',
+      + '`sort` and `limit` on the list\'s own, and a named `view`\'s columns on `columns`. The parent is '
+      + 'the record the block sits on, or the first row of `properties.parentDataSource` when the node '
+      + 'declares one, matched through `relationshipField`.',
     ),
   // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
   // kept a MEMBER (see "The content channels" above).

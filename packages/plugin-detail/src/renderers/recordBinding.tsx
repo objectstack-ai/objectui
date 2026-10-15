@@ -78,6 +78,20 @@
  *  - the page's highlight-field registry (`HighlightFieldsProvider`): a bound
  *    `record:highlights` would otherwise hide fields from the PAGE record's
  *    `record:details`. The bound scope gets its own registry.
+ *
+ * ## The PARENT binding of `record:related_list` ({@link ParentRecordBinding})
+ *
+ * `record:related_list` is the one record block with two bindings (ruling B on
+ * objectui#12296): its node-level `dataSource` is the CHILD rows the list
+ * draws (objectstack#6953), and the spec row's `parentDataSource` is the record
+ * the list hangs off. The parent binding is read here, by the same one-record
+ * read: the same gate, the same first row by `sort`, the same invalidation bus,
+ * provided through the same `RecordContextProvider` the related-list body
+ * already reads. It differs from the three blocks above in ONE place, and the
+ * spec's describe is why: no row is a LOUD ABSENCE drawn in the block's place,
+ * never an empty record context — under one the list would query nothing and
+ * draw an empty list, which reads as "this record has no related records", a
+ * wrong fact in the silent direction.
  */
 
 import * as React from 'react';
@@ -209,6 +223,84 @@ function BoundRecordScope({ schema, bound, testId, children }: BoundRecordScopeP
   );
 }
 
+export interface ParentRecordBindingProps {
+  /**
+   * The PARENT binding as authored — `record:related_list`'s
+   * `parentDataSource`, the spec's `ElementDataSourceSchema` by reference.
+   * Anything that is not a binding the gate would resolve (absent included)
+   * leaves the children exactly as they are.
+   */
+  binding: unknown;
+  /** The block's registry key, named in the no-adapter panel. */
+  blockKey: string;
+  /** `data-testid` stem for this scope's states (`<stem>-loading-record`, …). */
+  testId: string;
+  /** Heading of the panels a binding that cannot be read draws. */
+  errorTitle?: string;
+  /** What the block draws in its own place when no row answers: the loud absence. */
+  absent: React.ReactNode;
+  children: React.ReactNode;
+}
+
+/**
+ * The parent record of a block, from a binding of its own (ruling B on
+ * objectui#12296, the spec's `RecordRelatedListProps.parentDataSource`).
+ *
+ * Unbound → the children as they are, so the record page's own context still
+ * reaches the block, byte-identically. Bound → the binding is resolved by
+ * `ElementDataSourceGate` (a named view, the AND-combined filter, the sort, and
+ * the family's panels for a view that does not resolve, a refused filter, or no
+ * adapter), its FIRST row is read by {@link BoundRecordProvider} — the one
+ * read the three one-record blocks take, keyed on the same invalidation bus —
+ * and provided through `RecordContextProvider` as the children's record. No row
+ * draws `absent` instead of the children.
+ *
+ * The gate is handed the parent binding ALONE, as a node's `dataSource`, and
+ * never the block's own schema: with the schema, the gate's filter and sort
+ * mapping would compose the block's own `filter` and `sort` — the CHILD list's
+ * — into the parent's query.
+ */
+export function ParentRecordBinding({
+  binding,
+  blockKey,
+  testId,
+  errorTitle,
+  absent,
+  children,
+}: ParentRecordBindingProps): React.ReactElement {
+  // Memoised for cost only (AGENTS.md #10): the gate composes off this node,
+  // and every read below keys on the strings it lands, not on this identity.
+  const gateSchema = React.useMemo(() => ({ dataSource: binding }), [binding]);
+  if (!isElementDataSourceConfig(binding)) return <>{children}</>;
+  return (
+    <ElementDataSourceGate
+      schema={gateSchema}
+      mapping={RECORD_BLOCK_DATA_SOURCE}
+      testId={testId}
+      errorTitle={errorTitle}
+      requiresDataSource
+      noDataSourceMessage={noDataSourceMessage(blockKey, binding.object)}
+    >
+      {(landed) => {
+        // As in `BoundRecordScope`: a composed binding always names its object.
+        const { objectName, filter, sort } = landed as { objectName?: unknown; filter?: unknown; sort?: unknown };
+        return (
+          <BoundRecordProvider
+            object={typeof objectName === 'string' ? objectName : ''}
+            filter={filter}
+            sort={sort}
+            testId={testId}
+            absent={absent}
+            errorTitle={errorTitle}
+          >
+            {children}
+          </BoundRecordProvider>
+        );
+      }}
+    </ElementDataSourceGate>
+  );
+}
+
 /** Gated copies of bound rows, keyed on the served row object itself. */
 const READABLE_ROWS = new WeakMap<object, { kept: string; row: unknown }>();
 
@@ -268,10 +360,27 @@ interface BoundRecordProviderProps {
   filter: unknown;
   sort: unknown;
   testId: string;
+  /**
+   * Drawn INSTEAD of the children when the settled read has no row. Absent, the
+   * children are mounted under a record context that names the object and no
+   * record — the three one-record blocks' own no-record states. Set by
+   * {@link ParentRecordBinding} only.
+   */
+  absent?: React.ReactNode;
+  /** Heading of the failed-read panel; the family's default when absent. */
+  errorTitle?: string;
   children: React.ReactNode;
 }
 
-function BoundRecordProvider({ object, filter, sort, testId, children }: BoundRecordProviderProps): React.ReactElement {
+function BoundRecordProvider({
+  object,
+  filter,
+  sort,
+  testId,
+  absent,
+  errorTitle,
+  children,
+}: BoundRecordProviderProps): React.ReactElement {
   const dataSource = useResolvedDataSource<DataSource>();
   const perms = usePermissions();
   // Placeholder tokens (`{current_user_id}`, the date macros) resolve the way
@@ -358,9 +467,12 @@ function BoundRecordProvider({ object, filter, sort, testId, children }: BoundRe
     );
   }
   if (current?.status === 'failed') {
-    return <ElementDataSourceErrorPanel testId={testId} message={current.error} />;
+    return <ElementDataSourceErrorPanel testId={testId} title={errorTitle} message={current.error} />;
   }
   const row = current?.status === 'loaded' ? current.row : undefined;
+  // Settled with no row: none answered, or the server refused the read, which
+  // reads the same (see the module doc).
+  if (absent !== undefined && row === undefined) return <>{absent}</>;
   return (
     <RecordContextProvider
       objectName={object}

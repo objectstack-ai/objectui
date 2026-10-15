@@ -623,6 +623,19 @@ ComponentRegistry.register('related_list', RecordRelatedListRenderer, {
     { name: 'objectName', type: 'string', required: true, description: 'Related object name (e.g. "task")' },
     { name: 'relationshipField', type: 'string', required: true, description: 'Field on the related object pointing back to this record' },
     { name: 'relationshipValueField', type: 'string', description: 'Which field OF THIS PARENT record `relationshipField` stores. Defaults to "id"; set it to the field a name-keyed junction points at (e.g. "name" when sys_user_position.position holds sys_position.name). The resolved value drives three things at once — the list filter, the Add-picker link value, and the pre-filled create form — so they cannot drift apart. While the parent record is still loading, a non-"id" field resolves to null and the list holds its fetch rather than querying on an empty value.' },
+    // `parentDataSource` — the spec row's PARENT binding (objectui#12294, ruling
+    // B on objectui#12296), read by `ParentRecordBinding` in
+    // `renderers/recordBinding.tsx`. Hand-declared here, unlike the node-level
+    // `dataSource` the `elementDataSourceBlock` seam injects: it is a member of
+    // this block's own row, and the html tier judges a prop against `inputs`.
+    // The description is the renderer's behaviour, not the spec describe
+    // verbatim, whose `[PLANNED — not yet rendered]` marker this read retires.
+    {
+      name: 'parentDataSource',
+      type: 'object',
+      description:
+        'The PARENT record this related list hangs off, bound by a query of its own: an object binding `{ object, view?, filter?, sort?, limit? }`, the shape `dataSource` takes. The FIRST row of the bound set by its `sort` is the parent (declare `limit: 1`; `objectui validate` warns without it), and `relationshipValueField` is read on that row. When no row answers, the list draws a notice saying so in its place, never an empty list. Without this key, the parent is the record page\'s record. The node-level `dataSource` on this block is the CHILD rows the list draws, and it is never read as the parent.',
+    },
     // `columns` is NOT required (objectui#11613). The spec row leaves it
     // optional, and the registration may not be stricter than the row it
     // publishes: the page compile reads `required` here, and with it set a node

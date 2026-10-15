@@ -6,7 +6,8 @@
  * LICENSE file in the root directory of this source tree.
  *
  * `record:related_list` — renders a list of records related to the current
- * record (parent-child / lookup back-reference). Props mirror the spec
+ * record (parent-child / lookup back-reference), or to the record its
+ * `parentDataSource` binding reads (objectui#12294). Props mirror the spec
  * `RecordRelatedListComponentProps` shape; the existing RelatedList expects
  * the legacy `referenceField` / `pageSize` names, so we adapt here.
  */
@@ -34,6 +35,7 @@ import {
 import type { RecordRelatedListComponentProps } from '@object-ui/types';
 import { RelatedList } from '../RelatedList';
 import { useRecordAriaProps } from './recordComponentAria';
+import { ParentRecordBinding } from './recordBinding';
 import {
   describeRelatedListActionRefusals,
   placeAuthoredRelatedListActions,
@@ -678,15 +680,11 @@ const RECORD_RELATED_LIST_DATA_SOURCE: ElementDataSourceMapping = {
 const NO_SCHEMA = {} as RecordRelatedListRendererProps['schema'];
 
 /**
- * `record:related_list` with the spec's per-element `dataSource` binding mapped
- * onto the keys the body reads (objectstack#6953).
- *
- * The gate wraps the EXPORTED name rather than being added at the registration
- * site, so a host that imports this renderer directly gets the binding too — a
- * block bound under one entry point and unbound under another is the same
- * "declared but not reached" shape in miniature.
+ * The CHILD rows: the spec's per-element `dataSource` binding mapped onto the
+ * keys the body reads (objectstack#6953), under whichever record context is the
+ * parent's.
  */
-export const RecordRelatedListRenderer: React.FC<RecordRelatedListRendererProps> = elementDataSourceBlock((props) => {
+const RecordRelatedListChildRows: React.FC<RecordRelatedListRendererProps> = (props) => {
   // The record context's adapter, not the schema-renderer context's: this list
   // reads its rows through `ctx.dataSource`, and resolving `view` against a
   // different source than the rows come from could report a view as missing on
@@ -702,6 +700,64 @@ export const RecordRelatedListRenderer: React.FC<RecordRelatedListRendererProps>
     >
       {(bound) => <RecordRelatedListBody {...props} schema={bound as any} />}
     </ElementDataSourceGate>
+  );
+};
+
+/**
+ * The loud absence `parentDataSource` owes when no row answers (the spec's
+ * describe: "never an empty list, which would read as 'this record has no
+ * related records'"). Drawn in the block's own place, on the block's own
+ * container, so the designer still selects it.
+ */
+const NoParentRecord: React.FC<{
+  object: unknown;
+  className?: string;
+  designer: Record<string, unknown>;
+}> = ({ object, className, designer }) => (
+  <div className={className} {...designer}>
+    <div
+      role="status"
+      aria-live="polite"
+      data-testid="record-related-list-parent-absent"
+      className="text-sm text-muted-foreground px-3 py-2 border border-dashed rounded"
+    >
+      {`No “${typeof object === 'string' ? object : 'parent'}” record matches this related list’s parent binding, so there is no parent record to list related records for.`}
+    </div>
+  </div>
+);
+
+/**
+ * `record:related_list`, with its TWO bindings (ruling B on objectui#12296):
+ *
+ *  - the PARENT record — `parentDataSource`, the spec row's member, read by
+ *    {@link ParentRecordBinding}: the first row of the binding by its `sort`
+ *    becomes the record context the body reads, and no row is a loud absence.
+ *    Absent, the parent is the record page's record context, as it always was;
+ *  - the CHILD rows — the node's `dataSource`, mapped onto the keys the body
+ *    reads by {@link RecordRelatedListChildRows}. It keeps its published
+ *    meaning and is never read as the parent.
+ *
+ * The parent scope sits OUTSIDE the child gate because the child gate and the
+ * body read the parent's record context (its id, its row, its adapter).
+ *
+ * The gates wrap the EXPORTED name rather than being added at the registration
+ * site, so a host that imports this renderer directly gets both bindings too — a
+ * block bound under one entry point and unbound under another is the same
+ * "declared but not reached" shape in miniature.
+ */
+export const RecordRelatedListRenderer: React.FC<RecordRelatedListRendererProps> = elementDataSourceBlock((props) => {
+  const { schema, className, ...rest } = props;
+  const parentBinding = schema?.parentDataSource;
+  return (
+    <ParentRecordBinding
+      binding={parentBinding}
+      blockKey="record:related_list"
+      testId="record-related-list-parent"
+      errorTitle="This related list’s parent record could not be read"
+      absent={<NoParentRecord object={parentBinding?.object} className={className} designer={splitDesigner(rest).designer} />}
+    >
+      <RecordRelatedListChildRows {...props} />
+    </ParentRecordBinding>
   );
 });
 

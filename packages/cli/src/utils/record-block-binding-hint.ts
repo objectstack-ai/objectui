@@ -22,8 +22,14 @@
  * judges the binding's SHAPE (the spec's `ElementDataSourceSchema`), and this
  * reads one value of it.
  *
- * `record:related_list` is not in the set: its binding is the binding of its
- * CHILD rows, which are many by design.
+ * `record:related_list` is not in the set: its `dataSource` is the binding of
+ * its CHILD rows, which are many by design. Its PARENT binding,
+ * `properties.parentDataSource` (the spec row's member, ruling B on
+ * objectui#12296), is read by the same single-record rule — the first row by
+ * `sort` is the parent, and the spec's own describe tells the author to declare
+ * `limit: 1` — so a parent binding without it is reported the same way, naming
+ * the key. That is this warning's existing rule on one more carrier of it, not
+ * a new finding: nothing compares the parent binding with any other block's.
  */
 
 import { formatIssuePath } from './issue-path.js';
@@ -35,6 +41,9 @@ export const ONE_RECORD_BLOCK_TYPES: ReadonlySet<string> = new Set([
   'record:quick_actions',
 ]);
 
+/** The block whose PARENT record is bound, and where its row puts the binding. */
+export const PARENT_BINDING_BLOCK_TYPE = 'record:related_list';
+
 export interface RecordBindingLimitFinding {
   /** Where the block sits, spelled the way every other CLI path is (`formatIssuePath`). */
   path: string;
@@ -42,10 +51,24 @@ export interface RecordBindingLimitFinding {
   type: string;
   /** The object the binding names. */
   object: string;
+  /**
+   * Which binding: the one-record blocks' node-level `dataSource`, or the
+   * related list's `properties.parentDataSource`.
+   */
+  key: 'dataSource' | 'properties.parentDataSource';
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === 'object' && !Array.isArray(value);
+
+/** A binding that names an object and does not say `limit: 1`. */
+const unboundedObjectOf = (binding: unknown): string | undefined =>
+  isRecord(binding)
+  && typeof binding.object === 'string'
+  && binding.object.length > 0
+  && binding.limit !== 1
+    ? binding.object
+    : undefined;
 
 /**
  * Every one-record block in `document` whose binding names an object and does
@@ -62,16 +85,15 @@ export function findRecordBindingsWithoutLimitOne(
   if (!isRecord(document)) return [];
 
   const findings: RecordBindingLimitFinding[] = [];
-  const binding = document.dataSource;
-  if (
-    typeof document.type === 'string'
-    && ONE_RECORD_BLOCK_TYPES.has(document.type)
-    && isRecord(binding)
-    && typeof binding.object === 'string'
-    && binding.object.length > 0
-    && binding.limit !== 1
-  ) {
-    findings.push({ path: formatIssuePath(path), type: document.type, object: binding.object });
+  if (typeof document.type === 'string' && ONE_RECORD_BLOCK_TYPES.has(document.type)) {
+    const object = unboundedObjectOf(document.dataSource);
+    if (object) findings.push({ path: formatIssuePath(path), type: document.type, object, key: 'dataSource' });
+  }
+  if (document.type === PARENT_BINDING_BLOCK_TYPE && isRecord(document.properties)) {
+    const object = unboundedObjectOf(document.properties.parentDataSource);
+    if (object) {
+      findings.push({ path: formatIssuePath(path), type: document.type, object, key: 'properties.parentDataSource' });
+    }
   }
   for (const [key, value] of Object.entries(document)) {
     findings.push(...findRecordBindingsWithoutLimitOne(value, [...path, key]));
@@ -81,6 +103,14 @@ export function findRecordBindingsWithoutLimitOne(
 
 /** The warning line for one finding. */
 export function describeRecordBindingWithoutLimitOne(finding: RecordBindingLimitFinding): string {
+  if (finding.key === 'properties.parentDataSource') {
+    return (
+      `${finding.path}: ${finding.type}'s parent record is bound to "${finding.object}" by a `
+      + '`properties.parentDataSource` without `limit: 1`. A related list hangs off ONE parent record — the '
+      + 'first row of the binding by its `sort` — so declare `limit: 1` (and a `sort` when several rows can '
+      + 'match) to say which record that is.'
+    );
+  }
   return (
     `${finding.path}: ${finding.type} is bound to "${finding.object}" by a dataSource without \`limit: 1\`. `
     + 'A record block shows ONE record — the first row of the binding by its `sort` — so declare '

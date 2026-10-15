@@ -17,7 +17,7 @@
  * @packageDocumentation
  */
 
-import type { I18nLabel, ViewFilterRule } from '@objectstack/spec/ui';
+import type { ElementDataSource, I18nLabel, ViewFilterRule } from '@objectstack/spec/ui';
 
 /**
  * ARIA props shared across all record components.
@@ -470,6 +470,22 @@ export interface RecordRelatedListComponentProps {
    * accept set of this face moves to the contract's, never past it.
    */
   relationshipValueField?: string;
+  /**
+   * The PARENT record this list hangs off, bound by a query of its own — the
+   * spec's `RecordRelatedListProps.parentDataSource`, the object binding
+   * (`ElementDataSourceSchema`) by reference: `{ object, view?, filter?,
+   * sort?, limit? }`.
+   *
+   * Read by the single-record rule (ruling B on objectui#12296): the FIRST row
+   * of the bound set by its `sort` is the parent (declare `limit: 1`), and
+   * `relationshipValueField` is read on that row. When no row answers, the
+   * block draws a loud absence in its place, never an empty list. Absent, the
+   * parent is the record page's record context.
+   *
+   * ⛔ Not the node-level `dataSource`: that binding is the CHILD rows the list
+   * draws (objectstack#6953), and it is never read as the parent.
+   */
+  parentDataSource?: ElementDataSource;
   /** Columns to display in the related list */
   columns?: string[];
   /** Sort configuration — `'field'` / `'-field'` string or explicit array (spec union) */

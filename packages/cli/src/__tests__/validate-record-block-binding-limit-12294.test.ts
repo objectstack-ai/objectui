@@ -145,7 +145,7 @@ describe('objectui validate — where the warning applies (objectui#12294)', () 
     expect(printed()).not.toContain('Warnings:');
   });
 
-  it('never names `record:related_list`, whose binding is its child rows', () => {
+  it('never names `record:related_list` for its `dataSource`, whose binding is its child rows', () => {
     // Read off the detector directly: the strict face's verdict on a related
     // list's binding is a separate question this card does not touch.
     expect(findRecordBindingsWithoutLimitOne({

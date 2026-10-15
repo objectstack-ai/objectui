@@ -816,7 +816,13 @@ function fieldGroupSectionReferences(
  *   2) else the object's `fieldGroups` semantic role, as `{ group }`
  *      references plus the ungrouped bucket's field names
  *      (`fieldGroupSectionReferences`, objectui#11630);
- *   3) else `undefined` — record:details falls back to its flat layout.
+ *   3) else `undefined` — a bare `record:details`, which draws the object's
+ *      `highlightFields` (the spec's declared fallback for a node with
+ *      neither `sections` nor `fields`, objectui#12433), and an empty body
+ *      when the object declares none. It does NOT draw every field: a caller
+ *      that wants the running app's default body passes that body's sections
+ *      in (1) — app-shell's `RecordDetailView`, and Studio's page-create seed
+ *      and slotted preview, take them from one derivation (objectui#12442).
  */
 export function resolveDetailSections(
   def: ObjectDefLike | undefined,

@@ -19,7 +19,6 @@ import { getIcon } from '../utils/getIcon.js';
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarHeader,
   SidebarGroup,
   SidebarGroupLabel,
@@ -68,7 +67,6 @@ import {
   contextSelectorQueryKey,
   STUDIO_PACKAGE_SELECTOR_ID,
 } from './ContextSelectors.js';
-import { LocalizedSidebarTrigger } from './LocalizedSidebarTrigger.js';
 import { AppMark } from './AppMark.js';
 import { SidebarItemMenu, sidebarItemDesignPath, favoriteDesignPath } from './SidebarItemMenu.js';
 
@@ -659,10 +657,8 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
          )}
         </div>
       </SidebarContent>
-
-      <SidebarFooter className="border-t p-1">
-        <LocalizedSidebarTrigger className="w-full justify-start pl-2 group-data-[state=collapsed]:justify-center group-data-[state=collapsed]:pl-0" />
-      </SidebarFooter>
+      {/* No footer trigger: the app bar's left slot holds the shell's one
+          sidebar trigger at every width (objectui#12429). */}
     </Sidebar>
     {/* Mobile bottom-tab navigation removed — the drawer (☰) already
         surfaces the full navigation tree, so a bottom strip of the

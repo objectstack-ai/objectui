@@ -185,19 +185,15 @@ export function ConsoleLayout({
             onAppChange={onAppChange}
           />
       }
-      // objectui#12463 — from `lg` up the inset is a flex column. A route
-      // page that bounds itself (`h-full` + its own inner scroller, as the
-      // object list page does) then takes the height LEFT after the banners
-      // above it, instead of 100% of the inset on top of them; the old block
-      // layout overflowed the inset by the banners' height, so the inset
-      // scrolled as a second scroller over the table's own and pushed the
-      // record-count footer below the fold. A natural-height page (search
-      // results, marketplace) cannot shrink below its content and keeps
-      // scrolling the inset exactly as before (its content overflows its box
-      // and the inset's scroll height is unchanged). `min-h-0` on the inset's
-      // children is what lets an `h-full` page shrink at all: its automatic
-      // minimum would otherwise be its own 100%. The phone keeps block layout.
-      className="!p-0 overflow-y-auto overflow-x-hidden bg-muted/5 lg:flex lg:flex-col lg:[&>*]:min-h-0"
+      // objectui#12463 — from `lg` up the inset is a flex column: the banners
+      // box (`shrink-0`, below) keeps its height and the route slot (below)
+      // gives up the rest. Before, the route content (the console's `h-full`
+      // route fader) was 100% of the inset ON TOP of any banner, so a page
+      // that bounds itself and scrolls in its own box (the object list page)
+      // overflowed the inset by the banner's height: a second scroller over
+      // the table's, the record-count footer below the fold. The phone keeps
+      // block layout.
+      className="!p-0 overflow-y-auto overflow-x-hidden bg-muted/5 lg:flex lg:flex-col"
       rightRail={
         dockEnabled && dock.expanded && !isMobile ? (
           <ChatDockPanel
@@ -246,7 +242,19 @@ export function ConsoleLayout({
             standing condition, same as its neighbours here. */}
         <ConsoleNotificationBanners />
         </div>
+        {/* objectui#12463 — the route slot: the ONE flex item allowed below its
+            content height (`min-h-0`). An `h-full` box whose overflow is
+            visible has an automatic minimum height of its own 100%, so without
+            it the slot would not shrink below the banners. It is a block box,
+            so a natural-height page inside it (search results, marketplace)
+            keeps its full height and overflows the slot; the inset scrolls it
+            exactly as before, and a `sticky` element inside the page still has
+            the whole page to stick within. ⛔ Never force `min-h-0` on every
+            inset child instead: a page root placed directly in a flex column
+            with `min-h-0` is squeezed to the inset's height. */}
+        <div data-testid="console-route" className="h-full lg:min-h-0">
         {children}
+        </div>
       </ConsoleLayoutInner>
 
       {/* The dock's launcher — rendered when AI service is available OR when

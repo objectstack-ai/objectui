@@ -15,7 +15,7 @@
 import * as React from 'react';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Plus, Search, RefreshCw, AlertTriangle, Lock } from 'lucide-react';
-import { Button } from '@object-ui/components';
+import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from '@object-ui/components';
 import { Input } from '@object-ui/components';
 import { Badge } from '@object-ui/components';
 import { Switch } from '@object-ui/components';
@@ -27,7 +27,10 @@ import {
   SelectValue,
 } from '@object-ui/components';
 import { Empty, EmptyTitle, EmptyDescription, EmptyValue } from '@object-ui/components';
-import { PageShell } from './PageShell.js';
+import { PageShell, WritabilityBadge } from './PageShell.js';
+import { PageHeader } from '../../layout/PageHeader.js';
+import { useInSetupApp } from '../../console/setupApp.js';
+import { getIcon } from '../../utils/getIcon.js';
 import { MetadataTypeActions } from './MetadataTypeActions.js';
 import { CreatePackageDialog } from './PackagesPage.js';
 import {
@@ -140,6 +143,11 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   const envScope = isEnvironmentScope(searchParams);
   const canAuthor = useCanAuthorMetadata();
   const posture = useTenancyPosture();
+  // objectui#12606 — under the Setup app the page draws Setup's one page
+  // header: no "All Metadata Types" breadcrumb, no stat tiles, the count in
+  // the description. Read off the route's `:appName`; the same page anywhere
+  // else (the directory, Studio's "Open in Setup" target) keeps its shell.
+  const inSetup = useInSetupApp();
   // objectui#12183 — under a wall the security catalog is the platform
   // operator's: the server refuses this caller every write of the type,
   // whatever it holds (`catalog-scope.ts`). Not keyed on the scope: the server's
@@ -448,75 +456,30 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
     return translated === tryKey ? col.label : translated;
   };
 
-  return (
-    <PageShell
-      entry={entry ?? { type, label: type }}
-      stats={[
-        { label: t('engine.list.items', locale), value: scopedItems.length },
-        { label: t('engine.list.filtered', locale), value: filtered.length },
-        ...(invalidCount > 0
-          ? [
-              {
-                label: t('engine.list.invalid', locale),
-                value: (
-                  <span className="inline-flex items-center gap-1 text-destructive">
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    {invalidCount}
-                  </span>
-                ),
-              },
-            ]
-          : []),
-        ...(warnOnlyCount > 0
-          ? [
-              {
-                label: t('engine.list.warnings', locale),
-                value: (
-                  <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    {warnOnlyCount}
-                  </span>
-                ),
-              },
-            ]
-          : []),
-      ]}
-      actions={
-        <>
-          {/* Declarative type-level actions (GAP-1) scoped to the list
-              toolbar. Per-row (`list_item`) actions are not surfaced here
-              yet — they need the row's recordId from the grid. */}
-          <MetadataTypeActions
-            entry={entry}
-            location="list_toolbar"
-            onAfter={() => setRefreshKey((k) => k + 1)}
-          />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setRefreshKey((k) => k + 1)}
-            title={t('engine.list.refresh', locale)}
-          >
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-          {canCreate && (
-            <Button
-              size="sm"
-              variant={config.createFields ? 'default' : 'outline'}
-              onClick={handleCreate}
-              title={
-                config.createFields
-                  ? tFormat('engine.list.createHint', locale, { type: typeLabel })
-                  : undefined
-              }
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              {t('engine.list.create', locale)}
-            </Button>
-          )}
-        </>
+  const refresh = () => setRefreshKey((k) => k + 1);
+  const createButton = canCreate && (
+    <Button
+      size="sm"
+      variant={config.createFields ? 'default' : 'outline'}
+      onClick={handleCreate}
+      title={
+        config.createFields
+          ? tFormat('engine.list.createHint', locale, { type: typeLabel })
+          : undefined
       }
     >
+      <Plus className="h-4 w-4 mr-1" />
+      {t('engine.list.create', locale)}
+    </Button>
+  );
+  // Declarative type-level actions (GAP-1) scoped to the list toolbar.
+  // Per-row (`list_item`) actions are not surfaced here yet — they need the
+  // row's recordId from the grid.
+  const typeActions = (
+    <MetadataTypeActions entry={entry} location="list_toolbar" onAfter={refresh} />
+  );
+
+  const body = (
       <div className="p-6 space-y-4">
         <CreatePackageDialog
           open={showCreateBase}
@@ -528,14 +491,18 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
           <div className="relative flex-1 min-w-[200px] max-w-md">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
-              className="pl-8"
+              className={cn('pl-8', inSetup && 'h-8')}
               placeholder={t('engine.list.search', locale)}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
           <Select value={sourceFilter} onValueChange={setSourceFilter}>
-            <SelectTrigger className="w-[180px]">
+            {/* Under Setup the source select is a filter chip (objectui#12606). */}
+            <SelectTrigger
+              className={inSetup ? 'h-8 w-auto gap-1.5 rounded-full px-3 text-xs' : 'w-[180px]'}
+              data-testid="metadata-source-filter"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -546,7 +513,10 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
           </Select>
           {activation && (
             <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
-              <SelectTrigger className="w-[150px]" data-testid="catalog-status-filter">
+              <SelectTrigger
+                className={inSetup ? 'h-8 w-auto gap-1.5 rounded-full px-3 text-xs' : 'w-[150px]'}
+                data-testid="catalog-status-filter"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -630,21 +600,30 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
         {!loading && filtered.length > 0 && (
           <div className="border rounded-lg overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
+              {/* Under Setup the table reads as the console's record list
+                  (objectui#12606): sentence-case headers, the grid's 36px
+                  rows, middle-aligned cells. */}
+              <thead
+                className={
+                  inSetup
+                    ? 'bg-muted/30 text-xs text-muted-foreground'
+                    : 'bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground'
+                }
+              >
                 <tr>
                   {columns.map((c) => (
                     <th
                       key={c.key}
-                      className="px-3 py-2 text-left font-medium"
+                      className={cn('px-3 text-left font-medium', inSetup ? 'h-9 py-0' : 'py-2')}
                       style={c.width ? { width: c.width } : undefined}
                     >
                       {localizeColumnLabel(c)}
                     </th>
                   ))}
                   {activation && (
-                    <th className="px-3 py-2 text-left font-medium w-[90px]">{t('engine.catalog.col.active', locale)}</th>
+                    <th className={cn('px-3 text-left font-medium w-[90px]', inSetup ? 'h-9 py-0' : 'py-2')}>{t('engine.catalog.col.active', locale)}</th>
                   )}
-                  <th className="px-3 py-2 text-right font-medium w-[80px]">{t('engine.list.col.source', locale)}</th>
+                  <th className={cn('px-3 text-right font-medium w-[80px]', inSetup ? 'h-9 py-0' : 'py-2')}>{t('engine.list.col.source', locale)}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -682,6 +661,11 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                           .join('\n') +
                         (warnList.length > 3 ? `\n+${warnList.length - 3} more` : '')
                       : '';
+                  const cellClass = inSetup ? 'h-9 px-3 py-1.5 align-middle' : 'px-3 py-2 align-top';
+                  const sourceDesc =
+                    row.source === 'artifact'
+                      ? `${t('engine.list.source.artifactDesc', locale)}${row.item._packageId ? ` (${row.item._packageId})` : ''}`
+                      : t('engine.list.source.runtimeDesc', locale);
                   return (
                     <tr
                       key={name + i}
@@ -698,7 +682,7 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                         const value = row.item[c.key];
                         const cell = c.render ? c.render(value, row.item) : defaultCell(value);
                         return (
-                          <td key={c.key} className="px-3 py-2 align-top">
+                          <td key={c.key} className={cellClass}>
                             {ci === 0 ? (
                               <span className="inline-flex items-center gap-1.5">
                                 {invalid && (
@@ -733,7 +717,7 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                         );
                       })}
                       {activation && (
-                        <td className="px-3 py-2 align-top">
+                        <td className={cellClass}>
                           <CatalogActiveCell
                             itemName={name}
                             ledger={ledger}
@@ -744,7 +728,7 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                           />
                         </td>
                       )}
-                      <td className="px-3 py-2 text-right align-top">
+                      <td className={cn(cellClass, 'text-right')}>
                         {(row.item._lock as string | undefined) && row.item._lock !== 'none' && (
                           <span
                             className="inline-flex items-center mr-1 text-amber-600 dark:text-amber-400"
@@ -756,22 +740,39 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                             <Lock className="h-3 w-3" />
                           </span>
                         )}
-                        <Badge
-                          variant="outline"
-                          className={
-                            'text-[10px] ' +
-                            (row.source === 'artifact'
-                              ? 'border-sky-500/50 text-sky-700 dark:text-sky-300'
-                              : 'border-emerald-500/50 text-emerald-700 dark:text-emerald-300')
-                          }
-                          title={
-                            row.source === 'artifact'
-                              ? `${t('engine.list.source.artifactDesc', locale)}${row.item._packageId ? ` (${row.item._packageId})` : ''}`
-                              : t('engine.list.source.runtimeDesc', locale)
-                          }
-                        >
-                          {t(`engine.list.source.${row.source}`, locale)}
-                        </Badge>
+                        {inSetup ? (
+                          // Under Setup the source is plain text with its
+                          // explanation in a tooltip, not a chip on every row
+                          // (objectui#12606).
+                          <TooltipProvider delayDuration={200}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span
+                                  className="cursor-help text-xs text-muted-foreground"
+                                  data-testid="metadata-row-source"
+                                >
+                                  {t(`engine.list.source.${row.source}`, locale)}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="left" className="max-w-xs text-xs">
+                                {sourceDesc}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className={
+                              'text-[10px] ' +
+                              (row.source === 'artifact'
+                                ? 'border-sky-500/50 text-sky-700 dark:text-sky-300'
+                                : 'border-emerald-500/50 text-emerald-700 dark:text-emerald-300')
+                            }
+                            title={sourceDesc}
+                          >
+                            {t(`engine.list.source.${row.source}`, locale)}
+                          </Badge>
+                        )}
                       </td>
                     </tr>
                   );
@@ -781,6 +782,97 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
           </div>
         )}
       </div>
+  );
+
+  // The validation tiers stay counted where the stat tiles went: beside the
+  // kind chip under Setup, as tiles elsewhere.
+  const diagnosticStats = [
+        ...(invalidCount > 0
+          ? [
+              {
+                label: t('engine.list.invalid', locale),
+                value: (
+                  <span className="inline-flex items-center gap-1 text-destructive">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    {invalidCount}
+                  </span>
+                ),
+              },
+            ]
+          : []),
+        ...(warnOnlyCount > 0
+          ? [
+              {
+                label: t('engine.list.warnings', locale),
+                value: (
+                  <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    {warnOnlyCount}
+                  </span>
+                ),
+              },
+            ]
+          : []),
+  ];
+
+  if (inSetup) {
+    const count = scopedItems.length;
+    return (
+      <div className="flex flex-col h-full overflow-hidden">
+        <PageHeader
+          title={typeLabel}
+          // `createElement`, not a JSX tag: the looked-up icon is a value
+          // (the convention ObjectView set).
+          icon={React.createElement(getIcon(config.iconName ?? 'layers'), { className: 'h-4 w-4' })}
+          badge={
+            <span className="inline-flex shrink-0 items-center gap-1.5">
+              <WritabilityBadge entry={entry} readOnly={false} locale={locale} />
+              {diagnosticStats.map((s, i) => (
+                <span key={i} className="inline-flex items-center gap-1 text-xs" title={s.label}>
+                  {s.value}
+                </span>
+              ))}
+            </span>
+          }
+          subtitle={tFormat(count === 1 ? 'engine.list.itemCountOne' : 'engine.list.itemCount', locale, { count })}
+          refresh={{ onRefresh: refresh, label: t('engine.list.refresh', locale), busy: loading }}
+          actions={
+            <>
+              {typeActions}
+              {createButton}
+            </>
+          }
+          data-testid="metadata-list-setup-header"
+        />
+        <div className="flex-1 overflow-auto">{body}</div>
+      </div>
+    );
+  }
+
+  return (
+    <PageShell
+      entry={entry ?? { type, label: type }}
+      stats={[
+        { label: t('engine.list.items', locale), value: scopedItems.length },
+        { label: t('engine.list.filtered', locale), value: filtered.length },
+        ...diagnosticStats,
+      ]}
+      actions={
+        <>
+          {typeActions}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={refresh}
+            title={t('engine.list.refresh', locale)}
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+          {createButton}
+        </>
+      }
+    >
+      {body}
     </PageShell>
   );
 }

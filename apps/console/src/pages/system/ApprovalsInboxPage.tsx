@@ -86,7 +86,6 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  RefreshCw,
   AlertCircle,
   CheckSquare,
   Search,
@@ -1825,12 +1824,8 @@ export function ApprovalsInboxPage() {
       title={tr('title', 'Approvals Inbox')}
       subtitle={tr('subtitle', 'Review and act on approval requests.')}
       icon={<CheckSquare className="h-4 w-4" />}
-      actions={
-        <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-          {tr('refresh', 'Refresh')}
-        </Button>
-      }
+      // The header's own Refresh icon button (objectui#12606).
+      refresh={{ onRefresh: load, label: tr('refresh', 'Refresh'), busy: loading }}
     />
     <div className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6 max-w-6xl">
       {error && (

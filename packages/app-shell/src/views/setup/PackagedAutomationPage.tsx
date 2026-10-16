@@ -75,7 +75,7 @@
  */
 
 import * as React from 'react';
-import { Info, RefreshCw } from 'lucide-react';
+import { Info, Workflow } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -120,6 +120,7 @@ import {
   type PackagedFlowRow,
 } from './packagedFlows.js';
 import { PackagedActionsSection } from './PackagedActionsSection.js';
+import { PageHeader } from '../../layout/PageHeader.js';
 
 /* -------------------------------------------------------------------------- */
 /* Fetch helpers                                                               */
@@ -389,27 +390,22 @@ export function PackagedAutomationPage() {
   const cloneNameValid = !!clone && clone.name.trim() !== '' && clone.label.trim() !== '';
 
   return (
+    <div>
+      {/* The console's one page header (objectui#12606), its Refresh as the
+          header's icon button. */}
+      <PageHeader
+        title={title}
+        subtitle={t('packagedAutomation.subtitle', {
+          defaultValue:
+            'Flows and actions shipped by installed packages. Turn one off for this deployment, or clone a flow under a new name to customize it. Editing happens in Studio.',
+        })}
+        icon={<Workflow className="h-4 w-4" />}
+        refresh={{
+          onRefresh: () => setNonce((n) => n + 1),
+          label: t('packagedAutomation.refresh', { defaultValue: 'Refresh' }),
+        }}
+      />
     <div className="p-6 space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-xl font-semibold">{title}</h1>
-          <p className="text-sm text-muted-foreground max-w-2xl">
-            {t('packagedAutomation.subtitle', {
-              defaultValue:
-                'Flows and actions shipped by installed packages. Turn one off for this deployment, or clone a flow under a new name to customize it. Editing happens in Studio.',
-            })}
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => setNonce((n) => n + 1)}
-          aria-label={t('packagedAutomation.refresh', { defaultValue: 'Refresh' })}
-        >
-          <RefreshCw className="h-4 w-4" />
-        </Button>
-      </div>
 
       {/* Two sections, each named: the page carries flows AND actions since
           ADR-0126 §8 item 2, and an unlabelled first table beside a labelled
@@ -604,6 +600,7 @@ export function PackagedAutomationPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
     </div>
   );
 }

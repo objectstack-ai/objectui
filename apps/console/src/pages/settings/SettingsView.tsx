@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ConsolePageHeader } from '@object-ui/app-shell';
-import { Loader2, ArrowLeft, RotateCcw, ShieldAlert } from 'lucide-react';
+import { Loader2, ArrowLeft, ChevronRight, RotateCcw, ShieldAlert } from 'lucide-react';
 import { Button, Card, CardContent, Skeleton, Badge, getLazyIcon } from '@object-ui/components';
 import { extractFieldErrors } from '@object-ui/react';
 import { useObjectTranslation } from '@object-ui/i18n';
@@ -288,11 +288,11 @@ export function SettingsView() {
     {/* The console's one page header (objectui#12553), the one an object list,
         a dashboard and the Approvals Inbox draw: the namespace's icon chip
         (when its manifest names an icon), the title, and the description
-        beside the title from `sm` up, in one row across the page above the
-        padded body. The Beta badge rides in the title node beside the name,
-        as an object list's badge does. Back to settings stays at the top of
-        the body, where it sat above the old heading. Below `sm` the header
-        hides the description. */}
+        beside the title from `sm` up — under it inside Setup (objectui#12606).
+        The Beta badge rides in the title node beside the name. "All settings"
+        is the description line's first crumb (objectui#12606); it sat at the
+        top of the body before. Below `sm` the one-row header hides the
+        description line. */}
     <ConsolePageHeader
       title={
         <span className="inline-flex items-center gap-2">
@@ -307,6 +307,19 @@ export function SettingsView() {
         </span>
       }
       subtitle={description}
+      breadcrumb={
+        <span className="mr-1.5 inline-flex items-center gap-1 align-top">
+          <button
+            type="button"
+            className="hover:text-foreground hover:underline"
+            onClick={() => navigate('/system/settings')}
+            data-testid="settings-breadcrumb-hub"
+          >
+            {t('console.settingsView.backToHub')}
+          </button>
+          <ChevronRight className="h-3 w-3 shrink-0" aria-hidden="true" />
+        </span>
+      }
       icon={
         Icon ? (
           // eslint-disable-next-line react-hooks/static-components -- getLazyIcon returns a module-cached stable component per name, not one created during render
@@ -315,12 +328,8 @@ export function SettingsView() {
       }
     />
     <div className="p-6 max-w-3xl mx-auto pb-32">
-      <Button variant="ghost" size="sm" onClick={() => navigate('/system/settings')}>
-        <ArrowLeft className="h-4 w-4 mr-1" /> {t('console.settingsView.backToHub')}
-      </Button>
-
       {manifest.helpText ? (
-        <p className="text-sm text-muted-foreground mt-4 whitespace-pre-wrap">{manifest.helpText}</p>
+        <p className="text-sm text-muted-foreground whitespace-pre-wrap">{manifest.helpText}</p>
       ) : null}
 
       {cryptoRefusal ? (

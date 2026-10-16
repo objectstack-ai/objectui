@@ -437,6 +437,14 @@ export interface ListViewProps {
    * row of its own, so the toolbar sits at one height with or without one.
    */
   toolbarLeading?: React.ReactNode;
+  /**
+   * Whether the grid opens with row numbers in its leading cell — the opening
+   * state of the Display control's session-only switch, and what its "Reset to
+   * view default" returns to. Default `true`. A HOST prop, never a schema key:
+   * the console's Setup app opens its lists without them (objectui#12606), a
+   * posture of the console, not of the view.
+   */
+  defaultRowNumbers?: boolean;
 }
 
 // Helper to convert FilterBuilder group to ObjectStack AST.
@@ -1425,6 +1433,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   initialFilters,
   initialSearchTerm,
   toolbarLeading,
+  defaultRowNumbers = true,
   ...props
 }: ListViewProps & { [key: string]: any }, ref) => {
   // The switcher can be enabled either by the host component (prop) or by
@@ -1969,8 +1978,9 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
 
   // Row numbers on the grid's leading cell — the Display control's switch
   // (objectui#12423). Session-only and in memory: nothing stores it, and it
-  // opens on the grid's own default (on) with every list.
-  const [rowNumbers, setRowNumbers] = React.useState(true);
+  // opens on the host's `defaultRowNumbers` (on unless a host says otherwise)
+  // with every list.
+  const [rowNumbers, setRowNumbers] = React.useState(defaultRowNumbers);
 
   // objectui#12528 — the grid's column summaries, drawn at the right of the
   // record-count row instead of a second footer row of the grid's own. The
@@ -4990,7 +5000,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     density: toolbarFlags.showDensity && (currentView === 'gallery'
       ? galleryCardSize !== authoredGalleryCardSize
       : density.mode !== resolvedDensity),
-    rowNumbers: currentView === 'grid' && !rowNumbers,
+    rowNumbers: currentView === 'grid' && rowNumbers !== defaultRowNumbers,
     inlineEdit: currentView === 'grid' && inlineEditOffered && inlineEdit !== !!schema.inlineEdit,
   };
   const displayChangedCount = Object.values(displayDeviation).filter(Boolean).length;
@@ -5008,7 +5018,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         density.setMode(resolvedDensity);
       }
     }
-    if (displayDeviation.rowNumbers) setRowNumbers(true);
+    if (displayDeviation.rowNumbers) setRowNumbers(defaultRowNumbers);
     if (displayDeviation.inlineEdit) updateInlineEdit(!!schema.inlineEdit);
   };
 

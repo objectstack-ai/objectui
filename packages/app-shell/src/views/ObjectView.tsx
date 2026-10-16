@@ -75,6 +75,7 @@ import { PageHeader } from '../layout/PageHeader.js';
 import { useMobileViewSwitcherRegistration } from '../layout/MobileViewSwitcherContext.js';
 import type { MobileViewSwitcherItem } from '../layout/MobileViewSwitcherContext.js';
 import { ManagedByBadge } from '../components/ManagedByBadge.js';
+import { isSetupAppSegment } from '../console/setupApp.js';
 import { RecordDetailView } from './RecordDetailView.js';
 import type { RowCrudPredicates } from '../utils/crudAffordances.js';
 import { createIdentityImportDataSource, IDENTITY_IMPORT_OBJECT, type IdentityPasswordPolicy } from './identityImport.js';
@@ -1416,6 +1417,10 @@ export function ObjectView({ dataSource, objects, onEdit, externalRefreshKey }: 
 function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: ConsoleObjectViewProps) {
     const navigate = useNavigate();
     const { appName, objectName, viewId } = useParams();
+    // objectui#12606 — inside the Setup app the list drops its `#` row
+    // numbers (see the `ListView` below). Read off
+    // the route's own `:appName`, the one signal the page header reads too.
+    const inSetup = isSetupAppSegment(appName);
     const [searchParams, setSearchParams] = useSearchParams();
     const location = useLocation();
     const { showDebug } = useMetadataInspector();
@@ -3643,10 +3648,14 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 // objectui#12440 — the saved-view tabs, on the list's own
                 // toolbar row (see `viewTabBar`). `undefined` below `sm`.
                 toolbarLeading={viewTabBar ?? undefined}
+                // objectui#12606 — Setup's list opens without row numbers in
+                // the leading cell. A host prop, not a view key: a console
+                // posture, never metadata.
+                defaultRowNumbers={!inSetup}
                 dataSource={ds}
             />
         );
-    }, [activeView, activeViewDeclaresColumns, activeViewIsSaved, objectDef, objectName, refreshKey, navOverlay, actions, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, writeListUrlState, user?.id, pageOffersCreate, listIdentityKey, listPrefs.ready, listPrefs.preference, listPrefs.patchView, viewTabBar]);
+    }, [inSetup, activeView, activeViewDeclaresColumns, activeViewIsSaved, objectDef, objectName, refreshKey, navOverlay, actions, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, writeListUrlState, user?.id, pageOffersCreate, listIdentityKey, listPrefs.ready, listPrefs.preference, listPrefs.patchView, viewTabBar]);
 
     // Memoize the merged views array so PluginObjectView doesn't get a new
     // reference on every render (which would trigger unnecessary data refetches).
@@ -3744,15 +3753,13 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                  actions move to a floating action button (see below). */}
              <div className="hidden sm:block">
              <PageHeader
-                 title={
-                   <span className="inline-flex items-center gap-2">
-                     {/* The page lists the object's records, so it is titled
-                         with the plural, as the nav entry that opens it is
-                         (objectui#11696); the record page keeps the singular. */}
-                     <span className="truncate">{objectPluralLabel(objectDef)}</span>
-                     <ManagedByBadge managedBy={(objectDef as any)?.managedBy} />
-                   </span>
-                 }
+                 // The page lists the object's records, so it is titled with
+                 // the plural, as the nav entry that opens it is
+                 // (objectui#11696); the record page keeps the singular.
+                 title={objectPluralLabel(objectDef)}
+                 // The kind chip, in the header's own slot after the title
+                 // (objectui#12606).
+                 badge={<ManagedByBadge managedBy={(objectDef as any)?.managedBy} />}
                  subtitle={objectDef.description ? objectDesc(objectDef) : undefined}
                  // `createElement`, not a JSX tag: the looked-up icon is a value,
                  // which react-hooks/static-components refuses in tag position

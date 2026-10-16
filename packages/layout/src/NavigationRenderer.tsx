@@ -83,6 +83,28 @@ import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui
 // re-export `byNavOrder` from this file: `index.ts` re-exports it whole.
 import { byNavOrder } from './navOrder';
 
+/**
+ * The class this file's sidebar group labels carry so that, once the sidebar
+ * collapses to icons, a hidden label takes no pointer events (objectui#12744).
+ *
+ * In the collapsed icon sidebar the `SidebarGroupLabel` primitive hides its
+ * label with `opacity-0` and `-mt-8` and nothing else, so the invisible label
+ * stays hit-testable: it lies over the lower half of the row just above its
+ * group, and a click on that row's icon lands on the label instead. A
+ * collapsible group's label is its disclosure button, so the click toggles the
+ * group and the row does not navigate. The variant here is the primitive's own
+ * hiding condition, so the label stops taking pointer events exactly while it
+ * is hidden; in the expanded sidebar it is visible, and a collapsible group's
+ * label still toggles its group. Keyboard focus is unaffected.
+ *
+ * The primitive is a Shadcn-synced file, never edited here (AGENTS.md #7), so
+ * the fix rides on the `className` each call site passes, which `cn` merges
+ * over the primitive's classes (it sets no `pointer-events` class).
+ * Module-local on purpose: `index.ts` re-exports this file whole.
+ */
+const HIDDEN_ICON_LABEL_NO_POINTER =
+  'group-data-[state=collapsed]:group-data-[collapsible=icon]:pointer-events-none';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -1538,7 +1560,7 @@ function NavigationItemRenderer({
     const group = (
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <SidebarGroup>
-          <SidebarGroupLabel asChild>
+          <SidebarGroupLabel asChild className={HIDDEN_ICON_LABEL_NO_POINTER}>
             <CollapsibleTrigger className={cn('flex w-full items-center justify-between', isMobile && 'min-h-[44px] text-[15px] rounded-xl')}>
               {groupLabel}
               <ChevronRight
@@ -1826,7 +1848,7 @@ export function NavigationRenderer({
   const hasExtraFavorites = React.Children.toArray(extraFavorites).length > 0;
   const favoritesSection = showPinned || hasExtraFavorites ? (
     <SidebarGroup>
-      <SidebarGroupLabel className="flex items-center gap-1.5">
+      <SidebarGroupLabel className={cn('flex items-center gap-1.5', HIDDEN_ICON_LABEL_NO_POINTER)}>
         <Star className="h-3.5 w-3.5" />
         {tProp ? tProp('console.nav.favorites', { defaultValue: 'Favorites' }) : 'Favorites'}
       </SidebarGroupLabel>

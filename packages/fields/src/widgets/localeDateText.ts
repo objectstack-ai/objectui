@@ -48,13 +48,10 @@ function dateFormat(locale: string, withTime: boolean): Intl.DateTimeFormat {
     numberingSystem: 'latn',
     ...(withTime ? { hour: '2-digit', minute: '2-digit' } : null),
   };
-  try {
-    return new Intl.DateTimeFormat(locale, options);
-  } catch {
-    // A malformed tag: `Intl` throws a RangeError for it. Read it as `en`,
-    // which is what `useDisplayLocale()` falls back to as well.
-    return new Intl.DateTimeFormat('en', options);
-  }
+  // The display locale and nothing else (objectui#9909: no hard-coded tag on
+  // a display path). A malformed tag is answered exactly as the read-only face
+  // beside it answers it: `formatDate` hands `Intl` the same tag unguarded.
+  return new Intl.DateTimeFormat(locale, options);
 }
 
 /** The order the locale writes year, month and day in. */

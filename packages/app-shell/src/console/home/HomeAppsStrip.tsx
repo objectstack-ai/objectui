@@ -23,7 +23,7 @@
  * The strip's look is the Home artboard's apps section (objectui#12601): a
  * 15 px heading with a count pill, 112 px tiles with a 56 px icon on the app's
  * colour and a 13 px name on one line. Three optional parts ride along, all
- * off unless the host asks: an 11 px "Opened 2 hours ago" line under a tile's
+ * off unless the host asks: an 11 px "2 hr. ago" line under a tile's
  * name (`lastOpened`, which Home reads from the recent-items store), a muted
  * "System Settings" link at the heading's right (`settingsHref` — Home moves
  * Setup off the tile row and onto it), and an admin's trailing dashed "Add app"
@@ -40,6 +40,7 @@ import { useDisplayLocale, useObjectTranslation, useObjectLabel } from '@object-
 import { appRouteSegment, resolveKeyedI18nLabel } from '../../utils/index.js';
 import { getIcon } from '../../utils/getIcon.js';
 import { timeAgo } from '../../utils/relativeTime.js';
+import { TILE_OPENED_TIME_FORMAT } from './appLastOpened.js';
 import type { FavoriteItem } from '../../hooks/useFavorites.js';
 
 const COMPACT_LIMIT = 19;
@@ -118,7 +119,8 @@ export function HomeAppsStrip({
   settingsHref?: string;
   /**
    * [objectui#12601] When the user last had each app open, by app `name` (an
-   * ISO timestamp), drawn under the tile's name as "Opened 2 hours ago". Home
+   * ISO timestamp), drawn under the tile's name as "2 hr. ago" (zh "2小时前打开";
+   * the form is `TILE_OPENED_TIME_FORMAT`'s). Home
    * reads it from the recent-items store (`lastOpenedByApp`). An app absent
    * from the map draws no line; omitted, no tile does — the `app:launcher`
    * block's case.
@@ -190,7 +192,7 @@ export function HomeAppsStrip({
           const label = appLabel({ name: app.name, label: resolveKeyedI18nLabel(app.label, t) });
           const fav = favNames.has(app.name);
           const grad = ICON_GRADIENTS[hashStr(app.name) % ICON_GRADIENTS.length];
-          const openedAgo = timeAgo(lastOpened?.get(app.name), displayLocale);
+          const openedAgo = timeAgo(lastOpened?.get(app.name), displayLocale, TILE_OPENED_TIME_FORMAT);
           return (
             <Link
               key={app.name}
@@ -220,7 +222,7 @@ export function HomeAppsStrip({
                   className="-mt-1 w-full truncate text-[11px] text-muted-foreground"
                   data-testid={`app-tile-opened-${app.name}`}
                 >
-                  {t('home.appOpened', { time: openedAgo, defaultValue: 'Opened {{time}}' })}
+                  {t('home.appOpened', { time: openedAgo, defaultValue: '{{time}}' })}
                 </span>
               )}
             </Link>

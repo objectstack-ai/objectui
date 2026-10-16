@@ -2734,7 +2734,7 @@ const fr = {
       none: "Rien ne vous attend aujourd'hui",
     },
     addApp: "Ajouter une application",
-    appOpened: "Ouverte {{time}}",
+    appOpened: "{{time}}",
     open: "Ouvrir",
     recentApps: {
       title: "Récemment ouverts",

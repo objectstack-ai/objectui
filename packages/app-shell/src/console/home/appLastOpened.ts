@@ -21,6 +21,19 @@
 import { matchAppBySegment } from '../../utils/index.js';
 import type { RecentItem } from '../../hooks/useRecentItems.js';
 
+/**
+ * The relative-time form a tile's line is drawn in (objectui#12601):
+ * `Intl.RelativeTimeFormat`'s `short` style, `numeric: 'always'` — "3 hr. ago",
+ * "1 day ago", "3小时前". The line is 11 px in a 112 px tile and is never cut
+ * with an ellipsis, so the long form does not fit ("Opened 6 seconds ago"
+ * was measured truncating), and `numeric: 'auto'`'s phrases ("le mois
+ * dernier", "l'année dernière") are the longest any pack produces. Each pack's
+ * `home.appOpened` keeps its verb only where verb and time still fit. The
+ * width budget every pack's line is held to, and its derivation, are pinned in
+ * `appTileOpenedLine-12601.test.ts`.
+ */
+export const TILE_OPENED_TIME_FORMAT = { style: 'short', numeric: 'always' } as const;
+
 /** The app segment of an `/apps/<segment>/…` address, or `undefined` for any other. */
 function appSegmentOf(href: string): string | undefined {
   const parts = href.split(/[?#]/, 1)[0].split('/').filter(Boolean);

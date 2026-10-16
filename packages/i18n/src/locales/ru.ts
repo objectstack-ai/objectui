@@ -2804,7 +2804,7 @@ const ru = {
       none: "Сегодня ничего не ждёт вашего внимания",
     },
     addApp: "Добавить приложение",
-    appOpened: "Открыто {{time}}",
+    appOpened: "{{time}}",
     open: "Открыть",
     recentApps: {
       title: "Недавно открытые",

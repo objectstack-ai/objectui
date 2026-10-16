@@ -3153,8 +3153,12 @@ const en = {
     // objectui#12601 — an admin's trailing tile in the apps strip; opens the marketplace.
     addApp: 'Add app',
     // objectui#12601 — the line under a Home app tile: when the user last had
-    // the app open, `time` a relative time ("2 hours ago").
-    appOpened: 'Opened {{time}}',
+    // the app open, `time` a compact relative time ("2 hr. ago"). The line is
+    // 11 px in a 112 px tile and never cut, so a pack adds a verb only where
+    // verb and time still fit (zh "{{time}}打开"); English does not have the
+    // room for "Opened". Held to its width budget in every pack by
+    // `appTileOpenedLine-12601.test.ts` (app-shell).
+    appOpened: '{{time}}',
     build: {
       title: 'Build an app',
       noCapability: 'Building apps isn\'t available in this workspace — it requires the “Manage Metadata” permission, which your account doesn\'t have.',

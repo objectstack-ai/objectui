@@ -2683,7 +2683,7 @@ const de = {
       none: "Heute wartet nichts auf Sie",
     },
     addApp: "App hinzufügen",
-    appOpened: "Geöffnet {{time}}",
+    appOpened: "{{time}}",
     open: "Öffnen",
     recentApps: {
       title: "Zuletzt geöffnet",

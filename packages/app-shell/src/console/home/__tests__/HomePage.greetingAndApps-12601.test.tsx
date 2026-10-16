@@ -345,7 +345,8 @@ describe('the apps strip (objectui#12601)', () => {
 
     const opened = screen.getByTestId('app-tile-opened-crm');
     expect(screen.getByTestId('app-tile-crm')).toContainElement(opened);
-    expect(opened).toHaveTextContent('«home.appOpened»[time=2 hours ago]');
+    // The tile's compact form (`TILE_OPENED_TIME_FORMAT`), not the long one.
+    expect(opened).toHaveTextContent('«home.appOpened»[time=2 hr. ago]');
     // CONTROL — an app with nothing left in the store draws no line.
     expect(screen.getByTestId('app-tile-ops')).toBeInTheDocument();
     expect(screen.queryByTestId('app-tile-opened-ops')).toBeNull();

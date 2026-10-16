@@ -19,10 +19,12 @@
  *     test ids;
  *   - Setup is not a tile: it is the strip heading's "System Settings" link,
  *     on the `/setup` alias's own route, and the count pill does not count it;
+ *   - a tile shows when its app was last opened, read from the recent-items
+ *     store: the newest entry opened inside the app;
  *   - an admin who may install apps gets a trailing "Add app" tile on the
  *     marketplace route, gated exactly as the marketplace shortcut is.
  *
- * `t` echoes the KEY (and the count it was handed), so a hardcoded string
+ * `t` echoes the KEY (and the count or time it was handed), so a hardcoded string
  * fails here; that every key exists in all ten packs is
  * `all-locales-key-parity.test.ts`'s and `check:i18n-keys`'s.
  */
@@ -41,6 +43,7 @@ const state = vi.hoisted(() => ({
   marketplaceEnabled: true,
   pendingApprovalsCount: 0,
   apps: [] as Array<Record<string, unknown>>,
+  recentItems: [] as Array<Record<string, unknown>>,
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -57,11 +60,26 @@ vi.mock('react-router-dom', async () => {
 vi.mock('@object-ui/i18n', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useObjectTranslation: () => ({
-    t: (key: string, opts?: { count?: number }) =>
-      opts?.count === undefined ? `«${key}»` : `«${key}»[count=${opts.count}]`,
+    t: (key: string, opts?: { count?: number; time?: string }) =>
+      `«${key}»` +
+      (opts?.count === undefined ? '' : `[count=${opts.count}]`) +
+      (opts?.time === undefined ? '' : `[time=${opts.time}]`),
     language: 'en',
   }),
-  useObjectLabel: () => ({ appLabel: (app: any) => String(app?.label ?? app?.name ?? '') }),
+  // Every labeller echoes the label, else the name: the tiles read `appLabel`,
+  // and the recent rail beside them labels the store's entries.
+  useObjectLabel: () => {
+    const label = (x: { name?: string; label?: string }) => String(x?.label || x?.name || '');
+    return {
+      appLabel: label,
+      objectLabel: label,
+      objectPluralLabel: label,
+      dashboardLabel: label,
+      pageLabel: label,
+      reportLabel: label,
+      viewLabel: (_object: string, _view: string, fallback?: string) => fallback ?? '',
+    };
+  },
 }));
 
 vi.mock('@object-ui/auth', async (importOriginal) => ({
@@ -79,7 +97,7 @@ vi.mock('@object-ui/plugin-chatbot', async (importOriginal) => ({
 }));
 
 vi.mock('../../../providers/MetadataProvider', () => ({
-  useMetadata: () => ({ apps: state.apps, loading: false }),
+  useMetadata: () => ({ apps: state.apps, objects: [], dashboards: [], pages: [], reports: [], loading: false }),
 }));
 vi.mock('../../../context/NavigationContext', () => ({
   useNavigationContext: () => ({ currentAppName: undefined }),
@@ -102,8 +120,12 @@ vi.mock('../../../runtime-config', () => ({
   isAiStudioEnabled: () => true,
 }));
 
+// The tiles' last-opened time reads the recent-items store.
+vi.mock('../../../hooks/useRecentItems', () => ({
+  useRecentItems: () => ({ recentItems: state.recentItems }),
+}));
+
 // --- surfaces these cases do not read ---------------------------------------
-vi.mock('../../../hooks/useRecentItems', () => ({ useRecentItems: () => ({ recentItems: [] }) }));
 vi.mock('../../../hooks/useFavorites', () => ({ useFavorites: () => ({ favorites: [] }) }));
 vi.mock('../../../hooks/useAiSurface', () => ({ resolveAiApiBase: () => '' }));
 vi.mock('../../../preview/usePendingDrafts', () => ({ usePendingDrafts: () => ({ count: 0 }) }));
@@ -126,6 +148,7 @@ beforeEach(() => {
   state.marketplaceEnabled = true;
   state.pendingApprovalsCount = 0;
   state.apps = [CRM, SETUP];
+  state.recentItems = [];
   fetchCalls = [];
   vi.stubGlobal(
     'fetch',
@@ -281,6 +304,27 @@ describe('the apps strip (objectui#12601)', () => {
     expect(screen.getByTestId('app-tile-crm')).toBeInTheDocument();
     expect(screen.queryByTestId('home-add-app')).toBeNull();
     expect(screen.queryByTestId('browse-marketplace-btn')).toBeNull();
+  });
+
+  it('a tile shows when its app was last opened, read from the recent-items store', () => {
+    const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
+    state.apps = [CRM, { name: 'ops', label: 'Ops' }, SETUP];
+    state.recentItems = [
+      // Newest first, as the store keeps them: CRM's newest entry decides.
+      { id: 'object:account', type: 'object', name: 'account', href: '/apps/crm/account', visitedAt: hoursAgo(2) },
+      // Setup is not a tile, so its entry draws no line anywhere.
+      { id: 'object:sys_user', type: 'object', name: 'sys_user', href: '/apps/com.objectstack.setup/sys_user', visitedAt: hoursAgo(3) },
+      { id: 'dashboard:pipeline', type: 'dashboard', name: 'pipeline', href: '/apps/crm/dashboard/pipeline', visitedAt: hoursAgo(5) },
+    ];
+    render(<HomePage />);
+
+    const opened = screen.getByTestId('app-tile-opened-crm');
+    expect(screen.getByTestId('app-tile-crm')).toContainElement(opened);
+    expect(opened).toHaveTextContent('«home.appOpened»[time=2 hours ago]');
+    // CONTROL — an app with nothing left in the store draws no line.
+    expect(screen.getByTestId('app-tile-ops')).toBeInTheDocument();
+    expect(screen.queryByTestId('app-tile-opened-ops')).toBeNull();
+    expect(screen.queryByTestId('app-tile-opened-setup')).toBeNull();
   });
 
   it('the heading names the section and its links sit at its right', () => {

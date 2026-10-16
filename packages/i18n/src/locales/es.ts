@@ -2740,6 +2740,7 @@ const es = {
       none: "Hoy no tiene nada pendiente",
     },
     addApp: "Agregar aplicación",
+    appOpened: "Abierta {{time}}",
     open: "Abrir",
     recentApps: {
       title: "Abiertos recientemente",

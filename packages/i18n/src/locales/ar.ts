@@ -2906,6 +2906,7 @@ const ar = {
       none: "لا شيء بانتظارك اليوم",
     },
     addApp: "إضافة تطبيق",
+    appOpened: "فُتح {{time}}",
     open: "فتح",
     recentApps: {
       title: "فُتح مؤخراً",

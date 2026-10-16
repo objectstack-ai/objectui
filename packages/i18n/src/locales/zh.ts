@@ -2710,6 +2710,7 @@ const zh = {
       none: '今天没有待办',
     },
     addApp: '添加应用',
+    appOpened: '{{time}}打开',
     build: {
       title: '构建应用',
       subtitle: '从零开始 — 设计对象、表单、自动化与界面。',

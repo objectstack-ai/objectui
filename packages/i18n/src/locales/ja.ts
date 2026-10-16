@@ -2688,6 +2688,7 @@ const ja = {
       none: "今日の対応事項はありません",
     },
     addApp: "アプリを追加",
+    appOpened: "{{time}}に開いた",
     open: "開く",
     recentApps: {
       title: "最近アクセスしたもの",

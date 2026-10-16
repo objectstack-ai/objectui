@@ -29,6 +29,7 @@ import { useAgents, isAskAgent, agentHasCapability } from '@object-ui/plugin-cha
 // unknown→fail-open) lives with the hook.
 import { useCanAuthorMetadata } from '../../hooks/useCanAuthorMetadata.js';
 import { HomeAppsStrip } from './HomeAppsStrip.js';
+import { lastOpenedByApp } from './appLastOpened.js';
 import { RecoveryPasswordReminder } from './RecoveryPasswordReminder.js';
 import { HomeActionCenter, HomeContinue, HomeActivity } from './HomeRail.js';
 import { useHomeInbox } from '../../hooks/useHomeInbox.js';
@@ -368,6 +369,9 @@ export function HomePage() {
   const setupPath = resolveSetupAppPath(activeApps);
   const setupApp = activeApps.find((app) => `/apps/${appRouteSegment(app)}` === setupPath);
   const launcherApps = setupApp ? activeApps.filter((app) => app !== setupApp) : activeApps;
+  // When each tile's app was last open — the recent-items store's newest entry
+  // inside it (objectui#12601; the reading is `lastOpenedByApp`'s).
+  const lastOpened = lastOpenedByApp(launcherApps, recentItems);
 
   // The visually hidden reasons the withheld builder chips are described by
   // (objectui#12303). Rendered once each: both chips can share the first.
@@ -629,6 +633,7 @@ export function HomePage() {
             apps={launcherApps}
             favorites={favorites}
             settingsHref={setupApp ? setupPath : undefined}
+            lastOpened={lastOpened}
             /* Deliberately NOT resolved through `hostAppSegment` (objectui#4074
                scope guard): the marketplace is an admin-only surface that lives
                in the setup app, so `setup` here is the target, not an oversight

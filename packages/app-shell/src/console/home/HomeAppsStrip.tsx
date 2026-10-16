@@ -22,11 +22,13 @@
  *
  * The strip's look is the Home artboard's apps section (objectui#12601): a
  * 15 px heading with a count pill, 112 px tiles with a 56 px icon on the app's
- * colour and a 13 px name on one line. Two optional entries ride along, both
- * off unless the host asks: a muted "System Settings" link at the heading's
- * right (`settingsHref` — Home moves Setup off the tile row and onto it), and
- * an admin's trailing dashed "Add app" tile, which opens the marketplace
- * shortcut's route and is gated exactly as the shortcut is.
+ * colour and a 13 px name on one line. Three optional parts ride along, all
+ * off unless the host asks: an 11 px "Opened 2 hours ago" line under a tile's
+ * name (`lastOpened`, which Home reads from the recent-items store), a muted
+ * "System Settings" link at the heading's right (`settingsHref` — Home moves
+ * Setup off the tile row and onto it), and an admin's trailing dashed "Add app"
+ * tile, which opens the marketplace shortcut's route and is gated exactly as
+ * the shortcut is.
  *
  * @module
  */
@@ -34,9 +36,10 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { LayoutGrid, Plus, Settings, Star } from 'lucide-react';
 import { cn } from '@object-ui/components';
-import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
+import { useDisplayLocale, useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
 import { appRouteSegment, resolveKeyedI18nLabel } from '../../utils/index.js';
 import { getIcon } from '../../utils/getIcon.js';
+import { timeAgo } from '../../utils/relativeTime.js';
 import type { FavoriteItem } from '../../hooks/useFavorites.js';
 
 const COMPACT_LIMIT = 19;
@@ -81,6 +84,7 @@ export function HomeAppsStrip({
   canAuthorMetadata = true,
   marketplaceEnabled = true,
   settingsHref,
+  lastOpened,
 }: {
   apps: any[];
   favorites: FavoriteItem[];
@@ -113,9 +117,18 @@ export function HomeAppsStrip({
    * case.
    */
   settingsHref?: string;
+  /**
+   * [objectui#12601] When the user last had each app open, by app `name` (an
+   * ISO timestamp), drawn under the tile's name as "Opened 2 hours ago". Home
+   * reads it from the recent-items store (`lastOpenedByApp`). An app absent
+   * from the map draws no line; omitted, no tile does — the `app:launcher`
+   * block's case.
+   */
+  lastOpened?: ReadonlyMap<string, string>;
 }) {
   const { t } = useObjectTranslation();
   const { appLabel } = useObjectLabel();
+  const displayLocale = useDisplayLocale();
   const [showAll, setShowAll] = useState(false);
 
   const favNames = useMemo(
@@ -178,6 +191,7 @@ export function HomeAppsStrip({
           const label = appLabel({ name: app.name, label: resolveKeyedI18nLabel(app.label, t) });
           const fav = favNames.has(app.name);
           const grad = ICON_GRADIENTS[hashStr(app.name) % ICON_GRADIENTS.length];
+          const openedAgo = timeAgo(lastOpened?.get(app.name), displayLocale);
           return (
             <Link
               key={app.name}
@@ -202,6 +216,14 @@ export function HomeAppsStrip({
                 )}
               </span>
               <span className="w-full truncate text-[13px] font-medium">{label}</span>
+              {openedAgo && (
+                <span
+                  className="-mt-1 w-full truncate text-[11px] text-muted-foreground"
+                  data-testid={`app-tile-opened-${app.name}`}
+                >
+                  {t('home.appOpened', { time: openedAgo, defaultValue: 'Opened {{time}}' })}
+                </span>
+              )}
             </Link>
           );
         })}

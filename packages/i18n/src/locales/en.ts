@@ -3153,6 +3153,9 @@ const en = {
     },
     // objectui#12601 — an admin's trailing tile in the apps strip; opens the marketplace.
     addApp: 'Add app',
+    // objectui#12601 — the line under a Home app tile: when the user last had
+    // the app open, `time` a relative time ("2 hours ago").
+    appOpened: 'Opened {{time}}',
     build: {
       title: 'Build an app',
       subtitle: 'Start from scratch — design objects, forms, automations and interfaces.',

@@ -2735,6 +2735,7 @@ const pt = {
       none: "Nada aguardando você hoje",
     },
     addApp: "Adicionar aplicativo",
+    appOpened: "Aberto {{time}}",
     open: "Abrir",
     recentApps: {
       title: "Abertos recentemente",

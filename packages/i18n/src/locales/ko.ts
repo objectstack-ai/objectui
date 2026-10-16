@@ -2685,6 +2685,7 @@ const ko = {
       none: "오늘은 처리할 일이 없습니다",
     },
     addApp: "앱 추가",
+    appOpened: "{{time}}에 열람",
     open: "열기",
     recentApps: {
       title: "최근 열린 항목",

@@ -2726,6 +2726,15 @@ const pt = {
     greetingSeparator: ", ",
     greetingEnd: ".",
     heroTagline: "Continue de onde parou ou descubra algo novo.",
+    search: "Pesquisar aplicativos, registros, páginas…",
+    summary: {
+      approvals: "Hoje você tem {{count}} aprovações pendentes",
+      approvals_one: "Hoje você tem {{count}} aprovação pendente",
+      approvals_many: "Hoje você tem {{count}} aprovações pendentes",
+      approvals_other: "Hoje você tem {{count}} aprovações pendentes",
+      none: "Nada aguardando você hoje",
+    },
+    addApp: "Adicionar aplicativo",
     open: "Abrir",
     recentApps: {
       title: "Abertos recentemente",

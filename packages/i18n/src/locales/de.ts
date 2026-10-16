@@ -2678,6 +2678,14 @@ const de = {
     greetingSeparator: ", ",
     greetingEnd: ".",
     heroTagline: "Machen Sie dort weiter, wo Sie aufgehört haben, oder entdecken Sie etwas Neues.",
+    search: "Apps, Datensätze, Seiten durchsuchen…",
+    summary: {
+      approvals: "Heute warten {{count}} Genehmigungen auf Sie",
+      approvals_one: "Heute wartet {{count}} Genehmigung auf Sie",
+      approvals_other: "Heute warten {{count}} Genehmigungen auf Sie",
+      none: "Heute wartet nichts auf Sie",
+    },
+    addApp: "App hinzufügen",
     open: "Öffnen",
     recentApps: {
       title: "Zuletzt geöffnet",

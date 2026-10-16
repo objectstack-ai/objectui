@@ -3141,6 +3141,18 @@ const en = {
     greetingSeparator: ', ',
     greetingEnd: '.',
     heroTagline: 'Pick up where you left off, or explore something new.',
+    // objectui#12601 — the field in Home's top bar that opens the command palette.
+    search: 'Search apps, records, pages…',
+    // objectui#12601 — the line under the greeting that sums up what is
+    // waiting: the approvals count, or `none` at zero.
+    summary: {
+      approvals: 'You have {{count}} approval(s) waiting today',
+      approvals_one: 'You have {{count}} approval waiting today',
+      approvals_other: 'You have {{count}} approvals waiting today',
+      none: 'Nothing is waiting for you today',
+    },
+    // objectui#12601 — an admin's trailing tile in the apps strip; opens the marketplace.
+    addApp: 'Add app',
     build: {
       title: 'Build an app',
       subtitle: 'Start from scratch — design objects, forms, automations and interfaces.',

@@ -2680,6 +2680,14 @@ const ja = {
     greetingSeparator: "、",
     greetingEnd: "。",
     heroTagline: "前回の続きを始めるか、新しいものを探索してください。",
+    search: "アプリ、レコード、ページを検索…",
+    summary: {
+      approvals: "今日は承認待ちが {{count}} 件あります",
+      approvals_one: "今日は承認待ちが {{count}} 件あります",
+      approvals_other: "今日は承認待ちが {{count}} 件あります",
+      none: "今日の対応事項はありません",
+    },
+    addApp: "アプリを追加",
     open: "開く",
     recentApps: {
       title: "最近アクセスしたもの",

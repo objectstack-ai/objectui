@@ -2702,6 +2702,14 @@ const zh = {
     greetingSeparator: '，',
     greetingEnd: '。',
     heroTagline: '从上次离开的地方继续，或者探索新的内容。',
+    search: '搜索应用、记录、页面…',
+    summary: {
+      approvals: '今天有 {{count}} 项待审批',
+      approvals_one: '今天有 {{count}} 项待审批',
+      approvals_other: '今天有 {{count}} 项待审批',
+      none: '今天没有待办',
+    },
+    addApp: '添加应用',
     build: {
       title: '构建应用',
       subtitle: '从零开始 — 设计对象、表单、自动化与界面。',

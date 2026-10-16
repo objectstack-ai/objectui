@@ -2677,6 +2677,14 @@ const ko = {
     greetingSeparator: ", ",
     greetingEnd: ".",
     heroTagline: "마지막으로 중단한 곳에서 이어서 하거나 새로운 것을 발견해 보세요.",
+    search: "앱, 레코드, 페이지 검색…",
+    summary: {
+      approvals: "오늘 승인 대기 중인 항목이 {{count}}건 있습니다",
+      approvals_one: "오늘 승인 대기 중인 항목이 {{count}}건 있습니다",
+      approvals_other: "오늘 승인 대기 중인 항목이 {{count}}건 있습니다",
+      none: "오늘은 처리할 일이 없습니다",
+    },
+    addApp: "앱 추가",
     open: "열기",
     recentApps: {
       title: "최근 열린 항목",

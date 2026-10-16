@@ -2731,6 +2731,15 @@ const es = {
     greetingSeparator: ", ",
     greetingEnd: ".",
     heroTagline: "Continúe donde lo dejó o descubra algo nuevo.",
+    search: "Buscar aplicaciones, registros, páginas…",
+    summary: {
+      approvals: "Hoy tiene {{count}} aprobaciones pendientes",
+      approvals_one: "Hoy tiene {{count}} aprobación pendiente",
+      approvals_many: "Hoy tiene {{count}} aprobaciones pendientes",
+      approvals_other: "Hoy tiene {{count}} aprobaciones pendientes",
+      none: "Hoy no tiene nada pendiente",
+    },
+    addApp: "Agregar aplicación",
     open: "Abrir",
     recentApps: {
       title: "Abiertos recientemente",

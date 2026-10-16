@@ -2894,6 +2894,18 @@ const ar = {
     greetingSeparator: "، ",
     greetingEnd: ".",
     heroTagline: "استمر من حيث توقفت أو اكتشف شيئاً جديداً.",
+    search: "ابحث في التطبيقات والسجلات والصفحات…",
+    summary: {
+      approvals: "لديك اليوم {{count}} من طلبات الموافقة المعلّقة",
+      approvals_zero: "لديك اليوم {{count}} من طلبات الموافقة المعلّقة",
+      approvals_one: "لديك اليوم {{count}} من طلبات الموافقة المعلّقة",
+      approvals_two: "لديك اليوم {{count}} من طلبات الموافقة المعلّقة",
+      approvals_few: "لديك اليوم {{count}} من طلبات الموافقة المعلّقة",
+      approvals_many: "لديك اليوم {{count}} من طلبات الموافقة المعلّقة",
+      approvals_other: "لديك اليوم {{count}} من طلبات الموافقة المعلّقة",
+      none: "لا شيء بانتظارك اليوم",
+    },
+    addApp: "إضافة تطبيق",
     open: "فتح",
     recentApps: {
       title: "فُتح مؤخراً",

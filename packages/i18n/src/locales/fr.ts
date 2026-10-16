@@ -2728,6 +2728,15 @@ const fr = {
     greetingSeparator: ", ",
     greetingEnd: ".",
     heroTagline: "Reprenez là où vous vous êtes arrêté ou découvrez quelque chose de nouveau.",
+    search: "Rechercher des applications, enregistrements, pages…",
+    summary: {
+      approvals: "{{count}} approbations vous attendent aujourd'hui",
+      approvals_one: "{{count}} approbation vous attend aujourd'hui",
+      approvals_many: "{{count}} approbations vous attendent aujourd'hui",
+      approvals_other: "{{count}} approbations vous attendent aujourd'hui",
+      none: "Rien ne vous attend aujourd'hui",
+    },
+    addApp: "Ajouter une application",
     open: "Ouvrir",
     recentApps: {
       title: "Récemment ouverts",

@@ -1,6 +1,6 @@
 ---
-'@object-ui/app-shell': patch
-'@object-ui/react': patch
+'@object-ui/app-shell': minor
+'@object-ui/react': minor
 ---
 
 A navigation entry whose `visible` predicate cannot be evaluated is no longer drawn for everyone (objectui#12700).

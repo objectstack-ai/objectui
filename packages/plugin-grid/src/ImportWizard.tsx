@@ -420,6 +420,17 @@ export interface ImportWizardProps {
  *  the host names no narrower set (`ImportWizardProps.writeModes`). */
 const ALL_WRITE_MODES: readonly ImportWriteMode[] = ['insert', 'update', 'upsert'];
 
+/** A write mode's label. One literal key per mode, so the language-pack key
+ *  census sees every member (no template key). Read by the write-mode select
+ *  and by the saved-mapping selector's refused-mode note. */
+function writeModeLabel(t: (key: string) => string, mode: ImportWriteMode): string {
+  switch (mode) {
+    case 'insert': return t('grid.import.writeModeOpt.insert');
+    case 'update': return t('grid.import.writeModeOpt.update');
+    case 'upsert': return t('grid.import.writeModeOpt.upsert');
+  }
+}
+
 export interface ImportResult {
   totalRows: number;
   importedRows: number;
@@ -1401,7 +1412,7 @@ const SavedMappingBar: React.FC<{
                 data-testid={`import-saved-mapping-option-${m.name}`}
               >
                 {m.label || m.name}
-                {refused && ` (${t(`grid.import.writeModeOpt.${mode}`)})`}
+                {refused && ` (${writeModeLabel(t, mode)})`}
               </SelectItem>
             );
           })}
@@ -1820,7 +1831,7 @@ const ImportOptions: React.FC<{
             </SelectTrigger>
             <SelectContent>
               {writeModes.map((m) => (
-                <SelectItem key={m} value={m}>{t(`grid.import.writeModeOpt.${m}`)}</SelectItem>
+                <SelectItem key={m} value={m}>{writeModeLabel(t, m)}</SelectItem>
               ))}
             </SelectContent>
           </Select>

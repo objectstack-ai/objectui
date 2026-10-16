@@ -417,7 +417,7 @@ function DevAdminRow({ seed }: { seed: DevSeedAdmin }) {
   };
 
   return (
-    <div data-testid="dev-admin-row" className="mt-5 border-t border-dashed border-border pt-3.5">
+    <div data-testid="dev-admin-hint" className="mt-5 border-t border-dashed border-border pt-3.5">
       <div className="flex items-center justify-between gap-3">
         <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
           <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-warning" />

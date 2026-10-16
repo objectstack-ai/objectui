@@ -436,8 +436,42 @@ export function resolveTitleField(def: ObjectDefLike | undefined): string | null
 }
 
 /**
+ * The members of every field group whose ADR-0089 `visibleWhen` the details
+ * body evaluates per record (objectui#12720).
+ *
+ * Read through {@link deriveFieldGroupDetailEntries}, the derivation the
+ * body's own group gate (`resolveSectionGroup` in `record-details.tsx`)
+ * resolves `{ group }` references against, and with that gate's own test,
+ * `entry.visibleWhen != null`. So the members named here are exactly the
+ * fields the body hides with their group when the predicate is FALSE, and the
+ * strip cannot hold a different idea of which fields are gated.
+ *
+ * ⛔ The predicate is not evaluated here. The derivation runs from object
+ * metadata with no record in hand, so it can only ask WHETHER a member's
+ * group is gated, never what the gate answers. The strip therefore declines
+ * every such member, on every record: a chip that comes and goes per record
+ * is not an at-a-glance fact, and the one evaluator stays the body's
+ * (`resolveFieldRuleState`, the form's). Where the group is shown, its members
+ * are still drawn once, in the body: a field this derivation declines is not
+ * in the strip's list, so it is not in the body's `hideFields` either.
+ *
+ * Only the DERIVED strip consults this. A declared `highlightFields` entry
+ * inside a gated group is left as the author wrote it.
+ */
+function membersOfGatedFieldGroups(def: ObjectDefLike): Set<string> {
+  const out = new Set<string>();
+  for (const entry of deriveFieldGroupDetailEntries(def) ?? []) {
+    if (entry.key === undefined || entry.visibleWhen == null) continue;
+    for (const field of entry.section.fields as Array<{ name: string }>) out.add(field.name);
+  }
+  return out;
+}
+
+/**
  * Pick up to N "highlight" fields by name. Skips the status field
  * (already shown in `record:path`) and obvious junk like id / created_at.
+ * Members of a group gated by `visibleWhen` are never picked
+ * ({@link membersOfGatedFieldGroups}, objectui#12720).
  */
 export function deriveHighlightFields(
   def: ObjectDefLike | undefined,
@@ -568,13 +602,20 @@ export function deriveHighlightFields(
     refusedAsRetired(h1Field);
     skip.add(h1Field);
   }
+  // Members of a field group the details body gates per record are never
+  // picked (objectui#12720). See {@link membersOfGatedFieldGroups} for why the
+  // strip declines them rather than evaluating the predicate itself. Asked
+  // AFTER THE GATE in both loops, so the objectui#4914 report fires exactly
+  // when it did before this card.
+  const gated = membersOfGatedFieldGroups(def);
   for (const name of preferred) {
-    if (name in fields && !skip.has(name) && !refusedAsRetired(name)) out.push(name);
+    if (name in fields && !skip.has(name) && !refusedAsRetired(name) && !gated.has(name)) out.push(name);
     if (out.length >= max) return out;
   }
   for (const name of Object.keys(fields)) {
     if (out.includes(name) || skip.has(name)) continue;
     if (refusedAsRetired(name)) continue;
+    if (gated.has(name)) continue;
     const fieldDef = (fields as any)[name];
     const ftype = fieldDef?.type;
     // When a type is declared, require it to be highlight-friendly.

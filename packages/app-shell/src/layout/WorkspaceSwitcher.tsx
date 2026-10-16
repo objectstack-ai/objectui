@@ -60,10 +60,14 @@ export function WorkspaceSwitcher() {
   }, [getAuthConfig]);
 
   const orgList = organizations ?? [];
-  const current = activeOrganization ?? orgList[0] ?? null;
+  // The organization the SERVER reports as active, never `orgList[0]`
+  // (objectui#12698): that guess named an organization the session did not
+  // hold — e.g. after a refused `set-active`.
+  const current = activeOrganization;
 
-  // No organization context (e.g. a brand-new user before provisioning) — show
-  // nothing rather than an empty switcher.
+  // No organization context (e.g. a brand-new user before provisioning, or a
+  // session the server reports no active organization for) — show nothing
+  // rather than an empty switcher or a guessed name.
   if (!current) return null;
 
   // Single-org: render nothing. With only one org there's nothing to switch to,

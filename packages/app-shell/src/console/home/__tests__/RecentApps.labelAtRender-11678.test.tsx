@@ -48,6 +48,7 @@ vi.mock('@object-ui/auth', async (importOriginal) => ({
 
 import { RecentApps } from '../RecentApps.js';
 import { HomeContinue } from '../HomeRail.js';
+import { recentItemTypeLabel } from '../recentItemTypeLabel.js';
 import { useRecentItemLabel } from '../../../hooks/useRecentItemLabel.js';
 import { RecentItemsProvider, useRecentItems } from '../../../context/RecentItemsProvider.js';
 import { UserStateAdaptersProvider } from '../../../context/UserStateAdapters.js';
@@ -126,7 +127,15 @@ function Rail() {
   const { recentItems } = useRecentItems();
   const { t } = useObjectTranslation();
   const labelOf = useRecentItemLabel();
-  return <HomeContinue items={recentItems} onOpen={() => {}} t={t} labelOf={labelOf} />;
+  return (
+    <HomeContinue
+      items={recentItems}
+      onOpen={() => {}}
+      t={t}
+      labelOf={labelOf}
+      describe={(it) => ({ context: recentItemTypeLabel(t, it.type) })}
+    />
+  );
 }
 
 function tree(

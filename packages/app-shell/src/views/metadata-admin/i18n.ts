@@ -2473,7 +2473,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'perm.tabs.vis.default_off': 'Default off',
   'perm.admin.title': 'Delegated Admin Scope',
   'perm.admin.help':
-    'Lets holders administer a business-unit subtree (assign users, manage bindings) without full admin.',
+    'Lets holders administer a business-unit subtree (assign users) without full admin.',
   'perm.admin.businessUnit': 'Business unit',
   // The dependent controls' disabled reason (objectui#9464): `businessUnit` is
   // the one key the framework's admin-scope shape requires, so a scope written
@@ -2482,8 +2482,6 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
     'Name a business unit first — a scope without one is refused when the record is saved.',
   'perm.admin.includeSubtree': 'Include subtree',
   'perm.admin.manageAssignments': 'Manage assignments',
-  'perm.admin.manageBindings': 'Manage bindings',
-  'perm.admin.authorEnvironmentSets': 'Author env sets',
   'perm.admin.assignableSets': 'Assignable permission sets',
   'perm.admin.noSets': 'No permission sets loaded.',
   'perm.loading': 'Loading permission set {name}…',
@@ -5856,15 +5854,13 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'perm.tabs.vis.default_on': '默认开启',
   'perm.tabs.vis.default_off': '默认关闭',
   'perm.admin.title': '委派管理范围',
-  'perm.admin.help': '允许持有者管理某业务单元子树(分配用户、管理绑定),无需完全管理员权限。',
+  'perm.admin.help': '允许持有者管理某业务单元子树(分配用户),无需完全管理员权限。',
   'perm.admin.businessUnit': '业务单元',
   // objectui#9464 — 见 EN 表同键注释。
   'perm.admin.businessUnitRequired':
     '请先填写业务单元 — 没有业务单元的范围在保存记录时会被拒绝。',
   'perm.admin.includeSubtree': '包含子树',
   'perm.admin.manageAssignments': '管理分配',
-  'perm.admin.manageBindings': '管理绑定',
-  'perm.admin.authorEnvironmentSets': '编辑环境权限集',
   'perm.admin.assignableSets': '可分配权限集',
   'perm.admin.noSets': '未加载权限集。',
   'perm.loading': '加载权限集 {name}…',

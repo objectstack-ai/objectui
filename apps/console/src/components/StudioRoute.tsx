@@ -208,7 +208,11 @@ function StudioLanding() {
   return (
     <CommandPaletteProvider>
       <div className="flex min-h-screen flex-col bg-background text-foreground">
-        <header className="sticky top-0 z-30 flex h-14 w-full shrink-0 items-center gap-2 border-b bg-background px-2 sm:px-4">
+        {/* The console top bar, 48 px like every console frame's
+            (objectui#12639): `@object-ui/app-shell` spells the class as
+            `CONSOLE_TOP_BAR`, and its `consoleTopBar.height-12639` test holds
+            this copy equal to it. */}
+        <header className="sticky top-0 z-30 flex h-12 w-full shrink-0 items-center gap-2 border-b bg-background px-2 sm:px-4">
           <AppHeader variant="studio" />
         </header>
         <CommandPalette scope="studio" />

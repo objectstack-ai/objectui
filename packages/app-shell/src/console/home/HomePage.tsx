@@ -18,10 +18,13 @@
 import { useId, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMetadata } from '../../providers/MetadataProvider.js';
-import { useRecentItems } from '../../hooks/useRecentItems.js';
+import { useRecentItems, type RecentItem } from '../../hooks/useRecentItems.js';
 import { useRecentItemLabel } from '../../hooks/useRecentItemLabel.js';
+import { useNavTargetLabel } from '../../hooks/useNavTargetLabel.js';
 import { useFavorites } from '../../hooks/useFavorites.js';
 import { useObjectTranslation } from '@object-ui/i18n';
+// Its own line: the line above is the pack-hook binding `perm-home-namespace-3546.test.tsx` reads.
+import { useObjectLabel } from '@object-ui/i18n';
 import { useAuth, useWorkspaceAdminStatus } from '@object-ui/auth';
 import { useAgents, isAskAgent, agentHasCapability } from '@object-ui/plugin-chatbot';
 // May this session author metadata? Shared with the chat surfaces since the
@@ -29,16 +32,19 @@ import { useAgents, isAskAgent, agentHasCapability } from '@object-ui/plugin-cha
 // unknown→fail-open) lives with the hook.
 import { useCanAuthorMetadata } from '../../hooks/useCanAuthorMetadata.js';
 import { HomeAppsStrip } from './HomeAppsStrip.js';
-import { lastOpenedByApp } from './appLastOpened.js';
+import { appSegmentOf, lastOpenedByApp } from './appLastOpened.js';
+import { recentItemObject, recentItemTypeLabel } from './recentItemTypeLabel.js';
 import { RecoveryPasswordReminder } from './RecoveryPasswordReminder.js';
-import { HomeActionCenter, HomeContinue, HomeActivity, HomePendingDraftsRow } from './HomeRail.js';
+import { HomeActionCenter, HomeContinue, HomeActivity, HomePendingDraftsRow, type RecentItemContext } from './HomeRail.js';
 import { resolveI18nLabel } from '@objectstack/spec/ui';
 import { useHomeInbox } from '../../hooks/useHomeInbox.js';
 import { useNavigationContext } from '../../context/NavigationContext.js';
 import {
   appRouteSegment,
   filterActiveApps,
+  matchAppBySegment,
   resolveHostAppSegment,
+  resolveKeyedI18nLabel,
   resolveNotificationTarget,
 } from '../../utils/index.js';
 import { resolveSetupAppPath } from '../ConsoleShell.js';
@@ -279,11 +285,16 @@ function usePendingDraftsRow(t: (key: string, opts?: any) => string, language: s
 export function HomePage() {
   const navigate = useNavigate();
   const { t, language } = useObjectTranslation();
-  const { apps, loading } = useMetadata();
+  const { apps, objects, loading } = useMetadata();
   const { recentItems } = useRecentItems();
   // A recent entry stores identity; the rail labels it with this, on the
   // render, in the current language (objectui#11678).
   const recentLabel = useRecentItemLabel();
+  // A record row's trail names its object as the sidebar names an unlabelled
+  // navigation entry for it, and the app as its launcher tile does
+  // (objectui#12604).
+  const targetLabel = useNavTargetLabel();
+  const { appLabel } = useObjectLabel();
   const { favorites } = useFavorites();
   const { user } = useAuth();
   const { isAdmin, isResolved: isAdminResolved } = useWorkspaceAdminStatus();
@@ -387,8 +398,38 @@ export function HomePage() {
   const marketplaceReasonId = useId();
 
   const recentApps = recentItems
-    .filter(item => item.type === 'object' || item.type === 'dashboard' || item.type === 'page' || item.type === 'record')
+    .filter(item =>
+      item.type === 'object' ||
+      item.type === 'view' ||
+      item.type === 'dashboard' ||
+      item.type === 'page' ||
+      item.type === 'record')
     .slice(0, 6);
+
+  /**
+   * What a "Recently accessed" row prints beside its title (objectui#12604):
+   * "Account · HotCRM · 10 minutes ago". The context is a record's object
+   * label, else the entry's kind; the app is the one the entry was opened in —
+   * its address's app segment, resolved as the router resolves it — labelled
+   * as its tile is; a record's icon tile draws its object's icon.
+   */
+  const describeRecent = (item: RecentItem): RecentItemContext => {
+    const objectName = recentItemObject(item);
+    const segment = appSegmentOf(item.href);
+    const app = segment ? matchAppBySegment(activeApps, segment) : undefined;
+    const objectIcon =
+      item.type === 'record' && objectName
+        ? (objects ?? []).find((o: { name?: unknown }) => o?.name === objectName)?.icon
+        : undefined;
+    return {
+      context:
+        item.type === 'record' && objectName
+          ? targetLabel({ kind: 'object', objectName }) ?? objectName
+          : recentItemTypeLabel(t, item.type),
+      app: app ? appLabel({ name: app.name, label: resolveKeyedI18nLabel(app.label, t) }) : undefined,
+      icon: typeof objectIcon === 'string' && objectIcon !== '' ? objectIcon : undefined,
+    };
+  };
 
   const greeting = useMemo(() => t(pickGreetingKey(new Date().getHours()), { defaultValue: 'Welcome' }), [t]);
   const displayName = (user?.name?.trim() || user?.email?.split('@')[0] || '').trim();
@@ -735,7 +776,13 @@ export function HomePage() {
               activity.readable && 'lg:grid-cols-[minmax(0,1fr)_360px]',
             )}
           >
-            <HomeContinue items={recentApps} onOpen={(href) => navigate(href)} t={t} labelOf={recentLabel} />
+            <HomeContinue
+              items={recentApps}
+              onOpen={(href) => navigate(href)}
+              t={t}
+              labelOf={recentLabel}
+              describe={describeRecent}
+            />
             <HomeActivity activity={activity} onViewAll={() => navigate(`/apps/${hostAppSegment}/sys_activity`)} t={t} />
           </div>
         </div>

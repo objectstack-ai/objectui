@@ -189,7 +189,10 @@ describe('value shapes — what the shared widgets emit is what the page submits
   it('submits a date string, a number, a multiselect array and a lookup id', async () => {
     await renderForm();
 
+    // `date` is the platform picker (objectui#12642): its text box commits on
+    // blur, and an ISO day reads in every locale.
     fireEvent.change(screen.getByLabelText('Due'), { target: { value: '2026-03-04' } });
+    fireEvent.blur(screen.getByLabelText('Due'));
     fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '7' } });
 
     const tags = screen.getByRole('group', { name: 'Tags' });

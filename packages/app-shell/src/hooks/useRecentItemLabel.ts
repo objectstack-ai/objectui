@@ -28,6 +28,12 @@
  *    unlabelled navigation entry that opens the same target (the metadata
  *    label, an inline locale map read in the active language, through the
  *    `useObjectLabel` bundle lookup);
+ *  - a list view (objectui#12604): {@link useNavTargetLabel} again — the text
+ *    the sidebar shows for an unlabelled navigation entry that opens the same
+ *    view (the view's label from its object's `listViews`, through the
+ *    `viewLabel` bundle lookup). A view the cache does not hold — one a user
+ *    saved for themself — is drawn as the list it opens: the object's, as an
+ *    object entry is;
  *  - a page or a report: the same pair for that kind — the page's / report's
  *    cached metadata `label`, through `useObjectLabel`'s `pageLabel` /
  *    `reportLabel`. `useNavTargetLabel` has no page or report target because
@@ -79,15 +85,20 @@ export function useRecentItemLabel(
 
   return useMemo<RecentItemLabelResolver>(
     () => (item: RecentItem) => {
+      /** What an object's list is titled — an `object` entry's label, and a view's fallback. */
+      const listTitle = (objectName: string): string => {
+        const def = findByName(metadata.objects, objectName) as (LabelledRecord & { pluralLabel?: unknown }) | undefined;
+        // The singular half is read exactly as `useNavTargetLabel` reads it;
+        // `pluralLabel` is a plain string in the spec, so only a string is one.
+        const text = metadataText(def?.label, language);
+        const plural = typeof def?.pluralLabel === 'string' ? def.pluralLabel : undefined;
+        return nonEmpty(objectPluralLabel({ name: objectName, label: text ?? '', pluralLabel: plural })) ?? objectName;
+      };
       switch (item.type) {
-        case 'object': {
-          const def = findByName(metadata.objects, item.name) as (LabelledRecord & { pluralLabel?: unknown }) | undefined;
-          // The singular half is read exactly as `useNavTargetLabel` reads it;
-          // `pluralLabel` is a plain string in the spec, so only a string is one.
-          const text = metadataText(def?.label, language);
-          const plural = typeof def?.pluralLabel === 'string' ? def.pluralLabel : undefined;
-          return nonEmpty(objectPluralLabel({ name: item.name, label: text ?? '', pluralLabel: plural })) ?? item.name;
-        }
+        case 'object':
+          return listTitle(item.name);
+        case 'view':
+          return targetLabel({ kind: 'view', objectName: item.object, viewName: item.name }) ?? listTitle(item.object);
         case 'dashboard':
           return targetLabel({ kind: 'dashboard', dashboardName: item.name }) ?? item.name;
         case 'page': {

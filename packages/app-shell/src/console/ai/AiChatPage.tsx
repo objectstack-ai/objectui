@@ -105,6 +105,7 @@ import {
 } from '@object-ui/plugin-chatbot';
 
 import { AppHeader } from '../../layout/AppHeader.js';
+import { CONSOLE_TOP_BAR } from '../../layout/consoleTopBar.js';
 import { armChatDockExpanded, readDockReturnLocation } from '../../layout/chatDockState.js';
 import {
   useAdvertiseShortcut,
@@ -1347,7 +1348,7 @@ export function AiChatPage({ apiBase: apiBaseProp, defaultAgent: defaultAgentPro
 
   return (
     <div className="flex h-svh w-full flex-col bg-background" data-testid="ai-chat-page">
-      <header className="sticky top-0 z-30 flex h-14 w-full shrink-0 items-center gap-2 border-b bg-background/95 px-2 backdrop-blur sm:px-4">
+      <header className={cn(CONSOLE_TOP_BAR, 'bg-background/95 backdrop-blur')}>
         {/* Mobile: open the chats list as a sheet. The DESKTOP collapse toggle
             is NOT in the top nav — it lives at the bottom-left of the chats
             column (see below), mirroring the app shell's sidebar toggle. Chat

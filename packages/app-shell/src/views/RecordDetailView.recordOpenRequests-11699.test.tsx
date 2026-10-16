@@ -22,6 +22,10 @@
  *   - each question is asked by the page header (`RecordDetailView`) and by
  *     that `DetailView`, which mounts while the header's answer is pending.
  *
+ * ⚠️ objectui#12701 later removed the body's record read altogether: the
+ * `record:details` body now waits for the page's record, so the count below
+ * reads 0 body GETs. The explain sharing is unchanged.
+ *
  * Neither host is changed for those. The two sources share an in-flight
  * request — `ObjectStackAdapter.findOne` the way `find` already did, and the
  * explain probe in `useRecordEditable` beside its finished-answer memo — so
@@ -354,8 +358,9 @@ describe('record page open: one record GET and one explain per distinct question
   it('counts the requests a record open puts on the wire', async () => {
     const { held } = await openRecordPage();
 
-    // The body's own read is on the wire while the page's read is pending.
-    await waitFor(() => expect(held.some((h) => h.path === RECORD_GET)).toBe(true));
+    // The page's read is on the wire. The body sends none of its own: it
+    // waits for the page's record (objectui#12701).
+    await waitFor(() => expect(pageReads(held).length).toBeGreaterThan(0));
     await idle();
 
     // The page's side reads answer first — every one of them re-renders the
@@ -371,8 +376,11 @@ describe('record page open: one record GET and one explain per distinct question
     // The page really opened the record: the strip shows its values.
     await waitFor(() => expect(screen.getAllByText(RECORD.priority).length).toBeGreaterThan(0));
 
+    // objectui#12701 — the body's `GET /data/OBJ/ID` used to go out once
+    // here (twice before this card's fix); the body now reads the page's
+    // record and sends none.
     const recordGets = held.filter((h) => h.method === 'GET' && h.path === RECORD_GET);
-    expect(recordGets).toHaveLength(1);
+    expect(recordGets).toHaveLength(0);
 
     // The page's own `$expand` read, once, with both relations.
     expect(pageReads(held)).toHaveLength(1);

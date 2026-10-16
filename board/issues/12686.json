@@ -1,0 +1,26 @@
+{
+  "number": 12686,
+  "kind": "issue",
+  "title": "Docs portal: doc-to-doc links render href=\"/docs/NAME\" without the /_console base, so open-in-new-tab or a copied link answers 404 ENDPOINT_NOT_FOUND",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T13:34:27Z",
+  "updated_at": "2026-10-16T13:34:27Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12686",
+  "body": "**Filing gate ①**: a user-visible product defect with a named landing and a reproduction. Reach: the console docs portal. Open-in-new-tab or a copied link answers 404.\n\n**Reader who acts:** the objectui docs/console lane seat owning the docs-portal body renderer. It must resolve doc-to-doc links through the router basename, the same remedy as closed #12233.\n\n## What\n\nLinks between docs inside a rendered doc body carry `href=\"/docs/NAME\"` with no `/_console` base. An in-app click works, because the client router intercepts it. Open-in-new-tab, middle-click or a copied link sends the browser to the server path `/docs/NAME`, which answers **404 `ENDPOINT_NOT_FOUND`**.\n\n## Reproduction\n\n1. objectstack `main` `94114c1f` showcase, with the vendored console at pin `daeb77fc`, signed in as admin.\n2. Open the docs portal in the console and pick any doc whose body links to another doc.\n3. Inspect the link:\n   - expected: `href=\"/_console/docs/NAME\"`, or whatever the router basename resolves to;\n   - actual: `href=\"/docs/NAME\"`.\n4. Open that link in a new tab → 404 `ENDPOINT_NOT_FOUND`.\n\n## Dedupe\n\nMCP `search_issues` on objectstack-ai/objectui, closed included: `docs link href missing _console base path new tab 404` → 20 hits. The closest is #12233 (closed), the same class on record-page lookup links; the others are #11769, #4181 and #2638 (all closed, other surfaces). None covers docs-body links.\n\nQA-source: objectstack-ai/objectstack#23939 · platform-core.docs-portal-render · observation"
+}

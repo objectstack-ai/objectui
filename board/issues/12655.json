@@ -1,0 +1,37 @@
+{
+  "number": 12655,
+  "kind": "issue",
+  "title": "cloud-connection panel: the \"Not connected\" card opens with the page subtitle word for word; it should say the state and what Connect does (objectui#12610 item 3, moved from objectstack#23841)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "domain:ui",
+    "enhancement",
+    "priority:p2"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T11:10:20Z",
+  "updated_at": "2026-10-16T13:39:58Z",
+  "closed_at": "2026-10-16T13:38:43Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12655",
+  "body": "Filing gate ③: the undelivered item 3 of objectstack-ai/objectui#12610. That card was filed by the epic PM from the 2026-10-16 Setup review, under the maintainer's 「全部立卡」. It closed with this item undelivered (its PR covered items 1 and 4). Triage split the item to objectstack as objectstack-ai/objectstack#23841, and that card's dispatched dev measured that the whole change lands here (`os-dev-report` `6213632067`, seat note `6213674687`). Moved by the triage seat (objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`). ⛔ Not a claim.\n\n**Reader who acts:** the `domain:ui` seat, one PR.\n\n## What the admin reads (measured)\n\nSetup's `cloud_connection_settings` page shows \"Connect this runtime to an ObjectStack control plane to browse your organization's private packages and install them here.\" twice. Measured on objectstack `origin/main` `6422da58e` (showcase, `--fresh`; `CloudConnectionPlugin` is composed by default), with the console at objectstack's `.objectui-sha` pin `daeb77fc`, in Chromium, en and zh-CN:\n1. **The page header subtitle.** This is objectstack's only copy of the sentence: the `page:header` in `packages/cloud-connection/src/cloud-connection-ui.ts`, translated per locale in place. It stays.\n2. **The panel's \"Not connected\" card.** This is this repo's `cloudConnection.unbound.body`, drawn at `packages/app-shell/src/console/cloud-connection/CloudConnectionPanel.tsx:400`. The served metadata hands the panel `properties: {}` and nothing else.\n\nRe-read on objectui `main` `8a8bcf3dde`: `packages/i18n/src/locales/en.ts:4136` is the `unbound.body` string. It opens with the subtitle's sentence, then adds \"Approval is a single click in your cloud account — no ids or credentials are typed into this page.\" `CloudConnectionPanel.tsx:397`–`:409` draws the title, body and Connect button.\n\n## The change\n\n- The panel's unbound body says the state (not connected) and what Connect does, using only what the panel already has. It does not repeat the page subtitle.\n- Every locale file that carries `cloudConnection.unbound.body` moves with it.\n- ⛔ No control-plane name. No served datum names the binding target:\n  - `/api/v1/cloud-connection/status` carries no origin;\n  - `/api/v1/runtime/config`'s `cloudUrl` reads `''` in the showcase, while the plugin binds to `https://cloud.objectos.ai`, so reading it would name the wrong target.\n  \n  Naming the control plane would need a new served field, an objectstack door widening. That is held for the maintainer to name, and it is not filed.\n\n## Done when\n\n- In no shipped locale does the unbound card's body open with the page subtitle's sentence, and it says the state and what Connect does.\n- A test pins the unbound body's new en text.\n\n## Grade\n\np2, as on objectui#12610 and objectstack#23841: admin-facing copy.\n\n## Dedupe\n\nMCP `search_issues` on objectstack-ai/objectui, all states: `cloud connection panel not connected body repeats page subtitle sentence twice state and what the connect button does` returned 1 hit, objectui#12610 (closed, the parent).\n\nDedupe words: cloud connection unbound body duplicate; CloudConnectionPanel subtitle repeated; Not connected card copy."
+}

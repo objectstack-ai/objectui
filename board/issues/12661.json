@@ -1,0 +1,37 @@
+{
+  "number": 12661,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail): a collapsible record section's header is a named button; the copy-value button is named (objectui#12625)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: components",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T12:16:10Z",
+  "updated_at": "2026-10-16T12:58:21Z",
+  "closed_at": "2026-10-16T12:58:19Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T12:58:19Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12661",
+  "body": "Fixes #12625\nClause-②: no\n\n## What the tree said on main\n\nMeasured on `a5bb7ac2f` (after #12651) before any edit: the real console `RecordDetailView` mounted with a lead object (three `record_header` actions, a child lookup for the Related tab, a collapsible field group 'Lead Information'), names read by role with RTL, and the same rendered DOM loaded into real Chromium and read with CDP `Accessibility.getFullAXTree`.\n\n- Already named, no change: the tabs (Details, Related; `page:tabs` renders the label in a plain span, Activity and History use the same trigger), the header actions (Log a Call, Log a Meeting, Schedule a Meeting, Edit, More actions, Refresh), and the app pill (name HotCRM, title HotCRM; `AppMark` is aria-hidden). As in objectui#12510, the card's readings of these came from the tool, not the tree.\n- Really broken, both in `DetailSection.tsx`:\n  1. the collapsible section header was `CollapsibleTrigger asChild` on the `CardHeader` div: `aria-expanded` and a click handler, but no role and no tabindex. No button by the section title existed and a keyboard user could not reach or toggle the section.\n  2. the per-field copy-value icon button had no name (its tooltip is closed at rest): Chromium read `button` with an empty name.\n\n## What changed\n\n- `DetailSection.tsx`, collapsible branch: the trigger is now a native `button type=\"button\"` inside the header (full-width, text-left), named by the section title, carrying `aria-expanded`; Enter and Space toggle it natively, Tab reaches it. The header keeps its classes (padding, hover, `headerColor`) and becomes `relative`; the button's `after:` overlay spans it, so a click anywhere on the header still toggles, as before. Chevrons are aria-hidden. The non-collapsible header is unchanged (a plain title, no button).\n- The copy-value button takes `aria-label` from the existing `detail.copyToClipboard` key (no new string). Every copy button on a record reads the same name, \"Copy to clipboard\"; a per-field name would need a new interpolated key, left out on purpose (see Acceptance notes).\n- Changeset: `@object-ui/plugin-detail` patch.\n\n## Pins\n\n- `DetailSection.accessibleNames-12625.test.tsx` (plugin-detail): `getByRole('button', { name: 'Lead Information' })` is a native button with `aria-expanded`, toggled by click, by Enter and by Space after Tab; `defaultCollapsed` reads collapsed; copy buttons by name. CONTROL: a non-collapsible titled section shows its title and no header button, no `aria-expanded` anywhere.\n- `RecordDetailView.accessibleNames-12625.test.tsx` (app-shell, the real record page mount): `getByRole('tab', { name: 'Details' })`, `getByRole('tab', { name: 'Related' })`, `getByRole('button', { name: 'Log a Call' })` and the other two actions, the 'Lead Information' header button toggling; CONTROL: the non-collapsible 'Address' group is no button.\n- `AppSwitcher.accessibleName-12625.test.tsx` (app-shell): with the real dropdown trigger, `getByRole('button', { name: /HotCRM/ })` resolves and its title is HotCRM.\n\n## Ablation (one-off, both legs recorded)\n\nWith the fix committed (`294ef9835`), the collapsible header block was put back to the base div shape on disk (marker count for the new block 1 to 0, `CollapsibleTrigger asChild` directly on `CardHeader` 0 to 1) under an EXIT trap; the plugin-detail pin file read `3 failed | 2 passed`: the three header-button rows red, the CONTROL and the copy-button row green. Restored with `git checkout HEAD --`, HEAD blob hash matched, `git diff HEAD` empty. Tests import `src` through the root vitest alias, so no build sat between the mutation and the run.\n\n## Verification (final head `94c0d6a1a`)\n\n- `pnpm exec vitest run packages/plugin-detail/`: Test Files 274 passed, 1 skipped; Tests 2660 passed, 14 skipped.\n- app-shell, narrowed and declared: the full `packages/app-shell/` dir is not run locally (too long for the container's foreground cap; CI runs it). Run instead: every `RecordDetailView*` view test and every `AppSwitcher*` test, 65 files, 413 tests passed, the new pins included.\n- Type-check: `@object-ui/plugin-detail` `type-check` exit 0; `@object-ui/app-shell` `type-check` exit 0 (both include tests through `tsconfig.test.json`), after building each closure.\n- ESLint `--no-inline-config` on the four changed files (`--format json`): 4 files, 0 errors; `DetailSection.tsx` has the same 12 warnings as on base, the three test files none. Narrowed lint, not the repo-wide run (CI owns that).\n- Pre-tsc battery all exit 0: phantom-deps, self-import, unreferenced-sources, doc-example-readers, handler-key-reads, side-effects-array, element-data-source-declaration, spec-symbols, action-forward-parity, designer-field-key-parity, icon-record-names, i18n-keys, i18n-drift, i18n-designer-parity, control-bytes, `check-hand-rolled-comment-mask.mjs`, `check-changeset-fixed.mjs`, `check-changeset-presence.mjs`.\n\n## Acceptance notes\n\n- Acceptance 2 (a pasted accessibility tree of the live lead record) is answered by the Chromium AX-tree reading of the rendered record page described above, not by a live HotCRM session; no live stack was started.\n- The copy-value buttons all share one name. A field-specific name (\"Copy Company\") would need a new interpolated i18n key in all ten packs; not added here per the dispatch order.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

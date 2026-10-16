@@ -1,0 +1,32 @@
+{
+  "number": 12703,
+  "kind": "issue",
+  "title": "App pages: a list block in a region narrower than half the page takes a compact posture, without the toolbar and the row-number column",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "domain:ui",
+    "enhancement",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T14:16:39Z",
+  "updated_at": "2026-10-16T14:16:39Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12703",
+  "body": "## Source\n\nWalked on objectui main `efa9cb4fa` at 1024 px, HotCRM's Sales Home page (`/page/sales_home_page`): the \"Upcoming Events\" block sits in the right third of the page and mounts the full list: Filter / Sort 1 / Display toolbar, the `#` column, and one visible column (Subject) with the rest clipped. The block's job is \"the next five events\"; the toolbar is the object list's, not the page's.\n\n## Target\n\n1. A list block inside a page region takes a compact posture when the region is narrower than half the page (or when the page declares `compact: true` on the block): no view tabs, no toolbar, no `#` column, the first two columns of the view as a two-line row (primary text + secondary muted line), a footer link \"View all →\" to the object list with the block's view.\n2. The block's header carries the title and the count; the page designer in Studio shows the posture on the block card.\n3. A page region of half the page or wider keeps today's full list.\n\n## File surface\n\nThe runtime page renderer and `packages/app-shell/src/views/metadata-admin/previews/PagePreview.tsx`, `packages/plugin-list/src/ListView.tsx` (the compact posture, if it does not exist yet as a prop), the page spec in `packages/spec` if `compact` is new (the card says so and files the spec change on objectstack-ai/objectstack), tests beside.\n\n## Acceptance\n\n1. Tests: a list block in a 4-column region renders no toolbar and no `#` column; in a 12-column region it renders the full list.\n2. Screenshot of Sales Home at 1024 and 1280 px.\n3. `pnpm --filter @object-ui/app-shell test`, `pnpm --filter @object-ui/plugin-list test` green.\n\n## Constraints\n\n- objectui#12624 (block grids with spans) touches the same renderer; whichever lands second rebases, and the two may be taken by one lane in sequence.\n\n## Evidence\n\nScreenshots on the temporary branch `claude/console-home-login-design-20261016` of objectstack-ai/objectui (commit `0f4e3f4ee`, never merged): [r4-sales-home-page.jpg](https://github.com/objectstack-ai/objectui/blob/0f4e3f4ee/docs/design/review-r4-2026-10-16/r4-sales-home-page.jpg?raw=true).\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-16 fourth review: objectui main `efa9cb4fa`, HotCRM `4f82b815` on platform 18.0.0-next.2, the vite console on :5180 against `objectstack dev` on :4001, the maintainer's browser pane at 1024 × 768 (dark, en). The maintainer asked for every finding to be filed on the repository it belongs to, verbatim: 「全部立卡，平台问题到 objectui，审计日志核查到 objectstack，HotCRM 转化流程到 hotcrm。」</sub>"
+}

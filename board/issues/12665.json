@@ -1,0 +1,39 @@
+{
+  "number": 12665,
+  "kind": "pull_request",
+  "title": "feat(fields,app-shell,plugin-detail): a pointer whose target the platform deleted draws a tombstone in the declared option's label (objectui#12489)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "documentation",
+    "package: app-shell",
+    "package: fields",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T12:34:06Z",
+  "updated_at": "2026-10-16T13:55:54Z",
+  "closed_at": "2026-10-16T13:55:52Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T13:55:51Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12665",
+  "body": "Fixes #12489\nClause-②: yes\n\nStep 4 of objectui#12489, the build ruling A item 3 calls for (ruling `6203737086`): the record pointer renderer draws the tombstone from the option's own label when the platform asserts the target was deleted. It reads nothing and links nothing. `RecordPreviewCard`'s \"the caller renders it\" rule is unchanged, and the pointer renderer is that caller.\n\n## What changed\n\n- **`@object-ui/fields`**: `resolveRecordPointer(field, row, optionsOf?)` reads `@objectstack/spec`'s `FieldSchema.referenceDeletedWhen: { field, value }` beside `referenceVia`. When the row's sibling `select` holds the declared option, the returned `RecordPointer` carries `deletedLabel`: that option's label, looked up in the options the call site supplies. The predicate is evaluated here and nowhere else. With no `optionsOf`, or no option with that value, the pair comes back as before; the raw option value is never used as the text. The default face under `RECORD_POINTER_CARD_TYPE` draws the label in place of the record id.\n- **`@object-ui/plugin-detail`**: `DetailSection` passes the object field's `referenceDeletedWhen` and the sibling's options, translated with the same `translateOptions` call the grid already uses for `select` options. So the tombstone reads the way the option reads in its own cell, localized labels included. It adds no i18n key.\n- **`@object-ui/app-shell`**: the pointer face draws a pair carrying `deletedLabel` as a tombstone (`data-record-pointer=\"deleted\"`, a wastebasket icon, the label, in the card's frame) and does not mount `RecordPreviewCard`. It makes no record read and no definition read, draws no link and shows no id.\n- Docs: `content/docs/guide/fields.md` and `packages/fields/README.md`.\n\n**Clause-②: yes (widening).** `RecordPointer` gains the optional `deletedLabel`. `resolveRecordPointer`'s field parameter gains the optional `referenceDeletedWhen`, and the function gains an optional third parameter, `optionsOf`. Nothing narrows: every existing call and return shape type-checks and resolves as before. There is no new export.\n\n## The four states on the served page, against the sheet's pins\n\n`approvalRequestsDataSource.servedPageReferenceStates-12489.test.tsx` uses the real `RecordDetailView` on the app-scoped record route, through `ApprovalRecordReads`, under the root `SchemaRendererProvider` as `ConsoleShell` mounts it, with objectstack's `sys_approval_request_detail` page copied whole. The request definition carries the services declaration (`record_id` declares `{ field: 'cancel_reason', value: 'record_deleted' }`) and the contract's `cancel_reason` labels.\n\n| State | Sheet pin | Served page (measured) |\n|:--|:--|:--|\n| readable | `recordLink`: link | one link to the record path, inside the card, named by the title |\n| refused (403) | `recordLinkRefused-11878`: no link, keeps the snapshot title | no link; the card's cause-free \"This record cannot be opened\"; snapshot title not drawn (see notes) |\n| deleted (platform-asserted) | `tombstone`: \"Related record deleted\", no link, no bare id | the same label, 0 target reads, no link, id absent from the tombstone and the Details tab |\n| unresolvable | `unresolvableReference`: \"This record cannot be opened\" | the same text, no link, no id in the card |\n\nControls: a cancelled row with no `cancel_reason` reads the target and draws the card; a 404 on a row the platform did not flag draws no tombstone. A zh-CN bundle draws the tombstone as the localized option label. The sheet (`ApprovalsInboxPage.tsx`) and its four pins are untouched.\n\n## Evidence\n\n- Test union at head `b78ab082` (`packages/fields/`, `packages/plugin-detail/`, `packages/app-shell/src/views/record-preview/`, every `approvalRequestsDataSource.*` test, and the four sheet pins): Test Files 552 passed, 2 skipped (554); Tests 6937 passed, 21 skipped (6958).\n- Ablations, each confirmed on disk and restored to the HEAD blob with an empty `git diff HEAD`:\n  - predicate forced false: 9 failed;\n  - a target read made anyway in the tombstone branch: 3 failed (the zero-read pins);\n  - label taken from the raw option value: 8 failed;\n  - the call site skips `translateOptions`: 2 failed (the localized pins).\n- Closure build `--filter '@object-ui/app-shell...'`: exit 0.\n- `type-check`: exit 0 for fields, plugin-detail, app-shell and console. Console needed five plugin dists built first; they are outside the closure.\n- Exit 0 for `check:changeset-claims`, `changeset:check`, `check:test-path-roots`, `check:spec-symbols`, changeset presence and new line citations.\n- eslint on the changed files: 0 errors.\n- NOT MEASURED: a live reading. Published `@objectstack/spec@18.0.0-next.2` lacks the services declaration (objectstack PR #23798), so a live request page cannot show the predicate yet; the served-page harness is the evidence.\n\n## Acceptance notes\n\n- The refused state on the served page shows the card's cause-free text and no snapshot title, while the sheet keeps the title as plain text. A refused read still never yields a link. Left to objectui#12484.\n- The sheet's tombstone also shows `record_title` on its meta line; the served tombstone is the option label alone, per the ruling. Left to objectui#12484.\n- The served predicate is the single declared condition (`cancel_reason` = `record_deleted`). The sheet also checks `status` = `cancelled`; the contract declares `cancel_reason` present only on cancelled rows.\n- The page H1 (`display_title`) shows the raw record id in every state. objectui#12484 carries it.\n\nProvenance: built by the cloud session `session_01RXFSkyCWZHTfnnf5iKrQFN` (claim `6214527805`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final message, because a cloud session cannot open a PR from its container. The seat changed nothing in the text except this provenance line, which replaces the dev's own one-line attribution.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RXFSkyCWZHTfnnf5iKrQFN)_\n"
+}

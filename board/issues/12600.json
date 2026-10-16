@@ -2,8 +2,8 @@
   "number": 12600,
   "kind": "issue",
   "title": "Console login page: one primary hue, a leaner card, a quiet dev-admin sign-in and a footer",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:identity",
     "domain:ui",
     "enhancement",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-16T02:54:19Z",
-  "updated_at": "2026-10-16T08:21:48Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-16T08:52:49Z",
+  "closed_at": "2026-10-16T08:50:37Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12600",
   "body": "## Source\n\nMeasured on objectui main `1b3b5b102`, the console's `/login` at 1280 × 900, light and dark, zh-CN. `apps/console/src/pages/auth/AuthLayout.tsx` draws the brand mark with a hard-coded `from-indigo-500 to-indigo-600` tile and an indigo glow, while the form's button (`AUTH_PRIMARY_BUTTON_CLASS` in `packages/auth/src/authStyles.tsx`) and every link take the theme's `--primary`, which this console resolves to blue: two accent hues on one screen, and the login page's accent is not the console's. Inside the card `LoginForm` (`packages/auth/src/LoginForm.tsx`) stacks a lock icon tile, the title \"登录您的账户\" and the line \"输入您的邮箱和密码以继续\" above a left-aligned form: three centred elements saying one thing, then a change of alignment. On a dev instance `LoginPage.tsx` renders the `devSeedAdmin` hint as an amber bordered banner above the card with the seed email and the password in clear text, heavier than the form it sits over. The page has no language switch, no environment or version mark and no legal links; the SSO buttons appear only when a provider is configured, which is right.\n\n## Target\n\nThe artboard \"登录页 · A 精修居中版\" (1280 × 820), in numbers:\n\n1. One accent. The brand mark's 36 px tile and the primary button use `--primary`; no `indigo-*` class remains in `AuthLayout.tsx`. The dot grid and the glow stay, the glow tinted from `--primary` at 10 %.\n2. One column, 400 px wide, centred: brand mark (36 px tile, 18 px / 600 product name) · 20 px gap · card · 20 px gap · footer.\n3. The card: 12 px radius, 1 px border, 28 px padding (20 px at the bottom). Title \"欢迎回来\" 20 px / 600, one line \"登录后继续你的工作\" 13 px muted. The lock tile and the two-line header retire; `LoginForm` takes a prop or slot that renders no header when the host supplies its own.\n4. When a provider is configured: one outline button per provider (40 px, 8 px radius, 14 px / 500, provider icon left), then a divider line reading \"或使用邮箱\" 12 px muted; without a provider neither renders.\n5. Fields: 13 px / 500 labels; 40 px inputs, 8 px radius, 14 px text; the password label row carries \"忘记密码？\" 12 px at the right; a show/hide toggle 28 px inside the password field. Primary button 40 px full width, 8 px radius, label \"登录\". Below it, centred 13 px: \"还没有账户？注册\" only when `decideSignUpOffer` answers form.\n6. Dev instance: the banner retires. The card's last row, under a dashed top border, reads \"● 本地开发实例\" 12 px muted at the left and a 28 px outline chip \"以开发管理员登录\" at the right that submits the seed credentials the server reported; the password is never printed. The row renders only when `/auth/config` reports `devSeedAdmin`.\n7. Footer, 12 px muted, two ends: left a locale switch \"🌐 简体中文 ▾\" (the existing `LocaleSwitcher`); right \"隐私 · 条款\" links (rendered only when the runtime config carries their URLs) and a mono pill with the product version and environment label (`v18.0 · local`), from the same config the preview badge reads.\n8. Dark theme: the same layout; the card on `--card`, the glow at the same 10 %.\n\n## File surface\n\n`apps/console/src/pages/auth/AuthLayout.tsx`, `apps/console/src/pages/auth/LoginPage.tsx` (dev row, footer), `packages/auth/src/LoginForm.tsx` and `authStyles.tsx` (header slot, button class), `packages/app-shell/src/console/auth/*` where `DefaultLoginPage` shares the decision, `packages/i18n/src/locales/*.ts` (new strings in every locale), tests beside each.\n\n## Acceptance\n\n1. Tests: no `indigo` class in `AuthLayout.tsx`; the dev row renders only with `devSeedAdmin` and never contains the password string; the sign-in button submits the seed email through the same `signIn` path and lands on `/home`; SSO buttons absent without a provider.\n2. Screenshots at 1280 px, light and dark, with and without `devSeedAdmin`, in the PR text as measurements (the files stay out of main).\n3. `pnpm --filter @object-ui/auth test`, `pnpm --filter @object-ui/app-shell test`, the console's auth page tests green; `pnpm check:i18n` green.\n\n## Constraints\n\n- The product name and logo stay server-driven (`getProductName`, `getLogoUrl`); no vendor name hard-coded.\n- The `?redirect=`, SSO hand-off and server-unreachable behaviours of `LoginPage.tsx` do not change.\n- Tailwind utilities and theme tokens only.\n\n## Evidence\n\nThe artboards, as static HTML and 1280 px PNG renders, live on the temporary branch `claude/console-home-login-design-20261016` of objectstack-ai/objectui (commit `c4dfb417a`, never merged; the maintainer ruled that design files and screenshots do not enter main). Files: [Login.png](https://github.com/objectstack-ai/objectui/blob/c4dfb417a/docs/design/console-home-login/Login.png?raw=true) · [Login.html](https://github.com/objectstack-ai/objectui/blob/c4dfb417a/docs/design/console-home-login/Login.html?raw=true).\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-16 review of the console login page and home page with the maintainer, on objectui main `1b3b5b102` and HotCRM `63db83e2`. The maintainer approved the artboards in that session, verbatim: 「同意设计稿，创建任务」.</sub>"

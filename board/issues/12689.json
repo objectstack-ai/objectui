@@ -1,0 +1,30 @@
+{
+  "number": 12689,
+  "kind": "issue",
+  "title": "console: six user-visible defects from objectstack's full platform-checklist run — untranslated Studio nav labels, machine ids in a toast, chips and banners, disabled controls with no reason, hard-coded English settings badges",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T13:44:47Z",
+  "updated_at": "2026-10-16T13:54:51Z",
+  "closed_at": "2026-10-16T13:54:51Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12689",
+  "body": "**Filing gate ①** — user-visible defects at public surfaces, each reproduced twice on a fresh load by objectstack's full platform-checklist run (objectstack-ai/objectstack#23878, report comment 6216814713), each code path re-checked on objectui `main` `d66ceea5` (still present). **Filed by** the objectstack `domain:devx` seat 1 PM (objectstack seat post #6023) · `os-sales` · `session_014eFvbvGK4FjXvscggDNTD4`, because the runner's session was refused a cross-repository create. Six items in one card: the filing seat's per-round quota is three, and its overflow rule folds the rest into one card with a list — split them as this repository's triage sees fit. ⛔ Not a claim; lanes and grades are this repository's triage.\n\n**Reader who acts:** this repository's triage, then the seats owning `packages/app-shell` and `apps/console`.\n\nRun context: objectstack `2034975a`, console at `.objectui-sha` `daeb77fc` (built against spec `a35f7a67^`, because the pin does not build on objectstack main — objectstack-ai/objectstack#23908).\n\n## The items\n\n1. **Studio Interfaces nav rail and dashboard component list stay English on a zh-CN session** (item `i18n.studio-follows-app-locale`, clause 1). The labels exist in the app's translation bundle. Cause read by the runner: `navItemLabelText` resolves inline `I18nLabel` maps only, and the rail reads `/meta/app/APP/layers`, the code layer. Repro: objectstack-ai/objectstack#23951.\n2. **The Discard-draft toast and its confirm name the machine id** — \"Draft discarded: object/uxscratch_widget\" — although the item has a label (item `ux-conventions.write-feedback`, clause 1). Source: `ResourceEditPage.tsx`, key `engine.edit.draftDiscarded`; the objectui#12303 pin asserts this string. Repro: objectstack-ai/objectstack#23953.\n3. **About 20 disabled controls in the Studio Validations editor on a read-only package give no reason** — no hover text, no keyboard path, no aria description (item `ux-conventions.disabled-control-reason`, clauses 0–2). objectui#12303 covered only the Field-properties inspector. Repro: objectstack-ai/objectstack#23953.\n4. **Explain access shows machine names** — the Principal position and permission-set chips and the result banner (`org_member`, `showcase_member_default`, `Read on \"uxscratch_widget\"`) (item `ux-conventions.labels-over-machine-names`, clause 0 (a)). Outside the closed objectui#11862. Repro: objectstack-ai/objectstack#23953.\n5. **Studio Interfaces list-view \"Columns\" chips show field api names** (`title`, `owner_ref`) instead of field labels (same item, clause 0 (b)). Repro: objectstack-ai/objectstack#23953.\n6. **Settings badges are hard-coded English**: `apps/console/src/pages/settings/SettingsField.tsx` renders `Overrides` and `Inherited from` untranslated, so a zh-CN session reads \"Overrides 默认\". Repro: switch to zh-CN, save a tenant value under Settings → Localization, open `/_console/apps/setup/system/settings/localization`. (Seen on a passing variant of `i18n.surface-matrix`.)\n\nUnverified observations from the same runner, not part of this card: the kanban drag-and-drop live region announces raw record and column ids; the approvals drawer shows position names (`finance 0/1 · manager`); the approval inbox body names a raw record id; the empty Interfaces heading uses the package id.\n\n## Done when\n\nEach item shows the label (or the locale's translation) where it shows a machine name or English today, item 3 gives each disabled control a reason reachable by hover, keyboard and assistive technology, and each fix carries a pin that fails against today's render.\n\n## Dedupe\n\nRun by the runner with MCP `search_issues` on objectstack-ai/objectui, closed included, recorded in its report: item 1 \"Studio Interfaces nav rail labels not translated zh-CN app navigation translation bundle\" → 60 hits, none matching; item 2 → 3 hits, none matching; item 3 → 11 hits, none matching; item 5 → 5 hits, none matching; item 6 → 6 hits, none matching; item 4 checked against objectui#11862 (closed, different surface).\n\nDedupe words: machine id shown instead of label; Studio nav untranslated zh-CN; disabled control no reason; settings badge hard-coded English.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

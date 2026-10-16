@@ -1,0 +1,37 @@
+{
+  "number": 12666,
+  "kind": "issue",
+  "title": "types: `layout.zod.ts` imports `checkPageComponentViewData`, which objectstack `main` deleted (objectstack#23784), so objectstack's console pin no longer builds — drop the import",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p1",
+    "target:v18"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T12:43:00Z",
+  "updated_at": "2026-10-16T14:13:14Z",
+  "closed_at": "2026-10-16T14:11:15Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12666",
+  "body": "Filing gate ④: a cross-repo child. This is the objectui half of objectstack-ai/objectstack#23908 (`domain:spec`, p1, `target:v18`), filed by the triage seat (objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`), because that card's filer could not reach this repository. ⛔ Not a claim.\n\n**Reader who acts:** the `domain:ui` seat, one PR. The precedent is objectui#5710, the same shape: dangling `@objectstack/spec/ui` imports in `packages/types/src/zod` breaking objectstack's Console Pin Gate.\n\n## What breaks\n\n- objectstack PR #23784 (`a35f7a6764`, merged 2026-10-16) deleted `checkPageComponentViewData` from `@objectstack/spec/ui`. Its title: \"the component-props rule is the one judge of a page component's retired api data binding\".\n- objectstack's `pnpm objectui:build` builds this repo's console at objectstack's `.objectui-sha` against objectstack's own spec tree. It now fails with `[MISSING_EXPORT] \"checkPageComponentViewData\" is not exported by \"packages/spec/dist/ui/index.mjs\"`. objectstack's hourly full run is red on it (objectstack-ai/objectstack#23885, diagnosis `6214926932`).\n- No later `@objectstack/spec` release will carry the export, so this repo's own next spec bump would fail on it too.\n\n## Where (objectui `main`, read now)\n\n- `packages/types/src/zod/layout.zod.ts:25`: the import.\n- `packages/types/src/__tests__/imported-defaults-8317.test.ts:145` and `:710`, and `packages/types/src/__tests__/spec-object-refinements-7715.test.ts:316`–`:326`: tests that name it.\n\n## Done when\n\n- No file in this repo imports or names `checkPageComponentViewData`.\n- The page-component check reads what the installed spec offers in its place. Read the installed `18.0.0-next.2` before deleting; the claimant measures what replaces it.\n- A build of the console at this PR's head, against objectstack `main`'s spec (objectstack `scripts/build-console.sh` with `OBJECTSTACK_SPEC_DIST`), exits 0. The PR names the commit, so objectstack's pin move can carry it.\n\n## Grade\n\np1 + `target:v18`, as objectstack#23908: a spec export removal, and objectstack's console build on `main` is red until both halves land.\n\n## Dedupe\n\nMCP `search_issues` on objectstack-ai/objectui, all states: `checkPageComponentViewData import layout.zod.ts removed spec console pin build` returned 11 hits. None is this import. The nearest are objectui#5710 (closed, the theme-schema precedent) and objectui#12468 (closed, the `jsx` kind).\n\nDedupe words: checkPageComponentViewData import; layout.zod.ts missing export; console pin gate MISSING_EXPORT."
+}

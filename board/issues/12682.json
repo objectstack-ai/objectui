@@ -1,0 +1,26 @@
+{
+  "number": 12682,
+  "kind": "issue",
+  "title": "auth LoginForm under SSO enforcement: the config-pending spinner is captioned \"Enter your email and password to continue\", and an \"or continue with email\" divider renders with no email form under it",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T13:29:56Z",
+  "updated_at": "2026-10-16T13:29:56Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12682",
+  "body": "**Filing gate ①**: a user-visible UX defect with a named landing point (`packages/auth/src/LoginForm.tsx`, `packages/auth/src/SocialSignInButtons.tsx`). **Reach:** the console login page on an SSO-enforced environment, measured on a live boot. It reproduces on every fresh load (3/3) and was checked against objectui `main` @ `dcd1041`, where the code paths below are unchanged.\n\n**Reader who acts:** the objectui `packages/auth` execution seat. Both fixes are in `LoginForm` and need no new spec contract:\n- don't caption the pending state with the password-form description;\n- don't render the email divider when the password form is hidden.\n\n## What happens\n\nThe server advertises `features.ssoEnforced: true` on `GET /api/v1/auth/config` (`OS_AUTH_SSO_ONLY=true` plus one `oidcProviders[]` entry). On that environment the login page:\n\n1. **While the auth config is still resolving** (the spinner that #2625 introduced): the header reads \"Enter your email and password to continue\". `ssoEnforced` is still `false` at that moment, so `ssoOnlyView` is false and the header falls through to the password-form `description` default. On the one deployment class with no password path, the first words a user reads tell them to use a password. The 3 s delayed-config load made this easy to see.\n2. **After the config resolves:** the SSO button renders, followed by an **\"OR CONTINUE WITH EMAIL\"** divider with nothing under it. `SocialSignInButtons` always renders its own divider (`dividerText`, default `'or continue with email'`). `LoginForm` relies on that divider for the password form, but under enforcement `passwordFormVisible` is false until the break-glass link is clicked, so the divider points at a form that isn't there.\n\nThe security property holds: no password input renders in any state, and the \"Use a password instead\" break-glass link works. This card is only about the misleading copy.\n\n## Reproduction\n\nOn the objectstack framework at `2034975a` with the vendored console at objectui `daeb77fc`:\n\n1. Boot with an SSO-only environment: `OS_AUTH_SSO_ONLY=true` plus a configured OIDC provider. The QA run used a localhost OIDC fixture registered through `auth.applyConfigPatch({ oidcProviders })`.\n2. Confirm `GET /api/v1/auth/config` → `features.ssoEnforced: true`.\n3. Open `/_console/login` in a fresh browser context. Optionally delay the `/auth/config` response by about 3 s to widen the pending window.\n4. While the spinner shows, the header subtitle reads \"Enter your email and password to continue\".\n5. After the config resolves, the provider button is followed by an \"OR CONTINUE WITH EMAIL\" divider, and nothing renders below it until \"Use a password instead\" is clicked.\n\n**Expected:** neutral, or SSO-appropriate, pending copy, and no email divider while the password form is collapsed.\n**Actual:** password copy while pending, and a dangling divider.\n\n## Mechanism (objectui `main` @ `dcd1041`)\n\n- `packages/auth/src/LoginForm.tsx`:\n  - `description = 'Enter your email and password to continue'` (about line 201).\n  - `ssoEnforced` initialises to `false` (about line 246) and `configPending` to `true` (about line 260).\n  - The header renders `description={ssoOnlyView ? l.ssoOnlyDescription : description}` (about line 441) during the pending spinner (about line 446).\n  - `<SocialSignInButtons dividerText={labels.orText} …/>` (about line 456) renders whether or not `passwordFormVisible` is true.\n- `packages/auth/src/SocialSignInButtons.tsx`: `dividerText = 'or continue with email'` (about line 122), rendered unconditionally beneath the provider buttons (about line 211).\n\n## Dedupe\n\n- MCP `search_issues` on objectstack-ai/objectui, closed included:\n  - `SSO enforced login spinner \"Enter your email and password\" divider \"or continue with email\" no form` → 0 hits.\n  - `LoginForm ssoEnforced first paint description divider` → 0 hits.\n  - `SSO-only login page` → 4 hits (#12600, #11705, #2625, #2416). #2625 is the config-race fix this regresses the copy of; none covers the copy or the divider.\n- Dedupe words: SSO-only login copy; continue with email divider no form; ssoEnforced pending description.\n\nQA-source: objectstack-ai/objectstack#23943 · identity-auth.sso-enforced-first-paint · acceptance 1"
+}

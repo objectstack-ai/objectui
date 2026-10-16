@@ -2,8 +2,8 @@
   "number": 12626,
   "kind": "issue",
   "title": "deps(v18): move objectui's @objectstack/* from 18.0.0-next.1 to 18.0.0-next.2 and follow its contract changes",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:devpath",
     "dependencies",
     "domain:ui",
-    "pm:dispatched",
     "priority:p1",
     "target:v18"
   ],
@@ -24,11 +23,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-16T04:31:40Z",
-  "updated_at": "2026-10-16T04:35:51Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-16T11:25:32Z",
+  "closed_at": "2026-10-16T11:23:51Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 3,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12626",
   "body": "Filing gate **③ a task the maintainer directed**, by standing practice: the maintainer's rule 「发版本优先的都p1」 gives every `next.N` publish one consumer bump card, \"so the held follow-ups have one carrier instead of several PRs racing on the lockfile\" (objectui#12370, the `next.1` card). `@objectstack/*` **`18.0.0-next.2`** was published to `next` at 2026-10-16T03:11Z, built from objectstack `e5136ff10f`.\n\nFiled by the `domain:ui` seat 4 (seat post objectui#10243, `session_01SJn1GEkrbbBQkhGC26wEDw`) as an unowned blocker of cards in this lane's queue. A dedupe in this act, over objectui and objectstack issues since 2026-10-16T03:00Z for `next.2`, found no bump card (the one hit, objectstack-ai/objectstack#23801, is the Docker image job). This seat claims it at filing (execution-duties: 「阻塞项无主 ⇒ 被挡席认领做掉」).\n\n**Reader (who acts):** the objectui `domain:ui` execution seat. One PR. The publish itself is not objectui's.\n\n## What changes\n\n- objectui `main` (`33fbc861d`) resolves `@objectstack/spec@18.0.0-next.1` in `pnpm-lock.yaml`, with ranges at `^18.0.0-next.1` across the workspace packages. The range already admits `next.2`. The **lockfile** does not, and CI installs from the lockfile. The bump moves every `@objectstack/*` entry in the lockfile to `18.0.0-next.2`, regenerated with pnpm, and raises a range's floor only where a held card needs it.\n- **The upstream range:** objectstack `0c52e43075..e5136ff10f` (the two `chore: version packages (next)` commits). It holds 187 commits, 39 of them `!:` (breaking), and 42 that touch `packages/spec/src`. The dev measures which of them reach objectui, against the `next.2` tarball, with `next.1` as the negative control.\n\n## The held cards this bump releases\n\nThe triage seat moved these to `pm:queue` at 04:03–04:07Z, reading objectui's **range**. Each card's own criterion is what objectui **installs**, which this PR delivers.\n\n| card | grade | how it rides |\n|:--|:--|:--|\n| #12592 | p2 | **items 1 and 2 in this PR.** Its exit pin `AppContent.recordDialogInterimBound-12521.test.tsx` turns red once next.2 is installed, and the card says so. `recordSurface.test.ts` follows the spec's new answer. Item 3 (the page hosts' undeclared section density) stays on the card, after the bump. |\n| #12406 | p1 · `target:v18` | after the bump, unless the installed `AdminScope` turns its anchor pin or the type-check red. Then the two switch rows, their strings and the pin retire in this PR, and `Fixes #12406` rides it. |\n| #12486 | p2 · `target:v18` | after the bump, unless the app-shell server double that mirrors next.1's `COMPILED_PAGE_KINDS` goes red. Then the smallest change that follows the spec rides here, and the card keeps the rest. |\n| #12476 | p3 | after the bump (objectstack-ai/objectstack#23610 is in `e5136ff10f`). |\n| #12285 | p3 | after the bump (objectstack `87d061922f` is in `e5136ff10f`). |\n\n## Acceptance notes\n\n- The bump PR's CI runs against the installed `18.0.0-next.2`. Every red it raises is either fixed here (contract-following, as objectui#12370 did) or named as a held card's.\n- The objectui changeset policy follows the repo's pre mode. A lockfile-only bump with no user-facing change carries an empty changeset if the presence gate asks for one.\n- The objectstack console pin (`.objectui-sha`) is not this card's: it is a `domain:devx` hop in objectstack after this lands."

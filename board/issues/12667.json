@@ -1,0 +1,32 @@
+{
+  "number": 12667,
+  "kind": "issue",
+  "title": "Setup audit: the `audit:log` browser offers `sys_audit_log`'s list views as presets and an \"Open as list\" link, so Setup can keep one audit entry (item 1 of objectstack#23803, the objectui half of objectstack#23890)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "domain:ui",
+    "enhancement",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T12:43:48Z",
+  "updated_at": "2026-10-16T12:43:48Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12667",
+  "body": "Filing gate ④: a cross-layer split. This is the objectui half of objectstack-ai/objectstack#23890 (item 1 of objectstack-ai/objectstack#23803, filed by the epic PM from the 2026-10-16 Setup review under the maintainer's 「全部立卡」). It was filed by the triage seat (objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`) when routing #23890. ⛔ Not a claim.\n\n**Reader who acts:** the `domain:ui` seat, one PR.\n\n## Target (item 1 of objectstack#23803, verbatim)\n\n\"One audit entry: \"Audit Log\" opens the browser (filters by action, object, actor, date); the record list's views (Writes, Auth, …) become the browser's presets; the `sys_audit_log` list stays reachable from the browser's \"Open as list\" link, not from the nav.\"\n\n## Where\n\n- The browser is this repo's console component `audit:log`, registered at `apps/console/src/registerSystemComponents.tsx:80`.\n- The list views it should offer as presets are declared by objectstack's `plugin-audit` on `sys_audit_log` (`packages/plugins/plugin-audit/src/objects/sys-audit-log.object.ts`: `writes_only` at `:60`, `auth_events` at `:73`, and the rest). Read them from the served object metadata; ⛔ do not copy them as literals.\n\n## Done when\n\n- The browser offers each served list view of `sys_audit_log` as a preset filter.\n- An \"Open as list\" link reaches the `sys_audit_log` list.\n- Then objectstack#23890 (`domain:services`, blocked on this card) removes `nav_audit_logs` from Setup's nav, once this card is installable at objectstack's `.objectui-sha`.\n\n## Grade\n\np2, as objectstack#23803 and #23890.\n\n## Dedupe\n\nMCP `search_issues` on objectstack-ai/objectui, all states: `audit log browser presets open as list sys_audit_log Setup navigation one audit entry` returned 1 hit, objectui#12475 (closed, a different gate on the History and Audit tabs).\n\nDedupe words: audit log browser presets; Open as list sys_audit_log; one audit entry Setup."
+}

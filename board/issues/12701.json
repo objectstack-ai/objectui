@@ -1,0 +1,32 @@
+{
+  "number": 12701,
+  "kind": "issue",
+  "title": "Record page: opening a record sends one approvals query and one record fetch, not three and two",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T14:15:00Z",
+  "updated_at": "2026-10-16T14:15:00Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12701",
+  "body": "## Source\n\nRead on objectui main `efa9cb4fa`, the HotCRM lead record `/apps/app.objectstack.hotcrm/crm_lead/record/lZxZJxDxLzE08lyU`: the network log of one open holds\n\n- `GET /api/v1/approvals/requests?object=crm_lead&recordId=…` three times (identical), and\n- `GET /api/v1/data/crm_lead?populate=organization_id,created_by,updated_by,owning_business_unit_id,owner_id,converted_account,…&top=1&filter=…` and `GET /api/v1/data/crm_lead?populate=converted_account,converted_contact,converted_opportunity,duplicate_of_lead,duplicate_of_contact&top=1&filter=…` — the same record twice with two populate lists, the second a subset of the first.\n\nPlus one `sys_activity` query and three approvals queries from the header, the activity tab and the approvals rail each asking on their own.\n\n## Target\n\n1. One approvals query per record open, shared by every consumer on the page (a record-scoped query key, or a provider on the record page that the header, the rail and the Activity tab read).\n2. One record fetch: the page computes the union of the populate lists its sections need and fetches once; a section that needs a wider populate than the page loaded triggers one refetch with the union, never a parallel second fetch.\n3. A test that mounts the record page and counts requests by URL: approvals 1, record 1.\n\n## File surface\n\n`packages/app-shell/src/views/RecordDetailView.tsx` and the hooks it mounts (the approvals rail hook, the record loader), `packages/plugin-detail/src/DetailView.tsx` if it fetches on its own, tests beside.\n\n## Acceptance\n\n1. The request-count test; the network log of a lead open pasted in the PR shows one of each.\n2. `pnpm --filter @object-ui/app-shell test`, `pnpm --filter @object-ui/plugin-detail test` green.\n\n## Evidence\n\nNo screenshot; the measurements above are the evidence.\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-16 fourth review: objectui main `efa9cb4fa`, HotCRM `4f82b815` on platform 18.0.0-next.2, the vite console on :5180 against `objectstack dev` on :4001, the maintainer's browser pane at 1024 × 768 (dark, en). The maintainer asked for every finding to be filed on the repository it belongs to, verbatim: 「全部立卡，平台问题到 objectui，审计日志核查到 objectstack，HotCRM 转化流程到 hotcrm。」</sub>"
+}

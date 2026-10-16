@@ -1,0 +1,32 @@
+{
+  "number": 12704,
+  "kind": "issue",
+  "title": "Dashboard metric tiles size to their content: a single-number tile is not 135 px tall with an empty lower half",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:reports",
+    "domain:ui",
+    "enhancement",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T14:17:33Z",
+  "updated_at": "2026-10-16T14:17:33Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12704",
+  "body": "## Source\n\nWalked on objectui main `efa9cb4fa` at 1024 px: Sales Performance (`/dashboard/sales_dashboard`) draws its four KPI tiles about 135 px tall with the title and the number in the top 60 px and nothing below; Setup › System Overview draws Total Users / Active Sessions / Login Events the same way. After objectui#12623 the title has its own line, which fixed the truncation and left the fixed height.\n\n## Target\n\n1. A metric tile's height follows its content: title line, value line, an optional measure/delta line; min-height 88 px, no fixed height. A dashboard row of tiles aligns on the tallest tile in the row (grid `align-items: stretch` within the row only).\n2. A tile with a sparkline or a delta keeps the extra line; a bare number tile is 88–96 px.\n3. Light and dark unchanged otherwise.\n\n## File surface\n\n`packages/plugin-dashboard/src/` (the metric tile and the dashboard grid row), tests beside.\n\n## Acceptance\n\n1. Tests: a bare metric tile renders at or under 96 px; a tile with a delta line renders taller.\n2. Screenshots of Sales Performance and System Overview at 1024 and 1280 px.\n3. `pnpm --filter @object-ui/plugin-dashboard test` green.\n\n## Evidence\n\nScreenshots on the temporary branch `claude/console-home-login-design-20261016` of objectstack-ai/objectui (commit `0f4e3f4ee`, never merged): [r4-sales-performance-tiles.jpg](https://github.com/objectstack-ai/objectui/blob/0f4e3f4ee/docs/design/review-r4-2026-10-16/r4-sales-performance-tiles.jpg?raw=true) · [r4-setup-overview.jpg](https://github.com/objectstack-ai/objectui/blob/0f4e3f4ee/docs/design/review-r4-2026-10-16/r4-setup-overview.jpg?raw=true).\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-16 fourth review: objectui main `efa9cb4fa`, HotCRM `4f82b815` on platform 18.0.0-next.2, the vite console on :5180 against `objectstack dev` on :4001, the maintainer's browser pane at 1024 × 768 (dark, en). The maintainer asked for every finding to be filed on the repository it belongs to, verbatim: 「全部立卡，平台问题到 objectui，审计日志核查到 objectstack，HotCRM 转化流程到 hotcrm。」</sub>"
+}

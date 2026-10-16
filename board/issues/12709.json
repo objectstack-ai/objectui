@@ -1,0 +1,33 @@
+{
+  "number": 12709,
+  "kind": "pull_request",
+  "title": "feat: show a write answer's advisory warnings after save, on the write-warning channel",
+  "state": "open",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "data-adapter",
+    "package: app-shell",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T14:20:41Z",
+  "updated_at": "2026-10-16T14:25:05Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12709",
+  "body": "Fixes #12107\nClause-②: yes\n\n## What\n\nA single-record create/update answer's `warnings` (advisory validation-rule hits, declared by the installed `@objectstack/spec` on `CreateDataResponseSchema` / `UpdateDataResponseSchema`, element `ValidateDataIssueSchema`) now reaches the user after save, on the existing write-warning channel that `droppedFields` uses. No second channel, no new provider, no form-level code.\n\n- `@object-ui/data-objectstack`: `WriteWarningEvent` gains an optional `warnings?: ValidateDataIssue[]` (type imported from `@objectstack/spec/api`, no hand-written duplicate). `notifyDroppedFields` (the create/update emit site) parses each entry through `ValidateDataIssueSchema.safeParse` and emits when `droppedFields` OR `warnings` is non-empty — the gate measured on main was \"return unless droppedFields non-empty after the no-op filter\", widened only by \"or warnings non-empty\". `droppedFields` stays required; it is `[]` on an event that exists only for warnings.\n- `@object-ui/app-shell`: `emitWriteWarning` keeps the stripped-fields toast byte-for-byte, then shows the warnings in their OWN toast on the same sink: each distinct message verbatim, one per line, under one new heading key. Two toasts rather than one combined: the stripped toast's title says fields did not take effect, which misdescribes an advisory hit. The field is not prefixed to the message (the ruling allows it, does not require it; the author-written message is shown as written, and a prefix would be invented formatting).\n- `@object-ui/i18n`: `detail.writeWarningsTitle` in all ten packs (the one heading key).\n\n## Clause-② (A1, measured)\n\n`WriteWarningEvent` is `export interface` in `packages/data-objectstack/src/index.ts`, the package's only entry (`exports[\".\"]` builds from it), so the optional member is a published-type widening: `Clause-②: yes`. Changeset: `minor` data-objectstack, `patch` app-shell and i18n.\n\n## Pins (A2)\n\n- (a) create answer with one warning → event carries it → toast shows its message: `writeWarningToast.test.ts` \"shows the warning message after a create whose answer carries one\" (real adapter, real `onWriteWarning`, real `emitWriteWarning`; only `client.data` stubbed), and the adapter-level twin in `onWriteWarning.test.ts`.\n- (b) same for update: \"shows the warning message after an update whose answer carries one\".\n- (c) CONTROL, no key → no event, no toast: \"CONTROL: an answer without the key shows nothing\" and the adapter's \"CONTROL: an answer without the key, or with an empty list, emits nothing\".\n- (d) CONTROL, both present: the stripped toast equals the toast the same droppedFields produce alone, and the warnings get a second toast (\"CONTROL: with both lists present ...\").\n\nAblation (once, after commit, via `ablation-replace.mjs` with restore proven by blob hash == HEAD and empty `git diff HEAD`): replacing `const warnings = readWriteWarnings(result);` with an empty list turned 7 tests red (both create pins, both update pins, the both-present controls, the parse pin) while the no-key controls stayed green — the expected direction. Restored blob `c113f4ec3cb5` == HEAD.\n\n## Acceptance notes\n\n- `batchTransaction` (`notifyBatchDroppedFields`) is not touched: the file surface and the card name the single-record create/update sites only. Whether the cross-object batch answer carries per-op `warnings` was not read here. Carrier: none named.\n- An entry the spec schema refuses (for example a `severity` a later runtime adds) is not shown: parse, never assert, as `droppedFields` does for its own entries; the skew arm it would need is not this card's.\n\n## Verification (head `849e0cfa4`)\n\nEvery gate below ran on `849e0cfa4` (`git rev-parse --short HEAD` after the last commit); exit codes recorded to a file.\n\n- Closure build `pnpm --filter '@object-ui/app-shell^...' build` (covers data-objectstack's closure too): exit 0.\n- `type-check` for `@object-ui/data-objectstack`, `@object-ui/app-shell`, `@object-ui/i18n`: exit 0; `--listFiles` confirms both new test files are in the checked programs.\n- Targeted vitest, `--maxWorkers=1`: `onWriteWarning.test.ts` 18 passed; `writeWarningToast.test.ts` 19 passed.\n- Package dirs under the lock: `packages/data-objectstack/` 94 files / 1164 tests passed; `packages/i18n/` 83 files / 1321 passed, 13 skipped.\n- `packages/app-shell/`: NOT MEASURED as a whole package — the serial (`--maxWorkers=1`) run printed no file result after 22 minutes and was stopped by PID. Declared narrowing: `packages/app-shell/src/providers/` (every sibling of the changed module, incl. `AdapterProvider.*` and the other toast modules) plus `product-neutral-renderer.ratchet.test.ts` (locale keys): 26 files / 274 tests passed. The rest of app-shell is left to CI's `pnpm test`.\n- Lint narrowed to the 14 changed `.ts` files (eslint, inline config on as the package `lint` scripts run it): 0 errors, 0 warnings on added lines. Population: the 14 files of the diff, count read from `--format json`. Invariance: the eslint config declares no type-aware parser options, so this diff cannot move a verdict on an untouched file.\n- `pnpm check:` phantom-deps, self-import, unreferenced-sources, doc-example-readers, handler-key-reads, side-effects-array, element-data-source-declaration, spec-symbols, action-forward-parity, designer-field-key-parity, icon-record-names, i18n-keys, i18n-drift, i18n-designer-parity, control-bytes: all exit 0. `node scripts/check-hand-rolled-comment-mask.mjs`: 0. `node scripts/check-changeset-fixed.mjs`: 0. `node scripts/check-changeset-presence.mjs`: 0. `pnpm check:new-line-citations`: 0 new.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

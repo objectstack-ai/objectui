@@ -1,0 +1,37 @@
+{
+  "number": 12644,
+  "kind": "pull_request",
+  "title": "feat(components): page:header stops reading showStar; the host toggle is the one star switch",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "documentation",
+    "package: components",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T09:18:12Z",
+  "updated_at": "2026-10-16T09:53:20Z",
+  "closed_at": "2026-10-16T09:53:18Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T09:53:18Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12644",
+  "body": "Fixes #12627\nClause-②: no\n\nThe consumer half of objectstack-ai/objectstack#23650's ruling (record 6203775759, 「A 退役 showStar (Recommended)」), landing ahead of the `@objectstack/spec` bump that carries objectstack-ai/objectstack#23781. `18.0.0-next.2` does not carry it; the installed pin is `18.0.0-next.1`.\n\n## What changed\n\n- **Renderer** (`packages/components/src/renderers/layout/containers.tsx`): the `showStar` read and its pass to the chip are gone. The star draws exactly where the host's `RecordContext` carries `onToggleFavorite`; an authored `showStar`, on the node or under `properties`, changes nothing. `RecordContextValue.onToggleFavorite` is untouched.\n- **Registration**: the `page:header` `inputs` no longer publish `showStar`.\n- **`RecordTitleChip`** (`packages/components/src/custom/RecordTitleChip.tsx`): the `showStar` prop is retired. The chip draws its star exactly when `onToggleFavorite` is passed. Measured: the only caller was the renderer above; hotcrm and objectstack have none. This narrows the package's public face (exported through `custom/index.ts`), so a contract-review-tier review is owed before the queue.\n- **Tests** (`page-header-star-host-toggle-12427.test.tsx`): the CONTROL case 'the authored showStar: false hides the star even when the host wires a toggle' is replaced by: `showStar: false` on the node and under `properties` still draws the star where the host wires a toggle; `showStar: true` in both carriers draws no star without a toggle; the registration publishes no `showStar` input. Every host-toggle case stays.\n- **Parity suite** (`registry-inputs-spec-parity.test.ts`): the `settledUpstream` row `page:header` / `showStar` leaves with the input, and the objectstack#6776 note is updated. A `page:header.showStar` entry in `UNPUBLISHED_EXEMPTIONS` covers the installed spec, which still lists the key. It disarms itself: the first installed spec carrying the tombstone makes it dangling and stale, and deleting it is the whole fix.\n- **Docs**: the `showStar` rows in `content/docs/layout/page-header.mdx` and `content/docs/guide/layout.md` are replaced by one sentence: the favorites star draws where the host wires a favorites toggle, and metadata does not control it.\n- **Changeset**: `.changeset/12627-page-header-show-star-retired.md` (`@object-ui/components` minor; names the chip prop removal as breaking for direct users).\n\n## Deviations\n\n- The parity red was in the REVERSE direction (spec-declared key not published), not the forward one. It is covered by the existing per-key `UNPUBLISHED_EXEMPTIONS` map, not `GLOBALLY_UNPUBLISHED_SPEC_KEYS`, because only the former goes red on the bump.\n\n## Screenshots\n\nHotCRM account record page at 1280 px, served from this branch's console against a fresh hotcrm backend. The reference console wires no favorites toggle, so the expected picture is no star, unchanged; a DOM probe counted 0 star buttons in both themes.\n\n- Light: https://github.com/objectstack-ai/objectui/blob/0c7108460db4a73c599716a4667484dc69e18167/docs/design/findings/12627/record-header-1280-light.png?raw=true\n- Dark: https://github.com/objectstack-ai/objectui/blob/0c7108460db4a73c599716a4667484dc69e18167/docs/design/findings/12627/record-header-1280-dark.png?raw=true\n\n## Test evidence (at 485513c)\n\n- `pnpm --filter @object-ui/components test` (full, once): exit 0; Test Files 390 passed, 1 skipped; Tests 3936 passed, 24 skipped.\n- Parity file plus the 12427 file: exit 0, 264 passed. Without the exemption entry the parity file was red on 'page:header publishes every top-level key its spec props schema declares'.\n- Ablations, each red then restored with `git diff HEAD` empty. Re-arming the old read: 2 red. Ungating the chip star: 4 red. Re-publishing the input: 2 red. Renaming the exemption key, which rehearses the bump: 3 red, including 'every unpublished-key exemption names a key the spec really declares' and 'carries no stale unpublished-key exemption'.\n- `@object-ui/components`: `type-check` exit 0, `build` exit 0; built `dist` carries no `showStar`, and passing `showStar` to `RecordTitleChip` now fails with TS2322.\n- eslint on the touched files: 0 errors. `check-changeset-presence`, `check:i18n-keys`, `check:i18n-drift`, `check:new-line-citations`: exit 0.\n- Console `tsc --noEmit`: not measured locally (plugin closure unbuilt; only module-resolution errors, none on changed lines); left to CI.\n\n## Acceptance notes\n\n- The bump seat deletes `UNPUBLISHED_EXEMPTIONS['page:header.showStar']` when the suite names it.\n- objectstack's `sdui.manifest.json` drops `showStar` on its next `.objectui-sha` hop; out of scope here.\n- The Layout section of `page-header.mdx` still lists the star among the chip's parts without its host-toggle condition (polish, left as is).\n\nSession: `https://claude.ai/code/session_01RP9ftxaq1x5KKbvFpDWptn`\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01RP9ftxaq1x5KKbvFpDWptn"
+}

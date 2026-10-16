@@ -1,0 +1,26 @@
+{
+  "number": 12694,
+  "kind": "issue",
+  "title": "Settings source badges hard-code the English verbs Overrides / Inherited from (zh-CN reads \"Overrides 默认\")",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T13:46:32Z",
+  "updated_at": "2026-10-16T13:46:32Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12694",
+  "body": "**Filing gate ①**: a user-visible product defect with a named landing and a reproduction. Reach: the console Settings page on a zh-CN session.\n\n**Reader who acts:** the objectui console lane seat owning `apps/console/src/pages/settings/SettingsField.tsx`.\n\n## What\n\nThe settings source badges' verb prefixes, `Overrides` and `Inherited from`, are hard-coded English. On a zh-CN session the badge reads \"Overrides 默认\": the source label is translated, the verb is not.\n\n## Reproduction (objectstack `main` `2034975a`, console pin `daeb77fc`)\n\n1. Sign in as admin and switch to 中文（中国）.\n2. Under Settings → Localization, save a tenant value.\n3. Open `/_console/apps/setup/system/settings/localization`.\n4. Expected: the whole badge is in zh.\n5. Actual: \"Overrides 默认\".\n\n## Mechanism\n\n`apps/console/src/pages/settings/SettingsField.tsx` carries literal `Overrides` / `Inherited from` strings, with no i18n key. The code path is present on objectui `main` `d66ceea5`.\n\n## Dedupe\n\nMCP `search_issues` on objectstack-ai/objectui, closed included → 6 hits, none matching (by the cloud runner).\n\nQA-source: objectstack-ai/objectstack#23951 · i18n.surface-matrix · settings variant (observation on a passing variant)"
+}

@@ -2,8 +2,8 @@
   "number": 12602,
   "kind": "issue",
   "title": "Console home: a My work section with approvals first, then assigned to me, then reminders, and the pending-drafts row",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,23 @@
     "area:records",
     "domain:ui",
     "enhancement",
-    "pm:queue",
     "priority:p2"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-tesla"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-16T02:55:55Z",
-  "updated_at": "2026-10-16T02:55:55Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-16T11:59:11Z",
+  "closed_at": "2026-10-16T11:57:54Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12602",
   "body": "## Source\n\nMeasured on objectui main `1b3b5b102`, `/home` at 1280 px: the \"待办事项 18\" card (`HomeActionCenter` in `packages/app-shell/src/console/home/HomeRail.tsx`) lists notifications of every kind in one column, newest first (the five on screen are 18-to-21-day-old escalations and SLA breaches), shows five of eighteen and offers no \"view all\"; the pending approvals count the page already reads (`pendingApprovalsCount`) is one line inside it; the pending-drafts banner (`PendingDraftsBanner`) is a full-width blue bar above the greeting.\n\n## Target\n\nSection ③ of the artboard \"系统首页 · 四段式\", in numbers:\n\n1. Heading \"我的工作\" 15 px / 600 with the total count pill; at the right a 12 px link \"打开收件箱\" to the inbox route the bell uses.\n2. For an admin with pending drafts, one 40 px row on `--primary-soft` under the heading: rocket icon, \"N 项未发布更改\" 13 px / 600, a muted list of the first three draft names and the package, and a 28 px primary button \"发布\" that runs the same publish the banner ran. The banner above the greeting retires.\n3. Three columns, 12 px gap, each a card (8 px radius, 1 px border): a 40 px header with the title 13 px / 600, a count pill, and a 12 px \"查看全部\" link; then up to three 40 px rows: a 24 px icon tile, the one-line title with an ellipsis, a 12 px muted time at the right.\n   - **待审批**: the approvals the caller must decide (the source of `pendingApprovalsCount`); the pill is on `--primary`; \"查看全部\" opens the approvals page the action center opens today.\n   - **分配给我**: notifications and tasks addressed to the caller (assignment / mention kinds in the notification feed, and the inbox \"mine\" view); the time reads \"逾期 N 天\" in the amber tone when the item carries a past due date.\n   - **提醒**: the remaining notifications (SLA, escalation, system), icon tile on `--amber-soft`.\n4. A column with nothing reads one muted line (\"没有待审批的事项\"); the section hides entirely for a caller who may read none of the three sources.\n5. If the notification feed cannot tell \"assigned to me\" from \"reminder\" (no kind on the record), the card reports that fork on the card with the field it needs, and ships the two-column version (待审批 / 通知) rather than guessing.\n\n## File surface\n\n`packages/app-shell/src/console/home/HomeRail.tsx` (`HomeActionCenter`), `HomePage.tsx` (the drafts row, section order), the notification resolver shared with the bell (`resolveNotificationTarget`), `packages/i18n/src/locales/*.ts`, tests beside each.\n\n## Acceptance\n\n1. Tests: approvals render in the first column with the same count the bell shows; a notification with a due date in the past reads 逾期; the drafts row runs the publish handler and the banner is gone; the section hides without read access.\n2. Screenshots at 1280 px, light and dark, with 0 / 2 / 18 items, as measurements in the PR text.\n3. `pnpm --filter @object-ui/app-shell test` green; `pnpm check:i18n` green.\n\n## Constraints\n\n- objectui#4329: the count must equal the bell's; objectui#4074 and #5179: notification targets resolve through the shared resolver.\n- Lands after the hero-and-launcher card (same file).\n\n## Evidence\n\nThe artboards, as static HTML and 1280 px PNG renders, live on the temporary branch `claude/console-home-login-design-20261016` of objectstack-ai/objectui (commit `c4dfb417a`, never merged; the maintainer ruled that design files and screenshots do not enter main). Files: [Home.png](https://github.com/objectstack-ai/objectui/blob/c4dfb417a/docs/design/console-home-login/Home.png?raw=true) · [Home.html](https://github.com/objectstack-ai/objectui/blob/c4dfb417a/docs/design/console-home-login/Home.html?raw=true).\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-16 review of the console login page and home page with the maintainer, on objectui main `1b3b5b102` and HotCRM `63db83e2`. The maintainer approved the artboards in that session, verbatim: 「同意设计稿，创建任务」.</sub>"

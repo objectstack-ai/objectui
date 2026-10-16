@@ -23,11 +23,11 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-16T03:42:23Z",
-  "updated_at": "2026-10-16T07:24:12Z",
+  "updated_at": "2026-10-16T14:26:08Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 1,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12615",
   "body": "## Source\n\nWalked on objectui main `8415d9f11`: inside the Setup app (`/apps/com.objectstack.setup/dashboard/system_overview`) the app bar's right group shows the pencil \"Edit app\" linking to `/studio/com.objectstack.setup/interfaces?surface=dashboard:system_overview`; inside HotCRM (a read-only code package) the same pencil links to its Studio dashboard surface. `packages/app-shell/src/layout/AppHeader.tsx` renders it for every app. Studio then opens the read-only posture (objectui#12453) with nothing editable — the pencil promises an edit it cannot deliver, and for the system app it offers to edit the console's own Setup surface.\n\n## Target\n\n1. The pencil renders only when the current app belongs to a writable package and the caller holds the authoring capability; otherwise it is absent (not disabled): a read-only package's app gets no pencil, the system apps (Setup, Studio, Account) never.\n2. The sidebar entry menu's \"Design\" / \"Edit in Studio\" entries (objectui#12520 lineage) follow the same rule.\n\n## File surface\n\n`packages/app-shell/src/layout/AppHeader.tsx`, `SidebarItemMenu.tsx`, the package-posture read the Studio landing already uses (`packages-io.ts`), tests beside.\n\n## Acceptance\n\n1. Tests: no pencil for `com.objectstack.setup`; no pencil for a package whose posture is read-only; the pencil for a writable package.\n2. Screenshots of the Setup app bar and a writable app's bar at 1280 px.\n3. `pnpm --filter @object-ui/app-shell test` green.\n\n## Constraints\n\n- The capability check is the one objectui#5521's home cover cards use (`canAuthorMetadata`).\n\n## Evidence\n\nScreenshots on the temporary branch `claude/console-home-login-design-20261016` of objectstack-ai/objectui (commit `01244b886`, never merged): [app-bar-hotcrm-edit-pencil.jpg](https://github.com/objectstack-ai/objectui/blob/01244b886/docs/design/setup-review-2026-10-16/app-bar-hotcrm-edit-pencil.jpg?raw=true).\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-16 second review pass: objectui main `8415d9f11`, HotCRM `63db83e2`, the vite console on :5180 against `objectstack serve --dev` on :4001, the Studio pillars and all 43 Setup pages walked in the maintainer's browser pane at 1024 × 768 (en) with a 1280 × 900 re-check (zh). The maintainer asked for every finding to be filed, verbatim: 「全部立卡」.</sub>"

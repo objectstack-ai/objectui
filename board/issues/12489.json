@@ -2,8 +2,8 @@
   "number": 12489,
   "kind": "issue",
   "title": "approvals face 3 of 5 (ruling C on objectui#12438): the served sys_approval_request page draws the target-record reference's states (link, refused, tombstone, unresolvable) as the inbox side sheet does",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,21 +14,24 @@
     "area:workflow",
     "domain:ui",
     "enhancement",
-    "pm:blocked",
     "priority:p3"
   ],
   "assignees": [
-    "sunhaolin"
+    "os-tesla"
   ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-15T12:46:39Z",
-  "updated_at": "2026-10-16T04:59:33Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-16T14:05:16Z",
+  "closed_at": "2026-10-16T13:55:53Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 8,
+  "comments": 13,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12489",
-  "body": "Ruled: 6203737086 · letter A · 2026-10-15T22:40Z\nBlocked-by: objectstack-ai/objectstack#23736\n\nFiling gate ④: a cross-layer coordination node, filed as ruling `6190549995` on objectui#12438 directs (letter C, the maintainer's 「C (推荐)」, director seat summon #42, items 2–4). It is face 3 of at most 5, third in the ruling's order by pull: \"record-reference states (objectui#11878)\".\n\nParent: #2763 (B1 of the epic). The closing card objectui#12484 waits on this one.\n\n\nSerial after face 2 (objectui#12483): the faces edit the same served page, `plugin-approvals`' `sys-approval-request.page.ts`, and the ruling orders them by pull.\n\n**Reader who acts:** the `domain:ui` seat 1 (the epic's seat, seat post #5560). Once face 2 lands, it dispatches step 1 here, the fit check.\n\n**Dedupe** (MCP `search_issues`, scope objectstack-ai/objectui, all states, read 2026-10-15T12:46Z): \"approval request page target record link tombstone deleted unresolvable reference withdrawn state\" → 1 result, #11878, closed: the sheet's refused-link fix. That one is not this card.\n\n## The face\n\n- **The side sheet shows it today, pinned.** The request's target-record reference has four states:\n  - a link when the approver may read the record;\n  - no link when the read is refused (objectui#11878);\n  - the tombstone text when the record is gone (objectui#7108);\n  - a distinct unresolvable-reference text when the reference cannot be resolved.\n\n  The pins are `ApprovalsInboxPage.recordLink.test.tsx`, `ApprovalsInboxPage.recordLinkRefused-11878.test.tsx`, `ApprovalsInboxPage.tombstone.test.tsx` and `ApprovalsInboxPage.unresolvableReference.test.tsx`, all under `apps/console/src/pages/system/`. The sheet's `RecordCell` (`ApprovalsInboxPage.tsx:809`) draws them.\n- **The served page:** its details grid draws `record_id` / `object_name` as a card of the target record (the `referenceVia` pointer pair, `sys-approval-request.page.ts` docblock at objectstack `57994c311f`). Measure which of the four states that card draws today.\n\n## Steps (ADR-0060 rule 2; the ruling's item 2, \"fit before build\")\n\n1. **Fit check, objectui.** The ruling names the fit: the states \"go to `RecordPreviewCard` (A2) only if the spec row reverses its 「the caller renders them」 rule, otherwise a thin generic record-reference-state block\". Read `RecordPreviewCard`'s docblock and its spec row, measure the served card's current states, and report which route applies.\n2. **Spec row** (objectstack `domain:spec`), if the route needs one: either the reversed rule on the preview card's row, or the new block's declared type.\n3. **Served page edit** (objectstack `plugin-approvals`, `domain:services`), if the block is placed explicitly.\n4. **objectui block or wiring**, pinned.\n\nSteps 2 and 3 are filed in objectstack, chained with `Blocked-by:`, only when step 1 says they are needed.\n\n## Acceptance\n\n- On the served page, the target-record reference draws all four states as the sheet's pins assert. A refused read never yields a link.\n- ⛔ The side sheet is not touched (ADR-0060 rule 3).\n\nAttribution: written by the `domain:ui` seat 1 in session `session_01JZnppgHRp4sREcouhkQYDB`, executing ruling `6190549995`.\n"
+  "body": "Ruled: 6203737086 · letter A · 2026-10-16T11:30Z\n\nRuling line first recorded 2026-10-15T22:40Z; restamped by the `domain:ui` seat 1 body edits: the blocker re-point at takeover `6213174414`, then the unlock at the step-4 claim `6214527805` (objectui#12626 closed; the blocker line is gone).\n\nFiling gate ④: a cross-layer coordination node, filed as ruling `6190549995` on objectui#12438 directs (letter C, the maintainer's 「C (推荐)」, director seat summon #42, items 2–4). It is face 3 of at most 5, third in the ruling's order by pull: \"record-reference states (objectui#11878)\".\n\nParent: #2763 (B1 of the epic). The closing card objectui#12484 waits on this one.\n\n\nSerial after face 2 (objectui#12483): the faces edit the same served page, `plugin-approvals`' `sys-approval-request.page.ts`, and the ruling orders them by pull.\n\n**Reader who acts:** the `domain:ui` seat 1 (the epic's seat, seat post #5560). Once face 2 lands, it dispatches step 1 here, the fit check.\n\n**Dedupe** (MCP `search_issues`, scope objectstack-ai/objectui, all states, read 2026-10-15T12:46Z): \"approval request page target record link tombstone deleted unresolvable reference withdrawn state\" → 1 result, #11878, closed: the sheet's refused-link fix. That one is not this card.\n\n## The face\n\n- **The side sheet shows it today, pinned.** The request's target-record reference has four states:\n  - a link when the approver may read the record;\n  - no link when the read is refused (objectui#11878);\n  - the tombstone text when the record is gone (objectui#7108);\n  - a distinct unresolvable-reference text when the reference cannot be resolved.\n\n  The pins are `ApprovalsInboxPage.recordLink.test.tsx`, `ApprovalsInboxPage.recordLinkRefused-11878.test.tsx`, `ApprovalsInboxPage.tombstone.test.tsx` and `ApprovalsInboxPage.unresolvableReference.test.tsx`, all under `apps/console/src/pages/system/`. The sheet's `RecordCell` (`ApprovalsInboxPage.tsx:809`) draws them.\n- **The served page:** its details grid draws `record_id` / `object_name` as a card of the target record (the `referenceVia` pointer pair, `sys-approval-request.page.ts` docblock at objectstack `57994c311f`). Measure which of the four states that card draws today.\n\n## Steps (ADR-0060 rule 2; the ruling's item 2, \"fit before build\")\n\n1. **Fit check, objectui.** The ruling names the fit: the states \"go to `RecordPreviewCard` (A2) only if the spec row reverses its 「the caller renders them」 rule, otherwise a thin generic record-reference-state block\". Read `RecordPreviewCard`'s docblock and its spec row, measure the served card's current states, and report which route applies.\n2. **Spec row** (objectstack `domain:spec`), if the route needs one: either the reversed rule on the preview card's row, or the new block's declared type.\n3. **Served page edit** (objectstack `plugin-approvals`, `domain:services`), if the block is placed explicitly.\n4. **objectui block or wiring**, pinned.\n\nSteps 2 and 3 are filed in objectstack, chained with `Blocked-by:`, only when step 1 says they are needed.\n\n## Acceptance\n\n- On the served page, the target-record reference draws all four states as the sheet's pins assert. A refused read never yields a link.\n- ⛔ The side sheet is not touched (ADR-0060 rule 3).\n\nAttribution: written by the `domain:ui` seat 1 in session `session_01JZnppgHRp4sREcouhkQYDB`, executing ruling `6190549995`.\n\n\n"
 }

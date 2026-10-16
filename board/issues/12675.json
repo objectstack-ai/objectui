@@ -1,0 +1,32 @@
+{
+  "number": 12675,
+  "kind": "issue",
+  "title": "Setup Packages is the one list of what is installed: Source column, marketplace row actions, and the \"Installed Apps\" entry opens Packages filtered to Source = marketplace (ruling B, objectstack-ai/objectstack#23892)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T13:13:23Z",
+  "updated_at": "2026-10-16T13:54:39Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12675",
+  "body": "Filing gate: **④ a ruled execution card** — ruling B on objectstack-ai/objectstack#23892 (batch #356 item 2, the maintainer's 「同意」; the record's id is the first line of that card's body), item 2 of objectstack-ai/objectstack#23803 (the 2026-10-16 Setup review). Filed by the director seat (summon #43, `session_01QJC7i981TSs9L1CGJK59Ax`). ⛔ Not a claim. Facts were read at objectui `origin/main` `f78efdd1e3` and objectstack `origin/main` `d5666be876`.\n\n## The work (the objectui half; the `cloud-connection` half is the objectstack card whose `Blocked-by:` names this one — both numbers are in the ruling record on objectstack-ai/objectstack#23892)\n\n1. **Source column.** The console component `developer:packages` (`packages/app-shell/src/services/builtinComponents.tsx:130`, contributed by objectstack's `setup-nav.contributions.ts` as `nav_packages`) gains a **Source** column with the closed values `code` / `marketplace` / `authored`, one per loaded package.\n2. **Marketplace row actions.** The actions the Installed Apps page carries today (update, uninstall, the install-local reseed / purge menu under `packages/app-shell/src/console/marketplace/`) move onto the Packages rows whose Source is `marketplace`, rendered only when the marketplace capability (`MarketplaceInstallLocalPlugin`) is present.\n3. **The filtered view.** Packages accepts a Source filter preset so that the plugin's \"Installed Apps\" entry (`MARKETPLACE_INSTALLED_UI_BUNDLE` in objectstack's `packages/cloud-connection`) can open it filtered to Source = marketplace. The route or query spelling it needs is this card's to define and to name in its changeset, because the cloud-connection card retargets the entry to it.\n4. **Retirement.** `MarketplaceInstalledPage` / `InstalledListWidget` retire once the filtered view serves their actions — in this PR if the component holds row actions, else in the follow-up this card's report names.\n\n## Measure first (the ruling's carried confidence gap)\n\nWhether `developer:packages` can host row actions without a redesign. If it cannot, report `premise_still_valid: false` with the reading: the ruling's fallback is letter C (two labelled lists — rename Installed Apps to \"Marketplace installs\" with one explanatory sentence; Packages still gains the Source column) and it takes effect without a new box visit.\n\n## Pins\n\n- Plugin present: Packages lists every loaded package with its Source; marketplace rows carry the actions; the \"Installed Apps\" entry opens Packages filtered to Source = marketplace.\n- Plugin absent: no entry and no marketplace actions; Packages still lists every loaded package with its Source.\n- The Source column is a closed enumeration; an unknown origin is refused at the boundary, never shown blank.\n\n## Order\n\nThis card lands first. The objectstack `cloud-connection` card (the entry's target) is `Blocked-by:` this card and moves only when the objectui pin makes this view installable. objectstack-ai/objectstack#23803 item 4's count (39 entries) is checked by whichever lands last.\n\n## Governing text\n\ncloud ADR-0009 as restated in objectstack `packages/cloud-connection/src/marketplace-ui.ts` (the nav entry lives and dies with the capability); the ruling on objectstack-ai/objectstack#23892.\n\n## Dedupe\n\nOpen objectui issues whose title names marketplace, Installed Apps or Packages at filing (REST, first 100 open): #12615; none carries the Source column or the merge of the two pages (the marketplace defect cards named on the decision card are not this work). Dedupe words: Setup Packages Installed Apps Source column marketplace filter preset row actions MarketplaceInstalledPage retire."
+}

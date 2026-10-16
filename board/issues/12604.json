@@ -2,8 +2,8 @@
   "number": 12604,
   "kind": "issue",
   "title": "Console home: Recently accessed lists records and views, beside the activity feed",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,23 @@
     "area:records",
     "domain:ui",
     "enhancement",
-    "pm:queue",
     "priority:p2"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-sales"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-16T02:56:44Z",
-  "updated_at": "2026-10-16T02:56:44Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-16T14:08:57Z",
+  "closed_at": "2026-10-16T14:07:17Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12604",
   "body": "## Source\n\nMeasured on objectui main `1b3b5b102`, `/home` at 1280 px: \"最近访问\" (`HomeContinue` in `packages/app-shell/src/console/home/HomeRail.tsx`, fed by `useRecentItems` / `RecentItemsProvider.tsx`) shows one item, the dashboard \"高管总览\", after a session that opened the Account list, the record Acme Corporation, a flow and two Studio pages; records and list views are not recorded, so the block that should bring the user back to the last record never does. The activity feed beside it is a bordered card with five rows and \"查看全部动态\".\n\n## Target\n\nSection ④ of the artboard \"系统首页 · 四段式\", in numbers:\n\n1. Two columns, `minmax(0,1fr) 360px`, 24 px gap, headings 15 px / 600.\n2. \"最近访问\": a card with up to six 40 px rows: a 24 px icon tile by kind (record → the object's icon, dashboard, list view, page), the title 13 px, and a 12 px muted trail \"客户 · HotCRM · 10 分钟前\" (object label · app label · relative time). Records and list views are recorded when their page opens, with the object label and the app, in the same store the sidebar reads; the store keeps the last 20 and dedupes by target.\n3. \"活动动态\": the existing feed in a card with 12 px padding; each row \"actor 13 px / 500 · verb and target muted · 12 px time and object\"; \"查看全部动态 →\" as the last row. The column renders only when the caller may read `sys_activity` (objectui#12081), and the recent block then spans the full width.\n4. Empty \"最近访问\": one muted line \"打开过的记录和页面会出现在这里\".\n\n## File surface\n\n`packages/app-shell/src/console/home/HomeRail.tsx` (`HomeContinue`, `HomeActivity`), `packages/app-shell/src/hooks/useRecentItems.ts`, `packages/app-shell/src/context/RecentItemsProvider.tsx` (record and view entries), the record and list pages that call it, `packages/i18n/src/locales/*.ts`, tests beside each.\n\n## Acceptance\n\n1. Tests: opening a record page records it with object label and app; the home lists it first with the kind icon; the store holds at most 20 and dedupes; without `sys_activity` the recent block is full width.\n2. Screenshots at 1280 px, light and dark, as measurements in the PR text.\n3. `pnpm --filter @object-ui/app-shell test` green.\n\n## Constraints\n\n- The sidebar's recent list reads the same store; it gains the record entries too and must still render.\n- Lands after the hero-and-launcher card (same file).\n\n## Evidence\n\nThe artboards, as static HTML and 1280 px PNG renders, live on the temporary branch `claude/console-home-login-design-20261016` of objectstack-ai/objectui (commit `c4dfb417a`, never merged; the maintainer ruled that design files and screenshots do not enter main). Files: [Home.png](https://github.com/objectstack-ai/objectui/blob/c4dfb417a/docs/design/console-home-login/Home.png?raw=true) · [Home.html](https://github.com/objectstack-ai/objectui/blob/c4dfb417a/docs/design/console-home-login/Home.html?raw=true).\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-16 review of the console login page and home page with the maintainer, on objectui main `1b3b5b102` and HotCRM `63db83e2`. The maintainer approved the artboards in that session, verbatim: 「同意设计稿，创建任务」.</sub>"

@@ -14,7 +14,6 @@
     "area:workflow",
     "domain:ui",
     "enhancement",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -23,11 +22,11 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-16T03:36:47Z",
-  "updated_at": "2026-10-16T08:24:09Z",
+  "updated_at": "2026-10-16T12:10:16Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 1,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12608",
   "body": "## Source\n\nWalked on objectui main `8415d9f11` with HotCRM's seed data: Approval Requests (`sys_approval_request/view/all_requests`, 53 rows) shows Source `flow:opportunity_approval`, Object `crm_opportunity`, Record ID `sg5RyCYRV5K9Udnk`, Status Pending, Current Step `manager_review`, Submitter \"—\", Updated At; Action History (`sys_approval_action`) shows Request `flow:opportunity_approval · sg5RyCYRV5K9Udnk`, Step `manager_review`, Action Submit, Actor \"—\". An admin cannot tell which opportunity is waiting, on whom, since when. The Approvals Inbox says \"You're all caught up — nothing is waiting on you\" while 53 requests are pending on `manager_review`: correct for the caller, but nothing on either page says who the 53 are waiting for.\n\n## Target\n\n1. Requests: columns Record (the object's icon + the record's name field, linking to the record), Flow (the flow's label, api name in the tooltip), Step (the step's label), Waiting on (the approver the step resolves to: user, position or team label), Submitter (user name), Submitted / Updated (relative time with the absolute in the tooltip), Status chip. The raw ids move to the row's expanded detail.\n2. Action History: Record and Flow as above, Step label, Action chip, Actor name, Acted as, Comment; \"Via admin override\" as a chip only when true.\n3. The inbox's empty state for a caller with no pending items but pending requests in the environment adds one muted line: \"53 requests are waiting on other approvers · Browse all requests\".\n4. Where the record name cannot be resolved (deleted record, no read access), the cell shows the object label + \"record unavailable\", never the id alone.\n\n## File surface\n\n`apps/console/src/registerApprovalsComponents.tsx` and the approvals views it registers, the `sys_approval_request` / `sys_approval_action` view definitions the console ships (or the platform ships: if the columns come from objectstack-ai/objectstack's platform-objects views, the card says so and files the view change there), `packages/i18n/src/locales/*.ts`, tests beside each.\n\n## Acceptance\n\n1. Tests: a request row renders the record name and the step label; the inbox empty state renders the \"waiting on other approvers\" line when the environment count is non-zero.\n2. Screenshots of both lists and the inbox at 1280 px, light and dark.\n3. `pnpm --filter @object-ui/app-shell test` green.\n\n## Constraints\n\n- The resolver that turns a step into its approver is the engine's; the console reads it, never re-derives it.\n\n## Evidence\n\nScreenshots on the temporary branch `claude/console-home-login-design-20261016` of objectstack-ai/objectui (commit `01244b886`, never merged): [setup-approval-requests.png](https://github.com/objectstack-ai/objectui/blob/01244b886/docs/design/setup-review-2026-10-16/setup-approval-requests.png?raw=true).\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-16 second review pass: objectui main `8415d9f11`, HotCRM `63db83e2`, the vite console on :5180 against `objectstack serve --dev` on :4001, the Studio pillars and all 43 Setup pages walked in the maintainer's browser pane at 1024 × 768 (en) with a 1280 × 900 re-check (zh). The maintainer asked for every finding to be filed, verbatim: 「全部立卡」.</sub>"

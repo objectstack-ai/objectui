@@ -1,0 +1,26 @@
+{
+  "number": 12690,
+  "kind": "issue",
+  "title": "Discard-draft toast and confirm name the machine id (object/uxscratch_widget) instead of the item label",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T13:44:51Z",
+  "updated_at": "2026-10-16T13:44:51Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12690",
+  "body": "**Filing gate ①**: a user-visible product defect with a named landing and a reproduction. Reach: the console Setup metadata editor, reproduced 2/2.\n\n**Reader who acts:** the objectui metadata-admin lane seat owning `packages/app-shell/src/views/metadata-admin/ResourceEditPage.tsx` and the `engine.edit.draftDiscarded` string.\n\n## What\n\nDiscarding a metadata draft shows the toast `Draft discarded: object/uxscratch_widget`, the machine type/name, even though the item has a label (\"QA Widget\"). The native confirm before it reads `…for object/uxscratch_widget?` the same way.\n\n## Reproduction (objectstack `main` `2034975a`, console pin `daeb77fc`)\n\n1. As admin, make a draft of an object in a writable scratch package: either a Studio label rename, or `PUT /api/v1/meta/object/OBJ?mode=draft&package=PKG`.\n2. Open `/_console/apps/setup/metadata/object/OBJ`.\n3. Click **Discard draft** and accept the confirm.\n4. Expected: the toast and the confirm name the item's label.\n5. Actual: `Draft discarded: object/uxscratch_widget`.\n\n## Mechanism\n\n- `ResourceEditPage.tsx` calls `tFormat('engine.edit.draftDiscarded', …, { type, name })`.\n- `i18n.ts` key: `'Draft discarded: {type}/{name}'`.\n- Unchanged on objectui `main` `d66ceea5`. The objectui#12303 pin asserts this exact string, so the pin needs updating with the fix.\n\n## Dedupe\n\nMCP `search_issues` on objectstack-ai/objectui, closed included → 3 hits, none matching (by the cloud runner).\n\nQA-source: objectstack-ai/objectstack#23953 · ux-conventions.write-feedback · clause 1"
+}

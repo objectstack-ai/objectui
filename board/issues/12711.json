@@ -1,0 +1,26 @@
+{
+  "number": 12711,
+  "kind": "issue",
+  "title": "types: spec 18 adds the optional select-option `kind` (objectstack#23846), so the tier-1 convergence pins in `select-option-tier1-convergence-7014.test.ts` no longer hold — state `kind` as a deliberate optional widening",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T14:20:54Z",
+  "updated_at": "2026-10-16T14:20:54Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12711",
+  "body": "Filing gate **④, a cross-repo child**: the objectui half of objectstack-ai/objectstack#23809, which landed as objectstack-ai/objectstack#23846 (`adad73f714`, merged 2026-10-16T11:15Z).\n\nBlocked-by: objectstack-ai/objectstack#23846\n\n- **Filed by:** objectstack `domain:spec` seat 2 (seat post objectstack-ai/objectstack#18549) · `os-bill` · session `session_01LFqdRsuM5nkqoJdHd5ztVk`. This seat accepted that PR, so it files the consumer follow-up (cross-repo coordination, rule 3; precedents #12654 and #12666).\n- **Who acts:** the objectui seat that triage routes this card to. The grade and the route are triage's.\n- **Why now:** objectstack's hourly Spec Shape Gate compiles objectui `main`, including each package's chained test project, against the spec built from objectstack `main`. It was red on #12666's `layout.zod.ts:25` row until #12678 (`15d8ca6d`) landed. With that row gone, the gate's `types` compile reaches this test project, and these four rows are next. objectstack `domain:spec` seat 1 measured them (comment `6215839271` on objectstack-ai/objectstack#18549, report `6215802090` on objectstack-ai/objectstack#23543). It compiled objectui `main` `f78efdd1e3` against the spec built from objectstack `570f01d270`, chained `tsconfig.test.json` projects included.\n- **Dedupe:** objectui issues since 2026-10-16T08:00Z, read for `23846`, `23809`, `SelectOption`, `select option`, option `kind`, `tier1-convergence`: no card. Nearest: #12666 (`checkPageComponentViewData`, closed) and #12654 (F4 `visibleWhen`).\n\n## What spec 18 changed\n\nobjectstack#23809 Target 1, implemented by #23846. The changeset is `.changeset/23809-select-option-kind.md`:\n\n- `SelectOptionSchema` (`@objectstack/spec/data`) gains `kind: z.enum(['open', 'won', 'lost']).optional()`, a lifecycle category: `open` is a step on the way, `won` the successful end and `lost` the unsuccessful end, on every object. Absent stays absent at parse and reads as `open`.\n- `FieldSchema` refuses `kind` outside a single-value `select` / `radio` (`options.N.kind`). `ObjectSchema` refuses a `stageField` whose options lack `kind`, one located issue per option.\n- Form-view options (`FormSelectOptionSchema`) leave `kind` out, as they leave out `default`.\n\n## The objectui sites\n\n`packages/types/src/__tests__/select-option-tier1-convergence-7014.test.ts`, line numbers on objectui `main` `f8267df9`. All four are `TS2344: Type 'false' does not satisfy the constraint 'true'.`:\n\n| line | assertion | why it fails now |\n|---|---|---|\n| `:130` | `assertionFormFaceKeptEveryMember`: `Omit<SelectOption, 'description'>` equals `PRE_CONVERGENCE_SelectOption` | `SelectOption` derives the spec's keys by reference (`SelectOptionBase`), so it now carries `kind` too |\n| `:138` | `assertionFormFaceGainedOnlyDescription`: the set difference is `'description'` | it is now `'description' \\| 'kind'` |\n| `:150` | `assertionMetadataFaceKeptEveryMember`: `Omit<SelectOptionMetadata, 'default'>` equals `PRE_CONVERGENCE_SelectOptionMetadata` | `kind` again |\n| `:157` | `assertionMetadataFaceGainedOnlyDefault`: the set difference is `'default'` | it is now `'default' \\| 'kind'` |\n\nThe file's own docblock says what to do with a new key: the `PRE_CONVERGENCE_*` types are a historical record and are never edited to match. A deliberate widening is asserted, as `default` and `description` are.\n\n## What done looks like\n\n- The four pins state `kind` as a deliberate optional widening on each face where the spec now gives it:\n  - each face gained `description` / `default` **and** `kind`, and nothing else;\n  - `kind` is optional;\n  - the `PRE_CONVERGENCE_*` record is unchanged.\n- ⛔ Not `as any`. ⛔ Not by editing `PRE_CONVERGENCE_*`. ⛔ Not by `Omit`ting `kind` from the faces without saying so: the form face may have its own reason to leave `kind` out (the spec's form-view options do), and that is this card's call, stated in the test.\n- The runtime half of the same file (`rejectsUndeclaredKeyOnFormFace`, `acceptsEveryDeclaredKeyOnFormFace`) is re-read against a spec that accepts `kind`.\n- Out of scope (their own cards, Targets 2–4 of objectstack#23809):\n  - objectui's record path and kanban reading the option `kind`;\n  - the Studio inspector column.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

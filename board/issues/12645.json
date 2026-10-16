@@ -1,0 +1,37 @@
+{
+  "number": 12645,
+  "kind": "pull_request",
+  "title": "feat(console,app-shell): a settings action row draws its label once, on the button; the Installed Apps kernel note is the Uninstall tooltip (objectui#12610)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "package: app-shell",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T09:30:18Z",
+  "updated_at": "2026-10-16T09:58:42Z",
+  "closed_at": "2026-10-16T09:58:39Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T09:58:37Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12645",
+  "body": "Fixes #12610\nClause-②: yes\n\nItems 1 and 4 of the card, as triage narrowed them. Items 2 and 3 are objectstack-ai/objectstack#23839 and objectstack-ai/objectstack#23841, not touched here.\n\n## What changes\n\n**1. A settings action row has one label, on the button.** The console's settings renderer drew an `action_button` specifier's `label` twice: as the row label on the left and again inside the button. That is why Mail Delivery read \"Send test email / Send test email\" and AI & Embedder repeated \"Test connection\", \"Reset to environment defaults\" and \"Test embedder\". The manifests declare one `label` each, so the fix is in the renderer, once, for every action row (`SettingsField`, the `action_button` branch).\n- The button carries the label.\n- The row's left side holds the specifier's `description` when the manifest declares one, as one line of muted text. Otherwise it holds nothing and the button stands alone at the row's end.\n- No manifest declares a `description` on an `action_button` today, and the renderer invents none.\n- Settings keys, values and save behaviour do not change. `SettingsView` is untouched.\n\n**4. The Installed Apps kernel note is the Uninstall tooltip.** The \"kernel API is additive only\" paragraph sat at the foot of the list, including under the empty state. It now opens as a tooltip, on hover or focus, on a loaded local row's Uninstall. It is that button's accessible description (`aria-describedby` to one `sr-only` copy), using the console's existing `TooltipProvider` / `Tooltip` / `TooltipTrigger` pattern.\n- A not-loaded row's Uninstall carries no note: that package left nothing in the running kernel (objectui#11645).\n- A cloud-bound list offers no Uninstall, so it carries no note either.\n- The note renders as text. The widget no longer passes it through `dangerouslySetInnerHTML`.\n\n**i18n.** `marketplace.installedAdditiveNote` dropped its leading bold \"Note:\" label (a `strong` element, and each translation's equivalent) in all ten packs. The sentence after it is unchanged, and so is the key name. `check:i18n-drift` reads one en value changed, followed by all nine packs.\n\n## Tests\n\n- `SettingsField.actionRowOneLabel-12610.test.tsx` (console). It renders the real `SettingsView` over a stubbed `fetch` for every `action_button` the server's settings manifests declare: Mail, SMS, AI × 3, Knowledge, File Storage. It asserts that no string a button carries is drawn anywhere outside that button. Also covered:\n  - a label translated through `actions.ID.label`;\n  - a declared description, shown once on the left;\n  - no description, so nothing beside the button.\n- `InstalledListWidget.kernelNoteTooltip-12610.test.tsx` (app-shell), in `en` and `zh`, over the real `marketplaceApi`:\n  - the empty state carries no note;\n  - a loaded Uninstall has the note as its accessible description, and hovering opens a tooltip with it and no markup;\n  - a not-loaded Uninstall has no description;\n  - all ten packs' values carry no markup.\n- Ablation, after committing the fix, each leg trap-restored and checked on disk:\n  - restoring the old label div: 8 failed (8);\n  - restoring the old paragraph and dropping the tooltip: 6 failed | 11 passed (17);\n  - restoring the bold label in `de`: 1 failed | 16 passed (17).\n\n## Local gates (head `514ee9d`)\n\n- Closure build of `@object-ui/console^...`: 34/34 tasks.\n- `type-check` for `@object-ui/i18n`, `@object-ui/app-shell` and `@object-ui/console`: 0.\n- `pnpm exec vitest run apps/console/src/pages/settings/ packages/app-shell/src/console/marketplace/ packages/i18n/`: 134 files passed, 1689 tests passed, 13 skipped.\n- `check:i18n-keys`, `check:i18n-drift`, `check:i18n-dead-keys`, `check:changeset-claims`, `changeset:check`, `check:test-path-roots`, `check:spec-symbols` and changeset presence: all 0.\n- eslint on the changed files: 0 errors.\n- The rest of the farm is CI's.\n\n## Screenshots\n\nBranch `claude/issue-12610-evidence`, under `evidence/12610/`. These are Mail Delivery, AI & Embedder (three action rows), File Storage and Installed Apps (empty state). They were taken at 1280 × 900 with the console dev server, against a published `@objectstack/*` 18.0.0-next.1 showcase backend (`e2e/live/ci/start-backend.sh`). Each page has a `-before` shot (base `8ed7e5a`) and an `-after` shot (this head).\n\nNOT MEASURED: a screenshot of the Uninstall tooltip itself. Reason: the fresh backend had no installed package, so there was no Uninstall row to hover. The tooltip is pinned by the app-shell test above.\n\n## Changesets\n\n- `12610-settings-action-row-one-label.md`: `@object-ui/console` patch.\n- `12610-installed-apps-kernel-note-tooltip.md`: `@object-ui/app-shell` patch.\n- `12610-i18n-kernel-note-plain-text.md`: `@object-ui/i18n` patch, carrying the Clause-② note.\n\n## Acceptance notes\n\n- Booting the live backend took two workarounds in a throwaway copy only:\n  - npm 11 instead of npm 10, which crashed on `edgesOut`;\n  - removing `isDefault` from the showcase `capability-map` page.\n- The settings pages also needed `OS_PLATFORM_OWNER_EMAIL=admin@objectos.ai`. Without it, the seeded admin is refused `manage_platform_settings`.\n- `e2e/live/ci/stop-backend.sh` left the `objectstack dev` child running on its port, so the next start came up on the next port. This is reported to the seat; it is not changed here.\n\nProvenance: written by the `os-dev` cloud session `session_01P1jMq7XJa8LG1or2Z2jgxH` (claim `6211778237`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final message, because a cloud session cannot open a PR from its container. The seat changed only the two tag-shaped spellings of the bold label into words.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01P1jMq7XJa8LG1or2Z2jgxH)_\n"
+}

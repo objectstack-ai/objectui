@@ -1,0 +1,36 @@
+{
+  "number": 12650,
+  "kind": "pull_request",
+  "title": "feat(app-shell): the product mark stays top-left as the home button; the app menu gains Back to home, All apps and Settings (objectui#12605)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T10:37:28Z",
+  "updated_at": "2026-10-16T10:45:28Z",
+  "closed_at": "2026-10-16T10:45:28Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12650",
+  "body": "Fixes #12605\nClause-②: no\n\nInside an app the product mark stays top-left as the home button, and the app pill's menu gains Back to home, All apps and Settings, per the maintainer-approved artboard (`AppBar.html`).\n\n## What changed\n\n- **Left group** (`AppHeader.tsx`): sidebar trigger, the product mark, a drawn `/` rule, the app pill, the PREVIEW chip. The mark is one component (`ProductHomeMark`) used on every surface, the home page, the organizations and Studio front doors and inside every app: a 32 px link holding a 24 px tile on `--primary` with the stack glyph (or the deployment logo). Its accessible name is `layout.appSwitcher.productHome` (`{{product}} home` / 「{{product}} 首页」) from `getProductName()`; it links to `homePath` (`/home` unless the deployment declares a landing, the objectui#7256 rule the old logo already followed).\n- **Same x on every surface.** Off an app there is no sidebar trigger, so the bar holds the trigger's slot empty (`h-7 w-7 shrink-0 mr-1`, `aria-hidden`) before the mark; the mark does not jump when the viewer goes home.\n- **`⌘⇧H` / `Ctrl+Shift+H`** goes home from any app page with a push (Back returns). It skips text inputs, textareas, selects, content-editable regions and ARIA textboxes, and events already `defaultPrevented` or composing. The chord lives in the shortcut registry (`chrome/advertisedShortcuts.ts`, `GO_HOME_SHORTCUT`) and is advertised to the keyboard-shortcuts dialog under the same gate as the listener.\n- **App menu** (`AppSwitcher.tsx`): Switch Application lists the installed apps with the current one checked and **without Setup**; a divider; Back to home (keycaps drawn from the same chord), All apps, Settings (the Setup app, shown only when the viewer's app list carries it; checked inside Setup); then Edit APP in Studio after a second divider, its gate untouched.\n- **Below 640 px** the pill shows the app tile only; `title` names the app (tooltip and accessible name). The pill was previously hidden below `sm`.\n- **i18n**: `layout.appSwitcher.backToHome`, `layout.appSwitcher.settings`, `layout.appSwitcher.productHome`, `console.shortcuts.goHome` in all ten locales; zh uses the card's words (返回首页, 系统设置, 首页).\n- Every existing `data-testid` stays; new ones: `app-bar-product-home`, `app-bar-home-separator`, `app-bar-trigger-slot`, `app-switcher-home`, `app-switcher-settings`.\n\n## Tests (head 059073379)\n\n- New pins: `AppHeader.homeMark-12605.test.tsx` (left-group order, name + `/home` link, click lands home, pill drawn at every width, chord advertised as ⌘⇧H, ⌘ and Ctrl push `/home` and Back returns, chord left to a text field, ⌘H alone does nothing, home page: same mark, no rule, no advertisement, trigger slot held), `AppSwitcher.homeMenu-12605.test.tsx` (menu order, Setup absent from the switch group, keycaps, Settings target and check, no Settings without Setup, sub-`sm` classes and title).\n- Vitest (`--maxWorkers=1`, repo root): all 80 `packages/app-shell/src/layout` suites + `src/chrome` (36 + 58 files, 290 + 382 tests, exit 0), `src/__tests__` + `console/home` (43 files, 567 tests, exit 0), `packages/i18n` (83 files, 1321 tests, exit 0). After merging `main`: AppHeader/AppSwitcher suites + every app-shell test file the merge brought in (31 files, 264 tests, exit 0).\n- Ablation (once): `switchApps = activeApps` (Setup filter removed), landed via `ablation-replace.mjs` (anchor 1 to 0, blob 3f315e70 to 656696e8) and turned 3 of 7 menu tests red; restored with `git checkout HEAD --`, `git diff HEAD` empty, blob hash matches HEAD.\n- type-check `@object-ui/i18n` and `@object-ui/app-shell`: exit 0 (after rebuilding the four deps `main` changed: auth, components, fields, i18n).\n- Pre-tsc battery (15 `check:*` listed in the dispatch), `check-hand-rolled-comment-mask`, `check-changeset-fixed`: all exit 0; i18n, control-bytes, unreferenced-sources, self-import, phantom-deps and changeset-fixed re-run on the merged head, exit 0.\n- eslint narrowed to the 16 changed TS/TSX files (`--no-inline-config --format json`): 16 files, 0 errors, 20 warnings (all `no-explicit-any` on pre-existing lines). The config enables no type-aware linting, so this diff cannot move any untouched file's verdict.\n- **NOT MEASURED locally, declared to CI**: the whole `packages/app-shell` package (1442 test files; at `--maxWorkers=1` it exceeds the foreground cap), and `apps/console` suites.\n\n## Acceptance notes\n\n- `AppHeader.appIdentity-12201.test.tsx` changed: its item-4 cell pinned \"no platform mark in app context\", the ruling this card reverses. It now pins the mark before the pill; the \"no crumb separator precedes the pill\" cell is unchanged in substance.\n- The mark keeps its x across surfaces by an empty trigger slot on the home, organizations and Studio bars (the ruling's \"measure the home page's mark position and match it\" with the trigger first). If the maintainer prefers the home bar flush left, delete the one span.\n- `AppSwitcher` reads `SETUP_APP_PACKAGE_ID` / `SETUP_APP_NAME` from `console/ConsoleShell` (render-time use only), resolving Setup in the same order as `resolveSetupAppPath`.\n- objectui#12639 (48 px bar): the mark is 32 px (`size-8`) and fits.\n- PR #12638 (objectui#12601, Home's centred search) merged cleanly into this branch and its tests pass here.\n\n## Changeset\n\n`.changeset/12605-app-bar-home-mark.md`: `@object-ui/app-shell` patch, `@object-ui/i18n` patch. No package export is added (`GO_HOME_SHORTCUT` is internal to `chrome/advertisedShortcuts`, not re-exported from the package index).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

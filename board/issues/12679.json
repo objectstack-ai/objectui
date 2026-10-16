@@ -1,0 +1,37 @@
+{
+  "number": 12679,
+  "kind": "pull_request",
+  "title": "feat(components): the page renderer no longer compiles kind jsx as html (objectui#12486)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: components",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T13:25:28Z",
+  "updated_at": "2026-10-16T14:18:03Z",
+  "closed_at": "2026-10-16T14:18:01Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T14:18:01Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12679",
+  "body": "Fixes #12486\nClause-②: no (narrowing)\n\nHalf 2 of objectui#12464. The page renderer drops its `kind === 'jsx'` arm now that objectui resolves `@objectstack/spec` `18.0.0-next.2` (built from objectstack `e5136ff10f`, which carries `c5dd7fce30`), as triage's ruling `6190403616` set the condition and the unlock `6215013185` measured it met.\n\n## The narrowing (the claim's Clause-② reason)\n\n`@object-ui/components`' `PageRenderer` used to compile a node's `source` when its `kind` was `html` or `jsx`. It now compiles it for `html` only.\n\n- **What a raw node loses.** A page node that still carries `kind: 'jsx'` is no longer compiled. It takes the template / page-type layout path that a node with no `kind` takes: it draws its `children` or `regions` and never reads `source`. Such a node can only come from code built past the types: `PageNodeSchema.kind` and its zod face have refused `jsx` since objectui#12464.\n- **Why a served page cannot carry `jsx`.** next.2's `COMPILED_PAGE_KINDS` is `['html']`, its page parse refuses `jsx` by name (the save door answers 422, `os validate` reports it), and spec 18's stored-row rehydration rewrites a stored `jsx` page to `html` before it is served.\n- Levelled `minor` on `@object-ui/components`, per this repo's version policy. One `CONTRACT_REVIEW_TIER` review is owed before ready, per the claim.\n\n## What changed\n\n1. `packages/components/src/renderers/layout/page.tsx`: the arm is gone. The read of `schema.kind` is the authoring type again (`const kind = schema.kind`, no widening annotation), and the comment above `getJsxManifest` names `kind:'html'`.\n2. `packages/types/src/zod/layout.zod.ts`: comments only. The `.extract` comment no longer describes the pre-next.2 state, and the list of re-attached spec checks no longer names `jsx` (next.2's `checkPageSourceCompleteness` reads `html` and `react`; `COMPILED_PAGE_KINDS` is `html`). No code line in the file moved.\n3. `packages/app-shell/src/views/metadata-admin/ResourceEditPage.pageRequiresStamp-11357.test.tsx`: the server double reads the installed `@objectstack/spec/ui` `COMPILED_PAGE_KINDS` (through an async `vi.hoisted` import) instead of its hand copy of `html` and `jsx`. The card named the file under `views/`; it lives under `views/metadata-admin/`.\n4. New pin: `packages/components/src/renderers/layout/__tests__/page-kind-jsx-not-compiled-12486.test.tsx`.\n5. `.changeset/12486-drop-page-kind-jsx-arm.md`: `@object-ui/components: minor`, stating the narrowing in words.\n\n## What a stray `kind: 'jsx'` node draws: the decision, on the four axes\n\nThe options: **A**, the renderer's existing path for a kind it does not name (template / page type, as for an absent kind); **B**, a named error panel for `jsx`; **C**, a generic loud panel for any undeclared kind.\n\n- **Real business need (measured).** No producer reaches the renderer with `jsx`. On objectui `main` at `4be76e030`, the only `kind: 'jsx'` writer outside CHANGELOGs and pending changesets is the retired-value pin in `packages/types` (control: the same grep finds `kind: 'html'` in many files). On objectstack `main` at `7a6ba03`, only the test fixtures of the conversion and refusal machinery write it. B and C serve no measured case.\n- **Long-term soundness.** A keeps the renderer reading declared kinds only. B fossilises a retired value in the consumer and needs its own removal later.\n- **Keeping AI from writing wrong metadata.** The loud refusal already sits at the contract: the spec parse, the save door's 422, the TS face, and the zod face behind `objectui validate`. A adds no consumer tolerance and re-honours nothing. B would be a second, consumer-side spelling of a refusal the contract owns.\n- **No scope creep.** B and C add surface for a retired value, and immediate retirement says no.\n\nImplemented: **A**. The trade-off, stated plainly: at render, A is quiet (the source is not read); the refusal lives at authoring and save.\n\n## Evidence (all at head `bc88318`)\n\n- Closure build, `pnpm exec turbo run build --filter='@object-ui/app-shell^...' --concurrency=2`: `Tasks: 28 successful, 28 total`, exit 0 (3m0s on a shared box).\n- Console build as CI runs it, `VITE_BASE_PATH=/console/ pnpm --filter @object-ui/console exec vite build`: exit 0, `apps/console/dist/index.html` present (a 100.8s build on a shared box).\n- `pnpm --filter` `type-check`: `@object-ui/components` 0, `@object-ui/types` 0, `@object-ui/app-shell` 0. Both edited test files are inputs of their package's `tsconfig.test.json` (read with `--listFilesOnly`).\n- vitest, root form: `Test Files 88 passed (88)`, `Tests 2192 passed (2192)`. The set: `packages/components/src/renderers/layout/`, the app-shell requires-stamp test, 25 components tests that render page kinds, and 58 `packages/types/src` tests that name `jsx` or `kind`.\n- **Ablation** (put the arm back as `if (kind === 'html' || kind === 'jsx')`), through objectstack's `scripts/ablation-replace.mjs`: anchor hits 1 to 0, blob `b2b94175` to `ee18452c`. The pin went `2 failed | 1 passed` (subject and same-path red, control green), and `@object-ui/components` `type-check` went red with TS2367 on the re-added comparison, because the authoring-type read refuses it. Restore: blob after restore equals the HEAD blob `b2b94175`, and `git diff HEAD` is empty.\n- Gates: `check:changeset-claims` 0, `changeset:check` 0, `check:test-path-roots` 0, `check:spec-symbols` 0, `check-changeset-presence` 0, `check:new-line-citations` 0, `check:control-bytes` 0. eslint on the 4 changed source files: 0 errors (9 warnings, all on untouched lines). `check-governed-queue-guard --test`: NOT GOVERNED.\n- Not run locally: the whole `packages/app-shell/` suite and the full `pnpm test`; the CI shards run them.\n\n## Acceptance notes\n\n- The pending `.changeset/12464-retire-page-kind-jsx.md` kept a paragraph (it started `Unchanged:`) saying the renderer still renders a stored `jsx` page as `html`. This PR makes that false, so the seat's REWORK round 1 widened the file surface to that changeset's prose, and commit `240a30f9` deleted the paragraph (frontmatter untouched). The supersede sentence in this PR's own changeset was dropped as redundant.\n- objectstack's `packages/spec/liveness/page.json`, in the `source` row's note, cites the renderer's `kind:'jsx' branch`. After this PR that branch is the `kind:'html'` one. Prose drift in a ledger note that no gate reads; no carrier; not filed.\n\nSession: `https://claude.ai/code/session_011K9g23W67dy2zwnyzaoB6o`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_011K9g23W67dy2zwnyzaoB6o)_\n\n"
+}

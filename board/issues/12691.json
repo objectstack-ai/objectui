@@ -1,0 +1,26 @@
+{
+  "number": 12691,
+  "kind": "issue",
+  "title": "Studio Validations editor on a read-only package: ~20 disabled controls give no reason (no tooltip, no aria-describedby, no keyboard path)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T13:45:13Z",
+  "updated_at": "2026-10-16T13:45:13Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12691",
+  "body": "**Filing gate ①**: a user-visible product defect with a named landing and a reproduction. Reach: Studio on a read-only (code) package, reproduced 2/2 after a screenshot confirmed the render.\n\n**Reader who acts:** the objectui Studio lane seat owning the Validations editor in the Data pillar. Apply the same read-only-reason treatment objectui#12303 gave the Field-properties inspector.\n\n## What\n\nOn a read-only package, the Studio **Validations** editor renders about 20 disabled controls with no stated reason:\n- no tooltip on hover;\n- no `title` or `aria-describedby`;\n- no keyboard path (Tab never focuses them).\n\nThe Publish button and the Enabled toggle on the same page do carry the reason: \"Read-only package — switch to or create a writable package to edit.\"\n\n## Reproduction (objectstack `main` `2034975a`, console pin `daeb77fc`)\n\n1. As admin, open `/_console/studio/com.example.showcase/data?surface=object%3Ashowcase_task`.\n2. Click **Validations**. The rule \"Task Status Flow\" opens.\n3. Hover the Severity combobox (\"error (rejects the save)\") for 1.5 s. No `[role=tooltip]` appears, and no `title` / `aria-describedby` / `tabindex` is set on it or its ancestors.\n4. Tab through the page: no form control receives focus.\n5. Expected: hover and keyboard reach the read-only reason, as Publish and Enabled do.\n\n## Dedupe\n\nMCP `search_issues` on objectstack-ai/objectui, closed included → 11 hits, none matching (by the cloud runner). objectui#12303 names only the Field-properties inspector.\n\nQA-source: objectstack-ai/objectstack#23953 · ux-conventions.disabled-control-reason · clause 0"
+}

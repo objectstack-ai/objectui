@@ -1,0 +1,36 @@
+{
+  "number": 12669,
+  "kind": "pull_request",
+  "title": "fix(i18n): the cloud-connection \"Not connected\" card says its state and what Connect does",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T12:54:53Z",
+  "updated_at": "2026-10-16T13:38:43Z",
+  "closed_at": "2026-10-16T13:38:41Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T13:38:41Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12669",
+  "body": "Fixes #12655\nClause-②: no\n\n## What changed\n\nThe cloud-connection panel's \"Not connected\" card (`cloudConnection.unbound.body`, drawn by `CloudConnectionPanel`) opened with the page header subtitle's sentence word for word, so an admin on Setup's cloud connection page read it twice. The body now says the state and what Connect does:\n\n> This runtime is not connected to a control plane. Connect opens your cloud account in a new window, where one click approves the link — no ids or credentials are typed into this page.\n\n- The existing \"no ids or credentials\" reassurance is kept.\n- No control plane is named, and no new served field is read; nothing the panel is served says which control plane Connect binds to (card rulings).\n- All ten packs under `packages/i18n/src/locales/` carry the new text in their own language. The key name is unchanged, so no reader moves. `CloudConnectionPanel.tsx` is not touched.\n- The de body names the button bare (Verbinden), like the en body does, rather than in a „…“ pair: `de-quote-pairing-3876.test.ts` pins the pack's pair count, and a quoted button name added one pair (the first run went red on it; the second commit fixes it).\n- The page subtitle is objectstack's (`packages/cloud-connection/src/cloud-connection-ui.ts`) and is not changed.\n\n## Pin\n\n`packages/app-shell/src/console/cloud-connection/__tests__/CloudConnectionPanel.unboundBody-12655.test.tsx` renders the panel in its unbound state under the real `I18nProvider` (en), finds the new body inside the \"Not connected\" card beside the Connect button, and asserts the body neither contains the subtitle sentence nor opens with \"Connect this runtime\". It stubs `fetch` with `vi.stubGlobal`; no `vi.mock`. It reads no source.\n\nReverse check, run once (not kept): with `packages/i18n/src/locales/en.ts` put back to the base commit `f78efdd1e` on top of the fix commit, the pin went red (`Unable to find an element with the text: This runtime is not connected to a control plane. …`, `Tests 1 failed (1)`, lock verdict `command-exit 1`). The file was then restored from `HEAD`: `git diff HEAD` empty and the file's hash equal to its HEAD blob.\n\n## Verification (on head `4ba37c91f`)\n\n- `pnpm exec vitest run --maxWorkers=1 packages/i18n/ packages/app-shell/src/__tests__/product-neutral-renderer.ratchet.test.ts packages/app-shell/src/console/cloud-connection/` (under the shared verify lock): `Test Files 88 passed (88)`, `Tests 1368 passed | 13 skipped (1381)`, verdict `command-exit 0`.\n- Type-check, after building the `@object-ui/app-shell` dependency closure (`--filter '@object-ui/app-shell^...' build`, exit 0): `pnpm --filter @object-ui/i18n --filter @object-ui/app-shell run type-check`, both `Done`, exit 0. Both run `tsc -p tsconfig.test.json`, which type-checks the tests.\n- Gate battery, each exit 0: `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:control-bytes`, `node scripts/check-hand-rolled-comment-mask.mjs`, `node scripts/check-changeset-fixed.mjs`, `node scripts/check-changeset-presence.mjs`. `check:i18n-drift` reads: \"1 en value(s) changed … 9 pack value(s) followed … Every changed en value was followed by all nine translation packs.\" `check:i18n-drift`, `check:i18n-keys` and `check:control-bytes` were run again on the final head, each exit 0.\n- Lint, narrowed to the 11 changed `.ts`/`.tsx` files: `eslint --no-inline-config --format json` gives 11 files, 0 errors, 0 warnings, none ignored. `eslint.config.js` sets no type-aware parser project, so this diff cannot change the lint verdict on any untouched file. The repo-wide `pnpm lint` is left to CI.\n- NOT MEASURED: the whole `packages/app-shell/` test dir. A run under the lock did not finish inside the foreground cap (killed by `timeout 560`, exit 124). CI's `pnpm test` runs it. The app-shell files this diff can reach are measured above: the cloud-connection tests and the product-neutral ratchet, which reads locale keys.\n\n## Acceptance notes\n\n- `cloudConnection.*` is on the frozen product-specific allowlist (ADR-0060). This PR changes one value under an existing key. It adds no key and no allowlist entry.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer). One existing string's value changes; no key is added.\n\nChangeset: `.changeset/12655-cloud-unbound-copy.md` (`@object-ui/i18n` patch). Session: `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

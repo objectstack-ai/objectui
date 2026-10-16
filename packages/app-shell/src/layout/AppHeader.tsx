@@ -606,8 +606,14 @@ export function AppHeader({
             sidebar and its icon rail above that. It is the bar's leftmost
             control inside an app, so it never moves when the sidebar
             collapses; the sidebar itself carries no trigger. */}
-        {isApp && (
+        {isApp ? (
           <LocalizedSidebarTrigger className="shrink-0 mr-1" aria-label={t('common.toggleSidebar', { defaultValue: 'Toggle sidebar' })} />
+        ) : (
+          // objectui#12605 — the product mark sits at the same x on every
+          // surface. Off an app there is no sidebar to toggle, so the
+          // trigger's slot (its 28 px box and its gap) is held empty: the
+          // mark does not jump left when the viewer goes home.
+          <span aria-hidden data-testid="app-bar-trigger-slot" className="h-7 w-7 shrink-0 mr-1" />
         )}
 
         {/* The product mark — links to home, on every surface: the home

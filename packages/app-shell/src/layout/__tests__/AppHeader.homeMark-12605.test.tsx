@@ -70,7 +70,9 @@ vi.mock('../CurrentOrganizationIndicator', () => ({ CurrentOrganizationIndicator
 vi.mock('../LocaleSwitcher', () => ({ LocaleSwitcher: () => null }));
 vi.mock('../ConnectionStatus', () => ({ ConnectionStatus: () => null }));
 vi.mock('../LocalizedSidebarTrigger', () => ({
-  LocalizedSidebarTrigger: () => <button type="button" data-testid="sidebar-trigger-stub" />,
+  LocalizedSidebarTrigger: ({ className }: { className?: string }) => (
+    <button type="button" data-testid="sidebar-trigger-stub" className={className} />
+  ),
 }));
 vi.mock('../InboxPopover', () => ({ InboxPopover: () => null }));
 vi.mock('../../hooks/useAiSurface', () => ({
@@ -280,5 +282,21 @@ describe('CONTROL — the home page draws the same mark and leaves the chord alo
     expect(mark()).toHaveAttribute('title', getProductName());
     expect(screen.queryByTestId('app-bar-home-separator')).not.toBeInTheDocument();
     expect(advertised().map((s) => s.id)).not.toContain('go-home');
+  });
+
+  it('the mark keeps its x: the home bar holds the sidebar trigger\'s 28 px slot empty before it', () => {
+    mount('/home');
+    const slot = screen.getByTestId('app-bar-trigger-slot');
+    expect(slot).toHaveAttribute('aria-hidden');
+    expect(slot.nextElementSibling).toBe(mark());
+    // The trigger is `h-7 w-7` (LocalizedSidebarTrigger) and the bar gives it
+    // `shrink-0 mr-1`; the empty slot is the same box with the same gap.
+    expect(slot.className.split(/\s+/)).toEqual(expect.arrayContaining(['h-7', 'w-7', 'shrink-0', 'mr-1']));
+    cleanup();
+    mount('/apps/crm/lead');
+    expect(screen.queryByTestId('app-bar-trigger-slot')).not.toBeInTheDocument();
+    const trigger = screen.getByTestId('sidebar-trigger-stub');
+    expect(trigger.className.split(/\s+/)).toEqual(expect.arrayContaining(['shrink-0', 'mr-1']));
+    expect(trigger.nextElementSibling).toBe(mark());
   });
 });

@@ -2290,6 +2290,10 @@ const ko = {
       usePasswordSignInText: "비밀번호로 로그인하기",
       socialButton: "{provider} 계정으로 계속",
       orText: "또는 이메일로 계속",
+      ssoButton: "SSO로 로그인",
+      ssoOnlyDescription: "소속 조직의 싱글 사인온으로 로그인하세요",
+      usePasswordText: "비밀번호 사용하기",
+      backToSsoText: "싱글 사인온으로 돌아가기",
       // objectui#12600 — the console login card's own header, the password
       // field's reveal toggle, and the footer's legal links.
       welcomeTitle: "다시 오신 것을 환영합니다",

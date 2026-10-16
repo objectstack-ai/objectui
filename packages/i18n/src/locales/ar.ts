@@ -2502,6 +2502,10 @@ const ar = {
       usePasswordSignInText: "تسجيل الدخول بكلمة المرور بدلاً من ذلك",
       socialButton: "المتابعة باستخدام {provider}",
       orText: "أو تابع باستخدام البريد الإلكتروني",
+      ssoButton: "تسجيل الدخول باستخدام SSO",
+      ssoOnlyDescription: "سجّل الدخول عبر الدخول الموحّد لمؤسستك",
+      usePasswordText: "استخدام كلمة المرور بدلاً من ذلك",
+      backToSsoText: "العودة إلى الدخول الموحّد",
       // objectui#12600 — the console login card's own header, the password
       // field's reveal toggle, and the footer's legal links.
       welcomeTitle: "مرحبًا بعودتك",

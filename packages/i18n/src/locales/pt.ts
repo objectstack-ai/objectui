@@ -2337,6 +2337,10 @@ const pt = {
       usePasswordSignInText: "Entrar com senha em vez disso",
       socialButton: "Continuar com {provider}",
       orText: "ou continue com e-mail",
+      ssoButton: "Entrar com SSO",
+      ssoOnlyDescription: "Entre com o logon único da sua organização",
+      usePasswordText: "Usar uma senha em vez disso",
+      backToSsoText: "Voltar ao logon único",
       // objectui#12600 — the console login card's own header, the password
       // field's reveal toggle, and the footer's legal links.
       welcomeTitle: "Bem-vindo de volta",

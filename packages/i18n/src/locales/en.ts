@@ -2761,6 +2761,15 @@ const en = {
       // it — the same convention as `{seconds}` above (objectui#10900).
       socialButton: 'Continue with {provider}',
       orText: 'or continue with email',
+      // SSO sign-in (objectui#12762): the SSO button, and under SSO-only
+      // ("enforced") mode the line that says how to sign in, the break-glass
+      // link to the password form and the link back. Each English value is
+      // `LoginForm`'s own default for that label, so an English session reads
+      // the same with or without the pack.
+      ssoButton: 'Sign in with SSO',
+      ssoOnlyDescription: "Sign in with your organization's single sign-on",
+      usePasswordText: 'Use a password instead',
+      backToSsoText: 'Back to single sign-on',
       // objectui#12600 — the console login card's own header, the password
       // field's reveal toggle, and the footer's legal links.
       welcomeTitle: 'Welcome back',

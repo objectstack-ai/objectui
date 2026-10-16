@@ -2356,6 +2356,10 @@ const zh = {
       usePasswordSignInText: '改用密码登录',
       socialButton: '使用 {provider} 继续',
       orText: '或使用邮箱继续',
+      ssoButton: '使用 SSO 登录',
+      ssoOnlyDescription: '使用你所在组织的单点登录进行登录',
+      usePasswordText: '改用密码登录',
+      backToSsoText: '返回单点登录',
       // objectui#12600 — the console login card's own header, the password
       // field's reveal toggle, and the footer's legal links.
       welcomeTitle: '欢迎回来',

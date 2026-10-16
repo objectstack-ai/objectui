@@ -2292,6 +2292,10 @@ const ja = {
       usePasswordSignInText: "パスワードでサインインする",
       socialButton: "{provider} で続行",
       orText: "またはメールアドレスで続行",
+      ssoButton: "SSO でサインイン",
+      ssoOnlyDescription: "所属組織のシングルサインオンでサインインしてください",
+      usePasswordText: "パスワードを使用する",
+      backToSsoText: "シングルサインオンに戻る",
       // objectui#12600 — the console login card's own header, the password
       // field's reveal toggle, and the footer's legal links.
       welcomeTitle: "おかえりなさい",

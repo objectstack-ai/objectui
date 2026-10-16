@@ -2342,6 +2342,10 @@ const es = {
       usePasswordSignInText: "Iniciar sesión con contraseña en su lugar",
       socialButton: "Continuar con {provider}",
       orText: "o continúe con correo electrónico",
+      ssoButton: "Iniciar sesión con SSO",
+      ssoOnlyDescription: "Accede con el inicio de sesión único de tu organización",
+      usePasswordText: "Usar una contraseña en su lugar",
+      backToSsoText: "Volver al inicio de sesión único",
       // objectui#12600 — the console login card's own header, the password
       // field's reveal toggle, and the footer's legal links.
       welcomeTitle: "Bienvenido de nuevo",

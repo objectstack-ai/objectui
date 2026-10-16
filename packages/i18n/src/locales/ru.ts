@@ -2406,6 +2406,10 @@ const ru = {
       usePasswordSignInText: "Войти с паролем",
       socialButton: "Продолжить через {provider}",
       orText: "или продолжите с электронной почтой",
+      ssoButton: "Войти через SSO",
+      ssoOnlyDescription: "Войдите через единый вход вашей организации",
+      usePasswordText: "Использовать пароль",
+      backToSsoText: "Вернуться к единому входу",
       // objectui#12600 — the console login card's own header, the password
       // field's reveal toggle, and the footer's legal links.
       welcomeTitle: "С возвращением",

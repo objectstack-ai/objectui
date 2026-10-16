@@ -2339,6 +2339,10 @@ const fr = {
       usePasswordSignInText: "Se connecter avec un mot de passe à la place",
       socialButton: "Continuer avec {provider}",
       orText: "ou continuer avec l'e-mail",
+      ssoButton: "Se connecter avec le SSO",
+      ssoOnlyDescription: "Connectez-vous avec l'authentification unique de votre organisation",
+      usePasswordText: "Utiliser un mot de passe à la place",
+      backToSsoText: "Revenir à l'authentification unique",
       // objectui#12600 — the console login card's own header, the password
       // field's reveal toggle, and the footer's legal links.
       welcomeTitle: "Bon retour",

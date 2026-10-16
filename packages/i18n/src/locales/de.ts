@@ -2290,6 +2290,10 @@ const de = {
       usePasswordSignInText: "Stattdessen mit Passwort anmelden",
       socialButton: "Weiter mit {provider}",
       orText: "oder mit E-Mail fortfahren",
+      ssoButton: "Mit SSO anmelden",
+      ssoOnlyDescription: "Melden Sie sich über das Single Sign-on Ihrer Organisation an",
+      usePasswordText: "Stattdessen ein Passwort verwenden",
+      backToSsoText: "Zurück zum Single Sign-on",
       // objectui#12600 — the console login card's own header, the password
       // field's reveal toggle, and the footer's legal links.
       welcomeTitle: "Willkommen zurück",

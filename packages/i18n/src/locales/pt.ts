@@ -2084,6 +2084,7 @@ const pt = {
       toggleSidebar: "Alternar barra lateral",
       newChat: "Nova conversa",
       toggleChatsList: "Alternar lista de conversas",
+      goHome: "Voltar ao início",
     },
     commandPalette: {
       title: "Paleta de comandos",
@@ -2774,6 +2775,9 @@ const pt = {
       noAppsConfigured: "Nenhum aplicativo configurado",
       allApps: "Todos os aplicativos",
       editAppInStudio: "Editar {{app}} no Studio",
+      backToHome: "Voltar ao início",
+      settings: "Configurações",
+      productHome: "Início do {{product}}",
     },
     activityFeed: {
       title: "Atividade recente",

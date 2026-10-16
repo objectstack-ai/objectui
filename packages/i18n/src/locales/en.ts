@@ -2173,6 +2173,7 @@ const en = {
       toggleSidebar: 'Toggle sidebar',
       newChat: 'New chat',
       toggleChatsList: 'Toggle conversations list',
+      goHome: 'Back to home',
     },
     commandPalette: {
       title: 'Command palette',
@@ -3234,6 +3235,9 @@ const en = {
       noAppsConfigured: 'No apps configured',
       allApps: 'All apps',
       editAppInStudio: 'Edit {{app}} in Studio',
+      backToHome: 'Back to home',
+      settings: 'Settings',
+      productHome: '{{product}} home',
     },
     systemNav: {
       systemSettings: 'System Settings',

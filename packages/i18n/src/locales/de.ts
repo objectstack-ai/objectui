@@ -2040,6 +2040,7 @@ const de = {
       toggleSidebar: "Seitenleiste umschalten",
       newChat: "Neuer Chat",
       toggleChatsList: "Chatliste umschalten",
+      goHome: "Zurück zur Startseite",
     },
     commandPalette: {
       title: "Befehlspalette",
@@ -2726,6 +2727,9 @@ const de = {
       noAppsConfigured: "Keine Apps konfiguriert",
       allApps: "Alle Apps",
       editAppInStudio: "{{app}} im Studio bearbeiten",
+      backToHome: "Zurück zur Startseite",
+      settings: "Einstellungen",
+      productHome: "{{product}} Startseite",
     },
     activityFeed: {
       title: "Letzte Aktivitäten",

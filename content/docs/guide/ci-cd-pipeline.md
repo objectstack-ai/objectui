@@ -29,7 +29,6 @@ one has its own section below.
 | `changeset-presence.yml` | Changeset Declaration | PR to `main`, `develop` — **no path filter**; merge-queue builds | **Yes** — when a released package's `src/` changed and no changeset was added |
 | `repo-gates.yml` | Repo Gates | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — fifteen gates as steps of one job ([#12214](https://github.com/objectstack-ai/objectui/issues/12214)); the job is red when any step is, and `scripts/dependabot-merge-gate.mjs` declares the context in `REQUIRED_CONTEXTS` |
 | `line-citation-gate.yml` | Line Citation Gate | PR to `main`, `develop` — **no path filter**; manual | No — **report-only** while it beds in; it exits 0 whatever it finds, and exits 1 only when one of its own synthetic controls fails. It declares no `merge_group` trigger, so it cannot be a required context in its current state |
-| `spec-main-shape-gate.yml` | Spec Main Shape Gate | PR to `main`, `develop` — **no path filter**; manual; hourly `schedule` on `main` | No — **advisory** since [#12240](https://github.com/objectstack-ai/objectui/issues/12240): the maintainer's ruling took the context out of the required set, and `scripts/dependabot-merge-gate.mjs` classifies it `NOT_A_GATE`. Its verdict is unchanged — a shape break is a real red naming the objectui file and the objectstack commit ([#9860](https://github.com/objectstack-ai/objectui/issues/9860)) — and a red on the hourly `schedule` run on `main` is a main-red for the `domain:devx` lane |
 | `governed-surface-guard.yml` | Governed Surface Queue Guard | PR to `main`, `develop` (incl. `ready_for_review`) — **no path filter**; merge-queue builds | **Yes on a queue build only** — a governed-surface diff with no authorized approval record (on any commit) is refused there, and so is any merge group whose queued pull requests still carry `needs:contract-review`; on the pull request itself it is deliberately green and prints an early warning |
 | `performance-budget.yml` | Bundle Analysis | Push / PR touching `packages/**`, `apps/console/**`, `pnpm-lock.yaml` | **Yes** — the console entry gzip budget |
 | `lockfile-integrity.yml` | Lockfile Integrity Check | PR to `main`, `develop` touching `pnpm-lock.yaml` or the gate's own two files; manual | No — **deliberately not a blocking context** ([#8326](https://github.com/objectstack-ai/objectui/issues/8326)); it names the packages and the Dependabot merge gate classifies it `NOT_A_GATE` |
@@ -593,11 +592,12 @@ job, and nothing was weakened in the fold:
 
 **What moved:** the check runs. None of the fifteen was a required context of the merge queue —
 `scripts/check-required-check-set.mjs` reads the live set — which is also why `changeset-presence.yml`
-(**Changeset Declaration**), `spec-main-shape-gate.yml` and `governed-surface-guard.yml` were not
+(**Changeset Declaration**), the Spec Main Shape Gate and `governed-surface-guard.yml` were not
 folded: their contexts were required when the fold landed, and a step inside a job is not a check run
 (the spec gate's has since left the set, by
-[#12240](https://github.com/objectstack-ai/objectui/issues/12240), and keeps its own workflow for its
-hourly run on `main`). The one in-tree
+[#12240](https://github.com/objectstack-ai/objectui/issues/12240), and its workflow was deleted by
+[#12352](https://github.com/objectstack-ai/objectui/issues/12352) when the gate
+[moved to objectstack](#spec-shape-gate--moved-to-objectstack)). The one in-tree
 reader of the old names, `REQUIRED_CONTEXTS` in `scripts/dependabot-merge-gate.mjs`, now waits for
 the one context this job produces.
 
@@ -2109,122 +2109,42 @@ Uses [Lychee](https://github.com/lycheeverse/lychee) with configuration from `ly
   excluded wholesale. Judging those routes is `check-doc-links.mjs`'s job, and duplicating its
   route-to-file mapping here would only create a second copy free to drift.
 
-## Spec Main Shape Gate (`spec-main-shape-gate.yml`)
+## Spec Shape Gate — moved to objectstack
 
-**Trigger:** PR to `main`, `develop` — **no path filter**; manual; hourly `schedule` on `main`.
-**Appears as:** Spec Main Shape Gate.
+The gate that compiled this repository against `@objectstack/spec` built from objectstack `main`
+no longer runs here. Under the maintainer's ruling B on
+[objectstack#23238](https://github.com/objectstack-ai/objectstack/issues/23238), the shape gate
+moved to the repository whose commits change the shape, and
+[#12352](https://github.com/objectstack-ai/objectui/issues/12352) deleted objectui's copy — its
+workflow, its script and its pin test — once the two gates had read the same diagnostics on
+consecutive hourly runs (the readings are on that card, not restated here). The gate's history in
+this repository — option C of [#9860](https://github.com/objectstack-ai/objectui/issues/9860), its
+enrolment under [#9969](https://github.com/objectstack-ai/objectui/issues/9969) and its removal from
+the required set under [#12240](https://github.com/objectstack-ai/objectui/issues/12240) — lives on
+those cards and in git history.
 
-It builds `@objectstack/spec` from objectstack `main` at a git sha and compiles this repository
-against it. This is the maintainer's option C, ruled 2026-09-18
-([#9860](https://github.com/objectstack-ai/objectui/issues/9860)): under it, a real consumer's
-compile is the **only** shape gate for that package's public surface, replacing the
-declaration-text snapshot the platform repository is reverting. objectui is the first consumer.
-
-**What a red says, and why that is the point.** Not "typecheck failed" — the job names *which
-objectui file* stopped compiling and *which objectstack commit* it was compiled against, as
-GitHub annotations on the failing lines and as a table in the run summary, so the objectstack pull
-request that moved the shape is the one that answers. `scripts/spec-main-shape-gate.mjs` owns that
-half, and it refuses to report a failure it could not attribute to a file as a shape break at all:
-that exits 2 and says so, rather than billing the wrong repository.
-
-**How it reaches the spec without moving the pin.** This repository consumes a *published*
-`@objectstack/spec` through a caret range in many manifests and a resolution in `pnpm-lock.yaml`.
-The job changes none of that — the pin-bump question is a separate, open one. After the ordinary
-`pnpm install --frozen-lockfile`, it replaces the installed copy **inside pnpm's virtual store**
-with the source-built one, which every workspace consumer already symlinks to, and then proves
-every consumer landed on it before compiling. Nothing tracked by git is touched, and the
-replacement is remove-then-copy: those files are hardlinks into pnpm's global store, so writing
-*through* one would corrupt that store for every later job and for the cache `actions/setup-node`
-saves.
-
-Two mechanisms that look like the obvious answer cannot do this job, and the script's header
-carries the long version:
-
-- **`OBJECTSTACK_SPEC_DIST`** (`scripts/vite-objectstack-spec-dist.ts`) already resolves
-  `@objectstack/spec` at a locally built spec — but it emits Vite `resolve.alias` entries, and
-  `tsc` does not read a Vite config. A typecheck run under it compiles against the *installed*
-  spec: a green that means nothing. It remains the right hook for the console **build**.
-- **A `pnpm.overrides` / `file:` / `link:` entry** moves `pnpm-workspace.yaml`, a `package.json`
-  or the lockfile. Every one of those is the pin.
-
-**The fetch is sparse, blobless and at a sha, never a full clone per run.** The cone holds
-`packages/spec` *and* `scripts`, because the spec's own build script calls scripts from the
-objectstack repository root. A packed codeload tarball was measured against it and rejected: the
-tarball endpoint has no server-side path filter, so it ships the whole repository however little
-of it the job needs.
-
-**The spec is built only when objectstack `main` moved**
-([#12214](https://github.com/objectstack-ai/objectui/issues/12214)). The hourly `schedule` run on
-`main` — this gate's place in the full battery — publishes the spec it packed as the artifact
-`objectstack-spec-<sha>`, with the sha it was packed at, kept one day. Every other run first looks
-for that artifact at the sha it just resolved and injects it instead of building again; the clone
-and the spec's own install still run, because the injection reads the dependencies the spec's
-build resolved. Only an artifact from a `main` run of this repository is reused: a pull request
-(or a manual dispatch on a branch) runs its own branch's workflow file, so what it could upload is
-not evidence about a spec. A failed lookup or download, or an artifact recording another sha, means
-*build*. What this saves is the build and the pack — the forced compile below is most of the job and
-is never cached; the measured split is on #12214's pull request, not restated here.
-
-**The compile is `TURBO_FORCE=true pnpm type-check --continue`, and every word of it is
-load-bearing.** That task dependsOn `^build`, so the job builds every workspace package against
-the injected spec and then type-checks against those declarations — both halves of the consumer
-compile. turbo's hash covers this repository's sources, its lockfile and a declared env list —
-not the *content* of `node_modules`, which is the only thing this job changes. Cached, it would
-replay a verdict taken against a different spec, including the published one.
-
-`--continue` is what makes the diagnostic list a *set* rather than a lower bound. turbo stops
-scheduling at the first failing task unless told otherwise, so without it the parsed log carries
-the first broken package's diagnostics and says nothing at all about the packages turbo never
-asked — while reporting that silence as the reading. The harm is not hypothetical: while one
-long-lived break sits in the graph, every run stops at it and no other package's drift against
-the spec is ever measured. The flag does not soften the verdict — turbo still exits non-zero
-when a task failed — it only completes it. The ablation behind that claim, two packages broken
-on purpose with the same command otherwise, is in this gate's own pull request rather than
-copied here.
-
-**The attribution reads the log order turbo actually emits.** `tsc` prints paths relative to the
-package directory, so `src/foo.ts(3,9)` names no file until something says which package. turbo
-carries that in one of two carriers depending on where it runs: a `<package>:<task>:` prefix on
-every line locally, and on a GitHub Actions runner a `##[group]<package>:<task>` header with the
-output emitted bare beneath it — with the *failing* task announced by a bare colourised header
-and no group at all. Only the second ever reaches this job, and a prefix-only reading has nothing
-to match in it. `scripts/__tests__/spec-main-shape-gate.test.ts` pins the bypass, the completeness
-flag, the unfiltered trigger, the absence of a queue subscription and both attribution carriers,
-each with the firing control that proves the assertion is not satisfied by something else.
-
-**How it became a required check, and how it left the set.** Requiredness is a GitHub ruleset —
-repository settings — which `scripts/check-required-check-set.mjs` can read and nothing in this tree
-can write. The workflow was built to be requirable (unfiltered on `pull_request`, subscribed to
-`merge_group`, no `continue-on-error`), so the maintainer could enrol the context on its own without
-stalling the queue. It waited for the day-one break to clear — its first run was red on one objectui
-file over an objectstack commit — and was enrolled under
-[#9969](https://github.com/objectstack-ai/objectui/issues/9969)'s ruling A. The in-tree half of that
-action came second: the name moved from `NOT_A_GATE` to `REQUIRED_CONTEXTS` in
-`scripts/dependabot-merge-gate.mjs`.
-
-[#12240](https://github.com/objectstack-ai/objectui/issues/12240) reversed the enrolment on the
-maintainer's ruling B, the two-speed doctrine of
-[objectstack#22998](https://github.com/objectstack-ai/objectstack/issues/22998) applied to this gate:
-it was the pull request's critical path, and most of its reds are objectstack drift rather than the
-pull request's own change. **Nothing it verifies changed**, and it still runs on every event above;
-what changed is who waits for its verdict.
-
-- On `main`'s hourly `schedule` run it is part of the full battery, and **a red there is a main-red
-  for the `domain:devx` lane**: the lane's next pull request carries the fix or the pin bump, and no
-  pull request of that lane arms the queue while the red stands.
-- On a pull request it posts the same verdict as an advisory check. Advisory is not a mechanism in
-  the workflow — requiredness is the ruleset's — so it carries no `continue-on-error`, which would
-  hide the verdict and change nothing about who waits for it.
-- The name moved back to `NOT_A_GATE` in `scripts/dependabot-merge-gate.mjs`, so a Dependabot bump
-  does not wait for it either, and `scripts/check-required-check-set.mjs` no longer watches it.
-- It does not run on queue builds. [#12252](https://github.com/objectstack-ai/objectui/issues/12252)
-  dropped the `merge_group` trigger once the context was out of the queue's required set: a verdict
-  on a merge group is read by nobody, and every merge group paid a runner for it. The way back is
-  two edits in this order — re-subscribe `merge_group`, then enrol the context — because a required
-  context that never reports on a queue build stalls it at the ruleset's 60-minute timeout. The
-  test file pins the absence, so re-enrolling edits both on purpose.
-
-Whether the context is enrolled today is not answered here; the patrol's reading answers it.
+- **Where it runs now.** objectstack's `.github/workflows/spec-shape-gate.yml`, hourly on objectstack
+  `main`. It clones objectui `main`, injects the spec built from the objectstack commit into this
+  repository's install, and runs this repository's `pnpm type-check` with the turbo cache bypassed,
+  so a red still names the objectui file and the objectstack commit. objectstack's release gate
+  (`scripts/ci/scheduled-full-run.mjs` there) reads those runs, and a red is attributed to the
+  objectstack lane that moved the shape. Nothing in this repository waits for it: no workflow here
+  produces the Spec Main Shape Gate context any more, and `scripts/check-required-check-set.mjs`
+  keeps a tombstone saying the name must not come back to the ruleset.
+- **Where an intentional retirement is registered.** An objectstack change that removes something
+  objectui still compiles against, on purpose, is registered in objectstack's
+  `scripts/ci/spec-shape-retirements.json`, beside the objectui card that removes the downstream
+  use. The gate reads a diagnostic matching a registered retirement as known rather than new;
+  that file's own header states the entry grammar and when an entry is deleted.
+- **What stays here.** `turbo.json` still names
+  `node_modules/@objectstack/spec/.spec-main-shape-gate.json` in `globalDependencies`. objectstack's
+  injection writes that marker — the name is kept on purpose — into every copy of the spec it
+  replaces, so a tree holding an injected spec never shares a turbo hash with an installed one. That
+  matters when somebody reproduces the gate locally in a linked worktree, whose `.turbo/cache` is
+  shared with its siblings: a forced run skips cache reads but still writes, and without the marker
+  an ordinary `pnpm type-check` in a sibling could replay a verdict taken against the injected spec
+  ([#12114](https://github.com/objectstack-ai/objectui/issues/12114)). An installed tree carries no
+  marker, and an absent global dependency hashes as nothing.
 
 
 ## Release Workflows

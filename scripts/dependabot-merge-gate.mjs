@@ -206,10 +206,6 @@ export const REQUIRED_CONTEXTS = Object.freeze([
   'Repo Gates',
   'Changeset Declaration',
   'Governed Surface Queue Guard',
-  // ⛔ `Spec Main Shape Gate` is NOT here since objectui#12240: it sat here from
-  // objectui#9969 (ruling A, the in-tree half of enrolling it) and moved to
-  // `NOT_A_GATE` below when the maintainer's ruling B took it out of the
-  // required set. The reason is written there.
 ]);
 
 /**
@@ -305,8 +301,6 @@ export const NOT_A_GATE = Object.freeze({
   'Test (coverage shard 6/8)': COVERAGE_SHARD_NOT_A_GATE,
   'Test (coverage shard 7/8)': COVERAGE_SHARD_NOT_A_GATE,
   'Test (coverage shard 8/8)': COVERAGE_SHARD_NOT_A_GATE,
-  'Spec Main Shape Gate':
-    "spec-main-shape-gate.yml is ADVISORY on a pull request by ruling (objectui#12240: the maintainer's ruling B on objectui#12214's open question 1, ACCEPT 6123370050). It compiles this repository against `@objectstack/spec` built from objectstack `main`, so most of its reds name an objectstack commit rather than anything the pull request changed (measured on objectui#12214, not copied here), and its place in the two-speed doctrine (objectstack#22998) is the hourly `schedule` run on `main`, where a red is a main-red for the `domain:devx` lane. It still reports on every pull request and its verdict is real -- nothing it verifies changed and it carries no `continue-on-error` -- so a red here is ignored because the lane is advisory, never because the check cannot fail. It sat in `REQUIRED_CONTEXTS` from objectui#9969 (ruling A) to objectui#12240, the in-tree half of the maintainer's enrolment; ⛔ moving it back is the in-tree half of a re-enrolment, a ruling and not a tidy-up, and it puts the workflow back inside the `merge_group` floor `merge-queue-reporting.test.ts` derives from that list.",
   'Live E2E (informational)':
     'live-e2e.yml is declared INFORMATIONAL and NON-REQUIRED in its own header, and ci-cd-pipeline.md says in as many words not to add it to required checks. It carries no `continue-on-error` since objectui#8084 — that flag left this check run red anyway and only inverted the workflow-run conclusion — so a red here is a real red, ignored because the lane is advisory and never because the check could not fail.',
   label:

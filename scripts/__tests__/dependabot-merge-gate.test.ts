@@ -392,53 +392,6 @@ describe('the path-filtered blocking checks (optional bucket)', () => {
   });
 });
 
-/**
- * objectui#12240 — the maintainer's ruling B on objectui#12214's open question
- * 1 (ACCEPT 6123370050). `Spec Main Shape Gate` leaves the required set and is
- * advisory on a pull request, so it moved back from `REQUIRED_CONTEXTS` (where
- * objectui#9969's ruling A had put it) to `NOT_A_GATE`. This block pins the
- * MOVE by name, in both directions: an edit that parks the name back in
- * `REQUIRED_CONTEXTS` without a ruling fails here, and so does one that drops
- * it from every bucket. The control comes first: the same red on a context
- * that IS required still refuses the head, so each green below is about this
- * one name and not about a snapshot that stopped being read.
- */
-describe('Spec Main Shape Gate is advisory, not waited for (objectui#12240)', () => {
-  const NAME = 'Spec Main Shape Gate';
-  const withSpecGate = (conclusion: string | null, status = 'completed') => [
-    ...allGreenSnapshot(),
-    { id: 95_325_290_000, name: NAME, status, conclusion },
-  ];
-
-  it('is declared NOT_A_GATE, with a reason, and in neither other bucket', () => {
-    expect(Object.keys(NOT_A_GATE)).toContain(NAME);
-    expect(NOT_A_GATE[NAME as keyof typeof NOT_A_GATE]).toMatch(/objectui#12240/);
-    expect(REQUIRED_CONTEXTS).not.toContain(NAME);
-    expect(Object.keys(OPTIONAL_CONTEXTS)).not.toContain(NAME);
-  });
-
-  it('CONTROL: the same red on a REQUIRED context still refuses the head', () => {
-    const runs = withSpecGate('success').map((run) =>
-      run.name === 'Type Check' ? { ...run, conclusion: 'failure' } : run,
-    );
-    expect(evaluateGate({ checkRuns: runs }).verdict).toBe('red');
-  });
-
-  it('does not refuse a head on which it reported failure', () => {
-    const result = evaluateGate({ checkRuns: withSpecGate('failure') });
-
-    expect(result.verdict).toBe('green');
-    expect(result.failing).toEqual([]);
-  });
-
-  it('does not hold a head on which it is still running, or has not reported', () => {
-    expect(evaluateGate({ checkRuns: withSpecGate(null, 'in_progress') }).verdict).toBe('green');
-    const absent = evaluateGate({ checkRuns: allGreenSnapshot().filter((run) => run.name !== NAME) });
-    expect(absent.verdict).toBe('green');
-    expect(absent.missing).toEqual([]);
-  });
-});
-
 describe('waitForGate: the deadline fails closed', () => {
   const fakeClock = () => {
     let nowMs = 0;

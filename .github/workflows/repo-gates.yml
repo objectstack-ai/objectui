@@ -21,8 +21,9 @@ name: Repo Gates
 # reads the live set; when this fold landed the ruleset named
 # `Governed Surface Queue Guard`, `Changeset Declaration` and
 # `Spec Main Shape Gate`, which is why those three workflows were NOT folded --
-# the last has since left the set by objectui#12240's ruling and keeps its own
-# workflow for its hourly run on `main`), so the queue is unchanged. The one in-tree reader
+# the last has since left the set by objectui#12240's ruling, and objectui#12352
+# deleted its workflow when the spec shape gate moved to objectstack), so the
+# queue is unchanged. The one in-tree reader
 # of the old names, `scripts/dependabot-merge-gate.mjs`, now waits for the one
 # context this job produces, `Repo Gates`.
 #

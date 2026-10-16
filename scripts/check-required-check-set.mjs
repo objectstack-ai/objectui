@@ -208,13 +208,13 @@ export const WATCHED_CONTEXTS = Object.freeze([
   // ⛔ TOMBSTONE -- `Spec Main Shape Gate`, watched here from objectui#9969
   // (ruling A, which enrolled it) to objectui#12240, which removed it: the
   // maintainer's ruling B on objectui#12214's open question 1 (ACCEPT
-  // 6123370050) takes the context out of the required set -- advisory on pull
-  // requests, hourly on `main` in the full battery, nothing it verifies
-  // changed (`.github/workflows/spec-main-shape-gate.yml`'s header). ⛔ Do not
-  // re-add it to agree with whatever the endpoint says: the ruleset edit is
-  // the maintainer's act, and this list names the set the ruling installs.
-  // Re-enrolling it is a ruling, and its in-tree half is moving the name back
-  // into `REQUIRED_CONTEXTS` in `scripts/dependabot-merge-gate.mjs`.
+  // 6123370050) took the context out of the required set. objectui#12352 then
+  // deleted the workflow that produced it, executing ruling B on
+  // objectstack-ai/objectstack#23238: the spec shape gate runs in objectstack
+  // now, and no workflow in this repository reports the context any more.
+  // ⛔ Do not re-add it, here or to the ruleset: a required context that
+  // nothing reports leaves every merge group pending until the ruleset's
+  // timeout, with nothing red to point at (objectui#3523).
   'Governed Surface Queue Guard',
 ]);
 

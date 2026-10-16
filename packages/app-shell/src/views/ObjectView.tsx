@@ -993,8 +993,10 @@ export async function loadViewOverrides(
 type ViewLabelLookup = (objectName: string, viewName: string, fallback: string) => string;
 
 /**
- * A switcher tab's text — the desktop tab bar and the mobile switcher draw the
- * same string (objectui#11295).
+ * A view's name wherever the object page names it — the desktop tab bar and the
+ * mobile switcher draw the same string (objectui#11295), and the record page's
+ * way back (`location.state.from`) names the open view the same way, so the
+ * link and the tab agree (objectui#11733).
  *
  * A view a server read served — a `/meta/view` document, or an entry the served
  * object document embeds in its own `listViews` (objectui#11336) — arrives
@@ -1003,32 +1005,23 @@ type ViewLabelLookup = (objectName: string, viewName: string, fallback: string) 
  * second translation pass in which the bundle won the edit back. Any other view
  * — derived client-side — still goes through `viewLabel`, its only
  * translation. `useServedViewItems` says which is which, and why.
+ *
+ * A view with no `label` is named `unlabelled`, which every caller passes as
+ * the object's PLURAL label: the spec gives a view's `label` no default and the
+ * server no longer invents one from the `name` (objectstack PR #24013), so the
+ * view is called what a list of the object's records is called — never its
+ * qualified name, which is what a label-less view's tab drew before
+ * (objectui#12774).
  */
 function viewTabLabel(
-    view: { id: string; name?: string; label?: string },
-    objectName: string,
-    servedViews: ReturnType<typeof useServedViewItems>,
-    viewLabel: ViewLabelLookup,
-): string {
-    const text = view.label || view.name || view.id;
-    return isServedView(servedViews, objectName, view.id) ? text : viewLabel(objectName, view.name || view.id, text);
-}
-
-/**
- * The open view's name on the record page's way back (`location.state.from`),
- * decided as {@link viewTabLabel} decides a tab's, so the link names the view
- * the way its tab does. Empty when the view has no label: the caller falls back
- * to the object's PLURAL label, since the link goes back to a list of its
- * records (objectui#11733).
- */
-function viewOriginLabel(
     view: { id?: string; name?: string; label?: string },
     objectName: string,
     servedViews: ReturnType<typeof useServedViewItems>,
     viewLabel: ViewLabelLookup,
+    unlabelled: string,
 ): string {
-    const text = view.label ?? '';
-    return isServedView(servedViews, objectName, view.id) ? text : viewLabel(objectName, view.name ?? '', text);
+    const text = view.label || unlabelled;
+    return isServedView(servedViews, objectName, view.id) ? text : viewLabel(objectName, view.name || view.id || '', text);
 }
 
 /**
@@ -1683,6 +1676,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
         objectName,
         label: objectPluralLabel(objectDef),
     });
+    // A view stored with no `label` is named by the object's plural label, on
+    // its tab and on the record page's way back alike (objectui#12774).
+    const unlabelledViewText = objectPluralLabel(objectDef);
 
     // Refresh trigger — bumped after view CRUD or this page's own data writes.
     const [ownRefreshKey, setRefreshKey] = useState(0);
@@ -2423,11 +2419,11 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             const Icon = VIEW_TYPE_ICONS[view.type as keyof typeof VIEW_TYPE_ICONS];
             return {
                 id: view.id,
-                label: viewTabLabel(view, objectDef.name, servedViews, viewLabel),
+                label: viewTabLabel(view, objectDef.name, servedViews, viewLabel, unlabelledViewText),
                 icon: Icon ? <Icon className="h-4 w-4" /> : undefined,
             };
         });
-    }, [views, objectDef.name, viewLabel, servedViews]);
+    }, [views, objectDef.name, viewLabel, unlabelledViewText, servedViews]);
     useMobileViewSwitcherRegistration({
         views: mobileViewSwitcherItems,
         activeViewId: activeViewId ?? '',
@@ -2824,7 +2820,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             const originState = {
               from: {
                 pathname: location.pathname + (location.search || ''),
-                label: viewOriginLabel({ id: activeView?.id, name: activeView?.name, label: activeView?.label }, objectDef.name, servedViews, viewLabel) || objectPluralLabel(objectDef),
+                label: viewTabLabel({ id: activeView?.id, name: activeView?.name, label: activeView?.label }, objectDef.name, servedViews, viewLabel, unlabelledViewText),
               },
             };
             if (viewId) {
@@ -2833,7 +2829,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 navigate(`record/${encodeURIComponent(String(recordId))}`, { state: originState });
             }
         },
-        [navigate, viewId, location.pathname, location.search, objectDef, activeView?.id, activeView?.name, activeView?.label, viewLabel, objectPluralLabel, servedViews]
+        [navigate, viewId, location.pathname, location.search, objectDef, activeView?.id, activeView?.name, activeView?.label, viewLabel, unlabelledViewText, servedViews]
     );
     /**
      * The list surface's half of the record-link mechanism (objectui#4490):
@@ -2961,7 +2957,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
         const isSystem = !saved;
         return {
             id: view.id,
-            label: viewTabLabel(view, objectDef.name, servedViews, viewLabel),
+            label: viewTabLabel(view, objectDef.name, servedViews, viewLabel, unlabelledViewText),
             type: view.type,
             hasActiveFilters: Array.isArray(view.filter) && view.filter.length > 0,
             hasActiveSort: Array.isArray(view.sort) && view.sort.length > 0,
@@ -3771,7 +3767,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 const originState = {
                   from: {
                     pathname: location.pathname + (location.search || ''),
-                    label: viewOriginLabel({ id: activeView?.id, name: activeView?.name, label: activeView?.label }, objectDef.name, servedViews, viewLabel) || objectPluralLabel(objectDef),
+                    label: viewTabLabel({ id: activeView?.id, name: activeView?.name, label: activeView?.label }, objectDef.name, servedViews, viewLabel, unlabelledViewText),
                   },
                 };
                 if (viewId) {
@@ -3781,7 +3777,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 }
             }
         },
-    }), [objectDef, onEdit, activeViewSearch, activeViewFilter, activeViewSort, activeView?.id, activeView?.name, activeView?.label, navigate, viewId, isAdmin, location.pathname, location.search, viewLabel, objectPluralLabel, servedViews]);
+    }), [objectDef, onEdit, activeViewSearch, activeViewFilter, activeViewSort, activeView?.id, activeView?.name, activeView?.label, navigate, viewId, isAdmin, location.pathname, location.search, viewLabel, unlabelledViewText, servedViews]);
 
     // The header's primary action, drawn the same in both of the header's
     // faces (below). [#5153] `objectCanCreate && createVisible` — the

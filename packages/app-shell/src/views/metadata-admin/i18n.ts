@@ -2890,7 +2890,9 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.close': 'Close',
   'engine.studio.deselect': 'Clear selection',
   'engine.studio.toggleRail': 'Toggle sidebar',
-  'engine.studio.home': 'Back to home',
+  // objectui#12513 — the header's first button and the package switcher's
+  // first row: both return to the Studio landing (`/studio`).
+  'engine.studio.landingHome': 'Studio home',
   // objectui#11795 — the one line a phone shows under the Studio header.
   'engine.studio.desktopHint': 'Studio is built for a desktop screen.',
   // Pillar tab labels
@@ -3048,7 +3050,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // objectui#11808 — the routes a read-only package does have (ADR-0070 D2,
   // ADR-0005): an environment overlay, and the marketplace where the runtime has one.
   'engine.studio.landing.readonlyHint': 'Code and installed packages are read-only, so they are not edited or duplicated here. Customize one with an environment overlay, for the metadata types that accept one.',
-  'engine.studio.landing.overlay': 'Customize with an overlay',
+  // objectui#12513 — the link leaves Studio for Setup, and says so.
+  'engine.studio.landing.overlay': 'Open in Setup',
   'engine.studio.landing.overlayTitle': 'Open this package’s metadata: each type shows whether it accepts an environment overlay',
   'engine.studio.landing.marketplace': 'Or install a template app from the marketplace',
   // objectui#11553 — the package-less scope: the organization's own flows.
@@ -3057,6 +3060,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.org.hint': 'Flows that belong to no package',
   'engine.studio.org.description': 'The organization’s own flows that belong to no package, such as a clone of a packaged flow. They open editable.',
   'engine.studio.org.none': 'No flows outside a package yet. Clone a packaged flow in Setup › Packaged automation to edit the copy here.',
+  // objectui#12513 — the empty block's way to that Setup list: a link, since this scope creates nothing.
+  'engine.studio.org.openSetup': 'Open in Setup',
   'engine.studio.publishedAllFlows': 'Published {count} package-less flow drafts',
   'engine.studio.publishedAllFlowsOne': 'Published {count} package-less flow draft',
   'engine.studio.auto.deepLinkMissing': 'The link names flow “{name}”, which is not here.',
@@ -6187,7 +6192,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.close': '关闭',
   'engine.studio.deselect': '取消选择',
   'engine.studio.toggleRail': '切换侧栏',
-  'engine.studio.home': '返回主页',
+  'engine.studio.landingHome': 'Studio 首页',
   'engine.studio.desktopHint': 'Studio 专为桌面屏幕设计。',
   // Pillar tab labels
   'engine.fieldType.text': '单行文本',
@@ -6340,7 +6345,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.landing.installedHeading': '已安装(只读 · 可浏览)',
   // objectui#11808 — the routes a read-only package does have.
   'engine.studio.landing.readonlyHint': '源码与已安装的软件包为只读，不能在此编辑或复制。对于接受环境覆盖的元数据类型，可用环境覆盖（overlay）进行定制。',
-  'engine.studio.landing.overlay': '用覆盖定制',
+  'engine.studio.landing.overlay': '在设置中打开',
   'engine.studio.landing.overlayTitle': '打开该软件包的元数据：每种类型都会标明是否接受环境覆盖',
   'engine.studio.landing.marketplace': '或从应用市场安装一个模板应用',
   // objectui#11553 — the package-less scope: the organization's own flows.
@@ -6349,6 +6354,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.org.hint': '不属于任何软件包的流程',
   'engine.studio.org.description': '本组织自有、不属于任何软件包的流程,例如软件包流程的克隆副本。可直接编辑。',
   'engine.studio.org.none': '还没有不属于软件包的流程。在 设置 › 打包自动化 中克隆一个软件包流程,即可在这里编辑副本。',
+  'engine.studio.org.openSetup': '在设置中打开',
   'engine.studio.publishedAllFlows': '已发布 {count} 个不属于软件包的流程草稿',
   'engine.studio.publishedAllFlowsOne': '已发布 {count} 个不属于软件包的流程草稿',
   'engine.studio.auto.deepLinkMissing': '链接指向的流程「{name}」不在这里。',

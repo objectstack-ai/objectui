@@ -4075,6 +4075,12 @@ const ru = {
       confirmNoteSeparate_many: 'Публикация выпускает {{count}} ожидающих черновиков по отдельности: черновик, который не удастся опубликовать, останется ожидающим, а остальные всё равно будут опубликованы.',
       confirmNoteSeparate_other: 'Публикация выпускает {{count}} ожидающего черновика по отдельности: черновик, который не удастся опубликовать, останется ожидающим, а остальные всё равно будут опубликованы.',
       publishConfirm: 'Опубликовать всё',
+      summaryItems: '{{count}} элементов',
+      summaryItems_one: '{{count}} элемент',
+      summaryItems_few: '{{count}} элемента',
+      summaryItems_many: '{{count}} элементов',
+      summaryItems_other: '{{count}} элемента',
+      summaryType: '{{type}}: {{n}}',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.

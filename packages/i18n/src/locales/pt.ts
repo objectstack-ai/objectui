@@ -3971,6 +3971,11 @@ const pt = {
       confirmNoteSeparate_many: 'Publicar libera os {{count}} de rascunhos pendentes um a um: o que falhar continua pendente e os demais são publicados mesmo assim.',
       confirmNoteSeparate_other: 'Publicar libera os {{count}} rascunhos pendentes um a um: o que falhar continua pendente e os demais são publicados mesmo assim.',
       publishConfirm: 'Publicar tudo',
+      summaryItems: '{{count}} itens',
+      summaryItems_one: '{{count}} item',
+      summaryItems_many: '{{count}} de itens',
+      summaryItems_other: '{{count}} itens',
+      summaryType: '{{n}} {{type}}',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.

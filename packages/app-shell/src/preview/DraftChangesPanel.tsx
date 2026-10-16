@@ -24,7 +24,7 @@
  * publish action itself still belongs to the caller.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Equal, FilePlus2, FilePen, Loader2, Rocket, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -471,7 +471,19 @@ export interface DraftChangesPanelProps {
   onPublish?: () => void | Promise<void>;
   /** Disables the confirm button and shows a spinner while the caller publishes. */
   publishing?: boolean;
+  /**
+   * How the sheet opens (objectui#12517). `review` — the default, and what
+   * every host but the Studio's Publish gets: rows collapsed, focus on the
+   * list. `confirm` — the host's Publish opened it: every row expanded to
+   * show what changes, a per-type summary line above the list, and focus on
+   * the footer's Publish all once it renders. Read on each open; a posture
+   * never changes what the footer button does (objectui#2261: only it
+   * publishes).
+   */
+  posture?: DraftChangesPosture;
 }
+
+export type DraftChangesPosture = 'review' | 'confirm';
 
 export function DraftChangesPanel({
   open,
@@ -480,6 +492,7 @@ export function DraftChangesPanel({
   include,
   onPublish,
   publishing = false,
+  posture = 'review',
 }: DraftChangesPanelProps) {
   const { t, language } = useObjectTranslation();
   const [entries, setEntries] = useState<DraftChangeEntry[] | null>(null);
@@ -513,6 +526,38 @@ export function DraftChangesPanel({
       return next;
     });
   }, []);
+
+  /**
+   * objectui#12517 — the posture's two openings. Each open starts collapsed;
+   * the confirm posture expands every row ONCE, when the list first arrives,
+   * so a row the author then collapses stays collapsed while the type reads
+   * below re-map the entries. Focus lands on the list at open (the Publish
+   * all button does not exist until the list loads) and moves to Publish all
+   * on that same arrival — only if the author has not moved it meanwhile.
+   * Layout effects, so the frame that first paints the list already paints
+   * it expanded: a passive effect let one collapsed frame through first.
+   */
+  const listRef = useRef<HTMLDivElement>(null);
+  const publishRef = useRef<HTMLButtonElement>(null);
+  const settledRef = useRef(false);
+  // The list as it stood when the sheet opened: the previous open's, until
+  // this open's load replaces it. Only a list newer than that one settles.
+  const entriesAtOpenRef = useRef<DraftChangeEntry[] | null>(null);
+  useLayoutEffect(() => {
+    if (!open) return;
+    settledRef.current = false;
+    entriesAtOpenRef.current = entries;
+    setExpanded(new Set());
+    // Keyed on the open transition alone: `entries` is read, not watched.
+  }, [open]);
+  useLayoutEffect(() => {
+    if (!open || settledRef.current || entries === null || entries === entriesAtOpenRef.current) return;
+    settledRef.current = true;
+    if (posture !== 'confirm') return;
+    setExpanded(new Set(entries.map(entryKey)));
+    const button = publishRef.current;
+    if (button && document.activeElement === listRef.current) button.focus();
+  }, [open, posture, entries]);
 
   const markCompared = (key: string, isUnchanged: boolean) => {
     setUnchanged((prev) => {
@@ -652,6 +697,13 @@ export function DraftChangesPanel({
         side="right"
         className="flex w-[420px] flex-col sm:max-w-[420px]"
         data-testid="draft-changes-panel"
+        data-posture={posture}
+        onOpenAutoFocus={(event) => {
+          // objectui#12517 — the list, not the first tabbable (the close
+          // button): see the posture effect above for where focus goes next.
+          event.preventDefault();
+          listRef.current?.focus();
+        }}
       >
         <SheetHeader>
           <SheetTitle>
@@ -663,9 +715,24 @@ export function DraftChangesPanel({
             })}
           </SheetDescription>
         </SheetHeader>
+        {posture === 'confirm' && entries && entries.length > 0 && !error ? (
+          // objectui#12517 — what the publish carries, counted off the same
+          // per-type grouping the headings below read.
+          <p data-testid="draft-changes-summary" className="mt-3 px-4 text-xs font-medium text-foreground">
+            {[
+              t('preview.changes.summaryItems', { count: entries.length, defaultValue: '{{count}} items' }),
+              ...[...byType.entries()].map(([type, items]) =>
+                t('preview.changes.summaryType', { n: items.length, type, defaultValue: '{{n}} {{type}}' }),
+              ),
+            ].join(' · ')}
+          </p>
+        ) : null}
         <div
+          ref={listRef}
+          tabIndex={-1}
+          aria-label={t('preview.changes.title', { defaultValue: 'Pending changes' })}
           data-testid="draft-changes-list"
-          className="mt-4 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pb-6"
+          className="mt-4 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pb-6 outline-none"
         >
           {error ? (
             <p className="text-sm text-destructive">
@@ -854,6 +921,7 @@ export function DraftChangesPanel({
                   })}
             </p>
             <Button
+              ref={publishRef}
               size="sm"
               onClick={() => void onPublish()}
               disabled={publishing}

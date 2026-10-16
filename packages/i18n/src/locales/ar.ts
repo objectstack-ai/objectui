@@ -4232,6 +4232,14 @@ const ar = {
       confirmNoteSeparate_many: 'النشر يُصدر المسودات المعلقة ({{count}}) كلًّا على حدة: المسودة التي يتعذّر نشرها تبقى معلقة، وتُنشر البقية.',
       confirmNoteSeparate_other: 'النشر يُصدر المسودات المعلقة ({{count}}) كلًّا على حدة: المسودة التي يتعذّر نشرها تبقى معلقة، وتُنشر البقية.',
       publishConfirm: 'نشر الكل',
+      summaryItems: '{{count}} عنصر',
+      summaryItems_zero: '{{count}} عنصر',
+      summaryItems_one: 'عنصر واحد ({{count}})',
+      summaryItems_two: 'عنصران ({{count}})',
+      summaryItems_few: '{{count}} عناصر',
+      summaryItems_many: '{{count}} عنصرًا',
+      summaryItems_other: '{{count}} عنصر',
+      summaryType: '{{type}} {{n}}',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.

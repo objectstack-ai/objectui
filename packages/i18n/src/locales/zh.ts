@@ -2931,6 +2931,10 @@ const zh = {
       confirmNoteSeparate_one: '发布会逐个单独发布这 {{count}} 个待发布草稿：发布失败的草稿仍保持待发布，其余草稿照常发布。',
       confirmNoteSeparate_other: '发布会逐个单独发布这 {{count}} 个待发布草稿：发布失败的草稿仍保持待发布，其余草稿照常发布。',
       publishConfirm: '全部发布',
+      summaryItems: '{{count}} 项',
+      summaryItems_one: '{{count}} 项',
+      summaryItems_other: '{{count}} 项',
+      summaryType: '{{type}} {{n}}',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.

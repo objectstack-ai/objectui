@@ -3895,6 +3895,10 @@ const ja = {
       confirmNoteSeparate_one: '公開すると、保留中のドラフト {{count}} 件がそれぞれ個別に公開されます。公開に失敗したドラフトは保留中のまま残り、ほかのドラフトは公開されます。',
       confirmNoteSeparate_other: '公開すると、保留中のドラフト {{count}} 件がそれぞれ個別に公開されます。公開に失敗したドラフトは保留中のまま残り、ほかのドラフトは公開されます。',
       publishConfirm: 'すべて公開',
+      summaryItems: '{{count}} 件',
+      summaryItems_one: '{{count}} 件',
+      summaryItems_other: '{{count}} 件',
+      summaryType: '{{type}} {{n}}',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.

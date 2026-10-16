@@ -3892,6 +3892,10 @@ const ko = {
       confirmNoteSeparate_one: '게시하면 대기 중인 초안 {{count}}개가 하나씩 따로 게시됩니다. 게시에 실패한 초안은 대기 상태로 남고, 나머지는 그대로 게시됩니다.',
       confirmNoteSeparate_other: '게시하면 대기 중인 초안 {{count}}개가 하나씩 따로 게시됩니다. 게시에 실패한 초안은 대기 상태로 남고, 나머지는 그대로 게시됩니다.',
       publishConfirm: '모두 게시',
+      summaryItems: '{{count}}개 항목',
+      summaryItems_one: '{{count}}개 항목',
+      summaryItems_other: '{{count}}개 항목',
+      summaryType: '{{type}} {{n}}',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.

@@ -3973,6 +3973,11 @@ const fr = {
       confirmNoteSeparate_many: 'La publication libère les {{count}} de brouillons en attente un par un : celui qui échoue reste en attente, les autres sont publiés quand même.',
       confirmNoteSeparate_other: 'La publication libère les {{count}} brouillons en attente un par un : celui qui échoue reste en attente, les autres sont publiés quand même.',
       publishConfirm: 'Tout publier',
+      summaryItems: '{{count}} éléments',
+      summaryItems_one: '{{count}} élément',
+      summaryItems_many: '{{count}} d’éléments',
+      summaryItems_other: '{{count}} éléments',
+      summaryType: '{{n}} {{type}}',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.

@@ -3893,6 +3893,10 @@ const de = {
       confirmNoteSeparate_one: 'Beim Veröffentlichen wird der {{count}} ausstehende Entwurf für sich allein freigegeben: Scheitert er, bleibt er ausstehend.',
       confirmNoteSeparate_other: 'Beim Veröffentlichen werden die {{count}} ausstehenden Entwürfe einzeln freigegeben: Ein Entwurf, der dabei scheitert, bleibt ausstehend, die übrigen werden trotzdem freigegeben.',
       publishConfirm: 'Alle veröffentlichen',
+      summaryItems: '{{count}} Elemente',
+      summaryItems_one: '{{count}} Element',
+      summaryItems_other: '{{count}} Elemente',
+      summaryType: '{{n}} {{type}}',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.

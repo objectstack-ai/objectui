@@ -3976,6 +3976,11 @@ const es = {
       confirmNoteSeparate_many: 'Publicar libera los {{count}} de borradores pendientes uno por uno: el que falle sigue pendiente y los demás se publican igualmente.',
       confirmNoteSeparate_other: 'Publicar libera los {{count}} borradores pendientes uno por uno: el que falle sigue pendiente y los demás se publican igualmente.',
       publishConfirm: 'Publicar todo',
+      summaryItems: '{{count}} elementos',
+      summaryItems_one: '{{count}} elemento',
+      summaryItems_many: '{{count}} de elementos',
+      summaryItems_other: '{{count}} elementos',
+      summaryType: '{{n}} {{type}}',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.

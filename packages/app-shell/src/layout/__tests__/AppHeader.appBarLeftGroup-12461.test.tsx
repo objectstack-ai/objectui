@@ -199,18 +199,30 @@ const crumbLabels = () => separators().map((sep) => (sep.parentElement?.textCont
 const pillOf = () => screen.getByTestId('app-switcher-stub').parentElement!;
 
 beforeEach(() => {
-  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ data: [] }) })));
+  // objectui#12615 — the app's package is served writable, so the Edit app
+  // gate's package half passes and this file's own questions are the ones asked.
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: unknown) => ({
+      ok: true,
+      status: 200,
+      json: async () =>
+        String(url).endsWith('/api/v1/packages')
+          ? { data: { packages: [{ manifest: { id: 'com.example.crm', name: 'CRM' }, writable: true }] } }
+          : { data: [] },
+    })),
+  );
 });
 
 describe('the app bar on the Leads list (objectui#12461)', () => {
-  it('renders the pill, the PREVIEW chip, the search and an icon-only 「Edit app」', () => {
+  it('renders the pill, the PREVIEW chip, the search and an icon-only 「Edit app」', async () => {
     mountAt('/apps/crm/lead');
 
     expect(screen.getByTestId('app-switcher-stub')).toHaveAttribute('data-active', 'crm');
     expect(screen.getByTestId('platform-preview-badge')).toHaveTextContent(/preview/i);
     expect(screen.getByTestId('action:command-palette:open')).toBeInTheDocument();
 
-    const editApp = screen.getByRole('link', { name: 'Edit app' });
+    const editApp = await screen.findByRole('link', { name: 'Edit app' });
     expect(editApp).toHaveAttribute('data-testid', 'app-design-in-studio-button');
     expect(editApp).toHaveAttribute('title', 'Edit app');
     expect(editApp.getAttribute('href')).toContain('/studio/com.example.crm/');
@@ -247,10 +259,10 @@ describe('the app bar on the Leads list (objectui#12461)', () => {
     expect(screen.queryByText('Switch Object')).toBeNull();
   });
 
-  it('Edit app is an icon button at every width — no text, nothing that grows one', () => {
+  it('Edit app is an icon button at every width — no text, nothing that grows one', async () => {
     mountAt('/apps/crm/lead');
 
-    const editApp = screen.getByRole('link', { name: 'Edit app' });
+    const editApp = await screen.findByRole('link', { name: 'Edit app' });
     expect(editApp.textContent?.trim()).toBe('');
     expect(editApp.querySelector('svg')).not.toBeNull();
     const classes = [editApp, ...editApp.querySelectorAll('*')].flatMap((el) =>

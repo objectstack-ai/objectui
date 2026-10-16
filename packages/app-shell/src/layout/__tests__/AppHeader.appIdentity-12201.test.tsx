@@ -208,7 +208,19 @@ const follows = (a: Node, b: Node) => Boolean(a.compareDocumentPosition(b) & Nod
 
 beforeEach(() => {
   viewer.isAdmin = true;
-  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ data: [] }) })));
+  // objectui#12615 — the app's package is served writable, so the Edit app
+  // gate's package half passes and this file's own questions are the ones asked.
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: unknown) => ({
+      ok: true,
+      status: 200,
+      json: async () =>
+        String(url).endsWith('/api/v1/packages')
+          ? { data: { packages: [{ manifest: { id: 'com.objectstack.cloud', name: 'Cloud' }, writable: true }] } }
+          : { data: [] },
+    })),
+  );
 });
 
 describe('inside an app the bar starts with the app pill (objectui#12201 item 4)', () => {
@@ -261,9 +273,9 @@ describe('the PREVIEW chip (objectui#12201 item 5, objectui#12461)', () => {
 });
 
 describe('the Studio entry 「Edit app」 (objectui#12201 item 6, objectui#12461)', () => {
-  it('a pencil icon button at every width, named and tooltipped 「Edit app」 (objectui#12461)', () => {
+  it('a pencil icon button at every width, named and tooltipped 「Edit app」 (objectui#12461)', async () => {
     mountApp();
-    const bridge = screen.getByTestId('app-design-in-studio-button');
+    const bridge = await screen.findByTestId('app-design-in-studio-button');
     expect(bridge).toHaveAttribute('data-variant', 'ghost');
     expect(bridge.textContent?.trim()).toBe('');
     expect(bridge.className.split(' ')).toEqual(expect.arrayContaining(['h-8', 'w-8']));
@@ -272,18 +284,18 @@ describe('the Studio entry 「Edit app」 (objectui#12201 item 6, objectui#12461
     expect(bridge).toHaveAttribute('title', 'Edit app');
   });
 
-  it('sits at the left edge of the right-hand utility cluster, before the bell', () => {
+  it('sits at the left edge of the right-hand utility cluster, before the bell', async () => {
     mountApp();
-    const bridge = screen.getByTestId('app-design-in-studio-button');
+    const bridge = await screen.findByTestId('app-design-in-studio-button');
     const group = bridge.parentElement!;
     expect(group).toHaveAttribute('data-topbar-group');
     expect(group.firstElementChild).toBe(bridge);
     expect(follows(bridge, screen.getByTestId('inbox-stub'))).toBe(true);
   });
 
-  it('the pill\'s Studio row gets the button\'s very target — same gate, same deep link', () => {
+  it('the pill\'s Studio row gets the button\'s very target — same gate, same deep link', async () => {
     mountApp();
-    const href = screen.getByTestId('app-design-in-studio-button').querySelector('a')!.getAttribute('href');
+    const href = (await screen.findByTestId('app-design-in-studio-button')).querySelector('a')!.getAttribute('href');
     expect(href).toContain('/studio/com.objectstack.cloud/');
     expect(screen.getByTestId('app-switcher-stub')).toHaveAttribute('data-studio-path', href!);
   });

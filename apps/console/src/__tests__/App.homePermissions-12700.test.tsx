@@ -32,7 +32,7 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
 import { render, screen, cleanup, waitFor, act } from '@testing-library/react';
-import React, { useContext, type ReactNode } from 'react';
+import { useContext, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MetadataCtx, type MetadataContextValue, __resetVisibilityPredicateWarnings } from '@object-ui/react';
 import { usePermissions, type MePermissionsResponse } from '@object-ui/permissions';

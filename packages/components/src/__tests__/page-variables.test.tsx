@@ -86,7 +86,7 @@ describe('SchemaRenderer page-variable visibility', () => {
     );
   }
 
-  function renderGated(predicateKey: 'visible' | 'visibility') {
+  function renderGated(predicateKey: 'visible' | 'visibleWhen' | 'visibility') {
     return render(
       <PageVariablesProvider definitions={[{ name: 'sel', type: 'string', source: 'w' }]}>
         <Writer name="sel" value="rec_1" />
@@ -111,8 +111,8 @@ describe('SchemaRenderer page-variable visibility', () => {
     expect(getByText('NOW VISIBLE')).toBeTruthy();
   });
 
-  it('also gates on the spec-canonical `visibility` predicate', () => {
-    const { queryByText, getByText } = renderGated('visibility');
+  it('also gates on the spec-canonical `visibleWhen` predicate', () => {
+    const { queryByText, getByText } = renderGated('visibleWhen');
     expect(queryByText('NOW VISIBLE')).toBeNull();
     act(() => {
       fireEvent.click(getByText('write'));
@@ -120,30 +120,47 @@ describe('SchemaRenderer page-variable visibility', () => {
     expect(getByText('NOW VISIBLE')).toBeTruthy();
   });
 
-  it('gates on a `visibility` Expression envelope { dialect, source } (the spec-bridge form)', () => {
-    // definePage normalizes a bare predicate string into { dialect: 'cel',
-    // source } and the spec→node bridge carries that envelope onto the node —
-    // this is the exact shape the showcase page produces at runtime.
-    const { queryByText, getByText } = render(
+  // objectui#12654: `@objectstack/spec` 18 retires the page component's
+  // `visibility` key (a `retiredKey` tombstone naming `visibleWhen`). The same
+  // predicate that gates under `visibleWhen` above gates NOTHING under it.
+  it('does not gate on the retired `visibility` key', () => {
+    const { getByText } = renderGated('visibility');
+    expect(getByText('NOW VISIBLE')).toBeTruthy();
+  });
+
+  // definePage normalizes a bare predicate string into { dialect: 'cel',
+  // source } and the spec→node bridge carries that envelope onto the node —
+  // this is the exact shape the showcase page produces at runtime.
+  function renderEnvelopeGated(predicateKey: 'visibleWhen' | 'visibility') {
+    return render(
       <PageVariablesProvider definitions={[{ name: 'sel', type: 'record_id', source: 'w' }]}>
         <Writer name="sel" value="rec_1" />
         <SchemaRenderer
-          // `visibility` is the spec's deprecated alias, which objectui's node
-          // types do not declare; the runtime reading of it is the point, so the
-          // node crosses through the one test helper for that (objectui#11466).
+          // `visibility` is retired and objectui's node types do not declare
+          // it; a raw node still carrying it crosses through the one test
+          // helper for that (objectui#11466).
           schema={undeclaredNode({
             type: 'element:text',
             id: 'gated',
             properties: { content: 'NOW VISIBLE' },
-            visibility: { dialect: 'cel', source: "page.sel != ''" },
+            [predicateKey]: { dialect: 'cel', source: "page.sel != ''" },
           })}
         />
       </PageVariablesProvider>,
     );
+  }
+
+  it('gates on a `visibleWhen` Expression envelope { dialect, source } (the spec-bridge form)', () => {
+    const { queryByText, getByText } = renderEnvelopeGated('visibleWhen');
     expect(queryByText('NOW VISIBLE')).toBeNull();
     act(() => {
       fireEvent.click(getByText('write'));
     });
+    expect(getByText('NOW VISIBLE')).toBeTruthy();
+  });
+
+  it('does not gate on a `visibility` Expression envelope — the retired key (objectui#12654)', () => {
+    const { getByText } = renderEnvelopeGated('visibility');
     expect(getByText('NOW VISIBLE')).toBeTruthy();
   });
 

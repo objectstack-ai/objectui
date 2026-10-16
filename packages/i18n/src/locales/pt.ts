@@ -3732,9 +3732,9 @@ const pt = {
       },
     },
     uninstall: {
-      confirm: "Desinstalar {{manifestId}} v{{version}} deste runtime?\n\nO manifesto em cache será removido.",
-      successInList: "{{manifestId}} removido. Reinicie o runtime para descarregá-lo completamente.",
-      successInDetail: "Manifesto em cache para {{manifestId}} removido.",
+      confirm: "Desinstalar {{manifestId}} v{{version}} deste runtime?\n\nO aplicativo será removido do kernel em execução imediatamente, junto com seus conjuntos de permissões e as respectivas atribuições, e o manifesto em cache será removido. Os registros armazenados em seus objetos permanecem no banco de dados.",
+      successInList: "{{manifestId}} removido: o aplicativo saiu do kernel em execução, junto com seus conjuntos de permissões e as respectivas atribuições. Os registros armazenados em seus objetos permanecem no banco de dados.",
+      successInDetail: "{{manifestId}} e seu manifesto em cache removidos: o aplicativo saiu do kernel em execução, junto com seus conjuntos de permissões e as respectivas atribuições. Os registros armazenados em seus objetos permanecem no banco de dados.",
       confirmNotLoaded: "Desinstalar {{manifestId}} v{{version}} deste runtime?\n\nO manifesto em cache será removido. Este runtime não carregou o pacote, então nenhuma parte dele está em execução.",
       successNotLoaded: "{{manifestId}} removido. Não estava carregado, então não é necessário reiniciar.",
     },

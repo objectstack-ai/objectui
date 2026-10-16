@@ -4353,9 +4353,9 @@ const en = {
         revokedToast: 'Acceptance of "{{set}}" revoked.',
       },
       uninstall: {
-        confirm: 'Uninstall {{manifestId}} v{{version}} from this runtime?\n\nThe cached manifest will be removed. The app will remain loaded in the running kernel until the next restart.',
-        successInList: 'Removed {{manifestId}}. Restart the runtime to fully unload it from the running kernel.',
-        successInDetail: 'Removed cached manifest for {{manifestId}}. Restart the runtime to fully unload the app from the running kernel.',
+        confirm: 'Uninstall {{manifestId}} v{{version}} from this runtime?\n\nThe app will leave the running kernel at once, together with its permission sets and their grants, and its cached manifest will be removed. Records stored in its objects stay in the database.',
+        successInList: 'Removed {{manifestId}}: the app has left the running kernel, with its permission sets and their grants. Records stored in its objects stay in the database.',
+        successInDetail: 'Removed {{manifestId}} and its cached manifest: the app has left the running kernel, with its permission sets and their grants. Records stored in its objects stay in the database.',
         confirmNotLoaded: 'Uninstall {{manifestId}} v{{version}} from this runtime?\n\nThe cached manifest will be removed. This runtime did not load the package, so none of it is running.',
         successNotLoaded: 'Removed {{manifestId}}. It was not loaded, so no restart is needed.',
       },

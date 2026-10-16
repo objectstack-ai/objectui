@@ -3734,9 +3734,9 @@ const fr = {
       },
     },
     uninstall: {
-      confirm: "Désinstaller {{manifestId}} v{{version}} de ce runtime ?\n\nLe manifeste en cache sera supprimé.",
-      successInList: "{{manifestId}} supprimé. Redémarrez le runtime pour le décharger complètement.",
-      successInDetail: "Manifeste en cache pour {{manifestId}} supprimé.",
+      confirm: "Désinstaller {{manifestId}} v{{version}} de ce runtime ?\n\nL'application sera retirée immédiatement du noyau en cours d'exécution, avec ses jeux d'autorisations et leurs attributions, et le manifeste en cache sera supprimé. Les enregistrements stockés dans ses objets restent dans la base de données.",
+      successInList: "{{manifestId}} supprimé : l'application a été retirée du noyau en cours d'exécution, avec ses jeux d'autorisations et leurs attributions. Les enregistrements stockés dans ses objets restent dans la base de données.",
+      successInDetail: "{{manifestId}} et son manifeste en cache supprimés : l'application a été retirée du noyau en cours d'exécution, avec ses jeux d'autorisations et leurs attributions. Les enregistrements stockés dans ses objets restent dans la base de données.",
       confirmNotLoaded: "Désinstaller {{manifestId}} v{{version}} de ce runtime ?\n\nLe manifeste en cache sera supprimé. Ce runtime n'a pas chargé le paquet, donc aucune partie n'est en cours d'exécution.",
       successNotLoaded: "{{manifestId}} supprimé. Il n'était pas chargé, aucun redémarrage n'est nécessaire.",
     },

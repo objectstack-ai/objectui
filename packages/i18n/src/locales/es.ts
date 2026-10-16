@@ -3737,9 +3737,9 @@ const es = {
       },
     },
     uninstall: {
-      confirm: "¿Desinstalar {{manifestId}} v{{version}} de este runtime?\n\nEl manifiesto en caché será eliminado.",
-      successInList: "{{manifestId}} eliminado. Reinicie el runtime para descargarlo completamente.",
-      successInDetail: "Manifiesto en caché para {{manifestId}} eliminado.",
+      confirm: "¿Desinstalar {{manifestId}} v{{version}} de este runtime?\n\nLa aplicación se retirará de inmediato del kernel en ejecución, junto con sus conjuntos de permisos y sus asignaciones, y el manifiesto en caché será eliminado. Los registros almacenados en sus objetos permanecen en la base de datos.",
+      successInList: "{{manifestId}} eliminado: la aplicación se retiró del kernel en ejecución, junto con sus conjuntos de permisos y sus asignaciones. Los registros almacenados en sus objetos permanecen en la base de datos.",
+      successInDetail: "{{manifestId}} y su manifiesto en caché eliminados: la aplicación se retiró del kernel en ejecución, junto con sus conjuntos de permisos y sus asignaciones. Los registros almacenados en sus objetos permanecen en la base de datos.",
       confirmNotLoaded: "¿Desinstalar {{manifestId}} v{{version}} de este runtime?\n\nEl manifiesto en caché será eliminado. Este runtime no cargó el paquete, así que ninguna parte de él está en ejecución.",
       successNotLoaded: "{{manifestId}} eliminado. No estaba cargado, así que no es necesario reiniciar.",
     },

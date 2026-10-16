@@ -3667,9 +3667,9 @@ const de = {
       },
     },
     uninstall: {
-      confirm: "{{manifestId}} v{{version}} aus diesem Laufzeitsystem deinstallieren?\n\nDas zwischengespeicherte Manifest wird entfernt.",
-      successInList: "{{manifestId}} entfernt. Starten Sie das Laufzeitsystem neu, um es vollständig zu entladen.",
-      successInDetail: "Zwischengespeichertes Manifest für {{manifestId}} entfernt.",
+      confirm: "{{manifestId}} v{{version}} aus diesem Laufzeitsystem deinstallieren?\n\nDie App wird sofort aus dem laufenden Kernel entfernt, samt ihren Berechtigungssets und deren Zuweisungen, und das zwischengespeicherte Manifest wird gelöscht. Datensätze in ihren Objekten bleiben in der Datenbank erhalten.",
+      successInList: "{{manifestId}} entfernt: Die App ist aus dem laufenden Kernel entfernt, samt ihren Berechtigungssets und deren Zuweisungen. Datensätze in ihren Objekten bleiben in der Datenbank erhalten.",
+      successInDetail: "{{manifestId}} und das zugehörige zwischengespeicherte Manifest entfernt: Die App ist aus dem laufenden Kernel entfernt, samt ihren Berechtigungssets und deren Zuweisungen. Datensätze in ihren Objekten bleiben in der Datenbank erhalten.",
       confirmNotLoaded: "{{manifestId}} v{{version}} aus diesem Laufzeitsystem deinstallieren?\n\nDas zwischengespeicherte Manifest wird entfernt. Dieses Laufzeitsystem hat das Paket nicht geladen, daher läuft nichts davon.",
       successNotLoaded: "{{manifestId}} entfernt. Es war nicht geladen, ein Neustart ist nicht nötig.",
     },

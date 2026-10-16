@@ -3810,9 +3810,9 @@ const zh = {
         revokedToast: '已撤销对「{{set}}」的接受。',
       },
       uninstall: {
-        confirm: '从本运行时卸载 {{manifestId}} v{{version}}？\n\n磁盘上的清单缓存将被移除。运行中的内核仍会保留该应用，直到下次重启运行时才会真正卸载。',
-        successInList: '已移除 {{manifestId}}。重启运行时即可从内核中彻底卸载。',
-        successInDetail: '已移除 {{manifestId}} 的清单缓存。重启运行时即可从内核中彻底卸载该应用。',
+        confirm: '从本运行时卸载 {{manifestId}} v{{version}}？\n\n该应用将立即从运行中的内核中移除，其权限集及相应授权也一并移除，缓存的清单也将被删除。其对象中已存储的记录仍保留在数据库中。',
+        successInList: '已移除 {{manifestId}}：该应用已从运行中的内核中移除，其权限集及相应授权也已一并移除。其对象中已存储的记录仍保留在数据库中。',
+        successInDetail: '已移除 {{manifestId}} 及其清单缓存：该应用已从运行中的内核中移除，其权限集及相应授权也已一并移除。其对象中已存储的记录仍保留在数据库中。',
         confirmNotLoaded: '从本运行时卸载 {{manifestId}} v{{version}}？\n\n磁盘上的清单缓存将被移除。本运行时并未加载该包，因此它没有任何部分在运行。',
         successNotLoaded: '已移除 {{manifestId}}。该包未被加载，无需重启运行时。',
       },

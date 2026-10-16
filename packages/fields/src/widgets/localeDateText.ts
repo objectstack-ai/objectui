@@ -128,11 +128,11 @@ export function parseLocaleDateText(text: string, locale: string, withTime: bool
   const groups = trimmed.match(/\d+/g) ?? [];
   if (groups.length < 3) return null;
 
-  const order: DatePart[] = groups[0].length === 4 ? ['year', 'month', 'day'] : dateOrder(locale);
+  const order: DatePart[] = (groups[0] ?? '').length === 4 ? ['year', 'month', 'day'] : dateOrder(locale);
   if (order.length !== 3) return null;
   const date: Record<DatePart, string> = { year: '', month: '', day: '' };
   order.forEach((part, i) => {
-    date[part] = groups[i];
+    date[part] = groups[i] ?? '';
   });
   if (date.year.length === 2) date.year = `20${date.year}`;
   if (date.year.length !== 4 || date.month.length > 2 || date.day.length > 2) return null;
@@ -143,11 +143,13 @@ export function parseLocaleDateText(text: string, locale: string, withTime: bool
   if (!withTime) return rest.length === 0 ? day : null;
 
   if (rest.length === 0) return `${day}T00:00`;
-  if (rest.length > 3 || rest[0].length > 2 || (rest[1] ?? '').length > 2) return null;
-  let hour = Number(rest[0]);
-  const minute = Number(rest[1] ?? '0');
+  const [hourText = '', minuteText = '0'] = rest;
+  if (rest.length > 3 || hourText.length > 2 || minuteText.length > 2) return null;
+  let hour = Number(hourText);
+  const minute = Number(minuteText);
   const lower = trimmed.toLowerCase();
-  const pm = /\bp\.?\s?m\.?/.test(lower) || (!!pmMarker(locale) && lower.includes(pmMarker(locale)!));
+  const marker = pmMarker(locale);
+  const pm = /\bp\.?\s?m\.?/.test(lower) || (!!marker && lower.includes(marker));
   const am = /\ba\.?\s?m\.?/.test(lower);
   if (pm || am) {
     if (hour < 1 || hour > 12) return null;

@@ -3478,7 +3478,7 @@ const de = {
     },
     unbound: {
       title: "Nicht verbunden",
-      body: "Verbinden Sie diese Runtime mit einer ObjectStack Control Plane, um die privaten Pakete Ihrer Organisation zu durchsuchen und hier zu installieren. Die Genehmigung erfolgt mit einem einzigen Klick in Ihrem Cloud-Konto — es werden keine IDs oder Zugangsdaten auf dieser Seite eingegeben.",
+      body: "Diese Runtime ist mit keiner Control Plane verbunden. „Verbinden“ öffnet Ihr Cloud-Konto in einem neuen Fenster, wo ein einziger Klick die Verbindung genehmigt — es werden keine IDs oder Zugangsdaten auf dieser Seite eingegeben.",
       connect: "Verbinden",
     },
   },

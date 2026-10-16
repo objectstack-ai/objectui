@@ -3546,7 +3546,7 @@ const es = {
     },
     unbound: {
       title: "No conectado",
-      body: "Conecte este runtime a un plano de control de ObjectStack para explorar los paquetes privados de su organización e instalarlos aquí. La aprobación es un solo clic en su cuenta de la nube: no se escriben identificadores ni credenciales en esta página.",
+      body: "Este runtime no está conectado a ningún plano de control. «Conectar» abre su cuenta de la nube en una ventana nueva, donde un solo clic aprueba la conexión: no se escriben identificadores ni credenciales en esta página.",
       connect: "Conectar",
     },
   },

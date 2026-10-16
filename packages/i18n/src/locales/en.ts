@@ -4151,7 +4151,7 @@ const en = {
     },
     unbound: {
       title: 'Not connected',
-      body: 'Connect this runtime to an ObjectStack control plane to browse your organization\'s private packages and install them here. Approval is a single click in your cloud account — no ids or credentials are typed into this page.',
+      body: 'This runtime is not connected to a control plane. Connect opens your cloud account in a new window, where one click approves the link — no ids or credentials are typed into this page.',
       connect: 'Connect',
     },
   },

@@ -3543,7 +3543,7 @@ const fr = {
     },
     unbound: {
       title: "Non connecté",
-      body: "Connectez ce runtime à un plan de contrôle ObjectStack pour parcourir les paquets privés de votre organisation et les installer ici. L'approbation se fait en un seul clic dans votre compte cloud — aucun identifiant ni justificatif n'est saisi sur cette page.",
+      body: "Ce runtime n'est connecté à aucun plan de contrôle. « Connecter » ouvre votre compte cloud dans une nouvelle fenêtre, où un seul clic approuve la liaison — aucun identifiant ni justificatif n'est saisi sur cette page.",
       connect: "Connecter",
     },
   },

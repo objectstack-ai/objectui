@@ -29,6 +29,7 @@ import {
 } from '@object-ui/components';
 import { cva } from 'class-variance-authority';
 import { SlidersHorizontal, X } from 'lucide-react';
+import { ComponentRegistry } from '@object-ui/core';
 import type { FilterUISchema } from '@object-ui/types';
 import { notifyViewHandlerChannels } from './viewHandlerChannels';
 
@@ -79,6 +80,79 @@ const getDateRangeValue = (value: any): DateRangeValue => {
   }
   return { start: '', end: '' };
 };
+
+/**
+ * The value editor of a `date` filter and of each `date-range` bound
+ * (objectui#12743): the field widget the HOST registered as `field:date`.
+ *
+ * Resolved from `ComponentRegistry` at render time, the way the form renderer
+ * resolves `field:<type>` and `FilterBuilder`'s date rows resolve it.
+ * `@object-ui/fields` registers the platform picker there (a text box in the
+ * display locale's format with a calendar popover), behind a lazy loader that
+ * keeps it in its own chunk; this package does not depend on
+ * `@object-ui/fields`, and needs no dependency for it. With nothing registered
+ * the filter keeps the native `<input type="date">`.
+ *
+ * The value is `YYYY-MM-DD`, as the native input wrote. The picker reads its
+ * typed text on blur and on Enter; a pointer press outside the editor while it
+ * holds focus blurs it first (a capture listener, the seam `FilterBuilder`'s
+ * date rows and `DataTable`'s injected cell editors use), so the text is read
+ * before the popover or drawer layout closes on that press. Escape does not
+ * blur: it discards.
+ */
+function DateFilterInput({
+  field,
+  label,
+  value,
+  onChange,
+}: {
+  field: string;
+  label: string;
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const Widget = ComponentRegistry.get('date', 'field') as React.ComponentType<Record<string, unknown>> | undefined;
+  const rootRef = React.useRef<HTMLDivElement | null>(null);
+  const inputId = React.useId();
+
+  React.useEffect(() => {
+    if (!Widget || typeof document === 'undefined') return;
+    const onPointerDown = (event: PointerEvent) => {
+      const root = rootRef.current;
+      if (!root) return;
+      const focused = document.activeElement;
+      if (!(focused instanceof HTMLElement) || !root.contains(focused)) return;
+      if (event.target instanceof Node && root.contains(event.target)) return;
+      focused.blur();
+    };
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onPointerDown, true);
+  }, [Widget]);
+
+  if (!Widget) {
+    return <Input type="date" value={value} onChange={(event) => onChange(event.target.value)} />;
+  }
+
+  return (
+    <div ref={rootRef} className="min-w-0 flex-1" data-testid={`filter-ui-date-${field}`}>
+      <label htmlFor={inputId} className="sr-only">
+        {label}
+      </label>
+      <React.Suspense
+        fallback={
+          <div aria-busy="true" data-testid="filter-value-loading" className="h-9 w-full rounded-md border border-input bg-muted/40" />
+        }
+      >
+        <Widget
+          id={inputId}
+          field={{ name: field, label, type: 'date' }}
+          value={value}
+          onChange={(next: unknown) => onChange(typeof next === 'string' ? next : '')}
+        />
+      </React.Suspense>
+    </div>
+  );
+}
 
 export const FilterUI: React.FC<FilterUIProps> = ({
   schema,
@@ -205,29 +279,28 @@ export const FilterUI: React.FC<FilterUIProps> = ({
       }
       case 'date':
         return (
-          <Input
-            type="date"
+          <DateFilterInput
+            field={filter.field}
+            label={label}
             value={values[filter.field] ?? ''}
-            onChange={(event) => updateValue(filter.field, event.target.value)}
+            onChange={(next) => updateValue(filter.field, next)}
           />
         );
       case 'date-range': {
         const range = getDateRangeValue(values[filter.field]);
         return (
           <div className="flex items-center gap-2">
-            <Input
-              type="date"
+            <DateFilterInput
+              field={`${filter.field}-start`}
+              label={`${label} (start)`}
               value={range.start ?? ''}
-              onChange={(event) => {
-                updateValue(filter.field, { ...range, start: event.target.value });
-              }}
+              onChange={(next) => updateValue(filter.field, { ...range, start: next })}
             />
-            <Input
-              type="date"
+            <DateFilterInput
+              field={`${filter.field}-end`}
+              label={`${label} (end)`}
               value={range.end ?? ''}
-              onChange={(event) => {
-                updateValue(filter.field, { ...range, end: event.target.value });
-              }}
+              onChange={(next) => updateValue(filter.field, { ...range, end: next })}
             />
           </div>
         );

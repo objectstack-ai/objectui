@@ -27,7 +27,13 @@ import type {
 // argued with: `@object-ui/fields` DEPENDS on this package, so importing it
 // here is a cycle. `core` re-homes the table and `fields` re-exports it, so
 // both spellings resolve to the SAME function and the SAME dedupe set.
-import { isRealCalendarDate, isRetiredFieldType, reportRetiredFieldType } from "@object-ui/core"
+import {
+  ComponentRegistry,
+  isRealCalendarDate,
+  isRetiredFieldType,
+  reportRetiredFieldType,
+  toDateTimeInputValue,
+} from "@object-ui/core"
 import { createSafeTranslation } from "@object-ui/i18n"
 
 import { cn } from "../lib/utils"
@@ -1738,6 +1744,13 @@ function FilterBuilder({
       )
     }
 
+    // The platform date picker on a `date` / `datetime` column (objectui#12743),
+    // when the host registered one; see {@link registeredTemporalWidget}.
+    const valueFamily = valueFamilyForFieldType(field?.type)
+    const temporalWidget = registeredTemporalWidget(valueFamily)
+    const temporalFamily: TemporalValueFamily | undefined =
+      valueFamily === "date" || valueFamily === "datetime" ? valueFamily : undefined
+
     // A PAIR operator (`between`) — two bounds, in order. One input could only
     // ever produce one of them, and the spec refuses an incomplete range as
     // firmly as it refuses a scalar for `in`.
@@ -1813,30 +1826,47 @@ function FilterBuilder({
           value: next[0] === "" && next[1] === "" ? [] : next,
         })
       }
+      const renderBound = (index: 0 | 1) => {
+        const boundLabel = t(index === 0 ? 'filterBuilder.rangeStart' : 'filterBuilder.rangeEnd')
+        // A `date` / `datetime` bound is the host's registered date widget
+        // (objectui#12743). Its placeholder is the display locale's pattern,
+        // so the bound's name rides on a hidden label instead. The incomplete
+        // marker reaches it as `error`, which is what drives `aria-invalid`
+        // on a field widget.
+        if (temporalWidget && temporalFamily) {
+          return (
+            <TemporalValueEditor
+              widget={temporalWidget}
+              family={temporalFamily}
+              field={field!}
+              value={bounds[index]}
+              onChange={(next) => setBound(index, next)}
+              label={boundLabel}
+              error={missingBound === index ? t('validation.required', { field: incompleteLabel }) : undefined}
+              className={missingBound === index ? "border-destructive" : undefined}
+              testId={`filter-range-${condition.field}-${index === 0 ? 'start' : 'end'}`}
+            />
+          )
+        }
+        return (
+          <Input
+            type={inputType}
+            className={cn("h-9 text-sm", missingBound === index && "border-destructive")}
+            placeholder={boundLabel}
+            aria-label={boundLabel}
+            aria-invalid={boundInvalid(index)}
+            aria-describedby={missingBound === index ? incompleteId : undefined}
+            value={displayScalarValue(bounds[index])}
+            onChange={(e) => setBound(index, e.target.value)}
+          />
+        )
+      }
       return (
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-1.5" data-testid={`filter-range-${condition.field}`}>
-            <Input
-              type={inputType}
-              className={cn("h-9 text-sm", missingBound === 0 && "border-destructive")}
-              placeholder={t('filterBuilder.rangeStart')}
-              aria-label={t('filterBuilder.rangeStart')}
-              aria-invalid={boundInvalid(0)}
-              aria-describedby={missingBound === 0 ? incompleteId : undefined}
-              value={displayScalarValue(bounds[0])}
-              onChange={(e) => setBound(0, e.target.value)}
-            />
+            {renderBound(0)}
             <span className="text-xs text-muted-foreground shrink-0">-</span>
-            <Input
-              type={inputType}
-              className={cn("h-9 text-sm", missingBound === 1 && "border-destructive")}
-              placeholder={t('filterBuilder.rangeEnd')}
-              aria-label={t('filterBuilder.rangeEnd')}
-              aria-invalid={boundInvalid(1)}
-              aria-describedby={missingBound === 1 ? incompleteId : undefined}
-              value={displayScalarValue(bounds[1])}
-              onChange={(e) => setBound(1, e.target.value)}
-            />
+            {renderBound(1)}
           </div>
           {missingBound !== null && (
             // Visible, not `sr-only`: the drop this announces is invisible to a
@@ -1923,6 +1953,20 @@ function FilterBuilder({
             <SelectItem value="false">{t('filterBuilder.falseLabel')}</SelectItem>
           </SelectContent>
         </Select>
+      )
+    }
+
+    if (temporalWidget && temporalFamily) {
+      return (
+        <TemporalValueEditor
+          widget={temporalWidget}
+          family={temporalFamily}
+          field={field!}
+          value={condition.value}
+          onChange={(next) => updateCondition(condition.id, { value: next })}
+          label={t('filterBuilder.value')}
+          testId={`filter-value-${condition.field}`}
+        />
       )
     }
 
@@ -2099,6 +2143,138 @@ function FilterBuilder({
 }
 
 FilterBuilder.displayName = "FilterBuilder"
+
+// ============================================================================
+// TemporalValueEditor — the platform date picker on a `date` / `datetime` row
+// ============================================================================
+
+/** The value families whose rows draw the host's registered date widget. */
+type TemporalValueFamily = Extract<FilterValueFamily, "date" | "datetime">
+
+/**
+ * The field widget the HOST registered for a `date` / `datetime` value
+ * (objectui#12743), or `undefined` when none is registered.
+ *
+ * Read from `ComponentRegistry` under the `field` namespace at render time,
+ * exactly as the form renderer in this package resolves `field:<type>`
+ * (`renderFieldComponent` in `renderers/form/form.tsx`). `@object-ui/fields`
+ * registers the platform picker there (`DatePickerField` /
+ * `DateTimePickerField`, behind a `React.lazy` loader, so it stays in its own
+ * `fields-date-picker` chunk), and it depends on THIS package, so importing it
+ * here would be a cycle. The registry is the seam: this package stays
+ * fields-free and the host fills it.
+ *
+ * With nothing registered (a host that does not load `@object-ui/fields`)
+ * the row keeps the native input, as the form does.
+ */
+function registeredTemporalWidget(
+  family: FilterValueFamily,
+): React.ComponentType<Record<string, unknown>> | undefined {
+  if (family !== "date" && family !== "datetime") return undefined
+  return ComponentRegistry.get(family, "field") as React.ComponentType<Record<string, unknown>> | undefined
+}
+
+interface TemporalValueEditorProps {
+  widget: React.ComponentType<Record<string, unknown>>
+  family: TemporalValueFamily
+  /** The column the row filters on: the widget's `field` carrier. */
+  field: { value: string; label: string }
+  value: FilterBuilderRow["value"] | undefined
+  /** Receives the value in the row's own shape (see the component's doc). */
+  onChange: (next: string) => void
+  /** The accessible name of the text box, on a visually hidden `<label>`. */
+  label: string
+  /** Set when the row refuses what this control holds; drives `aria-invalid`. */
+  error?: string
+  className?: string
+  testId?: string
+}
+
+/**
+ * Renders the host's registered date widget as a filter row's value editor
+ * (objectui#12743).
+ *
+ * ## The value written is the row's, unchanged
+ *
+ * - `date`: the widget writes `YYYY-MM-DD`, the value `<input type="date">`
+ *   wrote.
+ * - `datetime`: the widget writes an ISO instant (a field's stored shape);
+ *   the row has always held the zoneless local wall clock
+ *   `<input type="datetime-local">` emits (`YYYY-MM-DDTHH:mm`). The instant is
+ *   read back onto that local clock with `toDateTimeInputValue`, the adapter
+ *   the widget itself reads with, so the filter keeps the shape every reader
+ *   of it already handles.
+ *
+ * ## It commits what was typed
+ *
+ * The picker reads its typed text on blur and on Enter, not per keystroke.
+ * A pointer press outside the editor while it holds focus blurs it FIRST
+ * (a capture listener, the seam `DataTable` uses for its injected cell
+ * editors since objectui#12664), so the text is read before a popover that
+ * hosts this row closes and unmounts it. Escape does not blur: it discards.
+ *
+ * `Suspense` is this editor's own: the widget arrives lazily, and the
+ * placeholder holds no input, so nothing typed during the load can be lost.
+ */
+function TemporalValueEditor({
+  widget: Widget,
+  family,
+  field,
+  value,
+  onChange,
+  label,
+  error,
+  className,
+  testId,
+}: TemporalValueEditorProps) {
+  const rootRef = React.useRef<HTMLDivElement | null>(null)
+  const inputId = React.useId()
+
+  React.useEffect(() => {
+    if (typeof document === "undefined") return
+    const onPointerDown = (event: PointerEvent) => {
+      const root = rootRef.current
+      if (!root) return
+      const focused = document.activeElement
+      if (!(focused instanceof HTMLElement) || !root.contains(focused)) return
+      if (event.target instanceof Node && root.contains(event.target)) return
+      focused.blur()
+    }
+    document.addEventListener("pointerdown", onPointerDown, true)
+    return () => document.removeEventListener("pointerdown", onPointerDown, true)
+  }, [])
+
+  const handleChange = (next: unknown) => {
+    const text = typeof next === "string" ? next : ""
+    onChange(family === "datetime" ? toDateTimeInputValue(text) : text)
+  }
+
+  return (
+    <div ref={rootRef} className="min-w-0 flex-1" data-testid={testId}>
+      <label htmlFor={inputId} className="sr-only">
+        {label}
+      </label>
+      <React.Suspense
+        fallback={
+          <div
+            aria-busy="true"
+            data-testid="filter-value-loading"
+            className="h-9 w-full rounded-md border border-input bg-muted/40"
+          />
+        }
+      >
+        <Widget
+          id={inputId}
+          field={{ name: field.value, label: field.label, type: family }}
+          value={value === undefined ? "" : displayScalarValue(value)}
+          onChange={handleChange}
+          error={error}
+          className={cn("h-9 text-sm", className)}
+        />
+      </React.Suspense>
+    </div>
+  )
+}
 
 // ============================================================================
 // MultiValueInput — token input for the LIST operators on an optionless field

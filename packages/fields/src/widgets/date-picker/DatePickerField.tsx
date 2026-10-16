@@ -30,11 +30,13 @@ import {
 import { useFieldTranslation } from '../useFieldTranslation.js';
 
 /**
- * The record form's date and date-time controls (objectui#12622).
+ * The `date` and date-time controls of the form field widgets
+ * (objectui#12622, objectui#12642).
  *
- * The registry's `date` / `datetime` widgets — what a record form resolves
- * `field:date` / `field:datetime` to — draw the platform picker instead of the
- * browser's native input: a text box in the display locale's format (keyboard
+ * `fieldWidgetMap`'s `date` / `datetime` widgets — what a record form resolves
+ * `field:date` / `field:datetime` to, and what `getLazyFieldWidget` hands the
+ * action-param and bulk-action dialogs — draw the platform picker instead of
+ * the browser's native input: a text box in the display locale's format (keyboard
  * entry), a calendar popover (the same `Calendar` the calendar view's date
  * popover opens, localized by the same resolver), a clear button, and
  * today / tomorrow shortcuts.
@@ -51,11 +53,10 @@ import { useFieldTranslation } from '../useFieldTranslation.js';
  *
  * - The read-only face is `DateField` / `DateTimeField`'s own, rendered as is.
  * - The inline editors (`FieldEditWidget`: the grid / detail inline editors and
- *   the kanban required-fields dialog) import `DateField` / `DateTimeField`
- *   directly and keep the native input; this card's ruling is the record form.
- * - `getLazyFieldWidget` (the action-param and bulk-action dialogs) loads the
- *   `date` / `datetime` widgets of `fieldWidgetMap`, which stay `DateField` /
- *   `DateTimeField`: only `registerField` takes this face.
+ *   the kanban required-fields dialog; plugin-detail's `InlineFieldInput`)
+ *   import `DateField` / `DateTimeField` directly and keep the native input.
+ *   A popover inside a grid cell or a filter row is a different interaction,
+ *   measured on its own (objectui#12642).
  * - A form whose `field:date` widget is not registered (no
  *   `@object-ui/fields` loaded) falls back to the form renderer's own
  *   `<input type={inputType}>`, with the `inputType` `ObjectForm` maps.

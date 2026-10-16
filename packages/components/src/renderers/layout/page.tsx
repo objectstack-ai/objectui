@@ -522,7 +522,7 @@ const UtilityPageLayout: React.FC<{ schema: PageNodeSchema }> = ({ schema }) => 
 };
 
 // ---------------------------------------------------------------------------
-// ADR-0080: a `kind:'jsx'` page carries a constrained JSX `source`. We compile
+// ADR-0080: a `kind:'html'` page carries a constrained JSX `source`. We compile
 // it (parse, never execute) into a SchemaNode tree and render it. The whitelist
 // / contract is the live registry. Cached; rebuilt when the registry grows.
 let _jsxManifestSig = -1;
@@ -662,29 +662,28 @@ export const PageRenderer: React.FC<{
 
   // Select the layout variant based on template or page type
   const layoutElement = useMemo(() => {
-    // Read as the stored WIRE value, not as the authoring type. `PageNodeSchema['kind']`
-    // follows @objectstack/spec 18, which retired `'jsx'` (objectui#12464); a
-    // server still on a spec release built before that retirement can serve a
-    // stored `jsx` page that spec 18's rehydration would have turned into
-    // `html`. Widening (not a cast) keeps the `'jsx'` arm below compiling until
-    // the resolved spec carries the retirement and that arm is dropped.
-    const kind: string | undefined = schema.kind;
+    // `PageNodeSchema['kind']` is the spec's own page-kind vocabulary, so this
+    // reads the authoring type: no cast, no widening. @objectstack/spec 18
+    // retired the tier's first name, `jsx` (objectui#12486): the spec refuses
+    // it at parse, a stored `jsx` row is rehydrated to `html` before it is
+    // served, and `COMPILED_PAGE_KINDS` is `html` alone. So nothing here reads
+    // `jsx`; a raw node that still carries it is a kind this renderer does not
+    // name, and takes the template / page-type path below like any other.
+    const kind = schema.kind;
     // `kind:'react'` — TRUSTED execution tier: real React, run (not parsed) by
     // @object-ui/react-runtime, gated behind the host CAP_REACT_PAGES flag.
     if (kind === 'react') {
       return <ReactKindPage schema={schema} />;
     }
-    // `kind:'html'` (formerly 'jsx') — author-written constrained JSX compiled
-    // (parsed, never executed) to a SchemaNode tree and rendered. A stored
-    // 'jsx' page is still rendered as html until the resolved spec carries its
-    // retirement; it can no longer be authored against the types.
+    // `kind:'html'` — author-written constrained JSX compiled (parsed, never
+    // executed) to a SchemaNode tree and rendered.
     // Styling on this tier is the blocks' own structured props
     // (`<flex direction gap>`, `<grid columns>`) plus a JSON `style` object —
     // NOT Tailwind utility classes. `source` is runtime metadata, so the build's
     // Tailwind scan never sees it and an authored class produces no CSS and no
     // error anywhere; `os validate` reports `page-source-className-tailwind`.
     // (ADR-0065; ADR-0080's 2026-06-30 amendment.)
-    if (kind === 'html' || kind === 'jsx') {
+    if (kind === 'html') {
       const src = (schema as { source?: string }).source ?? '';
       const { tree, diagnostics } = compile(src, getJsxManifest());
       const errors = diagnostics

@@ -18,10 +18,13 @@
 import { useId, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMetadata } from '../../providers/MetadataProvider.js';
-import { useRecentItems } from '../../hooks/useRecentItems.js';
+import { useRecentItems, type RecentItem } from '../../hooks/useRecentItems.js';
 import { useRecentItemLabel } from '../../hooks/useRecentItemLabel.js';
+import { useNavTargetLabel } from '../../hooks/useNavTargetLabel.js';
 import { useFavorites } from '../../hooks/useFavorites.js';
 import { useObjectTranslation } from '@object-ui/i18n';
+// Its own line: the line above is the pack-hook binding `perm-home-namespace-3546.test.tsx` reads.
+import { useObjectLabel } from '@object-ui/i18n';
 import { useAuth, useWorkspaceAdminStatus } from '@object-ui/auth';
 import { useAgents, isAskAgent, agentHasCapability } from '@object-ui/plugin-chatbot';
 // May this session author metadata? Shared with the chat surfaces since the
@@ -29,15 +32,19 @@ import { useAgents, isAskAgent, agentHasCapability } from '@object-ui/plugin-cha
 // unknown→fail-open) lives with the hook.
 import { useCanAuthorMetadata } from '../../hooks/useCanAuthorMetadata.js';
 import { HomeAppsStrip } from './HomeAppsStrip.js';
-import { lastOpenedByApp } from './appLastOpened.js';
+import { appSegmentOf, lastOpenedByApp } from './appLastOpened.js';
+import { recentItemObject, recentItemTypeLabel } from './recentItemTypeLabel.js';
 import { RecoveryPasswordReminder } from './RecoveryPasswordReminder.js';
-import { HomeActionCenter, HomeContinue, HomeActivity } from './HomeRail.js';
+import { HomeActionCenter, HomeContinue, HomeActivity, HomePendingDraftsRow, type RecentItemContext } from './HomeRail.js';
+import { resolveI18nLabel } from '@objectstack/spec/ui';
 import { useHomeInbox } from '../../hooks/useHomeInbox.js';
 import { useNavigationContext } from '../../context/NavigationContext.js';
 import {
   appRouteSegment,
   filterActiveApps,
+  matchAppBySegment,
   resolveHostAppSegment,
+  resolveKeyedI18nLabel,
   resolveNotificationTarget,
 } from '../../utils/index.js';
 import { resolveSetupAppPath } from '../ConsoleShell.js';
@@ -52,7 +59,7 @@ import {
   TooltipTrigger,
   cn,
 } from '@object-ui/components';
-import { Sparkles, UploadCloud, MessageSquareText, Hammer, LayoutGrid } from 'lucide-react';
+import { Sparkles, MessageSquareText, Hammer, LayoutGrid } from 'lucide-react';
 import { usePendingDrafts } from '../../preview/usePendingDrafts.js';
 import { usePublishAllDrafts } from '../../preview/usePublishAllDrafts.js';
 import { resolveAiApiBase } from '../../hooks/useAiSurface.js';
@@ -234,70 +241,76 @@ function pickGreetingKey(hour: number): string {
   return 'home.greetingNight';
 }
 
+/** Draft names the drafts row lists before the rest go uncounted by name. */
+const DRAFT_NAMES_SHOWN = 3;
+
 /**
- * Pending-drafts banner — closes the AI magic-moment loop. After the metadata
- * assistant drafts objects/views/apps (ADR-0033 draft-gated authoring), nothing
- * is live until the human publishes. Without this, a user who just had AI build
- * their whole system landed back on an empty-looking home with no trace of it
- * and no path to publish. This surfaces the pending drafts and routes to the
- * designer to review + publish. Disappears automatically once published
- * (listDrafts → 0).
+ * The pending drafts, read for Home's drafts row (objectui#12602) — the read
+ * and the publish the retired banner above the greeting ran, unchanged. After
+ * the metadata assistant drafts objects, views or apps (ADR-0033 draft-gated
+ * authoring), nothing is live until a person publishes; the row surfaces them
+ * with a one-click publish and disappears once they are live (`_drafts` → 0).
+ *
+ * `usePendingDrafts({})` is the env-wide scope (objectui#5801): its bus
+ * subscription keeps the count current after later edits and after a
+ * publish. `usePublishAllDrafts` is the shared one-click publish, also run by
+ * the ADR-0037 draft-preview bar. Returns the row, or `null` with nothing to
+ * publish.
  */
-function PendingDraftsBanner({ t }: { t: (key: string, opts?: any) => string }) {
-  // Shared one-click publish (also used by the ADR-0037 draft-preview bar):
-  // packages via the probed publish-drafts path, orphans by reference, health
-  // surfaced in toasts. See usePublishAllDrafts for the full story.
+function usePendingDraftsRow(t: (key: string, opts?: any) => string, language: string): React.ReactNode {
   const { publishAll, publishing } = usePublishAllDrafts(t);
-  // objectui#5801 — env-wide scope, from the shared pending-drafts source.
-  // The bus subscription inside the hook replaces both the mount-only fetch
-  // (which never saw later edits) and the post-publish window.location.reload
-  // (publishAll now emits the metadata-refresh pulse; the launcher/nav refresh
-  // through MetadataProvider's subscription to the same pulse).
-  const { count } = usePendingDrafts({});
-
-  const publish = async () => {
-    await publishAll();
-  };
-
+  const { count, entries } = usePendingDrafts({});
   if ((count ?? 0) <= 0) return null;
+  // The draft's own label in the console language (objectui#11862), its
+  // name only where `_drafts` served none.
+  const names = entries
+    .slice(0, DRAFT_NAMES_SHOWN)
+    .map((e) => resolveI18nLabel(e.label, language)?.trim() || e.name);
+  // Named only when every draft is in one package: a row naming one package
+  // for drafts spread over several would misplace the rest.
+  const packages = new Set(entries.map((e) => e.packageId));
+  const [onlyPackage] = packages;
   return (
-    <div className="px-4 sm:px-6 lg:px-8 pt-4">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center gap-3 rounded-xl border border-indigo-300/60 dark:border-indigo-700/50 bg-indigo-50 dark:bg-indigo-950/30 px-4 py-3">
-          <UploadCloud className="h-5 w-5 shrink-0 text-indigo-600 dark:text-indigo-400" />
-          <p className="flex-1 min-w-0 text-sm text-indigo-900 dark:text-indigo-200">
-            {t('home.pendingDrafts.message', { count, defaultValue: 'You have {{count}} unpublished change(s) — publish to make them live.' })}
-          </p>
-          <Button size="sm" onClick={publish} disabled={publishing} data-testid="pending-drafts-publish">
-            {publishing
-              ? t('home.pendingDrafts.publishing', { defaultValue: 'Publishing…' })
-              : t('home.pendingDrafts.cta', { defaultValue: 'Publish' })}
-          </Button>
-        </div>
-      </div>
-    </div>
+    <HomePendingDraftsRow
+      count={count ?? 0}
+      names={names}
+      packageName={packages.size === 1 && onlyPackage ? onlyPackage : undefined}
+      publishing={publishing}
+      onPublish={() => void publishAll()}
+      t={t}
+    />
   );
 }
 
 export function HomePage() {
   const navigate = useNavigate();
-  const { t } = useObjectTranslation();
-  const { apps, loading } = useMetadata();
+  const { t, language } = useObjectTranslation();
+  const { apps, objects, loading } = useMetadata();
   const { recentItems } = useRecentItems();
   // A recent entry stores identity; the rail labels it with this, on the
   // render, in the current language (objectui#11678).
   const recentLabel = useRecentItemLabel();
+  // A record row's trail names its object as the sidebar names an unlabelled
+  // navigation entry for it, and the app as its launcher tile does
+  // (objectui#12604).
+  const targetLabel = useNavTargetLabel();
+  const { appLabel } = useObjectLabel();
   const { favorites } = useFavorites();
   const { user } = useAuth();
   const { isAdmin, isResolved: isAdminResolved } = useWorkspaceAdminStatus();
   const {
     pendingApprovalsCount,
+    pendingApprovals,
+    pendingApprovalsReadable,
     pendingApprovalsStatus,
     notifications,
     unreadTopicCount,
     notificationsStatus,
+    notificationsReadable,
     activity,
   } = useHomeInbox();
+  // The drafts row of the My-work section — `null` with nothing to publish.
+  const draftsRow = usePendingDraftsRow(t, language);
   // Home renders OUTSIDE the `/apps/:appName/*` router, so there is no
   // `params.appName` to read — `currentAppName` (published by ConsoleLayout on
   // every app mount) is the only "which app is the user in" signal available
@@ -385,8 +398,38 @@ export function HomePage() {
   const marketplaceReasonId = useId();
 
   const recentApps = recentItems
-    .filter(item => item.type === 'object' || item.type === 'dashboard' || item.type === 'page' || item.type === 'record')
+    .filter(item =>
+      item.type === 'object' ||
+      item.type === 'view' ||
+      item.type === 'dashboard' ||
+      item.type === 'page' ||
+      item.type === 'record')
     .slice(0, 6);
+
+  /**
+   * What a "Recently accessed" row prints beside its title (objectui#12604):
+   * "Account · HotCRM · 10 minutes ago". The context is a record's object
+   * label, else the entry's kind; the app is the one the entry was opened in —
+   * its address's app segment, resolved as the router resolves it — labelled
+   * as its tile is; a record's icon tile draws its object's icon.
+   */
+  const describeRecent = (item: RecentItem): RecentItemContext => {
+    const objectName = recentItemObject(item);
+    const segment = appSegmentOf(item.href);
+    const app = segment ? matchAppBySegment(activeApps, segment) : undefined;
+    const objectIcon =
+      item.type === 'record' && objectName
+        ? (objects ?? []).find((o: { name?: unknown }) => o?.name === objectName)?.icon
+        : undefined;
+    return {
+      context:
+        item.type === 'record' && objectName
+          ? targetLabel({ kind: 'object', objectName }) ?? objectName
+          : recentItemTypeLabel(t, item.type),
+      app: app ? appLabel({ name: app.name, label: resolveKeyedI18nLabel(app.label, t) }) : undefined,
+      icon: typeof objectIcon === 'string' && objectIcon !== '' ? objectIcon : undefined,
+    };
+  };
 
   const greeting = useMemo(() => t(pickGreetingKey(new Date().getHours()), { defaultValue: 'Welcome' }), [t]);
   const displayName = (user?.name?.trim() || user?.email?.split('@')[0] || '').trim();
@@ -437,7 +480,13 @@ export function HomePage() {
   if (activeApps.length === 0) {
     return (
       <div className="flex flex-col flex-1">
-        <PendingDraftsBanner t={t} />
+        {/* With no app yet, the drafts row is the whole of "My work": the
+            moment the assistant has drafted a first app and nothing is live. */}
+        {draftsRow && (
+          <div className="px-4 sm:px-6 lg:px-8 pt-4">
+            <div className="mx-auto max-w-[1120px]">{draftsRow}</div>
+          </div>
+        )}
         <RecoveryPasswordReminder t={t} />
         <div className="flex flex-1 items-center justify-center p-6">
         {/*
@@ -523,7 +572,6 @@ export function HomePage() {
 
   return (
     <div className="relative min-h-full bg-background">
-      <PendingDraftsBanner t={t} />
       <RecoveryPasswordReminder t={t} />
 
       {/* The content column (objectui#12601): 1120 px, centred, 28 px above the
@@ -670,42 +718,53 @@ export function HomePage() {
             marketplaceEnabled={marketplaceEnabled}
           />
 
-          {/* Action center — what needs the user; leads the dashboard */}
-          <div>
-            <HomeActionCenter
-              pendingApprovalsCount={pendingApprovalsCount}
-              notifications={notifications}
-              /* The badge's total — every unread topic, not the capped list
-                 (#4329); the same number the bell above shows. */
-              unreadTopicCount={unreadTopicCount}
-              notificationsStatus={notificationsStatus}
-              onOpenApprovals={() => navigate(`/apps/${hostAppSegment}/system/approvals`)}
-              /* `action_url` is APP-RELATIVE (`/{object}/{id}`, ADR-0030 L5),
-                 so it has to be hosted under an app before it is a route —
-                 navigating it verbatim is objectui#5179, where the console
-                 catch-all forwarded the unmatched path to `/` and the landing
-                 resolver dropped the user on the default app's home with the
-                 notification already marked read. `resolveNotificationTarget`
-                 is shared with the top-bar bell so the two cannot answer this
-                 differently. The fallback arm runs whenever a notification
-                 carries no link at all; `?view=mine` selects the user-scoped
-                 view, so the full page matches what the card showed
-                 (objectui#4074). */
-              onOpenNotification={(n) => {
-                const target = resolveNotificationTarget(n.actionUrl, hostAppSegment);
-                if (!target) {
-                  navigate(`/apps/${hostAppSegment}/sys_inbox_message?view=mine`);
-                  return;
-                }
-                if (target.kind === 'external') {
-                  window.open(target.url, '_blank', 'noopener,noreferrer');
-                  return;
-                }
-                navigate(target.path);
-              }}
-              t={t}
-            />
-          </div>
+          {/* My work (objectui#12602) — approvals, then unread notifications,
+              with the pending-drafts row under its heading. */}
+          <HomeActionCenter
+            pendingApprovals={pendingApprovals}
+            pendingApprovalsCount={pendingApprovalsCount}
+            pendingApprovalsStatus={pendingApprovalsStatus}
+            pendingApprovalsReadable={pendingApprovalsReadable}
+            notifications={notifications}
+            /* The pill's total — every unread topic, not the capped list
+               (#4329); the same number the bell above shows. */
+            unreadTopicCount={unreadTopicCount}
+            notificationsStatus={notificationsStatus}
+            notificationsReadable={notificationsReadable}
+            draftsRow={draftsRow}
+            onOpenApprovals={() => navigate(`/apps/${hostAppSegment}/system/approvals`)}
+            /* The Approvals inbox opens a request's drawer from `?request=`
+               (#2678), the link its notifications already carry. */
+            onOpenApproval={(r) =>
+              navigate(`/apps/${hostAppSegment}/system/approvals?request=${encodeURIComponent(r.id)}`)
+            }
+            /* The bell's own "view all" target (`InboxPopover`): `?view=mine`
+               selects the user-scoped view, so the full page matches what the
+               column showed (objectui#4074). */
+            onOpenInbox={() => navigate(`/apps/${hostAppSegment}/sys_inbox_message?view=mine`)}
+            /* `action_url` is APP-RELATIVE (`/{object}/{id}`, ADR-0030 L5),
+               so it has to be hosted under an app before it is a route —
+               navigating it verbatim is objectui#5179, where the console
+               catch-all forwarded the unmatched path to `/` and the landing
+               resolver dropped the user on the default app's home with the
+               notification already marked read. `resolveNotificationTarget`
+               is shared with the top-bar bell so the two cannot answer this
+               differently. The fallback arm runs whenever a notification
+               carries no link at all, and opens the inbox. */
+            onOpenNotification={(n) => {
+              const target = resolveNotificationTarget(n.actionUrl, hostAppSegment);
+              if (!target) {
+                navigate(`/apps/${hostAppSegment}/sys_inbox_message?view=mine`);
+                return;
+              }
+              if (target.kind === 'external') {
+                window.open(target.url, '_blank', 'noopener,noreferrer');
+                return;
+              }
+              navigate(target.path);
+            }}
+            t={t}
+          />
 
           {/* Continue where you left off + ambient activity. The activity column
               exists only for a caller who may read `sys_activity`
@@ -717,7 +776,13 @@ export function HomePage() {
               activity.readable && 'lg:grid-cols-[minmax(0,1fr)_360px]',
             )}
           >
-            <HomeContinue items={recentApps} onOpen={(href) => navigate(href)} t={t} labelOf={recentLabel} />
+            <HomeContinue
+              items={recentApps}
+              onOpen={(href) => navigate(href)}
+              t={t}
+              labelOf={recentLabel}
+              describe={describeRecent}
+            />
             <HomeActivity activity={activity} onViewAll={() => navigate(`/apps/${hostAppSegment}/sys_activity`)} t={t} />
           </div>
         </div>

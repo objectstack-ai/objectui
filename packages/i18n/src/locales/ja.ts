@@ -497,6 +497,7 @@ const ja = {
     pullToRefresh: "引っ張って更新",
     refreshing: "更新中…",
     openRecord: "レコードを開く",
+    recordUnavailable: "{{object}} · レコードを表示できません",
     rowHeight: "行の高さ: {{mode}}",
     openMenu: "メニューを開く",
     empty: "空",
@@ -2646,9 +2647,15 @@ const ja = {
       dismiss: "閉じる",
     },
     pendingDrafts: {
-      message: "未公開の変更が {{count}} 件あります — 公開すると反映されます。",
-      message_one: "未公開の変更が {{count}} 件あります — 公開すると反映されます。",
-      message_other: "未公開の変更が {{count}} 件あります — 公開すると反映されます。",
+      // objectui#12602 — the drafts row in Home's "My work" section: the
+      // count, then the first draft names joined by `nameSeparator`, in
+      // their package when they share one.
+      title: "未公開の変更 {{count}} 件",
+      title_one: "未公開の変更 {{count}} 件",
+      title_other: "未公開の変更 {{count}} 件",
+      inPackage: "{{names}} が {{package}} で公開待ちです",
+      waiting: "{{names}} が公開待ちです",
+      nameSeparator: "、",
       cta: "公開",
       publishing: "公開しています…",
       published: "公開しました。変更が反映されています。",
@@ -2669,9 +2676,16 @@ const ja = {
     showMoreApps: "もっと見る",
     showLess: "折りたたむ",
     continueEmpty: "開いた項目がここに表示されます。",
-    actionCenter: {
-      title: "対応が必要な項目",
-      empty: "すべて対応済みです",
+    // objectui#12602 — Home's "My work" section: its heading, the link to the
+    // full inbox, each column's title, "view all" link and empty line.
+    myWork: {
+      title: "マイワーク",
+      openInbox: "受信トレイを開く",
+      viewAll: "すべて表示",
+      approvals: "承認待ち",
+      approvalsEmpty: "承認待ちの項目はありません",
+      notifications: "通知",
+      notificationsEmpty: "未読の通知はありません",
     },
     loading: "ワークスペースを読み込み中…",
     welcome: "ObjectUI へようこそ",
@@ -2714,6 +2728,7 @@ const ja = {
         page: "ページ",
         report: "レポート",
         package: "パッケージ",
+        view: "リストビュー",
         record: "レコード",
         metadata: "メタデータ",
       },
@@ -3466,7 +3481,7 @@ const ja = {
     },
     unbound: {
       title: "未接続",
-      body: "このランタイムを ObjectStack コントロールプレーンに接続すると、組織のプライベートパッケージを閲覧してここにインストールできます。承認はクラウドアカウントでワンクリック。ID や認証情報をこのページに入力する必要はありません。",
+      body: "このランタイムはコントロールプレーンに接続されていません。「接続」を押すと新しいウィンドウでクラウドアカウントが開き、ワンクリックで接続を承認できます。ID や認証情報をこのページに入力する必要はありません。",
       connect: "接続",
     },
   },
@@ -3797,6 +3812,9 @@ const ja = {
     emptyPending: 'すべて処理済みです。あなたの承認待ちはありません。',
     emptyOther: 'まだ何もありません。',
     emptyViewAll: 'すべてのリクエストを見る',
+    waitingOnOthers: "{{count}} 件の申請が他の承認者を待っています",
+    waitingOnOthers_one: "{{count}} 件の申請が他の承認者を待っています",
+    waitingOnOthers_other: "{{count}} 件の申請が他の承認者を待っています",
     noMatches: '現在のフィルターに一致するものはありません。',
     keyboardHint: 'ショートカット：j/k 移動 · Enter 開く · x 選択 · a 承認 · r 却下',
     drawerTitle: '承認リクエスト',

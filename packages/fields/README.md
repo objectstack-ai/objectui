@@ -252,9 +252,16 @@ with `referenceVia: 'object_name'`, or `sys_activity.source_id` with
 renderer gets one value and no row, so the pair is resolved by the caller that
 holds the row (objectui#12045):
 
-- `resolveRecordPointer(field, row)` is the one place the rule lives. It
-  returns `{ objectName, recordId }` (a `RecordPointer`) for a `text` field with
-  a non-empty `referenceVia` whose row fills both halves, and `null` otherwise.
+- `resolveRecordPointer(field, row, optionsOf?)` is the one place the rule
+  lives. It returns `{ objectName, recordId }` (a `RecordPointer`) for a `text`
+  field with a non-empty `referenceVia` whose row fills both halves, and `null`
+  otherwise.
+- When the field also declares `referenceDeletedWhen: { field, value }` (the
+  platform's assertion that it deleted the target, objectui#12489) and the row's
+  sibling `field` holds `value`, the pair carries `deletedLabel`: that option's
+  label from `optionsOf(field)`, the options the caller draws `select` cells
+  with. A face draws it as a tombstone and reads and links nothing; the default
+  face draws it in place of the record id.
 - `RECORD_POINTER_CARD_TYPE` is the registry key a resolved pair is drawn with,
   the pair as the renderer's `value`. This package registers a default under it
   that draws the record id as text, so nothing changes for a host that does not

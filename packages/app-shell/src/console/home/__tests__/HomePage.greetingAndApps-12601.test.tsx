@@ -112,6 +112,11 @@ vi.mock('../../../hooks/useCanAuthorMetadata', () => ({
 vi.mock('../../../hooks/useHomeInbox', () => ({
   useHomeInbox: () => ({
     pendingApprovalsCount: state.pendingApprovalsCount,
+    // objectui#12602: the approvals preview, and whether each source is
+    // the caller's to read — the My-work section draws a column per source.
+    pendingApprovals: [],
+    pendingApprovalsReadable: true,
+    notificationsReadable: true,
     pendingApprovalsStatus: state.approvalsStatus,
     notifications: [],
     unreadTopicCount: 0,

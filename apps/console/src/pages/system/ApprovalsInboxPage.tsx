@@ -1123,6 +1123,13 @@ export function ApprovalsInboxPage() {
   const [error, setError] = useState<string | null>(null);
   /** "My pending" count, independent of the active tab (badge + bell parity). */
   const [myPendingCount, setMyPendingCount] = useState(0);
+  /**
+   * objectui#12608 — the pending requests this caller can see in the
+   * environment, read only while the "pending" tab is empty: the empty state
+   * then says how many are waiting on other approvers. `null` = not read, or
+   * the read failed or answered no total; the line is then not drawn.
+   */
+  const [environmentPendingCount, setEnvironmentPendingCount] = useState<number | null>(null);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selected, setSelected] = useState<ApprovalRequestRow | null>(null);
@@ -1301,6 +1308,18 @@ export function ApprovalsInboxPage() {
           : [];
         setMyPendingCount(requests.length);
         setTotal(null);
+        // objectui#12608 — the caller's pending list is empty, so ONE count
+        // query asks how many pending requests the environment holds. Paged
+        // (`limit`), so the server answers `total`; it counts under the same
+        // visibility as the "all" tab's own read, so the number never names a
+        // request the caller cannot open from there, and every request it
+        // counts waits on someone else. A failed read draws no line.
+        setEnvironmentPendingCount(null);
+        if (requests.length === 0) {
+          approvalsApi.listRequests({ status: 'pending', limit: 1, offset: 0 })
+            .then(res => setEnvironmentPendingCount(typeof res.total === 'number' ? res.total : null))
+            .catch(() => { /* the line is best-effort: no count, no line */ });
+        }
       } else {
         const pageParams = {
           q: serverQuery || undefined,
@@ -2013,7 +2032,20 @@ export function ApprovalsInboxPage() {
                     ? tr('emptyPending', "You're all caught up — nothing is waiting on you.")
                     : tr('emptyOther', 'Nothing here yet.')}
                 </EmptyDescription>
-                {tab === 'pending' && (
+                {tab === 'pending' && (environmentPendingCount ?? 0) > 0 ? (
+                  <p
+                    className="mt-1 text-sm text-muted-foreground"
+                    data-testid="approvals-inbox-waiting-on-others"
+                  >
+                    {tr('waitingOnOthers', '{{count}} requests are waiting on other approvers', {
+                      count: environmentPendingCount,
+                    })}
+                    {' · '}
+                    <Button variant="link" size="sm" className="h-auto p-0" onClick={() => onTabChange('all')}>
+                      {tr('emptyViewAll', 'Browse all requests')}
+                    </Button>
+                  </p>
+                ) : tab === 'pending' && (
                   <Button variant="link" size="sm" className="mt-1" onClick={() => onTabChange('all')}>
                     {tr('emptyViewAll', 'Browse all requests')}
                   </Button>

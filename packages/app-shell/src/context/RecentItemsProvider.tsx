@@ -13,7 +13,11 @@
  * - An object, dashboard, page, report or Studio package entry is stored by
  *   IDENTITY — its `type` and `name` — never by display text; its label is
  *   resolved when it is rendered (`useRecentItemLabel`), in the language of
- *   that render (objectui#11678; the package kind, objectui#11863).
+ *   that render (objectui#11678; the package kind, objectui#11863). A list
+ *   view is stored the same way, by its object and its view name
+ *   (objectui#12604).
+ * - It keeps the last {@link MAX_RECENT} entries, one per target: one per
+ *   record, one per object view (objectui#12604).
  * - A list equal to the one already persisted is not written again: a visit
  *   that does not change the list writes nothing, whoever reported the visit.
  *
@@ -51,7 +55,7 @@ import {
  * members (`pnpm check:i18n-keys`); the two entry shapes below take their arms
  * from it.
  */
-export type RecentItemType = 'object' | 'dashboard' | 'page' | 'report' | 'package' | 'record' | 'metadata';
+export type RecentItemType = 'object' | 'dashboard' | 'page' | 'report' | 'package' | 'view' | 'record' | 'metadata';
 
 interface RecentItemBase {
   /** Unique key, e.g. "object:contact" or "dashboard:sales_overview" */
@@ -73,13 +77,32 @@ interface RecentItemBase {
  * labelled "Delivery Operations".
  */
 export interface RecentNamedItem extends RecentItemBase {
-  type: Exclude<RecentItemType, 'record' | 'metadata'>;
+  type: Exclude<RecentItemType, 'view' | 'record' | 'metadata'>;
   /**
    * The item's machine name: the object's, dashboard's, page's or report's
    * `name`, or a package's `id` (objectui#11863). A package is the one kind
    * with no metadata cache behind it: its label comes from the package list
    * the rendering surface has loaded (`useRecentItemLabel`'s `packages`).
    */
+  name: string;
+}
+
+/**
+ * One list view of an object — the page `/apps/APP/OBJECT/view/VIEW` draws
+ * (objectui#12604). Stored by identity, as a {@link RecentNamedItem} is: the
+ * object and the view's name, both required, and no display text; its label is
+ * the view's, resolved when it is rendered (`useRecentItemLabel`).
+ *
+ * Its own kind rather than an `object` entry with an optional view: an `object`
+ * entry is the object's list as the object opens it, labelled with the
+ * object's name, while this one is a named view of it, labelled with the
+ * view's — and a view whose object is optional would name nothing to open.
+ */
+export interface RecentViewItem extends RecentItemBase {
+  type: Extract<RecentItemType, 'view'>;
+  /** The object whose list the view draws. */
+  object: string;
+  /** The view's name, as its route carries it (`crm_account.all_accounts`). */
   name: string;
 }
 
@@ -93,10 +116,13 @@ export interface RecentTextItem extends RecentItemBase {
   label: string;
 }
 
-export type RecentItem = RecentNamedItem | RecentTextItem;
+export type RecentItem = RecentNamedItem | RecentViewItem | RecentTextItem;
 
 /** What `addRecentItem` takes: an entry without its visit time, each kind with its own members. */
-export type RecentItemInput = Omit<RecentNamedItem, 'visitedAt'> | Omit<RecentTextItem, 'visitedAt'>;
+export type RecentItemInput =
+  | Omit<RecentNamedItem, 'visitedAt'>
+  | Omit<RecentViewItem, 'visitedAt'>
+  | Omit<RecentTextItem, 'visitedAt'>;
 
 interface RecentItemsContextValue {
   recentItems: RecentItem[];
@@ -109,7 +135,8 @@ interface RecentItemsContextValue {
 // ---------------------------------------------------------------------------
 
 const STORAGE_BASE_KEY = 'objectui-recent-items';
-const MAX_RECENT = 8;
+/** How many entries the store keeps (objectui#12604; Home shows six of them, the sidebar five). */
+const MAX_RECENT = 20;
 
 const NAMED_TYPES: ReadonlySet<string> = new Set(['object', 'dashboard', 'page', 'report', 'package']);
 const TEXT_TYPES: ReadonlySet<string> = new Set(['record', 'metadata']);
@@ -149,6 +176,11 @@ function readEntry(raw: unknown): RecentItem | null {
     if (name === '') return null;
     return { id, type: type as RecentNamedItem['type'], name, href, visitedAt };
   }
+  if (type === 'view') {
+    const { object, name } = entry;
+    if (typeof object !== 'string' || object === '' || typeof name !== 'string' || name === '') return null;
+    return { id, type, object, name, href, visitedAt };
+  }
   if (TEXT_TYPES.has(type) && typeof entry.label === 'string') {
     return { id, type: type as RecentTextItem['type'], label: entry.label, href, visitedAt };
   }
@@ -172,6 +204,8 @@ function contentOf(item: RecentItem): string {
     case 'record':
     case 'metadata':
       return JSON.stringify([item.id, item.type, item.href, item.label]);
+    case 'view':
+      return JSON.stringify([item.id, item.type, item.href, item.object, item.name]);
     default:
       return JSON.stringify([item.id, item.type, item.href, item.name]);
   }

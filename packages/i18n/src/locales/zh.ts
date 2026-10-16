@@ -469,6 +469,7 @@ const zh = {
     pullToRefresh: '下拉刷新',
     refreshing: '刷新中…',
     openRecord: '打开记录',
+    recordUnavailable: '{{object}} · 记录不可用',
     openMenu: '更多操作',
     bulkSelected: '已选择 {{count}} 项',
     bulkSelected_one: '已选择 {{count}} 项',
@@ -2710,9 +2711,16 @@ const zh = {
     showMoreApps: '更多',
     showLess: '收起',
     continueEmpty: '你打开过的内容会显示在这里。',
-    actionCenter: {
-      title: '待办事项',
-      empty: '全部处理完毕',
+    // objectui#12602 — Home's "My work" section: its heading, the link to the
+    // full inbox, each column's title, "view all" link and empty line.
+    myWork: {
+      title: "我的工作",
+      openInbox: "打开收件箱",
+      viewAll: "查看全部",
+      approvals: "待审批",
+      approvalsEmpty: "没有待审批的事项",
+      notifications: "通知",
+      notificationsEmpty: "没有未读通知",
     },
     greetingMorning: '早上好',
     greetingAfternoon: '下午好',
@@ -2754,9 +2762,15 @@ const zh = {
       dismiss: '关闭',
     },
     pendingDrafts: {
-      message: '你有 {{count}} 项未发布的更改 —— 点击发布即可生效。',
-      message_one: '你有 {{count}} 项未发布的更改 —— 点击发布即可生效。',
-      message_other: '你有 {{count}} 项未发布的更改 —— 点击发布即可生效。',
+      // objectui#12602 — the drafts row in Home's "My work" section: the
+      // count, then the first draft names joined by `nameSeparator`, in
+      // their package when they share one.
+      title: "{{count}} 项未发布更改",
+      title_one: "{{count}} 项未发布更改",
+      title_other: "{{count}} 项未发布更改",
+      inPackage: "{{names}} 在 {{package}} 包里等待发布",
+      waiting: "{{names}} 等待发布",
+      nameSeparator: "、",
       cta: '发布',
       publishing: '发布中…',
       published: '已发布！更改已生效。',
@@ -2787,6 +2801,7 @@ const zh = {
         page: '页面',
         report: '报表',
         package: '软件包',
+        view: '列表视图',
         record: '记录',
         metadata: '元数据',
       },
@@ -3605,7 +3620,7 @@ const zh = {
     },
     unbound: {
       title: '未连接',
-      body: '将此运行时连接到 ObjectStack 控制平面，即可浏览并安装组织的私有包。只需在云账户中点击一次批准——无需在本页面输入任何 ID 或凭据。',
+      body: '此运行时尚未连接到控制平面。点击「连接」会在新窗口中打开你的云账户，只需点击一次即可批准连接——无需在本页面输入任何 ID 或凭据。',
       connect: '连接',
     },
   },
@@ -3938,6 +3953,9 @@ const zh = {
     emptyPending: '全部处理完毕，没有等待你审批的请求。',
     emptyOther: '这里还没有内容。',
     emptyViewAll: '查看全部请求',
+    waitingOnOthers: '{{count}} 个申请正在等待其他审批人',
+    waitingOnOthers_one: '{{count}} 个申请正在等待其他审批人',
+    waitingOnOthers_other: '{{count}} 个申请正在等待其他审批人',
     noMatches: '没有符合当前筛选条件的请求。',
     keyboardHint: '快捷键：j/k 移动 · Enter 打开 · x 选择 · a 通过 · r 拒绝',
     drawerTitle: '审批请求',

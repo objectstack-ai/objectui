@@ -2457,9 +2457,10 @@ const ar = {
       signingIn: "جارٍ تسجيل دخولك…",
       ssoHandoff: "المتابعة إلى {{target}}",
       devAdminHint: {
-        title: "بيئة تطوير",
+        title: "بيئة تطوير محلية",
         body: "سجّل الدخول بحساب مسؤول التطوير المهيأ مسبقًا:",
         dismiss: "تجاهل",
+        signIn: "تسجيل الدخول كمسؤول التطوير",
       },
       title: "تسجيل الدخول إلى حسابك",
       description: "أدخل بريدك الإلكتروني وكلمة المرور للمتابعة",
@@ -2491,6 +2492,16 @@ const ar = {
       usePasswordSignInText: "تسجيل الدخول بكلمة المرور بدلاً من ذلك",
       socialButton: "المتابعة باستخدام {provider}",
       orText: "أو تابع باستخدام البريد الإلكتروني",
+      // objectui#12600 — the console login card's own header, the password
+      // field's reveal toggle, and the footer's legal links.
+      welcomeTitle: "مرحبًا بعودتك",
+      welcomeDescription: "سجّل الدخول لمتابعة عملك",
+      showPasswordText: "إظهار كلمة المرور",
+      hidePasswordText: "إخفاء كلمة المرور",
+      footer: {
+        privacy: "الخصوصية",
+        terms: "الشروط",
+      },
     },
     register: {
       title: "إنشاء حساب",

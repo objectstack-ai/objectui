@@ -2084,12 +2084,12 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     // none of them read as the main one.
     // Only an action that can sit in the row competes for it — a destructive
     // host action never does (see `isHostButton` below).
-    const isHostButton = (a: any): boolean => isHostAction(a) && !isDestructiveAction(a);
-    const rowEligible = buttonable.filter((a: any) => !isHostAction(a) || isHostButton(a));
-    const primaryIdx = rowEligible.findIndex((a: any) => a?.variant === 'primary');
-    const primaryAction: any = rowEligible[primaryIdx >= 0 ? primaryIdx : 0];
+    const isHostButton = (a: unknown): boolean => isHostAction(a) && !isDestructiveAction(a);
+    const rowEligible = buttonable.filter((a) => !isHostAction(a) || isHostButton(a));
+    const primaryIdx = rowEligible.findIndex((a) => a?.variant === 'primary');
+    const primaryAction: unknown = rowEligible[primaryIdx >= 0 ? primaryIdx : 0];
     const ranked = primaryAction
-      ? [primaryAction, ...buttonable.filter((a: any) => a !== primaryAction)]
+      ? [primaryAction, ...buttonable.filter((a) => a !== primaryAction)]
       : buttonable;
     // The page's own actions share the `maxVisible` budget; what does not fit
     // folds into the `⋯`. A host button (Edit) is the record's base action:
@@ -2098,12 +2098,12 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     // the app's actions filled the row (objectui#12529). A DESTRUCTIVE host
     // action is the exception and always folds: a host's Delete belongs in
     // the `⋯`'s destructive band, never inline as a red button.
-    const authoredButtons = ranked.filter((a: any) => !isHostAction(a));
-    const inlineAuthored = new Set<any>(authoredButtons.slice(0, maxVisible));
-    const inlineActions = ranked.filter((a: any) => isHostButton(a) || inlineAuthored.has(a));
+    const authoredButtons = ranked.filter((a) => !isHostAction(a));
+    const inlineAuthored = new Set<unknown>(authoredButtons.slice(0, maxVisible));
+    const inlineActions = ranked.filter((a) => isHostButton(a) || inlineAuthored.has(a));
     const foldedButtons = [
       ...authoredButtons.slice(maxVisible),
-      ...ranked.filter((a: any) => isHostAction(a) && !isHostButton(a)),
+      ...ranked.filter((a) => isHostAction(a) && !isHostButton(a)),
     ];
     // The overflow reads as one list in three bands (objectui#12529): the
     // authored actions first, then the host's menu chrome (favorites /

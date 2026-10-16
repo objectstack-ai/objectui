@@ -575,14 +575,14 @@ describe('the online writer of defaultValue reaches the same repaired control', 
     // path is shared, so the repair reaches it without a second carrier, which
     // is the shape objectui#7238 removed and this file must not reintroduce.
     stubs.configSchemas = {
-      http_request: {
+      http: {
         type: 'object',
         properties: {
           method: { type: 'string', title: 'Method', enum: ['GET', 'POST'], default: 'POST' },
         },
       },
     };
-    renderInspector(draftWith('http_request', { config: {} }));
+    renderInspector(draftWith('http', { config: {} }));
 
     expect(
       triggerText('Method'),
@@ -751,10 +751,10 @@ describe('non-regression — a change that deletes the control must not pass thi
   });
 
   it('the select control exists, offers its declared options, and commits', () => {
-    renderInspector(draftWith('http_request', { config: {} }));
+    renderInspector(draftWith('http', { config: {} }));
     const trigger = screen.queryByRole('combobox', { name: 'Method' });
     expect(trigger, 'the Method control is rendered at all').not.toBeNull();
-    const method = fieldsForNodeType('http_request').find((f) => f.id === 'method');
+    const method = fieldsForNodeType('http').find((f) => f.id === 'method');
     expect(
       method?.options?.map((o) => o.value),
       'and the five HTTP verbs are still the offered vocabulary',
@@ -762,7 +762,7 @@ describe('non-regression — a change that deletes the control must not pass thi
   });
 
   it('a stored value the options dropped still renders, flagged deprecated', () => {
-    renderInspector(draftWith('http_request', { config: { method: 'TRACE' } }));
+    renderInspector(draftWith('http', { config: { method: 'TRACE' } }));
     expect(
       triggerText('Method'),
       'a legacy stored verb is never silently blanked',
@@ -813,7 +813,7 @@ describe('objectui#9109: the form states no default the installed spec does not 
   // back, backed this time, and its trigger states the default again — pinned
   // positively below (objectui#11073).
   const GONE: readonly GoneRow[] = [
-    { type: 'http_request', node: { config: {} }, label: 'Method', was: 'GET' },
+    { type: 'http', node: { config: {} }, label: 'Method', was: 'GET' },
     { type: 'wait', node: { waitEventConfig: {} }, label: 'Wait for', was: 'Timer' },
     {
       type: 'boundary_event',

@@ -42,7 +42,7 @@ function makeDraft() {
           iteratorVariable: 'contract',
           body: {
             nodes: [
-              { id: 'charge', type: 'http_request', label: 'Charge', config: { method: 'POST', url: 'https://x/charge', outputVariable: 'chargeResult' } },
+              { id: 'charge', type: 'http', label: 'Charge', config: { method: 'POST', url: 'https://x/charge', outputVariable: 'chargeResult' } },
             ],
             edges: [{ source: 'charge', target: 'charge' }],
           },
@@ -53,8 +53,8 @@ function makeDraft() {
         type: 'parallel',
         config: {
           branches: [
-            { name: 'Slack', nodes: [{ id: 's', type: 'http_request', label: 'Slack' }], edges: [] },
-            { nodes: [{ id: 'c', type: 'http_request', label: 'CRM' }], edges: [] },
+            { name: 'Slack', nodes: [{ id: 's', type: 'http', label: 'Slack' }], edges: [] },
+            { nodes: [{ id: 'c', type: 'http', label: 'CRM' }], edges: [] },
           ],
         },
       },
@@ -110,7 +110,7 @@ describe('FlowNodeInspector — nested node editing', () => {
     expect(crumb.textContent).toContain('For each'); // container label
     expect(crumb.textContent).toContain('Body'); // region label
     expect(crumb.textContent).toContain('Charge'); // node label
-    // The http_request schema field renders (its URL value is editable inline).
+    // The http schema field renders (its URL value is editable inline).
     expect(screen.getByDisplayValue('https://x/charge')).toBeInTheDocument();
   });
 

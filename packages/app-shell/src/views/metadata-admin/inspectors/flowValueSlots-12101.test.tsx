@@ -46,9 +46,6 @@ const PICK = 'Insert a reference';
 const TOGGLE = 'Write as a CEL expression';
 const env = (source: string) => ({ dialect: 'cel', source });
 
-/** The designer groups the spec's `http` node under `http_request`. */
-const designerType = (specType: string) => (specType === 'http' ? 'http_request' : specType);
-const specType = (type: string) => (type === 'http_request' ? 'http' : type);
 
 const fieldOf = (type: string, key: string): FlowConfigField => {
   const f = fieldsForNodeType(type).find((x) => x.path[0] === 'config' && x.path[1] === key);
@@ -103,10 +100,10 @@ describe('objectui#12101 — hole mode is exactly the text slots the spec names'
     const holeFields = FLOW_NODE_CONFIG_TYPES.flatMap((type) =>
       fieldsForNodeType(type)
         .filter((f) => f.refMode === 'hole')
-        .map((f) => `${specType(type)}.${f.path[1]}`),
+        .map((f) => `${type}.${f.path[1]}`),
     );
     const rendered = FLOW_NODE_TEXT_SLOTS.filter((s) =>
-      fieldsForNodeType(designerType(s.nodeType)).some((f) => f.path[0] === 'config' && f.path[1] === s.key),
+      fieldsForNodeType(s.nodeType).some((f) => f.path[0] === 'config' && f.path[1] === s.key),
     ).map((s) => `${s.nodeType}.${s.key}`);
     expect(holeFields.sort()).toEqual(rendered.sort());
   });
@@ -120,14 +117,14 @@ describe('objectui#12101 — hole mode is exactly the text slots the spec names'
         method: { type: 'string', title: 'Method' },
       },
     });
-    const merged = mergeServerFlowFields(served, 'http_request');
+    const merged = mergeServerFlowFields(served, 'http');
     const modeOf = (k: string) => merged.find((f) => f.path[1] === k)?.refMode;
     expect(modeOf('url')).toBe('hole');
     expect(modeOf('headers')).toBe('hole');
     expect(modeOf('method')).toBeUndefined();
   });
 
-  for (const [type, key] of [['notify', 'actionUrl'], ['http_request', 'url']] as const) {
+  for (const [type, key] of [['notify', 'actionUrl'], ['http', 'url']] as const) {
     it(`${type}.${key}: the picker inserts a double-brace hole`, async () => {
       const commits: unknown[] = [];
       render(<FlowNodeConfigField field={fieldOf(type, key)} value="/a/" onCommit={(v) => commits.push(v)} scopeGroups={scope(['customer'])} />);
@@ -202,8 +199,8 @@ describe('objectui#12101 — no help text prescribes a single-brace token', () =
     ['script', 'inputs'],
     ['screen', 'defaults'],
     ['notify', 'actionUrl'],
-    ['http_request', 'url'],
-    ['http_request', 'headers'],
+    ['http', 'url'],
+    ['http', 'headers'],
   ];
   for (const [type, key] of SITES) {
     it(`${type}.${key}`, () => {

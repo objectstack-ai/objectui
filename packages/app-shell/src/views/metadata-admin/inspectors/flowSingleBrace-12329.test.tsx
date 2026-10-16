@@ -165,8 +165,8 @@ describe('objectui#12329 — a key/value map outside the slots has literal text 
   });
 
   it('control: http headers, a {{ }} text-slot map, keeps its hole picker', async () => {
-    const headers = fieldsForNodeType('http_request').find((f) => f.path[1] === 'headers')!;
-    renderField(headers, { type: 'http_request', config: {} }, { Authorization: '' });
+    const headers = fieldsForNodeType('http').find((f) => f.path[1] === 'headers')!;
+    renderField(headers, { type: 'http', config: {} }, { Authorization: '' });
     expect(screen.getByRole('button', { name: PICK })).toBeInTheDocument();
   });
 });

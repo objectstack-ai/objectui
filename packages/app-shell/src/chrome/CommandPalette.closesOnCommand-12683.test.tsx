@@ -32,8 +32,8 @@
 
 import * as React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, fireEvent, cleanup, screen, act } from '@testing-library/react';
-import { MemoryRouter, useLocation, useNavigate, type NavigateFunction } from 'react-router-dom';
+import { render, fireEvent, cleanup, screen } from '@testing-library/react';
+import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
 import { createI18n, I18nProvider } from '@object-ui/i18n';
 
 vi.mock('@object-ui/auth', async (importOriginal) => ({
@@ -60,17 +60,16 @@ const PAGE = '/apps/showcase_app/page/showcase_capability_map';
 const ACCOUNTS = '/apps/showcase_app/showcase_account';
 const THEME_KEY = 'objectui-12683-theme';
 
-let navigate: NavigateFunction = () => {};
-
-/** Renders where the router is, and the header button's open handler. */
+/** Renders where the router is, the header button's open handler, and Back. */
 function Probe() {
   const location = useLocation();
-  navigate = useNavigate();
+  const navigate = useNavigate();
   const { openCommandPalette } = useCommandPalette();
   return (
     <>
       <span data-testid="location" data-path={location.pathname} data-search={location.search} />
       <button type="button" data-testid="open-palette" onClick={openCommandPalette} />
+      <button type="button" data-testid="go-back" onClick={() => navigate(-1)} />
     </>
   );
 }
@@ -120,7 +119,7 @@ function run(query: string, prefix: string) {
 }
 
 function back() {
-  act(() => navigate(-1));
+  fireEvent.click(screen.getByTestId('go-back'));
 }
 
 afterEach(() => {

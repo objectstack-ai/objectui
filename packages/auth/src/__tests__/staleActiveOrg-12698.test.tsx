@@ -22,7 +22,8 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { AuthProvider } from '../AuthProvider';
 import { useAuth } from '../useAuth';
 import { ActiveOrganizationStorage, SessionUserScope } from '../ActiveOrganizationStorage';
-import type { AuthClient, AuthContextValue, AuthOrganization } from '../types';
+import type { AuthContextValue } from '../AuthContext';
+import type { AuthClient, AuthOrganization } from '../types';
 
 const USER = 'u_12698';
 const PREV: AuthOrganization = { id: 'org_prev', name: 'Previous Org', slug: 'prev' } as AuthOrganization;

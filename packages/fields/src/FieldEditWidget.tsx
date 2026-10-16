@@ -97,7 +97,7 @@ const DateTimePickerEditWidget = React.lazy(() =>
 );
 
 /** The {@link EDIT_WIDGETS} entries that load lazily and need a `Suspense` boundary. */
-const LAZY_EDIT_WIDGETS = new Set<React.ComponentType<FieldWidgetComponentProps<any>>>([
+const LAZY_EDIT_WIDGETS: ReadonlySet<unknown> = new Set([
   DatePickerEditWidget,
   DateTimePickerEditWidget,
 ]);

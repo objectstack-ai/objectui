@@ -1566,8 +1566,8 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   // staged the old value over the new one and the typed day was lost. Every
   // write goes through `setEditValue` below, so the ref is always the last
   // value written.
-  const editValueRef = useRef<any>('');
-  const setEditValue = (value: any) => {
+  const editValueRef = useRef<unknown>('');
+  const setEditValue = (value: unknown) => {
     editValueRef.current = value;
     setEditValueState(value);
   };

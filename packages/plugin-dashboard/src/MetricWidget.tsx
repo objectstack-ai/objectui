@@ -19,6 +19,7 @@ import type { I18nLabel } from '@object-ui/types';
 import { ArrowDownIcon, ArrowUpIcon, MinusIcon, AlertCircle, Loader2 } from 'lucide-react';
 import { VARIANT_ICON_CLASSES, VARIANT_TEXT_CLASSES, type MetricColorVariant } from './colorVariants';
 import { hostDomProps, type SchemaHostProps } from './schemaHostProps';
+import { METRIC_TILE_CONTAINER_CLASS, METRIC_TILE_TITLE_CLASS, METRIC_TILE_VALUE_CLASS } from './metricTile';
 
 const TREND_LABEL_DEFAULTS: Record<string, string> = {
   'dashboard.trend.vsLastQuarter': 'vs last quarter',
@@ -423,6 +424,9 @@ export const MetricWidget = ({
     <Card
       className={cn(
         "h-full overflow-hidden",
+        // objectui#12623 — the tile's own box is what the title, value and
+        // label rules in `./metricTile` measure.
+        METRIC_TILE_CONTAINER_CLASS,
         onClick && "cursor-pointer transition-colors hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
         className,
       )}
@@ -437,8 +441,8 @@ export const MetricWidget = ({
       } : undefined}
       {...hostProps}
     >
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium truncate">
+      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+        <CardTitle className={METRIC_TILE_TITLE_CLASS} title={resolvedLabel}>
           {resolvedLabel}
         </CardTitle>
         {resolvedIcon && (
@@ -465,7 +469,7 @@ export const MetricWidget = ({
           </div>
         ) : (
           <>
-            <div className="text-2xl font-bold tabular-nums tracking-tight truncate">{displayValue}</div>
+            <div className={cn('font-bold tracking-tight', METRIC_TILE_VALUE_CLASS)}>{displayValue}</div>
             {(trend || description) && (
               <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
                 {trend && (

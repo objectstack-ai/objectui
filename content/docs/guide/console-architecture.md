@@ -113,6 +113,7 @@ Setup catalog".
 | `/apps/:appName/:objectName/view/:viewId` | `ObjectView` | Specific view for an object |
 | `/apps/:appName/:objectName/data` | `ObjectDataPage` | Bare data surface — URL `filter[<field>]=<value>` conditions, not bound to any saved view (ADR-0055) |
 | `/apps/:appName/:objectName/record/:recordId` | `RecordDetailView` | Single-record detail |
+| `/apps/:appName/:objectName/record/:recordId/page/:pageName` | `RecordDetailView` | The same record on the NAMED record page `:pageName`; a name that is not a record page of the object shows "Page not found" |
 | `/apps/:appName/create-app` | `CreateAppPage` | App creation wizard (4-step) |
 | `/apps/:appName/edit-app/:editAppName` | `EditAppPage` | Edit existing app configuration |
 

@@ -24,7 +24,7 @@
 // response — the result step must surface them immediately; they are never
 // persisted anywhere, client or server.
 
-import type { ImportRecordsResult, ImportRequestOptions, ImportRowResult } from '@object-ui/types';
+import type { ImportRecordsResult, ImportRequestOptions, ImportRowResult, ImportWriteMode } from '@object-ui/types';
 
 export const IDENTITY_IMPORT_OBJECT = 'sys_user';
 
@@ -72,18 +72,36 @@ export function splitIntoBatches<T>(rows: T[], size = IDENTITY_IMPORT_BATCH_SIZE
 }
 
 /**
+ * The write modes the identity import door accepts — stated once, here, beside
+ * the refusal that enforces it (objectui#12697). The server serves no datum
+ * naming them: `POST /api/v1/auth/admin/import-users` validates its `mode`
+ * against `insert` / `upsert` inline (objectstack `plugin-auth`,
+ * `admin-import-users.ts`, which answers `mode must be "insert" or "upsert"`), so this
+ * constant is that door's read. {@link resolveIdentityWriteOptions} refuses
+ * every mode outside it, and the host hands the same constant to the wizard as
+ * `writeModes`, so the wizard never offers a mode this pipeline refuses.
+ */
+export const IDENTITY_IMPORT_WRITE_MODES = ['insert', 'upsert'] as const satisfies readonly ImportWriteMode[];
+
+export type IdentityImportWriteMode = (typeof IDENTITY_IMPORT_WRITE_MODES)[number];
+
+function isIdentityImportWriteMode(mode: ImportWriteMode): mode is IdentityImportWriteMode {
+  return (IDENTITY_IMPORT_WRITE_MODES as readonly ImportWriteMode[]).includes(mode);
+}
+
+/**
  * Map the wizard's generic write options onto the identity endpoint's
  * `mode` / `matchBy`. Throws early (before any batch is sent) on options the
  * identity pipeline doesn't support, so the wizard surfaces one clear error
  * instead of a half-imported file.
  */
 export function resolveIdentityWriteOptions(request: ImportRequestOptions): {
-  mode: 'insert' | 'upsert';
+  mode: IdentityImportWriteMode;
   matchBy?: 'email' | 'phone';
 } {
   const writeMode = request.writeMode ?? 'insert';
-  if (writeMode === 'update') {
-    throw new Error('Identity import supports the insert and upsert write modes only.');
+  if (!isIdentityImportWriteMode(writeMode)) {
+    throw new Error(`Identity import supports the ${IDENTITY_IMPORT_WRITE_MODES.join(' and ')} write modes only.`);
   }
   if (writeMode === 'insert') return { mode: 'insert' };
   const match = (request.matchFields ?? [])[0];

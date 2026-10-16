@@ -4,7 +4,7 @@
  * Supabase-style top bar used across the whole console:
  *   [Logo] [Product / Section]                            [actions] [user ▾]
  *   [App ▾] [Preview]          [Search ⌘K]                [actions] [user ▾]
- *                       (inside an app, from `lg` up: the search is centered)
+ *                       (inside an app, from 960 px up: the search is centered)
  *
  * Variants:
  *   - `app`  (default when `appName` is present): sidebar trigger + the
@@ -17,14 +17,15 @@
  *              draws no crumb after the pill: the page header is the one place
  *              that page is named (objectui#12461). A dashboard or page route
  *              draws none either (objectui#12526). A report or `system/*`
- *              route still draws its crumb. From `lg` up the
+ *              route still draws its crumb; where they do not fit, the crumbs fold
+ *              into one `⋯` menu (objectui#12702). From 960 px up the
  *              bar is three zones, with the search trigger centered between
  *              the left group and the utility cluster, on every route inside
  *              the app, `system/*` included (objectui#12472).
  *   - `home` : no breadcrumb; displays the product wordmark (from
  *              `getProductName()`, default "ObjectOS") next to the brand
  *              logo. Used by `/home`, whose frame mounts a palette, so from
- *              `lg` up its search field is the bar's middle zone, wider than
+ *              960 px up its search field is the bar's middle zone, wider than
  *              an app's (objectui#12601).
  *   - `orgs` : no breadcrumb; logo + "Organizations" title. Used by the
  *              `/organizations` landing page.
@@ -67,9 +68,10 @@ import {
   ExternalLink,
   Keyboard,
   Pencil,
+  MoreHorizontal,
 } from 'lucide-react';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useRef, type RefObject } from 'react';
 import { useOffline } from '@object-ui/react';
 import { PresenceAvatars, useTenantPresence, type PresenceUser } from '@object-ui/collaboration';
 import { ModeToggle } from './ModeToggle.js';
@@ -137,6 +139,172 @@ function PathSep() {
     <span className="select-none text-muted-foreground/40 mx-1.5 text-base font-light" aria-hidden>
       /
     </span>
+  );
+}
+
+/**
+ * The width a left-group child would take at its natural size: its box and
+ * margins, plus what any `truncate` descendant is currently hiding. The app
+ * pill shrinks before the crumbs run out of room, so its rendered box alone
+ * would count the room the crumbs took from it as the pill's own width.
+ */
+function naturalWidth(el: HTMLElement): number {
+  const style = getComputedStyle(el);
+  let width = el.getBoundingClientRect().width + (parseFloat(style.marginLeft) || 0) + (parseFloat(style.marginRight) || 0);
+  for (const d of Array.from(el.querySelectorAll<HTMLElement>('*'))) {
+    if (getComputedStyle(d).textOverflow === 'ellipsis') width += Math.max(0, d.scrollWidth - d.clientWidth);
+  }
+  return Math.ceil(width);
+}
+
+/** The trail's three layouts, widest first; see `useAppBarCrumbFold`. */
+type CrumbFold = 'full' | 'folded' | 'folded-no-chip';
+
+/** The platform-stage chip, as `PreviewBadge` marks it. */
+const CHIP_SELECTOR = ':scope > [data-testid="platform-preview-badge"]';
+
+/**
+ * objectui#12702 — how the crumbs after the app pill are laid out. The answer
+ * is measured from the left group's own width (a `ResizeObserver` on the
+ * group and its children), not from the viewport, against the group's
+ * children at their natural width:
+ *   - `full`: every crumb drawn in full, the chip beside the pill, when that
+ *     fits;
+ *   - `folded`: every crumb but the last in one `⋯` menu and the chip after
+ *     the last crumb, when that fits;
+ *   - `folded-no-chip`: folded, and the chip, the trail's last element, not
+ *     drawn, when the folded row with it still does not fit, so the pill and
+ *     the last crumb keep their full text.
+ * Each crumb's width is read while it is drawn and kept for the trail it
+ * belongs to, and the `⋯` and the chip are kept the same way, so a folded
+ * trail knows what unfolding would cost. Until every crumb has been measured
+ * (the group not laid out yet, or the crumbs hidden below `sm`) the trail is
+ * `full`. A trail of one crumb has no middle to fold.
+ */
+function useAppBarCrumbFold(anchorRef: RefObject<HTMLElement | null>, labels: readonly string[]): CrumbFold {
+  const [fold, setFold] = useState<CrumbFold>('full');
+  const key = JSON.stringify(labels);
+  const count = labels.length;
+  const cache = useRef<{ key: string; crumbs: number[]; fold: number; chip: number }>({ key: '', crumbs: [], fold: 0, chip: 0 });
+
+  useLayoutEffect(() => {
+    // The group is the crumbs' parent: the trail draws its crumbs straight
+    // into it, and the last crumb is drawn in every layout.
+    const group = anchorRef.current?.parentElement;
+    if (!group || count < 2) {
+      setFold('full');
+      return;
+    }
+    const measure = () => {
+      const c = cache.current;
+      if (c.key !== key) {
+        c.key = key;
+        c.crumbs = [];
+      }
+      const chipEl = group.querySelector<HTMLElement>(CHIP_SELECTOR);
+      let others = 0;
+      for (const child of Array.from(group.children) as HTMLElement[]) {
+        const width = naturalWidth(child);
+        if (child.dataset.appBarCrumbFold !== undefined) {
+          if (width > 0) c.fold = width;
+        } else if (child.dataset.appBarCrumb !== undefined) {
+          if (width > 0) c.crumbs[Number(child.dataset.appBarCrumb)] = width;
+        } else if (child === chipEl) {
+          if (width > 0) c.chip = width;
+        } else {
+          others += width;
+        }
+      }
+      let trail = 0;
+      for (let i = 0; i < count; i++) {
+        if (!(c.crumbs[i] > 0)) {
+          setFold('full');
+          return;
+        }
+        trail += c.crumbs[i];
+      }
+      const available = group.clientWidth;
+      if (available <= 0 || others + c.chip + trail <= available) setFold('full');
+      // The `⋯` is measured once it is drawn: fold first, then judge the chip.
+      else if (!(c.fold > 0) || others + c.fold + c.crumbs[count - 1] + c.chip <= available) setFold('folded');
+      else setFold('folded-no-chip');
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(group);
+    for (const child of Array.from(group.children)) observer.observe(child);
+    return () => observer.disconnect();
+  }, [anchorRef, key, count, fold]);
+
+  return count >= 2 ? fold : 'full';
+}
+
+/**
+ * objectui#12702 — the crumbs after the app pill, and the platform-stage chip
+ * that rides with them. Unfolded, the chip comes first, beside the pill
+ * (objectui#12461), and every crumb is drawn in full. Folded, every crumb but
+ * the last collapses into one `⋯` menu that lists them as plain text (the
+ * crumbs link nowhere, and neither does the menu), the last crumb keeps its
+ * full text, and the chip moves after it; where even that row does not fit,
+ * the chip is not drawn. The trail draws from `sm` up; below it the phone bar
+ * shows its compact title instead. The trail draws straight into the left
+ * group, whose width the fold is measured from.
+ *
+ * @internal Module-level for `AppHeader.crumbFold-12702`; not on the package entry.
+ */
+export function AppBarCrumbTrail({
+  segments,
+  moreLabel,
+}: {
+  segments: readonly BreadcrumbItemType[];
+  moreLabel: string;
+}) {
+  const lastRef = useRef<HTMLSpanElement>(null);
+  const layout = useAppBarCrumbFold(lastRef, segments.map((seg) => String(seg.label)));
+  const fold = layout !== 'full';
+  const lastIndex = segments.length - 1;
+  const chip = <PreviewBadge className="ml-2 hidden sm:inline-flex" />;
+  const crumb = (seg: BreadcrumbItemType, i: number) => (
+    <span key={i} ref={i === lastIndex ? lastRef : undefined} data-app-bar-crumb={i} className="hidden sm:flex items-center min-w-0">
+      <PathSep />
+      <span className={`px-1.5 py-1 text-sm font-medium truncate ${i === lastIndex ? 'text-foreground/80' : 'text-foreground/60'}`}>
+        {seg.label}
+      </span>
+    </span>
+  );
+  return (
+    <>
+      {!fold && chip}
+      {fold && (
+        <span data-app-bar-crumb-fold className="hidden sm:flex items-center shrink-0">
+          <PathSep />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0 text-foreground/60"
+                data-testid="app-bar-crumb-fold"
+                aria-label={moreLabel}
+                title={moreLabel}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-[160px] max-w-[280px]">
+              {segments.slice(0, lastIndex).map((seg, i) => (
+                <DropdownMenuItem key={i} data-testid="app-bar-crumb-fold-item">
+                  <span className="truncate">{seg.label}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </span>
+      )}
+      {fold ? crumb(segments[lastIndex], lastIndex) : segments.map(crumb)}
+      {layout === 'folded' && chip}
+    </>
   );
 }
 
@@ -560,16 +728,19 @@ export function AppHeader({
 
   const lastSegmentLabel = routeTitle || extraSegments[extraSegments.length - 1]?.label || appName || '';
 
-  // objectui#12472 — inside an app, from `lg` up, the bar is three zones: the
+
+  // objectui#12472 — inside an app, from 960 px up, the bar is three zones: the
   // left group, the search trigger in the middle, and the utility cluster on
   // the right. The two side zones grow from the same zero basis (`flex-1`
-  // here, `lg:flex-1` on the cluster), so the middle zone sits at the bar's
+  // here, `min-[960px]:flex-1` on the cluster), so the middle zone sits at the bar's
   // center whatever either side holds. The left zone keeps `min-w-0`, and the
   // app pill truncates inside it; the cluster never shrinks below its
-  // content (`lg:min-w-max`), so when the utilities need more than half the
+  // content (`min-[960px]:min-w-max`), so when the utilities need more than half the
   // bar the search yields to the left instead of overlapping them. Inside an
-  // app it is every route, `system/*` included; below `lg` the search is the
-  // icon button in the cluster everywhere.
+  // app it is every route, `system/*` included; below 960 px the search is the
+  // icon button in the cluster everywhere. The field and the icon switch at
+  // that one breakpoint, `min-[960px]:`, so they never both show or both hide;
+  // it was `lg` (1024 px) until objectui#12702 kept the field down to 960 px.
   //
   // objectui#12601 — the `home` variant centers it too, wherever a palette is
   // mounted (`HomeLayout` mounts one): Home's bar is the product mark, the
@@ -592,7 +763,7 @@ export function AppHeader({
       aria-keyshortcuts="Meta+K Control+K"
       onClick={openCommandPalette}
       className={cn(
-        'hidden lg:flex relative items-center gap-2 h-8 px-3 text-sm rounded-md border bg-muted/50 text-muted-foreground hover:bg-muted transition-colors',
+        'hidden min-[960px]:flex relative items-center gap-2 h-8 px-3 text-sm rounded-md border bg-muted/50 text-muted-foreground hover:bg-muted transition-colors',
         isHomeSearch ? 'w-80 xl:w-[420px]' : 'w-48 xl:w-64',
       )}
     >
@@ -708,27 +879,19 @@ export function AppHeader({
               <span className="hidden sm:inline text-sm font-medium text-foreground/80 px-1.5">{appName}</span>
             ) : null}
 
-            {/* Platform-stage chip, inside an app — beside the app's name, so
-                the pill and its stage are the bar's left group
-                (objectui#12461; objectui#12201 item 5 had put it beside the
-                search box). Before any crumb, so it holds its place whatever
-                the route draws after the pill. */}
-            <PreviewBadge className="ml-2 hidden sm:inline-flex" />
-
             {/* The crumbs after the pill — a report or `system/*` route's;
                 an object, dashboard or page route draws none (see
-                `routeTitle`). Plain text: none of them links. */}
-            {extraSegments.map((seg, i) => {
-              const isLast = i === extraSegments.length - 1;
-              return (
-                <span key={i} className="hidden sm:flex items-center min-w-0">
-                  <PathSep />
-                  <span className={`px-1.5 py-1 text-sm font-medium truncate max-w-[160px] ${isLast ? 'text-foreground/80' : 'text-foreground/60'}`}>
-                    {seg.label}
-                  </span>
-                </span>
-              );
-            })}
+                `routeTitle`). Plain text: none of them links. The
+                platform-stage chip rides with them: beside the app's name, so
+                the pill and its stage are the bar's left group
+                (objectui#12461; objectui#12201 item 5 had put it beside the
+                search box), and after the crumbs once the row is too narrow
+                for them and they fold, or not at all where even the folded
+                row has no room for it (objectui#12702). */}
+            <AppBarCrumbTrail
+              segments={extraSegments}
+              moreLabel={t('common.more', { defaultValue: 'More' })}
+            />
 
             {/* Mobile: current page label or view switcher */}
             {mobileSwitcher && mobileSwitcher.views.length > 0 ? (
@@ -788,23 +951,23 @@ export function AppHeader({
         )}
       </div>
 
-      {/* ── MIDDLE: the search, inside an app from `lg` up (objectui#12472) ── */}
+      {/* ── MIDDLE: the search, inside an app from 960 px up (objectui#12472, objectui#12702) ── */}
       {centersSearch && (
-        <div data-topbar-zone="search" className="hidden lg:flex shrink-0 items-center justify-center px-3">
+        <div data-topbar-zone="search" className="hidden min-[960px]:flex shrink-0 items-center justify-center px-3">
           {desktopSearchTrigger}
         </div>
       )}
 
       {/* ── RIGHT: actions (grouped: search | notifications/help | preferences/account) ──
           With the search centered, the search group here holds only the icon
-          button and leaves at `lg`; the three `lg:` rules keyed on
+          button and leaves at 960 px; the three `min-[960px]:` rules keyed on
           `data-topbar-search` keep the group after it from drawing a divider
           next to nothing. */}
       <div
         className={cn(
           'flex items-center gap-0.5 sm:gap-1 shrink-0 [&>*+*[data-topbar-group]]:ml-1 [&>[data-topbar-group]+[data-topbar-group]]:border-l [&>[data-topbar-group]+[data-topbar-group]]:border-border/60 [&>[data-topbar-group]+[data-topbar-group]]:pl-1 sm:[&>[data-topbar-group]+[data-topbar-group]]:pl-2 sm:[&>[data-topbar-group]+[data-topbar-group]]:ml-2',
           centersSearch &&
-            'lg:flex-1 lg:min-w-max lg:justify-end lg:[&>[data-topbar-search]+[data-topbar-group]]:ml-1 lg:[&>[data-topbar-search]+[data-topbar-group]]:border-l-0 lg:[&>[data-topbar-search]+[data-topbar-group]]:pl-0',
+            'min-[960px]:flex-1 min-[960px]:min-w-max min-[960px]:justify-end min-[960px]:[&>[data-topbar-search]+[data-topbar-group]]:ml-1 min-[960px]:[&>[data-topbar-search]+[data-topbar-group]]:border-l-0 min-[960px]:[&>[data-topbar-search]+[data-topbar-group]]:pl-0',
         )}
       >
         {/* Offline indicator */}
@@ -831,7 +994,7 @@ export function AppHeader({
           <div
             data-topbar-group
             data-topbar-search
-            className={cn('flex items-center gap-0.5 sm:gap-1 shrink-0', centersSearch && 'lg:hidden')}
+            className={cn('flex items-center gap-0.5 sm:gap-1 shrink-0', centersSearch && 'min-[960px]:hidden')}
           >
             {/* Search — desktop, unless the middle zone draws it */}
             {!centersSearch && desktopSearchTrigger}
@@ -840,7 +1003,7 @@ export function AppHeader({
             <Button
               variant="ghost"
               size="icon"
-              className="lg:hidden h-8 w-8 shrink-0"
+              className="min-[960px]:hidden h-8 w-8 shrink-0"
               data-testid="action:command-palette:open-mobile"
               onClick={openCommandPalette}
               aria-label={searchLabel}

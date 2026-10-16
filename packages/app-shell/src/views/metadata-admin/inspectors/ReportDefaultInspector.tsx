@@ -40,7 +40,7 @@ import {
   rosterFrom,
 } from './_shared.js';
 import { AddFieldPopover, FieldListRow } from '../previews/ViewColumnPanes.js';
-import { toFieldName } from '../previews/object-fields-io.js';
+import { toFieldName, toFieldNameLoose } from '../previews/object-fields-io.js';
 import type { MetadataDefaultInspectorProps } from '../default-inspector-registry.js';
 import { SchemaForm } from '../SchemaForm.js';
 import type { ObjectFieldInfo } from '../previews/useObjectFields.js';
@@ -480,7 +480,13 @@ export function ReportDefaultInspector({
         <InspectorTextField
           label={tr('engine.inspector.report.name')}
           value={nameValue}
-          onCommit={(v) => onPatch({ name: toFieldName(v) })}
+          // objectui#12746 — this box commits on every keystroke, so it takes
+          // the prefix-stable form: the strict `toFieldName` trims a trailing
+          // `_` before the next key arrives, and `qavrf_rev` typed key by key
+          // read `qavrfrev`. The object designer's Name does the same. The
+          // strict form stays where the name is derived from the Label, and
+          // the spec's identifier rule judges the result.
+          onCommit={(v) => onPatch({ name: toFieldNameLoose(v) })}
           placeholder={tr('engine.inspector.report.namePlaceholder')}
           disabled={readOnly}
           mono

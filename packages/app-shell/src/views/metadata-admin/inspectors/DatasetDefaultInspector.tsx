@@ -32,7 +32,7 @@ import {
   spliceArray,
 } from './_shared.js';
 import { InspectorComboField, type InspectorComboOption } from './InspectorComboField.js';
-import { toFieldName } from '../previews/object-fields-io.js';
+import { toFieldName, toFieldNameLoose } from '../previews/object-fields-io.js';
 import { formatMeasure } from '@object-ui/core';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { conditionToGroup, groupToCondition, isClearedGroup, type BuilderGroup, type FilterCondition } from './datasetFilterCondition.js';
@@ -501,7 +501,12 @@ export function DatasetDefaultInspector({ draft, onPatch, readOnly, name, locale
         <InspectorTextField
           label={tr('engine.inspector.dataset.name')}
           value={nameValue}
-          onCommit={(v) => onPatch({ name: toFieldName(v) })}
+          // objectui#12746 — committed on every keystroke, so the
+          // prefix-stable form, as ReportDefaultInspector and the object
+          // designer do: the strict `toFieldName` trimmed a trailing `_`
+          // before the next key arrived. The Label derivation below keeps
+          // the strict form.
+          onCommit={(v) => onPatch({ name: toFieldNameLoose(v) })}
           placeholder={tr('engine.inspector.dataset.namePlaceholder')}
           disabled={readOnly}
           mono

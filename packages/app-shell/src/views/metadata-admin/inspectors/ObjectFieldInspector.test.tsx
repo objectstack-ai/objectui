@@ -451,7 +451,9 @@ describe('ObjectFieldInspector — formula expression editor', () => {
     const patch = onPatch.mock.calls.at(-1)![0];
     // …but the edit lands on the spec key and retires the alias.
     expect(patch.fields.total.expression).toBe('record.amount * 0.2');
-    expect(patch.fields.total.formula).toBeUndefined();
+    // ABSENT, not an own `undefined`: the spec check counts a present key
+    // whatever its value (objectui#12681).
+    expect(patch.fields.total).not.toHaveProperty('formula');
   });
 
   it('preserves an envelope (dialect, meta) when editing over it', () => {

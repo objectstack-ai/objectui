@@ -679,6 +679,20 @@ export function ObjectFieldInspector({
     writeView({ shape: view.shape, entries: nextEntries });
   };
 
+  /**
+   * objectui#12681 — write `nextDef` as the field's WHOLE definition: a key it
+   * leaves out is ABSENT afterwards. `patchDef` cannot express that, because
+   * its spread keeps a key patched to `undefined` as an OWN property, and the
+   * client spec check's strict field parse reports an own key the spec does
+   * not declare as `unrecognized_keys` whatever its value. The wire drops
+   * `undefined`, so the save is unaffected; the banner on screen is not.
+   */
+  const writeDef = (nextDef: Record<string, unknown>) => {
+    const nextEntries = [...view.entries];
+    nextEntries[idx] = { ...entry, def: nextDef };
+    writeView({ shape: view.shape, entries: nextEntries });
+  };
+
   /** Remove `key` from the field def outright — the key is ABSENT afterwards,
    *  not present with `undefined` or `null` (objectui#7597). */
   const unsetDefKey = (key: string) => {
@@ -1119,9 +1133,15 @@ export function ObjectFieldInspector({
               value={readPredicate(def.expression ?? def.formula)}
               onChange={(v) => {
                 formulaEdited.current = true;
-                patchDef({
-                  expression: writePredicate(def.expression ?? def.formula, v),
-                  formula: undefined,
+                // The edit commits `expression` and the next definition is
+                // built WITHOUT the legacy `formula` key (objectui#12681): a
+                // `formula: undefined` patch would leave an own key on the
+                // draft, and the spec check reports a present `formula` as the
+                // retired key on a field that carries none — on every edit.
+                const { formula: legacyFormula, ...rest } = def;
+                writeDef({
+                  ...rest,
+                  expression: writePredicate(def.expression ?? legacyFormula, v),
                   ...(v.trim() ? {} : { returnType: undefined }),
                 });
               }}

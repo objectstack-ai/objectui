@@ -477,9 +477,17 @@ describe('sanitizeChatMessagesForCache — affordance cards survive a cache roun
     // 1. Live render derives the cards from the raw tool output (baseline).
     const live = uiMessageToChatMessage(liveUiMessage);
     expect(live.toolInvocations?.[0]?.draftReview?.items).toEqual(draftedOutput.drafted);
+    // objectui#12724 — the live plan lifts each field's name for the card's
+    // field chips; the cache copy below keeps only the count, and the card
+    // degrades to the object chips there.
     expect(live.toolInvocations?.[1]?.proposedPlan?.objects).toEqual([
-      { name: 'candidate', label: 'Candidate', fieldCount: 2 },
-      { name: 'job', fieldCount: 1 },
+      {
+        name: 'candidate',
+        label: 'Candidate',
+        fieldCount: 2,
+        fields: [{ name: 'full_name' }, { name: 'stage' }],
+      },
+      { name: 'job', fieldCount: 1, fields: [{ name: 'title' }] },
     ]);
 
     // 2. Cache it, then round-trip through JSON exactly like localStorage does.

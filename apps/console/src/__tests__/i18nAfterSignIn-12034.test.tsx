@@ -120,7 +120,11 @@ vi.mock('../AppContent', async () => {
       </main>
     );
   }
-  return { AppContent: AppProbe };
+  return {
+    AppContent: AppProbe,
+    // objectui#12700: the permissions scope `App` mounts over /home and /apps, a pass-through here.
+    ConsolePermissionsScope: ({ children }: { children?: ReactNode }) => <>{children}</>,
+  };
 });
 
 vi.mock('../components/RootLandingRedirect', () => ({ RootLandingRedirect: stub('root-landing') }));

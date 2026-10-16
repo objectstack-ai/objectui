@@ -117,7 +117,11 @@ vi.mock('@object-ui/auth', async (importOriginal) => ({
   useAuth: () => ({ user: { id: 'u1' } }),
 }));
 
-vi.mock('../AppContent', () => ({ AppContent: stub('app-content') }));
+vi.mock('../AppContent', () => ({
+  AppContent: stub('app-content'),
+  // objectui#12700: the permissions scope `App` mounts over /home and /apps, a pass-through here.
+  ConsolePermissionsScope: ({ children }: { children?: ReactNode }) => <>{children}</>,
+}));
 vi.mock('../components/ProtectedRoute', () => ({ ProtectedRoute: passthrough }));
 vi.mock('../components/RootLandingRedirect', () => ({ RootLandingRedirect: stub('root-landing') }));
 vi.mock('../components/SetupRoute', () => ({ SetupRoute: stub('setup-route') }));

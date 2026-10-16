@@ -360,6 +360,14 @@ const ja = {
       impossibleDay:
         "保存されている値「{{value}}」は実在しない日付です。置き換えるには日付と時刻を選択してください。",
     },
+    datePicker: {
+      today: "今日",
+      tomorrow: "明日",
+      clear: "日付をクリア",
+      openCalendar: "カレンダーを開く",
+      invalid:
+        "保存されていません：「{{value}}」は日付ではありません。{{format}} の形式で入力するか、カレンダーから選択してください。",
+    },
     number: {
       badInput:
         "保存されていません: このボックスのテキストは数値ではありません。通常の小数で入力してください（例: {{example}}）。",

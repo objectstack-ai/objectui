@@ -366,6 +366,14 @@ const pt = {
       impossibleDay:
         "O valor salvo “{{value}}” não é uma data real. Escolha uma data e uma hora para substituí-lo.",
     },
+    datePicker: {
+      today: "Hoje",
+      tomorrow: "Amanhã",
+      clear: "Limpar data",
+      openCalendar: "Abrir calendário",
+      invalid:
+        "Não salvo: “{{value}}” não é uma data. Digite no formato {{format}} ou escolha no calendário.",
+    },
     number: {
       badInput:
         "Não salvo: o texto deste campo não é um número. Informe um decimal simples (exemplo: {{example}}).",

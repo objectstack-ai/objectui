@@ -542,6 +542,17 @@ const en = {
       impossibleDay:
         'The stored value "{{value}}" is not a real date. Pick a date and time to replace it.',
     },
+    // objectui#12622 — the record form's date picker: its two shortcuts,
+    // the clear / calendar buttons' accessible names, and the notice for
+    // typed text that names no date ({{format}} is the locale pattern).
+    datePicker: {
+      today: 'Today',
+      tomorrow: 'Tomorrow',
+      clear: 'Clear date',
+      openCalendar: 'Open calendar',
+      invalid:
+        'Not saved: "{{value}}" is not a date. Type it as {{format}}, or pick one from the calendar.',
+    },
     number: {
       badInput:
         'Not saved: the text in this box is not a number. Enter a plain decimal (example: {{example}}).',

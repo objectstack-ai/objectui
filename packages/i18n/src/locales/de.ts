@@ -360,6 +360,14 @@ const de = {
       impossibleDay:
         "Der gespeicherte Wert „{{value}}“ ist kein gültiges Datum. Wählen Sie Datum und Uhrzeit, um ihn zu ersetzen.",
     },
+    datePicker: {
+      today: "Heute",
+      tomorrow: "Morgen",
+      clear: "Datum löschen",
+      openCalendar: "Kalender öffnen",
+      invalid:
+        "Nicht gespeichert: „{{value}}“ ist kein Datum. Geben Sie es als {{format}} ein oder wählen Sie es im Kalender aus.",
+    },
     number: {
       badInput:
         "Nicht gespeichert: Der Text in diesem Feld ist keine Zahl. Geben Sie eine einfache Dezimalzahl ein (Beispiel: {{example}}).",

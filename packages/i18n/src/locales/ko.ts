@@ -360,6 +360,14 @@ const ko = {
       impossibleDay:
         "저장된 값 “{{value}}”은(는) 실제 날짜가 아닙니다. 바꾸려면 날짜와 시간을 선택하세요.",
     },
+    datePicker: {
+      today: "오늘",
+      tomorrow: "내일",
+      clear: "날짜 지우기",
+      openCalendar: "달력 열기",
+      invalid:
+        "저장되지 않음: “{{value}}”은(는) 날짜가 아닙니다. {{format}} 형식으로 입력하거나 달력에서 선택하세요.",
+    },
     number: {
       badInput:
         "저장되지 않았습니다: 이 입력란의 텍스트는 숫자가 아닙니다. 일반 소수로 입력하세요(예: {{example}}).",

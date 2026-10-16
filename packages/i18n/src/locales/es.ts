@@ -371,6 +371,14 @@ const es = {
       impossibleDay:
         "El valor guardado «{{value}}» no es una fecha real. Elige una fecha y una hora para reemplazarlo.",
     },
+    datePicker: {
+      today: "Hoy",
+      tomorrow: "Mañana",
+      clear: "Borrar fecha",
+      openCalendar: "Abrir calendario",
+      invalid:
+        "No guardado: «{{value}}» no es una fecha. Escríbela como {{format}} o elígela en el calendario.",
+    },
     number: {
       badInput:
         "No guardado: el texto de este campo no es un número. Introduce un decimal simple (ejemplo: {{example}}).",

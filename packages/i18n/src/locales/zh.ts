@@ -368,6 +368,14 @@ const zh = {
       impossibleDay:
         '存储的值“{{value}}”不是真实存在的日期。请选择日期和时间以替换它。',
     },
+    datePicker: {
+      today: '今天',
+      tomorrow: '明天',
+      clear: '清除日期',
+      openCalendar: '打开日历',
+      invalid:
+        '未保存：“{{value}}”不是有效日期。请按 {{format}} 格式输入，或从日历中选择。',
+    },
     number: {
       badInput:
         '未保存：此输入框中的文本不是数字。请输入普通小数（例如 {{example}}）。',

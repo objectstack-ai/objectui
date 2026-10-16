@@ -13,7 +13,7 @@
  * sides spell by hand is exercised from both ends.
  */
 
-import React from 'react';
+import React, { useLayoutEffect } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, act, cleanup } from '@testing-library/react';
 import { AuthProvider, useAuth } from '@object-ui/auth';
@@ -48,17 +48,20 @@ function getSessionCalls(): number {
   return fetchStub.mock.calls.filter(([input]) => String(input instanceof Request ? input.url : input).includes('/get-session')).length;
 }
 
-let auth: ReturnType<typeof useAuth> | null = null;
-function Probe() {
-  auth = useAuth();
-  return <span data-testid="who">{auth.isLoading ? 'loading' : auth.user?.name ?? 'nobody'}</span>;
+const probe: { current: ReturnType<typeof useAuth> | null } = { current: null };
+function Probe({ sink }: { sink: typeof probe }) {
+  const value = useAuth();
+  useLayoutEffect(() => {
+    sink.current = value;
+  });
+  return <span data-testid="who">{value.isLoading ? 'loading' : value.user?.name ?? 'nobody'}</span>;
 }
 
 function mountConsole() {
   return render(
     <React.StrictMode>
       <AuthProvider authUrl={AUTH_URL}>
-        <Probe />
+        <Probe sink={probe} />
       </AuthProvider>
     </React.StrictMode>,
   );
@@ -70,7 +73,7 @@ beforeEach(() => {
   sessionAnswer = () => SESSION_BODY;
   localStorage.clear();
   delete (globalThis as unknown as Record<symbol, unknown>)[Symbol.for('objectui.authPreflightSession')];
-  auth = null;
+  probe.current = null;
 });
 
 afterEach(() => {
@@ -92,9 +95,9 @@ describe('one console open, one get-session (objectui#12808)', () => {
     await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
 
     expect(getSessionCalls()).toBe(1);
-    expect(auth?.isAuthenticated).toBe(true);
+    expect(probe.current?.isAuthenticated).toBe(true);
     // Parsed as `getSession()` parses the wire body: dates revived.
-    expect(auth?.session?.expiresAt).toBeInstanceOf(Date);
+    expect(probe.current?.session?.expiresAt).toBeInstanceOf(Date);
   });
 
   it('CONTROL: a sign-out then sign-in reads the session again', async () => {
@@ -104,10 +107,10 @@ describe('one console open, one get-session (objectui#12808)', () => {
     await screen.findByText('Ada');
     expect(getSessionCalls()).toBe(1);
 
-    await act(async () => { await auth!.signOut(); });
+    await act(async () => { await probe.current!.signOut(); });
     expect(screen.getByTestId('who').textContent).toBe('nobody');
-    await act(async () => { await auth!.signIn('ada@example.test', 'pw'); });
-    await act(async () => { await auth!.refreshSession(); });
+    await act(async () => { await probe.current!.signIn('ada@example.test', 'pw'); });
+    await act(async () => { await probe.current!.refreshSession(); });
 
     // The handoff was the first state only: the next read went to the server.
     expect(getSessionCalls()).toBe(2);

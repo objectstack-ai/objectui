@@ -35,7 +35,7 @@
  *
  * When the token is valid this request already IS the session `AuthProvider`
  * would ask for next: the server prefers the Bearer over the cookie, so adding
- * the cookie cannot change the answer. The raw body is left on `globalThis`
+ * the cookie cannot change the answer. The body is left on `globalThis`
  * under `Symbol.for('objectui.authPreflightSession')`, with the auth URL and the
  * token it was asked with, and `AuthProvider` takes it, once, for its first
  * state (`takePreflightSession` in `@object-ui/auth`'s `createAuthClient.ts`)
@@ -109,18 +109,15 @@ export async function preflightAuth(authBaseUrl: string): Promise<void> {
     });
 
     if (res.ok) {
-      const text = await res.text().catch(() => '');
-      let body: { user?: unknown; data?: { user?: unknown } } | null = null;
-      try {
-        body = JSON.parse(text);
-      } catch { /* not JSON — treated as no session below */ }
+      const body = await res.json().catch(() => null);
       const user = body?.user ?? body?.data?.user ?? null;
       if (user) {
-        // Token valid — leave localStorage alone, and hand the answer on.
+        // Token valid — leave localStorage alone, and hand the answer on, as
+        // JSON text so the taker parses it exactly as it parses the wire body.
         (globalThis as unknown as Record<symbol, unknown>)[PREFLIGHT_SESSION_KEY] = {
           authUrl: authBaseUrl,
           token,
-          body: text,
+          body: JSON.stringify(body),
         };
         return;
       }

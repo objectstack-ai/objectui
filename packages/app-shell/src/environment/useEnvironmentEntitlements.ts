@@ -205,7 +205,9 @@ export function useEnvironmentEntitlements(
   // interchangeable, and keying an effect on a function identity is what
   // AGENTS.md #10 rules out.
   const resolveDeps = useRef({ dataSource, authFetch });
-  resolveDeps.current = { dataSource, authFetch };
+  useEffect(() => {
+    resolveDeps.current = { dataSource, authFetch };
+  });
   const lastRefresh = useRef<{ key: string; refreshKey: unknown } | null>(null);
 
   const key = `${(apiBase || '').replace(/\/+$/, '')}\n${orgId ?? ''}`;

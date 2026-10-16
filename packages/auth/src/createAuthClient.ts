@@ -232,7 +232,7 @@ function resolveResetPasswordRedirect(): string {
 /**
  * The slot the console's pre-React auth preflight (`apps/console/src/lib/
  * auth-preflight.ts`) leaves its `get-session` answer in when the stored Bearer
- * was valid: the auth URL it asked, the token it sent and the raw body. The
+ * was valid: the auth URL it asked, the token it sent and the body as JSON text. The
  * preflight runs before any bundle chunk that could import this package, so the
  * slot is spelled by hand on both sides; the console's
  * `sessionBootDedup.test.tsx` runs the preflight against this reader.

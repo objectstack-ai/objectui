@@ -44,7 +44,7 @@ const TYPES = ['boolean', 'toggle'] as const;
 /** Resolve + render exactly the way a consumer builds a read-mode cell. */
 function renderCell(type: string, value: unknown, field: Record<string, unknown>) {
   const Renderer = getCellRenderer(resolveCellRendererType({ type }) || type);
-  return render(<Renderer value={value as any} field={{ type, ...field } as any} />);
+  return render(<Renderer value={value} field={{ type, ...field } as never} />);
 }
 
 describe('objectui#12584 — the boolean cell checkbox is named by its field', () => {

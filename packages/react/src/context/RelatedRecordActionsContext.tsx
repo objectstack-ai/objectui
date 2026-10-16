@@ -104,6 +104,19 @@ export interface RelatedRecordHandlers {
   toolbarActions?: RelatedRowActionDef[];
   /** Execute one of {@link toolbarActions} (no row context). */
   onToolbarAction?: (action: RelatedRowActionDef) => void | Promise<void>;
+  /**
+   * Open the child object's full list page, scoped to THIS parent on the
+   * relationship `resolve` was handed (objectui#12741). The related list's
+   * "View all" link calls it, unless the block declares `showViewAll: false`.
+   *
+   * The host builds the destination because only the host knows the console's
+   * routes, as it does for {@link onView}. It omits the handler when no route
+   * it has can show that scoped list, and the link is then not drawn. One case
+   * is a multi-value relationship: the list route's URL filter has no
+   * membership operator. Another is a relationship field the viewer cannot
+   * read: the list route drops that condition and would show every row.
+   */
+  onViewAll?: () => void;
 }
 
 /** Input to {@link RelatedRecordActionsValue.resolve}. */

@@ -528,6 +528,23 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
   const showActionRefusals =
     refusedActions.length > 0 &&
     (isDevBuild() || perms.hasCapabilities([METADATA_AUTHORING_CAPABILITY]));
+  /**
+   * `showViewAll` — READ (objectui#12741; ENFORCE, the objectui half of
+   * objectstack-ai/objectstack#23941). The contract declares it
+   * `z.boolean().default(true)`, "Show 'View All' link to see all related
+   * records". Before this read the key changed nothing and the link never drew.
+   *
+   *   - ABSENT or `true` → the link draws when the host offers a destination
+   *     (`handlers.onViewAll`: the child object's list scoped to this parent,
+   *     on this list's relationship) and the list has records.
+   *   - `false` → no link, whatever the host offers.
+   *
+   * The destination is the host's, like every route on this list: the bridge
+   * withholds it when no route it has can show this parent's children, and
+   * with no host there is nothing to open. `RelatedList` draws no link on an
+   * empty list.
+   */
+  const onViewAll = schema.showViewAll === false ? undefined : handlers?.onViewAll;
 
   return (
     <div className={className} {...designer} {...ariaProps}>
@@ -607,6 +624,9 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
         // host owns both verdicts (it is the side that has the parent record
         // and the predicate evaluator); this renderer only wires them.
         newDisabled={handlers?.createDisabled}
+        // "View all": the child object's list page, scoped to this parent —
+        // see `onViewAll` above for when it is offered.
+        onViewAll={onViewAll}
         // Open the child record's detail page on row click (查看记录详情).
         onRowClick={
           handlers?.onView

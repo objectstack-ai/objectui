@@ -30,6 +30,9 @@
  *                 parent-linked.
  *   - 删        → `dataSource.delete(child, id)` (RelatedList shows the confirm
  *                 dialog and refreshes afterwards)
+ *   - 查看全部  → the child object's list page scoped to this parent
+ *                 (`onViewAll`, the related list's "View all" link,
+ *                 objectui#12741)
  *   - 子对象 action → the child object's `list_item` actions, and its
  *                 `record_related` ones when a parent record is in scope,
  *                 executed against the clicked row through the page's shared
@@ -81,11 +84,12 @@ import {
   type RelatedRecordHandlers,
   type RelatedRowActionDef,
 } from '@object-ui/react';
-import { evalRowPredicate, resolveAffordance, type ActionDef, type RowCrudPredicates } from '@object-ui/core';
+import { evalRowPredicate, isMultiValueRelationship, resolveAffordance, type ActionDef, type RowCrudPredicates } from '@object-ui/core';
 import { actionRendersAt, type ActionLocation } from '@object-ui/types';
 import { usePermissions } from '@object-ui/permissions';
 import { RECORD_FORM_PARAM, RECORD_FORM_OBJECT_PARAM, RECORD_FORM_LINK_PARAM, RECORD_TRAIL_PARAM, appendRecordTrail } from '../urlParams.js';
 import { documentHref } from './documentHref.js';
+import { recordListPath } from './useOpenRecordList.js';
 
 /**
  * Notify open related lists for `objectName` to refetch.
@@ -490,6 +494,36 @@ export function RelatedRecordActionsBridge({
           onView: (id) => openRecord(objectName, id),
         };
 
+        /**
+         * "View all" (objectui#12741): the child object's list page, scoped to
+         * this parent on the list's own relationship. The destination is the
+         * ADR-0055 bare data surface (`recordListPath`, the route
+         * `useOpenRecordList` drills to). It is not anchored to a saved view,
+         * so the page shows every related record rather than the related
+         * records some default view also lets through.
+         *
+         * Offered only where that route can say "this parent's children". Its
+         * `filter[FIELD]=VALUE` arm is EQUALITY, so the handler is withheld:
+         *   - without a relationship or a parent value: an unscoped list is
+         *     every record of the object, not this parent's;
+         *   - on a `multiple: true` relationship: membership has no URL
+         *     spelling, and equality against an array of ids matches nothing
+         *     (the reason `RelatedList`'s raw-URL fetch refuses it, objectui#7299);
+         *   - on a relationship field the viewer cannot read: `ObjectDataPage`
+         *     drops that condition and would open the whole table.
+         * A withheld handler draws no link: no link is better than a wrong list.
+         */
+        if (
+          relationshipField &&
+          parentId != null &&
+          parentId !== '' &&
+          !isMultiValueRelationship(childDef.fields, relationshipField) &&
+          perms.checkField(objectName, relationshipField, 'read')
+        ) {
+          const viewAllPath = recordListPath(appName, objectName, { [relationshipField]: parentId });
+          handlers.onViewAll = () => navigate(viewAllPath);
+        }
+
         if (aff.create) {
           // [#4646] Greyed, not gone: `onCreate` is still supplied so the list
           // keeps offering "+ New" as a visible-but-inert affordance. The
@@ -551,7 +585,7 @@ export function RelatedRecordActionsBridge({
     // the #4646 create predicates: a parent record that changes (a save, a
     // status transition) must re-resolve "+ New" for every related list under
     // it, or the toolbar keeps answering for the record's previous state.
-    [objects, base, dataSource, localizeActionTexts, runRowAction, openChildForm, recordHref, openRecord, perms, parentRecord, parentObjectFields, predicateScope, hasParentRecord],
+    [objects, base, appName, navigate, dataSource, localizeActionTexts, runRowAction, openChildForm, recordHref, openRecord, perms, parentRecord, parentObjectFields, predicateScope, hasParentRecord],
   );
 
   return (

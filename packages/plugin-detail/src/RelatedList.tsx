@@ -2493,8 +2493,13 @@ export const RelatedList: React.FC<RelatedListProps> = ({
           </div>
         )}
 
-        {/* Footer "View all" link — only when records are truncated (more than displayed) */}
-        {onViewAll && !isEmpty && showPagination && (
+        {/* Footer "View all" link — whenever the host hands a destination and
+            there are records (objectui#12741). The spec's `showViewAll` is
+            "Show 'View All' link to see all related records", with no
+            truncation condition: the full list page is worth opening even when
+            every row fits here (sort, filter, export, a shareable URL). An
+            empty list has nothing to see in full. */}
+        {onViewAll && !isEmpty && (
           <div className="mt-3 pt-3 border-t flex justify-center">
             <button
               type="button"

@@ -191,6 +191,9 @@ The renderer picks one of two layouts when it renders:
 
 - **Bare heading** — no record in scope, or `recordChrome: false`. The title and subtitle
   stack on the left, the action row sits on the right.
+
+When the header's title is the page's heading, the page's own `description` is drawn as a
+third line, under the title and subtitle.
 - **Record chip** — a record page (a record context with its object schema) with the record
   chrome on. The title renders as the record chip: the heading, the object's label, the
   copy-id button and the follow star, with the record's picture beside the heading when the

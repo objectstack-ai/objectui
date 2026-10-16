@@ -85,8 +85,7 @@ export function nodeIcon(type: string): LucideIcon {
       return FileX;
     case 'get_record':
       return FileSearch;
-    case 'http_request':
-    case 'webhook':
+    case 'http':
       return Globe;
     case 'notify':
       return Bell;
@@ -258,11 +257,9 @@ export function nodeTone(type: string): NodeTone {
     case 'get_record':
       return TONES.record;
     case 'http':
-    case 'http_request':
     case 'notify':
     case 'connector_action':
     case 'script':
-    case 'webhook':
     case 'service_task':
     case 'script_task':
       return TONES.integration;
@@ -323,11 +320,9 @@ export function nodeCategory(type: string): NodeCategory {
     case 'user_task':
       return 'Human';
     case 'http':
-    case 'http_request':
     case 'notify':
     case 'connector_action':
     case 'script':
-    case 'webhook':
     case 'service_task':
     case 'script_task':
       return 'Integration';
@@ -421,7 +416,6 @@ export function defaultNodeExtras(type: string): Record<string, unknown> {
       // matching the built-in node's defaults (framework#1895).
       return { config: { channels: ['inbox'], recipients: [] } };
     case 'http':
-    case 'http_request':
       return { config: { method: 'GET' } };
     case 'script':
       return {};

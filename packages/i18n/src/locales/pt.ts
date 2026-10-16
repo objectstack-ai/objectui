@@ -812,6 +812,8 @@ const pt = {
     recordCount_many: "{{count}} de registros",
     recordCount_other: "{{count}} registros",
     addRecord: "Adicionar registro",
+    // objectui#12703 — the compact list's footer link to the object's list or the block's view.
+    viewAll: "Ver tudo",
     tabs: "Abas",
     allRecords: "Todos os registros",
     search: "Pesquisar",
@@ -2055,6 +2057,8 @@ const pt = {
       cryptoRefusalNoSubject: "O valor declarado como criptografado foi recusado, portanto nada foi gravado.",
       cryptoRefusalToast: "Não é possível criptografar segredos: {{subject}}",
       cryptoRefusalToastNoSubject: "Não é possível criptografar segredos",
+      sourceBadgeInherited: "Herdado de {{source}}",
+      sourceBadgeOverrides: "Substitui {{source}}",
     },
     workspaceTimezonePrompt: {
       title: "Definir o fuso horário do workspace",
@@ -2337,6 +2341,10 @@ const pt = {
       usePasswordSignInText: "Entrar com senha em vez disso",
       socialButton: "Continuar com {provider}",
       orText: "ou continue com e-mail",
+      ssoButton: "Entrar com SSO",
+      ssoOnlyDescription: "Entre com o logon único da sua organização",
+      usePasswordText: "Usar uma senha em vez disso",
+      backToSsoText: "Voltar ao logon único",
       // objectui#12600 — the console login card's own header, the password
       // field's reveal toggle, and the footer's legal links.
       welcomeTitle: "Bem-vindo de volta",

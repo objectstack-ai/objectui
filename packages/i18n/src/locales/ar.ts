@@ -903,6 +903,8 @@ const ar = {
     recordCount_many: "{{count}} سجلًا",
     recordCount_other: "{{count}} سجل",
     addRecord: "إضافة سجل",
+    // objectui#12703 — the compact list's footer link to the object's list or the block's view.
+    viewAll: "عرض الكل",
     tabs: "علامات التبويب",
     allRecords: "جميع السجلات",
     search: "بحث",
@@ -2208,6 +2210,8 @@ const ar = {
       cryptoRefusalNoSubject: "تم رفض القيمة المعلنة كمشفَّرة، لذلك لم تتم كتابة أي شيء.",
       cryptoRefusalToast: "تعذّر تشفير الأسرار: {{subject}}",
       cryptoRefusalToastNoSubject: "تعذّر تشفير الأسرار",
+      sourceBadgeInherited: "موروث من {{source}}",
+      sourceBadgeOverrides: "يتجاوز {{source}}",
     },
     workspaceTimezonePrompt: {
       title: "تعيين المنطقة الزمنية لمساحة العمل",
@@ -2502,6 +2506,10 @@ const ar = {
       usePasswordSignInText: "تسجيل الدخول بكلمة المرور بدلاً من ذلك",
       socialButton: "المتابعة باستخدام {provider}",
       orText: "أو تابع باستخدام البريد الإلكتروني",
+      ssoButton: "تسجيل الدخول باستخدام SSO",
+      ssoOnlyDescription: "سجّل الدخول عبر الدخول الموحّد لمؤسستك",
+      usePasswordText: "استخدام كلمة المرور بدلاً من ذلك",
+      backToSsoText: "العودة إلى الدخول الموحّد",
       // objectui#12600 — the console login card's own header, the password
       // field's reveal toggle, and the footer's legal links.
       welcomeTitle: "مرحبًا بعودتك",

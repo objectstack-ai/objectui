@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import { ComponentRegistry } from '@object-ui/core';
 import { MetadataCtx } from '@object-ui/react';
 import '../renderers/basic/metadata-viewer';
@@ -114,6 +114,29 @@ describe('element:metadata_viewer', () => {
       const getItem = vi.fn(async () => FLOW);
       render(<Viewer getItem={getItem} properties={{ type: 'flow', name: 'reassign', detail: 'technical' }} />);
       await waitFor(() => expect(screen.getByText('Do Plumbing')).toBeTruthy());
+    });
+
+    // objectui#12742 — `http` is the spec's HTTP node type (spec 18 reserves
+    // `http_request`, `http_call` and `webhook`), so it is the one folded away.
+    it('folds an `http` node at business altitude and shows it at technical', async () => {
+      const HTTP_FLOW = {
+        name: 'billing_handoff',
+        label: 'Billing Hand-off',
+        nodes: [
+          { id: 'start', type: 'start', label: 'Start' },
+          { id: 'h', type: 'http', label: 'Enqueue Billing Hand-off' },
+          { id: 'end', type: 'end', label: 'End' },
+        ],
+      };
+      const getItem = vi.fn(async () => HTTP_FLOW);
+      render(<Viewer getItem={getItem} properties={{ type: 'flow', name: 'billing_handoff' }} />);
+      await waitFor(() => expect(screen.getByText('Billing Hand-off')).toBeTruthy());
+      expect(screen.queryByText('Enqueue Billing Hand-off')).toBeNull();
+      expect(screen.getByText(/technical step.*hidden/i)).toBeTruthy();
+      cleanup();
+
+      render(<Viewer getItem={getItem} properties={{ type: 'flow', name: 'billing_handoff', detail: 'technical' }} />);
+      await waitFor(() => expect(screen.getByText('Enqueue Billing Hand-off')).toBeTruthy());
     });
   });
 

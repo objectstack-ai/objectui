@@ -83,7 +83,7 @@ const MOCKED_SIDE_EFFECT = new Set([
   'update_record',
   'delete_record',
   'get_record',
-  'http_request',
+  'http',
   'connector_action',
 ]);
 // `parallel` / `try_catch` carry nested body regions (ADR-0031) the flat

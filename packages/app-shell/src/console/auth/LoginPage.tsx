@@ -156,6 +156,26 @@ export function LoginPage() {
           signUpText: t('auth.login.signUpText'),
           socialButton: t('auth.login.socialButton'),
           orText: t('auth.login.orText'),
+          // Phone sign-in, then SSO (objectui#12762): every `LoginFormLabels`
+          // member is passed, from the same `auth.login.*` keys the console's
+          // own login page reads. A pin enumerates the interface and holds
+          // both login pages to that.
+          emailOrPhoneLabel: t('auth.login.emailOrPhoneLabel'),
+          emailOrPhonePlaceholder: t('auth.login.emailOrPhonePlaceholder'),
+          phoneLabel: t('auth.login.phoneLabel'),
+          phonePlaceholder: t('auth.login.phonePlaceholder'),
+          otpCodeLabel: t('auth.login.otpCodeLabel'),
+          otpCodePlaceholder: t('auth.login.otpCodePlaceholder'),
+          sendOtpButton: t('auth.login.sendOtpButton'),
+          // `{seconds}` is `LoginForm`'s own single-brace hole, which
+          // i18next's `{{…}}` interpolation leaves alone.
+          resendOtpCountdownText: t('auth.login.resendOtpCountdownText'),
+          usePhoneOtpText: t('auth.login.usePhoneOtpText'),
+          usePasswordSignInText: t('auth.login.usePasswordSignInText'),
+          ssoButton: t('auth.login.ssoButton'),
+          ssoOnlyDescription: t('auth.login.ssoOnlyDescription'),
+          usePasswordText: t('auth.login.usePasswordText'),
+          backToSsoText: t('auth.login.backToSsoText'),
         }}
       />
     </AuthPageLayout>

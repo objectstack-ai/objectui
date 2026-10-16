@@ -40,7 +40,7 @@ import {
   rosterFrom,
 } from './_shared.js';
 import { AddFieldPopover, FieldListRow } from '../previews/ViewColumnPanes.js';
-import { toFieldName, toFieldNameLoose } from '../previews/object-fields-io.js';
+import { toFieldNameLoose, toFieldNameOrEmpty } from '../previews/object-fields-io.js';
 import type { MetadataDefaultInspectorProps } from '../default-inspector-registry.js';
 import { SchemaForm } from '../SchemaForm.js';
 import type { ObjectFieldInfo } from '../previews/useObjectFields.js';
@@ -339,7 +339,11 @@ export function ReportDefaultInspector({
   // here was reset whenever the host remounted this panel (a Properties →
   // Source → Properties round trip does), and the next label keystroke then
   // replaced the name the author had typed.
-  const nameFollowsLabel = createMode && (nameValue === '' || nameValue === toFieldName(labelValue));
+  // objectui#12789 — the comparison uses the same derivation as the Label
+  // handler below, so a Name left empty by a non-Latin Label still follows a
+  // later Latin one, and a Name the author typed is never mistaken for the
+  // `field` placeholder.
+  const nameFollowsLabel = createMode && (nameValue === '' || nameValue === toFieldNameOrEmpty(labelValue));
   const datasetName =
     typeof draft.dataset === 'string' ? (draft.dataset as string) : '';
   const values = React.useMemo(() => readNames(draft.values), [draft.values]);
@@ -507,7 +511,11 @@ export function ReportDefaultInspector({
           // Live-derive the snake_case name from the label until the author
           // edits the Name field directly (create mode only). `v` is the plain
           // string the author just typed, which is what the slug must read.
-          if (nameFollowsLabel) patch.name = toFieldName(v);
+          // objectui#12789 — a Label that yields no machine name (a non-Latin
+          // script, or a cleared Label) leaves the Name empty, as the object
+          // designer does, so the save path asks the author for one; it never
+          // writes the `field` placeholder.
+          if (nameFollowsLabel) patch.name = toFieldNameOrEmpty(v);
           onPatch(patch);
         }}
         placeholder={tr('engine.inspector.report.labelPlaceholder')}

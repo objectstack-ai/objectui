@@ -86,7 +86,7 @@ describe('assignment value cell — text or CEL expression (objectui#7588)', () 
 
     // Control: a key/value map the ledger gives no `value` role keeps plain
     // text cells — an object naming a `dialect` there is just data.
-    renderField({ id: 'headers', path: ['config', 'headers'], label: 'Headers', kind: 'keyValue' }, 'http_request', {
+    renderField({ id: 'headers', path: ['config', 'headers'], label: 'Headers', kind: 'keyValue' }, 'http', {
       name: '{record.name}',
     });
     expect(screen.queryAllByRole('button', { name: TOGGLE })).toHaveLength(0);

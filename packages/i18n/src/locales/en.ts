@@ -999,6 +999,8 @@ const en = {
     recordCount_one: '{{count}} record',
     recordCount_other: '{{count}} records',
     addRecord: 'Add record',
+    // objectui#12703 — the compact list's footer link to the object's list or the block's view.
+    viewAll: 'View all',
     tabs: 'Tabs',
     allRecords: 'All Records',
     search: 'Search',
@@ -2142,6 +2144,12 @@ const en = {
       cryptoRefusalNoSubject: 'The declared-encrypted value was refused, so nothing was written.',
       cryptoRefusalToast: 'Cannot encrypt secrets: {{subject}}',
       cryptoRefusalToastNoSubject: 'Cannot encrypt secrets',
+      // The source badge beside a settings row's label (objectui#12694): the
+      // layer a value comes from. `{{source}}` is that layer's label, which the
+      // server translates under `settingsCommon.sourceLabels`. One sentence per
+      // badge, so a pack puts the layer where its own grammar wants it.
+      sourceBadgeInherited: 'Inherited from {{source}}',
+      sourceBadgeOverrides: 'Overrides {{source}}',
     },
     // The one-time workspace-timezone prompt (objectui#11758): asked of an
     // administrator while `localization.timezone` is still the manifest default.
@@ -2761,6 +2769,15 @@ const en = {
       // it — the same convention as `{seconds}` above (objectui#10900).
       socialButton: 'Continue with {provider}',
       orText: 'or continue with email',
+      // SSO sign-in (objectui#12762): the SSO button, and under SSO-only
+      // ("enforced") mode the line that says how to sign in, the break-glass
+      // link to the password form and the link back. Each English value is
+      // `LoginForm`'s own default for that label, so an English session reads
+      // the same with or without the pack.
+      ssoButton: 'Sign in with SSO',
+      ssoOnlyDescription: "Sign in with your organization's single sign-on",
+      usePasswordText: 'Use a password instead',
+      backToSsoText: 'Back to single sign-on',
       // objectui#12600 — the console login card's own header, the password
       // field's reveal toggle, and the footer's legal links.
       welcomeTitle: 'Welcome back',

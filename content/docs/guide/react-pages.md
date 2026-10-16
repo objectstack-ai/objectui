@@ -371,8 +371,17 @@ list.
 
 The posture is measured from the region's rendered width, never authored, and
 no page or block key sets it. `kind:'html'` and `kind:'react'` pages have no
-regions, so their list blocks always render the full list. A "View all" link from
-the compact list to the object list is a planned follow-up.
+regions, so their list blocks always render the full list.
+
+Under its rows the compact list draws a "View all" link. A block bound to a
+saved view (`dataSource.view`) links to that view's page in the console
+(`/apps/APP/OBJECT/view/VIEW`); any other block links to the object's list
+(`/apps/APP/OBJECT`). The block's own filter, columns and sort are not carried
+into the link, so a block that narrows the list inline opens the object's whole
+list. To link to exactly what the block shows, bind the block to a saved view.
+The console's page supplies the destination through
+`RelatedRecordActionsContext`'s `listHref`; a host that does not supply it draws
+no link.
 
 ## Related
 

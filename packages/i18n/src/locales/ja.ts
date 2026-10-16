@@ -788,6 +788,8 @@ const ja = {
     recordCount_one: "{{count}} 件のレコード",
     recordCount_other: "{{count}} 件のレコード",
     addRecord: "レコードを追加",
+    // objectui#12703 — the compact list's footer link to the object's list or the block's view.
+    viewAll: "すべて表示",
     tabs: "タブ",
     allRecords: "すべてのレコード",
     search: "検索",
@@ -2013,6 +2015,8 @@ const ja = {
       cryptoRefusalNoSubject: "暗号化対象として宣言された値は拒否され、何も書き込まれませんでした。",
       cryptoRefusalToast: "シークレットを暗号化できません: {{subject}}",
       cryptoRefusalToastNoSubject: "シークレットを暗号化できません",
+      sourceBadgeInherited: "{{source}}から継承",
+      sourceBadgeOverrides: "{{source}}を上書き",
     },
     workspaceTimezonePrompt: {
       title: "ワークスペースのタイムゾーンを設定",
@@ -2292,6 +2296,10 @@ const ja = {
       usePasswordSignInText: "パスワードでサインインする",
       socialButton: "{provider} で続行",
       orText: "またはメールアドレスで続行",
+      ssoButton: "SSO でサインイン",
+      ssoOnlyDescription: "所属組織のシングルサインオンでサインインしてください",
+      usePasswordText: "パスワードを使用する",
+      backToSsoText: "シングルサインオンに戻る",
       // objectui#12600 — the console login card's own header, the password
       // field's reveal toggle, and the footer's legal links.
       welcomeTitle: "おかえりなさい",

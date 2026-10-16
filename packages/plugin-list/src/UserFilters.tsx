@@ -11,7 +11,8 @@ import { cn, Button, Input, Popover, PopoverContent, PopoverTrigger, LookupValue
 import { ChevronDown, X, Plus } from 'lucide-react';
 import type { ListViewSchema } from '@object-ui/types';
 import { normalizeFilterOperator } from '@objectstack/spec/ui';
-import { useSafeFieldLabel, useObjectTranslation } from '@object-ui/i18n';
+import { ComponentRegistry } from '@object-ui/core';
+import { useSafeFieldLabel, useObjectTranslation, useSafeTranslate } from '@object-ui/i18n';
 // THE GATE the maintainer ruled onto `@object-ui/fields`' surface
 // (objectui#4914, ruling B); the implementation is homed in
 // `@object-ui/core` and re-exported there, so both spellings are one
@@ -25,6 +26,87 @@ function useMoreLabel(): string {
   const { t } = useObjectTranslation();
   const v = t('common.more');
   return !v || v === 'common.more' ? 'More' : v;
+}
+
+/**
+ * One bound of an authored `date-range` chip (objectui#12784): the field
+ * widget the HOST registered as `field:date`.
+ *
+ * Resolved from `ComponentRegistry` at render time, the seam `FilterBuilder`'s
+ * date rows and `filter-ui`'s date filters use since objectui#12743.
+ * `@object-ui/fields` registers the platform picker there (a text box in the
+ * console locale's format with a calendar popover) behind a lazy loader that
+ * keeps it in its own chunk. With nothing registered the bound keeps the
+ * native `<input type="date">`.
+ *
+ * The value is `YYYY-MM-DD`, as the native input wrote. The picker reads its
+ * typed text on blur and on Enter; a pointer press outside the bound while it
+ * holds focus blurs it first (a capture listener), so the text is read before
+ * the chip's popover closes on that press. Escape does not blur: it discards.
+ */
+function DateBoundInput({
+  testId,
+  field,
+  label,
+  value,
+  onChange,
+}: {
+  testId: string;
+  field: string;
+  label: string;
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const Widget = ComponentRegistry.get('date', 'field') as React.ComponentType<Record<string, unknown>> | undefined;
+  const rootRef = React.useRef<HTMLDivElement | null>(null);
+  const inputId = React.useId();
+
+  React.useEffect(() => {
+    if (!Widget || typeof document === 'undefined') return;
+    const onPointerDown = (event: PointerEvent) => {
+      const root = rootRef.current;
+      if (!root) return;
+      const focused = document.activeElement;
+      if (!(focused instanceof HTMLElement) || !root.contains(focused)) return;
+      if (event.target instanceof Node && root.contains(event.target)) return;
+      focused.blur();
+    };
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onPointerDown, true);
+  }, [Widget]);
+
+  if (!Widget) {
+    return (
+      <input
+        id={inputId}
+        type="date"
+        aria-label={label}
+        data-testid={testId}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-7 min-w-0 flex-1 rounded border border-input bg-background px-2 text-xs text-foreground"
+      />
+    );
+  }
+
+  return (
+    <div ref={rootRef} className="min-w-0 flex-1" data-testid={testId}>
+      <label htmlFor={inputId} className="sr-only">
+        {label}
+      </label>
+      <React.Suspense
+        fallback={<div aria-busy="true" className="h-8 w-full rounded-md border border-input bg-muted/40" />}
+      >
+        <Widget
+          id={inputId}
+          field={{ name: field, label, type: 'date' }}
+          value={value}
+          onChange={(next: unknown) => onChange(typeof next === 'string' ? next : '')}
+          className="h-8 text-xs"
+        />
+      </React.Suspense>
+    </div>
+  );
 }
 
 /** Resolved option with optional count */
@@ -458,6 +540,7 @@ function typingOf(field: ResolvedField): string {
 function DropdownFilters({ fields, objectDef, data, onFilterChange, maxVisible, className, initialSelections, onSelectionsChange }: DropdownFiltersProps) {
   const { fieldLabel, translateOptions } = useSafeFieldLabel();
   const moreLabel = useMoreLabel();
+  const tt = useSafeTranslate();
   const objectName: string | undefined = objectDef?.name;
   // Control kind per field, from the AUTHORED type only. Keyed off the raw
   // config, not the resolved field: `resolveFields` back-fills `type` from
@@ -655,7 +738,7 @@ function DropdownFilters({ fields, objectDef, data, onFilterChange, maxVisible, 
       LOOKUP_LIKE_TYPES.has(f.type || '') &&
       f.options.length === 0 &&
       (f.referenceTo || f.type === 'user');
-    const popoverWidth = isLookupLike ? 'w-72' : 'w-56';
+    const popoverWidth = isLookupLike || kind === 'range' ? 'w-72' : 'w-56';
 
     return (
       <Popover key={f.field}>
@@ -722,26 +805,35 @@ function DropdownFilters({ fields, objectDef, data, onFilterChange, maxVisible, 
           ) : kind === 'range' ? (
             // Authored `type: 'date-range'` — a from/to day-granularity pair.
             // Used to render the literal "No options" dead control (#2942).
+            // Each bound is the platform date picker when the host registered
+            // one (objectui#12784); the labels are the filter builder's range
+            // bounds, translated in every pack.
             <div className="space-y-2 p-1" data-testid={`filter-range-${f.field}`}>
-              {([0, 1] as const).map((slot) => (
-                <label key={slot} className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className="w-8 shrink-0">{slot === 0 ? 'From' : 'To'}</span>
-                  <input
-                    type="date"
-                    data-testid={`filter-range-${f.field}-${slot === 0 ? 'from' : 'to'}`}
-                    value={String(selected[slot] ?? '')}
-                    onChange={(e) => {
-                      const next: (string | number | boolean)[] = [
-                        String(selected[0] ?? ''),
-                        String(selected[1] ?? ''),
-                      ];
-                      next[slot] = e.target.value;
-                      handleChange(f.field, next[0] === '' && next[1] === '' ? [] : next);
-                    }}
-                    className="h-7 flex-1 rounded border border-input bg-background px-2 text-xs text-foreground"
-                  />
-                </label>
-              ))}
+              {([0, 1] as const).map((slot) => {
+                const boundLabel =
+                  slot === 0 ? tt('filterBuilder.rangeStart', 'From') : tt('filterBuilder.rangeEnd', 'To');
+                return (
+                  <div key={slot} className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="min-w-8 shrink-0 whitespace-nowrap" aria-hidden="true">
+                      {boundLabel}
+                    </span>
+                    <DateBoundInput
+                      testId={`filter-range-${f.field}-${slot === 0 ? 'from' : 'to'}`}
+                      field={`${f.field}-${slot === 0 ? 'from' : 'to'}`}
+                      label={boundLabel}
+                      value={String(selected[slot] ?? '')}
+                      onChange={(value) => {
+                        const next: (string | number | boolean)[] = [
+                          String(selected[0] ?? ''),
+                          String(selected[1] ?? ''),
+                        ];
+                        next[slot] = value;
+                        handleChange(f.field, next[0] === '' && next[1] === '' ? [] : next);
+                      }}
+                    />
+                  </div>
+                );
+              })}
             </div>
           ) : kind === 'text' ? (
             // Authored `type: 'text'` — a contains query, committed on Enter /

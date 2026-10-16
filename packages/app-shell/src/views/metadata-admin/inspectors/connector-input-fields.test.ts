@@ -293,7 +293,7 @@ describe('applyConnectorInputForm — splicing into the connector_action group',
 
   it('leaves a group that has no Input field untouched', () => {
     const form = connectorInputFields(SLACK_POST_MESSAGE)!;
-    const httpFields = fieldsForNodeType('http_request');
+    const httpFields = fieldsForNodeType('http');
     expect(applyConnectorInputForm(httpFields, form)).toBe(httpFields);
   });
 });

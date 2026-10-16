@@ -89,7 +89,7 @@ describe('the Node Type select is the palette\'s list (objectui#11778)', () => {
   it('shows no raw type name — not even for the types the hand list spelled raw', async () => {
     mount({ id: 'n1', type: 'create_record', label: 'Create record' });
     const names = await optionNames();
-    for (const raw of ['http_request', 'connector_action', 'try_catch', 'create_record', 'notify']) {
+    for (const raw of ['http', 'connector_action', 'try_catch', 'create_record', 'notify']) {
       expect(names, raw).not.toContain(raw);
     }
   });

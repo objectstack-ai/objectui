@@ -54,7 +54,7 @@ const MOCKABLE = new Set([
   'update_record',
   'delete_record',
   'get_record',
-  'http_request',
+  'http',
   'connector_action',
   'script',
 ]);

@@ -805,7 +805,7 @@ per node type** (see `flow-node-config.ts`) rather than a raw JSON blob. Node
 types follow the spec `FlowNodeAction` enum
 (`@objectstack/spec/automation/flow.zod.ts`): `start`, `decision`,
 `assignment`, `loop`, `create_record`, `update_record`, `delete_record`,
-`get_record`, `http_request`, `script`, `screen`, `wait`, `subflow`,
+`get_record`, `http`, `script`, `screen`, `wait`, `subflow`,
 `connector_action`, `parallel_gateway`, `join_gateway`, `boundary_event`,
 `end`. Field keys mirror the **real production vocabulary** used by installed
 apps (the spec leaves `config` freeform, so the app metadata is the de-facto
@@ -892,7 +892,7 @@ low-code author *test a flow draft without a backend* — answering "how do I
 mock-run and step through this flow?".
 
 It is a **pure, client-side interpreter**. It **never** calls a `dataSource`:
-every side-effecting node (CRUD / `get_record` / `http_request` /
+every side-effecting node (CRUD / `get_record` / `http` /
 `connector_action` / `script`) is **MOCKED**, so a simulation can never write or
 delete real data and never needs a live environment. Its guiding rule is *never
 silently simulate semantics that differ from the runtime* — anything that cannot

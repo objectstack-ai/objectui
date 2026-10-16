@@ -234,14 +234,16 @@ export const SAMPLES: Record<string, Record<string, unknown>> = {
           iteratorVariable: 'contract',
           body: {
             nodes: [
-              { id: 'charge_fee', type: 'http_request', label: 'Charge renewal fee', config: { method: 'POST', url: 'https://api.example.com/billing/charge', outputVariable: 'charge' } },
+              // `http`: spec 18 reserves `http_request` (objectui#12742). Its
+              // strict contract declares no `outputVariable`, so none is written.
+              { id: 'charge_fee', type: 'http', label: 'Charge renewal fee', config: { method: 'POST', url: 'https://api.example.com/billing/charge' } },
             ],
             edges: [],
           },
         },
       },
       { id: 'fan_out', type: 'parallel', label: 'Notify in parallel', config: { branches: [ { name: 'Email the owner', nodes: [ { id: 'email_owner', type: 'script', label: 'Email Owner', config: { function: 'compose_owner_email', inputs: { template: 'renewal_reminder', to: 'owner.email' }, outputVariable: 'ownerEmail' } } ], edges: [] }, { name: 'Post to Slack', nodes: [ { id: 'slack_post', type: 'script', label: 'Slack Notify', config: { function: 'compose_slack_message', outputVariable: 'slackMessage' } } ], edges: [] } ] } },
-      { id: 'guard', type: 'try_catch', label: 'Push with retry', config: { errorVariable: '$error', try: { nodes: [ { id: 'push', type: 'http_request', label: 'Push to CRM', config: { method: 'POST', url: 'https://api.example.com/v1/tasks' } } ], edges: [] }, catch: { nodes: [ { id: 'record_failure', type: 'update_record', label: 'Flag Sync Failure', config: { objectName: 'contract', fields: { reminded: false } } } ], edges: [] } } },
+      { id: 'guard', type: 'try_catch', label: 'Push with retry', config: { errorVariable: '$error', try: { nodes: [ { id: 'push', type: 'http', label: 'Push to CRM', config: { method: 'POST', url: 'https://api.example.com/v1/tasks' } } ], edges: [] }, catch: { nodes: [ { id: 'record_failure', type: 'update_record', label: 'Flag Sync Failure', config: { objectName: 'contract', fields: { reminded: false } } } ], edges: [] } } },
       { id: 'check', type: 'decision', label: 'Within reminder window?', config: { conditions: [ { label: 'Within window', expression: 'daysToExpiry <= daysBefore' }, { label: 'Else', expression: 'true' } ] } },
       { id: 'email', type: 'connector_action', label: 'Send renewal email', connectorConfig: { connectorId: 'email', actionId: 'send', input: { to: 'owner.email', template: 'renewal_reminder' } } },
       // No `waitEventConfig.onTimeout`: RETIRED in spec 17 (objectstack#4158).

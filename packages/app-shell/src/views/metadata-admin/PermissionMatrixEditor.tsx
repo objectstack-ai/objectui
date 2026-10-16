@@ -459,6 +459,12 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   // opt-in would be a client copy of the seal rule. `undefined` keeps the
   // flag's answer, as before.
   const artifactTierApplies = !packageId && codeIsArtifact;
+  // The set's provenance, for the page badge and the Studio kind chip alike:
+  // a package ships it (the package door's `packageId`, or the layered
+  // envelope's code artifact), else it was authored in this environment. Spec
+  // 18 retired the authored `managedBy` (objectstack#23891), and no served
+  // datum names a "platform" set, so there are two answers (objectui#12753).
+  const shippedByPackage = !!packageId || codeIsArtifact;
   const artifactArmOpen = !!entry?.allowEnvironmentOverlay && servedEditable !== false;
   const typeTierOpen = !!(entry?.allowEnvironmentOverlay || entry?.allowRuntimeCreate);
   const canWriteByType = artifactTierApplies ? artifactArmOpen : typeTierOpen;
@@ -1354,19 +1360,14 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   );
   const provenanceBadgesEl = (
     <>
-      {/* [A4 framework#2920] Provenance tri-state — platform / package /
-          admin(custom) — mirrors the unified sys_* `managed_by` vocab.
+      {/* Provenance: Package or Custom, from `shippedByPackage`.
           objectui#7611 (F2): "Package" also reads the layered envelope
           this editor already fetches (`codeIsArtifact`, the artifact
-          gate's own input). The registry serves no `managedBy`, and at
-          the environment scope there is no `packageId`, so a set a code
-          package ships read "Custom" beside its own lock. */}
+          gate's own input). At the environment scope there is no
+          `packageId`, so a set a code package ships read "Custom" beside
+          its own lock. */}
       <Badge variant="outline" className="text-[10px] shrink-0" data-testid="perm-provenance-badge">
-        {draft.managedBy === 'platform'
-          ? t('perm.badge.platform')
-          : draft.managedBy === 'package' || packageId || codeIsArtifact
-            ? t('perm.badge.package')
-            : t('perm.badge.custom')}
+        {shippedByPackage ? t('perm.badge.package') : t('perm.badge.custom')}
       </Badge>
       {!!draft.isDefault && (
         <Badge variant="secondary" className="text-[10px] shrink-0">{t('perm.badge.default')}</Badge>
@@ -1601,13 +1602,9 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
           chips={
             <>
               {/* The provenance chip in the artboard's kind-chip look; same
-                  test id and the same three answers as the page's badge. */}
+                  test id and the same answer as the page's badge. */}
               <span className={STUDIO_KIND_CHIP} data-testid="perm-provenance-badge">
-                {draft.managedBy === 'platform'
-                  ? t('perm.badge.platform')
-                  : draft.managedBy === 'package' || packageId || codeIsArtifact
-                    ? t('perm.badge.package')
-                    : t('perm.badge.custom')}
+                {shippedByPackage ? t('perm.badge.package') : t('perm.badge.custom')}
               </span>
               {!!draft.isDefault && <span className={STUDIO_KIND_CHIP}>{t('perm.badge.default')}</span>}
               {/* A host-locked package says so in the pillar's note; the

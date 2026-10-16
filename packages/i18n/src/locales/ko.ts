@@ -788,6 +788,8 @@ const ko = {
     recordCount_one: "{{count}}개 레코드",
     recordCount_other: "{{count}}개 레코드",
     addRecord: "레코드 추가",
+    // objectui#12703 — the compact list's footer link to the object's list or the block's view.
+    viewAll: "모두 보기",
     tabs: "탭",
     allRecords: "전체 레코드",
     search: "검색",
@@ -2011,6 +2013,8 @@ const ko = {
       cryptoRefusalNoSubject: "암호화 대상으로 선언된 값이 거부되어 아무것도 기록되지 않았습니다.",
       cryptoRefusalToast: "시크릿을 암호화할 수 없습니다: {{subject}}",
       cryptoRefusalToastNoSubject: "시크릿을 암호화할 수 없습니다",
+      sourceBadgeInherited: "{{source}}에서 상속됨",
+      sourceBadgeOverrides: "{{source}} 재정의",
     },
     workspaceTimezonePrompt: {
       title: "워크스페이스 시간대 설정",
@@ -2290,6 +2294,10 @@ const ko = {
       usePasswordSignInText: "비밀번호로 로그인하기",
       socialButton: "{provider} 계정으로 계속",
       orText: "또는 이메일로 계속",
+      ssoButton: "SSO로 로그인",
+      ssoOnlyDescription: "소속 조직의 싱글 사인온으로 로그인하세요",
+      usePasswordText: "비밀번호 사용하기",
+      backToSsoText: "싱글 사인온으로 돌아가기",
       // objectui#12600 — the console login card's own header, the password
       // field's reveal toggle, and the footer's legal links.
       welcomeTitle: "다시 오신 것을 환영합니다",

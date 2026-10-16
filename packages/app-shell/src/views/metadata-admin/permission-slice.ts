@@ -58,8 +58,7 @@ export interface FieldPerm {
 export interface PermissionSetDraft {
   name: string;
   label?: string;
-  isDefault?: boolean;   // install-time suggestion (ADR-0090 D5); managedBy/packageId are provenance
-  managedBy?: string;
+  isDefault?: boolean;   // install-time suggestion (ADR-0090 D5); packageId is provenance
   objects: Record<string, ObjectPerm>;
   fields?: Record<string, FieldPerm>;
   systemPermissions?: string[];

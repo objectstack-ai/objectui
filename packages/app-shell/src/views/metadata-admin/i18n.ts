@@ -2413,7 +2413,6 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'perm.basics.editHint': 'Edit name / label',
   'perm.cap.none': 'No system capabilities',
   'perm.cap.add': 'Add capability',
-  'perm.badge.platform': 'Platform',
   'perm.badge.package': 'Package',
   'perm.badge.custom': 'Custom',
   'perm.badge.default': 'Default for new users',
@@ -4699,7 +4698,6 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowNode.start.label': '开始',
   'engine.flowNode.create_record.label': '创建记录',
   'engine.flowNode.create_record.hint': '向对象中插入一条新记录',
-  'engine.flowNode.http_request.label': 'HTTP 请求',
   'engine.flowNode.map.label': '逐项映射',
   'engine.flowNode.map.hint': '对集合逐项运行子流程(可暂停)',
   'engine.flowNode.update_record.label': '更新记录',
@@ -5810,7 +5808,6 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'perm.basics.editHint': '编辑名称 / 标签',
   'perm.cap.none': '无附加系统能力',
   'perm.cap.add': '添加能力',
-  'perm.badge.platform': '平台内置',
   'perm.badge.package': '包内置',
   'perm.badge.custom': '本环境自定义',
   'perm.badge.default': '新用户默认',
@@ -7082,7 +7079,7 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
     limit: { label: '数量上限' },
     outputVariable: { label: '输出变量' },
   },
-  http_request: {
+  http: {
     method: { label: '方法' },
     url: { label: 'URL', help: '请求 URL。会渲染 {{ }} 占位。' },
     headers: { label: '请求头', help: '请求头(如 Authorization、Content-Type)。每个值都会渲染 {{ }} 占位。' },

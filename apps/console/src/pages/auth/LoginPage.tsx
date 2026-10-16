@@ -610,6 +610,16 @@ function LoginFormCard({
         // out of i18next's `{{…}}` interpolation on purpose.
         socialButton: t('auth.login.socialButton', { defaultValue: 'Continue with {provider}' }),
         orText: t('auth.login.orText', { defaultValue: 'or continue with email' }),
+        // The SSO button, and under SSO-only mode the line above the federated
+        // buttons, the break-glass link and the link back (objectui#12762).
+        // This block passes every `LoginFormLabels` member; a pin enumerates
+        // the interface and holds both login pages to that.
+        ssoButton: t('auth.login.ssoButton', { defaultValue: 'Sign in with SSO' }),
+        ssoOnlyDescription: t('auth.login.ssoOnlyDescription', {
+          defaultValue: "Sign in with your organization's single sign-on",
+        }),
+        usePasswordText: t('auth.login.usePasswordText', { defaultValue: 'Use a password instead' }),
+        backToSsoText: t('auth.login.backToSsoText', { defaultValue: 'Back to single sign-on' }),
       }}
     />
   );

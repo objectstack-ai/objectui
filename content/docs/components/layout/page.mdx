@@ -20,6 +20,32 @@ heading. A page with no `pageType` is a `record` page, which draws neither: its 
 The [layout guide's Content Width](/docs/guide/layout#content-width) section covers the width
 each type sets.
 
+When a titled `page:header` takes over the heading, it also draws the page's `description`,
+under its title and subtitle, so the description never sits above the title.
+
+## Region Block Grid
+
+A page's `regions` lay their blocks out on a 12-column grid. A block's width comes from its
+kind, not from a key on the block: a metric tile (`element:number`, `object-metric`,
+`statistic`) spans 3 columns, a chart (`chart`, `object-chart`) spans 6, and every other block
+spans all 12. The spans fold by screen width:
+
+| Screen width | Metric tile | Chart | Other blocks |
+|---|---|---|---|
+| 1280px and wider | 3 | 6 | 12 |
+| 768px to 1279px | 6 | 12 | 12 |
+| under 768px | 12 | 12 | 12 |
+
+So four metric tiles share one row on a wide screen and take two rows on a 1024px one. A
+`sidebar` or `aside` region beside `main` is a narrow column, so its blocks always span 12.
+On the `dashboard` template each region is a cell of the page's region grid and lays its
+own blocks out the same way. A page's `children` (no `regions`) stack one block per row.
+
+A `page:card` or `page:section` lays its children on the same grid. The container spans 12
+in its region, and its children take their own kind's span, so a card holding four metric
+tiles shows them in one row on a wide screen. Studio's page designer shows each block's
+span on its card, and on the child cards of a `page:card` or `page:section`.
+
 ## Schema
 
 ```ts

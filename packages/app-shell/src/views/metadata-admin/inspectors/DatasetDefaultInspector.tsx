@@ -389,8 +389,14 @@ export function DatasetDefaultInspector({ draft, onPatch, readOnly, name, locale
   // so a dataset created through the canvas saves with a valid identifier instead
   // of dead-ending on the empty-name identity rule.
   const createMode = !name;
-  const nameTouched = React.useRef(false);
   const nameValue = typeof draft.name === 'string' ? (draft.name as string) : '';
+  // objectui#12680 — whether the author has edited the name is read off the
+  // DRAFT, not kept in this component: the name still follows the label while
+  // it is empty or equals the identifier the label as it stands derives. A ref
+  // here was reset whenever the host remounted this panel (a Properties →
+  // Source → Properties round trip does), and the next label keystroke then
+  // replaced the name the author had typed.
+  const nameFollowsLabel = createMode && (nameValue === '' || nameValue === toFieldName(label));
 
   const { options: objectOptions, loading: objectsLoading } = useObjectOptions();
   const { relationships, fieldOptions, loading: catalogLoading } = useDatasetFieldCatalog(object, include);
@@ -495,7 +501,7 @@ export function DatasetDefaultInspector({ draft, onPatch, readOnly, name, locale
         <InspectorTextField
           label={tr('engine.inspector.dataset.name')}
           value={nameValue}
-          onCommit={(v) => { nameTouched.current = true; onPatch({ name: toFieldName(v) }); }}
+          onCommit={(v) => onPatch({ name: toFieldName(v) })}
           placeholder={tr('engine.inspector.dataset.namePlaceholder')}
           disabled={readOnly}
           mono
@@ -508,7 +514,7 @@ export function DatasetDefaultInspector({ draft, onPatch, readOnly, name, locale
           // Live-derive the snake_case name from the label until the author edits
           // the Name field directly (create mode only).
           const patch: Record<string, unknown> = { label: v };
-          if (createMode && !nameTouched.current) patch.name = toFieldName(v);
+          if (nameFollowsLabel) patch.name = toFieldName(v);
           onPatch(patch);
         }}
         disabled={readOnly}

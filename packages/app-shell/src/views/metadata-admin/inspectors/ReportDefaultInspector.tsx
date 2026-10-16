@@ -321,7 +321,6 @@ export function ReportDefaultInspector({
   // with an empty name and fail the snake_case identity rule (the create flow
   // would dead-end exactly the way it did before report-create used the canvas).
   const createMode = !name;
-  const nameTouched = React.useRef(false);
   const nameValue = typeof draft.name === 'string' ? (draft.name as string) : '';
 
   const reportType =
@@ -334,6 +333,13 @@ export function ReportDefaultInspector({
   // the empty box is what invites the retype that flattens the map
   // (objectui#9274). READ through the repo's one resolver for the union.
   const labelValue = pickLocalized(draft.label, locale);
+  // objectui#12680 — whether the author has edited the name is read off the
+  // DRAFT, not kept in this component: the name still follows the label while
+  // it is empty or equals the identifier the label as it stands derives. A ref
+  // here was reset whenever the host remounted this panel (a Properties →
+  // Source → Properties round trip does), and the next label keystroke then
+  // replaced the name the author had typed.
+  const nameFollowsLabel = createMode && (nameValue === '' || nameValue === toFieldName(labelValue));
   const datasetName =
     typeof draft.dataset === 'string' ? (draft.dataset as string) : '';
   const values = React.useMemo(() => readNames(draft.values), [draft.values]);
@@ -474,10 +480,7 @@ export function ReportDefaultInspector({
         <InspectorTextField
           label={tr('engine.inspector.report.name')}
           value={nameValue}
-          onCommit={(v) => {
-            nameTouched.current = true;
-            onPatch({ name: toFieldName(v) });
-          }}
+          onCommit={(v) => onPatch({ name: toFieldName(v) })}
           placeholder={tr('engine.inspector.report.namePlaceholder')}
           disabled={readOnly}
           mono
@@ -498,7 +501,7 @@ export function ReportDefaultInspector({
           // Live-derive the snake_case name from the label until the author
           // edits the Name field directly (create mode only). `v` is the plain
           // string the author just typed, which is what the slug must read.
-          if (createMode && !nameTouched.current) patch.name = toFieldName(v);
+          if (nameFollowsLabel) patch.name = toFieldName(v);
           onPatch(patch);
         }}
         placeholder={tr('engine.inspector.report.labelPlaceholder')}

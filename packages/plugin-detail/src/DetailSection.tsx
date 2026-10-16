@@ -818,7 +818,11 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
     return <div className={cn(className)}>{content}</div>;
   }
 
-  if (!section.collapsible) {
+  // objectui#12732 — on a print page a collapsible section takes this branch
+  // too: it is always open there (objectui#11958), and paper cannot toggle,
+  // so its header prints as this plain heading (title, icon, header colour,
+  // description) instead of the disclosure button, chevron and hover chrome.
+  if (!section.collapsible || isPrintPage) {
     return (
       <Card className={cn(section.showBorder === false ? 'border-none shadow-none' : '', className)}>
         {section.title && (

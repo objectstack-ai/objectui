@@ -30,6 +30,8 @@ import { compile, manifestFromConfigs, type Diagnostic } from '@object-ui/sdui-p
 import { ReactKindPage } from './react-page';
 import { PRINT_PAGE_ATTRIBUTE, PRINT_RUNNING_ATTRIBUTE, buildPagePrintStylesheet, isPagePrintDeclaration } from './page-print';
 import { cn } from '../../lib/utils';
+import { PageBlockGrid } from './page-block-grid';
+import { PageDescriptionContext } from './page-description-context';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -194,22 +196,33 @@ function pageHeaderOwnsTitle(schema: PageNodeSchema): boolean {
 // RegionContent — renders all components inside a single region
 // ---------------------------------------------------------------------------
 
+/**
+ * A region lays its blocks out on a 12-column grid (objectui#12624). Each
+ * block's span comes from its kind (`./page-block-span`): metric tiles 3,
+ * charts 6, everything else 12, folded by breakpoint, so four tiles share a
+ * row on a wide screen instead of stacking as four full-width stripes. Every
+ * template places its regions through this one component, so each gets the
+ * grid. A `rail` region (sidebar / aside) is a narrow column, where a fold by
+ * viewport width would squeeze a tile to a sliver, so its blocks, and the
+ * blocks inside its containers, stay full width (`./page-block-grid`).
+ */
 const RegionContent: React.FC<{
   region: PageNodeRegion;
   className?: string;
-}> = ({ region, className }) => {
+  rail?: boolean;
+}> = ({ region, className, rail }) => {
   const components = region.components || [];
   if (components.length === 0) return null;
 
   return (
-    <div
-      className={cn('space-y-4', region.className, className)}
-      data-region={region.name}
-    >
-      {components.map((node: SchemaNode, idx: number) => (
-        <SchemaRenderer key={(node as any)?.id || `${region.name}-${idx}`} schema={toRenderableSchema(node)} />
-      ))}
-    </div>
+    <PageBlockGrid
+      nodes={components}
+      className={cn(region.className, className)}
+      rail={rail}
+      keyPrefix={region.name}
+      toSchema={(node) => toRenderableSchema(node as SchemaNode)}
+      attributes={{ 'data-region': region.name }}
+    />
   );
 };
 
@@ -316,7 +329,7 @@ const RegionLayout: React.FC<{
         <div className="flex flex-col md:flex-row flex-1 gap-6">
           {sidebar && (
             <aside className={cn('md:shrink-0', getSidebarWidthClass(sidebar.width as string || 'small'))}>
-              <RegionContent region={sidebar} />
+              <RegionContent region={sidebar} rail />
             </aside>
           )}
 
@@ -329,7 +342,7 @@ const RegionLayout: React.FC<{
 
           {aside && (
             <aside className={cn('md:shrink-0', getSidebarWidthClass(aside.width as string || 'small'), aside.className)}>
-              <RegionContent region={aside} />
+              <RegionContent region={aside} rail />
             </aside>
           )}
         </div>
@@ -389,7 +402,7 @@ const HeaderSidebarMainTemplate: React.FC<{ schema: PageNodeSchema }> = ({ schem
         <div className="flex flex-col md:flex-row flex-1 gap-6">
           {sidebar && (
             <aside className={cn('md:shrink-0', getSidebarWidthClass(sidebar.width as string || 'medium'))}>
-              <RegionContent region={sidebar} />
+              <RegionContent region={sidebar} rail />
             </aside>
           )}
           <div className="flex-1 min-w-0 space-y-6">
@@ -425,7 +438,7 @@ const ThreeColumnTemplate: React.FC<{ schema: PageNodeSchema }> = ({ schema }) =
         <div className="flex flex-col md:flex-row flex-1 gap-6">
           {sidebar && (
             <aside className={cn('md:shrink-0', getSidebarWidthClass(sidebar.width as string || 'small'))}>
-              <RegionContent region={sidebar} />
+              <RegionContent region={sidebar} rail />
             </aside>
           )}
           <div className="flex-1 min-w-0 space-y-6">
@@ -436,7 +449,7 @@ const ThreeColumnTemplate: React.FC<{ schema: PageNodeSchema }> = ({ schema }) =
           </div>
           {aside && (
             <aside className={cn('md:shrink-0', getSidebarWidthClass(aside.width as string || 'small'), aside.className)}>
-              <RegionContent region={aside} />
+              <RegionContent region={aside} rail />
             </aside>
           )}
         </div>
@@ -762,6 +775,11 @@ export const PageRenderer: React.FC<{
   // The description is the page's own prose, not a duplicate of the header's
   // `subtitle`, so delegating the heading does not delete it.
   const showPageDescription = !!schema.description && pageType !== 'record';
+  // When the header owns the title, it draws the description too, under the
+  // title (objectui#12624). Drawn here it sat above the regions, so above the
+  // title the header draws inside them.
+  const headerDrawsDescription = showPageDescription && headerOwnsTitle;
+  const drawDescriptionHere = showPageDescription && !headerDrawsDescription;
 
   const pageContent = (
     <div
@@ -788,21 +806,23 @@ export const PageRenderer: React.FC<{
             `title` is the objectui spelling; the spec's PageNodeSchema declares
             `label` (required), so dual-read it — mirrors the fallback
             DashboardRenderer already uses (framework#1878 §3 recheck). */}
-        {(showPageTitle || showPageDescription) && (
+        {(showPageTitle || drawDescriptionHere) && (
           <div className="space-y-2">
             {showPageTitle && (
               <h1 className="text-3xl font-bold tracking-tight text-foreground">
                 {pageTitle}
               </h1>
             )}
-            {showPageDescription && (
+            {drawDescriptionHere && (
               <p className="text-muted-foreground">{schema.description}</p>
             )}
           </div>
         )}
 
         {/* Page body — type-specific layout */}
-        {layoutElement}
+        <PageDescriptionContext.Provider value={headerDrawsDescription ? schema.description : null}>
+          {layoutElement}
+        </PageDescriptionContext.Provider>
       </div>
     </div>
   );

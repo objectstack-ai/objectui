@@ -30,7 +30,7 @@
  * route, and the result's `answered` says which one happened (objectui#12220).
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { bearerAuthHeaders } from '../utils/authToken.js';
 import type { DecisionOutputDef } from '../utils/decisionOutputParams.js';
 
@@ -281,6 +281,14 @@ interface UseRecordApprovalsResult {
   refresh: () => Promise<void>;
 }
 
+/** Test seam: forget every record's shared approvals state (objectui#12701). */
+export function __resetRecordApprovalsStore(): void {
+  entries.clear();
+  inFlight.clear();
+  listeners.clear();
+  latestSeq.clear();
+}
+
 function apiBase() {
   const url = (import.meta as any).env?.VITE_SERVER_URL || '';
   return `${String(url).replace(/\/$/, '')}/api/v1`;
@@ -368,33 +376,105 @@ export async function remindApprovalRequest(
   return out ?? {};
 }
 
-/**
- * ⛔ No `currentUserId` parameter (objectui#3055). It existed only to feed the
- * retired client-side `canDecide`; every remaining question about the viewer —
- * may they act, are they the submitter, may they override — is answered by the
- * server on the row itself (`viewer`, framework#3310 / objectstack-ai/objectstack#3424). A surface that
- * still needs the signed-in id for a pre-`viewer` fallback (the panel's remind)
- * reads it from `useAuth()` where it renders.
- */
-export function useRecordApprovals(
-  objectName: string | undefined,
-  recordId: string | undefined,
-): UseRecordApprovalsResult {
-  const [loading, setLoading] = useState(false);
-  const [available, setAvailable] = useState(true);
-  const [requests, setRequests] = useState<ApprovalRequestLite[]>([]);
-  // Which object + record the last ANSWERED read was for. Keyed rather than a
-  // bare flag so that opening another record reads as unanswered until that
-  // record's own read lands, instead of inheriting the previous one's answer.
-  const [answeredFor, setAnsweredFor] = useState<string | null>(null);
-  const unavailableRef = useRef(false);
-  const readKey = objectName && recordId ? JSON.stringify([objectName, recordId]) : null;
+// ─── One read per record, however many consumers mount (objectui#12701) ───
+//
+// A record page has more than one reader of this state: the page host
+// (`RecordDetailView`: status band, edit lock, the declared decision bar), the
+// `record:approvals` block an authored page places, and the fallback panel.
+// Each used to own its own `useState` + effect, so each mount was its own
+// `GET /approvals/requests?object=…&recordId=…`. React's StrictMode, which the
+// console renders under, replays every mount effect once in development, and
+// that doubled each of them; one HotCRM lead open measured three identical
+// reads.
+//
+// So the read and its answer live here, keyed by object + record, rather than
+// in each hook instance — the same structural choice as `sharedUserFeeds.ts`
+// (a module-scoped store needs no provider above every call site, so no
+// consumer can opt out by mounting somewhere unexpected), without that
+// module's polling: this read has no cadence, only mounts and refreshes.
+//
+//   - A record's entry exists while at least one consumer has it mounted. The
+//     first mount reads; a consumer that mounts later (a tab opened after the
+//     page settled) is served the entry's answer and reads nothing.
+//   - The last consumer unmounting drops the entry, so opening the record
+//     again reads it again: the answer is shared across one open, never cached
+//     across opens.
+//   - A read in flight is shared by key, outside the entry, so StrictMode's
+//     replayed mount (unmount, then mount again, in one commit) joins the read
+//     its first mount started instead of sending a second.
+//   - `refresh()` always reads. It is what a write (a decision, a saved edit
+//     that may start a flow) calls, and a read that began before the write
+//     must not answer for after it. Every consumer of the record sees the
+//     refreshed answer.
 
-  const refresh = useCallback(async () => {
-    if (!objectName || !recordId) return;
-    if (unavailableRef.current) return;
-    const key = JSON.stringify([objectName, recordId]);
-    setLoading(true);
+interface ApprovalsSnapshot {
+  loading: boolean;
+  /** `false` once the route answered 404 / 501 for this record's reads. */
+  available: boolean;
+  /** Whether a read for this record answered (a 2xx). */
+  answered: boolean;
+  /** Rows as the server sent them, the pending one enriched. Unsorted. */
+  rows: ApprovalRequestLite[];
+}
+
+const EMPTY_ROWS: ApprovalRequestLite[] = [];
+const INITIAL_SNAPSHOT: ApprovalsSnapshot = Object.freeze({
+  loading: false,
+  available: true,
+  answered: false,
+  rows: EMPTY_ROWS,
+}) as ApprovalsSnapshot;
+
+interface ApprovalsEntry {
+  snapshot: ApprovalsSnapshot;
+  /** Mounted consumers holding this record's entry. */
+  holders: number;
+  /** A read was started for this entry, so a later mount reads nothing. */
+  read: boolean;
+}
+
+/** One entry per record, while a consumer holds it. */
+const entries = new Map<string, ApprovalsEntry>();
+/** The read on the wire per record, shared by every caller that joins it. */
+const inFlight = new Map<string, { seq: number; promise: Promise<void> }>();
+/** Listeners per record; kept apart from the entry so a re-mount keeps them. */
+const listeners = new Map<string, Set<() => void>>();
+/** Read sequence, so a slower older read never overwrites a newer answer. */
+let readSeq = 0;
+const latestSeq = new Map<string, number>();
+
+function publish(key: string, patch: Partial<ApprovalsSnapshot>): void {
+  const entry = entries.get(key);
+  if (!entry) return;
+  entry.snapshot = { ...entry.snapshot, ...patch };
+  listeners.get(key)?.forEach((l) => l());
+}
+
+function holdEntry(key: string): () => void {
+  let entry = entries.get(key);
+  if (!entry) {
+    entry = { snapshot: INITIAL_SNAPSHOT, holders: 0, read: false };
+    entries.set(key, entry);
+  }
+  entry.holders += 1;
+  const held = entry;
+  return () => {
+    held.holders -= 1;
+    if (held.holders <= 0 && entries.get(key) === held) {
+      entries.delete(key);
+      if (!inFlight.has(key)) latestSeq.delete(key);
+    }
+  };
+}
+
+/** Send the record's read and publish its answer to every consumer of the key. */
+function startRead(key: string, objectName: string, recordId: string): Promise<void> {
+  const seq = ++readSeq;
+  latestSeq.set(key, seq);
+  const entry = entries.get(key);
+  if (entry) entry.read = true;
+  publish(key, { loading: true });
+  const promise = (async () => {
     try {
       const reqResp = await fetchJson<{ data: ApprovalRequestLite[] }>(
         `/approvals/requests?object=${encodeURIComponent(objectName)}&recordId=${encodeURIComponent(recordId)}`,
@@ -404,28 +484,104 @@ export function useRecordApprovals(
       // header — so exactly one follow-up read, never one per row.
       const pending = rows.find((r) => r.status === 'pending');
       const full = pending ? await fetchProgressEnrichment(pending) : null;
-      setRequests(full ? rows.map((r) => (r === pending ? full : r)) : rows);
-      setAvailable(true);
-      setAnsweredFor(key);
+      if (latestSeq.get(key) !== seq) return;
+      publish(key, {
+        rows: full ? rows.map((r) => (r === pending ? full : r)) : rows,
+        available: true,
+        answered: true,
+      });
     } catch (err: any) {
+      if (latestSeq.get(key) !== seq) return;
       if (err?.status === 404 || err?.status === 501) {
-        unavailableRef.current = true;
-        setAvailable(false);
-        setAnsweredFor(null);
+        publish(key, { available: false, answered: false });
       }
       // Other errors are transient — silently keep last state.
     } finally {
-      setLoading(false);
+      if (inFlight.get(key)?.seq === seq) inFlight.delete(key);
+      if (latestSeq.get(key) === seq) publish(key, { loading: false });
+      if (!entries.has(key) && !inFlight.has(key)) latestSeq.delete(key);
     }
-  }, [objectName, recordId]);
+  })();
+  inFlight.set(key, { seq, promise });
+  return promise;
+}
+
+function subscribeKey(key: string | null, listener: () => void): () => void {
+  if (key === null) return () => {};
+  let set = listeners.get(key);
+  if (!set) {
+    set = new Set();
+    listeners.set(key, set);
+  }
+  set.add(listener);
+  return () => {
+    const current = listeners.get(key);
+    if (!current) return;
+    current.delete(listener);
+    if (current.size === 0) listeners.delete(key);
+  };
+}
+
+/**
+ * ⛔ No `currentUserId` parameter (objectui#3055). It existed only to feed the
+ * retired client-side `canDecide`; every remaining question about the viewer —
+ * may they act, are they the submitter, may they override — is answered by the
+ * server on the row itself (`viewer`, framework#3310 / objectstack-ai/objectstack#3424). A surface that
+ * still needs the signed-in id for a pre-`viewer` fallback (the panel's remind)
+ * reads it from `useAuth()` where it renders.
+ *
+ * Every instance mounted for the same object + record shares ONE read and one
+ * answer (objectui#12701, see the store above).
+ */
+export function useRecordApprovals(
+  objectName: string | undefined,
+  recordId: string | undefined,
+): UseRecordApprovalsResult {
+  const readKey = objectName && recordId ? JSON.stringify([objectName, recordId]) : null;
+  // Once this instance has seen the approvals route absent (404 / 501), it
+  // asks no more, for this record or the next one it is handed: sticky state
+  // for the render, mirrored into a ref the mount effect and `refresh` read.
+  const [unavailable, setUnavailable] = useState(false);
+  const unavailableRef = useRef(false);
+
+  const subscribe = useCallback((l: () => void) => subscribeKey(readKey, l), [readKey]);
+  const getSnapshot = useCallback(
+    () => (readKey === null ? INITIAL_SNAPSHOT : entries.get(readKey)?.snapshot ?? INITIAL_SNAPSHOT),
+    [readKey],
+  );
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  // Adjusting state while rendering, on a value the render just read — React's
+  // documented alternative to an effect that only copies one value to state.
+  if (!snapshot.available && !unavailable) setUnavailable(true);
+  useEffect(() => {
+    unavailableRef.current = unavailable;
+  }, [unavailable]);
 
   useEffect(() => {
-    if (!objectName || !recordId) {
-      setRequests([]);
-      return;
+    if (!readKey || !objectName || !recordId) return;
+    const release = holdEntry(readKey);
+    const entry = entries.get(readKey);
+    // Join the read on the wire, or the answer another consumer already has;
+    // read only when neither exists. The entry may be new while a read is in
+    // flight (StrictMode's replayed mount): that read publishes into it.
+    if (entry && !entry.read && !inFlight.has(readKey) && !unavailableRef.current) {
+      void startRead(readKey, objectName, recordId);
+    } else if (entry && inFlight.has(readKey)) {
+      entry.read = true;
+      if (!entry.snapshot.loading) publish(readKey, { loading: true });
     }
-    refresh();
-  }, [objectName, recordId, refresh]);
+    return release;
+  }, [readKey, objectName, recordId]);
+
+  const refresh = useCallback(async () => {
+    if (!objectName || !recordId || !readKey) return;
+    if (unavailableRef.current) return;
+    await startRead(readKey, objectName, recordId);
+  }, [objectName, recordId, readKey]);
+
+  const requests = readKey === null ? EMPTY_ROWS : snapshot.rows;
+  const loading = snapshot.loading;
+  const available = !unavailable && snapshot.available;
 
   const pendingRequest = useMemo(
     () => requests.find((r) => r.status === 'pending') ?? null,
@@ -453,7 +609,7 @@ export function useRecordApprovals(
   return {
     loading,
     available,
-    answered: readKey !== null && answeredFor === readKey,
+    answered: readKey !== null && snapshot.answered,
     requests: sortedRequests,
     pendingRequest,
     latestRequest,

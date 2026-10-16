@@ -342,22 +342,31 @@ export function ApprovalRecordReads({ children }: { children: ReactNode }) {
   );
 }
 
-export function AppContent() {
+/**
+ * The console's ONE `/auth/me/permissions` source, shared by Home and every app
+ * (objectui#12700).
+ *
+ * It used to be mounted inside `AppContent`, the element of `/apps/:appName/*`
+ * alone, so `/home` had no permission answer at all: Home's bell and activity
+ * card derive their roster from every app's navigation, and a
+ * `current_user.can(object, verb)` gate there could only fault (reported on
+ * every console load, and withheld). `App.tsx` now mounts this once, as the
+ * element of a pathless layout route whose only children are `/home` and
+ * `/apps/:appName/*`. Moving between the two keeps the layout element, so the
+ * provider (its one fetch and its one cache) survives the navigation instead
+ * of being duplicated per route.
+ *
+ * ⛔ `/studio/*` is NOT under it, on purpose: `components/studioEntry.ts` says
+ * why installing this context over the builder would change what it renders
+ * for a holder.
+ *
+ * The loading and error posture is the one `/apps` always had: nothing below
+ * renders until the answer arrives, and a failure shows the console's error
+ * splash with its Retry.
+ */
+export function ConsolePermissionsScope({ children }: { children: ReactNode }) {
   const serverUrl = import.meta.env.VITE_SERVER_URL || '';
   const endpoint = `${serverUrl}/api/v1/auth/me/permissions`;
-  const localizationEndpoint = `${serverUrl}/api/v1/auth/me/localization`;
-  // The ObjectStack upload destination for ImageField / FileField /
-  // CommentAttachment used to be mounted HERE, and that was the defect
-  // objectui#10131 measured: this component is the element of a single route
-  // (`/apps/:appName/*`), while `ConnectedShell`'s
-  // `GlobalActionRuntimeProvider` renders the action-param dialog and the
-  // `ModalForm` a modal action opens as SIBLINGS of the route element. Those
-  // dialogs therefore sat outside the provider, `useUpload()` fell open to
-  // `createObjectUrlAdapter()` without a word, and a file picked in one of
-  // them reached the engine as an inline blob object with no request ever
-  // sent. It now lives in `App`, above `ConsoleShell`, so every console
-  // surface shares one upload destination — see the rationale on
-  // `uploadAdapter` there.
   // [#2926 ④] /me/permissions must carry the Bearer token like every other
   // data call (same wrapper AdapterProvider uses) — with the cookie-only
   // default fetch, a token-only session resolved as anonymous and FLS
@@ -376,6 +385,32 @@ export function AppContent() {
       // error + retry affordance all along.
       errorFallback={(err, retry) => <LoadingScreen error={err.message} onRetry={retry} />}
     >
+      {children}
+    </MePermissionsProvider>
+  );
+}
+
+/**
+ * The element of `/apps/:appName/*`. It renders under `ConsolePermissionsScope`
+ * (mounted by `App.tsx` above this route), never without it.
+ */
+export function AppContent() {
+  const serverUrl = import.meta.env.VITE_SERVER_URL || '';
+  const localizationEndpoint = `${serverUrl}/api/v1/auth/me/localization`;
+  // The ObjectStack upload destination for ImageField / FileField /
+  // CommentAttachment used to be mounted HERE, and that was the defect
+  // objectui#10131 measured: this component is the element of a single route
+  // (`/apps/:appName/*`), while `ConnectedShell`'s
+  // `GlobalActionRuntimeProvider` renders the action-param dialog and the
+  // `ModalForm` a modal action opens as SIBLINGS of the route element. Those
+  // dialogs therefore sat outside the provider, `useUpload()` fell open to
+  // `createObjectUrlAdapter()` without a word, and a file picked in one of
+  // them reached the engine as an inline blob object with no request ever
+  // sent. It now lives in `App`, above `ConsoleShell`, so every console
+  // surface shares one upload destination — see the rationale on
+  // `uploadAdapter` there.
+  return (
+    <>
       <LocalizationFetchProvider endpoint={localizationEndpoint}>
         <ApprovalRecordReads>
           <DefaultAppContent
@@ -385,10 +420,10 @@ export function AppContent() {
         </ApprovalRecordReads>
       </LocalizationFetchProvider>
       {/* objectui#11758 — asks an administrator once to set a still-default
-          workspace timezone. Here, inside `MePermissionsProvider`, because
-          that provider is what answers whether this session may write the
+          workspace timezone. Under `ConsolePermissionsScope`, because that
+          provider is what answers whether this session may write the
           setting; mounted once for the whole app shell, beside the routes. */}
       <WorkspaceTimezonePrompt />
-    </MePermissionsProvider>
+    </>
   );
 }

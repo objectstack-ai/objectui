@@ -214,6 +214,19 @@ export interface DetailViewProps {
    * Called when the user clicks the header star. Receives the next state.
    */
   onToggleFavorite?: (next: boolean) => void;
+  /**
+   * The host supplies the record through `schema.data`, so this view never
+   * reads it itself: while `schema.data` is absent for the `resourceId` the
+   * host names, it shows its loading state and sends nothing, and it renders
+   * the record once the host hands it over.
+   *
+   * The record page sets it on its `record:details` body (objectui#12701): the
+   * page already reads the record, with every relation the page expands, so a
+   * second read of the same row from the body — narrower, sent while the
+   * page's own read was still on the wire — was one request too many on every
+   * record open. Omitted, the view reads its record as before.
+   */
+  recordFromHost?: boolean;
 }
 
 
@@ -290,9 +303,10 @@ export const DetailView: React.FC<DetailViewProps> = ({
   onDataLoaded,
   isFavorite: isFavoriteProp,
   onToggleFavorite,
+  recordFromHost = false,
 }) => {
   const [data, setData] = React.useState<any>(rawSchema.data);
-  const [loading, setLoading] = React.useState(!rawSchema.data && !!((rawSchema.api && rawSchema.resourceId) || (dataSource && rawSchema.objectName && rawSchema.resourceId)));
+  const [loading, setLoading] = React.useState(!rawSchema.data && ((recordFromHost && rawSchema.resourceId != null) || !!((rawSchema.api && rawSchema.resourceId) || (dataSource && rawSchema.objectName && rawSchema.resourceId))));
   const [internalFavorite, setInternalFavorite] = React.useState(false);
   const isFavorite = isFavoriteProp ?? internalFavorite;
   // Inline-edit session is lifted to a shared record-level context
@@ -602,6 +616,10 @@ export const DetailView: React.FC<DetailViewProps> = ({
   }, [schema.resourceId]);
 
 
+  // Whether the host's record is here yet: with `recordFromHost` the effect
+  // below must re-run the moment it arrives, whatever else changed.
+  const hostRecordArrived = recordFromHost && !!schema.data;
+
   // Fetch objectSchema + data with $expand when DataSource is provided
   React.useEffect(() => {
     let isMounted = true;
@@ -625,6 +643,16 @@ export const DetailView: React.FC<DetailViewProps> = ({
             /* objectSchema is best-effort; renderer falls back to raw values */
           });
       }
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    // objectui#12701 — the host reads this record; wait for it, read nothing.
+    // A host that names no record (a binding that matched no row) has none
+    // coming, and falls through to the not-found state as before.
+    if (recordFromHost && schema.resourceId != null) {
+      setLoading(true);
       return () => {
         isMounted = false;
       };
@@ -759,7 +787,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
     }
 
     return () => { isMounted = false; };
-  }, [schema.api, schema.resourceId, schema.objectName, dataSource, schema.sections, schema.fields, reloadTick, invalidationNonce, perms]);
+  }, [schema.api, schema.resourceId, schema.objectName, dataSource, schema.sections, schema.fields, reloadTick, invalidationNonce, perms, recordFromHost, hostRecordArrived]);
 
   const handleBack = React.useCallback(() => {
     if (onBack) {

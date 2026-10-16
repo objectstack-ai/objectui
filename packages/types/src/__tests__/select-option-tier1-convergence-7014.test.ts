@@ -63,6 +63,29 @@
  * `disabled` / `icon` carry the refusal half so a schema that had gone
  * permissive cannot pass this file.
  *
+ * ## ⭐ What `@objectstack/spec` 18 changed here, and why it is written as a widening
+ *
+ * Spec 18 adds an OPTIONAL `kind: 'open' | 'won' | 'lost'` to
+ * `SelectOptionSchema` (objectstack#23809, landed as objectstack#23846): the
+ * option's lifecycle category. It arrives on both faces by reference, exactly as
+ * `description` did, so the gained-key sets below are `'description'` /
+ * `'default'` PLUS `kind`. That is a deliberate optional widening, stated here
+ * rather than absorbed: the `PRE_CONVERGENCE_*` records are not edited, and
+ * `kind` is not `Omit`ted from either face.
+ *
+ * `kind` is spelled through {@link SpecKindKey}, which is `'kind'` when the spec
+ * in use declares it and `never` when it does not, read off the spec's OWN type
+ * rather than a version check. The repo's `Type Check` compiles against the
+ * installed spec and objectstack's hourly Spec Shape Gate against the spec built
+ * from objectstack `main`, and these pins must hold on both until the two meet.
+ * Any OTHER key the spec adds still turns every set difference red.
+ *
+ * The form face keeps `kind` although the spec's form-VIEW options
+ * (`FormSelectOptionSchema`) leave it out: this face was never that schema (it
+ * has carried `default`, which that schema also leaves out, since before the
+ * convergence), its zod twin spreads the same spec shape, and whether the form
+ * face should drop either key is a face change of its own (objectui#12711).
+ *
  * ## The control the spec fixtures need
  *
  * A select option's `value` is a lowercase machine identifier with a minimum
@@ -74,6 +97,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
+import type { SelectOption as SpecSelectOption } from '@objectstack/spec/data';
 
 import type { SelectOptionBase } from '../select-option';
 import type { SelectOptionMetadata } from '../field-types';
@@ -88,6 +112,14 @@ type Expect< T extends true > = T;
 
 /** objectui's own expression wire shape (objectui#2212), as both faces declared it. */
 type ExpressionWire = string | { dialect?: string; source: string };
+
+/**
+ * `'kind'` when the spec in use declares the option's lifecycle category
+ * (spec 18, objectstack#23846), `never` when it does not. Read off the spec's
+ * own type, so the pins below hold on both spec lines without a version check,
+ * and the day the installed spec carries `kind` this is simply `'kind'`.
+ */
+type SpecKindKey = Extract< keyof SpecSelectOption, 'kind' >;
 
 /* ── 1. No narrowing: the pre-convergence member lists, verbatim ─────────── */
 
@@ -122,20 +154,21 @@ interface PRE_CONVERGENCE_SelectOptionMetadata {
 
 /**
  * The SDUI form face kept every member it had, at the same type — stated by
- * removing the one key the spec has since added and comparing what is left.
+ * removing the keys the spec has since added (`description`, and `kind` where
+ * the spec declares it) and comparing what is left.
  * `PRE_CONVERGENCE_SelectOption` above is a HISTORICAL record and is never
  * edited to match; it is the fixed end of this comparison.
  */
 export type assertionFormFaceKeptEveryMember =
-  Expect< Equal< Omit< SelectOption, 'description' >, PRE_CONVERGENCE_SelectOption > >;
+  Expect< Equal< Omit< SelectOption, 'description' | SpecKindKey >, PRE_CONVERGENCE_SelectOption > >;
 
 /**
- * …and `description` is the ONLY key it gained since. Written as a set
- * difference so a second key cannot ride along silently: add one and this
- * stops being `'description'`.
+ * …and `description` (plus spec 18's `kind`) is ALL it gained since. Written
+ * as a set difference so another key cannot ride along silently: add one and
+ * this stops being `'description' | SpecKindKey`.
  */
-export type assertionFormFaceGainedOnlyDescription =
-  Expect< Equal< Exclude< keyof SelectOption, keyof PRE_CONVERGENCE_SelectOption >, 'description' > >;
+export type assertionFormFaceGainedOnlyDescriptionAndKind =
+  Expect< Equal< Exclude< keyof SelectOption, keyof PRE_CONVERGENCE_SelectOption >, 'description' | SpecKindKey > >;
 
 /** …and it arrived OPTIONAL, so no form that type-checked before now fails. */
 export type assertionDescriptionIsOptional =
@@ -143,22 +176,35 @@ export type assertionDescriptionIsOptional =
 
 /**
  * The object-metadata face kept every member it had, at the same type — the
- * no-narrowing half, stated by removing the one key that was added and
- * comparing what is left.
+ * no-narrowing half, stated by removing the keys that were added (`default`,
+ * and `kind` where the spec declares it) and comparing what is left.
  */
 export type assertionMetadataFaceKeptEveryMember =
-  Expect< Equal< Omit< SelectOptionMetadata, 'default' >, PRE_CONVERGENCE_SelectOptionMetadata > >;
+  Expect< Equal< Omit< SelectOptionMetadata, 'default' | SpecKindKey >, PRE_CONVERGENCE_SelectOptionMetadata > >;
 
 /**
- * …and `default` is the ONLY key it gained. Written as a set difference so a
- * second key cannot ride along silently: add one and this stops being `'default'`.
+ * …and `default` (plus spec 18's `kind`) is ALL it gained. Written as a set
+ * difference so another key cannot ride along silently: add one and this
+ * stops being `'default' | SpecKindKey`.
  */
-export type assertionMetadataFaceGainedOnlyDefault =
-  Expect< Equal< Exclude< keyof SelectOptionMetadata, keyof PRE_CONVERGENCE_SelectOptionMetadata >, 'default' > >;
+export type assertionMetadataFaceGainedOnlyDefaultAndKind =
+  Expect< Equal< Exclude< keyof SelectOptionMetadata, keyof PRE_CONVERGENCE_SelectOptionMetadata >, 'default' | SpecKindKey > >;
 
 /** …and `default` really is optional, so no document that parsed before now fails. */
 export type assertionDefaultIsOptional =
   Expect< Equal< SelectOptionMetadata['default'], boolean | undefined > >;
+
+/**
+ * `kind`, where the spec declares it, is OPTIONAL on both faces — so no option
+ * that type-checked before now fails — and it is the spec's own member, by
+ * reference, not a restatement. Both read `{}` on a spec without `kind`.
+ */
+export type assertionKindIsOptionalOnFormFace =
+  Expect< Equal< Pick< SelectOption, SpecKindKey >, Partial< Pick< SelectOption, SpecKindKey > > > >;
+export type assertionKindIsOptionalOnMetadataFace =
+  Expect< Equal< Pick< SelectOptionMetadata, SpecKindKey >, Partial< Pick< SelectOptionMetadata, SpecKindKey > > > >;
+export type assertionKindIsTheSpecMember =
+  Expect< Equal< Pick< SelectOptionMetadata, SpecKindKey >, Pick< SpecSelectOption, SpecKindKey > > >;
 
 /**
  * The two faces differ on exactly one inherited member, and it is `value`.
@@ -182,6 +228,11 @@ export type assertionMetadataValueIsSpecIdentifier =
  * ANNOTATION is the type-side half — drop a key from the base and this stops
  * compiling — and the runtime assertion below is the other half: add a key to
  * the spec and the lists stop agreeing. Neither half alone is a pin.
+ *
+ * `kind` is not in this list because the installed spec may not declare it, and
+ * a member the base lacks cannot be annotated here. It is the one named
+ * addition the runtime comparison allows, on its own pin below
+ * ({@link SPEC_KIND_KEY}); any other new spec key still breaks the comparison.
  */
 const SPEC_KEYS_ON_BASE: readonly (keyof SelectOptionBase)[] = [
   'color',
@@ -191,6 +242,12 @@ const SPEC_KEYS_ON_BASE: readonly (keyof SelectOptionBase)[] = [
   'value',
   'visibleWhen',
 ];
+
+/**
+ * Spec 18's lifecycle category (objectstack#23846). Present in the spec's shape
+ * exactly when {@link SpecKindKey} is `'kind'` on the type side.
+ */
+const SPEC_KIND_KEY = 'kind';
 
 /** The objectui-only keys, annotated the same way. */
 const DIALECT_KEYS_ON_BASE: readonly (keyof SelectOptionBase)[] = ['disabled', 'icon'];
@@ -215,6 +272,11 @@ export const rejectsUndeclaredKeyOnMetadataFace = (): SelectOptionMetadata => ({
  * The control for the two refusals above: the SAME literal carrying every key
  * the converged faces DO declare compiles with no error. Without it, a face
  * that had gone `never` would pass both `@ts-expect-error` cases vacuously.
+ *
+ * Spec 18's `kind` is not written into these literals: it would be an excess
+ * property against a spec that does not declare it. That it is accepted where
+ * declared, and optional, is the `assertionKindIs*` pins above; that `weight`
+ * is still refused next to it shows the face did not go permissive with it.
  */
 export const acceptsEveryDeclaredKey = (): SelectOptionMetadata => ({
   label: 'High priority',
@@ -253,8 +315,30 @@ const refusedByName = (
     : result.error!.issues.find((i) => i.code === 'unrecognized_keys' && (i.keys ?? []).includes(key));
 
 describe('the derived base carries the spec vocabulary', () => {
-  it('lists exactly the keys the spec declares', () => {
-    expect([...SPEC_KEYS_ON_BASE].sort()).toEqual(Object.keys(SpecSelectOptionSchema.shape).sort());
+  it('lists exactly the keys the spec declares (plus `kind` where the spec declares it)', () => {
+    const specKeys = Object.keys(SpecSelectOptionSchema.shape);
+    const expected = specKeys.includes(SPEC_KIND_KEY)
+      ? [...SPEC_KEYS_ON_BASE, SPEC_KIND_KEY]
+      : [...SPEC_KEYS_ON_BASE];
+    expect(expected.sort()).toEqual(specKeys.sort());
+  });
+
+  it('`kind` is either an OPTIONAL spec key, or refused by name — never silently absorbed', () => {
+    const withKind = SpecSelectOptionSchema.safeParse({ ...CONTROL, kind: 'won' });
+    if (Object.keys(SpecSelectOptionSchema.shape).includes(SPEC_KIND_KEY)) {
+      // Spec 18: accepted, and absent stays absent (it is optional, not defaulted).
+      expect(withKind.success).toBe(true);
+      const bare = SpecSelectOptionSchema.safeParse(CONTROL);
+      expect(bare.success && SPEC_KIND_KEY in bare.data).toBe(false);
+      // …and the schema has not gone permissive on the value: a category it
+      // does not declare is refused.
+      expect(SpecSelectOptionSchema.safeParse({ ...CONTROL, kind: 'closed' }).success).toBe(false);
+    } else {
+      // A spec before 18: `kind` is an undeclared key like any other.
+      expect(refusedByName(withKind, SPEC_KIND_KEY)).toBeDefined();
+    }
+    // Control: the same option minus the key parses on either line.
+    expect(SpecSelectOptionSchema.safeParse(CONTROL).success).toBe(true);
   });
 
   it('CONTROL: a clean option is accepted, and for the stated reason', () => {

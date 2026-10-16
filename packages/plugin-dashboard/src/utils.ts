@@ -137,6 +137,20 @@ export {
 } from '@object-ui/core';
 
 /**
+ * A period-over-period delta as `computeMetricDelta` returns it.
+ *
+ * `value` is the absolute percentage change, or `null` when the change has no
+ * percentage: a zero baseline with a non-zero current value (objectui#12677).
+ * Going from 0 to 10 is not a 100% increase — a percent change from zero is
+ * undefined — so the delta keeps its direction and states no number. Every
+ * reader draws it through {@link formatMetricDeltaPercent}.
+ */
+export interface MetricDelta {
+  value: number | null;
+  direction: 'up' | 'down' | 'neutral';
+}
+
+/**
  * Compute a percentage delta between the current and previous metric values.
  *
  * Returns `null` when comparison is meaningless:
@@ -144,15 +158,16 @@ export {
  * - previousValue is null / undefined (no comparison data)
  *
  * Edge cases:
- * - both 0 → neutral
- * - previous is 0 and current ≠ 0 → 100% in current's direction
+ * - both 0 → neutral, `value: 0`
+ * - previous is 0 and current ≠ 0 → current's direction, `value: null` (no
+ *   percentage is defined from a zero baseline; objectui#12677)
  * - previous is negative → uses |previous| as denominator so that "less
  *   negative" reads as a positive (up) delta.
  */
 export function computeMetricDelta(
   current: number | null | undefined,
   previous: number | null | undefined,
-): { value: number; direction: 'up' | 'down' | 'neutral' } | null {
+): MetricDelta | null {
   if (previous === null || previous === undefined) return null;
   if (current === null || current === undefined) return null;
   if (typeof current !== 'number' || !Number.isFinite(current)) return null;
@@ -160,7 +175,7 @@ export function computeMetricDelta(
 
   if (previous === 0) {
     if (current === 0) return { value: 0, direction: 'neutral' };
-    return { value: 100, direction: current > 0 ? 'up' : 'down' };
+    return { value: null, direction: current > 0 ? 'up' : 'down' };
   }
 
   const diff = current - previous;
@@ -171,3 +186,14 @@ export function computeMetricDelta(
     direction: pct > 0 ? 'up' : 'down',
   };
 }
+
+/**
+ * The text a delta badge draws for {@link MetricDelta.value}: `20%` for a
+ * defined percentage, and an em dash — never a number — when there is none
+ * (a zero baseline, objectui#12677). A symbol, not a word, so no locale pack
+ * carries it. The direction arrow beside it still says which way it moved.
+ */
+export function formatMetricDeltaPercent(value: number | null): string {
+  return value === null ? '\u2014' : `${value}%`;
+}
+

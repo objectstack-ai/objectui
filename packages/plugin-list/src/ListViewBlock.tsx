@@ -9,6 +9,7 @@
 import React, { useContext } from 'react';
 import { elementDataSourceBlock, isElementDataSourceConfig, isListViewVisualization } from '@object-ui/core';
 import { useObjectTranslation } from '@object-ui/i18n';
+import { usePageRegionPosture } from '@object-ui/components';
 import {
   ElementDataSourceGate,
   SchemaRendererContext,
@@ -231,6 +232,13 @@ const ListViewBlock = elementDataSourceBlock(React.forwardRef<ListViewHandle, Li
   // nothing to do, and a recomputed copy is equal key by key.
   const handOff = React.useMemo(() => toListViewHandOff(props.schema), [props.schema]);
 
+  // The page region's posture (objectui#12703), measured by the page renderer:
+  // a region narrower than half the page asks for the compact list. `null`
+  // (no page region around this block, or a width not known yet) keeps the
+  // full list. Read here, on the page block, and not in `ListView`, so the
+  // object list page and every other host of `ListView` are untouched.
+  const compact = usePageRegionPosture() === 'compact';
+
   // A list that names its records in neither place has nothing to fetch, and
   // drew the "Nothing here yet" empty state, which reads as an empty query
   // (objectui#11605). Judged in the child below, after the binding is applied,
@@ -245,7 +253,7 @@ const ListViewBlock = elementDataSourceBlock(React.forwardRef<ListViewHandle, Li
       errorTitle="This list view’s data source could not be resolved"
     >
       {(schema) => namesRecordSource(schema)
-        ? <ListView ref={ref} {...props} schema={schema} dataSource={adapter} />
+        ? <ListView ref={ref} {...props} schema={schema} dataSource={adapter} compact={compact} />
         : <ListViewNoObjectHint />}
     </ElementDataSourceGate>
   );

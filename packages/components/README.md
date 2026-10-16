@@ -140,6 +140,28 @@ function MyComponent() {
 - `tabs` - Tab navigation
 - `accordion` - Collapsible sections
 
+#### Page region posture — `usePageRegionPosture()`
+
+The page renderer measures each region of a page against the page body, using
+`ResizeObserver` on the region, not the viewport, and tells the region's blocks
+how much room they have:
+
+```ts
+import { usePageRegionPosture, type PageRegionPosture } from '@object-ui/components';
+
+const posture: PageRegionPosture | null = usePageRegionPosture(); // 'compact' | 'full' | null
+```
+
+- `'compact'`: the region is narrower than `(page − 24) / 2`, that is, half
+  the page less the 24 px gap between regions side by side. A half-and-half
+  cell therefore stays `'full'`.
+- `'full'`: the region is half the page or wider.
+- `null`: outside a page region, or before the width is known (server render,
+  no `ResizeObserver`). Read `null` as `'full'`.
+
+The posture is measured, never authored, and no schema key sets it. The
+`list-view` block in `@object-ui/plugin-list` reads it to draw a compact list.
+
 ### Data Display
 - `table` - Data table
 - `list` - List view

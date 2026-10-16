@@ -75,6 +75,13 @@ export { isCustomRowActionVisible } from './renderers/complex/data-table';
 export { pageBlockSpan, isPageRailRegion, PAGE_BLOCK_SPANS } from './renderers/layout/page-block-span';
 export type { PageBlockSpan } from './renderers/layout/page-block-span';
 
+// The posture of the page region a block renders in, measured by the page
+// renderer (objectui#12703): `compact` when the region is narrower than half
+// the page. Exported for the blocks that read it in other packages — the
+// `list-view` block in `@object-ui/plugin-list` draws a short list there.
+export { usePageRegionPosture } from './renderers/layout/page-region-posture';
+export type { PageRegionPosture } from './renderers/layout/page-region-posture';
+
 // THE icon-name seam (objectui#5935) — `name -> LucideIcon | null`, one
 // tokeniser and one rename map for the whole repo.
 //

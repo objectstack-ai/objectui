@@ -359,6 +359,21 @@ by the build* — but with this tier's own primitive: lay out with the blocks'
 structured props (`<flex direction gap>`, `<grid columns>`) and add CSS as a JSON
 `style` object. See *Styling*, above.
 
+## List blocks in a narrow region
+
+Region pages (the schema-tree pages above, built from `regions[].components[]`)
+size each block to the region it sits in. A `list-view` block in a region
+narrower than half the page, such as an `aside` rail beside `main`, renders a
+compact list: a header with the title and record count, then two-line rows
+built from the view's first two visible columns. It renders no toolbar, no view
+tabs and no row-number column. A region half the page or wider renders the full
+list.
+
+The posture is measured from the region's rendered width, never authored, and
+no page or block key sets it. `kind:'html'` and `kind:'react'` pages have no
+regions, so their list blocks always render the full list. A "View all" link from
+the compact list to the object list is a planned follow-up.
+
 ## Related
 
 - [Slotted Pages](./slotted-pages.md) — `kind:'full'` / `kind:'slotted'` record pages.

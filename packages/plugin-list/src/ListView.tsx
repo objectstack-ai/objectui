@@ -14,6 +14,7 @@ import type { FilterBuilderRowGroup } from '@object-ui/components';
 import { VALUELESS_FILTER_BUILDER_OPERATORS, isFilterValueComplete } from '@object-ui/components';
 import { ViewSwitcherDropdown } from './ViewSwitcher';
 import { ListEmptyState, hasDeclaredFilter } from './ListEmptyState';
+import { ListViewCompactHeader, ListViewCompactRows } from './ListViewCompact';
 import { ViewSettingsPopover } from './components/ViewSettingsPopover';
 import { UserFilters } from './UserFilters';
 import {
@@ -445,6 +446,21 @@ export interface ListViewProps {
    * posture of the console, not of the view.
    */
   defaultRowNumbers?: boolean;
+  /**
+   * Draw the COMPACT posture (objectui#12703): a header with the list's title
+   * and record count over two-line rows (the view's first visible column, its
+   * second muted below), and none of the toolbar, view tabs, row-number column,
+   * pager or record-count bar. The `list-view` page block passes it when the
+   * page region it sits in is narrower than half the page
+   * (`usePageRegionPosture` from `@object-ui/components`).
+   *
+   * A HOST prop, never a schema key: the posture is measured by the page
+   * renderer, never authored, and `@objectstack/spec` declares no key for it.
+   * It applies to a paged grid, the view that draws the rows this component
+   * fetches a page of; any other kind (a board, a calendar, a grouped grid)
+   * keeps its full rendering. Absent ⇒ the full list, exactly as before.
+   */
+  compact?: boolean;
 }
 
 // Helper to convert FilterBuilder group to ObjectStack AST.
@@ -1434,6 +1450,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   initialSearchTerm,
   toolbarLeading,
   defaultRowNumbers = true,
+  compact = false,
   ...props
 }: ListViewProps & { [key: string]: any }, ref) => {
   // The switcher can be enabled either by the host component (prop) or by
@@ -5131,6 +5148,23 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       ? gridSummaries.map((s) => `${s.header}: ${s.label}`).join(' · ')
       : '';
 
+  // objectui#12703 — the compact posture a narrow page region asks for (the
+  // `compact` host prop). Only over a paged grid that draws the rows this
+  // component fetched: there the rows ARE the list, and two lines each say
+  // what a grid row said. A board, a calendar or a grouped grid keeps its own
+  // rendering, because its structure is its meaning.
+  const compactPosture = compact && paginate && surfaceDrawsFetchedRows;
+  const compactTitle = compactPosture
+    ? (resolveInlineI18nLabel(schema.label, displayLocale)
+      || (objectDef?.label && objectDef?.name && typeof resolveObjectLabel === 'function'
+        ? resolveObjectLabel(objectDef)
+        : objectDef?.label)
+      || undefined)
+    : undefined;
+  // The count the full list's footer would print: the server's total, or the
+  // rows in hand when the whole result is in memory.
+  const compactCount = compactPosture && !loading && !loadError ? (serverTotal ?? data.length) : null;
+
   return (
     <div
       ref={pullRef}
@@ -5150,10 +5184,22 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         </div>
       )}
 
+      {/* objectui#12703 — the compact posture's header stands where the
+          toolbar stands: the list's title and its record count. */}
+      {compactPosture && (
+        <ListViewCompactHeader
+          title={typeof compactTitle === 'string' ? compactTitle : undefined}
+          count={compactCount}
+          countLabel={compactCount != null ? t('list.recordCount', { count: compactCount }) : undefined}
+        />
+      )}
+
       {/* Unified toolbar — Tabs + UserFilters (left) + Tool buttons (right) on one row.
           The right-hand cluster is wrapped in a single rounded pill container
           with vertical dividers (Linear / Notion style) so utility buttons
-          read as one segmented control rather than a loose bag of icons. */}
+          read as one segmented control rather than a loose bag of icons.
+          Not in the compact posture (objectui#12703). */}
+      {!compactPosture && (
       <div className="border-b px-2 sm:px-4 py-1.5 flex items-center justify-between gap-1 sm:gap-2 bg-background">
         {/* With a host's leading node the left group grows (`flex-1`) so that
             node's `flex-1` wrapper has the width the tool cluster leaves —
@@ -5886,6 +5932,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           )}
         </div>
       </div>
+      )}
 
 
       {/* Filters Panel - Removed as it is now in Popover */}
@@ -6032,6 +6079,16 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
             t={t}
             displayLocale={displayLocale}
           />
+        ) : compactPosture ? (
+          // objectui#12703 — the compact posture's rows, in place of the grid:
+          // no row-number column, no header row, no pager.
+          <ListViewCompactRows
+            rows={data}
+            fields={effectiveFields}
+            objectName={schema.objectName}
+            objectDef={objectDef}
+            onRowClick={navigation.handleClick}
+          />
         ) : (
           <SchemaRenderer
             schema={viewComponentSchema}
@@ -6139,7 +6196,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       {calendarWindowed && calendarCeiling && <NonGridRowCeilingNote result={calendarCeiling} />}
 
       {/* Add Record (bottom position) */}
-      {toolbarFlags.showAddRecordBottom && (
+      {toolbarFlags.showAddRecordBottom && !compactPosture && (
         <div className="border-t px-2 sm:px-4 py-1 bg-background shrink-0">
           <Button
             variant="ghost"
@@ -6237,7 +6294,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           (objectui#12528): the count at the left, the grid's column summaries
           at the right of the same row, truncated with the full text as their
           tooltip when they do not fit. */}
-      {(recordCountShown || boardRecordCountShown || footerSummaryText) && (
+      {/* The compact posture prints its count in its header (objectui#12703). */}
+      {!compactPosture && (recordCountShown || boardRecordCountShown || footerSummaryText) && (
         <div
           className="border-t px-4 py-2 flex items-center gap-3 text-xs text-muted-foreground bg-background shrink-0"
           data-testid="record-count-bar"

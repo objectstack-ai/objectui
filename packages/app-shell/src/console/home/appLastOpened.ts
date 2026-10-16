@@ -19,15 +19,7 @@
  * @module
  */
 import { matchAppBySegment } from '../../utils/index.js';
-
-/** The two members of a recent entry this reads. */
-interface VisitLike {
-  href: string;
-  visitedAt: string;
-}
-
-/** The two members of an app this reads: the ADR-0048 route key and the name. */
-type AppLike = { name?: unknown; _packageId?: unknown } & Record<string, unknown>;
+import type { RecentItem } from '../../hooks/useRecentItems.js';
 
 /** The app segment of an `/apps/<segment>/…` address, or `undefined` for any other. */
 function appSegmentOf(href: string): string | undefined {
@@ -45,8 +37,10 @@ function appSegmentOf(href: string): string | undefined {
  * recent entry opened inside it. Apps with no such entry are not in the map.
  */
 export function lastOpenedByApp(
-  apps: readonly AppLike[],
-  recentItems: readonly VisitLike[],
+  // The app list exactly as the router's resolver takes it — no second app shape.
+  apps: Parameters<typeof matchAppBySegment>[0],
+  // The two members of a store entry this reads.
+  recentItems: ReadonlyArray<Pick<RecentItem, 'href' | 'visitedAt'>>,
 ): Map<string, string> {
   const opened = new Map<string, { iso: string; ms: number }>();
   for (const item of recentItems) {

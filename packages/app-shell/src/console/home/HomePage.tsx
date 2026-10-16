@@ -33,6 +33,7 @@ import { lastOpenedByApp } from './appLastOpened.js';
 import { RecoveryPasswordReminder } from './RecoveryPasswordReminder.js';
 import { HomeActionCenter, HomeContinue, HomeActivity } from './HomeRail.js';
 import { useHomeInbox } from '../../hooks/useHomeInbox.js';
+import { useSharedPendingApprovals } from '../../hooks/sharedUserFeeds.js';
 import { useNavigationContext } from '../../context/NavigationContext.js';
 import {
   appRouteSegment,
@@ -292,6 +293,9 @@ export function HomePage() {
   const { isAdmin, isResolved: isAdminResolved } = useWorkspaceAdminStatus();
   const { pendingApprovalsCount, notifications, unreadTopicCount, notificationsStatus, activity } =
     useHomeInbox();
+  // The same approvals feed with its status, for the line under the greeting,
+  // which states the count as a fact (objectui#12601).
+  const approvals = useSharedPendingApprovals();
   // Home renders OUTSIDE the `/apps/:appName/*` router, so there is no
   // `params.appName` to read — `currentAppName` (published by ConsoleLayout on
   // every app mount) is the only "which app is the user in" signal available
@@ -387,21 +391,31 @@ export function HomePage() {
 
   /**
    * The greeting's one-line summary of what is waiting (objectui#12601). Its
-   * number is `pendingApprovalsCount`, the count the bell badges and the
+   * number is the pending-approvals count, the one the bell badges and the
    * action center shows, read from the same shared feed. The artboard's second
    * number — what is assigned to the user — has no source to read today: an
    * inbox row carries a free-text `topic` and no declared kind that marks it an
    * assignment, so the line names approvals only instead of guessing a
    * classification (the fork objectui#12602's "assigned to me" column names
    * too). At zero it says nothing is waiting.
+   *
+   * Only when the count is an ANSWER — the feed's `ready`. While the read is in
+   * flight, after it fails, or before anything was asked, the line makes no
+   * claim at all: "Nothing is waiting" on a failed read is a denial arriving
+   * dressed as good news (the #4235 class), and a count kept from an earlier
+   * read is no longer vouched for. The line keeps its height and stays empty,
+   * so the row does not jump when the answer lands, and an empty paragraph
+   * says nothing to a screen reader either.
    */
   const workSummary =
-    pendingApprovalsCount > 0
-      ? t('home.summary.approvals', {
-          count: pendingApprovalsCount,
-          defaultValue: 'You have {{count}} approval(s) waiting today',
-        })
-      : t('home.summary.none', { defaultValue: 'Nothing is waiting for you today' });
+    approvals.status !== 'ready'
+      ? undefined
+      : approvals.value > 0
+        ? t('home.summary.approvals', {
+            count: approvals.value,
+            defaultValue: 'You have {{count}} approval(s) waiting today',
+          })
+        : t('home.summary.none', { defaultValue: 'Nothing is waiting for you today' });
 
   // objectui#5619 — `isAdminResolved` joins the metadata wait for the same
   // reason it joins `AppContent`'s: Home is the OTHER route that renders admin-
@@ -530,7 +544,7 @@ export function HomePage() {
                 {displayName && <span className="text-primary">{displayName}</span>}
                 <span className="text-foreground/40">{t('home.greetingEnd', { defaultValue: '.' })}</span>
               </h1>
-              <p className="mt-1 text-[13px] text-muted-foreground" data-testid="home-work-summary">
+              <p className="mt-1 min-h-5 text-[13px] text-muted-foreground" data-testid="home-work-summary">
                 {workSummary}
               </p>
             </div>

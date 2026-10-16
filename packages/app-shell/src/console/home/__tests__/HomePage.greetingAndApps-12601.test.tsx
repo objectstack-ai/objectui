@@ -6,9 +6,11 @@
  *
  * What these cases pin, on the real `HomePage` with the real `HomeAppsStrip`:
  *
- *   - the line under the greeting sums up what is waiting from
- *     `pendingApprovalsCount`, the count the bell badges, and says nothing is
- *     waiting at zero. It names approvals only: no source classifies an inbox
+ *   - the line under the greeting sums up what is waiting from the
+ *     pending-approvals feed, the count the bell badges, and says nothing is
+ *     waiting at zero — only when that count is an answer (`ready`): while
+ *     the read is in flight, after it fails or before it is asked, the line
+ *     claims nothing. It names approvals only: no source classifies an inbox
  *     row as "assigned to me" yet (the card's fork, reported on the PR);
  *   - the builder entries are two chips at the greeting's right, for an admin
  *     only — a non-admin renders neither;
@@ -42,6 +44,7 @@ const state = vi.hoisted(() => ({
   canAuthorMetadata: true,
   marketplaceEnabled: true,
   pendingApprovalsCount: 0,
+  approvalsStatus: 'ready' as 'idle' | 'loading' | 'ready' | 'error',
   apps: [] as Array<Record<string, unknown>>,
   recentItems: [] as Array<Record<string, unknown>>,
 }));
@@ -114,6 +117,11 @@ vi.mock('../../../hooks/useHomeInbox', () => ({
     activity: { value: [], status: 'ready', readable: true },
   }),
 }));
+// The line under the greeting reads the approvals feed WITH its status.
+vi.mock('../../../hooks/sharedUserFeeds', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  useSharedPendingApprovals: () => ({ value: state.pendingApprovalsCount, status: state.approvalsStatus }),
+}));
 vi.mock('../../../runtime-config', () => ({
   getRuntimeConfig: () => ({ branding: { productName: 'ObjectStack' } }),
   isMarketplaceEnabled: () => state.marketplaceEnabled,
@@ -147,6 +155,7 @@ beforeEach(() => {
   state.canAuthorMetadata = true;
   state.marketplaceEnabled = true;
   state.pendingApprovalsCount = 0;
+  state.approvalsStatus = 'ready';
   state.apps = [CRM, SETUP];
   state.recentItems = [];
   fetchCalls = [];
@@ -176,6 +185,23 @@ describe('the line under the greeting (objectui#12601)', () => {
     state.pendingApprovalsCount = 0;
     render(<HomePage />);
     expect(screen.getByTestId('home-work-summary')).toHaveTextContent('«home.summary.none»');
+  });
+
+  it.each([
+    ['in flight', 'loading', 0],
+    ['failed', 'error', 0],
+    ['not asked', 'idle', 0],
+    // A count kept from an earlier read is not vouched for once a re-read fails.
+    ['failed after an earlier answer', 'error', 3],
+  ] as const)('claims nothing while the approvals read is %s', (_when, status, count) => {
+    state.approvalsStatus = status;
+    state.pendingApprovalsCount = count;
+    render(<HomePage />);
+    const line = screen.getByTestId('home-work-summary');
+    // The page did render; the line holds its place and says nothing.
+    expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
+    expect(line).toBeEmptyDOMElement();
+    expect(screen.queryByText(/home\.summary\./)).toBeNull();
   });
 });
 

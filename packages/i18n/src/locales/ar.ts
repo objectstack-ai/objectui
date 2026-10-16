@@ -1369,6 +1369,7 @@ const ar = {
     lockedByApproval: "مقفل للموافقة",
     lockedTooltip: "يحتوي هذا السجل على طلب موافقة معلق؛ التعديل مقفل",
     writeStrippedTitle: "تم الحفظ، لكن بعض الحقول لم تُطبَّق",
+    writeWarningsTitle: "تم الحفظ، مع تحذيرات",
     writeStrippedReadonly: "للقراءة فقط، لذلك لم تُطبَّق: {{fields}}",
     writeStrippedByState: "غير قابلة للتعديل في الحالة الحالية لهذا السجل، لذلك لم تُطبَّق: {{fields}}",
     writeStrippedPrimaryKey: "معرّف السجل لا يمكن تغييره عند الحفظ، لذلك لم تُطبَّق: {{fields}}",

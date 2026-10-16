@@ -1209,6 +1209,7 @@ const de = {
     lockedByApproval: "Zur Genehmigung gesperrt",
     lockedTooltip: "Dieser Datensatz hat eine ausstehende Genehmigungsanfrage; die Bearbeitung ist gesperrt",
     writeStrippedTitle: "Gespeichert — einige Felder wurden jedoch nicht übernommen",
+    writeWarningsTitle: "Gespeichert — mit Warnungen",
     writeStrippedReadonly: "Schreibgeschützt und daher nicht übernommen: {{fields}}",
     writeStrippedByState: "Im aktuellen Status dieses Datensatzes nicht bearbeitbar und daher nicht übernommen: {{fields}}",
     writeStrippedPrimaryKey: "Die Kennung des Datensatzes kann beim Speichern nicht geändert werden und wurde daher nicht übernommen: {{fields}}",

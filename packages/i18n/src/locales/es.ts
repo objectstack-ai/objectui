@@ -1248,6 +1248,7 @@ const es = {
     lockedByApproval: "Bloqueado para aprobación",
     lockedTooltip: "Este registro tiene una solicitud de aprobación pendiente; la edición está bloqueada",
     writeStrippedTitle: "Guardado, pero algunos campos no se aplicaron",
+    writeWarningsTitle: "Guardado, con advertencias",
     writeStrippedReadonly: "De solo lectura, por lo que no se aplicó: {{fields}}",
     writeStrippedByState: "No editable en el estado actual de este registro, por lo que no se aplicó: {{fields}}",
     writeStrippedPrimaryKey: "El identificador del registro no se puede cambiar al guardar, por lo que no se aplicó: {{fields}}",

@@ -1105,6 +1105,32 @@ export interface DataTableRowAction {
 }
 
 /**
+ * One group band of a grouped `data-table` (objectui#12620). See
+ * {@link DataTableSchema.rowGroups}.
+ */
+export interface DataTableRowGroup {
+  /** Unique key of the group; React key of its band row and `data-group-key` on it. */
+  key: string;
+  /**
+   * The band's content: what the host draws inside the one cell that spans
+   * every column (the chevron, the group value, the count).
+   */
+  band: React.ReactNode;
+  /**
+   * The group's own data rows, drawn under its band. Empty when the group is
+   * collapsed or when it only holds nested groups (they follow it in the list).
+   */
+  rows: any[];
+  /**
+   * Optional content drawn in a full-width row after the group's rows, such as
+   * a server-paged group's pager or its loading line.
+   */
+  footer?: React.ReactNode;
+  /** Nesting level, 0 for the outermost groups. Written to `data-group-depth`. @default 0 */
+  depth?: number;
+}
+
+/**
  * Enterprise data table with advanced features
  */
 export interface DataTableSchema extends BaseSchema {
@@ -1119,9 +1145,9 @@ export interface DataTableSchema extends BaseSchema {
   /**
    * Drop the table's own horizontal/vertical scroll container so the table
    * overflows into a shared parent scroll container instead. Used by the
-   * grouped grid so every per-group sub-table participates in ONE shared
-   * horizontal scrollbar (and keeps columns aligned) rather than each group
-   * scrolling independently.
+   * grouped grid: its one table (see {@link DataTableSchema.rowGroups})
+   * overflows into the grid's own scroller, which holds both scrollbars and
+   * keeps the sticky header at its top.
    * @default false
    */
   disableInnerScroll?: boolean;
@@ -1539,6 +1565,23 @@ export interface DataTableSchema extends BaseSchema {
     commit: (v?: any) => void;
     cancel: () => void;
   }) => React.ReactNode;
+  /**
+   * Group bands (objectui#12620): draw the table as ONE table, with one header,
+   * whose body is a band row per group followed by that group's rows.
+   *
+   * RUNTIME SLOT — host-built React content, NOT authorable metadata: JSON has
+   * no React node, so the zod twin refuses this key by name. Supplied by
+   * `ObjectGrid` (`@object-ui/plugin-grid`) for a grouped view.
+   *
+   * When set, the table draws the rows of these groups and ignores `data`; a
+   * nested group follows its parent in the list. Each band is one cell whose
+   * `colSpan` covers the utility cells and every column, so the columns keep
+   * one width across bands. A client-side sort orders rows WITHIN each group
+   * and never moves a row to another band. Selection, keyboard navigation,
+   * copy and export see the data rows only. Pagination is the host's: the
+   * table's own pager is not drawn.
+   */
+  rowGroups?: DataTableRowGroup[];
   /**
    * Cell value change handler
    * Called when a cell value is edited

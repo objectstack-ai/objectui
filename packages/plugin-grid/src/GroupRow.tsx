@@ -26,9 +26,9 @@ export interface GroupRowProps {
   /** Computed aggregation results for this group */
   aggregations?: AggregationResult[];
   /**
-   * Small grey caption shown above the group header (the field label being
-   * grouped on, e.g. "Status"). When omitted, the caption row is skipped —
-   * useful for nested subgroups that share the parent's caption space.
+   * Small grey caption drawn before the value pill (the field label being
+   * grouped on, e.g. "Status"). When omitted, no caption is drawn — nested
+   * subgroups leave it to their parent's band.
    */
   fieldLabel?: string;
   /**
@@ -50,20 +50,28 @@ export interface GroupRowProps {
    * `style` verbatim; leave unset on the palette-family path.
    */
   labelColorStyle?: React.CSSProperties;
+  /**
+   * Nesting level of the group, 0 for the outermost. Indents the band's
+   * content, since every band of a grouped grid spans the same columns.
+   */
+  depth?: number;
   /** Callback when the group header is clicked to toggle collapse */
   onToggle: (key: string) => void;
-  /** Children to render when not collapsed (the group content) */
-  children: React.ReactNode;
 }
 
+/** Left inset of a band's content per nesting level (Tailwind steps, no inline style). */
+const DEPTH_INSET = ['pl-3', 'pl-8', 'pl-12', 'pl-16'] as const;
+
 /**
- * GroupRow renders a collapsible group header followed by its children.
+ * GroupRow draws the content of one group BAND of a grouped grid
+ * (objectui#12620): the chevron, the grouped field's caption, the value pill,
+ * the count and the aggregations, in one 36 px line. The grid draws ONE table
+ * with ONE header; `data-table` puts this content in a band row whose single
+ * cell spans every column, followed by the group's rows. Collapsing a group
+ * removes its rows from the table and keeps its band.
  *
- * Visual style follows Airtable's grouped-list pattern: no surrounding
- * border, a small grey field-name caption above (optional), and a header
- * row consisting of a chevron, a colored "pill" label, and a count. The
- * children render directly underneath with a small left rail rather than
- * a nested rounded card, which keeps multi-level grouping legible.
+ * The content sticks to the left edge of the grid's scroller, so a band stays
+ * readable while the table is scrolled horizontally.
  */
 export const GroupRow: React.FC<GroupRowProps> = ({
   groupKey,
@@ -74,29 +82,32 @@ export const GroupRow: React.FC<GroupRowProps> = ({
   fieldLabel,
   labelColorClass,
   labelColorStyle,
+  depth = 0,
   onToggle,
-  children,
 }) => {
   const pillClass = labelColorClass
     ? cn('inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium', labelColorClass)
     : 'inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-foreground';
 
   return (
-    <div data-testid={`group-row-${groupKey}`} className="group/grouprow">
-      {fieldLabel && (
-        <div className="px-1 pb-1 text-[11px] font-medium text-muted-foreground tracking-wide group-label-caption">
-          {fieldLabel}
-        </div>
-      )}
+    <div data-testid={`group-row-${groupKey}`} className="group/grouprow sticky left-0 w-max max-w-full">
       <button
         type="button"
-        className="flex w-full items-center gap-2 px-1 py-1 text-sm text-left rounded-md hover:bg-muted/40 transition-colors"
+        className={cn(
+          'flex h-9 items-center gap-2 pr-3 text-sm text-left rounded-md hover:bg-muted/40 transition-colors',
+          DEPTH_INSET[Math.min(depth, DEPTH_INSET.length - 1)],
+        )}
         onClick={() => onToggle(groupKey)}
         aria-expanded={!collapsed}
       >
         {collapsed
           ? <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           : <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+        {fieldLabel && (
+          <span className="text-[11px] font-medium text-muted-foreground tracking-wide group-label-caption">
+            {fieldLabel}
+          </span>
+        )}
         <span className={cn(pillClass, 'group-label')} style={labelColorStyle}>{label}</span>
         <span className="text-xs text-muted-foreground tabular-nums group-count">{count}</span>
         {aggregations && aggregations.length > 0 && (
@@ -109,11 +120,6 @@ export const GroupRow: React.FC<GroupRowProps> = ({
           </span>
         )}
       </button>
-      {!collapsed && (
-        <div className="mt-1 ml-1.5 pl-3 border-l border-border/60">
-          {children}
-        </div>
-      )}
     </div>
   );
 };

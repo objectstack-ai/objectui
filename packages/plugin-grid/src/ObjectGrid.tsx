@@ -1158,7 +1158,7 @@ export type ObjectGridColumn =
  * ## Why the fix is not `: DataTableSchema` — measured before choosing this shape
  *
  * objectui#6459's sizing note predicted a bare annotation would be inert
- * because `buildGroupTableSchema` re-emits the value through a spread and
+ * because `buildGroupedTableSchema` re-emits the value through a spread and
  * excess-property checking is a freshness check. Measured here (on
  * `38a123cac`), the truth is stronger and the spread is not even needed:
  *
@@ -1180,7 +1180,7 @@ export type ObjectGridColumn =
  * hand-copied member list, so a member added there tomorrow flows in on its
  * own and two enumerations of one vocabulary never exist. With the signature
  * gone, the same probe goes red (TS2353 naming the key), measured at both
- * annotated literals — the flat one and `buildGroupTableSchema`'s return.
+ * annotated literals — the flat one and `buildGroupedTableSchema`'s return.
  *
  * ## What the instrument is, and is not (pinned in dataTableSchemaSlot-6459.test.ts)
  *
@@ -4974,14 +4974,14 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // depends on whether the sort is the server's.
   //
   // [objectui#7189] The grouped exclusion is gone for a grid that groups on
-  // the SERVER: it pages each group's rows there (see `renderGroup`), so its
+  // the SERVER: it pages each group's rows there (see `renderServerGroupFooter`), so its
   // sort is the server's too. A grid grouping a page it fetched from a source
   // that cannot answer the header query still holds whole groups in memory.
   const useServerPagination = !hasInlineData && (!isGrouped || serverGroupedFetch);
 
   // Either we own the server fetch (useServerPagination) or a parent does
   // (externalManualPagination). This is the FLAT table's pager: a grouped grid
-  // renders no flat table — its pages are per group (`renderGroup`) — so it
+  // pages whole groups and each group's rows (`renderServerGroupFooter`) — so it
   // never switches this on. Both server modes feed DataTable a manual pager
   // backed by the real match total.
   const manualPaginationOn = (useServerPagination || externalManualPagination) && !isGrouped;
@@ -5899,7 +5899,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     exportable: operations?.export,
     // Flat list view: drop the rounded outer frame so the table sits flush
     // beneath the toolbar's `border-b`. Matches the Airtable-style grouped
-    // mode introduced for `buildGroupTableSchema`. Metadata can re-enable
+    // mode introduced for `buildGroupedTableSchema`. Metadata can re-enable
     // the frame by setting `borderless: false` on the schema.
     borderless: true,
     // RowActionMenu column (from columnsWithActions) already handles edit/delete
@@ -6117,44 +6117,33 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   }
 
   /** Build a per-group data-table schema (inherits everything except data & pagination). */
-  const buildGroupTableSchema = (
-    groupRows: any[],
-    serverPage?: { count: number; page: number; onPageChange: (page: number) => void },
+  // objectui#12620 — a grouped grid is ONE table: one header, and per group a
+  // band row followed by the group's rows (`rowGroups`, drawn by `data-table`).
+  // Columns are one set of widths for every band because they are one table;
+  // the explicit widths below keep each column's width stable while bands
+  // collapse and expand.
+  const buildGroupedTableSchema = (
+    rowGroups: NonNullable<ObjectGridDataTableSchema['rowGroups']>,
   ): ObjectGridDataTableSchema => ({
     ...dataTableSchema,
     caption: undefined,
-    data: groupRows,
+    data: rowGroups.flatMap((group) => group.rows),
+    rowGroups,
+    // Pages are the grid's: whole groups (`groupedPager`), and on a
+    // server-grouped grid each open group's own rows (its band footer).
     pagination: false,
-    // [objectui#7189] A server-grouped leaf holds ONE page of its group: the
-    // pager is the group's own, driven by the header's count, and turning it
-    // asks the server for the group's next page — so every row of every group
-    // is reachable. Shown only when the group spans more than one page.
-    ...(serverPage
-      ? {
-        pagination: serverPage.count > serverPageSize,
-        manualPagination: true,
-        rowCount: serverPage.count,
-        page: serverPage.page,
-        pageSize: serverPageSize,
-        onPageChange: serverPage.onPageChange,
-        onPageSizeChange: (size: number) => { setServerPageSize(size); },
-      }
-      : {}),
+    manualPagination: false,
     searchable: false,
-    // Embedded inside a GroupRow which already provides visual framing.
-    // Drop the table's outer rounded border so groups look like Airtable's
-    // flat sub-tables rather than nested cards.
+    // The grouped scroller frames the table.
     borderless: true,
-    // Let every group's table overflow into the single shared horizontal
-    // scroll container (see grouped gridContent) instead of scrolling on its
-    // own — this restores a working x-axis scrollbar and aligned columns.
+    // The table overflows into the grouped scroller (see grouped
+    // `gridContent`), which holds both scrollbars and the sticky header.
     disableInnerScroll: true,
     // Frozen columns rely on per-table sticky offsets that don't compose with
     // the shared scroll container; disable them in grouped mode.
     frozenColumns: 0,
-    // Pin explicit, shared widths so columns align across all groups. No cast:
-    // `dataTableSchema` is typed now, so `.columns` is `TableColumn[]` (the
-    // `as any[]` existed only because the surrounding value was `any`, #6459).
+    // No cast: `dataTableSchema` is typed, so `.columns` is `TableColumn[]`
+    // (the `as any[]` existed only because the surrounding value was `any`, #6459).
     columns: dataTableSchema.columns.map((c) => ({
       ...c,
       width: groupedColumnWidths[c.accessorKey] ?? c.width,
@@ -6871,61 +6860,102 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     return { fieldLabel, labelColorClass, labelColorStyle };
   };
 
-  // [objectui#7189] One open leaf group's page of rows, as the server paged it.
-  const renderServerGroupPage = (group: typeof groups[number]): React.ReactNode => {
+  // [objectui#7189] What a server-grouped open leaf draws after its rows: its
+  // error, its loading line, or — when the group spans more than one page —
+  // the group's own pager, driven by the header's count. Turning it asks the
+  // server for the group's next page, so every row of every group is
+  // reachable. objectui#12620: drawn in the band's footer row of the one table.
+  const renderServerGroupFooter = (group: typeof groups[number]): React.ReactNode => {
     const held = groupRows.pages[group.key];
     if (held?.error) {
       return (
-        <p data-testid={`group-rows-error-${group.key}`} className="px-1 py-2 text-xs text-destructive">
+        <p data-testid={`group-rows-error-${group.key}`} className="sticky left-0 w-max px-3 py-2 text-xs text-destructive">
           {held.error.message}
         </p>
       );
     }
     if (!held || (held.loading && held.rows.length === 0)) {
       return (
-        <p data-testid={`group-rows-loading-${group.key}`} className="px-1 py-2 text-xs text-muted-foreground">
+        <p data-testid={`group-rows-loading-${group.key}`} className="sticky left-0 w-max px-3 py-2 text-xs text-muted-foreground">
           {t('grid.loading')}
         </p>
       );
     }
+    const pageCount = Math.max(1, Math.ceil(group.count / serverPageSize));
+    if (pageCount <= 1) return undefined;
+    const page = Math.min(held.page, pageCount);
+    const goTo = (next: number) => groupRows.setPage(group.key, Math.min(pageCount, Math.max(1, next)));
     return (
-      <SchemaRenderer
-        schema={buildGroupTableSchema(held.rows, {
-          count: group.count,
-          page: held.page,
-          onPageChange: (page: number) => groupRows.setPage(group.key, page),
-        })}
-      />
+      <div data-testid={`group-pager-${group.key}`} className="sticky left-0 flex w-max items-center gap-4 px-3 py-1.5">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">{t('table.rowsPerPage')}:</span>
+          <Select value={String(serverPageSize)} onValueChange={(size) => setServerPageSize(Number(size))}>
+            <SelectTrigger className="h-7 w-20 px-2 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Array.from(new Set([5, 10, 20, 50, 100, serverPageSize])).sort((a, b) => a - b).map((n) => (
+                <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">
+            {t('table.pageInfo', { current: page, total: pageCount })}
+          </span>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => goTo(1)} disabled={page === 1} aria-label={t('table.firstPage')}>
+              <ChevronsLeft className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => goTo(page - 1)} disabled={page === 1} aria-label={t('table.previousPage')}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => goTo(page + 1)} disabled={page === pageCount} aria-label={t('table.nextPage')}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => goTo(pageCount)} disabled={page === pageCount} aria-label={t('table.lastPage')}>
+              <ChevronsRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
     );
   };
 
-  const renderGroup = (group: typeof groups[number]): React.ReactNode => {
-    const { fieldLabel, labelColorClass, labelColorStyle } = resolveGroupHeader(group.field, group.label);
-    return (
-      <div key={group.key}>
-        <GroupRow
-          groupKey={group.key}
-          label={group.label}
-          count={group.count}
-          collapsed={group.collapsed}
-          aggregations={group.aggregations}
-          fieldLabel={group.depth === 0 ? fieldLabel : undefined}
-          labelColorClass={labelColorClass}
-          labelColorStyle={labelColorStyle}
-          onToggle={toggleGroup}
-        >
-          {group.subgroups.length > 0 ? (
-            <div className="space-y-4 mt-2">
-              {group.subgroups.map(renderGroup)}
-            </div>
-          ) : serverGroupedFetch ? (
-            renderServerGroupPage(group)
-          ) : (
-            <SchemaRenderer schema={buildGroupTableSchema(group.rows)} />
-          )}
-        </GroupRow>
-      </div>
-    );
+  // objectui#12620 — the groups on this page of groups, flattened into the
+  // one table's bands in display order: each group's band, then (open leaf)
+  // its rows, then (open parent) its subgroups. A collapsed group keeps its
+  // band and draws nothing under it.
+  const groupBandsOf = (list: typeof groups): NonNullable<ObjectGridDataTableSchema['rowGroups']> => {
+    const bands: NonNullable<ObjectGridDataTableSchema['rowGroups']> = [];
+    const visit = (group: typeof groups[number]) => {
+      const { fieldLabel, labelColorClass, labelColorStyle } = resolveGroupHeader(group.field, group.label);
+      const openLeaf = !group.collapsed && group.subgroups.length === 0;
+      bands.push({
+        key: group.key,
+        depth: group.depth,
+        band: (
+          <GroupRow
+            groupKey={group.key}
+            label={group.label}
+            count={group.count}
+            collapsed={group.collapsed}
+            aggregations={group.aggregations}
+            fieldLabel={group.depth === 0 ? fieldLabel : undefined}
+            labelColorClass={labelColorClass}
+            labelColorStyle={labelColorStyle}
+            depth={group.depth}
+            onToggle={toggleGroup}
+          />
+        ),
+        rows: !openLeaf ? [] : serverGroupedFetch ? (groupRows.pages[group.key]?.rows ?? []) : group.rows,
+        footer: openLeaf && serverGroupedFetch ? renderServerGroupFooter(group) : undefined,
+      });
+      if (!group.collapsed) group.subgroups.forEach(visit);
+    };
+    list.forEach(visit);
+    return bands;
   };
 
   // Grouped pagination — paginate whole top-level groups so a group is never
@@ -6989,12 +7019,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // bottom of an overflow-hidden ancestor and clips it.
   const gridContent = isGrouped ? (
     <div className="flex flex-col flex-1 min-h-0">
-      {/* Single shared horizontal scroll container: every group's sub-table
-          overflows into this one scroller (disableInnerScroll), so columns
-          stay aligned and there is exactly one x-axis scrollbar. */}
+      {/* One scroller for the one grouped table (objectui#12620): it holds
+          both scrollbars, and the table's sticky header sticks to its top
+          over every band. */}
       <div className="flex-1 min-h-0 overflow-auto [-webkit-overflow-scrolling:touch]">
-        <div className="min-w-max space-y-4 px-3 sm:px-4 pt-2 pb-4">
-          {pagedGroups.map(renderGroup)}
+        <div className="min-w-max">
+          <SchemaRenderer schema={buildGroupedTableSchema(groupBandsOf(pagedGroups))} />
         </div>
       </div>
       {groupedPager}

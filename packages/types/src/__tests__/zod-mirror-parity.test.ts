@@ -154,7 +154,12 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **55 entries** in `KnownDrift`, **92 keys** across them — 50 / 87 until
+ *   - **55 entries** in `KnownDrift`, **93 keys** across them — 55 / 92 until
+ *     objectui#12620 declared `DataTableSchema.rowGroups`, the host-built group
+ *     bands of a grouped grid, as a runtime slot refused by name on the mirror,
+ *     so `rowGroups` JOINED `data-display.zod.ts#DataTableSchema`'s existing
+ *     entry beside `renderCellEditor`: the key total rose by one and the entry
+ *     count did not move. It was 50 / 87 until
  *     objectui#8347 removed `BaseSchema`'s index signature, which ledgered FIVE
  *     new entries of one key each, all the INTERFACE-TO-PASSTHROUGH artifact
  *     (`app.zod.ts#AppSchemaRendererNodeSchema` and four `reports.zod.ts`
@@ -2447,7 +2452,12 @@ interface KnownDrift {
     // objectui#6124 shape (`data-table` reads `schema.renderCellEditor` and calls
     // it; `ObjectGrid` supplies it). `columns` is inherited ELEMENT drift: the
     // element's `cell` is the same class, one level down (`TableColumnSchema`).
-    | 'renderCellEditor' | 'columns';
+    | 'renderCellEditor' | 'columns'
+    // objectui#12620 — `rowGroups` is a RUNTIME SLOT of the same shape: host-built
+    // React bands that `data-table` draws (`ObjectGrid` supplies them for a
+    // grouped view); a React node is no more JSON than a function, so the mirror
+    // refuses it by name.
+    | 'rowGroups';
   /** RUNTIME SLOT (objectui#7759 group E, the objectui#6124 shape): `data-table`, `ObjectGrid` and `VirtualGrid` call `col.cell(value, row)`. */
   'data-display.zod.ts#TableColumnSchema': 'cell';
   /**
@@ -3784,7 +3794,7 @@ interface RuntimeOnlyNamedAllowList {
    * because an authored `editable: true` stages edits that no callback persists.
    */
   'data-display.zod.ts#DataTableSchema': {
-    disableInnerScroll: 'host-composition flag: set in code by ObjectGrid on each grouped sub-table so all groups share one scroll container; authored in no document';
+    disableInnerScroll: 'host-composition flag: set in code by ObjectGrid on the one grouped table so it overflows into the grid scroll container; authored in no document';
     editable: 'host-paired flag: set in code by ObjectGrid beside the onRowSave / onBatchSave save path it supplies; an authored value stages edits that nothing persists, and no document authors it';
     keyboardNavigation: 'host-resolved flag: set in code by ObjectGrid from the keyboardNavigation key of the object-grid node, defaulting to the editable it hands down beside it; authored in no document';
     manualPagination: 'host-driven server paging: set in code by ObjectGrid with rowCount, page and the onPageChange slot; authored in no document';

@@ -120,7 +120,7 @@ describe('StudioDesignSurface — the one-line desktop hint on a phone (objectui
     renderSurfaceAt(768);
 
     await waitFor(() =>
-      expect(screen.getByTitle('Switch / create package')).toHaveAttribute('data-pkg-list-state', 'loaded'),
+      expect(screen.getByTestId('studio-pkg-chip')).toHaveAttribute('data-pkg-list-state', 'loaded'),
     );
     expect(screen.queryByText(HINT)).toBeNull();
   });

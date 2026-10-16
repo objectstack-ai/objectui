@@ -43,6 +43,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DIALOG_VIEWPORT_GUTTER,
   Button,
   Label,
   Collapsible,
@@ -508,7 +509,7 @@ export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProp
       {/* Bounded (objectui#12080): a flex column at most 90vh tall, in which
           only the body below can give up height (`min-h-0`) and scroll, so the
           header and the footer always stay on screen. */}
-      <DialogContent className={cn('flex max-h-[90vh] flex-col', isLongList && 'sm:max-w-3xl')}>
+      <DialogContent className={cn('flex max-h-[90vh] flex-col', isLongList && `sm:max-w-3xl ${DIALOG_VIEWPORT_GUTTER}`)}>
         <DialogHeader>
           <DialogTitle>{state.title || t('actionDialog.title')}</DialogTitle>
           {/* `whitespace-pre-line` so a description composed of more than one

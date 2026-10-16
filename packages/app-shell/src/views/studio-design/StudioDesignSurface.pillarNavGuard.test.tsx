@@ -325,7 +325,7 @@ describe('Studio header — unsaved pillar edits guard (#2600)', () => {
     fireEvent.click(await screen.findByRole('button', { name: /App B/ }));
     expect(confirmSpy).toHaveBeenCalledTimes(2);
     await waitFor(() =>
-      expect(screen.getByTitle('Switch / create package')).toHaveTextContent('App B'),
+      expect(screen.getByTestId('studio-pkg-chip')).toHaveTextContent('App B'),
     );
   });
 
@@ -337,7 +337,7 @@ describe('Studio header — unsaved pillar edits guard (#2600)', () => {
 
     expect(confirmSpy).not.toHaveBeenCalled();
     await waitFor(() =>
-      expect(screen.getByTitle('Switch / create package')).toHaveTextContent('App B'),
+      expect(screen.getByTestId('studio-pkg-chip')).toHaveTextContent('App B'),
     );
   });
 });

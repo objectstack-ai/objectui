@@ -18,6 +18,7 @@ import type { FormField, FormSchema, DataSource, ObjectFormSchema, ObjectFormSec
 import {
   Dialog,
   MobileDialogContent,
+  DIALOG_VIEWPORT_GUTTER,
   DialogHeader,
   DialogTitle,
   DialogDescription,
@@ -253,44 +254,23 @@ export interface ModalFormProps {
 }
 
 /**
- * The viewport gutter the bounded wide sizes keep from `sm` up
- * (objectui#12593): a width of the window less 1rem on each side, under the
- * size's own `max-w`. ONE value, read by both `lg` and `xl`.
- *
- * Without it, the dialog primitive's `w-full` makes an `lg` (672px) or `xl`
- * (1024px) dialog exactly as wide as any window narrower than its max width,
- * at x = 0, edge to edge. With it, the dialog is the smaller of its max width
- * and the window less 2rem, and the primitive's `left-[50%]` plus
- * `translate-x-[-50%]` centres it with an equal 1rem either side. Above the
- * max width plus 2rem the size is exactly as wide as before.
- *
- * `100%`, not `100vw`: the dialog is `fixed`, so `100%` is its containing
- * block, the viewport less any classic scrollbar, the same box `left-[50%]`
- * centres in. `100vw` counts the scrollbar, so each gutter would lose half
- * the scrollbar's width.
- *
- * `sm:` only: below `sm` the dialog is the full-screen phone sheet, unchanged.
- * `sm` (384px) and `default` (512px) never reach the window edge at or above
- * 640px, and `full` keeps its own `95vw`, so none of the three reads it. The
- * class string is literal so Tailwind's source scan emits it.
- */
-const BOUNDED_SIZE_VIEWPORT_GUTTER = 'sm:w-[calc(100%-2rem)]';
-
-/**
  * Size class map for the dialog content.
  *
  * Uses `sm:` prefix so that `tailwind-merge` correctly resolves the conflict
  * with MobileDialogContent's base `sm:max-w-lg` class.  On mobile (< sm) the
  * dialog is already full-screen, so max-width only matters at sm+ breakpoints.
  *
- * The bounded wide sizes, `lg` and `xl`, also read
- * {@link BOUNDED_SIZE_VIEWPORT_GUTTER} (objectui#12593).
+ * The bounded wide sizes, `lg` and `xl`, also read the shared
+ * {@link DIALOG_VIEWPORT_GUTTER} (objectui#12593, promoted to one export by
+ * objectui#12603): 1rem from the window edge at every width from `sm` up.
+ * `sm` (384px) and `default` (512px) never reach the edge at or above 640px,
+ * and `full` keeps its own `95vw`, so none of the three reads it.
  */
 const modalSizeClasses: Record<string, string> = {
   sm: 'sm:max-w-sm',
   default: 'sm:max-w-lg',
-  lg: `sm:max-w-2xl ${BOUNDED_SIZE_VIEWPORT_GUTTER}`,
-  xl: `sm:max-w-5xl ${BOUNDED_SIZE_VIEWPORT_GUTTER}`,
+  lg: `sm:max-w-2xl ${DIALOG_VIEWPORT_GUTTER}`,
+  xl: `sm:max-w-5xl ${DIALOG_VIEWPORT_GUTTER}`,
   full: 'sm:max-w-[95vw] sm:w-full',
 };
 

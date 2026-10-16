@@ -5505,11 +5505,16 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
             <ViewSettingsPopover
               t={t as any}
               allFields={allFields as any}
-              layout={viewSwitcherOffered ? (
+              layout={viewSwitcherOffered ? (closeMenu) => (
                 <ViewSwitcherDropdown
                   currentView={currentView}
                   availableViews={availableViews}
-                  onViewChange={handleViewChange}
+                  onViewChange={(view) => {
+                    // Choosing a layout completes the choice: Display closes
+                    // (objectui#12621).
+                    closeMenu();
+                    handleViewChange(view);
+                  }}
                 />
               ) : undefined}
               showGroup={toolbarFlags.showGroup}

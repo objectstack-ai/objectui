@@ -34,7 +34,7 @@
  * @module
  */
 import { useEffect, useRef } from 'react';
-import { useRecentItems } from '../context/RecentItemsProvider.js';
+import { recentViewId, useRecentItems } from '../context/RecentItemsProvider.js';
 import type { ObjectLike as SpecObjectLike } from '@objectstack/spec/system';
 
 /**
@@ -148,7 +148,7 @@ export function useTrackRouteAsRecent({
         if (!viewSegment) return;
         const view = safeDecode(viewSegment);
         addRecentItem({
-          id: `view:${obj.name}:${view}`,
+          id: recentViewId(obj.name, view),
           type: 'view',
           object: obj.name,
           name: view,

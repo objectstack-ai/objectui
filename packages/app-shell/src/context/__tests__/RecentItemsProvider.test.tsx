@@ -18,6 +18,7 @@ vi.mock('@object-ui/auth', async (importOriginal) => ({
 
 import {
   RecentItemsProvider,
+  recentViewId,
   useRecentItems,
   type RecentItem,
 } from '../RecentItemsProvider';
@@ -429,7 +430,7 @@ describe('RecentItemsProvider — one entry per target (objectui#12604)', () => 
   const record = (id: string, label: string) =>
     ({ id: `record:crm_account:${id}`, type: 'record', label, href: `/apps/crm/crm_account/record/${id}` }) as const;
   const view = (name: string) =>
-    ({ id: `view:crm_account:${name}`, type: 'view', object: 'crm_account', name, href: `/apps/crm/crm_account/view/${name}` }) as const;
+    ({ id: recentViewId('crm_account', name), type: 'view', object: 'crm_account', name, href: `/apps/crm/crm_account/view/${name}` }) as const;
 
   it('a record visited twice is one entry, moved to the head, under its newest title', () => {
     const { result } = renderHook(() => useRecentItems(), { wrapper });

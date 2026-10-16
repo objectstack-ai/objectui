@@ -22,7 +22,7 @@ import { renderHook } from '@testing-library/react';
 import { MetadataCtx } from '@object-ui/react';
 import { createI18n, I18nProvider } from '@object-ui/i18n';
 import { useRecentItemLabel } from '../useRecentItemLabel';
-import type { RecentItem } from '../../context/RecentItemsProvider';
+import { recentViewId, type RecentItem } from '../../context/RecentItemsProvider';
 
 function metadata() {
   return {
@@ -125,7 +125,7 @@ describe('useRecentItemLabel — a Studio package (objectui#11863)', () => {
 
 describe('useRecentItemLabel — a list view (objectui#12604)', () => {
   const view = (name: string): RecentItem => ({
-    id: `view:showcase_task:${name}`,
+    id: recentViewId('showcase_task', name),
     type: 'view',
     object: 'showcase_task',
     name,

@@ -20,6 +20,7 @@ import { ArrowDownIcon, ArrowUpIcon, MinusIcon, AlertCircle, Loader2 } from 'luc
 import { VARIANT_ICON_CLASSES, VARIANT_TEXT_CLASSES, type MetricColorVariant } from './colorVariants';
 import { hostDomProps, type SchemaHostProps } from './schemaHostProps';
 import { METRIC_TILE_CONTAINER_CLASS, METRIC_TILE_TITLE_CLASS, METRIC_TILE_VALUE_CLASS } from './metricTile';
+import { formatMetricDeltaPercent, type MetricDelta } from './utils';
 
 const TREND_LABEL_DEFAULTS: Record<string, string> = {
   'dashboard.trend.vsLastQuarter': 'vs last quarter',
@@ -271,6 +272,14 @@ export interface MetricWidgetProps extends React.HTMLAttributes<HTMLDivElement> 
     label?: string | I18nLabel;
     direction?: 'up' | 'down' | 'neutral';
   };
+  /**
+   * The `compareTo`-derived trend a host computed with `computeMetricDelta`
+   * (`ObjectMetricWidget`); it replaces `trend` outright when set. Host state,
+   * ⛔ not a node key: its `value` may be `null` — a zero baseline, which has
+   * no percentage and draws as a dash (objectui#12677) — while the authored
+   * `trend.value` stays the number the spec declares.
+   */
+  derivedTrend?: MetricDelta & { label?: string };
   icon?: React.ReactNode | string;
   className?: string;
   description?: string | I18nLabel;
@@ -317,7 +326,8 @@ export interface MetricWidgetProps extends React.HTMLAttributes<HTMLDivElement> 
 export const MetricWidget = ({
   label,
   value,
-  trend,
+  trend: authoredTrend,
+  derivedTrend,
   icon,
   className,
   description,
@@ -350,6 +360,7 @@ export const MetricWidget = ({
   // does not declare stops here; on the direct React door, the declared
   // `HTMLAttributes` pass-through, unchanged. See `hostDomProps`.
   const hostProps = hostDomProps(_schema, domProps);
+  const trend = derivedTrend ?? authoredTrend;
   const iconClasses = VARIANT_ICON_CLASSES[colorVariant] || VARIANT_ICON_CLASSES.default;
   const { t: tTrend } = useTrendT();
   // Two locale channels, deliberately distinct. `useDisplayLocale` is the
@@ -482,7 +493,7 @@ export const MetricWidget = ({
                     {trend.direction === 'up' && <ArrowUpIcon className="h-3 w-3 mr-1" />}
                     {trend.direction === 'down' && <ArrowDownIcon className="h-3 w-3 mr-1" />}
                     {trend.direction === 'neutral' && <MinusIcon className="h-3 w-3 mr-1" />}
-                    {trend.value}%
+                    {formatMetricDeltaPercent(trend.value)}
                   </span>
                 )}
                 <span className="truncate min-w-0">{localizedTrendLabel}</span>

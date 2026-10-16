@@ -665,7 +665,10 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
   // `compareTo` is set and both values are finite numbers, this synthesizes
   // a `{ value, direction, label }` trend that overrides any static `trend`
   // prop passed in. The label uses the i18n key derived from `compareTo`
-  // (e.g. `dashboard.trend.vsLastQuarter`).
+  // (e.g. `dashboard.trend.vsLastQuarter`). It reaches `MetricWidget` as the
+  // host-only `derivedTrend`, never as `trend`: from a zero baseline its
+  // `value` is `null` — no percentage is defined (objectui#12677) — which the
+  // authored `trend.value` number does not admit.
   const derivedTrend = useMemo(() => {
     if (!compareTo) return undefined;
     if (typeof fetchedValue !== 'number' || !Number.isFinite(fetchedValue)) return undefined;
@@ -685,8 +688,6 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
     const labelText = tProp ? tProp(fullKey, defaults[labelKey] || labelKey) : (defaults[labelKey] || labelKey);
     return { value: delta.value, direction: delta.direction, label: labelText };
   }, [compareTo, fetchedValue, previousValue, filter, tProp]);
-
-  const effectiveTrend = derivedTrend ?? trend;
 
   // --- Drill-down --------------------------------------------------------
   // KPI cards drill into the underlying records they aggregate. The drill
@@ -749,7 +750,8 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
       <MetricWidget
         label={label}
         value={tileValue}
-        trend={effectiveTrend}
+        trend={trend}
+        derivedTrend={derivedTrend}
         icon={icon}
         className={className}
         description={description}

@@ -1145,9 +1145,9 @@ export interface DataTableSchema extends BaseSchema {
   /**
    * Drop the table's own horizontal/vertical scroll container so the table
    * overflows into a shared parent scroll container instead. Used by the
-   * grouped grid so every per-group sub-table participates in ONE shared
-   * horizontal scrollbar (and keeps columns aligned) rather than each group
-   * scrolling independently.
+   * grouped grid: its one table (see {@link DataTableSchema.rowGroups})
+   * overflows into the grid's own scroller, which holds both scrollbars and
+   * keeps the sticky header at its top.
    * @default false
    */
   disableInnerScroll?: boolean;

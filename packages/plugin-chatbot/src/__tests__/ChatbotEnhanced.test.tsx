@@ -1035,9 +1035,10 @@ describe('ChatbotEnhanced — streaming build preview (live build tree)', () => 
     expect(onOpenBuiltApp).toHaveBeenCalledWith('crm');
   });
 
-  // ADR-0080 D5 cold-start handoff — Studio is the built app's iteration home,
-  // so it takes the primary slot and "Open app" demotes to a secondary.
-  it('renders "Design in Studio" as the PRIMARY action and demotes Open app', () => {
+  // objectui#12724 (the AiBuild artboard) — the finished card's PRIMARY action
+  // opens the built app; Studio is the secondary door. Replaces the ADR-0080 D5
+  // pin that put Studio in the primary slot.
+  it('renders "Open app" as the PRIMARY action and Studio as the secondary door (objectui#12724)', () => {
     const onDesignBuiltApp = vi.fn();
     const onOpenBuiltApp = vi.fn();
     const doneWithApp: ChatbotEnhancedMessage = {
@@ -1054,9 +1055,11 @@ describe('ChatbotEnhanced — streaming build preview (live build tree)', () => 
         onOpenBuiltApp={onOpenBuiltApp}
       />,
     );
+    const open = screen.getByTestId('build-progress-open-app');
     const design = screen.getByTestId('build-progress-design-app');
-    expect(design.className).toContain('bg-primary');
-    expect(screen.getByTestId('build-progress-open-app').className).toContain('border');
+    expect(open.className).toContain('bg-primary');
+    expect(design.className).toContain('border');
+    expect(design.className).not.toContain('bg-primary');
     fireEvent.click(design);
     expect(onDesignBuiltApp).toHaveBeenCalledWith('crm', undefined);
   });

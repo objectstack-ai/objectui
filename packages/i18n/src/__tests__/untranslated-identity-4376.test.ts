@@ -145,6 +145,7 @@ const LEGITIMATE_IDENTITIES: Record<string, string> = {
   'marketplace.versionBadge': 'v{{version}} — version prefix plus the hole.',
   'appManagement.toast.bulkFailureEntry': '{{name}} ({{reason}}) — holes and parentheses only.',
   'collaboration.userStatusTitle': '{{name}} ({{status}}) — holes and parentheses only.',
+  'chatbot.build.nextStepQuote': '“{{step}}” — a hole in quote marks; ko quotes with the same curly marks as en (objectui#12724).',
 };
 
 /** Every string leaf of a pack, as `[dotted.path, value]`. */

@@ -268,8 +268,32 @@ export interface DraftReview {
  */
 export interface ProposedPlan {
   summary?: string;
-  /** Objects (tables) the build will create — machine name, label, field count. */
-  objects: Array<{ name: string; label?: string; fieldCount: number }>;
+  /**
+   * objectui#12724 — the app's display label (`blueprint.app.label`, the
+   * spec's `BlueprintAppSchema`), for the card's 「方案 · APP」 header. Absent
+   * when the blueprint names no app label.
+   */
+  appLabel?: string;
+  /**
+   * Objects (tables) the build will create — machine name, label, field count.
+   * objectui#12724 — `fields` lifts the name and label of each declared field
+   * (`blueprint.objects[].fields`, the spec's `BlueprintFieldSchema`) so the
+   * card can draw one chip per field. Absent when no entry carries a name (a
+   * cache-fallback reload keeps only the count), and the card then draws the
+   * object chip with its count, as before.
+   */
+  objects: Array<{
+    name: string;
+    label?: string;
+    fieldCount: number;
+    fields?: Array<{ name: string; label?: string }>;
+  }>;
+  /**
+   * objectui#12724 — the views the build will create (`blueprint.views`, the
+   * spec's `BlueprintViewSchema`), by name and label. Absent when the
+   * blueprint declares none.
+   */
+  views?: Array<{ name: string; label?: string }>;
   /** Totals for a compact "N objects · N views · …" line. */
   counts: { objects: number; views: number; dashboards: number; seedData: number };
   /** ≤2 structure-deciding questions to confirm before building (may be empty). */
@@ -294,6 +318,19 @@ function nonEmptyStrings(v: unknown): string[] {
     : [];
 }
 
+/**
+ * The `{ name, label? }` of each entry of a blueprint array that carries a
+ * name (the spec's field and view rows both declare these two keys). Entries
+ * without a string name are dropped, so a count-only cache copy yields none.
+ */
+function namedEntries(v: unknown): Array<{ name: string; label?: string }> {
+  return (Array.isArray(v) ? v : []).flatMap((e) => {
+    const r = e as { name?: unknown; label?: unknown } | null;
+    if (typeof r?.name !== 'string' || !r.name) return [];
+    return [{ name: r.name, ...(typeof r.label === 'string' && r.label ? { label: r.label } : {}) }];
+  });
+}
+
 export function detectProposedPlan(result: unknown): ProposedPlan | undefined {
   const obj = parseResultEnvelope(result);
   if (!obj || obj.status !== 'blueprint_proposed') return undefined;
@@ -306,11 +343,13 @@ export function detectProposedPlan(result: unknown): ProposedPlan | undefined {
   const objects = (Array.isArray(bp.objects) ? bp.objects : []).flatMap((o) => {
     const r = o as { name?: unknown; label?: unknown; fields?: unknown };
     if (typeof r?.name !== 'string' || !r.name) return [];
+    const fields = namedEntries(r.fields);
     return [
       {
         name: r.name,
         ...(typeof r.label === 'string' && r.label ? { label: r.label } : {}),
         fieldCount: Array.isArray(r.fields) ? r.fields.length : 0,
+        ...(fields.length ? { fields } : {}),
       },
     ];
   });
@@ -350,10 +389,15 @@ export function detectProposedPlan(result: unknown): ProposedPlan | undefined {
         ? bp.summary
         : undefined;
   const targetApp = (obj as { targetApp?: unknown }).targetApp;
+  const rawApp = bp.app && typeof bp.app === 'object' ? (bp.app as { label?: unknown }) : undefined;
+  const appLabel = typeof rawApp?.label === 'string' && rawApp.label ? rawApp.label : undefined;
+  const views = namedEntries(bp.views);
 
   return {
     ...(summary ? { summary } : {}),
+    ...(appLabel ? { appLabel } : {}),
     objects,
+    ...(views.length ? { views } : {}),
     counts,
     questions: questions.length ? questions : nonEmptyStrings(bp.questions),
     ...(questionChoices.length ? { questionChoices } : {}),

@@ -450,14 +450,10 @@ describe('objectui#3546 slice six — the perm and home namespaces', () => {
         `${at(builtInLocales[lang], 'topbar.designInStudio')} →`,
       );
     }
-    // NOT reused, deliberately: `console.ai.designBuiltApp` is also "Design in
-    // Studio" in `en`, but zh/de/ru already render it differently on purpose
-    // ("进入 Studio 继续完善" — keep refining what the agent just built). The
-    // neighbour taken is the plain navigation label, which is what this link is.
-    expect(at(builtInLocales.en, 'console.ai.designBuiltApp')).toBe(at(builtInLocales.en, 'topbar.designInStudio'));
-    expect(at(builtInLocales.zh, 'console.ai.designBuiltApp')).not.toBe(
-      at(builtInLocales.zh, 'topbar.designInStudio'),
-    );
+    // `console.ai.designBuiltApp`, once the near-miss this paragraph ruled out,
+    // retired with objectui#12724 (the build card's Studio door now reads
+    // `console.ai.viewBuiltAppInStudio`), so there is no second rendering left
+    // to rule out.
   });
 
   it('the count-plus-unit wording follows each pack own neighbours', () => {

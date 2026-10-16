@@ -506,9 +506,15 @@ describe('proposedPlan detection (propose_blueprint)', () => {
     expect(plan).toEqual({
       summary: 'A lightweight applicant tracker',
       objects: [
-        { name: 'candidate', label: 'Candidate', fieldCount: 2 },
-        { name: 'job', label: 'Job', fieldCount: 1 },
+        {
+          name: 'candidate',
+          label: 'Candidate',
+          fieldCount: 2,
+          fields: [{ name: 'full_name' }, { name: 'stage' }],
+        },
+        { name: 'job', label: 'Job', fieldCount: 1, fields: [{ name: 'title' }] },
       ],
+      views: [{ name: 'pipeline' }, { name: 'all' }, { name: 'archived' }],
       counts: { objects: 2, views: 3, dashboards: 1, seedData: 2 },
       questions: ['Track interviews as a separate object, or as a stage field?'],
       assumptions: ['One pipeline for all roles', 'No external job-board sync'],
@@ -530,8 +536,13 @@ describe('proposedPlan detection (propose_blueprint)', () => {
       ],
     });
     expect(msg.toolInvocations?.[0]?.proposedPlan?.objects).toEqual([
-      { name: 'candidate', label: 'Candidate', fieldCount: 2 },
-      { name: 'job', label: 'Job', fieldCount: 1 },
+      {
+        name: 'candidate',
+        label: 'Candidate',
+        fieldCount: 2,
+        fields: [{ name: 'full_name' }, { name: 'stage' }],
+      },
+      { name: 'job', label: 'Job', fieldCount: 1, fields: [{ name: 'title' }] },
     ]);
   });
 
@@ -548,12 +559,55 @@ describe('proposedPlan detection (propose_blueprint)', () => {
       },
     });
     expect(plan?.objects).toEqual([
-      { name: 'task', fieldCount: 1 },
+      { name: 'task', fieldCount: 1, fields: [{ name: 'title' }] },
       { name: 'note', fieldCount: 0 },
     ]);
     expect(plan?.counts).toEqual({ objects: 2, views: 1, dashboards: 0, seedData: 0 });
     expect(plan?.questions).toEqual([]);
     expect(plan?.assumptions).toEqual([]);
+  });
+
+  // objectui#12724 — the plan card v2 rows, from what the spec's
+  // `SolutionBlueprintSchema` declares and nothing else: each field's and
+  // view's `name` + `label`, and `app.label`.
+  it('lifts field and view names + labels and the app label (objectui#12724)', () => {
+    const plan = detectProposedPlan({
+      status: 'blueprint_proposed',
+      blueprint: {
+        app: { name: 'library_app', label: '图书借阅管理' },
+        objects: [
+          {
+            name: 'book',
+            label: '图书',
+            fields: [
+              { name: 'title', label: '书名', type: 'text' },
+              { name: 'isbn', type: 'text' },
+              { label: 'no name → dropped' },
+              null,
+            ],
+          },
+        ],
+        views: [{ name: 'loan_board', label: '借阅看板', type: 'kanban', groupBy: 'status' }, { type: 'list' }],
+      },
+    });
+    expect(plan?.appLabel).toBe('图书借阅管理');
+    expect(plan?.objects[0]).toEqual({
+      name: 'book',
+      label: '图书',
+      fieldCount: 4,
+      fields: [{ name: 'title', label: '书名' }, { name: 'isbn' }],
+    });
+    expect(plan?.views).toEqual([{ name: 'loan_board', label: '借阅看板' }]);
+  });
+
+  it('a count-only fields array (the cache-fallback copy) lifts no field rows (objectui#12724)', () => {
+    const plan = detectProposedPlan({
+      status: 'blueprint_proposed',
+      blueprint: { objects: [{ name: 'book', fields: [null, null, null] }] },
+    });
+    expect(plan?.objects).toEqual([{ name: 'book', fieldCount: 3 }]);
+    expect(plan?.views).toBeUndefined();
+    expect(plan?.appLabel).toBeUndefined();
   });
 
   it('surfaces the extend-mode targetApp', () => {

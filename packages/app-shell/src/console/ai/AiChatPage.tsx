@@ -22,7 +22,6 @@ import { Package as PackageIcon, Sparkles as SparklesIcon } from 'lucide-react';
 import { useAdapter } from '../../providers/AdapterProvider.js';
 import { useMetadata } from '../../providers/MetadataProvider.js';
 import { formatPublishFailures, type PublishFailure } from '../../views/studio-design/metadataError.js';
-import { STUDIO_RUN_LANDING } from '../../views/studio-design/studioLanding.js';
 import { useMetadataClient } from '../../views/metadata-admin/useMetadata.js';
 import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
 import { resolveKeyedI18nLabel } from '../../utils/index.js';
@@ -2136,23 +2135,22 @@ export function ChatPane({
     onPackageBound?.(boundPackageId);
   }, [isBuildSurface, canBind, boundPackageId, editPackageId, isLoading, onPackageBound]);
 
-  // objectui#5799 — the built-moment transition (cloud#1609 增量一, maintainer
-  // form ruling: cold start keeps the full-page surface; the moment a WHOLE-APP
-  // build exists the conversation lives in the Studio workbench). Derived from
-  // the persisted draftReview envelopes (#2623 lesson: never canvasApp runtime
-  // state), so a REOPENED package conversation transitions too — that is the
-  // card's kill criterion, not an accident. The dock's 以完整页面打开 door sets
-  // a one-shot sessionStorage opt-out so the sanctioned way back to the full
-  // page is not bounced straight to Studio again. The pane remounts per
-  // conversation (its key carries the conversation id), so the fire-once ref
-  // naturally re-arms on a thread switch.
+  // objectui#12724 — a finished build STAYS on the conversation. The
+  // built-moment transition (objectui#5799) used to move the thread into the
+  // Studio workbench the moment a whole-app build existed, and objectui#11658
+  // pointed it at the running app; the maintainer's AiBuild ruling retires
+  // both: the result card's 打开应用 / 在 Studio 中查看 buttons are the only
+  // ways out, and the user picks one. What stays is the binding: the build's
+  // package re-keys this conversation to `app:<pkg>:build` (A1.b), the key the
+  // Studio dock resolves, so 在 Studio 中查看 resumes THIS thread. Derived from
+  // the persisted envelopes (#2623 lesson: never canvasApp runtime state), so a
+  // REOPENED built conversation binds too.
   const builtPackageId = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       for (const tool of messages[i].toolInvocations ?? []) {
         // Posture-independent: read the raw envelope, not draftReview — an
         // auto-publish env rewrites the build envelope to status:'published'
-        // and the drafted-only lift never fires there (measured live on
-        // staging: reopening a built conversation stayed on the full page).
+        // and the drafted-only lift never fires there.
         const pkg = detectBuiltAppPackage(tool.result);
         if (pkg) return pkg;
         // objectui#10109 — an INCREMENTAL edit's draft review can list the `app`
@@ -2165,41 +2163,12 @@ export function ChatPane({
     }
     return undefined;
   }, [messages]);
-  const builtTransitionFiredRef = useRef(false);
-  const paneNavigate = useNavigate();
   useEffect(() => {
     if (!isBuildSurface || isLoading || !canBind || !builtPackageId) return;
-    if (builtTransitionFiredRef.current) return;
-    builtTransitionFiredRef.current = true;
-    // The pane can remount several times for one arrival (pending→resolved id,
-    // re-key refetch), so a one-shot flag would be consumed by the first mount
-    // and the next would bounce anyway. The door's generic flag is converted
-    // into a STICKY per-conversation opt-out on first sight; later mounts of
-    // the same thread honor it, other threads transition normally.
-    let optedOut = false;
-    try {
-      const stickyKey = `objectstack:ai-full-page-opted:${conversationId ?? ''}`;
-      if (sessionStorage.getItem('objectstack:ai-full-page-requested') === '1') {
-        sessionStorage.removeItem('objectstack:ai-full-page-requested');
-        sessionStorage.setItem(stickyKey, '1');
-        optedOut = true;
-      } else if (sessionStorage.getItem(stickyKey) === '1') {
-        optedOut = true;
-      }
-    } catch {
-      /* storage unavailable → no opt-out */
-    }
-    if (optedOut) return;
-    // Bind first (idempotent): rekeyScope writes this conversation under the
-    // app:<pkg>:build cache key — the exact key the Studio dock resolves — so
-    // the workbench's right rail resumes THIS thread (A1.b machinery).
+    // Idempotent: the page's handler re-keys a product-only thread once and
+    // ignores every later call.
     onPackageBound?.(builtPackageId);
-    // objectui#11658 — land on the RUNNING app (ADR-0080 preview-first): the
-    // Interfaces pillar opens on 「运行」 with its properties collapsed. The
-    // explicit "Design in Studio" door below passes no state and still lands
-    // on 「设计」.
-    paneNavigate(`/studio/${encodeURIComponent(builtPackageId)}/interfaces`, { state: STUDIO_RUN_LANDING });
-  }, [isBuildSurface, isLoading, canBind, builtPackageId, conversationId, onPackageBound, paneNavigate]);
+  }, [isBuildSurface, isLoading, canBind, builtPackageId, onPackageBound]);
 
   // objectui#5801 — when a turn that STAGED or PUBLISHED something finishes,
   // announce it on the bus so every pending-drafts surface (Studio topbar,
@@ -2495,12 +2464,16 @@ export function ChatPane({
               // The generic "Ask {agent}…" doubles to "Ask Ask…" for the data-query
               // agent whose label IS "Ask". Use its purpose-built placeholder instead.
               ? t('console.ai.askAnything')
-              // objectui#11658 — inside an app (the build agent scoped to a
-              // package: the console dock in a running app, the Studio dock,
-              // `/ai/build?package=`) the composer names what the user can do
-              // there, never the agent: "Ask Build…" read as「向 构建 提问…」.
-              : editing
-                ? t('console.ai.askOrChangeApp')
+              // The build agent's composer names what the user can do, never
+              // the agent ("Ask Build…" read as「向 构建 提问…」). Inside an app
+              // (the build agent scoped to a package: the console dock in a
+              // running app, the Studio dock, `/ai/build?package=`) that is
+              // asking or changing the app (objectui#11658); outside one it is
+              // describing the app to build (objectui#12724).
+              : isBuildSurface
+                ? editing
+                  ? t('console.ai.askOrChangeApp')
+                  : t('console.ai.describeAppToBuild')
                 : t('console.ai.askAgent', { agent: activeAgentLabel })
             : agentsLoading
               ? t('console.ai.loadingAgents')
@@ -2511,6 +2484,8 @@ export function ChatPane({
           emptyDescription: emptyState.description,
           clear: t('console.ai.clearConversation'),
           sendHint: t('console.ai.sendHint'),
+          // objectui#12724 — the footer reads「↵ 发送 · Shift+↵ 换行」.
+          newlineHint: t('console.ai.newlineHint'),
           agentActivity: t('console.ai.agentActivity'),
           toolCompleted: t('console.ai.toolCompleted'),
           toolRunning: t('console.ai.toolRunning'),
@@ -2581,21 +2556,22 @@ export function ChatPane({
         // free text in any language into the same field) and by the model on
         // its next turn. No code parses it, so it follows the UI locale.
         toolDenyReason={t('console.ai.toolDenyReason')}
-        // Build-tree "Open app": jump straight into the app the agent just built.
+        // objectui#12724 — the finished build card's PRIMARY action: an in-app
+        // navigation into the app the agent just built, which lands on its
+        // first navigation item (`/apps/<app>`'s declared landing).
         onOpenBuiltApp={(appName, appSegment) =>
           navigate(`/apps/${encodeURIComponent(appSegment ?? appName)}`)}
         openBuiltAppLabel={t('console.ai.openBuiltApp', { defaultValue: 'Open app' })}
-        // ADR-0080 D5 cold-start handoff — the PRIMARY action on a finished
-        // build: Studio is the built app's iteration home (direct edit + the
-        // same copilot conversation in the dock), so the flow's natural end
-        // is "step into Studio", not "leave for the published front-end".
-        // The package id is the canvas segment (one package = one app).
+        // The secondary door (在 Studio 中查看): Studio is the built app's
+        // iteration home (direct edit + the same copilot conversation in the
+        // dock, which the build's binding resumes). The package id is the
+        // canvas segment (one package = one app).
         onDesignBuiltApp={(_appName, appSegment) => {
           const pkg = appSegment ?? canvasApp?.segment;
           if (!pkg) return;
           navigate(`/studio/${encodeURIComponent(pkg)}/interfaces`);
         }}
-        designBuiltAppLabel={t('console.ai.designBuiltApp', { defaultValue: 'Design in Studio' })}
+        designBuiltAppLabel={t('console.ai.viewBuiltAppInStudio', { defaultValue: 'View in Studio' })}
         // Artifact deep links: every artifact the agent built gets a one-click
         // path to where it can be edited BY HAND (object → Data, flow →
         // Automations, dashboard/page/view/app → Interfaces). Returns null for

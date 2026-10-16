@@ -280,6 +280,11 @@ same rules as `action:bar`:
 - **`variant: 'primary'`** — tie-break within equal `order`: a primary
   action outranks its unordered siblings without needing an explicit
   `order`.
+- **`variant: 'danger'`** — the spec's destructive variant. A danger
+  action is never the filled primary button: shown inline it is a
+  destructive (red) button, and folded into the `⋯` menu it is a red row
+  in the destructive band at the bottom, below a separator, beside the
+  host's Delete.
 - **`component: 'action:menu'`** — pins the action inside the `⋯` menu
   regardless of how few actions exist (the synthesized Share / Delete
   use this).

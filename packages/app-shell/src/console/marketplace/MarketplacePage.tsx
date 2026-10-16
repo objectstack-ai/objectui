@@ -6,7 +6,7 @@
  * cloud control plane). Click-through opens the package detail page.
  */
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Card,
@@ -149,6 +149,15 @@ function useRelativeFormatter() {
 interface LoadFailure {
   message: string;
   showOnlineHint: boolean;
+  /**
+   * The answered status, or `undefined` when no server answered (objectui#12710).
+   * It names the failure's class on the page: "could not be reached" (a
+   * transport failure: a network error, a CORS refusal, an abort) against
+   * "answered with an error" (any HTTP status). A 502 from the runtime's proxy
+   * is the second class with the online hint beside it: the runtime answered,
+   * and what it said is that it could not reach the plane behind it.
+   */
+  status: number | undefined;
 }
 
 /**
@@ -164,8 +173,25 @@ function toLoadFailure(e: unknown): LoadFailure {
   return {
     message: typeof err?.message === 'string' ? err.message : String(e),
     showOnlineHint: status === undefined || UNREACHABLE_STATUSES.has(status),
+    status,
   };
 }
+
+/**
+ * How long a catalog read may be pending before the page says so
+ * (objectui#12710). The catalog is a remote read that can take seconds, and a
+ * network that drops it leaves the request pending with no answer at all, so
+ * six skeleton cards were the whole page for as long as it took — forever on
+ * such a network. The skeleton now stands for at most `SKELETON_MS`; after it
+ * one line under the search box says what is loading, and after `SLOW_MS` that
+ * line says the catalog is slow to answer and offers Retry. A read that settles
+ * inside `SKELETON_MS` never draws the line.
+ */
+const SKELETON_MS = 2_000;
+const SLOW_MS = 10_000;
+
+/** Where a pending catalog read is in the timeline above. */
+type LoadPhase = 'skeleton' | 'line' | 'slow';
 
 /**
  * objectui#12097 — an org install on a cloud-managed environment, from the
@@ -208,6 +234,18 @@ export function MarketplacePage() {
   // effect would be a second `react-hooks/set-state-in-effect` site.
   const [loading, setLoading] = useState(marketplaceEnabled);
   const [error, setError] = useState<LoadFailure | null>(null);
+  const [loadPhase, setLoadPhase] = useState<LoadPhase>('skeleton');
+  // objectui#12710 — which read is the page's current one, and the timers that
+  // move its phase. Retry (or Refresh, or an install's reload) starts a new
+  // read while an older one may still be pending; only the newest may settle
+  // the page, and an older one that answers late changes nothing. Unmount
+  // retires every read and clears the timers.
+  const loadSeq = useRef(0);
+  const phaseTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const clearPhaseTimers = () => {
+    for (const id of phaseTimers.current) clearTimeout(id);
+    phaseTimers.current = [];
+  };
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<string>('');
   const [installed, setInstalled] = useState<LocalInstallEntry[]>([]);
@@ -226,6 +264,14 @@ export function MarketplacePage() {
   }, [installed]);
 
   const load = async () => {
+    const seq = ++loadSeq.current;
+    const current = () => loadSeq.current === seq;
+    clearPhaseTimers();
+    setLoadPhase('skeleton');
+    phaseTimers.current = [
+      setTimeout(() => { if (current()) setLoadPhase('line'); }, SKELETON_MS),
+      setTimeout(() => { if (current()) setLoadPhase('slow'); }, SLOW_MS),
+    ];
     setLoading(true);
     setError(null);
     try {
@@ -242,6 +288,7 @@ export function MarketplacePage() {
         listOrgPackages(),
         listInstalledPackages(),
       ]);
+      if (!current()) return;
       setInstalled(installs);
       setOrgItems(org.items ?? []);
       const ids = new Set<string>();
@@ -255,10 +302,14 @@ export function MarketplacePage() {
         setItems(catalog.resp.items ?? []);
       }
     } catch (e: unknown) {
+      if (!current()) return;
       setError(toLoadFailure(e));
       setItems([]);
     } finally {
-      setLoading(false);
+      if (current()) {
+        clearPhaseTimers();
+        setLoading(false);
+      }
     }
   };
 
@@ -268,6 +319,12 @@ export function MarketplacePage() {
     // before it settled on the disabled state.
     if (!marketplaceEnabled) return;
     void load();
+    // Unmount retires whatever read is pending and its phase timers
+    // (objectui#12710).
+    return () => {
+      loadSeq.current += 1;
+      clearPhaseTimers();
+    };
   }, [marketplaceEnabled]);
 
   /**
@@ -530,33 +587,23 @@ export function MarketplacePage() {
         )}
       </div>
 
-      {error && (
-        <div className="flex items-start gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm">
-          <AlertCircle className="h-4 w-4 mt-0.5 text-destructive" aria-hidden="true" />
-          <div>
-            <div className="font-medium text-destructive">{t('marketplace.load.failed')}</div>
-            {/* The server's own text, as a text child: it is server-supplied
-                data, so it never reaches `dangerouslySetInnerHTML`. */}
-            <div className="text-muted-foreground mt-1" data-testid="marketplace-load-cause">{error.message}</div>
-            {/* The hint names the control plane the SERVER said it uses, so it
-                can never claim a default the operator overrode (objectui#5504).
-                Under `''` it names none and says only that the catalog is
-                reached through this runtime, which is true whether the runtime
-                serves the catalog or proxies a plane: no failure the proxy
-                returns carries the upstream host in a field or a header, and
-                the server's prose is never parsed for one (objectui#11726).
-                Plain text, not `dangerouslySetInnerHTML`: `cloudBase` is
-                server-supplied data and interpolating it into innerHTML would
-                be an injection sink for no gain. Shown only when being online
-                is the cause (`toLoadFailure`, objectui#11688). */}
-            {error.showOnlineHint && (
-              <div className="text-xs text-muted-foreground mt-2" data-testid="marketplace-load-hint">
-                {cloudBase
-                  ? t('marketplace.load.failedHintConfigured', { url: cloudBase })
-                  : t('marketplace.load.failedHintSameOrigin')}
-              </div>
-            )}
-          </div>
+      {/* objectui#12710 — a catalog read still pending once the skeleton's
+          window has passed: one line under the search box says what is
+          loading, and past `SLOW_MS` that it is slow to answer, with Retry.
+          Retry is `load()`, the read Refresh makes. */}
+      {loading && loadPhase !== 'skeleton' && (
+        <div
+          role="status"
+          data-testid="marketplace-load-line"
+          className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
+        >
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
+          <span>{loadPhase === 'slow' ? t('marketplace.load.slow') : t('marketplace.load.loading')}</span>
+          {loadPhase === 'slow' && (
+            <Button size="sm" variant="outline" onClick={() => void load()} data-testid="marketplace-load-slow-retry">
+              {t('marketplace.load.retry')}
+            </Button>
+          )}
         </div>
       )}
 
@@ -632,23 +679,77 @@ export function MarketplacePage() {
       )}
 
       {loading && items.length === 0 ? (
-        <div className={CARD_GRID}>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i}>
-              <CardHeader className="pb-2">
-                <Skeleton className="h-10 w-10 rounded-lg mb-2" />
-                <Skeleton className="h-5 w-3/4" />
-                <Skeleton className="h-4 w-1/2 mt-1" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-12 w-full" />
-              </CardContent>
-            </Card>
-          ))}
+        // The skeleton stands for the first `SKELETON_MS` of a read only
+        // (objectui#12710); after that the loading line above stands alone.
+        loadPhase !== 'skeleton' ? null : (
+          <div className={CARD_GRID} data-testid="marketplace-skeleton">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Card key={i}>
+                <CardHeader className="pb-2">
+                  <Skeleton className="h-10 w-10 rounded-lg mb-2" />
+                  <Skeleton className="h-5 w-3/4" />
+                  <Skeleton className="h-4 w-1/2 mt-1" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-12 w-full" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )
+      ) : error ? (
+        // The catalog's failure is its empty state (objectui#12710): what
+        // failed, its class, the server's own words, the online hint when
+        // being online is the cause (objectui#11688), and Retry. Not "no apps
+        // have been approved yet": that is a claim about a catalog this page
+        // failed to read. The org section above and the header's Installed
+        // button stay usable.
+        <div
+          role="alert"
+          data-testid="marketplace-load-failed"
+          className="flex items-start gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm"
+        >
+          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0 text-destructive" aria-hidden="true" />
+          <div className="flex-1">
+            <div className="font-medium text-destructive">{t('marketplace.load.failed')}</div>
+            <div className="mt-1" data-testid="marketplace-load-class">
+              {error.status === undefined
+                ? t('marketplace.load.unreachable')
+                : t('marketplace.load.answeredError', { status: error.status })}
+            </div>
+            {/* The server's own text, as a text child: it is server-supplied
+                data, so it never reaches `dangerouslySetInnerHTML`. */}
+            <div className="text-muted-foreground mt-1" data-testid="marketplace-load-cause">{error.message}</div>
+            {/* The hint names the control plane the SERVER said it uses, so it
+                can never claim a default the operator overrode (objectui#5504).
+                Under `''` it names none and says only that the catalog is
+                reached through this runtime, which is true whether the runtime
+                serves the catalog or proxies a plane: no failure the proxy
+                returns carries the upstream host in a field or a header, and
+                the server's prose is never parsed for one (objectui#11726).
+                Plain text, not `dangerouslySetInnerHTML`: `cloudBase` is
+                server-supplied data and interpolating it into innerHTML would
+                be an injection sink for no gain. Shown only when being online
+                is the cause (`toLoadFailure`, objectui#11688). */}
+            {error.showOnlineHint && (
+              <div className="text-xs text-muted-foreground mt-2" data-testid="marketplace-load-hint">
+                {cloudBase
+                  ? t('marketplace.load.failedHintConfigured', { url: cloudBase })
+                  : t('marketplace.load.failedHintSameOrigin')}
+              </div>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-3"
+              onClick={() => void load()}
+              data-testid="marketplace-load-retry"
+            >
+              {t('marketplace.load.retry')}
+            </Button>
+          </div>
         </div>
-      ) : error ? null : filtered.length === 0 ? (
-        // Not drawn under a load error: "no apps have been approved yet" is a
-        // claim about a catalog this page failed to read (objectui#11688).
+      ) : filtered.length === 0 ? (
         <div className="text-center py-12 text-sm text-muted-foreground">
           {items.length === 0 ? t('marketplace.noApprovedYet') : t('marketplace.noMatchFilters')}
         </div>

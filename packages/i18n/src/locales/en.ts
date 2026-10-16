@@ -2142,6 +2142,12 @@ const en = {
       cryptoRefusalNoSubject: 'The declared-encrypted value was refused, so nothing was written.',
       cryptoRefusalToast: 'Cannot encrypt secrets: {{subject}}',
       cryptoRefusalToastNoSubject: 'Cannot encrypt secrets',
+      // The source badge beside a settings row's label (objectui#12694): the
+      // layer a value comes from. `{{source}}` is that layer's label, which the
+      // server translates under `settingsCommon.sourceLabels`. One sentence per
+      // badge, so a pack puts the layer where its own grammar wants it.
+      sourceBadgeInherited: 'Inherited from {{source}}',
+      sourceBadgeOverrides: 'Overrides {{source}}',
     },
     // The one-time workspace-timezone prompt (objectui#11758): asked of an
     // administrator while `localization.timezone` is still the manifest default.

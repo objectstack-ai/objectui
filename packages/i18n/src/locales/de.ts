@@ -2011,6 +2011,8 @@ const de = {
       cryptoRefusalNoSubject: "Der als verschlüsselt deklarierte Wert wurde abgelehnt, daher wurde nichts geschrieben.",
       cryptoRefusalToast: "Geheimnisse können nicht verschlüsselt werden: {{subject}}",
       cryptoRefusalToastNoSubject: "Geheimnisse können nicht verschlüsselt werden",
+      sourceBadgeInherited: "Geerbt von {{source}}",
+      sourceBadgeOverrides: "Überschreibt {{source}}",
     },
     workspaceTimezonePrompt: {
       title: "Zeitzone des Workspace festlegen",

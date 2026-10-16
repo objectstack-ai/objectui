@@ -2060,6 +2060,8 @@ const es = {
       cryptoRefusalNoSubject: "El valor declarado como cifrado fue rechazado, por lo que no se escribió nada.",
       cryptoRefusalToast: "No se pueden cifrar los secretos: {{subject}}",
       cryptoRefusalToastNoSubject: "No se pueden cifrar los secretos",
+      sourceBadgeInherited: "Heredado de {{source}}",
+      sourceBadgeOverrides: "Sobrescribe {{source}}",
     },
     workspaceTimezonePrompt: {
       title: "Configure la zona horaria del espacio de trabajo",

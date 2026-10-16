@@ -31,8 +31,6 @@ import { MultiSelectField } from './widgets/MultiSelectField.js';
 import { RadioField } from './widgets/RadioField.js';
 import { CheckboxesField } from './widgets/CheckboxesField.js';
 import { TagsField } from './widgets/TagsField.js';
-import { DateField } from './widgets/DateField.js';
-import { DateTimeField } from './widgets/DateTimeField.js';
 import { TimeField } from './widgets/TimeField.js';
 import { EmailField } from './widgets/EmailField.js';
 import { PhoneField } from './widgets/PhoneField.js';
@@ -73,6 +71,38 @@ import {
 } from './field-type-alias.js';
 
 /**
+ * The platform date picker (objectui#12622, objectui#12642), the face the
+ * record form and the action-param and bulk dialogs already draw for `date` /
+ * `datetime`, now the inline editors' too (objectui#12664): a text box in the
+ * console locale's format with a calendar popover, in place of the browser's
+ * native input, whose placeholder and digit order follow the machine's locale.
+ *
+ * LAZY, through the same `import()` `fieldWidgetMap` uses, so the picker stays
+ * in its own `fields-date-picker` chunk (`apps/console/vite.config.ts`, checked
+ * by `PER_CHUNK_MEMBERSHIP_CARVE_OUTS` in `scripts/check-eager-closure-budget.mjs`)
+ * and never joins the eager closure this module is part of. A static import
+ * here would put it on every page load. {@link FieldEditWidget} renders these
+ * two inside its own `Suspense` boundary, so no host has to provide one.
+ *
+ * The picker reads its typed text when the control loses focus (and on
+ * Enter); the grid's cell seam blurs the control before it commits, which is
+ * what makes that text reach the edit (objectui#12664, the `renderCellEditor`
+ * contract on `DataTableSchema`).
+ */
+const DatePickerEditWidget = React.lazy(() =>
+  import('./widgets/date-picker/DatePickerField.js').then((m) => ({ default: m.DatePickerField })),
+);
+const DateTimePickerEditWidget = React.lazy(() =>
+  import('./widgets/date-picker/DatePickerField.js').then((m) => ({ default: m.DateTimePickerField })),
+);
+
+/** The {@link EDIT_WIDGETS} entries that load lazily and need a `Suspense` boundary. */
+const LAZY_EDIT_WIDGETS = new Set<React.ComponentType<FieldWidgetComponentProps<any>>>([
+  DatePickerEditWidget,
+  DateTimePickerEditWidget,
+]);
+
+/**
  * Field types that edit in place with a dedicated widget. Keyed by the raw
  * field `type` (the widget map mirrors the form's `mapFieldTypeToFormType`).
  * Rich/heavy types (file, image, lookup, richtext, …) are intentionally absent
@@ -95,8 +125,8 @@ const EDIT_WIDGETS: Record<string, React.ComponentType<FieldWidgetComponentProps
   radio: RadioField,
   checkboxes: CheckboxesField,
   tags: TagsField,
-  date: DateField,
-  datetime: DateTimeField,
+  date: DatePickerEditWidget,
+  datetime: DateTimePickerEditWidget,
   time: TimeField,
   email: EmailField,
   phone: PhoneField,
@@ -377,7 +407,7 @@ export function FieldEditWidget(
   // whitelist, which is closed against exactly them. The two executors are
   // asserted disjoint at compile time, so neither spread can shadow the other,
   // and `compact` below still wins because the factory owns it.
-  return (
+  const widget = (
     <Widget
       {...toDomProps(props)}
       {...toHostProps(props)}
@@ -387,5 +417,22 @@ export function FieldEditWidget(
       readonly={readonly}
       {...compactProps}
     />
+  );
+  if (!LAZY_EDIT_WIDGETS.has(Widget)) return widget;
+  // The picker's chunk is loading (objectui#12664). The placeholder takes the
+  // control's height and holds no input, so nothing typed before the chunk
+  // arrives can be lost: there is nowhere to type it.
+  return (
+    <React.Suspense
+      fallback={
+        <div
+          aria-busy="true"
+          data-testid="field-edit-widget-loading"
+          className="h-9 w-full rounded-md border border-input bg-muted/40"
+        />
+      }
+    >
+      {widget}
+    </React.Suspense>
   );
 }

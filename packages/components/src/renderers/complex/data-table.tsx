@@ -1556,7 +1556,21 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   // just-picked value is reset from empty `pendingChanges`. The ref always
   // reflects the latest edit target within the same tick, so re-entry is caught.
   const editingCellRef = useRef<EditingCell | null>(null);
-  const [editValue, setEditValue] = useState<any>('');
+  const [editValue, setEditValueState] = useState<any>('');
+  // Mirror of `editValue` written synchronously, read by `saveEdit`
+  // (objectui#12664). An injected widget can stage and the table commit inside
+  // ONE event: the platform date picker parses its text on Enter (or on the
+  // blur `flushInjectedEditor` causes) and stages the day, and the wrapper's
+  // Enter / the click-outside listener then commits. `editValue` in that
+  // event's closure is the value from before the stage, so committing it
+  // staged the old value over the new one and the typed day was lost. Every
+  // write goes through `setEditValue` below, so the ref is always the last
+  // value written.
+  const editValueRef = useRef<any>('');
+  const setEditValue = (value: any) => {
+    editValueRef.current = value;
+    setEditValueState(value);
+  };
   // Track pending changes for multi-cell editing, per record (objectui#12310):
   // record key -> { row, changes: { columnKey -> newValue } }
   const [pendingChanges, setPendingChanges] = useState<PendingChanges>(new Map());
@@ -1650,12 +1664,15 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   // `DataTableSchema` contract change, not something to infer from here.
   //
   // Note also what the listener is NOT load-bearing for. Its job is exiting
-  // EDIT MODE, not rescuing the value: injected widgets stage on every change
-  // (the host wires the widget's `onChange` to `stageEdit` below), so a typed
-  // value is already in `pendingChanges` before any exit event — measured in a
-  // real browser on the text, date and number editors for `64d937c53`.
+  // EDIT MODE, not rescuing the value: most injected widgets stage on every
+  // change (the host wires the widget's `onChange` to `stageEdit` below), so a
+  // typed value is already in `pendingChanges` before any exit event — measured
+  // in a real browser on the text, date and number editors for `64d937c53`.
   // Retiring this listener would strand cells in edit mode; it would not drop
-  // edits.
+  // edits. The one exception is a widget that reads its input on blur (the
+  // platform date picker, objectui#12664): the listener blurs the focused
+  // control before it commits (`flushInjectedEditor`), and that blur is what
+  // stages such a widget's value.
   const injectedEditorElRef = useRef<HTMLDivElement | null>(null);
   // Snapshot of the active cell's pending value when editing began, so Escape /
   // cancel can revert this session's changes. Injected widgets stage on every
@@ -2240,7 +2257,10 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
 
     // Discrete editors (select / checkbox) commit the chosen value synchronously
     // via `explicitValue` — their `setEditValue` hasn't flushed to state yet.
-    const valueToStage = explicitValue !== undefined ? explicitValue : editValue;
+    // Otherwise the LAST value written, read from the synchronous mirror rather
+    // than this render's `editValue`: a value staged earlier in the same event
+    // (objectui#12664) has not reached state yet either.
+    const valueToStage = explicitValue !== undefined ? explicitValue : editValueRef.current;
 
     // Update pending changes — or drop this cell's entry when the committed
     // value is the one the row loaded with (objectui#11816). An updater, so a
@@ -2267,6 +2287,29 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   useEffect(() => {
     saveEditRef.current = saveEdit;
   });
+
+  // The injected-editor commit contract (objectui#12664): before the table
+  // commits an injected editor — Enter, or a pointer press outside it — it
+  // blurs the control that holds focus inside the editor, so a widget that
+  // reads its own input on blur stages that value first, exactly as it would
+  // when a form's Save button takes focus. A widget that stages on every
+  // change is unaffected: its blur stages nothing new.
+  //
+  // This is how a widget TELLS the seam its pending value without a new
+  // member on the `renderCellEditor` context: `stage` was always the channel,
+  // and `onBlur` is the widget's own declared DOM handler. What was missing
+  // was the event — the click-outside listener runs on `pointerdown`, before
+  // the browser moves focus, and Enter never moved focus at all, so a
+  // commit-on-blur widget (the platform date picker, which parses its
+  // locale-formatted text when it loses focus) had not staged when the table
+  // read the value. Escape does NOT flush: it discards, so the widget's text
+  // is never read.
+  const flushInjectedEditor = () => {
+    const el = injectedEditorElRef.current;
+    if (!el || typeof document === 'undefined') return;
+    const focused = document.activeElement;
+    if (focused instanceof HTMLElement && el.contains(focused)) focused.blur();
+  };
 
   // Exit edit mode. When `revert` is true, roll the active cell's pending value
   // back to the snapshot taken when editing began (see `editRevertRef`) — this
@@ -2761,7 +2804,10 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
         if (dialog && !dialog.contains(el)) return;
       }
       // Truly outside → commit the staged value and exit edit mode, matching the
-      // built-in inputs' commit-on-blur.
+      // built-in inputs' commit-on-blur. The focused control is blurred first
+      // (objectui#12664): this runs before the browser moves focus, so a
+      // widget that reads its input on blur would otherwise not have staged.
+      flushInjectedEditor();
       saveEditRef.current(true);
     };
     document.addEventListener('pointerdown', onPointerDown, true);
@@ -3638,7 +3684,9 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                                     // tabbing out therefore does not leave edit
                                     // mode — measured, `64d937c53`. It costs
                                     // nothing: the widget has already staged
-                                    // every keystroke into `pendingChanges`, so
+                                    // every keystroke into `pendingChanges` (or,
+                                    // reading its input on blur, staged on the
+                                    // Tab's own blur — objectui#12664), so
                                     // the value is safe; the cell simply stays
                                     // open until Enter, Escape, or a pointer
                                     // press outside closes it.
@@ -3650,6 +3698,9 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                                           if (!e.currentTarget.contains(e.target as Node)) return;
                                           if (e.key === 'Enter' && (e.target as HTMLElement).tagName === 'INPUT') {
                                             e.preventDefault();
+                                            // A commit-on-blur widget stages
+                                            // on this blur (objectui#12664).
+                                            flushInjectedEditor();
                                             saveEdit(true);
                                           } else if (e.key === 'Escape') {
                                             e.preventDefault();

@@ -52,11 +52,13 @@ import { useFieldTranslation } from '../useFieldTranslation.js';
  * ## Where the native input stays
  *
  * - The read-only face is `DateField` / `DateTimeField`'s own, rendered as is.
- * - The inline editors (`FieldEditWidget`: the grid / detail inline editors and
- *   the kanban required-fields dialog; plugin-detail's `InlineFieldInput`)
- *   import `DateField` / `DateTimeField` directly and keep the native input.
- *   A popover inside a grid cell or a filter row is a different interaction,
- *   measured on its own (objectui#12642).
+ * - `FieldEditWidget` (the grid's inline cell editor and the kanban
+ *   required-fields dialog) draws THIS picker since objectui#12664, loaded
+ *   lazily so it stays in its own chunk; the grid's cell seam blurs the
+ *   control before Enter or a click outside commits, and that blur is where
+ *   the typed text is read. plugin-detail's `InlineFieldInput` routes `date`
+ *   and `datetime` to `DateField` itself, ahead of `FieldEditWidget`, and keeps
+ *   the native input. The list filter rows are objectui#12743.
  * - A form whose `field:date` widget is not registered (no
  *   `@object-ui/fields` loaded) falls back to the form renderer's own
  *   `<input type={inputType}>`, with the `inputType` `ObjectForm` maps.

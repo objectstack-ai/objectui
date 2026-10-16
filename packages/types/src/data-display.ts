@@ -1535,6 +1535,13 @@ export interface DataTableSchema extends BaseSchema {
    * input, Escape cancels, click-outside commits); `stage` records a value
    * without leaving edit mode, `commit` saves, `cancel` discards.
    *
+   * A widget may stage on every change or only when its control loses focus
+   * (objectui#12664): before Enter or a click outside commits, the table
+   * blurs the control that holds focus inside the editor, so a widget that
+   * reads its input on blur — the platform date picker parses its
+   * locale-formatted text there — calls `stage` first, and the commit saves
+   * that value. Escape does not blur first: it discards.
+   *
    * ⚠️ Declared as of `bf97b98c8` (maintainer ruling 2026-08-30). `data-table`
    * has read this key on the production path since inline editing landed — it
    * did so through a `(schema as any)` cast, which existed for no reason other

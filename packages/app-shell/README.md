@@ -403,8 +403,16 @@ the secondary line is hidden there.
 
 Its props are the exported `ConsolePageHeaderProps`: `title` (required),
 `subtitle`, `icon` (a rendered element, sized by the chip), `actions`,
-`accentColor`, `sticky`, `className` and `data-testid`. The secondary line is
-`subtitle`; there is no `description` prop.
+`foldedActions`, `accentColor`, `sticky`, `className` and `data-testid`. The
+secondary line is `subtitle`; there is no `description` prop.
+
+`foldedActions` is the same actions folded: the page's primary action, still
+labelled, then the page's `⋯` menu holding the others above its own entries.
+When the header is too narrow for `actions` beside the title and the secondary
+line, it draws `foldedActions` instead, and draws `actions` again once they
+fit, so the actions fold before the text is cut. The header measures its own
+width, not the viewport's. A page that passes no `foldedActions` keeps
+`actions` at every width. Object lists pass one.
 
 ```tsx
 import { ConsolePageHeader } from '@object-ui/app-shell';

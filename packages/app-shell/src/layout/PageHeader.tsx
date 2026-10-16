@@ -29,6 +29,12 @@
  *               crumb › description (13px, muted)
  * The posture is read off the route (`useInSetupApp`), not passed by the
  * page, so a console page outside Setup keeps the one-row header.
+ *
+ * The fold — in either posture (objectui#12705), a page may also pass
+ * `foldedActions`: its primary action and its `⋯` menu holding the rest. When
+ * the header is too narrow for `actions` and its text, it draws that instead,
+ * so the actions fold before the title or the description is cut:
+ *   [icon] Title [kind] | the whole description   [refresh] [primary] [⋯]
  */
 
 import * as React from 'react';

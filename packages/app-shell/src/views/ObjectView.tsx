@@ -3767,11 +3767,12 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     // page's own entries join it as host callbacks, the way the record page's
     // menu carries Favorite and Share.
     //
-    // Not offered while a `?runAction=` deep link is armed, nor on the
-    // environment list, whose toolbar arms that link itself: switching faces
-    // remounts the toolbar, and a remounted `autoTrigger` action would run a
-    // second time.
-    const toolbarRowActions: UIActionSchema[] = listActions?.some((a: any) => a.locations?.includes('list_toolbar'))
+    // Not offered while a `?runAction=` deep link is armed (the renders before
+    // the link is consumed), nor on the environment list, whose toolbar arms
+    // that link itself: switching faces remounts the toolbar, and a remounted
+    // `autoTrigger` action would run a second time. Once the link is consumed
+    // no action carries the flag, and the header may fold.
+    const toolbarRowActions: UIActionSchema[] = listActions?.some((a: { locations?: readonly string[] }) => a.locations?.includes('list_toolbar'))
         ? toolbarActionsWithDeepLink
         : [];
     const primaryToolbarAction = showCreate ? undefined : declaredPrimaryToolbarAction(toolbarRowActions);

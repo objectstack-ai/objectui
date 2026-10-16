@@ -124,15 +124,23 @@ function walk(nodes: unknown, visit: (node: { id: string; label?: I18nLabel }) =
   }
 }
 
-/** A spec `I18nLabel`: a plain string or an inline locale map of strings. */
-function isLabel(value: unknown): value is I18nLabel {
+/**
+ * A spec `I18nLabel`: a plain string or an inline locale map of strings.
+ * Shared with `servedDashboardText.ts`, so the rail and the dashboard
+ * component list read a served text by one rule.
+ */
+export function isLabel(value: unknown): value is I18nLabel {
   if (typeof value === 'string') return true;
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   return Object.values(value).every((v) => typeof v === 'string');
 }
 
-/** Two `I18nLabel`s are the same authored text: equal strings, or maps with the same entries. */
-function sameLabel(a: I18nLabel | undefined, b: I18nLabel | undefined): boolean {
+/**
+ * Two `I18nLabel`s are the same authored text: equal strings, or maps with the
+ * same entries. The one comparison the rail and the dashboard component list
+ * share (`servedDashboardText.ts`).
+ */
+export function sameLabel(a: I18nLabel | undefined, b: I18nLabel | undefined): boolean {
   if (a === b) return true;
   if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
   const keys = Object.keys(a);

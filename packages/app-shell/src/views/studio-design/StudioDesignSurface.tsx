@@ -16,7 +16,7 @@
 
 import * as React from 'react';
 import { useParams, useNavigate, useLocation, Link, Navigate } from 'react-router-dom';
-import { useAdapter, SchemaRendererProvider } from '@object-ui/react';
+import { useAdapter, SchemaRendererProvider, useMetadata } from '@object-ui/react';
 // The ONE draft-envelope reader (objectui#8181): unwrap AND strip the
 // framework's read decorations in one place. This file used to carry its own
 // copy that did the unwrap and skipped the strip.
@@ -214,6 +214,7 @@ import { useMetadataRefreshNonce } from './useMetadataRefreshNonce.js';
 import { useHomePath } from '../../hooks/useHomePath.js';
 import { resolveSurface, findSurfaceInTree, isSameSurface, type NavNode, type Surface } from './navSurface.js';
 import { servedNavTextOf, displayNavTree, displayAppLabel, type ServedNavText } from './servedNavText.js';
+import { ServedWidgetTextContext, servedWidgetTextOf } from './servedDashboardText.js';
 import { useSurfaceDeepLink, resolveSurfaceDeepLink, type SurfaceTarget } from './useSurfaceDeepLink.js';
 import { isStudioRunLanding } from './studioLanding.js';
 import { SurfaceDeepLinkProvider, useRequestedSurface, useSurfaceNavigator } from './surfaceDeepLinkChannel.js';
@@ -252,7 +253,7 @@ import {
   renamedLabel,
   type NavEntryLike,
 } from '../metadata-admin/previews/navItemLabel.js';
-import { DraftTargetLabels, useNavTargetLabel } from '../../hooks/useNavTargetLabel.js';
+import { DraftTargetLabels, findByName, useNavTargetLabel } from '../../hooks/useNavTargetLabel.js';
 import { listAppComponents } from '../../services/componentRegistry.js';
 import {
   NAV_ENTRY_TYPES,
@@ -3524,6 +3525,17 @@ export function InterfacesPillar({
   const sourcePageKind = current?.type === 'page' ? (draft as { kind?: string })?.kind : undefined;
   const isSourcePage = sourcePageKind === 'html' || sourcePageKind === 'react';
 
+  // objectui#12688 — the published layer of the open dashboard leaf: the
+  // document the server translated the dashboard it serves from, which the
+  // component list's served widget titles are paired with
+  // (`servedDashboardText.ts`). Stamped with the leaf it was read for; `read`
+  // is false while a leaf with a pending draft has not had it read yet.
+  const [leafPublished, setLeafPublished] = React.useState<{
+    key: string;
+    doc: Record<string, unknown> | null;
+    read: boolean;
+  }>({ key: '', doc: null, read: false });
+
   // Load the selected surface's draft (only for editable preview types).
   React.useEffect(() => {
     if (!current || !isEditable) {
@@ -3566,6 +3578,12 @@ export function InterfacesPillar({
         const baseline = ((lay as { effective?: unknown; code?: unknown } | null)?.effective ??
           (lay as { code?: unknown } | null)?.code ??
           {}) as Record<string, unknown>;
+        // objectui#12688 — with no pending draft the baseline just read IS the
+        // dashboard's published layer; with one, it is read below, and only
+        // for a dashboard the server serves (so never for an unsaved one).
+        if (current.type === 'dashboard') {
+          setLeafPublished({ key: leafKeyOf(current), doc: body ? null : baseline, read: !body });
+        }
         // Served draft as-is, baseline only without one (objectui#10765): a
         // spread over `effective` resurrects every key the draft deleted.
         setDraft(body ?? baseline);
@@ -3594,6 +3612,49 @@ export function InterfacesPillar({
       if (!settled) setLoading(false);
     };
   }, [client, current, isEditable, packageId, publishNonce, leafReloadNonce, recordLeafRead, forgetLeafVersion]);
+
+  // objectui#12688 — the open dashboard as the server serves it for this
+  // session's language: the `/meta` dashboard list the console's metadata
+  // store holds (`translateDashboard` localized it). Asked of the store only
+  // while a dashboard leaf is open.
+  const metadata = useMetadata();
+  const servedDashboard =
+    currentType === 'dashboard' && currentName
+      ? ((findByName(metadata.dashboards, currentName) as Record<string, unknown> | undefined) ?? null)
+      : null;
+  // A dashboard leaf with a pending draft reads its published layer once, to
+  // pair the served titles with: only when the server serves that dashboard,
+  // so a never-published draft asks no `/layers` (objectui#11799).
+  const publishedPending =
+    currentType === 'dashboard' && leafPublished.key === leafKey && !leafPublished.read && !!servedDashboard;
+  React.useEffect(() => {
+    if (!publishedPending || !currentType || !currentName) return;
+    const key = leafKey;
+    let cancelled = false;
+    client.layered<Record<string, unknown>>(currentType, currentName).then(
+      (lay) => {
+        if (cancelled) return;
+        const doc = ((lay as { effective?: unknown; code?: unknown } | null)?.effective ??
+          (lay as { code?: unknown } | null)?.code ??
+          null) as Record<string, unknown> | null;
+        setLeafPublished({ key, doc, read: true });
+      },
+      // Display only: an unreadable layer leaves every title authored.
+      () => {
+        if (!cancelled) setLeafPublished({ key, doc: null, read: true });
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [publishedPending, client, currentType, currentName, leafKey]);
+  const servedWidgets = React.useMemo(
+    () =>
+      currentType === 'dashboard' && leafPublished.key === leafKey && leafPublished.read
+        ? servedWidgetTextOf(leafPublished.doc, servedDashboard)
+        : null,
+    [currentType, leafPublished, leafKey, servedDashboard],
+  );
 
   // objectui#5813 — a local dirty flag so auto-save only arms after a real
   // edit, never on the load-effect's own setDraft.
@@ -4533,19 +4594,23 @@ export function InterfacesPillar({
       // interfaceConfig form). Selecting a sub-element from it swaps in the
       // scoped block inspector above via onSelectionChange.
       <div className="min-h-0 flex-1 overflow-auto p-3">
-        <DefaultInspector
-          type={current.type}
-          name={current.name}
-          draft={draft}
-          onPatch={onPatch}
-          onSelectionChange={setSelection}
-          onBlockingIssuesChange={(count: number) =>
-            setBlockingReport({ key: inspectorKey, count })
-          }
-          // objectui#11136 — same flag, same threading as the block inspector.
-          readOnly={readOnly}
-          locale={locale}
-        />
+        {/* objectui#12688 — a dashboard's component list draws the served
+            widget titles (display only); `null` for any other leaf. */}
+        <ServedWidgetTextContext.Provider value={servedWidgets}>
+          <DefaultInspector
+            type={current.type}
+            name={current.name}
+            draft={draft}
+            onPatch={onPatch}
+            onSelectionChange={setSelection}
+            onBlockingIssuesChange={(count: number) =>
+              setBlockingReport({ key: inspectorKey, count })
+            }
+            // objectui#11136 — same flag, same threading as the block inspector.
+            readOnly={readOnly}
+            locale={locale}
+          />
+        </ServedWidgetTextContext.Provider>
       </div>
     ) : designersUnregistered ? (
       // ⭐ #6795 part C. "Click a block on the canvas, and edit its properties

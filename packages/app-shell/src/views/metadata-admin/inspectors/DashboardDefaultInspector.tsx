@@ -54,6 +54,8 @@ import { t, tFormat } from '../i18n.js';
 // shared resolver first. Rendering the map form raw prints `[object Object]`,
 // which is the exact harm the resolver's own doc comment names.
 import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui';
+// objectui#12688 — the served titles the Studio's Interfaces pillar provides.
+import { displayWidgetTitle, useServedWidgetText } from '../../studio-design/servedDashboardText.js';
 
 type DashboardWidget = DashboardWidgetSchema & { id: string };
 
@@ -113,6 +115,11 @@ export function DashboardDefaultInspector({
   serverSchema,
 }: MetadataDefaultInspectorProps) {
   const tr = React.useCallback((key: string) => t(key, locale), [locale]);
+  // objectui#12688 — the component list DRAWS a widget's served title (the
+  // server's `/meta` answer for this session's language) while its authored
+  // title still equals the published one; `null` outside the Studio pillar.
+  // Display only: selection labels and every editor keep the authored title.
+  const servedWidgets = useServedWidgetText();
 
   const labelValue = typeof draft.label === 'string' ? (draft.label as string) : '';
   const descriptionValue =
@@ -220,6 +227,7 @@ export function DashboardDefaultInspector({
               const Icon = meta?.icon ?? UnknownWidgetIcon;
               const showDropLine =
                 overIndex === i && dragIndex !== null && dragIndex !== i;
+              const shownTitle = resolveInlineI18nLabel(displayWidgetTitle(w, servedWidgets), locale);
               return (
                 <div
                   key={w?.id ?? i}
@@ -251,9 +259,9 @@ export function DashboardDefaultInspector({
                     type="button"
                     className="min-w-0 flex-1 truncate text-left font-medium"
                     onClick={() => selectWidget(w, i)}
-                    title={resolveInlineI18nLabel(w?.title, locale) || w?.id}
+                    title={shownTitle || w?.id}
                   >
-                    {resolveInlineI18nLabel(w?.title, locale) ||
+                    {shownTitle ||
                       w?.id ||
                       tFormat('engine.inspector.widget.untitledN', locale, { n: i + 1 })}
                   </button>

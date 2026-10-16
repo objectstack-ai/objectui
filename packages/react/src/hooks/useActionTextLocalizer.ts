@@ -129,11 +129,12 @@ export function useActionTextLocalizer(): ActionTextLocalizer {
       // Every declared `I18nLabel` copy collapses the same way, so neither the
       // bundle fallbacks below nor the nameless return hand the runner a map.
       const collapsed: Record<string, any> = { ...action, label: displayLabel };
-      let changed = displayLabel !== (action as any).label;
+      let changed = displayLabel !== action.label;
       for (const key of DECLARED_COPY_KEYS) {
-        if ((action as any)[key] === undefined) continue;
-        collapsed[key] = pickLocalized((action as any)[key], language);
-        if (collapsed[key] !== (action as any)[key]) changed = true;
+        const declaredCopy: unknown = action[key];
+        if (declaredCopy === undefined) continue;
+        collapsed[key] = pickLocalized(declaredCopy, language);
+        if (collapsed[key] !== declaredCopy) changed = true;
       }
 
       // No name, no translation key: the literals are the answer. They are

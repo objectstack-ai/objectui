@@ -1,0 +1,38 @@
+[
+ {
+  "label": "before",
+  "flow": "showcase_inbound_task_webhook",
+  "note": "",
+  "trigger": "Webhook / API",
+  "objectOffered": true,
+  "entryCondition": true,
+  "banners": 0
+ },
+ {
+  "label": "before",
+  "flow": "showcase_urgent_task_alert",
+  "note": "",
+  "trigger": "Record created or updated",
+  "objectOffered": true,
+  "entryCondition": true,
+  "banners": 0
+ },
+ {
+  "label": "before",
+  "flow": "showcase_one_task_signoff",
+  "note": "",
+  "trigger": "—",
+  "objectOffered": false,
+  "entryCondition": false,
+  "banners": 0
+ },
+ {
+  "label": "before",
+  "flow": "showcase_scheduled_digest",
+  "note": "",
+  "trigger": "Schedule (cron)",
+  "objectOffered": false,
+  "entryCondition": true,
+  "banners": 0
+ }
+]

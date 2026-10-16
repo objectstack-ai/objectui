@@ -40,7 +40,7 @@ import {
   Switch,
 } from '@object-ui/components';
 import {
-  Settings2,
+  SlidersHorizontal,
   Rows4,
   Rows3,
   Rows2,
@@ -300,16 +300,16 @@ export function ViewSettingsPopover(props: ViewSettingsPopoverProps) {
           aria-label={triggerLabel}
           title={triggerLabel}
           className={cn(
-            'h-7 px-2 text-muted-foreground hover:text-primary text-xs transition-colors duration-150',
+            'h-7 min-w-7 gap-1 px-1.5 text-muted-foreground hover:text-primary text-xs transition-colors duration-150',
             changedCount > 0 && 'text-foreground font-medium',
           )}
           data-testid="toolbar-display-trigger"
         >
-          <Settings2 className="h-3.5 w-3.5 sm:mr-1.5" />
-          <span className="hidden sm:inline">{triggerLabel}</span>
+          {/* Icon-only at every width, like Filter and Sort (objectui#12695). */}
+          <SlidersHorizontal className="h-3.5 w-3.5" />
           {changedCount > 0 && (
             <span
-              className="ml-1 flex h-4 min-w-[16px] items-center justify-center text-[10px] font-medium text-muted-foreground tabular-nums"
+              className="flex h-4 min-w-[16px] items-center justify-center text-[10px] font-medium text-muted-foreground tabular-nums"
               data-testid="toolbar-display-count"
             >
               {changedCount}

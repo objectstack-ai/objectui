@@ -1,0 +1,626 @@
+[
+ {
+  "tag": "branch",
+  "surface": "account",
+  "width": 1024,
+  "theme": "light",
+  "clusterWidth": 158,
+  "clusterText": "2 1",
+  "filter": {
+   "ariaLabel": "Filter, 2 active",
+   "title": "Filter",
+   "text": "2",
+   "w": 48,
+   "h": 28
+  },
+  "sort": {
+   "ariaLabel": "Sort",
+   "title": "Sort",
+   "text": "1",
+   "w": 48,
+   "h": 28
+  },
+  "display": {
+   "ariaLabel": "Display",
+   "title": "Display",
+   "text": "",
+   "w": 28,
+   "h": 28
+  },
+  "names": {
+   "filter": "Filter, 2 active",
+   "sort": "Sort",
+   "display": "Display"
+  },
+  "byRole": {
+   "Filter": 1,
+   "Sort": 1,
+   "Display": 1
+  }
+ },
+ {
+  "tag": "branch",
+  "surface": "account",
+  "width": 1280,
+  "theme": "light",
+  "clusterWidth": 158,
+  "clusterText": "2 1",
+  "filter": {
+   "ariaLabel": "Filter, 2 active",
+   "title": "Filter",
+   "text": "2",
+   "w": 48,
+   "h": 28
+  },
+  "sort": {
+   "ariaLabel": "Sort",
+   "title": "Sort",
+   "text": "1",
+   "w": 48,
+   "h": 28
+  },
+  "display": {
+   "ariaLabel": "Display",
+   "title": "Display",
+   "text": "",
+   "w": 28,
+   "h": 28
+  },
+  "names": {
+   "filter": "Filter, 2 active",
+   "sort": "Sort",
+   "display": "Display"
+  },
+  "byRole": {
+   "Filter": 1,
+   "Sort": 1,
+   "Display": 1
+  }
+ },
+ {
+  "tag": "branch",
+  "surface": "approvals",
+  "width": 1024,
+  "theme": "light",
+  "clusterWidth": 138,
+  "clusterText": "1",
+  "filter": {
+   "ariaLabel": "Filter",
+   "title": "Filter",
+   "text": "",
+   "w": 28,
+   "h": 28
+  },
+  "sort": {
+   "ariaLabel": "Sort",
+   "title": "Sort",
+   "text": "1",
+   "w": 48,
+   "h": 28
+  },
+  "display": {
+   "ariaLabel": "Display",
+   "title": "Display",
+   "text": "",
+   "w": 28,
+   "h": 28
+  },
+  "names": {
+   "filter": "Filter",
+   "sort": "Sort",
+   "display": "Display"
+  },
+  "byRole": {
+   "Filter": 1,
+   "Sort": 1,
+   "Display": 1
+  }
+ },
+ {
+  "tag": "branch",
+  "surface": "approvals",
+  "width": 1280,
+  "theme": "light",
+  "clusterWidth": 138,
+  "clusterText": "1",
+  "filter": {
+   "ariaLabel": "Filter",
+   "title": "Filter",
+   "text": "",
+   "w": 28,
+   "h": 28
+  },
+  "sort": {
+   "ariaLabel": "Sort",
+   "title": "Sort",
+   "text": "1",
+   "w": 48,
+   "h": 28
+  },
+  "display": {
+   "ariaLabel": "Display",
+   "title": "Display",
+   "text": "",
+   "w": 28,
+   "h": 28
+  },
+  "names": {
+   "filter": "Filter",
+   "sort": "Sort",
+   "display": "Display"
+  },
+  "byRole": {
+   "Filter": 1,
+   "Sort": 1,
+   "Display": 1
+  }
+ },
+ {
+  "tag": "branch",
+  "surface": "account",
+  "width": 1024,
+  "theme": "dark",
+  "clusterWidth": 158,
+  "clusterText": "2 1",
+  "filter": {
+   "ariaLabel": "Filter, 2 active",
+   "title": "Filter",
+   "text": "2",
+   "w": 48,
+   "h": 28
+  },
+  "sort": {
+   "ariaLabel": "Sort",
+   "title": "Sort",
+   "text": "1",
+   "w": 48,
+   "h": 28
+  },
+  "display": {
+   "ariaLabel": "Display",
+   "title": "Display",
+   "text": "",
+   "w": 28,
+   "h": 28
+  },
+  "names": {
+   "filter": "Filter, 2 active",
+   "sort": "Sort",
+   "display": "Display"
+  },
+  "byRole": {
+   "Filter": 1,
+   "Sort": 1,
+   "Display": 1
+  }
+ },
+ {
+  "tag": "branch",
+  "surface": "account",
+  "width": 1280,
+  "theme": "dark",
+  "clusterWidth": 158,
+  "clusterText": "2 1",
+  "filter": {
+   "ariaLabel": "Filter, 2 active",
+   "title": "Filter",
+   "text": "2",
+   "w": 48,
+   "h": 28
+  },
+  "sort": {
+   "ariaLabel": "Sort",
+   "title": "Sort",
+   "text": "1",
+   "w": 48,
+   "h": 28
+  },
+  "display": {
+   "ariaLabel": "Display",
+   "title": "Display",
+   "text": "",
+   "w": 28,
+   "h": 28
+  },
+  "names": {
+   "filter": "Filter, 2 active",
+   "sort": "Sort",
+   "display": "Display"
+  },
+  "byRole": {
+   "Filter": 1,
+   "Sort": 1,
+   "Display": 1
+  }
+ },
+ {
+  "tag": "branch",
+  "surface": "approvals",
+  "width": 1024,
+  "theme": "dark",
+  "clusterWidth": 138,
+  "clusterText": "1",
+  "filter": {
+   "ariaLabel": "Filter",
+   "title": "Filter",
+   "text": "",
+   "w": 28,
+   "h": 28
+  },
+  "sort": {
+   "ariaLabel": "Sort",
+   "title": "Sort",
+   "text": "1",
+   "w": 48,
+   "h": 28
+  },
+  "display": {
+   "ariaLabel": "Display",
+   "title": "Display",
+   "text": "",
+   "w": 28,
+   "h": 28
+  },
+  "names": {
+   "filter": "Filter",
+   "sort": "Sort",
+   "display": "Display"
+  },
+  "byRole": {
+   "Filter": 1,
+   "Sort": 1,
+   "Display": 1
+  }
+ },
+ {
+  "tag": "branch",
+  "surface": "approvals",
+  "width": 1280,
+  "theme": "dark",
+  "clusterWidth": 138,
+  "clusterText": "1",
+  "filter": {
+   "ariaLabel": "Filter",
+   "title": "Filter",
+   "text": "",
+   "w": 28,
+   "h": 28
+  },
+  "sort": {
+   "ariaLabel": "Sort",
+   "title": "Sort",
+   "text": "1",
+   "w": 48,
+   "h": 28
+  },
+  "display": {
+   "ariaLabel": "Display",
+   "title": "Display",
+   "text": "",
+   "w": 28,
+   "h": 28
+  },
+  "names": {
+   "filter": "Filter",
+   "sort": "Sort",
+   "display": "Display"
+  },
+  "byRole": {
+   "Filter": 1,
+   "Sort": 1,
+   "Display": 1
+  }
+ },
+ {
+  "tag": "main",
+  "surface": "account",
+  "width": 1024,
+  "theme": "light",
+  "clusterWidth": 320,
+  "clusterText": "Filter 2 Sort 1 Display",
+  "filter": {
+   "ariaLabel": "Filter, 2 active",
+   "title": null,
+   "text": "Filter\n2",
+   "w": 102,
+   "h": 28
+  },
+  "sort": {
+   "ariaLabel": null,
+   "title": null,
+   "text": "Sort\n1",
+   "w": 97,
+   "h": 28
+  },
+  "display": {
+   "ariaLabel": "Display",
+   "title": "Display",
+   "text": "Display",
+   "w": 87,
+   "h": 28
+  },
+  "names": {
+   "filter": "Filter, 2 active",
+   "sort": "Sort\n1",
+   "display": "Display"
+  },
+  "byRole": {
+   "Filter": 1,
+   "Sort": 0,
+   "Display": 1
+  }
+ },
+ {
+  "tag": "main",
+  "surface": "account",
+  "width": 1280,
+  "theme": "light",
+  "clusterWidth": 320,
+  "clusterText": "Filter 2 Sort 1 Display",
+  "filter": {
+   "ariaLabel": "Filter, 2 active",
+   "title": null,
+   "text": "Filter\n2",
+   "w": 102,
+   "h": 28
+  },
+  "sort": {
+   "ariaLabel": null,
+   "title": null,
+   "text": "Sort\n1",
+   "w": 97,
+   "h": 28
+  },
+  "display": {
+   "ariaLabel": "Display",
+   "title": "Display",
+   "text": "Display",
+   "w": 87,
+   "h": 28
+  },
+  "names": {
+   "filter": "Filter, 2 active",
+   "sort": "Sort\n1",
+   "display": "Display"
+  },
+  "byRole": {
+   "Filter": 1,
+   "Sort": 0,
+   "Display": 1
+  }
+ },
+ {
+  "tag": "main",
+  "surface": "approvals",
+  "width": 1024,
+  "theme": "light",
+  "clusterWidth": 292,
+  "clusterText": "Filter Sort 1 Display",
+  "filter": {
+   "ariaLabel": "Filter",
+   "title": null,
+   "text": "Filter",
+   "w": 74,
+   "h": 28
+  },
+  "sort": {
+   "ariaLabel": null,
+   "title": null,
+   "text": "Sort\n1",
+   "w": 97,
+   "h": 28
+  },
+  "display": {
+   "ariaLabel": "Display",
+   "title": "Display",
+   "text": "Display",
+   "w": 87,
+   "h": 28
+  },
+  "names": {
+   "filter": "Filter",
+   "sort": "Sort\n1",
+   "display": "Display"
+  },
+  "byRole": {
+   "Filter": 1,
+   "Sort": 0,
+   "Display": 1
+  }
+ },
+ {
+  "tag": "main",
+  "surface": "approvals",
+  "width": 1280,
+  "theme": "light",
+  "clusterWidth": 292,
+  "clusterText": "Filter Sort 1 Display",
+  "filter": {
+   "ariaLabel": "Filter",
+   "title": null,
+   "text": "Filter",
+   "w": 74,
+   "h": 28
+  },
+  "sort": {
+   "ariaLabel": null,
+   "title": null,
+   "text": "Sort\n1",
+   "w": 97,
+   "h": 28
+  },
+  "display": {
+   "ariaLabel": "Display",
+   "title": "Display",
+   "text": "Display",
+   "w": 87,
+   "h": 28
+  },
+  "names": {
+   "filter": "Filter",
+   "sort": "Sort\n1",
+   "display": "Display"
+  },
+  "byRole": {
+   "Filter": 1,
+   "Sort": 0,
+   "Display": 1
+  }
+ },
+ {
+  "tag": "main",
+  "surface": "account",
+  "width": 1024,
+  "theme": "dark",
+  "clusterWidth": 320,
+  "clusterText": "Filter 2 Sort 1 Display",
+  "filter": {
+   "ariaLabel": "Filter, 2 active",
+   "title": null,
+   "text": "Filter\n2",
+   "w": 102,
+   "h": 28
+  },
+  "sort": {
+   "ariaLabel": null,
+   "title": null,
+   "text": "Sort\n1",
+   "w": 97,
+   "h": 28
+  },
+  "display": {
+   "ariaLabel": "Display",
+   "title": "Display",
+   "text": "Display",
+   "w": 87,
+   "h": 28
+  },
+  "names": {
+   "filter": "Filter, 2 active",
+   "sort": "Sort\n1",
+   "display": "Display"
+  },
+  "byRole": {
+   "Filter": 1,
+   "Sort": 0,
+   "Display": 1
+  }
+ },
+ {
+  "tag": "main",
+  "surface": "account",
+  "width": 1280,
+  "theme": "dark",
+  "clusterWidth": 320,
+  "clusterText": "Filter 2 Sort 1 Display",
+  "filter": {
+   "ariaLabel": "Filter, 2 active",
+   "title": null,
+   "text": "Filter\n2",
+   "w": 102,
+   "h": 28
+  },
+  "sort": {
+   "ariaLabel": null,
+   "title": null,
+   "text": "Sort\n1",
+   "w": 97,
+   "h": 28
+  },
+  "display": {
+   "ariaLabel": "Display",
+   "title": "Display",
+   "text": "Display",
+   "w": 87,
+   "h": 28
+  },
+  "names": {
+   "filter": "Filter, 2 active",
+   "sort": "Sort\n1",
+   "display": "Display"
+  },
+  "byRole": {
+   "Filter": 1,
+   "Sort": 0,
+   "Display": 1
+  }
+ },
+ {
+  "tag": "main",
+  "surface": "approvals",
+  "width": 1024,
+  "theme": "dark",
+  "clusterWidth": 292,
+  "clusterText": "Filter Sort 1 Display",
+  "filter": {
+   "ariaLabel": "Filter",
+   "title": null,
+   "text": "Filter",
+   "w": 74,
+   "h": 28
+  },
+  "sort": {
+   "ariaLabel": null,
+   "title": null,
+   "text": "Sort\n1",
+   "w": 97,
+   "h": 28
+  },
+  "display": {
+   "ariaLabel": "Display",
+   "title": "Display",
+   "text": "Display",
+   "w": 87,
+   "h": 28
+  },
+  "names": {
+   "filter": "Filter",
+   "sort": "Sort\n1",
+   "display": "Display"
+  },
+  "byRole": {
+   "Filter": 1,
+   "Sort": 0,
+   "Display": 1
+  }
+ },
+ {
+  "tag": "main",
+  "surface": "approvals",
+  "width": 1280,
+  "theme": "dark",
+  "clusterWidth": 292,
+  "clusterText": "Filter Sort 1 Display",
+  "filter": {
+   "ariaLabel": "Filter",
+   "title": null,
+   "text": "Filter",
+   "w": 74,
+   "h": 28
+  },
+  "sort": {
+   "ariaLabel": null,
+   "title": null,
+   "text": "Sort\n1",
+   "w": 97,
+   "h": 28
+  },
+  "display": {
+   "ariaLabel": "Display",
+   "title": "Display",
+   "text": "Display",
+   "w": 87,
+   "h": 28
+  },
+  "names": {
+   "filter": "Filter",
+   "sort": "Sort\n1",
+   "display": "Display"
+  },
+  "byRole": {
+   "Filter": 1,
+   "Sort": 0,
+   "Display": 1
+  }
+ }
+]

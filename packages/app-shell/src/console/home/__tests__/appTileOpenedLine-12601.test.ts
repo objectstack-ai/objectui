@@ -42,7 +42,7 @@ const FONT_PX = 11;
 const RESERVE_PX = 3;
 const BUDGET_PX = TILE_PX - 2 * TILE_PADDING_PX - RESERVE_PX;
 
-const WIDE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}　-〿＀-￯]/u;
+const WIDE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\u3000-\u303f\uff00-\uffef]/u;
 const MARK = /\p{M}/u;
 const ARABIC = /\p{Script=Arabic}/u;
 

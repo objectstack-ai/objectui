@@ -331,7 +331,10 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // `.unmanagedIgnored`, the unmanaged install's answer and the runtime that
     // ignored it, which each quote the package name („{{name}}“) — two
     // interpolated spans, runtime data.
-    expect(okSpans, 'correctly paired spans').toBe(87);
+    // 86 once objectui#12504 retired `console.objectView.viewConfigPermissionDenied`
+    // (its producer, the toolbar's view write, retired with the adapter's gate),
+    // taking its one literal span („Metadaten verwalten“) with it.
+    expect(okSpans, 'correctly paired spans').toBe(86);
   });
 
   it('keeps the count identity that replaces the card’s count(„) === count(“)', () => {
@@ -380,8 +383,10 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // seven matched pairs between them. 85 / 85 / 0 after objectui#12248 added
     // `detail.deleteAttachmentConfirm`, one more matched pair. 87 / 87 / 0 after
     // objectui#12288 added `marketplace.install.unmanagedSuccess` and
-    // `.unmanagedIgnored`, one matched pair each.
-    expect({ open, close, rdq }).toEqual({ open: 87, close: 87, rdq: 0 });
+    // `.unmanagedIgnored`, one matched pair each. 86 / 86 / 0 after
+    // objectui#12504 retired `console.objectView.viewConfigPermissionDenied`,
+    // one matched pair fewer.
+    expect({ open, close, rdq }).toEqual({ open: 86, close: 86, rdq: 0 });
     // The durable shape: every „ closed by a “, every surplus “ an English
     // opener answered by a ”. Survived translating the two English values.
     expect(close).toBe(open + rdq);

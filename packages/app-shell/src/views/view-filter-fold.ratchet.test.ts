@@ -47,14 +47,6 @@ const objectViewSrc = readFileSync(objectViewPath, 'utf8');
 const widgetsSrc = readFileSync(widgetsPath, 'utf8');
 
 /**
- * Every `persistViewPatch(…, { filter … })` in the file — the call that shipped
- * the group, and (via the fold) the call that shipped the overlay. Since #4155
- * there must be NONE: the toolbar persists sort / hiddenFields / columnState /
- * rowHeight, never the filter.
- */
-const FILTER_PERSIST_CALLS = /persistViewPatch\s*\([^;]*?\{\s*filter\s*(?::\s*([A-Za-z0-9_.]+))?/gs;
-
-/**
  * The initializer of `const NAME = …` in `ObjectView.tsx` — for a handler, its
  * `useCallback(…)` call, so the function body and its dependency list — found
  * by the TypeScript parser. An assertion about what a handler does is bound to
@@ -99,14 +91,10 @@ describe('objectui#4155 ratchet — the filter panel persists nothing', () => {
     it('the ratchet is reading real source, not an empty string', () => {
         expect(objectViewSrc.length).toBeGreaterThan(10_000);
         expect(widgetsSrc.length).toBeGreaterThan(10_000);
-        // Sanity: the sibling persist helper this file reasons about still
-        // exists under this name (the toolbar DOES persist other keys).
-        expect(objectViewSrc).toContain('persistViewPatch');
-    });
-
-    it('no `filter` is written through the view-config persist path at all', () => {
-        const values = [...objectViewSrc.matchAll(FILTER_PERSIST_CALLS)].map((m) => m[1] ?? '{ filter } shorthand');
-        expect(values, 'a filter persist reappeared on the toolbar path — see #4155').toEqual([]);
+        // The toolbar's view-config persist path (`persistViewPatch`), whose
+        // `{ filter }` calls this file used to count, is retired since
+        // objectui#12504: no toolbar control writes the view at all, and
+        // `ObjectView.overlayPatchOnly.test.ts` pins that absence.
     });
 
     it('the `persistViewFilter` helper is gone — there is no filter-persist seam to call', () => {
@@ -125,9 +113,8 @@ describe('objectui#4155 ratchet — the filter panel persists nothing', () => {
         expect(sites.length, 'expected at least one onFilterChange handler').toBeGreaterThanOrEqual(1);
         for (const site of sites) {
             // Window = this handler only. It ends where the NEXT `onXxx`
-            // binding starts, so the sibling handlers (which legitimately call
-            // `persistViewPatch` for density / hiddenFields) stay
-            // out of the assertion.
+            // binding starts, so the sibling handlers stay out of the
+            // assertion.
             const rest = objectViewSrc.slice(site.index! + 1, site.index! + 401);
             const next = rest.search(/\bon[A-Z]\w*\s*[=:]/);
             const body = next === -1 ? rest : rest.slice(0, next);

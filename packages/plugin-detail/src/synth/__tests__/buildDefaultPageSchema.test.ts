@@ -201,12 +201,13 @@ describe('deriveHighlightFields', () => {
 });
 
 describe('buildDefaultPageSchema', () => {
-  it('emits a record Page with full-width template + main region', () => {
+  it('emits a record Page with the default template + main region', () => {
     const page = buildDefaultPageSchema(leadDef);
     expect(page.type).toBe('record');
     expect(page.pageType).toBe('record');
     expect(page.object).toBe('lead');
-    expect(page.template).toBe('full-width');
+    // The spec retires `full-width` by name; a seed carrying it is refused at save.
+    expect(page.template).toBe('default');
     expect(page.regions).toHaveLength(1);
     expect(page.regions[0].name).toBe('main');
   });

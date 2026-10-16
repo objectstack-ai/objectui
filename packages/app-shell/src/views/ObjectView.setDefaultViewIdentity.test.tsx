@@ -155,8 +155,9 @@ describe('the identity seam — ONE spelling for a view row id (#4211)', () => {
 describe('divergence A — a stored override row carrying a foreign `id` (#4211)', () => {
   /**
    * The row `persistViewPatch` → `updateViewConfig` USED TO leave behind: the
-   * whole tab object, `id` included, stored under `name: <viewId>`. Since
-   * objectui#5233 an overlay is written as the patch alone, so this is a row
+   * whole tab object, `id` included, stored under `name: <viewId>`. From
+   * objectui#5233 an overlay was written as the patch alone, and since
+   * objectui#12504 retired that write it is not written at all, so this is a row
    * already at rest rather than one a new write produces. Its `id` was written
    * under an earlier tab-id spelling (objectui#3770 re-keyed the default list),
    * so from then on the stored `id` and the row's `name` disagree — and the

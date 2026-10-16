@@ -67,7 +67,9 @@
  * so it records its `columns`. The renderer's own columns are read off a view
  * that declares no projection and carries neither key, so the defaults are
  * never restated here. The toggle is driven through `ListView`'s own hide-fields
- * popover, and the writes are read off the data source's `updateViewConfig`.
+ * popover, and the writes are read off the data source's view writes
+ * (`updateView` / `createView`; the toolbar's own view write,
+ * `updateViewConfig`, retired in objectui#12504).
  */
 
 import * as React from 'react';
@@ -278,9 +280,14 @@ async function hideThroughToggle(field: string): Promise<void> {
   fireEvent.click(label.closest('label')!.querySelector('input')!);
 }
 
-/** The `updateViewConfig` calls whose body carries `hiddenFields`. */
-const hiddenFieldsWrites = (dataSource: any) =>
-  dataSource.updateViewConfig.mock.calls.filter((call: any[]) => call[2] && 'hiddenFields' in call[2]);
+/** The data source's view writes, each a spy: what a write to the shared view would call. */
+const viewWriteSpies = () => ({ updateView: vi.fn(async () => ({})), createView: vi.fn(async () => ({})) });
+
+/** Every view write the page made through the data source. */
+const viewWrites = (dataSource: any): unknown[][] => [
+  ...dataSource.updateView.mock.calls,
+  ...dataSource.createView.mock.calls,
+];
 
 /**
  * objectui#12474 — the hidden fields this user stored for `viewId`, read off
@@ -331,7 +338,7 @@ const SAVED_BESIDE = {
 function savedViewSource(extra: Record<string, unknown> = {}) {
   const savedRow = { name: SAVED_ID, label: 'Mine', type: 'grid', userActions: { hideFields: true }, ...extra };
   return makeDataSource({
-    updateViewConfig: vi.fn(async () => ({})),
+    ...viewWriteSpies(),
     listViews: vi.fn(async () => [savedRow]),
   });
 }
@@ -341,7 +348,7 @@ async function expectSessionOnlyToggle(dataSource: any): Promise<void> {
   await hideThroughToggle('region');
   await waitFor(() => expect(drawn).not.toContain('region'));
   await new Promise((resolve) => setTimeout(resolve, PAST_DEBOUNCE_MS));
-  expect(hiddenFieldsWrites(dataSource)).toEqual([]);
+  expect(viewWrites(dataSource)).toEqual([]);
   expect(storedHiddenFields(PROBE_ID)).toBeUndefined();
 }
 
@@ -390,7 +397,7 @@ describe('an unprojected view applies neither hiddenFields nor fieldOrder on the
   });
 
   it('THE FIX: on a system view with no declared `columns`, the hide toggle is session-only', async () => {
-    const dataSource = makeDataSource({ updateViewConfig: vi.fn(async () => ({})) });
+    const dataSource = makeDataSource(viewWriteSpies());
     await mountRoute(
       { [PROBE_ID]: { name: PROBE_ID, label: 'Probe', type: 'grid', columns: [], userActions: { hideFields: true } } },
       PROBE_ID,
@@ -404,12 +411,12 @@ describe('an unprojected view applies neither hiddenFields nor fieldOrder on the
     // And nothing is written or stored: a `hiddenFields` on this view would
     // be read by nothing on reload (the CONTROL below shows the store is live).
     await new Promise((resolve) => setTimeout(resolve, PAST_DEBOUNCE_MS));
-    expect(hiddenFieldsWrites(dataSource)).toEqual([]);
+    expect(viewWrites(dataSource)).toEqual([]);
     expect(storedHiddenFields(PROBE_ID)).toBeUndefined();
   });
 
   it('CONTROL: on a system view that declares `columns`, the toggle is stored as the user\'s own, and the view is not written (objectui#12474)', async () => {
-    const dataSource = makeDataSource({ updateViewConfig: vi.fn(async () => ({})) });
+    const dataSource = makeDataSource(viewWriteSpies());
     const listViews = {
       [PROBE_ID]: {
         name: PROBE_ID, label: 'Probe', type: 'grid',
@@ -421,7 +428,7 @@ describe('an unprojected view applies neither hiddenFields nor fieldOrder on the
     await waitFor(() => expect(storedHiddenFields(PROBE_ID)).toEqual(['region']), { timeout: 3000 });
     await waitFor(() => expect(drawn).toEqual(['name', 'stage']));
     await new Promise((resolve) => setTimeout(resolve, PAST_DEBOUNCE_MS));
-    expect(dataSource.updateViewConfig).not.toHaveBeenCalled();
+    expect(viewWrites(dataSource)).toEqual([]);
     cleanup();
 
     // Reload: the user's choice is applied over the view's own `columns`.
@@ -442,8 +449,8 @@ describe('an unprojected view applies neither hiddenFields nor fieldOrder on the
     await waitFor(() => expect(storedHiddenFields(SAVED_ID)).toEqual(['region']), { timeout: 3000 });
     await waitFor(() => expect(drawn).toEqual(defaults.filter((f) => f !== 'region')));
     await new Promise((resolve) => setTimeout(resolve, PAST_DEBOUNCE_MS));
-    // No `/meta/view` write: the adapter's view write is never called.
-    expect(first.updateViewConfig).not.toHaveBeenCalled();
+    // No `/meta/view` write: no view write of the data source is called.
+    expect(viewWrites(first)).toEqual([]);
     cleanup();
 
     // Reload: the stored list is applied over the drawn defaults.
@@ -575,7 +582,7 @@ describe('an unprojected view applies neither hiddenFields nor fieldOrder on the
   });
 
   it('THE FIX: after a panel edit of an unrelated field, the system view\'s hide toggle stays session-only', async () => {
-    const dataSource = makeDataSource({ updateViewConfig: vi.fn(async () => ({})) });
+    const dataSource = makeDataSource(viewWriteSpies());
     await mountRoute(UNPROJECTED_WITH_TOGGLE, PROBE_ID, dataSource);
     await openPanel();
     await editUnrelatedField();
@@ -593,7 +600,7 @@ describe('an unprojected view applies neither hiddenFields nor fieldOrder on the
   });
 
   it('THE FIX: after a panel edit and Discard, the system view\'s hide toggle stays session-only', async () => {
-    const dataSource = makeDataSource({ updateViewConfig: vi.fn(async () => ({})) });
+    const dataSource = makeDataSource(viewWriteSpies());
     await mountRoute(UNPROJECTED_WITH_TOGGLE, PROBE_ID, dataSource);
     await openPanel();
     await editUnrelatedField();

@@ -90,8 +90,9 @@ const DEFINITION_NOW = {
 /**
  * What `updateViewConfig` stored before the marker existed (objectui#4227):
  * the whole active tab plus the one key the toggle changed, and no marker.
- * Today's `updateViewConfig` stamps the marker, so this row can only be put in
- * the store directly — it is the state of an install that has carried it since.
+ * `updateViewConfig` stamped the marker from then on, and is retired since
+ * objectui#12504, so this row can only be put in the store directly — it is the
+ * state of an install that has carried it since.
  */
 const PRE_MARKER_OVERLAY_WRITE = {
   ...DEFINITION_AT_OVERLAY_TIME,

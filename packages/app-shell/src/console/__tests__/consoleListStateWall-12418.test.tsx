@@ -29,9 +29,10 @@
  *      NO metadata write on the wire, raise no error, and land as ONE
  *      preference write each, of the same row.
  *   3. CONTROL — the wall is live: a metadata write made in this same tree
- *      (the real adapter's own view write, the call the density toggle used
- *      to reach) is answered 403. Since objectui#12474 no list toolbar control
- *      makes one, so the control is the adapter's call itself.
+ *      (the real adapter's own view write, `createView`) is answered 403.
+ *      Since objectui#12474 no list toolbar control makes one, so the control
+ *      is the adapter's call itself. (It was `updateViewConfig`, the call the
+ *      density toggle used to reach, until objectui#12504 retired it.)
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -263,12 +264,12 @@ describe('a user\'s list state under a walled posture (objectui#12418)', () => {
     boot();
     await waitFor(() => expect(typeof listProps?.schema?.onDensityChange).toBe('function'), { timeout: 5000 });
     await wait(100);
-    expect(typeof pageAdapter?.updateViewConfig).toBe('function');
+    expect(typeof pageAdapter?.createView).toBe('function');
 
     let refused: unknown = null;
     await act(async () => {
       try {
-        await pageAdapter.updateViewConfig(OBJECT_NAME, ALL_ID, { rowHeight: 'compact' }, { isSavedView: false });
+        await pageAdapter.createView(OBJECT_NAME, { name: `${OBJECT_NAME}.probe`, label: 'Probe', type: 'grid' });
       } catch (err) {
         refused = err;
       }

@@ -2196,7 +2196,6 @@ const zh = {
     objectView: {
       systemViewReadonly: '系统视图由代码定义，只读。',
       cannotEditMetaView: '该视图为内置视图，由代码定义，无法修改。',
-      viewConfigPermissionDenied: '视图配置对所有使用该视图的用户生效，因此修改它需要「管理元数据」权限。请联系管理员进行修改。',
       resetView: '重置视图',
       resetViewTitle: '将此视图的排序、筛选和列宽恢复为视图自身的设置。只影响你自己。',
       cannotDeleteMetaView: '该视图为内置视图，由代码定义，无法删除。',

@@ -157,19 +157,19 @@ const NON_AUTHOR_KEYS = [
   {
     key: 'columnState',
     ruled: '2026-08-18',
-    producer: 'app-shell/src/views/ObjectView.tsx:1848 in, :1867 back out via persistViewPatch',
+    producer: "app-shell ObjectView: the list schema's `columnState` in (the user's list state, then the view), `persistListColumnState` back out",
     sample: { order: ['name'] },
   },
   {
     key: 'hideRowHeightToggle',
     ruled: '2026-08-18',
-    producer: 'plugin-list/src/ListView.tsx:1866 — the embedding view owns density',
+    producer: 'plugin-list ListView: the child view schema it builds sets it — the embedding view owns density',
     sample: true,
   },
   {
     key: 'maxInlineRowActions',
     ruled: '2026-08-18',
-    producer: 'apps/console/src/dev/DevRowActions.tsx:51 — an embedder layout call',
+    producer: 'apps/console DevRowActions (`EnvGrid`) — an embedder layout call',
     sample: 2,
   },
   {
@@ -178,8 +178,8 @@ const NON_AUTHOR_KEYS = [
     // key into the manifest as `bulkActionDefs`'s symmetric partner.
     ruled: '2026-08-19 (reversing 2026-08-18)',
     producer:
-      "app-shell/src/views/ObjectView.tsx:1968 — DERIVED from objectDef.actions filtered by locations:['list_item'], "
-      + 'whereas bulkActionDefs twenty lines below is passed through from the author',
+      "app-shell ObjectView: the list schema's `rowActionDefs` — DERIVED from objectDef.actions filtered by locations:['list_item'], "
+      + 'whereas bulkActionDefs beside it is passed through from the author',
     sample: [{ name: 'approve', label: 'Approve' }],
   },
 ] as const;

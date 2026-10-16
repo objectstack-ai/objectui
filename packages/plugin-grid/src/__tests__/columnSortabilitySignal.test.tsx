@@ -196,7 +196,7 @@ describe('#5729 scope item 2 — the personalization PUT never carries a refused
   it('a RESTORED sort on a refused column is inert: no affordance, no emission', async () => {
     // The half-fix this leg exists to prevent: the header click is gone, but a
     // sort persisted before the signal existed is replayed out of stored view
-    // state and rides into the next `persistViewPatch({ sort })`.
+    // state and rides into the next sort the host stores.
     const onSortChange = vi.fn();
     const ds = makeDataSource('crm_opportunity');
     const { container } = render(

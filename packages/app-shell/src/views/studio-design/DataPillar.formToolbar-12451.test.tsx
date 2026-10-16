@@ -8,8 +8,9 @@
  * control is each item's title (pinned in `DataPillar.layoutBadge.test.tsx`).
  *
  * The toolbar's Add field and the Records grid's "+" column are one action:
- * each adds one field card and opens its inspector (objectui#12511 — the
- * object header's More → Add field, this pin's other entry before, retired).
+ * each opens the Add field popover (objectui#12516), and its Create adds one
+ * field card and opens its inspector (objectui#12511 — the object header's
+ * More → Add field, this pin's other entry before, retired).
  *
  * The REAL `DataPillar`; the records grid is stubbed to its "+" column, drawn
  * from the grid's authoring context the way the real grid draws it.
@@ -70,6 +71,7 @@ vi.mock('@object-ui/plugin-view', async (importOriginal) => {
 
 import { DataPillar } from './StudioDesignSurface';
 import { t } from '../metadata-admin/i18n';
+import { addFieldFromFormToolbar, addFieldFromGrid } from './__tests__/dataPillarAddField';
 
 const FORM = t('engine.studio.data.tab.form', 'en');
 const RECORDS = t('engine.studio.data.tab.records', 'en');
@@ -127,12 +129,12 @@ describe('Data pillar Form tab — one toolbar row (objectui#12451)', () => {
   it('the toolbar Add field and the Records grid "+" are one action', async () => {
     await openForm();
     const before = cards().length;
-    await userEvent.click(within(screen.getByTestId('form-toolbar')).getByRole('button', { name: ADD_FIELD }));
+    await addFieldFromFormToolbar(undefined, { label: 'From toolbar' });
     expect(cards()).toHaveLength(before + 1);
     expect(await screen.findByTestId('data-field-inspector')).toBeInTheDocument();
 
     await userEvent.click(screen.getAllByRole('button', { name: RECORDS })[0]);
-    await userEvent.click(await screen.findByTestId('grid-add-column'));
+    await addFieldFromGrid(undefined, { label: 'From grid' });
     expect(await screen.findByTestId('data-field-inspector')).toBeInTheDocument();
     await userEvent.click(screen.getAllByRole('button', { name: FORM })[0]);
     await waitFor(() => expect(cards()).toHaveLength(before + 2));

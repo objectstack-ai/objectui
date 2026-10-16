@@ -2603,7 +2603,6 @@ const en = {
       // (rename / pin / set-as-default / configure), so the copy has to cover
       // any change to a built-in view rather than name one operation.
       cannotEditMetaView: 'This view is built in and defined in code — it cannot be changed.',
-      viewConfigPermissionDenied: 'View settings apply to everyone who uses this view, so changing them requires the Manage Metadata permission. Ask an administrator to make this change.',
       resetView: 'Reset view',
       resetViewTitle: 'Set this view back to its own sort, filters and column widths. Only yours change.',
       cannotDeleteMetaView: 'This view is built in and defined in code — it cannot be deleted.',

@@ -4533,9 +4533,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * REMOVE a sort the server refuses outright. But the picker used to render
    * and emit from the SAME array, so any OTHER edit in the popover — adding a
    * second key, flipping a direction — re-emitted the refused entry, and the
-   * host's `onSortChange` turned it into `persistViewPatch({ sort })`: a
-   * personalization PUT storing a column the platform answers
-   * `400 INVALID_SORT` for, written by a user who never touched that row.
+   * host's `onSortChange` stored it (then through `persistViewPatch({ sort })`,
+   * the toolbar's view write, retired in objectui#12504; today on the user's
+   * own list state): a personalization write storing a column the platform
+   * answers `400 INVALID_SORT` for, written by a user who never touched that
+   * row.
    *
    * So the two legs part company HERE, at the one boundary every emit crosses,
    * exactly as #5729 parted them at the grid seam (`ObjectGrid`'s

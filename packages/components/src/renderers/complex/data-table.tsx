@@ -2095,8 +2095,9 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     // mousemove. `onColumnResize` was declared here and invoked nowhere, which
     // is why ObjectGrid's `saveColumnState` never ran and column widths never
     // persisted. The host turns this into a real write (localStorage plus
-    // `onColumnStateChange` -> `dataSource.updateViewConfig`), so a per-move
-    // callback would be a write storm on shared view config.
+    // `onColumnStateChange` -> the host's own store; the console keeps it on
+    // the user's own list state), so a per-move callback would be a write
+    // storm.
     if (resizedColumn && finalWidth != null) {
       schema.onColumnResize?.(resizedColumn, finalWidth);
     }

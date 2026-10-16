@@ -2155,7 +2155,6 @@ const fr = {
       viewNameInvalid: "Utilisez des minuscules, des chiffres et des tirets bas ; commencez par une lettre ou un tiret bas.",
       systemViewReadonly: "Vue système définie dans le code — en lecture seule.",
       cannotEditMetaView: "Cette vue est intégrée et définie dans le code — elle ne peut pas être modifiée.",
-      viewConfigPermissionDenied: "Les paramètres de vue s’appliquent à tous les utilisateurs de cette vue ; les modifier requiert donc l’autorisation « Gérer les métadonnées ». Demandez à un administrateur d’effectuer ce changement.",
       resetView: "Réinitialiser la vue",
       resetViewTitle: "Rétablir le tri, les filtres et les largeurs de colonnes propres à cette vue. Seuls vos réglages changent.",
       cannotDeleteMetaView: "Cette vue est intégrée et définie dans le code — elle ne peut pas être supprimée.",

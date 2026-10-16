@@ -177,7 +177,7 @@ const PROBE_OBJECT_SCHEMA = {
 const DATA_SOURCE_METHODS = [
   'find', 'findOne', 'create', 'update', 'delete', 'aggregate', 'count',
   'getObjectSchema', 'getObjects', 'getView', 'listViews', 'listViewOverrides',
-  'updateViewConfig', 'onMutation',
+  'onMutation',
 ] as const;
 
 /**

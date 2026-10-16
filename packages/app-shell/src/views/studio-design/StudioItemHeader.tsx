@@ -5,11 +5,22 @@
  * Studio pillar's content column (objectui#12459, epic objectui#12446).
  *
  * One row: an icon tile, the item's label at 18 px, its machine name as a
- * mono chip, optional kind chips, a muted meta slot, and a right-aligned
- * actions slot. Under it, when the pillar has tabs, a 36 px tab row whose
- * active tab carries a 2 px primary underline; without tabs the header keeps
- * 12 px of bottom padding so the body starts at the same rhythm. The pillar
- * decides what each slot holds; this file decides where everything sits.
+ * mono chip, optional kind chips, the item's status chip, a muted meta slot,
+ * and a right-aligned actions slot. Under it, when the pillar has tabs, a
+ * 36 px tab row whose active tab carries a 2 px primary underline; without
+ * tabs the header keeps 12 px of bottom padding so the body starts at the
+ * same rhythm. The pillar decides what each slot holds; this file decides
+ * where everything sits.
+ *
+ * objectui#12524 — the status chip ("Unpublished draft") has one place in
+ * every pillar: right after the identity (title, api-name chip, kind chips),
+ * before the meta, never in the actions slot, which holds actions only. The
+ * pillar passes the status as data and this file draws the chip, so no
+ * pillar places or styles it itself. The identity chips sit in one
+ * `contents` wrapper, always rendered: it draws no box, so the layout is
+ * unchanged, and the status chip is the same child of the same row in every
+ * pillar whatever identity chips the pillar shows. The title stays a direct
+ * child of the row.
  */
 
 import * as React from 'react';
@@ -26,6 +37,31 @@ import {
   STUDIO_TAB_ROW,
 } from './studio-tokens.js';
 
+/** The item's status, drawn by the header as one amber chip (objectui#12524). */
+export interface StudioItemStatus {
+  /** The chip's text. */
+  label: string;
+  /** A longer sentence for the tooltip. */
+  title?: string;
+}
+
+/**
+ * The amber status chip. The header draws it from `status`; it is exported
+ * for the one place that shows the same status outside a title row (the
+ * Access set page's tab row).
+ */
+export function StudioStatusChip({ label, title }: StudioItemStatus): React.ReactElement {
+  return (
+    <span
+      data-testid="studio-item-status"
+      title={title}
+      className="inline-flex shrink-0 items-center whitespace-nowrap rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300"
+    >
+      {label}
+    </span>
+  );
+}
+
 export interface StudioItemHeaderProps {
   /** The icon component for the tile; omitted when the pillar has nothing open. */
   icon?: React.ElementType;
@@ -35,8 +71,10 @@ export interface StudioItemHeaderProps {
   titleProps?: React.HTMLAttributes<HTMLElement> & { 'data-testid'?: string };
   /** The item's machine name, as a mono chip. */
   apiName?: string;
-  /** Kind chips and badges after the name. */
+  /** Kind chips and badges after the name. Not the status: that is `status`. */
   chips?: React.ReactNode;
+  /** The item's status ("Unpublished draft"), after the chips and before the meta. */
+  status?: StudioItemStatus;
   /** Muted meta text (a field count, a trigger summary). */
   meta?: React.ReactNode;
   /** The right-aligned actions slot. */
@@ -55,6 +93,7 @@ export function StudioItemHeader({
   titleProps,
   apiName,
   chips,
+  status,
   meta,
   actions,
   tabs,
@@ -74,8 +113,11 @@ export function StudioItemHeader({
         <h1 {...titleProps} className={cn(STUDIO_ITEM_TITLE, titleProps?.className)}>
           {title}
         </h1>
-        {apiName && <code className={STUDIO_API_CHIP}>{apiName}</code>}
-        {chips}
+        <span className="contents" data-slot="identity-chips">
+          {apiName && <code className={STUDIO_API_CHIP}>{apiName}</code>}
+          {chips}
+        </span>
+        {status && <StudioStatusChip {...status} />}
         {meta && <span className={STUDIO_META}>{meta}</span>}
         {actions && <div className="ml-auto flex shrink-0 items-center gap-2">{actions}</div>}
       </div>

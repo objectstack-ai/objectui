@@ -1170,78 +1170,6 @@ function metaEnvelopeCarriesItem(envelope: unknown): boolean {
 }
 
 /**
- * [ADR-0066] The system capability a view-configuration write requires.
- *
- * objectstack#7494's ruling (maintainer, 2026-08-12) settled what this store
- * IS: the `sort` / `hiddenFields` / `columnState` / `rowHeight` persisted by
- * {@link ObjectStackAdapter.updateViewConfig} are ORG-WIDE view configuration
- * — shared by every user of the view — not a per-user preference. A per-user
- * scope is parked (objectstack#7611, v18) and deliberately NOT built here, so
- * there is no second, narrower store for an ungated write to fall back to:
- * the only thing this write can do is change the view for everyone.
- *
- * That makes a toolbar toggle a metadata-authoring act, so it gates on the
- * capability this repo ALREADY uses for metadata authoring rather than a newly
- * minted name. `manage_metadata` is what `HomePage`'s `AUTHORING_CAPABILITY`
- * gates the builder CTAs on, what the server itself refuses metadata writes
- * without (`PackageFormDialog` reads that 403), and what
- * `capability.label.manage_metadata` is already translated as in all ten
- * locale packs. Decisively: the write gated here goes through
- * `client.meta.saveItem` — the very same ADR-0005 metadata door — so this is
- * the same authority the server is already applying, not an analogous one.
- */
-export const VIEW_CONFIG_CAPABILITY = 'manage_metadata';
-
-/**
- * Thrown by {@link ObjectStackAdapter.updateViewConfig} when the session's
- * REPORTED capability set does not contain {@link VIEW_CONFIG_CAPABILITY}.
- *
- * Raised BEFORE `connect()` and before `saveItem`, so a refused call issues no
- * request at all — the org-wide row is not touched, not even optimistically.
- *
- * Deliberately an ERROR and not a silent `return`. The production caller is a
- * debounced toolbar toggle whose UI has ALREADY moved by the time this runs, so
- * a quiet no-op would leave the operator looking at a density they did not get,
- * with nothing to explain it and a reload to discover it. The message names the
- * SCOPE first and the capability second, in that order, because the scope is
- * the part the operator cannot otherwise see — and it is written to be shown
- * as-is, the same contract {@link AnalyticsNotInstalledError} states.
- */
-export class ViewConfigPermissionDeniedError extends Error {
-  readonly code = 'VIEW_CONFIG_PERMISSION_DENIED';
-  /** The capability that was required and not held. */
-  readonly capability = VIEW_CONFIG_CAPABILITY;
-  /** The object whose view configuration the refused write targeted. */
-  readonly objectName: string;
-  /** The view id the refused write targeted. */
-  readonly viewId: string;
-  constructor(objectName: string, viewId: string) {
-    super(
-      `View configuration is shared: changing "${viewId}" changes it for everyone who uses this view. ` +
-      `That requires the "${VIEW_CONFIG_CAPABILITY}" capability, which this session does not hold.`,
-    );
-    this.name = 'ViewConfigPermissionDeniedError';
-    this.objectName = objectName;
-    this.viewId = viewId;
-  }
-}
-
-/**
- * True when `error` is a {@link ViewConfigPermissionDeniedError}.
- *
- * Duck-checks `code`/`name` rather than using `instanceof`, matching
- * {@link isConcurrentUpdateError}: a host that bundles this package twice
- * (or re-throws across a worker boundary) still gets the right verdict.
- */
-export function isViewConfigPermissionDeniedError(
-  error: unknown,
-): error is ViewConfigPermissionDeniedError {
-  if (!error || typeof error !== 'object') return false;
-  const e = error as Record<string, unknown>;
-  return e.code === 'VIEW_CONFIG_PERMISSION_DENIED' || e.name === 'ViewConfigPermissionDeniedError';
-}
-
-/**
  * Thrown when the deployment has no analytics capability installed
  * (framework#3891 / objectstack-ai/objectstack#4019).
  *
@@ -1787,11 +1715,9 @@ export class ConcurrentUpdateError extends Error {
  * reads `httpStatus` for neither. This paragraph exists because the doc used
  * to name only the wire shape, which left the `name` limb reading as drift
  * (objectui#6375). It is not drift: it is the deliberate cross-realm
- * duck-check that {@link isViewConfigPermissionDeniedError} documents and
- * cites *this* function as its precedent for — a host that bundles this
- * package twice (or re-throws across a worker boundary) ends up holding two
- * copies of the class, `instanceof` fails, and the `name` string is the only
- * discriminator left. That host is out of tree by construction, so an in-repo
+ * duck-check — a host that bundles this package twice (or re-throws across a
+ * worker boundary) ends up holding two copies of the class, `instanceof`
+ * fails, and the `name` string is the only discriminator left. That host is out of tree by construction, so an in-repo
  * consumer census cannot see the case the limb was written for and is not
  * evidence against it; `@object-ui/plugin-form` and `@object-ui/plugin-detail`
  * each carry their own copy of the same two-limb check for adapters they must
@@ -2897,30 +2823,23 @@ export function viewItemObjectName(item: any): string | undefined {
 }
 
 /**
- * The explicit discriminant {@link ObjectStackAdapter.updateViewConfig} stamps
- * on the rows it writes for a **system**-view target, and
- * {@link ObjectStackAdapter.listViews} excludes on read (objectui#4227). It is
- * the ONLY thing that classifies a row as an overlay (objectui#10210, ruling B —
- * see {@link isPersonalizationOverlayRow}).
+ * The explicit discriminant the console's toolbar write stamped on the rows it
+ * wrote for a **system**-view target, and {@link ObjectStackAdapter.listViews}
+ * excludes on read (objectui#4227). It is the ONLY thing that classifies a row
+ * as an overlay (objectui#10210, ruling B — see
+ * {@link isPersonalizationOverlayRow}).
  *
- * `updateViewConfig` has exactly ONE production caller — `ObjectView`'s
- * `persistViewPatch`, invoked only for the toolbar-driven density / sort /
- * hiddenFields / columnState toggles. (The inline-edit toggle wrote
- * `inlineEdit` through it until objectui#5144; the console now keeps that
- * toggle session-only and writes nothing for it.) That single call site is
- * NOT itself the explicit "create/save a view" path (that goes through
- * {@link ObjectStackAdapter.createView} or the ADR-0034 metadata seam,
- * `viewEnvelope` in app-shell) — but it fires for a toggle on EITHER kind of
- * active tab, system or already-saved, so "every row this method writes is a
- * personalization overlay" is only true for the system-view case. A toggle
- * on a genuinely saved view targets that view's own row (same `(type='view',
- * name=viewId)` key its create path used), and stamping the marker there
- * would make {@link ObjectStackAdapter.listViews} exclude the user's own
- * view on the next read (objectui#4227 follow-up, PM review on PR #4713) —
- * so `updateViewConfig`'s `opts.isSavedView` withholds the marker for that
- * case. The caller passes it from the same `isSavedViewId` classification
- * the switcher's readonly gate already computes, rather than this layer
- * re-deriving it from the write's shape.
+ * That write was this adapter's `updateViewConfig`, whose one production
+ * caller was `ObjectView`'s `persistViewPatch`, for the toolbar-driven density
+ * / sort / hiddenFields / columnState toggles; it withheld the marker when the
+ * toggle targeted a genuinely saved view's own row (`opts.isSavedView`,
+ * objectui#4227 follow-up, PM review on PR #4713), so a saved view was never
+ * flagged. Both are retired (objectui#12504): those toggles are the user's own
+ * list state, and nothing writes a new overlay. The marked rows already at
+ * rest are still read, which is why this constant and its readers stay. The
+ * explicit "create/save a view" path ({@link ObjectStackAdapter.createView},
+ * or the ADR-0034 metadata seam, `viewEnvelope` in app-shell) never stamped
+ * it.
  *
  * Survives the round trip against a real server: the platform's `view`
  * metadata schema `.strip()`s its flattened-overlay members only for
@@ -2928,7 +2847,8 @@ export function viewItemObjectName(item: any): string | undefined {
  * `saveMetaItem` persists the AUTHORED body verbatim — never the stripped
  * `parsed.data` — specifically so "Studio-only auxiliary fields" (its own
  * words for `isPinned`/`isDefault`/`sortOrder`) ride along on the stored
- * document. This marker rides through the same door.
+ * document. This marker rode through the same door, so the rows at rest carry
+ * it.
  *
  * The value itself is org-wide, not per-user (objectstack#7494's ruling: the
  * overlay this row belongs to is shared view SETTINGS, not a personal
@@ -2971,8 +2891,9 @@ const VIEW_OVERLAY_MARKER = '_isOverride' as const;
  *   deployment is named as holding one.
  *
  * ⛔ Do not bring a shape test back to win the second population back: a shape
- * that another writer can produce is not a discriminant. The marker is one, and
- * the write side stamps it ({@link ObjectStackAdapter.updateViewConfig}).
+ * that another writer can produce is not a discriminant. The marker is one: the
+ * write side stamped it (`updateViewConfig`, retired in objectui#12504), and the
+ * rows it marked are still at rest.
  */
 function isPersonalizationOverlayRow(item: any, spec: any): boolean {
   return item?.[VIEW_OVERLAY_MARKER] === true || spec?.[VIEW_OVERLAY_MARKER] === true;
@@ -2982,12 +2903,14 @@ function isPersonalizationOverlayRow(item: any, spec: any): boolean {
  * The keys a personalization overlay row legitimately OWNS (objectui#5233).
  *
  * One per `persistViewPatch` call site in app-shell's `ObjectView` — the ONLY
- * production writer of these rows — read off the tree rather than recalled:
+ * production writer of these rows, read off the tree when it was written:
  * `rowHeight` (the density toggle, spec-canonical since #2890), `sort`,
  * `hiddenFields` and `columnState`. Plus `inlineEdit`, which no console call
- * site writes since objectui#5144 (triage's ruling E: the inline-edit toggle
- * is session-only). It stays owned so an overlay the old toggle wrote is still
- * read; the ruling keeps that data rather than migrating it. Nothing else in
+ * site wrote after objectui#5144 (triage's ruling E: the inline-edit toggle
+ * is session-only). That writer is retired (objectui#12504): no toolbar
+ * control writes an overlay, and every key here is kept so an overlay an
+ * earlier console wrote is still read; the rulings keep that data rather than
+ * migrating it. Nothing else in
  * such a row is an opinion the user expressed; anything else it carries is a
  * COPY of the source view as it stood at write time, because
  * `persistViewPatch` USED TO send `{ ...baseViewDef, ...patch }` and this
@@ -3001,22 +2924,19 @@ function isPersonalizationOverlayRow(item: any, spec: any): boolean {
  * view's filter and every user who once resized a column kept the old one,
  * with nothing anywhere reporting it.
  *
- * Both halves of that ruling have now landed, and this adapter's behaviour is
- * unchanged by either — it still persists what it is given:
+ * Both halves of that ruling landed, and this adapter's behaviour was
+ * unchanged by either — it persisted what it was given:
  *
  * - **read** (PR #5272, {@link narrowPersonalizationOverlay}): the consumer
  *   that MERGES an overlay over a source view contributes only these keys, so
  *   every already-stored fat row that carries the marker stops shadowing its
  *   source. A fat row written before the marker is no longer narrowed
  *   (objectui#10210, ruling B — see {@link isPersonalizationOverlayRow}).
- * - **write** (objectui#5233, `buildPersistedViewBody` in app-shell's
- *   `ObjectView`, unblocked by `columnState`'s admission to the view-metadata
- *   surface as a runtime-only overlay key — objectstack `d5552ca13`, released in
- *   `@objectstack/spec` 17.1.0): a *system view's* overlay is now written as
- *   the patch alone, so no new row freezes anything, and because the write is
- *   a whole-document PUT the next toggle also strips an old fat row. A *saved
- *   view's* own row is deliberately still written whole — for it the body IS
- *   the view, not a copy of one.
+ * - **write** (objectui#5233, unblocked by `columnState`'s admission to the
+ *   view-metadata surface as a runtime-only overlay key — objectstack
+ *   `d5552ca13`, released in `@objectstack/spec` 17.1.0): a *system view's*
+ *   overlay was written as the patch alone from then on, and the whole write
+ *   is retired since objectui#12504.
  *
  * A fat row is therefore a legacy shape, not a shape this product still
  * produces; the list below is still what a reader is allowed to trust from one.
@@ -3024,10 +2944,10 @@ function isPersonalizationOverlayRow(item: any, spec: any): boolean {
  * ⛔ Do not grow this list to make some other key "stick" through an overlay.
  * A key that belongs to the view belongs in the view; the overlay is a patch,
  * and a patch that carries the whole document is what this list exists to
- * stop. Adding an entry is only correct alongside a `persistViewPatch` call
- * site that writes it — {@link narrowPersonalizationOverlay} is what a reader
- * checks that against. `inlineEdit` is the one entry with no such call site,
- * kept for reading rows written before objectui#5144.
+ * stop. No writer of these rows is left (objectui#12504), so there is no new
+ * key for an entry to answer; each entry is kept for reading the rows already
+ * at rest — `inlineEdit` for rows written before objectui#5144, the other four
+ * for rows written before objectui#12474 / objectui#12418.
  */
 export const VIEW_OVERLAY_OWNED_KEYS = Object.freeze([
   'rowHeight',
@@ -3323,12 +3243,6 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
   // one a read that did not happen.
   private metadataReadWarningListeners = new Set<MetadataReadWarningListener>();
 
-  // [ADR-0066] The session's REPORTED system capabilities, pushed in by the
-  // host (see `setSystemCapabilities`). `undefined` means NO answer was ever
-  // reported — which is NOT the same as a reported-empty grant, and the two
-  // are treated differently by `maySetViewConfig` below.
-  private systemCapabilities: string[] | undefined;
-
   constructor(config: {
     baseUrl: string;
     token?: string;
@@ -3340,13 +3254,6 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
     autoReconnect?: boolean;
     maxReconnectAttempts?: number;
     reconnectDelay?: number;
-    /**
-     * [ADR-0066] The session's system capabilities, when the host already has
-     * them at construction time. Most hosts do NOT — `/me/permissions`
-     * resolves after the adapter exists — and push them in later via
-     * {@link ObjectStackAdapter.setSystemCapabilities}. Omit for "unreported".
-     */
-    systemCapabilities?: string[];
   }) {
     // objectui#12295 — ONE fetch carries every request this adapter makes: the
     // client's (data, metadata, analytics, and every caller of `getClient()`)
@@ -3378,7 +3285,6 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
     this.reconnectDelay = config.reconnectDelay ?? 1000;
     this.baseUrl = config.baseUrl;
     this.token = config.token;
-    this.systemCapabilities = config.systemCapabilities;
   }
 
   /**
@@ -4141,8 +4047,8 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    *
    * `ObjectStackClient.meta.saveItem` is the second client class that writes
    * through `PUT /api/v1/meta/:type/:name`, and every one of its callers reaches
-   * it through an adapter this class constructed — the four inside this file
-   * (`updateViewConfig`, the two view paths, `updateDashboard`) via
+   * it through an adapter this class constructed — the three inside this file
+   * (the two view paths, `updateDashboard`) via
    * `this.client`, and every caller outside it via {@link getClient}, which
    * hands back this same instance: `MetadataService` (app-shell, five saves),
    * `useNavigationSync`, and plugin-designer's Create/EditAppPage. Wrapping the
@@ -5562,9 +5468,10 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    * Batch-fetch all persisted view overrides for an object.
    *
    * Per-view runtime overrides (density, column widths, sort, hidden
-   * columns, inlineEdit …) live in the SAME metadata namespace the
-   * write path uses: `type='view'`, `name=<viewId>` (see
-   * {@link updateViewConfig}). Loading them per-view fires N HTTP GETs
+   * columns, inlineEdit …) live in the SAME metadata namespace the view
+   * writes use: `type='view'`, `name=<viewId>` (see {@link createView} /
+   * {@link updateView}; the toolbar's `updateViewConfig` wrote overlays there
+   * until objectui#12504 retired it). Loading them per-view fires N HTTP GETs
    * that 404 for every view the user never customized — console noise on
    * every page load. This batch method performs a single
    * `GET /api/v1/meta/view` (returns `{type, items}`) and narrows the
@@ -5588,9 +5495,9 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    *
    * Result is cached identically to {@link getView}, and EVERY view write —
    * on this adapter and above it — invalidates it through the one seam,
-   * {@link invalidateViewKeys}. For a long time only {@link updateViewConfig}
-   * did (objectui#4363), which left the other three adapter paths stale
-   * for the cache's 5-minute TTL. That gap does not self-heal: the consumer
+   * {@link invalidateViewKeys}. For a long time only `updateViewConfig` (since
+   * retired, objectui#12504) did (objectui#4363), which left the other three
+   * adapter paths stale for the cache's 5-minute TTL. That gap does not self-heal: the consumer
    * (`loadViewOverrides`, app-shell `ObjectView`) treats a RESOLVED map as
    * authoritative and deliberately does not re-probe per view — objectui#3774,
    * and correct, since re-probing reinstates the 404 flurry the batch read
@@ -5615,8 +5522,8 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
       for (const it of items) {
         if (!it || typeof it !== 'object') continue;
         if (viewItemObjectName(it) !== objectName) continue;
-        // Keyed by the item's canonical `name` — the SAME identity
-        // `updateViewConfig` writes under and `getView` reads back by, which
+        // Keyed by the item's canonical `name` — the SAME identity the view
+        // writes save under and `getView` reads back by, which
         // is what makes this a drop-in substitute for the per-view fetch.
         // No `?? id ?? _name` alias chain: those are not view identities on
         // any route (`/meta/view/:name` is name-addressed), and a batch map
@@ -5655,132 +5562,6 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
       // Server doesn't support view metadata — return null to fall back to static config
       return null;
     }
-  }
-
-  /**
-   * Persist a toolbar-driven view config patch — density, column widths,
-   * sort, hidden columns, inline edit. Symmetric counterpart to
-   * {@link getView}: writes the row to the server metadata store via
-   * `client.meta.saveItem`, then invalidates the matching cache entry so the
-   * next {@link getView} reflects the new payload. Returns the persisted item
-   * when the server echoes it, otherwise undefined.
-   *
-   * Called from exactly ONE production site — `ObjectView`'s
-   * `persistViewPatch`, for the toolbar toggle — but that ONE call site
-   * fires for BOTH kinds of active tab: a code-defined **system** view (no
-   * row of its own yet) and a genuinely user-created **saved** view (already
-   * has a row — the toggle is editing ITS OWN definition, not laying an
-   * overlay on top of it). Which one a given call means is NOT re-derived
-   * here from the write's shape (objectui#4227's own lesson: shape inference
-   * on this namespace is exactly what let a system view masquerade as
-   * saved) — the caller already knows, via the same `isSavedViewId`
-   * classification that gates the switcher's readonly flag and its five
-   * mutating handlers, and passes it as {@link opts.isSavedView}.
-   *
-   * - `isSavedView` false/omitted (system-view target, the common case and
-   *   the default for backward compatibility): stamps
-   *   {@link VIEW_OVERLAY_MARKER} so {@link listViews} excludes the row —
-   *   the original objectui#4227 fix.
-   * - `isSavedView` true: the marker is withheld. Stamping it here would
-   *   flag the saved view's OWN row as a personalization overlay, and
-   *   `listViews()` would exclude it on the very next read — the user's own
-   *   view would vanish from the switcher the moment they toggled its
-   *   density (objectui#4227 follow-up, PM review on PR #4713, measured:
-   *   `persistViewPatch` has no gate on which kind of tab is active, and
-   *   this method writes to the exact same `(type='view', name=viewId)` key
-   *   {@link createView}/the ADR-0034 `viewEnvelope` seam already used for
-   *   that view, so the write is an upsert onto the saved view's row, not a
-   *   new one).
-   *
-   * Per objectstack#7494's ruling, the overlay this writes (system-view
-   * case) is ORG-WIDE shared view settings, not a per-user preference — a
-   * true per-user scope is a parked v18 direction on the platform side.
-   *
-   * @param objectName - Object name (e.g. 'lead')
-   * @param viewId - View identifier (e.g. 'all_leads')
-   * @param config - Full view definition to persist
-   * @param opts.isSavedView - Whether `viewId` already names a saved view
-   *   (vs. a system view being personalized for the first time). Omit /
-   *   `false` for the default overlay-marking behavior.
-   */
-  /**
-   * [ADR-0066] Tell this adapter which system capabilities the session holds.
-   *
-   * Pass `undefined` for "no answer was reported" (a backend predating
-   * ADR-0066, or no permission provider mounted). Pass `[]` for a real,
-   * reported, empty grant — {@link maySetViewConfig} treats those two
-   * differently and callers must not collapse them, which is the same
-   * distinction `MePermissionsProvider` preserves natively (objectui#4656).
-   */
-  setSystemCapabilities(capabilities: string[] | undefined): void {
-    this.systemCapabilities = capabilities ? [...capabilities] : undefined;
-  }
-
-  /**
-   * May this session write ORG-WIDE view configuration?
-   *
-   * **Unknown fails OPEN**, deliberately, and this is the one judgement in the
-   * gate worth reading twice. It is the doctrine `PermissionContextValue`
-   * .`hasCapabilities` states for every ADR-0066 gate in this repo
-   * (objectui#4656, framework#3923): the server enforces `manage_metadata` on
-   * the metadata door regardless of what the client believes, so a client-side
-   * denial on MISSING DATA cannot protect anything the server was not already
-   * protecting — it can only break a permitted user. Failing closed here would
-   * have refused the write on every deployment predating ADR-0066 and every
-   * host with no permission provider, which is "break the write for everyone"
-   * wearing the costume of a security fix.
-   *
-   * A REPORTED empty array gates strictly: "holds nothing" is a real answer.
-   */
-  private maySetViewConfig(): boolean {
-    if (this.systemCapabilities === undefined) return true;
-    return this.systemCapabilities.includes(VIEW_CONFIG_CAPABILITY);
-  }
-
-  async updateViewConfig(
-    objectName: string,
-    viewId: string,
-    config: Record<string, any>,
-    opts?: { isSavedView?: boolean }
-  ): Promise<Record<string, any> | void> {
-    // objectstack#7494's ruling — THE GATE. Checked first: before `connect()`,
-    // before `saveItem`, before the payload is even assembled, so a refused
-    // call puts nothing on the wire and cannot half-write the org-wide row.
-    //
-    // This is on the WRITE PATH on purpose. Withholding the toolbar affordance
-    // would leave this method still accepting the call from anything else
-    // holding the adapter; the ruling gates the write, so the write is where
-    // the refusal lives — and every caller, present or future, inherits it.
-    if (!this.maySetViewConfig()) {
-      throw new ViewConfigPermissionDeniedError(objectName, viewId);
-    }
-    await this.connect();
-    // ADR-0005 metadata customization overlay: persist views under
-    // `type='view'` (NOT `type=<objectName>` — that was a pre-overlay
-    // misuse that hit `/api/v1/meta/<objectName>/<viewId>`, which the
-    // server never wired). The view's `data.object` field is what
-    // associates it back to the object on read. `VIEW_OVERLAY_MARKER` is
-    // stamped LAST, alongside `object`/`name`, so nothing in `config` can
-    // shadow it (objectui#4227) — this is what lets `listViews()` exclude
-    // the row instead of `savedViews.find` matching it and presenting a
-    // system view as user-created/mutable. Withheld entirely when the
-    // caller says this write targets a saved view's own row (see the
-    // doc comment above).
-    const merged = {
-      ...(config || {}),
-      object: (config as any)?.object || objectName,
-      name: viewId,
-      ...(opts?.isSavedView ? {} : { [VIEW_OVERLAY_MARKER]: true }),
-    };
-    const result: any = await this.client.meta.saveItem(
-      'view',
-      viewId,
-      merged
-    );
-    // One seam names the key set for every writer (objectui#4373).
-    this.invalidateViewKeys(objectName, viewId);
-    if (result && result.item) return result.item;
-    return result ?? undefined;
   }
 
   /**
@@ -5872,7 +5653,8 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
         const viewKind = v.viewKind ?? spec?.viewKind;
         if (viewKind && FORM_FAMILY.has(viewKind)) return false;
         // Personalization overlays (density/sort/hiddenFields/columnState/
-        // inlineEdit — written by `updateViewConfig`) are NOT saved views:
+        // inlineEdit — written by the retired `updateViewConfig`, still at
+        // rest) are NOT saved views:
         // returning one here is what let a system view's override row read
         // back as user-created and gain Rename/Delete/Set-default/Pin
         // (objectui#4227). Only a row carrying the marker is excluded: the
@@ -7327,8 +7109,8 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
  * `DataSource<T>` interface: the object this hands back is an
  * `ObjectStackAdapter`, and the adapter-only members the package README
  * documents — `getClient`, the metadata-cache controls, the connection-state
- * and batch-progress subscriptions, and `setSystemCapabilities` — live on the
- * class, not on `DataSource`. Declaring the interface here narrowed all of them
+ * and batch-progress subscriptions — live on the class, not on `DataSource`.
+ * Declaring the interface here narrowed all of them
  * away from the factory while leaving them on the value (objectui#7323), so
  * `createObjectStackAdapter(...)` and `new ObjectStackAdapter(...)` — the two
  * documented ways to obtain the same object — handed back different type
@@ -7360,8 +7142,6 @@ export function createObjectStackAdapter<T = unknown>(config: {
   autoReconnect?: boolean;
   maxReconnectAttempts?: number;
   reconnectDelay?: number;
-  /** [ADR-0066] See {@link ObjectStackAdapter.setSystemCapabilities}. */
-  systemCapabilities?: string[];
 }): ObjectStackAdapter<T> {
   return new ObjectStackAdapter<T>(config);
 }

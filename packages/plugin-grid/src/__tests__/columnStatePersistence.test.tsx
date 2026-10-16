@@ -14,7 +14,8 @@
  * channels of `saveColumnState`:
  *   1. `localStorage.setItem(columnStorageKey, …)` — the per-browser fallback, and
  *   2. the `onColumnStateChange` prop — the host channel that `ObjectView` turns
- *      into `dataSource.updateViewConfig`.
+ *      into a write of the user's own list state (it was
+ *      `dataSource.updateViewConfig` until objectui#12418 / objectui#12504).
  *
  * Every spy and the storage are recreated per case (no module-level mock object
  * carrying one case's write into the next).
@@ -86,7 +87,7 @@ describe('ObjectGrid column-state persistence (outbound half)', () => {
 
     dragResize('Name', 160);
 
-    // Channel 1 — the host callback that reaches dataSource.updateViewConfig.
+    // Channel 1 — the host callback (the console stores it on the user's own list state).
     await waitFor(() => expect(onColumnStateChange).toHaveBeenCalled());
     const notified = onColumnStateChange.mock.calls.at(-1)![0];
     expect(notified.widths).toEqual({ name: 160 });

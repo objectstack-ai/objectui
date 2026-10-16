@@ -12,7 +12,7 @@
  *
  * ## The defect this pins
  *
- * `persistViewPatch` sends a whole-document PUT (`updateViewConfig` →
+ * `persistViewPatch` sent a whole-document PUT (`updateViewConfig` →
  * `client.meta.saveItem`). It built every body from the active tab as it was
  * when the page loaded — or, for an overlay, from the pending patch alone — and
  * nothing moved that base after a write landed. So the second change was built
@@ -29,9 +29,9 @@
  *
  * ## What runs
  *
- * The real object page and the real `persistViewPatch` (its 300 ms debounce
- * included), over the real `ObjectStackAdapter`, whose metadata client is a
- * store that judges every PUT with the spec's own `ViewMetadataSchema`, keeps
+ * The real object page over the real `ObjectStackAdapter`, whose metadata
+ * client is a store that judges every PUT with the spec's own
+ * `ViewMetadataSchema`, keeps
  * the parsed value (so it drops what the door drops), and answers the PUT the
  * way the door was measured to answer it: with no row. `ListView` is stubbed to
  * capture the schema the page hands it, so a toolbar change is the page's own
@@ -43,7 +43,9 @@
  * objectui#12474 the density and the hide-field toggle are the user's too, so
  * no toolbar change writes the view at all: each case now pins that both
  * changes survive the reload from the user's state while the stored row stays
- * exactly as it was. The direction note below is the original fix's.
+ * exactly as it was. `persistViewPatch` itself retired in objectui#12504, with
+ * the adapter's `updateViewConfig`. The direction note below is the original
+ * fix's.
  *
  * ## Direction, written before the reverse-verification run
  *
@@ -249,8 +251,6 @@ function pageDataSource(meta: any) {
     listViews: (objectName: string, o?: any) => ds.listViews(objectName, o),
     listViewOverrides: (objectName: string) => ds.listViewOverrides(objectName),
     getView: (objectName: string, viewId: string) => ds.getView(objectName, viewId),
-    updateViewConfig: vi.fn((objectName: string, viewId: string, config: any, o?: any) =>
-      ds.updateViewConfig(objectName, viewId, config, o)),
   } as any;
 }
 
@@ -334,10 +334,9 @@ describe('objectui#11642 — two toolbar changes in one session both survive a r
    */
   async function bothSurviveWithNoViewWrite(seed: Record<string, any>, viewId: string) {
     const { meta, rows } = makeStore([seed]);
-    const ds = await openView(meta, viewId);
+    await openView(meta, viewId);
     await densityThenHide();
 
-    expect(ds.updateViewConfig).not.toHaveBeenCalled();
     expect(meta.saveItem).not.toHaveBeenCalled();
     expect(toast.error).not.toHaveBeenCalled();
     // The stored row is the view, untouched.
@@ -363,6 +362,7 @@ describe('objectui#11642 — two toolbar changes in one session both survive a r
 
 // The debounce-and-chain cases this file carried pinned `persistViewPatch`'s
 // own write queue (a 300 ms debounce, then each PUT waiting for the previous
-// one). Since objectui#12474 no list toolbar control reaches that function, so
-// there is no toolbar write left to queue; the user's state has its own
-// debounce, pinned by `ObjectView.userListState-12418.test.tsx`.
+// one). Since objectui#12474 no list toolbar control reached that function, and
+// objectui#12504 retired it, so there is no toolbar write left to queue; the
+// user's state has its own debounce, pinned by
+// `ObjectView.userListState-12418.test.tsx`.

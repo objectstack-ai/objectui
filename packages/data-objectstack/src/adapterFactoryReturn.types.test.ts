@@ -23,8 +23,9 @@ import { createObjectStackAdapter, ObjectStackAdapter } from './index';
  * with TS2339: `getClient`, `getCacheStats`, `invalidateCache`, `clearCache`,
  * `getConnectionState`, `isConnected`, `onConnectionStateChange`,
  * `onBatchProgress`, `setSystemCapabilities`. Eight of those are exactly the
- * members the package README's API Reference documents, and the ninth is the
- * one the factory's own JSDoc links to.
+ * members the package README's API Reference documents, and the ninth was the
+ * one the factory's own JSDoc linked to — retired since objectui#12504 with the
+ * `updateViewConfig` gate it fed, so the eight are what these pins read.
  *
  * ## Where these pins get their colour
  *
@@ -70,7 +71,7 @@ describe('createObjectStackAdapter declares the adapter it returns (#7323)', () 
     // The card's own TS2339 reproduction, inverted into a pin. Each read is a
     // compile error the moment the declared return narrows back. They are real
     // calls rather than a type-only region because every one of them is inert
-    // on an adapter that has never connected, so the same nine lines carry the
+    // on an adapter that has never connected, so the same eight lines carry the
     // runtime half too.
     expect(dataSource.getClient()).toBeDefined();
     expect(dataSource.getCacheStats()).toBeDefined();
@@ -81,9 +82,8 @@ describe('createObjectStackAdapter declares the adapter it returns (#7323)', () 
     expect(dataSource.isConnected()).toBe(false);
     expect(typeof dataSource.onConnectionStateChange(() => {})).toBe('function');
     expect(typeof dataSource.onBatchProgress(() => {})).toBe('function');
-    dataSource.setSystemCapabilities(['manage_view_config']);
 
-    // ...and the same nine through the named type, because a consumer who
+    // ...and the same eight through the named type, because a consumer who
     // annotates a field or a hook's return writes the type, not the call.
     type _HasHiddenMembers = Assert<
       'getClient' extends keyof FactoryReturn
@@ -94,9 +94,7 @@ describe('createObjectStackAdapter declares the adapter it returns (#7323)', () 
                 ? 'isConnected' extends keyof FactoryReturn
                   ? 'onConnectionStateChange' extends keyof FactoryReturn
                     ? 'onBatchProgress' extends keyof FactoryReturn
-                      ? 'setSystemCapabilities' extends keyof FactoryReturn
-                        ? true
-                        : false
+                      ? true
                       : false
                     : false
                   : false
@@ -152,7 +150,6 @@ describe('createObjectStackAdapter declares the adapter it returns (#7323)', () 
       'isConnected',
       'onConnectionStateChange',
       'onBatchProgress',
-      'setSystemCapabilities',
     ] as const) {
       expect(typeof dataSource[member]).toBe('function');
     }

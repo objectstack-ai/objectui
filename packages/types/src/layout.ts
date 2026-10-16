@@ -1643,8 +1643,13 @@ export interface PageNodeSchema extends BaseSchema, Omit<SpecPage, (typeof PAGE_
    * `FullWidthTemplate`, the zod mirror's `.default('default')` made a PARSED
    * page take the template branch and skip the `pageType` dispatch entirely —
    * one authored page, two layouts. objectui#7735 removed the substitution.
+   *
+   * Typed by reference to the spec's member, so the closed set of layout
+   * names the spec declares is the set this node accepts — a re-declared
+   * `string` widens the inherited member, which TypeScript refuses once the
+   * spec closes it.
    */
-  template?: string;
+  template?: SpecPage['template'];
   /**
    * Local page state variables
    * Initialized on mount and available to all components via context

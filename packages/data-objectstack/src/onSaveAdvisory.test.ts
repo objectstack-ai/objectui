@@ -267,12 +267,12 @@ describe('save-advisory mode reflects the door the server reports (D1)', () => {
  * that never mention the interceptor.
  */
 describe('the enumerated callers are covered without a per-site edit', () => {
-  it("covers the adapter's own view save path (updateViewConfig)", async () => {
+  it("covers the adapter's own view save path (createView)", async () => {
     const { ds } = makeAdapter({ ...CLEAN_BODY, advisories: [PURGE_ADVISORY] });
     const events: MetadataSaveAdvisoryEvent[] = [];
     ds.onSaveAdvisory((e: MetadataSaveAdvisoryEvent) => events.push(e));
 
-    await ds.updateViewConfig('lead', 'all_leads', { object: 'lead' });
+    await ds.createView('lead', { name: 'all_leads', object: 'lead' });
 
     expect(events).toHaveLength(1);
     expect(events[0]!.type).toBe('view');

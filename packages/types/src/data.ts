@@ -640,10 +640,11 @@ export interface DataSource<T = any> {
    *
    * TWO CONTRACT TERMS, and they are not the same value (objectui#3774):
    *
-   * - The map MUST be keyed by the SAME view identity {@link updateViewConfig}
-   *   persists under and {@link getView} reads back by. An implementation that
-   *   enumerates a different key space than the one it writes to answers `{}`
-   *   forever, and every saved preference reads back as "didn't save".
+   * - The map MUST be keyed by the SAME view identity the view writes
+   *   ({@link createView}, {@link updateView}) persist under and {@link getView}
+   *   reads back by. An implementation that enumerates a different key space
+   *   than the one it writes to answers `{}` forever, and every saved
+   *   preference reads back as "didn't save".
    * - An empty map means "no overrides exist" and is AUTHORITATIVE — callers
    *   may trust it and skip the per-view reads. A failure MUST therefore
    *   REJECT, never resolve to `{}`: swallowing it into an empty map is
@@ -655,33 +656,6 @@ export interface DataSource<T = any> {
    * @throws on transport/permission failure — do NOT resolve `{}` instead
    */
   listViewOverrides?(objectName: string): Promise<Record<string, any>>;
-
-  /**
-   * Persist a view configuration to the backend.
-   * Called when a user saves view settings (columns, filters, sort, toggles, etc.)
-   * from the inline ViewConfigPanel.
-   * Optional — implementations that do not support view persistence may omit this.
-   *
-   * @param objectName - Object name
-   * @param viewId - View identifier (e.g., 'all', 'pipeline')
-   * @param config - The full view configuration to persist
-   * @param opts.isSavedView - Whether `viewId` already names a saved
-   *   (user-created) view rather than a code-defined one being personalized
-   *   for the first time (objectui#4227 follow-up). A caller that tracks
-   *   which views are saved — the same classification that gates rename/
-   *   delete/pin/set-default affordances — SHOULD pass this so an
-   *   implementation that distinguishes overlay rows from saved-view rows
-   *   (to keep the two from masquerading as each other) does not mistake
-   *   an edit to a saved view's own row for a new overlay on top of it.
-   *   Omit when the distinction does not apply to a given implementation.
-   * @returns Promise resolving to the persisted config (or void)
-   */
-  updateViewConfig?(
-    objectName: string,
-    viewId: string,
-    config: Record<string, any>,
-    opts?: { isSavedView?: boolean },
-  ): Promise<Record<string, any> | void>;
 
   /**
    * List user-created overlay views for an object (ADR-0005 metadata

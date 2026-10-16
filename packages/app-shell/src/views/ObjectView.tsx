@@ -25,7 +25,7 @@ import { buildListFilterKey, readListFilterState, writeListFilterState } from '.
 import { useObjectListPreferences, type ListViewPreference } from '../context/ListPreferencesProvider.js';
 import { VALUELESS_FILTER_OPERATORS } from './viewFilterFold.js';
 import { parseUrlEqualityFilterTriples } from './drillUrlFilters.js';
-import { narrowPersonalizationOverlay, isViewConfigPermissionDeniedError, formatMetadataError, VIEW_OVERLAY_OWNED_KEYS } from '@object-ui/data-objectstack';
+import { narrowPersonalizationOverlay, formatMetadataError } from '@object-ui/data-objectstack';
 const ObjectChart = lazy(() =>
   import('@object-ui/plugin-charts').then((m) => ({ default: m.ObjectChart })),
 );
@@ -804,10 +804,11 @@ export function buildAddViewSpec(config: Record<string, any>, objectDef: any): R
  * Filter entries are matched in both at-rest shapes: spec `ViewFilterRule`
  * objects (`{ field, operator, value }`, what the fold writes) and the legacy
  * runtime triple `[field, operator, value]` a source view may declare and which
- * `persistViewPatch` USED TO copy into the overlay along with the rest of the
- * view — it now stores the patch alone (objectui#5233,
- * {@link buildPersistedViewBody}), so a triple can only reach this pass from a
- * row written before that landed, or from a saved view's own body.
+ * the console's toolbar write (`persistViewPatch`) USED TO copy into the
+ * overlay along with the rest of the view, until objectui#5233 narrowed it to
+ * the patch. That write is retired (objectui#12504), so a triple can only reach
+ * this pass from a row written before objectui#5233, or from a saved view's own
+ * body.
  *
  * Whether a matched entry's VALUE counts as supplied is asked of the builder's
  * own {@link isFilterValueComplete}, not of a local predicate (objectstack#8815,
@@ -996,11 +997,11 @@ function viewOriginLabel(
  * They disagreed because the metadata side spelled identity `{ id: key,
  * ...body, ...override }` — `id` FIRST, so an `id` key inside the stored body
  * or the stored override silently replaced it. Both are stored documents that
- * really do carry one: `persistViewPatch` WROTE the whole tab object (its `id`
- * included) back through `updateViewConfig` — since objectui#5233 it writes the
- * patch alone for an overlay ({@link buildPersistedViewBody}) but still the
- * whole body for a saved view's own row, and every row written before that
- * landed still carries an `id` — and a duplicated view copies its
+ * really do carry one: the console's toolbar write (`persistViewPatch` →
+ * `updateViewConfig`, both retired in objectui#12504) WROTE the whole tab
+ * object, its `id` included — objectui#5233 narrowed an overlay to the patch,
+ * but a saved view's own row kept the whole body, and every row written before
+ * that still carries an `id` — and a duplicated view copies its
  * source artifact's `id` verbatim. `viewEntry` stamps identity LAST at all
  * three sites, so the tab id is now a property of the key the caller looked the
  * view up by, and can never be a property of the data.
@@ -1167,237 +1168,6 @@ export function dispatchViewPatches(
 }
 
 /**
- * The body a toolbar toggle persists — **the patch only, for an overlay**
- * (objectui#5233).
- *
- * `persistViewPatch` used to send `{ ...baseViewDef, ...patch }`, so an overlay
- * written by a mere column drag copied the view's CURRENT effective `filter` —
- * and its `columns`, `label`, `type`, `isDefault` … — into the stored row. The
- * display merge is `{ ...source, ...override }`, so that copy then outranked
- * the source view forever: an admin edited the view's filter and every user who
- * had once resized a column kept the old one, with nothing reporting it.
- *
- * Ruled by the maintainer on 2026-08-12 (objectstack#7494, comment
- * `5261754173`): 「**`persistViewPatch` 只存 patch,不存 merged base** —— 独立小
- * 修,现在做:它把写入时的有效 filter 冻进 overlay,导致源视图后续的 filter 变更
- * 到不了带 overlay 的用户,这与 per-user 之争无关,是纯粹的存储形状错误。」
- *
- * ## Why the two branches are not one
- *
- * `updateViewConfig` persists through `client.meta.saveItem`, which is a **PUT
- * of the whole document** — the adapter's own `updateView` reads the current row
- * and merges onto it precisely because `saveItem` does not ("there is nothing to
- * merge onto. Fail loudly instead of emitting the partial write"). So what this
- * function returns is what the row BECOMES, not what is layered onto it:
- *
- * - **`isSavedView: false`** — a code-defined *system* view. The row is a
- *   personalization OVERLAY laid on top of a definition that lives elsewhere;
- *   nothing in it but the patch is an opinion the user expressed. Store the
- *   patch. The source view is then free to change under it, which is the card.
- * - **`isSavedView: true`** — a genuinely user-created *saved* view. The row IS
- *   the view; there is no source underneath it to shadow, so the ruled harm
- *   cannot arise here. A patch-only PUT would not narrow this row, it would
- *   **delete the user's view definition** — its `config`/`columns`/`filter`/
- *   `label` are not a frozen copy of anything, they are the view. This branch
- *   therefore still carries the body — with the patch placed where the body's
- *   own shape keeps it (next section).
- *
- * ## Where the saved branch puts the patch (objectui#11625)
- *
- * The active tab of a served view carries the stored row's nested `config`
- * (the ViewItem envelope `{ name, object, viewKind, config }`, merged into the
- * tab by `loadViewOverrides`). A body with a `config` is judged by the spec's
- * `viewItem` member of the `view` union, whose top level is stripped: the save
- * door keeps only the keys that member declares (ADR-0005 appendix (c)), so a
- * `rowHeight` spread beside `config` was answered `200` and dropped, and the
- * density reverted on reload. For an envelope-shaped base the patch is
- * therefore split by the spec's own vocabulary:
- *
- * - a key `ListViewSchema` declares (`rowHeight`, `sort`, `hiddenFields`,
- *   `inlineEdit`) is written into `config`, and any stale copy of it on the
- *   envelope is removed, so the wire carries the one spelling the door keeps;
- * - any other key stays on the envelope. That is where the row-owned keys live
- *   ({@link VIEW_ROW_STATE_KEYS}: `columnState` is the toolbar's one), and the
- *   envelope's own row state (`isDefault`, `isPinned`, …) is never moved.
- *
- * A FLAT base (no `config`) is judged by the flattened `listOverlay` member,
- * which declares the list-view keys at its top level, so it keeps the flat
- * spread. Putting a `config` on such a body would move it to the `viewItem`
- * member and strip every flat key the user's view is made of.
- *
- * The same `isSavedViewId` classification already decides the switcher's
- * readonly flag, its five mutating handlers, and whether `updateViewConfig`
- * stamps the overlay marker — so a row cannot be a saved view for one of them
- * and an overlay for another.
- *
- * ## What the overlay branch keeps besides the patch
- *
- * `viewKind` only, and only when the active tab carries one — **identity, not
- * content**, the same line `VIEW_OVERLAY_IDENTITY_KEYS`
- * (`@object-ui/data-objectstack`) draws on the read side, so the write now
- * produces exactly the shape the reader would keep. `object`, `name` and the
- * overlay marker are stamped by `updateViewConfig` itself; `label` is
- * deliberately NOT kept (the platform inherits it from the shadowed registry
- * entry — a stored one is a snapshot of the source view's label at write time,
- * which is the very class of frozen key this narrowing exists to stop).
- *
- * The patch is written verbatim rather than filtered through
- * `VIEW_OVERLAY_OWNED_KEYS`: every call site passes exactly the one key the
- * user just changed, and a filter here would SILENTLY drop a sixth key someone
- * later persists. The ratchet in `ObjectView.overlayPatchOnly.test.ts` is what
- * makes that drift loud instead.
- *
- * ## Consequence for rows written before this shipped
- *
- * They are fat at rest and stay that way until touched — already harmless on
- * read since PR #5272 narrowed the merge (`sanitizeViewOverride` →
- * `narrowPersonalizationOverlay`). Because this write is a full-document PUT,
- * the next toolbar toggle on such a view **replaces** the fat row with the thin
- * one. So the issue's three dispositions land as: tolerate on read (shipped),
- * strip on next write (here), no migration — and both halves are pinned.
- *
- * ## What the caller hands in (objectui#11642)
- *
- * `persistViewPatch` passes the row the store holds when the write runs, read
- * back, not the tab as it was at page load: for a saved view that row is
- * `baseViewDef`, and for an overlay the stored overlay's own keys arrive inside
- * `patch` while the tab still supplies `viewKind` only. See
- * {@link toolbarWriteInputs}. This function's shapes are unchanged.
- *
- * Extracted from `persistViewPatch` so the write shape is assertable without
- * mounting the view, the same reason `buildViewTabs` and
- * `setDefaultViewPatches` above are exported.
- */
-export function buildPersistedViewBody(
-    baseViewDef: Record<string, any> | null | undefined,
-    patch: Record<string, any>,
-    opts: { isSavedView: boolean },
-): Record<string, any> {
-    if (opts.isSavedView) {
-        const base = baseViewDef || {};
-        const baseConfig = base.config;
-        if (!baseConfig || typeof baseConfig !== 'object' || Array.isArray(baseConfig)) {
-            return { ...base, ...patch };
-        }
-        // objectui#11625 — an envelope-shaped row: list-view keys go inside
-        // `config`, everything else stays on the envelope (see the doc above).
-        const configKeys = getListViewConfigKeys();
-        const envelope: Record<string, any> = { ...base };
-        const config: Record<string, any> = { ...baseConfig };
-        for (const [key, value] of Object.entries(patch)) {
-            if (configKeys.has(key)) {
-                config[key] = value;
-                delete envelope[key];
-            } else {
-                envelope[key] = value;
-            }
-        }
-        return { ...envelope, config };
-    }
-    const viewKind = (baseViewDef as any)?.viewKind;
-    // Identity is stamped LAST for the same reason `updateViewConfig` stamps
-    // `object`/`name`/the marker last: nothing in the payload can shadow it.
-    return viewKind === undefined ? { ...patch } : { ...patch, viewKind };
-}
-
-/**
- * What a toolbar write starts from (objectui#11642): **the row the store holds
- * when the write runs**, read through {@link loadViewOverrides} — the reader a
- * reload uses — and never the tab as it was when the page loaded.
- *
- * `updateViewConfig` is a whole-document PUT, so each write REPLACES the row.
- * The write used to start from the active tab as it was at page load (or, for
- * an overlay, from the pending patch alone), and nothing moved that base after
- * a write landed. So a second toolbar change in one session was built from a
- * row that no longer existed and silently dropped what the first one stored:
- * measured live, a density change reverted after a header sort, on every row
- * kind. Triage's ruling: after a successful write, the base for the next write
- * is the row that write stored, on every row kind, with no client-side merge
- * of guessed fields.
- *
- * Why the stored row is READ BACK rather than taken from the write itself,
- * measured against the platform's save door (objectstack `main`, showcase app):
- * the `PUT /api/v1/meta/view/NAME` answer carries no row — `{ success, version,
- * seq, state, message }`, the shape `SaveMetaItemResponseSchema` declares — and
- * the body sent is not what the door kept: it drops undeclared keys
- * (ADR-0005 appendix (c)), a sort entry's row `id` among them. The read is the
- * `GET /api/v1/meta/view` the page load takes, and the adapter drops its cache
- * on every view write (`invalidateViewKeys`), so it is the post-write row, not
- * the page-load copy. Reading when the write runs, rather than keeping a copy
- * of the row after each write, also composes with a row another handler on this
- * page wrote in between (set as default, pin, rename) and leaves no copy that
- * has to be kept fresh.
- *
- * - **Saved view** (an envelope row or a flat row): the stored row is the base
- *   {@link buildPersistedViewBody} places the patch on. The active tab is the
- *   base only when no stored row was read — a draft-only view in preview mode,
- *   or a failed read — which is how every write behaved before this change.
- * - **Overlay**: the stored overlay's own keys ({@link VIEW_OVERLAY_OWNED_KEYS},
- *   the keys `loadViewOverrides` narrows a marked overlay to) join the pending
- *   patch, so the row becomes the user's patches composed. It still carries
- *   nothing the shadowed view owns (objectui#5233): the tab supplies `viewKind`
- *   only, exactly as before, and a key the stored row holds outside the owned
- *   set is not carried forward.
- */
-async function toolbarWriteInputs(
-    dataSource: unknown,
-    objectName: string,
-    viewId: string,
-    activeTab: Record<string, unknown>,
-    pending: Record<string, unknown>,
-    isSavedView: boolean,
-): Promise<{ base: Record<string, unknown>; patch: Record<string, unknown> }> {
-    const read: unknown = (await loadViewOverrides(dataSource, objectName, [viewId]))[viewId];
-    const stored = read && typeof read === 'object' && !Array.isArray(read)
-        ? (read as Record<string, unknown>)
-        : undefined;
-    if (isSavedView) return { base: stored ?? activeTab, patch: pending };
-    const owned: Record<string, unknown> = {};
-    for (const key of VIEW_OVERLAY_OWNED_KEYS) {
-        if (stored?.[key] !== undefined) owned[key] = stored[key];
-    }
-    return { base: activeTab, patch: { ...owned, ...pending } };
-}
-
-/**
- * The provenance mark on the tab this page MAKES for an object that declares no
- * list view (objectui#11643): the `fallbackTab` the views memo hands
- * {@link buildViewTabs}, which pushes it only when no defined or primary view
- * exists.
- *
- * That tab is not a view anybody authored or served. No server serves it, and
- * unless a stored row of the same name shadows it, no row backs it. Its id
- * `all` is the console's placeholder, not a view name: a bare `all` would
- * collide across objects, and storing a toolbar change under it would mint a
- * metadata row nobody authored. Before this mark, a toolbar change on it took
- * the overlay branch of `persistViewPatch` like a served view's and was sent as
- * `PUT /meta/view/all` carrying no `viewKind`; with no registry entry of that
- * name to inherit one from, the door judged the body as a view container and
- * refused it (`422 INVALID_METADATA`), and the change was gone on reload.
- *
- * Triage's ruling (objectui#11643, comment `5988346142`): the fallback tab's
- * toolbar changes apply for the session and send no metadata write, and no view
- * is created to hold them. An object that wants saved personalization declares
- * a list view, and the served-view path then applies.
- *
- * Why a mark and not the id: an object may declare a served list view whose tab
- * id is `all` as well (a bare key in the object's own `listViews`), and that one
- * keeps saving. Provenance is decided where the tab is made. Object spread and
- * `Object.assign` copy a symbol-keyed property, so the mark rides every copy of
- * the tab this page takes (the views memo, the active view, a config draft
- * spread over it); `Object.entries`, `Object.keys` and `JSON.stringify` skip
- * it, so it never reaches a request body. Module-local and not exported: it is
- * a fact about this page's own tab, not a contract.
- */
-const CONSOLE_MADE_TAB = Symbol('objectui#11643 console-made fallback tab');
-
-/** Whether `tab` is the tab this page made for a view-less object — see {@link CONSOLE_MADE_TAB}. */
-function isConsoleMadeTab(tab: unknown): boolean {
-    return !!tab && typeof tab === 'object'
-        && (tab as { [CONSOLE_MADE_TAB]?: unknown })[CONSOLE_MADE_TAB] === true;
-}
-
-/**
  * Item-level keys a switcher tab carries that belong to the ROW, not to the
  * view body — the ones this surface's own handlers write through `updateView`
  * (`isDefault`, `isPinned`, `sortOrder`; the adapter merges them at the row's
@@ -1462,7 +1232,7 @@ function getListViewConfigKeys(): ReadonlySet<string> {
  *   {@link VIEW_ROW_STATE_KEYS}.
  *
  * Extracted so the persisted shape is assertable without mounting the view,
- * like {@link buildPersistedViewBody} above.
+ * like {@link buildViewTabs} above.
  */
 export function buildViewConfigSaveBody(
     objectName: string | undefined,
@@ -1681,137 +1451,14 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     // Draft state for view config edits — cached locally, saved on demand
     const [viewDraft, setViewDraft] = useState<Record<string, any> | null>(null);
 
-    // Per-view debounce timers + latest pending patch payloads. Keyed by
-    // viewId so toggles on different views don't clobber each other. We
-    // merge incoming patches into a single payload so rapid successive
-    // toggles (e.g. resize-drag emitting 60 events/sec) collapse into one
-    // network write.
-    const persistTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-    const persistPending = useRef<Record<string, Record<string, any>>>({});
-    // objectui#11642 — the writes to one view, chained. Each write reads the
-    // stored row it starts from (`toolbarWriteInputs`), so it must not start
-    // before the previous write to the same view has settled: a read taken
-    // while that PUT is still in flight returns the row from BEFORE it, and
-    // the second write would put the first change back.
-    const persistChains = useRef<Record<string, Promise<void>>>({});
-    // `persistViewPatch` is defined (and its `useCallback` deps evaluated)
-    // BEFORE `savedViews` state exists below — closing over it directly in
-    // the dependency array would read it in its temporal dead zone. Mirror
-    // it into a ref on every render instead (same pattern as
-    // `identityPolicyRef` above), read only from inside the callback body.
-    const savedViewsRef = useRef<any[]>([]);
-    // ⚠️ objectui#12474 — NO caller. It was the list toolbar's write into the
-    // shared view; the sort and the column layout left it in objectui#12418,
-    // the density and the Hide Fields popover in objectui#12474, and all four
-    // are the user's own list state (`listPrefs`). ⛔ Do not wire a toolbar
-    // control back to it: `ObjectView.overlayPatchOnly.test.ts` counts its
-    // references. Its retirement (with the adapter's `updateViewConfig`, which
-    // it was the last caller of) is a separate decision.
-    const persistViewPatch = useCallback(
-        (viewIdLocal: string, baseViewDef: Record<string, any>, patch: Record<string, any>) => {
-            if (!dataSource?.updateViewConfig || !objectName || !viewIdLocal) return;
-            // objectui#11643 — the tab this page made for an object that
-            // declares no list view has no row to write into. Its toolbar
-            // changes apply for the session (the list keeps them in its own
-            // state) and nothing is scheduled here: no read, no PUT, no toast.
-            // One rule for every control that reaches this function — density,
-            // sort, hidden fields, column order and widths. (The inline-edit
-            // toggle no longer reaches it: objectui#5144, ruling E.) A
-            // stored row that shadows the tab is a real row (`isSavedViewId`,
-            // the classification the write below uses) and keeps its save
-            // path. See `CONSOLE_MADE_TAB`.
-            if (isConsoleMadeTab(baseViewDef) && !isSavedViewId(savedViewsRef.current, viewIdLocal)) return;
-            // Merge into pending payload — every key present is the latest
-            // value the user intended.
-            const prev = persistPending.current[viewIdLocal] || {};
-            persistPending.current[viewIdLocal] = { ...prev, ...patch };
-            const existing = persistTimers.current[viewIdLocal];
-            if (existing) clearTimeout(existing);
-            persistTimers.current[viewIdLocal] = setTimeout(() => {
-                const merged = persistPending.current[viewIdLocal] || {};
-                delete persistPending.current[viewIdLocal];
-                delete persistTimers.current[viewIdLocal];
-                // A toolbar toggle fires through this ONE path for BOTH a
-                // system view (no overlay row yet) and a genuinely saved
-                // view — `baseViewDef` is the active tab either way, and
-                // nothing upstream of here branches on which. Tell the
-                // adapter which case this is via the SAME classification the
-                // switcher's own readonly gate and its five mutating
-                // handlers already use (`isSavedViewId`), rather than
-                // leaving it to (re-)infer from the write's shape: writing
-                // this as an unconditional personalization-overlay marker
-                // (objectui#4227) would flag the saved view's OWN row and
-                // make `listViews()` exclude it on the very next read — the
-                // user's own view would vanish from the switcher after they
-                // merely toggled its density (objectui#4227 follow-up,
-                // PM review on PR #4713).
-                const targetIsSavedView = isSavedViewId(savedViewsRef.current, viewIdLocal);
-                // objectui#5233 — for a system view's personalization overlay
-                // this is the PATCH ONLY: the row used to be written as
-                // `{ ...baseViewDef, ...merged }`, which froze the source
-                // view's effective `filter` (and `columns`, `label`, `type`,
-                // `isDefault` …) into it as of the drag. See
-                // `buildPersistedViewBody` for why the saved-view branch is
-                // deliberately NOT narrowed — its row IS the view, and
-                // `saveItem` is a whole-document PUT.
-                //
-                // objectui#11642 — and what the body starts from is the row
-                // the store holds when this write runs, read back, not the
-                // tab as it was at page load: see `toolbarWriteInputs`. The
-                // write waits for the previous write to this view first.
-                //
-                // Written as an assignment of one chain, not through a named
-                // local function: the write-refusal census
-                // (`writeRefusalCensus-11583.test.ts`) keys this write by its
-                // nearest named function, `persistViewPatch`, and reads its
-                // refusal path off the `.catch` below.
-                persistChains.current[viewIdLocal] = (persistChains.current[viewIdLocal] ?? Promise.resolve())
-                    .then(async () => {
-                        const { base, patch: toWrite } = await toolbarWriteInputs(
-                            dataSource, objectName, viewIdLocal, baseViewDef, merged, targetIsSavedView,
-                        );
-                        // Optional call: the guard at the top of `persistViewPatch`
-                        // does not narrow across this `setTimeout` closure, and the
-                        // contract declares `updateViewConfig` optional. `?.()` on
-                        // the member keeps the adapter as `this`.
-                        await dataSource.updateViewConfig?.(
-                            objectName,
-                            viewIdLocal,
-                            buildPersistedViewBody(base, toWrite, { isSavedView: targetIsSavedView }),
-                            { isSavedView: targetIsSavedView },
-                        );
-                    })
-                    .catch((err: any) => {
-                        // objectstack#7494's ruling — the gate refuses ORG-WIDE
-                        // view-config writes for a session without the authoring
-                        // capability. The toggle that triggered this has ALREADY
-                        // moved on screen, so the refusal has to be SAID: swallowing
-                        // it into console.error leaves the operator with a density
-                        // they did not get and no way to learn why until a reload
-                        // silently puts it back.
-                        if (isViewConfigPermissionDeniedError(err)) {
-                            toast.error(t('console.objectView.viewConfigPermissionDenied'));
-                            return;
-                        }
-                        console.error('[ObjectView] Failed to persist view config:', err);
-                        // objectui#11583: every other refusal is said too, with the
-                        // door's message. The client gate above answers only for a
-                        // session whose capabilities were reported; an unreported
-                        // one passes it, and the server's 403 lands here.
-                        toast.error(t('form.saveError'), {
-                            description: formatMetadataError(err),
-                            classNames: { description: 'whitespace-pre-line' },
-                        });
-                    });
-                // Drop the settled tail so the map holds only writes in flight.
-                const chained = persistChains.current[viewIdLocal];
-                void chained.then(() => {
-                    if (persistChains.current[viewIdLocal] === chained) delete persistChains.current[viewIdLocal];
-                });
-            }, 300);
-        },
-        [dataSource, objectName]
-    );
+    // objectui#12504 — no toolbar control writes the shared view. The sort and
+    // the column layout (objectui#12418), the density and the Hide Fields
+    // popover (objectui#12474) are the user's own list state (`listPrefs`), and
+    // the shared view is written only by an explicit save
+    // (`handleViewConfigSave`, below). The toolbar-to-view writer that lived
+    // here, `persistViewPatch`, retired with the adapter method it was the last
+    // caller of. ⛔ Do not bring one back: `ObjectView.overlayPatchOnly.test.ts`
+    // pins its absence.
 
     /*
      * There is deliberately NO `persistViewFilter` here (objectui#4155).
@@ -1956,27 +1603,6 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     const { user, activeOrganization } = useAuth();
     const { isAdmin } = useWorkspaceAdminStatus();
     const perms = usePermissions();
-
-    // [ADR-0066 / objectstack#7494] Hand the adapter the session's REPORTED
-    // system capabilities so its `updateViewConfig` gate has something to judge
-    // by. The adapter is constructed by the host long before `/me/permissions`
-    // resolves, so this is a push, not a constructor argument.
-    //
-    // `systemPermissions` is passed straight through, `undefined` included:
-    // "never reported" and "reported empty" are different answers and the
-    // adapter decides between them (unknown fails OPEN — the server enforces
-    // the capability on the metadata door either way). Collapsing them here
-    // would re-derive, badly, the one distinction `MePermissionsProvider` goes
-    // out of its way to preserve (objectui#4656).
-    //
-    // Wired at THIS component because `updateViewConfig` has exactly one
-    // production caller — the `persistViewPatch` below (see the adapter method's
-    // own docblock). The gate itself is on the write, so a future second caller
-    // is refused whether or not it remembers to do this.
-    const { systemPermissions } = perms;
-    useEffect(() => {
-        (dataSource as any)?.setSystemCapabilities?.(systemPermissions);
-    }, [dataSource, systemPermissions]);
     
     // Get Object Definition. The outer ObjectView wrapper already guards the
     // missing-object case, so this always resolves while this component is
@@ -2256,7 +1882,6 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     // into `views` so the ViewTabBar renders them alongside metadata-defined
     // listViews.
     const [savedViews, setSavedViews] = useState<any[]>([]);
-    savedViewsRef.current = savedViews;
 
     // objectui#12418 — the signed-in user's OWN list state for this object:
     // the tab order, and per view the sort, the Filter panel's conditions and
@@ -2316,12 +1941,12 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
         return () => { cancelled = true; };
     }, [dataSource, objectName, refreshKey, previewDrafts]);
 
-    // Persisted per-view config overrides (e.g. density toggle). Saved
-    // separately from `objectDef.listViews` (the embedded definition) via
-    // `dataSource.updateViewConfig` and read back here so the toggle state
-    // survives a hard reload. Org-wide shared settings (objectstack#7494's
-    // ruling), not a per-user preference. Keyed by viewId → partial view
-    // config to merge.
+    // Persisted per-view config overrides: the rows stored under a view's id,
+    // separately from `objectDef.listViews` (the embedded definition) — an
+    // explicit save's, and the personalization overlays an earlier console's
+    // toolbar wrote (that write retired in objectui#12504; the rows at rest are
+    // still read). Org-wide shared settings (objectstack#7494's ruling), not a
+    // per-user preference. Keyed by viewId → partial view config to merge.
     //
     // Reading strategy (batch first, per-view fallback) lives in the exported
     // `loadViewOverrides` above so it can be pinned directly — see its doc for
@@ -2340,7 +1965,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
         const ids = Object.keys(definedViews);
         // Include the primary view id so overrides apply to it too. Its identity
         // comes from the view composer (objectui#3770) — the same id the override
-        // was persisted under, since `persistViewPatch` writes by view id.
+        // was persisted under, since a view's stored row is named by its view id.
         const primaryId = defaultListViewId(objectDef.name, (objectDef as any).list);
         if (primaryId && !ids.includes(primaryId)) ids.unshift(primaryId);
         if (ids.length === 0) {
@@ -2377,9 +2002,6 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 id: 'all',
                 label: t('console.objectView.allRecords'),
                 type: 'grid',
-                // objectui#11643 — made here, so marked here: its toolbar
-                // changes are session-only. See `CONSOLE_MADE_TAB`.
-                [CONSOLE_MADE_TAB]: true,
             }),
         });
 

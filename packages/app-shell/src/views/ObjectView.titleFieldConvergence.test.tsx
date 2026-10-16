@@ -60,7 +60,7 @@
  * The last case is structural rather than behavioural on purpose: the four
  * inline seams are closures inside `ObjectViewInner`, and "these five now have
  * the same SHAPE as those two" is a statement about the expressions, not about
- * one pair of values. Same posture as `ObjectView.viewConfigGate.test.ts`.
+ * one pair of values. Same posture as `view-filter-fold.ratchet.test.ts`.
  */
 
 import * as React from 'react';

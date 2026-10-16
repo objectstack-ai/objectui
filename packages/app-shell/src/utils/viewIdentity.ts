@@ -71,9 +71,10 @@ export function defaultListViewId(objectName: string, list: unknown): string | u
  *     stored override therefore REDEFINED the tab's identity.
  *
  * The third spelling is the defect. A stored view body can legitimately carry
- * an `id` key — `persistViewPatch` writes the whole tab object (`id` included)
- * back through `updateViewConfig`, and a duplicated view copies its source
- * artifact's `id` verbatim — so the spread handed the tab an identity the
+ * an `id` key — the console's toolbar write (`persistViewPatch` →
+ * `updateViewConfig`, retired in objectui#12504) wrote the whole tab object
+ * (`id` included), and those rows are still at rest; a duplicated view copies
+ * its source artifact's `id` verbatim — so the spread handed the tab an identity the
  * overlay read had never heard of. `isSavedView` then answered false for a view
  * that *is* saved, which both hid the set-default / rename / delete menu
  * entries (`readonly: !saved`) and short-circuited the handlers behind them.

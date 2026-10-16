@@ -39,7 +39,7 @@ import {
   STUDIO_KIND_CHIP,
 } from './studio-tokens.js';
 import { StudioInspector } from './StudioInspector.js';
-import { StudioItemHeader, StudioTab } from './StudioItemHeader.js';
+import { StudioItemHeader, StudioStatusChip, StudioTab, type StudioItemStatus } from './StudioItemHeader.js';
 import { overlayPath, packagedAutomationPath } from './BuilderLanding.js';
 import { DATA_CONTENT_CONTAINER, DATA_TAB_FLAT_ONLY, DATA_TAB_FOLDED_ONLY } from './dataTabsFold.js';
 import { StudioRail, StudioRailGroup, StudioRailRow } from './StudioRail.js';
@@ -259,8 +259,11 @@ import {
   readFields,
   writeFields,
   newField,
+  toFieldNameLoose,
 } from '../metadata-admin/previews/object-fields-io.js';
+import type { FieldTypeId } from '../metadata-admin/previews/field-types.js';
 import { CreateItemDialog } from './CreateItemDialog.js';
+import { AddFieldPopover } from './AddFieldPopover.js';
 // objectui#11787 — the shared draft autosave, moved to its own module unchanged.
 import { useDraftAutoSave, type DraftSend } from './useDraftAutoSave.js';
 import { FLOW_PRESETS, flowPresetTrigger, type FlowPreset } from './flowPresets.js';
@@ -4038,13 +4041,11 @@ export function InterfacesPillar({
           </span>
         ) : undefined
       }
+      // objectui#12524 — the draft status sits after the kind chip, as in
+      // every pillar; the right slot holds actions only.
+      status={hasDraft && draftLoaded ? { label: t('engine.studio.unpublishedDraft', locale) } : undefined}
       actions={
         <>
-          {hasDraft && draftLoaded && (
-            <span className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300">
-              {t('engine.studio.unpublishedDraft', locale)}
-            </span>
-          )}
           {/* objectui#5813 — drafts auto-save; the spinner is the affordance. */}
           {saving === 'draft' && (
             <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground" data-testid="if-autosaving">
@@ -4820,6 +4821,17 @@ function nextFieldName(existing: string[]): string {
 }
 
 /**
+ * The api name of a field added with `label` (objectui#12516): the name the
+ * field inspector's Label derives from it (`toFieldNameLoose`), or, as the
+ * inspector keeps the default when that derivation is empty (a label with no
+ * Latin letters) or names another field, the next free `field_<N>`.
+ */
+function addedFieldName(label: string, existing: string[]): string {
+  const derived = toFieldNameLoose(label);
+  return derived && !existing.includes(derived) ? derived : nextFieldName(existing);
+}
+
+/**
  * Data pillar — the package's objects: a records grid (Airtable parity) plus
  * table-based field management. Add a field, or click a column header's edit
  * affordance, to open ObjectFieldInspector (full type list + per-type config)
@@ -5571,19 +5583,28 @@ export function DataPillar({
   const objHeld = objLoaded ? objIncomplete : null;
   useHeldEditReport(onHeldEditChange, objHeld?.clause ?? null);
 
-  // "+ add field": append a fresh text field and select it for editing in the panel.
+  // "+ add field": append a field with the label and type the Add field
+  // popover asked for (objectui#12516) and select it for editing in the panel.
   // Guarded in addition to being hidden — it's also reachable through
   // GridFieldAuthoringProvider/ObjectFormDesigner.
-  const addField = React.useCallback(() => {
+  const addField = React.useCallback((label: string, type: FieldTypeId) => {
     // objectui#11272 — never onto another object's buffer (not offered then).
     if (readOnly || !objLoaded) return;
     const view = readFields(objDraft.fields);
-    const name = nextFieldName(view.entries.map((e) => e.name));
-    view.entries.push(newField(name, 'text', t('engine.studio.data.newFieldLabel', locale)));
+    const name = addedFieldName(label, view.entries.map((e) => e.name));
+    view.entries.push(newField(name, type, label));
     setObjDraft((d) => ({ ...d, fields: writeFields(view) }));
     setDirty(true);
     setFieldSel({ kind: 'field', id: name });
   }, [objDraft, readOnly, objLoaded]);
+
+  // objectui#12516 — the Records grid's "+" column opens the same popover. The
+  // grid draws that button from its authoring context and hands no element
+  // back, so the popover is placed against the records body's top-right
+  // corner, and the button is remembered (from the click on its way down) to
+  // take focus back when the popover closes.
+  const [gridAddFieldOpen, setGridAddFieldOpen] = React.useState(false);
+  const gridAddFieldButton = React.useRef<HTMLElement | null>(null);
 
   // Drag-reorder columns → reorder the object's `fields` metadata (field display
   // order follows metadata order), saved as a DRAFT. Published later via the
@@ -5829,13 +5850,7 @@ export function DataPillar({
             titleProps={current ? undefined : { className: 'text-[13px] font-normal text-muted-foreground' }}
             apiName={current?.name}
             meta={current && objLoaded ? tFormat('engine.studio.data.fieldCount', locale, { count: fieldCount }) : undefined}
-            chips={
-              hasDraft && objLoaded ? (
-                <span className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300">
-                  {t('engine.studio.unpublishedDraft', locale)}
-                </span>
-              ) : undefined
-            }
+            status={hasDraft && objLoaded ? { label: t('engine.studio.unpublishedDraft', locale) } : undefined}
             actions={
               <>
                 {/* objectui#5813 — drafts auto-save (see useDraftAutoSave above); the
@@ -5857,7 +5872,8 @@ export function DataPillar({
                     it reads the same on every tab. Object settings retired: the
                     Settings tab is that control. Add field is a field action,
                     offered where fields are laid out: the Form toolbar and the
-                    Records grid's own "+" column, both running `addField`. The
+                    Records grid's own "+" column, both opening the Add field
+                    popover that runs `addField` (objectui#12516). The
                     More menu went with it, since the header has no object-level
                     action left to put in one. */}
                 {/* objectui#12453 — on the Form tab it carries the layout's
@@ -5997,7 +6013,27 @@ export function DataPillar({
               {/* Records grid — fields are the columns. Header "+" adds a field, the
                 * per-column edit affordance opens the field editor, and dragging a
                 * column header reorders the object's fields (all via the context). */}
-              <div className="min-h-0 flex-1 overflow-auto bg-background" data-testid="data-records-body">
+              <div
+                className="relative min-h-0 flex-1 overflow-auto bg-background"
+                data-testid="data-records-body"
+                onClickCapture={(e) => {
+                  // React carries a click inside the (portalled) popover here
+                  // too; only a click in the body's own DOM is the grid's.
+                  if (e.target instanceof Element && e.currentTarget.contains(e.target)) {
+                    gridAddFieldButton.current = e.target.closest('button');
+                  }
+                }}
+              >
+                {!readOnly && (
+                  <AddFieldPopover
+                    open={gridAddFieldOpen}
+                    onOpenChange={setGridAddFieldOpen}
+                    onCreate={addField}
+                    returnFocusTo={() => gridAddFieldButton.current}
+                  >
+                    <span aria-hidden="true" className="pointer-events-none absolute right-4 top-2 h-0 w-0" />
+                  </AddFieldPopover>
+                )}
                 <GridFieldAuthoringProvider
                   value={{
                     // Read-only package: keep the per-column inspector (view props)
@@ -6005,7 +6041,7 @@ export function DataPillar({
                     ...(readOnly
                       ? {}
                       : {
-                          onAddColumn: addField,
+                          onAddColumn: () => setGridAddFieldOpen(true),
                           addColumnLabel: t('engine.studio.data.addField', locale),
                           onReorderFields: doReorderFields,
                         }),
@@ -7436,13 +7472,7 @@ export function AutomationsPillar({
                 <span className="hidden 2xl:inline">{t('engine.studio.auto.designersMissing', locale)}</span>
               )
             }
-            chips={
-              hasDraft && flowLoaded ? (
-                <span className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300">
-                  {t('engine.studio.unpublishedDraft', locale)}
-                </span>
-              ) : undefined
-            }
+            status={hasDraft && flowLoaded ? { label: t('engine.studio.unpublishedDraft', locale) } : undefined}
             actions={
               <>
                 {/* objectui#5813 — drafts auto-save; the spinner is the affordance. */}
@@ -8001,19 +8031,20 @@ export function AccessPillar({
   // the note was, and the link's title carries the note's sentence. An open
   // set's header draws it at the tab row's right end (objectui#12456: the
   // title row truncated the set's label at the 1280 px design width).
-  const accessNoteEl = readOnly ? (
+  // objectui#12524 — the writable note is this pillar's draft status: the
+  // header draws it in the status place every pillar shares. The read-only
+  // link is an action, so it stays in the actions slot.
+  const accessStatus: StudioItemStatus | undefined = readOnly
+    ? undefined
+    : { label: t('engine.studio.access.banner', locale), title: t('engine.studio.access.bannerTitle', locale) };
+  const accessNoteEl = accessStatus ? (
+    <StudioStatusChip {...accessStatus} />
+  ) : (
     <StudioReadOnlyLink
       packageId={packageId}
       title={t('engine.studio.access.bannerTitleReadOnly', locale)}
       locale={locale}
     />
-  ) : (
-    <span
-      title={t('engine.studio.access.bannerTitle', locale)}
-      className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300"
-    >
-      {t('engine.studio.access.banner', locale)}
-    </span>
   );
   const accessExplainEl = (
     <button
@@ -8043,7 +8074,7 @@ export function AccessPillar({
       icon={owdOpen ? ShieldCheck : Shield}
       title={owdOpen ? t('engine.studio.owd.title', locale) : t('engine.studio.access.title', locale)}
       meta={owdOpen ? t('engine.studio.owd.subtitle', locale) : t('engine.studio.access.subtitle', locale)}
-      chips={readOnly ? undefined : accessNoteEl}
+      status={accessStatus}
       actions={
         <>
           {readOnly && accessNoteEl}

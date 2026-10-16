@@ -136,14 +136,6 @@ function createObjectStackAdapter<T = unknown>(config: {
   autoReconnect?: boolean; // default true
   maxReconnectAttempts?: number; // default 3
   reconnectDelay?: number; // default 1000 ms
-
-  /**
-   * [ADR-0066] The session's system capabilities, when the host already has them
-   * at construction time. Most hosts do NOT — `/me/permissions` resolves after
-   * the adapter exists — and push them in later via `setSystemCapabilities`.
-   * Omit for "unreported".
-   */
-  systemCapabilities?: string[];
 }): ObjectStackAdapter<T>;
 ```
 
@@ -250,11 +242,11 @@ either form):
 - `onBatchProgress(listener)` - Subscribe to bulk progress (returns unsubscribe)
 
 Those six bullets cover nine members, and they are the documented subset.
-`ObjectStackAdapter` declares **20** members beyond `DataSource` in all
-(`Exclude<keyof ObjectStackAdapter<unknown>, keyof DataSource<unknown>>`); the
-other eleven are lower-level seams — client discovery, cache-key invalidation,
-dataset and dashboard access, advisory subscriptions and capability configuration
-among them — which this page does not document and which carry no compatibility
+`ObjectStackAdapter` declares more members beyond `DataSource` than these —
+`Exclude<keyof ObjectStackAdapter<unknown>, keyof DataSource<unknown>>` lists
+them all; the rest are lower-level seams — client discovery, cache-key
+invalidation, dataset and dashboard access and advisory subscriptions among
+them — which this page does not document and which carry no compatibility
 promise here.
 
 ### Per-element data binding

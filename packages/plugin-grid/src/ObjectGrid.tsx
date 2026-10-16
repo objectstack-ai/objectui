@@ -613,7 +613,8 @@ export interface ObjectGridExternalPaginationProps
    * `onColumnReorder(newOrder)` — whereas this reports the MERGED, persisted
    * `{ order, widths }` layout after ObjectGrid has folded either event into
    * the state it also writes to `localStorage`, so a host can save one blob
-   * through `dataSource.updateViewConfig`. Deriving it from either table
+   * (the console stores it on the signed-in user's own list state). Deriving
+   * it from either table
    * callback would misstate both the payload and when it fires.
    */
   onColumnStateChange?: (state: ObjectGridColumnState) => void;
@@ -1753,10 +1754,10 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
    * unlisted, not missed.
    *
    * It is the USER-STATE persistence payload, not authoring surface: the host
-   * hands in whatever the user last saved (`app-shell/src/views/ObjectView.tsx`
-   * :1848 reads it off the view def) and writes their drags back through
-   * `dataSource.updateViewConfig` (`persistViewPatch`, same file :1867;
-   * `saveColumnState` below is the outbound half). Publishing it would put
+   * hands in whatever the user last saved (app-shell's `ObjectView` reads it
+   * off the user's own list state, then off the view def) and stores their
+   * drags back on that state (`persistListColumnState` there; `saveColumnState`
+   * below is the outbound half). Publishing it would put
    * column widths and order in the designer panel and in the generated
    * `sdui-intrinsics.d.ts` — i.e. bless hand-authoring a payload the product
    * writes on the user's behalf.
@@ -1805,7 +1806,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     } catch (e) {
       console.warn('Failed to persist column state:', e);
     }
-    // Notify parent so it can persist via dataSource.updateViewConfig.
+    // Notify the host so it can persist the layout (the console stores it on
+    // the signed-in user's own list state).
     if (typeof onColumnStateChange === 'function') {
       try { onColumnStateChange(state); } catch (e) { console.warn('onColumnStateChange threw:', e); }
     }
@@ -5816,9 +5818,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
    * — but it says nothing about a sort that is ALREADY in stored view state,
    * persisted before the signal existed. Replayed, that entry would put a
    * refused `$orderby` on the wire, paint an active-sort arrow on a header
-   * that offers no click, and ride along into the next
-   * `persistViewPatch({ sort })` the toolbar issues for an unrelated reason —
-   * the exact half-fix where the affordance is gone and the PUT still fires.
+   * that offers no click, and ride along into the next sort the host stores
+   * for an unrelated reason — the exact half-fix where the affordance is gone
+   * and the write still fires.
    *
    * So both directions run through the same filter: what the grid RENDERS the
    * sort state as, and what it EMITS back to whoever persists it. A stale

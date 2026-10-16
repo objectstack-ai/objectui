@@ -19,9 +19,11 @@
  *
  * The picker then rendered and emitted from the SAME array. So an edit to a
  * DIFFERENT part of the sort — a second key, a direction, a reset — re-emitted
- * the refused entry, and the host turned that into `persistViewPatch({ sort })`:
- * a personalization PUT storing a column the platform answers
- * `400 INVALID_SORT` for, written by a user who never touched that row.
+ * the refused entry, and the host stored it (then through
+ * `persistViewPatch({ sort })`, the toolbar's view write, retired in
+ * objectui#12504; today on the user's own list state): a personalization write
+ * storing a column the platform answers `400 INVALID_SORT` for, written by a
+ * user who never touched that row.
  *
  * ## What each test is holding down
  *
@@ -39,8 +41,9 @@
  *    as before, and a deployment that serves NO projection is untouched.
  *
  * The host is modelled as `ObjectView` writes it — `onSortChange` → a
- * `persistViewPatch({ sort })` spy — so what these tests read is the payload
- * that reaches stored view state, not an intermediate array.
+ * `persistSort({ sort })` spy (the console's `persistListSort`, the user's own
+ * list state) — so what these tests read is the payload that reaches stored
+ * state, not an intermediate array.
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
@@ -114,23 +117,23 @@ async function openSortPopover(
   dsOpts: { servesSignal?: boolean } = {},
 ) {
   const dataSource = makeDataSource(dsOpts);
-  // The host, spelled as `ObjectView` spells it:
-  // `onSortChange: (sort) => persistViewPatch(viewDef.id, viewDef, { sort })`.
-  const persistViewPatch = vi.fn();
+  // The host, spelled as `ObjectView` spells it: `onSortChange: persistListSort`,
+  // which stores `{ sort }` on the user's own list state.
+  const persistSort = vi.fn();
   render(
     <SchemaRendererProvider dataSource={dataSource as any}>
       <ListView
         schema={{ ...baseSchema, sort } as any}
         dataSource={dataSource as any}
-        onSortChange={(next: any) => persistViewPatch({ sort: next })}
+        onSortChange={(next: any) => persistSort({ sort: next })}
       />
     </SchemaRendererProvider>,
   );
   await waitFor(() => expect(dataSource.getObjectSchema).toHaveBeenCalled());
   fireEvent.click(screen.getByRole('button', { name: /^sort/i }));
   await screen.findByText('Sort Records');
-  persistViewPatch.mockClear();
-  return { persistViewPatch };
+  persistSort.mockClear();
+  return { persistSort };
 }
 
 /**
@@ -173,7 +176,7 @@ describe('ListView sort picker — what it lists is not what it persists (#6455)
   it('drops the platform-refused entry from the write an UNRELATED edit causes', async () => {
     // A view stored before the signal existed: its sort names a column the
     // platform now answers `400 INVALID_SORT` for.
-    const { persistViewPatch } = await openSortPopover([
+    const { persistSort } = await openSortPopover([
       { field: 'remote_status', order: 'asc' },
     ]);
 
@@ -181,8 +184,8 @@ describe('ListView sort picker — what it lists is not what it persists (#6455)
     addSortRow();
 
     // The write carries the edit the user made — and nothing else. Before this
-    // card it carried `remote_status` too, straight into `persistViewPatch`.
-    expect(persistedSort(persistViewPatch)).toEqual([{ field: 'name', order: 'asc' }]);
+    // card it carried `remote_status` too, straight into `persistSort`.
+    expect(persistedSort(persistSort)).toEqual([{ field: 'name', order: 'asc' }]);
   });
 
   it('keeps the refused entry LISTED while it is the current sort', async () => {
@@ -195,7 +198,7 @@ describe('ListView sort picker — what it lists is not what it persists (#6455)
   });
 
   it('persists the REMOVAL when the user deletes the refused row', async () => {
-    const { persistViewPatch } = await openSortPopover([
+    const { persistSort } = await openSortPopover([
       { field: 'remote_status', order: 'asc' },
     ]);
 
@@ -203,11 +206,11 @@ describe('ListView sort picker — what it lists is not what it persists (#6455)
 
     // Listed, removable, and the removal reaches stored view state — the whole
     // point of keeping the entry visible.
-    expect(persistedSort(persistViewPatch)).toEqual([]);
+    expect(persistedSort(persistSort)).toEqual([]);
   });
 
   it('leaves a sort with nothing refused in it exactly as it was', async () => {
-    const { persistViewPatch } = await openSortPopover([
+    const { persistSort } = await openSortPopover([
       { field: 'amount', order: 'asc' },
     ]);
 
@@ -215,7 +218,7 @@ describe('ListView sort picker — what it lists is not what it persists (#6455)
 
     // Both entries survive, in order: the filter is identity over a sort the
     // platform will order by.
-    expect(persistedSort(persistViewPatch)).toEqual([
+    expect(persistedSort(persistSort)).toEqual([
       { field: 'amount', order: 'asc' },
       { field: 'name', order: 'asc' },
     ]);
@@ -225,7 +228,7 @@ describe('ListView sort picker — what it lists is not what it persists (#6455)
     // The third door onto the same stored `sort`. Reset restores the view's
     // DECLARED array whole — so a view whose declared sort names a refused
     // column would re-persist it on every reset.
-    const { persistViewPatch } = await openSortPopover([
+    const { persistSort } = await openSortPopover([
       { field: 'remote_status', order: 'asc' },
     ]);
 
@@ -235,7 +238,7 @@ describe('ListView sort picker — what it lists is not what it persists (#6455)
     fireEvent.click(screen.getByTestId('sort-reset-default'));
 
     // The declared sort, minus what the platform refuses.
-    expect(persistedSort(persistViewPatch)).toEqual([]);
+    expect(persistedSort(persistSort)).toEqual([]);
   });
 
   it('changes nothing where the deployment serves NO projection', async () => {
@@ -243,14 +246,14 @@ describe('ListView sort picker — what it lists is not what it persists (#6455)
     // deployment older than objectstack#10235, or an inline/mock data source.
     // There is no verdict to filter by, so the pre-#10235 behaviour stands —
     // this is the pre-#6455 payload, byte for byte.
-    const { persistViewPatch } = await openSortPopover(
+    const { persistSort } = await openSortPopover(
       [{ field: 'remote_status', order: 'asc' }],
       { servesSignal: false },
     );
 
     addSortRow();
 
-    expect(persistedSort(persistViewPatch)).toEqual([
+    expect(persistedSort(persistSort)).toEqual([
       { field: 'remote_status', order: 'asc' },
       { field: 'name', order: 'asc' },
     ]);

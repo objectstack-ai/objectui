@@ -81,14 +81,14 @@ describe('objectui#11013 — the door: `objectName` alone does not bind a stored
 });
 
 describe('objectui#11013 — the writers: every console write path stamps `object`', () => {
-  it('createView, updateViewConfig and updateView each leave `object` on the row', async () => {
+  it('createView and updateView each leave `object` on the row', async () => {
     // The `updateView` target is a row at rest with no binding at all: the
-    // merge stamps one on the way back out.
+    // merge stamps one on the way back out. (`updateViewConfig` was the third
+    // writer here until objectui#12504 retired it.)
     const { ds, rows } = makeDS([{ name: `${OBJECT}.at_rest`, label: 'At rest', type: 'grid' }]);
     await ds.createView(OBJECT, { name: `${OBJECT}.created`, label: 'Created', type: 'grid' });
-    await ds.updateViewConfig(OBJECT, `${OBJECT}.overlay`, { rowHeight: 'short' });
     await ds.updateView(OBJECT, `${OBJECT}.at_rest`, { isPinned: true });
-    for (const name of [`${OBJECT}.created`, `${OBJECT}.overlay`, `${OBJECT}.at_rest`]) {
+    for (const name of [`${OBJECT}.created`, `${OBJECT}.at_rest`]) {
       expect(rows.get(`view::${name}`)?.object, name).toBe(OBJECT);
       expect(rows.get(`view::${name}`), name).not.toHaveProperty('objectName');
     }

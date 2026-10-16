@@ -904,7 +904,7 @@ export const UNGATED_EXAMPLES = {
     card: null,
     codes: [2304],
     reason:
-      'usage fragment: references `activeView`, `dataSource`, `obj`, `vid`, which the example never declares',
+      'usage fragment: references `activeView`, `saveUserRowHeight`, `vid`, which the example never declares',
   },
   'packages/react/src/hooks/useDiscovery.ts useDiscovery #1': {
     card: null,

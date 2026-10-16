@@ -35,7 +35,8 @@ import { ObjectStackAdapter } from './index';
  * ## objectui#4363 — every write path names BOTH keys
  *
  * Removing the dead key made the surviving asymmetry visible: only
- * `updateViewConfig` invalidated `view-overrides:{object}`, so `createView` /
+ * `updateViewConfig` (retired since objectui#12504) invalidated
+ * `view-overrides:{object}`, so `createView` /
  * `updateView` / `deleteView` left the batch map stale for the cache's
  * 5-minute TTL. It does not self-heal — `loadViewOverrides` (app-shell
  * `ObjectView`) treats a RESOLVED map as authoritative and deliberately does
@@ -44,8 +45,9 @@ import { ObjectStackAdapter } from './index';
  *
  * So the rule these pins now enforce is uniform and per-METHOD, not
  * per-branch: **a write to a view row invalidates the per-view key and the
- * object's override map.** Four paths (five call sites — `updateView` has a
- * draft half and a published half) emit the same ordered pair. The two sweep
+ * object's override map.** Three paths (four call sites — `updateView` has a
+ * draft half and a published half) emit the same ordered pair; a fourth path,
+ * `updateViewConfig`, did too until objectui#12504 retired it. The two sweep
  * pins are untouched controls: `listViews` stays uncached, and no path names a
  * `views:` key.
  */
@@ -171,16 +173,6 @@ describe('view metadata cache — invalidation names only keys with readers (#37
     expect(cacheReads).toEqual([]);
   });
 
-  it('updateViewConfig invalidates exactly the two keys that have readers', async () => {
-    const { ds, invalidated } = makeDS();
-
-    await ds.updateViewConfig('account', 'v1', { label: 'Renamed' });
-
-    // `view:{object}:{viewId}` → getView; `view-overrides:{object}` →
-    // listViewOverrides. Nothing else is read back under a view-shaped key.
-    expect(invalidated).toEqual(['view:account:v1', 'view-overrides:account']);
-  });
-
   it('listViewOverrides reads back under the key the write paths invalidate', async () => {
     // The pairing, not the string: every assertion below names
     // `view-overrides:account` because THIS is the key the batch reader caches
@@ -198,6 +190,8 @@ describe('view metadata cache — invalidation names only keys with readers (#37
 
     await ds.createView('account', { name: 'account.mine', object: 'account' });
 
+    // `view:{object}:{viewId}` → getView; `view-overrides:{object}` →
+    // listViewOverrides. Nothing else is read back under a view-shaped key.
     // A created view is a new row in the batch map; nothing else notices.
     // `saveItem` is an upsert, so the per-view key is named too — an explicit
     // `name` that already exists overwrites a row `getView` may hold cached.
@@ -247,13 +241,10 @@ describe('view metadata cache — invalidation names only keys with readers (#37
     const created = makeDS();
     await created.ds.createView('account', { name: 'account.mine', object: 'account' });
 
-    const config = makeDS();
-    await config.ds.updateViewConfig('account', 'v1', { label: 'Renamed' });
-
     const removed = makeDS();
     await removed.ds.deleteView('account', 'v1');
 
-    for (const { invalidated } of [created, config, removed]) {
+    for (const { invalidated } of [created, removed]) {
       expect(invalidated.filter((k) => k.startsWith('views:'))).toEqual([]);
     }
   });

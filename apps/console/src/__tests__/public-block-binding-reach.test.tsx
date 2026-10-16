@@ -118,7 +118,6 @@ const DATA_SOURCE_METHODS = [
   'getView',
   'listViews',
   'listViewOverrides',
-  'updateViewConfig',
   'onMutation',
 ] as const;
 

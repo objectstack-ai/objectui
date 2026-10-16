@@ -189,7 +189,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const trigger = () => screen.getByTitle('Switch / create package');
+const trigger = () => screen.getByTestId('studio-pkg-chip');
 
 /**
  * Drive it the way the author does — switcher trigger → "Package info &

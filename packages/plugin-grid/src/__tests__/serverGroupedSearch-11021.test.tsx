@@ -39,7 +39,8 @@
  * draws every unit at its full size over 11 rows.
  */
 import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest';
-import { render, cleanup, within, fireEvent } from '@testing-library/react';
+import { render, cleanup, fireEvent } from '@testing-library/react';
+import { withinBand } from './groupBandScope';
 import '@testing-library/jest-dom';
 import React from 'react';
 import { compileListViewGroupQuery } from '@objectstack/spec/ui';
@@ -170,7 +171,7 @@ const headerOf = (el: Element) => ({
 const headerCounts = () => Object.fromEntries(groupRows().map((r) => { const h = headerOf(r); return [h.label, Number(h.count)]; }));
 const groupRowEl = (label: string) => groupRows().find((r) => headerOf(r).label === label)!;
 const subjectsIn = (el: Element, unit: string) =>
-  within(el as HTMLElement).queryAllByText(new RegExp(`^${unit} #\\d+$`)).map((n) => n.textContent);
+  withinBand(el).queryAllByText(new RegExp(`^${unit} #\\d+$`)).map((n) => n.textContent);
 
 /** The row page queries: each one carries a group key under `$and`. */
 const groupRowFinds = (ds: ServerDataSource, from = 0) =>

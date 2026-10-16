@@ -161,7 +161,7 @@ describe('Studio shell header below and above 640 px (objectui#12509)', () => {
 
     // The chip is the piece that gives way on a tight row.
     const chip = await waitFor(() => {
-      const el = within(header).getByTitle(t('engine.studio.pkg.switchTitle', 'en'));
+      const el = within(header).getByTestId('studio-pkg-chip');
       expect(el).toHaveAttribute('data-pkg-list-state', 'loaded');
       return el;
     });

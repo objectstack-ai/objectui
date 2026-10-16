@@ -374,6 +374,8 @@ function extractSaveErrorMessage(error: unknown): string {
  * only reachable structurally through `DataTableSchema`.
  */
 type RowActionDef = NonNullable<DataTableSchema['rowActionDefs']>[number];
+/** The element type of `DataTableSchema.rowGroups` (objectui#12620). */
+type RowGroup = NonNullable<DataTableSchema['rowGroups']>[number];
 
 /**
  * The per-row outcome `onBatchSave` may resolve with (objectui#12292), derived
@@ -1164,6 +1166,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     showAddRow = false,
     borderless = false,
     disableInnerScroll = false,
+    rowGroups,
     // Read ONLY to diagnose it. `data-table` does not resolve `bind` and the
     // objectui#6575 ruling is explicit that it must not start — see
     // `dataTableBindDiagnostic.ts`.
@@ -1260,7 +1263,14 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   // non-array as quietly as an absent key — a `${...}` expression string, a
   // number, an object, a `null`. The behaviour is deliberate and unchanged
   // here; the second effect below is what stops it being silent.
-  const data = Array.isArray(rawData) ? rawData : EMPTY_ROWS;
+  //
+  // objectui#12620 — a grouped table draws the rows of its `rowGroups`, in
+  // group order, and `data` is not read.
+  const groupSourceRows = useMemo(
+    () => (rowGroups ? rowGroups.flatMap((group) => group.rows) : null),
+    [rowGroups],
+  );
+  const data = groupSourceRows ?? (Array.isArray(rawData) ? rawData : EMPTY_ROWS);
 
   // objectui#6575 — say out loud that an authored `bind` was ignored.
   //
@@ -1716,7 +1726,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   //
   // Decorate → sort → undecorate: the key is resolved ONCE per row rather than
   // on every one of the O(n log n) comparisons.
-  const sortedData = useMemo(() => {
+  const sortedFlatData = useMemo(() => {
     if (manualSorting) return filteredData;
     if (!sortColumn || !sortDirection) return filteredData;
     // A MASKED column orders nothing (objectui#10657), including a sort set
@@ -1733,6 +1743,32 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     return keyed.map((entry) => entry.row);
   }, [filteredData, sortColumn, sortDirection, manualSorting, rawColumns]);
 
+  // objectui#12620 — a grouped table keeps every row in its own band. The
+  // sorted rows are partitioned back into their groups, in group order; the
+  // partition is stable, so each group's rows keep the sort's order.
+  // `groupLayout` says where each group's rows sit in `sortedData`.
+  const groupedOrder = useMemo((): { rows: any[]; layout: { group: RowGroup; start: number; length: number }[] } | null => {
+    if (!rowGroups) return null;
+    const groupOf = new Map<any, number>();
+    rowGroups.forEach((group, at) => {
+      group.rows.forEach((row) => { if (!groupOf.has(row)) groupOf.set(row, at); });
+    });
+    const buckets: any[][] = rowGroups.map(() => []);
+    for (const row of sortedFlatData) {
+      const at = groupOf.get(row);
+      if (at !== undefined) buckets[at].push(row);
+    }
+    const rows: any[] = [];
+    const layout = rowGroups.map((group, at) => {
+      const start = rows.length;
+      rows.push(...buckets[at]);
+      return { group, start, length: buckets[at].length };
+    });
+    return { rows, layout };
+  }, [rowGroups, sortedFlatData]);
+  const sortedData = groupedOrder ? groupedOrder.rows : sortedFlatData;
+  const groupLayout = groupedOrder?.layout ?? null;
+
   // Pagination. Under manual (server-side) pagination the parent controls the
   // page and supplies the grand total via `rowCount`; `data` already IS the
   // current page, so we never slice it locally. Otherwise we paginate the
@@ -1743,7 +1779,8 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   const totalPages = manualPagination
     ? Math.max(1, Math.ceil((rowCount ?? sortedData.length) / pageSize))
     : Math.ceil(sortedData.length / pageSize);
-  const paginatedData = (pagination && !manualPagination)
+  // A grouped table is never paged here: its pages are the host's (objectui#12620).
+  const paginatedData = (pagination && !manualPagination && !groupLayout)
     ? sortedData.slice((currentPage - 1) * pageSize, currentPage * pageSize)
     : sortedData;
 
@@ -2834,6 +2871,26 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   const rowActionsColumnIsEditOnly = editable && !!(schema.onRowSave || schema.onBatchSave) && !rowMenuDeclared;
   const showToolbar = searchEnabled || exportable || (showSelectionCount && selectable && selectedRowIds.size > 0) || hasPendingChanges;
 
+  // The span of a row drawn as one cell across the table: the leading utility
+  // cell, every column, the row-actions cell and the add-column cell.
+  const fullRowColSpan = columns.length + leadingCellCount + (rowActions ? 1 : 0) + (addColumnEnabled ? 1 : 0);
+
+  // What the body draws, in order. Flat: the data rows. Grouped (objectui#12620):
+  // per group, its band, its data rows and its optional footer. A data row
+  // keeps its index in `paginatedData`, so selection, keyboard navigation and
+  // every per-row callback read a grouped row exactly as a flat one.
+  type BodyItem =
+    | { kind: 'row'; row: any; rowIndex: number }
+    | { kind: 'band'; group: RowGroup }
+    | { kind: 'footer'; group: RowGroup };
+  const bodyItems: BodyItem[] = groupLayout
+    ? groupLayout.flatMap(({ group, start, length }) => [
+      { kind: 'band' as const, group },
+      ...paginatedData.slice(start, start + length).map((row, at) => ({ kind: 'row' as const, row, rowIndex: start + at })),
+      ...(group.footer != null ? [{ kind: 'footer' as const, group }] : []),
+    ])
+    : paginatedData.map((row, rowIndex) => ({ kind: 'row' as const, row, rowIndex }));
+
   return (
     <div className={`flex flex-col h-full gap-2 sm:gap-4 ${className || ''}`}>
       {/* Toolbar */}
@@ -3112,10 +3169,12 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
             </TableRow>
           </TableHeader>
           <TableBody ref={tableBodyRef}>
-            {paginatedData.length === 0 ? (
+            {/* A grouped table with any group draws its bands even when no
+                group holds a row, all of them collapsed (objectui#12620). */}
+            {paginatedData.length === 0 && !groupLayout?.length ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell
-                  colSpan={columns.length + leadingCellCount + (rowActions ? 1 : 0) + (addColumnEnabled ? 1 : 0)}
+                  colSpan={fullRowColSpan}
                   className="h-48 text-center text-muted-foreground border-0"
                 >
                   <div className="flex flex-col items-center justify-center gap-3">
@@ -3212,7 +3271,37 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
               </TableRow>
             ) : (
               <>
-                {paginatedData.map((row, rowIndex) => {
+                {bodyItems.map((item) => {
+                  if (item.kind === 'band') {
+                    return (
+                      <TableRow
+                        key={`group-band:${item.group.key}`}
+                        data-testid="data-table-group-band"
+                        data-group-key={item.group.key}
+                        data-group-depth={item.group.depth ?? 0}
+                        className="h-9 bg-muted/30 hover:bg-muted/30 border-b border-border/60"
+                      >
+                        <TableCell colSpan={fullRowColSpan} className="h-9 px-0 py-0">
+                          {item.group.band}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  }
+                  if (item.kind === 'footer') {
+                    return (
+                      <TableRow
+                        key={`group-footer:${item.group.key}`}
+                        data-testid="data-table-group-footer"
+                        data-group-key={item.group.key}
+                        className="hover:bg-transparent border-b border-border/60"
+                      >
+                        <TableCell colSpan={fullRowColSpan} className="px-0 py-0">
+                          {item.group.footer}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  }
+                  const { row, rowIndex } = item;
                   const globalIndex = (effectivePage - 1) * pageSize + rowIndex;
                   const rowId = getRowId(row, globalIndex);
                   const isSelected = selectedRowIds.has(rowId);
@@ -3750,7 +3839,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                     onClick={() => schema.onAddRecord?.()}
                   >
                     <TableCell
-                      colSpan={columns.length + leadingCellCount + (rowActions ? 1 : 0) + (addColumnEnabled ? 1 : 0)}
+                      colSpan={fullRowColSpan}
                       className="h-9 px-3 py-1.5"
                     >
                       <span className="flex items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground transition-colors">
@@ -3782,7 +3871,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
       </div>
 
       {/* Pagination — hidden when only one page (no controls would be actionable) */}
-      {pagination && sortedData.length > 0 && totalPages > 1 && (
+      {pagination && !groupLayout && sortedData.length > 0 && totalPages > 1 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-3 sm:px-4 py-2">
           <div className="flex items-center gap-2">
             <span className="text-xs sm:text-sm text-muted-foreground">{t('table.rowsPerPage')}:</span>

@@ -29,6 +29,19 @@ export const STUDIO_HEADER_PILLAR_NAV =
 export const STUDIO_HEADER_PILLAR =
   'inline-flex h-7 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-md px-2.5 text-[13px] transition-colors sm:flex-none sm:shrink-0 xl:px-3';
 
+/**
+ * objectui#12611 — the package chip at a narrow width. The header's package
+ * column is the container: its width is the grid track's, so the chip's
+ * fold answers the room the column really has (the pillar switcher and the
+ * actions beside it), never the viewport. Below 300 px the chip's
+ * "Read-only" word gives way and its lock stays; the package name truncates
+ * only after that. At 300 px the 280 px chip still leaves the name 120 px
+ * with the word shown. The full name and the posture are in the chip's
+ * tooltip. Literal class strings: Tailwind finds a class by scanning source.
+ */
+export const STUDIO_HEADER_PACKAGE_COLUMN = '@container';
+export const STUDIO_PKG_READONLY_WORD = 'hidden @min-[300px]:inline';
+
 /** Rail: 240 px, the sidebar surface, a right border. */
 export const STUDIO_RAIL_WIDTH = 'w-60';
 export const STUDIO_RAIL_HEADER = 'flex h-11 shrink-0 items-center gap-2 pl-4 pr-3';
@@ -43,13 +56,39 @@ export const STUDIO_RAIL_GROUP = 'mt-1.5 flex h-7 items-center gap-1.5 px-2.5 te
 
 /** Content column: the item header row, its tab row and the body under them. */
 export const STUDIO_ITEM_HEADER = 'shrink-0 border-b px-6 pt-[18px]';
+/**
+ * objectui#12611 — the item header's title row, and the order in which it
+ * gives way on a narrow content column. The row itself is the container (not
+ * the header: the tab row under it holds the Data pillar's own fold, which
+ * measures the content column, and an unnamed container query answers the
+ * nearest container). The meta slot goes first, below 640 px of row (at the
+ * 1280 px design width with an aside open the row is about 690 px); then the
+ * status chip's text, below 480 px, its icon and tooltip staying; the title
+ * truncates last. While it shows, the meta takes only the room the row has
+ * left (`basis-0 grow`): it never puts the row short, so the title never
+ * gives a pixel to it. (A heavy `shrink` weight is not enough: the title's
+ * fraction-of-a-pixel share still draws its ellipsis.)
+ */
+export const STUDIO_ITEM_ROW = 'flex min-w-0 items-center gap-3 @container';
+export const STUDIO_ITEM_META_FOLD = 'hidden basis-0 grow @min-[640px]:block';
+export const STUDIO_STATUS_TEXT_FOLD = 'sr-only @min-[480px]:not-sr-only';
 export const STUDIO_ITEM_TITLE = 'min-w-0 truncate text-[18px] font-semibold leading-tight tracking-[-0.01em] text-foreground';
 export const STUDIO_ICON_TILE = 'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary';
 export const STUDIO_API_CHIP = 'inline-flex h-[22px] shrink-0 items-center rounded-[5px] bg-muted px-2 font-mono text-[11px] text-muted-foreground';
 export const STUDIO_KIND_CHIP = 'inline-flex h-[22px] shrink-0 items-center rounded-[5px] bg-muted px-2 text-[11px] font-medium text-muted-foreground';
 export const STUDIO_META = 'min-w-0 truncate text-xs text-muted-foreground';
-export const STUDIO_TAB_ROW = '-mb-px mt-3 flex gap-1';
-export const STUDIO_TAB = 'inline-flex h-9 items-center gap-1.5 border-b-2 px-2.5 text-[13px] transition-colors';
+/**
+ * objectui#12611 — the tab row never wraps: each tab keeps its label on one
+ * line, and when the tabs are wider than the row it scrolls sideways with no
+ * scrollbar. `data-fade` (set by `StudioItemHeader` from the scroll position)
+ * fades the edge that has more tabs past it.
+ */
+export const STUDIO_TAB_ROW =
+  '-mb-px mt-3 flex gap-1 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ' +
+  'data-[fade=end]:[mask-image:linear-gradient(to_right,#000_calc(100%_-_24px),transparent)] ' +
+  'data-[fade=start]:[mask-image:linear-gradient(to_left,#000_calc(100%_-_24px),transparent)] ' +
+  'data-[fade=both]:[mask-image:linear-gradient(to_right,transparent,#000_24px,#000_calc(100%_-_24px),transparent)]';
+export const STUDIO_TAB = 'inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-2.5 text-[13px] transition-colors';
 export const STUDIO_TAB_ACTIVE = 'border-primary font-medium text-foreground';
 export const STUDIO_TAB_IDLE = 'border-transparent text-muted-foreground hover:text-foreground';
 export const STUDIO_HEADER_ICON_BUTTON = 'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground';

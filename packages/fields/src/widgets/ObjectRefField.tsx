@@ -4,6 +4,7 @@ import { SchemaRendererContext } from '@object-ui/react';
 import type { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { useFieldTranslation } from './useFieldTranslation.js';
+import { loadObjectCatalog, objectRefOptionLabel, type ObjectHeader } from './objectCatalog.js';
 
 /**
  * ObjectRefField — object-name picker for form fields that store the machine
@@ -14,18 +15,11 @@ import { useFieldTranslation } from './useFieldTranslation.js';
  * the platform's registered objects instead of a free-text input where the
  * admin has to remember a machine name.
  *
- * Object catalog source, in order of preference:
- *   1. `dataSource.getObjects()` — the metadata-registry list endpoint
- *      (`GET /api/v1/meta/object`), which merges code- and DB-defined objects.
- *   2. Fallback: `dataSource.find('sys_metadata', { type: 'object' })` — the
- *      same source the Setup app's object grid browses.
+ * The object catalog is `loadObjectCatalog` (`./objectCatalog.ts`), the read
+ * the list cell names a stored object from as well (objectui#12613).
  * The stored value is always the object's `name` string. If the catalog can't
  * load, the current value is still shown, so the control degrades safely.
  */
-interface ObjectHeader {
-  name: string;
-  label?: string;
-}
 
 export function ObjectRefField({
   value,
@@ -51,23 +45,7 @@ export function ObjectRefField({
     let cancelled = false;
     (async () => {
       try {
-        let rows: ObjectHeader[] = [];
-        if (typeof dataSource.getObjects === 'function') {
-          rows = (await dataSource.getObjects()) ?? [];
-        } else if (typeof dataSource.find === 'function') {
-          const res = await dataSource.find('sys_metadata', {
-            $filter: { type: 'object' },
-            $top: 1000,
-          });
-          const list: any[] =
-            res?.data ?? res?.records ?? (Array.isArray(res) ? res : []);
-          rows = list
-            .map((r) => ({
-              name: String(r?.name ?? ''),
-              label: r?.label != null ? String(r.label) : undefined,
-            }))
-            .filter((r) => r.name);
-        }
+        const rows = await loadObjectCatalog(dataSource);
         if (!cancelled) setObjects(rows);
       } catch {
         if (!cancelled) setObjects([]);
@@ -81,7 +59,7 @@ export function ObjectRefField({
   const options = React.useMemo(() => {
     const opts = (objects ?? []).map((o) => ({
       value: o.name,
-      label: o.label ? `${o.label} (${o.name})` : o.name,
+      label: objectRefOptionLabel(o.name, o.label),
     }));
     // Keep the current value selectable even if the catalog didn't include it
     // (unknown / not-yet-published object), so editing never drops it.

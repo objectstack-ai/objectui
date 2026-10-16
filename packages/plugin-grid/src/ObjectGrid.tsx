@@ -3783,7 +3783,14 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             // Both answers, from the one shared resolve (objectui#8920):
             // `baseInferredType` is the DECLARED type the inline editor reads,
             // `inferredType` the renderer key it promotes to.
-            const { rendererType: inferredType, Renderer } = resolveGridCellRendering({ type: baseInferredType, format: formatHint });
+            // The `widget` hint promotes the same way (objectui#12613): an
+            // `object-ref` / `recipient-picker` text column draws the label of
+            // what it references, through the cell its widget names.
+            const { rendererType: inferredType, Renderer } = resolveGridCellRendering({
+              type: baseInferredType,
+              format: formatHint,
+              widget: objectDefField?.widget,
+            });
             const CellRenderer = withheld ? MaskedCellRenderer : inferredType ? Renderer : null;
 
             // Build field metadata for cell renderers with objectDef enrichment
@@ -3851,7 +3858,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               // Both link and action: link takes priority for navigation, action executes on secondary interaction
               cellRenderer = (value: any, row: any) => {
                 const displayContent = LinkContentRenderer
-                  ? <LinkContentRenderer value={value} field={fieldMeta as any} />
+                  ? <LinkContentRenderer value={value} field={fieldMeta as any} dependentValues={row} />
                   : (value != null && value !== '' ? String(value) : <EmptyValue />);
                 return (
                   <LinkCell
@@ -3869,7 +3876,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               // Link column: clicking navigates to the record detail
               cellRenderer = (value: any, row: any) => {
                 const displayContent = LinkContentRenderer
-                  ? <LinkContentRenderer value={value} field={fieldMeta as any} />
+                  ? <LinkContentRenderer value={value} field={fieldMeta as any} dependentValues={row} />
                   : (value != null && value !== '' ? String(value) : <EmptyValue />);
                 return (
                   <LinkCell
@@ -3905,9 +3912,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                 );
               };
             } else if (CellRenderer) {
-              // Type-only cell renderer (no link/action)
-              cellRenderer = (value: any) => (
-                <CellRenderer value={value} field={fieldMeta as any} />
+              // Type-only cell renderer (no link/action). The row rides as
+              // `dependentValues` for a cell whose value only means something
+              // beside a sibling column (objectui#12613).
+              cellRenderer = (value: any, row: any) => (
+                <CellRenderer value={value} field={fieldMeta as any} dependentValues={row} />
               );
             } else {
               // Default renderer with empty value handling
@@ -4037,6 +4046,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           const { declaredType, rendererType, Renderer } = resolveGridCellRendering({
             type: withheld ? null : fieldDef?.type || inferColumnType({ field: fieldName }),
             format: fieldDef?.format,
+            widget: fieldDef?.widget,
           });
           const CellRenderer = withheld ? MaskedCellRenderer : rendererType ? Renderer : null;
 
@@ -4082,7 +4092,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
           if (isPrimaryField && LinkContentRenderer) {
             cellRenderer = (value: any, row: any) => {
-              const displayContent = <LinkContentRenderer value={value} field={fieldMeta as any} />;
+              const displayContent = <LinkContentRenderer value={value} field={fieldMeta as any} dependentValues={row} />;
               return (
                 <LinkCell
                   testId="primary-field-link"
@@ -4106,7 +4116,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               </LinkCell>
             );
           } else if (CellRenderer) {
-            cellRenderer = (value: any) => <CellRenderer value={value} field={fieldMeta as any} />;
+            cellRenderer = (value: any, row: any) => <CellRenderer value={value} field={fieldMeta as any} dependentValues={row} />;
           }
 
           return {
@@ -4217,6 +4227,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           const { declaredType, rendererType, Renderer } = resolveGridCellRendering({
             type: withheld ? null : fieldDef?.type || inferColumnType({ field: fieldName }),
             format: fieldDef?.format,
+            widget: fieldDef?.widget,
           });
           const CellRenderer = withheld ? MaskedCellRenderer : rendererType ? Renderer : null;
           const header = fieldDef?.label || fieldName.charAt(0).toUpperCase() + fieldName.slice(1).replace(/_/g, ' ');
@@ -4264,7 +4275,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             ...(declaredType && { type: declaredType }),
             ...(schema.showColumnTypeIcons && rendererType && { headerIcon: getTypeIcon(rendererType) }),
             ...(inferredAlign && { align: inferredAlign }),
-            ...(CellRenderer && { cell: (value: any) => <CellRenderer value={value} field={fieldMeta as any} /> }),
+            ...(CellRenderer && { cell: (value: any, row: any) => <CellRenderer value={value} field={fieldMeta as any} dependentValues={row} /> }),
             sortable: fieldDef?.sortable !== false,
           };
         });
@@ -4369,7 +4380,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         // Aligned on the RENDERER key, like paths A-C: a `text` column with
         // `format: 'currency'` renders as currency, so it aligns as currency.
         ...(!!rendererType && numericTypes.includes(rendererType) && { align: 'right' as const }),
-        cell: (value: any) => <CellRenderer value={value} field={fieldForCell} />,
+        cell: (value: any, row: any) => <CellRenderer value={value} field={fieldForCell} dependentValues={row} />,
         sortable: field.sortable !== false,
       });
     });
@@ -6317,7 +6328,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       // type, so the dead branch goes with it.
       const { rendererType, Renderer } = resolveGridCellRendering(fieldDef);
       if (rendererType) {
-        return <Renderer value={value} field={fieldDef} />;
+        return <Renderer value={value} field={fieldDef} dependentValues={record} />;
       }
 
       // Fallback: infer from value and key name

@@ -860,6 +860,7 @@ const ja = {
   },
   kanban: {
     uncategorized: "未分類",
+    loadMore: "さらに読み込む",
     columns: "カラム",
     addCard: "カードを追加",
     addColumn: "カラムを追加",

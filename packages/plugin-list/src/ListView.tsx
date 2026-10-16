@@ -31,7 +31,7 @@ import { useDensityMode, resolveInlineAriaProps } from '@object-ui/react';
 import type { ListViewSchema, ObjectMapConfig } from '@object-ui/types';
 import { detectStatusField, isSystemManagedField } from '@object-ui/types';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { type ListViewVisualization, resolveConditionalFormatting, buildExpandFields, buildExportFileName, resolveAffordance, type SchemaLike, partitionRowsByPredicate, normalizeListViewSchema, isListViewVisualization, rowHeightToDensityMode, mergeFilterNodes, FilterOperatorError, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, PLATFORM_RECORD_COLUMNS, EXPANDABLE_FIELD_TYPES, UNMATERIALIZED_FIELD_TYPES, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, applyNonGridRowCeiling, type NonGridCeilingResult } from '@object-ui/core';
+import { type ListViewVisualization, resolveConditionalFormatting, buildExpandFields, buildExportFileName, resolveAffordance, type SchemaLike, partitionRowsByPredicate, normalizeListViewSchema, isListViewVisualization, rowHeightToDensityMode, mergeFilterNodes, FilterOperatorError, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, PLATFORM_RECORD_COLUMNS, EXPANDABLE_FIELD_TYPES, UNMATERIALIZED_FIELD_TYPES, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, applyNonGridRowCeiling, type NonGridCeilingResult, resolveNameField } from '@object-ui/core';
 import { useObjectLabel, useSafeFieldLabel, createSafeTranslation, useDisplayLocale, pickLocalized } from '@object-ui/i18n';
 // Two resolvers, two vocabularies — the repo spells the distinction into the
 // NAMES (objectui#4167). `resolveInlineI18nLabel` is the spec's own
@@ -43,6 +43,8 @@ import { useObjectLabel, useSafeFieldLabel, createSafeTranslation, useDisplayLoc
 // (objectui#5134).
 import { resolveI18nLabel as resolveInlineI18nLabel, normalizeFilterOperator, PaginationConfigSchema } from '@objectstack/spec/ui';
 import type { GroupingConfig, ListView as SpecListView } from '@objectstack/spec/ui';
+import { resolveInjectedSystemColumns } from '@objectstack/spec/data';
+import { SystemFieldName } from '@objectstack/spec/system';
 import { usePermissions } from '@object-ui/permissions';
 
 /**
@@ -1139,6 +1141,68 @@ const DEFAULT_LIST_DISPLAY_PAGE_SIZE = readSpecDisplayPageSize();
  * re-export it.
  */
 export const DEFAULT_LIST_FETCH_BATCH_SIZE = 100;
+
+/**
+ * The view's kanban block, as the board branch reads it: the spec's block over
+ * the legacy `options.kanban` bag, per key (objectui#10380). One reading for the
+ * branch and for `kanbanLanesPaged`, so the lane the board is built on and the
+ * lane its query is gated on are one answer.
+ */
+function kanbanBlockOf(schema: ListViewSchema): Record<string, any> {
+  return { ...((schema.options as any)?.kanban || {}), ...((schema as any).kanban || {}) };
+}
+
+/**
+ * The board's lane field: the block's `groupByField`, else the object's
+ * declared lifecycle (ADR-0085 `stageField`, through the shared detector).
+ */
+function kanbanLaneFieldOf(schema: ListViewSchema, objectDef: unknown): string | undefined {
+  return kanbanBlockOf(schema).groupByField || detectStatusField(objectDef as any) || undefined;
+}
+
+/**
+ * How many of the view's columns a card carries when the kanban block names
+ * no card fields of its own (objectui#12619).
+ */
+export const KANBAN_VIEW_CARD_FIELD_COUNT = 2;
+
+/**
+ * The card fields a board takes from the VIEW's columns (objectui#12619): the
+ * first {@link KANBAN_VIEW_CARD_FIELD_COUNT} that are not the card's title,
+ * its lane or its owner, by field name.
+ *
+ * The board used to be handed the view's columns whole, as entries — and a
+ * view's columns are `{ field }` objects as often as names, which the card
+ * reads as field names, so a card over `[{ field: 'name' }, { field:
+ * 'account' }, …]` drew nothing below its title. Names only, here, through the
+ * same `columnIdentity` the grid and this view's `$select` read a column by.
+ * The kanban block's own `columns` is the author's card list and is not cut.
+ */
+function kanbanCardFieldsFromView(columns: readonly unknown[], skip: ReadonlyArray<string | undefined>): string[] {
+  const skipped = new Set(skip.filter((name): name is string => !!name));
+  const out: string[] = [];
+  for (const column of columns) {
+    const name = columnIdentity(column);
+    if (!name || skipped.has(name) || out.includes(name)) continue;
+    out.push(name);
+    if (out.length === KANBAN_VIEW_CARD_FIELD_COUNT) break;
+  }
+  return out;
+}
+
+/**
+ * The record field holding a record's owner, when the object has one
+ * (objectui#12619) — the board shows the owner's avatar off it. Read from the
+ * spec's own declaration, never guessed: `resolveInjectedSystemColumns` answers
+ * whether the object's ownership model gives its records an owner, and
+ * `SystemFieldName.OWNER_ID` names the field the platform injects for it. The
+ * object definition has to declare that field too, or there is nothing to read.
+ */
+function kanbanOwnerFieldOf(objectDef: any): string | undefined {
+  if (!objectDef || typeof objectDef !== 'object') return undefined;
+  if (!resolveInjectedSystemColumns(objectDef).owner) return undefined;
+  return objectDef.fields?.[SystemFieldName.OWNER_ID] ? SystemFieldName.OWNER_ID : undefined;
+}
 
 /**
  * The rows of one `find` answer, in every envelope this view's fetch accepts: a
@@ -2488,9 +2552,43 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * headers carry the true counts and every group pages its own rows, so this
    * bar's "N records · Showing first N" would describe a window it never drew.
    * objectui#10881 adds the refused grouped grid (`groupingNeedsHeaderQuery`),
-   * which draws no rows at all.
+   * which draws no rows at all. objectui#12619 adds the board that pages its
+   * own lanes (`kanbanLanesPaged`); the footer shows the view's total for it
+   * instead (`boardRecordCountShown`).
    */
-  const surfaceDrawsFetchedRows = currentView !== 'gantt' && !gridOwnsGroupedFetch && !groupingNeedsHeaderQuery;
+  /**
+   * Does the board query its own lanes? (objectui#12619)
+   *
+   * A board under this view used to draw this component's window — on a view
+   * declaring `pagination.pageSize: 25`, the grid's first 25 rows — bucketed
+   * into lanes on the client. Measured on HotCRM's 45 opportunities: 25 cards,
+   * the closed columns at 0, and the footer's "Showing first 25 records". A
+   * lane is a query of its own, so the board is handed NO rows: it asks each
+   * lane for its first page and its count (`lanePaging` on `ObjectKanban`),
+   * under the same effective filter, search and sort this component would have
+   * sent. The window this component still fetches feeds what it always fed
+   * besides the board — the empty state, the export, the filter option counts —
+   * and its total is the record count the footer shows for the board.
+   *
+   * Only where the lanes are known before the query — the lane field's options
+   * in the object definition — and with no swimlane grouping, because those
+   * are the boards that page their lanes; any other board keeps the window, as
+   * before. Only where THIS component fetches: rows handed in whole stay whole.
+   */
+  const kanbanLaneField = currentView === 'kanban' ? kanbanLaneFieldOf(schema, objectDef) : undefined;
+  const kanbanLaneOptions: unknown = kanbanLaneField ? objectDef?.fields?.[kanbanLaneField]?.options : undefined;
+  const kanbanLanesPaged =
+    !!kanbanLaneField &&
+    Array.isArray(kanbanLaneOptions) &&
+    kanbanLaneOptions.length > 0 &&
+    !(groupingConfig?.fields?.length) &&
+    !Array.isArray(schema.data) &&
+    (schema.data as any)?.provider !== 'value' &&
+    !!schema.objectName &&
+    typeof dataSource?.find === 'function';
+
+  const surfaceDrawsFetchedRows =
+    currentView !== 'gantt' && !gridOwnsGroupedFetch && !groupingNeedsHeaderQuery && !kanbanLanesPaged;
 
   // objectui#10572 — the data-invalidation bus (`notifyDataChanged` from
   // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
@@ -3649,7 +3747,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    */
   const selfQueryFilterRef = React.useRef<{ key: string; value: unknown } | null>(null);
   let selfQueryFilter: unknown = authoredFilter;
-  if (currentView === 'gantt' || currentView === 'tree' || currentView === 'chart' || gridOwnsGroupedFetch) {
+  if (currentView === 'gantt' || currentView === 'tree' || currentView === 'chart' || gridOwnsGroupedFetch || kanbanLanesPaged) {
     try {
       const value = buildEffectiveFilter(authoredFilter, appliedFilters, appliedUserFilterConditions);
       const key = JSON.stringify(value ?? null);
@@ -3804,7 +3902,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         // detector — mirrors ObjectView's default so both entry paths agree.
         // objectDef loads async: until it lands this stays undefined and the board
         // re-derives lanes once it does.
-        const kanbanCfg = { ...(schema.options?.kanban || {}), ...(schema.kanban || {}) };
+        const kanbanCfg = kanbanBlockOf(schema);
         // ⭐ THE BLOCK'S DECLARED KEYS ONLY (objectui#6152 round 14). The spec's
         // kanban block is `groupByField` / `columns` / `titleField` /
         // `summarizeField`, each read by name below. This branch used to read
@@ -3818,8 +3916,21 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         // `columns` is the spec's list of fields shown on each card.
         // ObjectKanban's own `columns` prop is its LANES, so it goes out as
         // `cardFields` (mirrors plugin-view's adapter).
-        const { columns: kanbanCardColumns, groupByField, titleField, summarizeField } = kanbanCfg as Record<string, any>;
-        const laneField = groupByField || detectStatusField(objectDef) || undefined;
+        const { columns: kanbanCardColumns, titleField, summarizeField } = kanbanCfg as Record<string, any>;
+        const laneField = kanbanLaneFieldOf(schema, objectDef);
+        // objectui#12619 — the card fields: the block's own `columns` when
+        // the author named some (the spec's card-field key, every one of
+        // them), else the view's first columns past the title, the lane and
+        // the owner, by name (`kanbanCardFieldsFromView`).
+        const cardFields =
+          Array.isArray(kanbanCardColumns) && kanbanCardColumns.length > 0
+            ? kanbanCardColumns
+            : kanbanCardFieldsFromView(effectiveFields, [
+                titleField,
+                resolveNameField(objectDef),
+                laneField,
+                kanbanOwnerFieldOf(objectDef),
+              ]);
         // `groupBy` is the lane key and the ONLY one written here. This node
         // used to carry `groupField: laneField` alongside it — a duplicate the
         // `object-kanban` renderer never read (zero `groupField` sites under
@@ -3841,10 +3952,15 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           ...baseProps,
           groupBy: laneField,
           ...(titleField ? { titleField } : {}),
-          cardFields: kanbanCardColumns || effectiveFields || [],
+          cardFields,
           ...(groupingConfig ? { grouping: groupingConfig } : {}),
           // objectui#11629: the board sums this field at the top of each lane.
           ...(summarizeField ? { summarizeField } : {}),
+          // objectui#12619 — a board that pages its own lanes queries with the
+          // EFFECTIVE filter, as every view that queries for itself does
+          // (`selfQueryFilter`): the toolbar Filter and the chips reach its
+          // lanes only here. See `kanbanLanesPaged`.
+          ...(kanbanLanesPaged ? { filter: selfQueryFilter } : {}),
         };
       }
       case 'calendar': {
@@ -4243,7 +4359,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // asynchronously (`/me/permissions`) and `objectDef` loads into state, so a
   // grid schema built before either resolved must be rebuilt when they do —
   // otherwise `editable` keeps the pre-verdict answer for the session.
-  }, [currentView, schema, authoredFilter, currentSort, effectiveFields, hasAuthoredColumns, groupingConfig, rowColorConfig, navigation.handleClick, density.mode, galleryCardSize, inlineEdit, inlineEditOffered, objectDef, selfQueryFilter, ganttSearchTerm, gridOwnsGroupedFetch, calendarWindowed, handleCalendarVisibleRange]);
+  }, [currentView, schema, authoredFilter, currentSort, effectiveFields, hasAuthoredColumns, groupingConfig, rowColorConfig, navigation.handleClick, density.mode, galleryCardSize, inlineEdit, inlineEditOffered, objectDef, selfQueryFilter, ganttSearchTerm, gridOwnsGroupedFetch, calendarWindowed, handleCalendarVisibleRange, kanbanLanesPaged]);
 
   const hasFilters = currentFilters.conditions && currentFilters.conditions.length > 0;
 
@@ -4993,6 +5109,13 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // not take the summaries down with the count.
   const recordCountShown =
     !loading && data.length > 0 && surfaceDrawsFetchedRows && schema.showRecordCount !== false;
+  // objectui#12619 — a board that pages its own lanes draws every record of the
+  // view, a page per lane at a time, so the footer counts the VIEW: the total
+  // this component's own query answered, which is the sum of the board's lane
+  // counts. No "Showing first N" line: the board is not a window. Without a
+  // total the footer says nothing rather than count its own window.
+  const boardRecordCountShown =
+    kanbanLanesPaged && !loading && data.length > 0 && typeof fetchedTotal === 'number' && schema.showRecordCount !== false;
   const footerSummaryText =
     currentView === 'grid' && gridSummaries && gridSummaries.length > 0
       ? gridSummaries.map((s) => `${s.header}: ${s.label}`).join(' · ')
@@ -5900,12 +6023,34 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           <SchemaRenderer
             schema={viewComponentSchema}
             {...props}
-            {...(gridOwnsGroupedFetch
+            {...(gridOwnsGroupedFetch || kanbanLanesPaged
               // Withheld, not dropped. See `gridOwnsGroupedFetch` for the
               // grouped grid, which a window of rows would turn back into
-              // page-scoped grouping (objectui#7189).
+              // page-scoped grouping (objectui#7189), and `kanbanLanesPaged`
+              // for the board, which it would turn back into a board of one
+              // page (objectui#12619).
               ? {}
               : { data })}
+            {...(kanbanLanesPaged
+              // objectui#12619 — the board pages its own lanes: it is handed
+              // the toolbar term to query with and this component's refresh
+              // signal (the Refresh button, a host's `refreshTrigger`), host
+              // props both, never node keys.
+              ? {
+                  lanePaging: {
+                    search: searchTerm,
+                    ...(schema.searchableFields && schema.searchableFields.length > 0
+                      ? { searchFields: schema.searchableFields }
+                      : {}),
+                    reloadKey: `${refreshKey}:${String(schema.refreshTrigger ?? '')}`,
+                  },
+                }
+              : {})}
+            {...(viewComponentSchema.type === 'object-kanban' && kanbanOwnerFieldOf(objectDef)
+              // objectui#12619 — the owner field the object declares, for the
+              // avatar on each card (a host prop; the board guesses none).
+              ? { ownerField: kanbanOwnerFieldOf(objectDef) }
+              : {})}
             {...(gridOwnsGroupedFetch
               // objectui#11021 — the grid that groups on the server queries for
               // itself, so it is handed the toolbar term to query with (an
@@ -6079,11 +6224,16 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           (objectui#12528): the count at the left, the grid's column summaries
           at the right of the same row, truncated with the full text as their
           tooltip when they do not fit. */}
-      {(recordCountShown || footerSummaryText) && (
+      {(recordCountShown || boardRecordCountShown || footerSummaryText) && (
         <div
           className="border-t px-4 py-2 flex items-center gap-3 text-xs text-muted-foreground bg-background shrink-0"
           data-testid="record-count-bar"
         >
+          {boardRecordCountShown && (
+          <span className="shrink-0 font-medium text-foreground/80">
+            {t('list.recordCount', { count: fetchedTotal })}
+          </span>
+          )}
           {recordCountShown && (
           <span className="shrink-0 font-medium text-foreground/80">
             {/* Under server pagination `data` is only the current page, so the
@@ -6113,7 +6263,9 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           {/* Not on a windowed calendar either (objectui#12081): its fetch walks
               the date window in fetch batches, so a page size changes nothing
               it draws. */}
-          {currentView !== 'grid' && !calendarWindowed && schema.pagination?.pageSizeOptions && schema.pagination.pageSizeOptions.length > 0 && (
+          {/* Nor on a board that pages its own lanes (objectui#12619): each
+              lane asks its own page, so a page size changes nothing it draws. */}
+          {currentView !== 'grid' && !calendarWindowed && !kanbanLanesPaged && schema.pagination?.pageSizeOptions && schema.pagination.pageSizeOptions.length > 0 && (
             <div className="ml-auto flex items-center gap-2">
               <span>{t('table.rowsPerPage', { defaultValue: 'Rows per page' })}</span>
               <ListOptionPicker

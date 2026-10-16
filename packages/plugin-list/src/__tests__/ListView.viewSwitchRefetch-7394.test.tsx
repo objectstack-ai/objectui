@@ -66,7 +66,11 @@ let lastGridProps: any = null;
 let kanbanMounts = 0;
 let lastKanbanProps: any = null;
 
-function makeDataSource() {
+/**
+ * `laneOptions: false` declares the lane field with no options, so the board
+ * cannot page its own lanes and keeps this view's window (objectui#12619).
+ */
+function makeDataSource({ laneOptions = true }: { laneOptions?: boolean } = {}) {
   const find = vi.fn(async (_object: string, params: any) => {
     const top = params.$top ?? PAGE_SIZE;
     const skip = params.$skip ?? 0;
@@ -87,7 +91,9 @@ function makeDataSource() {
       fields: {
         id: { type: 'text' },
         title: { type: 'text' },
-        status: { type: 'select', options: [{ label: 'Todo', value: 'todo' }] },
+        status: laneOptions
+          ? { type: 'select', options: [{ label: 'Todo', value: 'todo' }] }
+          : { type: 'text' },
       },
     }),
   } as any;
@@ -155,11 +161,14 @@ describe('objectui#7394 — a visualization switch does not re-issue the same qu
 
     await clickView('Kanban');
 
-    // The switch REALLY happened and the board really got the rows — a count
-    // taken from a page that never left the grid would pass §1 for free.
+    // The switch REALLY happened — a count taken from a page that never left
+    // the grid would pass §1 for free. The board is handed no rows since
+    // objectui#12619: it pages its own lanes (`lanePaging`), so the one query
+    // counted below is still this view's own.
     await waitFor(() => expect(screen.queryByTestId('kanban-stub')).not.toBeNull());
     expect(kanbanMounts).toBe(1);
-    expect((lastKanbanProps.data ?? []).length).toBe(PAGE_SIZE);
+    expect(lastKanbanProps.data).toBeUndefined();
+    expect(lastKanbanProps.lanePaging).toBeDefined();
 
     // THE DEFECT: this was 2, with the second call identical to the first.
     expect(ds.find).toHaveBeenCalledTimes(1);
@@ -226,8 +235,10 @@ describe('objectui#7394 — a visualization switch does not re-issue the same qu
 
   it('§5 CONTROL: the row-cap banner keeps the gate the fetch used to apply', async () => {
     // Hidden on a paged grid that knows its total — every row is reachable
-    // through the pager — and shown on a surface that consumes one window.
-    const ds = makeDataSource();
+    // through the pager — and shown on a surface that consumes one window: a
+    // board whose lanes are not known before the query, which keeps this
+    // view's window (a board that pages its lanes is no window, objectui#12619).
+    const ds = makeDataSource({ laneOptions: false });
     renderList(ds);
     await waitFor(() => expect(screen.queryByTestId('grid-stub')).not.toBeNull());
     await waitFor(() => expect(ds.find).toHaveBeenCalledTimes(1));

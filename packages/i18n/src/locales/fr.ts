@@ -886,6 +886,7 @@ const fr = {
   },
   kanban: {
     uncategorized: "Non catégorisé",
+    loadMore: "Charger plus",
     columns: "colonnes",
     addCard: "Ajouter une carte",
     addColumn: "Ajouter une colonne",

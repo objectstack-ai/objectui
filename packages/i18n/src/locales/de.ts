@@ -860,6 +860,7 @@ const de = {
   },
   kanban: {
     uncategorized: "Nicht kategorisiert",
+    loadMore: "Mehr laden",
     columns: "Spalten",
     addCard: "Karte hinzufügen",
     addColumn: "Spalte hinzufügen",

@@ -892,6 +892,7 @@ const zh = {
     noCards: '暂无卡片',
     cardTitlePlaceholder: '输入卡片标题…',
     uncategorized: '未分类',
+    loadMore: '加载更多',
     columns: '列',
     requiredFieldsTitle: '填写必填字段',
     requiredFieldsDescription: '此次移动会使以下字段成为必填项。填写后即可继续。',

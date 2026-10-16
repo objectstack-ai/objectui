@@ -1122,6 +1122,7 @@ const en = {
     noCards: 'No cards',
     cardTitlePlaceholder: 'Enter card title…',
     uncategorized: 'Uncategorized',
+    loadMore: 'Load more',
     columns: 'columns',
     requiredFieldsTitle: 'Complete required fields',
     requiredFieldsDescription: 'This move makes the fields below required. Fill them in to continue.',

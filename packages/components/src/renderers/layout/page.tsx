@@ -32,6 +32,7 @@ import { PRINT_PAGE_ATTRIBUTE, PRINT_RUNNING_ATTRIBUTE, buildPagePrintStylesheet
 import { cn } from '../../lib/utils';
 import { PageBlockGrid } from './page-block-grid';
 import { PageDescriptionContext } from './page-description-context';
+import { PageRegionPostureProvider, PageWidthProvider, usePageWidthStore } from './page-region-posture';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -205,24 +206,35 @@ function pageHeaderOwnsTitle(schema: PageNodeSchema): boolean {
  * grid. A `rail` region (sidebar / aside) is a narrow column, where a fold by
  * viewport width would squeeze a tile to a sliver, so its blocks, and the
  * blocks inside its containers, stay full width (`./page-block-grid`).
+ *
+ * Each region also tells its blocks their posture (objectui#12703): the
+ * region's grid is measured against the page body `PageRenderer` publishes,
+ * and a region narrower than half the page is `compact`
+ * (`./page-region-posture`). A list block reads it to draw a short list
+ * instead of the object list's chrome. Measured, never authored, and judged
+ * on the region, not the viewport.
  */
 const RegionContent: React.FC<{
   region: PageNodeRegion;
   className?: string;
   rail?: boolean;
 }> = ({ region, className, rail }) => {
+  const gridRef = React.useRef<HTMLDivElement>(null);
   const components = region.components || [];
   if (components.length === 0) return null;
 
   return (
-    <PageBlockGrid
-      nodes={components}
-      className={cn(region.className, className)}
-      rail={rail}
-      keyPrefix={region.name}
-      toSchema={(node) => toRenderableSchema(node as SchemaNode)}
-      attributes={{ 'data-region': region.name }}
-    />
+    <PageRegionPostureProvider regionRef={gridRef}>
+      <PageBlockGrid
+        nodes={components}
+        className={cn(region.className, className)}
+        rail={rail}
+        keyPrefix={region.name}
+        toSchema={(node) => toRenderableSchema(node as SchemaNode)}
+        attributes={{ 'data-region': region.name }}
+        gridRef={gridRef}
+      />
+    </PageRegionPostureProvider>
   );
 };
 
@@ -673,6 +685,13 @@ export const PageRenderer: React.FC<{
   const print = isPagePrintDeclaration(schema.print) ? schema.print : null;
   const printStylesheet = print ? buildPagePrintStylesheet(print) : null;
 
+  // The element the regions are laid out in, whose width each region's
+  // posture is judged against (objectui#12703): the max-width body, not the
+  // padded outer wrapper, so a centred body on a very wide screen is "the
+  // page" and its `main` is not mistaken for a narrow column.
+  const pageBodyRef = React.useRef<HTMLDivElement>(null);
+  const pageWidthStore = usePageWidthStore(pageBodyRef);
+
   // Select the layout variant based on template or page type
   const layoutElement = useMemo(() => {
     // `PageNodeSchema['kind']` is the spec's own page-kind vocabulary, so this
@@ -798,7 +817,7 @@ export const PageRenderer: React.FC<{
       {printStylesheet && (
         <style data-print-stylesheet="" dangerouslySetInnerHTML={{ __html: printStylesheet }} />
       )}
-      <div className={cn(fullBleed ? 'space-y-6' : 'mx-auto space-y-6', maxWidthClass)}>
+      <div ref={pageBodyRef} className={cn(fullBleed ? 'space-y-6' : 'mx-auto space-y-6', maxWidthClass)}>
         {/* Implicit page title — the fallback heading for a page that does NOT
             author its own `page:header`. Suppressed whenever that component
             owns the h1 (always on record pages, and on any page carrying a
@@ -821,7 +840,7 @@ export const PageRenderer: React.FC<{
 
         {/* Page body — type-specific layout */}
         <PageDescriptionContext.Provider value={headerDrawsDescription ? schema.description : null}>
-          {layoutElement}
+          <PageWidthProvider store={pageWidthStore}>{layoutElement}</PageWidthProvider>
         </PageDescriptionContext.Provider>
       </div>
     </div>

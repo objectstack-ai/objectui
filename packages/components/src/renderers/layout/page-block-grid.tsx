@@ -37,11 +37,13 @@ export const PageBlockGrid: React.FC<{
   /** Maps a node to the schema `SchemaRenderer` renders (identity by default). */
   toSchema?: (node: unknown) => unknown;
   attributes?: Record<string, string | undefined>;
-}> = ({ nodes, className, rail, keyPrefix = 'block', toSchema, attributes }) => {
+  /** The grid element, for a caller that measures it (the region's posture, objectui#12703). */
+  gridRef?: React.Ref<HTMLDivElement>;
+}> = ({ nodes, className, rail, keyPrefix = 'block', toSchema, attributes, gridRef }) => {
   const inRail = React.useContext(PageBlockRailContext);
   const isRail = !!rail || inRail;
   const grid = (
-    <div className={cn('grid grid-cols-12 gap-4', className)} {...attributes}>
+    <div ref={gridRef} className={cn('grid grid-cols-12 gap-4', className)} {...attributes}>
       {nodes.map((node, idx) => {
         const n = node as { id?: unknown; type?: unknown } | null;
         const span = pageBlockSpan(n?.type, isRail);

@@ -1,0 +1,7 @@
+{
+  "tag": "after",
+  "confirm": [
+    "Discard the pending draft for QA Widget?"
+  ],
+  "toast": "Draft discarded: QA Widget"
+}

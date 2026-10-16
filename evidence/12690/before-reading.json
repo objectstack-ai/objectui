@@ -1,0 +1,7 @@
+{
+  "tag": "before",
+  "confirm": [
+    "Discard the pending draft for object/uxscratch_widget?"
+  ],
+  "toast": "Draft discarded: object/uxscratch_widget"
+}

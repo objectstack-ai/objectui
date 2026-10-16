@@ -8,8 +8,8 @@
  * ## The defect these cases reproduce
  *
  * `SchemaForm` routes a field to `ConditionWidget` by NAME CONVENTION
- * (`visible` / `hidden` / `disabled` / `visibleOn` / `condition` / `predicate` /
- * `*When`), so ONE widget serves every metadata type. It claimed no scope, so
+ * (`visible` / `hidden` / `disabled` / `condition` / `predicate` / `*When`),
+ * so ONE widget serves every metadata type. It claimed no scope, so
  * every one of those fields fell through to `celAuthoring`'s own
  * `hint.scope ?? 'flattened'` default and a bare `status == 'done'` linted
  * CLEAN — including on the action and hook tiers, where the runtime binds the

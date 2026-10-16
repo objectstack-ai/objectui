@@ -52,14 +52,14 @@ describe('SchemaForm — collapsible sections', () => {
     expect(screen.getByText('Open Field')).toBeInTheDocument();
   });
 
-  it('hides a section whose visibleOn predicate is false (object/CEL form)', () => {
+  it('hides a section whose visibleWhen predicate is false (object/CEL form)', () => {
     const condForm = {
       type: 'simple' as const,
       sections: [
         { label: 'Basics', fields: [{ field: 'openField' }] },
         {
           label: 'Layout',
-          visibleOn: { dialect: 'cel', source: "data.type != 'list'" },
+          visibleWhen: { dialect: 'cel', source: "data.type != 'list'" },
           fields: [{ field: 'advancedField' }],
         },
       ],

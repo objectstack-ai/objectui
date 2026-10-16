@@ -953,10 +953,10 @@ export function faceLabelling(face: FieldFace): WidgetLabelling {
   }
 }
 
-const CONDITION_FIELD_NAMES = new Set(['visible', 'hidden', 'disabled', 'visibleOn', 'condition', 'predicate']);
+const CONDITION_FIELD_NAMES = new Set(['visible', 'hidden', 'disabled', 'condition', 'predicate']);
 /**
  * Detect a CEL predicate field by NAME CONVENTION (`visible` / `hidden` /
- * `disabled` / `visibleOn` / `condition` / `*When`) so it renders the no-code
+ * `disabled` / `condition` / `*When`) so it renders the no-code
  * condition builder instead of a raw expression text box. No enum, and the
  * schema must admit a string — {@link admitsString} holds that veto and
  * documents why it looks through nested unions, why an empty schema is not
@@ -1052,28 +1052,27 @@ function resolveFieldWidget({
 }
 
 /**
- * Read a visibility predicate off a spec node — **canonical key first**.
+ * Read a visibility predicate off a spec node: `visibleWhen`, and only that.
  *
- * ADR-0089 renamed the FormView predicate `visibleOn` → `visibleWhen`, and the
- * spec's normaliser REWRITES the alias instead of keeping both: a parsed
- * `FormView` carries `visibleWhen` and no `visibleOn` at all
- * (`@objectstack/spec` `shared/visibility.ts`). Reading only `visibleOn` — what
- * this admin engine did until `7a197e7c5` — therefore found `undefined` on
- * every spec-served form and short-circuited each predicate to "always
- * visible", so conditional fields/sections rendered unconditionally.
+ * ADR-0089 renamed the FormView predicate `visibleOn` → `visibleWhen`, and
+ * `@objectstack/spec` 18 retires the old spelling. A parsed `FormView` carries
+ * `visibleWhen` and no `visibleOn` at all (`@objectstack/spec`
+ * `shared/visibility.ts`). Reading only `visibleOn`, which this admin engine did
+ * until `7a197e7c5`, found `undefined` on every spec-served form and
+ * short-circuited each predicate to "always visible".
  *
- * Spelling and precedence mirror the runtime record-form adapter
- * (`@object-ui/plugin-form` `sectionFields.ts`: `fd.visibleWhen ?? fd.visibleOn`)
- * so metadata-admin and the runtime form speak ONE dialect. The deprecated
- * alias stays honoured because it still has live producers: hand-written
- * layouts, and this app's own create schemas, which set `visibleOn` directly on
- * raw JSONSchema properties (`view-create-body.ts`) — those never pass through
- * the spec normaliser.
+ * The retired key is NOT read as a fallback (objectui#12696). Its last in-app
+ * producer, the view anchor's create schema (`anchors.ts`), writes `visibleWhen`
+ * now, and every authoring form the bundled spec ships carries `visibleWhen`
+ * only. A layout that still spells `visibleOn` is shown unconditionally here,
+ * exactly as the runtime form (`@object-ui/plugin-form` `sectionFields.ts`) and
+ * the console form page treat it, so the designer preview cannot pass a
+ * predicate that nothing else honours. Rename the key to `visibleWhen`.
  */
 function readVisibility(
-  node: { visibleWhen?: VisibilityPredicate; visibleOn?: VisibilityPredicate } | undefined | null,
+  node: { visibleWhen?: VisibilityPredicate } | undefined | null,
 ): VisibilityPredicate | undefined {
-  return node?.visibleWhen ?? node?.visibleOn;
+  return node?.visibleWhen;
 }
 
 export interface SchemaFormIssue {
@@ -1099,7 +1098,7 @@ export interface SchemaFormProps {
    */
   idPath?: string;
   /**
-   * Optional FormView layout (sections, tabs, widget hints, visibleOn)
+   * Optional FormView layout (sections, tabs, widget hints, visibleWhen)
    * shipped by the framework alongside `schema`. When present, fields
    * are grouped into sections and visibility predicates are honoured.
    */

@@ -108,7 +108,8 @@ export function formFieldSpecContractPins(): void {
   // ── PIN C — the measurement, made executable. Every key below was
   // `TS2353: … does not exist in type 'FormFieldSpec'` in this app before
   // #5542, while the runtime accepted it and metadata-admin authored it. They
-  // are the difference the key-by-key comparison found.
+  // are the difference the key-by-key comparison found. (`visibleOn` was one of
+  // them until objectui#12696 dropped that retired spelling from the type.)
   const wasUndeclarableHere: ConsoleFieldSpec = {
     field: 'stage',
     type: 'select',
@@ -126,7 +127,6 @@ export function formFieldSpecContractPins(): void {
     disclosure: 'popover',
     language: 'sql',
     visibleWhen: '${data.kind == "deal"}',
-    visibleOn: { dialect: 'cel', source: 'data.kind == "deal"' },
     fields: ['nested', { field: 'deeper' }],
   };
   void wasUndeclarableHere;

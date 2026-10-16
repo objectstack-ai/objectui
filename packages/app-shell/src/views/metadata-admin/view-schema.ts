@@ -10,7 +10,7 @@
  * without hardcoding them. The spec already describes this:
  *
  *   • `viewForm`     — the canonical authoring FormView: sections with
- *                      type-conditional `visibleOn` CEL predicates
+ *                      type-conditional `visibleWhen` CEL predicates
  *                      (`data.type == 'kanban'`, …). One section per view
  *                      type, plus shared basics / filters / navigation.
  *   • `ViewSchema`   — the zod schema for the whole (nested) View document.

@@ -1,7 +1,7 @@
 // Copyright (c) 2025 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * Tiny predicate evaluator for FormView `visibleOn` expressions.
+ * Tiny predicate evaluator for FormView `visibleWhen` expressions.
  *
  * This is an interim stand-in for the full CEL runtime
  * (`@objectstack/formula`) — we keep it intentionally small so the

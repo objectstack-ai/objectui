@@ -58,7 +58,10 @@ export function CurrentOrganizationIndicator() {
   // stay the only affordance there; zero means no organization context at all.
   if (orgList.length !== 1) return null;
 
-  const current = activeOrganization ?? orgList[0] ?? null;
+  // The organization the SERVER reports as active, never a guess from the
+  // membership list (objectui#12698): a session with no active organization —
+  // e.g. after a refused `set-active`, or a refused ADR-0081 repair — names none.
+  const current = activeOrganization;
   if (!current) return null;
 
   const label = t('organization.current.label', { defaultValue: 'Current organization' });

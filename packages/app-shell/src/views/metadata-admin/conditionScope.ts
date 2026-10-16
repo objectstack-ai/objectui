@@ -12,8 +12,8 @@ import {
  * ## The defect
  *
  * `SchemaForm` routes a field to the CEL condition builder by NAME CONVENTION
- * (`visible` / `hidden` / `disabled` / `visibleOn` / `condition` / `predicate`
- * / `*When`), so one widget serves every metadata type. It claimed no scope, so
+ * (`visible` / `hidden` / `disabled` / `condition` / `predicate` / `*When`),
+ * so one widget serves every metadata type. It claimed no scope, so
  * every such field fell through to `celAuthoring`'s own `hint.scope ??
  * 'flattened'` default — and a bare `status == 'done'` typed into an action's
  * **Visible when** linted CLEAN while the runtime binds the row as the `record`

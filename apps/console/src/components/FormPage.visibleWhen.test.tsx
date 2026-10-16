@@ -365,6 +365,7 @@ describe('objectui#5594 — the predicate reaches the row and the verdict', () =
             fields: [
               { field: 'a', visibleWhen: "record.x == 1" },
               { field: 'b', visibleWhen: { dialect: 'cel', source: 'record.x == 2' } },
+              // @ts-expect-error objectui#12696 — `FormFieldSpec` refuses the retired key; this raw field carries it on purpose
               { field: 'c', visibleOn: "record.x == 4" },
               { field: 'd' },
               'e',

@@ -99,13 +99,13 @@ export function formContainerContractPins(): void {
   // ── PIN D — the measurement, made executable. Every key below was
   // `TS2353: … does not exist in type 'FormSectionSpec'` in this app before
   // #5596, while `@objectstack/spec`'s `FormSectionSchema` accepted all of them
-  // and app-shell's copy declared three of them.
+  // and app-shell's copy declared three of them. (`visibleOn` was one of them
+  // until objectui#12696 dropped that retired spelling from the type.)
   const wasUndeclarableHere: ConsoleSectionSpec = {
     name: 'advanced_options',
     description: 'Rarely-used options',
     pane: 'secondary',
     visibleWhen: '${record.kind == "deal"}',
-    visibleOn: { dialect: 'cel', source: 'record.kind == "deal"' },
     columns: '3',
     fields: ['name'],
   };

@@ -564,6 +564,7 @@ describe('objectui#5627 — the keys reach the rows, in their own slots', () => 
         sections: [
           { label: 'a', visibleWhen: 'record.x == 1', fields: ['f'] },
           { label: 'b', visibleWhen: { dialect: 'cel', source: 'record.x == 2' }, fields: ['f'] },
+          // @ts-expect-error objectui#12696 — `FormSectionSpec` refuses the retired key; this raw section carries it on purpose
           { label: 'c', visibleOn: 'record.x == 4', fields: ['f'] },
           { label: 'd', fields: ['f'] },
         ],

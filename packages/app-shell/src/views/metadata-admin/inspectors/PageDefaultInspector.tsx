@@ -15,7 +15,7 @@
  *
  * SPEC-DRIVEN (mirrors {@link ReportDefaultInspector}): fields come from the
  * spec's canonical `pageForm` + Page JSONSchema fed into {@link SchemaForm};
- * the form's type-conditional `visibleOn` sections surface the right fields per
+ * the form's type-conditional `visibleWhen` sections surface the right fields per
  * page type, and server-only fields are grafted via {@link mergeServerFields}
  * so a newer server stays editable even when the bundled spec lags.
  */

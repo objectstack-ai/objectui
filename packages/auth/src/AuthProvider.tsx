@@ -660,9 +660,21 @@ export function AuthProvider({
             active = null;
           }
         }
-        if (active && !isCancelled?.()) {
+        if (isCancelled?.()) return orgs;
+        if (active) {
           setActiveOrganization(active);
           ActiveOrganizationStorage.set(active.id);
+        } else if (activeOrgIdRef.current === null) {
+          // objectui#12698 — the server answered "no active organization"
+          // (and, at one membership, refused the repair above). The stored id
+          // is a cache of a SERVER-owned fact, so it goes with that answer:
+          // left in place it keeps stamping `X-Tenant-ID` and keying the
+          // metadata seed cache for an organization this session does not
+          // hold — e.g. the one a refused `set-active` cleared server-side
+          // (better-auth nulls the session's active org before it refuses a
+          // non-member). The `activeOrgIdRef` guard keeps a user switch that
+          // landed while this request was in flight from being wiped.
+          ActiveOrganizationStorage.clear();
         }
       }
       return orgs;

@@ -21,7 +21,7 @@
 
 import * as React from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, RefreshCw, ArrowLeft } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, RefreshCw, ArrowLeft } from 'lucide-react';
 import { Button } from '@object-ui/components';
 import { Badge } from '@object-ui/components';
 import { Empty, EmptyTitle, EmptyDescription } from '@object-ui/components';
@@ -34,6 +34,40 @@ import {
 import { t, tFormat, translateMetadataType, useMetadataLocale } from './i18n.js';
 
 type Severity = 'error' | 'warning';
+
+/**
+ * The header's tone, read from the entries the sweep returned — the
+ * envelope carries only `total`, so the severity split lives on each
+ * entry's `diagnostics`. An entry the server marks invalid is an error
+ * even when it ships no messages; warnings only count once no entry is
+ * an error. Zero entries is the clean state the body already announces
+ * as "All clear", so the header must not paint it as a failure.
+ */
+type DiagnosticsHeaderTone = 'error' | 'warning' | 'clean';
+
+function diagnosticsHeaderTone(
+  entries: readonly MetadataDiagnosticsEntry[],
+): DiagnosticsHeaderTone {
+  let warned = false;
+  for (const e of entries) {
+    if (!e.diagnostics.valid || (e.diagnostics.errors?.length ?? 0) > 0) return 'error';
+    if ((e.diagnostics.warnings?.length ?? 0) > 0) warned = true;
+  }
+  return warned ? 'warning' : 'clean';
+}
+
+const HEADER_ICON_CLASS: Record<DiagnosticsHeaderTone | 'pending', string> = {
+  pending: 'h-5 w-5 text-muted-foreground',
+  error: 'h-5 w-5 text-destructive',
+  warning: 'h-5 w-5 text-amber-600 dark:text-amber-400',
+  clean: 'h-5 w-5 text-emerald-600 dark:text-emerald-400',
+};
+
+const HEADER_TONE_BADGE_CLASS: Record<DiagnosticsHeaderTone, string> = {
+  error: 'text-[11px] border-destructive/40 text-destructive bg-destructive/[0.06]',
+  warning: 'text-[11px] border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-500/[0.06]',
+  clean: 'text-[11px] text-muted-foreground',
+};
 
 export function MetadataDiagnosticsPage() {
   const client = useMetadataClient();
@@ -59,6 +93,14 @@ export function MetadataDiagnosticsPage() {
     return Object.entries(map).sort(([, a], [, b]) => b.length - a.length);
   }, [summary]);
 
+  const tone = diagnosticsHeaderTone(summary.entries);
+  // Until the sweep answers, the page holds no count to report: a
+  // placeholder `0 issue(s) across 0 items` would read as a verdict, so
+  // the badge waits and the icon stays muted. A failed sweep is not a
+  // clean one — the icon follows the body's load-failure notice.
+  const answered = !loading && !error;
+  const iconTone = loading ? 'pending' : error ? 'error' : tone;
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="px-6 pt-5 pb-4 border-b bg-background">
@@ -70,19 +112,35 @@ export function MetadataDiagnosticsPage() {
         </nav>
         <div className="flex items-center gap-3 flex-wrap">
           <h1 className="text-xl font-semibold flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-destructive" />
+            {iconTone === 'clean' ? (
+              <CheckCircle2
+                data-testid="diagnostics-header-icon"
+                data-tone={iconTone}
+                className={HEADER_ICON_CLASS[iconTone]}
+              />
+            ) : (
+              <AlertTriangle
+                data-testid="diagnostics-header-icon"
+                data-tone={iconTone}
+                className={HEADER_ICON_CLASS[iconTone]}
+              />
+            )}
             {t('engine.diagnostics.title', locale)}
           </h1>
-          <Badge
-            variant="outline"
-            className="text-[11px] border-destructive/40 text-destructive bg-destructive/[0.06]"
-          >
-            {tFormat('engine.diagnostics.summary', locale, {
-              count: summary.total,
-              items: summary.scannedItems,
-              types: summary.scannedTypes,
-            })}
-          </Badge>
+          {answered && (
+            <Badge
+              variant="outline"
+              data-testid="diagnostics-summary-badge"
+              data-tone={tone}
+              className={HEADER_TONE_BADGE_CLASS[tone]}
+            >
+              {tFormat('engine.diagnostics.summary', locale, {
+                count: summary.total,
+                items: summary.scannedItems,
+                types: summary.scannedTypes,
+              })}
+            </Badge>
+          )}
           <div className="flex-1" />
           <div
             role="tablist"

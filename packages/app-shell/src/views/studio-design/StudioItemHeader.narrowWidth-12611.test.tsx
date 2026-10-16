@@ -86,13 +86,14 @@ describe('the item header gives way in order on a narrow column (objectui#12611)
     expect(at(meta)).toBeLessThan(kids.length - 1);
   });
 
-  it('the meta slot folds first: hidden below the row width, and it takes the shortfall before the title', () => {
+  it('the meta slot folds first: hidden below the row width, and while it shows it takes only the room left', () => {
     render(<Header />);
     const meta = screen.getByTestId('hdr-meta').parentElement as HTMLElement;
     expect(meta).toHaveClass(...classesOf(STUDIO_ITEM_META_FOLD));
     expect(STUDIO_ITEM_META_FOLD).toMatch(/^hidden /);
     expect(STUDIO_ITEM_META_FOLD).toContain('@min-[640px]:block');
-    expect(meta).toHaveClass('shrink-[1000]', 'truncate');
+    // A zero basis: the meta never puts the row short, so the title never shrinks for it.
+    expect(meta).toHaveClass('basis-0', 'grow', 'min-w-0', 'truncate');
   });
 
   it('the status chip keeps its pencil; its text folds into the accessible name and the tooltip', async () => {

@@ -64,11 +64,13 @@ export const STUDIO_ITEM_HEADER = 'shrink-0 border-b px-6 pt-[18px]';
  * nearest container). The meta slot goes first, below 640 px of row (at the
  * 1280 px design width with an aside open the row is about 690 px); then the
  * status chip's text, below 480 px, its icon and tooltip staying; the title
- * truncates last. Until the meta is gone it takes the row's shortfall almost
- * alone (`shrink-[1000]` against the title's 1), so the title keeps its width.
+ * truncates last. While it shows, the meta takes only the room the row has
+ * left (`basis-0 grow`): it never puts the row short, so the title never
+ * gives a pixel to it. (A heavy `shrink` weight is not enough: the title's
+ * fraction-of-a-pixel share still draws its ellipsis.)
  */
 export const STUDIO_ITEM_ROW = 'flex min-w-0 items-center gap-3 @container';
-export const STUDIO_ITEM_META_FOLD = 'hidden shrink-[1000] @min-[640px]:block';
+export const STUDIO_ITEM_META_FOLD = 'hidden basis-0 grow @min-[640px]:block';
 export const STUDIO_STATUS_TEXT_FOLD = 'sr-only @min-[480px]:not-sr-only';
 export const STUDIO_ITEM_TITLE = 'min-w-0 truncate text-[18px] font-semibold leading-tight tracking-[-0.01em] text-foreground';
 export const STUDIO_ICON_TILE = 'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary';

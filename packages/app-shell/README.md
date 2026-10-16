@@ -574,10 +574,10 @@ family for them: it uses the same metadata-admin list and editors at
   read-only on both assignment objects (objectstack's own pin for that is the
   test `organization_admin is read-only on global RBAC tables to prevent
   privilege escalation`), so that administrator sees the holders with no Add and
-  no Remove. When the server refuses the holders read itself,
-  `AssignedUsersSection` says the refusal in the server's words and draws
-  neither its count nor its empty copy: the empty copy follows only a read that
-  succeeded and came back empty (objectui#12706).
+  no Remove. When the server refuses the holders read itself, each section
+  says the refusal in the server's words and draws neither its count nor its
+  empty copy: the empty copy follows only a read that succeeded and came back
+  empty (objectui#12706).
 - **Who gets these pages at all.** A caller the Setup app refuses (no
   `setup.access`; the server leaves Setup out of that caller's app list) gets
   the console's "You don't have access to this app" screen on these pages and

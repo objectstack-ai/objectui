@@ -142,7 +142,8 @@ export interface InstalledPackageRow {
   errorMessage?: string;
   /**
    * The server's writability verdict, a top-level key every row carries
-   * (objectstack#14375). The Source column reads it — see `packageSource.ts`.
+   * (objectstack#14375). The Source column reads it — see `packageSource.ts` —
+   * and so does the Scope badge's writable / read-only half (objectui#12723).
    */
   writable?: boolean;
 }
@@ -185,22 +186,35 @@ async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
 /* Scope badge                                                                 */
 /* -------------------------------------------------------------------------- */
 
-function ScopeBadge({ scope }: { scope?: string }) {
+function ScopeBadge({ pkg }: { pkg: InstalledPackageRow }) {
   const locale = useMetadataLocale();
-  // Writability semantics, aligned with the builder (studio-design/packages-io):
-  // a SCOPE-LESS entry is a database base package (writable — authoring lives
-  // there), while `project` marks a read-only code package. Defaulting the
-  // missing scope to 'project' used to render both with the same badge, which
-  // contradicted the builder's 可写/只读 labeling for the very same package.
-  if (!scope) {
+  // objectui#12723 — the writable / read-only half is the server's verdict,
+  // the row's top-level `writable` (objectstack#14375, `isWritablePackage`),
+  // never a guess from `scope`. A scope-less row is NOT necessarily a writable
+  // base: a marketplace install and a scope-less booted code package are both
+  // scope-less and served `writable: false`. `scope` only names WHICH kind of
+  // read-only package it is (system / cloud / project).
+  //
+  // A row with no boolean verdict never reaches this badge: the list refuses it
+  // at load (`PACKAGE_SOURCE_UNKNOWN`, `packageSource.ts`). Should one get here
+  // anyway, it is drawn as an unknown dash — never as writable.
+  const { writable } = pkg;
+  if (typeof writable !== 'boolean') {
+    return <span data-testid="pkg-scope-unknown">—</span>;
+  }
+  if (writable) {
     return (
-      <Badge className="bg-emerald-400/15 text-emerald-600 hover:bg-emerald-400/15 dark:text-emerald-300">
+      <Badge
+        data-testid="pkg-scope"
+        className="bg-emerald-400/15 text-emerald-600 hover:bg-emerald-400/15 dark:text-emerald-300"
+      >
         {t('engine.packages.scope.writable', locale)}
       </Badge>
     );
   }
+  const scope = pkg.manifest.scope;
   const variant =
-    scope === 'project' ? 'default' : scope === 'system' ? 'secondary' : 'outline';
+    scope === 'system' ? 'secondary' : scope === 'cloud' ? 'outline' : 'default';
   const labelKey =
     scope === 'project'
       ? 'engine.packages.scope.project'
@@ -208,8 +222,12 @@ function ScopeBadge({ scope }: { scope?: string }) {
         ? 'engine.packages.scope.system'
         : scope === 'cloud'
           ? 'engine.packages.scope.cloud'
-          : '';
-  return <Badge variant={variant as any}>{labelKey ? t(labelKey, locale) : scope}</Badge>;
+          : 'engine.packages.scope.readOnly';
+  return (
+    <Badge data-testid="pkg-scope" variant={variant}>
+      {t(labelKey, locale)}
+    </Badge>
+  );
 }
 
 function StatusBadge({ pkg }: { pkg: InstalledPackageRow }) {
@@ -713,7 +731,7 @@ export function PackageDetailSheet({
           <DetailRow label={t('engine.packages.col.version', locale)}>{pkg.manifest.version || '—'}</DetailRow>
           <DetailRow label={t('engine.packages.detail.type', locale)}>{pkg.manifest.type || '—'}</DetailRow>
           <DetailRow label={t('engine.packages.col.scope', locale)}>
-            <ScopeBadge scope={pkg.manifest.scope} />
+            <ScopeBadge pkg={pkg} />
           </DetailRow>
           <DetailRow label={t('engine.packages.col.status', locale)}>
             <StatusBadge pkg={pkg} />
@@ -1372,7 +1390,7 @@ export function PackagesPage() {
                   </TableCell>
                   <TableCell>{p?.manifest.version || install?.version || '—'}</TableCell>
                   <TableCell>
-                    {p ? <ScopeBadge scope={p.manifest.scope} /> : '—'}
+                    {p ? <ScopeBadge pkg={p} /> : '—'}
                   </TableCell>
                   <TableCell>
                     {install?.notLoaded ? (

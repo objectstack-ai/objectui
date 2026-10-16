@@ -162,6 +162,7 @@ export type {
   ObjectGridBlockNode,
   ObjectPivotBlockNode,
   EmbeddableFormBlockNode,
+  ListViewBlockNode,
   FlexBlockNode,
   ElementTextInputNode,
   ElementRecordPickerNode,

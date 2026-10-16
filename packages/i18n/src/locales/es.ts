@@ -2098,6 +2098,7 @@ const es = {
       toggleSidebar: "Alternar barra lateral",
       newChat: "Nuevo chat",
       toggleChatsList: "Alternar lista de chats",
+      goHome: "Volver al inicio",
     },
     commandPalette: {
       title: "Paleta de comandos",
@@ -2804,6 +2805,9 @@ const es = {
       noAppsConfigured: "Sin aplicaciones configuradas",
       allApps: "Todas las aplicaciones",
       editAppInStudio: "Editar {{app}} en Studio",
+      backToHome: "Volver al inicio",
+      settings: "Configuración",
+      productHome: "Inicio de {{product}}",
     },
     activityFeed: {
       title: "Actividad reciente",

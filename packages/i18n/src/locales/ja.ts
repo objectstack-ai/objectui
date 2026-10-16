@@ -2051,6 +2051,7 @@ const ja = {
       toggleSidebar: "サイドバーを切り替え",
       newChat: "新しいチャット",
       toggleChatsList: "チャット一覧を切り替え",
+      goHome: "ホームに戻る",
     },
     commandPalette: {
       title: "コマンドパレット",
@@ -2752,6 +2753,9 @@ const ja = {
       noAppsConfigured: "アプリが設定されていません",
       allApps: "すべてのアプリ",
       editAppInStudio: "Studio で {{app}} を編集",
+      backToHome: "ホームに戻る",
+      settings: "システム設定",
+      productHome: "{{product}} ホーム",
     },
     activityFeed: {
       title: "最近の活動",

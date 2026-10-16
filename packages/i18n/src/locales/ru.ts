@@ -2156,6 +2156,7 @@ const ru = {
       toggleSidebar: "Переключить боковую панель",
       newChat: "Новый чат",
       toggleChatsList: "Переключить список чатов",
+      goHome: "Вернуться на главную",
     },
     commandPalette: {
       title: "Палитра команд",
@@ -2871,6 +2872,9 @@ const ru = {
       noAppsConfigured: "Нет приложений",
       allApps: "Все приложения",
       editAppInStudio: "Редактировать {{app}} в Studio",
+      backToHome: "Вернуться на главную",
+      settings: "Настройки",
+      productHome: "Главная {{product}}",
     },
     activityFeed: {
       title: "Последние действия",

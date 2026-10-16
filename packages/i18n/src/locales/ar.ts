@@ -2246,6 +2246,7 @@ const ar = {
       toggleSidebar: "تبديل الشريط الجانبي",
       newChat: "محادثة جديدة",
       toggleChatsList: "تبديل قائمة المحادثات",
+      goHome: "العودة إلى الرئيسية",
     },
     commandPalette: {
       title: "لوحة الأوامر",
@@ -2970,6 +2971,9 @@ const ar = {
       noAppsConfigured: "لا تطبيقات مُهيأة",
       allApps: "جميع التطبيقات",
       editAppInStudio: "تعديل {{app}} في Studio",
+      backToHome: "العودة إلى الرئيسية",
+      settings: "الإعدادات",
+      productHome: "الصفحة الرئيسية لـ {{product}}",
     },
     activityFeed: {
       title: "النشاط الأخير",

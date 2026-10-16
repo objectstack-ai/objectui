@@ -182,8 +182,9 @@ describe('/studio/* — the builder module loads behind the gate (objectui#11798
 
     await waitFor(() => expect(screen.getByTestId('studio-front-door')).toBeInTheDocument());
     // The console header is the frame the landing's fallback sits under; its
-    // brand links home (objectui#11863).
-    expect(screen.getByRole('link', { name: 'ObjectOS' })).toHaveAttribute('href', '/home');
+    // brand links home (objectui#11863), named 「PRODUCT home」 since
+    // objectui#12605.
+    expect(screen.getByRole('link', { name: 'ObjectOS home' })).toHaveAttribute('href', '/home');
     // Both `lazy()` declarations name one specifier, so one module serves both.
     expect(builderModuleLoads.count).toBe(1);
   });

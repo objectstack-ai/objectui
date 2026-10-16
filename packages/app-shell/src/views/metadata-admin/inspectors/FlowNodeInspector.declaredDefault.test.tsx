@@ -381,7 +381,7 @@ describe('boolean: a declared defaultValue seeds the control (objectui#8451, arm
     // ⇒ `screen.waitForInput` is the offline undeclared boolean that sentence
     // says does not exist — and it is undeclared CORRECTLY, so ⛔ do not read
     // this as an objectui#9277-class omission waiting to be declared. Measured
-    // on the installed `@objectstack/spec` (18.0.0-next.1, objectui#12030, objectui#12370): `waitForInput` is typed
+    // on the installed `@objectstack/spec` (18.0.0-next.2, objectui#12030, objectui#12370, objectui#12626): `waitForInput` is typed
     // `z.boolean().optional()` with no `.default(...)`, so an omitted key
     // materialises nothing and there is no spec answer for a declaration to
     // mirror. Declaring one here would invent a default the runtime does not

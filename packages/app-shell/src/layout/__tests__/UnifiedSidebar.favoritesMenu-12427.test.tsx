@@ -258,6 +258,7 @@ describe('UnifiedSidebar: one ⋯ trigger per entry, no pin icon (objectui#12427
 
   it('a right-click on the row opens the same menu', async () => {
     renderSidebar();
+    await tick();
     fireEvent.contextMenu(screen.getByRole('link', { name: 'Leads' }));
     const items = await screen.findAllByRole('menuitem');
     expect(items.map((el) => el.textContent)).toEqual(['Add to favorites', 'Open in new tab', 'Copy link', 'Design']);

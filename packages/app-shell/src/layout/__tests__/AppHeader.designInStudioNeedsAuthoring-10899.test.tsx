@@ -139,8 +139,12 @@ vi.mock('../../providers/MetadataProvider', () => ({
   }),
 }));
 
+// One adapter object for the file: the shared feeds key on the adapter's
+// identity, so a fresh object per render re-attaches them on every commit and
+// a case that awaits with the bar mounted never settles (objectui#12615).
+const ADAPTER = vi.hoisted(() => ({ find: () => Promise.resolve({ data: [] }), getClient: () => undefined }));
 vi.mock('../../providers/AdapterProvider', () => ({
-  useAdapter: () => ({ find: () => Promise.resolve({ data: [] }), getClient: () => undefined }),
+  useAdapter: () => ADAPTER,
 }));
 
 import { AppHeader } from '../AppHeader';

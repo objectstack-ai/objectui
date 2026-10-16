@@ -7,7 +7,7 @@
  */
 
 import * as React from 'react';
-import { Dialog, DialogContent, DialogTitle } from '@object-ui/components';
+import { Dialog, DialogContent, DialogTitle, DIALOG_VIEWPORT_GUTTER } from '@object-ui/components';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -66,7 +66,7 @@ export function ImageLightbox({ images, index, open, onOpenChange, onIndexChange
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-[92vw] sm:max-w-4xl p-0 bg-transparent border-0 shadow-none"
+        className={`max-w-[92vw] sm:max-w-4xl ${DIALOG_VIEWPORT_GUTTER} p-0 bg-transparent border-0 shadow-none`}
         onKeyDown={handleKeyDown}
       >
         {/* Title is required for a labelled dialog but visually redundant here. */}

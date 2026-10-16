@@ -8,6 +8,7 @@
 
 import React, { useId, useState } from 'react';
 import { cn } from '../lib/utils';
+import { DIALOG_VIEWPORT_GUTTER } from './dialog-viewport-gutter';
 import { Button } from '../ui/button';
 import {
   Dialog,
@@ -367,7 +368,7 @@ export function FullscreenEditor({
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
-          className="sm:max-w-3xl h-[100dvh] sm:h-[80vh] max-h-[100dvh] sm:max-h-[80vh] flex flex-col p-0 gap-0"
+          className={`sm:max-w-3xl ${DIALOG_VIEWPORT_GUTTER} h-[100dvh] sm:h-[80vh] max-h-[100dvh] sm:max-h-[80vh] flex flex-col p-0 gap-0`}
           data-testid={`${testIdPrefix}-fullscreen-dialog`}
         >
           <DialogHeader className="p-4 border-b">

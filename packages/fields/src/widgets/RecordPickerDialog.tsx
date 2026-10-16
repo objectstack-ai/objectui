@@ -7,6 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DIALOG_VIEWPORT_GUTTER,
   Input,
   Label,
   Select,
@@ -1193,10 +1194,14 @@ export function RecordPickerDialog({
           title-to-search distance is the one `DialogHeader` gets in every other
           dialog. `flex flex-col` is what lets the table region below be the
           one bounded scroll area (`flex-1 min-h-0`); the width is
-          `dialogWidthClass`'s rung for the drawn column count. */}
+          `dialogWidthClass`'s rung for the drawn column count. From `sm` up
+          the shared `DIALOG_VIEWPORT_GUTTER` (objectui#12603) keeps 1rem from
+          the window edge under every rung, the `lg:` ceiling included; below
+          `sm` the dialog stays `95vw`. */}
       <DialogContent
         className={cn(
           'w-[95vw] max-h-[85vh] sm:max-h-[80vh] flex flex-col',
+          DIALOG_VIEWPORT_GUTTER,
           dialogWidthClass(readableColumns.length, multiple),
         )}
         data-testid="record-picker-dialog"

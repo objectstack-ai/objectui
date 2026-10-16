@@ -47,7 +47,8 @@ describe('a collapsible detail section on a print page draws open (objectui#1195
       </PrintPageProvider>,
     );
     expect(screen.getByText('1 Market St')).toBeTruthy();
-    expect(document.querySelector('[aria-expanded="true"]')).not.toBeNull();
+    // Open, with no disclosure control left on paper (objectui#12732).
+    expect(document.querySelector('[aria-expanded]')).toBeNull();
   });
 
   it('CONTROL — off a print page the same section stays collapsed', () => {

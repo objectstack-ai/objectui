@@ -4126,7 +4126,7 @@ const en = {
       installedSubtitle: 'Marketplace packages currently installed into this runtime\'s kernel. Cached manifests live in <code>.objectstack/installed-packages/</code> and survive restarts.',
       installedEmpty: 'No marketplace apps installed in this runtime yet.',
       browseLink: 'Browse the marketplace →',
-      installedAdditiveNote: '<strong>Note:</strong> The kernel API is additive only — uninstall removes the on-disk manifest so the package won\'t load on next boot, but the running kernel keeps the app registered until you restart the runtime.',
+      installedAdditiveNote: 'The kernel API is additive only — uninstall removes the on-disk manifest so the package won\'t load on next boot, but the running kernel keeps the app registered until you restart the runtime.',
       installedAt: 'Installed {{when}}',
       installedBy: 'by {{user}}',
       installedPackageId: 'package',

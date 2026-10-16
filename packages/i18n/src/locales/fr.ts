@@ -3546,7 +3546,7 @@ const fr = {
     installedSubtitle: "Paquets du marketplace actuellement installés dans le noyau de ce runtime.",
     installedEmpty: "Aucune application du marketplace installée dans ce runtime pour l'instant.",
     browseLink: "Parcourir le marketplace →",
-    installedAdditiveNote: "<strong>Remarque :</strong> L'API du noyau est uniquement additive — la désinstallation supprime le manifeste du disque pour que le paquet ne se charge pas au prochain démarrage, mais le noyau en cours d'exécution maintient l'application enregistrée jusqu'au redémarrage.",
+    installedAdditiveNote: "L'API du noyau est uniquement additive — la désinstallation supprime le manifeste du disque pour que le paquet ne se charge pas au prochain démarrage, mais le noyau en cours d'exécution maintient l'application enregistrée jusqu'au redémarrage.",
     installedAt: "Installé {{when}}",
     installedBy: "par {{user}}",
     installedPackageId: "Paquet",

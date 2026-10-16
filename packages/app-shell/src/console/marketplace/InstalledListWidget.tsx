@@ -13,7 +13,7 @@
  * entries.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Card,
@@ -23,6 +23,10 @@ import {
   Badge,
   Button,
   Skeleton,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@object-ui/components';
 import { RefreshCcw, Trash2, AlertCircle, ExternalLink } from 'lucide-react';
 import { useWorkspaceAdminStatus } from '@object-ui/auth';
@@ -47,6 +51,9 @@ export function InstalledList() {
   // language must not fall through to the machine's locale (objectui#10331).
   const displayLocale = useDisplayLocale();
   const basePath = appName ? `/apps/${appName}` : '';
+  // One description node serves every loaded row's Uninstall: the kernel note
+  // is the same sentence for each of them (objectui#12610).
+  const kernelNoteId = useId();
 
   const [items, setItems] = useState<LocalInstallEntry[]>([]);
   // 'cloud' = list comes from the control plane (CLI/marketplace/REST installs,
@@ -111,6 +118,37 @@ export function InstalledList() {
     } finally {
       setWorking(null);
     }
+  };
+
+  // The kernel note is about a LOADED package: the running kernel keeps it
+  // registered until restart. It rides the Uninstall it qualifies, as a
+  // tooltip, instead of a paragraph under the list (objectui#12610). A
+  // not-loaded entry left nothing in the kernel (objectui#11645), so its
+  // Uninstall carries no note.
+  const uninstallAction = (entry: LocalInstallEntry) => {
+    const button = (
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => void doUninstall(entry)}
+        disabled={working === entry.manifestId}
+        aria-describedby={entry.notLoaded ? undefined : kernelNoteId}
+      >
+        <Trash2 className="h-4 w-4 mr-1.5" aria-hidden="true" />
+        {working === entry.manifestId ? t('marketplace.action.uninstalling') : t('marketplace.action.uninstall')}
+      </Button>
+    );
+    if (entry.notLoaded) return button;
+    return (
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>{button}</TooltipTrigger>
+          <TooltipContent className="max-w-xs">
+            <p>{t('marketplace.installedAdditiveNote')}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
   };
 
   if (!isAdmin) return <MarketplaceAccessDenied />;
@@ -184,17 +222,7 @@ export function InstalledList() {
                     <ExternalLink className="h-4 w-4 mr-1.5" aria-hidden="true" />
                     {t('marketplace.action.details')}
                   </Button>
-                  {source === 'local' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void doUninstall(entry)}
-                      disabled={working === entry.manifestId}
-                    >
-                      <Trash2 className="h-4 w-4 mr-1.5" aria-hidden="true" />
-                      {working === entry.manifestId ? t('marketplace.action.uninstalling') : t('marketplace.action.uninstall')}
-                    </Button>
-                  )}
+                  {source === 'local' && uninstallAction(entry)}
                 </div>
               </CardHeader>
               {source === 'local' && (
@@ -212,10 +240,11 @@ export function InstalledList() {
         </div>
       )}
 
-      <p
-        className="text-xs text-muted-foreground border-t pt-4"
-        dangerouslySetInnerHTML={{ __html: t('marketplace.installedAdditiveNote') }}
-      />
+      {/* The Uninstall tooltip only shows on hover or focus; this is what a
+          screen reader announces as the button's description. */}
+      {source === 'local' && items.some((entry) => !entry.notLoaded) && (
+        <span id={kernelNoteId} className="sr-only">{t('marketplace.installedAdditiveNote')}</span>
+      )}
     </div>
   );
 }

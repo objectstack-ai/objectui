@@ -3482,7 +3482,7 @@ const de = {
     installedSubtitle: "Marktplatz-Pakete, die derzeit im Kernel dieses Laufzeitsystems installiert sind.",
     installedEmpty: "Noch keine Marktplatz-Apps in diesem Laufzeitsystem installiert.",
     browseLink: "Marktplatz durchsuchen →",
-    installedAdditiveNote: "<strong>Hinweis:</strong> Die Kernel-API ist nur additiv — Deinstallation entfernt das Manifest auf der Festplatte, damit das Paket beim nächsten Start nicht geladen wird, aber der laufende Kernel hält die App bis zum Neustart registriert.",
+    installedAdditiveNote: "Die Kernel-API ist nur additiv — Deinstallation entfernt das Manifest auf der Festplatte, damit das Paket beim nächsten Start nicht geladen wird, aber der laufende Kernel hält die App bis zum Neustart registriert.",
     installedAt: "Installiert {{when}}",
     installedBy: "von {{user}}",
     installedPackageId: "Paket",

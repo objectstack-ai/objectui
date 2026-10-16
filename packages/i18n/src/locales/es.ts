@@ -3549,7 +3549,7 @@ const es = {
     installedSubtitle: "Paquetes del marketplace instalados en el kernel de este runtime.",
     installedEmpty: "Aún no hay aplicaciones del marketplace instaladas en este runtime.",
     browseLink: "Explorar marketplace →",
-    installedAdditiveNote: "<strong>Nota:</strong> La API del kernel es solo aditiva — desinstalar elimina el manifiesto del disco para que el paquete no se cargue al próximo inicio, pero el kernel en ejecución mantiene la aplicación registrada hasta reiniciar.",
+    installedAdditiveNote: "La API del kernel es solo aditiva — desinstalar elimina el manifiesto del disco para que el paquete no se cargue al próximo inicio, pero el kernel en ejecución mantiene la aplicación registrada hasta reiniciar.",
     installedAt: "Instalado {{when}}",
     installedBy: "por {{user}}",
     installedPackageId: "Paquete",

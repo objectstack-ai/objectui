@@ -3481,7 +3481,7 @@ const ko = {
     installedSubtitle: "이 런타임의 커널에 현재 설치된 마켓플레이스 패키지.",
     installedEmpty: "아직 이 런타임에 마켓플레이스 앱이 설치되지 않았습니다.",
     browseLink: "마켓플레이스 탐색 →",
-    installedAdditiveNote: "<strong>참고:</strong> 커널 API는 추가 전용입니다 — 제거하면 디스크에서 매니페스트가 삭제되어 다음 시작 시 패키지가 로드되지 않지만, 실행 중인 커널은 재시작될 때까지 앱을 등록된 상태로 유지합니다.",
+    installedAdditiveNote: "커널 API는 추가 전용입니다 — 제거하면 디스크에서 매니페스트가 삭제되어 다음 시작 시 패키지가 로드되지 않지만, 실행 중인 커널은 재시작될 때까지 앱을 등록된 상태로 유지합니다.",
     installedAt: "{{when}} 설치됨",
     installedBy: "{{user}}에 의해",
     installedPackageId: "패키지",

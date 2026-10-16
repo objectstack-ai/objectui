@@ -3607,7 +3607,7 @@ const zh = {
       installedSubtitle: '当前已安装到本运行时内核的应用市场软件包。缓存的清单文件位于 <code>.objectstack/installed-packages/</code>，重启后仍然保留。',
       installedEmpty: '本运行时尚未安装任何应用市场应用。',
       browseLink: '去应用市场看看 →',
-      installedAdditiveNote: '<strong>说明：</strong>内核 API 仅支持新增 — 卸载会移除磁盘上的清单，下次启动时不再加载；但运行中的内核仍会保留该应用，直到下次重启运行时才会真正卸载。',
+      installedAdditiveNote: '内核 API 仅支持新增 — 卸载会移除磁盘上的清单，下次启动时不再加载；但运行中的内核仍会保留该应用，直到下次重启运行时才会真正卸载。',
       installedAt: '安装于 {{when}}',
       installedBy: '由 {{user}}',
       installedPackageId: '包',

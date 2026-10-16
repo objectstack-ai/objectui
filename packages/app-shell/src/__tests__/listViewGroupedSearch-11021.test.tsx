@@ -166,8 +166,21 @@ const headerOf = (el: Element) => ({
 });
 const headerCounts = () => Object.fromEntries(groupRows().map((r) => { const h = headerOf(r); return [h.label, Number(h.count)]; }));
 const groupRowEl = (label: string) => groupRows().find((r) => headerOf(r).label === label)!;
+// objectui#12620 — a grouped grid is ONE table and a group is a band row in
+// it: the group's rows are the rows after its band, up to the next band.
+const bandRowsOf = (el: Element): HTMLElement[] => {
+  const rows: HTMLElement[] = [];
+  const band = el.closest('tr[data-testid="data-table-group-band"]');
+  if (!band) throw new Error('bandRowsOf: not inside a group band row');
+  for (let tr = band.nextElementSibling; tr && tr.getAttribute('data-testid') !== 'data-table-group-band'; tr = tr.nextElementSibling) {
+    rows.push(tr as HTMLElement);
+  }
+  return rows;
+};
 const subjectsIn = (el: Element, unit: string) =>
-  within(el as HTMLElement).queryAllByText(new RegExp(`^${unit} #\\d+$`)).map((n) => n.textContent);
+  bandRowsOf(el)
+    .flatMap((row) => within(row).queryAllByText(new RegExp(`^${unit} #\\d+$`)))
+    .map((n) => n.textContent);
 
 /** The grid's row page queries: each one carries a group key under `$and`. */
 const groupRowFinds = (ds: ServerDataSource, from = 0) =>

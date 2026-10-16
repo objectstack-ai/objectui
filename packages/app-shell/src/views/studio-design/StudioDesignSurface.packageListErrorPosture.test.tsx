@@ -137,7 +137,7 @@ function renderSurface(tab = 'interfaces') {
 
 /** The switcher trigger — found by its own stable title, not by its text
  *  (its text is exactly what all three states used to share). */
-const trigger = () => screen.getByTitle('Switch / create package');
+const trigger = () => screen.getByTestId('studio-pkg-chip');
 
 /**
  * A package whose producer declared NO name: `parsePackages` falls `name` back

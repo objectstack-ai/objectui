@@ -2746,10 +2746,19 @@ const en = {
       // it — the same convention as `{seconds}` above (objectui#10900).
       socialButton: 'Continue with {provider}',
       orText: 'or continue with email',
+      // objectui#12600 — the console login card's own header, the password
+      // field's reveal toggle, and the footer's legal links.
+      welcomeTitle: 'Welcome back',
+      welcomeDescription: 'Sign in to continue your work',
+      showPasswordText: 'Show password',
+      hidePasswordText: 'Hide password',
+      footer: {
+        privacy: 'Privacy',
+        terms: 'Terms',
+      },
       devAdminHint: {
-        title: 'Development instance',
-        body: 'Sign in with the seeded dev admin:',
-        dismiss: 'Dismiss',
+        title: 'Local development instance',
+        signIn: 'Sign in as dev admin',
       },
       errors: {
         invalidCredentials: 'Invalid email or password. Please try again.',

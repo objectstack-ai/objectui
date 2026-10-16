@@ -13,6 +13,7 @@ import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
 import type { I18nLabel } from '@object-ui/types';
 import { ArrowDownIcon, ArrowUpIcon, MinusIcon, AlertCircle, Loader2 } from 'lucide-react';
 import { hostDomProps, type SchemaHostProps } from './schemaHostProps';
+import { METRIC_TILE_CONTAINER_CLASS, METRIC_TILE_TITLE_CLASS, METRIC_TILE_VALUE_CLASS } from './metricTile';
 
 /**
  * DOM PASS-THROUGH (objectui#4426) — see `MetricWidget.tsx`'s interface header
@@ -94,14 +95,16 @@ export const MetricCard: React.FC<MetricCardProps & SchemaHostProps> = ({
   const { language } = useObjectTranslation();
 
   return (
-    <Card className={cn("h-full", className)} {...hostProps}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">
+    // objectui#12623 — the tile's own box is what the title and value rules in
+    // `./metricTile` measure.
+    <Card className={cn("h-full", METRIC_TILE_CONTAINER_CLASS, className)} {...hostProps}>
+      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+        <CardTitle className={METRIC_TILE_TITLE_CLASS} title={pickLocalized(title, language) || undefined}>
           {pickLocalized(title, language)}
         </CardTitle>
         {IconComponent && (
           // eslint-disable-next-line react-hooks/static-components -- getLazyIcon returns a module-cached stable component per name, not one created during render
-          <IconComponent className="h-4 w-4 text-muted-foreground" />
+          <IconComponent className="h-4 w-4 shrink-0 text-muted-foreground" />
         )}
       </CardHeader>
       <CardContent>
@@ -117,7 +120,7 @@ export const MetricCard: React.FC<MetricCardProps & SchemaHostProps> = ({
           </div>
         ) : (
           <>
-            <div className="text-2xl font-bold">{value}</div>
+            <div className={cn('font-bold', METRIC_TILE_VALUE_CLASS)}>{value}</div>
             {(trend || trendValue || description) && (
               <p className="text-xs text-muted-foreground flex items-center mt-1">
                 {trend && trendValue && (

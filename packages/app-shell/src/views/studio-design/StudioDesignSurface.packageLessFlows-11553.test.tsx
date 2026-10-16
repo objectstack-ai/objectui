@@ -271,7 +271,7 @@ describe('the package-less scope lists a package-less flow and opens it editable
     expect(screen.queryByRole('link', { name: /Access/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Create app/ })).not.toBeInTheDocument();
     expect(chatDock.mounts).toBe(0);
-    expect(screen.getByTitle('Switch / create package')).toHaveTextContent('Organization flows');
+    expect(screen.getByTestId('studio-pkg-chip')).toHaveTextContent('Organization flows');
     // No "New" flow here: authoring stays package-first.
     expect(screen.queryByTitle('New automation')).not.toBeInTheDocument();
   });
@@ -333,7 +333,7 @@ describe('the packaged control: a read-only package stays read-only (objectui#11
     await openedFlow('showcase_urgent_task_alert');
     await waitFor(() => expect(screen.getByRole('switch')).toBeDisabled());
 
-    fireEvent.click(screen.getByTitle('Switch / create package'));
+    fireEvent.click(screen.getByTestId('studio-pkg-chip'));
     fireEvent.click(await screen.findByTestId('studio-org-scope-entry'));
 
     await waitFor(() => expect(location()).toBe('/studio/~org/automations'));

@@ -2297,9 +2297,8 @@ const es = {
       signingIn: "Iniciando sesión…",
       ssoHandoff: "Continuar a {{target}}",
       devAdminHint: {
-        title: "Instancia de desarrollo",
-        body: "Inicie sesión con el administrador de desarrollo predefinido:",
-        dismiss: "Descartar",
+        title: "Instancia de desarrollo local",
+        signIn: "Iniciar sesión como administrador de desarrollo",
       },
       title: "Inicia sesión en tu cuenta",
       description: "Ingresa tu correo electrónico y contraseña para continuar",
@@ -2331,6 +2330,16 @@ const es = {
       usePasswordSignInText: "Iniciar sesión con contraseña en su lugar",
       socialButton: "Continuar con {provider}",
       orText: "o continúe con correo electrónico",
+      // objectui#12600 — the console login card's own header, the password
+      // field's reveal toggle, and the footer's legal links.
+      welcomeTitle: "Bienvenido de nuevo",
+      welcomeDescription: "Inicia sesión para continuar con tu trabajo",
+      showPasswordText: "Mostrar contraseña",
+      hidePasswordText: "Ocultar contraseña",
+      footer: {
+        privacy: "Privacidad",
+        terms: "Términos",
+      },
     },
     register: {
       title: "Crear una cuenta",

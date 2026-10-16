@@ -2322,9 +2322,8 @@ const zh = {
       signingIn: '正在登录…',
       ssoHandoff: '继续前往 {{target}}',
       devAdminHint: {
-        title: '开发实例',
-        body: '可使用内置的开发管理员登录：',
-        dismiss: '关闭',
+        title: '本地开发实例',
+        signIn: '以开发管理员登录',
       },
       errors: {
         invalidCredentials: '邮箱或密码错误，请重试。',
@@ -2345,6 +2344,16 @@ const zh = {
       usePasswordSignInText: '改用密码登录',
       socialButton: '使用 {provider} 继续',
       orText: '或使用邮箱继续',
+      // objectui#12600 — the console login card's own header, the password
+      // field's reveal toggle, and the footer's legal links.
+      welcomeTitle: '欢迎回来',
+      welcomeDescription: '登录后继续你的工作',
+      showPasswordText: '显示密码',
+      hidePasswordText: '隐藏密码',
+      footer: {
+        privacy: '隐私',
+        terms: '条款',
+      },
     },
     register: {
       title: '创建账户',

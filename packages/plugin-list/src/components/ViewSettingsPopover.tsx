@@ -66,10 +66,13 @@ export interface ViewSettingsPopoverProps {
   allFields: ViewSettingsField[];
 
   /**
-   * The Layout row: the visualization switcher, drawn as handed. The host
-   * passes it only when the list offers more than one visualization.
+   * The Layout row: the visualization switcher. The host passes it only when
+   * the list offers more than one visualization, as a function of `closeMenu`:
+   * choosing a layout completes the choice, so the host's switcher calls
+   * `closeMenu` when a layout is picked (objectui#12621). The panel's toggles
+   * (row numbers, inline edit, density, hidden fields) never close it.
    */
-  layout?: React.ReactNode;
+  layout?: (closeMenu: () => void) => React.ReactNode;
 
   showGroup?: boolean;
   groupingConfig?: any;
@@ -277,6 +280,9 @@ export function ViewSettingsPopover(props: ViewSettingsPopoverProps) {
   } = props;
 
   const [open, setOpen] = React.useState(false);
+  // Closing through the controlled state lets Radix return focus to the
+  // Display trigger, as Escape and an outside click do.
+  const closeMenu = React.useCallback(() => setOpen(false), []);
 
   const DensityIcon =
     density?.mode === 'compact' ? Rows4 : density?.mode === 'comfortable' ? Rows3 : Rows2;
@@ -318,7 +324,7 @@ export function ViewSettingsPopover(props: ViewSettingsPopoverProps) {
               <span className="text-xs font-medium text-foreground/80">
                 {t('list.layout', { defaultValue: 'Layout' })}
               </span>
-              {layout}
+              {layout(closeMenu)}
             </div>
           )}
 

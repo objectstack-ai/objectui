@@ -231,7 +231,7 @@ function renderSurface(apps?: MetadataContextValue['apps']) {
   );
 }
 
-const trigger = () => screen.getByTitle('Switch / create package');
+const trigger = () => screen.getByTestId('studio-pkg-chip');
 const where = () => screen.getByTestId('location').textContent;
 
 /**

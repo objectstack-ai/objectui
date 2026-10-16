@@ -2245,9 +2245,8 @@ const de = {
       signingIn: "Sie werden angemeldet…",
       ssoHandoff: "Weiter zu {{target}}",
       devAdminHint: {
-        title: "Entwicklungsinstanz",
-        body: "Melden Sie sich mit dem vorkonfigurierten Entwickler-Admin an:",
-        dismiss: "Ausblenden",
+        title: "Lokale Entwicklungsinstanz",
+        signIn: "Als Entwickler-Admin anmelden",
       },
       title: "In Ihr Konto einloggen",
       description: "Geben Sie Ihre E-Mail-Adresse und Ihr Passwort ein, um fortzufahren",
@@ -2279,6 +2278,16 @@ const de = {
       usePasswordSignInText: "Stattdessen mit Passwort anmelden",
       socialButton: "Weiter mit {provider}",
       orText: "oder mit E-Mail fortfahren",
+      // objectui#12600 — the console login card's own header, the password
+      // field's reveal toggle, and the footer's legal links.
+      welcomeTitle: "Willkommen zurück",
+      welcomeDescription: "Melden Sie sich an, um weiterzuarbeiten",
+      showPasswordText: "Passwort anzeigen",
+      hidePasswordText: "Passwort verbergen",
+      footer: {
+        privacy: "Datenschutz",
+        terms: "Nutzungsbedingungen",
+      },
     },
     register: {
       title: "Konto erstellen",

@@ -284,17 +284,21 @@ describe('no shipped icon-only Button goes unnamed unless it is frozen in the ba
    * and the grouped grid's own pager (objectui#12143) are four icon-only
    * `Button`s each, named through `aria-label`; the scan must SEE them as
    * icon-only AND named, or a matcher that saw no icon would pass everything.
+   * Since objectui#12620 `ObjectGrid.tsx` holds a SECOND such pager: a
+   * server-grouped group's own pager, drawn in its band footer (it used to be
+   * the per-group `data-table`'s pager), so that file reads two of each.
    */
-  it('the two repaired pagers are read as four named icon-only Buttons each', () => {
-    for (const file of [
-      'packages/components/src/renderers/complex/data-table.tsx',
-      'packages/plugin-grid/src/ObjectGrid.tsx',
-    ]) {
+  it('the repaired pagers are read as four named icon-only Buttons each', () => {
+    const PAGER = ['ChevronLeft', 'ChevronRight', 'ChevronsLeft', 'ChevronsRight'];
+    for (const [file, pagers] of [
+      ['packages/components/src/renderers/complex/data-table.tsx', 1],
+      ['packages/plugin-grid/src/ObjectGrid.tsx', 2],
+    ] as const) {
       const chevrons = iconOnly
         .filter((j) => j.file === file && /^Chevrons?(Left|Right)$/.test(j.icon))
         .map((j) => `${j.icon}${j.named ? '' : ' (unnamed)'}`)
         .sort();
-      expect(chevrons, file).toEqual(['ChevronLeft', 'ChevronRight', 'ChevronsLeft', 'ChevronsRight']);
+      expect(chevrons, file).toEqual(PAGER.flatMap((icon) => Array<string>(pagers).fill(icon)));
     }
   });
 

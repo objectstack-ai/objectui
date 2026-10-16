@@ -2247,9 +2247,8 @@ const ja = {
       signingIn: "サインインしています…",
       ssoHandoff: "{{target}} に進む",
       devAdminHint: {
-        title: "開発用インスタンス",
-        body: "初期設定の開発用管理者でサインインします:",
-        dismiss: "閉じる",
+        title: "ローカル開発インスタンス",
+        signIn: "開発用管理者でサインイン",
       },
       title: "アカウントにサインイン",
       description: "メールアドレスとパスワードを入力してください",
@@ -2281,6 +2280,16 @@ const ja = {
       usePasswordSignInText: "パスワードでサインインする",
       socialButton: "{provider} で続行",
       orText: "またはメールアドレスで続行",
+      // objectui#12600 — the console login card's own header, the password
+      // field's reveal toggle, and the footer's legal links.
+      welcomeTitle: "おかえりなさい",
+      welcomeDescription: "サインインして作業を続けましょう",
+      showPasswordText: "パスワードを表示",
+      hidePasswordText: "パスワードを非表示",
+      footer: {
+        privacy: "プライバシー",
+        terms: "利用規約",
+      },
     },
     register: {
       title: "アカウントを作成",

@@ -780,7 +780,7 @@ importers:
         specifier: ^18.0.0-next.1
         version: 18.0.0-next.2(ai@7.0.65(zod@4.6.7))
       '@objectstack/spec':
-        specifier: ^18.0.0-next.1
+        specifier: ^18.0.0-next.2
         version: 18.0.0-next.2(ai@7.0.65(zod@4.6.7))
       '@sentry/react':
         specifier: ^10.70.0
@@ -2867,7 +2867,7 @@ importers:
   packages/types:
     dependencies:
       '@objectstack/spec':
-        specifier: ^18.0.0-next.1
+        specifier: ^18.0.0-next.2
         version: 18.0.0-next.2(ai@7.0.65(zod@4.6.7))
       zod:
         specifier: ^4.6.1

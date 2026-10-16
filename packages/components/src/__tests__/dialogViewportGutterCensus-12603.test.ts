@@ -84,12 +84,16 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
 import { maskComments } from '../../../../scripts/js-comment-mask.mjs';
 import { DIALOG_VIEWPORT_GUTTER } from '../custom/dialog-viewport-gutter';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 // packages/components/src/__tests__ -> repository root
 const repoRoot = path.resolve(here, '../../../..');
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 const GUTTER_NAME = 'DIALOG_VIEWPORT_GUTTER';
 
@@ -209,7 +213,7 @@ const isGutterRef = (e: ts.Expression): boolean => {
 
 export function scanSource(file: string, text: string): { dialogs: number; sites: Site[] } {
   const out = { dialogs: 0, sites: [] as Site[] };
-  if (!maskComments(text).includes('DialogContent')) return out;
+  if (!mask(text).includes('DialogContent')) return out;
   const kind = /\.[cm]?[jt]sx$/.test(file) ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
   const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, kind);
 

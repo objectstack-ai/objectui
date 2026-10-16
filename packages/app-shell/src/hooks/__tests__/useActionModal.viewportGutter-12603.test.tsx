@@ -43,7 +43,7 @@ async function open(descriptor: Record<string, unknown>): Promise<string[]> {
   let handler: Handler | null = null;
   render(<Harness onReady={(h) => { handler = h; }} />);
   await act(async () => {
-    void handler!({ title: 'Quick view', content: { type: 'div' }, ...descriptor });
+    void handler!({ title: 'Quick view', content: { type: 'box' }, ...descriptor });
   });
   const surface = screen.getByRole('dialog');
   return (surface.getAttribute('class') ?? '').split(/\s+/).filter(Boolean);

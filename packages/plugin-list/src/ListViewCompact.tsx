@@ -20,13 +20,65 @@
  * Values render through the shared cell renderers (`getCellRenderer`), so a
  * date, a picklist label or a related record reads the way the grid and the
  * gallery draw it. ⛔ No second formatter lives here.
+ *
+ * Under the rows, a "View all" link to the rest (objectui#12703 part 2): drawn
+ * only when the block hands a destination through
+ * {@link CompactListDestinationContext}, which it builds from the host's
+ * `listHref` / `openList`. A host without that seam draws no link.
  */
 
 import * as React from 'react';
 import { cn } from '@object-ui/components';
 import { getRecordDisplayName, isEmptyValue, columnIdentity } from '@object-ui/core';
 import { getCellRenderer, resolveCellRendererType } from '@object-ui/fields';
-import { useSafeFieldLabel } from '@object-ui/i18n';
+import { useObjectTranslation, useSafeFieldLabel } from '@object-ui/i18n';
+
+/**
+ * Where the compact list's "View all" link goes: a document href and the SPA
+ * open that reaches the same place. The page block builds it from the host's
+ * `listHref` / `openList` (`RelatedRecordActionsValue`) and the object and saved
+ * view it is bound to; `null` (the default) draws no link.
+ *
+ * A context rather than a `ListView` prop because the destination is the
+ * block's, not the list's: only the page block knows its binding, and the
+ * object list page, which never draws the compact posture, has none.
+ * Package-internal, like this module.
+ */
+export interface CompactListDestination {
+  href: string;
+  /** SPA navigation to `href`; absent, the anchor navigates on its own. */
+  open?: () => void;
+}
+
+export const CompactListDestinationContext = React.createContext<CompactListDestination | null>(null);
+
+/** The compact list's footer: a real link to the rest of the list. */
+export function ListViewCompactFooter({ destination }: { destination: CompactListDestination }) {
+  const { t } = useObjectTranslation();
+  return (
+    <div className="border-t px-3 py-2 shrink-0" data-testid="list-compact-footer">
+      <a
+        href={destination.href}
+        className={cn(
+          'inline-flex items-center gap-1 rounded-sm text-xs font-medium text-primary underline-offset-4',
+          'hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        )}
+        data-testid="list-compact-view-all"
+        onClick={(e) => {
+          // Modifier and non-primary clicks belong to the browser (a new tab, a
+          // new window): that is why the destination is a real href.
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+          if (!destination.open) return;
+          e.preventDefault();
+          destination.open();
+        }}
+      >
+        {t('list.viewAll')}
+        <span aria-hidden="true">→</span>
+      </a>
+    </div>
+  );
+}
 
 /** The two columns a compact row draws: the view's first two visible ones. */
 export function compactRowColumns(fields: readonly unknown[]): { primary?: string; secondary?: string } {
@@ -83,6 +135,7 @@ export interface ListViewCompactRowsProps {
 export function ListViewCompactRows({ rows, fields, objectName, objectDef, onRowClick }: ListViewCompactRowsProps) {
   const { fieldLabel, fieldOptionLabel } = useSafeFieldLabel();
   const { primary, secondary } = compactRowColumns(fields);
+  const destination = React.useContext(CompactListDestinationContext);
 
   // The field as the shared cell renderers take it: the object's definition,
   // its label and option labels through the i18n dictionary.
@@ -111,43 +164,46 @@ export function ListViewCompactRows({ rows, fields, objectName, objectDef, onRow
   };
 
   return (
-    <ul className="divide-y" data-testid="list-compact-rows">
-      {rows.map((record, i) => {
-        const id = (record.id ?? record._id ?? i) as string | number;
-        // No columns declared: the record's display name, as the gallery's
-        // card heading reads it, and no second line.
-        const first = primary ? cell(record, primary) : null;
-        const firstContent = first ?? getRecordDisplayName(objectDef, record);
-        const second = secondary ? cell(record, secondary) : null;
-        return (
-          <li key={String(id)} data-testid="list-compact-row">
-            <button
-              type="button"
-              className={cn(
-                'flex w-full min-w-0 flex-col items-start gap-0.5 px-3 py-2 text-left',
-                'hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none',
-              )}
-              onClick={(e) => {
-                // A link inside a cell (an email, a URL) is its own click.
-                if ((e.target as HTMLElement).closest('a')) return;
-                onRowClick?.(record);
-              }}
-            >
-              <span className="w-full min-w-0 truncate text-sm text-foreground" data-testid="list-compact-primary">
-                {firstContent}
-              </span>
-              {second != null && (
-                <span
-                  className="w-full min-w-0 truncate text-xs text-muted-foreground [&_*]:!text-xs"
-                  data-testid="list-compact-secondary"
-                >
-                  {second}
+    <>
+      <ul className="divide-y" data-testid="list-compact-rows">
+        {rows.map((record, i) => {
+          const id = (record.id ?? record._id ?? i) as string | number;
+          // No columns declared: the record's display name, as the gallery's
+          // card heading reads it, and no second line.
+          const first = primary ? cell(record, primary) : null;
+          const firstContent = first ?? getRecordDisplayName(objectDef, record);
+          const second = secondary ? cell(record, secondary) : null;
+          return (
+            <li key={String(id)} data-testid="list-compact-row">
+              <button
+                type="button"
+                className={cn(
+                  'flex w-full min-w-0 flex-col items-start gap-0.5 px-3 py-2 text-left',
+                  'hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none',
+                )}
+                onClick={(e) => {
+                  // A link inside a cell (an email, a URL) is its own click.
+                  if ((e.target as HTMLElement).closest('a')) return;
+                  onRowClick?.(record);
+                }}
+              >
+                <span className="w-full min-w-0 truncate text-sm text-foreground" data-testid="list-compact-primary">
+                  {firstContent}
                 </span>
-              )}
-            </button>
-          </li>
-        );
-      })}
-    </ul>
+                {second != null && (
+                  <span
+                    className="w-full min-w-0 truncate text-xs text-muted-foreground [&_*]:!text-xs"
+                    data-testid="list-compact-secondary"
+                  >
+                    {second}
+                  </span>
+                )}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      {destination && <ListViewCompactFooter destination={destination} />}
+    </>
   );
 }

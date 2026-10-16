@@ -769,6 +769,8 @@ const zh = {
     recordCount_one: '{{count}} 条记录',
     recordCount_other: '{{count}} 条记录',
     addRecord: '添加记录',
+    // objectui#12703 — the compact list's footer link to the object's list or the block's view.
+    viewAll: '查看全部',
     tabs: '标签页',
     allRecords: '全部记录',
     search: '搜索',
@@ -1803,6 +1805,8 @@ const zh = {
       cryptoRefusalNoSubject: '声明为加密的值被拒绝,因此未写入任何内容。',
       cryptoRefusalToast: '无法加密机密信息:{{subject}}',
       cryptoRefusalToastNoSubject: '无法加密机密信息',
+      sourceBadgeInherited: '继承自{{source}}',
+      sourceBadgeOverrides: '覆盖{{source}}',
     },
     workspaceTimezonePrompt: {
       title: '设置工作区时区',

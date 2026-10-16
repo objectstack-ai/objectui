@@ -31,6 +31,10 @@
  * it can route to, so the low-level renderers on a record page can turn a
  * lookup VALUE into a link to the referenced record without assembling a URL
  * of their own. Same provider, same builder, one route shape.
+ *
+ * Since objectui#12703 it also publishes the object-list URL builder
+ * ({@link RelatedRecordActionsValue.listHref} / `openList`), for a renderer
+ * that shows a few of an object's records and links to the rest.
  */
 
 import React, { createContext, useContext } from 'react';
@@ -164,6 +168,31 @@ export interface RelatedRecordActionsValue {
    * in-app; a modifier click is left to the browser and the href.
    */
   openRecord?: (objectName: string, recordId: string | number) => void;
+  /**
+   * The host's list-page URL for an object it can route to, optionally opened
+   * on one of the object's saved views (objectui#12703). The list-side twin of
+   * {@link recordHref}: a renderer that shows a few of an object's records (the
+   * compact list a page draws in a narrow region) presents "View all" as a real
+   * anchor to this destination, without assembling a URL of its own.
+   *
+   * `viewName` names a saved view of that object, as the block binding states
+   * it (`dataSource.view`); absent, the destination is the object's own list.
+   * The destination is a view or the object, never a query: a caller does not
+   * encode its own filter, columns or sort into it, and the host has no
+   * argument to receive them.
+   *
+   * Returns `null` when the host cannot route to that object (unknown object,
+   * no app context); consumers then draw no link. Like {@link recordHref} it is
+   * a document href that carries the router's basename, while {@link openList}
+   * navigates by the router path.
+   */
+  listHref?: (objectName: string, viewName?: string) => string | null;
+  /**
+   * SPA-navigate to the destination {@link listHref} addresses. Consumers call
+   * this from a plain left click on the anchor; a modifier click is left to the
+   * browser and the href.
+   */
+  openList?: (objectName: string, viewName?: string) => void;
 }
 
 const RelatedRecordActionsContext = createContext<RelatedRecordActionsValue | null>(null);

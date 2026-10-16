@@ -14,10 +14,13 @@ import {
   ElementDataSourceGate,
   SchemaRendererContext,
   isConfigBag,
+  useRelatedRecordActions,
   type ElementDataSourceMapping,
+  type RelatedRecordActionsValue,
 } from '@object-ui/react';
 import type { ListViewSchema } from '@object-ui/types';
 import { ListView, type ListViewHandle, type ListViewProps } from './ListView';
+import { CompactListDestinationContext, type CompactListDestination } from './ListViewCompact';
 
 /**
  * Which schema keys `ListView` actually reads, so the composed binding lands on
@@ -131,6 +134,50 @@ function namesRecordSource(schema: ListViewSchema): boolean {
 }
 
 /**
+ * Where the compact list's "View all" link goes (objectui#12703, part 2): the
+ * host's list destination for the object this block reads, on the saved view
+ * the block binds (`dataSource.view`) when it binds one, else the object's own
+ * list. `null` when the host publishes no `listHref`, answers `null`, or the
+ * block names no object, and the compact list then draws no link.
+ *
+ * Only the object and the view name are handed over. ⛔ The block's own
+ * `filter`, `columns` and `sort` (inline, or the binding's additions to the
+ * view) are never encoded: the destination is a list a user can open on its
+ * own, and the block's header count stays the answer to "what this block
+ * shows".
+ *
+ * Plain function, not a hook: it is called inside the gate's render callback.
+ */
+function compactListDestination(
+  host: RelatedRecordActionsValue | null,
+  bound: ListViewSchema,
+): CompactListDestination | null {
+  if (!host?.listHref) return null;
+  const objectName = boundObjectName(bound);
+  if (!objectName) return null;
+  const binding: unknown = (bound as { dataSource?: unknown }).dataSource;
+  const viewName = isElementDataSourceConfig(binding) && typeof binding.view === 'string' && binding.view !== ''
+    ? binding.view
+    : undefined;
+  const href = host.listHref(objectName, viewName);
+  if (!href) return null;
+  const openList = host.openList;
+  // No SPA open published: the anchor navigates on its own.
+  return openList ? { href, open: () => openList(objectName, viewName) } : { href };
+}
+
+/** The object the bound schema reads: the binding's (landed on `objectName`) or an `object` provider's. */
+function boundObjectName(schema: ListViewSchema): string | undefined {
+  const bound = schema.objectName;
+  if (typeof bound === 'string' && bound.trim().length > 0) return bound;
+  const data: unknown = schema.data;
+  if (isConfigBag(data) && data.provider === 'object' && typeof data.object === 'string' && data.object.trim().length > 0) {
+    return data.object;
+  }
+  return undefined;
+}
+
+/**
  * The "no object named" hint, in the gate's own words (the `view.noObject`
  * message), naming the page key this block reads: `data.object`. The gate's
  * own hint names its mapping's object key, which here is `objectName`, the
@@ -238,6 +285,9 @@ const ListViewBlock = elementDataSourceBlock(React.forwardRef<ListViewHandle, Li
   // full list. Read here, on the page block, and not in `ListView`, so the
   // object list page and every other host of `ListView` are untouched.
   const compact = usePageRegionPosture() === 'compact';
+  // The host's list destination builder, for the compact list's "View all"
+  // link (objectui#12703, part 2). Read only when the posture is compact.
+  const host = useRelatedRecordActions();
 
   // A list that names its records in neither place has nothing to fetch, and
   // drew the "Nothing here yet" empty state, which reads as an empty query
@@ -253,7 +303,11 @@ const ListViewBlock = elementDataSourceBlock(React.forwardRef<ListViewHandle, Li
       errorTitle="This list view’s data source could not be resolved"
     >
       {(schema) => namesRecordSource(schema)
-        ? <ListView ref={ref} {...props} schema={schema} dataSource={adapter} compact={compact} />
+        ? (
+          <CompactListDestinationContext.Provider value={compact ? compactListDestination(host, schema) : null}>
+            <ListView ref={ref} {...props} schema={schema} dataSource={adapter} compact={compact} />
+          </CompactListDestinationContext.Provider>
+        )
         : <ListViewNoObjectHint />}
     </ElementDataSourceGate>
   );

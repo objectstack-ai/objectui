@@ -450,6 +450,47 @@ function Section({ collapsed, children }: { collapsed: boolean; children: ReactN
 }
 ```
 
+### RelatedRecordActionsProvider / useRelatedRecordActions
+
+The host's navigation seam for low-level renderers that have no router. The
+host (the console's record, list and custom pages) publishes a
+`RelatedRecordActionsValue`; renderers read it with `useRelatedRecordActions()`,
+which returns `null` when no host provides one.
+
+- `resolve(input)` returns the CRUD and action handlers for a related list.
+- `recordHref(objectName, recordId)` / `openRecord(...)` address one record's
+  page: a document href for a real anchor, and the SPA navigation a plain left
+  click uses.
+- `listHref(objectName, viewName?)` / `openList(...)` address an object's list
+  page, or one of its saved views when `viewName` is given. The compact list a
+  page draws in a narrow region links "View all" through them. They take an
+  object and a view name only: a caller cannot hand them a filter, columns or a
+  sort to encode.
+
+Every member but `resolve` is optional. An absent member, or one that answers
+`null`, means the host cannot route there, and the renderer draws no link.
+
+```tsx
+import type { ReactNode } from 'react'
+import { RelatedRecordActionsProvider } from '@object-ui/react'
+import type { RelatedRecordActionsValue } from '@object-ui/react'
+
+declare const navigate: (to: string) => void
+
+const listPath = (objectName: string, viewName?: string): string =>
+  viewName ? `/apps/crm/${objectName}/view/${encodeURIComponent(viewName)}` : `/apps/crm/${objectName}`
+
+const host: RelatedRecordActionsValue = {
+  resolve: () => ({}),
+  listHref: (objectName: string, viewName?: string) => listPath(objectName, viewName),
+  openList: (objectName: string, viewName?: string) => navigate(listPath(objectName, viewName)),
+}
+
+export function PageHost({ children }: { children: ReactNode }) {
+  return <RelatedRecordActionsProvider value={host}>{children}</RelatedRecordActionsProvider>
+}
+```
+
 ### ComponentRegistry
 
 There is no registry hook: the registry is a process-level singleton exported

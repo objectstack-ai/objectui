@@ -849,6 +849,8 @@ const ru = {
     recordCount_many: "{{count}} записей",
     recordCount_other: "{{count}} записи",
     addRecord: "Добавить запись",
+    // objectui#12703 — the compact list's footer link to the object's list or the block's view.
+    viewAll: "Показать все",
     tabs: "Вкладки",
     allRecords: "Все записи",
     search: "Поиск",
@@ -2118,6 +2120,8 @@ const ru = {
       cryptoRefusalNoSubject: "Значение, объявленное зашифрованным, было отклонено, поэтому ничего не было записано.",
       cryptoRefusalToast: "Не удалось зашифровать секреты: {{subject}}",
       cryptoRefusalToastNoSubject: "Не удалось зашифровать секреты",
+      sourceBadgeInherited: "Унаследовано: {{source}}",
+      sourceBadgeOverrides: "Переопределяет: {{source}}",
     },
     workspaceTimezonePrompt: {
       title: "Задайте часовой пояс рабочего пространства",

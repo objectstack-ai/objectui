@@ -903,6 +903,8 @@ const ar = {
     recordCount_many: "{{count}} سجلًا",
     recordCount_other: "{{count}} سجل",
     addRecord: "إضافة سجل",
+    // objectui#12703 — the compact list's footer link to the object's list or the block's view.
+    viewAll: "عرض الكل",
     tabs: "علامات التبويب",
     allRecords: "جميع السجلات",
     search: "بحث",
@@ -2208,6 +2210,8 @@ const ar = {
       cryptoRefusalNoSubject: "تم رفض القيمة المعلنة كمشفَّرة، لذلك لم تتم كتابة أي شيء.",
       cryptoRefusalToast: "تعذّر تشفير الأسرار: {{subject}}",
       cryptoRefusalToastNoSubject: "تعذّر تشفير الأسرار",
+      sourceBadgeInherited: "موروث من {{source}}",
+      sourceBadgeOverrides: "يتجاوز {{source}}",
     },
     workspaceTimezonePrompt: {
       title: "تعيين المنطقة الزمنية لمساحة العمل",

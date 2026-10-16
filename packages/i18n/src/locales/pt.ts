@@ -812,6 +812,8 @@ const pt = {
     recordCount_many: "{{count}} de registros",
     recordCount_other: "{{count}} registros",
     addRecord: "Adicionar registro",
+    // objectui#12703 — the compact list's footer link to the object's list or the block's view.
+    viewAll: "Ver tudo",
     tabs: "Abas",
     allRecords: "Todos os registros",
     search: "Pesquisar",
@@ -2055,6 +2057,8 @@ const pt = {
       cryptoRefusalNoSubject: "O valor declarado como criptografado foi recusado, portanto nada foi gravado.",
       cryptoRefusalToast: "Não é possível criptografar segredos: {{subject}}",
       cryptoRefusalToastNoSubject: "Não é possível criptografar segredos",
+      sourceBadgeInherited: "Herdado de {{source}}",
+      sourceBadgeOverrides: "Substitui {{source}}",
     },
     workspaceTimezonePrompt: {
       title: "Definir o fuso horário do workspace",

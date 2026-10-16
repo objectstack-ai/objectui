@@ -788,6 +788,8 @@ const de = {
     recordCount_one: "{{count}} Datensatz",
     recordCount_other: "{{count}} Datensätze",
     addRecord: "Datensatz hinzufügen",
+    // objectui#12703 — the compact list's footer link to the object's list or the block's view.
+    viewAll: "Alle anzeigen",
     tabs: "Tabs",
     allRecords: "Alle Datensätze",
     search: "Suche",
@@ -2011,6 +2013,8 @@ const de = {
       cryptoRefusalNoSubject: "Der als verschlüsselt deklarierte Wert wurde abgelehnt, daher wurde nichts geschrieben.",
       cryptoRefusalToast: "Geheimnisse können nicht verschlüsselt werden: {{subject}}",
       cryptoRefusalToastNoSubject: "Geheimnisse können nicht verschlüsselt werden",
+      sourceBadgeInherited: "Geerbt von {{source}}",
+      sourceBadgeOverrides: "Überschreibt {{source}}",
     },
     workspaceTimezonePrompt: {
       title: "Zeitzone des Workspace festlegen",

@@ -813,6 +813,8 @@ const fr = {
     recordCount_many: "{{count}} d'enregistrements",
     recordCount_other: "{{count}} enregistrements",
     addRecord: "Ajouter un enregistrement",
+    // objectui#12703 — the compact list's footer link to the object's list or the block's view.
+    viewAll: "Tout afficher",
     tabs: "Onglets",
     allRecords: "Tous les enregistrements",
     search: "Rechercher",
@@ -2057,6 +2059,8 @@ const fr = {
       cryptoRefusalNoSubject: "La valeur déclarée chiffrée a été refusée, aucune écriture n'a donc eu lieu.",
       cryptoRefusalToast: "Impossible de chiffrer les secrets : {{subject}}",
       cryptoRefusalToastNoSubject: "Impossible de chiffrer les secrets",
+      sourceBadgeInherited: "Hérité de {{source}}",
+      sourceBadgeOverrides: "Remplace {{source}}",
     },
     workspaceTimezonePrompt: {
       title: "Définir le fuseau horaire de l’espace de travail",

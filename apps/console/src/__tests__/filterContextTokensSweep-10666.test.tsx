@@ -243,7 +243,7 @@ const ROWS: NodeRow[] = [
   { node: 'object-grid (regression)', shape: 'tuple', path: 'dataSource', filterParam: '$filter',
     withFilter: top({ type: 'object-grid', objectName: OBJECT, columns: ['name'] }) },
   { node: 'list-view (regression)', shape: 'tuple', path: 'dataSource', filterParam: '$filter', stubChildGrid: true,
-    withFilter: top({ type: 'list-view', objectName: OBJECT, columns: ['name'] }) },
+    withFilter: top({ type: 'list-view', data: { provider: 'object', object: OBJECT }, columns: ['name'] }) },
 ];
 
 type DS = ReturnType<typeof makeDataSource>;

@@ -158,7 +158,7 @@ describe("#6598 — all eight reported `columns` spellings on a kind:'html' page
       // The grammar case objectui#6614/#6669 legalised. Credit is #6669's; this
       // is the end-to-end guard that the materialised array survives all the
       // way to a header row.
-      const r = await renderSpelling(`<list-view objectName="${OBJECT}" columns={['name','amount']} />`);
+      const r = await renderSpelling(`<list-view data={{provider:'object',object:'${OBJECT}'}} columns={['name','amount']} />`);
 
       expectNotTheReportedSymptom(r);
       expect(r.headers).toEqual([INDEX_COLUMN, 'Opportunity Name', 'Amount']);
@@ -168,7 +168,7 @@ describe("#6598 — all eight reported `columns` spellings on a kind:'html' page
 
     it('form 3 — an object-array with bare identifier keys', async () => {
       const r = await renderSpelling(
-        `<list-view objectName="${OBJECT}" columns={[{field:'name',label:'Opportunity Name'},{field:'amount',label:'Amount'}]} />`,
+        `<list-view data={{provider:'object',object:'${OBJECT}'}} columns={[{field:'name',label:'Opportunity Name'},{field:'amount',label:'Amount'}]} />`,
       );
 
       expectNotTheReportedSymptom(r);
@@ -194,7 +194,7 @@ describe("#6598 — all eight reported `columns` spellings on a kind:'html' page
       // The only one of the eight that failed with ZERO diagnostics, and the
       // half PR #6679 fixed: ListView must hand the grid NO projection when the
       // author declared none, so the grid's own defaults can run.
-      expectDefaults(await renderSpelling(`<list-view objectName="${OBJECT}" />`));
+      expectDefaults(await renderSpelling(`<list-view data={{provider:'object',object:'${OBJECT}'}} />`));
     });
 
     it('form 2 — a JSON STRING where an array is declared', async () => {
@@ -204,7 +204,7 @@ describe("#6598 — all eight reported `columns` spellings on a kind:'html' page
       // refused. Parsing it anyway would be exactly the consumer-side tolerance
       // alias the rule forbids. What matters to THIS card is that refusing it
       // no longer costs the page its columns.
-      const r = await renderSpelling(`<list-view objectName="${OBJECT}" columns='["name","amount"]' />`);
+      const r = await renderSpelling(`<list-view data={{provider:'object',object:'${OBJECT}'}} columns='["name","amount"]' />`);
 
       expectDefaults(r);
       // The string was not silently adopted as a two-column projection: the
@@ -217,22 +217,22 @@ describe("#6598 — all eight reported `columns` spellings on a kind:'html' page
       // not a base prop, so it draws `unknown-prop`. It was never the spelling
       // for a saved view on this tier — see objectui#6678, which is about that
       // being undiscoverable, not about this page losing its columns.
-      expectDefaults(await renderSpelling(`<list-view objectName="${OBJECT}" viewName="all_opps" />`));
+      expectDefaults(await renderSpelling(`<list-view data={{provider:'object',object:'${OBJECT}'}} viewName="all_opps" />`));
     });
 
     it('form 5 — a `view` reference to a saved view', async () => {
-      expectDefaults(await renderSpelling(`<list-view objectName="${OBJECT}" view="all_opps" />`));
+      expectDefaults(await renderSpelling(`<list-view data={{provider:'object',object:'${OBJECT}'}} view="all_opps" />`));
     });
 
     it('form 8b — the kebab-case `view-name` variant', async () => {
-      expectDefaults(await renderSpelling(`<list-view objectName="${OBJECT}" view-name="all_opps" />`));
+      expectDefaults(await renderSpelling(`<list-view data={{provider:'object',object:'${OBJECT}'}} view-name="all_opps" />`));
     });
   });
 
   describe('the spellings that fail LOUDLY, which is the opposite of the report', () => {
     it('form 6 — child <column> elements', async () => {
       const r = await renderSpelling(
-        `<list-view objectName="${OBJECT}"><column field="name" /><column field="amount" /></list-view>`,
+        `<list-view data={{provider:'object',object:'${OBJECT}'}}><column field="name" /><column field="amount" /></list-view>`,
       );
 
       expectNotTheReportedSymptom(r);
@@ -243,17 +243,20 @@ describe("#6598 — all eight reported `columns` spellings on a kind:'html' page
     });
 
     it('form 8a — the kebab-case `object-name` variant', async () => {
-      // `object-name` is not `objectName`, so the list names no object, and
-      // the page says so by name. Since objectui#11605 the compile no longer
-      // refuses it (`objectName` is not required: a `dataSource` binding can
-      // supply it), so the saying moved from the compile-error block to the
-      // block's own hint, which names `objectName` and fetches nothing.
+      // `object-name` names nothing this block reads, so the list names no
+      // object, and the page says so by name. Since objectui#11605 the compile
+      // no longer refuses it (the object is not required: a `dataSource`
+      // binding can supply it), so the saying moved from the compile-error
+      // block to the block's own hint, which fetches nothing and, since
+      // objectui#12099, names the page key `data.object` rather than the
+      // retired `objectName`.
       const r = await renderSpelling(`<list-view object-name="${OBJECT}" columns={['name','amount']} />`);
 
       expectNotTheReportedSymptom(r);
       expect(r.compileFailed).toBe(false);
       expect(r.noObjectHint).toBe(true);
-      expect(r.text).toContain('objectName');
+      expect(r.text).toContain('data.object');
+      expect(r.text).not.toContain('objectName');
       expect(r.headers).toEqual([]);
     });
   });

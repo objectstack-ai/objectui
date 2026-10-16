@@ -59,8 +59,8 @@ const RETIRED_PAGE_KEYS = ['objectName', 'viewType'] as const;
 const warnedRetiredPageKeys = new Set<string>();
 
 const RETIRED_PAGE_KEY_REMEDY: Record<(typeof RETIRED_PAGE_KEYS)[number], string> = {
-  objectName: "name the object in `data: { provider: 'object', object }` or in `dataSource.object`",
-  viewType: 'write the list kind as `type` in the node\'s `properties`',
+  objectName: "Name the object in `data: { provider: 'object', object }` or in `dataSource.object`",
+  viewType: 'Write the list kind as `type` in the node\'s `properties`',
 };
 
 function warnRetiredPageKey(key: (typeof RETIRED_PAGE_KEYS)[number]): void {

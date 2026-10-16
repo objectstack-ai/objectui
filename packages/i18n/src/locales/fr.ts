@@ -2665,12 +2665,10 @@ const fr = {
   home: {
     build: {
       title: "Créer une application",
-      subtitle: "Partir de zéro — concevez les objets, formulaires, automatisations et interfaces.",
       noCapability: "La création d'applications n'est pas disponible dans cet espace de travail : elle requiert l'autorisation « Gérer les métadonnées », que votre compte ne possède pas.",
     },
     template: {
       title: "Partir d'un modèle",
-      subtitle: "Installez une application modèle depuis la place de marché et personnalisez-la.",
       marketplaceDisabled: "Aucune place de marché d'applications n'est configurée pour ce runtime : il n'y a donc aucun modèle à installer ici.",
     },
     welcomeAdminDescription: "Décrivez votre activité en une phrase — l'IA génère les objets, les écrans, les API et les outils d'agent. Ou configurez tout vous-même depuis le menu de gauche.",
@@ -2737,7 +2735,16 @@ const fr = {
     greetingNight: "Travail de nuit",
     greetingSeparator: ", ",
     greetingEnd: ".",
-    heroTagline: "Reprenez là où vous vous êtes arrêté ou découvrez quelque chose de nouveau.",
+    search: "Rechercher des applications, enregistrements, pages…",
+    summary: {
+      approvals: "{{count}} approbations vous attendent aujourd'hui",
+      approvals_one: "{{count}} approbation vous attend aujourd'hui",
+      approvals_many: "{{count}} approbations vous attendent aujourd'hui",
+      approvals_other: "{{count}} approbations vous attendent aujourd'hui",
+      none: "Rien ne vous attend aujourd'hui",
+    },
+    addApp: "Ajouter une application",
+    appOpened: "{{time}}",
     open: "Ouvrir",
     recentApps: {
       title: "Récemment ouverts",
@@ -3547,7 +3554,7 @@ const fr = {
     installedSubtitle: "Paquets du marketplace actuellement installés dans le noyau de ce runtime.",
     installedEmpty: "Aucune application du marketplace installée dans ce runtime pour l'instant.",
     browseLink: "Parcourir le marketplace →",
-    installedAdditiveNote: "<strong>Remarque :</strong> L'API du noyau est uniquement additive — la désinstallation supprime le manifeste du disque pour que le paquet ne se charge pas au prochain démarrage, mais le noyau en cours d'exécution maintient l'application enregistrée jusqu'au redémarrage.",
+    installedAdditiveNote: "L'API du noyau est uniquement additive — la désinstallation supprime le manifeste du disque pour que le paquet ne se charge pas au prochain démarrage, mais le noyau en cours d'exécution maintient l'application enregistrée jusqu'au redémarrage.",
     installedAt: "Installé {{when}}",
     installedBy: "par {{user}}",
     installedPackageId: "Paquet",

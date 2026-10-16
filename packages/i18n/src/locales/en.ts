@@ -3150,15 +3150,31 @@ const en = {
     // full-width marks, ar its own comma.
     greetingSeparator: ', ',
     greetingEnd: '.',
-    heroTagline: 'Pick up where you left off, or explore something new.',
+    // objectui#12601 — the field in Home's top bar that opens the command palette.
+    search: 'Search apps, records, pages…',
+    // objectui#12601 — the line under the greeting that sums up what is
+    // waiting: the approvals count, or `none` at zero.
+    summary: {
+      approvals: 'You have {{count}} approval(s) waiting today',
+      approvals_one: 'You have {{count}} approval waiting today',
+      approvals_other: 'You have {{count}} approvals waiting today',
+      none: 'Nothing is waiting for you today',
+    },
+    // objectui#12601 — an admin's trailing tile in the apps strip; opens the marketplace.
+    addApp: 'Add app',
+    // objectui#12601 — the line under a Home app tile: when the user last had
+    // the app open, `time` a compact relative time ("2 hr. ago"). The line is
+    // 11 px in a 112 px tile and never cut, so a pack adds a verb only where
+    // verb and time still fit (zh "{{time}}打开"); English does not have the
+    // room for "Opened". Held to its width budget in every pack by
+    // `appTileOpenedLine-12601.test.ts` (app-shell).
+    appOpened: '{{time}}',
     build: {
       title: 'Build an app',
-      subtitle: 'Start from scratch — design objects, forms, automations and interfaces.',
       noCapability: 'Building apps isn\'t available in this workspace — it requires the “Manage Metadata” permission, which your account doesn\'t have.',
     },
     template: {
       title: 'Start with a template',
-      subtitle: 'Install a template app from the marketplace and customize it.',
       marketplaceDisabled: 'This runtime has no app marketplace configured, so there are no templates to install here.',
     },
     open: 'Open',
@@ -4127,7 +4143,7 @@ const en = {
       installedSubtitle: 'Marketplace packages currently installed into this runtime\'s kernel. Cached manifests live in <code>.objectstack/installed-packages/</code> and survive restarts.',
       installedEmpty: 'No marketplace apps installed in this runtime yet.',
       browseLink: 'Browse the marketplace →',
-      installedAdditiveNote: '<strong>Note:</strong> The kernel API is additive only — uninstall removes the on-disk manifest so the package won\'t load on next boot, but the running kernel keeps the app registered until you restart the runtime.',
+      installedAdditiveNote: 'The kernel API is additive only — uninstall removes the on-disk manifest so the package won\'t load on next boot, but the running kernel keeps the app registered until you restart the runtime.',
       installedAt: 'Installed {{when}}',
       installedBy: 'by {{user}}',
       installedPackageId: 'package',

@@ -15,7 +15,7 @@
  * @module
  */
 
-import { useMemo } from 'react';
+import { useId, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMetadata } from '../../providers/MetadataProvider.js';
 import { useRecentItems } from '../../hooks/useRecentItems.js';
@@ -29,17 +29,30 @@ import { useAgents, isAskAgent, agentHasCapability } from '@object-ui/plugin-cha
 // unknown→fail-open) lives with the hook.
 import { useCanAuthorMetadata } from '../../hooks/useCanAuthorMetadata.js';
 import { HomeAppsStrip } from './HomeAppsStrip.js';
+import { lastOpenedByApp } from './appLastOpened.js';
 import { RecoveryPasswordReminder } from './RecoveryPasswordReminder.js';
 import { HomeActionCenter, HomeContinue, HomeActivity } from './HomeRail.js';
 import { useHomeInbox } from '../../hooks/useHomeInbox.js';
 import { useNavigationContext } from '../../context/NavigationContext.js';
 import {
+  appRouteSegment,
   filterActiveApps,
   resolveHostAppSegment,
   resolveNotificationTarget,
 } from '../../utils/index.js';
-import { Empty, EmptyTitle, EmptyDescription, Button, cn } from '@object-ui/components';
-import { Sparkles, UploadCloud, MessageSquareText, Hammer, LayoutTemplate } from 'lucide-react';
+import { resolveSetupAppPath } from '../ConsoleShell.js';
+import {
+  Empty,
+  EmptyTitle,
+  EmptyDescription,
+  Button,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+  cn,
+} from '@object-ui/components';
+import { Sparkles, UploadCloud, MessageSquareText, Hammer, LayoutGrid } from 'lucide-react';
 import { usePendingDrafts } from '../../preview/usePendingDrafts.js';
 import { usePublishAllDrafts } from '../../preview/usePublishAllDrafts.js';
 import { resolveAiApiBase } from '../../hooks/useAiSurface.js';
@@ -72,48 +85,79 @@ function useHomeAiAvailability(): {
 }
 
 /**
- * One card of the builder cover. Disabled (not hidden) when the session cannot
- * author metadata: a vanished primary CTA reads as a broken page, while a
- * dimmed one plus the reason line below explains the deployment's posture. The
- * reason also rides the native `title` so it is reachable from the card itself.
+ * One 32 px builder chip at the greeting's right (objectui#12601): "Start with
+ * a template" outlined, "Build an app" on the soft primary tint with its icon in
+ * the primary colour. Admins only — the caller decides that.
+ *
+ * Disabled (not hidden) when the session cannot use it: a vanished front door
+ * reads as a broken page, while a dimmed one explains the deployment's
+ * posture. The explanation rides the objectui#12303 pattern instead of a
+ * `title` on the disabled button, which no hover, focus or assistive
+ * technology reaches: a wrapping span is the tooltip trigger and a tab stop,
+ * and the button and the span both point `aria-describedby` at a visually
+ * hidden copy of the reason, `reasonId` — rendered once by the caller, since
+ * both chips can share one reason.
  */
-function BuilderCoverCard({
+function BuilderChip({
   icon: Icon,
-  title,
-  subtitle,
+  label,
   onClick,
-  disabled,
+  tone,
   disabledReason,
+  reasonId,
   testId,
 }: {
   icon: React.ElementType;
-  title: string;
-  subtitle: string;
+  label: string;
   onClick: () => void;
-  disabled: boolean;
-  disabledReason: string;
+  tone: 'outline' | 'soft';
+  /** The reason the chip is withheld, or `undefined` when it is live. */
+  disabledReason: string | undefined;
+  /** The id of the visually hidden reason the chip is described by. */
+  reasonId: string | undefined;
   testId: string;
 }) {
-  return (
+  const disabled = disabledReason !== undefined;
+  const button = (
     <button
       type="button"
       disabled={disabled}
-      title={disabled ? disabledReason : undefined}
+      aria-describedby={disabled ? reasonId : undefined}
       onClick={disabled ? undefined : onClick}
       data-testid={testId}
-      className={[
-        'flex items-start gap-3 rounded-xl border bg-card px-4 py-3.5 text-left transition-colors',
-        disabled ? 'cursor-not-allowed opacity-60' : 'hover:border-primary/50 hover:bg-muted/40',
-      ].join(' ')}
+      className={cn(
+        'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3 text-[13px] font-medium transition-colors',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        'disabled:pointer-events-none disabled:opacity-60',
+        tone === 'outline'
+          ? 'border bg-background text-foreground hover:bg-muted'
+          : 'bg-primary/10 text-primary hover:bg-primary/15',
+      )}
     >
-      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-        <Icon className="h-4.5 w-4.5" />
-      </span>
-      <span className="min-w-0">
-        <span className="block text-sm font-semibold">{title}</span>
-        <span className="mt-0.5 block text-xs text-muted-foreground">{subtitle}</span>
-      </span>
+      <Icon
+        className={cn('h-3.5 w-3.5', tone === 'outline' ? 'text-muted-foreground' : 'text-primary')}
+        aria-hidden
+      />
+      {label}
     </button>
+  );
+  if (!disabled) return button;
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            tabIndex={0}
+            aria-describedby={reasonId}
+            data-disabled-reason=""
+            className="inline-flex cursor-not-allowed rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            {button}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">{disabledReason}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -128,10 +172,10 @@ function BuilderCoverCard({
  * "Build with AI" routes to the AI authoring studio, whose output is
  * draft metadata nobody without `manage_metadata` can publish — so it is one of
  * the "any other metadata-authoring CTA" the objectstack#8270 ruling covers.
- * It is HIDDEN rather than disabled: unlike the builder cover it is not the
- * page's structural front door, the cover below already carries the visible
- * reason, and a disabled hero button next to a live "Ask AI" would read as a
- * transient failure. "Ask AI" is read-only and never gated.
+ * It is HIDDEN rather than disabled: unlike the builder chips it is not the
+ * page's structural front door, the chips beside it already carry the reason,
+ * and a disabled hero button next to a live "Ask AI" would read as a transient
+ * failure. "Ask AI" is read-only and never gated.
  */
 function HomeAiActions({
   askAvailable,
@@ -154,10 +198,12 @@ function HomeAiActions({
     layout === 'stack'
       ? 'mt-6 flex flex-col sm:flex-row items-center gap-3'
       : 'flex shrink-0 items-center gap-2';
+  // In the greeting row the buttons take the builder chips' 32 px height.
+  const buttonClass = layout === 'stack' ? undefined : 'h-8 px-3 text-[13px]';
   return (
     <div className={container}>
       {showBuild && (
-        <Button onClick={() => navigate('/ai/build')} data-testid="home-build-with-ai">
+        <Button onClick={() => navigate('/ai/build')} className={buttonClass} data-testid="home-build-with-ai">
           <Sparkles className="mr-2 h-4 w-4" />
           {t('home.buildWithAI', { defaultValue: 'Build with AI' })}
         </Button>
@@ -169,6 +215,7 @@ function HomeAiActions({
       {askAvailable && !showBuild && (
         <Button
           onClick={() => navigate('/ai/ask')}
+          className={buttonClass}
           data-testid="home-ask-ai"
         >
           <MessageSquareText className="mr-2 h-4 w-4" />
@@ -243,8 +290,14 @@ export function HomePage() {
   const { favorites } = useFavorites();
   const { user } = useAuth();
   const { isAdmin, isResolved: isAdminResolved } = useWorkspaceAdminStatus();
-  const { pendingApprovalsCount, notifications, unreadTopicCount, notificationsStatus, activity } =
-    useHomeInbox();
+  const {
+    pendingApprovalsCount,
+    pendingApprovalsStatus,
+    notifications,
+    unreadTopicCount,
+    notificationsStatus,
+    activity,
+  } = useHomeInbox();
   // Home renders OUTSIDE the `/apps/:appName/*` router, so there is no
   // `params.appName` to read — `currentAppName` (published by ConsoleLayout on
   // every app mount) is the only "which app is the user in" signal available
@@ -278,8 +331,9 @@ export function HomePage() {
   // was the same doctrine spelled a second, un-chained way.
   const aiStudioEnabled = isAiStudioEnabled();
   // Shown wherever an authoring entry point is withheld, so the posture is
-  // explained on screen instead of surfacing as a refusal after a filled-in
-  // dialog. Localized in all ten packs.
+  // explained instead of surfacing as a refusal after a filled-in dialog — on
+  // a withheld builder chip through its tooltip wrapper (objectui#12303), in
+  // the zero-app empty state as its description. Localized in all ten packs.
   const authoringGateReason = t('home.build.noCapability', {
     defaultValue:
       "Building apps isn't available in this workspace — it requires the “Manage Metadata” permission, which your account doesn't have.",
@@ -309,12 +363,61 @@ export function HomePage() {
    */
   const hostAppSegment = resolveHostAppSegment(activeApps, currentAppName);
 
+  /**
+   * Setup leaves the tile row (objectui#12601): it administers the workspace
+   * rather than running a business process, so it is the muted "System
+   * Settings" link beside the apps heading instead of a tile counted among
+   * them. Which app is Setup, and its route, are `resolveSetupAppPath`'s answer
+   * — the `/setup` alias's own — so the link and the alias cannot name two
+   * different apps. The link is drawn only when Setup is among the apps this
+   * user can open, exactly where its tile used to be drawn.
+   */
+  const setupPath = resolveSetupAppPath(activeApps);
+  const setupApp = activeApps.find((app) => `/apps/${appRouteSegment(app)}` === setupPath);
+  const launcherApps = setupApp ? activeApps.filter((app) => app !== setupApp) : activeApps;
+  // When each tile's app was last open — the recent-items store's newest entry
+  // inside it (objectui#12601; the reading is `lastOpenedByApp`'s).
+  const lastOpened = lastOpenedByApp(launcherApps, recentItems);
+
+  // The visually hidden reasons the withheld builder chips are described by
+  // (objectui#12303). Rendered once each: both chips can share the first.
+  const authoringReasonId = useId();
+  const marketplaceReasonId = useId();
+
   const recentApps = recentItems
     .filter(item => item.type === 'object' || item.type === 'dashboard' || item.type === 'page' || item.type === 'record')
     .slice(0, 6);
 
   const greeting = useMemo(() => t(pickGreetingKey(new Date().getHours()), { defaultValue: 'Welcome' }), [t]);
   const displayName = (user?.name?.trim() || user?.email?.split('@')[0] || '').trim();
+
+  /**
+   * The greeting's one-line summary of what is waiting (objectui#12601). Its
+   * number is the pending-approvals count, the one the bell badges and the
+   * action center shows, read from the same shared feed. The artboard's second
+   * number — what is assigned to the user — has no source to read today: an
+   * inbox row carries a free-text `topic` and no declared kind that marks it an
+   * assignment, so the line names approvals only instead of guessing a
+   * classification (the fork objectui#12602's "assigned to me" column names
+   * too). At zero it says nothing is waiting.
+   *
+   * Only when the count is an ANSWER — the feed's `ready`. While the read is in
+   * flight, after it fails, or before anything was asked, the line makes no
+   * claim at all: "Nothing is waiting" on a failed read is a denial arriving
+   * dressed as good news (the #4235 class), and a count kept from an earlier
+   * read is no longer vouched for. The line keeps its height and stays empty,
+   * so the row does not jump when the answer lands, and an empty paragraph
+   * says nothing to a screen reader either.
+   */
+  const workSummary =
+    pendingApprovalsStatus !== 'ready'
+      ? undefined
+      : pendingApprovalsCount > 0
+        ? t('home.summary.approvals', {
+            count: pendingApprovalsCount,
+            defaultValue: 'You have {{count}} approval(s) waiting today',
+          })
+        : t('home.summary.none', { defaultValue: 'Nothing is waiting for you today' });
 
   // objectui#5619 — `isAdminResolved` joins the metadata wait for the same
   // reason it joins `AppContent`'s: Home is the OTHER route that renders admin-
@@ -423,16 +526,19 @@ export function HomePage() {
       <PendingDraftsBanner t={t} />
       <RecoveryPasswordReminder t={t} />
 
-      <div className="px-4 sm:px-6 lg:px-8 pt-8 pb-16">
-        <div className="max-w-7xl mx-auto">
-          {/* Greeting + global search + AI */}
-          <div className="mb-7 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      {/* The content column (objectui#12601): 1120 px, centred, 28 px above the
+          first section and 28 px between sections. No bordered card around the
+          greeting or the apps — they sit on the page itself. */}
+      <div className="px-4 sm:px-6 lg:px-8 pt-7 pb-16">
+        <div className="mx-auto flex max-w-[1120px] flex-col gap-7">
+          {/* Greeting, the work summary, and the admin's builder chips */}
+          <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0">
               {/* The joiners are the locale's punctuation (objectui#11689):
                   zh-CN and ja write the full-width comma and full stop, ar its
                   own comma. Two keys rather than one interpolated sentence so
                   the name keeps its own coloured span. */}
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-pretty">
+              <h1 className="text-2xl font-semibold tracking-tight text-pretty">
                 <span className="text-foreground">
                   {greeting}
                   {displayName ? t('home.greetingSeparator', { defaultValue: ', ' }) : ''}
@@ -440,128 +546,132 @@ export function HomePage() {
                 {displayName && <span className="text-primary">{displayName}</span>}
                 <span className="text-foreground/40">{t('home.greetingEnd', { defaultValue: '.' })}</span>
               </h1>
-              <p className="mt-1 text-sm sm:text-base text-muted-foreground">
-                {t('home.heroTagline', { defaultValue: 'Pick up where you left off, or explore something new.' })}
+              <p className="mt-1 min-h-5 text-[13px] text-muted-foreground" data-testid="home-work-summary">
+                {workSummary}
               </p>
             </div>
-            <HomeAiActions
-              askAvailable={askAvailable}
-              buildAvailable={buildAvailable}
-              canAuthorMetadata={canAuthorMetadata}
-              navigate={navigate}
-              t={t}
-            />
-          </div>
-
-          {/* Builder cover — guided creation entries (Airtable-style Home). The
-            * application builder's front door lives HERE, not in a separate
-            * builder app: build from scratch → /studio (pick/create a writable
-            * package), or start from a template via the marketplace. Shown to
-            * builders/admins only; end users just see their apps below. */}
-          {isAdmin && (
-            <div className="mb-6">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {/* objectui#5521 — HIDDEN, not dimmed, when the runtime reports
-                  * `features.aiStudio: false`. The distinction is the flag's own
-                  * declared meaning, not a presentation preference: `RuntimeFeatures`
-                  * documents it as "when false, the SPA HIDES the AI authoring
-                  * affordances", and the serving plugin as "set false to force-hide
-                  * the authoring UI". Honouring a producer's declared semantics is
-                  * the whole point of reading its flag.
-                  *
-                  * It is also the honest answer here. `!canAuthorMetadata` is a fact
-                  * about THIS PRINCIPAL — a dimmed card plus a reason line tells an
-                  * admin something actionable about their own account, which is why
-                  * that case stays disabled-with-reason. `aiStudio: false` is a fact
-                  * about the DEPLOYMENT: authoring exists for nobody here, there is no
-                  * permission to acquire and no admin to ask, so a permanently greyed
-                  * front door would advertise a room that was never built. That is the
-                  * misdirection class objectui#5557 names — reporting the wrong KIND
-                  * of answer — applied to a card instead of a page.
-                  *
-                  * Deliberately NOT extended to "Start with a template": installing a
-                  * marketplace package is not AI metadata authoring, it has its own
-                  * flags (`features.marketplace` / `installLocal`), and objectui#5504
-                  * already ruled disable-and-explain for it. Its flag means
-                  * reachability; this one means force-hide. */}
-                {aiStudioEnabled && (
-                  <BuilderCoverCard
-                    icon={Hammer}
-                    title={t('home.build.title', { defaultValue: 'Build an app' })}
-                    subtitle={t('home.build.subtitle', {
-                      defaultValue: 'Start from scratch — design objects, forms, automations and interfaces.',
-                    })}
-                    onClick={() => navigate('/studio')}
-                    disabled={!canAuthorMetadata}
-                    disabledReason={authoringGateReason}
-                    testId="home-build-app"
+            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+              <HomeAiActions
+                askAvailable={askAvailable}
+                buildAvailable={buildAvailable}
+                canAuthorMetadata={canAuthorMetadata}
+                navigate={navigate}
+                t={t}
+              />
+              {/* The application builder's front door lives HERE, not in a
+                * separate builder app: build from scratch → /studio (pick or
+                * create a writable package), or start from a template via the
+                * marketplace. Two 32 px chips for builders/admins only — end
+                * users get none, and see their apps below (objectui#12601). */}
+              {isAdmin && (
+                <>
+                  <BuilderChip
+                    icon={LayoutGrid}
+                    label={t('home.template.title', { defaultValue: 'Start with a template' })}
+                    tone="outline"
+                    onClick={() => navigate('/apps/setup/system/marketplace')}
+                    disabledReason={
+                      !canAuthorMetadata
+                        ? authoringGateReason
+                        : !marketplaceEnabled
+                          ? marketplaceGateReason
+                          : undefined
+                    }
+                    reasonId={!canAuthorMetadata ? authoringReasonId : marketplaceReasonId}
+                    testId="home-start-template"
                   />
-                )}
-                <BuilderCoverCard
-                  icon={LayoutTemplate}
-                  title={t('home.template.title', { defaultValue: 'Start with a template' })}
-                  subtitle={t('home.template.subtitle', {
-                    defaultValue: 'Install a template app from the marketplace and customize it.',
-                  })}
-                  onClick={() => navigate('/apps/setup/system/marketplace')}
-                  disabled={!canAuthorMetadata || !marketplaceEnabled}
-                  disabledReason={canAuthorMetadata ? marketplaceGateReason : authoringGateReason}
-                  testId="home-start-template"
-                />
-              </div>
-              {/* The "visible reason" the ruling requires: the cover stays in
-                  place (so the page doesn't read as broken) and says, on
-                  screen and in the user's language, why it is inert. */}
-              {!canAuthorMetadata && (
-                <p
-                  className="mt-2 text-xs text-muted-foreground"
-                  data-testid="home-authoring-gate-reason"
-                >
-                  {authoringGateReason}
-                </p>
-              )}
-              {/* Same shape, different cause: the capability is present but
-                  this runtime has no marketplace to spend it on. Rendered only
-                  when the authoring reason is NOT already on screen, so a
-                  deployment missing both never stacks two explanations for one
-                  greyed-out card. */}
-              {canAuthorMetadata && !marketplaceEnabled && (
-                <p
-                  className="mt-2 text-xs text-muted-foreground"
-                  data-testid="home-marketplace-disabled-reason"
-                >
-                  {marketplaceGateReason}
-                </p>
+                  {/* objectui#5521 — HIDDEN, not dimmed, when the runtime reports
+                    * `features.aiStudio: false`. The distinction is the flag's own
+                    * declared meaning, not a presentation preference: `RuntimeFeatures`
+                    * documents it as "when false, the SPA HIDES the AI authoring
+                    * affordances", and the serving plugin as "set false to force-hide
+                    * the authoring UI". Honouring a producer's declared semantics is
+                    * the whole point of reading its flag.
+                    *
+                    * It is also the honest answer here. `!canAuthorMetadata` is a fact
+                    * about THIS PRINCIPAL — a dimmed chip plus its reason tells an
+                    * admin something actionable about their own account, which is why
+                    * that case stays disabled-with-reason. `aiStudio: false` is a fact
+                    * about the DEPLOYMENT: authoring exists for nobody here, there is no
+                    * permission to acquire and no admin to ask, so a permanently greyed
+                    * front door would advertise a room that was never built. That is the
+                    * misdirection class objectui#5557 names — reporting the wrong KIND
+                    * of answer — applied to a chip instead of a page.
+                    *
+                    * Deliberately NOT extended to "Start with a template": installing a
+                    * marketplace package is not AI metadata authoring, it has its own
+                    * flags (`features.marketplace` / `installLocal`), and objectui#5504
+                    * already ruled disable-and-explain for it. Its flag means
+                    * reachability; this one means force-hide. */}
+                  {aiStudioEnabled && (
+                    <BuilderChip
+                      icon={Hammer}
+                      label={t('home.build.title', { defaultValue: 'Build an app' })}
+                      tone="soft"
+                      onClick={() => navigate('/studio')}
+                      disabledReason={!canAuthorMetadata ? authoringGateReason : undefined}
+                      reasonId={authoringReasonId}
+                      testId="home-build-app"
+                    />
+                  )}
+                  {/* The reasons the withheld chips are described by — visually
+                      hidden, in the user's language, each rendered once. The
+                      authoring reason covers every chip it withholds; the
+                      marketplace one only when authoring is NOT the reason, so a
+                      deployment missing both never states two causes for one
+                      dimmed chip. */}
+                  {!canAuthorMetadata && (
+                    <span
+                      id={authoringReasonId}
+                      className="sr-only"
+                      data-testid="home-authoring-gate-reason"
+                    >
+                      {authoringGateReason}
+                    </span>
+                  )}
+                  {canAuthorMetadata && !marketplaceEnabled && (
+                    <span
+                      id={marketplaceReasonId}
+                      className="sr-only"
+                      data-testid="home-marketplace-disabled-reason"
+                    >
+                      {marketplaceGateReason}
+                    </span>
+                  )}
+                </>
               )}
             </div>
-          )}
+          </section>
 
-          {/* Your apps — compact, scalable launcher (favorites first) */}
+          {/* Your apps — compact, scalable launcher (favorites first); Setup is
+              the heading's "System Settings" link rather than a tile */}
           <HomeAppsStrip
-            apps={activeApps}
+            apps={launcherApps}
             favorites={favorites}
+            settingsHref={setupApp ? setupPath : undefined}
+            lastOpened={lastOpened}
             /* Deliberately NOT resolved through `hostAppSegment` (objectui#4074
                scope guard): the marketplace is an admin-only surface that lives
                in the setup app, so `setup` here is the target, not an oversight
                — unlike the app-independent `sys_*` pages below. */
             onBrowseMarketplace={() => navigate('/apps/setup/system/marketplace')}
             isAdmin={isAdmin}
-            /* objectstack#8270 — this button targets the SAME marketplace route
-               as the gated "Start with a template" cover card above, so leaving
-               it live would make that gate cosmetic: the withheld dead end is
-               still one click away. Gated together, hidden here (a secondary
-               strip-header link, with the cover's reason line already on
-               screen). */
+            /* objectstack#8270 — the strip's marketplace shortcut and its "Add
+               app" tile target the SAME marketplace route as the gated "Start
+               with a template" chip above, so leaving them live would make that
+               gate cosmetic: the withheld dead end would still be one click
+               away. Gated together, hidden there (secondary entries, with the
+               chip's reason already reachable). */
             canAuthorMetadata={canAuthorMetadata}
-            /* objectui#5504 — same reason as the gate above: this button
-               targets the very route that 404s on a marketplace-less runtime,
-               so it goes with the capability rather than leading into the
+            /* objectui#5504 — same reason as the gate above: these entries
+               target the very route that 404s on a marketplace-less runtime,
+               so they go with the capability rather than leading into the
                error card. */
             marketplaceEnabled={marketplaceEnabled}
           />
 
           {/* Action center — what needs the user; leads the dashboard */}
-          <div className="mb-6">
+          <div>
             <HomeActionCenter
               pendingApprovalsCount={pendingApprovalsCount}
               notifications={notifications}

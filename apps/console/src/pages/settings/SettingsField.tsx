@@ -313,14 +313,16 @@ export function SettingsField(props: SettingsFieldProps) {
     const actionLabel = labels
       ? labels.actionLabel(actionId, literalLabel)
       : literalLabel;
+    // One label per action row (objectui#12610): the button carries it. The
+    // row's left side holds the manifest's one-line `description` when it
+    // declares one, and nothing otherwise — the label is never drawn twice.
     return (
-      <div className="flex items-center justify-between py-3">
-        <div>
-          <div className="text-sm font-medium">{actionLabel}</div>
-          {spec.description ? (
-            <p className="text-xs text-muted-foreground mt-1">{spec.description}</p>
-          ) : null}
-        </div>
+      <div
+        className={`flex items-center gap-4 py-3 ${spec.description ? 'justify-between' : 'justify-end'}`}
+      >
+        {spec.description ? (
+          <p className="text-sm text-muted-foreground">{spec.description}</p>
+        ) : null}
         <Button size="sm" variant="secondary" onClick={onAction} disabled={saving}>
           {Icon ? (
             // eslint-disable-next-line react-hooks/static-components -- getLazyIcon returns a module-cached stable component per name, not one created during render

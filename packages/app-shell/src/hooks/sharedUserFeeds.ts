@@ -571,8 +571,30 @@ function approverIdentities(user: unknown): string[] {
  * Feeds the bell's badge (second addend of `unread + approvals`) and its
  * Approvals tab, and Home's To-do card — from one polled request. Degrades to
  * 0 on 404 (approvals plugin not installed) and retires the poll.
+ *
+ * The count alone: whether it is an answer is {@link useSharedPendingApprovals}.
  */
 export function useSharedPendingApprovalsCount(): number {
+  return useSharedPendingApprovals().value;
+}
+
+/**
+ * The pending-approvals feed with its status — the count AND whether it is an
+ * answer (objectui#12601), the store's `SharedFeedSnapshot` that
+ * {@link useSharedPendingApprovalsCount} reads `.value` off. Same feed, same one
+ * request, same vocabulary as every other feed here (#4225): `ready` is an
+ * answer (a missing approvals plugin included — that is `markUnavailable`, and
+ * nothing is waiting there), `idle` / `loading` / `error` are not, and the
+ * value under `error` is the last answer, kept but no longer vouched for.
+ *
+ * Read where a surface states the count as a fact — `useHomeInbox` passes the
+ * status on, and Home's line under the greeting says "Nothing is waiting for
+ * you today" only on `ready`, so an in-flight or failed read is not reported
+ * as good news.
+ *
+ * Package-internal: not exported from `./index.ts` or the package entry.
+ */
+export function useSharedPendingApprovals(): SharedFeedSnapshot<number> {
   const { user } = useAuth();
   const identities = approverIdentities(user);
   // `user?.id` is the sign-in gate; identities is what the query needs.
@@ -598,7 +620,7 @@ export function useSharedPendingApprovalsCount(): number {
     const seen = new Set<string>();
     for (const row of (payload?.data || []) as { id: string }[]) seen.add(row.id);
     return seen.size;
-  }).value;
+  });
 }
 
 // ── Recent activity ──────────────────────────────────────────────────────────

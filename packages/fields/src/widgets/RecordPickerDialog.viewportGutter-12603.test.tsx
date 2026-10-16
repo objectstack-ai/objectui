@@ -45,7 +45,7 @@ function renderPicker(props: Partial<PickerProps>) {
     find: vi.fn(async () => ({ data: ROWS, total: ROWS.length })),
     findOne: vi.fn(async () => ROWS[0]),
     getObjectSchema: vi.fn(async () => ({ name: 'sys_user', fields: FIELDS })),
-  } as any;
+  } as unknown as PickerProps['dataSource'];
   return render(
     <RecordPickerDialog
       open

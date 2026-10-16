@@ -23,7 +23,9 @@
  * This file pins what objectui's doors answer after the attachment left
  * `PageNodeSchema` and `PageKindNodeSchema`:
  *  - under `slots`, whose children no component arm judges, the binding is
- *    ACCEPTED: this is the widening, the same one the spec took;
+ *    ACCEPTED at any depth (the removed judge walked the whole slot subtree,
+ *    so a block nested in a `page:tabs` item widened too): this is the
+ *    widening, the same one the spec took;
  *  - under `regions`, each component is judged by its arm in the component
  *    union. The `object-grid`, `object-map` and `object-gantt` arms read the
  *    `properties` bag and refuse the binding by themselves, at
@@ -55,6 +57,8 @@ const nestedPaths = (issues: readonly unknown[]): string[] =>
 const block = (type: string, data: unknown) => ({ type, properties: { objectName: 'task', data } });
 const slotted = (type: string, data: unknown) => ({ kind: 'slotted', slots: { details: [block(type, data)] } });
 const inRegion = (type: string, data: unknown) => ({ regions: [{ name: 'main', components: [block(type, data)] }] });
+/** A `page:tabs` whose first item holds the block as a child: the nested position. */
+const tabs = (child: unknown) => ({ type: 'page:tabs', properties: { items: [{ label: 'One', children: [child] }] } });
 
 /** The `page` node through its own schema and the published door, and the `home` kind node. */
 const doors = (extra: Record<string, unknown>) => [
@@ -71,7 +75,23 @@ describe('objectui#12666 — a slotted view-data block naming the retired `api` 
   });
 });
 
+describe('objectui#12666 — a NESTED slotted view-data block naming the retired `api` provider is accepted', () => {
+  it('`object-grid` in `slots.details` › `page:tabs` › `items[0].children[0]`: every page door accepts it', () => {
+    for (const [door, r] of doors({ kind: 'slotted', slots: { details: [tabs(block('object-grid', API))] } })) {
+      expect({ door, success: r.success }).toEqual({ door, success: true });
+    }
+  });
+});
+
 describe('objectui#12666 — a region view-data block naming the retired `api` provider is still refused, by its own arm', () => {
+  it('`object-grid` in `regions` › `page:tabs` › `items[0].children[0]`: every page door refuses it at the nested `properties.data.provider` (unchanged)', () => {
+    for (const [door, r] of doors({ regions: [{ name: 'main', components: [tabs(block('object-grid', API))] }] })) {
+      expect({ door, success: r.success }).toEqual({ door, success: false });
+      expect(nestedPaths(r.error!.issues)).toContain('regions.0.components.0.properties.items.0.children.0.properties.data.provider');
+    }
+  });
+
+
   it.each(BAG_ARMS)('%s under `regions`: every page door refuses it at that component, on `properties.data.provider`', (type) => {
     for (const [door, r] of doors(inRegion(type, API))) {
       expect({ door, success: r.success }).toEqual({ door, success: false });

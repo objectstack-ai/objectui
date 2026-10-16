@@ -1,0 +1,32 @@
+{
+  "number": 12727,
+  "kind": "issue",
+  "title": "Record discussion: the system line「Created 借阅记录 …」is English in a zh-CN console; the grid's `#` cell goes empty on the hovered or selected row",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T15:34:18Z",
+  "updated_at": "2026-10-16T15:34:18Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12727",
+  "body": "## Source\n\nWalked on 2026-10-16 on the test1016 tenant (zh-CN): a loan record's 讨论 shows the system line「Created 借阅记录 \"月亮与六便士｜赵明轩｜借阅记录\"」— English verb in a zh-CN console; in the 图书 list row 6 and in the loan list row 1 the `#` cell is empty while the other rows are numbered (the hovered / selected row loses its number to the checkbox).\n\n## Target\n\n1. The system discussion line is translated (「创建了 借阅记录 …」) with the record name in quotes; the key lives in every shipped locale.\n2. The `#` cell shows the number until the row is selected; on hover the checkbox appears beside it, not instead of it.\n\n## File surface\n\nThe discussion system-line i18n in `packages/plugin-detail` / `packages/i18n/src/locales/*`, `packages/plugin-grid/src` (the `#` cell), tests beside.\n\n## Acceptance\n\n1. Tests per target; screenshots of a record's discussion and a hovered row in zh-CN.\n\n## Evidence\n\nScreenshots on the same branch and commit: [ai-runtime-loan-record-dialog.jpg](https://github.com/objectstack-ai/objectui/blob/23ef817aa/docs/design/ai-build-2026-10-16/ai-runtime-loan-record-dialog.jpg?raw=true) · [ai-runtime-books-21-records.jpg](https://github.com/objectstack-ai/objectui/blob/23ef817aa/docs/design/ai-build-2026-10-16/ai-runtime-books-21-records.jpg?raw=true).\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-16 build of a library-lending app (package `app.hcpl`: 图书 / 读者 / 借阅记录, a status kanban, an overdue view) on the test1016 tenant at https://os-4e4qa4.objectos.app (staging, zh-CN, the maintainer's browser pane at 1010 × 1119), through 用 AI 搭建 → the plan card → 开始搭建 → the Studio copilot → one change → the running app. The maintainer named the repositories, verbatim: 「ai 搭建的功能在 cloud仓库」「部分前端功能代码在 objectui 后端在 onjectstack」, and ruled on the design in chat: 「同意」 to the four points as drawn, then 「是否考虑浮出」/「属性好需要考虑选中每个元素的时候也要显示」, then 「按浮窗版定稿」.</sub>"
+}

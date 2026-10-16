@@ -2,8 +2,8 @@
   "number": 12702,
   "kind": "issue",
   "title": "App bar: the Setup › System › Marketplace breadcrumb folds at 1024 px instead of cutting each segment to three letters",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,23 @@
     "area:records",
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p2"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-sales"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-16T14:15:50Z",
-  "updated_at": "2026-10-16T14:15:50Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-16T20:23:57Z",
+  "closed_at": "2026-10-16T20:20:14Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12702",
   "body": "## Source\n\nWalked on objectui main `efa9cb4fa` at 1024 px, Setup › Browse Marketplace (`/apps/setup/system/marketplace`): the app bar reads \"S… / PREVIEW / Sys… / Market…\" — the Setup pill, the PREVIEW chip and two breadcrumb segments share the space left of the search box, and every segment is cut to two or three letters. The same route at 1280 px is readable; every other Setup page draws \"Setup ▾ PREVIEW\" because its route adds no breadcrumb segments.\n\n## Target\n\n1. The app-bar breadcrumb folds from the left: at a width where the segments do not fit, the middle segments collapse to one \"…\" menu that lists them, the app pill keeps its full label and the last segment keeps its full text; nothing is cut to under one word.\n2. The PREVIEW chip moves after the breadcrumb (or into the app menu) when the row is narrow.\n3. The console search box keeps its width down to 960 px; below that it becomes an icon.\n\n## File surface\n\n`packages/app-shell/src/layout/AppHeader.tsx` (the breadcrumb and the pill row), tests beside.\n\n## Acceptance\n\n1. Tests: three segments at a 320 px breadcrumb width render pill + \"…\" + last segment with full text.\n2. Screenshots of the Marketplace route at 1024 and 1280 px.\n3. `pnpm --filter @object-ui/app-shell test` green.\n\n## Evidence\n\nScreenshots on the temporary branch `claude/console-home-login-design-20261016` of objectstack-ai/objectui (commit `0f4e3f4ee`, never merged): [r4-marketplace-skeleton-breadcrumb.jpg](https://github.com/objectstack-ai/objectui/blob/0f4e3f4ee/docs/design/review-r4-2026-10-16/r4-marketplace-skeleton-breadcrumb.jpg?raw=true).\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-16 fourth review: objectui main `efa9cb4fa`, HotCRM `4f82b815` on platform 18.0.0-next.2, the vite console on :5180 against `objectstack dev` on :4001, the maintainer's browser pane at 1024 × 768 (dark, en). The maintainer asked for every finding to be filed on the repository it belongs to, verbatim: 「全部立卡，平台问题到 objectui，审计日志核查到 objectstack，HotCRM 转化流程到 hotcrm。」</sub>"

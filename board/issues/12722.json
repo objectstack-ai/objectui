@@ -1,0 +1,36 @@
+{
+  "number": 12722,
+  "kind": "pull_request",
+  "title": "feat(app-shell,i18n): Setup Packages is the one installed list — Source column, marketplace row actions, ?source= filter (objectui#12675)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T15:01:03Z",
+  "updated_at": "2026-10-16T16:38:16Z",
+  "closed_at": "2026-10-16T16:38:14Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T16:38:14Z",
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12722",
+  "body": "Fixes #12675\nClause-②: yes (narrowing)\n\nSetup → Packages is now the one list of what is installed (ruling B on objectstack-ai/objectstack#23892, record 6216295104).\n\n## What changed\n\n- **Source column.** Every row reads Code, Marketplace or Authored, from a closed set (`views/metadata-admin/packageSource.ts`). Each value comes from a named signal:\n  - Authored: the served row's `writable` verdict is `true` (objectstack#14375).\n  - Marketplace: the row is not writable, and the marketplace slice lists its id. That is the list the Installed Apps page read: the control plane's list when cloud-connected, otherwise this runtime's install-local list, read strictly.\n  - Code: every other non-writable row.\n\n  The list is refused by name, with no rows drawn, in three cases: a row with no boolean `writable`, a writable row that the marketplace also lists, and a marketplace list that cannot be read while the capability is on.\n- **Marketplace row actions.** The Installed Apps list offered two actions: Details and Uninstall (Uninstall on local installs only). Both now sit on Packages rows whose Source is Marketplace, in `console/marketplace/MarketplaceRowActions.tsx`. They reuse `uninstallLocal` and the same pack sentences, and Uninstall asks for confirmation in-app.\n  - Shown only when `features.installLocal` is on and the viewer is a workspace admin; these are the two gates Installed Apps had.\n  - Update and the sample-data Re-seed / Purge menu were never on Installed Apps. They stay on the package page that Details opens, so no second copy exists.\n  - An install the runtime refused to load still gets a row, with its Not loaded reason and Uninstall.\n- **Filter spelling, for objectstack-ai/objectstack#23933 to copy:** `/apps/APP/component/developer/packages?source=marketplace`. A Setup nav item reaches the same URL with `{ type: 'component', componentRef: 'developer:packages', params: { source: 'marketplace' } }`, because the sidebar sends a component item's params as the query string. The allowed values are `code`, `marketplace` and `authored`. An unknown, empty or repeated value is refused by name.\n- **Installed Apps entries.** The `marketplace:installed-list` widget, which the plugin's `marketplace_installed` page renders, now redirects to the filtered Packages URL. So does the legacy `system/marketplace/installed` route. The InstalledList body is gone.\n- **Language packs.** Seven `marketplace.*` keys that only the InstalledList body read are removed from all ten packs. New Packages copy goes in the metadata-admin designer table (en and zh).\n- **Untouched:** the PackagesPage header (#12662 is rewriting it), objectstack's cloud-connection package, and the spec.\n\n## Narrowing, declared for contract review\n\n- Removed from @object-ui/i18n in all ten packs: `marketplace.installedTitle`, `installedSubtitle`, `installedEmpty`, `installedAt`, `installedBy`, `installedPackageId` and `cachedAs`.\n- The `marketplace:installed-list` widget and the `MarketplaceInstalledPage` export now redirect instead of drawing a list.\n- No export, widget registration or route is removed.\n\nThe follow-up after objectstack-ai/objectstack#23933 retires the widget registration, both routes and the export, and points MarketplacePage's Installed (N) button straight at the Packages URL.\n\n## Tests\n\nAt head 681c066, after merging origin/main f8267df93: app-shell type-check passes, and the vitest run over Packages, the marketplace dir, the i18n package and the route and parity suites gives Test Files 133 passed, Tests 2025 passed, 13 skipped.\n\nNew pins:\n- `PackagesPage.source-12675.test.tsx` (14 tests): plugin present; plugin absent; non-admin; unknown, conflicting or unreadable origin refused; unknown, empty or repeated filter refused; widget and legacy route redirect.\n- `MarketplaceRowActions.installedAppsPins.test.tsx` (27 tests): the 11645 not-loaded, 12610 kernel-tooltip and 7611 walled-uninstall pins, carried onto the rows.\n\nAblations, each red and each restored to the HEAD blob:\n- A1, unknown-writable refusal removed: 1 failed.\n- A2, capability gate removed: 1 failed.\n- A3, filter removed: 1 failed.\n- A4, unknown filter accepted: 2 failed.\n- A5, widget renders nothing: 2 failed.\n- A6, tolerant listing read: 1 failed.\n- A7, conflict refusal removed: 1 failed.\n- A8, not-loaded rows dropped: 8 failed.\n\nBuilds: the app-shell and console closure builds and the console vite build all pass.\n\n## Screenshots\n\nAt 1280 px against a published @objectstack 18.0.0-next.2 showcase backend, on branch `claude/issue-12675-evidence` under `evidence/12675/`. The `before-*` files are from main and the `after-*` files from this branch. They cover Packages, the marketplace filter, an unknown filter, the plugin's Installed Apps page and the legacy route.\n\n## Acceptance notes\n\n- The row signals are joined because the served row declares no origin key. The contract-first follow-up is a declared source key on the served row; that is objectstack work the seat files.\n- Pre-existing, not changed here: the Scope badge reads Writable for any row with no scope, including a marketplace install the server marks not writable (see before-packages.png).\n- `listLocalInstalls` still treats any failure as an empty list for the marketplace pages. Only the Source read uses the new strict `fetchLocalInstalls`.\n\nProvenance: built by the cloud session `session_01L1BStZ37S5WzHGfEgk5NQJ` (claim `6217043127`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final message, because a cloud session cannot open a PR from its container. The seat replaced the dev's own footer line with this line.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01L1BStZ37S5WzHGfEgk5NQJ)_\n\n"
+}

@@ -19,11 +19,11 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-15T11:10:54Z",
-  "updated_at": "2026-10-16T12:02:16Z",
+  "updated_at": "2026-10-16T14:36:36Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 3,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12476",
   "body": "Blocked-by: #12626\n\nBlocked-by: objectstack-ai/objectstack#23610\n\nFiling gate: a follow-up bound by a maintainer ruling, objectstack#23610 batch #349 item 2, letter Q2 A (ruling comment 6190536588 on that card, item 5). Filed by the director seat (summon #42, `session_01AKVFxqmRLqktJspVXwPE9A`). ⛔ Not a claim.\n\n## What the ruling binds upstream\n\n`@objectstack/spec` closes `PageSchema.template` to the renderer's registered names and declares each template's slots (`default`: header, sidebar, main, aside, footer; `header-sidebar-main`: header, sidebar, main; `three-column`: the five; `dashboard`: header, footer and an open grid). A region the chosen template will not place is refused at `os validate` and at save. `full-width` retires: it is the same component as `default`.\n\n## What this card does, after the spec lands and the pin moves\n\n- `packages/components/src/renderers/layout/page.tsx` (read on `origin/main` `cf430cd10e`): the stack-under-`main` branch for unplaced regions (`getRemainingRegions` at `:285`, `:384`, `:417`) becomes unreachable for authored pages; retire it for the slotted templates (`dashboard` keeps its open grid by design) and drop the `full-width` row of `TEMPLATE_REGISTRY` (`:475`).\n- Pins move from \"an unknown region is stacked\" to \"an unknown region or template is refused upstream\"; the renderer keeps no fallback for a shape the spec refuses.\n\nReader who acts: objectui triage (grade and route), then `domain:ui`. Order: after objectstack#23610's execution PR lands AND `@objectstack/spec` with the refusal is installable at objectui's pin (the cross-repo unlock is \"the consumer can install\", not \"merged upstream\").\n\nDedupe (objectui open `domain:ui` titles read for template, region, getRemainingRegions and stack in this act): none names this branch.\n"

@@ -1,0 +1,36 @@
+{
+  "number": 12770,
+  "kind": "pull_request",
+  "title": "fix(app-shell): the metadata-admin designer reads and writes visibleWhen only (objectui#12696)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T19:14:57Z",
+  "updated_at": "2026-10-16T19:47:40Z",
+  "closed_at": "2026-10-16T19:47:39Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T19:47:38Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12770",
+  "body": "Fixes #12696\nClause-②: no (narrowing)\n\n## Summary\n\nThe metadata-admin designer was the last reader and writer of the form view's retired `visibleOn` predicate. objectui#12654 (PR #12692) had already removed it from the console form page, plugin-form and `SchemaRenderer`. After this PR the designer reads and writes `visibleWhen` only:\n\n- **Writer.** `anchors.ts` writes `visibleWhen: \"data.viewKind == 'list'\"` / `'form'` on the view create schema's `kind` and `formType` pickers.\n- **Reader.** `SchemaForm`'s `readVisibility` returns `node?.visibleWhen` and nothing else. The `?? visibleOn` fold is gone from all five call sites: flat create properties, sections, section fields, tab reachability and record-editor sub-fields.\n- **Types.** `FormFieldSpec` and `FormSectionSpec` (exported from the `@object-ui/app-shell` entry) drop their `visibleOn` member. `'visibleOn'` stays in `FormSectionSpec`'s `Omit` list, because the spec's input `FormSection` type still carries it and would otherwise re-admit it.\n- **Condition widget.** `CONDITION_FIELD_NAMES` drops `'visibleOn'`. A `*When` property still gets the condition builder by name.\n- **Prose.** Doc comments that called the predicate `visibleOn` now say `visibleWhen`, in `predicate.ts`, `view-schema.ts`, `page-schema.ts`, `report-schema.ts`, `mergeServerFields.ts`, `PageDefaultInspector.tsx`, `ViewVariantInspector.tsx` and `ReportDefaultInspector.tsx`. The last one is included because objectui#12745 merged before this branch's `origin/main` merge.\n\n## The narrowing (what a host sees)\n\nA host that passes `visibleOn` to `SchemaForm`, on a FormView section, a section field, a record sub-field or a raw JSONSchema property, now sees that node **shown unconditionally**. This matches the runtime form. A typed object literal that sets `visibleOn` on a `FormFieldSpec` or `FormSectionSpec` **no longer compiles** (TS2353). **The fix is one rename: write `visibleWhen`.** The predicate value keeps the same shape. The changeset says the same.\n\n## Measurements behind each step\n\n- **No producer left.** After the anchor change, no non-test file in `packages/` or `apps/` writes `visibleOn` into a FormView or a create schema that SchemaForm reads. The 17 authoring FormViews the bundled spec exports (`viewForm`, `pageForm`, `reportForm`, `objectForm`, `fieldForm`, `actionForm` and others) carry 0 `visibleOn` nodes and 89 `visibleWhen` nodes.\n- **Condition widget entry.** No bundled authoring form declares a field named `visibleOn`, while `visible` and `visibleWhen` do appear (the positive control). The spec's JSON schemas still describe a deprecated `visibleOn` property on `FormSection` / `FormField`, but no designer form surfaces that position. So the entry had no named producer and is dropped.\n- **Spec version.** The installed `@objectstack/spec` 18.0.0-next.2 still accepts `visibleOn` as a deprecated alias that it folds into `visibleWhen` at parse. objectstack main turns it into a `retiredKey`. Either way, a parsed form reaching the designer carries `visibleWhen`.\n\n## Tests\n\n- `view-create-body.visibility.test.tsx` (new) renders the real registered view create schema and flips `viewKind`. Each picker shows only for its own family.\n- The `SchemaForm.visibleWhen.test.tsx` suite named \"retired `visibleOn` is not read (objectui#12696)\" replaces the old alias suite. A section and a field carrying only `visibleOn` are not hidden. The same predicates under `visibleWhen` are hidden. A raw create property carrying only `visibleOn` is not hidden.\n- `view-create-body.test.ts` pins `visibleWhen` on both pickers and the absence of `visibleOn`.\n- `form-spec.containers.test.tsx` PIN J refuses `visibleOn` on both types at compile time.\n- The alias-spelled fixtures in the flat-visibility, page-visibility and collapsible suites are re-spelled `visibleWhen`; they only used the alias.\n- Ablations, each with its restore proven by blob equal to HEAD:\n  - Re-spelling the anchor's list gate `visibleOn` makes 2 cases fail.\n  - Re-adding the reader's fold makes the 2 retired-key cases fail.\n  - Re-adding `visibleOn` on `FormSectionSpec` makes `tsc -p tsconfig.test.json` fail with exactly one TS2578, at PIN J.\n- Runs at the head this PR opens on:\n  - The metadata-admin directory: 517 files, 5805 passed, 1 skipped.\n  - Every other test file naming `visibleOn`, `readVisibility`, `FormFieldSpec` or `FormSectionSpec`: 40 files, 889 passed, 1 skipped.\n  - `@object-ui/app-shell` and `@object-ui/console` type-check: both green.\n\n## Outside the claimed file surface (forced by the narrowing)\n\n- `apps/console` tests that build these types from object literals:\n  - `FormPage.fieldSpec.test.ts` and `FormPage.viewSpec.test.ts`: the `visibleOn` line is dropped from the \"was undeclarable here\" literal.\n  - `FormPage.conditionalRules.test.tsx` and `FormPage.visibleWhen.test.tsx` (#12654's raw retired-key pins): one `@ts-expect-error` line each. Their runtime assertion is unchanged.\n- No console source changed.\n- `conditionScope.ts` and its test's prose: the restated name list drops `visibleOn`.\n\n## Acceptance notes\n\n- Stale `visibleOn` prose left outside this surface:\n  - a comment in `packages/app-shell/src/views/RecordFormPage.tsx` (\"per-field `visibleOn` predicates (#2212)\");\n  - `apps/console/README.md` (\"`visible` / `visibleOn` — Expression-based visibility conditions\");\n  - a `packages/plugin-form/README.md` table row documenting `visibleOn`.\n- None of them is filed.\n- The spec skew (deprecated alias in 18.0.0-next.2, `retiredKey` on objectstack main) closes with the next spec bump.\n\nProvenance: built by the cloud session `session_011Nr8s6FN4wcgqMHMM7oZk4` (claim `6221456246`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final message, because a cloud session cannot open a PR from its container. The seat replaced the dev's own footer line with this line.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_011Nr8s6FN4wcgqMHMM7oZk4)_\n"
+}

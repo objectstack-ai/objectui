@@ -1,0 +1,35 @@
+{
+  "number": 12749,
+  "kind": "pull_request",
+  "title": "fix(plugin-dashboard): a delta from a zero baseline draws a dash, not \"100%\" (objectui#12677)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T17:44:58Z",
+  "updated_at": "2026-10-16T18:13:51Z",
+  "closed_at": "2026-10-16T18:13:49Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T18:13:48Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12749",
+  "body": "Fixes #12677\nClause-②: yes\n\n## What\n\nA period-over-period delta from a zero baseline now draws the direction arrow and an em dash, never \"100%\".\n\n- `computeMetricDelta` (plugin-dashboard `utils.ts`) returned `{ value: 100, direction }` whenever `previous === 0` and `current !== 0`. A percent change from zero is undefined, so it now returns `{ value: null, direction }`.\n- `0 → 0` stays `{ value: 0, direction: 'neutral' }`, drawn as `0%`.\n- A non-zero baseline is unchanged.\n- A new helper, `formatMetricDeltaPercent`, is the one face rule. It draws `N%` for a number and an em dash for `null`. Every paint site uses it:\n  - the DatasetWidget metric tile (`dataset-compare-trend`);\n  - the DatasetWidget cross-tab in-cell comparison (`matrix-cell-compare`);\n  - `MetricWidget`, which paints `ObjectMetricWidget`'s derived trend.\n\n## Contract statement\n\n- The exported return type of `computeMetricDelta` changed: `value` is now a number or `null`, through a new `MetricDelta` interface.\n- Both are exported only from the package-internal utils module. Neither is on the `@object-ui/plugin-dashboard` entry point: the built `dist/index.d.ts` names neither symbol.\n- Every caller is in this package and updated: the DatasetWidget metric tile, the DatasetWidget cross-tab cell, and `ObjectMetricWidget`.\n- No published contract narrows and no pack key is added.\n- `MetricWidgetProps` gains one optional, host-only prop, `derivedTrend`. It is the `compareTo`-derived trend; it replaces `trend` when set, and its `value` may be `null`. `MetricWidget` is on the package entry, so this optional prop widens the published surface, and the line above reads `Clause-②: yes`.\n- `derivedTrend` is ⛔ not a node key: `DashboardMetricNodeSchema` is untouched. The authored `trend.value` stays the number the spec's `ObjectMetricTrendSchema` declares.\n\n## Why a symbol\n\n- The spec declares no marker for \"new from zero\". Neither the dashboard widget's `compareTo` nor `object-metric`'s `compareTo`/`trend` has one; `ObjectMetricTrendSchema.value` is `z.number()`, \"painted as a percentage\".\n- Per triage, the face is non-numeric and invents nothing.\n- A symbol needs no locale pack, and the arrow still states the direction.\n\n## Surface\n\n- Claimed: `utils.ts`, `DatasetWidget.tsx`, `ObjectMetricWidget.tsx`, tests, and one changeset.\n- Extended:\n  - `MetricWidget.tsx`, the paint site `ObjectMetricWidget` hands its trend to. Without it, the object-metric tile keeps drawing a number.\n  - A prose comment in `objectMetricTrendMembers-8071.test.tsx` that described where `derivedTrend ?? trend` lives.\n\n## Tests\n\n- New `zeroBaselineDelta-12677.test.tsx` pins every reader on the zero baseline, each with the `0 → 0` and non-zero-baseline controls.\n- `computeMetricDelta.test.ts`: its zero-baseline cases pinned `value: 100`, contrary to the card's search. They now expect `value: null`, and `formatMetricDeltaPercent` cases are added.\n- Ablation: the zero-baseline line was restored to `value: 100` with the fix committed. Result: 7 failed and 14 passed across the two files, with every reader's dash case red. The restore was `git checkout HEAD --`; the blob hash equals HEAD and `git diff HEAD` was empty.\n- At head b3792aa:\n  - `pnpm exec vitest run packages/plugin-dashboard`: 182 files and 1811 tests passed, 6 skipped.\n  - `pnpm --filter @object-ui/plugin-dashboard type-check`: exit 0.\n  - Console `vite build`: exit 0.\n  - `check:changeset-claims`, `changeset:check`, `check:test-path-roots`, `check:spec-symbols`, `check:new-line-citations` and `check-changeset-presence`: exit 0.\n\n## Acceptance notes\n\n- The core, plugin-charts and types CHANGELOGs describe `computeMetricDelta` as a core utility; it lives only in plugin-dashboard. That is published history and is left as is.\n\nProvenance: built by the cloud session `session_018TkpB1GANJx4wPS5PRcMSW` (claim `6220251550`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final message, because a cloud session cannot open a PR from its container. The seat made two changes:\n- line 2 reads `Clause-②: yes` (the dev wrote `no`), because `MetricWidget` is a published export and its new optional prop widens the published surface; the Contract statement's matching bullet says so;\n- the dev's own footer line is replaced with this line.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_018TkpB1GANJx4wPS5PRcMSW)_\n"
+}

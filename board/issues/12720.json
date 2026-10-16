@@ -1,0 +1,37 @@
+{
+  "number": 12720,
+  "kind": "issue",
+  "title": "Record page: the auto-derived header highlight strip shows a member of a field group whose `visibleWhen` is false (value included) — deriveHighlightFields never reads fieldGroups, so objectui#11630's gate covers the details body but not the strip",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T14:52:35Z",
+  "updated_at": "2026-10-16T19:39:30Z",
+  "closed_at": "2026-10-16T19:38:18Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12720",
+  "body": "**Filing gate ①**: a user-visible defect against a declared contract, with a named landing and a live reproduction. `fieldGroups[].visibleWhen` FALSE \"hides the whole group, header included\" (spec KEY_GUIDANCE), and objectui#11630 fixed this for the details body only.\n\nQA-source: objectstack-ai/objectstack#23949 · records-forms.field-group-visible-when · observation (wave close-out; re-checked and filed under objectstack-ai/objectstack#23878)\n\nThis is a display-tier gate, not field-level security. The group predicate is display-only by design (`record-details.tsx:862-866`: \"the record API serves the gated fields either way\"), and FLS is enforced server-side separately. So the strip shows a value the reader can already read through the API and the grid. It is a layout contract violation, not an exposure, and the full reproduction is given below.\n\n## What happens\n\nWhen an object declares no `highlightFields`, the record page derives its header strip heuristically. The derivation never looks at `fieldGroups` or their `visibleWhen`. A member of a group whose predicate is false is therefore chosen as a highlight chip, with its value. Meanwhile the details body hides that group correctly, and it also drops the field from its own grid because the strip registered it.\n\n## Reach — measured, 2/2 fresh loads\n\nEnvironment: objectstack `7277c07f` (main, 2026-10-16), `examples/app-showcase` booted from a main worktree: `OS_PORT=47321 objectstack dev --ui --seed-admin -p 47321 -d file:…/data.db`, with a fresh DB. Console: objectui `daeb77fc` (the `.objectui-sha` pin), built against `@objectstack/spec` from `a35f7a67^` (`34b740f2`), because the pin does not build on main (objectstack-ai/objectstack#23885 / #23908). `check:console-sha` matches. Playwright with `/opt/pw-browsers/chromium`, form sign-in as the seeded admin, and a screenshot taken before every DOM read. Code path re-read on objectui main `023087f63`, where it is still present.\n\n1. `POST /api/v1/packages` `{\"manifest\":{\"id\":\"com.qa.recheck\",\"name\":\"QA Recheck\",\"version\":\"1.0.0\",\"type\":\"app\",\"namespace\":\"recheck\"},\"enableOnInstall\":true}` → 201.\n2. `PUT /api/v1/meta/object/recheck_gate?package=com.qa.recheck` → 200, with:\n   - label \"QA Gate\", `sharingModel: \"public_read_write\"`, no `highlightFields`;\n   - fields `name` (text), `kind` (select: `basic`/\"Basic plan\", `pro`/\"Pro plan\", default `basic`), and `pro_secret_note` (text) and `pro_budget` (number), both with `group: \"pro_details\"`;\n   - `fieldGroups: [{ \"key\":\"pro_details\", \"label\":\"Pro details\", \"visibleWhen\":\"record.kind == 'pro'\" }]`.\n3. `POST /api/v1/data/recheck_gate` `{\"name\":\"Basic One\",\"kind\":\"basic\",\"pro_secret_note\":\"only-for-pro\",\"pro_budget\":4242}` → 201.\n4. Open `/_console/apps/com.example.showcase/recheck_gate/record/RECORD_ID`.\n5. The header strip reads `Dev Admin` · `Basic plan` · **`only-for-pro`**. No \"Pro details\" section is drawn (the body's gate holds). Same on two fresh loads.\n\n- **Expected:** with `kind = basic` the predicate is false, so no `pro_details` member appears anywhere on the page, the derived strip included.\n- **Actual:** `pro_secret_note` is a strip chip showing its value.\n\n## Where (objectui main `023087f63`)\n\n- `packages/plugin-detail/src/synth/buildDefaultPageSchema.ts:442-588` (`deriveHighlightFields`): when no `highlightFields` are declared, it applies a skip-set, a preferred-name list and a type filter, and never reads `fieldGroups` or `visibleWhen`. `:633-651` feeds `record:highlights`.\n- `packages/plugin-detail/src/renderers/record-highlights.tsx:125-147`: filters only `redactFields` and `readableFields`, and evaluates no group predicate.\n- `packages/plugin-detail/src/renderers/record-details.tsx:878-896` (`resolveSectionGroup`): the only place group `visibleWhen` is evaluated (objectui#11630).\n\n## Done when\n\n- The derived strip excludes members of a group whose `visibleWhen` is false for the current record. Either the derivation skips grouped members whose group carries a predicate, or the highlights renderer evaluates the member's group predicate per record as the details body does. A test pins `kind = basic` (chip absent) and `kind = pro` (chip may appear).\n- Out of scope, author's call: whether a DECLARED `highlightFields` entry inside a gated group should also be gated.\n\n**Reader who acts:** the `domain:ui` execution seat (plugin-detail). No spec contract change is needed: the predicate is already declared and served.\n\n## Dedupe\n\nMCP `search_issues` on objectstack-ai/objectui, all states: \"record header highlight strip shows field from hidden field group visibleWhen\" → 4 hits, all read. #11630 (closed) is the details-body fix this card extends. #12523, #11684 and #11984 are unrelated. None covers the strip.\n\nRe-checked by a cloud QA session dispatched under objectstack-ai/objectstack#23878 (maintainer ruling there, 「派云卡片复核这 7 条，授权里全部立卡。有时间间隔就行」).\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

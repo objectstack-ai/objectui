@@ -1,0 +1,35 @@
+{
+  "number": 12769,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail): the derived highlight strip skips members of a field group gated by visibleWhen (objectui#12720)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T19:12:41Z",
+  "updated_at": "2026-10-16T19:38:18Z",
+  "closed_at": "2026-10-16T19:38:16Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T19:38:16Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12769",
+  "body": "Fixes #12720\nClause-②: no\n\nThe derived strip stops picking members of a field group whose `visibleWhen` the details body evaluates. No node prop or package export is added: the new helper is private to `buildDefaultPageSchema.ts`.\n\n## What\n\nWhen an object declares no `highlightFields`, `deriveHighlightFields` picks the header chips heuristically, and it never read `fieldGroups`. A member of a gated group could therefore become a chip with its value on a record where the details body hides the whole group (objectui#11630). Card reproduction: `Dev Admin · Basic plan · only-for-pro` on a `kind = basic` record.\n\nThe heuristic now skips every member of a group that declares a `visibleWhen`, in both the preferred-name pass and the type-filter pass. They are skipped after the retired-type check, so the objectui#4914 report fires exactly as before.\n\n## Why this shape (card option a)\n\n- The derivation runs from object metadata with no record in hand, so it can only ask whether a member's group is gated, never what the gate answers.\n- Which members count as gated comes from `deriveFieldGroupDetailEntries`, the derivation the body's `resolveSectionGroup` resolves `{ group }` references against, using that gate's own test (`entry.visibleWhen != null`). A blank `visibleWhen`, which the shared derivation drops and the body never gates, does not gate the strip either. The predicate is not copied: the body's `resolveFieldRuleState` call stays the only evaluator.\n- Option (b), evaluating per record in `record-highlights.tsx`, was measured. The renderer can read `fieldGroups` from the record context's object schema, so it needs no new node prop. But it cannot tell a derived `fields` list from a declared or hand-authored one, so it would also gate declared `highlightFields` and hand-authored strips, which this card leaves to the author.\n\n## What the page does now\n\n- Group hidden (`kind = basic`): the member is in neither the strip nor the body.\n- Group shown (`kind = pro`): the member is not a chip. It is drawn once, in the body's group section. A skipped member is not in the strip's list, so it is not in the body's `hideFields` either.\n- Predicate faulted: the body shows the group, as the form does. The strip still skips the member, so it appears once.\n- The app-shell record preview card's key fields come from the same heuristic and skip those members too.\n\n## Tests\n\n- `synth/__tests__/deriveHighlightFields.groupGate-12720.test.ts`: the card shape; a control with no `visibleWhen`; the envelope spelling; a blank `visibleWhen`; the preferred-name pass; a declared list left unchanged; the synthesized page's strip `fields` and body `hideFields`.\n- `renderers/__tests__/record-highlights.groupGate-12720.test.tsx`: the synthesized `record:highlights` and `record:details` rendered on one record context and one highlight registry. It counts the member's value across the whole page for basic, pro and a faulted predicate, with harness-dead guards on both regions.\n- Ablation: replacing the gated set with an empty set fails 7 of the 10 tests. The 3 that still pass are the controls that do not depend on the gate. Restored blob equals HEAD.\n- `pnpm exec vitest run packages/plugin-detail` passed: 279 files, 2678 tests. The other 40 test files naming these symbols passed: 1860 tests. Type-check, the changeset gates and eslint are clean.\n\n## Live reading\n\nShowcase backend from published `@objectstack/*` 18.0.0-next.2 (`e2e/live/ci/start-backend.sh`), console dev server from this branch, the card's steps 1 to 5 plus a `pro` row, 2 loads each, screenshot before every DOM read. Before (same server, fix line ablated): `Dev Admin · Basic plan · only-for-pro`. After: `Dev Admin · Basic plan` on basic, and on pro `Dev Admin · Pro plan` with the Pro details section in the body holding the value once. Screenshots and readings: branch `claude/issue-12720-evidence`, folder `evidence/12720/`.\n\n## Acceptance notes\n\n- Declared `highlightFields` (out of scope, the author's call): a declared entry inside a gated group is unchanged. It is a chip on every record, and the body leaves it out of its grid, so when the predicate is false its value appears only in the strip.\n\nProvenance: built by the cloud session `session_018zbhfdknyRiGRyLoc5N6xG` (claim `6221944558`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final message, because a cloud session cannot open a PR from its container. The seat made two changes:\n- line 2 is the bare `Clause-②: no`, and the dev's sentence after it moved to its own paragraph;\n- the dev's own footer line is replaced with this line.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_018zbhfdknyRiGRyLoc5N6xG)_\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 12729,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail): a detail section on a print page prints every declared field and no \"Show N empty fields\" button",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T15:42:54Z",
+  "updated_at": "2026-10-16T16:12:07Z",
+  "closed_at": "2026-10-16T16:12:05Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T16:12:05Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12729",
+  "body": "Fixes #12717\nClause-②: no\n\n## What\n\nOn a page that declares `print`, a `record:details` section prints every field it declares. The \"Show N empty fields\" / \"Hide empty fields\" button no longer reaches paper.\n\n`packages/plugin-detail/src/DetailSection.tsx` hides empty fields for two reasons, and they belong to two different owners.\n\n- `shouldAutoHideEmpty` is the renderer's own density heuristic. No author declares it, and it depends on the viewport (`useIsMobile`) and on a ratio of empty fields, so it is a screen concern. On a print page it is now off. Every declared field prints, an empty one as the shared placeholder dash. The toggle is derived from the heuristic (`showEmptyToggle = emptyCount > 0 && shouldAutoHideEmpty`), so with no auto-hide there is no toggle. This follows card ②'s rule (objectui#11958): `record:details` is in the printable block subset because it prints every field it declares. That is the same reason the collapsed section already opens on paper.\n- `hideAllEmptySection` (`section.hideEmpty === true`) is the authored `record:details` key. On paper it keeps doing what it declares: an all-empty section prints nothing at all, with no heading and no control. It is not gated.\n\n`usePrintPage()` is now read once, above every early return (`isPrintPage`). The existing collapse gate and the new heuristic gate both read that one value.\n\nNot done, deliberately:\n- No `print:hidden` on the button. The empty fields would still be missing from the paper.\n- No change to `page-print.ts`.\n- The gate stays local to the heuristic, so objectui#12618 (the on-screen all-empty fold, on hold) can change that fold and keep this gate.\n\nOff a print page, the toggle, the heuristic and the authored hide are unchanged.\n\n## Tests\n\n`packages/plugin-detail/src/__tests__/detailSectionPrintEmptyToggle-12717.test.tsx`, all at head 9f28cd2:\n1. Inside a `PrintPageProvider`: no toggle, all four declared fields present, two placeholders.\n2. Inside a `PrintPageProvider`: an authored `hideEmpty: true` all-empty section renders nothing.\n3. Control, off a print page: the toggle reads \"Show 2 empty fields\" and the empty rows are hidden.\n\nEach test was proven red by a one-off ablation, then restored. Each restore was checked: blob 576f471d0f52 equals HEAD and `git diff HEAD` is empty.\n- Deleting the print gate turns test 1 red.\n- Gating the authored hide on print (the wrong fix) turns test 2 red.\n- Turning the heuristic off everywhere turns test 3 red.\n\n`pnpm exec vitest run packages/plugin-detail` at 9f28cd2: 275 files passed, 1 skipped; 2663 tests passed, 14 skipped.\n\n## Local gates (9f28cd2)\n\nAll of these exited 0:\n- the closure build for `@object-ui/plugin-detail`;\n- the `@object-ui/plugin-detail` build and type-check;\n- the console build with `VITE_BASE_PATH=/console/`;\n- `check:changeset-claims`, `changeset:check`, `check:test-path-roots`, `check:spec-symbols` and the changeset presence check.\n\neslint on the changed files reports 0 errors. Its 12 warnings were all in `DetailSection.tsx` already; the base file has the same 12.\n\n## Acceptance notes\n\n- NOT MEASURED: PDF reading. The showcase invoice print page `showcase_invoice_document` is not in the published showcase at `@objectstack/cli@18.0.0-next.2`, nor in objectstack `main` 6d1660d. As a fallback, I added a throwaway page-level `print` to a showcase record page in a scratch copy of the backend. It never reached the served page metadata, and no print page mounted on the record route, so no before/after PDF could be rendered.\n- Other controls in this file on paper:\n  - A collapsible section's disclosure chevron still prints, inside the header button that card ② opens. It is outside this claim's file surface, so it is reported, not fixed.\n  - The hover copy and pencil buttons are invisible until hover, so they draw nothing on paper.\n\nProvenance: built by the cloud session `session_01D7HiWiz4iSX26uyJLB8jNs` (claim `6218362787`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final message, because a cloud session cannot open a PR from its container. The seat replaced the dev's own footer lines with this line.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01D7HiWiz4iSX26uyJLB8jNs)_\n"
+}

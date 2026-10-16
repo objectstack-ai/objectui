@@ -1,0 +1,32 @@
+{
+  "number": 12762,
+  "kind": "issue",
+  "title": "Login page: the SSO labels of LoginForm (ssoOnlyDescription, usePasswordText, backToSsoText, ssoButton) are passed by neither host and have no bundle keys, so an SSO login reads English on a zh-CN console",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:i18n",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T18:38:49Z",
+  "updated_at": "2026-10-16T19:07:26Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12762",
+  "body": "Filing gate ①: a user-visible i18n defect with a named landing point. **reach:** a public entry, `apps/console` `/login` in a zh-CN browser context, measured live in Chromium. **Family:** the labels-that-never-reach-`LoginForm` class that objectui#10900 closed for `socialButton` / `orText`. This is its second occurrence, so this card covers the whole family with an enumeration pin rather than one label.\n\n**Reader who acts:** objectui triage. The landing is the `labels` each host passes to `@object-ui/auth`'s `LoginForm`:\n- `apps/console/src/pages/auth/LoginPage.tsx` (the `labels={{…}}` block, lines 577–613 on `main` `2dbe5f5`);\n- `packages/app-shell/src/console/auth/LoginPage.tsx`, the exported `DefaultLoginPage` (lines 142–158);\n- the `auth.login.*` keys in the ten `packages/i18n/src/locales/*.ts` bundles.\n\nFiled by `domain:ui` seat 3 (`session_01Vk15bz8xHtKGUfXfCm16h4`) from the os-dev report on objectui#12682 (PR #12761). That PR does not change this. ⛔ Not a claim.\n\n## What happens\nOn a zh-CN console, with `GET /api/v1/auth/config` answering `features.ssoEnforced: true` and one OIDC provider, `/login` shows the card in Chinese (欢迎回来 / 登录后继续你的工作 / 使用 Acme IdP 继续 / 本地开发实例). Two lines stay English:\n- \"Sign in with your organization's single sign-on\" (`ssoOnlyDescription`);\n- the break-glass link \"Use a password instead\" (`usePasswordText`).\n\n## Measured\n- Backend: objectstack `66d456d01` `examples/app-crm`, `objectstack dev --seed-admin --fresh`. The console was objectui `claude/issue-12682-sso-login-pending-copy` on Vite; that branch does not touch the hosts' labels.\n- Playwright in Chromium, a zh-CN context, with `GET /api/v1/auth/config` routed to the backend's own answer plus `features.ssoEnforced: true` and one OIDC provider. No OIDC provider was configured on the server.\n- The two English lines above, on the console's `/login`.\n\n## The family, read from source on `main` `2dbe5f5`\n`LoginFormLabels` has 27 members. `LoginForm` falls back to an English literal for each one a host leaves unset (e.g. `labels.usePasswordText ?? 'Use a password instead'`, `LoginForm.tsx:305`).\n\n| member | console `LoginPage` | app-shell `DefaultLoginPage` | `en.ts` key |\n|:--|:--|:--|:--|\n| `ssoOnlyDescription` | not passed | not passed | none |\n| `usePasswordText` | not passed | not passed | none |\n| `backToSsoText` | not passed | not passed | none |\n| `ssoButton` | not passed | not passed | none |\n| `emailOrPhoneLabel`, `emailOrPhonePlaceholder`, `phoneLabel`, `phonePlaceholder`, `otpCodeLabel`, `otpCodePlaceholder`, `sendOtpButton`, `resendOtpCountdownText`, `usePhoneOtpText`, `usePasswordSignInText` | passed | not passed | present |\n\n- The first four rows are untranslatable today on either host: neither passes them, and no bundle has a key for them. The first two were measured live (above); `backToSsoText` and `ssoButton` are read from code only.\n- The last row is `DefaultLoginPage` only: the keys exist and the console passes them, but the exported page does not. It is read from code, not measured.\n\n## Expected\n- Every `LoginFormLabels` member is translated on both hosts. That takes `auth.login.*` keys in all ten bundles for the four SSO members, and both hosts passing every member.\n- An enumeration pin over the `LoginFormLabels` members asserts that each host passes each one, so the next member added to the interface cannot be missed silently, as these were.\n\n**Dedupe** (open and closed):\n- every objectui `domain:ui` card (2433 rows), grepped for `ssoOnlyDescription|usePasswordText|backToSsoText|ssoButton`, `Use a password instead|Back to single sign-on|Sign in with SSO` and `single sign-on`: only objectui#12682, which is the divider and pending-caption card, not translation;\n- the newest 64 objectui issues (to #12759), the same patterns: only #12682;\n- the family's earlier card objectui#10900 is closed `completed` for `socialButton` / `orText`;\n- positive control on the same 2433-row list: `setup`, 111 hits.\n\nDedupe words: SSO-only login copy untranslated; ssoOnlyDescription usePasswordText backToSsoText ssoButton not passed; break-glass link English zh-CN; DefaultLoginPage labels phone OTP.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

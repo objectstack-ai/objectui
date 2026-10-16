@@ -1,0 +1,36 @@
+{
+  "number": 12763,
+  "kind": "pull_request",
+  "title": "feat(app-shell,i18n): Marketplace — a loading line, a slow line with Retry, and a classed failure state with Retry (objectui#12710)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T18:40:14Z",
+  "updated_at": "2026-10-16T19:05:58Z",
+  "closed_at": "2026-10-16T19:05:56Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T19:05:56Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12763",
+  "body": "Fixes #12710\nClause-②: no\n\n## What changes\n\nBrowse Marketplace's catalog read now has three states, from the one `load()` the page already had (no second fetch):\n\n- **Loading.** The six skeleton cards stand for at most 2 s of a read (`SKELETON_MS`). After that one line under the search box, with a spinner: \"Loading the marketplace catalog…\". After 10 s (`SLOW_MS`): \"Still loading — the marketplace catalog is slow to answer.\" with a Retry button. A read that settles inside 2 s never draws the line.\n- **Failure.** Drawn in the catalog's slot as its empty state: the existing heading and the server's own text and online hint (objectui#11688, objectui#11726, unchanged), plus the class, read from the `status` member `call()` already stamps: no status = \"The marketplace catalog could not be reached.\"; a status = \"The marketplace catalog answered with an error (HTTP STATUS).\" Then a Retry button. The header's Installed button and the \"Your organization\" section stay usable.\n- **Success.** Unchanged.\n\nRetry is `load()`, the same read the header's Refresh makes; there is no automatic retry. Each `load()` takes a sequence number, and only the newest read may settle the page, so a read answering after Retry was pressed changes nothing. The phase timers are cleared when the read settles and on unmount.\n\nCopy is product-neutral (\"the marketplace catalog\", the wording the existing `failedHint*` strings use), so nothing names a product. Five new keys under `marketplace.load` (`loading`, `slow`, `retry`, `unreachable`, `answeredError`) in all ten packs; no existing value changed.\n\n## Measured premise (A1)\n\nPartly false. `loading` is one boolean and it drives the skeleton (`loading && items.length === 0`). But a **rejected** catalog read does not leave it loading: since objectui#11688 the catalog promise is settled in place (`.then(resp, toLoadFailure)`) and `finally` clears `loading`, which draws the failure box. The existing pin `a network failure — no server answered — shows the online hint` passes on base. The \"skeletons forever\" comes from a read that **never settles**. `call()` in `marketplaceApi.ts` sends `fetch` with no timeout or abort, so a network that drops the request leaves the `Promise.all` pending. That is the case the slow line and its Retry now cover.\n\n## Tests\n\nNew `MarketplacePage.loadingStates-12710.test.tsx`. It renders the real page, and the catalog goes through the real `listMarketplacePackages` and `call()` over a stubbed `fetch`, as in the 11688 pin. Fake timers. Seven cases:\n(a) a read answering after 3 s: skeleton, then the loading line at 2 s, then the cards;\n(b) a read pending past 10 s: slow line plus Retry, and Retry issues exactly one more read; the first read answering late settles nothing;\n(c) a network rejection: \"could not be reached\", then Retry reads again and draws the cards;\n(d) an HTTP 503: \"answered with an error\" with 503, plus Retry;\n(e) control: the Installed button is enabled and navigates while the catalog has failed;\n(f) control: a read that answers at once never draws the line;\nplus: unmount leaves no pending timer.\n\nAblation, run after the fix was committed, with `ablation-replace.mjs` (anchor and blob checked on disk, restore checked against the HEAD blob). The failure branch `) : error ? (` became `) : false && error ? (`. Result: (c), (d) and (e) went red, 3 failed / 4 passed. (e) went red on its precondition (no failure state drawn). After restore, `git diff HEAD` was empty.\n\nLocal runs, all on the final head (see the report comment on the card for exit codes):\n- `vitest run --maxWorkers=1`: the new file 7/7; `packages/app-shell/src/console/marketplace/` 36 files / 255 tests; `packages/i18n/` plus the product-neutral ratchet, 84 files / 1353 passed, 13 skipped.\n- The closure build `@object-ui/app-shell^...`, then `type-check` for i18n and app-shell. Both green; `tsconfig.test.json` lists the new test.\n- The pre-tsc battery, `check-changeset-fixed`, `check-changeset-presence` and `check:new-line-citations`: all exit 0.\n- eslint over the 12 changed files: 0 errors.\n- NOT MEASURED locally: the whole `packages/app-shell` dir (about 1479 test files; at `--maxWorkers=1` it does not fit the container's 10-minute foreground cap). It is declared to CI.\n\n## Acceptance notes\n\n- Screenshots of the loading line and the failure state are the maintainer's browser check, per the dispatch. None are attached here.\n- The page's `loading` still waits on all four reads in its `Promise.all` (catalog, local installs, org packages, cloud installed). A side read that hangs would hold the catalog's loading line, though each side read answers \"nothing\" on failure. This is a read-only inference; it is not reproduced. No carrier.\n- eslint now reports one more `react-hooks/exhaustive-deps` warning, on the load effect, which now also returns a cleanup. Warnings do not fail lint here (`lint.yml` sets no `--max-warnings`). No inline disable was added.\n\nThe session that made this change is `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB` (seat `domain:ui#2`).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

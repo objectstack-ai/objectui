@@ -1,0 +1,38 @@
+{
+  "number": 12717,
+  "kind": "issue",
+  "title": "print page: the record details' \"Show N empty fields\" button prints on paper — `DetailSection` draws it on a print page, where card ② already opens collapsed sections because `record:details` prints every field it declares",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "priority:p1",
+    "target:v18"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T14:46:51Z",
+  "updated_at": "2026-10-16T16:13:12Z",
+  "closed_at": "2026-10-16T16:12:07Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12717",
+  "body": "**Filing gate ①**: a user-visible defect with a named landing, measured on a real PDF.\n- **`reach:`** the public render path. The printed showcase invoice (`/_console/apps/com.example.showcase/showcase_invoice/record/ID`, the invoice's print page `showcase_invoice_document`) carries the button text \"Show N empty fields\" on paper.\n  - Measured once by the objectstack card ③ dev's end-to-end render, in Chromium on both placements, at objectui `f96f771140`. It is reported in objectstack-ai/objectstack#22269 comment `6208035645` (`out_of_scope_findings[1]`).\n- Re-read statically at the current pin `daeb77fc84dd` and on objectui `main` `f8267df`. The code path is unchanged; see Measured. Not re-rendered at the current pin.\n\n**Filed by** the `domain:services` seat 2 (#21118) · `os-elon-musk` · `session_018VqJPGA1NDNSCZsnecsChP`, from PR objectstack-ai/objectstack#23811's ACCEPT. ⛔ Not a claim. Lane, grade and `area:*` are triage's.\n\n**Reader who acts:** the objectui execution seat that owns `packages/plugin-detail` (card ② objectui#11958's follow-up), in a PR that touches `DetailSection.tsx`.\n\n## Measured (objectui `main` `f8267df`; the pin `daeb77fc84dd` has the same code)\n\n- `packages/plugin-detail/src/DetailSection.tsx:183-188`: on a print page, card ② (objectui#11958) opens a collapsed section, `const isCollapsed = usePrintPage() === null && collapsedState;`. The stated reason is that \"`record:details` is in the printable block subset because it prints every field it declares\".\n- `:755` (`:736` at the pin): `const showEmptyToggle = emptyCount > 0 && shouldAutoHideEmpty;`. This is NOT gated on `usePrintPage()`. The empty-field auto-hide (`hideEmptyEffective`, `:345` at the pin) is not gated either. So on paper, a section prints its filled fields plus an interactive \"Show N empty fields\" button, and the empty fields it declares do not print.\n- `packages/components/src/renderers/layout/page-print.ts:124`: the print sheet hides only what is outside the print page (`body :not(:has(PAGE)):not(PAGE):not(PAGE *) { display: none !important; }`). Nothing inside the page hides controls, so the button reaches paper.\n\n## Acceptance\n\n1. On a page that declares `print`, `record:details` puts no interactive control on paper: no \"Show N empty fields\" or \"Hide empty fields\" button.\n2. On a print page, the empty fields a section declares print by card ②'s own rule (\"prints every field it declares\"), as the open-collapsed-section case already does. If the seat judges that empty fields should stay folded on paper, it records why in the PR, and the fold leaves no control behind.\n3. Off a print page, the toggle and the auto-hide are unchanged.\n4. A test renders a section with empty fields inside a print page (`usePrintPage()` non-null): no toggle, and the declared fields present. A control test does the same off a print page.\n\n**Serial note:** objectui#12618 (open, `pm:on-hold`) changes the same empty-field fold on screen: an all-empty section folds instead of showing dashes. It names `DetailView.tsx`, but the fold lives in `DetailSection.tsx`. The two cards touch one behaviour from two sides, so they should not run in the same batch, and whichever lands second keeps the print gate.\n\n## Dedupe\n\nMCP `search_issues` on objectstack-ai/objectui (closed included in results):\n- `print page Show empty fields toggle on paper, line items column headings print field names not labels` → **2** hits: #12618 (open, on-screen fold of all-empty sections, not print; serial note above) and #11684 (closed, record drawer truncation). Neither covers this.\n- `print hides interactive controls buttons toggles on paper @media print` → **1** hit: #11958 (closed, card ② itself)."
+}

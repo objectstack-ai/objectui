@@ -2,8 +2,8 @@
   "number": 12613,
   "kind": "issue",
   "title": "Sharing Rules list shows the recipient's and object's labels, not api names",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:access",
     "domain:ui",
     "enhancement",
-    "pm:blocked",
     "priority:p2"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-16T03:40:47Z",
-  "updated_at": "2026-10-16T13:44:40Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-16T14:50:08Z",
+  "closed_at": "2026-10-16T14:48:43Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 9,
+  "comments": 11,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12613",
   "body": "## Source\n\nWalked on objectui main `8415d9f11`, `/apps/com.objectstack.setup/sys_sharing_rule` (11 rows from HotCRM): Object `crm_account`, Recipient Type `position`, Recipient `sales_manager` / `eu_sales_team` / `escalated_from`, Access Level `edit`. The same rule in Studio's Access pillar reads \"Account\", \"Sales Manager\".\n\n## Target\n\n1. Object column: the object's icon and label (api name in the tooltip).\n2. Recipient: the position / team / user label resolved through the same lookup the Access pillar uses; the type as a small chip before it (\"Position · Sales Manager\", \"Field · Escalated from\").\n3. Access level as a chip (Read / Edit) with the same tokens the permission matrix uses.\n\n## File surface\n\nThe `sys_sharing_rule` list view definition the console ships (or, if the columns come from the platform's view, objectstack-ai/objectstack's platform-objects view — the card says so and files it there), the cell renderers in `packages/plugin-grid` / `plugin-list` for metadata references, tests beside.\n\n## Acceptance\n\n1. Tests: a rule with recipient `sales_manager` renders \"Sales Manager\".\n2. Screenshot at 1280 px.\n3. `pnpm --filter @object-ui/app-shell test` green.\n\n## Constraints\n\n- The stored values do not change; display only.\n\n## Evidence\n\nNo screenshot; the measurements above and the page URLs are the evidence.\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-16 second review pass: objectui main `8415d9f11`, HotCRM `63db83e2`, the vite console on :5180 against `objectstack serve --dev` on :4001, the Studio pillars and all 43 Setup pages walked in the maintainer's browser pane at 1024 × 768 (en) with a 1280 × 900 re-check (zh). The maintainer asked for every finding to be filed, verbatim: 「全部立卡」.</sub>"

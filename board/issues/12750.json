@@ -1,0 +1,35 @@
+{
+  "number": 12750,
+  "kind": "pull_request",
+  "title": "feat(console): audit log browser offers sys_audit_log's served list views as presets, with an \"Open as list\" link (objectui#12667)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T17:47:21Z",
+  "updated_at": "2026-10-16T18:38:49Z",
+  "closed_at": "2026-10-16T18:38:47Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T18:38:47Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12750",
+  "body": "Fixes #12667\nClause-②: no\n\nThe `audit:log` browser (Setup, Audit Log) offers the list views the platform serves on `sys_audit_log` as presets, and links to the object list. This is the objectui half of objectstack-ai/objectstack#23890, item 1 of objectstack-ai/objectstack#23803: \"the record list's views (Writes, Auth, …) become the browser's presets; the `sys_audit_log` list stays reachable from the browser's \"Open as list\" link\". Removing `nav_audit_logs` stays with objectstack-ai/objectstack#23890.\n\n## What changes\n\n- **Presets, read from served metadata.** `AuditLogPage` reads `sys_audit_log`'s `listViews` from the console's object metadata (`useMetadata().objects`, the same composed read the object list's view switcher draws from). It offers one preset per entry, by its served label, in served order. The page names no view: the test fixture uses view keys no code knows. The presets row is a group named by its visible \"Presets\" caption (`aria-labelledby`), not a literal `aria-label`.\n- **A preset sends the view's own filter.** The view's `filter` (a spec `ViewFilterRule` array, measured live) is lowered by `@object-ui/core`'s `toFilterNodeSafely`, the same lowering the object list runs on the same view. It joins the bar's action, object, actor and date filters under one `and` via `mergeFilterNodes`. Choosing the preset again, or \"Clear filters\", removes it. Columns, sort and page size stay the browser's own.\n- **Never approximated.** A view whose filter the lowering refuses, or one bound to another data source, is shown disabled with its reason on hover and a link to that view in the list. It sends no filter.\n- **Open as list.** The header links to `/apps/APP/sys_audit_log`, or to `/apps/APP/sys_audit_log/view/KEY` when a preset is active. KEY is the `listViews` key, the same id the list's view tabs use.\n- Copy stays English literals, as the rest of the page's copy is. No language-pack key, export or prop is added, so Clause-② stays `no`.\n\n## Evidence\n\n- Live, against `@objectstack/*@18.0.0-next.2` (showcase, `e2e/live/ci/start-backend.sh`), console at `5838608`, 1280 px:\n  - the served views are `recent`, `writes_only`, `auth_events`, `record_views`, `config_changes`, `all_events`, and the presets read Recent, Writes, Auth, Record Views, Config, All;\n  - Auth sends `[[\"action\",\"in\",[\"login\",\"logout\"]]]` and lists only login rows;\n  - Writes lists 32 rows, and \"Open as list\" lands on `sys_audit_log/view/writes_only`, which lists the same 32 records;\n  - the merged wire shape (bar filters plus a preset) answers HTTP 200.\n  - Screenshots: branch `claude/issue-12667-evidence`, `evidence/12667/` (commit `694c35846f`).\n- Tests: `AuditLogPage.presets-12667.test.tsx`, 8 tests, each family proven red by ablation:\n  - views replaced by a literal list: 5 failed;\n  - preset filter not sent: 2 failed;\n  - Open-as-list link broken: 2 failed;\n  - refused view approximated: 1 failed;\n  - group named by a literal aria-label: the census and the pin both failed.\n  - Every ablation was restored to the HEAD blob `a835329adbb9` with `git diff HEAD` empty.\n- Three existing tests that render the page are wrapped in a `MemoryRouter`, because the page now renders a router `Link`.\n- Local gates at `5838608`:\n  - console dependency build, `type-check` and `vite build`;\n  - vitest over `apps/console/src/pages/system` plus every console and `scripts/__tests__` file that names the page: 35 files, 271 tests passed;\n  - `check:changeset-claims`, `changeset:check`, `check:test-path-roots`, `check:spec-symbols`, changeset presence, `check:new-line-citations`;\n  - eslint on the changed files: no new warnings;\n  - at `1e66fe2`, `packages/i18n/src/__tests__` (aria-label census included) with round 0's families: 118 files, 1593 passed.\n\n## Acceptance notes\n\n- The active preset is component state, like the page's other filters. Moving the filter bar into URL params under AGENTS.md #8 would be a whole-page follow-up, not this card.\n\nProvenance: built by the cloud session `session_01ESLcqKU7sTVG6SNoeDrjME` (claim `6219587822`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final message, because a cloud session cannot open a PR from its container. The seat replaced the dev's own footer line with this line, and applied the REWORK round 1 lines from the dev's delta report.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01ESLcqKU7sTVG6SNoeDrjME)_\n\n"
+}

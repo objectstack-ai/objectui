@@ -2,8 +2,8 @@
   "number": 12654,
   "kind": "issue",
   "title": "form, react, types, console: spec 18 refuses the view form's `visibleOn` and the page component's `visibility` (objectstack#23543 F4) — read `visibleWhen` only, and re-point the spec-shape couplings before the next spec bump",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -13,7 +13,6 @@
   "labels": [
     "domain:ui",
     "enhancement",
-    "pm:dispatched",
     "priority:p2",
     "target:v18"
   ],
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-16T11:09:49Z",
-  "updated_at": "2026-10-16T13:46:33Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-16T15:08:16Z",
+  "closed_at": "2026-10-16T15:04:52Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12654",
   "body": "Filing gate **④, a cross-repo child**: the objectui layer of objectstack-ai/objectstack#23543 family F4. That family landed as objectstack-ai/objectstack#23836 (`105902f10a`, merged 2026-10-16T11:07Z).\n\nBlocked-by: objectstack-ai/objectstack#23836\n\n- **Filed by:** objectstack `domain:spec` seat 1 (seat post objectstack-ai/objectstack#6017) · `os-elon-musk` · session `session_01HjR8RUwTPQ3TgbfKihmxp9`. This seat accepted that PR, so it files the consumer follow-up (cross-repo coordination, rule 3; the F5-jsx precedent is #12464).\n- **Who acts:** the objectui seat that triage routes this card to. The grade and the route are triage's.\n- **Why a new card:** the maintainer's ruling put this half on #12334 (objectstack-ai/objectstack#23543, comment `6182001882`, item 4). #12334 closed on 2026-10-15 without it, and no open objectui card carries it.\n- **Grade input:** the ruling grades this card p1 \"only if the designer would write the refused key\". The F4 dev measured Designer/Studio writes of either key into saved metadata: 0. So that condition reads NO.\n- **Dedupe:** MCP `search_issues` in objectui: `visibleOn visibility retired visibleWhen renderer consumer spec bump form field section page component` → 13 hits. The nearest are #12486 (F5-jsx's renderer half) and closed `visibleWhen` evaluation bugs (#6111, #5594, #11630, #5627). None is this card.\n\n## What spec 18 changed\n\nThe ruling, verbatim:\n\n> 4. **F4 A:** `visibleOn` (view) and `visibility` (page component) retire as keys: `retiredKey` tombstones naming `visibleWhen` with the full `spec-property-retirement` kit (ADR-0087 markers, baselines, forms, docs, pins); both entries retire in the same change; the three record / strict-exit suites re-point. objectui's renderer and Studio half is the consumer first-release card on objectui#12334, graded p1 only if the designer would write the refused key, which the follow-up measures first.\n\nFrom the landed changeset (`.changeset/23543-f4-visibility-alias-keys-retired.md`):\n\n- `visibleOn` on a form field (`view.form.sections[].fields[]`) and on a form section, and `visibility` on a page component, are `retiredKey()` tombstones naming `visibleWhen`. `tsc` fails at a typed authoring site, and the parse refuses the key by name (`defineStack`, `os validate`, `os build`, the metadata save door's 422).\n- The parse-time fold is gone: `FormFieldSchema`, `FormSectionSchema` and `PageComponentSchema` are plain closed objects again, with no `.transform` pipe.\n- Stored metadata needs no edit: stored-row rehydration still replays both conversions, so a stored view or page row written with the old key loads with `visibleWhen`.\n\n## The objectui sites\n\nMeasured by the F4 dev at objectui `main` `63d00da3de` and at objectstack's `.objectui-sha` pin `daeb77fc84` (identical). The seat re-read the three couplings below at `main` `8614705c18`; line numbers there are given where they moved.\n\n1. **Readers of the old keys** (they read a key a spec-18 body can no longer carry):\n   - `visibleOn`, about 17 form-field and form-section renderer reads: `components/src/renderers/form/form.tsx:1861,1969-1971,2101-2102,3076,3161`; `plugin-form/src/WizardForm.tsx:867-868`; `plugin-form/src/sectionFields.ts:162,376,386,471`; `apps/console/src/components/FormPage.tsx:790,843`; `app-shell/metadata-admin/SchemaForm.tsx:956,1076`.\n   - 6 SDUI-node reads: `react/src/SchemaRenderer.tsx:365,1939-1940,2190`; `sdui-parser/src/validate.ts:150`; `cli/src/commands/check.ts:63`. Plus 9 type declarations.\n   - Page-component `visibility`: `react/src/SchemaRenderer.tsx:1944-1945,365,2191`, and the type `SchemaRenderer.tsx:191` (`visibility?: PageComponent['visibility']`, re-read at `8614705c18`).\n2. **Spec-shape couplings that go red at objectui's next spec bump:**\n   - `plugin-form/src/sectionFields.spec-parity.test.ts` reads `(SpecFormFieldSchema as any).in.shape` (`:145` at `8614705c18`). The pipe is gone, so `.in` no longer exists.\n   - `types/src/__tests__/flat-props-refusal-10872.test.ts` against `types/src/zod/public-blocks.zod.ts`'s `PAGE_COMPONENT_NODE_KEYS` (`:340` at `8614705c18`). Not run by the F4 dev.\n   - `react/src/SchemaRenderer.expressions.test.tsx:38,171`: a `Pick` of `PageComponent`'s `visibility`.\n3. **objectstack's own lockstep port:** objectstack `packages/sdui-parser`'s `SDUI_BASE_PROPS` (a port of objectui's `BaseSchema`) still lists `visibleOn`. It moves with this card.\n\n## What done looks like\n\n- Each reader reads `visibleWhen` only. ⛔ No consumer-side fold of the old key back onto `visibleWhen`: the spec refuses it at every parsing door, and a renderer tolerance would hide an authored mistake.\n- The three couplings are re-pointed at the spec-18 shape before the bump that brings `@objectstack/spec` 18 lands, so the bump PR does not go red on them.\n- The Designer / Studio writes no retired key. The F4 dev measured none; re-check at the bump.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

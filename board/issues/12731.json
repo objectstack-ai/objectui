@@ -1,0 +1,37 @@
+{
+  "number": 12731,
+  "kind": "pull_request",
+  "title": "feat(app-shell): render a record on a named record page at /apps/APP/OBJECT/record/ID/page/PAGE",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "package: app-shell",
+    "package: react",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T15:44:50Z",
+  "updated_at": "2026-10-16T16:15:22Z",
+  "closed_at": "2026-10-16T16:15:21Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T16:15:21Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12731",
+  "body": "Fixes #12715\nClause-②: yes\n\n## What\n\nA console URL that renders a record on a NAMED record page, so the server's print service can print any record page of an object, not only its default one.\n\n**URL shape (the contract objectstack's print service binds to):**\n\n    /apps/APP/OBJECT/record/ID/page/PAGE\n\nRoute `:objectName/record/:recordId/page/:pageName`, declared beside the record route in `packages/app-shell/src/console/AppContent.tsx` as `RECORD_NAMED_PAGE_ROUTE`. The record route `/apps/APP/OBJECT/record/ID` is unchanged, and it still opens the object's default record page.\n\n## Behaviour\n\n- PAGE renders for record ID only when it is a record page bound to OBJECT (`type: 'record'`, `object: OBJECT`). A page that declares `print` renders with its print stylesheet and its print root (`data-print-page`), and `window.__objectui.idle` behaves as on the record route. Those are the two signals the print driver's ready predicate reads.\n- Any other name shows the console's existing \"Page Not Found\" state. That covers an unknown name, a page that is not a record page, and another object's record page. There is never a fallback to the default page and never another page. No record is read and no print root is stamped, so a print of a wrong URL cannot put a wrong document on paper.\n- While the page list loads, only the skeleton is drawn, never the default page.\n- An embedded detail (drawer or split pane) never reads the segment.\n\n## How\n\n- `RecordDetailView` reads `pageName` from the route, passes it to `usePageAssignment`, and checks the named page with `isRecordPageOf` before it renders. A pending or refused name blocks both the assigned page and the synthesized default.\n- `@object-ui/react` exports `isRecordPageOf(page, objectName)`, the single reading of \"a record page of object O\". `usePageAssignment`'s object-based lookup now filters with it, with unchanged behaviour. The hook's published `pageName` override is NOT narrowed: it still returns any page by that name, and that is pinned. No consumer in the tree relies on it returning a non-record page (measured: the hook's own test only).\n- Why a path segment and not a `page` query parameter: it matches the record route's `/edit` sub-route, and the default route's path is untouched. An optional query would let a stray parameter change which document the record route draws. `page` is also a page-scoped list parameter elsewhere.\n\n## Tests\n\n- `RecordDetailView.namedRecordPage-12715.test.tsx` mounts both routes from the real route constant. It pins: the happy path (print root present and idle false while the record read is in flight, then true); the unchanged default route; parity on the default route when its default page is a print page; all three refusal cases (no default page, no other page, no print root, no record read); and skeleton-only while pages load.\n- `usePageAssignment.isRecordPageOf-12715.test.tsx` pins the predicate, the lookup reading through it, and the unchanged `pageName` override.\n- Each pin was proven red by ablation, with the restored blob equal to HEAD:\n  - accept any named page: 2 red\n  - ignore the segment: 5 red\n  - fall back while pending or refused: 4 red\n  - helper ignores the object: 5 red\n- Union on the code head: all `RecordDetailView.*` tests (63 files, 397 tests); console route, console app and react hook suites (126 files, 1504 tests). All green.\n\n## Live reading\n\nShowcase backend from published `@objectstack/*` 18.0.0-next.2; console from this branch; headless Chromium with print emulation. One throwaway non-default print record page was added in a scratch copy of the showcase only.\n\n- The named print page has the print root, its letterhead and the record's data, with idle true.\n- Unknown, other-object and home-page names each show Page Not Found, with no print root.\n- The default route is unchanged.\n\nScreenshots and the reading log: branch `claude/issue-12715-evidence`, folder `evidence/12715/`.\n\n## Acceptance notes\n\n- The default route still draws the synthesized default page briefly while page metadata loads. This is pre-existing and left unchanged on purpose. That page has no print root.\n- The refusal reuses the existing `empty.pageNotFound` copy; no locale keys are added.\n- objectstack's `print-service.ts` default-page rule is widened in objectstack after its pin carries this change. That is not part of this PR.\n\nProvenance: built by the cloud session `session_01ACSfW1aH5ptDiXVMpWKPgv` (claim `6218257366`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final message, because a cloud session cannot open a PR from its container. The seat replaced the dev's own footer lines with this line.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01ACSfW1aH5ptDiXVMpWKPgv)_\n"
+}

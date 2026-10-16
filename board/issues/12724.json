@@ -1,0 +1,32 @@
+{
+  "number": 12724,
+  "kind": "issue",
+  "title": "AI build chat: plan card v2 and result card v2 per the AiBuild artboard, a collapsed progress line, no automatic navigation to Studio after a build, and a placeholder without the agent's name",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:ai",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T15:28:23Z",
+  "updated_at": "2026-10-16T15:28:23Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12724",
+  "body": "## Source\n\nWalked on 2026-10-16 on `/_console/ai/build/conv_…` (the test1016 tenant, zh-CN): the plan card shows objects as「图书 · 4」chips and views as names, assumptions as prose, 开始搭建 / 调整方案; after the build finished the tab navigated on its own to `/_console/studio/app.hcpl/interfaces` as a top-level navigation (40 s of「正在打开你的控制台…」on that tenant) and the final summary was only readable afterwards inside the Studio copilot; the progress list shows every tool call as a row (记录待办 ×3); the composer placeholder reads「向 构建 提问…」(the template「向 {name} 提问…」filled with the agent's display name). `packages/app-shell/src/console/ai/AiChatPage.tsx` renders the page; `ChatDock.tsx` and `hooks/chatScope.ts` hold the conversation.\n\n## Target (ruling 「同意」; AiBuild artboard)\n\n1. Plan card v2: header (icon, 「方案 · 图书借阅管理」(the app name), summary line「3 个对象 · 3 个视图 · 示例数据 12 条/对象 · 确认后约 1 分钟搭好」, 等待确认 chip); 对象与字段 rows with field chips (the constraint in mono type on the chip, dashed chip for suggested fields, a「名称：自动生成…」line under relation objects); 视图 rows with one intent line each; 假设 list; 开始搭建 (primary) / 调整方案 and the hint「也可以直接回复：…」. Data from the build agent's plan payload (objectstack-ai/cloud card builder-plan-result-payloads-v2); the card degrades to today's shape when a field of the payload is absent.\n2. Progress: one collapsed line per phase (「设计方案 · 4 步 · 0:48 · 读取编写规范 · 列出对象 ×3 …」) with a chevron that expands the steps.\n3. Result card v2: 「已搭建并上线 · 图书借阅管理」, 核对通过 7/7 chip, a two-column checklist with the verified numbers, 打开应用 (primary, the app's first navigation item) and 在 Studio 中查看 as SPA navigations, a「接下来可以说：…」line from `next_steps`, and the posture sentence「之后的修改先存草稿，由你在 Studio 发布」. No automatic navigation after a build; a test on `AiChatPage` asserts no full navigation on completion.\n4. The composer placeholder is「描述你想搭建的应用，或要改的地方…」for the build agent (no name interpolation); the footer reads「↵ 发送 · Shift+↵ 换行」.\n\n## File surface\n\n`packages/app-shell/src/console/ai/AiChatPage.tsx` and the card components it renders, `packages/app-shell/src/layout/ChatDock.tsx`, `hooks/chatScope.ts`, i18n keys in every shipped locale, tests beside.\n\n## Acceptance\n\n1. Tests: the plan card renders chips, intent lines and the name rule from a fixture payload; the result card renders the checklist and both buttons; no `location.assign` on completion; the placeholder has no agent name.\n2. Screenshots of the plan card and the result card at 1280 px, zh-CN and en.\n3. `pnpm --filter @object-ui/app-shell test` green.\n\n## Design\n\nArtboards on the temporary branch `claude/console-home-login-design-20261016` of objectstack-ai/objectui, commit `23ef817aa` (never merged; `*.preview.html` opens in a browser, `*.dc.html` is the canvas source): [AiBuild](https://github.com/objectstack-ai/objectui/blob/23ef817aa/docs/design/ai-build-2026-10-16/artboards/AiBuild.preview.html?raw=true) ([source](https://github.com/objectstack-ai/objectui/blob/23ef817aa/docs/design/ai-build-2026-10-16/artboards/AiBuild.dc.html)). The README beside them records the maintainer's rulings.\n\n## Evidence\n\nScreenshots on the same branch and commit: [ai-build-plan-awaiting-confirm.jpg](https://github.com/objectstack-ai/objectui/blob/23ef817aa/docs/design/ai-build-2026-10-16/ai-build-plan-awaiting-confirm.jpg?raw=true) · [ai-build-redirect-boot-splash.jpg](https://github.com/objectstack-ai/objectui/blob/23ef817aa/docs/design/ai-build-2026-10-16/ai-build-redirect-boot-splash.jpg?raw=true) · [ai-build-empty-conversation.jpg](https://github.com/objectstack-ai/objectui/blob/23ef817aa/docs/design/ai-build-2026-10-16/ai-build-empty-conversation.jpg?raw=true).\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-16 build of a library-lending app (package `app.hcpl`: 图书 / 读者 / 借阅记录, a status kanban, an overdue view) on the test1016 tenant at https://os-4e4qa4.objectos.app (staging, zh-CN, the maintainer's browser pane at 1010 × 1119), through 用 AI 搭建 → the plan card → 开始搭建 → the Studio copilot → one change → the running app. The maintainer named the repositories, verbatim: 「ai 搭建的功能在 cloud仓库」「部分前端功能代码在 objectui 后端在 onjectstack」, and ruled on the design in chat: 「同意」 to the four points as drawn, then 「是否考虑浮出」/「属性好需要考虑选中每个元素的时候也要显示」, then 「按浮窗版定稿」.</sub>"
+}

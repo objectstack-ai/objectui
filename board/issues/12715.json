@@ -1,0 +1,38 @@
+{
+  "number": 12715,
+  "kind": "issue",
+  "title": "console: no route renders a record on a NAMED record page — `RecordDetailView` asks `usePageAssignment(objectName)` without `pageName`, so the server's print service can print a record only on its object's default record page",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "domain:ui",
+    "enhancement",
+    "priority:p1",
+    "target:v18"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T14:46:25Z",
+  "updated_at": "2026-10-16T16:16:27Z",
+  "closed_at": "2026-10-16T16:15:22Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12715",
+  "body": "**Filing gate ④**: the objectui layer child of the print-page series (objectstack-ai/objectstack#8346 B′; card ③ objectstack-ai/objectstack#22269). It is owed by landed work: the `domain:services` seat's answer Q2 A on PR objectstack-ai/objectstack#23811 (comment `6208156693`) keeps the default-page rule and files this card at ACCEPT.\n- **`reach:`** named real producer, `@objectstack/service-print` (PR #23811). It refuses every print page that is not the object's default record page with `VALIDATION_ERROR` / 400, because the console offers no URL for any other.\n- Its first real user, the showcase invoice, had to make its print page the invoice's DEFAULT record page. That replaced the invoice record view for every user.\n\n**Filed by** the `domain:services` seat 2 (#21118) · `os-elon-musk` · `session_018VqJPGA1NDNSCZsnecsChP`, from PR #23811's ACCEPT. ⛔ Not a claim. Lane, grade and `area:*` are triage's.\n\n**Reader who acts:** the objectui execution seat that owns `packages/app-shell` (the console's record route and `RecordDetailView`), at its next record-route card. It is triage's to route. After it lands and objectstack's `.objectui-sha` carries it, the objectstack `domain:services` seat widens the print service's rule in the PR that binds to the new URL. That widening is not this card's.\n\n## What is missing\n\nA record can be shown only on the page the object's page assignment picks. That is its default record page (`isDefault: true`), else the first record page bound to the object. Real documents need more than one page per object: an invoice record view, an invoice document, a delivery note. Each printable page should render for the same record at a URL a browser can load, so the server can print it as the requesting user.\n\n## Measured\n\nobjectui at the pin objectstack builds against (`.objectui-sha` = `daeb77fc84dd`), and again on objectui `main` `f8267df`:\n- `packages/app-shell/src/views/RecordDetailView.tsx:640`: `const { page: assignedPage, slots: assignedSlots } = usePageAssignment(objectName);`. No `pageName` is passed. It is the only non-test caller of `usePageAssignment(` in `packages/**` and `apps/**`.\n- `packages/react/src/hooks/usePageAssignment.ts:49` already declares `pageName?: string` (\"Optional explicit page name override; bypasses object-based lookup\"). The override is `:126-127`: `pages.find(p => p?.name === opts.pageName)`. It does NOT check that the named page is a `type: 'record'` page bound to the record's object.\n- The only record route is `:objectName/record/:recordId` (`packages/app-shell/src/console/AppContent.tsx:1135` at the pin), plus its `/edit` sibling.\n\nobjectstack at PR #23811's head `5a16f29db9`:\n- `packages/services/service-print/src/print-service.ts:282-284`: the browser loads `CONSOLE/apps/APP/OBJECT/record/ID`.\n- `:359-366`: a page that is not `defaultRecordPageObject(page) === object` is refused `VALIDATION_ERROR` / 400. The message is \"The console renders a record on its default record page only\".\n- `examples/app-showcase/src/ui/pages/invoice-document.page.ts`: `isDefault: true` on the invoice's print page, for that reason.\n\n## Acceptance\n\n1. A console URL renders record R of object O on a named page P. Default-route behaviour is unchanged.\n   - P must be a `type: 'record'` page bound to O.\n   - P renders with its own `print` stylesheet when it declares `print`.\n2. A name that is not a record page of O shows a visible refusal or not-found state. It never falls back silently to the default page, and never renders another object's page. A print must never put the wrong document on paper.\n3. On that route, the print root (`data-print-page`) and `window.__objectui.idle` behave as on the default route. The server's ready predicate reads both (`packages/services/service-print/src/chromium-driver.ts:136-141` at the PR head).\n4. Tests beside the route and `RecordDetailView`, including the wrong-object case.\n5. The URL shape is named in the card's PR body, so the objectstack seat can bind `print-service.ts:282-284` to it.\n\n## Dedupe\n\nMCP `search_issues` on objectstack-ai/objectui (semantic; closed issues included in results):\n- `route that renders a named non-default print page for a record, RecordDetailView usePageAssignment pageName` → **3** hits, none covering this: #12442 (closed, studio page-create seed), #12195 (closed, `usePageAssignment` ignored `isDefault`), #11902 (closed, 403 vs not-found on the record page).\n- `print a record on a named page, print route page parameter, print action choose document page` → **1** hit: #11958 (closed, card ② itself, which shipped the default-page print only)."
+}

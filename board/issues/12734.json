@@ -1,0 +1,37 @@
+{
+  "number": 12734,
+  "kind": "pull_request",
+  "title": "feat(components): page regions lay blocks on a 12-column grid with kind-derived spans; the page description sits under its title",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "package: app-shell",
+    "package: components",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T16:03:56Z",
+  "updated_at": "2026-10-16T17:09:26Z",
+  "closed_at": "2026-10-16T17:09:24Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T17:09:24Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12734",
+  "body": "Fixes #12624\nClause-②: yes\n\n## What changes\n\n- **Region block grid.** A page region's blocks used to stack one per row, so four metric tiles drew four full-width stripes. RegionContent in packages/components/src/renderers/layout/page.tsx now lays them on a 12-column grid. Each block's span is derived from its kind in one table, page-block-span.ts:\n  - metric tiles (element:number, statistic, object-metric, the dashboard metric widgets): 3;\n  - charts (chart, object-chart, bar-chart): 6;\n  - everything else: 12.\n- **Fold by breakpoint.** From 1280 px up, the spans apply as declared. From 768 to 1279 px, tiles take 6 and charts 12. Under 768 px, every block takes 12. The span classes are literal strings so Tailwind's scanner emits them.\n- **Rails and templates.** A sidebar or aside rail keeps its blocks at full width. On the dashboard template, each region stays a cell of the region grid and holds its own block grid, so the two grids compose without doubling. Every template places its regions through RegionContent, so each one gets the grid.\n- **Heading order.** When a titled page:header owns the page's h1, the page used to draw its description above the regions, which put it above the title. The header now draws it under the title and subtitle, the order the console page header uses.\n  - The description is handed down through a context that every page renderer resets, so a nested page does not inherit the outer description.\n  - The page still has one h1. Nothing is imported from app-shell.\n- **Container grid.** A page:card or page:section lays its list of children on the same grid, through one shared PageBlockGrid that uses the same span table and class map. The container spans 12 in its region, and its children take their kind's span and fold the same way. HotCRM's Sales Home card with four object-metric tiles now shows one row at 1280 px and two rows at 1024 px. Children that are not tiles still stack full width, and so do tiles inside a rail region.\n- **Studio designer.** Each block card in a region and each child card of a page:card or page:section shows its span read-only (3/12, 6/12, 12/12), read from the same table. A children page stacks its blocks, so its cards show no span.\n- **No authored key.** No span key, prop or schema field is added; the spec declares none. For the designer, components adds four runtime exports: pageBlockSpan, isPageRailRegion, PAGE_BLOCK_SPANS and the PageBlockSpan type. Those widen the published surface, hence `Clause-②: yes`.\n\n## Evidence\n\nScreenshots are on branch claude/issue-12624-evidence, folder evidence/12624: before and after at 1024 and 1280 px, plus the designer card. Measured in Chromium with a page holding a page:header, a description and four statistic tiles:\n- after, 1280 px: four cells in one row, 296 px wide each;\n- after, 1024 px: two rows of two, 480 px each;\n- one h1, with the description after the title;\n- before: five stacked full-width cells, with the description above the title.\n\nThe HotCRM shape (page:header, then a page:card with four object-metric tiles), on the same evidence branch: hotcrm-shape-before and hotcrm-shape-after at 1024 and 1280 px. After: four tiles in one row at 1280 px and two rows at 1024 px. Before: the tiles stacked inside the card, with the description above the title.\n\nHotCRM's Sales Home itself was not measured in the dev container.\n\n## Tests\n\n- packages/components/src/__tests__/page-block-grid-12624.test.tsx: 13 tests, four of them for the container grid. The row checks are worked out from each cell's real col-span classes at 1280 and 1024 px.\n- packages/app-shell/src/views/metadata-admin/previews/PageBlockCanvas.blockSpan-12624.test.tsx: 5 tests, one for a page:card's child cards.\n- Each behaviour was proven red by ablation, then restored to the HEAD blob. The run is recorded in the report on the card.\n- Local suites at head 550bf27 all pass: the renderers/layout, components __tests__ and metadata-admin previews tests (354 files) and scripts/__tests__ (186 files).\n- At head d643f37 the same three families pass again (354 files, 3773 tests). This round touches no script, so scripts/__tests__ was not re-run.\n- The full @object-ui/app-shell suite (Acceptance 3) runs on CI's shards, not locally.\n\n## Acceptance notes\n\n- The seat confirmed HotCRM's nesting (one page:card holding the four object-metric tiles), and this PR now grids container children too.\n- The eager closure measured 3120.8 KB gzipped against a 3744.1 KB budget.\n\nProvenance: built by the cloud session `session_01NvsorV5JuG3fpRuUjWRHir` (claim `6217816580`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final message, because a cloud session cannot open a PR from its container. The seat made three changes:\n- line 2 reads `Clause-②: yes`, because the four new exports widen the published surface;\n- the rework round's lines (the container grid, the designer's child cards, the HotCRM-shape evidence, the test counts and the acceptance notes) are applied from the dev's rework report;\n- the dev's own footer lines are replaced with this line.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01NvsorV5JuG3fpRuUjWRHir)_\n\n"
+}

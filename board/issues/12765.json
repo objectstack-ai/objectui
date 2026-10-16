@@ -1,0 +1,36 @@
+{
+  "number": 12765,
+  "kind": "pull_request",
+  "title": "fix(auth): drop the stored active organization when the server reports none (objectui#12698)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: auth",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T18:55:42Z",
+  "updated_at": "2026-10-16T19:45:03Z",
+  "closed_at": "2026-10-16T19:45:01Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T19:45:01Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12765",
+  "body": "Fixes #12698.\nClause-②: no\n\n## Root cause (measured)\n\nbetter-auth's `POST /organization/set-active` sets the session's active organization to null **before** it refuses a non-member (`crud-org.mjs`, better-auth 1.7.2: `adapter.setActiveOrganization(token, null)` then `FORBIDDEN USER_IS_NOT_A_MEMBER_OF_THE_ORGANIZATION`). So after the refused forge the server really holds no active organization. On the reload, the client gets two things wrong:\n\n1. **The header guesses: fixed here (surface extended, seat ruling option A).** `WorkspaceSwitcher.tsx:63` and `CurrentOrganizationIndicator.tsx:61` (in `packages/app-shell/src/layout/`) both render `activeOrganization ?? orgList[0]`. When the server answers \"none\", `AuthProvider` correctly holds `activeOrganization = null`, and the header names the first membership anyway. Measured with the real `AuthProvider` and the real header components against a mocked server that has no active organization:\n   - Two memberships: `useAuth().activeOrganization` is null, `getActiveOrganization` is called once and `setActive` is not called, yet the switcher reads **\"Plant A\"**.\n   - One membership, repair refused: the indicator still reads **\"Plant B\"**.\n   - One membership, repair accepted: one `set-active` call, the server is re-stamped, and the indicator reads \"Plant B\". That is truthful.\n2. **The stored id survives: fixed here.** `refreshOrganizations` asked the server, heard \"none\", and left the previous id in `ActiveOrganizationStorage`. That id kept stamping `X-Tenant-ID` and keying the metadata seed cache (`MetadataProvider.activeOrgScope`) for an organization the session does not hold. The same measurement read `storage = org_b` in all three cases.\n\nPM assumption A1 is **not** what happens. `activeOrganization` is not hydrated from storage on load: it starts as `useState(null)`. The `!activeOrganization` guard therefore does not skip the server on a reload, and the server is asked once.\n\n## Change\n\n`AuthProvider.refreshOrganizations`: when the server-asking branch ends with no active organization (the server said none, and at one membership the ADR-0081 repair was refused), `ActiveOrganizationStorage.clear()` runs. A user switch that commits while the request is in flight sets `activeOrgIdRef`, and a guard on that ref keeps it from being wiped. The repair itself is unchanged. It already re-stamps the server and adopts the server's answer, so it was truthful; pin (b) shows this. `ConsoleShell.tsx` is not touched: `RequireOrganization` already reads `activeOrganization` truthfully.\n\n## Pins: `packages/auth/src/__tests__/staleActiveOrg-12698.test.tsx`\n\nThe tests use the real provider and real storage, with no `vi.mock`. The mocked server holds its own active organization, and a refused `set-active` nulls it the way better-auth does.\n\n- (a) Two memberships, server holds none: no active organization is claimed, storage is cleared, and the repair is not called. An end-to-end variant forges first, then boots.\n- (b) One membership: exactly one `set-active` call, the header names the organization the server confirmed, and storage equals the server's value. A second case refuses the repair: no active organization and storage is cleared.\n- (c) Control: the server-active organization matches storage. It is named, `getActiveOrganization` is called once, `set-active` is never called, and storage is unchanged.\n- (d) Control: a user-initiated switch still moves the server, the header and storage.\n\n**Ablation** (the `clear()` line replaced by a marker; marker `grep -c` 0 → 1; numstat `1 1`): (a) ×2 and (b-refused) **red**, (b)/(c)/(d) green. Restore used `git checkout HEAD --` and was checked by hash: HEAD blob `8f0420107…` equals the restored file, and `git diff HEAD` is empty. The test imports `../AuthProvider` from `src`, so no build or dist step is involved.\n\n## Local verification at `d45dbf32f`\n\n- `@object-ui/auth` `type-check` exit 0. `tsconfig.test.json` lists the new test file (`--listFiles` count 1).\n- `vitest run --maxWorkers=1 packages/auth/` exit 0: 32 files, 303 tests.\n- Closure build `--filter '@object-ui/auth^...'`: no projects matched, so nothing ran.\n- ESLint, narrowed to the 2 changed source files (count read from `--format json`): 0 errors and 4 warnings. All 4 warnings exist on base `7ead04904`, shifted by +12 lines. The config enables no type-aware linting (no `parserOptions.project` / `projectService` in `eslint.config.js`), so this diff cannot change the verdict on any untouched file.\n- Pre-tsc battery, all exit 0: `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `control-bytes`, `check-hand-rolled-comment-mask.mjs`, `check-changeset-fixed.mjs`.\n\n## Acceptance notes\n\n- Header: `WorkspaceSwitcher.tsx` and `CurrentOrganizationIndicator.tsx` no longer fall back to `orgList[0]`; pins `*.noActiveOrg-12698.test.tsx`, ablation red on (a), green (b) controls; layout dir 90 files and 623 tests green; head `a4055997a`.\n- `refreshOrganizations` does not ask the server when the membership list is empty, so a stored id with zero memberships is not cleared by this change. That case was not measured as reachable here.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

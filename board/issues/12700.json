@@ -2,8 +2,8 @@
   "number": 12700,
   "kind": "issue",
   "title": "App navigation: a visibility predicate that calls current_user.can() is evaluated with the permissions map, so permission-gated navigation hides what the user may not read",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:access",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p1"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-16T14:14:12Z",
-  "updated_at": "2026-10-16T14:24:31Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-16T18:15:02Z",
+  "closed_at": "2026-10-16T18:13:50Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12700",
   "body": "## Source\n\nRead on objectui main `efa9cb4fa` with HotCRM `4f82b815`: on every console load the browser console warns, verbatim:\n\n> [ObjectUI] A visibility predicate could not be evaluated - node \"app-shell:visible\" · visible: \"current_user.can(\\\"crm_opportunity\\\", \\\"read\\\")\" · Reason: [runtime] can('crm_opportunity', 'read') cannot be answered: this evaluation context carries no permission data. Pass `permissions` on the EvalContext — the `objects` map of the published /auth/me/permissions response, object name -> EffectiveObjectPermission. … The node was treated as its safe default, which on this surface means the gate did NOT bite - a predicate that cannot be evaluated reads on screen exactly like one that said yes.\n\nHotCRM declares that predicate on a navigation item; the console shows the item to everyone. The runtime refuses loudly and the shell swallows the refusal into \"show\". So an app's permission-gated navigation never hides anything in the console: a declared capability that the runtime does not honour, the shape the four-axis note calls the worst one.\n\n## Target\n\n1. The app-shell EvalContext for navigation and app-level `visible` predicates carries `permissions` = the `objects` map of `/auth/me/permissions`, loaded once per session with the identity and refreshed when the permission set changes (the same source the record page uses for its own gates).\n2. While the map has not arrived, a gated item is withheld, not shown: the safe default for a navigation gate is \"hidden until known\". The warning stays for predicates that fail for any other reason, and those render hidden as well, with the reason once per predicate.\n3. A test that mounts the shell with a user lacking `read` on an object hides that app's gated navigation item, and shows it for a user who has it.\n\n## File surface\n\n`packages/app-shell/src/` (the navigation predicate evaluation and the EvalContext builder for `app-shell:visible` nodes), `packages/auth/src/` (the permissions fetch and its cache), tests beside each.\n\n## Acceptance\n\n1. Tests per Target 3; the console warning is gone on a fresh HotCRM load.\n2. A screenshot of HotCRM's navigation as a user without `crm_opportunity` read (a seeded restricted user or a permission set assigned under Setup → Users), 1280 px.\n3. `pnpm --filter @object-ui/app-shell test`, `pnpm --filter @object-ui/auth test` green.\n\n## Constraints\n\n- No consumer-side leniency: the runtime's refusal stays loud; the shell supplies the data instead of defaulting to \"show\".\n\n## Evidence\n\nNo screenshot; the measurements above are the evidence.\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-16 fourth review: objectui main `efa9cb4fa`, HotCRM `4f82b815` on platform 18.0.0-next.2, the vite console on :5180 against `objectstack dev` on :4001, the maintainer's browser pane at 1024 × 768 (dark, en). The maintainer asked for every finding to be filed on the repository it belongs to, verbatim: 「全部立卡，平台问题到 objectui，审计日志核查到 objectstack，HotCRM 转化流程到 hotcrm。」</sub>"

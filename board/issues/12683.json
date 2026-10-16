@@ -10,16 +10,21 @@
     "id": 332303061,
     "type": "Bot"
   },
-  "labels": [],
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-16T13:33:24Z",
-  "updated_at": "2026-10-16T13:33:24Z",
+  "updated_at": "2026-10-16T15:08:55Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 0,
+  "comments": 1,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12683",
   "body": "**Filing gate ①**: a user-visible product defect with a named landing and a reproduction. Reach: the console ⌘K palette, measured live on 2 fresh browser contexts.\n\n**Reader who acts:** the objectui app-shell lane seat owning `packages/app-shell/src/chrome/CommandPalette.tsx`.\n\n## What\n\nRunning a non-navigating command from the ⌘K command palette, such as **Dark Theme** or **Light Theme**, applies the theme but leaves the palette open: `?palette=1` stays in the URL. Navigating commands do close it, but only because the navigation replaces the URL.\n\n## Reproduction\n\n1. Boot objectstack `main` (`94114c1f`) showcase with the vendored console at pin `daeb77fc`. Sign in as `admin@objectos.ai`.\n2. Open `/_console/apps/showcase_app/page/showcase_capability_map`.\n3. Click the header Search button (`action:command-palette:open`), type `dark`, and click **Dark Theme**.\n4. Expected: the theme applies and the palette closes (`runCommand` calls `setOpen(false)`).\n5. Actual:\n   - `html` flips from light to dark;\n   - the `overlay:command-palette` dialog stays mounted, and `?palette=1` is kept (sampled 6 times over 1.8 s);\n   - the same happens for **Light Theme**.\n\n## Mechanism (read at the pin `daeb77fc`; unchanged on objectui `main` `a5bb7ac2`)\n\n- `packages/app-shell/src/chrome/CommandPalette.tsx` L138–141: `const runCommand = useCallback((command) => { setOpen(false); command(); }, [])`. The empty dependency list captures the first-render `setOpen`.\n- `useUrlOverlay`'s `setOpen` (`hooks/useUrlOverlay.ts` ~L87–102) is a `useCallback` over `searchParams` that returns early when `next === isOpen(searchParams)`.\n- The stale closure's `searchParams` had no `palette` param, so `setOpen(false)` is a no-op.\n- Fix direction: depend on `setOpen`, or read the current params at call time.\n\n## Dedupe\n\nMCP `search_issues` on objectstack-ai/objectui, closed included:\n- `command palette stays open after theme command runCommand setOpen` → 0 hits.\n- `command palette` → 2 hits (#11812, #7393), both unrelated.\n\nQA-source: objectstack-ai/objectstack#23916 · search.command-palette-navigation · clause 2 (step 6 observation)"

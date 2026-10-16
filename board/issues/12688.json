@@ -2,24 +2,35 @@
   "number": 12688,
   "kind": "issue",
   "title": "Studio Interfaces nav rail and dashboard component list ignore the translation bundle on a zh-CN session (navItemLabelText resolves inline I18nLabel maps only)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
     "id": 332303061,
     "type": "Bot"
   },
-  "labels": [],
-  "assignees": [],
+  "labels": [
+    "area:i18n",
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-elon-musk"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-16T13:44:16Z",
-  "updated_at": "2026-10-16T13:44:16Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-16T20:16:16Z",
+  "closed_at": "2026-10-16T20:10:50Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 8,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12688",
   "body": "**Filing gate ①**: a user-visible product defect with a named landing and a reproduction. Reach: the console Studio on a zh-CN session; reproduced 2/2 by a runner and 2/2 again independently.\n\n**Reader who acts:** the objectui Studio/app-shell lane seat owning `packages/app-shell/src/views/metadata-admin/previews/navItemLabel.ts` and the Interfaces pillar.\n\n## What\n\nOn a zh-CN session, the Studio **Interfaces** pillar renders the app's navigation rail, and the dashboard property panel's component list, in English. The app bundle translates those labels. The runtime sidebar on the same session shows them in Chinese.\n\n## Reproduction (objectstack `main` `2034975a`, console pin `daeb77fc`)\n\n1. Boot the stock showcase (`objectstack dev --ui --seed-admin`) and sign in through the form as admin.\n2. Switch to 中文（中国） via Avatar → Language (it `PATCH`es `sys_user.locale` to `zh-CN`), then reload.\n3. Open `/_console/studio/com.example.showcase/interfaces?surface=dashboard%3Ashowcase_chart_gallery`.\n4. Read `[data-testid=studio-rail-interfaces]`.\n   - Expected: 能力地图 / 页面搭建 / 工作区 / 数据模型 / 图表画廊…\n   - Actual: \"Capability Map\", \"Page Authoring\", \"WORKSPACE\", \"DATA MODEL\", \"Chart Gallery\"…\n5. Read the right-hand component list.\n   - Expected: 任务数与平均进度 for widget `combo_count_vs_progress`.\n   - Actual: \"Task Count vs Avg Progress\". The canvas itself shows the zh title.\n\n## Mechanism\n\n- The rail reads `GET /api/v1/meta/app/showcase_app/layers`, which returns the code layer (`\"label\":\"Capability Map\"`).\n- `GET /api/v1/meta/app?package=com.example.showcase` with `Accept-Language: zh-CN` returns 能力地图.\n- objectui `navItemLabelText` (`packages/app-shell/src/views/metadata-admin/previews/navItemLabel.ts`) resolves only inline `I18nLabel` maps, never the translation bundle. The code is the same on objectui `main` `d66ceea5`.\n\n## Dedupe\n\nMCP `search_issues` on objectstack-ai/objectui, closed included: `Studio Interfaces nav rail labels not translated zh-CN app navigation translation bundle` → 60 hits, none matching (by the cloud runner that found it).\n\nQA-source: objectstack-ai/objectstack#23951 · i18n.studio-follows-app-locale · clause 1"

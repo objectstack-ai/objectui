@@ -2,8 +2,8 @@
   "number": 12712,
   "kind": "issue",
   "title": "Login page: the inputs are named by their labels, the dev-admin button by its visible text, and the language button has a name",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,21 @@
     "area:identity",
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p2"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-16T14:21:38Z",
-  "updated_at": "2026-10-16T14:21:38Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-16T19:09:54Z",
+  "closed_at": "2026-10-16T19:09:54Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12712",
   "body": "## Source\n\nRead from the accessibility tree on objectui main `efa9cb4fa`, `/login` after objectui#12600 landed:\n\n- `textbox \"name@example.com\"` and `textbox \"Enter your password\"`: the inputs are named by their placeholders; the visible labels \"Email\" and \"Password\" are not associated (`for`/`id` or `aria-labelledby`), so a screen reader hears the placeholder and loses it once the field is filled.\n- `button \"admin@objectos.ai\"`: the \"Sign in as dev admin\" button's accessible name is the email (an `aria-label` or `title` that differs from the visible text), which breaks label-in-name for voice control (\"click Sign in as dev admin\" does nothing).\n- `button` with no name: the language (globe) button in the footer.\n- The \"Show password\" button is named; the links are named.\n\n## Target\n\n1. `<label for>` on both inputs; the placeholder stays as a hint; the error text is linked with `aria-describedby`.\n2. The dev-admin button's accessible name starts with its visible text (\"Sign in as dev admin, admin@objectos.ai\" is fine; \"admin@objectos.ai\" alone is not).\n3. The language button has `aria-label` \"Language\" and the current locale as its tooltip.\n\n## File surface\n\n`apps/console/src/pages/auth/LoginPage.tsx`, `AuthLayout.tsx`, `packages/auth/src/` form fields, tests beside.\n\n## Acceptance\n\n1. Tests: `getByLabelText('Email')`, `getByLabelText('Password')`, `getByRole('button', { name: /^Sign in as dev admin/ })`, `getByRole('button', { name: 'Language' })` resolve.\n2. The accessibility tree of `/login` pasted in the PR.\n3. `pnpm --filter @object-ui/console test` green (or the package that holds the page).\n\n## Evidence\n\nScreenshots on the temporary branch `claude/console-home-login-design-20261016` of objectstack-ai/objectui (commit `0f4e3f4ee`, never merged): [r4-login-page.jpg](https://github.com/objectstack-ai/objectui/blob/0f4e3f4ee/docs/design/review-r4-2026-10-16/r4-login-page.jpg?raw=true).\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-16 fourth review: objectui main `efa9cb4fa`, HotCRM `4f82b815` on platform 18.0.0-next.2, the vite console on :5180 against `objectstack dev` on :4001, the maintainer's browser pane at 1024 × 768 (dark, en). The maintainer asked for every finding to be filed on the repository it belongs to, verbatim: 「全部立卡，平台问题到 objectui，审计日志核查到 objectstack，HotCRM 转化流程到 hotcrm。」</sub>"

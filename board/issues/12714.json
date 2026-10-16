@@ -1,0 +1,35 @@
+{
+  "number": 12714,
+  "kind": "pull_request",
+  "title": "fix(plugin-form): page form hosts draw an undeclared section as the dialog does (two per row from @md)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T14:38:07Z",
+  "updated_at": "2026-10-16T15:10:49Z",
+  "closed_at": "2026-10-16T15:10:47Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T15:10:47Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12714",
+  "body": "Fixes #12592\nClause-②: no\n\n## What changed\n\nA form section that declares no `columns` now draws two fields per row from the container's `@md` tier, and one below it, on every page form host: `ObjectForm`, `SplitForm`, `TabbedForm` and `WizardForm`. The record dialog already drew it that way. Items 1 and 2 of this card landed through PR #12648; this PR is item 3, and it completes the card.\n\n- `@objectstack/spec@18.0.0-next.2` dropped `FormSectionSchema.columns`' `default(1)` (objectstack-ai/objectstack#23740), so an undeclared section now reaches every sectioned host.\n- The fork on objectui#12521 (comment 6204264665) made an undeclared density the renderer's choice by available width.\n- The rule now lives once, in `packages/plugin-form/src/autoLayout.ts`: section `columns`, else form `columns`, else `UNDECLARED_SECTION_COLUMNS` (2).\n  - `sectionedGridLayout` takes the AUTHORED counts and resolves undeclared values itself, through `sectionColumnsFor` and `sectionedFormColumns`.\n  - All five hosts pass raw declared values.\n  - ModalForm's private copy of the rule (`dialogSectionColumns`, `sectionedDialogColumns`) is deleted.\n- A declared `columns`, `1` included, is drawn as written.\n- No published export, type or prop changes: the derivation is not in the package index.\n\n## Measured before the change (jsdom over the real renderer, per row at @md / @2xl / @4xl)\n\n| case | dialog | ObjectForm | SplitForm | TabbedForm | WizardForm |\n|---|---|---|---|---|---|\n| all undeclared, 3 fields | 2/2/2 | 1/1/1 | 1/1/1 | 1/1/1 | 1/1/1 |\n| all undeclared, 16 fields | 2/2/2 | 2/3/4 | 1/1/1 | 1/1/1 | 1/1/1 |\n| undeclared beside `columns: 3` | 2/2/2 | 2/3/3 | 2/3/3 | 2/3/3 | 1/1/1 |\n| undeclared beside `columns: 1` | 2/2/2 | 1/1/1 | 1/1/1 | 1/1/1 | 1/1/1 |\n| declared 2 + 3 / 1 + 1 | same on every host | | | | |\n\nAfter the change, every undeclared row reads 2/2/2 on all five hosts, and the declared rows are unchanged.\n\n## Tests\n\n- New `undeclaredSectionDensity-12592.test.tsx`, 20 tests. Per page host:\n  - all sections undeclared: byte-equal to the dialog's classes;\n  - undeclared beside a declared `columns: 3`: the dialog's count. WizardForm draws one step per grid, so it uses the plain two-column grid rather than the 12-track one; same count, different classes;\n  - declared controls: `columns: 1`, `columns: 3`, and a form-level `columns: 3`.\n- `mixedSectionColumns-12548.test.tsx` gains a unit case for the undeclared resolution.\n- `pnpm exec vitest run packages/plugin-form/`: 189 files, 2314 passed, 1 skipped.\n- Ablation (each mutation proven on disk, each restore proven by blob == HEAD):\n  - each host's input mutated to `schema.columns ?? 1` turns that host's rows red, 3 failures each;\n  - the shared constant mutated from 2 to 1 turns all 8 undeclared pins red, while the declared controls stay green.\n\n## Browser readings\n\nShowcase on published `18.0.0-next.2`, console from this branch and from `efa9cb4fa`. HotCRM was not reachable from the container.\n\n| reading | 1440 before → after | 390 |\n|---|---|---|\n| wizard page `showcase_new_project_wizard` (WizardForm, undeclared) | 1 → 2 per row | 1 → 1 |\n| `showcase_semantic_zoo/new` (ObjectForm, fieldGroup sections) | 2 → 2 | 1 → 1 |\n| `showcase_semantic_zoo` New dialog (ModalForm) | 2 → 2 | 1 → 1 |\n| `showcase_task/new` (declared `columns: 2`) | 2 → 2 | 1 → 1 |\n\n- The page-host `@container` query resolves in a real browser: 2 tracks at 1440 (container 1136 px and 896 px), 1 track at 390.\n- NOT MEASURED: a tabbed or split form in the browser. Reason: the showcase's only tabbed and split forms (`showcase_task` formViews) declare `columns` on every section, so they are declared controls, which the unit pins cover; and no console route to them was found.\n- Evidence is on branch `claude/issue-12592-evidence` under `evidence/12592/` (PNGs, per-field JSON, and the before/after table).\n\n## Acceptance notes\n\n- ObjectForm's fieldGroup-derived sections (no form view) are undeclared sections, so they now draw two per row as the dialog's fieldGroups already did. Before, they were sized by total field count through `inferColumns`.\n- Not changed here: DrawerForm's explicit-sections arm ignores section `columns` entirely and never calls the shared rule. No author was found declaring more than `1` on a drawer section, so it is noted only.\n- objectui#12654 is in flight in `components/.../form/form.tsx` and `sectionFields.spec-parity.test.ts`. Neither file is touched here.\n\n## Gates (local, HEAD 83ac907)\n\n| command | exit |\n|---|---|\n| closure build `@object-ui/plugin-form^...` | 0 |\n| `@object-ui/plugin-form` build | 0 |\n| `@object-ui/plugin-form` type-check | 0 |\n| console `vite build` (`VITE_BASE_PATH=/console/`) | 0 |\n| `check:changeset-claims` | 0 |\n| `changeset:check` | 0 |\n| `check:test-path-roots` | 0 |\n| `check:spec-symbols` | 0 |\n| `check:doc-example-readers` | 0 |\n| `check:unreferenced-sources` | 0 |\n| `check:handler-key-reads` | 0 |\n| `check-changeset-presence` | 0 |\n| eslint on the changed files | 0 (0 errors) |\n\nProvenance: built by the cloud session `session_013MpUUZWPR76Hx2czmmtfu9` (claim `6216815351`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final message, because a cloud session cannot open a PR from its container. The seat joined the first two lines and replaced the dev's own footer lines with this line.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_013MpUUZWPR76Hx2czmmtfu9)_\n"
+}

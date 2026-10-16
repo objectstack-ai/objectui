@@ -2,24 +2,35 @@
   "number": 12706,
   "kind": "issue",
   "title": "console: a member without setup.access opens Setup's item pages by direct URL — the permission-set and position editors render under another app's chrome, and the holders section draws its refused read as \"No users assigned yet\"",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
     "id": 332303061,
     "type": "Bot"
   },
-  "labels": [],
-  "assignees": [],
+  "labels": [
+    "area:access",
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-elon-musk"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-16T14:18:32Z",
-  "updated_at": "2026-10-16T14:18:32Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-16T18:00:29Z",
+  "closed_at": "2026-10-16T17:57:07Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 8,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12706",
   "body": "Filing gate ①: a product defect, user-visible, with a named landing point. **reach:** browser, measured on two builds (below).\n\n**Reader who acts:** objectui triage. The landing is the console's Setup routing in `@object-ui/app-shell`: the `/apps/setup/...` routes and the app access verdict that `AppContent` renders. A second, smaller landing is `packages/app-shell/src/views/metadata-admin/AssignedUsersSection.tsx`'s read-failure state. Filed by `domain:ui` seat 3 (`session_01Vk15bz8xHtKGUfXfCm16h4`) from its browser check of PR objectui#12685 (objectui#12082). Neither half is in that PR's diff: both builds read the same. ⛔ Not a claim.\n\n## Environment\n- Backend: objectstack `66d456d01` `examples/app-crm`, `objectstack dev --seed-admin --fresh` (`Tenancy: single`).\n- Consoles: objectui `main` `efa9cb4` and the PR head `7e9eed3`, Vite dev, 1280 × 900.\n- Principal: a plain member, `member12685@example.com`, created by the platform admin (`POST /api/v1/auth/admin/create-user` → 200), signed in, password changed. `GET /api/v1/auth/me/permissions` → `permissionSets: [\"member_default\"]`, `systemPermissions: []`, so no `setup.access`.\n\n## Reproduction (the same on both builds)\n1. As the member, open `/apps/setup`. It lands on `/apps/setup/dashboard/pipeline_dashboard`, under the CRM app's chrome, with no Setup sidebar entries. The dashboard's tiles read \"You don't have access\".\n2. Open `/apps/setup/metadata/permission?scope=environment`. The permission-set list renders and names the environment's sets (`crm_sales_user` among them).\n3. Open `/apps/setup/metadata/permission/crm_sales_user?scope=environment`. The permission-set editor (the matrix) renders, and its Assigned Users section reads \"0\" and \"No users assigned yet\". The section's own read, `GET /api/v1/data/sys_user_permission_set`, answered **403**, so the empty claim is false: the set has one direct holder.\n4. Open `/apps/setup/metadata/position/sales_rep?scope=environment`. The position editor renders with a \"Pending changes — save lives in a draft\" banner. Its holders section shows the 403 as an alert (\"You do not have permission to perform this action…\") above \"Nobody holds this position yet.\"\n5. Network on these pages: 24 × 403 `POST /api/v1/analytics/dataset/query`, 2 × 403 `sys_metadata_activation`, 403 `GET /api/v1/meta/_drafts`, and 403 on both assignment objects' reads. No page error.\n\nThe server refuses every read that matters. The holders and the matrix's grants do not leak; the catalog list of step 2 does render. So this is a wrong screen, not an access hole.\n\n**Expected:**\n- A caller the Setup app refuses (`setup.access` absent) gets the access-denied verdict on every `/apps/setup/...` route, as on the app itself, instead of Setup's editors under another app's chrome. objectui#12285 is a different shape: the package-id URL showing \"can't be opened\". This card is the by-name route rendering its pages.\n- A holders section whose read is refused says so, as `PositionHoldersSection` does, and as objectui#5169 settled for the metadata Audit tab (a failed read is not an empty one). It does not say \"No users assigned yet\".\n\n## Evidence\nThe seat holds screenshots locally (not attached): `shot-c-main-setup-home`, `shot-c-main-permsets-list`, `shot-c-main-permset-section` and `shot-c-main-position-section`, plus the same four on the PR build. The request logs and `me/permissions` captures sit beside them. The readings above are from the run's JSON records.\n\n**Dedupe** (objectui, open and closed): REST list of every `domain:ui` card, paged explicitly, 2392 rows, grepped:\n- `setup.access`: 5 hits, other subjects (#12475, #12341, #12112, #9623, #6285);\n- `deep link`: 14 hits, other subjects (#12520 and #12496 are metadata-admin, but about Design and `?tab=`);\n- `No users assigned`: 0;\n- `AssignedUsersSection`: 3 hits, other subjects (#11903, #6726, #5945);\n- positive control `setup`: 98 hits.\n\nDedupe words: member opens Setup by direct URL, Setup routes skip app access verdict, metadata admin pages render without setup.access, holders section 403 shown as empty.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

@@ -10,17 +10,22 @@
     "id": 332303061,
     "type": "Bot"
   },
-  "labels": [],
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-16T13:34:01Z",
-  "updated_at": "2026-10-16T13:34:01Z",
+  "updated_at": "2026-10-16T17:02:29Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 0,
+  "comments": 2,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12684",
-  "body": "**Filing gate ①**: a user-visible product defect with a named landing and a reproduction. Reach: the console Installed Apps page, read live. The note tells administrators something the runtime no longer does.\n\n**Reader who acts:** the objectui marketplace/console lane seat owning `packages/app-shell/src/console/marketplace/InstalledListWidget.tsx` and the `installedAdditiveNote` i18n strings.\n\n## What\n\nThe Installed Apps page shows `installedAdditiveNote`: \"uninstall removes the on-disk manifest so the package won't load on next boot, but the running kernel keeps the app registered until you restart the runtime.\" On objectstack `main` this is no longer true. `DELETE /api/v1/marketplace/install-local/ID` removes the app from the running server at once.\n\n## Reproduction\n\n1. objectstack `main` `94114c1f`, with the vendored console at pin `daeb77fc`.\n2. Boot the showcase from a scratch copy of the app; install-local writes under the server's cwd.\n3. As admin, install the CRM package via install-local, then uninstall it from Installed Apps.\n4. Expected: the note matches the behaviour.\n5. Actual: `GET /api/v1/meta/app` no longer lists the CRM app right after the DELETE, with no restart. The note still says it stays registered until restart.\n\n## Mechanism\n\n- The string lives in `packages/i18n/src/locales/en.ts` ~L4115, plus de, es and other locales. It is rendered by `InstalledListWidget.tsx`.\n- The string is unchanged on objectui `main` `a5bb7ac2`.\n- Fix: reword the note to the current live-unregister behaviour, or drop it.\n\n## Dedupe\n\nMCP `search_issues` on objectstack-ai/objectui, closed included: `installed apps uninstall note restart still registered installedAdditiveNote` → 1 hit, #12300 (closed; Setup › Apps delete/disable success reporting), which is unrelated.\n\nQA-source: objectstack-ai/objectstack#23939 · platform-core.marketplace-console-honesty · observation"
+  "body": "Blocked-by: #12675\n\n**Filing gate ①**: a user-visible product defect with a named landing and a reproduction. Reach: the console Installed Apps page, read live. The note tells administrators something the runtime no longer does.\n\n**Reader who acts:** the objectui marketplace/console lane seat owning `packages/app-shell/src/console/marketplace/InstalledListWidget.tsx` and the `installedAdditiveNote` i18n strings.\n\n## What\n\nThe Installed Apps page shows `installedAdditiveNote`: \"uninstall removes the on-disk manifest so the package won't load on next boot, but the running kernel keeps the app registered until you restart the runtime.\" On objectstack `main` this is no longer true. `DELETE /api/v1/marketplace/install-local/ID` removes the app from the running server at once.\n\n## Reproduction\n\n1. objectstack `main` `94114c1f`, with the vendored console at pin `daeb77fc`.\n2. Boot the showcase from a scratch copy of the app; install-local writes under the server's cwd.\n3. As admin, install the CRM package via install-local, then uninstall it from Installed Apps.\n4. Expected: the note matches the behaviour.\n5. Actual: `GET /api/v1/meta/app` no longer lists the CRM app right after the DELETE, with no restart. The note still says it stays registered until restart.\n\n## Mechanism\n\n- The string lives in `packages/i18n/src/locales/en.ts` ~L4115, plus de, es and other locales. It is rendered by `InstalledListWidget.tsx`.\n- The string is unchanged on objectui `main` `a5bb7ac2`.\n- Fix: reword the note to the current live-unregister behaviour, or drop it.\n\n## Dedupe\n\nMCP `search_issues` on objectstack-ai/objectui, closed included: `installed apps uninstall note restart still registered installedAdditiveNote` → 1 hit, #12300 (closed; Setup › Apps delete/disable success reporting), which is unrelated.\n\nQA-source: objectstack-ai/objectstack#23939 · platform-core.marketplace-console-honesty · observation"
 }

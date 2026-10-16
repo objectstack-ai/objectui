@@ -1,0 +1,35 @@
+{
+  "number": 12735,
+  "kind": "pull_request",
+  "title": "test(types): state spec 18's optional select-option `kind` as a deliberate widening in the tier-1 convergence pins",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: types",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T16:18:15Z",
+  "updated_at": "2026-10-16T17:06:09Z",
+  "closed_at": "2026-10-16T17:06:07Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T17:06:07Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12735",
+  "body": "Fixes #12711\nClause-②: no\n\n## What\n\n`@objectstack/spec` 18 adds an optional `kind` ('open' | 'won' | 'lost') to `SelectOptionSchema` (objectstack#23846). Both objectui select-option faces derive the spec's keys by reference, so both now carry it. That turned four tier-1 convergence pins in `select-option-tier1-convergence-7014.test.ts` false (TS2344) against objectstack `main`'s spec, which is the next red row of the hourly Spec Shape Gate.\n\nThe pins now state `kind` as a deliberate optional widening:\n\n- `SpecKindKey` is the Extract of `'kind'` from the keys of the spec's own `SelectOption` type. It is `'kind'` where the spec declares it and `never` where it does not, read off the spec's type rather than a version check. So the pins hold against both the installed `18.0.0-next.2` (no `kind`; this repo's Type Check uses it) and objectstack `main`'s spec (the Spec Shape Gate uses it).\n- The form face gained exactly `'description' | SpecKindKey`, and the object-metadata face exactly `'default' | SpecKindKey`. The kept-every-member pins drop the same keys before comparing against the historical records. The two set-difference pins are renamed `…GainedOnlyDescriptionAndKind` and `…GainedOnlyDefaultAndKind`.\n- New pins: `kind` is optional on both faces, and it is the spec's own member by reference.\n- Runtime half: \"lists exactly the keys the spec declares\" allows `kind` only when the spec shape has it. A new test asserts that `kind` is either an optional spec key (absent stays absent, and an undeclared category is refused) or refused by name (unrecognized_keys). Any other new spec key still breaks the comparison.\n- `rejectsUndeclaredKeyOnFormFace` / `acceptsEveryDeclaredKeyOnFormFace` were re-read. `weight` is still refused with `kind` on the face. The accepting literals don't write `kind`, because on the installed spec it would be an excess property; the docblock says so, and the optional pins cover acceptance.\n\nNot done, per the card: no `as any`, the `PRE_CONVERGENCE_*` records are byte-unchanged, and `kind` is not Omitted from either face. The test docblock explains why the form face keeps `kind` even though the spec's form-view options leave it out (the open question in the report).\n\nChangeset: one empty-frontmatter changeset. `check-changeset-presence` has no carve-out for `src/__tests__/` and was red without one.\n\n## Evidence\n\nThe main line is objectstack main `2054a0888c`, with `packages/spec` built, packed and injected by `spec-shape-gate.mjs inject` (the gate's own recipe). The installed line is `18.0.0-next.2`.\n\n| reading | installed | main |\n|---|---|---|\n| this head, `tsc -p tsconfig.test.json` | 0 | 0 |\n| this head, vitest on the file | 9/9 | 9/9 |\n| old test (96fa4b9) | 0 | 2: TS2344 at 130, 138, 150, 157 |\n| probe: SpecKindKey equals 'kind' | 2 (never) | 0 |\n| ablation: a face gains `weight` | 2: all four pins | 2: all four pins |\n| ablation: faces lose `description` | 2 | 2 |\n| ablation: `kind` made required on the form face | 2 | 2: optional pin |\n\nEvery ablation was restored by `git checkout HEAD --`. Each time, the restored blob equalled HEAD blob 3b00710 and `git diff HEAD` was empty. The install was restored and `pnpm-lock.yaml` is unchanged (sha256 check OK).\n\nLocal gates on the installed line (the test bytes are identical to head e6b6093):\n- `pnpm --filter @object-ui/types type-check` 0;\n- vitest `packages/types/src/__tests__` 0 (384 files, 10357 tests);\n- `check:changeset-claims` 0, `changeset:check` 0, `check:test-path-roots` 0, `check:spec-symbols` 0;\n- eslint on the file 0;\n- `check-changeset-presence` 0 at e6b6093.\n\nNOT MEASURED: on the main line, which branch the new runtime `kind` test took. The type-side probe proves the main spec type declares `kind`.\n\n## Acceptance notes\n\n- Form face and `kind`: the spec's FormSelectOptionSchema leaves out both `kind` and `default`. objectui's form face has carried `default` since before the convergence, and its zod twin spreads the same spec shape. Whether to narrow the face is a separate face change, reported as an open question and not built here.\n- Out of scope: the record path, kanban and the Studio column reading `kind` (Targets 2–4 of objectstack#23809).\n\nProvenance: built by the cloud session `session_01EXsEfmHv5KzaBT66eSH7dZ` (claim `6219215288`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final message, because a cloud session cannot open a PR from its container. The seat replaced the dev's own footer line with this line.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01EXsEfmHv5KzaBT66eSH7dZ)_\n"
+}

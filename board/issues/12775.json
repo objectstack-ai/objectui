@@ -1,0 +1,36 @@
+{
+  "number": 12775,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid,app-shell): the import wizard offers only the write modes the identity import accepts (objectui#12697)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T19:42:13Z",
+  "updated_at": "2026-10-16T20:13:27Z",
+  "closed_at": "2026-10-16T20:13:24Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T20:13:24Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12775",
+  "body": "Fixes #12697\nClause-②: yes\n\nOne optional host prop, `writeModes`, is added to the exported `ImportWizardProps` of `@object-ui/plugin-grid`. Nothing narrows: a host that leaves the prop out still gets all three modes.\n\n## What changed\n\n- `packages/app-shell/src/views/identityImport.ts`: `IDENTITY_IMPORT_WRITE_MODES = ['insert', 'upsert']` states the identity door's accepted modes once, beside `resolveIdentityWriteOptions`. The refusal now refuses every mode outside that constant, with the same message as before.\n- `packages/plugin-grid/src/ImportWizard.tsx`: new optional prop `writeModes`, which defaults to all three modes. The write-mode select lists only those modes. The start and reset mode is `insert` when it is offered, otherwise the first offered mode. A saved mapping whose mode is not offered is listed disabled, with its mode named after its label, and is never applied or swapped to another mode. An empty `writeModes` throws. The write-mode labels come from one literal-key helper, `writeModeLabel`, so the language-pack key census sees all three.\n- `packages/app-shell/src/views/ObjectView.tsx`: on the identity import branch only (the existing `identityImportEnabled` predicate), the view passes `writeModes: IDENTITY_IMPORT_WRITE_MODES`. Every other object keeps all three modes. No list of identity objects is added.\n\n## The door read\n\nobjectstack serves no datum that names the accepted modes. `POST /api/v1/auth/admin/import-users` validates `mode` inline (objectstack `fd0e72a`, `packages/plugins/plugin-auth/src/admin-import-users.ts`, lines 508 to 509, which answer `mode must be \"insert\" or \"upsert\"`). The local constant beside the refusal is therefore the door read, and its docblock cites that check.\n\n## Evidence\n\n- New tests: `packages/plugin-grid/src/__tests__/importWriteModes-12697.test.tsx` (6 tests) and `packages/app-shell/src/views/__tests__/identityImportWriteModes-12697.test.tsx` (4 tests). The second file pins that the refusal and the offer read the same constant, and that ObjectView passes that constant itself.\n- Ablations at `5806d15` (the label helper since then changes no tested behaviour), each restored to its HEAD blob:\n  - select hard-coded to three modes: 2 red;\n  - host drops the prop: 1 red;\n  - refusal hard-coded while the constant drifts: 2 red, against a control where the constant drifts alone and only 1 is red;\n  - saved-mapping item no longer disabled: 1 red.\n- Affected families at `5806d15`: 115 files, 1617 passed, 13 skipped. Both packages type-check, and the closure build is green.\n- i18n rework at `8ebd217`: `check:i18n-keys` exit 0 (exit 1 at `5806d15`, `ImportWizard.tsx:1404:34 [undeclared-dynamic-family]`); `check:i18n-drift` and `check:i18n-dead-keys` exit 0; `plugin-grid` type-check plus 87 files including `packages/i18n/src/__tests__`: 1341 passed, 13 skipped.\n- Live reading on the published `@objectstack/*@18.0.0-next.2` showcase:\n  - before, `sys_user` offers \"Always create new\", \"Update existing (skip if no match)\" and \"Update if matched, else create\";\n  - after, it offers \"Always create new\" and \"Update if matched, else create\";\n  - `showcase_account` still offers all three.\n  - The screenshots are in `evidence/12697/` on branch `claude/issue-12697-evidence` (`63a08db`).\n\n## Acceptance notes\n\n- Picking a saved mapping in `insert` mode, or with no mode, after manually choosing `upsert` keeps `upsert`, because only update and upsert mappings set the mode. This was read from the code and not reproduced. It is not changed here.\n- The dispatch's premise about an `import-wizard` schema node is moot: that node key is already retired.\n\nProvenance: built by the cloud session `session_0124qBAGiCfxJvJegxajWHFc` (claim `6222792311`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final message, because a cloud session cannot open a PR from its container. The seat made two changes:\n- line 2 is the bare `Clause-②: yes`, and the dev's sentence after it moved to its own paragraph;\n- the dev's own session and footer lines are replaced with this line.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_0124qBAGiCfxJvJegxajWHFc)_\n\n"
+}

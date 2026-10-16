@@ -348,12 +348,51 @@ A declared `pagination.pageSize` sizes the window on every view but the
 calendar, as before. With no declared size, switching between the grid view and
 another view changes the window, so the list fetches again.
 
+## On a page — `data` and `type`
+
+A `list-view` node on a page is written in `@objectstack/spec`'s list view
+spelling: `data` says where its records come from, and `type` says which kind of
+list it is. On a metadata page both sit in the node's `properties`. The node's
+own `type` stays `list-view`, because it is the key the page renderer looks the
+component up by:
+
+<!-- doc-json: fragment — the spec's page spelling of a list view, which `objectui validate` does not judge yet: its `list-view` face still reads `objectName` and has no `properties` member (objectui#12099) -->
+```json
+{
+  "type": "list-view",
+  "properties": {
+    "data": { "provider": "object", "object": "deal" },
+    "columns": ["name", "amount"],
+    "kanban": { "groupByField": "stage" }
+  }
+}
+```
+
+That node draws a grid of `deal` records: without `properties.type` the list is
+a grid, the spec's default kind. Add `"type": "kanban"` to the same `properties`
+and it draws a kanban over `deal`, grouped by `stage`. A `type` that names no
+kind this list draws is a grid too. `data` may also hand the list its rows
+(`{ "provider": "value", "items": [...] }`).
+
+A page node's own `objectName` and `viewType` are **not read**. The page
+renderer removes them before the list sees the node, and logs one warning per key
+naming what to write instead. A node that names its object only as `objectName`
+therefore names no object, and the list draws a hint in its place: "No object
+named: set data.object or dataSource.object." Converting page nodes stored in
+the old spelling is the platform's job (an ADR-0087 conversion in
+`@objectstack/spec`); this renderer does not read them back. `ListView`'s own
+React props (the `ListViewSchema` examples above) are a separate surface and
+still spell the two `objectName` and `viewType`.
+
+`objectui validate` does not judge the page spelling yet: its `list-view` face
+still reads `objectName` and counts no `data` as a record source.
+
 ## Page binding — `dataSource` (referencing a saved view by name)
 
-On a metadata page, a `list-view` component can bind its data through the spec's
-per-element data source (`PageComponentSchema.dataSource`,
-`ElementDataSourceSchema`) instead of spelling `objectName` and inlining the
-view's configuration:
+On a metadata page, a `list-view` component can also bind its data through the
+spec's per-element data source (`PageComponentSchema.dataSource`,
+`ElementDataSourceSchema`) instead of naming its object in `data` and inlining
+the view's configuration. A bound `dataSource.object` outranks `data`:
 
 ```json
 {
@@ -373,7 +412,8 @@ copy of a view's configuration in sync with the view itself. Both the short key
 this placement, and they beat the component's own same-named key. Values that
 come from the named view are a *baseline*: a key written on the component itself
 is more specific than the view it points at, so the component's key wins
-(an empty `columns: []` counts as "not authored"). `filter` is the exception —
+(an empty `columns: []` counts as "not authored"), and a kind written as
+`properties.type` beats the view's kind. `filter` is the exception —
 the spec calls `dataSource.filter` "additional filter criteria", so the
 component's filter, the view's filter and the binding's filter all AND together.
 A binding can narrow what the view selects, never widen it.

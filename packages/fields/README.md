@@ -42,17 +42,30 @@ View components use `getCellRenderer` to resolve the correct component for a fie
 ```tsx
 import { getCellRenderer, resolveCellRendererType, type CellRendererProps } from '@object-ui/fields';
 
-const MyGridCell = ({ field, value }: CellRendererProps) => {
+const MyGridCell = ({ field, value, row }: CellRendererProps & { row: Record<string, unknown> }) => {
   // Resolve the renderer KEY first, then the renderer. A field's declared
   // `type` is not always the renderer's key: a textual field carrying a
   // format hint (`Field.text({ format: 'phone' })`) resolves to the richer
-  // renderer. Passing `field.type` raw skips that mapping and draws such a
+  // renderer, and one declaring a widget with a read cell of its own
+  // (`widget: 'object-ref'`, `widget: 'recipient-picker'`) resolves to that
+  // cell. Passing `field.type` raw skips that mapping and draws such a
   // column as bare text, silently. Resolving first is never worse: with no
-  // format hint the resolver returns the declared `type` unchanged.
+  // hint the resolver returns the declared `type` unchanged.
   const Renderer = getCellRenderer(resolveCellRendererType(field));
-  return <Renderer field={field} value={value} />;
+  // `dependentValues` is the row, for a cell whose value only means something
+  // beside a sibling column: a `recipient-picker` face reads the row's
+  // `recipient_type` from it. Without it, that face draws the stored text.
+  return <Renderer field={field} value={value} dependentValues={row} />;
 };
 ```
+
+This package registers the `object-ref` and `recipient-picker` keys with the stored
+text as their default face. A host that can read the referenced lists registers faces
+that name the value under the same keys (`registerFieldRenderer`); the console's live in
+`@object-ui/app-shell`. They name a value as the edit widgets do, through the kind table
+and the spellings this package publishes for it: `RECIPIENT_RECORD_KINDS`,
+`RECIPIENT_REGISTRY_KINDS`, `FIELD_RECIPIENT_TYPE`, `recipientCandidateLabel`,
+`objectRefOptionLabel` and the shared `UnresolvedReferenceMark` drawing.
 
 ## Standard Field Types
 
@@ -252,9 +265,16 @@ with `referenceVia: 'object_name'`, or `sys_activity.source_id` with
 renderer gets one value and no row, so the pair is resolved by the caller that
 holds the row (objectui#12045):
 
-- `resolveRecordPointer(field, row)` is the one place the rule lives. It
-  returns `{ objectName, recordId }` (a `RecordPointer`) for a `text` field with
-  a non-empty `referenceVia` whose row fills both halves, and `null` otherwise.
+- `resolveRecordPointer(field, row, optionsOf?)` is the one place the rule
+  lives. It returns `{ objectName, recordId }` (a `RecordPointer`) for a `text`
+  field with a non-empty `referenceVia` whose row fills both halves, and `null`
+  otherwise.
+- When the field also declares `referenceDeletedWhen: { field, value }` (the
+  platform's assertion that it deleted the target, objectui#12489) and the row's
+  sibling `field` holds `value`, the pair carries `deletedLabel`: that option's
+  label from `optionsOf(field)`, the options the caller draws `select` cells
+  with. A face draws it as a tombstone and reads and links nothing; the default
+  face draws it in place of the record id.
 - `RECORD_POINTER_CARD_TYPE` is the registry key a resolved pair is drawn with,
   the pair as the renderer's `value`. This package registers a default under it
   that draws the record id as text, so nothing changes for a host that does not

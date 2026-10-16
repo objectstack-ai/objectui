@@ -7,12 +7,15 @@
  */
 
 import React, { useContext } from 'react';
-import { elementDataSourceBlock, isElementDataSourceConfig } from '@object-ui/core';
+import { elementDataSourceBlock, isElementDataSourceConfig, isListViewVisualization } from '@object-ui/core';
+import { useObjectTranslation } from '@object-ui/i18n';
 import {
   ElementDataSourceGate,
   SchemaRendererContext,
+  isConfigBag,
   type ElementDataSourceMapping,
 } from '@object-ui/react';
+import type { ListViewSchema } from '@object-ui/types';
 import { ListView, type ListViewHandle, type ListViewProps } from './ListView';
 
 /**
@@ -21,10 +24,13 @@ import { ListView, type ListViewHandle, type ListViewProps } from './ListView';
  *
  * `list-view` is the block that reads all five: `columns` is a FIELD projection
  * here (so a saved view's column list belongs on it), `filter` and `sort` go to
- * the query, the row cap is read as `pagination.pageSize`, and `viewType` picks
- * which view kind renders — its registry `inputs` enumerate grid/kanban/gallery,
- * so naming a saved kanban view and rendering a grid would be a silently wrong
- * answer.
+ * the query, the row cap is read as `pagination.pageSize`, and a saved view's
+ * kind picks which view kind renders when the node states none — naming a saved
+ * kanban view and rendering a grid would be a silently wrong answer.
+ *
+ * `objectName` (the mapping's default object key) and `viewType` are the keys
+ * the gate WRITES for `ListView` to read. They are this block's hand-off to the
+ * component, not what a page node is written in: see {@link toListViewHandOff}.
  */
 const LIST_VIEW_DATA_SOURCE: ElementDataSourceMapping = {
   columns: true,
@@ -33,6 +39,113 @@ const LIST_VIEW_DATA_SOURCE: ElementDataSourceMapping = {
   limit: 'pagination.pageSize',
   viewType: true,
 };
+
+/**
+ * What `SchemaRenderer` hands this block beside the hoisted keys. Its
+ * `properties` hoist copies a node's bag onto the node and keeps the bag
+ * itself, and it never copies the bag's `type` up: the node's own `type` is the
+ * registry key that chose this renderer. So the bag is where this block reads
+ * the list kind. Typed here, beside its one reader, and not on the authoring
+ * face: `SchemaRenderer` is the producer, not an author.
+ */
+interface PageNodeBag {
+  properties?: unknown;
+}
+
+/** The spellings a page `list-view` node no longer carries; see {@link toListViewHandOff}. */
+const RETIRED_PAGE_KEYS = ['objectName', 'viewType'] as const;
+
+/** One warning per retired key per process, as `normalizeListViewSchema` warns. */
+const warnedRetiredPageKeys = new Set<string>();
+
+const RETIRED_PAGE_KEY_REMEDY: Record<(typeof RETIRED_PAGE_KEYS)[number], string> = {
+  objectName: "Name the object in `data: { provider: 'object', object }` or in `dataSource.object`",
+  viewType: 'Write the list kind as `type` in the node\'s `properties`',
+};
+
+function warnRetiredPageKey(key: (typeof RETIRED_PAGE_KEYS)[number]): void {
+  if (warnedRetiredPageKeys.has(key)) return;
+  warnedRetiredPageKeys.add(key);
+  console.warn(
+    `[object-ui] list-view: a page node's \`${key}\` is not read. ${RETIRED_PAGE_KEY_REMEDY[key]}.`,
+  );
+}
+
+/**
+ * The page carrier's spelling, turned into the props `ListView` reads
+ * (objectstack-ai/objectstack#22444, ruling C; objectui#12099).
+ *
+ * A page `list-view` node is written in `@objectstack/spec`'s list view
+ * spelling: it names its object with `data: { provider: 'object', object }`
+ * (or the node's `dataSource` binding) and its kind with `type`. On a metadata
+ * page that `type` sits in `properties`, because the node's own `type` is the
+ * registry key. `ListView`'s own props spell the two `objectName` and
+ * `viewType`, so this is where one spelling becomes the other:
+ *
+ *  - the kind: `properties.type`, when it names a visualization `ListView`
+ *    draws, becomes `viewType`. A value that names none is dropped, and the
+ *    list draws a grid, the spec's default kind. Absent, the kind is still
+ *    open: a bound saved view's kind applies, else a grid. Written BEFORE the
+ *    gate, so a kind the node states outranks the saved view's, like every
+ *    other key the node writes itself.
+ *  - the object: `data` passes through as it is, and `normalizeListViewSchema`
+ *    lands an `object` provider's `object` on `objectName`.
+ *  - ⛔ the node's own `objectName` and `viewType` are not read. They are
+ *    removed here, so neither reaches the gate or `ListView`, and each draws
+ *    one console warning naming what to write. A stored node that still
+ *    carries them is converted on the platform side (an ADR-0087 conversion in
+ *    the spec), never read back here. A node bound by neither `data` nor
+ *    `dataSource.object` gets the "no object named" hint below.
+ *
+ * Returns the input by reference when there is nothing to do, so a node
+ * written in the spec spelling keeps its identity for `ListView`'s memos.
+ */
+function toListViewHandOff(schema: ListViewSchema): ListViewSchema {
+  const bag = (schema as ListViewSchema & PageNodeBag).properties;
+  const kind = isConfigBag(bag) ? bag.type : undefined;
+  const retired = RETIRED_PAGE_KEYS.filter((key) => schema[key] !== undefined);
+  if (kind === undefined && retired.length === 0) return schema;
+  for (const key of retired) warnRetiredPageKey(key);
+  const { objectName: _objectName, viewType: _viewType, ...rest } = schema;
+  return isListViewVisualization(kind) ? { ...rest, viewType: kind } : rest;
+}
+
+/**
+ * Whether the bound schema names where its records come from: an object the
+ * `dataSource` binding landed on `objectName` (the node's own was removed by
+ * {@link toListViewHandOff}), or a `data` record source. An `object` provider
+ * counts only when it names a non-empty object, the test the gate applies to
+ * `objectName`; rows, a `value` provider and any other provider are the list's
+ * own source.
+ */
+function namesRecordSource(schema: ListViewSchema): boolean {
+  const bound = schema.objectName;
+  if (typeof bound === 'string' && bound.trim().length > 0) return true;
+  const data: unknown = schema.data;
+  if (data == null) return false;
+  if (isConfigBag(data) && data.provider === 'object') {
+    return typeof data.object === 'string' && data.object.trim().length > 0;
+  }
+  return true;
+}
+
+/**
+ * The "no object named" hint, in the gate's own words (the `view.noObject`
+ * message), naming the page key this block reads: `data.object`. The gate's
+ * own hint names its mapping's object key, which here is `objectName`, the
+ * hand-off key a page node is not written in.
+ */
+function ListViewNoObjectHint(): React.ReactElement {
+  const { t } = useObjectTranslation();
+  return (
+    <div className="p-4 text-sm text-muted-foreground my-2" data-testid="list-view-no-object">
+      {t('view.noObject', {
+        property: 'data.object',
+        defaultValue: 'No object named: set {{property}} or dataSource.object.',
+      })}
+    </div>
+  );
+}
 
 /**
  * Registry entry point for `<ListView>` — two bridges in one component.
@@ -113,20 +226,27 @@ const ListViewBlock = elementDataSourceBlock(React.forwardRef<ListViewHandle, Li
     : props.dataSource;
   const adapter = explicitAdapter ?? context?.dataSource;
 
+  // The page node in the props `ListView` reads (objectui#12099). Memoised for
+  // cost only: `toListViewHandOff` returns its input by reference when there is
+  // nothing to do, and a recomputed copy is equal key by key.
+  const handOff = React.useMemo(() => toListViewHandOff(props.schema), [props.schema]);
+
+  // A list that names its records in neither place has nothing to fetch, and
+  // drew the "Nothing here yet" empty state, which reads as an empty query
+  // (objectui#11605). Judged in the child below, after the binding is applied,
+  // and not by the gate's `requiresObject`, whose hint names the gate's object
+  // key (objectui#12099).
   return (
     <ElementDataSourceGate
-      schema={props.schema}
+      schema={handOff}
       mapping={LIST_VIEW_DATA_SOURCE}
       dataSource={adapter}
       testId="list-view"
       errorTitle="This list view’s data source could not be resolved"
-      // A list that names its object in neither place has nothing to fetch, and
-      // drew the "Nothing here yet" empty state, which reads as an empty query
-      // (objectui#11605). Inline `data` (rows, or a `value` provider) is
-      // the list's one other record source, so its presence opts out.
-      requiresObject={props.schema?.data == null}
     >
-      {(schema) => <ListView ref={ref} {...props} schema={schema} dataSource={adapter} />}
+      {(schema) => namesRecordSource(schema)
+        ? <ListView ref={ref} {...props} schema={schema} dataSource={adapter} />
+        : <ListViewNoObjectHint />}
     </ElementDataSourceGate>
   );
 }));

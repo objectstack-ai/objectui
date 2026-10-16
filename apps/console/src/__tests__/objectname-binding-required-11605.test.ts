@@ -306,11 +306,31 @@ const diagnosticsOf = (source: string) =>
   compile(source, shipped).diagnostics.map((d) => [d.severity, d.code, d.message]);
 
 describe('objectui#11605 — each member compiles a bound node, and leaves the neither node to the runtime', () => {
-  it.each(MEMBERS)('$tag — the published objectName is not required and names the binding', ({ tag }) => {
-    const objectName = inputsOf(tag).find((input) => input.name === 'objectName');
-    expect(objectName, `${tag} publishes no objectName input`).toBeDefined();
-    expect(objectName?.required).not.toBe(true);
-    expect(objectName?.description ?? '').toContain('`dataSource.object`');
+  // The object key is read off the binding doc (`objectKeyOf`): `objectName`
+  // on every member but `list-view`, whose page node names its object in
+  // `data` (objectui#12099).
+  it.each(MEMBERS)('$tag — the published object key is not required and names the binding', ({ tag }) => {
+    const key = objectKeyOf(tag) ?? 'objectName';
+    const input = inputsOf(tag).find((candidate) => candidate.name === key);
+    expect(input, `${tag} publishes no ${key} input`).toBeDefined();
+    expect(input?.required).not.toBe(true);
+    expect(input?.description ?? '').toContain('`dataSource.object`');
+  });
+
+  it('list-view — the retired objectName / viewType are not published, so this tier reports them', () => {
+    // objectui#12099: the page carrier is written `data` / `type`. The tier
+    // forbids a `type` attribute outright (the tag is the component), so the
+    // kind has no attribute here; a bound saved view still supplies it.
+    expect(objectKeyOf('list-view')).toBe('data');
+    expect(inputsOf('list-view').map((input) => input.name)).toEqual(expect.arrayContaining(['data', 'type']));
+    // By code and by the key each names, not by wording.
+    const retired = diagnosticsOf('<list-view objectName="account" viewType="kanban" />');
+    expect(retired.map(([, code]) => code)).toEqual(['unknown-prop', 'unknown-prop']);
+    expect(retired.map(([, , message]) => String(message))).toEqual([
+      expect.stringContaining('"objectName"'),
+      expect.stringContaining('"viewType"'),
+    ]);
+    expect(diagnosticsOf('<list-view data={{ provider: "object", object: "account" }} />')).toEqual([]);
   });
 
   it.each(MEMBERS)('$tag — a dataSource-bound node with no objectName compiles ok', ({ tag, rest }) => {

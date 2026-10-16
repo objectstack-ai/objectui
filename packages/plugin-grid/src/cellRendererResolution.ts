@@ -65,6 +65,13 @@ export interface GridCellFieldLike {
   type?: string | null;
   /** The field's `format` hint, as the object definition declares it. */
   format?: string | null;
+  /**
+   * The field's `widget` hint, as the object definition declares it. A widget
+   * with a read cell of its own (`object-ref`, `recipient-picker`) promotes a
+   * textual type to that cell, the same second step `format` takes
+   * (objectui#12613); the inline editor keeps reading `declaredType`.
+   */
+  widget?: string | null;
 }
 
 /** Everything the grid needs to know about one column's renderer. */
@@ -93,7 +100,8 @@ export interface GridCellRendering {
 }
 
 /**
- * Resolve one column's renderer from its declared type and `format` hint.
+ * Resolve one column's renderer from its declared type and its `format` and
+ * `widget` hints.
  *
  * ⚠️ A field with NO declared type does not promote, even when it carries a
  * `format`. `resolveCellRendererType` would promote it — `''` is a member of
@@ -111,7 +119,11 @@ export function resolveGridCellRendering(
   const rendererType: string | null =
     declaredType === null
       ? null
-      : resolveCellRendererType({ type: declaredType, format: field?.format ?? undefined });
+      : resolveCellRendererType({
+          type: declaredType,
+          format: field?.format ?? undefined,
+          widget: field?.widget ?? undefined,
+        });
   return {
     declaredType,
     rendererType,

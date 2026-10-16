@@ -37,6 +37,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { DroppedFieldsEventSchema } from '@objectstack/spec/data';
 import { emitWriteWarning, type WriteWarningSink } from './writeWarningToast';
+import { ObjectStackAdapter } from '@object-ui/data-objectstack';
 import type { DroppedFieldsEvent, WriteWarningEvent } from '@object-ui/data-objectstack';
 
 /** Stand-in for i18next: returns the caller's English default, interpolated. */
@@ -318,6 +319,118 @@ describe('emitWriteWarning (#3484)', () => {
     await emitWriteWarning(EVENT, t, null, identityLabel, sink);
 
     expect(calls[0].description).toContain('type, source_method');
+    expect(adapter.getObjectSchema).not.toHaveBeenCalled();
+  });
+});
+
+// ── a write answer's `warnings` (objectui#12107) ───────────────────────────
+//
+// Through the real chain: the real adapter's create/update reads the answer,
+// `onWriteWarning` hands the event to this module, and the sink is what the
+// user would have seen. Only the transport (`client.data`) is stubbed.
+
+const ADVISORY = {
+  field: 'discount',
+  code: 'validation_rule',
+  message: 'Discounts above 30% need a manager note',
+  rule: 'discount_cap',
+  severity: 'warning' as const,
+};
+
+/** A real adapter whose `client.data` is the stub, wired to the toast module. */
+function wiredAdapter(data: Record<string, unknown>) {
+  const ds = new ObjectStackAdapter({
+    baseUrl: 'http://test.local',
+    fetch: vi.fn(async () =>
+      new Response(JSON.stringify({ success: true, data: { capabilities: {}, routes: {} } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    ),
+  });
+  const internals = ds as unknown as { connected: boolean; connectionState: string; client: unknown };
+  internals.connected = true;
+  internals.connectionState = 'connected';
+  internals.client = { data };
+  const { sink, calls } = makeSink();
+  const pending: Promise<void>[] = [];
+  ds.onWriteWarning((ev) => {
+    pending.push(emitWriteWarning(ev, t, adapter as never, identityLabel, sink));
+  });
+  return { ds, calls, settle: () => Promise.all(pending) };
+}
+
+describe('emitWriteWarning — write answer warnings (objectui#12107)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    adapter.getObjectSchema.mockResolvedValue(ANDON_SCHEMA);
+  });
+
+  it('shows the warning message after a create whose answer carries one', async () => {
+    const create = vi.fn().mockResolvedValue({ record: { id: 'r1' }, warnings: [ADVISORY] });
+    const { ds, calls, settle } = wiredAdapter({ create });
+
+    await ds.create('quote', { discount: 40 });
+    await settle();
+
+    expect(calls).toEqual([{ title: 'Saved — with warnings', description: ADVISORY.message }]);
+  });
+
+  it('shows the warning message after an update whose answer carries one', async () => {
+    const update = vi.fn().mockResolvedValue({ record: { id: 'r1' }, warnings: [ADVISORY] });
+    const { ds, calls, settle } = wiredAdapter({ update });
+
+    await ds.update('quote', 'r1', { discount: 40 });
+    await settle();
+
+    expect(calls).toEqual([{ title: 'Saved — with warnings', description: ADVISORY.message }]);
+  });
+
+  it('CONTROL: an answer without the key shows nothing', async () => {
+    const create = vi.fn().mockResolvedValue({ record: { id: 'r1' } });
+    const update = vi.fn().mockResolvedValue({ record: { id: 'r1' } });
+    const { ds, calls, settle } = wiredAdapter({ create, update });
+
+    await ds.create('quote', { discount: 40 });
+    await ds.update('quote', 'r1', { discount: 40 });
+    await settle();
+
+    expect(calls).toEqual([]);
+  });
+
+  it('CONTROL: with both lists present the stripped-fields toast is unchanged and the warnings get their own', async () => {
+    const update = vi.fn().mockResolvedValue({
+      record: { id: 'r1' },
+      droppedFields: [{ object: 'andon', fields: ['type', 'source_method'], reason: 'readonly_when' }],
+      warnings: [ADVISORY],
+    });
+    const { ds, calls, settle } = wiredAdapter({ update });
+    const strippedOnly = makeSink();
+    await emitWriteWarning(EVENT, t, adapter as never, identityLabel, strippedOnly.sink);
+
+    await ds.update('andon', 'r1', { type: 'x', source_method: 'y' });
+    await settle();
+
+    expect(calls).toHaveLength(2);
+    expect(calls[0]).toEqual(strippedOnly.calls[0]);
+    expect(calls[1]).toEqual({ title: 'Saved — with warnings', description: ADVISORY.message });
+  });
+
+  it('shows each distinct message once, one per line', async () => {
+    const { sink, calls } = makeSink();
+    const second = { ...ADVISORY, field: 'close_date', rule: 'close_date_past', message: 'Close date is in the past' };
+
+    await emitWriteWarning(
+      { ...EVENT, droppedFields: [], warnings: [ADVISORY, second, ADVISORY] },
+      t,
+      adapter as never,
+      identityLabel,
+      sink,
+    );
+
+    expect(calls).toEqual([
+      { title: 'Saved — with warnings', description: `${ADVISORY.message}\n${second.message}` },
+    ]);
     expect(adapter.getObjectSchema).not.toHaveBeenCalled();
   });
 });

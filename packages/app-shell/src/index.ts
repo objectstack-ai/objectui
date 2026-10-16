@@ -359,6 +359,10 @@ import './views/record-approval-decision-renderer.js';
 // pair, registered under `@object-ui/fields`' `RECORD_POINTER_CARD_TYPE`
 // (objectui#12045).
 import './views/record-preview/record-pointer-card-renderer.js';
+// The faces of `@object-ui/fields`' widget-hinted reference keys,
+// `object-ref` and `recipient-picker`, loaded lazily on the first cell that
+// draws one (objectui#12613).
+import './views/widget-ref-cells/widget-ref-cell-renderers.js';
 // `global:search` / `global:notifications` — the two spec `PageComponentType`
 // members the 2026-08-26 ruling on objectstack#12183 kept declared because both
 // data sources shipped (`f99932a42`). Registered here, not in

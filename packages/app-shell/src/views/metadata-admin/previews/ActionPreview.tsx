@@ -28,6 +28,7 @@ import * as React from 'react';
 import {
   AlertTriangle,
   Bot,
+  CalendarDays,
   Code2,
   Eye,
   Globe,
@@ -661,9 +662,15 @@ function renderFieldMock(p: ActionParam, fieldLabel: string, locale?: string): R
     case 'number':
       return inputMock('number');
     case 'date':
-      return inputMock('date');
     case 'datetime':
-      return inputMock('datetime-local');
+      // The dialog draws the platform date picker for both (objectui#12642):
+      // a text box with a calendar button, not the browser's native input.
+      return (
+        <div className="relative" data-slot="date-picker">
+          <input type="text" className={`${cls} pr-6`} placeholder={placeholder} value={value} readOnly />
+          <CalendarDays className="absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" aria-hidden />
+        </div>
+      );
     case 'lookup':
       // `LookupField` is a combobox that opens a record picker — mocked with
       // the same disabled-combobox shape the designer's other pickers use, so

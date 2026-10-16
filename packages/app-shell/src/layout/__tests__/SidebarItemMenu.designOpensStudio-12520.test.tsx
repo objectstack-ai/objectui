@@ -21,13 +21,15 @@
  *
  * Harness: `AppHeader` in its `app` variant under the real router and the real
  * `MePermissionsProvider`, seeded with a metadata author's `/me/permissions`.
+ * The package list serves both packaged apps' packages writable, so the gate's
+ * package half passes for both (objectui#12615).
  * The chrome this card does not touch is stubbed the way
  * `AppHeader.designInStudioNeedsAuthoring-10899` stubs it.
  */
 
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { MePermissionsProvider, type MePermissionsResponse } from '@object-ui/permissions';
@@ -127,8 +129,8 @@ vi.mock('@object-ui/auth', async (importOriginal) => ({
   useWorkspaceAdminStatus: () => ({ isAdmin: true, isResolved: true }),
 }));
 
-/** HotCRM's app, owned by its package, as on the card's reading. */
-const CRM = { name: 'crm', label: 'CRM', _packageId: 'app.objectstack.hotcrm' };
+/** A CRM app, owned by its package. */
+const CRM = { name: 'crm', label: 'CRM', _packageId: 'com.acme.crm' };
 /** A second packaged app, where a favorite may have been starred. */
 const SALES = { name: 'sales', label: 'Sales', _packageId: 'com.acme.sales' };
 /** A runtime app with no owning package, and one in the DB-authored pseudo-package. */
@@ -145,8 +147,12 @@ vi.mock('../../providers/MetadataProvider', () => ({
   }),
 }));
 
+// One adapter object for the file: the shared feeds key on the adapter's
+// identity, so a fresh object per render re-attaches them on every commit and
+// a case that awaits with the bar mounted never settles (objectui#12615).
+const ADAPTER = vi.hoisted(() => ({ find: () => Promise.resolve({ data: [] }), getClient: () => undefined }));
 vi.mock('../../providers/AdapterProvider', () => ({
-  useAdapter: () => ({ find: () => Promise.resolve({ data: [] }), getClient: () => undefined }),
+  useAdapter: () => ADAPTER,
 }));
 
 import { resolveHref } from '@object-ui/layout';
@@ -173,7 +179,7 @@ const OBJECTS = [
  * The href the app bar's Edit app button links to on `pathname`, in the app
  * the route names, or `null` when the bar draws no such button.
  */
-function appBarEditAppPath(pathname: string): string | null {
+async function appBarEditAppPath(pathname: string): Promise<string | null> {
   const segment = pathname.split('/').filter(Boolean)[1];
   render(
     <MePermissionsProvider initialPermissions={AUTHOR}>
@@ -182,6 +188,9 @@ function appBarEditAppPath(pathname: string): string | null {
       </MemoryRouter>
     </MePermissionsProvider>,
   );
+  // objectui#12615 — the pencil waits on the package list's verdict; one
+  // macrotask lets the stub's answer settle before the bar is read.
+  await act(() => new Promise<void>((resolve) => setTimeout(resolve, 0)));
   const button = screen.queryByTestId('app-design-in-studio-button');
   const href = button ? (button.querySelector('a')?.getAttribute('href') ?? null) : null;
   cleanup();
@@ -197,7 +206,19 @@ const entryRoute = (item: NavigationItem, app: { _packageId?: string; name: stri
   resolveHref(item, `/apps/${app._packageId ?? app.name}`).href;
 
 beforeEach(() => {
-  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ data: [] }) })));
+  // objectui#12615 — both packaged apps' packages are served writable, so the
+  // gate's package half passes and this file's own questions are the ones asked.
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: unknown) => ({
+      ok: true,
+      status: 200,
+      json: async () =>
+        String(url).endsWith('/api/v1/packages')
+          ? { data: { packages: [{ manifest: { id: 'com.acme.crm', name: 'CRM' }, writable: true }, { manifest: { id: 'com.acme.sales', name: 'Sales' }, writable: true }] } }
+          : { data: [] },
+    })),
+  );
 });
 
 afterEach(() => {
@@ -206,21 +227,21 @@ afterEach(() => {
 });
 
 describe('a navigation entry\'s Design opens what the app bar\'s Edit app opens (objectui#12520)', () => {
-  it('an object entry: the Data surface for the object, the bar\'s path on the object\'s list', () => {
-    const appBar = appBarEditAppPath(entryRoute(LEADS, CRM));
-    expect(appBar).toBe('/studio/app.objectstack.hotcrm/data?surface=object:crm_lead');
+  it('an object entry: the Data surface for the object, the bar\'s path on the object\'s list', async () => {
+    const appBar = await appBarEditAppPath(entryRoute(LEADS, CRM));
+    expect(appBar).toBe('/studio/com.acme.crm/data?surface=object:crm_lead');
     expect(sidebarItemDesignPath(LEADS, CRM)).toBe(appBar);
   });
 
-  it('a dashboard entry: the Interfaces surface for the dashboard, the bar\'s path on the dashboard', () => {
-    const appBar = appBarEditAppPath(entryRoute(OVERVIEW, CRM));
-    expect(appBar).toBe('/studio/app.objectstack.hotcrm/interfaces?surface=dashboard:sales_overview');
+  it('a dashboard entry: the Interfaces surface for the dashboard, the bar\'s path on the dashboard', async () => {
+    const appBar = await appBarEditAppPath(entryRoute(OVERVIEW, CRM));
+    expect(appBar).toBe('/studio/com.acme.crm/interfaces?surface=dashboard:sales_overview');
     expect(sidebarItemDesignPath(OVERVIEW, CRM)).toBe(appBar);
   });
 
-  it('a page entry: whatever the bar opens on the page', () => {
-    const appBar = appBarEditAppPath(entryRoute(WORKBENCH, CRM));
-    expect(appBar).toBe('/studio/app.objectstack.hotcrm/interfaces?surface=page:lead_workbench');
+  it('a page entry: whatever the bar opens on the page', async () => {
+    const appBar = await appBarEditAppPath(entryRoute(WORKBENCH, CRM));
+    expect(appBar).toBe('/studio/com.acme.crm/interfaces?surface=page:lead_workbench');
     expect(sidebarItemDesignPath(WORKBENCH, CRM)).toBe(appBar);
   });
 });
@@ -228,43 +249,43 @@ describe('a navigation entry\'s Design opens what the app bar\'s Edit app opens 
 describe('a favorite\'s Design opens what the app bar\'s Edit app opens once it is open (objectui#12520)', () => {
   const favorite = (id: string, href: string) => ({ id, href });
 
-  it('object, dashboard and page favorites match the bar on the favorite\'s own route', () => {
+  it('object, dashboard and page favorites match the bar on the favorite\'s own route', async () => {
     const cases = [
-      favorite('object:crm_lead', '/apps/app.objectstack.hotcrm/crm_lead'),
-      favorite('dashboard:sales_overview', '/apps/app.objectstack.hotcrm/dashboard/sales_overview'),
-      favorite('page:lead_workbench', '/apps/app.objectstack.hotcrm/page/lead_workbench'),
+      favorite('object:crm_lead', '/apps/com.acme.crm/crm_lead'),
+      favorite('dashboard:sales_overview', '/apps/com.acme.crm/dashboard/sales_overview'),
+      favorite('page:lead_workbench', '/apps/com.acme.crm/page/lead_workbench'),
     ];
     for (const fav of cases) {
-      const appBar = appBarEditAppPath(fav.href);
-      expect(appBar, fav.id).toMatch(/^\/studio\/app\.objectstack\.hotcrm\//);
+      const appBar = await appBarEditAppPath(fav.href);
+      expect(appBar, fav.id).toMatch(/^\/studio\/com\.acme\.crm\//);
       expect(favoriteDesignPath(fav, APPS), fav.id).toBe(appBar);
     }
   });
 
-  it('a favorite starred in another app resolves in that app\'s package, not the one the sidebar is in', () => {
+  it('a favorite starred in another app resolves in that app\'s package, not the one the sidebar is in', async () => {
     const fav = favorite('object:sales_quote', '/apps/com.acme.sales/sales_quote');
-    const appBar = appBarEditAppPath(fav.href);
+    const appBar = await appBarEditAppPath(fav.href);
     expect(appBar).toBe('/studio/com.acme.sales/data?surface=object:sales_quote');
     expect(favoriteDesignPath(fav, APPS)).toBe(appBar);
   });
 
   it('record, report and app favorites have no designer', () => {
-    expect(favoriteDesignPath(favorite('record:crm_lead:1', '/apps/app.objectstack.hotcrm/crm_lead/record/1'), APPS)).toBeNull();
-    expect(favoriteDesignPath(favorite('report:pipeline', '/apps/app.objectstack.hotcrm/report/pipeline'), APPS)).toBeNull();
-    expect(favoriteDesignPath(favorite('app:crm', '/apps/app.objectstack.hotcrm'), APPS)).toBeNull();
+    expect(favoriteDesignPath(favorite('record:crm_lead:1', '/apps/com.acme.crm/crm_lead/record/1'), APPS)).toBeNull();
+    expect(favoriteDesignPath(favorite('report:pipeline', '/apps/com.acme.crm/report/pipeline'), APPS)).toBeNull();
+    expect(favoriteDesignPath(favorite('app:crm', '/apps/com.acme.crm'), APPS)).toBeNull();
   });
 });
 
 describe('no Studio surface ⇒ no Design entry, and no metadata-admin fallback (objectui#12520)', () => {
-  it('an entry of an app with no owning package: the bar draws no pencil, and Design answers null', () => {
-    expect(appBarEditAppPath(entryRoute(LEADS, RUNTIME))).toBeNull();
+  it('an entry of an app with no owning package: the bar draws no pencil, and Design answers null', async () => {
+    expect(await appBarEditAppPath(entryRoute(LEADS, RUNTIME))).toBeNull();
     expect(sidebarItemDesignPath(LEADS, RUNTIME)).toBeNull();
     expect(sidebarItemDesignPath(OVERVIEW, RUNTIME)).toBeNull();
     expect(sidebarItemDesignPath(WORKBENCH, RUNTIME)).toBeNull();
   });
 
-  it('an entry of an app in the DB-authored pseudo-package answers null the same way', () => {
-    expect(appBarEditAppPath(entryRoute(LEADS, DB_AUTHORED))).toBeNull();
+  it('an entry of an app in the DB-authored pseudo-package answers null the same way', async () => {
+    expect(await appBarEditAppPath(entryRoute(LEADS, DB_AUTHORED))).toBeNull();
     expect(sidebarItemDesignPath(LEADS, DB_AUTHORED)).toBeNull();
   });
 

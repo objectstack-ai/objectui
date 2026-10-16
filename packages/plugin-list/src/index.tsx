@@ -39,7 +39,7 @@ export type { ListViewSwitcherProps } from './ViewSwitcher';
  * (objectstack#5576) — are documented on {@link ListViewBlock}.
  */
 /**
- * Designer label per visualization, and the `viewType` enum options both
+ * Designer label per visualization, and the `type` enum options both
  * registrations below are built from.
  *
  * A total `Record<ListViewVisualization, string>` (`ca3942729`). The two
@@ -72,15 +72,36 @@ const VIEW_TYPE_OPTIONS = Object.entries(VIEW_TYPE_LABELS).map(([value, label]) 
 const ListViewRenderer = ListViewBlock;
 
 /**
- * The `objectName` input both registrations below publish, spelled once so the
- * two cannot drift. Not required (objectui#11605): see the `list-view`
- * registration.
+ * The record-source and kind inputs both registrations below publish, spelled
+ * once so the two cannot drift.
+ *
+ * A page `list-view` node is written in `@objectstack/spec`'s list view
+ * spelling, `data` and `type` (objectstack-ai/objectstack#22444, ruling C;
+ * objectui#12099): one list view has one set of property names wherever it is
+ * embedded. `objectName` and `viewType` are not published and not read on this
+ * node; `ListViewBlock` says what happens to a node that still carries them.
+ *
+ * `data` is not required (objectui#11605): the node's `dataSource` binding can
+ * name the object instead. Without either, the list shows a hint naming
+ * `data.object` instead of an empty list.
  */
-const LIST_VIEW_OBJECT_NAME_INPUT: ComponentInput = {
-  name: 'objectName',
-  type: 'string',
+const LIST_VIEW_DATA_INPUT: ComponentInput = {
+  name: 'data',
+  type: 'object',
   description:
-    'Object this list view lists. Not required: the node\'s `dataSource` binding can name the object instead, and `dataSource.object` lands on this key, outranking an authored value. With neither, and no inline `data`, the list shows a hint naming this key instead of an empty list.',
+    'Where this list\'s records come from, the spec\'s `ViewData`: `{ provider: \'object\', object }` lists that object\'s records, and `{ provider: \'value\', items }` hands the list its rows. Not required: the node\'s `dataSource` binding can name the object instead, and `dataSource.object` outranks this key. With neither, the list shows a hint naming `data.object` instead of an empty list.',
+} as const;
+
+/**
+ * The list kind. On a metadata page it is written `properties.type`, because
+ * the node's own `type` is the registry key and stays `list-view`.
+ */
+const LIST_VIEW_TYPE_INPUT: ComponentInput = {
+  name: 'type',
+  type: 'enum',
+  enum: VIEW_TYPE_OPTIONS,
+  description:
+    'The list kind, the spec\'s list view `type`. Absent, a bound saved view\'s kind applies, else a grid. On a metadata page it is written `properties.type`; the node\'s own `type` stays `list-view`.',
 } as const;
 
 // Register ListView component
@@ -90,24 +111,25 @@ ComponentRegistry.register('list-view', ListViewRenderer, {
   category: 'Views',
   icon: 'LayoutList',
   inputs: [
-    // NOT required (objectui#11605). This block has no `ComponentPropsMap`
-    // row; the contract is the binding doc (`content/docs/guide/data-source.md`,
-    // "a node bound this way needs no `objectName` of its own") and the
-    // `list-view` record-source rule `objectui validate` runs, which counts the
-    // binding as a record source. `ListViewBlock` lands `dataSource.object`
-    // here. The page compile reads this list, so `required: true` refused a
-    // bound node the validator and the renderer accept. A node with neither is
-    // answered by the gate's "no object named" hint.
-    { ...LIST_VIEW_OBJECT_NAME_INPUT },
-    { name: 'viewType', type: 'enum', enum: VIEW_TYPE_OPTIONS },
+    // `data` is NOT required (objectui#11605). This block has no
+    // `ComponentPropsMap` row yet; the contract is the binding doc
+    // (`content/docs/guide/data-source.md`). The page compile reads this list,
+    // so `required: true` would refuse a node bound by `dataSource.object`,
+    // which the renderer accepts. A node with neither gets the "no object
+    // named" hint `ListViewBlock` draws.
+    { ...LIST_VIEW_DATA_INPUT },
+    { ...LIST_VIEW_TYPE_INPUT },
     { name: 'columns', type: 'array' },
     { name: 'filter', type: 'array' },
     { name: 'sort', type: 'array' },
     { name: 'options', type: 'object' },
   ],
+  // No `type` default: an absent kind IS the default (the spec's list view
+  // `type` defaults to `grid`), and leaving it absent lets a bound saved view's
+  // kind apply. A `type` here would also be the registry key's name to any
+  // reader that spreads these onto a node.
   defaultProps: {
-    objectName: '',
-    viewType: 'grid',
+    data: { provider: 'object', object: '' },
     columns: [],
     filter: [],
     sort: [],
@@ -121,7 +143,7 @@ ComponentRegistry.register('list-view', ListViewRenderer, {
 // list DISPLAY primitive (`ui:list` in @object-ui/components), used by page
 // schemas like `{ type: 'list', items: [...] }`. Without skipFallback this alias
 // clobbered the bare key, so a hand-authored bullet list resolved to the
-// data-bound ListView (which requires `objectName`) instead. Object list VIEWS
+// data-bound ListView (which needs an object to list) instead. Object list VIEWS
 // are rendered via `type: 'list-view'`, never the bare `list` lookup, so the
 // data view loses nothing by yielding the bare key.
 ComponentRegistry.register('list', ListViewRenderer, {
@@ -131,9 +153,9 @@ ComponentRegistry.register('list', ListViewRenderer, {
   label: 'List',
   icon: 'LayoutList',
   inputs: [
-    // Same renderer, same reason as `list-view` above.
-    { ...LIST_VIEW_OBJECT_NAME_INPUT },
-    { name: 'viewType', type: 'enum', enum: VIEW_TYPE_OPTIONS },
+    // Same renderer, same spelling and same reason as `list-view` above.
+    { ...LIST_VIEW_DATA_INPUT },
+    { ...LIST_VIEW_TYPE_INPUT },
     { name: 'columns', type: 'array' },
     { name: 'filter', type: 'array' },
     { name: 'sort', type: 'array' },

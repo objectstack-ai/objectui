@@ -62,6 +62,7 @@ vi.mock('@object-ui/i18n', async (importOriginal) => {
 
 import { useObjectTranslation } from '@object-ui/i18n';
 import { HomeContinue } from '../HomeRail.js';
+import { recentItemTypeLabel } from '../recentItemTypeLabel.js';
 import { useRecentItemLabel } from '../../../hooks/useRecentItemLabel.js';
 import { RecentApps } from '../RecentApps.js';
 import { StarredApps } from '../StarredApps.js';
@@ -82,7 +83,17 @@ function Rail({ items }: { items: RecentItem[] }) {
   const { t } = useObjectTranslation();
   // HomePage hands the rail its labeller the same way (objectui#11678).
   const labelOf = useRecentItemLabel();
-  return <HomeContinue items={items} onOpen={() => {}} t={t} labelOf={labelOf} />;
+  // The rail's trail opens with the kind for every kind but a record, which
+  // `HomePage`'s resolver reads through the one helper (objectui#12604).
+  return (
+    <HomeContinue
+      items={items}
+      onOpen={() => {}}
+      t={t}
+      labelOf={labelOf}
+      describe={(it) => ({ context: recentItemTypeLabel(t, it.type) })}
+    />
+  );
 }
 
 /**
@@ -95,7 +106,9 @@ function Rail({ items }: { items: RecentItem[] }) {
 function typeLabelOf(node: HTMLElement, itemLabel: string): string {
   const text = (node.textContent ?? '').trim();
   expect(text.startsWith(itemLabel)).toBe(true);
-  const typeLabel = text.slice(itemLabel.length).trim();
+  // The rail's trail goes on to the visit time ("Report · just now",
+  // objectui#12604); the kind is its first part.
+  const typeLabel = text.slice(itemLabel.length).split(' · ')[0].trim();
   expect(typeLabel).not.toBe('');
   return typeLabel;
 }

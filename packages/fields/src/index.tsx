@@ -376,6 +376,18 @@ export interface CellRendererProps {
   field: FieldMetadata;
   isEditing?: boolean;
   onChange?: (value: any) => void;
+  /**
+   * The row's values, for a renderer whose value only means something next to
+   * a sibling column — the cell-side counterpart of the edit widget's
+   * `FieldWidgetComponentProps.dependentValues` (objectui#12613). The console's
+   * `recipient-picker` face reads the row's `recipient_type` from it, as the
+   * picker reads the form record's.
+   *
+   * A call site that holds the row passes it; a renderer that needs a sibling
+   * and gets none draws the stored value as the text cell does, so a call site
+   * that does not pass it changes nothing.
+   */
+  dependentValues?: Record<string, unknown>;
 }
 
 // `coerceToSafeValue` lives in `./coerceToSafeValue.ts` (objectui#8580) so
@@ -2983,7 +2995,8 @@ function UnresolvedLookupReference({
 /**
  * The shipped PRESENTATION of an unresolved reference, shared by the two
  * renderers that state one (objectui#8434 for `user`, objectui#8695 for
- * `lookup` / `master_detail` / `tree`).
+ * `lookup` / `master_detail` / `tree`), and published for the host faces of the
+ * widget-hinted reference keys (objectui#12613), which draw the same state.
  *
  * Only the drawing is shared. Each caller keeps its own literal i18n key and
  * its own English fallback, because a key reaching this component as a prop
@@ -3003,7 +3016,7 @@ function UnresolvedLookupReference({
  * (a single-line value must never expand its column and must expose its full
  * text) with an icon in front of the text.
  */
-function UnresolvedReferenceMark({
+export function UnresolvedReferenceMark({
   raw,
   hint,
   className,
@@ -3175,9 +3188,11 @@ export function registerFieldRenderer(type: string, renderer: React.FC<CellRende
  * {@link getCellRenderer}, whose dispatch stays on the field type alone.
  *
  * ⭐ This is the one place the rule lives. A call site that holds the row asks
- * `resolveRecordPointer(field, row)`, and draws a pair it gets back with the
- * renderer registered under {@link RECORD_POINTER_CARD_TYPE}, passing the pair
- * as that renderer's `value`. This package registers a default under that key
+ * `resolveRecordPointer(field, row, optionsOf)`, and draws a pair it gets back
+ * with the renderer registered under {@link RECORD_POINTER_CARD_TYPE}, passing
+ * the pair as that renderer's `value`. The same call answers whether the
+ * platform asserted the target deleted on this row (`referenceDeletedWhen`,
+ * objectui#12489), so no face and no call site evaluates that predicate. This package registers a default under that key
  * which draws the record id as text, exactly as the field drew before its pair
  * was read, so a host with nothing better changes nothing. A host that can read
  * records registers a richer face under the same key with
@@ -3200,7 +3215,28 @@ export interface RecordPointer {
   objectName: string;
   /** The target's record id: the pointer field's own value. */
   recordId: string;
+  /**
+   * Present only when the platform asserted, on this row, that the target was
+   * deleted (the field's `referenceDeletedWhen` predicate holds, objectui#12489):
+   * the label of the declared option that says so, as the call site's option
+   * labels spell it. A face that receives it draws the tombstone in this text,
+   * reads nothing and links nothing. Absent on every other row, and a face
+   * then draws the pair as before.
+   */
+  deletedLabel?: string;
 }
+
+/**
+ * `@objectstack/spec`'s `FieldSchema.referenceDeletedWhen`: the sibling
+ * `select` field, and the one option of it, that the platform writes on a row
+ * whose pointed-at record it deleted. The spec refuses it at parse unless the
+ * field declares `referenceVia`, `field` is a single-value `select` of the same
+ * object declaring inline `options`, and `value` is one of those options.
+ */
+type ReferenceDeletedWhen = { readonly field: string; readonly value: string };
+
+/** The call site's option list for one field: what `select` cells draw with. */
+type OptionsOf = (fieldName: string) => ReadonlyArray<{ readonly value?: unknown; readonly label?: unknown }> | null | undefined;
 
 /**
  * Resolve the record a `referenceVia` pointer field points at on one row, or
@@ -3213,10 +3249,35 @@ export interface RecordPointer {
  * - Both halves must be non-blank strings. A half-addressed row is not a
  *   pointer this can draw, and the caller falls back to the field's ordinary
  *   face (the stored text).
+ *
+ * ## A deletion the platform asserts: `referenceDeletedWhen` (objectui#12489)
+ *
+ * When the field also declares `referenceDeletedWhen: { field, value }` and
+ * this row's sibling `field` holds exactly `value`, the pair comes back with
+ * `deletedLabel`: the label of that declared option, looked up in
+ * `optionsOf(field)`. The call site supplies `optionsOf` because it holds the
+ * object definition and the option labels the rest of its grid draws with
+ * (localized ones included), so the tombstone and the sibling `select`'s own
+ * cell say the same thing.
+ *
+ * - Only the declared assertion marks a target deleted. A target read that
+ *   fails or answers no record says nothing about why: the platform answers a
+ *   deleted record and one outside the reader's row set alike, on purpose.
+ * - No `optionsOf`, or no option with that value among the sibling's options,
+ *   means no label to draw, and the pair comes back without `deletedLabel`.
+ *   The spec refuses a predicate whose value is not a declared option, so the
+ *   second case is not reachable from spec-valid metadata. ⛔ Never the raw
+ *   option value as the text: the tombstone is the option's own label.
  */
 export function resolveRecordPointer(
-  field: { readonly name: string; readonly type?: string | null; readonly referenceVia?: string | null } | null | undefined,
+  field: {
+    readonly name: string;
+    readonly type?: string | null;
+    readonly referenceVia?: string | null;
+    readonly referenceDeletedWhen?: ReferenceDeletedWhen | null;
+  } | null | undefined,
   row: Readonly<Record<string, unknown>> | null | undefined,
+  optionsOf?: OptionsOf,
 ): RecordPointer | null {
   if (!field || !row) return null;
   if (field.type !== 'text') return null;
@@ -3226,7 +3287,21 @@ export function resolveRecordPointer(
   const objectName = row[via];
   if (typeof recordId !== 'string' || recordId.trim() === '') return null;
   if (typeof objectName !== 'string' || objectName.trim() === '') return null;
-  return { objectName, recordId };
+  const deletedLabel = resolveDeletedLabel(field.referenceDeletedWhen, row, optionsOf);
+  return deletedLabel === null ? { objectName, recordId } : { objectName, recordId, deletedLabel };
+}
+
+/** The declared option's label when the row holds the deletion predicate, else `null`. */
+function resolveDeletedLabel(
+  when: ReferenceDeletedWhen | null | undefined,
+  row: Readonly<Record<string, unknown>>,
+  optionsOf: OptionsOf | undefined,
+): string | null {
+  if (!when || typeof when.field !== 'string' || typeof when.value !== 'string') return null;
+  if (row[when.field] !== when.value) return null;
+  const option = optionsOf?.(when.field)?.find((candidate) => candidate?.value === when.value);
+  const label = option?.label;
+  return typeof label === 'string' && label.trim() !== '' ? label : null;
 }
 
 function isRecordPointer(value: unknown): value is RecordPointer {
@@ -3237,11 +3312,14 @@ function isRecordPointer(value: unknown): value is RecordPointer {
 
 /**
  * The default face for {@link RECORD_POINTER_CARD_TYPE}: the record id as
- * text, which is what the pointer field drew before its pair was read. Any
- * other value goes to the text cell unchanged.
+ * text, which is what the pointer field drew before its pair was read, or, on
+ * a row where the platform asserted the target deleted, the declared option's
+ * label (`deletedLabel`, objectui#12489) in place of the id. Any other value
+ * goes to the text cell unchanged.
  */
 function RecordPointerTextCellRenderer({ value, field }: CellRendererProps): React.ReactElement {
-  return <TextCellRenderer value={isRecordPointer(value) ? value.recordId : value} field={field} />;
+  const text = isRecordPointer(value) ? (value.deletedLabel ?? value.recordId) : value;
+  return <TextCellRenderer value={text} field={field} />;
 }
 
 /**
@@ -3272,15 +3350,34 @@ const FORMAT_TO_RENDERER: Record<string, string> = {
 const TEXTUAL_BASE_TYPES = new Set(['text', 'textarea', 'string', 'longtext', '']);
 
 /**
+ * Field `widget` hints whose READ face is a cell of its own (objectui#12613),
+ * registered under the widget's own key below. The spec's `widget` names the
+ * component a field is drawn with in place of its `type` default; for these two
+ * the stored text is a machine reference — an object name, a recipient id —
+ * and a host face registered under the key names what it references, as the
+ * edit widget's readonly branch does, instead of printing the api name.
+ *
+ * Only a widget listed here promotes, and only over a textual base type, the
+ * same bound the `format` hints keep: a widget with no read face of its own
+ * (`filter-condition`, `position-ref`, …) still draws as its `type`.
+ */
+const WIDGET_CELL_RENDERER_TYPES: ReadonlySet<string> = new Set(['object-ref', 'recipient-picker']);
+
+/**
  * Resolve the canonical cell-renderer key for a field. Accepts either a
  * raw type string (back-compat) or a field-metadata object so that
  * format hints (`format: 'phone'` etc.) can promote a plain `text`
- * field to its richer renderer counterpart.
+ * field to its richer renderer counterpart, and a declared `widget` with
+ * a read cell of its own (`WIDGET_CELL_RENDERER_TYPES`) to that cell.
  */
-export function resolveCellRendererType(fieldOrType: string | { type?: string; format?: string } | null | undefined): string {
+export function resolveCellRendererType(fieldOrType: string | { type?: string; format?: string; widget?: string } | null | undefined): string {
   if (!fieldOrType) return 'text';
   if (typeof fieldOrType === 'string') return fieldOrType;
   const baseType = (fieldOrType.type || '').toLowerCase();
+  const widget = fieldOrType.widget;
+  if (typeof widget === 'string' && WIDGET_CELL_RENDERER_TYPES.has(widget) && TEXTUAL_BASE_TYPES.has(baseType)) {
+    return widget;
+  }
   const formatRaw = fieldOrType.format;
   const format = typeof formatRaw === 'string' ? formatRaw.toLowerCase() : '';
   if (format && FORMAT_TO_RENDERER[format] && TEXTUAL_BASE_TYPES.has(baseType)) {
@@ -3990,6 +4087,17 @@ registerFieldRenderer('user', UserCellRenderer);
 // The pointer pair's default face (objectui#12045): the record id as text. A
 // host that can read records registers its own face under the same key.
 registerFieldRenderer(RECORD_POINTER_CARD_TYPE, RecordPointerTextCellRenderer);
+// The two widget-hinted reference keys `resolveCellRendererType` promotes to
+// (objectui#12613), with the stored text as their DEFAULT face — the
+// `RECORD_POINTER_CARD_TYPE` arrangement above: this package owns the rule and
+// the keys, and a host that can read the referenced lists registers the faces
+// that name them (`@object-ui/app-shell`'s widget reference cells). Not drawn
+// here because every module of this package rides the console's eager
+// `ui-components` chunk, whatever imports it lazily, and that chunk's ceiling
+// in `scripts/check-eager-closure-budget.mjs` has no room for a label reader;
+// the host loads its faces lazily, off the eager closure.
+registerFieldRenderer('object-ref', TextCellRenderer);
+registerFieldRenderer('recipient-picker', TextCellRenderer);
 // `owner` was registered here to the same UserCellRenderer until objectui#4814
 // retired the spelling — see the TOMBSTONE below. `getCellRenderer('owner')`
 // now reports the prescription and falls to the text cell.
@@ -4318,8 +4426,15 @@ const fieldWidgetMap = {
   'number': () => import('./widgets/NumberField.js').then(m => ({ default: m.NumberField })),
   'boolean': () => import('./widgets/BooleanField.js').then(m => ({ default: m.BooleanField })),
   'select': () => import('./widgets/SelectField.js').then(m => ({ default: m.SelectField })),
-  'date': () => import('./widgets/DateField.js').then(m => ({ default: m.DateField })),
-  'datetime': () => import('./widgets/DateTimeField.js').then(m => ({ default: m.DateTimeField })),
+  // The platform date picker (objectui#12622, objectui#12642): a text box in
+  // the display locale's format with a calendar popover, for every consumer of
+  // this map — the record form (`registerField`) and the action-param and
+  // bulk-action dialogs (`getLazyFieldWidget`) alike, so a field type has one
+  // face. It writes what the native input wrote: `YYYY-MM-DD` for `date`, an
+  // ISO instant for `datetime`. Its read-only face is `DateField` /
+  // `DateTimeField`'s own.
+  'date': () => import('./widgets/date-picker/DatePickerField.js').then(m => ({ default: m.DatePickerField })),
+  'datetime': () => import('./widgets/date-picker/DatePickerField.js').then(m => ({ default: m.DateTimePickerField })),
   'time': () => import('./widgets/TimeField.js').then(m => ({ default: m.TimeField })),
   
   // Contact fields
@@ -4486,9 +4601,8 @@ const lazyFieldWidgets = new Map<string, React.ComponentType<any>>();
 
 /**
  * Lazily-loaded form field widget for a field type. Shares the exact loaders
- * of {@link fieldWidgetMap} (the components `registerField` registers for
- * forms, except the form-only faces in `FORM_FACE_LOADERS`), wrapped in
- * `React.lazy` and cached per type — so a consumer can
+ * of {@link fieldWidgetMap} (the same components `registerField` registers for
+ * forms), wrapped in `React.lazy` and cached per type — so a consumer can
  * render any form-supported field type without eagerly bundling every widget.
  * Render inside a `<Suspense>` boundary. Unknown types resolve to the `text`
  * widget via {@link resolveFormWidgetType}.
@@ -4720,26 +4834,6 @@ export const FIELD_WIDGET_LABELLING: Record<
   'permission-ref': 'control',
 };
 
-/**
- * The FORM face of a field type, where it differs from the widget
- * {@link fieldWidgetMap} loads (objectui#12622).
- *
- * A record form draws `date` / `datetime` with the platform date picker: a
- * text box in the display locale's format, a calendar popover, clear, and
- * today / tomorrow shortcuts. The ruling scopes it to record forms, so only
- * the registry registration (what a form resolves `field:date` /
- * `field:datetime` to) takes it. {@link getLazyFieldWidget} (the action-param
- * and bulk-action dialogs) and the inline editors (`FieldEditWidget`, which
- * imports `DateField` / `DateTimeField` directly) keep the native input.
- *
- * The value written is the native input's: `YYYY-MM-DD` for `date`, an ISO
- * instant for `datetime` (see `widgets/date-picker/DatePickerField.tsx`).
- */
-const FORM_FACE_LOADERS: Partial<Record<RegisteredFieldWidgetType, FieldWidgetLoader>> = {
-  date: () => import('./widgets/date-picker/DatePickerField.js').then(m => ({ default: m.DatePickerField })),
-  datetime: () => import('./widgets/date-picker/DatePickerField.js').then(m => ({ default: m.DateTimePickerField })),
-};
-
 export function registerField(fieldType: string): void {
   const loader = fieldWidgetLoaderByKey[fieldType];
   if (!loader) {
@@ -4748,9 +4842,7 @@ export function registerField(fieldType: string): void {
   }
   
   // Create lazy component
-  const LazyFieldWidget = React.lazy(
-    FORM_FACE_LOADERS[fieldType as RegisteredFieldWidgetType] ?? loader,
-  );
+  const LazyFieldWidget = React.lazy(loader);
 
   // Register with field namespace. No LAYOUT wrapper — the form renderer owns
   // label/description/spacing. The only thing wrapped is the metadata carrier:
@@ -4969,6 +5061,17 @@ export * from './widgets/CapabilityMultiSelectField.js';
 export * from './widgets/ObjectRefField.js';
 export * from './widgets/FilterConditionField.js';
 export * from './widgets/RecipientPickerField.js';
+// The kind table and the two spellings the reference widgets share with a host
+// face (objectui#12613), published so the face names a stored value as the
+// widget does: `@object-ui/app-shell`'s widget reference cells are the reader.
+// Only what that reader imports; the widgets' own reads stay module-private.
+export { objectRefOptionLabel } from './widgets/objectRefLabel.js';
+export {
+  RECIPIENT_RECORD_KINDS,
+  RECIPIENT_REGISTRY_KINDS,
+  FIELD_RECIPIENT_TYPE,
+  recipientCandidateLabel,
+} from './widgets/recipientKinds.js';
 export * from './widgets/RecordPickerDialog.js';
 // Shared picker-column derivation (ADR-0085 highlightFields → displayFields →
 // schema walk) — consumed by LookupField AND by RelatedList's Add-picker so a

@@ -91,7 +91,7 @@ const headersOf = (container: HTMLElement) =>
 
 describe("kind:'html' page — <list-view> renders data columns (#6598)", () => {
   it('renders the object\'s default columns when the author declared none', async () => {
-    const container = await renderHtmlPage(`<list-view objectName="${OBJECT}" />`);
+    const container = await renderHtmlPage(`<list-view data={{provider:'object',object:'${OBJECT}'}} />`);
 
     await waitFor(() => expect(headersOf(container).length).toBeGreaterThan(1));
     const headers = headersOf(container);
@@ -109,7 +109,7 @@ describe("kind:'html' page — <list-view> renders data columns (#6598)", () => 
     // first, and the one objectui#6669 made legal; it is the control that keeps
     // the default above from swallowing an authored projection.
     const container = await renderHtmlPage(
-      `<list-view objectName="${OBJECT}" columns={['name','amount']} />`,
+      `<list-view data={{provider:'object',object:'${OBJECT}'}} columns={['name','amount']} />`,
     );
 
     await waitFor(() => expect(headersOf(container).length).toBeGreaterThan(1));

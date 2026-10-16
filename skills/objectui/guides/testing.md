@@ -190,7 +190,7 @@ function AuthConsumer() {
 
 describe('AuthProvider', () => {
   it('shows loading then authenticated state', async () => {
-    // `AuthClient` declares ~38 methods and the provider reaches ONE of them on
+    // Of every method `AuthClient` declares in `packages/auth/src/types.ts`, the provider reaches ONE on
     // this path. Type the literal `Partial<AuthClient>` and the stubbed member
     // against `AuthClient['getSession']`: the key, the signature and the
     // resolved value are then all checked, and the widening happens ONCE, in a

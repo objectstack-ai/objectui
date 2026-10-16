@@ -44,11 +44,15 @@
  * that was not visible before.
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { render, cleanup } from '@testing-library/react';
+import { render, cleanup, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
 
 import { FieldEditWidget } from '../FieldEditWidget';
+// `date` / `datetime` draw the platform picker, which `FieldEditWidget` loads
+// lazily (objectui#12664). Imported at module scope, with the specifier the
+// factory's `import()` resolves to, so that load costs nothing inside a test.
+import '../widgets/date-picker/DatePickerField';
 
 afterEach(() => cleanup());
 
@@ -78,7 +82,7 @@ function describeEl(el: Element): string {
   return `${el.tagName.toLowerCase()}${type ? `[type=${type}]` : ''}${role ? `[role=${role}]` : ''}`;
 }
 
-function renderInline(field: Record<string, unknown>, error?: string) {
+async function renderInline(field: Record<string, unknown>, error?: string) {
   const { container } = render(
     <FieldEditWidget
       field={field as never}
@@ -87,6 +91,9 @@ function renderInline(field: Record<string, unknown>, error?: string) {
       error={error}
     />,
   );
+  // A lazily loaded widget (the date picker) settles first; the rest render
+  // synchronously and pass straight through.
+  await waitFor(() => expect(container.querySelector('[data-testid="field-edit-widget-loading"]')).toBeNull());
   return container;
 }
 
@@ -113,8 +120,8 @@ const CASES: ReadonlyArray<readonly [label: string, field: Record<string, unknow
 describe('inline field widgets announce a delivered `error` (objectui#7126)', () => {
   it.each(CASES)(
     '%s — carries aria-invalid="true" on a FOCUSABLE control when the host delivers `error`',
-    (_label, field) => {
-      const container = renderInline(field, 'Required');
+    async (_label, field) => {
+      const container = await renderInline(field, 'Required');
 
       const carriers = Array.from(container.querySelectorAll('[aria-invalid="true"]'));
       expect(
@@ -135,13 +142,13 @@ describe('inline field widgets announce a delivered `error` (objectui#7126)', ()
 
   it.each(CASES)(
     '%s — says an explicit aria-invalid="false" when the host delivers no `error`',
-    (_label, field) => {
+    async (_label, field) => {
       // The load-bearing half, and the reason this is a two-state reading
       // rather than "the attribute exists": `!!undefined` must yield `"false"`,
       // so a valid field SAYS it is valid instead of staying mute (the
       // objectui#3222 discipline). Without this, an unconditional
       // `aria-invalid="true"` would pass the case above.
-      const container = renderInline(field);
+      const container = await renderInline(field);
 
       const control = container.querySelector(FOCUSABLE);
       expect(control, 'no focusable control rendered at all').not.toBeNull();
@@ -150,7 +157,7 @@ describe('inline field widgets announce a delivered `error` (objectui#7126)', ()
     },
   );
 
-  it('CONTROL: a widget that ALREADY read `error` reports the same way through the same harness', () => {
+  it('CONTROL: a widget that ALREADY read `error` reports the same way through the same harness', async () => {
     // Without this, a green sweep above could not be distinguished from a
     // harness that marks everything it renders. `select` -> `SelectField` was
     // one of the 21 readers before this change (objectui#3306 / #7008's pin),
@@ -163,18 +170,18 @@ describe('inline field widgets announce a delivered `error` (objectui#7126)', ()
       options: [{ label: 'New', value: 'new' }],
     };
 
-    const invalid = renderInline(SELECT_FIELD, 'Required');
+    const invalid = await renderInline(SELECT_FIELD, 'Required');
     const trigger = invalid.querySelector('[role="combobox"]')!;
     expect(trigger.tagName).toBe('BUTTON');
     expect(trigger).toHaveAttribute('aria-invalid', 'true');
 
     cleanup();
 
-    const valid = renderInline(SELECT_FIELD);
+    const valid = await renderInline(SELECT_FIELD);
     expect(valid.querySelector('[role="combobox"]')).toHaveAttribute('aria-invalid', 'false');
   });
 
-  it('CONTROL: `user` was a FALSE zero in the census and is NOT in the population', () => {
+  it('CONTROL: `user` was a FALSE zero in the census and is NOT in the population', async () => {
     // The one trap in the measurement that produced this card. A word-boundary
     // `error` grep over the 27 `EDIT_WIDGETS` components returns SIX zeroes,
     // and `UserField` is one of them — but it renders `LookupField` with a
@@ -182,7 +189,7 @@ describe('inline field widgets announce a delivered `error` (objectui#7126)', ()
     // A naive census reports six and is wrong about one; this pins the sixth so
     // the next reader does not "fix" a widget that was never broken (and so a
     // future refactor that flattens the delegation cannot silently drop it).
-    const container = renderInline(
+    const container = await renderInline(
       { name: 'owner_id', type: 'user', label: 'Owner', reference: 'sys_user' },
       'Required',
     );

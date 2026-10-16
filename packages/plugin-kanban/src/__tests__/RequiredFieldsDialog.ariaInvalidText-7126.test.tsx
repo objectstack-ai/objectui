@@ -32,7 +32,7 @@
  * Nothing became visible here that was not visible before.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
 
@@ -114,7 +114,7 @@ describe('RequiredFieldsDialog marks a failed required TEXT field (objectui#7126
     expect(screen.getAllByText('Required')).toHaveLength(1);
   });
 
-  it('the whole objectui#7126 population reports through this dialog, on focusable controls', () => {
+  it('the whole objectui#7126 population reports through this dialog, on focusable controls', async () => {
     // The five widgets serve six inline types between them. The dialog renders
     // whatever the target column made required, so all of them are reachable
     // here — and each renders a DIFFERENT element, which is what makes this
@@ -142,16 +142,19 @@ describe('RequiredFieldsDialog marks a failed required TEXT field (objectui#7126
     moveCard();
     expect(onSubmit).not.toHaveBeenCalled();
     expect(screen.getAllByText('Required')).toHaveLength(6);
+    // `date` and `datetime` draw the platform date picker, loaded lazily
+    // (objectui#12664): wait for both text boxes before reading them.
+    await waitFor(() => expect(document.querySelectorAll('[data-slot="date-picker"] input')).toHaveLength(2));
 
     // `boolean` and `toggle` both resolve to `BooleanField`, whose control is a
-    // Radix `<button role="switch">`; the three date/time types each render one
-    // native input. Selected by their OWN element so a mark that landed on
+    // Radix `<button role="switch">`; `time` renders one native input, and
+    // `date` / `datetime` each render the platform picker's text box
+    // (objectui#12664). Selected by their OWN element so a mark that landed on
     // BooleanField's wrapper `div` instead cannot satisfy this.
     const carriers: ReadonlyArray<readonly [string, string]> = [
       ['text', 'input[type="text"]'],
       ['boolean', 'button[role="switch"]'],
-      ['date', 'input[type="date"]'],
-      ['datetime', 'input[type="datetime-local"]'],
+      ['date / datetime', '[data-slot="date-picker"] input'],
       ['time', 'input[type="time"]'],
     ];
 

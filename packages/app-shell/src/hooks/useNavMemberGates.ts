@@ -41,6 +41,12 @@
  * an unchecked member. With no permission provider mounted, `can` answers
  * `true`, exactly as it does for the sidebar.
  *
+ * The `visible` evaluation is the exception to that "unknown reads as yes", and
+ * deliberately (objectui#12700): it goes through `evaluateNavigationVisibility`,
+ * so a predicate the evaluator cannot answer — `current_user.can(...)` where no
+ * permissions payload is bound, as on a frame with no permission provider —
+ * withholds its entry and reports once, instead of drawing it for everyone.
+ *
  * Internal module: not re-exported by the package entry.
  */
 
@@ -49,7 +55,7 @@ import { hasVisibleNavigationItems, type NavigationVisibilityOptions } from '@ob
 import type { NavigationItem } from '@object-ui/types';
 import { usePermissions } from '@object-ui/permissions';
 import { useMetadata } from '../providers/MetadataProvider.js';
-import { useExpressionContext, evaluateVisibility } from '../providers/ExpressionProvider.js';
+import { useExpressionContext, evaluateNavigationVisibility } from '../providers/ExpressionProvider.js';
 import { withoutUnreadableObjectEntries, type ObjectReadCheck } from '../utils/navObjectReadGate.js';
 
 /** The member's gates, as the sidebar applies them. */
@@ -71,7 +77,7 @@ export interface NavMemberGates {
 export function useNavMemberGates(): NavMemberGates {
   const { evaluator } = useExpressionContext();
   const evalVis = useCallback(
-    (expr: string | boolean | undefined) => evaluateVisibility(expr, evaluator),
+    (expr: string | boolean | undefined) => evaluateNavigationVisibility(expr, evaluator),
     [evaluator],
   );
 

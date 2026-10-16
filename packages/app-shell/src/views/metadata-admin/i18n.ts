@@ -2890,7 +2890,6 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.close': 'Close',
   'engine.studio.deselect': 'Clear selection',
   'engine.studio.toggleRail': 'Toggle sidebar',
-  'engine.studio.home': 'Back to home',
   // objectui#12513 — the header's first button and the package switcher's
   // first row: both return to the Studio landing (`/studio`).
   'engine.studio.landingHome': 'Studio home',
@@ -6193,7 +6192,6 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.close': '关闭',
   'engine.studio.deselect': '取消选择',
   'engine.studio.toggleRail': '切换侧栏',
-  'engine.studio.home': '返回主页',
   'engine.studio.landingHome': 'Studio 首页',
   'engine.studio.desktopHint': 'Studio 专为桌面屏幕设计。',
   // Pillar tab labels

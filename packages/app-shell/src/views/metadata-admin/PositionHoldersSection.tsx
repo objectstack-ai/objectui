@@ -14,8 +14,12 @@
  * which names the position BY NAME (`position` stores the machine name). So
  * this section is an ordinary data page over that object — the same reads and
  * writes the generic assignment page makes — and the server decides who may
- * add or remove a holder, under every posture (under a wall a tenant
- * administrator assigns what the operator defined).
+ * add or remove a holder, under every posture: its object CRUD step asks the
+ * caller's grant on `sys_user_position`, and its delegated-administration gate
+ * may refuse a holder of that grant as well. The section reads the first half
+ * (objectui#12082): ADD and REMOVE are offered only where that grant is held,
+ * so a caller who may read the holders but not write them sees the list
+ * alone. Reaching Setup is not that grant — see the gate in the component.
  *
  * The shape follows `AssignedUsersSection` (a permission set's holders):
  * people first, add through `RecordPickerDialog`, remove per row. The server
@@ -28,8 +32,10 @@
 
 import * as React from 'react';
 import { Button } from '@object-ui/components';
+import { resolveAffordance, type SchemaLike } from '@object-ui/core';
 import { RecordPickerDialog } from '@object-ui/fields';
-import { useAdapter } from '@object-ui/react';
+import { usePermissions } from '@object-ui/permissions';
+import { useAdapter, useMetadata } from '@object-ui/react';
 import { AlertCircle, Loader2, Plus, UserCheck, X } from 'lucide-react';
 import { useMetadataLocale } from './i18n.js';
 
@@ -101,6 +107,35 @@ export function PositionHoldersSection({ name }: PositionHoldersSectionProps): R
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  /**
+   * May the caller add or remove a holder? Each is a write of a
+   * {@link USER_POSITION_OBJECT} row, so each reads its row of the
+   * affordance-to-grant map (`resolveAffordance` in `@object-ui/core`), asked
+   * of that object with its schema as the registry serves it: ADD creates a
+   * junction row under the position, the `relatedNew` row a related list's Add
+   * existing reads; REMOVE deletes one, the `relatedRowDelete` row a related
+   * list row's Delete reads.
+   *
+   * Setup's own gate is not this one. The Setup app asks `setup.access`, and
+   * a caller can hold it while the server refuses their write of an assignment
+   * row at its object CRUD step — objectstack's shipped organization
+   * administrator set is such a caller (that repo's pin `organization_admin is
+   * read-only on global RBAC tables to prevent privilege escalation`). So a
+   * closed row withholds its affordance: the Add button and the picker it
+   * feeds, each row's Remove. With no permission provider every grant reads
+   * open, as before.
+   */
+  const { objects } = useMetadata();
+  const perms = usePermissions();
+  const holdingSource = {
+    objectSchema: ((objects ?? []).find((o) => (o as { name?: unknown } | null)?.name === USER_POSITION_OBJECT) ??
+      null) as SchemaLike | null,
+    objectName: USER_POSITION_OBJECT,
+    perms,
+  };
+  const canAdd = resolveAffordance('relatedNew', holdingSource).allowed;
+  const canRemove = resolveAffordance('relatedRowDelete', holdingSource).allowed;
 
   const load = React.useCallback(async () => {
     if (!adapter) return;
@@ -187,19 +222,21 @@ export function PositionHoldersSection({ name }: PositionHoldersSectionProps): R
           <span>{c.title}</span>
           {!loading && <span className="text-xs text-muted-foreground font-normal">{rows.length}</span>}
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={busy || !adapter}
-          onClick={() => {
-            setError(null);
-            setPickerOpen(true);
-          }}
-          className="gap-1 h-8 text-xs"
-        >
-          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-          {c.add}
-        </Button>
+        {canAdd && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={busy || !adapter}
+            onClick={() => {
+              setError(null);
+              setPickerOpen(true);
+            }}
+            className="gap-1 h-8 text-xs"
+          >
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+            {c.add}
+          </Button>
+        )}
       </div>
       <div className="px-4 py-3">
         {error && (
@@ -228,22 +265,24 @@ export function PositionHoldersSection({ name }: PositionHoldersSectionProps): R
                     <div className="text-xs text-muted-foreground truncate">{r.email}</div>
                   )}
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => void removeHolder(r.assignmentId)}
-                  aria-label={c.remove}
-                  title={c.remove}
-                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive shrink-0"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                {canRemove && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void removeHolder(r.assignmentId)}
+                    aria-label={c.remove}
+                    title={c.remove}
+                    className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
               </li>
             ))}
           </ul>
         )}
       </div>
-      {adapter && (
+      {adapter && canAdd && (
         <RecordPickerDialog
           open={pickerOpen}
           onOpenChange={(o: boolean) => setPickerOpen(o)}

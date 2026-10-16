@@ -52,11 +52,13 @@
  *    write affordance with no row yet (`unmapped`, the backlog this census
  *    found, named one by one). A write site added later with no entry turns it
  *    red, naming the site; an entry whose site is gone turns it red too.
- * 8. **The backlog is frozen.** `UNMAPPED_BACKLOG` names every key the census
- *    still grades `unmapped`, and the two must be equal: a NEW `unmapped` entry
- *    turns it red until the site is graded (`mapped`, or the reason it is no
- *    affordance), and a key graded out of the backlog must leave the list. So
- *    the backlog can only shrink.
+ * 8. **The backlog is frozen, and now empty.** `UNMAPPED_BACKLOG` names every
+ *    key the census still grades `unmapped`, and the two must be equal: a NEW
+ *    `unmapped` entry turns it red until the site is graded (`mapped`, or the
+ *    reason it is no affordance), and a key graded out of the backlog must
+ *    leave the list. So the backlog can only shrink, and it has shrunk to
+ *    nothing: the card's done-when, a census with no `unmapped` entry, holds
+ *    for as long as the list stays empty.
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
@@ -610,7 +612,9 @@ type WriteSite =
   | { kind: 'outOfFamily'; why: string }
   /**
    * A write affordance with no map row yet — the backlog this census found,
-   * named one by one. FROZEN: only a key `UNMAPPED_BACKLOG` holds may carry it.
+   * named one by one. FROZEN: only a key `UNMAPPED_BACKLOG` holds may carry it,
+   * and that list is empty, so no entry may. Its helper retired with its last
+   * entry; the kind stays so the freeze below still reads a grade like it.
    */
   | { kind: 'unmapped'; why: string };
 
@@ -618,7 +622,6 @@ const mapped = (rows: ConsoleAffordance[], ...readBy: string[]): WriteSite => ({
 const helper = (name: string): WriteSite => ({ kind: 'helper', helper: name });
 const door = (why: string): WriteSite => ({ kind: 'door', why });
 const outOfFamily = (why: string): WriteSite => ({ kind: 'outOfFamily', why });
-const unmapped = (why: string): WriteSite => ({ kind: 'unmapped', why });
 
 const FIELD_WRITE_GATE = 'packages/plugin-form/src/fieldWriteGate.ts';
 const DETAIL_VIEW = 'packages/plugin-detail/src/DetailView.tsx';
@@ -638,7 +641,11 @@ const MASTER_DETAIL = 'packages/plugin-form/src/MasterDetailForm.tsx';
 const EXCEL_IMPORT_BAR = 'packages/app-shell/src/console/ai/ExcelImportBar.tsx';
 const RELATED_LIST = 'packages/plugin-detail/src/RelatedList.tsx';
 const RELATED_LIST_BLOCK = 'packages/plugin-detail/src/renderers/record-related-list.tsx';
-const ADAPTER = 'a DataSource implementation: it runs the writes its callers hand it';
+// Setup's holders sections: each reads its own rows, so every mount (the
+// permission-set editor, the position editor, the record renderer) is gated.
+const ASSIGNED_USERS = 'packages/app-shell/src/views/metadata-admin/AssignedUsersSection.tsx';
+const POSITION_HOLDERS = 'packages/app-shell/src/views/metadata-admin/PositionHoldersSection.tsx';
+const ADAPTER ='a DataSource implementation: it runs the writes its callers hand it';
 
 /**
  * Every write call site in the console tree, by `FILE :: SYMBOLS :: VERB`.
@@ -680,14 +687,25 @@ const WRITE_SITES: Record<string, WriteSite> = {
     mapped(['recordDelete'], RECORD_PAGE),
   'packages/app-shell/src/views/RelatedRecordActionsBridge.tsx :: RelatedRecordActionsBridge > value > resolve :: delete':
     mapped(['relatedRowDelete'], 'packages/app-shell/src/views/RelatedRecordActionsBridge.tsx'),
+  // Setup's permission-set and position holders (objectui#12082, leg B's last
+  // four). Reach, measured: Setup's own gate is not the boundary. Its Positions
+  // and Permission Sets entries ask nothing beyond the app's `setup.access`,
+  // which objectstack's shipped organization administrator set holds while it
+  // is read-only on both assignment objects (that repo's pin `organization_admin
+  // is read-only on global RBAC tables to prevent privilege escalation`), and
+  // the server asks the object grant of every caller at its CRUD step. Each
+  // section is a people-first list of a junction under its item, so it reads
+  // the related list's rows: a holder added is a junction row created
+  // (`relatedNew`, as Add existing with a link field), a holder removed one
+  // deleted (`relatedRowDelete`), each asked of the assignment object.
   'packages/app-shell/src/views/metadata-admin/AssignedUsersSection.tsx :: AssignedUsersSection > addUsers :: create':
-    unmapped("Setup's permission-set assignment creates sys_user_permission_set rows and reads no grant on that object"),
+    mapped(['relatedNew'], ASSIGNED_USERS),
   'packages/app-shell/src/views/metadata-admin/AssignedUsersSection.tsx :: AssignedUsersSection > removeUser :: delete':
-    unmapped("Setup's permission-set assignment deletes sys_user_permission_set rows and reads no grant on that object"),
+    mapped(['relatedRowDelete'], ASSIGNED_USERS),
   'packages/app-shell/src/views/metadata-admin/PositionHoldersSection.tsx :: PositionHoldersSection > addHolders :: create':
-    unmapped("Setup's position assignment creates sys_user_position rows and reads no grant on that object"),
+    mapped(['relatedNew'], POSITION_HOLDERS),
   'packages/app-shell/src/views/metadata-admin/PositionHoldersSection.tsx :: PositionHoldersSection > removeHolder :: delete':
-    unmapped("Setup's position assignment deletes sys_user_position rows and reads no grant on that object"),
+    mapped(['relatedRowDelete'], POSITION_HOLDERS),
   // ── core ──
   'packages/core/src/actions/TransactionManager.ts :: TransactionManager > executeBatch :: batch':
     door('the action engine\'s transaction executor runs the operations its caller hands it'),
@@ -857,17 +875,12 @@ const WRITE_SITES: Record<string, WriteSite> = {
  *  - a key graded out of `unmapped` (mapped, out of family, or gone from the
  *    tree) is red until it is deleted from this list.
  *
- * ⛔ Never add a key here. The list exists to shrink to nothing: the card's
- * done-when is a census with no `unmapped` entry, and then this list is empty.
+ * ⛔ Never add a key here. The list existed to shrink to nothing: the card's
+ * done-when is a census with no `unmapped` entry, and this list is now empty.
+ * The last four keys, Setup's permission-set and position holders, were graded
+ * `mapped` once their reach was measured (their entries above say how).
  */
-const UNMAPPED_BACKLOG: ReadonlySet<string> = new Set([
-  // Setup's permission-set and position assignment: the readers of the
-  // objectui#7611 epic's C9, graded with it.
-  'packages/app-shell/src/views/metadata-admin/AssignedUsersSection.tsx :: AssignedUsersSection > addUsers :: create',
-  'packages/app-shell/src/views/metadata-admin/AssignedUsersSection.tsx :: AssignedUsersSection > removeUser :: delete',
-  'packages/app-shell/src/views/metadata-admin/PositionHoldersSection.tsx :: PositionHoldersSection > addHolders :: create',
-  'packages/app-shell/src/views/metadata-admin/PositionHoldersSection.tsx :: PositionHoldersSection > removeHolder :: delete',
-]);
+const UNMAPPED_BACKLOG: ReadonlySet<string> = new Set<string>();
 
 const isFn = (e: ts.Node | undefined): boolean => !!e && (ts.isArrowFunction(e) || ts.isFunctionExpression(e));
 

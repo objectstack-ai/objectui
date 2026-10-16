@@ -34,6 +34,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { MetadataCtx } from '@object-ui/react';
 import { MePermissionsProvider, type MePermissionsResponse } from '@object-ui/permissions';
 import { DETAIL_DEFAULT_TRANSLATIONS } from '@object-ui/plugin-detail';
+import { effectiveOperationsArray, resolveEffectiveApiMethods } from '@objectstack/spec/data';
 
 vi.mock('@object-ui/auth', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -170,14 +171,20 @@ function metadataFor(objects: unknown[]) {
 /**
  * Mounts the record page and waits for the comment to show. `perms` null is
  * the no-provider host (a standalone embed), where every grant reads open.
+ * `objects` is the page's `objects` prop, the schemas the feed's gates read.
  */
-async function mount(perms: MePermissionsResponse | null, dataSource = makeDataSource(), registry: unknown[] = REGISTRY.records) {
+async function mount(
+  perms: MePermissionsResponse | null,
+  dataSource = makeDataSource(),
+  registry: unknown[] = REGISTRY.records,
+  objects: unknown[] = OBJECTS,
+) {
   const page = (
     <MemoryRouter initialEntries={[`/app/demo/${OBJECT_NAME}/${RECORD_ID}`]}>
       <MetadataCtx.Provider value={metadataFor(registry)}>
         <RecordDetailView
           dataSource={dataSource}
-          objects={OBJECTS}
+          objects={objects}
           onEdit={() => {}}
           objectNameOverride={OBJECT_NAME}
           recordIdOverride={RECORD_ID}
@@ -281,6 +288,55 @@ describe("the record feed's reaction control reads feedReactionAdd / feedReactio
     fireEvent.click(within(screen.getByRole('listbox')).getByRole('option', { name: '🎉' }));
     await act(async () => {});
     expect(dataSource.create.mock.calls).toEqual([[REACTION, { comment_id: COMMENT_ID, emoji: '🎉' }]]);
+  });
+});
+
+/**
+ * The two feed objects as objectstack registers them (`plugin-audit`): their
+ * policy keys (`managedBy`, `userActions`) and the `enable` block the server
+ * derives the effective operation set from. The other cases pass an `objects`
+ * prop holding neither, so the policy leg there reads the default bucket.
+ */
+const REGISTERED_COMMENT = {
+  name: COMMENT,
+  label: 'Comment',
+  managedBy: 'platform',
+  enable: { trackHistory: true, searchable: true, apiEnabled: true, clone: false },
+};
+const REGISTERED_REACTION = {
+  name: REACTION,
+  label: 'Comment Reaction',
+  managedBy: 'platform',
+  userActions: { edit: false, import: false },
+  enable: {
+    trackHistory: false,
+    searchable: false,
+    apiEnabled: true,
+    apiMethods: ['get', 'list', 'create', 'delete', 'bulk'],
+    feeds: false,
+    activities: false,
+    clone: false,
+  },
+};
+
+describe('against the registered feed schemas in the page objects (objectui#12082)', () => {
+  it("under a full grant the registered policy closes nothing the feed offers: the composer, the reaction add and the take-back are each offered", async () => {
+    // The reaction object's effective operation set, derived by the spec from
+    // its `enable` block (no export grant is held, as in `SHAPE.full`).
+    const reactionOperations = effectiveOperationsArray(
+      resolveEffectiveApiMethods(REGISTERED_REACTION.enable, { userExportAllowed: false }),
+    );
+    const { view, dataSource } = await mount(
+      answer({ [COMMENT]: SHAPE.full, [REACTION]: { ...SHAPE.full, apiOperations: reactionOperations } }),
+      makeDataSource(),
+      [...OBJECTS, REGISTERED_COMMENT, REGISTERED_REACTION],
+      [...OBJECTS, REGISTERED_COMMENT, REGISTERED_REACTION],
+    );
+    expect(composer(view)).not.toBeNull();
+    expect(addReaction(view)).not.toBeNull();
+    fireEvent.click(thumbsChip(view)!);
+    await act(async () => {});
+    expect(dataSource.delete.mock.calls).toEqual([[REACTION, 'r1']]);
   });
 });
 

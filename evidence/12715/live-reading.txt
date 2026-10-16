@@ -1,0 +1,6 @@
+task id 2feBCipR8v2_k25a
+default /apps/showcase_app/showcase_task/record/2feBCipR8v2_k25a {"idle":true,"printRoot":false,"pageType":"record","notFound":false,"sheetText":false,"title":null}
+named-print /apps/showcase_app/showcase_task/record/2feBCipR8v2_k25a/page/showcase_task_print {"idle":true,"printRoot":true,"pageType":"record","notFound":false,"sheetText":true,"title":null}
+named-unknown /apps/showcase_app/showcase_task/record/2feBCipR8v2_k25a/page/no_such_page {"idle":true,"printRoot":false,"pageType":null,"notFound":true,"sheetText":false,"title":"Page Not Found"}
+named-other-object /apps/showcase_app/showcase_task/record/2feBCipR8v2_k25a/page/showcase_project_detail {"idle":true,"printRoot":false,"pageType":null,"notFound":true,"sheetText":false,"title":"Page Not Found"}
+named-non-record /apps/showcase_app/showcase_task/record/2feBCipR8v2_k25a/page/showcase_start_here {"idle":true,"printRoot":false,"pageType":null,"notFound":true,"sheetText":false,"title":"Page Not Found"}

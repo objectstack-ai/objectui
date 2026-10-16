@@ -1,0 +1,16 @@
+// THROWAWAY (objectui#12715 live reading only): a second, non-default record
+// page of showcase_task that declares `print`.
+import { definePage } from '@objectstack/spec/ui';
+
+export const TaskPrintPage = definePage({
+  name: 'showcase_task_print',
+  label: 'Task Sheet',
+  type: 'record',
+  object: 'showcase_task',
+  kind: 'full',
+  print: { paperSize: 'A4', orientation: 'portrait', pageNumbers: true },
+  regions: [
+    { name: 'header', components: [{ type: 'element:text', properties: { content: 'TASK SHEET 12715' } }] },
+    { name: 'main', components: [{ type: 'record:details', properties: { sections: [{ name: 'overview', label: 'Overview', columns: 2, fields: ['title', 'status', 'priority'] }] } }] },
+  ],
+});

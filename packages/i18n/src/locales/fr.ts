@@ -2294,9 +2294,8 @@ const fr = {
       signingIn: "Connexion en cours…",
       ssoHandoff: "Continuer vers {{target}}",
       devAdminHint: {
-        title: "Instance de développement",
-        body: "Connectez-vous avec l'administrateur de développement prédéfini :",
-        dismiss: "Ignorer",
+        title: "Instance de développement locale",
+        signIn: "Se connecter en tant qu'administrateur de développement",
       },
       title: "Connectez-vous à votre compte",
       description: "Entrez votre e-mail et votre mot de passe pour continuer",
@@ -2328,6 +2327,16 @@ const fr = {
       usePasswordSignInText: "Se connecter avec un mot de passe à la place",
       socialButton: "Continuer avec {provider}",
       orText: "ou continuer avec l'e-mail",
+      // objectui#12600 — the console login card's own header, the password
+      // field's reveal toggle, and the footer's legal links.
+      welcomeTitle: "Bon retour",
+      welcomeDescription: "Connectez-vous pour reprendre votre travail",
+      showPasswordText: "Afficher le mot de passe",
+      hidePasswordText: "Masquer le mot de passe",
+      footer: {
+        privacy: "Confidentialité",
+        terms: "Conditions",
+      },
     },
     register: {
       title: "Créer un compte",

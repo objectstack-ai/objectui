@@ -2292,9 +2292,8 @@ const pt = {
       signingIn: "Entrando…",
       ssoHandoff: "Continuar para {{target}}",
       devAdminHint: {
-        title: "Instância de desenvolvimento",
-        body: "Entre com o administrador de desenvolvimento pré-configurado:",
-        dismiss: "Dispensar",
+        title: "Instância de desenvolvimento local",
+        signIn: "Entrar como administrador de desenvolvimento",
       },
       title: "Entre na sua conta",
       description: "Digite seu e-mail e senha para continuar",
@@ -2326,6 +2325,16 @@ const pt = {
       usePasswordSignInText: "Entrar com senha em vez disso",
       socialButton: "Continuar com {provider}",
       orText: "ou continue com e-mail",
+      // objectui#12600 — the console login card's own header, the password
+      // field's reveal toggle, and the footer's legal links.
+      welcomeTitle: "Bem-vindo de volta",
+      welcomeDescription: "Entre para continuar seu trabalho",
+      showPasswordText: "Mostrar senha",
+      hidePasswordText: "Ocultar senha",
+      footer: {
+        privacy: "Privacidade",
+        terms: "Termos",
+      },
     },
     register: {
       title: "Criar uma conta",

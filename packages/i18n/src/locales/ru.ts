@@ -2361,9 +2361,8 @@ const ru = {
       signingIn: "Выполняется вход…",
       ssoHandoff: "Перейти к {{target}}",
       devAdminHint: {
-        title: "Среда разработки",
-        body: "Войдите под предустановленным администратором для разработки:",
-        dismiss: "Закрыть",
+        title: "Локальная среда разработки",
+        signIn: "Войти как администратор разработки",
       },
       title: "Войдите в свой аккаунт",
       description: "Введите электронную почту и пароль для продолжения",
@@ -2395,6 +2394,16 @@ const ru = {
       usePasswordSignInText: "Войти с паролем",
       socialButton: "Продолжить через {provider}",
       orText: "или продолжите с электронной почтой",
+      // objectui#12600 — the console login card's own header, the password
+      // field's reveal toggle, and the footer's legal links.
+      welcomeTitle: "С возвращением",
+      welcomeDescription: "Войдите, чтобы продолжить работу",
+      showPasswordText: "Показать пароль",
+      hidePasswordText: "Скрыть пароль",
+      footer: {
+        privacy: "Конфиденциальность",
+        terms: "Условия",
+      },
     },
     register: {
       title: "Создать аккаунт",

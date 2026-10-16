@@ -2245,9 +2245,8 @@ const ko = {
       signingIn: "로그인하는 중…",
       ssoHandoff: "{{target}}(으)로 계속",
       devAdminHint: {
-        title: "개발 인스턴스",
-        body: "시드된 개발용 관리자 계정으로 로그인하세요:",
-        dismiss: "닫기",
+        title: "로컬 개발 인스턴스",
+        signIn: "개발용 관리자로 로그인",
       },
       title: "계정에 로그인",
       description: "이메일과 비밀번호를 입력하세요",
@@ -2279,6 +2278,16 @@ const ko = {
       usePasswordSignInText: "비밀번호로 로그인하기",
       socialButton: "{provider} 계정으로 계속",
       orText: "또는 이메일로 계속",
+      // objectui#12600 — the console login card's own header, the password
+      // field's reveal toggle, and the footer's legal links.
+      welcomeTitle: "다시 오신 것을 환영합니다",
+      welcomeDescription: "로그인하고 작업을 계속하세요",
+      showPasswordText: "비밀번호 표시",
+      hidePasswordText: "비밀번호 숨기기",
+      footer: {
+        privacy: "개인정보처리방침",
+        terms: "이용약관",
+      },
     },
     register: {
       title: "계정 만들기",

@@ -161,8 +161,11 @@ describe('Access pillar banner — a read-only package saves no draft (objectui#
   it('CONTROL — writable: still says its edits save as a draft', async () => {
     renderAccess(false);
 
+    // objectui#12611 — the sentence is the status chip's tooltip and its
+    // accessible description (the objectui#12303 pattern), no longer a `title`.
     const banner = await screen.findByText(row('engine.studio.access.banner'));
-    expect(banner).toHaveAttribute('title', row('engine.studio.access.bannerTitle'));
+    const chip = banner.closest('[data-testid="studio-item-status"]');
+    expect(chip).toHaveAccessibleDescription(row('engine.studio.access.bannerTitle'));
     expect(screen.queryByTestId('studio-readonly-link')).toBeNull();
   });
 });

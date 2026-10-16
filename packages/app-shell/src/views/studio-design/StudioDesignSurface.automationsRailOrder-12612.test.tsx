@@ -35,6 +35,20 @@ const onObject = (name: string, objectName: string) => ({
 
 const served = vi.hoisted(() => ({ navigation: [] as unknown[] }));
 
+/**
+ * The three flows, as both the list and the per-flow read serve them. The
+ * pillar opens the first flow and reads its definition through `layered`;
+ * that read must serve the same flow (its start node names its object), or
+ * the open flow regroups under "No object" once it lands, and the rail's
+ * order depends on whether the assertion polls before or after that read
+ * (objectui#12611 measured it settling to "none" on main as well).
+ */
+const FLOWS = [
+  onObject('account_flow', 'crm_account'),
+  onObject('contract_flow', 'crm_contract'),
+  onObject('lead_flow', 'crm_lead'),
+];
+
 const mockClient = {
   list: vi.fn(async (type: string) => {
     if (type === 'app') return [{ name: 'sales', label: 'Sales', navigation: served.navigation }];
@@ -45,13 +59,13 @@ const mockClient = {
         { name: 'crm_lead', label: 'Lead' },
       ];
     }
-    if (type === 'flow') {
-      return [onObject('account_flow', 'crm_account'), onObject('contract_flow', 'crm_contract'), onObject('lead_flow', 'crm_lead')];
-    }
+    if (type === 'flow') return FLOWS;
     return [];
   }),
   listDrafts: vi.fn(async () => []),
-  layered: vi.fn(async (_t: string, name: string) => ({ effective: { name } })),
+  layered: vi.fn(async (type: string, name: string) => ({
+    effective: (type === 'flow' && FLOWS.find((f) => f.name === name)) || { name },
+  })),
   getDraft: vi.fn(async () => null),
   get: vi.fn(async () => undefined),
   save: vi.fn(async () => ({})),

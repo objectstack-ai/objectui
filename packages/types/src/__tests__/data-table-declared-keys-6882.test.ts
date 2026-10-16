@@ -157,6 +157,26 @@ type _SixMemberShapeIsRefused = Expect<Equal<Declared<DataTableSchema>['renderCe
 /** Matches `TableColumn.cellClassName` and `BaseSchema.className` — both `string`. */
 type _CellClassNameShape = Expect<Equal<Declared<DataTableSchema>['cellClassName'], string | undefined>>;
 
+/**
+ * objectui#12620 — the third schema-level runtime slot, `rowGroups`: the group
+ * bands `ObjectGrid` hands a grouped table. Pinned as an exact shape, like
+ * `renderCellEditor`: the members are what `data-table.tsx` reads off each
+ * entry, and a member added or dropped there is a different statement.
+ */
+type RowGroupShape = {
+  key: string;
+  band: React.ReactNode;
+  rows: any[];
+  footer?: React.ReactNode;
+  depth?: number;
+};
+type _RowGroupsIsDeclared = Expect<IsDeclaredOn<'rowGroups'>>;
+type _RowGroupsShape = Expect<Equal<Declared<DataTableSchema>['rowGroups'], RowGroupShape[] | undefined>>;
+/** The same shape without `footer` — a CONTROL: it must not read as equal. */
+type RowGroupShapeWithoutFooter = Omit<RowGroupShape, 'footer'>;
+// @ts-expect-error objectui#12620 — the shape without `footer` must NOT read as equal to the declared one; if it did, the pin above could not see a member go.
+type _RowGroupsShapeWithoutFooterIsRefused = Expect<Equal<Declared<DataTableSchema>['rowGroups'], RowGroupShapeWithoutFooter[] | undefined>>;
+
 describe('objectui#6882 — DataTableSchema declares the two keys data-table reads', () => {
   /**
    * The runtime half exists only so the compile-time pins above have a file
@@ -177,6 +197,24 @@ describe('objectui#6882 — DataTableSchema declares the two keys data-table rea
 
     expect(authored.cellClassName).toBe('px-3 py-1');
     expect(typeof authored.renderCellEditor).toBe('function');
+  });
+
+  it('the zod mirror refuses an authored `rowGroups` by name: it is a runtime slot (objectui#12620)', () => {
+    const result = DataTableMirror.safeParse({
+      type: 'data-table',
+      columns: [{ header: 'Name', accessorKey: 'name' }],
+      data: [],
+      rowGroups: [{ key: 'a', band: 'A', rows: [] }],
+    });
+    expect(result.success).toBe(false);
+    const issues = result.success ? [] : result.error.issues;
+    expect(issues.map((issue) => issue.path.join('.'))).toEqual(['rowGroups']);
+    // Control: the same node without the slot parses.
+    expect(DataTableMirror.safeParse({
+      type: 'data-table',
+      columns: [{ header: 'Name', accessorKey: 'name' }],
+      data: [],
+    }).success).toBe(true);
   });
 });
 

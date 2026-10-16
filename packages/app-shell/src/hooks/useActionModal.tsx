@@ -36,6 +36,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DIALOG_VIEWPORT_GUTTER,
   Drawer,
   DrawerContent,
   DrawerDescription,
@@ -97,11 +98,17 @@ export interface ModalDescriptor {
 
 type ActionResult = { success: boolean; reload?: boolean; data?: any; [k: string]: any };
 
+/**
+ * The centred dialog's width per size. The bounded wide sizes, `lg` and `xl`,
+ * read the shared {@link DIALOG_VIEWPORT_GUTTER} so they keep 1rem from the
+ * window edge at every width from `sm` up (objectui#12603); `full` keeps its
+ * own `95vw`, and `sm` / `default` never reach the edge at or above `sm`.
+ */
 const SIZE_CLASS: Record<ModalSize, string> = {
   sm: 'sm:max-w-sm',
   default: 'sm:max-w-lg',
-  lg: 'sm:max-w-2xl',
-  xl: 'sm:max-w-5xl',
+  lg: `sm:max-w-2xl ${DIALOG_VIEWPORT_GUTTER}`,
+  xl: `sm:max-w-5xl ${DIALOG_VIEWPORT_GUTTER}`,
   full: 'sm:max-w-[95vw] sm:w-full',
 };
 const SIDE_SIZE_CLASS: Partial<Record<ModalSize, string>> = {

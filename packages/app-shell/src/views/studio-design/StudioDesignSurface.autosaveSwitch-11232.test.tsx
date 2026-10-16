@@ -483,7 +483,7 @@ describe('Studio surface — a package switch over an unsaved nav edit (objectui
     fireEvent.click(await screen.findByRole('option', { name: new RegExp(`\\(${objectName}\\)$`) }));
   };
   async function switchTo(name: RegExp, confirmed: boolean): Promise<void> {
-    fireEvent.click(await screen.findByTitle('Switch / create package', undefined, SLOW));
+    fireEvent.click(await screen.findByTestId('studio-pkg-chip', undefined, SLOW));
     confirmSpy.mockReturnValueOnce(confirmed);
     fireEvent.click(await screen.findByRole('button', { name }, SLOW));
   }
@@ -565,7 +565,7 @@ describe('Studio surface — a package switch over an unsaved nav edit (objectui
 
     await switchTo(/Beta/, false);
     expect(confirmSpy).toHaveBeenCalledTimes(1);
-    expect(screen.getByTitle('Switch / create package')).toHaveTextContent('Acme');
+    expect(screen.getByTestId('studio-pkg-chip')).toHaveTextContent('Acme');
     expect(addedItems()).toBe(1);
 
     await waitFor(() => expect(server.saves).toHaveLength(1), SLOW);
@@ -726,10 +726,10 @@ describe('a package switch: Automations and Data open nothing of the previous pa
     );
   }
   async function switchToBeta(): Promise<void> {
-    fireEvent.click(await screen.findByTitle('Switch / create package', undefined, SLOW));
+    fireEvent.click(await screen.findByTestId('studio-pkg-chip', undefined, SLOW));
     confirmSpy.mockReturnValue(true);
     fireEvent.click(await screen.findByRole('button', { name: /Beta/ }, SLOW));
-    await waitFor(() => expect(screen.getByTitle('Switch / create package')).toHaveTextContent('Beta'), SLOW);
+    await waitFor(() => expect(screen.getByTestId('studio-pkg-chip')).toHaveTextContent('Beta'), SLOW);
   }
 
   it("Automations: package A's open flow is not kept; an edit saves package B's own flow, in B", async () => {

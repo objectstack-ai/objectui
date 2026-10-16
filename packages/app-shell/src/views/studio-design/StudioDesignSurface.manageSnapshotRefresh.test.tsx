@@ -259,7 +259,7 @@ function LocationProbe() {
   return <div data-testid="location">{useLocation().pathname}</div>;
 }
 
-const trigger = () => screen.getByTitle('Switch / create package');
+const trigger = () => screen.getByTestId('studio-pkg-chip');
 const where = () => screen.getByTestId('location').textContent;
 const sheet = () => screen.queryByTestId('pkg-sheet');
 /** The one shared sonner id — one outage across this surface is one toast. */

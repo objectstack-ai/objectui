@@ -334,10 +334,10 @@ function useActionsFold(canFold: boolean, setup: boolean) {
   const foldedRef = React.useRef(false);
   const unfoldedWidthRef = React.useRef(0);
 
-  // Re-assigned on every render and called through the ref, so neither effect
-  // below keys on a callback's identity (AGENTS.md #10).
+  // Re-assigned after every render and called through the ref, so the
+  // observer below never keys on a callback's identity (AGENTS.md #10).
   const measureRef = React.useRef<() => void>(() => {});
-  measureRef.current = () => {
+  const measure = () => {
     if (!canFold) {
       // A page that stops offering the fold starts unfolded when it offers it
       // again.
@@ -366,7 +366,8 @@ function useActionsFold(canFold: boolean, setup: boolean) {
   };
 
   React.useLayoutEffect(() => {
-    measureRef.current();
+    measureRef.current = measure;
+    measure();
   });
 
   React.useEffect(() => {

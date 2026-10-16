@@ -16,7 +16,7 @@
  * holds. Real `AuthProvider`, real `ActiveOrganizationStorage`; no `vi.mock`.
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { AuthProvider } from '../AuthProvider';
@@ -62,7 +62,9 @@ const authRef: { current: AuthContextValue | null } = { current: null };
  */
 function HeaderProbe() {
   const auth = useAuth();
-  authRef.current = auth;
+  useEffect(() => {
+    authRef.current = auth;
+  });
   return (
     <span data-testid="header-org">
       {auth.user && auth.isMembershipResolved ? (auth.activeOrganization?.name ?? 'NO_ACTIVE_ORGANIZATION') : 'loading'}

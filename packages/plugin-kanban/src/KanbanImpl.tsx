@@ -244,17 +244,23 @@ function SortableCard({ card, onCardClick, conditionalFormatting, objectFields }
           </div>
         )}
         <CardHeader className="p-2 sm:p-4 pb-2">
-          <div className="flex items-start justify-between gap-2">
-            <CardTitle className="min-w-0 text-xs sm:text-sm font-semibold tracking-tight text-foreground group-hover:text-primary transition-colors leading-snug line-clamp-2">{card.title}</CardTitle>
-            {owner && (
+          {/* The title row exists only to place an owner's avatar beside the
+              title (objectui#12619). A card with no owner draws its title
+              exactly as before, with no wrapper, so a board without owners
+              keeps its markup. */}
+          {owner ? (
+            <div className="flex items-start justify-between gap-2">
+              <CardTitle className="min-w-0 text-xs sm:text-sm font-semibold tracking-tight text-foreground group-hover:text-primary transition-colors leading-snug line-clamp-2">{card.title}</CardTitle>
               <Avatar className="size-6 shrink-0" title={owner.name} aria-label={owner.name} data-kanban-card-owner="">
                 {owner.image && <AvatarImage src={owner.image} alt={owner.name} />}
                 <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-medium">
                   {ownerInitials(owner.name)}
                 </AvatarFallback>
               </Avatar>
-            )}
-          </div>
+            </div>
+          ) : (
+            <CardTitle className="text-xs sm:text-sm font-semibold tracking-tight text-foreground group-hover:text-primary transition-colors leading-snug line-clamp-2">{card.title}</CardTitle>
+          )}
           {!(card.cardFieldCells && card.cardFieldCells.length > 0) && (card.cardSubtitle ?? card.description) && (
             <CardDescription className="text-xs text-muted-foreground line-clamp-2 sm:line-clamp-none">
               {card.cardSubtitle ?? card.description}

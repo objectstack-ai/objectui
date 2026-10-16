@@ -296,8 +296,21 @@ describe('objectui#12548 — sectionedGridLayout (the one rule)', () => {
     expect(grid.layOut([f()], 2)[0].colSpan).toBe(6);
     expect(grid.layOut([f()], 3)[0].colSpan).toBe(4);
     expect(grid.layOut([f()], 1)[0].colSpan).toBe(12);
-    // A section that declares nothing fills the grid, as it always did.
+    // A section that declares nothing fills the form's DECLARED grid, as it
+    // always did; with no form `columns` it draws two (objectui#12592).
     expect(grid.layOut([f()], undefined)[0].colSpan).toBe(4);
+  });
+
+  it('an undeclared section draws two when the form declares no columns (objectui#12592)', () => {
+    expect(sectionedGridLayout(undefined, [undefined, undefined]).fieldContainerClass).toBe(
+      CONTAINER_GRID_COLS[2],
+    );
+    const mixed = sectionedGridLayout(undefined, [undefined, 3]);
+    expect(mixed.columns).toBe(3);
+    expect(mixed.fieldContainerClass).toBe(TWELVE_TRACK_GRID_COLS);
+    expect(mixed.layOut([f()], undefined)[0].colSpan).toBe(6);
+    // A declared 1 is drawn as written, never read as undeclared.
+    expect(sectionedGridLayout(undefined, [1, 1]).fieldContainerClass).toBeUndefined();
   });
 
   it("span: 'full' and a wide widget take the row; an authored colSpan keeps winning", () => {

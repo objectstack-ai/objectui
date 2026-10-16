@@ -345,14 +345,60 @@ export function containerGridColsFor(columns: number | undefined): string | unde
  */
 export const TWELVE_TRACK_GRID_COLS = 'grid gap-4 grid-cols-1 @md:grid-cols-12';
 
+/**
+ * How many fields per row a section draws where neither it nor its form
+ * declares `columns` (objectui#12592): two from the container's `@md` tier up,
+ * one below it, so a phone keeps its single column.
+ *
+ * An undeclared density is the renderer's choice by available width, and a
+ * declared one — `1` included — is drawn as written (the section-`columns`
+ * fork on objectui#12521, ruled 6204264665; `@objectstack/spec` dropped
+ * `FormSectionSchema.columns`' `default(1)` in objectstack-ai/objectstack#23740,
+ * so an undeclared section reaches every host). The container query makes
+ * "available width" literal: the same section draws one per row in a narrow
+ * drawer or on a phone, and two in a dialog or a page.
+ */
+export const UNDECLARED_SECTION_COLUMNS = 2;
+
+/** An authored column count clamped into the 1–4 grid keys; anything else reads as not declared. */
+function declaredColumns(n: unknown): number | undefined {
+  return typeof n === 'number' && n > 0 ? Math.min(Math.floor(n), 4) : undefined;
+}
+
+/**
+ * One section's fields per row: its declared `columns` as written, else the
+ * form's declared `columns` (what an undeclared section always filled), else
+ * {@link UNDECLARED_SECTION_COLUMNS}.
+ */
+export function sectionColumnsFor(sectionColumns: unknown, formColumns: unknown): number {
+  return declaredColumns(sectionColumns) ?? declaredColumns(formColumns) ?? UNDECLARED_SECTION_COLUMNS;
+}
+
+/**
+ * The ONE grid width of a sectioned form: the form's declared `columns`, else
+ * the widest section's {@link sectionColumnsFor}.
+ *
+ * @param formColumns    The form's DECLARED `columns` (`undefined` when none).
+ * @param sectionColumns The DECLARED `columns` of every section the form draws.
+ */
+export function sectionedFormColumns(
+  formColumns: unknown,
+  sectionColumns: ReadonlyArray<unknown>,
+): 1 | 2 | 3 | 4 {
+  const widest = sectionColumns.length
+    ? Math.max(...sectionColumns.map((c) => sectionColumnsFor(c, formColumns)))
+    : UNDECLARED_SECTION_COLUMNS;
+  return (declaredColumns(formColumns) ?? widest) as 1 | 2 | 3 | 4;
+}
+
 /** The field grid a sectioned host draws, and how it lays out one section's fields on it. */
 export interface SectionedGridLayout {
   /** The form's grid width in the 1–4 vocabulary (`FormSchema.columns`). */
-  columns: number;
+  columns: 1 | 2 | 3 | 4;
   /** The field container's grid classes; `undefined` for a one-column form. */
   fieldContainerClass: string | undefined;
-  /** Lay one section's fields out at that section's declared `columns`. */
-  layOut: (fields: FormField[], sectionColumns?: number) => FormField[];
+  /** Lay one section's fields out at that section's DECLARED `columns` (`undefined` when none). */
+  layOut: (fields: FormField[], sectionColumns?: unknown) => FormField[];
 }
 
 /**
@@ -382,16 +428,22 @@ export interface SectionedGridLayout {
  * A section's count is clamped to the grid width, as it always was: the form
  * view's own `columns` outranks how a section fills it.
  *
- * @param formColumns    The form's grid width (form `columns`, else the widest section).
- * @param sectionColumns The declared `columns` of every section the form draws.
+ * Every host hands it what the AUTHOR wrote, never a count it resolved itself
+ * (objectui#12592): an undeclared section and an undeclared form resolve here,
+ * through {@link sectionColumnsFor} and {@link sectionedFormColumns}, so a
+ * section that declares nothing draws {@link UNDECLARED_SECTION_COLUMNS} per
+ * row in the dialog and on every page host alike.
+ *
+ * @param formColumns    The form's DECLARED `columns` (`undefined` when none).
+ * @param sectionColumns The DECLARED `columns` of every section the form draws.
  */
 export function sectionedGridLayout(
-  formColumns: number | undefined,
-  sectionColumns: ReadonlyArray<number | undefined>,
+  formColumns: unknown,
+  sectionColumns: ReadonlyArray<unknown>,
 ): SectionedGridLayout {
-  const grid = clampGrid(formColumns);
-  const density = (declared: number | undefined) =>
-    Math.min(clampGrid(declared ?? grid), grid);
+  const grid = sectionedFormColumns(formColumns, sectionColumns);
+  const density = (declared: unknown) =>
+    Math.min(sectionColumnsFor(declared, formColumns), grid);
   const fits = sectionColumns.every((c) => {
     const d = density(c);
     return d === 1 || d === grid;
@@ -402,7 +454,7 @@ export function sectionedGridLayout(
       columns: grid,
       fieldContainerClass: containerGridColsFor(grid),
       layOut: (fields, declared) =>
-        grid > 1 ? applyAutoColSpan(fields, grid, declared) : fields,
+        grid > 1 ? applyAutoColSpan(fields, grid, density(declared)) : fields,
     };
   }
 

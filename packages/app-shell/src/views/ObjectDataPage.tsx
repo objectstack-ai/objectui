@@ -36,8 +36,12 @@ import {
   EmptyTitle,
   EmptyDescription,
   NavigationOverlay,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from '@object-ui/components';
-import { Database, Lock, Plus, Save, X } from 'lucide-react';
+import { Database, Lock, MoreHorizontal, Plus, Save, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatMetadataError } from '@object-ui/data-objectstack';
 import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
@@ -521,6 +525,39 @@ export function ObjectDataPage({ dataSource, objects }: any) {
     );
   }
 
+  // The header's actions, drawn in both of its faces (objectui#12705).
+  // [#5164] `objectCanCreate && createVisible` — the bucket + object-level
+  // `userActions` + objectstack#3391 effective-operations verdict AND the
+  // principal's grant (the map's `listNew` row, objectui#12082), then the
+  // toolbar-scope `visibleWhen` layer on top of it. Greyed, not gone, is the
+  // `disabledWhen` case.
+  const newButton = objectCanCreate && createVisible ? (
+    <Button
+      size="sm"
+      onClick={() => navigate('../new', { relative: 'path' })}
+      disabled={createDisabled}
+      className="shadow-none gap-1.5 h-8 sm:h-9"
+      data-testid="object-data-new-button"
+    >
+      <Plus className="h-4 w-4" />
+      <span className="hidden sm:inline">{t('console.objectView.new')}</span>
+    </Button>
+  ) : null;
+  const saveAsViewButton = isAdmin ? (
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={() => setShowCreateViewDialog(true)}
+      className="shadow-none gap-1.5 h-8 sm:h-9"
+      data-testid="object-data-save-as-view"
+    >
+      <Save className="h-4 w-4" />
+      <span className="hidden sm:inline">
+        {t('console.objectData.saveAsView', { defaultValue: 'Save as view' })}
+      </span>
+    </Button>
+  ) : null;
+
   return (
     <div className="h-full flex flex-col bg-background min-w-0 overflow-hidden" data-testid="object-data-page">
       <div className="hidden sm:block">
@@ -542,36 +579,34 @@ export function ObjectDataPage({ dataSource, objects }: any) {
           icon={React.createElement(getIcon((objectDef as any)?.icon), { className: 'h-4 w-4' })}
           actions={
             <>
-              {/* [#5164] `objectCanCreate && createVisible` — the bucket +
-                  object-level `userActions` + objectstack#3391 effective-operations
-                  verdict AND the principal's grant (the map's `listNew` row,
-                  objectui#12082), then the toolbar-scope `visibleWhen` layer
-                  on top of it. Greyed, not gone, is the `disabledWhen` case. */}
-              {objectCanCreate && createVisible && (
-                <Button
-                  size="sm"
-                  onClick={() => navigate('../new', { relative: 'path' })}
-                  disabled={createDisabled}
-                  className="shadow-none gap-1.5 h-8 sm:h-9"
-                  data-testid="object-data-new-button"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span className="hidden sm:inline">{t('console.objectView.new')}</span>
-                </Button>
-              )}
+              {newButton}
+              {saveAsViewButton}
+            </>
+          }
+          // objectui#12705 — too narrow for both actions and the description:
+          // New stays labelled and Save as view goes into a `⋯`.
+          foldedActions={
+            <>
+              {newButton}
               {isAdmin && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setShowCreateViewDialog(true)}
-                  className="shadow-none gap-1.5 h-8 sm:h-9"
-                  data-testid="object-data-save-as-view"
-                >
-                  <Save className="h-4 w-4" />
-                  <span className="hidden sm:inline">
-                    {t('console.objectData.saveAsView', { defaultValue: 'Save as view' })}
-                  </span>
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="shadow-none h-8 sm:h-9 px-2"
+                      aria-label={t('detail.moreActions', { defaultValue: 'More actions' })}
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => setShowCreateViewDialog(true)} data-testid="object-data-save-as-view-menu-item">
+                      <Save className="h-4 w-4" />
+                      <span>{t('console.objectData.saveAsView', { defaultValue: 'Save as view' })}</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
             </>
           }

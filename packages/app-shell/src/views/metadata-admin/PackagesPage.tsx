@@ -35,6 +35,7 @@ import {
   Inbox,
   Pencil,
   Eye,
+  MoreHorizontal,
 } from 'lucide-react';
 import {
   Button,
@@ -68,6 +69,10 @@ import {
   AlertDialogTitle,
   RadioGroup,
   RadioGroupItem,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from '@object-ui/components';
 import { useMetadataLocale, t, tFormat } from './i18n.js';
 import { useMetadataClient } from './useMetadata.js';
@@ -1108,6 +1113,24 @@ export function PackagesPage() {
     (p) => p.manifest.scope === 'system' || p.manifest.scope === 'cloud',
   ).length;
 
+  // The header's actions, drawn in both of its faces (objectui#12705).
+  const importInput = (
+    <input
+      ref={fileRef}
+      type="file"
+      accept="application/json,.json"
+      className="hidden"
+      onChange={onImportFile}
+    />
+  );
+  const importLabel = importing ? t('engine.packages.importing', locale) : t('engine.packages.import', locale);
+  const newPackageButton = (
+    <Button size="sm" onClick={() => setCreateOpen(true)}>
+      <Plus className="mr-1.5 h-3.5 w-3.5" />
+      {t('engine.packages.new', locale)}
+    </Button>
+  );
+
   return (
     <div>
       {/* The console's one page header (objectui#12606): the posture —
@@ -1120,13 +1143,7 @@ export function PackagesPage() {
         refresh={{ onRefresh: () => void load(), label: t('engine.packages.refresh', locale), busy: loading }}
         actions={
         <>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="application/json,.json"
-            className="hidden"
-            onChange={onImportFile}
-          />
+          {importInput}
           <Button
             variant="outline"
             size="sm"
@@ -1134,12 +1151,30 @@ export function PackagesPage() {
             disabled={importing}
           >
             <FileUp className="mr-1.5 h-3.5 w-3.5" />
-            {importing ? t('engine.packages.importing', locale) : t('engine.packages.import', locale)}
+            {importLabel}
           </Button>
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-1.5 h-3.5 w-3.5" />
-            {t('engine.packages.new', locale)}
-          </Button>
+          {newPackageButton}
+        </>
+        }
+        // objectui#12705 — too narrow for both actions and the description:
+        // New Package stays labelled and Import goes into a `⋯`.
+        foldedActions={
+        <>
+          {importInput}
+          {newPackageButton}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={t('engine.packages.moreActions', locale)}>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => fileRef.current?.click()} disabled={importing}>
+                <FileUp className="h-4 w-4" />
+                <span>{importLabel}</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </>
         }
       />

@@ -71,7 +71,7 @@ import {
   MoreHorizontal,
 } from 'lucide-react';
 
-import { useState, useEffect, useLayoutEffect, useCallback, useRef, type ReactNode, type RefObject } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useRef, type RefObject } from 'react';
 import { useOffline } from '@object-ui/react';
 import { PresenceAvatars, useTenantPresence, type PresenceUser } from '@object-ui/collaboration';
 import { ModeToggle } from './ModeToggle.js';
@@ -157,55 +157,77 @@ function naturalWidth(el: HTMLElement): number {
   return Math.ceil(width);
 }
 
+/** The trail's three layouts, widest first; see `useAppBarCrumbFold`. */
+type CrumbFold = 'full' | 'folded' | 'folded-no-chip';
+
+/** The platform-stage chip, as `PreviewBadge` marks it. */
+const CHIP_SELECTOR = ':scope > [data-testid="platform-preview-badge"]';
+
 /**
- * objectui#12702 — whether the crumbs after the app pill fold. The answer is
- * measured from the left group's own width (a `ResizeObserver` on the group
- * and its children), not from the viewport: the crumbs fold when the group's
- * children at their natural width, every crumb drawn in full, need more than
- * the group has. Each crumb's width is read while it is drawn and kept for
- * the trail it belongs to, so a folded trail knows what unfolding would cost.
- * Until every crumb has been measured (the group not laid out yet, or the
- * crumbs hidden below `sm`) the trail stays unfolded. A trail of one crumb
- * has no middle to fold.
+ * objectui#12702 — how the crumbs after the app pill are laid out. The answer
+ * is measured from the left group's own width (a `ResizeObserver` on the
+ * group and its children), not from the viewport, against the group's
+ * children at their natural width:
+ *   - `full`: every crumb drawn in full, the chip beside the pill, when that
+ *     fits;
+ *   - `folded`: every crumb but the last in one `⋯` menu and the chip after
+ *     the last crumb, when that fits;
+ *   - `folded-no-chip`: folded, and the chip, the trail's last element, not
+ *     drawn, when the folded row with it still does not fit, so the pill and
+ *     the last crumb keep their full text.
+ * Each crumb's width is read while it is drawn and kept for the trail it
+ * belongs to, and the `⋯` and the chip are kept the same way, so a folded
+ * trail knows what unfolding would cost. Until every crumb has been measured
+ * (the group not laid out yet, or the crumbs hidden below `sm`) the trail is
+ * `full`. A trail of one crumb has no middle to fold.
  */
-function useAppBarCrumbFold(anchorRef: RefObject<HTMLElement | null>, labels: readonly string[]): boolean {
-  const [folded, setFolded] = useState(false);
+function useAppBarCrumbFold(anchorRef: RefObject<HTMLElement | null>, labels: readonly string[]): CrumbFold {
+  const [fold, setFold] = useState<CrumbFold>('full');
   const key = JSON.stringify(labels);
   const count = labels.length;
-  const cache = useRef<{ key: string; crumbs: number[] }>({ key: '', crumbs: [] });
+  const cache = useRef<{ key: string; crumbs: number[]; fold: number; chip: number }>({ key: '', crumbs: [], fold: 0, chip: 0 });
 
   useLayoutEffect(() => {
     // The group is the crumbs' parent: the trail draws its crumbs straight
-    // into it, and the last crumb is drawn folded or not.
+    // into it, and the last crumb is drawn in every layout.
     const group = anchorRef.current?.parentElement;
     if (!group || count < 2) {
-      setFolded(false);
+      setFold('full');
       return;
     }
     const measure = () => {
-      if (cache.current.key !== key) cache.current = { key, crumbs: [] };
-      const crumbs = cache.current.crumbs;
+      const c = cache.current;
+      if (c.key !== key) {
+        c.key = key;
+        c.crumbs = [];
+      }
+      const chipEl = group.querySelector<HTMLElement>(CHIP_SELECTOR);
       let others = 0;
       for (const child of Array.from(group.children) as HTMLElement[]) {
-        if (child.dataset.appBarCrumbFold !== undefined) continue;
-        const index = child.dataset.appBarCrumb;
-        if (index !== undefined) {
-          const width = naturalWidth(child);
-          if (width > 0) crumbs[Number(index)] = width;
-          continue;
+        const width = naturalWidth(child);
+        if (child.dataset.appBarCrumbFold !== undefined) {
+          if (width > 0) c.fold = width;
+        } else if (child.dataset.appBarCrumb !== undefined) {
+          if (width > 0) c.crumbs[Number(child.dataset.appBarCrumb)] = width;
+        } else if (child === chipEl) {
+          if (width > 0) c.chip = width;
+        } else {
+          others += width;
         }
-        others += naturalWidth(child);
       }
       let trail = 0;
       for (let i = 0; i < count; i++) {
-        if (!(crumbs[i] > 0)) {
-          setFolded(false);
+        if (!(c.crumbs[i] > 0)) {
+          setFold('full');
           return;
         }
-        trail += crumbs[i];
+        trail += c.crumbs[i];
       }
       const available = group.clientWidth;
-      setFolded(available > 0 && others + trail > available);
+      if (available <= 0 || others + c.chip + trail <= available) setFold('full');
+      // The `⋯` is measured once it is drawn: fold first, then judge the chip.
+      else if (!(c.fold > 0) || others + c.fold + c.crumbs[count - 1] + c.chip <= available) setFold('folded');
+      else setFold('folded-no-chip');
     };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
@@ -213,9 +235,9 @@ function useAppBarCrumbFold(anchorRef: RefObject<HTMLElement | null>, labels: re
     observer.observe(group);
     for (const child of Array.from(group.children)) observer.observe(child);
     return () => observer.disconnect();
-  }, [anchorRef, key, count, folded]);
+  }, [anchorRef, key, count, fold]);
 
-  return folded && count >= 2;
+  return count >= 2 ? fold : 'full';
 }
 
 /**
@@ -224,24 +246,25 @@ function useAppBarCrumbFold(anchorRef: RefObject<HTMLElement | null>, labels: re
  * (objectui#12461), and every crumb is drawn in full. Folded, every crumb but
  * the last collapses into one `⋯` menu that lists them as plain text (the
  * crumbs link nowhere, and neither does the menu), the last crumb keeps its
- * full text, and the chip moves after it. The trail draws from `sm` up; below
- * it the phone bar shows its compact title instead. The trail draws straight
- * into the left group, whose width the fold is measured from.
+ * full text, and the chip moves after it; where even that row does not fit,
+ * the chip is not drawn. The trail draws from `sm` up; below it the phone bar
+ * shows its compact title instead. The trail draws straight into the left
+ * group, whose width the fold is measured from.
  *
  * @internal Module-level for `AppHeader.crumbFold-12702`; not on the package entry.
  */
 export function AppBarCrumbTrail({
   segments,
   moreLabel,
-  chip,
 }: {
   segments: readonly BreadcrumbItemType[];
   moreLabel: string;
-  chip: ReactNode;
 }) {
   const lastRef = useRef<HTMLSpanElement>(null);
-  const fold = useAppBarCrumbFold(lastRef, segments.map((seg) => String(seg.label)));
+  const layout = useAppBarCrumbFold(lastRef, segments.map((seg) => String(seg.label)));
+  const fold = layout !== 'full';
   const lastIndex = segments.length - 1;
+  const chip = <PreviewBadge className="ml-2 hidden sm:inline-flex" />;
   const crumb = (seg: BreadcrumbItemType, i: number) => (
     <span key={i} ref={i === lastIndex ? lastRef : undefined} data-app-bar-crumb={i} className="hidden sm:flex items-center min-w-0">
       <PathSep />
@@ -280,7 +303,7 @@ export function AppBarCrumbTrail({
         </span>
       )}
       {fold ? crumb(segments[lastIndex], lastIndex) : segments.map(crumb)}
-      {fold && chip}
+      {layout === 'folded' && chip}
     </>
   );
 }
@@ -863,11 +886,11 @@ export function AppHeader({
                 the pill and its stage are the bar's left group
                 (objectui#12461; objectui#12201 item 5 had put it beside the
                 search box), and after the crumbs once the row is too narrow
-                for them and they fold (objectui#12702). */}
+                for them and they fold, or not at all where even the folded
+                row has no room for it (objectui#12702). */}
             <AppBarCrumbTrail
               segments={extraSegments}
               moreLabel={t('common.more', { defaultValue: 'More' })}
-              chip={<PreviewBadge className="ml-2 hidden sm:inline-flex" />}
             />
 
             {/* Mobile: current page label or view switcher */}

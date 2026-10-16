@@ -6,7 +6,9 @@
  * together. Now the crumbs fold from the left: where they do not fit the left
  * group, every crumb but the last collapses into one `⋯` menu that lists
  * them, the last crumb keeps its full text, and the PREVIEW chip moves after
- * the crumbs. Where they fit, the bar is as before: the chip beside the pill,
+ * the crumbs; where even that row has no room for the chip, the chip, now the
+ * row's last element, is not drawn, so the pill and the last crumb still keep
+ * their full text. Where they fit, the bar is as before: the chip beside the pill,
  * every crumb in full. The fold is measured from the left group's own width,
  * not the viewport. The search field keeps its width down to 960 px and is
  * the icon below it.
@@ -130,7 +132,6 @@ vi.mock('../../providers/AdapterProvider', () => ({
 }));
 
 import { AppHeader, AppBarCrumbTrail } from '../AppHeader';
-import { PreviewBadge } from '../PreviewBadge';
 import { CommandPaletteProvider } from '../../context/CommandPaletteProvider';
 
 const AUTHOR: MePermissionsResponse = {
@@ -248,11 +249,7 @@ function Harness({ labels }: { labels: string[] }) {
   return (
     <div className="flex items-center min-w-0 flex-1">
       <div data-testid="harness-pill">Setup</div>
-      <AppBarCrumbTrail
-        segments={labels.map((label) => ({ label }))}
-        moreLabel="More"
-        chip={<PreviewBadge className="ml-2 hidden sm:inline-flex" />}
-      />
+      <AppBarCrumbTrail segments={labels.map((label) => ({ label }))} moreLabel="More" />
     </div>
   );
 }
@@ -270,6 +267,9 @@ describe('the crumbs fold from the left when the left group is too narrow (objec
     expect(fold).toHaveAttribute('title', 'More');
     expect(crumbTexts()).toEqual(['Pipeline by Region']);
     expect(follows(document.querySelector('[data-app-bar-crumb]')!, fold)).toBe(true);
+    // The pill (120) + `⋯` (44) + the last crumb (160) + the chip (64) need
+    // 388: no room for the chip, so it is not drawn.
+    expect(screen.queryByTestId(BADGE)).toBeNull();
 
     await userEvent.setup().click(fold);
     const items = await screen.findAllByTestId('app-bar-crumb-fold-item');
@@ -278,12 +278,25 @@ describe('the crumbs fold from the left when the left group is too narrow (objec
     for (const item of items) expect(within(item).queryByRole('link')).toBeNull();
   });
 
-  it('with room, every segment renders in full and there is no `⋯`', () => {
+  it('folded with room for the chip (400 px): the chip after the last crumb', () => {
+    groupWidth = 400;
+    render(<Harness labels={THREE} />);
+
+    expect(crumbTexts()).toEqual(['Pipeline by Region']);
+    const fold = screen.getByTestId(FOLD);
+    const last = document.querySelector('[data-app-bar-crumb]')!;
+    const badge = screen.getByTestId(BADGE);
+    expect(follows(last, fold)).toBe(true);
+    expect(follows(badge, last)).toBe(true);
+  });
+
+  it('with room, every segment renders in full, the chip beside the pill, and there is no `⋯`', () => {
     groupWidth = 900;
     render(<Harness labels={THREE} />);
 
     expect(crumbTexts()).toEqual(THREE);
     expect(screen.queryByTestId(FOLD)).toBeNull();
+    expect(screen.getByTestId('harness-pill').nextElementSibling).toBe(screen.getByTestId(BADGE));
   });
 
   it('the fold follows the group\'s width both ways', () => {
@@ -291,9 +304,17 @@ describe('the crumbs fold from the left when the left group is too narrow (objec
     render(<Harness labels={THREE} />);
     expect(screen.queryByTestId(FOLD)).toBeNull();
 
+    resizeGroup(400);
+    expect(screen.getByTestId(FOLD)).toBeInTheDocument();
+    expect(screen.getByTestId(BADGE)).toBeInTheDocument();
+    expect(crumbTexts()).toEqual(['Pipeline by Region']);
+
     resizeGroup(320);
     expect(screen.getByTestId(FOLD)).toBeInTheDocument();
-    expect(crumbTexts()).toEqual(['Pipeline by Region']);
+    expect(screen.queryByTestId(BADGE)).toBeNull();
+
+    resizeGroup(400);
+    expect(screen.getByTestId(BADGE)).toBeInTheDocument();
 
     resizeGroup(900);
     expect(screen.queryByTestId(FOLD)).toBeNull();
@@ -309,8 +330,10 @@ describe('the crumbs fold from the left when the left group is too narrow (objec
 });
 
 describe('Setup › System › Marketplace through the real AppHeader (objectui#12702)', () => {
-  it('narrow: `⋯` then Marketplace in full, and the PREVIEW chip after the crumbs', async () => {
-    groupWidth = 320;
+  it('narrow (340 px): `⋯` then Marketplace in full, and the PREVIEW chip after the crumbs', async () => {
+    // In full the row needs 352 (pill 120, chip 64, System 64, Marketplace
+    // 104); folded, 332.
+    groupWidth = 340;
     mountAt('/apps/crm/system/marketplace');
 
     const fold = screen.getByTestId(FOLD);
@@ -323,6 +346,16 @@ describe('Setup › System › Marketplace through the real AppHeader (objectui#
     await userEvent.setup().click(fold);
     const items = await screen.findAllByTestId('app-bar-crumb-fold-item');
     expect(items.map((i) => i.textContent)).toEqual(['System']);
+  });
+
+  it('narrower (300 px): the pill, `⋯` and Marketplace in full; no room for the chip', () => {
+    groupWidth = 300;
+    mountAt('/apps/crm/system/marketplace');
+
+    expect(screen.getByTestId('app-switcher-stub')).toHaveTextContent('Setup');
+    expect(screen.getByTestId(FOLD)).toBeInTheDocument();
+    expect(crumbTexts()).toEqual(['Marketplace']);
+    expect(screen.queryByTestId(BADGE)).toBeNull();
   });
 
   it('with room: the chip beside the pill, both crumbs in full, no `⋯`', () => {

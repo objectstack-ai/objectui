@@ -985,6 +985,14 @@ export function BooleanCellRenderer({ value, field }: CellRendererProps): React.
   const fieldName = field?.name?.toLowerCase() || '';
   const isCompletionField = fieldName === 'completed' || fieldName === 'is_completed'
     || fieldName === 'done' || fieldName === 'is_done';
+  // The field's words, ONE value read by both faces below that name the field
+  // (objectui#12584): the off badge's text and the plain checkbox's accessible
+  // name. Its label, else its humanized name. The fallback reads the name as
+  // authored, not the lower-cased matching key above: `humanizeLabel` only
+  // capitalises, so the key turned an unlabelled `IsPreferred` into
+  // `Ispreferred`. A spec-legal name is lowercase snake_case already, so for
+  // it the two spellings are the same string.
+  const fieldLabel = field?.label || humanizeLabel(field?.name || '');
 
   if (isCompletionField) {
     return (
@@ -1004,14 +1012,18 @@ export function BooleanCellRenderer({ value, field }: CellRendererProps): React.
   if (STATUS_FIELD_NAMES.has(fieldName) && value === false) {
     return (
       <Badge variant="destructive" className="text-xs" data-testid="boolean-warning-badge">
-        {t('fields.boolean.offBadge', { label: field?.label || humanizeLabel(fieldName) })}
+        {t('fields.boolean.offBadge', { label: fieldLabel })}
       </Badge>
     );
   }
 
   return (
     <div className="flex items-center justify-start">
-      <Checkbox checked={value} disabled className="pointer-events-none" />
+      {/* Named by the field (objectui#12584): with no name a screen reader
+          announced every cell as a bare "checkbox". The `checkbox` role
+          already announces checked / not checked, so the name carries no
+          state word. */}
+      <Checkbox checked={value} disabled aria-label={fieldLabel} className="pointer-events-none" />
     </div>
   );
 }

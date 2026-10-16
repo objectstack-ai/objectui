@@ -2094,6 +2094,7 @@ const fr = {
       toggleSidebar: "Basculer la barre latérale",
       newChat: "Nouvelle discussion",
       toggleChatsList: "Basculer la liste des discussions",
+      goHome: "Retour à l'accueil",
     },
     commandPalette: {
       title: "Palette de commandes",
@@ -2800,6 +2801,9 @@ const fr = {
       noAppsConfigured: "Aucune application configurée",
       allApps: "Toutes les applications",
       editAppInStudio: "Modifier {{app}} dans Studio",
+      backToHome: "Retour à l'accueil",
+      settings: "Paramètres",
+      productHome: "Accueil {{product}}",
     },
     activityFeed: {
       title: "Activité récente",

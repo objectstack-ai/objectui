@@ -1840,6 +1840,7 @@ const zh = {
       toggleSidebar: '切换侧边栏',
       newChat: '新建对话',
       toggleChatsList: '切换对话列表',
+      goHome: '返回首页',
     },
     commandPalette: {
       title: '命令面板',
@@ -2815,6 +2816,9 @@ const zh = {
       noAppsConfigured: '尚未配置任何应用',
       allApps: '所有应用',
       editAppInStudio: '在 Studio 中编辑 {{app}}',
+      backToHome: '返回首页',
+      settings: '系统设置',
+      productHome: '{{product}} 首页',
     },
     systemNav: {
       systemSettings: '系统设置',

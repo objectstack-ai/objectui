@@ -2048,6 +2048,7 @@ const ko = {
       toggleSidebar: "사이드바 전환",
       newChat: "새 채팅",
       toggleChatsList: "채팅 목록 전환",
+      goHome: "홈으로 돌아가기",
     },
     commandPalette: {
       title: "명령 팔레트",
@@ -2748,6 +2749,9 @@ const ko = {
       noAppsConfigured: "구성된 앱 없음",
       allApps: "모든 앱",
       editAppInStudio: "Studio에서 {{app}} 편집",
+      backToHome: "홈으로 돌아가기",
+      settings: "시스템 설정",
+      productHome: "{{product}} 홈",
     },
     activityFeed: {
       title: "최근 활동",

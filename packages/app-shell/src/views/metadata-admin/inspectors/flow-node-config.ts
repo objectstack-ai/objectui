@@ -29,7 +29,7 @@
  * `configSchema` fields, since built-in nodes share the same field ids.
  */
 
-import type { FlowTriggerKind } from '@objectstack/spec/automation';
+import { FLOW_TRIGGER_KINDS, type FlowTriggerKind } from '@objectstack/spec/automation';
 import type { DeclaredConfigKey } from './json-schema-to-fields.js';
 import type { RegistryValueSource } from '../../../utils/approverValueSources.js';
 import { flowFieldZh, isZhLocale } from '../i18n.js';
@@ -318,6 +318,18 @@ export interface FlowConfigField {
    * screen, flagged as retained, whatever the kind. The host supplies the kind
    * ({@link isFieldVisible}'s fourth argument); a host that supplies none never
    * admits a `flowKind` field on the gate alone.
+   *
+   * A field that carries BOTH gates is admitted when EITHER admits it
+   * (objectui#12672). The spec resolves some kinds from a descriptor's
+   * PRESENCE — `config.timeRelative`, `config.schedule` — and never from the
+   * start node's `triggerType` select, so the two gates answer different
+   * questions: `flowKind` says the engine binds this flow as that kind (the
+   * canonical node stores no `triggerType`, and a select-only gate called its
+   * live sweep "not in effect"), and `showWhen` on the select says the author
+   * asked for that kind before its descriptor exists (a kind-only gate would
+   * hide the very fields that create the descriptor). Neither is a fallback
+   * for the other: a field is inert only when the engine binds another kind
+   * AND the author has not asked for this one.
    */
   flowKind?: readonly FlowTriggerKind[];
   /**
@@ -478,6 +490,13 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       conditionBuilder: true,
       placeholder: 'status == "qualifying" && previous.status != "qualifying"',
       help: 'CEL predicate — the flow runs only when this is true (for time-relative sweeps it gates each matched record). Leave empty to run on every event. On a "created or updated" trigger, `previous == null` selects the create path.',
+      // objectui#12672 — in effect for EVERY kind the spec resolves: the
+      // engine evaluates a start node's `condition` itself, before any node
+      // runs, for every trigger type (the trigger-condition gate in
+      // `@objectstack/service-automation`'s `AutomationEngine`). A sweep or
+      // schedule start node stores no `triggerType`, so the select gate alone
+      // flagged a live predicate "not in effect" there.
+      flowKind: FLOW_TRIGGER_KINDS,
       showWhen: { field: 'triggerType', equals: ['record-after-create', 'record-after-update', 'record-after-write', 'record-before-update', 'record-after-delete', 'schedule', 'time_relative', 'api'] },
     }),
     // Schedule descriptor — author the canonical nested `config.schedule` object
@@ -488,6 +507,11 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     // first edit; reading `.expression` also renders an object-shaped schedule as
     // its cron string instead of "[object Object]". Any sibling keys the runtime
     // set (`type`, `timezone`) are preserved through edits (setAtPath merges).
+    //
+    // objectui#12672 — gated on the flow's RESOLVED kind as well as on the
+    // select: a `type: 'schedule'` flow, or a start node carrying
+    // `config.schedule`, resolves to `schedule` with no `triggerType` stored, and
+    // a sweep's cadence is read beside its `timeRelative` descriptor.
     {
       id: 'schedule.expression',
       path: ['config', 'schedule', 'expression'],
@@ -496,6 +520,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       kind: 'text',
       placeholder: '0 7 * * *',
       help: 'Cron expression — when the flow runs. A time-relative sweep defaults to daily if left empty.',
+      flowKind: ['schedule', 'time_relative'],
       showWhen: { field: 'triggerType', equals: ['schedule', 'time_relative'] },
     },
     // Time-relative trigger (objectstack-ai/objectstack#1874) — a `config.timeRelative` descriptor sweeps an
@@ -503,6 +528,13 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     // whose date field falls in the window. All fields live under the nested
     // `config.timeRelative` block (which the whole group "owns", so it never leaks
     // to Advanced JSON — same pattern as the approval `escalation.*` block).
+    //
+    // objectui#12672 — every field here is gated on the flow's RESOLVED kind
+    // (`flowKind`), because the spec makes a start node a sweep by the
+    // descriptor's presence: the canonical node (the showcase's
+    // `showcase_task_due_reminder`) stores no `triggerType`, and a select-only
+    // gate flagged its live sweep "not in effect". The select gate stays beside
+    // it as the way an author asks for a sweep before the descriptor exists.
     {
       id: 'timeRelative.object',
       path: ['config', 'timeRelative', 'object'],
@@ -510,6 +542,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       kind: 'reference',
       ref: { kind: 'object' },
       help: 'Object whose records are swept each run.',
+      flowKind: ['time_relative'],
       showWhen: { field: 'triggerType', equals: ['time_relative'] },
     },
     {
@@ -519,6 +552,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       kind: 'text',
       placeholder: 'end_date',
       help: 'The date / datetime field compared against today.',
+      flowKind: ['time_relative'],
       showWhen: { field: 'triggerType', equals: ['time_relative'] },
     },
     {
@@ -528,6 +562,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       kind: 'number',
       placeholder: '30',
       help: 'Range mode: fire while the date is within N days of today (negative = overdue lookback). Leave empty if using Offset days.',
+      flowKind: ['time_relative'],
       showWhen: { field: 'triggerType', equals: ['time_relative'] },
     },
     {
@@ -537,6 +572,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       kind: 'numberList',
       placeholder: '60',
       help: 'Offset mode: fire when the date is exactly today + each offset (e.g. 60, 30, 7). Leave empty if using Within days.',
+      flowKind: ['time_relative'],
       showWhen: { field: 'triggerType', equals: ['time_relative'] },
     },
     {
@@ -545,6 +581,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       label: 'Extra filter',
       kind: 'keyValue',
       help: 'Optional filter ANDed with the date window (e.g. status = active).',
+      flowKind: ['time_relative'],
       showWhen: { field: 'triggerType', equals: ['time_relative'] },
     },
     {
@@ -554,6 +591,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       kind: 'number',
       placeholder: '1000',
       help: 'Cap on records launched per sweep (default 1000).',
+      flowKind: ['time_relative'],
       showWhen: { field: 'triggerType', equals: ['time_relative'] },
     },
     // Legacy `criteria` key — rendered only when present so older metadata never
@@ -1638,7 +1676,8 @@ export function configKeyOf(field: FlowConfigField): string | undefined {
  *
  * `flowKind` is the owning flow's trigger kind, for a field gated by
  * {@link FlowConfigField.flowKind} (objectui#11054) — the host resolves it once
- * from the whole draft. It is read by no other field.
+ * from the whole draft, for the start node the spec resolves it from. It is
+ * read by no other field.
  */
 export function isFieldVisible(
   field: FlowConfigField,
@@ -1709,9 +1748,11 @@ function hasStoredValue(
  * would let the two drift, and the drift would be silent: the affordance would
  * quietly stop matching the fields it is supposed to annotate.
  *
- * A `flowKind` gate (objectui#11054) is one more controller, ANDed with any
- * `showWhen`: the flow's resolved trigger kind must be one the field names. No
- * kind supplied ⇒ the gate does not admit.
+ * A `flowKind` gate (objectui#11054) is one more controller: the flow's
+ * resolved trigger kind must be one the field names, and no kind supplied ⇒
+ * that gate does not admit. On a field that also carries a `showWhen`, EITHER
+ * gate admits it (objectui#12672 — {@link FlowConfigField.flowKind} says why
+ * the two are alternatives, not a conjunction).
  */
 function controllerAdmits(
   field: FlowConfigField,
@@ -1719,7 +1760,10 @@ function controllerAdmits(
   fields: FlowConfigField[],
   flowKind?: FlowTriggerKind,
 ): boolean {
-  if (field.flowKind && (flowKind === undefined || !field.flowKind.includes(flowKind))) return false;
+  if (field.flowKind) {
+    const kindAdmits = flowKind !== undefined && field.flowKind.includes(flowKind);
+    if (kindAdmits || !field.showWhen) return kindAdmits;
+  }
   if (!field.showWhen) return true;
   const controller = fields.find((f) => f.id === field.showWhen!.field);
   if (!controller) return false;
@@ -1764,7 +1808,11 @@ export type InactiveRetainedKind = 'controller-off' | 'no-controller';
  * control by hand.
  *
  * A field gated by `flowKind` alone reports `'controller-off'`: its controller
- * is the flow's trigger, which the author can switch back.
+ * is the flow's trigger, which the author can switch back. A field gated by
+ * both reports here only when neither admits it (objectui#12672): a stored
+ * sweep field is "not in effect" exactly when the spec binds the flow as
+ * another kind — a `record-*` trigger outranks a leftover descriptor — and
+ * the select does not ask for a sweep either.
  */
 export function inactiveRetainedKind(
   field: FlowConfigField,
@@ -1777,6 +1825,37 @@ export function inactiveRetainedKind(
   if (controllerAdmits(field, node, fields, flowKind)) return null;
   if (!field.showWhen) return 'controller-off';
   return fields.some((f) => f.id === field.showWhen!.field) ? 'controller-off' : 'no-controller';
+}
+
+/**
+ * What the start node's Trigger select READS while the node stores no
+ * `triggerType` (objectui#12672): the option naming the flow's resolved trigger
+ * kind, or `undefined`.
+ *
+ * The spec resolves a kind from a descriptor's presence (`config.timeRelative`,
+ * `config.schedule`) or from the flow's own `type`, and the canonical shape of
+ * such a start node stores no `triggerType` — so the select drew `—` over a
+ * trigger the engine binds. Three kinds are spelled as the select's own option
+ * values (`time_relative`, `schedule`, `api`). The fourth, `record_change`,
+ * resolves only FROM a stored `record-*` token, so a node that stores none never
+ * resolves to it; and a kind the select offers no option for reads nothing
+ * rather than a guessed neighbour.
+ *
+ * A READING, never a value. The host shows it in the select's placeholder slot,
+ * `FlowNodeConfigField`'s "show, do not write" channel for what the runtime
+ * applies while the node stores nothing (objectui#6830), and nothing writes it:
+ * the stored flow stays exactly as authored until the author picks an option,
+ * which writes as any pick does. The gates never read it either — they read
+ * the kind itself through {@link FlowConfigField.flowKind}.
+ */
+export function unsetTriggerReading(
+  field: FlowConfigField,
+  node: Record<string, unknown> | null | undefined,
+  flowKind?: FlowTriggerKind,
+): string | undefined {
+  if (field.id !== 'triggerType' || field.kind !== 'select' || node?.type !== 'start') return undefined;
+  if (flowKind === undefined || !isUnsetFieldValue(getFieldValue(node, field))) return undefined;
+  return field.options?.some((o) => o.value === flowKind) ? flowKind : undefined;
 }
 
 /**

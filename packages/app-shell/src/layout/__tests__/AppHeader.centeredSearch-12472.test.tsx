@@ -1,7 +1,7 @@
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * objectui#12472 — inside an app, from `lg` up, the top bar is three zones:
+ * objectui#12472 — inside an app, from 960 px up, the top bar is three zones:
  * the left group, the search trigger in the middle, and the utility cluster on
  * the right. The two side zones grow from the same zero basis, so the middle
  * zone sits at the bar's center whatever either side holds.
@@ -12,10 +12,10 @@
  *   - the desktop search trigger is neither inside the left group nor inside
  *     the utility cluster: it is the root's middle child, between them;
  *   - the side zones' sizing: the left zone is `flex-1` (a zero basis) with
- *     `min-w-0`, and the cluster is `lg:flex-1` too, so from `lg` the two
+ *     `min-w-0`, and the cluster is `min-[960px]:flex-1` too, so from 960 px the two
  *     split the bar's free space evenly; the cluster keeps `shrink-0` below
- *     `lg` and never shrinks below its content (`lg:min-w-max`), and the
- *     middle zone shows only from `lg`;
+ *     960 px and never shrinks below its content (`min-[960px]:min-w-max`), and the
+ *     middle zone shows only from 960 px;
  *   - the trigger itself is unchanged: its width classes, `aria-label`,
  *     `aria-keyshortcuts` and `data-testid` (that it opens the palette is
  *     `AppHeader.searchTriggerNeedsPalette-11912`'s pin, under a real router);
@@ -23,9 +23,9 @@
  *     label up to the left zone carries `min-w-0`, so the `truncate` label is
  *     what gives way, not the zone's edge;
  *   - the cluster's search group holds only the icon button and leaves at
- *     `lg`, and the cluster drops the divider the group after it would draw.
+ *     960 px, and the cluster drops the divider the group after it would draw.
  *
- * CONTROLS: below `lg` the search is the icon button in the cluster, in its
+ * CONTROLS: below 960 px the search is the icon button in the cluster, in its
  * divider group, before the Edit app group; a `system/*` route inside an app
  * centers the search like an object route, its crumbs still in the left group
  * (the seat's answer on objectui#12472); the `studio` variant and a bar with
@@ -201,7 +201,7 @@ beforeEach(() => {
   );
 });
 
-describe('inside an app, from `lg` up, the search is the bar\'s middle zone (objectui#12472)', () => {
+describe('inside an app, from 960 px up, the search is the bar\'s middle zone (objectui#12472)', () => {
   it('the desktop trigger is neither in the left group nor in the utility cluster', () => {
     mount();
 
@@ -221,23 +221,23 @@ describe('inside an app, from `lg` up, the search is the bar\'s middle zone (obj
     expect(root.lastElementChild).toBe(cluster);
   });
 
-  it('the two side zones grow from the same zero basis; the middle zone shows only from `lg`', () => {
+  it('the two side zones grow from the same zero basis; the middle zone shows only from 960 px', () => {
     mount();
 
     const root = rootOf();
     expect(classesOf(root)).toEqual(expect.arrayContaining(['flex', 'items-center', 'justify-between', 'w-full', 'h-full']));
 
     // `flex-1` is `flex: 1 1 0%` at every width; the cluster takes the same
-    // sizing from `lg`, the only widths the middle zone is drawn at.
+    // sizing from 960 px, the only widths the middle zone is drawn at.
     expect(classesOf(leftOf())).toEqual(expect.arrayContaining(['flex-1', 'min-w-0']));
     const cluster = classesOf(clusterOf());
-    expect(cluster).toEqual(expect.arrayContaining(['lg:flex-1', 'lg:justify-end', 'lg:min-w-max']));
-    // Below `lg` the cluster sizes to its content, as before.
+    expect(cluster).toEqual(expect.arrayContaining(['min-[960px]:flex-1', 'min-[960px]:justify-end', 'min-[960px]:min-w-max']));
+    // Below 960 px the cluster sizes to its content, as before.
     expect(cluster).toContain('shrink-0');
     expect(cluster.filter((c) => /^(sm|md):flex-1$/.test(c) || c === 'flex-1')).toEqual([]);
 
     const middle = classesOf(root.children[1]);
-    expect(middle).toEqual(expect.arrayContaining(['hidden', 'lg:flex', 'shrink-0']));
+    expect(middle).toEqual(expect.arrayContaining(['hidden', 'min-[960px]:flex', 'shrink-0']));
   });
 
   it('the trigger itself is unchanged', () => {
@@ -248,7 +248,7 @@ describe('inside an app, from `lg` up, the search is the bar\'s middle zone (obj
     // state is URL-addressed, and this file stubs the router.
     const trigger = screen.getByTestId(DESKTOP);
     expect(trigger.tagName).toBe('BUTTON');
-    expect(classesOf(trigger)).toEqual(expect.arrayContaining(['hidden', 'lg:flex', 'w-48', 'xl:w-64']));
+    expect(classesOf(trigger)).toEqual(expect.arrayContaining(['hidden', 'min-[960px]:flex', 'w-48', 'xl:w-64']));
     expect(trigger).toHaveAttribute('aria-label', 'Search…');
     expect(trigger).toHaveAttribute('aria-keyshortcuts', 'Meta+K Control+K');
   });
@@ -271,35 +271,35 @@ describe('inside an app, from `lg` up, the search is the bar\'s middle zone (obj
     for (const box of chain) expect(classesOf(box)).toContain('min-w-0');
   });
 
-  it('the cluster\'s search group holds only the icon button and leaves at `lg`, with no divider after it', async () => {
+  it('the cluster\'s search group holds only the icon button and leaves at 960 px, with no divider after it', async () => {
     mount();
 
     const mobile = screen.getByTestId(MOBILE);
     const group = mobile.parentElement!;
     expect(group).toHaveAttribute('data-topbar-group');
     expect(group).toHaveAttribute('data-topbar-search');
-    expect(classesOf(group)).toContain('lg:hidden');
+    expect(classesOf(group)).toContain('min-[960px]:hidden');
     expect(group.children).toHaveLength(1);
 
-    // The group after it is the Edit app group; the cluster's `lg:` rules,
+    // The group after it is the Edit app group; the cluster's `min-[960px]:` rules,
     // keyed on `data-topbar-search`, drop the divider it would draw.
     expect(group.nextElementSibling).toContainElement(await screen.findByTestId('app-design-in-studio-button'));
     expect(classesOf(clusterOf())).toEqual(
       expect.arrayContaining([
-        'lg:[&>[data-topbar-search]+[data-topbar-group]]:border-l-0',
-        'lg:[&>[data-topbar-search]+[data-topbar-group]]:pl-0',
+        'min-[960px]:[&>[data-topbar-search]+[data-topbar-group]]:border-l-0',
+        'min-[960px]:[&>[data-topbar-search]+[data-topbar-group]]:pl-0',
       ]),
     );
   });
 });
 
 describe('CONTROLS (objectui#12472)', () => {
-  it('below `lg` the search is the icon button in the cluster, in its divider group, before Edit app', () => {
+  it('below 960 px the search is the icon button in the cluster, in its divider group, before Edit app', () => {
     mount();
 
     const mobile = screen.getByTestId(MOBILE);
     expect(clusterOf()).toContainElement(mobile);
-    expect(classesOf(mobile)).toEqual(expect.arrayContaining(['lg:hidden', 'h-8', 'w-8']));
+    expect(classesOf(mobile)).toEqual(expect.arrayContaining(['min-[960px]:hidden', 'h-8', 'w-8']));
     const group = mobile.parentElement!;
     expect(group.parentElement).toBe(clusterOf());
     expect(group.nextElementSibling).toHaveAttribute('data-topbar-group');
@@ -316,8 +316,8 @@ describe('CONTROLS (objectui#12472)', () => {
     expect(root.children[1]).toContainElement(trigger);
     expect(left).not.toContainElement(trigger);
     expect(cluster).not.toContainElement(trigger);
-    expect(classesOf(cluster)).toEqual(expect.arrayContaining(['lg:flex-1', 'lg:justify-end', 'lg:min-w-max']));
-    expect(classesOf(screen.getByTestId(MOBILE).parentElement!)).toContain('lg:hidden');
+    expect(classesOf(cluster)).toEqual(expect.arrayContaining(['min-[960px]:flex-1', 'min-[960px]:justify-end', 'min-[960px]:min-w-max']));
+    expect(classesOf(screen.getByTestId(MOBILE).parentElement!)).toContain('min-[960px]:hidden');
 
     // The crumbs are the left group's, as before: what they read is
     // `AppHeader.systemBreadcrumbs-10969`'s and `AppHeader.appBarLeftGroup-12461`'s pin.
@@ -334,7 +334,7 @@ describe('CONTROLS (objectui#12472)', () => {
     const trigger = screen.getByTestId(DESKTOP);
     expect(rootOf().children).toHaveLength(2);
     expect(clusterOf()).toContainElement(trigger);
-    expect(classesOf(clusterOf())).not.toContain('lg:flex-1');
+    expect(classesOf(clusterOf())).not.toContain('min-[960px]:flex-1');
     expect(document.querySelector('[data-topbar-zone]')).toBeNull();
   });
 

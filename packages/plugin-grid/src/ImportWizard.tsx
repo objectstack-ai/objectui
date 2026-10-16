@@ -405,6 +405,30 @@ export interface ImportWizardProps {
    *  credentials a domain-specific import endpoint returned in
    *  `result.serverResult` (framework#2782). */
   renderResultExtra?: (result: ImportResult) => React.ReactNode;
+  /** The write modes the target's import door accepts, in the order offered.
+   *  Left out, all three (`insert`, `update`, `upsert`). A host that writes
+   *  through a narrower door passes that door's set (the identity import
+   *  accepts `insert` and `upsert` only — objectui#12697), so the wizard never
+   *  offers a mode the write would refuse: the select lists only these, the
+   *  start mode is `insert` when offered (else the first), and a saved mapping
+   *  whose mode is not offered is listed disabled and cannot be picked. An
+   *  empty list is a host error and throws. */
+  writeModes?: readonly ImportWriteMode[];
+}
+
+/** Every write mode the generic import door accepts — the wizard's offer when
+ *  the host names no narrower set (`ImportWizardProps.writeModes`). */
+const ALL_WRITE_MODES: readonly ImportWriteMode[] = ['insert', 'update', 'upsert'];
+
+/** A write mode's label. One literal key per mode, so the language-pack key
+ *  census sees every member (no template key). Read by the write-mode select
+ *  and by the saved-mapping selector's refused-mode note. */
+function writeModeLabel(t: (key: string) => string, mode: ImportWriteMode): string {
+  switch (mode) {
+    case 'insert': return t('grid.import.writeModeOpt.insert');
+    case 'update': return t('grid.import.writeModeOpt.update');
+    case 'upsert': return t('grid.import.writeModeOpt.upsert');
+  }
 }
 
 export interface ImportResult {
@@ -1358,7 +1382,10 @@ const SavedMappingBar: React.FC<{
   activeName: string | null;
   onSelect: (name: string) => void;
   onClear: () => void;
-}> = ({ mappings, activeName, onSelect, onClear }) => {
+  /** The write modes the target accepts; a mapping writing in any other mode
+   *  is listed disabled, its mode named, so it cannot be picked. */
+  writeModes: readonly ImportWriteMode[];
+}> = ({ mappings, activeName, onSelect, onClear, writeModes }) => {
   const { t } = useImportTranslation();
   if (mappings.length === 0) return null;
   return (
@@ -1374,9 +1401,21 @@ const SavedMappingBar: React.FC<{
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="__none__">{t('grid.import.manualMapping')}</SelectItem>
-          {mappings.map((m) => (
-            <SelectItem key={m.name} value={m.name}>{m.label || m.name}</SelectItem>
-          ))}
+          {mappings.map((m) => {
+            const mode = m.mode ?? 'insert';
+            const refused = !writeModes.includes(mode);
+            return (
+              <SelectItem
+                key={m.name}
+                value={m.name}
+                disabled={refused}
+                data-testid={`import-saved-mapping-option-${m.name}`}
+              >
+                {m.label || m.name}
+                {refused && ` (${writeModeLabel(t, mode)})`}
+              </SelectItem>
+            );
+          })}
         </SelectContent>
       </Select>
     </div>
@@ -1439,6 +1478,7 @@ const StepMapping: React.FC<{
   activeMapping: SavedMapping | null;
   onSelectSavedMapping: (name: string) => void;
   onClearSavedMapping: () => void;
+  writeModes: readonly ImportWriteMode[];
   /** Required fields with no column mapped — surfaced as an inline hint so the
    *  disabled Next button always explains itself. */
   missingRequired: ImportWizardProps['fields'];
@@ -1446,7 +1486,7 @@ const StepMapping: React.FC<{
    *  description (objectui#12303), so the reason is the control's, not only
    *  text that happens to sit above it. */
   missingRequiredHintId: string;
-}> = ({ headers, fields, mapping, onMappingChange, inferredTypes, suggestions, templates, selectedTemplateId, onSelectTemplate, onSaveTemplate, onDeleteTemplate, savedMappings, activeMapping, onSelectSavedMapping, onClearSavedMapping, missingRequired, missingRequiredHintId }) => {
+}> = ({ headers, fields, mapping, onMappingChange, inferredTypes, suggestions, templates, selectedTemplateId, onSelectTemplate, onSaveTemplate, onDeleteTemplate, savedMappings, activeMapping, onSelectSavedMapping, onClearSavedMapping, writeModes, missingRequired, missingRequiredHintId }) => {
   const { t } = useImportTranslation();
   const usedFields = useMemo(() => new Set(Object.values(mapping)), [mapping]);
   const suggestionByCol = useMemo(() => {
@@ -1473,6 +1513,7 @@ const StepMapping: React.FC<{
         activeName={activeMapping?.name ?? null}
         onSelect={onSelectSavedMapping}
         onClear={onClearSavedMapping}
+        writeModes={writeModes}
       />
       {activeMapping ? (
         <SavedMappingSummary mapping={activeMapping} />
@@ -1750,6 +1791,8 @@ const ImportOptions: React.FC<{
   mapping: Record<number, string>;
   writeMode: ImportWriteMode;
   onWriteMode: (m: ImportWriteMode) => void;
+  /** The write modes the select offers (`ImportWizardProps.writeModes`). */
+  writeModes: readonly ImportWriteMode[];
   matchFields: string[];
   onToggleMatchField: (name: string) => void;
   createMissingOptions: boolean;
@@ -1764,7 +1807,7 @@ const ImportOptions: React.FC<{
   backgroundImport: boolean;
   onBackgroundImport: (v: boolean) => void;
 }> = ({
-  fields, mapping, writeMode, onWriteMode, matchFields, onToggleMatchField,
+  fields, mapping, writeMode, onWriteMode, writeModes, matchFields, onToggleMatchField,
   createMissingOptions, onCreateMissingOptions, runAutomations, onRunAutomations,
   treatAsHistorical, onTreatAsHistorical,
   skipBlankMatchKey, onSkipBlankMatchKey,
@@ -1787,9 +1830,9 @@ const ImportOptions: React.FC<{
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="insert">{t('grid.import.writeModeOpt.insert')}</SelectItem>
-              <SelectItem value="update">{t('grid.import.writeModeOpt.update')}</SelectItem>
-              <SelectItem value="upsert">{t('grid.import.writeModeOpt.upsert')}</SelectItem>
+              {writeModes.map((m) => (
+                <SelectItem key={m} value={m}>{writeModeLabel(t, m)}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -2029,7 +2072,14 @@ const ImportHistoryPanel: React.FC<{
 export const ImportWizard: React.FC<ImportWizardProps> = ({
   objectName, objectLabel, fields, dataSource, onComplete, onCancel, open, onOpenChange, onErrorMode = 'skip',
   templateStorageKey, templateStorage, savedMappings, initialFile, extraOptionsContent, renderResultExtra,
+  writeModes = ALL_WRITE_MODES,
 }) => {
+  if (writeModes.length === 0) {
+    throw new Error('ImportWizard: `writeModes` must name at least one write mode the target accepts.');
+  }
+  // The mode the wizard starts in and returns to on reset: `insert` when the
+  // target accepts it, else the first mode the host offers.
+  const defaultWriteMode: ImportWriteMode = writeModes.includes('insert') ? 'insert' : writeModes[0];
   const { t } = useImportTranslation();
   const [step, setStep] = useState<WizardStep>('upload');
   const [headers, setHeaders] = useState<string[]>([]);
@@ -2061,7 +2111,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   const [validating, setValidating] = useState(false);
   const [dryRunResult, setDryRunResult] = useState<ImportRecordsResult | null>(null);
   // Write-mode + coercion options (drive the server-side /import request).
-  const [writeMode, setWriteMode] = useState<ImportWriteMode>('insert');
+  const [writeMode, setWriteMode] = useState<ImportWriteMode>(defaultWriteMode);
   const [matchFields, setMatchFields] = useState<string[]>([]);
   const [createMissingOptions, setCreateMissingOptions] = useState(false);
   // Default ON: automations always ran on import before framework#2922 wired
@@ -2181,22 +2231,26 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   const handleSelectSavedMapping = useCallback((name: string) => {
     const m = availableMappings.find((sm) => sm.name === name);
     if (!m) return;
+    // A mapping writing in a mode the target refuses is never applied: the
+    // selector lists it disabled with its mode named (objectui#12697), and no
+    // path swaps its mode for another one behind the user's back.
+    if (!writeModes.includes(m.mode ?? 'insert')) return;
     setMappingName(name);
     setSelectedTemplateId(null);
     setMapping(savedMappingToDisplayIndexMap(m, headers));
     if (m.mode === 'update' || m.mode === 'upsert') setWriteMode(m.mode);
     if (Array.isArray(m.upsertKey)) setMatchFields(m.upsertKey.filter((f) => typeof f === 'string'));
     setDryRunResult(null);
-  }, [availableMappings, headers]);
+  }, [availableMappings, headers, writeModes]);
 
   // Return to hand-mapping: clear the named mapping and re-run auto-mapping.
   const handleClearSavedMapping = useCallback(() => {
     setMappingName(null);
-    setWriteMode('insert');
+    setWriteMode(defaultWriteMode);
     setMatchFields([]);
     setMapping(autoMapColumns(headers, fields, rows));
     setDryRunResult(null);
-  }, [headers, fields, rows]);
+  }, [headers, fields, rows, defaultWriteMode]);
 
   const handleSelectTemplate = useCallback((id: string) => {
     const tpl = templates.find((t) => t.id === id);
@@ -2740,12 +2794,12 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
     setFinishedJob(null); setUndoError(null);
     setStep('upload'); setHeaders([]); setRows([]); setMapping({}); setProgress(0); setResult(null);
     setCorrections({}); setSelectedTemplateId(null); setMappingName(null);
-    setWriteMode('insert'); setMatchFields([]);
+    setWriteMode(defaultWriteMode); setMatchFields([]);
     setCreateMissingOptions(false); setRunAutomations(true); setSkipBlankMatchKey(false);
     setJobId(null); setAsyncCounts(null);
     setValidating(false); setDryRunResult(null);
     setShowHistory(false);
-  }, []);
+  }, [defaultWriteMode]);
 
   /** Download a CSV of just the failed rows (original values + `_error`). */
   const handleDownloadFailed = useCallback(() => {
@@ -2848,6 +2902,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
                 activeMapping={activeMapping}
                 onSelectSavedMapping={handleSelectSavedMapping}
                 onClearSavedMapping={handleClearSavedMapping}
+                writeModes={writeModes}
                 missingRequired={missingRequired}
                 missingRequiredHintId={missingRequiredHintId}
               />
@@ -2865,6 +2920,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
                   mapping={mapping}
                   writeMode={writeMode}
                   onWriteMode={setWriteMode}
+                  writeModes={writeModes}
                   matchFields={matchFields}
                   onToggleMatchField={toggleMatchField}
                   createMissingOptions={createMissingOptions}

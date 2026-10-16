@@ -18,6 +18,7 @@ export {
   type RecentItemType,
   type RecentNamedItem,
   type RecentTextItem,
+  type RecentViewItem,
 } from '../context/RecentItemsProvider.js';
 // ⛔ Not `useRecentItemLabel`: it reads the metadata cache, so re-exporting it
 // here would make every module that only wants the list — `RecordDetailView`

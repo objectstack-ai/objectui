@@ -2725,6 +2725,7 @@ const ko = {
         page: "페이지",
         report: "보고서",
         package: "패키지",
+        view: "목록 보기",
         record: "레코드",
         metadata: "메타데이터",
       },

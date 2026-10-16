@@ -2780,6 +2780,7 @@ const es = {
         page: "Página",
         report: "Informe",
         package: "Paquete",
+        view: "Vista de lista",
         record: "Registro",
         metadata: "Metadatos",
       },

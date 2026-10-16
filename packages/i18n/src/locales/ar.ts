@@ -2946,6 +2946,7 @@ const ar = {
         page: "صفحة",
         report: "تقرير",
         package: "حزمة",
+        view: "عرض القائمة",
         record: "سجل",
         metadata: "البيانات الوصفية",
       },

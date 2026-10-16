@@ -3255,6 +3255,7 @@ const en = {
         page: 'Page',
         report: 'Report',
         package: 'Package',
+        view: 'List view',
         record: 'Record',
         metadata: 'Metadata',
       },

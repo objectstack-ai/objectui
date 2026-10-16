@@ -2777,6 +2777,7 @@ const fr = {
         page: "Page",
         report: "Rapport",
         package: "Package",
+        view: "Vue de liste",
         record: "Enregistrement",
         metadata: "Métadonnées",
       },

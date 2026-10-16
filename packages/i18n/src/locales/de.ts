@@ -2726,6 +2726,7 @@ const de = {
         page: "Seite",
         report: "Bericht",
         package: "Paket",
+        view: "Listenansicht",
         record: "Datensatz",
         metadata: "Metadaten",
       },

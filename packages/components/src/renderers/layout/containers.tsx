@@ -1575,13 +1575,10 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     schema?.recordChrome === false || schema?.properties?.recordChrome === false;
   // The favorite star is a control that stores something, so it draws only
   // where the host wires a toggle: the `RecordContext` carries
-  // `onToggleFavorite` (objectui#12427). Without one, the chip used to draw a
-  // star that flipped on its own local state and stored nothing. The authored
-  // `showStar: false` still hides it on a host that does wire one.
-  const showStar =
-    !!ctx?.onToggleFavorite &&
-    schema?.showStar !== false &&
-    schema?.properties?.showStar !== false;
+  // `onToggleFavorite` (objectui#12427), and that is the one switch. Metadata
+  // does not control it: `@objectstack/spec` 18 retires `showStar`
+  // (objectstack#23650), so this renderer no longer reads it and an authored
+  // value changes nothing (objectui#12627).
   const showCopyId = schema?.showCopyId !== false && schema?.properties?.showCopyId !== false;
 
   // Inline header actions — authored pages embed action buttons directly on
@@ -2613,7 +2610,6 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
             icon={recordPicture}
             objectLabel={objectLabel}
             resourceId={data?.id ? String(data.id) : undefined}
-            showStar={showStar}
             showCopyId={showCopyId}
             isFavorite={ctx?.isFavorite}
             onToggleFavorite={
@@ -2678,7 +2674,10 @@ ComponentRegistry.register('header', PageHeaderRenderer, {
     // carries the retirement (objectstack#20758, a tombstone refused by name),
     // so the entry left at that bump (objectui#11438), as this comment asked.
     { name: 'recordChrome', type: 'boolean', description: 'Set false for the bare h1 header on non-record pages' },
-    { name: 'showStar', type: 'boolean' },
+    // No `showStar`: the favorites star draws where the host's record context
+    // wires `onToggleFavorite`, and metadata does not control it. The spec
+    // retires the key (objectstack#23650), so the input left ahead of that
+    // bump (objectui#12627).
     { name: 'showCopyId', type: 'boolean' },
     // The inline/overflow budget, DECLARED rather than merely honoured
     // (objectui#4668). Both are @objectstack/spec 17.0.0 GA keys this renderer

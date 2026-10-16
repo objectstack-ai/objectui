@@ -13,8 +13,8 @@
  * The star is a control that stores something, so it draws only when the
  * `RecordContext` carries `onToggleFavorite`. Without one, the chip used to
  * draw a star that flipped on its own local state and stored nothing; it now
- * draws none. The authored `showStar: false` still hides it when a host does
- * wire a toggle.
+ * draws none. Metadata does not control it: an authored `showStar` changes
+ * nothing, because `@objectstack/spec` 18 retires the key (objectui#12627).
  *
  * Pinned through the real `SchemaRenderer` and registry, on the record-chip
  * layout `page:header` draws inside a `RecordContextProvider` (the harness of
@@ -28,6 +28,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup, fireEvent } from '@testing-library/react';
 import { ActionProvider, RecordContextProvider, SchemaRenderer } from '@object-ui/react';
 import { I18nProvider } from '@object-ui/i18n';
+import { ComponentRegistry } from '@object-ui/core';
 // Registers every renderer at module scope, not in a hook
 // (object-ui/no-dynamic-import-in-test-hook, objectui#3010).
 import '../renderers';
@@ -114,11 +115,42 @@ describe('page:header record chrome: the favorite star draws only where the host
     ]);
   });
 
-  it('the authored showStar: false hides the star even when the host wires a toggle', () => {
-    const { header } = renderHeader(
-      { isFavorite: false, onToggleFavorite: () => {} },
-      { type: 'page:header', properties: { showStar: false } },
-    );
-    expect(stars(header)).toHaveLength(0);
+});
+
+describe('page:header: an authored showStar changes nothing — the host toggle is the one switch (objectui#12627)', () => {
+  // `@objectstack/spec` 18 retires `PageHeaderProps.showStar`
+  // (objectstack#23650). The renderer stopped reading it ahead of that bump, so
+  // the star follows `onToggleFavorite` alone in both carriers.
+  const AUTHORED_FALSE: Array<[string, Record<string, unknown>]> = [
+    ['on the node', { type: 'page:header', showStar: false }],
+    ['under properties', { type: 'page:header', properties: { showStar: false } }],
+  ];
+
+  it.each(AUTHORED_FALSE)('showStar: false %s still draws the star where the host wires a toggle', (_where, node) => {
+    const onToggleFavorite = vi.fn();
+    const { header } = renderHeader({ isFavorite: false, onToggleFavorite }, node);
+    const [star, ...rest] = stars(header);
+    expect(rest).toHaveLength(0);
+    expect(star?.getAttribute('aria-label')).toBe('Add to favorites');
+    fireEvent.click(star);
+    expect(onToggleFavorite).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['on the node', { type: 'page:header', showStar: true }],
+    ['under properties', { type: 'page:header', properties: { showStar: true } }],
+  ] as Array<[string, Record<string, unknown>]>)(
+    'showStar: true %s draws no star where the host wires no toggle',
+    (_where, node) => {
+      const { header } = renderHeader({ isFavorite: true }, node);
+      expect(stars(header)).toHaveLength(0);
+    },
+  );
+
+  it('the page:header registration publishes no showStar input', () => {
+    const inputs = (ComponentRegistry.getConfig('page:header')?.inputs ?? []).map((input) => input.name);
+    // Non-vacuous: the sibling chip switch is still published.
+    expect(inputs).toContain('showCopyId');
+    expect(inputs).not.toContain('showStar');
   });
 });

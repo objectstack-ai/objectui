@@ -14,7 +14,8 @@
  * ## The silence this closes
  *
  * Six legs of `SchemaRenderer`'s visibility chain (`visibleWhen`, `visible`,
- * `visibleOn`, `visibility`, `hidden`, `hiddenOn`) route through
+ * `visibleOn`, `visibility`, `hidden`, `hiddenOn`; `visibility` was retired by
+ * objectui#12654) route through
  * `evaluateVisibilityPredicate` and report. These two called
  * `evaluateCondition` BARE — the only uninstrumented predicate pair in the
  * file — so a faulting `disabled` predicate had never been reported in any

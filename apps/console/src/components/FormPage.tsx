@@ -52,8 +52,7 @@
  * ## Conditional field visibility (objectui#5594)
  *
  * A FormView field may carry a CEL predicate saying WHEN it is visible —
- * `visibleWhen`, or the deprecated ADR-0089 alias `visibleOn`. This renderer
- * read neither, so such a field rendered unconditionally on both routes:
+ * `visibleWhen` (ADR-0089). This renderer read it not at all before #5594, so such a field rendered unconditionally on both routes:
  * fail-open and silent, with no diagnostic for the author.
  *
  * It is the SECOND form renderer in this repo, which is why the gap survived.
@@ -74,7 +73,7 @@
  * and for the same reason: nothing downstream could read a key this file's
  * payload types did not admit.
  *
- *  - SECTION-level `visibleWhen` / `visibleOn` (ADR-0089). The section type is
+ *  - SECTION-level `visibleWhen` (ADR-0089). The section type is
  *    no longer this file's to widen — objectui#5596 replaced the hand copy with
  *    the shared `FormSectionSpec`, which has DECLARED these two keys ever since
  *    ("declaring a key is not honouring it", as that type's own docstring says
@@ -477,15 +476,15 @@ interface RenderableField {
    * this one by {@link resolveRowState} (objectui#5627). Two layers may both
    * condition one control, and either one hiding it is enough.
    *
-   * Resolved CANONICAL-FIRST when the row is built: `visibleWhen ?? visibleOn`.
-   * ADR-0089 renamed the key, and `@objectstack/spec`'s normaliser REWRITES the
-   * alias rather than keeping both, so a spec-served FormView carries
-   * `visibleWhen` and no `visibleOn` at all. The deprecated spelling is still
-   * read because it still has live producers — hand-written layouts, and this
-   * app's own create schemas, which never pass through that normaliser. Same
-   * spelling and same precedence as the two sibling readers, deliberately:
-   * `@object-ui/plugin-form` `sectionFields.ts` (`fd.visibleWhen ?? fd.visibleOn`)
-   * and app-shell's metadata-admin `readVisibility`.
+   * Read from `visibleWhen` ONLY (objectui#12654). ADR-0089 renamed the key,
+   * and `@objectstack/spec` 18 retires the old `visibleOn` spelling as a
+   * `retiredKey` tombstone (objectstack#23543 F4): every parsing door refuses
+   * it by name, and a stored row written with it is rehydrated to
+   * `visibleWhen` before it is served. A raw view still carrying `visibleOn`
+   * is therefore an authoring mistake the spec reports, and this reader does
+   * not fold it back — a renderer-side `??` would hide that mistake. The
+   * runtime form chain reads the same single key
+   * (`@object-ui/plugin-form` `sectionFields.ts`).
    *
    * The TYPE is derived from the authoring surface rather than restated:
    * re-spelling `string | { dialect?, source }` here would be a third
@@ -578,18 +577,14 @@ interface RenderableSection {
   collapsible: boolean;
   collapsed: boolean;
   /**
-   * Conditional visibility for the whole section (ADR-0089), resolved
-   * CANONICAL-FIRST when the row is built: `visibleWhen ?? visibleOn`
-   * (objectui#5627).
+   * Conditional visibility for the whole section (ADR-0089, objectui#5627),
+   * read from `visibleWhen` ONLY when the row is built (objectui#12654).
    *
-   * The same key, the same precedence and the same reason as the field row one
-   * type up — the spec's normaliser rewrites the alias, so a spec-served
-   * FormView carries only `visibleWhen`, while hand-written layouts and this
-   * app's own create schemas still produce the deprecated spelling. app-shell's
-   * `SchemaForm` reads its sections through a `readVisibility` helper spelling
-   * exactly this `??`; that helper is module-private there (it is not part of
-   * `@object-ui/app-shell`'s published surface), so the shared machinery this
-   * file can actually import is the ENGINE — `evalFieldPredicate`, via
+   * The same key and the same reason as the field row one type up: spec 18
+   * retires the section's `visibleOn` spelling, so a served FormView carries
+   * only `visibleWhen`, and a raw view still writing the old key is refused
+   * by the spec rather than folded here. The shared machinery this file
+   * imports is the ENGINE — `evalFieldPredicate`, via
    * {@link isSectionVisible} — which is the half that decides anything.
    *
    * Type derived from the shared authoring surface (objectui#5596's
@@ -783,11 +778,10 @@ export function buildSections(
         required: override.required ?? def.required ?? false,
         readonly: override.readonly ?? false,
         hidden: override.hidden ?? false,
-        // Canonical key wins over the deprecated alias — see
-        // `RenderableField.visibleWhen`. Carried, not evaluated: the verdict
-        // depends on the live form values, which change per keystroke, while
-        // these rows are memoized on the loaded spec.
-        visibleWhen: override.visibleWhen ?? override.visibleOn,
+        // The one spelling — see `RenderableField.visibleWhen`. Carried, not
+        // evaluated: the verdict depends on the live form values, which change
+        // per keystroke, while these rows are memoized on the loaded spec.
+        visibleWhen: override.visibleWhen,
         // The OBJECT's own rules (ADR-0036), off the object field and NOT
         // merged with the view predicate above: two layers, two slots, ANDed
         // at render by `resolveRowState` (objectui#5627). A `??` here would be
@@ -838,9 +832,9 @@ export function buildSections(
       columns: cols,
       collapsible: !!sec.collapsible,
       collapsed: !!sec.collapsed,
-      // Canonical key wins over the deprecated alias, same precedence as the
-      // field row — see `RenderableSection.visibleWhen` (objectui#5627).
-      visibleWhen: sec.visibleWhen ?? sec.visibleOn,
+      // The one spelling, as on the field row — see
+      // `RenderableSection.visibleWhen` (objectui#5627, objectui#12654).
+      visibleWhen: sec.visibleWhen,
       fields,
     };
   });
@@ -894,11 +888,7 @@ export function isFieldVisible(
 ): boolean {
   if (field.hidden) return false;
   return evalFieldPredicate(field.visibleWhen, values, true, previous ?? undefined, predicateScope, {
-    // Named for the canonical key even when the deprecated alias supplied the
-    // predicate: ADR-0089 is what this predicate is CALLED, and the warning
-    // prints the source text verbatim, which is what finds a hand-written
-    // `visibleOn`. A second stored key whose only job is to spell a deprecated
-    // name in a warning would be bookkeeping, not an honoured key.
+    // Named for the one key this row reads (ADR-0089, objectui#12654).
     context: `visibleWhen of field '${field.name}'`,
   });
 }
@@ -907,7 +897,7 @@ export function isFieldVisible(
  * Is this SECTION on screen, given the form's current state? (objectui#5627)
  *
  * The section-granularity twin of {@link isFieldVisible}, and deliberately the
- * same three things: the canonical-first key read (done once, at build time —
+ * same three things: the one-key read (done once, at build time —
  * `RenderableSection.visibleWhen`), the canonical ENGINE
  * (`evalFieldPredicate`), and fail-OPEN with a one-time warning. A section that
  * cannot be evaluated must not vanish, for the field-level reason multiplied by

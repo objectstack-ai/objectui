@@ -68,9 +68,15 @@ const norm = (def: Record<string, unknown>) =>
 /**
  * One row per spec FormFieldSchema key: sample authored value → where the
  * runtime FormField must carry it. Non-obvious destinations are the point:
- * `helpText`→`description`, `readonly`→`disabled`, and BOTH visibility
- * spellings→the view-level `visibleOn` slot (the runtime `visibleWhen` slot
- * belongs to the object-level rule and must not be clobbered).
+ * `helpText`→`description`, `readonly`→`disabled`, and `visibleWhen`→the
+ * view-level `visibleOn` slot (the runtime `visibleWhen` slot belongs to the
+ * object-level rule and must not be clobbered).
+ *
+ * A RETIRED spec key keeps a row too, asserting the opposite: that it reaches
+ * no destination. The spec's own `visibleOn` is one (objectui#12654): spec 18
+ * keeps it in the shape as a `retiredKey` tombstone, and the installed 18 line
+ * before that still declares it as a deprecated alias, so on both shapes it is
+ * a key the table must cover — by proving the normalizer drops it.
  */
 const TABLE: Record<string, (f: (def: Record<string, unknown>) => any) => void> = {
   field: () => {
@@ -114,8 +120,11 @@ const TABLE: Record<string, (f: (def: Record<string, unknown>) => any) => void> 
   dependsOn: (f) => expect(f({ dependsOn: 'country' }).dependsOn).toBe('country'),
   visibleWhen: (f) =>
     expect(f({ visibleWhen: 'record.a == 1' }).visibleOn).toBe('record.a == 1'),
-  visibleOn: (f) =>
-    expect(f({ visibleOn: 'record.b == 2' }).visibleOn).toBe('record.b == 2'),
+  visibleOn: (f) => {
+    // Retired (objectui#12654): the spec spelling is not carried into the
+    // runtime view-level slot of the same name. The control is the row above.
+    expect(f({ visibleOn: 'record.b == 2' }).visibleOn).toBeUndefined();
+  },
   disclosure: (f) => expect(f({ disclosure: 'popover' }).disclosure).toBe('popover'),
 };
 
@@ -139,10 +148,24 @@ const EXEMPT: Record<string, string> = {
  */
 const GA_PENDING_EXEMPT = ['publicPicker'];
 
+/** The authoring shape of a spec object schema, through a transform pipe if there is one. */
+function shapeOf(schema: unknown): Record<string, unknown> {
+  let node = schema as { shape?: Record<string, unknown>; _zod: { def: { type: string; in?: unknown } } };
+  for (let depth = 0; depth < 4 && !node.shape; depth++) {
+    if (node._zod.def.type !== 'pipe') break;
+    node = node._zod.def.in as typeof node;
+  }
+  if (!node.shape) throw new Error('could not reach the shape of the installed spec FormFieldSchema');
+  return node.shape;
+}
+
 describe('normalizeSectionField covers the spec FormFieldSchema key set', () => {
-  // `.strict().transform()` wraps the object in a ZodPipe; `.in` is the
-  // strict object carrying the authoring shape.
-  const specKeys = Object.keys((SpecFormFieldSchema as any).in.shape).sort();
+  // Through the 18 pre-releases `.strict().transform()` wrapped the object in
+  // a ZodPipe whose `.in` carried the authoring shape; spec 18 drops the
+  // transform and the schema IS the closed object (objectstack#23543 F4). Walk
+  // to the shape on either form, so the next spec bump does not turn this gate
+  // red for a reason that is not a key change (objectui#12654).
+  const specKeys = Object.keys(shapeOf(SpecFormFieldSchema)).sort();
 
   /** A GA-pending exemption the installed spec does not declare yet. */
   const isDormant = (key: string) => GA_PENDING_EXEMPT.includes(key) && !specKeys.includes(key);

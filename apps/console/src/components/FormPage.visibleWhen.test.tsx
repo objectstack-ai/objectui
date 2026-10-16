@@ -1,7 +1,8 @@
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * objectui#5594 — this renderer evaluates `visibleWhen` / `visibleOn`.
+ * objectui#5594 — this renderer evaluates `visibleWhen` (and, since
+ * objectui#12654, `visibleWhen` only: spec 18 retired `visibleOn`).
  *
  * ## The class this pins shut
  *
@@ -43,6 +44,10 @@
  *   - "buildSections carries the predicate onto the row"  -> `undefined`
  *   - "isFieldVisible answers … in one verdict"           -> no such export
  *
+ * (A historical reading. The two `visibleOn` rows named above were replaced by
+ * objectui#12654, which retires that spelling: their successor pins that the
+ * retired key gates nothing.)
+ *
  * The ONE that is green on both sides is the control that has to be:
  *
  *   - "a field with NO predicate at all still renders" — without it, every
@@ -67,7 +72,7 @@
  */
 
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { buildSections, FormPage, isFieldVisible } from './FormPage';
@@ -247,28 +252,18 @@ describe('objectui#5594 — FormPage evaluates conditional field visibility', ()
     expect(screen.queryByLabelText('Notes')).not.toBeInTheDocument();
   });
 
-  it('honours the deprecated ADR-0089 alias `visibleOn`', async () => {
-    // The spec normaliser rewrites the alias, so a spec-served view never
-    // carries it — but hand-written layouts still do, which is why both
-    // sibling readers keep reading it.
+  // objectui#12654: spec 18 retires the form field's `visibleOn` spelling
+  // (objectstack#23543 F4); the spec's parse refuses it by name and a stored
+  // row is rehydrated to `visibleWhen` before it is served. A raw view still
+  // carrying it gates nothing here — the narrowing, pinned beside the same
+  // predicate under the one key that is read.
+  it('does not read the retired `visibleOn` — the same predicate under `visibleWhen` does hide the field', async () => {
     renderInternal(['priority', { field: 'notes', visibleOn: "record.priority == 'urgent'" }]);
     await awaitForm();
-    expect(screen.queryByLabelText('Notes')).not.toBeInTheDocument();
-  });
+    expect(screen.getByLabelText('Notes')).toBeInTheDocument();
+    cleanup();
 
-  it('lets the canonical `visibleWhen` win when both spellings are authored', async () => {
-    // `visibleWhen ?? visibleOn` — the same precedence as
-    // `@object-ui/plugin-form` `sectionFields.ts` and app-shell's
-    // `readVisibility`. The two predicates disagree on purpose: only the
-    // canonical one's verdict can produce this outcome.
-    renderInternal([
-      'priority',
-      {
-        field: 'notes',
-        visibleWhen: "record.priority == 'urgent'", // false -> hidden
-        visibleOn: "record.priority == 'low'", // true -> would show
-      },
-    ]);
+    renderInternal(['priority', { field: 'notes', visibleWhen: "record.priority == 'urgent'" }]);
     await awaitForm();
     expect(screen.queryByLabelText('Notes')).not.toBeInTheDocument();
   });
@@ -362,15 +357,15 @@ describe('objectui#5594 — FormPage evaluates conditional field visibility', ()
 });
 
 describe('objectui#5594 — the predicate reaches the row and the verdict', () => {
-  it('buildSections carries the predicate onto the renderable row, canonical first', () => {
+  it('buildSections carries the predicate onto the renderable row, from `visibleWhen` only', () => {
     const [section] = buildSections(
       {
         sections: [
           {
             fields: [
               { field: 'a', visibleWhen: "record.x == 1" },
-              { field: 'b', visibleOn: { dialect: 'cel', source: 'record.x == 2' } },
-              { field: 'c', visibleWhen: "record.x == 3", visibleOn: "record.x == 4" },
+              { field: 'b', visibleWhen: { dialect: 'cel', source: 'record.x == 2' } },
+              { field: 'c', visibleOn: "record.x == 4" },
               { field: 'd' },
               'e',
             ],
@@ -380,10 +375,11 @@ describe('objectui#5594 — the predicate reaches the row and the verdict', () =
       null,
     );
 
+    // `c`: the retired spelling reaches no row (objectui#12654).
     expect(section.fields.map((f) => f.visibleWhen)).toEqual([
       "record.x == 1",
       { dialect: 'cel', source: 'record.x == 2' },
-      "record.x == 3",
+      undefined,
       undefined,
       undefined,
     ]);

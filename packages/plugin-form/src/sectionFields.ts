@@ -463,12 +463,16 @@ function resolveSectionEntry(
   // View-level visibility predicate. ADR-0089 renamed it to `visibleWhen` —
   // which collides with the runtime slot holding the OBJECT-level rule (copied
   // from the object schema in `fromObjectSchema`). Route the view predicate
-  // into the view-level slot (`visibleOn`) instead: the renderer evaluates the
-  // two slots independently and ANDs them, so layering is preserved and the
-  // object rule is never clobbered. Canonical spelling wins over the
-  // deprecated one when both are authored (`saveMeta` persists verbatim, so
-  // served metadata can carry either).
-  return attachVisibility(base as FormField, fd.visibleWhen ?? fd.visibleOn);
+  // into the view-level slot (`visibleOn`, the RUNTIME FormField's own slot)
+  // instead: the renderer evaluates the two slots independently and ANDs them,
+  // so layering is preserved and the object rule is never clobbered.
+  //
+  // Read from the spec field's `visibleWhen` ONLY (objectui#12654): spec 18
+  // retires the spec field's old `visibleOn` spelling as a `retiredKey`
+  // tombstone (objectstack#23543 F4) — every parsing door refuses it by name
+  // and a stored row is rehydrated to `visibleWhen` before it is served — so a
+  // raw spec field still carrying it is not folded back here.
+  return attachVisibility(base as FormField, fd.visibleWhen);
 }
 
 /**

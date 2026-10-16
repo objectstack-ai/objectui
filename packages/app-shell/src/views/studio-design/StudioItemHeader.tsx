@@ -157,46 +157,47 @@ const StudioTabRowContext = React.createContext<React.RefObject<HTMLElement | nu
 export function useStudioTabRowFold(item: React.RefObject<HTMLElement | null>, text: string): boolean {
   const row = React.useContext(StudioTabRowContext);
   const [folded, setFolded] = React.useState(false);
-  const foldedRef = React.useRef(false);
-  foldedRef.current = folded;
-  /** The whole chip's width, read while it shows its text. */
-  const fullWidth = React.useRef(0);
-  React.useLayoutEffect(() => {
-    fullWidth.current = 0;
-    setFolded(false);
-  }, [text]);
-  const measure = React.useCallback(() => {
-    const nav = row?.current;
-    const el = item.current;
-    if (!nav || !el) return;
-    let slot: HTMLElement = el;
-    while (slot.parentElement && slot.parentElement !== nav) slot = slot.parentElement;
-    if (slot.parentElement !== nav) return;
-    if (!foldedRef.current) fullWidth.current = el.getBoundingClientRect().width;
-    const navLeft = nav.getBoundingClientRect().left - nav.scrollLeft;
-    let tabsEnd = 0;
-    for (const child of Array.from(nav.children)) {
-      if (child !== slot) tabsEnd = Math.max(tabsEnd, child.getBoundingClientRect().right - navLeft);
-    }
-    const navStyle = getComputedStyle(nav);
-    const gap = parseFloat(navStyle.columnGap) || 0;
-    const slotPad = parseFloat(getComputedStyle(slot).paddingLeft) || 0;
-    const room = nav.clientWidth - (parseFloat(navStyle.paddingRight) || 0);
-    setFolded(tabsEnd + gap + slotPad + fullWidth.current > room + 0.5);
-  }, [row, item]);
+  /** The whole chip's width, read while it shows its text, and the text it was read for. */
+  const full = React.useRef<{ text: string; width: number } | null>(null);
+  /** The latest measure, for the observer: it reads this render's state. */
+  const measureRef = React.useRef<() => void>(() => {});
   // Every render: the tabs beside the chip can change without the row resizing.
-  React.useLayoutEffect(measure);
+  React.useLayoutEffect(() => {
+    const measure = () => {
+      const nav = row?.current;
+      const el = item.current;
+      if (!nav || !el) return;
+      let slot: HTMLElement = el;
+      while (slot.parentElement && slot.parentElement !== nav) slot = slot.parentElement;
+      if (slot.parentElement !== nav) return;
+      if (!folded) full.current = { text, width: el.getBoundingClientRect().width };
+      // A new text is a new width: show it whole and read it again.
+      if (full.current?.text !== text) return setFolded(false);
+      const navLeft = nav.getBoundingClientRect().left - nav.scrollLeft;
+      let tabsEnd = 0;
+      for (const child of Array.from(nav.children)) {
+        if (child !== slot) tabsEnd = Math.max(tabsEnd, child.getBoundingClientRect().right - navLeft);
+      }
+      const navStyle = getComputedStyle(nav);
+      const gap = parseFloat(navStyle.columnGap) || 0;
+      const slotPad = parseFloat(getComputedStyle(slot).paddingLeft) || 0;
+      const room = nav.clientWidth - (parseFloat(navStyle.paddingRight) || 0);
+      setFolded(tabsEnd + gap + slotPad + full.current.width > room + 0.5);
+    };
+    measureRef.current = measure;
+    measure();
+  });
   React.useEffect(() => {
     // A child's layout effect runs before the row's own ref is attached, so
     // the first render measures here, once the row is there.
-    measure();
+    measureRef.current();
     const nav = row?.current;
     if (!nav || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(measure);
+    const observer = new ResizeObserver(() => measureRef.current());
     observer.observe(nav);
     for (const child of Array.from(nav.children)) observer.observe(child);
     return () => observer.disconnect();
-  }, [row, measure]);
+  }, [row]);
   return folded;
 }
 

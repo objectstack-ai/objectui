@@ -6,7 +6,7 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   cn, Button, Badge, Progress, Input, Checkbox, Label, EmptyValue,
-  Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription,
+  Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription, DIALOG_VIEWPORT_GUTTER,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@object-ui/components';
@@ -2777,7 +2777,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else onOpenChange?.(v); }}>
       <DialogContent
-        className="flex max-h-[85vh] flex-col gap-4 overflow-hidden sm:max-w-4xl"
+        className={`flex max-h-[85vh] flex-col gap-4 overflow-hidden sm:max-w-4xl ${DIALOG_VIEWPORT_GUTTER}`}
         // The wizard holds unsaved upload + mapping progress, so a stray click
         // must not close it. This blocks two accidental dismissals: (1) clicking
         // the gray overlay, and (2) clicking a Radix Select's dropdown flyout,

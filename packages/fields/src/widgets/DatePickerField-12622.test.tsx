@@ -25,8 +25,9 @@ import { DatePickerField, DateTimePickerField } from './DatePickerField';
 
 afterEach(() => cleanup());
 
-const FIELD = { name: 'close_date', type: 'date' } as any;
-const DT_FIELD = { name: 'remind_at', type: 'datetime' } as any;
+type Field = React.ComponentProps<typeof DatePickerField>['field'];
+const FIELD = { name: 'close_date', type: 'date' } as Field;
+const DT_FIELD = { name: 'remind_at', type: 'datetime' } as Field;
 
 function inSession(language: string, node: React.ReactNode) {
   return (

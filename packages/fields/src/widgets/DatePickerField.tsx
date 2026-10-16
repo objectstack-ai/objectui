@@ -93,11 +93,14 @@ function TemporalPicker({
   const [text, setText] = React.useState(shown);
   const [badText, setBadText] = React.useState<string | null>(null);
   // A new value or locale from outside replaces the text; typing does not
-  // reach here until it is committed.
-  React.useEffect(() => {
+  // reach here until it is committed. Adjusted while rendering (React's
+  // "storing information from previous renders"), not in an effect.
+  const [lastShown, setLastShown] = React.useState(shown);
+  if (shown !== lastShown) {
+    setLastShown(shown);
     setText(shown);
     setBadText(null);
-  }, [shown]);
+  }
 
   if (readonly) {
     const ReadonlyFace = withTime ? DateTimeField : DateField;

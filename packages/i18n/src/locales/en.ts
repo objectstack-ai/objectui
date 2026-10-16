@@ -3140,7 +3140,6 @@ const en = {
     // full-width marks, ar its own comma.
     greetingSeparator: ', ',
     greetingEnd: '.',
-    heroTagline: 'Pick up where you left off, or explore something new.',
     // objectui#12601 — the field in Home's top bar that opens the command palette.
     search: 'Search apps, records, pages…',
     // objectui#12601 — the line under the greeting that sums up what is
@@ -3158,12 +3157,10 @@ const en = {
     appOpened: 'Opened {{time}}',
     build: {
       title: 'Build an app',
-      subtitle: 'Start from scratch — design objects, forms, automations and interfaces.',
       noCapability: 'Building apps isn\'t available in this workspace — it requires the “Manage Metadata” permission, which your account doesn\'t have.',
     },
     template: {
       title: 'Start with a template',
-      subtitle: 'Install a template app from the marketplace and customize it.',
       marketplaceDisabled: 'This runtime has no app marketplace configured, so there are no templates to install here.',
     },
     open: 'Open',

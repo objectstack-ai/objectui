@@ -2658,12 +2658,10 @@ const es = {
   home: {
     build: {
       title: "Crear una aplicación",
-      subtitle: "Empiece desde cero — diseñe objetos, formularios, automatizaciones e interfaces.",
       noCapability: "La creación de aplicaciones no está disponible en este espacio de trabajo: requiere el permiso «Gestionar metadatos», que su cuenta no tiene.",
     },
     template: {
       title: "Empezar con una plantilla",
-      subtitle: "Instale una aplicación de plantilla desde el mercado y personalícela.",
       marketplaceDisabled: "Este runtime no tiene un marketplace de aplicaciones configurado, por lo que no hay plantillas que instalar aquí.",
     },
     welcomeAdminDescription: "Describa su negocio en una frase — la IA genera los objetos, las pantallas, las API y las herramientas del agente. O configúrelo usted mismo desde el menú de la izquierda.",
@@ -2730,7 +2728,6 @@ const es = {
     greetingNight: "Turno de noche",
     greetingSeparator: ", ",
     greetingEnd: ".",
-    heroTagline: "Continúe donde lo dejó o descubra algo nuevo.",
     search: "Buscar aplicaciones, registros, páginas…",
     summary: {
       approvals: "Hoy tiene {{count}} aprobaciones pendientes",

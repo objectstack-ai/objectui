@@ -2653,12 +2653,10 @@ const pt = {
   home: {
     build: {
       title: "Criar um aplicativo",
-      subtitle: "Comece do zero — projete objetos, formulários, automações e interfaces.",
       noCapability: "A criação de aplicativos não está disponível neste espaço de trabalho — ela exige a permissão “Gerenciar metadados”, que sua conta não possui.",
     },
     template: {
       title: "Comece com um modelo",
-      subtitle: "Instale um aplicativo modelo do marketplace e personalize-o.",
       marketplaceDisabled: "Este runtime não tem um marketplace de aplicativos configurado, portanto não há modelos para instalar aqui.",
     },
     welcomeAdminDescription: "Descreva seu negócio em uma frase — a IA gera os objetos, as telas, as APIs e as ferramentas do agente. Ou configure você mesmo pelo menu à esquerda.",
@@ -2725,7 +2723,6 @@ const pt = {
     greetingNight: "Turno da noite",
     greetingSeparator: ", ",
     greetingEnd: ".",
-    heroTagline: "Continue de onde parou ou descubra algo novo.",
     search: "Pesquisar aplicativos, registros, páginas…",
     summary: {
       approvals: "Hoje você tem {{count}} aprovações pendentes",

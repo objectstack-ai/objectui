@@ -2606,12 +2606,10 @@ const ko = {
   home: {
     build: {
       title: "앱 만들기",
-      subtitle: "처음부터 시작 — 객체, 폼, 자동화, 인터페이스를 설계합니다.",
       noCapability: "이 워크스페이스에서는 앱 만들기를 사용할 수 없습니다 — ‘메타데이터 관리’ 권한이 필요하지만 계정에 해당 권한이 없습니다.",
     },
     template: {
       title: "템플릿으로 시작",
-      subtitle: "마켓플레이스에서 템플릿 앱을 설치하고 원하는 대로 바꾸세요.",
       marketplaceDisabled: "이 런타임에는 앱 마켓플레이스가 구성되어 있지 않아 여기에서 설치할 템플릿이 없습니다.",
     },
     welcomeAdminDescription: "비즈니스를 한 문장으로 설명해 주세요 — AI가 객체, 화면, API, 에이전트 도구를 생성합니다. 왼쪽 메뉴에서 직접 설정할 수도 있습니다.",
@@ -2676,7 +2674,6 @@ const ko = {
     greetingNight: "야간 작업 중",
     greetingSeparator: ", ",
     greetingEnd: ".",
-    heroTagline: "마지막으로 중단한 곳에서 이어서 하거나 새로운 것을 발견해 보세요.",
     search: "앱, 레코드, 페이지 검색…",
     summary: {
       approvals: "오늘 승인 대기 중인 항목이 {{count}}건 있습니다",

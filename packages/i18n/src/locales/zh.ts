@@ -2701,7 +2701,6 @@ const zh = {
     greetingNight: '夜深了',
     greetingSeparator: '，',
     greetingEnd: '。',
-    heroTagline: '从上次离开的地方继续，或者探索新的内容。',
     search: '搜索应用、记录、页面…',
     summary: {
       approvals: '今天有 {{count}} 项待审批',
@@ -2713,12 +2712,10 @@ const zh = {
     appOpened: '{{time}}打开',
     build: {
       title: '构建应用',
-      subtitle: '从零开始 — 设计对象、表单、自动化与界面。',
       noCapability: '此工作区不提供构建应用功能 — 它需要「管理元数据」权限,而你的账号没有该权限。',
     },
     template: {
       title: '从模板开始',
-      subtitle: '从应用市场安装模板应用并按需定制。',
       marketplaceDisabled: '本运行时未配置应用市场，因此这里没有可安装的模板。',
     },
     open: '打开',

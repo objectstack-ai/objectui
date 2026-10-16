@@ -2608,12 +2608,10 @@ const ja = {
   home: {
     build: {
       title: "アプリを作る",
-      subtitle: "ゼロから始める — オブジェクト、フォーム、自動化、画面を設計します。",
       noCapability: "このワークスペースではアプリの作成はできません — 「メタデータ管理」権限が必要ですが、お使いのアカウントにはありません。",
     },
     template: {
       title: "テンプレートから始める",
-      subtitle: "マーケットプレイスからテンプレートアプリをインストールしてカスタマイズします。",
       marketplaceDisabled: "このランタイムにはアプリマーケットプレイスが設定されていないため、ここからインストールできるテンプレートはありません。",
     },
     welcomeAdminDescription: "ビジネスを一文で説明してください — AI がオブジェクト、画面、API、エージェントツールを生成します。左のメニューから自分で設定することもできます。",
@@ -2679,7 +2677,6 @@ const ja = {
     greetingNight: "夜遅くまで作業中",
     greetingSeparator: "、",
     greetingEnd: "。",
-    heroTagline: "前回の続きを始めるか、新しいものを探索してください。",
     search: "アプリ、レコード、ページを検索…",
     summary: {
       approvals: "今日は承認待ちが {{count}} 件あります",

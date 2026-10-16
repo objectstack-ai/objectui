@@ -2655,12 +2655,10 @@ const fr = {
   home: {
     build: {
       title: "Créer une application",
-      subtitle: "Partir de zéro — concevez les objets, formulaires, automatisations et interfaces.",
       noCapability: "La création d'applications n'est pas disponible dans cet espace de travail : elle requiert l'autorisation « Gérer les métadonnées », que votre compte ne possède pas.",
     },
     template: {
       title: "Partir d'un modèle",
-      subtitle: "Installez une application modèle depuis la place de marché et personnalisez-la.",
       marketplaceDisabled: "Aucune place de marché d'applications n'est configurée pour ce runtime : il n'y a donc aucun modèle à installer ici.",
     },
     welcomeAdminDescription: "Décrivez votre activité en une phrase — l'IA génère les objets, les écrans, les API et les outils d'agent. Ou configurez tout vous-même depuis le menu de gauche.",
@@ -2727,7 +2725,6 @@ const fr = {
     greetingNight: "Travail de nuit",
     greetingSeparator: ", ",
     greetingEnd: ".",
-    heroTagline: "Reprenez là où vous vous êtes arrêté ou découvrez quelque chose de nouveau.",
     search: "Rechercher des applications, enregistrements, pages…",
     summary: {
       approvals: "{{count}} approbations vous attendent aujourd'hui",

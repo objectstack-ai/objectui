@@ -38,6 +38,21 @@ import {
   useMetadataLocale,
 } from './i18n.js';
 import { buildPackageScopeOptions } from './package-scope.js';
+import { diagnosticsHeaderTone, type DiagnosticsHeaderTone } from './diagnostics-tone.js';
+
+/**
+ * The "View all issues" link's look per sweep tone (objectui#12768). The
+ * count comes from a `warning`-severity sweep, so it includes warnings-only
+ * entries; the tone is the Diagnostics header's rule over the same entries,
+ * and the warning colours are the ones that header paints, so the link and
+ * the page it opens agree. The error look is the link's long-standing one.
+ */
+const DIAGNOSTICS_LINK_TONE_CLASS: Record<DiagnosticsHeaderTone, string> = {
+  error: 'border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive',
+  warning:
+    'border-amber-500/40 text-amber-700 dark:text-amber-300 hover:bg-amber-500/10 hover:text-amber-700 dark:hover:text-amber-300',
+  clean: '',
+};
 
 const DOMAIN_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   data: Database,
@@ -143,6 +158,7 @@ export function MetadataDirectoryPage() {
     packagesByType,
     loading: diagLoading,
   } = useGlobalDiagnostics(client, 'warning', activePackage ?? undefined);
+  const diagTone = diagnosticsHeaderTone(diagSummary.entries);
 
   // Base set: visible (non-hidden) metadata types contributed by the active
   // project package. Fail closed — show nothing until a concrete project
@@ -244,10 +260,10 @@ export function MetadataDirectoryPage() {
               asChild
               variant="outline"
               size="sm"
-              className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              className={DIAGNOSTICS_LINK_TONE_CLASS[diagTone]}
             >
-              <Link to="./_diagnostics">
-                <AlertTriangle className="h-3.5 w-3.5 mr-1" />
+              <Link to="./_diagnostics" data-tone={diagTone}>
+                {diagTone !== 'clean' && <AlertTriangle className="h-3.5 w-3.5 mr-1" />}
                 {tFormat('engine.directory.diagnosticsLink', locale, { count: diagSummary.total })}
               </Link>
             </Button>

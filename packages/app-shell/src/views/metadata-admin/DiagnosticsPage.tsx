@@ -32,30 +32,13 @@ import {
   type MetadataDiagnosticsEntry,
 } from './useMetadata.js';
 import { t, tFormat, translateMetadataType, useMetadataLocale } from './i18n.js';
+import { diagnosticsHeaderTone, type DiagnosticsHeaderTone } from './diagnostics-tone.js';
 
 type Severity = 'error' | 'warning';
 
-/**
- * The header's tone, read from the entries the sweep returned — the
- * envelope carries only `total`, so the severity split lives on each
- * entry's `diagnostics`. An entry the server marks invalid is an error
- * even when it ships no messages; warnings only count once no entry is
- * an error. Zero entries is the clean state the body already announces
- * as "All clear", so the header must not paint it as a failure.
- */
-type DiagnosticsHeaderTone = 'error' | 'warning' | 'clean';
-
-function diagnosticsHeaderTone(
-  entries: readonly MetadataDiagnosticsEntry[],
-): DiagnosticsHeaderTone {
-  let warned = false;
-  for (const e of entries) {
-    if (!e.diagnostics.valid || (e.diagnostics.errors?.length ?? 0) > 0) return 'error';
-    if ((e.diagnostics.warnings?.length ?? 0) > 0) warned = true;
-  }
-  return warned ? 'warning' : 'clean';
-}
-
+// The header's tone is `diagnosticsHeaderTone` over the entries the sweep
+// returned; zero entries is the clean state the body already announces as
+// "All clear". The directory's "View all issues" link reads the same rule.
 const HEADER_ICON_CLASS: Record<DiagnosticsHeaderTone | 'pending', string> = {
   pending: 'h-5 w-5 text-muted-foreground',
   error: 'h-5 w-5 text-destructive',

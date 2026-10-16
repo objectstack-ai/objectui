@@ -145,7 +145,9 @@ describe.each([
 
   it('passes each member as the zh value of auth.login.MEMBER', async () => {
     const labels = await labelsPassedBy(page);
-    const wrong = MEMBERS.filter((m) => labels[m] !== ZH_LOGIN[m]).map(
+    // A string first: a member the page does not pass and a key the bundle
+    // lacks are both `undefined`, and would otherwise compare equal.
+    const wrong = MEMBERS.filter((m) => typeof labels[m] !== 'string' || labels[m] !== ZH_LOGIN[m]).map(
       (m) => `${m}: passed ${JSON.stringify(labels[m])}, bundle ${JSON.stringify(ZH_LOGIN[m])}`,
     );
     expect(wrong).toEqual([]);

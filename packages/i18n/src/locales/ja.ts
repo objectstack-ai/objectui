@@ -2013,6 +2013,8 @@ const ja = {
       cryptoRefusalNoSubject: "暗号化対象として宣言された値は拒否され、何も書き込まれませんでした。",
       cryptoRefusalToast: "シークレットを暗号化できません: {{subject}}",
       cryptoRefusalToastNoSubject: "シークレットを暗号化できません",
+      sourceBadgeInherited: "{{source}}から継承",
+      sourceBadgeOverrides: "{{source}}を上書き",
     },
     workspaceTimezonePrompt: {
       title: "ワークスペースのタイムゾーンを設定",

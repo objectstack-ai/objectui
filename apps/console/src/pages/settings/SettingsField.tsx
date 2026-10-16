@@ -96,6 +96,7 @@ function InheritanceBadges({
   resolved: ResolvedSettingValue;
   labels?: SettingsLabelHelpers;
 }) {
+  const { t } = useObjectTranslation();
   const chain = resolved.cascadeChain;
   if (!chain || chain.length === 0) return null;
 
@@ -107,6 +108,10 @@ function InheritanceBadges({
   const sourceText = (scope: ResolvedSettingValue['source']) =>
     labels?.sourceLabel?.(scope) ?? scope;
 
+  // Each badge is ONE sentence with the layer's label interpolated as
+  // `{{source}}` (objectui#12694): a pack puts the layer where its grammar
+  // wants it, never a translated verb beside a translated noun.
+
   // "Inherited from <upper>" — effective value came from an upper scope.
   if (
     effective.scope !== 'default' &&
@@ -116,7 +121,7 @@ function InheritanceBadges({
     // global/env: show as inherited for downstream scopes
     return (
       <Badge variant="outline" className="text-blue-700 border-blue-300 text-[10px]">
-        Inherited from {sourceText(effective.scope)}
+        {t('console.settingsView.sourceBadgeInherited', { source: sourceText(effective.scope) })}
       </Badge>
     );
   }
@@ -125,7 +130,7 @@ function InheritanceBadges({
   if (upperWithValue) {
     return (
       <Badge variant="outline" className="text-amber-700 border-amber-300 text-[10px]">
-        Overrides {sourceText(upperWithValue.scope)}
+        {t('console.settingsView.sourceBadgeOverrides', { source: sourceText(upperWithValue.scope) })}
       </Badge>
     );
   }

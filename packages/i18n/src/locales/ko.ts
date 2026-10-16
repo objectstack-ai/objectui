@@ -2011,6 +2011,8 @@ const ko = {
       cryptoRefusalNoSubject: "암호화 대상으로 선언된 값이 거부되어 아무것도 기록되지 않았습니다.",
       cryptoRefusalToast: "시크릿을 암호화할 수 없습니다: {{subject}}",
       cryptoRefusalToastNoSubject: "시크릿을 암호화할 수 없습니다",
+      sourceBadgeInherited: "{{source}}에서 상속됨",
+      sourceBadgeOverrides: "{{source}} 재정의",
     },
     workspaceTimezonePrompt: {
       title: "워크스페이스 시간대 설정",

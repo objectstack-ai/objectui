@@ -54,6 +54,8 @@ import { useSafeFieldLabel } from '@object-ui/i18n';
 import { t, tFormat, useMetadataLocale } from '../metadata-admin/i18n.js';
 import { isStudioHiddenSystemField } from './studioHiddenSystemField.js';
 import { formDndAccessibility, type FormDndLookups, type FormDndSlot } from './formDndAnnouncements.js';
+import { AddFieldPopover } from './AddFieldPopover.js';
+import type { FieldTypeId } from '../metadata-admin/previews/field-types.js';
 
 const UNGROUPED = '__ungrouped__';
 
@@ -238,8 +240,12 @@ export interface ObjectFormDesignerProps {
   selectedField?: string | null;
   /** Select a field → opens the shared field inspector. */
   onSelectField: (name: string) => void;
-  /** Append a new field (reuses the pillar's add-field). Omit to hide the button — e.g. a read-only package. */
-  onAddField?: () => void;
+  /**
+   * Add a field with the label and type the toolbar's Add field popover asked
+   * for (objectui#12516; reuses the pillar's add-field). Omit to hide the
+   * button — e.g. a read-only package.
+   */
+  onAddField?: (label: string, type: FieldTypeId) => void;
   /** Currently selected group key (its section is highlighted). */
   selectedGroup?: string | null;
   /** Select a group (section) → opens the group property inspector. Omit to hide the affordance. */
@@ -821,13 +827,14 @@ export function ObjectFormDesigner({
               <PanelTop className="h-3.5 w-3.5 text-muted-foreground" /> {t('engine.studio.designer.addGroup', locale)}
             </button>
             {onAddField && (
-              <button
-                type="button"
-                onClick={onAddField}
-                className="inline-flex h-7 items-center gap-1.5 rounded-md bg-primary/10 px-2.5 text-xs font-medium text-primary hover:bg-primary/15"
-              >
-                <Plus className="h-3.5 w-3.5" /> {t('engine.studio.data.addField', locale)}
-              </button>
+              <AddFieldPopover onCreate={onAddField}>
+                <button
+                  type="button"
+                  className="inline-flex h-7 items-center gap-1.5 rounded-md bg-primary/10 px-2.5 text-xs font-medium text-primary hover:bg-primary/15"
+                >
+                  <Plus className="h-3.5 w-3.5" /> {t('engine.studio.data.addField', locale)}
+                </button>
+              </AddFieldPopover>
             )}
           </>
         )}

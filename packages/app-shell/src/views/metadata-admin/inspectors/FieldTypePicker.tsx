@@ -38,7 +38,16 @@
  *   designer's "(not found)" flag, never as blank and never as another type.
  * - `disabled` (a read-only field) disables the trigger.
  *
- * Module-private: imported by `ObjectFieldInspector`, exported from no barrel.
+ * ## The search (objectui#12516)
+ *
+ * The list opens with its search input focused at the top. A query keeps the
+ * types whose name, category, id or English name contains it, or whose
+ * description holds it as whole words; each group keeps its heading over its
+ * matches and a group with none is dropped. The arrow keys move through what
+ * is left and Enter picks the highlighted type.
+ *
+ * Module-private: imported by `ObjectFieldInspector` and the Studio's Add field
+ * popover (`studio-design/AddFieldPopover`), exported from no barrel.
  */
 
 import * as React from 'react';
@@ -92,10 +101,41 @@ interface TypeGroup {
   rows: TypeRow[];
 }
 
+/** A letter or a digit in any script: what a word is made of. */
+const WORD_CHAR = /[\p{L}\p{N}]/u;
+
+/**
+ * Scripts written without spaces between words, where a whole-word match has
+ * no word edge to find: a query in one of them matches a description as a
+ * substring.
+ */
+const UNSPACED_SCRIPT = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u;
+
+/**
+ * Whether `query` (lower-cased) is in a type's description as whole words:
+ * starting and ending on a word edge (objectui#12516). A description is prose,
+ * so a substring match would pull in types by an inflection of the query —
+ * `pick` would find Slider through "A number picked on a slider".
+ */
+function inDescription(description: string, query: string): boolean {
+  const text = description.toLowerCase();
+  if (UNSPACED_SCRIPT.test(query)) return text.includes(query);
+  for (let at = text.indexOf(query); at !== -1; at = text.indexOf(query, at + 1)) {
+    const before = text[at - 1];
+    const after = text[at + query.length];
+    if ((before === undefined || !WORD_CHAR.test(before)) && (after === undefined || !WORD_CHAR.test(after))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /**
  * Whether a type matches the search: its name as shown, its category as shown,
- * its id (`master_detail` also as `master detail`), and the catalog's English
- * name, so an author finds a type by any of the words they know it by.
+ * its id (`master_detail` also as `master detail`) and the catalog's English
+ * name, as substrings, so an author finds a type by any of the words they know
+ * it by while still typing them; and its one-line description, as whole words
+ * (see {@link inDescription}).
  */
 function matches(row: TypeRow, heading: string, query: string): boolean {
   if (!query) return true;
@@ -106,7 +146,7 @@ function matches(row: TypeRow, heading: string, query: string): boolean {
     row.id.replace(/_/g, ' '),
     FIELD_TYPE_META[row.id].label,
   ];
-  return haystacks.some((h) => h.toLowerCase().includes(query));
+  return haystacks.some((h) => h.toLowerCase().includes(query)) || inDescription(row.description, query);
 }
 
 export function FieldTypePicker({ label, value, onCommit, disabled, locale: localeProp }: FieldTypePickerProps) {
@@ -198,7 +238,8 @@ export function FieldTypePicker({ label, value, onCommit, disabled, locale: loca
         </PopoverTrigger>
         <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] min-w-[18rem] p-0">
           {/* Filtered here rather than by cmdk, so the match is the one
-              `matches` states: name, category, id and English name. */}
+              `matches` states: name, category, id, English name and
+              description. */}
           {/* cmdk names its search input through the `label` it is given
               (`aria-labelledby`), so the name goes there, not on the input. */}
           <Command

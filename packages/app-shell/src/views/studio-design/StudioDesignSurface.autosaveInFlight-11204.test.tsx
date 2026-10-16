@@ -288,7 +288,7 @@ describe('Data pillar — an edit taken while an object save is in flight (objec
     const release = holdNextSave();
     await addField();
     await screen.findByTestId('data-autosaving', undefined, { timeout: 8000 });
-    expect(savesOf('object').map(fieldNames)).toEqual([['title', 'status', 'field_3']]);
+    expect(savesOf('object').map(fieldNames)).toEqual([['title', 'status', 'new_field']]);
     await addField();
     expect(fieldCountShown()).toBe('4 fields');
 
@@ -296,8 +296,8 @@ describe('Data pillar — an edit taken while an object save is in flight (objec
     await settle();
     expect(fieldCountShown()).toBe('4 fields');
     expect(savesOf('object').map(fieldNames)).toEqual([
-      ['title', 'status', 'field_3'],
-      ['title', 'status', 'field_3', 'field_4'],
+      ['title', 'status', 'new_field'],
+      ['title', 'status', 'new_field', 'field_4'],
     ]);
   });
 
@@ -317,7 +317,7 @@ describe('Data pillar — an edit taken while an object save is in flight (objec
     expect(fieldCountShown()).toBe('3 fields');
     expect(savesOf('object').map(fieldNames)).toEqual([
       ['status', 'title'],
-      ['status', 'title', 'field_3'],
+      ['status', 'title', 'new_field'],
     ]);
   });
 

@@ -3448,6 +3448,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.hooks.pick': 'Select a hook to edit it.',
   'engine.studio.hooks.newLabel': 'New hook',
   'engine.studio.data.addField': 'Add field',
+  'engine.studio.data.addFieldCreate': 'Create',
   'engine.studio.data.editFieldProps': 'Edit field properties',
   'engine.studio.data.draftObjectTitle': 'Unpublished new object',
   'engine.studio.data.draftObjectHint':
@@ -6671,6 +6672,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.hooks.pick': '选择一个钩子进行编辑。',
   'engine.studio.hooks.newLabel': '新钩子',
   'engine.studio.data.addField': '添加字段',
+  'engine.studio.data.addFieldCreate': '创建',
   'engine.studio.data.editFieldProps': '编辑字段属性',
   'engine.studio.data.draftObjectTitle': '未发布的新对象',
   'engine.studio.data.draftObjectHint':

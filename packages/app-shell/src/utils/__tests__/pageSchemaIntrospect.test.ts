@@ -82,7 +82,7 @@ describe('stripDiscussionNodes', () => {
       type: 'record',
       pageType: 'record',
       object: 'account',
-      template: 'full-width',
+      template: 'default',
       regions: [
         {
           name: 'main',
@@ -99,7 +99,7 @@ describe('stripDiscussionNodes', () => {
     expect(types(stripped)).toEqual(['record', 'page:header', 'page:tabs', 'page:tab']);
     // Everything else about the page survives, including the scalars that are
     // not nodes at all.
-    expect(stripped.template).toBe('full-width');
+    expect(stripped.template).toBe('default');
     expect(stripped.regions[0].name).toBe('main');
     expect(stripped.regions[0].width).toBe('full');
   });

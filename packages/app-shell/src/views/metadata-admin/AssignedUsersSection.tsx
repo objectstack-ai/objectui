@@ -47,7 +47,7 @@
  * asks of them, on the grant object itself — see {@link GRANT_OBJECT} and the
  * gate in the component. Listing the holders asks only to read, so a caller
  * who may read but not write the grants sees the list with no Add and no
- * Remove.
+ * Remove, and an empty list that does not tell them to click Add.
  */
 
 import * as React from 'react';
@@ -77,7 +77,14 @@ interface AssignedRow {
   via: Array<{ kind: 'direct' } | { kind: 'position'; position: string }>;
 }
 
-/** Minimal locale-aware copy (zh vs everything-else) — keeps the surface in the user's language. */
+/**
+ * Minimal locale-aware copy (zh vs everything-else) — keeps the surface in the user's language.
+ *
+ * The empty state is two sentences: `empty` says nobody holds the set, and
+ * `emptyAddHint` tells the reader to click Add, so it is said only where the
+ * Add button is offered (`canAdd`, in the component). `sentenceGap` joins
+ * them: a space in English, none after a CJK full stop.
+ */
 function useCopy() {
   const zh = useMetadataLocale() === 'zh-CN';
   return React.useMemo(
@@ -87,7 +94,9 @@ function useCopy() {
             title: '已分配用户',
             add: '添加用户',
             remove: '移除',
-            empty: '还没有分配任何用户。点击「添加用户」来分配。',
+            empty: '还没有分配任何用户。',
+            emptyAddHint: '点击「添加用户」来分配。',
+            sentenceGap: '',
             loading: '加载中…',
             pickTitle: '选择要分配的用户',
             seatFull: (n: number) =>
@@ -103,7 +112,9 @@ function useCopy() {
             title: 'Assigned Users',
             add: 'Add user',
             remove: 'Remove',
-            empty: 'No users assigned yet. Click "Add user" to assign.',
+            empty: 'No users assigned yet.',
+            emptyAddHint: 'Click "Add user" to assign.',
+            sentenceGap: ' ',
             loading: 'Loading…',
             pickTitle: 'Select users to assign',
             seatFull: (n: number) =>
@@ -377,7 +388,12 @@ export function AssignedUsersSection({ permissionSetName }: AssignedUsersSection
           {c.loading}
         </div>
       ) : rows.length === 0 ? (
-        !everyoneBound && <div className="text-xs text-muted-foreground italic py-3">{c.empty}</div>
+        !everyoneBound && (
+          <div className="text-xs text-muted-foreground italic py-3">
+            {/* The click-Add sentence names a button only `canAdd` renders. */}
+            {canAdd ? c.empty + c.sentenceGap + c.emptyAddHint : c.empty}
+          </div>
+        )
       ) : (
         <ul className="divide-y rounded-md border">
           {rows.map((r) => (

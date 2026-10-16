@@ -15,6 +15,9 @@
  *  - Add (a junction row created): `relatedNew`, the create grant;
  *  - Remove (a junction row deleted): `relatedRowDelete`, the delete grant.
  *
+ * The permission set's empty state follows Add: its sentence telling the
+ * reader to click Add is said only where Add is offered.
+ *
  * Real subjects: both sections under the REAL `MePermissionsProvider` holding
  * the caller's `/me/permissions` answer. The adapter and the metadata store
  * are fixtures; the picker stands in as a marker so its mount can be read.
@@ -39,6 +42,12 @@ vi.mock('@object-ui/fields', async (importOriginal) => {
     RecordPickerDialog: () => createElement('div', { 'data-testid': 'record-picker' }),
   };
 });
+// The sections' locale, so the empty state is read in both of its languages.
+let localeFixture: 'en-US' | 'zh-CN' = 'en-US';
+vi.mock('./i18n', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  useMetadataLocale: () => localeFixture,
+}));
 
 import { AssignedUsersSection } from './AssignedUsersSection';
 import { PositionHoldersSection } from './PositionHoldersSection';
@@ -155,6 +164,7 @@ const offered = (section: Section) => ({
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  localeFixture = 'en-US';
 });
 
 describe.each(SECTIONS)("Setup's $name reads relatedNew / relatedRowDelete on its assignment object (objectui#12082)", (section) => {
@@ -181,5 +191,44 @@ describe.each(SECTIONS)("Setup's $name reads relatedNew / relatedRowDelete on it
   it('CONTROL — with no permission provider both are offered, as before', async () => {
     await mount(section, null);
     expect(offered(section)).toEqual({ add: true, picker: true, remove: true });
+  });
+});
+
+/**
+ * A permission set nobody holds. The empty state's first sentence says so under
+ * every grant; its second tells the reader to click Add, so it is said only
+ * where the Add button is offered. Said to a caller offered no Add, it names a
+ * button that is not there.
+ *
+ * The two grants flip create and delete in opposite directions, so a gate on
+ * the wrong row reads red in both cases.
+ */
+const EMPTY_STATE = [
+  { locale: 'en-US', statement: /No users assigned yet/, add: 'Add user' },
+  { locale: 'zh-CN', statement: /还没有分配任何用户/, add: '添加用户' },
+] as const;
+
+describe.each(EMPTY_STATE)("AssignedUsersSection's empty state names Add only where Add is offered, in $locale (objectui#12082)", ({ locale, statement, add }) => {
+  /** Mounts a set with no holders and returns its empty state, found by its first sentence. */
+  async function mountUnheld(perms: MePermissionsResponse) {
+    localeFixture = locale;
+    render(
+      <MePermissionsProvider initialPermissions={perms}>
+        <AssignedUsersSection permissionSetName="unheld_set" />
+      </MePermissionsProvider>,
+    );
+    return screen.findByText(statement);
+  }
+
+  it('with the create grant closed, it says nobody is assigned and does not say to click Add', async () => {
+    const empty = await mountUnheld(answer({ [GRANT_OBJECT]: SHAPE.deleteOnly }));
+    expect(screen.queryByRole('button', { name: add })).toBeNull();
+    expect(empty.textContent).not.toContain(add);
+  });
+
+  it('with the create grant open, it says both, and the button it names is offered', async () => {
+    const empty = await mountUnheld(answer({ [GRANT_OBJECT]: SHAPE.createOnly }));
+    expect(screen.getByRole('button', { name: add })).toBeInTheDocument();
+    expect(empty.textContent).toContain(add);
   });
 });

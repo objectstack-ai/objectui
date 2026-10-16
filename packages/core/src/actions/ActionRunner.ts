@@ -962,6 +962,15 @@ function isUpdateOperationAction(action: ActionDef): boolean {
 }
 
 /**
+ * Whether the action declares its own success copy, read the way
+ * `composeSuccessMessage` reads its `successMessage` rung: a non-empty string.
+ * A navigation toasts only then (objectui#12755).
+ */
+function declaresSuccessMessage(action: ActionDef): boolean {
+  return typeof action.successMessage === 'string' && action.successMessage.trim() !== '';
+}
+
+/**
  * The fields an `operation: 'update'` action writes, and their prior values.
  *
  * `undoable` promises to restore EXACTLY the fields the action wrote, so the
@@ -1931,7 +1940,29 @@ export class ActionRunner {
     if (!rawUrl) {
       return { success: false, error: 'No URL provided for url action' };
     }
-    return this.navigateTo(action, rawUrl, action);
+    return this.announceNavigation(action, await this.navigateTo(action, rawUrl, action));
+  }
+
+  /**
+   * A navigation announces nothing unless its action declares the copy
+   * (objectui#12755).
+   *
+   * `type: 'url'`, its `navigation` alias and `type: 'form'` only change the
+   * route: nothing was written, so there is nothing to confirm. Their
+   * `{ success: true }` used to reach `handlePostExecution` like a write's, and
+   * the generic `completedSuccessfully` toast ("操作已成功完成") told the user an
+   * operation had completed when a page had merely opened (objectstack-ai/cloud#2909:
+   * an "invite member" button that only navigated read as "invitation sent").
+   *
+   * The result keeps `success: true` (callers read it as "the navigation
+   * happened") and is marked `silent`, the flag that already means "no success
+   * toast for this result". An author who wants a toast after the navigation
+   * declares `successMessage`, and that copy still shows: the declaration is the
+   * only signal, so there is no separate switch to forget.
+   */
+  private announceNavigation(action: ActionDef, result: ActionResult): ActionResult {
+    if (!result.success || declaresSuccessMessage(action)) return result;
+    return { ...result, silent: true };
   }
 
   /**
@@ -2203,9 +2234,9 @@ export class ActionRunner {
 
     if (this.navigationHandler) {
       this.navigationHandler(to, { external: false });
-      return { success: true };
+      return this.announceNavigation(action, { success: true });
     }
-    return { success: true, redirect: to };
+    return this.announceNavigation(action, { success: true, redirect: to });
   }
 
   /**
@@ -2224,7 +2255,7 @@ export class ActionRunner {
     if (!rawUrl) {
       return { success: false, error: 'No URL provided for navigation action' };
     }
-    return this.navigateTo(action, rawUrl, nav);
+    return this.announceNavigation(action, await this.navigateTo(action, rawUrl, nav));
   }
 
   /**

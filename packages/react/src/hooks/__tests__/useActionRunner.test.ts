@@ -81,7 +81,8 @@ describe('useActionRunner', () => {
       });
     });
 
-    expect(result.current.result).toEqual({ success: true });
+    // A navigation succeeds silently: it announces no toast (objectui#12755).
+    expect(result.current.result).toEqual({ success: true, silent: true });
     expect(result.current.error).toBeNull();
     expect(result.current.loading).toBe(false);
     expect(onNavigate).toHaveBeenCalledWith(

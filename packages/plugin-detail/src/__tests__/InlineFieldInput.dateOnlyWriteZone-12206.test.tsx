@@ -121,8 +121,12 @@ async function formPick(day: string): Promise<unknown> {
       <FormDateWidget field={{ name: 'due_date', type: 'date' }} value={STORED} onChange={onChange} />
     </React.Suspense>,
   );
-  await waitFor(() => expect(container.querySelector('input[type="date"]')).not.toBeNull());
-  fireEvent.change(container.querySelector('input[type="date"]')!, { target: { value: day } });
+  // The form's `date` widget is the platform date picker (objectui#12642): a
+  // text box that commits on blur, and an ISO day reads in every locale.
+  const box = '[data-slot="date-picker"] input';
+  await waitFor(() => expect(container.querySelector(box)).not.toBeNull());
+  fireEvent.change(container.querySelector(box)!, { target: { value: day } });
+  fireEvent.blur(container.querySelector(box)!);
   expect(onChange).toHaveBeenCalledTimes(1);
   cleanup();
   return onChange.mock.calls[0][0];

@@ -8,13 +8,13 @@
  * completed (objectstack-ai/cloud#2909). A declared `successMessage` still
  * shows, and an action that writes keeps its toast.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { ActionRunner } from '../ActionRunner';
 
 describe('ActionRunner: a navigation raises no success toast unless it declares one (objectui#12755)', () => {
   let runner: ActionRunner;
-  let toast: ReturnType<typeof vi.fn>;
-  let navigate: ReturnType<typeof vi.fn>;
+  let toast: Mock<(message: string, options?: unknown) => void>;
+  let navigate: Mock<(url: string, options?: unknown) => void>;
 
   beforeEach(() => {
     runner = new ActionRunner({ record: { id: 7 } });

@@ -134,8 +134,10 @@ async function expectNoObjectHint(getByTestId: (id: string) => HTMLElement): Pro
 }
 
 /** The warnings issued so far that name `key` as a page node key not read. */
-const warningsNaming = (spy: ReturnType<typeof vi.spyOn>, key: string) =>
-  spy.mock.calls.map((call) => String(call[0])).filter((line) => line.includes(`\`${key}\``) && line.includes('list-view'));
+const warningsNaming = (spy: ReturnType<typeof vi.spyOn>, key: string): string[] =>
+  (spy.mock.calls as unknown[][])
+    .map((call: unknown[]) => String(call[0]))
+    .filter((line: string) => line.includes(`\`${key}\``) && line.includes('list-view'));
 
 let warn: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {

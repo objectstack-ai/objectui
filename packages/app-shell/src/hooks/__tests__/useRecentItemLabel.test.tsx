@@ -27,7 +27,15 @@ import type { RecentItem } from '../../context/RecentItemsProvider';
 function metadata() {
   return {
     apps: [],
-    objects: [{ name: 'showcase_task', label: 'Tasks' }],
+    objects: [
+      {
+        name: 'showcase_task',
+        label: 'Tasks',
+        // `MetadataProvider` merges each served view into its object, keyed and
+        // named by the composer's qualified name.
+        listViews: { 'showcase_task.open_tasks': { name: 'showcase_task.open_tasks', label: 'Open tasks' } },
+      },
+    ],
     dashboards: [],
     reports: [{ name: 'q3_results', label: 'Q3 Results' }],
     pages: [],
@@ -112,5 +120,26 @@ describe('useRecentItemLabel — a Studio package (objectui#11863)', () => {
     expect(missing.result.current(PKG)).toBe('com.acme.crm');
     const noList = renderHook(() => useRecentItemLabel(), { wrapper: wrapper('en') });
     expect(noList.result.current(PKG)).toBe('com.acme.crm');
+  });
+});
+
+describe('useRecentItemLabel — a list view (objectui#12604)', () => {
+  const view = (name: string): RecentItem => ({
+    id: `view:showcase_task:${name}`,
+    type: 'view',
+    object: 'showcase_task',
+    name,
+    href: `/apps/showcase/showcase_task/view/${name}`,
+    visitedAt: at,
+  });
+
+  it('is labelled with the view’s label from its object’s cached list views, on the render', () => {
+    const { result } = renderHook(() => useRecentItemLabel(), { wrapper: wrapper('en') });
+    expect(result.current(view('showcase_task.open_tasks'))).toBe('Open tasks');
+  });
+
+  it('a view the cache does not hold (one a user saved) is drawn as the list it opens: the object’s', () => {
+    const { result } = renderHook(() => useRecentItemLabel(), { wrapper: wrapper('en') });
+    expect(result.current(view('my_saved_view'))).toBe('Tasks');
   });
 });

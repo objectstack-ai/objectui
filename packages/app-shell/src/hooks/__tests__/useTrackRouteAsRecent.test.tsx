@@ -71,6 +71,47 @@ describe('useTrackRouteAsRecent', () => {
     });
   });
 
+  // objectui#12604 — opening a named list view records THAT view: its object
+  // and its view name, by identity, with the view's own address. The object's
+  // own entry is not recorded for it: the view is the target that was opened.
+  it('records a list-view route as the view, by identity, with no label', () => {
+    const { result } = renderHook(
+      () =>
+        useHarness('/apps/sales/contact/view/contact.my_contacts', 'sales', [{ name: 'contact', label: 'Contacts' }]),
+      { wrapper },
+    );
+    expect(result.current).toEqual([
+      {
+        id: 'view:contact:contact.my_contacts',
+        type: 'view',
+        object: 'contact',
+        name: 'contact.my_contacts',
+        href: '/apps/sales/contact/view/contact.my_contacts',
+        visitedAt: expect.any(String),
+      },
+    ]);
+  });
+
+  it('a view route keeps the segment as the address and decodes the name', () => {
+    const { result } = renderHook(
+      () => useHarness('/apps/sales/contact/view/my%20view', 'sales', [{ name: 'contact' }]),
+      { wrapper },
+    );
+    expect(result.current[0]).toMatchObject({
+      id: 'view:contact:my view',
+      name: 'my view',
+      href: '/apps/sales/contact/view/my%20view',
+    });
+  });
+
+  it('a view route of an object the app does not have records nothing', () => {
+    const { result } = renderHook(
+      () => useHarness('/apps/sales/unknown_obj/view/all', 'sales', [{ name: 'contact' }]),
+      { wrapper },
+    );
+    expect(result.current).toEqual([]);
+  });
+
   it('records a dashboard route by identity — no label minted from the slug', () => {
     const { result } = renderHook(
       () => useHarness('/apps/sales/dashboard/sales_overview', 'sales'),
@@ -287,7 +328,7 @@ describe('useTrackRouteAsRecent — a visit that does not change the list writes
     expect(save).toHaveBeenCalledTimes(1);
   });
 
-  it('an object’s list route and its view route are one visit, saved once', async () => {
+  it('a named list view is its own target: opening it after the object’s list is saved, revisiting it is not (objectui#12604)', async () => {
     const { adapter, save } = makeAdapter();
     const go = await mount(adapter);
 
@@ -295,7 +336,17 @@ describe('useTrackRouteAsRecent — a visit that does not change the list writes
     await settle();
     go('/apps/showcase_app/showcase_task/view/all_tasks');
     await settle();
-    expect(save).toHaveBeenCalledTimes(1);
+    expect(save).toHaveBeenCalledTimes(2);
+    expect((save.mock.calls[1][0] as RecentItem[]).map(r => r.id)).toEqual([
+      'view:showcase_task:all_tasks',
+      'object:showcase_task',
+    ]);
+
+    go('/home');
+    await settle();
+    go('/apps/showcase_app/showcase_task/view/all_tasks');
+    await settle();
+    expect(save).toHaveBeenCalledTimes(2);
   });
 
   it('control: a visit that DOES change the list is saved', async () => {

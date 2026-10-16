@@ -9,6 +9,7 @@
  * The hook understands the standard console URL layout:
  *
  *   /apps/:appName/:objectName
+ *   /apps/:appName/:objectName/view/:viewName   (a list view, objectui#12604)
  *   /apps/:appName/dashboard/:id
  *   /apps/:appName/page/:id
  *   /apps/:appName/report/:id
@@ -139,14 +140,28 @@ export function useTrackRouteAsRecent({
 
     if (seg2 && !ROUTE_PREFIXES.has(seg2)) {
       const obj = objectsRef.current.find(o => o.name === seg2);
-      if (obj) {
+      if (!obj) return;
+      // A named list view of the object is its own entry, one per view
+      // (objectui#12604): the object and the view, with the view's own address.
+      if (seg3 === 'view') {
+        const viewSegment = parts[4];
+        if (!viewSegment) return;
+        const view = safeDecode(viewSegment);
         addRecentItem({
-          id: `object:${obj.name}`,
-          type: 'object',
-          name: obj.name,
-          href: `${basePath}/${obj.name}`,
+          id: `view:${obj.name}:${view}`,
+          type: 'view',
+          object: obj.name,
+          name: view,
+          href: `${basePath}/${obj.name}/view/${viewSegment}`,
         });
+        return;
       }
+      addRecentItem({
+        id: `object:${obj.name}`,
+        type: 'object',
+        name: obj.name,
+        href: `${basePath}/${obj.name}`,
+      });
       return;
     }
 

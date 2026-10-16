@@ -34,8 +34,11 @@ import type { RecentItem } from '../../hooks/useRecentItems.js';
  */
 export const TILE_OPENED_TIME_FORMAT = { style: 'short', numeric: 'always' } as const;
 
-/** The app segment of an `/apps/<segment>/…` address, or `undefined` for any other. */
-function appSegmentOf(href: string): string | undefined {
+/**
+ * The app segment of an `/apps/<segment>/…` address, or `undefined` for any other.
+ * Also the app a Home "Recently accessed" row's trail names (objectui#12604).
+ */
+export function appSegmentOf(href: string): string | undefined {
   const parts = href.split(/[?#]/, 1)[0].split('/').filter(Boolean);
   if (parts[0] !== 'apps' || !parts[1]) return undefined;
   try {

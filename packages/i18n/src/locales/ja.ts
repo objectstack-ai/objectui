@@ -2704,6 +2704,7 @@ const ja = {
         page: "ページ",
         report: "レポート",
         package: "パッケージ",
+        view: "リストビュー",
         record: "レコード",
         metadata: "メタデータ",
       },

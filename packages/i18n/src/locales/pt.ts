@@ -2751,6 +2751,7 @@ const pt = {
         page: "Página",
         report: "Relatório",
         package: "Pacote",
+        view: "Visualização de lista",
         record: "Registro",
         metadata: "Metadados",
       },

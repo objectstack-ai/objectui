@@ -10,7 +10,7 @@
  */
 
 import { useMemo, useState, useCallback, useEffect, useRef, lazy, Suspense, createElement, type ComponentType } from 'react';
-import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate, useLocation, useHref } from 'react-router-dom';
 import { resolveFilterPlaceholders, DENSITY_MODE_TO_ROW_HEIGHT, normalizeListViewSchema, leadWithNameField, resolveAffordance, isRecordScopedAction, type FilterTokenScope, type SchemaLike } from '@object-ui/core';
 import {
     parseUserFilterParams,
@@ -76,6 +76,8 @@ import { useMobileViewSwitcherRegistration } from '../layout/MobileViewSwitcherC
 import type { MobileViewSwitcherItem } from '../layout/MobileViewSwitcherContext.js';
 import { ManagedByBadge } from '../components/ManagedByBadge.js';
 import { RecordDetailView } from './RecordDetailView.js';
+import { appRecordPath, routableObjectNames } from './RelatedRecordActionsBridge.js';
+import { documentHref } from './documentHref.js';
 import type { RowCrudPredicates } from '../utils/crudAffordances.js';
 import { createIdentityImportDataSource, IDENTITY_IMPORT_OBJECT, type IdentityPasswordPolicy } from './identityImport.js';
 import { IdentityImportOptions, IdentityImportResultExtra, identityImportFields } from './IdentityImportPanels.js';
@@ -623,7 +625,7 @@ const NO_RELATED_HANDLERS: RelatedRecordHandlers = Object.freeze({});
  * pair here, so `LinkCell` can render a real anchor without knowing anything
  * about routes — one mechanism, all three surfaces.
  *
- * Two deliberate limits:
+ * One deliberate limit:
  *
  *  - **`resolve` returns no handlers.** This surface has no related lists — a
  *    list page's rows are not a child collection — so there is nothing to
@@ -631,13 +633,24 @@ const NO_RELATED_HANDLERS: RelatedRecordHandlers = Object.freeze({});
  *    "capability unavailable", i.e. the same read-only outcome a consumer gets
  *    with no provider at all, so nothing that renders under this page gains an
  *    affordance it did not have.
- *  - **`recordHref` addresses THIS view's object only.** {@link
- *    listRecordDetailUrl} is derived from the current list's pathname, so it
- *    can only name records of the object being listed; any other object is
- *    `null`, which consumers must render as the plain value (a lookup cell
- *    pointing at a third object stays exactly as it renders today). The
- *    console-wide, any-object builder lives on the detail page's bridge, which
- *    has the routable-object set this page does not.
+ *
+ * **Any routable object, through the record page's builder (objectui#12673).**
+ * A lookup cell or a record-pointer (`referenceVia`) cell names a record of
+ * ANOTHER object, and the list used to answer `null` for it, so the name was
+ * readable and could not be opened. With `routes` the list now answers those
+ * the way the record page's `RelatedRecordActionsBridge` does, through the
+ * same builder (`appRecordPath` over `routableObjectNames`, both exported by
+ * the bridge): `/apps/:app/:object/record/:id`, published as a document href
+ * (`documentHref`) so a new tab or a copied link carries the router's
+ * basename, and navigated by its router path on a plain click. A list page
+ * has no parent record, so no `?from=` trail entry is added. An object this
+ * console cannot route to still answers `null`, which consumers render as the
+ * plain value, so no link points at a page that would refuse.
+ *
+ * The listed object itself keeps its own route: {@link listRecordDetailUrl}
+ * derived from the current pathname, opened through the page's own record
+ * navigation (which carries the list as the record's origin). Without
+ * `routes`, only that object is addressable, as before.
  *
  * `pathname` is read at CALL time (not captured) so a view switch or a drill-in
  * cannot leave a stale base behind — the same freshness rule the bridge's
@@ -649,20 +662,48 @@ export function listRecordActionsValue(
     objectName: string,
     openRecordPage: (recordId: string | number) => void,
     getPathname: () => string = () => window.location.pathname,
+    routes?: ListRecordRoutes,
 ): RelatedRecordActionsValue {
-    const addressable = (targetObjectName: string, recordId: string | number) =>
-        targetObjectName === objectName && recordId != null && recordId !== '';
+    const hasId = (recordId: string | number) => recordId != null && recordId !== '';
+    const routable = routes ? routableObjectNames(routes.objects) : null;
+    /** The router path of another object's record, or `null` when unroutable. */
+    const otherRecordPath = (targetObjectName: string, recordId: string | number): string | null =>
+        routes && routable && targetObjectName !== objectName && hasId(recordId)
+            ? appRecordPath(routes.appName, routable, targetObjectName, recordId)
+            : null;
     return {
         resolve: () => NO_RELATED_HANDLERS,
-        recordHref: (targetObjectName, recordId) =>
-            addressable(targetObjectName, recordId)
-                ? listRecordDetailUrl(getPathname(), recordId)
-                : null,
+        recordHref: (targetObjectName, recordId) => {
+            if (targetObjectName === objectName) {
+                return hasId(recordId) ? listRecordDetailUrl(getPathname(), recordId) : null;
+            }
+            const path = otherRecordPath(targetObjectName, recordId);
+            return routes && path !== null ? documentHref(routes.routerRootHref, path) : null;
+        },
         openRecord: (targetObjectName, recordId) => {
-            if (!addressable(targetObjectName, recordId)) return;
-            openRecordPage(recordId);
+            if (targetObjectName === objectName) {
+                if (hasId(recordId)) openRecordPage(recordId);
+                return;
+            }
+            const path = otherRecordPath(targetObjectName, recordId);
+            if (path !== null) routes?.navigate(path);
         },
     };
+}
+
+/**
+ * What {@link listRecordActionsValue} needs to address records of objects other
+ * than the listed one: the inputs the record page's bridge reads (objectui#12673).
+ */
+export interface ListRecordRoutes {
+    /** The current app segment (`/apps/:appName/...`); no app, no route. */
+    appName: string | undefined;
+    /** The console's object definitions; their names are the routable set. */
+    objects: ReadonlyArray<unknown>;
+    /** SPA navigation by router path (the router applies its basename). */
+    navigate: (to: string) => void;
+    /** `useHref('/')`: the router's root href, basename included. */
+    routerRootHref: string;
 }
 
 export function defaultListColumnsFromObject(
@@ -1415,6 +1456,9 @@ export function ObjectView({ dataSource, objects, onEdit, externalRefreshKey }: 
  */
 function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: ConsoleObjectViewProps) {
     const navigate = useNavigate();
+    // The router's root href, basename included: the join every console host
+    // publishing `recordHref` uses (`documentHref`, objectui#12233).
+    const routerRootHref = useHref('/');
     const { appName, objectName, viewId } = useParams();
     const [searchParams, setSearchParams] = useSearchParams();
     const location = useLocation();
@@ -2782,8 +2826,14 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
      * nearer provider keeps owning the detail surface, exactly as before.
      */
     const listRecordActions = useMemo(
-        () => listRecordActionsValue(objectDef.name, handleNavOverlayNavigate),
-        [objectDef.name, handleNavOverlayNavigate],
+        () =>
+            listRecordActionsValue(objectDef.name, handleNavOverlayNavigate, undefined, {
+                appName,
+                objects,
+                navigate,
+                routerRootHref,
+            }),
+        [objectDef.name, handleNavOverlayNavigate, appName, objects, navigate, routerRootHref],
     );
     const navOverlay = useNavigationOverlay({
         navigation: detailNavigation,

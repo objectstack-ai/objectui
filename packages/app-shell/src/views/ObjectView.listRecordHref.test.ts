@@ -34,7 +34,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 
-import { listRecordDetailUrl, listRecordActionsValue } from './ObjectView';
+import { listRecordDetailUrl, listRecordActionsValue, type ListRecordRoutes } from './ObjectView';
 
 describe('listRecordDetailUrl — one record-route shape for the list surface (#4490)', () => {
   it('strips the trailing view segment and appends the record route', () => {
@@ -70,12 +70,13 @@ describe('listRecordActionsValue — what the list page publishes (#4490)', () =
     expect(value.recordHref!('crm_lead', 'r1')).toBe('/apps/demo/crm_lead/record/r1');
   });
 
-  it('publishes NO href for any other object — this builder cannot name one', () => {
+  it('without the console routes, publishes NO href for any other object', () => {
     const value = listRecordActionsValue('crm_lead', vi.fn(), pathname);
-    // A lookup cell pointing at a third object must render as the plain value,
-    // which is what `null` means to the consumer. The console-wide builder is
-    // the detail page's bridge, which has the routable-object set this page
-    // does not — inventing a URL here is exactly the #4472 mistake.
+    // With no routable-object set there is nothing to build another object's
+    // route from, so a lookup cell pointing at a third object renders as the
+    // plain value, which is what `null` means to the consumer. Inventing a URL
+    // here is exactly the #4472 mistake; `ObjectView` passes the routes
+    // (objectui#12673, pinned below).
     expect(value.recordHref!('crm_account', 'acc-1')).toBeNull();
   });
 
@@ -120,5 +121,68 @@ describe('listRecordActionsValue — what the list page publishes (#4490)', () =
     expect(value.resolve({ objectName: 'crm_lead' })).toBe(
       value.resolve({ objectName: 'anything' }),
     );
+  });
+});
+
+describe('listRecordActionsValue — any routable object, through the record page builder (objectui#12673)', () => {
+  const pathname = () => '/_console/apps/demo/crm_lead/view/all';
+  const routes = (over: Partial<ListRecordRoutes> = {}): ListRecordRoutes => ({
+    appName: 'demo',
+    objects: [{ name: 'crm_lead' }, { name: 'crm_account' }, { name: 'sys_approval_request' }],
+    navigate: vi.fn(),
+    routerRootHref: '/_console/',
+    ...over,
+  });
+
+  it('publishes the document href of another routable object: basename, app, object, encoded id', () => {
+    const value = listRecordActionsValue('crm_lead', vi.fn(), pathname, routes());
+    expect(value.recordHref!('crm_account', 'a/1')).toBe('/_console/apps/demo/crm_account/record/a%2F1');
+  });
+
+  it('adds no `?from=` trail: a list page has no parent record', () => {
+    const value = listRecordActionsValue('crm_lead', vi.fn(), pathname, routes());
+    expect(value.recordHref!('crm_account', 'acc-1')).not.toContain('?');
+  });
+
+  it('openRecord navigates by the ROUTER path (the router applies its basename)', () => {
+    const r = routes();
+    const openPage = vi.fn();
+    const value = listRecordActionsValue('crm_lead', openPage, pathname, r);
+    value.openRecord!('crm_account', 'acc-1');
+    expect(r.navigate).toHaveBeenCalledTimes(1);
+    expect(r.navigate).toHaveBeenCalledWith('/apps/demo/crm_account/record/acc-1');
+    // Another object's record is not the listed object's record page.
+    expect(openPage).not.toHaveBeenCalled();
+  });
+
+  it('an object the console cannot route to: no href, and openRecord does nothing', () => {
+    const r = routes();
+    const value = listRecordActionsValue('crm_lead', vi.fn(), pathname, r);
+    expect(value.recordHref!('legacy_ledger', 'x-1')).toBeNull();
+    value.openRecord!('legacy_ledger', 'x-1');
+    expect(r.navigate).not.toHaveBeenCalled();
+  });
+
+  it('no app segment: no href for another object', () => {
+    const value = listRecordActionsValue('crm_lead', vi.fn(), pathname, routes({ appName: undefined }));
+    expect(value.recordHref!('crm_account', 'acc-1')).toBeNull();
+  });
+
+  it('a record with no id: no href, and openRecord does nothing', () => {
+    const r = routes();
+    const value = listRecordActionsValue('crm_lead', vi.fn(), pathname, r);
+    expect(value.recordHref!('crm_account', '')).toBeNull();
+    value.openRecord!('crm_account', '');
+    expect(r.navigate).not.toHaveBeenCalled();
+  });
+
+  it('the listed object keeps its own route and its own record navigation (control)', () => {
+    const r = routes();
+    const openPage = vi.fn();
+    const value = listRecordActionsValue('crm_lead', openPage, pathname, r);
+    expect(value.recordHref!('crm_lead', 'r1')).toBe('/_console/apps/demo/crm_lead/record/r1');
+    value.openRecord!('crm_lead', 'r1');
+    expect(openPage).toHaveBeenCalledWith('r1');
+    expect(r.navigate).not.toHaveBeenCalled();
   });
 });

@@ -138,6 +138,42 @@ function evalCreatePredicate(
   });
 }
 
+/**
+ * The names of the objects a console host can route to: one record route
+ * exists per object definition it holds (objectui#12673).
+ *
+ * Shared by this bridge and the object list host (`listRecordActionsValue` in
+ * `ObjectView`), which both read the console's `objects` prop, so the two
+ * cannot disagree on which targets are linkable.
+ */
+export function routableObjectNames(objects: ReadonlyArray<unknown> | null | undefined): Set<string> {
+  return new Set(
+    (objects ?? [])
+      .map((o) => (o as { name?: unknown } | null | undefined)?.name)
+      .filter((name): name is string => typeof name === 'string' && name !== ''),
+  );
+}
+
+/**
+ * THE record-detail route shape, as a ROUTER path (no basename):
+ * `/apps/:app/:object/record/:id` (objectui#12673).
+ *
+ * `null` when the host cannot route there: no app segment, or an object that
+ * is not in this console's metadata. Consumers render `null` as the plain
+ * value, so a non-routable target never yields a link to a page that would
+ * refuse. The record page's bridge adds its `?from=` trail on top; the list
+ * host, which has no parent record, uses it as is.
+ */
+export function appRecordPath(
+  appName: string | undefined,
+  routableObjects: ReadonlySet<string>,
+  objectName: string,
+  recordId: string | number,
+): string | null {
+  if (!appName || !objectName || !routableObjects.has(objectName)) return null;
+  return `/apps/${appName}/${objectName}/record/${encodeURIComponent(String(recordId))}`;
+}
+
 export interface RelatedRecordActionsBridgeProps {
   /** Current app segment used to build `/apps/:appName/...` routes. */
   appName?: string;
@@ -258,10 +294,7 @@ export function RelatedRecordActionsBridge({
   const hasParentRecord = parentRecordId != null && parentRecordId !== '';
 
   /** Objects this host can route to — the record route exists per object def. */
-  const routableObjects = useMemo(
-    () => new Set((objects ?? []).map((o: any) => o?.name).filter(Boolean)),
-    [objects],
-  );
+  const routableObjects = useMemo(() => routableObjectNames(objects), [objects]);
 
   /**
    * THE record-detail route for this page — one route shape, one place.
@@ -277,8 +310,8 @@ export function RelatedRecordActionsBridge({
    */
   const recordPath = useCallback(
     (objectName: string, recordId: string | number): string | null => {
-      if (!base || !objectName || !routableObjects.has(objectName)) return null;
-      const url = `${base}/${objectName}/record/${encodeURIComponent(String(recordId))}`;
+      const url = appRecordPath(appName, routableObjects, objectName, recordId);
+      if (url === null) return null;
       // Carry the parent record into the target's `?from=` trail so the
       // breadcrumb (and the record body's back link) can path back up.
       // Read the current trail off the live URL — this bridge outlives a
@@ -297,7 +330,7 @@ export function RelatedRecordActionsBridge({
       }
       return url;
     },
-    [base, routableObjects, parentObjectName, parentRecordId, parentTitle],
+    [appName, routableObjects, parentObjectName, parentRecordId, parentTitle],
   );
 
   /**

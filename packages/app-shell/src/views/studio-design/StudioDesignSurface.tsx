@@ -257,8 +257,11 @@ import {
   readFields,
   writeFields,
   newField,
+  toFieldNameLoose,
 } from '../metadata-admin/previews/object-fields-io.js';
+import type { FieldTypeId } from '../metadata-admin/previews/field-types.js';
 import { CreateItemDialog } from './CreateItemDialog.js';
+import { AddFieldPopover } from './AddFieldPopover.js';
 // objectui#11787 — the shared draft autosave, moved to its own module unchanged.
 import { useDraftAutoSave, type DraftSend } from './useDraftAutoSave.js';
 import { FLOW_PRESETS, flowPresetTrigger, type FlowPreset } from './flowPresets.js';
@@ -4796,6 +4799,17 @@ function nextFieldName(existing: string[]): string {
 }
 
 /**
+ * The api name of a field added with `label` (objectui#12516): the name the
+ * field inspector's Label derives from it (`toFieldNameLoose`), or, as the
+ * inspector keeps the default when that derivation is empty (a label with no
+ * Latin letters) or names another field, the next free `field_<N>`.
+ */
+function addedFieldName(label: string, existing: string[]): string {
+  const derived = toFieldNameLoose(label);
+  return derived && !existing.includes(derived) ? derived : nextFieldName(existing);
+}
+
+/**
  * Data pillar — the package's objects: a records grid (Airtable parity) plus
  * table-based field management. Add a field, or click a column header's edit
  * affordance, to open ObjectFieldInspector (full type list + per-type config)
@@ -5547,19 +5561,28 @@ export function DataPillar({
   const objHeld = objLoaded ? objIncomplete : null;
   useHeldEditReport(onHeldEditChange, objHeld?.clause ?? null);
 
-  // "+ add field": append a fresh text field and select it for editing in the panel.
+  // "+ add field": append a field with the label and type the Add field
+  // popover asked for (objectui#12516) and select it for editing in the panel.
   // Guarded in addition to being hidden — it's also reachable through
   // GridFieldAuthoringProvider/ObjectFormDesigner.
-  const addField = React.useCallback(() => {
+  const addField = React.useCallback((label: string, type: FieldTypeId) => {
     // objectui#11272 — never onto another object's buffer (not offered then).
     if (readOnly || !objLoaded) return;
     const view = readFields(objDraft.fields);
-    const name = nextFieldName(view.entries.map((e) => e.name));
-    view.entries.push(newField(name, 'text', t('engine.studio.data.newFieldLabel', locale)));
+    const name = addedFieldName(label, view.entries.map((e) => e.name));
+    view.entries.push(newField(name, type, label));
     setObjDraft((d) => ({ ...d, fields: writeFields(view) }));
     setDirty(true);
     setFieldSel({ kind: 'field', id: name });
   }, [objDraft, readOnly, objLoaded]);
+
+  // objectui#12516 — the Records grid's "+" column opens the same popover. The
+  // grid draws that button from its authoring context and hands no element
+  // back, so the popover is placed against the records body's top-right
+  // corner, and the button is remembered (from the click on its way down) to
+  // take focus back when the popover closes.
+  const [gridAddFieldOpen, setGridAddFieldOpen] = React.useState(false);
+  const gridAddFieldButton = React.useRef<HTMLElement | null>(null);
 
   // Drag-reorder columns → reorder the object's `fields` metadata (field display
   // order follows metadata order), saved as a DRAFT. Published later via the
@@ -5833,7 +5856,8 @@ export function DataPillar({
                     it reads the same on every tab. Object settings retired: the
                     Settings tab is that control. Add field is a field action,
                     offered where fields are laid out: the Form toolbar and the
-                    Records grid's own "+" column, both running `addField`. The
+                    Records grid's own "+" column, both opening the Add field
+                    popover that runs `addField` (objectui#12516). The
                     More menu went with it, since the header has no object-level
                     action left to put in one. */}
                 {/* objectui#12453 — on the Form tab it carries the layout's
@@ -5973,7 +5997,27 @@ export function DataPillar({
               {/* Records grid — fields are the columns. Header "+" adds a field, the
                 * per-column edit affordance opens the field editor, and dragging a
                 * column header reorders the object's fields (all via the context). */}
-              <div className="min-h-0 flex-1 overflow-auto bg-background" data-testid="data-records-body">
+              <div
+                className="relative min-h-0 flex-1 overflow-auto bg-background"
+                data-testid="data-records-body"
+                onClickCapture={(e) => {
+                  // React carries a click inside the (portalled) popover here
+                  // too; only a click in the body's own DOM is the grid's.
+                  if (e.target instanceof Element && e.currentTarget.contains(e.target)) {
+                    gridAddFieldButton.current = e.target.closest('button');
+                  }
+                }}
+              >
+                {!readOnly && (
+                  <AddFieldPopover
+                    open={gridAddFieldOpen}
+                    onOpenChange={setGridAddFieldOpen}
+                    onCreate={addField}
+                    returnFocusTo={() => gridAddFieldButton.current}
+                  >
+                    <span aria-hidden="true" className="pointer-events-none absolute right-4 top-2 h-0 w-0" />
+                  </AddFieldPopover>
+                )}
                 <GridFieldAuthoringProvider
                   value={{
                     // Read-only package: keep the per-column inspector (view props)
@@ -5981,7 +6025,7 @@ export function DataPillar({
                     ...(readOnly
                       ? {}
                       : {
-                          onAddColumn: addField,
+                          onAddColumn: () => setGridAddFieldOpen(true),
                           addColumnLabel: t('engine.studio.data.addField', locale),
                           onReorderFields: doReorderFields,
                         }),

@@ -237,11 +237,11 @@ async function reorderAndSave(editor: HTMLElement): Promise<void> {
 async function raceTwoEditors(): Promise<{ a: HTMLElement; b: HTMLElement }> {
   const a = openEditor();
   await loaded(a, '2 fields');
-  await addFieldAndSave(a); // A: + field_3
+  await addFieldAndSave(a); // A: + new_field
   const b = openEditor();
   await loaded(b, '3 fields');
   await reorderAndSave(b); // B: status before title
-  expect(serverDraftFields()).toEqual(['status', 'title', 'field_3']);
+  expect(serverDraftFields()).toEqual(['status', 'title', 'new_field']);
   await addFieldFromGrid(a); // A's stale copy + field_4
   await screen.findByTestId('draft-conflict-dialog', undefined, { timeout: 8000 });
   return { a, b };
@@ -270,14 +270,14 @@ describe('Data pillar — a draft saved elsewhere is not overwritten in silence 
     await loaded(a, '2 fields');
     const b = openEditor();
     await loaded(b, '2 fields');
-    await addFieldAndSave(a); // A: + field_3, the first draft
-    expect(serverDraftFields()).toEqual(['title', 'status', 'field_3']);
+    await addFieldAndSave(a); // A: + new_field, the first draft
+    expect(serverDraftFields()).toEqual(['title', 'status', 'new_field']);
     await addFieldFromGrid(b); // B's first save, built on the published object
     await screen.findByTestId('draft-conflict-dialog', undefined, { timeout: 8000 });
     const refused = server.saves[server.saves.length - 1]!;
     expect([refused.ifMatch, refused.ifNoneMatch]).toEqual([undefined, '*']);
     // A's field is still in the draft: B's stale copy was not written over it.
-    expect(serverDraftFields()).toEqual(['title', 'status', 'field_3']);
+    expect(serverDraftFields()).toEqual(['title', 'status', 'new_field']);
   });
 
   it('an editor that opens on a pending draft pins its first save to the version that read served', async () => {
@@ -292,9 +292,9 @@ describe('Data pillar — a draft saved elsewhere is not overwritten in silence 
     const { a } = await raceTwoEditors();
     const refused = server.saves[server.saves.length - 1]!;
     expect(refused.ifMatch).toBe('hmac-sha256:v1');
-    expect(fieldNames(refused.body)).toEqual(['title', 'status', 'field_3', 'field_4']);
+    expect(fieldNames(refused.body)).toEqual(['title', 'status', 'new_field', 'field_4']);
     // Nothing was written over B's draft.
-    expect(serverDraftFields()).toEqual(['status', 'title', 'field_3']);
+    expect(serverDraftFields()).toEqual(['status', 'title', 'new_field']);
     expect(screen.getByTestId('draft-conflict-dialog')).toHaveTextContent('acme_task');
 
     fireEvent.click(screen.getByTestId('draft-conflict-cancel'));
@@ -302,7 +302,7 @@ describe('Data pillar — a draft saved elsewhere is not overwritten in silence 
     // Keep editing: A's edit stays on screen, unsaved, and the refusal says so.
     expect(fieldCount(a)).toBe('4 fields');
     expect(within(a).getByText(/^Not saved:/)).toBeInTheDocument();
-    expect(serverDraftFields()).toEqual(['status', 'title', 'field_3']);
+    expect(serverDraftFields()).toEqual(['status', 'title', 'new_field']);
   });
 
   it('"reload" replaces the stale buffer with the saved draft, and the next save is pinned to that draft\'s version', async () => {
@@ -317,7 +317,7 @@ describe('Data pillar — a draft saved elsewhere is not overwritten in silence 
     const next = server.saves[server.saves.length - 1]!;
     expect(next.ifMatch).toBe('hmac-sha256:v2');
     // Built on B's draft: B's column order is kept.
-    expect(fieldNames(next.body)).toEqual(['status', 'title', 'field_3', 'field_4']);
+    expect(fieldNames(next.body)).toEqual(['status', 'title', 'new_field', 'field_4']);
   });
 
   it('"overwrite" asks again, then re-sends pinned to the refusal\'s currentVersion and wins; the next save is pinned to it', async () => {
@@ -334,7 +334,7 @@ describe('Data pillar — a draft saved elsewhere is not overwritten in silence 
     const overwrite = server.saves[server.saves.length - 1]!;
     // B's draft is the version the refusal named.
     expect([overwrite.ifMatch, overwrite.ifNoneMatch]).toEqual(['hmac-sha256:v2', undefined]);
-    expect(serverDraftFields()).toEqual(['title', 'status', 'field_3', 'field_4']);
+    expect(serverDraftFields()).toEqual(['title', 'status', 'new_field', 'field_4']);
     await waitFor(() => expect(within(a).queryByTestId('data-autosaving')).toBeNull(), { timeout: 8000 });
 
     await addFieldAndSave(a);

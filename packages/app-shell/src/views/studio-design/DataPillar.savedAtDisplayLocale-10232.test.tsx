@@ -26,6 +26,7 @@ import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { completeAddFieldPopover } from './__tests__/dataPillarAddField';
 import { MemoryRouter } from 'react-router-dom';
 import { I18nProvider, LocalizationProvider } from '@object-ui/i18n';
 import { isMachineLocale, recordLocaleArgumentsAsync } from '@object-ui/test-support';
@@ -89,6 +90,8 @@ async function readSavedHint(locale: string): Promise<string> {
   fireEvent.click(await screen.findByRole('button', { name: 'Form' }));
   // An edit sets `dirty`; the debounced auto-save lands it and shows the hint.
   fireEvent.click((await screen.findAllByRole('button', { name: /Add field/i }))[0]);
+  // objectui#12516 — Add field asks for the label first.
+  await completeAddFieldPopover();
   const hint = await screen.findByTestId('data-saved-at', undefined, { timeout: 5000 });
   const text = hint.textContent ?? '';
   cleanup();

@@ -33,7 +33,6 @@ import { lastOpenedByApp } from './appLastOpened.js';
 import { RecoveryPasswordReminder } from './RecoveryPasswordReminder.js';
 import { HomeActionCenter, HomeContinue, HomeActivity } from './HomeRail.js';
 import { useHomeInbox } from '../../hooks/useHomeInbox.js';
-import { useSharedPendingApprovals } from '../../hooks/sharedUserFeeds.js';
 import { useNavigationContext } from '../../context/NavigationContext.js';
 import {
   appRouteSegment,
@@ -291,11 +290,14 @@ export function HomePage() {
   const { favorites } = useFavorites();
   const { user } = useAuth();
   const { isAdmin, isResolved: isAdminResolved } = useWorkspaceAdminStatus();
-  const { pendingApprovalsCount, notifications, unreadTopicCount, notificationsStatus, activity } =
-    useHomeInbox();
-  // The same approvals feed with its status, for the line under the greeting,
-  // which states the count as a fact (objectui#12601).
-  const approvals = useSharedPendingApprovals();
+  const {
+    pendingApprovalsCount,
+    pendingApprovalsStatus,
+    notifications,
+    unreadTopicCount,
+    notificationsStatus,
+    activity,
+  } = useHomeInbox();
   // Home renders OUTSIDE the `/apps/:appName/*` router, so there is no
   // `params.appName` to read — `currentAppName` (published by ConsoleLayout on
   // every app mount) is the only "which app is the user in" signal available
@@ -408,11 +410,11 @@ export function HomePage() {
    * says nothing to a screen reader either.
    */
   const workSummary =
-    approvals.status !== 'ready'
+    pendingApprovalsStatus !== 'ready'
       ? undefined
-      : approvals.value > 0
+      : pendingApprovalsCount > 0
         ? t('home.summary.approvals', {
-            count: approvals.value,
+            count: pendingApprovalsCount,
             defaultValue: 'You have {{count}} approval(s) waiting today',
           })
         : t('home.summary.none', { defaultValue: 'Nothing is waiting for you today' });

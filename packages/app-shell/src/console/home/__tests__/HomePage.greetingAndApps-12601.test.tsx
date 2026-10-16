@@ -108,19 +108,16 @@ vi.mock('../../../context/NavigationContext', () => ({
 vi.mock('../../../hooks/useCanAuthorMetadata', () => ({
   useCanAuthorMetadata: () => state.canAuthorMetadata,
 }));
+// The page's one inbox seam: the approvals count AND whether it is an answer.
 vi.mock('../../../hooks/useHomeInbox', () => ({
   useHomeInbox: () => ({
     pendingApprovalsCount: state.pendingApprovalsCount,
+    pendingApprovalsStatus: state.approvalsStatus,
     notifications: [],
     unreadTopicCount: 0,
     notificationsStatus: 'ready',
     activity: { value: [], status: 'ready', readable: true },
   }),
-}));
-// The line under the greeting reads the approvals feed WITH its status.
-vi.mock('../../../hooks/sharedUserFeeds', async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
-  useSharedPendingApprovals: () => ({ value: state.pendingApprovalsCount, status: state.approvalsStatus }),
 }));
 vi.mock('../../../runtime-config', () => ({
   getRuntimeConfig: () => ({ branding: { productName: 'ObjectStack' } }),
@@ -341,6 +338,8 @@ describe('the apps strip (objectui#12601)', () => {
       // Setup is not a tile, so its entry draws no line anywhere.
       { id: 'object:sys_user', type: 'object', name: 'sys_user', href: '/apps/com.objectstack.setup/sys_user', visitedAt: hoursAgo(3) },
       { id: 'dashboard:pipeline', type: 'dashboard', name: 'pipeline', href: '/apps/crm/dashboard/pipeline', visitedAt: hoursAgo(5) },
+      // An entry with no readable time names nothing: Ops draws no line.
+      { id: 'record:ticket:1', type: 'record', label: 'T-1', href: '/apps/ops/ticket/record/1', visitedAt: '' },
     ];
     render(<HomePage />);
 

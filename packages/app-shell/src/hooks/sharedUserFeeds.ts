@@ -587,9 +587,10 @@ export function useSharedPendingApprovalsCount(): number {
  * nothing is waiting there), `idle` / `loading` / `error` are not, and the
  * value under `error` is the last answer, kept but no longer vouched for.
  *
- * Read where a surface states the count as a fact — Home's line under the
- * greeting says "Nothing is waiting for you today" only on `ready`, so an
- * in-flight or failed read is not reported as good news.
+ * Read where a surface states the count as a fact — `useHomeInbox` passes the
+ * status on, and Home's line under the greeting says "Nothing is waiting for
+ * you today" only on `ready`, so an in-flight or failed read is not reported
+ * as good news.
  *
  * Package-internal: not exported from `./index.ts` or the package entry.
  */

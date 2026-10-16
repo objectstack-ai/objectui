@@ -454,11 +454,18 @@ describe('ActionParamDialog — shared field-widget rendering (ADR-0059)', () =>
     expect(await screen.findByRole('combobox')).toBeTruthy();
   });
 
-  it('renders a date param through the shared DateField (native date input)', async () => {
+  // objectui#12642: the dialog draws the platform date picker the record form
+  // draws (one face per field type), not the browser's native input, whose
+  // placeholder and digit order are the machine's. The value is unchanged.
+  it('renders a date param through the platform date picker and resolves the YYYY-MM-DD day', async () => {
     const resolve = openDialog([def({ name: 'due', type: 'date' })]);
-    const input = await screen.findByLabelText('Param One');
-    expect(input.getAttribute('type')).toBe('date');
-    fireEvent.change(input, { target: { value: '2026-07-19' } });
+    const input = (await screen.findByLabelText('Param One')) as HTMLInputElement;
+    expect(input.closest('[data-slot="date-picker"]'), 'date picker not rendered').not.toBeNull();
+    expect(input.type).toBe('text');
+    expect(input.placeholder).toBe('MM/DD/YYYY');
+    expect(document.querySelector('input[type="date"]')).toBeNull();
+    fireEvent.change(input, { target: { value: '07/19/2026' } });
+    fireEvent.blur(input);
     confirm();
     await waitFor(() => expect(resolve).toHaveBeenCalledWith({ due: '2026-07-19' }));
   });
@@ -611,9 +618,12 @@ describe('emitted value-shape parity (contract-tied render proofs, #2714)', () =
   it('datetime param emits a zoned ISO instant the platform validator accepts', async () => {
     const param = def({ name: 'when', type: 'datetime' });
     const resolve = openDialog([param]);
-    const input = await screen.findByLabelText('Param One');
-    expect(input.getAttribute('type')).toBe('datetime-local');
-    fireEvent.change(input, { target: { value: '2026-07-20T14:30' } });
+    const input = (await screen.findByLabelText('Param One')) as HTMLInputElement;
+    // objectui#12642: the platform picker, typed in the display locale's format.
+    expect(input.closest('[data-slot="date-picker"]'), 'date picker not rendered').not.toBeNull();
+    expect(document.querySelector('input[type="datetime-local"]')).toBeNull();
+    fireEvent.change(input, { target: { value: '07/20/2026 14:30' } });
+    fireEvent.blur(input);
     confirm();
     await waitFor(() => expect(resolve).toHaveBeenCalled());
     const emitted = resolve.mock.calls[0][0].when;

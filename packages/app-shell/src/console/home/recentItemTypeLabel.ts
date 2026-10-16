@@ -27,6 +27,7 @@
  */
 
 import { capitalizeFirst } from '../../utils/index.js';
+import type { RecentItem } from '../../hooks/useRecentItems.js';
 
 type TFn = (key: string, opts?: any) => string;
 
@@ -39,4 +40,27 @@ type TFn = (key: string, opts?: any) => string;
  */
 export function recentItemTypeLabel(t: TFn, type: string): string {
   return t(`home.recentApps.itemType.${type}`, { defaultValue: capitalizeFirst(type) });
+}
+
+/**
+ * The object a Home "Recently accessed" entry is about (objectui#12604), or
+ * `undefined` for a kind that has none (a dashboard, a page, a report).
+ *
+ * An object entry is its object; a list view names its object; a record is
+ * stored at the address the record page recorded it under,
+ * `/apps/APP/OBJECT/record/ID` (`RecordDetailView`), so its object is that
+ * address's third segment. The row's trail names this object for a record, and
+ * the row's icon tile draws its icon.
+ */
+export function recentItemObject(item: RecentItem): string | undefined {
+  if (item.type === 'object') return item.name;
+  if (item.type === 'view') return item.object;
+  if (item.type !== 'record') return undefined;
+  const parts = item.href.split(/[?#]/, 1)[0].split('/').filter(Boolean);
+  if (parts[0] !== 'apps' || parts[3] !== 'record' || !parts[2]) return undefined;
+  try {
+    return decodeURIComponent(parts[2]);
+  } catch {
+    return parts[2];
+  }
 }

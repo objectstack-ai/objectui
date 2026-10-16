@@ -13,7 +13,7 @@
  * many → array patch → label preview) and the date widget. Since the ADR-0059
  * migration (#3064) params render through the SHARED form field widgets
  * (`@object-ui/fields` via `bulkParamToField`), so these tests now assert the
- * form-widget DOM (multiselect toggle chips, native date input) — and the new
+ * form-widget DOM (multiselect toggle chips, the platform date picker) — and the new
  * lookup suite pins the #3064 contract itself: no eager candidate prefetch,
  * fetch errors surfaced with a Retry affordance, and no failure caching
  * (reopening the picker refetches).
@@ -120,15 +120,15 @@ describe('BulkActionDialog — multi-select param produces an array patch', () =
   });
 });
 
-describe('BulkActionDialog — date param renders a date picker', () => {
-  it('renders a native date input rather than a free-text box', async () => {
+// objectui#12642: a `date` / `datetime` param draws the platform date picker
+// the record form draws (one face per field type), not the browser's native
+// input, whose placeholder and digit order are the machine's. The patch each
+// row receives is unchanged: `YYYY-MM-DD` for `date`, an ISO instant for
+// `datetime`.
+describe('BulkActionDialog — date params render the platform date picker', () => {
+  async function runWith(param: Record<string, unknown>, typed: string) {
     const ds = makeDataSource();
-    const def: any = {
-      name: 'set_due',
-      label: 'Set due date',
-      operation: 'update',
-      params: [{ name: 'due', label: 'Due', type: 'date' }],
-    };
+    const def: any = { name: 'set_it', label: 'Set it', operation: 'update', params: [param] };
     render(
       <BulkActionDialog
         def={def}
@@ -140,9 +140,32 @@ describe('BulkActionDialog — date param renders a date picker', () => {
       />,
     );
     // Radix Dialog portals to document.body, and the widget loads lazily.
-    await waitFor(() => {
-      expect(document.querySelector('input[type="date"]')).toBeInTheDocument();
+    const input = await waitFor(() => {
+      const el = document.querySelector('[data-slot="date-picker"] input');
+      if (!el) throw new Error('date picker not rendered');
+      return el as HTMLInputElement;
     });
+    expect(input.type).toBe('text');
+    expect(input.placeholder).toMatch(/^MM\/DD\/YYYY/);
+    expect(document.querySelector('input[type="date"], input[type="datetime-local"]')).toBeNull();
+    fireEvent.change(input, { target: { value: typed } });
+    fireEvent.blur(input);
+    const next = screen.getByRole('button', { name: 'Next' });
+    await waitFor(() => expect(next).toBeEnabled());
+    fireEvent.click(next);
+    fireEvent.click(await screen.findByRole('button', { name: 'Run' }));
+    await waitFor(() => expect(ds.update).toHaveBeenCalledTimes(1));
+    return ds.update.mock.calls[0];
+  }
+
+  it('a `date` param writes the YYYY-MM-DD day', async () => {
+    const call = await runWith({ name: 'due', label: 'Due', type: 'date', required: true }, '10/20/2026');
+    expect(call).toEqual(['thing', 'r1', { due: '2026-10-20' }]);
+  });
+
+  it('a `datetime` param writes the ISO instant of the typed local wall clock', async () => {
+    const call = await runWith({ name: 'at', label: 'At', type: 'datetime', required: true }, '10/20/2026 14:30');
+    expect(call).toEqual(['thing', 'r1', { at: new Date(2026, 9, 20, 14, 30).toISOString() }]);
   });
 });
 

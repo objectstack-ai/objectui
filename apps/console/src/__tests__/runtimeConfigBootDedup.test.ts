@@ -7,13 +7,18 @@
  * before `createRoot().render()`, so it is on the critical path to first paint).
  * Neither can see the other, which is why no per-component guard closes it.
  *
+ * objectui#12808 measured it twice again: the first fix shared the request only
+ * while it was IN FLIGHT, and the pre-boot request settles hundreds of ms before
+ * the bundle asks, so there was never anything to join. The script now keeps its
+ * answer for the page's lifetime and `initRuntimeConfig()` takes it once.
+ *
  * These tests grade THE SHIPPED ARTIFACT, the same way
  * `insecure-origin-crypto.test.ts` does: the inline script's text is extracted
- * from `index.html` and executed. That is what keeps the request key the script
- * spells out by hand — a classic script cannot import `inflightGetKey()` — from
- * drifting away from the function that owns the format. A drift would not break
- * anything visibly; it would just quietly restore the duplicate, which is
- * exactly the failure a hand-copied contract produces.
+ * from `index.html` and executed. That is what keeps the slot the script spells
+ * out by hand — a classic script cannot import — from drifting away from the
+ * reader in `runtime-config.ts`. A drift would not break anything visibly; it
+ * would just quietly restore the duplicate, which is exactly the failure a
+ * hand-copied contract produces.
  */
 
 import indexHtml from '../../index.html?raw';
@@ -81,7 +86,14 @@ function jsonResponse(body: unknown, status = 200): Response {
   } as unknown as Response;
 }
 
+/** The slot the pre-boot script leaves its answer in (see `index.html`). */
+const EARLY_SLOT = Symbol.for('objectui.earlyRuntimeConfig');
+
+/** Let the pre-boot request settle, as it does long before the bundle asks. */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
 beforeEach(() => {
+  delete (globalThis as unknown as Record<symbol, unknown>)[EARLY_SLOT];
   resetInflightGetsForTesting();
   resetRuntimeConfigForTesting();
   document.title = '';
@@ -96,7 +108,7 @@ describe('the shipped pre-boot script is findable', () => {
   it('is exactly one inline script in index.html', () => {
     const source = extractEarlyBrandingSource();
     expect(source).toContain('/api/v1/runtime/config');
-    expect(source).toContain("Symbol.for('objectui.inflightGet')");
+    expect(source).toContain("Symbol.for('objectui.earlyRuntimeConfig')");
   });
 
   it('fails loudly if the script is gone rather than passing vacuously', () => {
@@ -126,7 +138,23 @@ describe('one cold load, one runtime/config request', () => {
     expect(document.title).toBe('Acme Ops');
   });
 
-  it('still fetches on its own when nothing is in flight — sharing, not caching', async () => {
+  it('reads the pre-boot answer even after it settled — the real gap (objectui#12808)', async () => {
+    const fetchStub = vi.fn(async (_url: string, _init?: RequestInit) => jsonResponse(CONFIG_BODY));
+    vi.stubGlobal('fetch', fetchStub);
+
+    runEarlyBranding();
+    // The bundle arrives well after the parse-time request has settled.
+    await settle();
+    expect(document.title).toBe('Acme Ops');
+    await initRuntimeConfig('');
+
+    // Before the fix this was 2: the in-flight share had nothing left to join.
+    expect(fetchStub).toHaveBeenCalledTimes(1);
+    expect(getRuntimeConfig().cloudUrl).toBe('https://cloud.example.test');
+    expect(getRuntimeConfig().branding.productName).toBe('Acme Ops');
+  });
+
+  it('still fetches on its own when the page has no pre-boot script', async () => {
     const fetchStub = vi.fn(async () => jsonResponse(CONFIG_BODY));
     vi.stubGlobal('fetch', fetchStub);
 
@@ -146,13 +174,13 @@ describe('one cold load, one runtime/config request', () => {
     expect(fetchStub).toHaveBeenCalledTimes(1);
 
     // `initRuntimeConfig` is documented as safe to call again, and a second call
-    // must re-fetch and re-merge. The registry entry is gone at settle, so it
-    // does — there is no window in which a stale body could be replayed.
+    // must re-fetch and re-merge. The pre-boot answer is taken once, so it
+    // does — a later call never replays the boot body.
     await initRuntimeConfig('');
     expect(fetchStub).toHaveBeenCalledTimes(2);
   });
 
-  it('keeps defaults when the shared request fails, and never leaves the failure cached', async () => {
+  it('CONTROL: a failed pre-boot request still lets app-shell fetch once', async () => {
     const fetchStub = vi
       .fn()
       .mockResolvedValueOnce(jsonResponse(null, 503))
@@ -160,22 +188,29 @@ describe('one cold load, one runtime/config request', () => {
     vi.stubGlobal('fetch', fetchStub);
 
     runEarlyBranding();
-    // The rejection reaches app-shell, which absorbs it exactly as it absorbed a
-    // non-2xx before — defaults intact, boot uninterrupted.
-    await initRuntimeConfig('');
-    expect(fetchStub).toHaveBeenCalledTimes(1);
-    expect(getRuntimeConfig().branding.productName).toBe('ObjectOS');
-
+    await settle();
+    // The failure is not reused: app-shell asks the server itself, as it did
+    // before there was any handoff.
     await initRuntimeConfig('');
     expect(fetchStub).toHaveBeenCalledTimes(2);
     expect(getRuntimeConfig().branding.productName).toBe('Acme Ops');
+  });
+
+  it('CONTROL: a failure on both asks keeps the defaults, boot uninterrupted', async () => {
+    const fetchStub = vi.fn(async () => jsonResponse(null, 503));
+    vi.stubGlobal('fetch', fetchStub);
+
+    runEarlyBranding();
+    await initRuntimeConfig('');
+    expect(fetchStub).toHaveBeenCalledTimes(2);
+    expect(getRuntimeConfig().branding.productName).toBe('ObjectOS');
   });
 });
 
 /**
  * objectui#5660 — one page, one server origin.
  *
- * Sharing keys on the FULL URL (`inflightGetKey`), so the dedup above only ever
+ * Sharing keys on the FULL URL (the slot carries the URL it asked), so the dedup above only ever
  * fires while both callers agree on the origin. They did not: this script read
  * `window.__CONSOLE_SERVER_URL`, which nothing in the repository sets, while
  * `main.tsx` reads `import.meta.env.VITE_SERVER_URL`. Same-origin production

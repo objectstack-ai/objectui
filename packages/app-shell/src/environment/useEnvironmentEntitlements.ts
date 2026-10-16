@@ -17,9 +17,26 @@
  *
  * Returns `null` when disabled (not the environment list) so callers can cheaply
  * branch. Re-resolves when `refreshKey` changes (e.g. after a create).
+ *
+ * ## One request per organisation, however many readers (objectui#12808)
+ *
+ * Every reader of this hook shares ONE resource per (control-plane origin,
+ * organisation): the in-flight resolution and its settled answer. The Cloud
+ * pricing page mounts one `cloud:plan-status` per plan card and the Welcome
+ * page mounts `cloud:onboarding-next` beside `cloud:workspace-timezone-notice`;
+ * each used to issue its own GET, and Chrome serialises identical in-flight
+ * GETs, so three cards paid three round trips in series.
+ *
+ * Freshness is unchanged, because nothing here is time-based:
+ *   - the answer is held only while at least one reader is mounted. When the
+ *     last one unmounts the resource is dropped, so a later mount asks the
+ *     server again, exactly as every mount did before;
+ *   - a different organisation is a different resource;
+ *   - a reader whose `refreshKey` changes (the environment list after a create)
+ *     re-resolves the shared resource, and every reader receives the new answer.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@object-ui/auth';
 import type { EnvironmentEntitlementsState, EnvironmentEntitlementsSummary } from './entitlements.js';
 
@@ -45,6 +62,136 @@ export interface UseEnvironmentEntitlementsOptions {
   refreshKey?: unknown;
 }
 
+type ResolveOptions = Pick<UseEnvironmentEntitlementsOptions, 'dataSource' | 'authFetch' | 'apiBase'> & {
+  orgId: string | undefined;
+};
+
+/** The authoritative summary first, the row derivation when it is unavailable. */
+async function resolveEntitlements(opts: ResolveOptions): Promise<EnvironmentEntitlementsState> {
+  const { dataSource, authFetch, apiBase, orgId } = opts;
+
+  const fromSummary = async (): Promise<EnvironmentEntitlementsState | null> => {
+    try {
+      const base = (apiBase || '').replace(/\/+$/, '');
+      const qs = orgId ? `?organizationId=${encodeURIComponent(orgId)}` : '';
+      const res = await authFetch(`${base}/api/v1/cloud/environment-entitlements${qs}`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+      if (!res.ok) return null;
+      // Strict envelope read: the control plane wraps every success body as
+      // `{ success, data }` (cloud#1046), and `EnvironmentEntitlementsSummary`
+      // is declared as that `data` payload. A bare body is therefore a
+      // producer contract violation, not a second accepted dialect — reading
+      // it would yield a summary whose fields are all `undefined`, i.e. a
+      // silent `hasProductionEnv: false`. Returning null instead degrades to
+      // the `fromRows()` derivation, which resolves that signal for real.
+      const json = (await res.json().catch(() => null)) as
+        | { data?: EnvironmentEntitlementsSummary }
+        | null;
+      const data = json?.data;
+      if (!data || typeof data !== 'object') return null;
+      return {
+        ready: true,
+        hasProductionEnv: data.hasProductionEnv === true,
+        canCreateDevelopmentEnv: data.development?.canCreate,
+        plan: data.plan,
+        // Verbatim, like `contactSalesUrl`: absent stays absent, and the
+        // toolbar's locked plan-tier mark is then drawn unlinked
+        // (objectui#10437, objectui#12190).
+        upgradeUrl: data.upgradeUrl,
+        contactSalesUrl: data.contactSalesUrl,
+        // Verbatim, like `upgradeUrl`: absent stays absent, and the
+        // workspace-timezone notice then renders nothing (objectui#11930).
+        workspaceTimezoneSeed: data.workspaceTimezoneSeed,
+        source: 'summary',
+      };
+    } catch {
+      return null;
+    }
+  };
+
+  const fromRows = async (): Promise<EnvironmentEntitlementsState> => {
+    try {
+      const params: any = { $top: 200 };
+      if (orgId) params.$filter = { organization_id: orgId };
+      const res = await dataSource.find('sys_environment', params);
+      const rows: any[] = Array.isArray(res) ? res : res?.data ?? [];
+      const active = rows.filter((r) => !TERMINAL_STATUSES.has(String(r?.status ?? '')));
+      const hasProductionEnv = active.some((r) => classifyEnvironmentType(r) === 'production');
+      return {
+        ready: true,
+        hasProductionEnv,
+        canCreateDevelopmentEnv: undefined,
+        source: 'derived',
+      };
+    } catch {
+      return {
+        ready: false,
+        hasProductionEnv: false,
+        canCreateDevelopmentEnv: undefined,
+        source: 'unknown',
+      };
+    }
+  };
+
+  return (await fromSummary()) ?? (await fromRows());
+}
+
+/**
+ * The shared resource for one (origin, organisation). `value` is the settled
+ * answer (`undefined` until the first resolution lands); `generation` lets a
+ * superseded or dropped resolution discard its answer instead of writing it.
+ */
+interface EntitlementsResource {
+  value: EnvironmentEntitlementsState | undefined;
+  inFlight: boolean;
+  generation: number;
+  readers: number;
+  listeners: Set<() => void>;
+}
+
+const resources = new Map<string, EntitlementsResource>();
+
+function resolveInto(resource: EntitlementsResource, opts: ResolveOptions): void {
+  const generation = ++resource.generation;
+  resource.inFlight = true;
+  void resolveEntitlements(opts).then((next) => {
+    if (resource.generation !== generation) return;
+    resource.inFlight = false;
+    resource.value = next;
+    for (const listener of Array.from(resource.listeners)) listener();
+  });
+}
+
+/** Join the resource for `key`, starting its resolution only if nobody has. */
+function acquire(key: string, opts: ResolveOptions): EntitlementsResource {
+  let resource = resources.get(key);
+  if (!resource) {
+    resource = { value: undefined, inFlight: false, generation: 0, readers: 0, listeners: new Set() };
+    resources.set(key, resource);
+  }
+  resource.readers += 1;
+  if (resource.value === undefined && !resource.inFlight) resolveInto(resource, opts);
+  return resource;
+}
+
+/**
+ * Leave the resource. The drop waits for the end of the current task, so an
+ * unmount and a mount committed together (a route change, React StrictMode's
+ * effect replay) hand the answer over instead of asking the server twice; it is
+ * not a timer, and nothing outlives the readers.
+ */
+function release(key: string, resource: EntitlementsResource): void {
+  resource.readers -= 1;
+  if (resource.readers > 0) return;
+  queueMicrotask(() => {
+    if (resource.readers > 0 || resources.get(key) !== resource) return;
+    resources.delete(key);
+    resource.generation += 1;
+  });
+}
+
 export function useEnvironmentEntitlements(
   opts: UseEnvironmentEntitlementsOptions,
 ): EnvironmentEntitlementsState | null {
@@ -53,86 +200,44 @@ export function useEnvironmentEntitlements(
   const orgId = activeOrganization?.id;
   const [state, setState] = useState<EnvironmentEntitlementsState | null>(null);
 
+  // The resolution runs with whichever reader starts it, so these are read at
+  // that moment rather than keyed on: two readers' fetch functions are
+  // interchangeable, and keying an effect on a function identity is what
+  // AGENTS.md #10 rules out.
+  const resolveDeps = useRef({ dataSource, authFetch });
+  resolveDeps.current = { dataSource, authFetch };
+  const lastRefresh = useRef<{ key: string; refreshKey: unknown } | null>(null);
+
+  const key = `${(apiBase || '').replace(/\/+$/, '')}\n${orgId ?? ''}`;
+
   useEffect(() => {
     if (!enabled) {
+      lastRefresh.current = null;
       setState(null);
       return;
     }
-    let cancelled = false;
+    const resolveOpts = (): ResolveOptions => ({ ...resolveDeps.current, apiBase, orgId });
+    const resource = acquire(key, resolveOpts());
 
-    const fromSummary = async (): Promise<EnvironmentEntitlementsState | null> => {
-      try {
-        const base = (apiBase || '').replace(/\/+$/, '');
-        const qs = orgId ? `?organizationId=${encodeURIComponent(orgId)}` : '';
-        const res = await authFetch(`${base}/api/v1/cloud/environment-entitlements${qs}`, {
-          method: 'GET',
-          credentials: 'include',
-        });
-        if (!res.ok) return null;
-        // Strict envelope read: the control plane wraps every success body as
-        // `{ success, data }` (cloud#1046), and `EnvironmentEntitlementsSummary`
-        // is declared as that `data` payload. A bare body is therefore a
-        // producer contract violation, not a second accepted dialect — reading
-        // it would yield a summary whose fields are all `undefined`, i.e. a
-        // silent `hasProductionEnv: false`. Returning null instead degrades to
-        // the `fromRows()` derivation, which resolves that signal for real.
-        const json = (await res.json().catch(() => null)) as
-          | { data?: EnvironmentEntitlementsSummary }
-          | null;
-        const data = json?.data;
-        if (!data || typeof data !== 'object') return null;
-        return {
-          ready: true,
-          hasProductionEnv: data.hasProductionEnv === true,
-          canCreateDevelopmentEnv: data.development?.canCreate,
-          plan: data.plan,
-          // Verbatim, like `contactSalesUrl`: absent stays absent, and the
-          // toolbar's locked plan-tier mark is then drawn unlinked
-          // (objectui#10437, objectui#12190).
-          upgradeUrl: data.upgradeUrl,
-          contactSalesUrl: data.contactSalesUrl,
-          // Verbatim, like `upgradeUrl`: absent stays absent, and the
-          // workspace-timezone notice then renders nothing (objectui#11930).
-          workspaceTimezoneSeed: data.workspaceTimezoneSeed,
-          source: 'summary',
-        };
-      } catch {
-        return null;
-      }
+    // The explicit invalidation: this reader's `refreshKey` moved while it kept
+    // reading the same organisation, so the shared answer is re-resolved for
+    // every reader, not only for this one.
+    const previous = lastRefresh.current;
+    lastRefresh.current = { key, refreshKey };
+    if (previous && previous.key === key && !Object.is(previous.refreshKey, refreshKey)) {
+      resolveInto(resource, resolveOpts());
+    }
+
+    const sync = () => {
+      if (resource.value !== undefined) setState(resource.value);
     };
-
-    const fromRows = async (): Promise<EnvironmentEntitlementsState> => {
-      try {
-        const params: any = { $top: 200 };
-        if (orgId) params.$filter = { organization_id: orgId };
-        const res = await dataSource.find('sys_environment', params);
-        const rows: any[] = Array.isArray(res) ? res : res?.data ?? [];
-        const active = rows.filter((r) => !TERMINAL_STATUSES.has(String(r?.status ?? '')));
-        const hasProductionEnv = active.some((r) => classifyEnvironmentType(r) === 'production');
-        return {
-          ready: true,
-          hasProductionEnv,
-          canCreateDevelopmentEnv: undefined,
-          source: 'derived',
-        };
-      } catch {
-        return {
-          ready: false,
-          hasProductionEnv: false,
-          canCreateDevelopmentEnv: undefined,
-          source: 'unknown',
-        };
-      }
+    resource.listeners.add(sync);
+    sync();
+    return () => {
+      resource.listeners.delete(sync);
+      release(key, resource);
     };
-
-    (async () => {
-      const summary = await fromSummary();
-      const next = summary ?? (await fromRows());
-      if (!cancelled) setState(next);
-    })();
-
-    return () => { cancelled = true; };
-  }, [enabled, orgId, apiBase, authFetch, dataSource, refreshKey]);
+  }, [enabled, key, apiBase, orgId, refreshKey]);
 
   return state;
 }

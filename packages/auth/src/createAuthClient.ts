@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { createAuthClient as createBetterAuthClient } from 'better-auth/client';
+import { createAuthClient as createBetterAuthClient, parseJSON } from 'better-auth/client';
 import { organizationClient, twoFactorClient } from 'better-auth/client/plugins';
 import type {
   AuthClient, AuthClientConfig, AuthUser, AuthClientSession, SignInCredentials, SignUpData,
@@ -227,6 +227,52 @@ function resolveResetPasswordRedirect(): string {
     // ignore — fall through to default
   }
   return '/reset-password';
+}
+
+/**
+ * The slot the console's pre-React auth preflight (`apps/console/src/lib/
+ * auth-preflight.ts`) leaves its `get-session` answer in when the stored Bearer
+ * was valid: the auth URL it asked, the token it sent and the raw body. The
+ * preflight runs before any bundle chunk that could import this package, so the
+ * slot is spelled by hand on both sides; the console's
+ * `sessionBootDedup.test.tsx` runs the preflight against this reader.
+ */
+const PREFLIGHT_SESSION_KEY = Symbol.for('objectui.authPreflightSession');
+
+interface PreflightSessionSlot {
+  authUrl: string;
+  token: string;
+  body: string;
+  taken?: boolean;
+}
+
+/**
+ * Take the preflight's `get-session` answer, once per page load (objectui#12808).
+ *
+ * Returns it only when it answers what the caller would ask: the same auth URL,
+ * and the Bearer still stored is the one the preflight validated (the server
+ * prefers the Bearer, so the cookie the preflight omitted cannot change the
+ * answer). Parsed exactly as `getSession()` parses the wire body, with the same
+ * token sync. Anything else, or a second call, returns `null` and the caller asks
+ * the server as before.
+ */
+export function takePreflightSession(
+  authUrl: string,
+): { user: AuthUser; session: AuthClientSession } | null {
+  const holder = globalThis as unknown as Record<symbol, PreflightSessionSlot | undefined>;
+  const slot = holder[PREFLIGHT_SESSION_KEY];
+  if (!slot || slot.taken) return null;
+  slot.taken = true;
+  if (slot.authUrl !== authUrl || slot.token !== TokenStorage.get()) return null;
+  let payload: { user?: AuthUser; session?: AuthClientSession } | null = null;
+  try {
+    payload = parseJSON(slot.body, { strict: false }) as typeof payload;
+  } catch {
+    return null;
+  }
+  if (!payload?.user || !payload.session) return null;
+  if (payload.session.token) TokenStorage.set(payload.session.token);
+  return { user: payload.user, session: payload.session };
 }
 
 /**

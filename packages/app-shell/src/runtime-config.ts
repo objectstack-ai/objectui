@@ -347,6 +347,40 @@ function applyUpdate(patch: Partial<AppShellRuntimeConfig>): void {
 }
 
 /**
+ * The slot `apps/console/index.html`'s pre-boot branding script leaves its
+ * `GET /api/v1/runtime/config` in: the URL it asked and the parsed-body promise,
+ * kept for the page's lifetime. A classic inline script cannot import, so the
+ * slot is spelled by hand on both sides and `runtimeConfigBootDedup.test.ts`
+ * runs the shipped script against this reader.
+ */
+const EARLY_RUNTIME_CONFIG_KEY = Symbol.for('objectui.earlyRuntimeConfig');
+
+interface EarlyRuntimeConfigSlot {
+  url: string;
+  body: Promise<Partial<AppShellRuntimeConfig> | null>;
+  taken?: boolean;
+}
+
+/**
+ * Take the pre-boot script's answer, once per page load, when it asked the same
+ * URL. Resolves `undefined` when there is nothing to take — no script, another
+ * URL, already taken, or an early fetch that failed — and the caller fetches.
+ */
+async function takeEarlyRuntimeConfig(
+  url: string,
+): Promise<Partial<AppShellRuntimeConfig> | null | undefined> {
+  const holder = globalThis as unknown as Record<symbol, EarlyRuntimeConfigSlot | undefined>;
+  const slot = holder[EARLY_RUNTIME_CONFIG_KEY];
+  if (!slot || slot.taken || slot.url !== url) return undefined;
+  slot.taken = true;
+  try {
+    return await slot.body;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Fetch the server-pushed runtime config and merge it into the singleton.
  * Must be awaited before first render so consumers see definitive values
  * on first paint. Safe to call more than once (subsequent calls re-fetch
@@ -356,24 +390,26 @@ function applyUpdate(patch: Partial<AppShellRuntimeConfig>): void {
  * In production both Console SPA and tenant runtime share an origin so
  * the default (relative `/api/v1/...`) works.
  *
- * Goes through {@link sharedGetJson} because this is NOT the page's first ask
- * for this URL (objectui#5544): the inline branding script in
- * `apps/console/index.html` starts the identical request during HTML parse, well
- * before this module chunk is even fetched. Both were measured on prod and
- * staging, and this one is on the critical path — the console awaits it before
- * `createRoot().render()`. Joining the earlier request removes a whole
- * control-plane round trip AND lets this await settle sooner, since it inherits
- * a request that started first. In-flight only: with nothing in flight this
- * fetches normally, and the repeat-call contract above is unchanged, because the
- * registry entry is gone by the time any later call arrives.
+ * This is NOT the page's first ask for this URL (objectui#5544): the inline
+ * branding script in `apps/console/index.html` starts the identical request
+ * during HTML parse, well before this module chunk is even fetched, and this one
+ * is on the critical path — the console awaits it before `createRoot().render()`.
+ * So the first call takes that script's answer instead of asking again
+ * (objectui#12808, see {@link takeEarlyRuntimeConfig}); a failed early fetch, or
+ * a page without the script, fetches here through {@link sharedGetJson}, and
+ * every later call re-fetches, so the repeat-call contract above is unchanged.
  */
 export async function initRuntimeConfig(baseUrl: string = ''): Promise<void> {
   const base = (baseUrl || '').replace(/\/+$/, '');
+  const url = `${base}/api/v1/runtime/config`;
   try {
-    const body = await sharedGetJson<Partial<AppShellRuntimeConfig> | null>(
-      `${base}/api/v1/runtime/config`,
-      { credentials: 'include', headers: { Accept: 'application/json' } },
-    );
+    const early = await takeEarlyRuntimeConfig(url);
+    const body = early !== undefined
+      ? early
+      : await sharedGetJson<Partial<AppShellRuntimeConfig> | null>(
+        url,
+        { credentials: 'include', headers: { Accept: 'application/json' } },
+      );
     if (!body || typeof body !== 'object') return;
     applyUpdate({
       cloudUrl: typeof body.cloudUrl === 'string' ? body.cloudUrl.replace(/\/+$/, '') : current.cloudUrl,

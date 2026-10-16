@@ -10,7 +10,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { authGateEvents } from './auth-gate-events.js';
 import type { AuthUser, AuthClient, AuthProviderOptions, PreviewModeOptions, AuthOrganization, AuthOrganizationMember, AuthInvitation, AuthPublicConfig, SignInWithProviderOptions } from './types.js';
 import { AuthCtx, type AuthContextValue } from './AuthContext.js';
-import { createAuthClient, TokenStorage } from './createAuthClient.js';
+import { createAuthClient, takePreflightSession, TokenStorage } from './createAuthClient.js';
 import { ActiveOrganizationStorage, SessionUserScope } from './ActiveOrganizationStorage.js';
 
 /**
@@ -172,9 +172,22 @@ export function AuthProvider({
     [externalClient, authUrl],
   );
 
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [session, setSession] = useState<AuthContextValue['session']>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // objectui#12808 — the console's pre-React preflight already asked
+  // `get-session` with the stored Bearer. When that answer is still the one we
+  // would get, it IS the first state, and the mount below does not ask again.
+  // Taken once per page load, in an initializer so it runs once per instance
+  // (StrictMode keeps the first call's result). Only for a provider that builds
+  // its own client from `authUrl`: an injected client may talk to another server.
+  const [bootSession] = useState(() =>
+    (enabled && previewMode == null && !externalClient ? takePreflightSession(authUrl) : null),
+  );
+  const [user, setUser] = useState<AuthUser | null>(() => bootSession?.user ?? null);
+  const [session, setSession] = useState<AuthContextValue['session']>(() => bootSession?.session ?? null);
+  const [isLoading, setIsLoading] = useState(() => bootSession === null);
+  // What the boot answer was taken for. The mount effect skips its load while
+  // it still holds (a StrictMode effect replay included); the first run that
+  // finds anything else drops it for good, so every later run loads as before.
+  const bootSessionFor = useRef<string | null>(bootSession ? authUrl : null);
   const [error, setError] = useState<Error | null>(null);
   const [remediationRequired, setRemediationRequired] = useState<{ code: string; message: string } | null>(null);
 
@@ -292,6 +305,9 @@ export function AuthProvider({
 
   // Load session on mount (only if auth is enabled and not in preview mode)
   useEffect(() => {
+    if (isPreviewMode || !enabled || externalClient || bootSessionFor.current !== authUrl) {
+      bootSessionFor.current = null;
+    }
     if (isPreviewMode) {
       // Preview mode: simulate a user based on previewMode config
       const role = previewMode.simulatedRole ?? 'admin';
@@ -337,10 +353,13 @@ export function AuthProvider({
       return;
     }
 
+    // The first state already holds the preflight's answer (see `bootSession`).
+    if (bootSessionFor.current !== null) return;
+
     let cancelled = false;
     loadSession(() => cancelled);
     return () => { cancelled = true; };
-  }, [client, enabled, isPreviewMode, previewMode, loadSession]);
+  }, [client, enabled, isPreviewMode, previewMode, loadSession, authUrl, externalClient]);
 
   // Notify on auth state changes
   useEffect(() => {

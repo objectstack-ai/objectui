@@ -56,8 +56,9 @@ export interface CloudPlanStatusProps {
 export function CloudPlanStatus({ properties, className }: CloudPlanStatusProps) {
   const { t } = useObjectTranslation();
   const dataSource = useAdapter();
-  // `useState`, not `useMemo`: the hook keys its fetch effect on this function,
-  // so its identity has to be one React guarantees to keep (AGENTS.md #10).
+  // `useState`, not `useMemo`: one function per mount, with an identity React
+  // guarantees to keep (AGENTS.md #10). The hook uses it only when this reader
+  // is the one that starts the shared resolution (objectui#12808).
   const [authFetch] = useState(() => createAuthenticatedFetch());
   const entitlements = useEnvironmentEntitlements({
     enabled: true,

@@ -30,6 +30,17 @@
  *
  * Idempotent, runs once per page load, < 50 ms when the token is valid
  * (single round-trip), no UI flicker (happens before render).
+ *
+ * # The answer is handed on (objectui#12808)
+ *
+ * When the token is valid this request already IS the session `AuthProvider`
+ * would ask for next: the server prefers the Bearer over the cookie, so adding
+ * the cookie cannot change the answer. The raw body is left on `globalThis`
+ * under `Symbol.for('objectui.authPreflightSession')`, with the auth URL and the
+ * token it was asked with, and `AuthProvider` takes it, once, for its first
+ * state (`takePreflightSession` in `@object-ui/auth`'s `createAuthClient.ts`)
+ * instead of issuing a second `get-session`. A stale or unanswered token leaves
+ * nothing behind, and every later session read asks the server as before.
  */
 
 const TOKEN_KEY = 'auth-session-token';
@@ -43,6 +54,8 @@ const TOKEN_KEY = 'auth-session-token';
  * component closure into the eager entry chunk.
  */
 const ACTIVE_ORG_KEY_BASE = 'auth-active-organization-id';
+/** Where the valid answer is handed to `AuthProvider` — see the header. */
+const PREFLIGHT_SESSION_KEY = Symbol.for('objectui.authPreflightSession');
 
 /**
  * Remove the stale active-organization id under every spelling — the bare
@@ -96,9 +109,21 @@ export async function preflightAuth(authBaseUrl: string): Promise<void> {
     });
 
     if (res.ok) {
-      const body = await res.json().catch(() => null);
+      const text = await res.text().catch(() => '');
+      let body: { user?: unknown; data?: { user?: unknown } } | null = null;
+      try {
+        body = JSON.parse(text);
+      } catch { /* not JSON — treated as no session below */ }
       const user = body?.user ?? body?.data?.user ?? null;
-      if (user) return; // token valid — leave localStorage alone
+      if (user) {
+        // Token valid — leave localStorage alone, and hand the answer on.
+        (globalThis as unknown as Record<symbol, unknown>)[PREFLIGHT_SESSION_KEY] = {
+          authUrl: authBaseUrl,
+          token,
+          body: text,
+        };
+        return;
+      }
     }
 
     // 401, 4xx, or 200-with-null — token is stale. Purge.

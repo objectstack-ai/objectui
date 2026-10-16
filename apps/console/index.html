@@ -27,20 +27,21 @@
       `await`s that second call before `createRoot().render()`, so it sits on the
       critical path to first paint.
 
-      The fix is in-flight SHARING, not caching. We publish this request's parsed
-      -body promise into the registry `@object-ui/types` keeps on `globalThis`
-      (`Symbol.for('objectui.inflightGet')`), and delete the entry the moment it
-      settles. `sharedGetJson()` finds it and joins, so app-shell inherits a
-      request that started hundreds of ms earlier instead of starting its own; if
-      it ever arrives after settle it simply fetches, exactly as before.
+      The fix is a HANDOFF of this page load's answer (objectui#12808). This
+      script leaves its parsed-body promise on `globalThis` under
+      `Symbol.for('objectui.earlyRuntimeConfig')`, together with the URL it
+      asked, and keeps it for the page's lifetime. `initRuntimeConfig()` takes
+      it on its FIRST call when the URL matches: still in flight, it joins;
+      already settled, it reads the body. Hundreds of ms usually separate the
+      two, so an in-flight-only share (the earlier fix, objectui#5544) found
+      nothing to join and the bundle always asked again. A failed early fetch is
+      not reused: app-shell then fetches as it always did. Every later call
+      re-fetches, so the repeat-call contract is unchanged, and the slot holds
+      one answer of this page load, never one from an earlier page.
 
-      Why the key is spelled out by hand here: a classic inline script cannot
-      import, and it must stay classic (see the crypto shim's comment below for
-      the measurement that rules out `type="module"` ordering). The format is
-      owned by `inflightGetKey()` in `packages/types/src/http-inflight.ts`, and
       `src/__tests__/runtimeConfigBootDedup.test.ts` executes THIS script's text
-      against that function — so a drift between the two spellings fails a test
-      rather than silently restoring the duplicate.
+      against the real `initRuntimeConfig()`, so a drift between the slot's two
+      spellings fails a test rather than silently restoring the duplicate.
 
       The ORIGIN is the other half of that contract (objectui#5660). Sharing
       keys on the full URL, so the two callers must agree on the server origin
@@ -71,22 +72,14 @@
         const base = (injected.charAt(0) === '%' ? '' : injected).replace(/\/+$/, '');
         const url = base + '/api/v1/runtime/config';
         const init = { credentials: 'include', headers: { Accept: 'application/json' } };
-        // Must equal inflightGetKey(url, init) — see the comment above.
-        const key = 'GET\ninclude\n' + url + '\naccept=application/json';
-
-        const registryKey = Symbol.for('objectui.inflightGet');
-        const registry = globalThis[registryKey] || (globalThis[registryKey] = new Map());
 
         const pending = (async function () {
           const res = await fetch(url, init);
           if (!res.ok) throw new Error('runtime/config ' + res.status);
           return res.json();
         })();
-        registry.set(key, pending);
-        const drop = function () {
-          if (registry.get(key) === pending) registry.delete(key);
-        };
-        pending.then(drop, drop);
+        // Kept for the page's lifetime, never dropped on settle — see above.
+        globalThis[Symbol.for('objectui.earlyRuntimeConfig')] = { url: url, body: pending };
 
         try {
           const body = await pending;

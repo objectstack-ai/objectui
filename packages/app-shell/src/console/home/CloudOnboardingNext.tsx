@@ -26,19 +26,23 @@
  *
  * Routes and the "Open workspace" endpoint come from the page metadata
  * (`properties`) so the Cloud app owns its URLs; this component owns only the
- * state logic. It mirrors `useEnvironmentEntitlements`' authoritative summary
- * fetch (org-scoped GET) without its list-only gating.
+ * state logic. The signal is read through `useEnvironmentEntitlements`, the
+ * resource the pricing page's plan cards and the workspace-timezone notice share,
+ * so this block adds no request of its own (objectui#12808). Only the
+ * authoritative summary resolves it: the hook's row-derived fallback reads as
+ * `unknown` here, exactly as a failed summary always has.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Skeleton } from '@object-ui/components';
 import { Rocket, Plus, Settings2 } from 'lucide-react';
-import { useAuth } from '@object-ui/auth';
 import { createAuthenticatedFetch } from '@object-ui/auth';
 import { ComponentRegistry } from '@object-ui/core';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { navRunActionHref } from '../../hooks/useNavRunAction.js';
+import { useAdapter } from '../../providers/AdapterProvider.js';
+import { useEnvironmentEntitlements } from '../../environment/useEnvironmentEntitlements.js';
 
 interface CloudOnboardingNextProps {
   properties?: {
@@ -81,63 +85,39 @@ const DEFAULT_ENVIRONMENTS_ROUTE = '/apps/cloud_control/sys_environment';
  */
 const DEFAULT_CREATE_ACTION = 'create_environment';
 
-/** Resolve the active locale's string (cheap; the page uses {en,zh} pairs). */
 /**
  * Resolve `hasProductionEnv` from the org-scoped entitlements summary. Returns
  * `unknown` on any failure so the caller degrades gracefully rather than
  * blocking the user behind a wrong "create" CTA.
  */
 function useProductionEnvState(warmUrl?: string): Resolved {
-  const { activeOrganization } = useAuth();
-  const orgId = activeOrganization?.id;
-  const authFetch = useMemo(() => createAuthenticatedFetch(), []);
-  const [state, setState] = useState<Resolved>({ phase: 'loading' });
+  const dataSource = useAdapter();
+  // `useState`, not `useMemo`: the warm effect below keys on this function, so
+  // its identity has to be one React guarantees to keep (AGENTS.md #10).
+  const [authFetch] = useState(() => createAuthenticatedFetch());
+  const apiBase = ((import.meta.env.VITE_SERVER_URL as string | undefined) || '').replace(/\/+$/, '');
+  const entitlements = useEnvironmentEntitlements({ enabled: true, dataSource, authFetch, apiBase });
 
+  // Strict: only the authoritative summary resolves the signal (cloud#1046's
+  // `{ success, data }` envelope, read by the hook). A row-derived or failed
+  // answer is `unknown`, which degrades to both actions and always works.
+  const state: Resolved = entitlements === null
+    ? { phase: 'loading' }
+    : entitlements.source === 'summary'
+      ? { phase: 'ready', hasProductionEnv: entitlements.hasProductionEnv }
+      : { phase: 'unknown' };
+
+  // Pre-warm the prod env the instant we know it exists — fire-and-forget,
+  // best-effort, once per resolve. The user is now reading the hint and will
+  // click "Open workspace" seconds later; by then the container is already
+  // waking. The sso-open click warms again, so a failed warm here costs
+  // nothing. Only when the page passes a warmUrl (else no-op). Keyed on the
+  // answer object itself, so each resolution warms once.
   useEffect(() => {
-    let cancelled = false;
-    const apiBase = ((import.meta as any).env?.VITE_SERVER_URL || '').replace(/\/+$/, '');
-    const qs = orgId ? `?organizationId=${encodeURIComponent(orgId)}` : '';
-    (async () => {
-      try {
-        const res = await authFetch(`${apiBase}/api/v1/cloud/environment-entitlements${qs}`, {
-          method: 'GET',
-          credentials: 'include',
-        });
-        if (!res.ok) throw new Error(`entitlements ${res.status}`);
-        // Strict envelope read: the control plane wraps every success body as
-        // `{ success, data }` (cloud#1046). A bare body is a producer contract
-        // violation, not a second accepted dialect — reading it would resolve
-        // `hasProductionEnv` to `false` from an absent field and strand a user
-        // who HAS a production env behind a wrong "create" CTA. Unresolvable
-        // ⇒ `unknown`, which degrades to both actions and always works.
-        const json = (await res.json().catch(() => null)) as
-          | { data?: { hasProductionEnv?: boolean } }
-          | null;
-        const data = json?.data;
-        if (cancelled) return;
-        if (!data || typeof data !== 'object') {
-          setState({ phase: 'unknown' });
-          return;
-        }
-        const hasProductionEnv = data.hasProductionEnv === true;
-        setState({ phase: 'ready', hasProductionEnv });
-        // Pre-warm the prod env the instant we know it exists — fire-and-forget,
-        // best-effort, once per resolve. The user is now reading the hint and
-        // will click "Open workspace" seconds later; by then the container is
-        // already waking. The sso-open click warms again, so a failed warm here
-        // costs nothing. Only when the page passes a warmUrl (else no-op).
-        if (hasProductionEnv && warmUrl) {
-          void authFetch(`${apiBase}${warmUrl}`, { method: 'GET', credentials: 'include' })
-            .catch(() => { /* pre-warm is best-effort */ });
-        }
-      } catch {
-        if (!cancelled) setState({ phase: 'unknown' });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [authFetch, orgId, warmUrl]);
+    if (entitlements?.source !== 'summary' || !entitlements.hasProductionEnv || !warmUrl) return;
+    void authFetch(`${apiBase}${warmUrl}`, { method: 'GET', credentials: 'include' })
+      .catch(() => { /* pre-warm is best-effort */ });
+  }, [entitlements, warmUrl, authFetch, apiBase]);
 
   return state;
 }

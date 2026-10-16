@@ -15,7 +15,7 @@ import { ComponentRegistry, percentDisplayValue, type PercentScale, getRecordDis
 // `resolveFieldScale` is the same kind of ask: the width an ABSENT `scale`
 // means is the protocol's answer, not this package's (objectui#9843).
 import { valueSchemaFor, resolveFieldScale } from '@objectstack/spec/data';
-import { useLocalization, useDisplayLocale, formatDisplayNumber, useObjectLabel } from '@object-ui/i18n';
+import { useLocalization, useDisplayLocale, formatDisplayNumber } from '@object-ui/i18n';
 import { Badge, Avatar, AvatarImage, AvatarFallback, Button, Checkbox, EmptyValue, cn } from '@object-ui/components';
 import { Check, Copy, Phone as PhoneIcon, MapPin, CircleQuestionMark, Star } from 'lucide-react';
 import { useObjectTranslation } from '@object-ui/react';
@@ -367,11 +367,6 @@ import { readFileValue, readFileValues, type FileValueView } from './widgets/fil
 // Shared with `FileField` rather than copied into it; deliberately NOT
 // re-exported below, so this package's published surface is unchanged.
 import { FileValueAffordance, RestrictedFileAffordance } from './widgets/file-affordance.js';
-// The read cells of the two widget-hinted reference fields (objectui#12613)
-// name a stored value from the reads their edit widgets list it from — see
-// `./widgets/refLabelDirectory.ts`. Deliberately NOT re-exported below.
-import { useObjectRefLabel, useRecipientLabel } from './widgets/refLabelDirectory.js';
-import { objectRefOptionLabel } from './widgets/objectCatalog.js';
 
 /**
  * Cell renderer props
@@ -384,8 +379,8 @@ export interface CellRendererProps {
   /**
    * The row's values, for a renderer whose value only means something next to
    * a sibling column — the cell-side counterpart of the edit widget's
-   * `FieldWidgetComponentProps.dependentValues` (objectui#12613). The
-   * `recipient-picker` cell reads the row's `recipient_type` from it, as the
+   * `FieldWidgetComponentProps.dependentValues` (objectui#12613). The console's
+   * `recipient-picker` face reads the row's `recipient_type` from it, as the
    * picker reads the form record's.
    *
    * A call site that holds the row passes it; a renderer that needs a sibling
@@ -700,67 +695,6 @@ export function TextCellRenderer({ value }: CellRendererProps): React.ReactEleme
   // coerce the text into a number, a date or an `href`.
   if (isEmptyValue(safe)) return <EmptyValue />;
   return <TruncatedText text={String(safe)} />;
-}
-
-/**
- * The face of a stored reference the directory could NOT name (objectui#12613):
- * the raw stored value, muted, never a blank — a deleted record, a renamed
- * object, or a read the viewer has no access to. It is drawn with the shipped
- * unresolved-reference presentation (`UnresolvedReferenceMark`), so this state
- * looks the same here as on a lookup cell. Its tooltip is the stored value
- * itself: the lookup family's sentence names a RECORD, which an object or a
- * position is not, so it is not borrowed.
- */
-function UnresolvedRefText({ text }: { text: string }): React.ReactElement {
-  return <UnresolvedReferenceMark raw={text} hint={text} />;
-}
-
-/**
- * The read cell of a field declaring `widget: 'object-ref'` (objectui#12613):
- * the stored object NAME, drawn as the object's label, with the picker's own
- * `Label (name)` spelling as its tooltip so the api name stays one hover away.
- *
- * The label comes from the catalog `ObjectRefField` lists its options from
- * (`loadObjectCatalog`), read once per data source for every row, and is then
- * translated through the app bundle by `useObjectLabel` like every other
- * object label the console draws. Pending and unaskable values draw as the
- * text cell; an unknown name draws muted (`UnresolvedRefText`).
- */
-function ObjectRefCellRenderer({ value, field }: CellRendererProps): React.ReactElement {
-  const ref = useObjectRefLabel(value);
-  const { objectLabel } = useObjectLabel();
-  const safe = coerceToSafeValue(value);
-  if (isEmptyValue(safe)) return <EmptyValue />;
-  if (ref.state === 'resolved' && typeof value === 'string') {
-    const label = objectLabel({ name: value, label: ref.label || value });
-    return (
-      <span className="block max-w-full truncate" title={objectRefOptionLabel(value, label)}>
-        {label}
-      </span>
-    );
-  }
-  if (ref.state === 'unresolved') return <UnresolvedRefText text={String(safe)} />;
-  return <TextCellRenderer value={value} field={field} />;
-}
-
-/**
- * The read cell of a field declaring `widget: 'recipient-picker'`
- * (objectui#12613): the stored recipient id or name, drawn as the label of the
- * user, team, business unit, position or user column it names — the label the
- * picker shows for the same value.
- *
- * Which of those it names is the row's `recipient_type`, so the cell needs the
- * row: it reads `dependentValues`, and without them it draws the stored text as
- * the text cell does. The lookups are the picker's, batched across rows
- * (`useRecipientLabel`). An unknown value draws muted (`UnresolvedRefText`).
- */
-function RecipientCellRenderer({ value, field, dependentValues }: CellRendererProps): React.ReactElement {
-  const ref = useRecipientLabel(value, dependentValues);
-  const safe = coerceToSafeValue(value);
-  if (isEmptyValue(safe)) return <EmptyValue />;
-  if (ref.state === 'resolved') return <TruncatedText text={ref.label} />;
-  if (ref.state === 'unresolved') return <UnresolvedRefText text={String(safe)} />;
-  return <TextCellRenderer value={value} field={field} />;
 }
 
 /**
@@ -3061,7 +2995,8 @@ function UnresolvedLookupReference({
 /**
  * The shipped PRESENTATION of an unresolved reference, shared by the two
  * renderers that state one (objectui#8434 for `user`, objectui#8695 for
- * `lookup` / `master_detail` / `tree`).
+ * `lookup` / `master_detail` / `tree`), and published for the host faces of the
+ * widget-hinted reference keys (objectui#12613), which draw the same state.
  *
  * Only the drawing is shared. Each caller keeps its own literal i18n key and
  * its own English fallback, because a key reaching this component as a prop
@@ -3081,7 +3016,7 @@ function UnresolvedLookupReference({
  * (a single-line value must never expand its column and must expose its full
  * text) with an icon in front of the text.
  */
-function UnresolvedReferenceMark({
+export function UnresolvedReferenceMark({
   raw,
   hint,
   className,
@@ -3351,8 +3286,8 @@ const TEXTUAL_BASE_TYPES = new Set(['text', 'textarea', 'string', 'longtext', ''
  * registered under the widget's own key below. The spec's `widget` names the
  * component a field is drawn with in place of its `type` default; for these two
  * the stored text is a machine reference — an object name, a recipient id —
- * and the cell names what it references, as the edit widget's readonly branch
- * does, instead of printing the api name.
+ * and a host face registered under the key names what it references, as the
+ * edit widget's readonly branch does, instead of printing the api name.
  *
  * Only a widget listed here promotes, and only over a textual base type, the
  * same bound the `format` hints keep: a widget with no read face of its own
@@ -4084,10 +4019,17 @@ registerFieldRenderer('user', UserCellRenderer);
 // The pointer pair's default face (objectui#12045): the record id as text. A
 // host that can read records registers its own face under the same key.
 registerFieldRenderer(RECORD_POINTER_CARD_TYPE, RecordPointerTextCellRenderer);
-// The read cells of the two widget-hinted reference fields (objectui#12613),
-// under the widget keys `resolveCellRendererType` promotes them to.
-registerFieldRenderer('object-ref', ObjectRefCellRenderer);
-registerFieldRenderer('recipient-picker', RecipientCellRenderer);
+// The two widget-hinted reference keys `resolveCellRendererType` promotes to
+// (objectui#12613), with the stored text as their DEFAULT face — the
+// `RECORD_POINTER_CARD_TYPE` arrangement above: this package owns the rule and
+// the keys, and a host that can read the referenced lists registers the faces
+// that name them (`@object-ui/app-shell`'s widget reference cells). Not drawn
+// here because every module of this package rides the console's eager
+// `ui-components` chunk, whatever imports it lazily, and that chunk's ceiling
+// in `scripts/check-eager-closure-budget.mjs` has no room for a label reader;
+// the host loads its faces lazily, off the eager closure.
+registerFieldRenderer('object-ref', TextCellRenderer);
+registerFieldRenderer('recipient-picker', TextCellRenderer);
 // `owner` was registered here to the same UserCellRenderer until objectui#4814
 // retired the spelling — see the TOMBSTONE below. `getCellRenderer('owner')`
 // now reports the prescription and falls to the text cell.
@@ -5044,6 +4986,19 @@ export * from './widgets/CapabilityMultiSelectField.js';
 export * from './widgets/ObjectRefField.js';
 export * from './widgets/FilterConditionField.js';
 export * from './widgets/RecipientPickerField.js';
+// The reads and the kind table the two reference widgets list from
+// (objectui#12613), published so a host face names a stored value from the very
+// same lists: `@object-ui/app-shell`'s widget reference cells are the reader.
+export { loadObjectCatalog, objectRefOptionLabel, type ObjectHeader, type ObjectCatalogSource } from './widgets/objectCatalog.js';
+export {
+  RECIPIENT_RECORD_KINDS,
+  RECIPIENT_REGISTRY_KINDS,
+  FIELD_RECIPIENT_TYPE,
+  loadRecipientCandidates,
+  recipientCandidateLabel,
+  type RecipientMapping,
+  type RegistryRecipientMapping,
+} from './widgets/recipientKinds.js';
 export * from './widgets/RecordPickerDialog.js';
 // Shared picker-column derivation (ADR-0085 highlightFields → displayFields →
 // schema walk) — consumed by LookupField AND by RelatedList's Add-picker so a

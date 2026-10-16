@@ -8,8 +8,8 @@ import { useFieldTranslation } from './useFieldTranslation.js';
 // reads the same in the list and in this picker.
 import {
   FIELD_RECIPIENT_TYPE,
-  TYPE_TO_OBJECT,
-  TYPE_TO_REGISTRY,
+  RECIPIENT_RECORD_KINDS,
+  RECIPIENT_REGISTRY_KINDS,
   loadRecipientCandidates,
   recipientCandidateLabel,
 } from './recipientKinds.js';
@@ -128,13 +128,13 @@ export function RecipientPickerField({
   const disabled = props.disabled;
   const dependentValues: Record<string, any> = (props as any).dependentValues ?? {};
   const recipientType = String(dependentValues.recipient_type ?? '');
-  const recordMapping = TYPE_TO_OBJECT[recipientType];
+  const recordMapping = RECIPIENT_RECORD_KINDS[recipientType];
   // The console's metadata store, or `null` outside a `<MetadataProvider>`.
   // Read raw rather than through `useMetadata()`, whose no-provider fallback
   // answers every type with `[]`: an empty registry and an absent reader are
   // different facts, and only the second degrades to the text input below.
   const metadataStore = React.useContext(MetadataCtx);
-  const registryMapping = metadataStore ? TYPE_TO_REGISTRY[recipientType] : undefined;
+  const registryMapping = metadataStore ? RECIPIENT_REGISTRY_KINDS[recipientType] : undefined;
   const mapping: { storeField: 'id' | 'name'; labelFields: string[]; placeholderKey: string } | undefined =
     recordMapping ?? registryMapping;
   const objectName = String(dependentValues.object_name ?? '');

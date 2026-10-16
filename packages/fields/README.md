@@ -53,16 +53,19 @@ const MyGridCell = ({ field, value, row }: CellRendererProps & { row: Record<str
   // hint the resolver returns the declared `type` unchanged.
   const Renderer = getCellRenderer(resolveCellRendererType(field));
   // `dependentValues` is the row, for a cell whose value only means something
-  // beside a sibling column: the `recipient-picker` cell reads the row's
-  // `recipient_type` from it. Without it, that cell draws the stored text.
+  // beside a sibling column: a `recipient-picker` face reads the row's
+  // `recipient_type` from it. Without it, that face draws the stored text.
   return <Renderer field={field} value={value} dependentValues={row} />;
 };
 ```
 
-The `object-ref` and `recipient-picker` cells name what the stored value references
-with the same reads their edit widgets list it from, made once per data source for the
-whole list rather than once per cell. A value nothing names draws as the raw stored
-value, muted.
+This package registers the `object-ref` and `recipient-picker` keys with the stored
+text as their default face. A host that can read the referenced lists registers faces
+that name the value under the same keys (`registerFieldRenderer`); the console's live in
+`@object-ui/app-shell`. They read through what this package publishes for it, the reads
+its edit widgets list from: `loadObjectCatalog`, `objectRefOptionLabel`,
+`RECIPIENT_RECORD_KINDS`, `RECIPIENT_REGISTRY_KINDS`, `FIELD_RECIPIENT_TYPE`,
+`loadRecipientCandidates` and `recipientCandidateLabel`.
 
 ## Standard Field Types
 

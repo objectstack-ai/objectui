@@ -7,75 +7,79 @@
  */
 
 /**
- * The read cells' label directory for the two widget-hinted reference fields
- * (objectui#12613): `object-ref` (a stored object name) and `recipient-picker`
- * (a stored recipient id or name, whose kind a sibling `recipient_type` names).
+ * The label directory behind the console's faces for the two widget-hinted
+ * reference keys of `@object-ui/fields` (objectui#12613): `object-ref` (a stored
+ * object name) and `recipient-picker` (a stored recipient id or name, whose kind
+ * a sibling `recipient_type` names).
  *
  * ## The edit widgets' own lists, read once per page
  *
- * A cell names a stored value from the very list its edit widget offers:
+ * A face names a stored value from the very list its edit widget offers, read
+ * through what `@object-ui/fields` publishes for exactly this:
  *
- *   - `object-ref` → the registered-object catalog, `loadObjectCatalog`
- *     (`./objectCatalog.ts`), the read `ObjectRefField` makes;
+ *   - `object-ref` → the registered-object catalog, `loadObjectCatalog`, the
+ *     read `ObjectRefField` makes;
  *   - a record kind (`user`, `team`, `business_unit`, `unit_and_subordinates`)
- *     → `loadRecipientCandidates` (`./recipientKinds.ts`), the picker's one
- *     candidate query, labelled with the kind's `labelFields`;
- *   - a registry kind (`position`) → the console's metadata store,
- *     `ensureType(<type>)`, the reader `RecipientPickerField` lists it with;
+ *     → `loadRecipientCandidates`, the picker's one candidate query, labelled
+ *     with the kind's `labelFields` from `RECIPIENT_RECORD_KINDS`;
+ *   - a registry kind (`position`, `RECIPIENT_REGISTRY_KINDS`) → the console's
+ *     metadata store, `ensureType(<type>)`, the reader `RecipientPickerField`
+ *     lists it with;
  *   - the `field` kind → the shared object's schema through
  *     `deriveUserFields`, the picker's own column derivation.
  *
  * Each list is a CATALOG: read the first time any cell asks it, once per data
  * source, and every cell of every row answered from it. A grid page of fifty
- * rules costs one read per list it names, not fifty — and a value reads in the
+ * rules costs one read per list it names, not fifty, and a value reads in the
  * list exactly as it reads in the open picker, including the picker's bound (a
  * record past the candidate query's first 500 is not offered, and not named).
  *
- * ## The four answers a cell gets
+ * ## The four answers a face gets
  *
  *   - `unasked` — the edit widget could not list it either: no data source, no
  *     sibling kind, a kind it does not know, no metadata store for a registry
- *     kind. The cell draws the stored text exactly as the text cell did before
- *     it existed, so a call site that cannot supply what the cell needs
- *     changes nothing.
+ *     kind. The face draws the stored text exactly as the text cell does, so a
+ *     call site that cannot supply what the face needs changes nothing.
  *   - `pending` — asked, not answered yet. Drawn the same as `unasked`.
  *   - `resolved` — the label.
  *   - `unresolved` — the list was read and does not hold the value (a deleted
- *     record, a renamed object), or the read failed (no read access). The cell
+ *     record, a renamed object), or the read failed (no read access). The face
  *     draws the raw stored value, muted, never a blank.
  *
  * ## Cache lifetime
  *
  * Answers live for the data source's lifetime, which is the page session: a
  * display label, not a decision input, so an item renamed mid-session reading
- * its old label until reload is the right trade (the same one the approver
- * directory in `@object-ui/app-shell` makes). Keyed by the data source object,
- * so two hosts, and two tests, never share an answer.
+ * its old label until reload is the right trade (the same one
+ * `useApproverDirectory` makes). Keyed by the data source object, so two hosts,
+ * and two tests, never share an answer.
  *
- * ## Why this module is small
+ * ## Why it lives here, behind a lazy import
  *
  * Every `packages/fields` module rides the console's eager `ui-components`
  * chunk, whatever imports it lazily (`scripts/vite-ineffective-dynamic-imports.ts`
  * says why), and that chunk has a ceiling of its own in
- * `scripts/check-eager-closure-budget.mjs`. One catalog mechanism serves all
- * five lists for that reason: a second one (a batched `$in` reader for the
- * record kinds) cost a page-load payload the budget refused.
+ * `scripts/check-eager-closure-budget.mjs` with no room for a label reader. So
+ * `@object-ui/fields` keeps the rule and the keys with a text default, as it
+ * does for `RECORD_POINTER_CARD_TYPE`, and this package registers the faces,
+ * loading this module and the faces only when a cell first draws one
+ * (`./widget-ref-cell-renderers.tsx`).
  */
 
 import React from 'react';
 import { MetadataCtx, SchemaRendererContext } from '@object-ui/react';
 import type { DataSource } from '@object-ui/types';
-import { loadObjectCatalog } from './objectCatalog.js';
 import {
   FIELD_RECIPIENT_TYPE,
-  TYPE_TO_OBJECT,
-  TYPE_TO_REGISTRY,
+  RECIPIENT_RECORD_KINDS,
+  RECIPIENT_REGISTRY_KINDS,
+  deriveUserFields,
+  loadObjectCatalog,
   loadRecipientCandidates,
   recipientCandidateLabel,
-} from './recipientKinds.js';
-import { deriveUserFields } from './RecipientPickerField.js';
+} from '@object-ui/fields';
 
-/** What a read cell knows about one stored reference. See the module doc. */
+/** What a face knows about one stored reference. See the module doc. */
 export type RefLabel =
   | { readonly state: 'unasked' }
   | { readonly state: 'pending' }
@@ -202,8 +206,8 @@ export function useRecipientLabel(
   // are offered — both declared in the field's own `dependsOn`.
   const kind = String(dependentValues?.recipient_type ?? '');
   const objectName = String(dependentValues?.object_name ?? '');
-  const record = TYPE_TO_OBJECT[kind];
-  const registry = TYPE_TO_REGISTRY[kind];
+  const record = RECIPIENT_RECORD_KINDS[kind];
+  const registry = RECIPIENT_REGISTRY_KINDS[kind];
   const catalogId =
     !dependentValues || typeof value !== 'string' || !value
       ? ''

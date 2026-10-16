@@ -10,10 +10,9 @@
  * The registered-object catalog an `object-ref` field reads (objectui#12613).
  *
  * ONE read, two readers: `ObjectRefField` (the edit widget) lists the catalog as
- * its options, and the read cell (`ObjectRefCellRenderer`, through
- * `refLabelDirectory.ts`) names a stored object from it. Deliberately not
- * re-exported from the package barrel, and free of React so the barrel can
- * import it without pulling the widget in.
+ * its options, and the console's read face for the field (`@object-ui/app-shell`'s
+ * widget reference cells) names a stored object from it. Published from the
+ * package barrel for that reader. No React here.
  */
 
 import type { DataSource } from '@object-ui/types';
@@ -66,7 +65,7 @@ export async function loadObjectCatalog(
 /**
  * An object's name as the picker spells it, `Label (name)`, or the bare name
  * when the catalog gives it no label. The picker uses it for each option and
- * the read cell for its tooltip, so the two faces spell an object one way.
+ * the read face for its tooltip, so the two faces spell an object one way.
  */
 export function objectRefOptionLabel(name: string, label: string | undefined): string {
   return label ? `${label} (${name})` : name;

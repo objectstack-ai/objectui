@@ -11,14 +11,14 @@
  * candidates and labels come from (objectui#12613).
  *
  * ONE table, two readers: `RecipientPickerField` (the edit widget) lists a
- * kind's candidates from it, and the read cell (`RecipientCellRenderer`, through
- * `refLabelDirectory.ts`) names a stored recipient from it. They lived inside
- * the widget until the cell needed the same answer; a second copy beside the
- * cell is the drift this module exists to prevent, so a kind added here reaches
- * both faces at once. Deliberately not re-exported from the package barrel: it
- * is the two faces' shared rule, not a published surface.
+ * kind's candidates from it, and the console's read face for the field
+ * (`@object-ui/app-shell`'s widget reference cells) names a stored recipient
+ * from it. They lived inside the widget until the face needed the same answer;
+ * a second copy beside the face is the drift this module exists to prevent, so
+ * a kind added here reaches both faces at once. Published from the package
+ * barrel for that reader.
  *
- * No React here, so the barrel can import it without pulling the widget in.
+ * No React here.
  */
 
 import type { DataSource } from '@object-ui/types';
@@ -46,7 +46,7 @@ export interface RecipientMapping {
  *   business_unit         → sys_business_unit, store `id`
  *   unit_and_subordinates → sys_business_unit, store `id`
  */
-export const TYPE_TO_OBJECT: Readonly<Record<string, RecipientMapping>> = {
+export const RECIPIENT_RECORD_KINDS: Readonly<Record<string, RecipientMapping>> = {
   user: { object: 'sys_user', storeField: 'id', labelFields: ['name', 'full_name', 'email'], placeholderKey: 'fields.recipient.selectUser' },
   team: { object: 'sys_team', storeField: 'id', labelFields: ['name', 'label'], placeholderKey: 'fields.recipient.selectTeam' },
   business_unit: { object: 'sys_business_unit', storeField: 'id', labelFields: ['name', 'label'], placeholderKey: 'fields.recipient.selectBusinessUnit' },
@@ -75,14 +75,14 @@ export interface RegistryRecipientMapping {
  * objects, so the list is fetched once per session and shared with every
  * other registry consumer.
  */
-export const TYPE_TO_REGISTRY: Readonly<Record<string, RegistryRecipientMapping>> = {
+export const RECIPIENT_REGISTRY_KINDS: Readonly<Record<string, RegistryRecipientMapping>> = {
   position: { type: 'position', storeField: 'name', labelFields: ['label', 'name'], placeholderKey: 'fields.recipient.selectPosition' },
 };
 
 /**
  * The RECORD-RELATIVE recipient kind (maintainer ruling objectstack#14103,
  * executor objectstack#15072). It is deliberately absent from
- * `TYPE_TO_OBJECT`: there is no target object to query and no record id to
+ * `RECIPIENT_RECORD_KINDS`: there is no target object to query and no record id to
  * store. `recipient_id` holds the NAME of a user-valued column on the SHARED
  * object, and the recipients are whoever that column names on each matched
  * record — so this mode reads the object chosen in the sibling `object_name`

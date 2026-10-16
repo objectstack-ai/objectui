@@ -8,28 +8,36 @@
 
 /**
  * objectui#12613 — a grid column whose field declares `widget: 'object-ref'`
- * or `widget: 'recipient-picker'` names what the stored value references, on
- * EVERY column path `ObjectGrid` can pick.
+ * or `widget: 'recipient-picker'` is drawn by the face registered under that
+ * widget key, and that face gets the ROW, on EVERY column path `ObjectGrid`
+ * can pick.
  *
  * The Sharing Rules list is the measured case: the platform's `sys_sharing_rule`
  * declares `object_name` with `widget: 'object-ref'` and `recipient_id` with
  * `widget: 'recipient-picker'` (`dependsOn: ['recipient_type', 'object_name']`),
  * and its list views name those columns as strings. The grid resolved each
- * column from `type` and `format` alone, so both drew through the text cell and
- * the list read `crm_account` / `sales_manager` where the edit form reads
- * "Account" / "Sales Manager".
+ * column from `type` and `format` alone, so both drew through the text cell,
+ * and no face — the console registers label faces under the two keys
+ * (`@object-ui/app-shell`'s widget reference cells) — could reach them.
  *
- * The object here is NOT `sys_sharing_rule`, on purpose: the cell is chosen by
+ * ## What is probed, and why a probe
+ *
+ * This file pins the GRID's half of the contract: the key the column resolves
+ * to, and the row handed over as `dependentValues` (the recipient face reads
+ * the row's `recipient_type` from it). So the two keys are registered here with
+ * a probe face that prints exactly those two facts. The label faces themselves
+ * are pinned beside them in `@object-ui/app-shell`.
+ *
+ * The object here is NOT `sys_sharing_rule`, on purpose: the face is chosen by
  * the declared widget, so a neutral object declaring the same two hints is the
  * honest subject, and nothing in the grid may key on an object or field name.
  *
  * ## The control
  *
  * `note` is a plain `text` column holding the SAME strings the two hinted
- * columns hold (`sales_manager`, `crm_account`). It must still print them raw:
- * the naming is driven by the declaration, not by the value. And the recipient
- * cell needs the ROW (its `recipient_type`), which only a call site holding the
- * row can hand it — so each path below is its own case (the paths are listed in
+ * columns hold (`sales_manager`, `crm_account`). It must still print them raw
+ * through the text cell: the face is picked by the declaration, not by the
+ * value. Each path is its own case (the paths are listed in
  * `formatHintedColumnRenderer-8920.test.tsx`).
  */
 
@@ -41,11 +49,25 @@ import {
 } from '@object-ui/test-support';
 import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { registerAllFields } from '@object-ui/fields';
-import { ActionProvider, MetadataCtx, SchemaRendererProvider } from '@object-ui/react';
+import { registerAllFields, registerFieldRenderer, type CellRendererProps } from '@object-ui/fields';
+import { ActionProvider } from '@object-ui/react';
 import { ObjectGrid } from '../ObjectGrid';
 
 registerAllFields();
+
+/**
+ * Prints which key drew the cell, the stored value, and the row's
+ * `recipient_type` as the face received it (`-` for no row). `registerFieldRenderer`
+ * has no inverse; this `.tsx` file runs in the isolated `dom` project, so the
+ * probes do not outlive it.
+ */
+function probe(key: string): React.FC<CellRendererProps> {
+  return ({ value, dependentValues }) => (
+    <span data-testid="widget-probe">{`${key}|${String(value)}|${String(dependentValues?.recipient_type ?? '-')}`}</span>
+  );
+}
+registerFieldRenderer('object-ref', probe('object-ref'));
+registerFieldRenderer('recipient-picker', probe('recipient-picker'));
 
 beforeAll(() => {
   if (!Element.prototype.hasPointerCapture) {
@@ -110,102 +132,78 @@ const ROWS = [
 
 function makeDataSource() {
   return {
-    find: vi.fn(async (object: string) => {
-      if (object === 'sys_team') return { data: [{ id: 'team_eu', name: 'EU Sales' }] };
-      return { data: ROWS, total: ROWS.length };
-    }),
+    find: vi.fn(async () => ({ data: ROWS, total: ROWS.length })),
     getObjectSchema: vi.fn(async () => RULE_SCHEMA),
-    getObjects: vi.fn(async () => [{ name: 'crm_account', label: 'Account' }]),
-  } as any;
-}
-
-function metadataStore() {
-  return {
-    apps: [], objects: [], dashboards: [], reports: [], pages: [],
-    loading: false, error: null,
-    refresh: async () => {}, invalidate: () => {},
-    ensureType: vi.fn(async (type: string) =>
-      type === 'position' ? [{ name: 'sales_manager', label: 'Sales Manager' }] : [],
-    ),
-    getItem: async () => null,
-    getItemsByType: () => [],
   } as any;
 }
 
 const COLUMN_NAMES = ['label', 'object_name', 'recipient_type', 'recipient_id', 'note'];
 
 function renderGrid(schemaOverrides: Record<string, unknown>, props: Record<string, unknown> = {}) {
-  const dataSource = makeDataSource();
-  const utils = render(
-    <SchemaRendererProvider dataSource={dataSource}>
-      <MetadataCtx.Provider value={metadataStore()}>
-        <ActionProvider>
-          <ObjectGrid
-            schema={{ type: 'object-grid', objectName: 'access_rule', ...schemaOverrides } as never}
-            dataSource={dataSource}
-            {...props}
-          />
-        </ActionProvider>
-      </MetadataCtx.Provider>
-    </SchemaRendererProvider>,
+  return render(
+    <ActionProvider>
+      <ObjectGrid
+        schema={{ type: 'object-grid', objectName: 'access_rule', ...schemaOverrides } as never}
+        dataSource={makeDataSource()}
+        {...props}
+      />
+    </ActionProvider>,
   );
-  return { ...utils, dataSource };
 }
 
+/** The probes drawn, in DOM order. */
+const probes = () => screen.queryAllByTestId('widget-probe').map((el) => el.textContent);
+
 /**
- * Both hinted columns named on both rows, and the control printing the same
- * strings raw. `getAllByText` counts TEXT nodes, not attributes, so the
- * tooltips carrying the api name do not count toward the raw-string tallies.
+ * Both hinted columns drawn by their widget key's face on both rows, each with
+ * its own row, and the control printing the same strings raw. `getAllByText`
+ * counts TEXT nodes, so a probe (one text node holding the whole line) does not
+ * count toward the raw-string tallies.
  */
-async function expectReferencesNamed(dataSource: any) {
-  await waitFor(() => expect(screen.getByText('Sales Manager')).toBeInTheDocument());
-  await waitFor(() => expect(screen.getByText('EU Sales')).toBeInTheDocument());
-  await waitFor(() => expect(screen.getAllByText('Account')).toHaveLength(2));
-
-  const account = screen.getAllByText('Account')[0];
-  expect(account.getAttribute('title'), 'the api name stays one hover away').toBe('Account (crm_account)');
-
+async function expectWidgetFacesWithRow() {
+  await waitFor(() => expect(probes()).toHaveLength(4));
+  expect([...probes()].sort()).toEqual([
+    'object-ref|crm_account|position',
+    'object-ref|crm_account|team',
+    'recipient-picker|sales_manager|position',
+    'recipient-picker|team_eu|team',
+  ]);
   // The control column: the same strings, undeclared, print raw — once each.
   expect(screen.getAllByText('sales_manager')).toHaveLength(1);
   expect(screen.getAllByText('crm_account')).toHaveLength(1);
-  expect(screen.queryByText('team_eu'), 'the team id is named, not printed').toBeNull();
-
-  // One catalog read and one team query for the whole grid, not one per row.
-  expect(dataSource.getObjects).toHaveBeenCalledTimes(1);
-  expect(dataSource.find.mock.calls.filter(([object]: [string]) => object === 'sys_team')).toHaveLength(1);
 }
 
-describe('objectui#12613 — every ObjectGrid path names an `object-ref` / `recipient-picker` value', () => {
+describe('objectui#12613 — every ObjectGrid path draws a widget-hinted column with its key\'s face and the row', () => {
   it('A: object `columns`', async () => {
-    const { dataSource } = renderGrid({
+    renderGrid({
       columns: COLUMN_NAMES.map((field) => ({ field })),
       data: { provider: 'value', items: ROWS },
     });
     await waitFor(() => expect(screen.getByText('Account managers')).toBeInTheDocument());
-    await expectReferencesNamed(dataSource);
+    await expectWidgetFacesWithRow();
   });
 
   it('B: string `columns` — the shape the platform list views declare', async () => {
-    const { dataSource } = renderGrid({
+    renderGrid({
       columns: COLUMN_NAMES,
       data: { provider: 'value', items: ROWS },
     });
     await waitFor(() => expect(screen.getByText('Account managers')).toBeInTheDocument());
-    await expectReferencesNamed(dataSource);
+    await expectWidgetFacesWithRow();
   });
 
   it('C: inline-data projection (`fields`, no `columns`)', async () => {
-    const { dataSource } = renderGrid({
+    renderGrid({
       fields: COLUMN_NAMES,
       data: { provider: 'value', items: ROWS },
     });
     await waitFor(() => expect(screen.getByText('Account managers')).toBeInTheDocument());
-    await expectReferencesNamed(dataSource);
+    await expectWidgetFacesWithRow();
   });
 
   it('D: object-schema default columns (rows handed down, no projection)', async () => {
-    const { dataSource } = renderGrid({}, { data: ROWS });
+    renderGrid({}, { data: ROWS });
     await waitFor(() => expect(screen.getByText('Account managers')).toBeInTheDocument());
-    await expectReferencesNamed(dataSource);
+    await expectWidgetFacesWithRow();
   });
 });

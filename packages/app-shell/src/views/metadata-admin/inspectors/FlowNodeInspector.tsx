@@ -37,6 +37,7 @@ import {
   localizeFlowFields,
   isFieldVisible,
   inactiveRetainedKind,
+  unsetTriggerReading,
   getFieldValue,
   readFieldValue,
   switchedBlockOf,
@@ -354,7 +355,16 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
   // spec's own resolver (the engine's precedence), for fields gated by
   // `flowKind`: an `api` flow is `type: 'api'` OR a start-node
   // `triggerType: 'api'`, and only the draft can answer the first.
-  const flowKind = resolveFlowTriggerKind(draft);
+  //
+  // objectui#12672 — handed only to the start node it is resolved FROM. The
+  // resolver reads the first top-level `start` node, and so does the engine's
+  // binding, so another start node (the spec's parse admits a second) or one
+  // inside a region binds nothing and must not wear the flow's kind. Compared by
+  // the draft's own element: `locateFlowNode` hands back `draft.nodes[i]` itself.
+  const kindStart = Array.isArray(draft.nodes)
+    ? (draft.nodes as unknown[]).find((n) => !!n && typeof n === 'object' && (n as { type?: unknown }).type === 'start')
+    : undefined;
+  const flowKind = !loc?.nested && node !== null && node === kindStart ? resolveFlowTriggerKind(draft) : undefined;
   const visibleFields = fields.filter((f) => isFieldVisible(f, node, fields, flowKind));
   // objectui#10948 — the fields holding a key the installed spec refuses this
   // node without, so the author sees the requirement before the save-time error
@@ -713,13 +723,21 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
 
       {visibleFields.map((field) => {
         const branchTarget = isBranchTargetField(field);
+        // objectui#12672 — a start node that stores no `triggerType` still has
+        // the trigger the spec resolves from its descriptors, and the Trigger
+        // select READS it: handed to the select's placeholder slot, which shows
+        // what the runtime applies while the node stores nothing and writes
+        // nothing. Render-only — the gates read `fields`, never this copy.
+        const triggerReading = unsetTriggerReading(field, node, flowKind);
         // A NESTED node can't wire top-level edges, so drop the virtual Target
         // column from its Branches editor and skip the withBranchTargets augment
         // (its region routing is out of scope this phase).
         const effField =
           nested && branchTarget
             ? { ...field, columns: (field.columns ?? []).filter((c) => c.key !== 'target') }
-            : field;
+            : triggerReading !== undefined
+              ? { ...field, defaultValue: triggerReading }
+              : field;
         // The Branches editor's Target column (#1942) is virtual: derived from the
         // node's out-edges, never stored on the branch rows (top-level only).
         const value =

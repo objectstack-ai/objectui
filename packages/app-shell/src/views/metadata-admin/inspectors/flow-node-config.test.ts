@@ -15,10 +15,12 @@ describe('start node trigger-field gating (#5)', () => {
   const objectName = fields.find((f) => f.id === 'objectName')!;
   const condition = fields.find((f) => f.id === 'condition')!;
 
-  it('hides Object / Entry condition on a screen / manual start (no record trigger)', () => {
+  it('hides Object on a screen / manual start (no record trigger); Entry condition stays (objectui#12780)', () => {
+    // The engine evaluates the start condition on every run, a manual
+    // `execute()` included, so it is in effect with no trigger at all.
     const node = { id: 'start', type: 'start' }; // no config.triggerType
     expect(isFieldVisible(objectName, node, fields)).toBe(false);
-    expect(isFieldVisible(condition, node, fields)).toBe(false);
+    expect(isFieldVisible(condition, node, fields)).toBe(true);
   });
 
   it('shows them once a record trigger is picked', () => {
@@ -43,9 +45,10 @@ describe('start node trigger-field gating (#5)', () => {
     expect(triggerType.options?.some((o) => o.value === 'record-change')).toBe(false);
   });
 
-  it('shows for a schedule trigger too', () => {
+  it('shows Entry condition, not Object, for a schedule trigger (objectui#12780)', () => {
+    // The schedule binding never reads `config.objectName`.
     const node = { id: 'start', type: 'start', config: { triggerType: 'schedule' } };
-    expect(isFieldVisible(objectName, node, fields)).toBe(true);
+    expect(isFieldVisible(objectName, node, fields)).toBe(false);
     expect(isFieldVisible(condition, node, fields)).toBe(true);
   });
 

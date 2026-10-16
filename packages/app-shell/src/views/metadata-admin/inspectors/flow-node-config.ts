@@ -29,7 +29,7 @@
  * `configSchema` fields, since built-in nodes share the same field ids.
  */
 
-import { FLOW_TRIGGER_KINDS, type FlowTriggerKind } from '@objectstack/spec/automation';
+import type { FlowTriggerKind } from '@objectstack/spec/automation';
 import type { DeclaredConfigKey } from './json-schema-to-fields.js';
 import type { RegistryValueSource } from '../../../utils/approverValueSources.js';
 import { flowFieldZh, isZhLocale } from '../i18n.js';
@@ -476,10 +476,19 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       help: 'The per-flow secret the inbound hook verifies every post against. Write-only: a saved secret is never shown here, and leaving this blank keeps it.',
       unsetNotice: 'No secret entered. An API-triggered flow is refused unless its start node carries a secret. A secret already saved on this flow is kept when this is left blank.',
     }),
+    // objectui#12780 — gated on exactly the kind whose binding reads it. The
+    // engine lifts `config.objectName` into the record-change binding, and the
+    // record-change trigger hooks that object. The schedule and API bindings
+    // never read it. A time-relative binding falls back to it only for the
+    // object its runtime-state row names: the sweep itself reads
+    // `config.timeRelative.object`, which `TimeRelativeTriggerSchema` requires,
+    // so a sweep authored through this field would not bind. The New
+    // automation dialog asks for an object on exactly this `showWhen`.
     cfg('objectName', 'Object', 'reference', {
       ref: { kind: 'object' },
-      help: 'Target object for record / scheduled-scan triggers.',
-      showWhen: { field: 'triggerType', equals: ['record-after-create', 'record-after-update', 'record-after-write', 'record-before-update', 'record-after-delete', 'schedule', 'api'] },
+      help: 'Object whose record changes start this flow.',
+      flowKind: ['record_change'],
+      showWhen: { field: 'triggerType', equals: ['record-after-create', 'record-after-update', 'record-after-write', 'record-before-update', 'record-after-delete'] },
     }),
     cfg('condition', 'Entry condition', 'expression', {
       // objectui#6226 — the one predicate every business admin meets. Row
@@ -490,14 +499,12 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       conditionBuilder: true,
       placeholder: 'status == "qualifying" && previous.status != "qualifying"',
       help: 'CEL predicate — the flow runs only when this is true (for time-relative sweeps it gates each matched record). Leave empty to run on every event. On a "created or updated" trigger, `previous == null` selects the create path.',
-      // objectui#12672 — in effect for EVERY kind the spec resolves: the
-      // engine evaluates a start node's `condition` itself, before any node
-      // runs, for every trigger type (the trigger-condition gate in
-      // `@objectstack/service-automation`'s `AutomationEngine`). A sweep or
-      // schedule start node stores no `triggerType`, so the select gate alone
-      // flagged a live predicate "not in effect" there.
-      flowKind: FLOW_TRIGGER_KINDS,
-      showWhen: { field: 'triggerType', equals: ['record-after-create', 'record-after-update', 'record-after-write', 'record-before-update', 'record-after-delete', 'schedule', 'time_relative', 'api'] },
+      // objectui#12672, objectui#12780 — no gate: the engine evaluates a start
+      // node's `condition` itself at the top of every run, before any node
+      // runs (the trigger-condition gate in `@objectstack/service-automation`'s
+      // `AutomationEngine`). That covers every trigger kind, and also a manual
+      // `execute()` of a flow that binds no trigger. A gate on any kind list
+      // flagged a live predicate "not in effect" outside that list.
     }),
     // Schedule descriptor — author the canonical nested `config.schedule` object
     // the runtime actually reads (resolveTriggerBinding → normalizeSchedule). This

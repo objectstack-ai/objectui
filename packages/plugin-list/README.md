@@ -356,7 +356,6 @@ list it is. On a metadata page both sit in the node's `properties`. The node's
 own `type` stays `list-view`, because it is the key the page renderer looks the
 component up by:
 
-<!-- doc-json: fragment — the spec's page spelling of a list view, which `objectui validate` does not judge yet: its `list-view` face still reads `objectName` and has no `properties` member (objectui#12099) -->
 ```json
 {
   "type": "list-view",
@@ -384,8 +383,13 @@ the old spelling is the platform's job (an ADR-0087 conversion in
 React props (the `ListViewSchema` examples above) are a separate surface and
 still spell the two `objectName` and `viewType`.
 
-`objectui validate` does not judge the page spelling yet: its `list-view` face
-still reads `objectName` and counts no `data` as a record source.
+`objectui validate` judges a page `list-view` node in this spelling. Its record
+source is `properties.data` or a bound `dataSource.object`, and a node with
+neither is refused at `properties.data`. `objectName` and `viewType` are refused
+by name, on the node or in `properties`, each naming what to write instead
+(`properties.data`, `properties.type`). A `properties.type` that names no kind a
+list view draws is refused, and so is a list view prop such as `columns` written
+on the node itself rather than in `properties`.
 
 ## Page binding — `dataSource` (referencing a saved view by name)
 

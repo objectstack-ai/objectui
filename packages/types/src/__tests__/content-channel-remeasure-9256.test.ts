@@ -109,6 +109,17 @@ const ROWS: ReadonlyArray<readonly [type: string, mirror: Mirror, required: Reco
   ['list-view', ListViewMirror as unknown as Mirror, { objectName: 'account' }],
 ];
 
+/**
+ * The node `AnyComponentSchema` judges, where it is not the mirror's own node
+ * (objectui#12670): a page `list-view` is armed by `ListViewBlockSchema`, whose
+ * props live in the `properties` bag and whose object is named in `data`. The
+ * mirror rows above stay the `ListView` component's props. That arm refuses
+ * both channels by name too, with its own string.
+ */
+const PUBLISHED_REQUIRED: Readonly<Record<string, Record<string, unknown>>> = {
+  'list-view': { properties: { data: { provider: 'object', object: 'account' } } },
+};
+
 const CHANNELS = ['body', 'children'] as const;
 const CONTENT = [{ type: 'text', content: 'measured' }];
 const issues = (m: Mirror, doc: unknown) => {
@@ -155,8 +166,12 @@ describe('objectui#9256 re-measure — both content channels are refused where t
   });
 
   it.each(CASES)('%s — the refusal reaches the node through `AnyComponentSchema`, not only its own arm', (_label, type, _mirror, key, required) => {
-    expect(AnyComponentSchema.safeParse({ ...required, type }).success).toBe(true);
-    expect(AnyComponentSchema.safeParse({ ...required, type, [key]: CONTENT }).success).toBe(false);
+    const published = PUBLISHED_REQUIRED[type] ?? required;
+    expect(AnyComponentSchema.safeParse({ ...published, type }).success).toBe(true);
+    const refused = AnyComponentSchema.safeParse({ ...published, type, [key]: CONTENT });
+    expect(refused.success).toBe(false);
+    const issue = refused.error!.issues.find((i) => i.path.join('.') === key);
+    expect(issue?.message).toContain(`\`${type}\` reads NEITHER content channel`);
   });
 });
 

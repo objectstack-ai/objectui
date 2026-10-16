@@ -74,6 +74,29 @@ export interface PageAssignmentResult {
   error: Error | null;
 }
 
+/**
+ * True when `page` is a record page bound to `objectName`: its `type` is
+ * `'record'` and its `object` names that object.
+ *
+ * This is the ONE reading of "a record page of object O" in the console. The
+ * object-based lookup below filters its candidates with it, and a route that
+ * names a page explicitly (the console's named record page route,
+ * objectui#12715) asks it before rendering the named page for a record of O,
+ * so a name that is a page of another object, or not a record page at all, is
+ * refused rather than rendered. The `pageName` override of
+ * {@link usePageAssignment} does not ask it: that option returns the page with
+ * that name whatever it is, and a caller that renders a record on the page it
+ * gets back asks this first.
+ *
+ * `type` is the one discriminator, as the lookup's own comment explains
+ * (objectui#9674): `pageType` is a key `PageSchema` refuses, so it is not read.
+ */
+export function isRecordPageOf(page: unknown, objectName: string | undefined | null): boolean {
+  if (!page || typeof page !== 'object' || !objectName) return false;
+  const p = page as { type?: unknown; object?: unknown };
+  return p.type === 'record' && p.object === objectName;
+}
+
 function matchesAssignment(_page: any, _opts: PageAssignmentOptions): boolean {
   // Placeholder — every page matches until rules-based assignment lands.
   return true;
@@ -142,8 +165,7 @@ export function usePageAssignment(
       // designer-side `'record_detail'` is not expressible either: it left
       // `PageTypeSchema` (framework#2265), so `type: 'record_detail'` is an
       // invalid enum value.
-      if (p.type !== 'record') return false;
-      if (p.object !== objectName) return false;
+      if (!isRecordPageOf(p, objectName)) return false;
       return matchesAssignment(p, opts);
     });
 

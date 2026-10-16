@@ -36,6 +36,7 @@ import { ListViewSchema as SpecListViewSchema } from '@objectstack/spec/ui';
 import type { ListViewSchema as TsListViewSchema } from '../objectql';
 import { ListViewSchema } from '../zod/objectql.zod.js';
 import { AnyComponentSchema, StrictAnyComponentSchema, safeValidateSchema } from '../zod/index.zod.js';
+import { onPageSpelling } from './list-view-page-node';
 
 /* ── Instruments ─────────────────────────────────────────────────────────────── */
 
@@ -96,11 +97,17 @@ const BASE: Record<Kind, Record<string, unknown>> = {
 };
 
 const NODE = { type: 'list-view', objectName: 'deal' };
+/**
+ * The mirror is the `ListView` component's props; the three published faces
+ * judge the authored PAGE node since objectui#12670, its props in the
+ * `properties` bag, so each re-spells the node and reads its paths relative to
+ * the bag (`onPageSpelling`). The bag's blocks are the mirror's, by reference.
+ */
 const DOORS: ReadonlyArray<readonly [string, Parse]> = [
   ['the list-view mirror', (d) => ListViewSchema.safeParse(d)],
-  ['the tolerant face', (d) => AnyComponentSchema.safeParse(d)],
-  ['the strict face', (d) => StrictAnyComponentSchema.safeParse(d)],
-  ['safeValidateSchema', (d) => safeValidateSchema(d)],
+  ['the tolerant face', onPageSpelling((d) => AnyComponentSchema.safeParse(d) as Parsed)],
+  ['the strict face', onPageSpelling((d) => StrictAnyComponentSchema.safeParse(d) as Parsed)],
+  ['safeValidateSchema', onPageSpelling((d) => safeValidateSchema(d) as Parsed)],
 ];
 
 /* ── 1. The slots, on the installed protocol (the precondition) ──────────────── */

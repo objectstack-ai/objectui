@@ -224,10 +224,19 @@ const SCOPE_TIER_ADVICE: Record<PredicateScopeTier, string> = {
  * package entry, and the chain stops there (no sibling package re-exports it,
  * and no file outside `packages/react` names it). A consumer switching
  * EXHAUSTIVELY over the union, or holding a `Record<PredicateGateKind, ...>`,
- * gains a third case to answer. That is a type-level change only: no runtime
+ * gains a case to answer. That is a type-level change only: no runtime
  * signature moved, and every value that was accepted before still is.
+ *
+ * `'withholding'` - the app-shell's navigation `visible` gate (objectui#12700).
+ * A visibility predicate on a navigation entry, but one whose FAULT is answered
+ * fail-CLOSED: the shell withholds an entry whose gate it cannot evaluate (most
+ * often a `current_user.can(...)` asked before the permissions payload is
+ * there) instead of drawing it for everyone. So the default BITES, and the
+ * sentence `'visibility'` prints - "reads on screen exactly like one that said
+ * yes" - would be the opposite of what the member sees. Same opening line as
+ * `'visibility'`, for the same reason `'concealment'` keeps it.
  */
-export type PredicateGateKind = 'visibility' | 'enablement' | 'concealment';
+export type PredicateGateKind = 'visibility' | 'enablement' | 'concealment' | 'withholding';
 
 /**
  * The two parts of the message that vary with the gate: the opening line (what
@@ -266,6 +275,15 @@ const GATE_KIND_COPY: Record<PredicateGateKind, { prefix: string; consequence: s
       'indistinguishable from metadata that meant to hide it. Nothing is broken\n' +
       'in the renderer: the block is missing because the predicate above could\n' +
       'not be evaluated.\n',
+  },
+  // The app-shell navigation gate (objectui#12700): fail-CLOSED on a fault.
+  withholding: {
+    prefix: UNRESOLVABLE_VISIBILITY_PREFIX,
+    consequence:
+      'The entry was treated as its safe default, which on THIS gate is the one\n' +
+      'that BITES: a navigation entry whose predicate cannot be evaluated is\n' +
+      'WITHHELD - not drawn - until it can be, so a missing entry may be this\n' +
+      'fault rather than a gate that said no.\n',
   },
   enablement: {
     prefix: UNRESOLVABLE_ENABLEMENT_PREFIX,

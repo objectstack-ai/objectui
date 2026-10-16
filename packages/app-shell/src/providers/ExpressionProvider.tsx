@@ -397,6 +397,41 @@ export function useExpressionContext(): ExpressionContextValue {
 const APP_SHELL_VISIBLE_SURFACE = 'app-shell:visible';
 
 /**
+ * Report one faulting app-shell `visible` predicate, through the shared
+ * reporter, under this surface's constant `type`.
+ */
+function reportAppShellVisibleFault(
+  // The key the AUTHOR wrote, which is what the printed line tells them to
+  // grep for. Nav and area items carry `visible`, the default; an object
+  // field's predicate is `visibleWhen` (objectui#6514), and naming it
+  // `visible` there would send an author to a key `FieldSchema` REFUSES.
+  authoredKey: string,
+  expression: unknown,
+  reason: unknown,
+  // What the surface's fault policy DID with the entry: `'visibility'` where a
+  // fault is answered fail-open, `'withholding'` where it is answered
+  // fail-closed (the navigation gate, objectui#12700).
+  gate: 'visibility' | 'withholding',
+): void {
+  reportUnresolvableVisibilityPredicate(
+    APP_SHELL_VISIBLE_SURFACE,
+    undefined,
+    authoredKey,
+    expression,
+    reason,
+    // objectui#6487. Until this argument existed the line closed with the
+    // NODE tier's advice, telling an author whose nav predicate faulted to
+    // check `record` and `page.<var>` — two roots the bag built in
+    // `ExpressionProvider` above does not contain at all — while the identity
+    // aliases and `features` that it DOES contain went unnamed. (`app` was in
+    // that list until objectui#8155 removed the root; the advice no longer
+    // names it either.)
+    'app-shell',
+    gate,
+  );
+}
+
+/**
  * Evaluate a visibility expression.
  * Supports:
  * - boolean: true/false
@@ -415,7 +450,10 @@ const APP_SHELL_VISIBLE_SURFACE = 'app-shell:visible';
  * the app author had no working way to hide a menu item by role.
  *
  * Returns true if the item should be visible (fail-open on evaluation errors,
- * matching the evaluator's own default).
+ * matching the evaluator's own default). A NAVIGATION entry is not gated here:
+ * it goes through {@link evaluateNavigationVisibility}, which withholds on a
+ * fault (objectui#12700). This fail-open answer is the object-field gate's
+ * (`isObjectFieldVisible`) and the published export's.
  */
 export function evaluateVisibility(
   expression: string | boolean | { dialect?: string; source?: string } | undefined,
@@ -436,32 +474,13 @@ export function evaluateVisibility(
   // reaches that swallowed fault, and it costs nothing: no `throwOnError`
   // second evaluation, same single engine call as before.
   //
-  // FAIL-OPEN IS UNCHANGED, deliberately. A predicate that cannot be evaluated
-  // still returns `true`, so the nav item, area or field still renders for
-  // everyone — including the role the predicate was written to exclude. That is
-  // the shipped permission-boundary semantics; flipping it to fail-closed is a
-  // behaviour change, not a diagnostic, and it is not this card's to make. This
-  // card makes the silence stop, nothing else.
+  // FAIL-OPEN here, deliberately: a predicate that cannot be evaluated still
+  // returns `true`. This function is the object-field gate's and the published
+  // export's; the NAVIGATION gate moved to `evaluateNavigationVisibility`,
+  // which withholds on a fault (objectui#12700, ruled). objectui#6443 made the
+  // fault loud and left the verdict alone.
   const report = (reason: unknown): void =>
-    reportUnresolvableVisibilityPredicate(
-      APP_SHELL_VISIBLE_SURFACE,
-      undefined,
-      // The key the AUTHOR wrote, which is what the printed line tells them to
-      // grep for. Nav and area items carry `visible`, the default; an object
-      // field's predicate is `visibleWhen` (objectui#6514), and naming it
-      // `visible` there would send an author to a key `FieldSchema` REFUSES.
-      authoredKey,
-      expression,
-      reason,
-      // objectui#6487. Until this argument existed the line closed with the
-      // NODE tier's advice, telling an author whose nav predicate faulted to
-      // check `record` and `page.<var>` — two roots the bag built in
-      // `ExpressionProvider` above does not contain at all — while the identity
-      // aliases and `features` that it DOES contain went unnamed. (`app` was in
-      // that list until objectui#8155 removed the root; the advice no longer
-      // names it either.)
-      'app-shell',
-    );
+    reportAppShellVisibleFault(authoredKey, expression, reason, 'visibility');
 
   try {
     return evaluator.evaluateCondition(expression, { onFault: report });
@@ -471,6 +490,71 @@ export function evaluateVisibility(
     // same fail-open `true` in silence; it no longer does.
     report(err);
     return true; // Default to visible on error
+  }
+}
+
+/**
+ * Should this NAVIGATION entry be drawn? — the gate every navigation surface of
+ * the shell asks of an entry's (or an area's) authored `visible`: the sidebar,
+ * the app root's landing and the activity roster (all through
+ * `useNavMemberGates`), the `nav:menu` block and the command palette's
+ * navigation list (objectui#12700).
+ *
+ * The verdict is {@link evaluateVisibility}'s on every predicate that
+ * evaluates. It differs on a FAULT only: a predicate this evaluator cannot
+ * answer WITHHOLDS the entry instead of drawing it for everyone. The case that
+ * made this a ruling is `current_user.can(object, verb)` asked where no
+ * permissions payload is bound — outside `MePermissionsProvider`, or before it
+ * holds an answer: the engine refuses (`useExpressionPermissions` binds
+ * nothing rather than `{}`), and the fail-open default turned that refusal into
+ * "shown", so permission-gated navigation hid nothing. A navigation gate is
+ * hidden until known. The refusal stays loud: the fault is reported once per
+ * predicate, with the engine's reason and the `'withholding'` consequence line.
+ *
+ * Only a FAULT withholds. A blank gate is "no gate" in every mode of the
+ * evaluator (ADR-0137 D4) and is still drawn: when a first, fail-soft
+ * evaluation reports a fault, the predicate is asked once more on the
+ * evaluator's own fail-closed seam (`throwOnError`), and only a throw there
+ * withholds. A predicate that evaluates never pays that second call.
+ *
+ * ⛔ This is UI gating, not a security boundary: the server enforces what a
+ * member may read whatever the shell draws.
+ *
+ * Internal to the package: not re-exported by the package entry.
+ */
+export function evaluateNavigationVisibility(
+  expression: string | boolean | { dialect?: string; source?: string } | undefined,
+  evaluator: ExpressionEvaluator,
+): boolean {
+  if (expression === undefined || expression === null) return true;
+  if (expression === true || expression === 'true') return true;
+  if (expression === false || expression === 'false') return false;
+
+  let reason: unknown;
+  let faulted = false;
+  try {
+    const verdict = evaluator.evaluateCondition(expression, {
+      onFault: (r) => {
+        faulted = true;
+        reason = r;
+      },
+    });
+    if (!faulted) return verdict;
+  } catch (err) {
+    // The evaluator itself threw: no answer at all, so the entry is withheld.
+    reportAppShellVisibleFault('visible', expression, err, 'withholding');
+    return false;
+  }
+
+  try {
+    const verdict = evaluator.evaluateCondition(expression, { throwOnError: true });
+    // Not a fault on the fail-closed seam: the blank gate, drawn as before and
+    // reported with the fail-open consequence it actually had.
+    reportAppShellVisibleFault('visible', expression, reason, 'visibility');
+    return verdict;
+  } catch {
+    reportAppShellVisibleFault('visible', expression, reason, 'withholding');
+    return false;
   }
 }
 

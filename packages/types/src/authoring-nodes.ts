@@ -191,16 +191,19 @@ export type PublicBlockNodeOf<T extends PublicBlockNode['type']> = Extract<Publi
  * `object-timeline`, `object-form`, `object-map`, `object-chart`,
  * `object-gantt` and `object-grid`, each the arm's own authoring input
  * (objectui#11468), derived exactly as {@link PublicBlockNode} is, and
- * `object-pivot` and `embeddable-form` (objectui#11440). The block's props are
+ * `object-pivot` and `embeddable-form` (objectui#11440), and the page
+ * `list-view` (objectui#12670). The block's props are
  * its `properties` bag: the spec's `ComponentPropsMap` row, or, for a block
  * with no row, objectui's own members, closed ({@link ClosedBag}) — the
- * `ObjectChartSchema` mirror's for `object-chart`, the registration's inputs
+ * `ObjectChartSchema` mirror's for `object-chart`, the `ListViewSchema`
+ * mirror's for `list-view`, the registration's inputs
  * for `object-pivot` and `embeddable-form`, whose bags are required.
  *
  * ⚠️ Not the TypeScript twins in `./objectql.ts` (`ObjectFormSchema`,
  * `ObjectMapSchema`, `ObjectGanttSchema`, `ObjectChartSchema`,
- * `ObjectGridSchema`): each of those is the node as its renderer reads it after
- * `SchemaRenderer` hoists the bag, and as code composes it. These are the
+ * `ObjectGridSchema`, `ListViewSchema`): each of those is the node as its
+ * renderer reads it after `SchemaRenderer` hoists the bag, and as code composes
+ * it (`ListViewSchema` is the `ListView` component's props). These are the
  * authored node, its props in the bag.
  */
 export type ObjectQLPublicBlockNode = ClosedArmInput<(typeof ObjectQLPublicBlockComponentSchema)['options'][number]>;
@@ -237,6 +240,15 @@ export type ObjectPivotBlockNode = ObjectQLPublicBlockNodeOf<'object-pivot'>;
 
 /** An authored `embeddable-form` node: the `EmbeddableFormBlockSchema` arm's input (objectui#11440). */
 export type EmbeddableFormBlockNode = ObjectQLPublicBlockNodeOf<'embeddable-form'>;
+
+/**
+ * An authored page `list-view` node: the `ListViewBlockSchema` arm's input
+ * (objectui#12670). Its props are its `properties` bag, the `ListViewSchema`
+ * mirror's own members, closed ({@link ClosedBag}), with the list kind as
+ * `type` and `objectName` / `viewType` refused. ⚠️ Not `ListViewSchema`
+ * (`./objectql.ts`), which stays the `ListView` component's props.
+ */
+export type ListViewBlockNode = ObjectQLPublicBlockNodeOf<'list-view'>;
 
 /** `FlexBlockSchema`'s shape with its `properties` member closed ({@link ClosedArmShape}). */
 type FlexBlockArmShape = ClosedArmShape<(typeof FlexBlockSchema)['shape']>;

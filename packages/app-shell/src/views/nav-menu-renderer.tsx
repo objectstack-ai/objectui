@@ -131,7 +131,7 @@ import {
   type NavTemplateContext,
 } from '@object-ui/layout';
 import type { NavigationItem } from '@object-ui/types';
-import { useExpressionContext, evaluateVisibility } from '../providers/ExpressionProvider.js';
+import { useExpressionContext, evaluateNavigationVisibility } from '../providers/ExpressionProvider.js';
 import { useNavActionDispatch } from '../hooks/useNavActionDispatch.js';
 import { useNavTargetLabel } from '../hooks/useNavTargetLabel.js';
 import { useNavDocTargetCheck } from '../hooks/useNavDocTargetCheck.js';
@@ -177,7 +177,7 @@ export const NavMenuRenderer: React.FC<NavMenuRendererProps> = ({
 
   const { evaluator } = useExpressionContext();
   const evalVis = useCallback(
-    (expr: string | boolean | undefined) => evaluateVisibility(expr, evaluator),
+    (expr: string | boolean | undefined) => evaluateNavigationVisibility(expr, evaluator),
     [evaluator],
   );
 

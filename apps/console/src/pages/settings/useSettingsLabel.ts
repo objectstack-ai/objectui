@@ -12,6 +12,13 @@
  *   settings.<namespace>.keys.<key>.label / .help / .placeholder
  *   settings.<namespace>.keys.<key>.options.<value>
  *   settings.<namespace>.actions.<actionId>.label / .confirmText / .successMessage
+ *   settings.<namespace>.banners.<bannerId>.title / .text
+ *
+ * `banners.<bannerId>` is keyed by an `info_banner` specifier's `id`: `title`
+ * translates its `label` and `text` its `bannerText` (objectstack#23886, read
+ * by `resolveSettingsBannerTitle` / `resolveSettingsBannerText` in the spec's
+ * `i18n-resolver.ts`). That slot is the ONE spelling: no other leaf or branch
+ * name for a banner is read here (objectui#12671).
  *
  * All lookups fall back to the literal authored in the manifest, so an
  * unconfigured locale gracefully degrades to English (or whatever the
@@ -42,6 +49,10 @@ export interface SettingsLabelHelpers {
   actionLabel: (actionId: string, fallback: string) => string;
   actionConfirm: (actionId: string, fallback: string | undefined) => string | undefined;
   actionSuccess: (actionId: string, fallback: string | undefined) => string | undefined;
+  /** An `info_banner` title, keyed by the specifier's `id`; falls back to its `label`. */
+  bannerTitle: (bannerId: string, fallback: string) => string;
+  /** An `info_banner` body, keyed by the specifier's `id`; falls back to its `bannerText`. */
+  bannerText: (bannerId: string, fallback: string | undefined) => string | undefined;
   /** Human label for a `ResolvedSettingValue.source` (env/global/tenant/user/default). */
   sourceLabel: (source: 'env' | 'global' | 'tenant' | 'user' | 'default') => string;
 }
@@ -148,6 +159,9 @@ export function useSettingsLabel(namespace: string): SettingsLabelHelpers {
         resolve(`actions.${actionId}.confirmText`, fallback),
       actionSuccess: (actionId, fallback) =>
         resolve(`actions.${actionId}.successMessage`, fallback),
+      bannerTitle: (bannerId, fallback) =>
+        resolve(`banners.${bannerId}.title`, fallback) ?? fallback,
+      bannerText: (bannerId, fallback) => resolve(`banners.${bannerId}.text`, fallback),
       sourceLabel: (source) =>
         resolveCommon(`sourceLabels.${source}`, SOURCE_FALLBACKS[source] ?? source),
     };

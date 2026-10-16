@@ -6,7 +6,7 @@
  * (which carries provenance and lock state).
  */
 
-import { cloneElement, isValidElement, useId, type ReactElement } from 'react';
+import { cloneElement, isValidElement, lazy, Suspense, useId, type ReactElement } from 'react';
 import {
   Input,
   Textarea,
@@ -27,13 +27,43 @@ import {
   Separator,
   Badge,
   Button,
+  cn,
   getLazyIcon,
 } from '@object-ui/components';
 import { useObjectTranslation } from '@object-ui/i18n';
-import { ChevronRight, Info } from 'lucide-react';
+import { AlertTriangle, ChevronRight, Info } from 'lucide-react';
 import { EnvLockBadge } from './EnvLockBadge';
 import { resolveLabel, type Specifier, type ResolvedSettingValue } from './types';
 import type { SettingsLabelHelpers } from './useSettingsLabel';
+
+/**
+ * An `info_banner`'s body is a Markdown body: the spec declares `bannerText`
+ * with `.describe('Markdown body (info_banner)')` in `settings-manifest.zod.ts`
+ * (objectui#12671). It is drawn by the docs portal's renderer, the
+ * `MarkdownRenderer` that `DocPage` renders a package doc with: the same kind
+ * of text (an installed package's own words) through the same unconditional
+ * `rehype-sanitize` pass, used as it is.
+ *
+ * Lazy on purpose. This module is in the EAGER closure (`AppContent` imports
+ * `WorkspaceTimezonePrompt`, which imports it), and a static import would put
+ * `plugin-markdown`'s whole chunk, its syntax highlighter included, on every
+ * console page load. Until the chunk arrives the body shows as its own plain
+ * text.
+ */
+const BannerMarkdown = lazy(() =>
+  import('@object-ui/plugin-markdown').then((m) => ({ default: m.MarkdownRenderer })),
+);
+
+/**
+ * `bannerSeverity: 'warning'` draws the amber callout (objectui#12610 target 2,
+ * objectui#12671). The `Alert` primitive declares only `default` and
+ * `destructive`, and `packages/components/src/ui/` is not edited here, so the
+ * warning is the shell's existing amber callout spelling laid over `default`
+ * (the colours `PermissionMatrixEditor`'s and `SuggestedBindingsPanel`'s
+ * notices use), with the icon in the amber of the shell's warning glyphs.
+ */
+const WARNING_BANNER_CLASSES =
+  'border-amber-300/60 bg-amber-50 text-amber-800 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-200 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-400';
 
 export interface SettingsFieldProps {
   spec: Specifier;
@@ -271,12 +301,29 @@ export function SettingsField(props: SettingsFieldProps) {
   }
 
   if (spec.type === 'info_banner') {
-    const variant = spec.bannerSeverity === 'error' ? 'destructive' : 'default';
+    // objectui#12671 — the title and body read the platform's
+    // `settings.<namespace>.banners.<id>` slot, keyed by `id` exactly as the
+    // `group` arm above keys `groups.<id>`; a miss is the manifest literal.
+    const bannerTitle = spec.id && labels ? labels.bannerTitle(spec.id, literalLabel) : literalLabel;
+    const bannerText = spec.id && labels
+      ? labels.bannerText(spec.id, spec.bannerText)
+      : spec.bannerText;
+    const warning = spec.bannerSeverity === 'warning';
+    const BannerIcon = warning ? AlertTriangle : Info;
     return (
-      <Alert variant={variant as any} className="my-2">
-        <Info className="h-4 w-4" />
-        <AlertTitle>{literalLabel}</AlertTitle>
-        {spec.bannerText ? <AlertDescription>{spec.bannerText}</AlertDescription> : null}
+      <Alert
+        variant={spec.bannerSeverity === 'error' ? 'destructive' : 'default'}
+        className={cn('my-2', warning && WARNING_BANNER_CLASSES)}
+      >
+        <BannerIcon className="h-4 w-4" />
+        <AlertTitle>{bannerTitle}</AlertTitle>
+        {bannerText ? (
+          <AlertDescription>
+            <Suspense fallback={bannerText}>
+              <BannerMarkdown schema={{ type: 'markdown', content: bannerText }} />
+            </Suspense>
+          </AlertDescription>
+        ) : null}
       </Alert>
     );
   }

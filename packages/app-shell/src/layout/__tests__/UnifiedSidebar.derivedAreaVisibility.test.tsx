@@ -72,6 +72,7 @@ vi.mock('../../providers/ExpressionProvider', () => ({
   // Mirrors the real evaluateVisibility's literal handling — enough for
   // fixtures gating with `visible: false`.
   evaluateVisibility: (expr: unknown) => expr !== false && expr !== 'false',
+  evaluateNavigationVisibility: (expr: unknown) => expr !== false && expr !== 'false',
 }));
 
 vi.mock('../../utils', () => ({

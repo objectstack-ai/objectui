@@ -358,6 +358,11 @@ export {
   // from the block's registration inputs.
   ObjectPivotBlockSchema,
   EmbeddableFormBlockSchema,
+  // objectui#12670 — the authored page `list-view` arm, its bag the flat
+  // mirror's own members with the list kind as `type` and `objectName` /
+  // `viewType` refused by name; `ListViewSchema` above stays the `ListView`
+  // component's props.
+  ListViewBlockSchema,
   ObjectQLPublicBlockComponentSchema,
 } from './objectql.zod.js';
 

@@ -184,8 +184,10 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
   // draws open: Radix unmounts a closed section's content, so a section
   // collapsed on screen never reaches paper, and `record:details` is in the
   // printable block subset because it prints every field it declares. Off a
-  // print page the toggle is unchanged.
-  const isCollapsed = usePrintPage() === null && collapsedState;
+  // print page the toggle is unchanged. Read once, above every early return:
+  // the empty-field heuristic below reads the same answer (objectui#12717).
+  const isPrintPage = usePrintPage() !== null;
+  const isCollapsed = !isPrintPage && collapsedState;
   const [copiedField, setCopiedField] = React.useState<string | null>(null);
   const [visibleCount, setVisibleCount] = React.useState<number | undefined>(undefined);
   const [showEmptyOverride, setShowEmptyOverride] = React.useState(false);
@@ -298,11 +300,22 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
   // fields) and a lower empty ratio (≥25%) now trigger auto-hide so pages
   // start dense by default rather than sparse. Mobile remains the most
   // aggressive variant since vertical real estate is scarce.
+  //
+  // objectui#12717 — off on a page that declares `print`. The heuristic is a
+  // SCREEN density call nobody authored (it reads the viewport and a ratio),
+  // and its "Show N empty fields" toggle is a control that reached paper while
+  // the empty rows it hid did not. `record:details` is in the printable block
+  // subset because it prints every field it declares (objectui#11958), so on
+  // paper every declared row prints and, with nothing hidden, there is no
+  // toggle. ⛔ Not a `print:hidden` on the button: the rows would still be
+  // missing. The AUTHORED all-empty hide below is not gated: it is what the
+  // section declares, and it leaves no control behind.
   const isMobile = useIsMobile();
   const AUTO_HIDE_MIN_FIELDS = isMobile ? 3 : 4;
   const AUTO_HIDE_RATIO = isMobile ? 0.2 : 0.25;
   const filledCount = section.fields.length - emptyCount;
   const shouldAutoHideEmpty =
+    !isPrintPage &&
     !isEditing &&
     section.fields.length >= AUTO_HIDE_MIN_FIELDS &&
     emptyCount / section.fields.length >= AUTO_HIDE_RATIO &&

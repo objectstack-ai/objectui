@@ -82,3 +82,21 @@ A block reads whether it is on a print page with `usePrintPage()` from
 When the record page bound to a record declares `print`, the record view shows
 a **Print** button that opens the browser's print preview of that page. Saving
 a PDF is the browser's own "Save as PDF" destination.
+
+## Printing a page that is not the default
+
+The record route, `/apps/APP/OBJECT/record/ID`, shows a record on its object's
+default record page. Any other record page of the object renders for the same
+record at:
+
+```
+/apps/APP/OBJECT/record/ID/page/PAGE
+```
+
+So an invoice keeps its record view as the default page, and its print page
+(`invoice_document` above) opens at `…/invoice/record/ID/page/invoice_document`,
+with the same print stylesheet, print root and Print action. PAGE must be a
+record page bound to OBJECT (`type: 'record'`, `object: OBJECT`). Any other
+name, a page that is not a record page or a page of another object, shows
+"Page not found": the console never falls back to the default page, so a print
+of that URL never puts a different document on paper.

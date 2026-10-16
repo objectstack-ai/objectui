@@ -136,8 +136,9 @@ restated by hand:
   `ObjectQLPublicBlockComponentSchema`, each the arm's own input. Each is also
   exported by name: `ObjectGridBlockNode`, `ObjectFormBlockNode`,
   `ObjectMapBlockNode`, `ObjectGanttBlockNode`, `ObjectChartBlockNode`,
-  `ObjectMetricBlockNode`, `ObjectTimelineBlockNode` and
-  `ObjectMasterDetailFormBlockNode`.
+  `ObjectMetricBlockNode`, `ObjectTimelineBlockNode`,
+  `ObjectMasterDetailFormBlockNode`, `ObjectPivotBlockNode`,
+  `EmbeddableFormBlockNode` and `ListViewBlockNode`.
 - `FlexBlockNode`: an authored `flex` node, its layout props and its child
   list in the bag. `flex` and `object-chart` have no `ComponentPropsMap` row,
   so each bag is the flat type's own members (`FlexSchema`,

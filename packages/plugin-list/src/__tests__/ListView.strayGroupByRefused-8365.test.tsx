@@ -172,11 +172,30 @@ const DISTINGUISHING_VIEW = {
   kanban: { groupByField: CANONICAL },
 } as const;
 
+/**
+ * The read door judges the AUTHORED page node (objectui#12670, ruling C on
+ * objectstack-ai/objectstack#22444): its props in the `properties` bag, its
+ * object named in `data`, its kind as the bag's `type`. The fixture above is
+ * the `ListView` component's props, which the lane half renders; the refusal
+ * half hands the door the same list view in the page spelling, and reads each
+ * issue path relative to the bag.
+ */
+const asPageNode = ({ type, objectName, viewType, ...props }: Record<string, unknown>) => ({
+  type,
+  properties: {
+    data: { provider: 'object', object: objectName },
+    ...(viewType === undefined ? {} : { type: viewType }),
+    ...props,
+  },
+});
+const readDoor = (doc: Record<string, unknown>) => safeValidateSchema(asPageNode(doc));
+const bagPath = (path: readonly PropertyKey[]) => (path[0] === 'properties' ? path.slice(1) : path).join('.');
+
 /** Issues the read door raises at `kanban.groupBy`, if any. */
-const refusalIssuesFor = (doc: unknown) => {
-  const result = safeValidateSchema(doc);
+const refusalIssuesFor = (doc: Record<string, unknown>) => {
+  const result = readDoor(doc);
   if (result.success) return [];
-  return result.error.issues.filter((i) => i.path.join('.').endsWith('kanban.groupBy'));
+  return result.error.issues.filter((i) => bagPath(i.path).endsWith('kanban.groupBy'));
 };
 
 beforeEach(() => {
@@ -231,7 +250,7 @@ describe('objectui#8365 · half 2 — the stray key is REFUSED at the read door'
     // nests the declared slot's own block, so the arm is a member there too:
     // `invalid_type`, the same code and ONE message in both nestings.
     expect(issues[0].code).toBe('invalid_type');
-    expect(issues[0].path.join('.')).toBe('options.kanban.groupBy');
+    expect(bagPath(issues[0].path)).toBe('options.kanban.groupBy');
     // The lead sentence is the one the protocol's own `strictObject({ aliases })`
     // answers with, so an author meets ONE remedy on both faces.
     expect(issues[0].message).toContain('Unrecognized key(s) on this kanban configuration: `groupBy`.');
@@ -248,7 +267,7 @@ describe('objectui#8365 · half 2 — the stray key is REFUSED at the read door'
     // `aliasKeyRefusal` is a `z.never()` ARM here, so the envelope is
     // `invalid_type` at the key's own path.
     expect(declared[0].code).toBe('invalid_type');
-    expect(declared[0].path.join('.')).toBe('kanban.groupBy');
+    expect(bagPath(declared[0].path)).toBe('kanban.groupBy');
     // ⭐ ONE STRING, BOTH NESTINGS — the assertion that keeps the check and the
     // arm from drifting into two dialects of one remedy.
     const legacy = refusalIssuesFor(DISTINGUISHING_VIEW);
@@ -256,7 +275,7 @@ describe('objectui#8365 · half 2 — the stray key is REFUSED at the read door'
   });
 
   it('DARK CONTROL: the canonical config alone parses GREEN through the same door', () => {
-    const result = safeValidateSchema({
+    const result = readDoor({
       type: 'list-view',
       objectName: OBJECT,
       kanban: { groupByField: CANONICAL },
@@ -269,7 +288,7 @@ describe('objectui#8365 · half 2 — the stray key is REFUSED at the read door'
     // own path with `invalid_type`; a key no arm names is refused at `kanban`
     // with the spec slot's `unrecognized_keys` — two codes, so the arm cannot be
     // read as a plain strictness refusal.
-    const result = safeValidateSchema({
+    const result = readDoor({
       type: 'list-view',
       objectName: OBJECT,
       kanban: { groupByField: CANONICAL, zzzBogusKey: 'refused now' },
@@ -277,7 +296,7 @@ describe('objectui#8365 · half 2 — the stray key is REFUSED at the read door'
     expect(result.success).toBe(false);
     const issue = result.success
       ? undefined
-      : (result.error.issues.find((i) => i.path.join('.') === 'kanban') as { code?: string; keys?: string[] } | undefined);
+      : (result.error.issues.find((i) => bagPath(i.path) === 'kanban') as { code?: string; keys?: string[] } | undefined);
     expect(issue?.code).toBe('unrecognized_keys');
     expect(issue?.keys).toEqual(['zzzBogusKey']);
   });

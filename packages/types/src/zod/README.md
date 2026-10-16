@@ -31,6 +31,27 @@ is `z.infer<typeof ListViewSchema> & ListViewRuntimeProps`. A drift-guard test
 (`__tests__/list-view-spec-parity.test.ts`) fails if the spec grows a field objectui
 hasn't triaged. **Do not hand-add spec-owned fields here** — import them from the spec.
 
+**`ListViewSchema` is the `ListView` component's props; the authored page node is
+`ListViewBlockSchema` (objectui#12670).** Ruling C on objectstack-ai/objectstack#22444
+converges the page carrier on the spec spelling, so `AnyComponentSchema` (and
+`safeValidateSchema`, `StrictAnyComponentSchema` and `objectui validate` with it) judges a
+page `list-view` node by its `properties` bag: the object named in `data`
+(`{ "provider": "object", "object": "…" }`), or in the node's `dataSource.object`, and the
+list kind as the bag's `type`. `objectName` and `viewType` are refused by name there, flat
+or in the bag, with what to write instead. `ListViewSchema` itself, `objectName` /
+`viewType` and all, is unchanged, and is no longer an arm of the union.
+
+```json
+{
+  "type": "list-view",
+  "properties": {
+    "data": { "provider": "object", "object": "deal" },
+    "type": "kanban",
+    "kanban": { "groupByField": "stage" }
+  }
+}
+```
+
 ### Per-view-type configs are the spec's list-view slots, by reference — #2231, objectui#6152
 
 `kanban` / `calendar` / `gallery` / `timeline` on `ListViewSchema` are each the spec
@@ -262,7 +283,7 @@ function validateComponent(config: unknown) {
 - `KanbanSchema`, `CalendarViewSchema`
 - `FilterBuilderSchema`, `CarouselSchema`, `ChatbotSchema`
 
-### ObjectQL Public Blocks (10)
+### ObjectQL Public Blocks (11)
 The ADR-0080 public blocks `object-metric`, `object-master-detail-form`, `object-timeline`, `object-form`, `object-map`, `object-chart`, `object-gantt` and `object-grid`. Every arm's `properties` but `object-chart`'s is the block's `@objectstack/spec` `ComponentPropsMap` row, by reference; `object-chart` has no row (below). Each of those seven arms also declares the node's `dataSource` binding, the spec's `ElementDataSourceSchema`, which all seven registrations read through `ElementDataSourceGate`. None of the eight renderers reads a content channel, so every arm refuses `children` and `body` by name (objectui#9256). On all eight, a member of the row written flat on the node instead of in `properties` is refused by name, naming `properties.KEY`: `object-metric`, `object-master-detail-form`, `object-timeline` and `object-grid` through the public blocks' shared helper since objectui#10872 batch 10 (below), the other four through their own maps.
 `ObjectFormBlockSchema` is the authored `object-form` node (objectui#10859 batch 4): its props go in the `properties` bag, and each member of the row written flat on the node is refused by name, with a message naming `properties.KEY`. `ObjectFormSchema`, the flat mirror of the TypeScript `ObjectFormSchema`, stays exported as the node as `ObjectForm` reads it after `SchemaRenderer` hoists the bag; it is no longer an arm of `AnyComponentSchema`.
 `ObjectMapBlockSchema` is the authored `object-map` node, built the same way (objectui#10859 batch 5). The flat mirror's `locationField` and `titleField` are refused by name too, pointing at `properties.map.KEY`. The flat mirror's record-source rule stays, read in the bag: the node needs one of `properties.data`, `properties.staticData` or `properties.objectName`, or the node's `dataSource` binding. `ObjectMapSchema`, the flat mirror of the TypeScript `ObjectMapSchema`, stays exported as the node as `ObjectMap` reads it; it is no longer an arm of `AnyComponentSchema`.
@@ -270,8 +291,9 @@ The ADR-0080 public blocks `object-metric`, `object-master-detail-form`, `object
 `ObjectGanttBlockSchema` is the authored `object-gantt` node, built the way `ObjectMapBlockSchema` is (objectui#10859 batch 6). Each member of the row written flat on the node is refused by name, naming `properties.KEY`, except `label`, which `@objectstack/spec`'s page component also declares on the node itself. The flat mirror's `GanttConfig` keys (`startDateField`, `viewMode`, …) and its `dependencyField` alias are refused by name too, pointing at the bag's `gantt` block, `properties.gantt.KEY`. The record-source rule stays, read in the bag, as on `object-map`. `ObjectGanttSchema`, the flat mirror of the TypeScript `ObjectGanttSchema`, stays exported as the node as `ObjectGantt` reads it, and as the list and object views compose it; it is no longer an arm of `AnyComponentSchema`.
 `ObjectGridBlockSchema` is the authored `object-grid` node (objectui#11276's `object-grid` batch), built the way `ObjectGanttBlockSchema` is from the spec's `ComponentPropsMap['object-grid']` row. `label` stays on the node, as on `object-gantt`, and a flat `defaultSort` keeps the row's own retirement. The flat mirror's retirements of keys the row does not declare (`operators`, `rowSpecActions`, `bulkSpecActions`, `name`, `placeholder`, `showFilters`) and its content-channel refusals ride onto the arm by reference, and its `onNavigate` runtime slot is declared as the mirror declares it. The record-source rule stays, read in the bag: the node needs `properties.objectName`, or the node's `dataSource` binding. `ObjectGridSchema`, the flat mirror of the TypeScript `ObjectGridSchema`, stays exported as the node as `ObjectGrid` reads it, and still builds the `object-view` `table` slot; it is no longer an arm of `AnyComponentSchema`.
 `ObjectPivotBlockSchema` and `EmbeddableFormBlockSchema` (objectui#11440) are the authored `object-pivot` and `embeddable-form` nodes, two more blocks with no `ComponentPropsMap` row. Each bag is built from the block's registration `inputs`, and it is required, because those inputs include required members: `rowField`, `columnField` and `valueField` on the pivot, `formId` on the form. `objectName` is required unless the node's `dataSource` binding names the object. The pivot's cross-tab members are the `PivotTableSchema` mirror's own, by reference; its `drillDown` refuses `mode` by name (a pivot always drills through), and its retired `dataProvider` is refused by name. A member written flat is refused by name toward `properties.KEY`, the node declares the `dataSource` binding, and both content channels are refused.
+`ListViewBlockSchema` is the authored page `list-view` node (objectui#12670, ruling C on objectstack-ai/objectstack#22444), built the way `ObjectChartBlockSchema` is: `@objectstack/spec` has no `ComponentPropsMap['list-view']` row, so the bag's members are the flat `ListViewSchema` mirror's own, by reference, with three differences the ruling makes: the bag's `type` is the list kind (the spec's own view-kind enum), and `objectName` and `viewType` are refused by name, pointing at `properties.data` and `properties.type`, in the bag and written flat alike. The spec's list view checks run in the bag, by reference: `checkListViewCalendarVisualization`, and `checkListViewChartBinding`, which the flat mirror cannot attach because its kind is `viewType`; so does objectui's dataset-chart filter refusal. The record source is `properties.data` or the node's `dataSource` binding naming the object (`RECORD_SOURCE_REQUIRED` at `properties.data` otherwise); `properties.objectName` is not one. Every other list view member written flat is refused by name toward `properties.KEY`; the five runtime slots `ListView` reads (`onAddRecord`, `onBulkAction`, `onDensityChange`, `onNavigate`, `onPageSizeChange`) keep their own refusal, and both content channels are refused. `ListViewSchema` stays exported as the `ListView` component's props; it is no longer an arm of `AnyComponentSchema`.
 - `ObjectMetricBlockSchema`, `ObjectMasterDetailFormBlockSchema`, `ObjectTimelineBlockSchema`, `ObjectFormBlockSchema`, `ObjectMapBlockSchema`, `ObjectChartBlockSchema`, `ObjectGanttBlockSchema`, `ObjectGridBlockSchema`
-- `ObjectPivotBlockSchema`, `EmbeddableFormBlockSchema`
+- `ObjectPivotBlockSchema`, `EmbeddableFormBlockSchema`, `ListViewBlockSchema`
 
 ### AI Components (3)
 - `AIFormAssistSchema`, `AIRecommendationsSchema`, `NLQuerySchema`

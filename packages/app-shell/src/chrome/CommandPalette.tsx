@@ -43,7 +43,7 @@ import {
 import { useRecordSearch } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
 import { useTheme } from './ThemeProvider.js';
-import { useExpressionContext, evaluateVisibility } from '../providers/ExpressionProvider.js';
+import { useExpressionContext, evaluateNavigationVisibility } from '../providers/ExpressionProvider.js';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { resolveKeyedI18nLabel, getRecordDisplayName, appRouteSegment } from '../utils/index.js';
 import { getIcon } from '../utils/getIcon.js';
@@ -142,7 +142,7 @@ export function CommandPalette(props: CommandPaletteProps) {
 
   // Extract navigation items from active app, filtering by visibility expressions
   const navItems = flattenNavigation(activeApp?.navigation || []).filter(
-    (item) => evaluateVisibility(item.visible ?? item.visibleOn, evaluator)
+    (item) => evaluateNavigationVisibility(item.visible ?? item.visibleOn, evaluator)
   );
 
   // The entries the palette shows for the query: a navigation entry or app by

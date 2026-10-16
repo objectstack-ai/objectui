@@ -188,7 +188,9 @@ const SURFACES: Surface[] = [
       );
       render(
         <LocalizationProvider value={{ locale }}>
-          <AuditLogPage />
+          <MemoryRouter>
+            <AuditLogPage />
+          </MemoryRouter>
         </LocalizationProvider>,
       );
       await screen.findByText('account');

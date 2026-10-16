@@ -22,8 +22,9 @@
  * Every chain that reaches `attachVisibility` is pinned, because each reads a
  * different key: the object schema's `visibleOn` behind a name string (its
  * snake_case `visible_on` is not a chain since objectui#12242, pinned last), a
- * spec form-view entry's `visibleWhen ?? visibleOn`, and an
- * already-built runtime field's own `visibleOn`. The last one is the exception
+ * spec form-view entry's `visibleWhen` (its retired `visibleOn` is read by no
+ * chain since objectui#12654), and an already-built runtime field's own
+ * `visibleOn`. The last one is the exception
  * the card's reading did not draw: that field IS the output, so its blank is
  * not dropped at all. It reaches the form renderer, which evaluates it and
  * reports it (the `form.tsx` pin "a blank view-level visibleOn is a layout
@@ -71,8 +72,6 @@ const CHAINS: Array<readonly [string, (pred: unknown, name: string) => ReturnTyp
     normalizeSectionField(name, ctxWith(name, { visibleOn: pred }))],
   ['a form-view entry’s visibleWhen', (pred, name) =>
     normalizeSectionField({ field: name, visibleWhen: pred }, ctxWith(name))],
-  ['a form-view entry’s deprecated visibleOn', (pred, name) =>
-    normalizeSectionField({ field: name, visibleOn: pred }, ctxWith(name))],
 ];
 
 describe.each(CHAINS)('attachVisibility via %s (objectui#11262, ADR-0137 D4)', (_chain, build) => {

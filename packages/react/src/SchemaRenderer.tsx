@@ -35,7 +35,7 @@ import { PARAMS_KEY, isParamsBag, mapParamsLeaves } from './utils/paramsBag.js';
 import { reportUnevaluatedExpressions } from './utils/unevaluatedExpression.js';
 import { reportDroppedPropsBag, reportRefusedPropsPredicate } from './utils/propsBagDiagnostic.js';
 import { reportRefusedDataPropSpread } from './utils/refusedDataPropDiagnostic.js';
-import { expressionBindableTextKeysFor, type PageComponent } from '@objectstack/spec/ui';
+import { expressionBindableTextKeysFor } from '@objectstack/spec/ui';
 import {
   reportUnresolvableVisibilityPredicate,
   reportAdapterOnlyDataPredicate,
@@ -157,7 +157,7 @@ interface InterpreterMarkers {
 }
 
 /**
- * The two AUTHORED keys the working copy names explicitly, each on a ruling
+ * The AUTHORED key the working copy names explicitly, on a ruling
  * (objectui#11349's per-key verdicts). Every other authored key the memo
  * reads (`properties`, `content`, `params`, the text keys, `responsiveStyles`,
  * …) stays `unknown` and narrows at its read site.
@@ -175,20 +175,11 @@ interface WorkingCopyAuthoredKeys {
    * `isConfigBag` first. Naming it here neither retires it nor widens it.
    */
   props?: unknown;
-  /**
-   * `@objectstack/spec`'s DEPRECATED alias of `visibleWhen`, typed BY
-   * REFERENCE to the declaration on `PageComponentSchema`, which says it is
-   * "Accepted and normalized to `visibleWhen` at parse". A spec-parsed page
-   * never carries it. The `shouldHide` chain reads it for raw, un-normalized
-   * metadata, on its `@deprecated ADR-0089` leg.
-   *
-   * It is not narrowed at the read. The leg is chosen by `!== undefined`, and
-   * `evaluateCondition` answers every runtime shape. A narrowing guard would
-   * therefore move the verdict for an off-spec value. The type is the spec's.
-   * `BaseSchema` does not declare the key: objectui#10872 leaves the spec's
-   * other node-level keys off the authoring face until a producer needs them.
-   */
-  visibility?: PageComponent['visibility'];
+  // ⛔ No `visibility`. The page component's old spelling of `visibleWhen` is
+  // a `retiredKey` tombstone in `@objectstack/spec` 18 (objectstack#23543 F4):
+  // every parsing door refuses it by name and stored rows are rehydrated to
+  // `visibleWhen`, so this interpreter reads `visibleWhen` only and a raw
+  // node still carrying `visibility` gates nothing (objectui#12654).
 }
 
 /**
@@ -208,7 +199,7 @@ interface WorkingCopyAuthoredKeys {
  *
  *   1. the members `BaseSchema` DECLARES ({@link DeclaredMembersOf});
  *   2. {@link InterpreterMarkers}, the two flags this component writes;
- *   3. {@link WorkingCopyAuthoredKeys}, the two authored keys a ruling names;
+ *   3. {@link WorkingCopyAuthoredKeys}, the authored key a ruling names;
  *   4. `Record<string, unknown>` for every other key. A read of a key
  *      `BaseSchema` does not declare is `unknown` and must NARROW before use.
  *      That is stricter than the `any` this type replaces.
@@ -362,11 +353,11 @@ function propsWithoutCanonicalKeys(
  * means *hidden* and the wider `!== undefined` test would vanish a node for
  * `hidden: ''` (objectui#3955). See {@link winningVisibilityKey}.
  */
-const VISIBILITY_SHOW_KEYS = ['visibleWhen', 'visible', 'visibleOn', 'visibility'] as const;
+const VISIBILITY_SHOW_KEYS = ['visibleWhen', 'visible', 'visibleOn'] as const;
 const VISIBILITY_HIDE_KEYS = ['hidden', 'hiddenOn'] as const;
 
 /**
- * The six legs, as ONE closed type — so a seventh cannot be added to the chain
+ * The five legs, as ONE closed type — so a seventh cannot be added to the chain
  * without also being classified below.
  */
 type VisibilityChainKey =
@@ -374,7 +365,7 @@ type VisibilityChainKey =
   | (typeof VISIBILITY_HIDE_KEYS)[number];
 
 /**
- * The same six legs as a lookup, so the config-bag evaluation loops below can
+ * The same five legs as a lookup, so the config-bag evaluation loops below can
  * ask "is this key a visibility predicate?" off the SAME declaration the chain
  * is built from rather than a second list that can drift from it.
  *
@@ -516,7 +507,7 @@ const isCelEnvelope = (value: unknown): boolean =>
  * `has(record.x) && …` throws — and the two polarities of the chain then fail
  * in OPPOSITE directions, both silently:
  *
- *   * on the four SHOW legs the fail-soft `true` is negated to "do not hide",
+ *   * on the three SHOW legs the fail-soft `true` is negated to "do not hide",
  *     so a gate authored to conceal renders on every row — measured in a real
  *     browser against a real app instance (the card), where a duplicate-lead
  *     banner showed on 6 of 6 leads whose field was `null`;
@@ -745,7 +736,7 @@ export function evaluateConfigBagInScope(
  * ## The defect this closes
  *
  * `evaluateCondition` answers an unevaluable predicate with `true` on every
- * path. On the four SHOW legs the chain negates that answer, so the node is
+ * path. On the three SHOW legs the chain negates that answer, so the node is
  * SHOWN and the reporter's "the gate did NOT bite" is true. On the two HIDE
  * legs the chain returns it UN-negated (see `shouldHide` below), so the same
  * `true` sets `_hidden` and this component returns `null`: the gate bit, and
@@ -1902,12 +1893,13 @@ export const SchemaRenderer: ForwardRefExoticComponent<
       propsWithoutCanonicalKeys(newSchema.props, newSchema.properties),
     );
 
-    // Evaluate visibility: visibleWhen / visible / visibleOn / visibility / hidden / hiddenOn
+    // Evaluate visibility: visibleWhen / visible / visibleOn / hidden / hiddenOn
     const shouldHide = (() => {
       // `visibleWhen` is the single canonical conditional-visibility predicate
       // across every layer since ADR-0089 (show-when-truthy), and it is the one
       // this shape DECLARES: `PageComponentSchema` is a closed object that
-      // declares `visibleWhen` (+ the deprecated `visibility`) and REFUSES a
+      // declares `visibleWhen` (its old `visibility` spelling is retired, see
+      // `WorkingCopyAuthoredKeys`) and REFUSES a
       // node-level `visible` outright, with the prescription "move it up one
       // level to the component node's own `visibleWhen` … inside `properties`
       // it is hoisted onto the node by the renderer but evaluated by nothing"
@@ -1927,22 +1919,16 @@ export const SchemaRenderer: ForwardRefExoticComponent<
         return !evaluateVisibilityPredicate(newSchema.visibleWhen, 'visibleWhen');
       }
       // `visible` — objectui's own `BaseSchema` tier (`@object-ui/types`), and
-      // the landing spot of a hoisted `properties.visible`. Kept ABOVE the two
-      // deprecated aliases: they normalize into `visibleWhen` at parse, so a
-      // spec-parsed page never reaches them, and re-ranking them would move
+      // the landing spot of a hoisted `properties.visible`. Kept ABOVE
+      // `BaseSchema`'s deprecated `visibleOn`: re-ranking it would move
       // verdicts for raw metadata that objectui#5454 did not rule on.
       if (newSchema.visible !== undefined) {
         return !evaluateVisibilityPredicate(newSchema.visible, 'visible');
       }
-      // @deprecated ADR-0089 → `visibleWhen`. Defensive read for raw /
-      // un-normalized metadata reaching the renderer.
+      // `BaseSchema.visibleOn`, @deprecated ADR-0089 → `visibleWhen`.
+      // objectui's own node key; the spec's page component never declared it.
       if (newSchema.visibleOn !== undefined) {
         return !evaluateVisibilityPredicate(newSchema.visibleOn, 'visibleOn');
-      }
-      // @deprecated ADR-0089 → `visibleWhen` (was PageNodeSchema.visibility,
-      // an ExpressionInput) — show-when-truthy, same semantics as `visibleOn`.
-      if (newSchema.visibility !== undefined) {
-        return !evaluateVisibilityPredicate(newSchema.visibility, 'visibility');
       }
       // Ask "is a `hidden` gate DECLARED?" — not "is the key present?"
       // (objectui#3955). These two legs are the only ones in this chain whose
@@ -1989,7 +1975,7 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     // as an internal flag either: `_disabled` is forwarded below as a real
     // `disabled` prop.
     //
-    // The `visible` / `visibleWhen` / `visibleOn` / `visibility` legs above keep
+    // The `visible` / `visibleWhen` / `visibleOn` legs above keep
     // `!== undefined` deliberately: their `true` is NEGATED, so an empty predicate
     // already lands on "shown", which is what "no gate" means anyway, and
     // narrowing them would change ALIAS PRECEDENCE rather than fix anything. The
@@ -2188,7 +2174,6 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     visible: _visible,
     visibleWhen: _visibleWhen,
     visibleOn: _visibleOn,
-    visibility: _visibility,
     hidden: _hidden,
     hiddenOn: _hiddenOn,
     disabled: _disabled,

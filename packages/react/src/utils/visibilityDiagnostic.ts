@@ -15,8 +15,8 @@
  * ## The defect this names
  *
  * `SchemaRenderer`'s visibility chain is FAIL-SOFT: `evaluateCondition` answers
- * an unevaluable predicate with `true`. On the four negated legs (`visible` /
- * `visibleWhen` / `visibleOn` / `visibility`) that `true` means SHOWN — so "this
+ * an unevaluable predicate with `true`. On the negated legs (`visible` /
+ * `visibleWhen` / `visibleOn`) that `true` means SHOWN — so "this
  * predicate is broken" and "this predicate said yes" reach the screen as the
  * same pixel. An author who mistyped a root, or who wrote a `record.*` gate
  * before objectui#5454 bound the row, saw their block render and had no signal
@@ -180,7 +180,7 @@ const SCOPE_TIER_ADVICE: Record<PredicateScopeTier, string> = {
  * to the node is not a property of the predicate - it is a property of the gate
  * it was authored on, and the consequence paragraph has to say which:
  *
- * `'visibility'` - the visibility chain. Its `true` means SHOWN on the four
+ * `'visibility'` - the visibility chain. Its `true` means SHOWN on the
  * negated legs, so the safe default does NOT bite: a predicate that could not be
  * evaluated reads on screen exactly like one that said yes, which is why the
  * console line is the only signal an author gets.

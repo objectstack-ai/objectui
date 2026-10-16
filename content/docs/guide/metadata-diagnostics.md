@@ -197,8 +197,9 @@ a blank predicate at parse, as their protocol counterparts do. `visible`,
 and is only diagnosed.
 
 The same is now true of a **component node's own gate** — `visibleWhen` on a
-page component (and its `visible` / `visibleOn` / `visibility` / `hidden` /
-`hiddenOn` siblings), plus a `page:tabs` item's `visibleWhen`. These used to
+page component (and its `visible` / `visibleOn` / `hidden` / `hiddenOn`
+siblings; the page component's old `visibility` spelling is retired and not
+read), plus a `page:tabs` item's `visibleWhen`. These used to
 report in a development build only, so a gate that stopped biting in
 production left nothing on the console at all. They now warn in **both**
 builds, with the node type, the node id, the gate key, the predicate source

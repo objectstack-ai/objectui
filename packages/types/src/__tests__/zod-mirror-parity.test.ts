@@ -154,7 +154,12 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **55 entries** in `KnownDrift`, **92 keys** across them — 50 / 87 until
+ *   - **55 entries** in `KnownDrift`, **93 keys** across them — 55 / 92 until
+ *     objectui#12620 declared `DataTableSchema.rowGroups`, the host-built group
+ *     bands of a grouped grid, as a runtime slot refused by name on the mirror,
+ *     so `rowGroups` JOINED `data-display.zod.ts#DataTableSchema`'s existing
+ *     entry beside `renderCellEditor`: the key total rose by one and the entry
+ *     count did not move. It was 50 / 87 until
  *     objectui#8347 removed `BaseSchema`'s index signature, which ledgered FIVE
  *     new entries of one key each, all the INTERFACE-TO-PASSTHROUGH artifact
  *     (`app.zod.ts#AppSchemaRendererNodeSchema` and four `reports.zod.ts`

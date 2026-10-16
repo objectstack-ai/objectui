@@ -355,7 +355,8 @@ export function AppHeader({
 
   // App → Studio reverse bridge (ADR-0080): admins jump from the running app
   // to its owning package's design surface. Null when there is nothing to open
-  // (no owning package, or a principal or package the gate below refuses). When the current route names a specific
+  // (no owning package, or a principal or package the gate below refuses).
+  // When the current route names a specific
   // interface (a dashboard, page, or report), deep-link straight to THAT surface
   // in the Interfaces pillar instead of the package's generic Data tab — the
   // surface's design page replaces the retired in-page inline editor. The route
@@ -771,8 +772,8 @@ export function AppHeader({
               (/studio/:packageId/interfaces?surface=dashboard:NAME), otherwise
               the package's Data tab. Hidden for everyone else, for apps
               with no owning package and for a package that is not writable
-              (objectui#12615): not rendered, never disabled. An icon button at every width, like the
-              bell beside it (objectui#12461): the pencil alone, named
+              (objectui#12615): not rendered, never disabled. An icon button
+              at every width, like the bell beside it (objectui#12461): the pencil alone, named
               「Edit app」 by its aria-label and its tooltip. */}
           {studioDesignPath && (
             <Button

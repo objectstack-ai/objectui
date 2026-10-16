@@ -22,6 +22,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 
 const { ADAPTER } = vi.hoisted(() => ({
   ADAPTER: {
@@ -60,7 +61,7 @@ afterEach(() => {
 
 describe('Audit Log — the console page header (objectui#12553)', () => {
   it('`page-header` holds the one h1, the subtitle in its row, an icon chip and Refresh', async () => {
-    const { container } = render(<AuditLogPage />);
+    const { container } = render(<MemoryRouter><AuditLogPage /></MemoryRouter>);
     await waitFor(() => expect(ledgerReads).toBeGreaterThan(0));
     const header = screen.getByTestId('page-header');
 
@@ -81,7 +82,7 @@ describe('Audit Log — the console page header (objectui#12553)', () => {
   });
 
   it('Refresh in the header reloads the ledger', async () => {
-    render(<AuditLogPage />);
+    render(<MemoryRouter><AuditLogPage /></MemoryRouter>);
     const refresh = within(screen.getByTestId('page-header')).getByRole('button', { name: 'Refresh' });
     await waitFor(() => expect(refresh).not.toBeDisabled());
     const before = ledgerReads;
@@ -90,7 +91,7 @@ describe('Audit Log — the console page header (objectui#12553)', () => {
   });
 
   it('the header spans the page above the padded body, not inside it', async () => {
-    render(<AuditLogPage />);
+    render(<MemoryRouter><AuditLogPage /></MemoryRouter>);
     await waitFor(() => expect(ledgerReads).toBeGreaterThan(0));
     const header = screen.getByTestId('page-header');
     const body = header.nextElementSibling as HTMLElement | null;

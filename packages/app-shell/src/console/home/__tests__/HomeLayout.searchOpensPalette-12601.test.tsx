@@ -218,12 +218,12 @@ describe('Home’s top bar searches through the console’s command palette (obj
     expect(screen.getByTestId('palette-probe')).toHaveAttribute('data-open', 'true');
   });
 
-  it('from `lg` up the field is the bar’s middle zone, 420 px from `xl`, named for what it finds', () => {
+  it('from 960 px up the field is the bar’s middle zone, 420 px from `xl`, named for what it finds', () => {
     renderHome();
     const trigger = screen.getByTestId(DESKTOP);
     const zone = trigger.closest('[data-topbar-zone="search"]');
     expect(zone).not.toBeNull();
-    expect(classesOf(zone!)).toEqual(expect.arrayContaining(['hidden', 'lg:flex']));
+    expect(classesOf(zone!)).toEqual(expect.arrayContaining(['hidden', 'min-[960px]:flex']));
     // Not in the utility cluster: the cluster is the zone's next sibling.
     expect(zone!.nextElementSibling).toContainElement(screen.getByTestId('inbox-bell'));
     expect(zone!.nextElementSibling).not.toContainElement(trigger);

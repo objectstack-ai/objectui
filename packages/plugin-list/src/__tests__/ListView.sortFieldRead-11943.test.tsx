@@ -214,10 +214,10 @@ describe('the Sort picker field list asks the column read check (objectui#11943)
     const withLookup = { ...FIELDS, secret_owner: { type: 'lookup', label: 'Secret Owner', reference: 'sys_user' } };
     mount({ perms: RESTRICTED, fields: withLookup });
     await openSortOptions();
-    expect(screen.queryByTestId('sort-relational-hint')).toBeNull();
+    expect(screen.queryByTestId('sort-relational-info')).toBeNull();
     cleanup();
     mount({ perms: FULL_READ, fields: withLookup });
     await openSortOptions();
-    expect(screen.getByTestId('sort-relational-hint')).toBeInTheDocument();
+    expect(screen.getByTestId('sort-relational-info')).toBeInTheDocument();
   });
 });

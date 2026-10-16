@@ -92,6 +92,7 @@ import { t, tFormat, useMetadataLocale } from '../metadata-admin/i18n.js';
 import type { ExpressionInput } from '@objectstack/spec/shared';
 import { ScriptValidationSchema, type ScriptValidationParsed } from '@objectstack/spec/data';
 import { VALIDATION_PRESETS, type PresetPlan, type ValidationPreset } from './validationPresets.js';
+import { StudioEmptyState, StudioEmptyStateAction } from './StudioEmptyState.js';
 
 /**
  * objectui#11781 — the look a disabled control takes: the pair the
@@ -836,6 +837,9 @@ export function ObjectValidationsPanel({
   // focus goes to the condition editor instead of back to "New".
   const focusGuardOnClose = React.useRef(false);
   const guardRef = React.useRef<HTMLDivElement>(null);
+  // objectui#12514 — the header's "New": where the menu hands focus back once
+  // the empty block that opened it has given way to the list.
+  const headerNewRef = React.useRef<HTMLButtonElement>(null);
 
   /* ─── Blocking CEL verdicts → the Data pillar's Save gate (objectui#4527) ──
    *
@@ -972,6 +976,129 @@ export function ObjectValidationsPanel({
     else commit(rules.map((r) => (r.name === name ? next : r)));
   };
 
+  const headerTrigger = (
+    <button
+      ref={headerNewRef}
+      type="button"
+      className="ml-auto inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] hover:bg-muted"
+    >
+      <Plus className="h-3 w-3" /> {t('engine.studio.new', locale)}
+      <ChevronDown className="h-3 w-3 text-muted-foreground" />
+    </button>
+  );
+  // objectui#12514 — the one "New" menu. While the object holds no rule it
+  // opens from the empty block's button, and once the first one lists it hands
+  // focus to the header's "New", the trigger that is then on the page.
+  const menuFromEmpty = listed.length === 0;
+  const addMenu = (
+    <Popover
+      open={addOpen}
+      onOpenChange={(open) => {
+        setAddOpen(open);
+        // Every opening starts on the presets, Advanced folded.
+        if (open) setAdvancedOpen(false);
+      }}
+    >
+      <PopoverTrigger asChild>
+        {menuFromEmpty ? (
+          <StudioEmptyStateAction data-testid="rules-empty-new" label={t('engine.studio.rules.newButton', locale)} />
+        ) : (
+          headerTrigger
+        )}
+      </PopoverTrigger>
+      <PopoverContent
+        align={menuFromEmpty ? 'center' : 'end'}
+        sideOffset={4}
+        className="w-64 p-1"
+        onCloseAutoFocus={(e) => {
+          // objectui#11861 — a preset that left its condition empty
+          // hands focus to the condition editor, not back to "New".
+          if (focusGuardOnClose.current) {
+            focusGuardOnClose.current = false;
+            e.preventDefault();
+            guardRef.current?.focus();
+            return;
+          }
+          if (menuFromEmpty && headerNewRef.current) {
+            e.preventDefault();
+            headerNewRef.current.focus();
+          }
+        }}
+      >
+        <p className="px-2 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          {t('engine.studio.rules.presets', locale)}
+        </p>
+        {presetPlans.map(({ preset, plan }) => (
+          <button
+            key={preset.id}
+            type="button"
+            data-testid={`rule-preset-${preset.id}`}
+            disabled={!plan.ready}
+            aria-labelledby={`${presetIds}-${preset.id}-label`}
+            aria-describedby={`${presetIds}-${preset.id}-hint`}
+            onClick={() => {
+              if (!plan.ready) return;
+              addPreset(preset, plan);
+              setAddOpen(false);
+            }}
+            className="flex w-full flex-col items-start rounded-md px-2 py-1.5 text-left hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+          >
+            <span id={`${presetIds}-${preset.id}-label`} className="text-[12px]">
+              {t(preset.labelKey, locale)}
+            </span>
+            <span id={`${presetIds}-${preset.id}-hint`} className="text-[11px] text-muted-foreground">
+              {plan.hint}
+            </span>
+          </button>
+        ))}
+        <div className="my-1 border-t" />
+        <button
+          type="button"
+          aria-expanded={advancedOpen}
+          // Names the list only while it is on the page.
+          aria-controls={advancedOpen ? `${presetIds}-advanced` : undefined}
+          onClick={() => setAdvancedOpen((v) => !v)}
+          className="flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-left text-[12px] text-muted-foreground hover:bg-muted"
+        >
+          {advancedOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+          {t('engine.studio.rules.advanced', locale)}
+        </button>
+        {/* The per-type menu, unchanged, folded under Advanced. */}
+        {advancedOpen && (
+          <div id={`${presetIds}-advanced`}>
+            <p className="px-2 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              {t('engine.studio.rules.newType', locale)}
+            </p>
+            {RULE_TYPES.map((rt) => (
+              <button
+                key={rt.value}
+                type="button"
+                onClick={() => {
+                  addRule(rt.value);
+                  setAddOpen(false);
+                }}
+                className="flex w-full items-center rounded-md px-2 py-1.5 text-left text-[12px] hover:bg-muted"
+              >
+                {t(rt.labelKey, locale)}
+              </button>
+            ))}
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+
+  if (listed.length === 0) {
+    return (
+      <StudioEmptyState
+        testId="rules-empty"
+        icon={ShieldAlert}
+        sentence={t('engine.studio.rules.none', locale)}
+        action={disabled ? undefined : addMenu}
+      />
+    );
+  }
+
   return (
     <div className="flex min-h-0 flex-1 gap-4">
       {/* rule list */}
@@ -980,145 +1107,42 @@ export function ObjectValidationsPanel({
           <ShieldAlert className="h-3.5 w-3.5" />
           <span className="text-[13px] font-medium">{t('engine.studio.rules.title', locale)}</span>
           <span className="text-[11px] text-muted-foreground">({listed.length})</span>
-          {!disabled && (
-            <Popover
-              open={addOpen}
-              onOpenChange={(open) => {
-                setAddOpen(open);
-                // Every opening starts on the presets, Advanced folded.
-                if (open) setAdvancedOpen(false);
-              }}
-            >
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="ml-auto inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] hover:bg-muted"
-                >
-                  <Plus className="h-3 w-3" /> {t('engine.studio.new', locale)}
-                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent
-                align="end"
-                sideOffset={4}
-                className="w-64 p-1"
-                onCloseAutoFocus={(e) => {
-                  // objectui#11861 — a preset that left its condition empty
-                  // hands focus to the condition editor, not back to "New".
-                  if (!focusGuardOnClose.current) return;
-                  focusGuardOnClose.current = false;
-                  e.preventDefault();
-                  guardRef.current?.focus();
-                }}
-              >
-                <p className="px-2 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                  {t('engine.studio.rules.presets', locale)}
-                </p>
-                {presetPlans.map(({ preset, plan }) => (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    data-testid={`rule-preset-${preset.id}`}
-                    disabled={!plan.ready}
-                    aria-labelledby={`${presetIds}-${preset.id}-label`}
-                    aria-describedby={`${presetIds}-${preset.id}-hint`}
-                    onClick={() => {
-                      if (!plan.ready) return;
-                      addPreset(preset, plan);
-                      setAddOpen(false);
-                    }}
-                    className="flex w-full flex-col items-start rounded-md px-2 py-1.5 text-left hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
-                  >
-                    <span id={`${presetIds}-${preset.id}-label`} className="text-[12px]">
-                      {t(preset.labelKey, locale)}
-                    </span>
-                    <span id={`${presetIds}-${preset.id}-hint`} className="text-[11px] text-muted-foreground">
-                      {plan.hint}
-                    </span>
-                  </button>
-                ))}
-                <div className="my-1 border-t" />
-                <button
-                  type="button"
-                  aria-expanded={advancedOpen}
-                  // Names the list only while it is on the page.
-                  aria-controls={advancedOpen ? `${presetIds}-advanced` : undefined}
-                  onClick={() => setAdvancedOpen((v) => !v)}
-                  className="flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-left text-[12px] text-muted-foreground hover:bg-muted"
-                >
-                  {advancedOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                  {t('engine.studio.rules.advanced', locale)}
-                </button>
-                {/* The per-type menu, unchanged, folded under Advanced. */}
-                {advancedOpen && (
-                  <div id={`${presetIds}-advanced`}>
-                    <p className="px-2 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                      {t('engine.studio.rules.newType', locale)}
-                    </p>
-                    {RULE_TYPES.map((rt) => (
-                      <button
-                        key={rt.value}
-                        type="button"
-                        onClick={() => {
-                          addRule(rt.value);
-                          setAddOpen(false);
-                        }}
-                        className="flex w-full items-center rounded-md px-2 py-1.5 text-left text-[12px] hover:bg-muted"
-                      >
-                        {t(rt.labelKey, locale)}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </PopoverContent>
-            </Popover>
-          )}
+          {!disabled && addMenu}
         </header>
         <div className="min-h-0 flex-1 overflow-auto">
-          {listed.length === 0 ? (
-            <p className="px-3 py-6 text-center text-[11px] leading-5 text-muted-foreground">
-              {t('engine.studio.rules.none', locale)}
-              <br />
-              {t('engine.studio.rules.explain', locale)}
-            </p>
-          ) : (
-            listed.map((r) => (
-              <button
-                key={r.name}
-                type="button"
-                onClick={() => setSelected(r.name ?? null)}
-                className={
-                  'flex w-full items-start gap-2 border-b px-3 py-2 text-left text-[12px] ' +
-                  (effectiveSelected === r.name ? 'bg-muted' : 'hover:bg-muted/50')
-                }
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium">{r.label || r.name}</span>
-                  <span className="block truncate text-[11px] text-muted-foreground">
-                    {r.message || t('engine.studio.rules.noMessage', locale)}
+          {listed.map((r) => (
+            <button
+              key={r.name}
+              type="button"
+              onClick={() => setSelected(r.name ?? null)}
+              className={
+                'flex w-full items-start gap-2 border-b px-3 py-2 text-left text-[12px] ' +
+                (effectiveSelected === r.name ? 'bg-muted' : 'hover:bg-muted/50')
+              }
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-medium">{r.label || r.name}</span>
+                <span className="block truncate text-[11px] text-muted-foreground">
+                  {r.message || t('engine.studio.rules.noMessage', locale)}
+                </span>
+                {isUnsaved(r.name) && (
+                  <span data-testid="rule-unsaved" className="block truncate text-[11px] italic text-muted-foreground">
+                    {t('engine.studio.rules.notSaved', locale)}
                   </span>
-                  {isUnsaved(r.name) && (
-                    <span data-testid="rule-unsaved" className="block truncate text-[11px] italic text-muted-foreground">
-                      {t('engine.studio.rules.notSaved', locale)}
-                    </span>
-                  )}
-                </span>
-                <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
-                  {r.type ?? 'script'}
-                </span>
-              </button>
-            ))
-          )}
+                )}
+              </span>
+              <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
+                {r.type ?? 'script'}
+              </span>
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* rule editor */}
+      {/* rule editor — the list always selects a rule, so it is never blank
+          for want of a pick (objectui#12514 retired that sentence). */}
       <div className="flex min-w-0 flex-1 flex-col rounded-lg border">
-        {!sel ? (
-          <div className="flex flex-1 items-center justify-center p-6 text-center text-[12px] text-muted-foreground">
-            {t('engine.studio.rules.pick', locale)}
-          </div>
-        ) : (
+        {!sel ? null : (
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-4">
             {/* objectui#11820 — the line the Data pillar shows for an edit it
                 holds (objectui#11786), for a new rule this panel holds. */}

@@ -9,9 +9,11 @@
 /**
  * PageHeader Component
  *
- * Standardized page header used across console object/list/detail views.
- * Provides consistent typography, icon framing, and action grouping so
- * individual screens don't reinvent the title row.
+ * Standardized page header used across console object/list/detail views,
+ * dashboards, and console pages outside this package, which import it from
+ * the package root as `ConsolePageHeader` (objectui#12526). Provides
+ * consistent typography, icon framing, and action grouping so individual
+ * screens don't reinvent the title row.
  *
  * Layout — ONE row from the `sm` breakpoint up (objectui#12423):
  *   [accent hairline]
@@ -64,12 +66,18 @@ export interface ConsolePageHeaderProps {
    * the console's rendered layer of that same element, so it now spells the
    * secondary line the way the contract does (objectui#4761).
    *
-   * The old spelling was NOT kept as an alias. It was never reachable outside
-   * this package — `src/index.ts` does not re-export `PageHeader`, and the
-   * `exports` map declares no subpath that could reach it — so nothing had to
-   * be tolerated, and a renderer-side alias is exactly the second dialect
-   * AGENTS.md #0.1 exists to prevent. `__tests__/PageHeader.subtitle.test.tsx`
-   * pins both halves.
+   * The old spelling was NOT kept as an alias. When it was renamed, the
+   * component was not reachable outside this package — the package root did
+   * not re-export it, and the `exports` map declares no subpath that could
+   * reach it — so nothing had to be tolerated, and a renderer-side alias is
+   * exactly the second dialect AGENTS.md #0.1 exists to prevent.
+   * `__tests__/PageHeader.subtitle.test.tsx` pins both halves.
+   *
+   * The package root now exports it, as `ConsolePageHeader` with these props
+   * (objectui#12526), so a console page outside this package draws the same
+   * header: the name is not `PageHeader`, which `@object-ui/layout` already
+   * exports for its own, different component (see this interface's docblock).
+   * It was published with `subtitle` as its only spelling.
    */
   subtitle?: React.ReactNode;
   /**
@@ -156,8 +164,11 @@ export function PageHeader({
       <div className="flex justify-between items-center gap-3 py-2.5 sm:py-2 px-4 sm:px-6">
         {/* One row: icon, title, then the subtitle behind a hairline — all
             siblings of this flex row, so nothing wraps beneath the title
-            (objectui#12423). */}
-        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            (objectui#12423). `min-h-9` floors the row at the chip's `h-9`, so
+            a header with no icon and no action is as tall as one with them
+            (objectui#12553). It sits here, not on the padded row above: under
+            `border-box` a min-height there would count that row's padding. */}
+        <div className="flex items-center gap-2.5 min-w-0 flex-1 min-h-9">
           {icon && (
             <div
               className={cn(

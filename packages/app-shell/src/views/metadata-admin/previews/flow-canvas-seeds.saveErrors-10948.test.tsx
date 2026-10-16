@@ -204,7 +204,8 @@ function patchedNode(onPatch: ReturnType<typeof vi.fn>): Record<string, unknown>
 describe('a blank row key, authored in the inspector, is refused at that key (objectui#10948)', () => {
   it('a decision branch written with an expression and a BLANK label', async () => {
     const onPatch = renderInspector({ id: 'n1', type: 'decision', label: 'Route' });
-    fireEvent.click(screen.getByRole('button', { name: 'Add item' }));
+    // objectui#12488 — the decision's Branches draw as branch cards, added by "Add branch".
+    fireEvent.click(screen.getByRole('button', { name: 'Add branch' }));
     const expression = screen.getByPlaceholderText('expiring_deals.length > 0');
     fireEvent.change(expression, { target: { value: 'amount > 10' } });
     fireEvent.blur(expression);

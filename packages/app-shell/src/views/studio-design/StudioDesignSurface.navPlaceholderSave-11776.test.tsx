@@ -207,7 +207,8 @@ function addItem(): void {
 /** Pick the object in the inspector of the selected entry: the shared `Select` since objectui#11865. */
 async function bindSelected(objectName: string): Promise<void> {
   const inspector = screen.getByRole('complementary');
-  const picker = await within(inspector).findByRole('combobox');
+  // objectui#12455 — the inspector also offers an Icon picker (a combobox), so the object picker is addressed by its test id.
+  const picker = await within(inspector).findByTestId('nav-link-object');
   fireEvent.keyDown(picker, { key: 'ArrowDown' });
   const listbox = await screen.findByRole('listbox');
   fireEvent.click(await within(listbox).findByRole('option', { name: new RegExp(`\\(${objectName}\\)$`) }, { timeout: 8000 }));

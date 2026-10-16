@@ -2157,6 +2157,12 @@ const ICON_RESULT_LIMIT = 120;
  * plain text (LazyIcon degrades to a fallback glyph) and is offered as the first
  * "keep" option so re-opening the picker never silently drops it.
  *
+ * Such a name is also WARNED about, inline under the trigger and on every mount
+ * of this widget (objectui#12531): the resolvers that draw a stored icon name
+ * degrade an unknown one to their fallback glyph without a word, so this
+ * warning is the one place an author learns the name draws nothing of its own.
+ * The trigger points at it through `aria-describedby`.
+ *
  * Built inline (no Radix portal) so the search + grid render eagerly — the same
  * jsdom-friendly choice the other pickers' tests rely on.
  */
@@ -2165,6 +2171,7 @@ export function IconPickerWidget({ id, ariaLabelledBy, required, value, onChange
   const current = value == null ? '' : String(value);
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState('');
+  const warningId = React.useId();
 
   const currentKebab = current ? toKebabIconName(current) : '';
   const inCatalog = !current || LUCIDE_ICON_SET.has(currentKebab);
@@ -2191,6 +2198,7 @@ export function IconPickerWidget({ id, ariaLabelledBy, required, value, onChange
         role="combobox"
         aria-haspopup="dialog"
         aria-expanded={open}
+        aria-describedby={inCatalog ? undefined : warningId}
         disabled={readOnly}
         onClick={() => !readOnly && setOpen(true)}
         className="flex w-full items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm text-left disabled:cursor-not-allowed disabled:opacity-60"
@@ -2199,11 +2207,18 @@ export function IconPickerWidget({ id, ariaLabelledBy, required, value, onChange
         <span className={'flex-1 truncate ' + (current ? 'font-mono' : 'text-muted-foreground')}>
           {current || t('engine.form.selectEllipsis', locale)}
         </span>
-        {!inCatalog && current && (
-          <span className="shrink-0 text-xs text-muted-foreground">{t('engine.form.notInObject', locale)}</span>
-        )}
         <ChevronsUpDown aria-hidden className="h-3.5 w-3.5 shrink-0 opacity-50" />
       </button>
+      {!inCatalog && (
+        <p
+          id={warningId}
+          data-testid="icon-picker-unknown-name"
+          className="mt-1 flex items-start gap-1 text-[11px] leading-snug text-amber-700 dark:text-amber-400"
+        >
+          <AlertTriangle aria-hidden className="mt-px h-3 w-3 shrink-0" />
+          <span>{tFormat('engine.form.unknownIcon', locale, { name: current })}</span>
+        </p>
+      )}
 
       <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setQuery(''); }}>
         <DialogContent className="max-w-2xl">

@@ -94,7 +94,9 @@ describe('record:history names the actor of a row with only `actor_id` (objectui
     expect(screen.queryByText('Ada Lovelace')).toBeNull();
   });
 
-  it('a row with neither renders the existing fallback, and so does an id the viewer may not read', async () => {
+  // objectui#12527 changed what the no-actor row says: it was this fallback,
+  // it is now "System". The unreadable id keeps the fallback.
+  it('a row with neither reads "System"; an id the viewer may not read keeps the fallback', async () => {
     mount(
       [
         row('h-1', {}),
@@ -104,7 +106,9 @@ describe('record:history names the actor of a row with only `actor_id` (objectui
       { unknownUserText: 'Someone' },
     );
     await screen.findByText('summary of h-1');
-    expect(screen.getAllByText('Someone')).toHaveLength(2);
+    expect(screen.getAllByText('System')).toHaveLength(1);
+    expect(screen.getAllByTestId('history-system-actor-glyph')).toHaveLength(1);
+    expect(screen.getAllByText('Someone')).toHaveLength(1);
     // A raw id is never shown as the actor's name.
     expect(screen.queryByText('u-not-readable')).toBeNull();
   });

@@ -38,6 +38,9 @@
  *      user's too: each writes no view and lands as ONE save; a fresh browser
  *      opens on them, another user sees the view's own, and "Reset view"
  *      drops them.
+ *   6b. objectui#12505 — on a SAVED view that declares no `columns`, a Hide
+ *      Fields change is stored the same way and applied over the drawn
+ *      defaults; another user sees the defaults; "Reset view" drops it.
  *   7. CONTROL — no provider (a host without the console shell): the state is
  *      this browser's, as the tab order and filters were before; a sort still
  *      writes no view; the older `viewOrder:<object>` key is still honoured.
@@ -191,7 +194,7 @@ const OBJECT = {
   },
 };
 
-function makeDataSource() {
+function makeDataSource(savedRow: Record<string, unknown> = SAVED_ROW) {
   return {
     find: vi.fn(async () => ({ data: [], total: 0 })),
     findOne: vi.fn(async () => null),
@@ -199,7 +202,7 @@ function makeDataSource() {
     update: vi.fn(async () => ({})),
     delete: vi.fn(async () => ({})),
     getObjectSchema: vi.fn(async () => ({ name: OBJECT_NAME, fields: {} })),
-    listViews: vi.fn(async () => [SAVED_ROW]),
+    listViews: vi.fn(async () => [savedRow]),
     updateView: vi.fn(async () => ({})),
     updateViewConfig: vi.fn(async () => ({})),
     deleteView: vi.fn(async () => ({})),
@@ -586,6 +589,91 @@ describe('the density and the hidden fields are the user\'s too (objectui#12474)
     expect(family.save).toHaveBeenCalledWith(LIST_KEY, {});
     expect(listProps.schema.rowHeight).toBe(AUTHORED_ROW_HEIGHT);
     expect(listProps.schema.hiddenFields).toEqual(AUTHORED_HIDDEN);
+  });
+});
+
+describe('on a saved view that declares no `columns`, the hidden fields are the user\'s own too (objectui#12505)', () => {
+  /**
+   * The saved row with no `columns`: the page draws the object's defaults into
+   * it, and declares no projection. Its own authored `hiddenFields` is never
+   * applied there (objectui#10694); the user's list is.
+   */
+  const UNPROJECTED_SAVED_ROW = { name: SAVED_ID, object: OBJECT_NAME, label: 'Pipeline', type: 'grid', hiddenFields: ['name'] };
+  const STORED = { [LIST_KEY]: { perView: { [SAVED_ID]: { hiddenFields: ['amount'] } } } };
+
+  it('a Hide Fields change writes no view and lands as one save of the object\'s row', async () => {
+    const ds = makeDataSource(UNPROJECTED_SAVED_ROW);
+    const { family } = makeFamily({});
+    mountWithFamily(ds, family, SAVED_ID);
+    await listReady();
+    // The drawn defaults, with neither the view's key nor anyone's list applied.
+    expect(listProps.schema.columns).toEqual(expect.arrayContaining(['name', 'amount']));
+    expect(listProps.schema.hiddenFields).toBeUndefined();
+
+    act(() => listProps.onHiddenFieldsChange(['amount']));
+    await wait(700);
+
+    expect(viewWrites(ds)).toBe(0);
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(family.save).toHaveBeenCalledTimes(1);
+    expect(family.save).toHaveBeenCalledWith(LIST_KEY, { perView: { [SAVED_ID]: { hiddenFields: ['amount'] } } });
+    expect(listProps.schema.hiddenFields).toEqual(['amount']);
+  });
+
+  it('a fresh browser opens on the stored list once the family has loaded', async () => {
+    const ds = makeDataSource(UNPROJECTED_SAVED_ROW);
+    const { family, release } = makeFamily(structuredClone(STORED), { held: true });
+    mountWithFamily(ds, family, SAVED_ID);
+    await screen.findByTestId('object-view-list-preferences-pending');
+    await act(async () => release());
+    await listReady();
+
+    expect(listProps.schema.hiddenFields).toEqual(['amount']);
+  });
+
+  it('another user, with no state of their own, sees the default columns', async () => {
+    session.userId = 'u2';
+    const ds = makeDataSource(UNPROJECTED_SAVED_ROW);
+    const { family } = makeFamily({});
+    mountWithFamily(ds, family, SAVED_ID);
+    await listReady();
+
+    expect(listProps.schema.columns).toEqual(expect.arrayContaining(['name', 'amount']));
+    // Not the view's authored `['name']`: it declares nothing on an unprojected view.
+    expect(listProps.schema.hiddenFields).toBeUndefined();
+  });
+
+  it('"Reset view" drops the stored list, and the list opens on the default columns', async () => {
+    const ds = makeDataSource(UNPROJECTED_SAVED_ROW);
+    const { family } = makeFamily(structuredClone(STORED));
+    mountWithFamily(ds, family, SAVED_ID);
+    await listReady();
+    expect(listProps.schema.hiddenFields).toEqual(['amount']);
+
+    await act(async () => {
+      fireEvent.click(await openOverflowItem('object-view-reset-view-button'));
+    });
+    await wait(700);
+
+    expect(viewWrites(ds)).toBe(0);
+    expect(family.save).toHaveBeenCalledTimes(1);
+    expect(family.save).toHaveBeenCalledWith(LIST_KEY, {});
+    expect(listProps.schema.hiddenFields).toBeUndefined();
+  });
+
+  it('CONTROL: on the saved view that declares `columns`, the hide is stored and applied as before', async () => {
+    const ds = makeDataSource();
+    const { family } = makeFamily({});
+    mountWithFamily(ds, family, SAVED_ID);
+    await listReady();
+    expect(listProps.schema.columns).toEqual(['name']);
+
+    act(() => listProps.onHiddenFieldsChange(['name']));
+    await wait(700);
+
+    expect(viewWrites(ds)).toBe(0);
+    expect(family.save).toHaveBeenCalledWith(LIST_KEY, { perView: { [SAVED_ID]: { hiddenFields: ['name'] } } });
+    expect(listProps.schema.hiddenFields).toEqual(['name']);
   });
 });
 

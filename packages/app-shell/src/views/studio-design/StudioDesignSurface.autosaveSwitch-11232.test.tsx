@@ -172,9 +172,20 @@ vi.mock('@object-ui/react', async (importOriginal) => {
 });
 
 // The Data pillar's records grid is not what this suite reads.
+// The records grid: only its "+" column, drawn from the grid's authoring
+// context the way the real grid draws it (objectui#12511).
 vi.mock('@object-ui/plugin-view', async (importOriginal) => {
   const mod = await importOriginal<Record<string, unknown>>();
-  return { ...mod, ObjectView: () => null };
+  const { useGridFieldAuthoring } = await import('@object-ui/components');
+  function GridDouble() {
+    const authoring = useGridFieldAuthoring();
+    return authoring?.onAddColumn ? (
+      <button type="button" data-testid="grid-add-column" onClick={authoring.onAddColumn}>
+        Add column
+      </button>
+    ) : null;
+  }
+  return { ...mod, ObjectView: GridDouble };
 });
 
 vi.mock('sonner', () => ({
@@ -189,7 +200,7 @@ vi.mock('./StudioAiCopilot', () => ({ StudioChatDock: () => null }));
 vi.mock('../../preview/DraftChangesPanel', () => ({ DraftChangesPanel: () => null }));
 
 import { AutomationsPillar, DataPillar, InterfacesPillar, StudioDesignSurface } from './StudioDesignSurface';
-import { ADD_FIELD_OFFERED, addFieldFromMoreMenu } from './__tests__/dataPillarAddField';
+import { ADD_FIELD_OFFERED, addFieldFromGrid } from './__tests__/dataPillarAddField';
 import { createEmptyDataSource } from './__tests__/emptyDataSource';
 import { registerMetadataPreview } from '../metadata-admin/preview-registry';
 import { registerMetadataInspector } from '../metadata-admin/inspector-registry';
@@ -425,7 +436,7 @@ describe('Data pillar — an object switch inside the debounce, the control (obj
     );
     await waitFor(() => expect(screen.getByText(/^\d+ fields$/)).toHaveTextContent('2 fields'), SLOW);
 
-    await addFieldFromMoreMenu();
+    await addFieldFromGrid();
     const release = holdLoad('object', 'acme_note');
     fireEvent.click(screen.getByRole('button', { name: /Note/ }));
     await pastDebounce();
@@ -438,7 +449,7 @@ describe('Data pillar — an object switch inside the debounce, the control (obj
     await pastDebounce(1800);
     expect(server.saves).toEqual([]);
     // The control's own control: an edit on the opened object saves to it.
-    await addFieldFromMoreMenu();
+    await addFieldFromGrid();
     await waitFor(() => expect(server.saves).toHaveLength(1), SLOW);
     expect(savesOf('object', 'acme_note').map((b) => readFields(b.fields).entries.map((e) => e.name))).toEqual([
       ['body', 'field_2'],
@@ -676,9 +687,9 @@ describe("the load window: nothing of the previous item is offered, shown or sav
 
     const release = holdLoad('object', 'acme_note');
     fireEvent.click(screen.getByRole('button', { name: /Note/ }));
-    // objectui#12450 — Add field lives in the header's More menu, drawn
-    // exactly when it is offered.
-    if (screen.queryByTestId(ADD_FIELD_OFFERED)) await addFieldFromMoreMenu();
+    // objectui#12511 — Add field on the Records tab is the grid's "+" column,
+    // drawn exactly when it is offered.
+    if (screen.queryByTestId(ADD_FIELD_OFFERED)) await addFieldFromGrid();
     await pastDebounce();
     expect(savesRead()).toEqual([]);
     const shownDuringLoad = {
@@ -692,7 +703,7 @@ describe("the load window: nothing of the previous item is offered, shown or sav
     expect(server.saves).toEqual([]);
 
     // The control: a field added after the load saves once, to its own object.
-    await addFieldFromMoreMenu();
+    await addFieldFromGrid();
     await waitFor(() => expect(server.saves).toHaveLength(1), SLOW);
     expect(server.saves.map((s) => [s.type, s.name, s.body.label, fieldNamesOf(s.body)])).toEqual([
       ['object', 'acme_note', 'Note', ['body', 'field_2']],
@@ -746,7 +757,7 @@ describe('a package switch: Automations and Data open nothing of the previous pa
     await switchToBeta();
     await screen.findByRole('button', { name: /Beta item/ }, SLOW);
     await waitFor(() => expect(screen.getByText(/^\d+ fields$/)).toBeInTheDocument(), SLOW);
-    await addFieldFromMoreMenu();
+    await addFieldFromGrid();
     await waitFor(() => expect(server.saves).toHaveLength(1), SLOW);
     expect(server.saves.map((s) => [s.type, s.name, s.packageId, s.body.label, fieldNamesOf(s.body)])).toEqual([
       ['object', 'beta_item', PKG_B, 'Beta item', ['name', 'field_2']],

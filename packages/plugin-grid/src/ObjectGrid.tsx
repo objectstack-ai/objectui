@@ -540,6 +540,20 @@ export interface ObjectGridColumnState {
 }
 
 /**
+ * One column summary as the grid's footer would draw it — `header: label`,
+ * e.g. `Annual Revenue` and `Sum: 109,800,000.00` — handed to a host through
+ * {@link ObjectGridComponentProps.onColumnSummaryChange} (objectui#12528).
+ */
+export interface ObjectGridFooterSummary {
+  /** The column's accessor key. */
+  key: string;
+  /** The column's header text. */
+  header: string;
+  /** The formatted summary, scope included (`Sum: 109,800,000.00`). */
+  label: string;
+}
+
+/**
  * The HOST-DRIVEN ("external") mode of ObjectGrid — framework#2212.
  *
  * The ordinary authoring surface hands ObjectGrid a `schema` and a `dataSource`
@@ -704,6 +718,16 @@ export interface ObjectGridComponentProps extends ObjectGridExternalPaginationPr
    * off the node.
    */
   showRowNumbers?: boolean;
+  /**
+   * [objectui#12528] A HOST that draws its own footer row takes the column
+   * summaries into it. When this is passed the grid draws no summary row of
+   * its own and reports, in column order, what that row would have drawn —
+   * `null` when it would draw none (no summary, a grouped grid, unmounted).
+   * `ListView` passes it so the summaries sit at the right of its record-count
+   * row: one footer row instead of two. Reported on a change of CONTENT, never
+   * of identity. A RUNTIME prop, never authored metadata.
+   */
+  onColumnSummaryChange?: (summaries: readonly ObjectGridFooterSummary[] | null) => void;
   /**
    * [objectui#8674] Narrow ONE row's generic Edit / Delete entries — the layer
    * that lets a host withhold an operation the record itself cannot accept.
@@ -1584,6 +1608,33 @@ type BatchSaveOutcome = Exclude<
   void
 >;
 
+/**
+ * [objectui#12528] Reports the grid's column summaries to a host that draws
+ * them in its own footer row (`onColumnSummaryChange`). Renders nothing.
+ *
+ * Keyed on the summaries' TEXT, never on the array's identity (AGENTS.md #10):
+ * every grid render builds a new array, and an equal one must send nothing.
+ * Unmounting — whatever stops the grid drawing the row — reports `null`.
+ */
+function FooterSummaryReport({
+  summaries,
+  onChange,
+}: {
+  summaries: ObjectGridFooterSummary[];
+  onChange: (summaries: readonly ObjectGridFooterSummary[] | null) => void;
+}) {
+  const key = JSON.stringify(summaries);
+  const onChangeRef = React.useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  });
+  useEffect(() => {
+    onChangeRef.current(JSON.parse(key) as ObjectGridFooterSummary[]);
+  }, [key]);
+  useEffect(() => () => onChangeRef.current(null), []);
+  return null;
+}
+
 export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   schema,
   dataSource,
@@ -1618,6 +1669,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   onColumnStateChange,
   objectFields: hostObjectFields,
   showRowNumbers: hostShowRowNumbers,
+  onColumnSummaryChange,
 }) => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -6749,20 +6801,34 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     </div>
   ) : null;
 
-  // Summary footer row
-  const summaryFooter = hasSummary ? (
+  // objectui#12528 — a host that passes `onColumnSummaryChange` draws the
+  // summaries in its own footer row: the grid draws none and reports, through
+  // `FooterSummaryReport` mounted where the row would be, what it would have
+  // drawn. Mounted in the same place, so whatever withholds the row (a
+  // grouped grid, the card view, a loading or error face) reports `null`.
+  const summaryColumnsShown: Array<{ accessorKey: string; header?: React.ReactNode }> = hasSummary
+    ? orderedColumns.filter((col: { accessorKey: string }) => summaries.has(col.accessorKey))
+    : [];
+  const summaryFooter = hasSummary && onColumnSummaryChange ? (
+    <FooterSummaryReport
+      summaries={summaryColumnsShown.map((col) => ({
+        key: String(col.accessorKey),
+        header: typeof col.header === 'string' ? col.header : String(col.accessorKey),
+        label: summaries.get(col.accessorKey)!.label,
+      }))}
+      onChange={onColumnSummaryChange}
+    />
+  ) : hasSummary ? (
     <div className="border-t bg-muted/30 px-2 py-1.5" data-testid="column-summary-footer">
       <div className="flex gap-4 text-xs text-muted-foreground font-medium">
-        {orderedColumns
-          .filter((col: any) => summaries.has(col.accessorKey))
-          .map((col: any) => {
-            const summary = summaries.get(col.accessorKey)!;
-            return (
-              <span key={col.accessorKey} data-testid={`summary-${col.accessorKey}`}>
-                {col.header}: {summary.label}
-              </span>
-            );
-          })}
+        {summaryColumnsShown.map((col) => {
+          const summary = summaries.get(col.accessorKey)!;
+          return (
+            <span key={col.accessorKey} data-testid={`summary-${col.accessorKey}`}>
+              {col.header}: {summary.label}
+            </span>
+          );
+        })}
       </div>
     </div>
   ) : null;

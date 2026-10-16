@@ -38,6 +38,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubTrigger,
@@ -195,6 +196,15 @@ export interface ViewTabItem {
   readonly?: boolean;
   /** Optional tooltip shown alongside the lock icon when `readonly` is true. */
   readonlyReason?: string;
+  /**
+   * The view's description, already resolved to the viewer's language and
+   * already gated by the host on the view's `appearance.showDescription`
+   * (absent when that is `false`). The strip draws it on the ACTIVE tab only:
+   * as the view button's tooltip and as the header of its ▾ actions menu
+   * (objectui#12528). It used to take a row of its own above the list's
+   * toolbar, so the chrome's height changed with the view.
+   */
+  description?: string;
 }
 
 /** Available view type for quick-switch palette */
@@ -673,6 +683,20 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
               className="min-w-[180px]"
               onClick={(e) => e.stopPropagation()}
             >
+              {/* The view's description heads its own menu (objectui#12528):
+                  the one place a touch user, who gets no tooltip, can read it.
+                  `hasActionsMenu` guarantees an entry below the rule. */}
+              {view.description && (
+                <>
+                  <DropdownMenuLabel
+                    data-testid={`view-tab-menu-description-${view.id}`}
+                    className="max-w-[280px] whitespace-normal text-xs font-normal text-muted-foreground"
+                  >
+                    {view.description}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               {configAction && (
                 <DropdownMenuItem
                   data-testid={`view-tab-menu-config-${view.id}`}
@@ -808,6 +832,8 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
             type="button"
             data-testid={`view-tab-${view.id}`}
             aria-current={isActive ? 'true' : undefined}
+            // The active view's description is its tooltip (objectui#12528).
+            title={isActive && view.description ? view.description : undefined}
             onClick={() => onViewChange(view.id)}
             onDoubleClick={() => startRename(view.id)}
             {...(dragHandleProps?.listeners ?? {})}
@@ -973,9 +999,16 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
 
   return (
     <TooltipProvider>
+      {/* The bar takes its container's width (`w-full`), whatever the host:
+          in a flex slot (the list toolbar's leading slot, objectui#12440) a
+          bar without it is sized by its content, so the strip below measures
+          the tabs it is drawing and the fit answers its own last answer — once
+          one tab is drawn, one tab is all that fits (objectui#12518). `w-full`
+          rather than `flex-1` so a column-flex host is not grown vertically;
+          in a block host it is the width the bar already had. */}
       <div
         data-testid="view-tab-bar"
-        className={cn('flex min-w-0 items-center gap-0.5 -mb-px', className)}
+        className={cn('flex w-full min-w-0 items-center gap-0.5 -mb-px', className)}
       >
         {/* The strip: the tabs and their "N more" trigger, in whatever width
             the bar's other controls leave. `flex-1` with a zero basis, so its

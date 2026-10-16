@@ -42,6 +42,7 @@ import { resolveHref } from '@object-ui/layout';
 import type { NavigationItem } from '@object-ui/types';
 import type { I18nLabel } from '@objectstack/spec/ui';
 import { Plus, X } from 'lucide-react';
+import { Label } from '@object-ui/components';
 import type { MetadataInspectorProps } from '../inspector-registry.js';
 import { t } from '../i18n.js';
 import { useMetadataClient } from '../useMetadata.js';
@@ -65,6 +66,7 @@ import {
   moveArray,
 } from './_shared.js';
 import { InspectorComboField } from './InspectorComboField.js';
+import { IconPickerWidget } from '../widgets.js';
 import {
   NAV_ITEM_TYPES,
   NAV_TYPE_TARGETS,
@@ -324,6 +326,7 @@ export function AppNavInspector({ selection, draft, name, onPatch, onClearSelect
   const viewOptionsRaw = useMetadataOptions(navType === 'object' && objectMode === 'view' ? 'view' : undefined);
   // The console's own resolver for what a label-less item inherits.
   const targetLabel = useNavTargetLabel();
+  const iconFieldId = React.useId();
   // Views are named `<object>.<key>` (MetadataProvider) — scope the picker
   // to the bound object instead of offering the whole workspace's views.
   const viewOptions = React.useMemo(
@@ -446,7 +449,19 @@ export function AppNavInspector({ selection, draft, name, onPatch, onClearSelect
         <p className="text-[11px] text-muted-foreground">{t('engine.inspector.appNav.separatorHint', locale)}</p>
       )}
       {navEntryOffersField(entryType, 'icon') && (
-        <InspectorTextField label={t('engine.inspector.appNav.icon', locale)} value={String(node.icon ?? '')} onCommit={(v) => patch({ icon: v })} disabled={readOnly} />
+        // objectui#12531 — the entry's icon is picked from the catalog the
+        // console ships, with the picker the Studio's nav inspector mounts.
+        // Clearing writes `''`, as the text field this replaced did.
+        <div className="space-y-1">
+          <Label htmlFor={iconFieldId} className="text-xs text-muted-foreground">{t('engine.inspector.appNav.icon', locale)}</Label>
+          <IconPickerWidget
+            id={iconFieldId}
+            schema={{ type: 'string' }}
+            value={String(node.icon ?? '')}
+            onChange={(v) => patch({ icon: typeof v === 'string' ? v : '' })}
+            readOnly={readOnly}
+          />
+        </div>
       )}
 
       <InspectorSelectField

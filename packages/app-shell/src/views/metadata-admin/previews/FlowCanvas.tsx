@@ -829,6 +829,34 @@ export function FlowCanvas({
         }
       : null;
 
+  // Where an edge leaves and enters, and where its branch pill sits.
+  const edgeEnds = (edge: FlowDesignerEdge) => {
+    const sp = layout.get(edge.source);
+    const tp = layout.get(edge.target);
+    if (!sp || !tp) return null;
+    // ADR-0044 back-edges (revise loop) re-enter an earlier node, so
+    // they attach to the right side of both endpoints and render as a
+    // dashed amber return arc — visually distinct from the forward
+    // top-to-bottom flow.
+    const back = isBackEdge(edge);
+    const sPos = dragPos?.id === edge.source ? positionOf(edge.source) : sp;
+    const tPos = dragPos?.id === edge.target ? positionOf(edge.target) : tp;
+    // #2670: an expanded container's outgoing edge leaves from its
+    // TRUE bottom (heights map; drag-independent). Back-edges stay on
+    // the header band via rightAnchor, so toggling never swings arcs.
+    const from = back ? rightAnchor(sPos) : bottomAnchor(sPos, heights.get(edge.source) ?? NODE_H);
+    const to = back ? rightAnchor(tPos) : topAnchor(tPos);
+    const labelPos = back ? backEdgeLabelAnchor(from, to) : edgeMidpoint(from, to);
+    return { back, from, to, labelPos };
+  };
+  // objectui#12507 — each edge's branch pill: its text, its full wording, and
+  // how wide it may draw before it would reach a neighbouring pill.
+  const branchLabels = layoutBranchLabels(edges.map((edge) => {
+    const label = branchLabelOf(edge);
+    const ends = label && edgeEnds(edge);
+    return label && ends ? { ...label, at: ends.labelPos } : undefined;
+  }));
+
   return (
     <div className="relative h-full min-h-[320px] w-full overflow-hidden">
       {/* Inline structural-validation banner (ADR-0044 cycle surfacing): shows
@@ -1005,27 +1033,13 @@ export function FlowCanvas({
               </marker>
             </defs>
             {edges.map((edge, i) => {
-              const sp = layout.get(edge.source);
-              const tp = layout.get(edge.target);
-              if (!sp || !tp) return null;
-              // ADR-0044 back-edges (revise loop) re-enter an earlier node, so
-              // they attach to the right side of both endpoints and render as a
-              // dashed amber return arc — visually distinct from the forward
-              // top-to-bottom flow.
-              const back = isBackEdge(edge);
+              const ends = edgeEnds(edge);
+              if (!ends) return null;
+              const { back, from, to, labelPos } = ends;
               // Structural-validation error (e.g. part of an un-declared cycle).
               // Back-edges are excluded from cycle detection, so they're never invalid.
               const invalid = !back && !!invalidEdges?.has(`${edge.source}->${edge.target}`);
-              const sPos = dragPos?.id === edge.source ? positionOf(edge.source) : sp;
-              const tPos = dragPos?.id === edge.target ? positionOf(edge.target) : tp;
-              // #2670: an expanded container's outgoing edge leaves from its
-              // TRUE bottom (heights map; drag-independent). Back-edges stay on
-              // the header band via rightAnchor, so toggling never swings arcs.
-              const from = back ? rightAnchor(sPos) : bottomAnchor(sPos, heights.get(edge.source) ?? NODE_H);
-              const to = back ? rightAnchor(tPos) : topAnchor(tPos);
-              const labelPos = back ? backEdgeLabelAnchor(from, to) : edgeMidpoint(from, to);
-              const cond = conditionText(edge.condition);
-              const branchLabel = edge.isDefault ? 'else' : cond ? `if ${cond}` : edge.label;
+              const branch = branchLabels[i];
               const eid = edgeKey(edge, i);
               const edgeBadge = edgeBadges.get(edgeProblemKey(edge.source, edge.target));
               const traversed = traversedSet.has(eid);
@@ -1078,16 +1092,18 @@ export function FlowCanvas({
                       </title>
                     </path>
                   )}
-                  {branchLabel && (
+                  {branch && (
                     <foreignObject
-                      x={labelPos.x - 60}
+                      x={labelPos.x - branch.width / 2}
                       y={labelPos.y - 11}
-                      width={120}
+                      width={branch.width}
                       height={22}
                       className={cn(selectable && 'pointer-events-auto')}
                     >
                       <div className="flex justify-center">
                         <span
+                          data-branch-label=""
+                          title={branch.title}
                           onPointerDown={selectable ? (e) => e.stopPropagation() : undefined}
                           onClick={selectable ? (e) => { e.stopPropagation(); onSelectEdge!(edge, eid); } : undefined}
                           className={cn(
@@ -1102,7 +1118,7 @@ export function FlowCanvas({
                                   : 'border-border text-muted-foreground',
                           )}
                         >
-                          {branchLabel}
+                          {branch.text}
                         </span>
                       </div>
                     </foreignObject>
@@ -1138,7 +1154,7 @@ export function FlowCanvas({
                       // Sit the insert handle at the edge midpoint, but slide it
                       // to the right of the branch-label pill when one is present
                       // so the two don't stack on the same spot.
-                      x={branchLabel ? labelPos.x + 66 : labelPos.x - 11}
+                      x={branch ? labelPos.x + branch.handleX : labelPos.x - 11}
                       y={labelPos.y - 11}
                       width={22}
                       height={22}
@@ -1365,6 +1381,67 @@ function placeAfter(anchorId: string | null, nodes: FlowDesignerNode[], edges: F
   const waysOn = edges.filter((e) => e.source === anchor.id && isWayOn(e));
   if (waysOn.length === 1 && !BRANCHING_NODE_TYPES.has(anchor.type)) return { kind: 'split', edge: waysOn[0] };
   return { kind: 'from', from: anchor.id };
+}
+
+/** objectui#12507 — a branch pill reads at most this many characters, then an ellipsis. */
+const BRANCH_LABEL_MAX_CHARS = 32;
+/** The pill's height on the artboard (`h-[22px]` box), and the clear space kept between two pills. */
+const BRANCH_PILL_H = 22;
+const BRANCH_PILL_GAP = 8;
+/**
+ * A rough width for one character of the pill's `text-[10px]` face, plus its
+ * padding and border. It only places the insert handle beside the pill; the
+ * pill itself is laid out by the browser and truncates inside its box.
+ */
+const BRANCH_PILL_CHAR_W = 6;
+const BRANCH_PILL_CHROME_W = 18;
+
+interface BranchLabel {
+  /** What the pill prints: one line, clamped to {@link BRANCH_LABEL_MAX_CHARS}. */
+  text: string;
+  /** The full wording: the edge's own label and its condition, one per line. */
+  title?: string;
+}
+
+/**
+ * objectui#12507 — the words on a branch edge. The author's own `label` reads
+ * first; an edge without one reads `if ` and its condition; a default edge
+ * reads `else`. The text is clamped by characters, so a long CEL condition
+ * cannot run across its sibling or a node card, and the full wording rides
+ * in `title` (the edge inspector still edits the condition itself).
+ */
+function branchLabelOf(edge: FlowDesignerEdge): BranchLabel | undefined {
+  if (edge.isDefault) return { text: 'else' };
+  const cond = conditionText(edge.condition);
+  const ifCond = cond ? `if ${cond}` : undefined;
+  const full = edge.label || ifCond;
+  if (!full) return undefined;
+  const chars = Array.from(full);
+  const text = chars.length > BRANCH_LABEL_MAX_CHARS ? `${chars.slice(0, BRANCH_LABEL_MAX_CHARS).join('')}…` : full;
+  return { text, title: [edge.label, ifCond].filter(Boolean).join('\n') };
+}
+
+/**
+ * Give each branch pill a box no wider than a node card and no wider than the
+ * distance to the nearest other pill on the same band, so two pills never
+ * draw over each other (sibling outcomes of one decision sit half a column
+ * apart). `handleX` is how far right of the pill's centre the insert handle
+ * goes so it clears the pill.
+ */
+function layoutBranchLabels(
+  labels: ReadonlyArray<(BranchLabel & { at: Point }) | undefined>,
+): Array<(BranchLabel & { width: number; handleX: number }) | undefined> {
+  return labels.map((label, i) => {
+    if (!label) return undefined;
+    let width = NODE_W;
+    labels.forEach((other, j) => {
+      if (!other || j === i || Math.abs(other.at.y - label.at.y) >= BRANCH_PILL_H) return;
+      width = Math.min(width, Math.abs(other.at.x - label.at.x) - BRANCH_PILL_GAP);
+    });
+    width = Math.max(width, BRANCH_PILL_H * 2);
+    const drawn = Math.min(width, Array.from(label.text).length * BRANCH_PILL_CHAR_W + BRANCH_PILL_CHROME_W);
+    return { ...label, width, handleX: drawn / 2 + 6 };
+  });
 }
 
 /**

@@ -250,6 +250,10 @@ export interface AccessExplainPanelProps {
 
 export function AccessExplainPanel({ open, onOpenChange, defaultObject, packageId }: AccessExplainPanelProps): React.ReactElement {
   const locale = useMetadataLocale();
+  // objectui#12510 — the visible "User" label names the picker, and the picked
+  // principal follows it: the name reads "User Me (calling principal)".
+  const userLabelId = React.useId();
+  const userValueId = React.useId();
   const adapter = useAdapter() as any;
   const client = useMetadataClient();
   const authFetch = React.useMemo(() => createAuthenticatedFetch(), []);
@@ -402,17 +406,18 @@ export function AccessExplainPanel({ open, onOpenChange, defaultObject, packageI
         {/* ── request form ── */}
         <div className="mt-4 space-y-3 text-sm">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">
+            <label id={userLabelId} className="text-xs font-medium text-muted-foreground">
               {t('engine.studio.access.explain.user', locale)}
             </label>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setPickerOpen(true)}
+                aria-labelledby={`${userLabelId} ${userValueId}`}
                 className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md border bg-background px-2 text-left text-xs hover:bg-muted/60"
               >
                 <UserIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate">
+                <span id={userValueId} className="min-w-0 flex-1 truncate">
                   {user ? user.label : t('engine.studio.access.explain.self', locale)}
                 </span>
                 {/* objectui#2381 — the picker was here all along but the button

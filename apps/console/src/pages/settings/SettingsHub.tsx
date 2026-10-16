@@ -9,6 +9,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ConsolePageHeader } from '@object-ui/app-shell';
 import {
   Card,
   CardContent,
@@ -92,15 +93,17 @@ export function SettingsHub() {
   }, [manifests]);
 
   return (
+    <div>
+    {/* The console's one page header (objectui#12553), the one an object list,
+        a dashboard and the Approvals Inbox draw: icon chip, title, and the
+        subtitle beside the title from `sm` up, in one row across the page
+        above the padded body. Below `sm` the header hides the subtitle. */}
+    <ConsolePageHeader
+      title={t('console.settingsHub.title')}
+      subtitle={t('console.settingsHub.subtitle')}
+      icon={<SettingsIcon className="h-4 w-4" />}
+    />
     <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex items-center gap-3 mb-6">
-        <SettingsIcon className="h-7 w-7 text-muted-foreground" />
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{t('console.settingsHub.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('console.settingsHub.subtitle')}</p>
-        </div>
-      </div>
-
       {error ? (
         <Card>
           <CardContent className="py-8 text-center text-sm text-destructive">{error}</CardContent>
@@ -140,6 +143,7 @@ export function SettingsHub() {
           </section>
         ))
       )}
+    </div>
     </div>
   );
 }

@@ -15,6 +15,7 @@
  */
 
 import { useMemo } from 'react';
+import { ConsolePageHeader } from '@object-ui/app-shell';
 import { AiPendingActionsInbox } from '@object-ui/plugin-chatbot';
 
 /**
@@ -34,21 +35,24 @@ export function AiPendingActionsPage() {
   const apiBase = useMemo(() => resolveApiBase(), []);
 
   return (
+    <div>
+    {/* The console's one page header (objectui#12553), the one an object list,
+        a dashboard and the Approvals Inbox draw: the title, and the subtitle
+        beside it from `sm` up, in one row across the page above the padded
+        body. This page draws no icon, so the header draws no chip. Below `sm`
+        the header hides the subtitle. */}
+    <ConsolePageHeader
+      title="AI Approvals"
+      subtitle="Review actions an AI agent proposed. Approve to execute them server-side; reject to send a reason back to the model so it can revise the next turn."
+    />
     <div className="p-6 max-w-6xl mx-auto">
-      <div className="mb-4">
-        <h1 className="text-2xl font-semibold">AI Approvals</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Review actions an AI agent proposed. Approve to execute them
-          server-side; reject to send a reason back to the model so it
-          can revise the next turn.
-        </p>
-      </div>
       <AiPendingActionsInbox
         apiBase={apiBase}
         variant="card"
         title="Queue"
         description="Polled every 5 seconds. Decisions are recorded under your identity."
       />
+    </div>
     </div>
   );
 }

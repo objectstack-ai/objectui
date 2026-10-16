@@ -93,9 +93,10 @@ import { ExpressionProvider } from '../providers/ExpressionProvider';
 const OBJECT_NAME = 'duly_task';
 
 /**
- * The view under test is always `all`. Its `description` renders as
- * `view-description` INSIDE `ListView`, which is the node whose identity (a)
- * reads.
+ * The view under test is always `all`. `ListView` wraps the host's tab strip
+ * in its own `list-toolbar-leading` node, which is the node whose identity (a)
+ * reads (the view description's own row was, until objectui#12528 moved the
+ * description onto the active tab).
  */
 function objectsWith(allView: Record<string, unknown>) {
   return [

@@ -161,7 +161,8 @@ describe('StudioNavItemInspector edits only the designer locale entry of a map (
   it('binding an object keeps a real map label as authored, and the item still parses', async () => {
     const onNavPatch = renderInspector({ id: 'accounts', type: 'object', label: ITEM_LABEL }, 'zh');
     // *Link object* is the shared `Select` since objectui#11865: pick through its list.
-    fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowDown' });
+    // objectui#12455 — the inspector also offers an Icon picker (a combobox), so the object picker is addressed by its test id.
+    fireEvent.keyDown(screen.getByTestId('nav-link-object'), { key: 'ArrowDown' });
     fireEvent.click(await screen.findByRole('option', { name: 'Account (account)' }));
 
     expect(onNavPatch).toHaveBeenCalledTimes(1);

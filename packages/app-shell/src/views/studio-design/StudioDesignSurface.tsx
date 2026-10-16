@@ -31,11 +31,19 @@ import { StudioChatDock, type StudioSurfaceLabel } from './StudioAiCopilot.js';
 import { nextCenterTab, type StudioCenterTab } from './centerTab.js';
 import { AUTOMATIONS_CONFIG_FOLD_WIDTH, useIsNarrowerThan, useIsWideViewport } from './wideViewport.js';
 import { AppMark, type AppMarkApp } from '../../layout/AppMark.js';
-import { STUDIO_HEADER, STUDIO_HEADER_ICON_BUTTON, STUDIO_KIND_CHIP } from './studio-tokens.js';
+import {
+  STUDIO_HEADER,
+  STUDIO_HEADER_ICON_BUTTON,
+  STUDIO_HEADER_PILLAR,
+  STUDIO_HEADER_PILLAR_NAV,
+  STUDIO_KIND_CHIP,
+} from './studio-tokens.js';
 import { StudioInspector } from './StudioInspector.js';
 import { StudioItemHeader, StudioTab } from './StudioItemHeader.js';
+import { overlayPath } from './BuilderLanding.js';
 import { DATA_CONTENT_CONTAINER, DATA_TAB_FLAT_ONLY, DATA_TAB_FOLDED_ONLY } from './dataTabsFold.js';
 import { StudioRail, StudioRailGroup, StudioRailRow } from './StudioRail.js';
+import { StudioEmptyState, StudioEmptyStateAction } from './StudioEmptyState.js';
 import { FLOW_TRIGGER_GLYPHS, flowTriggerGlyph, groupFlowsByObject, type FlowTriggerGlyph } from './flowGrouping.js';
 import {
   GridFieldAuthoringProvider,
@@ -52,6 +60,8 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   Badge,
@@ -103,19 +113,21 @@ import {
   ChevronDown,
   Lock,
   Settings,
-  Settings2,
   Home as HomeIcon,
   Shield,
   ShieldCheck,
   ShieldQuestion,
   Menu,
-  MoreHorizontal,
   PanelRightClose,
   PanelRightOpen,
+  Play,
+  Minus,
+  Trash2,
   Zap,
   Clock,
   MousePointerClick,
   CornerDownRight,
+  Layers,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -125,11 +137,13 @@ import {
 } from '../metadata-admin/preview-registry.js';
 import {
   getStudioCanvasPreview,
+  StudioCanvasDraftOnlyObjectsContext,
   StudioCanvasListViewContext,
   StudioCanvasNavEntryContext,
+  type StudioCanvasDraftOnlyObjects,
   type StudioCanvasNavEntry,
 } from './studio-canvas-preview.js';
-import { ObjectListViewInspector, useObjectListViewDraft } from './ObjectListViewInspector.js';
+import { ObjectListViewInspector, useObjectListViewDraft, type DraftOnlyObjects } from './ObjectListViewInspector.js';
 import {
   DEFAULT_PAGE_SOURCE_KIND,
   NO_REPORT_BINDING,
@@ -161,6 +175,7 @@ import {
 } from '../metadata-admin/nav-selection.js';
 import { useNavSelDeepLink } from '../metadata-admin/useNavSelDeepLink.js';
 import { SourcePageEditor } from '../metadata-admin/previews/SourcePageEditor.js';
+import { SourcePageProperties, type SourcePageNavEntry } from '../metadata-admin/previews/SourcePageProperties.js';
 import { fetchPendingDrafts, usePendingDrafts } from '../../preview/usePendingDrafts.js';
 import { emitMetadataRefresh, subscribeMetadataRefresh } from '../../assistant/assistantBus.js';
 import {
@@ -190,12 +205,13 @@ import { useHomePath } from '../../hooks/useHomePath.js';
 import { resolveSurface, findSurfaceInTree, isSameSurface, type NavNode, type Surface } from './navSurface.js';
 import { useSurfaceDeepLink, resolveSurfaceDeepLink, type SurfaceTarget } from './useSurfaceDeepLink.js';
 import { isStudioRunLanding } from './studioLanding.js';
-import { SurfaceDeepLinkProvider, useRequestedSurface } from './surfaceDeepLinkChannel.js';
+import { SurfaceDeepLinkProvider, useRequestedSurface, useSurfaceNavigator } from './surfaceDeepLinkChannel.js';
 import { buildObjectSkeleton, buildFlowSkeleton, buildAppSkeleton, buildPermissionSkeleton, type AppNavSeed } from './skeletons.js';
 import { OWD_CREATE_MODELS, OWD_DEFAULT, type OwdCreateModel } from './owd-sharing.js';
 import { t, tFormat, translateMetadataType, useMetadataLocale } from '../metadata-admin/i18n.js';
 import { fieldsForNodeType, localizeFlowFields, type FlowConfigField } from '../metadata-admin/inspectors/flow-node-config.js';
 import { ObjectPicker } from '../metadata-admin/inspectors/ObjectPicker.js';
+import { IconPickerWidget } from '../metadata-admin/widgets.js';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { SuggestedBindingsPanel } from '../../components/SuggestedBindingsPanel.js';
 import { AppNavCanvas, navPayloadOf } from '../metadata-admin/previews/AppNavCanvas.js';
@@ -211,9 +227,11 @@ import {
 import {
   FlowMetaPills,
   FlowPreviewChromeProvider,
+  flowSelectionHeading,
   type FlowPreviewSection,
   type FlowProblemTally,
 } from '../metadata-admin/previews/FlowPreview.js';
+import { InspectorShellHostProvider } from '../metadata-admin/inspectors/_shared.js';
 import type { FlowRegistration } from '@objectstack/spec/api';
 import {
   clearedLabel,
@@ -234,6 +252,7 @@ import {
   retypedNavEntry,
 } from '../metadata-admin/inspectors/nav-target.js';
 import type { NavigationItemType } from '@object-ui/types';
+import type { NavTargetLabelResolver } from '@object-ui/layout';
 import {
   readFields,
   writeFields,
@@ -407,6 +426,7 @@ const KIND_ICON: Record<string, LucideIcon> = {
   url: LinkIcon,
   component: Puzzle,
   doc: BookOpen,
+  separator: Minus,
 };
 const navIcon = (type?: string): LucideIcon => KIND_ICON[type ?? ''] ?? Compass;
 
@@ -478,6 +498,37 @@ export function StudioRefusalStrip({
  * reporting it three times is noise that would get the report muted.
  */
 const PACKAGE_LIST_TOAST_ID = 'studio-package-list';
+
+/**
+ * objectui#12453 — a read-only package says so twice: the lock in the app
+ * chip, and this link at the right of the open item's header, in every
+ * pillar. It names the one way to change an installed package, an
+ * environment overlay, and lands on the package's metadata directory
+ * (`overlayPath`, the Studio home's read-only package card's route), where
+ * each type says whether it accepts an overlay. The pillar's read-only
+ * sentence (objectui#11781) is its title.
+ */
+function StudioReadOnlyLink({
+  packageId,
+  title,
+  locale,
+}: {
+  packageId: string;
+  title: string;
+  locale: string;
+}): React.ReactElement {
+  return (
+    <Link
+      to={overlayPath(packageId)}
+      title={title}
+      data-testid="studio-readonly-link"
+      className="inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md bg-amber-400/15 px-2.5 text-xs font-medium text-amber-700 hover:bg-amber-400/25 dark:text-amber-300"
+    >
+      <Layers className="h-3.5 w-3.5" aria-hidden="true" />
+      {t('engine.studio.pkg.readonlyLink', locale)}
+    </Link>
+  );
+}
 
 function PackageSwitcher({
   packageId,
@@ -874,7 +925,7 @@ function PackageSwitcher({
              SAME string in all three states for a package that declares no
              name, so the state cannot be recovered from the text. */
           data-pkg-list-state={pkgListState}
-          className="flex h-8 max-w-[180px] items-center gap-2 whitespace-nowrap rounded-md py-0.5 pl-1 pr-2 text-[13px] font-semibold hover:bg-muted xl:max-w-[280px]"
+          className="flex h-8 min-w-0 max-w-[180px] items-center gap-2 whitespace-nowrap rounded-md py-0.5 pl-1 pr-2 text-[13px] font-semibold hover:bg-muted xl:max-w-[280px]"
           title={t('engine.studio.pkg.switchTitle', locale)}
         >
           {/* objectui#11553 — the package-less scope names itself; there is
@@ -908,9 +959,16 @@ function PackageSwitcher({
               <AlertTriangle className="h-2.5 w-2.5" /> {t('engine.studio.loadFailed', locale)}
             </span>
           )}
+          {/* objectui#12453 — the chip's half of the read-only posture: a
+              lock and the word, muted, after the name. The reason is its
+              title; the item header's link says what to do about it. */}
           {current && !current.writable && (
-            <span className="inline-flex items-center gap-0.5 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-normal text-amber-600 dark:text-amber-300">
-              <Lock className="h-2.5 w-2.5" /> {t('engine.studio.pkg.readonly', locale)}
+            <span
+              data-testid="studio-pkg-readonly"
+              title={t('engine.studio.pkg.readonlyHint', locale)}
+              className="inline-flex shrink-0 items-center gap-1 text-[11px] font-normal text-muted-foreground"
+            >
+              <Lock className="h-3 w-3" aria-hidden="true" /> {t('engine.studio.pkg.readonly', locale)}
             </span>
           )}
           <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1568,17 +1626,12 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
         ) : null}
 
         <div className="flex min-w-0 flex-1 flex-col">
-          {/* `overflow-x-auto` — none of Package/pillars/Publish shrink (all
-            * `shrink-0`, and PackageSwitcher's trigger is `whitespace-nowrap`),
-            * so on a narrow viewport this whole strip overflows instead of any
-            * one piece silently clipping off past the screen edge. Scrolling
-            * the header is a worse look than a proper responsive redesign, but
-            * it guarantees every pillar and the Publish button stay reachable. */}
           <header className={STUDIO_HEADER} data-testid="studio-shell-header">
             {/* objectui#12459 — three columns: the package at the left, the
-                pillars centered whatever the two sides weigh, the package
-                actions at the right. The strip no longer scrolls on a narrow
-                viewport: each group shrinks inside its own column instead. */}
+                pillars centered, the package actions at the right.
+                objectui#12509 — below `sm` the pillars take a second row of
+                their own (`STUDIO_HEADER_PILLAR_NAV`), and on any row the
+                package chip is the piece that gives way. */}
             <div className="flex min-w-0 items-center gap-1">
               {/* Never a dead end: walk back to the platform Home / builder landing. */}
               <button
@@ -1592,11 +1645,11 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
               >
                 <HomeIcon className="h-4 w-4" />
               </button>
-              <div className="min-w-0">
+              <div className="flex min-w-0">
                 <PackageSwitcher packageId={packageId} tab={tab} beforeNavigate={confirmLeavePillar} app={packageApp} />
               </div>
             </div>
-            <nav className="flex items-center gap-0.5 rounded-lg bg-muted p-[3px]" data-testid="studio-pillar-nav">
+            <nav className={STUDIO_HEADER_PILLAR_NAV} data-testid="studio-pillar-nav">
               {/* objectui#11553 — the package-less scope offers its one pillar. */}
               {(packageId === null ? PILLARS.filter((p) => p.key === STUDIO_ORG_SCOPE_PILLAR) : PILLARS).map((p) => (
                 <Link
@@ -1614,7 +1667,8 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                   }}
                   title={t(`engine.studio.pillar.${p.key}`, locale)}
                   className={
-                    'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-[13px] transition-colors xl:px-3 ' +
+                    STUDIO_HEADER_PILLAR +
+                    ' ' +
                     (tab === p.key
                       ? 'bg-background font-medium text-foreground shadow-sm'
                       : 'text-muted-foreground hover:text-foreground')
@@ -1892,7 +1946,113 @@ function StudioNameLabel({ label, name }: { label: string; name?: string }): Rea
 }
 
 /**
+ * The kind tag a nav entry carries at the right of its rail row, and the kind
+ * an entry is named by in the header chip and the inspector's eyebrow
+ * (objectui#12455). A type the console also names as a metadata type (object,
+ * page, dashboard, report) is translated by that one helper, so the rail, the
+ * breadcrumb and the canvas caption say the same word; an `object` entry bound
+ * to a named view reads "View"; the types that open no design surface (url,
+ * action, component, doc) and the two structural ones are named from the
+ * Studio's own table. `''` for an entry with no type the spec declares.
+ */
+function navKindName(node: Pick<NavNode, 'type' | 'viewName'>, locale: string): string {
+  const type = node.type ?? '';
+  if (type === 'object' && typeof node.viewName === 'string' && node.viewName) {
+    return t('engine.studio.if.kind.view', locale);
+  }
+  if (type === 'object' || type === 'page' || type === 'dashboard' || type === 'report') {
+    return translateMetadataType(type, locale);
+  }
+  if (isNavEntryType(type)) return t(`engine.studio.if.kind.${type}`, locale);
+  return '';
+}
+
+/**
+ * Whether `nodes` hold, at any depth, the entry that opens `active` — so a
+ * group the sidebar would collapse opens when the open leaf is inside it.
+ */
+function navTreeHoldsActive(
+  nodes: NavNode[] | undefined,
+  active: Surface | null,
+  locale: string,
+  targetLabel: NavTargetLabelResolver,
+): boolean {
+  if (!active || !nodes) return false;
+  return nodes.some((node) => {
+    if (Array.isArray(node.children) && node.children.length) {
+      return navTreeHoldsActive(node.children, active, locale, targetLabel);
+    }
+    const surface = resolveSurface(node, locale, targetLabel);
+    return !!surface && isSameSurface(active, surface);
+  });
+}
+
+/** The sidebar's threshold: a group with this many children starts collapsed unless it says otherwise. */
+const NAV_GROUP_AUTO_COLLAPSE = 8;
+
+/**
+ * One group header and its children (objectui#12455). Open or closed as the
+ * running app's sidebar opens it (`NavigationRenderer` in `@object-ui/layout`):
+ * the spec's `expanded` when the author set it, else open unless the group is
+ * long, and always open when the open leaf is inside it. Collapsible by its
+ * header, as the sidebar's is. A group with nothing in it says so in its place
+ * instead of drawing a bare header.
+ */
+function NavTreeGroup({
+  node,
+  labelText,
+  active,
+  onPick,
+  objectIcons,
+  depth,
+}: {
+  node: NavNode;
+  labelText: string;
+  active: Surface | null;
+  onPick: (s: Surface) => void;
+  objectIcons?: Record<string, string | undefined>;
+  depth: number;
+}): React.ReactElement {
+  const locale = useMetadataLocale();
+  const targetLabel = useNavTargetLabel();
+  const children = node.children ?? [];
+  const holdsActive = navTreeHoldsActive(children, active, locale, targetLabel);
+  const [open, setOpen] = React.useState(() => {
+    if (holdsActive) return true;
+    if (typeof node.expanded === 'boolean') return node.expanded;
+    return children.length < NAV_GROUP_AUTO_COLLAPSE;
+  });
+  // A leaf opened from elsewhere (a deep link, a create) inside a closed
+  // group opens the group, as the sidebar does for the route it is on.
+  // Adjusted while rendering, on the change, so no effect re-renders it.
+  const [heldActive, setHeldActive] = React.useState(holdsActive);
+  if (holdsActive !== heldActive) {
+    setHeldActive(holdsActive);
+    if (holdsActive) setOpen(true);
+  }
+  return (
+    <StudioRailGroup label={labelText} collapsed={!open} onToggle={() => setOpen((v) => !v)}>
+      {children.length === 0 ? (
+        <p className="flex h-7 items-center pl-[22px] text-xs text-muted-foreground">
+          {t('engine.studio.if.emptyGroup', locale)}
+        </p>
+      ) : (
+        <NavTree nodes={children} active={active} onPick={onPick} objectIcons={objectIcons} depth={depth + 1} />
+      )}
+    </StudioRailGroup>
+  );
+}
+
+/**
  * Recursive App-navigation tree: groups, separators and typed leaves.
+ *
+ * objectui#12455 (epic objectui#12446, decision 5) — the rail shows the app's
+ * navigation as the shipped sidebar renders it: the same order, the same
+ * groups (collapsible, opened as the sidebar opens them, see `NavTreeGroup`),
+ * the same icons. Each leaf is one 32 px row: its icon, its label, and its
+ * kind as a tag at the right (`navKindName`). The internal `type · name` pair
+ * lives on the row's tooltip (objectui#7254), which is also its accessible
+ * description; the visible text is what an author reads.
  *
  * objectui#11791 — the rail draws a `separator` and a leaf's `badge` /
  * `badgeVariant` with the decisions the running app's sidebar makes
@@ -1907,12 +2067,15 @@ function NavTree({
   active,
   onPick,
   objectIcons,
+  depth = 0,
 }: {
   nodes: NavNode[];
   active: Surface | null;
   onPick: (s: Surface) => void;
   /** object name → its metadata icon, so object nav items show their own glyph. */
   objectIcons?: Record<string, string | undefined>;
+  /** Nesting depth: a row under a group header is indented one step. */
+  depth?: number;
 }): React.ReactElement {
   const locale = useMetadataLocale();
   // What a label-less row inherits is asked of the console's own resolver, so
@@ -1928,26 +2091,25 @@ function NavTree({
         // objectui#11196 — an ABSENT label shows the text the entry inherits:
         // the runtime's own rule, never a second copy of it.
         // objectui#11791 — a `separator` is a rule between rows, not an entry.
-        // It used to fall through to the leaf branch below, which drew it as a
-        // disabled, unlabeled button with the generic glyph. The sidebar's
-        // decision, mirrored: a decorative `Separator` (`role="none"`), so it
-        // is no row to click, no stop for the keyboard, and nothing a screen
-        // reader announces. The spec's separator carries `type`, `id` and
-        // `order` only, so there is no label or badge to draw.
+        // The sidebar's decision, mirrored: a decorative `Separator`
+        // (`role="none"`), so it is no row to click, no stop for the keyboard,
+        // and nothing a screen reader announces. The spec's separator carries
+        // `type`, `id` and `order` only, so there is no label or badge to draw.
         if (node.type === 'separator') {
           return <Separator key={node.id ?? i} className="my-2" />;
         }
         const labelText = navEntryLabelText(node, locale, targetLabel);
         if (node.type === 'group' || (Array.isArray(node.children) && node.children.length)) {
           return (
-            <div key={node.id ?? i} className="mb-1">
-              <p className="flex items-center gap-1 px-2 pb-1 pt-3 text-[11px] text-muted-foreground">
-                <Folder className="h-3 w-3" /> {labelText}
-              </p>
-              <div className="pl-1.5">
-                <NavTree nodes={node.children ?? []} active={active} onPick={onPick} objectIcons={objectIcons} />
-              </div>
-            </div>
+            <NavTreeGroup
+              key={node.id ?? i}
+              node={node}
+              labelText={labelText}
+              active={active}
+              onPick={onPick}
+              objectIcons={objectIcons}
+              depth={depth}
+            />
           );
         }
         // The same resolver names the Surface a click opens, so the caption,
@@ -1960,58 +2122,56 @@ function NavTree({
         // (`navPayloadOf` leaves exactly these entries out), and an authored
         // label still renders verbatim.
         const untitled = node.label === undefined && navPayloadOf([node]).length === 0;
+        // objectui#7254 — a nav item with no declared label used to render an
+        // EMPTY row. It shows what it inherits (objectui#11196): its target's
+        // current label, else the target's internal name, which is the
+        // fallback #7254 chose. `surface?.name` stays for a label that is
+        // present but resolves to nothing (an empty map).
         const rowText = untitled ? tFormat('engine.appNav.item', locale, { n: i + 1 }) : labelText || surface?.name || '';
-        // Icon precedence: the nav item's own `icon` (honoured — it was ignored
-        // before), then an object surface's own metadata icon, then the
-        // type-generic fallback.
+        // Icon precedence: the nav item's own `icon`, then an object surface's
+        // own metadata icon, then the type-generic fallback.
         const objIcon = surface?.type === 'object' ? objectIcons?.[surface.name] : undefined;
         const Icon: React.ElementType = node.icon ? getIcon(node.icon) : objIcon ? getIcon(objIcon) : navIcon(node.type);
         // objectui#11774 — the ENTRY is active, not every entry of its target:
         // compared by nav id when both carry one (see `isSameSurface`).
         const isActive = !!surface && !!active && isSameSurface(active, surface);
+        const kind = navKindName(node, locale);
         return (
-          <button type="button"
+          <StudioRailRow
             key={node.id ?? i}
             onClick={() => surface && onPick(surface)}
             disabled={!surface}
+            active={isActive}
+            indent={depth > 0}
+            // objectui#11862 — the label is what the row says; the machine
+            // name is the secondary information, on the tooltip with the type.
             title={surface ? `${surface.type} · ${surface.name}` : rowText || undefined}
-            className={
-              'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs disabled:opacity-40 ' +
-              (isActive ? 'bg-muted font-medium' : 'text-foreground/90 hover:bg-muted/60')
+            className="disabled:opacity-40"
+            icon={<Icon className="h-4 w-4 shrink-0" />}
+            trailing={
+              <>
+                {/* objectui#11791 — the spec's `badge` / `badgeVariant`, drawn
+                    when the sidebar row draws them (a present `badge`, a count
+                    `0` included) with the same `Badge` and the same variant: an
+                    absent `badgeVariant` is `Badge`'s own default, which is the
+                    sidebar's. On every leaf, a disabled one too; never on a
+                    group heading, where the sidebar draws none. Before the kind
+                    tag, so the pill sits beside the text it qualifies. */}
+                {node.badge != null && (
+                  <Badge variant={node.badgeVariant} className="shrink-0 px-1.5 py-0 text-[10px]">
+                    {node.badge}
+                  </Badge>
+                )}
+                {kind && (
+                  <span className="shrink-0 text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+                    {kind}
+                  </span>
+                )}
+              </>
             }
           >
-            <Icon className="h-3.5 w-3.5 shrink-0" />
-            {/* objectui#7254 — a nav item with no declared label used to render
-                an EMPTY row. It now shows what it inherits (objectui#11196): its
-                target's current label, else the target's internal name, which
-                is the fallback #7254 chose. `surface?.name` stays for a label
-                that is present but resolves to nothing (an empty map).
-                objectui#11862 — the label is the primary text and the target's
-                machine name the secondary text, shown when the two differ. */}
-            <StudioNameLabel label={rowText} name={surface?.name} />
-            {/* objectui#11791 — the spec's `badge` / `badgeVariant`, drawn when
-                the sidebar row draws them (a present `badge`, a count `0`
-                included) with the same `Badge` and the same variant: an absent
-                `badgeVariant` is `Badge`'s own default, which is the
-                sidebar's. On every leaf, a disabled one too, as the sidebar
-                draws it on every entry it draws; never on a group heading,
-                where the sidebar draws none. Before the label's kind chip, so
-                the pill sits beside the text it qualifies. */}
-            {node.badge != null && (
-              <Badge variant={node.badgeVariant} className="shrink-0 px-1.5 py-0 text-[10px]">
-                {node.badge}
-              </Badge>
-            )}
-            {surface && surface.type !== 'page' && (
-              // The kind chip was the raw English metadata type in an otherwise
-              // localized rail. `uppercase` is dropped with it: it is a
-              // Latin-script affordance that does nothing for CJK and mangles
-              // nothing else only by luck.
-              <span className="text-[9px] tracking-wide text-muted-foreground/60">
-                {translateMetadataType(surface.type, locale)}
-              </span>
-            )}
-          </button>
+            {rowText}
+          </StudioRailRow>
         );
       })}
     </>
@@ -2097,6 +2257,7 @@ export function StudioNavItemInspector({
   // The console's own resolver for what a label-less entry inherits.
   const targetLabel = useNavTargetLabel();
   const typeGroupName = React.useId();
+  const iconFieldId = React.useId();
   const idx = React.useMemo(() => {
     const m = /^navigation\[(\d+)\]$/.exec(navId);
     return m ? Number(m[1]) : -1;
@@ -2354,13 +2515,55 @@ export function StudioNavItemInspector({
       ) : (
         <p className="text-[11px] text-muted-foreground">{t('engine.inspector.appNav.separatorHint', locale)}</p>
       )}
-      <button
-        type="button"
-        onClick={onClear}
-        className="text-[11px] text-muted-foreground underline-offset-2 hover:underline"
-      >
-        {t('engine.studio.deselect', locale)}
-      </button>
+      {navEntryOffersField(kind, 'icon') && (
+        // objectui#12455 — the entry's own `icon`, a Lucide name, as the rail
+        // and the running sidebar draw it, picked from the catalog with the
+        // console's icon picker (a preview beside the name). Clearing it
+        // removes the key (the rail then falls back to the target's icon),
+        // never writes `''`.
+        <div>
+          <label htmlFor={iconFieldId} className="mb-1 block text-[11px] font-medium text-muted-foreground">
+            {t('engine.studio.nav.icon', locale)}
+          </label>
+          <IconPickerWidget
+            id={iconFieldId}
+            schema={{ type: 'string' }}
+            value={str(node.icon)}
+            onChange={(v) => setTarget('icon', typeof v === 'string' ? v : '')}
+          />
+        </div>
+      )}
+      {node.visible !== undefined && (
+        // objectui#12455 — the entry's `visible` predicate, shown as authored:
+        // read here, written where the app's metadata is written.
+        <div>
+          <span className="mb-1 block text-[11px] font-medium text-muted-foreground">{t('engine.studio.nav.visibleWhen', locale)}</span>
+          <p className="break-all rounded border bg-muted/40 px-2 py-1.5 font-mono text-xs" data-testid="nav-visible-when">
+            {typeof node.visible === 'string' ? node.visible : JSON.stringify(node.visible)}
+          </p>
+        </div>
+      )}
+      <div className="flex items-center justify-between gap-2 border-t pt-3">
+        <button
+          type="button"
+          data-testid="nav-remove-item"
+          onClick={() => {
+            onNavPatch({ navigation: nav.filter((_, i) => i !== idx) });
+            onClear();
+          }}
+          className="inline-flex h-7 items-center gap-1.5 rounded-md border border-destructive/40 px-2.5 text-xs text-destructive hover:bg-destructive/10"
+        >
+          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+          {t('engine.appNav.removeItem', locale)}
+        </button>
+        <button
+          type="button"
+          onClick={onClear}
+          className="text-[11px] text-muted-foreground underline-offset-2 hover:underline"
+        >
+          {t('engine.studio.deselect', locale)}
+        </button>
+      </div>
     </div>
   );
 }
@@ -2971,9 +3174,23 @@ export function InterfacesPillar({
     () => Object.fromEntries(pkgObjects.map((o) => [o.name, o.icon])),
     [pkgObjects],
   );
+  // objectui#12508 — the package's draft-only objects (a pending draft, no
+  // published row), stamped with the publish they were read under: the
+  // list-view buffer skips `/layers` for a view of one of them.
+  const [draftOnlyObjects, setDraftOnlyObjects] = React.useState<DraftOnlyObjects | null>(null);
+  // objectui#12508 — the same names for the canvas: an answer read under an
+  // earlier publish is pending, never used.
+  const canvasDraftOnly = React.useMemo<StudioCanvasDraftOnlyObjects>(
+    () =>
+      draftOnlyObjects && draftOnlyObjects.publishNonce === publishNonce
+        ? { status: 'known', names: draftOnlyObjects.names }
+        : { status: 'pending' },
+    [draftOnlyObjects, publishNonce],
+  );
 
   React.useEffect(() => {
     let cancelled = false;
+    const readUnder = publishNonce;
     (async () => {
       try {
         const [pub, drafts] = await Promise.all([
@@ -2989,8 +3206,18 @@ export function InterfacesPillar({
           byName.set(name, { name, label: String(o.label ?? o.name ?? name), icon: o.icon ? String(o.icon) : undefined });
         }
         setPkgObjects([...byName.values()]);
+        const publishedNames = new Set((pub || []).map((o) => String((o as Record<string, unknown>).name ?? '')));
+        const draftOnly = new Set<string>();
+        for (const d of drafts || []) {
+          const name = String((d as Record<string, unknown>).name ?? '');
+          if (name && !publishedNames.has(name)) draftOnly.add(name);
+        }
+        setDraftOnlyObjects({ publishNonce: readUnder, names: draftOnly });
       } catch {
         /* non-fatal — picker just stays empty */
+        // objectui#12508 — and no name is known draft-only, so the canvas
+        // renders the records grid as it did before, rather than wait.
+        if (!cancelled) setDraftOnlyObjects({ publishNonce: readUnder, names: new Set() });
       }
     })();
     return () => {
@@ -3272,6 +3499,10 @@ export function InterfacesPillar({
   // objectui#5813 — a local dirty flag so auto-save only arms after a real
   // edit, never on the load-effect's own setDraft.
   const [ifDirty, setIfDirty] = React.useState(false);
+  // objectui#12522 — when this pillar's own save last landed a leaf's draft,
+  // stamped with the leaf it saved, so it reads for that leaf only and expires
+  // by construction when another leaf opens. A source page's editor says it.
+  const [leafSavedAt, setLeafSavedAt] = React.useState<{ key: string; at: Date } | null>(null);
   const onPatch = React.useCallback(
     (patch: Record<string, unknown>) => {
       setDraft((d) => ({ ...d, ...patch }));
@@ -3291,6 +3522,7 @@ export function InterfacesPillar({
       // objectui#11773 — the author chose the saved version; the load replaces the buffer.
       if (outcome === 'reloaded') return;
       setHasDraft(true);
+      setLeafSavedAt({ key: leafKeyOf(current), at: new Date() });
       // objectui#11204 — clean only if nothing was edited while it was in flight.
       if (sent.unmoved()) setIfDirty(false);
       onDraftSaved?.();
@@ -3330,7 +3562,7 @@ export function InterfacesPillar({
   // objectui#11823 — an `object` leaf's list view: the third buffer, edited in
   // the Properties panel and shown on the canvas, autosaved to the package
   // draft like the other two. Blocked on `readOnly` like them.
-  const listView = useObjectListViewDraft({ client, packageId, leaf: current, publishNonce, onDraftSaved });
+  const listView = useObjectListViewDraft({ client, packageId, leaf: current, publishNonce, draftOnlyObjects, onDraftSaved });
   useDraftAutoSave({
     target: listView.targetKey,
     loadedFor: listView.loadedFor,
@@ -3450,6 +3682,30 @@ export function InterfacesPillar({
     setPageKind(DEFAULT_PAGE_SOURCE_KIND);
     setCreateKind(kind);
   }, []);
+  // objectui#12455 — the "+" kind picker's other kinds: the entry is added
+  // where "Add nav item" adds one (the end of the top level, an id minted the
+  // way `AppNavCanvas` mints it), born with no label (objectui#11196) and, for
+  // a kind with a target, unbound until the inspector picks one: the save
+  // leaves it out until then and the editor keeps it in its place
+  // (`navPayloadOf`, objectui#11776). A group is born with the empty list its
+  // member requires. Nav editing opens on it, so the inspector beside the
+  // canvas edits it and the nav autosave sends it.
+  const addNavEntry = React.useCallback(
+    (kind: NavigationItemType) => {
+      if (readOnly || !appName) return;
+      const navigation = Array.isArray(appDraft.navigation) ? (appDraft.navigation as NavNode[]) : [];
+      const taken = new Set(navigation.map((n) => (typeof n.id === 'string' ? n.id : '')).filter(Boolean));
+      let id = `nav_item_${navigation.length + 1}`;
+      for (let n = navigation.length + 2; taken.has(id); n++) id = `nav_item_${n}`;
+      const entry: NavNode = kind === 'group' ? { id, type: 'group', children: [] } : { id, type: kind };
+      onNavPatch({ navigation: [...navigation, entry] });
+      setEditNav(true);
+      setNavSel({ kind: 'nav', id: `navigation[${navigation.length}]` });
+      setInspectorCollapsed(false);
+      if (isMobile) setRailOpen(false);
+    },
+    [readOnly, appName, appDraft, onNavPatch, setInspectorCollapsed, isMobile],
+  );
   const doCreateSurface = React.useCallback(
     async (
       kind: InterfaceCreateKind,
@@ -3564,52 +3820,163 @@ export function InterfacesPillar({
     !StudioCanvas &&
     !isSourcePage &&
     !!Preview;
+  // objectui#12455 — the nav entry the open leaf came from, at any depth: the
+  // header names it by its kind and its icon, as the rail row does.
+  const currentNavId = current?.navId;
+  const currentNavEntry = React.useMemo(() => {
+    if (!currentNavId) return null;
+    const find = (nodes: NavNode[]): NavNode | null => {
+      for (const node of nodes) {
+        if (node.id === currentNavId) return node;
+        if (Array.isArray(node.children)) {
+          const hit = find(node.children);
+          if (hit) return hit;
+        }
+      }
+      return null;
+    };
+    return find(navTree);
+  }, [currentNavId, navTree]);
+  // objectui#12522 — a source page's Properties tab lists the navigation entries
+  // that open it: a read of the tree this pillar already holds, every `page`
+  // entry whose target is this page, at any depth, named as the rail names it
+  // and with the groups it sits in.
+  const currentPageName = isSourcePage ? current?.name : undefined;
+  const sourcePageNavEntries = React.useMemo<SourcePageNavEntry[]>(() => {
+    if (!currentPageName) return [];
+    const out: SourcePageNavEntry[] = [];
+    const walk = (nodes: NavNode[], trail: string[]) => {
+      for (const node of nodes) {
+        const text = navEntryLabelText(node as NavEntryLike, locale, targetLabel);
+        if (node.type === 'page' && (node as { pageName?: unknown }).pageName === currentPageName) {
+          out.push({ id: String(node.id), label: text, trail });
+        }
+        if (Array.isArray(node.children)) walk(node.children, [...trail, text]);
+      }
+    };
+    walk(navTree, []);
+    return out;
+  }, [currentPageName, navTree, locale, targetLabel]);
+  // objectui#12522 — the one-line status under a source page's editor: the
+  // pillar's own dirty flag and the time its last save of this leaf landed.
+  // A clean buffer nothing was saved from in this visit is the stored draft
+  // (or the published page) as it was read: saved, with no time to give.
+  const displayLocale = useDisplayLocale();
+  const leafSavedTime = leafSavedAt && leafSavedAt.key === leafKey ? leafSavedAt.at : null;
+  const sourcePageStatusEl =
+    isSourcePage && !readOnly ? (
+      <div
+        className="shrink-0 border-t px-3 py-1.5 text-[11px] text-muted-foreground"
+        data-testid="source-page-status"
+        data-state={ifDirty || saving === 'draft' ? 'unsaved' : 'saved'}
+        aria-live="polite"
+      >
+        {ifDirty || saving === 'draft'
+          ? t('engine.studio.if.pageUnsaved', locale)
+          : leafSavedTime
+            ? tFormat('engine.studio.if.pageSavedAt', locale, {
+                time: leafSavedTime.toLocaleTimeString(displayLocale, { hour: '2-digit', minute: '2-digit' }),
+              })
+            : t('engine.studio.if.pageSaved', locale)}
+      </div>
+    ) : null;
   // objectui#12459 — the item header inside the content column. objectui#7254:
   // the entry's label with its translated KIND beside it; the internal
-  // `type · name` pair stays on the tooltip. objectui#11196: with no label
-  // declared the header shows what the entry inherits, as the rail does.
-  // The Design ⇄ Run switch (objectui#5800) and the properties toggle sit in
-  // the actions slot; the breadcrumb band above the rail retires.
-  const canvasModeToggleEl = (
-    <>
-        {!StudioCanvas && (
-        <div className="inline-flex items-center gap-0.5 rounded-lg bg-muted p-1" data-testid="canvas-mode-toggle">
-          <button
-            type="button"
-            onClick={() => setCanvasMode('design')}
-            aria-pressed={designing}
-            className={
-              'rounded-md px-2.5 py-0.5 text-[11px] transition-all ' +
-              (designing ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')
-            }
-          >
-            {t('engine.studio.if.modeDesign', locale)}
-          </button>
-          <button
-            type="button"
-            onClick={() => setCanvasMode('run')}
-            aria-pressed={!designing}
-            className={
-              'rounded-md px-2.5 py-0.5 text-[11px] transition-all ' +
-              (!designing ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')
-            }
-          >
-            {t('engine.studio.if.modeRun', locale)}
-          </button>
-        </div>
-        )}
-    </>
+  // `type · name` pair stays on the tooltip, so the header carries no api
+  // chip. objectui#11196: with no label declared the header shows what the
+  // entry inherits, as the rail does.
+  // objectui#12455 — the Design ⇄ Run switch (objectui#5800) is a 26 px
+  // segmented control with its glyphs, then a divider and the properties
+  // toggle, which says whether the aside is open (`aria-pressed`) and is the
+  // one control that opens and closes it in this layout.
+  // objectui#12522 — a source page has no designer chrome: Design and Run draw
+  // the same live preview, so the switch is offered disabled, and its reason
+  // rides the objectui#12303 pattern (a wrapper that is the tooltip trigger and
+  // a tab stop, with a visually hidden copy both point `aria-describedby` at).
+  const sourceModeReasonId = React.useId();
+  const sourceModeReason = isSourcePage
+    ? tFormat('engine.studio.if.modeSourcePage', locale, {
+        kind:
+          sourcePageKind === 'react'
+            ? t('engine.studio.interfaces.create.pageKindReact', locale)
+            : t('engine.studio.interfaces.create.pageKindHtml', locale),
+      })
+    : '';
+  const canvasModeSwitch = (
+    <div
+      className={cn(
+        'inline-flex h-[26px] items-center rounded-md border bg-muted/40 p-0.5',
+        isSourcePage && 'opacity-60',
+      )}
+      data-testid="canvas-mode-toggle"
+      data-disabled={isSourcePage ? '' : undefined}
+    >
+      <button
+        type="button"
+        onClick={() => setCanvasMode('design')}
+        aria-pressed={designing}
+        disabled={isSourcePage}
+        aria-describedby={isSourcePage ? sourceModeReasonId : undefined}
+        className={
+          'inline-flex h-5 items-center gap-1 rounded px-2 text-xs transition-all disabled:pointer-events-none ' +
+          (designing ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')
+        }
+      >
+        <Pencil className="h-3 w-3" aria-hidden="true" />
+        {t('engine.studio.if.modeDesign', locale)}
+      </button>
+      <button
+        type="button"
+        onClick={() => setCanvasMode('run')}
+        aria-pressed={!designing}
+        disabled={isSourcePage}
+        aria-describedby={isSourcePage ? sourceModeReasonId : undefined}
+        className={
+          'inline-flex h-5 items-center gap-1 rounded px-2 text-xs transition-all disabled:pointer-events-none ' +
+          (!designing ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')
+        }
+      >
+        <Play className="h-3 w-3" aria-hidden="true" />
+        {t('engine.studio.if.modeRun', locale)}
+      </button>
+    </div>
   );
-  const ifHeaderIcon = !current
+  const canvasModeToggleEl = StudioCanvas ? null : isSourcePage ? (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            tabIndex={0}
+            aria-describedby={sourceModeReasonId}
+            data-disabled-reason=""
+            className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            {canvasModeSwitch}
+            <span id={sourceModeReasonId} className="sr-only" data-testid="canvas-mode-reason">
+              {sourceModeReason}
+            </span>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>{sourceModeReason}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  ) : (
+    canvasModeSwitch
+  );
+  const ifHeaderIcon: React.ElementType | undefined = !current
     ? undefined
-    : current.type === 'dashboard'
-      ? LayoutDashboard
-      : current.type === 'report'
-        ? BarChart3
-        : current.type === 'page'
-          ? FileText
-          : Boxes;
+    : currentNavEntry?.icon
+      ? getIcon(currentNavEntry.icon)
+      : current.type === 'object' && objectIconMap[current.name]
+        ? getIcon(objectIconMap[current.name] as string)
+        : navIcon(currentNavEntry?.type ?? current.type);
+  const ifKindName = current ? navKindName(currentNavEntry ?? { type: current.type }, locale) || translateMetadataType(current.type, locale) : '';
   const ifInternalId = current ? `${t('engine.studio.if.internalId', locale)}: ${current.type} · ${current.name}` : undefined;
+  // objectui#12455 — an object entry's structure is the Data pillar's: the
+  // header offers to open it there, through the host's surface channel (no
+  // channel, no chip: the hint under the tab row still names the pillar).
+  const openSurface = useSurfaceNavigator();
+  const isObjectLeaf = current?.type === 'object';
   const ifHeaderEl = (
     <StudioItemHeader
       testId="if-item-header"
@@ -3628,7 +3995,7 @@ export function InterfacesPillar({
         current ? (
           <>
             {current.label || current.name}
-            <span className="sr-only"> · {translateMetadataType(current.type, locale)}</span>
+            <span className="sr-only"> · {ifKindName}</span>
           </>
         ) : (
           navItemLabelText(appLabel, locale)
@@ -3643,7 +4010,7 @@ export function InterfacesPillar({
         current ? (
           <span className={STUDIO_KIND_CHIP} data-testid="if-canvas-caption" title={ifInternalId}>
             <span className="sr-only">{current.label || current.name} · </span>
-            {translateMetadataType(current.type, locale)}
+            {ifKindName}
           </span>
         ) : undefined
       }
@@ -3661,19 +4028,55 @@ export function InterfacesPillar({
               {t('engine.studio.autoSaving', locale)}
             </span>
           )}
-          {canvasModeToggleEl}
-          {!foldInspector && inspectorCollapsed && (
+          {readOnly && (
+            <StudioReadOnlyLink packageId={packageId} title={t('engine.studio.pkg.readonlyHint', locale)} locale={locale} />
+          )}
+          {isObjectLeaf && openSurface && current && (
             <button
               type="button"
-              onClick={() => setInspectorCollapsed(false)}
-              className={STUDIO_HEADER_ICON_BUTTON}
-              aria-label={t('engine.studio.inspector.expand', locale)}
-              title={t('engine.studio.inspector.props', locale)}
+              data-testid="if-open-in-data"
+              onClick={() => openSurface({ type: 'object', name: current.name })}
+              className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border bg-background px-2.5 text-xs text-foreground hover:bg-muted"
             >
-              <PanelRightOpen className="h-4 w-4" />
+              <Database className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+              {t('engine.studio.if.openInData', locale)}
             </button>
           )}
+          {canvasModeToggleEl}
+          {canCollapseInspector && (
+            <>
+              <span className="mx-0.5 h-5 w-px shrink-0 bg-border" aria-hidden="true" />
+              <button
+                type="button"
+                data-testid="if-properties-toggle"
+                onClick={() => setInspectorCollapsed(!inspectorCollapsed)}
+                aria-pressed={!inspectorCollapsed}
+                className={cn(STUDIO_HEADER_ICON_BUTTON, !inspectorCollapsed && 'bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary')}
+                aria-label={t(inspectorCollapsed ? 'engine.studio.inspector.expand' : 'engine.studio.inspector.collapse', locale)}
+                title={t(inspectorCollapsed ? 'engine.studio.inspector.expand' : 'engine.studio.inspector.collapse', locale)}
+              >
+                {inspectorCollapsed ? <PanelRightOpen className="h-4 w-4" /> : <PanelRightClose className="h-4 w-4" />}
+              </button>
+            </>
+          )}
         </>
+      }
+      tabs={
+        current ? (
+          <>
+            {/* objectui#12455 — the canvas is the one view of an entry here; an
+                object entry's is the running list, so its tab says Preview
+                and the line beside it says where the structure is edited. */}
+            <StudioTab active data-testid="if-tab-canvas">
+              {t(isObjectLeaf ? 'engine.studio.if.tabPreview' : 'engine.studio.if.tabCanvas', locale)}
+            </StudioTab>
+            {!isEditable && isObjectLeaf ? (
+              <p className="ml-auto flex min-w-0 items-center gap-1 self-center truncate pl-3 text-xs text-muted-foreground">
+                {t('engine.studio.if.objectHintPre', locale)}<span className="font-medium">{t('engine.studio.pillar.data', locale)}</span>{t('engine.studio.if.objectHintPost', locale)}
+              </p>
+            ) : null}
+          </>
+        ) : undefined
       }
     />
   );
@@ -3765,9 +4168,13 @@ export function InterfacesPillar({
           // them (`StudioCanvasPreviewProps` is a published face): the default
           // object canvas previews the entry's slice or named view.
           // objectui#11823 — and so does the list view the panel is editing.
+          // objectui#12508 — and the package's draft-only objects, which have
+          // no runtime yet: the default canvas shows them as not published.
           <StudioCanvasNavEntryContext.Provider value={canvasNavEntry}>
             <StudioCanvasListViewContext.Provider value={listView.canvas}>
-              <StudioCanvas type={current.type} name={current.name} draft={draft} locale={locale} />
+              <StudioCanvasDraftOnlyObjectsContext.Provider value={canvasDraftOnly}>
+                <StudioCanvas type={current.type} name={current.name} draft={draft} locale={locale} />
+              </StudioCanvasDraftOnlyObjectsContext.Provider>
             </StudioCanvasListViewContext.Provider>
           </StudioCanvasNavEntryContext.Provider>
         ) : isSourcePage ? (
@@ -3802,14 +4209,27 @@ export function InterfacesPillar({
           </div>
         )}
       </div>
-      {!isEditable && current?.type === 'object' ? (
-        <p className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground">
-          <Database className="h-3 w-3" /> {t('engine.studio.if.objectHintPre', locale)}<span className="font-medium">{t('engine.studio.pillar.data', locale)}</span>{t('engine.studio.if.objectHintPost', locale)}
-        </p>
-      ) : null}
     </main>
   );
 
+  // objectui#12455 — while a nav entry is open in the inspector, the aside
+  // names it as the shared aside names anything: "Nav item · Kind", the
+  // entry's label (what it inherits when it declares none), and its nav id.
+  // Top-level entries only, as `StudioNavItemInspector` edits only those.
+  const navInspectorHead = React.useMemo(() => {
+    if (!editNav || !navSel) return null;
+    const m = /^navigation\[(\d+)\]$/.exec(navSel.id);
+    const node = m ? navTree[Number(m[1])] : undefined;
+    if (!node) return null;
+    const untitled = node.label === undefined && navPayloadOf([node]).length === 0;
+    return {
+      eyebrow: tFormat('engine.studio.nav.eyebrow', locale, { kind: navKindName(node, locale) }),
+      title: untitled
+        ? tFormat('engine.appNav.item', locale, { n: Number(m![1]) + 1 })
+        : navEntryLabelText(node, locale, targetLabel) || undefined,
+      id: typeof node.id === 'string' ? node.id : undefined,
+    };
+  }, [editNav, navSel, navTree, locale, targetLabel]);
   const inspectorHeaderEl = (
     <header className="flex shrink-0 items-center gap-2 border-b bg-background/95 px-3 py-2">
       <SlidersHorizontal className="h-3.5 w-3.5" />
@@ -3939,14 +4359,17 @@ export function InterfacesPillar({
         // empty state pointing back at Source).
         // objectui#11136 — the editor's own read-only contract ("onPatch:
         // undefined in read-only mode"), fed by the pillar's real flag.
-        <div className="mt-2 min-h-0 flex-1 border-t">
-          <SourcePageEditor
-            mode="editor"
-            draft={draft}
-            onPatch={readOnly ? undefined : onPatch}
-            readOnly={readOnly}
-            locale={locale}
-          />
+        <div className="mt-2 flex min-h-0 flex-1 flex-col border-t">
+          <div className="min-h-0 flex-1">
+            <SourcePageEditor
+              mode="editor"
+              draft={draft}
+              onPatch={readOnly ? undefined : onPatch}
+              readOnly={readOnly}
+              locale={locale}
+            />
+          </div>
+          {sourcePageStatusEl}
         </div>
       ) : (
       <Tabs
@@ -3962,22 +4385,31 @@ export function InterfacesPillar({
             {t('engine.studio.inspector.tabProps', locale)}
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="source" className="mt-2 min-h-0 flex-1 border-t">
-          <SourcePageEditor
-            mode="editor"
-            draft={draft}
-            onPatch={readOnly ? undefined : onPatch}
-            readOnly={readOnly}
-            locale={locale}
-          />
-        </TabsContent>
-        <TabsContent value="props" className="mt-0 min-h-0 flex-1 overflow-auto p-3">
-          <div className="flex flex-col items-center gap-2 px-2 py-10 text-center text-xs text-muted-foreground">
-            <Code2 className="h-5 w-5" />
-            {tFormat('engine.studio.inspector.sourcePageLine1', locale, { kind: sourcePageKind! })}
-            <br />
-            {t('engine.studio.inspector.sourcePageLine2', locale)}
+        {/* objectui#12522 — the editor fills the tab, its status line under it. */}
+        <TabsContent value="source" className="mt-2 min-h-0 flex-1 flex-col border-t data-[state=active]:flex">
+          <div className="min-h-0 flex-1">
+            <SourcePageEditor
+              mode="editor"
+              draft={draft}
+              onPatch={readOnly ? undefined : onPatch}
+              readOnly={readOnly}
+              locale={locale}
+            />
           </div>
+          {sourcePageStatusEl}
+        </TabsContent>
+        {/* objectui#12522 — what the page IS, for a page with no block tree. */}
+        <TabsContent value="props" className="mt-0 min-h-0 flex-1 overflow-auto p-3">
+          {current && (
+            <SourcePageProperties
+              draft={draft}
+              name={current.name}
+              navEntries={sourcePageNavEntries}
+              onPatch={readOnly ? undefined : onPatch}
+              readOnly={readOnly}
+              locale={locale}
+            />
+          )}
         </TabsContent>
       </Tabs>
       )
@@ -4102,34 +4534,54 @@ export function InterfacesPillar({
           heading={tFormat('engine.studio.if.navHeading', locale, { app: navItemLabelText(appLabel, locale) })}
           headerExtra={
             <>
-              {/* objectui#11823 (steps 2 and 3) — New dashboard / report /
-                  page: an app to link it from, a writable package, nav editing
-                  closed (see `doCreateSurface`). */}
+              {/* objectui#12455 — the "+" offers every kind of nav entry the
+                  spec declares (`NAV_ENTRY_TYPES`, pinned by objectui#11790),
+                  each with its glyph, name and one line on what it opens. A
+                  page, a dashboard or a report continues into today's create
+                  flow (objectui#11823 steps 2 and 3: the item's draft and the
+                  entry that links it); every other kind adds its entry,
+                  unbound where it has a target, and opens it in the nav-item
+                  inspector. Offered while nav editing is closed and the
+                  package is writable, as the create flow always was. */}
               {appStatus === 'ready' && !readOnly && !editNav && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
                       data-testid="if-create-menu"
-                      title={t('engine.studio.interfaces.create.menuTitle', locale)}
-                      className="ml-auto inline-flex shrink-0 items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-muted"
+                      aria-label={t('engine.studio.if.addMenuTitle', locale)}
+                      title={t('engine.studio.if.addMenuTitle', locale)}
+                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                     >
-                      <Plus className="h-3 w-3" /> {t('engine.studio.new', locale)}
+                      <Plus className="h-4 w-4" />
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem data-testid="if-create-dashboard" onSelect={() => openCreate('dashboard')}>
-                      <LayoutDashboard className="mr-2 h-3.5 w-3.5" />
-                      {t('engine.studio.interfaces.create.dashboard', locale)}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem data-testid="if-create-report" onSelect={() => openCreate('report')}>
-                      <BarChart3 className="mr-2 h-3.5 w-3.5" />
-                      {t('engine.studio.interfaces.create.report', locale)}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem data-testid="if-create-page" onSelect={() => openCreate('page')}>
-                      <FileText className="mr-2 h-3.5 w-3.5" />
-                      {t('engine.studio.interfaces.create.page', locale)}
-                    </DropdownMenuItem>
+                  <DropdownMenuContent align="start" className="w-[268px] p-1.5" data-testid="if-add-kind-menu">
+                    <DropdownMenuLabel className="px-2 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                      {t('engine.studio.if.addMenuTitle', locale)}
+                    </DropdownMenuLabel>
+                    {NAV_ENTRY_TYPES.map((kind) => {
+                      const KindIcon = navIcon(kind);
+                      const creates = kind === 'page' || kind === 'dashboard' || kind === 'report';
+                      return (
+                        <React.Fragment key={kind}>
+                          {kind === 'group' && <DropdownMenuSeparator />}
+                          <DropdownMenuItem
+                            data-testid={creates ? `if-create-${kind}` : `if-add-nav-${kind}`}
+                            onSelect={() => (creates ? openCreate(kind) : addNavEntry(kind))}
+                            className="items-start gap-2.5 px-2 py-1.5"
+                          >
+                            <KindIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                            <span className="flex min-w-0 flex-col">
+                              <span className="text-[13px] font-medium leading-tight">{navKindName({ type: kind }, locale)}</span>
+                              <span className="text-[11px] leading-snug text-muted-foreground">
+                                {t(`engine.studio.if.kindDesc.${kind}`, locale)}
+                              </span>
+                            </span>
+                          </DropdownMenuItem>
+                        </React.Fragment>
+                      );
+                    })}
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
@@ -4165,7 +4617,6 @@ export function InterfacesPillar({
               )}
             </>
           }
-          width={editNav ? 'w-72' : undefined}
           isMobile={isMobile}
           open={railOpen}
         >
@@ -4244,28 +4695,20 @@ export function InterfacesPillar({
             {inspectorCollapsed ? null : (
               <StudioInspector
                 testId="if-inspector"
-                eyebrow={t('engine.studio.inspector.props', locale)}
+                eyebrow={navInspectorHead?.eyebrow ?? t('engine.studio.inspector.props', locale)}
+                title={navInspectorHead?.title}
+                id={navInspectorHead?.id}
                 width={
                   isSourcePage && !(selection && Inspector && current) && !(editNav && navSel)
                     ? 'w-[24rem] xl:w-[30rem] 2xl:w-[36rem]'
                     : undefined
                 }
-                actions={
-                  canCollapseInspector ? (
-                    <button
-                      type="button"
-                      onClick={() => setInspectorCollapsed(true)}
-                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                      aria-label={t('engine.studio.inspector.collapse', locale)}
-                      title={t('engine.studio.inspector.collapse', locale)}
-                    >
-                      <PanelRightClose className="h-4 w-4" />
-                    </button>
-                  ) : undefined
-                }
-                onClose={selection && !StudioCanvas ? () => setSelection(null) : undefined}
+                // objectui#12455 — the header's properties toggle opens and
+                // closes the aside in this layout, so it carries no second one.
+                onClose={navInspectorHead ? () => setNavSel(null) : selection && !StudioCanvas ? () => setSelection(null) : undefined}
                 closeLabel={t('engine.studio.deselect', locale)}
-                footer={t('engine.studio.inspector.draftFooter', locale)}
+                // objectui#12453 — a read-only package saves no draft: no footer.
+                footer={readOnly ? null : t('engine.studio.inspector.draftFooter', locale)}
                 bodyClassName="flex min-h-0 flex-1 flex-col"
               >
                 {inspectorBodyEl}
@@ -4283,28 +4726,20 @@ export function InterfacesPillar({
             {inspectorCollapsed ? null : (
               <StudioInspector
                 testId="if-inspector"
-                eyebrow={t('engine.studio.inspector.props', locale)}
+                eyebrow={navInspectorHead?.eyebrow ?? t('engine.studio.inspector.props', locale)}
+                title={navInspectorHead?.title}
+                id={navInspectorHead?.id}
                 width={
                   isSourcePage && !(selection && Inspector && current) && !(editNav && navSel)
                     ? 'w-[24rem] xl:w-[30rem] 2xl:w-[36rem]'
                     : undefined
                 }
-                actions={
-                  canCollapseInspector ? (
-                    <button
-                      type="button"
-                      onClick={() => setInspectorCollapsed(true)}
-                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                      aria-label={t('engine.studio.inspector.collapse', locale)}
-                      title={t('engine.studio.inspector.collapse', locale)}
-                    >
-                      <PanelRightClose className="h-4 w-4" />
-                    </button>
-                  ) : undefined
-                }
-                onClose={selection && !StudioCanvas ? () => setSelection(null) : undefined}
+                // objectui#12455 — as in the classic layout: the header's
+                // properties toggle opens and closes this aside.
+                onClose={navInspectorHead ? () => setNavSel(null) : selection && !StudioCanvas ? () => setSelection(null) : undefined}
                 closeLabel={t('engine.studio.deselect', locale)}
-                footer={t('engine.studio.inspector.draftFooter', locale)}
+                // objectui#12453 — a read-only package saves no draft: no footer.
+                footer={readOnly ? null : t('engine.studio.inspector.draftFooter', locale)}
                 bodyClassName="flex min-h-0 flex-1 flex-col"
               >
                 {inspectorBodyEl}
@@ -4462,6 +4897,61 @@ export function renderStudioGridList(props: {
       className={className}
     />
   );
+}
+
+/**
+ * The form fields of an object definition's `fields`, in metadata order: the
+ * platform's injected-and-hidden fields (objectui#11780) and the audit fields
+ * dropped. Read for the draft (`formFields`) and the published baseline.
+ */
+function formFieldNames(fields: unknown): string[] {
+  return readFields(fields)
+    .entries.filter((e) => !isStudioHiddenSystemField(e.def))
+    .map((e) => e.name)
+    .filter((n) => !STUDIO_SYSTEM_FIELD_NAMES.has(n));
+}
+
+/** The data-source writes the Form tab's Preview refuses (objectui#12515). */
+const PREVIEW_REFUSED_WRITES = new Set<PropertyKey>(['create', 'update', 'delete', 'bulk', 'bulkUpdate', 'bulkDelete']);
+
+/**
+ * objectui#12515 — the data source the Form tab's Preview hands the runtime
+ * `ObjectForm`, the same renderer the app's record form uses.
+ *
+ * The form reads the object's definition only through
+ * `dataSource.getObjectSchema(name)`. With `draft` given, that read answers for
+ * the open object from the pillar's buffer (the draft as served, plus the
+ * edits not yet saved), so a draft-only object previews without a server read
+ * and a published one previews its pending change. Every other read (another
+ * object's definition, a lookup's options) goes to the real adapter.
+ *
+ * Preview never saves: the writes in `PREVIEW_REFUSED_WRITES` reject, in the
+ * Draft and the Published preview alike.
+ */
+function formPreviewSource(
+  adapter: object | null,
+  draft: { name: string; definition: Record<string, unknown> } | null,
+): object | null {
+  // No adapter, no data source: the form says so, as it does today.
+  if (!adapter) return null;
+  return new Proxy(adapter, {
+    get(target, prop) {
+      if (PREVIEW_REFUSED_WRITES.has(prop)) {
+        return () => Promise.reject(new Error('The form preview does not save.'));
+      }
+      if (draft && prop === 'getObjectSchema') {
+        const read = Reflect.get(target, prop, target) as ((name: string) => Promise<unknown>) | undefined;
+        return (name: string) =>
+          name === draft.name
+            ? Promise.resolve(structuredClone({ ...draft.definition, name: draft.name }))
+            : read
+              ? read.call(target, name)
+              : Promise.reject(new Error(`No definition for "${name}".`));
+      }
+      const value = Reflect.get(target, prop, target);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
 }
 
 // Exported for tests (StudioDesignSurface.emptyPackage.test.tsx) — the empty-
@@ -4624,9 +5114,17 @@ export function DataPillar({
   // Within the Form view: Layout (WYSIWYG drag/section designer) ⇄ Preview
   // (live form).
   const [formMode, setFormMode] = React.useState<'layout' | 'preview'>('layout');
+  // objectui#12515 — which definition Preview renders when the object has a
+  // published version AND a pending change: the draft (the default) or the
+  // published one. Without a published version only the draft exists.
+  const [previewSource, setPreviewSource] = React.useState<'draft' | 'published'>('draft');
   // Tracks which object's baseline is currently loaded — so we (re)load exactly
   // once per selected object and never clobber an in-progress draft.
   const loadedNameRef = React.useRef<string | null>(null);
+  // objectui#12508 — the names the package's published list answered at the
+  // rail's last read; `null` until it has answered. The object load below
+  // reads it to tell a draft-only object from a published one.
+  const publishedObjectNamesRef = React.useRef<ReadonlySet<string> | null>(null);
   // objectui#11773 — the version `objDraft` was saved at, sent as `If-Match` by
   // every save of this buffer (the autosave and the column reorder). A
   // conflict's "reload" re-runs the load below for the open object.
@@ -4666,6 +5164,10 @@ export function DataPillar({
    * is the wrong source for a projection even after a successful save.
    */
   const [publishedFieldNames, setPublishedFieldNames] = React.useState<Set<string>>(new Set());
+  // objectui#12515 — the Published preview's field list: the published
+  // definition's own form fields, in its order. Set where the load installs the
+  // baseline, so its identity changes only with it (see `formFields`).
+  const [publishedFormFields, setPublishedFormFields] = React.useState<string[]>([]);
   // The package's object-name namespace (framework#2694). New objects are
   // auto-prefixed with `<namespace>_` so an author can never draft a prefix-less
   // object that publish would later reject (code NAMESPACE_PREFIX).
@@ -4736,6 +5238,7 @@ export function DataPillar({
           .map((o) => ({ type: 'object', name: String(o.name ?? ''), label: String(o.label ?? o.name ?? ''), icon: o.icon ? String(o.icon) : undefined }))
           .filter((o) => o.name);
         const known = new Set(items.map((o) => o.name));
+        publishedObjectNamesRef.current = new Set(known);
         for (const d of draftHeaders) {
           if (d.name && !known.has(d.name)) {
             items.push({ type: 'object', name: d.name, label: draftLabels.get(d.name) ?? d.name, icon: undefined });
@@ -4782,10 +5285,24 @@ export function DataPillar({
       try {
         // objectui#11773 — the draft is read at the address the object saves
         // write, so the version it serves pins the first of them.
-        const [layRaw, draftRead] = await Promise.all([
-          client.layered<Record<string, unknown>>('object', current.name),
-          readDraftForSave<Record<string, unknown>>(client, 'object', current.name, packageId),
-        ]);
+        const readLayers = () => client.layered<Record<string, unknown>>('object', current.name);
+        const readDraft = () => readDraftForSave<Record<string, unknown>>(client, 'object', current.name, packageId);
+        // objectui#12508 — a draft-only object (a pending draft, and no row in
+        // the package's published list) has no layer, and `/layers` answers
+        // 404 for it. So for a name the published list does not hold, the
+        // draft is read first and the layers only without one: a name
+        // published since the rail's read has no pending draft either, so it
+        // is still asked. A published name reads both at once, as before.
+        const publishedNames = publishedObjectNamesRef.current;
+        let layRaw: unknown;
+        let draftRead: Awaited<ReturnType<typeof readDraft>>;
+        if (publishedNames && !publishedNames.has(current.name)) {
+          draftRead = await readDraft();
+          if (cancelled) return;
+          layRaw = extractDraftBody(draftRead.answer) ? {} : await readLayers();
+        } else {
+          [layRaw, draftRead] = await Promise.all([readLayers(), readDraft()]);
+        }
         if (cancelled) return;
         const lay = layRaw as { effective?: Record<string, unknown>; code?: Record<string, unknown> };
         const baseline = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
@@ -4806,6 +5323,7 @@ export function DataPillar({
         // the editor and wrong for a `select`: a draft-only field is not a
         // column the data API can answer yet (see `gridColumns`).
         setPublishedFieldNames(new Set(readFields(baseline.fields).entries.map((e) => e.name)));
+        setPublishedFormFields(formFieldNames(baseline.fields));
       } catch (e) {
         if (!cancelled) setError(plainRefusal(e));
       } finally {
@@ -4914,14 +5432,23 @@ export function DataPillar({
    * `fields` identical, so the looser key would churn (and re-run the form's
    * field-generation effect) on every unrelated draft edit (icon, label).
    */
-  const formFields = React.useMemo(
+  const formFields = React.useMemo(() => formFieldNames(objDraft.fields), [objDraft.fields]);
+
+  // objectui#12515 — what the Form tab's Preview renders. The draft differs
+  // from the published definition when there is no published one, a pending
+  // draft, or an unsaved edit; then Preview shows the draft unless the author
+  // picked Published (offered only when a published version exists).
+  const draftDiffers = !hasBaseline || hasDraft || dirty;
+  const previewShowsDraft = !hasBaseline || (draftDiffers && previewSource === 'draft');
+  const previewDraft = previewShowsDraft ? objDraft : null;
+  const previewObjectName = current?.name ?? '';
+  const previewDataSource = React.useMemo(
     () =>
-      readFields(objDraft.fields)
-        // objectui#11780 — the same injected-and-hidden test as `gridColumns`.
-        .entries.filter((e) => !isStudioHiddenSystemField(e.def))
-        .map((e) => e.name)
-        .filter((n) => !STUDIO_SYSTEM_FIELD_NAMES.has(n)),
-    [objDraft.fields],
+      formPreviewSource(
+        adapter,
+        previewDraft ? { name: previewObjectName, definition: previewDraft } : null,
+      ),
+    [adapter, previewObjectName, previewDraft],
   );
 
   const onPatch = React.useCallback((patch: Record<string, unknown>) => {
@@ -5100,8 +5627,6 @@ export function DataPillar({
     { key: 'settings', label: t('engine.studio.data.tab.settings', locale) },
   ];
   const activeAdvancedTab = advancedDataTabs.find((tabDef) => tabDef.key === viewMode);
-  // The two views Add field serves; `addField` itself refuses the rest.
-  const addFieldOffered = Boolean(current) && (viewMode === 'grid' || viewMode === 'form') && !readOnly && objLoaded;
   // objectui#12450 — the Records grid draws flush with the content column.
   const recordsFlush = Boolean(current) && objLoaded && viewMode === 'grid' && hasBaseline;
   // objectui#12451 — so does the Form tab: its one toolbar row spans the
@@ -5127,10 +5652,11 @@ export function DataPillar({
         // disabled and the designer has no draggable at all (objectui#4036).
         // Say it only when it is true: real local edits, on a surface that can
         // save them. A read-only package is asked first: it has no draft layout
-        // at all, so neither draft caption is true of it (objectui#11781).
+        // at all, so neither draft caption is true of it (objectui#11781), and
+        // its read-only sentence is the header link's title (objectui#12453).
         title={
           readOnly
-            ? t('engine.studio.data.form.layoutBadgeReadOnly', locale)
+            ? undefined
             : dirty
               ? t('engine.studio.data.form.layoutBadge', locale)
               : t('engine.studio.data.form.layoutBadgeClean', locale)
@@ -5303,51 +5829,25 @@ export function DataPillar({
                     })}
                   </span>
                 ) : null}
-                {/* objectui#12450 — the header's two icon buttons. Object
-                    settings opens the Settings panel (a shortcut that still
-                    works when that tab is folded into Advanced); More holds
-                    Add field, which left the header row for it. Add field
-                    stays reachable from the grid's own "+" column and the form
-                    designer's button too. More is drawn only when it holds
-                    something: Add field is not offered on a read-only package,
-                    before the object loads, or on the five power panels. */}
-                {current && (
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => selectViewMode('settings')}
-                      aria-label={t('engine.studio.data.objectSettings', locale)}
-                      title={t('engine.studio.data.objectSettings', locale)}
-                      data-testid="data-object-settings"
-                      className={STUDIO_HEADER_ICON_BUTTON}
-                    >
-                      <Settings2 className="h-4 w-4" />
-                    </button>
-                    {addFieldOffered && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            type="button"
-                            aria-label={t('engine.studio.data.moreActions', locale)}
-                            title={t('engine.studio.data.moreActions', locale)}
-                            data-testid="data-object-more"
-                            className={STUDIO_HEADER_ICON_BUTTON}
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onSelect={addField}
-                            title={t('engine.studio.data.addFieldTitle', locale)}
-                            data-testid="data-object-add-field"
-                          >
-                            <Plus className="h-3.5 w-3.5" /> {t('engine.studio.data.addField', locale)}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </div>
+                {/* objectui#12511 — the header holds no actions of its own, so
+                    it reads the same on every tab. Object settings retired: the
+                    Settings tab is that control. Add field is a field action,
+                    offered where fields are laid out: the Form toolbar and the
+                    Records grid's own "+" column, both running `addField`. The
+                    More menu went with it, since the header has no object-level
+                    action left to put in one. */}
+                {/* objectui#12453 — on the Form tab it carries the layout's
+                    read-only sentence the Layout control no longer does. */}
+                {readOnly && (
+                  <StudioReadOnlyLink
+                    packageId={packageId}
+                    title={
+                      viewMode === 'form'
+                        ? t('engine.studio.data.form.layoutBadgeReadOnly', locale)
+                        : t('engine.studio.pkg.readonlyHint', locale)
+                    }
+                    locale={locale}
+                  />
                 )}
               </>
             }
@@ -5555,27 +6055,50 @@ export function DataPillar({
               <FormToolbar
                 leading={formModeControl}
                 hint={
-                  /* Preview renders the PUBLISHED definition on purpose: a draft with
-                   * structural changes has no physical columns yet (DDL lands at
-                   * publish), so a draft-with-data preview would break. Publishing is
-                   * a deliberate user action — say so instead of silently lying. */
-                  (dirty || hasDraft) && (
-                    <span className="inline-flex items-center gap-1 rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300">
-                      {t('engine.studio.data.form.previewWarn', locale)}
-                    </span>
-                  )
+                  /* objectui#12515 — Preview renders the runtime form from the draft
+                   * definition (the open object's buffer, unsaved edits included):
+                   * a create form reads no record, so a draft-only object needs no
+                   * table to preview. The chip says which definition is on screen;
+                   * the toggle appears only when a published version exists. */
+                  <>
+                    {previewShowsDraft && (
+                      <span
+                        data-testid="form-preview-draft-chip"
+                        title={t('engine.studio.data.form.draftChipTitle', locale)}
+                        className="inline-flex h-6 items-center rounded bg-primary/10 px-2 text-[11px] font-medium text-primary"
+                      >
+                        {t('engine.studio.data.form.draftChip', locale)}
+                      </span>
+                    )}
+                    {hasBaseline && draftDiffers && (
+                      <div
+                        role="group"
+                        aria-label={t('engine.studio.data.form.sourceLabel', locale)}
+                        data-testid="form-preview-source"
+                        className="inline-flex items-center gap-0.5 rounded-md bg-muted p-0.5"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setPreviewSource('draft')}
+                          aria-pressed={previewShowsDraft}
+                          className={formModeItem(previewShowsDraft)}
+                        >
+                          {t('engine.studio.data.form.sourceDraft', locale)}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewSource('published')}
+                          aria-pressed={!previewShowsDraft}
+                          className={formModeItem(!previewShowsDraft)}
+                        >
+                          {t('engine.studio.data.form.sourcePublished', locale)}
+                        </button>
+                      </div>
+                    )}
+                  </>
                 }
               />
               <div className="flex min-h-0 flex-1 flex-col overflow-auto bg-sidebar p-6">
-              {!hasBaseline ? (
-                /* Draft-only object: there is no published definition to preview yet. */
-                <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed bg-background text-center">
-                  <p className="text-sm font-medium">{t('engine.studio.data.form.noPublishedTitle', locale)}</p>
-                  <p className="max-w-md text-[11px] leading-5 text-muted-foreground">
-                    {t('engine.studio.data.form.noPublishedHint', locale)}
-                  </p>
-                </div>
-              ) : (
               <>
               {/* Form — the real runtime ObjectForm ("same renderer"): the object's
                 * form exactly as an end user sees it. Clicking any rendered field
@@ -5611,7 +6134,7 @@ export function DataPillar({
                     }
                   }}
                 >
-                  <SchemaRendererProvider dataSource={adapter as never}>
+                  <SchemaRendererProvider dataSource={previewDataSource as never}>
                     <ObjectForm
                       key={`${current.name}:${gridVer}:form`}
                       schema={
@@ -5623,16 +6146,17 @@ export function DataPillar({
                           // IDENTITY is a dependency of ObjectForm's field-generation
                           // effect, so rebuilding it inline here re-ran that effect on
                           // every keystroke-level render of the pillar (objectui#4574).
-                          fields: formFields,
+                          // The Published preview lists the published fields
+                          // (objectui#12515), set where the baseline loads.
+                          fields: previewShowsDraft ? formFields : publishedFormFields,
                         } as never
                       }
-                      dataSource={adapter as never}
+                      dataSource={previewDataSource as never}
                     />
                   </SchemaRendererProvider>
                 </div>
               </div>
               </>
-              )}
               </div>
               </>
               )}
@@ -5664,7 +6188,8 @@ export function DataPillar({
             id={fieldSel.id}
             onClose={() => setFieldSel(null)}
             closeLabel={t('engine.studio.close', locale)}
-            footer={t('engine.studio.inspector.draftFooter', locale)}
+            // objectui#12453 — a read-only package saves no draft: no footer.
+            footer={readOnly ? null : t('engine.studio.inspector.draftFooter', locale)}
             bodyClassName="flex min-h-0 flex-1 flex-col"
           >
             {(() => {
@@ -6502,6 +7027,25 @@ export function AutomationsPillar({
     }
   }, [saveFlowDraft, current, draft, draftPackageId, onDraftSaved, locale, readOnly, sendingFlowDraft]);
 
+  // The rail's "+" — and the empty block's button, which runs this same
+  // handler (objectui#12514). objectui#11553 — no "New" in the package-less
+  // scope: new authoring stays package-first, and this scope reaches flows
+  // that already exist without a package.
+  const openCreateFlow =
+    !readOnly && packageId !== null
+      ? () => {
+          setError(null);
+          setNewTrigger('');
+          setNewTriggerObject('');
+          setNewChoice(FLOW_PRESETS[0]);
+          setNewNeeds(null);
+          setCreating(true);
+        }
+      : undefined;
+  // objectui#12514 — a listed package with no flow: one centered block in the
+  // content column, and no aside while there is nothing to select.
+  const flowsEmpty = listed && !error && flows.length === 0;
+
   // The Configuration's body, in the aside beside the canvas or, on a folded
   // row, in the drawer over it (objectui#11795).
   const configBodyEl =
@@ -6524,7 +7068,8 @@ export function AutomationsPillar({
         <Ban className="h-5 w-5" />
         {t('engine.studio.auto.designersMissing', locale)}
       </div>
-    ) : (
+    ) : !current ? null : (
+      // objectui#12514 — the node prompt only where there are nodes to click.
       <div className="flex flex-col items-center gap-2 px-2 py-10 text-center text-xs text-muted-foreground">
         <MousePointer2 className="h-5 w-5" />
         {t('engine.studio.auto.emptyLine1', locale)}
@@ -6682,6 +7227,14 @@ export function AutomationsPillar({
       {extra?.badge}
     </StudioTab>
   );
+  // objectui#12453 — with a flow open, the header row already holds the
+  // flow's meta and its Enabled switch, and at the 1280 px design width the
+  // link there truncated the flow's label; it sits at the tab row's right
+  // end, the slot objectui#12456 gave the Access note for the same reason.
+  const autoReadOnlyLinkEl =
+    readOnly && packageId !== null ? (
+      <StudioReadOnlyLink packageId={packageId} title={t('engine.studio.pkg.readonlyHint', locale)} locale={locale} />
+    ) : null;
   const flowTabsEl =
     flowOpen ? (
       <>
@@ -6709,6 +7262,7 @@ export function AutomationsPillar({
             ) : undefined,
         })}
         {flowTab('debug', t('engine.flowPreview.debug', locale))}
+        {autoReadOnlyLinkEl && <span className="ml-auto flex items-center self-center pl-3">{autoReadOnlyLinkEl}</span>}
       </>
     ) : undefined;
 
@@ -6727,21 +7281,7 @@ export function AutomationsPillar({
           testId="studio-rail-automations"
           heading={t('engine.studio.auto.heading', locale)}
           count={flows.length}
-          onAdd={
-            // objectui#11553 — no "New" in the package-less scope: new
-            // authoring stays package-first, and this scope reaches flows
-            // that already exist without a package.
-            !readOnly && packageId !== null
-              ? () => {
-                  setError(null);
-                  setNewTrigger('');
-                  setNewTriggerObject('');
-                  setNewChoice(FLOW_PRESETS[0]);
-                  setNewNeeds(null);
-                  setCreating(true);
-                }
-              : undefined
-          }
+          onAdd={openCreateFlow}
           addLabel={t('engine.studio.auto.newTitle', locale)}
           addTestId="studio-rail-add"
           search={{
@@ -6812,15 +7352,13 @@ export function AutomationsPillar({
               {tFormat('engine.list.emptyQuery', locale, { query: railQuery.trim() })}
             </p>
           )}
-          {flows.length === 0 && !creating && (
+          {flows.length === 0 && !creating && (error || !listed || openCreateFlow) && (
             <p className="px-2 py-3 text-[11px] text-muted-foreground">
               {error
                 ? t('engine.studio.loadFailed', locale)
                 : !listed
                   ? t('engine.studio.loading', locale)
-                  : packageId === null
-                    ? t('engine.studio.org.none', locale)
-                    : t('engine.studio.auto.none', locale)}
+                  : t('engine.studio.auto.none', locale)}
             </p>
           )}
         </StudioRail>
@@ -6891,6 +7429,7 @@ export function AutomationsPillar({
                   </span>
                 )}
                 {flowSwitchEl}
+                {!flowTabsEl && autoReadOnlyLinkEl}
               </>
             }
             tabs={flowTabsEl}
@@ -6930,13 +7469,30 @@ export function AutomationsPillar({
               * height instead of shrinking to FlowCanvas's intrinsic content height. */}
             <div className="min-h-0 flex-1">
               {!current ? (
-                <div className="py-16 text-center text-sm text-muted-foreground">
-                  {/* objectui#11553 — a deep link that named a flow this rail
-                      does not hold says so, instead of opening another. */}
-                  {missingFlow
-                    ? tFormat('engine.studio.auto.deepLinkMissing', locale, { name: missingFlow })
-                    : t('engine.studio.auto.pick', locale)}
-                </div>
+                missingFlow ? (
+                  <div className="py-16 text-center text-sm text-muted-foreground">
+                    {/* objectui#11553 — a deep link that named a flow this rail
+                        does not hold says so, instead of opening another. */}
+                    {tFormat('engine.studio.auto.deepLinkMissing', locale, { name: missingFlow })}
+                  </div>
+                ) : flowsEmpty ? (
+                  <div className="flex h-full">
+                    <StudioEmptyState
+                      testId="auto-empty"
+                      icon={Workflow}
+                      sentence={t(packageId === null ? 'engine.studio.org.none' : 'engine.studio.auto.emptyMain', locale)}
+                      action={
+                        openCreateFlow && (
+                          <StudioEmptyStateAction
+                            data-testid="auto-empty-new"
+                            label={t('engine.studio.auto.newTitle', locale)}
+                            onClick={openCreateFlow}
+                          />
+                        )
+                      }
+                    />
+                  </div>
+                ) : null
               ) : loading || !flowLoaded ? (
                 // objectui#11272 — nothing of another flow's buffer under this
                 // one; after a failed load, the error above says why.
@@ -6984,7 +7540,7 @@ export function AutomationsPillar({
           </main>
         </div>
 
-        {configFolded ? (
+        {flowsEmpty ? null : configFolded ? (
           // objectui#11795 — the folded row: no aside reserving width beside
           // the canvas; the selection's configuration opens over it, and
           // closing the drawer clears the selection, as the aside's ✕ does.
@@ -7005,18 +7561,34 @@ export function AutomationsPillar({
             </SheetContent>
           </Sheet>
         ) : (
-        <StudioInspector
-          testId="auto-config-aside"
-          eyebrow={t('engine.studio.auto.config', locale)}
-          onClose={selection ? () => setSelection(null) : undefined}
-          closeLabel={t('engine.studio.deselect', locale)}
-          footer={t('engine.studio.inspector.draftFooter', locale)}
-          // objectui#12454 — a selection's inspector brings its own padding
-          // (the metadata inspector shell); only the empty sentence takes the aside's.
-          bodyClassName={selection && inspector && current && flowLoaded ? 'p-0' : undefined}
-        >
-          {configBodyEl}
-        </StudioInspector>
+        (() => {
+          // objectui#12488 — one header: the aside's names the selection
+          // ("Node · Decision", its label, close) and the inspector below
+          // draws none of its own (`InspectorShellHostProvider`). With nothing
+          // selected the aside keeps its "Configuration" eyebrow.
+          const heading =
+            selection && inspector && current && flowLoaded ? flowSelectionHeading(draft, selection, locale) : null;
+          return (
+            <StudioInspector
+              testId="auto-config-aside"
+              eyebrow={heading?.eyebrow ?? t('engine.studio.auto.config', locale)}
+              title={heading?.title}
+              onClose={selection ? () => setSelection(null) : undefined}
+              closeLabel={t('engine.studio.deselect', locale)}
+              // objectui#12453 — a read-only package saves no draft: no footer.
+              footer={readOnly ? null : t('engine.studio.inspector.draftFooter', locale)}
+              // objectui#12454 — a selection's inspector brings its own padding
+              // (the metadata inspector shell); only the empty sentence takes the aside's.
+              bodyClassName={heading ? 'p-0' : undefined}
+            >
+              {heading ? (
+                <InspectorShellHostProvider value={{ onSelectionChange: setSelection }}>{configBodyEl}</InspectorShellHostProvider>
+              ) : (
+                configBodyEl
+              )}
+            </StudioInspector>
+          );
+        })()
         )}
       </div>
 
@@ -7388,25 +7960,25 @@ export function AccessPillar({
       <Menu className="h-4 w-4" />
     </button>
   );
-  const accessNoteEl =
-    // objectui#11781 — "saved as draft" is what an editable package does;
-    // a read-only one saves nothing, so it says what it is, in the muted
-    // look of the rail's own read-only note rather than the draft amber.
-    readOnly ? (
-      <span
-        title={t('engine.studio.access.bannerTitleReadOnly', locale)}
-        className="rounded bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
-      >
-        {t('engine.studio.access.bannerReadOnly', locale)}
-      </span>
-    ) : (
-      <span
-        title={t('engine.studio.access.bannerTitle', locale)}
-        className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300"
-      >
-        {t('engine.studio.access.banner', locale)}
-      </span>
-    );
+  // objectui#11781 — "saved as draft" is what an editable package does. A
+  // read-only one saves nothing: objectui#12453 puts the read-only link where
+  // the note was, and the link's title carries the note's sentence. An open
+  // set's header draws it at the tab row's right end (objectui#12456: the
+  // title row truncated the set's label at the 1280 px design width).
+  const accessNoteEl = readOnly ? (
+    <StudioReadOnlyLink
+      packageId={packageId}
+      title={t('engine.studio.access.bannerTitleReadOnly', locale)}
+      locale={locale}
+    />
+  ) : (
+    <span
+      title={t('engine.studio.access.bannerTitle', locale)}
+      className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300"
+    >
+      {t('engine.studio.access.banner', locale)}
+    </span>
+  );
   const accessExplainEl = (
     <button
       type="button"
@@ -7417,6 +7989,17 @@ export function AccessPillar({
       {t('engine.studio.access.explain.open', locale)}
     </button>
   );
+  // The rail's "+" — and the empty block's button, which runs this same
+  // handler (objectui#12514). Creating a set lands on the new set's matrix — a
+  // remount of the open matrix, or a swap out of the OWD overview — so gate
+  // the flow up front.
+  const openCreateSet = readOnly
+    ? undefined
+    : () => {
+        if (!confirmDiscardEdits()) return;
+        setCreateErr(null);
+        setCreating(true);
+      };
   const accessHeaderEl = (
     <StudioItemHeader
       testId="access-item-header"
@@ -7424,8 +8007,13 @@ export function AccessPillar({
       icon={owdOpen ? ShieldCheck : Shield}
       title={owdOpen ? t('engine.studio.owd.title', locale) : t('engine.studio.access.title', locale)}
       meta={owdOpen ? t('engine.studio.owd.subtitle', locale) : t('engine.studio.access.subtitle', locale)}
-      chips={accessNoteEl}
-      actions={accessExplainEl}
+      chips={readOnly ? undefined : accessNoteEl}
+      actions={
+        <>
+          {readOnly && accessNoteEl}
+          {accessExplainEl}
+        </>
+      }
     />
   );
 
@@ -7486,18 +8074,7 @@ export function AccessPillar({
           testId="studio-rail-access"
           heading={t('engine.studio.access.heading', locale)}
           count={perms.length}
-          onAdd={
-            readOnly
-              ? undefined
-              : () => {
-                  // Creating a set lands on the new set's matrix — a remount
-                  // of the open matrix, or a swap out of the OWD overview —
-                  // so gate the flow up front.
-                  if (!confirmDiscardEdits()) return;
-                  setCreateErr(null);
-                  setCreating(true);
-                }
-          }
+          onAdd={openCreateSet}
           addLabel={t('engine.studio.access.new', locale)}
           addTestId="studio-rail-add"
           search={{ value: query, onChange: setQuery, placeholder: t('engine.studio.access.search', locale) }}
@@ -7531,7 +8108,9 @@ export function AccessPillar({
           isMobile={isMobile}
           open={railOpen}
         >
-          {perms.length === 0 && (
+          {/* objectui#12514 — the empty sentence names the "+" it points at;
+              without one, the content column's block speaks alone. */}
+          {perms.length === 0 && (error || !loaded || openCreateSet) && (
             <p className="px-2 py-3 text-[11px] text-muted-foreground">
               {error ? t('engine.studio.loadFailed', locale) : loaded ? t('engine.studio.access.none', locale) : t('engine.studio.loading', locale)}
             </p>
@@ -7616,11 +8195,25 @@ export function AccessPillar({
                 setOwdOpen(true);
               }}
             />
-          ) : (
-            <div className="py-16 text-center text-sm text-muted-foreground">
-              {loaded && perms.length === 0 ? t('engine.studio.access.emptyMain', locale) : t('engine.studio.access.pick', locale)}
+          ) : loaded && !error && perms.length === 0 ? (
+            // objectui#12514 — one centered block whose button runs the rail's "+".
+            <div className="flex h-full">
+              <StudioEmptyState
+                testId="access-empty"
+                icon={Shield}
+                sentence={t('engine.studio.access.emptyMain', locale)}
+                action={
+                  openCreateSet && (
+                    <StudioEmptyStateAction
+                      data-testid="access-empty-new"
+                      label={t('engine.studio.access.new', locale)}
+                      onClick={openCreateSet}
+                    />
+                  )
+                }
+              />
             </div>
-          )}
+          ) : null}
           </main>
         </div>
       </div>

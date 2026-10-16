@@ -578,6 +578,10 @@ export function ActionDefaultInspector({
   onBlockingIssuesChange,
 }: MetadataDefaultInspectorProps) {
   const tr = React.useCallback((key: string) => t(key, locale), [locale]);
+  // objectui#12510 — the Icon label names the icon picker (the shape objectui#12531
+  // gave the object and app-nav icon fields): the picker is a combobox, which
+  // takes no name from its content.
+  const iconFieldId = React.useId();
 
   const str = (k: string): string => (typeof draft[k] === 'string' ? (draft[k] as string) : '');
   const type = str('type') || 'script';
@@ -751,8 +755,8 @@ export function ActionDefaultInspector({
       />
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">{tr('engine.inspector.action.icon')}</Label>
-          <IconPickerWidget schema={{ type: 'string' }} value={str('icon')} onChange={(v) => onPatch({ icon: (v as string) || undefined })} readOnly={readOnly} />
+          <Label htmlFor={iconFieldId} className="text-xs text-muted-foreground">{tr('engine.inspector.action.icon')}</Label>
+          <IconPickerWidget id={iconFieldId} schema={{ type: 'string' }} value={str('icon')} onChange={(v) => onPatch({ icon: (v as string) || undefined })} readOnly={readOnly} />
         </div>
         <InspectorSelectField label={tr('engine.inspector.action.variant')} value={str('variant') || undefined} options={localizeOptions(VARIANT_OPTS, locale)} onCommit={(v) => onPatch({ variant: v })} disabled={readOnly} />
       </div>

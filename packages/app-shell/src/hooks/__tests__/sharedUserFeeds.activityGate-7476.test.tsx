@@ -33,6 +33,7 @@ import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import { MetadataCtx, type MetadataContextValue, type MetadataTypeStatus } from '@object-ui/react';
+import { DEFAULT_APPS } from './activityRoster';
 
 vi.mock('@object-ui/auth', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -66,10 +67,15 @@ const { objectPresence } = await import('../useObjectPresence');
 
 const settle = () => act(async () => { await vi.advanceTimersByTimeAsync(0); });
 
-/** A metadata context that answers `object` with exactly these items/status. */
+/**
+ * A metadata context that answers `object` with exactly these items/status,
+ * and `app` with an app listing `crm_lead` at the same status: since
+ * objectui#12530 the feed reads only the objects an app lists, so this file's
+ * question (is `sys_activity` declared?) needs a roster to be asked at all.
+ */
 function registry(status: MetadataTypeStatus, objects: Array<{ name: string }>): MetadataContextValue {
   return {
-    apps: [],
+    apps: DEFAULT_APPS,
     objects,
     dashboards: [],
     reports: [],
@@ -121,10 +127,13 @@ describe('the activity feed does not ask for an object the environment does not 
 });
 
 describe('every uncertainty still reads — a wrong skip is the expensive mistake (objectui#7476)', () => {
-  it('no MetadataProvider at all ⇒ unchanged behaviour', async () => {
-    // The frozen no-op fallback answers `ready` + `[]`. Reading that as
-    // "absent" is the regression this case exists to refuse.
-    expect(await activityReads(null)).toEqual(['sys_activity']);
+  it('no MetadataProvider at all ⇒ no app roster, so no read (objectui#12530)', async () => {
+    // The frozen no-op fallback answers `ready` + `[]`. For PRESENCE that is
+    // still `unknown`, never `absent` (pinned in the objectPresence cases
+    // below). But it lists no app either, and since objectui#12530 the feed
+    // reads only the objects an app lists: an empty roster is an empty feed,
+    // never an unfiltered read of every platform write.
+    expect(await activityReads(null)).toEqual([]);
   });
 
   it('a registry that is ready but lists NOTHING ⇒ reads', async () => {

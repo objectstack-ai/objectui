@@ -12,8 +12,22 @@
  * reference artboards under `docs/design/studio-redesign/` stay the contract.
  */
 
-/** Shell header: 48 px, a `1fr auto 1fr` grid so the pillar switcher centers. */
-export const STUDIO_HEADER = 'grid h-12 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-b px-3';
+/**
+ * Shell header (objectui#12509). From `sm` up: one 48 px row, a three-column
+ * grid so the pillar switcher centers. The right column never drops below its
+ * content (Create app, Changes, Publish), so on a tight row the switcher moves
+ * left and the package chip truncates instead of anything sliding under the
+ * switcher. Below `sm`: two rows, the package and its actions on the first,
+ * the switcher at full width on the second (`STUDIO_HEADER_PILLAR_NAV`).
+ */
+export const STUDIO_HEADER =
+  'grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 border-b px-3 py-2 sm:h-12 sm:grid-cols-[minmax(0,1fr)_auto_minmax(max-content,1fr)] sm:py-0';
+/** The pillar switcher: its own full-width row below `sm`, the middle column from `sm` up. */
+export const STUDIO_HEADER_PILLAR_NAV =
+  'order-last col-span-2 flex items-center gap-0.5 rounded-lg bg-muted p-[3px] sm:order-none sm:col-span-1';
+/** One switcher segment: an equal share of the row below `sm`, its own width from `sm` up. */
+export const STUDIO_HEADER_PILLAR =
+  'inline-flex h-7 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-md px-2.5 text-[13px] transition-colors sm:flex-none sm:shrink-0 xl:px-3';
 
 /** Rail: 240 px, the sidebar surface, a right border. */
 export const STUDIO_RAIL_WIDTH = 'w-60';

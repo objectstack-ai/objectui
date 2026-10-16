@@ -35,14 +35,14 @@ import {
   Zap,
 } from 'lucide-react';
 import { EmptyDescription } from '@object-ui/components';
-import type { MetadataPreviewProps } from '../preview-registry.js';
+import type { MetadataPreviewProps, MetadataSelection } from '../preview-registry.js';
 import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShell.js';
 import { appendArray } from '../inspectors/_shared.js';
 import { t as tr, translateFlowMeta } from '../i18n.js';
 import { FlowCanvas } from './FlowCanvas.js';
 import { defaultNodeLabel } from './flow-canvas-parts.js';
-import { type FlowDesignerEdge, type FlowDesignerNode } from './flow-canvas-layout.js';
-import { NESTED_NODE_KIND, parseNestedNodeId, encodeNestedNodeId } from '../inspectors/flow-nested-selection.js';
+import { edgeKey, type FlowDesignerEdge, type FlowDesignerNode } from './flow-canvas-layout.js';
+import { NESTED_NODE_KIND, parseNestedNodeId, encodeNestedNodeId, locateFlowNode } from '../inspectors/flow-nested-selection.js';
 import { FlowSimulatorPanel } from './FlowSimulatorPanel.js';
 import { FlowRunsPanel } from './FlowRunsPanel.js';
 import { ProblemsPanel } from './ProblemsPanel.js';
@@ -115,6 +115,40 @@ const FlowPreviewChromeContext = React.createContext<FlowPreviewChrome | null>(n
 /** Provides {@link FlowPreviewChrome} to the flow preview below it. */
 export function FlowPreviewChromeProvider({ value, children }: { value: FlowPreviewChrome; children?: React.ReactNode }) {
   return <FlowPreviewChromeContext.Provider value={value}>{children}</FlowPreviewChromeContext.Provider>;
+}
+
+/**
+ * objectui#12488 — what a host's own inspector header says for a flow
+ * selection, when it frames the flow inspectors itself (Studio's Configuration
+ * aside, under `InspectorShellHostProvider`): the eyebrow names the kind — a
+ * node with its type's display name ("Node · Decision"), or a connection — and
+ * the title is the one the inspector's own header would show (the node's label
+ * or id; the connection's selection label, else `source → target`).
+ */
+export function flowSelectionHeading(
+  draft: Record<string, unknown>,
+  selection: MetadataSelection,
+  locale?: string,
+): { eyebrow: string; title: string } {
+  if (selection.kind === 'edge') {
+    const edges = Array.isArray(draft.edges) ? (draft.edges as FlowDesignerEdge[]) : [];
+    const edge = edges.find((e, i) => edgeKey(e, i) === selection.id);
+    return {
+      eyebrow: tr('engine.inspector.flowEdge.kind', locale),
+      title: selection.label ?? (edge ? `${edge.source} → ${edge.target}` : selection.id),
+    };
+  }
+  const kind = tr('engine.inspector.flowNode.kind', locale);
+  const node = locateFlowNode(draft, selection)?.node;
+  if (!node) {
+    const nested = selection.kind === NESTED_NODE_KIND ? parseNestedNodeId(selection.id) : null;
+    return { eyebrow: kind, title: selection.label ?? nested?.nodeId ?? selection.id };
+  }
+  const type = typeof node.type === 'string' ? node.type : '';
+  return {
+    eyebrow: type ? `${kind} · ${defaultNodeLabel(type, locale)}` : kind,
+    title: (typeof node.label === 'string' && node.label) || node.id,
+  };
 }
 
 /**

@@ -145,9 +145,17 @@ vi.mock('@object-ui/plugin-view', async (importOriginal) => {
     const authoring = useGridFieldAuthoring();
     const cols = schema?.table?.fields ?? [];
     return (
-      <button type="button" onClick={() => authoring?.onReorderFields?.([...cols].reverse())}>
-        Reverse columns
-      </button>
+      <>
+        <button type="button" onClick={() => authoring?.onReorderFields?.([...cols].reverse())}>
+          Reverse columns
+        </button>
+        {/* objectui#12511 — the grid's "+" column, drawn from the same context. */}
+        {authoring?.onAddColumn && (
+          <button type="button" data-testid="grid-add-column" onClick={authoring.onAddColumn}>
+            Add column
+          </button>
+        )}
+      </>
     );
   }
   return { ...mod, ObjectView: GridDouble };
@@ -156,7 +164,7 @@ vi.mock('@object-ui/plugin-view', async (importOriginal) => {
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), dismiss: vi.fn() } }));
 
 import { AutomationsPillar, DataPillar, InterfacesPillar } from './StudioDesignSurface';
-import { addFieldFromMoreMenu } from './__tests__/dataPillarAddField';
+import { addFieldFromGrid } from './__tests__/dataPillarAddField';
 import { createEmptyDataSource } from './__tests__/emptyDataSource';
 import { registerMetadataPreview } from '../metadata-admin/preview-registry';
 import { registerMetadataInspector } from '../metadata-admin/inspector-registry';
@@ -271,7 +279,7 @@ describe('Data pillar — an edit taken while an object save is in flight (objec
   }
   const fieldNames = (body: Record<string, unknown>) => readFields(body.fields).entries.map((e) => e.name);
   const fieldCountShown = () => screen.getByText(/^\d+ fields$/).textContent;
-  const addField = () => addFieldFromMoreMenu();
+  const addField = () => addFieldFromGrid();
 
   it('the autosave: an added field stays on screen and lands in the next save', async () => {
     renderData();

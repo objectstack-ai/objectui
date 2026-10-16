@@ -19,10 +19,17 @@
  *
  * ## Only the declared shape is read
  *
- * - **The amount** is a field the object declares `type: 'currency'`: the first
- *   non-zero one, else the first one, because a declared amount's zero is the
- *   record's amount. ⛔ No guess from a key's NAME: a key that only looks like
- *   an amount (`total_amount` as a roll-up) is an ordinary row here.
+ * - **The amount** is a field the object declares `type: 'currency'`, or a
+ *   `type: 'summary'` whose `summaryOperations` (the spec's roll-up
+ *   declaration) is a `sum` over a field the summarized object declares
+ *   `type: 'currency'` (objectui#12534): a roll-up total such as an expense
+ *   report's or an invoice's. Of both kinds, in snapshot order, the first
+ *   non-zero one leads, else the first one, because a declared amount's zero
+ *   is the record's amount. It is drawn through its own field's cell, as the
+ *   record page draws it. ⛔ No guess from a key's NAME: a key that only looks
+ *   like an amount is an ordinary row here, and so is a summary that is not a
+ *   `sum`, a `sum` over a field that is not `currency`, and a `sum` whose
+ *   summarized object's definition cannot be read.
  * - **A key the object does not declare** gets no row: it has no label and no
  *   face to show.
  * - **A field the object declares `hidden: true`** gets no row and never leads
@@ -48,6 +55,14 @@
  * console already holds the object, else one by-name read that the metadata
  * provider de-duplicates and caches, shared with the record card the details
  * grid draws for the same target. No record read: the snapshot is in the row.
+ *
+ * One more definition is read only when a `sum` summary is drawn ahead of a
+ * non-zero `currency` field: the summarized object's, through the same
+ * `useMetadataItem` path, and only ONE such object, the one the first such
+ * summary rolls up. A `sum` over another object stays an ordinary row. The
+ * summary first draws once that answer is in, so the amount does not move in
+ * after the rows are drawn; a definition answered for another object is never
+ * read as this one's.
  *
  * Module-internal: nothing re-exports it from the package entry.
  */
@@ -82,23 +97,51 @@ export interface RecordSnapshotSummaryProps {
   display?: Record<string, string>;
 }
 
+/** An object's declared fields from its definition, when this one is `name`'s. */
+function declaredFields(item: unknown, name: string): Record<string, FieldDef | undefined> | null {
+  if (!item || typeof item !== 'object') return null;
+  const def = item as { name?: unknown; fields?: unknown };
+  // A definition answered for the PREVIOUS name is not drawn against this one.
+  if (def.name !== undefined && def.name !== name) return null;
+  const declared = def.fields;
+  if (!declared || typeof declared !== 'object' || Array.isArray(declared)) return null;
+  return declared as Record<string, FieldDef | undefined>;
+}
+
 export function RecordSnapshotSummary({ objectName, snapshot, display }: RecordSnapshotSummaryProps) {
   const target = typeof objectName === 'string' && objectName !== '' ? objectName : null;
   const hasSnapshot = !!snapshot && typeof snapshot === 'object' && !Array.isArray(snapshot);
   // No snapshot, nothing to summarize: the definition is not asked for.
   const { item } = useMetadataItem('object', hasSnapshot ? target : null);
   const perms = usePermissions();
-  const { fieldLabel } = useSafeFieldLabel();
 
-  // A definition answered for the PREVIOUS name is not drawn against this one.
-  const def = item && target !== null && (item.name === undefined || item.name === target) ? item : null;
-  const declared = def?.fields;
-  if (target === null || !declared || typeof declared !== 'object' || Array.isArray(declared)) return null;
-  if (!hasSnapshot) return null;
+  const fields = target === null ? null : declaredFields(item, target);
+  if (target === null || !fields || !hasSnapshot) return null;
 
-  const fields = declared as Record<string, FieldDef | undefined>;
   const shown = withoutDeniedFields(snapshot as Record<string, unknown>, perms, target);
-  const plan = planSnapshotSummary(shown, fields, display);
+  return <DeclaredSummary target={target} fields={fields} shown={shown} display={display} />;
+}
+
+/**
+ * The summary once the target's definition answered. Mounted then, so the
+ * summarized object's read below starts out loading and the summary waits for
+ * it.
+ */
+function DeclaredSummary({ target, fields, shown, display }: {
+  target: string;
+  fields: Record<string, FieldDef | undefined>;
+  shown: Record<string, unknown>;
+  display: Record<string, string> | undefined;
+}) {
+  const summed = planSnapshotSummary(shown, fields, display).summed;
+  const child = useMetadataItem('object', summed);
+  const { fieldLabel } = useSafeFieldLabel();
+  if (summed !== null && child.loading) return null;
+
+  // An unreadable definition leaves every `sum` an ordinary row.
+  const childFields = summed === null ? null : declaredFields(child.item, summed);
+  const summarized = summed !== null && childFields ? { name: summed, fields: childFields } : null;
+  const plan = planSnapshotSummary(shown, fields, display, summarized);
   const keys = plan.lead ? [plan.lead, ...plan.rows] : plan.rows;
   if (keys.length === 0) return null;
 

@@ -1984,11 +1984,21 @@ export function EmailCellRenderer({ value }: CellRendererProps): React.ReactElem
     }).catch(() => { /* clipboard not available */ });
   };
   
+  // Fits a bounded single-line slot with an ELLIPSIS (objectui#12523), the
+  // convention `TruncatedText` states for this file (objectui#3466). The anchor
+  // used to keep `Button`'s `inline-flex`, so its text sat in an anonymous flex
+  // item that no `text-overflow` reaches, and the whole cell was one atomic
+  // inline box: a clipping host (a `record:highlights` chip) cut the address
+  // mid-word with no ellipsis, because the first atomic inline on a line is
+  // clipped, never ellipsed. `max-w-full` bounds the row to its host, `block`
+  // makes the anchor a block container whose own text `truncate` ellipsizes,
+  // and the copy button keeps its size. A host wider than the address sees no
+  // change.
   return (
-    <span className="inline-flex items-center gap-1 group/email">
+    <span className="inline-flex max-w-full items-center gap-1 group/email">
       <Button
         variant="link"
-        className="p-0 h-auto font-normal text-blue-600 hover:text-blue-800"
+        className="block min-w-0 truncate p-0 h-auto font-normal text-blue-600 hover:text-blue-800"
         asChild
       >
         <a
@@ -2000,7 +2010,7 @@ export function EmailCellRenderer({ value }: CellRendererProps): React.ReactElem
       </Button>
       <button
         type="button"
-        className="opacity-0 group-hover/email:opacity-100 transition-opacity p-0.5 rounded hover:bg-muted"
+        className="shrink-0 opacity-0 group-hover/email:opacity-100 transition-opacity p-0.5 rounded hover:bg-muted"
         onClick={handleCopy}
         aria-label={label('detail.copyEmail', 'Copy email')}
       >
@@ -2030,10 +2040,15 @@ export function UrlCellRenderer({ value }: CellRendererProps): React.ReactElemen
   // `EmailCellRenderer`: a `target="_blank"` anchor whose `href` is `[Object]`
   // navigates nowhere, so the coerced text prints without one.
   if (isPlainObjectValue(value)) return <TruncatedText text={safe} />;
+  // Same single-line convention as `EmailCellRenderer` (objectui#12523). This
+  // anchor is the cell's root, so it stays inline-level: `inline-block` is a
+  // block container that draws its own ellipsis, `max-w-full` bounds it to its
+  // host, and `align-top` keeps an overflow-clipped inline-block from raising
+  // the line box to its bottom-edge baseline.
   return (
     <Button
       variant="link"
-      className="p-0 h-auto font-normal text-blue-600 hover:text-blue-800"
+      className="inline-block max-w-full truncate align-top p-0 h-auto font-normal text-blue-600 hover:text-blue-800"
       asChild
     >
       <a
@@ -2075,19 +2090,23 @@ export function PhoneCellRenderer({ value }: CellRendererProps): React.ReactElem
     }).catch(() => { /* clipboard not available */ });
   };
   
+  // Same single-line convention as `EmailCellRenderer` (objectui#12523). The
+  // anchor keeps its icon-and-number flex row, so the number gets its own
+  // `truncate` span: a flex item whose `overflow:hidden` zeroes its automatic
+  // minimum size, so it is the one thing that gives way, with an ellipsis.
   return (
-    <span className="inline-flex items-center gap-1 group/phone">
+    <span className="inline-flex max-w-full items-center gap-1 group/phone">
       <a
         href={`tel:${safe}`}
-        className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800"
+        className="inline-flex min-w-0 items-center gap-1 text-blue-600 hover:text-blue-800"
         onClick={(e) => e.stopPropagation()}
       >
-        <PhoneIcon className="h-3 w-3" />
-        {safe}
+        <PhoneIcon className="h-3 w-3 shrink-0" />
+        <span className="truncate">{safe}</span>
       </a>
       <button
         type="button"
-        className="opacity-0 group-hover/phone:opacity-100 transition-opacity p-0.5 rounded hover:bg-muted"
+        className="shrink-0 opacity-0 group-hover/phone:opacity-100 transition-opacity p-0.5 rounded hover:bg-muted"
         onClick={handleCopy}
         aria-label={label('detail.copyPhone', 'Copy phone number')}
       >

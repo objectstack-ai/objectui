@@ -393,7 +393,9 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   // One ⋯ menu on every entry, in place of the pin action (objectui#12427):
   // its first entry adds the entry to Favorites or removes it, through the
   // same pin store the pin action wrote. Not on a phone, where the sidebar
-  // draws no per-entry control (objectui#1055) and pinning stays off.
+  // draws no per-entry control (objectui#1055) and pinning stays off. Its
+  // Design entry opens what the app bar's Edit app opens for the entry, in the
+  // app whose navigation this is (objectui#12520).
   const renderNavItemAction = (item: NavigationItem, row: NavItemActionContext) => (
     <SidebarItemMenu
       label={row.label}
@@ -401,7 +403,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
       external={row.external}
       isFavorite={!!item.pinned}
       onToggleFavorite={() => togglePin(item.id, !item.pinned, item, row.basePath)}
-      designPath={sidebarItemDesignPath(item, row.basePath)}
+      designPath={sidebarItemDesignPath(item, activeApp)}
     />
   );
 
@@ -411,7 +413,9 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   // (objectui#12427). They used to be a group of their own after Recent, below
   // the fold on a long menu. Each row shows its stored label (the store's
   // `refreshLabel` keeps it current) and carries the same ⋯ menu, whose
-  // favorites entry removes it. A phone keeps the control it had (no hover).
+  // favorites entry removes it. Its Design entry reads the app the favorite's
+  // own address names, which need not be this one (objectui#12520). A phone
+  // keeps the control it had (no hover).
   const contentFavorites = favorites.filter(f => f.type !== 'nav').slice(0, 8);
   const contentFavoriteRows = contentFavorites.length > 0
     ? contentFavorites.map(item => (
@@ -429,7 +433,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
             href={item.href}
             isFavorite
             onToggleFavorite={() => removeFavorite(item.id)}
-            designPath={favoriteDesignPath(item.id, basePath)}
+            designPath={favoriteDesignPath(item, apps)}
           />
         </SidebarMenuItem>
       ))

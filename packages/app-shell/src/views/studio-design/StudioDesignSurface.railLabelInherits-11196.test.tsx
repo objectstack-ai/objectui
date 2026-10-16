@@ -113,7 +113,8 @@ describe('objectui#11196 — the Studio rail names a label-less entry by what it
     renderZhPillar();
     await screen.findByRole('button', { name: '客户 对象' });
     expect(screen.getByText('nav_admin')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'home_page' })).toHaveAccessibleDescription('page · home_page');
+    // objectui#12455 — the row's kind tag follows its label in its name.
+    expect(screen.getByRole('button', { name: 'home_page 页面' })).toHaveAccessibleDescription('page · home_page');
   });
 
   it('CONTROL: an authored label renders verbatim', async () => {

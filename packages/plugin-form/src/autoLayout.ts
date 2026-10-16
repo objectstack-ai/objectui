@@ -329,6 +329,109 @@ export function containerGridColsFor(columns: number | undefined): string | unde
 }
 
 /**
+ * The field grid of a sectioned form whose sections do not all fit one grid
+ * (objectui#12548): one column below `@md`, twelve tracks from `@md` up.
+ *
+ * Twelve is the least count every authored section density divides
+ * (`@objectstack/spec` `FormSectionSchema.columns` is `1 | 2 | 3 | 4`), so in
+ * this grid a field's colSpan is in TWELFTHS of the row: 12 / 6 / 4 / 3 for a
+ * 1 / 2 / 3 / 4-column section. The form renderer draws a twelfths colSpan as
+ * one class per tier, keeping each density's step ladder from
+ * {@link CONTAINER_GRID_COLS} (at most two per row at `@md`, three at `@2xl`,
+ * four at `@4xl`); its table is `TWELVE_TRACK_SPAN_CLASS` in
+ * `@object-ui/components`' form renderer.
+ *
+ * ⛔ A literal, never assembled: Tailwind's scanner reads source text.
+ */
+export const TWELVE_TRACK_GRID_COLS = 'grid gap-4 grid-cols-1 @md:grid-cols-12';
+
+/** The field grid a sectioned host draws, and how it lays out one section's fields on it. */
+export interface SectionedGridLayout {
+  /** The form's grid width in the 1–4 vocabulary (`FormSchema.columns`). */
+  columns: number;
+  /** The field container's grid classes; `undefined` for a one-column form. */
+  fieldContainerClass: string | undefined;
+  /** Lay one section's fields out at that section's declared `columns`. */
+  layOut: (fields: FormField[], sectionColumns?: number) => FormField[];
+}
+
+/**
+ * The ONE layout rule of a sectioned form — `ModalForm`, `ObjectForm`,
+ * `SplitForm`, `TabbedForm` and `WizardForm` all call it (objectui#12548).
+ *
+ * Every section shares the form's single field grid (one form, one
+ * react-hook-form instance — #2153/#2959), and every authored section must
+ * still draw its OWN `columns` count per row: `FormSectionSchema.columns` is a
+ * per-section count, whatever the other sections declare.
+ *
+ * - When every section's count is 1 or the grid's own width, the grid is
+ *   {@link CONTAINER_GRID_COLS}' and the spans are {@link applyAutoColSpan}'s,
+ *   byte for byte what a single-density form always drew: on that grid a
+ *   one-column section's fields take the row and a full-width section's take
+ *   one cell each, which is exactly their count.
+ * - Otherwise a section's count does not fit that grid at some tier — a
+ *   `columns: 2` section on a 3-wide grid spanned 2 of 3 cells, ONE field per
+ *   row, and a `columns: 3` section on a 4-wide grid spanned 1 cell, FOUR per
+ *   row (`Math.round(grid / sectionColumns)`). The grid becomes
+ *   {@link TWELVE_TRACK_GRID_COLS} and each field spans twelfths of the row:
+ *     1. `span: 'full'`, or a wide widget type → 12, the whole row;
+ *     2. an authored `colSpan` → that many of its SECTION's columns, clamped
+ *        to them (it keeps winning over the density);
+ *     3. otherwise → 12 / the section's columns.
+ *
+ * A section's count is clamped to the grid width, as it always was: the form
+ * view's own `columns` outranks how a section fills it.
+ *
+ * @param formColumns    The form's grid width (form `columns`, else the widest section).
+ * @param sectionColumns The declared `columns` of every section the form draws.
+ */
+export function sectionedGridLayout(
+  formColumns: number | undefined,
+  sectionColumns: ReadonlyArray<number | undefined>,
+): SectionedGridLayout {
+  const grid = clampGrid(formColumns);
+  const density = (declared: number | undefined) =>
+    Math.min(clampGrid(declared ?? grid), grid);
+  const fits = sectionColumns.every((c) => {
+    const d = density(c);
+    return d === 1 || d === grid;
+  });
+
+  if (fits) {
+    return {
+      columns: grid,
+      fieldContainerClass: containerGridColsFor(grid),
+      layOut: (fields, declared) =>
+        grid > 1 ? applyAutoColSpan(fields, grid, declared) : fields,
+    };
+  }
+
+  return {
+    columns: grid,
+    fieldContainerClass: TWELVE_TRACK_GRID_COLS,
+    layOut: (fields, declared) => {
+      const d = density(declared);
+      return fields.map((field) => {
+        if ((field as { type?: string }).type === 'section-divider') return field;
+        return { ...field, colSpan: twelfthsFor(field, d) };
+      });
+    },
+  };
+}
+
+/** The twelfths of a row one field spans in a `sectionColumns`-wide section. */
+function twelfthsFor(field: FormField, sectionColumns: number): number {
+  const span = (field as { span?: 'auto' | 'full' }).span;
+  if (span === 'full') return 12;
+  if (field.colSpan != null) {
+    const cells = Math.min(Math.max(1, Math.floor(field.colSpan)), sectionColumns);
+    return (12 * cells) / sectionColumns;
+  }
+  if (field.type && isWideFieldType(field.type)) return 12;
+  return 12 / sectionColumns;
+}
+
+/**
  * Build the layout-related props for a *section's* inner form (`SchemaRenderer`).
  *
  * A section groups its fields and lays them out in `columns` columns. That grid

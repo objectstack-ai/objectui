@@ -989,7 +989,7 @@ export function buildDefaultAttachments(): any {
  * page.
  *
  * Shape:
- *   { type:'record', template:'full-width', regions:[ { name:'main',
+ *   { type:'record', template:'default', regions:[ { name:'main',
  *     components: [page:header, record:highlights?, record:path?,
  *     page:tabs, record:discussion?] } ] }
  *   For `enable.files: true` objects the tabs node carries a peer
@@ -1172,7 +1172,11 @@ export function buildDefaultPageSchema(
     type: 'record',
     pageType: 'record',
     object: def?.name,
-    template: 'full-width',
+    // `default`, not `full-width`: the spec's `PageSchema.template` names four
+    // layouts and retires `full-width` by name (its replacement is `default`),
+    // so a Studio seed carrying it is refused at save. The renderer maps both
+    // names to the same `FullWidthTemplate`, so the seed lays out unchanged.
+    template: 'default',
     regions,
   };
 }

@@ -57,9 +57,50 @@ export interface InspectorShellProps {
   hideClose?: boolean;
 }
 
+/**
+ * objectui#12488 — a host that draws the inspector's frame itself.
+ *
+ * Studio's Automations pillar mounts the flow inspectors inside its own 300 px
+ * aside, whose header already names the selection (eyebrow, title, close). Under
+ * this provider {@link InspectorShell} draws no header strip of its own, so the
+ * aside shows one header instead of two stacked ones; its header actions, if
+ * any, lead the body. The metadata-admin designer provides nothing and keeps
+ * the shell's own header.
+ *
+ * `onSelectionChange` lets a field inside move the host's selection — the
+ * decision's branch cards use it to open a connection's own inspector.
+ */
+export interface InspectorShellHost {
+  onSelectionChange?: (selection: { kind: string; id: string; label?: string }) => void;
+}
+
+const InspectorShellHostContext = React.createContext<InspectorShellHost | null>(null);
+
+/** Provides {@link InspectorShellHost} to the inspectors below it. */
+export function InspectorShellHostProvider({ value, children }: { value: InspectorShellHost; children?: React.ReactNode }) {
+  return <InspectorShellHostContext.Provider value={value}>{children}</InspectorShellHostContext.Provider>;
+}
+
+/** The host that frames this inspector, or `null` when the shell frames itself. */
+export function useInspectorShellHost(): InspectorShellHost | null {
+  return React.useContext(InspectorShellHostContext);
+}
+
 export function InspectorShell({ kindLabel, title, onClose, closeLabel: closeLabelProp, children, footer, headerActions, hideClose }: InspectorShellProps) {
   const locale = useMetadataLocale();
+  const host = useInspectorShellHost();
   const closeLabel = closeLabelProp ?? t('engine.close', locale);
+  if (host) {
+    return (
+      <div className="flex h-full flex-col" data-testid="inspector-shell-hosted">
+        <div className="flex-1 space-y-3.5 overflow-auto p-4">
+          {headerActions && <div className="flex items-center justify-end gap-1">{headerActions}</div>}
+          {children}
+        </div>
+        {footer && <div className="border-t px-4 py-2.5">{footer}</div>}
+      </div>
+    );
+  }
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-start justify-between gap-2 border-b px-4 py-2.5">

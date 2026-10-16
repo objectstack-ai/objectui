@@ -139,17 +139,17 @@ describe('ListView view description resolves the inline locale map (objectui#719
     it('renders the sentence for the audience locale, not a blank strip', () => {
       renderDescription(INLINE_MAP, 'zh-CN');
 
-      expect(screen.getByTestId('view-description')).toHaveTextContent('仅未完成的工作。');
+      expect(screen.getByTestId('view-description-info')).toHaveAttribute('title', '仅未完成的工作。');
       // Stated separately because the empty string is the exact thing the
       // `typeof` else-arm produced: the element WAS in the DOM, carrying
       // nothing, which is why the author had no way to notice.
-      expect(screen.getByTestId('view-description').textContent).not.toBe('');
+      expect(screen.getByTestId('view-description-info').getAttribute('title')).not.toBe('');
     });
 
     it('resolves the same map differently for a different locale', () => {
       renderDescription(INLINE_MAP, 'en');
 
-      expect(screen.getByTestId('view-description')).toHaveTextContent(
+      expect(screen.getByTestId('view-description-info')).toHaveAttribute('title', 
         'Open and in-progress work only.',
       );
       // A resolver that always answered one entry would pass the case above
@@ -164,7 +164,7 @@ describe('ListView view description resolves the inline locale map (objectui#719
       // rule genuinely reaches this read site.
       renderDescription({ en: 'Open work only.', zh: '仅未完成。' }, 'zh-CN');
 
-      expect(screen.getByTestId('view-description')).toHaveTextContent('仅未完成。');
+      expect(screen.getByTestId('view-description-info')).toHaveAttribute('title', '仅未完成。');
     });
 
     it('drops the strip entirely when the map matches nothing', () => {
@@ -173,7 +173,7 @@ describe('ListView view description resolves the inline locale map (objectui#719
       // the element rather than reserving blank space for it.
       renderDescription({}, 'en');
 
-      expect(screen.queryByTestId('view-description')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('view-description-info')).not.toBeInTheDocument();
     });
   });
 
@@ -183,7 +183,7 @@ describe('ListView view description resolves the inline locale map (objectui#719
     it('passes a plain string through unchanged', () => {
       renderDescription('Open and in-progress work only.', 'zh-CN');
 
-      expect(screen.getByTestId('view-description')).toHaveTextContent(
+      expect(screen.getByTestId('view-description-info')).toHaveAttribute('title', 
         'Open and in-progress work only.',
       );
     });
@@ -191,7 +191,7 @@ describe('ListView view description resolves the inline locale map (objectui#719
     it('passes a plain string through unchanged for every locale', () => {
       renderDescription('Open and in-progress work only.', 'en');
 
-      expect(screen.getByTestId('view-description')).toHaveTextContent(
+      expect(screen.getByTestId('view-description-info')).toHaveAttribute('title', 
         'Open and in-progress work only.',
       );
     });
@@ -199,7 +199,7 @@ describe('ListView view description resolves the inline locale map (objectui#719
     it('renders nothing when no description is authored', () => {
       renderDescription(undefined, 'en');
 
-      expect(screen.queryByTestId('view-description')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('view-description-info')).not.toBeInTheDocument();
     });
   });
 
@@ -211,7 +211,7 @@ describe('ListView view description resolves the inline locale map (objectui#719
         appearance: { showDescription: false },
       });
 
-      expect(screen.queryByTestId('view-description')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('view-description-info')).not.toBeInTheDocument();
     });
 
     it('suppresses a resolved locale-map description', () => {
@@ -224,7 +224,7 @@ describe('ListView view description resolves the inline locale map (objectui#719
         appearance: { showDescription: false },
       });
 
-      expect(screen.queryByTestId('view-description')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('view-description-info')).not.toBeInTheDocument();
     });
   });
 });

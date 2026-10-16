@@ -38,8 +38,10 @@ import { useAuth } from '@object-ui/auth';
 import { resolveHref, type NavTemplateContext } from '@object-ui/layout';
 import type { NavigationEntryItem } from '@object-ui/types';
 import type { ObjectNavItem } from '@objectstack/spec/ui';
+import { Database, Loader2 } from 'lucide-react';
 import { parseUrlFilterTriples, type FilterTriple } from '../drillUrlFilters.js';
 import { findByName } from '../../hooks/useNavTargetLabel.js';
+import { t } from '../metadata-admin/i18n.js';
 
 /**
  * Props handed to a Studio-canvas renderer. Intentionally a small, read-only
@@ -129,6 +131,29 @@ export interface StudioCanvasListView {
 
 export const StudioCanvasListViewContext = React.createContext<StudioCanvasListView | null>(null);
 
+/**
+ * Which of the package's objects have only a draft (a pending draft, no
+ * published row), as the Interfaces pillar knows them under the publish the
+ * canvas shows (objectui#12508).
+ *
+ * Preview = runtime: such an object has no runtime yet. The server answers
+ * 404 for its schema (`/meta/object/NAME`) and for its records
+ * (`/data/NAME`), so the canvas does not mount the records grid for it.
+ *
+ *  - `pending`: the pillar's read for the current publish has not answered
+ *    yet. An answer read under an earlier publish is not used: that publish
+ *    may have just made the object live.
+ *  - `known`: the names, read under the current publish.
+ *
+ * ⛔ Studio-internal, for the reason {@link StudioCanvasNavEntry} is. A
+ * canvas rendered outside the pillar sees `null` and renders as it always did.
+ */
+export type StudioCanvasDraftOnlyObjects =
+  | { status: 'pending' }
+  | { status: 'known'; names: ReadonlySet<string> };
+
+export const StudioCanvasDraftOnlyObjectsContext = React.createContext<StudioCanvasDraftOnlyObjects | null>(null);
+
 /** What an entry changes about the object's list: the slice's conditions, or the named view to open. */
 export interface NavEntryListTarget {
   /** The entry's `filters` as the `/data` surface reads them; empty when it lands elsewhere. */
@@ -203,10 +228,44 @@ export function navEntryListTarget(
  * The panel holds the view this canvas opens (the entry's named view, else the
  * object's default list view, as the running app opens it).
  *
+ * objectui#12508 — an object the Interfaces pillar names draft-only
+ * ({@link StudioCanvasDraftOnlyObjectsContext}) has no runtime yet: no schema
+ * and no records to read. The canvas says it is not published instead of
+ * mounting the grid, whose reads would answer 404.
+ *
  * Exported so downstream renderers can compose/wrap it; override the default
  * wholesale via `registerStudioCanvasPreview('object', …)`.
  */
-export function StudioObjectRecordsCanvas({ name }: StudioCanvasPreviewProps) {
+export function StudioObjectRecordsCanvas(props: StudioCanvasPreviewProps) {
+  const { name, locale } = props;
+  // objectui#12508 — an object with only a draft has no runtime to preview,
+  // and while the pillar has not said, the grid waits rather than ask.
+  const draftOnly = React.useContext(StudioCanvasDraftOnlyObjectsContext);
+  if (draftOnly?.status === 'pending') {
+    return (
+      <div data-testid="studio-canvas-object-pending" className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" /> {t('engine.studio.loading', locale)}
+      </div>
+    );
+  }
+  if (draftOnly?.status === 'known' && draftOnly.names.has(name)) {
+    return (
+      <div data-testid="studio-canvas-object-unpublished" className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+          <Database className="h-6 w-6 text-muted-foreground" />
+        </div>
+        <div>
+          <p className="text-sm font-medium">{t('engine.studio.if.objectUnpublishedTitle', locale)}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t('engine.studio.if.objectUnpublishedHint', locale)}</p>
+        </div>
+      </div>
+    );
+  }
+  return <ObjectRecordsGrid {...props} />;
+}
+
+/** The runtime records grid {@link StudioObjectRecordsCanvas} renders for a published object. */
+function ObjectRecordsGrid({ name }: StudioCanvasPreviewProps) {
   const entry = React.useContext(StudioCanvasNavEntryContext);
   const edited = React.useContext(StudioCanvasListViewContext);
   const editedView = edited && edited.objectName === name ? edited : null;

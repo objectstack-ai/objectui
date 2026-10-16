@@ -33,7 +33,7 @@
  * objectui bumps its `@objectstack/spec` dependency (cross-repo spec skew).
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactElement } from 'react';
 // `useDatasetDimensionMeta` is the analytics label net's SHARED React glue
 // (objectui#4389): the locale-free metadata read this widget and the dataset
 // report block both take, lifted out of the two longhand copies PR #4388 left
@@ -551,7 +551,40 @@ export { chartConfigPresentation } from '@object-ui/core';
  * reads this file's text, comments included, which is why this note does not
  * spell the bag's member access.
  */
-export function DatasetWidget({ widget, dataSource }: { widget: any; dataSource: unknown }) {
+/**
+ * [objectui#12528] The heading a dashboard surface hands a dataset-bound
+ * metric tile instead of drawing its own card header: the widget's resolved
+ * title, and its resolved description, which becomes the title's tooltip.
+ * The tile draws them on ONE line with the measure label, above the value.
+ */
+export interface DatasetMetricHeading {
+  title: string;
+  description?: string;
+}
+
+/** The one heading line of a metric tile: title, then the measure label. */
+function MetricHeadingRow({ heading, label }: { heading: DatasetMetricHeading; label?: string }) {
+  return (
+    <div className="flex w-full min-w-0 items-baseline gap-2" data-testid="dataset-metric-heading">
+      {heading.title && (
+        <span
+          className="min-w-0 truncate text-sm font-medium text-foreground"
+          title={heading.description || heading.title}
+          data-testid="dataset-metric-title"
+        >
+          {heading.title}
+        </span>
+      )}
+      {label && (
+        <span className="min-w-0 shrink-0 truncate text-xs text-muted-foreground" data-testid="dataset-metric-label">
+          {label}
+        </span>
+      )}
+    </div>
+  );
+}
+
+export function DatasetWidget({ widget, dataSource, heading }: { widget: any; dataSource: unknown; heading?: DatasetMetricHeading }) {
   const datasetName = String(widget?.dataset ?? '');
   const dimensions: string[] = useMemo(() => (Array.isArray(widget?.dimensions) ? widget.dimensions.filter(Boolean) : []), [widget]);
   const values: string[] = useMemo(() => (Array.isArray(widget?.values) ? widget.values.filter(Boolean) : []), [widget]);
@@ -1018,8 +1051,19 @@ export function DatasetWidget({ widget, dataSource }: { widget: any; dataSource:
     };
   }, [dimensionMeta, fieldOptionLabel, isTable]);
 
+  // objectui#12528 — a tile handed a `heading` draws it in every state, so a
+  // loading, refused or failed tile still says which KPI it is. Only the
+  // answered tile knows its measure label; it draws the row itself, below.
+  const framed = (node: ReactElement): ReactElement =>
+    heading ? (
+      <div className="flex h-full w-full min-w-0 flex-col gap-1">
+        <MetricHeadingRow heading={heading} />
+        {node}
+      </div>
+    ) : node;
+
   if (values.length === 0) {
-    return <div className="flex h-full w-full items-center justify-center rounded border border-dashed bg-muted/20 p-4 text-xs text-muted-foreground">{tt('dashboard.pickMeasures', 'Pick measures (values) for this dataset widget.')}</div>;
+    return framed(<div className="flex h-full w-full items-center justify-center rounded border border-dashed bg-muted/20 p-4 text-xs text-muted-foreground">{tt('dashboard.pickMeasures', 'Pick measures (values) for this dataset widget.')}</div>);
   }
   // Pending → a SHAPE-MATCHED skeleton, not a 0-value chart or an empty table.
   // The widget's eventual footprint (chart bars / table rows / a KPI number) is
@@ -1028,7 +1072,7 @@ export function DatasetWidget({ widget, dataSource }: { widget: any; dataSource:
   // loading; `state.rows.length === 0 && status==='ok'` is the empty state
   // ("No rows" / a KPI 0) handled below; data renders last.
   if (state.status === 'loading' || state.status === 'idle') {
-    return (
+    return framed(
       <div
         className="h-full w-full p-2"
         data-testid="dataset-loading"
@@ -1051,14 +1095,14 @@ export function DatasetWidget({ widget, dataSource }: { widget: any; dataSource:
         ) : (
           <ChartSkeleton className="h-full" />
         )}
-      </div>
+      </div>,
     );
   }
   if (state.status === 'error' && state.forbidden) {
     // The viewer may not read the data behind this tile (objectui#10899). A
     // localized statement of that fact, in the list view's words — never the
     // transport's `Dataset query failed: 403 Forbidden — …` string.
-    return (
+    return framed(
       <div
         role="alert"
         data-testid="dataset-widget-forbidden"
@@ -1071,14 +1115,14 @@ export function DatasetWidget({ widget, dataSource }: { widget: any; dataSource:
         <span>
           {tt('dashboard.widgetForbiddenMessage', 'You don’t have permission to view the data behind this widget.')}
         </span>
-      </div>
+      </div>,
     );
   }
   if (state.status === 'error') {
-    return (
+    return framed(
       <div role="alert" className="flex h-full w-full items-start gap-2 rounded border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
         <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" /><span className="break-words">{state.error}</span>
-      </div>
+      </div>,
     );
   }
   // A re-read of the answer on screen is in flight (objectui#10815): the rows
@@ -1232,6 +1276,10 @@ export function DatasetWidget({ widget, dataSource }: { widget: any; dataSource:
       // `.subCaption`, `.unrenderedMeasures-8894` tests), and it moves by nothing.
       <div className={cn('flex h-full w-full flex-col items-start justify-center gap-1 p-2', state.refreshing && 'relative')}>
         {refreshBar}
+        {/* objectui#12528 — with a heading, the title and the measure label
+            share one line above the value, and nothing follows the value but
+            its delta. */}
+        {heading && <MetricHeadingRow heading={heading} label={headerLabel(tileMeasure)} />}
         <span className={cn('text-2xl font-semibold tabular-nums', accentClass)}>{formatMeasure(value, f?.format, f?.currency, f?.percentScale, displayLocale)}</span>
         {delta && (
           <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground" data-testid="dataset-compare-trend">
@@ -1249,7 +1297,7 @@ export function DatasetWidget({ widget, dataSource }: { widget: any; dataSource:
             <span className="min-w-0 truncate">{compareLabel}</span>
           </div>
         )}
-        <span className="text-xs text-muted-foreground">{headerLabel(tileMeasure)}</span>
+        {!heading && <span className="text-xs text-muted-foreground">{headerLabel(tileMeasure)}</span>}
       </div>
     );
   }

@@ -25,7 +25,7 @@ import { closedFormAffordance, fieldWriteGate, gateFormFields } from './fieldWri
 import { ClosedAffordanceNotice } from './closedAffordanceNotice';
 import { snapshotLoadedRecord, advanceLoadedRecord, type LoadedRecordSnapshot } from './sanitize';
 import { formWritePayload } from './writePayload';
-import { applyAutoColSpan, containerGridColsFor } from './autoLayout';
+import { sectionedGridLayout } from './autoLayout';
 import { useOccSave } from './occSave';
 import {
   NO_LOAD_FAILURES,
@@ -590,7 +590,10 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
   // ModalForm use, so one piece of metadata lays out the same in every host.
   const formColumns =
     clampCol(schema.columns) ?? (declaredCols.length ? Math.max(...declaredCols) : 1);
-  const containerFieldClass = containerGridColsFor(formColumns);
+  // The one sectioned-form rule (objectui#12548): each tab at its own count on
+  // the shared grid — 12 tracks wide when the counts do not all fit.
+  const sectionGrid = sectionedGridLayout(formColumns, schema.sections.map((s) => clampCol(s.columns)));
+  const containerFieldClass = sectionGrid.fieldContainerClass;
 
   const tabGroups = schema.sections.map((section, index) => {
     const body = buildSectionFields(section);
@@ -603,9 +606,7 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
       // BOTH synthesis paths below can read it — the tab arm and the sub-two-tab
       // degradation — instead of each re-deriving it from `schema.sections`.
       visibleWhen: section.visibleWhen,
-      fields: formColumns > 1
-        ? applyAutoColSpan(body, formColumns, clampCol(section.columns))
-        : body,
+      fields: sectionGrid.layOut(body, clampCol(section.columns)),
     };
   });
 

@@ -5,9 +5,11 @@
  * metadata, no authoring handle (objectui#12198, executing the maintainer's
  * ruling on objectstack-ai/cloud#2768).
  *
- * - The crumb: a page route's trail goes from the app pill straight to the
+ * - The crumb: a page route's trail went from the app pill straight to the
  *   page. The 「Pages」 crumb named a metadata type, not a place the user went,
  *   and linked only to the app's base; it is gone, and its pack key with it.
+ *   Since objectui#12526 the page's own crumb is gone too: the page names
+ *   itself, and the bar draws nothing after the pill.
  * - The handles: a page route offers three Studio entries — the page's pencil
  *   (`PageView`), the top bar's 「Edit app」 button and the app pill's
  *   「Edit APP in Studio」 row (`AppHeader`, `AppSwitcher`). A caller without
@@ -33,14 +35,17 @@
 
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
 import { MePermissionsProvider, type MePermissionsResponse } from '@object-ui/permissions';
 
+// The page's pencil is a button that navigates, so its target is read off the
+// navigate call it makes (objectui#12540).
+const navigateSpy = vi.hoisted(() => vi.fn());
 vi.mock('react-router-dom', () => ({
   useLocation: () => ({ pathname: '/apps/cloud_control/page/welcome', search: '', hash: '', state: null, key: 't' }),
   useParams: () => ({ pageName: 'welcome' }),
-  useNavigate: () => vi.fn(),
+  useNavigate: () => navigateSpy,
   useSearchParams: () => [new URLSearchParams(), vi.fn()] as const,
   // `PageView` reads the router basename through `useHref('/')` once
   // objectui#12239 lands; harmless before it.
@@ -167,10 +172,12 @@ vi.mock('@object-ui/auth', async (importOriginal) => ({
 }));
 
 // The control plane's own app, owned by a package — so the Studio bridge has
-// a target — and its `welcome` page.
+// a target — and its `welcome` page. `PageView` is mounted under the same app
+// document (objectui#12540).
+const CLOUD_APP = vi.hoisted(() => ({ name: 'cloud_control', label: 'Cloud', _packageId: 'com.objectstack.cloud' }));
 vi.mock('../../providers/MetadataProvider', () => ({
   useMetadata: () => ({
-    apps: [{ name: 'cloud_control', label: 'Cloud', _packageId: 'com.objectstack.cloud' }],
+    apps: [CLOUD_APP],
     dashboards: [],
     pages: [{ name: 'welcome', type: 'page', label: 'Welcome' }],
     reports: [],
@@ -184,6 +191,7 @@ vi.mock('../../providers/AdapterProvider', () => ({
 
 import { AppHeader } from '../AppHeader';
 import { PageView } from '../../views/PageView';
+import { ExpressionProvider } from '../../providers/ExpressionProvider';
 
 /** `/me/permissions` for a persona, with the fields these surfaces do not read left empty. */
 function mePermissions(systemPermissions: string[]): MePermissionsResponse {
@@ -235,14 +243,22 @@ async function studioEntriesOnPageRoute(perms: MePermissionsResponse): Promise<S
   const row = hrefOf(screen.queryByTestId('app-switcher-edit-in-studio'));
   header.unmount();
 
+  // The page under the app the top bar resolved — the same app document, as
+  // the console mounts it — so the two halves read the same inputs
+  // (objectui#12540).
   const page = render(
     <MePermissionsProvider initialPermissions={perms}>
-      <PageView />
+      <ExpressionProvider user={EXPRESSION_USER} app={CLOUD_APP}>
+        <PageView />
+      </ExpressionProvider>
     </MePermissionsProvider>,
   );
   // The page body rendered — so an absent pencil is a reading.
   expect(await screen.findByTestId('page-body')).toBeInTheDocument();
-  const pencil = screen.queryByTestId('page-edit-in-studio-button') ? '' : null;
+  const pencilEl = screen.queryByTestId('page-edit-in-studio-button');
+  navigateSpy.mockClear();
+  if (pencilEl) fireEvent.click(pencilEl);
+  const pencil = pencilEl ? String(navigateSpy.mock.calls.at(-1)?.[0] ?? '') : null;
   page.unmount();
 
   return {
@@ -251,6 +267,8 @@ async function studioEntriesOnPageRoute(perms: MePermissionsResponse): Promise<S
     'app-switcher-edit-in-studio': row,
   };
 }
+
+const EXPRESSION_USER = {};
 
 const NONE: Seen = {
   'page-edit-in-studio-button': null,
@@ -270,15 +288,15 @@ beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ data: [] }) })));
 });
 
-describe('a page route\'s breadcrumb goes from the app to the page (objectui#12198)', () => {
-  it('one crumb after the app pill — the page itself; no 「Pages」 type crumb', () => {
+describe('a page route\'s breadcrumb (objectui#12198, objectui#12526)', () => {
+  it('no 「Pages」 type crumb, and since objectui#12526 no crumb for the page either', () => {
     render(
       <MePermissionsProvider initialPermissions={MEMBER}>
         <AppHeader variant="app" appName="Cloud" activeAppName="cloud_control" onAppChange={vi.fn()} objects={[]} />
       </MePermissionsProvider>,
     );
     expect(screen.getByTestId('app-switcher-trigger')).toBeInTheDocument();
-    expect(crumbLabels()).toEqual(['Welcome']);
+    expect(crumbLabels()).toEqual([]);
   });
 });
 
@@ -292,10 +310,11 @@ describe('a page offers no Studio entry to a caller without `manage_metadata` (o
     expect(await studioEntriesOnPageRoute(MEMBER)).toEqual(NONE);
   });
 
-  it('CONTROL — a workspace admin holding `manage_metadata` sees all three, the row and the button to one target', async () => {
+  it('CONTROL — a workspace admin holding `manage_metadata` sees all three, all three to one target', async () => {
     const seen = await studioEntriesOnPageRoute(AUTHOR);
-    expect(seen['page-edit-in-studio-button']).not.toBeNull();
-    expect(seen['app-design-in-studio-button']).toContain('/studio/com.objectstack.cloud/');
+    expect(seen['app-design-in-studio-button']).toBe('/studio/com.objectstack.cloud/interfaces?surface=page:welcome');
+    // The page's pencil opened the metadata-admin page until objectui#12540.
+    expect(seen['page-edit-in-studio-button']).toBe(seen['app-design-in-studio-button']);
     expect(seen['app-switcher-edit-in-studio']).toBe(seen['app-design-in-studio-button']);
   });
 });

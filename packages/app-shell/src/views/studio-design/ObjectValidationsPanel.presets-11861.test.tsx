@@ -101,8 +101,9 @@ function Harness({ onPatch, initial }: { onPatch: (p: Record<string, unknown>) =
   );
 }
 
+/** The New menu's trigger: the empty block's button while no rule is listed (objectui#12514). */
 function openNew() {
-  fireEvent.click(screen.getByText('New'));
+  fireEvent.click(screen.queryByTestId('rules-empty-new') ?? screen.getByText('New'));
 }
 
 const presetButton = (id: string) => screen.getByTestId(`rule-preset-${id}`);
@@ -175,7 +176,7 @@ describe('the Validations New menu opens on presets (objectui#11861)', () => {
     render(<Harness onPatch={vi.fn()} initial={draft} />);
     openNew();
     fireEvent.click(screen.getByRole('button', { name: 'Advanced' }));
-    fireEvent.click(screen.getByText('New')); // close
+    openNew(); // close
     openNew();
     expect(screen.getByRole('button', { name: 'Advanced' })).toHaveAttribute('aria-expanded', 'false');
   });

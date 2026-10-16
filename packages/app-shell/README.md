@@ -371,18 +371,60 @@ import { PageView } from '@object-ui/app-shell';
 ```
 
 `DashboardView` hands `DashboardRenderer` an `onRefresh` handler, so the
-renderer shows its "Refresh All" button and honours an authored
-`refreshIntervalSeconds`: every that many seconds the widgets re-read their
-data. A refresh declares an unscoped change on the data-invalidation bus
-(`notifyDataChanged({ objectName: '*' })` from `@object-ui/react`), and each
-widget that holds a bus subscription re-reads in place; nothing is remounted.
-`0`, a negative value or no value means no timer. A dataset-bound KPI tile does
-not re-read yet: its widget subscribes on the base object the query's answer
-names, and the answer to a query with no dimensions names none (objectui#11062).
+renderer honours an authored `refreshIntervalSeconds`: every that many seconds
+the widgets re-read their data. A refresh declares an unscoped change on the
+data-invalidation bus (`notifyDataChanged({ objectName: '*' })` from
+`@object-ui/react`), and each widget that holds a bus subscription re-reads in
+place; nothing is remounted. `0`, a negative value or no value means no timer
+(objectui#11062). A dataset-bound KPI tile re-reads too: every dataset answer
+names its base object, which is what the widget subscribes on (objectui#11095).
+
+The "Refresh All" button sits at the right of the page header, among its
+actions. The view passes the renderer `onRefreshStateChange`, so the renderer
+draws no button of its own and reports the state of its one refresh; the view
+draws the button from that report, and the timer stays the renderer's
+(objectui#12554).
 
 The schema-driven renderers live elsewhere: `DashboardRenderer` in
 `@object-ui/plugin-dashboard`, and everything else through `SchemaRenderer` in
 `@object-ui/react`, which resolves `type` against the component registry.
+
+`DashboardView` names the dashboard with the console page header below: its
+`label` as the title and its `description` beside it. The top bar draws no
+breadcrumb on a dashboard or page route (objectui#12526).
+
+### ConsolePageHeader
+
+The console's page header: an icon chip, the title, a secondary line beside the
+title from the `sm` breakpoint up, and actions on the right, in one row. Object
+lists and dashboards draw it, and a console page outside this package imports it
+to draw the same header. Below `sm` it draws the icon, the title and the actions;
+the secondary line is hidden there.
+
+Its props are the exported `ConsolePageHeaderProps`: `title` (required),
+`subtitle`, `icon` (a rendered element, sized by the chip), `actions`,
+`accentColor`, `sticky`, `className` and `data-testid`. The secondary line is
+`subtitle`; there is no `description` prop.
+
+```tsx
+import { ConsolePageHeader } from '@object-ui/app-shell';
+import { Button } from '@object-ui/components';
+
+declare const reload: () => void;
+
+<ConsolePageHeader
+  title="Approvals Inbox"
+  subtitle="Review and act on approval requests."
+  actions={
+    <Button variant="outline" size="sm" onClick={reload}>
+      Refresh
+    </Button>
+  }
+/>;
+```
+
+It is not `@object-ui/layout`'s `PageHeader`, a different component whose
+`title` and `subtitle` are strings and whose `actions` are action definitions.
 
 ### ActionParamDialog
 
@@ -454,13 +496,23 @@ Inside a running app, workspace admins get an "Edit app" button in the top bar
 Studio" row to the same target — that deep-links to the app's owning package on
 the Studio design surface. When the current route names a specific interface — a
 dashboard, page, or report — it opens straight to that surface in the Interfaces
-pillar (`/studio/:packageId/interfaces?surface=<type>:<name>`); on object routes
-and the app root it opens the package's Data tab (`/studio/:packageId/data`).
+pillar (`/studio/:packageId/interfaces?surface=<type>:<name>`); on an object
+route it opens that object in the Data pillar
+(`/studio/:packageId/data?surface=object:<name>`), and at the app root the
+package's Data tab (`/studio/:packageId/data`).
 The route-type → surface-type decision lives in `appStudioRoutePath`. It is the
 reverse of the builder's "Open app" bridge (ADR-0080): the entry only renders
 for admins and only when the app has an owning package (`_packageId`), and
 package writability stays a server-side concern — a read-only package opens in
 Studio as browse-only.
+
+The sidebar's ⋯ menu offers the same bridge per entry: the **Design** entry of an
+`object`, `dashboard` or `page` navigation entry, and of the matching favorites,
+asks `appStudioRoutePath` for the route that entry opens, so it lands where
+"Edit app" lands on that item's own page (objectui#12520). A favorite resolves in
+the app its own address names, which can differ from the app the sidebar is
+drawn in. The entry follows the same rules as the button: it shows only to an
+admin who may author metadata, and only when the app has an owning package.
 
 ### Studio package scope
 
@@ -1065,9 +1117,15 @@ request pages. `className` styles the wrapper.
 Above the progress, the block shows what was submitted, from the request row's
 record snapshot (`payload`) and the server's display values
 (`payload_display`), against the target object's declared fields: the
-declared amount (the first field declared `type: 'currency'`), then the first
-six business fields, each under its declared label and through the record
-page's own cell. A key the object does not declare, a framework column, an
+declared amount (the first non-zero field declared `type: 'currency'`, or
+declared `type: 'summary'` with a `summaryOperations` `sum` over a field the
+summarized object declares `type: 'currency'`; else the first such field),
+then the first six business fields, each under its declared label and through
+the record page's own cell. Telling a roll-up total apart reads the
+summarized object's definition from the metadata store, for one object at
+most; if that definition cannot be read, the roll-up is an ordinary row. A
+key that only looks like an amount by its name never leads. A key the object
+does not declare, a framework column, an
 unresolved reference id, a field declared `hidden: true` and a field the
 reader may not read take no row. Without the target object's definition, the
 summary is not drawn.

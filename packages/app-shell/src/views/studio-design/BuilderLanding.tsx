@@ -41,10 +41,11 @@ import { studioOrgScopePath } from './studioScope.js';
  * `package` query parameter. It marks, per metadata type, whether the type
  * accepts an environment overlay — the answer this page cannot give, because
  * `allowEnvironmentOverlay` belongs to the TYPE (ADR-0005), not to the package or the
- * item, and `PkgEntry` does not say which types a package ships.
+ * item, and `PkgEntry` does not say which types a package ships. The Studio's
+ * read-only link (objectui#12453) lands on the same route through `overlayPath`.
  */
 const MARKETPLACE_PATH = '/apps/setup/system/marketplace';
-const overlayPath = (packageId: string) =>
+export const overlayPath = (packageId: string) =>
   `/apps/setup/metadata?package=${encodeURIComponent(packageId)}`;
 
 /** objectui#11863 — how many recent packages the landing lists: one row of cards. */

@@ -128,9 +128,10 @@ import { ExpressionProvider } from '../providers/ExpressionProvider';
 const OBJECT_NAME = 'duly_task';
 
 /**
- * The view under test is always `all`. Its `description` renders as
- * `view-description` INSIDE `ListView`, which is the node whose identity (a)
- * reads.
+ * The view under test is always `all`. `ListView` wraps the host's tab strip
+ * in its own `list-toolbar-leading` node, which is the node whose identity (a)
+ * reads (the view description's own row was, until objectui#12528 moved the
+ * description onto the active tab).
  */
 function objectsWith(allView: Record<string, unknown>) {
   return [
@@ -254,7 +255,7 @@ function GanttStandIn({ schema }: any) {
 const ganttInstance = () => screen.getByTestId('gantt-stand-in').dataset.instance;
 
 /** A node rendered inside `ListView` — replaced wholesale by a key remount. */
-const listNode = () => screen.getByTestId('view-description');
+const listNode = () => screen.getByTestId('list-toolbar-leading');
 
 beforeEach(() => {
   cleanup();
@@ -362,5 +363,31 @@ describe('a list drawing a self-fetching visualization keeps its tree and the vi
     ).toBe(1);
     expect(listNode(), '(a) the realtime change REMOUNTED the list').toBe(node);
     expect(ganttInstance(), '(a) the realtime change REMOUNTED the gantt itself').toBe(instance);
+  });
+});
+
+/**
+ * objectui#12528 nail 1, end to end through the page: the view's description
+ * is the active tab's tooltip (the strip is handed to `ListView` as its
+ * `toolbarLeading`), and nothing draws it as a row above the toolbar, so the
+ * toolbar sits at one height with or without one.
+ */
+describe('the view description rides on the active view tab (objectui#12528)', () => {
+  const activeTab = () => screen.getByTestId('list-toolbar-leading').querySelector('[aria-current="true"]');
+
+  it('the active tab carries it as its tooltip, and no description row is drawn', async () => {
+    await mountPage({ type: 'grid' });
+
+    expect(screen.queryByTestId('view-description')).toBeNull();
+    expect(screen.queryByTestId('view-description-info')).toBeNull();
+    expect(activeTab()?.getAttribute('title')).toBe('Every task');
+  });
+
+  it('appearance.showDescription: false shows it nowhere', async () => {
+    await mountPage({ type: 'grid', appearance: { showDescription: false } });
+
+    expect(activeTab()).not.toBeNull();
+    expect(activeTab()?.hasAttribute('title')).toBe(false);
+    expect(screen.queryByTestId('view-description-info')).toBeNull();
   });
 });

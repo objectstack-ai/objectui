@@ -48,6 +48,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -2061,11 +2062,39 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
       (a: any) => !isMoreOnly(a) && a?.component !== 'action:menu',
     );
     const inlineActions = buttonable.slice(0, maxVisible);
+    const foldedButtons = buttonable.slice(maxVisible);
+    // The overflow reads as one list in three bands (objectui#12529): the
+    // authored actions first, then the host's chrome (Edit / favorites /
+    // Share, Edit leading when it folded), then every destructive entry last,
+    // set apart by a separator. "Host" is the key test the disabled-reason
+    // branch below uses: a key no authored action holds came from
+    // `headerSystemActions`. "Destructive" is the menu's own red-row test, so
+    // the row that is painted red is the row that is set apart. Each band
+    // keeps the `order` sort the memo above gave it.
+    const isDestructiveAction = (a: any): boolean =>
+      a?.variant === 'destructive' || a?.name === 'sys_delete';
+    const isHostAction = (a: any): boolean => {
+      const key = (a?.name || a?.id || '') as string;
+      return key !== '' && !authoredHeaderActionKeys.has(key);
+    };
+    const overflowPool = [...foldedButtons, ...menuOnly, ...moreOnlyActions];
     const overflowActions = [
-      ...buttonable.slice(maxVisible),
-      ...menuOnly,
-      ...moreOnlyActions,
+      ...overflowPool.filter((a) => !isDestructiveAction(a) && !isHostAction(a)),
+      ...overflowPool.filter((a) => !isDestructiveAction(a) && isHostAction(a)),
+      ...overflowPool.filter(isDestructiveAction),
     ];
+    // The first destructive entry gets a separator above it, unless it opens
+    // the menu (a separator under nothing sets nothing apart).
+    const firstDestructiveIdx = overflowActions.findIndex(isDestructiveAction);
+    // A host action placed as a BUTTON that folded into the ⋯ because the row
+    // is full keeps an icon-only twin beside the ⋯ (objectui#12529): the host
+    // asked for a button, so it stays one click from the header at every
+    // width. Today that is the record page's Edit. It needs a declared icon,
+    // since an icon is all the twin draws; with room in the row nothing folds
+    // and nothing extra renders.
+    const foldedHostButtons = foldedButtons.filter(
+      (a) => isHostAction(a) && !isDestructiveAction(a) && typeof a?.icon === 'string',
+    );
     const useOverflow = overflowActions.length > 0;
     // Resolve a `disabled` predicate against the record — a boolean OR an
     // expression (`'record.status == …'` or the `{ dialect, source }`
@@ -2169,6 +2198,43 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
         </TooltipProvider>
       );
     };
+    // The folded host button's icon-only twin (objectui#12529). Styled as the
+    // ⋯ trigger's twin, like the ⟳ below, so `[…][✎][⋯][⟳]` reads as one
+    // button family. Its accessible name is the action's label, the same text
+    // its overflow row shows, and it runs the same handler that row runs, so
+    // both open one session. It honours the same disabled verdict. Host
+    // actions give no disabled reason (see `disabledReasonFor`), so it needs
+    // no reason wrapper.
+    const renderFoldedIconButton = (action: any, idx: number) => {
+      const label = resolveLabel(action);
+      const actionKey = `${action.name || action.id || `folded-action-${idx}`}-icon`;
+      return (
+        <TooltipProvider key={actionKey} delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1 px-2"
+                aria-label={label}
+                data-folded-header-action={action.name || action.id || ''}
+                disabled={isActionDisabled(action)}
+                onClick={() => {
+                  if (typeof action.onClick === 'function') {
+                    void action.onClick();
+                    return;
+                  }
+                  dispatchHeaderAction(action);
+                }}
+              >
+                <LazyIcon name={action.icon} className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{label}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    };
     return (
       <div
         className="flex flex-wrap items-center gap-2 shrink-0"
@@ -2176,6 +2242,7 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
         aria-label={tt('detail.pageHeaderActions', 'Page header actions')}
       >
         {inlineActions.map(renderButton)}
+        {foldedHostButtons.map(renderFoldedIconButton)}
         {useOverflow && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -2206,9 +2273,11 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
                 const disabledReason = disabledReasonFor(action);
                 const labelId = `${disabledReasonIdBase}-more-label-${idx}`;
                 const reasonId = `${disabledReasonIdBase}-more-reason-${idx}`;
+                const itemKey = action.name || action.id || `overflow-action-${idx}`;
                 return (
+                  <React.Fragment key={itemKey}>
+                  {idx === firstDestructiveIdx && idx > 0 && <DropdownMenuSeparator />}
                   <DropdownMenuItem
-                    key={action.name || action.id || `overflow-action-${idx}`}
                     disabled={disabled}
                     aria-labelledby={disabledReason ? labelId : undefined}
                     aria-describedby={disabledReason ? reasonId : undefined}
@@ -2235,6 +2304,7 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
                       <span>{label}</span>
                     )}
                   </DropdownMenuItem>
+                  </React.Fragment>
                 );
               })}
             </DropdownMenuContent>

@@ -140,13 +140,16 @@ describe('objectui#11847 — AppNavInspector offers a separator only what its sp
     fireEvent.change(screen.getByLabelText(t('engine.inspector.appNav.label', 'en-US')), {
       target: { value: 'Reports' },
     });
-    fireEvent.change(screen.getByLabelText(t('engine.inspector.appNav.icon', 'en-US')), {
-      target: { value: 'bar-chart' },
+    // The Icon field is the icon picker (objectui#12531): pick, don't type.
+    fireEvent.click(screen.getByLabelText(t('engine.inspector.appNav.icon', 'en-US')));
+    fireEvent.change(screen.getByLabelText(t('engine.form.searchIcons', 'en-US')), {
+      target: { value: 'chart-bar' },
     });
+    fireEvent.click(screen.getAllByRole('option').find((o) => o.getAttribute('title') === 'chart-bar')!);
     expect(onPatch).toHaveBeenCalledTimes(2);
     const [labelled, iconed] = onPatch.mock.calls.map(([written]) => written.navigation[0]);
     expect(labelled).toEqual({ ...entry, label: 'Reports' });
-    expect(iconed).toEqual({ ...entry, icon: 'bar-chart' });
+    expect(iconed).toEqual({ ...entry, icon: 'chart-bar' });
     expect(issuesOf(labelled)).toEqual([]);
     expect(issuesOf(iconed)).toEqual([]);
     expect(screen.queryByText(t('engine.inspector.appNav.separatorHint', 'en-US'))).toBeNull();

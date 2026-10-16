@@ -13,6 +13,8 @@
  *   group after Recent any more. A stored favorite renders there as stored:
  *   no migration, and the store is not rewritten.
  * - On a phone no navigation entry has a trigger, as before (objectui#1055).
+ * - Design opens the entry's Studio surface in the app the sidebar draws, and
+ *   a favorite's in the app its own address names (objectui#12520).
  *
  * Harness: the provider and chrome stand-ins of
  * `UnifiedSidebar.pinnedOrder-12059.test.tsx`. The real `FavoritesProvider`,
@@ -24,7 +26,7 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import React from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import type { NavigationItem } from '@object-ui/types';
 
 vi.mock('@object-ui/i18n', async (importOriginal) => ({
@@ -118,6 +120,14 @@ const RECORD_FAVORITE: FavoriteItem = {
   type: 'record',
   favoritedAt: '2026-10-02T00:00:00.000Z',
 };
+/** An object favorite starred in another app (objectui#12520). */
+const OTHER_APP_FAVORITE: FavoriteItem = {
+  id: 'object:sales_quote',
+  label: 'Quotes',
+  href: '/apps/sales/sales_quote',
+  type: 'object',
+  favoritedAt: '2026-10-04T00:00:00.000Z',
+};
 const RECENT = {
   id: 'metadata:object:account',
   type: 'metadata',
@@ -137,8 +147,22 @@ function setViewportWidth(width: number) {
   Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: width });
 }
 
+/** Where the router is, query string included. */
+function Where() {
+  const location = useLocation();
+  return <output data-testid="where">{`${location.pathname}${location.search}`}</output>;
+}
+
 function renderSidebar() {
-  metadataState = { apps: [{ name: 'crm', label: 'CRM', active: true, navigation: NAVIGATION }], objects: [] };
+  // Each app is owned by a package, so Design has a Studio surface to open
+  // (objectui#12520); `sales` is the app another favorite was starred in.
+  metadataState = {
+    apps: [
+      { name: 'crm', label: 'CRM', active: true, _packageId: 'app.objectstack.hotcrm', navigation: NAVIGATION },
+      { name: 'sales', label: 'Sales', active: true, _packageId: 'com.acme.sales', navigation: [] },
+    ],
+    objects: [],
+  };
   return render(
     <MemoryRouter initialEntries={['/apps/crm']}>
       <FavoritesProvider>
@@ -146,6 +170,7 @@ function renderSidebar() {
           <UnifiedSidebar activeAppName="crm" />
         </SidebarProvider>
       </FavoritesProvider>
+      <Where />
     </MemoryRouter>,
   );
 }
@@ -288,5 +313,27 @@ describe('UnifiedSidebar: the Favorites section sits at the top (objectui#12427)
     expect(await openMenu('Acme')).toEqual(['Remove from favorites', 'Open in new tab', 'Copy link']);
     fireEvent.click(screen.getByRole('menuitem', { name: 'Remove from favorites' }));
     await waitFor(() => expect(favoriteLabels()).toEqual(['📋Deals']));
+  });
+});
+
+describe('UnifiedSidebar: Design opens the Studio surface the app bar opens (objectui#12520)', () => {
+  it('an object entry\'s Design opens the Data surface for its object, in the app\'s package', async () => {
+    renderSidebar();
+    await openMenu('Leads');
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Design' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('where')).toHaveTextContent('/studio/app.objectstack.hotcrm/data?surface=object:crm_lead'),
+    );
+  });
+
+  it('a favorite starred in another app opens that app\'s package, not this one\'s', async () => {
+    seed([OTHER_APP_FAVORITE]);
+    renderSidebar();
+    await tick();
+    expect(await openMenu('Quotes')).toEqual(['Remove from favorites', 'Open in new tab', 'Copy link', 'Design']);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Design' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('where')).toHaveTextContent('/studio/com.acme.sales/data?surface=object:sales_quote'),
+    );
   });
 });

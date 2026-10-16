@@ -1492,8 +1492,35 @@ describe('ListView', () => {
       };
 
       renderWithProvider(<ListView schema={schema} />);
-      expect(screen.getByTestId('view-description')).toBeInTheDocument();
-      expect(screen.getByText('A list of all company contacts')).toBeInTheDocument();
+      // objectui#12528 — no row of its own above the toolbar: with no host
+      // tab strip, an info control inside the toolbar row carries it.
+      expect(screen.queryByTestId('view-description')).not.toBeInTheDocument();
+      expect(screen.getByTestId('view-description-info')).toHaveAttribute(
+        'title',
+        'A list of all company contacts',
+      );
+      expect(screen.getByTestId('view-description-info')).toHaveAttribute(
+        'aria-label',
+        'A list of all company contacts',
+      );
+    });
+
+    it('draws no description of its own when a host tab strip carries it (objectui#12528)', () => {
+      const schema: ListViewSchema = {
+        type: 'list-view',
+        objectName: 'contacts',
+        viewType: 'grid',
+        fields: ['name', 'email'],
+        description: 'A list of all company contacts',
+      };
+
+      renderWithProvider(
+        <ListView schema={schema} toolbarLeading={<div data-testid="host-tabs">tabs</div>} />,
+      );
+      expect(screen.getByTestId('host-tabs')).toBeInTheDocument();
+      expect(screen.queryByTestId('view-description')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('view-description-info')).not.toBeInTheDocument();
+      expect(screen.queryByText('A list of all company contacts')).not.toBeInTheDocument();
     });
 
     it('should hide description when appearance.showDescription is false', () => {
@@ -1507,7 +1534,7 @@ describe('ListView', () => {
       };
 
       renderWithProvider(<ListView schema={schema} />);
-      expect(screen.queryByTestId('view-description')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('view-description-info')).not.toBeInTheDocument();
     });
 
     it('should not render description when not provided', () => {
@@ -1519,7 +1546,7 @@ describe('ListView', () => {
       };
 
       renderWithProvider(<ListView schema={schema} />);
-      expect(screen.queryByTestId('view-description')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('view-description-info')).not.toBeInTheDocument();
     });
   });
 

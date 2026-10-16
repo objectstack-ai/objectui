@@ -30,13 +30,14 @@
  */
 
 import * as React from 'react';
-import { Plus, X } from 'lucide-react';
+import { ArrowRight, Plus, X } from 'lucide-react';
 import {
   Button, Input, Label, Checkbox,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@object-ui/components';
-import { flagUnknownValue, RequiredMarker, uniqueId } from './_shared.js';
+import { flagUnknownValue, RequiredMarker, uniqueId, useInspectorShellHost } from './_shared.js';
 import type { FlowConfigColumn } from './flow-node-config.js';
+import { conditionText, edgeKey, type FlowDesignerEdge } from '../previews/flow-canvas-layout.js';
 import { t, useMetadataLocale } from '../i18n.js';
 import { ReferenceCombobox, resolveRefKind, type FlowReferenceContext } from './FlowReferenceField.js';
 import { FlowStringListField } from './FlowStringListField.js';
@@ -172,6 +173,55 @@ function rowsToList(rows: Row[], columns: FlowConfigColumn[]): Array<Record<stri
   return out;
 }
 
+/**
+ * objectui#12488 — one out-edge of a decision, read as a branch: where it goes
+ * and the condition that takes it. The edge is the branch's only store; this is
+ * a reading of it, never written back from here.
+ */
+export interface EdgeBranch {
+  /** The edge's selection key (`edgeKey`), which the connection inspector opens by. */
+  key: string;
+  /** The target node's id, and its label (the id when it has none). */
+  target: string;
+  targetLabel: string;
+  /** The edge's authored branch label, if any. */
+  label?: string;
+  /** The edge's CEL guard, if any. */
+  condition?: string;
+  /** The default (else) path. */
+  isDefault: boolean;
+}
+
+/**
+ * objectui#12488 — a decision's out-edges as branches, in edge order: the
+ * routing the engine evaluates when the node's own `config.conditions` list is
+ * empty (HotCRM's decisions route this way). Fault and back edges carry no
+ * branch and are left out, as `flow-decision-edges` leaves them out.
+ */
+export function decisionEdgeBranches(
+  decisionId: string,
+  edges: readonly FlowDesignerEdge[],
+  nodes: ReadonlyArray<{ id?: unknown; label?: unknown } | null | undefined>,
+): EdgeBranch[] {
+  const labelOf = (id: string): string => {
+    const n = nodes.find((x) => x?.id === id);
+    return typeof n?.label === 'string' && n.label ? n.label : id;
+  };
+  const out: EdgeBranch[] = [];
+  edges.forEach((e, i) => {
+    if (!e || e.source !== decisionId || e.type === 'fault' || e.type === 'back') return;
+    out.push({
+      key: edgeKey(e, i),
+      target: e.target,
+      targetLabel: labelOf(e.target),
+      label: typeof e.label === 'string' && e.label ? e.label : undefined,
+      condition: conditionText(e.condition),
+      isDefault: e.isDefault === true,
+    });
+  });
+  return out;
+}
+
 export interface FlowObjectListFieldProps {
   label: string;
   columns: FlowConfigColumn[];
@@ -211,6 +261,19 @@ export interface FlowObjectListFieldProps {
    * renders itself carries `aria-required`. Not forwarded to a nested list.
    */
   requiredColumns?: ReadonlySet<string>;
+  /**
+   * objectui#12488 — `branches` draws each row as a decision branch card: the
+   * target in the card's header, the other columns stacked under it, the
+   * expression as a mono textarea, and a dashed add button. Same rows, same
+   * commits; only the layout changes.
+   */
+  variant?: 'branches';
+  /**
+   * objectui#12488 — with `variant="branches"`: the decision's out-edge
+   * branches, shown read-only while the list holds no rows, each with a link
+   * that opens its connection when the host can move the selection.
+   */
+  edgeBranches?: EdgeBranch[];
 }
 
 export function FlowObjectListField({
@@ -229,12 +292,15 @@ export function FlowObjectListField({
   fieldId,
   required,
   requiredColumns,
+  variant,
+  edgeBranches,
 }: FlowObjectListFieldProps) {
   // The add/remove/empty/item labels arrive translated from the caller; the
   // flag on a stored select value is composed in this file, so it reads the
   // designer's locale itself, as the sibling `ConditionBuilder` does
   // (objectui#9652).
   const locale = useMetadataLocale();
+  const host = useInspectorShellHost();
   const external = React.useMemo(
     () =>
       Array.isArray(value)
@@ -341,6 +407,306 @@ export function FlowObjectListField({
     setCommitToken((t) => t + 1);
   };
 
+  // One column's control for one row. The default layout labels it on its
+  // left; the branch cards (objectui#12488) place it in their own layout, where
+  // `multiline` turns an `expression` cell into a mono textarea.
+  const cellControl = (row: Row, col: FlowConfigColumn, cellRequired: boolean, multiline = false): React.ReactNode =>
+    col.kind === 'boolean' ? (
+      <Checkbox
+        checked={row.values[col.key] === true}
+        onCheckedChange={(c) => commitCell(row.id, col.key, c === true)}
+        disabled={disabled}
+      />
+    ) : col.kind === 'reference' ? (
+      (() => {
+        const resolved = resolveRefKind(col.ref, (k) => row.values[k]);
+        const disc = col.ref?.kindFrom
+          ? String(row.values[col.ref.kindFrom] ?? '')
+          : '';
+        // objectstack-ai/objectstack#3447: `expression` is a discriminator value, not a
+        // reference kind — an approver whose sibling `type` is
+        // 'expression' authors a CEL expression over the approval
+        // roots (current/trigger/vars). Render the expression
+        // input (mono + syntax check) instead of a dead free-text
+        // reference box, with the APPROVAL scope groups — never
+        // the regular flow scopeGroups, whose record.x /
+        // bare-field spellings the runtime rejects. The same
+        // groups feed FlowExprIssue, so an out-of-contract root
+        // warns inline with a "did you mean" before os lint /
+        // the node-entry pre-check reject it server-side.
+        if (resolved === undefined && disc === 'expression') {
+          const raw = typeof row.values[col.key] === 'string' ? (row.values[col.key] as string) : '';
+          return (
+            <div className="flex-1 space-y-1">
+              <VariableTextInput
+                mode="expression"
+                mono
+                value={raw}
+                onValueChange={(v) => setCell(row.id, col.key, v)}
+                onBlur={() => flush(rows)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                }}
+                groups={approvalScopeGroups ?? []}
+                placeholder={col.placeholder ?? 'current.<field> · trigger.<field> · vars.<node>.<key>'}
+                disabled={disabled}
+                ariaRequired={cellRequired}
+              />
+              <FlowExprIssue value={raw} role="value" scopeGroups={approvalScopeGroups} />
+            </div>
+          );
+        }
+        return (
+          <div className="flex-1">
+            <ReferenceCombobox
+              resolved={resolved}
+              value={typeof row.values[col.key] === 'string' ? (row.values[col.key] as string) : ''}
+              onCommit={(v) => setCell(row.id, col.key, typeof v === 'string' ? v : '')}
+              onBlur={() => flush(rows)}
+              // Picker-style selections (record lookup, strict
+              // select) have no blur to flush on — set-and-flush
+              // atomically, like the checkbox/select cells.
+              onSelect={(v) => commitCell(row.id, col.key, v)}
+              placeholder={col.placeholder}
+              disabled={disabled}
+              context={context}
+              showHint={false}
+            />
+          </div>
+        );
+      })()
+    ) : col.kind === 'select' ? (
+      (() => {
+        const current =
+          typeof row.values[col.key] === 'string' ? (row.values[col.key] as string) : '';
+        const opts = col.options ?? [];
+        // A stored value dropped from the options (a deprecated
+        // enum member, e.g. the `role` approver type per
+        // ADR-0090 D3) must still render, or editing a legacy row
+        // would silently blank it. Surface it as selectable but
+        // flag it — it is not offered to fresh rows.
+        const shown =
+          current && !opts.some((o) => o.value === current)
+            ? [
+                ...opts,
+                {
+                  value: current,
+                  label: flagUnknownValue(current, t('engine.form.deprecated', locale), locale),
+                },
+              ]
+            : opts;
+        return (
+          <div className="flex-1">
+            <Select
+              value={current || undefined}
+              onValueChange={(v) => commitCell(row.id, col.key, v)}
+              disabled={disabled}
+            >
+              <SelectTrigger className="h-8 w-full text-xs" aria-required={cellRequired ? true : undefined}>
+                <SelectValue placeholder={col.placeholder ?? '—'} />
+              </SelectTrigger>
+              <SelectContent>
+                {shown.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        );
+      })()
+    ) : col.kind === 'expression' ? (
+      (() => {
+        // objectui#10772 — a screen field's `visibleWhen` binds
+        // the screen's declared fields plus `record`: the picker
+        // offers those roots and the note judges by the same rule
+        // as the Problems panel. Every other column: flow scope.
+        const screenNode = screenVisibleWhenNode(context?.node, fieldId, col.key);
+        const raw = typeof row.values[col.key] === 'string' ? (row.values[col.key] as string) : '';
+        return (
+          <div className="flex-1 space-y-1">
+            <VariableTextInput
+              mode="expression"
+              mono
+              multiline={multiline}
+              rows={multiline ? 4 : undefined}
+              value={raw}
+              onValueChange={(v) => setCell(row.id, col.key, v)}
+              onBlur={() => flush(rows)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !multiline) (e.target as HTMLInputElement).blur();
+              }}
+              groups={screenNode ? screenScopeGroups(screenNode, locale) : (scopeGroups ?? [])}
+              placeholder={col.placeholder}
+              disabled={disabled}
+              ariaRequired={cellRequired}
+            />
+            <FlowExprIssue
+              value={raw}
+              role="predicate"
+              scopeGroups={scopeGroups}
+              screenNode={screenNode}
+            />
+          </div>
+        );
+      })()
+    ) : col.kind === 'number' ? (
+      // objectui#11664 — the same `Input type="number"` the
+      // top-level number field renders, flushed on blur like the
+      // text cell beside it. A stored string is handed to the
+      // input as-is: the browser shows it when it reads as a
+      // number and leaves the box blank when it does not, and the
+      // row keeps the string either way until the author types.
+      <Input
+        type="number"
+        value={(() => {
+          const v = row.values[col.key];
+          return typeof v === 'number' || typeof v === 'string' ? v : '';
+        })()}
+        onChange={(e) => setCell(row.id, col.key, numberCell(e.target.value))}
+        onBlur={() => flush(rows)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+        }}
+        placeholder={col.placeholder}
+        disabled={disabled}
+        aria-required={cellRequired ? true : undefined}
+        className="h-8 flex-1 text-xs"
+      />
+    ) : (
+      <Input
+        value={typeof row.values[col.key] === 'string' ? (row.values[col.key] as string) : ''}
+        onChange={(e) => setCell(row.id, col.key, e.target.value)}
+        onBlur={() => flush(rows)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+        }}
+        placeholder={col.placeholder}
+        disabled={disabled}
+        aria-required={cellRequired ? true : undefined}
+        className="h-8 flex-1 text-xs"
+      />
+    );
+
+  if (variant === 'branches') {
+    const targetCol = columns.find((c) => c.key === 'target');
+    const bodyCols = columns.filter((c) => c !== targetCol);
+    const readOnlyBranches = rows.length === 0 ? (edgeBranches ?? []) : [];
+    const conditionLabel = t('engine.inspector.flowEdge.condition', locale);
+    return (
+      <div className="space-y-2.5" data-testid="flow-branch-list">
+        <Label className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+          {label}
+          {required && <RequiredMarker />}
+        </Label>
+        {rows.length === 0 && readOnlyBranches.length === 0 && (
+          <p className="text-[11px] italic text-muted-foreground">{emptyLabel}</p>
+        )}
+        {readOnlyBranches.length > 0 && (
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            {t('engine.inspector.flowNode.branch.fromEdges', locale)}
+          </p>
+        )}
+        {readOnlyBranches.map((b) => (
+          <div key={b.key} data-testid="flow-branch-card" data-edge-key={b.key} className="rounded-lg border bg-card">
+            <div className="flex items-center gap-2 border-b px-2.5 py-2">
+              <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+              <span className="min-w-0 flex-1 truncate text-[13px] font-medium" title={b.target}>
+                {b.targetLabel}
+              </span>
+              {b.label && <span className="max-w-[45%] shrink-0 truncate text-[11px] text-muted-foreground">{b.label}</span>}
+            </div>
+            <div className="space-y-1.5 px-2.5 pb-2.5 pt-2">
+              {b.isDefault ? (
+                <p className="text-[11px] text-muted-foreground">{t('engine.inspector.flowEdge.isDefault', locale)}</p>
+              ) : b.condition ? (
+                <>
+                  <span className="block text-[11px] text-muted-foreground">{conditionLabel}</span>
+                  <textarea
+                    readOnly
+                    rows={4}
+                    value={b.condition}
+                    aria-label={`${conditionLabel} · ${b.targetLabel}`}
+                    className="block w-full resize-y rounded-md border-0 bg-muted/40 px-2 py-1.5 font-mono text-[11px] leading-normal text-foreground outline-none"
+                  />
+                </>
+              ) : (
+                <p className="text-[11px] italic text-muted-foreground">{t('engine.inspector.flowNode.branch.noCondition', locale)}</p>
+              )}
+              {host?.onSelectionChange && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  // The canvas's own edge selection: its key, labelled `source → target`.
+                  onClick={() => host.onSelectionChange?.({ kind: 'edge', id: b.key, label: `${String(context?.node?.id ?? '')} → ${b.target}` })}
+                >
+                  {t('engine.inspector.flowNode.branch.openEdge', locale)}
+                </Button>
+              )}
+            </div>
+          </div>
+        ))}
+        {rows.map((row) => (
+          <div key={row.id} data-testid="flow-branch-card" className="rounded-lg border bg-card">
+            <div className="flex items-center gap-2 border-b px-2.5 py-1.5">
+              <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+              {targetCol && (
+                <div role="group" aria-label={targetCol.label} className="min-w-0 flex-1">
+                  {/* The header holds the target; its column name stays a label for a reader. */}
+                  <Label className="sr-only">
+                    {targetCol.label}
+                    {requiredColumns?.has(targetCol.key) === true && <RequiredMarker />}
+                  </Label>
+                  {cellControl(row, targetCol, requiredColumns?.has(targetCol.key) === true)}
+                </div>
+              )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 shrink-0 p-0 text-muted-foreground"
+                onClick={() => removeRow(row.id)}
+                disabled={disabled}
+                aria-label={removeLabel}
+                title={removeLabel}
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <div className="space-y-2 px-2.5 pb-2.5 pt-2">
+              {bodyCols.map((col) => {
+                const cellRequired = requiredColumns?.has(col.key) === true;
+                return (
+                  <div key={col.key} role="group" aria-label={col.label} className="space-y-1">
+                    <Label className="block text-[11px] font-normal text-muted-foreground">
+                      {col.label}
+                      {cellRequired && <RequiredMarker />}
+                    </Label>
+                    <div className="flex items-center">{cellControl(row, col, cellRequired, col.kind === 'expression')}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 w-full border-dashed text-xs text-muted-foreground"
+          onClick={addRow}
+          disabled={disabled}
+        >
+          <Plus className="mr-1 h-3.5 w-3.5" />
+          {addLabel}
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-1.5">
       <Label className="text-xs text-muted-foreground">
@@ -427,181 +793,7 @@ export function FlowObjectListField({
                     {col.label}
                     {cellRequired && <RequiredMarker />}
                   </Label>
-                  {col.kind === 'boolean' ? (
-                    <Checkbox
-                      checked={row.values[col.key] === true}
-                      onCheckedChange={(c) => commitCell(row.id, col.key, c === true)}
-                      disabled={disabled}
-                    />
-                  ) : col.kind === 'reference' ? (
-                    (() => {
-                      const resolved = resolveRefKind(col.ref, (k) => row.values[k]);
-                      const disc = col.ref?.kindFrom
-                        ? String(row.values[col.ref.kindFrom] ?? '')
-                        : '';
-                      // objectstack-ai/objectstack#3447: `expression` is a discriminator value, not a
-                      // reference kind — an approver whose sibling `type` is
-                      // 'expression' authors a CEL expression over the approval
-                      // roots (current/trigger/vars). Render the expression
-                      // input (mono + syntax check) instead of a dead free-text
-                      // reference box, with the APPROVAL scope groups — never
-                      // the regular flow scopeGroups, whose record.x /
-                      // bare-field spellings the runtime rejects. The same
-                      // groups feed FlowExprIssue, so an out-of-contract root
-                      // warns inline with a "did you mean" before os lint /
-                      // the node-entry pre-check reject it server-side.
-                      if (resolved === undefined && disc === 'expression') {
-                        const raw = typeof row.values[col.key] === 'string' ? (row.values[col.key] as string) : '';
-                        return (
-                          <div className="flex-1 space-y-1">
-                            <VariableTextInput
-                              mode="expression"
-                              mono
-                              value={raw}
-                              onValueChange={(v) => setCell(row.id, col.key, v)}
-                              onBlur={() => flush(rows)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                              }}
-                              groups={approvalScopeGroups ?? []}
-                              placeholder={col.placeholder ?? 'current.<field> · trigger.<field> · vars.<node>.<key>'}
-                              disabled={disabled}
-                              ariaRequired={cellRequired}
-                            />
-                            <FlowExprIssue value={raw} role="value" scopeGroups={approvalScopeGroups} />
-                          </div>
-                        );
-                      }
-                      return (
-                        <div className="flex-1">
-                          <ReferenceCombobox
-                            resolved={resolved}
-                            value={typeof row.values[col.key] === 'string' ? (row.values[col.key] as string) : ''}
-                            onCommit={(v) => setCell(row.id, col.key, typeof v === 'string' ? v : '')}
-                            onBlur={() => flush(rows)}
-                            // Picker-style selections (record lookup, strict
-                            // select) have no blur to flush on — set-and-flush
-                            // atomically, like the checkbox/select cells.
-                            onSelect={(v) => commitCell(row.id, col.key, v)}
-                            placeholder={col.placeholder}
-                            disabled={disabled}
-                            context={context}
-                            showHint={false}
-                          />
-                        </div>
-                      );
-                    })()
-                  ) : col.kind === 'select' ? (
-                    (() => {
-                      const current =
-                        typeof row.values[col.key] === 'string' ? (row.values[col.key] as string) : '';
-                      const opts = col.options ?? [];
-                      // A stored value dropped from the options (a deprecated
-                      // enum member, e.g. the `role` approver type per
-                      // ADR-0090 D3) must still render, or editing a legacy row
-                      // would silently blank it. Surface it as selectable but
-                      // flag it — it is not offered to fresh rows.
-                      const shown =
-                        current && !opts.some((o) => o.value === current)
-                          ? [
-                              ...opts,
-                              {
-                                value: current,
-                                label: flagUnknownValue(current, t('engine.form.deprecated', locale), locale),
-                              },
-                            ]
-                          : opts;
-                      return (
-                        <div className="flex-1">
-                          <Select
-                            value={current || undefined}
-                            onValueChange={(v) => commitCell(row.id, col.key, v)}
-                            disabled={disabled}
-                          >
-                            <SelectTrigger className="h-8 w-full text-xs" aria-required={cellRequired ? true : undefined}>
-                              <SelectValue placeholder={col.placeholder ?? '—'} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {shown.map((o) => (
-                                <SelectItem key={o.value} value={o.value}>
-                                  {o.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      );
-                    })()
-                  ) : col.kind === 'expression' ? (
-                    (() => {
-                      // objectui#10772 — a screen field's `visibleWhen` binds
-                      // the screen's declared fields plus `record`: the picker
-                      // offers those roots and the note judges by the same rule
-                      // as the Problems panel. Every other column: flow scope.
-                      const screenNode = screenVisibleWhenNode(context?.node, fieldId, col.key);
-                      const raw = typeof row.values[col.key] === 'string' ? (row.values[col.key] as string) : '';
-                      return (
-                        <div className="flex-1 space-y-1">
-                          <VariableTextInput
-                            mode="expression"
-                            mono
-                            value={raw}
-                            onValueChange={(v) => setCell(row.id, col.key, v)}
-                            onBlur={() => flush(rows)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                            }}
-                            groups={screenNode ? screenScopeGroups(screenNode, locale) : (scopeGroups ?? [])}
-                            placeholder={col.placeholder}
-                            disabled={disabled}
-                            ariaRequired={cellRequired}
-                          />
-                          <FlowExprIssue
-                            value={raw}
-                            role="predicate"
-                            scopeGroups={scopeGroups}
-                            screenNode={screenNode}
-                          />
-                        </div>
-                      );
-                    })()
-                  ) : col.kind === 'number' ? (
-                    // objectui#11664 — the same `Input type="number"` the
-                    // top-level number field renders, flushed on blur like the
-                    // text cell beside it. A stored string is handed to the
-                    // input as-is: the browser shows it when it reads as a
-                    // number and leaves the box blank when it does not, and the
-                    // row keeps the string either way until the author types.
-                    <Input
-                      type="number"
-                      value={(() => {
-                        const v = row.values[col.key];
-                        return typeof v === 'number' || typeof v === 'string' ? v : '';
-                      })()}
-                      onChange={(e) => setCell(row.id, col.key, numberCell(e.target.value))}
-                      onBlur={() => flush(rows)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                      }}
-                      placeholder={col.placeholder}
-                      disabled={disabled}
-                      aria-required={cellRequired ? true : undefined}
-                      className="h-8 flex-1 text-xs"
-                    />
-                  ) : (
-                    <Input
-                      value={typeof row.values[col.key] === 'string' ? (row.values[col.key] as string) : ''}
-                      onChange={(e) => setCell(row.id, col.key, e.target.value)}
-                      onBlur={() => flush(rows)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                      }}
-                      placeholder={col.placeholder}
-                      disabled={disabled}
-                      aria-required={cellRequired ? true : undefined}
-                      className="h-8 flex-1 text-xs"
-                    />
-                  )}
+                  {cellControl(row, col, cellRequired)}
                   </div>
                 );
               })}

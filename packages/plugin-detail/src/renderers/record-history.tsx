@@ -42,6 +42,21 @@ export interface RecordHistoryRendererProps {
   [k: string]: any;
 }
 
+/**
+ * The acting user's id on a `sys_activity` row, or `null` when the row names
+ * no actor. `actor_id` is the bare id, or the user's record once `$expand`
+ * put it in place (objectui#12067); either way only the id is kept.
+ */
+function activityActorId(row: { actor_id?: unknown }): string | number | null {
+  const actor = row?.actor_id;
+  if (typeof actor === 'string' || typeof actor === 'number') return actor;
+  if (actor && typeof actor === 'object') {
+    const id = (actor as { id?: unknown }).id;
+    if (typeof id === 'string' || typeof id === 'number') return id;
+  }
+  return null;
+}
+
 /** sys_activity row → HistoryEntry. Only field-mutating activity types map to
  *  history (comments/mentions/logins are not record-history). */
 const HISTORY_TYPES = new Set(['created', 'updated', 'assigned', 'shared', 'deleted']);
@@ -197,6 +212,10 @@ export const RecordHistoryRenderer: React.FC<RecordHistoryRendererProps> = ({
               id: r.id,
               created_at: when,
               action: r.type,
+              // The id rides along so the timeline can tell a system write
+              // (no actor at all) from a user it could not name
+              // (objectui#12527). Expanded, `actor_id` is the user's record.
+              user_id: activityActorId(r),
               user_name: activityActorName(r),
               user_avatar: r.actor_avatar_url ?? null,
               summary: r.summary ?? null,

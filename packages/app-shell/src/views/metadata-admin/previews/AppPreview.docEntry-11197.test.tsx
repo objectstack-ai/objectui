@@ -57,7 +57,11 @@ describe('objectui#11197 — AppNavCanvas (design mode) draws a `doc` entry', ()
     );
     expect(screen.getByText('doc')).toBeTruthy();
     expect(screen.queryByText('untyped')).toBeNull();
-    // Twice: the card's target, and its inherited text — the page it opens (objectui#11196).
-    expect(screen.getAllByText('crm_lead_guide')).toHaveLength(2);
+    // The card's inherited text is the page it opens (objectui#11196), and the
+    // card's title names that page as its target (objectui#12519).
+    expect(screen.getAllByText('crm_lead_guide')).toHaveLength(1);
+    expect(screen.getByRole('button', { pressed: false, name: /crm_lead_guide/ }).getAttribute('title')).toBe(
+      'crm_lead_guide · crm_lead_guide',
+    );
   });
 });

@@ -8,7 +8,8 @@
  *   | pending approvals count  | `GET /api/v1/approvals/requests?status=…`  | AppHeader bell badge + Approvals   |
  *   |                          |                                            | tab; Home's To-do card             |
  *   | recent activity          | `find('sys_activity', top 20, desc)`,      | AppHeader bell Activity tab;       |
- *   |                          | asked only with the caller's read grant    | Home's activity card               |
+ *   |                          | asked only with the caller's read grant,   | Home's activity card               |
+ *   |                          | filtered to the app object roster          |                                    |
  *   | inbox messages           | `find('sys_inbox_message', top 20, desc)`  | AppHeader bell Notifications tab   |
  *   |                          | ⋈ `find('sys_notification_receipt')`       | + badge; Home's action centre      |
  *
@@ -69,7 +70,12 @@ import { errorCodeIs } from '@object-ui/types';
 // Re-exported from `@object-ui/react` — import it through the provider module
 // so a consumer that stubs the provider stubs this too.
 import { useAdapter } from '../providers/AdapterProvider.js';
-import { useObjectPresence } from './useObjectPresence.js';
+import type { NavigationItem } from '@object-ui/types';
+// Through the provider module, as `useNavMemberGates` reads it: one app list.
+import { useMetadata } from '../providers/MetadataProvider.js';
+import { metadataTypeSettled, useObjectPresence } from './useObjectPresence.js';
+import { navEntriesShownToMember, useNavMemberGates, type NavMemberGates } from './useNavMemberGates.js';
+import { filterActiveApps } from '../utils/appRoute.js';
 import { bearerAuthHeaders } from '../utils/authToken.js';
 import { __resetHiddenTabClock, isPollingSuspended } from './hiddenTabPollStop.js';
 import type { ActivityItem } from '../layout/ActivityFeed.js';
@@ -641,8 +647,96 @@ function adapterKey(adapter: unknown): string | null {
  */
 function mapActivityRows(rows: unknown[]): ActivityItem[] {
   return rows
+    .filter((row) => !isLoginStampRow(row))
     .map((row) => activityRowToActivityItem(row))
     .filter((item): item is ActivityItem => item !== null);
+}
+
+/**
+ * The `sys_user` columns a successful sign-in stamps, and nothing else
+ * (objectstack's `AuthManager.stampLastLogin`, ADR-0069 D7).
+ */
+const LOGIN_STAMP_FIELDS: ReadonlySet<string> = new Set(['last_login_at', 'last_login_ip']);
+
+/**
+ * Whether a `sys_activity` row is the sign-in stamp (objectui#12530): an
+ * `updated` row on `sys_user` whose change (`metadata.new`, the writer's diff)
+ * names only the sign-in columns. Every login writes one, so on a roster that
+ * lists `sys_user` (an admin's Setup app) they would fill the feed — and a
+ * sign-in is never feed material, whatever the roster says.
+ *
+ * Precise on purpose: an edit to a user record that changes anything else is
+ * a row like any other, kept or dropped by the roster alone. A row whose
+ * `metadata` is absent or unreadable is not claimed to be a sign-in.
+ *
+ * This is the one cut the feed makes after the read. The columns a query can
+ * name (`object_name`, `record_id`, `actor_id`, `type`) do not tell a sign-in
+ * from a profile edit; only the change does, and it lives in a JSON text
+ * column the server redacts per reader. So it is judged here, and it can only
+ * shorten a page on a roster that lists `sys_user`.
+ */
+export function isLoginStampRow(row: unknown): boolean {
+  if (!row || typeof row !== 'object') return false;
+  const r = row as Record<string, unknown>;
+  if (r.object_name !== 'sys_user' || r.type !== 'updated') return false;
+  let metadata: unknown = r.metadata;
+  if (typeof metadata === 'string') {
+    try {
+      metadata = JSON.parse(metadata);
+    } catch {
+      return false;
+    }
+  }
+  const next = (metadata as { new?: unknown } | null | undefined)?.new;
+  if (!next || typeof next !== 'object' || Array.isArray(next)) return false;
+  const keys = Object.keys(next);
+  return keys.length > 0 && keys.every((k) => LOGIN_STAMP_FIELDS.has(k));
+}
+
+/** The parts of an app the roster reads: its state and its navigation trees. */
+type RosterApp = {
+  name?: unknown;
+  _packageId?: unknown;
+  active?: unknown;
+  hidden?: unknown;
+  navigation?: NavigationItem[];
+  areas?: Array<{ navigation?: NavigationItem[] }>;
+} & Record<string, unknown>;
+
+/**
+ * The business-object roster the user-facing activity feeds read
+ * (objectui#12530): every object a `type: 'object'` navigation entry names, in
+ * every app the user can open, as the member is shown that entry. Sorted and
+ * de-duplicated, so the same roster is always the same list.
+ *
+ * Derived, not declared: "an app the user can open" is `filterActiveApps`
+ * (the launcher's own predicate), and "an entry the member is shown" is
+ * `navEntriesShownToMember` with the sidebar's own gates (the object-read
+ * prune, `visible`, `requiredPermissions`, the runtime-capability gate). No
+ * object name and no name prefix is written here. The platform's `sys_*`
+ * objects drop out because no app the user opens lists them; where one does
+ * (an admin's Setup app lists `sys_user`), its rows are business activity for
+ * that user, save the sign-in stamp ({@link isLoginStampRow}).
+ */
+export function activityObjectRoster(
+  apps: readonly RosterApp[] | null | undefined,
+  gates: NavMemberGates,
+): string[] {
+  const names = new Set<string>();
+  const walk = (items: readonly NavigationItem[]): void => {
+    for (const item of items) {
+      if (item?.type === 'object' && typeof item.objectName === 'string' && item.objectName !== '') {
+        names.add(item.objectName);
+      }
+      const children = item?.type === 'separator' ? undefined : item?.children;
+      if (Array.isArray(children) && children.length > 0) walk(children);
+    }
+  };
+  for (const app of filterActiveApps(apps)) {
+    const trees = [...(app.areas ?? []).map((area) => area?.navigation ?? []), app.navigation ?? []];
+    for (const tree of trees) walk(navEntriesShownToMember(tree, gates));
+  }
+  return [...names].sort();
 }
 
 /**
@@ -685,7 +779,8 @@ export interface ActivityFeedReading extends SharedFeedSnapshot<ActivityItem[]> 
 const ACTIVITY_OBJECT = 'sys_activity';
 
 /**
- * The 20 most recent activity rows THIS caller may read, mapped onto
+ * The 20 most recent activity rows THIS caller may read on the objects their
+ * apps list (see "Business activity only" below), mapped onto
  * `ActivityItem`, with whether they are an answer and whether the caller may
  * read the feed at all ({@link ActivityFeedReading}).
  *
@@ -749,6 +844,24 @@ const ACTIVITY_OBJECT = 'sys_activity';
  * keeps the SPA (and this store) running, so an adapter-only key served the
  * previous user's rows to the next one in the tab. The user is a KEY part,
  * not a gate: the query names no user, so a host without auth still reads.
+ *
+ * ## Business activity only (objectui#12530)
+ *
+ * These are the bell's Activity tab and Home's activity card, read by every
+ * business user — so they read the activity of the objects the user's apps
+ * list ({@link activityObjectRoster}), not the platform's own writes (JWKS
+ * keys, data migrations, owner backfills, every sign-in). The roster is an
+ * `object_name` `$in` filter IN THE QUERY, so `$top` counts business rows
+ * rather than a page the client then empties. The Setup / audit surfaces read
+ * `sys_activity` through their own object views, unfiltered; nothing here
+ * touches them.
+ *
+ *   - the app list not settled yet → no key, nothing asked: an unfiltered read
+ *     is never the stand-in for a roster that has not arrived;
+ *   - an empty roster (a user who can open no app object) → an empty feed,
+ *     answered without a request — never an unfiltered one;
+ *   - the roster is part of the key, so a roster that changes (an app
+ *     installed, a grant loaded) re-reads under the new filter.
  */
 export function useSharedActivityFeed(): ActivityFeedReading {
   const dataSource = useAdapter();
@@ -759,6 +872,22 @@ export function useSharedActivityFeed(): ActivityFeedReading {
   // read their feed, with no error anywhere — the one-sided risk #7476 named.
   const readable = !perms.isLoaded || perms.can(ACTIVITY_OBJECT, 'read');
   const adapter = adapterKey(dataSource);
+  const { apps, getTypeStatus } = useMetadata();
+  const { evaluateVisibility, checkPermission, checkCapability, can } = useNavMemberGates();
+  const appsSettled = metadataTypeSettled(getTypeStatus?.('app'));
+  // Memoised for cost only: the feed keys on the joined STRING below, never
+  // on this array's identity (AGENTS.md #10).
+  const roster = useMemo(
+    () =>
+      activityObjectRoster(apps as RosterApp[] | undefined, {
+        evaluateVisibility,
+        checkPermission,
+        checkCapability,
+        can,
+      }),
+    [apps, evaluateVisibility, checkPermission, checkCapability, can],
+  );
+  const rosterKey = roster.join(',');
 
   const snapshot = useSharedFeed(
     activityFeed,
@@ -766,8 +895,11 @@ export function useSharedActivityFeed(): ActivityFeedReading {
     // re-decides) when the registry finally answers — it is `null` until then,
     // which is what keeps the doomed request from going out in that window.
     // A refused grant keeps it `null` for good: nothing is asked, and the
-    // consumer is handed the `idle` snapshot under `readable: false`.
-    activity.settled && readable && adapter ? `${adapter}:${user?.id ?? ''}` : null,
+    // consumer is handed the `idle` snapshot under `readable: false`. The app
+    // list gates it the same way, and the roster it yields is part of it.
+    activity.settled && appsSettled && readable && adapter
+      ? `${adapter}:${user?.id ?? ''}:${rosterKey}`
+      : null,
     async ({ markUnavailable, markFailed }) => {
       if (!dataSource) return undefined;
       if (activity.presence === 'absent') {
@@ -776,8 +908,15 @@ export function useSharedActivityFeed(): ActivityFeedReading {
         markUnavailable();
         return undefined;
       }
+      // No app object to read activity for ⇒ the feed is empty, and that is
+      // an answer. Not asking is what keeps it from being an unfiltered read.
+      if (roster.length === 0) return NO_ACTIVITIES;
       const res = await Promise.resolve(
-        dataSource.find(ACTIVITY_OBJECT, { $orderby: { timestamp: 'desc' }, $top: 20 }) as Promise<{
+        dataSource.find(ACTIVITY_OBJECT, {
+          $filter: { object_name: { $in: roster } },
+          $orderby: { timestamp: 'desc' },
+          $top: 20,
+        }) as Promise<{
           data?: unknown[];
         }>,
       ).catch((err: unknown) => {

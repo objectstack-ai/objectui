@@ -41,7 +41,7 @@ const PILLAR_ROWS = [
   'engine.studio.auto.disabledToast',
   'engine.studio.auto.newTitle',
   'engine.studio.auto.none',
-  'engine.studio.auto.pick',
+  'engine.studio.auto.emptyMain',
   'engine.studio.auto.config',
   'engine.studio.auto.emptyLine1',
   'engine.studio.auto.emptyLine2',

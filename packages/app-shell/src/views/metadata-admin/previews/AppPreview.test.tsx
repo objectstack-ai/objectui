@@ -182,6 +182,17 @@ describe('AppPreview renders nothing from keys AppSchema rejects', () => {
 });
 
 describe('AppNavCanvas (design mode) reads the same union', () => {
+  /**
+   * The target each card names. objectui#12519 moved it from the row into the
+   * card's `title` ("LABEL · TARGET"), so the row fits the Studio's 240 px rail.
+   */
+  const cardTargets = () =>
+    screen
+      .getAllByRole('button')
+      .filter((b) => b.getAttribute('aria-pressed') !== null)
+      .map((b) => b.getAttribute('title')?.split(' · ')[1])
+      .filter(Boolean);
+
   /** Design mode: passing `editing` + `onSelectionChange` selects the canvas. */
   function renderCanvas(draft: Record<string, unknown>) {
     return render(
@@ -203,9 +214,9 @@ describe('AppNavCanvas (design mode) reads the same union', () => {
 
   it('shows each entry target from its own branch key', () => {
     renderCanvas(VALID_DRAFT);
-    expect(screen.getByText('sales_overview')).toBeTruthy();
-    expect(screen.getByText('account')).toBeTruthy();
-    expect(screen.getByText('crm_welcome')).toBeTruthy();
+    expect(cardTargets()).toEqual(
+      expect.arrayContaining(['sales_overview', 'account', 'crm_welcome', 'sales_order']),
+    );
   });
 
   it('badges an entry with no `type` as `untyped` rather than inventing one', () => {
@@ -221,9 +232,11 @@ describe('AppNavCanvas (design mode) reads the same union', () => {
       navigation: [{ id: 'a_b', type: 'object', path: '/apps/crm/accounts', objectName: 'account' }],
     });
     // No `label` ⇒ the text the entry inherits (objectui#11196): with no
-    // metadata, its target's machine name, shown as the label and as the
-    // target — never the off-spec path, and no longer a positional row.
-    expect(screen.getAllByText('account')).toHaveLength(2);
+    // metadata, its target's machine name, shown as the label and named as
+    // the target in the card's title — never the off-spec path, and no
+    // longer a positional row.
+    expect(screen.getAllByText('account')).toHaveLength(1);
+    expect(cardTargets()).toEqual(['account']);
     expect(screen.queryByText('Item 1')).toBeNull();
     expect(screen.queryByText('/apps/crm/accounts')).toBeNull();
   });
@@ -231,6 +244,6 @@ describe('AppNavCanvas (design mode) reads the same union', () => {
   it('keeps the group child visible under its parent', () => {
     const { container } = renderCanvas(VALID_DRAFT);
     expect(within(container).getByText('Docs')).toBeTruthy();
-    expect(within(container).getByText('https://docs.example.com')).toBeTruthy();
+    expect(cardTargets()).toContain('https://docs.example.com');
   });
 });

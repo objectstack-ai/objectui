@@ -121,9 +121,17 @@ vi.mock('@object-ui/plugin-view', async (importOriginal) => {
     const authoring = useGridFieldAuthoring();
     const cols = schema?.table?.fields ?? [];
     return (
-      <button type="button" onClick={() => authoring?.onReorderFields?.([...cols].reverse())}>
-        Reverse columns
-      </button>
+      <>
+        <button type="button" onClick={() => authoring?.onReorderFields?.([...cols].reverse())}>
+          Reverse columns
+        </button>
+        {/* objectui#12511 — the grid's "+" column, drawn from the same context. */}
+        {authoring?.onAddColumn && (
+          <button type="button" data-testid="grid-add-column" onClick={authoring.onAddColumn}>
+            Add column
+          </button>
+        )}
+      </>
     );
   }
   return { ...mod, ObjectView: GridDouble };
@@ -132,7 +140,7 @@ vi.mock('@object-ui/plugin-view', async (importOriginal) => {
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), dismiss: vi.fn() } }));
 
 import { DataPillar } from './StudioDesignSurface';
-import { addFieldFromMoreMenu } from './__tests__/dataPillarAddField';
+import { addFieldFromGrid } from './__tests__/dataPillarAddField';
 import { createEmptyDataSource } from './__tests__/emptyDataSource';
 
 const dataSource = createEmptyDataSource();
@@ -179,7 +187,7 @@ describe('Studio data page — a picklist-bound field is saved without its serve
   it('the draft autosave (an added field) sends no bound field with `options`, and the inline select byte-identical', async () => {
     renderData();
     await waitFor(() => expect(fieldCountShown()).toBe('3 fields'), { timeout: 8000 });
-    await addFieldFromMoreMenu();
+    await addFieldFromGrid();
     await outlastDebounce();
     await waitFor(() => expect(puts.length).toBeGreaterThan(0), { timeout: 4000 });
 

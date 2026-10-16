@@ -234,7 +234,10 @@ async function sweepToolbar(): Promise<Sweep> {
   if (!toolbar) throw new Error('no toolbar around the tool cluster');
   const offered = new Map<string, string[]>();
   for (const trigger of Array.from(toolbar.querySelectorAll<HTMLElement>('[aria-haspopup]'))) {
-    const name = (trigger.getAttribute('aria-label') ?? text(trigger)).replace(/\d+/g, '').trim();
+    // Keyed by the label: a count badge's digits are dropped, and so is the
+    // ", 1 active" the Filter trigger's name carries while a filter is held
+    // (objectui#12500).
+    const name = (trigger.getAttribute('aria-label') ?? text(trigger)).split(',')[0].replace(/\d+/g, '').trim();
     const content = await openPopover(trigger);
     const items = [
       ...Array.from(content.querySelectorAll('option')).map(text),

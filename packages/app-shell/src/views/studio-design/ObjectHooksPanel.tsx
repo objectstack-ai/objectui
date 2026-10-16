@@ -41,6 +41,7 @@ import { useMetadataClient } from '../metadata-admin/useMetadata.js';
 import { readDraftForSave, useDraftSaveGuard, type DraftPin } from '../metadata-admin/DraftConflictDialog.js';
 // objectui#11787 — a hook autosaves through the pillars' own autosave.
 import { useDraftAutoSave, type DraftSend } from './useDraftAutoSave.js';
+import { StudioEmptyState, StudioEmptyStateAction } from './StudioEmptyState.js';
 import { t, tFormat, useMetadataLocale } from '../metadata-admin/i18n.js';
 // `formatMetadataError` is the one metadata-save error reader (objectui#11302).
 import { extractDraftBody, formatMetadataError } from '@object-ui/data-objectstack';
@@ -374,6 +375,36 @@ export function ObjectHooksPanel({
     }
   }, [client, objectName, hooks, packageId, locale, onDraftSaved]);
 
+  // objectui#12514 — an object no hook targets is one centered block whose
+  // button runs the list header's own "New".
+  if (!loading && hooks.length === 0) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        {hookConflictDialog}
+        {error && (
+          <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-[11px] text-destructive whitespace-pre-line">
+            {error}
+          </div>
+        )}
+        <StudioEmptyState
+          testId="hooks-empty"
+          icon={Webhook}
+          sentence={t('engine.studio.hooks.none', locale)}
+          action={
+            disabled ? undefined : (
+              <StudioEmptyStateAction
+                data-testid="hooks-empty-new"
+                label={t('engine.studio.hooks.newButton', locale)}
+                onClick={addHook}
+                disabled={saving}
+              />
+            )
+          }
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-0 flex-1 gap-4">
       {hookConflictDialog}
@@ -397,8 +428,6 @@ export function ObjectHooksPanel({
         <div className="min-h-0 flex-1 overflow-auto">
           {loading ? (
             <p className="px-3 py-6 text-center text-[11px] text-muted-foreground">{t('engine.studio.loading', locale)}</p>
-          ) : hooks.length === 0 ? (
-            <p className="px-3 py-6 text-center text-[11px] leading-5 text-muted-foreground">{t('engine.studio.hooks.none', locale)}</p>
           ) : (
             hooks.map((h) => (
               <button

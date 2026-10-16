@@ -858,6 +858,32 @@ preview or a design surface. The bundle keys under
 pass, as before. Header-action labels always go through the bundle, because the
 server does not translate them.
 
+## DashboardRenderer — the host draws "Refresh All" (`onRefreshStateChange`)
+
+When the renderer holds an `onRefresh` handler it draws a "Refresh All" button,
+and the same handler arms the authored `refreshIntervalSeconds` timer. A host
+that draws its own page chrome can put that button in its chrome instead: pass
+`onRefreshStateChange` alongside `onRefresh`. The renderer then draws no
+refresh button of its own, and calls the callback with the state of its one
+refresh implementation:
+
+- `refreshing` is true while a run is in flight, manual or timed. Spin the
+  button's icon and disable the button on it.
+- `handleRefresh` is the run the renderer's own button would call. Wire the
+  host's button to it, so a click calls `onRefresh` and shows the indicator.
+
+The callback is called on mount, again each time `refreshing` changes, and with
+`null` when there is nothing to draw: no `onRefresh` is wired, or the renderer
+unmounted. A `useState` setter is enough as the callback; a new function on
+every render is fine too.
+
+The timer stays the renderer's: `onRefresh` still arms it, so the host runs no
+timer of its own. The record-count badge (`recordCount`) is not handed over and
+stays where the renderer draws it. The console's dashboard page
+(`DashboardView`) passes the option and draws the button among its page
+header's actions (objectui#12554). A host that leaves it unset gets the
+renderer's button, as before.
+
 ## DashboardGridLayout — persisting drag / resize edits
 
 `DashboardGridLayout` (a React component you mount directly; its old schema

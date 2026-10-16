@@ -247,11 +247,15 @@ describe('HomePage authoring-CTA capability gate (objectstack#8270)', () => {
 
       expect(screen.getByTestId('home-build-app')).toBeDisabled();
       expect(screen.getByTestId('home-start-template')).toBeDisabled();
-      // The reason is on screen — not only in a tooltip, and not English text
-      // baked into the component.
-      expect(screen.getByTestId('home-authoring-gate-reason')).toHaveTextContent(
-        '«home.build.noCapability»',
-      );
+      // The reason is reachable from each withheld chip — its tooltip wrapper
+      // and an `aria-describedby` on the button (objectui#12601, the
+      // objectui#12303 pattern) — and is not English text baked into the
+      // component. The wrapper itself is pinned in
+      // `HomePage.greetingAndApps-12601.test.tsx`.
+      const reason = screen.getByTestId('home-authoring-gate-reason');
+      expect(reason).toHaveTextContent('«home.build.noCapability»');
+      expect(screen.getByTestId('home-build-app')).toHaveAttribute('aria-describedby', reason.id);
+      expect(screen.getByTestId('home-start-template')).toHaveAttribute('aria-describedby', reason.id);
     });
 
     it('does not navigate into the dead end when the withheld CTA is clicked', async () => {

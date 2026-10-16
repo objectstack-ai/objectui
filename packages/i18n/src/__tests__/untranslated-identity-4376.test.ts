@@ -117,6 +117,12 @@ const LEGITIMATE_IDENTITIES: Record<string, string> = {
   // fr the French space-before-colon. ja/ko/ru/ar keep `: ` because that IS
   // their punctuation here, which is a translation decision, not an omission.
   'grid.summary.pattern': 'Aggregate label/value join — a separator and two holes, no prose.',
+  // Pure format string as well (objectui#12601): the line under a Home app
+  // tile is the time hole plus a verb only where both fit the 112 px tile at
+  // 11 px. zh/ja/ko/ar add theirs; ru, like en, has no room for one, so its
+  // value is the hole alone — a fit decision held by app-shell's
+  // `appTileOpenedLine-12601.test.ts`, not an omission.
+  'home.appOpened': 'Tile last-opened line — the bare `{{time}}` hole where no verb fits the tile.',
 
   // Loanwords these packs have adopted as their OWN vocabulary (checked against
   // their neighbours: zh writes `Logo 链接` / `Logo 已上传…`, ru writes `Email подтверждён`).

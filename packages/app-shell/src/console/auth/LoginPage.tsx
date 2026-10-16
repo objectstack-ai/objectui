@@ -144,6 +144,11 @@ export function LoginPage() {
           emailPlaceholder: t('auth.login.emailPlaceholder'),
           passwordLabel: t('auth.login.passwordLabel'),
           passwordPlaceholder: t('auth.login.passwordPlaceholder'),
+          // The password field's reveal toggle is LoginForm's own, so every
+          // host shows it; its names come from the same pack (objectui#12600).
+          // The header stays this page's: it keeps LoginForm's default header.
+          showPasswordText: t('auth.login.showPasswordText'),
+          hidePasswordText: t('auth.login.hidePasswordText'),
           forgotPasswordText: t('auth.login.forgotPasswordText'),
           submitButton: t('auth.login.submitButton'),
           submittingButton: t('auth.login.submittingButton'),

@@ -503,6 +503,9 @@ describe('chunk attribution (objectui#7399)', () => {
   // `plugin-grid` chunk reads its runtime values.
   const ZOD_MODULE = moduleId('packages/types/src/zod/objectql.zod.ts');
   const TYPES_SHARED_MODULE = moduleId('packages/types/src/data-display.ts');
+  // objectui#12622's carve-out: the record-form date picker, which only an
+  // `import()` reaches, leaves `ui-components`.
+  const DATE_PICKER_MODULE = moduleId('packages/fields/src/widgets/date-picker/DatePickerField.tsx');
 
   /** The groups whose test matches this id, highest priority first. */
   function claimants(id: string): Group[] {
@@ -558,6 +561,7 @@ describe('chunk attribution (objectui#7399)', () => {
       ['the i18n runtime', I18N_RUNTIME_MODULE, 'i18n-runtime'],
       ['the ObjectStack data adapter', DATA_MODULE, 'data-adapter'],
       ['the zod validators', ZOD_MODULE, 'types-zod'],
+      ['the record-form date picker', DATE_PICKER_MODULE, 'fields-date-picker'],
     ])('routes %s to `%s` at a priority `framework` cannot tie', (_what, id, expected) => {
       const framework = groups.find((g) => g.name === 'framework');
       expect(framework).toBeDefined();
@@ -1248,6 +1252,7 @@ describe('chunk membership (objectui#9345)', () => {
       expect(PER_CHUNK_MEMBERSHIP.framework).toContain('types');
       expect(PER_CHUNK_MEMBERSHIP_CARVE_OUTS).toEqual({
         types: [{ subtree: 'src/zod', chunk: 'types-zod' }],
+        fields: [{ subtree: 'src/widgets/date-picker', chunk: 'fields-date-picker' }],
       });
     });
 

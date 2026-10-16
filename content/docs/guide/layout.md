@@ -370,7 +370,6 @@ does not render.
     subtitle?: string | Record<string, string>, // secondary line; same interpolation
     actions?: string[],               // action ids, resolved against the object's own actions
     recordChrome?: boolean,           // default true — the record chip on a record page
-    showStar?: boolean,               // default true; drawn only where the host wires a favorites toggle
     showCopyId?: boolean,             // default true
     maxVisible?: number,              // positive integer; inline action buttons (renderer default 3)
     mobileMaxVisible?: number,        // positive integer; the same on mobile (renderer default 1)
@@ -378,6 +377,8 @@ does not render.
   },
 }
 ```
+
+The favorites star beside the record title draws where the host wires a favorites toggle, and metadata does not control it.
 
 > **Write `subtitle`; there is no `description` and no `icon`.** The contract refuses
 > `description` on this node and names `subtitle` in its place. It refuses `icon` by name as

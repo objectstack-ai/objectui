@@ -41,13 +41,14 @@ export interface RecordTitleChipProps {
   objectLabel?: string;
   /** Record identifier shown next to the object label with a copy button. */
   resourceId?: string;
-  /** Hide the favourite star (default: shown). */
-  showStar?: boolean;
   /** Hide the copy-id button (default: shown when `resourceId` is given). */
   showCopyId?: boolean;
   /** Controlled favourite state. When omitted, the chip manages its own. */
   isFavorite?: boolean;
-  /** Called when the favourite star is toggled. */
+  /**
+   * Called when the favourite star is toggled. The star draws exactly when
+   * this is given: a star with nothing to call would store nothing.
+   */
   onToggleFavorite?: (next: boolean) => void;
   /** Extra classes for the outer flex column. */
   className?: string;
@@ -60,7 +61,6 @@ export const RecordTitleChip: React.FC<RecordTitleChipProps> = ({
   icon,
   objectLabel,
   resourceId,
-  showStar = true,
   showCopyId = true,
   isFavorite: isFavoriteProp,
   onToggleFavorite,
@@ -131,7 +131,7 @@ export const RecordTitleChip: React.FC<RecordTitleChipProps> = ({
               <TooltipContent>{copyLabel}</TooltipContent>
             </Tooltip>
           )}
-          {showStar && (
+          {onToggleFavorite && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

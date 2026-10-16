@@ -371,6 +371,14 @@ const es = {
       impossibleDay:
         "El valor guardado «{{value}}» no es una fecha real. Elige una fecha y una hora para reemplazarlo.",
     },
+    datePicker: {
+      today: "Hoy",
+      tomorrow: "Mañana",
+      clear: "Borrar fecha",
+      openCalendar: "Abrir calendario",
+      invalid:
+        "No guardado: «{{value}}» no es una fecha. Escríbela como {{format}} o elígela en el calendario.",
+    },
     number: {
       badInput:
         "No guardado: el texto de este campo no es un número. Introduce un decimal simple (ejemplo: {{example}}).",
@@ -2298,9 +2306,8 @@ const es = {
       signingIn: "Iniciando sesión…",
       ssoHandoff: "Continuar a {{target}}",
       devAdminHint: {
-        title: "Instancia de desarrollo",
-        body: "Inicie sesión con el administrador de desarrollo predefinido:",
-        dismiss: "Descartar",
+        title: "Instancia de desarrollo local",
+        signIn: "Iniciar sesión como administrador de desarrollo",
       },
       title: "Inicia sesión en tu cuenta",
       description: "Ingresa tu correo electrónico y contraseña para continuar",
@@ -2332,6 +2339,16 @@ const es = {
       usePasswordSignInText: "Iniciar sesión con contraseña en su lugar",
       socialButton: "Continuar con {provider}",
       orText: "o continúe con correo electrónico",
+      // objectui#12600 — the console login card's own header, the password
+      // field's reveal toggle, and the footer's legal links.
+      welcomeTitle: "Bienvenido de nuevo",
+      welcomeDescription: "Inicia sesión para continuar con tu trabajo",
+      showPasswordText: "Mostrar contraseña",
+      hidePasswordText: "Ocultar contraseña",
+      footer: {
+        privacy: "Privacidad",
+        terms: "Términos",
+      },
     },
     register: {
       title: "Crear una cuenta",
@@ -2659,12 +2676,10 @@ const es = {
   home: {
     build: {
       title: "Crear una aplicación",
-      subtitle: "Empiece desde cero — diseñe objetos, formularios, automatizaciones e interfaces.",
       noCapability: "La creación de aplicaciones no está disponible en este espacio de trabajo: requiere el permiso «Gestionar metadatos», que su cuenta no tiene.",
     },
     template: {
       title: "Empezar con una plantilla",
-      subtitle: "Instale una aplicación de plantilla desde el mercado y personalícela.",
       marketplaceDisabled: "Este runtime no tiene un marketplace de aplicaciones configurado, por lo que no hay plantillas que instalar aquí.",
     },
     welcomeAdminDescription: "Describa su negocio en una frase — la IA genera los objetos, las pantallas, las API y las herramientas del agente. O configúrelo usted mismo desde el menú de la izquierda.",
@@ -2731,7 +2746,16 @@ const es = {
     greetingNight: "Turno de noche",
     greetingSeparator: ", ",
     greetingEnd: ".",
-    heroTagline: "Continúe donde lo dejó o descubra algo nuevo.",
+    search: "Buscar aplicaciones, registros, páginas…",
+    summary: {
+      approvals: "Hoy tiene {{count}} aprobaciones pendientes",
+      approvals_one: "Hoy tiene {{count}} aprobación pendiente",
+      approvals_many: "Hoy tiene {{count}} aprobaciones pendientes",
+      approvals_other: "Hoy tiene {{count}} aprobaciones pendientes",
+      none: "Hoy no tiene nada pendiente",
+    },
+    addApp: "Agregar aplicación",
+    appOpened: "{{time}}",
     open: "Abrir",
     recentApps: {
       title: "Abiertos recientemente",
@@ -3544,7 +3568,7 @@ const es = {
     installedSubtitle: "Paquetes del marketplace instalados en el kernel de este runtime.",
     installedEmpty: "Aún no hay aplicaciones del marketplace instaladas en este runtime.",
     browseLink: "Explorar marketplace →",
-    installedAdditiveNote: "<strong>Nota:</strong> La API del kernel es solo aditiva — desinstalar elimina el manifiesto del disco para que el paquete no se cargue al próximo inicio, pero el kernel en ejecución mantiene la aplicación registrada hasta reiniciar.",
+    installedAdditiveNote: "La API del kernel es solo aditiva — desinstalar elimina el manifiesto del disco para que el paquete no se cargue al próximo inicio, pero el kernel en ejecución mantiene la aplicación registrada hasta reiniciar.",
     installedAt: "Instalado {{when}}",
     installedBy: "por {{user}}",
     installedPackageId: "Paquete",

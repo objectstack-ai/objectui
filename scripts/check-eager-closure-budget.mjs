@@ -2315,6 +2315,14 @@ export const PER_CHUNK_MEMBERSHIP = Object.freeze({
  */
 export const PER_CHUNK_MEMBERSHIP_CARVE_OUTS = Object.freeze({
   types: Object.freeze([Object.freeze({ subtree: 'src/zod', chunk: 'types-zod' })]),
+  // objectui#12622, seat ruling 6212914664 (option A): the record-form date
+  // picker, which only `FORM_FACE_LOADERS`' `import()` reaches. Without this row
+  // `ui-components` claimed it with the rest of `packages/fields` and put it on
+  // every page load. Its chunk carries no ceiling, so the rule above holds it
+  // to being ABSENT from the eager closure.
+  fields: Object.freeze([
+    Object.freeze({ subtree: 'src/widgets/date-picker', chunk: 'fields-date-picker' }),
+  ]),
 });
 
 /**

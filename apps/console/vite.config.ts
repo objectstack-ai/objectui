@@ -1407,6 +1407,33 @@ export default defineConfig({
               includeDependenciesRecursively: false,
             },
             { name: 'framework', test: /[\\/]packages[\\/](core|react|types)[\\/]/, priority: 80 },
+            //
+            // ## The record-form date picker leaves the eager line (objectui#12622)
+            //
+            // `ui-components` claims every `packages/fields/` module wherever it
+            // is reached from, so the picker's `import()` in `FORM_FACE_LOADERS`
+            // had no effect on chunking: the picker would have been fetched on
+            // every page load, including pages with no record form. This group
+            // takes the `widgets/date-picker/` directory only. The picker's
+            // imports from the rest of `packages/fields` (`DateField`,
+            // `nativeDateValue`, `useFieldTranslation`, ...) stay in
+            // `ui-components`. The new chunk is reached only through that
+            // `import()`, so the closure walk never enters it.
+            // `PER_CHUNK_MEMBERSHIP_CARVE_OUTS` in
+            // `scripts/check-eager-closure-budget.mjs` declares this split and
+            // checks it module by module. That check errors if this chunk ever
+            // joins the eager closure.
+            //
+            // `includeDependenciesRecursively: false` for the reason `types-zod`
+            // below gives: with the default left on, the group would pull the
+            // shared `widgets/` neighbours along an import, and `ui-components`
+            // would then import this chunk statically.
+            {
+              name: 'fields-date-picker',
+              test: /[\\/]packages[\\/]fields[\\/]src[\\/]widgets[\\/]date-picker[\\/]/,
+              priority: 82,
+              includeDependenciesRecursively: false,
+            },
             { name: 'ui-components', test: /[\\/]packages[\\/](components|fields)[\\/]/, priority: 80 },
             { name: 'ui-layout', test: /[\\/]packages[\\/]layout[\\/]/, priority: 80 },
             { name: 'infrastructure', test: /[\\/]packages[\\/](auth|permissions|tenant)[\\/]/, priority: 80 },

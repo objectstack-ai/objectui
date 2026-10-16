@@ -99,10 +99,17 @@ export function formatDateTime(
  * midnight), the same distance in every zone at the same wall-clock time.
  * An unparsable value comes back as its string, as it does from
  * {@link formatDate}; `Intl.RelativeTimeFormat` would throw on it.
+ *
+ * `options` are `Intl.RelativeTimeFormat`'s own `style` and `numeric`, passed
+ * through unchanged; omitted, the result is what it always was (`long`,
+ * `auto`: "yesterday", "2 days ago"). A surface with little room asks for a
+ * compact form, e.g. `{ style: 'short', numeric: 'always' }` ("1 day ago",
+ * "3 hr. ago").
  */
 export function formatRelativeTime(
   date: Date | string | number,
   locale = 'en',
+  options: Pick<Intl.RelativeTimeFormatOptions, 'style' | 'numeric'> = {},
 ): string {
   const d = toDisplayDate(date);
   if (isNaN(d.getTime())) {
@@ -115,7 +122,10 @@ export function formatRelativeTime(
   const diffHour = Math.round(diffMin / 60);
   const diffDay = Math.round(diffHour / 24);
 
-  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+  const rtf = new Intl.RelativeTimeFormat(locale, {
+    numeric: options.numeric ?? 'auto',
+    style: options.style ?? 'long',
+  });
 
   if (Math.abs(diffSec) < 60) return rtf.format(diffSec, 'second');
   if (Math.abs(diffMin) < 60) return rtf.format(diffMin, 'minute');

@@ -194,6 +194,14 @@ const FIELD_DEFAULTS: Record<string, string> = {
   // only paint it blank. Same value as the `en` pack.
   'fields.dateTime.impossibleDay':
     'The stored value "{{value}}" is not a real date. Pick a date and time to replace it.',
+  // objectui#12622 — the record form's date picker (`DatePickerField`). Same
+  // values as the `en` pack.
+  'fields.datePicker.today': 'Today',
+  'fields.datePicker.tomorrow': 'Tomorrow',
+  'fields.datePicker.clear': 'Clear date',
+  'fields.datePicker.openCalendar': 'Open calendar',
+  'fields.datePicker.invalid':
+    'Not saved: "{{value}}" is not a date. Type it as {{format}}, or pick one from the calendar.',
   // objectui#3342 — the tags widget's input hint. Used only when the field
   // author declared no `placeholder` of their own (author declaration wins).
   'fields.tags.placeholder': 'Type and press Enter to add…',

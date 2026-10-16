@@ -31,7 +31,7 @@
  *    once FLS lands)
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { mergeFilterNodes, toFilterNodeSafely } from '@object-ui/core';
 import { useDisplayLocale } from '@object-ui/i18n';
@@ -273,6 +273,8 @@ export function AuditLogPage() {
   const [actorFilter, setActorFilter] = useState<string>('');
   const [fromDate, setFromDate] = useState<string>('');  // YYYY-MM-DD
   const [toDate, setToDate] = useState<string>('');
+  /** The presets row is named by its visible caption. */
+  const presetsCaptionId = useId();
   /** The chosen preset's view key, or null for none. */
   const [presetKey, setPresetKey] = useState<string | null>(null);
   const activePreset = presets.find((p) => p.key === presetKey && p.applies);
@@ -396,8 +398,8 @@ export function AuditLogPage() {
       <Card>
         <CardContent className="p-4 grid grid-cols-1 md:grid-cols-5 gap-3">
           {presets.length > 0 && (
-            <div className="md:col-span-5 flex flex-wrap items-center gap-2" role="group" aria-label="Presets">
-              <span className="text-xs text-muted-foreground mr-1">Presets</span>
+            <div className="md:col-span-5 flex flex-wrap items-center gap-2" role="group" aria-labelledby={presetsCaptionId}>
+              <span id={presetsCaptionId} className="text-xs text-muted-foreground mr-1">Presets</span>
               {presets.map((p) => p.applies ? (
                 <Button
                   key={p.key}

@@ -16,6 +16,9 @@
  * the served document, never from a literal copy of plugin-audit's views.
  *
  * Pinned:
+ *  - the presets row is a group named by its visible "Presets" caption
+ *    (`aria-labelledby`), never by a literal `aria-label`, which the
+ *    aria-label census refuses (objectui#12145);
  *  - every served list view appears as a preset, in served order, by its
  *    served label;
  *  - choosing a preset sends that view's filter, lowered as the object list
@@ -142,6 +145,16 @@ function lastFilter(): unknown {
 }
 
 describe('AuditLogPage — served list views are presets (objectui#12667)', () => {
+  it('names the presets row by its visible caption, not a literal aria-label', async () => {
+    renderPage();
+    await settle();
+    const group = screen.getByRole('group', { name: 'Presets' });
+    expect(group).not.toHaveAttribute('aria-label');
+    const captionId = group.getAttribute('aria-labelledby');
+    expect(captionId).toBeTruthy();
+    expect(document.getElementById(captionId as string)).toHaveTextContent('Presets');
+  });
+
   it('offers every served list view by its served label, in served order', async () => {
     renderPage();
     await settle();

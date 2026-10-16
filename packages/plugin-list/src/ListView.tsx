@@ -9,7 +9,7 @@
 import * as React from 'react';
 import { cn, Button, Input, Popover, PopoverContent, PopoverTrigger, FilterBuilder, SortBuilder, NavigationOverlay, GroupingEditor, RefreshIndicator, DataErrorState, resolveIcon, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@object-ui/components';
 import type { SortItem } from '@object-ui/components';
-import { Search, SlidersHorizontal, ArrowUpDown, X, EyeOff, Pencil, Group, Paintbrush, Download, Rows4, Rows3, Rows2, Share2, Printer, Plus, Trash2, CheckSquare, AlertTriangle, ShieldAlert, RotateCw, Loader2, Info } from 'lucide-react';
+import { Search, Funnel, ArrowUpDown, X, EyeOff, Pencil, Group, Paintbrush, Download, Rows4, Rows3, Rows2, Share2, Printer, Plus, Trash2, CheckSquare, AlertTriangle, ShieldAlert, RotateCw, Loader2, Info } from 'lucide-react';
 import type { FilterBuilderRowGroup } from '@object-ui/components';
 import { VALUELESS_FILTER_BUILDER_OPERATORS, isFilterValueComplete } from '@object-ui/components';
 import { ViewSwitcherDropdown } from './ViewSwitcher';
@@ -5321,22 +5321,22 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                 variant="ghost"
                 size="sm"
                 className={cn(
-                  "h-7 px-2 text-muted-foreground hover:text-primary text-xs transition-colors duration-150",
+                  "h-7 min-w-7 gap-1 px-1.5 text-muted-foreground hover:text-primary text-xs transition-colors duration-150",
                   hasFilters && "text-foreground font-medium"
                 )}
                 data-testid="toolbar-filter-trigger"
-                // Below `sm` the label span is hidden and the button is
-                // icon-only, so the name rides on `aria-label` — with the
-                // active-filter count, which the badge would otherwise be
-                // alone in carrying (objectui#12500).
+                // Filter, Sort and Display are icon buttons at every width
+                // (objectui#12695), so the name rides on `aria-label` and
+                // `title` — with the active-filter count, which the badge
+                // would otherwise be alone in carrying (objectui#12500).
                 aria-label={hasFilters
                   ? t('list.filterActive', { count: currentFilters.conditions?.length || 0 })
                   : t('list.filter')}
+                title={t('list.filter')}
               >
-                <SlidersHorizontal className="h-3.5 w-3.5 mr-1.5" />
-                <span className="hidden sm:inline">{t('list.filter')}</span>
+                <Funnel className="h-3.5 w-3.5" />
                 {hasFilters && (
-                  <span className="ml-1 flex h-4 min-w-[16px] items-center justify-center text-[10px] font-medium text-muted-foreground tabular-nums">
+                  <span className="flex h-4 min-w-[16px] items-center justify-center text-[10px] font-medium text-muted-foreground tabular-nums">
                     {currentFilters.conditions?.length || 0}
                   </span>
                 )}
@@ -5419,15 +5419,18 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                 variant="ghost"
                 size="sm"
                 className={cn(
-                  "hidden sm:inline-flex h-7 px-2 text-muted-foreground hover:text-primary text-xs transition-colors duration-150",
+                  "hidden sm:inline-flex h-7 min-w-7 gap-1 px-1.5 text-muted-foreground hover:text-primary text-xs transition-colors duration-150",
                   currentSort.length > 0 && "text-foreground font-medium"
                 )}
                 data-testid="toolbar-sort-trigger"
+                // Icon-only (objectui#12695): no visible label carries the
+                // name, so `aria-label` and `title` do.
+                aria-label={t('list.sort')}
+                title={t('list.sort')}
               >
-                <ArrowUpDown className="h-3.5 w-3.5 mr-1.5" />
-                <span className="hidden sm:inline">{t('list.sort')}</span>
+                <ArrowUpDown className="h-3.5 w-3.5" />
                 {currentSort.length > 0 && (
-                  <span className="ml-1 flex h-4 min-w-[16px] items-center justify-center text-[10px] font-medium text-muted-foreground tabular-nums">
+                  <span className="flex h-4 min-w-[16px] items-center justify-center text-[10px] font-medium text-muted-foreground tabular-nums">
                     {currentSort.length}
                   </span>
                 )}

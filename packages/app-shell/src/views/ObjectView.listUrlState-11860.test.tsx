@@ -326,9 +326,10 @@ describe('a list is a link (objectui#11860)', () => {
     await settle();
     fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
     await settle();
-    const filterButton = screen.getAllByRole('button').find((b) => /filter/i.test(b.textContent ?? ''));
-    expect(filterButton).toBeDefined();
-    fireEvent.click(filterButton!);
+    // By name: the Filter trigger is an icon button with no label text
+    // (objectui#12695); with a filter applied its name is "Filter, N active".
+    const filterButton = screen.getByRole('button', { name: /^Filter, \d+ active$/ });
+    fireEvent.click(filterButton);
     await settle();
     fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
     await settle();

@@ -1,0 +1,14 @@
+---
+'@object-ui/app-shell': minor
+---
+
+The console home's "Needs your attention" card becomes the "My work" section of the approved home artboard (objectui#12602), and the pending-drafts banner above the greeting moves into it.
+
+- **Heading.** "My work", 15 px / 600, with a count pill: the approvals waiting on the user plus the unread notification topics, the two numbers the bell adds up for its badge. At the right, an "Open inbox" link opens the inbox page the bell's "view all" opens.
+- **Two columns.** Approvals first, then Notifications, side by side from `md` up with a 12 px gap. Each column is an 8 px-radius card with a 40 px header (title, count pill, "View all") and up to three 40 px rows: a 24 px icon tile, a one-line title cut with an ellipsis, and a 12 px relative time.
+  - **Approvals** lists the approval requests waiting on the user, titled by the flow's label and the record's name as the approvals service serves them. Its pill is on the primary colour and is the number of those requests, from the same pending-approvals read the bell and the greeting's summary line use. A row opens that request in the Approvals inbox; "View all" opens the Approvals inbox.
+  - **Notifications** lists the unread inbox messages, newest first, one per title. Its pill is the unread topic count the bell shows. A row follows its link through the resolver the bell uses; "View all" opens the inbox.
+  - A column with nothing to list says so in one muted line ("Nothing waiting for your approval", "No unread notifications"), only once its read has answered. While a read is loading or after it fails, the column says that instead, beside any rows it still shows.
+- **Not three columns.** The artboard splits notifications into "Assigned to me" and "Reminders", and marks overdue items. An inbox message carries a free-text topic and a severity, but no declared kind and no due date, so the section shows one Notifications column and no overdue marking, rather than guessing a kind from the topic or the title.
+- **Who sees it.** A column is drawn only when the user may read its source. The Notifications column, and the "Open inbox" link, are left out when the loaded permissions refuse read on `sys_inbox_message`; permissions that have not loaded count as readable. The Approvals column needs a signed-in user. With neither source and no drafts to publish, the section is not drawn at all.
+- **Pending drafts.** The full-width blue banner above the greeting is removed. Its replacement is a 40 px row under the "My work" heading, on the soft primary tint: a rocket icon, "N unpublished change(s)", the first three draft names (each draft's own label, or its name when it has none) and their package when they all share one, and a 28 px "Publish" button. The button runs the same publish the banner ran. When the workspace has no app yet, the row is drawn at the top of the empty state, where the banner was.

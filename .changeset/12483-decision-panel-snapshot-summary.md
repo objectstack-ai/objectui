@@ -1,0 +1,5 @@
+---
+'@object-ui/app-shell': minor
+---
+
+The approval decision panel (`record:approval_decision`) shows what was submitted (objectui#12483): the request's declared amount and a summary of its record snapshot. The amount is the first field the target object declares `type: 'currency'` (a declared amount's zero still leads); a key that only looks like an amount by its name is an ordinary row. Each row takes its field's declared label and is drawn through the record page's own cell (option labels, dates, currency), or by the server's display value for a reference. A key the object does not declare, a framework column, an unresolved reference id, a field the object declares `hidden: true`, and a field the reader may not read take no row; a hidden or unreadable field never leads, and the next field takes its slot. So the request page objectstack serves shows the summary the approvals inbox's sheet shows, with no page, prop or spec change: the panel reads the `payload` and `payload_display` of the request row it is already bound to, and the target object's definition from the metadata store.

@@ -1,0 +1,274 @@
+// Copyright (c) 2025 ObjectStack. Licensed under the Apache-2.0 license.
+
+import React from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useAuth } from '@object-ui/auth';
+import { useIsMobile } from '@object-ui/components';
+import { useAgents } from '@object-ui/plugin-chatbot';
+import { useChatConversation } from '../../hooks/useChatConversation.js';
+import { chatConversationScope, chatProductOfAgent } from '../../hooks/chatScope.js';
+import { resolveSurfaceAgent } from '../../hooks/surfaceAgent.js';
+import { t } from '../metadata-admin/i18n.js';
+import { ChatPane, resolveApiBase, type PendingFirstMessage } from '../../console/ai/AiChatPage.js';
+import {
+  ChatDockPanel,
+  ChatDockLauncher,
+  ChatDockMobileSheet,
+  useChatDockState,
+} from '../../layout/ChatDock.js';
+import {
+  rememberDockReturnLocation,
+  DOCK_STUDIO_EXPANDED_STORAGE_KEY,
+  DOCK_STUDIO_WIDTH_STORAGE_KEY,
+} from '../../layout/chatDockState.js';
+
+/**
+ * objectui#8219 — the display label of the artifact a pillar has open, tagged
+ * with the identity it labels. Reported by pillars that know a label (today:
+ * the Interfaces pillar's open leaf); the others report nothing.
+ */
+export interface StudioSurfaceLabel {
+  type: string;
+  name: string;
+  label: string;
+}
+
+interface StudioCopilotConversationProps {
+  /** The package the Studio surface is editing — scopes the build agent to it. */
+  packageId: string;
+  /** ADR-0037/P3c — the Live Canvas open/close seam, forwarded to ChatPane. */
+  onCanvasOpenChange?: (open: boolean) => void;
+  /**
+   * objectui#8219 — the open artifact's display label, for the "discussing"
+   * chip only. Passed to ChatPane as its own prop when it labels the SAME
+   * artifact the URL names; it never enters `surfaceContext` (the agent's
+   * `context.surface`). Absent → the chip reads `type · name`.
+   */
+  surfaceLabel?: StudioSurfaceLabel | null;
+}
+
+/**
+ * The Studio copilot's chat body — the build agent scoped to the package being
+ * designed, over the ADR-0057 P1 `(user, app, product)` conversation, hosted by
+ * {@link StudioChatDock} in the shared dock chrome. Renders nothing when the AI
+ * catalog is empty (community edition / no seat) — callers that add chrome
+ * around it must apply the same gate so no empty shell renders.
+ */
+export function StudioCopilotConversation({
+  packageId,
+  onCanvasOpenChange,
+  surfaceLabel,
+}: StudioCopilotConversationProps): React.ReactElement | null {
+  // cloud#1610 — the URL is the single source of the surface context: the
+  // pillar is the :tab route segment, the artifact is the `?surface=type:name`
+  // deep-link every pillar already mirrors (useSurfaceDeepLink). Derived per
+  // render; the ChatPane transport reads it per send, so each turn carries
+  // what the user is looking at RIGHT NOW.
+  const { tab } = useParams<{ tab?: string }>();
+  const copilotLocation = useLocation();
+  const surfaceContext = React.useMemo(() => {
+    const raw = new URLSearchParams(copilotLocation.search).get('surface');
+    let artifact: { type: string; name: string } | undefined;
+    if (raw) {
+      const idx = raw.indexOf(':');
+      if (idx > 0 && idx < raw.length - 1) {
+        artifact = { type: raw.slice(0, idx), name: raw.slice(idx + 1) };
+      }
+    }
+    if (!tab && !artifact) return undefined;
+    return { ...(tab ? { pillar: tab } : {}), ...(artifact ? { artifact } : {}) };
+  }, [tab, copilotLocation.search]);
+  // objectui#8219 — the chip's display label, read beside the context rather
+  // than inside it. Shown only when it labels the artifact the URL names: the
+  // URL stays the single source of WHAT is discussed, so a label that lags or
+  // leads the `?surface=` mirror is dropped instead of naming the wrong item.
+  const artifact = surfaceContext?.artifact;
+  const surfaceArtifactLabel =
+    artifact && surfaceLabel && surfaceLabel.type === artifact.type && surfaceLabel.name === artifact.name
+      ? surfaceLabel.label || undefined
+      : undefined;
+  const { user } = useAuth();
+  const userId = user?.id;
+  const apiBase = React.useMemo(() => resolveApiBase(), []);
+
+  const { agents, isLoading: agentsLoading, error: agentsError } = useAgents({ apiBase });
+
+  // ADR-0057 P2: the Studio authoring surface resolves through the ONE
+  // declarative resolver (`studio-build` → build, else platform default), not a
+  // local `isBuildAgent` pick. Same result, single source of truth.
+  const activeAgent = React.useMemo(
+    () => resolveSurfaceAgent('studio-build', { agents }),
+    [agents],
+  );
+
+  const chatApi = activeAgent
+    ? `${apiBase}/agents/${encodeURIComponent(activeAgent)}/chat`
+    : undefined;
+
+  // One durable conversation per (user, app, product) — ADR-0057. Keyed on the
+  // PACKAGE and PRODUCT, not on this surface, so reopening the same app's design
+  // chat in the full-page `/ai/build?package=…` focus view resumes THIS thread
+  // (no `studio:` fork). See {@link chatConversationScope}.
+  const { conversationId, initialMessages } = useChatConversation({
+    userId: activeAgent ? userId : undefined,
+    scope: activeAgent
+      ? chatConversationScope({ appId: packageId, product: chatProductOfAgent(activeAgent) })
+      : undefined,
+    apiBase,
+    activeId: undefined,
+    forceNew: false,
+  });
+
+  const pendingFirstMessageRef = React.useRef<PendingFirstMessage | null>(null);
+
+  // No agent served (community edition / misconfigured) → no copilot, plain surface.
+  if (!agentsLoading && agents.length === 0) return null;
+
+  return (
+    <ChatPane
+      key={`${chatApi ?? 'local'}:${conversationId ?? 'pending'}`}
+      agents={agents}
+      agentsLoading={agentsLoading}
+      agentsError={agentsError}
+      activeAgent={activeAgent}
+      chatApi={chatApi}
+      apiBase={apiBase}
+      conversationId={conversationId}
+      editPackageId={packageId}
+      surfaceContext={surfaceContext}
+      surfaceArtifactLabel={surfaceArtifactLabel}
+      initialMessages={initialMessages}
+      pendingFirstMessageRef={pendingFirstMessageRef}
+      onSent={() => {}}
+      onShare={() => {}}
+      showDebug={false}
+      onCanvasOpenChange={onCanvasOpenChange}
+    />
+  );
+}
+
+// (The legacy LEFT copilot panel that used to live here was removed by the
+// final ADR-0057 cleanup — the right dock below is the copilot's one home.
+// The cloud `aiSlot` seam in StudioDesignSurface still accepts an injected
+// left panel.)
+
+export interface StudioChatDockProps {
+  /** The package the Studio surface is editing — scopes the build agent to it. */
+  packageId: string;
+  /** UI locale (from the Studio surface) for the dock chrome. */
+  locale?: string;
+  /** objectui#8219 — the open artifact's display label, for the chat's
+   * "discussing" chip; see {@link StudioCopilotConversation}. */
+  surfaceLabel?: StudioSurfaceLabel | null;
+}
+
+/**
+ * ADR-0057 P3c — the Studio copilot rendered as the shared RIGHT dock (the
+ * ADR's decided grid: `[left: nav/tree] [center: canvas + properties] [right:
+ * chat]`). Same conversation as the left copilot it replaces (the P1
+ * `(user, package, build)` scope), in the same {@link ChatDockPanel} chrome as
+ * the console rail.
+ *
+ * Differences from the console rail, on purpose:
+ *  - Default EXPANDED (the copilot has always been visible by default), but a
+ *    collapse IS remembered — per-tab, under this surface's own key (#2477
+ *    item 2). The old panel's in-memory collapse re-opened on every pillar /
+ *    package switch; only the first-visit posture is still "expanded".
+ *  - Collapsed state = the {@link ChatDockLauncher} edge button — Studio has
+ *    no FAB to double as the launcher.
+ *  - Maximize opens `/ai/build?package=…`, which resumes THIS thread (the
+ *    scope is keyed on the package, not the surface).
+ *  - The Live Canvas auto-maximizes the rail on open, tucks on close
+ *    (ADR-0037 — the preview needs more width than the rail has).
+ */
+export function StudioChatDock({
+  packageId,
+  locale,
+  surfaceLabel,
+}: StudioChatDockProps): React.ReactElement | null {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const apiBase = React.useMemo(() => resolveApiBase(), []);
+  // Expanded by default (the copilot has always been visible), but a collapse
+  // is remembered per-tab so it doesn't re-open on every pillar / package
+  // switch or Studio re-entry (issue #2477 item 2). The console dock uses its
+  // OWN key, so the two never share a collapse.
+  const dock = useChatDockState({
+    defaultExpanded: true,
+    persistExpandedKey: DOCK_STUDIO_EXPANDED_STORAGE_KEY,
+    // Own width too — a wide console chat must not squeeze the design canvas.
+    persistWidthKey: DOCK_STUDIO_WIDTH_STORAGE_KEY,
+  });
+  // Under `md` the copilot presents as a bottom sheet (there is no horizontal
+  // room for a rail). Its open state is LOCAL — a phone must not inherit the
+  // desktop "expanded by default" posture, or the sheet would cover the Studio
+  // on every load.
+  const isMobile = useIsMobile();
+  const [mobileOpen, setMobileOpen] = React.useState(false);
+
+  // The catalog gate lives HERE (not in ChatDockPanel): the `children` body
+  // override below bypasses the panel's default self-gating conversation.
+  const { agents, isLoading: agentsLoading } = useAgents({ apiBase });
+
+  const handleCanvasOpenChange = React.useCallback(
+    (open: boolean) => (open ? dock.maximize() : dock.restore()),
+    [dock.maximize, dock.restore],
+  );
+
+  // Record where we maximized FROM so the `/ai` page's collapse-to-dock
+  // returns to THIS Studio surface, not to some console page.
+  const openFullPage = React.useCallback(() => {
+    rememberDockReturnLocation(`${location.pathname}${location.search}`);
+    // objectui#5799 — the built-moment transition auto-routes package build
+    // conversations into the Studio workbench; this door is the ONE sanctioned
+    // way back to the full page, so it opts the arrival out (read + cleared by
+    // AiChatPage's transition effect).
+    try {
+      sessionStorage.setItem('objectstack:ai-full-page-requested', '1');
+    } catch {
+      /* storage unavailable — the transition will bounce back to Studio */
+    }
+    navigate(`/ai/build?package=${encodeURIComponent(packageId)}`);
+  }, [location.pathname, location.search, navigate, packageId]);
+
+  if (!agentsLoading && agents.length === 0) return null;
+
+  if (isMobile) {
+    return (
+      <>
+        <ChatDockLauncher
+          onExpand={() => setMobileOpen(true)}
+          className="inline-flex md:hidden"
+        />
+        <ChatDockMobileSheet
+          open={mobileOpen}
+          onOpenChange={setMobileOpen}
+          title={t('engine.studio.aiCopilot', locale)}
+          // Bridge to the package's full-page build thread; deferred so the
+          // sheet closes cleanly before the route changes.
+          onMaximize={openFullPage}
+        >
+          <StudioCopilotConversation packageId={packageId} surfaceLabel={surfaceLabel} />
+        </ChatDockMobileSheet>
+      </>
+    );
+  }
+
+  if (!dock.expanded) {
+    return <ChatDockLauncher onExpand={dock.expand} />;
+  }
+
+  return (
+    <ChatDockPanel
+      dock={dock}
+      title={t('engine.studio.aiCopilot', locale)}
+      onMaximize={openFullPage}
+    >
+      <StudioCopilotConversation
+        packageId={packageId}
+        onCanvasOpenChange={handleCanvasOpenChange}
+        surfaceLabel={surfaceLabel}
+      />
+    </ChatDockPanel>
+  );
+}

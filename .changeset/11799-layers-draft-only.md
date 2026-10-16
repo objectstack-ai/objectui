@@ -1,0 +1,4 @@
+---
+---
+
+No release: tests only. `@object-ui/app-shell` gains pins for the four `GET /meta/:type/:name/layers` reads objectui#11799 left open: the metadata edit page's first load, the embedded item editor's save read, the permission matrix's package-door save re-read, and the list-view panel's read of a view that exists nowhere yet. None of them can be skipped with what its editor holds. The framework keeps answering 404 for a name with no stored layer, its author included (objectstack-ai/objectstack#22397, answer (a)), and `MetadataClient.layered()` already resolves that 404 as an envelope with every layer null, so none of these reads raises an error for it. The pins hold that in place: a draft-only item opens with no error state, a published item still gets its layers, and a failed read (a 5xx) still shows its error. No executable code changed (objectui#11799).

@@ -90,6 +90,23 @@ describe('objectui#12724 — the progress collapses to one line per phase', () =
     expect(screen.queryByTestId('tool-phase-steps-expanded')).not.toBeInTheDocument();
   });
 
+  it('a plan that waits on the user does not hold the line open — its own card says so', () => {
+    const turn = designTurn(false);
+    const plan = {
+      status: 'blueprint_proposed',
+      blueprint: { objects: [{ name: 'book', label: 'Book', fields: [{ name: 'title' }] }] },
+    };
+    turn.toolInvocations = turn.toolInvocations!.map((tool) =>
+      tool.toolName === 'propose_blueprint'
+        ? { ...tool, result: plan, proposedPlan: detectProposedPlan(plan) }
+        : tool,
+    );
+    render(<ChatbotEnhanced messages={[turn]} onSendMessage={vi.fn()} />);
+    expect(screen.getByTestId('tool-phase-toggle')).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByTestId('tool-phase-headline')).toHaveTextContent(/^Design the plan · 4 steps/);
+    expect(screen.getByTestId('proposed-plan-awaiting')).toBeInTheDocument();
+  });
+
   it('a reopened phase (never measured here) omits the time instead of inventing one', () => {
     render(<ChatbotEnhanced messages={[{ ...designTurn(false), id: 'design-reopened' }]} />);
     expect(screen.getByTestId('tool-phase-headline')).toHaveTextContent(/^Design the plan · 4 steps$/);

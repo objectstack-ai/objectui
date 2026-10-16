@@ -3490,6 +3490,18 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                         )}
                       >
                     <MessageContent>
+                      {/* objectui#12724 — the phase line leads the turn, above
+                          the design / build panel it summarizes. */}
+                      {!isUser && processVisibility === 'summary' && summaryTools.length > 0 ? (
+                        <ToolPhaseSummary
+                          phaseKey={message.id}
+                          streaming={Boolean(message.streaming)}
+                          phaseTools={tools}
+                          summaryTools={summaryTools}
+                          translateToolTitle={tt}
+                          labels={L}
+                        />
+                      ) : null}
                       {blueprintProgress ? (
                         <BlueprintProgressPanel
                           progress={blueprintProgress}
@@ -3530,16 +3542,6 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                           <ReasoningTrigger />
                           <ReasoningContent>{reasoning}</ReasoningContent>
                         </Reasoning>
-                      ) : null}
-                      {!isUser && processVisibility === 'summary' && summaryTools.length > 0 ? (
-                        <ToolPhaseSummary
-                          phaseKey={message.id}
-                          streaming={Boolean(message.streaming)}
-                          phaseTools={tools}
-                          summaryTools={summaryTools}
-                          translateToolTitle={tt}
-                          labels={L}
-                        />
                       ) : null}
                       {!isUser && detailedTools.length > 0
                         ? detailedTools.map(renderToolDetail)
@@ -4768,15 +4770,16 @@ function ToolPhaseSummary({
   labels: ToolActivitySummaryLabels;
 }) {
   const { t } = useObjectTranslation();
-  // The line speaks for the whole turn — every tool it called, including the
-  // ones that render their own card below (the plan, a draft, an approval) —
-  // while the expanded rows stay the summary strip they always were. A turn
-  // whose every tool has its own card draws no line (the host gates on the
-  // summary strip), so a lone card is never named twice.
+  // The line's steps speak for the whole turn — every tool it called,
+  // including the ones that render their own card below (the plan, a draft, an
+  // approval) — while its state and the expanded rows are the summary strip's:
+  // a step that waits on the user already says so on its own card (the plan's
+  // 等待确认), so it does not hold the line open. A turn whose every tool has
+  // its own card draws no line (the host gates on the summary strip), so a lone
+  // card is never named twice.
   const groups = summarizeTools(summaryTools, translateToolTitle);
   const steps = foldToolPhaseSteps(phaseTools, translateToolTitle);
-  const turnStates = summarizeTools(phaseTools, translateToolTitle);
-  const has = (state: ToolSummaryState) => turnStates.some((g) => g.state === state);
+  const has = (state: ToolSummaryState) => groups.some((g) => g.state === state);
   const lineState: ToolSummaryState = has('failed')
     ? 'failed'
     : has('awaiting')

@@ -4315,8 +4315,15 @@ const fieldWidgetMap = {
   'number': () => import('./widgets/NumberField.js').then(m => ({ default: m.NumberField })),
   'boolean': () => import('./widgets/BooleanField.js').then(m => ({ default: m.BooleanField })),
   'select': () => import('./widgets/SelectField.js').then(m => ({ default: m.SelectField })),
-  'date': () => import('./widgets/DateField.js').then(m => ({ default: m.DateField })),
-  'datetime': () => import('./widgets/DateTimeField.js').then(m => ({ default: m.DateTimeField })),
+  // The platform date picker (objectui#12622, objectui#12642): a text box in
+  // the display locale's format with a calendar popover, for every consumer of
+  // this map — the record form (`registerField`) and the action-param and
+  // bulk-action dialogs (`getLazyFieldWidget`) alike, so a field type has one
+  // face. It writes what the native input wrote: `YYYY-MM-DD` for `date`, an
+  // ISO instant for `datetime`. Its read-only face is `DateField` /
+  // `DateTimeField`'s own.
+  'date': () => import('./widgets/date-picker/DatePickerField.js').then(m => ({ default: m.DatePickerField })),
+  'datetime': () => import('./widgets/date-picker/DatePickerField.js').then(m => ({ default: m.DateTimePickerField })),
   'time': () => import('./widgets/TimeField.js').then(m => ({ default: m.TimeField })),
   
   // Contact fields
@@ -4483,9 +4490,8 @@ const lazyFieldWidgets = new Map<string, React.ComponentType<any>>();
 
 /**
  * Lazily-loaded form field widget for a field type. Shares the exact loaders
- * of {@link fieldWidgetMap} (the components `registerField` registers for
- * forms, except the form-only faces in `FORM_FACE_LOADERS`), wrapped in
- * `React.lazy` and cached per type — so a consumer can
+ * of {@link fieldWidgetMap} (the same components `registerField` registers for
+ * forms), wrapped in `React.lazy` and cached per type — so a consumer can
  * render any form-supported field type without eagerly bundling every widget.
  * Render inside a `<Suspense>` boundary. Unknown types resolve to the `text`
  * widget via {@link resolveFormWidgetType}.
@@ -4717,26 +4723,6 @@ export const FIELD_WIDGET_LABELLING: Record<
   'permission-ref': 'control',
 };
 
-/**
- * The FORM face of a field type, where it differs from the widget
- * {@link fieldWidgetMap} loads (objectui#12622).
- *
- * A record form draws `date` / `datetime` with the platform date picker: a
- * text box in the display locale's format, a calendar popover, clear, and
- * today / tomorrow shortcuts. The ruling scopes it to record forms, so only
- * the registry registration (what a form resolves `field:date` /
- * `field:datetime` to) takes it. {@link getLazyFieldWidget} (the action-param
- * and bulk-action dialogs) and the inline editors (`FieldEditWidget`, which
- * imports `DateField` / `DateTimeField` directly) keep the native input.
- *
- * The value written is the native input's: `YYYY-MM-DD` for `date`, an ISO
- * instant for `datetime` (see `widgets/date-picker/DatePickerField.tsx`).
- */
-const FORM_FACE_LOADERS: Partial<Record<RegisteredFieldWidgetType, FieldWidgetLoader>> = {
-  date: () => import('./widgets/date-picker/DatePickerField.js').then(m => ({ default: m.DatePickerField })),
-  datetime: () => import('./widgets/date-picker/DatePickerField.js').then(m => ({ default: m.DateTimePickerField })),
-};
-
 export function registerField(fieldType: string): void {
   const loader = fieldWidgetLoaderByKey[fieldType];
   if (!loader) {
@@ -4745,9 +4731,7 @@ export function registerField(fieldType: string): void {
   }
   
   // Create lazy component
-  const LazyFieldWidget = React.lazy(
-    FORM_FACE_LOADERS[fieldType as RegisteredFieldWidgetType] ?? loader,
-  );
+  const LazyFieldWidget = React.lazy(loader);
 
   // Register with field namespace. No LAYOUT wrapper — the form renderer owns
   // label/description/spacing. The only thing wrapped is the metadata carrier:

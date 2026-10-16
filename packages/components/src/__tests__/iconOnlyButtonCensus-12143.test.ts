@@ -242,7 +242,6 @@ const BACKLOG: Array<[file: string, icons: string[]]> = [
   ['packages/plugin-ai/src/AIRecommendations.tsx', ['ExternalLink', 'X', 'ThumbsUp', 'ThumbsDown']],
   ['packages/plugin-chatbot/src/elements/conversation.tsx', ['ArrowDownIcon']],
   ['packages/plugin-chatbot/src/index.tsx', ['Send']],
-  ['packages/plugin-detail/src/DetailSection.tsx', ['Check | Copy']],
   ['packages/plugin-detail/src/DetailView.tsx', ['ArrowLeft', 'ChevronLeft', 'ChevronRight']],
   ['packages/plugin-detail/src/RecordComments.tsx', ['Send']],
   ['packages/plugin-list/src/ListView.tsx', ['X']],

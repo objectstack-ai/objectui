@@ -67,13 +67,18 @@ const objectDef = {
   },
 };
 
+/** What a view spy reads off the node `ListView` built for it. */
+interface SpyProps {
+  schema: { type?: string; objectName?: string };
+}
+
 /** Props each view spy received, in order. */
-let kanbanProps: Array<Record<string, any>> = [];
-let gridProps: Array<Record<string, any>> = [];
+let kanbanProps: SpyProps[] = [];
+let gridProps: SpyProps[] = [];
 
 ComponentRegistry.register(
   'object-kanban',
-  (props: Record<string, any>) => {
+  (props: SpyProps) => {
     kanbanProps.push(props);
     return <div data-testid="kanban-spy" />;
   },
@@ -82,7 +87,7 @@ ComponentRegistry.register(
 
 ComponentRegistry.register(
   'object-grid',
-  (props: Record<string, any>) => {
+  (props: SpyProps) => {
     gridProps.push(props);
     return <div data-testid="grid-spy" />;
   },
@@ -91,7 +96,7 @@ ComponentRegistry.register(
 
 const makeDataSource = () =>
   ({
-    find: vi.fn(async () => rows),
+    find: vi.fn(async (_object: string, _params?: unknown) => rows),
     findOne: vi.fn(async () => null),
     create: vi.fn(),
     update: vi.fn(),
@@ -100,12 +105,12 @@ const makeDataSource = () =>
     getObjectSchema: vi.fn(async () => objectDef),
     getObjects: vi.fn(async () => []),
     onMutation: () => () => {},
-  }) as any;
+  });
 
 function renderNode(node: Record<string, unknown>) {
   const dataSource = makeDataSource();
   const view = render(
-    <SchemaRendererProvider dataSource={dataSource}>
+    <SchemaRendererProvider dataSource={dataSource as never}>
       <SchemaRenderer schema={node as never} />
     </SchemaRendererProvider>,
   );
@@ -150,7 +155,7 @@ afterEach(() => {
   cleanup();
 });
 
-const last = (spy: Array<Record<string, any>>) => spy[spy.length - 1];
+const last = (spy: SpyProps[]): SpyProps => spy[spy.length - 1];
 
 describe('a metadata page list-view node reads `properties.type` as its kind (objectui#12099)', () => {
   it('draws a kanban over the object `properties.data` names, and the node stays a list-view', async () => {
@@ -330,7 +335,8 @@ describe('the registrations publish `data` / `type` (objectui#12099)', () => {
 
   it('the `type` input enumerates the kinds a list view draws', () => {
     const input = ComponentRegistry.getConfig('list-view')?.inputs?.find((candidate) => candidate.name === 'type');
-    expect((input?.enum ?? []).map((option: any) => option.value)).toEqual(
+    const options: Array<string | { value: unknown }> = input?.enum ?? [];
+    expect(options.map((option) => (typeof option === 'string' ? option : option.value))).toEqual(
       expect.arrayContaining(['grid', 'kanban', 'gallery', 'calendar', 'timeline', 'gantt', 'map', 'chart', 'tree']),
     );
     expect(input?.required).not.toBe(true);

@@ -362,16 +362,17 @@ component up by:
   "type": "list-view",
   "properties": {
     "data": { "provider": "object", "object": "deal" },
-    "type": "kanban",
     "columns": ["name", "amount"],
     "kanban": { "groupByField": "stage" }
   }
 }
 ```
 
-Without `properties.type` the list is a grid, the spec's default kind; a `type`
-that names no kind this list draws is a grid too. `data` may also hand the list
-its rows (`{ "provider": "value", "items": [...] }`).
+That node draws a grid of `deal` records: without `properties.type` the list is
+a grid, the spec's default kind. Add `"type": "kanban"` to the same `properties`
+and it draws a kanban over `deal`, grouped by `stage`. A `type` that names no
+kind this list draws is a grid too. `data` may also hand the list its rows
+(`{ "provider": "value", "items": [...] }`).
 
 A page node's own `objectName` and `viewType` are **not read**. The page
 renderer removes them before the list sees the node, and logs one warning per key

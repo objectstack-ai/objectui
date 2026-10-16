@@ -50,6 +50,7 @@ vi.mock('@object-ui/auth', async (importOriginal) => ({
 vi.mock('../../providers/ExpressionProvider', () => ({
   useExpressionContext: () => ({ evaluator: null }),
   evaluateVisibility: (expr: unknown) => expr !== false && expr !== 'false',
+  evaluateNavigationVisibility: (expr: unknown) => expr !== false && expr !== 'false',
 }));
 
 vi.mock('../../utils', () => ({

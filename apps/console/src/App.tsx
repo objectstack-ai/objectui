@@ -13,7 +13,7 @@
  */
 
 import { lazy, Suspense, useMemo } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth, createAuthenticatedFetch } from '@object-ui/auth';
 import { UploadProvider, createObjectStackUploadAdapter } from '@object-ui/providers';
 import { DevMasterDetail } from './dev/DevMasterDetail';
@@ -40,7 +40,7 @@ import {
   RedirectWithSplash,
 } from '@object-ui/app-shell';
 
-import { AppContent } from './AppContent';
+import { AppContent, ConsolePermissionsScope } from './AppContent';
 import { publishAuthState } from './i18nSession';
 import { FaviconSync } from './components/FaviconSync';
 import { RootLandingRedirect } from './components/RootLandingRedirect';
@@ -298,11 +298,24 @@ export function App() {
               <Route path=":slug" element={<Suspense fallback={<LoadingScreen />}><DocsSlug /></Suspense>} />
               <Route path=":slug/:name" element={<Suspense fallback={<LoadingScreen />}><DocPage /></Suspense>} />
             </Route>
-            <Route path="/home" element={
+            {/* objectui#12700 — Home and every app share ONE
+              * `/auth/me/permissions` source. A pathless layout route is their
+              * common ancestor: its element (auth, the shell, the permissions
+              * provider) stays mounted when the user moves between `/home` and
+              * `/apps/…`, so the answer is fetched once per session load and
+              * Home's navigation gates (the bell's and the activity card's
+              * roster) answer `current_user.can(...)` from it.
+              * ⛔ `/studio/*` stays outside it (`components/studioEntry.ts`). */}
+            <Route element={
               <ProtectedRoute>
-                <HomeRoute />
+                <ConsolePermissionsScope>
+                  <Outlet />
+                </ConsolePermissionsScope>
               </ProtectedRoute>
-            } />
+            }>
+              <Route path="/home" element={<HomeRoute />} />
+              <Route path="/apps/:appName/*" element={<AppContent />} />
+            </Route>
             {/* Dev-only: ADR-0001 master-detail subform verification harness. */}
             <Route path="/dev/master-detail" element={
               <ProtectedRoute>
@@ -386,11 +399,6 @@ export function App() {
             <Route path="/ai/:agent/:conversationId" element={
               <ProtectedRoute>
                 <RequireAiSurface><DefaultAiChatPage /></RequireAiSurface>
-              </ProtectedRoute>
-            } />
-            <Route path="/apps/:appName/*" element={
-              <ProtectedRoute>
-                <AppContent />
               </ProtectedRoute>
             } />
             {/*

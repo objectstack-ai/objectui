@@ -73,7 +73,7 @@ import { useObjectTranslation } from '@object-ui/i18n';
 import { fetchPendingDrafts } from './usePendingDrafts.js';
 import { canonicalMetaUrlType } from '@objectstack/spec/shared';
 import { resolveI18nLabel, type I18nLabel } from '@objectstack/spec/ui';
-import { stripReadDecorations } from '@objectstack/spec/kernel';
+import { MetadataProtectionFields, stripReadDecorations } from '@objectstack/spec/kernel';
 import { diffFields } from '../views/metadata-admin/previews/object-fields-io.js';
 // The live `?surface=` channel, and NOT `useSurfaceDeepLink` beside it: this
 // import must stay React-only, because that module reaches `nav-selection.js`
@@ -206,9 +206,10 @@ async function publishedNamesOf(type: string): Promise<Set<string>> {
  * the same asymmetry whenever the two bodies' read-time verdicts differ.
  *
  * The key list is the spec's (`METADATA_READ_DECORATIONS`), never a local
- * copy. The ADR-0010 protection envelope is deliberately NOT on it: those keys
- * are declared by the closed schemas, so a real change to one of them IS a
- * change this diff should report.
+ * copy. The ADR-0010 protection envelope is deliberately NOT on it, and this
+ * body keeps it: the security-posture lint reads these same bodies as served.
+ * The review diff leaves the envelope out where it compares, in
+ * `computeChangeDetail` (objectui#12594).
  */
 function unwrapItem(payload: unknown): Record<string, unknown> | null {
   if (!payload || typeof payload !== 'object') return null;
@@ -273,10 +274,34 @@ function isEmptyChangeDetail(detail: EntryChangeDetail): boolean {
 }
 
 /**
+ * The ADR-0010 protection envelope (`_lock`, `_packageId`, `_provenance`, …),
+ * read off the spec's own declaration so no key list lives here. The review
+ * diff compares what the author wrote, and none of these keys is that:
+ * `_packageId`, `_packageVersion` and `_provenance` are stamped by the
+ * registry, and the `_lock*` family is set only by a code package's loader —
+ * the metadata API refuses a save that would set, change or remove a lock
+ * (ADR-0010 §3.5). So on a NEW item, whose every key reads as added, the
+ * package stamp was listed under "Also changed:" as if the author had typed
+ * it (objectui#12594).
+ */
+const PROTECTION_ENVELOPE_KEYS: readonly string[] = Object.freeze(Object.keys(MetadataProtectionFields));
+
+/** `body` without its top-level protection envelope; a copy, never a mutation. */
+function withoutProtectionEnvelope(body: Record<string, unknown>): Record<string, unknown> {
+  const rest = { ...body };
+  for (const key of PROTECTION_ENVELOPE_KEYS) delete rest[key];
+  return rest;
+}
+
+/**
  * What publishing this draft actually changes, computed client-side from the
  * published body (null when the item is NEW) and the pending draft body.
  * `fields` gets the dedicated designer diff; every other top-level key is
  * compared wholesale — enough to answer "which parts of this item move".
+ *
+ * Both bodies lose their protection envelope first (above), here and nowhere
+ * else, so every list this returns and the no-change mark read the same
+ * envelope-free pair.
  *
  * Why not `computeDiffRows` from `LayeredDiff.tsx`, which splits top-level keys
  * the same way: that module imports the metadata-admin string table
@@ -288,8 +313,8 @@ export function computeChangeDetail(
   published: Record<string, unknown> | null,
   draft: Record<string, unknown> | null,
 ): EntryChangeDetail {
-  const pub = published ?? {};
-  const cur = draft ?? {};
+  const pub = withoutProtectionEnvelope(published ?? {});
+  const cur = withoutProtectionEnvelope(draft ?? {});
   let fields: EntryChangeDetail['fields'] = null;
   if (pub.fields != null || cur.fields != null) {
     const d = diffFields(pub.fields, cur.fields);

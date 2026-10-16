@@ -16,9 +16,11 @@
  * every pillar: right after the identity (title, api-name chip, kind chips),
  * before the meta, never in the actions slot, which holds actions only. The
  * pillar passes the status as data and this file draws the chip, so no
- * pillar places or styles it itself. The identity sits in a `contents`
- * wrapper: it changes no layout, and the status chip is the same child of
- * the same row in every pillar whatever identity chips the pillar shows.
+ * pillar places or styles it itself. The identity chips sit in one
+ * `contents` wrapper, always rendered: it draws no box, so the layout is
+ * unchanged, and the status chip is the same child of the same row in every
+ * pillar whatever identity chips the pillar shows. The title stays a direct
+ * child of the row.
  */
 
 import * as React from 'react';
@@ -108,13 +110,13 @@ export function StudioItemHeader({
             <Icon className="h-4 w-4" />
           </span>
         )}
-        <div className="contents">
-          <h1 {...titleProps} className={cn(STUDIO_ITEM_TITLE, titleProps?.className)}>
-            {title}
-          </h1>
+        <h1 {...titleProps} className={cn(STUDIO_ITEM_TITLE, titleProps?.className)}>
+          {title}
+        </h1>
+        <span className="contents" data-slot="identity-chips">
           {apiName && <code className={STUDIO_API_CHIP}>{apiName}</code>}
           {chips}
-        </div>
+        </span>
         {status && <StudioStatusChip {...status} />}
         {meta && <span className={STUDIO_META}>{meta}</span>}
         {actions && <div className="ml-auto flex shrink-0 items-center gap-2">{actions}</div>}

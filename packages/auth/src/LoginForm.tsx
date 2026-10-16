@@ -464,7 +464,7 @@ export function LoginForm({
         {/* Unset labels stay `undefined` here, so the component's own English
             defaults apply — one copy of each default, not two. The divider
             introduces the email form, so it is drawn only while that form is
-            (objectui#12682). */}
+            shown (objectui#12682). */}
         <SocialSignInButtons
           mode="sign-in"
           dividerText={labels.orText}

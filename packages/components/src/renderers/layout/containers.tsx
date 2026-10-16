@@ -2073,10 +2073,14 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     );
     // "Host" is the key test the disabled-reason branch below uses: a key no
     // authored action holds came from `headerSystemActions`. "Destructive" is
-    // the menu's own red-row test, so the row that is painted red is the row
-    // that is set apart in the `⋯`.
+    // ONE predicate read everywhere below: the `⋯`'s destructive band and its
+    // separator, the red row, the inline button's style and the primary pick
+    // (objectui#12764). Its word is the spec's: `@objectstack/spec`'s action
+    // `variant` enum is `primary | secondary | danger | ghost | link`, and
+    // "danger = destructive". Shadcn's `destructive` is not a spec value, so
+    // it is not read here; the host's Delete is `sys_delete` by name.
     const isDestructiveAction = (a: any): boolean =>
-      a?.variant === 'destructive' || a?.name === 'sys_delete';
+      a?.variant === 'danger' || a?.name === 'sys_delete';
     const isHostAction = (a: any): boolean => {
       const key = (a?.name || a?.id || '') as string;
       return key !== '' && !authoredHeaderActionKeys.has(key);
@@ -2091,11 +2095,14 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     // filled style, so a header with three actions showed three primaries and
     // none of them read as the main one.
     // Only an action that can sit in the row competes for it — a destructive
-    // host action never does (see `isHostButton` below).
+    // host action never does (see `isHostButton` below) — and a destructive
+    // action is never the primary: a `variant: 'danger'` action first in the
+    // row drew as the filled primary (objectui#12764).
     const isHostButton = (a: unknown): boolean => isHostAction(a) && !isDestructiveAction(a);
     const rowEligible = buttonable.filter((a) => !isHostAction(a) || isHostButton(a));
-    const primaryIdx = rowEligible.findIndex((a) => a?.variant === 'primary');
-    const primaryAction: unknown = rowEligible[primaryIdx >= 0 ? primaryIdx : 0];
+    const primaryCandidates = rowEligible.filter((a) => !isDestructiveAction(a));
+    const primaryIdx = primaryCandidates.findIndex((a) => a?.variant === 'primary');
+    const primaryAction: unknown = primaryCandidates[primaryIdx >= 0 ? primaryIdx : 0];
     const ranked = primaryAction
       ? [primaryAction, ...buttonable.filter((a) => a !== primaryAction)]
       : buttonable;
@@ -2172,9 +2179,11 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     const renderButton = (action: any, idx: number) => {
       const label = resolveLabel(action);
       // The primary (see `primaryAction` above) is the one filled button —
-      // Shadcn's `default`; every other inline button is an outline button
-      // (objectui#12617).
-      const variant = action === primaryAction ? 'default' : 'outline';
+      // Shadcn's `default`; a destructive action shown inline is Shadcn's
+      // `destructive` (objectui#12764); every other inline button is an
+      // outline button (objectui#12617).
+      const variant =
+        action === primaryAction ? 'default' : isDestructiveAction(action) ? 'destructive' : 'outline';
       const size = action.size || 'sm';
       const disabled = isActionDisabled(action);
       const icon = typeof action.icon === 'string' ? action.icon : null;
@@ -2254,8 +2263,7 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
                 const label = resolveLabel(action);
                 const disabled = isActionDisabled(action);
                 const icon = typeof action.icon === 'string' ? action.icon : null;
-                const isDestructive =
-                  action.variant === 'destructive' || action.name === 'sys_delete';
+                const isDestructive = isDestructiveAction(action);
                 // objectui#11811 — the same reason as the inline button, but
                 // drawn as a visible second line, not a tooltip. Inside the
                 // menu a tooltip trigger is unreachable from the keyboard: a
@@ -2701,7 +2709,7 @@ ComponentRegistry.register('header', PageHeaderRenderer, {
     // express the domain: `ComponentInput.type` has no integer/min/max slot, so
     // `description` stays the only authoring-time expression of it, and spec
     // stays the sole judge of values.)
-    { name: 'maxVisible', type: 'number', description: 'How many header actions render as inline buttons on desktop before the rest fold into the overflow menu. A positive integer — the contract rejects 0 and fractional values. Two kinds of action are routed to the overflow menu regardless of this budget and never occupy an inline slot: an action whose locations declare record_more without record_header, and any action with component action:menu. The host\'s own buttons (the record page\'s Edit) take no slot and never fold. The first inline action, or the one declaring variant primary, is the one filled primary button; the others are outline buttons.' },
+    { name: 'maxVisible', type: 'number', description: 'How many header actions render as inline buttons on desktop before the rest fold into the overflow menu. A positive integer — the contract rejects 0 and fractional values. Two kinds of action are routed to the overflow menu regardless of this budget and never occupy an inline slot: an action whose locations declare record_more without record_header, and any action with component action:menu. The host\'s own buttons (the record page\'s Edit) take no slot and never fold. The first inline action, or the one declaring variant primary, is the one filled primary button; the others are outline buttons. An action declaring variant danger is never the primary: inline it is a destructive button, and in the overflow menu it is a red row below a separator.' },
     { name: 'mobileMaxVisible', type: 'number', description: 'The same inline-button budget on mobile viewports, where horizontal room is scarce. A positive integer, defaulting to 1; the desktop half is Max Inline Actions, and the overflow routing rules stated there apply unchanged.' },
   ],
 });

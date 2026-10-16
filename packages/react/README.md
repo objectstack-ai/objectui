@@ -471,16 +471,24 @@ Every member but `resolve` is optional. An absent member, or one that answers
 `null`, means the host cannot route there, and the renderer draws no link.
 
 ```tsx
-<RelatedRecordActionsProvider
-  value={{
-    resolve: () => ({}),
-    listHref: (objectName, viewName) =>
-      viewName ? `/apps/crm/${objectName}/view/${viewName}` : `/apps/crm/${objectName}`,
-    openList: (objectName, viewName) => navigate(/* the same route */),
-  }}
->
-  {children}
-</RelatedRecordActionsProvider>
+import type { ReactNode } from 'react'
+import { RelatedRecordActionsProvider } from '@object-ui/react'
+import type { RelatedRecordActionsValue } from '@object-ui/react'
+
+declare const navigate: (to: string) => void
+
+const listPath = (objectName: string, viewName?: string): string =>
+  viewName ? `/apps/crm/${objectName}/view/${encodeURIComponent(viewName)}` : `/apps/crm/${objectName}`
+
+const host: RelatedRecordActionsValue = {
+  resolve: () => ({}),
+  listHref: (objectName: string, viewName?: string) => listPath(objectName, viewName),
+  openList: (objectName: string, viewName?: string) => navigate(listPath(objectName, viewName)),
+}
+
+export function PageHost({ children }: { children: ReactNode }) {
+  return <RelatedRecordActionsProvider value={host}>{children}</RelatedRecordActionsProvider>
+}
 ```
 
 ### ComponentRegistry

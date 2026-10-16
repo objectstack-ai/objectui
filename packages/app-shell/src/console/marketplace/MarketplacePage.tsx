@@ -43,34 +43,33 @@ import { getCloudBase, getRuntimeConfig, isMarketplaceEnabled } from '../../runt
 import { emitMetadataRefresh } from '../../assistant/assistantBus.js';
 import { appRouteSegment, filterActiveApps, resolveKeyedI18nLabel } from '../../utils/index.js';
 import { waitForServedApp, type ServedApp } from './waitForServedApp.js';
-import { middleTruncate } from './middleTruncate.js';
+import { splitPackageSuffix } from './middleTruncate.js';
 
 /**
  * The card grid's track (objectui#12616): a card is never narrower than 240px,
  * and the page fits as many of them as its own width holds. A viewport
- * breakpoint (`lg:grid-cols-3`) cannot know that width: under the Setup
- * sidebar at a 1024px viewport it drew three tracks of a zero-minimum `1fr`
- * and left the card's text one character.
+ * breakpoint (`lg:grid-cols-3`) cannot know that width: it drew three tracks
+ * of a zero-minimum `1fr` (`grid-cols-3`) from a 1024px viewport up, however
+ * little of that width the Setup sidebar left the page.
  */
 const CARD_GRID = 'grid gap-4 grid-cols-[repeat(auto-fill,minmax(240px,1fr))]';
 
 /**
- * The longest manifest id a card draws whole, in characters (objectui#12616).
- * The id is 11px monospace, about 6.6px a character, in the header's text
- * column: a 240px card less its border (2px), its padding (48px), the 40px
- * icon and the 12px gap leaves 138px, which holds 20 of them. A longer id is
- * cut in the middle by `middleTruncate` and stays whole in the `title`.
- */
-const CARD_ID_MAX_CHARS = 20;
-
-/**
  * The identity block of a marketplace card, shared by the catalog card and the
- * "Your organization" card (objectui#12616). The title takes the text column's
- * whole width first, up to two lines; the badge sits on its own line under it,
- * never beside it, so it cannot take the title's width; and the id is one line
- * cut in the middle, so its package suffix stays readable. `line-clamp-2` is
- * visual only: the whole title stays in the DOM text, so assistive technology
- * reads it whole.
+ * "Your organization" card (objectui#12616).
+ *
+ * - The title takes the text column's whole width first, up to two lines with
+ *   an ellipsis on the second. `line-clamp-2` is visual only: the whole title
+ *   stays in the DOM text, so assistive technology reads it whole.
+ * - The badge sits on its own line under the title, never beside it, so it
+ *   cannot take the title's width.
+ * - The id is one line of 11px monospace, drawn as two runs: the head, which
+ *   shrinks and takes the ellipsis, and the package suffix, which does not
+ *   (`splitPackageSuffix`). A card too narrow for the whole id therefore cuts
+ *   it in the middle, before the package name; a card wide enough draws it
+ *   whole. The suffix is capped at the column less 4ch, so a package name
+ *   longer than the column still leaves the head's first characters and is cut
+ *   at its own end. The whole id is the element's text and its `title`.
  */
 function PackageCardHeader({
   iconUrl,
@@ -83,15 +82,17 @@ function PackageCardHeader({
   manifestId: string;
   badge?: ReactNode;
 }) {
+  const { head, suffix } = splitPackageSuffix(manifestId);
   return (
     <CardHeader className="flex flex-row items-start gap-3 pb-2">
       <PackageIcon iconUrl={iconUrl} displayName={displayName} manifestId={manifestId} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <CardTitle className="text-[13px] leading-snug line-clamp-2 break-words">{displayName}</CardTitle>
         {badge}
-        <CardDescription className="text-[11px] truncate">
-          <code className="font-mono" title={manifestId}>
-            {middleTruncate(manifestId, CARD_ID_MAX_CHARS)}
+        <CardDescription className="text-[11px]">
+          <code className="flex font-mono" title={manifestId}>
+            <span className="min-w-0 truncate">{head}</span>
+            {suffix ? <span className="max-w-[calc(100%_-_4ch)] shrink-0 truncate">{suffix}</span> : null}
           </code>
         </CardDescription>
       </div>

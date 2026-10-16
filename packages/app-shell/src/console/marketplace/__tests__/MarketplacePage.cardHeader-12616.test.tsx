@@ -7,9 +7,10 @@
  *
  * The card header was one row: icon, a text column, then the publisher badge
  * with `shrink-0`. The badge took its width first and the title and id got the
- * remainder. At a 1024px viewport under the Setup sidebar, `lg:grid-cols-3`
- * drew three 229px tracks, the text column was 28px wide, and the HotCRM card
- * read "H…" over "ap…".
+ * remainder, each cut to one line at its end (`truncate`). The card grid was
+ * `sm:grid-cols-2 lg:grid-cols-3`, three zero-minimum tracks from a 1024px
+ * viewport up, whatever width the Setup sidebar left the page. The issue
+ * measured the HotCRM card at 1024px reading "H…" over "ap…".
  *
  * ## What the cases pin
  *
@@ -17,16 +18,17 @@
  *   two lines (`line-clamp-2`), never cut to one (`truncate`).
  * - The badge sits in the text column on its own line under the title, not in
  *   the header row beside it, so it cannot take the title's width.
- * - The id is cut in the middle by `middleTruncate`, and the whole id is the
- *   element's `title`.
+ * - The id is two runs in one flex line: the head, which shrinks and takes the
+ *   ellipsis, and the package suffix, which does not. The element's text and
+ *   its `title` are the whole id; nothing is shortened in the DOM.
  * - Every card grid is a 240px-minimum auto-fill track, not a viewport
  *   breakpoint.
  *
  * Both cards that draw this header are pinned: the catalog card and the
- * "Your organization" card. happy-dom does no layout, so these cases pin the
- * structure and the classes that produce the layout; the widths themselves were
- * read once in Chromium against the served console, at 1024 and 1280px and at
- * a 240px card, and are quoted in the pull request.
+ * "Your organization" card. happy-dom does no layout, so a rendered width
+ * cannot be read here: these cases pin the structure and the classes that
+ * produce the layout. The widths themselves are a browser reading, taken
+ * outside this suite.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -122,9 +124,9 @@ afterEach(() => {
 });
 
 describe.each([
-  ['catalog card', 'marketplace-card-app.objectstack.hotcrm', HOTCRM.display_name, 'objectstack', HOTCRM.manifest_id, 'app.objectsta…hotcrm'],
-  ['org card', 'org-card-com.northwind.customer-relationship-suite', ORG.display_name, 'org', ORG.manifest_id, 'com.nor…onship-suite'],
-])('Marketplace %s header (objectui#12616)', (_kind, testId, title, badgeText, manifestId, shownId) => {
+  ['catalog card', 'marketplace-card-app.objectstack.hotcrm', HOTCRM.display_name, 'objectstack', HOTCRM.manifest_id, 'app.objectstack.', 'hotcrm'],
+  ['org card', 'org-card-com.northwind.customer-relationship-suite', ORG.display_name, 'org', ORG.manifest_id, 'com.northwind.', 'customer-relationship-suite'],
+])('Marketplace %s header (objectui#12616)', (_kind, testId, title, badgeText, manifestId, head, suffix) => {
   it('the title holds the whole name, clamped to two lines rather than cut to one', async () => {
     await boot();
     renderPage();
@@ -155,15 +157,26 @@ describe.each([
     expect(row.lastElementChild).toBe(column);
   });
 
-  it('the id is cut in the middle, and the whole id is its title', async () => {
+  it('the id is a shrinking head and a package suffix that does not shrink, and the whole id is its text and title', async () => {
     await boot();
     renderPage();
 
     const card = await screen.findByTestId(testId);
     const code = card.querySelector('code') as HTMLElement;
-    expect(code.textContent).toBe(shownId);
+    expect(code.textContent).toBe(manifestId);
     expect(code).toHaveAttribute('title', manifestId);
+    expect(code).toHaveClass('flex', 'font-mono');
     expect(code.parentElement).toHaveClass('text-[11px]');
+
+    const runs = Array.from(code.children) as HTMLElement[];
+    expect(runs.map((run) => run.textContent)).toEqual([head, suffix]);
+    // The head is the run that gives way: it may shrink to nothing and draws
+    // the ellipsis where it is cut, which is in the middle of the id.
+    expect(runs[0]).toHaveClass('min-w-0', 'truncate');
+    expect(runs[0]).not.toHaveClass('shrink-0');
+    // The package suffix keeps its width, capped so a suffix longer than the
+    // column still leaves the head 4ch.
+    expect(runs[1]).toHaveClass('shrink-0', 'truncate', 'max-w-[calc(100%_-_4ch)]');
   });
 
   it('the card sits in a 240px-minimum auto-fill grid, not a viewport breakpoint grid', async () => {

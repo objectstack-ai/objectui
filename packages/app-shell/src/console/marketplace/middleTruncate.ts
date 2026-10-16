@@ -2,43 +2,33 @@
  * Middle truncation for a package's manifest id on a marketplace card
  * (objectui#12616).
  *
- * A manifest id reads from its namespace to its package name
- * (`app.objectstack.hotcrm`), and the package name at the end is the part a
- * reader tells two cards apart by. An end ellipsis drops exactly that part, so
- * a card that cannot fit the whole id keeps its head and its package suffix,
- * with `…` between them. The caller keeps the whole id reachable (the element's
- * `title`), so this is a display form only and is never parsed back.
+ * A manifest id is reverse-domain (`app.objectstack.hotcrm`): it reads from its
+ * namespace to its package name, and the package name at the end is the part a
+ * reader tells two cards apart by. An end ellipsis drops exactly that part. So
+ * the card draws the id as two runs on one line: the head, everything up to and
+ * including the last `.`, which shrinks and takes the ellipsis; and the package
+ * suffix after it, which does not shrink. The cut is CSS, not a character
+ * budget: it happens only when the card is too narrow for the whole id, at
+ * whatever width the card has, and the element's text stays the whole id.
  *
- * The budget is in characters because the id is set in a monospace face, where
- * every character advances the same width: the caller derives `maxChars` from
- * the narrowest box the id is drawn in.
+ * This function only finds the split; it never shortens anything.
  */
 
-/** The single character that marks the cut. */
-export const MIDDLE_ELLIPSIS = '…';
+/** The two runs a card draws a manifest id in. `head + suffix` is the id. */
+export interface ManifestIdRuns {
+  /** Everything up to and including the last `.`; the run that is cut. */
+  head: string;
+  /** The package name after the last `.`; empty when the id has no such segment. */
+  suffix: string;
+}
 
 /**
- * `id` unchanged when it has at most `maxChars` characters; otherwise exactly
- * `maxChars` characters: a head, `…`, and a tail.
- *
- * The tail is the package suffix (the segment after the last `.`) whole, as
- * long as that leaves the head a third of the room; a longer suffix keeps its
- * own end, and an id with no `.` splits the room in half. Characters are
- * counted by code point, so a surrogate pair is never cut in two.
+ * Split `id` at its last `.` into a head and a package suffix. An id with no
+ * `.`, or whose only `.` is its first or last character, has no package suffix
+ * to keep: the whole id is the head, and the card cuts it at its end.
  */
-export function middleTruncate(id: string, maxChars: number): string {
-  if (!Number.isInteger(maxChars) || maxChars < 3) {
-    throw new RangeError(`middleTruncate: maxChars must be an integer of at least 3, got ${maxChars}`);
-  }
-  const chars = Array.from(id);
-  if (chars.length <= maxChars) return id;
-
-  const room = maxChars - 1; // one place is the ellipsis
-  const minHead = Math.ceil(room / 3);
+export function splitPackageSuffix(id: string): ManifestIdRuns {
   const dot = id.lastIndexOf('.');
-  const suffixLength = dot >= 0 ? Array.from(id.slice(dot + 1)).length : 0;
-  const tailLength = suffixLength > 0 ? Math.min(suffixLength, room - minHead) : Math.floor(room / 2);
-  const headLength = room - tailLength;
-
-  return chars.slice(0, headLength).join('') + MIDDLE_ELLIPSIS + chars.slice(chars.length - tailLength).join('');
+  if (dot <= 0 || dot === id.length - 1) return { head: id, suffix: '' };
+  return { head: id.slice(0, dot + 1), suffix: id.slice(dot + 1) };
 }

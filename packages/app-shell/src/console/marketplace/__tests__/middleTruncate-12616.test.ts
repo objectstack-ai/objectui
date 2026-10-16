@@ -4,46 +4,35 @@
  * The marketplace card's id is cut in the middle, never at its end
  * (objectui#12616): a card too narrow for the whole manifest id keeps its head
  * and its package suffix with "…" between, so the part that tells two packages
- * apart stays readable. One helper does the cut for every card; these cases pin
- * it. The card keeps the whole id in the element's `title`
- * (`MarketplacePage.cardHeader-12616.test.tsx`).
+ * apart stays readable. The card draws the id as two runs, a head that shrinks
+ * and a suffix that does not (`MarketplacePage.cardHeader-12616.test.tsx`
+ * pins that structure); `splitPackageSuffix` finds the split, and these cases
+ * pin it.
  */
 
 import { describe, expect, it } from 'vitest';
-import { MIDDLE_ELLIPSIS, middleTruncate } from '../middleTruncate';
+import { splitPackageSuffix } from '../middleTruncate';
 
-describe('middleTruncate (objectui#12616)', () => {
-  it('a long id keeps its head and its package suffix, with "…" between', () => {
-    const cut = middleTruncate('app.objectstack.hotcrm', 20);
-    expect(cut).toBe('app.objectsta…hotcrm');
-    expect(Array.from(cut)).toHaveLength(20);
-    expect(cut.split(MIDDLE_ELLIPSIS)).toEqual(['app.objectsta', 'hotcrm']);
+describe('splitPackageSuffix (objectui#12616)', () => {
+  it('splits a reverse-domain id after its last ".", so the package name is the suffix', () => {
+    expect(splitPackageSuffix('app.objectstack.hotcrm')).toEqual({ head: 'app.objectstack.', suffix: 'hotcrm' });
+    expect(splitPackageSuffix('com.northwind.customer-relationship-suite')).toEqual({
+      head: 'com.northwind.',
+      suffix: 'customer-relationship-suite',
+    });
   });
 
-  it('a short id is untouched, up to and including the budget', () => {
-    expect(middleTruncate('com.example.crm', 20)).toBe('com.example.crm');
-    const exact = 'app.objectstack.crm1';
-    expect(exact).toHaveLength(20);
-    expect(middleTruncate(exact, 20)).toBe(exact);
+  it('has no suffix when the id has no package segment, so the card cuts it at its end', () => {
+    expect(splitPackageSuffix('hotcrm')).toEqual({ head: 'hotcrm', suffix: '' });
+    expect(splitPackageSuffix('com.acme.')).toEqual({ head: 'com.acme.', suffix: '' });
+    expect(splitPackageSuffix('.hidden')).toEqual({ head: '.hidden', suffix: '' });
+    expect(splitPackageSuffix('')).toEqual({ head: '', suffix: '' });
   });
 
-  it('a suffix too long to keep whole keeps its own end and leaves the head a third of the room', () => {
-    expect(middleTruncate('com.northwind.customer-relationship-suite', 20)).toBe('com.nor…onship-suite');
-  });
-
-  it('an id with no "." splits the room in half', () => {
-    expect(middleTruncate('abcdefghijklmnopqrstuvwxyz', 11)).toBe('abcde…vwxyz');
-  });
-
-  it('counts by code point, so a surrogate pair is never cut in two', () => {
-    const astral = '\u{1F4E6}';
-    const cut = middleTruncate(`${astral.repeat(10)}.pkg`, 9);
-    expect(cut).toBe(`${astral.repeat(5)}${MIDDLE_ELLIPSIS}pkg`);
-    expect(Array.from(cut)).toHaveLength(9);
-  });
-
-  it('refuses a budget that cannot hold a head, the ellipsis and a tail', () => {
-    expect(() => middleTruncate('app.objectstack.hotcrm', 2)).toThrow(RangeError);
-    expect(() => middleTruncate('app.objectstack.hotcrm', 7.5)).toThrow(RangeError);
+  it('never shortens the id: the two runs are the whole id', () => {
+    for (const id of ['app.objectstack.hotcrm', 'com.northwind.customer-relationship-suite', 'hotcrm', 'com.acme.', 'a.b']) {
+      const { head, suffix } = splitPackageSuffix(id);
+      expect(head + suffix).toBe(id);
+    }
   });
 });

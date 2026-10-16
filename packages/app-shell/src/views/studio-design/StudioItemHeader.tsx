@@ -187,6 +187,9 @@ export function useStudioTabRowFold(item: React.RefObject<HTMLElement | null>, t
   // Every render: the tabs beside the chip can change without the row resizing.
   React.useLayoutEffect(measure);
   React.useEffect(() => {
+    // A child's layout effect runs before the row's own ref is attached, so
+    // the first render measures here, once the row is there.
+    measure();
     const nav = row?.current;
     if (!nav || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);

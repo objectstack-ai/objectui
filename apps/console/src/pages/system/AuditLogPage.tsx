@@ -33,7 +33,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { mergeFilterNodes, toFilterNodeSafely, type FilterNode } from '@object-ui/core';
+import { mergeFilterNodes, toFilterNodeSafely } from '@object-ui/core';
 import { useDisplayLocale } from '@object-ui/i18n';
 import {
   Button,
@@ -121,8 +121,11 @@ const AUDIT_OBJECT = 'sys_audit_log';
  * Only the view's filter is taken. Columns, sort and page size stay the
  * browser's own.
  */
-export type AuditPreset =
-  | { key: string; label: string; applies: true; node: FilterNode | Record<string, any> | undefined }
+/** A lowered filter, as `@object-ui/core`'s filter lowering hands it back. */
+type WhereNode = Exclude<ReturnType<typeof mergeFilterNodes>, undefined>;
+
+type AuditPreset =
+  | { key: string; label: string; applies: true; node: WhereNode | undefined }
   | { key: string; label: string; applies: false; reason: string };
 
 /**
@@ -135,7 +138,7 @@ export type AuditPreset =
  * what the browser offers. `listViews` is the only spelling read (#5362;
  * `@objectstack/spec` declares only camelCase).
  */
-export function auditPresetsOf(objectDef: unknown): AuditPreset[] {
+function auditPresetsOf(objectDef: unknown): AuditPreset[] {
   const listViews = (objectDef as { listViews?: unknown } | null | undefined)?.listViews;
   if (!listViews || typeof listViews !== 'object') return [];
   const presets: AuditPreset[] = [];
@@ -256,7 +259,7 @@ export function AuditLogPage() {
   // cache — the same read the object list's view switcher draws from.
   const { objects } = useMetadata();
   const presets = useMemo(
-    () => auditPresetsOf(objects.find((o: any) => o?.name === AUDIT_OBJECT)),
+    () => auditPresetsOf(objects.find((o) => (o as { name?: unknown } | null)?.name === AUDIT_OBJECT)),
     [objects],
   );
   const [rows, setRows] = useState<AuditRow[]>([]);
@@ -298,7 +301,7 @@ export function AuditLogPage() {
       const params = new URLSearchParams();
       // A preset's filter is sent as the view declares it, beside the bar's
       // filters under one `and` — each source its own child.
-      const presetNode = JSON.parse(presetWhere) as FilterNode | Record<string, any> | null;
+      const presetNode = JSON.parse(presetWhere) as WhereNode | null;
       const where = presetNode !== null ? mergeFilterNodes(filter, presetNode) : filter;
       if (where !== undefined && (Array.isArray(where) || Object.keys(where).length > 0)) {
         params.set('$filter', JSON.stringify(where));

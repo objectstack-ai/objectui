@@ -532,6 +532,11 @@ export const DataTableSchema = BaseSchema.extend({
   // `row` (persisted) vs `pendingRow` (staged edits merged, objectui#7188) — is
   // stated on the `DataTableSchema` member, the only face that can type it.
   renderCellEditor: handlerKeyRefusal('renderCellEditor', 'runtime-slot', 'Host-supplied inline cell editor'),
+  // RUNTIME SLOT (objectui#12620): `data-table` reads `schema.rowGroups` and
+  // draws one band row per group, with host-built React content; its supplier
+  // is `ObjectGrid` (`@object-ui/plugin-grid`) for a grouped view. A React node
+  // is no more JSON than a function is, so authored data is refused by name.
+  rowGroups: handlerKeyRefusal('rowGroups', 'runtime-slot', 'Host-built group bands of a grouped grid'),
   frozenColumns: z.number().optional().describe('Number of frozen columns'),
   showRowNumbers: z.boolean().optional().describe('Show row numbers'),
   emptyAction: SchemaNodeSchema.optional().describe('Optional schema node rendered inside the empty-state, e.g. an "Add record" button. Lets the empty state become an actionable invitation rather than a dead end.'),

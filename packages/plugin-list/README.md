@@ -428,6 +428,33 @@ actual views, and issues no query. It deliberately does not fall back to the
 object's default view: that would turn a typo into a silently *wider* answer on a
 page that still looks like it works.
 
+## Compact posture in a narrow page region — `compact`
+
+`ListViewProps` has an optional host prop, `compact`. It is a React prop, not a
+schema key: nothing in `@objectstack/spec` declares a posture, and an author
+never writes one. The `list-view` page block sets it. It reads
+`usePageRegionPosture()` from `@object-ui/components` and passes
+`compact` when the answer is `'compact'`, which means the page region the block
+sits in is narrower than half the page (an `aside` or `sidebar` rail beside
+`main`).
+
+With `compact`, the list draws:
+
+- a header with the list's title (its `label`, else the object's label) and
+  the record count;
+- one row per record: the view's first visible column, with the second visible
+  column muted on a line below; a click on a row opens the record the way a grid
+  row does.
+
+It does not draw the toolbar, the view tabs, the `#` row-number column, the
+pager or the record-count bar.
+
+The prop applies only to a paged grid, the view whose rows `ListView` fetches
+a page of. A board, a calendar or a grouped grid keeps its own rendering. When
+`compact` is absent (wide regions, unknown widths, the object list page and
+every other host), the list renders exactly as before. A "View all" link from
+the compact list to the object list is not part of this release.
+
 ## Sorting (and why relational columns are not offered)
 
 The toolbar sort becomes a server `$orderby` on the **flat field name**, so the

@@ -878,16 +878,31 @@ export async function installLocal(input: {
   return (payload?.data ?? payload) as LocalInstallResult;
 }
 
+/**
+ * `GET /api/v1/marketplace/install-local`, strictly: a failed request or an
+ * answer with no `items` array throws instead of reading as "nothing
+ * installed". The Packages page's Source column reads its marketplace half
+ * from this (objectui#12675), where an empty answer would silently relabel
+ * every marketplace install as `code`.
+ */
+export async function fetchLocalInstalls(): Promise<LocalInstallEntry[]> {
+  const res = await fetch(`${API_BASE}/install-local`, {
+    credentials: 'include',
+    headers: { 'Accept': 'application/json' },
+  });
+  const payload: any = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(readApiError(payload, res).message);
+  const items = payload?.data?.items ?? payload?.items;
+  if (!Array.isArray(items)) {
+    throw new Error(`GET ${API_BASE}/install-local answered without an items list.`);
+  }
+  return items as LocalInstallEntry[];
+}
+
+/** {@link fetchLocalInstalls}, with any failure read as an empty list. */
 export async function listLocalInstalls(): Promise<LocalInstallEntry[]> {
   try {
-    const res = await fetch(`${API_BASE}/install-local`, {
-      credentials: 'include',
-      headers: { 'Accept': 'application/json' },
-    });
-    if (!res.ok) return [];
-    const payload: any = await res.json().catch(() => ({}));
-    const items = payload?.data?.items ?? payload?.items ?? [];
-    return Array.isArray(items) ? (items as LocalInstallEntry[]) : [];
+    return await fetchLocalInstalls();
   } catch {
     return [];
   }
@@ -937,6 +952,19 @@ export async function listInstalledPackages(): Promise<InstalledPackagesResult> 
   } catch {
     return { connected: false, items: [] };
   }
+}
+
+/**
+ * What the marketplace slice lists as installed — the read the Installed Apps
+ * list made, now the marketplace half of the Packages page's Source column
+ * (objectui#12675). `cloud` = the control plane's list (a cloud-connected
+ * environment: installs by any path); `local` = this runtime's install-local
+ * ledger. The local leg is strict ({@link fetchLocalInstalls}).
+ */
+export async function readMarketplaceInstalls(): Promise<{ source: 'cloud' | 'local'; items: LocalInstallEntry[] }> {
+  const cloud = await listInstalledPackages();
+  if (cloud.connected) return { source: 'cloud', items: cloud.items };
+  return { source: 'local', items: await fetchLocalInstalls() };
 }
 
 export async function uninstallLocal(manifestId: string): Promise<void> {

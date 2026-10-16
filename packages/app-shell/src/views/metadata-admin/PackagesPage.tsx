@@ -17,7 +17,7 @@
  */
 
 import * as React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import {
   Package as PackageIcon,
   Plus,
@@ -78,6 +78,17 @@ import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
 import { refusedItemsText } from '../../preview/publishRefusal.js';
 import { duplicatePackage, isSpecPackageId } from '../studio-design/packages-io.js';
 import { PackageIdInput } from '../studio-design/PackageIdInput.js';
+import { useWorkspaceAdminStatus } from '@object-ui/auth';
+import { getRuntimeConfig } from '../../runtime-config.js';
+import { readMarketplaceInstalls, type LocalInstallEntry } from '../../console/marketplace/marketplaceApi.js';
+import { MarketplaceNotLoaded, MarketplaceRowActions } from '../../console/marketplace/MarketplaceRowActions.js';
+import {
+  PACKAGES_SOURCE_PARAM,
+  PackageSourceRefusal,
+  readSourceFilter,
+  resolvePackageSource,
+  type PackageSource,
+} from './packageSource.js';
 
 /* -------------------------------------------------------------------------- */
 /* Types + API                                                                 */
@@ -129,6 +140,11 @@ export interface InstalledPackageRow {
   enabled?: boolean;
   statusChangedAt?: string;
   errorMessage?: string;
+  /**
+   * The server's writability verdict, a top-level key every row carries
+   * (objectstack#14375). The Source column reads it — see `packageSource.ts`.
+   */
+  writable?: boolean;
 }
 
 const API = '/api/v1/packages';
@@ -204,6 +220,48 @@ function StatusBadge({ pkg }: { pkg: InstalledPackageRow }) {
       {enabled ? t('engine.packages.status.enabled', locale) : t('engine.packages.status.disabled', locale)}
     </Badge>
   );
+}
+
+const SOURCE_BADGE_CLASS: Record<PackageSource, string> = {
+  code: '',
+  marketplace: 'border-sky-500/40 text-sky-700 dark:text-sky-300',
+  authored: 'border-emerald-500/40 text-emerald-700 dark:text-emerald-300',
+};
+
+/** One of the closed Source values (objectui#12675); never anything else. */
+function SourceBadge({ source }: { source: PackageSource }) {
+  const locale = useMetadataLocale();
+  return (
+    <Badge variant="outline" className={SOURCE_BADGE_CLASS[source]} data-testid="pkg-source" data-source={source}>
+      {t(`engine.packages.source.${source}`, locale)}
+    </Badge>
+  );
+}
+
+/** A Source refusal, in the page's words (see `packageSource.ts`). */
+function sourceRefusalText(e: PackageSourceRefusal, locale: string): string {
+  switch (e.code) {
+    case 'PACKAGE_SOURCE_UNKNOWN':
+      return tFormat('engine.packages.source.unknown', locale, { id: e.subject });
+    case 'PACKAGE_SOURCE_CONFLICT':
+      return tFormat('engine.packages.source.conflict', locale, { id: e.subject });
+    case 'PACKAGE_SOURCE_FILTER_UNKNOWN':
+      return tFormat('engine.packages.source.filterUnknown', locale, { value: e.subject });
+    case 'PACKAGE_SOURCE_FILTER_REPEATED':
+      return tFormat('engine.packages.source.filterRepeated', locale, { value: e.subject });
+  }
+}
+
+/**
+ * One line of the list: a registry package with its Source, or a marketplace
+ * install the runtime did not load (it has no registry row, but it is
+ * installed, and Uninstall acts on it — objectui#11645).
+ */
+interface PackageListRow {
+  id: string;
+  pkg: InstalledPackageRow | null;
+  source: PackageSource;
+  install: LocalInstallEntry | null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1019,12 +1077,36 @@ export function PackagesPage() {
   const [importMsg, setImportMsg] = React.useState<{ kind: 'ok' | 'err'; text: string } | null>(
     null,
   );
+  // objectui#12675 — every row's Source, and the marketplace slice's list.
+  const [rows, setRows] = React.useState<PackageListRow[]>([]);
+  const [marketplaceList, setMarketplaceList] = React.useState<'cloud' | 'local'>('local');
+  const [marketplaceMsg, setMarketplaceMsg] = React.useState<{ ok: boolean; message: string } | null>(null);
+  // The marketplace capability is the install-local plugin, which the runtime
+  // reports as `features.installLocal` — the signal the marketplace package
+  // page reads. Off ⇒ no marketplace read, no marketplace rows, no actions.
+  const marketplaceOn = getRuntimeConfig().features.installLocal;
+  const { isAdmin } = useWorkspaceAdminStatus();
+  const showMarketplaceActions = marketplaceOn && isAdmin;
+  // The Source filter is URL state (`?source=`), one closed spelling; an
+  // unknown or repeated value is refused below, not ignored.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sourceFilter: { value: PackageSource | null; refusal: string | null } = (() => {
+    try {
+      return { value: readSourceFilter(searchParams.getAll(PACKAGES_SOURCE_PARAM)), refusal: null };
+    } catch (e) {
+      if (e instanceof PackageSourceRefusal) return { value: null, refusal: sourceRefusalText(e, locale) };
+      throw e;
+    }
+  })();
 
   const load = React.useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await apiJson<{ packages: InstalledPackageRow[] }>(API);
+      const [data, marketplace] = await Promise.all([
+        apiJson<{ packages: InstalledPackageRow[] }>(API),
+        marketplaceOn ? readMarketplaceInstalls() : Promise.resolve(null),
+      ]);
       const list = Array.isArray(data?.packages) ? data.packages : [];
       list.sort((a, b) => {
         // User (project) packages first, then by name.
@@ -1033,13 +1115,33 @@ export function PackagesPage() {
         if (sa !== sb) return sa - sb;
         return (a.manifest.name || a.manifest.id).localeCompare(b.manifest.name || b.manifest.id);
       });
+      const installs = new Map((marketplace?.items ?? []).map((i) => [i.manifestId, i]));
+      const ids = new Set(installs.keys());
+      const next: PackageListRow[] = list.map((p) => ({
+        id: p.manifest.id,
+        pkg: p,
+        source: resolvePackageSource(p, ids),
+        install: installs.get(p.manifest.id) ?? null,
+      }));
+      const loaded = new Set(list.map((p) => p.manifest.id));
+      for (const install of installs.values()) {
+        if (!loaded.has(install.manifestId)) {
+          next.push({ id: install.manifestId, pkg: null, source: 'marketplace', install });
+        }
+      }
       setPackages(list);
+      setRows(next);
+      setMarketplaceList(marketplace?.source ?? 'local');
     } catch (e: any) {
-      setError(e?.message ?? t('engine.packages.loadFailed', locale));
+      setError(
+        e instanceof PackageSourceRefusal
+          ? sourceRefusalText(e, locale)
+          : (e?.message ?? t('engine.packages.loadFailed', locale)),
+      );
     } finally {
       setLoading(false);
     }
-  }, [locale]);
+  }, [locale, marketplaceOn]);
 
   React.useEffect(() => {
     void load();
@@ -1054,16 +1156,23 @@ export function PackagesPage() {
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
-    return packages.filter((p) => {
-      const kernel = p.manifest.scope === 'system' || p.manifest.scope === 'cloud';
+    return rows.filter((r) => {
+      if (sourceFilter.value && r.source !== sourceFilter.value) return false;
+      const kernel = r.pkg?.manifest.scope === 'system' || r.pkg?.manifest.scope === 'cloud';
       if (kernel && !showKernel) return false;
       if (!q) return true;
       return (
-        p.manifest.id.toLowerCase().includes(q) ||
-        (p.manifest.name || '').toLowerCase().includes(q)
+        r.id.toLowerCase().includes(q) ||
+        (r.pkg?.manifest.name || '').toLowerCase().includes(q)
       );
     });
-  }, [packages, query, showKernel]);
+  }, [rows, query, showKernel, sourceFilter.value]);
+
+  const clearSourceFilter = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete(PACKAGES_SOURCE_PARAM);
+    setSearchParams(next, { replace: true });
+  };
 
   const openDetail = (pkg: InstalledPackageRow) => {
     setSelected(pkg);
@@ -1174,6 +1283,17 @@ export function PackagesPage() {
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
+        {sourceFilter.value && (
+          <div className="flex items-center gap-2" data-testid="pkg-source-filter">
+            <span className="text-sm text-muted-foreground">
+              {t('engine.packages.col.source', locale)}:
+            </span>
+            <SourceBadge source={sourceFilter.value} />
+            <Button variant="ghost" size="sm" onClick={clearSourceFilter}>
+              {t('engine.packages.source.showAll', locale)}
+            </Button>
+          </div>
+        )}
         {kernelCount > 0 && (
           <div className="flex items-center gap-2">
             <Switch id="show-kernel" checked={showKernel} onCheckedChange={setShowKernel} />
@@ -1184,9 +1304,27 @@ export function PackagesPage() {
         )}
       </div>
 
+      {marketplaceMsg && (
+        <div
+          className={`mt-4 rounded-md border p-2 text-sm ${
+            marketplaceMsg.ok
+              ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+              : 'border-destructive/40 bg-destructive/10 text-destructive'
+          }`}
+          data-testid="pkg-marketplace-result"
+        >
+          {marketplaceMsg.message}
+        </div>
+      )}
+
       {/* Body */}
       <div className="mt-4 rounded-lg border">
-        {loading ? (
+        {sourceFilter.refusal ? (
+          <div className="flex items-start gap-2 p-4 text-sm text-destructive">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span data-testid="packages-source-filter-error">{sourceFilter.refusal}</span>
+          </div>
+        ) : loading ? (
           <div className="space-y-2 p-4">
             {[0, 1, 2].map((i) => (
               <Skeleton key={i} className="h-10 w-full" />
@@ -1205,7 +1343,7 @@ export function PackagesPage() {
             <Empty>
               <EmptyTitle>{t('engine.packages.empty', locale)}</EmptyTitle>
               <EmptyDescription>
-                {packages.length === 0
+                {rows.length === 0
                   ? t('engine.packages.emptyCreate', locale)
                   : t('engine.packages.emptyFiltered', locale)}
               </EmptyDescription>
@@ -1220,26 +1358,53 @@ export function PackagesPage() {
                 <TableHead className="w-24">{t('engine.packages.col.version', locale)}</TableHead>
                 <TableHead className="w-24">{t('engine.packages.col.scope', locale)}</TableHead>
                 <TableHead className="w-24">{t('engine.packages.col.status', locale)}</TableHead>
+                <TableHead className="w-28">{t('engine.packages.col.source', locale)}</TableHead>
+                {showMarketplaceActions && (
+                  <TableHead className="text-right">{t('engine.packages.col.actions', locale)}</TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((p) => (
+              {filtered.map(({ id: rowId, pkg: p, source, install }) => (
                 <TableRow
-                  key={p.manifest.id}
-                  className="cursor-pointer"
-                  onClick={() => openDetail(p)}
+                  key={rowId}
+                  className={p ? 'cursor-pointer' : undefined}
+                  onClick={p ? () => openDetail(p) : undefined}
+                  data-testid={`pkg-row-${rowId}`}
                 >
-                  <TableCell className="font-medium">{p.manifest.name || p.manifest.id}</TableCell>
+                  <TableCell className="font-medium">{p?.manifest.name || rowId}</TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground">
-                    {p.manifest.id}
+                    {rowId}
                   </TableCell>
-                  <TableCell>{p.manifest.version || '—'}</TableCell>
+                  <TableCell>{p?.manifest.version || install?.version || '—'}</TableCell>
                   <TableCell>
-                    <ScopeBadge scope={p.manifest.scope} />
+                    {p ? <ScopeBadge scope={p.manifest.scope} /> : '—'}
                   </TableCell>
                   <TableCell>
-                    <StatusBadge pkg={p} />
+                    {install?.notLoaded ? (
+                      <MarketplaceNotLoaded marker={install.notLoaded} />
+                    ) : p ? (
+                      <StatusBadge pkg={p} />
+                    ) : (
+                      '—'
+                    )}
                   </TableCell>
+                  <TableCell>
+                    <SourceBadge source={source} />
+                  </TableCell>
+                  {showMarketplaceActions && (
+                    <TableCell className="text-right">
+                      {source === 'marketplace' && install && (
+                        <MarketplaceRowActions
+                          entry={install}
+                          listSource={marketplaceList}
+                          basePath={appBase}
+                          onResult={setMarketplaceMsg}
+                          onChanged={() => void load()}
+                        />
+                      )}
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>

@@ -29,6 +29,7 @@ import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, waitFor, cleanup } from '@testing-library/react';
 import { registerAllFields } from '@object-ui/fields';
+import type { DataSource } from '@object-ui/types';
 import { ModalForm, type ModalFormSchema } from '../ModalForm';
 
 registerAllFields();
@@ -75,7 +76,7 @@ const ds = (def: unknown) => ({
   find: vi.fn().mockResolvedValue({ data: [] }),
   create: vi.fn(),
   update: vi.fn(),
-});
+}) as unknown as DataSource;
 
 /** Mount the dialog, wait for its fields, and return its class tokens. */
 async function dialogTokens(
@@ -94,7 +95,7 @@ async function dialogTokens(
         fields: Object.keys(def.fields),
         ...(modalSize ? { modalSize } : {}),
       }}
-      dataSource={ds(def) as any}
+      dataSource={ds(def)}
     />,
   );
   await waitFor(() => {

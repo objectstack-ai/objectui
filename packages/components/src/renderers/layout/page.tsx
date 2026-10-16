@@ -30,7 +30,7 @@ import { compile, manifestFromConfigs, type Diagnostic } from '@object-ui/sdui-p
 import { ReactKindPage } from './react-page';
 import { PRINT_PAGE_ATTRIBUTE, PRINT_RUNNING_ATTRIBUTE, buildPagePrintStylesheet, isPagePrintDeclaration } from './page-print';
 import { cn } from '../../lib/utils';
-import { pageBlockSpan, PAGE_BLOCK_SPAN_CLASS } from './page-block-span';
+import { PageBlockGrid } from './page-block-grid';
 import { PageDescriptionContext } from './page-description-context';
 
 // ---------------------------------------------------------------------------
@@ -203,9 +203,8 @@ function pageHeaderOwnsTitle(schema: PageNodeSchema): boolean {
  * row on a wide screen instead of stacking as four full-width stripes. Every
  * template places its regions through this one component, so each gets the
  * grid. A `rail` region (sidebar / aside) is a narrow column, where a fold by
- * viewport width would squeeze a tile to a sliver, so its blocks stay full
- * width. The cell is `empty:hidden`, so a block that renders nothing (hidden)
- * leaves no gap.
+ * viewport width would squeeze a tile to a sliver, so its blocks, and the
+ * blocks inside its containers, stay full width (`./page-block-grid`).
  */
 const RegionContent: React.FC<{
   region: PageNodeRegion;
@@ -216,23 +215,14 @@ const RegionContent: React.FC<{
   if (components.length === 0) return null;
 
   return (
-    <div
-      className={cn('grid grid-cols-12 gap-4', region.className, className)}
-      data-region={region.name}
-    >
-      {components.map((node: SchemaNode, idx: number) => {
-        const span = pageBlockSpan((node as { type?: unknown })?.type, rail);
-        return (
-          <div
-            key={(node as any)?.id || `${region.name}-${idx}`}
-            className={cn('min-w-0 empty:hidden', PAGE_BLOCK_SPAN_CLASS[span])}
-            data-block-span={span}
-          >
-            <SchemaRenderer schema={toRenderableSchema(node)} />
-          </div>
-        );
-      })}
-    </div>
+    <PageBlockGrid
+      nodes={components}
+      className={cn(region.className, className)}
+      rail={rail}
+      keyPrefix={region.name}
+      toSchema={(node) => toRenderableSchema(node as SchemaNode)}
+      attributes={{ 'data-region': region.name }}
+    />
   );
 };
 

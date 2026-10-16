@@ -179,6 +179,84 @@ describe('a region lays its blocks on a 12-column grid (objectui#12624)', () => 
   });
 });
 
+describe('page:card and page:section lay their children on the same grid (objectui#12624)', () => {
+  const metric = (id: string) => ({ type: 'object-metric', id, properties: { objectName: 'opportunity' } });
+  const four = () => [metric('revenue'), metric('won'), metric('pipeline'), metric('leads')];
+
+  function pageWith(container: Record<string, unknown>, regionName = 'main', template?: string) {
+    return {
+      type: 'app',
+      pageType: 'app',
+      name: 'sales_home_page',
+      label: 'Sales Home',
+      ...(template ? { template } : {}),
+      regions: [{ name: regionName, components: [container] }],
+    } as any;
+  }
+
+  /** The cells of the block grid a container draws its children on. */
+  function containerCells(container: HTMLElement, selector: string): Element[] {
+    const host = container.querySelector(selector);
+    expect(host).not.toBeNull();
+    const grid = host!.querySelector('.grid-cols-12');
+    expect(grid).not.toBeNull();
+    return Array.from(grid!.children);
+  }
+
+  it('a page:card holding four object-metric tiles (the HotCRM Sales Home shape) fills one row at 1280px and two at 1024px', () => {
+    const { container } = renderPage(
+      pageWith({ type: 'page:card', id: 'kpis', properties: { title: 'Key Performance Indicators', children: four() } }),
+    );
+    // The card itself is one region block, spanning 12 by its own kind.
+    const [cardCell] = regionCells(container, 'main');
+    expect(cardCell.getAttribute('data-block-span')).toBe('12');
+
+    const cells = Array.from(cardCell.querySelector('.grid-cols-12')!.children);
+    expect(cells).toHaveLength(4);
+    for (const cell of cells) expect(cell.getAttribute('data-block-span')).toBe('3');
+    expect(rowsAt(cells, 1280)).toBe(1);
+    expect(rowsAt(cells, 1024)).toBe(2);
+    expect(rowsAt(cells, 390)).toBe(4);
+  });
+
+  it('a page:section does the same', () => {
+    const { container } = renderPage(pageWith({ type: 'page:section', id: 'kpis', properties: { children: four() } }));
+    const cells = containerCells(container, 'section');
+    expect(cells.map((c) => c.getAttribute('data-block-span'))).toEqual(['3', '3', '3', '3']);
+    expect(rowsAt(cells, 1280)).toBe(1);
+    expect(rowsAt(cells, 1024)).toBe(2);
+  });
+
+  it('a container whose children are not tiles still stacks them full width', () => {
+    const { container } = renderPage(
+      pageWith({
+        type: 'page:card',
+        id: 'notes',
+        properties: {
+          title: 'Notes',
+          children: [
+            { type: 'element:text', properties: { content: 'one' } },
+            { type: 'element:text', properties: { content: 'two' } },
+          ],
+        },
+      }),
+    );
+    const [cardCell] = regionCells(container, 'main');
+    const cells = Array.from(cardCell.querySelector('.grid-cols-12')!.children);
+    expect(cells.map((c) => c.getAttribute('data-block-span'))).toEqual(['12', '12']);
+    expect(rowsAt(cells, 1280)).toBe(2);
+  });
+
+  it('a container in a rail region keeps its tiles full width', () => {
+    const { container } = renderPage(
+      pageWith({ type: 'page:card', id: 'kpis', properties: { title: 'KPIs', children: four() } }, 'sidebar', 'three-column'),
+    );
+    const [cardCell] = regionCells(container, 'sidebar');
+    const cells = Array.from(cardCell.querySelector('.grid-cols-12')!.children);
+    expect(cells.map((c) => c.getAttribute('data-block-span'))).toEqual(['12', '12', '12', '12']);
+  });
+});
+
 describe('the page description sits under its title (objectui#12624)', () => {
   const DESCRIPTION = 'Sales team home page with key metrics';
 

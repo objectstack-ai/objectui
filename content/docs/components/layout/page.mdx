@@ -40,7 +40,11 @@ So four metric tiles share one row on a wide screen and take two rows on a 1024p
 `sidebar` or `aside` region beside `main` is a narrow column, so its blocks always span 12.
 On the `dashboard` template each region is a cell of the page's region grid and lays its
 own blocks out the same way. A page's `children` (no `regions`) stack one block per row.
-Studio's page designer shows each block's span on its card.
+
+A `page:card` or `page:section` lays its children on the same grid. The container spans 12
+in its region, and its children take their own kind's span, so a card holding four metric
+tiles shows them in one row on a wide screen. Studio's page designer shows each block's
+span on its card, and on the child cards of a `page:card` or `page:section`.
 
 ## Schema
 

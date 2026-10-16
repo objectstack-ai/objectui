@@ -76,6 +76,38 @@ describe('PageBlockCanvas — the block card shows its derived span (objectui#12
     expect(container.querySelector('[data-block-span]')).toBeNull();
   });
 
+  it('the children of a page:card show the span the card lays them out at', () => {
+    const { container } = render(
+      <PageBlockCanvas
+        draft={{
+          name: 'home',
+          type: 'home',
+          regions: [
+            {
+              name: 'main',
+              components: [
+                {
+                  type: 'page:card',
+                  id: 'kpis',
+                  properties: {
+                    title: 'Key Performance Indicators',
+                    children: [
+                      { type: 'object-metric', id: 'a' },
+                      { type: 'object-metric', id: 'b' },
+                      { type: 'element:text', id: 'c' },
+                    ],
+                  },
+                },
+              ],
+            },
+          ],
+        }}
+      />,
+    );
+    // The card itself (12), then its three children.
+    expect(spanBadges(container)).toEqual(['12', '3', '3', '12']);
+  });
+
   it('every type the span table names is a registered block type', () => {
     const unregistered = [...PAGE_BLOCK_SPANS.keys()].filter(
       (type) => !ComponentRegistry.has(type) && !ComponentRegistry.hasLazy(type),

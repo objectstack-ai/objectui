@@ -628,6 +628,7 @@ function RegionSection({
                   readOnly={readOnly}
                   onSelectId={onSelectId}
                   onAddNested={onAddNested}
+                  rail={rail}
                   locale={locale}
                 />
               </React.Fragment>
@@ -645,6 +646,20 @@ function RegionSection({
 }
 
 /* ─────────────── Block row ─────────────── */
+
+/** A block's derived span in the page block grid, read-only (objectui#12624). */
+function SpanBadge({ span, locale }: { span: PageBlockSpan; locale?: string }) {
+  return (
+    <Badge
+      variant="outline"
+      className="text-[10px] shrink-0 font-mono bg-background/90"
+      data-block-span={span}
+      title={tFormat('engine.pageBlockCanvas.span', locale, { span })}
+    >
+      {span}/12
+    </Badge>
+  );
+}
 
 function BlockRow({
   block,
@@ -676,16 +691,7 @@ function BlockRow({
   locale?: string;
 }) {
   const typeStr = String(block.type ?? '');
-  const spanBadge = span !== undefined && (
-    <Badge
-      variant="outline"
-      className="text-[10px] shrink-0 font-mono"
-      data-block-span={span}
-      title={tFormat('engine.pageBlockCanvas.span', locale, { span })}
-    >
-      {span}/12
-    </Badge>
-  );
+  const spanBadge = span !== undefined && <SpanBadge span={span} locale={locale} />;
   // DISPLAY meta, not the palette catalogue. `BLOCK_TYPE_META` answers "what may
   // an author drag in"; a node already in the page may be a spelling the palette
   // does not offer yet the app renders fine — the `record:discussion` /
@@ -872,6 +878,7 @@ function NestedChildren({
   readOnly,
   onSelectId,
   onAddNested,
+  rail = false,
   locale,
 }: {
   block: Block;
@@ -880,10 +887,15 @@ function NestedChildren({
   readOnly: boolean;
   onSelectId: (id: string, label: string) => void;
   onAddNested: (baseId: string, pathSuffix: string, type: BlockTypeId) => void;
+  /** The block sits in a rail region, where every block spans 12. */
+  rail?: boolean;
   locale?: string;
 }) {
   const groups = childGroups(block, locale);
   if (groups.length === 0) return null;
+  // `page:card` and `page:section` lay their children on the page block grid
+  // at runtime (objectui#12624), so their child cards show the span too.
+  const showsSpan = block?.type === 'page:card' || block?.type === 'page:section';
   // A grid lays its children in N columns at runtime — mirror that here so the
   // design canvas matches the preview (other containers stack in one column).
   const gridCols =
@@ -924,10 +936,11 @@ function NestedChildren({
                     />
                     <div
                       className={cn(
-                        'pointer-events-none absolute right-1.5 top-1.5 z-20 transition-opacity',
+                        'pointer-events-none absolute right-1.5 top-1.5 z-20 flex items-center gap-1 transition-opacity',
                         childSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
                       )}
                     >
+                      {showsSpan && <SpanBadge span={pageBlockSpan(child?.type, rail)} locale={locale} />}
                       <Badge variant="outline" className={cn('text-[10px] font-mono shadow-sm bg-background/90 backdrop-blur', resolveBlockTone(typeStr).badge)}>
                         {typeStr}
                       </Badge>

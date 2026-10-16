@@ -6,7 +6,7 @@
  * cloud control plane). Click-through opens the package detail page.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Card,
@@ -43,6 +43,61 @@ import { getCloudBase, getRuntimeConfig, isMarketplaceEnabled } from '../../runt
 import { emitMetadataRefresh } from '../../assistant/assistantBus.js';
 import { appRouteSegment, filterActiveApps, resolveKeyedI18nLabel } from '../../utils/index.js';
 import { waitForServedApp, type ServedApp } from './waitForServedApp.js';
+import { middleTruncate } from './middleTruncate.js';
+
+/**
+ * The card grid's track (objectui#12616): a card is never narrower than 240px,
+ * and the page fits as many of them as its own width holds. A viewport
+ * breakpoint (`lg:grid-cols-3`) cannot know that width: under the Setup
+ * sidebar at a 1024px viewport it drew three tracks of a zero-minimum `1fr`
+ * and left the card's text one character.
+ */
+const CARD_GRID = 'grid gap-4 grid-cols-[repeat(auto-fill,minmax(240px,1fr))]';
+
+/**
+ * The longest manifest id a card draws whole, in characters (objectui#12616).
+ * The id is 11px monospace, about 6.6px a character, in the header's text
+ * column: a 240px card less its border (2px), its padding (48px), the 40px
+ * icon and the 12px gap leaves 138px, which holds 20 of them. A longer id is
+ * cut in the middle by `middleTruncate` and stays whole in the `title`.
+ */
+const CARD_ID_MAX_CHARS = 20;
+
+/**
+ * The identity block of a marketplace card, shared by the catalog card and the
+ * "Your organization" card (objectui#12616). The title takes the text column's
+ * whole width first, up to two lines; the badge sits on its own line under it,
+ * never beside it, so it cannot take the title's width; and the id is one line
+ * cut in the middle, so its package suffix stays readable. `line-clamp-2` is
+ * visual only: the whole title stays in the DOM text, so assistive technology
+ * reads it whole.
+ */
+function PackageCardHeader({
+  iconUrl,
+  displayName,
+  manifestId,
+  badge,
+}: {
+  iconUrl?: string | null;
+  displayName: string;
+  manifestId: string;
+  badge?: ReactNode;
+}) {
+  return (
+    <CardHeader className="flex flex-row items-start gap-3 pb-2">
+      <PackageIcon iconUrl={iconUrl} displayName={displayName} manifestId={manifestId} />
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <CardTitle className="text-[13px] leading-snug line-clamp-2 break-words">{displayName}</CardTitle>
+        {badge}
+        <CardDescription className="text-[11px] truncate">
+          <code className="font-mono" title={manifestId}>
+            {middleTruncate(manifestId, CARD_ID_MAX_CHARS)}
+          </code>
+        </CardDescription>
+      </div>
+    </CardHeader>
+  );
+}
 
 /**
  * Format a published-at timestamp as a localized relative string.
@@ -523,7 +578,7 @@ export function MarketplacePage() {
               {orgMsg.text}
             </div>
           )}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className={CARD_GRID}>
             {orgItems.map((pkg) => {
               const isInstalled = installedIds.has(pkg.manifest_id);
               // objectui#11760 — the same page's other "Installed": an org
@@ -532,18 +587,14 @@ export function MarketplacePage() {
               const notLoaded = !!installedByManifestId.get(pkg.manifest_id)?.notLoaded;
               return (
                 <Card key={pkg.id} className="flex flex-col" data-testid={`org-card-${pkg.manifest_id}`}>
-                  <CardHeader className="flex flex-row items-start gap-3 pb-2">
-                    <PackageIcon iconUrl={pkg.icon_url} displayName={pkg.display_name} manifestId={pkg.manifest_id} />
-                    <div className="min-w-0 flex-1">
-                      <CardTitle className="text-base truncate">{pkg.display_name}</CardTitle>
-                      <CardDescription className="text-xs truncate">
-                        <code className="font-mono">{pkg.manifest_id}</code>
-                      </CardDescription>
-                    </div>
-                    {pkg.visibility && (
-                      <Badge variant="outline" className="shrink-0 text-xs">{pkg.visibility}</Badge>
+                  <PackageCardHeader
+                    iconUrl={pkg.icon_url}
+                    displayName={pkg.display_name}
+                    manifestId={pkg.manifest_id}
+                    badge={pkg.visibility && (
+                      <Badge variant="outline" className="self-start text-xs">{pkg.visibility}</Badge>
                     )}
-                  </CardHeader>
+                  />
                   <CardContent className="flex-1 flex flex-col gap-2">
                     <p className="text-sm text-muted-foreground line-clamp-2">
                       {pkg.description || t('marketplace.noDescription')}
@@ -584,7 +635,7 @@ export function MarketplacePage() {
       )}
 
       {loading && items.length === 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className={CARD_GRID}>
           {Array.from({ length: 6 }).map((_, i) => (
             <Card key={i}>
               <CardHeader className="pb-2">
@@ -605,7 +656,7 @@ export function MarketplacePage() {
           {items.length === 0 ? t('marketplace.noApprovedYet') : t('marketplace.noMatchFilters')}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className={CARD_GRID}>
           {filtered.map((pkg) => {
             const localEntry = installedByManifestId.get(pkg.manifest_id);
             const loc = localizePackage(pkg, language);
@@ -624,24 +675,16 @@ export function MarketplacePage() {
                 }}
                 data-testid={`marketplace-card-${pkg.manifest_id}`}
               >
-                <CardHeader className="flex flex-row items-start gap-3 pb-2">
-                  <PackageIcon
-                    iconUrl={pkg.icon_url}
-                    displayName={loc.displayName}
-                    manifestId={pkg.manifest_id}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <CardTitle className="text-base truncate">{loc.displayName}</CardTitle>
-                    <CardDescription className="text-xs truncate">
-                      <code className="font-mono">{pkg.manifest_id}</code>
-                    </CardDescription>
-                  </div>
-                  {pkg.publisher && pkg.publisher !== 'private' && (
-                    <Badge variant={pkg.publisher === 'objectstack' ? 'default' : 'secondary'} className="shrink-0">
+                <PackageCardHeader
+                  iconUrl={pkg.icon_url}
+                  displayName={loc.displayName}
+                  manifestId={pkg.manifest_id}
+                  badge={pkg.publisher && pkg.publisher !== 'private' && (
+                    <Badge variant={pkg.publisher === 'objectstack' ? 'default' : 'secondary'} className="self-start">
                       {pkg.publisher}
                     </Badge>
                   )}
-                </CardHeader>
+                />
                 <CardContent className="flex-1 flex flex-col gap-2">
                   <p className="text-sm text-muted-foreground line-clamp-2">
                     {loc.description || t('marketplace.noDescription')}

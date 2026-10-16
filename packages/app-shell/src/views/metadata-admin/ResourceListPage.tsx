@@ -513,7 +513,10 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
           </Select>
           {activation && (
             <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
-              <SelectTrigger className="w-[150px]" data-testid="catalog-status-filter">
+              <SelectTrigger
+                className={inSetup ? 'h-8 w-auto gap-1.5 rounded-full px-3 text-xs' : 'w-[150px]'}
+                data-testid="catalog-status-filter"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

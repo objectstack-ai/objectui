@@ -360,6 +360,14 @@ const ja = {
       impossibleDay:
         "保存されている値「{{value}}」は実在しない日付です。置き換えるには日付と時刻を選択してください。",
     },
+    datePicker: {
+      today: "今日",
+      tomorrow: "明日",
+      clear: "日付をクリア",
+      openCalendar: "カレンダーを開く",
+      invalid:
+        "保存されていません：「{{value}}」は日付ではありません。{{format}} の形式で入力するか、カレンダーから選択してください。",
+    },
     number: {
       badInput:
         "保存されていません: このボックスのテキストは数値ではありません。通常の小数で入力してください（例: {{example}}）。",
@@ -852,6 +860,7 @@ const ja = {
   },
   kanban: {
     uncategorized: "未分類",
+    loadMore: "さらに読み込む",
     columns: "カラム",
     addCard: "カードを追加",
     addColumn: "カラムを追加",
@@ -4164,6 +4173,7 @@ const ja = {
     toggleFailed: "有効状態を変更できませんでした。",
     cloneFailedHttp: "このフローをクローンできませんでした (HTTP {{status}})。",
     cloneFailed: "このフローをクローンできませんでした。",
+    reasonDetails: "詳細",
     actionsSubtitle: "インストール済みパッケージが提供するアクションです。このデプロイでオフにすると、提供されているすべての場所で実行されなくなります。自分のアクションを別途 Studio で作成することは引き続き可能です。",
     colAction: "アクション",
     colObject: "オブジェクト",

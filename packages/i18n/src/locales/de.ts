@@ -360,6 +360,14 @@ const de = {
       impossibleDay:
         "Der gespeicherte Wert „{{value}}“ ist kein gültiges Datum. Wählen Sie Datum und Uhrzeit, um ihn zu ersetzen.",
     },
+    datePicker: {
+      today: "Heute",
+      tomorrow: "Morgen",
+      clear: "Datum löschen",
+      openCalendar: "Kalender öffnen",
+      invalid:
+        "Nicht gespeichert: „{{value}}“ ist kein Datum. Geben Sie es als {{format}} ein oder wählen Sie es im Kalender aus.",
+    },
     number: {
       badInput:
         "Nicht gespeichert: Der Text in diesem Feld ist keine Zahl. Geben Sie eine einfache Dezimalzahl ein (Beispiel: {{example}}).",
@@ -852,6 +860,7 @@ const de = {
   },
   kanban: {
     uncategorized: "Nicht kategorisiert",
+    loadMore: "Mehr laden",
     columns: "Spalten",
     addCard: "Karte hinzufügen",
     addColumn: "Spalte hinzufügen",
@@ -4163,6 +4172,7 @@ const de = {
     toggleFailed: "Aktivierung konnte nicht geändert werden.",
     cloneFailedHttp: "Dieser Flow konnte nicht geklont werden (HTTP {{status}}).",
     cloneFailed: "Dieser Flow konnte nicht geklont werden.",
+    reasonDetails: "Details",
     actionsSubtitle: "Aktionen aus installierten Paketen. Schalten Sie eine für diese Installation ab, und sie läuft überall dort nicht mehr, wo sie angeboten wird. Eine eigene Aktion daneben zu erstellen, bleibt Ihnen im Studio offen.",
     colAction: "Aktion",
     colObject: "Objekt",

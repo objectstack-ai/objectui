@@ -2012,12 +2012,14 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     //   2. `component: 'action:menu'` forces an action into the `⋯` menu
     //      regardless of the count (chrome actions like Share/Delete);
     //   3. the remainder is pre-sorted by `order` / `variant: 'primary'`
-    //      (see the headerActions memo above), so the first `maxVisible`
-    //      claim the inline slots.
+    //      (see the headerActions memo above); the primary button leads it
+    //      (see `primaryAction` below), and the first `maxVisible` of the
+    //      page's OWN actions claim the inline slots;
+    //   4. a host button (the record page's Edit) is not one of the page's
+    //      actions: it takes no slot and never folds (objectui#12617).
     // `maxVisible` / `mobileMaxVisible` are overridable on the page:header
-    // schema and default to 3 / 1. This still keeps the header from drowning
-    // in 4–5 buttons on every record page, while letting multi-action objects
-    // surface several primary buttons at once.
+    // schema and default to 3 / 1. This keeps the header from drowning in 4–5
+    // buttons on every record page.
     //
     // `readMax` enforces the SPEC's value domain rather than a laxer renderer
     // tolerance (objectui#5006). Measured on `ComponentPropsMap['page:header']`
@@ -2058,22 +2060,52 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     const buttonable = headerActions.filter(
       (a: any) => !isMoreOnly(a) && a?.component !== 'action:menu',
     );
-    const inlineActions = buttonable.slice(0, maxVisible);
-    const foldedButtons = buttonable.slice(maxVisible);
-    // The overflow reads as one list in three bands (objectui#12529): the
-    // authored actions first, then the host's chrome (Edit / favorites /
-    // Share, Edit leading when it folded), then every destructive entry last,
-    // set apart by a separator. "Host" is the key test the disabled-reason
-    // branch below uses: a key no authored action holds came from
-    // `headerSystemActions`. "Destructive" is the menu's own red-row test, so
-    // the row that is painted red is the row that is set apart. Each band
-    // keeps the `order` sort the memo above gave it.
+    // "Host" is the key test the disabled-reason branch below uses: a key no
+    // authored action holds came from `headerSystemActions`. "Destructive" is
+    // the menu's own red-row test, so the row that is painted red is the row
+    // that is set apart in the `⋯`.
     const isDestructiveAction = (a: any): boolean =>
       a?.variant === 'destructive' || a?.name === 'sys_delete';
     const isHostAction = (a: any): boolean => {
       const key = (a?.name || a?.id || '') as string;
       return key !== '' && !authoredHeaderActionKeys.has(key);
     };
+    // ONE primary button (objectui#12617). `@objectstack/spec`'s action
+    // contract says "in `record_header` the first visible action becomes the
+    // primary button", and lets a renderer prefer a `variant: 'primary'`
+    // action. So the primary is the first action declaring `variant:
+    // 'primary'`, else the first of the `order`-sorted list; it leads the row
+    // and is the only filled button. Every other inline button is an outline
+    // button. Before this, every action without a declared variant drew the
+    // filled style, so a header with three actions showed three primaries and
+    // none of them read as the main one.
+    // Only an action that can sit in the row competes for it — a destructive
+    // host action never does (see `isHostButton` below).
+    const isHostButton = (a: unknown): boolean => isHostAction(a) && !isDestructiveAction(a);
+    const rowEligible = buttonable.filter((a) => !isHostAction(a) || isHostButton(a));
+    const primaryIdx = rowEligible.findIndex((a) => a?.variant === 'primary');
+    const primaryAction: unknown = rowEligible[primaryIdx >= 0 ? primaryIdx : 0];
+    const ranked = primaryAction
+      ? [primaryAction, ...buttonable.filter((a) => a !== primaryAction)]
+      : buttonable;
+    // The page's own actions share the `maxVisible` budget; what does not fit
+    // folds into the `⋯`. A host button (Edit) is the record's base action:
+    // it stays a labelled button in the row at every width, so it neither
+    // takes a slot nor folds — it used to fold behind an icon-only twin once
+    // the app's actions filled the row (objectui#12529). A DESTRUCTIVE host
+    // action is the exception and always folds: a host's Delete belongs in
+    // the `⋯`'s destructive band, never inline as a red button.
+    const authoredButtons = ranked.filter((a) => !isHostAction(a));
+    const inlineAuthored = new Set<unknown>(authoredButtons.slice(0, maxVisible));
+    const inlineActions = ranked.filter((a) => isHostButton(a) || inlineAuthored.has(a));
+    const foldedButtons = [
+      ...authoredButtons.slice(maxVisible),
+      ...ranked.filter((a) => isHostAction(a) && !isHostButton(a)),
+    ];
+    // The overflow reads as one list in three bands (objectui#12529): the
+    // authored actions first, then the host's menu chrome (favorites /
+    // Share), then every destructive entry last, set apart by a separator.
+    // Each band keeps the `order` sort the memo above gave it.
     const overflowPool = [...foldedButtons, ...menuOnly, ...moreOnlyActions];
     const overflowActions = [
       ...overflowPool.filter((a) => !isDestructiveAction(a) && !isHostAction(a)),
@@ -2083,15 +2115,6 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     // The first destructive entry gets a separator above it, unless it opens
     // the menu (a separator under nothing sets nothing apart).
     const firstDestructiveIdx = overflowActions.findIndex(isDestructiveAction);
-    // A host action placed as a BUTTON that folded into the ⋯ because the row
-    // is full keeps an icon-only twin beside the ⋯ (objectui#12529): the host
-    // asked for a button, so it stays one click from the header at every
-    // width. Today that is the record page's Edit. It needs a declared icon,
-    // since an icon is all the twin draws; with room in the row nothing folds
-    // and nothing extra renders.
-    const foldedHostButtons = foldedButtons.filter(
-      (a) => isHostAction(a) && !isDestructiveAction(a) && typeof a?.icon === 'string',
-    );
     const useOverflow = overflowActions.length > 0;
     // Resolve a `disabled` predicate against the record — a boolean OR an
     // expression (`'record.status == …'` or the `{ dialect, source }`
@@ -2137,9 +2160,10 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     };
     const renderButton = (action: any, idx: number) => {
       const label = resolveLabel(action);
-      // `variant: 'primary'` is valid ActionSchema but not a Shadcn Button
-      // variant — map it to `default` (same as action-button.tsx).
-      const variant = action.variant === 'primary' ? 'default' : (action.variant || 'default');
+      // The primary (see `primaryAction` above) is the one filled button —
+      // Shadcn's `default`; every other inline button is an outline button
+      // (objectui#12617).
+      const variant = action === primaryAction ? 'default' : 'outline';
       const size = action.size || 'sm';
       const disabled = isActionDisabled(action);
       const icon = typeof action.icon === 'string' ? action.icon : null;
@@ -2195,43 +2219,6 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
         </TooltipProvider>
       );
     };
-    // The folded host button's icon-only twin (objectui#12529). Styled as the
-    // ⋯ trigger's twin, like the ⟳ below, so `[…][✎][⋯][⟳]` reads as one
-    // button family. Its accessible name is the action's label, the same text
-    // its overflow row shows, and it runs the same handler that row runs, so
-    // both open one session. It honours the same disabled verdict. Host
-    // actions give no disabled reason (see `disabledReasonFor`), so it needs
-    // no reason wrapper.
-    const renderFoldedIconButton = (action: any, idx: number) => {
-      const label = resolveLabel(action);
-      const actionKey = `${action.name || action.id || `folded-action-${idx}`}-icon`;
-      return (
-        <TooltipProvider key={actionKey} delayDuration={200}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1 px-2"
-                aria-label={label}
-                data-folded-header-action={action.name || action.id || ''}
-                disabled={isActionDisabled(action)}
-                onClick={() => {
-                  if (typeof action.onClick === 'function') {
-                    void action.onClick();
-                    return;
-                  }
-                  dispatchHeaderAction(action);
-                }}
-              >
-                <LazyIcon name={action.icon} className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{label}</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      );
-    };
     return (
       <div
         className="flex flex-wrap items-center gap-2 shrink-0"
@@ -2239,7 +2226,6 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
         aria-label={tt('detail.pageHeaderActions', 'Page header actions')}
       >
         {inlineActions.map(renderButton)}
-        {foldedHostButtons.map(renderFoldedIconButton)}
         {useOverflow && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -2698,7 +2684,7 @@ ComponentRegistry.register('header', PageHeaderRenderer, {
     // express the domain: `ComponentInput.type` has no integer/min/max slot, so
     // `description` stays the only authoring-time expression of it, and spec
     // stays the sole judge of values.)
-    { name: 'maxVisible', type: 'number', description: 'How many header actions render as inline buttons on desktop before the rest fold into the overflow menu. A positive integer — the contract rejects 0 and fractional values. Two kinds of action are routed to the overflow menu regardless of this budget and never occupy an inline slot: an action whose locations declare record_more without record_header, and any action with component action:menu.' },
+    { name: 'maxVisible', type: 'number', description: 'How many header actions render as inline buttons on desktop before the rest fold into the overflow menu. A positive integer — the contract rejects 0 and fractional values. Two kinds of action are routed to the overflow menu regardless of this budget and never occupy an inline slot: an action whose locations declare record_more without record_header, and any action with component action:menu. The host\'s own buttons (the record page\'s Edit) take no slot and never fold. The first inline action, or the one declaring variant primary, is the one filled primary button; the others are outline buttons.' },
     { name: 'mobileMaxVisible', type: 'number', description: 'The same inline-button budget on mobile viewports, where horizontal room is scarce. A positive integer, defaulting to 1; the desktop half is Max Inline Actions, and the overflow routing rules stated there apply unchanged.' },
   ],
 });

@@ -367,6 +367,14 @@ const fr = {
       impossibleDay:
         "La valeur enregistrée « {{value}} » n’est pas une date réelle. Choisissez une date et une heure pour la remplacer.",
     },
+    datePicker: {
+      today: "Aujourd’hui",
+      tomorrow: "Demain",
+      clear: "Effacer la date",
+      openCalendar: "Ouvrir le calendrier",
+      invalid:
+        "Non enregistré : « {{value}} » n’est pas une date. Saisissez-la au format {{format}} ou choisissez-la dans le calendrier.",
+    },
     number: {
       badInput:
         "Non enregistré : le texte de ce champ n'est pas un nombre. Saisissez une décimale simple (exemple : {{example}}).",
@@ -878,6 +886,7 @@ const fr = {
   },
   kanban: {
     uncategorized: "Non catégorisé",
+    loadMore: "Charger plus",
     columns: "colonnes",
     addCard: "Ajouter une carte",
     addColumn: "Ajouter une colonne",
@@ -4253,6 +4262,7 @@ const fr = {
     toggleFailed: "Impossible de modifier l'activation.",
     cloneFailedHttp: "Impossible de cloner ce flux (HTTP {{status}}).",
     cloneFailed: "Impossible de cloner ce flux.",
+    reasonDetails: "Détails",
     actionsSubtitle: "Actions fournies par les packages installés. Désactivez-en une pour ce déploiement et elle cesse de s'exécuter partout où elle est proposée. Vous pouvez toujours créer votre propre action à côté, dans Studio.",
     colAction: "Action",
     colObject: "Objet",

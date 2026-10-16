@@ -368,6 +368,14 @@ const zh = {
       impossibleDay:
         '存储的值“{{value}}”不是真实存在的日期。请选择日期和时间以替换它。',
     },
+    datePicker: {
+      today: '今天',
+      tomorrow: '明天',
+      clear: '清除日期',
+      openCalendar: '打开日历',
+      invalid:
+        '未保存：“{{value}}”不是有效日期。请按 {{format}} 格式输入，或从日历中选择。',
+    },
     number: {
       badInput:
         '未保存：此输入框中的文本不是数字。请输入普通小数（例如 {{example}}）。',
@@ -884,6 +892,7 @@ const zh = {
     noCards: '暂无卡片',
     cardTitlePlaceholder: '输入卡片标题…',
     uncategorized: '未分类',
+    loadMore: '加载更多',
     columns: '列',
     requiredFieldsTitle: '填写必填字段',
     requiredFieldsDescription: '此次移动会使以下字段成为必填项。填写后即可继续。',
@@ -4222,6 +4231,7 @@ const zh = {
     toggleFailed: '无法更改启用状态。',
     cloneFailedHttp: '无法克隆此流程(HTTP {{status}})。',
     cloneFailed: '无法克隆此流程。',
+    reasonDetails: '详情',
     actionsSubtitle: '由已安装软件包提供的动作。在本部署中关闭后,它在所有提供它的位置都不再运行。你仍然可以在 Studio 中另行编写自己的动作。',
     colAction: '动作',
     colObject: '对象',

@@ -366,6 +366,14 @@ const pt = {
       impossibleDay:
         "O valor salvo “{{value}}” não é uma data real. Escolha uma data e uma hora para substituí-lo.",
     },
+    datePicker: {
+      today: "Hoje",
+      tomorrow: "Amanhã",
+      clear: "Limpar data",
+      openCalendar: "Abrir calendário",
+      invalid:
+        "Não salvo: “{{value}}” não é uma data. Digite no formato {{format}} ou escolha no calendário.",
+    },
     number: {
       badInput:
         "Não salvo: o texto deste campo não é um número. Informe um decimal simples (exemplo: {{example}}).",
@@ -877,6 +885,7 @@ const pt = {
   },
   kanban: {
     uncategorized: "Sem categoria",
+    loadMore: "Carregar mais",
     columns: "colunas",
     addCard: "Adicionar cartão",
     addColumn: "Adicionar coluna",
@@ -4251,6 +4260,7 @@ const pt = {
     toggleFailed: "Não foi possível alterar a ativação.",
     cloneFailedHttp: "Não foi possível clonar este fluxo (HTTP {{status}}).",
     cloneFailed: "Não foi possível clonar este fluxo.",
+    reasonDetails: "Detalhes",
     actionsSubtitle: "Ações fornecidas pelos pacotes instalados. Desligue uma nesta implantação e ela deixa de ser executada em todos os lugares onde é oferecida. Criar sua própria ação ao lado dela continua disponível no Studio.",
     colAction: "Ação",
     colObject: "Objeto",

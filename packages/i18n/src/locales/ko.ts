@@ -360,6 +360,14 @@ const ko = {
       impossibleDay:
         "저장된 값 “{{value}}”은(는) 실제 날짜가 아닙니다. 바꾸려면 날짜와 시간을 선택하세요.",
     },
+    datePicker: {
+      today: "오늘",
+      tomorrow: "내일",
+      clear: "날짜 지우기",
+      openCalendar: "달력 열기",
+      invalid:
+        "저장되지 않음: “{{value}}”은(는) 날짜가 아닙니다. {{format}} 형식으로 입력하거나 달력에서 선택하세요.",
+    },
     number: {
       badInput:
         "저장되지 않았습니다: 이 입력란의 텍스트는 숫자가 아닙니다. 일반 소수로 입력하세요(예: {{example}}).",
@@ -852,6 +860,7 @@ const ko = {
   },
   kanban: {
     uncategorized: "미분류",
+    loadMore: "더 보기",
     columns: "열",
     addCard: "카드 추가",
     addColumn: "열 추가",
@@ -4161,6 +4170,7 @@ const ko = {
     toggleFailed: "활성화 상태를 변경하지 못했습니다.",
     cloneFailedHttp: "이 플로우를 복제하지 못했습니다 (HTTP {{status}}).",
     cloneFailed: "이 플로우를 복제하지 못했습니다.",
+    reasonDetails: "세부 정보",
     actionsSubtitle: "설치된 패키지가 제공하는 액션입니다. 이 배포에서 끄면 액션이 제공되는 모든 곳에서 실행되지 않습니다. Studio에서 직접 액션을 따로 작성하는 것은 계속 가능합니다.",
     colAction: "액션",
     colObject: "오브젝트",

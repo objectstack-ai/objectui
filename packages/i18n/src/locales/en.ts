@@ -542,6 +542,17 @@ const en = {
       impossibleDay:
         'The stored value "{{value}}" is not a real date. Pick a date and time to replace it.',
     },
+    // objectui#12622 — the record form's date picker: its two shortcuts,
+    // the clear / calendar buttons' accessible names, and the notice for
+    // typed text that names no date ({{format}} is the locale pattern).
+    datePicker: {
+      today: 'Today',
+      tomorrow: 'Tomorrow',
+      clear: 'Clear date',
+      openCalendar: 'Open calendar',
+      invalid:
+        'Not saved: "{{value}}" is not a date. Type it as {{format}}, or pick one from the calendar.',
+    },
     number: {
       badInput:
         'Not saved: the text in this box is not a number. Enter a plain decimal (example: {{example}}).',
@@ -1111,6 +1122,7 @@ const en = {
     noCards: 'No cards',
     cardTitlePlaceholder: 'Enter card title…',
     uncategorized: 'Uncategorized',
+    loadMore: 'Load more',
     columns: 'columns',
     requiredFieldsTitle: 'Complete required fields',
     requiredFieldsDescription: 'This move makes the fields below required. Fill them in to continue.',
@@ -4885,6 +4897,12 @@ const en = {
     toggleFailed: 'Could not change activation.',
     cloneFailedHttp: 'Could not clone this flow (HTTP {{status}}).',
     cloneFailed: 'Could not clone this flow.',
+    // The chip an unarmed flow row's platform sentence opens from
+    // (objectui#12609). ⛔ Generic on purpose: the same word on every row that
+    // carries a sentence, whatever the sentence says. The sentence itself is
+    // the server's and is never kept in a pack; a label naming its cause would
+    // be the console classifying a field the contract says not to parse.
+    reasonDetails: 'Details',
 
     // ── Packaged ACTIONS section (ADR-0126 §8 item 2, ruling 3) ────────────
     // ⛔ No clone key here on purpose: the action-clone half is unchartered,

@@ -114,7 +114,7 @@ describe('PageHeaderRenderer — actions slot', () => {
     expect(screen.queryByRole('button', { name: /Empty Placement/i })).toBeNull();
   });
 
-  it('still renders host system actions that declare no placement — chrome is placed by the host', () => {
+  it('still renders host system actions that declare no placement — chrome is placed by the host', async () => {
     // The host injects Edit/Share/Delete; nobody authored a `locations` for
     // them, and `action:bar` has always exempted its `systemActions` slot for
     // exactly that reason. Before #3142 this renderer filtered them, so the
@@ -126,7 +126,12 @@ describe('PageHeaderRenderer — actions slot', () => {
         headerSystemActions: [{ name: 'sys_delete', label: 'Delete Record' }],
       },
     );
-    expect(screen.getByRole('button', { name: /Delete Record/i })).toBeTruthy();
+    // A destructive host action renders in the `⋯`, never as an inline
+    // button (objectui#12617) — rendered either way, which is this pin.
+    expect(screen.queryByRole('button', { name: /Delete Record/i })).toBeNull();
+    const trigger = screen.getByRole('button', { name: /More actions/i });
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' });
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: /Delete Record/i })).toBeTruthy());
   });
 
   it('shows action when visible expression matches record', () => {
@@ -238,11 +243,11 @@ describe('PageHeaderRenderer — actions slot', () => {
         ],
       },
     );
-    // With 4 actions and the default maxVisible of 3, the first three stay
-    // inline and the rest collapse into a `⋯` overflow menu. We assert the
-    // authored action is rendered as a button and the overflow trigger is
-    // present (full menu contents are exercised by separate dropdown
-    // interaction tests).
+    // The host's buttons stay inline beside the authored action and the
+    // host's destructive Delete folds into the `⋯` (objectui#12617). We
+    // assert the authored action is rendered as a button and the overflow
+    // trigger is present (full menu contents are exercised by separate
+    // dropdown interaction tests).
     expect(screen.getByRole('button', { name: /Convert Lead/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: /More actions/i })).toBeTruthy();
   });

@@ -36,6 +36,7 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup, waitFor, act, fireEvent, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 
 const { ADMIN, OTHER, ADAPTER } = vi.hoisted(() => {
   // OTHER has no ledger rows: the lookup lists more than the one user it is asked for.
@@ -130,14 +131,14 @@ function actorCell(row: HTMLElement): HTMLElement {
 
 describe('AuditLogPage — the actor is named (objectui#11701)', () => {
   it('asks for the actor on the list fetch itself', async () => {
-    render(<AuditLogPage />);
+    render(<MemoryRouter><AuditLogPage /></MemoryRouter>);
     await rowOf('account');
     expect(requests.length).toBeGreaterThan(0);
     expect(requests.every((q) => q.get('$expand') === 'user_id')).toBe(true);
   });
 
   it("shows the seeded admin's name in the actor column, with the id on hover", async () => {
-    render(<AuditLogPage />);
+    render(<MemoryRouter><AuditLogPage /></MemoryRouter>);
     const cell = actorCell(await rowOf('account'));
     expect(cell).toHaveTextContent('Admin User');
     expect(cell).not.toHaveTextContent(ADMIN.id);
@@ -145,20 +146,20 @@ describe('AuditLogPage — the actor is named (objectui#11701)', () => {
   });
 
   it('shows the id of a user the engine could not resolve, never a blank', async () => {
-    render(<AuditLogPage />);
+    render(<MemoryRouter><AuditLogPage /></MemoryRouter>);
     const cell = actorCell(await rowOf('contact'));
     expect(cell).toHaveTextContent('usr_gone_0009');
     expect(within(cell).getByText('usr_gone_0009')).toHaveAttribute('title', 'usr_gone_0009');
   });
 
   it('reads "System" for a change no user made, with the principal on hover', async () => {
-    render(<AuditLogPage />);
+    render(<MemoryRouter><AuditLogPage /></MemoryRouter>);
     const cell = actorCell(await rowOf('invoice'));
     expect(within(cell).getByText('System')).toHaveAttribute('title', 'svc:nightly_sync');
   });
 
   it('names the actor in the drawer and keeps the full id', async () => {
-    render(<AuditLogPage />);
+    render(<MemoryRouter><AuditLogPage /></MemoryRouter>);
     fireEvent.click(await rowOf('account'));
     const drawer = await screen.findByRole('dialog');
     expect(within(drawer).getByText('Admin User')).toBeInTheDocument();
@@ -182,7 +183,7 @@ describe('AuditLogPage — the actor filter is a user lookup (objectui#11701)', 
   }
 
   it("choosing the admin sends user_id equal to the admin's id, and lists the admin's row", async () => {
-    render(<AuditLogPage />);
+    render(<MemoryRouter><AuditLogPage /></MemoryRouter>);
     await rowOf('contact');
     await chooseActor('Admin User');
 
@@ -198,7 +199,7 @@ describe('AuditLogPage — the actor filter is a user lookup (objectui#11701)', 
   });
 
   it('removing the chosen user removes the filter', async () => {
-    render(<AuditLogPage />);
+    render(<MemoryRouter><AuditLogPage /></MemoryRouter>);
     await rowOf('contact');
     await chooseActor('Admin User');
     await waitFor(() => expect(screen.queryByRole('cell', { name: 'contact' })).toBeNull());

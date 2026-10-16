@@ -13,6 +13,11 @@
  *
  * Scope (MVP):
  *  - Filter by action / object_name / actor (a `sys_user` lookup) / date range
+ *  - Presets: the list views `sys_audit_log` SERVES (Writes, Auth, …), read
+ *    from the console's object metadata, never copied here (objectui#12667).
+ *    See `auditPresetsOf` below
+ *  - "Open as list": the `sys_audit_log` object list, on the active preset's
+ *    own view when one is chosen (objectui#12667)
  *  - The actor is named, not shown as a raw id (objectui#11701): see
  *    `actorOf` below
  *  - Paginated table (50/page)
@@ -26,7 +31,9 @@
  *    once FLS lands)
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { mergeFilterNodes, toFilterNodeSafely } from '@object-ui/core';
 import { useDisplayLocale } from '@object-ui/i18n';
 import {
   Button,
@@ -60,8 +67,8 @@ import {
   Separator,
 } from '@object-ui/components';
 import { LookupField } from '@object-ui/fields';
-import { ConsolePageHeader, useAdapter } from '@object-ui/app-shell';
-import { Search, X, AlertCircle, ScrollText } from 'lucide-react';
+import { ConsolePageHeader, useAdapter, useMetadata } from '@object-ui/app-shell';
+import { Search, X, AlertCircle, ScrollText, ExternalLink } from 'lucide-react';
 import { ACTION_OPTIONS, ACTION_VARIANT } from './auditLogActions';
 
 const SERVER_URL = (import.meta.env.VITE_SERVER_URL || '').replace(/\/$/, '');
@@ -92,6 +99,69 @@ interface AuditRow {
 }
 
 const PAGE_SIZE = 50;
+
+/** The object this page browses. */
+const AUDIT_OBJECT = 'sys_audit_log';
+
+/**
+ * One served list view of `sys_audit_log`, as this browser offers it
+ * (objectui#12667).
+ *
+ * `applies: true` carries the view's own `filter`, lowered to the query AST by
+ * `@object-ui/core`'s `toFilterNodeSafely` — the same lowering the object
+ * list's grid runs on the same view, so a preset and its list ask the server
+ * one question. `node` is `undefined` for a view that declares no filter (the
+ * unfiltered `Recent` / `All`).
+ *
+ * `applies: false` is a view this browser cannot express. It is offered
+ * disabled with its reason and a link to the view in the list, ⛔ never
+ * dropped and never approximated: a preset that silently widened its filter
+ * would show an auditor rows the view's name says are not there.
+ *
+ * Only the view's filter is taken. Columns, sort and page size stay the
+ * browser's own.
+ */
+/** A lowered filter, as `@object-ui/core`'s filter lowering hands it back. */
+type WhereNode = Exclude<ReturnType<typeof mergeFilterNodes>, undefined>;
+
+type AuditPreset =
+  | { key: string; label: string; applies: true; node: WhereNode | undefined }
+  | { key: string; label: string; applies: false; reason: string };
+
+/**
+ * The presets for `sys_audit_log`'s object document as the console's metadata
+ * serves it: one per `listViews` entry, in served order, keyed by the entry's
+ * key — the same id the object list's view switcher and its
+ * `…/view/:viewId` route use.
+ *
+ * Nothing here names a view: whatever the platform declares on the object is
+ * what the browser offers. `listViews` is the only spelling read (#5362;
+ * `@objectstack/spec` declares only camelCase).
+ */
+function auditPresetsOf(objectDef: unknown): AuditPreset[] {
+  const listViews = (objectDef as { listViews?: unknown } | null | undefined)?.listViews;
+  if (!listViews || typeof listViews !== 'object') return [];
+  const presets: AuditPreset[] = [];
+  for (const [key, raw] of Object.entries(listViews as Record<string, unknown>)) {
+    if (!raw || typeof raw !== 'object') continue;
+    const view = raw as { label?: unknown; filter?: unknown; data?: unknown };
+    const label = typeof view.label === 'string' && view.label.trim() ? view.label : key;
+    // A view bound to another source answers a different question than this
+    // page's fetch of `sys_audit_log`.
+    const data = view.data as { provider?: unknown; object?: unknown } | undefined;
+    if (data && typeof data === 'object' && (data.provider !== 'object' || data.object !== AUDIT_OBJECT)) {
+      presets.push({ key, label, applies: false, reason: 'This view reads another data source.' });
+      continue;
+    }
+    const lowered = toFilterNodeSafely(view.filter);
+    if (!lowered.ok) {
+      presets.push({ key, label, applies: false, reason: `This view's filter cannot be applied here: ${lowered.refusal.message}` });
+      continue;
+    }
+    presets.push({ key, label, applies: true, node: lowered.node });
+  }
+  return presets;
+}
 
 /**
  * `locale` is REQUIRED: the log's timestamp column used to format with no
@@ -184,6 +254,14 @@ export function AuditLogPage() {
   const displayLocale = useDisplayLocale();
   // The actor filter's user lookup queries `sys_user` through the console's adapter.
   const adapter = useAdapter();
+  const { appName } = useParams<{ appName?: string }>();
+  // The served `sys_audit_log` document, read through the console's metadata
+  // cache — the same read the object list's view switcher draws from.
+  const { objects } = useMetadata();
+  const presets = useMemo(
+    () => auditPresetsOf(objects.find((o) => (o as { name?: unknown } | null)?.name === AUDIT_OBJECT)),
+    [objects],
+  );
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -195,6 +273,14 @@ export function AuditLogPage() {
   const [actorFilter, setActorFilter] = useState<string>('');
   const [fromDate, setFromDate] = useState<string>('');  // YYYY-MM-DD
   const [toDate, setToDate] = useState<string>('');
+  /** The presets row is named by its visible caption. */
+  const presetsCaptionId = useId();
+  /** The chosen preset's view key, or null for none. */
+  const [presetKey, setPresetKey] = useState<string | null>(null);
+  const activePreset = presets.find((p) => p.key === presetKey && p.applies);
+  // The effect below keys on the preset's filter as a STRING, never on the
+  // memoised preset object (AGENTS.md #10).
+  const presetWhere = JSON.stringify(activePreset && activePreset.applies ? activePreset.node ?? null : null);
 
   // Pagination
   const [page, setPage] = useState(0);
@@ -215,8 +301,12 @@ export function AuditLogPage() {
       if (toDate) filter.created_at = { ...(filter.created_at as object || {}), $lte: `${toDate}T23:59:59` };
 
       const params = new URLSearchParams();
-      if (Object.keys(filter).length > 0) {
-        params.set('$filter', JSON.stringify(filter));
+      // A preset's filter is sent as the view declares it, beside the bar's
+      // filters under one `and` — each source its own child.
+      const presetNode = JSON.parse(presetWhere) as WhereNode | null;
+      const where = presetNode !== null ? mergeFilterNodes(filter, presetNode) : filter;
+      if (where !== undefined && (Array.isArray(where) || Object.keys(where).length > 0)) {
+        params.set('$filter', JSON.stringify(where));
       }
       // Name the actor on this one read: the engine batch-loads the referenced
       // users and puts each record in place of its id (objectui#11701).
@@ -251,7 +341,7 @@ export function AuditLogPage() {
     } finally {
       setLoading(false);
     }
-  }, [actionFilter, objectFilter, actorFilter, fromDate, toDate, page]);
+  }, [actionFilter, objectFilter, actorFilter, fromDate, toDate, presetWhere, page]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -261,6 +351,7 @@ export function AuditLogPage() {
     setActorFilter('');
     setFromDate('');
     setToDate('');
+    setPresetKey(null);
     setPage(0);
   }, []);
 
@@ -271,8 +362,14 @@ export function AuditLogPage() {
     if (actorFilter.trim()) n += 1;
     if (fromDate) n += 1;
     if (toDate) n += 1;
+    if (activePreset) n += 1;
     return n;
-  }, [actionFilter, objectFilter, actorFilter, fromDate, toDate]);
+  }, [actionFilter, objectFilter, actorFilter, fromDate, toDate, activePreset]);
+
+  // The object list, on the active preset's own view when one is chosen.
+  const listBase = `/apps/${encodeURIComponent(appName || 'setup')}/${AUDIT_OBJECT}`;
+  const viewHref = (key: string) => `${listBase}/view/${encodeURIComponent(key)}`;
+  const listHref = activePreset ? viewHref(activePreset.key) : listBase;
 
   return (
     <div>
@@ -287,11 +384,49 @@ export function AuditLogPage() {
       icon={<ScrollText className="h-4 w-4" />}
       // The header's own Refresh icon button (objectui#12606).
       refresh={{ onRefresh: load, label: 'Refresh', busy: loading }}
+      actions={
+        <Button asChild variant="outline" size="sm">
+          <Link to={listHref}>
+            <ExternalLink className="h-4 w-4 mr-1" />
+            Open as list
+          </Link>
+        </Button>
+      }
     />
     <div className="p-6 space-y-4 max-w-screen-2xl mx-auto">
       {/* Filter bar */}
       <Card>
         <CardContent className="p-4 grid grid-cols-1 md:grid-cols-5 gap-3">
+          {presets.length > 0 && (
+            <div className="md:col-span-5 flex flex-wrap items-center gap-2" role="group" aria-labelledby={presetsCaptionId}>
+              <span id={presetsCaptionId} className="text-xs text-muted-foreground mr-1">Presets</span>
+              {presets.map((p) => p.applies ? (
+                <Button
+                  key={p.key}
+                  size="sm"
+                  variant={p.key === activePreset?.key ? 'default' : 'outline'}
+                  aria-pressed={p.key === activePreset?.key}
+                  onClick={() => { setPresetKey(p.key === activePreset?.key ? null : p.key); setPage(0); }}
+                >
+                  {p.label}
+                </Button>
+              ) : (
+                <span key={p.key} className="inline-flex items-center gap-1">
+                  <Button size="sm" variant="outline" disabled aria-pressed={false} title={p.reason}>
+                    {p.label}
+                  </Button>
+                  <Link
+                    to={viewHref(p.key)}
+                    className="text-muted-foreground hover:text-foreground"
+                    aria-label={`Open ${p.label} as list`}
+                    title={p.reason}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </Link>
+                </span>
+              ))}
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label className="text-xs">Action</Label>
             <Select value={actionFilter} onValueChange={(v) => { setActionFilter(v); setPage(0); }}>

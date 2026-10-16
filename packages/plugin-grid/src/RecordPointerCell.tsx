@@ -263,6 +263,10 @@ export function RecordPointerCell({ pointer, dataSource }: RecordPointerCellProp
   const def = defAnswer.state === 'ok' ? defAnswer.def : null;
   const typeLabel = objectLabel({ name: objectName, label: def?.label || objectName });
   const Icon = def?.icon ? resolveIcon(def.icon) : null;
+  // The annotation the other `resolveIcon` seam call sites carry: it returns a
+  // STABLE, cached component per icon name; it does not create one during
+  // render. The rule cannot see that through a call.
+  // eslint-disable-next-line react-hooks/static-components
   const icon = Icon ? <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" /> : null;
 
   if (def && recordAnswer.state === 'readable') {

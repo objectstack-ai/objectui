@@ -26,7 +26,7 @@ import type { ObjectGridSchema, DataSource, ListColumn, TableColumn, ViewData, T
 import { isSystemManagedField, normalizeTableColumnType } from '@object-ui/types';
 import type { I18nLabel } from '@objectstack/spec/ui';
 import { parseFilterAST, resolveFieldScale, type FilterCondition } from '@objectstack/spec/data';
-import { SchemaRenderer, useDataScope, useNavigationOverlay, useAction, useSafeFieldLabel, usePredicateScope, useRelatedRecordActions, RelatedRecordActionsProvider, useDataInvalidation, notifyDataChanged, useFilterScope, useMetadata } from '@object-ui/react';
+import { SchemaRenderer, useDataScope, useNavigationOverlay, useAction, useSafeFieldLabel, usePredicateScope, useCapabilityGate, useRelatedRecordActions, RelatedRecordActionsProvider, useDataInvalidation, notifyDataChanged, useFilterScope, useMetadata } from '@object-ui/react';
 import { createSafeTranslation } from '@object-ui/i18n';
 // objectui#8920 — the grid reaches a cell renderer through THIS module and
 // nowhere else. `getCellRenderer` / `resolveCellRendererType` are deliberately
@@ -57,6 +57,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   RefreshIndicator,
   DataEmptyState, EmptyStateLink, resolveIcon,
+  HorizontalOverflowBox, PINNED_RIGHT_SEAM_SHADOW_CLASSES,
   toast,
 } from '@object-ui/components';
 import { usePullToRefresh } from '@object-ui/mobile';
@@ -84,7 +85,7 @@ import { applyRelationalMeta } from './relationalMetaKeys';
 import { resolveBulkActions, describeUnusableBulkActionDefs, resolvePromotedBulkParams } from './resolveBulkActions';
 import { partitionBulkRows } from './bulkEligibility';
 import { resolvesToDataColumn, describeUnresolvedColumns } from './columnSpellingDiagnostics';
-import { RowActionMenu, formatActionLabel } from './components/RowActionMenu';
+import { RowActionMenu, formatActionLabel, planRowActionMenu } from './components/RowActionMenu';
 import { BulkActionBar } from './components/BulkActionBar';
 import { BulkActionDialog } from './components/BulkActionDialog';
 import type { BulkResult } from './hooks/useBulkExecutor';
@@ -286,6 +287,18 @@ export function parseSchemaSort(sort: unknown): TableSortItem[] {
  * no-op against the span it upgrades, so a list does not change appearance
  * depending on whether its host publishes record URLs.
  */
+/**
+ * The field types whose grid cell draws chips: the ones `@object-ui/fields`
+ * maps to `SelectCellRenderer` (a badge per selected option). Their column
+ * carries `chips`, so `data-table` floors it at its widest drawn chip and a
+ * single-word value is never ellipsized (objectui#12708).
+ */
+const CHIP_FIELD_TYPES: ReadonlySet<string> = new Set(['select', 'status', 'multiselect', 'radio', 'checkboxes', 'tags']);
+
+function isChipFieldType(type: unknown): boolean {
+  return typeof type === 'string' && CHIP_FIELD_TYPES.has(type);
+}
+
 const LINK_CELL_CLASS =
   'text-primary font-medium underline-offset-4 hover:underline cursor-pointer truncate block max-w-full';
 
@@ -3174,6 +3187,10 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // expression dialect. The host predicate scope is bound so `features.*`
   // predicates resolve, mirroring row-action visibility.
   const predicateScope = usePredicateScope();
+  // objectui#12708 — the row actions' capability gate, the one `RowActionMenu`
+  // applies per row, read here too so the Actions column's verdict (below the
+  // early returns, where no hook may sit) sees the same declared set.
+  const mayInvokeRowAction = useCapabilityGate();
   const getRowStyle = useCallback((row: Record<string, unknown>): React.CSSProperties | undefined => {
     const rules = schema.conditionalFormatting;
     if (!rules || rules.length === 0) return undefined;
@@ -4818,9 +4835,16 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       // are unknown, a column with no type of its own is WITHHELD, and so
       // flagged. `generateColumns()` gave it no inferred type and a mask for a
       // cell; this is where every table path learns to withhold it as well.
-      const rest = isMaskedGridColumn(producerType, objectFields?.[col.accessorKey]?.type, objectTypesPending)
+      const masked = isMaskedGridColumn(producerType, objectFields?.[col.accessorKey]?.type, objectTypesPending);
+      // objectui#12708 — THE CHIP FLAG, stamped here for the same reason as
+      // the masked one: the fold below drops `select` and its kin (they are
+      // not `TableColumnType` members), so `data-table` could not tell a chip
+      // column from a text one. It floors a chip column at its widest drawn
+      // chip. Written only when true, so every other column is unchanged.
+      const chips = !masked && isChipFieldType(producerType ?? objectFields?.[col.accessorKey]?.type);
+      const rest = masked
         ? { ...draft, masked: true }
-        : draft;
+        : chips ? { ...draft, chips: true } : draft;
       if (producerType == null) return rest;
       const normalized = normalizeTableColumnType(producerType);
       if (normalized === undefined) return rest;
@@ -4879,7 +4903,42 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   const hasActions = !!(operations && (operations.update || operations.delete));
   const hasRowActions = customRowActions.length > 0 || resolvedRowActionDefs.length > 0 || wantEditAction || wantDeleteAction;
 
-  const columnsWithActions = (hasActions || hasRowActions) ? [
+  // objectui#12708 — the Actions column is drawn only when a row on screen
+  // OFFERS something: its plan, the one `RowActionMenu` renders the row's cell
+  // from, holds an inline button or a menu item once its capability gate, its
+  // per-record predicates and the record-level verdicts are applied. Wiring
+  // alone (`operations`, a declared list) used to draw an empty column over
+  // rows that offer nothing. One row is enough, so the read stops at the first.
+  const rowActionDefsGated = (resolvedRowActionDefs as any[]).filter((d) => mayInvokeRowAction(d?.requiredPermissions));
+  // NON-AUTHOR SURFACE — see the `maxInlineActions` prop below.
+  const maxInlineRowActions: number = (schema as any).maxInlineRowActions ?? 1;
+  const rowCrudVerdicts = (row: any) => {
+    // [objectui#8674] The CALLER's answer for this one row, ANDed in below.
+    const rowOps = rowOperations?.(row);
+    return {
+      canEdit: resolveRowRecordCrudAffordance(canEdit && rowOps?.update !== false, recordVerdict(rowRecordId(row), 'update')),
+      canDelete: resolveRowRecordCrudAffordance(canDelete && rowOps?.delete !== false, recordVerdict(rowRecordId(row), 'delete')),
+    };
+  };
+  const rowOffersAction = (row: any): boolean => {
+    const plan = planRowActionMenu({
+      row,
+      scope: predicateScope,
+      actionDefs: rowActionDefsGated,
+      maxInlineActions: maxInlineRowActions,
+      rowActions: customRowActions,
+      ...rowCrudVerdicts(row),
+      onEdit,
+      onDelete,
+      editPredicates,
+      deletePredicates,
+      objectFields: objectSchema?.fields,
+    });
+    return plan.inline.length > 0 || plan.menuCount > 0;
+  };
+  const drawActionsColumn = (hasActions || hasRowActions) && data.some(rowOffersAction);
+
+  const columnsWithActions = drawActionsColumn ? [
     ...persistedColumns,
     {
       header: t('grid.actions'),
@@ -4902,7 +4961,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         // `onDelete` wiring are grid-level and identical for every row, so
         // the refusal used to live in the callback and fire AFTER the button
         // had been drawn and clicked. Narrowing only — see `rowOperations`.
-        const rowOps = rowOperations?.(row);
+        // Resolved by `rowCrudVerdicts`, the same call the column's draw
+        // verdict above reads (objectui#12708).
+        const rowVerdicts = rowCrudVerdicts(row);
         return (
           <RowActionMenu
             row={row}
@@ -4911,7 +4972,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             objectFields={objectSchema?.fields}
             // NON-AUTHOR SURFACE — `maxInlineRowActions` is deliberately
             // absent from `GRID_QUERY_INPUTS` (maintainer ruling, 2026-08-18,
-            // objectui#5091), so this cast read is deliberate, not missed. It is
+            // objectui#5091), so the cast read behind `maxInlineRowActions` (resolved
+            // above, beside the column's draw verdict) is deliberate, not missed. It is
             // a host/internal switch for the inline-button budget before the
             // rest fold into the "⋮" menu — an embedder's layout call, set from
             // code (`apps/console/src/dev/DevRowActions.tsx:51`), never from a
@@ -4920,20 +4982,20 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             // advertise a key the save gate refuses. The `?? 1` default is the
             // published behaviour and stays the one an author sees. Pinned by
             // `__tests__/gridNonAuthorKeys.test.tsx`.
-            maxInlineActions={(schema as any).maxInlineRowActions ?? 1}
+            maxInlineActions={maxInlineRowActions}
             // [#4296] The object verdict ANDed with THIS row's record-level one.
             // It rides the same per-row channel the #2614 predicates ride —
             // `planRowActionMenu` conjoins `canEdit`/`canDelete` with
             // `visibleWhen` in one expression, so the item and the "⋮" guard read
             // one decision (#3562) and a hidden row grows no empty trigger. An
             // unanswered row keeps the object verdict, i.e. today's rendering.
-            // [objectui#8674] `rowOps` is the third narrowing in this one
+            // [objectui#8674] `rowOps` (inside `rowCrudVerdicts`) is the third narrowing in this one
             // expression, and an INTERSECTION like the two around it: only
             // `false` removes, so a caller that passes no `rowOperations` —
             // every caller but the field designer today — reads exactly the
             // verdict this line carried before the prop existed.
-            canEdit={resolveRowRecordCrudAffordance(canEdit && rowOps?.update !== false, recordVerdict(rowRecordId(row), 'update'))}
-            canDelete={resolveRowRecordCrudAffordance(canDelete && rowOps?.delete !== false, recordVerdict(rowRecordId(row), 'delete'))}
+            canEdit={rowVerdicts.canEdit}
+            canDelete={rowVerdicts.canDelete}
             editPredicates={editPredicates}
             deletePredicates={deletePredicates}
             onEdit={onEdit}
@@ -4974,7 +5036,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   const pinnedRightCols = columnsWithActions.filter((c: any) => c.pinned === 'right');
   const unpinnedCols = columnsWithActions.filter((c: any) => !c.pinned);
   const hasPinnedColumns = pinnedLeftCols.length > 0 || pinnedRightCols.length > 0;
-  const rightPinnedClasses = 'sticky right-0 z-10 bg-background border-l border-border';
+  // Both carry the shared seam shadow (objectui#12708): inside the grouped
+  // grid's one scroller (a `seam="pinned"` overflow box) a right-pinned cell
+  // draws it on its own left edge while columns remain to the right. Outside
+  // such a box it stays invisible, and `data-table` places its own.
+  const rightPinnedClasses = `sticky right-0 z-10 bg-background border-l border-border ${PINNED_RIGHT_SEAM_SHADOW_CLASSES}`;
   // A body cell also layers the row's `--os-row-tint` (set by `useRowColor`)
   // over its opaque `bg-background`, so a tinted row's colour reaches its
   // right-pinned cells while they stay opaque over the content scrolling
@@ -4982,7 +5048,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // `STICKY_ROW_TINT` for its frozen cells; an untinted row resolves it to
   // nothing.
   const rightPinnedCellClasses =
-    'sticky right-0 z-10 bg-background bg-[image:linear-gradient(var(--os-row-tint,transparent),var(--os-row-tint,transparent))] border-l border-border';
+    `sticky right-0 z-10 bg-background bg-[image:linear-gradient(var(--os-row-tint,transparent),var(--os-row-tint,transparent))] border-l border-border ${PINNED_RIGHT_SEAM_SHADOW_CLASSES}`;
   // The `_actions` column is auto-pinned right (above), so it must be excluded
   // from the frozen-column decision — otherwise every list with row actions
   // would trip `hasPinnedColumns` and lose the implicit left-freeze of its
@@ -7071,12 +7137,19 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     <div className="flex flex-col flex-1 min-h-0">
       {/* One scroller for the one grouped table (objectui#12620): it holds
           both scrollbars, and the table's sticky header sticks to its top
-          over every band. */}
-      <div className="flex-1 min-h-0 overflow-auto [-webkit-overflow-scrolling:touch]">
+          over every band. It draws the shared overflow affordance
+          (objectui#12708): with a right-pinned column the shadow sits at that
+          column's seam, otherwise at the box's right edge. */}
+      <HorizontalOverflowBox
+        seam={pinnedRightCols.length > 0 ? 'pinned' : 'edge'}
+        outerClassName="flex flex-col flex-1 min-h-0"
+        className="flex-1 min-h-0 overflow-auto [-webkit-overflow-scrolling:touch]"
+        data-testid="grouped-grid-scroller"
+      >
         <div className="min-w-max">
           <SchemaRenderer schema={buildGroupedTableSchema(groupBandsOf(pagedGroups))} />
         </div>
-      </div>
+      </HorizontalOverflowBox>
       {groupedPager}
     </div>
   ) : (

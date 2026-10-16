@@ -27,3 +27,4 @@ export * from './view-states';
 export * from './empty-state-link';
 export * from './mobile-dialog-content';
 export * from './dialog-viewport-gutter';
+export * from './horizontal-overflow';

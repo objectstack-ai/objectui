@@ -72,6 +72,7 @@ import {
   SelectTrigger,
   SelectValue,
   cn,
+  HorizontalOverflowBox,
 } from '@object-ui/components';
 import { toast } from 'sonner';
 import { useAuth } from '@object-ui/auth';
@@ -2056,7 +2057,11 @@ export function ApprovalsInboxPage() {
               {/* Desktop table */}
               <Card className="hidden md:block">
                 <CardContent className="p-0">
-                  <Table>
+                  {/* objectui#12708 — wider than the panel, the table scrolls
+                      in the shared overflow box: a right-edge shadow while
+                      columns remain to the right, its scrollbar on hover. */}
+                  <HorizontalOverflowBox outerClassName="rounded-lg overflow-hidden" data-testid="approvals-inbox-table-scroller">
+                  <Table containerClassName="overflow-visible">
                     <TableHeader>
                       <TableRow>
                         {tab === 'pending' && (
@@ -2166,6 +2171,7 @@ export function ApprovalsInboxPage() {
                       ))}
                     </TableBody>
                   </Table>
+                  </HorizontalOverflowBox>
                 </CardContent>
               </Card>
 

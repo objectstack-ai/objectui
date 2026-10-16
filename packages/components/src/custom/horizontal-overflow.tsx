@@ -1,0 +1,119 @@
+import * as React from 'react';
+import { cn } from '../lib/utils';
+
+/**
+ * The horizontal-overflow affordance every wide table shares (objectui#12708):
+ * a box that scrolls sideways says so with a right-edge shadow while columns
+ * remain to its right, and shows its scrollbar while the pointer is over it or
+ * focus is inside it. Built once, here, and used by `data-table`'s own scroll
+ * box, `ObjectGrid`'s grouped scroller and any table a page mounts itself.
+ */
+
+/** Whether `box` can scroll further to the right (one pixel of slack for sub-pixel layouts). */
+export function hasOverflowRight(box: Pick<HTMLElement, 'scrollLeft' | 'clientWidth' | 'scrollWidth'>): boolean {
+  return box.scrollLeft + box.clientWidth < box.scrollWidth - 1;
+}
+
+/**
+ * Track {@link hasOverflowRight} for the box `ref` points at: read in a layout
+ * effect, so the first painted frame is already right, and again on every
+ * scroll and whenever the box or its content changes size. `false` while
+ * `disabled` (the box does not scroll on its own).
+ */
+export function useHorizontalOverflow(
+  ref: React.RefObject<HTMLElement | null>,
+  { disabled = false }: { disabled?: boolean } = {},
+): boolean {
+  const [overflowRight, setOverflowRight] = React.useState(false);
+  React.useLayoutEffect(() => {
+    const box = ref.current;
+    if (disabled || !box) {
+      setOverflowRight(false);
+      return;
+    }
+    const read = () => setOverflowRight(hasOverflowRight(box));
+    read();
+    box.addEventListener('scroll', read, { passive: true });
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(read);
+      observer.observe(box);
+      // The content's own size moves `scrollWidth` without resizing the box
+      // (rows arrive, a column is resized).
+      for (const child of Array.from(box.children)) observer.observe(child);
+    }
+    return () => {
+      box.removeEventListener('scroll', read);
+      observer?.disconnect();
+    };
+  }, [ref, disabled]);
+  return overflowRight;
+}
+
+/**
+ * Scrollbar colours for a box that scrolls: transparent until the pointer is
+ * over the box or focus is inside it, then the theme's border colour. The bar
+ * keeps its place, so nothing shifts when it appears.
+ */
+export const HOVER_SCROLLBAR_CLASSES =
+  '[scrollbar-width:thin] [scrollbar-color:transparent_transparent] hover:[scrollbar-color:var(--color-border)_transparent] focus-within:[scrollbar-color:var(--color-border)_transparent]';
+
+/**
+ * Classes for a RIGHT-PINNED cell inside a {@link HorizontalOverflowBox} with
+ * `seam="pinned"`: the cell draws the shadow on its own left edge, the seam
+ * where the scrolling columns slide under it, while the box can scroll further
+ * right. Needs no measurement, because the pinned cell is where the seam is.
+ * Spelled out in full (as the edge overlay below is) so Tailwind's source scan
+ * sees every utility.
+ */
+export const PINNED_RIGHT_SEAM_SHADOW_CLASSES =
+  'before:pointer-events-none before:absolute before:inset-y-0 before:right-full before:w-6 before:bg-gradient-to-l before:from-foreground/10 before:to-transparent before:opacity-0 group-data-[overflow-right=true]/hscroll:before:opacity-100';
+
+export interface HorizontalOverflowBoxProps extends React.HTMLAttributes<HTMLDivElement> {
+  /**
+   * Where the shadow is drawn: `edge` (default) overlays the box's right edge;
+   * `pinned` leaves it to the right-pinned cells inside, which carry
+   * {@link PINNED_RIGHT_SEAM_SHADOW_CLASSES}.
+   */
+  seam?: 'edge' | 'pinned';
+  /** Classes for the positioned wrapper around the scrolling box. */
+  outerClassName?: string;
+}
+
+/**
+ * A horizontally scrolling box with the shared overflow affordance. The
+ * scrolling element is the inner `div` (`className`, the ref and every other
+ * prop land on it); the edge shadow is its sibling, so it never scrolls away
+ * with the content.
+ */
+export const HorizontalOverflowBox = React.forwardRef<HTMLDivElement, HorizontalOverflowBoxProps>(
+  ({ seam = 'edge', outerClassName, className, children, ...rest }, forwardedRef) => {
+    const boxRef = React.useRef<HTMLDivElement | null>(null);
+    const setRef = React.useCallback((node: HTMLDivElement | null) => {
+      boxRef.current = node;
+      if (typeof forwardedRef === 'function') forwardedRef(node);
+      else if (forwardedRef) forwardedRef.current = node;
+    }, [forwardedRef]);
+    const overflowRight = useHorizontalOverflow(boxRef);
+    return (
+      <div className={cn('relative min-w-0', outerClassName)}>
+        <div
+          {...rest}
+          ref={setRef}
+          data-overflow-right={overflowRight ? 'true' : undefined}
+          className={cn('group/hscroll overflow-x-auto', HOVER_SCROLLBAR_CLASSES, className)}
+        >
+          {children}
+        </div>
+        {overflowRight && seam === 'edge' && (
+          <div
+            aria-hidden="true"
+            data-testid="horizontal-overflow-shadow"
+            className="pointer-events-none absolute inset-y-0 right-0 z-30 w-6 bg-gradient-to-l from-foreground/10 to-transparent"
+          />
+        )}
+      </div>
+    );
+  },
+);
+HorizontalOverflowBox.displayName = 'HorizontalOverflowBox';

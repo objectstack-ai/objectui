@@ -21,7 +21,6 @@ import { AuthProvider, useAuth, type AuthClient, type AuthOrganization } from '@
 import { CurrentOrganizationIndicator } from '../CurrentOrganizationIndicator';
 
 const PREV = { id: 'org_prev', name: 'Previous Org', slug: 'prev' } as AuthOrganization;
-const OTHER = { id: 'org_other', name: 'Other Org', slug: 'other' } as AuthOrganization;
 const MEMBERSHIPS = [PREV];
 
 /** A server that answers `active` for the session's active organization; set-active is refused. */

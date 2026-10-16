@@ -55,7 +55,8 @@ import { Plus, Upload, Table as TableIcon, KanbanSquare, Calendar, LayoutGrid, A
 import { FavoriteMenuItem, useObjectListFavorite } from '../layout/SidebarItemMenu.js';
 import { useMetaItemRefusal } from '../hooks/useMetaItemRefusal.js';
 import { useTenancyPosture } from '../hooks/useTenancyPosture.js';
-import { useServedViewItems, isServedView } from '../hooks/useServedViewItems.js';
+import { useServedViewItems } from '../hooks/useServedViewItems.js';
+import { viewTabLabel } from './viewTabLabel.js';
 import { getIcon } from '../utils/getIcon.js';
 import type { ActionBarSchema, DataSource, UIActionSchema, ListViewSchema, TreeViewConfig, ViewNavigationConfig } from '@object-ui/types';
 import { detectStatusField, isSystemManagedField } from '@object-ui/types';
@@ -987,41 +988,6 @@ export async function loadViewOverrides(
         if (v && typeof v === 'object') map[id] = sanitizeViewOverride(v);
     }
     return map;
-}
-
-/** `useObjectLabel().viewLabel` — the client bundle's view-label lookup. */
-type ViewLabelLookup = (objectName: string, viewName: string, fallback: string) => string;
-
-/**
- * A view's name wherever the object page names it — the desktop tab bar and the
- * mobile switcher draw the same string (objectui#11295), and the record page's
- * way back (`location.state.from`) names the open view the same way, so the
- * link and the tab agree (objectui#11733).
- *
- * A view a server read served — a `/meta/view` document, or an entry the served
- * object document embeds in its own `listViews` (objectui#11336) — arrives
- * translated by the server, a published edit kept over the packaged catalog, so
- * its text is drawn as given. Offering it to `viewLabel` as the fallback was a
- * second translation pass in which the bundle won the edit back. Any other view
- * — derived client-side — still goes through `viewLabel`, its only
- * translation. `useServedViewItems` says which is which, and why.
- *
- * A view with no `label` is named `unlabelled`, which every caller passes as
- * the object's PLURAL label: the spec gives a view's `label` no default and the
- * server no longer invents one from the `name` (objectstack PR #24013), so the
- * view is called what a list of the object's records is called — never its
- * qualified name, which is what a label-less view's tab drew before
- * (objectui#12774).
- */
-function viewTabLabel(
-    view: { id?: string; name?: string; label?: string },
-    objectName: string,
-    servedViews: ReturnType<typeof useServedViewItems>,
-    viewLabel: ViewLabelLookup,
-    unlabelled: string,
-): string {
-    const text = view.label || unlabelled;
-    return isServedView(servedViews, objectName, view.id) ? text : viewLabel(objectName, view.name || view.id || '', text);
 }
 
 /**

@@ -101,7 +101,8 @@ import { useStudioDesignGate } from '../hooks/useStudioDesignGate.js';
 import { useSharedActivityFeed, type ActivityFeedReading } from '../hooks/sharedUserFeeds.js';
 import { useInboxBell } from '../hooks/useInboxBell.js';
 import { useHomePath } from '../hooks/useHomePath.js';
-import { useServedViewItems, isServedView } from '../hooks/useServedViewItems.js';
+import { useServedViewItems } from '../hooks/useServedViewItems.js';
+import { viewTabLabel } from '../views/viewTabLabel.js';
 import { resolveViewId } from '../utils/resolveViewId.js';
 import { getProductName, getLogoUrl } from '../runtime-config.js';
 import { LocalizedSidebarTrigger } from './LocalizedSidebarTrigger.js';
@@ -700,9 +701,11 @@ export function AppHeader({
             : trimmedTitle;
           routeTitle = displayTitle || `#${shortId}`;
         } else if (pathParts[3] === 'view' && pathParts[4]) {
-          // Prefer the view's metadata label (e.g. "Lead Pipeline") over a
-          // humanized slug ("Kanban By Status") so the title matches the tab
-          // label users clicked.
+          // The view is named by the one function its tab is named by
+          // (`viewTabLabel`), so the title matches the tab users clicked: its
+          // label, else — the spec gives a view's `label` no default — the
+          // object's plural label, never a string humanized from the view's
+          // machine name (objectui#12805, the tab's rule from objectui#12774).
           const viewName = pathParts[4];
           // `listViews` is canonical (#5362; @objectstack/spec declares only camelCase). The
           // `list_views` leg is a compatibility READ for stored pre-settlement documents
@@ -714,13 +717,17 @@ export function AppHeader({
           // open it, so the title names the view the page shows (objectui#11295).
           const viewId = resolveViewId(viewName, Object.keys(definedViews), currentObject.name);
           const viewDef = viewId ? (definedViews as Record<string, any>)[viewId] : undefined;
-          const fallbackLabel = (viewDef && (viewDef.label || viewDef.title)) || humanizeSlug(viewName);
           // A served view's label is already translated — drawn as given, as its
-          // tab draws it; any other view's goes through the bundle (objectui#11295).
-          const localizedViewLabel = viewDef && isServedView(servedViews, currentObject.name, viewId)
-            ? fallbackLabel
-            : viewLabel(currentObject.name, viewName, fallbackLabel);
-          routeTitle = localizedViewLabel;
+          // tab draws it; any other view's goes through the bundle under the
+          // URL's view name (objectui#11295). A view stored with a `title` and
+          // no `label` keeps its `title`, as the header drew it before.
+          routeTitle = viewTabLabel(
+            { id: viewDef ? viewId : undefined, name: viewName, label: viewDef?.label || viewDef?.title },
+            currentObject.name,
+            servedViews,
+            viewLabel,
+            objectPluralLabel(currentObject),
+          );
         }
       }
     }

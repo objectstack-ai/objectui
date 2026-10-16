@@ -717,7 +717,7 @@ them reads `lg` (1024px), so 800px and 1400px get the same layout.
 
 ### Header and content
 
-- The header is `h-14` (3.5rem / 56px) at **every** breakpoint — there is no compact
+- The header is `h-12` (3rem / 48px) at **every** breakpoint — there is no compact
   variant — and spans the full viewport width at every size. The only thing about it that
   responds is horizontal padding, and it turns at `sm` (640px), not 768: `px-2 sm:px-4`.
 - Content padding steps three ways — `p-3`, `sm:p-4` (640px), `md:p-6` (768px) — with a

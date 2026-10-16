@@ -59,9 +59,9 @@
  * Auditing the rest of that section found the tier structure itself was
  * fictional: it described three tiers split at 1024px and 768px, while the
  * implementation has exactly ONE breakpoint, 768px, and never reads `lg`. Its
- * "Compact header" claim was wrong too — the header is `h-14` at every
- * breakpoint. The last describe block pins the numbers the rewritten section
- * now quotes.
+ * "Compact header" claim was wrong too — the header is one height at every
+ * breakpoint (`h-14` then; `h-12` since objectui#12639). The last describe
+ * block pins the numbers the rewritten section now quotes.
  *
  * ## Scan surface — deliberately narrow
  *
@@ -608,18 +608,19 @@ describe("the source facts the guide's Responsive Behavior section rests on (obj
     expect(header[0]).toContain('{navbar}');
   });
 
-  it('the header is `h-14` at every breakpoint, with only its horizontal padding responsive', () => {
+  it('the header is `h-12` at every breakpoint, with only its horizontal padding responsive', () => {
     const header = /<header[\s\S]*?>/.exec(APP_SHELL_SRC);
     if (!header) throw new Error('`AppShell` no longer renders a `header` element');
 
-    // The page says "h-14 at EVERY breakpoint — there is no compact variant",
+    // The page says "h-12 at EVERY breakpoint — there is no compact variant",
     // replacing a "Compact header" bullet that was never true (objectui#4842).
-    expect(header[0], 'the header is no longer `h-14`').toContain('h-14');
+    // 48 px since objectui#12639, the console bar's one height.
+    expect(header[0], 'the header is no longer `h-12`').toContain('h-12');
     expect(
       /(sm|md|lg):h-/.test(header[0]),
       [
         'The header now has a responsive height variant. content/docs/guide/layout.md states it',
-        'is `h-14` at every breakpoint and that there is no compact variant (objectui#4842) —',
+        'is `h-12` at every breakpoint and that there is no compact variant (objectui#4842) —',
         'the page, not this assertion, is what has to change.',
       ].join('\n'),
     ).toBe(false);

@@ -6,8 +6,9 @@
  * starts it (objectui#12454, epic objectui#12446 decision 5: "Automations
  * groups by trigger object").
  *
- * Pure: flow definitions as the metadata list serves them, and the scope's
- * object index (name → label), in; ordered groups out. Nothing here reads the
+ * Pure: flow definitions as the metadata list serves them, the scope's object
+ * index (name → label) and the app navigation's object order, in; ordered
+ * groups out. Nothing here reads the
  * network or React, so the grouping is pinned without a DOM.
  *
  * ## The object a flow is grouped under
@@ -32,6 +33,14 @@
  * objects the package declares, the ones the Data rail lists. An empty index
  * (the object list failed to load, or an older backend) admits every object,
  * so steps 2 and 3 still answer with what the flow touches first.
+ *
+ * ## The order of the groups (objectui#12612)
+ *
+ * The app's navigation decides: the groups follow the order in which the
+ * package's app lists its objects (`navigationObjectOrder`). The objects it
+ * does not list follow, the one with more flows first, then by label in the
+ * display locale, then by api name. "No object" is last. Where the navigation
+ * decides, the order is the same in every locale.
  */
 
 import { collectFlowGraphs, resolveFlowTriggerKind } from '@objectstack/spec/automation';
@@ -158,24 +167,59 @@ export interface GroupFlowsOptions {
   /** The trailing group's header words. */
   noObjectLabel: string;
   /**
-   * The collation the object order follows: the locale the pillar reads its
-   * labels in. Required, because the group order is author-visible and the
-   * machine's locale is neither of the repo's locale channels (objectui#9909).
+   * The objects in the order the app's navigation lists them
+   * (`navigationObjectOrder`); the groups follow it. Empty when the scope has
+   * no app (the package-less scope, a package without one): every group is
+   * then an unlisted one. Required, so no caller orders the rail by the
+   * labels' alphabet by leaving it out (objectui#12612).
+   */
+  objectOrder: readonly string[];
+  /**
+   * The collation that breaks ties among the objects the navigation does not
+   * list: the locale the pillar reads its labels in. Required, because the
+   * group order is author-visible and the machine's locale is neither of the
+   * repo's locale channels (objectui#9909).
    */
   locale: string;
 }
 
 /**
- * The rail's groups: one per object, in the order of their labels
- * (alphabetical, as the Data rail reads), then "No object" last. A flow with
- * no served definition lands in "No object". Groups hold only the flows they
- * were handed, so a search filters within groups by handing in fewer flows.
+ * The objects an app's navigation lists, in its order: entries walked depth
+ * first with every group opened, object entries only (`type: 'object'` with
+ * an `objectName`), each object at its first entry. Anything else answers an
+ * empty order.
+ */
+export function navigationObjectOrder(navigation: unknown): string[] {
+  const order: string[] = [];
+  const seen = new Set<string>();
+  const walk = (entries: unknown): void => {
+    if (!Array.isArray(entries)) return;
+    for (const entry of entries) {
+      if (!isRec(entry)) continue;
+      const object = entry.type === 'object' ? nonEmpty(entry.objectName) : null;
+      if (object && !seen.has(object)) {
+        seen.add(object);
+        order.push(object);
+      }
+      walk(entry.children);
+    }
+  };
+  walk(navigation);
+  return order;
+}
+
+/**
+ * The rail's groups: one per object, in the app's navigation order, then the
+ * objects it does not list (more flows first, then label, then api name), then
+ * "No object" last (see the file header). A flow with no served definition
+ * lands in "No object". Groups hold only the flows they were handed, so a
+ * search filters within groups by handing in fewer flows.
  */
 export function groupFlowsByObject<T extends { name: string }>(
   flows: readonly T[],
   definitions: ReadonlyMap<string, unknown>,
   objectLabels: ReadonlyMap<string, string>,
-  { noObjectLabel, locale }: GroupFlowsOptions,
+  { noObjectLabel, objectOrder, locale }: GroupFlowsOptions,
 ): FlowRailGroup<T>[] {
   const inScope = objectLabels.size > 0 ? (name: string) => objectLabels.has(name) : () => true;
   const byObject = new Map<string, FlowRailGroup<T>>();
@@ -193,10 +237,25 @@ export function groupFlowsByObject<T extends { name: string }>(
     }
     group.items.push(flow);
   }
+  const position = new Map<string, number>();
+  objectOrder.forEach((name, i) => {
+    if (!position.has(name)) position.set(name, i);
+  });
   const collator = new Intl.Collator(locale, { sensitivity: 'base' });
-  const groups = [...byObject.values()].sort(
-    (a, b) => collator.compare(a.label, b.label) || collator.compare(a.key, b.key),
-  );
+  const groups = [...byObject.values()].sort((a, b) => {
+    const pa = position.get(a.key);
+    const pb = position.get(b.key);
+    if (pa !== undefined || pb !== undefined) {
+      if (pa === undefined) return 1;
+      if (pb === undefined) return -1;
+      return pa - pb;
+    }
+    return (
+      b.items.length - a.items.length ||
+      collator.compare(a.label, b.label) ||
+      (a.key < b.key ? -1 : a.key > b.key ? 1 : 0)
+    );
+  });
   if (none.items.length > 0) groups.push(none);
   return groups;
 }

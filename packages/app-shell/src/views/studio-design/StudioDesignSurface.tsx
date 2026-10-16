@@ -44,7 +44,13 @@ import { overlayPath, packagedAutomationPath } from './BuilderLanding.js';
 import { DATA_CONTENT_CONTAINER, DATA_TAB_FLAT_ONLY, DATA_TAB_FOLDED_ONLY } from './dataTabsFold.js';
 import { StudioRail, StudioRailGroup, StudioRailRow } from './StudioRail.js';
 import { StudioEmptyState, StudioEmptyStateAction } from './StudioEmptyState.js';
-import { FLOW_TRIGGER_GLYPHS, flowTriggerGlyph, groupFlowsByObject, type FlowTriggerGlyph } from './flowGrouping.js';
+import {
+  FLOW_TRIGGER_GLYPHS,
+  flowTriggerGlyph,
+  groupFlowsByObject,
+  navigationObjectOrder,
+  type FlowTriggerGlyph,
+} from './flowGrouping.js';
 import {
   GridFieldAuthoringProvider,
   cn,
@@ -1434,6 +1440,10 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   // today; a reader of `label` resolves it in the designer locale at render,
   // through `navItemLabelText`, as the Interfaces rail heading does.
   const [packageApp, setPackageApp] = React.useState<{ name: string; label: I18nLabel; icon?: string; branding?: AppMarkApp['branding'] } | null>(null);
+  // objectui#12612 — the objects the package app's navigation lists, in its
+  // order: the Automations rail orders its groups by it. Read off the same
+  // app row as `packageApp`, so the pillar adds no read of its own.
+  const [packageAppObjectOrder, setPackageAppObjectOrder] = React.useState<readonly string[]>([]);
   // Create app (package has no app yet): create a draft `app` item — the
   // published front-end's on-ramp. The button flips to Open app after the
   // package publish.
@@ -1517,10 +1527,12 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
     // objectui#11553 — no package, so no package app to resolve.
     if (packageId === null) {
       setPackageApp(null);
+      setPackageAppObjectOrder([]);
       return;
     }
     try {
       const apps = (await shellClient.list('app', { packageId })) as Array<Record<string, unknown>>;
+      setPackageAppObjectOrder(navigationObjectOrder((apps || []).find((a) => a?.name)?.navigation));
       let first = (apps || [])
         .map((a) => ({
           name: String(a.name ?? ''),
@@ -1540,6 +1552,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
       setPackageApp(first ?? null);
     } catch {
       setPackageApp(null);
+      setPackageAppObjectOrder([]);
     }
   }, [shellClient, packageId]);
   React.useEffect(() => {
@@ -1855,6 +1868,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
               <AutomationsPillar
                 key={packageId}
                 packageId={packageId}
+                objectOrder={packageAppObjectOrder}
                 publishNonce={publishNonce}
                 onDraftSaved={onDraftSaved}
                 readOnly={readOnly}
@@ -6675,8 +6689,12 @@ function withStartTrigger(
   };
 }
 
+/** No navigation order: one shared empty list, so the rail's memo holds across renders. */
+const NO_OBJECT_ORDER: readonly string[] = [];
+
 export function AutomationsPillar({
   packageId,
+  objectOrder = NO_OBJECT_ORDER,
   publishNonce = 0,
   onDraftSaved,
   readOnly = false,
@@ -6688,6 +6706,13 @@ export function AutomationsPillar({
    * package, saved as package-less drafts.
    */
   packageId: string | null;
+  /**
+   * objectui#12612 — the objects the package app's navigation lists, in its
+   * order (`navigationObjectOrder`): the rail's groups follow it. The shell
+   * reads it with the package's app; none (the package-less scope, a package
+   * without an app) leaves every group ordered by its flow count.
+   */
+  objectOrder?: readonly string[];
   publishNonce?: number;
   onDraftSaved?: () => void;
   /** Courtesy gate: hide/disable flow-authoring affordances. */
@@ -7231,9 +7256,10 @@ export function AutomationsPillar({
     () =>
       groupFlowsByObject(flows, liveFlowDefinitions, objectLabels, {
         noObjectLabel: t('engine.studio.auto.group.noObject', locale),
+        objectOrder,
         locale,
       }),
-    [flows, liveFlowDefinitions, objectLabels, locale],
+    [flows, liveFlowDefinitions, objectLabels, objectOrder, locale],
   );
 
   // The legend under the rail: the four trigger glyphs and the dots. Off and

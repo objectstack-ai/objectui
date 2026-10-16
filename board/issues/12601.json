@@ -1,0 +1,34 @@
+{
+  "number": 12601,
+  "kind": "issue",
+  "title": "Console home: search in the top bar, a greeting with a work summary, compact builder actions and 56 px app tiles",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "domain:ui",
+    "enhancement",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T02:55:07Z",
+  "updated_at": "2026-10-16T08:19:59Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12601",
+  "body": "## Source\n\nMeasured on objectui main `1b3b5b102`, `/home` at 1280 px, light and dark, zh-CN, signed in as an admin with HotCRM installed (`packages/app-shell/src/console/home/HomePage.tsx`, `HomeRail.tsx`, `RecentApps.tsx`). The top bar has no search entry (the Studio landing has one); the hero is a 30 px greeting and the tagline \"从上次离开的地方继续，或者探索新的内容。\"; below it two full-width bordered cards \"构建应用 / 从模板开始\" take the first screen although only an admin sees them; \"我的应用 2\" is a row of 48 px icons where \"系统设置\" counts as an app; everything on the page is a bordered white card of the same weight.\n\n## Target\n\nSections ① and ② of the artboard \"系统首页 · 四段式\" (1280 × 1040), in numbers; sections ③ and ④ are the two sibling cards.\n\n1. Top bar, 48 px, grid `1fr auto 1fr`: left the product mark (28 px tile on `--primary`, 14 px / 600 name, the existing preview chip); centre a 420 × 32 px search field \"搜索应用、记录、页面…\" with a `⌘K` kbd that opens the console's command palette; right bell with its count, help, 28 px avatar.\n2. Content column 1120 px centred, 28 px top padding, 28 px between sections.\n3. Greeting 24 px / 600 with the name in `--primary`; under it one 13 px muted line that summarises the work section: \"今天有 N 项待审批、M 项分配给你的任务\" (both counts from the same sources the work section reads; the line reads \"今天没有待办\" when both are 0).\n4. Admin actions sit at the right of the greeting as two 32 px chips: \"从模板开始\" outline, \"构建应用\" on `--primary-soft` with the primary-coloured icon. The two cover cards retire; their gate reasons (objectui#5521's visible reason) move to the chips' tooltip wrapper (objectui#12303 pattern) when disabled. A non-admin sees no chips.\n5. \"我的应用\" heading 15 px / 600 with a count pill; at the right \"浏览应用市场\" (12 px link, marketplace gated as today) and \"系统设置\" as a muted 12 px link with the gear icon. Setup leaves the app row.\n6. Tiles: 112 px wide, 56 px icon on the app's colour (14 px radius), 13 px / 500 name on one line with an ellipsis, 11 px muted \"N 小时前打开\" from the recent-items store; favourites first; an admin sees a trailing dashed \"添加应用\" tile that opens the same marketplace route.\n7. No bordered card around sections ① and ②.\n\n## File surface\n\n`packages/app-shell/src/console/home/HomePage.tsx`, `HomeRail.tsx` (apps strip), `RecentApps.tsx`, the console top bar in `packages/app-shell/src/layout/AppHeader.tsx` (search entry on `/home`), `packages/i18n/src/locales/*.ts`, tests beside each.\n\n## Acceptance\n\n1. Tests: the search field opens the command palette; a non-admin renders no builder chips; a disabled chip explains itself through the tooltip wrapper; Setup is not among the tiles; a tile shows the last-opened time from the store.\n2. Screenshots at 1280 px, light and dark, admin and non-admin, as measurements in the PR text.\n3. `pnpm --filter @object-ui/app-shell test` green; `pnpm check:i18n` green.\n\n## Constraints\n\n- Existing `data-testid`s (`home-build-app`, `home-start-template`, `home-authoring-gate-reason`, `home-marketplace-disabled-reason`) keep their names on the new elements.\n- Tailwind utilities and theme tokens only.\n- Lands before the two sibling cards (same file); they rebase on it.\n\n## Evidence\n\nThe artboards, as static HTML and 1280 px PNG renders, live on the temporary branch `claude/console-home-login-design-20261016` of objectstack-ai/objectui (commit `c4dfb417a`, never merged; the maintainer ruled that design files and screenshots do not enter main). Files: [Home.png](https://github.com/objectstack-ai/objectui/blob/c4dfb417a/docs/design/console-home-login/Home.png?raw=true) · [Home.html](https://github.com/objectstack-ai/objectui/blob/c4dfb417a/docs/design/console-home-login/Home.html?raw=true).\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-16 review of the console login page and home page with the maintainer, on objectui main `1b3b5b102` and HotCRM `63db83e2`. The maintainer approved the artboards in that session, verbatim: 「同意设计稿，创建任务」.</sub>"
+}

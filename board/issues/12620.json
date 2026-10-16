@@ -1,0 +1,37 @@
+{
+  "number": 12620,
+  "kind": "issue",
+  "title": "Grouped grid: one header row for the table, group rows between the bands",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "domain:ui",
+    "enhancement",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T03:58:56Z",
+  "updated_at": "2026-10-16T07:43:30Z",
+  "closed_at": "2026-10-16T07:42:17Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12620",
+  "body": "## Source\n\nWalked on objectui main `8415d9f11`, HotCRM Knowledge Base `/crm_knowledge_article` whose default view groups by Category: each group (Getting Started 1, How-To 1, Troubleshooting 1, API & Integrations 1) renders a group header row and then the full column header \"Article # · Title · Category · Status · Audience · Language · Owner · Published At · Helpful · Actions\" again, so a four-group list draws four headers for four rows.\n\n## Target\n\n1. One sticky column header for the grid; a group is a 36 px band row (chevron, group value chip, count) that spans the columns; collapsing a group hides its rows only.\n2. Column widths are shared across groups (one table), so cells align between bands.\n3. The grouped column itself can be hidden from the body when the band already shows it (a view option, default on).\n\n## File surface\n\n`packages/plugin-grid/src/ObjectGrid.tsx` (grouped rendering), `packages/plugin-list` grouping option, tests beside.\n\n## Acceptance\n\n1. Tests: a grouped grid renders one `thead`; collapsing a band hides its rows.\n2. Screenshot of the Knowledge Base list at 1280 px.\n3. `pnpm --filter @object-ui/plugin-grid test` green.\n\n## Evidence\n\nScreenshots on the temporary branch `claude/console-home-login-design-20261016` of objectstack-ai/objectui (commit `b72c97985`, never merged): [hotcrm-knowledge-grouped-headers.jpg](https://github.com/objectstack-ai/objectui/blob/b72c97985/docs/design/hotcrm-review-2026-10-16/hotcrm-knowledge-grouped-headers.jpg?raw=true).\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-16 walk of HotCRM's core pages as a user: objectui main `8415d9f11`, HotCRM `63db83e2`, the vite console on :5180 against `objectstack serve --dev` on :4001, the maintainer's browser pane at 1024 × 768 (en). The maintainer asked for the findings to be filed on the repository each belongs to, verbatim: 「相关问题也在对应的项目上创建任务」.</sub>"
+}

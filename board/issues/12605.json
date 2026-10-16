@@ -1,0 +1,34 @@
+{
+  "number": 12605,
+  "kind": "issue",
+  "title": "Console app bar: the product mark stays top-left as the home button; the app menu gains Home, All apps and Setup",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "domain:ui",
+    "enhancement",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T02:57:33Z",
+  "updated_at": "2026-10-16T08:21:00Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12605",
+  "body": "## Source\n\nMeasured on objectui main `1b3b5b102`, HotCRM open at `/apps/app.objectstack.hotcrm/dashboard/executive_dashboard`, 1280 px and 684 px. The app bar's left group (`packages/app-shell/src/layout/AppHeader.tsx` with `AppSwitcher.tsx`, after objectui#12461) is the sidebar trigger, the app pill \"H HotCRM ▾\" and the PREVIEW chip; the product mark that the home page shows top-left is gone. The pill's menu is headed \"Switch Application\" and lists the apps (HotCRM ✓, Setup), then \"All apps\" (which navigates to `/home`) and \"Edit HotCRM in Studio\". Getting back to the home page therefore takes two clicks through a menu that never says \"home\", and nothing on the bar is in the same place as the mark the user clicked to get in. The maintainer's words in the review session, verbatim: 「系统首页进入应用之后，左上角的logo变成了应用的logo，返回的流程不顺畅」.\n\n## Target\n\nThe artboard \"应用内顶栏 · 产品标常驻 + 应用菜单\" (1280 × 460), in numbers:\n\n1. Left group, left to right: the sidebar trigger (32 px); the product mark as a 32 px button holding a 24 px tile on `--primary` with the stack glyph, `aria-label` \"ObjectOS 首页\" (product name from `getProductName`), navigating to `/home`; a \"/\" separator in the border colour, 18 px; the app pill (24 px app tile, 13 px / 600 name, chevron) as today; the preview chip as today. The mark sits at the same x on the home page and inside every app.\n2. The pill's menu: a \"切换应用\" group listing the installed apps with the current one checked (Setup is not in this group); a divider; \"返回首页\" with the kbd `⌘⇧H`; \"所有应用\" (the home page's launcher, today's \"All apps\"); \"系统设置\" (the Setup app); the \"Edit in Studio\" entry stays for an admin, after a second divider.\n3. `⌘⇧H` (Ctrl+Shift+H elsewhere) navigates to `/home` from any app page; the browser's back still returns to the app page.\n4. Below 640 px the mark stays and the pill shows the app tile only (name in its tooltip).\n\n## File surface\n\n`packages/app-shell/src/layout/AppHeader.tsx`, `AppSwitcher.tsx`, `AppMark.tsx`, `packages/app-shell/src/console/AppContent.tsx` if the bar is composed there, `packages/i18n/src/locales/*.ts` (`switchApplication`, `allApps`, new keys in every locale), tests beside each.\n\n## Acceptance\n\n1. Tests: the mark is in the app bar with the product name as its accessible name and navigates to `/home`; the menu lists 返回首页, 所有应用 and 系统设置 in that order after the apps; Setup is absent from the switch group; the shortcut navigates home.\n2. Screenshots at 1280 px and 600 px, light and dark, with the menu open, as measurements in the PR text.\n3. `pnpm --filter @object-ui/app-shell test` green; `pnpm check:i18n` green.\n\n## Constraints\n\n- objectui#12461 and #12429 (the app pill and the sidebar trigger's placement) stay; this card adds the mark beside them.\n- Existing `data-testid`s stay.\n\n## Evidence\n\nThe artboards, as static HTML and 1280 px PNG renders, live on the temporary branch `claude/console-home-login-design-20261016` of objectstack-ai/objectui (commit `c4dfb417a`, never merged; the maintainer ruled that design files and screenshots do not enter main). Files: [AppBar.png](https://github.com/objectstack-ai/objectui/blob/c4dfb417a/docs/design/console-home-login/AppBar.png?raw=true) · [AppBar.html](https://github.com/objectstack-ai/objectui/blob/c4dfb417a/docs/design/console-home-login/AppBar.html?raw=true).\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-16 review of the console login page and home page with the maintainer, on objectui main `1b3b5b102` and HotCRM `63db83e2`. The maintainer approved the artboards in that session, verbatim: 「同意设计稿，创建任务」.</sub>"
+}

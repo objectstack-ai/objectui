@@ -1,0 +1,34 @@
+{
+  "number": 12619,
+  "kind": "issue",
+  "title": "Kanban: every record of the view in its column, not the first page; cards carry the view's first columns",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-elon-musk"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T03:58:08Z",
+  "updated_at": "2026-10-16T07:24:42Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12619",
+  "body": "## Source\n\nWalked on objectui main `8415d9f11` with HotCRM's 45 opportunities, `/crm_opportunity`, Display › Layout › Kanban: the board shows Prospecting 0, Qualification 5, Needs Analysis 7, Proposal 7, Negotiation 6, Closed Won 0, Closed Lost 0 and the footer reads \"25 records · Showing first 25 records. More data may be available.\" — the kanban is fed the grid's first page (Rows per page 25), so twenty records are missing from their columns and the closed columns read 0 although the dashboard counts 16 won and 13 lost. Each card shows only the record's name: no amount, account or owner, although the view's columns are Opportunity Name, Account, Stage, Amount, Probability, Expected Revenue, Close Date.\n\n## Target\n\n1. The kanban loads the view's records without the grid's page size: per column, the first 50 by the view's sort with a \"Load more\" at the column's foot, and the column count from a count query; the footer's \"showing first N\" line retires on the board.\n2. Cards carry, under the name, the view's next two non-stage columns as \"label: value\" lines (here Account and Amount) and the owner's avatar when the object has an owner; the view can override with `kanban.cardFields`.\n3. Dragging a card between columns keeps today's behaviour (the stage write and its confirmation).\n\n## File surface\n\n`packages/plugin-kanban/src/` (board data loading, card renderer), `packages/plugin-list/src/ListView.tsx` (the layout switch and what it passes), the view spec's kanban options if a field is missing (then the card says so and files the spec change on objectstack-ai/objectstack), tests beside.\n\n## Acceptance\n\n1. Tests: a view with 45 records renders 45 cards across columns with page size 25; a card shows the two columns.\n2. Screenshot of the HotCRM opportunity board at 1280 px.\n3. `pnpm --filter @object-ui/plugin-kanban test`, `pnpm --filter @object-ui/plugin-list test` green.\n\n## Evidence\n\nScreenshots on the temporary branch `claude/console-home-login-design-20261016` of objectstack-ai/objectui (commit `b72c97985`, never merged): [hotcrm-opportunity-kanban-first-25.jpg](https://github.com/objectstack-ai/objectui/blob/b72c97985/docs/design/hotcrm-review-2026-10-16/hotcrm-opportunity-kanban-first-25.jpg?raw=true).\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-16 walk of HotCRM's core pages as a user: objectui main `8415d9f11`, HotCRM `63db83e2`, the vite console on :5180 against `objectstack serve --dev` on :4001, the maintainer's browser pane at 1024 × 768 (en). The maintainer asked for the findings to be filed on the repository each belongs to, verbatim: 「相关问题也在对应的项目上创建任务」.</sub>"
+}

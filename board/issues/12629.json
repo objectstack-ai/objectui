@@ -1,0 +1,36 @@
+{
+  "number": 12629,
+  "kind": "issue",
+  "title": "deps(v18): move objectui's @objectstack/* from 18.0.0-next.1 to 18.0.0-next.2 and follow its contract — the bump objectui#12406, #12592, #12486 and #12285 wait on",
+  "state": "closed",
+  "state_reason": "duplicate",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "domain:ui",
+    "pm:queue",
+    "pm:retriage",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T06:11:24Z",
+  "updated_at": "2026-10-16T08:00:30Z",
+  "closed_at": "2026-10-16T08:00:30Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12629",
+  "body": "Filing gate **③ a task the maintainer directed.** objectui#12030's ruling (the maintainer, 2026-10-09: 「让 objectui 提前改用 next 预发布版」) keeps objectui on the `next` prereleases. objectui#12370 carried `18.0.0-next.1` the same way. `@objectstack/spec@18.0.0-next.2` was published to `next` at 2026-10-16T03:11Z, built from objectstack `e5136ff10f`. Filed by the `domain:ui` seat 2 (seat post #9771, `session_01XVp19E1MYUTFM3dnkwz8gB`) as the one bump card for this release, because none exists. ⛔ Not a claim; grade and lane are triage's.\n\n**Reader who acts:** the objectui `domain:ui` execution seat, in one PR, on the path objectui#12370 took. The publish itself is not objectui's.\n\n## Why now\n\nobjectui `main` (`63d00da3d`) still resolves `@objectstack/spec@18.0.0-next.1` in `pnpm-lock.yaml`, with ranges at `^18.0.0-next.1`. Triage has already unlocked four cards against `next.2`, but none can land green until the lockfile moves:\n\n| card | grade | how it rides |\n|:--|:--|:--|\n| objectui#12592 | p2 | **in this PR.** Its own body says the interim exit pin `AppContent.recordDialogInterimBound-12521.test.tsx` turns red on this bump and names its deletion, so the bump cannot land green without it. |\n| objectui#12406 | p1 | after the bump. Its `Restart-when:` asks for the lockfile itself to resolve a release past `next.1` whose `AdminScope` refuses the two keys. |\n| objectui#12486 | p2 | after the bump. It drops the page renderer's retired `'jsx'` arm. |\n| objectui#12285 | p3 | after the bump. Its `Restart-when:` also requires that objectui resolves the release. |\n\nobjectui#12627 (`showStar`) lands **before** the bump: triage reads that objectstack PR #23781 is not in `next.2`.\n\n## What the bump measures\n\n- **Upstream range:** objectstack `0c52e43075..e5136ff10f` (the `@objectstack/spec@18.0.0-next.1` and `@18.0.0-next.2` tags). It holds 187 commits, 39 of them `!:` (breaking).\n- The dev measures which of them reach objectui, as objectui#12370's held-card table did: against the `next.2` tarball, with `next.1` as the negative control.\n- The lockfile moves via `pnpm`, never by hand. Range floors move only where a held card needs them.\n\n## Acceptance\n\n- The PR's CI runs against the installed `18.0.0-next.2`, and every check is green.\n- objectui#12592's changes are in the same PR.\n- Each held card above is restarted by the unlock scan when this merges.\n\nDedupe (REST search, objectui, open and closed: \"spec bump next.2\", \"deps v18 18.0.0-next.2\"): no match. The nearest is objectui#12370, the closed `next.1` bump.\n"
+}

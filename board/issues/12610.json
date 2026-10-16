@@ -1,0 +1,32 @@
+{
+  "number": 12610,
+  "kind": "issue",
+  "title": "Settings pages: no duplicated action labels, warnings out of the subtitle, Cloud Connection says its sentence once",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "domain:ui",
+    "enhancement",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T03:38:23Z",
+  "updated_at": "2026-10-16T08:04:46Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12610",
+  "body": "## Source\n\nWalked on objectui main `8415d9f11`, the settings hub pages:\n\n- Mail Delivery: the \"Delivery\" section ends with \"Send test email\" as a row label and \"Send test email\" as the button beside it; AI & Embedder repeats \"Test connection / Test connection\", \"Reset to environment defaults / Reset to environment defaults\", \"Test embedder / Test embedder\"; Knowledge and File Storage repeat \"Test connection\".\n- File Storage's page subtitle is \"Backend used for attachments, exports, and user uploads. ⚠ Switching adapter does not migrate existing files — files uploaded under the previous adapter become unreachable through the new one.\"; Knowledge's subtitle carries \"⚠ Switching adapter does NOT migrate existing indices.\"; AI & Embedder's \"Log full prompts\" help text carries \"⚠ May leak PII\".\n- Cloud Connection (`page/cloud_connection_settings`): the page description and the card body are the same sentence (\"Connect this runtime to an ObjectStack control plane to browse your organization's private packages and install them here.\").\n- Installed Apps carries a \"Note: The kernel API is additive only — uninstall removes the on-disk manifest …\" paragraph under the empty state.\n\n## Target\n\n1. An action row has one label: the button carries it; the row's left side holds the one-line help (\"Sends a message to the from address\") or nothing.\n2. Warnings leave subtitles and help text: a callout (amber, 13 px, icon) under the section they concern, rendered once.\n3. Cloud Connection's card body says what the state is and what the button does; the page description stays the one sentence.\n4. Installed Apps' kernel note becomes a tooltip on the Uninstall action, where it applies.\n\n## File surface\n\nThe settings hub pages under `system/settings/*` in `packages/app-shell/src/console/`, `packages/app-shell/src/views/setup/` pages for Cloud Connection and Installed Apps, `packages/i18n/src/locales/*.ts`, tests beside.\n\n## Acceptance\n\n1. Tests: no settings page renders the same string as both a row label and a button label; each ⚠ sentence renders inside a callout element.\n2. Screenshots of Mail, AI & Embedder, File Storage and Cloud Connection at 1280 px.\n3. `pnpm --filter @object-ui/app-shell test`, `pnpm check:i18n` green.\n\n## Constraints\n\n- Settings keys, values and save behaviour do not change.\n\n## Evidence\n\nNo screenshot; the measurements above and the page URLs are the evidence.\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-16 second review pass: objectui main `8415d9f11`, HotCRM `63db83e2`, the vite console on :5180 against `objectstack serve --dev` on :4001, the Studio pillars and all 43 Setup pages walked in the maintainer's browser pane at 1024 × 768 (en) with a 1280 × 900 re-check (zh). The maintainer asked for every finding to be filed, verbatim: 「全部立卡」.</sub>"
+}

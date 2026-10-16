@@ -1,0 +1,32 @@
+{
+  "number": 12639,
+  "kind": "issue",
+  "title": "Console top bar: 48 px on Home, inside an app and on the organization pages, as both approved artboards draw it",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "domain:ui",
+    "enhancement",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T08:19:19Z",
+  "updated_at": "2026-10-16T08:19:19Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12639",
+  "body": "Carries Target 1's bar height (48 px) from objectui#12601; objectui#12601 keeps everything else and lands through PR #12638, which leaves the bar at 56 px on purpose.\n\n## Source\n\nobjectui#12601's Target 1 asks for a 48 px top bar on `/home`. The bar height is not Home's alone: on objectui `main` (read at `63d00da`) the same sticky header class with `h-14` (56 px) is drawn by\n\n- `packages/layout/src/AppShell.tsx:302` (inside every app),\n- `packages/app-shell/src/console/home/HomeLayout.tsx:54` (Home),\n- `packages/app-shell/src/console/organizations/OrganizationsLayout.tsx:28` and `organizations/manage/OrganizationLayout.tsx:82`,\n- `packages/app-shell/src/console/ai/AiChatPage.tsx:1350`.\n\nChanging Home alone makes the bar jump on the way into an app, so PR #12638 kept 56 px and named the gap in its Acceptance notes. Both approved artboards draw the bar at 48 px: `Home.html` and `AppBar.html` on the temporary design branch `claude/console-home-login-design-20261016` (commit `c4dfb417a`) each carry `header style=\"height:48px\"`.\n\n## Target\n\n1. Every console top bar listed above is 48 px (`h-12`), one value, so the bar does not move between Home, an app and the organization pages.\n2. Nothing that offsets from the bar's height is left at 56 px: sticky sub-headers, `top-14` offsets, `calc(100vh - 3.5rem)` heights and similar. Census them on the tree (they may use other spellings) and state each one in the PR.\n3. The bar's contents still fit at 48 px: the product mark, the app pill, the preview chip, the search field, the bell, help and the avatar (the artboards draw 28–32 px controls).\n\n## File surface\n\nThe five files above and every offset the census of Target 2 finds; tests beside; changesets for `@object-ui/layout` and `@object-ui/app-shell`.\n\n## Acceptance\n\n1. A test pins the shared height on every listed bar, so a sixth bar or a revert to `h-14` fails.\n2. Screenshots at 1280 px of Home, an app and an organization page, as measurements in the PR text (the files stay out of main).\n3. `pnpm exec vitest run packages/layout/ packages/app-shell/` green.\n\n## Constraints\n\n- Lands after PR #12638 (objectui#12601 edits `HomeLayout.tsx`) and coordinates with objectui#12605 (seat 2, in flight, the app bar's left group in `AppHeader.tsx`): whichever lands second merges `main`.\n- Tailwind utilities and theme tokens only.\n\nDedupe: objectui issues updated since 2026-10-01, `state=all` (208 cards), titles and bodies matched for `48 px`, `top bar`, `app bar`, `bar height`, `h-14`, `h-12`: 16 hits, none asks for the console bar's height (objectui#12447 and #12459 are Studio's own 48 px shell header, closed; objectui#12605 is the app bar's left group). Positive control: objectui#12605 is in the corpus and matched.\n\n<sub>Filed by the `domain:ui` seat 1 PM, session `session_011K9g23W67dy2zwnyzaoB6o`, from the review of PR #12638 (objectui#12601's dev raised it as an open question). The design it implements is the one the maintainer approved in the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff`, verbatim: 「同意设计稿，创建任务」.</sub>"
+}

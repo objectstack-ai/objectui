@@ -1,0 +1,32 @@
+{
+  "number": 12635,
+  "kind": "pull_request",
+  "title": "fix(components): the record header draws one primary action, the rest as outline buttons",
+  "state": "open",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: components",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T07:50:34Z",
+  "updated_at": "2026-10-16T07:55:09Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12635",
+  "body": "Fixes #12617\nClause-②: no\n\n## What changed\n\n`page:header` (the record page header) now draws ONE primary action and the rest as secondary buttons, as `@objectstack/spec`'s action contract documents (\"in `record_header` the first visible action becomes the primary button\"; a renderer may prefer `variant: 'primary'`).\n\n- **Primary.** The first action declaring `variant: 'primary'`, else the first by `order`. It leads the row and is the only filled button. With no app action, the host's Edit is the primary.\n- **Secondary.** The other inline actions are outline buttons. The page's own actions share the `maxVisible` budget (3 desktop / 1 mobile); the rest go to the `⋯`, above favorites / Share / Delete.\n- **Edit.** The host's Edit stays a labelled outline button in the row at every width. It takes none of the app's slots and no longer folds into the `⋯` behind an icon-only pencil (this replaces that rule from objectui#12529). A destructive host action (Delete) always goes to the `⋯`, never inline.\n\nMeasured mechanism (assumption A1 confirmed): the inline renderer mapped every action's `variant` with `action.variant || 'default'`, and Shadcn's `default` is the filled style, so every action without a declared variant drew as a primary. Nothing read `order` for the styling; `order` only sorted.\n\nFiles: `packages/components/src/renderers/layout/containers.tsx` (the banding), `packages/app-shell/src/views/RecordDetailView.tsx` (the Edit entry no longer declares a `variant` the header does not read; comment updated), tests beside each, `.changeset/12617-record-header-actions.md` (patch, components + app-shell).\n\n## Target 2: the missing Convert Lead is not an objectui drop (premise not reproduced)\n\nBooted HotCRM at the walked commit `63db83e2` (and at `850f75c`) with `objectstack dev --fresh`, ran this branch's console against it, and drove the Mira Costa lead in Chromium. With a temporary log in the header's filter (removed before commit):\n\n- While the record is still loading, the header binds no record. `convert_lead` and `schedule_followup` declare `visible: has(record.is_converted) && record.is_converted == false && …`, which fails closed against no record, so the header shows exactly the card's state: Log a Call · Log a Meeting · Schedule a Meeting, and a ⋯ of Edit · favorites · Share · Delete.\n- Once the row lands (`is_converted: false`, `status: contacted`, `conversion_approval_status: not_required`), the predicate holds and both actions render: before this PR, Convert Lead · Schedule Follow-up · Log a Call inline with Log a Meeting · Schedule a Meeting in the ⋯; after it, the same, with only Convert Lead filled.\n\nNo count cap discards actions (assumption A2 refuted): folded actions move into the ⋯. The cause is HotCRM's own `visible` predicate evaluated against the record the header holds: no record yet, or a stored lead whose `is_converted` is not `false`. The walk's database is not available here, so which of the two produced the screenshot is NOT MEASURED. No HotCRM change made.\n\n## Target 3: list row ⋯\n\nOn the lead list, the row ⋯ for Mira Costa lists Edit, Delete, Convert Lead, Add to Campaign, Log a Call, Log a Meeting, Schedule a Meeting, Schedule Follow-up. Every `list_item` action is present. No change.\n\n## Tests\n\n- New `packages/components/src/__tests__/page-header-primary-12617.test.tsx`: three actions give one filled primary + two outline + a labelled outline Edit; a fourth goes to the ⋯ above Share / Delete; `variant: 'primary'` wins over `order`; a declared action whose `visible` holds is present, and (CONTROL) one whose `visible` fails is absent; with no app action, Edit is the primary.\n- Updated `RecordDetailView.headerMenuIcons-12529.test.tsx` (Edit is labelled and in the row, not icon-only in the ⋯) and one case in `page-header-actions.test.tsx` (a host `sys_delete` with no placement renders in the ⋯).\n- Ablation (run once): replacing the variant line with the old `action.variant || 'default'` mapping turned 2 of the 5 new pins red (the one-primary and the primary-wins-over-order pins); restore was proven by the blob matching `HEAD` and an empty `git diff HEAD`.\n\nGate readings, the targeted vitest runs, and the commit they ran on are in the `os-dev-report` comment on the card.\n\n## Acceptance notes\n\n- Header buttons no longer draw a declared `secondary` / `ghost` / `link` / `danger` variant inline: the primary is filled, every other inline button is outline. `danger` was never a Shadcn button variant, so it did not draw red inline before either.\n- The 1280 px light and dark screenshots are the maintainer's browser check (dispatch order).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

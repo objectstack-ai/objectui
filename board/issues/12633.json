@@ -1,0 +1,38 @@
+{
+  "number": 12633,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid,components,types): a grouped grid draws one header row, with group bands between the rows (objectui#12620)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: components",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T06:57:22Z",
+  "updated_at": "2026-10-16T07:42:18Z",
+  "closed_at": "2026-10-16T07:42:16Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T07:42:16Z",
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12633",
+  "body": "Fixes #12620\nClause-②: yes\n\n## What changed\n\n**Targets 1 and 2: one table, one sticky header, bands between the rows.** A grouped grid used to render one `data-table` per group, each with its own header. A four-group Knowledge Base list drew four headers for four rows, and each header's `sticky` was bounded by its own small table. It now renders one table:\n\n- `@object-ui/types`: `DataTableSchema` gains one optional runtime-slot member, `rowGroups` (an array of `DataTableRowGroup`: `key`, `band`, `rows`, optional `footer` and `depth`). **The Zod face refuses it as authored data** (`handlerKeyRefusal('rowGroups', 'runtime-slot', ...)`), as it refuses `renderCellEditor`. So the published type surface grows by one member, and the authored accepted set does not.\n- `@object-ui/components` `data-table`: with `rowGroups` set, the one `tbody` draws each group as a band row. The band is one cell whose `colSpan` covers the leading utility cell, every column, and the row-actions and add-column cells. The group's data rows follow, then its optional footer row. A client-side sort orders rows within each band and never moves a row across bands. Data rows keep their index in the table's rows, so selection, keyboard navigation, copy and export work exactly as on a flat table. The table draws no pager of its own, and a table whose groups are all collapsed draws its bands, not the no-results state.\n- `@object-ui/plugin-grid` `ObjectGrid`: builds the bands from the current page of groups (`pagedGroups`), on both the client-grouped and the server-grouped path. `GroupRow` is now the band's content: chevron, field caption, value pill, count and aggregations in one 36 px line, sticky to the scroller's left edge. A server group's loading line, error line or own pager (count, page-size picker, first/previous/next/last, all named) is that band's footer row. The grouped pager still pages whole top-level groups, unchanged.\n\nThe columns share one width across bands because they are one table. The existing explicit grouped widths are kept, so a column does not jump when bands collapse.\n\n**Target 3 is not built** (hiding the grouped column, as a view option defaulting to on), by the claim's ruling. No existing key expresses it: `GroupingFieldSchema` declares only `field`, `order` and `collapsed`, and `GroupingConfigSchema` declares only `fields` (`@objectstack/spec` `ui/view.zod.ts`). It would need a new spec key such as `grouping.hideGroupedColumns`. The grouped column stays visible. The card's acceptance list does not include target 3.\n\nThe grouping refusals and the fetch-dependency pin stay green: objectui#10583 (maskedColumnSurfaces-10583), objectui#10657 (maskedFirstPaint-10657) and objectui#7179 (groupingProjection-7179).\n\n## Screenshots\n\nHotCRM Knowledge Base (`/apps/crm_enterprise/crm_knowledge_article`, default view grouped by Category), 1280 px. These are on the evidence branch `claude/issue-12620-evidence`, which is never merged.\n\n- Light: https://github.com/objectstack-ai/objectui/blob/bd91d6fe152e139e3f94fb6c3f81a417358894cc/docs/design/findings/12620/knowledge-grouped-1280-light.png?raw=true\n- Dark: https://github.com/objectstack-ai/objectui/blob/bd91d6fe152e139e3f94fb6c3f81a417358894cc/docs/design/findings/12620/knowledge-grouped-1280-dark.png?raw=true\n- One band collapsed: https://github.com/objectstack-ai/objectui/blob/bd91d6fe152e139e3f94fb6c3f81a417358894cc/docs/design/findings/12620/knowledge-grouped-1280-light-collapsed.png?raw=true\n- DOM readings: https://github.com/objectstack-ai/objectui/blob/bd91d6fe152e139e3f94fb6c3f81a417358894cc/docs/design/findings/12620/README.md\n\nRead from the DOM at capture: 1 table and 1 thead. 4 bands, each with colSpan 11, equal to the 11 header cells. The Status column's cells sat at x = 896 in every band and in the header, in light and dark. With Getting Started collapsed, that band owns 0 rows and the other three keep 1 each.\n\n## Test evidence (HEAD 33befdc)\n\n- `pnpm --filter @object-ui/plugin-grid test`: 218 files, 2021 tests passed.\n- `pnpm --filter @object-ui/components test`: 389 files passed and 1 skipped; 3925 tests passed and 24 skipped.\n- `pnpm --filter @object-ui/types test`: 383 files, 10336 tests passed.\n- `pnpm --filter @object-ui/plugin-list test`: 138 files, 1449 tests passed. This ran at f48e98e; the only later commits touch types tests and one doc comment.\n- New pins: `groupedOneHeader-12620` (client path: one table, thead and tbody, band colSpan equal to the header cell count, collapsing one band hides only its rows; server path: one thead with each group's page under its band); `data-table-row-groups-12620` (band span, in-band sort, empty groups keep their bands, footer placement, select-all over data rows only, a masked grouped cell copies nothing); `data-table-declared-keys-6882` (exact shape of `rowGroups`, with a control; the Zod mirror refuses it at path `rowGroups`).\n- Ablation, once: rendering one table per band instead of the one table turned `groupedOneHeader-12620` red, 3 of 3 (more than one table). Restoring from HEAD turned it green again, with `git diff HEAD` empty.\n- Type-check exit 0 for all three packages. Build exit 0 for all three. `check-changeset-presence` exit 0. `check:i18n-keys` and `check:i18n-drift` exit 0.\n\n## Acceptance notes\n\n- The row-number column now counts across every band of a page (1..N), because it is the row's position in the one table. The per-group tables restarted at 1 in each group. Nothing specifies which is intended.\n- The shared `handlerKeyRefusal` runtime-slot sentence reads 'for a host-supplied function'. The `rowGroups` arm's label and source comment say it holds host-built React content.\n- Three server-grouping test files (7189, 11021, 11574) now read a group's rows through `groupBandScope.ts`, the rows after its band up to the next one. Their assertions are unchanged.\n\nSession: `https://claude.ai/code/session_01WdFRKDfajuqY87twVCGmbZ`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01WdFRKDfajuqY87twVCGmbZ)_"
+}

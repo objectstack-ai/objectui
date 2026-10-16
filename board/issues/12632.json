@@ -1,0 +1,35 @@
+{
+  "number": 12632,
+  "kind": "pull_request",
+  "title": "fix(plugin-list): Display menu closes after a layout is chosen (objectui#12621)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T06:36:54Z",
+  "updated_at": "2026-10-16T07:26:22Z",
+  "closed_at": "2026-10-16T07:26:20Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T07:26:20Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12632",
+  "body": "Fixes #12621\nClause-②: no\n\n## What changed\n\n- `ViewSettingsPopover` (the list toolbar's Display menu) keeps owning its open state; its `layout` slot is now a function of `closeMenu`, and the menu closes through its controlled `setOpen(false)`, so Radix returns focus to the Display trigger exactly as on Escape or an outside click.\n- `ListView` passes the switcher through that slot and calls `closeMenu()` when a layout is picked, in both switcher shapes (the segmented control for 2 to 4 visualizations and the nested dropdown for 5 or more).\n- The panel's toggles (row numbers, inline edit, density, hidden fields, group, color) do not call it, so they keep the menu open.\n- `ViewSettingsPopover` is package-internal (not exported from the `@object-ui/plugin-list` entry), so the slot's type change has one caller and no public surface moves.\n\n## Mechanism (A1 measured)\n\nA1 is refuted. The popover was already controlled (`open` + `onOpenChange={setOpen}`); nothing swallowed a close and no `onEscapeKeyDown` was prevented. The producer of target 1 is the absence of any close on a layout choice: the `layout` slot was an opaque node, and the switcher's `onViewChange` reached `handleViewChange` only. A throwaway probe on base `63d00da3d` (happy-dom, deleted before commit) read: after choosing Kanban the content stays mounted (target 1 reproduced); Escape closes the menu both before and after a choice.\n\n## Tests\n\nNew `ListView.displayMenuClose-12621.test.tsx` (4 tests), run from the repo root at HEAD `882ce9b30`:\n\n- choosing Kanban in the segmented Layout row closes the menu and focuses the trigger\n- choosing Kanban in the nested Layout dropdown closes the menu and focuses the trigger\n- Escape closes the menu and focuses the trigger\n- control: toggling Row numbers and cycling density keep the menu open\n\nAblation (fix committed first; mutation = delete the `closeMenu();` line in `ListView`, anchor count 1 then 0, trap-restored with `git checkout HEAD`, restore proven by empty `git diff HEAD` and a matching HEAD blob hash): `Tests 2 failed | 2 passed (4)`; the two choice pins went red, Escape and the control stayed green, as predicted. The tests import `../ListView` from source, so no `dist/` rebuild sits between the mutation and the run.\n\n## Gates (HEAD `882ce9b30`)\n\n- `pnpm --filter '@object-ui/plugin-list^...' build`: exit 0\n- `pnpm --filter @object-ui/plugin-list type-check`: exit 0 (`tsconfig.test.json --listFilesOnly` includes the new test file)\n- `pnpm exec vitest run packages/plugin-list/`: exit 0, `Test Files 139 passed (139)`, `Tests 1453 passed (1453)`\n- eslint narrowed to the 3 changed source files with `--no-inline-config --format json`: exit 0, 3 files, 0 errors. Population: all 3 resolve under `eslint.config.js` (`--print-config`). Invariance: `eslint.config.js` sets no `parserOptions.project`/`projectService`, so linting is not type-aware and this diff cannot move a verdict on any untouched file. `ListView.tsx` warning count equals its base count.\n- Battery, all exit 0: `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:control-bytes`, `check-hand-rolled-comment-mask.mjs`, `check-changeset-fixed.mjs`, `check-changeset-presence.mjs`, `check:new-line-citations` (0 new).\n- `check:spec-floors`: exit 1, NOT MEASURED: it refuses without a full workspace build (`no-artifact`), recorded per the dispatch, not fixed.\n\n## Acceptance notes\n\n- NOT MEASURED in a real browser: the card's walk saw Escape fail to close the menu after a Kanban choice in the console. happy-dom does not reproduce that (Escape closes in every probe). After this change the menu is already closed once a layout is chosen, so that sequence no longer arises; a real-browser Escape reading before any choice was not taken.\n- Choosing the layout that is already active does not close the menu: `ViewSwitcherDropdown` returns before `onViewChange` for the current view. Left as is (no choice was made).\n- File surface: the `layout=` prop lines on the `ViewSettingsPopover` element in `ListView.tsx` are edited although `ListView` does not own the open state; they are the Display popover's mount, and closing on choice needs the switcher's callback. Declared in the report.\n\nSession: `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

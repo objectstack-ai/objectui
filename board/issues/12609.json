@@ -1,0 +1,32 @@
+{
+  "number": 12609,
+  "kind": "issue",
+  "title": "Packaged automation: a flow disabled by deployment policy shows a status chip; the policy is explained once",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:workflow",
+    "domain:ui",
+    "enhancement",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T03:37:36Z",
+  "updated_at": "2026-10-16T08:05:46Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12609",
+  "body": "## Source\n\nWalked on objectui main `8415d9f11`, `/apps/com.objectstack.setup/component/automation/packaged` (`packages/app-shell/src/views/setup/PackagedAutomationPage.tsx`): each scheduled flow the deployment policy keeps off (Campaign Auto-Completion, Case SLA Monitor, …) renders a six-line paragraph inside its table row — \"disabled by deployment policy — package-authored scheduled work is off on this deployment (OS_AUTOMATION_SCHEDULED_WORK_ENABLED is unset or not truthy), so no time trigger arms and no packaged `defineJob` is scheduled. This is not a binding failure and nothing about the flow needs fixing: set OS_AUTOMATION_SCHEDULED_WORK_ENABLED=true … It is OFF by default in every posture — a clock-driven workload's cost is a fact about the deployment, not about the flow.\" — repeated verbatim per flow, while the row's switch still reads On.\n\n## Target\n\n1. The row shows one status chip after the flow name: \"Off by deployment policy\" (muted, with a clock icon); the switch reflects the effective state (off, disabled) with the objectui#12303 tooltip reason.\n2. One banner above the table, shown once when at least one flow is policy-disabled: \"Scheduled flows are off on this deployment. Set OS_AUTOMATION_SCHEDULED_WORK_ENABLED=true to run package-authored scheduled work.\" with a link to the docs page; the long paragraph moves into the chip's tooltip or the banner's \"Why\" disclosure.\n3. Rows stay 40 px; the table scans as a table again.\n\n## File surface\n\n`packages/app-shell/src/views/setup/PackagedAutomationPage.tsx`, `PackagedActionsSection.tsx` if it shares the row, `packages/i18n/src/locales/*.ts`, tests beside.\n\n## Acceptance\n\n1. Tests: a policy-disabled flow renders the chip and no paragraph in the row; the banner renders once for two disabled flows and not at all for none.\n2. Screenshot at 1280 px, light and dark.\n3. `pnpm --filter @object-ui/app-shell test` green.\n\n## Constraints\n\n- The policy text comes from the server's answer; the console shortens the display, not the server's reason.\n\n## Evidence\n\nScreenshots on the temporary branch `claude/console-home-login-design-20261016` of objectstack-ai/objectui (commit `01244b886`, never merged): [setup-packaged-automation.png](https://github.com/objectstack-ai/objectui/blob/01244b886/docs/design/setup-review-2026-10-16/setup-packaged-automation.png?raw=true).\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-16 second review pass: objectui main `8415d9f11`, HotCRM `63db83e2`, the vite console on :5180 against `objectstack serve --dev` on :4001, the Studio pillars and all 43 Setup pages walked in the maintainer's browser pane at 1024 × 768 (en) with a 1280 × 900 re-check (zh). The maintainer asked for every finding to be filed, verbatim: 「全部立卡」.</sub>"
+}

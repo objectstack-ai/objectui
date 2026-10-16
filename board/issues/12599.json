@@ -1,0 +1,35 @@
+{
+  "number": 12599,
+  "kind": "pull_request",
+  "title": "fix(app-shell): the pending-changes drill-in no longer lists the protection envelope as authored keys (objectui#12594)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T02:54:03Z",
+  "updated_at": "2026-10-16T03:19:34Z",
+  "closed_at": "2026-10-16T03:19:33Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T03:19:33Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12599",
+  "body": "Fixes #12594\nClause-②: no\n\n## What changed\n\nExpanding a NEW object draft in the pending-changes sheet listed the registry stamp `_packageId` under \"Also changed:\" as if the author had typed it. `computeChangeDetail` in `packages/app-shell/src/preview/DraftChangesPanel.tsx` now removes the ADR-0010 protection envelope from both bodies before it compares them. The keys are read from the spec's `MetadataProtectionFields` via `Object.keys`, with no local list. Every list the drill-in renders (fields added, changed and removed; keys added, changed and removed) and the no-change mark read that one envelope-free pair.\n\nThe fetched bodies keep the envelope. `fetchItemBody` also feeds the security-posture lint and the member-existence probe, and the lint's docblock says the envelope stays on its input. So the strip sits at the diff seam, not in `unwrapItem`. Nothing served or saved changes: no producer route, and no addition to `METADATA_READ_DECORATIONS`, per the triage grade.\n\n## Option chosen: (a), every envelope key left out of the diff\n\nMeasured before choosing:\n- The spec does not split the envelope into registry stamps and loader-declared lock keys. `MetadataProtectionFields` is one flat shape. The split exists only inside objectstack's metadata-protocol (`DERIVED_PROVENANCE_KEYS` against the lock family) and is not exported, so no local split was invented.\n- No draft can change a lock. On a local HotCRM backend, a draft PUT that sets `_lock: full` is refused with 400 VALIDATION_ERROR (\"the metadata API never sets, changes or removes a lock\", ADR-0010 section 3.5).\n\nFour axes:\n- Real business need: a separate line for an envelope change (option b) would render for a flow that does not exist.\n- Long-term soundness: the panel reads the spec's own declaration, the same derivation rule the read-decoration strip follows.\n- AI error resistance: the lock contract is enforced loudly at the save door, not by consumer tolerance.\n- Startup focus: no new label, i18n key or test surface for an unexercised flow.\n\n## Screenshots (new object draft expanded; local HotCRM backend, package created through POST /api/v1/packages)\n\nBefore, on main (`_packageId` listed under Also changed):\n- https://github.com/objectstack-ai/objectui/blob/b75c910b2d764eb0ffde280f702ab77888eae416/docs/design/studio-redesign/findings/12594/12594-before-new-object-light.png?raw=true\n- https://github.com/objectstack-ai/objectui/blob/b75c910b2d764eb0ffde280f702ab77888eae416/docs/design/studio-redesign/findings/12594/12594-before-new-object-dark.png?raw=true\n\nAfter (gone; `label`, `name`, `nameField`, `sharingModel` and the fields still list):\n- https://github.com/objectstack-ai/objectui/blob/b75c910b2d764eb0ffde280f702ab77888eae416/docs/design/studio-redesign/findings/12594/12594-after-new-object-light.png?raw=true\n- https://github.com/objectstack-ai/objectui/blob/b75c910b2d764eb0ffde280f702ab77888eae416/docs/design/studio-redesign/findings/12594/12594-after-new-object-dark.png?raw=true\n\n## Tests (at 16a2796)\n\n- New pin `DraftChangesPanel.protectionEnvelope-12594.test.tsx`, 5 tests, green. It checks that:\n  - a NEW object's drill-in lists no `MetadataProtectionFields` key, with `label` and a field still listed as controls;\n  - the CONTROL `_unpublished`, a key `AppSchema` declares outside the envelope, still lists;\n  - an UPDATE that differs only in the envelope reads \"No differences detected\";\n  - `computeChangeDetail` drops the envelope in both directions.\n\n  The fixtures carry every key `Object.keys(MetadataProtectionFields)` names.\n- Targeted reach set, green: every DraftChangesPanel, DraftPreviewBar and CommitTimeline test, plus every test that mounts DraftChangesPanel, including the objectui#12510, objectui#12517 and objectui#8181 pins. Test Files 42 passed (42), Tests 265 passed (265).\n- Ablation, removing the strip: 4 of 5 red (the spec-read guard stays green as designed). Restored; `git diff HEAD` empty.\n- Ablation, replacing the strip with an underscore-prefix filter: exactly the CONTROL test goes red. Restored; `git diff HEAD` empty.\n- `@object-ui/app-shell` type-check (the test project lists the new file), build, and eslint on the touched files all pass (0 errors; the warnings are pre-existing). `check:i18n-keys`, `check:i18n-drift`, `check-changeset-presence`, `check-spec-symbol-derivation` and `check:new-line-citations` all exit 0.\n- Full app-shell suite: not measured locally (the run was lost to a worker restart); CI runs it.\n\n## Acceptance notes\n\n- Card acceptance 2 (a pin at the producer) is superseded by the triage grade, which keeps the producer unchanged. The pin lives at the panel's diff seam instead.\n- The spec declares no top-level underscore key that an author types (the authoring-key lint treats every underscore key as the tooling channel). The underscore CONTROL is therefore `_unpublished`, a spec-declared machine-managed key outside the envelope.\n- Observation, not filed: a NEW object's field list also shows the system fields the draft read serves (created_at, owner_id and so on). Those are real fields the published object gets.\n\nSession: `https://claude.ai/code/session_016v3WXCXoatAw13mUAHxwJB`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_016v3WXCXoatAw13mUAHxwJB)_"
+}

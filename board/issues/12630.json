@@ -1,0 +1,35 @@
+{
+  "number": 12630,
+  "kind": "pull_request",
+  "title": "feat(app-shell): the Automations rail's groups follow the app's navigation order (objectui#12612)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T06:23:28Z",
+  "updated_at": "2026-10-16T06:50:15Z",
+  "closed_at": "2026-10-16T06:50:14Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T06:50:14Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12630",
+  "body": "Fixes #12612\nClause-②: no\n\n## What changed\n\n- `flowGrouping.ts`: `groupFlowsByObject` takes the app navigation's object order as data, as the new required option `objectOrder: readonly string[]`. Listed objects come in that order. Objects the navigation does not list follow, by flow count descending, then by label with the existing display-locale collator, then by api name. \"No object\" stays last. A new pure helper, `navigationObjectOrder(navigation)`, walks the navigation depth first with every group opened. It keeps object entries only (`type: 'object'` with an `objectName`), each object at its first entry. Which group a flow belongs to (objectui#12454) is unchanged.\n- `StudioDesignSurface.tsx`: the shell's `resolvePackageApp` already lists the package's app for the header chip. It now also keeps that row's navigation object order in its own state and passes it to `AutomationsPillar` as `objectOrder`. The pillar adds no read of its own, and the package-less scope passes none. The `packageApp` shape and the chip's render are untouched.\n- One changeset, `.changeset/12612-automations-rail-nav-order.md` (patch, `@object-ui/app-shell`).\n\n## Deviations\n\n- The ruling said to reuse the Interfaces pillar's navigation read. That read lives inside `InterfacesPillar`, which is unmounted while Automations is open, so there is nothing to reuse. Instead the order comes from the shell's existing package-app list read, the same row the header chip reads. Its served row carries `navigation`: measured live on `GET /api/v1/meta/app?package=app.objectstack.hotcrm`. This touches `resolvePackageApp` (one new state, three setter lines), which sits outside the Automations rail's region. It does not touch the chip render or the Interfaces fold that objectui#12611 works in.\n- A draft-only app (never published) gives no order, because the shell reads `navigation` off the published row only. Its groups fall back to flow count, then label.\n- The rail follows the published navigation. An unsaved navigation edit in the Interfaces pillar does not move it until the edit is saved and re-read.\n\n## Live HotCRM (hotcrm `63db83e`, `objectstack dev --fresh`, console from this branch, 1280 × 900)\n\nHotCRM's navigation lists objects in this order: Leads, Accounts, Contacts, Opportunities, Quotes, Contracts, Products (Sales), then Tasks, Events (My Work), Cases, Knowledge Articles (Service), Campaigns (Marketing), Forecasts (Insights).\n\nThe rail reads the same group order in en, zh and en dark: Lead 4 · Account 2 · Contact 1 · Opportunity 8 · Quote 1 · Contract 3 · Task 2 · Campaign 2 · Forecast 1 · Campaign Member 2. Campaign Member is in no navigation entry, so it comes after every listed object. In zh: 线索 · 客户 · 联系人 · 商机 · 报价单 · 合同 · 任务 · 营销活动 · 销售预测 · 营销活动成员. Before this change the zh rail opened with 报价单 (pinyin order).\n\nScreenshots are on the evidence branch `claude/issue-12612-evidence`, commit `1bcae47`, never merged:\n\n- en light: https://github.com/objectstack-ai/objectui/blob/1bcae47b2ffc0cdf66c7ebfb340d742367648f13/docs/design/findings/12612/automations-rail-en-light.png?raw=true\n- zh light: https://github.com/objectstack-ai/objectui/blob/1bcae47b2ffc0cdf66c7ebfb340d742367648f13/docs/design/findings/12612/automations-rail-zh-light.png?raw=true\n- en dark: https://github.com/objectstack-ai/objectui/blob/1bcae47b2ffc0cdf66c7ebfb340d742367648f13/docs/design/findings/12612/automations-rail-en-dark.png?raw=true\n- All groups folded, so the ten headers fit: en light https://github.com/objectstack-ai/objectui/blob/1bcae47b2ffc0cdf66c7ebfb340d742367648f13/docs/design/findings/12612/automations-rail-en-light-folded.png?raw=true · zh light https://github.com/objectstack-ai/objectui/blob/1bcae47b2ffc0cdf66c7ebfb340d742367648f13/docs/design/findings/12612/automations-rail-zh-light-folded.png?raw=true · en dark https://github.com/objectstack-ai/objectui/blob/1bcae47b2ffc0cdf66c7ebfb340d742367648f13/docs/design/findings/12612/automations-rail-en-dark-folded.png?raw=true\n\n## Tests (at `2bc2fbc`)\n\n- `flowGrouping.test.ts`:\n  - The card's case: a navigation listing B, A with flows on A, B, C gives groups B, A, C, identically under en and zh labels. The no-navigation control shows the two locales disagreeing.\n  - An unlisted object with more flows comes before one with fewer, and \"No object\" stays last, under both locales.\n  - The navigation walk: depth first, groups opened, objects only, first occurrence. A malformed navigation gives no order.\n  - The HotCRM fixture now pins the navigation order of `crm.app.ts`. The earlier alphabetical pin and the search pin are updated to it.\n- `StudioDesignSurface.automationsRailOrder-12612.test.tsx`: the whole surface at the automations route, so the shell's app row reaches the rail order. The control is an app that lists no objects.\n- Ablation, once: making the navigation position undefined in the sort turns 5 tests red. Restored from `HEAD`: hash matched, `git diff HEAD` empty.\n- The full app-shell suite ran as 16 root-form shards (`pnpm exec vitest run packages/app-shell/ --shard=K/16`), because the single run exceeds the container's foreground limit. Union: 1433 files passed, 1 skipped, 0 failed; 13576 tests passed.\n- `type-check`, `build`, eslint on the touched files (0 errors; the 13 warnings are the same as on main), `check:i18n-keys`, `check:i18n-drift`, `check-changeset-presence`: all exit 0.\n\n## Acceptance notes\n\n- The Data rail still lists objects alphabetically. objectui#12454 had matched the Automations groups to it, so the two pillars now order objects differently. Not changed here.\n- The served navigation also lists Cases and Knowledge Articles (the Service group composed in at serve time). No flow is on them, so the rail is unaffected. The unit fixture follows `crm.app.ts`.\n\nSession: `https://claude.ai/code/session_01C13LXhXjGhFbYFiGCEM2Qb`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01C13LXhXjGhFbYFiGCEM2Qb)_"
+}

@@ -1,0 +1,37 @@
+{
+  "number": 12623,
+  "kind": "issue",
+  "title": "Dashboard metric tiles: the title wraps or the measure label yields before the title truncates to three letters",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:reports",
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T04:01:20Z",
+  "updated_at": "2026-10-16T05:51:13Z",
+  "closed_at": "2026-10-16T05:49:48Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12623",
+  "body": "## Source\n\nWalked on objectui main `8415d9f11` at 1024 px: Sales Performance (`/dashboard/sales_dashboard`) draws its four KPI tiles as \"Tot… Total Amount\", \"Clo… Total Amount\", \"Op… Opportunities\", \"Av… Avg Deal Size\"; Executive Overview does the same (\"Total … Total Amount\", \"Active A… Accounts\"). After objectui#12528 / #12573 the tile's first line holds the title and the measure label side by side; in a 150 px tile the measure label keeps its width and the title is cut to two or three letters, so a row of KPIs reads as nonsense.\n\n## Target\n\n1. The title owns the first line (13 px / 500, up to two lines with an ellipsis on the second); the measure label moves to a 11 px muted line under the value, and is dropped below 160 px tile width (it stays in the tooltip).\n2. The value never wraps; it shrinks one step (24 → 20 px) below 160 px.\n3. The same rule in the Sales Home page's KPI blocks, which share the tile.\n\n## File surface\n\n`packages/plugin-dashboard/src/` metric tile (the dataset-bound tile and the plain one), tests beside.\n\n## Acceptance\n\n1. Tests: at a 150 px width the title text is complete and the measure label is absent; at 240 px both show.\n2. Screenshots of Sales Performance at 1024 and 1280 px.\n3. `pnpm --filter @object-ui/plugin-dashboard test` green.\n\n## Evidence\n\nScreenshots on the temporary branch `claude/console-home-login-design-20261016` of objectstack-ai/objectui (commit `b72c97985`, never merged): [hotcrm-sales-performance-tiles-truncated.jpg](https://github.com/objectstack-ai/objectui/blob/b72c97985/docs/design/hotcrm-review-2026-10-16/hotcrm-sales-performance-tiles-truncated.jpg?raw=true).\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-16 walk of HotCRM's core pages as a user: objectui main `8415d9f11`, HotCRM `63db83e2`, the vite console on :5180 against `objectstack serve --dev` on :4001, the maintainer's browser pane at 1024 × 768 (en). The maintainer asked for the findings to be filed on the repository each belongs to, verbatim: 「相关问题也在对应的项目上创建任务」.</sub>"
+}

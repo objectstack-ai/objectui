@@ -1,0 +1,34 @@
+{
+  "number": 12616,
+  "kind": "issue",
+  "title": "Marketplace cards truncate the app name and id at 1024 px",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T03:43:11Z",
+  "updated_at": "2026-10-16T08:25:25Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12616",
+  "body": "## Source\n\nWalked on objectui main `8415d9f11`, `/apps/setup/system/marketplace` at 1024 × 768 (`packages/app-shell/src/console/marketplace/MarketplacePage.tsx`): the one card (HotCRM) renders its title as \"H…\" and its id as \"ap…\" although the card is 110 px wide and the title row has 60 px free beside the \"objectstack\" badge; the description below is whole. The header row's badge is given the width first and the text gets the remainder with an ellipsis on a one-character width.\n\n## Target\n\n1. Card header: the title takes the row's width first (13 px / 600, two lines maximum with an ellipsis), the publisher badge sits under it on its own line; the id is 11 px mono, one line, truncating from the middle so the package suffix stays readable.\n2. Cards are at least 240 px wide; the grid is `repeat(auto-fill, minmax(240px, 1fr))`.\n\n## File surface\n\n`packages/app-shell/src/console/marketplace/MarketplacePage.tsx`, its card component, tests beside.\n\n## Acceptance\n\n1. A test renders a card at 240 px and asserts the title text is complete; screenshots at 1024 and 1280 px.\n2. `pnpm --filter @object-ui/app-shell test` green.\n\n## Constraints\n\n- No change to the marketplace data or install flow.\n\n## Evidence\n\nNo screenshot; the measurements above and the page URLs are the evidence.\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-16 second review pass: objectui main `8415d9f11`, HotCRM `63db83e2`, the vite console on :5180 against `objectstack serve --dev` on :4001, the Studio pillars and all 43 Setup pages walked in the maintainer's browser pane at 1024 × 768 (en) with a 1280 × 900 re-check (zh). The maintainer asked for every finding to be filed, verbatim: 「全部立卡」.</sub>"
+}

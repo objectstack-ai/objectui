@@ -1,0 +1,33 @@
+{
+  "number": 12627,
+  "kind": "issue",
+  "title": "page:header: stop reading `showStar` — @objectstack/spec 18 retires the key (objectstack#23650); the renderer read, its registration input, the CONTROL pin and the parity row move with the spec bump",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "enhancement",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T04:40:22Z",
+  "updated_at": "2026-10-16T08:23:13Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12627",
+  "body": "Filing gate ④: the objectui child of a cross-repo change. objectstack-ai/objectstack#23650 retired a spec key, and it landed as objectstack-ai/objectstack#23781 (merge commit `ae0ca66f41`). This card is the consumer half that the ruling's item 2 names.\n\n**Filed by** `domain:spec` seat 1 (objectstack-ai/objectstack#6017) · `os-elon-musk` · session `session_01HjR8RUwTPQ3TgbfKihmxp9`, per ruling item 2 on objectstack-ai/objectstack#23650 (record `6203775759`). ⛔ Not a claim; lane and grade are triage's.\n\n## The ruling\n\nThe maintainer chose 「A 退役 showStar (Recommended)」, recorded as `6203775759` on objectstack-ai/objectstack#23650. Item 2: \"The objectui renderer's read of `showStar` […] and its CONTROL pin go in a follow-up card on objectstack-ai/objectui, graded on its own (\"absence breaks no user\"). […] objectui's `RecordContextValue.onToggleFavorite` host opt-in is untouched: the ruling removes the metadata switch, not the host hook.\"\n\n## What the spec now says\n\nOn objectstack `main` since `ae0ca66f41`:\n- `PageHeaderProps.showStar` is a `retiredKey()` tombstone. Any value is refused at `['showStar']`, and the input type is `never`. The prescription says the record's favorites entry is the header's ⋯ menu, and metadata does not control it.\n- `RETIRED_KEYS_BY_MAJOR[18]` lists `ui/PageHeaderProps:showStar`. The D2 conversion `page-header-show-star-removed` strips the key from `page:header` nodes in `os migrate meta --from 17`.\n- The BREAKING changeset `23650-page-header-show-star-retired` ships in the first `@objectstack/spec` release cut after `ae0ca66f41`.\n\n## The read points\n\nAll on objectui `main` `33fbc86`, the same lines the dev measured at `f96f771140f1`:\n- `packages/components/src/renderers/layout/containers.tsx`:\n  - `:1580`-`:1584`, the read: `schema?.showStar !== false && schema?.properties?.showStar !== false`;\n  - `:2616`, `showStar={showStar}` passed to the record chip;\n  - `:2681`, the registration input `{ name: 'showStar', type: 'boolean' }`.\n- `packages/components/src/custom/RecordTitleChip.tsx` `:45`/`:63`/`:134`: the chip's own `showStar` React prop (default `true`). It is a component prop, not metadata, so whether it stays is this card's call. The star still draws only where the host wires `onToggleFavorite`.\n- The CONTROL pin `packages/components/src/__tests__/page-header-star-host-toggle-12427.test.tsx` `:117`-`:120`, the case \"the authored showStar: false hides the star even when the host wires a toggle\". The ruling removes exactly this behaviour. The file's host-toggle cases stay.\n- `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts:5787`, the `settledUpstream` row `['page:header', 'showStar']`. It asserts that the spec's top-level keys (tombstones subtracted) contain `showStar`. So it reds on the first spec bump that carries the retirement, and the forward direction reds while the registration still publishes the input.\n- Docs: `content/docs/layout/page-header.mdx:49` (the `showStar` row) and `content/docs/guide/layout.md:373`.\n\n## Reader who acts\n\nThe objectui seat that lands the `@objectstack/spec` bump to the release carrying objectstack-ai/objectstack#23781. This change rides in that bump PR, or lands just before it, because the parity row reds on the bump itself. Afterwards the header draws the star exactly where the host's record context carries `onToggleFavorite`, and an authored `showStar` changes nothing.\n\nOutside this card, on the objectstack side: `sdui.manifest.json` still lists `showStar` as a `page:header` renderer input. It moves on objectstack's next `.objectui-sha` bump after this card lands.\n\n## Grade\n\nIn the ruling's words, absence breaks no user. Since objectstack-ai/objectui#12427 the console wires no favorites toggle, so the reference console draws no star either way. The Console Pin Gate was measured green on the objectstack PR head before landing: the renderer reads the key untyped.\n\n## Dedupe\n\n- MCP `search_issues` on this repo (all states): `page header showStar favorites star retired renderer read registry inputs spec parity` → 2 hits, both closed and neither this change: objectstack-ai/objectui#12427 (the origin) and objectstack-ai/objectui#10387 (`HeaderBarSchema`).\n- REST listing of every open issue on this repo whose title or body matches `showStar|show-star|favorites star|follow star` → 0 hits.\n\nDedupe words: showStar, page:header, registry-inputs-spec-parity, RecordTitleChip, favorites.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 12607,
+  "kind": "issue",
+  "title": "Setup empty states say what the page is for: Invitations, API Keys, OAuth Applications and the three notification pages",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:identity",
+    "domain:ui",
+    "enhancement",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T03:35:58Z",
+  "updated_at": "2026-10-16T03:35:58Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12607",
+  "body": "## Source\n\nWalked on objectui main `8415d9f11`:\n\n- Invitations (`/apps/com.objectstack.setup/sys_invitation`, default view Pending, no rows): \"No matching records — No records match this view's filter.\" (`list.noMatches` in `packages/i18n/src/locales/en.ts`). The page has an \"Invite User\" button; the empty state does not mention it.\n- API Keys (`sys_api_key/view/all_keys`, no rows): \"No identity records — These records are created by the authentication provider — through sign-in, provisioning, and security flows — not added by hand here.\" That sentence is the identity-object fallback; API keys are created by hand here, and the page has no \"Create key\" action at all.\n- OAuth Applications (`sys_oauth_application/view/all_apps`): the page has \"Register OAuth Application\", the empty state is the generic \"Nothing here yet — Create your first record to get started.\" (`list.firstRunMessage`).\n- Notification Preferences, Notification Subscriptions, Notification Templates: the same generic sentence under a \"Platform schema\" chip and a description written in schema words (\"Per-user × topic × channel notification toggle (mute/allow), with admin-global defaults\").\n\nTeams (\"No teams yet — Teams group members within an organization. Create one with \"Create Team\", or they arrive through your auth provider's organization and SSO provisioning flows.\"), Record Shares and Approval Delegations are the shape to copy.\n\n## Target\n\n1. Every Setup object declares its own empty state (title, one sentence, the primary action as a button) and the list renders it instead of the generic fallbacks; a view-filtered empty state names the view (\"No pending invitations\" with \"Invite User\", \"No revoked keys\").\n2. API Keys gets a \"Create key\" primary action (the server's key-creation route the Account app uses) and the empty state \"No API keys yet — Create a key for scripts and integrations; it is shown once.\"\n3. OAuth Applications: \"No OAuth applications yet — Register one to let a client sign in with this environment.\" with the existing Register button.\n4. The notification pages: \"No preferences yet — Users inherit the defaults until they change a topic or channel\", \"No subscriptions yet — Subscribe a role, team or user to a topic\", \"No templates yet — Add a template per topic, channel and locale\", each with New.\n5. The identity fallback sentence stays only for objects the provider owns (Sessions, Accounts).\n\n## File surface\n\n`packages/app-shell/src/views/ListView` empty-state resolution (`packages/plugin-list/src/ListView.tsx` and the empty-state component it renders), the per-object empty-state declaration (view metadata `emptyState` if the spec has it, else a console-side table keyed by object), `packages/i18n/src/locales/*.ts`, tests beside each. If the key-creation route is not reachable from the console, the card reports the fork and ships the copy without the button.\n\n## Acceptance\n\n1. Tests: each of the six objects renders its own empty title; the Pending view of Invitations renders \"No pending invitations\"; API Keys renders a Create key button.\n2. Screenshots of the six empty states at 1280 px, light and dark.\n3. `pnpm --filter @object-ui/plugin-list test`, `pnpm --filter @object-ui/app-shell test`, `pnpm check:i18n` green.\n\n## Constraints\n\n- English and every shipped locale; no ADR numbers in the copy.\n\n## Evidence\n\nScreenshots on the temporary branch `claude/console-home-login-design-20261016` of objectstack-ai/objectui (commit `01244b886`, never merged): [setup-invitations-empty.png](https://github.com/objectstack-ai/objectui/blob/01244b886/docs/design/setup-review-2026-10-16/setup-invitations-empty.png?raw=true) · [setup-api-keys-empty.png](https://github.com/objectstack-ai/objectui/blob/01244b886/docs/design/setup-review-2026-10-16/setup-api-keys-empty.png?raw=true).\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-16 second review pass: objectui main `8415d9f11`, HotCRM `63db83e2`, the vite console on :5180 against `objectstack serve --dev` on :4001, the Studio pillars and all 43 Setup pages walked in the maintainer's browser pane at 1024 × 768 (en) with a 1280 × 900 re-check (zh). The maintainer asked for every finding to be filed, verbatim: 「全部立卡」.</sub>"
+}

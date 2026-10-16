@@ -1,0 +1,34 @@
+{
+  "number": 12617,
+  "kind": "issue",
+  "title": "Record header: one primary action, the rest secondary; a declared record_header action (Convert Lead) is missing from the header and the ⋯ menu",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T03:55:44Z",
+  "updated_at": "2026-10-16T06:15:46Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12617",
+  "body": "## Source\n\nWalked on objectui main `8415d9f11` with HotCRM `63db83e2`, the lead record `/apps/app.objectstack.hotcrm/crm_lead/record/lZxZJxDxLzE08lyU` and the opportunity record `/crm_opportunity/record/maC9HZ_MynW5tj40` at 1024 px.\n\n1. The lead header renders three filled primary buttons \"Log a Call · Log a Meeting · Schedule a Meeting\" (the package's activity actions), then Edit as an icon button, ⋯ and Refresh; the opportunity header renders \"Generate Quote · Clone Opportunity · Log a Call\" the same way. Every header action is drawn with the primary style, so nothing is primary. The spec says otherwise: `packages/spec/src/ui/action.zod.ts` gives actions `variant: 'primary' | 'secondary' | 'danger' | 'ghost' | 'link'` and `order`, and documents that \"in `record_header` the first visible action becomes the primary button\" and that renderers may prefer `variant: 'primary'`.\n2. HotCRM declares `convert_lead` (\"Convert Lead\", `locations: ['record_header', 'list_item']`, `src/sales/actions/lead.actions.ts`) and `schedule_followup` with the same locations. Neither is in the lead header nor in its ⋯ menu, which holds only Edit · Add to favorites · Share · Delete. The lead's most important action is unreachable from the record page; the list row's ⋯ was not checked.\n\n## Target\n\n1. The header draws one filled primary button: the first visible `record_header` action by `order` (or the one with `variant: 'primary'`); the next two as outline buttons; the rest in the ⋯ menu above Share / Delete. Edit stays a labelled outline button, never only an icon, since it is the record's base action.\n2. Every action declared for `record_header` whose `visibleWhen` / permission passes is rendered somewhere in the header group; the card finds why `convert_lead` is dropped (registration, condition, capability or a cap on the count) and fixes that path, with a test that a declared action with a passing condition is present.\n3. The list row's ⋯ menu renders `list_item` actions the same way; the card verifies it on the lead list.\n\n## File surface\n\n`packages/plugin-detail/src/DetailView.tsx` (header actions), the record-header action resolver in `packages/app-shell/src/` (where declared actions are read and filtered), `packages/plugin-list` row menu, tests beside each.\n\n## Acceptance\n\n1. Tests: three `record_header` actions render as one primary + two outline; a fourth goes to ⋯; a declared action with a true condition is present; `variant: 'primary'` wins over order.\n2. Screenshots of the lead and opportunity headers at 1280 px, light and dark.\n3. `pnpm --filter @object-ui/plugin-detail test`, `pnpm --filter @object-ui/app-shell test` green.\n\n## Constraints\n\n- objectui#12303: a disabled or hidden-by-condition action explains itself through the tooltip wrapper when it is drawn disabled; one that fails its condition is absent.\n- No change to HotCRM's declarations; if the drop is caused by the app's `visibleWhen`, the card says so and files the app card on objectstack-ai/hotcrm.\n\n## Evidence\n\nScreenshots on the temporary branch `claude/console-home-login-design-20261016` of objectstack-ai/objectui (commit `b72c97985`, never merged): [hotcrm-lead-record-header-and-stage.jpg](https://github.com/objectstack-ai/objectui/blob/b72c97985/docs/design/hotcrm-review-2026-10-16/hotcrm-lead-record-header-and-stage.jpg?raw=true) · [hotcrm-lead-more-menu-no-convert.jpg](https://github.com/objectstack-ai/objectui/blob/b72c97985/docs/design/hotcrm-review-2026-10-16/hotcrm-lead-more-menu-no-convert.jpg?raw=true) · [hotcrm-opportunity-record.jpg](https://github.com/objectstack-ai/objectui/blob/b72c97985/docs/design/hotcrm-review-2026-10-16/hotcrm-opportunity-record.jpg?raw=true).\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-16 walk of HotCRM's core pages as a user: objectui main `8415d9f11`, HotCRM `63db83e2`, the vite console on :5180 against `objectstack serve --dev` on :4001, the maintainer's browser pane at 1024 × 768 (en). The maintainer asked for the findings to be filed on the repository each belongs to, verbatim: 「相关问题也在对应的项目上创建任务」.</sub>"
+}

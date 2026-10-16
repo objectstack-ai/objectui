@@ -2,8 +2,8 @@
   "number": 12594,
   "kind": "issue",
   "title": "Pending-changes drill-in lists the registry stamp `_packageId` under \"Also changed\" for a new object draft, as if the author had added it",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -13,7 +13,6 @@
   "labels": [
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p3"
   ],
   "assignees": [
@@ -22,11 +21,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-16T01:25:51Z",
-  "updated_at": "2026-10-16T01:59:55Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-16T03:20:56Z",
+  "closed_at": "2026-10-16T03:19:34Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12594",
   "body": "Filing gate: ① — a user-visible defect at a public door, captured in a screenshot by the cloud session of objectstack-ai/objectui#12517.\n\n## Symptom (objectui `737592f`, a local HotCRM backend under `objectstack dev --fresh`, a writable package)\n\nStudio › Publish (or Changes) › the pending-changes sheet › a NEW object draft, expanded. Under \"Also changed\", the drill-in lists `_packageId` beside the author's own keys. `_packageId` is the package stamp the metadata layer writes, not a key the author typed. It is visible in `12517-publish-confirm-light.png` on the never-merged evidence branch: https://github.com/objectstack-ai/objectui/blob/a4de5c7d69509c1521ed0f5047f8671417d2da9d/docs/design/studio-redesign/findings/12517/12517-publish-confirm-light.png?raw=true\n\nreach: the Studio pending-changes sheet (`DraftChangesPanel`), also mounted by Home, `DraftPreviewBar` and `CommitTimeline`. Measured on the Studio door only.\n\n## Cause (read, not yet proven at the producer)\n\n- `packages/app-shell/src/preview/DraftChangesPanel.tsx` (objectui, about :217) passes each body through the spec's `stripReadDecorations` before diffing. That is the right shape, the one objectui#8181 introduced for `_draft` / `_diagnostics`.\n- `METADATA_READ_DECORATIONS` (objectstack `packages/spec/src/kernel/metadata-read-decorations.ts:48`) is `['_diagnostics', '_draft']`, so `_packageId` survives the strip.\n- Other underscore stamps the registry writes sit beside it in the same read (`_packageVersion`, `_provenance` are destructured together in objectstack `packages/core/src/fallbacks/authored-translation-sync.ts:204`).\n\n## Fix direction (contract-first)\n\nDecide at the producer, not in the panel:\n- either the served draft read stops carrying the registry stamps, or the spec's decoration list names them, so `stripReadDecorations` removes them for every consumer;\n- a panel-side filter would be a consumer-side narrowing, which the four-axis frame rules out.\n\nWhich stamps belong on the list, and whether any consumer reads `_packageId` off a served draft (the CLI's `organization-ownership-apply.ts` reads it off served items), is the producer's measurement to make.\n\n## Acceptance\n\n1. A new object draft's drill-in lists only keys the author set.\n2. A pin at the producer: the served draft read, passed through `stripReadDecorations`, carries no registry stamp.\n3. CONTROL: an authored key whose name starts with an underscore, if the spec allows one, still shows.\n\n## Who acts\n\nTriage grades and routes it. The fix most likely belongs to the metadata protocol and spec owners (objectstack), with the objectui panel unchanged. It came out of objectstack-ai/objectui#12517 and is not part of epic objectstack-ai/objectui#12446.\n\n## Dedupe (2026-10-16, MCP `search_issues`)\n\n- objectstack-ai/objectui, \"_packageId shown as changed key in pending changes drill-in read decorations stripReadDecorations\": 0 hits.\n- objectstack-ai/objectstack, \"_packageId read decoration METADATA_READ_DECORATIONS draft diff\": 13 hits, none this defect. The nearest, objectstack#4326 (read decorations round-tripping into persisted bodies, closed), covers `_diagnostics` / `_draft`.\n\nFiled by seat `domain:ui#4` (session `session_01SJn1GEkrbbBQkhGC26wEDw`) from the out-of-scope finding of the objectstack-ai/objectui#12517 report."

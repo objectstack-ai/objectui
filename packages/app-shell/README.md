@@ -574,7 +574,20 @@ family for them: it uses the same metadata-admin list and editors at
   read-only on both assignment objects (objectstack's own pin for that is the
   test `organization_admin is read-only on global RBAC tables to prevent
   privilege escalation`), so that administrator sees the holders with no Add and
-  no Remove.
+  no Remove. When the server refuses the holders read itself, each section
+  says the refusal in the server's words and draws neither its count nor its
+  empty copy: the empty copy follows only a read that succeeded and came back
+  empty (objectui#12706).
+- **Who gets these pages at all.** A caller the Setup app refuses (no
+  `setup.access`; the server leaves Setup out of that caller's app list) gets
+  the console's "You don't have access to this app" screen on these pages and
+  on Setup's root, the screen an ordinary app's routes already draw. The
+  metadata-admin routes and Setup's root wait on the access verdict for the app
+  the URL names (the by-name probe) before anything of the page mounts; every
+  verdict other than a refusal renders the page as before (objectui#12706).
+  Setup's `system/*` pages and the record pages under the Setup segment do not
+  wait on it: a member reaches the approvals inbox there, from the server's
+  `/system/approvals` links, and the records the inbox opens.
 
 The list has an active switch and an active/inactive filter, through
 `catalog-activation.ts`. Both show the activation ledger's state

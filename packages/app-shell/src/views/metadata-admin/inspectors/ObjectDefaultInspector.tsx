@@ -41,16 +41,21 @@ export function ObjectDefaultInspector({
   const str = (key: string) => (typeof draft[key] === 'string' ? (draft[key] as string) : '');
 
   // Auto-derive name from label until the user edits name directly.
-  const nameTouched = React.useRef(false);
+  // objectui#12680 — whether the author has edited the name is read off the
+  // DRAFT, not kept in this component: the name still follows the label while
+  // it is empty or equals the slug of the label as it stands. A ref here was
+  // reset whenever the host remounted this panel (a Properties → Source →
+  // Properties round trip does), and the next label keystroke then replaced
+  // the name the author had typed.
+  const nameFollowsLabel = createMode && (str('name') === '' || str('name') === slugify(str('label')));
   const iconFieldId = React.useId();
 
   const setLabel = (v: string) => {
     const patch: Record<string, unknown> = { label: v || undefined };
-    if (createMode && !nameTouched.current) patch.name = slugify(v);
+    if (nameFollowsLabel) patch.name = slugify(v);
     onPatch(patch);
   };
   const setName = (v: string) => {
-    nameTouched.current = true;
     onPatch({ name: toFieldNameLoose(v) });
   };
 

@@ -1091,10 +1091,14 @@ const RecordDetailsBody: React.FC<RecordDetailsRendererProps> = ({
   return (
     <div className={className} {...designer} {...ariaProps}>
       <RecordPageProvenanceContext.Provider value={readsPageRecord}>
+        {/* objectui#12701 — the record is the context host's (the record
+            page's read, or the binding's row above); this body never reads it
+            again, it waits for `ctx.data`. */}
         <DetailView
           schema={synthesized}
           dataSource={ctx.dataSource}
           inlineEdit={inlineEditDefault}
+          recordFromHost
         />
       </RecordPageProvenanceContext.Provider>
     </div>

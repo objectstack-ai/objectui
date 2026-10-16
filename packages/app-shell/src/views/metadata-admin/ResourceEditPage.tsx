@@ -619,6 +619,16 @@ function MetadataResourceEditPageImpl({
   // Mark a top-level field as user-touched so create-mode derivations
   // (label→name slug, etc.) leave it alone going forward. Wraps the
   // standard onChange so the rest of the form is unaffected.
+  //
+  // objectui#12680 — every surface on which the author edits the draft's
+  // top-level keys writes through this: the generic SchemaForm, the curated
+  // default inspector (a designer's home panel, where the object, report and
+  // dataset Name / Label fields live) and the Source tab's JSON editor. When
+  // only SchemaForm did, a Name typed in the object designer was never marked,
+  // so the label→name rule replaced it on the next Label keystroke, and a name
+  // written in the Source tab was re-derived from the label beside it. The
+  // touched set lives in this page, so it outlives the inspector panel, which
+  // the Properties / Source tabs remount.
   const handleCreateAwareChange = React.useCallback(
     (next: Record<string, unknown> | ((prev: Record<string, unknown>) => Record<string, unknown>)) => {
       if (createMode) {
@@ -3047,7 +3057,7 @@ function MetadataResourceEditPageImpl({
                         {inspectorTab === 'source' ? (
                           <JsonSourceEditor
                             value={draft}
-                            onChange={handleDraftChange}
+                            onChange={handleCreateAwareChange}
                             readOnly={formReadOnly}
                             issues={displayIssues.map((i) => ({
                               path: i.path ?? '',
@@ -3082,7 +3092,7 @@ function MetadataResourceEditPageImpl({
                             name={name}
                             draft={draft}
                             onPatch={(patch) =>
-                              handleDraftChange((d) => ({
+                              handleCreateAwareChange((d) => ({
                                 ...(d as Record<string, unknown>),
                                 ...patch,
                               }))

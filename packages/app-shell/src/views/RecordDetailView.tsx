@@ -1481,14 +1481,17 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // TRIGGER an approval flow (e.g. a budget change), and without this
   // re-fetch the page kept the pre-save snapshot: the user could re-enter
   // inline edit, fill a whole draft, and only learn about the lock when Save
-  // came back RECORD_LOCKED. Skips the initial mount (the hook fetches on
-  // mount itself); the ref keeps the effect off the approvals identity.
-  const skippedInitialApprovalsRefresh = useRef(false);
+  // came back RECORD_LOCKED. Reads only when the nonce MOVED (the hook reads
+  // on mount itself); the ref keeps the effect off the approvals identity.
+  //
+  // objectui#12701 — keyed on the last nonce seen, not on "skip the first
+  // run": StrictMode replays a mount's effects, and the replay was a second
+  // run with nothing invalidated, so the old first-run flag sent a third
+  // approvals read on every record open in the console.
+  const lastApprovalsNonce = useRef(recordInvalidationNonce);
   useEffect(() => {
-    if (!skippedInitialApprovalsRefresh.current) {
-      skippedInitialApprovalsRefresh.current = true;
-      return;
-    }
+    if (lastApprovalsNonce.current === recordInvalidationNonce) return;
+    lastApprovalsNonce.current = recordInvalidationNonce;
     void approvalsRef.current.refresh();
   }, [recordInvalidationNonce]);
 

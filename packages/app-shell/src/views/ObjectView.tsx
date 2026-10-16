@@ -3767,11 +3767,10 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     // page's own entries join it as host callbacks, the way the record page's
     // menu carries Favorite and Share.
     //
-    // Not offered while a `?runAction=` deep link is armed (the renders before
-    // the link is consumed), nor on the environment list, whose toolbar arms
-    // that link itself: switching faces remounts the toolbar, and a remounted
-    // `autoTrigger` action would run a second time. Once the link is consumed
-    // no action carries the flag, and the header may fold.
+    // A `?runAction=` deep link still runs once: the arrival's render consumes
+    // it before the header can fold, so no action in the folded face carries
+    // `autoTrigger`. Not offered on the environment list, whose toolbar is
+    // `EnvironmentListToolbar`, not this bar.
     const toolbarRowActions: UIActionSchema[] = listActions?.some((a: { locations?: readonly string[] }) => a.locations?.includes('list_toolbar'))
         ? toolbarActionsWithDeepLink
         : [];
@@ -3815,7 +3814,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
         maxVisible: 0,
         mobileMaxVisible: 0,
     };
-    const foldedHeaderActions = navRunAction === null && !isEnvironmentList ? (
+    const foldedHeaderActions = !isEnvironmentList ? (
         <>
             {createButton}
             {/* One inline slot at every width: `toolbarBar` keeps none below

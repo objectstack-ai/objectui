@@ -16,12 +16,11 @@
  * from it. They lived inside the widget until the face needed the same answer;
  * a second copy beside the face is the drift this module exists to prevent, so
  * a kind added here reaches both faces at once. Published from the package
- * barrel for that reader.
+ * barrel for that reader. The picker's candidate query is not shared: it stops
+ * at 500 rows by name, and the face reads stored ids by exact id instead.
  *
  * No React here.
  */
-
-import type { DataSource } from '@object-ui/types';
 
 export interface RecipientMapping {
   object: string;
@@ -90,29 +89,6 @@ export const RECIPIENT_REGISTRY_KINDS: Readonly<Record<string, RegistryRecipient
  * offers that object's user-valued fields.
  */
 export const FIELD_RECIPIENT_TYPE = 'field';
-
-/**
- * The candidate records of one record kind: the picker's one query, at most 500
- * rows ordered by name. The picker lists them and the read cell names a stored
- * recipient from them, so the cell names exactly what the open picker offers.
- *
- * Object form, not the 'name asc' clause string: the clause string is
- * supported again (objectstack#3821 fixed ApiDataSource walking it character
- * by character), but the structured form can't regress that way for any data
- * source. A failed read REJECTS; each caller decides what that means.
- */
-export async function loadRecipientCandidates(
-  dataSource: Pick<DataSource, 'find'>,
-  mapping: RecipientMapping,
-): Promise<unknown[]> {
-  const res = (await dataSource.find(mapping.object, { $top: 500, $orderby: { name: 'asc' } })) as unknown as
-    | { data?: unknown[]; records?: unknown[] }
-    | unknown[]
-    | null
-    | undefined;
-  const list = Array.isArray(res) ? res : (res?.data ?? res?.records ?? []);
-  return Array.isArray(list) ? list : [];
-}
 
 /**
  * The display label of one candidate: the first non-empty member of the

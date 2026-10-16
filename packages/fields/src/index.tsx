@@ -5009,18 +5009,16 @@ export * from './widgets/CapabilityMultiSelectField.js';
 export * from './widgets/ObjectRefField.js';
 export * from './widgets/FilterConditionField.js';
 export * from './widgets/RecipientPickerField.js';
-// The reads and the kind table the two reference widgets list from
-// (objectui#12613), published so a host face names a stored value from the very
-// same lists: `@object-ui/app-shell`'s widget reference cells are the reader.
-export { loadObjectCatalog, objectRefOptionLabel, type ObjectHeader, type ObjectCatalogSource } from './widgets/objectCatalog.js';
+// The kind table and the two spellings the reference widgets share with a host
+// face (objectui#12613), published so the face names a stored value as the
+// widget does: `@object-ui/app-shell`'s widget reference cells are the reader.
+// Only what that reader imports; the widgets' own reads stay module-private.
+export { objectRefOptionLabel } from './widgets/objectRefLabel.js';
 export {
   RECIPIENT_RECORD_KINDS,
   RECIPIENT_REGISTRY_KINDS,
   FIELD_RECIPIENT_TYPE,
-  loadRecipientCandidates,
   recipientCandidateLabel,
-  type RecipientMapping,
-  type RegistryRecipientMapping,
 } from './widgets/recipientKinds.js';
 export * from './widgets/RecordPickerDialog.js';
 // Shared picker-column derivation (ADR-0085 highlightFields → displayFields →

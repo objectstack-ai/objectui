@@ -26,7 +26,7 @@ import {
   objectRefOptionLabel,
   type CellRendererProps,
 } from '@object-ui/fields';
-import { EmptyValue } from '@object-ui/components';
+import { EmptyValue, LazyIcon } from '@object-ui/components';
 import { isEmptyValue } from '@object-ui/core';
 import { useObjectLabel } from '@object-ui/i18n';
 import { useObjectRefLabel, useRecipientLabel } from './refLabelDirectory.js';
@@ -42,9 +42,12 @@ function Unresolved({ text }: { text: string }) {
 }
 
 /**
- * `object-ref`: the object's label, translated through the app bundle like
- * every other object label, with the picker's own `Label (name)` spelling as
- * its tooltip so the api name stays one hover away.
+ * `object-ref`: the object's icon and label, the label translated through the
+ * app bundle like every other object label, with the picker's own
+ * `Label (name)` spelling as its tooltip so the api name stays one hover away.
+ * The icon is drawn the way the console's navigation draws an object's —
+ * `LazyIcon`, which falls back to the database glyph for an object that names
+ * no icon (or one Lucide does not have).
  */
 export function ObjectRefCellFace({ value, field }: CellRendererProps) {
   const ref = useObjectRefLabel(value);
@@ -54,8 +57,9 @@ export function ObjectRefCellFace({ value, field }: CellRendererProps) {
   if (ref.state === 'resolved' && typeof value === 'string') {
     const label = objectLabel({ name: value, label: ref.label || value });
     return (
-      <span className="block max-w-full truncate" title={objectRefOptionLabel(value, label)}>
-        {label}
+      <span className="inline-flex max-w-full items-center gap-1.5" title={objectRefOptionLabel(value, label)}>
+        <LazyIcon name={ref.icon} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" data-slot="object-ref-icon" />
+        <span className="truncate">{label}</span>
       </span>
     );
   }

@@ -18,21 +18,20 @@
  * through the text cell under the text key, where no face could reach them.
  *
  * This package owns the rule, the two keys and their DEFAULT face (the stored
- * text, as `RECORD_POINTER_CARD_TYPE`'s default is), plus the reads and the kind
- * table its edit widgets list from, published for the host face. The faces that
- * name the value are `@object-ui/app-shell`'s, and are pinned there
+ * text, as `RECORD_POINTER_CARD_TYPE`'s default is), plus the kind table and the
+ * spellings its edit widgets label with, published for the host face. The
+ * faces that name the value are `@object-ui/app-shell`'s, and are pinned there
  * (`WidgetRefCellFaces-12613.test.tsx`).
  */
 
 import React from 'react';
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { render, cleanup, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import {
   getCellRenderer,
   listCellRendererTypes,
-  loadObjectCatalog,
-  loadRecipientCandidates,
+  objectRefOptionLabel,
   recipientCandidateLabel,
   resolveCellRendererType,
   RECIPIENT_RECORD_KINDS,
@@ -74,24 +73,15 @@ describe('objectui#12613 — the declared widget picks the cell key', () => {
   });
 });
 
-describe('objectui#12613 — the published reads are the edit widgets\' reads', () => {
-  it('`loadObjectCatalog` lists through `getObjects`, then the `sys_metadata` fallback', async () => {
-    const getObjects = vi.fn(async () => [{ name: 'crm_account', label: 'Account' }]);
-    expect(await loadObjectCatalog({ getObjects } as any)).toEqual([{ name: 'crm_account', label: 'Account' }]);
-
-    const find = vi.fn(async () => ({ data: [{ name: 'crm_contact', label: 'Contact' }, { label: 'nameless' }] }));
-    expect(await loadObjectCatalog({ find } as any)).toEqual([{ name: 'crm_contact', label: 'Contact' }]);
-    expect(find).toHaveBeenCalledWith('sys_metadata', { $filter: { type: 'object' }, $top: 1000 });
-  });
-
-  it("`loadRecipientCandidates` is the picker's one candidate query, and labels follow the kind's fields", async () => {
-    const find = vi.fn(async () => ({ data: [{ id: 'team_eu', name: 'EU Sales' }] }));
-    const rows = await loadRecipientCandidates({ find } as any, RECIPIENT_RECORD_KINDS.team);
-    expect(find).toHaveBeenCalledWith('sys_team', { $top: 500, $orderby: { name: 'asc' } });
-    expect(recipientCandidateLabel(RECIPIENT_RECORD_KINDS.team.labelFields, rows[0])).toBe('EU Sales');
+describe("objectui#12613 — what is published is the edit widgets' own table and spellings", () => {
+  it("labels a candidate by its kind's fields, then its id, and spells an object `Label (name)`", () => {
+    expect(recipientCandidateLabel(RECIPIENT_RECORD_KINDS.team.labelFields, { id: 'team_eu', name: 'EU Sales' })).toBe('EU Sales');
     // No label field filled ⇒ the id, as the picker labels such a row.
     expect(recipientCandidateLabel(RECIPIENT_RECORD_KINDS.user.labelFields, { id: 'usr_9' })).toBe('usr_9');
+    expect(RECIPIENT_RECORD_KINDS.team.object).toBe('sys_team');
     expect(RECIPIENT_REGISTRY_KINDS.position.type).toBe('position');
     expect(FIELD_RECIPIENT_TYPE).toBe('field');
+    expect(objectRefOptionLabel('crm_account', 'Account')).toBe('Account (crm_account)');
+    expect(objectRefOptionLabel('crm_account', undefined)).toBe('crm_account');
   });
 });

@@ -10,7 +10,6 @@ import {
   FIELD_RECIPIENT_TYPE,
   RECIPIENT_RECORD_KINDS,
   RECIPIENT_REGISTRY_KINDS,
-  loadRecipientCandidates,
   recipientCandidateLabel,
 } from './recipientKinds.js';
 
@@ -173,9 +172,13 @@ export function RecipientPickerField({
     let cancelled = false;
     (async () => {
       try {
-        // The one candidate query, shared with the read cell (objectui#12613).
-        const list = await loadRecipientCandidates(dataSource, recordMapping);
-        if (!cancelled) setRecords(list);
+        // Object form, not the 'name asc' clause string: the clause string is
+        // supported again (objectstack#3821 fixed ApiDataSource walking it
+        // character by character), but the structured form can't regress that
+        // way for any data source.
+        const res = await dataSource.find(recordMapping.object, { $top: 500, $orderby: { name: 'asc' } });
+        const list: any[] = res?.data ?? res?.records ?? (Array.isArray(res) ? res : []);
+        if (!cancelled) setRecords(Array.isArray(list) ? list : []);
       } catch {
         if (!cancelled) setRecords([]);
       }

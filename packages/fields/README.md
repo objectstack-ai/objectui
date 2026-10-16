@@ -62,10 +62,10 @@ const MyGridCell = ({ field, value, row }: CellRendererProps & { row: Record<str
 This package registers the `object-ref` and `recipient-picker` keys with the stored
 text as their default face. A host that can read the referenced lists registers faces
 that name the value under the same keys (`registerFieldRenderer`); the console's live in
-`@object-ui/app-shell`. They read through what this package publishes for it, the reads
-its edit widgets list from: `loadObjectCatalog`, `objectRefOptionLabel`,
-`RECIPIENT_RECORD_KINDS`, `RECIPIENT_REGISTRY_KINDS`, `FIELD_RECIPIENT_TYPE`,
-`loadRecipientCandidates` and `recipientCandidateLabel`.
+`@object-ui/app-shell`. They name a value as the edit widgets do, through the kind table
+and the spellings this package publishes for it: `RECIPIENT_RECORD_KINDS`,
+`RECIPIENT_REGISTRY_KINDS`, `FIELD_RECIPIENT_TYPE`, `recipientCandidateLabel`,
+`objectRefOptionLabel` and the shared `UnresolvedReferenceMark` drawing.
 
 ## Standard Field Types
 

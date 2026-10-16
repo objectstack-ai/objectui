@@ -1,0 +1,20 @@
+[
+ {
+  "page": "sessions",
+  "width": 1280,
+  "theme": "light",
+  "headerComponents": 1,
+  "visibleHeaders": 1,
+  "posture": "setup",
+  "title": "Sessions",
+  "x": 324,
+  "y": 60,
+  "titleFont": "18px/600",
+  "description": "Active user sessions",
+  "descFont": "13px",
+  "h1Count": 1,
+  "rowNumberCells": 0,
+  "displayTrigger": true,
+  "breadcrumbAllTypes": false
+ }
+]

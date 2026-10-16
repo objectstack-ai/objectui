@@ -98,6 +98,12 @@ export interface SocialSignInButtonsProps {
   /** Divider text shown between social buttons and the email form (defaults to "or continue with email") */
   dividerText?: string;
   /**
+   * Omit the divider under the buttons. For a host that draws no email form
+   * beneath them at that moment, e.g. `LoginForm` under SSO-only mode until
+   * the password form is revealed. Defaults to false: the divider renders.
+   */
+  hideDivider?: boolean;
+  /**
    * Provider button label, for i18n. `{provider}` is replaced with the
    * provider's display name, so a translation places the name where its
    * grammar needs it. Defaults to "Continue with {provider}" in `sign-in`
@@ -120,6 +126,7 @@ export function SocialSignInButtons({
   callbackURL,
   errorCallbackURL,
   dividerText = 'or continue with email',
+  hideDivider = false,
   buttonText,
   onProvidersResolved,
 }: SocialSignInButtonsProps) {
@@ -203,14 +210,16 @@ export function SocialSignInButtons({
           {labelTemplate.replace('{provider}', () => PROVIDER_LABEL[p.id] ?? p.name)}
         </button>
       ))}
-      <div className="relative my-1">
-        <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t" />
+      {hideDivider ? null : (
+        <div className="relative my-1">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-muted-foreground">{dividerText}</span>
+          </div>
         </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-background px-2 text-muted-foreground">{dividerText}</span>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

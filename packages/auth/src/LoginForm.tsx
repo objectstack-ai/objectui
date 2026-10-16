@@ -39,7 +39,8 @@ export interface LoginFormLabels {
   /**
    * Divider label between the social provider buttons and the email/password
    * form (defaults to "or continue with email"). Rendered only when the server
-   * reports at least one social provider.
+   * reports at least one social provider, and only while that form is shown:
+   * under SSO-only mode it appears once "Use a password instead" reveals it.
    */
   orText?: string;
   /**
@@ -97,7 +98,11 @@ export interface LoginFormProps {
   forgotPasswordUrl?: string;
   /** Custom title */
   title?: string;
-  /** Custom description */
+  /**
+   * Custom description. Not shown while the server's auth config is still
+   * resolving, since it may describe a password form the server does not
+   * offer; under SSO-only mode `labels.ssoOnlyDescription` replaces it.
+   */
   description?: string;
   /** Custom icon shown above the title (defaults to a small lock disc) */
   icon?: React.ReactNode;
@@ -438,7 +443,12 @@ export function LoginForm({
         <AuthFormHeader
           icon={hideIcon ? undefined : (icon ?? <DefaultLockIcon />)}
           title={title}
-          description={ssoOnlyView ? l.ssoOnlyDescription : description}
+          // No description while the config resolves: `ssoEnforced` is not
+          // known yet, and the password form's copy would greet an SSO-only
+          // deployment (objectui#12682).
+          description={
+            configPending ? undefined : ssoOnlyView ? l.ssoOnlyDescription : description
+          }
         />
       )}
 
@@ -452,10 +462,13 @@ export function LoginForm({
         ) : (
         <>
         {/* Unset labels stay `undefined` here, so the component's own English
-            defaults apply — one copy of each default, not two. */}
+            defaults apply — one copy of each default, not two. The divider
+            introduces the email form, so it is drawn only while that form is
+            (objectui#12682). */}
         <SocialSignInButtons
           mode="sign-in"
           dividerText={labels.orText}
+          hideDivider={!passwordFormVisible}
           buttonText={labels.socialButton}
           onProvidersResolved={(hasProviders) => setHasSocialProviders(hasProviders)}
         />

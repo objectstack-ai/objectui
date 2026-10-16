@@ -144,6 +144,14 @@ is a template whose `{provider}` is replaced with the provider's display name
 on `RegisterForm`), and `orText` is the divider under the buttons (default
 "or continue with email").
 
+The divider introduces the email form, so `LoginForm` draws it only while that
+form is shown: under SSO-only mode (`features.ssoEnforced`) the buttons stand
+alone until "Use a password instead" reveals the form. A host rendering
+`SocialSignInButtons` itself omits the divider with `hideDivider` (default
+`false`). While the auth config is still loading, `LoginForm`'s header shows
+its title and no description, because the description may describe a password
+form the server does not offer.
+
 When the server requires email verification, a registration ends in the user's
 inbox, and the verification link is the only way back. `verificationCallbackURL`
 says where that link lands, e.g. the invitation the user signed up from. It is

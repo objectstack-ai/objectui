@@ -38,6 +38,10 @@ const PKG: InstalledPackageRow = {
   manifest: { id: PKG_ID, name: PKG_NAME, version: '1.0.0', type: 'app' },
   enabled: true,
   status: 'installed',
+  // Every served row carries the server's writability verdict
+  // (objectstack#14375); the Packages list's Source column refuses a row
+  // without it (objectui#12675).
+  writable: true,
 };
 const DRAFTS = [
   { type: 'object', name: 'acme_lead' },

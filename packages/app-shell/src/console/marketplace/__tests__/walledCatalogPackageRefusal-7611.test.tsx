@@ -32,8 +32,10 @@
  * - upgrade: the package page's Reinstall over an installed OLDER version. On
  *   an install-local runtime that is the console's upgrade: it names no
  *   version, so the door installs `latest` over the installed one;
- * - uninstall: the package page's local menu, and Installed Apps' row button
- *   (`uninstallLocal`);
+ * - uninstall: the package page's local menu (`uninstallLocal`); the same
+ *   refusal on a Setup → Packages marketplace row, which carries the button
+ *   the Installed Apps list had, is pinned in
+ *   `MarketplaceRowActions.installedAppsPins.test.tsx` (objectui#12675);
  * - install from the catalog page's "Your organization" section (`installLocal`
  *   with `versionId: 'latest'`).
  *
@@ -79,7 +81,6 @@ vi.mock('../../../components/SuggestedBindingsPanel', () => ({ SuggestedBindings
 import { initRuntimeConfig, resetRuntimeConfigForTesting } from '../../../runtime-config';
 import { MarketplacePackagePage } from '../MarketplacePackagePage';
 import { MarketplacePage } from '../MarketplacePage';
-import { InstalledList } from '../InstalledListWidget';
 
 type Posture = 'group' | 'isolated';
 type Verb = 'Installing' | 'Uninstalling';
@@ -265,17 +266,6 @@ describe.each<Posture>(['group', 'isolated'])(
       await expectReasonShown('Uninstalling', posture);
       expect(writes).toEqual([{ method: 'DELETE', path: UNINSTALL_PATH, body: undefined }]);
       expect(screen.queryByText('«marketplace.uninstall.successInDetail»')).not.toBeInTheDocument();
-    });
-
-    it('uninstall: Installed Apps\' row button shows the door\'s `Uninstalling` refusal, and the row stays', async () => {
-      await boot({ installed: [INSTALLED_OLDER], refusal: () => refused('Uninstalling', posture) });
-      render(<InstalledList />);
-      fireEvent.click(await screen.findByRole('button', { name: '«marketplace.action.uninstall»' }));
-
-      await expectReasonShown('Uninstalling', posture);
-      expect(writes).toEqual([{ method: 'DELETE', path: UNINSTALL_PATH, body: undefined }]);
-      expect(screen.queryByText('«marketplace.uninstall.successInList»')).not.toBeInTheDocument();
-      expect(screen.getByRole('button', { name: '«marketplace.action.uninstall»' })).toBeEnabled();
     });
 
     it('install: the catalog page\'s organization install shows the door\'s `Installing` refusal', async () => {

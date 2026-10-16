@@ -43,6 +43,10 @@ const PKG: InstalledPackageRow = {
   manifest: { id: PKG_ID, name: PKG_NAME, version: '1.0.0', type: 'app' },
   enabled: true,
   status: 'installed',
+  // Every served row carries the server's writability verdict
+  // (objectstack#14375); the Packages list's Source column refuses a row
+  // without it (objectui#12675).
+  writable: true,
 };
 
 /** `walledCatalogWriteVerdict`'s refusal sentence (`@objectstack/metadata-core` at `4806b18aea`), for a position. */

@@ -3175,9 +3175,11 @@ export function registerFieldRenderer(type: string, renderer: React.FC<CellRende
  * {@link getCellRenderer}, whose dispatch stays on the field type alone.
  *
  * ⭐ This is the one place the rule lives. A call site that holds the row asks
- * `resolveRecordPointer(field, row)`, and draws a pair it gets back with the
- * renderer registered under {@link RECORD_POINTER_CARD_TYPE}, passing the pair
- * as that renderer's `value`. This package registers a default under that key
+ * `resolveRecordPointer(field, row, optionsOf)`, and draws a pair it gets back
+ * with the renderer registered under {@link RECORD_POINTER_CARD_TYPE}, passing
+ * the pair as that renderer's `value`. The same call answers whether the
+ * platform asserted the target deleted on this row (`referenceDeletedWhen`,
+ * objectui#12489), so no face and no call site evaluates that predicate. This package registers a default under that key
  * which draws the record id as text, exactly as the field drew before its pair
  * was read, so a host with nothing better changes nothing. A host that can read
  * records registers a richer face under the same key with
@@ -3197,7 +3199,28 @@ export interface RecordPointer {
   objectName: string;
   /** The target's record id: the pointer field's own value. */
   recordId: string;
+  /**
+   * Present only when the platform asserted, on this row, that the target was
+   * deleted (the field's `referenceDeletedWhen` predicate holds, objectui#12489):
+   * the label of the declared option that says so, as the call site's option
+   * labels spell it. A face that receives it draws the tombstone in this text,
+   * reads nothing and links nothing. Absent on every other row, and a face
+   * then draws the pair as before.
+   */
+  deletedLabel?: string;
 }
+
+/**
+ * `@objectstack/spec`'s `FieldSchema.referenceDeletedWhen`: the sibling
+ * `select` field, and the one option of it, that the platform writes on a row
+ * whose pointed-at record it deleted. The spec refuses it at parse unless the
+ * field declares `referenceVia`, `field` is a single-value `select` of the same
+ * object declaring inline `options`, and `value` is one of those options.
+ */
+type ReferenceDeletedWhen = { readonly field: string; readonly value: string };
+
+/** The call site's option list for one field: what `select` cells draw with. */
+type OptionsOf = (fieldName: string) => ReadonlyArray<{ readonly value?: unknown; readonly label?: unknown }> | null | undefined;
 
 /**
  * Resolve the record a `referenceVia` pointer field points at on one row, or
@@ -3210,10 +3233,35 @@ export interface RecordPointer {
  * - Both halves must be non-blank strings. A half-addressed row is not a
  *   pointer this can draw, and the caller falls back to the field's ordinary
  *   face (the stored text).
+ *
+ * ## A deletion the platform asserts: `referenceDeletedWhen` (objectui#12489)
+ *
+ * When the field also declares `referenceDeletedWhen: { field, value }` and
+ * this row's sibling `field` holds exactly `value`, the pair comes back with
+ * `deletedLabel`: the label of that declared option, looked up in
+ * `optionsOf(field)`. The call site supplies `optionsOf` because it holds the
+ * object definition and the option labels the rest of its grid draws with
+ * (localized ones included), so the tombstone and the sibling `select`'s own
+ * cell say the same thing.
+ *
+ * - Only the declared assertion marks a target deleted. A target read that
+ *   fails or answers no record says nothing about why: the platform answers a
+ *   deleted record and one outside the reader's row set alike, on purpose.
+ * - No `optionsOf`, or no option with that value among the sibling's options,
+ *   means no label to draw, and the pair comes back without `deletedLabel`.
+ *   The spec refuses a predicate whose value is not a declared option, so the
+ *   second case is not reachable from spec-valid metadata. ⛔ Never the raw
+ *   option value as the text: the tombstone is the option's own label.
  */
 export function resolveRecordPointer(
-  field: { readonly name: string; readonly type?: string | null; readonly referenceVia?: string | null } | null | undefined,
+  field: {
+    readonly name: string;
+    readonly type?: string | null;
+    readonly referenceVia?: string | null;
+    readonly referenceDeletedWhen?: ReferenceDeletedWhen | null;
+  } | null | undefined,
   row: Readonly<Record<string, unknown>> | null | undefined,
+  optionsOf?: OptionsOf,
 ): RecordPointer | null {
   if (!field || !row) return null;
   if (field.type !== 'text') return null;
@@ -3223,7 +3271,21 @@ export function resolveRecordPointer(
   const objectName = row[via];
   if (typeof recordId !== 'string' || recordId.trim() === '') return null;
   if (typeof objectName !== 'string' || objectName.trim() === '') return null;
-  return { objectName, recordId };
+  const deletedLabel = resolveDeletedLabel(field.referenceDeletedWhen, row, optionsOf);
+  return deletedLabel === null ? { objectName, recordId } : { objectName, recordId, deletedLabel };
+}
+
+/** The declared option's label when the row holds the deletion predicate, else `null`. */
+function resolveDeletedLabel(
+  when: ReferenceDeletedWhen | null | undefined,
+  row: Readonly<Record<string, unknown>>,
+  optionsOf: OptionsOf | undefined,
+): string | null {
+  if (!when || typeof when.field !== 'string' || typeof when.value !== 'string') return null;
+  if (row[when.field] !== when.value) return null;
+  const option = optionsOf?.(when.field)?.find((candidate) => candidate?.value === when.value);
+  const label = option?.label;
+  return typeof label === 'string' && label.trim() !== '' ? label : null;
 }
 
 function isRecordPointer(value: unknown): value is RecordPointer {
@@ -3234,11 +3296,14 @@ function isRecordPointer(value: unknown): value is RecordPointer {
 
 /**
  * The default face for {@link RECORD_POINTER_CARD_TYPE}: the record id as
- * text, which is what the pointer field drew before its pair was read. Any
- * other value goes to the text cell unchanged.
+ * text, which is what the pointer field drew before its pair was read, or, on
+ * a row where the platform asserted the target deleted, the declared option's
+ * label (`deletedLabel`, objectui#12489) in place of the id. Any other value
+ * goes to the text cell unchanged.
  */
 function RecordPointerTextCellRenderer({ value, field }: CellRendererProps): React.ReactElement {
-  return <TextCellRenderer value={isRecordPointer(value) ? value.recordId : value} field={field} />;
+  const text = isRecordPointer(value) ? (value.deletedLabel ?? value.recordId) : value;
+  return <TextCellRenderer value={text} field={field} />;
 }
 
 /**

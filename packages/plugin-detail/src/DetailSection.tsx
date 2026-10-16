@@ -476,9 +476,25 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
       // records registers its own under the same key. `referenceVia` is read
       // off the OBJECT field (the spec declares it there), and `type` off the
       // enriched field, so a view that re-types the field keeps its own face.
+      // `referenceDeletedWhen` rides beside it (objectui#12489): the rule
+      // decides whether this row asserts the target deleted, and takes the
+      // option's label from the sibling's options translated exactly as this
+      // grid translates a `select` field's options above, so the tombstone
+      // reads as that option reads in its own cell.
       const pointer = resolveRecordPointer(
-        { name: field.name, type: enrichedField.type, referenceVia: objectDefField?.referenceVia },
+        {
+          name: field.name,
+          type: enrichedField.type,
+          referenceVia: objectDefField?.referenceVia,
+          referenceDeletedWhen: objectDefField?.referenceDeletedWhen,
+        },
         data,
+        (siblingName) => {
+          const options = objectSchema?.fields?.[siblingName]?.options;
+          return objectName && Array.isArray(options) && options.length > 0
+            ? translateOptions(objectName, siblingName, options)
+            : options;
+        },
       );
       if (pointer) {
         const PointerRenderer = getCellRenderer(RECORD_POINTER_CARD_TYPE);

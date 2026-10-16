@@ -52,11 +52,13 @@ export function useHorizontalOverflow(
 
 /**
  * Scrollbar colours for a box that scrolls: transparent until the pointer is
- * over the box or focus is inside it, then the theme's border colour. The bar
- * keeps its place, so nothing shifts when it appears.
+ * over the box or focus is inside it, then the theme's muted foreground. The bar
+ * keeps its place, so nothing shifts when it appears. Marked important
+ * because a host may theme every scrollbar with an unlayered `*` rule (the
+ * console does), which outranks any layered utility.
  */
 export const HOVER_SCROLLBAR_CLASSES =
-  '[scrollbar-width:thin] [scrollbar-color:transparent_transparent] hover:[scrollbar-color:var(--color-border)_transparent] focus-within:[scrollbar-color:var(--color-border)_transparent]';
+  '[scrollbar-width:thin]! [scrollbar-color:transparent_transparent]! hover:[scrollbar-color:var(--color-muted-foreground)_transparent]! focus-within:[scrollbar-color:var(--color-muted-foreground)_transparent]!';
 
 /**
  * Classes for a RIGHT-PINNED cell inside a {@link HorizontalOverflowBox} with

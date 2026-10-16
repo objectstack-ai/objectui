@@ -56,9 +56,10 @@ import { useFieldTranslation } from '../useFieldTranslation.js';
  *   required-fields dialog) draws THIS picker since objectui#12664, loaded
  *   lazily so it stays in its own chunk; the grid's cell seam blurs the
  *   control before Enter or a click outside commits, and that blur is where
- *   the typed text is read. plugin-detail's `InlineFieldInput` routes `date`
- *   and `datetime` to `DateField` itself, ahead of `FieldEditWidget`, and keeps
- *   the native input. The list filter rows are objectui#12743.
+ *   the typed text is read. plugin-detail's `InlineFieldInput` (the record
+ *   page's details and highlights) delegates `date` and `datetime` to
+ *   `FieldEditWidget` too since objectui#12759. The list filter rows are
+ *   objectui#12743.
  * - A form whose `field:date` widget is not registered (no
  *   `@object-ui/fields` loaded) falls back to the form renderer's own
  *   `<input type={inputType}>`, with the `inputType` `ObjectForm` maps.

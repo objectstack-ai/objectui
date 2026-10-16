@@ -100,16 +100,29 @@ async function saveInlinePick(day: string): Promise<unknown> {
     </InlineEditProvider>,
   );
   fireEvent.click(screen.getByText('enter-edit'));
-  const input = container.querySelector('input[type="date"]') as HTMLInputElement | null;
-  expect(input, 'the strip opened no date editor').not.toBeNull();
-  expect(input!.value).toBe(STORED);
-  fireEvent.change(input!, { target: { value: day } });
+  // The strip's editor is the platform date picker (objectui#12759), the
+  // form's own face: a text box that commits on blur, and an ISO day reads in
+  // every locale. It loads lazily.
+  const input = await waitFor(() => {
+    const el = container.querySelector('[data-slot="date-picker"] input');
+    if (!el) throw new Error('the strip opened no date editor');
+    return el as HTMLInputElement;
+  });
+  expect(input.value).toBe(formatShown(STORED));
+  fireEvent.change(input, { target: { value: day } });
+  fireEvent.blur(input);
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
   const [objectName, recordId, patch] = update.mock.calls[0];
   expect([objectName, recordId]).toEqual(['crm_task', 't1']);
   cleanup();
   return patch;
+}
+
+/** How the picker shows a stored `YYYY-MM-DD` in the default `en` locale. */
+function formatShown(day: string): string {
+  const [y, m, d] = day.split('-');
+  return `${m}/${d}/${y}`;
 }
 
 /** Pick `day` in the Edit form's own `date` widget and return what it emits. */

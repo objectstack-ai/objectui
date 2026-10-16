@@ -13,7 +13,6 @@ import {
   LookupField,
   UserField,
   NumberField,
-  DateField,
   CurrencyField,
   PercentField,
   ImageField,
@@ -110,8 +109,8 @@ export const INLINE_PLAIN_TEXT_FIELD_TYPES = new Set<string>([
 export const INLINE_ROUTED_FIELD_TYPES = new Set<string>([
   // Picklists (with options), booleans, numerics
   'select', 'multiselect', 'boolean', 'number', 'currency', 'percent',
-  // Native date input
-  'date', 'datetime',
+  // `date` / `datetime` left this set for the delegation tail in objectui#12759:
+  // they edit with the platform date picker `FieldEditWidget` draws.
   // Structured composites (#4216 / #4222)
   'address', 'location', 'geolocation',
   // Relational pickers.
@@ -504,7 +503,6 @@ export const InlineFieldInput: React.FC<InlineFieldInputProps> = ({
   if (editType === 'geolocation') {
     return <GeolocationField field={field as any} value={value} onChange={(v: any) => onChange(v)} autoFocus={autoFocus} error={error} />;
   }
-  const isDate = editType === 'date' || editType === 'datetime';
   // Everything the switch did not route, and that is not class D, edits with
   // the SAME widget the form uses (objectui#4220). One fallback branch, not a
   // per-type copy of the routing above: the tail this closes is the part of the
@@ -523,17 +521,32 @@ export const InlineFieldInput: React.FC<InlineFieldInputProps> = ({
   // The design calls INSIDE class A — what an options-less `checkboxes` offers,
   // how a chip row renders — are `FieldEditWidget`'s to make, and it already
   // makes them for the grid's inline cell editor; asking it here is the point of
-  // delegating rather than routing type by type. `date`/`datetime` are excluded
-  // because they ARE routed (to `DateField` below, objectui#10625) and a
-  // working path does not get churned. Types the hosts gate out entirely (containers,
+  // delegating rather than routing type by type. Types the hosts gate out entirely (containers,
   // credentials, computed — #4228 / #3355) never arrive here at all, and none of
   // them has a widget anyway, so this branch cannot re-open those.
+  //
+  // `date` and `datetime` take this branch too (objectui#12759), so the record
+  // page draws the platform date picker the grid cell, the forms, the dialogs
+  // and the kanban dialog draw (objectui#12622 / #12642 / #12664), with its
+  // placeholder and digit order in the console locale rather than the
+  // machine's. A `datetime` edits its date AND time there: the picker reads the
+  // instant as the local wall clock, a day picked in its calendar keeps that
+  // time, and it writes back an ISO instant. The native `<input type="date">`
+  // this replaces could hold no time, so it re-emitted local midnight and an
+  // inline edit of the day silently dropped the stored time. A `date` field
+  // still writes the plain `YYYY-MM-DD` (objectui#12206): the picker writes the
+  // day unchanged. The picker answers a stored day that does not exist
+  // (`2026-02-30`) as `DateField` did (objectui#10625 / #10567): an empty,
+  // `aria-invalid` box described by a notice naming the stored string, and
+  // nothing written until the user enters a day. It reads typed text on blur
+  // and on Enter; the save bar's button takes focus first, so that blur lands
+  // before the save reads the draft.
   //
   // `autoFocus` follows the numeric/composite branches' convention: it is
   // forwarded, and `FieldEditWidget` hands it to the widget, whose own
   // `toDomProps` whitelist lands it on the real focusable control. No
   // `dataSource` is needed — every record-querying type is routed above.
-  if (!isDate && !usesInlinePlainTextInput(field) && isKnownFieldType(editType) && hasFieldEditWidget(editType)) {
+  if (!usesInlinePlainTextInput(field) && isKnownFieldType(editType) && hasFieldEditWidget(editType)) {
     return (
       <FieldEditWidget
         field={field as any}
@@ -542,42 +555,6 @@ export const InlineFieldInput: React.FC<InlineFieldInputProps> = ({
         autoFocus={autoFocus}
         error={error}
         dependentValues={dependentValues}
-      />
-    );
-  }
-  if (isDate) {
-    // The routed date editor is `@object-ui/fields`' own `DateField`, for
-    // `date` AND `datetime` fields alike (objectui#10625). That is the widget
-    // whose answer to a stored day that does not exist (`2026-02-30`, or
-    // `2026-02-30T10:00:00Z` on a `datetime` field) is objectui#10026
-    // direction A: an `<input type="date">` can only paint such a day blank
-    // (the browser sanitises it to `""`), so the control is handed `""`,
-    // marked `aria-invalid`, and described by a notice NAMING the stored
-    // string (`isImpossibleStoredDay` + `fields.date.impossibleDay`,
-    // objectui#10567). The hand-rolled input this replaces sliced the stored
-    // value into the control and nothing else, which is the silent blank.
-    //
-    // The read side is `toDateInputValue`: a leading `YYYY-MM-DD` passes
-    // through verbatim (an ISO timestamp is sliced to its date, as before),
-    // anything else goes through local calendar getters. The write side is
-    // this editor's own, and only a user edit emits: the widget hands back the
-    // control's `YYYY-MM-DD`.
-    //
-    // A `date` field writes that day UNCHANGED — the shape the Edit form
-    // writes (`DateField` is its widget too) and the one `@object-ui/core`'s
-    // native-date adapters keep for `date` (objectui#12206). It used to be
-    // re-emitted as local midnight in ISO; the server keeps a date-only
-    // field's UTC calendar day, so east of UTC that stored the day before.
-    // A `datetime` field still re-emits local midnight as an ISO instant,
-    // because its value IS an instant; objectui#12206 left that arm unchanged.
-    const isDateTime = editType === 'datetime';
-    return (
-      <DateField
-        field={field as any}
-        value={value}
-        onChange={(v: any) => onChange(isDateTime && v ? new Date(v + 'T00:00:00').toISOString() : v)}
-        autoFocus={autoFocus}
-        error={error}
       />
     );
   }

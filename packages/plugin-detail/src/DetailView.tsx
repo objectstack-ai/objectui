@@ -44,7 +44,7 @@ import { ActivityTimeline } from './ActivityTimeline';
 import { HistoryTimeline } from './HistoryTimeline';
 import { RecordMetaFooter } from './RecordMetaFooter';
 import { RecordPageProvenanceContext } from './recordPageProvenance';
-import { SchemaRenderer, SchemaErrorBoundary, toRenderableSchema, useSafeFieldLabel, useDataInvalidation, useInlineEdit, useRowPredicate, resolveApprovalLock } from '@object-ui/react';
+import { SchemaRenderer, SchemaErrorBoundary, toRenderableSchema, useSafeFieldLabel, useDataInvalidation, useInlineEdit, useRowPredicate, resolveApprovalLock, usePrintPage } from '@object-ui/react';
 import { buildExpandFields, declaredNameField, getRecordDisplayName, formatTitleTemplate, recordDisplayValueAt, resolveAffordance, toDisplayDate, userActionPredicates, withoutDeniedFields } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
@@ -318,6 +318,11 @@ export const DetailView: React.FC<DetailViewProps> = ({
   // objectui#12307: `true` only under a `record:details` that reads the page's
   // record — the page host draws the one footer then. See the context's doc.
   const pageDrawsProvenance = React.useContext(RecordPageProvenanceContext);
+  // objectui#12751 — `true` on a page that declares `print`. Read once, above
+  // every early return, the way `DetailSection` reads it (objectui#12717): the
+  // approval band below is live, per-viewer workflow state, not document
+  // content, so it does not print.
+  const isPrintPage = usePrintPage() !== null;
   const isInlineEditing = inline?.editing ?? false;
   const editedValues = inline?.draft ?? EMPTY_DRAFT;
   const autoFocusField = inline?.autoFocusField ?? null;
@@ -1632,8 +1637,17 @@ export const DetailView: React.FC<DetailViewProps> = ({
           (composed under a Lightning-style page:header), surface the running
           approval + recall affordance inline. The inline-edit Save / Cancel
           bar itself now lives in the record-level <InlineEditSaveBar>
-          (objectui#2407 P1). */}
-      {inlineEdit && schema.showHeader === false && (() => {
+          (objectui#2407 P1).
+
+          objectui#12751 — not on a print page. The recall button is a control,
+          and the status badge and the tally are the approval's live state:
+          they differ by viewer (recall is the submitter's) and change with
+          each decision, which is why the spec refuses `record:approvals` and
+          `record:approval_decision` inside a print page. A printed record
+          that should say where its approval stands prints the record's own
+          status field through `record:details`, the way `record:path` leaves
+          the current stage to it. */}
+      {inlineEdit && schema.showHeader === false && !isPrintPage && (() => {
         // Two independent facts, not one (objectui#2902):
         //
         //   isPending — an approval is running on this record.

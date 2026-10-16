@@ -257,13 +257,16 @@ describe('inline-edit type coverage — every type has exactly one decision (#42
       // the shared exclusion. `html` / `richtext` stay excluded, unchanged.
       // `textarea` sat in `benign` until objectui#11562 and is routed to the
       // same `TextAreaField`; the grid cell already edited it with that widget.
+      // `date` / `datetime` sat in `routed` (the native date input) until
+      // objectui#12759: they delegate to the platform date picker the grid
+      // cell draws, so a `datetime` edits its time too.
       routed: [
-        'address', 'audio', 'avatar', 'boolean', 'currency', 'date', 'datetime',
+        'address', 'audio', 'avatar', 'boolean', 'currency',
         'file', 'geolocation', 'image', 'location', 'lookup', 'markdown',
         'master_detail', 'multiselect', 'number', 'percent', 'select',
         'signature', 'textarea', 'tree', 'user', 'video',
       ],
-      delegated: ['checkboxes', 'code', 'color', 'json', 'progress', 'qrcode', 'radio', 'rating', 'slider', 'tags', 'time', 'toggle'],
+      delegated: ['checkboxes', 'code', 'color', 'date', 'datetime', 'json', 'progress', 'qrcode', 'radio', 'rating', 'slider', 'tags', 'time', 'toggle'],
       benign: ['email', 'phone', 'text', 'url'],
     });
   });

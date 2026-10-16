@@ -39,7 +39,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { InlineFieldInput, INLINE_PLAIN_TEXT_INPUT_TESTID } from '../InlineFieldInput';
 import { isInlineExcludedDetailFieldType } from '../fieldEnrichment';
 
@@ -426,18 +426,29 @@ describe('controls — the routed families are untouched by the delegation', () 
     expect(container.querySelector('input[type="number"]')).not.toBeNull();
   });
 
-  for (const type of ['date', 'datetime']) {
-    it(`\`${type}\` keeps the routed native date input`, () => {
+  // objectui#12759: `date` / `datetime` left the routed native date input and
+  // delegate here, to the platform date picker the grid cell draws. A
+  // `datetime` shows its time, which the date-only control could not hold.
+  for (const [type, shown] of [
+    ['date', /^08\/11\/2026$/],
+    ['datetime', /^08\/11\/2026, 0?2:30\s?PM$/],
+  ] as const) {
+    it(`\`${type}\` delegates to the platform date picker, not \`input[type=date]\``, async () => {
       const { container } = render(
         <InlineFieldInput
           field={{ name: 'due', type }}
-          value="2026-08-11T00:00:00.000Z"
+          value="2026-08-11T14:30:00.000Z"
           onChange={vi.fn()}
         />,
       );
-      const input = container.querySelector('input[type="date"]') as HTMLInputElement;
-      expect(input).not.toBeNull();
-      expect(input.value).toBe('2026-08-11');
+      const input = await waitFor(() => {
+        const el = container.querySelector('[data-slot="date-picker"] input');
+        if (!el) throw new Error('date picker not rendered');
+        return el as HTMLInputElement;
+      });
+      expect(container.querySelector('input[type="date"]')).toBeNull();
+      expect(plainInput()).toBeNull();
+      expect(input.value).toMatch(shown);
     });
   }
 

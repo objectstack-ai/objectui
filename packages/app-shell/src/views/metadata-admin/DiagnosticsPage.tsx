@@ -52,6 +52,15 @@ const HEADER_TONE_BADGE_CLASS: Record<DiagnosticsHeaderTone, string> = {
   clean: 'text-[11px] text-muted-foreground',
 };
 
+// The count badge beside each type heading takes its group's tone by the same
+// rule, over that group's entries (objectui#12768): on "Errors + Warnings" a
+// warnings-only group is not painted as an error. Same colours as the header.
+const GROUP_TONE_BADGE_CLASS: Record<DiagnosticsHeaderTone, string> = {
+  error: 'text-[10px] border-destructive/40 text-destructive bg-destructive/[0.06]',
+  warning: 'text-[10px] border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-500/[0.06]',
+  clean: 'text-[10px] text-muted-foreground',
+};
+
 export function MetadataDiagnosticsPage() {
   const client = useMetadataClient();
   const locale = useMetadataLocale();
@@ -69,11 +78,14 @@ export function MetadataDiagnosticsPage() {
     return m;
   }, [typesEntries, locale]);
 
-  // Group entries by type, ordered by descending count.
+  // Group entries by type, ordered by descending count; each group carries its
+  // own tone for the count badge beside its heading.
   const groups = React.useMemo(() => {
     const map: Record<string, MetadataDiagnosticsEntry[]> = {};
     for (const e of summary.entries) (map[e.type] ??= []).push(e);
-    return Object.entries(map).sort(([, a], [, b]) => b.length - a.length);
+    return Object.entries(map)
+      .sort(([, a], [, b]) => b.length - a.length)
+      .map(([type, rows]) => [type, rows, diagnosticsHeaderTone(rows)] as const);
   }, [summary]);
 
   const tone = diagnosticsHeaderTone(summary.entries);
@@ -179,7 +191,7 @@ export function MetadataDiagnosticsPage() {
             </EmptyDescription>
           </Empty>
         )}
-        {groups.map(([type, rows]) => (
+        {groups.map(([type, rows, groupTone]) => (
           <section key={type} className="space-y-2">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
               <Link
@@ -193,7 +205,8 @@ export function MetadataDiagnosticsPage() {
               </span>
               <Badge
                 variant="outline"
-                className="text-[10px] border-destructive/40 text-destructive bg-destructive/[0.06]"
+                data-tone={groupTone}
+                className={GROUP_TONE_BADGE_CLASS[groupTone]}
               >
                 {rows.length}
               </Badge>

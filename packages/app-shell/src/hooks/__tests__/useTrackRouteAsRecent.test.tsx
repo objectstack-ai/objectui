@@ -104,6 +104,23 @@ describe('useTrackRouteAsRecent', () => {
     });
   });
 
+  // objectui#12604 — a record page is a visit to the record, which the record
+  // page records itself; the route under the object does not ALSO record the
+  // object's list, a second target for one visit (measured on HotCRM: every
+  // record opened pushed "Accounts" into Home's list beside it).
+  it('a record, create or edit route under an object does not record the object’s list', () => {
+    for (const path of ['/apps/sales/contact/record/c1', '/apps/sales/contact/new', '/apps/sales/contact/record/c1/edit']) {
+      const { result } = renderHook(() => useHarness(path, 'sales', [{ name: 'contact' }]), { wrapper });
+      expect(result.current).toEqual([]);
+      localStorage.clear();
+    }
+  });
+
+  it('control: the object’s data surface is its list, recorded as the object', () => {
+    const { result } = renderHook(() => useHarness('/apps/sales/contact/data', 'sales', [{ name: 'contact' }]), { wrapper });
+    expect(result.current.map(r => r.id)).toEqual(['object:contact']);
+  });
+
   it('a view route of an object the app does not have records nothing', () => {
     const { result } = renderHook(
       () => useHarness('/apps/sales/unknown_obj/view/all', 'sales', [{ name: 'contact' }]),

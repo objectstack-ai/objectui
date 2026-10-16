@@ -156,12 +156,19 @@ export function useTrackRouteAsRecent({
         });
         return;
       }
-      addRecentItem({
-        id: `object:${obj.name}`,
-        type: 'object',
-        name: obj.name,
-        href: `${basePath}/${obj.name}`,
-      });
+      // The object's own list — its bare route, or its parameterized data
+      // surface. A record page, a create form or any other page under the
+      // object is not a visit to its list: the record page records the record
+      // (`RecordDetailView`), and an object entry beside it would be a second
+      // target for one visit (objectui#12604).
+      if (seg3 === undefined || seg3 === 'data') {
+        addRecentItem({
+          id: `object:${obj.name}`,
+          type: 'object',
+          name: obj.name,
+          href: `${basePath}/${obj.name}`,
+        });
+      }
       return;
     }
 

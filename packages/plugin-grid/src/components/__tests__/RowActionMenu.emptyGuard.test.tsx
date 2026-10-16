@@ -345,7 +345,7 @@ describe('ObjectGrid actions column stays aligned when a row loses its menu (#35
     });
   }
 
-  it('every row suppressed → no triggers, header intact, empty cells (the reported shape)', async () => {
+  it('every row suppressed → no triggers, and no Actions column at all (objectui#12708)', async () => {
     const { container } = renderGrid([FROZEN, { ...DRAFT, frozen: true }], {
       edit: { enabled: true, visibleWhen: NOT_FROZEN },
       delete: { enabled: true, visibleWhen: NOT_FROZEN },
@@ -361,12 +361,16 @@ describe('ObjectGrid actions column stays aligned when a row loses its menu (#35
     // because nothing ever rendered.
     await waitFor(() => expect(screen.queryAllByTestId('row-action-trigger')).toHaveLength(0));
     expect(screen.queryByRole('menu')).toBeNull();
-    // The column itself is table-level and unaffected: header plus one empty
-    // cell per row, exactly as on a grid that wires no row handlers at all.
-    expect(screen.getByText('Actions')).toBeInTheDocument();
-    const cells = actionCells(container);
-    expect(cells).toHaveLength(2);
-    for (const cell of cells) expect(cell.querySelector('button')).toBeNull();
+    // objectui#12708 retired the empty column this case used to pin (a header
+    // over one empty cell per row): no row offers an action, so the column is
+    // not drawn — the shape a grid that wires no row handlers has always had.
+    // Every row still has exactly the header's cell count.
+    await waitFor(() => expect(screen.queryByText('Actions')).toBeNull());
+    const headCount = container.querySelectorAll('thead th').length;
+    const rows = Array.from(container.querySelectorAll('tbody tr'));
+    expect(rows).toHaveLength(2);
+    for (const tr of rows) expect(tr.children).toHaveLength(headCount);
+    for (const cell of actionCells(container)) expect(cell.querySelector('button')).toBeNull();
   });
 
   it('mixed rows keep identical td counts (one row with a trigger, one without)', async () => {

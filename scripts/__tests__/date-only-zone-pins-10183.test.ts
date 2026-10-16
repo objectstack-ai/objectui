@@ -127,6 +127,9 @@ const PINS = [
   // objectui#12206: the record page's inline editor writes a `date` field as
   // the plain day the Edit form writes, at UTC+8 and at UTC-5.
   'packages/plugin-detail/src/__tests__/InlineFieldInput.dateOnlyWriteZone-12206.test.tsx',
+  // objectui#12759: the same editor moves a `datetime` to another day and
+  // keeps its wall-clock time, at UTC+8 and at UTC-5.
+  'packages/plugin-detail/src/__tests__/InlineFieldInput.datetimePicker-12759.test.tsx',
 ] as const;
 
 /** The vitest CLI entry, resolved rather than assumed at a `node_modules` path. */

@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { InlineFieldInput } from '../InlineFieldInput';
 
 /**
@@ -61,18 +61,27 @@ describe('InlineFieldInput', () => {
     expect(screen.queryByDisplayValue(/\[object Object\]/)).toBeNull();
   });
 
-  it('slices an ISO timestamp to YYYY-MM-DD for the date input and writes the picked day back unchanged (objectui#12206)', () => {
+  /** The platform date picker's text box (lazy, objectui#12759). */
+  const pickerBox = (container: HTMLElement) =>
+    waitFor(() => {
+      const el = container.querySelector('[data-slot="date-picker"] input');
+      if (!el) throw new Error('date picker not rendered');
+      return el as HTMLInputElement;
+    });
+
+  it('reads an ISO timestamp as its day for a `date` field and writes the entered day back unchanged (objectui#12206)', async () => {
     const onChange = vi.fn();
-    render(
+    const { container } = render(
       <InlineFieldInput
         field={{ name: 'due', type: 'date' }}
         value="2026-02-14T14:46:20.862Z"
         onChange={onChange}
       />,
     );
-    const input = screen.getByDisplayValue('2026-02-14');
-    expect(input).toBeInTheDocument();
-    fireEvent.change(input, { target: { value: '2026-03-01' } });
+    const input = await pickerBox(container);
+    expect(input.value).toBe('02/14/2026');
+    fireEvent.change(input, { target: { value: '03/01/2026' } });
+    fireEvent.blur(input);
     expect(onChange).toHaveBeenCalledTimes(1);
     // The plain day, as the Edit form writes it — never local midnight as an
     // instant, which names the day before east of UTC. The zone cases are in
@@ -80,22 +89,22 @@ describe('InlineFieldInput', () => {
     expect(onChange).toHaveBeenCalledWith('2026-03-01');
   });
 
-  it('re-emits an ISO timestamp for a `datetime` field on change (that arm is unchanged by objectui#12206)', () => {
+  it('writes a `datetime` field as the ISO instant of the entered date AND time, not local midnight (objectui#12759)', async () => {
     const onChange = vi.fn();
-    render(
+    const { container } = render(
       <InlineFieldInput
         field={{ name: 'due_at', type: 'datetime' }}
         value="2026-02-14T14:46:20.862Z"
         onChange={onChange}
       />,
     );
-    const input = screen.getByDisplayValue('2026-02-14');
-    fireEvent.change(input, { target: { value: '2026-03-01' } });
+    const input = await pickerBox(container);
+    fireEvent.change(input, { target: { value: '03/01/2026 14:46' } });
+    fireEvent.blur(input);
     expect(onChange).toHaveBeenCalledTimes(1);
-    // A full ISO timestamp (TZ-independent shape assertion).
-    const arg = onChange.mock.calls[0][0];
-    expect(typeof arg).toBe('string');
-    expect(arg).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+    // The suite runs in UTC (`vitest.config.mts`); the zone cases are in
+    // `InlineFieldInput.datetimePicker-12759.test.tsx`.
+    expect(onChange).toHaveBeenCalledWith('2026-03-01T14:46:00.000Z');
   });
 
   it('passes an $expand-ed reference value through so the picker shows the name without re-fetching (objectui#2572)', async () => {

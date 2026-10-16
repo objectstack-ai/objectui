@@ -1929,7 +1929,7 @@ function MetadataResourceEditPageImpl({
     // its loaded body carries (the one the assistant context above reads),
     // and by the machine `type/name` only when it carries none. Read once,
     // before the discard swaps the body.
-    const ownLabel = typeof (draft as any).label === 'string' ? ((draft as any).label as string).trim() : '';
+    const ownLabel = typeof draft.label === 'string' ? draft.label.trim() : '';
     const item = ownLabel || `${type}/${name ?? ''}`;
     if (!confirm(tFormat('engine.edit.discardDraftConfirm', locale, { item }))) {
       return;

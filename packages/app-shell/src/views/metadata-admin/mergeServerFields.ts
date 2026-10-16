@@ -20,7 +20,7 @@
  *
  * It is purely ADDITIVE and lag-tolerant:
  *   - Only fields the server has and the bundle lacks are added; existing
- *     bundled fields, ordering, sections and `visibleOn` predicates are
+ *     bundled fields, ordering, sections and `visibleWhen` predicates are
  *     untouched.
  *   - When the bundle catches up (the field appears in `bundledSchema`), the
  *     merge becomes a no-op for that field automatically — no shim to remove.

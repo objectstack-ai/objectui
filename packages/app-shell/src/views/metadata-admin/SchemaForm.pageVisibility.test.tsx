@@ -10,7 +10,8 @@ afterEach(cleanup);
  * ADR-0047 follow-up — page inspector section visibility for `list` pages.
  *
  * Framework PR #1817 marks the page form's "Data Context" (object/variables)
- * and "Layout" (regions) sections with `visibleOn: "data.type != 'list'"`,
+ * and "Layout" (regions) sections with `visibleOn: "data.type != 'list'"` (now
+ * `visibleWhen`, see the note below),
  * and the "Interface (list pages)" section with `data.type == 'list'`. For a
  * `type: 'list'` page the data-view sections must hide and the Interface
  * section must show.
@@ -21,13 +22,11 @@ afterEach(cleanup);
  * report's "still shows Data Context + Layout" symptom turned out to be a
  * stale backend serving the pre-#1817 form.)
  *
- * NOTE (objectstack#6331): the `visibleOn` spelling below is the DEPRECATED
- * ADR-0089 alias, so this file pins the legacy limb, not the shape a current
- * backend serves — the spec normaliser rewrites the alias and ships
- * `visibleWhen`. Because these fixtures spell the alias they stayed green while
- * the reader was alias-only and every spec-served predicate was dead. The
- * canonical key (and the bundled `pageForm` itself) is pinned in
- * `SchemaForm.visibleWhen.test.tsx`.
+ * NOTE (objectstack#6331, objectui#12696): PR #1817 spelled these predicates
+ * `visibleOn`, the ADR-0089 alias that `@objectstack/spec` 18 retires and that
+ * `SchemaForm` no longer reads. The fixtures below spell the canonical
+ * `visibleWhen`, the shape a current backend serves. The bundled `pageForm`
+ * itself is pinned in `SchemaForm.visibleWhen.test.tsx`.
  */
 
 // Minimal JSONSchema mirroring the page item fields the form references.
@@ -50,12 +49,12 @@ const pageForm = {
     { label: 'Basics', fields: [{ field: 'name' }, { field: 'type' }] },
     {
       label: 'Data Context',
-      visibleOn: "data.type != 'list'",
+      visibleWhen: "data.type != 'list'",
       fields: [{ field: 'object' }, { field: 'variables' }],
     },
     {
       label: 'Layout',
-      visibleOn: "data.type != 'list'",
+      visibleWhen: "data.type != 'list'",
       fields: [{ field: 'regions' }],
     },
     {
@@ -64,7 +63,7 @@ const pageForm = {
       // exercise the same predicate path the backend serves.
       collapsible: true,
       collapsed: false,
-      visibleOn: { dialect: 'cel', source: "data.type == 'list'" },
+      visibleWhen: { dialect: 'cel', source: "data.type == 'list'" },
       fields: [{ field: 'interfaceConfig' }],
     },
   ],

@@ -260,7 +260,7 @@ describe('bundled spec `objectForm`: bare predicates no longer hide their fields
       return;
     }
     const n = node as Node;
-    const pred = n.visibleWhen ?? n.visibleOn;
+    const pred = n.visibleWhen;
     if (pred) {
       const source = typeof pred === 'string' ? pred : (pred as { source?: string }).source;
       if (source) out.push({ field: String(n.field ?? '(section)'), source });

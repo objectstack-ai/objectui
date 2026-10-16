@@ -144,8 +144,12 @@ describe('view create form contract exposes both families (objectui#2323)', () =
     expect(props.kind?.enum).toEqual(['grid', 'kanban', 'gallery', 'calendar', 'timeline', 'gantt', 'chart']);
     expect(props.formType?.enum).toEqual(['simple', 'tabbed', 'wizard', 'split', 'drawer', 'modal']);
     // Each layout picker is gated to its family so the form shows only the
-    // relevant one (rendered via SchemaForm's `visibleOn` support).
-    expect(props.kind?.visibleOn).toBe("data.viewKind == 'list'");
-    expect(props.formType?.visibleOn).toBe("data.viewKind == 'form'");
+    // relevant one, through SchemaForm's per-property `visibleWhen`. The
+    // retired `visibleOn` spelling is not written (objectui#12696):
+    // `view-create-body.visibility.test.tsx` renders the gate.
+    expect(props.kind?.visibleWhen).toBe("data.viewKind == 'list'");
+    expect(props.formType?.visibleWhen).toBe("data.viewKind == 'form'");
+    expect(props.kind).not.toHaveProperty('visibleOn');
+    expect(props.formType).not.toHaveProperty('visibleOn');
   });
 });

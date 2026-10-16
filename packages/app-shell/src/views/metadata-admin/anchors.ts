@@ -279,7 +279,7 @@ export function registerBuiltinAnchors(): void {
           enum: ['grid', 'kanban', 'gallery', 'calendar', 'timeline', 'gantt', 'chart'],
           default: 'grid',
           description: 'Pick a starter layout. Switch later in the designer.',
-          visibleOn: "data.viewKind == 'list'",
+          visibleWhen: "data.viewKind == 'list'",
         },
         // Form-family layout (FormViewSchema.type). Shown only when `viewKind`
         // is 'form'; its value becomes the form `config.type`.
@@ -289,7 +289,7 @@ export function registerBuiltinAnchors(): void {
           enum: ['simple', 'tabbed', 'wizard', 'split', 'drawer', 'modal'],
           default: 'simple',
           description: 'Pick a starter form layout. Switch later in the designer.',
-          visibleOn: "data.viewKind == 'form'",
+          visibleWhen: "data.viewKind == 'form'",
         },
       },
     },

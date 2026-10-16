@@ -60,7 +60,10 @@ type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ?
   ? true
   : false;
 
-/** The positions {@link FormSectionSpec} deliberately overrides. */
+/**
+ * The positions {@link FormSectionSpec} deliberately overrides. `visibleOn` is
+ * overridden by ABSENCE (objectui#12696): PIN J pins that it is refused.
+ */
 type SectionNarrowed = 'fields' | 'label' | 'description' | 'visibleWhen' | 'visibleOn';
 /** The positions {@link FormViewSpec} deliberately overrides. */
 type ViewNarrowed = 'sections' | 'groups';
@@ -146,7 +149,6 @@ export function formContainerContractPins(): void {
     columns: '3',
     pane: 'secondary',
     visibleWhen: '${data.kind == "deal"}',
-    visibleOn: { dialect: 'cel', source: 'data.kind == "deal"' },
     fields: ['name', { field: 'amount', colSpan: 2 }],
   };
   void wasUndeclarableOnOneSide;
@@ -208,6 +210,26 @@ export function formContainerContractPins(): void {
     fields: [],
   };
   void narrowedPredicate;
+
+  // ── PIN J — the retired `visibleOn` spelling is REFUSED on both layers
+  // (objectui#12696). `SchemaForm` reads `visibleWhen` only, so declaring the
+  // old key would let an author write a predicate the designer ignores. The
+  // spec's input `FormSection` still carries it, which is why it stays in the
+  // section's `Omit` list: dropping it there re-admits the spec's own type and
+  // turns the first directive below into TS2578.
+  const retiredSectionKey: FormSectionSpec = {
+    // @ts-expect-error objectui#12696 — write `visibleWhen`; `visibleOn` is retired
+    visibleOn: "data.kind == 'deal'",
+    fields: [],
+  };
+  void retiredSectionKey;
+
+  const retiredFieldKey: FormFieldSpec = {
+    field: 'amount',
+    // @ts-expect-error objectui#12696 — write `visibleWhen`; `visibleOn` is retired
+    visibleOn: "data.kind == 'deal'",
+  };
+  void retiredFieldKey;
 
   // ── PIN H — `label` is NOT a form-config key, measured. `FormViewSchema`
   // answers `unrecognized_keys` for it (the form config says `title`), so the

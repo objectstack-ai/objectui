@@ -12,7 +12,7 @@
  *   • `reportForm`   — the canonical authoring FormView: sections for basics,
  *                      columns, groupings, joined blocks, filter & chart, and
  *                      advanced. One section (joined blocks) is type-
- *                      conditional via a `visibleOn` CEL predicate.
+ *                      conditional via a `visibleWhen` CEL predicate.
  *   • `ReportSchema` — the zod schema for the whole (flat) Report document.
  *
  * We convert the zod schema to JSONSchema once (memoised) via zod 4's native

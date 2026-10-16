@@ -8,8 +8,9 @@ afterEach(cleanup);
 
 /**
  * Flat (non-sectioned) schema-driven rendering must honor per-property
- * `visibleOn`, so a create form driven by a bare JSONSchema (no FormView
- * layout) can gate a field on a sibling value. This is what lets the View
+ * `visibleWhen` (the retired `visibleOn` spelling is not read, objectui#12696),
+ * so a create form driven by a bare JSONSchema (no FormView layout) can gate a
+ * field on a sibling value. This is what lets the View
  * create form show the list layout picker only for `viewKind: 'list'` and the
  * form layout picker only for `viewKind: 'form'` (objectui#2323).
  */
@@ -23,18 +24,18 @@ const schema = {
       type: 'string',
       title: 'List layout',
       enum: ['grid', 'kanban'],
-      visibleOn: "data.viewKind == 'list'",
+      visibleWhen: "data.viewKind == 'list'",
     },
     formType: {
       type: 'string',
       title: 'Form layout',
       enum: ['simple', 'tabbed'],
-      visibleOn: "data.viewKind == 'form'",
+      visibleWhen: "data.viewKind == 'form'",
     },
   },
 };
 
-describe('SchemaForm flat path — per-property visibleOn (objectui#2323)', () => {
+describe('SchemaForm flat path — per-property visibleWhen (objectui#2323)', () => {
   it('shows the list layout picker and hides the form one for a list draft', () => {
     render(<SchemaForm schema={schema} value={{ viewKind: 'list' }} onChange={() => {}} />);
     expect(screen.getByText('View family')).toBeInTheDocument();
@@ -49,7 +50,7 @@ describe('SchemaForm flat path — per-property visibleOn (objectui#2323)', () =
     expect(screen.queryByText('List layout')).not.toBeInTheDocument();
   });
 
-  it('fails open — a field with no visibleOn always renders', () => {
+  it('fails open — a field with no visibleWhen always renders', () => {
     render(<SchemaForm schema={schema} value={{}} onChange={() => {}} />);
     // `viewKind` has no predicate, so it shows even before a family is picked.
     expect(screen.getByText('View family')).toBeInTheDocument();

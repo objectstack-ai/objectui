@@ -46,9 +46,10 @@
  * `z.enum(['1','2','3','4'])` with the four numeric literals, folded to a number
  * by its own transform), so app-shell's numbers-only declaration was rejecting
  * metadata the platform accepts -- objectui#5040's symptom, not a deliberate
- * narrowing. `description`, `visibleWhen`, `visibleOn`, and also `name` and
- * `pane`, are likewise spec keys that simply went undeclared on one side or the
- * other.
+ * narrowing. `description`, `visibleWhen`, and also `name` and `pane`, are
+ * likewise spec keys that simply went undeclared on one side or the other.
+ * (`visibleOn` was a third; it is the retired spelling of `visibleWhen` and is
+ * dropped from both types, see below.)
  *
  * ## Why DERIVED-WITH-NAMED-NARROWINGS and not a bare re-export
  *
@@ -63,11 +64,16 @@
  *     straight into a text slot and neither resolves a locale map. A section
  *     admitting `{ en: 'x' }` above a field refusing it is the same defect class
  *     this file exists to close.
- *   - `FormSection.visibleWhen` / `.visibleOn` are the spec's `ExpressionInput`
- *     (`dialect` REQUIRED and enum-typed, `source` optional, plus `ast`/`meta`).
- *     The predicate that actually reaches an evaluator here is
+ *   - `FormSection.visibleWhen` is the spec's `ExpressionInput` (`dialect`
+ *     REQUIRED and enum-typed, `source` optional, plus `ast`/`meta`). The
+ *     predicate that actually reaches an evaluator here is
  *     {@link VisibilityPredicate} -- `dialect` optional, `source` required --
  *     which is the shape `@object-ui/core`'s `evalFieldPredicate` takes.
+ *   - `FormSection.visibleOn` is DROPPED, not re-pointed (objectui#12696). It is
+ *     the ADR-0089 spelling of `visibleWhen` that `@objectstack/spec` 18
+ *     retires, and `SchemaForm` no longer reads it, so declaring it would
+ *     advertise a key this renderer does not honour. The field leaf drops it
+ *     for the same reason.
  *   - `FormSection.fields` elements are the spec's `FormField` (29 keys), not
  *     the 26-key {@link FormFieldSpec} objectui#5542 converged and pinned.
  *     Re-pointing that position is what would silently re-open #5542.
@@ -128,7 +134,7 @@ export interface FormFieldSpec {
    *     that actually reaches an evaluator here is {@link VisibilityPredicate}
    *     (`dialect` optional, `source` required) — the same re-pointing, for the
    *     same reason, that `FormSectionSpec` already makes for its own
-   *     `visibleWhen` / `visibleOn`. One vocabulary per document.
+   *     `visibleWhen`. One vocabulary per document.
    *   - `default` stays DROPPED, and now says so. Nothing on this surface reads
    *     it: none of the three controls that consume `options` seeds a value
    *     from it, so declaring it here would advertise an authoring key this
@@ -213,10 +219,11 @@ export interface FormFieldSpec {
   disclosure?: 'inline' | 'popover';
   /** For `type: 'code'` — syntax highlighting language (e.g. 'javascript', 'sql', 'json'). */
   language?: string;
-  /** Canonical field visibility predicate (ADR-0089). */
+  /**
+   * Field visibility predicate (ADR-0089). The retired `visibleOn` spelling is
+   * not declared and not read (objectui#12696): write `visibleWhen`.
+   */
   visibleWhen?: VisibilityPredicate;
-  /** @deprecated ADR-0089 alias of `visibleWhen`; still read for legacy layouts. */
-  visibleOn?: VisibilityPredicate;
   /** Sub-fields for `composite` (single embedded object) and `repeater`
    * (array of embedded objects) types. Recursive. */
   fields?: Array<string | FormFieldSpec>;
@@ -228,8 +235,8 @@ export interface FormFieldSpec {
  * Derived from `@objectstack/spec`'s own `FormSection`, so `name`, `collapsible`,
  * `collapsed`, `columns` and `pane` are the contract's keys with the contract's
  * types -- including the `columns` string arm, which app-shell's hand copy used
- * to refuse. Four positions are narrowed, each for a reason recorded in the file
- * header:
+ * to refuse. Four positions are narrowed and one is dropped, each for a reason
+ * recorded in the file header:
  *
  *   fields       the element type is {@link FormFieldSpec}, the leaf
  *                objectui#5542 converged and pinned -- NOT the spec's 29-key
@@ -239,7 +246,10 @@ export interface FormFieldSpec {
  *                locale-map arm, and `FormFieldSpec.label` is already `string`.
  *   description  same, for the same reason.
  *   visibleWhen  {@link VisibilityPredicate}, the shape the evaluators take, not
- *   visibleOn    the spec's `ExpressionInput`.
+ *                the spec's `ExpressionInput`.
+ *   visibleOn    DROPPED: the retired spelling of `visibleWhen`, which nothing
+ *                here reads (objectui#12696). It stays in the `Omit` list so the
+ *                spec's input type cannot bring it back.
  *
  * This type describes what an AUTHOR WROTE, so it stays as wide as the document
  * -- `pane` is declared here even though no renderer in this repo reads it yet.
@@ -265,10 +275,11 @@ export type FormSectionSpec =
     label?: string;
     /** Optional description under the section header. Narrowed to `string`. */
     description?: string;
-    /** Canonical section visibility predicate (ADR-0089). */
+    /**
+     * Section visibility predicate (ADR-0089). The retired `visibleOn`
+     * spelling is not declared and not read (objectui#12696).
+     */
     visibleWhen?: VisibilityPredicate;
-    /** @deprecated ADR-0089 alias of `visibleWhen`; still read for legacy layouts. */
-    visibleOn?: VisibilityPredicate;
     /**
      * The authored field list. Element type is the converged leaf (objectui#5542).
      *
@@ -303,8 +314,8 @@ export type FormSectionSpec =
  *
  * `groups` is kept even though `@objectstack/spec` folds it onto `sections` at
  * parse: the fold happens in the NORMALISER, and both renderers also receive
- * documents that never pass through one (hand-written layouts, and this package's
- * own create schemas -- the same reason `visibleOn` is still read).
+ * documents that never pass through one (hand-written layouts, and this
+ * package's own create schemas).
  *
  * ## `label` is NOT a key of this type, and that is a measurement
  *

@@ -11,7 +11,7 @@
  * SPEC-DRIVEN: the per-view-type config fields are NOT hardcoded. They are
  * rendered by feeding the spec's canonical authoring form (`viewForm`) and
  * the spec-derived View JSONSchema into the generic {@link SchemaForm}. The
- * form's type-conditional `visibleOn` sections automatically surface the
+ * form's type-conditional `visibleWhen` sections automatically surface the
  * right fields for grid / kanban / calendar / gallery / gantt / timeline /
  * chart — adding a new view type or prop to `@objectstack/spec` flows
  * through with zero code changes here.

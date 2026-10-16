@@ -14,7 +14,7 @@
  * describes all of this:
  *
  *   • `pageForm`   — the canonical authoring FormView: sections with
- *                    type-conditional `visibleOn` predicates.
+ *                    type-conditional `visibleWhen` predicates.
  *   • `PageSchema` — the zod schema for the whole Page document.
  *
  * We convert the zod schema to JSONSchema once (memoised) via zod 4's native

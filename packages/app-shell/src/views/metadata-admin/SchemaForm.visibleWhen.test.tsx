@@ -26,11 +26,10 @@ afterEach(cleanup);
  * to "visible" — conditional fields and sections rendered unconditionally.
  *
  * These tests pin each of the five sites on the CANONICAL key, in both
- * directions (true → shown, false → hidden), plus the deprecated alias (still
- * honoured for hand-written layouts and this app's own create schemas) and the
- * no-predicate default. Precedence mirrors `@object-ui/plugin-form`
- * `sectionFields.ts` (`fd.visibleWhen ?? fd.visibleOn`) — one dialect, canonical
- * wins.
+ * directions (true → shown, false → hidden), plus the no-predicate default.
+ * The retired `visibleOn` spelling is not honoured at all (objectui#12696): a
+ * node carrying only `visibleOn` renders unconditionally, as it does in the
+ * runtime form (`@object-ui/plugin-form` `sectionFields.ts`) — one dialect.
  */
 
 const schema = {
@@ -241,30 +240,54 @@ describe('SchemaForm record rows — sub-field visibleWhen (objectstack#6331)', 
   });
 });
 
-/* ── the deprecated alias, and precedence when both are authored ─────────── */
+/* ── the retired `visibleOn` spelling is not honoured (objectui#12696) ────── */
 
-describe('SchemaForm — deprecated `visibleOn` alias (objectstack#6331)', () => {
-  it('a legacy hand-written layout spelling only `visibleOn` still works', () => {
-    const legacyForm = {
+/**
+ * `readVisibility` used to fall back to `visibleOn` when `visibleWhen` was
+ * absent. That fold let a layout an AI wrote with the retired key preview
+ * correctly here while every other reader ignores it. Each case below carries a
+ * `visibleOn` that would HIDE something if it were read, and asserts that the
+ * thing is still shown; the paired `visibleWhen` case proves the same predicate
+ * does hide it under the canonical key, so a green run is not a dead read site.
+ */
+describe('SchemaForm — retired `visibleOn` is not read (objectui#12696)', () => {
+  it('a FormView section and field carrying only `visibleOn` are not hidden by it', () => {
+    const retiredForm = {
       type: 'simple' as const,
       sections: [
         { label: 'Basics', fields: [{ field: 'type' }] },
-        { label: 'Legacy', visibleOn: "data.type == 'list'", fields: [{ field: 'listOnly' }] },
+        { label: 'Retired', visibleOn: "data.type == 'record'", fields: [{ field: 'listOnly' }] },
         {
-          label: 'LegacyField',
+          label: 'RetiredField',
           fields: [{ field: 'recordOnly', visibleOn: "data.type == 'record'" }],
         },
       ],
     };
-    render(<SchemaForm schema={schema} form={legacyForm} value={{ type: 'list' }} onChange={() => {}} />);
-    expect(screen.getByText('Legacy')).toBeInTheDocument();
+    render(<SchemaForm schema={schema} form={retiredForm} value={{ type: 'list' }} onChange={() => {}} />);
+    expect(screen.getByText('Retired')).toBeInTheDocument();
     expect(screen.getByText('List Only')).toBeInTheDocument();
+    expect(screen.getByText('Record Only')).toBeInTheDocument();
+  });
+
+  it('the same predicates under `visibleWhen` do hide that section and field', () => {
+    const canonicalForm = {
+      type: 'simple' as const,
+      sections: [
+        { label: 'Basics', fields: [{ field: 'type' }] },
+        { label: 'Canonical', visibleWhen: "data.type == 'record'", fields: [{ field: 'listOnly' }] },
+        {
+          label: 'CanonicalField',
+          fields: [{ field: 'recordOnly', visibleWhen: "data.type == 'record'" }],
+        },
+      ],
+    };
+    render(<SchemaForm schema={schema} form={canonicalForm} value={{ type: 'list' }} onChange={() => {}} />);
+    expect(screen.queryByText('Canonical')).not.toBeInTheDocument();
+    expect(screen.queryByText('List Only')).not.toBeInTheDocument();
     expect(screen.queryByText('Record Only')).not.toBeInTheDocument();
   });
 
-  it('a legacy create schema spelling `visibleOn` on a raw JSONSchema property still works', () => {
-    // `view-create-body.ts` / `anchors.ts` author this shape directly; it never
-    // passes through the spec normaliser, so the alias is the live spelling.
+  it('a raw JSONSchema create property carrying only `visibleOn` is not hidden by it', () => {
     const createSchema = {
       type: 'object',
       properties: {
@@ -272,24 +295,17 @@ describe('SchemaForm — deprecated `visibleOn` alias (objectstack#6331)', () =>
         kind: { type: 'string', title: 'List layout', visibleOn: "data.viewKind == 'list'" },
       },
     };
-    render(<SchemaForm schema={createSchema} value={{ viewKind: 'list' }} onChange={() => {}} />);
-    expect(screen.getByText('List layout')).toBeInTheDocument();
-    cleanup();
     render(<SchemaForm schema={createSchema} value={{ viewKind: 'form' }} onChange={() => {}} />);
-    expect(screen.queryByText('List layout')).not.toBeInTheDocument();
+    expect(screen.getByText('List layout')).toBeInTheDocument();
   });
-
 });
 
 /* ── precedence: canonical over alias ────────────────────────────────────── */
 
 /**
- * Deliberately its own block, not part of the alias suite above: reverse
- * verification showed this test tracks the CANONICAL limb, not the alias one.
- * Reverting the section read site to `visibleOn`-only turns it red along with
- * the section tests, because the stale alias then decides the verdict. The
- * alias tests above, by contrast, stay green under that revert — which is
- * exactly why alias-spelled fixtures could never have caught this bug.
+ * A node carrying both keys: `visibleWhen` decides. Reverting a read site to
+ * `visibleOn` (alone, or as the first leg of a fold) turns this red, because
+ * the stale key then decides the verdict.
  */
 describe('SchemaForm — visibleWhen wins over visibleOn (objectstack#6331)', () => {
   it('canonical wins when a node carries both keys with conflicting predicates', () => {
@@ -298,8 +314,8 @@ describe('SchemaForm — visibleWhen wins over visibleOn (objectstack#6331)', ()
       sections: [
         {
           label: 'Both',
-          // Canonical says show for a list draft; the stale alias says the
-          // opposite. `visibleWhen ?? visibleOn` must follow the canonical key.
+          // Canonical says show for a list draft; the retired key says the
+          // opposite. Only `visibleWhen` is read.
           visibleWhen: "data.type == 'list'",
           visibleOn: "data.type == 'record'",
           fields: [{ field: 'listOnly' }],
@@ -330,7 +346,7 @@ describe('SchemaForm — bundled spec `pageForm` predicates are reachable (objec
     const dataContext = form?.sections?.find((s) => s.label === 'Data Context');
     expect(dataContext).toBeDefined();
     expect(dataContext?.visibleWhen).toBeDefined();
-    expect(dataContext?.visibleOn).toBeUndefined();
+    expect(dataContext).not.toHaveProperty('visibleOn');
   });
 
   it('a `list` page hides the Data Context section; a record page shows it', () => {

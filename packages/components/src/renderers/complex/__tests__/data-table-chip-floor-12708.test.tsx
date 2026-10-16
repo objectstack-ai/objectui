@@ -113,13 +113,13 @@ describe('data-table chip columns (objectui#12708)', () => {
     const { container, rerender } = render(<Table schema={first} />);
     expect(head(container, 'Status').style.minWidth).toBe('114px');
 
-    // The same load, re-drawn: a renamed header changes what the table drew,
-    // so the drawn sizes are read again, and the stub now reads every text
-    // twice as wide. The floor does not move, because no data was loaded.
+    // The same load, re-drawn: renaming the chip column's header changes what
+    // the table drew, so the drawn sizes are read again, and the stub now
+    // reads every text twice as wide. The floor does not move, because no
+    // data was loaded.
     pxPerChar = PX_PER_CHAR * 2;
-    rerender(<Table schema={{ ...first, columns: [{ ...first.columns[0], header: 'Headline' }, first.columns[1]] }} />);
-    expect(head(container, 'Headline')).toBeTruthy();
-    expect(head(container, 'Status').style.minWidth).toBe('114px');
+    rerender(<Table schema={{ ...first, columns: [first.columns[0], { ...first.columns[1], header: 'State' }] }} />);
+    expect(head(container, 'State').style.minWidth).toBe('114px');
 
     // A new load is measured afresh, at the stub's normal reading ("In Review now", 13 characters).
     pxPerChar = PX_PER_CHAR;

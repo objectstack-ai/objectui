@@ -22,7 +22,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, cleanup, act, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
 
@@ -168,7 +168,12 @@ describe('objectui#12708 · the grouped grid scrolls in the shared overflow box'
     const header = actionsHeader();
     expect(header).not.toBeNull();
     expect(header).toHaveClass('sticky', 'right-0', 'group-data-[overflow-right=true]/hscroll:before:opacity-100');
-    // The shadow sits at the pinned seam, so the box draws no edge overlay.
+    // Wider than the box: the box flags it for the pinned cells, and draws no
+    // edge overlay of its own, because the shadow sits at the pinned seam.
+    Object.defineProperty(scroller, 'scrollWidth', { configurable: true, value: 1477 });
+    Object.defineProperty(scroller, 'clientWidth', { configurable: true, value: 768 });
+    act(() => { fireEvent.scroll(scroller); });
+    expect(scroller).toHaveAttribute('data-overflow-right', 'true');
     expect(screen.queryByTestId('horizontal-overflow-shadow')).toBeNull();
   });
 });

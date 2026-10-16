@@ -24,7 +24,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { Badge, Card, CardHeader, CardTitle, CardDescription, CardContent, ScrollArea, Button, Input, useResizeObserver, DataEmptyState } from "@object-ui/components"
+import { Avatar, AvatarFallback, AvatarImage, Badge, Card, CardHeader, CardTitle, CardDescription, CardContent, ScrollArea, Button, Input, useResizeObserver, DataEmptyState } from "@object-ui/components"
 import { useHasDndProvider, useDnd, usePredicateScope } from "@object-ui/react"
 import { resolveConditionalFormatting } from "@object-ui/core"
 import type { KanbanConditionalFormattingRule } from "@object-ui/types"
@@ -33,6 +33,8 @@ import { createSafeTranslation } from "@object-ui/i18n"
 import { Plus, Sigma } from "lucide-react"
 import { useKanbanRecordsSettled } from './KanbanRecordsSettled'
 import { useKanbanColumnSummary, sumLaneField } from './KanbanColumnSummary'
+import { laneCount, useKanbanLanePaging } from './KanbanLanePaging'
+import { ownerInitials, type KanbanCardOwner } from './KanbanCardOwner'
 
 // Utility function to merge class names (inline to avoid external dependency)
 const cn = (...classes: Array<string | false | null | undefined>) => classes.filter(Boolean).join(' ')
@@ -44,6 +46,7 @@ const useKanbanT = createSafeTranslation(
     'kanban.addCard': 'Add card',
     'kanban.noCards': 'No cards',
     'kanban.cardTitlePlaceholder': 'Enter card title…',
+    'kanban.loadMore': 'Load more',
   },
   'kanban.noCards',
 )
@@ -221,6 +224,9 @@ function SortableCard({ card, onCardClick, conditionalFormatting, objectFields }
 
   const predicateScope = usePredicateScope()
   const cardStyles = getCardStyles(card, conditionalFormatting, predicateScope, objectFields)
+  // objectui#12619 — the owner `ObjectKanban` resolved for this card, when the
+  // object has one (a package-local hand-off; see `KanbanCardOwner`).
+  const owner = (card as { cardOwner?: KanbanCardOwner }).cardOwner
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners} role="listitem" aria-label={card.title}
@@ -237,8 +243,29 @@ function SortableCard({ card, onCardClick, conditionalFormatting, objectFields }
             />
           </div>
         )}
-        <CardHeader className="p-2 sm:p-4 pb-2">
-          <CardTitle className="text-xs sm:text-sm font-semibold tracking-tight text-foreground group-hover:text-primary transition-colors leading-snug line-clamp-2">{card.title}</CardTitle>
+        {/* objectui#12619 — the reduced side is restated at `sm:`. `sm:p-4`
+            is emitted after `pb-2` / `pt-0`, so from `sm` up it padded the
+            header's foot and the content's top back to 16px each: a 32px band
+            between the title and the first field line on every card with
+            field lines, which since objectui#12619 is every list-view card. */}
+        <CardHeader className="p-2 sm:p-4 pb-2 sm:pb-2">
+          {/* The title row exists only to place an owner's avatar beside the
+              title (objectui#12619). A card with no owner draws its title
+              exactly as before, with no wrapper, so a board without owners
+              keeps its markup. */}
+          {owner ? (
+            <div className="flex items-start justify-between gap-2">
+              <CardTitle className="min-w-0 text-xs sm:text-sm font-semibold tracking-tight text-foreground group-hover:text-primary transition-colors leading-snug line-clamp-2">{card.title}</CardTitle>
+              <Avatar className="size-6 shrink-0" title={owner.name} aria-label={owner.name} data-kanban-card-owner="">
+                {owner.image && <AvatarImage src={owner.image} alt={owner.name} />}
+                <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-medium">
+                  {ownerInitials(owner.name)}
+                </AvatarFallback>
+              </Avatar>
+            </div>
+          ) : (
+            <CardTitle className="text-xs sm:text-sm font-semibold tracking-tight text-foreground group-hover:text-primary transition-colors leading-snug line-clamp-2">{card.title}</CardTitle>
+          )}
           {!(card.cardFieldCells && card.cardFieldCells.length > 0) && (card.cardSubtitle ?? card.description) && (
             <CardDescription className="text-xs text-muted-foreground line-clamp-2 sm:line-clamp-none">
               {card.cardSubtitle ?? card.description}
@@ -246,23 +273,24 @@ function SortableCard({ card, onCardClick, conditionalFormatting, objectFields }
           )}
         </CardHeader>
         {((card.cardFieldCells && card.cardFieldCells.length > 0) || (card.badges && card.badges.length > 0)) && (
-          <CardContent className="p-2 sm:p-4 pt-0 space-y-1.5">
+          <CardContent className="p-2 sm:p-4 pt-0 sm:pt-0 space-y-1.5">
             {card.cardFieldCells && card.cardFieldCells.length > 0 && (
-              // Dense single-column metadata list — values only, with the
-              // field label as a hover tooltip. Pipeline cards across
-              // Salesforce / HubSpot / Linear all drop the `Label: value`
-              // pair pattern because the value's own type (currency, date,
-              // lookup avatar/badge) already conveys its meaning, and the
-              // saved horizontal space lets the card title breathe.
+              // One line per card field, its label then its value
+              // (objectui#12619). The values used to stand alone with the
+              // label as a hover tooltip only, so a card read "Acme Corp ·
+              // $150K" and a reader had to guess which column each value came
+              // from; an amount and a probability, or two dates, cannot be
+              // told apart by their type. The label is muted and keeps its
+              // natural width; the value takes the rest and truncates.
               <dl className="space-y-1 text-xs">
                 {card.cardFieldCells.map((cell) => (
                   <div
                     key={cell.field}
-                    className="min-w-0 truncate text-foreground/85"
+                    className="flex min-w-0 items-baseline gap-1.5 text-foreground/85"
                     title={cell.label || cell.field}
                   >
-                    <dt className="sr-only">{cell.label || cell.field}</dt>
-                    <dd className="min-w-0 truncate">{cell.node}</dd>
+                    <dt className="shrink-0 text-muted-foreground">{cell.label || cell.field}</dt>
+                    <dd className="min-w-0 flex-1 truncate">{cell.node}</dd>
                   </div>
                 ))}
               </dl>
@@ -603,7 +631,20 @@ function KanbanColumnView({
     },
   })
 
-  const isLimitExceeded = column.limit && safeCards.length >= column.limit
+  // objectui#12619 — a lane the board pages for itself carries the server's
+  // count of its records and a "Load more" while it holds more than it drew.
+  // A lane with no page is a lane of the board's one query, drawn as before.
+  const lanePaging = useKanbanLanePaging()
+  const lanePage = lanePaging?.pages[String(column.id)]
+  const pagedCount = lanePage ? laneCount(lanePage, safeCards.length) : null
+  const laneCountText = pagedCount
+    ? `${pagedCount.count}${pagedCount.atLeast ? '+' : ''}`
+    : laneCountLabel(safeCards.length, countsAreWindowed)
+  // A lane total over a lane that holds more than it drew is a total of what
+  // it drew, so it carries the `+` the windowed count carries.
+  const laneTotalPartial = countsAreWindowed || lanePage?.hasMore === true
+
+  const isLimitExceeded = column.limit && (pagedCount ? pagedCount.count : safeCards.length) >= column.limit
 
   // When the parent passes inline width, drop the viewport-relative classes
   // so they don't fight with the container-derived value. A collapsed lane
@@ -653,7 +694,7 @@ function KanbanColumnView({
                   : "bg-muted/70 text-muted-foreground",
               )}
             >
-              {laneCountLabel(safeCards.length, countsAreWindowed)}
+              {laneCountText}
               {column.limit && <span className="text-muted-foreground/70 font-normal">{` / ${column.limit}`}</span>}
             </span>
             {isLimitExceeded && (
@@ -661,7 +702,7 @@ function KanbanColumnView({
                 Full
               </Badge>
             )}
-            {!isCollapsed && <LaneTotal cards={safeCards} countsAreWindowed={countsAreWindowed} />}
+            {!isCollapsed && <LaneTotal cards={safeCards} countsAreWindowed={laneTotalPartial} />}
           </div>
         </div>
       </div>
@@ -698,6 +739,20 @@ function KanbanColumnView({
             ))}
           </div>
         </SortableContext>
+        {/* objectui#12619 — the next page of this lane, at its foot. */}
+        {lanePaging && lanePage?.hasMore && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full mt-2 text-muted-foreground hover:text-foreground"
+            disabled={lanePage.loading}
+            aria-busy={lanePage.loading || undefined}
+            onClick={() => lanePaging.loadMore(String(column.id))}
+            data-kanban-load-more=""
+          >
+            {t('kanban.loadMore')}
+          </Button>
+        )}
         {quickAdd && onQuickAdd && (
           <QuickAddForm columnId={column.id} onAdd={onQuickAdd} />
         )}

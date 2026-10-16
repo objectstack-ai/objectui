@@ -3084,14 +3084,16 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         name: 'sys_edit',
         label: t('detail.edit', { defaultValue: 'Edit' }),
         // objectui#12529 — each system entry declares its icon through the
-        // same `icon` key the app's actions use, so the `⋯` menu draws one
-        // kind of row. When this CTA folds into the `⋯` because the row is
-        // full, `page:header` keeps an icon-only twin of it (this pencil)
-        // beside the `⋯`.
+        // same `icon` key the app's actions use, so every row draws one kind
+        // of entry. `page:header` keeps this CTA a labelled button in the row
+        // at every width: it takes none of the app's `maxVisible` slots and
+        // never folds into the `⋯` (objectui#12617). It is the filled primary
+        // button only when the record has no app action ahead of it; next to
+        // app actions it is an outline button, which `page:header` decides —
+        // no `variant` is declared here for it to read.
         icon: 'pencil',
         type: 'script',
         locations: ['record_header'],
-        variant: 'default',
         order: 100,
         // objectui#2572 item 4 — while a shared inline-edit draft is live,
         // the page:header renderer greys this CTA out so the classic form

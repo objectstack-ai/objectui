@@ -1039,7 +1039,10 @@ const UNJUDGED_SPEC_BLOCKS: Record<string, string> = {
  *  - **objectstack#6776** — `page:header` now declares `recordChrome`,
  *    `showStar` and `showCopyId`; `page:accordion` declares `variant`;
  *    `page:tabs` declares `tabStyle`. The five keys the renderer had read all
- *    along are contract now. `page:tabs` is the interesting one: the spec
+ *    along are contract now. `showStar` has since left again: the spec
+ *    retires it (objectstack#23650, landed as objectstack#23781), so the
+ *    renderer stopped reading it and the registration stopped publishing it
+ *    (objectui#12627). Its `settledUpstream` row below left with the input. `page:tabs` is the interesting one: the spec
  *    declares BOTH `tabStyle` and `type`, so the carrier collision written up in
  *    the deleted entry was resolved upstream by declaring the alias rather than
  *    by renaming — which is why `page:tabs.type` stays in
@@ -1344,6 +1347,24 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   'object-grid.title':
     '@deprecated in ObjectGridSchema ("Use label instead"); GA describes it as the "Fallback for `label` (the renderer reads `label || title`)". Read as back-compat, deliberately not published — the canonical `label` IS declared. Same ruled carve-out class as the five the ruling enumerated, measured on this branch — objectui#4648 (maintainer 2026-08-16).',
 
+  // ── `page:header.showStar`: retired upstream, bump not installed yet ───────
+  // objectstack#23650's ruling retires the metadata switch, and it landed as
+  // objectstack#23781: a `retiredKey()` tombstone on `PageHeaderProps`. The
+  // installed `@objectstack/spec` predates that commit and still lists the key
+  // as live, so the reverse direction demands it. objectui#12627 stopped the
+  // renderer reading it and the registration publishing it AHEAD of the bump:
+  // the favorites star follows the host's `onToggleFavorite` alone.
+  //
+  // ⚠️ THIS ENTRY DIES ON THE BUMP, by design, and nothing has to remember it.
+  // The first installed spec that carries objectstack#23781 tombstones the
+  // key, `specTopLevelKeys` subtracts it, and `every unpublished-key exemption
+  // names a key the spec really declares` and `carries no stale unpublished-key
+  // exemption` both name this entry. Deleting it is the whole fix. ⛔ Do not
+  // resolve that red by re-declaring the input or by listing this key in
+  // `GA_PENDING_UNPUBLISHED_KEYS`: the first publishes a key the contract
+  // refuses, the second would hide this entry from both checks.
+  'page:header.showStar':
+    'Retired upstream by objectstack#23650 (landed as objectstack#23781), which the installed spec predates. The renderer no longer reads it and the registration no longer publishes it (objectui#12627): the favorites star draws where the host wires onToggleFavorite, and metadata does not control it. Goes dangling and stale on the bump that installs the tombstone; delete it there.',
 
   // ── objectui#8176: the two lazily-registered blocks, judged for the first ──
   //     time. ONE key left of the eighteen that entered, and as of objectui#8201
@@ -5784,7 +5805,9 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     // exemption-shaped hole.
     const settledUpstream: Array<[string, string]> = [
       ['page:header', 'recordChrome'],
-      ['page:header', 'showStar'],
+      // `['page:header', 'showStar']` left with the input (objectui#12627):
+      // the spec retires the key (objectstack#23650), so neither half of
+      // "declared AND published" holds for it any more.
       ['page:header', 'showCopyId'],
       ['page:accordion', 'variant'],
       ['page:tabs', 'tabStyle'],

@@ -368,6 +368,14 @@ const zh = {
       impossibleDay:
         '存储的值“{{value}}”不是真实存在的日期。请选择日期和时间以替换它。',
     },
+    datePicker: {
+      today: '今天',
+      tomorrow: '明天',
+      clear: '清除日期',
+      openCalendar: '打开日历',
+      invalid:
+        '未保存：“{{value}}”不是有效日期。请按 {{format}} 格式输入，或从日历中选择。',
+    },
     number: {
       badInput:
         '未保存：此输入框中的文本不是数字。请输入普通小数（例如 {{example}}）。',
@@ -884,6 +892,7 @@ const zh = {
     noCards: '暂无卡片',
     cardTitlePlaceholder: '输入卡片标题…',
     uncategorized: '未分类',
+    loadMore: '加载更多',
     columns: '列',
     requiredFieldsTitle: '填写必填字段',
     requiredFieldsDescription: '此次移动会使以下字段成为必填项。填写后即可继续。',
@@ -2710,15 +2719,21 @@ const zh = {
     greetingNight: '夜深了',
     greetingSeparator: '，',
     greetingEnd: '。',
-    heroTagline: '从上次离开的地方继续，或者探索新的内容。',
+    search: '搜索应用、记录、页面…',
+    summary: {
+      approvals: '今天有 {{count}} 项待审批',
+      approvals_one: '今天有 {{count}} 项待审批',
+      approvals_other: '今天有 {{count}} 项待审批',
+      none: '今天没有待办',
+    },
+    addApp: '添加应用',
+    appOpened: '{{time}}打开',
     build: {
       title: '构建应用',
-      subtitle: '从零开始 — 设计对象、表单、自动化与界面。',
       noCapability: '此工作区不提供构建应用功能 — 它需要「管理元数据」权限,而你的账号没有该权限。',
     },
     template: {
       title: '从模板开始',
-      subtitle: '从应用市场安装模板应用并按需定制。',
       marketplaceDisabled: '本运行时未配置应用市场，因此这里没有可安装的模板。',
     },
     open: '打开',
@@ -3607,7 +3622,7 @@ const zh = {
       installedSubtitle: '当前已安装到本运行时内核的应用市场软件包。缓存的清单文件位于 <code>.objectstack/installed-packages/</code>，重启后仍然保留。',
       installedEmpty: '本运行时尚未安装任何应用市场应用。',
       browseLink: '去应用市场看看 →',
-      installedAdditiveNote: '<strong>说明：</strong>内核 API 仅支持新增 — 卸载会移除磁盘上的清单，下次启动时不再加载；但运行中的内核仍会保留该应用，直到下次重启运行时才会真正卸载。',
+      installedAdditiveNote: '内核 API 仅支持新增 — 卸载会移除磁盘上的清单，下次启动时不再加载；但运行中的内核仍会保留该应用，直到下次重启运行时才会真正卸载。',
       installedAt: '安装于 {{when}}',
       installedBy: '由 {{user}}',
       installedPackageId: '包',
@@ -4203,6 +4218,7 @@ const zh = {
     toggleFailed: '无法更改启用状态。',
     cloneFailedHttp: '无法克隆此流程(HTTP {{status}})。',
     cloneFailed: '无法克隆此流程。',
+    reasonDetails: '详情',
     actionsSubtitle: '由已安装软件包提供的动作。在本部署中关闭后,它在所有提供它的位置都不再运行。你仍然可以在 Studio 中另行编写自己的动作。',
     colAction: '动作',
     colObject: '对象',

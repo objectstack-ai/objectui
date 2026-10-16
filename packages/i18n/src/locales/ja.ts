@@ -360,6 +360,14 @@ const ja = {
       impossibleDay:
         "保存されている値「{{value}}」は実在しない日付です。置き換えるには日付と時刻を選択してください。",
     },
+    datePicker: {
+      today: "今日",
+      tomorrow: "明日",
+      clear: "日付をクリア",
+      openCalendar: "カレンダーを開く",
+      invalid:
+        "保存されていません：「{{value}}」は日付ではありません。{{format}} の形式で入力するか、カレンダーから選択してください。",
+    },
     number: {
       badInput:
         "保存されていません: このボックスのテキストは数値ではありません。通常の小数で入力してください（例: {{example}}）。",
@@ -852,6 +860,7 @@ const ja = {
   },
   kanban: {
     uncategorized: "未分類",
+    loadMore: "さらに読み込む",
     columns: "カラム",
     addCard: "カードを追加",
     addColumn: "カラムを追加",
@@ -2617,12 +2626,10 @@ const ja = {
   home: {
     build: {
       title: "アプリを作る",
-      subtitle: "ゼロから始める — オブジェクト、フォーム、自動化、画面を設計します。",
       noCapability: "このワークスペースではアプリの作成はできません — 「メタデータ管理」権限が必要ですが、お使いのアカウントにはありません。",
     },
     template: {
       title: "テンプレートから始める",
-      subtitle: "マーケットプレイスからテンプレートアプリをインストールしてカスタマイズします。",
       marketplaceDisabled: "このランタイムにはアプリマーケットプレイスが設定されていないため、ここからインストールできるテンプレートはありません。",
     },
     welcomeAdminDescription: "ビジネスを一文で説明してください — AI がオブジェクト、画面、API、エージェントツールを生成します。左のメニューから自分で設定することもできます。",
@@ -2688,7 +2695,15 @@ const ja = {
     greetingNight: "夜遅くまで作業中",
     greetingSeparator: "、",
     greetingEnd: "。",
-    heroTagline: "前回の続きを始めるか、新しいものを探索してください。",
+    search: "アプリ、レコード、ページを検索…",
+    summary: {
+      approvals: "今日は承認待ちが {{count}} 件あります",
+      approvals_one: "今日は承認待ちが {{count}} 件あります",
+      approvals_other: "今日は承認待ちが {{count}} 件あります",
+      none: "今日の対応事項はありません",
+    },
+    addApp: "アプリを追加",
+    appOpened: "{{time}}に起動",
     open: "開く",
     recentApps: {
       title: "最近アクセスしたもの",
@@ -3484,7 +3499,7 @@ const ja = {
     installedSubtitle: "このランタイムのカーネルにインストールされているマーケットプレイスパッケージ。",
     installedEmpty: "このランタイムにはまだマーケットプレイスアプリがインストールされていません。",
     browseLink: "マーケットプレイスを参照 →",
-    installedAdditiveNote: "<strong>注意：</strong>カーネルAPIは追加のみです。アンインストールするとディスク上のマニフェストが削除され、次回起動時にパッケージは読み込まれませんが、実行中のカーネルはランタイムを再起動するまでアプリを登録したままにします。",
+    installedAdditiveNote: "カーネルAPIは追加のみです。アンインストールするとディスク上のマニフェストが削除され、次回起動時にパッケージは読み込まれませんが、実行中のカーネルはランタイムを再起動するまでアプリを登録したままにします。",
     installedAt: "{{when}} にインストール",
     installedBy: "{{user}} による",
     installedPackageId: "パッケージ",
@@ -4145,6 +4160,7 @@ const ja = {
     toggleFailed: "有効状態を変更できませんでした。",
     cloneFailedHttp: "このフローをクローンできませんでした (HTTP {{status}})。",
     cloneFailed: "このフローをクローンできませんでした。",
+    reasonDetails: "詳細",
     actionsSubtitle: "インストール済みパッケージが提供するアクションです。このデプロイでオフにすると、提供されているすべての場所で実行されなくなります。自分のアクションを別途 Studio で作成することは引き続き可能です。",
     colAction: "アクション",
     colObject: "オブジェクト",

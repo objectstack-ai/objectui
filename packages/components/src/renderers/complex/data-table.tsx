@@ -12,6 +12,7 @@ import { cn } from '../../lib/utils';
 import { resolveIcon } from '../action/resolve-icon';
 import { hasDeclaredVisibilityGate } from '../action/visibility-gate';
 import { useGridFieldAuthoring } from '../../context/gridFieldAuthoring';
+import { useHorizontalOverflow, HOVER_SCROLLBAR_CLASSES } from '../../custom/use-horizontal-overflow';
 import { describeIgnoredBind, describeNonArrayData } from './dataTableBindDiagnostic';
 import { ComponentRegistry, compareSortValues, evalRowPredicate, formatDate, hasDeclaredPredicate, formatDateTime, fromDateTimeInputValue, getSortValue, isEmptyValue, isImpossibleStoredDay, toDateInputValue, toDateTimeInputValue } from '@object-ui/core';
 import type { DataTableSchema, TableColumn, TableSortItem, TableColumnType } from '@object-ui/types';
@@ -970,10 +971,11 @@ const AUTO_WIDTH_ATTR = 'data-auto-width-key';
 /**
  * The column an auto-width target names: only one the estimate sizes (no
  * explicit `width`, not `fitContent`), and never a masked one, whose values
- * the estimate does not read (objectui#10657).
+ * the estimate does not read (objectui#10657). A chip column is read with an
+ * explicit `width` too: its chips floor that width (objectui#12708).
  */
 function autoWidthKey(col: TableColumn): string | undefined {
-  return !col.width && !col.fitContent && !col.masked ? col.accessorKey : undefined;
+  return (!col.width || col.chips === true) && !col.fitContent && !col.masked ? col.accessorKey : undefined;
 }
 
 /**
@@ -989,6 +991,12 @@ type DrawnColumnSizes = {
    * (no layout engine, or a table inside a hidden panel).
    */
   px: Record<string, number> | null;
+  /**
+   * The same width for the display cells alone, header left out: a chip
+   * column's floor is its widest drawn chip (objectui#12708). `null` exactly
+   * where `px` is.
+   */
+  cellPx: Record<string, number> | null;
 };
 
 /**
@@ -1069,14 +1077,16 @@ function measureDrawnColumnSizes(heads: readonly HTMLElement[], cells: readonly 
   for (const el of targets) el.style.width = 'max-content';
   const natural = targets.map((el) => el.getBoundingClientRect().width);
   targets.forEach((el, i) => { el.style.width = saved[i]; });
-  if (!natural.some((w) => Number.isFinite(w) && w > 0)) return { chars, px: null };
+  if (!natural.some((w) => Number.isFinite(w) && w > 0)) return { chars, px: null, cellPx: null };
   const px: Record<string, number> = {};
+  const cellPx: Record<string, number> = {};
   targets.forEach((el, i) => {
     const key = el.getAttribute(AUTO_WIDTH_ATTR) ?? '';
     const need = Math.ceil((Number.isFinite(natural[i]) ? natural[i] : 0) + insets[i]);
     if (!(key in px) || need > px[key]) px[key] = need;
+    if (i >= heads.length && (!(key in cellPx) || need > cellPx[key])) cellPx[key] = need;
   });
-  return { chars, px };
+  return { chars, px, cellPx };
 }
 
 function sameNumberRecord(a: Record<string, number> | null, b: Record<string, number> | null): boolean {
@@ -1086,7 +1096,7 @@ function sameNumberRecord(a: Record<string, number> | null, b: Record<string, nu
 }
 
 function sameDrawnSizes(a: DrawnColumnSizes, b: DrawnColumnSizes): boolean {
-  return sameNumberRecord(a.chars, b.chars) && sameNumberRecord(a.px, b.px);
+  return sameNumberRecord(a.chars, b.chars) && sameNumberRecord(a.px, b.px) && sameNumberRecord(a.cellPx, b.cellPx);
 }
 
 /**
@@ -1459,6 +1469,27 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   const [pageSize, setPageSize] = useState(initialPageSize);
   const [columns, setColumns] = useState(initialColumns);
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+
+  // objectui#12708 — a chip column's floor: its widest drawn chip among the
+  // rows on screen, measured once per data load (a new `data`, page or page
+  // size) by the drawn-size read below, so a single-word chip value is never
+  // cut to an ellipsis. Text columns have none and keep their width, so where
+  // the table runs short of room they truncate and the chips stay whole. The
+  // load is told apart by its PRIMITIVE inputs and the `data` prop, never by a
+  // memoised value's identity (AGENTS.md #10).
+  const [chipFloors, setChipFloors] = useState<Record<string, number>>({});
+  const chipFloorLoadRef = useRef<readonly unknown[] | null>(null);
+  /**
+   * The width a column renders at: a user's resize, else the declared width,
+   * else the estimate; a chip column's floor raises a numeric width, or stands
+   * in for none. A width spelled as a CSS string is left as authored.
+   */
+  const resolvedColumnWidth = (col: TableColumn): string | number | undefined => {
+    const base = columnWidths[col.accessorKey] || col.width || autoSizedWidths[col.accessorKey];
+    const floor = col.chips === true ? chipFloors[col.accessorKey] : undefined;
+    if (floor === undefined || (base !== undefined && typeof base !== 'number')) return base;
+    return Math.max(base ?? 0, floor);
+  };
 
   // Sticky-left offsets for the leading pinned cells (checkbox, row number,
   // frozen data columns), measured from the REAL rendered header-cell widths.
@@ -2584,19 +2615,18 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
    * none.
    */
   const scrollBoxRef = useRef<HTMLDivElement | null>(null);
+  // Whether columns remain to the right: the shared overflow read
+  // (objectui#12708), the same one `ObjectGrid`'s grouped scroller and a
+  // page's own table use. Only the shadow's PLACEMENT is this table's own.
+  const overflowRight = useHorizontalOverflow(scrollBoxRef, { disabled: disableInnerScroll });
   const [rightShadow, setRightShadow] = useState<{ right: number; bottom: number } | null>(null);
   useLayoutEffect(() => {
     const box = scrollBoxRef.current;
-    if (disableInnerScroll || !box) {
+    if (!overflowRight || !box) {
       setRightShadow(null);
       return;
     }
     const measure = () => {
-      const more = box.scrollLeft + box.clientWidth < box.scrollWidth - 1;
-      if (!more) {
-        setRightShadow((prev) => (prev === null ? prev : null));
-        return;
-      }
       const cs = typeof getComputedStyle === 'function' ? getComputedStyle(box) : null;
       const borderX = cs ? (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.borderRightWidth) || 0) : 0;
       const borderY = cs ? (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.borderBottomWidth) || 0) : 0;
@@ -2616,18 +2646,14 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
       setRightShadow((prev) => (prev && prev.right === right && prev.bottom === bottom ? prev : { right, bottom }));
     };
     measure();
-    box.addEventListener('scroll', measure, { passive: true });
     let observer: ResizeObserver | null = null;
     if (typeof ResizeObserver !== 'undefined') {
       observer = new ResizeObserver(measure);
       observer.observe(box);
       if (tableRef.current) observer.observe(tableRef.current);
     }
-    return () => {
-      box.removeEventListener('scroll', measure);
-      observer?.disconnect();
-    };
-  }, [disableInnerScroll, columns, leadingCellCount, paginatedData.length]);
+    return () => observer?.disconnect();
+  }, [overflowRight, columns, leadingCellCount, paginatedData.length]);
 
   const [rovingCell, setRovingCell] = useState<{ rowIndex: number; colIndex: number }>({ rowIndex: 0, colIndex: 0 });
   const rovingRowIndex = Math.max(0, Math.min(rovingCell.rowIndex, paginatedData.length - 1));
@@ -2850,6 +2876,20 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
       const signature = drawnSizeSignature([...heads, ...cells]);
       if (!force && signature === drawnSignatureRef.current) return;
       const next = measureDrawnColumnSizes(heads, cells);
+      // The chip floors, once per data load (objectui#12708): the first read
+      // that is laid out after the rows on screen changed.
+      // The props, not `data`: a grouped table's `data` is a memoised flatten.
+      const load = [rowGroups ?? rawData, effectivePage, pageSize] as const;
+      const prevLoad = chipFloorLoadRef.current;
+      if (next.cellPx && !(prevLoad && load.every((v, i) => v === prevLoad[i]))) {
+        chipFloorLoadRef.current = load;
+        const floors: Record<string, number> = {};
+        for (const col of columns) {
+          const need = col.chips === true ? next.cellPx[col.accessorKey] : undefined;
+          if (need !== undefined) floors[col.accessorKey] = need;
+        }
+        setChipFloors((prev) => (sameNumberRecord(prev, floors) ? prev : floors));
+      }
       // A read with nothing laid out is not remembered, so the next commit or
       // resize reads again instead of keeping the text-only estimate.
       drawnSignatureRef.current = next.px ? signature : null;
@@ -3029,7 +3069,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
         // sub-tables share one horizontal scrollbar with aligned columns.
         disableInnerScroll
           ? "overflow-visible"
-          : "flex-1 min-h-0 overflow-auto [-webkit-overflow-scrolling:touch]",
+          : ["flex-1 min-h-0 overflow-auto [-webkit-overflow-scrolling:touch]", HOVER_SCROLLBAR_CLASSES],
         !borderless && "rounded-md border",
       )}>
         {/* This div is already the (bounded) scroll container for BOTH axes —
@@ -3077,7 +3117,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                   && !columnWidths[col.accessorKey] && !col.width;
                 const columnWidth = isFit
                   ? '1%'
-                  : (columnWidths[col.accessorKey] || col.width || autoSizedWidths[col.accessorKey]);
+                  : resolvedColumnWidth(col);
                 const isDragging = draggedColumn === index;
                 const isDragOver = dragOverColumn === index;
                 const isFrozen = frozenColumns > 0 && index < frozenColumns;
@@ -3093,7 +3133,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                   ? measuredStickyLefts?.[leadingCellCount + index]
                     ?? columns.slice(0, index).reduce((sum, c, i) => {
                       if (i < frozenColumns) {
-                        const w = columnWidths[c.accessorKey] || c.width || autoSizedWidths[c.accessorKey];
+                        const w = resolvedColumnWidth(c);
                         return sum + (typeof w === 'number' ? w : w ? parseInt(String(w), 10) || 150 : 150);
                       }
                       return sum;
@@ -3540,7 +3580,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                         const pinnedRightOffset = isPinnedRightColumn(col) ? measuredStickyRights?.[col.accessorKey] : undefined;
                         const columnWidth = isFit
                           ? '1%'
-                          : (columnWidths[col.accessorKey] || col.width || autoSizedWidths[col.accessorKey]);
+                          : resolvedColumnWidth(col);
                         const originalValue = row[col.accessorKey];
                         const hasPendingChange = rowChanges[col.accessorKey] !== undefined;
                         const cellValue = hasPendingChange ? rowChanges[col.accessorKey] : originalValue;
@@ -3555,7 +3595,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                           ? measuredStickyLefts?.[leadingCellCount + colIndex]
                             ?? columns.slice(0, colIndex).reduce((sum, c, i) => {
                               if (i < frozenColumns) {
-                                const w = columnWidths[c.accessorKey] || c.width || autoSizedWidths[c.accessorKey];
+                                const w = resolvedColumnWidth(c);
                                 return sum + (typeof w === 'number' ? w : w ? parseInt(String(w), 10) || 150 : 150);
                               }
                               return sum;

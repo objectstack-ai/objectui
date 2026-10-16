@@ -344,6 +344,13 @@ export const TableColumnSchema = z.object({
     .boolean()
     .optional()
     .describe('Masked column: the table withholds the raw value from Ctrl+C / Cmd+C copy, the cell title tooltip, its CSV export, inline edit, the client search and the sort, and sizes the column from its header instead of its values. It withholds only: the producer\'s cell renderer draws the mask, and the table draws a column with no cell as its value'),
+  // objectui#12708. Serializable metadata, so the mirror TYPES it —
+  // `z.boolean()`, like `fitContent` and `masked`; without this line the
+  // non-strict object would silently STRIP it.
+  chips: z
+    .boolean()
+    .optional()
+    .describe('Chip column: its cells draw chips, so the table floors its width at the widest drawn chip of the loaded rows and a single-word value is never ellipsized'),
 });
 
 /**
@@ -401,6 +408,7 @@ export const StaticTableColumnSchema = z.object({
   currency: retirementTombstone('NOT on the static table surface (objectui#6425) — declared on the rich TableColumn only; use data-table'),
   wrap: retirementTombstone('NOT on the static table surface (objectui#6650) — declared on the rich TableColumn only; use data-table'),
   masked: retirementTombstone('NOT on the static table surface (objectui#10583) — declared on the rich TableColumn only; use data-table'),
+  chips: retirementTombstone('NOT on the static table surface (objectui#12708) — declared on the rich TableColumn only; use data-table'),
 });
 
 /**

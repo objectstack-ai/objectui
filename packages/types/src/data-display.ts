@@ -819,6 +819,19 @@ export interface TableColumn {
    * face of the disclosure objectui#8440 closed on the detail page.
    */
   masked?: boolean;
+  /**
+   * The column's cells draw chips (a select or status field's badges). The
+   * table gives such a column a minimum width of its widest drawn chip,
+   * measured once per data load, so a single-word value is never cut to an
+   * ellipsis; text columns keep their width and truncate instead. Applies
+   * over an explicit `width` and a user's resize alike: neither can take
+   * the column below that floor.
+   *
+   * Written by `ObjectGrid` from the column's field type, because the table
+   * cannot tell a chip from text: `type` has no select member, and a `cell`
+   * renderer is opaque to it (objectui#12708).
+   */
+  chips?: boolean;
 }
 
 /**
@@ -886,6 +899,14 @@ export interface StaticTableColumn {
    * @deprecated Not part of the static `table` renderer's contract.
    */
   masked?: never;
+  /**
+   * NOT on the static `table` surface (objectui#12708) — declared on the rich
+   * {@link TableColumn} only, where `data-table`'s column sizing reads it. The
+   * static renderer has no column sizing for it to floor.
+   * Use `data-table` for the interactive set.
+   * @deprecated Not part of the static `table` renderer's contract.
+   */
+  chips?: never;
   /**
    * RETIRED from the static `table` surface (objectui#5474, ADR-0049) — the
    * static renderer never read it; a right-aligned column authored here was

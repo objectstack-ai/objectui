@@ -71,10 +71,15 @@ const objectDef = {
     stage: { label: 'Stage', type: 'text' },
     account: { label: 'Account', type: 'lookup', reference: 'os_12701_account' },
     owner: { label: 'Owner', type: 'lookup', reference: 'sys_user' },
+    // Expanded by the page, drawn by no section — HotCRM's audit relations.
+    // It is what makes the body's own read a DIFFERENT URL from the page's,
+    // as measured; with equal lists the adapter's in-flight sharing would
+    // fold the two into one and hide the body's read.
+    created_by: { label: 'Created by', type: 'lookup', reference: 'sys_user' },
   },
 };
 
-const RECORD = { id: REC, title: 'Lattice renewal', stage: 'prospecting', account: 'a1', owner: 'u1' };
+const RECORD = { id: REC, title: 'Lattice renewal', stage: 'prospecting', account: 'a1', owner: 'u1', created_by: 'u1' };
 
 /** One pending, record-locking request, as `listRequests` sends it. */
 const PENDING = {
@@ -274,8 +279,8 @@ describe('a record open sends one approvals read and one record read (objectui#1
 
     const recordReads = held.filter(isRecordRead);
     expect(recordReads.map((h) => h.path), 'record reads').toHaveLength(1);
-    // The one read carries every relation the page's sections draw.
-    expect(expansionOf(recordReads[0])).toEqual(['account', 'owner']);
+    // The one read carries every relation the page's sections draw, and more.
+    expect(expansionOf(recordReads[0])).toEqual(['account', 'created_by', 'owner']);
 
     // Out of the card's scope, and not duplicated: the record's activity read.
     expect(held.filter(isActivityRead), 'activity reads').toHaveLength(1);
@@ -311,6 +316,6 @@ describe('a record open sends one approvals read and one record read (objectui#1
 
     const recordReads = held.filter(isRecordRead);
     expect(recordReads, 'one refetch, never a second read beside it').toHaveLength(2);
-    expect(expansionOf(recordReads[1])).toEqual(['account', 'owner', 'reviewer']);
+    expect(expansionOf(recordReads[1])).toEqual(['account', 'created_by', 'owner', 'reviewer']);
   });
 });

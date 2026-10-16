@@ -2208,6 +2208,8 @@ const ar = {
       cryptoRefusalNoSubject: "تم رفض القيمة المعلنة كمشفَّرة، لذلك لم تتم كتابة أي شيء.",
       cryptoRefusalToast: "تعذّر تشفير الأسرار: {{subject}}",
       cryptoRefusalToastNoSubject: "تعذّر تشفير الأسرار",
+      sourceBadgeInherited: "موروث من {{source}}",
+      sourceBadgeOverrides: "يتجاوز {{source}}",
     },
     workspaceTimezonePrompt: {
       title: "تعيين المنطقة الزمنية لمساحة العمل",

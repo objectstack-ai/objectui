@@ -119,6 +119,20 @@ export interface ConsolePageHeaderProps {
   /** Right-aligned actions (buttons, dropdowns, etc.). */
   actions?: React.ReactNode;
   /**
+   * The same actions folded for a header too narrow for them and its text
+   * (objectui#12705): the page's primary action, still labelled, then the
+   * page's `⋯` menu holding the others above the page's own entries. The
+   * header draws it in place of `actions` once `actions` would clip the title
+   * or the description, and goes back to `actions` once they fit again, so
+   * the text is cut only after the actions have folded.
+   *
+   * The header measures its own width, not the viewport's. The page declares
+   * which action is primary by being the one that names it here; the header
+   * never guesses it from `actions`. A page that passes no `foldedActions`
+   * keeps `actions` at every width.
+   */
+  foldedActions?: React.ReactNode;
+  /**
    * CSS color used to tint the top hairline, icon chip background, and
    * icon stroke. Defaults to the Shadcn `--primary` token so the header
    * automatically follows the active app's branding.
@@ -161,6 +175,7 @@ export function PageHeader({
   breadcrumb,
   refresh,
   actions,
+  foldedActions,
   accentColor,
   sticky = false,
   className,
@@ -172,6 +187,11 @@ export function PageHeader({
   const style = { '--page-header-accent': accent } as React.CSSProperties;
   // objectui#12606 — Setup's posture: the description under the title.
   const setup = useInSetupApp();
+
+  // objectui#12705 — the actions fold before the text is cut.
+  const canFold = foldedActions != null && foldedActions !== false;
+  const { rootRef, textRef, descriptionRef, clusterRef, folded } = useActionsFold(canFold, setup);
+  const drawnActions = canFold && folded ? foldedActions : actions;
 
   const refreshButton = refresh ? (
     <Button
@@ -189,15 +209,21 @@ export function PageHeader({
     </Button>
   ) : null;
 
-  const trailing = (refreshButton || actions) && (
-    <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+  const trailing = (refreshButton || drawnActions) && (
+    <div
+      ref={clusterRef}
+      className="flex items-center gap-1.5 sm:gap-2 shrink-0"
+      data-testid="page-header-actions"
+      data-folded={canFold ? String(folded) : undefined}
+    >
       {refreshButton}
-      {actions}
+      {drawnActions}
     </div>
   );
 
   return (
     <div
+      ref={rootRef}
       style={style}
       className={cn(
         'relative shrink-0 border-b bg-background z-10',
@@ -224,7 +250,7 @@ export function PageHeader({
         <div className="flex justify-between items-center gap-3 py-3 px-4 sm:px-6">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             {icon && <IconTile size="setup">{icon}</IconTile>}
-            <div className="min-w-0 flex-1">
+            <div ref={textRef} className="min-w-0 flex-1">
               <div className="flex items-center gap-2 min-w-0">
                 <h1 className="min-w-0 truncate text-lg font-semibold leading-6 tracking-tight text-foreground">
                   {title}
@@ -235,6 +261,7 @@ export function PageHeader({
                   keeps the same two-line height, so its title sits where
                   every other Setup page's does. */}
               <p
+                ref={descriptionRef}
                 className="min-h-[18px] truncate text-[13px] leading-[18px] text-muted-foreground"
                 data-testid="page-header-description"
               >
@@ -253,7 +280,7 @@ export function PageHeader({
               a header with no icon and no action is as tall as one with them
               (objectui#12553). It sits here, not on the padded row above: under
               `border-box` a min-height there would count that row's padding. */}
-          <div className="flex items-center gap-2.5 min-w-0 flex-1 min-h-9">
+          <div ref={textRef} className="flex items-center gap-2.5 min-w-0 flex-1 min-h-9">
             {icon && <IconTile size="row">{icon}</IconTile>}
             <h1 className="min-w-0 max-w-full sm:max-w-[60%] shrink-0 text-base sm:text-lg font-semibold tracking-tight text-foreground truncate leading-tight">
               {title}
@@ -262,7 +289,7 @@ export function PageHeader({
             {(subtitle || breadcrumb) && (
               <>
                 <span aria-hidden="true" className="hidden sm:block h-4 w-px shrink-0 bg-border" />
-                <p className="hidden sm:block min-w-0 flex-1 truncate text-sm text-muted-foreground">
+                <p ref={descriptionRef} className="hidden sm:block min-w-0 flex-1 truncate text-sm text-muted-foreground">
                   {breadcrumb}
                   {subtitle}
                 </p>
@@ -274,6 +301,123 @@ export function PageHeader({
       )}
     </div>
   );
+}
+
+/**
+ * objectui#12705 — when the header folds its actions.
+ *
+ * The question is the header's own: does the text block (title and
+ * description) have the room its content needs beside the actions it draws?
+ * It is answered from the header's width (a `ResizeObserver` on the header,
+ * plus a pass after every render), never from the viewport's.
+ *
+ * - Unfolded, the header remembers how wide `actions` is and folds as soon as
+ *   the text would be clipped.
+ * - Folded, it unfolds once the text would still fit after giving `actions`
+ *   back the width the fold saved, so the two states cannot flip-flop.
+ *
+ * Without layout (no `ResizeObserver`, every width 0) nothing ever overflows
+ * and the header stays unfolded.
+ */
+function useActionsFold(canFold: boolean, setup: boolean) {
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const textRef = React.useRef<HTMLDivElement>(null);
+  const descriptionRef = React.useRef<HTMLParagraphElement>(null);
+  const clusterRef = React.useRef<HTMLDivElement>(null);
+  const [folded, setFolded] = React.useState(false);
+  const foldedRef = React.useRef(false);
+  const unfoldedWidthRef = React.useRef(0);
+
+  // Re-assigned on every render and called through the ref, so neither effect
+  // below keys on a callback's identity (AGENTS.md #10).
+  const measureRef = React.useRef<() => void>(() => {});
+  measureRef.current = () => {
+    if (!canFold) {
+      // A page that stops offering the fold starts unfolded when it offers it
+      // again.
+      if (foldedRef.current) {
+        foldedRef.current = false;
+        setFolded(false);
+      }
+      return;
+    }
+    const cluster = clusterRef.current;
+    const text = textRef.current;
+    if (!cluster || !text) return;
+    const clusterWidth = cluster.getBoundingClientRect().width;
+    const overflow = textOverflow(text, descriptionRef.current, setup);
+    let next: boolean;
+    if (!foldedRef.current) {
+      unfoldedWidthRef.current = clusterWidth;
+      next = overflow > 0.5;
+    } else {
+      next = overflow + (unfoldedWidthRef.current - clusterWidth) > 0.5;
+    }
+    if (next !== foldedRef.current) {
+      foldedRef.current = next;
+      setFolded(next);
+    }
+  };
+
+  React.useLayoutEffect(() => {
+    measureRef.current();
+  });
+
+  React.useEffect(() => {
+    const root = rootRef.current;
+    if (!canFold || !root || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => measureRef.current());
+    observer.observe(root);
+    if (clusterRef.current) observer.observe(clusterRef.current);
+    return () => observer.disconnect();
+  }, [canFold]);
+
+  return { rootRef, textRef, descriptionRef, clusterRef, folded: canFold && folded };
+}
+
+/**
+ * How many pixels the header's text needs beyond the room it has: positive
+ * when the title or the description is clipped, negative by the slack left.
+ *
+ * - One row: the text block holds the icon, the title (which never shrinks),
+ *   the kind chip, the hairline and the description; only the description is
+ *   drawn at less than its content, so its content width is what is needed.
+ * - Setup: the title line and the description share one column, which needs
+ *   the wider of the two.
+ *
+ * The description's content width is read through a `Range` over it, which
+ * spans the whole text even where the line is cut, so the description's own
+ * markup stays as it is.
+ */
+function textOverflow(text: HTMLElement, description: HTMLElement | null, setup: boolean): number {
+  const descriptionNeeds = description ? contentWidth(description) : 0;
+  if (setup) {
+    const titleLine = text.firstElementChild as HTMLElement | null;
+    const titleNeeds = titleLine
+      ? childrenWidth(titleLine, (child) => (child.tagName === 'H1' ? child.scrollWidth : undefined))
+      : 0;
+    return Math.max(titleNeeds, descriptionNeeds) - text.clientWidth;
+  }
+  const needs = childrenWidth(text, (child) => (child === description ? descriptionNeeds : undefined));
+  return needs - text.clientWidth;
+}
+
+/** The children's widths plus the flex gaps between them, skipping hidden ones. */
+function childrenWidth(parent: HTMLElement, widthOf: (child: HTMLElement) => number | undefined): number {
+  const view = parent.ownerDocument.defaultView;
+  const children = Array.from(parent.children).filter(
+    (child): child is HTMLElement => !!view && view.getComputedStyle(child).display !== 'none',
+  );
+  const gap = Number.parseFloat(view?.getComputedStyle(parent).columnGap ?? '') || 0;
+  const widths = children.map((child) => widthOf(child) ?? child.getBoundingClientRect().width);
+  return widths.reduce((sum, width) => sum + width, 0) + gap * Math.max(0, children.length - 1);
+}
+
+function contentWidth(element: HTMLElement): number {
+  const range = element.ownerDocument.createRange?.();
+  if (!range || typeof range.getBoundingClientRect !== 'function') return 0;
+  range.selectNodeContents(element);
+  return range.getBoundingClientRect().width;
 }
 
 /**

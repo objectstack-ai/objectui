@@ -4081,7 +4081,7 @@ const ru = {
       summaryItems_few: '{{count}} элемента',
       summaryItems_many: '{{count}} элементов',
       summaryItems_other: '{{count}} элемента',
-      summaryType: '{{n}} {{type}}',
+      summaryType: '{{type}}: {{n}}',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.

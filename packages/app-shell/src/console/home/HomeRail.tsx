@@ -137,12 +137,12 @@ function WorkRow({
   testId?: string;
 }) {
   return (
-    <li className="border-t">
+    <li className="h-10 border-t">
       <button
         type="button"
         onClick={onClick}
         data-testid={testId}
-        className="flex h-10 w-full items-center gap-2.5 px-3 text-left text-[13px] transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
+        className="flex h-full w-full items-center gap-2.5 px-3 text-left text-[13px] transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
       >
         <span className={cn('inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md', tileClass)}>
           <Icon className="h-3.5 w-3.5" />

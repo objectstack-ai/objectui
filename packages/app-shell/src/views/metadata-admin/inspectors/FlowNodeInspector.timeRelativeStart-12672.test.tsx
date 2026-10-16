@@ -159,6 +159,7 @@ function mount(initial: Draft) {
           });
         }}
         onClearSelection={vi.fn()}
+        readOnly={false}
         locale="en-US"
       />
     );
@@ -285,6 +286,7 @@ describe('the resolved kind belongs to the start node it is resolved from (objec
         selection={{ kind: 'node', id: 'start_2' } as MetadataSelection}
         onPatch={vi.fn()}
         onClearSelection={vi.fn()}
+        readOnly={false}
         locale="en-US"
       />,
     );

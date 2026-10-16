@@ -7,11 +7,11 @@
  */
 
 /**
- * objectui#12606 — the two host props the console's Setup app sets on its
- * record lists: `defaultRowNumbers` (the grid opens without the `#` numbers)
- * and `showDisplayControl` (the bar draws no Display control). Both are React
- * props a host passes, never view keys; the control mounts the same schema
- * with neither and reads today's shape.
+ * objectui#12606 — the host prop the console's Setup app sets on its record
+ * lists: `defaultRowNumbers` (the grid opens without the `#` numbers). A React
+ * prop a host passes, never a view key. The Display control still draws (the
+ * maintainer's ruling C on the card withdrew the Display hide rule). The
+ * control mounts the same schema without the prop and reads today's shape.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
@@ -61,18 +61,8 @@ afterEach(() => {
   if (previousGrid) ComponentRegistry.register('object-grid', previousGrid as any);
 });
 
-describe('the list’s Setup chrome is two host props (objectui#12606)', () => {
-  it('`defaultRowNumbers={false}` opens the grid without row numbers, and `showDisplayControl={false}` draws no Display', async () => {
-    mount({ defaultRowNumbers: false, showDisplayControl: false });
-    await screen.findByTestId('grid-stub');
-    expect(gridProps?.showRowNumbers).toBe(false);
-    expect(screen.queryByTestId('toolbar-display-trigger')).toBeNull();
-    // The rest of the bar stays.
-    expect(screen.getByTestId('toolbar-filter-trigger')).toBeTruthy();
-    expect(screen.getByTestId('toolbar-sort-trigger')).toBeTruthy();
-  });
-
-  it('with Display drawn, row numbers off by the host default is not a changed setting', async () => {
+describe('the list’s Setup chrome is one host prop (objectui#12606)', () => {
+  it('`defaultRowNumbers={false}` opens the grid without row numbers; Display still draws, and row numbers off is not a changed setting', async () => {
     mount({ defaultRowNumbers: false });
     await screen.findByTestId('grid-stub');
     expect(gridProps?.showRowNumbers).toBe(false);
@@ -80,7 +70,7 @@ describe('the list’s Setup chrome is two host props (objectui#12606)', () => {
     expect(screen.queryByTestId('toolbar-display-count')).toBeNull();
   });
 
-  it('CONTROL — with neither prop the grid numbers its rows and the bar draws Display', async () => {
+  it('CONTROL — without the prop the grid numbers its rows and the bar draws Display', async () => {
     mount();
     await screen.findByTestId('grid-stub');
     expect(gridProps?.showRowNumbers).toBe(true);

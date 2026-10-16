@@ -1417,8 +1417,8 @@ export function ObjectView({ dataSource, objects, onEdit, externalRefreshKey }: 
 function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: ConsoleObjectViewProps) {
     const navigate = useNavigate();
     const { appName, objectName, viewId } = useParams();
-    // objectui#12606 — inside the Setup app the list drops the chrome an
-    // administrator does not use there (see the `ListView` below). Read off
+    // objectui#12606 — inside the Setup app the list drops its `#` row
+    // numbers (see the `ListView` below). Read off
     // the route's own `:appName`, the one signal the page header reads too.
     const inSetup = isSetupAppSegment(appName);
     const [searchParams, setSearchParams] = useSearchParams();
@@ -3648,16 +3648,14 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 // objectui#12440 — the saved-view tabs, on the list's own
                 // toolbar row (see `viewTabBar`). `undefined` below `sm`.
                 toolbarLeading={viewTabBar ?? undefined}
-                // objectui#12606 — Setup's list: no row numbers in the
-                // leading cell, and the Display control only for an object
-                // that declares more than four views. Host props, not view
-                // keys: a console posture, never metadata.
+                // objectui#12606 — Setup's list opens without row numbers in
+                // the leading cell. A host prop, not a view key: a console
+                // posture, never metadata.
                 defaultRowNumbers={!inSetup}
-                showDisplayControl={!inSetup || views.length > 4}
                 dataSource={ds}
             />
         );
-    }, [inSetup, views.length, activeView, activeViewDeclaresColumns, activeViewIsSaved, objectDef, objectName, refreshKey, navOverlay, actions, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, writeListUrlState, user?.id, pageOffersCreate, listIdentityKey, listPrefs.ready, listPrefs.preference, listPrefs.patchView, viewTabBar]);
+    }, [inSetup, activeView, activeViewDeclaresColumns, activeViewIsSaved, objectDef, objectName, refreshKey, navOverlay, actions, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, writeListUrlState, user?.id, pageOffersCreate, listIdentityKey, listPrefs.ready, listPrefs.preference, listPrefs.patchView, viewTabBar]);
 
     // Memoize the merged views array so PluginObjectView doesn't get a new
     // reference on every render (which would trigger unnecessary data refetches).

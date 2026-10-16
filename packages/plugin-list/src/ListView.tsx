@@ -445,13 +445,6 @@ export interface ListViewProps {
    * posture of the console, not of the view.
    */
   defaultRowNumbers?: boolean;
-  /**
-   * Whether the toolbar draws the Display control. Default `true`. A HOST prop:
-   * the console's Setup app draws it only for an object that declares more
-   * than four views (objectui#12606). With it off, nothing else in the bar
-   * moves.
-   */
-  showDisplayControl?: boolean;
 }
 
 // Helper to convert FilterBuilder group to ObjectStack AST.
@@ -1441,7 +1434,6 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   initialSearchTerm,
   toolbarLeading,
   defaultRowNumbers = true,
-  showDisplayControl = true,
   ...props
 }: ListViewProps & { [key: string]: any }, ref) => {
   // The switcher can be enabled either by the host component (prop) or by
@@ -5638,7 +5630,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               Every control writes through the same door as its wide-form
               button above; the panel adds no storage of its own. Drawn on
               mobile too (icon only): Refresh and Export live in it. */}
-          {toolbarFlags.compactToolbar && showDisplayControl && (
+          {toolbarFlags.compactToolbar && (
             viewSwitcherOffered || toolbarFlags.showGroup || toolbarFlags.showColor || toolbarFlags.showDensity
             || toolbarFlags.showHideFields || currentView === 'grid' || toolbarFlags.showRefresh
             || (resolvedExportOptions && exportPermitted && exportableFormats.length > 0)

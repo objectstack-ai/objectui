@@ -7,9 +7,9 @@
  */
 
 /**
- * objectui#12606 — a `sys_*` record list under the Setup app drops the list
- * chrome an administrator does not use there: the grid's `#` row numbers, and
- * the Display control unless the object declares more than four views.
+ * objectui#12606 — a `sys_*` record list under the Setup app drops the grid's
+ * `#` row numbers. The Display control stays on every list, under Setup too
+ * (the maintainer's ruling C on the card withdrew the Display hide rule).
  *
  * Measured from a real `ObjectView` → `ListView` → `ObjectGrid` mount (the
  * `ObjectView.listUrlState-11860` harness). "Under Setup" is the route's own
@@ -82,16 +82,8 @@ const FIELDS = {
 const view = (label: string) => ({ label, type: 'grid', columns: ['name'] });
 
 const OBJECTS = [
-  // Two views: under Setup, no Display.
+  // Two views: four or fewer, and Display still draws under Setup.
   { name: 'sys_team_12606', label: 'Team', pluralLabel: 'Teams', fields: FIELDS, listViews: { all: view('All'), mine: view('Mine') } },
-  // Five views: more than four, so Display stays under Setup.
-  {
-    name: 'sys_log_12606',
-    label: 'Log',
-    pluralLabel: 'Logs',
-    fields: FIELDS,
-    listViews: { a: view('A'), b: view('B'), c: view('C'), d: view('D'), e: view('E') },
-  },
 ];
 
 const ROWS = [{ id: '1', name: 'Core' }, { id: '2', name: 'Ops' }];
@@ -140,15 +132,9 @@ async function mount(appName: string, objectName: string) {
 
 const rowNumberCells = () => document.querySelectorAll('[data-slot="row-number"]').length;
 
-describe('a record list under Setup drops the `#` column and, for four views or fewer, Display (objectui#12606)', () => {
-  it.each(['setup', 'com.objectstack.setup'])('under /apps/%s the grid renders no `#` column and no Display', async (app) => {
+describe('a record list under Setup drops the `#` column and keeps Display (objectui#12606)', () => {
+  it.each(['setup', 'com.objectstack.setup'])('under /apps/%s the grid renders no `#` column, and Display still draws', async (app) => {
     await mount(app, 'sys_team_12606');
-    expect(rowNumberCells()).toBe(0);
-    expect(screen.queryByTestId('toolbar-display-trigger')).toBeNull();
-  });
-
-  it('under Setup an object with more than four views keeps Display, still with no `#` column', async () => {
-    await mount('setup', 'sys_log_12606');
     expect(rowNumberCells()).toBe(0);
     expect(screen.getByTestId('toolbar-display-trigger')).toBeTruthy();
   });

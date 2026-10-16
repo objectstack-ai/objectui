@@ -533,6 +533,7 @@ const ru = {
     pullToRefresh: "Потяните для обновления",
     refreshing: "Обновление…",
     openRecord: "Открыть запись",
+    recordUnavailable: "{{object}} · запись недоступна",
     rowHeight: "Высота строки: {{mode}}",
     openMenu: "Открыть меню",
     empty: "Пусто",
@@ -2156,6 +2157,7 @@ const ru = {
       toggleSidebar: "Переключить боковую панель",
       newChat: "Новый чат",
       toggleChatsList: "Переключить список чатов",
+      goHome: "Вернуться на главную",
     },
     commandPalette: {
       title: "Палитра команд",
@@ -2759,11 +2761,17 @@ const ru = {
       dismiss: "Закрыть",
     },
     pendingDrafts: {
-      message: "У вас {{count}} неопубликованных изменений — опубликуйте их, чтобы они вступили в силу.",
-      message_one: "У вас {{count}} неопубликованное изменение — опубликуйте его, чтобы оно вступило в силу.",
-      message_few: "У вас {{count}} неопубликованных изменения — опубликуйте их, чтобы они вступили в силу.",
-      message_many: "У вас {{count}} неопубликованных изменений — опубликуйте их, чтобы они вступили в силу.",
-      message_other: "У вас {{count}} неопубликованного изменения — опубликуйте их, чтобы они вступили в силу.",
+      // objectui#12602 — the drafts row in Home's "My work" section: the
+      // count, then the first draft names joined by `nameSeparator`, in
+      // their package when they share one.
+      title: "{{count}} неопубликованных изменений",
+      title_one: "{{count}} неопубликованное изменение",
+      title_few: "{{count}} неопубликованных изменения",
+      title_many: "{{count}} неопубликованных изменений",
+      title_other: "{{count}} неопубликованного изменения",
+      inPackage: "{{names}} ожидают публикации в {{package}}",
+      waiting: "{{names}} ожидают публикации",
+      nameSeparator: ", ",
       cta: "Опубликовать",
       publishing: "Публикация…",
       published: "Опубликовано! Изменения вступили в силу.",
@@ -2785,9 +2793,16 @@ const ru = {
     showMoreApps: "Ещё",
     showLess: "Свернуть",
     continueEmpty: "Открытые вами элементы появятся здесь.",
-    actionCenter: {
-      title: "Требует вашего внимания",
-      empty: "Всё выполнено",
+    // objectui#12602 — Home's "My work" section: its heading, the link to the
+    // full inbox, each column's title, "view all" link and empty line.
+    myWork: {
+      title: "Моя работа",
+      openInbox: "Открыть входящие",
+      viewAll: "Показать все",
+      approvals: "Ожидают одобрения",
+      approvalsEmpty: "Нет заявок на одобрение",
+      notifications: "Уведомления",
+      notificationsEmpty: "Нет непрочитанных уведомлений",
     },
     loading: "Загрузка рабочего пространства…",
     welcome: "Добро пожаловать в ObjectUI",
@@ -2871,6 +2886,9 @@ const ru = {
       noAppsConfigured: "Нет приложений",
       allApps: "Все приложения",
       editAppInStudio: "Редактировать {{app}} в Studio",
+      backToHome: "Вернуться на главную",
+      settings: "Настройки",
+      productHome: "Главная {{product}}",
     },
     activityFeed: {
       title: "Последние действия",
@@ -3612,7 +3630,7 @@ const ru = {
     },
     unbound: {
       title: "Не подключено",
-      body: "Подключите эту среду выполнения к управляющему слою ObjectStack, чтобы просматривать приватные пакеты вашей организации и устанавливать их здесь. Подтверждение — один клик в вашей облачной учётной записи; никакие идентификаторы и учётные данные на этой странице не вводятся.",
+      body: "Эта среда выполнения не подключена к управляющему слою. «Подключить» открывает вашу облачную учётную запись в новом окне, где подключение подтверждается одним кликом; никакие идентификаторы и учётные данные на этой странице не вводятся.",
       connect: "Подключить",
     },
   },
@@ -3957,6 +3975,11 @@ const ru = {
     emptyPending: 'Всё обработано — ничего не ожидает вашего решения.',
     emptyOther: 'Здесь пока пусто.',
     emptyViewAll: 'Все запросы',
+    waitingOnOthers: "{{count}} запроса ожидают других согласующих",
+    waitingOnOthers_one: "{{count}} запрос ожидает других согласующих",
+    waitingOnOthers_few: "{{count}} запроса ожидают других согласующих",
+    waitingOnOthers_many: "{{count}} запросов ожидают других согласующих",
+    waitingOnOthers_other: "{{count}} запроса ожидают других согласующих",
     noMatches: 'Нет совпадений с текущими фильтрами.',
     keyboardHint: 'Клавиши: j/k перемещение · Enter открыть · x выбрать · a согласовать · r отклонить',
     drawerTitle: 'Запрос на согласование',

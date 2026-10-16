@@ -46,8 +46,7 @@ import type {
  * of the framework spec this editor authors, checked against the spec schemas
  * rather than sampled from live data (objectstack#7130): RLS policies
  * `{name,object,operation,using,check,enabled}`; admin scope
- * `{businessUnit,includeSubtree,manage*,authorEnvironmentSets,
- * assignablePermissionSets[]}`.
+ * `{businessUnit,includeSubtree,manageAssignments,assignablePermissionSets[]}`.
  */
 
 /**
@@ -102,7 +101,7 @@ function stripRetiredRlsKeys(policy: RlsPolicy): RlsPolicy {
 /**
  * The delegated-admin scope AS THIS EDITOR HOLDS IT MID-EDIT.
  *
- * The six keys are `@objectstack/spec/security`'s `AdminScope` — the AUTHORING
+ * The keys are `@objectstack/spec/security`'s `AdminScope` — the AUTHORING
  * side (`z.input`), which is what this editor writes — and they are TAKEN from
  * it rather than restated (objectui#7265). The header above already said these
  * shapes were "checked against the spec schemas"; a hand-written copy can only
@@ -119,6 +118,17 @@ function stripRetiredRlsKeys(policy: RlsPolicy): RlsPolicy {
  *
  * ⚠️ Requiredness is the ONLY thing relaxed. A draft that reaches Save still has
  * to satisfy the server's `AdminScopeSchema`, which this type does not promise.
+ *
+ * `manageBindings` and `authorEnvironmentSets` are retired tombstones in the
+ * spec (objectstack#23488): still keys of the type, typed so that no value can
+ * be written to them, and refused at parse whatever they hold. This editor
+ * draws no control for either and writes each live key by name, so the
+ * tombstone's type is what refuses a write of either here. It strips neither
+ * from a loaded scope: the server serves stored and draft rows through the
+ * spec's stored-row conversion `permission-admin-scope-binding-authoring-removed`,
+ * which drops both before a body reaches this editor; the spec's retirement
+ * test pins that strip in its case "a STORED `permission` row carrying both
+ * keys replays clean through the rehydration seam" (objectui#12406).
  */
 type AdminScope = Partial<SpecAdminScope>;
 
@@ -386,8 +396,8 @@ export function PermissionAdvancedFacets({
    * Delegated admin scope: the boundary has to exist before anything can be
    * scoped to it (objectui#9464).
    *
-   * `businessUnit` is the ONE key `AdminScopeSchema` requires — the other five
-   * carry defaults — so a scope written before one is named is an object the
+   * `businessUnit` is the ONE key `AdminScopeSchema` requires — the other live
+   * keys carry defaults — so a scope written before one is named is an object the
    * framework refuses WHOLESALE, and what it blocks is the author's next
    * whole-record Save, not just this section. Every DEPENDENT control therefore
    * writes through `setScopeDetail` instead of `setScope`, and carries the same
@@ -683,22 +693,14 @@ export function PermissionAdvancedFacets({
             </p>
           )}
           <div className="flex flex-wrap gap-x-6 gap-y-2">
-            {(
-              [
-                ['manageAssignments', 'perm.admin.manageAssignments'],
-                ['manageBindings', 'perm.admin.manageBindings'],
-                ['authorEnvironmentSets', 'perm.admin.authorEnvironmentSets'],
-              ] as const
-            ).map(([key, label]) => (
-              <label key={key} className="flex items-center gap-1.5 text-xs">
-                <Switch
-                  checked={!!scope[key]}
-                  disabled={!writable || !scopeAnchored}
-                  onCheckedChange={(v) => setScopeDetail({ [key]: !!v } as Partial<AdminScope>)}
-                />
-                {t(label)}
-              </label>
-            ))}
+            <label className="flex items-center gap-1.5 text-xs">
+              <Switch
+                checked={!!scope.manageAssignments}
+                disabled={!writable || !scopeAnchored}
+                onCheckedChange={(v) => setScopeDetail({ manageAssignments: !!v })}
+              />
+              {t('perm.admin.manageAssignments')}
+            </label>
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">{t('perm.admin.assignableSets')}</Label>

@@ -7,30 +7,26 @@
  */
 
 /**
- * objectui#12521 — the console's record dialog on a field-heavy object opens
- * bounded on desktop, as an INTERIM with a pinned exit (ruled in comment
- * 6205068311, the early outcome of letter B, 6203721639).
+ * objectui#12521 / objectui#12592 — the console's record dialog on a
+ * field-heavy object opens bounded on desktop, as the installed
+ * `@objectstack/spec` derives it.
  *
  * `deriveRecordFlowSurface` (installed `@objectstack/spec`, re-exported by
- * `@object-ui/plugin-view`, the import `AppContent` uses) answers
- * `size: 'full'` for a create / edit / child task flow on an object with
- * `RECORD_SURFACE_PAGE_THRESHOLD` or more authorable fields, and `AppContent`
- * spread that into `modalSize: 'full'`: a 95vw dialog. Letter B makes the spec
- * derive a bounded modal on desktop instead (objectstack-ai/objectstack#23734);
- * until objectui installs that spec, `AppContent`'s module-private
- * `interimBoundedTaskFlowSurface` gives the derivation's answer that shape, so
- * `ModalForm`'s own bounded default sizes the dialog.
+ * `@object-ui/plugin-view`, the import `AppContent` uses) answers a create /
+ * edit / child task flow on an object with `RECORD_SURFACE_PAGE_THRESHOLD` or
+ * more authorable fields with a bounded modal on desktop, `size: 'auto'`, and
+ * keeps `size: 'full'` for a phone (objectstack-ai/objectstack#23734, letter B
+ * of objectui#12521). `AppContent` calls it with no `viewport` and spreads only
+ * a `full` answer into `modalSize`, so `ModalForm`'s own bounded default sizes
+ * the dialog. objectui#12521 bounded the dialog with an interim of its own
+ * until that spec was installed; objectui#12592 deleted it on the bump to
+ * `18.0.0-next.2`, and this file pins the derivation's answer in its place.
  *
  * Measured from a real `AppContent` mount (the `AppContent.createSeed-12291`
  * harness): the global record-form modal records the schema it is handed and,
  * where a cell reads the dialog itself, renders the real `ModalForm`. A
  * dialog's width is its `sm:max-w-*` class; jsdom evaluates no media query, so
  * "below `sm`" is read as the classes that carry no responsive prefix.
- *
- * Direction, written before the run: with the interim removed (the call site
- * back on the bare derivation), the desktop cells and the EXIT cell RED (the
- * schema carries `modalSize: 'full'`, the dialog `sm:max-w-[95vw]`); the
- * authored-size CONTROL and the phone cell GREEN on both sides.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -198,7 +194,7 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-describe('objectui#12521 interim — a desktop task flow on a field-heavy object opens bounded', () => {
+describe('objectui#12521 — a desktop task flow on a field-heavy object opens bounded', () => {
   it('the object is field-heavy: the installed derivation pages it', () => {
     expect(deriveRecordSurface(HEAVY)).toBe('page');
   });
@@ -228,7 +224,7 @@ describe('objectui#12521 interim — a desktop task flow on a field-heavy object
     const bounded = belowSm(await dialogOnScreen());
     cleanup();
 
-    // What the console handed before the interim: the derivation's `full`.
+    // What the console handed before letter B: the derivation's `full`.
     const full = belowSm(await renderDialog({ ...schema, modalSize: 'full' }));
 
     expect(bounded).toEqual(full);
@@ -246,21 +242,16 @@ describe('objectui#12521 interim — a desktop task flow on a field-heavy object
   });
 });
 
-describe('objectui#12521 interim — EXIT', () => {
-  it('retires when the installed spec bounds the field-heavy desktop task flow itself', async () => {
-    // The import `AppContent` uses, called the way it calls it: no viewport.
-    const derived = deriveRecordFlowSurface(HEAVY, 'create');
-    expect(
-      derived.size,
-      'The installed @objectstack/spec no longer derives `size: \'full\'` for a field-heavy desktop '
-        + 'task flow: objectstack-ai/objectstack#23734 is installed. Delete the interim '
-        + '`interimBoundedTaskFlowSurface` in packages/app-shell/src/console/AppContent.tsx, call '
-        + '`deriveRecordFlowSurface` directly at its call site, and delete this file '
-        + '(objectui#12521, interim ruled in comment 6205068311).',
-    ).toBe('full');
+describe('objectui#12592 — the installed derivation bounds the field-heavy task flow itself', () => {
+  it.each(['create', 'edit', 'child-create', 'child-edit'] as const)(
+    '%s on desktop: a bounded modal overlay, size auto',
+    (flow) => {
+      // The import `AppContent` uses, called the way it calls it: no viewport.
+      expect(deriveRecordFlowSurface(HEAVY, flow)).toEqual({ container: 'overlay', surface: 'modal', size: 'auto' });
+    },
+  );
 
-    // While the spec still answers `full`, the interim is what bounds the dialog.
-    const schema = await openFlow('create');
-    expect(schema.modalSize).toBeUndefined();
+  it('CONTROL: on a phone the same flow derives the full-screen modal', () => {
+    expect(deriveRecordFlowSurface(HEAVY, 'create', { viewport: 'mobile' }).size).toBe('full');
   });
 });

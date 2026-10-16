@@ -497,6 +497,7 @@ const de = {
     pullToRefresh: "Zum Aktualisieren ziehen",
     refreshing: "Wird aktualisiert…",
     openRecord: "Datensatz öffnen",
+    recordUnavailable: "{{object}} · Datensatz nicht verfügbar",
     rowHeight: "Zeilenhöhe: {{mode}}",
     openMenu: "Menü öffnen",
     empty: "Leer",
@@ -2049,6 +2050,7 @@ const de = {
       toggleSidebar: "Seitenleiste umschalten",
       newChat: "Neuer Chat",
       toggleChatsList: "Chatliste umschalten",
+      goHome: "Zurück zur Startseite",
     },
     commandPalette: {
       title: "Befehlspalette",
@@ -2643,16 +2645,22 @@ const de = {
       dismiss: "Ausblenden",
     },
     pendingDrafts: {
-      message: "Sie haben {{count}} unveröffentlichte Änderung(en) — veröffentlichen Sie sie, um sie live zu schalten.",
-      message_one: "Sie haben {{count}} unveröffentlichte Änderung — veröffentlichen Sie sie, um sie live zu schalten.",
-      message_other: "Sie haben {{count}} unveröffentlichte Änderungen — veröffentlichen Sie sie, um sie live zu schalten.",
+      // objectui#12602 — the drafts row in Home's "My work" section: the
+      // count, then the first draft names joined by `nameSeparator`, in
+      // their package when they share one.
+      title: "{{count}} unveröffentlichte Änderung(en)",
+      title_one: "{{count}} unveröffentlichte Änderung",
+      title_other: "{{count}} unveröffentlichte Änderungen",
+      inPackage: "{{names}} warten in {{package}} auf Veröffentlichung",
+      waiting: "{{names}} warten auf Veröffentlichung",
+      nameSeparator: ", ",
       cta: "Veröffentlichen",
       publishing: "Wird veröffentlicht…",
       published: "Veröffentlicht! Ihre Änderungen sind live.",
       publishFailed: "Veröffentlichen fehlgeschlagen",
       // objectui#3546 slice six — seedWarn ist derselbe englische Satz wie
       // console.ai.seedWarn, also dieselbe Übersetzung. Der "(n)"-Marker folgt
-      // home.pendingDrafts.message ("Änderung(en)") in dieser Familie.
+      // home.pendingDrafts.title ("Änderung(en)") in dieser Familie.
       nothing: "Nichts zu veröffentlichen.",
       probeWarn: "Veröffentlicht, aber die Überprüfung hat Probleme gefunden.",
       seedWarn: "Veröffentlicht, aber einige Beispieldaten konnten nicht geladen werden.",
@@ -2666,9 +2674,16 @@ const de = {
     showMoreApps: "Mehr",
     showLess: "Weniger anzeigen",
     continueEmpty: "Elemente, die Sie öffnen, erscheinen hier.",
-    actionCenter: {
-      title: "Erfordert Ihre Aufmerksamkeit",
-      empty: "Alles erledigt",
+    // objectui#12602 — Home's "My work" section: its heading, the link to the
+    // full inbox, each column's title, "view all" link and empty line.
+    myWork: {
+      title: "Meine Arbeit",
+      openInbox: "Posteingang öffnen",
+      viewAll: "Alle anzeigen",
+      approvals: "Zur Genehmigung",
+      approvalsEmpty: "Nichts wartet auf Ihre Genehmigung",
+      notifications: "Benachrichtigungen",
+      notificationsEmpty: "Keine ungelesenen Benachrichtigungen",
     },
     loading: "Arbeitsbereich wird geladen…",
     welcome: "Willkommen bei ObjectUI",
@@ -2750,6 +2765,9 @@ const de = {
       noAppsConfigured: "Keine Apps konfiguriert",
       allApps: "Alle Apps",
       editAppInStudio: "{{app}} im Studio bearbeiten",
+      backToHome: "Zurück zur Startseite",
+      settings: "Einstellungen",
+      productHome: "{{product}} Startseite",
     },
     activityFeed: {
       title: "Letzte Aktivitäten",
@@ -3460,7 +3478,7 @@ const de = {
     },
     unbound: {
       title: "Nicht verbunden",
-      body: "Verbinden Sie diese Runtime mit einer ObjectStack Control Plane, um die privaten Pakete Ihrer Organisation zu durchsuchen und hier zu installieren. Die Genehmigung erfolgt mit einem einzigen Klick in Ihrem Cloud-Konto — es werden keine IDs oder Zugangsdaten auf dieser Seite eingegeben.",
+      body: "Diese Runtime ist mit keiner Control Plane verbunden. Verbinden öffnet Ihr Cloud-Konto in einem neuen Fenster, wo ein einziger Klick die Verbindung genehmigt — es werden keine IDs oder Zugangsdaten auf dieser Seite eingegeben.",
       connect: "Verbinden",
     },
   },
@@ -3791,6 +3809,9 @@ const de = {
     emptyPending: 'Alles erledigt — nichts wartet auf Sie.',
     emptyOther: 'Hier ist noch nichts.',
     emptyViewAll: 'Alle Anfragen ansehen',
+    waitingOnOthers: "{{count}} Anfragen warten auf andere Genehmigende",
+    waitingOnOthers_one: "{{count}} Anfrage wartet auf andere Genehmigende",
+    waitingOnOthers_other: "{{count}} Anfragen warten auf andere Genehmigende",
     noMatches: 'Keine Treffer für die aktuellen Filter.',
     keyboardHint: 'Tastatur: j/k bewegen · Enter öffnen · x auswählen · a genehmigen · r ablehnen',
     drawerTitle: 'Genehmigungsanfrage',

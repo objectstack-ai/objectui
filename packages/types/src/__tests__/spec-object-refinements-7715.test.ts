@@ -211,6 +211,67 @@ describe('objectui#12370 — the Page retired-`api` view-data refusal reaches ob
   });
 });
 
+describe('objectui#12626 — the Page region-placement refusal reaches objectui', () => {
+  const regions = (...names: string[]) => names.map((name) => ({ name, components: [] }));
+
+  it.each([
+    ['a region the default template does not place', { regions: regions('main', 'left_sidebar') }, 'regions.1.name'],
+    ['a second region for a filled slot', { regions: regions('main', 'Main') }, 'regions.1.name'],
+    ['a region `header-sidebar-main` does not place', { template: 'header-sidebar-main', regions: regions('main', 'aside') }, 'regions.1.name'],
+  ])('%s: the spec refuses it, and objectui refuses with the spec\'s own issue on both page nodes', (_label, extra, at) => {
+    const spec = SpecPageSchema.safeParse(specPage(extra));
+    expect(spec.success).toBe(false);
+    const specIssue = spec.error!.issues.find((i) => i.path.join('.') === at);
+    expect(specIssue?.code).toBe('custom');
+
+    // The `page` node through its own schema and the published door, and the page-kind node
+    // (`type: 'home'`) through the published door.
+    const kindNode = { ...extra, type: 'home' };
+    for (const r of [PageNodeSchema.safeParse(pageNode(extra)), safeValidateSchema(pageNode(extra)), safeValidateSchema(kindNode)]) {
+      expect(r.success).toBe(false);
+      const issues = r.error!.issues.map((i) => ({ code: i.code, path: i.path.join('.'), message: i.message }));
+      expect(issues).toContainEqual({ code: 'custom', path: at, message: specIssue!.message });
+    }
+  });
+
+  it('controls: placed regions, any region on the open-grid `dashboard` template, and a non-`full` kind pass on both doors', () => {
+    for (const extra of [
+      { regions: regions('header', 'main', 'aside', 'footer') },
+      { template: 'dashboard', regions: regions('header', 'kpis', 'pipeline') },
+      { kind: 'slotted', regions: regions('left_sidebar') },
+    ]) {
+      expect(SpecPageSchema.safeParse(specPage(extra)).success).toBe(true);
+      expect(PageNodeSchema.safeParse(pageNode(extra)).success).toBe(true);
+      expect(safeValidateSchema(pageNode(extra)).success).toBe(true);
+    }
+  });
+});
+
+describe('objectui#12626 — the Page `isDefault` placement refusal reaches the page-kind node, and only there', () => {
+  it('a `home` page with `isDefault`: the spec refuses at `isDefault`, and the kind node refuses with the spec\'s own issue', () => {
+    const extra = { type: 'home', isDefault: true };
+    const spec = SpecPageSchema.safeParse(specPage(extra));
+    expect(spec.success).toBe(false);
+    const specIssue = spec.error!.issues.find((i) => i.path.join('.') === 'isDefault');
+    expect(specIssue?.code).toBe('custom');
+
+    const r = safeValidateSchema(extra);
+    expect(r.success).toBe(false);
+    expect(r.error!.issues.map((i) => ({ code: i.code, path: i.path.join('.'), message: i.message })))
+      .toContainEqual({ code: 'custom', path: 'isDefault', message: specIssue!.message });
+  });
+
+  it('controls: a bound record page with `isDefault` passes on the spec and the kind node, and the `page` node does not judge it', () => {
+    const bound = { type: 'record', object: 'account', isDefault: true };
+    expect(SpecPageSchema.safeParse(specPage(bound)).success).toBe(true);
+    expect(safeValidateSchema(bound).success).toBe(true);
+    // The `page` node's `type` is the discriminator, so the check is not attached there:
+    // the same `isDefault` on a `page` node is not refused at `isDefault`.
+    const r = PageNodeSchema.safeParse(pageNode({ object: 'account', isDefault: true }));
+    expect(r.success).toBe(true);
+  });
+});
+
 // ── The census: every object-level check the spec runs is accounted for ─────
 
 /**
@@ -255,13 +316,26 @@ const SITES = [
     // `checkPageComponentViewData` joined at 18.0.0-next.1 (objectstack#23419) and was attached
     // by objectui#12370: it reads `slots` (by reference) and `regions`, whose components this
     // node's union already judges; measured in its describe block above.
-    attached: ['checkPageSourceCompleteness', 'checkPageRequiresKind', 'checkPageSlotPair', 'checkPageComponentViewData'],
+    // `checkPageRegionPlacement` joined at 18.0.0-next.2 and was attached by objectui#12626: it
+    // reads `kind` and `template` (by reference) and each region's `name`, which objectui's own
+    // region carries with the meaning `page.tsx` places it by; measured in its describe block above.
+    attached: [
+      'checkPageSourceCompleteness',
+      'checkPageRequiresKind',
+      'checkPageSlotPair',
+      'checkPageComponentViewData',
+      'checkPageRegionPlacement',
+    ],
     // `checkPagePrintComposition` joined at 18 (the `print` page, ruling B′ on objectstack#8346).
     // It reads `type` and `regions`, and this node carries NEITHER by reference: both are in
     // `PAGE_SPEC_EXCLUDED`, `type` being the component discriminator (`'page'`, or a page kind
     // on the kind node) and `regions` objectui's own `PageNodeRegionSchema` — so it is not
     // attachable here, the measurement `checkListViewPageMount` had on the list-view site.
-    notAttachable: ['checkPagePrintComposition'],
+    // `checkPageDefaultPlacement` joined at 18.0.0-next.2. It judges `isDefault` by the page's
+    // `type`, which on this node is the component discriminator `'page'`, so attached it would
+    // refuse every `isDefault`; `PageKindNodeSchema`, whose `type` is the page kind, attaches it
+    // (objectui#12626, measured in its describe block above).
+    notAttachable: ['checkPagePrintComposition', 'checkPageDefaultPlacement'],
   },
   {
     site: 'ListViewSchema (objectql.zod.ts)',

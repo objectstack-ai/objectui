@@ -24,6 +24,7 @@ import { useNavigationContext } from '../../context/NavigationContext.js';
 import { CommandPaletteProvider } from '../../context/CommandPaletteProvider.js';
 import { CommandPalette } from '../../chrome/CommandPalette.js';
 import { AppHeader } from '../../layout/AppHeader.js';
+import { CONSOLE_TOP_BAR } from '../../layout/consoleTopBar.js';
 import { useMetadata } from '../../providers/MetadataProvider.js';
 import { useAdapter } from '../../providers/AdapterProvider.js';
 import { filterActiveApps, matchAppBySegment, resolveHostAppSegment } from '../../utils/index.js';
@@ -74,7 +75,7 @@ export function HomeLayout({ children }: HomeLayoutProps) {
       : undefined;
 
   const header = (
-    <header className="sticky top-0 z-30 flex h-14 w-full shrink-0 items-center gap-2 border-b bg-background px-2 sm:px-4">
+    <header className={CONSOLE_TOP_BAR}>
       <AppHeader variant="home" />
     </header>
   );

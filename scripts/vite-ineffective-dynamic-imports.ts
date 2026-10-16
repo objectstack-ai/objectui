@@ -183,8 +183,6 @@ export const DEFEATED_LAZY_FIELD_WIDGETS: readonly string[] = Object.freeze([
   'packages/fields/src/widgets/CodeField.tsx',
   'packages/fields/src/widgets/ColorField.tsx',
   'packages/fields/src/widgets/CurrencyField.tsx',
-  'packages/fields/src/widgets/DateField.tsx',
-  'packages/fields/src/widgets/DateTimeField.tsx',
   'packages/fields/src/widgets/EmailField.tsx',
   'packages/fields/src/widgets/FileField.tsx',
   'packages/fields/src/widgets/FilterConditionField.tsx',

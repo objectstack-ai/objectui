@@ -692,6 +692,7 @@ const en = {
     pullToRefresh: 'Pull to refresh',
     refreshing: 'Refreshing…',
     openRecord: 'Open record',
+    recordUnavailable: '{{object}} · record unavailable',
     openMenu: 'Open menu',
     bulkSelected: '{{count}} selected',
     bulkSelected_one: '{{count}} selected',
@@ -2185,6 +2186,7 @@ const en = {
       toggleSidebar: 'Toggle sidebar',
       newChat: 'New chat',
       toggleChatsList: 'Toggle conversations list',
+      goHome: 'Back to home',
     },
     commandPalette: {
       title: 'Command palette',
@@ -3147,9 +3149,16 @@ const en = {
     showMoreApps: 'More',
     showLess: 'Show less',
     continueEmpty: 'Items you open will show up here.',
-    actionCenter: {
-      title: 'Needs your attention',
-      empty: "You're all caught up",
+    // objectui#12602 — Home's "My work" section: its heading, the link to the
+    // full inbox, each column's title, "view all" link and empty line.
+    myWork: {
+      title: "My work",
+      openInbox: "Open inbox",
+      viewAll: "View all",
+      approvals: "Awaiting approval",
+      approvalsEmpty: "Nothing waiting for your approval",
+      notifications: "Notifications",
+      notificationsEmpty: "No unread notifications",
     },
     greetingMorning: 'Good morning',
     greetingAfternoon: 'Good afternoon',
@@ -3205,9 +3214,15 @@ const en = {
       dismiss: 'Dismiss',
     },
     pendingDrafts: {
-      message: 'You have {{count}} unpublished change(s) — publish to make them live.',
-      message_one: 'You have {{count}} unpublished change — publish to make it live.',
-      message_other: 'You have {{count}} unpublished changes — publish to make them live.',
+      // objectui#12602 — the drafts row in Home's "My work" section: the
+      // count, then the first draft names joined by `nameSeparator`, in
+      // their package when they share one.
+      title: "{{count}} unpublished change(s)",
+      title_one: "{{count}} unpublished change",
+      title_other: "{{count}} unpublished changes",
+      inPackage: "{{names}} waiting to publish in {{package}}",
+      waiting: "{{names}} waiting to publish",
+      nameSeparator: ", ",
       cta: 'Publish',
       publishing: 'Publishing…',
       published: 'Published! Your changes are live.',
@@ -3271,6 +3286,9 @@ const en = {
       noAppsConfigured: 'No apps configured',
       allApps: 'All apps',
       editAppInStudio: 'Edit {{app}} in Studio',
+      backToHome: 'Back to home',
+      settings: 'Settings',
+      productHome: '{{product}} home',
     },
     systemNav: {
       systemSettings: 'System Settings',
@@ -4133,7 +4151,7 @@ const en = {
     },
     unbound: {
       title: 'Not connected',
-      body: 'Connect this runtime to an ObjectStack control plane to browse your organization\'s private packages and install them here. Approval is a single click in your cloud account — no ids or credentials are typed into this page.',
+      body: 'This runtime is not connected to a control plane. Connect opens your cloud account in a new window, where one click approves the link — no ids or credentials are typed into this page.',
       connect: 'Connect',
     },
   },
@@ -4472,6 +4490,9 @@ const en = {
     emptyPending: "You're all caught up — nothing is waiting on you.",
     emptyOther: 'Nothing here yet.',
     emptyViewAll: 'Browse all requests',
+    waitingOnOthers: '{{count}} requests are waiting on other approvers',
+    waitingOnOthers_one: '{{count}} request is waiting on other approvers',
+    waitingOnOthers_other: '{{count}} requests are waiting on other approvers',
     noMatches: 'No matches for current filters.',
     keyboardHint: 'Keyboard: j/k move · Enter open · x select · a approve · r reject',
     drawerTitle: 'Approval Request',

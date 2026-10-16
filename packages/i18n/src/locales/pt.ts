@@ -510,6 +510,7 @@ const pt = {
     pullToRefresh: "Puxe para atualizar",
     refreshing: "Atualizando…",
     openRecord: "Abrir registro",
+    recordUnavailable: "{{object}} · registro indisponível",
     rowHeight: "Altura da linha: {{mode}}",
     openMenu: "Abrir menu",
     empty: "Vazio",
@@ -2691,10 +2692,16 @@ const pt = {
       dismiss: "Dispensar",
     },
     pendingDrafts: {
-      message: "Você tem {{count}} alteração(ões) não publicada(s) — publique para ativá-las.",
-      message_one: "Você tem {{count}} alteração não publicada — publique para ativá-la.",
-      message_many: "Você tem {{count}} de alterações não publicadas — publique para ativá-las.",
-      message_other: "Você tem {{count}} alterações não publicadas — publique para ativá-las.",
+      // objectui#12602 — the drafts row in Home's "My work" section: the
+      // count, then the first draft names joined by `nameSeparator`, in
+      // their package when they share one.
+      title: "{{count}} alteração(ões) não publicada(s)",
+      title_one: "{{count}} alteração não publicada",
+      title_many: "{{count}} alterações não publicadas",
+      title_other: "{{count}} alterações não publicadas",
+      inPackage: "{{names}} aguardando publicação em {{package}}",
+      waiting: "{{names}} aguardando publicação",
+      nameSeparator: ", ",
       cta: "Publicar",
       publishing: "Publicando…",
       published: "Publicado! Suas alterações estão ativas.",
@@ -2715,9 +2722,16 @@ const pt = {
     showMoreApps: "Mais",
     showLess: "Mostrar menos",
     continueEmpty: "Os itens que abrir aparecerão aqui.",
-    actionCenter: {
-      title: "Requer a sua atenção",
-      empty: "Está tudo em dia",
+    // objectui#12602 — Home's "My work" section: its heading, the link to the
+    // full inbox, each column's title, "view all" link and empty line.
+    myWork: {
+      title: "Meu trabalho",
+      openInbox: "Abrir caixa de entrada",
+      viewAll: "Ver tudo",
+      approvals: "Aguardando aprovação",
+      approvalsEmpty: "Nada aguardando sua aprovação",
+      notifications: "Notificações",
+      notificationsEmpty: "Nenhuma notificação não lida",
     },
     loading: "Carregando espaço de trabalho…",
     welcome: "Bem-vindo ao ObjectUI",
@@ -3865,6 +3879,10 @@ const pt = {
     emptyPending: 'Tudo em dia — nada aguarda sua aprovação.',
     emptyOther: 'Nada por aqui ainda.',
     emptyViewAll: 'Ver todas as solicitações',
+    waitingOnOthers: "{{count}} solicitações aguardam outros aprovadores",
+    waitingOnOthers_one: "{{count}} solicitação aguarda outros aprovadores",
+    waitingOnOthers_many: "{{count}} de solicitações aguardam outros aprovadores",
+    waitingOnOthers_other: "{{count}} solicitações aguardam outros aprovadores",
     noMatches: 'Nenhum resultado com os filtros atuais.',
     keyboardHint: 'Teclado: j/k mover · Enter abrir · x selecionar · a aprovar · r rejeitar',
     drawerTitle: 'Solicitação de aprovação',

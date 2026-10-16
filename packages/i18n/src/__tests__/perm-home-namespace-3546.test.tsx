@@ -506,16 +506,17 @@ describe('objectui#3546 slice six — the perm and home namespaces', () => {
   });
 
   it('the two counting home strings follow their own family on the (s) marker', () => {
-    // `home.pendingDrafts.message` is the same family, the same banner and the
+    // `home.pendingDrafts.title` (the drafts row's count since objectui#12602,
+    // `home.pendingDrafts.message` before it) is the same family, the same row and the
     // same `{{count}} … (s)` shape, so each pack's answer there is the answer
     // here: de/fr/es/pt keep a parenthesised marker, zh/ja/ko use a counter, and
     // ru/ar restructure. Copying `en`'s "(s)" into ru is the mistake this pins.
-    expect(at(builtInLocales.en, 'home.pendingDrafts.message')).toContain('change(s)');
+    expect(at(builtInLocales.en, 'home.pendingDrafts.title')).toContain('change(s)');
     const MARKER = /\([\p{L}]{1,4}\)/u;
     for (const lang of ['de', 'fr', 'es', 'pt'] as const) {
       expect(
-        MARKER.test(at(builtInLocales[lang], 'home.pendingDrafts.message') as string),
-        `${lang} message lost its marker`,
+        MARKER.test(at(builtInLocales[lang], 'home.pendingDrafts.title') as string),
+        `${lang} title lost its marker`,
       ).toBe(true);
       expect(
         MARKER.test(at(builtInLocales[lang], 'home.pendingDrafts.publishedVerified') as string),
@@ -547,7 +548,7 @@ describe('objectui#3546 slice six — the perm and home namespaces', () => {
       );
       expect(at(builtInLocales[lang], 'perm.facet.designInStudioHint')).not.toContain('→');
       // The em dash in `Published & verified — …` is U+2014 everywhere, except zh
-      // which writes the doubled `——` its own pack uses (home.pendingDrafts.message).
+      // which writes the doubled `——` its own pack used in the retired home.pendingDrafts.message.
       const verified = at(builtInLocales[lang], 'home.pendingDrafts.publishedVerified') as string;
       expect(verified.includes(lang === 'zh' ? '——' : '—'), `${lang} publishedVerified dash`).toBe(true);
       expect(verified.includes('&'), `${lang} kept en's ampersand`).toBe(lang === 'en');

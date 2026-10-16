@@ -100,6 +100,11 @@ vi.mock('../../../hooks/useFavorites', () => ({ useFavorites: () => ({ favorites
 vi.mock('../../../hooks/useHomeInbox', () => ({
   useHomeInbox: () => ({
     pendingApprovalsCount: 0,
+    // objectui#12602: the approvals preview, and whether each source is
+    // the caller's to read — the My-work section draws a column per source.
+    pendingApprovals: [],
+    pendingApprovalsReadable: true,
+    notificationsReadable: true,
     notifications: notificationsFixture,
     unreadTopicCount: notificationsFixture.length,
     activity: { value: activitiesFixture, status: 'ready', readable: true },
@@ -132,7 +137,7 @@ vi.mock('../../../runtime-config', () => ({
 import { HomePage } from '../HomePage';
 
 /* ── The `_drafts` double (objectui#7307) ─────────────────────────────────────
- * Every render of `HomePage` below mounts `PendingDraftsBanner`, which reads the
+ * Every render of `HomePage` below mounts `usePendingDraftsRow`, which reads the
  * env-wide pending-draft count through `usePendingDrafts({})`. That hook fetches
  * `GET /api/v1/meta/_drafts` with the GLOBAL `fetch` — `usePendingDrafts.ts:48`,
  * no `apiFetch` seam anywhere on the path — from its mount effect
@@ -153,7 +158,7 @@ import { HomePage } from '../HomePage';
  * ledger, in the `{ drafts: [...] }` envelope `fetchPendingDrafts` reads (the one
  * `MetadataClient.listDrafts` pins for this endpoint; the bare-array and
  * `{ data: { drafts } }` shapes parse to the same rows). Empty rather than seeded
- * is load-bearing: `PendingDraftsBanner` renders `null` when `(count ?? 0) <= 0`,
+ * is load-bearing: `usePendingDraftsRow` renders `null` when `(count ?? 0) <= 0`,
  * and the failing request produced `count === null` — so an empty ledger yields
  * byte-identical output to what these cases have always rendered, while a seeded
  * one would add a banner and a `pending-drafts-publish` button to every case's

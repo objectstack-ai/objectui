@@ -511,6 +511,7 @@ const fr = {
     pullToRefresh: "Tirer pour actualiser",
     refreshing: "Actualisation…",
     openRecord: "Ouvrir l'enregistrement",
+    recordUnavailable: "{{object}} · enregistrement indisponible",
     rowHeight: "Hauteur de ligne : {{mode}}",
     openMenu: "Ouvrir le menu",
     empty: "Vide",
@@ -2693,10 +2694,16 @@ const fr = {
       dismiss: "Ignorer",
     },
     pendingDrafts: {
-      message: "Vous avez {{count}} modification(s) non publiée(s) — publiez-les pour les activer.",
-      message_one: "Vous avez {{count}} modification non publiée — publiez-la pour l'activer.",
-      message_many: "Vous avez {{count}} de modifications non publiées — publiez-les pour les activer.",
-      message_other: "Vous avez {{count}} modifications non publiées — publiez-les pour les activer.",
+      // objectui#12602 — the drafts row in Home's "My work" section: the
+      // count, then the first draft names joined by `nameSeparator`, in
+      // their package when they share one.
+      title: "{{count}} modification(s) non publiée(s)",
+      title_one: "{{count}} modification non publiée",
+      title_many: "{{count}} modifications non publiées",
+      title_other: "{{count}} modifications non publiées",
+      inPackage: "{{names}} en attente de publication dans {{package}}",
+      waiting: "{{names}} en attente de publication",
+      nameSeparator: ", ",
       cta: "Publier",
       publishing: "Publication…",
       published: "Publié ! Vos modifications sont actives.",
@@ -2717,9 +2724,16 @@ const fr = {
     showMoreApps: "Plus",
     showLess: "Afficher moins",
     continueEmpty: "Les éléments que vous ouvrez apparaîtront ici.",
-    actionCenter: {
-      title: "Nécessite votre attention",
-      empty: "Vous êtes à jour",
+    // objectui#12602 — Home's "My work" section: its heading, the link to the
+    // full inbox, each column's title, "view all" link and empty line.
+    myWork: {
+      title: "Mon travail",
+      openInbox: "Ouvrir la boîte de réception",
+      viewAll: "Tout afficher",
+      approvals: "À approuver",
+      approvalsEmpty: "Rien n'attend votre approbation",
+      notifications: "Notifications",
+      notificationsEmpty: "Aucune notification non lue",
     },
     loading: "Chargement de l'espace de travail…",
     welcome: "Bienvenue dans ObjectUI",
@@ -3867,6 +3881,10 @@ const fr = {
     emptyPending: 'Tout est à jour — rien n\'attend votre approbation.',
     emptyOther: 'Rien ici pour l\'instant.',
     emptyViewAll: 'Voir toutes les demandes',
+    waitingOnOthers: "{{count}} demandes attendent d'autres approbateurs",
+    waitingOnOthers_one: "{{count}} demande attend d'autres approbateurs",
+    waitingOnOthers_many: "{{count}} de demandes attendent d'autres approbateurs",
+    waitingOnOthers_other: "{{count}} demandes attendent d'autres approbateurs",
     noMatches: 'Aucun résultat avec les filtres actuels.',
     keyboardHint: 'Clavier : j/k déplacer · Entrée ouvrir · x sélectionner · a approuver · r rejeter',
     drawerTitle: 'Demande d\'approbation',

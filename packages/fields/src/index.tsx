@@ -3184,10 +3184,13 @@ export function registerFieldRenderer(type: string, renderer: React.FC<CellRende
  * {@link registerFieldRenderer}: `@object-ui/app-shell` registers its record
  * preview card there.
  *
- * The record details grid (`DetailSection` in `@object-ui/plugin-detail`) is
- * the one call site today. ⛔ List cells are deliberately not one: a face that
- * reads the target record costs one request per row there, so the list face
- * waits for a read that batches target rows per object.
+ * Two call sites ask it. The record details grid (`DetailSection` in
+ * `@object-ui/plugin-detail`) draws the pair with the renderer registered under
+ * {@link RECORD_POINTER_CARD_TYPE}. The list grid (`ObjectGrid` in
+ * `@object-ui/plugin-grid`, objectui#12608) draws it with its own cell face,
+ * not with that renderer: a face that reads its target one record at a time
+ * costs one request per row in a list, so the list face batches the page's
+ * targets into one read per object.
  */
 export const RECORD_POINTER_CARD_TYPE = 'record_pointer_card';
 

@@ -73,6 +73,11 @@ vi.mock('../../../hooks/useFavorites', () => ({ useFavorites: () => ({ favorites
 vi.mock('../../../hooks/useHomeInbox', () => ({
   useHomeInbox: () => ({
     pendingApprovalsCount: 0,
+    // objectui#12602: the approvals preview, and whether each source is
+    // the caller's to read — the My-work section draws a column per source.
+    pendingApprovals: [],
+    pendingApprovalsReadable: true,
+    notificationsReadable: true,
     notifications: [],
     unreadTopicCount: 0,
     activity: { value: [], status: 'ready', readable: true },
@@ -98,7 +103,7 @@ vi.mock('../../../runtime-config', () => ({
 import { HomePage } from '../HomePage';
 
 /* ── The `_drafts` double ─────────────────────────────────────────────────────
- * Every render mounts `PendingDraftsBanner`, whose pending-draft count is read
+ * Every render mounts `usePendingDraftsRow`, whose pending-draft count is read
  * with the GLOBAL `fetch` from `GET /api/v1/meta/_drafts`. Answered from the
  * same RECORDING double the sibling files use (copied from
  * `HomePage.notificationDeepLink.test.tsx`): a known-empty ledger, so no banner

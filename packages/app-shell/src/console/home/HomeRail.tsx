@@ -2,8 +2,9 @@
  * HomeRail
  *
  * Dashboard cards for the Home work-dashboard:
- *   - HomeActionCenter — "what needs me" (approvals + inbox notifications);
- *     the reason a business user opens Home, so it leads the page.
+ *   - HomeActionCenter — the "My work" section: approvals waiting on the
+ *     user, unread notifications, and the pending-drafts row
+ *     (`HomePendingDraftsRow`) — what needs the user (objectui#12602).
  *   - HomeContinue     — recent items, compact "pick up where you left off".
  *   - HomeActivity     — recent human activity feed (ambient context).
  *
@@ -13,12 +14,13 @@
  * @module
  */
 import {
-  CheckSquare, Activity, ArrowRight, CheckCheck, Bell, Clock,
-  FileText, Database, LayoutDashboard, File, CircleAlert,
+  Activity, ArrowRight, Bell, Check, Clock,
+  FileText, Database, LayoutDashboard, File, CircleAlert, Rocket,
 } from 'lucide-react';
 import { useDisplayLocale } from '@object-ui/i18n';
+import { Button, cn } from '@object-ui/components';
 import type { ActivityFeedReading } from '../../hooks/sharedUserFeeds.js';
-import type { HomeInboxStatus, HomeNotification } from '../../hooks/useHomeInbox.js';
+import type { HomeInboxStatus, HomeNotification, PendingApprovalRequest } from '../../hooks/useHomeInbox.js';
 import type { RecentItem } from '../../hooks/useRecentItems.js';
 import type { RecentItemLabelResolver } from '../../hooks/useRecentItemLabel.js';
 import { ActivityObjectLabel } from '../../layout/ActivityObjectLabel.js';
@@ -97,44 +99,296 @@ function Row({
   );
 }
 
+/** Rows a My-work column lists — a preview; its pill carries the total. */
+const MY_WORK_ROWS = 3;
+
+/** The section's count pills: 18 px, 11 px / 600 (objectui#12602). */
+function CountPill({ count, primary, testId }: { count: number; primary?: boolean; testId?: string }) {
+  return (
+    <span
+      data-testid={testId}
+      className={cn(
+        'inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums',
+        primary ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
+      )}
+    >
+      {count}
+    </span>
+  );
+}
+
 /**
- * "You're all caught up" is an ASSERTION about the user's inbox, so it may only
- * be made once the inbox has answered (#4235).
+ * One 40 px row of a My-work column: a 24 px icon tile, the one-line title
+ * with an ellipsis, and a 12 px muted time at the right.
+ */
+function WorkRow({
+  icon: Icon,
+  tileClass,
+  label,
+  meta,
+  onClick,
+  testId,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  tileClass: string;
+  label: string;
+  meta?: string;
+  onClick: () => void;
+  testId?: string;
+}) {
+  return (
+    <li className="h-10 border-t">
+      <button
+        type="button"
+        onClick={onClick}
+        data-testid={testId}
+        className="flex h-full w-full items-center gap-2.5 px-3 text-left text-[13px] transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
+      >
+        <span className={cn('inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md', tileClass)}>
+          <Icon className="h-3.5 w-3.5" />
+        </span>
+        <span className="min-w-0 flex-1 truncate">{label}</span>
+        {meta && <span className="shrink-0 text-xs text-muted-foreground">{meta}</span>}
+      </button>
+    </li>
+  );
+}
+
+/**
+ * A column's notice line: its empty line, or why it has no answer. "Nothing waiting" is an
+ * ASSERTION about the source, so it is made only once the source has answered
+ * (#4235): before that the column says it is loading, and after a failed read
+ * it says the read failed — never the affirmative empty copy.
+ */
+function ColumnNotice({
+  status,
+  empty,
+  t,
+  testId,
+}: {
+  status: HomeInboxStatus;
+  empty: string;
+  t: TFn;
+  testId: string;
+}) {
+  return (
+    <div
+      className="flex h-10 items-center gap-2 border-t px-3 text-[13px] text-muted-foreground"
+      data-testid={testId}
+      data-status={status}
+    >
+      {status === 'ready' ? (
+        empty
+      ) : status === 'error' ? (
+        <>
+          <CircleAlert className="h-4 w-4 text-amber-500" />
+          {t('errors.unknown', { defaultValue: 'An unexpected error occurred.' })}
+        </>
+      ) : (
+        t('common.loading', { defaultValue: 'Loading…' })
+      )}
+    </div>
+  );
+}
+
+/**
+ * A column's rows and, where it owes one, its notice line.
  *
- * `notifications` arriving empty says nothing on its own: until #4235 the hook
- * behind it swallowed every failed read to `[]`, so a `403 PERMISSION_DENIED`
- * on `sys_inbox_message` (objectstack#7344, browser-measured for every non-admin
- * persona) reached this component wearing the exact shape of an empty inbox —
- * and the panel cheerfully told a user with nine unread messages that there was
- * nothing to do, with no badge. `notificationsStatus` is the missing bit, and
- * gating on it is why that pair is now unreachable: an unanswered read renders
- * the quiet notice below, never the affirmative copy.
+ * Rendered ALONGSIDE the rows, not only instead of them: when the source has
+ * rows in hand and its next read failed, the column is showing a stale
+ * answer, and saying so is the same honesty the empty case owes (#4225). The
+ * empty line is gated on the TOTAL, not on the rows on show: an unread
+ * message with no title cannot be listed, and the column must not call the
+ * inbox empty while the bell badges it.
+ */
+function ColumnBody({
+  rows,
+  total,
+  status,
+  empty,
+  t,
+  testId,
+}: {
+  rows: React.ReactNode[];
+  total: number;
+  status: HomeInboxStatus;
+  empty: string;
+  t: TFn;
+  testId: string;
+}) {
+  const notice =
+    status !== 'ready' || (rows.length === 0 && total === 0) ? (
+      <ColumnNotice status={status} empty={empty} t={t} testId={testId} />
+    ) : null;
+  return (
+    <>
+      {rows.length > 0 && <ul>{rows}</ul>}
+      {notice}
+    </>
+  );
+}
+
+/** A My-work column: an 8 px-radius card with a 40 px header and its rows. */
+function WorkColumn({
+  title,
+  count,
+  primaryPill,
+  onViewAll,
+  t,
+  testId,
+  children,
+}: {
+  title: string;
+  count: number;
+  primaryPill?: boolean;
+  onViewAll: () => void;
+  t: TFn;
+  testId: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="min-w-0 overflow-hidden rounded-lg border bg-card" data-testid={testId}>
+      <div className="flex h-10 items-center justify-between gap-2 px-3">
+        <h3 className="inline-flex min-w-0 items-center gap-2 text-[13px] font-semibold">
+          <span className="truncate">{title}</span>
+          {count > 0 && <CountPill count={count} primary={primaryPill} testId={`${testId}-count`} />}
+        </h3>
+        <button
+          type="button"
+          onClick={onViewAll}
+          data-testid={`${testId}-view-all`}
+          className="shrink-0 text-xs text-primary hover:underline focus-visible:underline focus-visible:outline-none"
+        >
+          {t('home.myWork.viewAll', { defaultValue: 'View all' })}
+        </button>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/**
+ * The pending-drafts row of the My-work section (objectui#12602), in place of
+ * the full-width banner that sat above the greeting: one 40 px row on the
+ * soft primary tint — the count, the first draft names and their package, and
+ * a 28 px "Publish" button that runs the publish the banner ran
+ * (`usePublishAllDrafts`, handed in as `onPublish`).
+ */
+export function HomePendingDraftsRow({
+  count,
+  names,
+  packageName,
+  publishing,
+  onPublish,
+  t,
+}: {
+  count: number;
+  /** The first draft names to list — the caller caps them. */
+  names: string[];
+  /** The package every listed draft belongs to, when they share one. */
+  packageName?: string;
+  publishing: boolean;
+  onPublish: () => void;
+  t: TFn;
+}) {
+  const joined = names.join(t('home.pendingDrafts.nameSeparator', { defaultValue: ', ' }));
+  const detail = !joined
+    ? undefined
+    : packageName
+      ? t('home.pendingDrafts.inPackage', {
+          names: joined,
+          package: packageName,
+          defaultValue: '{{names}} waiting to publish in {{package}}',
+        })
+      : t('home.pendingDrafts.waiting', { names: joined, defaultValue: '{{names}} waiting to publish' });
+  return (
+    <div
+      className="flex h-10 items-center gap-2.5 rounded-lg border border-primary/35 bg-primary/5 px-3 dark:bg-primary/10"
+      data-testid="home-pending-drafts"
+    >
+      <Rocket className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+      <p className="min-w-0 flex-1 truncate text-[13px]">
+        <span className="font-semibold">
+          {t('home.pendingDrafts.title', { count, defaultValue: '{{count}} unpublished change(s)' })}
+        </span>
+        {detail && <span className="text-muted-foreground"> · {detail}</span>}
+      </p>
+      <Button
+        size="sm"
+        className="h-7 shrink-0 px-3 text-xs"
+        onClick={onPublish}
+        disabled={publishing}
+        data-testid="pending-drafts-publish"
+      >
+        {publishing
+          ? t('home.pendingDrafts.publishing', { defaultValue: 'Publishing…' })
+          : t('home.pendingDrafts.cta', { defaultValue: 'Publish' })}
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * Home's "My work" section (objectui#12602, section ③ of the four-part home):
+ * a heading with the total and a link to the inbox, the pending-drafts row
+ * when there is one, then one column per source — the approvals waiting on
+ * the user first, then the unread notifications.
  *
- * Same rule #4300 landed for the app list ("an unloadable app list is UNKNOWN,
- * not 'no default app'"), and the same status vocabulary.
+ * ## Two columns, not three
+ *
+ * The design splits notifications into "Assigned to me" and "Reminders". An
+ * inbox row cannot be sorted that way: `sys_inbox_message` carries a free-text
+ * `topic` and a `severity`, and no declared kind that says an item was
+ * assigned to the user, nor a due date that could read "overdue". So the
+ * section ships the two-column form the card rules for that case — Approvals
+ * and Notifications — rather than guessing a kind from a topic or a title.
+ *
+ * ## The numbers are the bell's
+ *
+ * The approvals pill is `pendingApprovalsCount`, the length of the one shared
+ * approvals read the bell badges (objectui#4329); the notifications pill is
+ * `unreadTopicCount`, the bell's own fold of the unread inbox. The heading's
+ * total is their sum — the bell's badge. The rows are previews of those
+ * totals: the first three of each.
+ *
+ * ## Who sees it
+ *
+ * A column is drawn only for a source the caller may read
+ * (`pendingApprovalsReadable`, `notificationsReadable` — see `useHomeInbox`),
+ * and the section renders nothing when the caller may read neither and has no
+ * drafts row: no heading over an empty space, no links into pages that answer
+ * `403`.
  */
 export function HomeActionCenter({
+  pendingApprovals,
   pendingApprovalsCount,
+  pendingApprovalsStatus,
+  pendingApprovalsReadable,
   notifications,
   unreadTopicCount,
   notificationsStatus,
+  notificationsReadable,
+  draftsRow,
   onOpenApprovals,
+  onOpenApproval,
+  onOpenInbox,
   onOpenNotification,
   t,
 }: {
+  /** The PREVIEW: the first approval requests, capped by `useHomeInbox`. */
+  pendingApprovals: PendingApprovalRequest[];
+  /** The TOTAL waiting — the bell's addend, not the preview's length. */
   pendingApprovalsCount: number;
-  /** The PREVIEW: newest-first, one row per title, capped by `useHomeInbox`. */
+  /** Whether the approvals read answered — the empty line waits for `ready`. */
+  pendingApprovalsStatus: HomeInboxStatus;
+  /** Whether the caller has an approvals inbox to read at all. */
+  pendingApprovalsReadable: boolean;
+  /** The PREVIEW: newest-first unread rows, one per title, capped by `useHomeInbox`. */
   notifications: HomeNotification[];
   /**
-   * The TOTAL waiting in the inbox — every unread topic, not just the ones this
-   * card has room for (#4329).
-   *
-   * Required, and separate from `notifications` for the same reason
-   * `notificationsStatus` is: `notifications.length` was the badge until this
-   * card learned the difference, which made the badge report the size of a
-   * capped list. Nine unread showed "9" on the bell and "5" here, on one page,
-   * about one set of rows. A call site that cannot say how much is waiting must
-   * not be able to badge its own preview length by saying nothing.
+   * The TOTAL waiting in the inbox — every unread topic, not just the ones the
+   * column has room for (#4329). Required, and separate from `notifications`,
+   * so a call site cannot badge its preview's length by saying nothing.
    */
   unreadTopicCount: number;
   /**
@@ -143,83 +397,115 @@ export function HomeActionCenter({
    * saying nothing.
    */
   notificationsStatus: HomeInboxStatus;
+  /** Whether the caller may read the inbox at all. */
+  notificationsReadable: boolean;
+  /** The pending-drafts row, when there are drafts to publish. */
+  draftsRow?: React.ReactNode;
   onOpenApprovals: () => void;
+  onOpenApproval: (request: PendingApprovalRequest) => void;
+  onOpenInbox: () => void;
   onOpenNotification: (n: HomeNotification) => void;
   t: TFn;
 }) {
   // Relative times read the DISPLAY locale, never the UI language
   // (objectui#10668), as the Marketplace's and Studio home's already do.
   const displayLocale = useDisplayLocale();
-  // "How much needs you", which is the question the badge asks and the question
-  // the bell answers with the same number. The list below is a preview of it —
-  // fewer rows than this whenever the cap or the title fold bites, and that
-  // gap is the point rather than a defect: badge = total, list = preview.
-  const total = pendingApprovalsCount + unreadTopicCount;
-  const answered = notificationsStatus === 'ready';
+  if (!pendingApprovalsReadable && !notificationsReadable && !draftsRow) return null;
+  // "How much needs you" — the bell's badge, the same two addends.
+  const total =
+    (pendingApprovalsReadable ? pendingApprovalsCount : 0) + (notificationsReadable ? unreadTopicCount : 0);
+  const columns = (pendingApprovalsReadable ? 1 : 0) + (notificationsReadable ? 1 : 0);
   return (
-    <Card icon={CheckSquare} accent count={total} title={t('home.actionCenter.title', { defaultValue: 'Needs your attention' })}>
-      {/*
-        Rendered ALONGSIDE the list, not only instead of it: when approvals are
-        known and the inbox read failed, the panel is showing half an answer,
-        and saying so is the same honesty the empty case owes.
-      */}
-      {!answered && (
-        <div
-          className="flex items-center gap-2 py-2 text-sm text-muted-foreground"
-          data-testid="home-action-unanswered"
-        >
-          {notificationsStatus === 'error' ? (
-            <>
-              <CircleAlert className="h-4 w-4 text-amber-500" />
-              {t('errors.unknown', { defaultValue: 'An unexpected error occurred.' })}
-            </>
-          ) : (
-            t('common.loading', { defaultValue: 'Loading…' })
+    <section data-testid="home-my-work" aria-labelledby="home-my-work-title">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <h2 id="home-my-work-title" className="inline-flex items-center gap-2 text-[15px] font-semibold tracking-tight">
+          {t('home.myWork.title', { defaultValue: 'My work' })}
+          {total > 0 && <CountPill count={total} testId="home-my-work-count" />}
+        </h2>
+        {notificationsReadable && (
+          <button
+            type="button"
+            onClick={onOpenInbox}
+            data-testid="home-my-work-open-inbox"
+            className="text-xs text-primary hover:underline focus-visible:underline focus-visible:outline-none"
+          >
+            {t('home.myWork.openInbox', { defaultValue: 'Open inbox' })}
+          </button>
+        )}
+      </div>
+      {draftsRow && <div className={columns > 0 ? 'mb-2.5' : undefined}>{draftsRow}</div>}
+      {columns > 0 && (
+        <div className={cn('grid grid-cols-1 gap-3', columns === 2 && 'md:grid-cols-2')}>
+          {pendingApprovalsReadable && (
+            <WorkColumn
+              title={t('home.myWork.approvals', { defaultValue: 'Awaiting approval' })}
+              count={pendingApprovalsCount}
+              primaryPill
+              onViewAll={onOpenApprovals}
+              t={t}
+              testId="home-my-work-approvals"
+            >
+              <ColumnBody
+                rows={pendingApprovals.slice(0, MY_WORK_ROWS).map((r) => (
+                  <WorkRow
+                    key={r.id}
+                    icon={Check}
+                    tileClass="bg-primary/10 text-primary"
+                    label={approvalTitle(r)}
+                    meta={r.createdAt ? timeAgo(r.createdAt, displayLocale) : undefined}
+                    onClick={() => onOpenApproval(r)}
+                    testId="home-my-work-approval-row"
+                  />
+                ))}
+                total={pendingApprovalsCount}
+                status={pendingApprovalsStatus}
+                empty={t('home.myWork.approvalsEmpty', { defaultValue: 'Nothing waiting for your approval' })}
+                t={t}
+                testId="home-my-work-approvals-notice"
+              />
+            </WorkColumn>
+          )}
+          {notificationsReadable && (
+            <WorkColumn
+              title={t('home.myWork.notifications', { defaultValue: 'Notifications' })}
+              count={unreadTopicCount}
+              onViewAll={onOpenInbox}
+              t={t}
+              testId="home-my-work-notifications"
+            >
+              <ColumnBody
+                rows={notifications.slice(0, MY_WORK_ROWS).map((n) => (
+                  <WorkRow
+                    key={n.id}
+                    icon={Bell}
+                    tileClass="bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400"
+                    label={n.title}
+                    meta={n.createdAt ? timeAgo(n.createdAt, displayLocale) : undefined}
+                    onClick={() => onOpenNotification(n)}
+                    testId="home-my-work-notification-row"
+                  />
+                ))}
+                total={unreadTopicCount}
+                status={notificationsStatus}
+                empty={t('home.myWork.notificationsEmpty', { defaultValue: 'No unread notifications' })}
+                t={t}
+                testId="home-my-work-notifications-notice"
+              />
+            </WorkColumn>
           )}
         </div>
       )}
-      {/*
-        Gated on the TOTAL, not on the rows on show: "You're all caught up" is a
-        claim about the inbox, so it may only be made when the inbox is empty —
-        never merely because this card had nothing renderable to list. (The one
-        state where the two differ is an unread message with no title at all,
-        which the list cannot render: the card then shows its badge and no row,
-        rather than telling the user they are caught up while the bell above
-        badges the same message.)
-      */}
-      {total === 0 ? (
-        answered && (
-          <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
-            <CheckCheck className="h-4 w-4 text-emerald-500" />
-            {t('home.actionCenter.empty', { defaultValue: "You're all caught up" })}
-          </div>
-        )
-      ) : (
-        <ul className="flex flex-col gap-0.5">
-          {pendingApprovalsCount > 0 && (
-            <Row
-              icon={CheckSquare}
-              iconClass="bg-amber-500/10 text-amber-600 dark:text-amber-400"
-              label={t('notifications.approvalsPending', { defaultValue: '{{count}} pending approvals', count: pendingApprovalsCount })}
-              trailing={<ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
-              onClick={onOpenApprovals}
-              testId="home-action-approvals"
-            />
-          )}
-          {notifications.map((n) => (
-            <Row
-              key={n.id}
-              icon={Bell}
-              iconClass="bg-primary/10 text-primary"
-              label={n.title}
-              meta={timeAgo(n.createdAt, displayLocale)}
-              onClick={() => onOpenNotification(n)}
-            />
-          ))}
-        </ul>
-      )}
-    </Card>
+    </section>
   );
+}
+
+/**
+ * An approval row's one line: the flow's label, then the record's name — the
+ * service's display enrichment, as the Approvals inbox shows it. The flow's
+ * machine name stands in only when the service resolved no label for it.
+ */
+function approvalTitle(r: PendingApprovalRequest): string {
+  return [r.processLabel || r.processName, r.recordTitle].filter(Boolean).join(' · ');
 }
 
 const RECENT_ICON: Record<string, React.ComponentType<{ className?: string }>> = {

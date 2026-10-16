@@ -34,9 +34,11 @@ import { AppMark, type AppMarkApp } from '../../layout/AppMark.js';
 import {
   STUDIO_HEADER,
   STUDIO_HEADER_ICON_BUTTON,
+  STUDIO_HEADER_PACKAGE_COLUMN,
   STUDIO_HEADER_PILLAR,
   STUDIO_HEADER_PILLAR_NAV,
   STUDIO_KIND_CHIP,
+  STUDIO_PKG_READONLY_WORD,
 } from './studio-tokens.js';
 import { StudioInspector } from './StudioInspector.js';
 import { StudioItemHeader, StudioStatusChip, StudioTab, type StudioItemStatus } from './StudioItemHeader.js';
@@ -931,63 +933,92 @@ function PackageSwitcher({
     // that clip. Create / manage open the standard dialog + sheet (also
     // portaled), so neither is subject to the header clip either.
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          /* objectui#7368 — the trigger's own read of which state it is in.
-             The text beside it is `current?.name ?? packageId`, which is the
-             SAME string in all three states for a package that declares no
-             name, so the state cannot be recovered from the text. */
-          data-pkg-list-state={pkgListState}
-          className="flex h-8 min-w-0 max-w-[180px] items-center gap-2 whitespace-nowrap rounded-md py-0.5 pl-1 pr-2 text-[13px] font-semibold hover:bg-muted xl:max-w-[280px]"
-          title={t('engine.studio.pkg.switchTitle', locale)}
-        >
-          {/* objectui#11553 — the package-less scope names itself; there is
-              no package id to show as the diagnostic handle. */}
-          {packageId === null ? (
-            <>
-              <Building2 className="h-4 w-4" /> {t('engine.studio.org.name', locale)}
-            </>
-          ) : (
-            <>
-              <AppMark app={app} size="md" />
-              <span className="truncate">{current?.name ?? packageId}</span>
-            </>
-          )}
-          {/* ⛔ Not a replacement for the id (objectui#7368): the id is the one
-              diagnostic handle the author has, so the states are told apart by
-              what stands NEXT to it, never by swapping it for prose. */}
-          {pkgListState === 'loading' && (
-            <Loader2
-              data-testid="pkg-switcher-loading"
-              aria-hidden
-              className="h-3 w-3 shrink-0 animate-spin text-muted-foreground"
-            />
-          )}
-          {pkgListState === 'failed' && (
-            <span
-              data-testid="pkg-switcher-failed"
-              title={pkgsErr ?? undefined}
-              className="inline-flex items-center gap-0.5 rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] font-normal text-destructive"
-            >
-              <AlertTriangle className="h-2.5 w-2.5" /> {t('engine.studio.loadFailed', locale)}
-            </span>
-          )}
-          {/* objectui#12453 — the chip's half of the read-only posture: a
-              lock and the word, muted, after the name. The reason is its
-              title; the item header's link says what to do about it. */}
-          {current && !current.writable && (
-            <span
-              data-testid="studio-pkg-readonly"
-              title={t('engine.studio.pkg.readonlyHint', locale)}
-              className="inline-flex shrink-0 items-center gap-1 text-[11px] font-normal text-muted-foreground"
-            >
-              <Lock className="h-3 w-3" aria-hidden="true" /> {t('engine.studio.pkg.readonly', locale)}
-            </span>
-          )}
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-        </button>
-      </PopoverTrigger>
+      {/* objectui#12611 — the chip's tooltip holds what a narrow chip drops:
+          the whole name, the read-only posture, and what the chip does (the
+          trigger's former `title`, moved here so one tooltip shows, not two). */}
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                data-testid="studio-pkg-chip"
+                /* objectui#7368 — the trigger's own read of which state it is in.
+                   The text beside it is `current?.name ?? packageId`, which is the
+                   SAME string in all three states for a package that declares no
+                   name, so the state cannot be recovered from the text. */
+                data-pkg-list-state={pkgListState}
+                /* objectui#12611 — the width cap is the chip's own; how much of it
+                   the chip gets is the header column's (`STUDIO_HEADER_PACKAGE_COLUMN`),
+                   never the viewport's. */
+                className="flex h-8 min-w-0 max-w-[280px] items-center gap-2 whitespace-nowrap rounded-md py-0.5 pl-1 pr-2 text-[13px] font-semibold hover:bg-muted"
+              >
+                {/* objectui#11553 — the package-less scope names itself; there is
+                    no package id to show as the diagnostic handle. */}
+                {packageId === null ? (
+                  <>
+                    <Building2 className="h-4 w-4" /> {t('engine.studio.org.name', locale)}
+                  </>
+                ) : (
+                  <>
+                    <AppMark app={app} size="md" />
+                    <span data-slot="pkg-name" className="truncate">{current?.name ?? packageId}</span>
+                  </>
+                )}
+                {/* ⛔ Not a replacement for the id (objectui#7368): the id is the one
+                    diagnostic handle the author has, so the states are told apart by
+                    what stands NEXT to it, never by swapping it for prose. */}
+                {pkgListState === 'loading' && (
+                  <Loader2
+                    data-testid="pkg-switcher-loading"
+                    aria-hidden
+                    className="h-3 w-3 shrink-0 animate-spin text-muted-foreground"
+                  />
+                )}
+                {pkgListState === 'failed' && (
+                  <span
+                    data-testid="pkg-switcher-failed"
+                    title={pkgsErr ?? undefined}
+                    className="inline-flex items-center gap-0.5 rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] font-normal text-destructive"
+                  >
+                    <AlertTriangle className="h-2.5 w-2.5" /> {t('engine.studio.loadFailed', locale)}
+                  </span>
+                )}
+                {/* objectui#12453 — the chip's half of the read-only posture: a
+                    lock and the word, muted, after the name. The reason is its
+                    title; the item header's link says what to do about it.
+                    objectui#12611 — on a narrow header column the word gives way
+                    first and the lock stays; the name truncates after it. */}
+                {current && !current.writable && (
+                  <span
+                    data-testid="studio-pkg-readonly"
+                    title={t('engine.studio.pkg.readonlyHint', locale)}
+                    className="inline-flex shrink-0 items-center gap-1 text-[11px] font-normal text-muted-foreground"
+                  >
+                    <Lock className="h-3 w-3" aria-hidden="true" />
+                    <span data-slot="pkg-readonly-word" className={STUDIO_PKG_READONLY_WORD}>
+                      {t('engine.studio.pkg.readonly', locale)}
+                    </span>
+                  </span>
+                )}
+                <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              </button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent align="start" className="max-w-xs" data-testid="studio-pkg-chip-tooltip">
+            <p className="font-medium">
+              {packageId === null ? t('engine.studio.org.name', locale) : (current?.name ?? packageId)}
+            </p>
+            {current && !current.writable && (
+              <p className="mt-0.5 flex items-center gap-1">
+                <Lock className="h-3 w-3 shrink-0" aria-hidden="true" />
+                {t('engine.studio.pkg.readonlyHint', locale)}
+              </p>
+            )}
+            <p className="mt-0.5 opacity-80">{t('engine.studio.pkg.switchTitle', locale)}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
 
       <PopoverContent align="start" sideOffset={6} className="w-80 rounded-lg p-1.5">
             {/* objectui#12513 — the Studio landing leads the list: the way
@@ -1675,7 +1706,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                 objectui#12509 — below `sm` the pillars take a second row of
                 their own (`STUDIO_HEADER_PILLAR_NAV`), and on any row the
                 package chip is the piece that gives way. */}
-            <div className="flex min-w-0 items-center gap-1">
+            <div className={cn('flex min-w-0 items-center gap-1', STUDIO_HEADER_PACKAGE_COLUMN)}>
               {/* Never a dead end: walk back to the Studio landing
                   (objectui#12513), where the author picks the next package.
                   The console home stays one click away from there, through
@@ -4131,7 +4162,12 @@ export function InterfacesPillar({
     />
   );
   const canvasEl = (
-    <main className="flex min-w-0 flex-1 flex-col overflow-auto bg-muted/30 px-6 py-4">
+    // objectui#12611 — folded (objectui#11795's width), the canvas keeps a
+    // 16 px gutter instead of 24, so a dashboard's tiles get their width.
+    <main
+      data-testid="if-canvas-main"
+      className={cn('flex min-w-0 flex-1 flex-col overflow-auto bg-muted/30 py-4', showFoldedTabs ? 'px-4' : 'px-6')}
+    >
       {(error || navError || leafHeld) && (
         <div className="mb-3 flex shrink-0 flex-col gap-1.5">
           {/* objectui#11776 — the pillar's failure and the nav editor's own,
@@ -4317,6 +4353,19 @@ export function InterfacesPillar({
       </div>
     </header>
   );
+
+  // objectui#12611 — whether the properties hold an editor rather than a
+  // statement or an invitation: the branches of `inspectorBodyEl` below that
+  // open one, in its order. The folded layout's Properties tab carries a dot
+  // while this is true, so the folded aside says it is there.
+  const propsDotId = React.useId();
+  const inspectorHasContent =
+    Boolean(editNav && navSel) ||
+    (StudioCanvas && current
+      ? current.type === 'object' && Boolean(listView.target)
+      : Boolean(
+          current && draftLoaded && ((selection && Inspector) || isSourcePage || (DefaultInspector && isEditable)),
+        ));
 
   // Collapsed state — a thin rail on the right with an expand affordance, so the
   // canvas reclaims the ~288px the properties aside otherwise holds.
@@ -4806,13 +4855,34 @@ export function InterfacesPillar({
             className="flex min-w-0 flex-1 flex-col"
             data-testid="studio-center-tabs"
           >
-            <TabsList className="mx-3 mt-2 shrink-0 self-start">
+            {/* objectui#12611 — on the canvas's 16 px gutter, and the
+                Properties segment carries a dot while the folded aside holds
+                an editor (`inspectorHasContent`). */}
+            <TabsList className="mx-4 mt-2 shrink-0 self-start">
               <TabsTrigger value="canvas" className="gap-1 text-xs">
                 <Eye className="h-3.5 w-3.5" /> {t('engine.studio.if.tabCanvas', locale)}
               </TabsTrigger>
-              <TabsTrigger value="properties" className="gap-1 text-xs">
+              <TabsTrigger
+                value="properties"
+                className="gap-1 text-xs"
+                data-testid="studio-center-tab-properties"
+                aria-describedby={inspectorHasContent ? propsDotId : undefined}
+              >
                 <SlidersHorizontal className="h-3.5 w-3.5" /> {t('engine.studio.inspector.props', locale)}
+                {inspectorHasContent && (
+                  <span
+                    aria-hidden="true"
+                    data-testid="studio-center-tab-properties-dot"
+                    className="ml-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
+                  />
+                )}
               </TabsTrigger>
+              {/* The dot's meaning, as the tab's description: its name stays "Properties". */}
+              {inspectorHasContent && (
+                <span id={propsDotId} hidden>
+                  {t('engine.studio.inspector.propsHasContent', locale)}
+                </span>
+              )}
             </TabsList>
             {/* forceMount + state-hidden: the canvas hosts the RUNTIME preview
                 (records grids, PreviewShell iframes) — unmounting it on every

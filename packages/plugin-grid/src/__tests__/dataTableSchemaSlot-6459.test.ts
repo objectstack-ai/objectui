@@ -138,7 +138,7 @@ describe('objectui#6459 — the schema slot annotation is an instrument, not a d
   });
 
   /**
-   * The group-table writer is the same instrument: `buildGroupTableSchema`
+   * The group-table writer is the same instrument: `buildGroupedTableSchema`
    * returns a literal contextually typed by the annotation, so a longhand key
    * is fresh there too, and the spread it carries comes from the already
    * checked `const` — every key entering the spread was refused or admitted at

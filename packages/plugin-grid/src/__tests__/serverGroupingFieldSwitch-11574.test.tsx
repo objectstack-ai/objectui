@@ -29,7 +29,8 @@
  * by the test, so an answer lands exactly when the pin needs it to.
  */
 import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest';
-import { render, cleanup, within, act } from '@testing-library/react';
+import { render, cleanup, act } from '@testing-library/react';
+import { withinBand } from './groupBandScope';
 import '@testing-library/jest-dom';
 import React from 'react';
 
@@ -262,9 +263,9 @@ describe('switching the grouping field paints the server\'s groups for the new f
     // "Loading grid…", and none of Priority-high's rows.
     const priorityHigh = TASKS.filter((t) => t.priority === 'high' && t.impact !== 'high').map((t) => t.title);
     const impactHigh = TASKS.filter((t) => t.impact === 'high').map((t) => t.title);
-    const high = () => within(groupRowEl('high') as HTMLElement);
+    const high = () => withinBand(groupRowEl('high')!);
     for (const title of priorityHigh) expect(high().queryByText(title)).toBeNull();
-    expect(groupRowEl('high')!.querySelector('[data-testid^="group-rows-loading-"]')).not.toBeNull();
+    expect(withinBand(groupRowEl('high')!).querySelector('[data-testid^="group-rows-loading-"]')).not.toBeNull();
 
     // Its own page lands: exactly Impact-high's rows.
     await vi.waitFor(() => expect(ds.gates.map((g) => g.what)).toContainEqual(expect.stringContaining('"impact","high"')));

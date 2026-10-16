@@ -138,7 +138,7 @@ describe('Studio read-only posture: the app chip and the item header link (objec
 
     const header = screen.getByTestId('studio-shell-header');
     await waitFor(() =>
-      expect(within(header).getByTitle(t('engine.studio.pkg.switchTitle', 'en'))).toHaveAttribute(
+      expect(within(header).getByTestId('studio-pkg-chip')).toHaveAttribute(
         'data-pkg-list-state',
         'loaded',
       ),

@@ -39,7 +39,8 @@
  * `queryGroupHeaders`, and asks for no rows.
  */
 import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest';
-import { render, cleanup, screen, within, fireEvent } from '@testing-library/react';
+import { render, cleanup, screen, fireEvent } from '@testing-library/react';
+import { withinBand } from './groupBandScope';
 import '@testing-library/jest-dom';
 import React from 'react';
 import { compileListViewGroupQuery } from '@objectstack/spec/ui';
@@ -163,7 +164,7 @@ const headerOf = (el: Element) => ({
 const headerCounts = () => Object.fromEntries(groupRows().map((r) => { const h = headerOf(r); return [h.label, Number(h.count)]; }));
 const groupRowEl = (label: string) => groupRows().find((r) => headerOf(r).label === label)!;
 const subjectsIn = (el: Element, unit: string) =>
-  within(el as HTMLElement).queryAllByText(new RegExp(`^${unit} #\\d+$`)).map((n) => n.textContent);
+  withinBand(el).queryAllByText(new RegExp(`^${unit} #\\d+$`)).map((n) => n.textContent);
 
 const renderGrid = (dataSource: unknown, schemaExtra: Record<string, unknown> = {}) =>
   render(
@@ -236,11 +237,11 @@ describe('ObjectGrid groups on the server (objectui#7189)', () => {
     await vi.waitFor(() => expect(subjectsIn(group(), 'Northgate Operations')).toHaveLength(50));
     const firstPage = subjectsIn(group(), 'Northgate Operations');
 
-    const pageInfo = within(group() as HTMLElement).getByText('Page 1 of 2');
+    const pageInfo = withinBand(group()).getByText('Page 1 of 2');
     const next = pageInfo.parentElement!.querySelectorAll('button')[2];
     fireEvent.click(next);
 
-    await vi.waitFor(() => expect(within(group() as HTMLElement).getByText('Page 2 of 2')).toBeInTheDocument());
+    await vi.waitFor(() => expect(withinBand(group()).getByText('Page 2 of 2')).toBeInTheDocument());
     await vi.waitFor(() => expect(subjectsIn(group(), 'Northgate Operations')).toHaveLength(36));
     const secondPage = subjectsIn(group(), 'Northgate Operations');
     expect(new Set([...firstPage, ...secondPage]).size).toBe(86);
@@ -263,7 +264,7 @@ describe('ObjectGrid groups on the server (objectui#7189)', () => {
       await vi.waitFor(() => expect(subjectsIn(group(), unit).length).toBe(Math.min(size, 50)));
       subjectsIn(group(), unit).forEach((s) => seen.add(s!));
       if (size > 50) {
-        const next = within(group() as HTMLElement).getByText('Page 1 of 2').parentElement!.querySelectorAll('button')[2];
+        const next = withinBand(group()).getByText('Page 1 of 2').parentElement!.querySelectorAll('button')[2];
         fireEvent.click(next);
         await vi.waitFor(() => expect(subjectsIn(group(), unit).length).toBe(size - 50));
         subjectsIn(group(), unit).forEach((s) => seen.add(s!));

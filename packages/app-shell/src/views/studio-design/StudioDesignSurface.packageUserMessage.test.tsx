@@ -233,7 +233,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const trigger = () => screen.getByTitle('Switch / create package');
+const trigger = () => screen.getByTestId('studio-pkg-chip');
 /** The one shared sonner id — one outage across this surface is one toast. */
 const toastId = () => (toastError.mock.calls[0]?.[1] as { id?: string } | undefined)?.id;
 

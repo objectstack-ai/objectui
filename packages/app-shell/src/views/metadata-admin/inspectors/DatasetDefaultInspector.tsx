@@ -32,7 +32,7 @@ import {
   spliceArray,
 } from './_shared.js';
 import { InspectorComboField, type InspectorComboOption } from './InspectorComboField.js';
-import { toFieldName, toFieldNameLoose } from '../previews/object-fields-io.js';
+import { toFieldNameLoose, toFieldNameOrEmpty } from '../previews/object-fields-io.js';
 import { formatMeasure } from '@object-ui/core';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { conditionToGroup, groupToCondition, isClearedGroup, type BuilderGroup, type FilterCondition } from './datasetFilterCondition.js';
@@ -396,7 +396,11 @@ export function DatasetDefaultInspector({ draft, onPatch, readOnly, name, locale
   // here was reset whenever the host remounted this panel (a Properties →
   // Source → Properties round trip does), and the next label keystroke then
   // replaced the name the author had typed.
-  const nameFollowsLabel = createMode && (nameValue === '' || nameValue === toFieldName(label));
+  // objectui#12789 — the comparison uses the same derivation as the Label
+  // handler, so a Name left empty by a non-Latin Label still follows a later
+  // Latin one, and a Name the author typed is never mistaken for the `field`
+  // placeholder.
+  const nameFollowsLabel = createMode && (nameValue === '' || nameValue === toFieldNameOrEmpty(label));
 
   const { options: objectOptions, loading: objectsLoading } = useObjectOptions();
   const { relationships, fieldOptions, loading: catalogLoading } = useDatasetFieldCatalog(object, include);
@@ -517,9 +521,13 @@ export function DatasetDefaultInspector({ draft, onPatch, readOnly, name, locale
         value={label}
         onCommit={(v) => {
           // Live-derive the snake_case name from the label until the author edits
-          // the Name field directly (create mode only).
+          // the Name field directly (create mode only). objectui#12789 — a Label
+          // that yields no machine name (a non-Latin script, or a cleared Label)
+          // leaves the Name empty, as the object designer does, so the save
+          // path asks the author for one; it never writes the `field`
+          // placeholder.
           const patch: Record<string, unknown> = { label: v };
-          if (nameFollowsLabel) patch.name = toFieldName(v);
+          if (nameFollowsLabel) patch.name = toFieldNameOrEmpty(v);
           onPatch(patch);
         }}
         disabled={readOnly}

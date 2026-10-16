@@ -8,6 +8,7 @@ import {
   writeFields,
   toFieldName,
   toFieldNameLoose,
+  toFieldNameOrEmpty,
   readGroups,
   genGroupKey,
   addGroup,
@@ -334,6 +335,23 @@ describe('toFieldName (strict — for complete strings)', () => {
     // This is the user-facing bug that motivates toFieldNameLoose: the strict
     // normalizer eats the trailing "_" the instant it is typed.
     expect(simulateTyping(toFieldName, 'repair_ticket')).toBe('repairticket');
+  });
+});
+
+describe('toFieldNameOrEmpty (strict, no placeholder — for a Name derived from a Label) (objectui#12789)', () => {
+  it('returns "" where toFieldName writes the "field" placeholder', () => {
+    for (const raw of ['', '   ', '收入', '报修工单', '-- __ --']) {
+      expect(toFieldName(raw)).toBe('field');
+      expect(toFieldNameOrEmpty(raw)).toBe('');
+    }
+  });
+
+  it('derives exactly what toFieldName derives from every input that yields a machine name', () => {
+    for (const raw of ['Repair Ticket', 'order-item', 'report_', 'a__b', '1abc', 'Revenue -- Board ', 'Field', '收入 Revenue']) {
+      expect(toFieldNameOrEmpty(raw)).toBe(toFieldName(raw));
+    }
+    expect(toFieldNameOrEmpty('Field')).toBe('field'); // a real name, not the placeholder
+    expect(toFieldNameOrEmpty('1abc')).toBe('f_1abc');
   });
 });
 

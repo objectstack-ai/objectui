@@ -35,6 +35,7 @@ import {
   resolveInlineAriaProps,
   useAdapter,
   useAction,
+  useActionTextLocalizer,
   useDataInvalidation,
   useElementDataSource,
   useFilterScope,
@@ -329,13 +330,21 @@ function ElementButtonRenderer({ schema }: { schema: any }) {
   const icon = props.icon ? <LazyIcon name={props.icon} className="h-4 w-4" /> : null;
 
   const { execute } = useAction();
+  const localizeActionTexts = useActionTextLocalizer();
   const [running, setRunning] = React.useState(false);
-  const action = props.action;
+  const declaredAction = props.action;
 
   const handleClick = React.useCallback(async () => {
-    if (!action || running) return;
+    if (!declaredAction || running) return;
     setRunning(true);
     try {
+      // The inline action's copy (`label`, `confirmText`, `successMessage`,
+      // `errorMessage`) is an `I18nLabel` in the spec, so it is resolved in the
+      // user's locale by the same localizer every other action surface uses,
+      // before it reaches the runner and the param dialog, which have no
+      // language (objectui#12757). A page carries no host object, so only the
+      // action's own name keys the bundle.
+      const action = localizeActionTexts(undefined, declaredAction);
       // Mirror action:button's param routing: an array of {name,type,…} defs is
       // forwarded for in-dialog collection. A plain object is passed as values
       // only for `type: 'api'` (the objectstack#5777 payload window); on any
@@ -395,7 +404,7 @@ function ElementButtonRenderer({ schema }: { schema: any }) {
     } finally {
       setRunning(false);
     }
-  }, [action, execute, running]);
+  }, [declaredAction, execute, localizeActionTexts, running]);
 
   return (
     <Button
@@ -404,7 +413,7 @@ function ElementButtonRenderer({ schema }: { schema: any }) {
       size={size}
       disabled={props.disabled || running}
       className={cn(schema?.className)}
-      onClick={action ? handleClick : undefined}
+      onClick={declaredAction ? handleClick : undefined}
       {...resolveInlineAriaProps(props.aria, locale)}
     >
       {iconPosition === 'left' && icon}

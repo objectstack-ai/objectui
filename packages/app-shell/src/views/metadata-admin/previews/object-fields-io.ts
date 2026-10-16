@@ -259,14 +259,33 @@ export function toLabel(name: string): string {
     .join(' ');
 }
 
-/** Normalize an arbitrary string into a valid snake_case field name. */
+/**
+ * Normalize an arbitrary string into a valid snake_case field name. Input that
+ * yields no machine name (empty, or only non-Latin characters) becomes the
+ * placeholder `field`; {@link toFieldNameOrEmpty} is the same rule without it.
+ */
 export function toFieldName(raw: string): string {
+  return toFieldNameOrEmpty(raw) || 'field';
+}
+
+/**
+ * The strict {@link toFieldName} rule with no placeholder: `''` when the input
+ * yields no machine name — a Label in a non-Latin script, or a cleared one.
+ *
+ * For a Name DERIVED from a Label (objectui#12789). The report and dataset
+ * designers derived with `toFieldName`, so a Label like `收入` silently named
+ * the item `field`, and a second such item collided with the first. An empty
+ * derivation leaves the Name empty instead, as the object designer's `slugify`
+ * does, so the save path asks the author for one. Every other input derives
+ * exactly what `toFieldName` derives.
+ */
+export function toFieldNameOrEmpty(raw: string): string {
   const lower = raw.trim().toLowerCase();
   const sanitized = lower
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '')
     .replace(/_{2,}/g, '_');
-  if (!sanitized) return 'field';
+  if (!sanitized) return '';
   if (!/^[a-z_]/.test(sanitized)) return `f_${sanitized}`;
   return sanitized;
 }

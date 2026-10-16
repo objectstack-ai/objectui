@@ -1,6 +1,6 @@
 # objectui#12524 — evidence
 
-Screenshots for the draft status chip's one place in every pillar's item header. Taken from the local console (vite, this branch's parent commit) against HotCRM `63db83e` under `objectstack dev --fresh`, at a 1280 × 820 viewport, in a writable package (`com.acme.evidence`, created with `POST /api/v1/packages`) holding a draft object, flow, page and app.
+Screenshots for the draft status chip's one place in every pillar's item header. Taken from the local console (vite, at feature commit `d9376cc`) against HotCRM `63db83e` under `objectstack dev --fresh`, at a 1280 × 820 viewport, in a writable package (`com.acme.evidence`, created with `POST /api/v1/packages`) holding a draft object, flow, page and app.
 
 | File | Shows |
 | --- | --- |

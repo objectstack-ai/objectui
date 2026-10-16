@@ -138,8 +138,9 @@ export function MarketplaceRowActions({ entry, listSource, basePath, onResult, o
         (entry.notLoaded ? (
           uninstallButton
         ) : (
-          // The kernel note is about a LOADED package: the running kernel keeps
-          // it registered until restart. It rides the Uninstall it qualifies,
+          // The kernel note is about a LOADED package: what uninstalling it
+          // withdraws from the running kernel at once, and what it leaves in
+          // the database (objectui#12684). It rides the Uninstall it qualifies,
           // as a tooltip (objectui#12610); the sr-only copy is what a screen
           // reader announces as the button's description.
           <>

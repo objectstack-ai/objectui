@@ -4180,7 +4180,7 @@ const en = {
       noDescription: 'No description provided.',
       back: 'Back to marketplace',
       browseLink: 'Browse the marketplace →',
-      installedAdditiveNote: 'The kernel API is additive only — uninstall removes the on-disk manifest so the package won\'t load on next boot, but the running kernel keeps the app registered until you restart the runtime.',
+      installedAdditiveNote: 'Uninstall removes the app from the running kernel at once, together with its permission sets and their grants, and deletes the cached manifest so the package does not load at the next start. Records stored in its objects stay in the database.',
       versionBadge: 'v{{version}}',
       installedBadge: 'Installed v{{version}}',
       // objectui#11645 — an install-local entry this runtime refused to load at

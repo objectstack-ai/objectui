@@ -3520,7 +3520,7 @@ const ja = {
     noDescription: "説明がありません。",
     back: "マーケットプレイスに戻る",
     browseLink: "マーケットプレイスを参照 →",
-    installedAdditiveNote: "カーネルAPIは追加のみです。アンインストールするとディスク上のマニフェストが削除され、次回起動時にパッケージは読み込まれませんが、実行中のカーネルはランタイムを再起動するまでアプリを登録したままにします。",
+    installedAdditiveNote: "アンインストールすると、アプリは実行中のカーネルから直ちに削除され、その権限セットと権限セットの付与も併せて削除されます。キャッシュされたマニフェストも削除されるため、次回起動時にパッケージは読み込まれません。オブジェクトに保存されたレコードはデータベースに残ります。",
     versionBadge: "v{{version}}",
     installedBadge: "インストール済み v{{version}}",
     // objectui#11645 — an install-local entry this runtime refused to load at

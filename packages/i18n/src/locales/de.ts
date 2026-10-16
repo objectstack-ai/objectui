@@ -3518,7 +3518,7 @@ const de = {
     noDescription: "Keine Beschreibung vorhanden.",
     back: "Zurück zum Marktplatz",
     browseLink: "Marktplatz durchsuchen →",
-    installedAdditiveNote: "Die Kernel-API ist nur additiv — Deinstallation entfernt das Manifest auf der Festplatte, damit das Paket beim nächsten Start nicht geladen wird, aber der laufende Kernel hält die App bis zum Neustart registriert.",
+    installedAdditiveNote: "Die Deinstallation entfernt die App sofort aus dem laufenden Kernel, samt ihren Berechtigungssets und deren Zuweisungen, und löscht das zwischengespeicherte Manifest, damit das Paket beim nächsten Start nicht geladen wird. Datensätze in ihren Objekten bleiben in der Datenbank erhalten.",
     versionBadge: "v{{version}}",
     installedBadge: "Installiert v{{version}}",
     // objectui#11645 — an install-local entry this runtime refused to load at

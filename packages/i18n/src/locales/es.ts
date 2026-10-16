@@ -3586,7 +3586,7 @@ const es = {
     noDescription: "Sin descripción disponible.",
     back: "Volver al marketplace",
     browseLink: "Explorar marketplace →",
-    installedAdditiveNote: "La API del kernel es solo aditiva — desinstalar elimina el manifiesto del disco para que el paquete no se cargue al próximo inicio, pero el kernel en ejecución mantiene la aplicación registrada hasta reiniciar.",
+    installedAdditiveNote: "La desinstalación retira la aplicación del kernel en ejecución de inmediato, junto con sus conjuntos de permisos y sus asignaciones, y elimina el manifiesto en caché para que el paquete no se cargue en el próximo inicio. Los registros almacenados en sus objetos permanecen en la base de datos.",
     versionBadge: "v{{version}}",
     installedBadge: "Instalado v{{version}}",
     // objectui#11645 — an install-local entry this runtime refused to load at

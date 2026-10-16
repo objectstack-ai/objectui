@@ -3583,7 +3583,7 @@ const fr = {
     noDescription: "Aucune description disponible.",
     back: "Retour au marketplace",
     browseLink: "Parcourir le marketplace →",
-    installedAdditiveNote: "L'API du noyau est uniquement additive — la désinstallation supprime le manifeste du disque pour que le paquet ne se charge pas au prochain démarrage, mais le noyau en cours d'exécution maintient l'application enregistrée jusqu'au redémarrage.",
+    installedAdditiveNote: "La désinstallation retire immédiatement l'application du noyau en cours d'exécution, avec ses jeux d'autorisations et leurs attributions, et supprime le manifeste en cache pour que le paquet ne se charge pas au prochain démarrage. Les enregistrements stockés dans ses objets restent dans la base de données.",
     versionBadge: "v{{version}}",
     installedBadge: "Installé v{{version}}",
     // objectui#11645 — an install-local entry this runtime refused to load at

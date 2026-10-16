@@ -9,10 +9,12 @@
  *   it reads NOT LOADED with its reason, keeps Uninstall, and confirms and
  *   reports in not-loaded terms. A code the console has no sentence for is
  *   named, not hidden.
- * - objectui#12610 — the kernel note ("the running kernel keeps the app until
- *   restart") rides the Uninstall of a LOADED row as a tooltip and its
- *   accessible description; a not-loaded row's Uninstall carries none; every
- *   pack's value is plain text.
+ * - objectui#12610 — the kernel note (`marketplace.installedAdditiveNote`) rides
+ *   the Uninstall of a LOADED row as a tooltip and its accessible description;
+ *   a not-loaded row's Uninstall carries none; every pack's value is plain text.
+ * - objectui#12684 — the note says what the server's DELETE does now: the app
+ *   leaves the running kernel at once, so no pack tells the operator it stays
+ *   registered until a restart.
  * - objectui#7611 — a walled uninstall refusal reaches the operator with the
  *   door's own sentence, never a bare status, and the row stays.
  *
@@ -302,5 +304,71 @@ describe('every pack\'s kernel note is plain text (objectui#12610)', () => {
     const note = pack.marketplace.installedAdditiveNote;
     expect(note.length).toBeGreaterThan(20);
     expect(note).not.toMatch(/<\/?[a-z][^>]*>/i);
+  });
+});
+
+/**
+ * objectui#12684 — objectstack's `DELETE /api/v1/marketplace/install-local/ID`
+ * withdraws the package from the running kernel at once (objectstack#21576),
+ * runs the uninstall cleanups that revoke its permission sets and their grants,
+ * and removes its cached manifest; the rows in its tables stay. The note used
+ * to tell the operator the running kernel keeps the app registered until a
+ * restart. These pins read the CLAIMS the note makes, not its wording: the
+ * retired claim is absent from every pack, and the measured ones are present in
+ * the text a loaded row's Uninstall shows.
+ */
+const RETIRED_RESTART_CLAIM: Record<string, RegExp> = {
+  en: /until you restart|keeps the app registered|additive only/i,
+  zh: /直到下次重启|仍会保留该应用|仅支持新增/,
+  ja: /再起動するまで|追加のみ/,
+  ko: /재시작될 때까지|추가 전용/,
+  de: /bis zum Neustart|nur additiv/,
+  es: /hasta reiniciar|solo aditiva/,
+  fr: /jusqu'au redémarrage|uniquement additive/,
+  pt: /até reiniciar|apenas aditiva/,
+  ru: /до перезапуска|только аддитивный/,
+  ar: /حتى إعادة التشغيل|إضافية فقط/,
+};
+
+/** Withdrawn at once; not loaded at the next start; records kept. */
+const MEASURED_CLAIMS: Record<string, RegExp[]> = {
+  en: [/\bat once\b/, /\bdoes not load at the next start\b/, /\bstay in the database\b/],
+  zh: [/立即/, /下次启动时不再加载/, /保留在数据库中/],
+};
+
+describe.each([
+  ['en', EN, en as Pack],
+  ['zh', ZH, zh as unknown as Pack],
+])('Packages — the kernel note says the app leaves the running kernel at once (objectui#12684) [%s]', (lang, config, pack) => {
+  it('a loaded row\'s Uninstall describes the live withdrawal, and no restart', async () => {
+    const user = userEvent.setup();
+    await serve([LOADED]);
+    renderPackages(config);
+
+    const uninstall = within(await row('com.example.todo')).getByRole('button', { name: pack.marketplace.action.uninstall });
+    const described = flat(document.getElementById(uninstall.getAttribute('aria-describedby') as string)?.textContent ?? '');
+    await user.hover(uninstall);
+    const tooltip = flat((await screen.findByRole('tooltip')).textContent ?? '');
+
+    for (const shown of [described, tooltip]) {
+      expect(shown).not.toMatch(RETIRED_RESTART_CLAIM[lang]);
+      for (const claim of MEASURED_CLAIMS[lang]) expect(shown).toMatch(claim);
+    }
+  });
+});
+
+describe('no pack\'s kernel note says the app stays registered until a restart (objectui#12684)', () => {
+  const packs = Object.entries(builtInLocales) as Array<[string, Pack]>;
+
+  it('the retired-claim table names every pack', () => {
+    expect(Object.keys(RETIRED_RESTART_CLAIM).sort()).toEqual(packs.map(([lang]) => lang).sort());
+  });
+
+  it.each(packs)('%s: `marketplace.installedAdditiveNote` no longer carries the restart claim', (lang, pack) => {
+    expect(pack.marketplace.installedAdditiveNote).not.toMatch(RETIRED_RESTART_CLAIM[lang]);
+  });
+
+  it.each(packs.filter(([lang]) => lang !== 'en'))('%s: the note is translated, not the en sentence', (_lang, pack) => {
+    expect(pack.marketplace.installedAdditiveNote).not.toBe(en.marketplace.installedAdditiveNote);
   });
 });

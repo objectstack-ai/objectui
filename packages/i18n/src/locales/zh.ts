@@ -3643,7 +3643,7 @@ const zh = {
       noDescription: '未提供描述。',
       back: '返回应用市场',
       browseLink: '去应用市场看看 →',
-      installedAdditiveNote: '内核 API 仅支持新增 — 卸载会移除磁盘上的清单，下次启动时不再加载；但运行中的内核仍会保留该应用，直到下次重启运行时才会真正卸载。',
+      installedAdditiveNote: '卸载会立即将该应用从运行中的内核中移除，其权限集及相应授权也一并移除；同时删除缓存的清单，下次启动时不再加载该包。其对象中已存储的记录仍保留在数据库中。',
       versionBadge: 'v{{version}}',
       installedBadge: '已安装 v{{version}}',
       // objectui#11645 — an install-local entry this runtime refused to load at

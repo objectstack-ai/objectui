@@ -278,3 +278,44 @@ describe('ObjectStackAdapter.getApp / getPage — meta type spelling (objectui#4
     expect(getItem).toHaveBeenCalledWith('page', 'home');
   });
 });
+
+/**
+ * objectui#12285 — `probeAppAccess` is handed the URL segment, and ADR-0048
+ * §3.1 makes the package id an app's routing key, so the probe is asked with a
+ * package id as often as with a name. Since objectstack-ai/objectstack#23183
+ * (in `@objectstack/*` `18.0.0-next.2`) the by-name app route answers for that
+ * key: a withheld app 403 `PERMISSION_DENIED`, an unknown package 404, a holder
+ * 200 with the app under its own `name`. The probe needs no change to read
+ * those; these cases pin that it sends the key as given (dots are not encoded
+ * away) and reads each answer to the same verdict as for a name. The bodies
+ * are transcribed from a live `18.0.0-next.2` backend read while landing this
+ * card; nothing here re-derives them.
+ */
+describe('ObjectStackAdapter.probeAppAccess — a package-id key (objectui#12285)', () => {
+  it('reports `denied` for the 403 a withheld app answers on its package id, asked by that key', async () => {
+    const { adapter, fetchImpl } = makeAdapter(() =>
+      json(403, {
+        success: false,
+        error: {
+          code: 'PERMISSION_DENIED',
+          message: "You do not have permission to open the 'com.objectstack.setup' app.",
+        },
+      }),
+    );
+
+    await expect(adapter.probeAppAccess('com.objectstack.setup')).resolves.toBe('denied');
+    expect(String(fetchImpl.mock.calls[0][0])).toContain('/api/v1/meta/app/com.objectstack.setup');
+  });
+
+  it('reports `not_found` for an unknown package id', async () => {
+    const { adapter } = makeAdapter(() => json(404, ABSENT_BODY));
+    await expect(adapter.probeAppAccess('com.example.no-such-pkg')).resolves.toBe('not_found');
+  });
+
+  it('reports `granted` when a holder is served the app under its own name', async () => {
+    const { adapter } = makeAdapter(() =>
+      json(200, { type: 'app', name: 'setup', item: { name: 'setup', label: 'Setup' } }),
+    );
+    await expect(adapter.probeAppAccess('com.objectstack.setup')).resolves.toBe('granted');
+  });
+});

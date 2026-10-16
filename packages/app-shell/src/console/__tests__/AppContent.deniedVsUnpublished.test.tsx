@@ -566,3 +566,97 @@ describe('AppContent — every screen here states what the probe measured (objec
     );
   });
 });
+
+/**
+ * objectui#12285 — the same verdicts, reached from the URL form ADR-0048 §3.1
+ * makes the app's routing key: `/apps/PACKAGE_ID`, the segment the admin's own
+ * Setup links use.
+ *
+ * Nothing in the console changed for this: `AppContent` hands the URL segment
+ * to `probeAppAccess` as it stands, and since objectstack-ai/objectstack#23183
+ * (published in `@objectstack/*` `18.0.0-next.2`) the by-name app route
+ * answers for a package-id key. Before it, `GET /api/v1/meta/app/PACKAGE_ID`
+ * answered 404 for a withheld app, so a member saw "This app can't be opened"
+ * where "You don't have access to this app" is right. The cases below pin the
+ * console's half of that pair, with the bodies a real server gives, so a
+ * console change that re-keys the probe (to a resolved name, or to the list)
+ * goes red here: a withheld app's row is absent from the member's list, so no
+ * name can be resolved for it on this side.
+ *
+ * The bodies are transcribed from a live `18.0.0-next.2` backend
+ * (`e2e/live/ci/start-backend.sh`, member persona `phone.demo@example.com`)
+ * read while landing this card; nothing here re-derives them.
+ */
+describe('AppContent — a package-id URL reaches the same verdicts (objectui#12285)', () => {
+  const SETUP_PACKAGE_ID = 'com.objectstack.setup';
+  /** The live 403 for a member on Setup's package-id key: it echoes the key, never the name. */
+  const PACKAGE_ID_DENIED_BODY = {
+    success: false,
+    error: {
+      code: 'PERMISSION_DENIED',
+      message: `You do not have permission to open the '${SETUP_PACKAGE_ID}' app.`,
+    },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    locale = 'en';
+    // The member's list as the server hands it: Setup is withheld, so absent.
+    metadataApps = [{ name: 'showcase_app', _packageId: 'com.example.showcase', label: 'Showcase', navigation: [] }];
+    metaItemRequests = [];
+    byName = {};
+    adapter = makeAdapter();
+  });
+
+  it('THE CARD — a member on a withheld app\'s package-id URL sees access denied, not "can\'t be opened"', async () => {
+    byName[SETUP_PACKAGE_ID] = () => json(403, PACKAGE_ID_DENIED_BODY);
+
+    renderConsoleAt(`/apps/${SETUP_PACKAGE_ID}`);
+
+    expect(await screen.findByTestId('app-access-denied')).toBeInTheDocument();
+    expect(screen.getByText("You don't have access to this app")).toBeInTheDocument();
+    expect(screen.queryByTestId('app-not-found')).not.toBeInTheDocument();
+    expect(screen.queryByText(NOT_FOUND_COPY)).not.toBeInTheDocument();
+    // Asked by the key the URL carries, once — not by a name the console guessed.
+    expect(metaItemRequests).toHaveLength(1);
+    expect(metaItemRequests[0]).toContain(`/api/v1/meta/app/${SETUP_PACKAGE_ID}`);
+  });
+
+  it('CONTROL — an unknown package id still shows not found', async () => {
+    // The server answers an unknown package byte-identically to an unknown
+    // name, so the console has nothing to tell apart and must not try.
+    byName['com.example.no-such-pkg'] = () => json(404, ABSENT_BODY);
+
+    renderConsoleAt('/apps/com.example.no-such-pkg');
+
+    expect(await screen.findByTestId('app-not-found')).toBeInTheDocument();
+    expect(screen.getByText(NOT_FOUND_COPY)).toBeInTheDocument();
+    expect(screen.queryByTestId('app-access-denied')).not.toBeInTheDocument();
+  });
+
+  it('CONTROL — the by-name URL of the same app keeps its denied verdict', async () => {
+    byName.setup = () => json(403, {
+      success: false,
+      error: { code: 'PERMISSION_DENIED', message: "You do not have permission to open the 'setup' app." },
+    });
+
+    renderConsoleAt('/apps/setup');
+
+    expect(await screen.findByTestId('app-access-denied')).toBeInTheDocument();
+    expect(metaItemRequests.every((u) => u.includes('/api/v1/meta/app/setup'))).toBe(true);
+  });
+
+  it('CONTROL — a holder opens the app at its package-id URL, and nothing is probed', async () => {
+    // The holder's list carries the app, so the segment resolves through
+    // `_packageId` and the by-name route is never asked.
+    metadataApps = [{ name: 'setup', _packageId: SETUP_PACKAGE_ID, label: 'Setup', navigation: [] }];
+
+    renderConsoleAt(`/apps/${SETUP_PACKAGE_ID}`);
+
+    const layout = await screen.findByTestId('console-layout');
+    expect(layout).toHaveAttribute('data-active-app', 'setup');
+    expect(screen.queryByTestId('app-access-denied')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('app-not-found')).not.toBeInTheDocument();
+    expect(metaItemRequests).toEqual([]);
+  });
+});

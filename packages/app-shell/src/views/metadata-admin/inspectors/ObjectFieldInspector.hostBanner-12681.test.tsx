@@ -16,11 +16,17 @@
  * reports an unrecognized key, beside the lint lines located at its
  * `expression`, which are the author's to see while the expression is
  * incomplete.
+ *
+ * Autosave is switched OFF (the page's own per-browser toggle). A save clears
+ * the banner and its round-trip drops `undefined`, which is exactly how the
+ * false line used to go away a few seconds after each edit; with the timer
+ * running, a "banner gone" reading could be the save's doing rather than the
+ * check's. With it off, the banner shows only what the live check concluded.
  */
 
 import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { MetadataClient } from '@object-ui/data-objectstack';
@@ -97,10 +103,17 @@ import '../../../services/builtinComponents.js';
 import { registerBuiltinDesigners } from '../register-builtin-designers';
 registerBuiltinDesigners();
 
+const AUTOSAVE_PREF = 'metadata-admin:autosave';
+
+beforeEach(() => {
+  window.localStorage.setItem(AUTOSAVE_PREF, '0');
+});
+
 afterEach(() => {
   cleanup();
   fetchImpl.mockClear();
   served = CLEAN;
+  window.localStorage.removeItem(AUTOSAVE_PREF);
 });
 
 function renderDesigner(body: Row) {
@@ -157,11 +170,12 @@ describe('object designer banner — editing a clean formula field shows no reti
     });
     expect(bannerLocations().filter((l) => AT_FIELD.test(l))).toEqual([]);
 
-    // ` + 1` completes the expression: the banner goes away entirely, well
-    // before the autosave could round-trip a fresh body into the draft.
+    // ` + 1` completes the expression: the live check clears the banner
+    // entirely (no save runs — autosave is off).
     fireEvent.change(editor, { target: { value: 'record.est_hours * 1.1 + ' } });
     fireEvent.change(editor, { target: { value: 'record.est_hours * 1.1 + 1' } });
-    await waitFor(() => expect(bannerLocations()).toEqual([]), { timeout: 1500 });
+    await waitFor(() => expect(bannerLocations()).toEqual([]), { timeout: 4000 });
+    expect(fetchImpl.mock.calls.filter(([, init]) => init?.method === 'PUT')).toEqual([]);
   });
 
   it('the legacy pointer stands on a stored `formula` key until the first edit, and that edit clears it', async () => {
@@ -173,6 +187,7 @@ describe('object designer banner — editing a clean formula field shows no reti
     const editor = await openFormulaEditor();
     expect(editor).toHaveValue('record.est_hours * 1.1');
     fireEvent.change(editor, { target: { value: 'record.est_hours * 1.1 + 1' } });
-    await waitFor(() => expect(bannerLocations()).toEqual([]), { timeout: 1500 });
+    await waitFor(() => expect(bannerLocations()).toEqual([]), { timeout: 4000 });
+    expect(fetchImpl.mock.calls.filter(([, init]) => init?.method === 'PUT')).toEqual([]);
   });
 });

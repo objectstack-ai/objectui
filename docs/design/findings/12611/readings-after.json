@@ -1,0 +1,284 @@
+{
+ "1024-light": {
+  "data": {
+   "chipVisibleText": "HotCRM Read-only",
+   "chipName": {
+    "scrollWidth": 51,
+    "clientWidth": 51
+   },
+   "title": {
+    "text": "Account",
+    "scrollWidth": 72,
+    "clientWidth": 72,
+    "textW": 71.89,
+    "boxW": 71.89
+   },
+   "tabRow": {
+    "height": 36,
+    "scrollWidth": 736,
+    "clientWidth": 736,
+    "fade": "none",
+    "maxTabHeight": 36
+   },
+   "propertiesDot": null,
+   "canvasGutter": null
+  },
+  "automations": {
+   "chipVisibleText": "HotCRM Read-only",
+   "chipName": {
+    "scrollWidth": 51,
+    "clientWidth": 51
+   },
+   "title": {
+    "text": "Enroll Members in Campaign",
+    "scrollWidth": 245,
+    "clientWidth": 245,
+    "textW": 244.59,
+    "boxW": 244.59
+   },
+   "tabRow": {
+    "height": 36,
+    "scrollWidth": 636,
+    "clientWidth": 436,
+    "fade": "end",
+    "maxTabHeight": 36
+   },
+   "propertiesDot": null,
+   "canvasGutter": null
+  },
+  "access": {
+   "chipVisibleText": "HotCRM Read-only",
+   "chipName": {
+    "scrollWidth": 51,
+    "clientWidth": 51
+   },
+   "title": {
+    "text": "Guest (Public Forms)",
+    "scrollWidth": 179,
+    "clientWidth": 179,
+    "textW": 178.67,
+    "boxW": 178.67
+   },
+   "tabRow": {
+    "height": 36,
+    "scrollWidth": 833,
+    "clientWidth": 736,
+    "fade": "end",
+    "maxTabHeight": 36
+   },
+   "propertiesDot": null,
+   "canvasGutter": null
+  },
+  "interfaces": {
+   "chipVisibleText": "HotCRM Read-only",
+   "chipName": {
+    "scrollWidth": 51,
+    "clientWidth": 51
+   },
+   "title": {
+    "text": "Home",
+    "scrollWidth": 51,
+    "clientWidth": 51,
+    "textW": 152.75,
+    "boxW": 50.52
+   },
+   "tabRow": {
+    "height": 36,
+    "scrollWidth": 736,
+    "clientWidth": 736,
+    "fade": "none",
+    "maxTabHeight": 36
+   },
+   "propertiesDot": true,
+   "canvasGutter": "16px"
+  }
+ },
+ "1024-dark": {
+  "data": {
+   "chipVisibleText": "HotCRM Read-only",
+   "chipName": {
+    "scrollWidth": 51,
+    "clientWidth": 51
+   },
+   "title": {
+    "text": "Account",
+    "scrollWidth": 72,
+    "clientWidth": 72,
+    "textW": 71.89,
+    "boxW": 71.89
+   },
+   "tabRow": {
+    "height": 36,
+    "scrollWidth": 736,
+    "clientWidth": 736,
+    "fade": "none",
+    "maxTabHeight": 36
+   },
+   "propertiesDot": null,
+   "canvasGutter": null
+  },
+  "automations": {
+   "chipVisibleText": "HotCRM Read-only",
+   "chipName": {
+    "scrollWidth": 51,
+    "clientWidth": 51
+   },
+   "title": {
+    "text": "Enroll Members in Campaign",
+    "scrollWidth": 245,
+    "clientWidth": 245,
+    "textW": 244.59,
+    "boxW": 244.59
+   },
+   "tabRow": {
+    "height": 36,
+    "scrollWidth": 636,
+    "clientWidth": 436,
+    "fade": "end",
+    "maxTabHeight": 36
+   },
+   "propertiesDot": null,
+   "canvasGutter": null
+  },
+  "access": {
+   "chipVisibleText": "HotCRM Read-only",
+   "chipName": {
+    "scrollWidth": 51,
+    "clientWidth": 51
+   },
+   "title": {
+    "text": "Guest (Public Forms)",
+    "scrollWidth": 179,
+    "clientWidth": 179,
+    "textW": 178.67,
+    "boxW": 178.67
+   },
+   "tabRow": {
+    "height": 36,
+    "scrollWidth": 833,
+    "clientWidth": 736,
+    "fade": "end",
+    "maxTabHeight": 36
+   },
+   "propertiesDot": null,
+   "canvasGutter": null
+  },
+  "interfaces": {
+   "chipVisibleText": "HotCRM Read-only",
+   "chipName": {
+    "scrollWidth": 51,
+    "clientWidth": 51
+   },
+   "title": {
+    "text": "Home",
+    "scrollWidth": 51,
+    "clientWidth": 51,
+    "textW": 152.75,
+    "boxW": 50.52
+   },
+   "tabRow": {
+    "height": 36,
+    "scrollWidth": 736,
+    "clientWidth": 736,
+    "fade": "none",
+    "maxTabHeight": 36
+   },
+   "propertiesDot": true,
+   "canvasGutter": "16px"
+  }
+ },
+ "1280-light": {
+  "data": {
+   "chipVisibleText": "HotCRM Read-only",
+   "chipName": {
+    "scrollWidth": 51,
+    "clientWidth": 51
+   },
+   "title": {
+    "text": "Account",
+    "scrollWidth": 72,
+    "clientWidth": 72,
+    "textW": 71.89,
+    "boxW": 71.89
+   },
+   "tabRow": {
+    "height": 36,
+    "scrollWidth": 992,
+    "clientWidth": 992,
+    "fade": "none",
+    "maxTabHeight": 36
+   },
+   "propertiesDot": null,
+   "canvasGutter": null
+  },
+  "automations": {
+   "chipVisibleText": "HotCRM Read-only",
+   "chipName": {
+    "scrollWidth": 51,
+    "clientWidth": 51
+   },
+   "title": {
+    "text": "Enroll Members in Campaign",
+    "scrollWidth": 245,
+    "clientWidth": 245,
+    "textW": 244.59,
+    "boxW": 244.59
+   },
+   "tabRow": {
+    "height": 36,
+    "scrollWidth": 692,
+    "clientWidth": 692,
+    "fade": "none",
+    "maxTabHeight": 36
+   },
+   "propertiesDot": null,
+   "canvasGutter": null
+  },
+  "access": {
+   "chipVisibleText": "HotCRM Read-only",
+   "chipName": {
+    "scrollWidth": 51,
+    "clientWidth": 51
+   },
+   "title": {
+    "text": "Guest (Public Forms)",
+    "scrollWidth": 179,
+    "clientWidth": 179,
+    "textW": 178.67,
+    "boxW": 178.67
+   },
+   "tabRow": {
+    "height": 36,
+    "scrollWidth": 992,
+    "clientWidth": 992,
+    "fade": "none",
+    "maxTabHeight": 36
+   },
+   "propertiesDot": null,
+   "canvasGutter": null
+  },
+  "interfaces": {
+   "chipVisibleText": "HotCRM Read-only",
+   "chipName": {
+    "scrollWidth": 51,
+    "clientWidth": 51
+   },
+   "title": {
+    "text": "Home",
+    "scrollWidth": 51,
+    "clientWidth": 51,
+    "textW": 152.75,
+    "boxW": 50.52
+   },
+   "tabRow": {
+    "height": 36,
+    "scrollWidth": 992,
+    "clientWidth": 992,
+    "fade": "none",
+    "maxTabHeight": 36
+   },
+   "propertiesDot": null,
+   "canvasGutter": "24px"
+  }
+ }
+}

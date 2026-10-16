@@ -167,17 +167,17 @@ function naturalWidth(el: HTMLElement): number {
  * Until every crumb has been measured (the group not laid out yet, or the
  * crumbs hidden below `sm`) the trail stays unfolded. A trail of one crumb
  * has no middle to fold.
- *
- * @internal Module-level for `AppHeader.crumbFold-12702`; not on the package entry.
  */
-export function useAppBarCrumbFold(groupRef: RefObject<HTMLElement | null>, labels: readonly string[]): boolean {
+function useAppBarCrumbFold(anchorRef: RefObject<HTMLElement | null>, labels: readonly string[]): boolean {
   const [folded, setFolded] = useState(false);
   const key = JSON.stringify(labels);
   const count = labels.length;
   const cache = useRef<{ key: string; crumbs: number[] }>({ key: '', crumbs: [] });
 
   useLayoutEffect(() => {
-    const group = groupRef.current;
+    // The group is the crumbs' parent: the trail draws its crumbs straight
+    // into it, and the last crumb is drawn folded or not.
+    const group = anchorRef.current?.parentElement;
     if (!group || count < 2) {
       setFolded(false);
       return;
@@ -213,7 +213,7 @@ export function useAppBarCrumbFold(groupRef: RefObject<HTMLElement | null>, labe
     observer.observe(group);
     for (const child of Array.from(group.children)) observer.observe(child);
     return () => observer.disconnect();
-  }, [groupRef, key, count, folded]);
+  }, [anchorRef, key, count, folded]);
 
   return folded && count >= 2;
 }
@@ -225,25 +225,25 @@ export function useAppBarCrumbFold(groupRef: RefObject<HTMLElement | null>, labe
  * the last collapses into one `⋯` menu that lists them as plain text (the
  * crumbs link nowhere, and neither does the menu), the last crumb keeps its
  * full text, and the chip moves after it. The trail draws from `sm` up; below
- * it the phone bar shows its compact title instead.
+ * it the phone bar shows its compact title instead. The trail draws straight
+ * into the left group, whose width the fold is measured from.
  *
  * @internal Module-level for `AppHeader.crumbFold-12702`; not on the package entry.
  */
 export function AppBarCrumbTrail({
   segments,
-  folded,
   moreLabel,
   chip,
 }: {
   segments: readonly BreadcrumbItemType[];
-  folded: boolean;
   moreLabel: string;
   chip: ReactNode;
 }) {
+  const lastRef = useRef<HTMLSpanElement>(null);
+  const fold = useAppBarCrumbFold(lastRef, segments.map((seg) => String(seg.label)));
   const lastIndex = segments.length - 1;
-  const fold = folded && segments.length >= 2;
   const crumb = (seg: BreadcrumbItemType, i: number) => (
-    <span key={i} data-app-bar-crumb={i} className="hidden sm:flex items-center min-w-0">
+    <span key={i} ref={i === lastIndex ? lastRef : undefined} data-app-bar-crumb={i} className="hidden sm:flex items-center min-w-0">
       <PathSep />
       <span className={`px-1.5 py-1 text-sm font-medium truncate ${i === lastIndex ? 'text-foreground/80' : 'text-foreground/60'}`}>
         {seg.label}
@@ -705,13 +705,6 @@ export function AppHeader({
 
   const lastSegmentLabel = routeTitle || extraSegments[extraSegments.length - 1]?.label || appName || '';
 
-  // objectui#12702 — the crumbs fold when the left group runs out of room;
-  // see `useAppBarCrumbFold` and `AppBarCrumbTrail`.
-  const leftGroupRef = useRef<HTMLDivElement>(null);
-  const crumbsFolded = useAppBarCrumbFold(
-    leftGroupRef,
-    isApp ? extraSegments.map((seg) => String(seg.label)) : [],
-  );
 
   // objectui#12472 — inside an app, from 960 px up, the bar is three zones: the
   // left group, the search trigger in the middle, and the utility cluster on
@@ -764,7 +757,7 @@ export function AppHeader({
   return (
     <div className="flex items-center justify-between w-full h-full">
       {/* ── LEFT: Logo / App / Object path ── */}
-      <div ref={leftGroupRef} className="flex items-center min-w-0 flex-1">
+      <div className="flex items-center min-w-0 flex-1">
         {/* The shell's one sidebar trigger, at every width (objectui#12429):
             the drawer button on a phone, the collapse/expand toggle for the
             sidebar and its icon rail above that. It is the bar's leftmost
@@ -873,7 +866,6 @@ export function AppHeader({
                 for them and they fold (objectui#12702). */}
             <AppBarCrumbTrail
               segments={extraSegments}
-              folded={crumbsFolded}
               moreLabel={t('common.more', { defaultValue: 'More' })}
               chip={<PreviewBadge className="ml-2 hidden sm:inline-flex" />}
             />

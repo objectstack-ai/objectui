@@ -17,8 +17,7 @@
  * chip, a `⋯`) or, for a crumb, a width from its label's length. A
  * `ResizeObserver` stand-in delivers the resizes. No route draws three crumbs
  * today (a `system/*` route draws two, a report route one), so the
- * three-segment case renders `AppBarCrumbTrail` with `useAppBarCrumbFold` in a
- * left group of its own; the Marketplace route goes through the real
+ * three-segment case renders `AppBarCrumbTrail` in a left group of its own; the Marketplace route goes through the real
  * `AppHeader`.
  *
  * CONTROL: an object route draws no crumb and no `⋯`, and its chip sits
@@ -29,7 +28,7 @@ import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import React, { useRef } from 'react';
+import React from 'react';
 import { MePermissionsProvider, type MePermissionsResponse } from '@object-ui/permissions';
 
 const route = vi.hoisted(() => ({ pathname: '/apps/crm/system/marketplace', search: '' }));
@@ -130,7 +129,7 @@ vi.mock('../../providers/AdapterProvider', () => ({
   useAdapter: () => ADAPTER,
 }));
 
-import { AppHeader, AppBarCrumbTrail, useAppBarCrumbFold } from '../AppHeader';
+import { AppHeader, AppBarCrumbTrail } from '../AppHeader';
 import { PreviewBadge } from '../PreviewBadge';
 import { CommandPaletteProvider } from '../../context/CommandPaletteProvider';
 
@@ -246,14 +245,11 @@ const BADGE = 'platform-preview-badge';
 const follows = (a: Element, b: Element) => Boolean(b.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING);
 
 function Harness({ labels }: { labels: string[] }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const folded = useAppBarCrumbFold(ref, labels);
   return (
-    <div ref={ref} className="flex items-center min-w-0 flex-1">
+    <div className="flex items-center min-w-0 flex-1">
       <div data-testid="harness-pill">Setup</div>
       <AppBarCrumbTrail
         segments={labels.map((label) => ({ label }))}
-        folded={folded}
         moreLabel="More"
         chip={<PreviewBadge className="ml-2 hidden sm:inline-flex" />}
       />

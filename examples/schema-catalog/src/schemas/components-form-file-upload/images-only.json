@@ -1,8 +1,0 @@
-{
-  "type": "file-upload",
-  "id": "image-upload",
-  "label": "Upload images",
-  "accept": "image/*",
-  "multiple": true,
-  "buttonText": "Choose images"
-}

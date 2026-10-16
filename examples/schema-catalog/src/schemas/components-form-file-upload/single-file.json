@@ -1,7 +1,0 @@
-{
-  "type": "file-upload",
-  "id": "single-upload",
-  "label": "Single file",
-  "multiple": false,
-  "buttonText": "Select one file"
-}

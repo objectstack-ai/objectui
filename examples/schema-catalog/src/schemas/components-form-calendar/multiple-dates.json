@@ -1,5 +1,0 @@
-{
-  "type": "ui:calendar",
-  "mode": "multiple",
-  "className": "rounded-md border shadow-sm"
-}

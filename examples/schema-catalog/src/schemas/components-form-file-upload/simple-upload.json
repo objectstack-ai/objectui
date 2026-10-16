@@ -1,6 +1,0 @@
-{
-  "type": "file-upload",
-  "id": "basic-upload",
-  "label": "Upload files",
-  "buttonText": "Choose files"
-}

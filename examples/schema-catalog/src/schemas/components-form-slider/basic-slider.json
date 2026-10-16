@@ -1,7 +1,0 @@
-{
-  "type": "slider",
-  "label": "Volume",
-  "defaultValue": [
-    50
-  ]
-}

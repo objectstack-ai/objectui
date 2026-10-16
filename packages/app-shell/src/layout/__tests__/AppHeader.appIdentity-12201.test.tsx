@@ -4,9 +4,10 @@
  * The top bar inside an app starts with the app (objectui#12201, maintainer
  * ruling of 2026-10-12, items 4, 5 and 6).
  *
- * - Item 4: the platform mark leaves the bar in app context — the bar starts
- *   with the app pill, and no path separator precedes it. Platform surfaces
- *   (`home`, `orgs`, `studio` variants) keep the mark.
+ * - Item 4: the platform mark left the bar in app context, until
+ *   objectui#12605 put it back as the way home, before the app pill
+ *   (`AppHeader.homeMark-12605` pins it); no crumb separator precedes the
+ *   pill. Platform surfaces (`home`, `orgs`, `studio` variants) keep the mark.
  * - Item 5: the PREVIEW stage chip; on platform surfaces it stays beside the
  *   mark. Inside an app it sat on the right, beside the search box, until
  *   objectui#12461 moved it beside the app pill — the cells below read that.
@@ -211,14 +212,16 @@ beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ data: [] }) })));
 });
 
-describe('inside an app the bar starts with the app pill (objectui#12201 item 4)', () => {
-  it('no platform mark in app context', () => {
+describe('inside an app the app pill follows the product mark (objectui#12201 item 4, objectui#12605)', () => {
+  it('the platform mark is back in app context, before the pill (objectui#12605)', () => {
     mountApp();
-    expect(screen.getByTestId('app-switcher-stub')).toBeInTheDocument();
-    expect(screen.queryByTitle(getProductName())).not.toBeInTheDocument();
+    const pill = screen.getByTestId('app-switcher-stub');
+    const mark = screen.getByTitle(getProductName()).closest('a')!;
+    expect(mark).toHaveAttribute('href', '/home');
+    expect(follows(mark, pill)).toBe(true);
   });
 
-  it('no path separator precedes the pill — the separators belong to the crumbs after it', () => {
+  it('no crumb separator precedes the pill — the `/` separators belong to the crumbs after it', () => {
     mountApp();
     const pill = screen.getByTestId('app-switcher-stub');
     const separators = [...document.querySelectorAll('span[aria-hidden]')].filter((s) => s.textContent?.trim() === '/');

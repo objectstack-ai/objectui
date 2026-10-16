@@ -68,6 +68,7 @@ import {
   STUDIO_PACKAGE_SELECTOR_ID,
 } from './ContextSelectors.js';
 import { AppMark } from './AppMark.js';
+import { CONSOLE_BELOW_TOP_BAR } from './consoleTopBar.js';
 import { SidebarItemMenu, sidebarItemDesignPath, favoriteDesignPath } from './SidebarItemMenu.js';
 
 /**
@@ -441,7 +442,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
 
   return (
     <>
-    <Sidebar collapsible="icon" className="!top-14 !h-[calc(100svh-3.5rem)]">
+    <Sidebar collapsible="icon" className={CONSOLE_BELOW_TOP_BAR}>
       {/* Mobile-only drawer header — the app's glyph and name (objectui#12201
           item 3). On a phone the top bar hides the app pill, so this is the
           one place that says which app the user is in. It replaces the old

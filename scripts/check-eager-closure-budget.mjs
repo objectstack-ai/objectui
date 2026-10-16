@@ -1948,7 +1948,47 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
   // on MAX_EAGER_CLOSURE_GZIP_BYTES). Headroom 23,719 bytes = 0.26x
   // REGRESSION_THIS_GATE_MUST_CATCH_BYTES over the baseline below — what this
   // key had on `main` at `cea429b` before the payback, kept to the byte.
-  'vendor-objectstack': 1_536_409,
+  //
+  // ⚠️ RAISED by objectui#12626 (2026-10-16), the `@objectstack/*`
+  // 18.0.0-next.2 bump, under the claim seat's ruling A on that card's PR
+  // (objectui#12648), from 1,536,409 by exactly the measured +19,296 bytes.
+  //
+  // WHAT THE BYTES ARE — one container, one instrument: `CI=true pnpm --filter
+  // @object-ui/console exec vite build` in each tree, reading
+  // `apps/console/dist/eager-closure.json`. The control is `8a8bcf3d`, `main`
+  // and the branch's merge-base, with `@objectstack/*` 18.0.0-next.1 and zod
+  // 4.6.5 resolved, in a worktree of its own. The branch is `2043710f`
+  // (next.2; the lockfile's dedupe moves zod to 4.6.7). A third build is the
+  // branch tree with every `zod@4.6.7` link pointed at 4.6.5 for the build,
+  // then restored, which splits zod's share out. Gzipped bytes:
+  //
+  //   | chunk                 | `8a8bcf3d` | branch, zod 4.6.5 | `2043710f` |  delta |
+  //   |-----------------------|-----------:|------------------:|-----------:|-------:|
+  //   | `vendor-objectstack`  |  1,536,365 |         1,555,533 |  1,555,661 | +19,296 |
+  //   | `ui-components`       |    288,804 |           288,762 |    288,761 |    -43 |
+  //   | `framework`           |     76,333 |            76,336 |     76,337 |     +4 |
+  //   | `i18n-locale-en`      |     46,678 |            46,678 |     46,678 |      0 |
+  //   | ⇒ aggregate           |  3,170,311 |         3,189,413 |  3,189,564 | +19,253 |
+  //
+  // +19,168 are `@objectstack/*` 18.0.0-next.2 and +128 are the zod
+  // 4.6.5 -> 4.6.7 patch. zod already lived in this chunk on `main` (its version
+  // marker is in both builds' `vendor-objectstack`) and grew in place: no
+  // chunk lost bytes to it and no package joined the group. All 70 eager
+  // chunks are the same names in both builds.
+  //
+  // WHAT THEY BUY: the console's client-side validation answering as the
+  // 18.0.0-next.2 server does — its page region-placement and `isDefault`
+  // placement checks, the `AdminScope` tombstones and its schemas — and the
+  // spec's bounded task-flow derivation the record dialog now takes directly
+  // (objectui#12592). ⛔ It is NOT a new console capability.
+  //
+  // Headroom stays at the 44 bytes `main` had over its own reading
+  // (1,536,409 - 1,536,365), and this ceiling minus the baseline below stays at
+  // 23,719, both moved by the same amount. ⛔ Not moved: the aggregate
+  // MAX_EAGER_CLOSURE_GZIP_BYTES (it passed on the branch, 3114.8 / 3119.4 KB),
+  // BASELINE and REGRESSION_THIS_GATE_MUST_CATCH_BYTES. No exemption was added
+  // and no import was made lazy.
+  'vendor-objectstack': 1_555_705,
   // ⭐ LOWERED, and RE-KEYED, by objectui#7479 — this line used to read
   // `'i18n-locales': 465_000` and budget TEN catalogues. Nine of them are
   // `import()`ed on demand now, so the chunk that name pointed at no longer
@@ -2179,7 +2219,13 @@ export const PER_CHUNK_BASELINE = Object.freeze({
   // payback), which superseded objectui#11101's `4acbea07` reading of 1,670,964, which superseded objectui#11073's
   // `048e7f6` reading of 1,703,690 (landed on `main` as `81f8498`), which
   // superseded objectui#7122's `34a1578ef` reading of 1,235,029.
-  'vendor-objectstack': 1_512_690,
+  //
+  // Moved with its ceiling by objectui#12626 (2026-10-16), from 1,512,690 by
+  // the same measured +19,296 bytes (the table on that key of
+  // PER_CHUNK_GZIP_CEILINGS). ⚠️ So this is no longer one build's reading: it
+  // is the `5488ae7` reading plus the next.2 bump's measured delta, which
+  // keeps the ceiling-minus-baseline gap this key carried.
+  'vendor-objectstack': 1_531_986,
   // `755d34a5f` (objectui#7479) — the SAME console build as
   // BASELINE above, so the two are directly comparable, and the same instrument
   // and container as the control build it is subtracted from. It supersedes

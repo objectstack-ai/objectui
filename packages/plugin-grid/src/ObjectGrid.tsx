@@ -35,7 +35,8 @@ import { createSafeTranslation } from '@object-ui/i18n';
 // what stops a seventh site picking a convention of its own.
 import { resolveGridCellRendering, gridCellRendererForFixedKey, linkCellRenderer, BADGE_PREFIX_RENDERER_KEY } from './cellRendererResolution';
 import { isMaskedGridColumn, isWithheldGridColumn } from './maskedColumn';
-import { formatCurrency, formatCompactCurrency, formatDate, formatPercent, percentCellScale, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue, MaskedCellRenderer, withKnownObjects, RICH_TEXT_FIELD_TYPES } from '@object-ui/fields';
+import { formatCurrency, formatCompactCurrency, formatDate, formatPercent, percentCellScale, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue, MaskedCellRenderer, withKnownObjects, RICH_TEXT_FIELD_TYPES, resolveRecordPointer } from '@object-ui/fields';
+import { RecordPointerCell, type RecordPointerSource } from './RecordPointerCell';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency, pickLocalized } from '@object-ui/i18n';
 // Two resolvers, two vocabularies — the repo spells the distinction into the
 // NAMES (objectui#4167). `resolveInlineI18nLabel` is the spec's own
@@ -439,6 +440,33 @@ const LinkCell: React.FC<{
   );
 };
 
+
+/**
+ * objectui#12608 — the face a `referenceVia` pointer column draws its rows
+ * with, or `null` when the field declares no pointer pair.
+ *
+ * The pair is resolved per row by `resolveRecordPointer` (`@object-ui/fields`),
+ * the one rule the record details grid asks too; `referenceVia` is read off the
+ * OBJECT field, where the spec declares it, and the type is the column's
+ * declared one, so a view that re-types the column keeps its own face. A row
+ * the rule answers `null` for (a half-addressed pair) is drawn by the column's
+ * ordinary face: the returned function answers `null` and the caller falls
+ * through to it. Inside a link cell the face is drawn under `LinkCell`'s
+ * unlinked host, so it draws the name without a second anchor.
+ */
+function recordPointerFace(
+  fieldName: string,
+  declaredType: string | null,
+  fieldDef: { referenceVia?: unknown } | null | undefined,
+  dataSource: RecordPointerSource | null | undefined,
+): ((row: any) => React.ReactElement | null) | null {
+  const referenceVia = fieldDef?.referenceVia;
+  if (typeof referenceVia !== 'string' || referenceVia === '') return null;
+  return (row: any) => {
+    const pointer = resolveRecordPointer({ name: fieldName, type: declaredType, referenceVia }, row);
+    return pointer ? <RecordPointerCell pointer={pointer} dataSource={dataSource} /> : null;
+  };
+}
 
 // Default English fallback translations for the grid
 const GRID_DEFAULT_TRANSLATIONS: Record<string, string> = {
@@ -3846,13 +3874,16 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             // The face the value takes INSIDE the link: never an anchor of its
             // own (objectui#11817, `linkCellRenderer`).
             const LinkContentRenderer = linkCellRenderer(inferredType, CellRenderer);
+            // A `referenceVia` pointer column draws the record it names
+            // (objectui#12608); `null` per row falls through to the faces below.
+            const pointerFace = withheld ? null : recordPointerFace(col.field, baseInferredType, objectDefField, dataSource);
 
             if ((col.link && col.action) || (isPrimaryField && col.action)) {
               // Both link and action: link takes priority for navigation, action executes on secondary interaction
               cellRenderer = (value: any, row: any) => {
-                const displayContent = LinkContentRenderer
+                const displayContent = pointerFace?.(row) ?? (LinkContentRenderer
                   ? <LinkContentRenderer value={value} field={fieldMeta as any} />
-                  : (value != null && value !== '' ? String(value) : <EmptyValue />);
+                  : (value != null && value !== '' ? String(value) : <EmptyValue />));
                 return (
                   <LinkCell
                     testId={isPrimaryField ? 'primary-field-link' : 'link-cell'}
@@ -3868,9 +3899,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             } else if (isLinked) {
               // Link column: clicking navigates to the record detail
               cellRenderer = (value: any, row: any) => {
-                const displayContent = LinkContentRenderer
+                const displayContent = pointerFace?.(row) ?? (LinkContentRenderer
                   ? <LinkContentRenderer value={value} field={fieldMeta as any} />
-                  : (value != null && value !== '' ? String(value) : <EmptyValue />);
+                  : (value != null && value !== '' ? String(value) : <EmptyValue />));
                 return (
                   <LinkCell
                     testId={isPrimaryField ? 'primary-field-link' : 'link-cell'}
@@ -3906,8 +3937,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               };
             } else if (CellRenderer) {
               // Type-only cell renderer (no link/action)
-              cellRenderer = (value: any) => (
-                <CellRenderer value={value} field={fieldMeta as any} />
+              cellRenderer = (value: any, row: any) => (
+                pointerFace?.(row) ?? <CellRenderer value={value} field={fieldMeta as any} />
               );
             } else {
               // Default renderer with empty value handling
@@ -4079,10 +4110,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
           // The face the value takes inside the link (objectui#11817).
           const LinkContentRenderer = linkCellRenderer(rendererType, CellRenderer);
+          // A `referenceVia` pointer column (objectui#12608), as path A.
+          const pointerFace = withheld ? null : recordPointerFace(fieldName, declaredType, fieldDef, dataSource);
 
           if (isPrimaryField && LinkContentRenderer) {
             cellRenderer = (value: any, row: any) => {
-              const displayContent = <LinkContentRenderer value={value} field={fieldMeta as any} />;
+              const displayContent = pointerFace?.(row) ?? <LinkContentRenderer value={value} field={fieldMeta as any} />;
               return (
                 <LinkCell
                   testId="primary-field-link"
@@ -4106,7 +4139,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               </LinkCell>
             );
           } else if (CellRenderer) {
-            cellRenderer = (value: any) => <CellRenderer value={value} field={fieldMeta as any} />;
+            cellRenderer = (value: any, row: any) => pointerFace?.(row) ?? <CellRenderer value={value} field={fieldMeta as any} />;
           }
 
           return {
@@ -4253,6 +4286,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
           const numericTypes = ['number', 'currency', 'percent'];
           const inferredAlign = rendererType && numericTypes.includes(rendererType) ? 'right' as const : undefined;
+          // A `referenceVia` pointer column (objectui#12608), as path A.
+          const pointerFace = withheld ? null : recordPointerFace(fieldName, declaredType, fieldDef, dataSource);
 
           return {
             header,
@@ -4264,7 +4299,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             ...(declaredType && { type: declaredType }),
             ...(schema.showColumnTypeIcons && rendererType && { headerIcon: getTypeIcon(rendererType) }),
             ...(inferredAlign && { align: inferredAlign }),
-            ...(CellRenderer && { cell: (value: any) => <CellRenderer value={value} field={fieldMeta as any} /> }),
+            ...(CellRenderer && {
+              cell: (value: any, row: any) => pointerFace?.(row) ?? <CellRenderer value={value} field={fieldMeta as any} />,
+            }),
             sortable: fieldDef?.sortable !== false,
           };
         });
@@ -4361,6 +4398,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       // The face is handed the header's label, as paths A-C hand it
       // (objectui#11689).
       const fieldForCell: any = field.label ? { ...translatedField, label: header } : translatedField;
+      // A `referenceVia` pointer column (objectui#12608), as path A.
+      const pointerFace = recordPointerFace(fieldName, fieldType, field, dataSource);
       generatedColumns.push({
         header,
         accessorKey: fieldName,
@@ -4369,13 +4408,13 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         // Aligned on the RENDERER key, like paths A-C: a `text` column with
         // `format: 'currency'` renders as currency, so it aligns as currency.
         ...(!!rendererType && numericTypes.includes(rendererType) && { align: 'right' as const }),
-        cell: (value: any) => <CellRenderer value={value} field={fieldForCell} />,
+        cell: (value: any, row: any) => pointerFace?.(row) ?? <CellRenderer value={value} field={fieldForCell} />,
         sortable: field.sortable !== false,
       });
     });
 
     return generatedColumns;
-  }, [objectSchema, objectFields, objectTypesPending, schemaFields, schemaColumns, dataConfig, hasInlineData, objectName, navigation.handleClick, executeAction, data, resolveFieldLabel, translateOptions, schema.objectName, perms, uiLanguage]);
+  }, [objectSchema, objectFields, objectTypesPending, schemaFields, schemaColumns, dataConfig, hasInlineData, objectName, navigation.handleClick, executeAction, data, resolveFieldLabel, translateOptions, schema.objectName, perms, uiLanguage, dataSource]);
 
   // Formats this grid can actually deliver (objectui#2942): the server stream
   // handles csv/xlsx/json, the client fallback only csv/json. Declared-but-dead

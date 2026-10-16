@@ -21,6 +21,7 @@ import {
   useRecentItems,
   type RecentItem,
 } from '../RecentItemsProvider';
+import { recentViewId } from '../../hooks/useTrackRouteAsRecent';
 import {
   UserStateAdaptersProvider,
   useAttachUserStateAdapters,
@@ -77,11 +78,11 @@ describe('RecentItemsProvider', () => {
     expect(result.current.recentItems.map(r => r.id)).toEqual(['object:a', 'object:b']);
   });
 
-  it('caps recent items at 8', () => {
+  it('caps recent items at 20 (objectui#12604)', () => {
     const { result } = renderHook(() => useRecentItems(), { wrapper });
 
     act(() => {
-      for (let i = 0; i < 12; i++) {
+      for (let i = 0; i < 25; i++) {
         result.current.addRecentItem({
           id: `object:r-${i}`,
           type: 'object',
@@ -91,9 +92,19 @@ describe('RecentItemsProvider', () => {
       }
     });
 
-    expect(result.current.recentItems).toHaveLength(8);
-    // Most recent first.
-    expect(result.current.recentItems[0].id).toBe('object:r-11');
+    expect(result.current.recentItems).toHaveLength(20);
+    // Most recent first; the five oldest fell off the end.
+    expect(result.current.recentItems[0].id).toBe('object:r-24');
+    expect(result.current.recentItems[19].id).toBe('object:r-5');
+  });
+
+  it('a stored list longer than 20 is read back capped (objectui#12604)', () => {
+    const stored = Array.from({ length: 23 }, (_, i) => ({
+      id: `object:s-${i}`, type: 'object', name: `s-${i}`, href: `/s/${i}`, visitedAt: '2026-10-16T00:00:00.000Z',
+    }));
+    localStorage.setItem('objectui-recent-items:u:user-1', JSON.stringify(stored));
+    const { result } = renderHook(() => useRecentItems(), { wrapper });
+    expect(result.current.recentItems).toHaveLength(20);
   });
 
   it('persists to user-scoped localStorage only', () => {
@@ -402,5 +413,75 @@ describe('RecentItemsProvider — a Studio package entry (objectui#11863)', () =
     localStorage.setItem('objectui-recent-items:u:user-1', JSON.stringify([stored]));
     const { result } = renderHook(() => useRecentItems(), { wrapper });
     expect(result.current.recentItems).toEqual([stored]);
+  });
+});
+
+/**
+ * objectui#12604 — the store keeps one entry per TARGET: one per record, one
+ * per object view. A list view is stored by identity, its object and its view
+ * name, both required.
+ */
+describe('RecentItemsProvider — one entry per target (objectui#12604)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    mockUser.current = { id: 'user-1', name: 'Alice', email: 'a@x' };
+  });
+
+  const record = (id: string, label: string) =>
+    ({ id: `record:crm_account:${id}`, type: 'record', label, href: `/apps/crm/crm_account/record/${id}` }) as const;
+  const view = (name: string) =>
+    ({ id: recentViewId('crm_account', name), type: 'view', object: 'crm_account', name, href: `/apps/crm/crm_account/view/${name}` }) as const;
+
+  it('a record visited twice is one entry, moved to the head, under its newest title', () => {
+    const { result } = renderHook(() => useRecentItems(), { wrapper });
+    act(() => result.current.addRecentItem(record('a1', 'Acme')));
+    act(() => result.current.addRecentItem(record('b2', 'Globex')));
+    act(() => result.current.addRecentItem(record('a1', 'Acme Corporation')));
+
+    expect(result.current.recentItems.map((r) => r.id)).toEqual(['record:crm_account:a1', 'record:crm_account:b2']);
+    expect(result.current.recentItems[0]).toMatchObject({ type: 'record', label: 'Acme Corporation' });
+  });
+
+  it('two views of one object are two entries; a view revisited is one', () => {
+    const { result } = renderHook(() => useRecentItems(), { wrapper });
+    act(() => result.current.addRecentItem(view('crm_account.all')));
+    act(() => result.current.addRecentItem(view('crm_account.mine')));
+    act(() => result.current.addRecentItem(view('crm_account.all')));
+
+    expect(result.current.recentItems.map((r) => r.id)).toEqual([
+      'view:crm_account:crm_account.all',
+      'view:crm_account:crm_account.mine',
+    ]);
+  });
+
+  it('a view entry is stored by identity — object and view name, no display text', () => {
+    const { result } = renderHook(() => useRecentItems(), { wrapper });
+    // A label handed in is not kept, as for every identity kind.
+    act(() => result.current.addRecentItem({ ...view('crm_account.all'), label: 'All Accounts' } as never));
+
+    const stored = JSON.parse(localStorage.getItem('objectui-recent-items:u:user-1')!);
+    expect(stored).toHaveLength(1);
+    const { visitedAt, ...entry } = stored[0];
+    expect(entry).toEqual({
+      id: 'view:crm_account:crm_account.all',
+      type: 'view',
+      object: 'crm_account',
+      name: 'crm_account.all',
+      href: '/apps/crm/crm_account/view/crm_account.all',
+    });
+    expect(typeof visitedAt).toBe('string');
+  });
+
+  it('a view entry with no object, or no view name, names nothing to open and is dropped', () => {
+    localStorage.setItem(
+      'objectui-recent-items:u:user-1',
+      JSON.stringify([
+        { id: 'view:x', type: 'view', name: 'crm_account.all', href: '/a', visitedAt: '' },
+        { id: 'view:y', type: 'view', object: 'crm_account', href: '/b', visitedAt: '' },
+        { id: 'view:z', type: 'view', object: 'crm_account', name: 'crm_account.all', href: '/c', visitedAt: '' },
+      ]),
+    );
+    const { result } = renderHook(() => useRecentItems(), { wrapper });
+    expect(result.current.recentItems.map((r) => r.id)).toEqual(['view:z']);
   });
 });

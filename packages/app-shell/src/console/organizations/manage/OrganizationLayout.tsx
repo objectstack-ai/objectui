@@ -14,6 +14,7 @@ import { Loader2, ArrowLeft } from 'lucide-react';
 import { Button } from '@object-ui/components';
 import { useNavigationContext } from '../../../context/NavigationContext.js';
 import { AppHeader } from '../../../layout/AppHeader.js';
+import { CONSOLE_TOP_BAR } from '../../../layout/consoleTopBar.js';
 
 export function OrganizationLayout() {
   const { t } = useObjectTranslation();
@@ -79,7 +80,7 @@ export function OrganizationLayout() {
 
   return (
     <div className="flex min-h-svh w-full flex-col bg-background" data-testid="organization-layout">
-      <header className="sticky top-0 z-30 flex h-14 w-full shrink-0 items-center gap-2 border-b bg-background px-2 sm:px-4">
+      <header className={CONSOLE_TOP_BAR}>
         <AppHeader variant="orgs" />
       </header>
 

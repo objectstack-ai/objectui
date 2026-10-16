@@ -90,7 +90,7 @@ describe('green on main — the negative control', () => {
  * ⛔ It cannot be produced by running the resolver, and that impossibility is
  * the card's central claim: every workspace range on `@objectstack/*` is a
  * floating range that a fresh resolve satisfies with the newest release — `^18.0.0-next.1`
- * resolving 18.0.0-next.1 today (objectui#12030, objectui#12370; `^17.x` and 17.4.0 when this sample was
+ * resolving 18.0.0-next.2 today (objectui#12030, objectui#12370, objectui#12626; `^17.x` and 17.4.0 when this sample was
  * written), so no fresh resolve can pick 17.2.0. The sample is therefore a transformation of the real lockfile
  * reproducing the identity facts measured on PRs #7053 / #7058 — the family
  * down to 17.2.0, and `@objectstack/spec` resolved at BOTH versions.
@@ -98,15 +98,15 @@ describe('green on main — the negative control', () => {
 function sampleA(): string {
   let out = realLock;
   for (const pkg of ['client', 'core', 'formula', 'lint', 'sdui-parser']) {
-    out = out.replace(new RegExp(`(@objectstack/${pkg}@)18\\.0\\.0-next\\.1`, 'g'), '$117.2.0');
+    out = out.replace(new RegExp(`(@objectstack/${pkg}@)18\\.0\\.0-next\\.2`, 'g'), '$117.2.0');
   }
-  const specKey = "  '@objectstack/spec@18.0.0-next.1(ai@7.0.65(zod@4.6.5))':";
+  const specKey = "  '@objectstack/spec@18.0.0-next.2(ai@7.0.65(zod@4.6.7))':";
   expect(out, 'the spec snapshot key moved — rebuild this sample before trusting it').toContain(
     specKey,
   );
   return out.replace(
     specKey,
-    "  '@objectstack/spec@17.2.0(ai@7.0.65(zod@4.6.5))':\n    dependencies:\n      zod: 4.6.5\n" +
+    "  '@objectstack/spec@17.2.0(ai@7.0.65(zod@4.6.7))':\n    dependencies:\n      zod: 4.6.7\n" +
       specKey,
   );
 }
@@ -124,15 +124,15 @@ function sampleA(): string {
 function sampleB(): string {
   let out = realLock;
   const forked = [
-    "  '@objectstack/spec@18.0.0-next.1(ai@7.0.65(zod@4.6.5))':",
-    "  '@objectstack/formula@18.0.0-next.1(ai@7.0.65(zod@4.6.5))':",
-    "  ai@7.0.65(zod@4.6.5):",
+    "  '@objectstack/spec@18.0.0-next.2(ai@7.0.65(zod@4.6.7))':",
+    "  '@objectstack/formula@18.0.0-next.2(ai@7.0.65(zod@4.6.7))':",
+    "  ai@7.0.65(zod@4.6.7):",
   ];
   for (const key of forked) {
     expect(out, `snapshot key moved: ${key}`).toContain(key);
-    out = out.replace(key, `${key.replace('zod@4.6.5', 'zod@4.5.4')}\n    dependencies: {}\n${key}`);
+    out = out.replace(key, `${key.replace('zod@4.6.7', 'zod@4.5.4')}\n    dependencies: {}\n${key}`);
   }
-  const zodKey = '  zod@4.6.5: {}';
+  const zodKey = '  zod@4.6.7: {}';
   expect(out).toContain(zodKey);
   return out.replace(zodKey, `${zodKey}\n  zod@4.5.4: {}`);
 }
@@ -180,7 +180,7 @@ describe('cause 2 — a declared dependency forks with no version moving (object
     expect(zod, 'the gate must not be blind to objectui#8333').toBeTruthy();
     // ⛔ 2 -> 3, not 1 -> 2. Both cards say "forks a single-copy dependency";
     // measured on `main`, zod is ALREADY two copies (3.25.76 + 4.4.3 then;
-    // 3.25.76 + 4.6.5 since objectui#11073, re-measured), so a
+    // 3.25.76 + 4.6.5 since objectui#11073, 3.25.76 + 4.6.7 since objectui#12626, re-measured), so a
     // rule keyed on "was one, is now two" would be green here.
     expect(zod?.baseCount).toBe(2);
     expect(zod?.headCount).toBe(3);
@@ -191,7 +191,7 @@ describe('cause 2 — a declared dependency forks with no version moving (object
     expect(spec?.headCount).toBe(2);
     // This is #8326's exact bundling mechanism — two real paths, nothing
     // dedupes them — arriving with no version change anywhere.
-    expect(spec?.head.every((k) => k.includes('@18.0.0-next.1'))).toBe(true);
+    expect(spec?.head.every((k) => k.includes('@18.0.0-next.2'))).toBe(true);
   });
 });
 

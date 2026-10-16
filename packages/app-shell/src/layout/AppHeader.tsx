@@ -7,12 +7,13 @@
  *                       (inside an app, from `lg` up: the search is centered)
  *
  * Variants:
- *   - `app`  (default when `appName` is present): sidebar trigger + AppSwitcher
- *              + the platform-stage chip. Used by `ConsoleLayout` inside
- *              `/apps/:appName/*`. The bar starts with the app pill — the
- *              app's glyph and name — and carries no platform mark: one brand
- *              mark per screen, and inside an app that mark is the app's
- *              (objectui#12201). An object route (its list, a view, a record)
+ *   - `app`  (default when `appName` is present): sidebar trigger + the
+ *              product mark + a `/` rule + AppSwitcher + the platform-stage
+ *              chip. Used by `ConsoleLayout` inside `/apps/:appName/*`. The
+ *              product mark stays in the bar as the way home, the same mark
+ *              the home page draws, and `⌘⇧H` / `Ctrl+Shift+H` goes home too
+ *              (objectui#12605, which reverses objectui#12201's "no platform
+ *              mark inside an app"). An object route (its list, a view, a record)
  *              draws no crumb after the pill: the page header is the one place
  *              that page is named (objectui#12461). A dashboard or page route
  *              draws none either (objectui#12526). A report or `system/*`
@@ -103,6 +104,7 @@ import { resolveViewId } from '../utils/resolveViewId.js';
 import { getProductName, getLogoUrl } from '../runtime-config.js';
 import { LocalizedSidebarTrigger } from './LocalizedSidebarTrigger.js';
 import { PreviewBadge } from './PreviewBadge.js';
+import { GO_HOME_SHORTCUT, useAdvertiseShortcut, type ShortcutChord } from '../chrome/advertisedShortcuts.js';
 
 function humanizeSlug(slug: string): string {
   return slug.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -138,6 +140,88 @@ function PathSep() {
   );
 }
 
+/**
+ * The product mark — the way home (objectui#12605). One element for every
+ * surface that draws it: the home page, the organizations and Studio front
+ * doors, and inside every app after the sidebar trigger. A 32 px target
+ * holding a 24 px tile on `--primary` with the stack glyph, or the
+ * deployment's logo. Named 「PRODUCT home」; `title` keeps the product's name.
+ *
+ * `homePath`, not a literal `/home` (objectui#7256): on a deployment that
+ * DECLARES a landing this is the declared one, so the mark and the post-login
+ * landing name the same screen.
+ */
+function ProductHomeMark({ homePath, label }: { homePath: string; label: string }) {
+  const productName = getProductName();
+  const logoUrl = getLogoUrl();
+  return (
+    <Link
+      to={homePath}
+      data-testid="app-bar-product-home"
+      aria-label={label}
+      title={productName}
+      className="flex size-8 shrink-0 items-center justify-center rounded-md hover:bg-accent transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <span className="flex size-6 items-center justify-center overflow-hidden rounded-md bg-primary text-primary-foreground">
+        {logoUrl ? (
+          <img src={logoUrl} alt="" className="h-full w-full object-contain" />
+        ) : (
+          <Layers className="size-3.5" aria-hidden />
+        )}
+      </span>
+    </Link>
+  );
+}
+
+/**
+ * Whether a keydown is `chord`: ⌘ or Ctrl exactly when the chord has `mod`
+ * (the advertised chords accept either), Shift exactly when it has `shift`,
+ * never Alt, and the key compared case-blind (Shift makes it upper case).
+ */
+function matchesShortcutChord(
+  e: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'shiftKey' | 'altKey'>,
+  chord: ShortcutChord,
+): boolean {
+  if (e.altKey) return false;
+  if (Boolean(chord.mod) !== (e.metaKey || e.ctrlKey)) return false;
+  if (Boolean(chord.shift) !== e.shiftKey) return false;
+  return e.key.toLowerCase() === chord.key;
+}
+
+/**
+ * A keydown aimed at something the user types into: a text field, a select,
+ * a content-editable region (rich-text and code editors), or an ARIA textbox.
+ * The home chord leaves those alone, so an editor that binds the same keys
+ * keeps them (objectui#12605).
+ */
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  if (target instanceof HTMLElement && target.isContentEditable) return true;
+  return target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]') !== null;
+}
+
+/**
+ * `⌘⇧H` / `Ctrl+Shift+H` goes home from any app page, as a PUSH so the
+ * browser's Back returns to the page (objectui#12605). Advertised beside the
+ * listener, under the same gate, so the keyboard-shortcuts dialog lists it
+ * exactly where it fires (objectui#11674).
+ */
+function useGoHomeShortcut(enabled: boolean, homePath: string): void {
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.isComposing) return;
+      if (!matchesShortcutChord(e, GO_HOME_SHORTCUT.chord)) return;
+      if (isTypingTarget(e.target)) return;
+      e.preventDefault();
+      navigate(homePath);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [enabled, homePath, navigate]);
+  useAdvertiseShortcut(GO_HOME_SHORTCUT, enabled);
+}
 
 // No fake fallback presence — render nothing when the API has no data so the
 // header doesn't ship phantom collaborators in production.
@@ -175,6 +259,7 @@ export function AppHeader({
   // objectui#7256 — the brand logo's target follows the product's DECLARED
   // landing, so the chrome cannot offer a second, contradicting "home".
   const homePath = useHomePath();
+  useGoHomeShortcut(isApp, homePath);
   const { isOnline } = useOffline();
   // Idempotent, direct open of the ⌘K command palette (ADR-0054 C1). Replaces a
   // synthetic `⌘K` KeyboardEvent re-dispatch that did nothing under automation.
@@ -534,31 +619,35 @@ export function AppHeader({
             sidebar and its icon rail above that. It is the bar's leftmost
             control inside an app, so it never moves when the sidebar
             collapses; the sidebar itself carries no trigger. */}
-        {isApp && (
+        {isApp ? (
           <LocalizedSidebarTrigger className="shrink-0 mr-1" aria-label={t('common.toggleSidebar', { defaultValue: 'Toggle sidebar' })} />
+        ) : (
+          // objectui#12605 — the product mark sits at the same x on every
+          // surface. Off an app there is no sidebar to toggle, so the
+          // trigger's slot (its 28 px box and its gap) is held empty: the
+          // mark does not jump left when the viewer goes home.
+          <span aria-hidden data-testid="app-bar-trigger-slot" className="h-7 w-7 shrink-0 mr-1" />
         )}
 
-        {/* Platform logo — links to home. Platform surfaces only (Home,
-            organizations, the Studio front door): inside an app the bar
-            starts with the app pill instead, and the way back to Home is the
-            pill's 「All apps」 row (objectui#12201 items 4 and 6) — on a phone,
-            the drawer header's 「All apps」 button.
-
-            `homePath`, not a literal `/home` (objectui#7256): on a deployment
-            that DECLARES a landing this is the declared one, so the logo and
-            the post-login landing name the same screen. */}
-        {!isApp && (
-          <Link
-            to={homePath}
-            className="flex items-center justify-center h-7 w-7 shrink-0 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors overflow-hidden"
-            title={getProductName()}
-          >
-            {getLogoUrl() ? (
-              <img src={getLogoUrl()} alt={getProductName()} className="h-full w-full object-contain" />
-            ) : (
-              <Layers className="h-4 w-4" />
-            )}
-          </Link>
+        {/* The product mark — links to home, on every surface: the home
+            page, the organizations and Studio front doors, and inside every
+            app, after the sidebar trigger (objectui#12605). Inside an app a
+            `/` rule follows it, so the bar reads 「PRODUCT / APP」. The rule
+            is drawn, not typed: it carries no text, and the `/` separators
+            the crumbs after the pill use stay theirs alone. */}
+        <ProductHomeMark
+          homePath={homePath}
+          label={t('layout.appSwitcher.productHome', {
+            defaultValue: '{{product}} home',
+            product: getProductName(),
+          })}
+        />
+        {isApp && (
+          <span
+            aria-hidden
+            data-testid="app-bar-home-separator"
+            className="mx-1.5 h-[18px] w-px shrink-0 rotate-[20deg] bg-border"
+          />
         )}
 
         {resolvedVariant === 'home' && (
@@ -604,16 +693,15 @@ export function AppHeader({
 
         {isApp && (
           <>
-            {/* App pill — the app's glyph and name, and its switcher. It
-                starts the path, so no separator precedes it. Desktop/tablet
-                only: on mobile the drawer header names the active app, so a
-                second app pill in the topbar is pure noise. The dropdown's
-                Studio row takes the Studio button's own target, so the two
-                cannot disagree (objectui#12201 item 6). `min-w-0` here and
-                on the pill's button lets a long app name truncate in the
+            {/* App pill — the app's glyph and name, and its switcher, after
+                the product mark's `/` rule. At every width: below `sm` it is
+                the glyph alone, named in its tooltip (objectui#12605). The
+                dropdown's Studio row takes the Studio button's own target, so
+                the two cannot disagree (objectui#12201 item 6). `min-w-0` here
+                and on the pill's button lets a long app name truncate in the
                 pill rather than spill out of the left zone (objectui#12472). */}
             {activeAppName && onAppChange ? (
-              <div className="hidden sm:flex items-center min-w-0">
+              <div className="flex items-center min-w-0">
                 <AppSwitcher
                   activeAppName={activeAppName}
                   onAppChange={onAppChange}

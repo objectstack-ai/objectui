@@ -22,7 +22,8 @@ import {
   PageSchema as SpecPageSchema,
   PageTypeSchema as SpecPageTypeSchema,
   PageVariableSchema as SpecPageVariableSchema,
-  checkPageComponentViewData,
+  checkPageDefaultPlacement,
+  checkPageRegionPlacement,
   checkPageRequiresKind,
   checkPageSlotPair,
   checkPageSourceCompleteness,
@@ -1296,9 +1297,9 @@ export const PageNodeSchema = BaseSchema.extend(SpecPageFields.shape).extend({
   // objectui#12464: the page kind `jsx` retired in @objectstack/spec 18
   // (objectstack-ai/objectstack#23638), naming `html`. Picked out of the spec's
   // own enum by reference (`.extract`), the way `PAGE_KIND_NODE_TYPE` is below:
-  // identical to the spec's enum once the resolved spec carries the
-  // retirement, it refuses `jsx` before that, and a kind the spec drops fails to
-  // compile here. Mirrors the TS face's `PageNodeSchema.kind`.
+  // the resolved spec carries the retirement, so this extracts exactly the
+  // spec's members, and a kind the spec drops fails to compile here. Mirrors
+  // the TS face's `PageNodeSchema.kind`.
   kind: stripImportedDefaults(SpecPageSchema)
     .shape.kind.unwrap()
     .extract(['full', 'slotted', 'html', 'react'])
@@ -1346,41 +1347,48 @@ export const PageNodeSchema = BaseSchema.extend(SpecPageFields.shape).extend({
   // ⭐ THE SPEC'S OBJECT-LEVEL CHECKS, re-attached (objectui#7715, ruling B1).
   // {@link SpecPageFields} rebuilds a fresh object from the spec's `.shape`, so
   // it drops the two checks the spec's `PageSchema` carries on the OBJECT:
-  //  - an `html` / `react` / `jsx` page with no non-empty `source` renders
+  //  - an `html` / `react` page with no non-empty `source` renders
   //    nothing and is refused at `source` (`checkPageSourceCompleteness`,
   //    objectstack#16489);
   //  - `requires` is refused at `requires` on a page whose `kind` the platform
-  //    does not compile at save — anything but `html` / `jsx`, an absent `kind`
+  //    does not compile at save — anything but `html`, an absent `kind`
   //    included (`checkPageRequiresKind`, objectstack#21459, the spec's 17.7.0);
   //  - a page that authors both `slots.details` and `slots.tabs` is refused at
   //    `slots.details`, because the `tabs` slot replaces the strip the details
   //    body lives in (`checkPageSlotPair`, objectstack#22568, the spec's 18;
   //    attached by objectui#12030);
-  //  - a view-data component (`object-grid` / `-map` / `-gantt` / `-tree`) under
-  //    `regions` or `slots` whose `properties.data` names the retired `api`
-  //    provider is refused at that `properties.data.provider`, with the
-  //    retirement message (`checkPageComponentViewData`, objectstack#23419, the
-  //    spec's 18.0.0-next.1; attached by objectui#12370).
-  // The spec exports all four and all four are attached here as-is: the first
+  //  - on a `kind: 'full'` page, a region whose `name` the page's `template`
+  //    does not place, or a second region for a slot already filled, is
+  //    refused at `regions.N.name` (`checkPageRegionPlacement`, the spec's
+  //    18.0.0-next.2; attached by objectui#12626). It reads `kind`, `template`
+  //    (both by reference) and each region's `name`, which this node's own
+  //    {@link PageNodeRegionSchema} carries with the same meaning: `page.tsx`
+  //    in `@object-ui/components` places a region by its lowercased `name`, as
+  //    the check does, so the refusal names exactly the region the renderer
+  //    stacks under `main`.
+  // The spec's `PageSchema` carries six on objectstack `main` (the installed
+  // 18.0.0-next.2 still carries the removed one below); these four are attached as-is: the first
   // three read `kind`, `source`, `requires` and `slots`, which this node carries
   // by reference — none is in {@link PAGE_SPEC_EXCLUDED} nor overridden above.
-  // `checkPageComponentViewData` reads `slots` and `regions`. `slots` is carried
-  // by reference, and its children are NOT judged by the component union, so
-  // without the check a slotted page's view-data block naming `api` passed here
-  // while the spec refused it. `regions` is this node's own
-  // {@link PageNodeRegionSchema}, whose components ARE judged by the union, and
-  // the `object-grid` arm already refuses the `api` provider there; the check
-  // walks any object tree and judges only a node's `type` and `properties.data`,
-  // so attaching it over this node's regions adds no second rule (measured in
-  // `__tests__/spec-object-refinements-7715.test.ts`). The spec's fifth page check, `checkPagePrintComposition`,
+  // The page-parse judge of a view-data component's retired `api` binding is no
+  // longer among them: objectstack#23784 removed it from the spec, which now
+  // leaves that verdict to the component-props lint rule at the save door
+  // (`validateComponentProps`, `@objectstack/lint`). So a slotted block naming
+  // `api` passes here, as it passes the spec's own `PageSchema`; a region
+  // block is still refused by its arm in the component union (measured in
+  // `__tests__/page-component-view-data-12666.test.ts`). The fifth, `checkPagePrintComposition`,
   // reads `type` and `regions` as the PAGE's own, which this node does NOT carry
-  // by reference, so it is not attached; the census below records why.
+  // by reference, so it is not attached; the census below records why. The
+  // sixth, `checkPageDefaultPlacement` (18.0.0-next.2), judges `isDefault` by
+  // the page's `type`, and on this node `type` is the component discriminator
+  // (`'page'`), so attached here it would refuse every `isDefault`; it is
+  // attached on {@link PageKindNodeSchema} below, whose `type` IS the page kind.
   // `__tests__/spec-object-refinements-7715.test.ts` re-derives the count, so a
   // check the spec adds to `PageSchema` later reddens there.
   .superRefine(checkPageSourceCompleteness)
   .superRefine(checkPageRequiresKind)
   .superRefine(checkPageSlotPair)
-  .superRefine(checkPageComponentViewData);
+  .superRefine(checkPageRegionPlacement);
 
 /**
  * The spec page KINDS a node may carry in `type` (objectui#11440): `record`,
@@ -1430,8 +1438,9 @@ const { type: _pageNodeTypeLiteral, ...PAGE_NODE_MEMBERS } = PageNodeSchema.shap
  * {@link SpecPageFields}. Its four refusals (`actions`, `breadcrumbs`,
  * `maxWidth`, `padding`), the `body` refusal and the spec's four attachable
  * object-level checks (`source`, `requires` by `kind`, the `details` /
- * `tabs` slot pair, and the retired `api` view data under `regions` / `slots`)
- * come with it. `regions` stays the node's own
+ * `tabs` slot pair, and region placement by `template`) come with it. The spec's
+ * `isDefault` placement check is attached here only: it reads the page
+ * kind from `type`, which this node carries and the `page` node does not. `regions` stays the node's own
  * {@link PageNodeRegionSchema}, so each region component is judged by this
  * union at every depth, as on `page`.
  *
@@ -1442,7 +1451,10 @@ export const PageKindNodeSchema: PageKindNodeSchemaType = BaseSchema.extend({
   ...PAGE_NODE_MEMBERS,
   type: PAGE_KIND_NODE_TYPE.describe('The spec page kind — `record`, `home` or `utility` (`@objectstack/spec` `PageTypeSchema`)'),
 }).superRefine(checkPageSourceCompleteness).superRefine(checkPageRequiresKind).superRefine(checkPageSlotPair)
-  .superRefine(checkPageComponentViewData);
+  .superRefine(checkPageRegionPlacement)
+  // On this node `type` is the spec page kind, the field the spec's
+  // `checkPageDefaultPlacement` judges `isDefault` by (objectui#12626).
+  .superRefine(checkPageDefaultPlacement);
 
 /**
  * The TYPE of {@link PageKindNodeSchema}, written out BY REFERENCE to the

@@ -1758,7 +1758,7 @@ const KanbanConfig = stripImportedDefaults(SpecListViewSchema).shape.kanban.unwr
  * `@objectstack/spec` 17.4.0 (the version in the lockfile then) rather than
  * reading it — RE-RUN on 17.5.0 (objectui#11073), whose answer moved, as the
  * last bullet says, RE-RUN on 17.6.0 (objectui#11438), on 17.7.0 (objectui#11717),
- * and again on the installed 18.0.0-next.1 (objectui#12030, objectui#12370), each of which answers
+ * and again on the installed 18.0.0-next.2 (objectui#12030, objectui#12370, objectui#12626), each of which answers
  * every bullet below as 17.5.0 did:
  *
  *   - `CalendarConfigSchema`'s `strictObject` options carry `surface` and
@@ -1783,7 +1783,7 @@ const KanbanConfig = stripImportedDefaults(SpecListViewSchema).shape.kanban.unwr
  *     prescribes neither. `endField` still draws no hint, and a one-char typo
  *     still resolves by distance (`titleFeld` → `titleField`) — all three
  *     measured on 17.5.0, again on 17.6.0 (objectui#11438), on 17.7.0
- *     (objectui#11717), and again on the installed 18.0.0-next.1 (objectui#12030, objectui#12370).
+ *     (objectui#11717), and again on the installed 18.0.0-next.2 (objectui#12030, objectui#12370, objectui#12626).
  *
  * ⇒ through 17.4.0 a generic typo-distance suggester picked the wrong sibling.
  * It was not a declaration, it contradicted no declaration, and ⛔ no upstream

@@ -150,6 +150,16 @@ record the reader cannot read is drawn with no link, and the card never says
 why. Nothing is authored for this: the `referenceVia` declaration on the field
 is the whole contract. List cells are not a call site yet.
 
+When the platform deletes the record a pointer names, it can say so on the row.
+A pointer field that also declares `referenceDeletedWhen: { field, value }`
+names a sibling `select` field and the option the platform writes there, as
+`sys_approval_request.record_id` declares
+`{ field: 'cancel_reason', value: 'record_deleted' }`. On a row holding that
+option the details grid draws a tombstone in the option's own label (localized
+when the console's bundle localizes it), reads nothing and links nothing. A
+record the card cannot read on any other row still gets the cause-free text:
+only the declaration means deleted.
+
 ## Naming a registry item by name (`position-ref`, `permission-ref`)
 
 A `text` field that stores the **machine name** of one item of a metadata

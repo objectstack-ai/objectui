@@ -142,7 +142,8 @@ import {
   checkDashboardWidgetChartMeasureArity,
   checkPageRequiresKind,
   checkPageSlotPair,
-  checkPageComponentViewData,
+  checkPageRegionPlacement,
+  checkPageDefaultPlacement,
   VIEW_METADATA_MEMBERS as SpecViewMetadataMembers,
 } from '@objectstack/spec/ui';
 import {
@@ -702,10 +703,13 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
       // `PageSchema`, re-attached on `PageNodeSchema` and `PageKindNodeSchema`
       // under the same ruling.
       ['checkPageSlotPair', checkPageSlotPair],
-      // objectui#12370: the page view-data check `@objectstack/spec` 18.0.0-next.1 adds to
-      // `PageSchema` (the retired `api` provider under `regions` / `slots`), re-attached on
-      // `PageNodeSchema` and `PageKindNodeSchema` under the same ruling.
-      ['checkPageComponentViewData', checkPageComponentViewData],
+      // objectui#12370's page view-data check left this list with objectui#12666: objectstack#23784
+      // removed it from the spec, and no mirror attaches it.
+      // objectui#12626: the two page checks `@objectstack/spec` 18.0.0-next.2 adds to
+      // `PageSchema` — region placement by `template`, re-attached on `PageNodeSchema` and
+      // `PageKindNodeSchema`, and `isDefault` placement, on `PageKindNodeSchema` only.
+      ['checkPageRegionPlacement', checkPageRegionPlacement],
+      ['checkPageDefaultPlacement', checkPageDefaultPlacement],
     ]);
 
     /**

@@ -243,7 +243,12 @@ function SortableCard({ card, onCardClick, conditionalFormatting, objectFields }
             />
           </div>
         )}
-        <CardHeader className="p-2 sm:p-4 pb-2">
+        {/* objectui#12619 — the reduced side is restated at `sm:`. `sm:p-4`
+            is emitted after `pb-2` / `pt-0`, so from `sm` up it padded the
+            header's foot and the content's top back to 16px each: a 32px band
+            between the title and the first field line on every card with
+            field lines, which since objectui#12619 is every list-view card. */}
+        <CardHeader className="p-2 sm:p-4 pb-2 sm:pb-2">
           {/* The title row exists only to place an owner's avatar beside the
               title (objectui#12619). A card with no owner draws its title
               exactly as before, with no wrapper, so a board without owners
@@ -268,7 +273,7 @@ function SortableCard({ card, onCardClick, conditionalFormatting, objectFields }
           )}
         </CardHeader>
         {((card.cardFieldCells && card.cardFieldCells.length > 0) || (card.badges && card.badges.length > 0)) && (
-          <CardContent className="p-2 sm:p-4 pt-0 space-y-1.5">
+          <CardContent className="p-2 sm:p-4 pt-0 sm:pt-0 space-y-1.5">
             {card.cardFieldCells && card.cardFieldCells.length > 0 && (
               // One line per card field, its label then its value
               // (objectui#12619). The values used to stand alone with the

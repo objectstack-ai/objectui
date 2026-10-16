@@ -271,6 +271,15 @@ describe('a node that stores a triggerType beside a timeRelative block agrees wi
   });
 });
 
+describe('the entry condition follows the trigger the spec resolves (objectui#12672)', () => {
+  it("a sweep's stored entry condition is in effect: the engine evaluates it for every trigger", () => {
+    mount(showcaseFlow({ timeRelative: structuredClone(SWEEP), condition: 'status != "done"' }));
+    expect(screen.getByDisplayValue('status != "done"')).toBeTruthy();
+    expect(bannerBeside('Entry condition')).toBeNull();
+    expect(banners()).toHaveLength(0);
+  });
+});
+
 describe('the resolved kind belongs to the start node it is resolved from (objectui#12672)', () => {
   it('a second start node, which the spec parse admits and nothing binds, reads no kind and offers no sweep', () => {
     const draft = showcaseFlow();

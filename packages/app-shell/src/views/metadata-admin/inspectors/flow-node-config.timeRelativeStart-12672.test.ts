@@ -112,6 +112,28 @@ describe('a stored cron is "not in effect" exactly when the spec binds no time t
   }
 });
 
+describe('a stored entry condition is in effect on every start node the spec binds (objectui#12672)', () => {
+  // The engine evaluates the start node's `condition` itself for every trigger
+  // type, so whatever kind the spec resolves, the predicate gates the run.
+  const condition = byId('condition');
+
+  for (const { name, flow } of SHAPES) {
+    it(name, () => {
+      const kind = resolveFlowTriggerKind(flow);
+      expect(kind, 'every shape here resolves to a kind').toBeDefined();
+      const node = { ...flow.nodes[0], config: { ...flow.nodes[0].config, condition: 'status != "done"' } };
+      expect(inactiveRetainedKind(condition, node, fields, kind), String(kind)).toBeNull();
+    });
+  }
+
+  it('offered empty on a sweep the spec resolves, as on a node whose select asks for one', () => {
+    const canonical = flowWith({ timeRelative: { object: 'showcase_task' } }, 'schedule');
+    const asked = flowWith({ triggerType: 'time_relative' });
+    expect(isFieldVisible(condition, canonical.nodes[0], fields, resolveFlowTriggerKind(canonical))).toBe(true);
+    expect(isFieldVisible(condition, asked.nodes[0], fields, resolveFlowTriggerKind(asked))).toBe(true);
+  });
+});
+
 describe('the empty sweep fields are offered for a sweep, or for an author who asks for one (objectui#12672)', () => {
   it('offered on a sweep the spec resolves, with no token stored', () => {
     const flow = flowWith({ timeRelative: { object: 'showcase_task' } }, 'schedule');

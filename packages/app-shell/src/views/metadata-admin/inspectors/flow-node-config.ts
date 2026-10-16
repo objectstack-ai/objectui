@@ -29,7 +29,7 @@
  * `configSchema` fields, since built-in nodes share the same field ids.
  */
 
-import type { FlowTriggerKind } from '@objectstack/spec/automation';
+import { FLOW_TRIGGER_KINDS, type FlowTriggerKind } from '@objectstack/spec/automation';
 import type { DeclaredConfigKey } from './json-schema-to-fields.js';
 import type { RegistryValueSource } from '../../../utils/approverValueSources.js';
 import { flowFieldZh, isZhLocale } from '../i18n.js';
@@ -490,6 +490,13 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       conditionBuilder: true,
       placeholder: 'status == "qualifying" && previous.status != "qualifying"',
       help: 'CEL predicate — the flow runs only when this is true (for time-relative sweeps it gates each matched record). Leave empty to run on every event. On a "created or updated" trigger, `previous == null` selects the create path.',
+      // objectui#12672 — in effect for EVERY kind the spec resolves: the
+      // engine evaluates a start node's `condition` itself, before any node
+      // runs, for every trigger type (the trigger-condition gate in
+      // `@objectstack/service-automation`'s `AutomationEngine`). A sweep or
+      // schedule start node stores no `triggerType`, so the select gate alone
+      // flagged a live predicate "not in effect" there.
+      flowKind: FLOW_TRIGGER_KINDS,
       showWhen: { field: 'triggerType', equals: ['record-after-create', 'record-after-update', 'record-after-write', 'record-before-update', 'record-after-delete', 'schedule', 'time_relative', 'api'] },
     }),
     // Schedule descriptor — author the canonical nested `config.schedule` object

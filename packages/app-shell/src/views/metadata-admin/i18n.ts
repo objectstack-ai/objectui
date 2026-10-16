@@ -2676,8 +2676,6 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'designer.field.hint.addOption': 'Add at least one option. Changes are saved once the field has one.',
   'designer.field.hint.pickTarget': 'Pick the object to link to. Changes are saved once the field has one.',
   'designer.field.relatedObject': 'Related object',
-  'designer.field.relationshipName': 'Relationship name',
-  'designer.field.relationshipNameHint': 'Inverse collection key on the parent',
   'designer.field.objectNamePlaceholder': 'object_name',
   // Lookup "Picker config" advanced sub-panel
   'designer.field.lookup.pickerConfig': 'Picker config',
@@ -6026,8 +6024,6 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'designer.field.hint.addOption': '请至少添加一个选项。字段有选项后才会保存更改。',
   'designer.field.hint.pickTarget': '请选择要关联的对象。选定后才会保存更改。',
   'designer.field.relatedObject': '关联对象',
-  'designer.field.relationshipName': '关系名称',
-  'designer.field.relationshipNameHint': '父对象上的反向集合键',
   'designer.field.objectNamePlaceholder': 'object_name',
   // Lookup "Picker config" advanced sub-panel
   'designer.field.lookup.pickerConfig': '选择器配置',

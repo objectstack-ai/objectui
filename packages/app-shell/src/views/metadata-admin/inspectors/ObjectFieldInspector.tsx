@@ -27,6 +27,14 @@
  * `indexed` by name, and offering it only ever produced a 422 that blocked
  * the save. Object-level `indexes[]` is the real surface.
  *
+ * Nor is there a `Relationship name` control on a lookup-family field
+ * (objectui#12758): it wrote `relationshipName`, a key `FieldSchema` never
+ * declared under any spelling, so typing into it put the field in the spec
+ * banner and every autosave of the object came back `422 unrecognized_keys`.
+ * The spec has no inverse-collection key on the child's field; the parent's
+ * detail-page view of the child collection is `relatedList` /
+ * `relatedListTitle`, a different concept, and declaring one is a spec card.
+ *
  * Rename: changing the `name` rewrites the field's key in-place and
  * re-issues the selection so the inspector stays bound to the same
  * field. Other fields/options that reference the old name are NOT
@@ -1107,13 +1115,6 @@ export function ObjectFieldInspector({
                 locale={locale}
               />
               {heldNeed === 'target' && <HeldHint>{tr('designer.field.hint.pickTarget')}</HeldHint>}
-              <InspectorTextField
-                label={tr('designer.field.relationshipName')}
-                value={typeof def.relationshipName === 'string' ? (def.relationshipName as string) : ''}
-                onCommit={(v) => patchDef({ relationshipName: v || undefined })}
-                disabled={readOnly}
-                placeholder={tr('designer.field.relationshipNameHint')}
-              />
               <LookupConfigFields
                 def={def}
                 patchDef={patchDef}

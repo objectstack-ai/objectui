@@ -1,0 +1,118 @@
+[
+ {
+  "name": "kb-grouped-1024-light",
+  "width": 1024,
+  "theme": "light",
+  "statusChips": [
+   "Published",
+   "Published",
+   "Published",
+   "Draft"
+  ],
+  "statusEllipsized": [
+   false,
+   false,
+   false,
+   false
+  ],
+  "statusColumnWidth": 130,
+  "actionsColumnDrawn": true,
+  "rowActionTriggers": 4,
+  "scrollWidth": 1477,
+  "clientWidth": 768,
+  "overflowRight": true,
+  "edgeShadow": false
+ },
+ {
+  "name": "kb-grouped-1024-dark",
+  "width": 1024,
+  "theme": "dark",
+  "statusChips": [
+   "Published",
+   "Published",
+   "Published",
+   "Draft"
+  ],
+  "statusEllipsized": [
+   false,
+   false,
+   false,
+   false
+  ],
+  "statusColumnWidth": 130,
+  "actionsColumnDrawn": true,
+  "rowActionTriggers": 4,
+  "scrollWidth": 1477,
+  "clientWidth": 768,
+  "overflowRight": true,
+  "edgeShadow": false
+ },
+ {
+  "name": "kb-grouped-1280-light",
+  "width": 1280,
+  "theme": "light",
+  "statusChips": [
+   "Published",
+   "Published",
+   "Published",
+   "Draft"
+  ],
+  "statusEllipsized": [
+   false,
+   false,
+   false,
+   false
+  ],
+  "statusColumnWidth": 130,
+  "actionsColumnDrawn": true,
+  "rowActionTriggers": 4,
+  "scrollWidth": 1477,
+  "clientWidth": 1024,
+  "overflowRight": true,
+  "edgeShadow": false
+ },
+ {
+  "name": "approvals-inbox-1024-light",
+  "width": 1024,
+  "theme": "light",
+  "statusChips": [
+   "Pending",
+   "Pending",
+   "Pending"
+  ],
+  "statusEllipsized": [
+   false,
+   false,
+   false
+  ],
+  "statusColumnWidth": 100,
+  "actionsColumnDrawn": true,
+  "rowActionTriggers": 0,
+  "scrollWidth": 1071,
+  "clientWidth": 718,
+  "overflowRight": true,
+  "edgeShadow": true
+ },
+ {
+  "name": "approvals-inbox-1024-dark",
+  "width": 1024,
+  "theme": "dark",
+  "statusChips": [
+   "Pending",
+   "Pending",
+   "Pending"
+  ],
+  "statusEllipsized": [
+   false,
+   false,
+   false
+  ],
+  "statusColumnWidth": 100,
+  "actionsColumnDrawn": true,
+  "rowActionTriggers": 0,
+  "scrollWidth": 1071,
+  "clientWidth": 718,
+  "overflowRight": true,
+  "edgeShadow": true
+ }
+]

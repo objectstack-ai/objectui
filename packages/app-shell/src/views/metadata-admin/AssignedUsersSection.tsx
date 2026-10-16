@@ -55,7 +55,7 @@ import { Button } from '@object-ui/components';
 import { resolveAffordance, type SchemaLike } from '@object-ui/core';
 import { RecordPickerDialog } from '@object-ui/fields';
 import { usePermissions } from '@object-ui/permissions';
-import { useAdapter, useMetadata } from '@object-ui/react';
+import { extractWriteErrorMessage, useAdapter, useMetadata } from '@object-ui/react';
 import { Plus, X, Users, Loader2, AlertCircle } from 'lucide-react';
 import { useMetadataLocale } from './i18n.js';
 
@@ -155,9 +155,14 @@ function useCopy() {
 const asArray = (res: any): any[] =>
   Array.isArray(res) ? res : res?.data ?? [];
 
-/** The server's own sentence out of a refused call, or `''` when it gave none. */
-const refusalSentence = (err: any): string =>
-  String(err?.body?.error ?? err?.error ?? err?.message ?? '').trim();
+/**
+ * The server's own sentence out of a refused call, or `''` when it gave none.
+ * Read through `@object-ui/react`'s shared reader, the one place the adapters'
+ * error shapes are told apart (AGENTS #1), rather than a chain of guessed keys
+ * here: the ObjectStack client puts the sentence on `message` and the parsed
+ * body on `details`, and sets neither `body` nor `error` on the error.
+ */
+const refusalSentence = (err: unknown): string => extractWriteErrorMessage(err) ?? '';
 
 const personLabel = (u: any): string =>
   u?.full_name || u?.name || u?.display_name || u?.email || String(u?.id ?? '');
@@ -294,7 +299,7 @@ export function AssignedUsersSection({ permissionSetName }: AssignedUsersSection
       );
       setEveryoneBound(boundEveryone);
       setReadFailure(null);
-    } catch (err: any) {
+    } catch (err) {
       setRows([]);
       setEveryoneBound(false);
       setReadFailure({ said: refusalSentence(err) });
@@ -348,7 +353,7 @@ export function AssignedUsersSection({ permissionSetName }: AssignedUsersSection
       try {
         await adapter.delete(GRANT_OBJECT, grantId);
         await load();
-      } catch (err: any) {
+      } catch (err) {
         // The row stays, and the refusal is said in the server's words, as a
         // failed Add is (objectui#12706).
         setError(refusalSentence(err) || c.removeFailed);

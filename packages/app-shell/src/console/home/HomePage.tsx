@@ -22,7 +22,9 @@ import { useRecentItems, type RecentItem } from '../../hooks/useRecentItems.js';
 import { useRecentItemLabel } from '../../hooks/useRecentItemLabel.js';
 import { useNavTargetLabel } from '../../hooks/useNavTargetLabel.js';
 import { useFavorites } from '../../hooks/useFavorites.js';
-import { useObjectLabel, useObjectTranslation } from '@object-ui/i18n';
+import { useObjectTranslation } from '@object-ui/i18n';
+// Its own line: the line above is the pack-hook binding `perm-home-namespace-3546.test.tsx` reads.
+import { useObjectLabel } from '@object-ui/i18n';
 import { useAuth, useWorkspaceAdminStatus } from '@object-ui/auth';
 import { useAgents, isAskAgent, agentHasCapability } from '@object-ui/plugin-chatbot';
 // May this session author metadata? Shared with the chat surfaces since the

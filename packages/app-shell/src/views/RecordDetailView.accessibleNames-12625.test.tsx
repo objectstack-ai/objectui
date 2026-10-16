@@ -111,13 +111,14 @@ const TASK = {
 
 async function mountLeadPage() {
   const objects = [LEAD, TASK];
+  const findOne = vi.fn(async () => ({ id: 'L1', name: 'Ada', company: 'Acme', city: 'Paris' }));
   const dataSource = {
     find: vi.fn(async () => ({ data: [] })),
-    findOne: vi.fn(async () => ({ id: 'L1', name: 'Ada', company: 'Acme', city: 'Paris' })),
+    findOne,
     create: vi.fn(async () => ({})),
     update: vi.fn(async () => ({})),
     delete: vi.fn(async () => ({})),
-  } as any;
+  } as never;
   const metadata = {
     objects,
     pages: [],
@@ -128,7 +129,7 @@ async function mountLeadPage() {
     ensureType: async () => [],
     getItem: async () => null,
     getItemsByType: () => [],
-  } as any;
+  } as never;
   render(
     <MemoryRouter initialEntries={['/apps/crm/lead/L1']}>
       <MetadataCtx.Provider value={metadata}>
@@ -144,7 +145,7 @@ async function mountLeadPage() {
       </MetadataCtx.Provider>
     </MemoryRouter>,
   );
-  await waitFor(() => expect(dataSource.findOne).toHaveBeenCalled());
+  await waitFor(() => expect(findOne).toHaveBeenCalled());
   await screen.findByRole('button', { name: 'Lead Information' });
 }
 

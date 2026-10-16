@@ -88,6 +88,11 @@ vi.mock('../../../hooks/useFavorites', () => ({ useFavorites: () => ({ favorites
 vi.mock('../../../hooks/useHomeInbox', () => ({
   useHomeInbox: () => ({
     pendingApprovalsCount: 0,
+    // objectui#12602: the approvals preview, and whether each source is
+    // the caller's to read — the My-work section draws a column per source.
+    pendingApprovals: [],
+    pendingApprovalsReadable: true,
+    notificationsReadable: true,
     notifications: [],
     unreadTopicCount: 0,
     activity: { value: [], status: 'ready', readable: true },
@@ -119,7 +124,7 @@ const serverConfig = (cloudUrl: string, marketplace: boolean) => ({
  * were wrong with that.
  *
  * `HomePage` reaches more than one endpoint. Besides the config read, every
- * render mounts `PendingDraftsBanner`, whose `usePendingDrafts({})` fetches
+ * render mounts `usePendingDraftsRow`, whose `usePendingDrafts({})` fetches
  * `GET /api/v1/meta/_drafts` with the GLOBAL `fetch` — `usePendingDrafts.ts:48`,
  * no `apiFetch` seam anywhere on the path — from its mount effect
  * (`usePendingDrafts.ts:116` via `refresh` at `:90`). The sink handed THAT reader
@@ -140,7 +145,7 @@ const serverConfig = (cloudUrl: string, marketplace: boolean) => ({
  *
  * `_drafts` answers a known-EMPTY ledger in the `{ drafts: [...] }` envelope
  * `fetchPendingDrafts` reads. Empty rather than seeded is load-bearing:
- * `PendingDraftsBanner` renders `null` for both `count === null` (what the sink's
+ * `usePendingDraftsRow` renders `null` for both `count === null` (what the sink's
  * unparseable answer produced) and `count === 0`, so no assertion in this file
  * moves. Routes are matched on the PATHNAME because the hook appends a
  * `?packageId=` scope for package-bound callers; the full url is what is recorded.

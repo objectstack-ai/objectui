@@ -67,6 +67,21 @@ export interface AdvertisedShortcut {
   label: (t: ShortcutLabelTranslate) => string;
 }
 
+/**
+ * `⌘⇧H` / `Ctrl+Shift+H` — back to home from any app page (objectui#12605).
+ * `AppHeader` owns the listener and advertises this beside it; the app pill's
+ * 「Back to home」 row draws its keycaps from the same chord, so the row, the
+ * keyboard-shortcuts dialog and the handler cannot disagree. It lives here,
+ * not beside either holder, because both read it: a test that stubs one
+ * holder's module must not take the other's chord with it.
+ */
+export const GO_HOME_SHORTCUT: AdvertisedShortcut = {
+  id: 'go-home',
+  group: 'navigation',
+  chord: { key: 'h', mod: true, shift: true },
+  label: (t: ShortcutLabelTranslate) => t('console.shortcuts.goHome'),
+};
+
 const KEYCAP_TEXT: Record<string, string> = { Escape: 'Esc' };
 
 /** The keycaps the dialog draws for a chord: `{ key: 'k', mod: true }` → `['⌘', 'K']`. */

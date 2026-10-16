@@ -1,11 +1,18 @@
 /**
  * AppSwitcher
  *
- * The app pill that starts the top bar inside an app: [app glyph] [App Name]
- * [ChevronDown]. The glyph is the app's one identity asset, `branding.logo`,
- * or its `icon` on a tile (`AppMark`, objectui#12201). The dropdown lists every
- * app with its glyph, then two exits: 「All apps」 back to Home, and — for the
- * viewers the top bar offers its Studio button to — 「Edit APP in Studio」.
+ * The app pill that follows the product mark in the top bar inside an app:
+ * [app glyph] [App Name] [ChevronDown]. The glyph is the app's one identity
+ * asset, `branding.logo`, or its `icon` on a tile (`AppMark`, objectui#12201).
+ * Below `sm` the pill draws the glyph only and names the app in its tooltip
+ * (objectui#12605).
+ *
+ * The dropdown (objectui#12605): a 「Switch Application」 group of the
+ * installed apps with the current one checked — the Setup app is not in it —
+ * then 「Back to home」 with its `⌘⇧H` keycaps, 「All apps」, and 「Settings」 (the
+ * Setup app, when the viewer's app list carries it). For the viewers the top
+ * bar offers its Studio button to, 「Edit APP in Studio」 follows a second
+ * divider.
  * @module
  */
 
@@ -19,12 +26,22 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '@object-ui/components';
-import { ChevronDown, Check, LayoutGrid, Pencil } from 'lucide-react';
+import { ChevronDown, Check, Home, LayoutGrid, Pencil, Settings } from 'lucide-react';
 import { useMetadata } from '../providers/MetadataProvider.js';
 import { resolveKeyedI18nLabel, matchAppBySegment, appRouteSegment } from '../utils/index.js';
 import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
 import { useHomePath } from '../hooks/useHomePath.js';
+import { SETUP_APP_NAME, SETUP_APP_PACKAGE_ID } from '../console/ConsoleShell.js';
+import { GO_HOME_SHORTCUT, shortcutKeycaps } from '../chrome/advertisedShortcuts.js';
 import { AppMark } from './AppMark.js';
+
+/**
+ * The Setup app in an app list: by its package id first, then by its name —
+ * the order `resolveSetupAppPath` resolves it in.
+ */
+function findSetupApp<T extends { name?: unknown; _packageId?: unknown }>(apps: readonly T[]): T | undefined {
+  return apps.find((a) => a?._packageId === SETUP_APP_PACKAGE_ID) ?? apps.find((a) => a?.name === SETUP_APP_NAME);
+}
 
 export interface AppSwitcherProps {
   activeAppName: string;
@@ -66,6 +83,13 @@ export function AppSwitcher({ activeAppName, onAppChange, designInStudioPath }: 
   if (!activeApp) return null;
 
   const appLabelText = appLabel({ name: activeApp.name, label: resolveKeyedI18nLabel(activeApp.label, t) });
+  // objectui#12605 — Setup is the menu's 「Settings」 row, not one of the apps
+  // to switch between. Read off the viewer's own list: a viewer whose list
+  // carries no Setup app (the server withholds it without `setup.access`) is
+  // offered no row.
+  const setupApp = findSetupApp(activeApps);
+  const switchApps = setupApp ? activeApps.filter((app) => app !== setupApp) : activeApps;
+  const setupPath = setupApp ? `/apps/${appRouteSegment(setupApp) ?? setupApp.name}` : null;
 
   // `min-w-0` lets the pill shrink inside the bar's left zone, so a long app
   // name truncates instead of spilling over the search (objectui#12472).
@@ -75,11 +99,14 @@ export function AppSwitcher({ activeAppName, onAppChange, designInStudioPath }: 
         <button
           type="button"
           data-testid="app-switcher-trigger"
+          title={appLabelText}
           className="flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-sm font-medium text-foreground/80 hover:bg-accent hover:text-foreground transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring max-w-[40vw] sm:max-w-none"
         >
           <AppMark app={activeApp} size="sm" />
-          <span className="truncate whitespace-nowrap">{appLabelText}</span>
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          {/* Below `sm` the pill is the glyph alone; `title` names the app
+              there, as its tooltip and its accessible name (objectui#12605). */}
+          <span className="hidden sm:inline truncate whitespace-nowrap">{appLabelText}</span>
+          <ChevronDown className="hidden sm:block h-3.5 w-3.5 text-muted-foreground shrink-0" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" sideOffset={8} className="w-64">
@@ -87,7 +114,7 @@ export function AppSwitcher({ activeAppName, onAppChange, designInStudioPath }: 
           {t('layout.appSwitcher.switchApplication', { defaultValue: 'Switch Application' })}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {activeApps.map((app: any) => {
+        {switchApps.map((app: any) => {
           const label = appLabel({ name: app.name, label: resolveKeyedI18nLabel(app.label, t) });
           const isActive = activeApp.name === app.name;
           return (
@@ -105,6 +132,19 @@ export function AppSwitcher({ activeAppName, onAppChange, designInStudioPath }: 
         })}
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild className="flex items-center gap-2.5 py-2">
+          <Link to={homePath} data-testid="app-switcher-home">
+            <span className="flex size-[22px] shrink-0 items-center justify-center text-muted-foreground" aria-hidden>
+              <Home className="size-4" />
+            </span>
+            <span className="flex-1 truncate">
+              {t('layout.appSwitcher.backToHome', { defaultValue: 'Back to home' })}
+            </span>
+            <kbd className="pointer-events-none ml-auto font-mono text-[10px] text-muted-foreground">
+              {shortcutKeycaps(GO_HOME_SHORTCUT.chord).join('')}
+            </kbd>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="flex items-center gap-2.5 py-2">
           <Link to={homePath} data-testid="app-switcher-all-apps">
             <span className="flex size-[22px] shrink-0 items-center justify-center text-muted-foreground" aria-hidden>
               <LayoutGrid className="size-4" />
@@ -114,20 +154,36 @@ export function AppSwitcher({ activeAppName, onAppChange, designInStudioPath }: 
             </span>
           </Link>
         </DropdownMenuItem>
-        {designInStudioPath ? (
+        {setupPath ? (
           <DropdownMenuItem asChild className="flex items-center gap-2.5 py-2">
-            <Link to={designInStudioPath} data-testid="app-switcher-edit-in-studio">
+            <Link to={setupPath} data-testid="app-switcher-settings">
               <span className="flex size-[22px] shrink-0 items-center justify-center text-muted-foreground" aria-hidden>
-                <Pencil className="size-4" />
+                <Settings className="size-4" />
               </span>
               <span className="flex-1 truncate">
-                {t('layout.appSwitcher.editAppInStudio', {
-                  defaultValue: 'Edit {{app}} in Studio',
-                  app: appLabelText,
-                })}
+                {t('layout.appSwitcher.settings', { defaultValue: 'Settings' })}
               </span>
+              {activeApp === setupApp && <Check className="size-3.5 text-primary shrink-0" />}
             </Link>
           </DropdownMenuItem>
+        ) : null}
+        {designInStudioPath ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild className="flex items-center gap-2.5 py-2">
+              <Link to={designInStudioPath} data-testid="app-switcher-edit-in-studio">
+                <span className="flex size-[22px] shrink-0 items-center justify-center text-muted-foreground" aria-hidden>
+                  <Pencil className="size-4" />
+                </span>
+                <span className="flex-1 truncate">
+                  {t('layout.appSwitcher.editAppInStudio', {
+                    defaultValue: 'Edit {{app}} in Studio',
+                    app: appLabelText,
+                  })}
+                </span>
+              </Link>
+            </DropdownMenuItem>
+          </>
         ) : null}
       </DropdownMenuContent>
     </DropdownMenu>

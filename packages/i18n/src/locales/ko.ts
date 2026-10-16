@@ -360,6 +360,14 @@ const ko = {
       impossibleDay:
         "저장된 값 “{{value}}”은(는) 실제 날짜가 아닙니다. 바꾸려면 날짜와 시간을 선택하세요.",
     },
+    datePicker: {
+      today: "오늘",
+      tomorrow: "내일",
+      clear: "날짜 지우기",
+      openCalendar: "달력 열기",
+      invalid:
+        "저장되지 않음: “{{value}}”은(는) 날짜가 아닙니다. {{format}} 형식으로 입력하거나 달력에서 선택하세요.",
+    },
     number: {
       badInput:
         "저장되지 않았습니다: 이 입력란의 텍스트는 숫자가 아닙니다. 일반 소수로 입력하세요(예: {{example}}).",
@@ -489,6 +497,7 @@ const ko = {
     pullToRefresh: "당겨서 새로고침",
     refreshing: "새로고침 중…",
     openRecord: "레코드 열기",
+    recordUnavailable: "{{object}} · 레코드를 사용할 수 없음",
     rowHeight: "행 높이: {{mode}}",
     openMenu: "메뉴 열기",
     empty: "비어 있음",
@@ -852,6 +861,7 @@ const ko = {
   },
   kanban: {
     uncategorized: "미분류",
+    loadMore: "더 보기",
     columns: "열",
     addCard: "카드 추가",
     addColumn: "열 추가",
@@ -2040,6 +2050,7 @@ const ko = {
       toggleSidebar: "사이드바 전환",
       newChat: "새 채팅",
       toggleChatsList: "채팅 목록 전환",
+      goHome: "홈으로 돌아가기",
     },
     commandPalette: {
       title: "명령 팔레트",
@@ -2634,9 +2645,15 @@ const ko = {
       dismiss: "닫기",
     },
     pendingDrafts: {
-      message: "게시되지 않은 변경이 {{count}}건 있습니다 — 게시하면 반영됩니다.",
-      message_one: "게시되지 않은 변경이 {{count}}건 있습니다 — 게시하면 반영됩니다.",
-      message_other: "게시되지 않은 변경이 {{count}}건 있습니다 — 게시하면 반영됩니다.",
+      // objectui#12602 — the drafts row in Home's "My work" section: the
+      // count, then the first draft names joined by `nameSeparator`, in
+      // their package when they share one.
+      title: "게시되지 않은 변경 {{count}}개",
+      title_one: "게시되지 않은 변경 {{count}}개",
+      title_other: "게시되지 않은 변경 {{count}}개",
+      inPackage: "{{names}} · {{package}}에서 게시 대기 중",
+      waiting: "{{names}} · 게시 대기 중",
+      nameSeparator: ", ",
       cta: "게시",
       publishing: "게시하는 중…",
       published: "게시했습니다! 변경 사항이 반영되었습니다.",
@@ -2656,9 +2673,16 @@ const ko = {
     showMoreApps: "더 보기",
     showLess: "간략히",
     continueEmpty: "열어본 항목이 여기에 표시됩니다.",
-    actionCenter: {
-      title: "확인이 필요한 항목",
-      empty: "모두 처리했습니다",
+    // objectui#12602 — Home's "My work" section: its heading, the link to the
+    // full inbox, each column's title, "view all" link and empty line.
+    myWork: {
+      title: "내 작업",
+      openInbox: "받은 편지함 열기",
+      viewAll: "모두 보기",
+      approvals: "승인 대기",
+      approvalsEmpty: "승인 대기 중인 항목이 없습니다",
+      notifications: "알림",
+      notificationsEmpty: "읽지 않은 알림이 없습니다",
     },
     loading: "워크스페이스 로드 중…",
     welcome: "ObjectUI에 오신 것을 환영합니다",
@@ -2741,6 +2765,9 @@ const ko = {
       noAppsConfigured: "구성된 앱 없음",
       allApps: "모든 앱",
       editAppInStudio: "Studio에서 {{app}} 편집",
+      backToHome: "홈으로 돌아가기",
+      settings: "시스템 설정",
+      productHome: "{{product}} 홈",
     },
     activityFeed: {
       title: "최근 활동",
@@ -3782,6 +3809,9 @@ const ko = {
     emptyPending: '모두 처리했습니다. 승인 대기 항목이 없습니다.',
     emptyOther: '아직 아무것도 없습니다.',
     emptyViewAll: '전체 요청 보기',
+    waitingOnOthers: "{{count}}건의 요청이 다른 승인자를 기다리고 있습니다",
+    waitingOnOthers_one: "{{count}}건의 요청이 다른 승인자를 기다리고 있습니다",
+    waitingOnOthers_other: "{{count}}건의 요청이 다른 승인자를 기다리고 있습니다",
     noMatches: '현재 필터와 일치하는 항목이 없습니다.',
     keyboardHint: '단축키: j/k 이동 · Enter 열기 · x 선택 · a 승인 · r 거부',
     drawerTitle: '승인 요청',
@@ -4149,6 +4179,7 @@ const ko = {
     toggleFailed: "활성화 상태를 변경하지 못했습니다.",
     cloneFailedHttp: "이 플로우를 복제하지 못했습니다 (HTTP {{status}}).",
     cloneFailed: "이 플로우를 복제하지 못했습니다.",
+    reasonDetails: "세부 정보",
     actionsSubtitle: "설치된 패키지가 제공하는 액션입니다. 이 배포에서 끄면 액션이 제공되는 모든 곳에서 실행되지 않습니다. Studio에서 직접 액션을 따로 작성하는 것은 계속 가능합니다.",
     colAction: "액션",
     colObject: "오브젝트",

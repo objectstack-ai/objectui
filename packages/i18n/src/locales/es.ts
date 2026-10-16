@@ -371,6 +371,14 @@ const es = {
       impossibleDay:
         "El valor guardado «{{value}}» no es una fecha real. Elige una fecha y una hora para reemplazarlo.",
     },
+    datePicker: {
+      today: "Hoy",
+      tomorrow: "Mañana",
+      clear: "Borrar fecha",
+      openCalendar: "Abrir calendario",
+      invalid:
+        "No guardado: «{{value}}» no es una fecha. Escríbela como {{format}} o elígela en el calendario.",
+    },
     number: {
       badInput:
         "No guardado: el texto de este campo no es un número. Introduce un decimal simple (ejemplo: {{example}}).",
@@ -507,6 +515,7 @@ const es = {
     pullToRefresh: "Desliza para actualizar",
     refreshing: "Actualizando…",
     openRecord: "Abrir registro",
+    recordUnavailable: "{{object}} · registro no disponible",
     rowHeight: "Altura de fila: {{mode}}",
     openMenu: "Abrir menú",
     empty: "Vacío",
@@ -882,6 +891,7 @@ const es = {
   },
   kanban: {
     uncategorized: "Sin categoría",
+    loadMore: "Cargar más",
     columns: "columnas",
     addCard: "Añadir tarjeta",
     addColumn: "Añadir columna",
@@ -2089,6 +2099,7 @@ const es = {
       toggleSidebar: "Alternar barra lateral",
       newChat: "Nuevo chat",
       toggleChatsList: "Alternar lista de chats",
+      goHome: "Volver al inicio",
     },
     commandPalette: {
       title: "Paleta de comandos",
@@ -2686,10 +2697,16 @@ const es = {
       dismiss: "Descartar",
     },
     pendingDrafts: {
-      message: "Tiene {{count}} cambio(s) sin publicar — publíquelos para activarlos.",
-      message_one: "Tiene {{count}} cambio sin publicar — publíquelo para activarlo.",
-      message_many: "Tiene {{count}} de cambios sin publicar — publíquelos para activarlos.",
-      message_other: "Tiene {{count}} cambios sin publicar — publíquelos para activarlos.",
+      // objectui#12602 — the drafts row in Home's "My work" section: the
+      // count, then the first draft names joined by `nameSeparator`, in
+      // their package when they share one.
+      title: "{{count}} cambio(s) sin publicar",
+      title_one: "{{count}} cambio sin publicar",
+      title_many: "{{count}} cambios sin publicar",
+      title_other: "{{count}} cambios sin publicar",
+      inPackage: "{{names}} pendientes de publicar en {{package}}",
+      waiting: "{{names}} pendientes de publicar",
+      nameSeparator: ", ",
       cta: "Publicar",
       publishing: "Publicando…",
       published: "¡Publicado! Sus cambios están activos.",
@@ -2710,9 +2727,16 @@ const es = {
     showMoreApps: "Más",
     showLess: "Mostrar menos",
     continueEmpty: "Los elementos que abras aparecerán aquí.",
-    actionCenter: {
-      title: "Requiere tu atención",
-      empty: "Estás al día",
+    // objectui#12602 — Home's "My work" section: its heading, the link to the
+    // full inbox, each column's title, "view all" link and empty line.
+    myWork: {
+      title: "Mi trabajo",
+      openInbox: "Abrir bandeja de entrada",
+      viewAll: "Ver todo",
+      approvals: "Pendiente de aprobación",
+      approvalsEmpty: "Nada pendiente de su aprobación",
+      notifications: "Notificaciones",
+      notificationsEmpty: "No hay notificaciones sin leer",
     },
     loading: "Cargando espacio de trabajo…",
     welcome: "Bienvenido a ObjectUI",
@@ -2796,6 +2820,9 @@ const es = {
       noAppsConfigured: "Sin aplicaciones configuradas",
       allApps: "Todas las aplicaciones",
       editAppInStudio: "Editar {{app}} en Studio",
+      backToHome: "Volver al inicio",
+      settings: "Configuración",
+      productHome: "Inicio de {{product}}",
     },
     activityFeed: {
       title: "Actividad reciente",
@@ -3858,6 +3885,10 @@ const es = {
     emptyPending: 'Todo al día: nada espera tu aprobación.',
     emptyOther: 'Aún no hay nada aquí.',
     emptyViewAll: 'Ver todas las solicitudes',
+    waitingOnOthers: "{{count}} solicitudes esperan a otros aprobadores",
+    waitingOnOthers_one: "{{count}} solicitud espera a otros aprobadores",
+    waitingOnOthers_many: "{{count}} de solicitudes esperan a otros aprobadores",
+    waitingOnOthers_other: "{{count}} solicitudes esperan a otros aprobadores",
     noMatches: 'Sin coincidencias con los filtros actuales.',
     keyboardHint: 'Teclado: j/k mover · Enter abrir · x seleccionar · a aprobar · r rechazar',
     drawerTitle: 'Solicitud de aprobación',
@@ -4244,6 +4275,7 @@ const es = {
     toggleFailed: "No se pudo cambiar la activación.",
     cloneFailedHttp: "No se pudo clonar este flujo (HTTP {{status}}).",
     cloneFailed: "No se pudo clonar este flujo.",
+    reasonDetails: "Detalles",
     actionsSubtitle: "Acciones incluidas en los paquetes instalados. Desactiva una en esta implementación y dejará de ejecutarse en todos los lugares donde se ofrece. Crear tu propia acción junto a ella sigue estando disponible en Studio.",
     colAction: "Acción",
     colObject: "Objeto",

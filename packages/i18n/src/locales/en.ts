@@ -542,6 +542,17 @@ const en = {
       impossibleDay:
         'The stored value "{{value}}" is not a real date. Pick a date and time to replace it.',
     },
+    // objectui#12622 — the record form's date picker: its two shortcuts,
+    // the clear / calendar buttons' accessible names, and the notice for
+    // typed text that names no date ({{format}} is the locale pattern).
+    datePicker: {
+      today: 'Today',
+      tomorrow: 'Tomorrow',
+      clear: 'Clear date',
+      openCalendar: 'Open calendar',
+      invalid:
+        'Not saved: "{{value}}" is not a date. Type it as {{format}}, or pick one from the calendar.',
+    },
     number: {
       badInput:
         'Not saved: the text in this box is not a number. Enter a plain decimal (example: {{example}}).',
@@ -681,6 +692,7 @@ const en = {
     pullToRefresh: 'Pull to refresh',
     refreshing: 'Refreshing…',
     openRecord: 'Open record',
+    recordUnavailable: '{{object}} · record unavailable',
     openMenu: 'Open menu',
     bulkSelected: '{{count}} selected',
     bulkSelected_one: '{{count}} selected',
@@ -1111,6 +1123,7 @@ const en = {
     noCards: 'No cards',
     cardTitlePlaceholder: 'Enter card title…',
     uncategorized: 'Uncategorized',
+    loadMore: 'Load more',
     columns: 'columns',
     requiredFieldsTitle: 'Complete required fields',
     requiredFieldsDescription: 'This move makes the fields below required. Fill them in to continue.',
@@ -2173,6 +2186,7 @@ const en = {
       toggleSidebar: 'Toggle sidebar',
       newChat: 'New chat',
       toggleChatsList: 'Toggle conversations list',
+      goHome: 'Back to home',
     },
     commandPalette: {
       title: 'Command palette',
@@ -3135,9 +3149,16 @@ const en = {
     showMoreApps: 'More',
     showLess: 'Show less',
     continueEmpty: 'Items you open will show up here.',
-    actionCenter: {
-      title: 'Needs your attention',
-      empty: "You're all caught up",
+    // objectui#12602 — Home's "My work" section: its heading, the link to the
+    // full inbox, each column's title, "view all" link and empty line.
+    myWork: {
+      title: "My work",
+      openInbox: "Open inbox",
+      viewAll: "View all",
+      approvals: "Awaiting approval",
+      approvalsEmpty: "Nothing waiting for your approval",
+      notifications: "Notifications",
+      notificationsEmpty: "No unread notifications",
     },
     greetingMorning: 'Good morning',
     greetingAfternoon: 'Good afternoon',
@@ -3193,9 +3214,15 @@ const en = {
       dismiss: 'Dismiss',
     },
     pendingDrafts: {
-      message: 'You have {{count}} unpublished change(s) — publish to make them live.',
-      message_one: 'You have {{count}} unpublished change — publish to make it live.',
-      message_other: 'You have {{count}} unpublished changes — publish to make them live.',
+      // objectui#12602 — the drafts row in Home's "My work" section: the
+      // count, then the first draft names joined by `nameSeparator`, in
+      // their package when they share one.
+      title: "{{count}} unpublished change(s)",
+      title_one: "{{count}} unpublished change",
+      title_other: "{{count}} unpublished changes",
+      inPackage: "{{names}} waiting to publish in {{package}}",
+      waiting: "{{names}} waiting to publish",
+      nameSeparator: ", ",
       cta: 'Publish',
       publishing: 'Publishing…',
       published: 'Published! Your changes are live.',
@@ -3260,6 +3287,9 @@ const en = {
       noAppsConfigured: 'No apps configured',
       allApps: 'All apps',
       editAppInStudio: 'Edit {{app}} in Studio',
+      backToHome: 'Back to home',
+      settings: 'Settings',
+      productHome: '{{product}} home',
     },
     systemNav: {
       systemSettings: 'System Settings',
@@ -4461,6 +4491,9 @@ const en = {
     emptyPending: "You're all caught up — nothing is waiting on you.",
     emptyOther: 'Nothing here yet.',
     emptyViewAll: 'Browse all requests',
+    waitingOnOthers: '{{count}} requests are waiting on other approvers',
+    waitingOnOthers_one: '{{count}} request is waiting on other approvers',
+    waitingOnOthers_other: '{{count}} requests are waiting on other approvers',
     noMatches: 'No matches for current filters.',
     keyboardHint: 'Keyboard: j/k move · Enter open · x select · a approve · r reject',
     drawerTitle: 'Approval Request',
@@ -4873,6 +4906,12 @@ const en = {
     toggleFailed: 'Could not change activation.',
     cloneFailedHttp: 'Could not clone this flow (HTTP {{status}}).',
     cloneFailed: 'Could not clone this flow.',
+    // The chip an unarmed flow row's platform sentence opens from
+    // (objectui#12609). ⛔ Generic on purpose: the same word on every row that
+    // carries a sentence, whatever the sentence says. The sentence itself is
+    // the server's and is never kept in a pack; a label naming its cause would
+    // be the console classifying a field the contract says not to parse.
+    reasonDetails: 'Details',
 
     // ── Packaged ACTIONS section (ADR-0126 §8 item 2, ruling 3) ────────────
     // ⛔ No clone key here on purpose: the action-clone half is unchartered,

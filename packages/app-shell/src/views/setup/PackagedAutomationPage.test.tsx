@@ -3,7 +3,7 @@
 /**
  * Setup › Packaged automation (ADR-0126 §7.4) — behaviour.
  *
- * Five properties, in the order the page exercises them:
+ * Six properties, in the order the page exercises them:
  *
  *   1. **scope** — the list is packaged flows only. The rule itself lives in
  *      `packagedFlows.ts` and is measured directly in `packagedFlows.test.ts`;
@@ -29,6 +29,9 @@
  *      platform's sentence for why the flow is not armed. It is shown VERBATIM
  *      and muted, never as an alert, whether it names the deployment policy or
  *      a real binding failure; a row without one renders exactly as before.
+ *      Since objectui#12609 the sentence is not in the row at all: it opens
+ *      from a neutral chip on the name's line, the same chip whatever the
+ *      sentence says, so the row keeps the table's height.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -469,54 +472,85 @@ describe('the platform reason for an unbound flow', () => {
     return cell;
   }
 
+  /** The neutral reason chip of ONE named row, or `null` when it has none. */
+  function chipIn(flowName: string): HTMLElement | null {
+    return within(screen.getByTestId(`packaged-flow-${flowName}`)).queryByRole('button', {
+      name: 'Details',
+    });
+  }
+
+  /** Open a row's chip and return the disclosure it opened. */
+  async function openReason(flowName: string): Promise<HTMLElement> {
+    const chip = chipIn(flowName);
+    if (!chip) throw new Error(`no reason chip on ${flowName}`);
+    fireEvent.click(chip);
+    return screen.findByRole('dialog', { name: 'Details' });
+  }
+
+  /** Add one unarmed packaged flow, carrying `reason`, to the fixture. */
+  function withReasonRow(name: string, label: string, triggerType: string, reason: string) {
+    fixture.runtime = [...fixture.runtime, { name, enabled: true, bound: false, triggerType, reason }];
+    fixture.meta = [...fixture.meta, packagedItem(name, label)];
+  }
+
   /**
-   * The one assertion every reason row owes: the platform's sentence is in its
-   * row, whole and unedited, in muted text — and nothing in the row is an alert
-   * or destructive-styled.
+   * What every reason row owes (objectui#9217, objectui#12609). The ROW holds
+   * no paragraph and none of the sentence, so it keeps the table's height. Its
+   * chip opens a disclosure holding the platform's sentence and nothing else:
+   * whole, unedited and muted. Nothing in the row or the disclosure is an
+   * alert or destructive-styled.
    */
-  function expectMutedVerbatim(flowName: string, sentence: string) {
+  async function expectBehindChipVerbatim(flowName: string, sentence: string) {
     const row = screen.getByTestId(`packaged-flow-${flowName}`);
-    const shown = within(row).getByText(sentence);
+    expect(row.querySelectorAll('p')).toHaveLength(0);
+    expect(row.textContent).not.toContain(sentence);
+    expect(within(row).queryAllByRole('alert')).toHaveLength(0);
+    expect(row.querySelectorAll('.text-destructive')).toHaveLength(0);
+
+    const disclosure = await openReason(flowName);
+    expect(disclosure.textContent).toBe(sentence);
+    const shown = within(disclosure).getByText(sentence);
     expect(shown.textContent).toBe(sentence);
     expect(shown).toHaveClass('text-muted-foreground');
     expect(shown).not.toHaveClass('text-destructive');
-    expect(within(row).queryAllByRole('alert')).toHaveLength(0);
-    expect(row.querySelectorAll('.text-destructive')).toHaveLength(0);
+    expect(within(disclosure).queryAllByRole('alert')).toHaveLength(0);
   }
 
-  it('shows a deployment-policy row with the platform sentence, muted, and not as a binding failure', async () => {
-    fixture.runtime = [
-      ...fixture.runtime,
-      { name: 'pkg_digest', enabled: true, bound: false, triggerType: 'schedule', reason: POLICY_REASON },
-    ];
-    fixture.meta = [...fixture.meta, packagedItem('pkg_digest', 'Daily digest')];
+  it('keeps a deployment-policy row to its name line; the sentence opens from the chip, whole and muted', async () => {
+    withReasonRow('pkg_digest', 'Daily digest', 'schedule', POLICY_REASON);
     await renderPage();
 
-    expectMutedVerbatim('pkg_digest', POLICY_REASON);
+    await expectBehindChipVerbatim('pkg_digest', POLICY_REASON);
     // The page adds no failure wording of its own around the policy sentence.
     expect(screen.getByTestId('packaged-flow-pkg_digest').textContent).not.toMatch(/binding failed/i);
     // The flow's activation is still shown as the engine reports it.
     expect(screen.getByRole('switch', { name: 'Activation for Daily digest' })).toBeChecked();
   });
 
-  it('shows a real binding failure in the platform words too, muted (acceptance ②)', async () => {
-    fixture.runtime = [
-      ...fixture.runtime,
-      {
-        name: 'pkg_sync',
-        enabled: true,
-        bound: false,
-        triggerType: 'record_change',
-        reason: BINDING_FAILED_REASON,
-      },
-    ];
-    fixture.meta = [...fixture.meta, packagedItem('pkg_sync', 'Sync accounts')];
+  it('puts a real binding failure behind the same chip, in the platform words too (acceptance ②)', async () => {
+    withReasonRow('pkg_sync', 'Sync accounts', 'record_change', BINDING_FAILED_REASON);
     await renderPage();
 
-    expectMutedVerbatim('pkg_sync', BINDING_FAILED_REASON);
+    await expectBehindChipVerbatim('pkg_sync', BINDING_FAILED_REASON);
   });
 
-  it('renders a row without a reason exactly as before, older backends included', async () => {
+  it('draws one chip that does not classify: a policy row and a binding failure show the same one', async () => {
+    withReasonRow('pkg_digest', 'Daily digest', 'schedule', POLICY_REASON);
+    withReasonRow('pkg_sync', 'Sync accounts', 'record_change', BINDING_FAILED_REASON);
+    await renderPage();
+
+    const policy = chipIn('pkg_digest');
+    const failure = chipIn('pkg_sync');
+    expect(policy).not.toBeNull();
+    expect(failure).not.toBeNull();
+    // The chip's words and look follow "this row has a reason", never what the
+    // reason says: the two rows' chips are indistinguishable.
+    expect(policy!.textContent).toBe('Details');
+    expect(failure!.textContent).toBe(policy!.textContent);
+    expect(failure!.className).toBe(policy!.className);
+  });
+
+  it('renders a row without a reason exactly as before, with no chip, older backends included', async () => {
     // `pkg_notify` (bound) and `pkg_escalate` (disabled) come from the default
     // fixture and carry no reason; `pkg_legacy` is an older backend's bare row.
     fixture.runtime = [...fixture.runtime, { name: 'pkg_legacy' }];
@@ -526,6 +560,9 @@ describe('the platform reason for an unbound flow', () => {
     expect(flowCell('pkg_notify').textContent).toBe('Notify ownerpkg_notify');
     expect(flowCell('pkg_escalate').textContent).toBe('Escalate casepkg_escalate');
     expect(flowCell('pkg_legacy').textContent).toBe('Legacy flowpkg_legacy');
+    for (const name of ['pkg_notify', 'pkg_escalate', 'pkg_legacy']) {
+      expect(chipIn(name)).toBeNull();
+    }
   });
 
   it('ignores a reason that is not a string', async () => {
@@ -543,5 +580,7 @@ describe('the platform reason for an unbound flow', () => {
 
     expect(flowCell('pkg_numeric').textContent).toBe('Numeric reasonpkg_numeric');
     expect(flowCell('pkg_object').textContent).toBe('Object reasonpkg_object');
+    expect(chipIn('pkg_numeric')).toBeNull();
+    expect(chipIn('pkg_object')).toBeNull();
   });
 });

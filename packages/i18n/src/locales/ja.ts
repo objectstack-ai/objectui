@@ -360,6 +360,14 @@ const ja = {
       impossibleDay:
         "保存されている値「{{value}}」は実在しない日付です。置き換えるには日付と時刻を選択してください。",
     },
+    datePicker: {
+      today: "今日",
+      tomorrow: "明日",
+      clear: "日付をクリア",
+      openCalendar: "カレンダーを開く",
+      invalid:
+        "保存されていません：「{{value}}」は日付ではありません。{{format}} の形式で入力するか、カレンダーから選択してください。",
+    },
     number: {
       badInput:
         "保存されていません: このボックスのテキストは数値ではありません。通常の小数で入力してください（例: {{example}}）。",
@@ -489,6 +497,7 @@ const ja = {
     pullToRefresh: "引っ張って更新",
     refreshing: "更新中…",
     openRecord: "レコードを開く",
+    recordUnavailable: "{{object}} · レコードを表示できません",
     rowHeight: "行の高さ: {{mode}}",
     openMenu: "メニューを開く",
     empty: "空",
@@ -852,6 +861,7 @@ const ja = {
   },
   kanban: {
     uncategorized: "未分類",
+    loadMore: "さらに読み込む",
     columns: "カラム",
     addCard: "カードを追加",
     addColumn: "カラムを追加",
@@ -2042,6 +2052,7 @@ const ja = {
       toggleSidebar: "サイドバーを切り替え",
       newChat: "新しいチャット",
       toggleChatsList: "チャット一覧を切り替え",
+      goHome: "ホームに戻る",
     },
     commandPalette: {
       title: "コマンドパレット",
@@ -2636,9 +2647,15 @@ const ja = {
       dismiss: "閉じる",
     },
     pendingDrafts: {
-      message: "未公開の変更が {{count}} 件あります — 公開すると反映されます。",
-      message_one: "未公開の変更が {{count}} 件あります — 公開すると反映されます。",
-      message_other: "未公開の変更が {{count}} 件あります — 公開すると反映されます。",
+      // objectui#12602 — the drafts row in Home's "My work" section: the
+      // count, then the first draft names joined by `nameSeparator`, in
+      // their package when they share one.
+      title: "未公開の変更 {{count}} 件",
+      title_one: "未公開の変更 {{count}} 件",
+      title_other: "未公開の変更 {{count}} 件",
+      inPackage: "{{names}} が {{package}} で公開待ちです",
+      waiting: "{{names}} が公開待ちです",
+      nameSeparator: "、",
       cta: "公開",
       publishing: "公開しています…",
       published: "公開しました。変更が反映されています。",
@@ -2659,9 +2676,16 @@ const ja = {
     showMoreApps: "もっと見る",
     showLess: "折りたたむ",
     continueEmpty: "開いた項目がここに表示されます。",
-    actionCenter: {
-      title: "対応が必要な項目",
-      empty: "すべて対応済みです",
+    // objectui#12602 — Home's "My work" section: its heading, the link to the
+    // full inbox, each column's title, "view all" link and empty line.
+    myWork: {
+      title: "マイワーク",
+      openInbox: "受信トレイを開く",
+      viewAll: "すべて表示",
+      approvals: "承認待ち",
+      approvalsEmpty: "承認待ちの項目はありません",
+      notifications: "通知",
+      notificationsEmpty: "未読の通知はありません",
     },
     loading: "ワークスペースを読み込み中…",
     welcome: "ObjectUI へようこそ",
@@ -2744,6 +2768,9 @@ const ja = {
       noAppsConfigured: "アプリが設定されていません",
       allApps: "すべてのアプリ",
       editAppInStudio: "Studio で {{app}} を編集",
+      backToHome: "ホームに戻る",
+      settings: "システム設定",
+      productHome: "{{product}} ホーム",
     },
     activityFeed: {
       title: "最近の活動",
@@ -3785,6 +3812,9 @@ const ja = {
     emptyPending: 'すべて処理済みです。あなたの承認待ちはありません。',
     emptyOther: 'まだ何もありません。',
     emptyViewAll: 'すべてのリクエストを見る',
+    waitingOnOthers: "{{count}} 件の申請が他の承認者を待っています",
+    waitingOnOthers_one: "{{count}} 件の申請が他の承認者を待っています",
+    waitingOnOthers_other: "{{count}} 件の申請が他の承認者を待っています",
     noMatches: '現在のフィルターに一致するものはありません。',
     keyboardHint: 'ショートカット：j/k 移動 · Enter 開く · x 選択 · a 承認 · r 却下',
     drawerTitle: '承認リクエスト',
@@ -4152,6 +4182,7 @@ const ja = {
     toggleFailed: "有効状態を変更できませんでした。",
     cloneFailedHttp: "このフローをクローンできませんでした (HTTP {{status}})。",
     cloneFailed: "このフローをクローンできませんでした。",
+    reasonDetails: "詳細",
     actionsSubtitle: "インストール済みパッケージが提供するアクションです。このデプロイでオフにすると、提供されているすべての場所で実行されなくなります。自分のアクションを別途 Studio で作成することは引き続き可能です。",
     colAction: "アクション",
     colObject: "オブジェクト",

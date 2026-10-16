@@ -22,7 +22,7 @@
  *   - the promotion is driven by the DECLARED widget, never by the value: the
  *     same value under a plain `text` field still draws as text;
  *   - the reads are the edit widgets' reads, made once per page, not once per
- *     cell — each batching case counts the calls;
+ *     cell — each case counts the calls;
  *   - a value nothing could name draws muted, never blank, and a cell that
  *     could not ask (no row, no data source) draws the text it drew before.
  */
@@ -170,7 +170,7 @@ describe('objectui#12613 — the `recipient-picker` cell', () => {
     expect(store.ensureType).toHaveBeenCalledWith('position');
   });
 
-  it('names record recipients with ONE `$in` query per directory object, and marks the one it could not find', async () => {
+  it("names record recipients from ONE read of the picker's own candidate query, and marks the one it does not list", async () => {
     const find = vi.fn(async (_object: string, _params: any) => ({
       data: [
         { id: 'team_eu', name: 'EU Sales' },
@@ -195,7 +195,8 @@ describe('objectui#12613 — the `recipient-picker` cell', () => {
     expect(find, 'one query for the three rows, not one per cell').toHaveBeenCalledTimes(1);
     const [object, params] = find.mock.calls[0];
     expect(object).toBe('sys_team');
-    expect(params.$filter.id.$in.sort()).toEqual(['team_eu', 'team_gone', 'team_us']);
+    // The picker's query, so the list names exactly what the open picker offers.
+    expect(params).toEqual({ $top: 500, $orderby: { name: 'asc' } });
   });
 
   it("names a `field` recipient by the shared object's user column label", async () => {

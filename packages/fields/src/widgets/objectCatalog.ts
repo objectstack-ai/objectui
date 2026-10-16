@@ -63,11 +63,6 @@ export async function loadObjectCatalog(
   return [];
 }
 
-/** Whether `dataSource` offers one of the reads {@link loadObjectCatalog} makes. */
-export function canLoadObjectCatalog(dataSource: ObjectCatalogSource | null | undefined): boolean {
-  return typeof dataSource?.getObjects === 'function' || typeof dataSource?.find === 'function';
-}
-
 /**
  * An object's name as the picker spells it, `Label (name)`, or the bare name
  * when the catalog gives it no label. The picker uses it for each option and

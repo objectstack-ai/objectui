@@ -11,37 +11,38 @@
  * (objectui#12613): `object-ref` (a stored object name) and `recipient-picker`
  * (a stored recipient id or name, whose kind a sibling `recipient_type` names).
  *
- * ## Same reads as the edit widgets, batched across rows
+ * ## The edit widgets' own lists, read once per page
  *
- * The cells name a stored value from exactly what the edit widget lists:
+ * A cell names a stored value from the very list its edit widget offers:
  *
  *   - `object-ref` → the registered-object catalog, `loadObjectCatalog`
  *     (`./objectCatalog.ts`), the read `ObjectRefField` makes;
  *   - a record kind (`user`, `team`, `business_unit`, `unit_and_subordinates`)
- *     → the kind's directory object and label fields from `TYPE_TO_OBJECT`
- *     (`./recipientKinds.ts`), the table `RecipientPickerField` lists from;
+ *     → `loadRecipientCandidates` (`./recipientKinds.ts`), the picker's one
+ *     candidate query, labelled with the kind's `labelFields`;
  *   - a registry kind (`position`) → the console's metadata store,
  *     `ensureType(<type>)`, the reader `RecipientPickerField` lists it with;
  *   - the `field` kind → the shared object's schema through
  *     `deriveUserFields`, the picker's own column derivation.
  *
- * A list draws one cell per row, so nothing here is read per cell. A catalog
- * (the object list, a registry type, one object's user columns) is read once
- * per data source; record kinds are collected for one microtask and read with
- * one `$in` query per directory object. A grid page of fifty rules costs one
- * catalog read and at most one query per directory object, not fifty.
+ * Each list is a CATALOG: read the first time any cell asks it, once per data
+ * source, and every cell of every row answered from it. A grid page of fifty
+ * rules costs one read per list it names, not fifty — and a value reads in the
+ * list exactly as it reads in the open picker, including the picker's bound (a
+ * record past the candidate query's first 500 is not offered, and not named).
  *
  * ## The four answers a cell gets
  *
- *   - `unasked` — nothing can be asked: no data source, no sibling kind, a
- *     kind the picker does not know. The cell draws the stored text exactly as
- *     the text cell did before it existed, so a call site that cannot supply
- *     what the cell needs changes nothing.
+ *   - `unasked` — the edit widget could not list it either: no data source, no
+ *     sibling kind, a kind it does not know, no metadata store for a registry
+ *     kind. The cell draws the stored text exactly as the text cell did before
+ *     it existed, so a call site that cannot supply what the cell needs
+ *     changes nothing.
  *   - `pending` — asked, not answered yet. Drawn the same as `unasked`.
  *   - `resolved` — the label.
- *   - `unresolved` — asked and not found (a deleted record, a renamed
- *     object), or the read failed (no read access). The cell draws the raw
- *     stored value, muted, never a blank.
+ *   - `unresolved` — the list was read and does not hold the value (a deleted
+ *     record, a renamed object), or the read failed (no read access). The cell
+ *     draws the raw stored value, muted, never a blank.
  *
  * ## Cache lifetime
  *
@@ -50,17 +51,26 @@
  * its old label until reload is the right trade (the same one the approver
  * directory in `@object-ui/app-shell` makes). Keyed by the data source object,
  * so two hosts, and two tests, never share an answer.
+ *
+ * ## Why this module is small
+ *
+ * Every `packages/fields` module rides the console's eager `ui-components`
+ * chunk, whatever imports it lazily (`scripts/vite-ineffective-dynamic-imports.ts`
+ * says why), and that chunk has a ceiling of its own in
+ * `scripts/check-eager-closure-budget.mjs`. One catalog mechanism serves all
+ * five lists for that reason: a second one (a batched `$in` reader for the
+ * record kinds) cost a page-load payload the budget refused.
  */
 
 import React from 'react';
 import { MetadataCtx, SchemaRendererContext } from '@object-ui/react';
-import { extractRecords } from '@object-ui/core';
 import type { DataSource } from '@object-ui/types';
-import { canLoadObjectCatalog, loadObjectCatalog } from './objectCatalog.js';
+import { loadObjectCatalog } from './objectCatalog.js';
 import {
   FIELD_RECIPIENT_TYPE,
   TYPE_TO_OBJECT,
   TYPE_TO_REGISTRY,
+  loadRecipientCandidates,
   recipientCandidateLabel,
 } from './recipientKinds.js';
 import { deriveUserFields } from './RecipientPickerField.js';
@@ -76,30 +86,15 @@ const UNASKED: RefLabel = Object.freeze({ state: 'unasked' });
 const PENDING: RefLabel = Object.freeze({ state: 'pending' });
 const UNRESOLVED: RefLabel = Object.freeze({ state: 'unresolved' });
 
-const resolved = (label: string): RefLabel => Object.freeze({ state: 'resolved', label });
-
-/** At most this many ids go into one `$in` query. */
-const RECORD_QUERY_CHUNK = 100;
-
-/** A name → label list read once, answering every name asked of it. */
-interface Catalog {
-  map: ReadonlyMap<string, string> | null;
-  failed: boolean;
-  /** Entry key → the name it asks, for the asks that arrived while loading. */
-  waiting: Map<string, string>;
-}
+/** A list's name → label pairs, or `null` when its read failed. */
+type Catalog = ReadonlyMap<string, string> | null;
+type CatalogLoad = () => Promise<ReadonlyMap<string, string>>;
 
 /** Every answer one data source has given, and the reads still in flight. */
 class LabelBook {
   private readonly entries = new Map<string, RefLabel>();
   private readonly listeners = new Set<() => void>();
-  private readonly catalogs = new Map<string, Catalog>();
-  /** Record kind → id → entry key, waiting for the next flush. */
-  private recordQueue = new Map<string, Map<string, string>>();
-  private flushScheduled = false;
-  private publishScheduled = false;
-
-  constructor(private readonly dataSource: DataSource) {}
+  private readonly catalogs = new Map<string, Promise<Catalog>>();
 
   readonly subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
@@ -112,220 +107,76 @@ class LabelBook {
     return this.entries.get(key);
   }
 
-  private publish(): void {
-    for (const listener of [...this.listeners]) listener();
-  }
-
   /**
-   * An answer written while a subscriber was registering is not seen by
-   * React's store hook until a listener fires, so it is published on the
-   * next microtask, once for every answer written in the same turn.
+   * Ask catalog `catalogId` for `name`, loading it with `load` the first time
+   * any cell asks it. The answer is published from a promise callback, so a
+   * subscriber registering right now always hears it.
    */
-  private publishSoon(): void {
-    if (this.publishScheduled) return;
-    this.publishScheduled = true;
-    queueMicrotask(() => {
-      this.publishScheduled = false;
-      this.publish();
-    });
-  }
-
-  /** Ask a catalog for `name`; it is loaded by `load` the first time. */
-  askCatalog(
-    catalogId: string,
-    name: string,
-    key: string,
-    load: () => Promise<ReadonlyMap<string, string>>,
-  ): void {
-    if (this.entries.has(key)) return;
-    const known = this.catalogs.get(catalogId);
-    if (known && (known.map || known.failed)) {
-      this.entries.set(key, settleFromCatalog(known, name));
-      this.publishSoon();
-      return;
-    }
-    this.entries.set(key, PENDING);
-    if (known) {
-      known.waiting.set(key, name);
-      return;
-    }
-    const catalog: Catalog = { map: null, failed: false, waiting: new Map([[key, name]]) };
-    this.catalogs.set(catalogId, catalog);
-    let loading: Promise<ReadonlyMap<string, string>>;
-    try {
-      loading = load();
-    } catch (err) {
-      loading = Promise.reject(err);
-    }
-    loading
-      .then(
-        (map) => {
-          catalog.map = map;
-        },
-        () => {
-          catalog.failed = true;
-        },
-      )
-      .then(() => {
-        for (const [waitingKey, waitingName] of catalog.waiting) {
-          this.entries.set(waitingKey, settleFromCatalog(catalog, waitingName));
-        }
-        catalog.waiting.clear();
-        this.publish();
-      });
-  }
-
-  /** Ask for one record of a record kind; asks are batched per object. */
-  askRecord(kind: string, id: string, key: string): void {
+  ask(catalogId: string, name: string, key: string, load: CatalogLoad): void {
     if (this.entries.has(key)) return;
     this.entries.set(key, PENDING);
-    let ids = this.recordQueue.get(kind);
-    if (!ids) {
-      ids = new Map();
-      this.recordQueue.set(kind, ids);
+    let catalog = this.catalogs.get(catalogId);
+    if (!catalog) {
+      catalog = Promise.resolve()
+        .then(load)
+        .catch(() => null);
+      this.catalogs.set(catalogId, catalog);
     }
-    ids.set(id, key);
-    if (this.flushScheduled) return;
-    this.flushScheduled = true;
-    queueMicrotask(() => {
-      this.flushScheduled = false;
-      void this.flushRecords();
+    void catalog.then((map) => {
+      const label = map?.get(name);
+      this.entries.set(key, label === undefined ? UNRESOLVED : Object.freeze({ state: 'resolved', label }));
+      for (const listener of [...this.listeners]) listener();
     });
-  }
-
-  private async flushRecords(): Promise<void> {
-    const queue = this.recordQueue;
-    this.recordQueue = new Map();
-    // One query per directory OBJECT: `business_unit` and
-    // `unit_and_subordinates` share `sys_business_unit`, so their ids go out
-    // together.
-    const byObject = new Map<string, { storeField: string; asks: Array<{ kind: string; id: string; key: string }> }>();
-    for (const [kind, ids] of queue) {
-      const mapping = TYPE_TO_OBJECT[kind];
-      if (!mapping) continue;
-      let group = byObject.get(mapping.object);
-      if (!group) {
-        group = { storeField: mapping.storeField, asks: [] };
-        byObject.set(mapping.object, group);
-      }
-      for (const [id, key] of ids) group.asks.push({ kind, id, key });
-    }
-    await Promise.all(
-      [...byObject].map(async ([object, group]) => {
-        const rowsById = new Map<string, unknown>();
-        let failed = false;
-        try {
-          const ids = [...new Set(group.asks.map((a) => a.id))];
-          for (let i = 0; i < ids.length; i += RECORD_QUERY_CHUNK) {
-            const chunk = ids.slice(i, i + RECORD_QUERY_CHUNK);
-            const res = await this.dataSource.find(object, {
-              $filter: { [group.storeField]: { $in: chunk } },
-              $top: chunk.length,
-            });
-            for (const row of extractRecords(res)) {
-              const stored = (row as Record<string, unknown> | null)?.[group.storeField];
-              if (stored != null) rowsById.set(String(stored), row);
-            }
-          }
-        } catch {
-          failed = true;
-        }
-        for (const ask of group.asks) {
-          const row = failed ? undefined : rowsById.get(ask.id);
-          this.entries.set(
-            ask.key,
-            row === undefined
-              ? UNRESOLVED
-              : resolved(recipientCandidateLabel(TYPE_TO_OBJECT[ask.kind]?.labelFields, row)),
-          );
-        }
-        this.publish();
-      }),
-    );
   }
 }
 
-function settleFromCatalog(catalog: Catalog, name: string): RefLabel {
-  if (catalog.failed || !catalog.map) return UNRESOLVED;
-  const label = catalog.map.get(name);
-  return label === undefined ? UNRESOLVED : resolved(label);
-}
-
-const books = new WeakMap<object, LabelBook>();
+const books = new WeakMap<DataSource, LabelBook>();
 
 function bookFor(dataSource: DataSource): LabelBook {
   let book = books.get(dataSource);
   if (!book) {
-    book = new LabelBook(dataSource);
+    book = new LabelBook();
     books.set(dataSource, book);
   }
   return book;
 }
 
-const keyOf = (...parts: string[]): string => JSON.stringify(parts);
-
 const noSubscription = (): (() => void) => () => {};
-const readUnasked = (): RefLabel => UNASKED;
 
-/** The registered object a stored `object-ref` value names. */
-export function useObjectRefLabel(value: unknown): RefLabel {
-  const ctx = React.useContext(SchemaRendererContext);
-  const dataSource: DataSource | null = ctx?.dataSource ?? null;
-  const name = typeof value === 'string' ? value : '';
-  const book = name && dataSource && canLoadObjectCatalog(dataSource) ? bookFor(dataSource) : null;
-  const key = keyOf('object', name);
-
+/**
+ * The one store subscription both cells make: `name` asked of the catalog
+ * `catalogId` names (`''` = nothing can be asked), loaded by `load`. `load` is
+ * read through a ref so a render's fresh closure never re-subscribes a cell.
+ */
+function useCatalogLabel(dataSource: DataSource | null, catalogId: string, name: string, load: CatalogLoad): RefLabel {
+  const book = catalogId && dataSource ? bookFor(dataSource) : null;
+  const key = JSON.stringify([catalogId, name]);
+  const loadRef = React.useRef(load);
+  // An effect, so it runs before the subscription's own effect below.
+  React.useEffect(() => {
+    loadRef.current = load;
+  });
   const subscribe = React.useCallback(
     (listener: () => void) => {
       if (!book) return noSubscription();
       const off = book.subscribe(listener);
-      book.askCatalog('object', name, key, async () => {
-        const rows = await loadObjectCatalog(dataSource);
-        return new Map(rows.map((row) => [row.name, row.label ?? '']));
-      });
+      book.ask(catalogId, name, key, () => loadRef.current());
       return off;
     },
-    [book, dataSource, name, key],
+    [book, catalogId, name, key],
   );
   const getSnapshot = React.useCallback(() => (book ? book.read(key) ?? PENDING : UNASKED), [book, key]);
-  return React.useSyncExternalStore(book ? subscribe : noSubscription, book ? getSnapshot : readUnasked, book ? getSnapshot : readUnasked);
+  return React.useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }
 
-/** One ask a stored recipient turns into, or `null` when nothing can be asked. */
-type RecipientAsk =
-  | { kind: 'record'; recipientType: string; id: string; key: string }
-  | { kind: 'registry'; recipientType: string; name: string; key: string }
-  | { kind: 'field'; objectName: string; name: string; key: string };
-
-function recipientAskOf(
-  value: unknown,
-  dependentValues: Readonly<Record<string, unknown>> | undefined,
-  dataSource: DataSource | null,
-  hasMetadataStore: boolean,
-): RecipientAsk | null {
-  if (!dependentValues || typeof value !== 'string' || value === '') return null;
-  // The same sibling reads the edit widget makes: `recipient_type` picks the
-  // kind, and in `field` mode `object_name` names the object whose columns
-  // are offered — both declared in the field's own `dependsOn`.
-  const recipientType = String(dependentValues.recipient_type ?? '');
-  const record = TYPE_TO_OBJECT[recipientType];
-  if (record) {
-    if (!dataSource || typeof dataSource.find !== 'function') return null;
-    return { kind: 'record', recipientType, id: value, key: keyOf('record', recipientType, value) };
-  }
-  const registry = TYPE_TO_REGISTRY[recipientType];
-  if (registry) {
-    // Outside a metadata store the picker degrades to a text input, and the
-    // cell to the text it drew before.
-    if (!hasMetadataStore) return null;
-    return { kind: 'registry', recipientType, name: value, key: keyOf('registry', registry.type, value) };
-  }
-  if (recipientType === FIELD_RECIPIENT_TYPE) {
-    const objectName = String(dependentValues.object_name ?? '');
-    if (!objectName || !dataSource || typeof dataSource.getObjectSchema !== 'function') return null;
-    return { kind: 'field', objectName, name: value, key: keyOf('field', objectName, value) };
-  }
-  return null;
+/** The registered object a stored `object-ref` value names. */
+export function useObjectRefLabel(value: unknown): RefLabel {
+  const dataSource = React.useContext(SchemaRendererContext)?.dataSource ?? null;
+  const canList = typeof dataSource?.getObjects === 'function' || typeof dataSource?.find === 'function';
+  return useCatalogLabel(dataSource, typeof value === 'string' && value && canList ? 'object' : '', String(value), async () => {
+    const rows = await loadObjectCatalog(dataSource);
+    return new Map(rows.map((row) => [row.name, row.label ?? '']));
+  });
 }
 
 /**
@@ -337,57 +188,47 @@ export function useRecipientLabel(
   value: unknown,
   dependentValues: Readonly<Record<string, unknown>> | undefined,
 ): RefLabel {
-  const ctx = React.useContext(SchemaRendererContext);
-  const dataSource: DataSource | null = ctx?.dataSource ?? null;
+  const dataSource = React.useContext(SchemaRendererContext)?.dataSource ?? null;
   // Read raw, as the picker reads it: an absent store and an empty registry
   // are different facts. Through a ref, because the store's context value is
   // rebuilt whenever any type it caches settles (AGENTS.md #10).
   const metadataStore = React.useContext(MetadataCtx);
-  const metadataStoreRef = React.useRef(metadataStore);
-  // Kept current from an effect, which runs before the store subscription's
-  // own effect below, so an ask always reads the store of the latest commit.
+  const storeRef = React.useRef(metadataStore);
   React.useEffect(() => {
-    metadataStoreRef.current = metadataStore;
+    storeRef.current = metadataStore;
   });
-
-  const ask = recipientAskOf(value, dependentValues, dataSource, !!metadataStore);
-  const book = ask && dataSource ? bookFor(dataSource) : null;
-  const key = ask?.key ?? '';
-  // The ask's primitives, so the subscription is keyed on data, not on the
-  // `ask` object this render built.
-  const askKind = ask?.kind ?? '';
-  const askTarget = ask ? (ask.kind === 'field' ? ask.objectName : ask.recipientType) : '';
-  const askValue = ask ? (ask.kind === 'record' ? ask.id : ask.name) : '';
-
-  const subscribe = React.useCallback(
-    (listener: () => void) => {
-      if (!book || !dataSource) return noSubscription();
-      const off = book.subscribe(listener);
-      if (askKind === 'record') {
-        book.askRecord(askTarget, askValue, key);
-      } else if (askKind === 'registry') {
-        const registry = TYPE_TO_REGISTRY[askTarget];
-        book.askCatalog(`registry:${registry.type}`, askValue, key, async () => {
-          const store = metadataStoreRef.current;
-          const items = store ? await store.ensureType(registry.type) : [];
-          const map = new Map<string, string>();
-          for (const item of Array.isArray(items) ? items : []) {
-            if (typeof item?.name === 'string' && item.name) {
-              map.set(item.name, recipientCandidateLabel(registry.labelFields, item));
-            }
-          }
-          return map;
-        });
-      } else if (askKind === 'field') {
-        book.askCatalog(`field:${askTarget}`, askValue, key, async () => {
-          const schema = await dataSource.getObjectSchema(askTarget);
-          return new Map(deriveUserFields(schema).map((f) => [f.name, f.label]));
-        });
-      }
-      return off;
-    },
-    [book, dataSource, key, askKind, askTarget, askValue],
-  );
-  const getSnapshot = React.useCallback(() => (book ? book.read(key) ?? PENDING : UNASKED), [book, key]);
-  return React.useSyncExternalStore(book ? subscribe : noSubscription, book ? getSnapshot : readUnasked, book ? getSnapshot : readUnasked);
+  // The same sibling reads the edit widget makes: `recipient_type` picks the
+  // kind, and in `field` mode `object_name` names the object whose columns
+  // are offered — both declared in the field's own `dependsOn`.
+  const kind = String(dependentValues?.recipient_type ?? '');
+  const objectName = String(dependentValues?.object_name ?? '');
+  const record = TYPE_TO_OBJECT[kind];
+  const registry = TYPE_TO_REGISTRY[kind];
+  const catalogId =
+    !dependentValues || typeof value !== 'string' || !value
+      ? ''
+      : record
+        ? typeof dataSource?.find === 'function' ? `record:${kind}` : ''
+        : registry
+          ? metadataStore ? `registry:${registry.type}` : ''
+          : kind === FIELD_RECIPIENT_TYPE && objectName && typeof dataSource?.getObjectSchema === 'function'
+            ? `field:${objectName}`
+            : '';
+  return useCatalogLabel(dataSource, catalogId, String(value), async () => {
+    // `catalogId` is '' without a data source, so no load runs without one.
+    if (!dataSource) return new Map();
+    if (record) {
+      const rows = await loadRecipientCandidates(dataSource, record);
+      return new Map(rows.map((row) => [String((row as Record<string, unknown>)?.[record.storeField] ?? ''), recipientCandidateLabel(record.labelFields, row)]));
+    }
+    if (registry) {
+      const items = (await storeRef.current?.ensureType(registry.type)) ?? [];
+      return new Map(
+        (Array.isArray(items) ? items : [])
+          .filter((item) => typeof item?.name === 'string' && item.name)
+          .map((item) => [item.name as string, recipientCandidateLabel(registry.labelFields, item)]),
+      );
+    }
+    return new Map(deriveUserFields(await dataSource.getObjectSchema(objectName)).map((f) => [f.name, f.label]));
+  });
 }

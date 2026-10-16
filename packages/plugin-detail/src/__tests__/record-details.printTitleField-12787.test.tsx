@@ -79,7 +79,11 @@ const candidateRecord = { id: 't1', name: 'Printer jam', priority: 'high', owner
  */
 const DESKTOP_WIDTH = 1280;
 
-function renderBody(record: any, schema: any, print: boolean): string {
+function renderBody(
+  record: { id: string } & Record<string, unknown>,
+  schema: { name: string; fields: Record<string, unknown> },
+  print: boolean,
+): string {
   const body = (
     <RecordContextProvider
       objectName={schema.name}

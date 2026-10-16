@@ -24,7 +24,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor, within } from '@testing-library/react';
 import { DatasetWidget } from '../DatasetWidget';
-import { ObjectMetricWidget } from '../ObjectMetricWidget';
+import { ObjectMetricWidget, type ObjectMetricWidgetProps } from '../ObjectMetricWidget';
 
 afterEach(cleanup);
 
@@ -138,7 +138,7 @@ describe('ObjectMetricWidget — zero baseline (objectui#12677)', () => {
   const CURRENT_FROM = iso(quarterStart(new Date()));
   const renderWidget = (current: number, previous: number, extra: Record<string, unknown> = {}) => {
     const src = {
-      aggregate: vi.fn(async (_object: string, q: any) => [
+      aggregate: vi.fn(async (_object: string, q: { filter?: { created_at?: { $gte?: unknown } } }) => [
         { task_count: String(q?.filter?.created_at?.$gte) === CURRENT_FROM ? current : previous },
       ]),
     };
@@ -149,7 +149,7 @@ describe('ObjectMetricWidget — zero baseline (objectui#12677)', () => {
         aggregate={{ field: 'task', function: 'count' }}
         filter={{ created_at: { $gte: '{current_quarter_start}', $lte: '{current_quarter_end}' } }}
         compareTo={{ kind: 'previousYear' }}
-        dataSource={src as any}
+        dataSource={src as unknown as ObjectMetricWidgetProps['dataSource']}
         {...extra}
       />,
     );

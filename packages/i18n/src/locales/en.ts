@@ -2758,8 +2758,6 @@ const en = {
       },
       devAdminHint: {
         title: 'Local development instance',
-        body: 'Sign in with the seeded dev admin:',
-        dismiss: 'Dismiss',
         signIn: 'Sign in as dev admin',
       },
       errors: {

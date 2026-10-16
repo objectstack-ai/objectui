@@ -2298,8 +2298,6 @@ const es = {
       ssoHandoff: "Continuar a {{target}}",
       devAdminHint: {
         title: "Instancia de desarrollo local",
-        body: "Inicie sesión con el administrador de desarrollo predefinido:",
-        dismiss: "Descartar",
         signIn: "Iniciar sesión como administrador de desarrollo",
       },
       title: "Inicia sesión en tu cuenta",

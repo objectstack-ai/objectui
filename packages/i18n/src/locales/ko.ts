@@ -2246,8 +2246,6 @@ const ko = {
       ssoHandoff: "{{target}}(으)로 계속",
       devAdminHint: {
         title: "로컬 개발 인스턴스",
-        body: "시드된 개발용 관리자 계정으로 로그인하세요:",
-        dismiss: "닫기",
         signIn: "개발용 관리자로 로그인",
       },
       title: "계정에 로그인",

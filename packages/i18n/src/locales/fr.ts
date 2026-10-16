@@ -2295,8 +2295,6 @@ const fr = {
       ssoHandoff: "Continuer vers {{target}}",
       devAdminHint: {
         title: "Instance de développement locale",
-        body: "Connectez-vous avec l'administrateur de développement prédéfini :",
-        dismiss: "Ignorer",
         signIn: "Se connecter en tant qu'administrateur de développement",
       },
       title: "Connectez-vous à votre compte",

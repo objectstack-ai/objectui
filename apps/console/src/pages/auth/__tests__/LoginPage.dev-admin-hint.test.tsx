@@ -22,7 +22,11 @@
  *    not in a hidden element — read off the whole document's markup;
  *  - the chip hands the reported email and password to `signIn`, and a signed-in
  *    user moves the page to its post-login state;
- *  - a refused sign-in says why and gives the chip back.
+ *  - a refused sign-in says why and gives the chip back;
+ *  - after the chip's sign-in the page hands over exactly as after a typed one:
+ *    the same landing, a safe `?redirect=`, and the SSO hand-off's authorize
+ *    replay (the typed path's hand-off is pinned beside it, since the page's
+ *    `?redirect=` and SSO behaviour must not change).
  */
 
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
@@ -32,6 +36,13 @@ import { MemoryRouter } from 'react-router-dom';
 import { AuthProvider } from '@object-ui/auth';
 import type { AuthClient } from '@object-ui/auth';
 import { LoginPage } from '../LoginPage';
+import { followOauthAuthorize } from '../followAuthorize';
+import { withConsoleBase } from '../../../utils/consoleBase';
+
+// The SSO hand-off replays the authorize request through this helper, a
+// fetch-and-follow; the pins below read whether the page called it, and with
+// which query string.
+vi.mock('../followAuthorize', () => ({ followOauthAuthorize: vi.fn() }));
 
 /** Distinctive, so a hit in the markup can only be this value. */
 const SEED_PASSWORD = 'seed-Pw-12600-x7q';
@@ -42,6 +53,7 @@ afterEach(cleanup);
 beforeEach(() => {
   window.localStorage.clear();
   vi.spyOn(window.location, 'assign').mockImplementation(() => undefined);
+  vi.mocked(followOauthAuthorize).mockClear();
 });
 afterEach(() => {
   vi.restoreAllMocks();
@@ -61,11 +73,12 @@ function createMockClient(
   } as unknown as AuthClient;
 }
 
-function renderLogin(client: AuthClient) {
-  window.history.replaceState({}, '', '/login');
+/** `search` lands on both the router and `window.location`: the page reads `?redirect=` from the one and the SSO hand-off from the other. */
+function renderLogin(client: AuthClient, search = '') {
+  window.history.replaceState({}, '', `/login${search}`);
   return render(
     <AuthProvider authUrl="/api/v1/auth" client={client}>
-      <MemoryRouter initialEntries={['/login']}>
+      <MemoryRouter initialEntries={[`/login${search}`]}>
         <LoginPage />
       </MemoryRouter>
     </AuthProvider>,
@@ -142,5 +155,66 @@ describe('LoginPage — the dev-seeded admin row (objectui#12600)', () => {
     const row = await screen.findByTestId('dev-admin-hint');
     expect(row.textContent).toContain(SEED_EMAIL);
     expect(screen.queryByTestId('dev-admin-signin')).toBeNull();
+  });
+});
+
+describe('LoginPage — after the chip, the same hand-off as a typed sign-in (objectui#12600)', () => {
+  const SSO_SEARCH = `?client_id=c1&redirect_uri=${encodeURIComponent('https://rp.example.com/cb')}`;
+
+  /** The URL the page sends the browser to once a user is signed in. */
+  async function landing(): Promise<string> {
+    const assign = vi.mocked(window.location.assign);
+    await waitFor(() => expect(assign).toHaveBeenCalled());
+    return String(assign.mock.calls[0]![0]);
+  }
+
+  async function typeAndSubmit() {
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText('Email'), SEED_EMAIL);
+    await user.type(screen.getByLabelText('Password'), SEED_PASSWORD);
+    await user.click(screen.getByRole('button', { name: 'Sign In' }));
+  }
+
+  it('lands where a typed sign-in lands: the console root, which resolves to home', async () => {
+    renderLogin(createMockClient({}));
+    await typeAndSubmit();
+    const typed = await landing();
+
+    cleanup();
+    window.localStorage.clear();
+    vi.mocked(window.location.assign).mockClear();
+
+    renderLogin(createMockClient(DEV_SEED));
+    await userEvent.setup().click(await screen.findByTestId('dev-admin-signin'));
+
+    expect(await landing()).toBe(typed);
+    expect(typed).toBe(withConsoleBase('/'));
+  });
+
+  it('honours a safe ?redirect= after the chip, as after a typed sign-in', async () => {
+    renderLogin(createMockClient(DEV_SEED), `?redirect=${encodeURIComponent('/settings')}`);
+    await userEvent.setup().click(await screen.findByTestId('dev-admin-signin'));
+
+    expect(await landing()).toBe(withConsoleBase('/settings'));
+  });
+
+  it('a typed sign-in under an SSO hand-off shows the relying party and replays the authorize request', async () => {
+    renderLogin(createMockClient({}), SSO_SEARCH);
+
+    expect(await screen.findByText('Continue to rp.example.com')).toBeTruthy();
+    await typeAndSubmit();
+
+    await waitFor(() => expect(followOauthAuthorize).toHaveBeenCalledTimes(1));
+    expect(followOauthAuthorize).toHaveBeenCalledWith(SSO_SEARCH);
+    expect(window.location.assign).not.toHaveBeenCalled();
+  });
+
+  it('the chip under an SSO hand-off replays the authorize request too', async () => {
+    renderLogin(createMockClient(DEV_SEED), SSO_SEARCH);
+    await userEvent.setup().click(await screen.findByTestId('dev-admin-signin'));
+
+    await waitFor(() => expect(followOauthAuthorize).toHaveBeenCalledTimes(1));
+    expect(followOauthAuthorize).toHaveBeenCalledWith(SSO_SEARCH);
+    expect(window.location.assign).not.toHaveBeenCalled();
   });
 });

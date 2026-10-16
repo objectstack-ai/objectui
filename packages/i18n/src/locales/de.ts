@@ -2246,8 +2246,6 @@ const de = {
       ssoHandoff: "Weiter zu {{target}}",
       devAdminHint: {
         title: "Lokale Entwicklungsinstanz",
-        body: "Melden Sie sich mit dem vorkonfigurierten Entwickler-Admin an:",
-        dismiss: "Ausblenden",
         signIn: "Als Entwickler-Admin anmelden",
       },
       title: "In Ihr Konto einloggen",

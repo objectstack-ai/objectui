@@ -2248,8 +2248,6 @@ const ja = {
       ssoHandoff: "{{target}} に進む",
       devAdminHint: {
         title: "ローカル開発インスタンス",
-        body: "初期設定の開発用管理者でサインインします:",
-        dismiss: "閉じる",
         signIn: "開発用管理者でサインイン",
       },
       title: "アカウントにサインイン",

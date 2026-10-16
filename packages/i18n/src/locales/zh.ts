@@ -2323,8 +2323,6 @@ const zh = {
       ssoHandoff: '继续前往 {{target}}',
       devAdminHint: {
         title: '本地开发实例',
-        body: '可使用内置的开发管理员登录：',
-        dismiss: '关闭',
         signIn: '以开发管理员登录',
       },
       errors: {

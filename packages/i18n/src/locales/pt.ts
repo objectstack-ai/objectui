@@ -2293,8 +2293,6 @@ const pt = {
       ssoHandoff: "Continuar para {{target}}",
       devAdminHint: {
         title: "Instância de desenvolvimento local",
-        body: "Entre com o administrador de desenvolvimento pré-configurado:",
-        dismiss: "Dispensar",
         signIn: "Entrar como administrador de desenvolvimento",
       },
       title: "Entre na sua conta",

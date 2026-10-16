@@ -15,11 +15,11 @@ import { Empty, EmptyTitle, EmptyDescription, Button } from '@object-ui/componen
 import { useAuth, createAuthenticatedFetch } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
 import { useDisplayLocale } from '@object-ui/i18n';
-import { ActionProvider, useObjectTranslation, useObjectLabel, useActionTextLocalizer, usePageAssignment, RecordContextProvider, SchemaRenderer, DiscussionContextProvider, HighlightFieldsProvider, InlineEditProvider, resolveApprovalLock, useGlobalUndo, useDataInvalidation, notifyDataChanged, subscribeDataChanges, dataChangeMatches, useRowPredicate, classifyLoadError } from '@object-ui/react';
+import { ActionProvider, useObjectTranslation, useObjectLabel, useActionTextLocalizer, usePageAssignment, isRecordPageOf, useMetadata, RecordContextProvider, SchemaRenderer, DiscussionContextProvider, HighlightFieldsProvider, InlineEditProvider, resolveApprovalLock, useGlobalUndo, useDataInvalidation, notifyDataChanged, subscribeDataChanges, dataChangeMatches, useRowPredicate, classifyLoadError } from '@object-ui/react';
 import { buildExpandFields, captureUpdateUndoData, recordDelete, resolveAffordance, resolveRecordIdParamSeed, userActionPredicates, withoutDeniedFields, type AffordanceGrantPrincipal, type SchemaLike } from '@object-ui/core';
 import { toast } from 'sonner';
 import { useRecordPresence, PresenceAvatars, isCommentAuthor } from '@object-ui/collaboration';
-import { Database, ChevronLeft, Lock, AlertTriangle, RotateCw, Printer } from 'lucide-react';
+import { Database, ChevronLeft, Lock, AlertTriangle, RotateCw, Printer, FileText } from 'lucide-react';
 import { MetadataPanel, useMetadataInspector } from './MetadataInspector.js';
 import { SkeletonDetail } from '../skeletons/index.js';
 import { ManagedByBadge } from '../components/ManagedByBadge.js';
@@ -487,6 +487,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     appName?: string;
     objectName?: string;
     recordId?: string;
+    pageName?: string;
   }>();
   const appName = params.appName;
   const objectName = objectNameOverride ?? params.objectName;
@@ -637,7 +638,36 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // so the default detail page rides the same SchemaRenderer pipeline as
   // custom pages. (ADR-0085 PR4 removed the legacy DetailView monolith and
   // its `renderViaSchema` kill-switch — schema-driven is the only path.)
-  const { page: assignedPage, slots: assignedSlots } = usePageAssignment(objectName);
+  //
+  // objectui#12715 — the NAMED record page route
+  // (`:objectName/record/:recordId/page/:pageName`, `RECORD_NAMED_PAGE_ROUTE`
+  // in `console/AppContent.tsx`) names the page in the URL. It is honoured only
+  // when that page is a record page of THIS object (`isRecordPageOf`, the same
+  // reading the object-based lookup filters with); any other name is refused
+  // with a visible not-found state. There is no fallback: while the pages load
+  // nothing is drawn, and a refused name never draws the default page or a
+  // synthesized one, so a print of this URL can never put a different document
+  // on paper. An embedded detail (drawer / split pane) is keyed by its
+  // overrides, not by the host route, so it never reads the segment. On the
+  // record route itself `requestedPageName` is undefined and the lookup is the
+  // object's default record page, exactly as before.
+  const requestedPageName = embedded ? undefined : params.pageName;
+  const {
+    page: resolvedPage,
+    slots: resolvedSlots,
+    loading: pageAssignmentLoading,
+  } = usePageAssignment(objectName, requestedPageName ? { pageName: requestedPageName } : undefined);
+  const metadataPages = useMetadata().pages;
+  const namedPageState: 'none' | 'pending' | 'accepted' | 'refused' = useMemo(() => {
+    if (!requestedPageName) return 'none';
+    if (pageAssignmentLoading) return 'pending';
+    const pages: unknown[] = Array.isArray(metadataPages) ? metadataPages : [];
+    const named = pages.find((p) => (p as { name?: unknown } | null)?.name === requestedPageName);
+    return isRecordPageOf(named, objectName) ? 'accepted' : 'refused';
+  }, [requestedPageName, pageAssignmentLoading, metadataPages, objectName]);
+  const namedPageBlocked = namedPageState === 'pending' || namedPageState === 'refused';
+  const assignedPage = namedPageBlocked ? null : resolvedPage;
+  const assignedSlots = namedPageBlocked ? null : resolvedSlots;
   const synthesizedPage = useMemo(() => {
     // Synthesizer drives two cases:
     //   1) no assignedPage at all → pure default detail page
@@ -647,8 +677,11 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     // render time once the synth parts (sections, related, …) are known.
     if (assignedPage) return null;
     if (!objectDef) return null;
+    // A named page that is still loading or was refused is never replaced by
+    // the synthesized default (objectui#12715).
+    if (namedPageBlocked) return null;
     return buildDefaultPageSchema(objectDef as any, assignedSlots ? { slots: assignedSlots } : undefined);
-  }, [assignedPage, assignedSlots, objectDef]);
+  }, [assignedPage, assignedSlots, objectDef, namedPageBlocked]);
   const effectivePage = assignedPage || synthesizedPage;
   const [pageRecord, setPageRecord] = useState<any>(null);
   // 'idle' | 'loading' | 'loaded' | 'missing' | 'forbidden' | 'failed' —
@@ -2950,6 +2983,29 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           <EmptyTitle>{t('empty.objectNotFound')}</EmptyTitle>
           <EmptyDescription>
             {t('empty.objectNotFoundDescription', { name: objectName })}
+          </EmptyDescription>
+        </Empty>
+      </div>
+    );
+  }
+
+  // objectui#12715 — the named record page route. While the pages load,
+  // draw the skeleton (never the default page); a name that is not a record
+  // page of this object shows the console's page-not-found state. Neither
+  // stamps the print root, so a print driver never reads either as ready.
+  if (namedPageState === 'pending') {
+    return <SkeletonDetail />;
+  }
+  if (namedPageState === 'refused') {
+    return (
+      <div className="flex h-full items-center justify-center p-4">
+        <Empty data-testid="record-page-not-found">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+            <FileText className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <EmptyTitle>{t('empty.pageNotFound')}</EmptyTitle>
+          <EmptyDescription>
+            {t('empty.pageNotFoundDescription', { name: requestedPageName })}
           </EmptyDescription>
         </Empty>
       </div>

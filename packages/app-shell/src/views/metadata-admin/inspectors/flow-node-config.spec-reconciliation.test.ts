@@ -407,7 +407,7 @@ describe('declared defaults ↔ per-node-type spec schemas (#6794, #6620, object
       supplied: { timeoutHours: 24 },
     },
     {
-      type: 'http_request',
+      type: 'http',
       prefix: ['config'],
       schema: () => spec.HttpConfigSchema,
       supplied: { url: 'https://example.invalid/x' },
@@ -510,7 +510,8 @@ describe('declared defaults ↔ per-node-type spec schemas (#6794, #6620, object
    *
    * ⭐ **The register is EMPTY, and that is objectui#9109's resolution.** The
    * four rows it opened with — `wait:waitEventConfig.eventType`,
-   * `boundary_event:boundaryConfig.eventType`, `http_request:config.method` and
+   * `boundary_event:boundaryConfig.eventType`, `http_request:config.method` (the group is keyed `http` since
+   * objectui#12742) and
    * `screen:config.mode` — were repaid by DELETING the declarations, which is
    * triage's ruling on that card and not this file's opinion: the
    * `defaultValue` doc comment defines the property AS the spec default for its
@@ -753,7 +754,7 @@ describe('declared defaults ↔ per-node-type spec schemas (#6794, #6620, object
   }> = [
     { region: 'wait:waitEventConfig', key: 'eventType', was: 'timer', state: 'required-no-default' },
     { region: 'boundary_event:boundaryConfig', key: 'eventType', was: 'error', state: 'required-no-default' },
-    { region: 'http_request:config', key: 'method', was: 'GET', state: 'optional-no-default' },
+    { region: 'http:config', key: 'method', was: 'GET', state: 'optional-no-default' },
     // `screen:config.mode` was the fourth row. It left at `@objectstack/spec`
     // 17.5.0, exactly the way this block says a row leaves: the spec began
     // materialising `'create'` for an omitted key, so the form declares it

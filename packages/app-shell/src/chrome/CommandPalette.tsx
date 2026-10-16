@@ -16,7 +16,7 @@
  * opening its Studio page.
  */
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   CommandDialog,
@@ -135,10 +135,17 @@ export function CommandPalette(props: CommandPaletteProps) {
     [user?.id, activeOrganization?.id],
   );
 
-  const runCommand = useCallback((command: () => void) => {
+  // Close, then run. A plain function, not a memo: it must call THIS render's
+  // `setOpen`, which reads the URL as it is now. Memoised with no dependencies
+  // it kept the first render's, which saw the URL before `?palette=1` was
+  // written, so a non-navigating command (Dark Theme) left the palette open;
+  // after a deep-linked open, it sent the user back to the page the palette
+  // first rendered on (objectui#12683). Every caller is an inline handler
+  // built per render, so a memo bought nothing.
+  const runCommand = (command: () => void) => {
     setOpen(false);
     command();
-  }, []);
+  };
 
   // Extract navigation items from active app, filtering by visibility expressions
   const navItems = flattenNavigation(activeApp?.navigation || []).filter(

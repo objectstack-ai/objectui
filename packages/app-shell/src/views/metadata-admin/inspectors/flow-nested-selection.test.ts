@@ -114,7 +114,7 @@ describe('flow-nested-selection — locateFlowNode + write-back', () => {
         config: {
           collection: '{items}',
           body: {
-            nodes: [{ id: 'charge', type: 'http_request', label: 'Charge' }],
+            nodes: [{ id: 'charge', type: 'http', label: 'Charge' }],
             edges: [{ source: 'charge', target: 'charge' }],
           },
         },
@@ -124,8 +124,8 @@ describe('flow-nested-selection — locateFlowNode + write-back', () => {
         type: 'parallel',
         config: {
           branches: [
-            { name: 'Slack', nodes: [{ id: 's', type: 'http_request', label: 'Slack' }], edges: [] },
-            { nodes: [{ id: 'c', type: 'http_request', label: 'CRM' }], edges: [] },
+            { name: 'Slack', nodes: [{ id: 's', type: 'http', label: 'Slack' }], edges: [] },
+            { nodes: [{ id: 'c', type: 'http', label: 'CRM' }], edges: [] },
           ],
         },
       },

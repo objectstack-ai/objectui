@@ -806,7 +806,10 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     cfg('limit', 'Limit', 'number', { placeholder: '100' }),
     cfg('outputVariable', 'Output variable', 'text', { placeholder: 'records' }),
   ],
-  http_request: [
+  // objectui#12742 — keyed `http`, the spec's node type: spec 18 reserves
+  // `http_request`, `http_call` and `webhook` (the authoring doors refuse them
+  // with the rename to `http`), so no alias picks this group.
+  http: [
     // ⛔ No `defaultValue` (objectui#9109): `HttpConfigSchema.method` is
     // `z.string().optional()` with NO `.default()`, so an omitted key
     // materialises nothing and a declaration here would be a claim about the
@@ -1342,7 +1345,6 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
  */
 const TYPE_ALIASES: Record<string, string> = {
   action: 'legacy_action',
-  http: 'http_request',
   branch: 'decision',
   gateway: 'decision',
   condition: 'decision',
@@ -1356,7 +1358,6 @@ const TYPE_ALIASES: Record<string, string> = {
   script_task: 'script',
   notification: 'connector_action',
   signal: 'boundary_event',
-  webhook: 'connector_action',
   for_each: 'loop',
 };
 
@@ -1865,7 +1866,7 @@ export function unsetTriggerReading(
  *
  * ⛔ Not the inspector's Node Type list. That list is the add-node palette's
  * (objectui#11778): it replaced the hand list `FLOW_NODE_TYPE_OPTIONS` that
- * stood here, which offered `http_request` (the engine's deprecated alias of
- * `http`) and missed `notify`, a type the palette adds.
+ * stood here, which offered `http_request` (a name spec 18 reserves, with the
+ * rename to `http`) and missed `notify`, a type the palette adds.
  */
 export const FLOW_NODE_CONFIG_TYPES: readonly string[] = Object.keys(FLOW_NODE_CONFIG);

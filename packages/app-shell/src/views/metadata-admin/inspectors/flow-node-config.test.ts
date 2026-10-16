@@ -345,7 +345,7 @@ describe('server configSchema ↔ hand-written field merge (framework#4045)', ()
     const serverFields: FlowConfigField[] = [
       { id: 'whatever', path: ['config', 'whatever'], label: 'Whatever', kind: 'text' },
     ];
-    for (const type of ['connector_action', 'wait', 'boundary_event', 'subflow', 'script', 'http_request']) {
+    for (const type of ['connector_action', 'wait', 'boundary_event', 'subflow', 'script', 'http']) {
       const nonConfig = fieldsForNodeType(type).filter((f) => f.path[0] !== 'config');
       expect(nonConfig.length, `${type} should have sibling/top-level fields to protect`).toBeGreaterThan(0);
       const merged = mergeServerFlowFields(serverFields, type);
@@ -364,10 +364,10 @@ describe('server configSchema ↔ hand-written field merge (framework#4045)', ()
     // merging with them — a stale client key must not linger.
     const merged = mergeServerFlowFields(
       [{ id: 'brandNew', path: ['config', 'brandNew'], label: 'Brand new', kind: 'text' }],
-      'http_request',
+      'http',
     );
     expect(merged.some((f) => f.path.join('.') === 'config.brandNew')).toBe(true);
-    // `url` is in the hand-written http_request group but not in this schema.
+    // `url` is in the hand-written http group but not in this schema.
     expect(merged.some((f) => f.path.join('.') === 'config.url')).toBe(false);
     // …while the top-level timeoutMs, which no configSchema can describe, stays.
     expect(merged.some((f) => f.path.join('.') === 'timeoutMs')).toBe(true);

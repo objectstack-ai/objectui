@@ -268,7 +268,7 @@ function StateMachineView({ object, name }: ViewerProps) {
 // reader sees the process, not the plumbing (ADR-0051 §3.4 altitude projection).
 const TECHNICAL_NODE_TYPES = new Set([
   'script',
-  'http_request',
+  'http',
   'connector_action',
   'assignment',
   'get_record',

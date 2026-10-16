@@ -21,8 +21,8 @@
  * Every key a group can INTRODUCE onto a node: each field's `path`, and for an
  * `objectList` field each column under the list's element. A `config`-rooted
  * key is judged against the config contract of every spec node type the
- * inspector resolves to that group (`fieldsForNodeType` is alias-aware, so the
- * `http_request` group is judged as the `http` node it renders for). Any other
+ * inspector resolves to that group (`fieldsForNodeType` is alias-aware; the
+ * `http` group is keyed by its spec node type since objectui#12742). Any other
  * root is a `FlowNodeSchema` member, a spec-structured sibling block or the
  * node-level `timeoutMs`, and is judged against `FlowNodeSchema`'s own shape.
  * A key the contract keeps only as a `[REMOVED]` tombstone counts as
@@ -290,18 +290,18 @@ const field = (path: string[]): FlowConfigField => ({ id: path.join('.'), path, 
 /* ── 1. The instrument fires ──────────────────────────────────────────────── */
 
 describe('the contract walk can fail, at every depth it judges (objectui#11968)', () => {
-  it('resolves the groups the inspector renders for spec node types, aliases included', () => {
+  it('resolves the groups the inspector renders for spec node types', () => {
     // The lit control for `renderingTypes`: without it, a group no type
     // resolved to would be judged against nothing and read as clean.
-    expect(renderingTypes('http_request'), 'the http_request group is the form for an `http` node').toEqual(['http']);
+    expect(renderingTypes('http'), 'the http group is the form for an `http` node').toEqual(['http']);
     expect(renderingTypes('notify')).toEqual(['notify']);
     expect(renderingTypes('legacy_action'), 'and no spec node type renders the legacy group').toEqual([]);
   });
 
   it('flags an undeclared config key, naming the group, the node type and the key', () => {
-    const stray = [...fieldsForNodeType('http_request'), field(['config', 'outputVariable'])];
-    expect(violationsOf('http_request', stray)).toEqual([
-      "http_request (node type 'http') writes config.outputVariable: 'outputVariable' is not declared in its config contract",
+    const stray = [...fieldsForNodeType('http'), field(['config', 'outputVariable'])];
+    expect(violationsOf('http', stray)).toEqual([
+      "http (node type 'http') writes config.outputVariable: 'outputVariable' is not declared in its config contract",
     ]);
   });
 
@@ -330,7 +330,7 @@ describe('the contract walk can fail, at every depth it judges (objectui#11968)'
     ).toEqual([]);
     expect(violationsOf('screen', [field(['config', 'fields', EACH, 'visibleWhen'])])).toEqual([]);
     expect(violationsOf('wait', [field(['waitEventConfig', 'timerDuration'])])).toEqual([]);
-    expect(violationsOf('http_request', [field(['timeoutMs']), field(['config', 'url'])])).toEqual([]);
+    expect(violationsOf('http', [field(['timeoutMs']), field(['config', 'url'])])).toEqual([]);
   });
 });
 
@@ -350,8 +350,8 @@ describe('every key a fallback group writes is declared by its node contract (ob
     );
     expect(judged).toEqual(
       expect.arrayContaining([
-        'http_request:config.url',
-        'http_request:timeoutMs',
+        'http:config.url',
+        'http:timeoutMs',
         'notify:config.actionUrl',
         'approval:config.escalation.enabled',
         'approval:config.approvers[].resolveAs',

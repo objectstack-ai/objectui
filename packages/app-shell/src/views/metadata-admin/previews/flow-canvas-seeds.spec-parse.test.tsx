@@ -174,12 +174,12 @@ function explain(result: { success: boolean; error?: { issues: ZodIssue[] } }): 
 /**
  * Node types whose seeds this file covers: everything the palette offers, plus
  * the `defaultNodeExtras` branches reachable from outside it (`start` / `end`
- * bootstrap nodes, the `http_request` alias, `boundary_event` attached by the
+ * bootstrap nodes, `boundary_event` attached by the
  * boundary affordance). Driven off `NODE_PALETTE` so a palette entry added
  * without a spec-valid seed fails here rather than at publish.
  */
 const SEEDED_TYPES: string[] = [
-  ...new Set([...NODE_PALETTE.map((p) => p.type), 'start', 'end', 'http_request', 'boundary_event']),
+  ...new Set([...NODE_PALETTE.map((p) => p.type), 'start', 'end', 'boundary_event']),
 ];
 
 describe('designer node seeds ↔ spec FlowNodeSchema (#3316)', () => {
@@ -243,7 +243,6 @@ describe('designer node seeds ↔ spec FlowNodeSchema (#3316)', () => {
       { type: 'approval', schema: 'ApprovalNodeConfigSchema' },
       { type: 'notify', schema: 'NotifyConfigSchema' },
       { type: 'http', schema: 'HttpConfigSchema' },
-      { type: 'http_request', schema: 'HttpConfigSchema' },
     ];
     for (const { type, schema } of CASES) {
       const zod = spec[schema];

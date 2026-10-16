@@ -1803,6 +1803,8 @@ const zh = {
       cryptoRefusalNoSubject: '声明为加密的值被拒绝,因此未写入任何内容。',
       cryptoRefusalToast: '无法加密机密信息:{{subject}}',
       cryptoRefusalToastNoSubject: '无法加密机密信息',
+      sourceBadgeInherited: '继承自{{source}}',
+      sourceBadgeOverrides: '覆盖{{source}}',
     },
     workspaceTimezonePrompt: {
       title: '设置工作区时区',

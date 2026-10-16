@@ -2055,6 +2055,8 @@ const pt = {
       cryptoRefusalNoSubject: "O valor declarado como criptografado foi recusado, portanto nada foi gravado.",
       cryptoRefusalToast: "Não é possível criptografar segredos: {{subject}}",
       cryptoRefusalToastNoSubject: "Não é possível criptografar segredos",
+      sourceBadgeInherited: "Herdado de {{source}}",
+      sourceBadgeOverrides: "Substitui {{source}}",
     },
     workspaceTimezonePrompt: {
       title: "Definir o fuso horário do workspace",

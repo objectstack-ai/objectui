@@ -127,7 +127,7 @@ const SCALAR_SLOTS: Array<[string, string, Record<string, unknown>]> = [
   ['map', 'collection', { type: 'map', config: { flowName: 'per_item' } }],
   ['loop', 'collection', { type: 'loop', config: { body: BODY } }],
   ['notify', 'sourceId', { type: 'notify', config: { sourceObject: 'account' } }],
-  ['http_request', 'body', { type: 'http', config: { url: 'https://a' } }],
+  ['http', 'body', { type: 'http', config: { url: 'https://a' } }],
 ];
 
 describe('objectui#12372 — a field whose whole value is one value slot writes a literal or a CEL value envelope', () => {
@@ -177,8 +177,8 @@ describe('objectui#12372 — a field whose whole value is one value slot writes 
     expect(screen.getByRole('alert').textContent).toContain("{ dialect: 'cel'");
   });
 
-  it('http_request.body: JSON typed in the text cell is stored as the object it spells', () => {
-    const onCommit = renderField(fieldOf('http_request', 'body'), SCALAR_SLOTS[3][2], undefined);
+  it('http.body: JSON typed in the text cell is stored as the object it spells', () => {
+    const onCommit = renderField(fieldOf('http', 'body'), SCALAR_SLOTS[3][2], undefined);
     fireEvent.change(screen.getByRole('textbox'), { target: { value: '{ "key": "value" }' } });
     expect(onCommit).toHaveBeenLastCalledWith({ key: 'value' });
   });
@@ -271,7 +271,7 @@ describe('objectui#12372 — no help text or placeholder prescribes a {var} toke
     ['delete_record', 'filter'],
     ['get_record', 'filter'],
     ['notify', 'sourceId'],
-    ['http_request', 'body'],
+    ['http', 'body'],
   ];
   it('the pattern catches the spellings it guards against', () => {
     for (const bad of ['{leadList}', '{items}', 'id → {recordId}']) expect(bad).toMatch(VAR_TOKEN);

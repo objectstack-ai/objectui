@@ -404,8 +404,8 @@ const NESTED_DRAFT = {
       type: 'try_catch',
       label: 'Guard',
       config: {
-        try: { nodes: [{ id: 'call', type: 'http_request', label: 'Call' }], edges: [] },
-        catch: { nodes: [{ id: 'alert', type: 'http_request', label: 'Alert' }], edges: [] },
+        try: { nodes: [{ id: 'call', type: 'http', label: 'Call' }], edges: [] },
+        catch: { nodes: [{ id: 'alert', type: 'http', label: 'Alert' }], edges: [] },
       },
     },
     {
@@ -414,8 +414,8 @@ const NESTED_DRAFT = {
       label: 'Fan out',
       config: {
         branches: [
-          { name: 'Slack', nodes: [{ id: 's', type: 'http_request', label: 'Slack' }], edges: [] },
-          { nodes: [{ id: 'c', type: 'http_request', label: 'CRM' }], edges: [] },
+          { name: 'Slack', nodes: [{ id: 's', type: 'http', label: 'Slack' }], edges: [] },
+          { nodes: [{ id: 'c', type: 'http', label: 'CRM' }], edges: [] },
         ],
       },
     },

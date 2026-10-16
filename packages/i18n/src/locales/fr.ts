@@ -2057,6 +2057,8 @@ const fr = {
       cryptoRefusalNoSubject: "La valeur déclarée chiffrée a été refusée, aucune écriture n'a donc eu lieu.",
       cryptoRefusalToast: "Impossible de chiffrer les secrets : {{subject}}",
       cryptoRefusalToastNoSubject: "Impossible de chiffrer les secrets",
+      sourceBadgeInherited: "Hérité de {{source}}",
+      sourceBadgeOverrides: "Remplace {{source}}",
     },
     workspaceTimezonePrompt: {
       title: "Définir le fuseau horaire de l’espace de travail",

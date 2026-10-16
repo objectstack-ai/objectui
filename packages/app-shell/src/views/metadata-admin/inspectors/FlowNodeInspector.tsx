@@ -642,7 +642,7 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
 
   // objectui#11778 — the palette's list (it once was a hand list here that
   // missed `notify` and showed raw type names). A stored type the palette does
-  // not offer (`start`, an alias like `http_request`, a plugin type whose engine
+  // not offer (`start`, a designer alias like `for_each`, a plugin type whose engine
   // is not answering) is added for THIS node only, under its display name, so
   // the select still shows what the node is; no other node is offered it.
   const typeOptions = paletteTypeOptions(paletteItems, locale);

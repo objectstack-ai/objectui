@@ -394,10 +394,10 @@ const LOOP_DRAFT = {
       config: {
         collection: '{items}',
         iteratorVariable: 'item',
-        body: { nodes: [{ id: 'call', type: 'http_request', label: 'Call' }], edges: [] },
+        body: { nodes: [{ id: 'call', type: 'http', label: 'Call' }], edges: [] },
       },
     },
-    { id: 'patchy', type: 'http_request', label: 'Patchy', config: { customKey: 1 } },
+    { id: 'patchy', type: 'http', label: 'Patchy', config: { customKey: 1 } },
   ],
   edges: [{ source: 'start', target: 'each' }],
 };
@@ -648,7 +648,7 @@ function mountConditionEdge(lang: Lang, condition: unknown) {
       name="route"
       draft={{
         nodes: [
-          { id: 'a', type: 'http_request', label: 'A' },
+          { id: 'a', type: 'http', label: 'A' },
           { id: 'b', type: 'end', label: 'B' },
         ],
         edges: [{ id: 'e1', source: 'a', target: 'b', condition }],

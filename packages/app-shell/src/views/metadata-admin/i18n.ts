@@ -4698,7 +4698,6 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowNode.start.label': '开始',
   'engine.flowNode.create_record.label': '创建记录',
   'engine.flowNode.create_record.hint': '向对象中插入一条新记录',
-  'engine.flowNode.http_request.label': 'HTTP 请求',
   'engine.flowNode.map.label': '逐项映射',
   'engine.flowNode.map.hint': '对集合逐项运行子流程(可暂停)',
   'engine.flowNode.update_record.label': '更新记录',
@@ -7080,7 +7079,7 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
     limit: { label: '数量上限' },
     outputVariable: { label: '输出变量' },
   },
-  http_request: {
+  http: {
     method: { label: '方法' },
     url: { label: 'URL', help: '请求 URL。会渲染 {{ }} 占位。' },
     headers: { label: '请求头', help: '请求头(如 Authorization、Content-Type)。每个值都会渲染 {{ }} 占位。' },

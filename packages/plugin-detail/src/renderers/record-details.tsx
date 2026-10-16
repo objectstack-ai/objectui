@@ -13,7 +13,7 @@
  */
 
 import React from 'react';
-import { useRecordContext, useHighlightFieldNames, useSafeFieldLabel, usePredicateScope } from '@object-ui/react';
+import { useRecordContext, useHighlightFieldNames, useSafeFieldLabel, usePredicateScope, usePrintPage } from '@object-ui/react';
 import { useFieldPermissions, usePermissions } from '@object-ui/permissions';
 import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
 import type { RecordDetailsComponentProps } from '@object-ui/types';
@@ -322,6 +322,12 @@ const RecordDetailsBody: React.FC<RecordDetailsRendererProps> = ({
   // Phase N.4b: field names registered live by a mounted `record:highlights`
   // instance via HighlightFieldsContext (used to dedupe them out of the grid).
   const liveHighlightNames = useHighlightFieldNames();
+
+  // objectui#12787: on a page that declares `print` the H1 title dedupe below
+  // does not apply. Read the way `DetailView` and `DetailSection` read the
+  // same context, here with the other hooks because the returns below are
+  // conditional.
+  const isPrintPage = usePrintPage() !== null;
 
   // Inline-edit save + OCC now live in the record-level <InlineEditSaveBar>
   // (objectui#2407 P1): it commits the whole draft in ONE atomic
@@ -749,8 +755,16 @@ const RecordDetailsBody: React.FC<RecordDetailsRendererProps> = ({
   // The declared pointer is read through core's one exported spelling,
   // `declaredNameField`, exactly as `PageHeaderRenderer` reads it: the same
   // expression on both halves, never a re-typed `??` chain.
+  //
+  // ⭐ On a print page none of this ladder runs (objectui#12787): the page
+  // refuses `page:header`, so no H1 draws the title and there is nothing to
+  // deduplicate against. `record:details` prints every field it declares, the
+  // title field included. Pinned in
+  // `__tests__/record-details.printTitleField-12787.test.tsx`.
   const declaredTitleField = declaredNameField(objSchema);
-  if (recordDisplayValueAt(data, declaredTitleField) !== undefined) {
+  if (isPrintPage) {
+    // Nothing hidden for the H1; `hideFields` and the highlights still apply.
+  } else if (recordDisplayValueAt(data, declaredTitleField) !== undefined) {
     hideFieldNames.add(declaredTitleField);
   } else {
     const titleFormat = objSchema?.titleFormat;

@@ -71,12 +71,10 @@ describe('objectui#11824 — the installed spec is the contract the slots follow
   // whole set against `FLOW_NODE_TEXT_SLOTS`. Here: the five are in it.
   it('every hole-mode field is a text slot the spec names, and the five are hole-mode fields', () => {
     const specSlots = new Set(FLOW_NODE_TEXT_SLOTS.map((s) => `${s.nodeType}.${s.key}`));
-    // The designer groups the spec's `http` node under `http_request`.
-    const specType = (type: string) => (type === 'http_request' ? 'http' : type);
     const holeFields = FLOW_NODE_CONFIG_TYPES.flatMap((type) =>
       fieldsForNodeType(type)
         .filter((f) => f.refMode === 'hole')
-        .map((f) => `${specType(type)}.${f.path[1]}`),
+        .map((f) => `${type}.${f.path[1]}`),
     );
     for (const slot of holeFields) expect(specSlots.has(slot), slot).toBe(true);
     for (const [t, k] of CONVERTED) expect(holeFields, `${t}.${k}`).toContain(`${t}.${k}`);
@@ -148,7 +146,7 @@ describe('objectui#11824 — what stays as it was', () => {
     // Rendered with no node, so the value-slot control does not take it: the
     // descriptor's own text control. Since spec 18 no such string reads a
     // `{…}` token, so there is nothing for a picker to insert.
-    const body = fieldOf('http_request', 'body');
+    const body = fieldOf('http', 'body');
     expect(body.refMode).toBeUndefined();
     render(<FlowNodeConfigField field={body} value="{a}" onCommit={() => {}} scopeGroups={scope(['a', 'customer'])} />);
     expect(screen.queryByRole('alert')).toBeNull();

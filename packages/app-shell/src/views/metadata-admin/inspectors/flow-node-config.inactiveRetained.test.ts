@@ -124,10 +124,10 @@ describe('inactiveRetainedKind — the `__legacy__` sentinel is a group too', ()
  * hand-written list, so a group added later is covered — or turns this red.
  */
 describe('inactiveRetainedKind — mechanical coverage of every showWhen group', () => {
-  const TYPE_ALIASES = ['task', 'user_task', 'service_task', 'script_task', 'notification', 'signal', 'webhook', 'for_each'];
+  const TYPE_ALIASES = ['task', 'user_task', 'service_task', 'script_task', 'notification', 'signal', 'for_each'];
   const CANONICAL = [
     'start', 'end', 'decision', 'assignment', 'loop', 'map', 'create_record', 'update_record',
-    'delete_record', 'get_record', 'http_request', 'script', 'screen', 'approval', 'wait',
+    'delete_record', 'get_record', 'http', 'script', 'screen', 'approval', 'wait',
     'subflow', 'notify', 'connector_action', 'parallel', 'try_catch', 'parallel_gateway',
     'join_gateway', 'boundary_event', 'legacy_action',
   ];
@@ -162,13 +162,16 @@ describe('inactiveRetainedKind — mechanical coverage of every showWhen group',
     // 33 -> 34 gated fields, 24 -> 23 ungated types. Triage's standing ruling
     // for the counts objectui#9277/#9278 share applies here too: re-measure at
     // landing time rather than copying a number out of the card.
+    // objectui#12742: 23 -> 22 ungated types — `webhook` left the alias list
+    // (spec 18 reserves it as a node type), and `http_request` became `http`,
+    // a key `FLOW_NODE_CONFIG_TYPES` already contributes.
     expect(gatedByType.size).toBe(9); // 9 (name, ...) buckets — 8 canonical + the `script_task` alias
     const totalGated = [...gatedByType.values()].reduce((n, fs) => n + fs.length, 0);
     expect(totalGated).toBe(34);
     // The discriminating control: most node types have NO showWhen at all, so a
     // predicate that simply said "yes" everywhere would fail here.
     const ungatedTypes = TYPES.filter((t) => !gatedByType.has(t));
-    expect(ungatedTypes.length).toBe(23);
+    expect(ungatedTypes.length).toBe(22);
     expect(ungatedTypes).toContain('create_record');
     expect(ungatedTypes).toContain('connector_action');
   });

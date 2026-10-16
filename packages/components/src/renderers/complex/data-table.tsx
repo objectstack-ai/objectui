@@ -12,7 +12,7 @@ import { cn } from '../../lib/utils';
 import { resolveIcon } from '../action/resolve-icon';
 import { hasDeclaredVisibilityGate } from '../action/visibility-gate';
 import { useGridFieldAuthoring } from '../../context/gridFieldAuthoring';
-import { useHorizontalOverflow, HOVER_SCROLLBAR_CLASSES } from '../../custom/horizontal-overflow';
+import { useHorizontalOverflow, HOVER_SCROLLBAR_CLASSES } from '../../custom/use-horizontal-overflow';
 import { describeIgnoredBind, describeNonArrayData } from './dataTableBindDiagnostic';
 import { ComponentRegistry, compareSortValues, evalRowPredicate, formatDate, hasDeclaredPredicate, formatDateTime, fromDateTimeInputValue, getSortValue, isEmptyValue, isImpossibleStoredDay, toDateInputValue, toDateTimeInputValue } from '@object-ui/core';
 import type { DataTableSchema, TableColumn, TableSortItem, TableColumnType } from '@object-ui/types';

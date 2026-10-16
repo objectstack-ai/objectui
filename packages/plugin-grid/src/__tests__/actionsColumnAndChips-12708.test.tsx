@@ -41,7 +41,7 @@ const ROWS = [
 ];
 
 function renderGrid(opts: {
-  rowOperations?: (record: any) => ObjectGridRowOperations | null | undefined;
+  rowOperations?: (record: Record<string, unknown>) => ObjectGridRowOperations | null | undefined;
   schema?: Record<string, unknown>;
   objectFields?: Record<string, unknown>;
   wired?: boolean;

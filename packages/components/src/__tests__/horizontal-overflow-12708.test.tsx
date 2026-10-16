@@ -17,7 +17,8 @@ import { describe, it, expect } from 'vitest';
 import { render, fireEvent, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
-import { HorizontalOverflowBox, hasOverflowRight, PINNED_RIGHT_SEAM_SHADOW_CLASSES } from '../custom/horizontal-overflow';
+import { HorizontalOverflowBox } from '../custom/horizontal-overflow';
+import { hasOverflowRight, PINNED_RIGHT_SEAM_SHADOW_CLASSES } from '../custom/use-horizontal-overflow';
 
 function setGeometry(box: HTMLElement, g: { scrollLeft: number; scrollWidth: number; clientWidth: number }) {
   Object.defineProperty(box, 'scrollWidth', { configurable: true, value: g.scrollWidth });

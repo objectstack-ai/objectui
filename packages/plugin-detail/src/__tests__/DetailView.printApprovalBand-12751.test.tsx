@@ -23,7 +23,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { DetailView } from '../DetailView';
 import { InlineEditProvider, PrintPageProvider, type ApprovalProgress } from '@object-ui/react';
-import type { DetailViewSchema } from '@object-ui/types';
+import type { DetailViewSchema, DataSource } from '@object-ui/types';
 
 const RECALL = /Recall approval/;
 
@@ -49,7 +49,7 @@ function makeDataSource() {
     delete: vi.fn(async () => ({})),
     getObjectSchema: vi.fn(async () => null),
     cancelPendingApproval: vi.fn(async () => ({ requestId: 'r1', status: 'recalled' })),
-  } as any;
+  } as unknown as DataSource;
 }
 
 function renderRecord(locked: boolean, onPrintPage: boolean) {

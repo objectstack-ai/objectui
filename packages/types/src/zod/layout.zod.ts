@@ -1298,9 +1298,9 @@ export const PageNodeSchema = BaseSchema.extend(SpecPageFields.shape).extend({
   // objectui#12464: the page kind `jsx` retired in @objectstack/spec 18
   // (objectstack-ai/objectstack#23638), naming `html`. Picked out of the spec's
   // own enum by reference (`.extract`), the way `PAGE_KIND_NODE_TYPE` is below:
-  // identical to the spec's enum once the resolved spec carries the
-  // retirement, it refuses `jsx` before that, and a kind the spec drops fails to
-  // compile here. Mirrors the TS face's `PageNodeSchema.kind`.
+  // the resolved spec carries the retirement, so this extracts exactly the
+  // spec's members, and a kind the spec drops fails to compile here. Mirrors
+  // the TS face's `PageNodeSchema.kind`.
   kind: stripImportedDefaults(SpecPageSchema)
     .shape.kind.unwrap()
     .extract(['full', 'slotted', 'html', 'react'])
@@ -1348,11 +1348,11 @@ export const PageNodeSchema = BaseSchema.extend(SpecPageFields.shape).extend({
   // ⭐ THE SPEC'S OBJECT-LEVEL CHECKS, re-attached (objectui#7715, ruling B1).
   // {@link SpecPageFields} rebuilds a fresh object from the spec's `.shape`, so
   // it drops the two checks the spec's `PageSchema` carries on the OBJECT:
-  //  - an `html` / `react` / `jsx` page with no non-empty `source` renders
+  //  - an `html` / `react` page with no non-empty `source` renders
   //    nothing and is refused at `source` (`checkPageSourceCompleteness`,
   //    objectstack#16489);
   //  - `requires` is refused at `requires` on a page whose `kind` the platform
-  //    does not compile at save — anything but `html` / `jsx`, an absent `kind`
+  //    does not compile at save — anything but `html`, an absent `kind`
   //    included (`checkPageRequiresKind`, objectstack#21459, the spec's 17.7.0);
   //  - a page that authors both `slots.details` and `slots.tabs` is refused at
   //    `slots.details`, because the `tabs` slot replaces the strip the details

@@ -33,7 +33,11 @@
  *     (`422 INVALID_METADATA`, the disagreeing namespace named), and otherwise
  *     promotes the draft with the same stamp.
  * The "compile" maps each JSX tag to the namespace of the manifest component
- * it names. Only that mapping is invented here; the two rules are the door's.
+ * it names. Only that mapping is invented here; the two rules are the door's,
+ * and so is the set of kinds they compile: the double reads the installed
+ * `@objectstack/spec`'s `COMPILED_PAGE_KINDS` rather than copying it, so it
+ * follows the spec when that set moves (spec 18 dropped the retired `jsx`,
+ * objectui#12486).
  *
  * Everything on the client side is shipping code: the page resource config
  * registered at load, `MetadataResourceEditPage` with its Save and Publish
@@ -72,6 +76,9 @@ const PUBLISHED_HTML_PAGE: Row = {
 
 const key = (type: string, name: string) => `${type}/${name}`;
 
+/** The page kinds the save door compiles, from the installed spec (hoisted with the double that reads it). */
+const { COMPILED_PAGE_KINDS } = await vi.hoisted(async () => await import('@objectstack/spec/ui'));
+
 const server = vi.hoisted(() => {
   /** The manifest's answer per tag: intrinsic tags are `ui`, `Kanban` is the plugin's. */
   const NAMESPACE_OF: Record<string, string> = {
@@ -82,9 +89,11 @@ const server = vi.hoisted(() => {
     Kanban: 'plugin-kanban',
   };
   type Doc = Record<string, unknown>;
+  /** The kinds the door compiles, read as a list a stored `kind` of any value can be looked up in. */
+  const compiledKinds: readonly unknown[] = COMPILED_PAGE_KINDS;
   /** The compiled namespaces of an html page's source, in first-use order; `null` when it is not compiled. */
   const compiledRequires = (body: Doc): string[] | null => {
-    if (body.kind !== 'html' && body.kind !== 'jsx') return null;
+    if (!compiledKinds.includes(body.kind)) return null;
     if (typeof body.source !== 'string' || body.source.trim() === '') return null;
     const used: string[] = [];
     for (const m of body.source.matchAll(/<([A-Za-z][\w-]*)/g)) {

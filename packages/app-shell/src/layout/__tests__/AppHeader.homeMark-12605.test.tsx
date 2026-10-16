@@ -77,9 +77,9 @@ vi.mock('../../hooks/useAiSurface', () => ({
   useAiSurfaceEnabled: () => ({ enabled: false, isLoading: false }),
 }));
 // The pill is a recorder: its own rendering is `AppSwitcher.homeMenu-12605`'s.
-// The real module is spread so `GO_HOME_SHORTCUT` is the one the header uses.
-vi.mock('../AppSwitcher', async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
+// A bare stub, the shape the other `AppHeader` suites use: the header must
+// not read anything else off this module (the chord lives in the registry).
+vi.mock('../AppSwitcher', () => ({
   AppSwitcher: (p: { activeAppName: string }) => <div data-testid="app-switcher-stub" data-active={p.activeAppName} />,
 }));
 vi.mock('../../context/NavigationContext.js', () => ({
@@ -115,9 +115,8 @@ vi.mock('../../providers/AdapterProvider', () => ({
 }));
 
 import { AppHeader } from '../AppHeader';
-import { GO_HOME_SHORTCUT } from '../AppSwitcher';
 import { CommandPaletteProvider } from '../../context/CommandPaletteProvider';
-import { useAdvertisedShortcuts, type ShortcutChord } from '../../chrome/advertisedShortcuts';
+import { GO_HOME_SHORTCUT, useAdvertisedShortcuts, type ShortcutChord } from '../../chrome/advertisedShortcuts';
 import { getProductName } from '../../runtime-config';
 
 const MEMBER: MePermissionsResponse = {

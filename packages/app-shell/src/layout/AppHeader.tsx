@@ -102,8 +102,7 @@ import { resolveViewId } from '../utils/resolveViewId.js';
 import { getProductName, getLogoUrl } from '../runtime-config.js';
 import { LocalizedSidebarTrigger } from './LocalizedSidebarTrigger.js';
 import { PreviewBadge } from './PreviewBadge.js';
-import { GO_HOME_SHORTCUT } from './AppSwitcher.js';
-import { useAdvertiseShortcut, type ShortcutChord } from '../chrome/advertisedShortcuts.js';
+import { GO_HOME_SHORTCUT, useAdvertiseShortcut, type ShortcutChord } from '../chrome/advertisedShortcuts.js';
 
 function humanizeSlug(slug: string): string {
   return slug.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());

@@ -32,25 +32,8 @@ import { resolveKeyedI18nLabel, matchAppBySegment, appRouteSegment } from '../ut
 import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
 import { useHomePath } from '../hooks/useHomePath.js';
 import { SETUP_APP_NAME, SETUP_APP_PACKAGE_ID } from '../console/ConsoleShell.js';
-import {
-  shortcutKeycaps,
-  type AdvertisedShortcut,
-  type ShortcutLabelTranslate,
-} from '../chrome/advertisedShortcuts.js';
+import { GO_HOME_SHORTCUT, shortcutKeycaps } from '../chrome/advertisedShortcuts.js';
 import { AppMark } from './AppMark.js';
-
-/**
- * `⌘⇧H` / `Ctrl+Shift+H` — back to home from any app page (objectui#12605).
- * `AppHeader` owns the listener and advertises this beside it; the pill's
- * 「Back to home」 row draws its keycaps from the same chord, so the row, the
- * keyboard-shortcuts dialog and the handler cannot disagree.
- */
-export const GO_HOME_SHORTCUT: AdvertisedShortcut = {
-  id: 'go-home',
-  group: 'navigation',
-  chord: { key: 'h', mod: true, shift: true },
-  label: (t: ShortcutLabelTranslate) => t('console.shortcuts.goHome'),
-};
 
 /**
  * The Setup app in an app list: by its package id first, then by its name —

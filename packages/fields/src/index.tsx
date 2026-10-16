@@ -4730,11 +4730,11 @@ export const FIELD_WIDGET_LABELLING: Record<
  * imports `DateField` / `DateTimeField` directly) keep the native input.
  *
  * The value written is the native input's: `YYYY-MM-DD` for `date`, an ISO
- * instant for `datetime` (see `widgets/DatePickerField.tsx`).
+ * instant for `datetime` (see `widgets/date-picker/DatePickerField.tsx`).
  */
 const FORM_FACE_LOADERS: Partial<Record<RegisteredFieldWidgetType, FieldWidgetLoader>> = {
-  date: () => import('./widgets/DatePickerField.js').then(m => ({ default: m.DatePickerField })),
-  datetime: () => import('./widgets/DatePickerField.js').then(m => ({ default: m.DateTimePickerField })),
+  date: () => import('./widgets/date-picker/DatePickerField.js').then(m => ({ default: m.DatePickerField })),
+  datetime: () => import('./widgets/date-picker/DatePickerField.js').then(m => ({ default: m.DateTimePickerField })),
 };
 
 export function registerField(fieldType: string): void {

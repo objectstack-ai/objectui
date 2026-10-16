@@ -10,16 +10,16 @@ import React from 'react';
 import { CalendarDays, X } from 'lucide-react';
 import { Button, Calendar, Input, Popover, PopoverContent, PopoverTrigger, cn } from '@object-ui/components';
 import { useDisplayLocale } from '@object-ui/i18n';
-import { FieldWidgetComponentProps } from './types.js';
-import { toDomProps } from './toDomProps.js';
-import { DateField } from './DateField.js';
-import { DateTimeField } from './DateTimeField.js';
+import { FieldWidgetComponentProps } from '../types.js';
+import { toDomProps } from '../toDomProps.js';
+import { DateField } from '../DateField.js';
+import { DateTimeField } from '../DateTimeField.js';
 import {
   toDateInputValue,
   toDateTimeInputValue,
   fromDateTimeInputValue,
   isImpossibleStoredDay,
-} from './nativeDateValue.js';
+} from '../nativeDateValue.js';
 import {
   formatLocaleDateText,
   localeDatePattern,
@@ -27,7 +27,7 @@ import {
   toLocalDay,
   fromLocalDay,
 } from './localeDateText.js';
-import { useFieldTranslation } from './useFieldTranslation.js';
+import { useFieldTranslation } from '../useFieldTranslation.js';
 
 /**
  * The record form's date and date-time controls (objectui#12622).

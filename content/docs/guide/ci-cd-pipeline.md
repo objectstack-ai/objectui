@@ -562,9 +562,24 @@ a second key, `OBJECTSTACK_REF`, moved by hand under a MUST that nothing could c
 shape as the version drift above, and retired for the same reason (objectui#7964). Deriving it
 means the app source and the published packages it runs on come from one release by construction.
 
-No transitive dependency is overridden in the backend's install: the published manifests decide
-what installs, which is the pair the lane exists to test. The file used to carry a **second**
-pin, `BETTER_AUTH_VERSION`, with `e2e/live/ci/better-auth-pin.mjs` as its guard. It was a
+The published manifests decide what the backend's install puts on disk, which is the pair the
+lane exists to test. **One** transitive override is written, and only because npm 10 cannot
+install the published graph without it: `start-backend.sh` adds a root `overrides.vitest`
+(its `VITEST_OVERRIDE`) to the rewritten showcase manifest. Without it npm 10 — the npm Node 22
+ships, so the npm the runner installs with — dies building the ideal tree with
+`Cannot read properties of null (reading 'edgesOut')` on an optional `vitest` peer in the
+published graph ([#12649](https://github.com/objectstack-ai/objectui/issues/12649)). Nothing
+installed vitest at `18.0.0-next.2`, so there the override steered the resolver and changed no
+package the backend runs — a one-off reading on that issue, which nothing here re-derives.
+The script carries the reason and the condition for removing it, and its stamp carries the
+value, so a cached fixture prepared under another install recipe is rebuilt instead of reused
+(the fixture cache key hashes `backend.env` alone, so it cannot see a recipe change made in the
+script). ⚠️ What the cache still hides: a cold install broken by the registry moving under
+unchanged pins — which is how this one broke — stays out of sight until `OBJECTSTACK_VERSION`
+moves, because only then does the key miss.
+
+`backend.env` used to carry a **second** pin, `BETTER_AUTH_VERSION`, with
+`e2e/live/ci/better-auth-pin.mjs` as its guard. It was a
 workaround for a break inside the published packages: `@objectstack/plugin-auth` imported an
 export `@better-auth/core@1.7.3` removed in a patch release, so the lane held the family at 1.7.2
 (objectstack#16186, objectui#8084). Both were retired together in the 17.5.0 bump, as their own

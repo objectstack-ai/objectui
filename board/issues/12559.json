@@ -2,8 +2,8 @@
   "number": 12559,
   "kind": "issue",
   "title": "console record form dialog: clicking a collapsed section header remounts the whole dialog (a 1.5–4 s skeleton) and the section stays collapsed, so HotCRM Leads → New cannot open Company, Address, Additional or Privacy",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -13,7 +13,6 @@
   "labels": [
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p1"
   ],
   "assignees": [
@@ -22,11 +21,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-15T18:22:05Z",
-  "updated_at": "2026-10-15T19:02:53Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-15T21:05:47Z",
+  "closed_at": "2026-10-15T21:04:22Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12559",
   "body": "Filing gate ①: a user-visible product defect, reproduced in a real browser. It came out of the `domain:ui` seat 1's landing reading for PR objectui#12556 (objectui#12548), and it is not that PR's: head and base behave alike.\n\nfinding · reach: every console user who opens HotCRM's Leads New or Edit dialog and tries to expand a section that starts collapsed. Reproduced in Chromium, at 1440×900, against HotCRM `63db83e` (pinned `@objectstack/cli 18.0.0-next.1`), on objectui `main` `518a8e3084` and on PR #12556's head `88bfef068f` alike:\n- In the \"Create Lead\" dialog, and in the same dialog in edit mode (`?form=ID`), clicking the header of a collapsed section (Company Information, Address, Additional Information, Privacy) remounts the whole dialog.\n- A skeleton shows for about 1.5–4 s, and the dialog comes back with that section still collapsed. So those four sections cannot be opened in the dialog at all.\n- The full-page create route `/apps/crm_enterprise/crm_lead/new` expands the same sections normally.\n\nReadings, screenshots and scripts are in the seat's scratch (`browser-12556/`, `readNew.cjs`), not in the repo. The producer is not named yet. Candidates to check first:\n- the collapse toggle's state living above the dialog's key, so a toggle re-keys or re-mounts `ModalForm` (`packages/plugin-form/src/ModalForm.tsx`, `resolveSectionCollapse`, `fieldGroups.ts`);\n- the console host's `?form=` deep-link state re-opening the dialog on a re-render.\n\n**Reader who acts:** triage grades this card. The likely lane is `domain:ui` (`@object-ui/plugin-form` and/or the console's form host). ⛔ This is not a claim.\n\n**Dedupe** (MCP `search_issues`, scope objectstack-ai/objectui, all states, read 2026-10-15T18:20Z): \"form dialog collapsed section header click remounts dialog skeleton section stays collapsed cannot expand\" → 0 results.\n\n## Acceptance (proposed)\n\n- A test on the real `ModalForm`, mounted the way the console mounts it: clicking a collapsed section's header expands it in place. The dialog does not remount; pin the form's identity or a mount counter. A typed value in another section survives the toggle.\n- A browser reading on HotCRM Leads → New at 1440: Company Information opens on click and shows its fields.\n\nAttribution: filed by the `domain:ui` seat 1 in session `session_01JZnppgHRp4sREcouhkQYDB` (account `sunhaolin`), from the PR objectui#12556 landing reading."

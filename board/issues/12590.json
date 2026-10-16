@@ -1,0 +1,35 @@
+{
+  "number": 12590,
+  "kind": "pull_request",
+  "title": "feat(app-shell): Studio home returns to the Studio landing; the two Setup exits say so",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T00:52:53Z",
+  "updated_at": "2026-10-16T01:56:07Z",
+  "closed_at": "2026-10-16T01:56:05Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T01:56:05Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12590",
+  "body": "Fixes #12513\nClause-②: no\n\n## What changed\n\n**Target 1: the header's first button returns to the Studio landing.** In the shell header of `StudioDesignSurface.tsx`, the first button now navigates to `/studio` (the `BuilderLanding` page) instead of the deployment's home path. It keeps the `confirmLeavePillar()` gate. It is titled \"Studio home\" (new key `engine.studio.landingHome`) and carries the new testid `studio-home`. The console home is one click further, through the landing's own top bar. `StudioRoute.tsx` needed no change: `/studio` already renders the landing.\n\n**Target 2: the package switcher's first row is \"Studio home\".** `PackageSwitcher` gets a new first row (testid `studio-switcher-home`) above the package list. It is gated by `beforeNavigate` like the other rows. The deleted-package eviction is unchanged.\n\n**Target 3: the two Setup exits say so.**\n- On the landing, each installed card's link (testid `studio-landing-overlay`, unchanged) reads \"Open in Setup\" with an outward arrow (`ArrowUpRight`). I reworded the en and zh values of the existing key `engine.studio.landing.overlay`. Its route and its overlay tooltip (`engine.studio.landing.overlayTitle`) are unchanged.\n- The empty Organization flows block (`StudioEmptyState`, `auto-empty`) gets an \"Open in Setup\" link as its `action` (new key `engine.studio.org.openSetup`, new testid `auto-empty-open-setup`). It is a link, not a create button, since this scope creates nothing. A package's own empty block is unchanged.\n- The link's route is measured, not invented. The Setup app's nav entry `nav_packaged_automation` (objectstack `packages/platform-objects/src/apps/setup-nav.contributions.ts`) names the component ref `automation:packaged`. app-shell registers that ref in `builtinComponents`, and the console serves it at `/apps/setup/component/automation/packaged`. The link builds that URL from the ref with `componentRefToUrlSegments`, the same helper `PackagedAutomationPage.navContribution.test.tsx` pins. In the live console, following it opens the Setup page headed \"Packaged automation\".\n\n**Retired key.** `engine.studio.home` (\"Back to home\" / \"返回主页\") is removed from the en and zh designer tables. After the header change nothing reads it, and `check:i18n-dead-keys` no longer lists it.\n\nNo change to Setup. No existing testid was removed, and every i18n key that has a reader stays. New keys are in en and zh, the two halves of the designer table.\n\n## Deviations\n\n- `StudioDesignSurface.pillarNavGuard.test.tsx`: its Home-button case clicked \"Back to home\" and expected `/home`. Target 1 changes both, so it now clicks \"Studio home\" and expects the `/studio` landing. The cancel and confirm gate assertions are unchanged.\n\n## Screenshots (evidence branch `claude/issue-12513-evidence`, never merged)\n\nConsole at 1280 px against HotCRM `63db83e` under `objectstack dev --fresh`.\n\n- Landing, installed card, light: https://github.com/objectstack-ai/objectui/blob/bb89675168aad3acdc5241c999965bb6fe72f269/docs/design/studio-redesign/findings/12513/12513-landing-installed-card-light.png?raw=true\n- Landing, installed card, dark: https://github.com/objectstack-ai/objectui/blob/bb89675168aad3acdc5241c999965bb6fe72f269/docs/design/studio-redesign/findings/12513/12513-landing-installed-card-dark.png?raw=true\n- Organization flows empty state, light: https://github.com/objectstack-ai/objectui/blob/bb89675168aad3acdc5241c999965bb6fe72f269/docs/design/studio-redesign/findings/12513/12513-org-flows-empty-light.png?raw=true\n- Organization flows empty state, dark: https://github.com/objectstack-ai/objectui/blob/bb89675168aad3acdc5241c999965bb6fe72f269/docs/design/studio-redesign/findings/12513/12513-org-flows-empty-dark.png?raw=true\n- Package switcher open, \"Studio home\" first row: https://github.com/objectstack-ai/objectui/blob/bb89675168aad3acdc5241c999965bb6fe72f269/docs/design/studio-redesign/findings/12513/12513-switcher-studio-home-row-dark.png?raw=true\n- The org link's landing, Setup > Packaged automation: https://github.com/objectstack-ai/objectui/blob/bb89675168aad3acdc5241c999965bb6fe72f269/docs/design/studio-redesign/findings/12513/12513-org-link-lands-on-packaged-automation-dark.png?raw=true\n\n## Test evidence\n\nOn HEAD `c94f216` (origin/main `ae923ec` merged in, plus the key retirement):\n- Targeted vitest over `StudioDesignSurface.homeLoop-12513`, `BuilderLanding.setupExit-12513`, `StudioDesignSurface.pillarNavGuard` and `StudioItemHeader.statusPlace-12524`: 4 files, 17 tests passed, exit 0.\n- `type-check`: exit 0. eslint on the touched files: exit 0, no errors.\n- `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:i18n-dead-keys` (no longer lists `engine.studio.home`) and `check-changeset-presence`: exit 0.\n\nOn `385fa92`, before the merge:\n- New pins: `StudioDesignSurface.homeLoop-12513.test.tsx` (header button goes to `/studio`; the switcher's first row is Studio home and goes to `/studio`; the org empty block links to Setup > Packaged automation and offers no create button; control: a package's empty block has no Setup link) and `BuilderLanding.setupExit-12513.test.tsx` (label, outward arrow, unchanged route; the packaged-automation route built from its ref).\n- Every `StudioDesignSurface.*.test.tsx` and `BuilderLanding.*.test.tsx`, including `BuilderLanding.accessibleNames-12510`: 88 files, 587 tests passed, exit 0.\n- `pnpm --filter @object-ui/app-shell test`: exit 0. Test Files 1427 passed, 1 skipped (1428); Tests 13550 passed, 9 skipped (13559).\n- `build`: exit 0, dist completeness verified.\n- Ablations, each landed, turned red and was restored, with `git diff HEAD` empty afterwards: header destination changed to `/home`; switcher row destination changed to `/home`; the package-less action arm disabled; the en label reverted; the route spelled without `component/`.\n\n## Acceptance notes\n\n- A third Setup exit, the in-package read-only link (\"Read-only · Customize with an overlay\", `studio-readonly-link`), still goes to Setup without saying so. It is outside this card's two exits and its file surface, so it is noted here and not changed.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01Li9iYX6uAhVZJgyCfJ1Maz)_"
+}

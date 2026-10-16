@@ -1,0 +1,35 @@
+{
+  "number": 12572,
+  "kind": "pull_request",
+  "title": "feat(plugin-dashboard): a dataset-bound metric tile on two lines — title and measure label above the value, description as the title tooltip (objectui#12528)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T20:48:17Z",
+  "updated_at": "2026-10-15T21:23:44Z",
+  "closed_at": "2026-10-15T21:23:43Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-15T21:23:43Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12572",
+  "body": "Fixes #12528\nClause-②: no (`DatasetWidget` and its new `heading` parameter are not exported from `@object-ui/plugin-dashboard`'s entry; no published prop or type changes)\n\nNail 3 of the family card, on the path the seat ruled (option A, card comment 6199696726): the dataset-bound metric tile that HotCRM's Sales Performance KPIs actually render through. Nails 1, 2 and 4 are in #12561 (Part of #12528). This PR carries the closing line and should land last.\n\n## What changed\n\n- `DashboardRenderer`: for a **dataset-bound `metric` widget only** (`datasetBound && entryType === 'metric'`), the shared widget card draws no `CardHeader`. Before, the header held the title and, under a rule, the description as a `line-clamp-2` paragraph. The content padding drops from `p-3 sm:p-4 md:p-6` to `p-3 sm:p-4` for that tile. The renderer hands `DatasetWidget` a `heading` with the resolved title and description instead. Every other widget, including a dataset-bound table or chart, keeps the card frame unchanged.\n- `DatasetWidget`: when handed a `heading`, the metric tile draws one line above the value: the title (`dataset-metric-title`, with the description as its `title` tooltip) followed by the measure label (`dataset-metric-label`). The measure label is no longer drawn under the value. The loading, refused, failed and no-measure faces keep the title line, so a tile that is not answering still says which KPI it is. Without a `heading` (any other caller) the tile is byte-identical to before.\n- No schema key is added. The spec's dashboard widget declares no `showDescription`, so the description is the title's tooltip only.\n- `DashboardGridLayout` is unchanged. Its frame is not the same frame: its header draws no description, and in edit mode it carries the drag handle. Its dataset metric therefore stacks three lines (title, value, label), not four. Moving that onto one line would need the drag handle to find a new home, so it is not in this nail.\n\n## Tile height (a note, not a browser measurement)\n\nThere is no layout engine under happy-dom, so this is class arithmetic from the Tailwind values in the diff. **It is derived, not measured.**\n- Before, at `md` and up: header about 75 to 91 px (`pt-6`, a `text-base` title, a one- or two-line `text-xs` description, `pb-2`, a rule), plus content about 116 px (`p-6` twice, the tile's `p-2`, a `text-2xl` value, a gap and a `text-xs` label), plus borders. That gives about 193 to 209 px, against the card's measured ~215 px.\n- After: content about 106 px (`p-4` twice, `p-2`, a 20 px heading line, a gap, the value, borders).\n- ⚠️ On a positioned dashboard the tile does not reach the card's ~120 px target. Every widget row has a `minmax(5rem, auto)` floor (`gridAutoRows`), and HotCRM's KPIs declare `layout.h: 2`, so a tile is at least 2 × 80 px plus one 16 px gap = **176 px**. The four-line stack is gone, and a first-screen KPI row drops from ~215 px to the 176 px floor. Getting to ~120 px means changing what `layout.h` buys (the row floor, or the span of a metric). That changes authored layout semantics, so it is not done here.\n\n## Tests\n\n- New `DashboardRenderer.metricTileDensity-12528.test.tsx`:\n  - The answered dataset-bound metric draws title + measure label in one heading line before the value, nothing after the value, the label once and the title once (no card header).\n  - No `p` and no description text; the description is the title's `title`.\n  - CONTROL: a dataset-bound `table` widget keeps its card header (title with its own `title`) and its description `P`, and draws no metric heading.\n- `DashboardSurfaces.datasetSubCaption.test.tsx` L2 (lit control): `widget.description` is still drawn translated, now read off the title tooltip instead of a header paragraph. The rest of that file is unchanged and green.\n- Ablation: the objectstack checkout's `scripts/ablation-replace.mjs` set `datasetMetric` to `false` (anchor 1 to 0, blob changed). The two metric pins went red and the CONTROL stayed green (2 failed / 1 passed). Restore was confirmed: blob == HEAD, `git diff HEAD` empty. The test imports the source directly; no dist was involved.\n\nGate readings (exit codes from each gate's own verdict line):\n- Pins under the shared lock at `3d4ddf525` + test fix: 2 files / 12 tests passed.\n- `packages/plugin-dashboard/` under the lock at `43c0b8296` (after merging `origin/main`, which brought #12554's DashboardRenderer change in cleanly): 179 files, 1782 passed and 6 skipped, exit 0.\n- `pnpm --filter '@object-ui/plugin-dashboard^...' build` then `type-check`: exit 0 at `43c0b8296`.\n- Battery, all exit 0: `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:control-bytes`, `check:new-line-citations`, `check-changeset-fixed`, `check-changeset-presence`, `check-changeset-no-major`.\n- Narrowed eslint on the 4 changed `.ts`/`.tsx` files (`--format json`): 0 errors. Warnings against base: `DashboardRenderer.tsx` 6 to 6, `DatasetWidget.tsx` 10 to 10, tests 0. Type-aware linting is not enabled in `eslint.config.js`, so untouched files cannot move.\n\n## Acceptance notes\n\n- The browser reading at 1440 on HotCRM is the landing seat's: the four KPI tiles at the 176 px floor, and both chart titles on the first screen.\n- Changeset: `@object-ui/plugin-dashboard` patch.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

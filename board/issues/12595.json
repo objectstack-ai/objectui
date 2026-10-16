@@ -1,0 +1,36 @@
+{
+  "number": 12595,
+  "kind": "pull_request",
+  "title": "feat(app-shell): Publish opens the pending-changes sheet to confirm, Changes opens it to review (objectui#12517)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T01:26:36Z",
+  "updated_at": "2026-10-16T01:52:13Z",
+  "closed_at": "2026-10-16T01:52:11Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T01:52:11Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12595",
+  "body": "Fixes #12517\nClause-②: no\n\n## What changed\n\n**Target 3 — one sheet, one component, one prop.** `DraftChangesPanel` takes `posture`, either `review` (the default) or `confirm`. The Studio keeps one `changesPosture` state beside `changesOpen`. Publish sets `confirm` and Changes sets `review`, each before opening, and the single `DraftChangesPanel` mount passes it. The Home page, `DraftPreviewBar` and `CommitTimeline` pass nothing and keep the review behaviour. Publish is still review-then-confirm (objectui#2261): the header click only opens the sheet, and only the footer's Publish all publishes.\n\n**Target 1 — Publish opens to confirm.** When the list first arrives on each open, every row is expanded, a summary line above the list counts what the publish carries (for example `4 items · 2 object · 1 app · 1 page`), and focus moves to Publish all. The line is built from the panel's existing per-type grouping, the one that draws the `OBJECT · 2` headings, so there is no second classification. A row the author collapses stays collapsed while the rows classify. The seed runs in a layout effect, so no frame shows the list collapsed first.\n\n**Target 2 — Changes opens to review.** Rows stay collapsed, focus lands on the list, and Publish all is in the footer, unfocused. There is no summary line.\n\n**Constraints kept.** With nothing pending, Publish stays disabled and described by `publish-none-reason` (objectui#12303); on a read-only package the reason still rides its wrapper. `studio-changes-count` and the other test ids are unchanged. The objectui#12510 pin `DraftChangesPanel.accessibleNames-12510` stays green.\n\nNew language-pack keys under `preview.changes`: `summaryItems` (with plural forms) and `summaryType`, in all ten locales.\n\n## Deviations\n\n- The type segments show the raw canonical type, the same token the group headings show (`2 object`), not a localized plural noun. The panel has no type-label table, and it sits on the console's eager graph, so it cannot import the metadata-admin one.\n- Publish all does not exist until the list loads, so focus starts on the list and moves to Publish all when the list arrives, unless the author has already moved it.\n- The confirm posture reads each draft's detail at open (two reads per row), because every row is expanded. The review posture still reads lazily on expand.\n\n## Screenshots\n\nThese are on the never-merged evidence branch `claude/issue-12517-evidence`, at a writable package with four drafts of three types, 1280 px wide.\n\n- Publish, confirm posture, dark: https://github.com/objectstack-ai/objectui/blob/a4de5c7d69509c1521ed0f5047f8671417d2da9d/docs/design/studio-redesign/findings/12517/12517-publish-confirm-dark.png?raw=true\n- Publish, confirm posture, light: https://github.com/objectstack-ai/objectui/blob/a4de5c7d69509c1521ed0f5047f8671417d2da9d/docs/design/studio-redesign/findings/12517/12517-publish-confirm-light.png?raw=true\n- Changes, review posture, dark: https://github.com/objectstack-ai/objectui/blob/a4de5c7d69509c1521ed0f5047f8671417d2da9d/docs/design/studio-redesign/findings/12517/12517-changes-review-dark.png?raw=true\n- Changes, review posture, light: https://github.com/objectstack-ai/objectui/blob/a4de5c7d69509c1521ed0f5047f8671417d2da9d/docs/design/studio-redesign/findings/12517/12517-changes-review-light.png?raw=true\n\nRead from the DOM at capture, in both themes: confirm showed `data-posture=confirm`, four `aria-expanded=true` and active element `draft-changes-publish`; review showed `data-posture=review`, four `aria-expanded=false` and active element `draft-changes-list`.\n\n## Test evidence (head 737592f)\n\n- `pnpm exec vitest run packages/app-shell/src/views/studio-design/StudioDesignSurface.`: 82 files, 560 tests passed.\n- `pnpm exec vitest run` over every `DraftChangesPanel*`, `DraftPreviewBar*` and `CommitTimeline*` test, plus `packages/i18n/`: 98 files passed, 1413 tests passed, 13 skipped.\n- Full `pnpm --filter @object-ui/app-shell test`, once, on ad97f9d: 1427 files passed, 1 skipped; 13553 tests passed, 9 skipped; exit 0. One ru locale value and a merge of main came after this run. On 737592f only the two targeted batches above were re-run.\n- `type-check` for `@object-ui/app-shell` and `@object-ui/i18n`, build, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:new-line-citations` and `check-changeset-presence` all exit 0. eslint on the touched files: 0 errors.\n- New pins: `DraftChangesPanel.posture-12517.test.tsx` (confirm, review, and a CONTROL for a host that passes no posture) and `StudioDesignSurface.publishPosture-12517.test.tsx` (which door passes which posture, and that nothing pending still leaves Publish disabled with its reason). Each was ablated once and went red: seeding moved back to a passive effect, the seed removed, and Publish set to review. Each was restored with `git diff HEAD` empty.\n\n## Acceptance notes\n\n- For a NEW object, the drill-in lists `_packageId` under Also changed. That is a framework key shown as the author's edit, the same shape as the read-decoration keys stripped earlier. It is reported to the seat, not fixed here.\n- In dark mode the New and Update badges keep their light fills. This is pre-existing polish, not in this card's scope.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01MxLBRTq32u4PebqJCjFXW7)_"
+}

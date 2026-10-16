@@ -1,0 +1,35 @@
+{
+  "number": 12589,
+  "kind": "pull_request",
+  "title": "feat(app-shell): the draft status chip sits in one place in every Studio item header (objectui#12524)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T00:52:47Z",
+  "updated_at": "2026-10-16T01:18:20Z",
+  "closed_at": "2026-10-16T01:18:18Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T01:18:18Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12589",
+  "body": "Fixes #12524\nClause-②: no\n\n## What changed\n\n- **Target 1 (one place).** `StudioItemHeader` takes the item's status as data (a new `status` prop: label and an optional tooltip) and draws one shared amber chip, `StudioStatusChip`, right after the identity (the title, then the api-name or kind chips) and before the meta. The identity chips sit in an always-rendered `contents` wrapper (`data-slot=\"identity-chips\"`). It draws no box, so the layout is unchanged, and the chip is the same child of the same title row in Data, Automations, Interfaces and Access. The title stays a direct child of the row, which the objectui#11665 pin reads.\n- **Target 2 (actions only on the right).** Interfaces' \"Unpublished draft\" leaves the actions slot. The right slot keeps, in order: the autosaving spinner, the read-only link, Open in Data, Design / Run, and the properties toggle. Data's saved-at meta and Automations' Enabled switch stay at the right. Access's read-only link is an action, so it stays there too (objectui#12453 behaviour unchanged).\n- **Target 3 (the header places it).** Data, Automations and Interfaces pass `status` with the `engine.studio.unpublishedDraft` text; Access passes its writable \"This package's objects · saved as draft\" note (`engine.studio.access.banner`, tooltip `engine.studio.access.bannerTitle`). No pillar writes the chip markup any more. No i18n keys added or retired; every existing data-testid stays.\n\n## Decisions and deviations\n\n- Slot shape: a typed `status` prop rather than `chips`. The header owns both the chip's position and its look, and the prop refuses markup or a link, so a pillar cannot misplace or restyle it.\n- Access: the writable note is treated as Access's status (the only draft signal the pillar shows, and the card's measured Access chip). In a read-only package the link stays in actions. Permission sets have no per-set draft status today.\n- The open-set Access header (the permission matrix page) is unchanged: its note stays at the tab row's right end, where objectui#12456 put it so the set's label is not truncated. That file is outside this change.\n- The chip now has `shrink-0 whitespace-nowrap`. At 1280 px in the Automations header, main's chip wrapped to two lines (37 px) while the title still truncated; it now stays on one line (21 px). The title truncation exists either way, from that pane's width.\n- Deviation list against the artboards: no change beyond the above.\n\n## Screenshots (1280 px, a writable package with a draft object, flow, page and app; console at d9376cc against HotCRM 63db83e)\n\n- Data: [light](https://github.com/objectstack-ai/objectui/blob/33ef46f53/docs/design/studio-redesign/findings/12524/12524-data-header-light.png?raw=true) · [dark](https://github.com/objectstack-ai/objectui/blob/33ef46f53/docs/design/studio-redesign/findings/12524/12524-data-header-dark.png?raw=true)\n- Automations: [light](https://github.com/objectstack-ai/objectui/blob/33ef46f53/docs/design/studio-redesign/findings/12524/12524-automations-header-light.png?raw=true) · [dark](https://github.com/objectstack-ai/objectui/blob/33ef46f53/docs/design/studio-redesign/findings/12524/12524-automations-header-dark.png?raw=true)\n- Interfaces: [light](https://github.com/objectstack-ai/objectui/blob/33ef46f53/docs/design/studio-redesign/findings/12524/12524-interfaces-header-light.png?raw=true) · [dark](https://github.com/objectstack-ai/objectui/blob/33ef46f53/docs/design/studio-redesign/findings/12524/12524-interfaces-header-dark.png?raw=true) · whole window [light](https://github.com/objectstack-ai/objectui/blob/33ef46f53/docs/design/studio-redesign/findings/12524/12524-interfaces-full-light.png?raw=true) · [dark](https://github.com/objectstack-ai/objectui/blob/33ef46f53/docs/design/studio-redesign/findings/12524/12524-interfaces-full-dark.png?raw=true)\n- Access: [light](https://github.com/objectstack-ai/objectui/blob/33ef46f53/docs/design/studio-redesign/findings/12524/12524-access-header-light.png?raw=true) · [dark](https://github.com/objectstack-ai/objectui/blob/33ef46f53/docs/design/studio-redesign/findings/12524/12524-access-header-dark.png?raw=true)\n\nThe screenshots live on the never-merged branch `claude/issue-12524-evidence`; this branch carries no PNG.\n\n## Test evidence (head d9376cc)\n\n- New: `StudioItemHeader.statusPlace-12524.test.tsx`, 4 passed. It renders the four real pillars with a draft and asserts the chip is a child of the title row at one shared index, after the title and the identity chips, outside the actions. It also asserts the Interfaces actions keep their order with no chip among them. CONTROL: no draft, no chip (Data, Automations, Interfaces); a read-only package, no Access status, and the read-only link in the actions slot.\n- Ablation: moving the Interfaces chip back into the actions turns 2 of 4 red. After restoring with `git checkout HEAD`, `git diff HEAD` is empty.\n- Full app-shell suite (the file set of `pnpm --filter @object-ui/app-shell test`), run in 8 shards because of the session's 10-minute command cap: 1420 files passed and 1 skipped; 13538 tests passed and 9 skipped. The existing `StudioDesignSurface.flowCanvasChip-11665` pin is green, unmodified.\n- `type-check` (source and test configs), `build`, eslint on the touched files (0 errors), `check:i18n-keys`, `check:i18n-drift`, `check-changeset-presence` and `check:new-line-citations`: all exit 0.\n\n## Acceptance notes\n\n- Permission sets show no item-level draft status: the Access note says how edits save, not whether this set has a pending draft. Recorded only; not part of this change.\n\nSession: `https://claude.ai/code/session_01GzRy6FiHuy1vpBecH2KRYM`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GzRy6FiHuy1vpBecH2KRYM)_"
+}

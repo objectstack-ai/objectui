@@ -2,8 +2,8 @@
   "number": 12515,
   "kind": "issue",
   "title": "Form Preview renders the draft definition instead of 'No published definition yet'",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:studio",
     "domain:ui",
     "enhancement",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-15T14:22:28Z",
-  "updated_at": "2026-10-15T20:06:42Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-15T21:53:15Z",
+  "closed_at": "2026-10-15T21:51:35Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 2,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12515",
   "body": "## Source\n\nMeasured on objectui main `d4bc81eab`, 2026-10-15: Data pillar › Form tab › Preview on an unpublished object shows a yellow banner \"You have unpublished changes — this preview shows the pre-publish (published) state; confirm the draft in Layout, and to see the post-publish result, click Publish in the top bar first\" and, below it, an empty state \"No published definition yet — Preview renders the published runtime form, but this object isn't published yet. Confirm the draft in Layout, then click Publish in the top bar to preview\" (`engine.studio.data.form.noPublishedTitle`). The same instruction is given twice and the tab is empty exactly when a designer most wants to see the form.\n\n## Target\n\n1. Preview renders the runtime form from the draft definition (the draft object and its draft layout fed to the same form renderer the app uses), with a \"Draft preview\" chip in the toolbar.\n2. When a published version also exists, a Draft / Published toggle next to the chip; the banner retires.\n3. If the runtime form cannot take a draft definition without a server change, the card reports the fork on the epic with what the renderer needs, and does not build a second renderer.\n\n## File surface\n\n`packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx` (Form tab preview branch), `ObjectFormDesigner.tsx`, the form renderer host it mounts, `packages/app-shell/src/views/metadata-admin/i18n.ts`, tests beside.\n\n## Acceptance\n\n1. Test: an unpublished object with three draft fields shows the three fields in Preview.\n2. Screenshots of Preview for an unpublished and a published object, light and dark.\n3. `DataPillar.*.test.tsx` green.\n\n## Constraints\n\n- Preview never saves; the draft is read-only there.\n- Existing `data-testid`s stay.\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-15 Studio test pass: objectui main `d4bc81eab`, HotCRM `63db83e2`, the vite console on :5180 against `objectstack serve --dev` on :4001, viewport 1482 × 1119, dark theme with a light-theme check.</sub>\n\n## Evidence\n\nScreenshots from the test pass, kept on the temporary branch `claude/studio-test-pass-evidence-20261015` of objectstack-ai/objectui (commit `72115588c`, never merged: the maintainer ruled that screenshots do not enter main, and asked for a temporary branch referenced from the card). The branch's `docs/design/studio-redesign/findings/2026-10-15/README.md` maps every file to its card. Pane captures, 800 × 604 of a 1482 × 1119 viewport, dark unless named light.\n\n![form preview no published](https://github.com/objectstack-ai/objectui/blob/72115588c/docs/design/studio-redesign/findings/2026-10-15/12515-form-preview-no-published.jpg?raw=true)\n`docs/design/studio-redesign/findings/2026-10-15/12515-form-preview-no-published.jpg` — form preview no published.\n\nParent: objectstack-ai/objectui#12446\n\n<sub>Body refreshed 2026-10-15T15:19Z by the epic PM session: an Evidence section with the test-pass screenshots added.</sub>\n"

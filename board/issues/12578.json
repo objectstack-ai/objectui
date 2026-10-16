@@ -1,0 +1,35 @@
+{
+  "number": 12578,
+  "kind": "pull_request",
+  "title": "feat(plugin-dashboard): DashboardGridLayout dataset-bound metric tile on two lines, drag handle over the tile in edit mode (objectui#12573)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T21:41:16Z",
+  "updated_at": "2026-10-15T22:08:36Z",
+  "closed_at": "2026-10-15T22:08:34Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-15T22:08:34Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12578",
+  "body": "Fixes #12573\nClause-②: no\n\n`DashboardGridLayout`'s dataset-bound metric tile follows PR #12572's two-line shape (triage scope 2, comment 6202056726). `layout.h`, the grid's `rowHeight` and `DashboardRenderer`'s `gridAutoRows` are untouched (triage scope 1). The HotCRM `layout.h: 1` half (scope 3) is the seat's cross-repo follow-up and is not in this PR.\n\n## What changed\n\n- `DashboardGridLayout`: for a **dataset-bound `metric` widget only** (`datasetBound` and `resolveWidgetType(widget) === 'metric'`), the card draws no `CardHeader`. It hands `DatasetWidget` the same `heading` prop `DashboardRenderer` hands it: the resolved title, and the description resolved with `pickLocalized` for the active language. So the title and the measure label share one line above the value, drawn by `DatasetWidget`'s `MetricHeadingRow`. That row stays the one derivation of the two-line content for both surfaces; `DatasetWidget.tsx` is not changed.\n- Edit mode: the drag handle the dropped header carried now sits over the tile's top-right corner (`absolute top-2 right-2`, the same handle markup the self-contained metric branch already uses), with the card `relative`. The tile content takes `pr-10` in edit mode so the heading line does not run under the handle. It is still the `.drag-handle` element `dragConfig.handle` names.\n- Every other widget's card (chart, table, pivot, inline metric) is unchanged.\n\n## A2: the description (measured)\n\nBefore this change `DashboardGridLayout` drew no description anywhere for any widget. With `heading`, a dataset-bound metric's `widget.description` becomes the title's `title` tooltip, as on `DashboardRenderer`. It is resolved with `pickLocalized`, the resolver this surface already uses for the title. This surface has no per-dashboard bundle translation for titles or descriptions, unlike `DashboardRenderer`'s `tWidgetDescription`, and this PR does not add one. No other widget's description is drawn.\n\n## A1 (measured)\n\n`DashboardGridLayout` hands `DatasetWidget` the same `heading` prop with no change to `DatasetWidget`. The one predicate each surface computes for its own frame (`datasetBound` and type `metric`) mirrors how both surfaces already compute `isSelfContained` side by side.\n\n## Tests\n\nNew `packages/plugin-dashboard/src/__tests__/DashboardSurfaces.metricTileTwoLines-12573.test.tsx`, 10 tests:\n- On both surfaces (`describe.each`): the metric draws title + measure label in one heading line before the value, nothing after the value, the label once and the title once. The description is the title's tooltip and is not drawn as text.\n- CONTROL, on both surfaces: a dataset-bound `table` and a dataset-bound `bar` chart keep their card header (title with its own `title` attribute) and draw no metric heading.\n- `DashboardGridLayout` edit mode: out of edit mode the metric tile has no `.drag-handle`. After \"Edit Layout\" it has exactly one, inside its `.react-grid-item`, which carries `react-draggable`. The heading row still draws, with the title once. CONTROL: the table's handle is still in its card header, beside its title.\n- CONTROL, `DashboardRenderer` positioned grid (`columns: 12`): metric `h: 2`, chart `h: 4` and table `h: 3` render `gridRow: span 2 / 4 / 3` over a grid whose `gridAutoRows` is still `minmax(5rem, auto)`.\n\nAblation (one run, objectstack's `scripts/ablation-replace.mjs`, under the shared lock): the anchor `const datasetMetric = datasetBound && resolveWidgetType(widget) === 'metric';` was replaced by `const datasetMetric = false as boolean;`. The tool reported anchor 1 to 0 and blob `b43c5e6bc9c2` to `27832ea93a84`. Result: **3 failed / 7 passed**. The red tests were the two `DashboardGridLayout` metric pins and the edit-mode pin. The `DashboardRenderer` pins and all controls stayed green, which is the expected direction. Restore: blob after equals HEAD (`b43c5e6bc9c2`), and `git diff HEAD` was empty. The test imports its subjects relatively, and the root vitest config aliases `@object-ui/*` to `src/`, so no `dist/` was involved.\n\nGate readings at `9c5bb68f7`, exit codes from each gate's own verdict line:\n- `pnpm --filter '@object-ui/plugin-dashboard^...' build` then `pnpm --filter @object-ui/plugin-dashboard type-check`: exit 0. `tsconfig.test.json --listFiles` includes the new test file.\n- New pin file under the lock: 10 passed, exit 0.\n- `pnpm exec vitest run packages/plugin-dashboard/` under the lock: 180 files, 1792 passed and 6 skipped, exit 0.\n- Battery, all exit 0: `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:control-bytes`, `node scripts/check-hand-rolled-comment-mask.mjs`, `check-changeset-fixed`, `check-changeset-presence`, `check-changeset-no-major`.\n- `check:spec-floors`: exit 1, `no-artifact` (it needs a full workspace build). Recorded as the dispatch said; not fixed.\n- Narrowed eslint (`--no-inline-config --format json`) on the 2 changed `.ts`/`.tsx` files: 2 files judged, 0 errors. Warnings: `DashboardGridLayout.tsx` 8 at base and 8 after; the test has 0. The population is the two changed files, read from eslint's JSON output. Type-aware linting is not configured in `eslint.config.js` (no `parserOptions.project` or `projectService`), so the diff cannot change the verdict on an untouched file.\n\n## Acceptance notes\n\n- Browser reading: none here (happy-dom has no layout engine). The two-line shape is pinned by DOM order; the tile height is not measured.\n- Changeset: `@object-ui/plugin-dashboard` patch.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

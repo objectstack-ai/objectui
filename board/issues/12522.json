@@ -2,8 +2,8 @@
   "number": 12522,
   "kind": "issue",
   "title": "Page designer: a readable source editor, a Properties tab with the page's metadata, a Run mode that differs",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:studio",
     "domain:ui",
     "enhancement",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-15T14:25:42Z",
-  "updated_at": "2026-10-15T20:07:32Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-15T22:49:41Z",
+  "closed_at": "2026-10-15T22:48:22Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 3,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12522",
   "body": "## Source\n\nMeasured on objectui main `d4bc81eab`, 2026-10-15, Interfaces pillar, a new html page (`help_center`, \"Written in: HTML\"): the aside's Source tab shows the page source (`<flex direction=\"col\" gap={4}>…`) in about 10 px mono at the top of a 479 × 856 px panel that is otherwise empty; the Properties tab says only \"This page is html source, not a block tree — edit it in the Source tab\"; the header's Design / Run toggle changes nothing visible for a static page.\n\n## Target\n\n1. The source editor uses the console's 12–13 px mono, shows line numbers, fills the panel's height and wraps long lines; a one-line status under it says \"Saved HH:MM\" or \"Unsaved\".\n2. The Properties tab for an html page shows the page's metadata: label, identifier, kind (html / react), the nav entries that point at it, and the same \"Written in\" value, editable where the schema allows.\n3. Run mode hides the designer chrome (selection ring, dashed regions, the Add block toolbar) and renders the page as the app does; when a page has no designer chrome, the toggle is disabled with a tooltip reason (objectui#12303 pattern).\n\n## File surface\n\n`packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx` (`InterfacesPillar` page branch), the page source editor and the page preview under `packages/app-shell/src/views/metadata-admin/previews/`, `packages/app-shell/src/views/metadata-admin/i18n.ts`, tests beside.\n\n## Acceptance\n\n1. Tests: Properties for an html page lists label, identifier and kind; Run mode renders without the designer chrome.\n2. Screenshots of Source, Properties and Run, light and dark.\n3. `pnpm --filter @object-ui/app-shell test` green.\n\n## Constraints\n\n- No new editor dependency; the editor the console already ships.\n- Existing `data-testid`s (`if-inspector`, `if-canvas-caption`) stay.\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-15 Studio test pass: objectui main `d4bc81eab`, HotCRM `63db83e2`, the vite console on :5180 against `objectstack serve --dev` on :4001, viewport 1482 × 1119, dark theme with a light-theme check.</sub>\n\n## Evidence\n\nScreenshots from the test pass, kept on the temporary branch `claude/studio-test-pass-evidence-20261015` of objectstack-ai/objectui (commit `72115588c`, never merged: the maintainer ruled that screenshots do not enter main, and asked for a temporary branch referenced from the card). The branch's `docs/design/studio-redesign/findings/2026-10-15/README.md` maps every file to its card. Pane captures, 800 × 604 of a 1482 × 1119 viewport, dark unless named light.\n\n![page properties tab](https://github.com/objectstack-ai/objectui/blob/72115588c/docs/design/studio-redesign/findings/2026-10-15/12522-page-properties-tab.jpg?raw=true)\n`docs/design/studio-redesign/findings/2026-10-15/12522-page-properties-tab.jpg` — page properties tab.\n\n![page run mode](https://github.com/objectstack-ai/objectui/blob/72115588c/docs/design/studio-redesign/findings/2026-10-15/12522-page-run-mode.jpg?raw=true)\n`docs/design/studio-redesign/findings/2026-10-15/12522-page-run-mode.jpg` — page run mode.\n\n![page source tab](https://github.com/objectstack-ai/objectui/blob/72115588c/docs/design/studio-redesign/findings/2026-10-15/12522-page-source-tab.jpg?raw=true)\n`docs/design/studio-redesign/findings/2026-10-15/12522-page-source-tab.jpg` — page source tab.\n\nParent: objectstack-ai/objectui#12446\n\n<sub>Body refreshed 2026-10-15T15:19Z by the epic PM session: an Evidence section with the test-pass screenshots added.</sub>\n"

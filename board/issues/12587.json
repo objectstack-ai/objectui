@@ -1,0 +1,35 @@
+{
+  "number": 12587,
+  "kind": "pull_request",
+  "title": "feat(app-shell): Add field asks for label and type in a popover; the type picker also searches descriptions (objectui#12516)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T23:55:22Z",
+  "updated_at": "2026-10-16T00:21:50Z",
+  "closed_at": "2026-10-16T00:21:48Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T00:21:48Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12587",
+  "body": "Fixes #12516\nClause-②: no\n\n## What changed\n\n**Target 1 — the type picker's search.** The picker already had a search input, focused on open, filtering on name, category, id and English name with Enter picking (objectui#11793); the test-pass screenshot cropped it off above a popover that had flipped upward. This PR adds the description to the search, matched on whole words: `masked` now finds Password and Secret, while `pick` still leaves Picklist alone and `look` leaves Lookup. A substring match would have pulled in Slider through 'A number picked on a slider.' A query in Han or Kana matches a description as a substring, since those scripts have no word edges. Groups keep their headings over their matches, empty groups are dropped, and the arrow keys plus Enter pick a type.\n\n**Target 2 — Add field asks first.** A new `AddFieldPopover` (studio-design) holds a required Label, the same `FieldTypePicker` with Text preselected, and Cancel / Create. Create calls the pillar's one `addField(label, type)`: the same object buffer and autosave as before, and the new field opens in the inspector. The api name is `toFieldNameLoose(label)`, the inspector Label's own derivation. When that is empty (no Latin letters) or names an existing field, the field gets the next free `field_N`, which is what the inspector keeps in both cases. Cancel, Escape or an outside click creates nothing.\n\n**Target 3 — the entries share it.** On main, Add field lives on the Form toolbar and the Records grid's '+' column, and both ran the same `addField`. Both now open the popover. There is no empty-form Add field on main (an empty section shows 'Drop here'). A read-only package still offers no Add field (objectui#12453).\n\n## Deviations\n\n- The grid '+' is drawn from `GridFieldAuthoring`, whose `onAddColumn` hands back no element, and `@object-ui/components` exports no popover anchor. So the grid's popover sits at the records body's top-right corner, and focus returns to '+' when it closes. Anchoring it under '+' needs a components contract change, outside this card's file surface.\n- After a popover create the api name is not a placeholder shape, so the inspector's Label no longer moves it (the objectui#7615 ownership rule); the API name box still edits it.\n- Six existing suites and the shared add-field test helper were updated, because their Add field click now opens the popover; the helper fills it with 'New field'. No assertion was weakened.\n\n## Acceptance notes\n\n- `GridFieldAuthoring.onAddColumn` is typed with no argument while the grid passes the click event; noted, not filed.\n- The card lists nine categories that sum to 49 under its '45 types in 8 groups' line; the catalog is untouched, per the constraint.\n\n## Screenshots (1280 px, writable package, HotCRM backend)\n\n- Type picker with `pick` — [light](https://github.com/objectstack-ai/objectui/blob/15adf9afff4b4199949266ff64e0eedf78676c60/docs/design/studio-redesign/findings/12516/12516-type-picker-pick-light.png?raw=true) · [dark](https://github.com/objectstack-ai/objectui/blob/15adf9afff4b4199949266ff64e0eedf78676c60/docs/design/studio-redesign/findings/12516/12516-type-picker-pick-dark.png?raw=true)\n- Add field popover — [light](https://github.com/objectstack-ai/objectui/blob/15adf9afff4b4199949266ff64e0eedf78676c60/docs/design/studio-redesign/findings/12516/12516-add-field-popover-light.png?raw=true) · [dark](https://github.com/objectstack-ai/objectui/blob/15adf9afff4b4199949266ff64e0eedf78676c60/docs/design/studio-redesign/findings/12516/12516-add-field-popover-dark.png?raw=true)\n- Created field in the inspector (`health_score`, Picklist) — [light](https://github.com/objectstack-ai/objectui/blob/15adf9afff4b4199949266ff64e0eedf78676c60/docs/design/studio-redesign/findings/12516/12516-created-light.png?raw=true) · [dark](https://github.com/objectstack-ai/objectui/blob/15adf9afff4b4199949266ff64e0eedf78676c60/docs/design/studio-redesign/findings/12516/12516-created-dark.png?raw=true)\n\nThe screenshots live on the evidence branch `claude/issue-12516-evidence`, which is never merged.\n\n## Test evidence (at `04e029f`)\n\n- `pnpm --filter @object-ui/app-shell test`: exit 0, Test Files 1416 passed, 1 skipped (1417); Tests 13521 passed, 9 skipped (13530).\n- `type-check` 0, `build` 0, eslint on touched files 0 errors; `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:i18n-dead-keys`, `check:new-line-citations` and `check-changeset-presence` all 0.\n- New pins: `FieldTypePicker.search-12516.test.tsx` (8 tests) and `DataPillar.addFieldPopover-12516.test.tsx` (8 tests). Each was ablated once and went red: no description match (4 red), description as substring (2 red), name not derived from the label (2 red), collision unhandled (1 red), popover clicks recorded as the grid button (1 red). One unmount-close branch stayed green under ablation, which showed it unreachable, so it was deleted.\n\nSession: `https://claude.ai/code/session_01NexEdg9sJzmsdpTuKVo4AY`\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01NexEdg9sJzmsdpTuKVo4AY\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01NexEdg9sJzmsdpTuKVo4AY)_"
+}

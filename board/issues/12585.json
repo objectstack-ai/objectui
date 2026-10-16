@@ -1,0 +1,37 @@
+{
+  "number": 12585,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail,types): seed new record pages with the `default` template and type the page `template` by reference to the spec",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-bill"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T23:13:03Z",
+  "updated_at": "2026-10-15T23:47:55Z",
+  "closed_at": "2026-10-15T23:47:53Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-15T23:47:53Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12585",
+  "body": "Part of objectstack-ai/objectstack#23610\n\nClause-②: no\n\n**This PR lands before objectstack-ai/objectstack#23708.** That PR closes `PageSchema.template` in `@objectstack/spec` to four layout names: `default`, `header-sidebar-main`, `three-column` and `dashboard`. It retires `full-width` by name, with `default` as the replacement. objectstack's AGENTS.md (Post-Task Checklist, step 4) says a removal that breaks the pinned sibling checkout \"ships together with the sibling fix and the pin bump — or it does not ship\". This PR is that sibling fix. After it merges, #23708 moves `.objectui-sha` through `scripts/bump-objectui.sh` to a commit that carries it, and lands.\n\n## What changes\n\n- **Studio's new record page is seeded with `default`.** `buildDefaultPageSchema` wrote `template: 'full-width'`, which #23708 refuses at save, so the first save of a new record page would fail with a 422. The renderer's `TEMPLATE_REGISTRY` maps `default` and `full-width` to the same `FullWidthTemplate`, so a seeded page lays out exactly as before.\n- **`PageNodeSchema.template` is typed by reference to the spec: `SpecPage['template']`.** The member was re-declared as `string` over the inherited spec member. Against #23708's spec that widening is TS2430 on the interface.\n- **The zod mirror's `template` is the spec's member too** (`stripImportedDefaults(SpecPageSchema).shape.template`). `z.string()` accepted every name, so against #23708's spec the zod face would have been wider than the TS face, and the zod-mirror parity test reports exactly that. Against today's `@objectstack/spec` (`^18.0.0-next.1`, where the member is a string) both faces accept what they accepted before.\n- **The renderer still recognises `full-width`.** It is not changed: pages already stored with `full-width` keep rendering.\n- Two tests re-pinned to `default`. One changeset, `patch` for `@object-ui/plugin-detail` and `@object-ui/types`.\n\n## Verification (the dev's report, posted on objectstack-ai/objectstack#23610)\n\n- Against today's spec: type-check of `types`, `plugin-detail` and `app-shell` passes (32/32). Tests: `types` with `plugin-detail` 655 files, `app-shell` 1410 files, and `types` again after the zod edit 383 files, all green.\n- Against objectstack-ai/objectstack#23708's spec, built and linked into `packages/types`:\n  - `tsc` on the three tsconfigs exits 0.\n  - Reverting the TS member to `string` reproduces TS2430.\n  - Assigning `'full-width'` gives TS2322 naming the four layouts.\n  - At runtime the zod face refuses `full-width` and accepts `default`; under today's spec it is unchanged.\n- Local gates: changeset presence, no-major, cross-file line citations and control bytes all exit 0.\n- On `main`, the only page-template writers of `'full-width'` are the seed and the two tests changed here, plus the renderer registry, which reads it. No page writes `isDefault: true` outside a record page.\n\nDev session: `session_01TCM7ejacXFijr6twN5Ezbj`, dispatched by the objectstack `domain:spec` seat 2 (claim on objectstack-ai/objectstack#23610). The seat opened this PR through the relay because the dev's session could not reach it.\n"
+}

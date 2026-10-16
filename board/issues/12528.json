@@ -2,8 +2,8 @@
   "number": 12528,
   "kind": "issue",
   "title": "console list and dashboard chrome (family card): the view description's own row, the sort popover's standing lookup note, the metric card's four-line stack and the two-row list footer — four nails, one card",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:records",
     "domain:ui",
     "enhancement",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-15T14:28:01Z",
-  "updated_at": "2026-10-15T18:46:11Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-15T21:25:08Z",
+  "closed_at": "2026-10-15T21:23:44Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12528",
   "body": "Filing gate ③, on the maintainer's word (chat, 2026-10-15, session `session_019YFzJp4o8Ck4NsT1toC4UP`, seat account os-bill): the seat ran a functional audit of the HotCRM console on objectui `main` `720f6d4` (report, private to the maintainer: https://claude.ai/artifact/XPrn5eZMsQaKUgasMJEMmR, findings F7, F13, F14 and F16; figures 9, 17 and 21), listed them as one card, and the maintainer answered 「同意开卡，使用 pm-dispatch 创建卡片」. A family card: four fixed places where chrome costs height or attention, each with its nail below; a single-point card for any one of them is not opened. Quota note: the audit's cards exceed the filing gate's three-per-fire quota on that word, which approved the report's card list as a set.\n\nParent: #12444. The sibling of #11694 (closed: the dashboard's Refresh All row and the report card's fixed height), which is the precedent for density items. Blocks nothing; nothing blocks it.\n\n**Reader who acts:** the `domain:ui` lane's next dispatch (seat post #9800), one dev round across `@object-ui/plugin-list` (nails 1, 2, 4), `@object-ui/plugin-grid` (nail 4) and `@object-ui/plugin-dashboard` (nail 3), size M; the dev may split the dashboard nail into a second PR on the same card.\n\n**Dedupe** (MCP `search_issues`, scope objectstack-ai/objectui, all states, read 2026-10-15T14:14Z): \"sort popover lookup columns explanation text always shown dashboard metric card too tall connection status badge app bar list footer aggregates two rows\" → 8: #12463, #12423, #12461 (this parent's merged children), #12188, #11694 (the density precedent, closed), #8882, #5827, #665 (closed). \"view description rendered as its own line above the list toolbar pushes toolbar row down move into view tab tooltip\" → 10: #12474, #12504, #12505 (open, the Hide Fields write family), #12440, #12423, #12462, #12418, #11642 (closed). None is this card.\n\n## The four nails (objectui `origin/main` `720f6d4`, read 2026-10-15T14:15Z)\n\n1. **The view description takes a row of its own above the toolbar.** `packages/plugin-list/src/ListView.tsx` lines 4969–4972 render `viewDescription` as a `px-4 pt-1.5 text-xs` line before the toolbar row. Reading: HotCRM Accounts (\"Primary account list with revenue & industry summaries\") puts the toolbar at y = 155; Leads, whose default view has no description, at y = 133. The chrome's height changes with the view. Build: the description moves into the active tab's tooltip (and the tab's ▾ menu header), the toolbar row stays at one height; `appearance.showDescription` keeps its meaning for the tooltip.\n2. **The sort popover's standing note.** `ListView.tsx` line 993 (`list.sortRelationalHint`) and line 5279: a four-line paragraph about lookup columns and denormalization is drawn on every open, taking about half of the popover. Build: the paragraph becomes an info icon with that text as its tooltip, next to the \"Sort by\" field list, and a one-line hint only when the picked field is a lookup.\n3. **The metric card's four-line stack.** `packages/plugin-dashboard/src/MetricCard.tsx` lines 98–122: `CardHeader` (title + icon), then the description, then `text-2xl` value, then a unit line. Reading: HotCRM Sales Performance's four KPI cards are about 215 px tall for one number each; two rows of cards fill the first screen. Build: title and unit on one line above a `text-2xl` value, the description in the card's tooltip (`title`) unless the widget declares `showDescription`; target about 120 px at the default density.\n4. **Two footer rows on an aggregated list.** The grid's column-summary footer (`packages/plugin-grid/src/ObjectGrid.tsx` lines 3337–3394, `useScopedColumnSummary`) draws \"Annual Revenue: Sum: 109,800,000.00 · Number of Employees: Avg: 760\" as a row above the list's record-count footer (\"9 records\", `list.recordCount`). Build: one footer row: the count at the left, the aggregates at the right of the same row, truncating with a tooltip when they do not fit.\n\n## Acceptance\n\n- One test per nail: `ListView` renders no `view-description` element and the active tab's trigger carries the description as its tooltip; the sort popover has no `sortRelationalHint` paragraph and an info control with that text; `MetricCard` renders title, value and unit in two lines and no description paragraph by default; a grid with column summaries renders one footer row containing both the count and the summaries.\n- Browser reading by the landing seat at 1440 on HotCRM: the Accounts and Leads toolbars sit at the same y; the sort popover is under half its former height; Sales Performance's first screen shows the four KPI cards and both charts' titles; the Accounts footer is one row.\n- `pnpm test` from the repo root green on the affected files; a changeset (patch) per published package touched.\n\n## Out of scope\n\n- The dashboard filter bar; the chart widgets; the Display popover (#12474 / #12505 family); the 2-second \"Connected\" flash of `ConnectionStatus.tsx` (measured as by design: it hides itself after 2 s on reconnect).\n\nAttribution: written by the domain:ui seat in session `session_019YFzJp4o8Ck4NsT1toC4UP` (account os-bill) on the maintainer's words quoted above.\n\n## Screenshots (added 2026-10-15T14:43Z, on the maintainer's word 「专用分支存图，卡里嵌 raw 链接」)\n\nThe images live on the attachment branch `claude/ui-audit-2026-10-15-shots` of objectstack-ai/objectui (commit `918a251`, never merged; index at https://github.com/objectstack-ai/objectui/blob/918a2510a54bd6875b90eb6996d098c3ec0451dd/docs/design/console-audit-2026-10-15/README.md). Full set and figure numbers: the audit report linked above.\n\n**Nail 1 and nail 4: the view description's own row above the toolbar; the aggregate row above the record count**\n\n![accounts-1440.png](https://raw.githubusercontent.com/objectstack-ai/objectui/918a2510a54bd6875b90eb6996d098c3ec0451dd/docs/design/console-audit-2026-10-15/accounts-1440.png)\n\n**Nail 2: the standing lookup note in the sort popover**\n\n![sort-popover.png](https://raw.githubusercontent.com/objectstack-ai/objectui/918a2510a54bd6875b90eb6996d098c3ec0451dd/docs/design/console-audit-2026-10-15/sort-popover.png)\n\n**Nail 3: four KPI cards of about 215 px each**\n\n![dashboard.png](https://raw.githubusercontent.com/objectstack-ai/objectui/918a2510a54bd6875b90eb6996d098c3ec0451dd/docs/design/console-audit-2026-10-15/dashboard.png)\n"

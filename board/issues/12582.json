@@ -1,0 +1,35 @@
+{
+  "number": 12582,
+  "kind": "pull_request",
+  "title": "feat(app-shell): page designer for html/react pages: a numbered source editor with a save status, a Properties tab with the page's metadata, and a disabled Run switch that says why (objectui#12522)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T22:18:52Z",
+  "updated_at": "2026-10-15T22:48:22Z",
+  "closed_at": "2026-10-15T22:48:20Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-15T22:48:20Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12582",
+  "body": "Fixes #12522\nClause-②: no\n\n## What changed\n\n**Source tab (target 1).** Measured on main: when Monaco loads, the editor already meets the target (12 px mono, line numbers, full panel height, wrapping). The test pass caught the loading skeleton and then the plain-textarea fallback that the editor drops to when Monaco cannot load (offline, air-gapped, strict CSP). That fallback lacked line numbers. It now draws a line-number gutter, wraps long lines and fills the panel. Each source line is mirrored in an invisible row with the same font, width and wrapping, so a number sits on the first visual row of its line. A one-line status under the editor reads Unsaved while an edit is pending, Saved HH:MM once the pillar's own save lands (the time is formatted in the display locale), and Saved for a draft read but not edited in this visit. No new save path: the time is recorded where the existing leaf save succeeds, tied to the leaf it saved.\n\n**Properties tab (target 2).** The new SourcePageProperties panel shows:\n- the label, editable in the designer locale through the existing renamedLabel, so a per-language label keeps its other languages;\n- the identifier, read-only (it is the name every save addresses);\n- 'Written in' (HTML or React), read-only, as the create dialog words it, because the Studio does not change a page's kind;\n- every navigation entry that opens the page, at any depth, with the groups it sits in, read from the navigation tree the pillar already holds.\n\nIt writes only `label`.\n\n**Run (target 3).** On an html or react page Design and Run draw the same live preview, so the switch is disabled. The reason uses the objectui#12303 pattern: a focusable wrapper that is the tooltip trigger, with a visually hidden copy that the wrapper and both buttons point aria-describedby at. Block-tree pages keep a working switch: Design draws the block canvas (region label, block cards, Add block, Add region) and Run renders the page as the app does. A new test pins that control.\n\nThe data-testids if-inspector, if-canvas-caption and canvas-mode-toggle are kept.\n\n## Deviations\n- Two i18n keys, engine.studio.inspector.sourcePageLine1 and sourcePageLine2 (en and zh), are retired: they held the old Properties-tab copy this card replaces. The dead-keys and drift gates are green.\n- Besides the page branch, three small spots in InterfacesPillar changed: the header's Design/Run switch, one state hook, and one line in the existing leaf save that records the saved-at time. The canvas mount and studio-canvas-preview.tsx are untouched.\n- Not changed: in the folded (chat dock) layout the Properties tab is still the source editor alone, now with the status line.\n\n## Screenshots (1280 px, HotCRM backend, writable package)\n- Source, Monaco: [dark](https://github.com/objectstack-ai/objectui/blob/d3817f2b46728ce7b8f812f9e00f383f8b322572/docs/design/studio-redesign/findings/12522/12522-html-source-dark.png?raw=true) · [light](https://github.com/objectstack-ai/objectui/blob/d3817f2b46728ce7b8f812f9e00f383f8b322572/docs/design/studio-redesign/findings/12522/12522-html-source-light.png?raw=true)\n- Source, textarea fallback: [dark](https://github.com/objectstack-ai/objectui/blob/d3817f2b46728ce7b8f812f9e00f383f8b322572/docs/design/studio-redesign/findings/12522/12522-html-source-fallback-dark.png?raw=true) · [light](https://github.com/objectstack-ai/objectui/blob/d3817f2b46728ce7b8f812f9e00f383f8b322572/docs/design/studio-redesign/findings/12522/12522-html-source-fallback-light.png?raw=true)\n- Properties: [dark](https://github.com/objectstack-ai/objectui/blob/d3817f2b46728ce7b8f812f9e00f383f8b322572/docs/design/studio-redesign/findings/12522/12522-html-properties-dark.png?raw=true) · [light](https://github.com/objectstack-ai/objectui/blob/d3817f2b46728ce7b8f812f9e00f383f8b322572/docs/design/studio-redesign/findings/12522/12522-html-properties-light.png?raw=true)\n- Run switch disabled, reason shown on focus: [dark](https://github.com/objectstack-ai/objectui/blob/d3817f2b46728ce7b8f812f9e00f383f8b322572/docs/design/studio-redesign/findings/12522/12522-html-run-disabled-dark.png?raw=true) · [light](https://github.com/objectstack-ai/objectui/blob/d3817f2b46728ce7b8f812f9e00f383f8b322572/docs/design/studio-redesign/findings/12522/12522-html-run-disabled-light.png?raw=true)\n- Block-tree page, Design vs Run: [design dark](https://github.com/objectstack-ai/objectui/blob/d3817f2b46728ce7b8f812f9e00f383f8b322572/docs/design/studio-redesign/findings/12522/12522-block-design-dark.png?raw=true) · [run dark](https://github.com/objectstack-ai/objectui/blob/d3817f2b46728ce7b8f812f9e00f383f8b322572/docs/design/studio-redesign/findings/12522/12522-block-run-dark.png?raw=true) · [design light](https://github.com/objectstack-ai/objectui/blob/d3817f2b46728ce7b8f812f9e00f383f8b322572/docs/design/studio-redesign/findings/12522/12522-block-design-light.png?raw=true) · [run light](https://github.com/objectstack-ai/objectui/blob/d3817f2b46728ce7b8f812f9e00f383f8b322572/docs/design/studio-redesign/findings/12522/12522-block-run-light.png?raw=true)\n\nThe screenshots live on claude/issue-12522-evidence and are never merged.\n\n## Test evidence (at b3ca8ff)\n- `pnpm --filter @object-ui/app-shell test`: Test Files 1413 passed, 1 skipped (1414); Tests 13472 passed, 9 skipped; exit 0.\n- New tests: InterfacesPillar.sourcePage-12522.test.tsx 5/5; SourcePageProperties.test.tsx and SourcePageEditor.lineNumbers-12522.test.tsx 6/6.\n- Each new test was ablated once: mutate, see red, restore, empty `git diff HEAD`. Mutated: the toggle's disabled flag, the nav-entry filter, the saved-at stamp, the gutter number, PagePreview's design-only canvas branch, and renamedLabel.\n- app-shell type-check 0 and build 0; eslint on touched files 0 errors; check:i18n-keys, i18n-drift, i18n-designer-parity, i18n-dead-keys 0; check-changeset-presence 0; check:new-line-citations 0; machineLocaleCensus-9909 7/7.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01TMRmamUSS4m88TGPxNSTSP)_"
+}

@@ -1,0 +1,37 @@
+{
+  "number": 12584,
+  "kind": "issue",
+  "title": "Grid boolean cells: the read-only checkbox the boolean cell renderer draws has no accessible name, so a screen reader announces \"checkbox, not checked\" with no field",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "a11y",
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "sunhaolin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T22:24:02Z",
+  "updated_at": "2026-10-16T02:19:49Z",
+  "closed_at": "2026-10-16T02:18:40Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12584",
+  "body": "Filing gate: ① — a user-visible accessibility defect with a named location, measured in the browser's own tree.\n\n## Symptom (measured by the cloud session of objectstack-ai/objectui#12510, on objectui `572bbce`, HotCRM `63db83e`)\n\nStudio Data pillar › HotCRM › Account › Records tab. The browser's computed tree (CDP `Accessibility.getFullAXTree`) lists 9 `checkbox` nodes with an empty name: one per row of the `is_active` column. The runtime list page draws its cells with the same renderer (decision D of objectstack-ai/objectui#12446), so it reads the same.\n\nreach: the Studio Records grid and the runtime list grid (UI doors). Measured on the Studio door only.\n\n## Cause\n\n`packages/fields/src/index.tsx` on objectui `f96f771`, the boolean cell renderer, line 1014:\n\n```\n<Checkbox checked={value} disabled className=\"pointer-events-none\" />\n```\n\nThere is no `aria-label`, no `aria-labelledby`, and no text beside it. The renderer's two other outcomes already name themselves:\n- The completion indicator (`completed`, `is_done`, …) carries `role=\"img\"` and `aria-label` from `fields.boolean.completed` / `fields.boolean.notCompleted`.\n- The off badge for status fields reads `fields.boolean.offBadge` with the field's label, `field?.label || humanizeLabel(fieldName)`.\n\n## Fix\n\nName the checkbox by the field, as the off badge already does: `aria-label={field?.label || humanizeLabel(fieldName)}`. Its checked state is announced by the role, so the name carries no state word. There is no visual change, and no new i18n key is needed.\n\n## Acceptance\n\n1. A unit test renders the boolean cell renderer for a field with a label and asserts `getByRole('checkbox', { name: <label> })`, both checked and unchecked.\n2. A field with no label falls back to the humanized name.\n3. CONTROL: the completion indicator and the off badge keep their current names.\n\n## Who acts\n\nTriage grades and routes it. The fix reader is the `domain:ui` lane that owns `packages/fields`. It came out of objectstack-ai/objectui#12510, which named only buttons, links and comboboxes, and it is not part of epic objectstack-ai/objectui#12446.\n\n## Dedupe (2026-10-15, MCP `search_issues` on objectstack-ai/objectui, open and closed)\n\n- \"boolean cell checkbox accessible name aria-label grid read-only checkbox unnamed screen reader\": 4 hits, none this defect: objectui#11924, objectui#11051, objectui#10435 (closed a11y findings, so the channel was live) and objectui#8490 (the empty-array value of the same renderer, closed).\n\nFiled by seat `domain:ui#4` (session `session_01SJn1GEkrbbBQkhGC26wEDw`) from the out-of-scope finding of the objectstack-ai/objectui#12510 report."
+}

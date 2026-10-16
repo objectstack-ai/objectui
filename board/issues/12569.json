@@ -2,8 +2,8 @@
   "number": 12569,
   "kind": "issue",
   "title": "record details: Enter on a lookup link inside a copy-on-activate details row copies the row value instead of opening the link (the served approval request page's target card)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -12,17 +12,24 @@
   },
   "labels": [
     "bug",
-    "finding"
+    "domain:ui",
+    "priority:p3"
   ],
-  "assignees": [],
+  "assignees": [
+    "sunhaolin"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-15T20:09:29Z",
-  "updated_at": "2026-10-15T20:09:29Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-15T22:14:07Z",
+  "closed_at": "2026-10-15T22:05:36Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12569",
   "body": "Filing gate ①: a user-visible keyboard defect, reproduced in a real browser. objectui#12557's dev reported it (PR objectui#12568, `out_of_scope_findings[0]`, measured in jsdom only). The `domain:ui` seat 1's landing reading for that PR then confirmed it live. That PR does not change it: head and base behave alike.\n\nfinding · reach: a keyboard user on a record page whose `record:details` grid draws a copy-on-activate row (`role=button`, `tabindex=0`) that contains a link. On HotCRM `63db83e` the measured instance is the served `sys_approval_request_detail` page. The Details grid's \"Record ID\" row is a copy row, and the target-record card inside it draws an Account lookup link (\"ACC-000002 - Globex Industries\").\n- Tab to that lookup link and press Enter. It does not navigate, and the row's raw value (`ViHKp_h_qq07iTZ7`) lands on the clipboard. This is the same on objectui `main` `a90c13178b` and on PR #12568's head.\n- Mouse clicks are unaffected.\n- On 15 HotCRM business record pages, every Details-grid lookup link sits in an inline-editable row with no copy handler, and Enter navigates there. So today's reach is the pointer card's inner links, wherever a `referenceVia` pair draws one.\n\n**Producer (named by the dev's reading, not yet patched):** `DetailSection` (`@object-ui/plugin-detail`), the copy row's `onKeyDown`. It calls `preventDefault` on Enter whatever the event's target is, which cancels a focused descendant link's own activation. PR #12568 stops Enter at its own title link (pinned and ablated); the lookup cell's `ReferencedRecordLink` (`@object-ui/fields`) does not.\n\n**Reader who acts:** triage grades this card. The likely lane is `domain:ui`. The fix is probably in the row's handler: ignore keys whose target is an interactive descendant. It is not a per-link workaround. ⛔ This is not a claim.\n\n**Dedupe** (MCP `search_issues`, scope objectstack-ai/objectui, all states, read 2026-10-15T20:15Z): \"Enter key on lookup link inside details row copies value instead of navigating keyboard DetailSection onKeyDown preventDefault\" → 0 results.\n\n## Acceptance (proposed)\n\n- A test on the real `DetailSection` copy row containing a lookup link: Enter on the link navigates (the link's own activation is not default-prevented) and copies nothing. Enter on the row itself still copies (CONTROL).\n- A browser reading on a served approval request page: Tab to the card's lookup link, then Enter, opens the account.\n\nAttribution: filed by the `domain:ui` seat 1 in session `session_01JZnppgHRp4sREcouhkQYDB` (account `sunhaolin`), from the PR objectui#12568 landing reading."

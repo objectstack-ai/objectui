@@ -2,8 +2,8 @@
   "number": 12508,
   "kind": "issue",
   "title": "Studio logs a 404 for /layers on draft-only items and a 501 for /ai/models on every load",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:studio",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-15T14:17:39Z",
-  "updated_at": "2026-10-15T19:04:33Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-15T20:58:03Z",
+  "closed_at": "2026-10-15T20:56:27Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12508",
   "body": "## Source\n\nNetwork and console readings on objectui main `d4bc81eab`, 2026-10-15, one Studio session in the writable package `com.default.studio-test`:\n\n- `GET /api/v1/meta/object/st_ticket/layers → 404` right after `PUT /api/v1/meta/object/st_ticket?mode=draft` created the object (Data pillar, unpublished object). The code already knows: `StudioDesignSurface.tsx` carries three comments saying a draft-only name has no layer and `/layers` answers 404 for it, and `ObjectListViewInspector.tsx` and `PackageOwdOverviewPanel.tsx` say the same, yet one load path still asks.\n- `GET /api/v1/meta/view/st_ticket.default/layers → 404` when the Interfaces pillar opens an object entry whose default list view does not exist yet (the aside says \"There is no list view st_ticket.default yet\").\n- `GET /api/v1/ai/models → 501 Not Implemented` on every console load, from the AI-model allowlist hook in `packages/plugin-chatbot/src/ChatbotEnhanced.tsx` (around the comment at line 545, ADR-0028), on a server without `@objectstack/service-ai`.\n\nEach is a red \"Failed to load resource\" line in the browser console; a developer reading the console for their own error sees three red lines that mean nothing.\n\n## Target\n\n1. A Studio load path never asks `/layers` for a name it already knows has no published layer: the drafts list answers \"draft-only\", and the object load, the view load and the inspector read it before calling `client.layered`. The three comments become the behavior.\n2. The AI-model hook asks once per session and remembers a 501 (or 404) as \"no AI service here\" for the session; no retry on route changes. If the console can know in advance that the server mounts no AI service (its capability or health answer), it does not ask at all.\n3. A Studio session that creates an object, opens its list view in Interfaces and creates a page logs no 4xx/5xx resource line.\n\n## File surface\n\n`packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx` (object and view loads), `ObjectListViewInspector.tsx`, `packages/app-shell/src/views/metadata-admin/EmbeddedItemEditor.tsx`; `packages/plugin-chatbot/src/ChatbotEnhanced.tsx` and `index.tsx` (the hook); tests beside each.\n\n## Acceptance\n\n1. Tests pin: no `layered` call for a draft-only object name; no `layered` call for a view name absent from both drafts and published; the models hook calls once and not again after a 501.\n2. The network log of the session described above (reproduced in the PR as the list of `/api/` requests) shows no 404 or 501.\n3. `pnpm --filter @object-ui/app-shell test` and `pnpm --filter @object-ui/plugin-chatbot test` green.\n\n## Constraints\n\n- No server change; the console stops asking.\n- Existing `data-testid`s and i18n keys stay.\n\n<sub>Filed by the epic PM session `session_cdb7a717-def7-4e71-9988-f089fbaa18ff` from the 2026-10-15 Studio test pass: objectui main `d4bc81eab`, HotCRM `63db83e2`, the vite console on :5180 against `objectstack serve --dev` on :4001, viewport 1482 × 1119, dark theme with a light-theme check.</sub>\n\nParent: objectstack-ai/objectui#12446"

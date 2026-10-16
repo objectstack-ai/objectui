@@ -1,0 +1,36 @@
+{
+  "number": 12579,
+  "kind": "issue",
+  "title": "docs(studio-redesign): move the 61 PR screenshots under docs/design/studio-redesign/after/ to an evidence branch and remove them from main (the maintainer's \"screenshots do not enter main\" ruling)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-15T22:03:06Z",
+  "updated_at": "2026-10-15T22:47:36Z",
+  "closed_at": "2026-10-15T22:46:02Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12579",
+  "body": "Filing gate ③: the remainder of a maintainer ruling recorded on the epic. The maintainer, in seat `domain:ui#4`'s session on 2026-10-15, verbatim: 「截图不进 main，统一用证据分支」. Recorded as ruling `6203198157` on objectstack-ai/objectui#12446.\n\nParent: #12446\n\n**Reader who acts:** seat `domain:ui#4` (seat post #10243), which dispatches it. Size S, one PR, no code.\n\n**Dedupe** (MCP `search_issues`, scope objectstack-ai/objectui, read 2026-10-15T22:00Z), query \"remove studio-redesign after screenshots from main move to evidence branch\": 7 results, all Studio test-pass cards (#12509–#12524). None is this card.\n\n## What is on `main` (measured at `e089a25`)\n\n`docs/design/studio-redesign/after/` holds 61 PNG files, 8.2 MB, which every clone carries:\n- 8 `skeleton-*` shots, from objectui#12459 (PR #12460, `cf430cd`);\n- 53 shots named by card: `12450-*` (3), `12451-*` (4), `12452-*` (2), `12453-*` (10), `12454-*` (2), `12455-*` (6), `12456-*` (4), `12488-*` (3), `12507-*` (4), `12509-*` (5), `12511-*` (6) and `12512-*` (4).\n\n`git grep` finds no reference to `after/` in the README or any other doc on `main`. Only the PR bodies name these paths.\n\n## Target\n\n1. A never-merged branch, `claude/studio-redesign-after-evidence`, keeps every one of the 61 files at its current path. Cut it from a `main` commit that carries them all and push it as is: no new commit is needed. Name its SHA.\n2. One PR deletes `docs/design/studio-redesign/after/` from `main`. Nothing else changes.\n3. The artboards beside the README (`*.html` and `*.png`, 8 pairs) stay: they are design sources, not screenshots.\n\n## Acceptance\n\n- After the PR, `git ls-tree origin/main docs/design/studio-redesign/after/` lists nothing. Every one of the 61 paths resolves on the evidence branch at the named SHA.\n- `docs/design/studio-redesign/*.png` (the 8 artboards) is unchanged.\n- The PR body lists the evidence-branch SHA and one commit-pinned raw URL per card prefix, so a reader of an old PR can find its shots.\n- The repo's own checks are green. A docs-only change needs no changeset unless `check-changeset-presence` says otherwise; follow what it says.\n\n## Constraints\n\n- No history rewrite: the files stay reachable at the merge commits that added them.\n- Screenshots of later cards go straight to their own `claude/issue-N-evidence` branches (ruling `6203198157`); this card does not touch those."
+}

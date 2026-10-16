@@ -2636,9 +2636,15 @@ const ja = {
       dismiss: "閉じる",
     },
     pendingDrafts: {
-      message: "未公開の変更が {{count}} 件あります — 公開すると反映されます。",
-      message_one: "未公開の変更が {{count}} 件あります — 公開すると反映されます。",
-      message_other: "未公開の変更が {{count}} 件あります — 公開すると反映されます。",
+      // objectui#12602 — the drafts row in Home's "My work" section: the
+      // count, then the first draft names joined by `nameSeparator`, in
+      // their package when they share one.
+      title: "未公開の変更 {{count}} 件",
+      title_one: "未公開の変更 {{count}} 件",
+      title_other: "未公開の変更 {{count}} 件",
+      inPackage: "{{names}} が {{package}} で公開待ちです",
+      waiting: "{{names}} が公開待ちです",
+      nameSeparator: "、",
       cta: "公開",
       publishing: "公開しています…",
       published: "公開しました。変更が反映されています。",
@@ -2659,9 +2665,16 @@ const ja = {
     showMoreApps: "もっと見る",
     showLess: "折りたたむ",
     continueEmpty: "開いた項目がここに表示されます。",
-    actionCenter: {
-      title: "対応が必要な項目",
-      empty: "すべて対応済みです",
+    // objectui#12602 — Home's "My work" section: its heading, the link to the
+    // full inbox, each column's title, "view all" link and empty line.
+    myWork: {
+      title: "マイワーク",
+      openInbox: "受信トレイを開く",
+      viewAll: "すべて表示",
+      approvals: "承認待ち",
+      approvalsEmpty: "承認待ちの項目はありません",
+      notifications: "通知",
+      notificationsEmpty: "未読の通知はありません",
     },
     loading: "ワークスペースを読み込み中…",
     welcome: "ObjectUI へようこそ",

@@ -2683,10 +2683,16 @@ const fr = {
       dismiss: "Ignorer",
     },
     pendingDrafts: {
-      message: "Vous avez {{count}} modification(s) non publiée(s) — publiez-les pour les activer.",
-      message_one: "Vous avez {{count}} modification non publiée — publiez-la pour l'activer.",
-      message_many: "Vous avez {{count}} de modifications non publiées — publiez-les pour les activer.",
-      message_other: "Vous avez {{count}} modifications non publiées — publiez-les pour les activer.",
+      // objectui#12602 — the drafts row in Home's "My work" section: the
+      // count, then the first draft names joined by `nameSeparator`, in
+      // their package when they share one.
+      title: "{{count}} modification(s) non publiée(s)",
+      title_one: "{{count}} modification non publiée",
+      title_many: "{{count}} modifications non publiées",
+      title_other: "{{count}} modifications non publiées",
+      inPackage: "{{names}} en attente de publication dans {{package}}",
+      waiting: "{{names}} en attente de publication",
+      nameSeparator: ", ",
       cta: "Publier",
       publishing: "Publication…",
       published: "Publié ! Vos modifications sont actives.",
@@ -2707,9 +2713,16 @@ const fr = {
     showMoreApps: "Plus",
     showLess: "Afficher moins",
     continueEmpty: "Les éléments que vous ouvrez apparaîtront ici.",
-    actionCenter: {
-      title: "Nécessite votre attention",
-      empty: "Vous êtes à jour",
+    // objectui#12602 — Home's "My work" section: its heading, the link to the
+    // full inbox, each column's title, "view all" link and empty line.
+    myWork: {
+      title: "Mon travail",
+      openInbox: "Ouvrir la boîte de réception",
+      viewAll: "Tout afficher",
+      approvals: "À approuver",
+      approvalsEmpty: "Rien n'attend votre approbation",
+      notifications: "Notifications",
+      notificationsEmpty: "Aucune notification non lue",
     },
     loading: "Chargement de l'espace de travail…",
     welcome: "Bienvenue dans ObjectUI",

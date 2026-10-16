@@ -520,7 +520,38 @@ function useSharedFeed<T>(
 
 // ── Pending approvals ────────────────────────────────────────────────────────
 
-const approvalsFeed = new SharedFeed<number>(0, APPROVALS_POLL_MS);
+/**
+ * One approval request waiting on the signed-in user, as Home's approvals
+ * column lists it (objectui#12602): the row the count is the size of.
+ *
+ * The display fields are the service's own enrichment
+ * (`process_label` / `record_title`, the contract's `ApprovalRequest`), copied
+ * as served. Package-internal, like the feed.
+ */
+export interface PendingApprovalRequest {
+  id: string;
+  /** The flow's human label, when the service resolved one. */
+  processLabel?: string;
+  /** The target record's display name, when the service resolved one. */
+  recordTitle?: string;
+  /** The flow's machine name, as served. */
+  processName?: string;
+  createdAt?: string;
+}
+
+const NO_APPROVALS: PendingApprovalRequest[] = [];
+
+/**
+ * The approval requests themselves, not only how many (objectui#12602): Home's
+ * approvals column lists the first of them, and the count every surface shows
+ * is this list's length — one request, one answer, so the column and the bell
+ * cannot disagree about how many are waiting.
+ */
+const approvalsFeed = new SharedFeed<PendingApprovalRequest[]>(NO_APPROVALS, APPROVALS_POLL_MS);
+
+function str(v: unknown): string | undefined {
+  return typeof v === 'string' && v.trim() ? v : undefined;
+}
 
 /**
  * The identities the endpoint matches a pending approver against: the user id,
@@ -595,6 +626,19 @@ export function useSharedPendingApprovalsCount(): number {
  * Package-internal: not exported from `./index.ts` or the package entry.
  */
 export function useSharedPendingApprovals(): SharedFeedSnapshot<number> {
+  const { value, status } = useSharedPendingApprovalRequests();
+  return { value: value.length, status };
+}
+
+/**
+ * The pending approval requests themselves, with the feed's status — the rows
+ * {@link useSharedPendingApprovals} counts (objectui#12602). Same feed, same
+ * one request: Home's approvals column lists these, and its count is their
+ * number, which is the bell's.
+ *
+ * Package-internal: not exported from `./index.ts` or the package entry.
+ */
+export function useSharedPendingApprovalRequests(): SharedFeedSnapshot<PendingApprovalRequest[]> {
   const { user } = useAuth();
   const identities = approverIdentities(user);
   // `user?.id` is the sign-in gate; identities is what the query needs.
@@ -617,9 +661,23 @@ export function useSharedPendingApprovals(): SharedFeedSnapshot<number> {
       return undefined;
     }
     const payload = await res.json().catch(() => null);
+    // One entry per request id: the count has always been the DISTINCT ids,
+    // and the list is what that count is the size of.
     const seen = new Set<string>();
-    for (const row of (payload?.data || []) as { id: string }[]) seen.add(row.id);
-    return seen.size;
+    const requests: PendingApprovalRequest[] = [];
+    for (const row of (payload?.data || []) as Record<string, unknown>[]) {
+      const id = String(row.id);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      requests.push({
+        id,
+        processLabel: str(row.process_label),
+        recordTitle: str(row.record_title),
+        processName: str(row.process_name),
+        createdAt: str(row.created_at),
+      });
+    }
+    return requests;
   });
 }
 

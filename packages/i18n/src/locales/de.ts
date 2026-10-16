@@ -2634,16 +2634,22 @@ const de = {
       dismiss: "Ausblenden",
     },
     pendingDrafts: {
-      message: "Sie haben {{count}} unveröffentlichte Änderung(en) — veröffentlichen Sie sie, um sie live zu schalten.",
-      message_one: "Sie haben {{count}} unveröffentlichte Änderung — veröffentlichen Sie sie, um sie live zu schalten.",
-      message_other: "Sie haben {{count}} unveröffentlichte Änderungen — veröffentlichen Sie sie, um sie live zu schalten.",
+      // objectui#12602 — the drafts row in Home's "My work" section: the
+      // count, then the first draft names joined by `nameSeparator`, in
+      // their package when they share one.
+      title: "{{count}} unveröffentlichte Änderung(en)",
+      title_one: "{{count}} unveröffentlichte Änderung",
+      title_other: "{{count}} unveröffentlichte Änderungen",
+      inPackage: "{{names}} warten in {{package}} auf Veröffentlichung",
+      waiting: "{{names}} warten auf Veröffentlichung",
+      nameSeparator: ", ",
       cta: "Veröffentlichen",
       publishing: "Wird veröffentlicht…",
       published: "Veröffentlicht! Ihre Änderungen sind live.",
       publishFailed: "Veröffentlichen fehlgeschlagen",
       // objectui#3546 slice six — seedWarn ist derselbe englische Satz wie
       // console.ai.seedWarn, also dieselbe Übersetzung. Der "(n)"-Marker folgt
-      // home.pendingDrafts.message ("Änderung(en)") in dieser Familie.
+      // home.pendingDrafts.title ("Änderung(en)") in dieser Familie.
       nothing: "Nichts zu veröffentlichen.",
       probeWarn: "Veröffentlicht, aber die Überprüfung hat Probleme gefunden.",
       seedWarn: "Veröffentlicht, aber einige Beispieldaten konnten nicht geladen werden.",
@@ -2657,9 +2663,16 @@ const de = {
     showMoreApps: "Mehr",
     showLess: "Weniger anzeigen",
     continueEmpty: "Elemente, die Sie öffnen, erscheinen hier.",
-    actionCenter: {
-      title: "Erfordert Ihre Aufmerksamkeit",
-      empty: "Alles erledigt",
+    // objectui#12602 — Home's "My work" section: its heading, the link to the
+    // full inbox, each column's title, "view all" link and empty line.
+    myWork: {
+      title: "Meine Arbeit",
+      openInbox: "Posteingang öffnen",
+      viewAll: "Alle anzeigen",
+      approvals: "Zur Genehmigung",
+      approvalsEmpty: "Nichts wartet auf Ihre Genehmigung",
+      notifications: "Benachrichtigungen",
+      notificationsEmpty: "Keine ungelesenen Benachrichtigungen",
     },
     loading: "Arbeitsbereich wird geladen…",
     welcome: "Willkommen bei ObjectUI",

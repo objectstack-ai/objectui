@@ -2634,9 +2634,15 @@ const ko = {
       dismiss: "닫기",
     },
     pendingDrafts: {
-      message: "게시되지 않은 변경이 {{count}}건 있습니다 — 게시하면 반영됩니다.",
-      message_one: "게시되지 않은 변경이 {{count}}건 있습니다 — 게시하면 반영됩니다.",
-      message_other: "게시되지 않은 변경이 {{count}}건 있습니다 — 게시하면 반영됩니다.",
+      // objectui#12602 — the drafts row in Home's "My work" section: the
+      // count, then the first draft names joined by `nameSeparator`, in
+      // their package when they share one.
+      title: "게시되지 않은 변경 {{count}}개",
+      title_one: "게시되지 않은 변경 {{count}}개",
+      title_other: "게시되지 않은 변경 {{count}}개",
+      inPackage: "{{names}} · {{package}}에서 게시 대기 중",
+      waiting: "{{names}} · 게시 대기 중",
+      nameSeparator: ", ",
       cta: "게시",
       publishing: "게시하는 중…",
       published: "게시했습니다! 변경 사항이 반영되었습니다.",
@@ -2656,9 +2662,16 @@ const ko = {
     showMoreApps: "더 보기",
     showLess: "간략히",
     continueEmpty: "열어본 항목이 여기에 표시됩니다.",
-    actionCenter: {
-      title: "확인이 필요한 항목",
-      empty: "모두 처리했습니다",
+    // objectui#12602 — Home's "My work" section: its heading, the link to the
+    // full inbox, each column's title, "view all" link and empty line.
+    myWork: {
+      title: "내 작업",
+      openInbox: "받은 편지함 열기",
+      viewAll: "모두 보기",
+      approvals: "승인 대기",
+      approvalsEmpty: "승인 대기 중인 항목이 없습니다",
+      notifications: "알림",
+      notificationsEmpty: "읽지 않은 알림이 없습니다",
     },
     loading: "워크스페이스 로드 중…",
     welcome: "ObjectUI에 오신 것을 환영합니다",

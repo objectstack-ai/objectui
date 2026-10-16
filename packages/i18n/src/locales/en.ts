@@ -3135,9 +3135,16 @@ const en = {
     showMoreApps: 'More',
     showLess: 'Show less',
     continueEmpty: 'Items you open will show up here.',
-    actionCenter: {
-      title: 'Needs your attention',
-      empty: "You're all caught up",
+    // objectui#12602 — Home's "My work" section: its heading, the link to the
+    // full inbox, each column's title, "view all" link and empty line.
+    myWork: {
+      title: "My work",
+      openInbox: "Open inbox",
+      viewAll: "View all",
+      approvals: "Awaiting approval",
+      approvalsEmpty: "Nothing waiting for your approval",
+      notifications: "Notifications",
+      notificationsEmpty: "No unread notifications",
     },
     greetingMorning: 'Good morning',
     greetingAfternoon: 'Good afternoon',
@@ -3193,9 +3200,15 @@ const en = {
       dismiss: 'Dismiss',
     },
     pendingDrafts: {
-      message: 'You have {{count}} unpublished change(s) — publish to make them live.',
-      message_one: 'You have {{count}} unpublished change — publish to make it live.',
-      message_other: 'You have {{count}} unpublished changes — publish to make them live.',
+      // objectui#12602 — the drafts row in Home's "My work" section: the
+      // count, then the first draft names joined by `nameSeparator`, in
+      // their package when they share one.
+      title: "{{count}} unpublished change(s)",
+      title_one: "{{count}} unpublished change",
+      title_other: "{{count}} unpublished changes",
+      inPackage: "{{names}} waiting to publish in {{package}}",
+      waiting: "{{names}} waiting to publish",
+      nameSeparator: ", ",
       cta: 'Publish',
       publishing: 'Publishing…',
       published: 'Published! Your changes are live.',

@@ -2700,9 +2700,16 @@ const zh = {
     showMoreApps: '更多',
     showLess: '收起',
     continueEmpty: '你打开过的内容会显示在这里。',
-    actionCenter: {
-      title: '待办事项',
-      empty: '全部处理完毕',
+    // objectui#12602 — Home's "My work" section: its heading, the link to the
+    // full inbox, each column's title, "view all" link and empty line.
+    myWork: {
+      title: "我的工作",
+      openInbox: "打开收件箱",
+      viewAll: "查看全部",
+      approvals: "待审批",
+      approvalsEmpty: "没有待审批的事项",
+      notifications: "通知",
+      notificationsEmpty: "没有未读通知",
     },
     greetingMorning: '早上好',
     greetingAfternoon: '下午好',
@@ -2744,9 +2751,15 @@ const zh = {
       dismiss: '关闭',
     },
     pendingDrafts: {
-      message: '你有 {{count}} 项未发布的更改 —— 点击发布即可生效。',
-      message_one: '你有 {{count}} 项未发布的更改 —— 点击发布即可生效。',
-      message_other: '你有 {{count}} 项未发布的更改 —— 点击发布即可生效。',
+      // objectui#12602 — the drafts row in Home's "My work" section: the
+      // count, then the first draft names joined by `nameSeparator`, in
+      // their package when they share one.
+      title: "{{count}} 项未发布更改",
+      title_one: "{{count}} 项未发布更改",
+      title_other: "{{count}} 项未发布更改",
+      inPackage: "{{names}} 在 {{package}} 包里等待发布",
+      waiting: "{{names}} 等待发布",
+      nameSeparator: "、",
       cta: '发布',
       publishing: '发布中…',
       published: '已发布！更改已生效。',

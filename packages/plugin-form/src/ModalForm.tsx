@@ -267,7 +267,7 @@ export interface ModalFormProps {
  * `100%`, not `100vw`: the dialog is `fixed`, so `100%` is its containing
  * block, the viewport less any classic scrollbar, the same box `left-[50%]`
  * centres in. `100vw` counts the scrollbar, so each gutter would lose half
- * its width.
+ * the scrollbar's width.
  *
  * `sm:` only: below `sm` the dialog is the full-screen phone sheet, unchanged.
  * `sm` (384px) and `default` (512px) never reach the window edge at or above

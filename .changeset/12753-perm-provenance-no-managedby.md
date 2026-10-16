@@ -8,6 +8,6 @@ The permission set editor's provenance badge decides from `packageId` and the pa
 - The routed page's badge and the Studio Access pillar's kind chip read one derivation, so they cannot disagree.
 - A draft that still carries a stray `managedBy` (an old stored row) no longer moves the answer. `managedBy: 'platform'` used to read "Platform", and `managedBy: 'package'` used to read "Package" for a set no package ships. Both now read "Custom".
 
-Clause-②: yes (narrowing)
+Clause-②: no
 
 The metadata-admin string table loses `perm.badge.platform` (en and zh), the "Platform" label only that badge read. The table is module-local: it is not exported from the package entry, so no consumer can address the key. The local `PermissionSetDraft` type loses its `managedBy` member; that type is not exported from the package entry either. No export, prop or exported type member changes.

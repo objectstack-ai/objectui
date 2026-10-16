@@ -123,17 +123,26 @@ describe('Settings namespace page — the console page header (objectui#12553)',
     expect(h1s).toHaveLength(1);
     expect(header.contains(h1s[0])).toBe(true);
     expect(h1s[0].textContent).toBe('Plain');
-    expect(header.querySelector('p')).toBeNull();
-    expect(header.querySelector('svg')).toBeNull();
+    // objectui#12606 — the description line holds the "All settings" crumb
+    // alone: no description text, and no icon chip (the only svg is the
+    // crumb's chevron).
+    const line = header.querySelector('p')!;
+    expect(line.textContent).toBe('console.settingsView.backToHub');
+    expect(Array.from(header.querySelectorAll('svg')).every((svg) => line.contains(svg))).toBe(true);
   });
 
-  it('Back to settings sits in the body below the header and opens the hub', async () => {
+  it('"All settings" is the header’s first crumb and opens the hub (objectui#12606)', async () => {
     renderView('mail');
     await screen.findByDisplayValue('smtp.example.com');
     const header = screen.getByTestId('page-header');
     const back = screen.getByRole('button', { name: /console\.settingsView\.backToHub/ });
-    expect(header.contains(back)).toBe(false);
-    expect(header.nextElementSibling!.contains(back)).toBe(true);
+    expect(header.contains(back)).toBe(true);
+    // First on the description line, before the description text.
+    const line = within(header).getByText('Outbound email transport.', { exact: false });
+    expect(line.contains(back)).toBe(true);
+    expect(line.textContent!.indexOf('console.settingsView.backToHub')).toBe(0);
+    // Nothing of it is left in the body.
+    expect(header.nextElementSibling!.contains(back)).toBe(false);
 
     fireEvent.click(back);
     expect(screen.getByText('settings hub route')).toBeInTheDocument();

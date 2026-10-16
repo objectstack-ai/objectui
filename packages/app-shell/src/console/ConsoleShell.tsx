@@ -27,6 +27,7 @@ import { AdapterProvider, useAdapter } from '../providers/AdapterProvider.js';
 import { withSettleSignal } from '../observability/settleSignal.js';
 import { MetadataProvider, useMetadata } from '../providers/MetadataProvider.js';
 import { appRouteSegment } from '../utils/appRoute.js';
+import { SETUP_APP_PACKAGE_ID, SETUP_APP_NAME } from './setupApp.js';
 import { useAiSurfaceEnabled } from '../hooks/useAiSurface.js';
 import { useHomePath } from '../hooks/useHomePath.js';
 import { PreviewModeProvider } from '../preview/PreviewModeContext.js';
@@ -515,19 +516,9 @@ export function SystemRedirect() {
   return <Navigate to={`${target}${location.search}${location.hash}`} replace />;
 }
 
-/**
- * The Setup app's canonical package id (ADR-0048 — one app per package).
- * `@objectstack/setup` declares it, and `/apps/<packageId>` is the app's
- * canonical URL (see `utils/appRoute.ts`).
- */
-export const SETUP_APP_PACKAGE_ID = 'com.objectstack.setup';
-
-/**
- * The Setup app's metadata `name`. `matchAppBySegment()` treats the name as a
- * per-tenant friendly alias, so a deployment that registers Setup without an
- * owning package (runtime/DB apps, older bundles) is still resolvable by it.
- */
-export const SETUP_APP_NAME = 'setup';
+// The Setup app's identity lives in `./setupApp.ts` (objectui#12606), which the
+// page header reads too; re-exported here so the package root keeps its names.
+export { SETUP_APP_PACKAGE_ID, SETUP_APP_NAME };
 
 /**
  * Minimal shape this resolver needs off each App metadata record. Structurally

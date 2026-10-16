@@ -141,13 +141,13 @@ async function sourceDraft(): Promise<Record<string, unknown>> {
   return JSON.parse(box.value) as Record<string, unknown>;
 }
 
+// The card's reproduction: a namespaced name, prefix included. Every designer's
+// Name keeps a typed underscore (objectui#12746: the report and dataset Name
+// fields used to drop it on each keystroke).
 const CASES: ReadonlyArray<{ type: DesignerType; typed: string }> = [
-  // The card's reproduction: a namespaced name, prefix included.
   { type: 'object', typed: 'qavrf_hand_typed' },
-  // The report and dataset Name fields normalise each keystroke with the strict
-  // identifier rule, so the typed value here carries no separator.
-  { type: 'report', typed: 'qavrfrevenue' },
-  { type: 'dataset', typed: 'qavrfrevenue' },
+  { type: 'report', typed: 'qavrf_hand_typed' },
+  { type: 'dataset', typed: 'qavrf_hand_typed' },
 ];
 
 describe('designer create mode — a typed Name survives a later Label edit (objectui#12680)', () => {

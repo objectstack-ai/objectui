@@ -107,18 +107,6 @@ export interface RecentViewItem extends RecentItemBase {
 }
 
 /**
- * The `id` of a list-view entry — one per object view (objectui#12604).
- *
- * Joined rather than written as a template literal on purpose: a backquoted
- * `view:` interpolation is the spelling the objectui#4373 guard
- * (`viewCacheInvalidation.guard.test.tsx`) reserves for the metadata adapter's
- * view cache keys, which app-shell never restates — and this id is not one.
- */
-export function recentViewId(object: string, view: string): string {
-  return ['view', object, view].join(':');
-}
-
-/**
  * A record, or a Studio metadata item. Neither has a metadata label to resolve
  * when rendered, so the entry carries the text it was visited under: a record's
  * display title (data read off the record), a metadata item's name.

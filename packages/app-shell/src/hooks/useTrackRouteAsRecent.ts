@@ -34,7 +34,7 @@
  * @module
  */
 import { useEffect, useRef } from 'react';
-import { recentViewId, useRecentItems } from '../context/RecentItemsProvider.js';
+import { useRecentItems } from '../context/RecentItemsProvider.js';
 import type { ObjectLike as SpecObjectLike } from '@objectstack/spec/system';
 
 /**
@@ -77,6 +77,18 @@ export interface UseTrackRouteAsRecentOptions {
   basePathSegment?: string;
   /** When `true`, the effect is suspended (e.g. when shell is hydrating). */
   disabled?: boolean;
+}
+
+/**
+ * The `id` of a list-view entry — one per object view (objectui#12604).
+ *
+ * Joined rather than written as a template literal on purpose: a backquoted
+ * `view:` interpolation is the spelling the objectui#4373 guard
+ * (`viewCacheInvalidation.guard.test.tsx`) reserves for the metadata adapter's
+ * view cache keys, which app-shell never restates — and this id is not one.
+ */
+export function recentViewId(object: string, view: string): string {
+  return ['view', object, view].join(':');
 }
 
 /** Segments after `appName` that are NOT object names but route prefixes. */

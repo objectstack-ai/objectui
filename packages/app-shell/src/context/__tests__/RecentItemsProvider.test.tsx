@@ -18,10 +18,10 @@ vi.mock('@object-ui/auth', async (importOriginal) => ({
 
 import {
   RecentItemsProvider,
-  recentViewId,
   useRecentItems,
   type RecentItem,
 } from '../RecentItemsProvider';
+import { recentViewId } from '../../hooks/useTrackRouteAsRecent';
 import {
   UserStateAdaptersProvider,
   useAttachUserStateAdapters,
@@ -424,7 +424,7 @@ describe('RecentItemsProvider — a Studio package entry (objectui#11863)', () =
 describe('RecentItemsProvider — one entry per target (objectui#12604)', () => {
   beforeEach(() => {
     localStorage.clear();
-    mockUser.current = { id: 'user-1', name: 'Alice', email: 'a@x' } as any;
+    mockUser.current = { id: 'user-1', name: 'Alice', email: 'a@x' };
   });
 
   const record = (id: string, label: string) =>

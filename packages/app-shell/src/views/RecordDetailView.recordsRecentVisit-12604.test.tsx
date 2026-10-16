@@ -84,10 +84,13 @@ const metadata = {
   getItemsByType: () => [],
 } as never;
 
-/** What the store holds, read from inside the provider. */
-let store: RecentItem[] = [];
+/** What the store holds, read from inside the provider after each commit. */
+const held: { items: RecentItem[] } = { items: [] };
 function StoreProbe() {
-  store = useRecentItems().recentItems;
+  const { recentItems } = useRecentItems();
+  React.useEffect(() => {
+    held.items = recentItems;
+  }, [recentItems]);
   return null;
 }
 
@@ -97,7 +100,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   localStorage.clear();
-  store = [];
+  held.items = [];
   vi.stubGlobal('fetch', vi.fn(async () => ({
     ok: true,
     status: 200,
@@ -133,8 +136,8 @@ describe('RecordDetailView — opening a record page records the visit (objectui
       </MemoryRouter>,
     );
 
-    await waitFor(() => expect(store).toHaveLength(1));
-    const [entry] = store;
+    await waitFor(() => expect(held.items).toHaveLength(1));
+    const [entry] = held.items;
     expect(entry).toMatchObject({
       id: `record:${OBJECT}:${REC}`,
       type: 'record',

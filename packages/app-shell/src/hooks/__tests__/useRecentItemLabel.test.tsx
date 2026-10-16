@@ -22,7 +22,8 @@ import { renderHook } from '@testing-library/react';
 import { MetadataCtx } from '@object-ui/react';
 import { createI18n, I18nProvider } from '@object-ui/i18n';
 import { useRecentItemLabel } from '../useRecentItemLabel';
-import { recentViewId, type RecentItem } from '../../context/RecentItemsProvider';
+import type { RecentItem } from '../../context/RecentItemsProvider';
+import { recentViewId } from '../useTrackRouteAsRecent';
 
 function metadata() {
   return {

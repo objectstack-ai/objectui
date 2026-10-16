@@ -860,6 +860,7 @@ const ja = {
   },
   kanban: {
     uncategorized: "未分類",
+    loadMore: "さらに読み込む",
     columns: "カラム",
     addCard: "カードを追加",
     addColumn: "カラムを追加",
@@ -4159,6 +4160,7 @@ const ja = {
     toggleFailed: "有効状態を変更できませんでした。",
     cloneFailedHttp: "このフローをクローンできませんでした (HTTP {{status}})。",
     cloneFailed: "このフローをクローンできませんでした。",
+    reasonDetails: "詳細",
     actionsSubtitle: "インストール済みパッケージが提供するアクションです。このデプロイでオフにすると、提供されているすべての場所で実行されなくなります。自分のアクションを別途 Studio で作成することは引き続き可能です。",
     colAction: "アクション",
     colObject: "オブジェクト",

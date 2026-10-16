@@ -860,6 +860,7 @@ const de = {
   },
   kanban: {
     uncategorized: "Nicht kategorisiert",
+    loadMore: "Mehr laden",
     columns: "Spalten",
     addCard: "Karte hinzufügen",
     addColumn: "Spalte hinzufügen",
@@ -4158,6 +4159,7 @@ const de = {
     toggleFailed: "Aktivierung konnte nicht geändert werden.",
     cloneFailedHttp: "Dieser Flow konnte nicht geklont werden (HTTP {{status}}).",
     cloneFailed: "Dieser Flow konnte nicht geklont werden.",
+    reasonDetails: "Details",
     actionsSubtitle: "Aktionen aus installierten Paketen. Schalten Sie eine für diese Installation ab, und sie läuft überall dort nicht mehr, wo sie angeboten wird. Eine eigene Aktion daneben zu erstellen, bleibt Ihnen im Studio offen.",
     colAction: "Aktion",
     colObject: "Objekt",

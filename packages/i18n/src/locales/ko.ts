@@ -860,6 +860,7 @@ const ko = {
   },
   kanban: {
     uncategorized: "미분류",
+    loadMore: "더 보기",
     columns: "열",
     addCard: "카드 추가",
     addColumn: "열 추가",
@@ -4156,6 +4157,7 @@ const ko = {
     toggleFailed: "활성화 상태를 변경하지 못했습니다.",
     cloneFailedHttp: "이 플로우를 복제하지 못했습니다 (HTTP {{status}}).",
     cloneFailed: "이 플로우를 복제하지 못했습니다.",
+    reasonDetails: "세부 정보",
     actionsSubtitle: "설치된 패키지가 제공하는 액션입니다. 이 배포에서 끄면 액션이 제공되는 모든 곳에서 실행되지 않습니다. Studio에서 직접 액션을 따로 작성하는 것은 계속 가능합니다.",
     colAction: "액션",
     colObject: "오브젝트",

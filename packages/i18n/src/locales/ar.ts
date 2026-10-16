@@ -979,6 +979,7 @@ const ar = {
   },
   kanban: {
     uncategorized: "غير مصنّف",
+    loadMore: "تحميل المزيد",
     columns: "أعمدة",
     addCard: "إضافة بطاقة",
     addColumn: "إضافة عمود",
@@ -4542,6 +4543,7 @@ const ar = {
     toggleFailed: "تعذّر تغيير التفعيل.",
     cloneFailedHttp: "تعذّر استنساخ هذا التدفق (HTTP {{status}}).",
     cloneFailed: "تعذّر استنساخ هذا التدفق.",
+    reasonDetails: "التفاصيل",
     actionsSubtitle: "إجراءات تأتي مع الحزم المثبّتة. أوقف أحدها في هذا النشر فيتوقف عن العمل في كل مكان يُعرض فيه. ويبقى بإمكانك إنشاء إجراء خاص بك إلى جانبه في Studio.",
     colAction: "الإجراء",
     colObject: "الكائن",

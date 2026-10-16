@@ -1122,6 +1122,7 @@ const en = {
     noCards: 'No cards',
     cardTitlePlaceholder: 'Enter card title…',
     uncategorized: 'Uncategorized',
+    loadMore: 'Load more',
     columns: 'columns',
     requiredFieldsTitle: 'Complete required fields',
     requiredFieldsDescription: 'This move makes the fields below required. Fill them in to continue.',
@@ -4883,6 +4884,12 @@ const en = {
     toggleFailed: 'Could not change activation.',
     cloneFailedHttp: 'Could not clone this flow (HTTP {{status}}).',
     cloneFailed: 'Could not clone this flow.',
+    // The chip an unarmed flow row's platform sentence opens from
+    // (objectui#12609). ⛔ Generic on purpose: the same word on every row that
+    // carries a sentence, whatever the sentence says. The sentence itself is
+    // the server's and is never kept in a pack; a label naming its cause would
+    // be the console classifying a field the contract says not to parse.
+    reasonDetails: 'Details',
 
     // ── Packaged ACTIONS section (ADR-0126 §8 item 2, ruling 3) ────────────
     // ⛔ No clone key here on purpose: the action-clone half is unchartered,

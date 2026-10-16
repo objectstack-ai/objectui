@@ -886,6 +886,7 @@ const fr = {
   },
   kanban: {
     uncategorized: "Non catégorisé",
+    loadMore: "Charger plus",
     columns: "colonnes",
     addCard: "Ajouter une carte",
     addColumn: "Ajouter une colonne",
@@ -4248,6 +4249,7 @@ const fr = {
     toggleFailed: "Impossible de modifier l'activation.",
     cloneFailedHttp: "Impossible de cloner ce flux (HTTP {{status}}).",
     cloneFailed: "Impossible de cloner ce flux.",
+    reasonDetails: "Détails",
     actionsSubtitle: "Actions fournies par les packages installés. Désactivez-en une pour ce déploiement et elle cesse de s'exécuter partout où elle est proposée. Vous pouvez toujours créer votre propre action à côté, dans Studio.",
     colAction: "Action",
     colObject: "Objet",

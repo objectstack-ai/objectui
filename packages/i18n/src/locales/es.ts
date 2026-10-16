@@ -890,6 +890,7 @@ const es = {
   },
   kanban: {
     uncategorized: "Sin categoría",
+    loadMore: "Cargar más",
     columns: "columnas",
     addCard: "Añadir tarjeta",
     addColumn: "Añadir columna",
@@ -4251,6 +4252,7 @@ const es = {
     toggleFailed: "No se pudo cambiar la activación.",
     cloneFailedHttp: "No se pudo clonar este flujo (HTTP {{status}}).",
     cloneFailed: "No se pudo clonar este flujo.",
+    reasonDetails: "Detalles",
     actionsSubtitle: "Acciones incluidas en los paquetes instalados. Desactiva una en esta implementación y dejará de ejecutarse en todos los lugares donde se ofrece. Crear tu propia acción junto a ella sigue estando disponible en Studio.",
     colAction: "Acción",
     colObject: "Objeto",

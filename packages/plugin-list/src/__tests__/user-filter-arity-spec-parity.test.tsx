@@ -24,10 +24,12 @@
  * - restored/default selections for a single-choice control clamp to one.
  */
 import * as React from 'react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, onTestFinished } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { UserFilterFieldSchema } from '@objectstack/spec/ui';
 import { shapeEnumOptions } from '@object-ui/test-support';
+import { ComponentRegistry } from '@object-ui/core';
+import { registerAllFields } from '@object-ui/fields';
 import { UserFilters, FILTER_CONTROL_KINDS } from '../UserFilters';
 
 const objectDef = {
@@ -165,6 +167,11 @@ describe("Tier 2 (#2942): 'toggle' element and range/text controls render", () =
   });
 
   it("'date-range' renders a from/to pair and emits >=/<= bounds", () => {
+    // The native pair: the fallback with no `field:date` widget registered.
+    // `@object-ui/fields` registers the platform picker on import; that face
+    // is pinned in `UserFilters.dateRangePicker-12784.test.tsx`.
+    ComponentRegistry.unregister('date', 'field');
+    onTestFinished(() => registerAllFields());
     const onFilterChange = vi.fn();
     render(
       <UserFilters
@@ -178,6 +185,8 @@ describe("Tier 2 (#2942): 'toggle' element and range/text controls render", () =
     fireEvent.click(screen.getByTestId('filter-badge-due_date'));
     expect(screen.getByTestId('filter-range-due_date')).toBeInTheDocument();
     expect(screen.queryByText('No options')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('From')).toHaveAttribute('type', 'date');
+    expect(screen.getByLabelText('To')).toHaveAttribute('type', 'date');
 
     fireEvent.change(screen.getByTestId('filter-range-due_date-from'), { target: { value: '2026-01-01' } });
     expect(onFilterChange).toHaveBeenLastCalledWith([['due_date', '>=', '2026-01-01']]);

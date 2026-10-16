@@ -561,11 +561,20 @@ family for them: it uses the same metadata-admin list and editors at
   (`features.tenancyPosture`) and the session's `isPlatformAdmin`, which is the
   server's own `PLATFORM_ADMIN` rung. It applies in every scope, because the
   server refuses a package-door draft of a catalog item the same way. Assigning
-  holders stays writable.
+  holders is not under this gate; the next item says which gate it is under.
 - **The Setup half of an item.** It renders under the definition: a permission
   set's holders (`AssignedUsersSection`), and a position's holders
   (`PositionHoldersSection`). Both read and write assignment rows by the
-  item's name.
+  item's name. The list asks only to read. Add and Remove each read their row
+  of the affordance-to-grant map in `@object-ui/core`, asked of the assignment
+  object (`sys_user_permission_set`, `sys_user_position`): Add reads
+  `relatedNew` (the create grant) and Remove `relatedRowDelete` (the delete
+  grant). Reaching Setup is not that grant. The Setup app asks `setup.access`,
+  and objectstack's shipped organization administrator set holds it while it is
+  read-only on both assignment objects (objectstack's own pin for that is the
+  test `organization_admin is read-only on global RBAC tables to prevent
+  privilege escalation`), so that administrator sees the holders with no Add and
+  no Remove.
 
 The list has an active switch and an active/inactive filter, through
 `catalog-activation.ts`. Both show the activation ledger's state

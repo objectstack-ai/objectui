@@ -49,8 +49,10 @@ import {
   filterSystemFields,
   inferColumns,
   inferModalSize,
+  sectionedFormColumns,
   sectionedGridLayout,
   CONTAINER_GRID_COLS,
+  UNDECLARED_SECTION_COLUMNS,
 } from './autoLayout';
 import { deriveFieldGroupSections, projectSectionDivider, resolveSectionCollapse } from './fieldGroups';
 import { resolveSectionGroupReferences } from './sectionGroups';
@@ -284,55 +286,22 @@ const modalSizeClasses: Record<string, string> = {
  * the whole row. Line items never reach this grid: they arrive as `subforms`,
  * which the master-detail arm below lays out across the dialog.
  *
- * It applies to a flat form with no `columns`, to the object's `fieldGroups`,
- * and to every SECTION that declares no `columns` while the form declares
- * none either: an undeclared section density is the renderer's choice, and a
- * declared one — `1` included — is drawn as written (the section-`columns`
- * fork on objectui#12521, ruled 6204264665).
+ * It applies to a flat form with no `columns`. A SECTION that declares no
+ * `columns` — the object's `fieldGroups` among them — gets the same count
+ * through the one sectioned-form rule, `sectionedGridLayout`
+ * (`UNDECLARED_SECTION_COLUMNS`), which every page host shares
+ * (objectui#12592): an undeclared section density is the renderer's choice,
+ * and a declared one — `1` included — is drawn as written (the
+ * section-`columns` fork on objectui#12521, ruled 6204264665).
  *
- * ⚠️ Until `@objectstack/spec`'s `FormSectionSchema.columns` drops its
- * `default(1)` (objectstack-ai/objectstack#23740), the spec's parse writes
- * `columns: 1` into every section that omitted it — `defineView` and
- * `defineStack` both return the parsed form — so a section from an authored
- * stack reaches this dialog DECLARED and draws one column. The undeclared
- * rule then covers only sections that arrive unparsed. ⛔ Never read a
- * declared `1` as undeclared to get ahead of that release.
- *
- * Dialog-only on purpose: a page form, a drawer and the detail view keep
- * `inferColumns`, which they mirror between them.
+ * The flat default is dialog-only on purpose: a flat page form, a drawer and
+ * the detail view keep `inferColumns`, which they mirror between them.
  */
-const DIALOG_DEFAULT_COLUMNS = 2;
+const DIALOG_DEFAULT_COLUMNS = UNDECLARED_SECTION_COLUMNS;
 
 /** Clamp an authored column count into the 1–4 grid keys; anything else reads as not authored. */
 const clampColumns = (n: unknown): number | undefined =>
   typeof n === 'number' && n > 0 ? Math.min(Math.floor(n), 4) : undefined;
-
-/**
- * One section's fields per row in the dialog: its declared `columns` as
- * written, else the form's declared `columns` (what an undeclared section
- * always filled), else {@link DIALOG_DEFAULT_COLUMNS}.
- */
-const dialogSectionColumns = (sectionColumns: unknown, formColumns: unknown): number =>
-  clampColumns(sectionColumns) ?? clampColumns(formColumns) ?? DIALOG_DEFAULT_COLUMNS;
-
-/**
- * The ONE grid width of a sectioned dialog: the form's own `columns`, else the
- * widest section's {@link dialogSectionColumns}. Read by the stacked and
- * tabbed layouts and by the dialog's derived size, so the size is chosen for
- * the grid that renders. Each section then draws its own count on it through
- * `sectionedGridLayout`, which switches to the 12-track grid when the counts
- * do not all fit (objectui#12548) — so an undeclared section beside a
- * `columns: 3` one draws two per row, not three.
- */
-function sectionedDialogColumns(
-  sections: ReadonlyArray<{ columns?: unknown }>,
-  formColumns: unknown,
-): 1 | 2 | 3 | 4 {
-  const widest = sections.length
-    ? Math.max(...sections.map((s) => dialogSectionColumns(s.columns, formColumns)))
-    : DIALOG_DEFAULT_COLUMNS;
-  return (clampColumns(formColumns) ?? widest) as 1 | 2 | 3 | 4;
-}
 
 export const ModalForm: React.FC<ModalFormProps> = ({
   schema,
@@ -465,7 +434,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   const effectiveModalSize = useMemo(() => {
     if (schema.modalSize) return schema.modalSize;
     const columns = effectiveSections?.length
-      ? sectionedDialogColumns(effectiveSections, schema.columns)
+      ? sectionedFormColumns(schema.columns, effectiveSections.map((s) => s.columns))
       : (autoLayoutResult?.columns ?? DIALOG_DEFAULT_COLUMNS);
     const fieldCount = effectiveSections?.length
       ? effectiveSections.reduce((n, s) => n + (Array.isArray(s.fields) ? s.fields.length : 0), 0)
@@ -903,15 +872,14 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         sec.name ? sectionLabel(schema.objectName, sec.name, sec.label || sec.name) : sec.label;
 
       // The form is ONE grid. Its width is the explicit form `columns`, else the
-      // widest section's count, an undeclared section counting the dialog's
-      // default (objectui#12521); each section then lays ITS fields out at its
+      // widest section's count, an undeclared section counting two
+      // (objectui#12521, #12592); each section then lays ITS fields out at its
       // own count within that grid via colSpan (objectstack-ai/objectstack#2578), exactly like the
       // full-page sectioned form — by the one sectioned-form rule, which
       // switches to a 12-track grid when the sections' counts do not all fit
-      // the widest one (objectui#12548).
-      const sectionColumnsOf = (sec: ModalFormSectionConfig) => dialogSectionColumns(sec.columns, schema.columns);
-      const formColumns = sectionedDialogColumns(sections, schema.columns);
-      const sectionGrid = sectionedGridLayout(formColumns, sections.map(sectionColumnsOf));
+      // the widest one (objectui#12548). It is handed the AUTHORED counts.
+      const sectionGrid = sectionedGridLayout(schema.columns, sections.map((sec) => sec.columns));
+      const formColumns = sectionGrid.columns;
       const containerFieldClass = sectionGrid.fieldContainerClass;
 
       // FLS first, so a section whose every field is non-readable drops out
@@ -942,7 +910,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
             visibleWhen: section.visibleWhen,
             className: section.className,
             gridClassName: section.gridClassName,
-            fields: sectionGrid.layOut(body, sectionColumnsOf(section)),
+            fields: sectionGrid.layOut(body, section.columns),
           };
         })
         .filter((g) => g.fields.length > 0);

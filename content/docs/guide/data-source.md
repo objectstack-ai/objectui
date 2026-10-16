@@ -254,7 +254,7 @@ ignores would be accepted and dropped, which is the defect this binding removes.
 
 | block | `object` | `view` | `filter` | `sort` | `limit` |
 |---|---|---|---|---|---|
-| `list-view` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `list-view` | ✅ (`data`) | ✅ | ✅ | ✅ | ✅ |
 | `object-grid` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `element:record_picker` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `element:number` | ✅ | filter | ✅ | — single value | — single value |
@@ -282,7 +282,10 @@ error on **every** block in the table, including the ones that take nothing else
 from the view — so a typo never passes silently, whatever the block.
 
 Reading the `object` column: on a block with an object key it lands on that key,
-which is `objectName` everywhere except `record:line_items`, where the collection the panel
+which is `objectName` everywhere except `list-view` and `record:line_items`. A
+`list-view` node names its object in `data` (`{ "provider": "object", "object": … }`),
+the spec's list view spelling, and a bound `dataSource.object` outranks
+`data.object`; the node's own `objectName` is not read. On `record:line_items` the collection the panel
 lists, fetches and writes is `childObject`. Its `relationshipField` is *not* part
 of the binding and stays the author's — it has to name a field on the bound child
 object, so rebinding `object` without updating it is an authoring error the panel
@@ -324,21 +327,22 @@ record block whose binding has no `limit: 1`, so the binding says which record i
 means. On a record page, a block with no `dataSource` still shows the page's
 record; a bound one shows its bound record instead, read-only.
 
-Because the binding lands on `objectName`, a node bound this way needs no
-`objectName` of its own. The schema validator (`StrictAnyComponentSchema`, which
+Because the binding lands on `objectName` (on `list-view`, it stands in for
+`data`), a node bound this way needs no `objectName` (or `data`) of its own. The schema validator (`StrictAnyComponentSchema`, which
 `objectui validate` runs, and the tolerant `safeValidateSchema` alike) counts the binding as a record source of `list-view`,
 `object-grid`, `object-kanban`, `object-calendar`, `object-gantt` and `object-map`,
 and still refuses one of those nodes that declares no other record source and names
 its object in neither place. A binding with an empty `object` names nothing.
 
 The page compile accepts such a node too, on every row above whose object lands on
-`objectName`: those registrations do not declare `objectName` required, because the
-binding can supply it. The exception is `record:related_list`, whose spec row
+`objectName`, and on `list-view`: those registrations do not declare `objectName`
+(on `list-view`, `data`) required, because the binding can supply it. The exception is `record:related_list`, whose spec row
 requires `objectName`, so the page compile still refuses one of those nodes without
 it. A node that names its object in neither place renders a short hint, "No object
 named: set objectName or dataSource.object.", in place of an empty list, board,
-form, chart, metric or pivot. `object-grid` shows its own "Object name required for
-data fetching" error instead. A block with another record source (inline `data`
+form, chart, metric or pivot. On `list-view` the hint names the key a page node
+writes: "No object named: set data.object or dataSource.object.". `object-grid`
+shows its own "Object name required for data fetching" error instead. A block with another record source (inline `data`
 rows, a form's inline fields — `customFields`, or `sections` whose every field is
 inline — a chart's `dataset`, a `bind` path, or a metric's `fallbackValue`) draws
 from that source and shows no hint.

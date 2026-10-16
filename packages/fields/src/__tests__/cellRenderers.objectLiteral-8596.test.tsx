@@ -292,6 +292,11 @@ const OBJECT_LITERAL_CENSUS: ReadonlyArray<readonly [type: string, text: string,
   // Its value is a `RecordPointer`; anything else (this `{}`) is handed to the
   // text cell unchanged, so it reads exactly as `text` does.
   ['record_pointer_card', '[Object]', false],
+  // ── objectui#12613: the two widget-hinted reference cells ───────────────
+  // `{}` names no object and no recipient, so nothing is asked and both draw
+  // the text cell's face for it, exactly as `text` does.
+  ['object-ref', '[Object]', false],
+  ['recipient-picker', '[Object]', false],
 ];
 
 /** A real value per type — the POPULATED half, which refuses the caricature. */
@@ -350,6 +355,8 @@ const POPULATED_CENSUS: ReadonlyArray<readonly [type: string, value: unknown]> =
   ['vector', [1, 2, 3]],
   ['grid', [[1]]],
   ['record_pointer_card', { objectName: 'invoice', recordId: 'inv_1' }],
+  ['object-ref', 'crm_account'],
+  ['recipient-picker', 'sales_manager'],
 ];
 
 describe('objectui#8596 — an object literal is not a cell value, and these renderers invented one', () => {

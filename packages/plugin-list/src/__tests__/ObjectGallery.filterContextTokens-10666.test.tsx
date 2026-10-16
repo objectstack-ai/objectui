@@ -65,7 +65,7 @@ function galleryNode(over: Record<string, unknown>) {
 
 /** The lit control: a directly authored `list-view` node over the same object. */
 function listNode(over: Record<string, unknown>) {
-  return { type: 'list-view', objectName: 'task', columns: ['name'], ...over };
+  return { type: 'list-view', data: { provider: 'object', object: 'task' }, columns: ['name'], ...over };
 }
 
 function ui(ds: DS, schema: Record<string, unknown>, user: string | null = USER, org: string | null = ORG) {

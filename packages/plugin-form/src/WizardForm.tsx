@@ -1227,13 +1227,13 @@ export const WizardForm: React.FC<WizardFormProps> = ({
   }
 
   const currentSection = schema.sections[currentStep];
-  const clampCol = (n: unknown): number | undefined =>
-    typeof n === 'number' && n > 0 ? Math.min(Math.floor(n), 4) : undefined;
-  const stepGridColumns = clampCol(schema.columns) ?? clampCol(currentSection?.columns) ?? 1;
   // The one sectioned-form rule (objectui#12548), over the one section this
-  // step draws: a form-level grid wider than the step's own count goes 12
-  // tracks wide, so the step still draws its own count per row.
-  const stepGrid = sectionedGridLayout(stepGridColumns, [clampCol(currentSection?.columns)]);
+  // step draws, handed the AUTHORED counts: a form-level grid wider than the
+  // step's own count goes 12 tracks wide, so the step still draws its own count
+  // per row, and a step that declares nothing draws two per row from `@md`, as
+  // the dialog does (objectui#12592).
+  const stepGrid = sectionedGridLayout(schema.columns, [currentSection?.columns]);
+  const stepGridColumns = stepGrid.columns;
   const stepFieldContainerClass = stepGrid.fieldContainerClass;
 
   // The current step's child `form` node, typed as the node it is
@@ -1255,7 +1255,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
     // Unlike the tabbed/split hosts there is no widest-section
     // fallback: wizard steps never share a viewport, so there is no
     // shared grid to size, and each step keeps its authored width.
-    fields: stepGrid.layOut(currentSectionFields, clampCol(currentSection?.columns)),
+    fields: stepGrid.layOut(currentSectionFields, currentSection?.columns),
     columns: stepGridColumns,
     ...(stepFieldContainerClass ? { fieldContainerClass: stepFieldContainerClass } : {}),
     layout: 'vertical',

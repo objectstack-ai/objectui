@@ -4,6 +4,14 @@ import { MetadataCtx, SchemaRendererContext } from '@object-ui/react';
 import type { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { useFieldTranslation } from './useFieldTranslation.js';
+// The kind table is shared with the read cell (objectui#12613), so a kind
+// reads the same in the list and in this picker.
+import {
+  FIELD_RECIPIENT_TYPE,
+  RECIPIENT_RECORD_KINDS,
+  RECIPIENT_REGISTRY_KINDS,
+  recipientCandidateLabel,
+} from './recipientKinds.js';
 
 /**
  * RecipientPickerField — dependent record picker for a polymorphic recipient
@@ -37,65 +45,6 @@ import { useFieldTranslation } from './useFieldTranslation.js';
  * for one type is meaningless for another). Unknown types degrade to a plain
  * text input so nothing breaks.
  */
-interface RecipientMapping {
-  object: string;
-  /** Which record field to persist into recipient_id. */
-  storeField: 'id' | 'name';
-  /** Candidate display-label fields, in preference order. */
-  labelFields: string[];
-  /**
-   * i18n key for the "choose one" placeholder. Keyed per type rather than
-   * interpolating the enum value into an English sentence — "Select a
-   * business unit" and "选择业务单元" share no structure (objectstack#3821).
-   */
-  placeholderKey: string;
-}
-
-const TYPE_TO_OBJECT: Record<string, RecipientMapping> = {
-  user: { object: 'sys_user', storeField: 'id', labelFields: ['name', 'full_name', 'email'], placeholderKey: 'fields.recipient.selectUser' },
-  team: { object: 'sys_team', storeField: 'id', labelFields: ['name', 'label'], placeholderKey: 'fields.recipient.selectTeam' },
-  business_unit: { object: 'sys_business_unit', storeField: 'id', labelFields: ['name', 'label'], placeholderKey: 'fields.recipient.selectBusinessUnit' },
-  unit_and_subordinates: { object: 'sys_business_unit', storeField: 'id', labelFields: ['name', 'label'], placeholderKey: 'fields.recipient.selectUnitAndSubordinates' },
-};
-
-/** A recipient kind whose candidates are catalog items of one metadata type. */
-interface RegistryRecipientMapping {
-  /** The metadata type listed — the registry's `GET /api/v1/meta/<type>`. */
-  type: string;
-  /** Catalog items are referenced by machine name (ADR-0131 D4). */
-  storeField: 'name';
-  /** Candidate display-label keys, in preference order. */
-  labelFields: string[];
-  /** i18n key for the "choose one" placeholder (see {@link RecipientMapping}). */
-  placeholderKey: string;
-}
-
-/**
- * The recipient kinds whose candidates come from the registry (objectui#7611).
- *
- * ADR-0131 D3 gives positions one home, the environment registry, and D7 says
- * a picker LISTS that registry: one source, with no second list of
- * `sys_position` rows merged in. The read goes through the console's metadata
- * store (`useMetadata().ensureType`), the same reader that serves apps and
- * objects, so the list is fetched once per session and shared with every
- * other registry consumer.
- */
-const TYPE_TO_REGISTRY: Record<string, RegistryRecipientMapping> = {
-  position: { type: 'position', storeField: 'name', labelFields: ['label', 'name'], placeholderKey: 'fields.recipient.selectPosition' },
-};
-
-/**
- * The RECORD-RELATIVE recipient kind (maintainer ruling objectstack#14103,
- * executor objectstack#15072). It is deliberately absent from
- * `TYPE_TO_OBJECT`: there is no target object to query and no record id to
- * store. `recipient_id` holds the NAME of a user-valued column on the SHARED
- * object, and the recipients are whoever that column names on each matched
- * record — so this mode reads the object chosen in the sibling `object_name`
- * field (the same dependency the `filter-condition` widget already reads) and
- * offers that object's user-valued fields.
- */
-const FIELD_RECIPIENT_TYPE = 'field';
-
 /** A user-valued column offered by the `field` recipient mode. */
 interface UserFieldDef {
   /** The machine name — this is what gets stored in `recipient_id`. */
@@ -178,13 +127,13 @@ export function RecipientPickerField({
   const disabled = props.disabled;
   const dependentValues: Record<string, any> = (props as any).dependentValues ?? {};
   const recipientType = String(dependentValues.recipient_type ?? '');
-  const recordMapping = TYPE_TO_OBJECT[recipientType];
+  const recordMapping = RECIPIENT_RECORD_KINDS[recipientType];
   // The console's metadata store, or `null` outside a `<MetadataProvider>`.
   // Read raw rather than through `useMetadata()`, whose no-provider fallback
   // answers every type with `[]`: an empty registry and an absent reader are
   // different facts, and only the second degrades to the text input below.
   const metadataStore = React.useContext(MetadataCtx);
-  const registryMapping = metadataStore ? TYPE_TO_REGISTRY[recipientType] : undefined;
+  const registryMapping = metadataStore ? RECIPIENT_REGISTRY_KINDS[recipientType] : undefined;
   const mapping: { storeField: 'id' | 'name'; labelFields: string[]; placeholderKey: string } | undefined =
     recordMapping ?? registryMapping;
   const objectName = String(dependentValues.object_name ?? '');
@@ -289,10 +238,7 @@ export function RecipientPickerField({
     };
   }, [dataSource, objectName, canListObjectFields]);
 
-  const labelOf = (r: any): string => {
-    for (const f of mapping?.labelFields ?? ['name']) if (r?.[f]) return String(r[f]);
-    return String(r?.id ?? '');
-  };
+  const labelOf = (r: any): string => recipientCandidateLabel(mapping?.labelFields, r);
   const valueOf = (r: any): string => String(r?.[mapping?.storeField ?? 'id'] ?? '');
 
   const options = React.useMemo(() => {

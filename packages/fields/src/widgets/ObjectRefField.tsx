@@ -4,6 +4,7 @@ import { SchemaRendererContext } from '@object-ui/react';
 import type { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { useFieldTranslation } from './useFieldTranslation.js';
+import { objectRefOptionLabel } from './objectRefLabel.js';
 
 /**
  * ObjectRefField — object-name picker for form fields that store the machine
@@ -81,7 +82,9 @@ export function ObjectRefField({
   const options = React.useMemo(() => {
     const opts = (objects ?? []).map((o) => ({
       value: o.name,
-      label: o.label ? `${o.label} (${o.name})` : o.name,
+      // The one `Label (name)` spelling, shared with the console's read face
+      // for this field (objectui#12613).
+      label: objectRefOptionLabel(o.name, o.label),
     }));
     // Keep the current value selectable even if the catalog didn't include it
     // (unknown / not-yet-published object), so editing never drops it.

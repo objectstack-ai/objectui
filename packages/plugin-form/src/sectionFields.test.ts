@@ -80,21 +80,23 @@ describe('normalizeSectionField', () => {
     expect(f.name).toBe('ghost'); // never undefined → no `.split` crash
   });
 
-  // View-level conditional visibility (#2212): the spec `P`-template ships
-  // `visibleOn` as an Expression object `{ dialect: 'cel', source }`. It must
-  // survive normalization verbatim so the form renderer can evaluate it with
-  // the canonical engine — the old code only accepted a bare string, and even
-  // then attached a dead `visible()` closure instead.
-  it('carries a `{ dialect, source }` visibleOn expression through (spec shape, #2212)', () => {
+  // View-level conditional visibility (#2212): the spec field's predicate may
+  // be an Expression object `{ dialect: 'cel', source }`. It must survive
+  // normalization verbatim — into the runtime field's view-level `visibleOn`
+  // slot — so the form renderer can evaluate it with the canonical engine; the
+  // old code only accepted a bare string, and even then attached a dead
+  // `visible()` closure instead. (#2212's spec spelling was `visibleOn`;
+  // spec 18 retired it for `visibleWhen`, objectui#12654.)
+  it('carries a `{ dialect, source }` view-level predicate through (spec shape, #2212)', () => {
     const expr = { dialect: 'cel', source: "record.priority == 'urgent'" };
-    const f = normalizeSectionField({ field: 'name', visibleOn: expr }, ctx);
+    const f = normalizeSectionField({ field: 'name', visibleWhen: expr }, ctx);
     expect((f as any).visibleOn).toEqual(expr);
     expect((f as any).visible).toBeUndefined(); // no dead closure
   });
 
-  it('carries a bare-string visibleOn through (#2212)', () => {
+  it('carries a bare-string view-level predicate through (#2212)', () => {
     const f = normalizeSectionField(
-      { field: 'name', visibleOn: "record.priority == 'urgent'" },
+      { field: 'name', visibleWhen: "record.priority == 'urgent'" },
       ctx,
     );
     expect((f as any).visibleOn).toBe("record.priority == 'urgent'");
@@ -147,14 +149,16 @@ describe('normalizeSectionField', () => {
     expect(f.visibleOn).toBe('record.amount > 0'); // view predicate in the view slot
   });
 
-  it('prefers the canonical spelling when both visibleWhen and deprecated visibleOn are authored', () => {
-    // `saveMeta` persists verbatim, so served metadata can carry either (or,
-    // after a partial migration, both). Canonical wins.
-    const f = normalizeSectionField(
-      { field: 'name', visibleWhen: "record.a == 1", visibleOn: "record.b == 2" },
-      ctx,
-    ) as any;
-    expect(f.visibleOn).toBe("record.a == 1");
+  // objectui#12654: spec 18 retires the spec field's `visibleOn` spelling
+  // (objectstack#23543 F4) — refused by name at every parsing door, and a
+  // stored row is rehydrated to `visibleWhen` before it is served. A raw spec
+  // field still carrying it reaches no gate; the same predicate under
+  // `visibleWhen` does. The pair is the narrowing.
+  it('does not read the retired spec-field `visibleOn` — the same predicate under `visibleWhen` is carried', () => {
+    const retired = normalizeSectionField({ field: 'name', visibleOn: "record.b == 2" }, ctx) as any;
+    expect(retired.visibleOn).toBeUndefined();
+    const canonical = normalizeSectionField({ field: 'name', visibleWhen: "record.b == 2" }, ctx) as any;
+    expect(canonical.visibleOn).toBe("record.b == 2");
   });
 
   it('carries a view-level dependsOn (spec cascading declaration)', () => {

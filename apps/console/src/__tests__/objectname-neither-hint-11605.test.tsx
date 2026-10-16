@@ -23,10 +23,15 @@
  * required for data fetching" error and is not opted in.
  *
  * Each member opts in through `ElementDataSourceGate`'s `requiresObject`, and
- * the gate draws the hint after the binding is applied. Rows per member:
- * 1. The neither node draws the hint, naming `objectName`, and asks the data
- *    layer for nothing.
- * 2. Control: the same node with `objectName` draws no hint.
+ * the gate draws the hint after the binding is applied. `list-view` and
+ * `view:list` draw it themselves, after the same binding, because a page
+ * `list-view` names its object in `data` rather than `objectName`
+ * (objectui#12099): their hint names `data.object`. Rows per member:
+ * 1. The neither node draws the hint, naming the member's object key, and asks
+ *    the data layer for nothing.
+ * 2. Control: the same node naming its object (`objectName`, or `data` on the
+ *    two list rows) draws no hint. On those two rows the retired `objectName`
+ *    names nothing: the hint is drawn and nothing is fetched.
  * 3. Control: the same node bound by `dataSource.object` draws no hint.
  * 4. Control, where the block has another record source: the neither node with
  *    that source draws no hint, so the hint is not painted over a block that
@@ -57,6 +62,9 @@ async function resolveLazy(types: readonly string[]): Promise<void> {
 }
 
 const HINT = 'No object named: set objectName or dataSource.object.';
+/** The page `list-view` key is `data` (objectui#12099), so its hint names `data.object`. */
+const LIST_HINT = 'No object named: set data.object or dataSource.object.';
+const LIST_NAMED = { data: { provider: 'object', object: 'account' } };
 
 /**
  * Each member: the tag, the gate's `testId` stem, the props a complete node
@@ -68,9 +76,13 @@ const MEMBERS: ReadonlyArray<{
   testId: string;
   base: Record<string, unknown>;
   otherSource?: Record<string, unknown>;
+  /** The keys that name the object, where they are not `objectName`. */
+  named?: Record<string, unknown>;
+  /** The hint, where it names another key than `objectName`. */
+  hint?: string;
 }> = [
-  { type: 'list-view', testId: 'list-view', base: {}, otherSource: { data: { provider: 'value', items: [] } } },
-  { type: 'view:list', testId: 'list-view', base: {}, otherSource: { data: { provider: 'value', items: [] } } },
+  { type: 'list-view', testId: 'list-view', base: {}, otherSource: { data: { provider: 'value', items: [] } }, named: LIST_NAMED, hint: LIST_HINT },
+  { type: 'view:list', testId: 'list-view', base: {}, otherSource: { data: { provider: 'value', items: [] } }, named: LIST_NAMED, hint: LIST_HINT },
   {
     type: 'object-form',
     testId: 'object-form',
@@ -171,26 +183,37 @@ const SECTIONED_ROWS = (['object-form', 'view:form'] as const).flatMap((type) =>
 );
 
 describe('objectui#11605 — a node naming its object in neither place shows the no-object hint', () => {
-  it.each(MEMBERS)('$type — the neither node draws the hint and fetches nothing', async ({ type, testId, base }) => {
+  it.each(MEMBERS)('$type — the neither node draws the hint and fetches nothing', async ({ type, testId, base, hint = HINT }) => {
     const r = await mount({ type, ...base });
     expect(r.html, `<${type}> crashed instead of answering`).not.toContain('failed to render');
     expect(r.hasHint(testId), `<${type}> drew no no-object hint:\n${r.text.slice(0, 300)}`).toBe(true);
-    expect(r.text).toContain(HINT);
+    expect(r.text).toContain(hint);
     expect(r.calls).toEqual([]);
   });
 
-  it.each(MEMBERS)('$type — control: with objectName, no hint', async ({ type, testId, base }) => {
-    const r = await mount({ type, ...base, objectName: 'account' });
+  it.each(MEMBERS)('$type — control: naming its object, no hint', async ({ type, testId, base, named = { objectName: 'account' }, hint = HINT }) => {
+    const r = await mount({ type, ...base, ...named });
     expect(r.html).not.toContain('failed to render');
     expect(r.hasHint(testId)).toBe(false);
-    expect(r.text).not.toContain(HINT);
+    expect(r.text).not.toContain(hint);
   });
 
-  it.each(MEMBERS)('$type — control: bound by dataSource.object, no hint', async ({ type, testId, base }) => {
+  it.each(MEMBERS.filter((member) => member.named))(
+    '$type — the retired objectName names nothing: the hint is drawn and nothing is fetched',
+    async ({ type, testId, base, hint }) => {
+      const r = await mount({ type, ...base, objectName: 'account' });
+      expect(r.html).not.toContain('failed to render');
+      expect(r.hasHint(testId)).toBe(true);
+      expect(r.text).toContain(hint);
+      expect(r.calls).toEqual([]);
+    },
+  );
+
+  it.each(MEMBERS)('$type — control: bound by dataSource.object, no hint', async ({ type, testId, base, hint = HINT }) => {
     const r = await mount({ type, ...base, dataSource: { object: 'account' } });
     expect(r.html).not.toContain('failed to render');
     expect(r.hasHint(testId)).toBe(false);
-    expect(r.text).not.toContain(HINT);
+    expect(r.text).not.toContain(hint);
   });
 
   it.each(MEMBERS.filter((member) => member.otherSource))(

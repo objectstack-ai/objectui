@@ -271,3 +271,104 @@ describe('ObjectStackAdapter.onWriteWarning', () => {
     warn.mockRestore();
   });
 });
+
+// ── a write answer's `warnings` (objectui#12107) ───────────────────────────
+//
+// The spec declares `warnings` (advisory validation-rule hits, element
+// `ValidateDataIssueSchema`) on the single-record create/update answers. It
+// rides THIS event: emitted when either list is non-empty, `droppedFields`
+// stays required (empty when the event exists only for warnings), and an
+// answer without the key changes nothing.
+
+const ONE_WARNING = [
+  {
+    field: 'discount',
+    code: 'validation_rule',
+    message: 'Discounts above 30% need a manager note',
+    rule: 'discount_cap',
+    severity: 'warning' as const,
+  },
+];
+
+describe('ObjectStackAdapter.onWriteWarning — write answer warnings (objectui#12107)', () => {
+  it('emits a create write-warning carrying the answer warnings, with no dropped fields', async () => {
+    const create = vi.fn().mockResolvedValue({ record: { id: 'r1', discount: 40 }, warnings: ONE_WARNING });
+    const ds = makeDS({ create });
+    const events: WriteWarningEvent[] = [];
+    ds.onWriteWarning((e: WriteWarningEvent) => events.push(e));
+
+    const rec = await ds.create('quote', { discount: 40 });
+
+    expect(rec).toEqual({ id: 'r1', discount: 40 });
+    expect(events).toEqual([
+      { operation: 'create', resource: 'quote', id: 'r1', droppedFields: [], warnings: ONE_WARNING },
+    ]);
+  });
+
+  it('emits an update write-warning carrying the answer warnings', async () => {
+    const update = vi.fn().mockResolvedValue({ record: { id: 'r1' }, warnings: ONE_WARNING });
+    const ds = makeDS({ update });
+    const events: WriteWarningEvent[] = [];
+    ds.onWriteWarning((e: WriteWarningEvent) => events.push(e));
+
+    await ds.update('quote', 'r1', { discount: 40 });
+
+    expect(events).toEqual([
+      { operation: 'update', resource: 'quote', id: 'r1', droppedFields: [], warnings: ONE_WARNING },
+    ]);
+  });
+
+  it('CONTROL: an answer without the key, or with an empty list, emits nothing', async () => {
+    const create = vi
+      .fn()
+      .mockResolvedValueOnce({ record: { id: 'r1' } })
+      .mockResolvedValueOnce({ record: { id: 'r2' }, warnings: [] });
+    const update = vi.fn().mockResolvedValue({ record: { id: 'r1' } });
+    const ds = makeDS({ create, update });
+    const events: WriteWarningEvent[] = [];
+    ds.onWriteWarning((e: WriteWarningEvent) => events.push(e));
+
+    await ds.create('quote', {});
+    await ds.create('quote', {});
+    await ds.update('quote', 'r1', {});
+
+    expect(events).toEqual([]);
+  });
+
+  it('CONTROL: droppedFields is unchanged when both lists are present; warnings ride beside it', async () => {
+    const update = vi
+      .fn()
+      .mockResolvedValue({ record: { id: 'r1' }, droppedFields: ONE_DROP, warnings: ONE_WARNING });
+    const ds = makeDS({ update });
+    const events: WriteWarningEvent[] = [];
+    ds.onWriteWarning((e: WriteWarningEvent) => events.push(e));
+
+    await ds.update('approval_case', 'r1', { approval_status: 'approved' });
+
+    expect(events).toEqual([
+      {
+        operation: 'update',
+        resource: 'approval_case',
+        id: 'r1',
+        droppedFields: ONE_DROP,
+        warnings: ONE_WARNING,
+      },
+    ]);
+  });
+
+  it('parses each entry through the spec schema: an entry it refuses is not carried', async () => {
+    const create = vi.fn().mockResolvedValue({
+      record: { id: 'r1' },
+      warnings: [{ field: 'discount' }, 'nope', ONE_WARNING[0]],
+    });
+    const ds = makeDS({ create });
+    const events: WriteWarningEvent[] = [];
+    ds.onWriteWarning((e: WriteWarningEvent) => events.push(e));
+
+    await ds.create('quote', {});
+
+    expect(events).toEqual([
+      { operation: 'create', resource: 'quote', id: 'r1', droppedFields: [], warnings: ONE_WARNING },
+    ]);
+  });
+});

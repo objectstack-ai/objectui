@@ -11,9 +11,11 @@
  *    `action` entry runs something and has no address to open or copy).
  * 3. Design, for an entry whose target has a designer: it opens what the app
  *    bar's Edit app opens for that item, the item's Studio surface
- *    ({@link sidebarItemDesignPath}, objectui#12520). Shown only to a principal
- *    who may author metadata: `isAdmin && canAuthorMetadata`, the gate the app
- *    bar's Edit app reads. The server refuses the write either way; this is the
+ *    ({@link sidebarItemDesignPath}, objectui#12520). Shown on the rule the app
+ *    bar's Edit app follows, `useStudioDesignGate` (objectui#12615): to a
+ *    principal who may author metadata, for a package Studio lists as
+ *    writable. A read-only package and the console's own system apps get no
+ *    Design entry. The server refuses the write either way; this is the
  *    presentational half.
  *
  * The trigger is hover-revealed, as the pin icon it replaces was
@@ -40,8 +42,7 @@ import { ExternalLink, Link2, MoreHorizontal, PencilRuler, Star, StarOff } from 
 import { toast } from 'sonner';
 import type { NavigationItem } from '@object-ui/types';
 import { useObjectTranslation } from '@object-ui/i18n';
-import { useWorkspaceAdminStatus } from '@object-ui/auth';
-import { useCanAuthorMetadata } from '../hooks/useCanAuthorMetadata.js';
+import { useStudioDesignGate } from '../hooks/useStudioDesignGate.js';
 import { useFavorites } from '../hooks/useFavorites.js';
 import { useNavPins } from '../hooks/useNavPins.js';
 import { useNavMemberGates, navEntriesShownToMember } from '../hooks/useNavMemberGates.js';
@@ -76,8 +77,9 @@ function designableRoute(
  * has no owning package Studio can open, so the entry hides as the app bar's
  * pencil does; there is no other destination to fall back to.
  *
- * The principal gate is not read here: `SidebarItemMenu` reads it where the
- * entry is drawn, so this answers for a principal who passes it.
+ * The gate is not read here: `SidebarItemMenu` reads it where the entry is
+ * drawn (`useStudioDesignGate`, the app bar's), so this answers for a principal
+ * and a package that pass it.
  */
 function studioDesignPath(
   app: NavApp | null | undefined,
@@ -260,8 +262,10 @@ export interface SidebarItemMenuProps {
   onToggleFavorite: () => void;
   /**
    * The router path of the entry's designer ({@link sidebarItemDesignPath}).
-   * The Design entry shows only when this is set AND the viewer may author
-   * metadata; the gate is read here, so no host can forget it.
+   * The Design entry shows only when this is set AND the app bar's gate passes
+   * it (`useStudioDesignGate`: the viewer may author metadata, and the package
+   * the path opens is writable); the gate is read here, so no host can forget
+   * it.
    */
   designPath?: string | null;
 }
@@ -287,8 +291,8 @@ export function SidebarItemMenu({
 }: SidebarItemMenuProps) {
   const { t } = useObjectTranslation();
   const navigate = useNavigate();
-  const { isAdmin } = useWorkspaceAdminStatus();
-  const canAuthorMetadata = useCanAuthorMetadata();
+  // objectui#12615 — the app bar's own gate, on the package this path opens.
+  const gatedDesignPath = useStudioDesignGate(designPath);
   // A router path is opened and copied as the href the row's own `Link`
   // renders for it, which carries the basename the host mounted the console
   // under (`/_console`): a new tab and a copied link resolve against the
@@ -315,7 +319,6 @@ export function SidebarItemMenu({
   }, []);
 
   const documentAddress = !href ? null : offConsole ? href : routerHref;
-  const canDesign = !!designPath && isAdmin && canAuthorMetadata;
 
   const copyLink = async () => {
     if (!documentAddress) return;
@@ -356,10 +359,10 @@ export function SidebarItemMenu({
             <span>{t('console.nav.copyLink', { defaultValue: 'Copy link' })}</span>
           </DropdownMenuItem>
         )}
-        {canDesign && (
+        {gatedDesignPath && (
           <DropdownMenuItem
             data-testid="sidebar-item-menu-design"
-            onSelect={() => { if (designPath) navigate(designPath); }}
+            onSelect={() => navigate(gatedDesignPath)}
           >
             <PencilRuler className="h-4 w-4" />
             <span>{t('console.nav.design', { defaultValue: 'Design' })}</span>

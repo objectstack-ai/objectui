@@ -85,7 +85,7 @@ import type { ConnectionState } from '@object-ui/data-objectstack';
 import { useAdapter } from '../providers/AdapterProvider.js';
 import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
 import type { BreadcrumbItem as BreadcrumbItemType } from '@object-ui/types';
-import { useAuth, getUserInitials, useWorkspaceAdminStatus } from '@object-ui/auth';
+import { useAuth, getUserInitials } from '@object-ui/auth';
 import { useMetadata } from '../providers/MetadataProvider.js';
 import { resolveKeyedI18nLabel, preferLocal, matchAppBySegment, appRouteSegment, appStudioRoutePath } from '../utils/index.js';
 import { getIcon } from '../utils/getIcon.js';
@@ -95,7 +95,7 @@ import { useCommandPalette, useCommandPaletteProviderMounted } from '../context/
 import { useUrlOverlay } from '../hooks/useUrlOverlay.js';
 import { KEYBOARD_SHORTCUTS_PARAM } from '../urlParams.js';
 import { useAiSurfaceEnabled } from '../hooks/useAiSurface.js';
-import { useCanAuthorMetadata } from '../hooks/useCanAuthorMetadata.js';
+import { useStudioDesignGate } from '../hooks/useStudioDesignGate.js';
 import { useSharedActivityFeed, type ActivityFeedReading } from '../hooks/sharedUserFeeds.js';
 import { useInboxBell } from '../hooks/useInboxBell.js';
 import { useHomePath } from '../hooks/useHomePath.js';
@@ -288,12 +288,6 @@ export function AppHeader({
   // no AI (Community Edition) so it can't dead-end on a chat with no agent.
   // Same signal as the FAB and the `/ai` route guard.
   const { enabled: aiEnabled } = useAiSurfaceEnabled();
-  // Design entry points mutate shared package metadata, so the app → Studio
-  // bridge below is admin-only (mirrors the runtime view/page editors) AND
-  // needs the server-reported metadata-authoring capability — see
-  // `canDesignInStudio` below (objectui#10899).
-  const { isAdmin: isWorkspaceAdmin } = useWorkspaceAdminStatus();
-  const canAuthorMetadata = useCanAuthorMetadata();
   const { t } = useObjectTranslation();
   const { objectPluralLabel, dashboardLabel, pageLabel, reportLabel, viewLabel, appLabel } = useObjectLabel();
   const { apps: metadataApps, dashboards: metadataDashboards, pages: metadataPages, reports: metadataReports } = useMetadata();
@@ -446,7 +440,8 @@ export function AppHeader({
 
   // App → Studio reverse bridge (ADR-0080): admins jump from the running app
   // to its owning package's design surface. Null when there is nothing to open
-  // (non-admin, or no owning package). When the current route names a specific
+  // (no owning package, or a principal or package the gate below refuses).
+  // When the current route names a specific
   // interface (a dashboard, page, or report), deep-link straight to THAT surface
   // in the Interfaces pillar instead of the package's generic Data tab — the
   // surface's design page replaces the retired in-page inline editor. The route
@@ -454,16 +449,17 @@ export function AppHeader({
   // (absent on the interface list routes, which fall back to the Data tab); the
   // mapping lives in `appStudioRoutePath`.
   //
-  // Who may cross the bridge is the SERVER's answer, not the role's: an
-  // organization owner is a workspace admin, yet `organization_admin`
-  // deliberately withholds `manage_metadata` (ADR-0066), and on the cloud
-  // control plane the hammer opened the platform's own metadata to a
-  // signed-up customer (objectui#10899). Same doctrine as HomePage's builder
-  // CTAs; the server still refuses the write either way.
-  const canDesignInStudio = isWorkspaceAdmin && canAuthorMetadata;
-  const studioDesignPath = isApp
-    ? appStudioRoutePath(currentApp, canDesignInStudio, { type: routeType, name: pathParts[3] })
-    : null;
+  // Who may cross the bridge, and into which package, is the SERVER's answer:
+  // a workspace admin holding `manage_metadata` (an organization owner is a
+  // workspace admin, yet `organization_admin` deliberately withholds it,
+  // ADR-0066, objectui#10899), into a package Studio lists as writable
+  // (objectui#12615). A read-only package, and the console's own Setup, Studio
+  // and Account apps, get no bridge: Studio would open them browse-only, with
+  // nothing to edit. `useStudioDesignGate` holds both halves for this bar and
+  // the sidebar's Design entry; the server still refuses the write either way.
+  const studioDesignPath = useStudioDesignGate(
+    isApp ? appStudioRoutePath(currentApp, true, { type: routeType, name: pathParts[3] }) : null,
+  );
 
   // The crumbs drawn after the app pill from `sm` up: a report or `system/*`
   // route's.
@@ -862,9 +858,10 @@ export function AppHeader({
               surface; on a dashboard route it deep-links to that dashboard's
               design page in the Interfaces pillar
               (/studio/:packageId/interfaces?surface=dashboard:NAME), otherwise
-              the package's Data tab. Hidden for everyone else and for apps
-              with no owning package. An icon button at every width, like the
-              bell beside it (objectui#12461): the pencil alone, named
+              the package's Data tab. Hidden for everyone else, for apps
+              with no owning package and for a package that is not writable
+              (objectui#12615): not rendered, never disabled. An icon button
+              at every width, like the bell beside it (objectui#12461): the pencil alone, named
               「Edit app」 by its aria-label and its tooltip. */}
           {studioDesignPath && (
             <Button

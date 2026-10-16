@@ -1246,6 +1246,7 @@ const fr = {
     lockedByApproval: "Verrouillé pour approbation",
     lockedTooltip: "Cet enregistrement a une demande d'approbation en attente ; la modification est verrouillée",
     writeStrippedTitle: "Enregistré — mais certains champs n'ont pas été appliqués",
+    writeWarningsTitle: "Enregistré — avec des avertissements",
     writeStrippedReadonly: "En lecture seule, donc non appliqué : {{fields}}",
     writeStrippedByState: "Non modifiable dans l'état actuel de cet enregistrement, donc non appliqué : {{fields}}",
     writeStrippedPrimaryKey: "L'identifiant de l'enregistrement ne peut pas être modifié lors d'un enregistrement, donc non appliqué : {{fields}}",

@@ -228,8 +228,13 @@ reads NO grant at all — the calendar's quick-create and drag-to-reschedule
 affordance that writes with the same verb on the same object reuses that row:
 the record overlay's inline edit reads `recordEdit`, a gantt's bar edits and a
 grid's bulk field update read `rowEdit`, a gantt row's Delete reads `rowDelete`,
-the AI build panel's spreadsheet import reads `listImport`, and a related list's
-Add existing reads `relatedNew` (a link row) or `relatedRowEdit` (a re-parent).
+the AI build panel's spreadsheet import reads `listImport`, a related list's
+Add existing reads `relatedNew` (a link row) or `relatedRowEdit` (a re-parent),
+and Setup's permission-set and position holders read `relatedNew` (a holder
+added) and `relatedRowDelete` (a holder removed), each asked of its assignment
+object (`sys_user_permission_set`, `sys_user_position`). Reaching Setup is not
+that grant: the Setup app asks `setup.access`, which a caller can hold while the
+server refuses their write of an assignment row.
 The record feed's writes have rows of their own, each asked of the object it
 writes: `feedComment` (a comment or reply, `sys_comment`), `feedReactionAdd` and
 `feedReactionRemove` (the caller's own `sys_comment_reaction` row), and
@@ -239,8 +244,9 @@ enumeration pin in `@object-ui/plugin-form` (`affordanceGrantMap-12082.test.tsx`
 also counts every write call site in the console tree and holds each to the row
 it sits behind, or to the reason it has none — and, for a component whose write
 its host gates (the import wizard), holds every mount to reading the row. The
-sites it found with no row yet form a frozen backlog: a new one cannot be added,
-so a write affordance gets its row when it lands.
+sites it found with no row yet formed a frozen backlog, which the pin now holds
+empty: a new one cannot be added, so a write affordance gets its row when it
+lands.
 
 ### Undo snapshot for an update (`captureUpdateUndoData`)
 

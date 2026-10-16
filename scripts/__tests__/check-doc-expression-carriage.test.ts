@@ -84,13 +84,14 @@ describe('check-doc-expression-carriage: the evaluated-channel universe is deriv
       return [...literal!.matchAll(/'([^']+)'/g)].map((m) => m[1]);
     };
     const visibility = [...declared('VISIBILITY_SHOW_KEYS'), ...declared('VISIBILITY_HIDE_KEYS')];
-    expect(visibility.length).toBe(6);
+    // Five: the page component's `visibility` leg was retired (objectui#12654).
+    expect(visibility.length).toBe(5);
     for (const key of visibility) expect(channels.conditions).toContain(key);
     // The enablement pair is not in either array — it routes through
     // `evaluateEnablementPredicate`, which is why the gate reads call sites at all.
     expect(channels.conditions).toContain('disabled');
     expect(channels.conditions).toContain('disabledOn');
-    expect(channels.conditions.length).toBe(8);
+    expect(channels.conditions.length).toBe(7);
   });
 
   it('refuses to census against a guessed universe when the renderer is missing', () => {

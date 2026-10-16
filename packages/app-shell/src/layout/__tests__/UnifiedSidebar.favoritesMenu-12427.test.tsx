@@ -155,10 +155,12 @@ function Where() {
 
 function renderSidebar() {
   // Each app is owned by a package, so Design has a Studio surface to open
-  // (objectui#12520); `sales` is the app another favorite was starred in.
+  // (objectui#12520); `sales` is the app another favorite was starred in. Both
+  // packages are served writable (`beforeEach`), so the gate's package half
+  // passes (objectui#12615).
   metadataState = {
     apps: [
-      { name: 'crm', label: 'CRM', active: true, _packageId: 'app.objectstack.hotcrm', navigation: NAVIGATION },
+      { name: 'crm', label: 'CRM', active: true, _packageId: 'com.acme.crm', navigation: NAVIGATION },
       { name: 'sales', label: 'Sales', active: true, _packageId: 'com.acme.sales', navigation: [] },
     ],
     objects: [],
@@ -195,6 +197,8 @@ const menuRows = () =>
   );
 
 async function openMenu(label: string, scope: HTMLElement = document.body): Promise<string[]> {
+  // objectui#12615 — Design waits on the package list's verdict; let it settle.
+  await tick();
   fireEvent.keyDown(within(scope).getByRole('button', { name: `More actions for ${label}` }), { key: 'Enter' });
   return (await screen.findAllByRole('menuitem')).map((el) => el.textContent ?? '');
 }
@@ -203,12 +207,26 @@ beforeEach(() => {
   localStorage.clear();
   viewer.isAdmin = true;
   viewer.canAuthorMetadata = true;
+  // objectui#12615 — both apps' packages are served writable, so the Design
+  // gate's package half passes and this file's own questions are the ones asked.
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: unknown) => ({
+      ok: true,
+      status: 200,
+      json: async () =>
+        String(url).endsWith('/api/v1/packages')
+          ? { data: { packages: [{ manifest: { id: 'com.acme.crm', name: 'CRM' }, writable: true }, { manifest: { id: 'com.acme.sales', name: 'Sales' }, writable: true }] } }
+          : { data: [] },
+    })),
+  );
   recent.items = [];
   setViewportWidth(1280);
 });
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
   setViewportWidth(1024);
 });
 
@@ -240,6 +258,7 @@ describe('UnifiedSidebar: one ⋯ trigger per entry, no pin icon (objectui#12427
 
   it('a right-click on the row opens the same menu', async () => {
     renderSidebar();
+    await tick();
     fireEvent.contextMenu(screen.getByRole('link', { name: 'Leads' }));
     const items = await screen.findAllByRole('menuitem');
     expect(items.map((el) => el.textContent)).toEqual(['Add to favorites', 'Open in new tab', 'Copy link', 'Design']);
@@ -322,7 +341,7 @@ describe('UnifiedSidebar: Design opens the Studio surface the app bar opens (obj
     await openMenu('Leads');
     fireEvent.click(screen.getByRole('menuitem', { name: 'Design' }));
     await waitFor(() =>
-      expect(screen.getByTestId('where')).toHaveTextContent('/studio/app.objectstack.hotcrm/data?surface=object:crm_lead'),
+      expect(screen.getByTestId('where')).toHaveTextContent('/studio/com.acme.crm/data?surface=object:crm_lead'),
     );
   });
 

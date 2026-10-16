@@ -2,7 +2,7 @@
 
 /**
  * objectui#5627 — this renderer honours the OTHER THREE conditional-rule
- * surfaces: section-level `visibleWhen`/`visibleOn`, and the object-level field
+ * surfaces: section-level `visibleWhen`, and the object-level field
  * rules `visibleWhen`/`readonlyWhen`/`requiredWhen`.
  *
  * ## Why a second pin file next to `FormPage.visibleWhen.test.tsx`
@@ -37,7 +37,7 @@
  */
 
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { buildSections, FormPage, isSectionVisible, resolveRowState } from './FormPage';
@@ -229,33 +229,28 @@ describe('objectui#5627 — FormPage evaluates SECTION-level visibility', () => 
     expect(screen.getByLabelText('Status')).toBeInTheDocument();
   });
 
-  it('honours the deprecated ADR-0089 alias `visibleOn` on a section', async () => {
-    // The spec normaliser rewrites the alias, so a spec-served view never
-    // carries it — but hand-written layouts and this app's own create schemas
-    // still do, which is why every sibling reader keeps reading it.
+  // objectui#12654: spec 18 retires the section's `visibleOn` spelling
+  // (objectstack#23543 F4). A raw view still carrying it is refused by the
+  // spec's parse; this reader does not fold it back. The pair below is the
+  // narrowing: the SAME predicate hides the section under `visibleWhen` and
+  // gates nothing under the retired key.
+  it('does not read the retired `visibleOn` on a section — the same predicate under `visibleWhen` does hide it', async () => {
     renderInternal([
       { label: 'Basics', fields: ['priority'] },
       { label: 'Escalation', visibleOn: "record.priority == 'urgent'", fields: ['notes'] },
     ]);
     await awaitForm();
-    expect(screen.queryByText('Escalation')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Notes')).not.toBeInTheDocument();
-  });
+    expect(screen.getByText('Escalation')).toBeInTheDocument();
+    expect(screen.getByLabelText('Notes')).toBeInTheDocument();
+    cleanup();
 
-  it('lets the canonical `visibleWhen` win when a section authors both spellings', async () => {
-    // The two predicates disagree on purpose: only the canonical one's verdict
-    // can produce this outcome.
     renderInternal([
       { label: 'Basics', fields: ['priority'] },
-      {
-        label: 'Escalation',
-        visibleWhen: "record.priority == 'urgent'", // false -> hidden
-        visibleOn: "record.priority == 'low'", // true -> would show
-        fields: ['notes'],
-      },
+      { label: 'Escalation', visibleWhen: "record.priority == 'urgent'", fields: ['notes'] },
     ]);
     await awaitForm();
     expect(screen.queryByText('Escalation')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Notes')).not.toBeInTheDocument();
   });
 
   it('honours the { dialect, source } wire shape on a section', async () => {
@@ -563,23 +558,24 @@ describe('objectui#5627 — requiredWhen takes the serverOwnedValue carve-out', 
 // ─── 4. The row-building step the DOM cases stand on ─────────────────────
 
 describe('objectui#5627 — the keys reach the rows, in their own slots', () => {
-  it('buildSections carries the SECTION predicate onto the row, canonical first', () => {
+  it('buildSections carries the SECTION predicate onto the row, from `visibleWhen` only', () => {
     const sections = buildSections(
       {
         sections: [
           { label: 'a', visibleWhen: 'record.x == 1', fields: ['f'] },
-          { label: 'b', visibleOn: { dialect: 'cel', source: 'record.x == 2' }, fields: ['f'] },
-          { label: 'c', visibleWhen: 'record.x == 3', visibleOn: 'record.x == 4', fields: ['f'] },
+          { label: 'b', visibleWhen: { dialect: 'cel', source: 'record.x == 2' }, fields: ['f'] },
+          { label: 'c', visibleOn: 'record.x == 4', fields: ['f'] },
           { label: 'd', fields: ['f'] },
         ],
       },
       null,
     );
 
+    // `c`: the retired spelling reaches no row (objectui#12654).
     expect(sections.map((s) => s.visibleWhen)).toEqual([
       'record.x == 1',
       { dialect: 'cel', source: 'record.x == 2' },
-      'record.x == 3',
+      undefined,
       undefined,
     ]);
   });

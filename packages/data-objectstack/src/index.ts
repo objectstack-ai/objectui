@@ -33,7 +33,8 @@ import { isFilterAST, parseFilterAST } from '@objectstack/spec/data';
 // and `ValueDataSource` read these same two functions, so the rule-entry form
 // below cannot judge a different set than the `$` dialect beside it.
 import { isRefusedTextComparand, textComparandRefusalReason } from '@objectstack/spec/data';
-import type { ApiError } from '@objectstack/spec/api';
+import type { ApiError, ValidateDataIssue } from '@objectstack/spec/api';
+import { ValidateDataIssueSchema } from '@objectstack/spec/api';
 import { stripReadDecorations } from '@objectstack/spec/kernel';
 // #4237 — the metadata save door's advisory reader, shared with `MetadataClient`
 // rather than forked. ONE reader, two call sites: the other client class calls it
@@ -2258,20 +2259,31 @@ const UNATTRIBUTED_STRIP_OBJECT = '';
 
 /**
  * Emitted after a create/update whose response carried `droppedFields`
- * (objectstack-ai/objectstack#3431 / objectstack-ai/objectstack#3455). The write SUCCEEDED — this is a warning that some
- * supplied fields never landed, so the UI can tell the user rather than let it
- * pass silently. Subscribe via {@link ObjectStackAdapter.onWriteWarning}.
+ * (objectstack-ai/objectstack#3431 / objectstack-ai/objectstack#3455) or
+ * `warnings` (objectui#12107). The write SUCCEEDED — this is a warning that
+ * some supplied fields never landed, or that an advisory validation rule hit,
+ * so the UI can tell the user rather than let it pass silently. Subscribe via
+ * {@link ObjectStackAdapter.onWriteWarning}.
  *
  * `droppedFields` is the two-arm {@link DroppedFieldsNotice} and not
  * `DroppedFieldsEvent[]`: the wire is parsed here, and an entry whose `reason`
  * this bundle's spec pin cannot name arrives on the explicit skew arm rather
- * than being asserted into the union (objectui#4934).
+ * than being asserted into the union (objectui#4934). It stays REQUIRED and is
+ * an empty array when the event exists only for `warnings`.
+ *
+ * `warnings` is the write answer's own key, typed by the spec's
+ * `ValidateDataIssueSchema` (the element of `CreateDataResponseSchema` /
+ * `UpdateDataResponseSchema`'s `warnings`) and parsed through it here. It is
+ * present only when at least one entry parsed: an answer without the key —
+ * including one from a runtime that predates it — leaves the event exactly as
+ * it was.
  */
 export interface WriteWarningEvent {
   operation: 'create' | 'update';
   resource: string;
   id?: string | number;
   droppedFields: DroppedFieldsNotice[];
+  warnings?: ValidateDataIssue[];
 }
 
 /** Event listener type for write-warning (dropped-fields) events. */
@@ -2716,6 +2728,28 @@ function sameWireValue(a: unknown, b: unknown): boolean {
   const bEmpty = b === null || b === undefined;
   if (aEmpty || bEmpty) return aEmpty && bEmpty;
   return stableStringify(a) === stableStringify(b);
+}
+
+/**
+ * Read a single-record write answer's `warnings` — the advisory validation-rule
+ * hits the spec declares on `CreateDataResponseSchema` /
+ * `UpdateDataResponseSchema` (objectui#12107).
+ *
+ * Each entry is PARSED through the spec's `ValidateDataIssueSchema`, never
+ * asserted into it: an entry the schema refuses is not shown, because what the
+ * toast prints is the entry's `message` and nothing else establishes one. An
+ * absent key, a non-array or an empty array all answer `[]`, so an answer from
+ * a runtime that predates the key adds nothing.
+ */
+function readWriteWarnings(result: unknown): ValidateDataIssue[] {
+  const raw = (result as { warnings?: unknown } | null | undefined)?.warnings;
+  if (!Array.isArray(raw) || raw.length === 0) return [];
+  const out: ValidateDataIssue[] = [];
+  for (const entry of raw) {
+    const parsed = ValidateDataIssueSchema.safeParse(entry);
+    if (parsed.success) out.push(parsed.data);
+  }
+  return out;
 }
 
 /**
@@ -3840,6 +3874,10 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    * reason routed to the skew arm, a non-string field element refused, a missing
    * `object` healed from `resource` — never asserted into the union, and the
    * entry itself never dropped for them (objectui#4934, `f75810e7c`).
+   *
+   * The same answer's `warnings` (objectui#12107) rides this one event: it is
+   * emitted when either list is non-empty, so a write whose only news is an
+   * advisory rule hit still reaches the subscriber, with `droppedFields: []`.
    */
   private notifyDroppedFields(
     operation: 'create' | 'update',
@@ -3849,15 +3887,24 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
     sent?: Record<string, unknown> | null,
   ): void {
     const dropped = (result as { droppedFields?: unknown } | null | undefined)?.droppedFields;
-    if (!Array.isArray(dropped) || dropped.length === 0) return;
-    const valid = dropped
-      .filter(isWireDroppedFieldsEntry)
-      .map((e) => asDroppedFieldsNotice(e, resource));
-    // A strip that changed nothing is not news — see withoutNoOpDrops (#3484).
-    const stored = (result as { record?: Record<string, unknown> } | null | undefined)?.record;
-    const droppedFields = withoutNoOpDrops(valid, sent, stored);
-    if (droppedFields.length === 0) return;
-    this.emitWriteWarning({ operation, resource, ...(id !== undefined ? { id } : {}), droppedFields });
+    let droppedFields: DroppedFieldsNotice[] = [];
+    if (Array.isArray(dropped) && dropped.length > 0) {
+      const valid = dropped
+        .filter(isWireDroppedFieldsEntry)
+        .map((e) => asDroppedFieldsNotice(e, resource));
+      // A strip that changed nothing is not news — see withoutNoOpDrops (#3484).
+      const stored = (result as { record?: Record<string, unknown> } | null | undefined)?.record;
+      droppedFields = withoutNoOpDrops(valid, sent, stored);
+    }
+    const warnings = readWriteWarnings(result);
+    if (droppedFields.length === 0 && warnings.length === 0) return;
+    this.emitWriteWarning({
+      operation,
+      resource,
+      ...(id !== undefined ? { id } : {}),
+      droppedFields,
+      ...(warnings.length > 0 ? { warnings } : {}),
+    });
   }
 
   /**

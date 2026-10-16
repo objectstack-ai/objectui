@@ -1339,6 +1339,7 @@ const en = {
     lockedByApproval: 'Locked for approval',
     lockedTooltip: 'This record has a pending approval request; editing is locked',
     writeStrippedTitle: 'Saved — but some fields did not take effect',
+    writeWarningsTitle: 'Saved — with warnings',
     writeStrippedReadonly: 'Read-only, so it did not take effect: {{fields}}',
     writeStrippedByState: "Not editable in this record's current state, so it did not take effect: {{fields}}",
     writeStrippedPrimaryKey: "The record's identifier cannot be changed by a save, so it did not take effect: {{fields}}",

@@ -42,17 +42,30 @@ View components use `getCellRenderer` to resolve the correct component for a fie
 ```tsx
 import { getCellRenderer, resolveCellRendererType, type CellRendererProps } from '@object-ui/fields';
 
-const MyGridCell = ({ field, value }: CellRendererProps) => {
+const MyGridCell = ({ field, value, row }: CellRendererProps & { row: Record<string, unknown> }) => {
   // Resolve the renderer KEY first, then the renderer. A field's declared
   // `type` is not always the renderer's key: a textual field carrying a
   // format hint (`Field.text({ format: 'phone' })`) resolves to the richer
-  // renderer. Passing `field.type` raw skips that mapping and draws such a
+  // renderer, and one declaring a widget with a read cell of its own
+  // (`widget: 'object-ref'`, `widget: 'recipient-picker'`) resolves to that
+  // cell. Passing `field.type` raw skips that mapping and draws such a
   // column as bare text, silently. Resolving first is never worse: with no
-  // format hint the resolver returns the declared `type` unchanged.
+  // hint the resolver returns the declared `type` unchanged.
   const Renderer = getCellRenderer(resolveCellRendererType(field));
-  return <Renderer field={field} value={value} />;
+  // `dependentValues` is the row, for a cell whose value only means something
+  // beside a sibling column: a `recipient-picker` face reads the row's
+  // `recipient_type` from it. Without it, that face draws the stored text.
+  return <Renderer field={field} value={value} dependentValues={row} />;
 };
 ```
+
+This package registers the `object-ref` and `recipient-picker` keys with the stored
+text as their default face. A host that can read the referenced lists registers faces
+that name the value under the same keys (`registerFieldRenderer`); the console's live in
+`@object-ui/app-shell`. They name a value as the edit widgets do, through the kind table
+and the spellings this package publishes for it: `RECIPIENT_RECORD_KINDS`,
+`RECIPIENT_REGISTRY_KINDS`, `FIELD_RECIPIENT_TYPE`, `recipientCandidateLabel`,
+`objectRefOptionLabel` and the shared `UnresolvedReferenceMark` drawing.
 
 ## Standard Field Types
 

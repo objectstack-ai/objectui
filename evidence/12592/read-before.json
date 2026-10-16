@@ -1,0 +1,330 @@
+[
+ {
+  "width": 1440,
+  "key": "wizard-page",
+  "perRowFirstRow": 1,
+  "fields": [
+   {
+    "f": "name",
+    "top": 292,
+    "left": 305,
+    "w": 1086,
+    "tracks": 1,
+    "containerW": 1136
+   },
+   {
+    "f": "account",
+    "top": 372,
+    "left": 305,
+    "w": 1086,
+    "tracks": 1,
+    "containerW": 1136
+   },
+   {
+    "f": "owner",
+    "top": 452,
+    "left": 305,
+    "w": 1086,
+    "tracks": 1,
+    "containerW": 1136
+   }
+  ]
+ },
+ {
+  "width": 1440,
+  "key": "zoo-new-page",
+  "perRowFirstRow": 2,
+  "fields": [
+   {
+    "f": "status",
+    "top": 190,
+    "left": 400,
+    "w": 440,
+    "tracks": 2,
+    "containerW": 896
+   },
+   {
+    "f": "code",
+    "top": 190,
+    "left": 856,
+    "w": 440,
+    "tracks": 2,
+    "containerW": 896
+   },
+   {
+    "f": "name",
+    "top": 374,
+    "left": 400,
+    "w": 440,
+    "tracks": 2,
+    "containerW": 896
+   },
+   {
+    "f": "notes",
+    "top": 454,
+    "left": 400,
+    "w": 896,
+    "tracks": 2,
+    "containerW": 896
+   }
+  ]
+ },
+ {
+  "width": 1440,
+  "key": "zoo-new-dialog",
+  "perRowFirstRow": 2,
+  "fields": [
+   {
+    "f": "status",
+    "top": 282,
+    "left": 257,
+    "w": 455,
+    "tracks": 2,
+    "containerW": 974
+   },
+   {
+    "f": "code",
+    "top": 282,
+    "left": 728,
+    "w": 455,
+    "tracks": 2,
+    "containerW": 974
+   },
+   {
+    "f": "name",
+    "top": 466,
+    "left": 257,
+    "w": 455,
+    "tracks": 2,
+    "containerW": 974
+   },
+   {
+    "f": "notes",
+    "top": 546,
+    "left": 257,
+    "w": 926,
+    "tracks": 2,
+    "containerW": 974
+   }
+  ]
+ },
+ {
+  "width": 1440,
+  "key": "task-new-page",
+  "perRowFirstRow": 2,
+  "fields": [
+   {
+    "f": "title",
+    "top": 190,
+    "left": 400,
+    "w": 440,
+    "tracks": 2,
+    "containerW": 896
+   },
+   {
+    "f": "project",
+    "top": 190,
+    "left": 856,
+    "w": 440,
+    "tracks": 2,
+    "containerW": 896
+   },
+   {
+    "f": "assignee",
+    "top": 270,
+    "left": 400,
+    "w": 440,
+    "tracks": 2,
+    "containerW": 896
+   },
+   {
+    "f": "status",
+    "top": 270,
+    "left": 856,
+    "w": 440,
+    "tracks": 2,
+    "containerW": 896
+   },
+   {
+    "f": "priority",
+    "top": 358,
+    "left": 400,
+    "w": 440,
+    "tracks": 2,
+    "containerW": 896
+   },
+   {
+    "f": "due_date",
+    "top": 358,
+    "left": 856,
+    "w": 440,
+    "tracks": 2,
+    "containerW": 896
+   }
+  ]
+ },
+ {
+  "width": 390,
+  "key": "wizard-page",
+  "perRowFirstRow": 1,
+  "fields": [
+   {
+    "f": "name",
+    "top": 272,
+    "left": 37,
+    "w": 316,
+    "tracks": 1,
+    "containerW": 366
+   },
+   {
+    "f": "account",
+    "top": 352,
+    "left": 37,
+    "w": 316,
+    "tracks": 1,
+    "containerW": 366
+   },
+   {
+    "f": "owner",
+    "top": 432,
+    "left": 37,
+    "w": 316,
+    "tracks": 1,
+    "containerW": 366
+   }
+  ]
+ },
+ {
+  "width": 390,
+  "key": "zoo-new-page",
+  "perRowFirstRow": 1,
+  "fields": [
+   {
+    "f": "status",
+    "top": 182,
+    "left": 16,
+    "w": 358,
+    "tracks": 1,
+    "containerW": 358
+   },
+   {
+    "f": "code",
+    "top": 270,
+    "left": 16,
+    "w": 358,
+    "tracks": 1,
+    "containerW": 358
+   },
+   {
+    "f": "name",
+    "top": 446,
+    "left": 16,
+    "w": 358,
+    "tracks": 1,
+    "containerW": 358
+   },
+   {
+    "f": "notes",
+    "top": 526,
+    "left": 16,
+    "w": 358,
+    "tracks": 1,
+    "containerW": 358
+   }
+  ]
+ },
+ {
+  "width": 390,
+  "key": "zoo-new-dialog",
+  "perRowFirstRow": 1,
+  "fields": [
+   {
+    "f": "status",
+    "top": 122,
+    "left": 16,
+    "w": 358,
+    "tracks": 1,
+    "containerW": 390
+   },
+   {
+    "f": "code",
+    "top": 210,
+    "left": 16,
+    "w": 358,
+    "tracks": 1,
+    "containerW": 390
+   },
+   {
+    "f": "name",
+    "top": 386,
+    "left": 16,
+    "w": 358,
+    "tracks": 1,
+    "containerW": 390
+   },
+   {
+    "f": "notes",
+    "top": 466,
+    "left": 16,
+    "w": 358,
+    "tracks": 1,
+    "containerW": 390
+   }
+  ]
+ },
+ {
+  "width": 390,
+  "key": "task-new-page",
+  "perRowFirstRow": 1,
+  "fields": [
+   {
+    "f": "title",
+    "top": 182,
+    "left": 16,
+    "w": 358,
+    "tracks": 1,
+    "containerW": 358
+   },
+   {
+    "f": "project",
+    "top": 262,
+    "left": 16,
+    "w": 358,
+    "tracks": 1,
+    "containerW": 358
+   },
+   {
+    "f": "assignee",
+    "top": 342,
+    "left": 16,
+    "w": 358,
+    "tracks": 1,
+    "containerW": 358
+   },
+   {
+    "f": "status",
+    "top": 422,
+    "left": 16,
+    "w": 358,
+    "tracks": 1,
+    "containerW": 358
+   },
+   {
+    "f": "priority",
+    "top": 510,
+    "left": 16,
+    "w": 358,
+    "tracks": 1,
+    "containerW": 358
+   },
+   {
+    "f": "due_date",
+    "top": 598,
+    "left": 16,
+    "w": 358,
+    "tracks": 1,
+    "containerW": 358
+   }
+  ]
+ }
+]

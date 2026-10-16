@@ -171,8 +171,17 @@ start() {
   echo "[live-backend] starting objectstack dev on :$PORT (log: $BACKEND_DIR/backend.log)"
   # --fresh: throwaway sqlite db, auto-removed on SIGTERM. OS_CLOUD_URL=off:
   # no marketplace/cloud calls — the lane must be hermetic.
-  (cd "$APP_DIR" && OS_CLOUD_URL=off nohup ./node_modules/.bin/objectstack dev \
-      --seed-admin --fresh -p "$PORT" > "$BACKEND_DIR/backend.log" 2>&1 & \
+  # The `cd` runs first and only the `nohup …` command goes to the background,
+  # so `$!` is the `objectstack dev` process itself (nohup and the bin's
+  # `env node` shebang both exec in place); its SIGTERM takes down the `serve`
+  # child that holds the port. Backgrounding `cd … && nohup …` as one list
+  # forks a subshell and records ITS pid instead: stop-backend.sh then kills
+  # that subshell and the server keeps the port, and the `already running`
+  # check above never matches, because the subshell's cmdline is this script's
+  # (objectui#12676, measured there at 18.0.0-next.2; nothing here re-derives).
+  (cd "$APP_DIR"
+    OS_CLOUD_URL=off nohup ./node_modules/.bin/objectstack dev \
+      --seed-admin --fresh -p "$PORT" > "$BACKEND_DIR/backend.log" 2>&1 &
     echo $! > "$BACKEND_DIR/backend.pid")
 
   # Ready = the seeded admin can actually sign in (same call the e2e

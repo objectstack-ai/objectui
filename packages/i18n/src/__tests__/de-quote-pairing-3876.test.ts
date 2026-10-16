@@ -334,7 +334,10 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // 86 once objectui#12504 retired `console.objectView.viewConfigPermissionDenied`
     // (its producer, the toolbar's view write, retired with the adapter's gate),
     // taking its one literal span („Metadaten verwalten“) with it.
-    expect(okSpans, 'correctly paired spans').toBe(86);
+    // 87 once objectui#12622 added `fields.datePicker.invalid`, the record
+    // form date picker's notice for typed text that names no date, which
+    // quotes that text („{{value}}“) — one interpolated span, runtime data.
+    expect(okSpans, 'correctly paired spans').toBe(87);
   });
 
   it('keeps the count identity that replaces the card’s count(„) === count(“)', () => {
@@ -385,8 +388,9 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // objectui#12288 added `marketplace.install.unmanagedSuccess` and
     // `.unmanagedIgnored`, one matched pair each. 86 / 86 / 0 after
     // objectui#12504 retired `console.objectView.viewConfigPermissionDenied`,
-    // one matched pair fewer.
-    expect({ open, close, rdq }).toEqual({ open: 86, close: 86, rdq: 0 });
+    // one matched pair fewer. 87 / 87 / 0 after objectui#12622 added
+    // `fields.datePicker.invalid`, one more matched pair.
+    expect({ open, close, rdq }).toEqual({ open: 87, close: 87, rdq: 0 });
     // The durable shape: every „ closed by a “, every surplus “ an English
     // opener answered by a ”. Survived translating the two English values.
     expect(close).toBe(open + rdq);

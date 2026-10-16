@@ -9,13 +9,15 @@
 /**
  * objectui#12529: the record header's system entries (Edit, favorites, Share,
  * Delete) declare icons through the same `icon` key the app's actions use, so
- * the `⋯` menu draws one kind of row; Delete is last, behind a separator; and
- * when the app's own actions fill the header row, so Edit folds into the `⋯`,
- * an icon-only Edit button stays beside the `⋯` and opens the same edit
- * session the folded `Edit` entry opens.
+ * the `⋯` menu draws one kind of row; Delete is last, behind a separator.
  *
- * CONTROL: with room in the row, Edit is today's labelled button and no icon
- * button is drawn.
+ * objectui#12617 replaced this file's third rule: Edit no longer folds into
+ * the `⋯` behind an icon-only twin once the app's actions fill the row. It is
+ * the record's base action, so it stays a labelled outline button in the row
+ * at every width and takes none of the app's slots; the first app action is
+ * the one filled primary button.
+ *
+ * CONTROL: with a single app action, Edit is the same labelled button.
  *
  * Harness: the `RecordDetailView.favoritesEntry-12427` mount (the real record
  * page under a real `I18nProvider`, a metadata context and the real
@@ -180,12 +182,13 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('record header ⋯ menu: iconed system entries, Delete set apart, an Edit icon button when the row is full (objectui#12529)', () => {
-  it('each of the four system entries carries its icon', async () => {
+describe('record header: iconed system entries, Delete set apart in the ⋯, Edit a labelled button in the row (objectui#12529, objectui#12617)', () => {
+  it('each system entry carries its icon: Edit in the row, the other three in the ⋯', async () => {
     await mountRecordPage(FULL_ROW);
+    const edit = screen.getByRole('button', { name: 'Edit' });
+    await waitFor(() => expect(edit.querySelector('svg.lucide-pencil')).not.toBeNull());
     const menu = await openOverflow();
     const expected: Record<string, string> = {
-      Edit: 'lucide-pencil',
       'Add to favorites': 'lucide-star',
       Share: 'lucide-share',
       Delete: 'lucide-trash',
@@ -197,35 +200,29 @@ describe('record header ⋯ menu: iconed system entries, Delete set apart, an Ed
     }
   });
 
-  it('Edit leads the system group, and Delete is last, after a separator', async () => {
+  it('the ⋯ holds the system group with Delete last, after a separator; Edit is not in it', async () => {
     await mountRecordPage(FULL_ROW);
     const menu = await openOverflow();
-    expect(menuRows(menu)).toEqual(['Edit', 'Add to favorites', 'Share', '---', 'Delete']);
+    expect(menuRows(menu)).toEqual(['Add to favorites', 'Share', '---', 'Delete']);
   });
 
-  it('with three app actions in the header, an icon-only Edit button sits beside the ⋯ and opens the session the folded Edit entry opens', async () => {
+  it('with three app actions in the header, Edit stays a labelled button after them, opens the edit session, and nothing is icon-only', async () => {
     const { onEdit } = await mountRecordPage(FULL_ROW);
     const bar = toolbar();
     const buttons = Array.from(bar.querySelectorAll(':scope > button, :scope > span > button'));
     const names = buttons.map((b) => b.getAttribute('aria-label') ?? text(b));
     expect(names).toEqual(['Convert Lead', 'Schedule Follow-up', 'Log a Call', 'Edit', 'More actions']);
 
-    const editIcon = screen.getByRole('button', { name: 'Edit' });
-    // Icon-only: no visible text, the pencil is all it draws.
-    expect(text(editIcon)).toBe('');
-    await waitFor(() => expect(editIcon.querySelector('svg.lucide-pencil')).not.toBeNull());
+    const edit = screen.getByRole('button', { name: 'Edit' });
+    expect(text(edit)).toBe('Edit');
+    expect(screen.getAllByRole('button', { name: 'Edit' })).toHaveLength(1);
+    expect(bar.querySelector('[data-folded-header-action]')).toBeNull();
 
-    fireEvent.click(editIcon);
+    fireEvent.click(edit);
     expect(onEdit).toHaveBeenCalledTimes(1);
-    const fromIcon = onEdit.mock.calls[0];
-
-    await openOverflow();
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Edit' }));
-    expect(onEdit).toHaveBeenCalledTimes(2);
-    expect(onEdit.mock.calls[1]).toEqual(fromIcon);
   });
 
-  it('CONTROL: with room in the row, Edit is the labelled button it was and no icon button is drawn', async () => {
+  it('CONTROL: with a single app action, Edit is the same labelled button and no icon button is drawn', async () => {
     await mountRecordPage([appAction('convert_lead', 'Convert Lead')]);
     const bar = toolbar();
     const edit = screen.getByRole('button', { name: 'Edit' });

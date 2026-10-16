@@ -20,15 +20,27 @@
  * two different addresses for one app. "More", "Show less" and the marketplace
  * shortcut stay buttons: they open nothing addressable.
  *
+ * The strip's look is the Home artboard's apps section (objectui#12601): a
+ * 15 px heading with a count pill, 112 px tiles with a 56 px icon on the app's
+ * colour and a 13 px name on one line. Three optional parts ride along, all
+ * off unless the host asks: an 11 px "2 hr. ago" line under a tile's
+ * name (`lastOpened`, which Home reads from the recent-items store), a muted
+ * "System Settings" link at the heading's right (`settingsHref` — Home moves
+ * Setup off the tile row and onto it), and an admin's trailing dashed "Add app"
+ * tile, which opens the marketplace shortcut's route and is gated exactly as
+ * the shortcut is.
+ *
  * @module
  */
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { LayoutGrid, Store, Star } from 'lucide-react';
-import { Button, cn } from '@object-ui/components';
-import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
+import { LayoutGrid, Plus, Settings, Star } from 'lucide-react';
+import { cn } from '@object-ui/components';
+import { useDisplayLocale, useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
 import { appRouteSegment, resolveKeyedI18nLabel } from '../../utils/index.js';
 import { getIcon } from '../../utils/getIcon.js';
+import { timeAgo } from '../../utils/relativeTime.js';
+import { TILE_OPENED_TIME_FORMAT } from './appLastOpened.js';
 import type { FavoriteItem } from '../../hooks/useFavorites.js';
 
 const COMPACT_LIMIT = 19;
@@ -49,15 +61,20 @@ const ICON_GRADIENTS = [
   'from-teal-500 to-green-600',
 ];
 
-// Soft top-highlight + drop shadow → iOS icon depth/gloss.
-const ICON_GLOSS =
-  'shadow-[0_4px_10px_-2px_rgb(0_0_0/0.25),inset_0_1px_0_0_rgb(255_255_255/0.45)]';
-
 function hashStr(s: string): number {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
   return Math.abs(h);
 }
+
+/** One tile's box: 112 px wide, the 56 px icon above a one-line name. */
+const TILE_CLASSES =
+  'group relative flex w-28 flex-col items-center gap-2 rounded-lg px-2 py-3 text-center transition-colors hover:bg-muted active:scale-[0.96]';
+/** The 56 px icon square every tile draws, the app's own or a dashed stand-in. */
+const ICON_BOX_CLASSES = 'relative inline-flex size-14 items-center justify-center rounded-[14px]';
+/** The 12 px links at the heading's right. */
+const HEADER_LINK_CLASSES =
+  'inline-flex items-center gap-1.5 rounded-sm text-xs transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 export function HomeAppsStrip({
   apps,
@@ -66,6 +83,8 @@ export function HomeAppsStrip({
   isAdmin,
   canAuthorMetadata = true,
   marketplaceEnabled = true,
+  settingsHref,
+  lastOpened,
 }: {
   apps: any[];
   favorites: FavoriteItem[];
@@ -89,9 +108,28 @@ export function HomeAppsStrip({
    * absent.
    */
   marketplaceEnabled?: boolean;
+  /**
+   * [objectui#12601] The Setup app's route, drawn as a muted "System Settings"
+   * link at the heading's right. Home passes it when Setup is among the apps
+   * the user can open, and leaves Setup off the tiles: it administers the
+   * workspace rather than running a business process. Omitted, no link is
+   * drawn and the tiles are whatever `apps` holds — the `app:launcher` block's
+   * case.
+   */
+  settingsHref?: string;
+  /**
+   * [objectui#12601] When the user last had each app open, by app `name` (an
+   * ISO timestamp), drawn under the tile's name as "2 hr. ago" (zh "2小时前打开";
+   * the form is `TILE_OPENED_TIME_FORMAT`'s). Home
+   * reads it from the recent-items store (`lastOpenedByApp`). An app absent
+   * from the map draws no line; omitted, no tile does — the `app:launcher`
+   * block's case.
+   */
+  lastOpened?: ReadonlyMap<string, string>;
 }) {
   const { t } = useObjectTranslation();
   const { appLabel } = useObjectLabel();
+  const displayLocale = useDisplayLocale();
   const [showAll, setShowAll] = useState(false);
 
   const favNames = useMemo(
@@ -105,62 +143,88 @@ export function HomeAppsStrip({
 
   const overflow = ordered.length - COMPACT_LIMIT;
   const visible = showAll ? ordered : ordered.slice(0, COMPACT_LIMIT);
+  // The marketplace shortcut and the "Add app" tile open one route, so one
+  // gate decides both: an admin, on a session that may author metadata, on a
+  // runtime that mounts a marketplace.
+  const canInstallApps = isAdmin && canAuthorMetadata && marketplaceEnabled;
 
   return (
-    <section className="mb-6">
-      <div className="mb-3 flex items-center gap-2.5">
-        <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-muted text-muted-foreground">
-          <LayoutGrid className="h-4 w-4" />
-        </span>
-        <h2 className="text-base font-semibold tracking-tight">
+    <section>
+      <div className="mb-2 flex items-center gap-2">
+        <h2 className="text-[15px] font-semibold tracking-tight">
           {t('home.yourApps', { defaultValue: 'Your apps' })}
         </h2>
-        <span className="text-sm text-muted-foreground">{ordered.length}</span>
-        {isAdmin && canAuthorMetadata && marketplaceEnabled && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="ml-auto h-8 text-muted-foreground"
-            onClick={onBrowseMarketplace}
-            data-testid="browse-marketplace-btn"
-          >
-            <Store className="mr-1.5 h-4 w-4" />
-            {t('home.browseMarketplace', { defaultValue: 'Browse App Marketplace' })}
-          </Button>
-        )}
+        <span
+          className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-muted px-1.5 text-[11px] font-semibold tabular-nums text-muted-foreground"
+          data-testid="home-apps-count"
+        >
+          {ordered.length}
+        </span>
+        <div className="ml-auto flex items-center gap-4">
+          {canInstallApps && (
+            <button
+              type="button"
+              className={cn(HEADER_LINK_CLASSES, 'text-primary')}
+              onClick={onBrowseMarketplace}
+              data-testid="browse-marketplace-btn"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" aria-hidden />
+              {t('home.browseMarketplace', { defaultValue: 'Browse App Marketplace' })}
+            </button>
+          )}
+          {settingsHref && (
+            <Link
+              to={settingsHref}
+              className={cn(HEADER_LINK_CLASSES, 'text-muted-foreground hover:text-foreground')}
+              data-testid="home-system-settings-link"
+            >
+              <Settings className="h-3.5 w-3.5" aria-hidden />
+              {t('home.systemSettings', { defaultValue: 'System Settings' })}
+            </Link>
+          )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-1 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10">
+      {/* `-ml-2` puts the first icon under the heading: a tile pads its icon 8 px. */}
+      <div className="-ml-2 flex flex-wrap gap-1">
         {visible.map((app) => {
           const Icon = getIcon(app.icon);
           const label = appLabel({ name: app.name, label: resolveKeyedI18nLabel(app.label, t) });
           const fav = favNames.has(app.name);
           const grad = ICON_GRADIENTS[hashStr(app.name) % ICON_GRADIENTS.length];
+          const openedAgo = timeAgo(lastOpened?.get(app.name), displayLocale, TILE_OPENED_TIME_FORMAT);
           return (
             <Link
               key={app.name}
               // ADR-0048: the route segment is the package id, falling back to
               // the app name for apps with none.
               to={`/apps/${appRouteSegment(app)}`}
-              className="group relative flex flex-col items-center gap-2 rounded-xl p-2.5 text-center transition hover:bg-muted/40 active:scale-[0.96]"
+              className={TILE_CLASSES}
               data-testid={`app-tile-${app.name}`}
             >
               <span
                 className={cn(
-                  'relative inline-flex h-12 w-12 items-center justify-center rounded-[13px]',
-                  'bg-gradient-to-br text-white transition-transform group-hover:scale-105',
-                  ICON_GLOSS,
+                  ICON_BOX_CLASSES,
+                  'bg-gradient-to-br text-white shadow-sm transition-transform group-hover:scale-105',
                   grad,
                 )}
               >
-                <Icon className="h-6 w-6" />
+                <Icon className="size-[26px]" />
                 {fav && (
                   <span className="absolute -right-1 -top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 ring-2 ring-background">
                     <Star className="h-2.5 w-2.5 fill-white text-white" />
                   </span>
                 )}
               </span>
-              <span className="w-full truncate text-xs font-medium">{label}</span>
+              <span className="w-full truncate text-[13px] font-medium">{label}</span>
+              {openedAgo && (
+                <span
+                  className="-mt-1 w-full truncate text-[11px] text-muted-foreground"
+                  data-testid={`app-tile-opened-${app.name}`}
+                >
+                  {t('home.appOpened', { time: openedAgo, defaultValue: '{{time}}' })}
+                </span>
+              )}
             </Link>
           );
         })}
@@ -169,14 +233,43 @@ export function HomeAppsStrip({
           <button
             type="button"
             onClick={() => setShowAll(true)}
-            className="group flex flex-col items-center gap-2 rounded-xl p-2.5 text-center transition hover:bg-muted/40 active:scale-[0.96]"
+            className={TILE_CLASSES}
             data-testid="apps-show-all"
           >
-            <span className="inline-flex h-12 w-12 items-center justify-center rounded-[13px] border border-dashed border-border text-sm font-medium text-muted-foreground transition-colors group-hover:border-foreground/30 group-hover:text-foreground">
+            <span
+              className={cn(
+                ICON_BOX_CLASSES,
+                'border border-dashed border-border text-sm font-medium text-muted-foreground transition-colors group-hover:border-foreground/30 group-hover:text-foreground',
+              )}
+            >
               +{overflow}
             </span>
-            <span className="w-full truncate text-xs text-muted-foreground">
+            <span className="w-full truncate text-[13px] text-muted-foreground">
               {t('home.showMoreApps', { defaultValue: 'More' })}
+            </span>
+          </button>
+        )}
+
+        {/* An admin's way to add an app: the marketplace shortcut's own route,
+            behind its own gate (objectui#12601). A button for the reason the
+            shortcut is one: the strip is handed a callback, not an address. */}
+        {canInstallApps && (
+          <button
+            type="button"
+            onClick={onBrowseMarketplace}
+            className={cn(TILE_CLASSES, 'text-muted-foreground')}
+            data-testid="home-add-app"
+          >
+            <span
+              className={cn(
+                ICON_BOX_CLASSES,
+                'border-[1.5px] border-dashed border-border transition-colors group-hover:border-foreground/30 group-hover:text-foreground',
+              )}
+            >
+              <Plus className="size-[22px]" aria-hidden />
+            </span>
+            <span className="w-full truncate text-[13px] font-medium">
+              {t('home.addApp', { defaultValue: 'Add app' })}
             </span>
           </button>
         )}

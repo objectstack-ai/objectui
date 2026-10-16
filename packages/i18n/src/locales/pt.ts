@@ -812,6 +812,8 @@ const pt = {
     recordCount_many: "{{count}} de registros",
     recordCount_other: "{{count}} registros",
     addRecord: "Adicionar registro",
+    // objectui#12703 — the compact list's footer link to the object's list or the block's view.
+    viewAll: "Ver tudo",
     tabs: "Abas",
     allRecords: "Todos os registros",
     search: "Pesquisar",

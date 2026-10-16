@@ -788,6 +788,8 @@ const de = {
     recordCount_one: "{{count}} Datensatz",
     recordCount_other: "{{count}} Datensätze",
     addRecord: "Datensatz hinzufügen",
+    // objectui#12703 — the compact list's footer link to the object's list or the block's view.
+    viewAll: "Alle anzeigen",
     tabs: "Tabs",
     allRecords: "Alle Datensätze",
     search: "Suche",

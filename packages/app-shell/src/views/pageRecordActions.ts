@@ -43,6 +43,11 @@ const NO_RELATED_HANDLERS: RelatedRecordHandlers = Object.freeze({});
  *    tab or a copied link reaches the record; `navigate` applies that basename
  *    itself, so it is handed the bare route. The join is `documentHref`, the
  *    record page's own.
+ *  - **`listHref` / `openList` (objectui#12703)** answer the same way for an
+ *    object's list: the object's list route, or one saved view's route when
+ *    the caller names it, and `null` for an object this console cannot route
+ *    to. They take an object and a view name only, so no caller can hand them
+ *    a filter to encode.
  *
  * ⚠️ The same seam feeds the grid's link column and the lookup cells, so on a
  * page those now render as real anchors to the record they name, as they
@@ -66,6 +71,18 @@ export function pageRecordActionsValue(
     appName && routable.has(objectName) && recordId != null && recordId !== ''
       ? `/apps/${appName}/${objectName}/record/${encodeURIComponent(String(recordId))}`
       : null;
+  // objectui#12703 — the object's list route, or the route of one of its saved
+  // views: `/apps/:app/:object` and `/apps/:app/:object/view/:view`, the shapes
+  // the app navigation writes for an object and a view item. A view name is
+  // passed as the block binding states it; `ObjectView` resolves the short and
+  // the qualified spelling alike.
+  const listPath = (objectName: string, viewName?: string): string | null => {
+    if (!appName || !routable.has(objectName)) return null;
+    const base = `/apps/${appName}/${objectName}`;
+    return typeof viewName === 'string' && viewName !== ''
+      ? `${base}/view/${encodeURIComponent(viewName)}`
+      : base;
+  };
   return {
     resolve: () => NO_RELATED_HANDLERS,
     recordHref: (objectName, recordId) => {
@@ -74,6 +91,14 @@ export function pageRecordActionsValue(
     },
     openRecord: (objectName, recordId) => {
       const path = recordPath(objectName, recordId);
+      if (path) navigate(path);
+    },
+    listHref: (objectName, viewName) => {
+      const path = listPath(objectName, viewName);
+      return path === null ? null : documentHref(routerRootHref, path);
+    },
+    openList: (objectName, viewName) => {
+      const path = listPath(objectName, viewName);
       if (path) navigate(path);
     },
   };

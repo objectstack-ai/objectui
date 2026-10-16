@@ -788,6 +788,8 @@ const ja = {
     recordCount_one: "{{count}} 件のレコード",
     recordCount_other: "{{count}} 件のレコード",
     addRecord: "レコードを追加",
+    // objectui#12703 — the compact list's footer link to the object's list or the block's view.
+    viewAll: "すべて表示",
     tabs: "タブ",
     allRecords: "すべてのレコード",
     search: "検索",

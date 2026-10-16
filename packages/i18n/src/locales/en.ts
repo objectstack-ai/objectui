@@ -999,6 +999,8 @@ const en = {
     recordCount_one: '{{count}} record',
     recordCount_other: '{{count}} records',
     addRecord: 'Add record',
+    // objectui#12703 — the compact list's footer link to the object's list or the block's view.
+    viewAll: 'View all',
     tabs: 'Tabs',
     allRecords: 'All Records',
     search: 'Search',

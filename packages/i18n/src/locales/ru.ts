@@ -849,6 +849,8 @@ const ru = {
     recordCount_many: "{{count}} записей",
     recordCount_other: "{{count}} записи",
     addRecord: "Добавить запись",
+    // objectui#12703 — the compact list's footer link to the object's list or the block's view.
+    viewAll: "Показать все",
     tabs: "Вкладки",
     allRecords: "Все записи",
     search: "Поиск",

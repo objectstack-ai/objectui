@@ -769,6 +769,8 @@ const zh = {
     recordCount_one: '{{count}} 条记录',
     recordCount_other: '{{count}} 条记录',
     addRecord: '添加记录',
+    // objectui#12703 — the compact list's footer link to the object's list or the block's view.
+    viewAll: '查看全部',
     tabs: '标签页',
     allRecords: '全部记录',
     search: '搜索',

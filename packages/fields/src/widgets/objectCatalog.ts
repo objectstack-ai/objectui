@@ -16,6 +16,14 @@
  * import it without pulling the widget in.
  */
 
+import type { DataSource } from '@object-ui/types';
+
+/** The two reads the catalog can be loaded through. */
+export type ObjectCatalogSource = Partial<Pick<DataSource, 'getObjects' | 'find'>>;
+
+/** One `sys_metadata` row, as far as the catalog reads it. */
+type CatalogRow = { name?: unknown; label?: unknown } | null | undefined;
+
 /** One registered object, as the catalog lists it. */
 export interface ObjectHeader {
   name: string;
@@ -32,16 +40,19 @@ export interface ObjectHeader {
  * Resolves `[]` for a data source that offers neither read. A failed read
  * REJECTS, and each caller decides what a failure means for its face.
  */
-export async function loadObjectCatalog(dataSource: any): Promise<ObjectHeader[]> {
+export async function loadObjectCatalog(
+  dataSource: ObjectCatalogSource | null | undefined,
+): Promise<ObjectHeader[]> {
   if (typeof dataSource?.getObjects === 'function') {
     return (await dataSource.getObjects()) ?? [];
   }
   if (typeof dataSource?.find === 'function') {
-    const res = await dataSource.find('sys_metadata', {
+    // The rows ladder `ObjectRefField` has always read here, moved verbatim.
+    const res = (await dataSource.find('sys_metadata', {
       $filter: { type: 'object' },
       $top: 1000,
-    });
-    const list: any[] = res?.data ?? res?.records ?? (Array.isArray(res) ? res : []);
+    })) as unknown as { data?: CatalogRow[]; records?: CatalogRow[] } | CatalogRow[] | null | undefined;
+    const list: CatalogRow[] = Array.isArray(res) ? res : (res?.data ?? res?.records ?? []);
     return list
       .map((r) => ({
         name: String(r?.name ?? ''),
@@ -53,7 +64,7 @@ export async function loadObjectCatalog(dataSource: any): Promise<ObjectHeader[]
 }
 
 /** Whether `dataSource` offers one of the reads {@link loadObjectCatalog} makes. */
-export function canLoadObjectCatalog(dataSource: any): boolean {
+export function canLoadObjectCatalog(dataSource: ObjectCatalogSource | null | undefined): boolean {
   return typeof dataSource?.getObjects === 'function' || typeof dataSource?.find === 'function';
 }
 

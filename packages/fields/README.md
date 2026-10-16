@@ -42,17 +42,27 @@ View components use `getCellRenderer` to resolve the correct component for a fie
 ```tsx
 import { getCellRenderer, resolveCellRendererType, type CellRendererProps } from '@object-ui/fields';
 
-const MyGridCell = ({ field, value }: CellRendererProps) => {
+const MyGridCell = ({ field, value, row }: CellRendererProps & { row: Record<string, unknown> }) => {
   // Resolve the renderer KEY first, then the renderer. A field's declared
   // `type` is not always the renderer's key: a textual field carrying a
   // format hint (`Field.text({ format: 'phone' })`) resolves to the richer
-  // renderer. Passing `field.type` raw skips that mapping and draws such a
+  // renderer, and one declaring a widget with a read cell of its own
+  // (`widget: 'object-ref'`, `widget: 'recipient-picker'`) resolves to that
+  // cell. Passing `field.type` raw skips that mapping and draws such a
   // column as bare text, silently. Resolving first is never worse: with no
-  // format hint the resolver returns the declared `type` unchanged.
+  // hint the resolver returns the declared `type` unchanged.
   const Renderer = getCellRenderer(resolveCellRendererType(field));
-  return <Renderer field={field} value={value} />;
+  // `dependentValues` is the row, for a cell whose value only means something
+  // beside a sibling column: the `recipient-picker` cell reads the row's
+  // `recipient_type` from it. Without it, that cell draws the stored text.
+  return <Renderer field={field} value={value} dependentValues={row} />;
 };
 ```
+
+The `object-ref` and `recipient-picker` cells name what the stored value references
+with the same reads their edit widgets list it from, made once per data source for the
+whole list rather than once per cell. A value nothing names draws as the raw stored
+value, muted.
 
 ## Standard Field Types
 

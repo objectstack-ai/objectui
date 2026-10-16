@@ -55,6 +55,7 @@
 import React from 'react';
 import { MetadataCtx, SchemaRendererContext } from '@object-ui/react';
 import { extractRecords } from '@object-ui/core';
+import type { DataSource } from '@object-ui/types';
 import { canLoadObjectCatalog, loadObjectCatalog } from './objectCatalog.js';
 import {
   FIELD_RECIPIENT_TYPE,
@@ -98,7 +99,7 @@ class LabelBook {
   private flushScheduled = false;
   private publishScheduled = false;
 
-  constructor(private readonly dataSource: any) {}
+  constructor(private readonly dataSource: DataSource) {}
 
   readonly subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
@@ -252,7 +253,7 @@ function settleFromCatalog(catalog: Catalog, name: string): RefLabel {
 
 const books = new WeakMap<object, LabelBook>();
 
-function bookFor(dataSource: object): LabelBook {
+function bookFor(dataSource: DataSource): LabelBook {
   let book = books.get(dataSource);
   if (!book) {
     book = new LabelBook(dataSource);
@@ -269,7 +270,7 @@ const readUnasked = (): RefLabel => UNASKED;
 /** The registered object a stored `object-ref` value names. */
 export function useObjectRefLabel(value: unknown): RefLabel {
   const ctx = React.useContext(SchemaRendererContext);
-  const dataSource: any = ctx?.dataSource ?? null;
+  const dataSource: DataSource | null = ctx?.dataSource ?? null;
   const name = typeof value === 'string' ? value : '';
   const book = name && dataSource && canLoadObjectCatalog(dataSource) ? bookFor(dataSource) : null;
   const key = keyOf('object', name);
@@ -299,7 +300,7 @@ type RecipientAsk =
 function recipientAskOf(
   value: unknown,
   dependentValues: Readonly<Record<string, unknown>> | undefined,
-  dataSource: any,
+  dataSource: DataSource | null,
   hasMetadataStore: boolean,
 ): RecipientAsk | null {
   if (!dependentValues || typeof value !== 'string' || value === '') return null;
@@ -337,13 +338,17 @@ export function useRecipientLabel(
   dependentValues: Readonly<Record<string, unknown>> | undefined,
 ): RefLabel {
   const ctx = React.useContext(SchemaRendererContext);
-  const dataSource: any = ctx?.dataSource ?? null;
+  const dataSource: DataSource | null = ctx?.dataSource ?? null;
   // Read raw, as the picker reads it: an absent store and an empty registry
   // are different facts. Through a ref, because the store's context value is
   // rebuilt whenever any type it caches settles (AGENTS.md #10).
   const metadataStore = React.useContext(MetadataCtx);
   const metadataStoreRef = React.useRef(metadataStore);
-  metadataStoreRef.current = metadataStore;
+  // Kept current from an effect, which runs before the store subscription's
+  // own effect below, so an ask always reads the store of the latest commit.
+  React.useEffect(() => {
+    metadataStoreRef.current = metadataStore;
+  });
 
   const ask = recipientAskOf(value, dependentValues, dataSource, !!metadataStore);
   const book = ask && dataSource ? bookFor(dataSource) : null;
@@ -356,7 +361,7 @@ export function useRecipientLabel(
 
   const subscribe = React.useCallback(
     (listener: () => void) => {
-      if (!book) return noSubscription();
+      if (!book || !dataSource) return noSubscription();
       const off = book.subscribe(listener);
       if (askKind === 'record') {
         book.askRecord(askTarget, askValue, key);

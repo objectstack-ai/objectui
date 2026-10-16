@@ -29,7 +29,7 @@
  *
  *   - `ObjectMetricWidget` forwards the key untouched beside its own
  *     host-only `derivedTrend`; `MetricWidget` decides whether the authored
- *     one survives at all — `derivedTrend ?? authoredTrend` (objectui#12677).
+ *     one survives at all — `derivedTrend ?? trend` (objectui#12677).
  *   - `MetricWidget` reads the three members: `value` painted with a hard-coded
  *     `%` suffix, `direction` choosing the glyph and its colour, and `label`
  *     feeding the caption slot.

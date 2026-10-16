@@ -366,6 +366,14 @@ const pt = {
       impossibleDay:
         "O valor salvo “{{value}}” não é uma data real. Escolha uma data e uma hora para substituí-lo.",
     },
+    datePicker: {
+      today: "Hoje",
+      tomorrow: "Amanhã",
+      clear: "Limpar data",
+      openCalendar: "Abrir calendário",
+      invalid:
+        "Não salvo: “{{value}}” não é uma data. Digite no formato {{format}} ou escolha no calendário.",
+    },
     number: {
       badInput:
         "Não salvo: o texto deste campo não é um número. Informe um decimal simples (exemplo: {{example}}).",
@@ -2662,12 +2670,10 @@ const pt = {
   home: {
     build: {
       title: "Criar um aplicativo",
-      subtitle: "Comece do zero — projete objetos, formulários, automações e interfaces.",
       noCapability: "A criação de aplicativos não está disponível neste espaço de trabalho — ela exige a permissão “Gerenciar metadados”, que sua conta não possui.",
     },
     template: {
       title: "Comece com um modelo",
-      subtitle: "Instale um aplicativo modelo do marketplace e personalize-o.",
       marketplaceDisabled: "Este runtime não tem um marketplace de aplicativos configurado, portanto não há modelos para instalar aqui.",
     },
     welcomeAdminDescription: "Descreva seu negócio em uma frase — a IA gera os objetos, as telas, as APIs e as ferramentas do agente. Ou configure você mesmo pelo menu à esquerda.",
@@ -2734,7 +2740,16 @@ const pt = {
     greetingNight: "Turno da noite",
     greetingSeparator: ", ",
     greetingEnd: ".",
-    heroTagline: "Continue de onde parou ou descubra algo novo.",
+    search: "Pesquisar aplicativos, registros, páginas…",
+    summary: {
+      approvals: "Hoje você tem {{count}} aprovações pendentes",
+      approvals_one: "Hoje você tem {{count}} aprovação pendente",
+      approvals_many: "Hoje você tem {{count}} aprovações pendentes",
+      approvals_other: "Hoje você tem {{count}} aprovações pendentes",
+      none: "Nada aguardando você hoje",
+    },
+    addApp: "Adicionar aplicativo",
+    appOpened: "{{time}}",
     open: "Abrir",
     recentApps: {
       title: "Abertos recentemente",
@@ -3544,7 +3559,7 @@ const pt = {
     installedSubtitle: "Pacotes do marketplace atualmente instalados no kernel deste runtime.",
     installedEmpty: "Nenhum aplicativo do marketplace instalado neste runtime ainda.",
     browseLink: "Explorar marketplace →",
-    installedAdditiveNote: "<strong>Nota:</strong> A API do kernel é apenas aditiva — desinstalar remove o manifesto do disco para que o pacote não seja carregado na próxima inicialização, mas o kernel em execução mantém o aplicativo registrado até reiniciar.",
+    installedAdditiveNote: "A API do kernel é apenas aditiva — desinstalar remove o manifesto do disco para que o pacote não seja carregado na próxima inicialização, mas o kernel em execução mantém o aplicativo registrado até reiniciar.",
     installedAt: "Instalado {{when}}",
     installedBy: "por {{user}}",
     installedPackageId: "Pacote",
@@ -4231,6 +4246,7 @@ const pt = {
     toggleFailed: "Não foi possível alterar a ativação.",
     cloneFailedHttp: "Não foi possível clonar este fluxo (HTTP {{status}}).",
     cloneFailed: "Não foi possível clonar este fluxo.",
+    reasonDetails: "Detalhes",
     actionsSubtitle: "Ações fornecidas pelos pacotes instalados. Desligue uma nesta implantação e ela deixa de ser executada em todos os lugares onde é oferecida. Criar sua própria ação ao lado dela continua disponível no Studio.",
     colAction: "Ação",
     colObject: "Objeto",

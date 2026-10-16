@@ -61,8 +61,9 @@ import { useMemo } from 'react';
 import {
   useHumanActivityFeed,
   useSharedInboxFeed,
-  useSharedPendingApprovalsCount,
+  useSharedPendingApprovals,
   type ActivityFeedReading,
+  type SharedFeedStatus,
 } from './sharedUserFeeds.js';
 import { groupNotifications } from '../layout/inboxGrouping.js';
 
@@ -94,6 +95,13 @@ export type HomeInboxStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 export interface HomeInboxData {
   pendingApprovalsCount: number;
+  /**
+   * Whether `pendingApprovalsCount` is an answer (objectui#12601) — the
+   * approvals feed's own status, passed through as `notificationsStatus` is
+   * for the inbox. Only `ready` is one; a surface that states the count as a
+   * fact ("Nothing is waiting for you today") states it only then.
+   */
+  pendingApprovalsStatus: SharedFeedStatus;
   notifications: HomeNotification[];
   /**
    * How many distinct unread TOPICS are waiting — the whole unread set, not the
@@ -130,7 +138,7 @@ export function useHomeInbox(limit = 5): HomeInboxData {
   // activity rows: real human actions only, dropping the sys_*/ai_* churn
   // (actor "System"). `useSharedInboxFeed` is the bell's already-joined inbox
   // superset, cut here to what is actually waiting on the user.
-  const pendingApprovalsCount = useSharedPendingApprovalsCount();
+  const { value: pendingApprovalsCount, status: pendingApprovalsStatus } = useSharedPendingApprovals();
   const activity = useHumanActivityFeed(limit);
   const { value: messages, status: notificationsStatus } = useSharedInboxFeed();
 
@@ -169,6 +177,7 @@ export function useHomeInbox(limit = 5): HomeInboxData {
 
   return {
     pendingApprovalsCount,
+    pendingApprovalsStatus,
     notifications,
     unreadTopicCount,
     notificationsStatus,

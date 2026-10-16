@@ -360,6 +360,14 @@ const de = {
       impossibleDay:
         "Der gespeicherte Wert „{{value}}“ ist kein gültiges Datum. Wählen Sie Datum und Uhrzeit, um ihn zu ersetzen.",
     },
+    datePicker: {
+      today: "Heute",
+      tomorrow: "Morgen",
+      clear: "Datum löschen",
+      openCalendar: "Kalender öffnen",
+      invalid:
+        "Nicht gespeichert: „{{value}}“ ist kein Datum. Geben Sie es als {{format}} ein oder wählen Sie es im Kalender aus.",
+    },
     number: {
       badInput:
         "Nicht gespeichert: Der Text in diesem Feld ist keine Zahl. Geben Sie eine einfache Dezimalzahl ein (Beispiel: {{example}}).",
@@ -2615,12 +2623,10 @@ const de = {
   home: {
     build: {
       title: "App erstellen",
-      subtitle: "Von Grund auf beginnen — Objekte, Formulare, Automatisierungen und Oberflächen gestalten.",
       noCapability: "Das Erstellen von Apps ist in diesem Arbeitsbereich nicht verfügbar — es erfordert die Berechtigung „Metadaten verwalten“, die Ihr Konto nicht besitzt.",
     },
     template: {
       title: "Mit einer Vorlage starten",
-      subtitle: "Installieren Sie eine Vorlagen-App aus dem Marktplatz und passen Sie sie an.",
       marketplaceDisabled: "Für diese Laufzeitumgebung ist kein App-Marktplatz konfiguriert, daher gibt es hier keine Vorlagen zum Installieren.",
     },
     welcomeAdminDescription: "Beschreiben Sie Ihr Geschäft in einem Satz — die KI erzeugt die Objekte, Bildschirme, APIs und Agent-Tools. Oder richten Sie alles selbst über das Menü links ein.",
@@ -2686,7 +2692,15 @@ const de = {
     greetingNight: "Nachtschicht",
     greetingSeparator: ", ",
     greetingEnd: ".",
-    heroTagline: "Machen Sie dort weiter, wo Sie aufgehört haben, oder entdecken Sie etwas Neues.",
+    search: "Apps, Datensätze, Seiten durchsuchen…",
+    summary: {
+      approvals: "Heute warten {{count}} Genehmigungen auf Sie",
+      approvals_one: "Heute wartet {{count}} Genehmigung auf Sie",
+      approvals_other: "Heute warten {{count}} Genehmigungen auf Sie",
+      none: "Heute wartet nichts auf Sie",
+    },
+    addApp: "App hinzufügen",
+    appOpened: "{{time}}",
     open: "Öffnen",
     recentApps: {
       title: "Zuletzt geöffnet",
@@ -3482,7 +3496,7 @@ const de = {
     installedSubtitle: "Marktplatz-Pakete, die derzeit im Kernel dieses Laufzeitsystems installiert sind.",
     installedEmpty: "Noch keine Marktplatz-Apps in diesem Laufzeitsystem installiert.",
     browseLink: "Marktplatz durchsuchen →",
-    installedAdditiveNote: "<strong>Hinweis:</strong> Die Kernel-API ist nur additiv — Deinstallation entfernt das Manifest auf der Festplatte, damit das Paket beim nächsten Start nicht geladen wird, aber der laufende Kernel hält die App bis zum Neustart registriert.",
+    installedAdditiveNote: "Die Kernel-API ist nur additiv — Deinstallation entfernt das Manifest auf der Festplatte, damit das Paket beim nächsten Start nicht geladen wird, aber der laufende Kernel hält die App bis zum Neustart registriert.",
     installedAt: "Installiert {{when}}",
     installedBy: "von {{user}}",
     installedPackageId: "Paket",
@@ -4144,6 +4158,7 @@ const de = {
     toggleFailed: "Aktivierung konnte nicht geändert werden.",
     cloneFailedHttp: "Dieser Flow konnte nicht geklont werden (HTTP {{status}}).",
     cloneFailed: "Dieser Flow konnte nicht geklont werden.",
+    reasonDetails: "Details",
     actionsSubtitle: "Aktionen aus installierten Paketen. Schalten Sie eine für diese Installation ab, und sie läuft überall dort nicht mehr, wo sie angeboten wird. Eine eigene Aktion daneben zu erstellen, bleibt Ihnen im Studio offen.",
     colAction: "Aktion",
     colObject: "Objekt",

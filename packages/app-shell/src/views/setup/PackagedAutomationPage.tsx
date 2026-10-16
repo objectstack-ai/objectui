@@ -37,8 +37,10 @@
  * `_status` carries both: §7.4 scopes it to what the activation ledger knows.
  * The Studio rail is where a flow's binding is diagnosed.
  * The one exception is an unbound row's `reason`: the platform's own sentence
- * for why the flow is not armed, shown verbatim and muted under its name
- * (objectui#9217) — never parsed, never styled as an error.
+ * for why the flow is not armed (objectui#9217), shown verbatim and muted in a
+ * disclosure behind a neutral chip after the flow's name (objectui#12609), so
+ * a row that carries one keeps the table's row height — never parsed, never
+ * styled as an error. `ReasonDetails` below carries the chip's rules.
  *
  * ## Server refusals reach the operator VERBATIM
  *
@@ -73,7 +75,7 @@
  */
 
 import * as React from 'react';
-import { RefreshCw } from 'lucide-react';
+import { Info, RefreshCw } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -88,6 +90,9 @@ import {
   EmptyTitle,
   Input,
   Label,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Skeleton,
   Switch,
   Table,
@@ -168,6 +173,60 @@ interface CloneDraft {
   /** The server's refusal, verbatim. */
   refusal: string | null;
   busy: boolean;
+}
+
+/* -------------------------------------------------------------------------- */
+/* The reason disclosure                                                       */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The chip an unarmed flow row's `reason` opens from (objectui#12609).
+ *
+ * The sentence used to render as a paragraph under the flow's name, which grew
+ * every row that carried one to several lines and stopped the table scanning
+ * as a table. It now sits behind this chip, inline on the name's line, so a
+ * row with a reason is as tall as a row without one.
+ *
+ * ⛔ The chip does NOT classify. Its label is the same generic word on every
+ * row that carries a reason, and whether it renders follows only "the runtime
+ * row sent a non-empty string `reason`" — never what the sentence says. The
+ * contract's own words on the field are "Consumers RENDER it; ⛔ do not parse
+ * it", and a deployment-policy row and a real binding failure arrive in the
+ * same `enabled: true, bound: false` shape. A chip that named which of the two
+ * a row is needs a structured field beside `reason` (objectstack#23842); until
+ * the wire carries one, nothing here names a cause.
+ *
+ * The disclosure shows the sentence verbatim and whole — not truncated, not
+ * reworded, not restyled by what it says — muted, and not as an alert. A
+ * popover rather than a tooltip: the sentence runs to several lines and can
+ * name an operator switch the admin needs to copy, so it opens on click, tap
+ * or keyboard and stays open to be read and selected.
+ */
+function ReasonDetails({ reason }: { reason: string }) {
+  const { t } = useObjectTranslation();
+  const label = t('packagedAutomation.reasonDetails', { defaultValue: 'Details' });
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          data-testid="packaged-flow-reason-chip"
+          className="ml-2 inline-flex items-center gap-1 rounded-md border border-border px-1.5 align-middle text-xs font-normal leading-4 text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Info className="h-3 w-3 shrink-0" aria-hidden="true" />
+          {label}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" aria-label={label} className="w-96 max-w-[90vw]">
+        <p
+          data-testid="packaged-flow-reason"
+          className="whitespace-normal break-words text-sm text-muted-foreground"
+        >
+          {reason}
+        </p>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 /* -------------------------------------------------------------------------- */
@@ -422,16 +481,16 @@ export function PackagedAutomationPage() {
               return (
                 <TableRow key={row.name} data-testid={`packaged-flow-${row.name}`}>
                   <TableCell className="align-top">
-                    <div className="font-medium">{row.label}</div>
+                    <div className="font-medium">
+                      {row.label}
+                      {/* The PLATFORM's sentence for why the engine has not
+                          armed this flow (objectui#9217), behind a chip on the
+                          name's own line so the row keeps its height
+                          (objectui#12609). Present only when a reason was
+                          sent; the chip reads the same whatever it says. */}
+                      {row.reason && <ReasonDetails reason={row.reason} />}
+                    </div>
                     <code className="font-mono text-xs text-muted-foreground">{row.name}</code>
-                    {row.reason && (
-                      // The PLATFORM's sentence for why the engine has not
-                      // armed this flow, verbatim. Muted and NOT an alert: a
-                      // deployment-policy refusal names its operator switch in
-                      // its own words, a binding failure says so in its own,
-                      // and neither is re-styled or read here (objectui#9217).
-                      <p className="mt-2 max-w-prose text-sm text-muted-foreground">{row.reason}</p>
-                    )}
                     {refusal && (
                       // VERBATIM server refusal, next to the control that
                       // caused it. `role="alert"` so it is announced.

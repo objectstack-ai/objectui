@@ -4203,6 +4203,7 @@ const zh = {
     toggleFailed: '无法更改启用状态。',
     cloneFailedHttp: '无法克隆此流程(HTTP {{status}})。',
     cloneFailed: '无法克隆此流程。',
+    reasonDetails: '详情',
     actionsSubtitle: '由已安装软件包提供的动作。在本部署中关闭后,它在所有提供它的位置都不再运行。你仍然可以在 Studio 中另行编写自己的动作。',
     colAction: '动作',
     colObject: '对象',

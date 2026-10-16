@@ -173,10 +173,11 @@ function ProductHomeMark({ homePath, label }: { homePath: string; label: string 
 }
 
 /**
- * Whether a keydown is `GO_HOME_SHORTCUT`'s chord: ⌘ or Ctrl, with Shift, no
- * Alt. Exported for the pin that fires the advertised chord.
+ * Whether a keydown is `chord`: ⌘ or Ctrl exactly when the chord has `mod`
+ * (the advertised chords accept either), Shift exactly when it has `shift`,
+ * never Alt, and the key compared case-blind (Shift makes it upper case).
  */
-export function matchesShortcutChord(
+function matchesShortcutChord(
   e: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'shiftKey' | 'altKey'>,
   chord: ShortcutChord,
 ): boolean {

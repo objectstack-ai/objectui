@@ -105,7 +105,7 @@ export function AppSwitcher({ activeAppName, onAppChange, designInStudioPath }: 
   // carries no Setup app (the server withholds it without `setup.access`) is
   // offered no row.
   const setupApp = findSetupApp(activeApps);
-  const switchApps = setupApp ? activeApps.filter((app: any) => app !== setupApp) : activeApps;
+  const switchApps = setupApp ? activeApps.filter((app) => app !== setupApp) : activeApps;
   const setupPath = setupApp ? `/apps/${appRouteSegment(setupApp) ?? setupApp.name}` : null;
 
   // `min-w-0` lets the pill shrink inside the bar's left zone, so a long app

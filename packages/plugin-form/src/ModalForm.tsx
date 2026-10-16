@@ -268,15 +268,28 @@ const modalSizeClasses: Record<string, string> = {
 };
 
 /**
- * The dialog's field grid when the author declared no `columns` — on the form,
- * and on no section (objectui#12521): two columns from the container's `@md`
- * tier up, one below it, so the phone sheet keeps its single column. It rides
- * the spec's own `columns` / `colSpan` path (`applyAutoColSpan`), so every
- * field takes one cell — fields of one kind share one width — while a wide
- * kind (`isWideFieldType`: textarea, rich text, markdown, html, an inline
- * `grid`) and a `span: 'full'` field take the whole row. Line items never
- * reach this grid: they arrive as `subforms`, which the master-detail arm
- * below lays out across the dialog.
+ * How many fields per row the dialog draws where the author declared no
+ * `columns` (objectui#12521): two from the container's `@md` tier up, one
+ * below it, so the phone sheet keeps its single column. It rides the spec's
+ * own `columns` / `colSpan` path, so every field takes one cell — fields of
+ * one kind share one width — while a wide kind (`isWideFieldType`: textarea,
+ * rich text, markdown, html, an inline `grid`) and a `span: 'full'` field take
+ * the whole row. Line items never reach this grid: they arrive as `subforms`,
+ * which the master-detail arm below lays out across the dialog.
+ *
+ * It applies to a flat form with no `columns`, to the object's `fieldGroups`,
+ * and to every SECTION that declares no `columns` while the form declares
+ * none either: an undeclared section density is the renderer's choice, and a
+ * declared one — `1` included — is drawn as written (the section-`columns`
+ * fork on objectui#12521, ruled 6204264665).
+ *
+ * ⚠️ Until `@objectstack/spec`'s `FormSectionSchema.columns` drops its
+ * `default(1)` (objectstack-ai/objectstack#23740), the spec's parse writes
+ * `columns: 1` into every section that omitted it — `defineView` and
+ * `defineStack` both return the parsed form — so a section from an authored
+ * stack reaches this dialog DECLARED and draws one column. The undeclared
+ * rule then covers only sections that arrive unparsed. ⛔ Never read a
+ * declared `1` as undeclared to get ahead of that release.
  *
  * Dialog-only on purpose: a page form, a drawer and the detail view keep
  * `inferColumns`, which they mirror between them.
@@ -288,18 +301,30 @@ const clampColumns = (n: unknown): number | undefined =>
   typeof n === 'number' && n > 0 ? Math.min(Math.floor(n), 4) : undefined;
 
 /**
+ * One section's fields per row in the dialog: its declared `columns` as
+ * written, else the form's declared `columns` (what an undeclared section
+ * always filled), else {@link DIALOG_DEFAULT_COLUMNS}.
+ */
+const dialogSectionColumns = (sectionColumns: unknown, formColumns: unknown): number =>
+  clampColumns(sectionColumns) ?? clampColumns(formColumns) ?? DIALOG_DEFAULT_COLUMNS;
+
+/**
  * The ONE grid width of a sectioned dialog: the form's own `columns`, else the
- * widest section's, else {@link DIALOG_DEFAULT_COLUMNS}. Read by the stacked
- * and tabbed layouts and by the dialog's derived size, so the size is chosen
- * for the grid that renders.
+ * widest section's {@link dialogSectionColumns}. Read by the stacked and
+ * tabbed layouts and by the dialog's derived size, so the size is chosen for
+ * the grid that renders. Each section then draws its own count on it through
+ * `sectionedGridLayout`, which switches to the 12-track grid when the counts
+ * do not all fit (objectui#12548) — so an undeclared section beside a
+ * `columns: 3` one draws two per row, not three.
  */
 function sectionedDialogColumns(
   sections: ReadonlyArray<{ columns?: unknown }>,
   formColumns: unknown,
 ): 1 | 2 | 3 | 4 {
-  const declared = sections.map((s) => clampColumns(s.columns)).filter((c): c is number => c != null);
-  return (clampColumns(formColumns)
-    ?? (declared.length ? Math.max(...declared) : DIALOG_DEFAULT_COLUMNS)) as 1 | 2 | 3 | 4;
+  const widest = sections.length
+    ? Math.max(...sections.map((s) => dialogSectionColumns(s.columns, formColumns)))
+    : DIALOG_DEFAULT_COLUMNS;
+  return (clampColumns(formColumns) ?? widest) as 1 | 2 | 3 | 4;
 }
 
 export const ModalForm: React.FC<ModalFormProps> = ({
@@ -871,14 +896,15 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         sec.name ? sectionLabel(schema.objectName, sec.name, sec.label || sec.name) : sec.label;
 
       // The form is ONE grid. Its width is the explicit form `columns`, else the
-      // widest section, else the dialog's default when nothing declares any
-      // (objectui#12521); each section then lays ITS fields out at its own
-      // declared density within that grid via colSpan (objectstack-ai/objectstack#2578), exactly like the
+      // widest section's count, an undeclared section counting the dialog's
+      // default (objectui#12521); each section then lays ITS fields out at its
+      // own count within that grid via colSpan (objectstack-ai/objectstack#2578), exactly like the
       // full-page sectioned form — by the one sectioned-form rule, which
       // switches to a 12-track grid when the sections' counts do not all fit
       // the widest one (objectui#12548).
+      const sectionColumnsOf = (sec: ModalFormSectionConfig) => dialogSectionColumns(sec.columns, schema.columns);
       const formColumns = sectionedDialogColumns(sections, schema.columns);
-      const sectionGrid = sectionedGridLayout(formColumns, sections.map((s) => clampColumns(s.columns)));
+      const sectionGrid = sectionedGridLayout(formColumns, sections.map(sectionColumnsOf));
       const containerFieldClass = sectionGrid.fieldContainerClass;
 
       // FLS first, so a section whose every field is non-readable drops out
@@ -909,7 +935,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
             visibleWhen: section.visibleWhen,
             className: section.className,
             gridClassName: section.gridClassName,
-            fields: sectionGrid.layOut(body, clampColumns(section.columns)),
+            fields: sectionGrid.layOut(body, sectionColumnsOf(section)),
           };
         })
         .filter((g) => g.fields.length > 0);

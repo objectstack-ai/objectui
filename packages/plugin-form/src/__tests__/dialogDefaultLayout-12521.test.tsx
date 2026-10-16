@@ -21,6 +21,10 @@
  *   columns from the container's `@md` tier up, through the explicit-columns
  *   route, so every field takes one cell and a wide kind or a `span: 'full'`
  *   field takes the row. An authored `columns` wins.
+ * - SECTION DENSITY (the section-`columns` fork, ruled 6204264665): a section
+ *   that declares no `columns`, in a form that declares none, draws two per
+ *   row from `@md`, beside any other section's count, on objectui#12548's
+ *   per-section grid. A declared count, `1` included, is drawn as written.
  *
  * ## What it reads
  *
@@ -114,6 +118,8 @@ async function openDialog(def: { fields: Record<string, unknown> }, extra: Recor
 }
 
 const DEFAULT_GRID = 'grid gap-4 grid-cols-1 @md:grid-cols-2';
+/** objectui#12548's per-section grid, drawn when the sections' counts do not all fit one grid. */
+const TWELVE_TRACK_GRID = 'grid gap-4 grid-cols-1 @md:grid-cols-12';
 
 describe('a dialog with no authored layout (objectui#12521)', () => {
   it('twelve fields: a bounded xl dialog, a two-column grid from @md, one cell per field, the textarea across the row', async () => {
@@ -200,23 +206,87 @@ describe('an authored layout is used as written (objectui#12521)', () => {
     expect(spanOf('code')).toEqual([]);
   });
 
-  it('CONTROL: an authored multi-section layout keeps every grid class and col-span it had', async () => {
-    // The hotcrm lead form's shape: a two-column section and a three-column one.
-    // These are the classes the tree drew before objectui#12521 — the default
-    // change reaches none of them. Only the size moves: no `modalSize` is
-    // authored, so the derived bound applies, and twelve fields on a
-    // three-wide grid are what used to derive `full`.
+  it('CONTROL: an authored multi-section layout keeps every grid class and col-span main draws', async () => {
+    // The hotcrm lead form's shape: a two-column section and a three-column
+    // one. These are the classes objectui#12548's per-section grid draws on
+    // `main` — the defaults of objectui#12521 reach none of them. Only the
+    // size moves: no `modalSize` is authored, so the derived bound applies,
+    // and twelve fields on a three-wide grid are what used to derive `full`.
     const { dialog, grid, spanOf } = await openDialog(TWELVE, {
       sections: [
         { name: 'a', label: 'A', columns: 2, fields: ['name', { field: 'code', span: 'full' }, 'email', 'phone', 'website'] },
         { name: 'b', label: 'B', columns: 3, fields: ['status', 'stage', 'source', 'amount', 'quantity', 'due', 'notes'] },
       ],
     });
-    expect(grid?.className).toBe('grid gap-4 grid-cols-1 @md:grid-cols-2 @2xl:grid-cols-3');
-    expect(spanOf('name')).toEqual(['@md:col-span-2']);
-    expect(spanOf('code')).toEqual(['@md:col-span-2', '@2xl:col-span-3']);
-    expect(spanOf('status')).toEqual([]);
+    expect(grid?.className).toBe(TWELVE_TRACK_GRID);
+    expect(spanOf('name')).toEqual(['@md:col-span-6']);
+    expect(spanOf('code')).toEqual(['@md:col-span-12']);
+    expect(spanOf('status')).toEqual(['@md:col-span-6', '@2xl:col-span-4']);
     expect(dialog.className).toContain('sm:max-w-5xl');
     expect(dialog.className).not.toContain('sm:max-w-[95vw]');
+  });
+});
+
+describe('section density: undeclared is the dialog\'s choice, declared is drawn as written (objectui#12521)', () => {
+  it('an undeclared section draws two per row from @md, and a declared columns: 1 section draws one', async () => {
+    const { grid, spanOf } = await openDialog(TWELVE, {
+      sections: [
+        { name: 'a', label: 'A', fields: ['name', 'code', 'email'] },
+        { name: 'b', label: 'B', columns: 1, fields: ['phone', 'website'] },
+      ],
+    });
+    // Both counts fit a two-wide grid, so objectui#12548's rule keeps it.
+    expect(grid?.className).toBe(DEFAULT_GRID);
+    expect(spanOf('name')).toEqual([]);
+    expect(spanOf('code')).toEqual([]);
+    expect(spanOf('phone')).toEqual(['@md:col-span-2']);
+    expect(spanOf('website')).toEqual(['@md:col-span-2']);
+  });
+
+  it('beside a declared columns: 3 section, an undeclared section draws two per row on the 12-track grid', async () => {
+    const { grid, spanOf } = await openDialog(TWELVE, {
+      sections: [
+        { name: 'a', label: 'A', fields: ['name', 'code', 'email', 'notes'] },
+        { name: 'b', label: 'B', columns: 3, fields: ['status', 'stage', 'source'] },
+      ],
+    });
+    expect(grid?.className).toBe(TWELVE_TRACK_GRID);
+    // Two per row at every tier from @md: six twelfths each.
+    expect(spanOf('name')).toEqual(['@md:col-span-6']);
+    expect(spanOf('email')).toEqual(['@md:col-span-6']);
+    // A wide kind still takes the row.
+    expect(spanOf('notes')).toEqual(['@md:col-span-12']);
+    // The declared three: two per row at @md, three from @2xl.
+    expect(spanOf('status')).toEqual(['@md:col-span-6', '@2xl:col-span-4']);
+  });
+
+  it('a declared columns: 3 section draws three per row', async () => {
+    const { grid, spanOf } = await openDialog(TWELVE, {
+      sections: [{ name: 'b', label: 'B', columns: 3, fields: ['name', 'code', 'email', 'phone', 'website', 'status'] }],
+    });
+    expect(grid?.className).toBe('grid gap-4 grid-cols-1 @md:grid-cols-2 @2xl:grid-cols-3');
+    for (const name of ['name', 'code', 'email', 'phone', 'website', 'status']) {
+      expect(spanOf(name), name).toEqual([]);
+    }
+  });
+
+  it('a declared columns: 1 is never read as undeclared: every section at 1 — what the spec\'s parse writes today — draws one column', async () => {
+    const { grid } = await openDialog(TWELVE, {
+      sections: [
+        { name: 'a', label: 'A', columns: 1, fields: ['name', 'code', 'email'] },
+        { name: 'b', label: 'B', columns: 1, fields: ['phone', 'website'] },
+      ],
+    });
+    expect(grid).toBeNull();
+    expect(document.body.querySelector('[class*="@md:grid-cols-"]')).toBeNull();
+  });
+
+  it('CONTROL: under a declared form columns, an undeclared section fills the form\'s count as before', async () => {
+    const { grid, spanOf } = await openDialog(TWELVE, {
+      columns: 3,
+      sections: [{ name: 'a', label: 'A', fields: ['name', 'code', 'email', 'phone', 'website', 'status'] }],
+    });
+    expect(grid?.className).toBe('grid gap-4 grid-cols-1 @md:grid-cols-2 @2xl:grid-cols-3');
+    expect(spanOf('name')).toEqual([]);
   });
 });

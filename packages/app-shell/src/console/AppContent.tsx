@@ -33,7 +33,7 @@ import { useTrackRouteAsRecent } from '../hooks/useTrackRouteAsRecent.js';
 import { useHomePath } from '../hooks/useHomePath.js';
 import { useSignedInUserLocale } from '../hooks/useUserLocale.js';
 import { resolveRecordFormTarget, resolveFormViewLayout, resolveNavigateCreateUrl, resolveNavigateEditUrl, resolvePostCreateTarget, recordFormCreateValues, readRecordFormCreateValues, RECORD_FORM_CREATE_VALUES_STATE } from '../utils/recordFormNavigation.js';
-import { deriveRecordSurface, deriveRecordFlowSurface } from '@object-ui/plugin-view';
+import { deriveRecordSurface, deriveRecordFlowSurface, type RecordFlowSurface } from '@object-ui/plugin-view';
 import { RECORD_FORM_PARAM, RECORD_FORM_OBJECT_PARAM, RECORD_FORM_LINK_PARAM } from '../urlParams.js';
 import { appRouteSegment, matchAppBySegment } from '../utils/appRoute.js';
 import { resolveHref, type NavTemplateContext } from '@object-ui/layout';
@@ -100,6 +100,36 @@ interface AppContentProps {
    * the no-app branch.
    */
   extraRoutesNoApp?: ReactNode;
+}
+
+/**
+ * INTERIM — objectui#12521, ruled in comment 6205068311 (the maintainer's
+ * 「可以，12521 走快速方案」), the early outcome of letter B (6203721639).
+ *
+ * `deriveRecordFlowSurface` answers `size: 'full'` for a field-heavy create /
+ * edit / child-create / child-edit flow (objectstack-ai/objectstack#2604 D1),
+ * and the record dialog below spreads that into `modalSize: 'full'`: a 95vw
+ * task canvas on desktop. Letter B moves the bound into the protocol — on
+ * desktop a field-heavy task flow derives a bounded modal, `size: 'auto'` —
+ * through objectstack-ai/objectstack#23734. This gives the installed
+ * derivation's answer that shape early, so `ModalForm`'s own bounded default
+ * (`lg` / `xl`, never `full`) sizes the dialog until that spec is installed.
+ *
+ * Desktop only, with no posture check of its own: this host calls the
+ * derivation with no `viewport`, so the answer it receives is the desktop
+ * one, and the phone presentation is `ModalForm`'s full-screen sheet below
+ * `sm`, which no `modalSize` reaches (every size class is `sm:`-prefixed).
+ * Only the derived default changes: a `modalSize` handed to `ModalForm` is
+ * used as written.
+ *
+ * EXIT: once objectui installs an `@objectstack/spec` carrying
+ * objectstack-ai/objectstack#23734, delete this function and call
+ * `deriveRecordFlowSurface` directly at its one call site. The pin
+ * `AppContent.recordDialogInterimBound-12521.test.tsx` fails on that bump and
+ * names this deletion.
+ */
+function interimBoundedTaskFlowSurface(surface: RecordFlowSurface): RecordFlowSurface {
+  return surface.size === 'full' ? { ...surface, size: 'auto' } : surface;
 }
 
 /**
@@ -1191,18 +1221,19 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
                   ? { initialValues: formLinkValues ?? overlayCreateValues }
                   : {}),
                 // objectstack-ai/objectstack#2604 D1: create/edit follow the flow-surface derivation —
-                // field-heavy → full-screen modal (the same big canvas the
-                // detail page gets, with overlay return semantics); light
-                // objects keep the existing auto-sized modal (ModalForm
-                // infers from columns when modalSize is unset). Derived
-                // default only — anything spread later (form view layout)
-                // would win. Child tasks size to the CHILD object's def.
-                ...(deriveRecordFlowSurface(
+                // field-heavy → full-screen modal, which the objectui#12521
+                // interim bounds on desktop until the spec derives it
+                // (`interimBoundedTaskFlowSurface`); light objects keep the
+                // auto-sized modal (ModalForm's bounded default when
+                // modalSize is unset). Derived default only — anything spread
+                // later (form view layout) would win. Child tasks size to the
+                // CHILD object's def.
+                ...(interimBoundedTaskFlowSurface(deriveRecordFlowSurface(
                   formObjectDef,
                   isChildFormTask
                     ? (editingRecord ? 'child-edit' : 'child-create')
                     : (editingRecord ? 'edit' : 'create'),
-                ).size === 'full'
+                )).size === 'full'
                   ? { modalSize: 'full' as const }
                   : {}),
                 // Honor the object's DEFAULT FORM VIEW: curated sections (field

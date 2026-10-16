@@ -971,6 +971,7 @@ const ar = {
   },
   kanban: {
     uncategorized: "غير مصنّف",
+    loadMore: "تحميل المزيد",
     columns: "أعمدة",
     addCard: "إضافة بطاقة",
     addColumn: "إضافة عمود",

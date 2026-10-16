@@ -915,6 +915,7 @@ const ru = {
   },
   kanban: {
     uncategorized: "Без категории",
+    loadMore: "Загрузить ещё",
     columns: "колонок",
     addCard: "Добавить карточку",
     addColumn: "Добавить колонку",

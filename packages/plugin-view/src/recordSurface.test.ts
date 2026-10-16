@@ -70,9 +70,20 @@ describe('deriveRecordFlowSurface (#2604 mirror)', () => {
     });
   });
 
-  it('task flows never route: heavy → full-screen modal overlay', () => {
+  // objectstack-ai/objectstack#23734 (letter B of objectui#12521, objectui#12592): on desktop a
+  // field-heavy task flow derives a BOUNDED modal; only a phone keeps the full-screen one (below).
+  // The spec keeps no full-screen split for a form with an embedded child or line-items table.
+  it('task flows never route: heavy → bounded modal overlay on desktop', () => {
     for (const flow of TASK_FLOWS) {
       expect(deriveRecordFlowSurface(heavy, flow)).toEqual({
+        container: 'overlay', surface: 'modal', size: 'auto',
+      });
+    }
+  });
+
+  it('heavy task flows on mobile: the full-screen modal', () => {
+    for (const flow of TASK_FLOWS) {
+      expect(deriveRecordFlowSurface(heavy, flow, { viewport: 'mobile' })).toEqual({
         container: 'overlay', surface: 'modal', size: 'full',
       });
     }
@@ -98,7 +109,7 @@ describe('deriveRecordFlowSurface (#2604 mirror)', () => {
   it('child-* flows size to the def they are given (the child), independent of any parent', () => {
     expect(deriveRecordFlowSurface(objWithFields(3), 'child-create').surface).toBe('drawer');
     expect(deriveRecordFlowSurface(objWithFields(40), 'child-edit')).toEqual({
-      container: 'overlay', surface: 'modal', size: 'full',
+      container: 'overlay', surface: 'modal', size: 'auto',
     });
   });
 });

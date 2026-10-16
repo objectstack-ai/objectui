@@ -100,7 +100,12 @@ vi.mock('../../../hooks/sharedUserFeeds', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   // `useHomeInbox` reads the approvals feed WITH its status (objectui#12601);
   // the dial is still the count, always an answer here.
-  useSharedPendingApprovals: () => ({ value: approvalsFixture, status: 'ready' }),
+  // objectui#12602: the feed hands Home the requests themselves, and the
+  // count is their number. Still always an answer here.
+  useSharedPendingApprovalRequests: () => ({
+    value: Array.from({ length: approvalsFixture }, (_, i) => ({ id: `apr_${i + 1}`, processName: 'p' })),
+    status: 'ready',
+  }),
   useHumanActivityFeed: () => ({ value: [], status: 'ready', readable: true }),
 }));
 
@@ -110,15 +115,20 @@ import { HomeActionCenter } from '../HomeRail';
 
 /** Exactly `HomePage`'s wiring of the two — the seam the card indicts. */
 function HomeActionCenterHost() {
-  const { pendingApprovalsCount, notifications, notificationsStatus, unreadTopicCount } =
-    useHomeInbox();
+  const inbox = useHomeInbox();
   return (
     <HomeActionCenter
-      pendingApprovalsCount={pendingApprovalsCount}
-      notifications={notifications}
-      unreadTopicCount={unreadTopicCount}
-      notificationsStatus={notificationsStatus}
+      pendingApprovals={inbox.pendingApprovals}
+      pendingApprovalsCount={inbox.pendingApprovalsCount}
+      pendingApprovalsStatus={inbox.pendingApprovalsStatus}
+      pendingApprovalsReadable={inbox.pendingApprovalsReadable}
+      notifications={inbox.notifications}
+      unreadTopicCount={inbox.unreadTopicCount}
+      notificationsStatus={inbox.notificationsStatus}
+      notificationsReadable={inbox.notificationsReadable}
       onOpenApprovals={() => {}}
+      onOpenApproval={() => {}}
+      onOpenInbox={() => {}}
       onOpenNotification={() => {}}
       t={(key: string, options?: any) => String(options?.defaultValue ?? key)}
     />
@@ -136,7 +146,9 @@ const NINE_UNREAD = Array.from({ length: 9 }, (_, i) => ({
   created_at: `2026-08-0${i + 1}T09:00:00Z`,
 }));
 
-const CAUGHT_UP = "You're all caught up";
+// The notifications column's empty line (objectui#12602) — the affirmative
+// copy, earned only by an answer.
+const CAUGHT_UP = 'No unread notifications';
 const ERROR_COPY = 'An unexpected error occurred.';
 // U+2026, matching `common.loading` in the en pack (objectui#3878).
 const LOADING_COPY = 'Loading…';
@@ -166,11 +178,14 @@ function objectMissing(): Promise<never> {
   return Promise.reject(err);
 }
 
-/** The card's badge: rendered by `Card` only when the count is > 0. */
+/** The section's total pill: rendered only when the count is > 0. */
 function badgeText(): string | null {
-  const heading = screen.getByText('Needs your attention');
-  const badge = heading.parentElement?.querySelector('span.tabular-nums');
-  return badge ? badge.textContent : null;
+  return screen.queryByTestId('home-my-work-count')?.textContent ?? null;
+}
+
+/** The column says the read is unanswered: still loading, or failed. */
+function unanswered(): boolean {
+  return screen.queryByText(ERROR_COPY) !== null || screen.queryByText(LOADING_COPY) !== null;
 }
 
 beforeEach(() => {
@@ -193,9 +208,8 @@ describe('Home action centre — the affirmative empty state needs an ANSWER (#4
 
     render(<HomeActionCenterHost />);
 
-    await waitFor(() => expect(screen.getByTestId('home-action-unanswered')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(ERROR_COPY)).toBeInTheDocument());
     expect(screen.queryByText(CAUGHT_UP)).not.toBeInTheDocument();
-    expect(screen.getByText(ERROR_COPY)).toBeInTheDocument();
   });
 
   it('does not claim it while the session is still settling (no user yet)', async () => {
@@ -217,7 +231,7 @@ describe('Home action centre — the affirmative empty state needs an ANSWER (#4
     render(<HomeActionCenterHost />);
 
     expect(screen.queryByText(CAUGHT_UP)).not.toBeInTheDocument();
-    expect(screen.getByTestId('home-action-unanswered')).toBeInTheDocument();
+    expect(screen.getByText(LOADING_COPY)).toBeInTheDocument();
   });
 
   it('says so even when the approvals half DID answer', async () => {
@@ -230,7 +244,7 @@ describe('Home action centre — the affirmative empty state needs an ANSWER (#4
     render(<HomeActionCenterHost />);
 
     await waitFor(() => expect(screen.getByText(ERROR_COPY)).toBeInTheDocument());
-    expect(screen.getByTestId('home-action-approvals')).toBeInTheDocument();
+    expect(screen.getByTestId('home-my-work-approvals-count')).toHaveTextContent('2');
     expect(screen.queryByText(CAUGHT_UP)).not.toBeInTheDocument();
   });
 
@@ -242,7 +256,7 @@ describe('Home action centre — the affirmative empty state needs an ANSWER (#4
     render(<HomeActionCenterHost />);
 
     await waitFor(() => expect(screen.getByText(CAUGHT_UP)).toBeInTheDocument());
-    expect(screen.queryByTestId('home-action-unanswered')).not.toBeInTheDocument();
+    expect(unanswered()).toBe(false);
     expect(badgeText()).toBeNull();
   });
 
@@ -280,10 +294,11 @@ describe('Home action centre — nine unread rows are listed and badged (#4235)'
     // how one page came to show 9 on the bell and 5 here for one question —
     // the badge is the total waiting now, the list its newest few. The
     // rows-are-listed-and-badged claim this case exists to make is unchanged.
-    expect(screen.getAllByText(/Approval request \d+ needs your decision/)).toHaveLength(5);
+    // The column shows three of them since objectui#12602's My-work section.
+    expect(screen.getAllByText(/Approval request \d+ needs your decision/)).toHaveLength(3);
     expect(badgeText()).toBe('9');
     expect(screen.queryByText(CAUGHT_UP)).not.toBeInTheDocument();
-    expect(screen.queryByTestId('home-action-unanswered')).not.toBeInTheDocument();
+    expect(unanswered()).toBe(false);
   });
 
   it('reads the ADR-0030 `mine` window — user-scoped, newest first', async () => {
@@ -314,9 +329,12 @@ describe('Home action centre — nine unread rows are listed and badged (#4235)'
 
     render(<HomeActionCenterHost />);
 
-    await waitFor(() => expect(screen.getByTestId('home-action-approvals')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('home-my-work-approvals-count')).toBeInTheDocument());
     expect(badgeText()).toBe('3');
-    expect(screen.queryByText(CAUGHT_UP)).not.toBeInTheDocument();
-    expect(screen.queryByTestId('home-action-unanswered')).not.toBeInTheDocument();
+    // Each column speaks for its own source (objectui#12602): the inbox IS
+    // empty, so its column says so, while the approvals column claims nothing.
+    expect(screen.getByText(CAUGHT_UP)).toBeInTheDocument();
+    expect(screen.queryByText('Nothing waiting for your approval')).not.toBeInTheDocument();
+    expect(unanswered()).toBe(false);
   });
 });

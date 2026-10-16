@@ -385,7 +385,9 @@ describe('/studio/* — the entry decision, both ways', () => {
     renderStudioDeepLink('/studio/', CONTROL_PLANE_APPS);
 
     await waitFor(() => expect(screen.getByTestId('studio-front-door')).toBeInTheDocument());
-    expect(screen.getByRole('link', { name: 'ObjectOS' })).toHaveAttribute(
+    // The mark is named 「PRODUCT home」 since objectui#12605 (the ruled
+    // accessible name: product name + home); its target is unchanged.
+    expect(screen.getByRole('link', { name: 'ObjectOS home' })).toHaveAttribute(
       'href',
       '/apps/cloud_control',
     );

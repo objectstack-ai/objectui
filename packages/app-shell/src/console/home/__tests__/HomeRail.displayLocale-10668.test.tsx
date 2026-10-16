@@ -38,11 +38,17 @@ function railUnder(locale: string) {
       <LocalizationProvider value={{ locale }}>
         <div data-testid="action-center">
           <HomeActionCenter
+            pendingApprovals={[]}
             pendingApprovalsCount={0}
+            pendingApprovalsStatus="ready"
+            pendingApprovalsReadable
             notifications={[{ id: 'n1', title: 'A file was assigned to you', createdAt: threeDaysAgo() }]}
             unreadTopicCount={1}
             notificationsStatus="ready"
+            notificationsReadable
             onOpenApprovals={() => {}}
+            onOpenApproval={() => {}}
+            onOpenInbox={() => {}}
             onOpenNotification={() => {}}
             t={t}
           />

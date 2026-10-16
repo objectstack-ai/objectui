@@ -291,16 +291,21 @@ import { __resetSharedUserFeeds } from '../sharedUserFeeds';
  * works, so every assertion has to say WHICH panel it is talking about.
  */
 function HomeProbe() {
-  const { pendingApprovalsCount, notifications, notificationsStatus, unreadTopicCount } =
-    useHomeInbox();
+  const inbox = useHomeInbox();
   return (
     <div data-testid="home-cards">
       <HomeActionCenter
-        pendingApprovalsCount={pendingApprovalsCount}
-        notifications={notifications}
-        unreadTopicCount={unreadTopicCount}
-        notificationsStatus={notificationsStatus}
+        pendingApprovals={inbox.pendingApprovals}
+        pendingApprovalsCount={inbox.pendingApprovalsCount}
+        pendingApprovalsStatus={inbox.pendingApprovalsStatus}
+        pendingApprovalsReadable={inbox.pendingApprovalsReadable}
+        notifications={inbox.notifications}
+        unreadTopicCount={inbox.unreadTopicCount}
+        notificationsStatus={inbox.notificationsStatus}
+        notificationsReadable={inbox.notificationsReadable}
         onOpenApprovals={() => {}}
+        onOpenApproval={() => {}}
+        onOpenInbox={() => {}}
         onOpenNotification={() => {}}
         t={(key: string, options?: any) =>
           String(options?.defaultValue ?? key).replace(/\{\{(\w+)\}\}/g, (_m, name: string) =>
@@ -323,12 +328,13 @@ function HomeSurfaces() {
 }
 
 const home = () => screen.getByTestId('home-cards');
-/** Home's "Needs your attention" badge, or null when the card shows none. */
-const homeBadge = (): string | null => {
-  const heading = within(home()).getByText('Needs your attention');
-  const badge = heading.parentElement?.querySelector('span.tabular-nums');
-  return badge ? badge.textContent : null;
-};
+/** Home's "My work" total pill (objectui#12602), or null when it shows none. */
+const homeBadge = (): string | null =>
+  within(home()).queryByTestId('home-my-work-count')?.textContent ?? null;
+/** Home's notifications column says its read is unanswered (loading or failed). */
+const homeUnanswered = () =>
+  within(home()).queryByTestId('home-my-work-notifications-notice')?.getAttribute('data-status') !== 'ready' &&
+  within(home()).queryByTestId('home-my-work-notifications-notice') !== null;
 /** Matches inside the bell only — i.e. anywhere that is not Home's card. */
 const inBell = (title: string) =>
   screen.queryAllByText(title).filter((el) => !home().contains(el));
@@ -386,7 +392,7 @@ describe('#4316 — an already-read message is not "needs your attention"', () =
 
     await waitFor(() => expect(inboxReads().length).toBeGreaterThan(0));
     await waitFor(() =>
-      expect(within(home()).getByText("You're all caught up")).toBeInTheDocument(),
+      expect(within(home()).getByText('No unread notifications')).toBeInTheDocument(),
     );
     // Home: no rows, no badge.
     expect(within(home()).queryAllByText(/Approval request \d+ needs your decision/)).toHaveLength(0);
@@ -424,8 +430,9 @@ describe('#4316 — an already-read message is not "needs your attention"', () =
 
     render(<HomeSurfaces />);
 
-    // Home lists the unread titles …
-    for (const title of UNREAD_TITLES) {
+    // Home lists the unread titles — the newest three, its column's preview
+    // (objectui#12602) …
+    for (const title of UNREAD_TITLES.slice(0, 3)) {
       await waitFor(() => expect(inHome(title).length).toBeGreaterThan(0));
     }
     // … and not one read title, on either surface's "waiting" reading. The
@@ -459,11 +466,11 @@ describe('#4316 — an already-read message is not "needs your attention"', () =
 
     render(<HomeSurfaces />);
 
-    // Nine unread, and both surfaces say nine. Home's LIST is still capped at
-    // `limit` (5) — the cap is a presentation slice, and #4329 is the pin that
-    // it may not leak into the badge.
+    // Nine unread, and both surfaces say nine. Home's LIST is still capped —
+    // three rows in the My-work column (objectui#12602) — the cap is a
+    // presentation slice, and #4329 is the pin that it may not leak into the badge.
     await waitFor(() => expect(homeBadge()).toBe('9'));
-    expect(within(home()).queryAllByText(/Approval request \d+ needs your decision/)).toHaveLength(5);
+    expect(within(home()).queryAllByText(/Approval request \d+ needs your decision/)).toHaveLength(3);
     expect(screen.getByTestId('inbox-bell-badge')).toHaveTextContent('9');
   });
 });
@@ -502,10 +509,24 @@ describe('#4329 — the badge is the total, the list is the preview', () => {
 
     await waitFor(() => expect(screen.getByTestId('inbox-bell-badge')).toHaveTextContent('6'));
     expect(homeBadge()).toBe('6');
-    // …and the approvals row is still listed with its own count, unchanged.
-    expect(within(home()).getByTestId('home-action-approvals')).toHaveTextContent(
-      '2 pending approvals',
-    );
+    // …and the approvals column carries its own count, unchanged.
+    expect(within(home()).getByTestId('home-my-work-approvals-count')).toHaveTextContent('2');
+  });
+
+  it('the approvals column carries the count the bell badges, from the same read (objectui#12602)', async () => {
+    // The My-work section's first column lists the requests themselves; its
+    // pill is their number, which is the bell's approvals addend by
+    // construction — one request feeds both, and nothing else counts them.
+    inboxRows = [];
+    receiptRows = [];
+    approvalsPending(['ar_1', 'ar_2', 'ar_3']);
+
+    render(<HomeSurfaces />);
+
+    await waitFor(() => expect(screen.getByTestId('inbox-bell-badge')).toHaveTextContent('3'));
+    expect(within(home()).getByTestId('home-my-work-approvals-count')).toHaveTextContent('3');
+    expect(within(home()).getAllByTestId('home-my-work-approval-row')).toHaveLength(3);
+    expect(homeBadge()).toBe('3');
   });
 
   it('reports the same count past the bell’s "9+" display clamp', async () => {
@@ -523,8 +544,9 @@ describe('#4329 — the badge is the total, the list is the preview', () => {
 
     await waitFor(() => expect(homeBadge()).toBe('12'));
     expect(screen.getByTestId('inbox-bell-badge')).toHaveTextContent('9+');
-    // The list is unmoved by any of it — still five rows.
-    expect(within(home()).queryAllByText(/Waiting item \d+/)).toHaveLength(5);
+    // The list is unmoved by any of it — the column's three rows
+    // (objectui#12602; five in the action centre it replaced).
+    expect(within(home()).queryAllByText(/Waiting item \d+/)).toHaveLength(3);
   });
 });
 
@@ -600,7 +622,7 @@ describe('#4225 — a failed inbox read reaches Home as an error, not as stale d
     receiptRows = receiptsFor(MIXED, MIXED_READ_IDS);
     render(<HomeSurfaces />);
     await waitFor(() => expect(inHome('Approval reminder: INV-1008').length).toBeGreaterThan(0));
-    expect(within(home()).queryByTestId('home-action-unanswered')).not.toBeInTheDocument();
+    expect(homeUnanswered()).toBe(false);
 
     // Re-read the same feed, in the one way a mounted page really does it: the
     // tab regains focus. (A remount would NOT do — it lands inside the store's
@@ -608,11 +630,9 @@ describe('#4225 — a failed inbox read reaches Home as an error, not as stale d
     inboxBehaviour = denied;
     document.dispatchEvent(new Event('visibilitychange'));
 
-    await waitFor(() =>
-      expect(within(home()).getByTestId('home-action-unanswered')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(homeUnanswered()).toBe(true));
     expect(within(home()).getByText('An unexpected error occurred.')).toBeInTheDocument();
-    expect(within(home()).queryByText("You're all caught up")).not.toBeInTheDocument();
+    expect(within(home()).queryByText('No unread notifications')).not.toBeInTheDocument();
     // …and the rows are still on screen. "Not an answer any more" is the claim,
     // not "throw the user's inbox away" — the two are different states and the
     // status is what separates them.
@@ -637,9 +657,9 @@ describe('#4225 — a failed inbox read reaches Home as an error, not as stale d
     render(<HomeSurfaces />);
 
     await waitFor(() =>
-      expect(within(home()).getByText("You're all caught up")).toBeInTheDocument(),
+      expect(within(home()).getByText('No unread notifications')).toBeInTheDocument(),
     );
-    expect(within(home()).queryByTestId('home-action-unanswered')).not.toBeInTheDocument();
+    expect(homeUnanswered()).toBe(false);
     expect(screen.queryByTestId('inbox-bell-badge')).not.toBeInTheDocument();
   });
 });

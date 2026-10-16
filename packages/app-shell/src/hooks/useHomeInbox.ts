@@ -58,11 +58,14 @@
  * @module
  */
 import { useMemo } from 'react';
+import { useAuth } from '@object-ui/auth';
+import { usePermissions } from '@object-ui/permissions';
 import {
   useHumanActivityFeed,
   useSharedInboxFeed,
-  useSharedPendingApprovals,
+  useSharedPendingApprovalRequests,
   type ActivityFeedReading,
+  type PendingApprovalRequest,
   type SharedFeedStatus,
 } from './sharedUserFeeds.js';
 import { groupNotifications } from '../layout/inboxGrouping.js';
@@ -93,8 +96,26 @@ export interface HomeNotification {
  */
 export type HomeInboxStatus = 'idle' | 'loading' | 'ready' | 'error';
 
+/** The inbox object the notifications column reads, through the shared feed. */
+const INBOX_OBJECT = 'sys_inbox_message';
+
+export type { PendingApprovalRequest };
+
 export interface HomeInboxData {
   pendingApprovalsCount: number;
+  /**
+   * The first `limit` approval requests waiting on the user, newest first as
+   * the endpoint serves them (objectui#12602) — the PREVIEW of
+   * `pendingApprovalsCount`, which is the whole list's length.
+   */
+  pendingApprovals: PendingApprovalRequest[];
+  /**
+   * Whether this caller has an approvals inbox to read at all
+   * (objectui#12602): the endpoint answers every signed-in user about their
+   * own requests, so it is `false` only when nobody is signed in — the feed
+   * then asks nothing.
+   */
+  pendingApprovalsReadable: boolean;
   /**
    * Whether `pendingApprovalsCount` is an answer (objectui#12601) — the
    * approvals feed's own status, passed through as `notificationsStatus` is
@@ -123,6 +144,14 @@ export interface HomeInboxData {
   /** Whether `notifications` is an answer — see {@link HomeInboxStatus}. */
   notificationsStatus: HomeInboxStatus;
   /**
+   * Whether this caller may read the inbox at all (objectui#12602): `false`
+   * only when the LOADED permissions refuse read on `sys_inbox_message`, the
+   * predicate the activity feed applies to `sys_activity` (objectui#12081).
+   * Unknown permissions read `true`. A surface renders no notifications widget
+   * for `false` — no empty claim, and no link into a list that answers `403`.
+   */
+  notificationsReadable: boolean;
+  /**
    * Home's cut of the activity feed, with its status and whether the caller
    * may read the feed at all (objectui#12081). The rows and the status travel
    * together for the reason `notificationsStatus` exists: rows alone made a
@@ -138,7 +167,14 @@ export function useHomeInbox(limit = 5): HomeInboxData {
   // activity rows: real human actions only, dropping the sys_*/ai_* churn
   // (actor "System"). `useSharedInboxFeed` is the bell's already-joined inbox
   // superset, cut here to what is actually waiting on the user.
-  const { value: pendingApprovalsCount, status: pendingApprovalsStatus } = useSharedPendingApprovals();
+  const { value: approvalRequests, status: pendingApprovalsStatus } = useSharedPendingApprovalRequests();
+  // The count is the list's length — the number the bell badges, from the
+  // same one read (objectui#12602).
+  const pendingApprovalsCount = approvalRequests.length;
+  const pendingApprovals = useMemo(() => approvalRequests.slice(0, limit), [approvalRequests, limit]);
+  const { user } = useAuth();
+  const perms = usePermissions();
+  const notificationsReadable = !perms.isLoaded || perms.can(INBOX_OBJECT, 'read');
   const activity = useHumanActivityFeed(limit);
   const { value: messages, status: notificationsStatus } = useSharedInboxFeed();
 
@@ -177,10 +213,13 @@ export function useHomeInbox(limit = 5): HomeInboxData {
 
   return {
     pendingApprovalsCount,
+    pendingApprovals,
+    pendingApprovalsReadable: Boolean(user?.id),
     pendingApprovalsStatus,
     notifications,
     unreadTopicCount,
     notificationsStatus,
+    notificationsReadable,
     activity,
   };
 }

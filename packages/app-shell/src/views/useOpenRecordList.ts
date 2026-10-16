@@ -13,6 +13,33 @@ import { useFilterScope } from '@object-ui/react';
 import { serializeDrillFilterParams } from './drillUrlFilters.js';
 
 /**
+ * The router path of an object's ADR-0055 bare data surface, scoped by
+ * `filter` (`/apps/:appName/:object/data?filter[...]`). The one place that
+ * route shape is spelled: {@link useOpenRecordList} navigates to it, and so
+ * does a related list's "View all" (`RelatedRecordActionsBridge`,
+ * objectui#12741).
+ *
+ * Pure: `filter` is written as handed. A caller holding AUTHORED values, which
+ * may carry placeholders, resolves them first, as `useOpenRecordList` does.
+ */
+export function recordListPath(
+  appName: string | undefined,
+  objectName: string,
+  filter?: Record<string, unknown>,
+): string {
+  // A date-bucket drill carries an ObjectQL range operator object
+  // (`{ $gte, $lt }`); the shared serializer emits it as `filter[field][gte|lt]`
+  // (never "[object Object]"). Equality dims stay `filter[field]=value` (objectstack-ai/objectstack#1752).
+  const qs = serializeDrillFilterParams(filter).toString();
+  const base = appName ? `/apps/${appName}` : '';
+  // ADR-0055 bare data surface (`/:object/data`): "the URL is the view" — no
+  // saved-view filter is baked in, so the scope is exactly these conditions.
+  // (The object route stacks URL filters ON TOP of the default view's own
+  // filter, which can silently over-narrow the list.)
+  return `${base}/${objectName}/data${qs ? `?${qs}` : ''}`;
+}
+
+/**
  * `useOpenRecordList` — the console's implementation of the drill "escape
  * hatch" (`DrillNavigationContext.openRecordList`).
  *
@@ -76,16 +103,7 @@ export function useOpenRecordList(): (objectName: string, filter?: Record<string
       // exists to prevent (objectstack-ai/objectstack#3574): `{today}` would work and
       // `{current_user_id}` would silently not.
       const runtimeFilter = resolveFilterPlaceholders(filter, filterScope);
-      // A date-bucket drill carries an ObjectQL range operator object
-      // (`{ $gte, $lt }`); the shared serializer emits it as `filter[field][gte|lt]`
-      // (never "[object Object]"). Equality dims stay `filter[field]=value` (objectstack-ai/objectstack#1752).
-      const qs = serializeDrillFilterParams(runtimeFilter).toString();
-      const base = appName ? `/apps/${appName}` : '';
-      // ADR-0055 bare data surface (`/:object/data`): "the URL is the view" — no
-      // saved-view filter is baked in, so the drill scope is exactly these
-      // conditions. (The object route stacks URL filters ON TOP of the default
-      // view's own filter, which can silently over-narrow a drill.)
-      navigate(`${base}/${objectName}/data${qs ? `?${qs}` : ''}`);
+      navigate(recordListPath(appName, objectName, runtimeFilter));
     },
     [navigate, appName, filterScope],
   );

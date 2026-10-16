@@ -29,6 +29,10 @@
  * past it, and brings the active tab into view. Every width rule measures
  * the header's own row (`studio-tokens.ts`), never the viewport: the column
  * narrows with the rail and the aside, not with the window.
+ *
+ * objectui#12707 — a chip at the tab row's end (the read-only link) folds to
+ * its icon when the row cannot hold it whole: the tab row tells its children
+ * which row they sit in, and `useStudioTabRowFold` measures that row.
  */
 
 import * as React from 'react';
@@ -134,6 +138,69 @@ function useTabRowFade(ref: React.RefObject<HTMLElement | null>): 'none' | 'star
   return fade;
 }
 
+/** The tab row a child of `tabs` sits in; `null` outside a tab row (objectui#12707). */
+const StudioTabRowContext = React.createContext<React.RefObject<HTMLElement | null> | null>(null);
+
+/**
+ * objectui#12707 — whether a chip at the tab row's end folds to its icon.
+ *
+ * The chip folds when the row cannot hold the tabs and the chip's whole text,
+ * so it is never cut mid-word at the row's scrolled edge; it unfolds as soon
+ * as the row has room again. The rule measures the tab row's own width, never
+ * the viewport: the row narrows with the rail and the aside, not with the
+ * window. Outside a tab row (a title row's actions slot) it never folds.
+ *
+ * `item` is the chip; the row's child that holds it is its slot. `text` is
+ * what the full chip says: a new text is a new width, so the chip unfolds
+ * and is measured again.
+ */
+export function useStudioTabRowFold(item: React.RefObject<HTMLElement | null>, text: string): boolean {
+  const row = React.useContext(StudioTabRowContext);
+  const [folded, setFolded] = React.useState(false);
+  /** The whole chip's width, read while it shows its text, and the text it was read for. */
+  const full = React.useRef<{ text: string; width: number } | null>(null);
+  /** The latest measure, for the observer: it reads this render's state. */
+  const measureRef = React.useRef<() => void>(() => {});
+  // Every render: the tabs beside the chip can change without the row resizing.
+  React.useLayoutEffect(() => {
+    const measure = () => {
+      const nav = row?.current;
+      const el = item.current;
+      if (!nav || !el) return;
+      let slot: HTMLElement = el;
+      while (slot.parentElement && slot.parentElement !== nav) slot = slot.parentElement;
+      if (slot.parentElement !== nav) return;
+      if (!folded) full.current = { text, width: el.getBoundingClientRect().width };
+      // A new text is a new width: show it whole and read it again.
+      if (full.current?.text !== text) return setFolded(false);
+      const navLeft = nav.getBoundingClientRect().left - nav.scrollLeft;
+      let tabsEnd = 0;
+      for (const child of Array.from(nav.children)) {
+        if (child !== slot) tabsEnd = Math.max(tabsEnd, child.getBoundingClientRect().right - navLeft);
+      }
+      const navStyle = getComputedStyle(nav);
+      const gap = parseFloat(navStyle.columnGap) || 0;
+      const slotPad = parseFloat(getComputedStyle(slot).paddingLeft) || 0;
+      const room = nav.clientWidth - (parseFloat(navStyle.paddingRight) || 0);
+      setFolded(tabsEnd + gap + slotPad + full.current.width > room + 0.5);
+    };
+    measureRef.current = measure;
+    measure();
+  });
+  React.useEffect(() => {
+    // A child's layout effect runs before the row's own ref is attached, so
+    // the first render measures here, once the row is there.
+    measureRef.current();
+    const nav = row?.current;
+    if (!nav || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => measureRef.current());
+    observer.observe(nav);
+    for (const child of Array.from(nav.children)) observer.observe(child);
+    return () => observer.disconnect();
+  }, [row]);
+  return folded;
+}
+
 export interface StudioItemHeaderProps {
   /** The icon component for the tile; omitted when the pillar has nothing open. */
   icon?: React.ElementType;
@@ -197,7 +264,7 @@ export function StudioItemHeader({
       </div>
       {tabs && (
         <nav ref={tabRowRef} data-fade={fade} className={STUDIO_TAB_ROW}>
-          {tabs}
+          <StudioTabRowContext.Provider value={tabRowRef}>{tabs}</StudioTabRowContext.Provider>
         </nav>
       )}
     </div>

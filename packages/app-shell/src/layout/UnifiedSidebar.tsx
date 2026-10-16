@@ -72,6 +72,20 @@ import { CONSOLE_BELOW_TOP_BAR } from './consoleTopBar.js';
 import { SidebarItemMenu, sidebarItemDesignPath, favoriteDesignPath } from './SidebarItemMenu.js';
 
 /**
+ * The class the Recent group's label carries so that, once the sidebar
+ * collapses to icons, the hidden label takes no pointer events
+ * (objectui#12744). The `SidebarGroupLabel` primitive hides a label there with
+ * `opacity-0` and `-mt-8` only, so the invisible label lies over the lower half
+ * of the navigation row just above it; this label has a click handler, so a
+ * click on that row's icon toggled Recent instead of navigating. The variant is
+ * the primitive's own hiding condition: in the expanded sidebar the label is
+ * visible and still opens and closes Recent. `NavigationRenderer` (in
+ * `@object-ui/layout`) gives its group labels the same class.
+ */
+const HIDDEN_ICON_LABEL_NO_POINTER =
+  'group-data-[state=collapsed]:group-data-[collapsible=icon]:pointer-events-none';
+
+/**
  * Lazy-resolved Lucide icon — see ../utils/getIcon for impl.
  * The local symbol is kept for backwards compat with existing call sites
  * within this file.
@@ -542,7 +556,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
            {recentItems.length > 0 && (
              <SidebarGroup>
                <SidebarGroupLabel
-                 className="flex items-center gap-1.5 cursor-pointer select-none"
+                 className={`flex items-center gap-1.5 cursor-pointer select-none ${HIDDEN_ICON_LABEL_NO_POINTER}`}
                  onClick={() => setRecentExpanded(prev => !prev)}
                >
                  <ChevronRight className={`h-3 w-3 transition-transform duration-150 ${recentExpanded ? 'rotate-90' : ''}`} />

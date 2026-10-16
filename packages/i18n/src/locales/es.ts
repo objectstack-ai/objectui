@@ -890,6 +890,7 @@ const es = {
   },
   kanban: {
     uncategorized: "Sin categoría",
+    loadMore: "Cargar más",
     columns: "columnas",
     addCard: "Añadir tarjeta",
     addColumn: "Añadir columna",

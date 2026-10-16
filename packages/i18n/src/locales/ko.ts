@@ -860,6 +860,7 @@ const ko = {
   },
   kanban: {
     uncategorized: "미분류",
+    loadMore: "더 보기",
     columns: "열",
     addCard: "카드 추가",
     addColumn: "열 추가",

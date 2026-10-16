@@ -885,6 +885,7 @@ const pt = {
   },
   kanban: {
     uncategorized: "Sem categoria",
+    loadMore: "Carregar mais",
     columns: "colunas",
     addCard: "Adicionar cartão",
     addColumn: "Adicionar coluna",

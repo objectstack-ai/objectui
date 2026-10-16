@@ -294,7 +294,10 @@ describe('CONTROL — every other view asks exactly what it asked before (object
   it('the board: still one fetch batch, no window', async () => {
     const ds = makeDataSource(contractsIn(9, 122, 'oct'));
     renderList({ viewType: 'kanban', kanban: { groupByField: 'status' } }, ds);
-    await waitFor(() => expect(lastKanbanProps?.data).toHaveLength(FETCH_BATCH));
+    // objectui#12619 — the board pages its own lanes and is handed no rows;
+    // this view's own query, below, is what it asked before.
+    await waitFor(() => expect(lastKanbanProps?.lanePaging).toBeDefined());
+    expect(lastKanbanProps.data).toBeUndefined();
     expect(ds.calls).toHaveLength(1);
     expect(ds.calls[0].$top).toBe(FETCH_BATCH);
     expect(ds.calls[0].$filter).toBeUndefined();

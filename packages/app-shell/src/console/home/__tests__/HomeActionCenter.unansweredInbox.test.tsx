@@ -98,7 +98,9 @@ vi.mock('../../../providers/AdapterProvider', () => ({ useAdapter: () => adapter
 let approvalsFixture = 0;
 vi.mock('../../../hooks/sharedUserFeeds', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  useSharedPendingApprovalsCount: () => approvalsFixture,
+  // `useHomeInbox` reads the approvals feed WITH its status (objectui#12601);
+  // the dial is still the count, always an answer here.
+  useSharedPendingApprovals: () => ({ value: approvalsFixture, status: 'ready' }),
   useHumanActivityFeed: () => ({ value: [], status: 'ready', readable: true }),
 }));
 

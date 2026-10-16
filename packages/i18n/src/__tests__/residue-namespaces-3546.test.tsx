@@ -683,7 +683,9 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
 
     // `on this instance` — ru and ar both render instance/deployment with their
     // own environment word, and have done so consistently.
-    expect(at(builtInLocales.en, 'auth.login.devAdminHint.title')).toBe('Development instance');
+    // objectui#12600 renamed the row "Local development instance"; the en word
+    // is still "instance", and ru/ar still use their environment word.
+    expect(at(builtInLocales.en, 'auth.login.devAdminHint.title')).toBe('Local development instance');
     expect(at(builtInLocales.ru, 'approvalsInbox.recallUnavailable')).toBe('Отзыв недоступен в этой среде.');
     expect(at(builtInLocales.ru, 'workspace.multiOrgDisabled')).toContain('в этой среде');
     expect(at(builtInLocales.ar, 'connectAgent.disabled.title')).toBe('MCP معطّل في هذا النشر');

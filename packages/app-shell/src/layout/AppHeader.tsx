@@ -22,7 +22,9 @@
  *              the app, `system/*` included (objectui#12472).
  *   - `home` : no breadcrumb; displays the product wordmark (from
  *              `getProductName()`, default "ObjectOS") next to the brand
- *              logo. Used by `/home`.
+ *              logo. Used by `/home`, whose frame mounts a palette, so from
+ *              `lg` up its search field is the bar's middle zone, wider than
+ *              an app's (objectui#12601).
  *   - `orgs` : no breadcrumb; logo + "Organizations" title. Used by the
  *              `/organizations` landing page.
  *   - `studio`: no breadcrumb; logo + a fixed "Studio" crumb, as `orgs` draws
@@ -484,12 +486,20 @@ export function AppHeader({
   // center whatever either side holds. The left zone keeps `min-w-0`, and the
   // app pill truncates inside it; the cluster never shrinks below its
   // content (`lg:min-w-max`), so when the utilities need more than half the
-  // bar the search yields to the left instead of overlapping them. App
-  // context only, on every route inside the app, `system/*` included: the
-  // `home` / `orgs` / `studio` variants keep the search at the cluster's left
-  // edge, and below `lg` the search is the icon button in the cluster
-  // everywhere.
-  const centersSearch = isApp && hasCommandPalette;
+  // bar the search yields to the left instead of overlapping them. Inside an
+  // app it is every route, `system/*` included; below `lg` the search is the
+  // icon button in the cluster everywhere.
+  //
+  // objectui#12601 — the `home` variant centers it too, wherever a palette is
+  // mounted (`HomeLayout` mounts one): Home's bar is the product mark, the
+  // search field and the utilities, so the field is the bar's middle, wider
+  // than inside an app and named for what the palette finds. The `orgs` and
+  // `studio` variants keep the search at the cluster's left edge.
+  const isHomeSearch = resolvedVariant === 'home' && hasCommandPalette;
+  const centersSearch = (isApp && hasCommandPalette) || isHomeSearch;
+  const searchLabel = isHomeSearch
+    ? t('home.search', { defaultValue: 'Search apps, records, pages…' })
+    : t('console.search', { defaultValue: 'Search…' });
 
   // Search — desktop. One element, drawn in the middle zone or in the
   // cluster's search group (see `centersSearch`).
@@ -497,14 +507,17 @@ export function AppHeader({
     <button
       type="button"
       data-testid="action:command-palette:open"
-      aria-label={t('console.search', { defaultValue: 'Search…' })}
+      aria-label={searchLabel}
       aria-keyshortcuts="Meta+K Control+K"
       onClick={openCommandPalette}
-      className="hidden lg:flex relative items-center gap-2 w-48 xl:w-64 h-8 px-3 text-sm rounded-md border bg-muted/50 text-muted-foreground hover:bg-muted transition-colors"
+      className={cn(
+        'hidden lg:flex relative items-center gap-2 h-8 px-3 text-sm rounded-md border bg-muted/50 text-muted-foreground hover:bg-muted transition-colors',
+        isHomeSearch ? 'w-80 xl:w-[420px]' : 'w-48 xl:w-64',
+      )}
     >
       <Search className="h-3.5 w-3.5 shrink-0" />
-      <span className="flex-1 text-left text-xs">
-        {t('console.search', { defaultValue: 'Search…' })}
+      <span className="flex-1 truncate text-left text-xs">
+        {searchLabel}
       </span>
       <kbd className="pointer-events-none inline-flex h-5 items-center gap-0.5 rounded border bg-background px-1.5 text-[10px] font-medium text-muted-foreground">
         <span className="text-xs">⌘</span>K
@@ -746,7 +759,7 @@ export function AppHeader({
               className="lg:hidden h-8 w-8 shrink-0"
               data-testid="action:command-palette:open-mobile"
               onClick={openCommandPalette}
-              aria-label={t('console.search', { defaultValue: 'Search…' })}
+              aria-label={searchLabel}
             >
               <Search className="h-4 w-4" />
             </Button>

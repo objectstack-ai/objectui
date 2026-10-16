@@ -75,6 +75,10 @@ export interface LoginFormLabels {
   usePasswordSignInText?: string;
   /** Description shown above the form in SSO-only mode (defaults to "Sign in with your organization's single sign-on"). */
   ssoOnlyDescription?: string;
+  /** Accessible name of the password field's reveal toggle while the password is hidden (defaults to "Show password"). */
+  showPasswordText?: string;
+  /** Accessible name of the password field's reveal toggle while the password is shown (defaults to "Hide password"). */
+  hidePasswordText?: string;
 }
 
 export interface LoginFormProps {
@@ -110,10 +114,52 @@ export interface LoginFormProps {
   errorMessages?: Record<string, string>;
   /** Hide the icon disc above the form title. Defaults to false. */
   hideIcon?: boolean;
+  /**
+   * Render no header — no icon disc, no title, no description — because the
+   * host draws its own above the form. Defaults to false, which renders the
+   * header exactly as before. Under SSO-only ("enforced") mode the form still
+   * says how to sign in: the SSO-only description, which the header would
+   * otherwise carry, renders as one muted line above the federated buttons.
+   */
+  hideHeader?: boolean;
 }
 
 const DefaultLink = ({ href, className, children }: AuthLinkComponentProps) => (
   <a href={href} className={className}>{children}</a>
+);
+
+const EyeIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="h-4 w-4"
+    aria-hidden="true"
+  >
+    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+const EyeOffIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="h-4 w-4"
+    aria-hidden="true"
+  >
+    <path d="M10.73 5.08A10.4 10.4 0 0 1 12 5c7 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68" />
+    <path d="M6.61 6.61A13.5 13.5 0 0 0 2 12s3 7 10 7a9.7 9.7 0 0 0 5.39-1.61" />
+    <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+    <path d="m2 2 20 20" />
+  </svg>
 );
 
 const DefaultLockIcon = () => (
@@ -155,6 +201,7 @@ export function LoginForm({
   description = 'Enter your email and password to continue',
   icon,
   hideIcon = false,
+  hideHeader = false,
   linkComponent: LinkComp = DefaultLink,
   labels = {},
   errorMessages,
@@ -162,6 +209,9 @@ export function LoginForm({
   const { signIn, isLoading, getAuthConfig, sendPhoneOtp, signInWithPhoneOtp, signInWithPhonePassword } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  // The password field's reveal toggle. Local and ephemeral on purpose: a
+  // revealed password must not survive a remount or reach any URL or storage.
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Phone-OTP sign-in (framework#2780). Only offered when the server reports
   // `features.phoneNumberOtp` — i.e. the phoneNumber plugin is on AND a
@@ -264,6 +314,8 @@ export function LoginForm({
     resendOtpCountdownText: labels.resendOtpCountdownText ?? 'Resend in {seconds}s',
     usePhoneOtpText: labels.usePhoneOtpText ?? 'Sign in with verification code',
     usePasswordSignInText: labels.usePasswordSignInText ?? 'Sign in with password instead',
+    showPasswordText: labels.showPasswordText ?? 'Show password',
+    hidePasswordText: labels.hidePasswordText ?? 'Hide password',
   };
 
   // Tick the resend cooldown down once per second while it's armed.
@@ -366,13 +418,29 @@ export function LoginForm({
     }
   };
 
+  // The SSO-only view: enforced mode with the break-glass form still closed.
+  const ssoOnlyView = ssoEnforced && !showPasswordFallback;
+
   return (
-    <div className="mx-auto flex w-full flex-col justify-center space-y-7 sm:w-[400px]">
-      <AuthFormHeader
-        icon={hideIcon ? undefined : (icon ?? <DefaultLockIcon />)}
-        title={title}
-        description={ssoEnforced && !showPasswordFallback ? l.ssoOnlyDescription : description}
-      />
+    // `sm:max-w-[400px]`, not a fixed `sm:w-[400px]`: identical wherever the
+    // host gives the form 400 px or more, and it no longer overflows a host
+    // card that is narrower than that (objectui#12600).
+    <div
+      className={`mx-auto flex w-full flex-col justify-center sm:max-w-[400px] ${
+        hideHeader ? 'space-y-4' : 'space-y-7'
+      }`}
+    >
+      {hideHeader ? (
+        ssoOnlyView ? (
+          <p className="text-[13px] leading-relaxed text-muted-foreground">{l.ssoOnlyDescription}</p>
+        ) : null
+      ) : (
+        <AuthFormHeader
+          icon={hideIcon ? undefined : (icon ?? <DefaultLockIcon />)}
+          title={title}
+          description={ssoOnlyView ? l.ssoOnlyDescription : description}
+        />
+      )}
 
       <div className="space-y-5">
         {configPending ? (
@@ -509,17 +577,32 @@ export function LoginForm({
                 </LinkComp>
               )}
             </div>
-            <input
-              id="login-password"
-              type="password"
-              placeholder={l.passwordPlaceholder}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-              disabled={isLoading}
-              className={AUTH_INPUT_CLASS}
-            />
+            <div className="relative">
+              <input
+                id="login-password"
+                type={passwordVisible ? 'text' : 'password'}
+                placeholder={l.passwordPlaceholder}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                disabled={isLoading}
+                className={`${AUTH_INPUT_CLASS} pr-10`}
+              />
+              <button
+                type="button"
+                data-testid="login-password-toggle"
+                onClick={() => setPasswordVisible((v) => !v)}
+                // The NAME carries the state ("Show" / "Hide"), so no
+                // `aria-pressed` on top of it — that would announce it twice.
+                aria-label={passwordVisible ? l.hidePasswordText : l.showPasswordText}
+                aria-controls="login-password"
+                disabled={isLoading}
+                className="absolute right-1.5 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:pointer-events-none disabled:opacity-50"
+              >
+                {passwordVisible ? <EyeOffIcon /> : <EyeIcon />}
+              </button>
+            </div>
           </div>
 
           <button
@@ -537,7 +620,7 @@ export function LoginForm({
               onClick={handleSso}
               disabled={isLoading || ssoSubmitting}
               aria-busy={ssoSubmitting}
-              className="flex w-full items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
+              className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
             >
               {ssoSubmitting && <AuthSpinner />}
               {l.ssoButton}
@@ -587,7 +670,7 @@ export function LoginForm({
       </div>
 
       {registerUrl && !ssoEnforced && (
-        <p className="px-8 text-center text-sm text-muted-foreground">
+        <p className="px-8 text-center text-[13px] text-muted-foreground">
           {l.noAccountText}{' '}
           <LinkComp href={registerUrl} className={AUTH_LINK_CLASS}>
             {l.signUpText}

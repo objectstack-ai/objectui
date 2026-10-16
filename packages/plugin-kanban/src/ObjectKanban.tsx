@@ -55,6 +55,17 @@ import {
 import { RequiredFieldsDialog } from './RequiredFieldsDialog';
 import { KanbanRecordsSettledContext } from './KanbanRecordsSettled';
 import { KanbanColumnSummaryContext, type KanbanColumnSummary } from './KanbanColumnSummary';
+import {
+  KANBAN_LANE_PAGE_SIZE,
+  KanbanLanePagingContext,
+  laneQueryFilter,
+  readLanePage,
+  uncolumnedQueryFilter,
+  type KanbanLanePage,
+  type KanbanLanePaging,
+  type KanbanLanePagingRequest,
+} from './KanbanLanePaging';
+import { resolveCardOwner, type KanbanCardOwner } from './KanbanCardOwner';
 
 /**
  * English fallbacks for the record-detail drawer heading this board opens on
@@ -393,6 +404,28 @@ export interface ObjectKanbanComponentProps {
    * `React.MouseEvent`, which is what actually arrives.
    */
   onCardClick?: (record: any, event?: any) => void;
+  /**
+   * The host asks the board to query each LANE itself (objectui#12619): the
+   * first {@link KANBAN_LANE_PAGE_SIZE} records of every lane, in the node's
+   * `sort`, under the node's `filter`, with the lane's count and a "Load more"
+   * at its foot. `ListView` passes it, with its toolbar search and its reload
+   * signal, to the board it mounts instead of handing it one page of rows.
+   *
+   * A HOST channel, never an authoring key: the node's `limit` is the row cap
+   * of the board's one query, and a board without this prop keeps that query.
+   * A board whose lanes are not known before the query (no declared lanes and
+   * no options on the lane field), or that draws swimlanes, keeps it too, with
+   * the search and the reload signal applied to it.
+   */
+  lanePaging?: KanbanLanePagingRequest;
+  /**
+   * The record field holding the record's owner, when the host's object has
+   * one. Each card shows the owner's avatar from the expanded record. The host
+   * resolves it from the object's declared ownership (`ListView` reads the
+   * spec's `resolveInjectedSystemColumns` and `SystemFieldName.OWNER_ID`), so
+   * this board guesses no field name.
+   */
+  ownerField?: string;
 }
 
 /**
@@ -436,6 +469,8 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
   loading: externalLoading,
   onRowClick,
   onCardClick,
+  lanePaging,
+  ownerField,
   ..._props
 }) => {
   void _props;
@@ -637,6 +672,75 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
     !hasExternalData && !boundData && !schema.data ? schema.objectName || undefined : undefined,
   );
 
+  // objectui#12619 — the host's query inputs (`lanePaging`), keyed on CONTENT:
+  // a host rebuilds the request object on every render (AGENTS.md #10). The
+  // search pair rides on whichever query this board issues, exactly as the
+  // host's own fetch sends it (`$search`, with `$searchFields` only beside a
+  // term).
+  const lanePagingAsked = lanePaging !== undefined;
+  const hostSearchKey = JSON.stringify(
+    lanePaging?.search
+      ? {
+          $search: lanePaging.search,
+          ...(lanePaging.searchFields && lanePaging.searchFields.length > 0
+            ? { $searchFields: [...lanePaging.searchFields] }
+            : {}),
+        }
+      : {},
+  );
+  const hostReloadKey = lanePagingAsked ? String(lanePaging?.reloadKey ?? '') : '';
+
+  /**
+   * The lanes this board pages, when it pages them (objectui#12619): known
+   * BEFORE the query, so each can be asked as one. The declared lanes, else the
+   * lane field's options — the two sources `effectiveColumns` draws lanes from
+   * first. `null` keeps the board's one query: no host request, no lane field,
+   * swimlanes (each lane is cut by a second field), or lanes only the data
+   * would name. A string, so the fetch effect re-keys on the lane values and
+   * never on an array a parent rebuilds.
+   */
+  const pagedLaneIdsKey = useMemo((): string | null => {
+    if (!lanePagingAsked || !schema.groupBy) return null;
+    if (schema.swimlaneField || schema.grouping?.fields?.[0]?.field) return null;
+    const usable = (id: unknown) => id !== undefined && id !== null && id !== '';
+    const declared =
+      Array.isArray(schema.columns) && schema.columns.length > 0 && typeof schema.columns[0] === 'object'
+        ? (schema.columns as Array<{ id?: unknown }>).map((col) => col?.id).filter(usable)
+        : [];
+    const options = objectDef?.fields?.[schema.groupBy]?.options;
+    const ids = declared.length > 0
+      ? declared
+      : Array.isArray(options)
+        ? options.map((opt: { value?: unknown }) => opt?.value).filter(usable)
+        : [];
+    return ids.length > 0 ? JSON.stringify(ids) : null;
+  }, [lanePagingAsked, schema.groupBy, schema.swimlaneField, schema.grouping, schema.columns, objectDef]);
+
+  /** Each paged lane's state; `null` on a board that issues one query. */
+  const [lanePages, setLanePages] = useState<Record<string, KanbanLanePage> | null>(null);
+  // Read by the fetch effect (the depth a refresh asks each lane to) and by
+  // "Load more", neither of which may re-run on every page that lands.
+  const lanePagesRef = React.useRef(lanePages);
+  lanePagesRef.current = lanePages;
+  /**
+   * The lane queries the cards on screen answer: the question they were asked
+   * under, their shared params and each lane's filter. "Load more" asks the
+   * next page of the SAME query; a page answering an older one is dropped
+   * (`generation`).
+   */
+  const laneQueryRef = React.useRef<{
+    generation: number;
+    question: string;
+    objectName: string;
+    params: Record<string, unknown>;
+    filters: Record<string, unknown>;
+  } | null>(null);
+  const laneGenerationRef = React.useRef(0);
+  const queryFilterKey = JSON.stringify(queryFilter ?? null);
+  // What the lanes answer. A refresh asks the same question and keeps the depth
+  // each lane was loaded to; any other change starts every lane over.
+  const laneQuestion = JSON.stringify([schemaKey, schema.groupBy ?? null, pagedLaneIdsKey, queryFilterKey, sortKey, hostSearchKey]);
+
   useEffect(() => {
     // Skip internal fetch when data is managed by a parent component
     if (hasExternalData) return;
@@ -729,6 +833,70 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
             const expand = !perms?.isLoaded
               ? expandable
               : expandable.filter((f) => perms.checkField(schema.objectName as string, f, 'read'));
+            // objectui#12619 — the host's search pair, on whichever query
+            // this board issues (`{}` without a host or a term).
+            const hostSearch = JSON.parse(hostSearchKey) as Record<string, unknown>;
+
+            // objectui#12619 — LANE PAGING. One query per lane (the node's
+            // filter AND the lane value), plus one for the records in no lane,
+            // each asking its first page and the lane's count. See
+            // `KanbanLanePaging.ts`.
+            if (pagedLaneIdsKey !== null && schema.groupBy) {
+                const objectName = schema.objectName;
+                const groupBy = schema.groupBy;
+                const laneIds = JSON.parse(pagedLaneIdsKey) as unknown[];
+                const generation = ++laneGenerationRef.current;
+                // A refresh of the same question asks each lane to the depth
+                // the viewer loaded it to, so "Load more" is not undone by a
+                // drag or a toolbar refresh.
+                const held = laneQueryRef.current?.question === laneQuestion ? lanePagesRef.current : null;
+                const params: Record<string, unknown> = {
+                    $orderby: convertSortToQueryParams(schema.sort),
+                    ...(expand.length > 0 ? { $expand: expand } : {}),
+                    ...hostSearch,
+                    // The lane's count is the point of the query, so ask for it.
+                    $count: true,
+                };
+                const lanes = [
+                    ...laneIds.map((id) => ({ key: String(id), filter: laneQueryFilter(queryFilter, groupBy, id) })),
+                    { key: KANBAN_UNCOLUMNED_ID, filter: uncolumnedQueryFilter(queryFilter, groupBy, laneIds) },
+                ];
+                const answers = await Promise.all(lanes.map(async (lane) => {
+                    const loaded = held?.[lane.key]?.loaded ?? 0;
+                    const depth = Math.max(KANBAN_LANE_PAGE_SIZE, Math.ceil(loaded / KANBAN_LANE_PAGE_SIZE) * KANBAN_LANE_PAGE_SIZE);
+                    const result = await dataSource.find(objectName, { ...params, $filter: lane.filter, $top: depth } as any);
+                    return { lane, ...readLanePage(result, 0, depth) };
+                }));
+                if (!isMounted || generation !== laneGenerationRef.current) return;
+                const seen = new Set<string>();
+                const rows: any[] = [];
+                const pages: Record<string, KanbanLanePage> = {};
+                for (const answer of answers) {
+                    pages[answer.lane.key] = answer.page;
+                    for (const row of answer.rows) {
+                        const id = String(row?.id ?? row?._id);
+                        if (seen.has(id)) continue;
+                        seen.add(id);
+                        rows.push(row);
+                    }
+                }
+                laneQueryRef.current = {
+                    generation,
+                    question: laneQuestion,
+                    objectName,
+                    params,
+                    filters: Object.fromEntries(lanes.map((lane) => [lane.key, lane.filter])),
+                };
+                lanePagesRef.current = pages;
+                setFetchedData(rows);
+                setLanePages(pages);
+                // Every lane carries its own count, so no header is a window's.
+                setFetchWindowSaturated(false);
+                setError(null);
+                return;
+            }
+            laneQueryRef.current = null;
+            setLanePages(null);
             // The row cap is a REAL `$top` (objectui#4025). It used to be
             // `{ options: { $top: 100 } }` — `$filter` at the top level where the
             // adapters read it, the cap one level down under a key that is not a
@@ -763,6 +931,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
                 $orderby: convertSortToQueryParams(schema.sort),
                 $top: resolveRowLimit(schema.limit, DEFAULT_KANBAN_FETCH_BATCH_SIZE),
                 ...(expand.length > 0 ? { $expand: expand } : {}),
+                ...hostSearch,
             };
             const results = await dataSource.find(schema.objectName, query);
             
@@ -813,8 +982,50 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
     // `schema.sort` is tracked by CONTENT (`sortKey`), not identity — the
     // `ObjectTimeline` spelling: an array rebuilt with the same members must not
     // refetch the board.
+    // objectui#12619 — `pagedLaneIdsKey`, `laneQuestion`, `hostSearchKey` and
+    // `hostReloadKey` are strings: the lanes, what they answer, the host's
+    // search pair and the host's refresh signal, each compared by value.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `schema.sort` is tracked by CONTENT (sortKey) on purpose; see above
-  }, [schema.objectName, schemaKey, dataSource, boundData, schema.data, queryFilter, sortKey, schema.limit, hasExternalData, objectDefReady, objectDef, refreshKey, perms, invalidationNonce]);
+  }, [schema.objectName, schemaKey, dataSource, boundData, schema.data, queryFilter, sortKey, schema.limit, hasExternalData, objectDefReady, objectDef, refreshKey, perms, invalidationNonce, pagedLaneIdsKey, laneQuestion, hostSearchKey, hostReloadKey]);
+
+  /**
+   * objectui#12619 — the next page of one lane, under the query the lane's
+   * cards answer (`laneQueryRef`). Appended to the cards, never replacing them;
+   * a page that lands after the lanes were asked again is dropped.
+   */
+  const loadMoreLane = React.useCallback((laneId: string) => {
+    const held = laneQueryRef.current;
+    const page = lanePagesRef.current?.[laneId];
+    const filter = held?.filters[laneId];
+    if (!held || !page || !page.hasMore || page.loading || filter === undefined) return;
+    if (!dataSource || typeof dataSource.find !== 'function') return;
+    const { generation } = held;
+    const setPage = (next: KanbanLanePage) =>
+      setLanePages((prev) => (prev ? { ...prev, [laneId]: next } : prev));
+    setPage({ ...page, loading: true });
+    dataSource
+      .find(held.objectName, { ...held.params, $filter: filter, $top: KANBAN_LANE_PAGE_SIZE, $skip: page.loaded } as any)
+      .then((result) => {
+        if (laneQueryRef.current?.generation !== generation) return;
+        const next = readLanePage(result, page.loaded, KANBAN_LANE_PAGE_SIZE);
+        setFetchedData((prev) => {
+          const seen = new Set(prev.map((row) => String(row?.id ?? row?._id)));
+          return [...prev, ...next.rows.filter((row) => !seen.has(String(row?.id ?? row?._id)))];
+        });
+        setPage(next.page);
+      })
+      .catch((err) => {
+        if (laneQueryRef.current?.generation !== generation) return;
+        console.error('[ObjectKanban] Load more failed:', err);
+        // The lane keeps what it holds, and its "Load more" stays to retry.
+        setPage({ ...page, loading: false });
+      });
+  }, [dataSource]);
+
+  const lanePagingChannel = useMemo<KanbanLanePaging | null>(
+    () => (lanePages ? { pages: lanePages, loadMore: loadMoreLane } : null),
+    [lanePages, loadMoreLane],
+  );
 
   // Determine which data to use: external -> bound -> inline -> fetched
   const rawData = (hasExternalData ? externalData : undefined) || boundData || schema.data || fetchedData;
@@ -830,6 +1041,19 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
    * precedence chain just answered, so the two can never disagree.
    */
   const countsAreWindowed = fetchWindowSaturated && rawData === fetchedData;
+
+  /**
+   * objectui#12619 — may the viewer read the owner field the host named, and
+   * which object is the person on it? A field the policy denies draws no
+   * avatar (an unanswered policy defers, as `$expand` does above). The person's
+   * object is the field's `reference`, and `sys_user` when it names none: the
+   * object the grid's user cell reads a person's fields against.
+   */
+  const ownerReadable =
+    !!ownerField &&
+    !(perms?.isLoaded && schema.objectName && !perms.checkField(schema.objectName, ownerField, 'read'));
+  const ownerReference = ownerField ? objectDef?.fields?.[ownerField]?.reference : undefined;
+  const ownerPersonObject = typeof ownerReference === 'string' && ownerReference ? ownerReference : 'sys_user';
 
   // Enhance data with title mapping and ensure IDs
   const effectiveData = useMemo(() => {
@@ -1182,6 +1406,12 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
       const synthesizedSubtitle =
         descMissing && descParts.length > 0 ? descParts.join(' · ') : undefined;
 
+      // objectui#12619 — the owner's avatar, off the owner field the host
+      // named (`ownerField`), as the viewer may read it.
+      const cardOwner: KanbanCardOwner | undefined = ownerReadable && ownerField
+        ? resolveCardOwner((item as any)[ownerField], perms, ownerPersonObject)
+        : undefined;
+
       return {
         ...item,
         // Ensure id exists
@@ -1195,9 +1425,10 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
         ...(!Array.isArray(item.badges) && cardBadges.length > 0
           ? { badges: cardBadges }
           : {}),
+        ...(cardOwner ? { cardOwner } : {}),
       };
     });
-  }, [rawData, schema, objectDef]);
+  }, [rawData, schema, objectDef, ownerField, ownerReadable, ownerPersonObject, perms]);
 
   // Generate columns if missing but groupBy is present
   const effectiveColumns = useMemo(() => {
@@ -1716,6 +1947,10 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
           channel, for the same reason. `null` (no `summarizeField`) leaves
           every header exactly as it was. See `KanbanColumnSummary`. */}
       <KanbanColumnSummaryContext.Provider value={columnSummary}>
+      {/* objectui#12619 — each paged lane's count and "Load more", on the
+          same kind of private channel. `null` (one query) leaves every lane
+          as it was. See `KanbanLanePaging.ts`. */}
+      <KanbanLanePagingContext.Provider value={lanePagingChannel}>
       {/* objectui#11234 — the internal board, not the exported
           `KanbanRenderer`. It takes the Quick Add pair only as explicit props,
           and this call passes neither, so the object-bound board draws no
@@ -1776,6 +2011,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
           },
         }}
       />
+      </KanbanLanePagingContext.Provider>
       </KanbanColumnSummaryContext.Provider>
       </KanbanRecordsSettledContext.Provider>
       {pendingMove && (

@@ -15,14 +15,19 @@ import React from 'react';
  *
  * Consumers can override styling per-form by passing their own children
  * inside an AuthShell, but the defaults aim to look premium out of the box.
+ *
+ * Sizes follow the console login artboard (objectui#12600): 40 px (`h-10`)
+ * fields and primary button, 13 px / 500 labels, one flat `--primary` fill on
+ * the button. Radii are the theme's own `rounded-lg`, so a host theme that
+ * re-scales `--radius` re-scales these with it.
  */
 export const AUTH_INPUT_CLASS =
-  'flex h-11 w-full rounded-lg border border-input bg-background px-3.5 py-2 text-sm shadow-sm ring-offset-background transition-colors placeholder:text-muted-foreground hover:border-primary/40 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50';
+  'flex h-10 w-full rounded-lg border border-input bg-background px-3.5 py-2 text-sm shadow-sm ring-offset-background transition-colors placeholder:text-muted-foreground hover:border-primary/40 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50';
 
 export const AUTH_PRIMARY_BUTTON_CLASS =
-  'inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-primary to-primary/85 px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm ring-offset-background transition-[box-shadow,background-color,transform] hover:shadow-md hover:from-primary hover:to-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-60 motion-reduce:transition-none motion-reduce:active:transform-none';
+  'inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm ring-offset-background transition-[box-shadow,background-color,transform] hover:bg-primary/90 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-60 motion-reduce:transition-none motion-reduce:active:transform-none';
 
-export const AUTH_FIELD_LABEL_CLASS = 'text-sm font-medium leading-none text-foreground';
+export const AUTH_FIELD_LABEL_CLASS = 'text-[13px] font-medium leading-none text-foreground';
 
 export const AUTH_LINK_CLASS =
   'font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:underline';

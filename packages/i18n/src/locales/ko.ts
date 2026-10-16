@@ -360,6 +360,14 @@ const ko = {
       impossibleDay:
         "저장된 값 “{{value}}”은(는) 실제 날짜가 아닙니다. 바꾸려면 날짜와 시간을 선택하세요.",
     },
+    datePicker: {
+      today: "오늘",
+      tomorrow: "내일",
+      clear: "날짜 지우기",
+      openCalendar: "달력 열기",
+      invalid:
+        "저장되지 않음: “{{value}}”은(는) 날짜가 아닙니다. {{format}} 형식으로 입력하거나 달력에서 선택하세요.",
+    },
     number: {
       badInput:
         "저장되지 않았습니다: 이 입력란의 텍스트는 숫자가 아닙니다. 일반 소수로 입력하세요(예: {{example}}).",
@@ -852,6 +860,7 @@ const ko = {
   },
   kanban: {
     uncategorized: "미분류",
+    loadMore: "더 보기",
     columns: "열",
     addCard: "카드 추가",
     addColumn: "열 추가",
@@ -2245,9 +2254,8 @@ const ko = {
       signingIn: "로그인하는 중…",
       ssoHandoff: "{{target}}(으)로 계속",
       devAdminHint: {
-        title: "개발 인스턴스",
-        body: "시드된 개발용 관리자 계정으로 로그인하세요:",
-        dismiss: "닫기",
+        title: "로컬 개발 인스턴스",
+        signIn: "개발용 관리자로 로그인",
       },
       title: "계정에 로그인",
       description: "이메일과 비밀번호를 입력하세요",
@@ -2279,6 +2287,16 @@ const ko = {
       usePasswordSignInText: "비밀번호로 로그인하기",
       socialButton: "{provider} 계정으로 계속",
       orText: "또는 이메일로 계속",
+      // objectui#12600 — the console login card's own header, the password
+      // field's reveal toggle, and the footer's legal links.
+      welcomeTitle: "다시 오신 것을 환영합니다",
+      welcomeDescription: "로그인하고 작업을 계속하세요",
+      showPasswordText: "비밀번호 표시",
+      hidePasswordText: "비밀번호 숨기기",
+      footer: {
+        privacy: "개인정보처리방침",
+        terms: "이용약관",
+      },
     },
     register: {
       title: "계정 만들기",
@@ -2606,12 +2624,10 @@ const ko = {
   home: {
     build: {
       title: "앱 만들기",
-      subtitle: "처음부터 시작 — 객체, 폼, 자동화, 인터페이스를 설계합니다.",
       noCapability: "이 워크스페이스에서는 앱 만들기를 사용할 수 없습니다 — ‘메타데이터 관리’ 권한이 필요하지만 계정에 해당 권한이 없습니다.",
     },
     template: {
       title: "템플릿으로 시작",
-      subtitle: "마켓플레이스에서 템플릿 앱을 설치하고 원하는 대로 바꾸세요.",
       marketplaceDisabled: "이 런타임에는 앱 마켓플레이스가 구성되어 있지 않아 여기에서 설치할 템플릿이 없습니다.",
     },
     welcomeAdminDescription: "비즈니스를 한 문장으로 설명해 주세요 — AI가 객체, 화면, API, 에이전트 도구를 생성합니다. 왼쪽 메뉴에서 직접 설정할 수도 있습니다.",
@@ -2676,7 +2692,15 @@ const ko = {
     greetingNight: "야간 작업 중",
     greetingSeparator: ", ",
     greetingEnd: ".",
-    heroTagline: "마지막으로 중단한 곳에서 이어서 하거나 새로운 것을 발견해 보세요.",
+    search: "앱, 레코드, 페이지 검색…",
+    summary: {
+      approvals: "오늘 승인 대기 중인 항목이 {{count}}건 있습니다",
+      approvals_one: "오늘 승인 대기 중인 항목이 {{count}}건 있습니다",
+      approvals_other: "오늘 승인 대기 중인 항목이 {{count}}건 있습니다",
+      none: "오늘은 처리할 일이 없습니다",
+    },
+    addApp: "앱 추가",
+    appOpened: "{{time}}에 열람",
     open: "열기",
     recentApps: {
       title: "최근 열린 항목",
@@ -3472,7 +3496,7 @@ const ko = {
     installedSubtitle: "이 런타임의 커널에 현재 설치된 마켓플레이스 패키지.",
     installedEmpty: "아직 이 런타임에 마켓플레이스 앱이 설치되지 않았습니다.",
     browseLink: "마켓플레이스 탐색 →",
-    installedAdditiveNote: "<strong>참고:</strong> 커널 API는 추가 전용입니다 — 제거하면 디스크에서 매니페스트가 삭제되어 다음 시작 시 패키지가 로드되지 않지만, 실행 중인 커널은 재시작될 때까지 앱을 등록된 상태로 유지합니다.",
+    installedAdditiveNote: "커널 API는 추가 전용입니다 — 제거하면 디스크에서 매니페스트가 삭제되어 다음 시작 시 패키지가 로드되지 않지만, 실행 중인 커널은 재시작될 때까지 앱을 등록된 상태로 유지합니다.",
     installedAt: "{{when}} 설치됨",
     installedBy: "{{user}}에 의해",
     installedPackageId: "패키지",
@@ -4133,6 +4157,7 @@ const ko = {
     toggleFailed: "활성화 상태를 변경하지 못했습니다.",
     cloneFailedHttp: "이 플로우를 복제하지 못했습니다 (HTTP {{status}}).",
     cloneFailed: "이 플로우를 복제하지 못했습니다.",
+    reasonDetails: "세부 정보",
     actionsSubtitle: "설치된 패키지가 제공하는 액션입니다. 이 배포에서 끄면 액션이 제공되는 모든 곳에서 실행되지 않습니다. Studio에서 직접 액션을 따로 작성하는 것은 계속 가능합니다.",
     colAction: "액션",
     colObject: "오브젝트",

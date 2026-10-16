@@ -46,7 +46,6 @@ absent.
 | `subtitle` | string, or an inline locale map | — | The secondary line under the title. Same interpolation as `title`. |
 | `actions` | array of action ids | — | Names of actions declared on the object's own metadata, drawn as the header's button row. |
 | `recordChrome` | boolean | `true` (*spec*) | On a record page, renders the title as the record chip. `false` keeps the bare heading. |
-| `showStar` | boolean | `true` (*spec*) | The favorite star beside the record title. Part of the record chip, and drawn only where the host wires a favorites toggle (the record context carries `onToggleFavorite`); `false` hides it even then. |
 | `showCopyId` | boolean | `true` (*spec*) | The copy-record-id button beside the record title. Part of the record chip. |
 | `maxVisible` | positive integer | `3` (*renderer*) | How many header actions render as inline buttons before the rest fold into the `⋯` menu. |
 | `mobileMaxVisible` | positive integer | `1` (*renderer*) | The same budget on a mobile viewport. |
@@ -59,6 +58,8 @@ in scope, `"Hello {name}"` renders `Hello`. Without a record, a header with no `
 no `<h1>` at all. On a record page, omit `title` and the heading is derived from the record.
 
 There is no `description` key on this node: the contract refuses it and names `subtitle`.
+
+The favorites star beside the record title draws where the host wires a favorites toggle, and metadata does not control it.
 
 **`actions`** holds action ids, not nodes and not inline definitions. Each id is resolved
 against the object bound to the page, the same lookup `record:quick_actions` performs, so the

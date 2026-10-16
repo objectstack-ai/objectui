@@ -136,8 +136,10 @@ describe('ListView toolbar buttons keep a name when icon-only (objectui#12500)',
   it('CONTROL, wide: each name is its visible label exactly once', async () => {
     await renderToolbar({ compactToolbar: false, exportOptions: { formats: ['csv'] } });
 
+    // Filter is an icon button at every width since objectui#12695, so its
+    // name is `aria-label` alone and it draws no label text.
     const filter = screen.getByTestId('toolbar-filter-trigger');
-    expect(filter).toHaveTextContent(/^Filter$/);
+    expect(filter.textContent).toBe('');
     expect(filter).toHaveAccessibleName('Filter');
 
     const exportBtn = screen.getByRole('button', { name: 'Export' });

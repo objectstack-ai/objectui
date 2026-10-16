@@ -80,7 +80,7 @@ import { RecordDetailView } from './RecordDetailView.js';
 import { appRecordPath, routableObjectNames } from './RelatedRecordActionsBridge.js';
 import { documentHref } from './documentHref.js';
 import type { RowCrudPredicates } from '../utils/crudAffordances.js';
-import { createIdentityImportDataSource, IDENTITY_IMPORT_OBJECT, type IdentityPasswordPolicy } from './identityImport.js';
+import { createIdentityImportDataSource, IDENTITY_IMPORT_OBJECT, IDENTITY_IMPORT_WRITE_MODES, type IdentityPasswordPolicy } from './identityImport.js';
 import { IdentityImportOptions, IdentityImportResultExtra, identityImportFields } from './IdentityImportPanels.js';
 import { importTargetFields } from './importTargetFields.js';
 import { useExpressionContext } from '../providers/ExpressionProvider.js';
@@ -4083,6 +4083,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                      : importTargetFields(objectDef.name, objectDef.fields, perms)}
                    dataSource={identityDataSource ?? dataSource}
                    {...(identityImportEnabled ? {
+                     // Offer only the modes the identity door accepts — the
+                     // same constant its refusal reads (objectui#12697).
+                     writeModes: IDENTITY_IMPORT_WRITE_MODES,
                      extraOptionsContent: (
                        <IdentityImportOptions
                          policy={identityPasswordPolicy}

@@ -19,7 +19,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { FLOW_TRIGGER_GLYPHS, flowGroupObject, flowTriggerGlyph, groupFlowsByObject } from './flowGrouping';
+import { FLOW_TRIGGER_GLYPHS, flowGroupObject, flowTriggerGlyph, groupFlowsByObject, navigationObjectOrder } from './flowGrouping';
 
 /** HotCRM `63db83e`'s served flow list, trimmed to what the grouping reads (see the header). */
 const HOTCRM_FLOWS: Array<Record<string, unknown> & { name: string; label: string }> = [
@@ -70,12 +70,61 @@ const HOTCRM_OBJECTS = new Map<string, string>([
   ['crm_task', 'Task'],
 ]);
 
+/**
+ * HotCRM `63db83e`'s app navigation (`src/sales/apps/crm.app.ts`), trimmed to
+ * the keys the order reads: groups and their entries, object entries with
+ * their `objectName`, a few of the other kinds. Sales lists Leads, Accounts,
+ * Contacts, Opportunities, Quotes, Contracts, Products; My Work repeats three
+ * of them and adds Tasks and Events; Marketing lists Campaigns; Insights
+ * lists Forecasts. Campaign Member is in no entry.
+ */
+const HOTCRM_NAVIGATION = [
+  { id: 'nav_home', type: 'dashboard', dashboardName: 'home' },
+  { id: 'nav_sales_home', type: 'page', pageName: 'sales_home' },
+  {
+    id: 'group_sales',
+    type: 'group',
+    children: [
+      { id: 'nav_lead', type: 'object', objectName: 'crm_lead' },
+      { id: 'nav_account', type: 'object', objectName: 'crm_account' },
+      { id: 'nav_account_workbench', type: 'page', pageName: 'account_workbench' },
+      { id: 'nav_contact', type: 'object', objectName: 'crm_contact' },
+      { id: 'nav_opportunity', type: 'object', objectName: 'crm_opportunity' },
+      { id: 'nav_quote', type: 'object', objectName: 'crm_quote' },
+      { id: 'nav_contract', type: 'object', objectName: 'crm_contract' },
+      { id: 'nav_product', type: 'object', objectName: 'crm_product' },
+      { id: 'nav_sales_dashboard', type: 'dashboard', dashboardName: 'sales_dashboard' },
+    ],
+  },
+  {
+    id: 'group_work',
+    type: 'group',
+    children: [
+      { id: 'nav_my_tasks', type: 'object', objectName: 'crm_task', viewName: 'my_open_tasks' },
+      { id: 'nav_my_deals', type: 'object', objectName: 'crm_opportunity', viewName: 'my_open_deals' },
+      { id: 'nav_my_leads', type: 'object', objectName: 'crm_lead', viewName: 'my_leads' },
+      { id: 'nav_my_calendar', type: 'object', objectName: 'crm_event', viewName: 'my_events' },
+      { id: 'nav_approval_requests', type: 'component', componentRef: 'approvals:inbox' },
+    ],
+  },
+  { id: 'group_marketing', type: 'group', children: [{ id: 'nav_campaign', type: 'object', objectName: 'crm_campaign' }] },
+  {
+    id: 'group_insights',
+    type: 'group',
+    children: [
+      { id: 'nav_crm_dashboard', type: 'dashboard', dashboardName: 'crm_overview_dashboard' },
+      { id: 'nav_forecast', type: 'object', objectName: 'crm_forecast' },
+    ],
+  },
+];
+const HOTCRM_ORDER = navigationObjectOrder(HOTCRM_NAVIGATION);
+
 const definitions = new Map<string, unknown>(HOTCRM_FLOWS.map((f) => [f.name, f]));
 const rows = HOTCRM_FLOWS.map((f) => ({ name: f.name, label: f.label }));
 const NO_OBJECT = 'No object';
 
-function group(flows = rows, objects = HOTCRM_OBJECTS) {
-  return groupFlowsByObject(flows, definitions, objects, { noObjectLabel: NO_OBJECT, locale: 'en' });
+function group(flows = rows, objects = HOTCRM_OBJECTS, objectOrder: readonly string[] = HOTCRM_ORDER) {
+  return groupFlowsByObject(flows, definitions, objects, { noObjectLabel: NO_OBJECT, objectOrder, locale: 'en' });
 }
 
 describe('the HotCRM flows group by object (objectui#12454)', () => {
@@ -84,18 +133,19 @@ describe('the HotCRM flows group by object (objectui#12454)', () => {
     expect(new Set(HOTCRM_FLOWS.map((f) => f.name)).size).toBe(26);
   });
 
-  it('ten groups, by label, with their counts, and no "No object" group', () => {
+  it('ten groups, in the navigation order (objectui#12612), with their counts, and no "No object" group', () => {
     expect(group().map((g) => [g.label, g.items.length])).toEqual([
-      ['Account', 2],
-      ['Campaign', 2],
-      ['Campaign Member', 2],
-      ['Contact', 1],
-      ['Contract', 3],
-      ['Forecast', 1],
       ['Lead', 4],
+      ['Account', 2],
+      ['Contact', 1],
       ['Opportunity', 8],
       ['Quote', 1],
+      ['Contract', 3],
       ['Task', 2],
+      ['Campaign', 2],
+      ['Forecast', 1],
+      // In no navigation entry: after every listed object.
+      ['Campaign Member', 2],
     ]);
   });
 
@@ -127,8 +177,8 @@ describe('the HotCRM flows group by object (objectui#12454)', () => {
   it('a search filters within groups: only the matching flows, and only the groups that hold one', () => {
     const shown = rows.filter((f) => f.label.toLowerCase().includes('approval'));
     expect(group(shown).map((g) => [g.label, g.items.map((f) => f.name)])).toEqual([
-      ['Account', ['account_approval']],
       ['Lead', ['lead_conversion_approval']],
+      ['Account', ['account_approval']],
       [
         'Opportunity',
         ['opportunity_approval', 'opportunity_approval_on_create', 'opportunity_status_change_approval', 'opportunity_qualification_approval'],
@@ -200,7 +250,7 @@ describe('the order of the questions (objectui#12454)', () => {
       [{ name: 'ping' }, { name: 'unknown_draft' }, { name: 'lead_flow' }],
       local,
       HOTCRM_OBJECTS,
-      { noObjectLabel: NO_OBJECT, locale: 'en' },
+      { noObjectLabel: NO_OBJECT, objectOrder: HOTCRM_ORDER, locale: 'en' },
     );
     expect(groups.map((g) => [g.label, g.items.map((f) => f.name)])).toEqual([
       ['Lead', ['lead_flow']],
@@ -210,9 +260,10 @@ describe('the order of the questions (objectui#12454)', () => {
     expect(groups[1].key).toBe('');
   });
 
-  it("the group order follows the locale it is handed, not the machine's (objectui#9909)", () => {
+  it("among unlisted objects with as many flows, the order follows the locale it is handed, not the machine's (objectui#9909)", () => {
     // 安装 (an-zhuang) and 保单 (bao-dan): pinyin order under zh-CN, code-point
-    // order under en-US — the two locales the pillar hands in.
+    // order under en-US — the two locales the pillar hands in. Neither is in a
+    // navigation and each has one flow, so the collator breaks the tie.
     const local = new Map<string, unknown>([
       ['install_flow', { type: 'record_change', nodes: [start({ triggerType: 'record-after-create', objectName: 'install' })], edges: [] }],
       ['policy_flow', { type: 'record_change', nodes: [start({ triggerType: 'record-after-create', objectName: 'policy' })], edges: [] }],
@@ -222,7 +273,7 @@ describe('the order of the questions (objectui#12454)', () => {
       ['policy', '保单'],
     ]);
     const order = (locale: string) =>
-      groupFlowsByObject([{ name: 'policy_flow' }, { name: 'install_flow' }], local, labels, { noObjectLabel: NO_OBJECT, locale }).map(
+      groupFlowsByObject([{ name: 'policy_flow' }, { name: 'install_flow' }], local, labels, { noObjectLabel: NO_OBJECT, objectOrder: [], locale }).map(
         (g) => g.label,
       );
     expect(order('zh-CN')).toEqual(['安装', '保单']);
@@ -233,5 +284,97 @@ describe('the order of the questions (objectui#12454)', () => {
     expect(flowGroupObject(null)).toBeNull();
     expect(flowGroupObject({ nodes: 'nope', edges: 7 })).toBeNull();
     expect(flowTriggerGlyph(undefined)).toBe('autolaunched');
+  });
+});
+
+describe("the groups follow the app's navigation order (objectui#12612)", () => {
+  const onObject = (objectName: string) => ({
+    type: 'record_change',
+    nodes: [{ id: 'start', type: 'start', config: { triggerType: 'record-after-create', objectName } }],
+    edges: [],
+  });
+  const local = new Map<string, unknown>([
+    ['a1', onObject('obj_a')],
+    ['b1', onObject('obj_b')],
+    ['c1', onObject('obj_c')],
+    ['d1', onObject('obj_d')],
+    ['d2', onObject('obj_d')],
+    ['ping', { type: 'autolaunched', nodes: [{ id: 'start', type: 'start' }], edges: [] }],
+  ]);
+  const EN = new Map([
+    ['obj_a', 'Account'],
+    ['obj_b', 'Lead'],
+    ['obj_c', 'Contract'],
+    ['obj_d', 'Quote'],
+  ]);
+  const ZH = new Map([
+    ['obj_a', '客户'],
+    ['obj_b', '线索'],
+    ['obj_c', '合同'],
+    ['obj_d', '报价单'],
+  ]);
+  const keys = (flows: Array<{ name: string }>, labels: Map<string, string>, objectOrder: readonly string[], locale: string) =>
+    groupFlowsByObject(flows, local, labels, { noObjectLabel: NO_OBJECT, objectOrder, locale }).map((g) => g.key);
+
+  it('a navigation listing B, A and flows on A, B, C: the groups read B, A, C, identically under en and zh labels', () => {
+    const flows = [{ name: 'a1' }, { name: 'b1' }, { name: 'c1' }];
+    const nav = navigationObjectOrder([
+      { id: 'n_b', type: 'object', objectName: 'obj_b' },
+      { id: 'n_a', type: 'object', objectName: 'obj_a' },
+    ]);
+    expect(keys(flows, EN, nav, 'en')).toEqual(['obj_b', 'obj_a', 'obj_c']);
+    expect(keys(flows, ZH, nav, 'zh-CN')).toEqual(['obj_b', 'obj_a', 'obj_c']);
+    // The control: without a navigation the labels' alphabet decides, and the
+    // two locales disagree — the defect the card measured.
+    expect(keys(flows, EN, [], 'en')).toEqual(['obj_a', 'obj_c', 'obj_b']);
+    expect(keys(flows, ZH, [], 'zh-CN')).toEqual(['obj_c', 'obj_a', 'obj_b']);
+  });
+
+  it('an unlisted object with more flows comes before one with fewer, and "No object" stays last', () => {
+    const flows = [{ name: 'ping' }, { name: 'c1' }, { name: 'd1' }, { name: 'a1' }, { name: 'd2' }];
+    for (const [labels, locale] of [
+      [EN, 'en'],
+      [ZH, 'zh-CN'],
+    ] as const) {
+      expect(keys(flows, labels, ['obj_a'], locale)).toEqual(['obj_a', 'obj_d', 'obj_c', '']);
+    }
+  });
+
+  it('the walk: depth first with every group opened, object entries only, each object at its first entry', () => {
+    expect(
+      navigationObjectOrder([
+        { id: 'p', type: 'page', pageName: 'home', objectName: 'not_an_object_entry' },
+        {
+          id: 'g',
+          type: 'group',
+          children: [
+            { id: 'x', type: 'object', objectName: 'obj_x' },
+            { id: 'g2', type: 'group', children: [{ id: 'y', type: 'object', objectName: 'obj_y' }] },
+          ],
+        },
+        { id: 'x2', type: 'object', objectName: 'obj_x', viewName: 'mine' },
+        { id: 'z', type: 'object', objectName: 'obj_z' },
+        { id: 'blank', type: 'object', objectName: '  ' },
+      ]),
+    ).toEqual(['obj_x', 'obj_y', 'obj_z']);
+    expect(HOTCRM_ORDER).toEqual([
+      'crm_lead',
+      'crm_account',
+      'crm_contact',
+      'crm_opportunity',
+      'crm_quote',
+      'crm_contract',
+      'crm_product',
+      'crm_task',
+      'crm_event',
+      'crm_campaign',
+      'crm_forecast',
+    ]);
+  });
+
+  it('a navigation that is not a list answers no order', () => {
+    expect(navigationObjectOrder(undefined)).toEqual([]);
+    expect(navigationObjectOrder({ type: 'object', objectName: 'obj_a' })).toEqual([]);
+    expect(navigationObjectOrder([null, 'obj_a', { type: 'group', children: 'nope' }])).toEqual([]);
   });
 });

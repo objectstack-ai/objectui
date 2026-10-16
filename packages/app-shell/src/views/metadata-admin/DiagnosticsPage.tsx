@@ -43,9 +43,9 @@ type Severity = 'error' | 'warning';
  * an error. Zero entries is the clean state the body already announces
  * as "All clear", so the header must not paint it as a failure.
  */
-export type DiagnosticsHeaderTone = 'error' | 'warning' | 'clean';
+type DiagnosticsHeaderTone = 'error' | 'warning' | 'clean';
 
-export function diagnosticsHeaderTone(
+function diagnosticsHeaderTone(
   entries: readonly MetadataDiagnosticsEntry[],
 ): DiagnosticsHeaderTone {
   let warned = false;

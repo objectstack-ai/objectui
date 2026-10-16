@@ -31,7 +31,7 @@ methods from context for CRUD, and read the ambient scope through
 ## DataSource interface
 
 ⚠️ The fence below is a deliberately SIMPLIFIED teaching copy, kept rather than
-replaced by an import: the published `DataSource` has **38** members and the
+replaced by an import: `data.ts` lists every published `DataSource` member and the
 excerpt is what makes this section readable. The real one is
 `import type { DataSource } from '@object-ui/types';` (source:
 `packages/types/src/data.ts`) — read it before you rely on any member's exact

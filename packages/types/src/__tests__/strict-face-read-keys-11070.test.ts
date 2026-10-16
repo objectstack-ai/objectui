@@ -229,7 +229,9 @@ describe('objectui#11070 — the declared read keys parse on the strict face', (
     // props gate lets it on `element:number`) is a separate question from
     // whether the key is declared, and this block measures only the second.
     ['object-kanban', { objectName: 'task' }],
-    ['list-view', { objectName: 'task' }],
+    // objectui#12670: a page `list-view` takes its props in the bag and names its
+    // object in `data`; `objectName` is refused by name there.
+    ['list-view', { properties: { data: { provider: 'object', object: 'task' } } }],
     // objectui#10859 batch 6: `object-gantt` takes its props in the bag too.
     ['object-gantt', { properties: { objectName: 'task' } }],
     // objectui#10859 batch 5: `object-map` takes its props in the bag too.

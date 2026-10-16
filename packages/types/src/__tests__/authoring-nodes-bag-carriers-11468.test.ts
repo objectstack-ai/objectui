@@ -35,6 +35,7 @@ import type {
   ObjectMetricBlockNode,
   ObjectPivotBlockNode,
   EmbeddableFormBlockNode,
+  ListViewBlockNode,
   ObjectQLPublicBlockNode,
   ObjectTimelineBlockNode,
   PublicBlockNode,
@@ -93,6 +94,7 @@ type _EachAliasIsItsArm = Assert<
       ObjectGridBlockNode['type'],
       ObjectPivotBlockNode['type'],
       EmbeddableFormBlockNode['type'],
+      ListViewBlockNode['type'],
     ],
     [
       'object-metric',
@@ -105,6 +107,7 @@ type _EachAliasIsItsArm = Assert<
       'object-grid',
       'object-pivot',
       'embeddable-form',
+      'list-view',
     ]
   >
 >;
@@ -118,12 +121,14 @@ type _JoinedIntoAuthoringNode = Assert<
 //    leaves each bag with `[k: string]: unknown`. `object-pivot` and
 //    `embeddable-form` (objectui#11440) have no row either: their required bags
 //    are built from the registration inputs, kept `.passthrough()` the same way.
+//    The page `list-view` (objectui#12670) has no row either: its bag is the
+//    `ListViewSchema` mirror's own members, kept `.passthrough()` like `object-chart`'s.
 //    The control shows that, which is why the derivation reads the bag's shape too.
 type _NoAuthoringNodeBagIsOpen = Assert<Equal<OpenBagTypes<AuthoringNode>, never>>;
 type _ControlShapeOnlyLeavesTheOwnMemberBagsOpen = Assert<
   Equal<
     OpenBagTypes<ShapeOnlyArmInput<(typeof ObjectQLPublicBlockComponentSchema)['options'][number] | typeof FlexBlockSchema>>,
-    'object-chart' | 'flex' | 'object-pivot' | 'embeddable-form'
+    'object-chart' | 'flex' | 'object-pivot' | 'embeddable-form' | 'list-view'
   >
 >;
 
@@ -174,6 +179,20 @@ describe('objectui#11468: the authored properties-bag carriers have a TypeScript
     // @ts-expect-error `chartTyp` is not a member of the object-chart bag (the mirror's members, closed)
     const misspelled: ObjectChartBlockNode = { type: 'object-chart', properties: { chartTyp: 'bar' } };
     expect([chart, misspelled]).toHaveLength(2);
+  });
+
+  it('list-view (objectui#12670): the bag is closed, spelled `data` / `type`, and the retired pair is refused in both positions', () => {
+    const ruled: ListViewBlockNode = {
+      type: 'list-view',
+      properties: { data: { provider: 'object', object: 'deal' }, type: 'kanban', kanban: { groupByField: 'stage' } },
+    };
+    // @ts-expect-error `objectName` is refused in the bag: the object is named in `data`
+    const bagObjectName: ListViewBlockNode = { type: 'list-view', properties: { objectName: 'deal' } };
+    // @ts-expect-error `viewType` is refused flat on the node: the kind is `properties.type`
+    const flatViewType: ListViewBlockNode = { type: 'list-view', viewType: 'kanban' };
+    // @ts-expect-error `viewTyp` is not a member of the list-view bag (the mirror's members, closed)
+    const misspelled: ListViewBlockNode = { type: 'list-view', properties: { viewTyp: 'kanban' } };
+    expect([ruled, bagObjectName, flatViewType, misspelled]).toHaveLength(4);
   });
 
   it('every carrier arm is a zod object, and so are the two mirror bags: the premises the derivation reads', () => {

@@ -41,6 +41,7 @@ import { ListViewSchema as SpecListViewSchema, VIEW_METADATA_MEMBERS } from '@ob
 import type { ListViewSchema as TsListViewSchema, ListViewTimelineConfig } from '../objectql';
 import { ListViewSchema } from '../zod/objectql.zod.js';
 import { AnyComponentSchema, StrictAnyComponentSchema, safeValidateSchema } from '../zod/index.zod.js';
+import { onPageSpelling } from './list-view-page-node';
 // @ts-expect-error — `ListViewGalleryConfig` is retired (objectui#6152 round 12): write the spec's `GalleryConfig`.
 import type { ListViewGalleryConfig } from '../index';
 
@@ -92,11 +93,17 @@ const ARMS: Record<string, readonly string[]> = {
 };
 
 const NODE = { type: 'list-view', objectName: 'deal' };
+/**
+ * The mirror is the `ListView` component's props; the three published faces
+ * judge the authored PAGE node since objectui#12670, its props in the
+ * `properties` bag, so each re-spells the node and reads its paths relative to
+ * the bag (`onPageSpelling`). The bag's `options` is the mirror's, by reference.
+ */
 const DOORS: ReadonlyArray<readonly [string, Parse]> = [
   ['the list-view mirror', (d) => ListViewSchema.safeParse(d)],
-  ['the tolerant face', (d) => AnyComponentSchema.safeParse(d)],
-  ['the strict face', (d) => StrictAnyComponentSchema.safeParse(d)],
-  ['safeValidateSchema', (d) => safeValidateSchema(d)],
+  ['the tolerant face', onPageSpelling((d) => AnyComponentSchema.safeParse(d) as Parsed)],
+  ['the strict face', onPageSpelling((d) => StrictAnyComponentSchema.safeParse(d) as Parsed)],
+  ['safeValidateSchema', onPageSpelling((d) => safeValidateSchema(d) as Parsed)],
 ];
 
 /* ── 1. The overlay's bag, on the installed protocol (the precondition) ──────── */

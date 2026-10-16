@@ -133,15 +133,20 @@ describe('an authored `showFilters` on `object-grid` is refused BY NAME on both 
 });
 
 describe('`showFilters` stays live where a renderer reads it (the controls the retirement must not touch)', () => {
-  const LIST = { type: 'list-view' as const, objectName: 'probe', columns: ['name'] };
+  // objectui#12670: a page `list-view` takes its props in its `properties` bag and names its
+  // object in `data`, so the published faces judge the list view in that spelling.
+  const list = (props: Record<string, unknown>) => ({
+    type: 'list-view' as const,
+    properties: { data: { provider: 'object', object: 'probe' }, columns: ['name'], ...props },
+  });
 
   it.each(FACES)('%s accepts the list view’s `userActions.filter` — the spelling the refusal names', (_face, parse) => {
-    const result = parse({ ...LIST, userActions: { filter: true } });
+    const result = parse(list({ userActions: { filter: true } }));
     expect(result.success, result.success ? '' : JSON.stringify(result.error.issues)).toBe(true);
   });
 
   it.each(FACES)('%s accepts a list view’s own `showFilters`', (_face, parse) => {
-    const result = parse({ ...LIST, showFilters: true });
+    const result = parse(list({ showFilters: true }));
     expect(result.success, result.success ? '' : JSON.stringify(result.error.issues)).toBe(true);
   });
 

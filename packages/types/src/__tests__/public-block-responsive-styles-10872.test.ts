@@ -145,6 +145,9 @@ const DECLARES_DATA_SOURCE: ReadonlySet<string> = new Set([
   // binding as its CHILD rows (objectstack#6953), so its arm declares it at
   // node level, beside its bag.
   'record:related_list',
+  // objectui#12670: the authored page `list-view` arm, armed with the binding its
+  // flat mirror has declared since objectui#11070, at node level beside its bag.
+  'list-view',
 ]);
 
 /**
@@ -157,7 +160,8 @@ const DECLARES_DATA_SOURCE: ReadonlySet<string> = new Set([
  * record-source rule the same way (objectui#11276's `object-grid` batch).
  * `object-pivot` and `embeddable-form` (objectui#11440) REQUIRE their bag: its
  * registration-required members (the three cross-tab fields; `formId`) and a
- * record source. Each node carries the smallest bag that satisfies its rule;
+ * record source. The page `list-view` (objectui#12670) keeps a record-source
+ * rule read in its bag, `properties.data`. Each node carries the smallest bag that satisfies its rule;
  * every other arm takes the bare node.
  */
 const RECORD_SOURCE: Readonly<Record<string, Record<string, unknown>>> = {
@@ -167,6 +171,8 @@ const RECORD_SOURCE: Readonly<Record<string, Record<string, unknown>>> = {
   'object-grid': { properties: { objectName: 'task' } },
   'object-pivot': { properties: { objectName: 'deal', rowField: 'stage', columnField: 'owner', valueField: 'amount' } },
   'embeddable-form': { properties: { formId: 'contact-us', objectName: 'lead' } },
+  // objectui#12670: the page `list-view` keeps a record-source rule, read in the bag: `data`.
+  'list-view': { properties: { data: { provider: 'object', object: 'deal' } } },
 };
 
 /** The five envelope keys the spec declares and this batch leaves undeclared. */

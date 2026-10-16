@@ -199,6 +199,7 @@ import {
   DialogFooter,
   DialogTitle,
   DialogDescription,
+  DIALOG_VIEWPORT_GUTTER,
   Button,
   cn,
 } from '@object-ui/components';
@@ -600,7 +601,7 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
           tall, in which only the body below can give up height (`min-h-0`)
           and scroll, so the header and the footer always stay on screen. */}
       <DialogContent
-        className={cn('flex max-h-[90vh] flex-col', isObjectForm || isLongScreen ? 'sm:max-w-3xl' : 'sm:max-w-md')}
+        className={cn('flex max-h-[90vh] flex-col', isObjectForm || isLongScreen ? `sm:max-w-3xl ${DIALOG_VIEWPORT_GUTTER}` : 'sm:max-w-md')}
       >
         <DialogHeader>
           {/* The flow being run (objectui#11092), above the step's own heading,

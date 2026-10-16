@@ -57,6 +57,8 @@ import {
   AvatarImage,
 } from '../../ui';
 import { RecordTitleChip } from '../../custom/RecordTitleChip';
+import { PageDescriptionContext } from './page-description-context';
+import { renderBlockChildren } from './page-block-grid';
 import { isFileIdToken } from '@objectstack/spec/data';
 import { readActionEntryParamValues } from '../action/static-params';
 import { useObjectLabel, useSafeFieldLabel, useObjectTranslation, useSafeTranslate, createSafeTranslation, pickLocalized, useDisplayLocale } from '@object-ui/i18n';
@@ -1077,8 +1079,11 @@ const PageCardRenderer: React.FC<any> = ({ schema, className, ...props }) => {
           TypeScript census could not see these two while the runtime probe
           could. `renderNodeSlot` invokes the wrapper only when the slot has
           content, so the chrome disappears with it. */}
+      {/* A list of children lays out on the page block grid, the way a
+          region's blocks do (objectui#12624): four metric tiles in a card
+          share a row on a wide screen. */}
       {renderNodeSlot(body, (node) => (
-        <CardContent>{renderChildren(node)}</CardContent>
+        <CardContent>{renderBlockChildren(node, renderChildren)}</CardContent>
       ))}
       {renderNodeSlot(footer, (node) => (
         <CardFooter className="flex justify-between">{renderChildren(node)}</CardFooter>
@@ -1237,6 +1242,8 @@ const PageSectionRenderer: React.FC<any> = ({ schema, className, ...props }) => 
       className={cn('space-y-4', className)}
       {...designer}
     >
+      {/* A list of children lays out on the page block grid, as in
+          `page:card` above (objectui#12624). */}
       {/*
         ⚠️ `body` KEPT on all three thin containers, and the ground is the
         SPEC'S OWN — ⛔ not the "they never published it" argument an earlier
@@ -1271,7 +1278,7 @@ const PageSectionRenderer: React.FC<any> = ({ schema, className, ...props }) => 
         `toMajor: 17` and `retiredFromLoadPath: true` and this repo installs spec
         17.4.0, so the live ground there is unreplayed stored rows.
       */}
-      {renderChildren(schema?.children || schema?.body)}
+      {renderBlockChildren(schema?.children || schema?.body, renderChildren)}
     </section>
   );
 };
@@ -1545,6 +1552,10 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   // both so a `{ properties: { title } }` schema is rendered correctly.
   const titleSrc = schema?.title ?? schema?.properties?.title;
   const subtitleSrc = schema?.subtitle ?? schema?.properties?.subtitle;
+  // The page's `description`, handed down when this header owns the page's
+  // title (objectui#12624): drawn under the title and subtitle, the order the
+  // console page header uses, instead of above the title by the page.
+  const pageDescription = React.useContext(PageDescriptionContext);
   const headerObjectSchema: any = (ctx as any)?.objectSchema;
   const headerObjectName: string | undefined = ctx?.objectName || headerObjectSchema?.name;
   const explicitTitle = interpolate(
@@ -2607,6 +2618,9 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
           {subtitle && (
             <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
           )}
+          {explicitTitle && pageDescription && (
+            <p className="text-sm text-muted-foreground mt-1" data-page-description="">{pageDescription}</p>
+          )}
         </div>
         {renderHeaderTail(<div data-page-actions-slot className="shrink-0" />)}
       </header>
@@ -2627,6 +2641,9 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
             <h1 className="text-2xl font-semibold tracking-tight">{explicitTitle}</h1>
           )}
           {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+          {explicitTitle && pageDescription && (
+            <p className="text-sm text-muted-foreground" data-page-description="">{pageDescription}</p>
+          )}
         </div>
         {renderHeaderTail(<div data-page-actions-slot />)}
       </div>

@@ -69,6 +69,12 @@ export { hasDeclaredVisibilityGate } from './renderers/action/visibility-gate';
 // package, so the direction costs nothing new.
 export { isCustomRowActionVisible } from './renderers/complex/data-table';
 
+// The span a page block takes in its region's 12-column grid, derived from the
+// block's kind (objectui#12624). Exported so the Studio page designer's block
+// card shows the span the page renderer draws, from this one table, not a copy.
+export { pageBlockSpan, isPageRailRegion, PAGE_BLOCK_SPANS } from './renderers/layout/page-block-span';
+export type { PageBlockSpan } from './renderers/layout/page-block-span';
+
 // THE icon-name seam (objectui#5935) — `name -> LucideIcon | null`, one
 // tokeniser and one rename map for the whole repo.
 //

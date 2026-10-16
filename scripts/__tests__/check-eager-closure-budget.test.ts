@@ -773,10 +773,21 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
    */
   const BASELINE_AT_5924 = 3_299_898;
 
+  /**
+   * The regression size in force when objectui#5924 measured, pinned for the
+   * same reason as the payload above: objectui#12653 raised the live constant
+   * to 695 KiB, and the "8.63x" and "1.7x" below are arithmetic about 89 KiB.
+   */
+  const REGRESSION_AT_5924 = 89 * 1024;
+
   it('reds on the drift objectui#5924 recorded: 8.6x the regression above the live payload', () => {
     const result = evaluateHeadroomSensitivity({
       report: sensitivityReport(BASELINE_AT_5924),
       budgetBytes: CEILING_BEFORE_5924,
+      regressionBytes: REGRESSION_AT_5924,
+      // The incident was the aggregate line's alone; today's per-chunk ceilings,
+      // weighed against the regression of that day, are not part of it.
+      ceilings: {},
     });
     expect(result.status).toBe('error');
     expect(result.blind).toEqual(['aggregate']);
@@ -902,16 +913,22 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
    * removing it returned the measurement to 3,299,898 exactly, so the movement
    * is the injection and not build noise.
    */
-  it('the demonstrated regression: green under the old ceiling, red under the new one', () => {
+  it('the demonstrated regression: green under the old ceiling, and green again since objectui#12653', () => {
     const INJECTED = BASELINE.gzipBytes + 158_006;
     // 1.7x the incident this gate was built to catch.
-    expect(INJECTED - BASELINE.gzipBytes).toBeGreaterThan(REGRESSION_THIS_GATE_MUST_CATCH_BYTES);
+    expect(INJECTED - BASELINE.gzipBytes).toBeGreaterThan(REGRESSION_AT_5924);
 
     const injected = sensitivityReport(INJECTED);
     expect(
       evaluateClosureBudget({ report: injected, budgetBytes: CEILING_BEFORE_5924 }).status,
     ).toBe('pass');
-    expect(evaluateClosureBudget({ report: injected }).status).toBe('fail');
+    // ⚠️ It was red under every ceiling from objectui#5924 until objectui#12653's
+    // 20% raise (maintainer ruling): the aggregate now fails only regressions of
+    // about REGRESSION_THIS_GATE_MUST_CATCH_BYTES and above, and this injection
+    // fits under it. Pinned so the trade stays visible; this goes red, correctly,
+    // the day the ceiling comes back down far enough to catch it again.
+    expect(INJECTED - BASELINE.gzipBytes).toBeLessThan(REGRESSION_THIS_GATE_MUST_CATCH_BYTES);
+    expect(evaluateClosureBudget({ report: injected }).status).toBe('pass');
   });
 
   /**
@@ -1860,7 +1877,15 @@ describe('main', () => {
    */
   it('reports the GAUGE verdict when one ceiling is blind and another is over', () => {
     const { code, outputs } = run(
-      budgeted({ 'vendor-objectstack': PER_CHUNK_GZIP_CEILINGS['vendor-objectstack'] + 1 }, -200_000),
+      // The total is pulled down by the chunk's overshoot plus one regression,
+      // so the aggregate is blind whatever the constants of the day are.
+      budgeted(
+        { 'vendor-objectstack': PER_CHUNK_GZIP_CEILINGS['vendor-objectstack'] + 1 },
+        -(
+          PER_CHUNK_GZIP_CEILINGS['vendor-objectstack'] + 1 -
+          PER_CHUNK_BASELINE['vendor-objectstack']
+        ) - REGRESSION_THIS_GATE_MUST_CATCH_BYTES,
+      ),
     );
     expect(code).toBe(2);
     expect(outputs.closure_chunk_status).toBe('fail');
@@ -2165,11 +2190,11 @@ describe('ceiling freshness (objectui#6245)', () => {
     });
 
     it('reads an expression as text, so both sides of a comparison are read alike', () => {
-      // `89 * 1024` must not be evaluated: the base-branch side is a blob that
-      // cannot be imported, so an evaluated 91136 here would never match it.
+      // `695 * 1024` must not be evaluated: the base-branch side is a blob that
+      // cannot be imported, so an evaluated 711680 here would never match it.
       expect(extractCeilingDeclarations(checkerSource).declarations.get(
         'REGRESSION_THIS_GATE_MUST_CATCH_BYTES',
-      )).toBe('89 * 1024');
+      )).toBe('695 * 1024');
     });
 
     it('erases formatting that cannot move a ceiling', () => {

@@ -18,6 +18,14 @@
  * description is the title's tooltip. The spec declares no widget key to show
  * it inline, so it shows nowhere else.
  *
+ * objectui#12623 moved the measure label off the title's line: in a 150 px
+ * tile it kept its width and cut the title to two or three letters. The title
+ * now owns the first line and the label is a line under the value (and rides
+ * in the title's tooltip), so the two pins below that asserted the shared line
+ * assert the new order. Still two lines of text above the delta for a tile
+ * that is wide enough; the width rules themselves are
+ * `metricTileLayout-12623.test.tsx`'s.
+ *
  * CONTROL: a non-metric dataset widget (a table) keeps the card header, and
  * its description paragraph, exactly as before.
  */
@@ -65,30 +73,34 @@ function renderDashboard(...widgets: Record<string, unknown>[]) {
 }
 
 describe('DashboardRenderer — a dataset-bound metric tile on two lines (objectui#12528)', () => {
-  it('draws the title and the measure label on one line, above the value', async () => {
+  it('draws the title alone on the first line, then the value, then the measure label (objectui#12623)', async () => {
     const { container } = renderDashboard(METRIC);
     // The answered tile, not the loading one: a loading tile draws the same
-    // heading line without the measure label, which only the answer names.
+    // heading line, and only the answer names the measure label.
     const value = await screen.findByText('1964500');
     const heading = screen.getByTestId('dataset-metric-heading');
 
     expect(within(heading).getByTestId('dataset-metric-title')).toHaveTextContent('Total Pipeline');
-    expect(within(heading).getByTestId('dataset-metric-label')).toHaveTextContent('Total Amount');
-    // The heading line comes first, then the value, and nothing after it: the
-    // measure label is not drawn a second time under the value.
+    // The title owns its line: the measure label is not on it.
+    expect(within(heading).queryByTestId('dataset-metric-label')).toBeNull();
+    // The heading line comes first, then the value, then the measure label,
+    // drawn once.
     expect(heading.compareDocumentPosition(value) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(value.nextElementSibling).toBeNull();
+    expect(value.nextElementSibling).toBe(screen.getByTestId('dataset-metric-label'));
+    expect(screen.getByTestId('dataset-metric-label')).toHaveTextContent('Total Amount');
     expect(container.textContent?.match(/Total Amount/g)).toHaveLength(1);
     // No card header for this widget: the title is drawn once, in the tile.
     expect(screen.getAllByText('Total Pipeline')).toHaveLength(1);
   });
 
-  it('draws no description paragraph, and carries the description as the title tooltip', async () => {
+  it('draws no description paragraph, and carries the description (then the measure label) as the title tooltip', async () => {
     const { container } = renderDashboard(METRIC);
-    const title = await screen.findByTestId('dataset-metric-title');
-
-    expect(title).toHaveAttribute('title', 'Sum of open opportunity value');
     await screen.findByText('1964500');
+    const title = screen.getByTestId('dataset-metric-title');
+
+    // objectui#12623 — the measure label rides in the tooltip on its own line,
+    // the one place it survives a tile too narrow to draw it.
+    expect(title).toHaveAttribute('title', 'Sum of open opportunity value\nTotal Amount');
     expect(container.querySelector('p')).toBeNull();
     expect(container.textContent).not.toContain('Sum of open opportunity value');
   });

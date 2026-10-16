@@ -94,6 +94,13 @@ import { WidgetEmptyState } from './WidgetEmptyState';
 import { useFilterScope } from '@object-ui/react';
 import { resolveFilterPlaceholders, computeMetricDelta } from './utils';
 import { metricAccentTextClass } from './colorVariants';
+import {
+  METRIC_TILE_CONTAINER_CLASS,
+  METRIC_TILE_TITLE_CLASS,
+  METRIC_TILE_MEASURE_LABEL_CLASS,
+  METRIC_TILE_VALUE_CLASS,
+  metricTileTooltip,
+} from './metricTile';
 import { DrillDownDrawer } from './DrillDownDrawer';
 import { specDefaultWidgetType } from './widgetDispatch';
 import { DASHBOARD_WIDGET_MULTI_MEASURE_TYPES } from '@objectstack/spec/ui';
@@ -555,29 +562,27 @@ export { chartConfigPresentation } from '@object-ui/core';
  * [objectui#12528] The heading a dashboard surface hands a dataset-bound
  * metric tile instead of drawing its own card header: the widget's resolved
  * title, and its resolved description, which becomes the title's tooltip.
- * The tile draws them on ONE line with the measure label, above the value.
  */
 export interface DatasetMetricHeading {
   title: string;
   description?: string;
 }
 
-/** The one heading line of a metric tile: title, then the measure label. */
+/**
+ * The heading line of a metric tile: the title alone (objectui#12623). It owns
+ * the line, up to two lines; the measure label is drawn under the value, and
+ * rides in this tooltip so a tile too narrow to draw it still carries it.
+ */
 function MetricHeadingRow({ heading, label }: { heading: DatasetMetricHeading; label?: string }) {
   return (
-    <div className="flex w-full min-w-0 items-baseline gap-2" data-testid="dataset-metric-heading">
+    <div className="flex w-full min-w-0" data-testid="dataset-metric-heading">
       {heading.title && (
         <span
-          className="min-w-0 truncate text-sm font-medium text-foreground"
-          title={heading.description || heading.title}
+          className={METRIC_TILE_TITLE_CLASS}
+          title={metricTileTooltip(heading.title, heading.description, label)}
           data-testid="dataset-metric-title"
         >
           {heading.title}
-        </span>
-      )}
-      {label && (
-        <span className="min-w-0 shrink-0 truncate text-xs text-muted-foreground" data-testid="dataset-metric-label">
-          {label}
         </span>
       )}
     </div>
@@ -1056,7 +1061,7 @@ export function DatasetWidget({ widget, dataSource, heading }: { widget: any; da
   // answered tile knows its measure label; it draws the row itself, below.
   const framed = (node: ReactElement): ReactElement =>
     heading ? (
-      <div className="flex h-full w-full min-w-0 flex-col gap-1">
+      <div className={cn('flex h-full w-full min-w-0 flex-col gap-1', METRIC_TILE_CONTAINER_CLASS)}>
         <MetricHeadingRow heading={heading} />
         {node}
       </div>
@@ -1262,6 +1267,7 @@ export function DatasetWidget({ widget, dataSource, heading }: { widget: any; da
     // `undefined`, which `cn` drops: the markup of every widget that never
     // declared the key stays byte-identical.
     const accentClass = metricAccentTextClass(widget?.colorVariant);
+    const measureLabel = headerLabel(tileMeasure);
     // ── No sub-caption (objectui#11389, ruling C) ──────────────────────────
     // The tile draws the value, the delta and the measure label, and nothing
     // from the options bag. Its `description` key was the sub-caption
@@ -1274,13 +1280,17 @@ export function DatasetWidget({ widget, dataSource, heading }: { widget: any; da
       // Positioned only while a re-read is in flight, for the refresh bar: the
       // idle tile's markup is pinned byte-for-byte (`DatasetWidget.colorVariant`,
       // `.subCaption`, `.unrenderedMeasures-8894` tests), and it moves by nothing.
-      <div className={cn('flex h-full w-full flex-col items-start justify-center gap-1 p-2', state.refreshing && 'relative')}>
+      <div className={cn('flex h-full w-full flex-col items-start justify-center gap-1 p-2', heading && cn('min-w-0', METRIC_TILE_CONTAINER_CLASS), state.refreshing && 'relative')}>
         {refreshBar}
-        {/* objectui#12528 — with a heading, the title and the measure label
-            share one line above the value, and nothing follows the value but
-            its delta. */}
-        {heading && <MetricHeadingRow heading={heading} label={headerLabel(tileMeasure)} />}
-        <span className={cn('text-2xl font-semibold tabular-nums', accentClass)}>{formatMeasure(value, f?.format, f?.currency, f?.percentScale, displayLocale)}</span>
+        {/* objectui#12623 — with a heading, the title owns the first line, the
+            value never wraps, and the measure label is a line under it (the
+            shared rule in `./metricTile`). Without one, the tile's markup is
+            unchanged: the label is then the only text naming the value. */}
+        {heading && <MetricHeadingRow heading={heading} label={measureLabel} />}
+        <span className={cn(heading ? cn('font-semibold', METRIC_TILE_VALUE_CLASS) : 'text-2xl font-semibold tabular-nums', accentClass)}>{formatMeasure(value, f?.format, f?.currency, f?.percentScale, displayLocale)}</span>
+        {heading && measureLabel && (
+          <span className={METRIC_TILE_MEASURE_LABEL_CLASS} data-testid="dataset-metric-label">{measureLabel}</span>
+        )}
         {delta && (
           <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground" data-testid="dataset-compare-trend">
             <span className={cn(
@@ -1297,7 +1307,7 @@ export function DatasetWidget({ widget, dataSource, heading }: { widget: any; da
             <span className="min-w-0 truncate">{compareLabel}</span>
           </div>
         )}
-        {!heading && <span className="text-xs text-muted-foreground">{headerLabel(tileMeasure)}</span>}
+        {!heading && <span className="text-xs text-muted-foreground">{measureLabel}</span>}
       </div>
     );
   }

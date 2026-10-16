@@ -9,7 +9,7 @@
  * SPEC-DRIVEN: the per-report-type config fields are NOT hardcoded. They are
  * rendered by feeding the spec's canonical authoring form (`reportForm`) and
  * the spec-derived Report JSONSchema into the generic {@link SchemaForm}. The
- * form's type-conditional `visibleOn` section (joined blocks) automatically
+ * form's type-conditional `visibleWhen` section (joined blocks) automatically
  * surfaces the right fields — adding a new report type or prop to
  * `@objectstack/spec` flows through with zero code changes here.
  *

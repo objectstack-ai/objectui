@@ -669,6 +669,9 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
                     variant="ghost"
                     size="icon"
                     className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                    // objectui#12625 — an icon-only button; the tooltip is
+                    // closed at rest, so without this it has no name.
+                    aria-label={t('detail.copyToClipboard')}
                     onClick={(e) => {
                       e.stopPropagation();
                       handleCopyField(field.name, value);
@@ -821,29 +824,45 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
         different behaviour, unmeasured by that card.
       */}
       <Card className={cn(section.showBorder === false ? 'border-none shadow-none' : '')}>
-        <CollapsibleTrigger asChild>
-          <CardHeader className={cn(
-            "py-3 px-4 sm:py-4 sm:px-6 cursor-pointer hover:bg-muted/50 transition-colors",
-            headerColorClass(section.headerColor)
-          )}>
-            <CardTitle className="flex items-center justify-between text-base font-semibold tracking-tight">
-              <div className="flex items-center gap-2">
-                {section.icon && <SectionIcon name={section.icon} />}
-                <span>{section.title}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                {isCollapsed ? (
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                )}
-              </div>
-            </CardTitle>
-            {section.description && !isCollapsed && (
-              <p className="text-xs text-muted-foreground mt-1">{section.description}</p>
-            )}
-          </CardHeader>
-        </CollapsibleTrigger>
+        {/*
+          objectui#12625 — the disclosure is a NATIVE button inside the
+          header, not the header itself. `CollapsibleTrigger asChild` on the
+          `CardHeader` div used to hand the div `aria-expanded` and a click
+          handler but no role and no tabindex: the section title was not a
+          button in the accessibility tree and a keyboard user could not reach
+          or toggle it. The button takes its name from the section title,
+          carries `aria-expanded`, and Enter / Space toggle it natively. Its
+          `after:` overlay spans the (now `relative`) header, so a click
+          anywhere on the header still toggles, as before.
+        */}
+        <CardHeader className={cn(
+          "relative py-3 px-4 sm:py-4 sm:px-6 cursor-pointer hover:bg-muted/50 transition-colors",
+          headerColorClass(section.headerColor)
+        )}>
+          <CardTitle className="text-base font-semibold tracking-tight">
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="flex w-full items-center justify-between text-left rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 after:absolute after:inset-0"
+              >
+                <span className="flex items-center gap-2">
+                  {section.icon && <SectionIcon name={section.icon} />}
+                  <span>{section.title}</span>
+                </span>
+                <span className="flex items-center gap-2">
+                  {isCollapsed ? (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden />
+                  )}
+                </span>
+              </button>
+            </CollapsibleTrigger>
+          </CardTitle>
+          {section.description && !isCollapsed && (
+            <p className="text-xs text-muted-foreground mt-1">{section.description}</p>
+          )}
+        </CardHeader>
         <CollapsibleContent>
           <CardContent className="pt-3 sm:pt-4 px-3 sm:px-6 pb-4 sm:pb-5">
             {content}

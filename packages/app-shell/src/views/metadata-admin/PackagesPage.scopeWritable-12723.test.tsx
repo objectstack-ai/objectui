@@ -128,6 +128,9 @@ describe('Packages Scope badge reads the served `writable` verdict (objectui#127
   it('system, cloud and project keep their badges; the writable half follows the verdict', async () => {
     await serve([SCOPELESS_CODE, SYSTEM, CLOUD, PROJECT_CODE, PROJECT_BASE]);
     renderPackages();
+    // system / cloud rows sit behind the page's show-kernel switch.
+    await screen.findByTestId('pkg-row-com.acme.bare');
+    fireEvent.click(document.getElementById('show-kernel')!);
     expect(await drawnScopes()).toEqual({
       'com.acme.bare': t('engine.packages.scope.readOnly', 'en'),
       'com.objectstack.system': t('engine.packages.scope.system', 'en'),

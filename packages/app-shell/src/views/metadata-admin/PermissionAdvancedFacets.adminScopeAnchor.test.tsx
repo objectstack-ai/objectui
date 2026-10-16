@@ -5,8 +5,8 @@
  * framework spec refuses, and that a draft already carrying one says so on its
  * own collapsed header (objectui#9464).
  *
- * `AdminScopeSchema` makes `businessUnit` the one REQUIRED key — the other five
- * carry defaults — so `{ includeSubtree: true }` is refused wholesale. The facet
+ * `AdminScopeSchema` makes `businessUnit` the one REQUIRED key — the other live
+ * keys carry defaults — so `{ includeSubtree: true }` is refused wholesale. The facet
  * patched the draft key by key from every control, so flipping any switch
  * BEFORE naming a business unit wrote exactly that object, and the section's own
  * badge counted only `businessUnit` / `assignablePermissionSets` and so read
@@ -39,7 +39,15 @@ type Draft = Record<string, unknown>;
  *  second interaction sees what the first one wrote. */
 let latest: Draft = {};
 
-function Harness({ initial, sets }: { initial: Draft; sets: string[] }) {
+function Harness({
+  initial,
+  sets,
+  only,
+}: {
+  initial: Draft;
+  sets: string[];
+  only?: "admin";
+}) {
   const [draft, setDraft] = React.useState<Draft>(initial);
   // In an effect, not during render: `react-hooks/globals` bans the latter, and
   // `userEvent` flushes effects before the assertion reads this back.
@@ -53,6 +61,7 @@ function Harness({ initial, sets }: { initial: Draft; sets: string[] }) {
       writable
       allSetNames={sets}
       t={t}
+      only={only}
     />
   );
 }
@@ -103,15 +112,9 @@ describe("PermissionAdvancedFacets · delegated admin scope (objectui#9464)", ()
     expect(written).toBeUndefined();
   });
 
-  it("the three manage-* switches are inert for the same reason", async () => {
+  it("the manage-assignments switch is inert for the same reason", async () => {
     const user = await mountFacet({});
-    for (const key of [
-      "perm.admin.manageAssignments",
-      "perm.admin.manageBindings",
-      "perm.admin.authorEnvironmentSets",
-    ]) {
-      await user.click(switchFor(key));
-    }
+    await user.click(switchFor("perm.admin.manageAssignments"));
     expect(latest.adminScope).toBeUndefined();
   });
 
@@ -152,5 +155,70 @@ describe("PermissionAdvancedFacets · delegated admin scope (objectui#9464)", ()
   it("an empty scope still reports itself as empty", async () => {
     await mountFacet({});
     expect(within(adminHeader()).queryByText("1")).toBeNull();
+  });
+});
+
+/**
+ * objectui#12406 — `manageBindings` and `authorEnvironmentSets` are retired
+ * tombstones in `@objectstack/spec` (objectstack#23488): the spec refuses
+ * either key whatever it holds, so the facet draws no switch for either and
+ * every write it can make is a scope the spec accepts.
+ *
+ * Driven through the facet as the Studio Access pillar mounts it (`only`), so
+ * the section is located by its own test id and every switch inside it is
+ * found by ROLE, not by caption: a retired switch drawn back under any caption
+ * is still a switch this sweep clicks.
+ */
+describe("PermissionAdvancedFacets · the retired delegated-admin keys (objectui#12406)", () => {
+  const RETIRED = ["manageBindings", "authorEnvironmentSets"] as const;
+
+  async function mountAdmin(initial: Draft, sets: string[] = []) {
+    const user = userEvent.setup();
+    latest = initial;
+    render(<Harness initial={initial} sets={sets} only="admin" />);
+    return { user, section: screen.getByTestId("perm-facet-admin") };
+  }
+
+  it("CONTROL — the installed spec refuses each retired key at its own path, false included", () => {
+    for (const key of RETIRED) {
+      for (const value of [true, false]) {
+        const verdict = AdminScopeSchema.safeParse({ businessUnit: "bu_sales", [key]: value });
+        expect(verdict.success, `${key}: ${value}`).toBe(false);
+        expect(verdict.error?.issues.some((i) => i.path[0] === key)).toBe(true);
+      }
+    }
+  });
+
+  it("draws the manage-assignments switch and neither retired switch", async () => {
+    const { section } = await mountAdmin({ adminScope: { businessUnit: "bu_sales" } });
+    const captions = within(section)
+      .getAllByRole("switch")
+      .map((s) => s.closest("label")?.textContent);
+    expect(captions).toEqual(["perm.admin.includeSubtree", "perm.admin.manageAssignments"]);
+    expect(within(section).queryByText("perm.admin.manageBindings")).toBeNull();
+    expect(within(section).queryByText("perm.admin.authorEnvironmentSets")).toBeNull();
+  });
+
+  it("flipping every switch it draws writes a scope the spec accepts, carrying neither retired key", async () => {
+    const { user, section } = await mountAdmin({ adminScope: { businessUnit: "bu_sales" } }, [
+      "ps_support",
+    ]);
+    for (const control of within(section).getAllByRole("switch")) {
+      await user.click(control);
+    }
+    await user.click(within(section).getByRole("button", { name: "ps_support" }));
+
+    const written = latest.adminScope as Record<string, unknown>;
+    expect(RETIRED.filter((key) => key in written)).toEqual([]);
+    expect(
+      AdminScopeSchema.safeParse(written).success,
+      `the editor wrote ${JSON.stringify(written)}, which the spec refuses`,
+    ).toBe(true);
+    expect(written).toEqual({
+      businessUnit: "bu_sales",
+      includeSubtree: true,
+      manageAssignments: true,
+      assignablePermissionSets: ["ps_support"],
+    });
   });
 });

@@ -14,8 +14,8 @@
  * @module
  */
 import {
-  Activity, ArrowRight, Bell, Check, Clock,
-  FileText, Database, LayoutDashboard, File, CircleAlert, Rocket,
+  ArrowRight, Bell, Check,
+  FileText, Database, LayoutDashboard, File, List, CircleAlert, Rocket,
 } from 'lucide-react';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { Button, cn } from '@object-ui/components';
@@ -24,80 +24,10 @@ import type { HomeInboxStatus, HomeNotification, PendingApprovalRequest } from '
 import type { RecentItem } from '../../hooks/useRecentItems.js';
 import type { RecentItemLabelResolver } from '../../hooks/useRecentItemLabel.js';
 import { ActivityObjectLabel } from '../../layout/ActivityObjectLabel.js';
-import { recentItemTypeLabel } from './recentItemTypeLabel.js';
 import { timeAgo } from '../../utils/relativeTime.js';
+import { getIcon } from '../../utils/getIcon.js';
 
 type TFn = (key: string, opts?: any) => string;
-
-function Card({
-  icon: Icon,
-  title,
-  count,
-  accent,
-  children,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  count?: number;
-  accent?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <section
-      className={
-        'rounded-2xl bg-card/80 backdrop-blur-sm p-4 ' +
-        (accent ? 'border border-primary/30' : 'border border-border/70')
-      }
-    >
-      <div className="mb-3 flex items-center gap-2">
-        <Icon className={'h-4 w-4 ' + (accent ? 'text-primary' : 'text-muted-foreground')} />
-        <h2 className="flex-1 text-sm font-semibold tracking-tight">{title}</h2>
-        {typeof count === 'number' && count > 0 && (
-          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-medium text-primary-foreground tabular-nums">
-            {count}
-          </span>
-        )}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function Row({
-  icon: Icon,
-  iconClass,
-  label,
-  meta,
-  trailing,
-  onClick,
-  testId,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  iconClass: string;
-  label: string;
-  meta?: string;
-  trailing?: React.ReactNode;
-  onClick: () => void;
-  testId?: string;
-}) {
-  return (
-    <li>
-      <button
-        type="button"
-        onClick={onClick}
-        data-testid={testId}
-        className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-muted/60 active:scale-[0.99]"
-      >
-        <span className={'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ' + iconClass}>
-          <Icon className="h-4 w-4" />
-        </span>
-        <span className="min-w-0 flex-1 truncate text-sm">{label}</span>
-        {meta && <span className="shrink-0 text-[11px] text-muted-foreground">{meta}</span>}
-        {trailing}
-      </button>
-    </li>
-  );
-}
 
 /** Rows a My-work column lists — a preview; its pill carries the total. */
 const MY_WORK_ROWS = 3;
@@ -508,63 +438,118 @@ function approvalTitle(r: PendingApprovalRequest): string {
   return [r.processLabel || r.processName, r.recordTitle].filter(Boolean).join(' · ');
 }
 
+/**
+ * A Home section with its heading above the card rather than inside it — the
+ * "Recently accessed" and "Activity feed" columns (objectui#12604): a 15 px /
+ * 600 heading, 8 px above a bordered card.
+ */
+function HomeSection({ title, testId, children }: { title: string; testId: string; children: React.ReactNode }) {
+  return (
+    <section className="min-w-0" data-testid={testId}>
+      <h2 className="mb-2 text-[15px] font-semibold tracking-tight">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+/**
+ * The kind icon of a "Recently accessed" row (objectui#12604): a record draws
+ * its object's icon (the {@link RecentItemContext.icon} the page resolved), and
+ * every other kind draws its own.
+ */
 const RECENT_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
   object: Database,
+  view: List,
   record: FileText,
   dashboard: LayoutDashboard,
   page: File,
 };
 
-// Soft per-type tint — gives the recent list life without competing with the
-// vibrant app icons above it (apps stay the colourful primary layer).
-const RECENT_TONE: Record<string, string> = {
-  object: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-  record: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-  dashboard: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
-  page: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-};
+/**
+ * What a "Recently accessed" row prints beside its title (objectui#12604),
+ * resolved by the page that has the metadata — this module reads none (see
+ * {@link HomeContinue}).
+ */
+export interface RecentItemContext {
+  /**
+   * The trail's first part: a record's object label ("Account"), or the
+   * entry's kind ("Dashboard", "List view") for every other kind.
+   */
+  context: string;
+  /** The label of the app the entry was opened in, or `undefined` when no app on Home is it. */
+  app?: string;
+  /** A record's object icon (a Lucide name), or `undefined` to draw the kind's icon. */
+  icon?: string;
+}
 
 /**
- * `labelOf` is `useRecentItemLabel()`, handed in by the page like `t`: an entry
- * stores identity, not text, so its label is resolved on the render, in the
- * current language (objectui#11678). Taken as a prop so this module — which
- * also holds the action center and the activity card — does not itself load
- * the metadata cache the resolver reads. The one read it does make is the
- * activity card's: `ActivityObjectLabel` reads the cached object list, and only
- * while an activity row is on screen (objectui#12238).
+ * Home's "Recently accessed" column (objectui#12604): up to six 40 px rows,
+ * newest first, each a 24 px kind icon tile, the title, and a muted trail
+ * "Account · HotCRM · 10 minutes ago" — the context, the app, and when it was
+ * opened, in the DISPLAY locale (objectui#10668).
+ *
+ * `labelOf` is `useRecentItemLabel()` and `describe` is the page's trail
+ * resolver, handed in like `t`: an entry stores identity, not text, so its
+ * label is resolved on the render, in the current language (objectui#11678).
+ * Taken as props so this module — which also holds the action center and the
+ * activity card — does not itself load the metadata cache they read. The one
+ * read it does make is the activity card's: `ActivityObjectLabel` reads the
+ * cached object list, and only while an activity row is on screen
+ * (objectui#12238).
  */
 export function HomeContinue({
   items,
   onOpen,
   t,
   labelOf,
+  describe,
 }: {
   items: RecentItem[];
   onOpen: (href: string) => void;
   t: TFn;
   labelOf: RecentItemLabelResolver;
+  describe: (item: RecentItem) => RecentItemContext;
 }) {
+  const displayLocale = useDisplayLocale();
   return (
-    <Card icon={Clock} title={t('home.recentApps.title', { defaultValue: 'Recently Accessed' })}>
+    <HomeSection title={t('home.recentApps.title', { defaultValue: 'Recently Accessed' })} testId="home-recent">
       {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="rounded-lg border border-border bg-card px-3 py-2.5 text-[13px] text-muted-foreground">
           {t('home.continueEmpty', { defaultValue: 'Items you open will show up here.' })}
         </p>
       ) : (
-        <ul className="flex flex-col gap-0.5">
-          {items.map((it) => (
-            <Row
-              key={it.id}
-              icon={RECENT_ICON[it.type] || FileText}
-              iconClass={RECENT_TONE[it.type] || 'bg-muted text-muted-foreground'}
-              label={labelOf(it)}
-              meta={recentItemTypeLabel(t, it.type)}
-              onClick={() => onOpen(it.href)}
-            />
-          ))}
+        <ul className="overflow-hidden rounded-lg border border-border bg-card">
+          {items.map((it) => {
+            const { context, app, icon } = describe(it);
+            const Icon = icon ? getIcon(icon) : RECENT_ICON[it.type] || FileText;
+            const trail = [context, app, timeAgo(it.visitedAt, displayLocale)].filter(Boolean).join(' · ');
+            return (
+              <li key={it.id} className="border-t border-border first:border-t-0">
+                <button
+                  type="button"
+                  onClick={() => onOpen(it.href)}
+                  data-testid="home-recent-row"
+                  data-recent-type={it.type}
+                  className="flex h-10 w-full items-center gap-2.5 px-3 text-left text-[13px] transition-colors hover:bg-muted/60"
+                >
+                  <span
+                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"
+                    data-testid="home-recent-icon"
+                    data-icon={icon ?? it.type}
+                  >
+                    <Icon className="h-[13px] w-[13px]" />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">{labelOf(it)}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground" data-testid="home-recent-trail">
+                    {trail}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
-    </Card>
+    </HomeSection>
   );
 }
 
@@ -582,6 +567,10 @@ export function HomeContinue({
  * A row names its object through `ActivityObjectLabel`, the component the
  * bell's Activity tab renders for the same row (objectui#12238): the label in
  * the reader's language, the API name only when none resolves.
+ *
+ * Laid out as Home's section ④ (objectui#12604): the heading above a card with
+ * 12 px padding; each row the actor (13 px / 500), the verb and target muted,
+ * and a 12 px line of time and object; "View all activity →" the last row.
  */
 export function HomeActivity({ activity, onViewAll, t }: { activity: ActivityFeedReading; onViewAll: () => void; t: TFn }) {
   // The display locale, as `HomeActionCenter` above (objectui#10668).
@@ -589,50 +578,52 @@ export function HomeActivity({ activity, onViewAll, t }: { activity: ActivityFee
   if (!activity.readable) return null;
   const items = activity.value;
   return (
-    <Card icon={Activity} title={t('sidebar.activityFeed', { defaultValue: 'Activity feed' })}>
-      {/* Beside the list, not only in place of it, as on the action centre. */}
-      {activity.status !== 'ready' && (
-        <div
-          className="flex items-center gap-2 pb-2 text-sm text-muted-foreground"
-          data-testid="home-activity-unanswered"
+    <HomeSection title={t('sidebar.activityFeed', { defaultValue: 'Activity feed' })} testId="home-activity">
+      <div className="rounded-lg border border-border bg-card px-3 pb-2 pt-1">
+        {/* Beside the list, not only in place of it, as on the action centre. */}
+        {activity.status !== 'ready' && (
+          <div
+            className="flex items-center gap-2 py-2 text-[13px] text-muted-foreground"
+            data-testid="home-activity-unanswered"
+          >
+            {activity.status === 'error' ? (
+              <>
+                <CircleAlert className="h-4 w-4 text-amber-500" />
+                {t('errors.unknown', { defaultValue: 'An unexpected error occurred.' })}
+              </>
+            ) : (
+              t('common.loading', { defaultValue: 'Loading…' })
+            )}
+          </div>
+        )}
+        {items.length === 0 ? (
+          activity.status === 'ready' && (
+            <p className="py-2 text-[13px] text-muted-foreground">
+              {t('layout.activityFeed.empty', { defaultValue: 'No recent activity' })}
+            </p>
+          )
+        ) : (
+          <ul>
+            {items.slice(0, 5).map((a) => (
+              <li key={a.id} className="border-b border-border py-2 text-[13px] leading-snug" data-testid="home-activity-row">
+                <span className="font-medium">{a.user}</span>{' '}
+                <span className="text-muted-foreground">{a.description}</span>
+                <div className="mt-0.5 text-xs text-muted-foreground">
+                  {timeAgo(a.timestamp, displayLocale)} · <ActivityObjectLabel objectName={a.objectName} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        <button
+          type="button"
+          onClick={onViewAll}
+          className="mt-1.5 inline-flex items-center gap-1 text-xs text-primary hover:underline"
         >
-          {activity.status === 'error' ? (
-            <>
-              <CircleAlert className="h-4 w-4 text-amber-500" />
-              {t('errors.unknown', { defaultValue: 'An unexpected error occurred.' })}
-            </>
-          ) : (
-            t('common.loading', { defaultValue: 'Loading…' })
-          )}
-        </div>
-      )}
-      {items.length === 0 ? (
-        activity.status === 'ready' && (
-          <p className="text-sm text-muted-foreground">
-            {t('layout.activityFeed.empty', { defaultValue: 'No recent activity' })}
-          </p>
-        )
-      ) : (
-        <ul className="flex flex-col gap-2.5">
-          {items.slice(0, 5).map((a) => (
-            <li key={a.id} className="text-sm leading-snug">
-              <span className="font-medium">{a.user}</span>{' '}
-              <span className="text-muted-foreground">{a.description}</span>
-              <div className="mt-0.5 text-[11px] text-muted-foreground">
-                {timeAgo(a.timestamp, displayLocale)} · <ActivityObjectLabel objectName={a.objectName} />
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-      <button
-        type="button"
-        onClick={onViewAll}
-        className="mt-3 inline-flex items-center gap-1 text-xs text-primary hover:underline"
-      >
-        {t('layout.activityFeed.viewAll', { defaultValue: 'View all activity' })}
-        <ArrowRight className="h-3 w-3" />
-      </button>
-    </Card>
+          {t('layout.activityFeed.viewAll', { defaultValue: 'View all activity' })}
+          <ArrowRight className="h-3 w-3" />
+        </button>
+      </div>
+    </HomeSection>
   );
 }

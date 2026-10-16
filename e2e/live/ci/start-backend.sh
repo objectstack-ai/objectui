@@ -10,10 +10,11 @@
 #   2. Rewrite its package.json: every `@objectstack/*` workspace dep -> the
 #      pinned published OBJECTSTACK_VERSION; dev-only tooling dropped.
 #   3. `npm install` (published tarballs only — nothing is built from source,
-#      so the lane tests the console against the released artifacts). No
-#      transitive dependency is overridden: the published manifests decide
-#      what installs, which is the pair this lane exists to test (the
-#      `better-auth` pin retired with the 17.5.0 bump — see backend.env).
+#      so the lane tests the console against the released artifacts). The
+#      published manifests decide what installs, which is the pair this lane
+#      exists to test, with ONE exception: the root `overrides.vitest` that
+#      npm 10 needs to install the published graph at all (see VITEST_OVERRIDE
+#      below for why, and for when it goes).
 #   4. `objectstack dev --seed-admin --fresh` on $LIVE_BACKEND_PORT with a
 #      throwaway sqlite db, then poll the seeded sign-in until it answers.
 #
@@ -34,6 +35,33 @@ PORT="${LIVE_BACKEND_PORT:-4010}"
 REPO_URL="${OBJECTSTACK_REPO_URL:-https://github.com/objectstack-ai/objectstack.git}"
 APP_DIR="$BACKEND_DIR/app"
 STAMP="$BACKEND_DIR/.prepared"
+
+# The one transitive override the install writes, as a root `overrides` entry in
+# the rewritten manifest (objectui#12649). Without it, npm 10 (the npm Node 22
+# ships, and so the npm this lane's runner installs with) cannot install the
+# published @objectstack/cli graph: it dies building the ideal tree with
+# `Cannot read properties of null (reading 'edgesOut')`. The graph reaches
+# `vitest` only as an OPTIONAL peer (at 18.0.0-next.2: `better-auth`'s, under
+# plugin-auth, and `@objectstack/metadata-core`'s). The newest vitest 4 peers
+# `@vitest/browser-webdriverio ^4.1.11`, whose only 4.x match peers back on an
+# older vitest exactly, and npm 10's peer-set walk crashes on that set instead
+# of resolving it. Holding vitest at 4.0.x gives it a coherent set to resolve.
+# Nothing installs vitest, so the override steers the resolver and changes no
+# package the backend runs: measured once, at 18.0.0-next.2, the tree npm 10
+# installs with it was the tree npm 11 installs without it, path for path and
+# version for version — a one-off reading that nothing here re-derives.
+# It is the remedy objectstack documents for this crash (its troubleshooting
+# entry "Cannot read properties of null (reading 'edgesOut') from npm install").
+# The value is part of the stamp below, so a fixture prepared under another
+# recipe — the Actions cache restores one without asking — is rebuilt, never
+# reused: the cold install cannot hide behind a cache hit.
+# ⛔ Remove it (this line, the `overrides` line in prepare(), and the stamp's
+# third component) once the published `@objectstack/cli` at OBJECTSTACK_VERSION
+# installs on npm 10 with no override. Re-measure on every pin bump: drop the
+# `overrides` line, run this script under npm 10 with a FRESH LIVE_BACKEND_DIR
+# and a fresh npm cache, and read the install's exit. A re-run in a prepared dir
+# proves nothing, because an install from its package-lock.json never crashes.
+VITEST_OVERRIDE='~4.0.0'
 
 # The showcase-app commit is DERIVED here, and is declared nowhere: it is
 # whatever the `@objectstack/cli@$OBJECTSTACK_VERSION` release tag points at, so
@@ -80,10 +108,11 @@ echo "[live-backend] resolved $OBJECTSTACK_TAG -> $OBJECTSTACK_REF"
 # installed — and a re-pointed tag is exactly such a change with no key of its
 # own to hash. The workflow's fixture cache key is the hash of backend.env,
 # which carries the version for the same reason; see the ⚠️ note there for the
-# one path that key can no longer see. The stamp used to carry the retired
-# `better-auth` pin as a third component, so a fixture prepared under that pin
-# no longer matches and is rebuilt without the override.
-WANT_STAMP="$OBJECTSTACK_REF $OBJECTSTACK_VERSION"
+# one path that key can no longer see. The third component is the install
+# recipe's one override: that key hashes backend.env only, so a recipe change
+# made in this script restores the old fixture on a hit, and this stamp is what
+# rejects it. (The retired `better-auth` pin used to sit in the same slot.)
+WANT_STAMP="$OBJECTSTACK_REF $OBJECTSTACK_VERSION vitest@$VITEST_OVERRIDE"
 
 mkdir -p "$BACKEND_DIR"
 
@@ -108,17 +137,19 @@ prepare() {
   # workspace:* -> the pinned published version; drop dev tooling the server
   # doesn't need (playwright/vitest/typescript — the CLI loads the TS config
   # itself). Keep non-@objectstack runtime deps (e.g. @modelcontextprotocol/sdk).
-  # No `overrides` block is written: the published @objectstack/* manifests
-  # decide their own transitive versions.
+  # The only `overrides` entry written is VITEST_OVERRIDE (see its note above);
+  # otherwise the published @objectstack/* manifests decide their own
+  # transitive versions.
   node -e '
     const fs = require("fs");
-    const file = process.argv[1], pin = process.argv[2];
+    const file = process.argv[1], pin = process.argv[2], vitest = process.argv[3];
     const pkg = JSON.parse(fs.readFileSync(file, "utf8"));
     for (const k of Object.keys(pkg.dependencies || {}))
       if (k.startsWith("@objectstack/")) pkg.dependencies[k] = pin;
     pkg.devDependencies = { "@objectstack/cli": pin };
+    pkg.overrides = { ...pkg.overrides, vitest };
     fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + "\n");
-  ' "$APP_DIR/package.json" "$OBJECTSTACK_VERSION"
+  ' "$APP_DIR/package.json" "$OBJECTSTACK_VERSION" "$VITEST_OVERRIDE"
 
   (cd "$APP_DIR" && npm install --no-audit --no-fund --loglevel=error)
   echo "$WANT_STAMP" > "$STAMP"

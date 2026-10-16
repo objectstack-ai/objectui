@@ -22,7 +22,8 @@
  * ## Why the expectations are hand-declared AND cross-checked
  *
  * `EXPECTED` below is read out of the runtime by a human: `datetime` renders
- * `DateTimeField`, so its mock must be a datetime control, not a text box. If
+ * the platform date picker (`DateTimePickerField`, objectui#12642), so its mock
+ * must be a date picker, not a plain text box. If
  * the test DERIVED each expectation from the same resolver the preview calls,
  * it could never catch the preview calling the resolver wrongly — the pin would
  * assert the implementation against itself. So the per-case expectation is
@@ -85,13 +86,14 @@ const OFFERED: readonly string[] = PARAM_TYPE_OPTS.map((o) => o.value);
  * `input:*` is the DOM `type` of the rendered `<input>`; `record-picker` is the
  * disabled combobox the preview mocks a `LookupField` with, the one that pops
  * a dialog; `select` is the shared `Select`'s trigger, the combobox that pops
- * none, which `SelectField` draws too (objectui#11865).
+ * none, which `SelectField` draws too (objectui#11865); `date-picker` is the
+ * text box inside a `data-slot="date-picker"` wrapper, the shape the platform
+ * date picker draws for `date` and `datetime` (objectui#12642).
  */
 type MockControl =
   | 'input:text'
   | 'input:number'
-  | 'input:date'
-  | 'input:datetime-local'
+  | 'date-picker'
   | 'input:checkbox'
   | 'textarea'
   | 'select'
@@ -109,8 +111,8 @@ const MOCK_FOR_RUNTIME_WIDGET: Readonly<Record<string, MockControl>> = {
   number: 'input:number',
   boolean: 'input:checkbox',
   select: 'select',
-  date: 'input:date',
-  datetime: 'input:datetime-local',
+  date: 'date-picker',
+  datetime: 'date-picker',
   lookup: 'record-picker',
 };
 
@@ -146,8 +148,8 @@ const CASES: readonly Case[] = [
     expected: 'select',
     why: 'SelectField renders an EMPTY picker with a placeholder — not a text box',
   },
-  { spelling: 'date', expected: 'input:date', why: 'DateField' },
-  { spelling: 'datetime', expected: 'input:datetime-local', why: 'DateTimeField' },
+  { spelling: 'date', expected: 'date-picker', why: 'DatePickerField, the platform date picker' },
+  { spelling: 'datetime', expected: 'date-picker', why: 'DateTimePickerField, the platform date picker' },
   {
     spelling: 'lookup',
     extra: { reference: 'account' },
@@ -212,6 +214,7 @@ function drawnControl(container: HTMLElement): MockControl {
   if (tag === 'select') return 'select';
   if (tag === 'textarea') return 'textarea';
   if (tag === 'button') return el.getAttribute('aria-haspopup') === 'dialog' ? 'record-picker' : 'select';
+  if (el.closest('[data-slot="date-picker"]')) return 'date-picker';
   return `input:${(el as HTMLInputElement).type}` as MockControl;
 }
 

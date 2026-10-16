@@ -9,6 +9,7 @@
  * The hook understands the standard console URL layout:
  *
  *   /apps/:appName/:objectName
+ *   /apps/:appName/:objectName/view/:viewName   (a list view, objectui#12604)
  *   /apps/:appName/dashboard/:id
  *   /apps/:appName/page/:id
  *   /apps/:appName/report/:id
@@ -78,6 +79,18 @@ export interface UseTrackRouteAsRecentOptions {
   disabled?: boolean;
 }
 
+/**
+ * The `id` of a list-view entry — one per object view (objectui#12604).
+ *
+ * Joined rather than written as a template literal on purpose: a backquoted
+ * `view:` interpolation is the spelling the objectui#4373 guard
+ * (`viewCacheInvalidation.guard.test.tsx`) reserves for the metadata adapter's
+ * view cache keys, which app-shell never restates — and this id is not one.
+ */
+export function recentViewId(object: string, view: string): string {
+  return ['view', object, view].join(':');
+}
+
 /** Segments after `appName` that are NOT object names but route prefixes. */
 const ROUTE_PREFIXES = new Set(['view', 'record', 'page', 'dashboard', 'design', 'report']);
 
@@ -139,7 +152,28 @@ export function useTrackRouteAsRecent({
 
     if (seg2 && !ROUTE_PREFIXES.has(seg2)) {
       const obj = objectsRef.current.find(o => o.name === seg2);
-      if (obj) {
+      if (!obj) return;
+      // A named list view of the object is its own entry, one per view
+      // (objectui#12604): the object and the view, with the view's own address.
+      if (seg3 === 'view') {
+        const viewSegment = parts[4];
+        if (!viewSegment) return;
+        const view = safeDecode(viewSegment);
+        addRecentItem({
+          id: recentViewId(obj.name, view),
+          type: 'view',
+          object: obj.name,
+          name: view,
+          href: `${basePath}/${obj.name}/view/${viewSegment}`,
+        });
+        return;
+      }
+      // The object's own list — its bare route, or its parameterized data
+      // surface. A record page, a create form or any other page under the
+      // object is not a visit to its list: the record page records the record
+      // (`RecordDetailView`), and an object entry beside it would be a second
+      // target for one visit (objectui#12604).
+      if (seg3 === undefined || seg3 === 'data') {
         addRecentItem({
           id: `object:${obj.name}`,
           type: 'object',

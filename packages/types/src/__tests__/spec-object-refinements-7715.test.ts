@@ -166,50 +166,9 @@ describe('objectui#12030 — the Page `details` + `tabs` slot-pair refusal reach
   });
 });
 
-describe('objectui#12370 — the Page retired-`api` view-data refusal reaches objectui', () => {
-  const API = { provider: 'api', read: { url: '/api/rows' } };
-  const grid = (data: unknown) => ({ type: 'object-grid', properties: { objectName: 'task', data } });
-  const SLOTTED = (data: unknown) => ({ kind: 'slotted', slots: { details: [grid(data)] } });
-
-  it('a slot child: the spec refuses at its `properties.data.provider`, and objectui refuses with the spec\'s own issue', () => {
-    const at = 'slots.details.0.properties.data.provider';
-    const spec = SpecPageSchema.safeParse(specPage(SLOTTED(API)));
-    expect(spec.success).toBe(false);
-    const specIssue = spec.error!.issues.find((i) => i.path.join('.') === at);
-    expect(specIssue?.code).toBe('custom');
-
-    for (const r of [PageNodeSchema.safeParse(pageNode(SLOTTED(API))), safeValidateSchema(pageNode(SLOTTED(API)))]) {
-      expect(r.success).toBe(false);
-      const issues = r.error!.issues.map((i) => ({ code: i.code, path: i.path.join('.'), message: i.message }));
-      expect(issues).toContainEqual({ code: 'custom', path: at, message: specIssue!.message });
-    }
-  });
-
-  it('a region child: the spec refuses it, and objectui refuses the same child through the component union', () => {
-    // objectui's regions are its own `PageNodeRegionSchema`, judged by the component union
-    // at every depth, and the `object-grid` arm refuses the `api` provider itself; the
-    // object-level check does not run once a child has failed, so the refusal here is the
-    // union's, at the same child.
-    const regions = [{ name: 'main', components: [grid(API)] }];
-    const spec = SpecPageSchema.safeParse(specPage({ regions }));
-    const specIssue = spec.error!.issues.find((i) => i.path.join('.') === 'regions.0.components.0.properties.data.provider');
-    expect(specIssue?.code).toBe('custom');
-
-    for (const r of [PageNodeSchema.safeParse(pageNode({ regions })), safeValidateSchema(pageNode({ regions }))]) {
-      expect(r.success).toBe(false);
-      expect(r.error!.issues.map((i) => i.path.join('.'))).toContain('regions.0.components.0');
-    }
-  });
-
-  it('controls: an `object` binding in a slot and in a region passes on both doors', () => {
-    const OBJ = { provider: 'object', object: 'task' };
-    for (const extra of [SLOTTED(OBJ), { regions: [{ name: 'main', components: [grid(OBJ)] }] }]) {
-      expect(SpecPageSchema.safeParse(specPage(extra)).success).toBe(true);
-      expect(PageNodeSchema.safeParse(pageNode(extra)).success).toBe(true);
-      expect(safeValidateSchema(pageNode(extra)).success).toBe(true);
-    }
-  });
-});
+// objectui#12370's describe block stood here. objectstack#23784 removed the spec's page-parse
+// judge of a view-data component's retired `api` binding, so objectui#12666 detached it; what the
+// page doors accept now is pinned in `page-component-view-data-12666.test.ts`.
 
 describe('objectui#12626 — the Page region-placement refusal reaches objectui', () => {
   const regions = (...names: string[]) => names.map((name) => ({ name, components: [] }));
@@ -313,9 +272,9 @@ const SITES = [
     // attached by objectui#11717: it reads `kind` and `requires`, both carried by reference.
     // `checkPageSlotPair` joined at 18 (objectstack#22568) and was attached by objectui#12030:
     // it reads `slots`, carried by reference.
-    // `checkPageComponentViewData` joined at 18.0.0-next.1 (objectstack#23419) and was attached
-    // by objectui#12370: it reads `slots` (by reference) and `regions`, whose components this
-    // node's union already judges; measured in its describe block above.
+    // objectui#12370's view-data check left this list with objectui#12666: objectstack#23784
+    // removed it from the spec. The installed 18.0.0-next.2 still carries it, so the census
+    // below accounts for it by what it judges, not by name (`specChecksRemovedOnMain`).
     // `checkPageRegionPlacement` joined at 18.0.0-next.2 and was attached by objectui#12626: it
     // reads `kind` and `template` (by reference) and each region's `name`, which objectui's own
     // region carries with the meaning `page.tsx` places it by; measured in its describe block above.
@@ -323,7 +282,6 @@ const SITES = [
       'checkPageSourceCompleteness',
       'checkPageRequiresKind',
       'checkPageSlotPair',
-      'checkPageComponentViewData',
       'checkPageRegionPlacement',
     ],
     // `checkPagePrintComposition` joined at 18 (the `print` page, ruling B′ on objectstack#8346).
@@ -397,22 +355,67 @@ async function specUiChecks(): Promise<Map<string, unknown>> {
 const objectLevelChecks = (schema: unknown): number =>
   ((schema as { _zod: { def: { checks?: unknown[] } } })._zod.def.checks ?? []).length;
 
+const PAGE_SITE = 'SpecPageFields → PageNodeSchema (layout.zod.ts)';
+
+/**
+ * The exported page checks objectstack `main` has REMOVED but the installed
+ * `@objectstack/spec` still carries, found by what they judge rather than by
+ * name (objectui#12666).
+ *
+ * objectstack#23784 deleted the spec's page-parse judge of a view-data
+ * component's retired `api` binding, and objectstack builds this repository
+ * against its own spec tree, so no file here may name that export. The
+ * installed 18.0.0-next.2 still exports it and still attaches it to
+ * `PageSchema`, so the census would miscount by one. This reads every
+ * exported check no site names and keeps the ones that refuse a slotted
+ * `object-grid` naming `api` at its `properties.data.provider`: on next.2 that
+ * is exactly the removed judge, and on a spec without it the list is empty, so
+ * the census is right on both trees and needs no edit at the next spec bump.
+ * Any OTHER unnamed check still reddens the census below, by name.
+ */
+async function specChecksRemovedOnMain(): Promise<string[]> {
+  const named = new Set<string>([...SITES.flatMap((s) => [...s.attached, ...s.notAttachable]), ...CARRIED_ELSEWHERE]);
+  const page = { kind: 'slotted', slots: { details: [{ type: 'object-grid', properties: { data: { provider: 'api', read: { url: '/api/rows' } } } }] } };
+  const removed: string[] = [];
+  for (const [name, binding] of await specUiChecks()) {
+    if (named.has(name) || typeof binding !== 'function') continue;
+    const paths: string[] = [];
+    binding(page, { addIssue: (issue: { path?: PropertyKey[] }) => paths.push((issue.path ?? []).map(String).join('.')) });
+    if (paths.includes('slots.details.0.properties.data.provider')) removed.push(name);
+  }
+  return removed;
+}
+
 describe('objectui#7715 — census: the spec\'s object-level checks at the six derivation sites', () => {
-  it.each(SITES.map((s) => [s.site, s] as const))('%s accounts for every object-level check the spec object carries', (_site, s) => {
+  it.each(SITES.map((s) => [s.site, s] as const))('%s accounts for every object-level check the spec object carries', async (_site, s) => {
+    const removedOnMain = s.site === PAGE_SITE ? (await specChecksRemovedOnMain()).length : 0;
     expect({
       site: s.site,
       specObjectLevelChecks: objectLevelChecks(s.spec),
     }).toEqual({
       site: s.site,
-      specObjectLevelChecks: s.attached.length + s.notAttachable.length,
+      specObjectLevelChecks: s.attached.length + s.notAttachable.length + removedOnMain,
     });
   });
 
-  it('every `check*` the spec exports is named by exactly one site or carried elsewhere', async () => {
+  it('every `check*` the spec exports is named by exactly one site, carried elsewhere, or removed on objectstack `main`', async () => {
     const checks = await specUiChecks();
-    const named = [...SITES.flatMap((s) => [...s.attached, ...s.notAttachable]), ...CARRIED_ELSEWHERE].sort();
+    const removedOnMain = await specChecksRemovedOnMain();
+    // At most the one judge objectstack#23784 removed; zero once objectui installs a spec without it.
+    expect(removedOnMain.length).toBeLessThanOrEqual(1);
+    const named = [...SITES.flatMap((s) => [...s.attached, ...s.notAttachable]), ...CARRIED_ELSEWHERE, ...removedOnMain].sort();
     expect([...checks.keys()].sort()).toEqual(named);
     for (const [name, binding] of checks) expect(typeof binding, name).toBe('function');
+  });
+
+  it('the removed judge is detached: a slotted `api` binding passes objectui\'s page node (objectui#12666)', async () => {
+    // The installed spec, where it still carries the judge, refuses the same page; objectui
+    // no longer attaches it, so the mirror accepts it, as objectstack `main`'s spec does.
+    const doc = { kind: 'slotted', slots: { details: [{ type: 'object-grid', properties: { objectName: 'task', data: { provider: 'api', read: { url: '/api/rows' } } } }] } };
+    expect(PageNodeSchema.safeParse(pageNode(doc)).success).toBe(true);
+    if ((await specChecksRemovedOnMain()).length === 1) {
+      expect(SpecPageSchema.safeParse(specPage(doc)).success).toBe(false);
+    }
   });
 
   it('`checkGlobalFilterDateDefaultValue` already runs on objectui\'s GlobalFilterSchema, with the spec\'s own issue', () => {

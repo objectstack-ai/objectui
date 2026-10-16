@@ -1105,9 +1105,6 @@ export interface DataTableRowAction {
 }
 
 /**
- * Enterprise data table with advanced features
- */
-/**
  * One group band of a grouped `data-table` (objectui#12620). See
  * {@link DataTableSchema.rowGroups}.
  */
@@ -1133,6 +1130,9 @@ export interface DataTableRowGroup {
   depth?: number;
 }
 
+/**
+ * Enterprise data table with advanced features
+ */
 export interface DataTableSchema extends BaseSchema {
   type: 'data-table';
   /**

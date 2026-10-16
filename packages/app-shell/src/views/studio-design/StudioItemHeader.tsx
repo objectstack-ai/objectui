@@ -21,16 +21,28 @@
  * unchanged, and the status chip is the same child of the same row in every
  * pillar whatever identity chips the pillar shows. The title stays a direct
  * child of the row.
+ *
+ * objectui#12611 — on a narrow content column the row gives way in one
+ * order: the meta slot first, then the status chip's text (its icon stays,
+ * the text is in its tooltip), and the title truncates last. The tab row
+ * never wraps a label: it scrolls sideways, fades the edge with more tabs
+ * past it, and brings the active tab into view. Every width rule measures
+ * the header's own row (`studio-tokens.ts`), never the viewport: the column
+ * narrows with the rail and the aside, not with the window.
  */
 
 import * as React from 'react';
-import { cn } from '@object-ui/components';
+import { PencilLine } from 'lucide-react';
+import { cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@object-ui/components';
 import {
   STUDIO_API_CHIP,
   STUDIO_ICON_TILE,
   STUDIO_ITEM_HEADER,
+  STUDIO_ITEM_META_FOLD,
+  STUDIO_ITEM_ROW,
   STUDIO_ITEM_TITLE,
   STUDIO_META,
+  STUDIO_STATUS_TEXT_FOLD,
   STUDIO_TAB,
   STUDIO_TAB_ACTIVE,
   STUDIO_TAB_IDLE,
@@ -49,17 +61,77 @@ export interface StudioItemStatus {
  * The amber status chip. The header draws it from `status`; it is exported
  * for the one place that shows the same status outside a title row (the
  * Access set page's tab row).
+ *
+ * objectui#12611 — a pencil glyph leads the text, and the label and its
+ * longer sentence are the chip's tooltip (the objectui#12303 pattern: a
+ * focusable trigger, the sentence as its accessible description). With
+ * `fold`, which the header passes, the text yields on a narrow row and the
+ * glyph stays; the text stays in the accessible name.
  */
-export function StudioStatusChip({ label, title }: StudioItemStatus): React.ReactElement {
+export function StudioStatusChip({
+  label,
+  title,
+  fold = false,
+}: StudioItemStatus & { fold?: boolean }): React.ReactElement {
+  const descriptionId = React.useId();
   return (
-    <span
-      data-testid="studio-item-status"
-      title={title}
-      className="inline-flex shrink-0 items-center whitespace-nowrap rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300"
-    >
-      {label}
-    </span>
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            data-testid="studio-item-status"
+            tabIndex={0}
+            aria-describedby={title ? descriptionId : undefined}
+            className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-amber-300"
+          >
+            <PencilLine className="h-3 w-3 shrink-0" aria-hidden="true" />
+            <span data-slot="status-text" className={fold ? STUDIO_STATUS_TEXT_FOLD : undefined}>
+              {label}
+            </span>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs" data-testid="studio-item-status-tooltip">
+          <p className="font-medium">{label}</p>
+          {title && <p className="mt-0.5">{title}</p>}
+        </TooltipContent>
+      </Tooltip>
+      {/* Beside the chip, not in it: the chip's text stays its label alone. */}
+      {title && (
+        <span id={descriptionId} hidden>
+          {title}
+        </span>
+      )}
+    </TooltipProvider>
   );
+}
+
+/**
+ * Which edge of a scrolled tab row has tabs past it, for `STUDIO_TAB_ROW`'s
+ * fades (objectui#12611): `none`, `start`, `end` or `both`.
+ */
+function useTabRowFade(ref: React.RefObject<HTMLElement | null>): 'none' | 'start' | 'end' | 'both' {
+  const [fade, setFade] = React.useState<'none' | 'start' | 'end' | 'both'>('none');
+  const measure = React.useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const before = el.scrollLeft > 1;
+    const after = el.scrollLeft < el.scrollWidth - el.clientWidth - 1;
+    setFade(before && after ? 'both' : before ? 'start' : after ? 'end' : 'none');
+  }, [ref]);
+  // Every render: the tabs a pillar passes can change without the row resizing.
+  React.useEffect(measure);
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.addEventListener('scroll', measure, { passive: true });
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    observer?.observe(el);
+    return () => {
+      el.removeEventListener('scroll', measure);
+      observer?.disconnect();
+    };
+  }, [ref, measure]);
+  return fade;
 }
 
 export interface StudioItemHeaderProps {
@@ -101,9 +173,11 @@ export function StudioItemHeader({
   testId,
   className,
 }: StudioItemHeaderProps): React.ReactElement {
+  const tabRowRef = React.useRef<HTMLElement | null>(null);
+  const fade = useTabRowFade(tabRowRef);
   return (
     <div data-testid={testId} className={cn(STUDIO_ITEM_HEADER, !tabs && 'pb-3', className)}>
-      <div className="flex min-w-0 items-center gap-3">
+      <div className={STUDIO_ITEM_ROW}>
         {leading}
         {Icon && (
           <span className={STUDIO_ICON_TILE}>
@@ -117,11 +191,15 @@ export function StudioItemHeader({
           {apiName && <code className={STUDIO_API_CHIP}>{apiName}</code>}
           {chips}
         </span>
-        {status && <StudioStatusChip {...status} />}
-        {meta && <span className={STUDIO_META}>{meta}</span>}
+        {status && <StudioStatusChip {...status} fold />}
+        {meta && <span className={cn(STUDIO_META, STUDIO_ITEM_META_FOLD)}>{meta}</span>}
         {actions && <div className="ml-auto flex shrink-0 items-center gap-2">{actions}</div>}
       </div>
-      {tabs && <nav className={STUDIO_TAB_ROW}>{tabs}</nav>}
+      {tabs && (
+        <nav ref={tabRowRef} data-fade={fade} className={STUDIO_TAB_ROW}>
+          {tabs}
+        </nav>
+      )}
     </div>
   );
 }
@@ -134,17 +212,32 @@ export interface StudioTabProps extends Omit<React.ButtonHTMLAttributes<HTMLButt
 /**
  * One underline tab. `aria-pressed` carries the active state for tests and
  * readers. Forwards its ref so a menu trigger can wrap it (`asChild`).
+ *
+ * objectui#12611 — a tab that becomes active scrolls itself into view, so on
+ * a tab row narrower than its tabs the open one is never past the edge.
  */
 export const StudioTab = React.forwardRef<HTMLButtonElement, StudioTabProps>(function StudioTab(
   { active = false, className, children, ...buttonProps },
   ref,
 ) {
+  const ownRef = React.useRef<HTMLButtonElement | null>(null);
+  const setRef = React.useCallback(
+    (el: HTMLButtonElement | null) => {
+      ownRef.current = el;
+      if (typeof ref === 'function') ref(el);
+      else if (ref) ref.current = el;
+    },
+    [ref],
+  );
+  React.useEffect(() => {
+    if (active) ownRef.current?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  }, [active]);
   return (
     <button
       type="button"
       aria-pressed={active}
       {...buttonProps}
-      ref={ref}
+      ref={setRef}
       className={cn(STUDIO_TAB, active ? STUDIO_TAB_ACTIVE : STUDIO_TAB_IDLE, className)}
     >
       {children}

@@ -34,6 +34,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DIALOG_VIEWPORT_GUTTER,
   Label,
   Textarea,
   cn,
@@ -126,7 +127,7 @@ export function CelTestRunDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className={`sm:max-w-2xl ${DIALOG_VIEWPORT_GUTTER}`}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FlaskConical className="h-4 w-4 text-muted-foreground" />

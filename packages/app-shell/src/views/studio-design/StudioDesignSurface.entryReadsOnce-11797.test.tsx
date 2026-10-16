@@ -154,8 +154,8 @@ describe('StudioDesignSurface — entry reads each question once (objectui#11797
       await drain();
     });
     await waitFor(() =>
-      expect(screen.getByTitle('Switch / create package')).toHaveAttribute('data-pkg-list-state', 'loaded'),
+      expect(screen.getByTestId('studio-pkg-chip')).toHaveAttribute('data-pkg-list-state', 'loaded'),
     );
-    expect(screen.getByTitle('Switch / create package')).toHaveTextContent('Field Ops');
+    expect(screen.getByTestId('studio-pkg-chip')).toHaveTextContent('Field Ops');
   });
 });

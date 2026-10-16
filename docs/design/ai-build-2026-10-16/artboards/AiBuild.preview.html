@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>AI 搭建 · 构建对话</title>
+
+</head>
+<body>
+
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#ffffff}
+:root{--bg:#ffffff;--fg:#0f172a;--muted:#f1f5f9;--muted-fg:#64748b;--border:#e2e8f0;--sidebar:#fafafa;--primary-soft:#eef2ff;--primary-fg:#ffffff;--amber:#b45309;--amber-soft:#fef3c7;--green:#15803d;--green-soft:#dcfce7;--red:#b91c1c;--red-soft:#fee2e2;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+*{box-sizing:border-box}
+a{color:var(--primary);text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+.btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 16px;border-radius:8px;background:var(--primary);color:var(--primary-fg);font-size:13px;font-weight:500}
+.btn-outline{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);font-size:13px;font-weight:500;color:var(--fg)}
+.btn-outline:hover{background:var(--muted)}
+.iconbtn{display:inline-flex;width:28px;height:28px;align-items:center;justify-content:center;border-radius:6px;color:var(--muted-fg)}
+.iconbtn:hover{background:var(--muted);color:var(--fg)}
+.card{background:var(--bg);border:1px solid var(--border);border-radius:10px}
+.chip{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:6px;background:var(--muted);color:var(--fg);font-size:12px}
+.chip.soft{background:var(--primary-soft);color:var(--primary)}
+.chip.ok{background:var(--green-soft);color:var(--green)}
+.chip.warn{background:var(--amber-soft);color:var(--amber)}
+.k{font-family:var(--mono);font-size:11.5px;color:var(--muted-fg)}
+.row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-top:1px solid var(--border);font-size:13px}
+.lbl{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-fg)}
+.step{display:flex;align-items:center;gap:8px;height:28px;font-size:12.5px;color:var(--muted-fg)}
+.step .ok{color:var(--green)}
+.conv{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:8px}
+.conv:hover{background:var(--muted)}
+.conv.on{background:var(--primary-soft)}
+.secthead{display:flex;align-items:center;justify-content:space-between;margin:14px 0 6px}
+.secthead h4{margin:0;font-size:12.5px;font-weight:600}
+.tick{display:inline-flex;width:16px;height:16px;align-items:center;justify-content:center;border-radius:8px;background:var(--green-soft);color:var(--green);flex:none;margin-top:1px}
+</style>
+
+<div style="width:100%;min-height:1040px;display:grid;grid-template-rows:48px 1fr;background:var(--bg);color:var(--fg);font-family:Inter,ui-sans-serif,system-ui,sans-serif;font-size:13px;line-height:1.45;--primary:#4f46e5">
+
+  <!-- top bar -->
+  <header style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid var(--border);background:var(--bg)">
+    <a href="#" aria-label="首页" style="display:inline-flex;align-items:center;gap:8px;color:var(--fg);justify-self:start">
+      <span style="display:inline-flex;width:28px;height:28px;align-items:center;justify-content:center;border-radius:8px;background:var(--primary);color:#fff"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg></span>
+      <span style="font-size:14px;font-weight:600">ObjectOS</span>
+      <span style="font-size:10px;font-weight:600;letter-spacing:.04em;padding:2px 6px;border-radius:4px;background:var(--muted);color:var(--muted-fg)">预览版</span>
+    </a>
+    <div style="display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600"><span style="display:inline-flex;width:22px;height:22px;align-items:center;justify-content:center;border-radius:6px;background:var(--primary-soft);color:var(--primary)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.9 5.8L4 10l6.1 1.2L12 17l1.9-5.8L20 10l-6.1-1.2z"/></svg></span>AI 搭建</div>
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px">
+      <button type="button" aria-label="通知" class="iconbtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></button>
+      <button type="button" aria-label="帮助" class="iconbtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></button>
+      <button type="button" aria-label="账户" style="display:inline-flex;width:28px;height:28px;margin-left:6px;align-items:center;justify-content:center;border-radius:14px;background:var(--primary);color:#fff;font-size:11px;font-weight:600">JZ</button>
+    </div>
+  </header>
+
+  <div style="display:grid;grid-template-columns:240px 1fr;min-height:0">
+
+    <!-- conversation list -->
+    <aside style="border-right:1px solid var(--border);background:var(--sidebar);padding:12px;display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0 4px"><span style="font-size:12px;font-weight:600;color:var(--muted-fg)">对话</span><button type="button" class="btn-outline" style="height:28px;padding:0 10px;font-size:12px">＋ 新对话</button></div>
+      <div style="display:flex;align-items:center;gap:6px;height:30px;padding:0 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--muted-fg);font-size:12px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>搜索对话…</div>
+      <div class="lbl" style="padding:8px 4px 0">今天</div>
+      <div class="conv on"><div style="font-size:13px;font-weight:500">图书借阅管理</div><div style="font-size:11.5px;color:var(--muted-fg)">已搭建 · 3 个对象 · 刚刚</div></div>
+      <div class="conv"><div style="font-size:13px;font-weight:500">Sales CRM</div><div style="font-size:11.5px;color:var(--muted-fg)">已搭建 · 6 分钟前</div></div>
+      <div style="flex:1"></div>
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 4px;font-size:12px;color:var(--muted-fg)"><span class="chip ok" style="height:20px">AI 用量 · 额度充足</span></div>
+    </aside>
+
+    <!-- conversation -->
+    <section style="display:grid;grid-template-rows:44px 1fr auto;min-height:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:10px"><span style="font-weight:600">构建</span><span class="chip" style="height:24px;padding:0 10px">新建应用 ▾</span><span style="font-size:12px;color:var(--muted-fg)">在 test1016 · 生产环境</span></div>
+        <div style="display:flex;align-items:center;gap:2px"><button type="button" class="iconbtn" aria-label="构建诊断"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></button><button type="button" class="iconbtn" aria-label="分享"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="m16 6-4-4-4 4"/><path d="M12 2v13"/></svg></button></div>
+      </div>
+
+      <div style="overflow:auto;padding:20px 0 12px">
+        <div style="width:760px;margin:0 auto;display:flex;flex-direction:column;gap:16px">
+
+          <!-- user message -->
+          <div style="align-self:flex-end;max-width:600px;padding:10px 14px;border-radius:12px 12px 4px 12px;background:var(--muted);font-size:13px">做一个图书借阅管理应用：图书（书名、作者、ISBN、馆藏数量）、读者（姓名、邮箱、电话）、借阅记录（关联图书与读者，借出日期、应还日期、归还日期、状态：借出/已还/逾期），一个按状态分组的借阅看板，以及一个只显示逾期未还记录的视图。</div>
+
+          <!-- progress group (collapsed) -->
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted-fg)"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>设计方案 · 4 步 · 0:48<span style="margin-left:4px">读取编写规范 · 列出对象 ×3 · 记下后续检查项 ×2 · 设计应用方案</span><button type="button" class="iconbtn" aria-label="展开步骤" style="width:22px;height:22px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>
+
+          <!-- plan card v2 -->
+          <div class="card" style="padding:16px 18px 14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <div style="display:flex;align-items:center;gap:10px"><span style="display:inline-flex;width:26px;height:26px;align-items:center;justify-content:center;border-radius:7px;background:var(--primary-soft);color:var(--primary)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span><div><div style="font-size:14px;font-weight:600">方案 · 图书借阅管理</div><div style="font-size:12px;color:var(--muted-fg)">3 个对象 · 3 个视图 · 示例数据 12 条/对象 · 确认后约 1 分钟搭好</div></div></div>
+              <span class="chip warn">等待确认</span>
+            </div>
+            <p style="margin:12px 0 0;font-size:13px;color:var(--fg)">独立的图书借阅管理应用：统一管理图书、读者和借阅记录，提供借阅状态看板与逾期未还视图。</p>
+
+            <div class="secthead"><h4>对象与字段</h4><span style="font-size:11.5px;color:var(--muted-fg)">点字段可删；名称字段自动生成的对象不再要求手填</span></div>
+            <div class="row" style="border-top:0;padding-top:4px"><span class="chip soft" style="min-width:72px;justify-content:center">图书</span><div style="display:flex;flex-wrap:wrap;gap:6px"><span class="chip">书名 <span class="k">名称</span></span><span class="chip">作者</span><span class="chip">ISBN <span class="k">13 位数字</span></span><span class="chip">馆藏数量 <span class="k">数字</span></span><span class="chip" style="border:1px dashed var(--border);background:transparent;color:var(--muted-fg)">分类 · 补充</span></div></div>
+            <div class="row"><span class="chip soft" style="min-width:72px;justify-content:center">读者</span><div style="display:flex;flex-wrap:wrap;gap:6px"><span class="chip">姓名 <span class="k">名称</span></span><span class="chip">邮箱 <span class="k">邮箱格式</span></span><span class="chip">电话</span></div></div>
+            <div class="row"><span class="chip soft" style="min-width:72px;justify-content:center">借阅记录</span><div style="display:flex;flex-direction:column;gap:6px"><div style="display:flex;flex-wrap:wrap;gap:6px"><span class="chip">图书 <span class="k">关联</span></span><span class="chip">读者 <span class="k">关联</span></span><span class="chip">借出日期</span><span class="chip">应还日期</span><span class="chip">归还日期</span><span class="chip">状态 <span class="k">借出 · 已还 ✓完成 · 逾期 ⚠</span></span></div><div style="font-size:12px;color:var(--muted-fg)">名称：自动生成「{图书} · {读者} · {借出日期}」，表单里不出现</div></div></div>
+
+            <div class="secthead"><h4>视图</h4><span style="font-size:11.5px;color:var(--muted-fg)">每个视图写明它做什么，搭完按这里逐条核对</span></div>
+            <div class="row" style="border-top:0;padding-top:4px"><span class="chip" style="min-width:110px;justify-content:center">借阅看板</span><div>看板 · 按 <strong style="font-weight:500">状态</strong> 分组 · 卡片：图书、读者、应还日期</div></div>
+            <div class="row"><span class="chip" style="min-width:110px;justify-content:center">逾期未还记录</span><div>列表 · 筛选 <span class="k">状态 = 逾期</span> 且 <span class="k">归还日期 为空</span> · 按应还日期升序</div></div>
+            <div class="row"><span class="chip" style="min-width:110px;justify-content:center">图书 / 读者</span><div>默认列表</div></div>
+
+            <div class="secthead"><h4>假设</h4></div>
+            <ul style="margin:0;padding-left:18px;font-size:12.5px;color:var(--muted-fg);display:flex;flex-direction:column;gap:3px">
+              <li>只建这三部分，不建仪表盘、预约、罚款；补充的字段（分类）可以去掉。</li>
+              <li>归还后状态置为已还；逾期由应还日期已过且未归还判定。</li>
+              <li>首次搭建直接上线；之后的修改先存草稿，由你发布。</li>
+            </ul>
+
+            <div style="display:flex;align-items:center;gap:8px;margin-top:14px"><button type="button" class="btn-primary"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.9 5.8L4 10l6.1 1.2L12 17l1.9-5.8L20 10l-6.1-1.2z"/></svg>开始搭建</button><button type="button" class="btn-outline">调整方案</button><span style="margin-left:auto;font-size:12px;color:var(--muted-fg)">也可以直接回复：「去掉分类」「看板再按读者分组」</span></div>
+          </div>
+
+          <!-- assistant line -->
+          <div style="font-size:13px;color:var(--muted-fg)">方案在上面的卡片里，确认后我开始搭建。</div>
+
+          <!-- user confirm -->
+          <div style="align-self:flex-end;padding:8px 12px;border-radius:12px 12px 4px 12px;background:var(--muted);font-size:13px">确认，开始搭建。</div>
+
+          <!-- build progress (collapsed) -->
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted-fg)"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>搭建 · 5 步 · 1:04<span style="margin-left:4px">搭建应用 · 生成示例数据 · 修正中文标签 · 核对方案 · 上线</span><button type="button" class="iconbtn" aria-label="展开步骤" style="width:22px;height:22px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>
+
+          <!-- result card v2 -->
+          <div class="card" style="padding:16px 18px 14px;border-color:color-mix(in srgb,var(--green) 35%,var(--border))">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <div style="display:flex;align-items:center;gap:10px"><span style="display:inline-flex;width:26px;height:26px;align-items:center;justify-content:center;border-radius:7px;background:var(--green-soft);color:var(--green)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span><div><div style="font-size:14px;font-weight:600">已搭建并上线 · 图书借阅管理</div><div style="font-size:12px;color:var(--muted-fg)">应用已进启动台 · 包 app.hcpl · 以下每一条都按方案核对过</div></div></div>
+              <span class="chip ok">核对通过 7/7</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;margin-top:12px;font-size:12.5px">
+              <div style="display:flex;gap:8px;padding:5px 0"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span><span>图书 · 5 个字段 · 12 条示例</span></div>
+              <div style="display:flex;gap:8px;padding:5px 0"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span><span>借阅看板 · 按状态分组 · 5 / 4 / 3</span></div>
+              <div style="display:flex;gap:8px;padding:5px 0"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span><span>读者 · 3 个字段 · 12 条示例</span></div>
+              <div style="display:flex;gap:8px;padding:5px 0"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span><span>逾期未还记录 · 筛选生效 · 命中 3 条</span></div>
+              <div style="display:flex;gap:8px;padding:5px 0"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span><span>借阅记录 · 7 个字段 · 名称自动生成 · 12 条示例</span></div>
+              <div style="display:flex;gap:8px;padding:5px 0"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span><span>示例数据 · 无重复 · ISBN / 邮箱格式通过</span></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:12px"><button type="button" class="btn-primary"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v7H3V3h7"/></svg>打开应用</button><button type="button" class="btn-outline">在 Studio 中查看</button><button type="button" class="btn-outline" style="border-color:transparent;color:var(--muted-fg)">查看结构</button></div>
+            <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);font-size:12px;color:var(--muted-fg)">接下来可以说：「给借阅记录加续借次数」「做一个本月借出统计的仪表盘」「只允许管理员删除图书」。之后的修改先存草稿，由你在 Studio 发布。</div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- composer -->
+      <div style="padding:8px 0 20px;background:linear-gradient(to top,var(--bg) 70%,transparent)">
+        <div style="width:760px;margin:0 auto;border:1px solid var(--border);border-radius:12px;background:var(--bg);box-shadow:0 1px 2px rgba(15,23,42,.04)">
+          <div style="padding:12px 14px 0;min-height:56px;font-size:13px;color:var(--muted-fg)">描述你想搭建的应用，或要改的地方…</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px 10px"><span style="font-size:11px;color:var(--muted-fg)">↵ 发送 · Shift+↵ 换行</span><button type="button" aria-label="发送" style="display:inline-flex;width:30px;height:30px;align-items:center;justify-content:center;border-radius:8px;background:var(--primary);color:#fff"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg></button></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#4f46e5","options":["#4f46e5","#2563eb","#0f766e","#0f172a"]},"$preview":{"width":1280,"height":1040}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#4f46e5' };
+  }
+}
+</script>
+</body>
+</html>

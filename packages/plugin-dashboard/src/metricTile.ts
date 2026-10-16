@@ -43,13 +43,3 @@ export function metricTileTooltip(title: string | undefined, description?: strin
   const text = [description || title, measureLabel].filter(Boolean).join('\n');
   return text || undefined;
 }
-
-/** The measure label line, drawn under the value. */
-export function MetricTileMeasureLabel({ label }: { label?: string }) {
-  if (!label) return null;
-  return (
-    <span className={METRIC_TILE_MEASURE_LABEL_CLASS} data-testid="dataset-metric-label">
-      {label}
-    </span>
-  );
-}

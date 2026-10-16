@@ -97,8 +97,8 @@ import { metricAccentTextClass } from './colorVariants';
 import {
   METRIC_TILE_CONTAINER_CLASS,
   METRIC_TILE_TITLE_CLASS,
+  METRIC_TILE_MEASURE_LABEL_CLASS,
   METRIC_TILE_VALUE_CLASS,
-  MetricTileMeasureLabel,
   metricTileTooltip,
 } from './metricTile';
 import { DrillDownDrawer } from './DrillDownDrawer';
@@ -1267,6 +1267,7 @@ export function DatasetWidget({ widget, dataSource, heading }: { widget: any; da
     // `undefined`, which `cn` drops: the markup of every widget that never
     // declared the key stays byte-identical.
     const accentClass = metricAccentTextClass(widget?.colorVariant);
+    const measureLabel = headerLabel(tileMeasure);
     // ── No sub-caption (objectui#11389, ruling C) ──────────────────────────
     // The tile draws the value, the delta and the measure label, and nothing
     // from the options bag. Its `description` key was the sub-caption
@@ -1285,9 +1286,11 @@ export function DatasetWidget({ widget, dataSource, heading }: { widget: any; da
             value never wraps, and the measure label is a line under it (the
             shared rule in `./metricTile`). Without one, the tile's markup is
             unchanged: the label is then the only text naming the value. */}
-        {heading && <MetricHeadingRow heading={heading} label={headerLabel(tileMeasure)} />}
+        {heading && <MetricHeadingRow heading={heading} label={measureLabel} />}
         <span className={cn(heading ? cn('font-semibold', METRIC_TILE_VALUE_CLASS) : 'text-2xl font-semibold tabular-nums', accentClass)}>{formatMeasure(value, f?.format, f?.currency, f?.percentScale, displayLocale)}</span>
-        {heading && <MetricTileMeasureLabel label={headerLabel(tileMeasure)} />}
+        {heading && measureLabel && (
+          <span className={METRIC_TILE_MEASURE_LABEL_CLASS} data-testid="dataset-metric-label">{measureLabel}</span>
+        )}
         {delta && (
           <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground" data-testid="dataset-compare-trend">
             <span className={cn(
@@ -1304,7 +1307,7 @@ export function DatasetWidget({ widget, dataSource, heading }: { widget: any; da
             <span className="min-w-0 truncate">{compareLabel}</span>
           </div>
         )}
-        {!heading && <span className="text-xs text-muted-foreground">{headerLabel(tileMeasure)}</span>}
+        {!heading && <span className="text-xs text-muted-foreground">{measureLabel}</span>}
       </div>
     );
   }

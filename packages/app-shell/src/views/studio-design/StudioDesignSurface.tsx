@@ -213,6 +213,7 @@ import {
 import { useMetadataRefreshNonce } from './useMetadataRefreshNonce.js';
 import { useHomePath } from '../../hooks/useHomePath.js';
 import { resolveSurface, findSurfaceInTree, isSameSurface, type NavNode, type Surface } from './navSurface.js';
+import { servedNavTextOf, displayNavTree, displayAppLabel, type ServedNavText } from './servedNavText.js';
 import { useSurfaceDeepLink, resolveSurfaceDeepLink, type SurfaceTarget } from './useSurfaceDeepLink.js';
 import { isStudioRunLanding } from './studioLanding.js';
 import { SurfaceDeepLinkProvider, useRequestedSurface, useSurfaceNavigator } from './surfaceDeepLinkChannel.js';
@@ -2994,6 +2995,14 @@ export function InterfacesPillar({
     () => (Array.isArray(appDraft.navigation) ? (appDraft.navigation as NavNode[]) : []),
     [appDraft],
   );
+  // objectui#12688 — the server's localized text for the app this pillar
+  // loaded, paired with the published layer it was translated from
+  // (`servedNavText.ts`). The rail DRAWS `railTree` and the heading
+  // `railAppLabel`; every editor keeps reading `navTree` / `appLabel`, the
+  // authored buffer, so no input ever echoes a served text.
+  const [servedNav, setServedNav] = React.useState<ServedNavText | null>(null);
+  const railTree = React.useMemo(() => displayNavTree(navTree, servedNav), [navTree, servedNav]);
+  const railAppLabel = displayAppLabel(appLabel, servedNav);
   // nav editing — drag-drop reorder / rename / add / remove via AppNavCanvas
   const [editNav, setEditNav] = React.useState(false);
   const [navSel, setNavSel] = React.useState<{ kind: string; id: string } | null>(null);
@@ -3363,6 +3372,11 @@ export function InterfacesPillar({
         const appDraftResp = appDraftRead.answer;
         const lay = layRaw as { effective?: Record<string, unknown>; code?: Record<string, unknown> } | null;
         const eff = (lay?.effective ?? lay?.code ?? {}) as Record<string, unknown>;
+        // objectui#12688 — the list row read above is the server's `/meta`
+        // answer, localized for this request; `eff` is the layer it was
+        // translated from. A never-saved app has neither, and no served text.
+        const served = saved ? servedNavTextOf(eff, published[0]) : null;
+        setServedNav(served);
         const appDraftBody = extractDraftBody(appDraftResp);
         // A served draft is the whole document — taken as-is, never spread
         // over the published layer (objectui#10765; the rule is stated once
@@ -3392,7 +3406,9 @@ export function InterfacesPillar({
         navBaselineRef.current = body;
         setNavHasDraft(!!appDraftBody);
         setAppStatus('ready');
-        const tree = Array.isArray(body.navigation) ? (body.navigation as NavNode[]) : [];
+        // objectui#12688 — the tree as the rail draws it, so the leaf opened
+        // here is captioned with the text its row shows.
+        const tree = displayNavTree(Array.isArray(body.navigation) ? (body.navigation as NavNode[]) : [], served);
         // auto-open the first resolvable leaf. Its label is resolved in the
         // designer locale of this load, like the rail's (objectui#11158), and
         // a label-less leaf's with the rail's resolver (objectui#11196).
@@ -4630,7 +4646,7 @@ export function InterfacesPillar({
         {/* real App navigation tree */}
         <StudioRail
           testId="studio-rail-interfaces"
-          heading={tFormat('engine.studio.if.navHeading', locale, { app: navItemLabelText(appLabel, locale) })}
+          heading={tFormat('engine.studio.if.navHeading', locale, { app: navItemLabelText(railAppLabel, locale) })}
           headerExtra={
             <>
               {/* objectui#12455 — the "+" offers every kind of nav entry the
@@ -4768,7 +4784,7 @@ export function InterfacesPillar({
               </p>
             ) : (
               <NavTree
-                nodes={navTree}
+                nodes={railTree}
                 active={current}
                 objectIcons={objectIconMap}
                 onPick={(s) => {

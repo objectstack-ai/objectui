@@ -124,8 +124,20 @@ const CANONICAL_VIEW = {
   calendar: { startDateField: 'kickoff', endDateField: 'wrapup', titleField: 'name' },
 } as const;
 
-const issuesAt = (doc: unknown, suffix: string) => {
-  const result = safeValidateSchema(doc);
+/**
+ * The read door judges the AUTHORED page node (objectui#12670, ruling C on
+ * objectstack-ai/objectstack#22444): its props in the `properties` bag, its
+ * object named in `data`, its kind as the bag's `type`. The fixtures above are
+ * the `ListView` component's props, which half 1 renders; half 2 hands the
+ * door the same list view in the page spelling.
+ */
+const asPageNode = ({ type, objectName, viewType, ...props }: Record<string, unknown>) => ({
+  type,
+  properties: { data: { provider: 'object', object: objectName }, type: viewType, ...props },
+});
+
+const issuesAt = (doc: Record<string, unknown>, suffix: string) => {
+  const result = safeValidateSchema(asPageNode(doc));
   if (result.success) return [];
   return result.error.issues.filter((i) => i.path.join('.').endsWith(suffix));
 };
@@ -208,7 +220,7 @@ describe('objectui#8355 · half 2 — the retired spellings are REFUSED at the r
   });
 
   it('DARK CONTROL: the canonical fixture parses GREEN through the same door', () => {
-    const result = safeValidateSchema(CANONICAL_VIEW);
+    const result = safeValidateSchema(asPageNode(CANONICAL_VIEW));
     expect(result.success, result.success ? '' : JSON.stringify(result.error.issues)).toBe(true);
   });
 });

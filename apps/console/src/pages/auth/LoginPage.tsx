@@ -25,6 +25,12 @@
  *    the form with "Cannot connect to server" and a Retry that reads it again
  *    (objectui#11806). The sign-in request goes to the same server, so a
  *    live-looking form would only have deferred that news to the submit.
+ *
+ * Layout (objectui#12600): one 400 px column — brand mark, the card, a footer.
+ * The card carries this page's own two-line header, so `<LoginForm>` renders
+ * with `hideHeader`. On a dev instance the card's last row offers a one-click
+ * sign-in as the seeded admin; the footer holds the locale switch and the
+ * legal links the server's auth config serves.
  */
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -47,6 +53,7 @@ import {
   isInvitationRedirect,
   needsBootstrapProbe,
   useBootstrapStatus,
+  LocaleSwitcher,
 } from '@object-ui/app-shell';
 import { AuthLayout } from './AuthLayout';
 import { followOauthAuthorize } from './followAuthorize';
@@ -60,7 +67,37 @@ function isSafeRedirect(target: string | null): target is string {
   return !!target && target.startsWith('/') && !target.startsWith('//');
 }
 
-const DEV_HINT_DISMISSED_KEY = 'os.console.devAdminHintDismissed';
+/** The dev-seeded admin `/auth/config` reports on a development instance. */
+interface DevSeedAdmin {
+  email: string;
+  password?: string;
+}
+
+/**
+ * Accept a legal-link URL from the server only as an absolute http(s) URL or a
+ * same-origin path. Anything else (a `javascript:` URL, a protocol-relative
+ * `//host`, a non-string) renders no link.
+ */
+function legalHref(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const href = value.trim();
+  if (/^https?:\/\//i.test(href)) return href;
+  if (href.startsWith('/') && !href.startsWith('//')) return href;
+  return undefined;
+}
+
+/**
+ * The legal links the server's public auth config serves: `features.termsUrl`
+ * and `features.privacyUrl`, which the spec lists among its non-flag keys
+ * (`PUBLIC_AUTH_CONFIG_NON_FLAG_KEYS`) and the runtime defaults to its own
+ * public pages, or omits when an operator blanks them. `AuthPublicConfig` does
+ * not declare the two keys, so they are read here by name; nothing is
+ * rendered for a key the server did not send.
+ */
+function readLegalLinks(cfg: AuthPublicConfig | null): { privacyUrl?: string; termsUrl?: string } {
+  const features = cfg?.features as { privacyUrl?: unknown; termsUrl?: unknown } | undefined;
+  return { privacyUrl: legalHref(features?.privacyUrl), termsUrl: legalHref(features?.termsUrl) };
+}
 
 function RouterLink(props: { href: string; className?: string; children: React.ReactNode }) {
   return (
@@ -102,30 +139,14 @@ export function LoginPage() {
   // "Retrying…") rather than flashing the form before the server has answered.
   const serverUnreachable =
     configRead === 'failed' || (configRead === 'loading' && configReadAttempt > 0);
-  // Dev-only seeded-admin hint (15.1 third-party eval): the runtime seeds
-  // admin@objectos.ai on an empty dev DB, but nothing on this page said so —
-  // new users clicked "Sign up" and landed in an empty non-admin workspace.
-  // The server reports the credentials via /auth/config `devSeedAdmin` ONLY
-  // in development while the account still carries the default password, so
-  // production can never render this. Dismissal is remembered per browser.
-  const [devSeedAdmin, setDevSeedAdmin] = useState<{ email: string; password?: string } | null>(
-    null,
-  );
-  const [devHintDismissed, setDevHintDismissed] = useState<boolean>(() => {
-    try {
-      return window.localStorage.getItem(DEV_HINT_DISMISSED_KEY) === '1';
-    } catch {
-      return false;
-    }
-  });
-  const dismissDevHint = () => {
-    setDevHintDismissed(true);
-    try {
-      window.localStorage.setItem(DEV_HINT_DISMISSED_KEY, '1');
-    } catch {
-      /* private mode — hide for this session only */
-    }
-  };
+  // Dev-only seeded admin (15.1 third-party eval): the runtime seeds an admin
+  // on an empty dev DB, but nothing on this page said so — new users clicked
+  // "Sign up" and landed in an empty non-admin workspace. The server reports
+  // the credentials via /auth/config `devSeedAdmin` ONLY in development while
+  // the account still carries the default password, so production can never
+  // render the row. The password is held here to submit, never rendered
+  // (objectui#12600): the row signs in with it, it does not print it.
+  const [devSeedAdmin, setDevSeedAdmin] = useState<DevSeedAdmin | null>(null);
   const [autoSelectingOrg, setAutoSelectingOrg] = useState(false);
   // The OAuth hand-off fetch must fire at most once even though the post-login
   // effect re-runs as org state settles (it navigates away on success).
@@ -282,10 +303,11 @@ export function LoginPage() {
   const registerUrl = redirect
     ? `/register?redirect=${encodeURIComponent(redirect)}`
     : '/register';
+  const legalLinks = readLegalLinks(authConfig);
 
   return (
-    <AuthLayout formWidth="md">
-      <div className="flex flex-col gap-6">
+    <AuthLayout formWidth="base">
+      <div className="flex flex-col gap-5">
         {callbackError ? (
           <AuthErrorBanner
             message={
@@ -310,63 +332,158 @@ export function LoginPage() {
             </span>
           </div>
         ) : null}
-        {devSeedAdmin && !devHintDismissed ? (
-          <div
-            role="status"
-            data-testid="dev-admin-hint"
-            className="flex items-start gap-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-foreground"
-          >
-            <span className="mt-0.5 inline-block size-2 shrink-0 rounded-full bg-amber-500" />
-            <div className="flex-1">
-              <div className="font-medium">
-                {t('auth.login.devAdminHint.title', { defaultValue: 'Development instance' })}
-              </div>
-              <div className="text-muted-foreground">
-                {t('auth.login.devAdminHint.body', {
-                  defaultValue: 'Sign in with the seeded dev admin:',
-                })}{' '}
-                <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
-                  {devSeedAdmin.email}
-                </code>
-                {devSeedAdmin.password ? (
-                  <>
-                    {' / '}
-                    <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
-                      {devSeedAdmin.password}
-                    </code>
-                  </>
-                ) : null}
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={dismissDevHint}
-              aria-label={t('auth.login.devAdminHint.dismiss', { defaultValue: 'Dismiss' })}
-              className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <svg viewBox="0 0 16 16" aria-hidden="true" className="size-3.5 fill-current">
-                <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z" />
-              </svg>
-            </button>
-          </div>
-        ) : null}
-        <Card className="border-border/60 px-4 py-8 shadow-sm shadow-primary/5 backdrop-blur supports-[backdrop-filter]:bg-card/95">
+        <Card
+          data-testid="login-card"
+          className="rounded-xl border-border/60 px-7 pb-5 pt-7 shadow-sm shadow-primary/5"
+        >
           {serverUnreachable ? (
             <ServerUnreachable
               retrying={configRead === 'loading'}
               onRetry={retryConfigRead}
             />
           ) : (
-            <LoginFormCard
-              registerUrl={
-                configRead === 'known' && signUpOffer === 'form' ? registerUrl : undefined
-              }
-              redirect={redirect}
-            />
+            <>
+              <div className="mb-5">
+                <h1 className="text-xl font-semibold tracking-tight text-foreground">
+                  {t('auth.login.welcomeTitle', { defaultValue: 'Welcome back' })}
+                </h1>
+                <p className="mt-1 text-[13px] text-muted-foreground">
+                  {t('auth.login.welcomeDescription', {
+                    defaultValue: 'Sign in to continue your work',
+                  })}
+                </p>
+              </div>
+              <LoginFormCard
+                registerUrl={
+                  configRead === 'known' && signUpOffer === 'form' ? registerUrl : undefined
+                }
+                redirect={redirect}
+              />
+              {devSeedAdmin ? <DevAdminRow seed={devSeedAdmin} /> : null}
+            </>
           )}
         </Card>
+        <LoginFooter privacyUrl={legalLinks.privacyUrl} termsUrl={legalLinks.termsUrl} />
       </div>
     </AuthLayout>
+  );
+}
+
+const WrenchIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="h-3.5 w-3.5 text-muted-foreground"
+    aria-hidden="true"
+  >
+    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+  </svg>
+);
+
+/**
+ * The card's last row on a dev instance (objectui#12600): "Local development
+ * instance" at the left and a chip that signs in as the seeded admin at the
+ * right, through the same `signIn` the form submits with. Success hands over to
+ * the page's post-login orchestration (the `user` effect above), exactly as a
+ * typed sign-in does.
+ *
+ * ⛔ The password is never rendered — not as text, not in an attribute, not in
+ * a hidden element. Only the email is shown, as the chip's tooltip. A seed
+ * reported without a password gets the row with the email and no chip.
+ */
+function DevAdminRow({ seed }: { seed: DevSeedAdmin }) {
+  const { t } = useObjectTranslation();
+  const { signIn } = useAuth();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const signInAsDevAdmin = async () => {
+    if (pending || !seed.password) return;
+    setError(null);
+    setPending(true);
+    try {
+      await signIn(seed.email, seed.password);
+      // Signed in: `user` is set and the page swaps to its post-login state.
+    } catch (err) {
+      const authError = err instanceof Error ? err : new Error(String(err));
+      const code = (authError as Error & { code?: string }).code;
+      setError((code && signInRefusalMessages(t)[code]) || authError.message);
+      setPending(false);
+    }
+  };
+
+  return (
+    <div data-testid="dev-admin-hint" className="mt-5 border-t border-dashed border-border pt-3.5">
+      <div className="flex items-center justify-between gap-3">
+        <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-warning" />
+          {t('auth.login.devAdminHint.title', { defaultValue: 'Local development instance' })}
+        </span>
+        {seed.password ? (
+          <button
+            type="button"
+            data-testid="dev-admin-signin"
+            title={seed.email}
+            onClick={signInAsDevAdmin}
+            disabled={pending}
+            aria-busy={pending}
+            className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:pointer-events-none disabled:opacity-60"
+          >
+            {pending ? <AuthSpinner /> : <WrenchIcon />}
+            {t('auth.login.devAdminHint.signIn', { defaultValue: 'Sign in as dev admin' })}
+          </button>
+        ) : (
+          <span className="truncate font-mono text-xs text-muted-foreground">{seed.email}</span>
+        )}
+      </div>
+      {error ? (
+        <p role="alert" className="mt-2 text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Under the card: the locale switch at the left; at the right the privacy and
+ * terms links, each only when the server's auth config serves its URL.
+ *
+ * No version or environment pill: the runtime config the preview badge reads
+ * (`GET /api/v1/runtime/config`) carries the platform stage and no product
+ * version or environment label, so there is nothing to print (objectui#12600).
+ */
+function LoginFooter({ privacyUrl, termsUrl }: { privacyUrl?: string; termsUrl?: string }) {
+  const { t } = useObjectTranslation();
+  const linkClass =
+    'underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:underline';
+  return (
+    <div
+      data-testid="auth-footer"
+      className="flex min-h-8 items-center justify-between gap-3 px-1 text-xs text-muted-foreground"
+    >
+      <div className="flex items-center">
+        <LocaleSwitcher />
+      </div>
+      {privacyUrl || termsUrl ? (
+        <span className="inline-flex items-center gap-2.5">
+          {privacyUrl ? (
+            <a href={privacyUrl} target="_blank" rel="noopener noreferrer" className={linkClass}>
+              {t('auth.login.footer.privacy', { defaultValue: 'Privacy' })}
+            </a>
+          ) : null}
+          {termsUrl ? (
+            <a href={termsUrl} target="_blank" rel="noopener noreferrer" className={linkClass}>
+              {t('auth.login.footer.terms', { defaultValue: 'Terms' })}
+            </a>
+          ) : null}
+        </span>
+      ) : null}
+    </div>
   );
 }
 
@@ -381,7 +498,7 @@ export function ServerUnreachable({ retrying, onRetry }: { retrying: boolean; on
   return (
     <div
       data-testid="auth-server-unreachable"
-      className="mx-auto flex w-full flex-col justify-center space-y-7 sm:w-[400px]"
+      className="mx-auto flex w-full flex-col justify-center space-y-7 sm:max-w-[400px]"
     >
       <div role="alert">
         <AuthFormHeader
@@ -449,10 +566,8 @@ function LoginFormCard({
           navigate(`/verify-email-prompt?${sp.toString()}`);
         }
       }}
-      title={t('auth.login.title', { defaultValue: 'Sign in to your account' })}
-      description={t('auth.login.description', {
-        defaultValue: 'Enter your email and password to continue',
-      })}
+      // The card above draws this page's own header (objectui#12600).
+      hideHeader
       registerUrl={registerUrl}
       forgotPasswordUrl="/forgot-password"
       linkComponent={RouterLink}
@@ -468,6 +583,8 @@ function LoginFormCard({
         }),
         passwordLabel: t('auth.login.passwordLabel', { defaultValue: 'Password' }),
         passwordPlaceholder: t('auth.login.passwordPlaceholder', { defaultValue: 'Enter your password' }),
+        showPasswordText: t('auth.login.showPasswordText', { defaultValue: 'Show password' }),
+        hidePasswordText: t('auth.login.hidePasswordText', { defaultValue: 'Hide password' }),
         forgotPasswordText: t('auth.login.forgotPasswordText', { defaultValue: 'Forgot password?' }),
         submitButton: t('auth.login.submitButton', { defaultValue: 'Sign In' }),
         submittingButton: t('auth.login.submittingButton', { defaultValue: 'Signing in…' }),

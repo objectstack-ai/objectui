@@ -210,8 +210,13 @@ When a board is bound to an object (an `object-kanban`, or a kanban view inside
 `ListView` / `ObjectView`) instead of being given static `columns`, the fields
 rendered on each card resolve in priority order:
 
-1. **View-level `cardFields`** — the fields the view configures (a kanban view's
-   `columns`, forwarded as `cardFields`). An explicit choice always wins.
+1. **View-level `cardFields`** — the fields the view configures. A kanban
+   view's `kanban.columns` is forwarded as `cardFields`, every field of it: an
+   explicit choice always wins. A list view whose kanban block names no
+   `columns` hands the board the view's own next two columns past the card
+   title, the lane field and the owner field, by field name — on a view whose
+   columns are Opportunity Name, Account, Stage, Amount, … the cards carry
+   Account and Amount.
 2. **The object's `highlightFields`** — the object's ADR-0085 semantic role (its
    curated "most important fields"), the same list the Grid, List and Detail
    surfaces already default to. Used when the view configures no card fields, so
@@ -223,6 +228,27 @@ rendered on each card resolve in priority order:
 
 Defaulting to `highlightFields` keeps a card's contents consistent with the
 object's other views without every kanban view having to re-declare its fields.
+
+Each card field is one line: the field's label, then its value. When the board
+sits under a list view and the object gives its records an owner (the spec's
+`ownership` model, `user` by default, and the platform's `owner_id` field), the
+card also shows the owner's avatar.
+
+### Every record of a list view, a page per lane
+
+A kanban view inside `ListView` does not draw the list's page of rows. The board
+queries each lane itself — the view's filter AND the lane value, in the view's
+sort — and draws the first 50 records of every lane, with the lane's count from
+the same query. A lane that holds more shows **Load more** at its foot. One more
+query finds the records whose lane value is none of the lanes, or empty, for the
+trailing **Uncategorized** lane. The toolbar search and filters apply to every
+lane, and the list footer shows the view's record count, with no "Showing first
+N records" line.
+
+The board pages its lanes when they are known before the query (the lane field's
+options) and it draws no swimlanes. Otherwise it is handed the list's rows, as
+before. A standalone `object-kanban` keeps its one query, capped by `limit`
+(below).
 
 ### Fetch batch (object-driven boards)
 

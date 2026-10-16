@@ -118,6 +118,19 @@ describe('a list view hands its board the query, not a page (objectui#12619)', (
     expect(props.schema.groupBy).toBe('stage');
   });
 
+  it('hands the board the EFFECTIVE filter it queries its lanes under, lowered as this view\'s own query sends it', async () => {
+    const ds = makeDataSource();
+    renderList(ds, { ...VIEW, filter: [{ field: 'amount', operator: 'greater_than', value: 3 }] });
+    const props = await boardProps();
+
+    const sent = JSON.stringify(props.schema.filter);
+    expect(sent).toContain('amount');
+    // The lowered node, not the authored rule objects (`selfQueryFilter`).
+    expect(sent).not.toContain('"operator"');
+    const ownQuery = ds.find.mock.calls[0][1];
+    expect(props.schema.filter).toEqual(ownQuery.$filter);
+  });
+
   it('the footer counts the view, and no longer says the board is its first page', async () => {
     const ds = makeDataSource();
     renderList(ds);

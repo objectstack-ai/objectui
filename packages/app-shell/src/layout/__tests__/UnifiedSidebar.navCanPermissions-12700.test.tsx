@@ -20,7 +20,7 @@
  */
 
 import '@testing-library/jest-dom/vitest';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
 import React from 'react';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
@@ -157,7 +157,7 @@ const link = (name: string) => screen.queryByRole('link', { name });
 const warnings = (spy: { mock: { calls: unknown[][] } }) =>
   spy.mock.calls.map((c) => c.map(String).join(' ')).join('\n');
 
-let warn: ReturnType<typeof vi.spyOn>;
+let warn: MockInstance<typeof console.warn>;
 beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();

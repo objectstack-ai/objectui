@@ -15,7 +15,7 @@
  * one `ExpressionProvider` publishes, with and without a permissions payload.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
 import { toEvalPermissions } from '@objectstack/formula';
 import { __resetVisibilityPredicateWarnings } from '@object-ui/react';
 import {
@@ -35,7 +35,7 @@ const withPermissions = (allowRead: boolean) =>
   });
 const unbound = () => createExpressionEvaluator({ user: USER });
 
-let warn: ReturnType<typeof vi.spyOn>;
+let warn: MockInstance<typeof console.warn>;
 beforeEach(() => {
   __resetVisibilityPredicateWarnings();
   warn = vi.spyOn(console, 'warn').mockImplementation(() => {});

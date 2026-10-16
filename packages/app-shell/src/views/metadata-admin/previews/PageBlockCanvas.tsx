@@ -20,6 +20,9 @@ import {
   Badge,
   Button,
   cn,
+  isPageRailRegion,
+  pageBlockSpan,
+  type PageBlockSpan,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -491,6 +494,7 @@ export function PageBlockCanvas({
             baseIdOf={(compIdx) => selectionId(shape, regionIdx, compIdx, region.name)}
             onSelectId={(sid, lbl) => onSelectionChange?.({ kind: 'block', id: sid, label: lbl })}
             onAddNested={addNestedBlock}
+            template={(draft as { template?: unknown }).template}
             locale={locale}
           />
         ))}
@@ -521,6 +525,7 @@ function RegionSection({
   onRenameLabel,
   onSelectId,
   onAddNested,
+  template,
   locale,
 }: {
   region: Region;
@@ -540,9 +545,16 @@ function RegionSection({
   baseIdOf: (compIdx: number) => string;
   onSelectId: (id: string, label: string) => void;
   onAddNested: (baseId: string, pathSuffix: string, type: BlockTypeId) => void;
+  /** The page's `template`, which decides whether this region is a rail. */
+  template?: unknown;
   locale?: string;
 }) {
   const comps = Array.isArray(region.components) ? region.components : [];
+  // The span each block takes in the page's region grid (objectui#12624), read
+  // from the page renderer's own table so the card cannot disagree with the
+  // page. Only a `regions` page lays its blocks on that grid: a `children` page
+  // stacks them, so its cards show no span.
+  const rail = isPageRailRegion(region.name, template);
   const [active, setActive] = React.useState(false);
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -606,6 +618,7 @@ function RegionSection({
                   onClick={() => onSelectBlock(compIdx, blk)}
                   onMoveBlock={onMoveBlock}
                   onRenameLabel={(v) => onRenameLabel(regionIdx, compIdx, v)}
+                  span={shape === 'regions' ? pageBlockSpan(blk.type, rail) : undefined}
                   locale={locale}
                 />
                 <NestedChildren
@@ -615,6 +628,7 @@ function RegionSection({
                   readOnly={readOnly}
                   onSelectId={onSelectId}
                   onAddNested={onAddNested}
+                  rail={rail}
                   locale={locale}
                 />
               </React.Fragment>
@@ -633,6 +647,20 @@ function RegionSection({
 
 /* ─────────────── Block row ─────────────── */
 
+/** A block's derived span in the page block grid, read-only (objectui#12624). */
+function SpanBadge({ span, locale }: { span: PageBlockSpan; locale?: string }) {
+  return (
+    <Badge
+      variant="outline"
+      className="text-[10px] shrink-0 font-mono bg-background/90"
+      data-block-span={span}
+      title={tFormat('engine.pageBlockCanvas.span', locale, { span })}
+    >
+      {span}/12
+    </Badge>
+  );
+}
+
 function BlockRow({
   block,
   regionIdx,
@@ -642,6 +670,7 @@ function BlockRow({
   onClick,
   onMoveBlock,
   onRenameLabel,
+  span,
   locale,
 }: {
   block: Block;
@@ -657,9 +686,12 @@ function BlockRow({
       | { region: number; appendEnd: true },
   ) => void;
   onRenameLabel: (nextLabel: string) => void;
+  /** The block's derived span in the region grid; read-only, nothing edits it. */
+  span?: PageBlockSpan;
   locale?: string;
 }) {
   const typeStr = String(block.type ?? '');
+  const spanBadge = span !== undefined && <SpanBadge span={span} locale={locale} />;
   // DISPLAY meta, not the palette catalogue. `BLOCK_TYPE_META` answers "what may
   // an author drag in"; a node already in the page may be a spelling the palette
   // does not offer yet the app renders fine — the `record:discussion` /
@@ -792,9 +824,12 @@ function BlockRow({
                 <code className="text-[10px] text-muted-foreground/70 font-mono truncate">#{block.id}</code>
               )}
             </div>
-            <Badge variant="outline" className={cn('text-[10px] shrink-0 font-mono', tone.badge)}>
-              {typeStr}
-            </Badge>
+            <div className="flex items-center gap-1 shrink-0">
+              {spanBadge}
+              <Badge variant="outline" className={cn('text-[10px] shrink-0 font-mono', tone.badge)}>
+                {typeStr}
+              </Badge>
+            </div>
           </button>
         ) : (
           <>
@@ -819,6 +854,7 @@ function BlockRow({
               )}
             >
               {draggable && <GripVertical className="h-3.5 w-3.5 text-muted-foreground/60" aria-hidden="true" />}
+              {spanBadge}
               <Badge variant="outline" className={cn('text-[10px] font-mono shadow-sm bg-background/90 backdrop-blur', tone.badge)}>
                 {typeStr}
               </Badge>
@@ -842,6 +878,7 @@ function NestedChildren({
   readOnly,
   onSelectId,
   onAddNested,
+  rail = false,
   locale,
 }: {
   block: Block;
@@ -850,10 +887,15 @@ function NestedChildren({
   readOnly: boolean;
   onSelectId: (id: string, label: string) => void;
   onAddNested: (baseId: string, pathSuffix: string, type: BlockTypeId) => void;
+  /** The block sits in a rail region, where every block spans 12. */
+  rail?: boolean;
   locale?: string;
 }) {
   const groups = childGroups(block, locale);
   if (groups.length === 0) return null;
+  // `page:card` and `page:section` lay their children on the page block grid
+  // at runtime (objectui#12624), so their child cards show the span too.
+  const showsSpan = block?.type === 'page:card' || block?.type === 'page:section';
   // A grid lays its children in N columns at runtime — mirror that here so the
   // design canvas matches the preview (other containers stack in one column).
   const gridCols =
@@ -894,10 +936,11 @@ function NestedChildren({
                     />
                     <div
                       className={cn(
-                        'pointer-events-none absolute right-1.5 top-1.5 z-20 transition-opacity',
+                        'pointer-events-none absolute right-1.5 top-1.5 z-20 flex items-center gap-1 transition-opacity',
                         childSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
                       )}
                     >
+                      {showsSpan && <SpanBadge span={pageBlockSpan(child?.type, rail)} locale={locale} />}
                       <Badge variant="outline" className={cn('text-[10px] font-mono shadow-sm bg-background/90 backdrop-blur', resolveBlockTone(typeStr).badge)}>
                         {typeStr}
                       </Badge>

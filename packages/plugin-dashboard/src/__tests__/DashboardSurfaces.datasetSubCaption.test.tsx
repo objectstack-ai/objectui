@@ -155,7 +155,8 @@ describe('DashboardRenderer — `widget.description` is still drawn, as the tile
         options: { description: 'Won this quarter' },
       })),
     );
-    expect(screen.getByTestId('dataset-metric-title').getAttribute('title')).toBe('卡片头部描述');
+    // objectui#12623 — the measure label follows on its own line.
+    expect(screen.getByTestId('dataset-metric-title').getAttribute('title')).toBe('卡片头部描述\nrevenue');
     expect(captionOf(container)).toBeNull();
     expect(container.textContent).not.toContain('Won this quarter');
     expect(container.textContent).not.toContain('本季度已赢单');

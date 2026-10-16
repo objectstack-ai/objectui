@@ -204,7 +204,9 @@ describe('objectui#12688 — the zh-CN component list draws the served widget ti
 describe('objectui#12688 — a widget changed or added in the draft draws its authored title', () => {
   it('the retitled widget and the added one read as authored, beside a served sibling', async () => {
     state.draft = editedDraft();
-    const inspector = await componentList('zh', 'Count vs Progress');
+    // The served sibling is the row to wait for: it can draw only after the
+    // published layer, read once the draft is the buffer, has been paired.
+    const inspector = await componentList('zh', '任务总数');
 
     expect(rows(inspector)).toEqual(['任务总数', 'Avg Progress', 'Count vs Progress', 'Total Spent']);
     expect(inspector).not.toHaveTextContent('任务数与平均进度');

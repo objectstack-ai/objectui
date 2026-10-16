@@ -376,6 +376,18 @@ export interface CellRendererProps {
   field: FieldMetadata;
   isEditing?: boolean;
   onChange?: (value: any) => void;
+  /**
+   * The row's values, for a renderer whose value only means something next to
+   * a sibling column — the cell-side counterpart of the edit widget's
+   * `FieldWidgetComponentProps.dependentValues` (objectui#12613). The console's
+   * `recipient-picker` face reads the row's `recipient_type` from it, as the
+   * picker reads the form record's.
+   *
+   * A call site that holds the row passes it; a renderer that needs a sibling
+   * and gets none draws the stored value as the text cell does, so a call site
+   * that does not pass it changes nothing.
+   */
+  dependentValues?: Record<string, unknown>;
 }
 
 // `coerceToSafeValue` lives in `./coerceToSafeValue.ts` (objectui#8580) so
@@ -2983,7 +2995,8 @@ function UnresolvedLookupReference({
 /**
  * The shipped PRESENTATION of an unresolved reference, shared by the two
  * renderers that state one (objectui#8434 for `user`, objectui#8695 for
- * `lookup` / `master_detail` / `tree`).
+ * `lookup` / `master_detail` / `tree`), and published for the host faces of the
+ * widget-hinted reference keys (objectui#12613), which draw the same state.
  *
  * Only the drawing is shared. Each caller keeps its own literal i18n key and
  * its own English fallback, because a key reaching this component as a prop
@@ -3003,7 +3016,7 @@ function UnresolvedLookupReference({
  * (a single-line value must never expand its column and must expose its full
  * text) with an icon in front of the text.
  */
-function UnresolvedReferenceMark({
+export function UnresolvedReferenceMark({
   raw,
   hint,
   className,
@@ -3337,15 +3350,34 @@ const FORMAT_TO_RENDERER: Record<string, string> = {
 const TEXTUAL_BASE_TYPES = new Set(['text', 'textarea', 'string', 'longtext', '']);
 
 /**
+ * Field `widget` hints whose READ face is a cell of its own (objectui#12613),
+ * registered under the widget's own key below. The spec's `widget` names the
+ * component a field is drawn with in place of its `type` default; for these two
+ * the stored text is a machine reference — an object name, a recipient id —
+ * and a host face registered under the key names what it references, as the
+ * edit widget's readonly branch does, instead of printing the api name.
+ *
+ * Only a widget listed here promotes, and only over a textual base type, the
+ * same bound the `format` hints keep: a widget with no read face of its own
+ * (`filter-condition`, `position-ref`, …) still draws as its `type`.
+ */
+const WIDGET_CELL_RENDERER_TYPES: ReadonlySet<string> = new Set(['object-ref', 'recipient-picker']);
+
+/**
  * Resolve the canonical cell-renderer key for a field. Accepts either a
  * raw type string (back-compat) or a field-metadata object so that
  * format hints (`format: 'phone'` etc.) can promote a plain `text`
- * field to its richer renderer counterpart.
+ * field to its richer renderer counterpart, and a declared `widget` with
+ * a read cell of its own (`WIDGET_CELL_RENDERER_TYPES`) to that cell.
  */
-export function resolveCellRendererType(fieldOrType: string | { type?: string; format?: string } | null | undefined): string {
+export function resolveCellRendererType(fieldOrType: string | { type?: string; format?: string; widget?: string } | null | undefined): string {
   if (!fieldOrType) return 'text';
   if (typeof fieldOrType === 'string') return fieldOrType;
   const baseType = (fieldOrType.type || '').toLowerCase();
+  const widget = fieldOrType.widget;
+  if (typeof widget === 'string' && WIDGET_CELL_RENDERER_TYPES.has(widget) && TEXTUAL_BASE_TYPES.has(baseType)) {
+    return widget;
+  }
   const formatRaw = fieldOrType.format;
   const format = typeof formatRaw === 'string' ? formatRaw.toLowerCase() : '';
   if (format && FORMAT_TO_RENDERER[format] && TEXTUAL_BASE_TYPES.has(baseType)) {
@@ -4055,6 +4087,17 @@ registerFieldRenderer('user', UserCellRenderer);
 // The pointer pair's default face (objectui#12045): the record id as text. A
 // host that can read records registers its own face under the same key.
 registerFieldRenderer(RECORD_POINTER_CARD_TYPE, RecordPointerTextCellRenderer);
+// The two widget-hinted reference keys `resolveCellRendererType` promotes to
+// (objectui#12613), with the stored text as their DEFAULT face — the
+// `RECORD_POINTER_CARD_TYPE` arrangement above: this package owns the rule and
+// the keys, and a host that can read the referenced lists registers the faces
+// that name them (`@object-ui/app-shell`'s widget reference cells). Not drawn
+// here because every module of this package rides the console's eager
+// `ui-components` chunk, whatever imports it lazily, and that chunk's ceiling
+// in `scripts/check-eager-closure-budget.mjs` has no room for a label reader;
+// the host loads its faces lazily, off the eager closure.
+registerFieldRenderer('object-ref', TextCellRenderer);
+registerFieldRenderer('recipient-picker', TextCellRenderer);
 // `owner` was registered here to the same UserCellRenderer until objectui#4814
 // retired the spelling — see the TOMBSTONE below. `getCellRenderer('owner')`
 // now reports the prescription and falls to the text cell.
@@ -5018,6 +5061,17 @@ export * from './widgets/CapabilityMultiSelectField.js';
 export * from './widgets/ObjectRefField.js';
 export * from './widgets/FilterConditionField.js';
 export * from './widgets/RecipientPickerField.js';
+// The kind table and the two spellings the reference widgets share with a host
+// face (objectui#12613), published so the face names a stored value as the
+// widget does: `@object-ui/app-shell`'s widget reference cells are the reader.
+// Only what that reader imports; the widgets' own reads stay module-private.
+export { objectRefOptionLabel } from './widgets/objectRefLabel.js';
+export {
+  RECIPIENT_RECORD_KINDS,
+  RECIPIENT_REGISTRY_KINDS,
+  FIELD_RECIPIENT_TYPE,
+  recipientCandidateLabel,
+} from './widgets/recipientKinds.js';
 export * from './widgets/RecordPickerDialog.js';
 // Shared picker-column derivation (ADR-0085 highlightFields → displayFields →
 // schema walk) — consumed by LookupField AND by RelatedList's Add-picker so a

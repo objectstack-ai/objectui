@@ -6324,7 +6324,10 @@ export interface ObjectDataTableSchema extends BaseSchema {
  * by `ObjectGanttBlockSchema`, and `ObjectGanttSchema` here is the node as
  * `ObjectGantt` reads it. It carries seven since objectui#11276's `object-grid`
  * batch: the authored `object-grid` node is armed by `ObjectGridBlockSchema`,
- * and `ObjectGridSchema` here is the node as `ObjectGrid` reads it.
+ * and `ObjectGridSchema` here is the node as `ObjectGrid` reads it. It carries
+ * six since objectui#12670: the authored page `list-view` node is armed by
+ * `ListViewBlockSchema`, and `ListViewSchema` here is the `ListView`
+ * component's props.
  */
 export type ObjectQLComponentSchema =
   | ObjectGridSchema

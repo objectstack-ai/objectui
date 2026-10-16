@@ -19,7 +19,7 @@ import {
   Button,
   Skeleton,
 } from '@object-ui/components';
-import { Package, Search, RefreshCcw, Store, AlertCircle, CheckCircle2, Settings, Loader2 } from 'lucide-react';
+import { Package, Search, Store, AlertCircle, CheckCircle2, Settings, Loader2 } from 'lucide-react';
 import { useWorkspaceAdminStatus } from '@object-ui/auth';
 import { useDisplayLocale, useObjectLabel, useObjectTranslation } from '@object-ui/i18n';
 import { useAdapter } from '@object-ui/react';
@@ -40,6 +40,7 @@ import {
   type OrgPackageSummary,
 } from './marketplaceApi.js';
 import { getCloudBase, getRuntimeConfig, isMarketplaceEnabled } from '../../runtime-config.js';
+import { PageHeader } from '../../layout/PageHeader.js';
 import { emitMetadataRefresh } from '../../assistant/assistantBus.js';
 import { appRouteSegment, filterActiveApps, resolveKeyedI18nLabel } from '../../utils/index.js';
 import { waitForServedApp, type ServedApp } from './waitForServedApp.js';
@@ -471,18 +472,16 @@ export function MarketplacePage() {
   );
 
   return (
-    <div className="flex flex-col gap-6 p-4 sm:p-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <Store className="h-6 w-6 text-primary" aria-hidden="true" />
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{t('marketplace.title')}</h1>
-          </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            {t('marketplace.subtitle')}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+    <div>
+      {/* The console's one page header (objectui#12606): only this row is
+          this card's; the cards below are not. Refresh is the header's icon
+          button. */}
+      <PageHeader
+        title={t('marketplace.title')}
+        subtitle={t('marketplace.subtitle')}
+        icon={<Store className="h-4 w-4" aria-hidden="true" />}
+        refresh={{ onRefresh: () => void load(), label: t('marketplace.refresh'), busy: loading }}
+        actions={
           <Button
             variant="outline"
             size="sm"
@@ -493,12 +492,9 @@ export function MarketplacePage() {
               ? t('marketplace.installedCount', { count: installed.length })
               : t('marketplace.installed')}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
-            <RefreshCcw className="h-4 w-4 mr-1.5" aria-hidden="true" />
-            {t('marketplace.refresh')}
-          </Button>
-        </div>
-      </div>
+        }
+      />
+    <div className="flex flex-col gap-6 p-4 sm:p-6">
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
@@ -735,6 +731,7 @@ export function MarketplacePage() {
           })}
         </div>
       )}
+    </div>
     </div>
   );
 }

@@ -209,8 +209,47 @@ function lineFor(reason: DroppedFieldsNotice['reason']): StrippedLine {
  *
  * Says nothing when there is nothing to say (no events, or every event carried
  * an empty field list).
+ *
+ * A write answer's `warnings` (objectui#12107) — advisory validation-rule hits
+ * on a write that also SUCCEEDED — get their OWN toast on the same sink, after
+ * the stripped-fields one: the stripped toast's title says fields did not take
+ * effect, which is not what an advisory rule hit means, so folding the two
+ * under it would misdescribe one of them. Each message is shown as the server
+ * wrote it (it is the rule author's text); the only copy this module adds is
+ * the title. An event without `warnings` produces exactly the toast it always
+ * did.
  */
 export async function emitWriteWarning(
+  ev: WriteWarningEvent,
+  t: TranslateFn,
+  adapter: Pick<ObjectStackAdapter, 'getObjectSchema'> | null,
+  fieldLabel: FieldLabelFn,
+  sink: WriteWarningSink,
+): Promise<void> {
+  await emitStrippedFields(ev, t, adapter, fieldLabel, sink);
+  emitAnswerWarnings(ev, t, sink);
+}
+
+/**
+ * The write answer's advisory `warnings`, one line per distinct message, under
+ * one title. Nothing when the event carries none.
+ */
+function emitAnswerWarnings(ev: WriteWarningEvent, t: TranslateFn, sink: WriteWarningSink): void {
+  const messages: string[] = [];
+  for (const w of ev.warnings ?? []) {
+    if (w.message && !messages.includes(w.message)) messages.push(w.message);
+  }
+  if (messages.length === 0) return;
+  sink.warning(
+    t('detail.writeWarningsTitle', {
+      defaultValue: 'Saved — with warnings',
+    }),
+    { description: messages.join('\n') },
+  );
+}
+
+/** The stripped-fields toast — the channel's original and unchanged message. */
+async function emitStrippedFields(
   ev: WriteWarningEvent,
   t: TranslateFn,
   adapter: Pick<ObjectStackAdapter, 'getObjectSchema'> | null,

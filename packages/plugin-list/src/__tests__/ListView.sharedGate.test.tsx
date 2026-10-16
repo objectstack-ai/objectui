@@ -278,18 +278,20 @@ describe('list-view — the mapping table, key by key, through the shared gate',
     expect((await boundSchema()).pagination).toEqual({ pageSize: 3 });
   });
 
-  it('takes the view’s KIND only when the component declared no viewType', async () => {
+  it('takes the view’s KIND only when the component declared none', async () => {
     // `list-view` is the only container that renders several kinds off
-    // `schema.viewType`, so naming a saved kanban view and rendering a grid
-    // would be a silently wrong answer.
+    // `schema.viewType` (the kind it hands `ListView`), so naming a saved
+    // kanban view and rendering a grid would be a silently wrong answer.
     renderBlock({ type: 'list-view', dataSource: { object: 'account', view: 'hot' } });
     expect((await boundSchema()).viewType).toBe('kanban');
   });
 
-  it('leaves an authored viewType alone', async () => {
+  it('leaves a kind authored as `properties.type` alone', async () => {
+    // A page node writes its kind in `properties.type` (objectui#12099); the
+    // block hands it to `ListView` as `viewType`, ahead of the view's kind.
     renderBlock({
       type: 'list-view',
-      viewType: 'gallery',
+      properties: { type: 'gallery' },
       dataSource: { object: 'account', view: 'hot' },
     });
     expect((await boundSchema()).viewType).toBe('gallery');
@@ -298,7 +300,7 @@ describe('list-view — the mapping table, key by key, through the shared gate',
   it('passes a schema with NO binding through BY REFERENCE', async () => {
     // Identity, not equality: a new schema object on every render would remount
     // `ListView` and refetch. The unbound path must stay exactly as it was.
-    const authored = { type: 'list-view', objectName: 'account', columns: ['name'] };
+    const authored = { type: 'list-view', data: { provider: 'object', object: 'account' }, columns: ['name'] };
     renderBlock(authored);
     await waitFor(() => expect(h.captured).toBeTruthy());
     expect(h.captured.schema).toBe(authored);

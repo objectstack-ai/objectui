@@ -155,7 +155,6 @@ describe('objectui#9108 - the alias still gates NOTHING (the refused arm)', () =
     ['visibleWhen'],
     ['visible'],
     ['visibleOn'],
-    ['visibility'],
   ] as const)('props.%s does not gate, properties.%s does', key => {
     expect(pair('props', key)).toEqual({ truthy: true, falsy: true });
     expect(pair('properties', key)).toEqual({ truthy: true, falsy: false });
@@ -202,7 +201,6 @@ describe('objectui#9108 - and it is refused BY NAME, loudly', () => {
     ['visibleWhen'],
     ['visible'],
     ['visibleOn'],
-    ['visibility'],
     ['hidden'],
     ['hiddenOn'],
     ['disabled'],

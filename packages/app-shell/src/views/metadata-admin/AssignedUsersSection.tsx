@@ -40,14 +40,27 @@
  * (`ai_seat`) is just one of them. The generic add-by-picker engine (spec
  * RecordRelatedListProps.add) powers the capability; this is the polished
  * surface for the high-value case.
+ *
+ * ## Who may change the holders (objectui#12082)
+ *
+ * ADD and REMOVE are offered only where the caller holds the grant the server
+ * asks of them, on the grant object itself — see {@link GRANT_OBJECT} and the
+ * gate in the component. Listing the holders asks only to read, so a caller
+ * who may read but not write the grants sees the list with no Add and no
+ * Remove, and an empty list that does not tell them to click Add.
  */
 
 import * as React from 'react';
 import { Button } from '@object-ui/components';
+import { resolveAffordance, type SchemaLike } from '@object-ui/core';
 import { RecordPickerDialog } from '@object-ui/fields';
+import { usePermissions } from '@object-ui/permissions';
 import { useAdapter, useMetadata } from '@object-ui/react';
 import { Plus, X, Users, Loader2, AlertCircle } from 'lucide-react';
 import { useMetadataLocale } from './i18n.js';
+
+/** The object a permission set's direct grants are rows of: ADD creates one, REMOVE deletes one. */
+const GRANT_OBJECT = 'sys_user_permission_set';
 
 export interface AssignedUsersSectionProps {
   /** The permission set's machine name (e.g. `ai_seat`, `admin_full_access`). */
@@ -64,7 +77,14 @@ interface AssignedRow {
   via: Array<{ kind: 'direct' } | { kind: 'position'; position: string }>;
 }
 
-/** Minimal locale-aware copy (zh vs everything-else) — keeps the surface in the user's language. */
+/**
+ * Minimal locale-aware copy (zh vs everything-else) — keeps the surface in the user's language.
+ *
+ * The empty state is two sentences: `empty` says nobody holds the set, and
+ * `emptyAddHint` tells the reader to click Add, so it is said only where the
+ * Add button is offered (`canAdd`, in the component). `sentenceGap` joins
+ * them: a space in English, none after a CJK full stop.
+ */
 function useCopy() {
   const zh = useMetadataLocale() === 'zh-CN';
   return React.useMemo(
@@ -74,7 +94,9 @@ function useCopy() {
             title: '已分配用户',
             add: '添加用户',
             remove: '移除',
-            empty: '还没有分配任何用户。点击「添加用户」来分配。',
+            empty: '还没有分配任何用户。',
+            emptyAddHint: '点击「添加用户」来分配。',
+            sentenceGap: '',
             loading: '加载中…',
             pickTitle: '选择要分配的用户',
             seatFull: (n: number) =>
@@ -90,7 +112,9 @@ function useCopy() {
             title: 'Assigned Users',
             add: 'Add user',
             remove: 'Remove',
-            empty: 'No users assigned yet. Click "Add user" to assign.',
+            empty: 'No users assigned yet.',
+            emptyAddHint: 'Click "Add user" to assign.',
+            sentenceGap: ' ',
             loading: 'Loading…',
             pickTitle: 'Select users to assign',
             seatFull: (n: number) =>
@@ -163,12 +187,39 @@ export function AssignedUsersSection({ permissionSetName }: AssignedUsersSection
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
+  /**
+   * May the caller add or remove a holder? Each is a write of a
+   * {@link GRANT_OBJECT} row, so each reads its row of the affordance-to-grant
+   * map (`resolveAffordance` in `@object-ui/core`), asked of that object with
+   * its schema as the registry serves it: ADD creates a junction row under the
+   * set, the `relatedNew` row a related list's Add existing reads; REMOVE
+   * deletes one, the `relatedRowDelete` row a related list row's Delete reads.
+   *
+   * Setup's own gate is not this one. The Setup app asks `setup.access`, and
+   * a caller can hold it while the server refuses their write of a grant row
+   * at its object CRUD step — objectstack's shipped organization administrator
+   * set is such a caller (that repo's pin `organization_admin is read-only on
+   * global RBAC tables to prevent privilege escalation`). So a closed row
+   * withholds its affordance: the Add button and the picker it opens, each
+   * row's Remove. With no permission provider every grant reads open, as
+   * before.
+   */
+  const perms = usePermissions();
+  const grantSource = {
+    objectSchema: ((metadataStore.objects ?? []).find((o) => (o as { name?: unknown } | null)?.name === GRANT_OBJECT) ??
+      null) as SchemaLike | null,
+    objectName: GRANT_OBJECT,
+    perms,
+  };
+  const canAdd = resolveAffordance('relatedNew', grantSource).allowed;
+  const canRemove = resolveAffordance('relatedRowDelete', grantSource).allowed;
+
   const load = React.useCallback(async () => {
     setLoading(true);
     try {
       // Direct grants, by the set's NAME.
       const grants = asArray(
-        await adapter.find('sys_user_permission_set', { $filter: { permission_set: permissionSetName }, $top: 500 }),
+        await adapter.find(GRANT_OBJECT, { $filter: { permission_set: permissionSetName }, $top: 500 }),
       );
 
       // Effective holders = direct grants ∪ holders of every position that
@@ -251,7 +302,7 @@ export function AssignedUsersSection({ permissionSetName }: AssignedUsersSection
           if (!uid || assignedIds.has(uid)) continue;
           // By name alone: no catalog row is read and no legacy
           // `permission_set_id` is written (module doc).
-          await adapter.create('sys_user_permission_set', {
+          await adapter.create(GRANT_OBJECT, {
             user_id: uid,
             permission_set: permissionSetName,
           });
@@ -278,7 +329,7 @@ export function AssignedUsersSection({ permissionSetName }: AssignedUsersSection
     async (grantId: string) => {
       setError(null);
       try {
-        await adapter.delete('sys_user_permission_set', grantId);
+        await adapter.delete(GRANT_OBJECT, grantId);
         await load();
       } catch {
         /* keep the row; a failed delete is non-destructive */
@@ -297,19 +348,21 @@ export function AssignedUsersSection({ permissionSetName }: AssignedUsersSection
             <span className="text-xs text-muted-foreground font-normal">{c.countOf(rows.length)}</span>
           )}
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={busy}
-          onClick={() => {
-            setError(null);
-            setPickerOpen(true);
-          }}
-          className="gap-1 h-8 text-xs"
-        >
-          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-          {c.add}
-        </Button>
+        {canAdd && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => {
+              setError(null);
+              setPickerOpen(true);
+            }}
+            className="gap-1 h-8 text-xs"
+          >
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+            {c.add}
+          </Button>
+        )}
       </div>
 
       {error && (
@@ -335,7 +388,12 @@ export function AssignedUsersSection({ permissionSetName }: AssignedUsersSection
           {c.loading}
         </div>
       ) : rows.length === 0 ? (
-        !everyoneBound && <div className="text-xs text-muted-foreground italic py-3">{c.empty}</div>
+        !everyoneBound && (
+          <div className="text-xs text-muted-foreground italic py-3">
+            {/* The click-Add sentence names a button only `canAdd` renders. */}
+            {canAdd ? c.empty + c.sentenceGap + c.emptyAddHint : c.empty}
+          </div>
+        )
       ) : (
         <ul className="divide-y rounded-md border">
           {rows.map((r) => (
@@ -360,16 +418,20 @@ export function AssignedUsersSection({ permissionSetName }: AssignedUsersSection
                 )}
               </div>
               {r.grantId ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => void removeUser(r.grantId!)}
-                  aria-label={c.remove}
-                  title={c.remove}
-                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive shrink-0"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                // A direct grant: removable only where the delete grant on
+                // the grant object is held (`canRemove`, above).
+                canRemove && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void removeUser(r.grantId!)}
+                    aria-label={c.remove}
+                    title={c.remove}
+                    className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )
               ) : (
                 <span className="shrink-0 text-[10px] text-muted-foreground/70" title={c.positionHeldHint}>
                   —
@@ -380,16 +442,18 @@ export function AssignedUsersSection({ permissionSetName }: AssignedUsersSection
         </ul>
       )}
 
-      <RecordPickerDialog
-        open={pickerOpen}
-        onOpenChange={(o: boolean) => setPickerOpen(o)}
-        multiple
-        dataSource={adapter}
-        objectName="sys_user"
-        title={c.pickTitle}
-        onSelect={() => {}}
-        onSelectRecords={(records: any[]) => void addUsers(records)}
-      />
+      {canAdd && (
+        <RecordPickerDialog
+          open={pickerOpen}
+          onOpenChange={(o: boolean) => setPickerOpen(o)}
+          multiple
+          dataSource={adapter}
+          objectName="sys_user"
+          title={c.pickTitle}
+          onSelect={() => {}}
+          onSelectRecords={(records: any[]) => void addUsers(records)}
+        />
+      )}
     </div>
   );
 }

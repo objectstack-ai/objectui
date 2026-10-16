@@ -20,9 +20,20 @@
  * Each refused case asserts it is the ONLY issue, so the refusal cannot ride on
  * some other failure of the same document; each control asserts a full parse,
  * on both doors (the schema and the published `safeValidateSchema`).
+ *
+ * Since objectui#12670 the two doors take two spellings of the same list view:
+ * `ListViewSchema` is the `ListView` component's props (`viewType` the kind),
+ * and the published door judges the authored PAGE node, its props in the
+ * `properties` bag with the kind as the bag's `type` (`asPageListView`). The
+ * bag also carries `@objectstack/spec`'s own `checkListViewChartBinding`, which
+ * the component's props cannot (their kind is `viewType`), so the two controls
+ * that author a `chart` view with no dataset binding are refused there by the
+ * spec's check, never by this refusal.
  */
 import { describe, it, expect } from 'vitest';
+import { ListViewSchema as SpecListViewSchema } from '@objectstack/spec/ui';
 import { ListViewSchema, safeValidateSchema } from '../zod/index.zod';
+import { asPageListView, bagPath } from './list-view-page-node';
 
 const REMEDY = "a dataset chart's scope is written in the dataset.";
 
@@ -43,10 +54,16 @@ const node = (extra: Record<string, unknown>) => ({
   ...extra,
 });
 
-const bothDoors = (doc: unknown) => [ListViewSchema.safeParse(doc), safeValidateSchema(doc)];
+type Parsed = { success: boolean; error?: { issues: Array<{ code: string; path: PropertyKey[]; message: string }> } };
 
-const issuesOf = (r: { success: boolean; error?: { issues: Array<{ code: string; path: PropertyKey[]; message: string }> } }) =>
-  (r.error?.issues ?? []).map((i) => ({ code: i.code, path: i.path.join('.'), message: i.message }));
+/** The component's props, and the page node the published door judges, each issue path read relative to the bag. */
+const bothDoors = (doc: Record<string, unknown>): Parsed[] => [
+  ListViewSchema.safeParse(doc),
+  safeValidateSchema(asPageListView(doc)),
+];
+
+const issuesOf = (r: Parsed) =>
+  (r.error?.issues ?? []).map((i) => ({ code: i.code, path: bagPath(i.path), message: i.message }));
 
 describe('objectui#10327 — a view filter on a dataset-bound chart view is refused', () => {
   it.each([
@@ -75,19 +92,40 @@ describe('objectui#10327 — a view filter on a dataset-bound chart view is refu
 });
 
 describe('objectui#10327 — controls: every neighbour of the refused shape parses', () => {
+  // `unbound`: a `chart` view whose effective block binds no dataset. The page
+  // door refuses it with the spec's own `checkListViewChartBinding` (its issue at
+  // `chart`, or at the bag block's missing binding keys), the same document the
+  // spec's list view refuses — ⛔ never at the view filter, which is this card's.
   it.each([
-    ['a chart whose legacy `options.chart` bag binds no dataset, with a view filter', { viewType: 'chart', options: { chart: OBJECT_BAG }, filter: VIEW_FILTER }],
-    ['a chart view declaring no block, with a view filter', { viewType: 'chart', filter: VIEW_FILTER }],
-    ['a dataset-bound chart with no view filter', { viewType: 'chart', chart: DATASET_BLOCK }],
-    ['a dataset-bound chart with an EMPTY view filter', { viewType: 'chart', chart: DATASET_BLOCK, filter: [] }],
+    ['a chart whose legacy `options.chart` bag binds no dataset, with a view filter', { viewType: 'chart', options: { chart: OBJECT_BAG }, filter: VIEW_FILTER }, 'unbound'],
+    ['a chart view declaring no block, with a view filter', { viewType: 'chart', filter: VIEW_FILTER }, 'unbound'],
+    ['a dataset-bound chart with no view filter', { viewType: 'chart', chart: DATASET_BLOCK }, 'parses'],
+    ['a dataset-bound chart with an EMPTY view filter', { viewType: 'chart', chart: DATASET_BLOCK, filter: [] }, 'parses'],
     [
       'a grid that offers a switch to a dataset chart, with a view filter (the filter scopes the grid)',
       { viewType: 'grid', chart: DATASET_BLOCK, appearance: { allowedVisualizations: ['grid', 'chart'] }, filter: VIEW_FILTER },
+      'parses',
     ],
-  ])('%s', (_label, extra) => {
-    for (const r of bothDoors(node(extra))) {
-      expect(issuesOf(r)).toEqual([]);
-      expect(r.success).toBe(true);
+  ] as const)('%s', (_label, extra, pageDoor) => {
+    const [component, page] = bothDoors(node(extra));
+    expect(issuesOf(component)).toEqual([]);
+    expect(component.success).toBe(true);
+    if (pageDoor === 'parses') {
+      expect(issuesOf(page)).toEqual([]);
+      expect(page.success).toBe(true);
+      return;
     }
+    const issues = issuesOf(page);
+    expect(issues.length).toBeGreaterThan(0);
+    expect(issues.every(({ code, path }) => code === 'custom' && (path === 'chart' || path.startsWith('options.chart.')))).toBe(true);
+    expect(issues.some(({ path }) => path === 'filter' || path === 'filters')).toBe(false);
+    // Lit control: the spec's own list view refuses the same document (the spec requires
+    // `columns`). Read only where the document is spec-shaped: the spec's authoring list
+    // view declares no legacy `options` bag at all.
+    const { viewType, ...rest } = extra as Record<string, unknown>;
+    if ('options' in rest) return;
+    const spec = SpecListViewSchema.safeParse({ ...rest, type: viewType, columns: ['name'] });
+    expect(spec.success).toBe(false);
+    expect(spec.error!.issues.map((i) => i.path.join('.')).sort()).toEqual(issues.map(({ path }) => path).sort());
   });
 });

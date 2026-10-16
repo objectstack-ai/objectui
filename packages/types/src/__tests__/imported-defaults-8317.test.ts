@@ -136,6 +136,7 @@ import {
   ResponsiveStylesSchema as SpecResponsiveStylesSchema,
   objectNavTargetExclusivity,
   checkListViewCalendarVisualization,
+  checkListViewChartBinding,
   checkPageSourceCompleteness,
   checkDashboardWidgetStageOrder,
   checkDashboardWidgetMetricMeasureArity,
@@ -710,6 +711,10 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
       // `PageKindNodeSchema`, and `isDefault` placement, on `PageKindNodeSchema` only.
       ['checkPageRegionPlacement', checkPageRegionPlacement],
       ['checkPageDefaultPlacement', checkPageDefaultPlacement],
+      // objectui#12670: the list view chart-binding check `@objectstack/spec` 18 carries on
+      // `ListViewSchema`, attached on the authored page `list-view` node's bag
+      // (`ListViewPropsBag`), whose `type` is the spec's view kind.
+      ['checkListViewChartBinding', checkListViewChartBinding],
     ]);
 
     /**

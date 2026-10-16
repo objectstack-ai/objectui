@@ -56,7 +56,7 @@ const renderBlock = (schema: Record<string, unknown>, ds: ReturnType<typeof make
     </SchemaRendererProvider>,
   );
 
-const LIST = { type: 'list-view', objectName: 'account', columns: ['name'], viewType: 'grid' };
+const LIST = { type: 'list-view', data: { provider: 'object', object: 'account' }, columns: ['name'] };
 
 describe('list-view re-reads on the data-invalidation bus (objectui#10572)', () => {
   it('an unscoped change (objectName "*") re-runs its query once', async () => {

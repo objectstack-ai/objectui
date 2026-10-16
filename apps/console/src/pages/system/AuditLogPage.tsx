@@ -61,7 +61,7 @@ import {
 } from '@object-ui/components';
 import { LookupField } from '@object-ui/fields';
 import { ConsolePageHeader, useAdapter } from '@object-ui/app-shell';
-import { RefreshCw, Search, X, AlertCircle, ScrollText } from 'lucide-react';
+import { Search, X, AlertCircle, ScrollText } from 'lucide-react';
 import { ACTION_OPTIONS, ACTION_VARIANT } from './auditLogActions';
 
 const SERVER_URL = (import.meta.env.VITE_SERVER_URL || '').replace(/\/$/, '');
@@ -285,12 +285,8 @@ export function AuditLogPage() {
       title="Audit Log"
       subtitle="Read-only system activity and record changes. Newest first."
       icon={<ScrollText className="h-4 w-4" />}
-      actions={
-        <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
-      }
+      // The header's own Refresh icon button (objectui#12606).
+      refresh={{ onRefresh: load, label: 'Refresh', busy: loading }}
     />
     <div className="p-6 space-y-4 max-w-screen-2xl mx-auto">
       {/* Filter bar */}

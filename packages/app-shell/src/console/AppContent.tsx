@@ -144,6 +144,24 @@ function DraftReviewNavigator({ appName }: { appName: string | undefined }) {
  */
 export { buildExpressionUser };
 
+/**
+ * The console URL that renders a record on a NAMED record page
+ * (objectui#12715): `/apps/APP/OBJECT/record/ID/page/PAGE`.
+ *
+ * The record route `:objectName/record/:recordId` shows a record on the page
+ * its object's page assignment picks (the object's default record page). This
+ * sibling names the page in the path instead, so a document that is not the
+ * default (a print page, a delivery note) renders for the same record at a URL
+ * a browser can load. It is a path segment, the way the record route already
+ * spells its `/edit` sub-route, never a query: an optional query would let a
+ * stray parameter change which document the default route draws, and `page` is
+ * a page-scoped list parameter elsewhere. `RecordDetailView` renders the named
+ * page only when it is a record page of OBJECT, and shows a not-found state for
+ * any other name; it never falls back to the default page. The server's print
+ * service binds to this spelling, so it is exported for the route test to pin.
+ */
+export const RECORD_NAMED_PAGE_ROUTE = ':objectName/record/:recordId/page/:pageName';
+
 export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = {}) {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const { user, getAuthConfig, activeOrganization } = useAuth();
@@ -1137,6 +1155,9 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
                 } />
                 <Route path=":objectName/record/:recordId/edit" element={
                   <RecordFormPage mode="edit" />
+                } />
+                <Route path={RECORD_NAMED_PAGE_ROUTE} element={
+                  <RecordDetailView dataSource={dataSource} objects={allObjects} onEdit={handleEdit} />
                 } />
                 <Route path="dashboard/:dashboardName" element={<DashboardView dataSource={dataSource} />} />
                 <Route path="report/:reportName" element={<ReportView dataSource={dataSource} />} />

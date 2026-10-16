@@ -13,13 +13,15 @@
  * and the real `resolveHref` of `@object-ui/layout` for the entry's address;
  * the translator returns each call site's inline default, and the two
  * principal answers are stand-ins. The entry's app is owned by a package, so
- * Design has a Studio surface to open (objectui#12520).
+ * Design has a Studio surface to open (objectui#12520), and the package list
+ * serves that package writable, so the gate's package half passes
+ * (objectui#12615).
  */
 
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import React from 'react';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import type { NavigationItem } from '@object-ui/types';
 
@@ -108,7 +110,11 @@ function renderRow({ item = LEADS, isFavorite = false, onToggleFavorite = vi.fn(
 
 const trigger = () => screen.getByTestId('sidebar-item-menu-trigger');
 
+/** objectui#12615 — one macrotask, so the package list's verdict has settled. */
+const settle = () => act(() => new Promise<void>((resolve) => setTimeout(resolve, 0)));
+
 async function openMenu(): Promise<string[]> {
+  await settle();
   fireEvent.keyDown(trigger(), { key: 'Enter' });
   const items = await screen.findAllByRole('menuitem');
   return items.map((el) => el.textContent ?? '');
@@ -117,12 +123,26 @@ async function openMenu(): Promise<string[]> {
 beforeEach(() => {
   viewer.isAdmin = true;
   viewer.canAuthorMetadata = true;
+  // objectui#12615 — the app's package is served writable, so the Design
+  // gate's package half passes and this file's own questions are the ones asked.
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: unknown) => ({
+      ok: true,
+      status: 200,
+      json: async () =>
+        String(url).endsWith('/api/v1/packages')
+          ? { data: { packages: [{ manifest: { id: 'com.acme.crm', name: 'CRM' }, writable: true }] } }
+          : { data: [] },
+    })),
+  );
   toastSpy.success.mockReset();
   toastSpy.error.mockReset();
 });
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
@@ -216,6 +236,7 @@ describe('SidebarItemMenu: entries an entry type does not offer (objectui#12427)
 describe('SidebarItemMenu: right-click (objectui#12427)', () => {
   it('a right-click on the row opens the same menu and keeps the browser menu shut', async () => {
     renderRow();
+    await settle();
     expect(screen.queryAllByRole('menuitem')).toHaveLength(0);
     const notPrevented = fireEvent.contextMenu(screen.getByTestId('row-link'));
     expect(notPrevented).toBe(false);

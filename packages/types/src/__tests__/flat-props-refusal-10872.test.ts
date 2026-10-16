@@ -186,8 +186,31 @@ const VALID_BAG: Readonly<Record<string, Record<string, unknown>>> = {
   // `description` are the keys a flat node shares with the node base.
   'object-pivot': { objectName: 'deal', title: 'Pipeline', rowField: 'stage', columnField: 'owner', valueField: 'amount' },
   'embeddable-form': { formId: 'contact-us', objectName: 'lead', title: 'Contact us', description: 'We reply within a day' },
+  // objectui#12670: the authored page `list-view` arm spreads this helper over its bag, the
+  // `ListViewSchema` mirror's own members; `data`, `name` and `description` are the keys a flat
+  // node shares with the node base. The bag's `type` (the list kind) is left out here: written
+  // flat it is the node's own `type`, the registry key, so `flattened` below could not carry it.
+  'list-view': {
+    data: { provider: 'object', object: 'deal' },
+    name: 'open_deals',
+    label: 'Open deals',
+    description: 'Deals not yet closed',
+    columns: ['name', 'amount'],
+    kanban: { groupByField: 'stage' },
+  },
 };
 const COVERED = Object.keys(VALID_BAG);
+
+/**
+ * Bag members an arm refuses flat with its OWN refusal, declared after the spread — the
+ * helper's "whatever the arm declares AFTER the spread" — rather than the generated one:
+ * the page `list-view`'s five runtime slots (objectui#12670). `ListView` reads each of them,
+ * so a flat one is refused as the slot it is, never pointed at a bag member.
+ */
+const OWN_FLAT_REFUSALS: Readonly<Record<string, readonly string[]>> = {
+  'list-view': ['onAddRecord', 'onBulkAction', 'onDensityChange', 'onNavigate', 'onPageSizeChange'],
+};
+const ownFlatRefusal = (type: string, key: string): boolean => (OWN_FLAT_REFUSALS[type] ?? []).includes(key);
 
 /** The arms whose bag is REQUIRED — its registration-required members live in it (objectui#11440). */
 const REQUIRES_BAG: ReadonlySet<string> = new Set(['object-pivot', 'embeddable-form']);
@@ -219,7 +242,9 @@ describe('objectui#10872 batch 10 — the population is read off the unions', ()
 
 describe('objectui#10872 batch 10 — each row member written flat is refused by name, on both faces', () => {
   const CASES = COVERED.flatMap((type) =>
-    owedRefusals(Object.keys(rowOf(ARMS.get(type)!).shape)).map((key) => [`${type}.${key}`, type, key] as const),
+    owedRefusals(Object.keys(rowOf(ARMS.get(type)!).shape))
+      .filter((key) => !ownFlatRefusal(type, key))
+      .map((key) => [`${type}.${key}`, type, key] as const),
   );
 
   it('the population of row members is not empty (non-vacuity)', () => {
@@ -323,6 +348,22 @@ describe('objectui#10872 batch 10 — what the refusal leaves alone', () => {
       const arm = ARMS.get(type)!;
       expect(arm.shape[key]).toBe(rowOf(arm).shape[key]);
       expect(messageOf(arm.shape[key])).not.toContain(`properties.${key}`);
+    },
+  );
+
+  it.each(Object.entries(OWN_FLAT_REFUSALS).flatMap(([type, keys]) => keys.map((key) => [`${type}.${key}`, type, key] as const)))(
+    '%s — a bag member the arm refuses flat with its own refusal keeps it, and is not pointed at the bag',
+    (_label, type, key) => {
+      const arm = ARMS.get(type)!;
+      // A member of the bag, so the generated refusal would have applied without the arm's own.
+      expect(Object.keys(rowOf(arm).shape)).toContain(key);
+      expect(messageOf(arm.shape[key])).toContain('RUNTIME SLOT');
+      expect(messageOf(arm.shape[key])).not.toContain(`properties.${key}`);
+      for (const [face, judge] of FACES) {
+        const issue = issuesOf(judge({ type, [key]: { action: 'toast' } })).find((i) => i.path.join('.') === key);
+        expect(issue?.code, face).toBe('custom');
+        expect(issue?.message, face).toContain('RUNTIME SLOT');
+      }
     },
   );
 

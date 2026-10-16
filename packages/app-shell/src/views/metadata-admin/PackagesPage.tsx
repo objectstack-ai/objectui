@@ -21,7 +21,6 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   Package as PackageIcon,
   Plus,
-  RefreshCw,
   Search,
   Upload,
   Download,
@@ -73,6 +72,7 @@ import {
 import { useMetadataLocale, t, tFormat } from './i18n.js';
 import { useMetadataClient } from './useMetadata.js';
 import { PackageFormDialog } from './PackageFormDialog.js';
+import { PageHeader } from '../../layout/PageHeader.js';
 import { errorCodeIs } from '@object-ui/types';
 import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
 import { refusedItemsText } from '../../preview/publishRefusal.js';
@@ -1109,25 +1109,17 @@ export function PackagesPage() {
   ).length;
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-6 py-6">
-      {/* Hero */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <div className="rounded-lg bg-primary/10 p-2 text-primary">
-            <PackageIcon className="h-5 w-5" />
-          </div>
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">{t('engine.packages.title', locale)}</h1>
-            <p className="text-sm text-muted-foreground">
-              {t('engine.packages.description', locale)}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
-            <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            {t('engine.packages.refresh', locale)}
-          </Button>
+    <div>
+      {/* The console's one page header (objectui#12606): the posture —
+          description under the title inside Setup, beside it elsewhere — is
+          the header's own. Refresh is its icon button; New stays rightmost. */}
+      <PageHeader
+        title={t('engine.packages.title', locale)}
+        subtitle={t('engine.packages.description', locale)}
+        icon={<PackageIcon className="h-4 w-4" />}
+        refresh={{ onRefresh: () => void load(), label: t('engine.packages.refresh', locale), busy: loading }}
+        actions={
+        <>
           <input
             ref={fileRef}
             type="file"
@@ -1148,8 +1140,10 @@ export function PackagesPage() {
             <Plus className="mr-1.5 h-3.5 w-3.5" />
             {t('engine.packages.new', locale)}
           </Button>
-        </div>
-      </div>
+        </>
+        }
+      />
+    <div className="mx-auto w-full max-w-5xl px-6 py-6">
 
       {importMsg && (
         <div
@@ -1163,8 +1157,8 @@ export function PackagesPage() {
         </div>
       )}
 
-      {/* Toolbar */}
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+      {/* Toolbar — first in the body when no import message precedes it. */}
+      <div className={`${importMsg ? 'mt-5 ' : ''}flex flex-wrap items-center justify-between gap-3`}>
         <div className="relative w-full max-w-xs">
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -1261,6 +1255,7 @@ export function PackagesPage() {
         onOpenChange={setDetailOpen}
         onChanged={() => void load()}
       />
+    </div>
     </div>
   );
 }

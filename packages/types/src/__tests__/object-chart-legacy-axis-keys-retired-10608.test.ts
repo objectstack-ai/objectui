@@ -64,6 +64,7 @@ import { ChartAggregateSchema as SpecChartAggregateSchema } from '@objectstack/s
 import type { ObjectChartSchema } from '../objectql';
 import { ObjectChartSchema as ObjectChartMirror } from '../zod/objectql.zod';
 import { ListViewSchema, safeValidateSchema } from '../zod/index.zod';
+import { asPageListView, bagPath } from './list-view-page-node';
 
 const CHART = { type: 'object-chart', chartType: 'bar' } as const;
 const chart = (extra: Record<string, unknown>) => ({ ...CHART, ...extra });
@@ -208,9 +209,10 @@ describe('objectui#10608 (e) — the list-view carrier refuses these names too (
       viewType: 'chart',
       options: { chart: { chartType: 'bar', xAxisField: 'status', yAxisFields: ['estimate'], aggregation: 'sum' } },
     };
-    for (const r of [ListViewSchema.safeParse(view), safeValidateSchema(view)]) {
+    // The component's props, and the page node the published door judges (objectui#12670).
+    for (const r of [ListViewSchema.safeParse(view), safeValidateSchema(asPageListView(view))]) {
       expect(r.success).toBe(false);
-      const issue = (r.error?.issues ?? []).find((i) => i.path.join('.') === 'options.chart') as
+      const issue = (r.error?.issues ?? []).find((i) => bagPath(i.path) === 'options.chart') as
         | { code?: string; keys?: string[] }
         | undefined;
       expect(issue?.code).toBe('unrecognized_keys');
@@ -227,7 +229,7 @@ describe('objectui#10608 (e) — the list-view carrier refuses these names too (
       options: { chart: { chartType: 'bar', dataset: 'task_ds', dimensions: ['status'], values: ['total_estimate'] } },
     };
     expect(issuesOf(ListViewSchema.safeParse(view))).toEqual([]);
-    expect(issuesOf(safeValidateSchema(view))).toEqual([]);
+    expect(issuesOf(safeValidateSchema(asPageListView(view)))).toEqual([]);
   });
 });
 

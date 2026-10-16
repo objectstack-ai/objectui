@@ -81,6 +81,11 @@ import {
   // below, by reference). The bag's own schema is module-private in the spec.
   VIEW_METADATA_MEMBERS as SpecViewMetadataMembers,
   checkListViewCalendarVisualization,
+  // objectui#12670 — the spec list view's chart-binding check. On the flat
+  // `ListViewSchema` the view kind is objectui's `viewType`, so it is not
+  // attachable there; in the authored `list-view` node's bag the kind is the
+  // spec's own `type`, so `ListViewPropsBag` below attaches it.
+  checkListViewChartBinding,
 } from '@objectstack/spec/ui';
 // objectui#11266 — one inline master-detail grid column, the closed shape
 // `@objectstack/spec` 17.6.0 judges `FormViewSchema.subforms[].columns` by
@@ -1495,6 +1500,17 @@ const UserFiltersSchema = z.object({
  *
  * Migrating the remaining legacy vocabulary to the spec-canonical keys (`type`/`columns`/
  * `filter`/`userActions`) is deferred — see #2231.
+ *
+ * ## The `ListView` component's props, not the authored page node (objectui#12670)
+ *
+ * This mirror is the node as the `ListView` component reads it — its `schema`
+ * prop, as `ObjectView` and the app-shell list pages compose it, and as
+ * `ListViewBlock` hands it over. It left `ObjectQLComponentSchema`, and so
+ * `AnyComponentSchema`: the AUTHORED page `list-view` node is armed by
+ * `ListViewBlockSchema`, whose `properties` bag is this mirror's own members
+ * with the list kind as `type` and `objectName` / `viewType` refused by name
+ * (ruling C on objectstack-ai/objectstack#22444). It stays exported, and its
+ * TypeScript twin stays `ListViewInferred & ListViewRuntimeProps`.
  */
 // Spec view-config keys objectui overrides locally: the component envelope
 // (name/label/description → BaseSchema), the discriminator/renamed/relaxed keys
@@ -2638,6 +2654,11 @@ export const ObjectMapConfigSchema = z.object({
  * batch 6 moved the authored `object-gantt` arm the same way
  * (`ObjectGanttBlockSchema` below), with the same three rungs and the same
  * binding: its registration is `elementDataSourceBlock`-wrapped too.
+ * objectui#12670 armed the authored page `list-view` node the same way
+ * (`ListViewBlockSchema` below) with ONE rung, `data`, the spec list view's own
+ * data source: `properties.objectName` is refused there by name, not counted.
+ * The flat `ListViewSchema` keeps its `objectName` rung as the `ListView`
+ * component's props.
  *
  * The two sections met in one merge (objectui#11117 merging objectui#10859
  * batch 5). Batch 5 counted the bag arm's binding by PRESENCE (`dataSource !==
@@ -4366,6 +4387,13 @@ export const ObjectDataTableSchema = BaseSchema.extend({
  * the mirror still builds the `object-view` `table` slot, and the authored
  * `object-grid` node is armed by `ObjectGridBlockSchema` below, from its spec
  * row.
+ *
+ * ⚠️ SIX since objectui#12670: `ListViewSchema` left it the same way. It stays
+ * the `ListView` component's props, and its TypeScript twin stays in the
+ * TypeScript union; the authored page `list-view` node is armed by
+ * `ListViewBlockSchema` below, its bag the mirror's own members (the spec has no
+ * row for this type), with `objectName` / `viewType` refused by name (ruling C on
+ * objectstack-ai/objectstack#22444).
  */
 const ObjectQLComponentSchemaInferred = z.discriminatedUnion('type', [
   ObjectViewSchema,
@@ -4374,7 +4402,6 @@ const ObjectQLComponentSchemaInferred = z.discriminatedUnion('type', [
   ObjectKanbanSchema,
   ObjectGallerySchema,
   ObjectDataTableSchema,
-  ListViewSchema,
 ]);
 
 /**
@@ -5313,6 +5340,230 @@ export const EmbeddableFormBlockSchema = BaseSchema.extend({
   children: retirementTombstone(EMBEDDABLE_FORM_NEITHER_CHANNEL),
 }).superRefine(...requireRecordSource('embeddable-form', ['objectName'], 'properties'));
 
+/* ── The authored `list-view` node: its props in the `properties` bag ────── */
+
+/**
+ * The keys of `ListViewSchema` above that stay on the NODE of an authored
+ * `list-view` (objectui#12670): every key `BaseSchema` declares that
+ * `@objectstack/spec`'s `ListViewSchema` does not (`id`, `className`, `visible`,
+ * the content channels and the rest of the node base), and the node's
+ * `dataSource` binding, which the spec's `PageComponentSchema` declares beside
+ * `properties` (objectui#11070). Read off the two declarations, not
+ * transcribed: a key the node base gains stays on the node the day it lands,
+ * and a key the spec's list view shares with the node base (`type`, `name`,
+ * `label`, `description`, `data`) stays a list view member, in the bag.
+ */
+const LIST_VIEW_NODE_LEVEL_KEYS = Object.fromEntries(
+  [
+    ...Object.keys(BaseSchema.shape).filter((key) => !(key in stripImportedDefaults(SpecListViewSchema).shape)),
+    'dataSource',
+  ].map((key) => [key, true]),
+) as {
+  [K in Exclude<keyof typeof BaseSchema.shape, keyof z.input<typeof SpecListViewSchema>> | 'dataSource']: true;
+};
+
+/**
+ * The ONE refusal detail a page `list-view` node's `objectName` gets, flat or in
+ * `properties` (objectui#12670). `aliasKeyRefusal` puts the key and what to
+ * write instead in front of it: "Did you mean `objectName` → `properties.data`?".
+ */
+const LIST_VIEW_PAGE_OBJECT_NAME_RETIRED =
+  'A page `list-view` node names its object the way `@objectstack/spec`\'s list view does, in its `data` '
+  + 'source: write `{ "type": "list-view", "properties": { "data": { "provider": "object", "object": "…" } } }`, '
+  + 'or name the object in the node\'s `dataSource` binding (`dataSource.object`). `objectName` is retired on a '
+  + 'page `list-view` node, flat or in `properties`, with no second spelling (ruling C on '
+  + 'objectstack-ai/objectstack#22444), as the react layer retired it on `ListView` '
+  + '(objectstack-ai/objectstack#14791).';
+
+/** The same for a page `list-view` node's `viewType`: "Did you mean `viewType` → `properties.type`?". */
+const LIST_VIEW_PAGE_VIEW_TYPE_RETIRED =
+  'A page `list-view` node states its list kind the way `@objectstack/spec`\'s list view does, as `type`, and '
+  + 'in `properties`, because the node\'s own `type` is the registry key `list-view`: write `{ "type": '
+  + '"list-view", "properties": { "type": "kanban", … } }`. `viewType` is retired on a page `list-view` node, '
+  + 'flat or in `properties`, with no second spelling (ruling C on objectstack-ai/objectstack#22444), as the '
+  + 'react layer retired it on `ListView` (objectstack-ai/objectstack#14791).';
+
+/**
+ * objectui#10327's dataset-chart filter refusal, read in the bag: there the
+ * view kind is the spec's own `type`, which `checkListViewDatasetChartFilter`
+ * reads as `viewType` on the flat mirror. The same check, the same messages.
+ */
+function checkListViewBagDatasetChartFilter(
+  bag: { type?: unknown; chart?: unknown; options?: unknown; filter?: unknown; filters?: unknown },
+  ctx: z.RefinementCtx,
+): void {
+  checkListViewDatasetChartFilter({ ...bag, viewType: bag.type }, ctx);
+}
+
+/**
+ * The `list-view` props bag (objectui#12670): the list view's members, BY
+ * REFERENCE — every member `ListViewSchema` above declares beyond the
+ * node-level keys, each the SAME schema object the mirror holds.
+ *
+ * ⛔ `@objectstack/spec` has no `ComponentPropsMap['list-view']` row at the
+ * resolved version, and none is invented here (ruling C puts that row in the
+ * spec, after this face moves). So the bag is built the way `object-chart`'s is
+ * ({@link ObjectChartPropsBag}): from the flat mirror's shape. The mirror's
+ * members ARE the spec's list view members by reference (`specFieldsExcept`
+ * over the spec's `ListViewSchema`), with objectui's local overrides on top —
+ * `columns` optional, the `kanban` / `calendar` / `gallery` / `timeline` blocks
+ * with their named refusals, the legacy `options` bag, the toolbar flags. One
+ * list view therefore has one set of property names wherever it is embedded,
+ * as ruling C says: the bag accepts what the `ListView` component's
+ * `ListViewSchema` props accept, except the two spellings the ruling renames.
+ * ⛔ Not the spec's `ListViewSchema` verbatim: it requires `columns` (and a
+ * kanban block's `columns`), which the ruling's option A, declined, would have
+ * reported on every real page node.
+ *
+ * Three members differ from the mirror, each the ruling's:
+ *
+ *   - `type` is the list kind, the spec's own view-kind enum (grid, kanban,
+ *     calendar, …) by reference. On the node, `type` is the registry key; in
+ *     the bag it means what it means on the spec's list view.
+ *   - `objectName` and `viewType` are refused by name, with what to write
+ *     instead: `properties.data` and `properties.type`. ⛔ No fallback
+ *     acceptance and no second spelling.
+ *
+ * The spec's two object-level list view checks are attached, both by
+ * reference: `checkListViewCalendarVisualization`, as on the flat mirror, and
+ * `checkListViewChartBinding`, which the flat mirror cannot attach (its view
+ * kind is `viewType`) and the bag can, because its `type` is the spec's. So is
+ * objectui's own dataset-chart filter refusal, read in the bag
+ * ({@link checkListViewBagDatasetChartFilter}).
+ *
+ * The bag keeps the mirror's posture, `.passthrough()` (`BaseSchema`'s), so a
+ * key the list view does not declare is judged in the bag exactly as it was on
+ * the flat node: unjudged by the tolerant face, refused by name by the strict
+ * authoring face, which closes every object it walks.
+ */
+const ListViewPropsBag = z
+  .looseObject(ListViewSchema.shape)
+  .omit(LIST_VIEW_NODE_LEVEL_KEYS)
+  .extend({
+    type: ViewKindEnum.optional().describe(
+      'The list kind — `@objectstack/spec`\'s list view `type` (grid, kanban, gallery, calendar, timeline, gantt, '
+        + 'map, chart, tree), by reference. Absent, the list is a grid, or the kind of the saved view the node\'s '
+        + '`dataSource.view` names.',
+    ),
+    objectName: aliasKeyRefusal('objectName', 'properties.data', 'a page `list-view` node', LIST_VIEW_PAGE_OBJECT_NAME_RETIRED),
+    viewType: aliasKeyRefusal('viewType', 'properties.type', 'a page `list-view` node', LIST_VIEW_PAGE_VIEW_TYPE_RETIRED),
+  })
+  .superRefine(checkListViewCalendarVisualization)
+  .superRefine(checkListViewChartBinding)
+  .superRefine(checkListViewBagDatasetChartFilter);
+
+/**
+ * The ONE refusal detail every list view member written flat on a page
+ * `list-view` node gets (objectui#12670). `aliasKeyRefusal` puts the key and
+ * its bag member in front of it: "Did you mean `columns` → `properties.columns`?".
+ */
+const LIST_VIEW_FLAT_PROP =
+  'A page `list-view` node takes its props in its `properties` bag: write `{ "type": "list-view", '
+  + '"properties": { "data": { "provider": "object", "object": "…" }, "type": "grid", "columns": ["…"] } }` '
+  + '(objectui#12670). `@objectstack/spec`\'s own page component refuses a prop written on the node as '
+  + 'mis-layered (ADR-0089 D3a), so this face and `os validate` agree. The spec has no '
+  + '`ComponentPropsMap[\'list-view\']` row, so the bag\'s members are `ListViewSchema`\'s own, the list view\'s '
+  + 'members by reference. Moving it changes nothing at render time: `SchemaRenderer` hoists each `properties` '
+  + 'key but `type` and `id` onto the node before the list renderer reads it.';
+
+/** objectui#12670 / objectui#9256: ONE refusal string for both content channels of `ListViewBlockSchema`. */
+const LIST_VIEW_BLOCK_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'list-view',
+  'its registration (`plugin-list:list-view`) hands the node, its `properties` hoisted, to `ListViewBlock`, '
+    + 'which renders `ListView`',
+  'the records of `properties.data` in the list kind `properties.type` names, shaped by `columns`, `filter`, '
+    + '`sort` and `options`',
+);
+
+/**
+ * `list-view` — the AUTHORED page node: its props in the `properties` bag
+ * (objectui#12670, ruling C on objectstack-ai/objectstack#22444, triage's
+ * option A).
+ *
+ * ## The defect this closes
+ *
+ * Ruling C converges the page carrier on the spec spelling: a page `list-view`
+ * node names its object with `data: { provider: 'object', object }` (or the
+ * node's `dataSource` binding) and its kind with `type`, in `properties`
+ * because the node's own `type` is the registry key. This union used to arm
+ * the node with the flat `ListViewSchema` above, the `ListView` component's
+ * props, so `objectui validate` refused the ruled node (its record-source
+ * refinement found no `objectName`, and the strict face named `properties` as
+ * an unrecognized key) and accepted the retired flat `objectName` /
+ * `viewType` one. The authoring door steered an author, human or AI, from the
+ * ruled spelling back to the retired one.
+ *
+ * ## The construct
+ *
+ * The one `ObjectMapBlockSchema` and `ObjectChartBlockSchema` use: `BaseSchema`
+ * + the `type` literal + `NODE_ENVELOPE` + `properties` through `propsBag` +
+ * `flatPropRefusals` over the bag, so a list view member written FLAT on the
+ * node is refused by name toward `properties.KEY`. The bag is
+ * {@link ListViewPropsBag}, the flat mirror's own members by reference, as on
+ * `object-chart`, because the spec has no row for this type. A member the
+ * spec's page component also declares on the node (`label`, `aria`,
+ * `responsive`) is not refused flat: `flatPropRefusals` leaves those alone, so
+ * `label` keeps `BaseSchema`'s member, and the other two are left as every arm
+ * leaves them. `objectName` and `viewType` are refused by name in both positions with the
+ * same message, which names `properties.data` and `properties.type`: in the bag
+ * they are retired members, so the flat refusal takes the bag's own member
+ * (`flatPropRefusals` hands a retired member through).
+ *
+ * The five handler keys `ListView` reads are declared as the flat mirror
+ * declares them: RUNTIME SLOTS, refused by name, so a flat one is not pointed
+ * at a bag member. Spelled as the helper calls, as `ObjectGridBlockSchema`
+ * spells its `onNavigate`, so `check:handler-key-reads` reads the disposition
+ * off this arm.
+ *
+ * ## The record source, `dataSource` and the content channels
+ *
+ * `requireRecordSource(…, 'properties')` with one rung, `data`: the node needs
+ * `properties.data` (an `object` provider names the object, a `value` provider
+ * carries the rows), or the node's `dataSource` binding naming its object (a
+ * non-empty `dataSource.object`, the predicate every gate-wrapped arm shares
+ * since objectui#11117): the registration is `elementDataSourceBlock`-wrapped,
+ * and `ElementDataSourceGate` lands the binding's object before `ListView`
+ * runs. `properties.objectName` is NOT a rung: it is refused. Presence is
+ * `!== undefined`, as on every arm (the maintainer ruling recorded
+ * 2026-09-02). `dataSource` is the flat mirror's own member, the spec's
+ * `ElementDataSourceSchema` by reference. Neither content channel is read, so
+ * both are refused by name (objectui#9256).
+ *
+ * ## What did not move
+ *
+ * The flat `ListViewSchema` above and its TypeScript `ListViewSchema` stay
+ * published as the `ListView` component's props: the node as the component
+ * reads it, and as `ObjectView` and the app-shell list pages compose it. It is
+ * no longer an arm of `AnyComponentSchema`. A composed node never passes
+ * through `safeValidateSchema`.
+ */
+export const ListViewBlockSchema = BaseSchema.extend({
+  type: z.literal('list-view'),
+  ...NODE_ENVELOPE,
+  // A list view member written flat on the node is refused by name, toward `properties.KEY`.
+  ...flatPropRefusals('list-view', ListViewPropsBag, LIST_VIEW_FLAT_PROP),
+  properties: propsBag(
+    'list-view',
+    ListViewPropsBag,
+    'The `list-view` props bag — the members `ListViewSchema` declares beyond the node-level keys, by reference, '
+      + 'with `type` as the list kind (`@objectstack/spec`\'s list view `type`) and `objectName` / `viewType` '
+      + 'refused by name. `@objectstack/spec` has no `ComponentPropsMap[\'list-view\']` row (objectui#12670).',
+  ),
+  // objectui#11070 — the node's binding, the flat mirror's own member by
+  // reference (the spec's `ElementDataSourceSchema`).
+  dataSource: ListViewSchema.shape.dataSource,
+  // The runtime slots `ListView` reads, declared as the flat mirror declares them.
+  onAddRecord: handlerKeyRefusal('onAddRecord', 'runtime-slot', 'Add-record handler'),
+  onBulkAction: handlerKeyRefusal('onBulkAction', 'runtime-slot', 'Bulk action handler'),
+  onDensityChange: handlerKeyRefusal('onDensityChange', 'runtime-slot', 'Row density change handler'),
+  onNavigate: handlerKeyRefusal('onNavigate', 'runtime-slot', 'Record navigation handler'),
+  onPageSizeChange: handlerKeyRefusal('onPageSizeChange', 'runtime-slot', 'Page size change handler'),
+  // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
+  // kept a MEMBER.
+  body: retirementTombstone(LIST_VIEW_BLOCK_NEITHER_CHANNEL),
+  children: retirementTombstone(LIST_VIEW_BLOCK_NEITHER_CHANNEL),
+}).superRefine(...requireRecordSource('list-view', ['data'], 'properties'));
+
 /**
  * The public blocks above, as one arm of `AnyComponentSchema`
  * (objectui#10859, batches 2 to 6).
@@ -5339,6 +5590,10 @@ export const EmbeddableFormBlockSchema = BaseSchema.extend({
  * is built from the block's registration `inputs`, and no TypeScript
  * declaration in this package restates the node.
  *
+ * `list-view` joined in objectui#12670, a no-row arm like `object-chart`: its
+ * bag is the flat `ListViewSchema` mirror's own members by reference, and that
+ * mirror, with its TypeScript twin, stays the `ListView` component's props.
+ *
  * Each arm also spreads `NODE_ENVELOPE` from `./public-blocks.zod.ts`,
  * the node-level `responsiveStyles` every public block declares by reference to
  * the spec's `PageComponentSchema` (objectui#10872 batch 8) — the same one
@@ -5357,6 +5612,8 @@ const ObjectQLPublicBlockComponentSchemaInferred = z.discriminatedUnion('type', 
   // objectui#11440 — two Tier A public blocks with no spec row; bags from their registration inputs.
   ObjectPivotBlockSchema,
   EmbeddableFormBlockSchema,
+  // objectui#12670 — the authored page `list-view` node; its bag is the flat mirror's own members.
+  ListViewBlockSchema,
 ]);
 
 /**

@@ -191,7 +191,11 @@ const NO_DATA_REACH: Readonly<Record<string, string>> = {
  */
 const EXPECTED_CANDIDATES = [
   'object-grid',
-  'list-view',
+  // `list-view` left this population with objectui#12099: a page `list-view`
+  // names its object in `data: { provider: 'object', object }`, the spec's
+  // spelling, and publishes no `objectName`. That binding's reach to the data
+  // layer is pinned through the real registration by plugin-list's
+  // `ListViewBlock.pageCarrierSpelling-12099.test.tsx`.
   'object-form',
   'embeddable-form',
   'object-master-detail-form',

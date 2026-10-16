@@ -14,7 +14,8 @@
  *
  * `evaluateCondition` answers an unevaluable predicate with `true` on every one
  * of its paths. `SchemaRenderer`'s visibility chain NEGATES that answer on four
- * of its six legs (`visibleWhen` / `visible` / `visibleOn` / `visibility`), so
+ * of its six legs (`visibleWhen` / `visible` / `visibleOn` / `visibility`; the
+ * last was retired by objectui#12654, leaving three of five), so
  * there the fail-soft default SHOWS the node and the reporter's sentence — "the
  * gate did NOT bite" — is exactly right. The chain returns it UN-negated on the
  * other two (`hidden` / `hiddenOn`): the same `true` sets `_hidden` and
@@ -158,7 +159,6 @@ const FAULT_HIDDENON_DEV = 'devbadroot6503hiddenon.locked == true';
 const FAULT_VISIBLEWHEN_DEV = 'devbadroot6503vw.locked == true';
 const FAULT_VISIBLE_DEV = 'devbadroot6503v.locked == true';
 const FAULT_VISIBLEON_DEV = 'devbadroot6503von.locked == true';
-const FAULT_VISIBILITY_DEV = 'devbadroot6503vy.locked == true';
 const FAULT_DISABLED_DEV = 'devbadroot6503dis.locked == true';
 const FAULT_TEMPLATE_HIDDEN = '${tmplbadroot6503.locked == true}';
 const FAULT_CEL_HIDDEN = { dialect: 'cel', source: 'record.bad6503(' };
@@ -370,10 +370,10 @@ describe('#6503 group 1 — a faulting `hidden` says the node VANISHED, and it d
 });
 
 /* -------------------------------------------------------------------------- *
- * Group 2 — THE CONTROL. The four negated legs must be UNCHANGED.
+ * Group 2 — THE CONTROL. The negated legs must be UNCHANGED.
  * -------------------------------------------------------------------------- */
 
-describe('#6503 group 2 — the four NEGATED legs keep their sentence, byte for byte', () => {
+describe('#6503 group 2 — the NEGATED legs keep their sentence, byte for byte', () => {
   // Each leg individually, not "one of them": `shouldHide` is an early-return
   // chain, so a single mount can only ever exercise the FIRST declared leg. A
   // loop over one schema would have measured `visibleWhen` four times.
@@ -381,7 +381,6 @@ describe('#6503 group 2 — the four NEGATED legs keep their sentence, byte for 
     ['visibleWhen', FAULT_VISIBLEWHEN_DEV],
     ['visible', FAULT_VISIBLE_DEV],
     ['visibleOn', FAULT_VISIBLEON_DEV],
-    ['visibility', FAULT_VISIBILITY_DEV],
   ];
 
   for (const [key, source] of NEGATED) {
@@ -389,7 +388,7 @@ describe('#6503 group 2 — the four NEGATED legs keep their sentence, byte for 
       await inProduction((mount) => {
         const warn = spyWarn();
         mount([{ id: 'n1', [key]: source }]);
-        // The fail-soft answer these four legs have always given.
+        // The fail-soft answer these legs have always given.
         expect(shownCount()).toBe(1);
         const lines = reports(warn);
         expect(lines).toHaveLength(1);

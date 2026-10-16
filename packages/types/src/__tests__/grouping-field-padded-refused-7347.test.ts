@@ -65,7 +65,7 @@ import type { z } from 'zod';
 import { GroupingFieldSchema as SpecGroupingFieldSchema } from '@objectstack/spec/ui';
 import {
   AnyComponentSchema,
-  ListViewSchema,
+  ListViewBlockSchema,
   ObjectGridBlockSchema,
   ObjectGallerySchema,
   ObjectKanbanSchema,
@@ -104,11 +104,15 @@ interface DeclaringArm {
 }
 
 const DECLARING: Readonly<Record<string, DeclaringArm>> = {
-  'list-view': {
-    declaredAt: 'grouping',
-    arm: ListViewSchema,
-    doc: (fields) => ({ type: 'list-view', objectName: 'account', grouping: { fields } }),
-    fieldPath: (i) => ['grouping', 'fields', i, 'field'],
+  // objectui#12670: the authored page `list-view` is armed by `ListViewBlockSchema`,
+  // whose bag holds the flat `ListViewSchema` mirror's own `grouping` member by
+  // reference; the mirror stays the `ListView` component's props, off the union.
+  'list-view properties': {
+    type: 'list-view',
+    declaredAt: 'properties.grouping',
+    arm: ListViewBlockSchema,
+    doc: (fields) => ({ type: 'list-view', properties: { data: { provider: 'object', object: 'account' }, grouping: { fields } } }),
+    fieldPath: (i) => ['properties', 'grouping', 'fields', i, 'field'],
   },
   'object-gallery': {
     declaredAt: 'grouping',
@@ -170,10 +174,13 @@ const DECLARING: Readonly<Record<string, DeclaringArm>> = {
  * (`flatPropRefusals`), pointing at `properties.grouping`. The bag member
  * `properties.grouping` stood here too while the spec row typed it `z.unknown()`;
  * since `@objectstack/spec` 17.6.0 the row judges it, so it is a `DECLARING` row
- * above (objectui#11438).
+ * above (objectui#11438). The page `list-view` (objectui#12670) is the same shape.
  */
 const NOT_COVERED: Readonly<Record<string, readonly string[]>> = {
   'object-grid': ['grouping'],
+  // objectui#12670: the same on the page `list-view` — the node-level `grouping` is
+  // the flat spelling's by-name refusal, pointing at `properties.grouping`.
+  'list-view': ['grouping'],
 };
 
 /** The faces an authored document meets. `objectui validate` runs the strict one. */

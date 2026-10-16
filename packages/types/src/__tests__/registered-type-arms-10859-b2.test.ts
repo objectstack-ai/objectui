@@ -364,7 +364,8 @@ describe('the spec-row arms read the row by reference (objectui#10859)', () => {
     // `object-chart` in objectui#11276 (`object-chart-properties-bag-11276.test.ts`),
     // `object-gantt` in batch 6 (`object-gantt-properties-bag-10859-b6.test.ts`),
     // `object-grid` in objectui#11276 (`object-grid-properties-bag-11276.test.ts`),
-    // `object-pivot` and `embeddable-form` in objectui#11440 (`passing-keys-arms-11440.test.ts`).
+    // `object-pivot` and `embeddable-form` in objectui#11440 (`passing-keys-arms-11440.test.ts`),
+    // the page `list-view` in objectui#12670 (`list-view-properties-bag-12670.test.ts`).
     expect(literals(ObjectQLPublicBlockComponentSchema)).toEqual([
       'object-metric',
       'object-master-detail-form',
@@ -376,6 +377,7 @@ describe('the spec-row arms read the row by reference (objectui#10859)', () => {
       'object-grid',
       'object-pivot',
       'embeddable-form',
+      'list-view',
     ]);
     expect(literals(DataDisplaySchema)).toContain('pivot');
   });

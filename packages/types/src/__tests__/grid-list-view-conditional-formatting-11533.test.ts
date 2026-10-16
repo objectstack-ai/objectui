@@ -24,7 +24,8 @@
  * Each refusal is read on every zod face an author meets: the two mirrors
  * (`ObjectGridSchema`, `ListViewSchema`), the tolerant document face
  * (`safeValidateSchema`) and the strict authoring face
- * (`StrictAnyComponentSchema`), the last two on a `list-view` node and on an
+ * (`StrictAnyComponentSchema`), the last two on a page `list-view` node (its
+ * props in the `properties` bag since objectui#12670) and on an
  * `object-view` `table` slot. A bare `success: false` would not be a refusal pin
  * (a document with an unrelated mistake fails too), so each assertion reads the
  * issue at the retired key's path and its message. The accepted
@@ -94,12 +95,17 @@ type Face = readonly [
 const grid = (rules: unknown[]) => ({ type: 'object-grid', objectName: 'task', conditionalFormatting: rules });
 const listView = (rules: unknown[]) => ({ type: 'list-view', objectName: 'task', conditionalFormatting: rules });
 const objectView = (rules: unknown[]) => ({ type: 'object-view', objectName: 'task', table: { conditionalFormatting: rules } });
+/** objectui#12670: the authored page `list-view` the published faces judge — its props in the bag, its object in `data`. */
+const listViewPage = (rules: unknown[]) => ({
+  type: 'list-view',
+  properties: { data: { provider: 'object', object: 'task' }, conditionalFormatting: rules },
+});
 
 const FACES: readonly Face[] = [
   ['ObjectGridSchema (the grid mirror)', grid, 'conditionalFormatting', (d) => ObjectGridSchema.safeParse(d) as never],
   ['ListViewSchema (the list-view mirror)', listView, 'conditionalFormatting', (d) => ListViewSchema.safeParse(d) as never],
-  ['safeValidateSchema on a `list-view` node', listView, 'conditionalFormatting', (d) => safeValidateSchema(d) as never],
-  ['StrictAnyComponentSchema on a `list-view` node', listView, 'conditionalFormatting', (d) => StrictAnyComponentSchema.safeParse(d) as never],
+  ['safeValidateSchema on a `list-view` node', listViewPage, 'properties.conditionalFormatting', (d) => safeValidateSchema(d) as never],
+  ['StrictAnyComponentSchema on a `list-view` node', listViewPage, 'properties.conditionalFormatting', (d) => StrictAnyComponentSchema.safeParse(d) as never],
   ['safeValidateSchema on an `object-view` `table` slot', objectView, 'table.conditionalFormatting', (d) => safeValidateSchema(d) as never],
   ['StrictAnyComponentSchema on an `object-view` `table` slot', objectView, 'table.conditionalFormatting', (d) => StrictAnyComponentSchema.safeParse(d) as never],
 ];

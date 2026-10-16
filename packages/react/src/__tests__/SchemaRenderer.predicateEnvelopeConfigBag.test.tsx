@@ -135,7 +135,7 @@ describe('#9100 — a CEL envelope in the config bag reaches the CEL engine', ()
   // A pair of EQUAL verdicts is the signature of a gate that was never
   // consulted, whichever way it landed — which is exactly what the broken
   // tree produced on every row below.
-  it.each(['visibleWhen', 'visible', 'visibleOn', 'visibility'])(
+  it.each(['visibleWhen', 'visible', 'visibleOn'])(
     'properties.%s (SHOW polarity): holds renders, fails hides',
     (key) => {
       expect(pair(key)).toEqual({ holds: true, fails: false });

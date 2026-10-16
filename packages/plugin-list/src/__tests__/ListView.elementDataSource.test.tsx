@@ -107,7 +107,7 @@ describe('list-view — dataSource: { object, view } (objectstack#5576)', () => 
     // function, so this panel was the whole rendered output.
     const adapter = makeAdapter();
     const { container } = renderPageComponent(
-      { type: 'list-view', objectName: 'account', dataSource: { object: 'account', view: 'hot' } },
+      { type: 'list-view', data: { provider: 'object', object: 'account' }, dataSource: { object: 'account', view: 'hot' } },
       adapter,
     );
 
@@ -121,7 +121,7 @@ describe('list-view — dataSource: { object, view } (objectstack#5576)', () => 
     // components on that page that worked must keep working, unchanged.
     const adapter = makeAdapter();
     const { container } = renderPageComponent(
-      { type: 'list-view', objectName: 'account', columns: ['name'] },
+      { type: 'list-view', data: { provider: 'object', object: 'account' }, columns: ['name'] },
       adapter,
     );
 

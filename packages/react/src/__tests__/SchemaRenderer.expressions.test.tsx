@@ -21,22 +21,23 @@ import { SchemaRenderer } from '../SchemaRenderer';
 // evaluates it through the same `evaluateCondition`, in the evaluation memo of
 // `SchemaRenderer.tsx`, and the `disabledOn?: string` sibling exists for
 // the same reason), and the two casts are gone. The `BaseSchema` import went
-// with them. It is back only to type the deprecated-`visibility` probe node
-// below (objectui#11349), not for a cast.
+// with them. It is back only to type the retired-`visibility` probe node
+// below (objectui#11349, objectui#12654), not for a cast.
 import { SchemaRendererContext } from '../context/SchemaRendererContext';
 import type { BaseSchema, DataSource } from '@object-ui/types';
-import type { PageComponent } from '@objectstack/spec/ui';
 
 /**
- * A node authoring the spec's DEPRECATED `visibility` alias (objectui#11349).
- * `BaseSchema` does not declare the key. `@objectstack/spec` declares it on
- * `PageComponentSchema`, and the alias case below is typed by reference to
- * that row. It is checked against this node, not against `BaseSchema`, so the
- * key stays checked now that objectui#8347 has removed `BaseSchema`'s index
- * signature.
+ * A RAW node still carrying the page component's `visibility` key, the old
+ * spelling of `visibleWhen` (objectui#11349). `@objectstack/spec` 18 retires
+ * it as a `retiredKey` tombstone (objectstack#23543 F4), so it is no longer
+ * typed by reference to `PageComponent` — its type there is `never` — and the
+ * probe declares the key itself, as raw data that bypassed every parsing door
+ * would carry it. The case below pins that the renderer does NOT read it
+ * (objectui#12654). Declared on this test's own registered node type, not on
+ * `BaseSchema`, which has no index signature (objectui#8347).
  */
-type DeprecatedVisibilityNode = BaseSchema & Pick<PageComponent, 'visibility'> & { type: 'test-component' };
-const deprecatedVisibilityNode = (schema: DeprecatedVisibilityNode): DeprecatedVisibilityNode => schema;
+type RetiredVisibilityNode = BaseSchema & { type: 'test-component'; visibility?: string };
+const retiredVisibilityNode = (schema: RetiredVisibilityNode): RetiredVisibilityNode => schema;
 import { PredicateScopeProvider } from '../hooks/useExpression';
 
 /**
@@ -47,7 +48,7 @@ import { PredicateScopeProvider } from '../hooks/useExpression';
  */
 declare module '@object-ui/types' {
   interface CustomNodeRegistry {
-    'test-component': DeprecatedVisibilityNode;
+    'test-component': RetiredVisibilityNode;
   }
 }
 
@@ -139,8 +140,9 @@ describe('SchemaRenderer Expression Integration', () => {
     });
   });
 
-  // ADR-0089 — `visibleWhen` is the canonical conditional-visibility predicate;
-  // `visibleOn` / `visibility` remain as deprecated aliases the renderer still reads.
+  // ADR-0089 — `visibleWhen` is the canonical conditional-visibility predicate.
+  // The page component's `visibility` spelling is retired (objectui#12654).
+  // `BaseSchema`'s own deprecated `visibleOn` is a different key, not covered here.
   describe('visibleWhen (ADR-0089 canonical)', () => {
     it('shows when the visibleWhen predicate is truthy', () => {
       render(
@@ -164,15 +166,17 @@ describe('SchemaRenderer Expression Integration', () => {
       expect(container.innerHTML).toBe('');
     });
 
-    it('still honors the deprecated `visibility` alias', () => {
-      const { container } = render(
+    // The narrowing (objectui#12654): the predicate that hides the node under
+    // `visibleWhen` (the case above) gates NOTHING under the retired key.
+    it('does not read the retired `visibility` key — the node stays on screen', () => {
+      render(
         <PredicateScopeProvider scope={{ data: { role: 'viewer' } }}>
         <SchemaRendererContext.Provider value={{ dataSource: { role: 'viewer' } as unknown as DataSource }}>
-          <SchemaRenderer schema={deprecatedVisibilityNode({ type: 'test-component', visibility: '${data.role === "admin"}' })} />
+          <SchemaRenderer schema={retiredVisibilityNode({ type: 'test-component', visibility: '${data.role === "admin"}' })} />
         </SchemaRendererContext.Provider>
       </PredicateScopeProvider>
       );
-      expect(container.innerHTML).toBe('');
+      expect(screen.getByTestId('test-component')).toBeInTheDocument();
     });
   });
 

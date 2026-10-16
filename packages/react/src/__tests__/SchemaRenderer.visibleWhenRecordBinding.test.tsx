@@ -249,14 +249,11 @@ describe('#5454 leg 2 — a declared `visibleWhen` outranks a hoisted `propertie
     expect(shown()).toBe(true);
   });
 
-  it('`visible` still outranks the two DEPRECATED aliases — only `visibleWhen` moved', () => {
-    // Deliberately unmoved: `visibleOn` / `visibility` normalize INTO
-    // `visibleWhen` at parse, so a spec-parsed page never reaches them, and
-    // re-ranking them would move verdicts #5454 did not rule on.
+  it('`visible` still outranks the DEPRECATED `visibleOn` — only `visibleWhen` moved', () => {
+    // Deliberately unmoved: re-ranking it would move verdicts #5454 did not
+    // rule on. (The page component's `visibility` spelling is retired and no
+    // longer a leg at all, objectui#12654.)
     mount({ visible: true, visibleOn: 'false' }, DONE);
-    expect(shown()).toBe(true);
-    cleanup();
-    mount({ visible: true, visibility: 'false' }, DONE);
     expect(shown()).toBe(true);
   });
 });

@@ -490,19 +490,15 @@ export const SplitForm: React.FC<SplitFormProps> = ({
   // container inside the form, never wrapped around the form (that leaves the
   // extra columns permanently empty, #2128).
   //
-  // Grid width: the form view's own `columns` first (spec FormView.columns),
-  // else the widest section. Same precedence ObjectForm's simple path and
-  // ModalForm use, so one piece of metadata lays out the same in every host.
-  const clampCol = (n: unknown): number | undefined =>
-    typeof n === 'number' && n > 0 ? Math.min(Math.floor(n), 4) : undefined;
-  const declaredCols = schema.sections
-    .map((s) => clampCol(s.columns))
-    .filter((c): c is number => c != null);
-  const formColumns = (clampCol(schema.columns)
-    ?? (declaredCols.length ? Math.max(...declaredCols) : 1)) as 1 | 2 | 3 | 4;
-  // The one sectioned-form rule (objectui#12548): each section at its own
-  // count on the shared grid — 12 tracks wide when the counts do not all fit.
-  const sectionGrid = sectionedGridLayout(formColumns, schema.sections.map((s) => clampCol(s.columns)));
+  // The one sectioned-form rule (objectui#12548), handed the AUTHORED counts:
+  // grid width = the form view's own `columns` (spec FormView.columns), else
+  // the widest section, an undeclared section drawing two per row from `@md`
+  // (objectui#12592); each section at its own count on the shared grid — 12
+  // tracks wide when the counts do not all fit. ModalForm, ObjectForm,
+  // TabbedForm and WizardForm call the same rule, so one piece of metadata
+  // lays out the same in every host.
+  const sectionGrid = sectionedGridLayout(schema.columns, schema.sections.map((s) => s.columns));
+  const formColumns = sectionGrid.columns;
   const containerFieldClass = sectionGrid.fieldContainerClass;
 
   /**
@@ -531,7 +527,7 @@ export const SplitForm: React.FC<SplitFormProps> = ({
           className: section.className,
         } as any);
       }
-      out.push(...sectionGrid.layOut(body, clampCol(section.columns)));
+      out.push(...sectionGrid.layOut(body, section.columns));
     });
     return out;
   };

@@ -42,6 +42,7 @@ import {
   PageSchema as SpecPageSchema,
 } from '@objectstack/spec/ui';
 import { ListViewSchema, PageNodeSchema, safeValidateSchema } from '../zod/index.zod';
+import { asPageListView, bagPath } from './list-view-page-node';
 import { DashboardWidgetSchema, GlobalFilterSchema } from '../zod/complex.zod';
 
 /** The spec-shaped view: the spec requires `columns`, objectui does not. */
@@ -63,9 +64,12 @@ describe('objectui#7715 — tripwire: the ListView calendar-visualization refusa
     const spec = SpecListViewSchema.safeParse(specView(CALENDAR_OFFERED_NO_BLOCK));
     const specIssue = spec.error!.issues.find((i) => i.path.join('.') === 'calendar')!;
 
-    for (const r of [ListViewSchema.safeParse(node(CALENDAR_OFFERED_NO_BLOCK)), safeValidateSchema(node(CALENDAR_OFFERED_NO_BLOCK))]) {
+    // The `ListView` component's props, and the page node the published door judges
+    // since objectui#12670 (its props in the `properties` bag, paths read relative to it).
+    const page = asPageListView(node(CALENDAR_OFFERED_NO_BLOCK));
+    for (const r of [ListViewSchema.safeParse(node(CALENDAR_OFFERED_NO_BLOCK)), safeValidateSchema(page)]) {
       expect(r.success).toBe(false);
-      const issues = r.error!.issues.map((i) => ({ code: i.code, path: i.path.join('.'), message: i.message }));
+      const issues = r.error!.issues.map((i) => ({ code: i.code, path: bagPath(i.path), message: i.message }));
       // The spec's issue, derived from the spec's own parse — not a restated
       // message — so this proves the spec's check runs here, not a copy of it.
       expect(issues).toContainEqual({ code: 'custom', path: 'calendar', message: specIssue.message });
@@ -78,7 +82,7 @@ describe('objectui#7715 — tripwire: the ListView calendar-visualization refusa
     for (const extra of [withBlock, noCalendar]) {
       expect(SpecListViewSchema.safeParse(specView(extra)).success).toBe(true);
       expect(ListViewSchema.safeParse(node(extra)).success).toBe(true);
-      expect(safeValidateSchema(node(extra)).success).toBe(true);
+      expect(safeValidateSchema(asPageListView(node(extra))).success).toBe(true);
     }
   });
 });
@@ -308,6 +312,10 @@ const SITES = [
     // `type` is `'chart'`, and on this node `type` is the component discriminator
     // (`'list-view'`; the view kind is the local `viewType`), so attached it would never
     // fire: not attachable, for the reason `checkListViewPageMount` was (objectui#12030).
+    // ⚠️ This row is the flat mirror, the `ListView` component's props. The authored page
+    // `list-view` node's bag (`ListViewPropsBag`, objectui#12670), whose `type` IS the spec's
+    // view kind, attaches both checks by reference; `list-view-properties-bag-12670.test.ts`
+    // measures each against the spec's own issue.
     notAttachable: ['checkListViewChartBinding'],
   },
 ] as const;

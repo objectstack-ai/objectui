@@ -162,11 +162,11 @@ const BINDING = `dataSource={{object: '${OBJECT}', view: 'all'}}`;
 
 describe("kind:'html' — the spec `dataSource` binding on a gate-wrapped block (#6678)", () => {
   it('draws no unknown-prop diagnostic', () => {
-    expect(unknownProps(`<list-view objectName="${OBJECT}" ${BINDING} />`)).toEqual([]);
+    expect(unknownProps(`<list-view data={{provider:'object',object:'${OBJECT}'}} ${BINDING} />`)).toEqual([]);
   });
 
   it('still resolves the saved view it names — the binding was not silenced, it was declared', async () => {
-    const container = await renderHtmlPage(`<list-view objectName="${OBJECT}" ${BINDING} />`);
+    const container = await renderHtmlPage(`<list-view data={{provider:'object',object:'${OBJECT}'}} ${BINDING} />`);
 
     await waitFor(() => expect(headersOf(container).length).toBeGreaterThan(1));
     const headers = headersOf(container);
@@ -181,10 +181,10 @@ describe("kind:'html' — the spec `dataSource` binding on a gate-wrapped block 
     // The control for the pin above. If `viewName` / `view` went quiet too, the
     // fix would have widened the whitelist rather than declared the one key the
     // block reads — and the tier would be back to reporting nothing useful.
-    expect(unknownProps(`<list-view objectName="${OBJECT}" viewName="all" />`)).toEqual([
+    expect(unknownProps(`<list-view data={{provider:'object',object:'${OBJECT}'}} viewName="all" />`)).toEqual([
       '<list-view> has no prop "viewName"',
     ]);
-    expect(unknownProps(`<list-view objectName="${OBJECT}" view="all" />`)).toEqual([
+    expect(unknownProps(`<list-view data={{provider:'object',object:'${OBJECT}'}} view="all" />`)).toEqual([
       '<list-view> has no prop "view"',
     ]);
   });

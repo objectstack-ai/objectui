@@ -35,7 +35,7 @@
 
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
 import { MePermissionsProvider, type MePermissionsResponse } from '@object-ui/permissions';
 
@@ -185,8 +185,12 @@ vi.mock('../../providers/MetadataProvider', () => ({
   }),
 }));
 
+// One adapter object for the file: the shared feeds key on the adapter's
+// identity, so a fresh object per render re-attaches them on every commit and
+// a case that awaits with the bar mounted never settles (objectui#12615).
+const ADAPTER = vi.hoisted(() => ({ find: () => Promise.resolve({ data: [] }), getClient: () => undefined }));
 vi.mock('../../providers/AdapterProvider', () => ({
-  useAdapter: () => ({ find: () => Promise.resolve({ data: [] }), getClient: () => undefined }),
+  useAdapter: () => ADAPTER,
 }));
 
 import { AppHeader } from '../AppHeader';
@@ -239,6 +243,9 @@ async function studioEntriesOnPageRoute(perms: MePermissionsResponse): Promise<S
   // The pill and its menu content rendered — so an absent row is a reading.
   expect(screen.getByTestId('app-switcher-trigger')).toBeInTheDocument();
   expect(screen.getByTestId('app-switcher-all-apps')).toBeInTheDocument();
+  // objectui#12615 — the bar's entries wait on the package list's verdict; one
+  // macrotask lets every read the stub answers settle before they are read.
+  await act(() => new Promise<void>((resolve) => setTimeout(resolve, 0)));
   const button = hrefOf(screen.queryByTestId('app-design-in-studio-button'));
   const row = hrefOf(screen.queryByTestId('app-switcher-edit-in-studio'));
   header.unmount();
@@ -253,8 +260,10 @@ async function studioEntriesOnPageRoute(perms: MePermissionsResponse): Promise<S
       </ExpressionProvider>
     </MePermissionsProvider>,
   );
-  // The page body rendered — so an absent pencil is a reading.
+  // The page body rendered — so an absent pencil is a reading — and the
+  // package list's verdict (objectui#12615) settled.
   expect(await screen.findByTestId('page-body')).toBeInTheDocument();
+  await act(() => new Promise<void>((resolve) => setTimeout(resolve, 0)));
   const pencilEl = screen.queryByTestId('page-edit-in-studio-button');
   navigateSpy.mockClear();
   if (pencilEl) fireEvent.click(pencilEl);
@@ -285,7 +294,19 @@ function crumbLabels(): string[] {
 
 beforeEach(() => {
   viewer.isAdmin = true;
-  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ data: [] }) })));
+  // objectui#12615 — the app's package is served writable, so the Edit app
+  // gate's package half passes and this file's own questions are the ones asked.
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: unknown) => ({
+      ok: true,
+      status: 200,
+      json: async () =>
+        String(url).endsWith('/api/v1/packages')
+          ? { data: { packages: [{ manifest: { id: 'com.objectstack.cloud', name: 'Cloud' }, writable: true }] } }
+          : { data: [] },
+    })),
+  );
 });
 
 describe('a page route\'s breadcrumb (objectui#12198, objectui#12526)', () => {

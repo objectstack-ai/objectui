@@ -68,7 +68,7 @@ export interface PageShellProps {
  * host read-only gate cannot be honoured in one header and forgotten in the
  * other, which is the shape of the bug that motivated it.
  */
-function WritabilityBadge({
+export function WritabilityBadge({
   entry,
   readOnly,
   locale,

@@ -15,8 +15,8 @@
  * ## The defect this names
  *
  * `SchemaRenderer`'s visibility chain is FAIL-SOFT: `evaluateCondition` answers
- * an unevaluable predicate with `true`. On the four negated legs (`visible` /
- * `visibleWhen` / `visibleOn` / `visibility`) that `true` means SHOWN — so "this
+ * an unevaluable predicate with `true`. On the negated legs (`visible` /
+ * `visibleWhen` / `visibleOn`) that `true` means SHOWN — so "this
  * predicate is broken" and "this predicate said yes" reach the screen as the
  * same pixel. An author who mistyped a root, or who wrote a `record.*` gate
  * before objectui#5454 bound the row, saw their block render and had no signal
@@ -180,7 +180,7 @@ const SCOPE_TIER_ADVICE: Record<PredicateScopeTier, string> = {
  * to the node is not a property of the predicate - it is a property of the gate
  * it was authored on, and the consequence paragraph has to say which:
  *
- * `'visibility'` - the visibility chain. Its `true` means SHOWN on the four
+ * `'visibility'` - the visibility chain. Its `true` means SHOWN on the
  * negated legs, so the safe default does NOT bite: a predicate that could not be
  * evaluated reads on screen exactly like one that said yes, which is why the
  * console line is the only signal an author gets.
@@ -224,10 +224,19 @@ const SCOPE_TIER_ADVICE: Record<PredicateScopeTier, string> = {
  * package entry, and the chain stops there (no sibling package re-exports it,
  * and no file outside `packages/react` names it). A consumer switching
  * EXHAUSTIVELY over the union, or holding a `Record<PredicateGateKind, ...>`,
- * gains a third case to answer. That is a type-level change only: no runtime
+ * gains a case to answer. That is a type-level change only: no runtime
  * signature moved, and every value that was accepted before still is.
+ *
+ * `'withholding'` - the app-shell's navigation `visible` gate (objectui#12700).
+ * A visibility predicate on a navigation entry, but one whose FAULT is answered
+ * fail-CLOSED: the shell withholds an entry whose gate it cannot evaluate (most
+ * often a `current_user.can(...)` asked before the permissions payload is
+ * there) instead of drawing it for everyone. So the default BITES, and the
+ * sentence `'visibility'` prints - "reads on screen exactly like one that said
+ * yes" - would be the opposite of what the member sees. Same opening line as
+ * `'visibility'`, for the same reason `'concealment'` keeps it.
  */
-export type PredicateGateKind = 'visibility' | 'enablement' | 'concealment';
+export type PredicateGateKind = 'visibility' | 'enablement' | 'concealment' | 'withholding';
 
 /**
  * The two parts of the message that vary with the gate: the opening line (what
@@ -266,6 +275,15 @@ const GATE_KIND_COPY: Record<PredicateGateKind, { prefix: string; consequence: s
       'indistinguishable from metadata that meant to hide it. Nothing is broken\n' +
       'in the renderer: the block is missing because the predicate above could\n' +
       'not be evaluated.\n',
+  },
+  // The app-shell navigation gate (objectui#12700): fail-CLOSED on a fault.
+  withholding: {
+    prefix: UNRESOLVABLE_VISIBILITY_PREFIX,
+    consequence:
+      'The entry was treated as its safe default, which on THIS gate is the one\n' +
+      'that BITES: a navigation entry whose predicate cannot be evaluated is\n' +
+      'WITHHELD - not drawn - until it can be, so a missing entry may be this\n' +
+      'fault rather than a gate that said no.\n',
   },
   enablement: {
     prefix: UNRESOLVABLE_ENABLEMENT_PREFIX,

@@ -202,7 +202,6 @@ describe('SchemaRenderer — unevaluated `${…}` diagnostic (objectui#4795)', (
       ['visible', '${data.n > 0}'],
       ['visibleWhen', '${data.n > 0}'],
       ['visibleOn', '${data.n > 0}'],
-      ['visibility', '${data.n > 0}'],
       ['hiddenOn', '${data.n < 0}'],
       ['disabled', '${data.n < 0}'],
       ['disabledOn', '${data.n < 0}'],

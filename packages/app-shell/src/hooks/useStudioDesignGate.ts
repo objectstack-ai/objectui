@@ -3,8 +3,9 @@
 /**
  * `useStudioDesignGate(path)` — the one gate the app → Studio "design this"
  * entries read (objectui#12615): the app bar's Edit app pencil (and the app
- * switcher's Studio row, which takes the pencil's own target) and the sidebar
- * ⋯ menu's Design entry. Hand it the Studio path the entry would open
+ * switcher's Studio row, which takes the pencil's own target), the sidebar
+ * ⋯ menu's Design entry and a page's Edit in studio pencil (`PageView`).
+ * Hand it the Studio path the entry would open
  * (`appStudioRoutePath`'s answer); it hands the path back when the entry may
  * be drawn, and `null` when it may not.
  *
@@ -45,8 +46,8 @@
  *
  * One `GET /api/v1/packages` per package asked about, and only for a principal
  * who passes (1): the list is read when the asked package changes (an app
- * switch), never per render. Readers mounted in one commit (the app bar and
- * the sidebar's rows) share one request through `fetchPackages`' in-flight
+ * switch), never per render. Readers mounted in one commit (the app bar, the
+ * sidebar's rows and a page's pencil) share one request through `fetchPackages`' in-flight
  * read (objectui#11797). Nothing caches the answer: `fetchPackages` is
  * deliberately not a response cache, and no provider holds the package list
  * outside Studio.

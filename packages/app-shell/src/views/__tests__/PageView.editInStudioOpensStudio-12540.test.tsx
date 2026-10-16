@@ -19,13 +19,15 @@
  *   metadata-admin page.
  *
  * The authoring gate (`manage_metadata` and the workspace-admin role) is
- * pinned in `PageView.editInStudioNeedsAuthoring-10899`; every case here is a
- * caller who passes it.
+ * pinned in `PageView.editInStudioNeedsAuthoring-10899`, and the package
+ * posture in `PageView.editInStudioFollowsPackagePosture-12615`; every case
+ * here is a caller who passes the first, on a package the list serves
+ * writable.
  */
 
 import '@testing-library/jest-dom/vitest';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { act, cleanup, render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
 import { MePermissionsProvider, type MePermissionsResponse } from '@object-ui/permissions';
 
@@ -96,13 +98,33 @@ async function mountUnder(app: Record<string, unknown> | undefined) {
       )}
     </MePermissionsProvider>,
   );
-  // The page body rendered — so an absent button is a reading.
+  // The page body rendered, and the package list's verdict (objectui#12615)
+  // settled — so an absent button is a reading.
   expect(await screen.findByTestId('page-body')).toBeInTheDocument();
+  await act(() => new Promise<void>((resolve) => setTimeout(resolve, 0)));
   return view;
 }
 
 beforeEach(() => {
   navigateSpy.mockClear();
+  // objectui#12615 — the app's package is served writable, so the pencil's
+  // package half passes and this file's own questions are the ones asked.
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: unknown) => ({
+      ok: true,
+      status: 200,
+      json: async () =>
+        String(url).endsWith('/api/v1/packages')
+          ? { data: { packages: [{ manifest: { id: 'com.objectstack.cloud', name: 'Cloud' }, writable: true }] } }
+          : { data: [] },
+    })),
+  );
+});
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
 });
 
 describe('Edit in studio opens the page in Studio, as the app bar pencil does (objectui#12540)', () => {

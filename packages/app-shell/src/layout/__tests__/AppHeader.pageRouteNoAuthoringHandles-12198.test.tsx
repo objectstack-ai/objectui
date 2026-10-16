@@ -260,8 +260,10 @@ async function studioEntriesOnPageRoute(perms: MePermissionsResponse): Promise<S
       </ExpressionProvider>
     </MePermissionsProvider>,
   );
-  // The page body rendered — so an absent pencil is a reading.
+  // The page body rendered — so an absent pencil is a reading — and the
+  // package list's verdict (objectui#12615) settled.
   expect(await screen.findByTestId('page-body')).toBeInTheDocument();
+  await act(() => new Promise<void>((resolve) => setTimeout(resolve, 0)));
   const pencilEl = screen.queryByTestId('page-edit-in-studio-button');
   navigateSpy.mockClear();
   if (pencilEl) fireEvent.click(pencilEl);

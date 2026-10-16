@@ -39,6 +39,8 @@ vi.mock('@object-ui/permissions', async (importOriginal) => {
     usePermissions: () => ({
       getObjectApiOperations: (name: string) => effectiveOps[name],
       can: (_name: string, action: string) => principal[action] ?? true,
+      // Field-level read, open: the bridge reads it for "View all" (objectui#12741).
+      checkField: () => true,
     }),
   };
 });

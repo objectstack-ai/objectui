@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>应用内顶栏 · 回到首页的路</title>
+
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#ffffff}
+:root{--bg:#ffffff;--fg:#0f172a;--muted:#f1f5f9;--muted-fg:#64748b;--border:#e2e8f0;--sidebar:#fafafa;--primary-soft:#eef2ff;--primary-fg:#ffffff;--amber:#b45309;--amber-soft:#fef3c7;--green:#15803d;--green-soft:#dcfce7;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+*{box-sizing:border-box}
+a{color:var(--primary);text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+input{font:inherit;color:inherit}
+.field{height:40px;width:100%;padding:0 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);font-size:14px;outline:none}
+.field:focus{border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 20%,transparent)}
+.btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;width:100%;border-radius:8px;background:var(--primary);color:var(--primary-fg);font-size:14px;font-weight:500}
+.btn-primary:hover{filter:brightness(.95)}
+.btn-outline{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;width:100%;border:1px solid var(--border);border-radius:8px;background:var(--bg);font-size:14px;font-weight:500;color:var(--fg)}
+.btn-outline:hover{background:var(--muted)}
+.link{color:var(--primary);font-size:13px}
+.link:hover{text-decoration:underline}
+.iconbtn:hover{background:var(--muted);color:var(--fg)}
+.tile:hover{background:var(--muted)}
+.row:hover{background:#f8fafc}
+.chipbtn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:8px;font-size:13px;font-weight:500}
+</style>
+
+<style>
+.menuitem{display:flex;align-items:center;gap:10px;height:32px;padding:0 10px;border-radius:6px;font-size:13px;color:var(--fg)}
+.menuitem:hover{background:var(--muted)}
+.lbl{font-size:12px;font-weight:600;color:var(--muted-fg)}
+</style>
+</helmet>
+<div style="width:100%;min-height:460px;position:relative;display:flex;flex-direction:column;gap:28px;padding:24px 0 32px;background:var(--sidebar);color:var(--fg);font-family:Inter,ui-sans-serif,system-ui,sans-serif;font-size:13px;line-height:1.4;--primary:#4f46e5">
+  <div>
+    <div class="lbl" style="margin:0 0 8px 16px">现状 · 进入应用后产品标消失；回首页只能打开芯片菜单「Switch Application」再点「All apps」，菜单里没有「首页」</div>
+    <header style="height:48px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;padding:0 16px;border:1px solid var(--border);border-radius:8px;background:var(--bg)">
+      <div style="display:flex;align-items:center;gap:8px;justify-self:start">
+      <button type="button" aria-label="收起侧栏" class="iconbtn" style="display:inline-flex;width:32px;height:32px;align-items:center;justify-content:center;border-radius:6px;color:var(--muted-fg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg></button>
+      <button type="button" class="chipbtn" style="height:32px;padding:0 8px 0 4px"><span style="display:inline-flex;width:24px;height:24px;align-items:center;justify-content:center;border-radius:6px;background:#ea580c;color:#fff;font-weight:700;font-size:12px">H</span><span style="font-weight:600">HotCRM</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--muted-fg)"><path d="m6 9 6 6 6-6"/></svg></button>
+      <span style="font-size:10px;font-weight:600;letter-spacing:.04em;padding:2px 6px;border-radius:4px;background:var(--muted);color:var(--muted-fg)">PREVIEW</span>
+    </div><span></span><div style="display:flex;align-items:center;justify-content:flex-end;gap:4px">
+      <button type="button" aria-label="搜索 ⌘K" class="iconbtn" style="display:inline-flex;width:32px;height:32px;align-items:center;justify-content:center;border-radius:6px;color:var(--muted-fg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></button>
+      <a href="#" aria-label="在 Studio 中编辑此应用" class="iconbtn" style="display:inline-flex;width:32px;height:32px;align-items:center;justify-content:center;border-radius:6px;color:var(--muted-fg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.17 2.83a2.83 2.83 0 0 0-4 0L4 16v4h4L21.17 6.83a2.83 2.83 0 0 0 0-4Z"/></svg></a>
+      <button type="button" aria-label="通知" class="iconbtn" style="position:relative;display:inline-flex;width:32px;height:32px;align-items:center;justify-content:center;border-radius:6px;color:var(--muted-fg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span style="position:absolute;top:4px;right:3px;min-width:14px;height:14px;padding:0 3px;border-radius:7px;background:#dc2626;color:#fff;font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">9+</span></button>
+      <button type="button" aria-label="账户" style="display:inline-flex;width:28px;height:28px;margin-left:6px;align-items:center;justify-content:center;border-radius:14px;background:var(--primary);color:#fff;font-size:11px;font-weight:600">DA</button>
+    </div>
+    </header>
+  </div>
+  <div>
+    <div class="lbl" style="margin:0 0 8px 16px;color:var(--primary)">方案 · 产品标常驻左上角并直通首页；应用芯片在它右侧，菜单里切换应用、返回首页、所有应用、系统设置</div>
+    <header style="height:48px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;padding:0 16px;border:1px solid var(--border);border-radius:8px;background:var(--bg)">
+      <div style="display:flex;align-items:center;gap:6px;justify-self:start;min-width:0">
+      <button type="button" aria-label="收起侧栏" class="iconbtn" style="display:inline-flex;width:32px;height:32px;align-items:center;justify-content:center;border-radius:6px;color:var(--muted-fg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg></button>
+      <a href="#" aria-label="ObjectOS 首页" title="回到首页" class="iconbtn" style="display:inline-flex;width:32px;height:32px;align-items:center;justify-content:center;border-radius:6px;color:var(--fg)"><span style="display:inline-flex;width:24px;height:24px;align-items:center;justify-content:center;border-radius:7px;background:var(--primary);color:#fff"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg></span></a>
+      <span style="color:var(--border);font-size:18px;line-height:1;user-select:none">/</span>
+      <button type="button" aria-haspopup="menu" aria-expanded="true" class="chipbtn" style="height:32px;padding:0 8px 0 4px;background:var(--muted)"><span style="display:inline-flex;width:24px;height:24px;align-items:center;justify-content:center;border-radius:6px;background:#ea580c;color:#fff;font-weight:700;font-size:12px">H</span><span style="font-weight:600">HotCRM</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--muted-fg)"><path d="m6 9 6 6 6-6"/></svg></button>
+      <span style="font-size:10px;font-weight:600;letter-spacing:.04em;padding:2px 6px;border-radius:4px;background:var(--muted);color:var(--muted-fg)">预览版</span>
+    </div><span></span><div style="display:flex;align-items:center;justify-content:flex-end;gap:4px">
+      <button type="button" aria-label="搜索 ⌘K" class="iconbtn" style="display:inline-flex;width:32px;height:32px;align-items:center;justify-content:center;border-radius:6px;color:var(--muted-fg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></button>
+      <a href="#" aria-label="在 Studio 中编辑此应用" class="iconbtn" style="display:inline-flex;width:32px;height:32px;align-items:center;justify-content:center;border-radius:6px;color:var(--muted-fg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.17 2.83a2.83 2.83 0 0 0-4 0L4 16v4h4L21.17 6.83a2.83 2.83 0 0 0 0-4Z"/></svg></a>
+      <button type="button" aria-label="通知" class="iconbtn" style="position:relative;display:inline-flex;width:32px;height:32px;align-items:center;justify-content:center;border-radius:6px;color:var(--muted-fg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span style="position:absolute;top:4px;right:3px;min-width:14px;height:14px;padding:0 3px;border-radius:7px;background:#dc2626;color:#fff;font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">9+</span></button>
+      <button type="button" aria-label="账户" style="display:inline-flex;width:28px;height:28px;margin-left:6px;align-items:center;justify-content:center;border-radius:14px;background:var(--primary);color:#fff;font-size:11px;font-weight:600">DA</button>
+    </div>
+    </header>
+  </div>
+  <div style="display:flex;gap:32px;align-items:flex-start;padding:0 16px 0 94px"><div role="menu" style="width:260px;flex:none;padding:6px;background:var(--bg);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px -8px rgba(15,23,42,.18)">
+    <div class="lbl" style="padding:6px 10px 4px;font-size:11px">切换应用</div>
+    <div class="menuitem" aria-current="true"><span style="display:inline-flex;width:20px;height:20px;align-items:center;justify-content:center;border-radius:5px;background:#ea580c;color:#fff;font-weight:700;font-size:10px">H</span><span style="flex:1">HotCRM</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--primary)"><path d="M20 6 9 17l-5-5"/></svg></div>
+    <div class="menuitem"><span style="display:inline-flex;width:20px;height:20px;align-items:center;justify-content:center;border-radius:5px;background:#0284c7;color:#fff"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H3z"/><path d="M21 11h-3a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h3z"/><path d="M3 11a9 9 0 0 1 18 0"/></svg></span><span style="flex:1">HotCRM Service</span></div>
+    <div style="height:1px;background:var(--border);margin:6px 4px"></div>
+    <a href="#" class="menuitem"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--muted-fg)"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>返回首页<kbd style="margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--muted-fg)">⌘⇧H</kbd></a>
+    <a href="#" class="menuitem"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--muted-fg)"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>所有应用</a>
+    <a href="#" class="menuitem"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--muted-fg)"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>系统设置</a>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px;font-size:12px;color:var(--muted-fg);padding-top:6px">
+    <span>① 产品标 = 首页按钮，任何应用、任何页面都在同一位置，点击回 /home。</span>
+    <span>② 斜杠分隔产品与应用，读作「ObjectOS / HotCRM」；应用芯片只负责应用级切换与设置。</span>
+    <span>③ 浏览器后退仍可用；⌘⇧H 为键盘回首页。</span>
+  </div>
+  </div>
+</div>
+</x-dc>
+
+</body>
+</html>

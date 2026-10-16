@@ -30,7 +30,7 @@
  * route, and the result's `answered` says which one happened (objectui#12220).
  */
 
-import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { bearerAuthHeaders } from '../utils/authToken.js';
 import type { DecisionOutputDef } from '../utils/decisionOutputParams.js';
 
@@ -539,7 +539,9 @@ export function useRecordApprovals(
 ): UseRecordApprovalsResult {
   const readKey = objectName && recordId ? JSON.stringify([objectName, recordId]) : null;
   // Once this instance has seen the approvals route absent (404 / 501), it
-  // asks no more, for this record or the next one it is handed.
+  // asks no more, for this record or the next one it is handed: sticky state
+  // for the render, mirrored into a ref the mount effect and `refresh` read.
+  const [unavailable, setUnavailable] = useState(false);
   const unavailableRef = useRef(false);
 
   const subscribe = useCallback((l: () => void) => subscribeKey(readKey, l), [readKey]);
@@ -548,7 +550,12 @@ export function useRecordApprovals(
     [readKey],
   );
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-  if (!snapshot.available) unavailableRef.current = true;
+  // Adjusting state while rendering, on a value the render just read — React's
+  // documented alternative to an effect that only copies one value to state.
+  if (!snapshot.available && !unavailable) setUnavailable(true);
+  useEffect(() => {
+    unavailableRef.current = unavailable;
+  }, [unavailable]);
 
   useEffect(() => {
     if (!readKey || !objectName || !recordId) return;
@@ -574,7 +581,7 @@ export function useRecordApprovals(
 
   const requests = readKey === null ? EMPTY_ROWS : snapshot.rows;
   const loading = snapshot.loading;
-  const available = !unavailableRef.current && snapshot.available;
+  const available = !unavailable && snapshot.available;
 
   const pendingRequest = useMemo(
     () => requests.find((r) => r.status === 'pending') ?? null,

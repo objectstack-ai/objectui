@@ -41,7 +41,7 @@ function makeDataSource() {
     update: vi.fn(async () => ({})),
     delete: vi.fn(async () => ({})),
     getObjectSchema: vi.fn(async () => objectSchema),
-  } as any;
+  };
 }
 
 const schemaFor = (data?: Record<string, unknown>, resourceId: string | null = 'D1'): DetailViewSchema => ({
@@ -64,14 +64,14 @@ describe('DetailView — recordFromHost: the host reads the record (objectui#127
 
   it('reads nothing while the host record is on its way, then renders the host record', async () => {
     const ds = makeDataSource();
-    const { rerender } = render(<DetailView schema={schemaFor(undefined)} dataSource={ds} recordFromHost />);
+    const { rerender } = render(<DetailView schema={schemaFor(undefined)} dataSource={ds as never} recordFromHost />);
 
     // Waiting: the loading state, not "not found", and no read of its own.
     await new Promise((r) => setTimeout(r, 20));
     expect(screen.queryByText('Record not found')).not.toBeInTheDocument();
     expect(ds.findOne).not.toHaveBeenCalled();
 
-    rerender(<DetailView schema={schemaFor({ id: 'D1', name: 'Handed over by the page' })} dataSource={ds} recordFromHost />);
+    rerender(<DetailView schema={schemaFor({ id: 'D1', name: 'Handed over by the page' })} dataSource={ds as never} recordFromHost />);
 
     await waitFor(() => expect(screen.getByText('Handed over by the page')).toBeInTheDocument());
     expect(ds.findOne).not.toHaveBeenCalled();
@@ -80,13 +80,13 @@ describe('DetailView — recordFromHost: the host reads the record (objectui#127
   it('a host that names no record has none coming: the view draws exactly what it drew without the prop', async () => {
     const settle = () => new Promise((r) => setTimeout(r, 20));
     const plainDs = makeDataSource();
-    const plain = render(<DetailView schema={schemaFor(undefined, null)} dataSource={plainDs} />);
+    const plain = render(<DetailView schema={schemaFor(undefined, null)} dataSource={plainDs as never} />);
     await settle();
     const without = plain.container.innerHTML;
     plain.unmount();
 
     const hostDs = makeDataSource();
-    const hosted = render(<DetailView schema={schemaFor(undefined, null)} dataSource={hostDs} recordFromHost />);
+    const hosted = render(<DetailView schema={schemaFor(undefined, null)} dataSource={hostDs as never} recordFromHost />);
     await settle();
 
     expect(hosted.container.innerHTML).toBe(without);
@@ -96,7 +96,7 @@ describe('DetailView — recordFromHost: the host reads the record (objectui#127
 
   it('CONTROL: without the prop the view reads its record itself, as before', async () => {
     const ds = makeDataSource();
-    render(<DetailView schema={schemaFor(undefined)} dataSource={ds} />);
+    render(<DetailView schema={schemaFor(undefined)} dataSource={ds as never} />);
 
     await waitFor(() => expect(screen.getByText('Read by the view itself')).toBeInTheDocument());
     expect(ds.findOne).toHaveBeenCalledTimes(1);

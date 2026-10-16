@@ -289,6 +289,31 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // excluded so they keep their default-app fallback.
   const requestedAppMissing = !!appName && !matchedApp && !isSpecialRoute;
 
+  // objectui#12706 — the pseudo-routes above skip `requestedAppMissing`, so
+  // until this the access verdict was never asked for them: a session the Setup
+  // app refuses (no `setup.access`; the server leaves Setup out of its list)
+  // opened `/apps/setup` and got the DEFAULT app's landing under that app's
+  // chrome, and `/apps/setup/metadata/...` drew Setup's item pages (the
+  // permission-set and position editors) the same way.
+  //
+  // Two of them now wait on the verdict for the app the URL names (the same
+  // probe as `requestedAppMissing` below) and draw the access-denied screen on
+  // `denied`: the metadata-admin routes (`metadata/...`, with the legacy
+  // spellings that redirect onto them) and Setup's root, the app's own landing.
+  // Every other verdict keeps the pseudo-route rendering above, so an app that
+  // does not exist, a server that does not answer and an adapter without the
+  // probe change nothing.
+  //
+  // ⛔ Not the rest of the Setup subtree. `/system/*` links forward onto
+  // `/apps/setup/system/*` (`SystemRedirect`, `ConsoleShell.tsx`), the server's
+  // approval links (`/system/approvals?request=`) among them, and that inbox
+  // opens records at `/apps/setup/OBJECT/record/ID` (`ApprovalsInboxPage`'s
+  // `recordHref`). A member reaches both under the Setup segment, so whether
+  // they wait on Setup's verdict is a product decision, left open on
+  // objectui#12706.
+  const isSetupRootRoute = location.pathname === '/apps/setup' || location.pathname === '/apps/setup/';
+  const appSurfaceAwaitsVerdict = !!appName && !matchedApp && (isMetadataRoute || isSetupRootRoute);
+
   // Post-publish readiness: when a requested app isn't in the loaded metadata,
   // re-check ONCE (the registry can lag a beat behind a publish) before
   // concluding it's absent — so a just-built app resolves on its own instead
@@ -377,8 +402,13 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // costing one skipped refresh rather than a wrong screen, which is why it was
   // filed separately; objectui#4522 keyed it the same way.)
   const [accessProbe, setAccessProbe] = useState<{ app: string; verdict: AppAccessVerdict } | null>(null);
+  // A missing app is asked once its re-check has settled; an app surface under
+  // a pseudo-route (objectui#12706, above) once the list has loaded, since a
+  // list still loading has matched nothing yet.
+  const verdictWanted =
+    (requestedAppMissing && missingRecheck === 'done') || (appSurfaceAwaitsVerdict && !metadataLoading);
   useEffect(() => {
-    if (!requestedAppMissing || previewDrafts || missingRecheck !== 'done' || !appName) {
+    if (!verdictWanted || previewDrafts || !appName) {
       // Cleared on the way out too, so the Retry button below (which returns
       // `missingRecheck` to 'idle') re-asks instead of replaying an answer.
       setAccessProbe(p => (p === null ? p : null));
@@ -403,7 +433,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
       // (which now means nothing was asked at all) — objectui#9262.
       .catch(() => { if (!cancelled) setAccessProbe({ app: probed, verdict: 'unreachable' }); });
     return () => { cancelled = true; };
-  }, [requestedAppMissing, previewDrafts, missingRecheck, appName, accessProbe, dataSource]);
+  }, [verdictWanted, previewDrafts, appName, accessProbe, dataSource]);
   // Never the previous app's answer: while a probe for a newly-requested app is
   // in flight, this is null and the branch below waits rather than rendering the
   // one it already has.
@@ -806,52 +836,64 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // reachable with no active app: a fresh env where AI just drafted everything
   // has ZERO published apps, and that is the surface you review & publish from.)
 
+  // objectui#4252 — the app EXISTS and this session may not open it. Say that,
+  // and say it as the permanent decision it is: the old copy named a transient
+  // deploy state, which sent a downstream acceptance round chasing a platform
+  // defect for two test batches over a missing permission-set binding.
+  //
+  // No Retry here — retrying a permission decision cannot change it, and a
+  // button that promises otherwise is the same misdirection one layer down.
+  // The way back is HOME instead, because this screen (like every no-app
+  // surface in this file) returns ABOVE the single `ConsoleLayout` mount and
+  // so carries no header, no navigation and no workspace switcher — the
+  // objectui#4473 strand, which a dead end here would recreate. Which home is
+  // the DECLARED one (objectui#7373): a control-plane customer bounced to the
+  // environment launcher lands among cards that act on an environment their
+  // deployment does not have. Router-relative for the same reason as the
+  // #4473 fix: `<Navigate>`/`navigate` resolve through the host's `basename`,
+  // and both the declared landing and the launcher fallback are part of the
+  // outer skeleton every host mounting this component provides (see this
+  // file's header).
+  //
+  // One screen for both branches that draw a `denied` verdict below.
+  const renderAppAccessDenied = () => (
+    <div className="h-screen flex items-center justify-center">
+      <Empty data-testid="app-access-denied">
+        <EmptyTitle>
+          {t('empty.appAccessDenied', { defaultValue: "You don't have access to this app" })}
+        </EmptyTitle>
+        <EmptyDescription>
+          {t('empty.appAccessDeniedDescription', {
+            defaultValue:
+              'This app exists, but your account is not authorized to open it. Ask an administrator to grant you access.',
+          })}
+        </EmptyDescription>
+        <div className="mt-4">
+          <Button onClick={() => navigate(homePath)} data-testid="app-access-denied-home">
+            {t('empty.appAccessDeniedHome', { defaultValue: 'Back to home' })}
+          </Button>
+        </div>
+      </Empty>
+    </div>
+  );
+
+  // objectui#12706 — an app surface under a pseudo-route, for an app the list
+  // does not carry (`appSurfaceAwaitsVerdict`, computed near the top). Nothing
+  // of it renders before the verdict, so a refused caller never mounts the
+  // page; `denied` is the screen above, and every other verdict falls through
+  // to the pseudo-route rendering below, unchanged.
+  if (appSurfaceAwaitsVerdict && !previewDrafts) {
+    if (accessVerdict === null) return <LoadingScreen />;
+    if (accessVerdict === 'denied') return renderAppAccessDenied();
+  }
+
   // A normal app was requested but isn't in the loaded metadata. Re-check once
   // for the post-publish lag, then say it's not available — NEVER render a
   // different app, and don't show the misleading "no apps configured" screen
   // below (there ARE apps). requestedAppMissing already excludes pseudo-routes.
   if (requestedAppMissing) {
     if (missingRecheck !== 'done' || accessVerdict === null) return <LoadingScreen />;
-    // objectui#4252 — the app EXISTS and this session may not open it. Say that,
-    // and say it as the permanent decision it is: the old copy named a transient
-    // deploy state, which sent a downstream acceptance round chasing a platform
-    // defect for two test batches over a missing permission-set binding.
-    //
-    // No Retry here — retrying a permission decision cannot change it, and a
-    // button that promises otherwise is the same misdirection one layer down.
-    // The way back is HOME instead, because this screen (like every no-app
-    // surface in this file) returns ABOVE the single `ConsoleLayout` mount and
-    // so carries no header, no navigation and no workspace switcher — the
-    // objectui#4473 strand, which a dead end here would recreate. Which home is
-    // the DECLARED one (objectui#7373): a control-plane customer bounced to the
-    // environment launcher lands among cards that act on an environment their
-    // deployment does not have. Router-relative for the same reason as the
-    // #4473 fix: `<Navigate>`/`navigate` resolve through the host's `basename`,
-    // and both the declared landing and the launcher fallback are part of the
-    // outer skeleton every host mounting this component provides (see this
-    // file's header).
-    if (accessVerdict === 'denied') {
-      return (
-        <div className="h-screen flex items-center justify-center">
-          <Empty data-testid="app-access-denied">
-            <EmptyTitle>
-              {t('empty.appAccessDenied', { defaultValue: "You don't have access to this app" })}
-            </EmptyTitle>
-            <EmptyDescription>
-              {t('empty.appAccessDeniedDescription', {
-                defaultValue:
-                  'This app exists, but your account is not authorized to open it. Ask an administrator to grant you access.',
-              })}
-            </EmptyDescription>
-            <div className="mt-4">
-              <Button onClick={() => navigate(homePath)} data-testid="app-access-denied-home">
-                {t('empty.appAccessDeniedHome', { defaultValue: 'Back to home' })}
-              </Button>
-            </div>
-          </Empty>
-        </div>
-      );
-    }
+    if (accessVerdict === 'denied') return renderAppAccessDenied();
     // objectui#9262 — the remaining verdicts, each saying only what the probe
     // obtained. The screen this replaced asserted ONE transient deploy state
     // ("it may still be publishing") over every one of them; that sentence is

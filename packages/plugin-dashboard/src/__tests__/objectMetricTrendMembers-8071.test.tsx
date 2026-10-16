@@ -27,8 +27,9 @@
  * The registration declares `trend` as `{ value, label, direction }`. Two
  * different components read it, and that split is the member shape:
  *
- *   - `ObjectMetricWidget` reads the key ONLY to decide whether it survives at
- *     all — `effectiveTrend = derivedTrend ?? trend`.
+ *   - `ObjectMetricWidget` forwards the key untouched beside its own
+ *     host-only `derivedTrend`; `MetricWidget` decides whether the authored
+ *     one survives at all — `derivedTrend ?? trend` (objectui#12677).
  *   - `MetricWidget` reads the three members: `value` painted with a hard-coded
  *     `%` suffix, `direction` choosing the glyph and its colour, and `label`
  *     feeding the caption slot.

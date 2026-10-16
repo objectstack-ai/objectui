@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { computeMetricDelta } from '../utils';
+import { computeMetricDelta, formatMetricDeltaPercent } from '../utils';
 
 describe('computeMetricDelta', () => {
   it('returns null when previousValue is missing', () => {
@@ -38,11 +38,13 @@ describe('computeMetricDelta', () => {
     it('returns neutral when both are 0', () => {
       expect(computeMetricDelta(0, 0)).toEqual({ value: 0, direction: 'neutral' });
     });
-    it('returns 100% up when current is positive', () => {
-      expect(computeMetricDelta(42, 0)).toEqual({ value: 100, direction: 'up' });
+    // objectui#12677 — a percent change from zero is undefined: 0 → 42 is not
+    // "+100%". The delta keeps its direction and states no percentage.
+    it('returns up with NO percentage when current is positive', () => {
+      expect(computeMetricDelta(42, 0)).toEqual({ value: null, direction: 'up' });
     });
-    it('returns 100% down when current is negative', () => {
-      expect(computeMetricDelta(-42, 0)).toEqual({ value: 100, direction: 'down' });
+    it('returns down with NO percentage when current is negative', () => {
+      expect(computeMetricDelta(-42, 0)).toEqual({ value: null, direction: 'down' });
     });
   });
 
@@ -56,5 +58,15 @@ describe('computeMetricDelta', () => {
       // -10 → -15: (delta = -5 / 10 = 50% down)
       expect(computeMetricDelta(-15, -10)).toEqual({ value: 50, direction: 'down' });
     });
+  });
+});
+
+describe('formatMetricDeltaPercent (objectui#12677)', () => {
+  it('draws a defined percentage with its % sign', () => {
+    expect(formatMetricDeltaPercent(20)).toBe('20%');
+    expect(formatMetricDeltaPercent(0)).toBe('0%');
+  });
+  it('draws an em dash, and no number or %, when there is no percentage', () => {
+    expect(formatMetricDeltaPercent(null)).toBe('\u2014');
   });
 });

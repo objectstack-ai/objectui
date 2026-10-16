@@ -35,7 +35,7 @@ import { Button } from '@object-ui/components';
 import { resolveAffordance, type SchemaLike } from '@object-ui/core';
 import { RecordPickerDialog } from '@object-ui/fields';
 import { usePermissions } from '@object-ui/permissions';
-import { useAdapter, useMetadata } from '@object-ui/react';
+import { extractWriteErrorMessage, useAdapter, useMetadata } from '@object-ui/react';
 import { AlertCircle, Loader2, Plus, UserCheck, X } from 'lucide-react';
 import { useMetadataLocale } from './i18n.js';
 
@@ -62,11 +62,14 @@ const asArray = (res: any): any[] => (Array.isArray(res) ? res : res?.data ?? []
 const personLabel = (u: any): string =>
   u?.full_name || u?.name || u?.display_name || u?.email || String(u?.id ?? '');
 
-/** The server's own sentence out of a refused write, else the fallback. */
-function refusalText(err: any, fallback: string): string {
-  const raw = String(err?.body?.error ?? err?.error ?? err?.message ?? '').trim();
-  return raw || fallback;
-}
+/**
+ * The server's own sentence out of a refused call, or `''` when it gave none.
+ * Read through `@object-ui/react`'s shared reader, the one place the adapters'
+ * error shapes are told apart (AGENTS #1), as `AssignedUsersSection` reads it:
+ * the ObjectStack client puts the sentence on `message` and the parsed body on
+ * `details`, and sets neither `body` nor `error` on the error.
+ */
+const refusalSentence = (err: unknown): string => extractWriteErrorMessage(err) ?? '';
 
 function useCopy() {
   const zh = useMetadataLocale() === 'zh-CN';
@@ -107,6 +110,14 @@ export function PositionHoldersSection({ name }: PositionHoldersSectionProps): R
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  /**
+   * The holders read failed (objectui#12706). A refused read is not an empty
+   * list: while this is set, the section says the read failed, in the server's
+   * words, and draws neither a count nor "Nobody holds this position yet." —
+   * the empty copy follows only a read that succeeded. `said` is the server's
+   * sentence, `''` when it gave none.
+   */
+  const [readFailure, setReadFailure] = React.useState<{ said: string } | null>(null);
 
   /**
    * May the caller add or remove a holder? Each is a write of a
@@ -165,13 +176,14 @@ export function PositionHoldersSection({ name }: PositionHoldersSectionProps): R
             };
           }),
       );
-    } catch (err: any) {
+      setReadFailure(null);
+    } catch (err) {
       setRows([]);
-      setError(refusalText(err, c.loadFailed));
+      setReadFailure({ said: refusalSentence(err) });
     } finally {
       setLoading(false);
     }
-  }, [adapter, name, c]);
+  }, [adapter, name]);
 
   React.useEffect(() => {
     void load();
@@ -191,8 +203,8 @@ export function PositionHoldersSection({ name }: PositionHoldersSectionProps): R
           await adapter.create(USER_POSITION_OBJECT, { user_id: uid, [USER_POSITION_NAME_FIELD]: name });
         }
         await load();
-      } catch (err: any) {
-        setError(refusalText(err, c.addFailed));
+      } catch (err) {
+        setError(refusalSentence(err) || c.addFailed);
       } finally {
         setBusy(false);
         setPickerOpen(false);
@@ -207,8 +219,8 @@ export function PositionHoldersSection({ name }: PositionHoldersSectionProps): R
       try {
         await adapter.delete(USER_POSITION_OBJECT, assignmentId);
         await load();
-      } catch (err: any) {
-        setError(refusalText(err, c.removeFailed));
+      } catch (err) {
+        setError(refusalSentence(err) || c.removeFailed);
       }
     },
     [adapter, load, c],
@@ -220,7 +232,9 @@ export function PositionHoldersSection({ name }: PositionHoldersSectionProps): R
         <div className="flex items-center gap-2 text-sm font-medium">
           <UserCheck className="h-4 w-4 text-muted-foreground" />
           <span>{c.title}</span>
-          {!loading && <span className="text-xs text-muted-foreground font-normal">{rows.length}</span>}
+          {!loading && !readFailure && (
+            <span className="text-xs text-muted-foreground font-normal">{rows.length}</span>
+          )}
         </div>
         {canAdd && (
           <Button
@@ -252,6 +266,15 @@ export function PositionHoldersSection({ name }: PositionHoldersSectionProps): R
           <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             {c.loading}
+          </div>
+        ) : readFailure ? (
+          <div
+            className="flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-800 dark:text-amber-200"
+            role="alert"
+            data-testid="position-holders-read-failed"
+          >
+            <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <span>{readFailure.said || c.loadFailed}</span>
           </div>
         ) : rows.length === 0 ? (
           <div className="text-xs text-muted-foreground italic py-2">{c.empty}</div>

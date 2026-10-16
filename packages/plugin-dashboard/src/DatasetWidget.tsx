@@ -92,7 +92,7 @@ import { AlertTriangle, ShieldAlert, Download, ArrowUpIcon, ArrowDownIcon, Minus
 // surface (see that component's header for why it is dashboard-local).
 import { WidgetEmptyState } from './WidgetEmptyState';
 import { useFilterScope } from '@object-ui/react';
-import { resolveFilterPlaceholders, computeMetricDelta } from './utils';
+import { resolveFilterPlaceholders, computeMetricDelta, formatMetricDeltaPercent } from './utils';
 import { metricAccentTextClass } from './colorVariants';
 import {
   METRIC_TILE_CONTAINER_CLASS,
@@ -1302,7 +1302,7 @@ export function DatasetWidget({ widget, dataSource, heading }: { widget: any; da
               {delta.direction === 'up' && <ArrowUpIcon className="mr-1 h-3 w-3" />}
               {delta.direction === 'down' && <ArrowDownIcon className="mr-1 h-3 w-3" />}
               {delta.direction === 'neutral' && <MinusIcon className="mr-1 h-3 w-3" />}
-              {delta.value}%
+              {formatMetricDeltaPercent(delta.value)}
             </span>
             <span className="min-w-0 truncate">{compareLabel}</span>
           </div>
@@ -1456,7 +1456,7 @@ export function DatasetWidget({ widget, dataSource, heading }: { widget: any; da
                 {delta.direction === 'up' && <ArrowUpIcon className="h-2.5 w-2.5" />}
                 {delta.direction === 'down' && <ArrowDownIcon className="h-2.5 w-2.5" />}
                 {delta.direction === 'neutral' && <MinusIcon className="h-2.5 w-2.5" />}
-                {delta.value}%
+                {formatMetricDeltaPercent(delta.value)}
               </span>
             )}
           </div>

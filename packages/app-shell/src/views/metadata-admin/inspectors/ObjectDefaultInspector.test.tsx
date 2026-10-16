@@ -1,5 +1,6 @@
 // Copyright (c) 2025 ObjectStack. Licensed under the Apache-2.0 license.
 
+import * as React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
 import { ObjectDefaultInspector } from './ObjectDefaultInspector';
@@ -109,15 +110,24 @@ describe('ObjectDefaultInspector — name editability', () => {
 describe('ObjectDefaultInspector — create-mode name derivation', () => {
   it('auto-derives a snake_case name from the label until name is edited', () => {
     const onPatch = vi.fn();
-    render(
-      <ObjectDefaultInspector
-        {...baseProps}
-        name=""
-        draft={{ name: '' }}
-        onPatch={onPatch}
-        readOnly={false}
-      />,
-    );
+    // objectui#12680 — whether the name was edited is read off the draft, so
+    // the harness applies each patch to the draft the way the host does.
+    function Host() {
+      const [draft, setDraft] = React.useState<Record<string, unknown>>({ name: '' });
+      return (
+        <ObjectDefaultInspector
+          {...baseProps}
+          name=""
+          draft={draft}
+          onPatch={(patch) => {
+            onPatch(patch);
+            setDraft((d) => ({ ...d, ...patch }));
+          }}
+          readOnly={false}
+        />
+      );
+    }
+    render(<Host />);
     // Typing a label derives name.
     fireEvent.change(labelledInput('Label'), { target: { value: 'Sales Order' } });
     expect(onPatch).toHaveBeenCalledWith({ label: 'Sales Order', name: 'sales_order' });

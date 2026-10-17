@@ -28,6 +28,17 @@
 
 import { RAW_HTML_CLOSING_TAG, RAW_HTML_OPEN_TAG, renderInlineMarkdown } from '@object-ui/components';
 
+interface Block {
+  type: 'h1' | 'h2' | 'h3' | 'p' | 'ul' | 'ol' | 'code' | 'html';
+  text?: string;
+  items?: string[];
+  lang?: string;
+}
+
+// ── CommonMark raw-HTML grammar ─────────────────────────────────────────────
+// The open and closing tag come from `@object-ui/components`, where the inline
+// "Raw HTML" pass that shares them lives; the block rules below build on them.
+
 /** Condition 6's tag names. */
 const BLOCK_TAG_NAMES = [
   'address', 'article', 'aside', 'base', 'basefont', 'blockquote', 'body', 'caption', 'center', 'col',

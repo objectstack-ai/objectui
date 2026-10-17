@@ -59,9 +59,10 @@ describe('parseDeclaredLazyViews', () => {
     // The count is a measurement, asserted rather than merely observed because a
     // matcher that silently finds fewer makes every check downstream of it pass
     // vacuously. Eight single-file route views (objectui#6535), the
-    // metadata-admin directory barrel that six declarations share, and the three
-    // marketplace pages (objectui#6681) = twelve distinct files.
-    expect(declared).toHaveLength(12);
+    // metadata-admin directory barrel that six declarations share, and the two
+    // marketplace pages (objectui#6681 measured three; objectui#12733 retired the
+    // Installed Apps one) = eleven distinct files.
+    expect(declared).toHaveLength(11);
     for (const view of declared) {
       expect(fs.existsSync(path.join(REPO_ROOT, view)), view).toBe(true);
     }
@@ -74,9 +75,6 @@ describe('parseDeclaredLazyViews', () => {
     expect(declared).toContain('packages/app-shell/src/console/marketplace/MarketplacePage.tsx');
     expect(declared).toContain(
       'packages/app-shell/src/console/marketplace/MarketplacePackagePage.tsx',
-    );
-    expect(declared).toContain(
-      'packages/app-shell/src/console/marketplace/MarketplaceInstalledPage.tsx',
     );
   });
 

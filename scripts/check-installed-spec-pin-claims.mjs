@@ -140,8 +140,9 @@ const RANGE_PREFIX = /[~^=]$|[<>]=?$/;
  * word-bounded.
  *
  * ⭐ The boundaries are load-bearing, not tidiness. `/installed/` without them
- * matches inside `InstalledListWidget.tsx`, and the line that identifier sits
- * on is `'EMPTY SPEC SHAPE. New in @objectstack/spec 17.3.0 …'` — a textbook
+ * matches inside `MarketplaceRowActions.installedAppsPins.test.tsx`, and the
+ * line that identifier sits on is
+ * `'EMPTY SPEC SHAPE. New in @objectstack/spec 17.3.0 …'` — a textbook
  * "when it changed" sentence naming an in-range version. An unbounded marker
  * puts it in the population, and "fixing" it would delete a true fact about
  * 17.3.0. That line is the refusal control in the test file.

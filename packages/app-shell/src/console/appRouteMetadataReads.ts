@@ -72,7 +72,6 @@ export const APP_ROUTE_METADATA_READS: ReadonlyArray<{ path: string; reads: read
   { path: 'create-app', reads: OBJECT },
   { path: 'edit-app/:editAppName', reads: OBJECT },
   { path: 'system/marketplace', reads: NONE },
-  { path: 'system/marketplace/installed', reads: NONE },
   { path: 'system/marketplace/:packageId', reads: NONE },
   // A redirect: the route it lands on carries its own row.
   { path: ':objectName/:maybeRecordId', reads: NONE },

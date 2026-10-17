@@ -276,7 +276,6 @@ export type { UserDataAdapter, UserStateKind, CommandPaletteContextValue } from 
 export { AppContent as DefaultAppContent } from './console/AppContent.js';
 export { MarketplacePage } from './console/marketplace/MarketplacePage.js';
 export { MarketplacePackagePage } from './console/marketplace/MarketplacePackagePage.js';
-export { MarketplaceInstalledPage } from './console/marketplace/MarketplaceInstalledPage.js';
 export { LoginPage as DefaultLoginPage } from './console/auth/LoginPage.js';
 export { signInRefusalMessages } from './console/auth/signInRefusalMessages.js';
 export { RegisterPage as DefaultRegisterPage } from './console/auth/RegisterPage.js';
@@ -335,7 +334,6 @@ export type { AppComponentRegistryEntry } from './services/componentRegistry.js'
 import './services/builtinComponents.js';
 // SDUI widget for the metadata-driven Cloud Connection page (cloud ADR-0008).
 import './console/cloud-connection/CloudConnectionPanel.js';
-import './console/marketplace/InstalledListWidget.js';
 import './console/connect/ConnectAgentWidget.js';
 // SDUI widget for the Cloud Welcome page's state-aware onboarding next-step.
 import './console/home/CloudOnboardingNext.js';

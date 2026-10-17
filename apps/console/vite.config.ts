@@ -1505,10 +1505,11 @@ export default defineConfig({
             //     `services/suggestedBindingsApi.ts`), which
             //     `views/studio-design/StudioDesignSurface.tsx` — a barrel export the
             //     console reaches eagerly — imports STATICALLY.
-            //   assets/MarketplaceInstalledPage-*.js 1,836 B gz, EAGER
-            //     holds `console/marketplace/InstalledListWidget.tsx`, which
-            //     `packages/app-shell/src/index.ts` BARE-imports for its SDUI
-            //     registration and which the package's `sideEffects` array names.
+            //   the Installed Apps page's chunk      1,836 B gz, EAGER
+            //     held the SDUI widget module `packages/app-shell/src/index.ts`
+            //     BARE-imported for its registration, which the package's
+            //     `sideEffects` array named. objectui#12733 retired that page and
+            //     that widget together, so the widget left this group with them.
             //
             // In both, the page itself had NO static importer: only the co-tenant
             // did, and the page's bytes rode along on every console page load while
@@ -1523,8 +1524,8 @@ export default defineConfig({
             //
             // ⚠️ Group the CO-TENANTS, not the pages. The opposite grouping was
             // measured first: a `marketplace-routes` group over the three
-            // declared-lazy pages swept `InstalledListWidget.tsx` in with them, so
-            // the barrel's bare import made the GROUP eager and it became an
+            // declared-lazy pages swept the bare-imported widget module in with
+            // them, so the barrel's bare import made the GROUP eager and it became an
             // attractor for 47 modules — `runtime-config.ts`,
             // `providers/MetadataProvider.tsx` and `@object-ui/plugin-form` among
             // them — emitting a 44 KB eager chunk for a net of -1,697 bytes and
@@ -1539,7 +1540,7 @@ export default defineConfig({
             // directions if the result drifts.
             {
               name: 'app-shell-eager-leaves',
-              test: /[\\/]packages[\\/]app-shell[\\/]src[\\/](?:components[\\/]SuggestedBindingsPanel\.tsx|services[\\/]suggestedBindingsApi\.ts|console[\\/]marketplace[\\/]InstalledListWidget\.tsx)$/,
+              test: /[\\/]packages[\\/]app-shell[\\/]src[\\/](?:components[\\/]SuggestedBindingsPanel\.tsx|services[\\/]suggestedBindingsApi\.ts)$/,
               priority: 75,
             },
           ],

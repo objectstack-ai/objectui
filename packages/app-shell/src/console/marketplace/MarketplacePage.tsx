@@ -45,6 +45,7 @@ import { emitMetadataRefresh } from '../../assistant/assistantBus.js';
 import { appRouteSegment, filterActiveApps, resolveKeyedI18nLabel } from '../../utils/index.js';
 import { waitForServedApp, type ServedApp } from './waitForServedApp.js';
 import { splitPackageSuffix } from './middleTruncate.js';
+import { packagesHref } from '../../views/metadata-admin/packageSource.js';
 
 /**
  * The card grid's track (objectui#12616): a card is never narrower than 240px,
@@ -539,10 +540,14 @@ export function MarketplacePage() {
         icon={<Store className="h-4 w-4" aria-hidden="true" />}
         refresh={{ onRefresh: () => void load(), label: t('marketplace.refresh'), busy: loading }}
         actions={
+          // Setup → Packages is the one list of what is installed
+          // (objectui#12675); its marketplace rows carry the actions. Packages
+          // is a Setup page, so with no app segment to keep it opens under the
+          // Setup app's own (objectui#12733).
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate(`${basePath}/system/marketplace/installed`)}
+            onClick={() => navigate(packagesHref(basePath || '/apps/setup', 'marketplace'))}
           >
             <Settings className="h-4 w-4 mr-1.5" aria-hidden="true" />
             {installed.length > 0

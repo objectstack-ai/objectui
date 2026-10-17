@@ -39,11 +39,14 @@ import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
-const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }));
+const { navigate, params } = vi.hoisted(() => ({
+  navigate: vi.fn(),
+  params: { value: {} as { appName?: string } },
+}));
 
 vi.mock('react-router-dom', () => ({
   useNavigate: () => navigate,
-  useParams: () => ({}),
+  useParams: () => params.value,
 }));
 
 vi.mock('@object-ui/auth', async (importOriginal) => ({
@@ -129,6 +132,7 @@ const card = () => screen.queryByTestId('marketplace-card-app.objectstack.hotcrm
 
 beforeEach(() => {
   navigate.mockReset();
+  params.value = {};
 });
 
 afterEach(() => {
@@ -247,7 +251,7 @@ describe('a failed catalog read names its class and offers Retry (objectui#12710
     expect(screen.getByTestId('marketplace-load-retry')).toBeEnabled();
   });
 
-  it('(e) control: the Installed button is drawn and opens the installed list while the catalog has failed', async () => {
+  it('(e) control: the Installed button is drawn and opens Packages filtered to Marketplace while the catalog has failed', async () => {
     answers = [
       async () => {
         throw new TypeError('Failed to fetch');
@@ -261,6 +265,20 @@ describe('a failed catalog read names its class and offers Retry (objectui#12710
     const installed = screen.getByRole('button', { name: '«marketplace.installed»' });
     expect(installed).toBeEnabled();
     fireEvent.click(installed);
-    expect(navigate).toHaveBeenCalledWith('/system/marketplace/installed');
+    // No app segment here (`useParams` answers `{}`), so Packages opens under the
+    // Setup app's own; the button goes straight there, with no redirect hop
+    // through a retired route (objectui#12733).
+    expect(navigate).toHaveBeenCalledWith('/apps/setup/component/developer/packages?source=marketplace');
+  });
+
+  it('(f) the Installed button keeps the app segment it was opened under', async () => {
+    params.value = { appName: 'crm' };
+    answers = [async () => listed()];
+    await boot();
+    render(<MarketplacePage />);
+
+    await advance(0);
+    fireEvent.click(screen.getByRole('button', { name: '«marketplace.installed»' }));
+    expect(navigate).toHaveBeenCalledWith('/apps/crm/component/developer/packages?source=marketplace');
   });
 });

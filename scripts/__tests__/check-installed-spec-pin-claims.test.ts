@@ -64,19 +64,19 @@ describe('the "when it changed" refusal, on real sentences, each with a firing c
    * The line is a textbook "when it changed" sentence: "New in
    * `@objectstack/spec` 17.3.0, which declares it with no top-level key at
    * all". It contains the letters `installed` only inside the identifier
-   * `InstalledListWidget.tsx`. An unbounded `/installed/` marker — the obvious
-   * spelling — puts this line in the population, and "repairing" it would
-   * delete a true fact about 17.3.0.
+   * `MarketplaceRowActions.installedAppsPins.test.tsx`. An unbounded
+   * `/installed/` marker — the obvious spelling — puts this line in the
+   * population, and "repairing" it would delete a true fact about 17.3.0.
    */
   const historicalMarkerLine = () =>
     lineContaining(
       'apps/console/src/__tests__/registry-inputs-spec-parity.test.ts',
-      'InstalledListWidget.tsx',
+      'installedAppsPins',
       '17.3.0',
       'New in',
     );
 
-  it('refuses "New in @objectstack/spec 17.3.0 ... InstalledListWidget.tsx"', () => {
+  it('refuses "New in @objectstack/spec 17.3.0 ... installedAppsPins"', () => {
     const line = historicalMarkerLine();
     expect(line).toMatch(/17\.3\.0/);
     expect(recogniseLine(line, MAJORS).verdict).toBe('none');

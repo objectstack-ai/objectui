@@ -233,3 +233,43 @@ describe('RecordSnapshotSummary: the summarized object\'s definition (objectui#1
     expect(leadOf(summary)).toBe('total');
   });
 });
+
+/**
+ * objectui#11815 (ruling D): a declared deadline is judged against the
+ * snapshot the face draws, so a done snapshot's past deadline reads neutral
+ * and an open one's reads overdue. The snapshot's date and status were frozen
+ * together; its own state is the consistent reading.
+ */
+describe('RecordSnapshotSummary — a declared deadline is judged against the snapshot (objectui#11815)', () => {
+  const daysAgo = (n: number): string => {
+    const d = new Date();
+    d.setDate(d.getDate() - n);
+    return d.toISOString().slice(0, 10);
+  };
+  const TASK = {
+    name: 'task',
+    fields: {
+      name: { type: 'text', label: 'Name' },
+      status: { type: 'text', label: 'Status' },
+      due_date: { type: 'date', label: 'Due', dueLike: true, settledWhen: "record.status == 'done'" },
+    },
+  };
+  const dueCell = async () => {
+    const summary = await screen.findByTestId('record-snapshot-summary');
+    return summary.querySelector('[data-summary-field="due_date"]')?.children[1] as HTMLElement | undefined;
+  };
+
+  it("a snapshot whose `settledWhen` holds draws its past deadline neutral", async () => {
+    mount({ task: TASK }, { objectName: 'task', snapshot: { name: 'T', status: 'done', due_date: daysAgo(5) } });
+    const cell = await dueCell();
+    expect(cell?.textContent).toBe('5 days ago');
+    expect(cell?.querySelector('.text-red-600')).toBeNull();
+  });
+
+  it("a snapshot whose `settledWhen` does not hold draws its past deadline overdue", async () => {
+    mount({ task: TASK }, { objectName: 'task', snapshot: { name: 'T', status: 'open', due_date: daysAgo(5) } });
+    const cell = await dueCell();
+    expect(cell?.textContent).toBe('Overdue 5d');
+    expect(cell?.querySelector('.text-red-600')).not.toBeNull();
+  });
+});

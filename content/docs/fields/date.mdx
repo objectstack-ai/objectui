@@ -62,10 +62,11 @@ lists, kanban and gallery cards, the compact list and the tree — evaluates
 an open one's reads overdue. A predicate that fails to evaluate leaves the deadline
 unsettled.
 
-⚠️ The predicate reads the record as the view fetched it. A standalone grid and a
-related list add the fields `settledWhen` reads to their own query; a list view
-fetches its columns, so a list view that hides the field the predicate reads leaves
-its deadlines unsettled. Show that field as a column.
+⚠️ The predicate reads the record as the view fetched it. A grid, a list view and a
+related list add the fields `settledWhen` reads to their own query, so the field the
+predicate reads need not be a column. A field the viewer may not read is never
+fetched, so a deadline whose predicate reads one stays unsettled for that viewer. An
+approval's record summary judges the deadline against the snapshot it shows.
 
 There is no date-range key. `@objectstack/spec`'s `FieldSchema` declares no date bound
 (its `min` / `max` are numbers) and refuses `min_date` / `max_date` by name, and no

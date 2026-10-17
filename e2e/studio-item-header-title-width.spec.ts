@@ -328,11 +328,9 @@ async function measure(page: Page): Promise<Reading> {
         const r = el.getBoundingClientRect();
         return r.left >= rowRect.left - 0.5 && r.right <= rowRect.right + 0.5;
       }),
-      identityOrder: boxes
-        .map((el) =>
-          el === title ? 'title' : el === chip ? 'api-chip' : el === kind ? 'kind-chip' : null,
-        )
-        .filter((x): x is string => x !== null),
+      identityOrder: boxes.flatMap((el) =>
+        el === title ? ['title'] : el === chip ? ['api-chip'] : el === kind ? ['kind-chip'] : [],
+      ),
       documentOverflowX: round(document.documentElement.scrollWidth - document.documentElement.clientWidth),
     };
   });
@@ -343,7 +341,7 @@ async function read(page: Page, c: Case, testInfo: import('@playwright/test').Te
   const r = await measure(page);
   // The readings go to the report: the numbers depend on the font.
   testInfo.annotations.push({ type: `studio-item-header@${c.name}`, description: JSON.stringify(r) });
-  console.log(`[studio-item-header ${c.name}] ${JSON.stringify(r)}`);
+  process.stdout.write(`[studio-item-header ${c.name}] ${JSON.stringify(r)}\n`);
   return r;
 }
 

@@ -221,12 +221,16 @@ const DND_KIT_DEFAULT_INSTRUCTIONS =
 const KANBAN_DND_INSTRUCTIONS_EN = 'To move this card to another column, drag it with a pointer or by touch.';
 
 /**
- * The AUTHORED (`cards`) spelling as it reads TODAY, after objectui#12837
- * replaced the board's instructions text. Written as its own literal, not
- * derived from `PRE_REPAIR_PRE_12837`, so the delta case compares two
- * independently written readings.
+ * The AUTHORED (`cards`) spelling after objectui#12837 replaced the board's
+ * instructions text. Written as its own literal, not derived from
+ * `PRE_REPAIR_PRE_12837`, so the delta case compares two independently
+ * written readings.
+ *
+ * ⚠️ SUPERSEDED as the expected reading by objectui#12883 (see `PRE_REPAIR`
+ * below), and kept: the objectui#12837 delta case ends on it, and the
+ * objectui#12883 delta case starts from it.
  */
-const PRE_REPAIR: Record<(typeof IDS)[number], Reading> = {
+const PRE_REPAIR_PRE_12883: Record<(typeof IDS)[number], Reading> = {
   'plugin-kanban/basic-kanban-board': {
     elements: 64,
     tags: { DIV: 52, SPAN: 6, H3: 3, STYLE: 3 },
@@ -236,6 +240,29 @@ const PRE_REPAIR: Record<(typeof IDS)[number], Reading> = {
   'plugin-kanban/advanced-kanban-with-badges-and-limits': {
     elements: 86,
     tags: { DIV: 68, SPAN: 10, H3: 4, STYLE: 4 },
+    sha256: 'f80e461758a7005a05d13bd53afe4604cc9b465cbb9d6e70961108b69fdec303',
+    visibleText: "Backlog2User AuthenticationImplement OAuth2.0BackendHighDark ModeAdd theme switcherUIWork In Progress1 / 3API IntegrationConnect to backend servicesIn ProgressCode Review0No cardsCompleted1Project SetupRepository initializedTo move this card to another column, drag it with a pointer or by touch.",
+  },
+};
+
+/**
+ * The AUTHORED (`cards`) spelling as it reads TODAY, after objectui#12883 made
+ * each card a `button` inside its own `listitem` wrapper: one more `<div>` per
+ * card, and nothing else — no text moved. Written as its own literal, not
+ * derived from `PRE_REPAIR_PRE_12883`, so the delta case below compares two
+ * independently written readings. The `items` readings do not move: that
+ * board draws no card.
+ */
+const PRE_REPAIR: Record<(typeof IDS)[number], Reading> = {
+  'plugin-kanban/basic-kanban-board': {
+    elements: 68,
+    tags: { DIV: 56, SPAN: 6, H3: 3, STYLE: 3 },
+    sha256: 'fe90e1cc6d10ddd0ba415df89ecdf6be451a9ba1831ce4adfdacbbb77702d263',
+    visibleText: "To Do2Design new featureCreate mockups and wireframesWrite documentationUpdate API docsIn Progress1Implement featureCode the new componentHigh PriorityDone1Setup projectInitialize repositoryTo move this card to another column, drag it with a pointer or by touch.",
+  },
+  'plugin-kanban/advanced-kanban-with-badges-and-limits': {
+    elements: 90,
+    tags: { DIV: 72, SPAN: 10, H3: 4, STYLE: 4 },
     sha256: 'f80e461758a7005a05d13bd53afe4604cc9b465cbb9d6e70961108b69fdec303',
     visibleText: "Backlog2User AuthenticationImplement OAuth2.0BackendHighDark ModeAdd theme switcherUIWork In Progress1 / 3API IntegrationConnect to backend servicesIn ProgressCode Review0No cardsCompleted1Project SetupRepository initializedTo move this card to another column, drag it with a pointer or by touch.",
   },
@@ -480,7 +507,7 @@ describe('objectui#6939 — and the repair moved the validator, not the renderer
     // instructions node every card's `aria-describedby` points at stays, and
     // only its text changes from dnd-kit's default to the bundle sentence.
     const pairs = [
-      ['authored (`cards`)', PRE_REPAIR_PRE_12837[id], PRE_REPAIR[id]],
+      ['authored (`cards`)', PRE_REPAIR_PRE_12837[id], PRE_REPAIR_PRE_12883[id]],
       ['`items`', ITEMS_SPELLING_PRE_12837[id], ITEMS_SPELLING[id]],
     ] as const;
     for (const [spelling, before, after] of pairs) {
@@ -498,5 +525,32 @@ describe('objectui#6939 — and the repair moved the validator, not the renderer
       // (3) the two readings really are two.
       expect(after.sha256, `${spelling}: one hash referenced twice`).not.toBe(before.sha256);
     }
+  });
+
+  it.each(IDS)('%s: the authored census moved by exactly one wrapper <div> per card (objectui#12883)', (id) => {
+    // The same discipline again. objectui#12883 made each card a `button` (the
+    // control Enter and Space activate) inside a `listitem` wrapper, because a
+    // `button` cannot itself be the item its `role="list"` needs. That adds
+    // one `<div>` per card and nothing else. The card count is derived from
+    // the DOCUMENT, so a fixture that gains a card cannot satisfy this with
+    // the other entry's number.
+    const before = PRE_REPAIR_PRE_12883[id];
+    const after = PRE_REPAIR[id];
+    const cardCount = (getExample(id).schema as { columns: Array<{ cards: unknown[] }> }).columns.reduce(
+      (n, c) => n + c.cards.length,
+      0,
+    );
+    expect(cardCount, 'a board with no card would make this delta vacuous').toBeGreaterThan(0);
+
+    // (1) exactly one element per card, and every one of them is a <div>.
+    expect(after.elements).toBe(before.elements + cardCount);
+    const { DIV: divBefore, ...otherBefore } = before.tags;
+    const { DIV: divAfter, ...otherAfter } = after.tags;
+    expect(divAfter, 'not one <div> per card').toBe(divBefore + cardCount);
+    expect(otherAfter, 'a tag other than <div> moved').toEqual(otherBefore);
+
+    // (2) ⛔ no text moved: the wrapper draws nothing.
+    expect(after.visibleText, 'the visible text moved').toBe(before.visibleText);
+    expect(after.sha256, 'the text hash moved').toBe(before.sha256);
   });
 });

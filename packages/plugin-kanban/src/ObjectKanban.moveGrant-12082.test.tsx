@@ -120,7 +120,7 @@ async function mountBoard(perms: MePermissionsResponse | null) {
 }
 
 /** The card's own element — the sortable node, whose `aria-disabled` dnd-kit sets. */
-const cardNode = () => screen.getByRole('listitem', { name: CARD });
+const cardNode = () => screen.getByRole('button', { name: CARD });
 
 async function dropOnInProgress() {
   expect(dnd.onDragEnd).toBeTypeOf('function');

@@ -13,6 +13,7 @@ import {
   noDataSourceMessage,
   useResolvedDataSource,
 } from '@object-ui/react';
+import { useObjectTranslation } from '@object-ui/i18n';
 import { withFieldCarrier } from '@object-ui/fields';
 import { DetailView } from './DetailView';
 import { DetailSection } from './DetailSection';
@@ -255,6 +256,8 @@ export const DetailViewRenderer: React.FC<{
   // mistaken for an adapter. Sharing the hook is what keeps the three blocks
   // from drifting back apart — the drift IS the defect this card closes.
   const dataSource = useResolvedDataSource<DataSource>(dataSourceProp);
+  // objectui#12920 — the unresolvable-view panel's title reads the bundle.
+  const { t } = useObjectTranslation();
   return (
     <ElementDataSourceGate
       schema={schema}
@@ -265,7 +268,9 @@ export const DetailViewRenderer: React.FC<{
       // is the defect the gate exists to remove.
       dataSource={dataSource}
       testId="detail-view"
-      errorTitle="This detail view’s data source could not be resolved"
+      errorTitle={t('element.detailView.sourceUnresolved', {
+        defaultValue: 'This detail view’s data source could not be resolved',
+      })}
       // `DetailView` returns early on inline `schema.data` and fetches over
       // `schema.api` without an adapter; either one is a legitimate placement
       // with nothing to resolve. Everything else reaches the branch that needs

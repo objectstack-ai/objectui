@@ -22,6 +22,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import React from 'react';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
+import { I18nProvider } from '@object-ui/i18n';
 // Registers `object-pivot` via `ObjectPivotBlock` (the wiring under test).
 import './index';
 
@@ -147,5 +148,25 @@ describe('object-pivot — dataSource: { object, view } (objectstack#7121)', () 
     const [object, params] = adapter.find.mock.calls[0] as [string, any];
     expect(object).toBe('opportunity');
     expect(params.$filter).toEqual([['owner', '=', 'me']]);
+  });
+});
+
+describe('object-pivot — the unresolvable-view panel title reads the bundle (objectui#12920)', () => {
+  it('under zh-CN the panel is titled in Chinese, not the English literal', async () => {
+    const adapter = makeAdapter();
+    const { container } = render(
+      <I18nProvider persistLanguage={false} config={{ defaultLanguage: 'zh-CN', detectBrowserLanguage: false }}>
+        <SchemaRendererProvider dataSource={adapter as any}>
+          <SchemaRenderer schema={{ type: 'object-pivot', ...PIVOT, dataSource: { object: 'opportunity', view: 'nope' } } as any} />
+        </SchemaRendererProvider>
+      </I18nProvider>,
+    );
+
+    await waitFor(() =>
+      expect(container.querySelector('[data-testid="object-pivot-datasource-error"]')).not.toBeNull(),
+    );
+    expect(container.querySelector('[data-testid="object-pivot-datasource-error"] p.font-medium')?.textContent).toBe(
+      '无法解析此数据透视表的数据源',
+    );
   });
 });

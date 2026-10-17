@@ -42,6 +42,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import React from 'react';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
+import { I18nProvider } from '@object-ui/i18n';
 // Registers `object-grid` (and the ElementDataSourceGate wiring under test).
 import '../index';
 
@@ -304,5 +305,25 @@ describe('object-grid — the binding\u2019s OWN members, and who they beat (obj
     expect(params.$filter).toEqual([['rating', '=', 'warm']]);
     expect(params.$orderby).toBe('name asc');
     expect(params.$top).toBe(4);
+  });
+});
+
+describe('object-grid — the unresolvable-view panel title reads the bundle (objectui#12920)', () => {
+  it('under zh-CN the panel is titled in Chinese, not the English literal', async () => {
+    const adapter = makeAdapter();
+    const { container } = render(
+      <I18nProvider persistLanguage={false} config={{ defaultLanguage: 'zh-CN', detectBrowserLanguage: false }}>
+        <SchemaRendererProvider dataSource={adapter as any}>
+          <SchemaRenderer schema={{ type: 'object-grid', dataSource: { object: 'account', view: 'nope' } } as any} />
+        </SchemaRendererProvider>
+      </I18nProvider>,
+    );
+
+    await waitFor(() =>
+      expect(container.querySelector('[data-testid="object-grid-datasource-error"]')).not.toBeNull(),
+    );
+    expect(container.querySelector('[data-testid="object-grid-datasource-error"] p.font-medium')?.textContent).toBe(
+      '无法解析此表格的数据源',
+    );
   });
 });

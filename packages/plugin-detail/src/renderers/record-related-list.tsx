@@ -746,13 +746,17 @@ const RecordRelatedListChildRows: React.FC<RecordRelatedListRendererProps> = (pr
   // different source than the rows come from could report a view as missing on
   // a host that has it.
   const ctx = useRecordContext();
+  // objectui#12920 — the unresolvable-view panel's title reads the bundle.
+  const { t } = useObjectTranslation();
   return (
     <ElementDataSourceGate
       schema={props.schema ?? NO_SCHEMA}
       mapping={RECORD_RELATED_LIST_DATA_SOURCE}
       dataSource={ctx?.dataSource}
       testId="record-related-list"
-      errorTitle="This related list’s data source could not be resolved"
+      errorTitle={t('element.relatedList.sourceUnresolved', {
+        defaultValue: 'This related list’s data source could not be resolved',
+      })}
     >
       {(bound) => <RecordRelatedListBody {...props} schema={bound as any} />}
     </ElementDataSourceGate>

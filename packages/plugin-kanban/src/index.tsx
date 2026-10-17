@@ -13,6 +13,7 @@ import {
   useSchemaContext,
   type ElementDataSourceMapping,
 } from '@object-ui/react';
+import { useObjectTranslation } from '@object-ui/i18n';
 import type { ComponentInput, KanbanConditionalFormattingRule } from '@object-ui/types';
 import { ObjectKanban } from './ObjectKanban';
 import { KanbanBoardCore } from './KanbanBoardCore';
@@ -508,13 +509,17 @@ export const ObjectKanbanRenderer: React.FC<{ schema: any; [key: string]: any }>
   // before this, a board authored with `dataSource: { object, view }` and no
   // `objectName` never fetched — the effect is gated on `schema.objectName` —
   // so it rendered its declared lanes with no cards and no error.
+  // objectui#12920 — the unresolvable-view panel's title reads the bundle.
+  const { t } = useObjectTranslation();
   return (
     <ElementDataSourceGate
       schema={schema}
       mapping={OBJECT_KANBAN_DATA_SOURCE}
       dataSource={dataSource}
       testId="object-kanban"
-      errorTitle="This board’s data source could not be resolved"
+      errorTitle={t('element.board.sourceUnresolved', {
+        defaultValue: 'This board’s data source could not be resolved',
+      })}
       // A board that names its object in neither place has nothing to fetch,
       // and drew an empty board with "No cards" — the answer an empty query
       // gives (objectui#11605). Every other rung of the board's record-source

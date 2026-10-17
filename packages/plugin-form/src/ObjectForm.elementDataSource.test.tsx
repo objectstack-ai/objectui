@@ -31,6 +31,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import React from 'react';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
+import { I18nProvider } from '@object-ui/i18n';
 // Registers `object-form` (and the ElementDataSourceGate wiring under test).
 import './index';
 
@@ -147,5 +148,25 @@ describe('object-form — dataSource: { object } (objectstack#6953)', () => {
       adapter.getObjectSchema.mock.calls.map((call: unknown[]) => call[0]),
       'a `??=` read would fetch `contact` and render the wrong object with no diagnostic',
     ).not.toContain('contact');
+  });
+});
+
+describe('object-form — the unresolvable-view panel title reads the bundle (objectui#12920)', () => {
+  it('under zh-CN the panel is titled in Chinese, not the English literal', async () => {
+    const adapter = makeAdapter();
+    const { container } = render(
+      <I18nProvider persistLanguage={false} config={{ defaultLanguage: 'zh-CN', detectBrowserLanguage: false }}>
+        <SchemaRendererProvider dataSource={adapter as any}>
+          <SchemaRenderer schema={{ type: 'object-form', mode: 'create', dataSource: { object: 'account', view: 'nope' } } as any} />
+        </SchemaRendererProvider>
+      </I18nProvider>,
+    );
+
+    await waitFor(() =>
+      expect(container.querySelector('[data-testid="object-form-datasource-error"]')).not.toBeNull(),
+    );
+    expect(container.querySelector('[data-testid="object-form-datasource-error"] p.font-medium')?.textContent).toBe(
+      '无法解析此表单的数据源',
+    );
   });
 });

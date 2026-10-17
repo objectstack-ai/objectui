@@ -10,6 +10,7 @@ import React from 'react';
 import { ComponentRegistry, elementDataSourceBlock } from '@object-ui/core';
 import {
   ElementDataSourceGate,
+  useObjectTranslation,
   useSchemaContext,
   type ElementDataSourceMapping,
 } from '@object-ui/react';
@@ -46,13 +47,17 @@ export const ObjectMapRenderer: React.FC<any> = elementDataSourceBlock(({ schema
   // The spec's `PageComponentSchema.dataSource` binding (objectstack#7121): a map
   // authored with the binding and no flat `objectName` got a null data config, so
   // it rendered an empty map — no markers, no request, no diagnostic.
+  // objectui#12920 — the unresolvable-view panel's title reads the bundle.
+  const { t } = useObjectTranslation();
   return (
     <ElementDataSourceGate
       schema={schema}
       mapping={OBJECT_MAP_DATA_SOURCE}
       dataSource={dataSource}
       testId="object-map"
-      errorTitle="This map’s data source could not be resolved"
+      errorTitle={t('element.map.sourceUnresolved', {
+        defaultValue: 'This map’s data source could not be resolved',
+      })}
     >
       {(bound) => <ObjectMap schema={bound} dataSource={dataSource} {...props} />}
     </ElementDataSourceGate>

@@ -294,13 +294,17 @@ const ListViewBlock = elementDataSourceBlock(React.forwardRef<ListViewHandle, Li
   // (objectui#11605). Judged in the child below, after the binding is applied,
   // and not by the gate's `requiresObject`, whose hint names the gate's object
   // key (objectui#12099).
+  // objectui#12920 — the unresolvable-view panel's title reads the bundle.
+  const { t } = useObjectTranslation();
   return (
     <ElementDataSourceGate
       schema={handOff}
       mapping={LIST_VIEW_DATA_SOURCE}
       dataSource={adapter}
       testId="list-view"
-      errorTitle="This list view’s data source could not be resolved"
+      errorTitle={t('element.listView.sourceUnresolved', {
+        defaultValue: 'This list view’s data source could not be resolved',
+      })}
     >
       {(schema) => namesRecordSource(schema)
         ? (

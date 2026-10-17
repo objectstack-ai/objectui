@@ -14,6 +14,7 @@ import {
   useSchemaContext,
   type ElementDataSourceMapping,
 } from '@object-ui/react';
+import { useObjectTranslation } from '@object-ui/i18n';
 import { ObjectCalendar } from './ObjectCalendar';
 import type { ObjectCalendarComponentProps } from './ObjectCalendar';
 
@@ -275,13 +276,17 @@ export const ObjectCalendarRenderer: React.FC<{ schema: any; [key: string]: any 
   // The spec's `PageComponentSchema.dataSource` binding (objectstack#6953): a
   // calendar authored with the binding and no `objectName` never fetched, and
   // rendered an empty month with no error.
+  // objectui#12920 — the unresolvable-view panel's title reads the bundle.
+  const { t } = useObjectTranslation();
   return (
     <ElementDataSourceGate
       schema={schema}
       mapping={OBJECT_CALENDAR_DATA_SOURCE}
       dataSource={dataSource}
       testId="object-calendar"
-      errorTitle="This calendar’s data source could not be resolved"
+      errorTitle={t('element.calendar.sourceUnresolved', {
+        defaultValue: 'This calendar’s data source could not be resolved',
+      })}
     >
       {/*
         The forward set is exactly `ObjectCalendarComponentProps` — nothing else can reach

@@ -14,6 +14,7 @@ import {
   useResolvedDataSource,
   type ElementDataSourceMapping,
 } from '@object-ui/react';
+import { useObjectTranslation } from '@object-ui/i18n';
 import type { DataSource } from '@object-ui/types';
 import { ObjectGrid } from './ObjectGrid';
 import { VirtualGrid } from './VirtualGrid';
@@ -147,13 +148,17 @@ export const ObjectGridRenderer: React.FC<{ schema: any; [key: string]: any }> =
   // and no separate `objectName` — rendered an empty grid: no object, no query,
   // no error. The gate maps it and reports an unresolvable `view` instead of
   // quietly widening the query to the object's full scope.
+  // objectui#12920 — the unresolvable-view panel's title reads the bundle.
+  const { t } = useObjectTranslation();
   return (
     <ElementDataSourceGate
       schema={schema}
       mapping={OBJECT_GRID_DATA_SOURCE}
       dataSource={dataSource}
       testId="object-grid"
-      errorTitle="This grid’s data source could not be resolved"
+      errorTitle={t('element.grid.sourceUnresolved', {
+        defaultValue: 'This grid’s data source could not be resolved',
+      })}
       requiresDataSource={gridNeedsDataSource(schema, (rest as { data?: unknown }).data)}
       noDataSourceMessage={noDataSourceMessage('object-grid', schema?.objectName)}
     >

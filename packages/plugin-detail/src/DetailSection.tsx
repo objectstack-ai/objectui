@@ -26,8 +26,8 @@ import {
   LazyIcon,
 } from '@object-ui/components';
 import { ChevronDown, ChevronRight, Copy, Check, Eye, EyeOff, Pencil } from 'lucide-react';
-import { SchemaRenderer, toRenderableSchema, useInlineEdit, usePrintPage } from '@object-ui/react';
-import { resolveFieldAffordance } from '@object-ui/core';
+import { SchemaRenderer, toRenderableSchema, useInlineEdit, usePrintPage, usePredicateScope } from '@object-ui/react';
+import { resolveFieldAffordance, isDeadlineSettled } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import {
   getCellRenderer,
@@ -207,6 +207,11 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
    * the question is not asked, so a bare `DetailSection` behaves as before.
    */
   const perms = usePermissions();
+  /**
+   * The host predicate scope a declared deadline's `settledWhen` is judged in
+   * beside this record (objectui#11815) — the scope the grid reads too.
+   */
+  const predicateScope = usePredicateScope();
 
   /**
    * What the copy affordance WRITES (objectui#8395).
@@ -540,7 +545,13 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
       if (resolvedType) {
         const CellRenderer = getCellRenderer(resolvedType);
         if (CellRenderer) {
-          return <CellRenderer value={value} field={enrichedField as unknown as FieldMetadata} />;
+          return (
+            <CellRenderer
+              value={value}
+              field={enrichedField as unknown as FieldMetadata}
+              deadlineSettled={isDeadlineSettled(enrichedField, data, { scope: predicateScope, fields: objectSchema?.fields })}
+            />
+          );
         }
       }
       return String(value);

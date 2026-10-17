@@ -42,6 +42,11 @@ import type { SelectOption as SpecSelectOption } from '@objectstack/spec/data';
  *     for standalone forms and names that widening in its own `Omit`.
  *   - `color` — colour code for badges/charts.
  *   - `default` — marks the option the platform seeds a new record with.
+ *   - `kind` — the option's lifecycle category, `open` / `won` / `lost`
+ *     (`@objectstack/spec` 18.0.0-next.3). The spec takes it on a single-value
+ *     `select` / `radio` field's options and requires it on every option of
+ *     the field an object's `stageField` names; its form-view option list
+ *     (`FormSelectOptionSchema`) does not take it.
  *
  * WHAT DIVERGES, each named at its own member below: `visibleWhen` (dropped
  * from the spec type in the `Omit` and re-declared on objectui's wire shape),

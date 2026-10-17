@@ -58,6 +58,22 @@ export function seedPlaceholderKeys(seed: Record<string, unknown> | undefined): 
   });
 }
 
+/**
+ * The STRUCTURAL defaults a create seed carries: the seed without its
+ * placeholder identity ({@link seedPlaceholderKeys}). A dataset's seed gives
+ * `{ dimensions: [], measures: [{ name: 'count', aggregate: 'count' }] }`.
+ *
+ * One derivation, two readers: {@link buildCreateModeBody} spreads it under the
+ * draft at save, and the create page puts the same keys into its initial draft
+ * (objectui#12866), so the designer shows before the first save what the save
+ * writes.
+ */
+export function seedStructuralDefaults(seed: Record<string, unknown> | undefined): Record<string, unknown> {
+  const base = { ...(seed ?? {}) };
+  for (const key of seedPlaceholderKeys(seed)) delete base[key];
+  return base;
+}
+
 function isBlank(value: unknown): boolean {
   return value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
 }
@@ -95,8 +111,7 @@ export function buildCreateModeBody(
   if (config.createBuildBody) {
     return config.createBuildBody(draft) as Record<string, unknown>;
   }
-  const base = { ...(specCreateSeed ?? config.createDefaults ?? {}) };
-  for (const key of seedPlaceholderKeys(specCreateSeed)) delete base[key];
+  const base = specCreateSeed ? seedStructuralDefaults(specCreateSeed) : { ...(config.createDefaults ?? {}) };
   return { ...base, ...draft };
 }
 

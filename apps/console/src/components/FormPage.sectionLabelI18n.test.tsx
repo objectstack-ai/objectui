@@ -40,13 +40,24 @@
  *      because the key can no longer be built. That is the structural blocker
  *      this card exists for.
  *
+ * ## ⚠️ Which visitor this file covers: one who HOLDS a bundle
+ *
+ * This file seeds the app bundle itself (`createI18n` in `beforeEach`), so it
+ * covers a visitor of `/f/:slug` whose console loaded one: the signed-in
+ * visitor. Since objectui#12034 a signed-out visitor holds none — the `/i18n`
+ * domain refuses an anonymous caller (objectstack-ai/objectstack#22432) and
+ * `loadLanguage` answers `{}` — so every lookup below misses on that path, and
+ * the server's payload is what localizes it (objectstack-ai/objectstack#23497).
+ * That path is pinned by `FormPage.signedOutSectionI18n-12333.test.tsx`.
+ *
  * ## ⛔ Not a provider-wrapped harness — and the difference matters
  *
  * The acceptance criterion is an assertion on the ROUTE, not on a fixture built
- * to make one pass. So the tree rendered below is exactly the tree
- * `App.tsx:215` declares — `<Route path="/f/:slug" element={<FormPage
- * mode="public" />} />` — with NOTHING wrapped around it that production does
- * not have. No `I18nProvider` appears in this file.
+ * to make one pass. So the tree rendered below is the route `App.tsx` declares
+ * for `/f/:slug` — `<Route path="/f/:slug" element={<FormPage mode="public" />}
+ * />` — with no provider wrapped around it. No `I18nProvider` appears in this
+ * file. The one thing it adds that production does not have for EVERY visitor
+ * is the seeded bundle: a signed-out visitor has none (see above).
  *
  * The bundle instead reaches the resolvers the way it reaches every unwrapped
  * consumer: `createI18n` registers its instance as react-i18next's

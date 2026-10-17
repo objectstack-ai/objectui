@@ -569,7 +569,7 @@ install the published graph without it: `start-backend.sh` adds a root `override
 ships, so the npm the runner installs with — dies building the ideal tree with
 `Cannot read properties of null (reading 'edgesOut')` on an optional `vitest` peer in the
 published graph ([#12649](https://github.com/objectstack-ai/objectui/issues/12649)). Nothing
-installed vitest at `18.0.0-next.2`, so there the override steered the resolver and changed no
+put vitest into the `18.0.0-next.2` install, so there the override steered the resolver and changed no
 package the backend runs — a one-off reading on that issue, which nothing here re-derives.
 The script carries the reason and the condition for removing it, and its stamp carries the
 value, so a cached fixture prepared under another install recipe is rebuilt instead of reused

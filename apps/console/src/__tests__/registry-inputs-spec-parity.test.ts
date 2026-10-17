@@ -396,16 +396,17 @@ function declaredInputs(type: string): string[] | null {
  *
  * So the forward direction's question — "does the contract accept this key on
  * this node?" — has to be asked of the whole node contract. It is DERIVED here,
- * not listed: `PageComponentSchema` is a `.pipe()`, whose input side is the
- * object whose shape names those keys. A spec release that adds or removes one
- * moves this set with it.
+ * not listed: `PageComponentSchema` is the object whose shape names those keys.
+ * (Through `@objectstack/spec` 18.0.0-next.2 it was a `.pipe()` that folded the
+ * retired `visibility` spelling into `visibleWhen`, and the keys sat on its
+ * input side; 18.0.0-next.3 drops that fold, objectstack `105902f`.) A spec
+ * release that adds or removes one moves this set with it.
  *
  * ⚠️ Used by the FORWARD direction only. Feeding it to the reverse direction
  * would demand that every covered block publish `dataSource` — including the
  * blocks that do not read it, which is the exact lie the ruling refused.
  */
-const nodeLevelSpecKeys = (): string[] =>
-  authorableShapeKeys((PageComponentSchema as unknown as { _def?: { in?: unknown } })._def?.in);
+const nodeLevelSpecKeys = (): string[] => authorableShapeKeys(PageComponentSchema);
 
 /** Top-level inputs this block declares that its spec props schema rejects. */
 function offSpecInputs(type: string): string[] {
@@ -982,6 +983,8 @@ const UNJUDGED_SPEC_BLOCKS: Record<string, string> = {
     'EMPTY SPEC SHAPE. New in `@objectstack/spec` 18 (objectui#12030), which declares it with no top-level key at all. Registered by `@object-ui/app-shell` (`src/views/record-approvals-renderer.tsx`), outside this file\'s import graph; the empty shape is the load-bearing half either way, exactly as for `app:launcher` above. objectui#12030, ledger objectui#8176.',
   'record:attachments':
     'EMPTY SPEC SHAPE. New in `@objectstack/spec` 18 (objectui#12030), which declares it with no top-level key at all. Registered by `@object-ui/app-shell` (`src/views/record-attachments-renderer.tsx`), outside this file\'s import graph; the empty shape is the load-bearing half either way, exactly as for `app:launcher` above. objectui#12030, ledger objectui#8176.',
+  'record:json':
+    'NOT REGISTERED, DELIBERATELY. New in `@objectstack/spec` 18.0.0-next.3 (objectstack#23745, landed as `97b8e7a51d`) for the approval request page\'s raw-payload panel, which objectui#12490 was to render. The maintainer then dropped that face (pointer 6232139151 on objectui#12490: no business need for an approver to read JSON), so no renderer is built, the served-page edit closed unmerged, and the type is filed for retirement upstream (objectstack#24162). Registering it forces this entry out; the spec retiring it makes this entry RETIRED UPSTREAM. objectui#12873, ledger objectui#8176.',
   // The fourth class, and the only one that is not mechanically "unjudgeable":
   // OWED. The 17.5.0 bump booked four blocks here — new in that spec, registered
   // with `registerLazy` by the console (`register-plugins.ts`) and not loaded by
@@ -1346,25 +1349,6 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
    */
   'object-grid.title':
     '@deprecated in ObjectGridSchema ("Use label instead"); GA describes it as the "Fallback for `label` (the renderer reads `label || title`)". Read as back-compat, deliberately not published — the canonical `label` IS declared. Same ruled carve-out class as the five the ruling enumerated, measured on this branch — objectui#4648 (maintainer 2026-08-16).',
-
-  // ── `page:header.showStar`: retired upstream, bump not installed yet ───────
-  // objectstack#23650's ruling retires the metadata switch, and it landed as
-  // objectstack#23781: a `retiredKey()` tombstone on `PageHeaderProps`. The
-  // installed `@objectstack/spec` predates that commit and still lists the key
-  // as live, so the reverse direction demands it. objectui#12627 stopped the
-  // renderer reading it and the registration publishing it AHEAD of the bump:
-  // the favorites star follows the host's `onToggleFavorite` alone.
-  //
-  // ⚠️ THIS ENTRY DIES ON THE BUMP, by design, and nothing has to remember it.
-  // The first installed spec that carries objectstack#23781 tombstones the
-  // key, `specTopLevelKeys` subtracts it, and `every unpublished-key exemption
-  // names a key the spec really declares` and `carries no stale unpublished-key
-  // exemption` both name this entry. Deleting it is the whole fix. ⛔ Do not
-  // resolve that red by re-declaring the input or by listing this key in
-  // `GA_PENDING_UNPUBLISHED_KEYS`: the first publishes a key the contract
-  // refuses, the second would hide this entry from both checks.
-  'page:header.showStar':
-    'Retired upstream by objectstack#23650 (landed as objectstack#23781), which the installed spec predates. The renderer no longer reads it and the registration no longer publishes it (objectui#12627): the favorites star draws where the host wires onToggleFavorite, and metadata does not control it. Goes dangling and stale on the bump that installs the tombstone; delete it there.',
 
   // ── objectui#8176: the two lazily-registered blocks, judged for the first ──
   //     time. ONE key left of the eighteen that entered, and as of objectui#8201
@@ -2966,11 +2950,11 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   },
   'object-grid.data': {
     file: 'packages/plugin-grid/src/__tests__/gridDataInputContract.test.ts',
-    pins: 'The `object` arm is `ViewDataSchema` discriminated on `provider`: each of the three providers parses and the retired `api` one is refused (spec 18.0.0-next.2, objectui#12370), none of them is an array, the declaration is one shape across both registered tags so the alias cannot drift, and it is pinned at compile time too (objectui#5090).',
+    pins: 'The `object` arm is `ViewDataSchema` discriminated on `provider`: each of the three providers parses and the retired `api` one is refused (spec 18.0.0-next.3, objectui#12370), none of them is an array, the declaration is one shape across both registered tags so the alias cannot drift, and it is pinned at compile time too (objectui#5090).',
   },
   'object-grid.conditionalFormatting': {
     file: 'packages/plugin-grid/src/__tests__/gridRowDecorationMembers-8071.test.tsx',
-    pins: 'The members read inside ONE formatting rule, asserted on the `style` attribute of the `<tr>` the grid paints. THREE alternative predicate members with a PRECEDENCE between them — one rule carrying `condition`, `expression` and the native `field`/`operator`/`value` triple, each naming a DIFFERENT row, is decided by `condition`; drop it and `expression` decides; drop that and the triple does — so a renderer reading any two of them as equivalent is red in a specific direction rather than merely unpinned. FOUR style members, and the sharp one is a RENAME: `backgroundColor` and `borderColor` keep their authored names on the way to the DOM while `textColor` is read as the CSS `color`, so keeping the authored spelling hands React a key it silently drops — same rules, same background, the text colour gone with nothing thrown. `style` is pinned as the BASE the three colour members override rather than replace (a non-colour member of it survives alongside the override). Two rule-list facts complete it: FIRST-MATCH-WINS with no merge (the second matching rule\'s own `textColor` never lands) and a rule carrying NO predicate member is SKIPPED rather than read as always-true, with the rule after it still deciding. ⚠️ Since objectui#11533 the AUTHORED member is ONE dialect, `{ condition, style }`: `expression`, the native triple and the three top-level colour members are refused by name on `ObjectGridSchema` and the list view (`packages/types/src/__tests__/grid-list-view-conditional-formatting-11533.test.ts`), so the rows that write them pin STORED-rule reads, which the resolver keeps as compatibility arms; a last block pins the two facts side by side — the stored native rule refused at authoring and painted at render, with its respelling painting the same row. The registration is an `array` arm; the installed spec row (18.0.0-next.2, re-measured by objectui#12030, objectui#12370, objectui#12626) takes the list view\'s own `{ condition, style }` rule and refuses the native members and any other key, so the spec fixes the AUTHORED shape and the read site is the rest of the member contract, the stored-rule compatibility arms included (objectui#8071 slice 12).',
+    pins: 'The members read inside ONE formatting rule, asserted on the `style` attribute of the `<tr>` the grid paints. THREE alternative predicate members with a PRECEDENCE between them — one rule carrying `condition`, `expression` and the native `field`/`operator`/`value` triple, each naming a DIFFERENT row, is decided by `condition`; drop it and `expression` decides; drop that and the triple does — so a renderer reading any two of them as equivalent is red in a specific direction rather than merely unpinned. FOUR style members, and the sharp one is a RENAME: `backgroundColor` and `borderColor` keep their authored names on the way to the DOM while `textColor` is read as the CSS `color`, so keeping the authored spelling hands React a key it silently drops — same rules, same background, the text colour gone with nothing thrown. `style` is pinned as the BASE the three colour members override rather than replace (a non-colour member of it survives alongside the override). Two rule-list facts complete it: FIRST-MATCH-WINS with no merge (the second matching rule\'s own `textColor` never lands) and a rule carrying NO predicate member is SKIPPED rather than read as always-true, with the rule after it still deciding. ⚠️ Since objectui#11533 the AUTHORED member is ONE dialect, `{ condition, style }`: `expression`, the native triple and the three top-level colour members are refused by name on `ObjectGridSchema` and the list view (`packages/types/src/__tests__/grid-list-view-conditional-formatting-11533.test.ts`), so the rows that write them pin STORED-rule reads, which the resolver keeps as compatibility arms; a last block pins the two facts side by side — the stored native rule refused at authoring and painted at render, with its respelling painting the same row. The registration is an `array` arm; the installed spec row (18.0.0-next.3, re-measured by objectui#12030, objectui#12370, objectui#12626, objectui#12873) takes the list view\'s own `{ condition, style }` rule and refuses the native members and any other key, so the spec fixes the AUTHORED shape and the read site is the rest of the member contract, the stored-rule compatibility arms included (objectui#8071 slice 12).',
   },
   'object-grid.operations': {
     file: 'packages/plugin-grid/src/__tests__/gridOperationsMembers-8071.test.tsx',
@@ -3046,7 +3030,7 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   },
   'object-kanban.conditionalFormatting': {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
-    pins: 'Members are card STYLE RULES in ONE dialect since objectui#11522, the spec list view\'s `{ condition, style }`, and it reaches the sink: a rule colours the matching card and only it, a second rule aimed at the other card does the same, and the whole `style` map arrives, with the sibling card in the same render as the live non-matching control so a green cannot come from two unstyled cards agreeing. The retired native `{ field, operator, value }` and flat-colour dialects are refused by name on the types side (`packages/types/src/__tests__/kanban-conditional-formatting.test.ts`); these rows are their respellings, painting the same cards. ⛔ NOT an identity pin and not a wire pin: `ObjectKanban.tsx` never names this key at all (measured zero, against nine for `cardFields` in the same file) — it rides the `{ ...schema }` spread into `KanbanRenderer`, which forwards it to `KanbanImpl`\'s `getCardStyles`. That makes the pin load-bearing in a way the others are not: an edit replacing that spread with an explicit key list drops the key silently and nothing else in the repo would notice. The installed spec row (18.0.0-next.2, re-measured by objectui#12030, objectui#12370, objectui#12626) takes the list view\'s own `{ condition, style }` rule, so the spec fixes the authored shape and the read site is the rest of the member contract (objectui#8313).',
+    pins: 'Members are card STYLE RULES in ONE dialect since objectui#11522, the spec list view\'s `{ condition, style }`, and it reaches the sink: a rule colours the matching card and only it, a second rule aimed at the other card does the same, and the whole `style` map arrives, with the sibling card in the same render as the live non-matching control so a green cannot come from two unstyled cards agreeing. The retired native `{ field, operator, value }` and flat-colour dialects are refused by name on the types side (`packages/types/src/__tests__/kanban-conditional-formatting.test.ts`); these rows are their respellings, painting the same cards. ⛔ NOT an identity pin and not a wire pin: `ObjectKanban.tsx` never names this key at all (measured zero, against nine for `cardFields` in the same file) — it rides the `{ ...schema }` spread into `KanbanRenderer`, which forwards it to `KanbanImpl`\'s `getCardStyles`. That makes the pin load-bearing in a way the others are not: an edit replacing that spread with an explicit key list drops the key silently and nothing else in the repo would notice. The installed spec row (18.0.0-next.3, re-measured by objectui#12030, objectui#12370, objectui#12626, objectui#12873) takes the list view\'s own `{ condition, style }` rule, so the spec fixes the authored shape and the read site is the rest of the member contract (objectui#8313).',
   },
   'object-kanban.data': {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
@@ -4613,10 +4597,15 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       // `record:attachments`, each declared with an EMPTY shape, so all three are
       // ledgered (9 -> 12). `judged` and `registeredPropless` do not move.
       // 40 + 7 + 12 = 59.
-      specCarried: 59,
+      //
+      // 59 -> 60 on the `@objectstack/spec` 18.0.0-next.3 pin (objectui#12873):
+      // one new block, `record:json`, which this repo deliberately does not
+      // register (its ledger entry says why), so it is ledgered (12 -> 13).
+      // `judged` and `registeredPropless` do not move. 40 + 7 + 13 = 60.
+      specCarried: 60,
       judged: 40,
       registeredPropless: 7,
-      ledgeredUnjudgeable: 12,
+      ledgeredUnjudgeable: 13,
     });
     // Non-vacuity, stated rather than implied by the numbers above.
     expect(covered.length).toBeGreaterThan(0);

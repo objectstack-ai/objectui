@@ -573,6 +573,13 @@ interface RenderableSection {
    */
   name?: string;
   label?: string;
+  /**
+   * The section's description, as served (objectui#12333). On the signed-out
+   * `/f/:slug` path the console holds no app bundle (objectui#12034), so the
+   * server localizes it under `Accept-Language` (objectstack-ai/objectstack#23497)
+   * and the renderer draws it as it arrives, the way `ObjectForm` draws its own.
+   */
+  description?: string;
   columns: 1 | 2 | 3 | 4;
   collapsible: boolean;
   collapsed: boolean;
@@ -829,6 +836,7 @@ export function buildSections(
       // carried. See `RenderableSection.name`.
       name: sec.name,
       label: sec.label,
+      description: sec.description,
       columns: cols,
       collapsible: !!sec.collapsible,
       collapsed: !!sec.collapsed,
@@ -2405,7 +2413,7 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
           return (
           <section key={i} className="rounded-md border bg-card p-4 sm:p-5">
             {sec.label && (
-              <h2 className="mb-3 text-sm font-medium">
+              <h2 className={sec.description ? 'mb-1 text-sm font-medium' : 'mb-3 text-sm font-medium'}>
                 {/*
                   * objectui#8813 — the heading resolves
                   * `objects.{object}._sections.{name}.label` and falls back to
@@ -2421,6 +2429,14 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
                   */}
                 {sec.name ? sectionLabel(loaded.object, sec.name, sec.label) : sec.label}
               </h2>
+            )}
+            {/*
+              * objectui#12333 — the served description, under the heading.
+              * No client-side key is read for it: the signed-out visitor holds
+              * no bundle, and the server already localized it.
+              */}
+            {sec.description && (
+              <p className="mb-3 text-sm text-muted-foreground">{sec.description}</p>
             )}
             <div
               className={

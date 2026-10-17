@@ -277,8 +277,9 @@ const SITES = [
     // `checkPageSlotPair` joined at 18 (objectstack#22568) and was attached by objectui#12030:
     // it reads `slots`, carried by reference.
     // objectui#12370's view-data check left this list with objectui#12666: objectstack#23784
-    // removed it from the spec. The installed 18.0.0-next.2 still carries it, so the census
-    // below accounts for it by what it judges, not by name (`specChecksRemovedOnMain`).
+    // removed it from the spec, and 18.0.0-next.3 is the first release without it (objectstack
+    // `a35f7a6`). The census below accounts for it by what it judges, not by name
+    // (`specChecksRemovedOnMain`), which on the installed 18.0.0-next.3 finds nothing.
     // `checkPageRegionPlacement` joined at 18.0.0-next.2 and was attached by objectui#12626: it
     // reads `kind` and `template` (by reference) and each region's `name`, which objectui's own
     // region carries with the meaning `page.tsx` places it by; measured in its describe block above.
@@ -372,9 +373,10 @@ const PAGE_SITE = 'SpecPageFields → PageNodeSchema (layout.zod.ts)';
  *
  * objectstack#23784 deleted the spec's page-parse judge of a view-data
  * component's retired `api` binding, and objectstack builds this repository
- * against its own spec tree, so no file here may name that export. The
- * installed 18.0.0-next.2 still exports it and still attaches it to
- * `PageSchema`, so the census would miscount by one. This reads every
+ * against its own spec tree, so no file here may name that export. Through
+ * 18.0.0-next.2 the spec exported it and attached it to `PageSchema`, where
+ * the census would miscount by one; 18.0.0-next.3 dropped it (objectstack
+ * `a35f7a6`), and on the installed 18.0.0-next.3 this answers empty. This reads every
  * exported check no site names and keeps the ones that refuse a slotted
  * `object-grid` naming `api` at its `properties.data.provider`: on next.2 that
  * is exactly the removed judge, and on a spec without it the list is empty, so

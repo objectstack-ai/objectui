@@ -97,11 +97,6 @@ async function renderBoard(lang: 'en' | 'zh') {
   await screen.findByText(NO_CARDS[lang])
 }
 
-afterEach(() => {
-  cleanup()
-  geometry.bands = []
-})
-
 /** What the live region says now. */
 const said = () => document.querySelector('[id^="DndLiveRegion"]')?.textContent ?? null
 const card = (title: string) => screen.getByRole('listitem', { name: title })
@@ -126,6 +121,14 @@ function pointerDrag(cardEl: HTMLElement, bands: Array<string | null>): string[]
 const pointerDrop = () => fireEvent.pointerUp(document, { isPrimary: true, button: 0 })
 // The pointer sensor listens for Escape on the document while a drag is live.
 const escape = () => fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' })
+
+afterEach(() => {
+  // A test that failed mid-drag leaves the pointer sensor listening on the
+  // document; cancel that drag so it cannot end inside the next test's board.
+  escape()
+  cleanup()
+  geometry.bands = []
+})
 
 /** The dragged card, tagged with its id so band 0 is the card over itself. */
 function grab(title: string, id: string): HTMLElement {

@@ -851,7 +851,7 @@ export function AppHeader({
           <>
             <PathSep />
             <span className="text-sm font-medium text-foreground/80 px-1.5">
-              {t('organizations.title', { defaultValue: 'Workspaces' })}
+              {t('organizations.title', { defaultValue: 'Organizations' })}
             </span>
           </>
         )}
@@ -1210,7 +1210,7 @@ export function AppHeader({
                   data-testid="header-my-organizations"
                 >
                   <Building2 className="mr-2 h-4 w-4" />
-                  {t('organizations.mine', { defaultValue: 'My Workspaces' })}
+                  {t('organizations.mine', { defaultValue: 'My Organizations' })}
                 </DropdownMenuItem>
               )}
               {hasOrgSection && !multiOrgDisabled && (
@@ -1220,7 +1220,7 @@ export function AppHeader({
                   data-testid="header-create-workspace"
                 >
                   <Plus className="mr-2 h-4 w-4" />
-                  {t('organizations.create', { defaultValue: 'Create workspace' })}
+                  {t('organizations.create', { defaultValue: 'Create organization' })}
                 </DropdownMenuItem>
               )}
               {/*

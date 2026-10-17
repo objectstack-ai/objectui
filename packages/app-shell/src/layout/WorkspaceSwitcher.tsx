@@ -146,7 +146,7 @@ export function WorkspaceSwitcher() {
             data-testid="workspace-create"
           >
             <Plus className="h-4 w-4" />
-            {t('organizations.create', { defaultValue: 'Create workspace' })}
+            {t('organizations.create', { defaultValue: 'Create organization' })}
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>

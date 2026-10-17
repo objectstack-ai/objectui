@@ -349,7 +349,7 @@ export function HomePage() {
   // the zero-app empty state as its description. Localized in all ten packs.
   const authoringGateReason = t('home.build.noCapability', {
     defaultValue:
-      "Building apps isn't available in this workspace — it requires the “Manage Metadata” permission, which your account doesn't have.",
+      "Building apps isn't available in this environment — it requires the “Manage Metadata” permission, which your account doesn't have.",
   });
   const marketplaceGateReason = t('home.template.marketplaceDisabled', {
     defaultValue: 'This runtime has no app marketplace configured, so there are no templates to install here.',
@@ -472,7 +472,7 @@ export function HomePage() {
   if (loading || !isAdminResolved) {
     return (
       <div className="flex flex-1 items-center justify-center py-20">
-        <div className="text-muted-foreground">{t('home.loading', { defaultValue: 'Loading workspace…' })}</div>
+        <div className="text-muted-foreground">{t('home.loading', { defaultValue: 'Loading environment…' })}</div>
       </div>
     );
   }
@@ -560,7 +560,7 @@ export function HomePage() {
             <EmptyDescription>
               {t('home.noAppsDescription', {
                 defaultValue:
-                  'Your workspace is being set up — apps your admin shares with you will show up here.',
+                  'Your environment is being set up — apps your admin shares with you will show up here.',
               })}
             </EmptyDescription>
           </Empty>

@@ -13,7 +13,7 @@
  * the same `/cloud/environment-entitlements` endpoint the environment list uses
  * and renders the right primary action:
  *
- *   • has production env  → "Open workspace" (the doorway into the env, where
+ *   • has production env  → "Open" (the doorway into the env, where
  *                            building happens) + a "Manage environments" link.
  *                            The label names the place in the customer's words,
  *                            not the operator's: a new customer has exactly one
@@ -24,7 +24,7 @@
  *   • loading             → a neutral skeleton (no CTA flashes / layout jump).
  *   • unknown / error     → degrade to BOTH actions, so the button always works.
  *
- * Routes and the "Open workspace" endpoint come from the page metadata
+ * Routes and the "Open" endpoint come from the page metadata
  * (`properties`) so the Cloud app owns its URLs; this component owns only the
  * state logic. The signal is read through `useEnvironmentEntitlements`, the
  * resource the pricing page's plan cards and the workspace-timezone notice share,
@@ -62,7 +62,7 @@ interface CloudOnboardingNextProps {
      * Optional backend pre-warm endpoint. When set and the caller already has
      * a production env, the widget fires a best-effort GET the moment it knows
      * the env exists — nudging a possibly-asleep container awake WHILE the user
-     * reads the hint, so the later "Open workspace" click lands in an
+     * reads the hint, so the later "Open" click lands in an
      * already-waking env instead of paying the full cold-start. No-op when
      * unset (older page metadata), so this is safe to ship ahead of the page.
      */
@@ -109,7 +109,7 @@ function useProductionEnvState(warmUrl?: string): Resolved {
 
   // Pre-warm the prod env the instant we know it exists — fire-and-forget,
   // best-effort, once per resolve. The user is now reading the hint and will
-  // click "Open workspace" seconds later; by then the container is already
+  // click "Open" seconds later; by then the container is already
   // waking. The sso-open click warms again, so a failed warm here costs
   // nothing. Only when the page passes a warmUrl (else no-op). Keyed on the
   // answer object itself, so each resolution warms once.

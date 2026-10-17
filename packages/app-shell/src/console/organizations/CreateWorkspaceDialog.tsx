@@ -231,7 +231,7 @@ export function CreateWorkspaceDialog({
         setError(
           resolveOrgErrorMessage(err, t, {
             key: 'workspace.createFailed',
-            defaultValue: 'Failed to create workspace',
+            defaultValue: 'Failed to create organization',
           }),
         );
       } finally {
@@ -247,11 +247,11 @@ export function CreateWorkspaceDialog({
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>
-              {t('workspace.createTitle', { defaultValue: 'Create a workspace' })}
+              {t('workspace.createTitle', { defaultValue: 'Create an organization' })}
             </DialogTitle>
             <DialogDescription>
               {t('workspace.createDescription', {
-                defaultValue: 'A workspace is a shared space for your team to collaborate.',
+                defaultValue: 'An organization is a shared space for your team to collaborate.',
               })}
             </DialogDescription>
           </DialogHeader>
@@ -259,7 +259,7 @@ export function CreateWorkspaceDialog({
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="workspace-name">
-                {t('workspace.nameLabel', { defaultValue: 'Workspace name' })}
+                {t('workspace.nameLabel', { defaultValue: 'Organization name' })}
               </Label>
               <Input
                 id="workspace-name"
@@ -293,7 +293,7 @@ export function CreateWorkspaceDialog({
               data-testid="workspace-create-submit"
             >
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {t('workspace.createButton', { defaultValue: 'Create workspace' })}
+              {t('workspace.createButton', { defaultValue: 'Create organization' })}
             </Button>
           </DialogFooter>
         </form>

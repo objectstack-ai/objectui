@@ -1,6 +1,6 @@
 ---
 '@object-ui/app-shell': patch
-'@object-ui/components': patch
+'@object-ui/components': minor
 ---
 
 A record whose record page declares `print` shows its header actions again (objectui#12906).

@@ -43,7 +43,11 @@ import {
   switchedBlockOf,
   isBareSwitchedOffBlock,
   configKeyOf,
+  isScheduleExpressionPath,
+  readOnlyScheduleCadence,
+  scheduleWithExpression,
   type FlowConfigField,
+  type ScheduleCadence,
 } from './flow-node-config.js';
 import { declaredConfigKeys, jsonSchemaToFlowFields } from './json-schema-to-fields.js';
 import {
@@ -167,6 +171,25 @@ function setAtPath(obj: Record<string, unknown>, path: string[], value: unknown)
     else next[head] = child;
   }
   return next;
+}
+
+/**
+ * An interval or once cadence as the read-only Cron schedule field shows it
+ * (objectui#12779): an interval in the largest whole unit it divides into.
+ */
+function describeCadence(cadence: Exclude<ScheduleCadence, { type: 'cron' }>, locale: string | undefined): string {
+  if (cadence.type === 'once') return tFormat('engine.inspector.flowNode.cadenceOnce', locale, { at: cadence.at });
+  const ms = cadence.intervalMs;
+  const units: ReadonlyArray<[number, string]> = [
+    [86_400_000, 'engine.inspector.flowNode.cadenceEveryDays'],
+    [3_600_000, 'engine.inspector.flowNode.cadenceEveryHours'],
+    [60_000, 'engine.inspector.flowNode.cadenceEveryMinutes'],
+    [1_000, 'engine.inspector.flowNode.cadenceEverySeconds'],
+  ];
+  for (const [size, key] of units) {
+    if (ms % size === 0) return tFormat(key, locale, { n: ms / size });
+  }
+  return tFormat('engine.inspector.flowNode.cadenceEveryMs', locale, { n: ms });
 }
 
 /**
@@ -507,7 +530,13 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
     // instead, which says the same OFF. `setAtPath` deletes only the block —
     // sibling config keys are not rebuilt — and prunes a `config` left empty.
     const switched = switchedBlockOf(node, field);
-    let nextNode = setAtPath(node, path, stored);
+    // objectui#12779 — the Cron schedule commit rewrites the whole
+    // `config.schedule`, so a bare string or `{ cron }` cadence stores the
+    // typed cron where the engine reads it, rather than an `expression`
+    // merged beside the key the engine resolves first.
+    let nextNode = isScheduleExpressionPath(path)
+      ? setAtPath(node, path.slice(0, -1), scheduleWithExpression(config.schedule, stored))
+      : setAtPath(node, path, stored);
     if (switched && isBareSwitchedOffBlock(nextNode, switched)) {
       nextNode = setAtPath(nextNode, [...switched.block], undefined);
     }
@@ -729,6 +758,10 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
         // what the runtime applies while the node stores nothing and writes
         // nothing. Render-only — the gates read `fields`, never this copy.
         const triggerReading = unsetTriggerReading(field, node, flowKind);
+        // objectui#12779 — an interval or once cadence is shown as what it is,
+        // through the same `disabled` control a read-only flow draws, and is
+        // never offered as a cron: the designer edits cron cadences only.
+        const cadence = readOnlyScheduleCadence(node, field);
         // A NESTED node can't wire top-level edges, so drop the virtual Target
         // column from its Branches editor and skip the withBranchTargets augment
         // (its region routing is out of scope this phase).
@@ -737,11 +770,19 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
             ? { ...field, columns: (field.columns ?? []).filter((c) => c.key !== 'target') }
             : triggerReading !== undefined
               ? { ...field, defaultValue: triggerReading }
-              : field;
+              : cadence
+                ? {
+                    ...field,
+                    label: t('engine.inspector.flowNode.cadenceLabel', locale),
+                    help: t('engine.inspector.flowNode.cadenceReadOnly', locale),
+                    placeholder: undefined,
+                  }
+                : field;
         // The Branches editor's Target column (#1942) is virtual: derived from the
         // node's out-edges, never stored on the branch rows (top-level only).
-        const value =
-          branchTarget && !nested
+        const value = cadence
+          ? describeCadence(cadence, locale)
+          : branchTarget && !nested
             ? withBranchTargets(
                 node.id,
                 getFieldValue(node, field),
@@ -761,7 +802,7 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
               field={effField}
               value={value}
               onCommit={(v) => setField(field, v)}
-              disabled={readOnly}
+              disabled={readOnly || !!cadence}
               locale={locale}
               context={{ draft, node }}
               scopeGroups={scopeGroups}

@@ -511,9 +511,16 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     // field used to write a FLAT `config.cron`, which the backend never reads — so
     // designer-authored scheduled flows silently never bound. `fallbackPath`
     // migrates an existing flat `config.cron` to `config.schedule.expression` on
-    // first edit; reading `.expression` also renders an object-shaped schedule as
-    // its cron string instead of "[object Object]". Any sibling keys the runtime
-    // set (`type`, `timezone`) are preserved through edits (setAtPath merges).
+    // first edit.
+    //
+    // objectui#12779 — the path is this field's address, not how it reads:
+    // `getFieldValue` reads `config.schedule` the way the engine resolves it
+    // (`scheduleCadenceOf`), so a bare string, `{ expression }` and `{ cron }`
+    // all show their cron. An interval or once cadence draws read-only as what
+    // it is (`readOnlyScheduleCadence`): the designer edits cron cadences only.
+    // A commit rewrites the whole block through `scheduleWithExpression`, which
+    // keeps a bare string a string and an object's `type` / `timezone`, so the
+    // stored cadence resolves to the cron the field shows.
     //
     // objectui#12672 — gated on the flow's RESOLVED kind as well as on the
     // select: a `type: 'schedule'` flow, or a start node carrying
@@ -604,9 +611,10 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     // Legacy `criteria` key — rendered only when present so older metadata never
     // falls back to raw JSON. Prefer `condition` above for new flows. (There is no
     // legacy `schedule` text field: the `schedule.expression` field above owns the
-    // whole `config.schedule` block and reads its `.expression`, so a bare-string
-    // or object-shaped schedule renders through it — a raw text field on
-    // `config.schedule` would print "[object Object]" for the object shape.)
+    // whole `config.schedule` block and reads it as the engine resolves it
+    // (`scheduleCadenceOf`), so a bare-string or object-shaped schedule renders
+    // through it — a raw text field on `config.schedule` would print
+    // "[object Object]" for the object shape.)
     cfg('criteria', 'Entry condition (legacy)', 'expression', {
       placeholder: 'status == "active"',
       help: 'Legacy key — prefer "Entry condition" (condition).',
@@ -1538,6 +1546,9 @@ export function localizeFlowFields(
 
 /** Read the current value at a field's node path, falling back to `fallbackPath`. */
 export function getFieldValue(node: Record<string, unknown> | null | undefined, field: FlowConfigField): unknown {
+  // objectui#12779 — the start node's cadence is read the way the engine reads
+  // it, not by walking a path a bare string or `{ cron }` does not have.
+  if (isScheduleExpressionPath(field.path)) return scheduleFieldValue(node, field);
   const read = (path: string[]): unknown => {
     let cur: unknown = node;
     for (const seg of path) {
@@ -1549,6 +1560,163 @@ export function getFieldValue(node: Record<string, unknown> | null | undefined, 
   const primary = read(field.path);
   if (primary !== undefined) return primary;
   return field.fallbackPath ? read(field.fallbackPath) : undefined;
+}
+
+/**
+ * A start node's cadence, in the three shapes the engine runs (objectui#12779).
+ */
+export type ScheduleCadence =
+  | { type: 'cron'; expression: string; timezone?: string }
+  | { type: 'interval'; intervalMs: number }
+  | { type: 'once'; at: string };
+
+/** The path of the start group's Cron schedule field. */
+const SCHEDULE_EXPRESSION_PATH: readonly string[] = ['config', 'schedule', 'expression'];
+
+/** Whether `path` is the start group's Cron schedule field's (objectui#12779). */
+export function isScheduleExpressionPath(path: readonly string[]): boolean {
+  return path.length === SCHEDULE_EXPRESSION_PATH.length && path.every((seg, i) => seg === SCHEDULE_EXPRESSION_PATH[i]);
+}
+
+/**
+ * Resolve a stored `config.schedule` to the cadence the engine runs, or `null`
+ * when the engine binds none (objectui#12779).
+ *
+ * A mirror of `normalizeSchedule` in objectstack
+ * `packages/triggers/trigger-schedule/src/schedule-trigger.ts`, which the
+ * schedule trigger calls on `config.schedule` when it binds a flow. It is
+ * mirrored rather than imported: this package takes no dependency on a
+ * `@objectstack/trigger-*` package. Every branch and its order are the
+ * engine's, so a form the engine accepts reads here and a form it refuses
+ * reads `null`:
+ *   - a bare cron string;
+ *   - `{ expression }` or `{ cron }`, with `type: 'cron'` or untyped
+ *     (`expression` wins over `cron`; `timezone` rides along);
+ *   - `{ intervalMs }` or `{ every }`, with `type: 'interval'` or untyped;
+ *   - `{ at }`, with `type: 'once'` or untyped.
+ * A `type` the engine does not know, or a typed descriptor missing its value,
+ * resolves to nothing.
+ */
+export function normalizeScheduleCadence(raw: unknown): ScheduleCadence | null {
+  if (raw == null) return null;
+  if (typeof raw === 'string') {
+    const expr = raw.trim();
+    return expr ? { type: 'cron', expression: expr } : null;
+  }
+  if (typeof raw !== 'object') return null;
+  const s = raw as Record<string, unknown>;
+  const type = typeof s.type === 'string' ? s.type : undefined;
+  if (type === 'cron' || (!type && (typeof s.cron === 'string' || typeof s.expression === 'string'))) {
+    const expression =
+      (typeof s.expression === 'string' && s.expression) || (typeof s.cron === 'string' && s.cron) || undefined;
+    if (!expression) return null;
+    const out: ScheduleCadence = { type: 'cron', expression };
+    if (typeof s.timezone === 'string') out.timezone = s.timezone;
+    return out;
+  }
+  if (type === 'interval' || (!type && (typeof s.intervalMs === 'number' || typeof s.every === 'number'))) {
+    const intervalMs =
+      (typeof s.intervalMs === 'number' && s.intervalMs) || (typeof s.every === 'number' && s.every) || undefined;
+    if (!intervalMs || intervalMs <= 0) return null;
+    return { type: 'interval', intervalMs };
+  }
+  if (type === 'once' || (!type && typeof s.at === 'string')) {
+    const at = typeof s.at === 'string' ? s.at : undefined;
+    if (!at) return null;
+    return { type: 'once', at };
+  }
+  return null;
+}
+
+function configOfNode(node: Record<string, unknown> | null | undefined): Record<string, unknown> | undefined {
+  const c = node?.config;
+  return c && typeof c === 'object' && !Array.isArray(c) ? (c as Record<string, unknown>) : undefined;
+}
+
+/**
+ * The cadence a start node's Cron schedule field stands for (objectui#12779):
+ * its `config.schedule` as the engine resolves it, else — only for a field
+ * that declares the `fallbackPath` — the legacy flat `config.cron` the field
+ * migrates on first edit. The engine never reads that flat key; the designer
+ * shows it so an author can move it into place.
+ */
+export function scheduleCadenceOf(
+  node: Record<string, unknown> | null | undefined,
+  field?: Pick<FlowConfigField, 'fallbackPath'>,
+): ScheduleCadence | null {
+  const config = configOfNode(node);
+  const cadence = normalizeScheduleCadence(config?.schedule);
+  if (cadence || (field && !field.fallbackPath)) return cadence;
+  const flat = config?.cron;
+  return typeof flat === 'string' && flat.trim() !== '' ? { type: 'cron', expression: flat } : null;
+}
+
+/**
+ * What the Cron schedule field holds: a cron cadence's expression; an interval
+ * or once cadence itself, which the designer shows read-only and never offers
+ * as a cron (the seat's ruling on objectui#12779); or, when the engine binds
+ * nothing, any `expression` string stored on an object-shaped schedule, so a
+ * half-written descriptor still reads back what was typed into it.
+ */
+function scheduleFieldValue(node: Record<string, unknown> | null | undefined, field: FlowConfigField): unknown {
+  const cadence = scheduleCadenceOf(node, field);
+  if (cadence) return cadence.type === 'cron' ? cadence.expression : cadence;
+  const schedule = configOfNode(node)?.schedule;
+  if (schedule && typeof schedule === 'object' && !Array.isArray(schedule)) {
+    const expression = (schedule as Record<string, unknown>).expression;
+    if (expression !== undefined) return expression;
+  }
+  return undefined;
+}
+
+/**
+ * The cadence the Cron schedule field draws read-only, or `undefined` when the
+ * field is an ordinary cron text box (objectui#12779). Only an interval or once
+ * cadence: the designer edits cron cadences only.
+ */
+export function readOnlyScheduleCadence(
+  node: Record<string, unknown> | null | undefined,
+  field: Pick<FlowConfigField, 'path' | 'fallbackPath'>,
+): Exclude<ScheduleCadence, { type: 'cron' }> | undefined {
+  if (!isScheduleExpressionPath(field.path)) return undefined;
+  const cadence = scheduleCadenceOf(node, field);
+  return cadence && cadence.type !== 'cron' ? cadence : undefined;
+}
+
+/** The keys a non-cron cadence is spelt with, which a written cron replaces. */
+const NON_CRON_CADENCE_KEYS = ['intervalMs', 'every', 'at'] as const;
+
+/**
+ * The `config.schedule` a Cron schedule commit stores (objectui#12779), so the
+ * stored descriptor resolves, through the engine's `normalizeSchedule`, to the
+ * cron the field then shows. `undefined` removes the schedule.
+ *
+ * - A bare string stays a bare string: the typed cron replaces it.
+ * - No schedule yet stores `{ expression }`, as the field always has.
+ * - An object keeps its other keys (`type: 'cron'`, `timezone`) and takes the
+ *   typed cron as `expression`; a stale `cron` beside it is dropped, as is a
+ *   `type` or value key the engine would resolve ahead of the cron. Those are
+ *   only met on a descriptor the engine binds nothing from, since a live
+ *   interval or once cadence offers no cron edit at all.
+ * - Clearing removes `expression` and `cron`, or the whole schedule when it is
+ *   a string, an interval or once cadence, or an object left empty.
+ */
+export function scheduleWithExpression(schedule: unknown, value: unknown): unknown {
+  const expression = typeof value === 'string' ? value : '';
+  if (typeof schedule === 'string') return expression === '' ? undefined : expression;
+  const isObject = !!schedule && typeof schedule === 'object' && !Array.isArray(schedule);
+  const next: Record<string, unknown> = isObject ? { ...(schedule as Record<string, unknown>) } : {};
+  delete next.cron;
+  if (expression === '') {
+    const cadence = normalizeScheduleCadence(schedule);
+    if (cadence && cadence.type !== 'cron') return undefined;
+    delete next.expression;
+  } else {
+    if (typeof next.type === 'string' && next.type !== 'cron') delete next.type;
+    for (const key of NON_CRON_CADENCE_KEYS) delete next[key];
+    next.expression = expression;
+  }
+  return Object.keys(next).length === 0 ? undefined : next;
 }
 
 /**

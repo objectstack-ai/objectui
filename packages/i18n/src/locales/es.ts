@@ -817,6 +817,8 @@ const es = {
     recordCount_many: "{{count}} de registros",
     recordCount_other: "{{count}} registros",
     addRecord: "Agregar registro",
+    // objectui#12703 — the compact list's footer link to the object's list or the block's view.
+    viewAll: "Ver todo",
     tabs: "Pestañas",
     allRecords: "Todos los registros",
     search: "Buscar",
@@ -902,6 +904,17 @@ const es = {
     cardTitlePlaceholder: "Escriba el título de la tarjeta…",
     requiredFieldsTitle: "Complete los campos obligatorios",
     requiredFieldsDescription: "Este movimiento hace que los campos siguientes sean obligatorios. Complételos para continuar.",
+    dnd: {
+      start: "Tarjeta {{card}} tomada en la columna {{column}}.",
+      overCard: "Tarjeta {{card}} sobre la tarjeta {{target}} en la columna {{column}}.",
+      overColumn: "Tarjeta {{card}} sobre la columna {{column}}.",
+      overNone: "La tarjeta {{card}} no está sobre ninguna columna.",
+      moved: "Tarjeta {{card}} movida a la columna {{column}}.",
+      dropped: "Tarjeta {{card}} soltada. Sigue en la columna {{column}}.",
+      cancelled: "Arrastre cancelado. La tarjeta {{card}} sigue en la columna {{column}}.",
+      untitledCard: "sin título",
+      unnamedColumn: "sin nombre",
+    },
   },
   timeline: {
     bucket: {
@@ -2060,6 +2073,8 @@ const es = {
       cryptoRefusalNoSubject: "El valor declarado como cifrado fue rechazado, por lo que no se escribió nada.",
       cryptoRefusalToast: "No se pueden cifrar los secretos: {{subject}}",
       cryptoRefusalToastNoSubject: "No se pueden cifrar los secretos",
+      sourceBadgeInherited: "Heredado de {{source}}",
+      sourceBadgeOverrides: "Sobrescribe {{source}}",
     },
     workspaceTimezonePrompt: {
       title: "Configure la zona horaria del espacio de trabajo",
@@ -3586,7 +3601,7 @@ const es = {
     noDescription: "Sin descripción disponible.",
     back: "Volver al marketplace",
     browseLink: "Explorar marketplace →",
-    installedAdditiveNote: "La API del kernel es solo aditiva — desinstalar elimina el manifiesto del disco para que el paquete no se cargue al próximo inicio, pero el kernel en ejecución mantiene la aplicación registrada hasta reiniciar.",
+    installedAdditiveNote: "La desinstalación retira la aplicación del kernel en ejecución de inmediato, junto con sus conjuntos de permisos y sus asignaciones, y elimina el manifiesto en caché para que el paquete no se cargue en el próximo inicio. Los registros almacenados en sus objetos permanecen en la base de datos.",
     versionBadge: "v{{version}}",
     installedBadge: "Instalado v{{version}}",
     // objectui#11645 — an install-local entry this runtime refused to load at
@@ -3737,9 +3752,9 @@ const es = {
       },
     },
     uninstall: {
-      confirm: "¿Desinstalar {{manifestId}} v{{version}} de este runtime?\n\nEl manifiesto en caché será eliminado.",
-      successInList: "{{manifestId}} eliminado. Reinicie el runtime para descargarlo completamente.",
-      successInDetail: "Manifiesto en caché para {{manifestId}} eliminado.",
+      confirm: "¿Desinstalar {{manifestId}} v{{version}} de este runtime?\n\nLa aplicación se retirará de inmediato del kernel en ejecución, junto con sus conjuntos de permisos y sus asignaciones, y el manifiesto en caché será eliminado. Los registros almacenados en sus objetos permanecen en la base de datos.",
+      successInList: "{{manifestId}} eliminado: la aplicación se retiró del kernel en ejecución, junto con sus conjuntos de permisos y sus asignaciones. Los registros almacenados en sus objetos permanecen en la base de datos.",
+      successInDetail: "{{manifestId}} y su manifiesto en caché eliminados: la aplicación se retiró del kernel en ejecución, junto con sus conjuntos de permisos y sus asignaciones. Los registros almacenados en sus objetos permanecen en la base de datos.",
       confirmNotLoaded: "¿Desinstalar {{manifestId}} v{{version}} de este runtime?\n\nEl manifiesto en caché será eliminado. Este runtime no cargó el paquete, así que ninguna parte de él está en ejecución.",
       successNotLoaded: "{{manifestId}} eliminado. No estaba cargado, así que no es necesario reiniciar.",
     },

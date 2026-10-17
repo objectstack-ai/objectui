@@ -812,6 +812,8 @@ const pt = {
     recordCount_many: "{{count}} de registros",
     recordCount_other: "{{count}} registros",
     addRecord: "Adicionar registro",
+    // objectui#12703 — the compact list's footer link to the object's list or the block's view.
+    viewAll: "Ver tudo",
     tabs: "Abas",
     allRecords: "Todos os registros",
     search: "Pesquisar",
@@ -897,6 +899,17 @@ const pt = {
     cardTitlePlaceholder: "Digite o título do cartão…",
     requiredFieldsTitle: "Preencha os campos obrigatórios",
     requiredFieldsDescription: "Esta movimentação torna os campos abaixo obrigatórios. Preencha-os para continuar.",
+    dnd: {
+      start: "Cartão {{card}} levantado na coluna {{column}}.",
+      overCard: "Cartão {{card}} sobre o cartão {{target}} na coluna {{column}}.",
+      overColumn: "Cartão {{card}} sobre a coluna {{column}}.",
+      overNone: "O cartão {{card}} não está sobre nenhuma coluna.",
+      moved: "Cartão {{card}} movido para a coluna {{column}}.",
+      dropped: "Cartão {{card}} solto. Continua na coluna {{column}}.",
+      cancelled: "Arrasto cancelado. O cartão {{card}} continua na coluna {{column}}.",
+      untitledCard: "sem título",
+      unnamedColumn: "sem nome",
+    },
   },
   timeline: {
     bucket: {
@@ -2055,6 +2068,8 @@ const pt = {
       cryptoRefusalNoSubject: "O valor declarado como criptografado foi recusado, portanto nada foi gravado.",
       cryptoRefusalToast: "Não é possível criptografar segredos: {{subject}}",
       cryptoRefusalToastNoSubject: "Não é possível criptografar segredos",
+      sourceBadgeInherited: "Herdado de {{source}}",
+      sourceBadgeOverrides: "Substitui {{source}}",
     },
     workspaceTimezonePrompt: {
       title: "Definir o fuso horário do workspace",
@@ -3581,7 +3596,7 @@ const pt = {
     noDescription: "Sem descrição disponível.",
     back: "Voltar ao marketplace",
     browseLink: "Explorar marketplace →",
-    installedAdditiveNote: "A API do kernel é apenas aditiva — desinstalar remove o manifesto do disco para que o pacote não seja carregado na próxima inicialização, mas o kernel em execução mantém o aplicativo registrado até reiniciar.",
+    installedAdditiveNote: "A desinstalação remove o aplicativo do kernel em execução imediatamente, junto com seus conjuntos de permissões e as respectivas atribuições, e exclui o manifesto em cache para que o pacote não seja carregado na próxima inicialização. Os registros armazenados em seus objetos permanecem no banco de dados.",
     versionBadge: "v{{version}}",
     installedBadge: "Instalado v{{version}}",
     // objectui#11645 — an install-local entry this runtime refused to load at
@@ -3732,9 +3747,9 @@ const pt = {
       },
     },
     uninstall: {
-      confirm: "Desinstalar {{manifestId}} v{{version}} deste runtime?\n\nO manifesto em cache será removido.",
-      successInList: "{{manifestId}} removido. Reinicie o runtime para descarregá-lo completamente.",
-      successInDetail: "Manifesto em cache para {{manifestId}} removido.",
+      confirm: "Desinstalar {{manifestId}} v{{version}} deste runtime?\n\nO aplicativo será removido do kernel em execução imediatamente, junto com seus conjuntos de permissões e as respectivas atribuições, e o manifesto em cache será removido. Os registros armazenados em seus objetos permanecem no banco de dados.",
+      successInList: "{{manifestId}} removido: o aplicativo saiu do kernel em execução, junto com seus conjuntos de permissões e as respectivas atribuições. Os registros armazenados em seus objetos permanecem no banco de dados.",
+      successInDetail: "{{manifestId}} e seu manifesto em cache removidos: o aplicativo saiu do kernel em execução, junto com seus conjuntos de permissões e as respectivas atribuições. Os registros armazenados em seus objetos permanecem no banco de dados.",
       confirmNotLoaded: "Desinstalar {{manifestId}} v{{version}} deste runtime?\n\nO manifesto em cache será removido. Este runtime não carregou o pacote, então nenhuma parte dele está em execução.",
       successNotLoaded: "{{manifestId}} removido. Não estava carregado, então não é necessário reiniciar.",
     },

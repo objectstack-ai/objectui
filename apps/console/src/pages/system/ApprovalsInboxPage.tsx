@@ -72,6 +72,7 @@ import {
   SelectTrigger,
   SelectValue,
   cn,
+  HorizontalOverflowBox,
 } from '@object-ui/components';
 import { toast } from 'sonner';
 import { useAuth } from '@object-ui/auth';
@@ -2056,7 +2057,11 @@ export function ApprovalsInboxPage() {
               {/* Desktop table */}
               <Card className="hidden md:block">
                 <CardContent className="p-0">
-                  <Table>
+                  {/* objectui#12708 — wider than the panel, the table scrolls
+                      in the shared overflow box: a right-edge shadow while
+                      columns remain to the right, its scrollbar on hover. */}
+                  <HorizontalOverflowBox outerClassName="rounded-lg overflow-hidden" data-testid="approvals-inbox-table-scroller">
+                  <Table containerClassName="overflow-visible">
                     <TableHeader>
                       <TableRow>
                         {tab === 'pending' && (
@@ -2166,6 +2171,7 @@ export function ApprovalsInboxPage() {
                       ))}
                     </TableBody>
                   </Table>
+                  </HorizontalOverflowBox>
                 </CardContent>
               </Card>
 
@@ -2520,7 +2526,8 @@ export function ApprovalsInboxPage() {
                       drawer pager's "Request 2 of 3". */}
                   {selected.decision_progress && (() => {
                     const dp = selected.decision_progress;
-                    const eligible = (selected.pending_approvers || []).length;
+                    // People, not slots: one person can hold several slots, so count the distinct served addresses, as app-shell's eligibleApproverCount does (objectui#12781).
+                    const eligible = new Set(selected.pending_approvers || []).size;
                     return (
                       <div className="border-t pt-3">
                         <div className="flex items-baseline justify-between gap-2 mb-1.5">

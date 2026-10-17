@@ -813,6 +813,8 @@ const fr = {
     recordCount_many: "{{count}} d'enregistrements",
     recordCount_other: "{{count}} enregistrements",
     addRecord: "Ajouter un enregistrement",
+    // objectui#12703 — the compact list's footer link to the object's list or the block's view.
+    viewAll: "Tout afficher",
     tabs: "Onglets",
     allRecords: "Tous les enregistrements",
     search: "Rechercher",
@@ -898,6 +900,17 @@ const fr = {
     cardTitlePlaceholder: "Saisir le titre de la carte…",
     requiredFieldsTitle: "Compléter les champs obligatoires",
     requiredFieldsDescription: "Ce déplacement rend les champs ci-dessous obligatoires. Remplissez-les pour continuer.",
+    dnd: {
+      start: "Carte {{card}} saisie dans la colonne {{column}}.",
+      overCard: "Carte {{card}} au-dessus de la carte {{target}} dans la colonne {{column}}.",
+      overColumn: "Carte {{card}} au-dessus de la colonne {{column}}.",
+      overNone: "La carte {{card}} n'est au-dessus d'aucune colonne.",
+      moved: "Carte {{card}} déplacée dans la colonne {{column}}.",
+      dropped: "Carte {{card}} déposée. Elle reste dans la colonne {{column}}.",
+      cancelled: "Déplacement annulé. La carte {{card}} reste dans la colonne {{column}}.",
+      untitledCard: "sans titre",
+      unnamedColumn: "sans nom",
+    },
   },
   timeline: {
     bucket: {
@@ -2057,6 +2070,8 @@ const fr = {
       cryptoRefusalNoSubject: "La valeur déclarée chiffrée a été refusée, aucune écriture n'a donc eu lieu.",
       cryptoRefusalToast: "Impossible de chiffrer les secrets : {{subject}}",
       cryptoRefusalToastNoSubject: "Impossible de chiffrer les secrets",
+      sourceBadgeInherited: "Hérité de {{source}}",
+      sourceBadgeOverrides: "Remplace {{source}}",
     },
     workspaceTimezonePrompt: {
       title: "Définir le fuseau horaire de l’espace de travail",
@@ -3583,7 +3598,7 @@ const fr = {
     noDescription: "Aucune description disponible.",
     back: "Retour au marketplace",
     browseLink: "Parcourir le marketplace →",
-    installedAdditiveNote: "L'API du noyau est uniquement additive — la désinstallation supprime le manifeste du disque pour que le paquet ne se charge pas au prochain démarrage, mais le noyau en cours d'exécution maintient l'application enregistrée jusqu'au redémarrage.",
+    installedAdditiveNote: "La désinstallation retire immédiatement l'application du noyau en cours d'exécution, avec ses jeux d'autorisations et leurs attributions, et supprime le manifeste en cache pour que le paquet ne se charge pas au prochain démarrage. Les enregistrements stockés dans ses objets restent dans la base de données.",
     versionBadge: "v{{version}}",
     installedBadge: "Installé v{{version}}",
     // objectui#11645 — an install-local entry this runtime refused to load at
@@ -3734,9 +3749,9 @@ const fr = {
       },
     },
     uninstall: {
-      confirm: "Désinstaller {{manifestId}} v{{version}} de ce runtime ?\n\nLe manifeste en cache sera supprimé.",
-      successInList: "{{manifestId}} supprimé. Redémarrez le runtime pour le décharger complètement.",
-      successInDetail: "Manifeste en cache pour {{manifestId}} supprimé.",
+      confirm: "Désinstaller {{manifestId}} v{{version}} de ce runtime ?\n\nL'application sera retirée immédiatement du noyau en cours d'exécution, avec ses jeux d'autorisations et leurs attributions, et le manifeste en cache sera supprimé. Les enregistrements stockés dans ses objets restent dans la base de données.",
+      successInList: "{{manifestId}} supprimé : l'application a été retirée du noyau en cours d'exécution, avec ses jeux d'autorisations et leurs attributions. Les enregistrements stockés dans ses objets restent dans la base de données.",
+      successInDetail: "{{manifestId}} et son manifeste en cache supprimés : l'application a été retirée du noyau en cours d'exécution, avec ses jeux d'autorisations et leurs attributions. Les enregistrements stockés dans ses objets restent dans la base de données.",
       confirmNotLoaded: "Désinstaller {{manifestId}} v{{version}} de ce runtime ?\n\nLe manifeste en cache sera supprimé. Ce runtime n'a pas chargé le paquet, donc aucune partie n'est en cours d'exécution.",
       successNotLoaded: "{{manifestId}} supprimé. Il n'était pas chargé, aucun redémarrage n'est nécessaire.",
     },

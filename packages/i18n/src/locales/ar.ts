@@ -903,6 +903,8 @@ const ar = {
     recordCount_many: "{{count}} سجلًا",
     recordCount_other: "{{count}} سجل",
     addRecord: "إضافة سجل",
+    // objectui#12703 — the compact list's footer link to the object's list or the block's view.
+    viewAll: "عرض الكل",
     tabs: "علامات التبويب",
     allRecords: "جميع السجلات",
     search: "بحث",
@@ -991,6 +993,17 @@ const ar = {
     cardTitlePlaceholder: "أدخل عنوان البطاقة…",
     requiredFieldsTitle: "أكمل الحقول المطلوبة",
     requiredFieldsDescription: "يجعل هذا النقل الحقول أدناه مطلوبة. أكملها للمتابعة.",
+    dnd: {
+      start: "تم التقاط البطاقة {{card}} في العمود {{column}}.",
+      overCard: "البطاقة {{card}} فوق البطاقة {{target}} في العمود {{column}}.",
+      overColumn: "البطاقة {{card}} فوق العمود {{column}}.",
+      overNone: "البطاقة {{card}} ليست فوق أي عمود.",
+      moved: "تم نقل البطاقة {{card}} إلى العمود {{column}}.",
+      dropped: "تم إفلات البطاقة {{card}}. لا تزال في العمود {{column}}.",
+      cancelled: "تم إلغاء السحب. لا تزال البطاقة {{card}} في العمود {{column}}.",
+      untitledCard: "بلا عنوان",
+      unnamedColumn: "بلا اسم",
+    },
   },
   timeline: {
     bucket: {
@@ -2208,6 +2221,8 @@ const ar = {
       cryptoRefusalNoSubject: "تم رفض القيمة المعلنة كمشفَّرة، لذلك لم تتم كتابة أي شيء.",
       cryptoRefusalToast: "تعذّر تشفير الأسرار: {{subject}}",
       cryptoRefusalToastNoSubject: "تعذّر تشفير الأسرار",
+      sourceBadgeInherited: "موروث من {{source}}",
+      sourceBadgeOverrides: "يتجاوز {{source}}",
     },
     workspaceTimezonePrompt: {
       title: "تعيين المنطقة الزمنية لمساحة العمل",
@@ -3797,7 +3812,7 @@ const ar = {
     noDescription: "لا وصف متاح.",
     back: "العودة إلى السوق",
     browseLink: "استعراض السوق →",
-    installedAdditiveNote: "واجهة برمجة النواة إضافية فقط — إلغاء التثبيت يزيل المانيفست من القرص لكي لا يتم تحميل الحزمة عند التشغيل التالي، لكن النواة الجارية تبقي التطبيق مسجلاً حتى إعادة التشغيل.",
+    installedAdditiveNote: "يزيل إلغاء التثبيت التطبيق من النواة الجارية فوراً، ومعه مجموعات الأذونات الخاصة به وتعييناتها، ويحذف المانيفست المخزن مؤقتاً لكي لا يتم تحميل الحزمة عند التشغيل التالي. تبقى السجلات المخزنة في كائناته في قاعدة البيانات.",
     versionBadge: "v{{version}}",
     installedBadge: "مثبت v{{version}}",
     // objectui#11645 — an install-local entry this runtime refused to load at
@@ -3954,9 +3969,9 @@ const ar = {
       },
     },
     uninstall: {
-      confirm: "إلغاء تثبيت {{manifestId}} v{{version}} من هذا الوقت التشغيل؟\n\nسيتم إزالة المانيفست المخزن مؤقتاً.",
-      successInList: "تم إزالة {{manifestId}}. أعد تشغيل الوقت التشغيل لتفريغه بالكامل.",
-      successInDetail: "تم إزالة المانيفست المخزن مؤقتاً لـ {{manifestId}}.",
+      confirm: "إلغاء تثبيت {{manifestId}} v{{version}} من وقت التشغيل هذا؟\n\nستتم إزالة التطبيق من النواة الجارية فوراً، ومعه مجموعات الأذونات الخاصة به وتعييناتها، وستتم إزالة المانيفست المخزن مؤقتاً. تبقى السجلات المخزنة في كائناته في قاعدة البيانات.",
+      successInList: "تمت إزالة {{manifestId}}: خرج التطبيق من النواة الجارية، ومعه مجموعات الأذونات الخاصة به وتعييناتها. تبقى السجلات المخزنة في كائناته في قاعدة البيانات.",
+      successInDetail: "تمت إزالة {{manifestId}} والمانيفست المخزن مؤقتاً الخاص به: خرج التطبيق من النواة الجارية، ومعه مجموعات الأذونات الخاصة به وتعييناتها. تبقى السجلات المخزنة في كائناته في قاعدة البيانات.",
       confirmNotLoaded: "إلغاء تثبيت {{manifestId}} v{{version}} من وقت التشغيل هذا؟\n\nسيتم إزالة المانيفست المخزن مؤقتاً. لم يقم وقت التشغيل هذا بتحميل الحزمة، لذا لا يعمل أي جزء منها.",
       successNotLoaded: "تمت إزالة {{manifestId}}. لم تكن الحزمة محمّلة، لذا لا حاجة لإعادة التشغيل.",
     },

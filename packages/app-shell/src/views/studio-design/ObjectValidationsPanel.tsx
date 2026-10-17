@@ -84,6 +84,10 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@object-ui/components';
 import { ConditionBuilder, RECORD_CONDITION_SUBJECTS } from '../metadata-admin/inspectors/ConditionBuilder.js';
 import { expressionSource, writeExpressionSource } from '../metadata-admin/inspectors/expression-envelope.js';
@@ -105,6 +109,9 @@ import { StudioEmptyState, StudioEmptyStateAction } from './StudioEmptyState.js'
  * as the inspector's are.
  */
 const DISABLED_LOOK = 'disabled:cursor-not-allowed disabled:opacity-50';
+
+/** The rule editor's scrolling body. */
+const EDITOR_BODY = 'flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-4';
 
 /** The item a stored value none of a picker's options carries is shown by. */
 const OUTSIDE_OPTIONS = 'outside';
@@ -840,6 +847,9 @@ export function ObjectValidationsPanel({
   // objectui#12514 — the header's "New": where the menu hands focus back once
   // the empty block that opened it has given way to the list.
   const headerNewRef = React.useRef<HTMLButtonElement>(null);
+  // objectui#12691 — the panel's title, and the read-only reason the rule editor is described by.
+  const titleId = React.useId();
+  const readOnlyReasonId = React.useId();
 
   /* ─── Blocking CEL verdicts → the Data pillar's Save gate (objectui#4527) ──
    *
@@ -1088,6 +1098,39 @@ export function ObjectValidationsPanel({
     </Popover>
   );
 
+  // objectui#12691 — on a read-only package every control in the rule editor is
+  // disabled for one reason, the package's. It rides the treatment the Data
+  // pillar's Field properties rail got (objectui#12303): the editor body is the
+  // tooltip trigger, so hovering any disabled control in it shows the reason,
+  // and a tab stop described by an `sr-only` copy of it, so a keyboard or
+  // screen-reader user reaches it too (a disabled control takes neither hover
+  // nor focus, and Tab skipped the whole editor). One trigger for the editor
+  // rather than one per control: the reason is the same for all of them.
+  const ruleEditorBody = (content: React.ReactNode) => {
+    if (!disabled) return <div className={EDITOR_BODY}>{content}</div>;
+    const reason = t('engine.studio.pkg.readonlyHint', locale);
+    return (
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div
+              role="group"
+              aria-labelledby={titleId}
+              tabIndex={0}
+              aria-describedby={readOnlyReasonId}
+              data-disabled-reason=""
+              className={`${EDITOR_BODY} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring`}
+            >
+              {content}
+              <span id={readOnlyReasonId} className="sr-only">{reason}</span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="left" align="start">{reason}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
   if (listed.length === 0) {
     return (
       <StudioEmptyState
@@ -1105,7 +1148,7 @@ export function ObjectValidationsPanel({
       <div className="flex w-72 shrink-0 flex-col rounded-lg border">
         <header className="flex items-center gap-2 border-b px-3 py-2">
           <ShieldAlert className="h-3.5 w-3.5" />
-          <span className="text-[13px] font-medium">{t('engine.studio.rules.title', locale)}</span>
+          <span id={titleId} className="text-[13px] font-medium">{t('engine.studio.rules.title', locale)}</span>
           <span className="text-[11px] text-muted-foreground">({listed.length})</span>
           {!disabled && addMenu}
         </header>
@@ -1142,8 +1185,8 @@ export function ObjectValidationsPanel({
       {/* rule editor — the list always selects a rule, so it is never blank
           for want of a pick (objectui#12514 retired that sentence). */}
       <div className="flex min-w-0 flex-1 flex-col rounded-lg border">
-        {!sel ? null : (
-          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-4">
+        {!sel ? null : ruleEditorBody(
+          <>
             {/* objectui#11820 — the line the Data pillar shows for an edit it
                 holds (objectui#11786), for a new rule this panel holds. */}
             {selMissing && (
@@ -1283,7 +1326,7 @@ export function ObjectValidationsPanel({
                 </button>
               )}
             </div>
-          </div>
+          </>,
         )}
       </div>
     </div>

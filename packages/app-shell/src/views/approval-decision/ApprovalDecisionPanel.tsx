@@ -108,6 +108,7 @@ import * as React from 'react';
 import { notifyDataChanged, useObjectTranslation, useRecordContext } from '@object-ui/react';
 import { cn, Badge } from '@object-ui/components';
 import { DecisionProgressIndicator } from '../approval-progress/DecisionProgressIndicator.js';
+import { eligibleApproverCount } from '../approval-progress/eligibleApprovers.js';
 import { DeclaredActionsBar } from '../DeclaredActionsBar.js';
 import { approverChips } from '../RecordApprovalsPanel.js';
 import { RecordSnapshotSummary } from './RecordSnapshotSummary.js';
@@ -187,7 +188,7 @@ function PendingApprovers({ request }: { request: ApprovalRequestLite }) {
 /** The three parts over one request row. Module-internal: no package export. */
 export function ApprovalDecisionPanel({ request, className }: ApprovalDecisionPanelProps) {
   const progress = request.decision_progress;
-  const eligible = (request.pending_approvers || []).length;
+  const eligible = eligibleApproverCount(request);
   const requestId = String(request.id);
 
   const handleDecided = React.useCallback(() => {

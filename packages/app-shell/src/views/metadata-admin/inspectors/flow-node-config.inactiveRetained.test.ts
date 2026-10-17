@@ -162,12 +162,14 @@ describe('inactiveRetainedKind — mechanical coverage of every showWhen group',
     // 33 -> 34 gated fields, 24 -> 23 ungated types. Triage's standing ruling
     // for the counts objectui#9277/#9278 share applies here too: re-measure at
     // landing time rather than copying a number out of the card.
+    // ⚑ RE-MEASURED for objectui#12780: the start node's Entry condition lost
+    // its `showWhen` (the engine evaluates it on every run), 34 -> 33.
     // objectui#12742: 23 -> 22 ungated types — `webhook` left the alias list
     // (spec 18 reserves it as a node type), and `http_request` became `http`,
     // a key `FLOW_NODE_CONFIG_TYPES` already contributes.
     expect(gatedByType.size).toBe(9); // 9 (name, ...) buckets — 8 canonical + the `script_task` alias
     const totalGated = [...gatedByType.values()].reduce((n, fs) => n + fs.length, 0);
-    expect(totalGated).toBe(34);
+    expect(totalGated).toBe(33);
     // The discriminating control: most node types have NO showWhen at all, so a
     // predicate that simply said "yes" everywhere would fail here.
     const ungatedTypes = TYPES.filter((t) => !gatedByType.has(t));
@@ -212,7 +214,7 @@ describe('inactiveRetainedKind — mechanical coverage of every showWhen group',
         checked += 1;
       }
     }
-    expect(checked).toBe(34); // objectui#9336 added `end.message` — see the note above.
+    expect(checked).toBe(33); // objectui#9336 added `end.message`, objectui#12780 ungated `start.condition` — see the note above.
   });
 });
 

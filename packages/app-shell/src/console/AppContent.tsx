@@ -32,7 +32,7 @@ import { buildExpressionUser } from '../providers/expressionUser.js';
 import { useTrackRouteAsRecent } from '../hooks/useTrackRouteAsRecent.js';
 import { useHomePath } from '../hooks/useHomePath.js';
 import { useSignedInUserLocale } from '../hooks/useUserLocale.js';
-import { resolveRecordFormTarget, resolveFormViewLayout, resolveNavigateCreateUrl, resolveNavigateEditUrl, resolvePostCreateTarget, recordFormCreateValues, readRecordFormCreateValues, RECORD_FORM_CREATE_VALUES_STATE } from '../utils/recordFormNavigation.js';
+import { resolveRecordFormTarget, resolveRecordFormModalLayout, resolveNavigateCreateUrl, resolveNavigateEditUrl, resolvePostCreateTarget, recordFormCreateValues, readRecordFormCreateValues, RECORD_FORM_CREATE_VALUES_STATE } from '../utils/recordFormNavigation.js';
 import { deriveRecordSurface, deriveRecordFlowSurface } from '@object-ui/plugin-view';
 import { RECORD_FORM_PARAM, RECORD_FORM_OBJECT_PARAM, RECORD_FORM_LINK_PARAM } from '../urlParams.js';
 import { appRouteSegment, matchAppBySegment } from '../utils/appRoute.js';
@@ -1253,30 +1253,34 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
                 ...(!editingRecord && (formLinkValues ?? overlayCreateValues)
                   ? { initialValues: formLinkValues ?? overlayCreateValues }
                   : {}),
-                // objectstack-ai/objectstack#2604 D1: create/edit follow the flow-surface derivation.
-                // This host calls it with no `viewport`, so it gets the desktop
-                // answer: a bounded modal (`size: 'auto'`, ModalForm's bounded
-                // default when modalSize is unset) for field-heavy and light
-                // objects alike (objectstack-ai/objectstack#23734, objectui#12592);
-                // a phone gets ModalForm's full-screen sheet below `sm`. Derived
-                // default only — anything spread later (form view layout) would
-                // win. Child tasks size to the CHILD object's def.
-                ...(deriveRecordFlowSurface(
-                  formObjectDef,
-                  isChildFormTask
-                    ? (editingRecord ? 'child-edit' : 'child-create')
-                    : (editingRecord ? 'edit' : 'create'),
-                ).size === 'full'
-                  ? { modalSize: 'full' as const }
-                  : {}),
                 // Honor the object's DEFAULT FORM VIEW: curated sections (field
                 // selection + order + grouping), `contentLayout: 'tabbed'` when the
-                // view is tabbed, and inline child collections (master-detail).
-                // When the view declares sections they drive the modal layout and
-                // win over the flat `fields` list below; otherwise this resolves to
-                // {} and `fields` (every field, raw schema order) is used as before.
-                // `formType` stays 'modal' (the container). (objectstack-ai/objectstack#1890 / ADR-0050.)
-                ...resolveFormViewLayout(formObjectDef as any),
+                // view is tabbed, inline child collections (master-detail), and its
+                // authored `modalSize`. When the view declares sections they drive
+                // the modal layout and win over the flat `fields` list below;
+                // otherwise `fields` (every field, raw schema order) is used as
+                // before. `formType` stays 'modal' (the container).
+                // (objectstack-ai/objectstack#1890 / ADR-0050.)
+                //
+                // The size: objectstack-ai/objectstack#2604 D1 — create/edit follow
+                // the flow-surface derivation. This host calls it with no
+                // `viewport`, so it gets the desktop answer, a bounded modal
+                // (`size: 'auto'`) for field-heavy and light objects alike
+                // (objectstack-ai/objectstack#23734, objectui#12592); a phone gets
+                // ModalForm's full-screen sheet below `sm`. objectui#12803: an
+                // authored `FormView.modalSize` wins over that derived default on
+                // desktop, and a derived `'full'` (the phone posture) stays full.
+                // The precedence lives in `resolveRecordFormModalLayout`, not in
+                // spread order. Child tasks size to the CHILD object's def.
+                ...resolveRecordFormModalLayout(
+                  formObjectDef as any,
+                  deriveRecordFlowSurface(
+                    formObjectDef,
+                    isChildFormTask
+                      ? (editingRecord ? 'child-edit' : 'child-create')
+                      : (editingRecord ? 'edit' : 'create'),
+                  ).size,
+                ),
                 title: editingRecord
                   ? t('form.editTitle', { object: objectLabel(formObjectDef as any) })
                   : t('form.createTitle', { object: objectLabel(formObjectDef as any) }),

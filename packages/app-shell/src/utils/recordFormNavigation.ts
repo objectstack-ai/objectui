@@ -8,6 +8,9 @@
  * @module utils/recordFormNavigation
  */
 
+import { FormViewSchema, type FormView } from '@objectstack/spec/ui';
+import type { RecordFlowSurface } from '@objectstack/spec/data';
+
 /**
  * Subset of the object metadata shape consumed by the resolver. Mirrors the
  * fields read from the runtime objects list (`useMetadata().objects`).
@@ -152,6 +155,8 @@ export interface FormViewDefinition {
   sections?: any[];
   /** Inline child collections (master-detail). */
   subforms?: any[];
+  /** The modal's size bucket, as the spec's `FormView.modalSize` declares it. */
+  modalSize?: FormView['modalSize'];
 }
 
 /**
@@ -174,6 +179,12 @@ export interface FormViewModalLayout {
   contentLayout?: 'tabbed';
   /** Inline child collections for a master-detail modal. */
   subforms?: any[];
+  /**
+   * The form view's authored `modalSize` (objectui#12803), copied only when
+   * it is a value the spec's `FormView.modalSize` enum allows. Omitted when
+   * the form view authors none, so the modal keeps its own default size.
+   */
+  modalSize?: FormView['modalSize'];
 }
 
 /**
@@ -189,10 +200,17 @@ export interface FormViewModalLayout {
  * ViewItem) and fall back to `objectDef.formViews.default` (legacy container).
  *
  * Returns an EMPTY object when the object has no form view, or a form view
- * that declares no sections — the caller then keeps its existing behavior
- * (a flat field list, i.e. the raw object schema). Empty `sections` /
- * `subforms` arrays are treated as absent so an empty curation never blanks
- * out the form.
+ * that declares no sections, subforms or `modalSize` — the caller then keeps
+ * its existing behavior (a flat field list, i.e. the raw object schema, at the
+ * modal's own default size). Empty `sections` / `subforms` arrays are treated
+ * as absent so an empty curation never blanks out the form.
+ *
+ * `modalSize` is copied independently of `sections` (objectui#12803): a form
+ * view can size the dialog without curating its fields. Only a value the
+ * spec's `FormView.modalSize` enum accepts is copied; the enum is read from
+ * `FormViewSchema` itself, so this file keeps no second copy of it. Where the
+ * console's create / edit modal combines it with the derived flow surface,
+ * see {@link resolveRecordFormModalLayout}.
  */
 export function resolveFormViewLayout(
   objectDef: ObjectDefinitionForFormView | null | undefined,
@@ -213,7 +231,38 @@ export function resolveFormViewLayout(
     layout.subforms = formView.subforms;
   }
 
+  const authoredSize = formView.modalSize;
+  if (authoredSize !== undefined && FormViewSchema.shape.modalSize.safeParse(authoredSize).success) {
+    layout.modalSize = authoredSize;
+  }
+
   return layout;
+}
+
+/**
+ * The layout the console's create / edit `<ModalForm>` is handed: the default
+ * form view's layout ({@link resolveFormViewLayout}) with its `modalSize`
+ * resolved against the record flow's derived surface (objectui#12803).
+ *
+ * Precedence, stated here rather than left to spread order:
+ *
+ *   1. a derived `size: 'full'` — the phone posture of `deriveRecordFlowSurface`
+ *      — stays `'full'`. It is a viewport rule, not an authored bucket, so an
+ *      authored size never shrinks a phone's full-screen modal;
+ *   2. otherwise the form view's authored `modalSize` wins on desktop;
+ *   3. otherwise no `modalSize` key at all, so `<ModalForm>` sizes the dialog
+ *      itself (its bounded default) exactly as before.
+ *
+ * `derivedSize` is the `size` of `deriveRecordFlowSurface(objectDef, flow)`
+ * for the flow being opened.
+ */
+export function resolveRecordFormModalLayout(
+  objectDef: ObjectDefinitionForFormView | null | undefined,
+  derivedSize: RecordFlowSurface['size'],
+): FormViewModalLayout {
+  const { modalSize: authoredSize, ...layout } = resolveFormViewLayout(objectDef);
+  const modalSize = derivedSize === 'full' ? 'full' : authoredSize;
+  return modalSize ? { ...layout, modalSize } : layout;
 }
 
 /**

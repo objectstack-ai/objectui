@@ -218,9 +218,13 @@ export function FlowRunsPage() {
         : Array.isArray(result?.items)
           ? result.items
           : [];
+      // The served list is flattened: `name` and `label` sit on the item
+      // itself, with no `spec` member. Both are read the same way, `spec`
+      // first, so the picker names a labelled flow `label (name)` on the list
+      // the server answers (objectui#12783).
       const normalized: FlowItem[] = items.map(it => ({
         name: it?.spec?.name ?? it?.name,
-        label: it?.spec?.label,
+        label: it?.spec?.label ?? it?.label,
         spec: it?.spec ?? it,
         updatedAt: it?.updatedAt ?? it?.updated_at,
       })).filter(f => f.name);

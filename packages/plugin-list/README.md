@@ -452,8 +452,23 @@ pager or the record-count bar.
 The prop applies only to a paged grid, the view whose rows `ListView` fetches
 a page of. A board, a calendar or a grouped grid keeps its own rendering. When
 `compact` is absent (wide regions, unknown widths, the object list page and
-every other host), the list renders exactly as before. A "View all" link from
-the compact list to the object list is not part of this release.
+every other host), the list renders exactly as before.
+
+### "View all"
+
+Under its rows the compact list draws a "View all" link (`list.viewAll`) to the
+rest of the list. The host builds the destination: the `list-view` block asks
+the host's `listHref` / `openList` on `RelatedRecordActionsContext`
+(`@object-ui/react`) for the object it reads, naming the saved view the block
+binds with `dataSource.view` when it binds one. Without a bound view the link
+goes to the object's own list. The block's own `filter`, `columns` and `sort`
+are never handed over, so they never reach the URL; the header count stays the
+answer to what the block shows.
+
+The link is a real anchor: a plain left click navigates in the app through
+`openList`, and a modifier click (a new tab) follows the href. A host that
+publishes no `listHref`, or answers `null`, gets no link. An empty list draws
+no link either.
 
 ## Sorting (and why relational columns are not offered)
 

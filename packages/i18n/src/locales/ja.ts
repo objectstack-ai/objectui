@@ -788,6 +788,8 @@ const ja = {
     recordCount_one: "{{count}} 件のレコード",
     recordCount_other: "{{count}} 件のレコード",
     addRecord: "レコードを追加",
+    // objectui#12703 — the compact list's footer link to the object's list or the block's view.
+    viewAll: "すべて表示",
     tabs: "タブ",
     allRecords: "すべてのレコード",
     search: "検索",
@@ -872,6 +874,17 @@ const ja = {
     cardTitlePlaceholder: "カードのタイトルを入力…",
     requiredFieldsTitle: "必須項目を入力してください",
     requiredFieldsDescription: "この移動により以下の項目が必須になります。入力して続行してください。",
+    dnd: {
+      start: "{{card}} を持ち上げました。{{column}} にあります。",
+      overCard: "{{card}} を {{column}} の {{target}} の上に移動中です。",
+      overColumn: "{{card}} を {{column}} の上に移動中です。",
+      overNone: "{{card}} はどのカラムの上にもありません。",
+      moved: "{{card}} を {{column}} に移動しました。",
+      dropped: "{{card}} をドロップしました。{{column}} のままです。",
+      cancelled: "ドラッグをキャンセルしました。{{card}} は {{column}} のままです。",
+      untitledCard: "無題のカード",
+      unnamedColumn: "名前のないカラム",
+    },
   },
   timeline: {
     bucket: {
@@ -2013,6 +2026,8 @@ const ja = {
       cryptoRefusalNoSubject: "暗号化対象として宣言された値は拒否され、何も書き込まれませんでした。",
       cryptoRefusalToast: "シークレットを暗号化できません: {{subject}}",
       cryptoRefusalToastNoSubject: "シークレットを暗号化できません",
+      sourceBadgeInherited: "{{source}}から継承",
+      sourceBadgeOverrides: "{{source}}を上書き",
     },
     workspaceTimezonePrompt: {
       title: "ワークスペースのタイムゾーンを設定",
@@ -3520,7 +3535,7 @@ const ja = {
     noDescription: "説明がありません。",
     back: "マーケットプレイスに戻る",
     browseLink: "マーケットプレイスを参照 →",
-    installedAdditiveNote: "カーネルAPIは追加のみです。アンインストールするとディスク上のマニフェストが削除され、次回起動時にパッケージは読み込まれませんが、実行中のカーネルはランタイムを再起動するまでアプリを登録したままにします。",
+    installedAdditiveNote: "アンインストールすると、アプリは実行中のカーネルから直ちに削除され、その権限セットと権限セットの付与も併せて削除されます。キャッシュされたマニフェストも削除されるため、次回起動時にパッケージは読み込まれません。オブジェクトに保存されたレコードはデータベースに残ります。",
     versionBadge: "v{{version}}",
     installedBadge: "インストール済み v{{version}}",
     // objectui#11645 — an install-local entry this runtime refused to load at
@@ -3669,9 +3684,9 @@ const ja = {
       },
     },
     uninstall: {
-      confirm: "このランタイムから {{manifestId}} v{{version}} をアンインストールしますか？\n\nキャッシュされたマニフェストが削除されます。アプリは次の再起動まで実行中のカーネルに読み込まれたままになります。",
-      successInList: "{{manifestId}} を削除しました。ランタイムを再起動して実行中のカーネルから完全にアンロードしてください。",
-      successInDetail: "{{manifestId}} のキャッシュされたマニフェストを削除しました。ランタイムを再起動してアプリを完全にアンロードしてください。",
+      confirm: "このランタイムから {{manifestId}} v{{version}} をアンインストールしますか？\n\nアプリは実行中のカーネルから直ちに削除され、その権限セットと権限セットの付与も併せて削除されます。キャッシュされたマニフェストも削除されます。オブジェクトに保存されたレコードはデータベースに残ります。",
+      successInList: "{{manifestId}} を削除しました。アプリは実行中のカーネルから削除され、その権限セットと権限セットの付与も削除されました。オブジェクトに保存されたレコードはデータベースに残ります。",
+      successInDetail: "{{manifestId}} とそのキャッシュされたマニフェストを削除しました。アプリは実行中のカーネルから削除され、その権限セットと権限セットの付与も削除されました。オブジェクトに保存されたレコードはデータベースに残ります。",
       confirmNotLoaded: "このランタイムから {{manifestId}} v{{version}} をアンインストールしますか？\n\nキャッシュされたマニフェストが削除されます。このランタイムはこのパッケージを読み込んでいないため、実行中の部分はありません。",
       successNotLoaded: "{{manifestId}} を削除しました。読み込まれていなかったため、再起動は不要です。",
     },

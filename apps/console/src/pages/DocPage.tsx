@@ -7,7 +7,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useHref, useNavigate, useParams } from 'react-router-dom';
 import { AlertCircle, ChevronDown, FileQuestion, Loader2, Menu } from 'lucide-react';
 import { useAdapter } from '@object-ui/app-shell';
 import { MarkdownRenderer, extractToc } from '@object-ui/plugin-markdown';
@@ -31,8 +31,8 @@ interface DocItem {
  * Docs are inert `doc` metadata compiled from a package's flat
  * `src/docs/*.md`; this page fetches the item by name through the
  * standard metadata API and renders the sanitized Markdown body,
- * rewriting relative `[x](./other_doc.md)` references to `/docs/<name>`
- * routes (see doc-links.ts).
+ * rewriting relative `[x](./other_doc.md)` references to the `/docs/<name>`
+ * route's href, basename included (see doc-links.ts).
  *
  * Per the ADR, an unresolvable doc (bad URL, or a cross-package link
  * whose target was removed in a newer dependency version) degrades to a
@@ -47,6 +47,10 @@ export default function DocPage() {
   // the parent route's package-id segment under `/apps/:appName/docs/:slug/:name`.
   const { slug, name, appName } = useParams<{ slug?: string; name: string; appName?: string }>();
   const navigate = useNavigate();
+  // The docs route's href, router basename included (objectui#12686): the
+  // rewritten cross-references carry it so a new tab or a copied link reaches
+  // the doc. `navigate` takes the bare router path and applies the basename.
+  const docsHref = useHref('/docs');
   const adapter = useAdapter();
   const { t } = useObjectTranslation();
   const [doc, setDoc] = useState<DocItem | null>(null);
@@ -111,8 +115,9 @@ export default function DocPage() {
   }, []);
 
   // SPA navigation for rewritten doc-to-doc links: anchors render as plain
-  // <a href="/docs/...">; intercept same-app clicks so following a
-  // cross-reference doesn't trigger a full page reload. In-body fragment links
+  // <a href="{docsHref}/...">; intercept same-app clicks so following a
+  // cross-reference doesn't trigger a full page reload, handing the router the
+  // path under `/docs` (it re-applies the basename itself). In-body fragment links
   // (`[x](#section)`) get the same JS-scroll treatment as the ToC so <base>
   // doesn't bounce them to home.
   const onContentClick = useCallback(
@@ -121,15 +126,15 @@ export default function DocPage() {
       const anchor = (e.target as HTMLElement).closest('a');
       const href = anchor?.getAttribute('href');
       if (!href) return;
-      if (href.startsWith('/docs/')) {
+      if (href.startsWith(`${docsHref}/`)) {
         e.preventDefault();
-        navigate(href);
+        navigate(`/docs${href.slice(docsHref.length)}`);
       } else if (href.startsWith('#')) {
         e.preventDefault();
         scrollToHeading(decodeURIComponent(href.slice(1)));
       }
     },
-    [navigate, scrollToHeading],
+    [docsHref, navigate, scrollToHeading],
   );
 
   // ToC entries are bare `#id` anchors; scroll in JS for the same <base> reason.
@@ -239,7 +244,7 @@ export default function DocPage() {
           onClick={onContentClick}
         >
           <MarkdownRenderer
-            schema={{ type: 'markdown', content: rewriteDocLinks(doc?.content ?? '') }}
+            schema={{ type: 'markdown', content: rewriteDocLinks(doc?.content ?? '', docsHref) }}
           />
         </article>
         {toc.length >= 3 ? (

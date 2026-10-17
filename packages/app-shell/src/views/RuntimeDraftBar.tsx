@@ -166,7 +166,9 @@ export function RuntimeDraftBar({
     if (!name) return;
     if (
       typeof confirm === 'function' &&
-      !confirm(tFormat('engine.edit.discardDraftConfirm', locale, { type, name }))
+      // objectui#12690 — the shared confirm takes one `{item}`; this bar holds
+      // no label, so it names the machine `type/name` as it always has.
+      !confirm(tFormat('engine.edit.discardDraftConfirm', locale, { item: `${type}/${name}` }))
     ) {
       return;
     }

@@ -788,6 +788,8 @@ const de = {
     recordCount_one: "{{count}} Datensatz",
     recordCount_other: "{{count}} Datensätze",
     addRecord: "Datensatz hinzufügen",
+    // objectui#12703 — the compact list's footer link to the object's list or the block's view.
+    viewAll: "Alle anzeigen",
     tabs: "Tabs",
     allRecords: "Alle Datensätze",
     search: "Suche",
@@ -872,6 +874,17 @@ const de = {
     cardTitlePlaceholder: "Kartentitel eingeben…",
     requiredFieldsTitle: "Erforderliche Felder ausfüllen",
     requiredFieldsDescription: "Durch diese Verschiebung werden die folgenden Felder zu Pflichtfeldern. Füllen Sie sie aus, um fortzufahren.",
+    dnd: {
+      start: "Karte {{card}} in Spalte {{column}} aufgenommen.",
+      overCard: "Karte {{card}} über Karte {{target}} in Spalte {{column}}.",
+      overColumn: "Karte {{card}} über Spalte {{column}}.",
+      overNone: "Karte {{card}} ist über keiner Spalte.",
+      moved: "Karte {{card}} in Spalte {{column}} verschoben.",
+      dropped: "Karte {{card}} abgelegt. Sie bleibt in Spalte {{column}}.",
+      cancelled: "Ziehen abgebrochen. Karte {{card}} bleibt in Spalte {{column}}.",
+      untitledCard: "ohne Titel",
+      unnamedColumn: "ohne Namen",
+    },
   },
   timeline: {
     bucket: {
@@ -2011,6 +2024,8 @@ const de = {
       cryptoRefusalNoSubject: "Der als verschlüsselt deklarierte Wert wurde abgelehnt, daher wurde nichts geschrieben.",
       cryptoRefusalToast: "Geheimnisse können nicht verschlüsselt werden: {{subject}}",
       cryptoRefusalToastNoSubject: "Geheimnisse können nicht verschlüsselt werden",
+      sourceBadgeInherited: "Geerbt von {{source}}",
+      sourceBadgeOverrides: "Überschreibt {{source}}",
     },
     workspaceTimezonePrompt: {
       title: "Zeitzone des Workspace festlegen",
@@ -3518,7 +3533,7 @@ const de = {
     noDescription: "Keine Beschreibung vorhanden.",
     back: "Zurück zum Marktplatz",
     browseLink: "Marktplatz durchsuchen →",
-    installedAdditiveNote: "Die Kernel-API ist nur additiv — Deinstallation entfernt das Manifest auf der Festplatte, damit das Paket beim nächsten Start nicht geladen wird, aber der laufende Kernel hält die App bis zum Neustart registriert.",
+    installedAdditiveNote: "Die Deinstallation entfernt die App sofort aus dem laufenden Kernel, samt ihren Berechtigungssets und deren Zuweisungen, und löscht das zwischengespeicherte Manifest, damit das Paket beim nächsten Start nicht geladen wird. Datensätze in ihren Objekten bleiben in der Datenbank erhalten.",
     versionBadge: "v{{version}}",
     installedBadge: "Installiert v{{version}}",
     // objectui#11645 — an install-local entry this runtime refused to load at
@@ -3667,9 +3682,9 @@ const de = {
       },
     },
     uninstall: {
-      confirm: "{{manifestId}} v{{version}} aus diesem Laufzeitsystem deinstallieren?\n\nDas zwischengespeicherte Manifest wird entfernt.",
-      successInList: "{{manifestId}} entfernt. Starten Sie das Laufzeitsystem neu, um es vollständig zu entladen.",
-      successInDetail: "Zwischengespeichertes Manifest für {{manifestId}} entfernt.",
+      confirm: "{{manifestId}} v{{version}} aus diesem Laufzeitsystem deinstallieren?\n\nDie App wird sofort aus dem laufenden Kernel entfernt, samt ihren Berechtigungssets und deren Zuweisungen, und das zwischengespeicherte Manifest wird gelöscht. Datensätze in ihren Objekten bleiben in der Datenbank erhalten.",
+      successInList: "{{manifestId}} entfernt: Die App ist aus dem laufenden Kernel entfernt, samt ihren Berechtigungssets und deren Zuweisungen. Datensätze in ihren Objekten bleiben in der Datenbank erhalten.",
+      successInDetail: "{{manifestId}} und das zugehörige zwischengespeicherte Manifest entfernt: Die App ist aus dem laufenden Kernel entfernt, samt ihren Berechtigungssets und deren Zuweisungen. Datensätze in ihren Objekten bleiben in der Datenbank erhalten.",
       confirmNotLoaded: "{{manifestId}} v{{version}} aus diesem Laufzeitsystem deinstallieren?\n\nDas zwischengespeicherte Manifest wird entfernt. Dieses Laufzeitsystem hat das Paket nicht geladen, daher läuft nichts davon.",
       successNotLoaded: "{{manifestId}} entfernt. Es war nicht geladen, ein Neustart ist nicht nötig.",
     },

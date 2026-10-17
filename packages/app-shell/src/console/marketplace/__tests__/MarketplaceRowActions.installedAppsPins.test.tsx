@@ -9,10 +9,12 @@
  *   it reads NOT LOADED with its reason, keeps Uninstall, and confirms and
  *   reports in not-loaded terms. A code the console has no sentence for is
  *   named, not hidden.
- * - objectui#12610 — the kernel note ("the running kernel keeps the app until
- *   restart") rides the Uninstall of a LOADED row as a tooltip and its
- *   accessible description; a not-loaded row's Uninstall carries none; every
- *   pack's value is plain text.
+ * - objectui#12610 — the kernel note (`marketplace.installedAdditiveNote`) rides
+ *   the Uninstall of a LOADED row as a tooltip and its accessible description;
+ *   a not-loaded row's Uninstall carries none; every pack's value is plain text.
+ * - objectui#12684 — the note, the confirm and the result lines say what the
+ *   server's DELETE does now: the app leaves the running kernel at once, so no
+ *   pack tells the operator it stays registered until a restart, or to restart.
  * - objectui#7611 — a walled uninstall refusal reaches the operator with the
  *   door's own sentence, never a bare status, and the row stays.
  *
@@ -302,5 +304,117 @@ describe('every pack\'s kernel note is plain text (objectui#12610)', () => {
     const note = pack.marketplace.installedAdditiveNote;
     expect(note.length).toBeGreaterThan(20);
     expect(note).not.toMatch(/<\/?[a-z][^>]*>/i);
+  });
+});
+
+/**
+ * objectui#12684 — objectstack's `DELETE /api/v1/marketplace/install-local/ID`
+ * withdraws the package from the running kernel at once (objectstack#21576),
+ * runs the uninstall cleanups that revoke its permission sets and their grants,
+ * and removes its cached manifest; the rows in its tables stay. The note, the
+ * confirm and the result lines used to tell the operator the running kernel
+ * keeps the app until a restart, or to restart the runtime. These pins read the
+ * CLAIMS those texts make, not their wording: the retired claim is absent from
+ * every pack, and the measured ones are present in the text a loaded row's
+ * Uninstall shows.
+ */
+const RETIRED_RESTART_CLAIM: Record<string, RegExp> = {
+  en: /until you restart|until the next restart|keeps the app registered|remain loaded|restart the runtime|additive only/i,
+  zh: /直到下次重启|仍会保留该应用|仅支持新增|重启运行时/,
+  ja: /再起動するまで|次の再起動まで|再起動して|追加のみ/,
+  ko: /재시작될 때까지|재시작하세요|추가 전용/,
+  de: /bis zum Neustart|Laufzeitsystem neu|nur additiv/,
+  es: /hasta reiniciar|Reinicie el runtime|solo aditiva/,
+  fr: /jusqu'au redémarrage|Redémarrez le runtime|uniquement additive/,
+  pt: /até reiniciar|Reinicie o runtime|apenas aditiva/,
+  ru: /до перезапуска|Перезапустите рантайм|только аддитивный/,
+  ar: /حتى إعادة التشغيل|أعد تشغيل|إضافية فقط/,
+};
+
+/** The loaded package's uninstall texts the walk below reads, in every pack. */
+const UNINSTALL_TEXTS: Array<[string, (pack: Pack) => string]> = [
+  ['installedAdditiveNote', (pack) => pack.marketplace.installedAdditiveNote],
+  ['uninstall.confirm', (pack) => pack.marketplace.uninstall.confirm],
+  ['uninstall.successInList', (pack) => pack.marketplace.uninstall.successInList],
+  ['uninstall.successInDetail', (pack) => pack.marketplace.uninstall.successInDetail],
+];
+
+/** Withdrawn at once; not loaded at the next start; records kept. */
+const MEASURED_CLAIMS: Record<string, RegExp[]> = {
+  en: [/\bat once\b/, /\bdoes not load at the next start\b/, /\bstay in the database\b/],
+  zh: [/立即/, /下次启动时不再加载/, /保留在数据库中/],
+};
+
+/** The confirm (before the DELETE) and the result line (after it), per language. */
+const MEASURED_UNINSTALL_CLAIMS: Record<string, { confirm: RegExp[]; result: RegExp[] }> = {
+  en: {
+    confirm: [/\bat once\b/, /\bpermission sets\b/, /\bstay in the database\b/],
+    result: [/\bhas left the running kernel\b/, /\bpermission sets\b/, /\bstay in the database\b/],
+  },
+  zh: {
+    confirm: [/立即/, /权限集/, /保留在数据库中/],
+    result: [/已从运行中的内核中移除/, /权限集/, /保留在数据库中/],
+  },
+};
+
+describe.each([
+  ['en', EN, en as Pack],
+  ['zh', ZH, zh as unknown as Pack],
+])('Packages — the uninstall texts say the app leaves the running kernel at once (objectui#12684) [%s]', (lang, config, pack) => {
+  it('a loaded row\'s Uninstall describes the live withdrawal, and no restart', async () => {
+    const user = userEvent.setup();
+    await serve([LOADED]);
+    renderPackages(config);
+
+    const uninstall = within(await row('com.example.todo')).getByRole('button', { name: pack.marketplace.action.uninstall });
+    const described = flat(document.getElementById(uninstall.getAttribute('aria-describedby') as string)?.textContent ?? '');
+    await user.hover(uninstall);
+    const tooltip = flat((await screen.findByRole('tooltip')).textContent ?? '');
+
+    for (const shown of [described, tooltip]) {
+      expect(shown).not.toMatch(RETIRED_RESTART_CLAIM[lang]);
+      for (const claim of MEASURED_CLAIMS[lang]) expect(shown).toMatch(claim);
+    }
+  });
+
+  it('a loaded row\'s Uninstall confirms and reports the live withdrawal, and no restart', async () => {
+    await serve([LOADED]);
+    renderPackages(config);
+
+    const question = await uninstallAndConfirm('com.example.todo');
+    await waitFor(() => expect(calls).toContainEqual({ path: UNINSTALL_PATH('com.example.todo'), method: 'DELETE' }));
+    const result = flat((await screen.findByTestId('pkg-marketplace-result')).textContent ?? '');
+
+    expect(question).toContain('com.example.todo');
+    expect(question).toContain('1.0.0');
+    expect(result).toContain('com.example.todo');
+    const claims = MEASURED_UNINSTALL_CLAIMS[lang];
+    for (const [shown, measured] of [[question, claims.confirm], [result, claims.result]] as const) {
+      expect(shown).not.toMatch(RETIRED_RESTART_CLAIM[lang]);
+      for (const claim of measured) expect(shown).toMatch(claim);
+    }
+  });
+});
+
+describe('no pack\'s uninstall texts say the app stays until a restart (objectui#12684)', () => {
+  const packs = Object.entries(builtInLocales) as Array<[string, Pack]>;
+  const rows = packs.flatMap(([lang, pack]) =>
+    UNINSTALL_TEXTS.map(([key, read]) => [lang, key, read(pack)] as [string, string, string]),
+  );
+
+  it('the retired-claim table names every pack, and the walk reads four texts in each', () => {
+    expect(Object.keys(RETIRED_RESTART_CLAIM).sort()).toEqual(packs.map(([lang]) => lang).sort());
+    expect(rows).toHaveLength(packs.length * 4);
+  });
+
+  it.each(rows)('%s: `marketplace.%s` carries no restart claim', (lang, _key, value) => {
+    expect(typeof value).toBe('string');
+    expect(value).not.toMatch(RETIRED_RESTART_CLAIM[lang]);
+  });
+
+  const enByKey = new Map(UNINSTALL_TEXTS.map(([key, read]) => [key, read(en as Pack)]));
+  it.each(rows.filter(([lang]) => lang !== 'en'))('%s: `marketplace.%s` is translated, not the en text', (_lang, key, value) => {
+    expect(enByKey.get(key)).toEqual(expect.any(String));
+    expect(value).not.toBe(enByKey.get(key));
   });
 });

@@ -80,10 +80,12 @@ export function MarketplaceRowActions({ entry, listSource, basePath, onResult, o
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [working, setWorking] = useState(false);
 
-  // A package the runtime did not load leaves nothing in the running kernel,
-  // so its confirm and its result drop the "stays loaded until restart"
-  // caveat that a loaded package's texts carry, which would contradict the
-  // row's own "Not loaded" (objectui#11645).
+  // A loaded package's confirm and result say what the DELETE does: the app
+  // leaves the running kernel at once, with its permission sets and their
+  // grants, and its records stay (objectui#12684). A package the runtime did
+  // not load leaves nothing in the running kernel, so its texts say that
+  // instead, rather than describe a withdrawal that would contradict the row's
+  // own "Not loaded" (objectui#11645).
   const question = entry.notLoaded
     ? t('marketplace.uninstall.confirmNotLoaded', { manifestId: entry.manifestId, version: entry.version })
     : t('marketplace.uninstall.confirm', { manifestId: entry.manifestId, version: entry.version });
@@ -138,8 +140,9 @@ export function MarketplaceRowActions({ entry, listSource, basePath, onResult, o
         (entry.notLoaded ? (
           uninstallButton
         ) : (
-          // The kernel note is about a LOADED package: the running kernel keeps
-          // it registered until restart. It rides the Uninstall it qualifies,
+          // The kernel note is about a LOADED package: what uninstalling it
+          // withdraws from the running kernel at once, and what it leaves in
+          // the database (objectui#12684). It rides the Uninstall it qualifies,
           // as a tooltip (objectui#12610); the sr-only copy is what a screen
           // reader announces as the button's description.
           <>

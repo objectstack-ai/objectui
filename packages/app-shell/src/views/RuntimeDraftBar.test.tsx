@@ -130,6 +130,23 @@ describe('RuntimeDraftBar (ADR-0034)', () => {
     await waitFor(() => expect(screen.getByTestId('runtime-draft-bar')).toBeTruthy());
   });
 
+  // objectui#12690 — the confirm string this bar shares with the metadata edit
+  // page now takes one `{item}`; the bar holds no label, so it keeps naming
+  // the machine `type/name`, with no placeholder left unfilled.
+  it('the discard confirm names type/name, with every placeholder filled', async () => {
+    const confirmSpy = vi.fn(() => false);
+    vi.stubGlobal('confirm', confirmSpy);
+    const metadataClient = makeMetadataClient({ item: { columns: ['name'] } });
+
+    render(<RuntimeDraftBar type="view" name="my_view" metadataClient={metadataClient} />);
+
+    fireEvent.click(await screen.findByTestId('runtime-draft-discard'));
+
+    expect(confirmSpy).toHaveBeenCalledWith('Discard the pending draft for view/my_view?');
+    expect(metadataClient.reset).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
   it('stays inert until a name is known', async () => {
     const metadataClient = makeMetadataClient({ item: { a: 1 } });
 

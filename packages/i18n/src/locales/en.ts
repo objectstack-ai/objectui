@@ -999,6 +999,8 @@ const en = {
     recordCount_one: '{{count}} record',
     recordCount_other: '{{count}} records',
     addRecord: 'Add record',
+    // objectui#12703 — the compact list's footer link to the object's list or the block's view.
+    viewAll: 'View all',
     tabs: 'Tabs',
     allRecords: 'All Records',
     search: 'Search',
@@ -1127,6 +1129,17 @@ const en = {
     columns: 'columns',
     requiredFieldsTitle: 'Complete required fields',
     requiredFieldsDescription: 'This move makes the fields below required. Fill them in to continue.',
+    dnd: {
+      start: 'Picked up {{card}} in {{column}}.',
+      overCard: 'Moving {{card}} over {{target}} in {{column}}.',
+      overColumn: 'Moving {{card}} over {{column}}.',
+      overNone: 'Moving {{card}}. It is not over a column.',
+      moved: 'Moved {{card}} to {{column}}.',
+      dropped: 'Dropped {{card}}. It stays in {{column}}.',
+      cancelled: 'Cancelled moving {{card}}. It stays in {{column}}.',
+      untitledCard: 'an untitled card',
+      unnamedColumn: 'an unnamed column',
+    },
   },
   timeline: {
     bucket: {
@@ -2142,6 +2155,12 @@ const en = {
       cryptoRefusalNoSubject: 'The declared-encrypted value was refused, so nothing was written.',
       cryptoRefusalToast: 'Cannot encrypt secrets: {{subject}}',
       cryptoRefusalToastNoSubject: 'Cannot encrypt secrets',
+      // The source badge beside a settings row's label (objectui#12694): the
+      // layer a value comes from. `{{source}}` is that layer's label, which the
+      // server translates under `settingsCommon.sourceLabels`. One sentence per
+      // badge, so a pack puts the layer where its own grammar wants it.
+      sourceBadgeInherited: 'Inherited from {{source}}',
+      sourceBadgeOverrides: 'Overrides {{source}}',
     },
     // The one-time workspace-timezone prompt (objectui#11758): asked of an
     // administrator while `localization.timezone` is still the manifest default.
@@ -4180,7 +4199,7 @@ const en = {
       noDescription: 'No description provided.',
       back: 'Back to marketplace',
       browseLink: 'Browse the marketplace →',
-      installedAdditiveNote: 'The kernel API is additive only — uninstall removes the on-disk manifest so the package won\'t load on next boot, but the running kernel keeps the app registered until you restart the runtime.',
+      installedAdditiveNote: 'Uninstall removes the app from the running kernel at once, together with its permission sets and their grants, and deletes the cached manifest so the package does not load at the next start. Records stored in its objects stay in the database.',
       versionBadge: 'v{{version}}',
       installedBadge: 'Installed v{{version}}',
       // objectui#11645 — an install-local entry this runtime refused to load at
@@ -4353,9 +4372,9 @@ const en = {
         revokedToast: 'Acceptance of "{{set}}" revoked.',
       },
       uninstall: {
-        confirm: 'Uninstall {{manifestId}} v{{version}} from this runtime?\n\nThe cached manifest will be removed. The app will remain loaded in the running kernel until the next restart.',
-        successInList: 'Removed {{manifestId}}. Restart the runtime to fully unload it from the running kernel.',
-        successInDetail: 'Removed cached manifest for {{manifestId}}. Restart the runtime to fully unload the app from the running kernel.',
+        confirm: 'Uninstall {{manifestId}} v{{version}} from this runtime?\n\nThe app will leave the running kernel at once, together with its permission sets and their grants, and its cached manifest will be removed. Records stored in its objects stay in the database.',
+        successInList: 'Removed {{manifestId}}: the app has left the running kernel, with its permission sets and their grants. Records stored in its objects stay in the database.',
+        successInDetail: 'Removed {{manifestId}} and its cached manifest: the app has left the running kernel, with its permission sets and their grants. Records stored in its objects stay in the database.',
         confirmNotLoaded: 'Uninstall {{manifestId}} v{{version}} from this runtime?\n\nThe cached manifest will be removed. This runtime did not load the package, so none of it is running.',
         successNotLoaded: 'Removed {{manifestId}}. It was not loaded, so no restart is needed.',
       },

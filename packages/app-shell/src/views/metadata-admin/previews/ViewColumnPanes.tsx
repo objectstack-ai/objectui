@@ -235,7 +235,14 @@ export function FieldListRow({
           <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40 group-hover:text-muted-foreground" />
         )}
         <FieldIcon type={fieldType} />
-        <span className="min-w-0 flex-1 truncate font-medium">{label}</span>
+        {/* objectui#12693 — a row that reads a label keeps its field name
+            reachable on hover as well as in the secondary text beside it. */}
+        <span
+          className="min-w-0 flex-1 truncate font-medium"
+          title={fieldName && fieldName !== label ? fieldName : undefined}
+        >
+          {label}
+        </span>
         {fieldName && fieldName !== label && (
           <code className="max-w-[7rem] shrink-0 truncate text-[10px] text-muted-foreground">
             {fieldName}

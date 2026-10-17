@@ -95,6 +95,22 @@ export function FieldsListEditor({
     return m;
   }, [fields]);
 
+  // objectui#12693 — a row names its column by the bound field's label when
+  // the column carries none of its own: a bare-string column stores only the
+  // field name, and the catalog above holds that field's label. The stored
+  // `columns` stay names; only the drawn text reads the label, and a name the
+  // catalog does not know stays the text.
+  const fieldLabelByName = React.useMemo(() => {
+    const m = new Map<string, string>();
+    for (const f of fields) if (f.label && f.label.trim()) m.set(f.name, f.label);
+    return m;
+  }, [fields]);
+  const rowLabelOf = (c: unknown, i: number): string => {
+    const own = c && typeof c === 'object' ? (c as Record<string, unknown>).label : undefined;
+    if (own != null) return labelOf(c, i, locale);
+    return fieldLabelByName.get(colFieldName(c) ?? '') ?? labelOf(c, i, locale);
+  };
+
   const [dragIndex, setDragIndex] = React.useState<number | null>(null);
   const [overIndex, setOverIndex] = React.useState<number | null>(null);
 
@@ -186,7 +202,7 @@ export function FieldsListEditor({
             <FieldListRow
               key={i}
               index={i}
-              label={labelOf(c, i, locale)}
+              label={rowLabelOf(c, i)}
               fieldName={colFieldName(c)}
               fieldType={fieldTypeByName.get(colFieldName(c) ?? '') ?? 'text'}
               selected={selectedIndex === i}

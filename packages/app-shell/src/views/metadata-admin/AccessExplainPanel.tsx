@@ -235,6 +235,36 @@ function PrincipalPerson({ id, person }: { id: string; person?: PersonName }): R
   );
 }
 
+/** The metadata types a decision's principal cites by name (objectui#12693). */
+const CITED_ITEM_TYPES = ['position', 'permission'] as const;
+type CitedItemType = (typeof CITED_ITEM_TYPES)[number];
+
+/**
+ * A position or permission-set chip on the Principal card (objectui#12693):
+ * the item's label as the text, with its name on the chip's `title`; with no
+ * label the name alone is the text, as the chip read before.
+ */
+function CitedItemChip({
+  name,
+  label,
+  variant,
+}: {
+  name: string;
+  label?: string;
+  variant: 'outline' | 'secondary';
+}): React.ReactElement {
+  const text = label && label.trim() ? label : name;
+  return (
+    <Badge
+      variant={variant}
+      className="px-1.5 py-0 text-[10px] font-normal"
+      title={text !== name ? name : undefined}
+    >
+      {text}
+    </Badge>
+  );
+}
+
 export interface AccessExplainPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -301,6 +331,13 @@ export function AccessExplainPanel({ open, onOpenChange, defaultObject, packageI
   // user picker handed back, and the rows the same lookup answered for a
   // decision's principal. An id with no entry renders as the id.
   const [people, setPeople] = React.useState<Record<string, PersonName>>({});
+  // objectui#12693 — the labels this panel can draw for the positions and
+  // permission sets a decision cites, by metadata type and name. A name with no
+  // entry renders as the name.
+  const [itemLabels, setItemLabels] = React.useState<Record<CitedItemType, Record<string, string>>>({
+    position: {},
+    permission: {},
+  });
 
   React.useEffect(() => {
     if (defaultObject) setObjectName((v) => v || defaultObject);
@@ -339,6 +376,43 @@ export function AccessExplainPanel({ open, onOpenChange, defaultObject, packageI
       }
     },
     [adapter, people],
+  );
+
+  /**
+   * Label the positions and permission sets a decision cites (objectui#12693).
+   * The explain answer carries their names only, so each type the decision
+   * names an unlabelled item of is listed once per run — the read the Access
+   * pillar's rail makes for permission sets — and its rows' labels kept. A list
+   * that fails, or a row with no label, leaves the name as the text, which is
+   * what the chip showed before.
+   */
+  const lookUpItemLabels = React.useCallback(
+    async (d: ExplainDecision) => {
+      const cited: Record<CitedItemType, readonly string[]> = {
+        position: d.principal?.positions ?? [],
+        permission: d.principal?.permissionSets ?? [],
+      };
+      await Promise.all(
+        CITED_ITEM_TYPES.map(async (type) => {
+          if (!cited[type].some((name) => !itemLabels[type][name])) return;
+          try {
+            const rows = (await client.list<unknown>(type)) as unknown[];
+            const found: Record<string, string> = {};
+            for (const row of rows ?? []) {
+              const item = ((row as { item?: unknown } | null)?.item ?? row) as { name?: unknown; label?: unknown } | null;
+              if (typeof item?.name !== 'string' || typeof item.label !== 'string' || !item.label.trim()) continue;
+              found[item.name] = item.label;
+            }
+            if (Object.keys(found).length > 0) {
+              setItemLabels((prev) => ({ ...prev, [type]: { ...prev[type], ...found } }));
+            }
+          } catch {
+            /* the name stays the text — the chip's reading before objectui#12693 */
+          }
+        }),
+      );
+    },
+    [client, itemLabels],
   );
 
   const run = React.useCallback(async () => {
@@ -384,12 +458,21 @@ export function AccessExplainPanel({ open, onOpenChange, defaultObject, packageI
       const decided = data as unknown as ExplainDecision;
       setDecision(decided);
       void lookUpPeople(decided);
+      void lookUpItemLabels(decided);
     } catch (err) {
       setError((err as Error)?.message ?? String(err));
     } finally {
       setBusy(false);
     }
-  }, [authFetch, objectName, operation, user, recordId, locale, lookUpPeople]);
+  }, [authFetch, objectName, operation, user, recordId, locale, lookUpPeople, lookUpItemLabels]);
+
+  // objectui#12693 — the banner names the object by the label the object
+  // picker above already holds for it; an object the list does not carry, or
+  // one with no label, reads as its name.
+  const objectLabelOf = (name: string): string => {
+    const label = objectOptions?.find((o) => o.name === name)?.label;
+    return typeof label === 'string' && label.trim() ? label : name;
+  };
 
   const opLabel = (op: string) => t(`engine.studio.access.explain.op.${op}`, locale);
 
@@ -571,7 +654,7 @@ export function AccessExplainPanel({ open, onOpenChange, defaultObject, packageI
                   {tFormat(
                     decision.allowed ? 'engine.studio.access.explain.allowedLine' : 'engine.studio.access.explain.deniedLine',
                     locale,
-                    { operation: opLabel(decision.operation), object: decision.object },
+                    { operation: opLabel(decision.operation), object: objectLabelOf(decision.object) },
                   )}
                 </span>
               </div>
@@ -650,9 +733,7 @@ export function AccessExplainPanel({ open, onOpenChange, defaultObject, packageI
                       {t('engine.studio.access.explain.positions', locale)}:
                     </span>
                     {(decision.principal.positions ?? []).map((p) => (
-                      <Badge key={p} variant="outline" className="px-1.5 py-0 text-[10px] font-normal">
-                        {p}
-                      </Badge>
+                      <CitedItemChip key={p} name={p} label={itemLabels.position[p]} variant="outline" />
                     ))}
                   </div>
                   <div className="flex flex-wrap items-center gap-1">
@@ -660,9 +741,7 @@ export function AccessExplainPanel({ open, onOpenChange, defaultObject, packageI
                       {t('engine.studio.access.explain.permissionSets', locale)}:
                     </span>
                     {(decision.principal.permissionSets ?? []).map((p) => (
-                      <Badge key={p} variant="secondary" className="px-1.5 py-0 text-[10px] font-normal">
-                        {p}
-                      </Badge>
+                      <CitedItemChip key={p} name={p} label={itemLabels.permission[p]} variant="secondary" />
                     ))}
                   </div>
                 </div>

@@ -6,6 +6,7 @@ import type { FormulaFieldMetadata } from '@object-ui/types';
 import { FieldWidgetComponentProps } from './types.js';
 import { useBooleanValueLabel } from './booleanValueLabel.js';
 import { formatNumberFieldValue } from './number-format.js';
+import { CurrencyField } from './CurrencyField.js';
 import { coerceToSafeValue } from '../coerceToSafeValue.js';
 
 /**
@@ -33,6 +34,10 @@ import { coerceToSafeValue } from '../coerceToSafeValue.js';
  *     declared `scale`). The value is read the way the formula cell reads it
  *     (objectui#11683): blank is empty, and a declared number held as a
  *     numeric string is a number.
+ *   - currency: money, through the currency field's own faces (`CurrencyField`
+ *     read-only here, `CurrencyCellRenderer` in the cell), reading the
+ *     formula's own `currencyConfig` as they read a currency field's
+ *     (objectui#12111).
  *   - boolean: the locale's word, as `BooleanField`'s read-only branch draws
  *     it; only a JS boolean is a boolean, as there (objectui#8593).
  *   - date: `formatDate`'s DEFAULT face, as `DateField`'s read-only branch
@@ -67,8 +72,8 @@ export function FormulaField({ value, field, ...props }: FieldWidgetComponentPro
     return <EmptyValue className={props.className} />;
   }
 
-  // The spec's `returnType` (`number` / `text` / `boolean` / `date`), the
-  // spelling object metadata carries — authoring stamps it from the inferred
+  // The spec's `returnType` (`number` / `text` / `boolean` / `date` /
+  // `currency`), the spelling object metadata carries — authoring stamps it from the inferred
   // CEL type. It is the ONLY spelling read: the snake_case `return_type` this
   // widget used to read is retired, so an object-bound formula field is
   // formatted by what its definition declares (objectui#11070).
@@ -95,6 +100,23 @@ export function FormulaField({ value, field, ...props }: FieldWidgetComponentPro
     const num = Number(safe);
     const text = isNaN(num) ? String(safe) : formatNumberFieldValue(num, field, locale);
     return <span className={typedClassName}>{text}</span>;
+  }
+
+  if (valueType === 'currency') {
+    // Money (objectui#12111), drawn by `CurrencyField`'s own read-only face,
+    // handed this formula's definition: that widget reads `currencyConfig`
+    // through `resolveFieldCurrency` exactly as it reads a currency field's
+    // (a `fixed` config keeps its code; absent is `dynamic`, the tenant
+    // default currency), and formats through `formatCurrency`, the call the
+    // currency cell makes too. ⛔ No second money formatter here. The value is
+    // read as the currency cell reads it: blank is empty, and a value that is
+    // not a number keeps its text.
+    if (typeof safe === 'string' && safe.trim() === '') {
+      return <EmptyValue className={props.className} />;
+    }
+    const amount = Number(safe);
+    if (isNaN(amount)) return <span className={typedClassName}>{String(safe)}</span>;
+    return <CurrencyField value={amount} onChange={props.onChange} field={field} readonly />;
   }
 
   if (valueType === 'boolean') {

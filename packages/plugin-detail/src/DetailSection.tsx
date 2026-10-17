@@ -26,8 +26,8 @@ import {
   LazyIcon,
 } from '@object-ui/components';
 import { ChevronDown, ChevronRight, Copy, Check, Eye, EyeOff, Pencil } from 'lucide-react';
-import { SchemaRenderer, toRenderableSchema, useInlineEdit, usePrintPage } from '@object-ui/react';
-import { resolveFieldAffordance } from '@object-ui/core';
+import { SchemaRenderer, toRenderableSchema, useInlineEdit, usePrintPage, usePredicateScope } from '@object-ui/react';
+import { resolveFieldAffordance, evalRowPredicate } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import {
   getCellRenderer,
@@ -207,6 +207,11 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
    * the question is not asked, so a bare `DetailSection` behaves as before.
    */
   const perms = usePermissions();
+  /**
+   * The host predicate scope a deadline's `settledWhen` is judged in, beside
+   * this record (objectui#12726), the scope the grid's cell reads too.
+   */
+  const predicateScope = usePredicateScope();
 
   /**
    * What the copy affordance WRITES (objectui#8395).
@@ -540,7 +545,22 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
       if (resolvedType) {
         const CellRenderer = getCellRenderer(resolvedType);
         if (CellRenderer) {
-          return <CellRenderer value={value} field={enrichedField as unknown as FieldMetadata} />;
+          // A deadline the record has settled (the object field's
+          // `settledWhen` holds for `data`) reaches the cell as
+          // `dueLike: false`: no overdue wording, no red (objectui#12726). The
+          // same judgement, evaluator and carrier as the grid's
+          // `settleDeadlineForRow`. ⛔ Not the stage option's `kind`: the spec
+          // judges overdue "by `settledWhen` alone".
+          const settledWhen = objectDefField?.settledWhen;
+          const settled = settledWhen != null
+            && evalRowPredicate(settledWhen, data, {
+              fallback: false,
+              scope: predicateScope,
+              fields: objectSchema?.fields,
+              label: `${field.name}.settledWhen`,
+            });
+          const cellField = settled ? { ...enrichedField, dueLike: false } : enrichedField;
+          return <CellRenderer value={value} field={cellField as unknown as FieldMetadata} />;
         }
       }
       return String(value);

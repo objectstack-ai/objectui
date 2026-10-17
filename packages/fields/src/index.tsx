@@ -1089,7 +1089,12 @@ const DUE_LIKE_FIELD_NAME =
  */
 function resolveDueLike(field: CellRendererProps['field']): boolean {
   const declared = (field as DateFieldMetadata | DateTimeFieldMetadata | undefined)?.dueLike;
-  if (declared === true) return true;
+  // A declared `false` wins over the name convention too (objectui#12726). The
+  // spec reads "Absent or FALSE: not a deadline", and it is the carrier a host
+  // uses for a row whose deadline is settled: the grid and the record page
+  // judge the field's `settledWhen` against the row and hand a settled row
+  // `dueLike: false`. Reading only `true` here left a settled `due_date` red.
+  if (declared !== undefined) return declared;
   const named = field as unknown as Record<string, unknown> | undefined;
   const fieldName = String(named?.name || named?.accessorKey || named?.key || '').toLowerCase();
   return DUE_LIKE_FIELD_NAME.test(fieldName);

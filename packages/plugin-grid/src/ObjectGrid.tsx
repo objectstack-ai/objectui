@@ -61,7 +61,7 @@ import {
   toast,
 } from '@object-ui/components';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, resolveAffordance, resolveFieldAffordance, type SchemaLike, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, partitionRowsByPredicate, buildCategoryOrder, buildCategoryRank, type FilterTokenScope } from '@object-ui/core';
+import { resolveConditionalFormatting, evalRowPredicate, type FieldRulePredicate, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, resolveAffordance, resolveFieldAffordance, type SchemaLike, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, partitionRowsByPredicate, buildCategoryOrder, buildCategoryRank, type FilterTokenScope } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import {
   RECORD_OVERLAY_DEFAULT_WIDTH,
@@ -453,6 +453,37 @@ const LinkCell: React.FC<{
   );
 };
 
+
+/**
+ * The field a cell reads for ONE row, once a deadline's `settledWhen` has been
+ * judged against that row (objectui#12726).
+ *
+ * `settledWhen` is the spec's per-record CEL predicate on a `dueLike` date
+ * (`@objectstack/spec` `FieldSchema`): while it holds, the deadline is settled
+ * and no overdue wording or colour applies. The spec leaves the evaluation to
+ * the host ("the host evaluates `settledWhen` against the row and hands the
+ * cell one boolean"), and that boolean already has a declared carrier,
+ * `dueLike`: a settled row hands the cell `dueLike: false`, which the date
+ * cells read ahead of the field-name convention. The row is judged by the same
+ * evaluator, scope and relation collapse as the grid's conditional formatting.
+ * A field without the key, or a row the predicate does not hold for, gets
+ * `field` back by reference, so it renders exactly as before.
+ *
+ * ⛔ Not the stage option's `kind`. The spec says overdue "is still judged by
+ * `settledWhen` alone: nothing reads an option's `kind` to settle a deadline."
+ */
+function settleDeadlineForRow<F extends object>(
+  field: F,
+  fieldDef: { settledWhen?: FieldRulePredicate | null } | null | undefined,
+  row: Record<string, unknown> | null | undefined,
+  scope: Record<string, unknown>,
+  fields: Record<string, any> | undefined,
+): F {
+  const settledWhen = fieldDef?.settledWhen;
+  if (settledWhen == null) return field;
+  const settled = evalRowPredicate(settledWhen, row, { fallback: false, scope, fields, label: 'settledWhen' });
+  return settled ? { ...field, dueLike: false } : field;
+}
 
 /**
  * objectui#12608 — the face a `referenceVia` pointer column draws its rows
@@ -3906,7 +3937,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               // Both link and action: link takes priority for navigation, action executes on secondary interaction
               cellRenderer = (value: any, row: any) => {
                 const displayContent = pointerFace?.(row) ?? (LinkContentRenderer
-                  ? <LinkContentRenderer value={value} field={fieldMeta as any} dependentValues={row} />
+                  ? <LinkContentRenderer value={value} field={settleDeadlineForRow(fieldMeta, objectDefField, row, predicateScope, objectFields) as any} dependentValues={row} />
                   : (value != null && value !== '' ? String(value) : <EmptyValue />));
                 return (
                   <LinkCell
@@ -3924,7 +3955,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               // Link column: clicking navigates to the record detail
               cellRenderer = (value: any, row: any) => {
                 const displayContent = pointerFace?.(row) ?? (LinkContentRenderer
-                  ? <LinkContentRenderer value={value} field={fieldMeta as any} dependentValues={row} />
+                  ? <LinkContentRenderer value={value} field={settleDeadlineForRow(fieldMeta, objectDefField, row, predicateScope, objectFields) as any} dependentValues={row} />
                   : (value != null && value !== '' ? String(value) : <EmptyValue />));
                 return (
                   <LinkCell
@@ -3964,7 +3995,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               // `dependentValues` for a cell whose value only means something
               // beside a sibling column (objectui#12613).
               cellRenderer = (value: any, row: any) => (
-                pointerFace?.(row) ?? <CellRenderer value={value} field={fieldMeta as any} dependentValues={row} />
+                pointerFace?.(row) ?? <CellRenderer value={value} field={settleDeadlineForRow(fieldMeta, objectDefField, row, predicateScope, objectFields) as any} dependentValues={row} />
               );
             } else {
               // Default renderer with empty value handling
@@ -4142,7 +4173,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
           if (isPrimaryField && LinkContentRenderer) {
             cellRenderer = (value: any, row: any) => {
-              const displayContent = pointerFace?.(row) ?? <LinkContentRenderer value={value} field={fieldMeta as any} dependentValues={row} />;
+              const displayContent = pointerFace?.(row) ?? <LinkContentRenderer value={value} field={settleDeadlineForRow(fieldMeta, fieldDef, row, predicateScope, objectFields) as any} dependentValues={row} />;
               return (
                 <LinkCell
                   testId="primary-field-link"
@@ -4166,7 +4197,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               </LinkCell>
             );
           } else if (CellRenderer) {
-            cellRenderer = (value: any, row: any) => pointerFace?.(row) ?? <CellRenderer value={value} field={fieldMeta as any} dependentValues={row} />;
+            cellRenderer = (value: any, row: any) => pointerFace?.(row) ?? <CellRenderer value={value} field={settleDeadlineForRow(fieldMeta, fieldDef, row, predicateScope, objectFields) as any} dependentValues={row} />;
           }
 
           return {
@@ -4328,7 +4359,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             ...(schema.showColumnTypeIcons && rendererType && { headerIcon: getTypeIcon(rendererType) }),
             ...(inferredAlign && { align: inferredAlign }),
             ...(CellRenderer && {
-              cell: (value: any, row: any) => pointerFace?.(row) ?? <CellRenderer value={value} field={fieldMeta as any} dependentValues={row} />,
+              cell: (value: any, row: any) => pointerFace?.(row) ?? <CellRenderer value={value} field={settleDeadlineForRow(fieldMeta, fieldDef, row, predicateScope, objectFields) as any} dependentValues={row} />,
             }),
             sortable: fieldDef?.sortable !== false,
           };
@@ -4436,13 +4467,13 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         // Aligned on the RENDERER key, like paths A-C: a `text` column with
         // `format: 'currency'` renders as currency, so it aligns as currency.
         ...(!!rendererType && numericTypes.includes(rendererType) && { align: 'right' as const }),
-        cell: (value: any, row: any) => pointerFace?.(row) ?? <CellRenderer value={value} field={fieldForCell} dependentValues={row} />,
+        cell: (value: any, row: any) => pointerFace?.(row) ?? <CellRenderer value={value} field={settleDeadlineForRow(fieldForCell, field, row, predicateScope, objectFields)} dependentValues={row} />,
         sortable: field.sortable !== false,
       });
     });
 
     return generatedColumns;
-  }, [objectSchema, objectFields, objectTypesPending, schemaFields, schemaColumns, dataConfig, hasInlineData, objectName, navigation.handleClick, executeAction, data, resolveFieldLabel, translateOptions, schema.objectName, perms, uiLanguage, dataSource]);
+  }, [objectSchema, objectFields, objectTypesPending, schemaFields, schemaColumns, dataConfig, hasInlineData, objectName, navigation.handleClick, executeAction, data, resolveFieldLabel, translateOptions, schema.objectName, perms, uiLanguage, dataSource, predicateScope]);
 
   // Formats this grid can actually deliver (objectui#2942): the server stream
   // handles csv/xlsx/json, the client fallback only csv/json. Declared-but-dead

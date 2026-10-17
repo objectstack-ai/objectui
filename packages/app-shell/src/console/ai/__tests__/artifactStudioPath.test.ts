@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest';
 import { artifactStudioPath } from '../artifactStudioPath';
 
 /**
- * ADR-0080 D5 — every AI-built artifact deep-links to its direct-edit home
+ * objectui#2623 — every AI-built artifact deep-links to its direct-edit home
  * (the Studio pillar where it can be changed by hand, no AI needed).
  */
 describe('artifactStudioPath', () => {

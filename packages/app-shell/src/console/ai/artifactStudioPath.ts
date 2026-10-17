@@ -2,8 +2,9 @@
 
 /**
  * Map an AI-built artifact to its direct-edit home — the Studio pillar route
- * where that artifact can be changed by hand (ADR-0080 D5: every AI product
- * gets a no-AI-needed edit path).
+ * where that artifact can be changed by hand. Every AI-built artifact gets an
+ * edit path that needs no AI: the finished build card links each artifact to
+ * its pillar (objectui#2623).
  *
  *   object    → Data pillar, the object's schema/records surface
  *   flow      → Automations pillar (the `?surface=flow:` consumer was reserved

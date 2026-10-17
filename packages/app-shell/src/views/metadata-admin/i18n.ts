@@ -6993,7 +6993,7 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
       help: '入站 hook 用来校验每一次请求的流程级密钥。只写不读:已保存的密钥不会在此显示,留空即保持不变。',
       unsetNotice: '未输入密钥。API 触发的流程若开始节点没有密钥,会被拒绝。此流程已保存的密钥在留空时保持不变。',
     },
-    objectName: { label: '对象', help: '记录 / 定时扫描触发的目标对象。' },
+    objectName: { label: '对象', help: '其记录变更会启动此流程的对象。' },
     condition: {
       label: '进入条件',
       help: 'CEL 表达式 —— 仅当其为 true 时流程才运行(相对时间扫描时对每条匹配记录做门控)。留空则每次事件都运行。',

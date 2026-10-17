@@ -189,7 +189,7 @@ export interface SharedFeedSnapshot<T> {
    * (objectui#11195). Absent on every other snapshot, so a feed whose runner
    * never calls `markRefused` publishes exactly the shape it always did.
    */
-  refused?: true;
+  refused?: boolean;
 }
 
 /**

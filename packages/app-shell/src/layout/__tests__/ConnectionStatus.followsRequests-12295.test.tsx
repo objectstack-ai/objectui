@@ -9,8 +9,8 @@
  *
  * - a refused data request after a successful connect shows the reconnecting
  *   state, and the chip stays up for as long as the state is not `connected`;
- * - the next answered request returns to connected, and the chip hides after
- *   its brief "Connected" flash — the only state the auto-hide applies to;
+ * - the next answered request returns to connected, and the chip hides at once
+ *   (objectui#12891 routed a successful connect silent: no "Connected" flash);
  * - a 500 answer leaves the state at connected, so the chip stays hidden.
  *
  * The chip is identified by the i18n key of the state it renders (the stub
@@ -91,9 +91,10 @@ async function mountConnected(options: { maxReconnectAttempts?: number } = {}) {
   });
   render(<HeaderChip adapter={adapter} />);
   await settle(adapter.connect());
-  // The control: on connect the chip flashes, then the 2000 ms auto-hide
-  // removes it.
-  expect(screen.getByTitle(CONNECTED)).toBeInTheDocument();
+  // objectui#12891 routed a successful connect silent: this pinned a 2 s
+  // "Connected" flash before; now the chip is absent at once and stays absent.
+  expect(adapter.getConnectionState()).toBe('connected');
+  expect(screen.queryByTitle(CONNECTED)).not.toBeInTheDocument();
   advance(2000);
   expect(screen.queryByTitle(CONNECTED)).not.toBeInTheDocument();
   return { adapter, server };
@@ -120,7 +121,7 @@ describe('ConnectionStatus follows the adapter through a mid-session outage (obj
     expect(screen.getByTitle(RECONNECTING)).toBeInTheDocument();
   });
 
-  it('the next success returns to connected and hides the chip', async () => {
+  it('the next success returns to connected and the chip is gone at once', async () => {
     const { adapter, server } = await mountConnected();
 
     server.mode = 'refuse';
@@ -129,10 +130,11 @@ describe('ConnectionStatus follows the adapter through a mid-session outage (obj
 
     server.mode = 'answer';
     await settle(adapter.find('task'));
-    expect(screen.getByTitle(CONNECTED)).toBeInTheDocument();
-    advance(2000);
+    // objectui#12891: recovery is silent too, no "Connected" flash.
     expect(screen.queryByTitle(CONNECTED)).not.toBeInTheDocument();
     expect(screen.queryByTitle(RECONNECTING)).not.toBeInTheDocument();
+    advance(2000);
+    expect(screen.queryByTitle(CONNECTED)).not.toBeInTheDocument();
   });
 
   it('a 500 answer leaves the state at connected: the chip stays hidden', async () => {

@@ -1006,7 +1006,7 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: ^18.0.0-next.1
+        specifier: ^18.0.0-next.2
         version: 18.0.0-next.3(ai@7.0.65(zod@4.6.7))
       '@radix-ui/react-accordion':
         specifier: ^1.2.20

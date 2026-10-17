@@ -20,7 +20,10 @@ import type { SelectOptionBase } from './select-option.js';
 import type { GridFieldMetadata } from './field-types.js';
 // objectui#11070 — the field-metadata members `FormField` declares by
 // reference to the spec's `FieldSchema`. Type-only: no runtime edge.
-import type { Field as SpecField } from '@objectstack/spec/data';
+import type { Field as SpecField, SelectOption as SpecSelectOption } from '@objectstack/spec/data';
+// objectui#12736 — the spec's FORM-VIEW option, read by reference to bound the
+// SDUI form-option face below. Type-only: no runtime edge.
+import type { FormSelectOption as SpecFormSelectOption } from '@objectstack/spec/ui';
 
 /**
  * Button component
@@ -453,18 +456,43 @@ export interface SelectSchema extends BaseSchema {
 }
 
 /**
+ * The keys the spec's OBJECT-field option takes and its FORM-VIEW option leaves
+ * out (objectui#12736) — `default` and `kind` on `@objectstack/spec` 18, which
+ * belong to the object field: the pre-selected choice and the lifecycle
+ * category are the object definition's, and a form view's option list relabels
+ * or subsets that field without owning either.
+ *
+ * DERIVED, never listed: the set difference of the spec's own two option types,
+ * so a key the spec moves between its faces moves here with no edit. The zod
+ * twin refuses the same set, derived the same way from the two spec schemas.
+ */
+type ObjectFieldOnlyOptionKey = Exclude<keyof SpecSelectOption, keyof SpecFormSelectOption>;
+
+/**
  * Select option — the SDUI FORM face of the one select-option contract
- * (`98d4108a2`). It extends {@link SelectOptionBase}, which derives the spec
- * keys (`label`, `color`, `default`) from `@objectstack/spec/data` by reference
- * and carries objectui's `visibleWhen` wire shape plus the two objectui-only
- * keys `disabled` and `icon`. This face restates none of them; the one key it
- * changes is named in the `Omit` below, which is where a divergence has to be
- * written for it to stay visible.
+ * (`98d4108a2`), bounded by the spec's FORM-VIEW option (`FormSelectOption`,
+ * `@objectstack/spec/ui`; objectui#12736). It extends {@link SelectOptionBase},
+ * which derives the spec keys from `@objectstack/spec/data` by reference and
+ * carries objectui's `visibleWhen` wire shape plus the two objectui-only keys
+ * `disabled` and `icon`, and then drops the keys the form-view option leaves
+ * out ({@link ObjectFieldOnlyOptionKey}). So the spec-owned keys this face
+ * carries are exactly `FormSelectOption`'s, and every other difference is a
+ * named divergence:
+ *
+ *   - `value` — widened for standalone forms (the member below);
+ *   - `visibleWhen` — objectui's wire shape, carried by the base;
+ *   - `disabled`, `icon` — objectui-only, carried by the base.
+ *
+ * A form option carrying `default` or `kind` used to type-check and parse
+ * clean, and nothing on the form path read either: the option default is
+ * seeded from the OBJECT field's options, and the stage renderers read `kind`
+ * off the object field. Both are now refused — an excess property on a typed
+ * literal here, a named refusal at the zod twin.
  *
  * Its zod twin, `SelectOptionSchema` in `./zod/form.zod`, is the same
- * derivation on the runtime side and diverges on the same key.
+ * derivation on the runtime side and diverges on the same keys.
  */
-export interface SelectOption extends Omit<SelectOptionBase, 'value'> {
+export interface SelectOption extends Omit<SelectOptionBase, 'value' | ObjectFieldOnlyOptionKey> {
   /**
    * Option value (submitted in form).
    *

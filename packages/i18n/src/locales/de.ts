@@ -871,6 +871,8 @@ const de = {
     deleteCard: "Karte löschen",
     deleteColumn: "Spalte löschen",
     noCards: "Keine Karten",
+    columnCards: "Karten in Spalte {{column}}",
+    laneCards: "Karten in {{column}} - {{lane}}",
     cardTitlePlaceholder: "Kartentitel eingeben…",
     requiredFieldsTitle: "Erforderliche Felder ausfüllen",
     requiredFieldsDescription: "Durch diese Verschiebung werden die folgenden Felder zu Pflichtfeldern. Füllen Sie sie aus, um fortzufahren.",
@@ -885,6 +887,7 @@ const de = {
       untitledCard: "ohne Titel",
       unnamedColumn: "ohne Namen",
       instructions: "Um diese Karte in eine andere Spalte zu verschieben, ziehen Sie sie mit der Maus oder per Touch.",
+      dragging: "Karte {{card}} wird gezogen",
     },
   },
   timeline: {
@@ -2639,7 +2642,6 @@ const de = {
     usersOnline: "Aktuell online befindliche Benutzer",
     switchView: "Ansicht wechseln",
     connection: {
-      connected: "Verbunden",
       connecting: "Verbindung wird hergestellt…",
       reconnecting: "Verbindung wird wiederhergestellt…",
       disconnected: "Getrennt",

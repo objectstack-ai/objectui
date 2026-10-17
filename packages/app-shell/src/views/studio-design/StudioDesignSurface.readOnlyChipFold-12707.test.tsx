@@ -247,7 +247,12 @@ function Probe() {
 }
 
 describe('the fold belongs to the tab row alone (objectui#12707)', () => {
-  it('CONTROL — the same chip in a title row’s actions slot never folds, however narrow', () => {
+  // objectui#12897 — in a title row's actions slot the chip folds by another
+  // rule: only when the title would otherwise be cut. This title is not cut
+  // (no layout here, and no stub for the title row), so the tab row's width
+  // alone does not fold it; `StudioItemHeader.titleRowFold-12897.test.tsx`
+  // pins the title row's rule.
+  it('CONTROL — the same chip in a title row’s actions slot does not fold by the tab row’s width', () => {
     layout.row = 100;
     render(<StudioItemHeader icon={Workflow} title="Item" actions={<Probe />} />);
     expect(screen.getByTestId('probe-chip')).not.toHaveAttribute('data-folded');

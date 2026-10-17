@@ -48,6 +48,11 @@ const useKanbanT = createSafeTranslation(
     'kanban.noCards': 'No cards',
     'kanban.cardTitlePlaceholder': 'Enter card title…',
     'kanban.loadMore': 'Load more',
+    // The accessible names of a lane's card list and of a swimlane cell's card
+    // list (objectui#12838): one sentence each, with the column (and lane)
+    // label interpolated, so the words around the label are translated too.
+    'kanban.columnCards': '{{column}} cards',
+    'kanban.laneCards': '{{column}} - {{lane}} cards',
     // What the drag live region speaks (objectui#12716), built by
     // `kanbanDndAnnouncements.ts`.
     'kanban.dnd.start': 'Picked up {{card}} in {{column}}.',
@@ -62,6 +67,8 @@ const useKanbanT = createSafeTranslation(
     // Each card's accessible description (objectui#12837). It names no key:
     // the board's sensors are pointer and touch only.
     'kanban.dnd.instructions': 'To move this card to another column, drag it with a pointer or by touch.',
+    // The drag overlay's accessible name (objectui#12838).
+    'kanban.dnd.dragging': 'Dragging {{card}}',
   },
   'kanban.noCards',
 )
@@ -263,6 +270,9 @@ function SortableCard({ card, onCardClick, conditionalFormatting, objectFields }
     // on the focusable element, where it is read.
     <div role="listitem" aria-label={card.title}>
     <div ref={setNodeRef} style={style} {...attributes} {...listeners} role="button" aria-label={card.title}
+      // objectui#12725 — names the card's record on its element, so a host
+      // (the Studio canvas) can tell which card a click landed on.
+      data-kanban-card={card.id}
       onClick={(e) => onCardClick?.(card, e)}
       onKeyDown={(e) => {
         // A key on something inside the card (a link a field renders) is that
@@ -771,7 +781,7 @@ function KanbanColumnView({
           items={safeCards.map((c) => c.id)}
           strategy={verticalListSortingStrategy}
         >
-          <div className="space-y-2" role="list" aria-label={`${column.title} cards`}>
+          <div className="space-y-2" role="list" aria-label={t('kanban.columnCards', { column: column.title })}>
             {safeCards.length === 0 && !suppressEmptyPlaceholder && (
               <div
                 className={cn(
@@ -1486,7 +1496,7 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
                         >
                           {!collapsed && (
                             <SortableContext items={laneCards.map(c => c.id)} strategy={verticalListSortingStrategy}>
-                              <div className="space-y-2" role="list" aria-label={`${col.title} - ${lane} cards`}>
+                              <div className="space-y-2" role="list" aria-label={t('kanban.laneCards', { column: col.title, lane })}>
                                 {laneCards.map(card => (
                                   <SortableCard key={card.id} card={card} onCardClick={onCardClick} conditionalFormatting={conditionalFormatting} objectFields={objectFields} />
                                 ))}
@@ -1553,7 +1563,7 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
       <DragOverlay dropAnimation={{ duration: 200, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>
         <div
           aria-live="assertive"
-          aria-label={activeCard ? `Dragging ${activeCard.title}` : undefined}
+          aria-label={activeCard ? t('kanban.dnd.dragging', { card: activeCard.title }) : undefined}
           // Lift the card visibly while in flight: slight rotate + scale +
           // strong shadow + ring. Matches the Linear / Trello "pickup"
           // affordance and makes the destination obvious because the

@@ -1036,8 +1036,8 @@ describe('ChatbotEnhanced — streaming build preview (live build tree)', () => 
   });
 
   // objectui#12724 (the AiBuild artboard) — the finished card's PRIMARY action
-  // opens the built app; Studio is the secondary door. Replaces the ADR-0080 D5
-  // pin that put Studio in the primary slot.
+  // opens the built app; Studio is the secondary door. Replaces the earlier
+  // pin (objectui#2623) that put Studio in the primary slot.
   it('renders "Open app" as the PRIMARY action and Studio as the secondary door (objectui#12724)', () => {
     const onDesignBuiltApp = vi.fn();
     const onOpenBuiltApp = vi.fn();

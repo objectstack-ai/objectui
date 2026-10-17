@@ -4470,10 +4470,16 @@ export const assertionWiderLedgerRecordsEveryKey: never = 0 as unknown as WiderL
  * Exact MIRRORED-BUT-UNDECLARED key set per pair — the seed of the direction
  * objectui#9711 opened, measured on the tree this ledger landed on.
  *
- * `this ledger seeds **2 entries** carrying **2 keys**` — and ⛔ read that off the
+ * `this ledger seeds **3 entries** carrying **4 keys**` — and ⛔ read that off the
  * census at the bottom of this file, not off this sentence: both figures are pinned
  * to this ledger's own AST by 'the fourth direction is enumerated and sized at test
  * time', so an entry or an arm added here moves them or the file reddens.
+ *
+ * ⭐ Both figures moved UP when objectui#12736 (triage scoping B, comment
+ * 6220534234) added the `form.zod.ts#SelectOptionSchema` row: one entry, two keys.
+ * That is a growth in SHAPE only, and the accept set moved the other way — the two
+ * keys are named REFUSALS, which is how the `operators` row below reads too. Its
+ * docblock says why the row exists and why the twin does not declare the keys.
  *
  * ⭐ Both figures moved DOWN by one when objectui#9738 retired the
  * `views.zod.ts#DetailViewFieldSchema` row — the ratchet's only permitted
@@ -4617,6 +4623,27 @@ interface MirroredUndeclared {
    */
   "objectql.zod.ts#ObjectGridSchema":
     | "operators";
+
+  /**
+   * LOCAL, two keys, both REFUSALS — added by objectui#12736 (triage scoping B,
+   * comment 6220534234), the same shape as the `operators` row above.
+   *
+   * The SDUI form-option face narrowed to the spec's FORM-VIEW option
+   * (`FormSelectOptionSchema`), which leaves out the object-field option's
+   * `default` and `kind`. The TypeScript twin `SelectOption` simply does not
+   * declare them (its spec-owned keys are exactly the form-view option's). The
+   * mirror is a bare `z.object`, which would STRIP an undeclared key and report
+   * success, so it states each key as an unwritable tombstone and refuses a value
+   * there by name. The keys are derived (the set difference of the two spec
+   * shapes), not listed; this row is their measurement.
+   *
+   * ⛔ Declaring either key on the twin, even as `?: never`, is the refused option:
+   * the twin's key set is pinned equal to the form-view option's plus the named
+   * divergences by `select-option-form-view-boundary-12736.test.ts`.
+   */
+  "form.zod.ts#SelectOptionSchema":
+    | "default"
+    | "kind";
 
   // `views.zod.ts#DetailViewFieldSchema` HAD a row here, for `dueLike`, and its
   // DELETION is the ratchet moving in the only direction this seed may move in

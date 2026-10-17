@@ -23,14 +23,26 @@
  *  - `visibleWhen` — stripped, while the select widgets evaluate it for
  *    per-option gating; a gated option survived `objectui validate` with its
  *    gate removed.
+ *
+ * EDITED by objectui#12736 (triage scoping B): the derivation now reads the
+ * spec's FORM-VIEW option, `FormSelectOptionSchema` (`@objectstack/spec/ui`),
+ * not the object-field `SelectOptionSchema`. The form-view option leaves out
+ * the object-field option's `default` and `kind`, and this schema REFUSES both
+ * by name instead of carrying them (`default` used to be "kept" here, and
+ * nothing on the form path read it). The object-field keys are therefore no
+ * longer this schema's spec keys; they are its named refusals, derived as the
+ * set difference of the two spec shapes, never listed.
  */
 
 import { describe, it, expect } from 'vitest';
 import { SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
+import { FormSelectOptionSchema as SpecFormSelectOptionSchema } from '@objectstack/spec/ui';
 import { SelectOptionSchema } from '../zod/form.zod.js';
 
-const specKeys = Object.keys(SpecSelectOptionSchema.shape).sort();
+const specKeys = Object.keys(SpecFormSelectOptionSchema.shape).sort();
 const localKeys = Object.keys(SelectOptionSchema.shape).sort();
+/** The object-field option's keys the form-view option leaves out — derived. */
+const objectFieldOnlyKeys = Object.keys(SpecSelectOptionSchema.shape).filter((k) => !specKeys.includes(k));
 
 describe('SelectOptionSchema derives from the spec', () => {
   it('carries every spec key', () => {
@@ -39,23 +51,28 @@ describe('SelectOptionSchema derives from the spec', () => {
     }
   });
 
-  it('extends the spec by exactly the documented UI-only keys', () => {
+  it('extends the spec by exactly the documented UI-only keys, plus the object-field-only refusals', () => {
     const extensions = localKeys.filter((k) => !specKeys.includes(k));
-    // If the spec ever claims one of these names, this fails and the two
-    // meanings must be reconciled instead of silently shadowed.
-    expect(extensions).toEqual(['disabled', 'icon']);
+    // If the spec ever claims one of the UI-only names, this fails and the two
+    // meanings must be reconciled instead of silently shadowed. The refusals
+    // (objectui#12736) are read off the two spec shapes, not listed.
+    expect(extensions).toEqual([...objectFieldOnlyKeys, 'disabled', 'icon'].sort());
+    // Control: the derived refusal set is not empty, so the line above is not
+    // passing on a vacuous difference.
+    expect(objectFieldOnlyKeys.length).toBeGreaterThan(0);
   });
 
   it('keeps the spec keys the old hand copy stripped', () => {
+    // EDITED by objectui#12736: `default` left this fixture — the form-view
+    // option does not take it, and it is now refused (see the boundary pin
+    // `select-option-form-view-boundary-12736.test.ts`).
     const parsed = SelectOptionSchema.parse({
       label: 'China',
       value: 'cn',
       color: 'red',
-      default: true,
       visibleWhen: "'admin' in current_user.positions",
     });
     expect(parsed.color).toBe('red');
-    expect(parsed.default).toBe(true);
     expect(parsed.visibleWhen).toBe("'admin' in current_user.positions");
   });
 

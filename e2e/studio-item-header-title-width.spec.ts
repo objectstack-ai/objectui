@@ -9,7 +9,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 /**
  * GEOMETRY pin for objectui#12791: in Studio's item header a long api-name
- * chip gives way before the title, so the title keeps at least 200 px.
+ * chip gives way before the title, so the title keeps at least 200 px. And
+ * for objectui#12897: on an Interfaces view leaf the actions slot no longer
+ * takes the title's whole width (the last describe block below).
  *
  * ## The defect
  *
@@ -99,6 +101,8 @@ interface Case {
   kindChip?: boolean;
   /** The item label, when not the card's. */
   title?: string;
+  /** objectui#12897 — draw an Interfaces view leaf's header instead of the Data one. */
+  kind?: 'interfaces';
 }
 
 const CASES = {
@@ -110,7 +114,18 @@ const CASES = {
   long360: { name: 'long360', row: 360, apiName: LONG_API },
   chips736: { name: 'chips736', row: 736, apiName: LONG_API, kindChip: true },
   shortTitle560: { name: 'shortTitle560', row: 560, apiName: LONG_API, title: 'Account' },
+  // objectui#12897 — the rows measured live on the card's kanban leaf, copilot
+  // open: 422 px at a 1010 px window, 632 px at 1280 px.
+  leaf422: { name: 'leaf422', row: 422, apiName: '', kind: 'interfaces' },
+  leaf632: { name: 'leaf632', row: 632, apiName: '', kind: 'interfaces' },
+  leaf1024: { name: 'leaf1024', row: 1024, apiName: '', kind: 'interfaces' },
 } satisfies Record<string, Case>;
+
+/** objectui#12897 — the Interfaces leaf's label, kind and internal id, in English. */
+const LEAF_TITLE = 'Task board (kanban view)';
+const LEAF_KIND = 'View';
+const LEAF_INTERNAL_ID = 'Internal id: object · showcase_task';
+const READ_ONLY_LINK = 'Read-only · Customize with an overlay';
 
 const ENTRY = '\0studio-item-header-width:entry';
 
@@ -142,16 +157,45 @@ function entry(): Plugin {
   const code = `
 import * as React from 'react';
 import { createRoot } from 'react-dom/client';
-import { StudioItemHeader } from ${JSON.stringify(ITEM_HEADER)};
-import { STUDIO_KIND_CHIP } from ${JSON.stringify(STUDIO_TOKENS)};
+import { StudioItemHeader, useStudioTabRowFold } from ${JSON.stringify(ITEM_HEADER)};
+import { STUDIO_HEADER_ICON_BUTTON, STUDIO_KIND_CHIP } from ${JSON.stringify(STUDIO_TOKENS)};
 
 const h = React.createElement;
 const Icon = (props) => h('svg', { ...props, viewBox: '0 0 16 16', 'aria-hidden': 'true' }, h('rect', { x: 2, y: 2, width: 12, height: 12 }));
 const c = window.__case;
 
+// objectui#12897 — the read-only link as StudioDesignSurface draws it: the
+// same hook, the same classes, an anchor instead of the router's Link.
+function ReadOnlyLink() {
+  const ref = React.useRef(null);
+  const label = ${JSON.stringify(READ_ONLY_LINK)};
+  const folded = useStudioTabRowFold(ref, label);
+  return h('a', {
+    ref, href: '#overlay', title: 'This package is read-only.', 'data-testid': 'studio-readonly-link', 'data-folded': folded || undefined,
+    className: 'inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md bg-amber-400/15 text-xs font-medium text-amber-700 ' + (folded ? 'w-7 justify-center' : 'px-2.5'),
+  }, h(Icon, { className: 'h-3.5 w-3.5 shrink-0' }), h('span', { className: folded ? 'sr-only' : undefined }, label));
+}
+
+// objectui#12897 — an Interfaces view leaf's header, as StudioDesignSurface
+// passes it for a read-only package: the label with its kind for a reader,
+// the internal id as the title's tooltip, the kind chip, and the actions.
+const interfacesLeaf = () => h(StudioItemHeader, {
+  testId: 'hdr',
+  icon: Icon,
+  title: h(React.Fragment, null, ${JSON.stringify(LEAF_TITLE)}, h('span', { className: 'sr-only' }, ${JSON.stringify(` · ${LEAF_KIND}`)})),
+  titleProps: { 'data-testid': 'hdr-title', title: ${JSON.stringify(LEAF_INTERNAL_ID)} },
+  chips: h('span', { className: STUDIO_KIND_CHIP, 'data-testid': 'hdr-kind-chip', title: ${JSON.stringify(LEAF_INTERNAL_ID)} }, ${JSON.stringify(LEAF_KIND)}),
+  actions: h(React.Fragment, null,
+    h(ReadOnlyLink),
+    h('button', { type: 'button', 'data-testid': 'if-open-in-data', className: 'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border bg-background px-2.5 text-xs text-foreground hover:bg-muted' },
+      h(Icon, { className: 'h-3.5 w-3.5 text-muted-foreground' }), 'Open in Data'),
+    h('button', { type: 'button', 'data-testid': 'if-item-more', 'aria-label': 'More', className: STUDIO_HEADER_ICON_BUTTON }, h(Icon, { className: 'h-4 w-4' }))),
+  className: 'border-b-0 pb-3',
+});
+
 createRoot(document.getElementById('root')).render(
   h('div', { id: 'frame', className: 'bg-background' },
-    h(StudioItemHeader, {
+    c.kind === 'interfaces' ? interfacesLeaf() : h(StudioItemHeader, {
       testId: 'hdr',
       icon: Icon,
       title: c.title ?? ${JSON.stringify(TITLE)},
@@ -297,7 +341,8 @@ async function mount(page: Page, c: Case): Promise<void> {
     (window as unknown as { __case: Case }).__case = value;
   }, c);
   await page.addScriptTag({ content: bundle, type: 'module' });
-  await page.waitForSelector('[data-testid="hdr-title"]', { timeout: 30_000 });
+  // Attached, not visible: a starved title is 0 px wide, and that is the reading.
+  await page.waitForSelector('[data-testid="hdr-title"]', { state: 'attached', timeout: 30_000 });
   // The stylesheet is compiled for the classes on the page; compile until the
   // class set stops growing.
   const classesOnPage = () =>
@@ -324,16 +369,35 @@ async function mount(page: Page, c: Case): Promise<void> {
     }, css);
     await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   }
+  if (c.kind === 'interfaces') {
+    // objectui#12897 — the read-only link keeps the width it read while it
+    // showed whole, as it does in the console, where the stylesheet is there
+    // before the header mounts. So mount it again on a page styled from the
+    // start (the classes of both its forms are compiled by now).
+    const css = await tailwindFor([...compiled]);
+    await page.setContent('<!doctype html><html><head><style>html,body{margin:0}</style><style id="tailwind"></style></head><body><div id="root"></div></body></html>');
+    await page.evaluate(
+      ({ value, text }) => {
+        (window as unknown as { __case: Case }).__case = value;
+        document.getElementById('tailwind')!.textContent = text;
+      },
+      { value: c, text: css },
+    );
+    await page.addScriptTag({ content: bundle, type: 'module' });
+    await page.waitForSelector('[data-testid="hdr-title"]', { state: 'attached', timeout: 30_000 });
+  }
   await page.evaluate(() => document.fonts?.ready);
-  // Settle: two consecutive frames with the same title and chip widths.
+  // Settle: two consecutive frames with the same title, chip and actions
+  // widths (the Interfaces leaf has no api chip; its actions fold).
   // ⛔ Not `title width > 0`: a starved title can be 0 wide, and that reading
   // is the finding, not a reason to time out.
   await page.waitForFunction(
     () => {
       const title = document.querySelector('[data-testid="hdr-title"]');
       const chip = document.querySelector('[data-testid="studio-item-api-name"]');
-      if (!title || !chip) return false;
-      const sig = `${title.getBoundingClientRect().width},${chip.getBoundingClientRect().width}`;
+      const actions = title?.parentElement?.lastElementChild;
+      if (!title || !actions) return false;
+      const sig = `${title.getBoundingClientRect().width},${chip?.getBoundingClientRect().width},${actions.getBoundingClientRect().width}`;
       const w = window as unknown as { __sig?: string };
       const prev = w.__sig;
       w.__sig = sig;
@@ -510,5 +574,139 @@ test.describe('the Studio item title keeps its room beside a long api name (obje
     // has truncated before the title did.
     expect(r.status.textShown).toBe(false);
     expect(r.chip.clipped).toBe(true);
+  });
+});
+
+/** objectui#12897 — what the Interfaces leaf's title row gives each piece. */
+interface LeafReading {
+  row: { width: number; scrollWidth: number };
+  title: Box & { tooltip: string | null };
+  /** The room the row leaves the title: its width less every other box and the gaps. */
+  titleRoom: number;
+  link: { width: number; folded: boolean; name: string; title: string | null };
+  /** Each action's box, and whether it lies inside the row. */
+  actions: Array<{ testid: string | null; width: number; inside: boolean }>;
+  documentOverflowX: number;
+}
+
+async function readLeaf(page: Page, c: Case, testInfo: import('@playwright/test').TestInfo): Promise<LeafReading> {
+  await mount(page, c);
+  const r = await page.evaluate(() => {
+    const round = (n: number) => Math.round(n * 100) / 100;
+    const title = document.querySelector<HTMLElement>('[data-testid="hdr-title"]')!;
+    const link = document.querySelector<HTMLElement>('[data-testid="studio-readonly-link"]')!;
+    const row = title.parentElement!;
+    const rowRect = row.getBoundingClientRect();
+    const boxes = Array.from(row.children)
+      .flatMap((el) => (getComputedStyle(el).display === 'contents' ? Array.from(el.children) : [el]))
+      .filter((el) => getComputedStyle(el).display !== 'none');
+    const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
+    const others = boxes.filter((el) => el !== title).reduce((sum, el) => sum + el.getBoundingClientRect().width, 0);
+    const actionsSlot = row.lastElementChild!;
+    return {
+      row: { width: round(rowRect.width), scrollWidth: row.scrollWidth },
+      title: {
+        width: round(title.getBoundingClientRect().width),
+        scrollWidth: title.scrollWidth,
+        clipped: title.scrollWidth > title.clientWidth,
+        tooltip: title.getAttribute('title'),
+      },
+      titleRoom: round(row.clientWidth - others - gap * (boxes.length - 1)),
+      link: {
+        width: round(link.getBoundingClientRect().width),
+        folded: link.hasAttribute('data-folded'),
+        name: (link.textContent ?? '').trim(),
+        title: link.getAttribute('title'),
+      },
+      actions: Array.from(actionsSlot.children).map((el) => {
+        const b = el.getBoundingClientRect();
+        return {
+          testid: el.getAttribute('data-testid'),
+          width: round(b.width),
+          inside: b.width > 0 && b.left >= rowRect.left - 0.5 && b.right <= rowRect.right + 0.5,
+        };
+      }),
+      documentOverflowX: round(document.documentElement.scrollWidth - document.documentElement.clientWidth),
+    };
+  });
+  testInfo.annotations.push({ type: `studio-item-header@${c.name}`, description: JSON.stringify(r) });
+  process.stdout.write(`[studio-item-header ${c.name}] ${JSON.stringify(r)}\n`);
+  return r;
+}
+
+/** The leaf's whole title, as the title's text reads it (its kind is for a reader). */
+const LEAF_TITLE_TEXT = `${LEAF_TITLE} · ${LEAF_KIND}`;
+/**
+ * The least the title shows when it is cut: four characters of an 18 px
+ * label and the ellipsis. Live, at the card's 1010 px window, the zh-CN
+ * title got 104 px here (0 px before the fix); the fallback font of the
+ * test lane moves that number, so the pin asserts this floor and the rule.
+ */
+const LEAF_TITLE_FLOOR = 64;
+
+test.describe('an Interfaces view leaf keeps its title beside the actions (objectui#12897)', () => {
+  test('at the 422 px row of a 1010 px window: the title shows, cut, its whole text in its tooltip; the read-only link folds; every action stays in the row', async ({
+    page,
+  }, testInfo) => {
+    const r = await readLeaf(page, CASES.leaf422, testInfo);
+    expect(r.row.width).toBe(422);
+
+    // THE assertion: the title's visible width, measured. Before the fix the
+    // actions slot (`shrink-0`) took the whole row and this read 0.
+    expect(r.title.width, `title ${r.title.width}px; actions ${JSON.stringify(r.actions)}`).toBeGreaterThanOrEqual(LEAF_TITLE_FLOOR);
+    // It has all the room the row leaves it, and no more is to be had: the
+    // read-only link gave way first, folded to its glyph.
+    expect(Math.abs(r.title.width - r.titleRoom), `title ${r.title.width}px, room ${r.titleRoom}px`).toBeLessThanOrEqual(1);
+    expect(r.link.folded).toBe(true);
+    expect(r.link.name).toBe(READ_ONLY_LINK);
+    expect(r.link.title).not.toBeNull();
+
+    // Cut, the title says its whole text in its tooltip, before the internal id.
+    expect(r.title.clipped).toBe(true);
+    expect(r.title.tooltip).toBe(`${LEAF_TITLE_TEXT}\n${LEAF_INTERNAL_ID}`);
+
+    // The actions stay reachable: each one drawn, inside the row; nothing overflows.
+    expect(r.actions.map((a) => a.testid)).toEqual(['studio-readonly-link', 'if-open-in-data', 'if-item-more']);
+    for (const a of r.actions) expect(a.inside, `action ${a.testid} ${a.width}px`).toBe(true);
+    expect(r.row.scrollWidth, `row ${r.row.width}px holds ${r.row.scrollWidth}px`).toBeLessThanOrEqual(Math.ceil(r.row.width));
+    expect(r.documentOverflowX).toBe(0);
+  });
+
+  test('CONTROL: on a wide row (1024 px) the title is whole, the link shows its text, and the tooltip is the internal id alone', async ({
+    page,
+  }, testInfo) => {
+    const r = await readLeaf(page, CASES.leaf1024, testInfo);
+    expect(r.title.clipped, `title ${r.title.width}px for ${r.title.scrollWidth}px of text`).toBe(false);
+    expect(r.link.folded).toBe(false);
+    expect(r.title.tooltip).toBe(LEAF_INTERNAL_ID);
+    for (const a of r.actions) expect(a.inside, `action ${a.testid} ${a.width}px`).toBe(true);
+  });
+
+  test('CONTROL: at the 632 px row of a 1280 px window the title is whole, and the link folds only if the title would not fit beside it whole', async ({
+    page,
+  }, testInfo) => {
+    // The link's whole width, read where it shows whole.
+    const wide = await readLeaf(page, CASES.leaf1024, testInfo);
+    expect(wide.link.folded).toBe(false);
+    const r = await readLeaf(page, CASES.leaf632, testInfo);
+    expect(r.title.clipped, `title ${r.title.width}px for ${r.title.scrollWidth}px of text`).toBe(false);
+    expect(r.title.tooltip).toBe(LEAF_INTERNAL_ID);
+    // The rule, from this page's own widths: whether the whole link fits
+    // beside the whole title at 632 px depends on the font and the language
+    // (live, in zh-CN, it does).
+    const roomWithLinkWhole = r.titleRoom - (wide.link.width - r.link.width);
+    expect(r.link.folded, `room ${roomWithLinkWhole}px with the link whole, title ${r.title.scrollWidth}px`).toBe(
+      roomWithLinkWhole + 0.5 < r.title.scrollWidth,
+    );
+    for (const a of r.actions) expect(a.inside, `action ${a.testid} ${a.width}px`).toBe(true);
+  });
+
+  test('CONTROL: the link follows the row, folding when it narrows and unfolding when it widens again', async ({ page }, testInfo) => {
+    await readLeaf(page, CASES.leaf1024, testInfo);
+    await expect(page.getByTestId('studio-readonly-link')).not.toHaveAttribute('data-folded');
+    await page.setViewportSize({ width: CASES.leaf422.row + HEADER_SIDE_PADDING, height: 400 });
+    await expect(page.getByTestId('studio-readonly-link')).toHaveAttribute('data-folded', 'true');
+    await page.setViewportSize({ width: CASES.leaf1024.row + HEADER_SIDE_PADDING, height: 400 });
+    await expect(page.getByTestId('studio-readonly-link')).not.toHaveAttribute('data-folded');
   });
 });

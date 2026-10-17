@@ -163,6 +163,30 @@ export interface StudioCanvasColumnSelection {
 export const StudioCanvasColumnSelectionContext = React.createContext<StudioCanvasColumnSelection | null>(null);
 
 /**
+ * The card selection of the kanban view the Properties panel edits
+ * (objectui#12725): a click on a card of the board selects "the card", whose
+ * properties are the panel's kanban card section (the board's card, not one
+ * record), and the clicked card is outlined.
+ *
+ * ⛔ Studio-internal, for the reason {@link StudioCanvasNavEntry} is: a
+ * context beside the published props, never a member of
+ * {@link StudioCanvasPreviewProps}. The Interfaces pillar provides it while
+ * its panel holds a kanban view of the open leaf. A canvas registered over the
+ * default does not read it, and one rendered outside the pillar sees `null`;
+ * either way a card click opens the record as the running app's does.
+ */
+export interface StudioCanvasCardSelection {
+  /** The object the board lists. Cards are read only on this object's canvas. */
+  objectName: string;
+  /** The record id of the card outlined, or `null` with none selected. */
+  selected: string | null;
+  /** Select the card; `id` is the clicked card's record id. */
+  onSelect: (id: string) => void;
+}
+
+export const StudioCanvasCardSelectionContext = React.createContext<StudioCanvasCardSelection | null>(null);
+
+/**
  * Which of the package's objects have only a draft (a pending draft, no
  * published row), as the Interfaces pillar knows them under the publish the
  * canvas shows (objectui#12508).
@@ -332,8 +356,81 @@ function ObjectRecordsGrid({ name }: StudioCanvasPreviewProps) {
   // a different mount; a different slice of the same list is a refetch.
   return (
     <ColumnHeaderSelect objectName={name}>
-      <SchemaRenderer key={view ? viewId : ''} schema={schema as never} />
+      <KanbanCardSelect objectName={name}>
+        <SchemaRenderer key={view ? viewId : ''} schema={schema as never} />
+      </KanbanCardSelect>
     </ColumnHeaderSelect>
+  );
+}
+
+/**
+ * objectui#12725 — the canvas half of selecting a kanban view's card: a click
+ * on a card of the board ({@link StudioCanvasCardSelectionContext}) selects
+ * the card and does not open the record. The board names each card's record
+ * on its element (`data-kanban-card`, `SortableCard`). Both the click and the
+ * pointer press are taken in the capture phase, before the card's own handlers
+ * see them: the click would open the record, and the press is where the
+ * board's drag sensor starts a move. A control drawn inside a card keeps its
+ * job.
+ *
+ * A focused card opens on Enter and on Space's release, as a click does
+ * (objectui#12888), so the keys are taken in the capture phase too: on the
+ * Studio canvas Enter, and Space's release, select the card, and Space's press
+ * is held so the board does not scroll. Only a key on the card element itself,
+ * the board's own guard: a key on something inside the card stays its own.
+ *
+ * Drawn always, with no box, for the reason {@link ColumnHeaderSelect} is.
+ */
+function KanbanCardSelect({ objectName, children }: { objectName: string; children: React.ReactNode }) {
+  const channel = React.useContext(StudioCanvasCardSelectionContext);
+  const cards = channel && channel.objectName === objectName ? channel : null;
+  const scope = React.useId();
+  const cardOf = (e: React.SyntheticEvent<HTMLDivElement>): Element | null => {
+    if (!cards || !(e.target instanceof Element)) return null;
+    const card = e.target.closest('[data-kanban-card]');
+    if (!card || !e.currentTarget.contains(card)) return null;
+    const control = e.target.closest('button, input, a, [role="checkbox"]');
+    if (control && card.contains(control)) return null;
+    return card;
+  };
+  const onPointerDownCapture = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (cardOf(e)) e.stopPropagation();
+  };
+  const onKeyCapture = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!cards || !(e.target instanceof Element) || !e.target.matches('[data-kanban-card]')) return;
+    if (!e.currentTarget.contains(e.target)) return;
+    const selects = e.type === 'keydown' ? e.key === 'Enter' : e.key === ' ';
+    if (!selects && !(e.type === 'keydown' && e.key === ' ')) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const id = e.target.getAttribute('data-kanban-card');
+    if (selects && id) cards.onSelect(id);
+  };
+  const onClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
+    const id = cardOf(e)?.getAttribute('data-kanban-card');
+    if (!cards || !id) return;
+    e.stopPropagation();
+    e.preventDefault();
+    cards.onSelect(id);
+  };
+  return (
+    <div
+      className="contents"
+      data-testid="studio-canvas-cards"
+      data-studio-canvas-cards={scope}
+      onPointerDownCapture={onPointerDownCapture}
+      onClickCapture={onClickCapture}
+      onKeyDownCapture={onKeyCapture}
+      onKeyUpCapture={onKeyCapture}
+    >
+      {cards?.selected ? (
+        // The clicked card is outlined, as the StudioRailProps artboard draws
+        // a selected element. A style rule, for the reason the column's is:
+        // the board owns its cards and redraws them.
+        <style>{`[data-studio-canvas-cards="${scope}"] [data-kanban-card=${JSON.stringify(cards.selected)}]>*{outline:2px solid hsl(var(--primary));outline-offset:1px;}`}</style>
+      ) : null}
+      {children}
+    </div>
   );
 }
 

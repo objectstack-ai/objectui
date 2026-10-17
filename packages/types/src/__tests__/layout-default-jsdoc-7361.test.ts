@@ -394,7 +394,8 @@ describe('layout.ts `@default` docs agree with the renderer, re-measured (object
      * the row stops being about a behaviour change and the prose needs redoing.
      */
     it("`'default'` really is a template the registry resolves", () => {
-      expect(read(PAGE)).toMatch(/'default':\s*FullWidthTemplate/);
+      // objectui#12476 renamed the component when `full-width` retired.
+      expect(read(PAGE)).toMatch(/'default':\s*DefaultTemplate/);
     });
   });
 });

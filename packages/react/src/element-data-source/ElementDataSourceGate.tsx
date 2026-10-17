@@ -651,10 +651,18 @@ const namesObject = (schema: unknown, key: string): boolean => {
  * The "saved views are still being fetched" placeholder. Distinct from the error
  * panel because a component that treated "not resolved yet" as "does not exist"
  * would flash a configuration error on every mount.
+ *
+ * Its copy reads `common.loading` (objectui#12889), the key the rest of the
+ * tree reads for a bare "Loading…": it printed an English "Loading view…" on
+ * every locale before. `useObjectTranslation` runs only while a view resolves,
+ * for the reason {@link ElementDataSourceMalformedFilterPanel} gives, and the
+ * inline `defaultValue` is the `en` pack's value, held byte-identical to it by
+ * `pnpm check:i18n-keys`.
  */
 export function ElementDataSourceLoadingPanel({
   testId,
 }: Pick<ElementDataSourceStatusPanelProps, 'testId'>): React.ReactElement {
+  const { t } = useObjectTranslation();
   return (
     <div
       className="p-2 text-sm text-muted-foreground animate-pulse"
@@ -662,7 +670,7 @@ export function ElementDataSourceLoadingPanel({
       aria-live="polite"
       data-testid={`${testId}-resolving-view`}
     >
-      Loading view&hellip;
+      {t('common.loading', { defaultValue: 'Loading…' })}
     </div>
   );
 }

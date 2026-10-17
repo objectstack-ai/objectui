@@ -16,7 +16,7 @@
 
 import * as React from 'react';
 import { createPortal } from 'react-dom';
-import { useParams, useNavigate, useLocation, Link, Navigate } from 'react-router-dom';
+import { useParams, useNavigate, Link, Navigate } from 'react-router-dom';
 import { useAdapter, SchemaRendererProvider, useMetadata } from '@object-ui/react';
 // The ONE draft-envelope reader (objectui#8181): unwrap AND strip the
 // framework's read decorations in one place. This file used to carry its own
@@ -165,19 +165,24 @@ import {
 } from '../metadata-admin/preview-registry.js';
 import {
   getStudioCanvasPreview,
+  StudioCanvasCardSelectionContext,
   StudioCanvasColumnSelectionContext,
   StudioCanvasDraftOnlyObjectsContext,
   StudioCanvasListViewContext,
   StudioCanvasNavEntryContext,
   StudioObjectRecordsCanvas,
+  type StudioCanvasCardSelection,
   type StudioCanvasColumnSelection,
   type StudioCanvasDraftOnlyObjects,
   type StudioCanvasNavEntry,
 } from './studio-canvas-preview.js';
 import {
+  listViewCardIdOf,
+  listViewCardSelection,
   listViewColumnFields,
   listViewColumnIndexOf,
   listViewColumnSelection,
+  listViewIsKanban,
   ObjectListViewInspector,
   useObjectListViewDraft,
   type DraftOnlyObjects,
@@ -244,7 +249,6 @@ import { resolveSurface, findSurfaceInTree, isSameSurface, type NavNode, type Su
 import { servedNavTextOf, displayNavTree, displayAppLabel, type ServedNavText } from './servedNavText.js';
 import { ServedWidgetTextContext, servedWidgetTextOf } from './servedDashboardText.js';
 import { useSurfaceDeepLink, resolveSurfaceDeepLink, type SurfaceTarget } from './useSurfaceDeepLink.js';
-import { isStudioRunLanding } from './studioLanding.js';
 import { SurfaceDeepLinkProvider, useRequestedSurface, useSurfaceNavigator } from './surfaceDeepLinkChannel.js';
 import { buildObjectSkeleton, buildFlowSkeleton, buildAppSkeleton, buildPermissionSkeleton, type AppNavSeed } from './skeletons.js';
 import { OWD_CREATE_MODELS, OWD_DEFAULT, type OwdCreateModel } from './owd-sharing.js';
@@ -3384,21 +3388,7 @@ export function InterfacesPillar({
   React.useEffect(() => (claimSlotProps ? claimSlotProps() : undefined), [claimSlotProps]);
   // The classic layout's aside can be collapsed to give the canvas more room —
   // in-memory, per-mount. In the slot the top bar's toggle owns that instead.
-  //
-  // objectui#11658 — an arrival that asks for the run-mode landing (the
-  // post-build transition, see `studioLanding.ts`) opens on 「运行」 with this
-  // aside collapsed: the running app, full width beside the chat. Read once, at
-  // mount. The collapse is the landing's, not the user's, so the first switch
-  // to 「设计」 hands the properties back (see `landingCollapsedRef`).
-  const location = useLocation();
-  const [landedInRun] = React.useState(() => isStudioRunLanding(location.state));
-  const [inspectorCollapsed, setInspectorCollapsedState] = React.useState(landedInRun);
-  const landingCollapsedRef = React.useRef(landedInRun);
-  // Any explicit collapse/expand by the user ends the landing's claim on it.
-  const setInspectorCollapsed = React.useCallback((collapsed: boolean) => {
-    landingCollapsedRef.current = false;
-    setInspectorCollapsedState(collapsed);
-  }, []);
+  const [inspectorCollapsed, setInspectorCollapsed] = React.useState(false);
   const canCollapseInspector = !inSlot;
   // objectui#12725 — switching by intent: selecting anything on the canvas
   // (or a nav entry in nav editing) shows its properties in the slot; Esc or a
@@ -3680,17 +3670,8 @@ export function InterfacesPillar({
   // overlays (dashboard widget overlays, page block canvas) and the SAME
   // renderer serves the interactive runtime — click New, enter a record.
   // Selection state is retained so switching back to design keeps context.
-  const [canvasMode, setCanvasModeState] = React.useState<'design' | 'run'>(landedInRun ? 'run' : 'design');
+  const [canvasMode, setCanvasMode] = React.useState<'design' | 'run'>('design');
   const designing = canvasMode === 'design';
-  // objectui#11658 — 「设计」 is one click from the run-mode landing: the first
-  // switch to it also re-opens the properties aside the landing collapsed.
-  const setCanvasMode = React.useCallback((mode: 'design' | 'run') => {
-    setCanvasModeState(mode);
-    if (mode === 'design' && landingCollapsedRef.current) {
-      landingCollapsedRef.current = false;
-      setInspectorCollapsedState(false);
-    }
-  }, []);
   // `kind: 'html'`/`'react'` pages are a `source` string (ADR-0080/0081),
   // rendered by SourcePageEditor as a code-editor + live-preview split — there
   // is no block tree, so `selection` never populates and the generic "click a
@@ -3926,6 +3907,22 @@ export function InterfacesPillar({
       },
     };
   }, [columnFieldsKey, listViewObject, selectedColumnIndex, setSelection]);
+  // objectui#12725 — and on a kanban view, a click on a card selects the
+  // board's card (`StudioCanvasCardSelectionContext`): the same one
+  // selection, `{ kind: 'card' }`, so the slot, Esc and the empty-canvas
+  // click treat it as they treat a column. Its properties are the panel's
+  // kanban card section.
+  const kanbanLeaf = current?.type === 'object' && listViewIsKanban(listView);
+  const selectedCardId = listViewCardIdOf(selection);
+  const cardLabel = t('engine.studio.inspector.listView.kanbanCard', locale);
+  const canvasCards = React.useMemo<StudioCanvasCardSelection | null>(() => {
+    if (!kanbanLeaf || !listViewObject) return null;
+    return {
+      objectName: listViewObject,
+      selected: selectedCardId,
+      onSelect: (id) => setSelection(listViewCardSelection(id, cardLabel)),
+    };
+  }, [kanbanLeaf, listViewObject, selectedCardId, cardLabel, setSelection]);
 
   // nav editing — patch appDraft.navigation, then save/publish the App overlay
   const onNavPatch = React.useCallback((patch: Record<string, unknown>) => {
@@ -4399,9 +4396,10 @@ export function InterfacesPillar({
       ? tFormat('engine.studio.if.canvasHint.selected', locale, { label: String(selectionLabel) })
       : slot?.mode === 'copilot' &&
           // objectui#12725 — an `object` leaf's headers are elements too, while the panel lists its
-          // columns, on the default canvas: the one that reports a header click.
+          // columns, and so are a kanban view's cards, on the default canvas: the one that reports
+          // a header or a card click.
           ((Preview && designing && !StudioCanvas && !isSourcePage) ||
-            (StudioCanvas === StudioObjectRecordsCanvas && canvasColumns))
+            (StudioCanvas === StudioObjectRecordsCanvas && (canvasColumns || canvasCards)))
         ? t('engine.studio.if.canvasHint.pick', locale)
         : null;
   const canvasStatusEl = current ? (
@@ -4621,7 +4619,10 @@ export function InterfacesPillar({
                 {/* objectui#12725 — and the panel's column selection, which a
                     header click on the default canvas makes. */}
                 <StudioCanvasColumnSelectionContext.Provider value={canvasColumns}>
-                  <StudioCanvas type={current.type} name={current.name} draft={draft} locale={locale} />
+                  {/* objectui#12725 — and, on a kanban view, its card selection. */}
+                  <StudioCanvasCardSelectionContext.Provider value={canvasCards}>
+                    <StudioCanvas type={current.type} name={current.name} draft={draft} locale={locale} />
+                  </StudioCanvasCardSelectionContext.Provider>
                 </StudioCanvasColumnSelectionContext.Provider>
               </StudioCanvasDraftOnlyObjectsContext.Provider>
             </StudioCanvasListViewContext.Provider>

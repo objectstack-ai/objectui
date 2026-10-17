@@ -19,6 +19,7 @@
 import { z } from 'zod';
 import { aliasKeyRefusal, handlerKeyRefusal, neitherContentChannelGuidance, retirementTombstone } from './tombstone.zod.js';
 import { FieldSchema as SpecFieldSchema, SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
+import { FormSelectOptionSchema as SpecFormSelectOptionSchema } from '@objectstack/spec/ui';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 // The predicate wire shape (`string | { dialect?, source }`, #2212) was a
 // module-private const here until objectui#7530 hoisted it into
@@ -128,18 +129,57 @@ const FieldRulePredicateWireSchema = ExpressionWireSchema.superRefine((predicate
 });
 
 /**
- * Select Option Schema — derived from `@objectstack/spec/data`
- * `SelectOptionSchema` (objectstack#4115), with two pinned divergences and two
- * UI-only extensions. Drift guard: `__tests__/select-option-spec-parity.test.ts`.
+ * The keys the spec's OBJECT-field option takes and its FORM-VIEW option leaves
+ * out — `default` and `kind` on `@objectstack/spec` 18 (objectui#12736). The
+ * runtime twin of `ObjectFieldOnlyOptionKey` in `../form`, derived the same way:
+ * the set difference of the two spec schemas' own shapes, never a list.
+ */
+type ObjectFieldOnlyOptionKey = Exclude<
+  keyof typeof SpecSelectOptionSchema.shape,
+  keyof typeof SpecFormSelectOptionSchema.shape
+>;
+
+/**
+ * One named refusal per {@link ObjectFieldOnlyOptionKey} (objectui#12736). The
+ * form option below is a bare `z.object`, which STRIPS an undeclared key and
+ * reports success — so merely leaving these keys out of its shape would turn
+ * "accepted and silently ignored" into "stripped and silently ignored". Each
+ * key is declared unwritable instead, and a value written there is refused at
+ * parse with the issue path naming the key.
+ */
+function objectFieldOnlyOptionRefusals() {
+  // Only the KEY sets are read here; they still cross the objectui#8317 import
+  // boundary, which leaves keys untouched.
+  const formKeys = new Set(Object.keys(stripImportedDefaults(SpecFormSelectOptionSchema).shape));
+  const refusals = {} as Record<ObjectFieldOnlyOptionKey, ReturnType<typeof retirementTombstone>>;
+  for (const key of Object.keys(stripImportedDefaults(SpecSelectOptionSchema).shape)) {
+    if (formKeys.has(key)) continue;
+    refusals[key as ObjectFieldOnlyOptionKey] = retirementTombstone(
+      `\`${key}\` is an object-field option key, not a form option key: the spec's form-view option `
+      + '(`FormSelectOptionSchema`) does not take it, and nothing on the form path reads it. '
+      + `Delete it here and declare \`${key}\` on the object field's own \`options\` entry.`,
+    );
+  }
+  return refusals;
+}
+
+/**
+ * Select Option Schema — the SDUI FORM option, derived from `@objectstack/spec/ui`
+ * `FormSelectOptionSchema` (objectui#12736; before it, from the data
+ * `SelectOptionSchema`, objectstack#4115), with two pinned divergences, two
+ * UI-only extensions, and a named refusal for each object-field-only key
+ * ({@link objectFieldOnlyOptionRefusals}). Drift guard:
+ * `__tests__/select-option-spec-parity.test.ts`.
  *
- * Spec keys flow in **by reference** via the spread: before this derivation the
- * schema silently stripped `color` (which `@object-ui/fields` renders as
- * badge/dot colors), `default`, and `visibleWhen` (which the select widgets
- * evaluate for per-option gating) — a strip-mode schema fails silently, which
- * is why the gap survived.
+ * Spec keys flow in **by reference** via the spread: before the first derivation
+ * the schema silently stripped `color` (which `@object-ui/fields` renders as
+ * badge/dot colors) and `visibleWhen` (which the select widgets evaluate for
+ * per-option gating) — a strip-mode schema fails silently, which is why the gap
+ * survived. The same reason is why `default` and `kind` are REFUSED rather than
+ * left out.
  */
 export const SelectOptionSchema = z.object({
-  ...stripImportedDefaults(SpecSelectOptionSchema).shape,
+  ...stripImportedDefaults(SpecFormSelectOptionSchema).shape,
   // Deliberate divergence: the spec requires a lowercase machine identifier;
   // standalone UI forms legitimately bind numeric/boolean values. The parity
   // test pins both directions so a future spec widening gets noticed.
@@ -154,6 +194,9 @@ export const SelectOptionSchema = z.object({
   // spec has not claimed these names).
   disabled: z.boolean().optional().describe('Whether option is disabled'),
   icon: z.string().optional().describe('Option icon'),
+  // objectui#12736: `default` and `kind` belong to the object field's options;
+  // refused here by name rather than stripped.
+  ...objectFieldOnlyOptionRefusals(),
 });
 
 /**

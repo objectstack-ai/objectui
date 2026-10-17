@@ -8,8 +8,7 @@
  * and is pinned in `ChatDock.appBinding-10926.test.tsx`. This file pins the two
  * seams the layout owns: the active app's `_packageId` reaches both dock
  * presentations, and the maximize callback routes a bound package to
- * `/ai/build?package=PKG` (with the Studio door's one-shot opt-out) while an
- * app-less thread keeps opening `/ai`.
+ * `/ai/build?package=PKG` while an app-less thread keeps opening `/ai`.
  *
  * `ConsoleLayout` renders for real under the real `NavigationProvider` and
  * router; the dock components are prop recorders, and the chrome siblings this
@@ -81,8 +80,6 @@ window.matchMedia = ((query: string) => ({
   dispatchEvent: () => false,
 })) as unknown as typeof window.matchMedia;
 
-const OPT_OUT = 'objectstack:ai-full-page-requested';
-
 function Where() {
   const location = useLocation();
   return <div data-testid="where">{`${location.pathname}${location.search}`}</div>;
@@ -128,19 +125,17 @@ describe('ConsoleLayout — the dock learns the current app and maximizes a boun
     expect(dock.sheet?.appPackageId).toBe('app.crm');
   });
 
-  it('a bound build thread maximizes to /ai/build?package=PKG with the one-shot opt-out', () => {
+  it('a bound build thread maximizes to /ai/build?package=PKG', () => {
     mount(CRM);
     act(() => dock.panel?.onMaximize?.('app.crm'));
     expect(screen.getByTestId('where')).toHaveTextContent('/ai/build?package=app.crm');
-    expect(window.sessionStorage.getItem(OPT_OUT)).toBe('1');
     expect(readDockReturnLocation()).toBe('/apps/crm_app/deal?view=kanban');
   });
 
-  it('an app-less thread maximizes to /ai exactly as before, with no opt-out', () => {
+  it('an app-less thread maximizes to /ai exactly as before', () => {
     mount(CRM);
     act(() => dock.panel?.onMaximize?.(undefined));
     expect(screen.getByTestId('where')).toHaveTextContent(/^\/ai$/);
-    expect(window.sessionStorage.getItem(OPT_OUT)).toBeNull();
     expect(readDockReturnLocation()).toBe('/apps/crm_app/deal?view=kanban');
   });
 });

@@ -893,6 +893,8 @@ const zh = {
     deleteCard: '删除卡片',
     deleteColumn: '删除列',
     noCards: '暂无卡片',
+    columnCards: '{{column}} 的卡片',
+    laneCards: '{{column}} - {{lane}} 的卡片',
     cardTitlePlaceholder: '输入卡片标题…',
     uncategorized: '未分类',
     loadMore: '加载更多',
@@ -910,6 +912,7 @@ const zh = {
       untitledCard: '未命名卡片',
       unnamedColumn: '未命名列',
       instructions: '如需将此卡片移到其他列，请用鼠标或触控拖动它。',
+      dragging: '正在拖动 {{card}}',
     },
   },
   timeline: {
@@ -2721,7 +2724,6 @@ const zh = {
     usersOnline: '当前在线用户',
     switchView: '切换视图',
     connection: {
-      connected: '已连接',
       connecting: '连接中…',
       reconnecting: '正在重新连接…',
       disconnected: '已断开连接',

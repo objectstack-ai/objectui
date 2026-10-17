@@ -80,11 +80,25 @@
  * from objectstack `main`, and these pins must hold on both until the two meet.
  * Any OTHER key the spec adds still turns every set difference red.
  *
- * The form face keeps `kind` although the spec's form-VIEW options
- * (`FormSelectOptionSchema`) leave it out: this face was never that schema (it
- * has carried `default`, which that schema also leaves out, since before the
- * convergence), its zod twin spreads the same spec shape, and whether the form
- * face should drop either key is a face change of its own (objectui#12711).
+ * ## ⭐ What objectui#12736 changed here: the FORM face left `default` and `kind`
+ *
+ * The form face used to keep both although the spec's form-VIEW options
+ * (`FormSelectOptionSchema`) leave them out; objectui#12711 named that as a face
+ * change of its own. objectui#12736 (triage scoping B) made it: `SelectOption`
+ * now drops the keys the form-view option leaves out, derived as the set
+ * difference of the spec's two option types, and its zod twin refuses them by
+ * name. So on the FORM face only, the pins below are edited deliberately:
+ *
+ *   - "kept every member" now excuses `default`, the one pre-convergence member
+ *     the narrowing removed, and `PRE_CONVERGENCE_SelectOption` stays verbatim;
+ *   - "gained only" is `description` alone — `kind` is no longer gained;
+ *   - the `kind`-is-optional pin is replaced by a pin that the face has no `kind`;
+ *   - the two faces now differ on `value` AND on the object-field-only keys.
+ *
+ * The OBJECT-metadata face and `SelectOptionBase` are untouched: the spec takes
+ * `kind` and `default` on a select or radio field's options, and their pins
+ * below are unchanged. The form face's full key set is pinned against
+ * `FormSelectOptionSchema` by `select-option-form-view-boundary-12736.test.ts`.
  *
  * ## The control the spec fixtures need
  *
@@ -153,22 +167,39 @@ interface PRE_CONVERGENCE_SelectOptionMetadata {
 }
 
 /**
- * The SDUI form face kept every member it had, at the same type — stated by
- * removing the keys the spec has since added (`description`, and `kind` where
- * the spec declares it) and comparing what is left.
+ * The SDUI form face kept every member it had, at the same type, EXCEPT
+ * `default` — stated by removing the key the spec has since added
+ * (`description`) and comparing what is left against the record minus `default`.
  * `PRE_CONVERGENCE_SelectOption` above is a HISTORICAL record and is never
  * edited to match; it is the fixed end of this comparison.
+ *
+ * EDITED by objectui#12736: the comparison used to be against the whole record.
+ * `default` is excused because the form face deliberately dropped it — the
+ * spec's form-view option leaves it out and nothing on the form path read it —
+ * not because the comparison was loosened: every OTHER member is still compared
+ * invariantly.
  */
 export type assertionFormFaceKeptEveryMember =
-  Expect< Equal< Omit< SelectOption, 'description' | SpecKindKey >, PRE_CONVERGENCE_SelectOption > >;
+  Expect< Equal< Omit< SelectOption, 'description' >, Omit< PRE_CONVERGENCE_SelectOption, 'default' > > >;
 
 /**
- * …and `description` (plus spec 18's `kind`) is ALL it gained since. Written
- * as a set difference so another key cannot ride along silently: add one and
- * this stops being `'description' | SpecKindKey`.
+ * …and `description` is ALL it gained since. Written as a set difference so
+ * another key cannot ride along silently: add one and this stops being
+ * `'description'`.
+ *
+ * EDITED by objectui#12736: it was `'description' | SpecKindKey`. Spec 18's
+ * `kind` no longer arrives on the FORM face — the spec's form-view option does
+ * not take it — so a `kind` that came back would turn this red.
  */
-export type assertionFormFaceGainedOnlyDescriptionAndKind =
-  Expect< Equal< Exclude< keyof SelectOption, keyof PRE_CONVERGENCE_SelectOption >, 'description' | SpecKindKey > >;
+export type assertionFormFaceGainedOnlyDescription =
+  Expect< Equal< Exclude< keyof SelectOption, keyof PRE_CONVERGENCE_SelectOption >, 'description' > >;
+
+/**
+ * …and the one member it lost is `default` (objectui#12736). Stated as its own
+ * set difference so the excusal above cannot hide a second loss.
+ */
+export type assertionFormFaceLostOnlyDefault =
+  Expect< Equal< Exclude< keyof PRE_CONVERGENCE_SelectOption, keyof SelectOption >, 'default' > >;
 
 /** …and it arrived OPTIONAL, so no form that type-checked before now fails. */
 export type assertionDescriptionIsOptional =
@@ -195,27 +226,43 @@ export type assertionDefaultIsOptional =
   Expect< Equal< SelectOptionMetadata['default'], boolean | undefined > >;
 
 /**
- * `kind`, where the spec declares it, is OPTIONAL on both faces — so no option
- * that type-checked before now fails — and it is the spec's own member, by
- * reference, not a restatement. Both read `{}` on a spec without `kind`.
+ * `kind`, where the spec declares it, is OPTIONAL on the object-metadata face —
+ * so no option that type-checked before now fails — and it is the spec's own
+ * member, by reference, not a restatement. Both read `{}` on a spec without
+ * `kind`.
+ *
+ * EDITED by objectui#12736: the FORM face's half of this pin
+ * (`assertionKindIsOptionalOnFormFace`) is replaced by the one after these,
+ * because the form face no longer carries `kind` at all.
  */
-export type assertionKindIsOptionalOnFormFace =
-  Expect< Equal< Pick< SelectOption, SpecKindKey >, Partial< Pick< SelectOption, SpecKindKey > > > >;
 export type assertionKindIsOptionalOnMetadataFace =
   Expect< Equal< Pick< SelectOptionMetadata, SpecKindKey >, Partial< Pick< SelectOptionMetadata, SpecKindKey > > > >;
 export type assertionKindIsTheSpecMember =
   Expect< Equal< Pick< SelectOptionMetadata, SpecKindKey >, Pick< SpecSelectOption, SpecKindKey > > >;
 
 /**
- * The two faces differ on exactly one inherited member, and it is `value`.
+ * The FORM face carries neither object-field-only key (objectui#12736): the
+ * spec's form-view option takes neither, so the face does not either.
+ */
+export type assertionFormFaceHasNoKindOrDefault =
+  Expect< Equal< Extract< keyof SelectOption, 'kind' | 'default' >, never > >;
+
+/**
+ * The two faces differ on `value` and on the object-field-only keys, and on
+ * nothing else.
  *
  * `description` used to be excused from this comparison because only the
  * object-metadata face declared it; 17.3.0 put it in the derivation, so both
  * faces carry it and the comparison states the difference without an
  * exemption. Re-adding one here would hide the next divergence.
+ *
+ * EDITED by objectui#12736: it was "differ on exactly `value`". The FORM face
+ * now leaves out `default` and spec 18's `kind`, which the object-metadata face
+ * keeps; they are excused from the METADATA side only, so a key the form face
+ * gained or lost beyond them still turns this red.
  */
-export type assertionOnlyValueDiffers =
-  Expect< Equal< Omit< SelectOption, 'value' >, Omit< SelectOptionMetadata, 'value' > > >;
+export type assertionOnlyValueAndObjectFieldOnlyKeysDiffer =
+  Expect< Equal< Omit< SelectOption, 'value' >, Omit< SelectOptionMetadata, 'value' | 'default' | SpecKindKey > > >;
 export type assertionFormValueIsWide =
   Expect< Equal< SelectOption['value'], string | number | boolean > >;
 export type assertionMetadataValueIsSpecIdentifier =
@@ -289,11 +336,13 @@ export const acceptsEveryDeclaredKey = (): SelectOptionMetadata => ({
   icon: 'flame',
 });
 
+// EDITED by objectui#12736: `default: false` left this literal — the form face
+// no longer declares it, and `select-option-form-view-boundary-12736.test.ts`
+// pins its refusal.
 export const acceptsEveryDeclaredKeyOnFormFace = (): SelectOption => ({
   label: 'Ten',
   value: 10,
   color: '#ef4444',
-  default: false,
   visibleWhen: "'admin' in current_user.positions",
   description: 'Blocks the release',
   disabled: true,

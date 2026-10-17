@@ -38,6 +38,14 @@
  * truncates first, its full name in its tooltip (the status chip's
  * mechanism), and the title truncates last. The chip keeps its place; the
  * `chips` after it stay whole.
+ *
+ * objectui#12897 — the actions slot never shrinks, so on a narrow row it
+ * could take every pixel the title had (an Interfaces leaf at a 1010 px
+ * window with the copilot open: a 422 px row, 317 px of actions, a 0 px
+ * title). The fold of objectui#12707 now holds in the title row too: a chip
+ * that folds by `useStudioTabRowFold` folds to its icon when the title would
+ * otherwise be cut, so it gives way before the title does. A title that is
+ * still cut says its whole text in its tooltip.
  */
 
 import * as React from 'react';
@@ -166,8 +174,31 @@ function useTabRowFade(ref: React.RefObject<HTMLElement | null>): 'none' | 'star
   return fade;
 }
 
-/** The tab row a child of `tabs` sits in; `null` outside a tab row (objectui#12707). */
-const StudioTabRowContext = React.createContext<React.RefObject<HTMLElement | null> | null>(null);
+/**
+ * The row a foldable chip sits in: the tab row (objectui#12707), or the title
+ * row with its title (objectui#12897); `null` outside the header.
+ */
+type StudioFoldRow =
+  | { kind: 'tabs'; row: React.RefObject<HTMLElement | null> }
+  | { kind: 'title'; row: React.RefObject<HTMLElement | null>; title: React.RefObject<HTMLElement | null> };
+const StudioFoldRowContext = React.createContext<StudioFoldRow | null>(null);
+
+/**
+ * objectui#12897 — the room the title row leaves its title: the row's width
+ * less every other box it draws and the gaps between them. The meta slot is
+ * not counted: it takes only what the row has left (objectui#12611).
+ */
+function titleRoom(row: HTMLElement, title: HTMLElement): number {
+  const boxes = Array.from(row.children)
+    .flatMap((el) => (getComputedStyle(el).display === 'contents' ? Array.from(el.children) : [el]))
+    .filter((el) => getComputedStyle(el).display !== 'none');
+  const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
+  let others = 0;
+  for (const el of boxes) {
+    if (el !== title && (el as HTMLElement).dataset?.slot !== 'meta') others += el.getBoundingClientRect().width;
+  }
+  return row.clientWidth - others - gap * Math.max(0, boxes.length - 1);
+}
 
 /**
  * objectui#12707 — whether a chip at the tab row's end folds to its icon.
@@ -176,14 +207,20 @@ const StudioTabRowContext = React.createContext<React.RefObject<HTMLElement | nu
  * so it is never cut mid-word at the row's scrolled edge; it unfolds as soon
  * as the row has room again. The rule measures the tab row's own width, never
  * the viewport: the row narrows with the rail and the aside, not with the
- * window. Outside a tab row (a title row's actions slot) it never folds.
+ * window.
+ *
+ * objectui#12897 — in the title row (the actions slot) the chip folds when
+ * the room the row leaves the title, with the chip whole, is less than the
+ * title's whole text: the chip gives way before the title is cut, and
+ * unfolds once the title fits beside it whole. Outside the header it never
+ * folds.
  *
  * `item` is the chip; the row's child that holds it is its slot. `text` is
  * what the full chip says: a new text is a new width, so the chip unfolds
  * and is measured again.
  */
 export function useStudioTabRowFold(item: React.RefObject<HTMLElement | null>, text: string): boolean {
-  const row = React.useContext(StudioTabRowContext);
+  const fold = React.useContext(StudioFoldRowContext);
   const [folded, setFolded] = React.useState(false);
   /** The whole chip's width, read while it shows its text, and the text it was read for. */
   const full = React.useRef<{ text: string; width: number } | null>(null);
@@ -192,15 +229,23 @@ export function useStudioTabRowFold(item: React.RefObject<HTMLElement | null>, t
   // Every render: the tabs beside the chip can change without the row resizing.
   React.useLayoutEffect(() => {
     const measure = () => {
-      const nav = row?.current;
+      const nav = fold?.row.current;
       const el = item.current;
       if (!nav || !el) return;
       let slot: HTMLElement = el;
       while (slot.parentElement && slot.parentElement !== nav) slot = slot.parentElement;
       if (slot.parentElement !== nav) return;
-      if (!folded) full.current = { text, width: el.getBoundingClientRect().width };
+      const width = el.getBoundingClientRect().width;
+      if (!folded) full.current = { text, width };
       // A new text is a new width: show it whole and read it again.
       if (full.current?.text !== text) return setFolded(false);
+      if (fold?.kind === 'title') {
+        const title = fold.title.current;
+        if (!title) return;
+        // The room the title would have with the chip whole, against its whole text.
+        const room = titleRoom(nav, title) - (full.current.width - width);
+        return setFolded(room + 0.5 < title.scrollWidth);
+      }
       const navLeft = nav.getBoundingClientRect().left - nav.scrollLeft;
       let tabsEnd = 0;
       for (const child of Array.from(nav.children)) {
@@ -219,14 +264,37 @@ export function useStudioTabRowFold(item: React.RefObject<HTMLElement | null>, t
     // A child's layout effect runs before the row's own ref is attached, so
     // the first render measures here, once the row is there.
     measureRef.current();
-    const nav = row?.current;
+    const nav = fold?.row.current;
     if (!nav || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(() => measureRef.current());
     observer.observe(nav);
     for (const child of Array.from(nav.children)) observer.observe(child);
     return () => observer.disconnect();
-  }, [row]);
+  }, [fold]);
   return folded;
+}
+
+/**
+ * objectui#12897 — the title's whole text while the title is cut (its text
+ * wider than its box), else `null`.
+ */
+function useCutTitle(ref: React.RefObject<HTMLElement | null>): string | null {
+  const [cut, setCut] = React.useState<string | null>(null);
+  const measure = React.useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    setCut(el.scrollWidth > el.clientWidth + 0.5 ? (el.textContent ?? '').trim() || null : null);
+  }, [ref]);
+  // Every render: the title's text can change without its box resizing.
+  React.useLayoutEffect(measure);
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref, measure]);
+  return cut;
 }
 
 export interface StudioItemHeaderProps {
@@ -270,16 +338,25 @@ export function StudioItemHeader({
 }: StudioItemHeaderProps): React.ReactElement {
   const tabRowRef = React.useRef<HTMLElement | null>(null);
   const fade = useTabRowFade(tabRowRef);
+  const titleRowRef = React.useRef<HTMLDivElement | null>(null);
+  const titleRef = React.useRef<HTMLHeadingElement | null>(null);
+  const cutTitle = useCutTitle(titleRef);
+  // State, not a memo: the fold's effect keys on these (AGENTS.md #10).
+  const [tabFold] = React.useState<StudioFoldRow>(() => ({ kind: 'tabs', row: tabRowRef }));
+  const [titleFold] = React.useState<StudioFoldRow>(() => ({ kind: 'title', row: titleRowRef, title: titleRef }));
+  // objectui#12897 — a cut title says its whole text in its tooltip, before
+  // the tooltip the pillar gives it (the machine name).
+  const titleTooltip = cutTitle ? [cutTitle, titleProps?.title].filter(Boolean).join('\n') : titleProps?.title;
   return (
     <div data-testid={testId} className={cn(STUDIO_ITEM_HEADER, !tabs && 'pb-3', className)}>
-      <div className={STUDIO_ITEM_ROW}>
+      <div ref={titleRowRef} className={STUDIO_ITEM_ROW}>
         {leading}
         {Icon && (
           <span className={STUDIO_ICON_TILE}>
             <Icon className="h-4 w-4" />
           </span>
         )}
-        <h1 {...titleProps} className={cn(STUDIO_ITEM_TITLE, titleProps?.className)}>
+        <h1 {...titleProps} ref={titleRef} title={titleTooltip} className={cn(STUDIO_ITEM_TITLE, titleProps?.className)}>
           {title}
         </h1>
         <span className="contents" data-slot="identity-chips">
@@ -287,12 +364,20 @@ export function StudioItemHeader({
           {chips}
         </span>
         {status && <StudioStatusChip {...status} fold />}
-        {meta && <span className={cn(STUDIO_META, STUDIO_ITEM_META_FOLD)}>{meta}</span>}
-        {actions && <div className="ml-auto flex shrink-0 items-center gap-2">{actions}</div>}
+        {meta && (
+          <span data-slot="meta" className={cn(STUDIO_META, STUDIO_ITEM_META_FOLD)}>
+            {meta}
+          </span>
+        )}
+        {actions && (
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <StudioFoldRowContext.Provider value={titleFold}>{actions}</StudioFoldRowContext.Provider>
+          </div>
+        )}
       </div>
       {tabs && (
         <nav ref={tabRowRef} data-fade={fade} className={STUDIO_TAB_ROW}>
-          <StudioTabRowContext.Provider value={tabRowRef}>{tabs}</StudioTabRowContext.Provider>
+          <StudioFoldRowContext.Provider value={tabFold}>{tabs}</StudioFoldRowContext.Provider>
         </nav>
       )}
     </div>

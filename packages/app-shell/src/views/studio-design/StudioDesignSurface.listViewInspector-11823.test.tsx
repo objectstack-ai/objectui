@@ -185,7 +185,8 @@ describe('an object leaf\'s Properties panel edits its list view (objectui#11823
     const panel = await openObjectLeaf();
     await waitFor(() => expect(within(panel).getByTestId('list-view-columns')).toHaveTextContent('status'));
 
-    fireEvent.click(within(panel).getByRole('button', { name: 'Remove status' }));
+    // objectui#12693 — the row, and so its remove control, is named by the field's label.
+    fireEvent.click(within(panel).getByRole('button', { name: 'Remove Status' }));
     await addSortOnFirstField(panel);
 
     await waitFor(() => expect(viewSaves().length).toBeGreaterThan(0), { timeout: 8000 });
@@ -263,7 +264,8 @@ describe('an object leaf\'s Properties panel edits its list view (objectui#11823
     await waitFor(() => expect(within(panel).getByTestId('list-view-columns')).toHaveTextContent('status'));
 
     expect(within(panel).getByTestId('list-view-read-only')).toBeInTheDocument();
-    expect(within(panel).queryByRole('button', { name: 'Remove status' })).not.toBeInTheDocument();
+    // objectui#12693 — the name the remove control would carry is the field's label.
+    expect(within(panel).queryByRole('button', { name: 'Remove Status' })).not.toBeInTheDocument();
     expect(within(panel).queryByRole('button', { name: /Add field/ })).not.toBeInTheDocument();
     expect(within(panel).getByTestId('filter-builder-trigger')).toBeDisabled();
     expect(within(panel).getByTestId('list-view-sort-trigger')).toBeDisabled();

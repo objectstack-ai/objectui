@@ -240,12 +240,16 @@ export function CommandPalette(props: CommandPaletteProps) {
    * declared one, else the record kind's glyph. An entry stored under any other
    * address names no object, so its row shows no type and keeps the neutral
    * glyph — ⛔ never a type guessed from the title.
+   *
+   * `objects` is read inside the function, never at render: the metadata
+   * cache loads the object list when it is first read, and a closed palette
+   * reads nothing (objectui#11863).
    */
-  const objectDefs = useMetadata().objects;
+  const metadata = useMetadata();
   const recentContext = (item: RecentItem): { type?: string; icon?: string } => {
     const objectName = recentItemObject(item);
     if (!objectName) return {};
-    const def = findByName(objectDefs, objectName) as { icon?: unknown } | undefined;
+    const def = findByName(metadata.objects, objectName) as { icon?: unknown } | undefined;
     return {
       type: targetLabel({ kind: 'object', objectName }) ?? objectName,
       icon: typeof def?.icon === 'string' && def.icon !== '' ? def.icon : undefined,

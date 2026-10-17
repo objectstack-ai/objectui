@@ -210,9 +210,10 @@ change framework source).
   editors (`PermissionAdvancedFacets`), collapsed by default below the object
   matrix: RLS per-policy rows (object · operation · enabled) with CEL USING/CHECK;
   tab visibility `visible | hidden | default_on | default_off`; delegated admin
-  scope (business-unit + subtree, manage-assignments / -bindings / author-env-sets
-  toggles, `assignablePermissionSets[]` allowlist). Each reads the draft's parsed
-  field, tolerating a JSON string on load so legacy rows survive.
+  scope (business-unit + subtree, manage-assignments toggle,
+  `assignablePermissionSets[]` allowlist; the -bindings / author-env-sets toggles
+  were removed with objectui#12659 when the spec retired those keys). Each reads
+  the draft's parsed field, tolerating a JSON string on load so legacy rows survive.
 
 - **P4 — Assignment moved out of the design editor.** ✅ With assignment on the
   Setup record page (P1b), `AssignedUsersSection` is removed from

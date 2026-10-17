@@ -128,6 +128,17 @@ export interface AuthClientSession {
    * session, which is why the banner costs a normal session nothing.
    */
   impersonatedBy?: string;
+  /**
+   * objectui#12809 — set by better-auth's organization plugin on the
+   * `GET /auth/get-session` answer: the id of the organization this session is
+   * active in, or `null` when it holds none. `AuthProvider` names the active
+   * organization from it and the `organization/list` answer, and asks for the
+   * member row at the same time. Absent when the answer did not come from
+   * `get-session` (a sign-in response) or the server has no organization
+   * plugin; the provider then asks the server for the active organization, as
+   * before.
+   */
+  activeOrganizationId?: string | null;
 }
 
 /** Authentication state */

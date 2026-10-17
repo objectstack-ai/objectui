@@ -230,6 +230,20 @@ export function AuthProvider({
   // stale, previous-organization data over the newer one (see
   // `switchOrganization`).
   const sessionLoadGeneration = useRef(0);
+  // objectui#12809 — the member row asked for at the same time as
+  // `organization/list`, when the session already names its active
+  // organization. `get-active-member` answers for the session's active
+  // organization, so it does not have to wait for the list. Held with the org
+  // and user it was asked for and taken once, by the first
+  // `refreshActiveMember` for that same organization; anything else drops it
+  // (a switch, a sign-out, an active organization the list did not confirm).
+  // Not a cache: the answer is used for the moment it was asked in, never for
+  // a later question.
+  const bootMemberRef = useRef<{
+    orgId: string;
+    userId: string;
+    answer: Promise<AuthOrganizationMember | null>;
+  } | null>(null);
 
   /**
    * The ONE session loader. Runs on mount (below) and on every later
@@ -436,6 +450,7 @@ export function AuthProvider({
       // this file: drop the in-memory reference and the stored id together.
       setOrganizations([]);
       setActiveOrganization(null);
+      bootMemberRef.current = null;
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)));
     } finally {
@@ -651,7 +666,20 @@ export function AuthProvider({
 
   // --- Organization methods ---
 
-  const refreshOrganizations = useCallback(async (isCancelled?: () => boolean) => {
+  /**
+   * `sessionActiveOrgId` — objectui#12809. Passed only by the load that follows
+   * a `get-session` answer (the effect below), and only when that answer
+   * carries the organization plugin's `activeOrganizationId`. The session
+   * already names the server's active organization, so it is named from that
+   * id and the list answer: no `get-full-organization` round trip, whose extra
+   * fields (members, invitations) nothing the console reads. Every other caller
+   * (a mutation, `refreshOrganizations()` on the context) asks the server, as
+   * before: the session in hand may predate what that mutation changed.
+   */
+  const refreshOrganizations = useCallback(async (
+    isCancelled?: () => boolean,
+    sessionActiveOrgId?: string | null,
+  ) => {
     if (!enabled || isPreviewMode) return;
     setIsOrganizationsLoading(true);
     try {
@@ -661,11 +689,17 @@ export function AuthProvider({
       // If no active org is set but orgs exist, try to get active from server
       if (orgs.length > 0 && !activeOrganization) {
         let active: AuthOrganization | null = null;
-        try {
-          active = await client.getActiveOrganization();
-        } catch {
-          // No active org set — that's fine
-          active = null;
+        if (sessionActiveOrgId !== undefined) {
+          // An id the list does not carry is no membership of this user's: the
+          // server's full-organization read refuses it the same way.
+          active = (sessionActiveOrgId && orgs.find((o) => o.id === sessionActiveOrgId)) || null;
+        } else {
+          try {
+            active = await client.getActiveOrganization();
+          } catch {
+            // No active org set — that's fine
+            active = null;
+          }
         }
         // Single-membership repair (ADR-0081): a session created before the
         // server-side active-org stamp existed carries no active org even
@@ -680,6 +714,9 @@ export function AuthProvider({
           }
         }
         if (isCancelled?.()) return orgs;
+        if (bootMemberRef.current && bootMemberRef.current.orgId !== active?.id) {
+          bootMemberRef.current = null;
+        }
         if (active) {
           setActiveOrganization(active);
           ActiveOrganizationStorage.set(active.id);
@@ -745,8 +782,12 @@ export function AuthProvider({
     // A switch re-opens the question: until `getActiveMember()` answers for the
     // NEW org, `activeMember` still holds the OLD org's row.
     setActiveMemberResolved(false);
+    const boot = bootMemberRef.current;
+    bootMemberRef.current = null;
     try {
-      const member = await client.getActiveMember();
+      const member = boot && boot.orgId === activeOrganization.id
+        ? await boot.answer
+        : await client.getActiveMember();
       setActiveMember(member);
     } catch (err) {
       console.warn('[AuthProvider] Failed to load active member:', err);
@@ -792,10 +833,26 @@ export function AuthProvider({
   }, [refreshActiveMember]);
 
   // Load organizations once user is authenticated
+  //
+  // objectui#12809 — a session answer that carries the organization plugin's
+  // `activeOrganizationId` already names the server's active organization, so
+  // the member row is asked for now, beside `organization/list`, instead of
+  // after the active organization lands. A StrictMode effect replay finds the
+  // same question already asked and does not ask again.
   useEffect(() => {
     if (!(user && enabled && !isPreviewMode)) return;
     let cancelled = false;
-    refreshOrganizations(() => cancelled);
+    const sessionActiveOrgId = session?.activeOrganizationId;
+    if (typeof sessionActiveOrgId === 'string' && !activeOrganization) {
+      const asked = bootMemberRef.current;
+      if (!asked || asked.orgId !== sessionActiveOrgId || asked.userId !== user.id) {
+        const answer = client.getActiveMember();
+        // Taken later, or dropped: either way it must not surface as unhandled.
+        answer.catch(() => undefined);
+        bootMemberRef.current = { orgId: sessionActiveOrgId, userId: user.id, answer };
+      }
+    }
+    refreshOrganizations(() => cancelled, sessionActiveOrgId);
     return () => { cancelled = true; };
   }, [user, enabled, isPreviewMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -840,6 +897,7 @@ export function AuthProvider({
     async (orgId: string) => {
       setError(null);
       const previousOrgId = activeOrgIdRef.current;
+      bootMemberRef.current = null;
       sessionLoadInFlight.current = true;
       try {
         const org = await client.setActiveOrganization(orgId);

@@ -1794,6 +1794,10 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.pageBlockCanvas.noRegionsHint':
     'A Page is composed of regions (header / main / sidebar / …). Add a region to start dropping blocks into it.',
   'engine.pageBlockCanvas.addRegion': 'Add region',
+  // objectui#12902 — "Add region" offers only a slot the page's template places.
+  'engine.pageBlockCanvas.gridCell': 'Grid cell',
+  'engine.pageBlockCanvas.addRegionAllFilled': "Every slot the '{template}' template places is filled ({slots}).",
+  'engine.pageBlockCanvas.addRegionUnknownTemplate': "'{template}' is not a page template, so it places no region.",
   'engine.pageBlockCanvas.regionN': 'region {n}',
   'engine.pageBlockCanvas.dropHere': 'drop here',
   'engine.pageBlockCanvas.slotInherited':
@@ -5281,6 +5285,9 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.pageBlockCanvas.noRegions': '还没有区域',
   'engine.pageBlockCanvas.noRegionsHint': '页面由区域（header / main / sidebar / …）组成。添加一个区域，即可开始向其中放入区块。',
   'engine.pageBlockCanvas.addRegion': '添加区域',
+  'engine.pageBlockCanvas.gridCell': '网格单元',
+  'engine.pageBlockCanvas.addRegionAllFilled': '“{template}”模板放置的每个槽位都已填充（{slots}）。',
+  'engine.pageBlockCanvas.addRegionUnknownTemplate': '“{template}”不是页面模板，不放置任何区域。',
   'engine.pageBlockCanvas.regionN': '区域 {n}',
   'engine.pageBlockCanvas.dropHere': '放到这里',
   'engine.pageBlockCanvas.slotInherited': '继承自默认页面 —— 添加一个区块即可覆盖此插槽。',

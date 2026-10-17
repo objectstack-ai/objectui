@@ -88,6 +88,14 @@ export type { PageBlockSpan } from './renderers/layout/page-block-span';
 export { usePageRegionPosture } from './renderers/layout/page-region-posture';
 export type { PageRegionPosture } from './renderers/layout/page-region-posture';
 
+// `page:header`'s action row: a record's declared `record_header` /
+// `record_more` actions and the host's system actions, through the one
+// resolver `page:header` draws them with (objectui#12906). Exported for the
+// console's record view, which draws the row in its screen-only chrome on a
+// page that declares `print`, where `page:header` is not a printable block.
+export { PageHeaderActions } from './renderers/layout/containers';
+export type { PageHeaderActionsProps } from './renderers/layout/containers';
+
 // THE icon-name seam (objectui#5935) — `name -> LucideIcon | null`, one
 // tokeniser and one rename map for the whole repo.
 //

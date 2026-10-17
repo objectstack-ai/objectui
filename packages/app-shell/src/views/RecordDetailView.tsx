@@ -11,7 +11,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom';
 import { activityRowToFeedItem, InlineEditSaveBar, RecordMetaFooter, buildDefaultPageSchema, extractMentions, isRefusedFeedRead, resolveTitleField, useRecordEditable } from '@object-ui/plugin-detail';
-import { Empty, EmptyTitle, EmptyDescription, Button } from '@object-ui/components';
+import { Empty, EmptyTitle, EmptyDescription, Button, PageHeaderActions } from '@object-ui/components';
 import { useAuth, createAuthenticatedFetch } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
 import { useDisplayLocale } from '@object-ui/i18n';
@@ -3363,34 +3363,29 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   const pageDeclaresPrint = typeof pagePrint === 'object' && pagePrint !== null && !Array.isArray(pagePrint);
   const printHint = t('common.printDialogHint');
 
+  // Shared cross-cutting chrome: lifecycle badge + presence avatars —
+  // rendered above the page tree so custom Page-assigned record pages
+  // don't lose these affordances. The badge is an authoring aid and
+  // draws for an authoring caller only (objectui#12194); the gate
+  // lives in `ManagedByBadge`, so an end user sees none here.
+  const sharedChrome = (
+    <>
+      {recordPresence.length > 0 && (
+        <PresenceAvatars users={recordPresence} size="sm" maxVisible={3} showStatus />
+      )}
+      <ManagedByBadge managedBy={(objectDef as any)?.managedBy} />
+    </>
+  );
+
   return (
     <div className="h-full bg-background overflow-hidden flex flex-col relative">
-      {/* Shared cross-cutting chrome: lifecycle badge + presence avatars —
-          rendered above the page tree so custom Page-assigned record pages
-          don't lose these affordances. The badge is an authoring aid and
-          draws for an authoring caller only (objectui#12194); the gate
-          lives in `ManagedByBadge`, so an end user sees none here. */}
-      <div className="absolute top-2 sm:top-4 right-2 sm:right-4 z-50 flex items-center gap-2">
-        {recordPresence.length > 0 && (
-          <PresenceAvatars users={recordPresence} size="sm" maxVisible={3} showStatus />
-        )}
-        <ManagedByBadge managedBy={(objectDef as any)?.managedBy} />
-        {pageDeclaresPrint && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8 gap-1.5 bg-background/90"
-            onClick={() => window.print()}
-            aria-label={`${t('list.print')}: ${printHint}`}
-            title={printHint}
-            data-testid="record-print-button"
-          >
-            <Printer className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">{t('list.print')}</span>
-          </Button>
-        )}
-      </div>
+      {/* On a print page the shared chrome joins the print chrome row below,
+          so the row's buttons are not drawn under it. */}
+      {!pageDeclaresPrint && (
+        <div className="absolute top-2 sm:top-4 right-2 sm:right-4 z-50 flex items-center gap-2">
+          {sharedChrome}
+        </div>
+      )}
 
       <RecordContextProvider
         objectName={objectName!}
@@ -3514,6 +3509,42 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
                   <ChevronLeft className="h-4 w-4" />
                   <span>{originFrom.label}</span>
                 </Link>
+              )}
+              {/* objectui#12906 — the print page's screen-only chrome. A page
+                  that declares `print` holds only the printable component
+                  types, and `page:header` is not one of them, so the record's
+                  header actions have no block to draw them on such a page.
+                  This row draws them: the object's declared `record_header` /
+                  `record_more` actions and the system set the
+                  `RecordContextProvider` above hands over (Edit / Share /
+                  Delete), through `PageHeaderActions`, the ONE resolver
+                  `page:header` draws them with, so each is gated, ordered,
+                  folded and dispatched exactly as on any other record page.
+                  The row sits outside the print page's root, as the Print
+                  button beside it does, so the print stylesheet hides it on
+                  paper by the same rule (objectui#11958). A page without
+                  `print` draws none of it and keeps its own `page:header`. */}
+              {pageDeclaresPrint && (
+                <div
+                  className="mb-4 flex flex-wrap items-center justify-end gap-2"
+                  data-record-print-chrome=""
+                >
+                  {sharedChrome}
+                  <PageHeaderActions actions={synthParts.headerActions} />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => window.print()}
+                    aria-label={`${t('list.print')}: ${printHint}`}
+                    title={printHint}
+                    data-testid="record-print-button"
+                  >
+                    <Printer className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">{t('list.print')}</span>
+                  </Button>
+                </div>
               )}
               {/* The pending approval's DECISION ACTIONS (objectui#3055).
                   `sys_approval_request` declares them as object metadata —

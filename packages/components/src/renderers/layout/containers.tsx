@@ -1479,12 +1479,45 @@ function recordPictureUrl(value: unknown): string | undefined {
   return undefined;
 }
 
-const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
-  const { designer } = splitDesignerProps(props);
-  // The block's `aria` bag, on the `header` root of both layouts below (see
-  // "The `aria` bag of the four page blocks" above).
-  const displayLocale = useDisplayLocale();
-  const headerAria = resolveInlineAriaProps(schema?.aria, displayLocale);
+/**
+ * The props of {@link PageHeaderActions}.
+ *
+ * `actions`, `maxVisible` and `mobileMaxVisible` are `page:header`'s own
+ * authored keys, read as that block reads them; the system actions are not a
+ * prop, they come from `RecordContext.headerSystemActions` as they always did.
+ */
+export interface PageHeaderActionsProps {
+  /** The authored `actions` array: action ids (the contract) or, during the transition, inline action objects. */
+  actions?: unknown;
+  /** The inline-button budget on desktop, as `page:header`'s `maxVisible`; an out-of-contract value falls back to 3. */
+  maxVisible?: unknown;
+  /** The inline-button budget on mobile, as `page:header`'s `mobileMaxVisible`; an out-of-contract value falls back to 1. */
+  mobileMaxVisible?: unknown;
+  /** Drawn in place of the action row when no action survives the gates. */
+  emptySlot?: React.ReactNode;
+}
+
+/**
+ * A record's header actions: the declared actions placed at `record_header` /
+ * `record_more` and the host's system actions (Edit / Share / Delete), gated,
+ * ordered, split into inline buttons and the `⋯` overflow, and dispatched
+ * through the action runner.
+ *
+ * This is `page:header`'s action row, lifted out of `PageHeaderRenderer` so
+ * that a host can draw the same row where a page has no `page:header`
+ * (objectui#12906): a page that declares `print` may hold only the printable
+ * component types, and `page:header` is not one of them, so the console's
+ * record view draws this row in its screen-only chrome beside Print. It is
+ * the ONE resolver for both surfaces, ⛔ never a second one. It must render
+ * inside the record's `RecordContext` and `ActionProvider`, as `page:header`
+ * does.
+ */
+export const PageHeaderActions: React.FC<PageHeaderActionsProps> = ({
+  actions: rawHeaderActions,
+  maxVisible: rawMaxVisible,
+  mobileMaxVisible: rawMobileMaxVisible,
+  emptySlot = null,
+}) => {
   const ctx = useRecordContext();
   // Record-level inline-edit session (objectui#2572 item 4): while a shared
   // inline draft is active, header actions flagged `disableDuringInlineEdit`
@@ -1504,7 +1537,6 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   // [ADR-0066 D4 / framework#3923] Shared capability gate — see filterAction.
   const mayInvoke = useCapabilityGate();
   const isMobile = useIsMobile();
-  const { objectLabel: tObjectLabel } = useObjectLabel();
   // The ONE resolver for a declared action's authored strings (objectui#4265).
   // This header used to localize `label` only — via `useObjectLabel().actionLabel`
   // inline below — and dispatch the action's `confirmText` / `successMessage`
@@ -1512,91 +1544,16 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   // button rendered the translation and the confirm dialog rendered the English
   // literal from the metadata.
   const localizeActionTexts = useActionTextLocalizer();
-  const { fieldOptionLabel } = useSafeFieldLabel();
-  const { language } = useObjectTranslation();
-  // Console-supplied chrome copy (objectstack#5407). `detail.moreActions` is
-  // the SAME key `action:menu`'s overflow trigger already reads, so the two
-  // `⋯` buttons a record page can show cannot read differently per locale.
-  const tt = useSafeTranslate();
   // One id base for the disabled-reason descriptions the header's actions
   // render (objectui#11811); each action suffixes it, since `renderHeaderActions`
   // below draws them in a loop where no hook can be called.
   const disabledReasonIdBase = React.useId();
-  // ── Manual refresh (objectui#3460) ────────────────────────────────────────
-  // Rendered as page CHROME at the far end of the header row, NOT as a header
-  // action: business/system actions come and go per object and record state,
-  // while refresh has to sit in the same place on every record page. Keeping it
-  // out of the action pipeline also keeps it out of that pipeline's capability
-  // gating and `maxVisible` overflow budget — reading a record you are already
-  // looking at is not a permissioned operation, and the button must never be
-  // the one that gets collapsed into `⋯`.
-  //
-  // The host opts in by providing `RecordContext.refresh`; hosts that don't
-  // (previews, embedded drawers, non-record pages) render exactly as before.
-  const hostRefresh = ctx?.refresh;
-  const [manualRefreshing, setManualRefreshing] = React.useState(false);
-  const refreshSpinTimer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  React.useEffect(() => () => clearTimeout(refreshSpinTimer.current), []);
-  const handleManualRefresh = React.useCallback(() => {
-    if (!hostRefresh) return;
-    void hostRefresh();
-    setManualRefreshing(true);
-    clearTimeout(refreshSpinTimer.current);
-    refreshSpinTimer.current = setTimeout(
-      () => setManualRefreshing(false),
-      MANUAL_REFRESH_SPIN_MS,
-    );
-  }, [hostRefresh]);
-  // Spec bridge may either inline `properties.*` onto the node or preserve
-  // the raw bag (see record:quick_actions for the same pattern). Read from
-  // both so a `{ properties: { title } }` schema is rendered correctly.
-  const titleSrc = schema?.title ?? schema?.properties?.title;
-  const subtitleSrc = schema?.subtitle ?? schema?.properties?.subtitle;
-  // The page's `description`, handed down when this header owns the page's
-  // title (objectui#12624): drawn under the title and subtitle, the order the
-  // console page header uses, instead of above the title by the page.
-  const pageDescription = React.useContext(PageDescriptionContext);
+  // Console-supplied chrome copy (objectstack#5407). `detail.moreActions` is
+  // the SAME key `action:menu`'s overflow trigger already reads, so the two
+  // `⋯` buttons a record page can show cannot read differently per locale.
+  const tt = useSafeTranslate();
   const headerObjectSchema: any = (ctx as any)?.objectSchema;
   const headerObjectName: string | undefined = ctx?.objectName || headerObjectSchema?.name;
-  const explicitTitle = interpolate(
-    pickLocalized(titleSrc, language),
-    ctx?.data,
-    headerObjectSchema,
-    fieldOptionLabel,
-    headerObjectName,
-  );
-  const subtitle = interpolate(
-    pickLocalized(subtitleSrc, language),
-    ctx?.data,
-    headerObjectSchema,
-    fieldOptionLabel,
-    headerObjectName,
-  );
-  // `breadcrumb` is deliberately NOT read (objectui#11166, ruling RETIRE). All
-  // it ever drew was an empty `data-page-breadcrumb-slot` div that nothing
-  // filled, and the console's app header already draws the trail. The spec
-  // refuses `PageHeaderProps.breadcrumb` by name since 17.6.0
-  // (objectstack#20758); a value that still reaches this renderer renders
-  // exactly as an absent one: ignored, no error. ⛔ Do not add a trail here;
-  // that is an ENFORCE ruling, not a fix.
-
-  // Schema-level opt-outs let authors keep the historic "bare h1" header
-  // when they don't want a record chip (e.g. a non-record landing page).
-  const disableRecordChrome =
-    schema?.recordChrome === false || schema?.properties?.recordChrome === false;
-  // The favorite star is a control that stores something, so it draws only
-  // where the host wires a toggle: the `RecordContext` carries
-  // `onToggleFavorite` (objectui#12427), and that is the one switch. Metadata
-  // does not control it: `@objectstack/spec` 18 retires `showStar`
-  // (objectstack#23650), so this renderer no longer reads it and an authored
-  // value changes nothing (objectui#12627).
-  const showCopyId = schema?.showCopyId !== false && schema?.properties?.showCopyId !== false;
-
-  // Inline header actions — authored pages embed action buttons directly on
-  // `page:header.actions` (or `.properties.actions`). Custom CRM record
-  // detail pages (lead → Convert Lead, opportunity → Mark Won/Lost, …)
-  // rely on this slot. Without this rendering they would silently disappear.
-  const rawHeaderActions = schema?.actions ?? schema?.properties?.actions;
   // System actions (Edit / Share / Delete) injected by the host via
   // `RecordContext.headerSystemActions`. Appended AFTER authored actions
   // and deduplicated by `name` so the host can always supply them
@@ -2057,8 +2014,8 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     const readMax = (v: any): number | undefined =>
       typeof v === 'number' && Number.isSafeInteger(v) && v > 0 ? v : undefined;
     const maxVisible = isMobile
-      ? (readMax(schema?.mobileMaxVisible ?? schema?.properties?.mobileMaxVisible) ?? 1)
-      : (readMax(schema?.maxVisible ?? schema?.properties?.maxVisible) ?? 3);
+      ? (readMax(rawMobileMaxVisible) ?? 1)
+      : (readMax(rawMaxVisible) ?? 3);
     const isMoreOnly = (a: any): boolean =>
       Array.isArray(a?.locations) &&
       a.locations.length > 0 &&
@@ -2316,6 +2273,98 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     );
   };
 
+  return <>{renderHeaderActions() ?? emptySlot}</>;
+};
+
+const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
+  const { designer } = splitDesignerProps(props);
+  // The block's `aria` bag, on the `header` root of both layouts below (see
+  // "The `aria` bag of the four page blocks" above).
+  const displayLocale = useDisplayLocale();
+  const headerAria = resolveInlineAriaProps(schema?.aria, displayLocale);
+  const ctx = useRecordContext();
+  const { objectLabel: tObjectLabel } = useObjectLabel();
+  const { fieldOptionLabel } = useSafeFieldLabel();
+  const { language } = useObjectTranslation();
+  // Console-supplied chrome copy (objectstack#5407): the ⟳ button's label.
+  // The action row's copy is read by `PageHeaderActions` above.
+  const tt = useSafeTranslate();
+  // ── Manual refresh (objectui#3460) ────────────────────────────────────────
+  // Rendered as page CHROME at the far end of the header row, NOT as a header
+  // action: business/system actions come and go per object and record state,
+  // while refresh has to sit in the same place on every record page. Keeping it
+  // out of the action pipeline also keeps it out of that pipeline's capability
+  // gating and `maxVisible` overflow budget — reading a record you are already
+  // looking at is not a permissioned operation, and the button must never be
+  // the one that gets collapsed into `⋯`.
+  //
+  // The host opts in by providing `RecordContext.refresh`; hosts that don't
+  // (previews, embedded drawers, non-record pages) render exactly as before.
+  const hostRefresh = ctx?.refresh;
+  const [manualRefreshing, setManualRefreshing] = React.useState(false);
+  const refreshSpinTimer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  React.useEffect(() => () => clearTimeout(refreshSpinTimer.current), []);
+  const handleManualRefresh = React.useCallback(() => {
+    if (!hostRefresh) return;
+    void hostRefresh();
+    setManualRefreshing(true);
+    clearTimeout(refreshSpinTimer.current);
+    refreshSpinTimer.current = setTimeout(
+      () => setManualRefreshing(false),
+      MANUAL_REFRESH_SPIN_MS,
+    );
+  }, [hostRefresh]);
+  // Spec bridge may either inline `properties.*` onto the node or preserve
+  // the raw bag (see record:quick_actions for the same pattern). Read from
+  // both so a `{ properties: { title } }` schema is rendered correctly.
+  const titleSrc = schema?.title ?? schema?.properties?.title;
+  const subtitleSrc = schema?.subtitle ?? schema?.properties?.subtitle;
+  // The page's `description`, handed down when this header owns the page's
+  // title (objectui#12624): drawn under the title and subtitle, the order the
+  // console page header uses, instead of above the title by the page.
+  const pageDescription = React.useContext(PageDescriptionContext);
+  const headerObjectSchema: any = (ctx as any)?.objectSchema;
+  const headerObjectName: string | undefined = ctx?.objectName || headerObjectSchema?.name;
+  const explicitTitle = interpolate(
+    pickLocalized(titleSrc, language),
+    ctx?.data,
+    headerObjectSchema,
+    fieldOptionLabel,
+    headerObjectName,
+  );
+  const subtitle = interpolate(
+    pickLocalized(subtitleSrc, language),
+    ctx?.data,
+    headerObjectSchema,
+    fieldOptionLabel,
+    headerObjectName,
+  );
+  // `breadcrumb` is deliberately NOT read (objectui#11166, ruling RETIRE). All
+  // it ever drew was an empty `data-page-breadcrumb-slot` div that nothing
+  // filled, and the console's app header already draws the trail. The spec
+  // refuses `PageHeaderProps.breadcrumb` by name since 17.6.0
+  // (objectstack#20758); a value that still reaches this renderer renders
+  // exactly as an absent one: ignored, no error. ⛔ Do not add a trail here;
+  // that is an ENFORCE ruling, not a fix.
+
+  // Schema-level opt-outs let authors keep the historic "bare h1" header
+  // when they don't want a record chip (e.g. a non-record landing page).
+  const disableRecordChrome =
+    schema?.recordChrome === false || schema?.properties?.recordChrome === false;
+  // The favorite star is a control that stores something, so it draws only
+  // where the host wires a toggle: the `RecordContext` carries
+  // `onToggleFavorite` (objectui#12427), and that is the one switch. Metadata
+  // does not control it: `@objectstack/spec` 18 retires `showStar`
+  // (objectstack#23650), so this renderer no longer reads it and an authored
+  // value changes nothing (objectui#12627).
+  const showCopyId = schema?.showCopyId !== false && schema?.properties?.showCopyId !== false;
+
+  // Inline header actions — authored pages embed action buttons directly on
+  // `page:header.actions` (or `.properties.actions`). Custom CRM record
+  // detail pages (lead → Convert Lead, opportunity → Mark Won/Lost, …)
+  // rely on this slot. Without this rendering they would silently disappear.
+  const rawHeaderActions = schema?.actions ?? schema?.properties?.actions;
+
   /**
    * The ⟳ button (objectui#3460), or `null` when the host provides no
    * `refresh`.
@@ -2359,7 +2408,14 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
    * `refresh` the slot is returned untouched, byte for byte what it was.
    */
   const renderHeaderTail = (emptySlot: React.ReactNode): React.ReactNode => {
-    const actions = renderHeaderActions() ?? emptySlot;
+    const actions = (
+      <PageHeaderActions
+        actions={rawHeaderActions}
+        maxVisible={schema?.maxVisible ?? schema?.properties?.maxVisible}
+        mobileMaxVisible={schema?.mobileMaxVisible ?? schema?.properties?.mobileMaxVisible}
+        emptySlot={emptySlot}
+      />
+    );
     const refreshButton = renderRefreshButton();
     if (!refreshButton) return actions;
     return (

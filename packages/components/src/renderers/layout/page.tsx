@@ -365,10 +365,12 @@ const UnregisteredTemplateRefusal: React.FC<{ schema: PageNodeSchema }> = ({ sch
  *
  * Under `template` (the `default` template) a region the template does not
  * place is refused on screen, never stacked (objectui#12476): the spec refuses
- * it at `os validate` and at save (`checkPageRegionPlacement`). Without
- * `template` (a page that names no template and takes the `pageType`
- * dispatch, or a page app-shell builds in code) such a region is still
- * stacked under `main`.
+ * it at `os validate` and at save (`checkPageRegionPlacement`). A `kind: 'full'`
+ * page that names no template is judged as `default` too, as the spec judges
+ * it (objectui#12902): the `pageType` layouts pass `template` through
+ * `templateLessJudgement`. Only a page of another kind, which the spec's
+ * placement check does not judge, reaches here without `template`, and such a
+ * region is then still stacked under `main`.
  */
 const RegionLayout: React.FC<{
   regions: PageNodeRegion[];
@@ -384,7 +386,7 @@ const RegionLayout: React.FC<{
 
   const remaining = getRemainingRegions(regions, ['header', 'sidebar', 'main', 'aside', 'footer']);
   // Remaining regions that don't match named slots → append below main,
-  // on a page with no template only.
+  // only on a page the spec's placement check does not judge (not `kind: 'full'`).
   const extras = template ? [] : remaining;
   const unplaced = template ? remaining : [];
 
@@ -610,10 +612,24 @@ function resolveTemplate(schema: PageNodeSchema): React.FC<{ schema: PageNodeSch
 // Page type variant layouts
 // ---------------------------------------------------------------------------
 
+/**
+ * The template a page that names none is laid out under (objectui#12902).
+ *
+ * The spec's `checkPageRegionPlacement` reads `page.template ?? 'default'` and
+ * judges only a `kind: 'full'` page (`kind` itself defaults to `'full'`), so a
+ * template-less full page refuses a region `default` does not place, exactly
+ * as a `template: 'default'` page does. The `pageType` layouts below draw it
+ * the same way: through `UnplacedRegionsRefusal`, never stacked under `main`.
+ * A page of another kind is not judged by that check and keeps the stacking.
+ */
+function templateLessJudgement(schema: PageNodeSchema): SlottedTemplate | undefined {
+  return (schema.kind ?? 'full') === 'full' ? 'default' : undefined;
+}
+
 /** Record page — detail-oriented, narrower max-width */
 const RecordPageLayout: React.FC<{ schema: PageNodeSchema }> = ({ schema }) => {
   if (schema.regions && schema.regions.length > 0) {
-    return <RegionLayout regions={schema.regions} pageType="record" />;
+    return <RegionLayout regions={schema.regions} pageType="record" template={templateLessJudgement(schema)} />;
   }
   return <FlatContent schema={schema} />;
 };
@@ -621,7 +637,7 @@ const RecordPageLayout: React.FC<{ schema: PageNodeSchema }> = ({ schema }) => {
 /** Home page — dashboard-style, wider layout */
 const HomePageLayout: React.FC<{ schema: PageNodeSchema }> = ({ schema }) => {
   if (schema.regions && schema.regions.length > 0) {
-    return <RegionLayout regions={schema.regions} pageType="home" />;
+    return <RegionLayout regions={schema.regions} pageType="home" template={templateLessJudgement(schema)} />;
   }
   return <FlatContent schema={schema} />;
 };
@@ -629,7 +645,7 @@ const HomePageLayout: React.FC<{ schema: PageNodeSchema }> = ({ schema }) => {
 /** App page — application shell, full-width capable */
 const AppPageLayout: React.FC<{ schema: PageNodeSchema }> = ({ schema }) => {
   if (schema.regions && schema.regions.length > 0) {
-    return <RegionLayout regions={schema.regions} pageType="app" />;
+    return <RegionLayout regions={schema.regions} pageType="app" template={templateLessJudgement(schema)} />;
   }
   return <FlatContent schema={schema} />;
 };
@@ -637,7 +653,7 @@ const AppPageLayout: React.FC<{ schema: PageNodeSchema }> = ({ schema }) => {
 /** Utility page — compact, focused, narrower */
 const UtilityPageLayout: React.FC<{ schema: PageNodeSchema }> = ({ schema }) => {
   if (schema.regions && schema.regions.length > 0) {
-    return <RegionLayout regions={schema.regions} pageType="utility" />;
+    return <RegionLayout regions={schema.regions} pageType="utility" template={templateLessJudgement(schema)} />;
   }
   return <FlatContent schema={schema} />;
 };

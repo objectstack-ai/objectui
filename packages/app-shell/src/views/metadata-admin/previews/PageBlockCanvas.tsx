@@ -28,6 +28,7 @@ import {
   PopoverTrigger,
 } from '@object-ui/components';
 import { GripVertical, Plus } from 'lucide-react';
+import { PAGE_TEMPLATE_OPEN_GRID, PAGE_TEMPLATE_SLOTS, type PageTemplate } from '@objectstack/spec/ui';
 import type { MetadataSelection } from '../preview-registry.js';
 import {
   BLOCK_TYPE_META,
@@ -265,6 +266,56 @@ function readRegions(
   return { regions: [], shape: 'regions' };
 }
 
+/**
+ * What "Add region" may write on this page (objectui#12902).
+ *
+ * The spec's `checkPageRegionPlacement` judges a `kind: 'full'` page under
+ * `page.template ?? 'default'`: a region must fill a slot of that template
+ * (`PAGE_TEMPLATE_SLOTS`, matched case-insensitively, one region per slot),
+ * except on an open-grid template (`PAGE_TEMPLATE_OPEN_GRID`, `dashboard`),
+ * where every other name is a grid cell. So the canvas offers exactly the
+ * template's slots no region fills yet and, on an open grid, one fresh cell
+ * name: never a name the save door refuses. A template the spec does not
+ * declare places nothing, so nothing is offered.
+ */
+export interface RegionOffer {
+  /** The template the page is judged under: its own, else the spec's default. */
+  template: string;
+  /** False when `template` is not one `PAGE_TEMPLATE_SLOTS` declares. */
+  known: boolean;
+  /** The template's slots no region fills yet, in the spec's order. */
+  slots: string[];
+  /** On an open-grid template, a grid cell name no region uses; else null. */
+  gridCell: string | null;
+}
+
+export function regionOffer(draft: Record<string, unknown>, regions: Region[]): RegionOffer {
+  const raw = (draft as { template?: unknown }).template ?? 'default';
+  if (typeof raw !== 'string' || !Object.prototype.hasOwnProperty.call(PAGE_TEMPLATE_SLOTS, raw)) {
+    return { template: String(raw), known: false, slots: [], gridCell: null };
+  }
+  const template = raw as PageTemplate;
+  const allSlots: readonly string[] = PAGE_TEMPLATE_SLOTS[template];
+  const used = new Set(
+    regions
+      .map((r) => (typeof r?.name === 'string' ? r.name.toLowerCase() : undefined))
+      .filter((n): n is string => n !== undefined),
+  );
+  const slots = allSlots.filter((slot) => !used.has(slot));
+  let gridCell: string | null = null;
+  if (PAGE_TEMPLATE_OPEN_GRID.includes(template)) {
+    let n = regions.length + 1;
+    while (used.has(`region_${n}`) || allSlots.includes(`region_${n}`)) n += 1;
+    gridCell = `region_${n}`;
+  }
+  return { template, known: true, slots, gridCell };
+}
+
+/** The names a {@link RegionOffer} lets "Add region" write, slots first. */
+function offeredRegionNames(offer: RegionOffer): string[] {
+  return offer.gridCell ? [...offer.slots, offer.gridCell] : offer.slots;
+}
+
 /** Build a selection ID matching PageBlockInspector's parsePath regex.
  *  - regions shape:  regions[i].components[j]
  *  - children shape: children[j]  (flat, no nesting)
@@ -300,6 +351,7 @@ export function PageBlockCanvas({
 }: PageBlockCanvasProps) {
   const readOnly = !onPatch;
   const { regions, shape } = React.useMemo(() => readRegions(draft), [draft]);
+  const offer = React.useMemo(() => regionOffer(draft, regions), [draft, regions]);
 
   const selectedId = selection?.kind === 'block' ? String(selection.id) : null;
 
@@ -366,7 +418,11 @@ export function PageBlockCanvas({
         components: Array.isArray(r.components) ? [...r.components] : [],
       }));
       if (!next[regionIdx]) {
-        next[regionIdx] = { name: `region_${regionIdx + 1}`, components: [] };
+        // A slot fill names the slot it fills (objectui#12902), never a
+        // positional `region_N` the template does not place.
+        const name = offeredRegionNames(offer)[0];
+        if (name === undefined) return;
+        next[regionIdx] = { name, components: [] };
       }
       const newBlock: Block = { type };
       next[regionIdx].components!.push(newBlock);
@@ -378,7 +434,7 @@ export function PageBlockCanvas({
         label: blockLabel(newBlock),
       });
     },
-    [onPatch, onSelectionChange, regions, writeRegions, shape],
+    [onPatch, onSelectionChange, regions, writeRegions, shape, offer],
   );
 
   const renameLabel = React.useCallback(
@@ -396,11 +452,15 @@ export function PageBlockCanvas({
     [onPatch, regions, writeRegions],
   );
 
-  const addRegion = React.useCallback(() => {
-    if (!onPatch) return;
-    const next = [...regions, { name: `region_${regions.length + 1}`, components: [] }];
-    writeRegions(next);
-  }, [onPatch, regions, writeRegions]);
+  // Adds a region under a name the page's template places (objectui#12902):
+  // only a name `regionOffer` offers is written.
+  const addRegion = React.useCallback(
+    (name: string) => {
+      if (!onPatch || !offeredRegionNames(offer).includes(name)) return;
+      writeRegions([...regions, { name, components: [] }]);
+    },
+    [onPatch, offer, regions, writeRegions],
+  );
 
   // Append a block into a container's nested child array (issue #1499).
   // `baseId` is the container's selection id (`regions[r].components[c]` or
@@ -457,11 +517,14 @@ export function PageBlockCanvas({
               {tr('engine.pageBlockCanvas.noRegionsHint', locale)}
             </div>
             {!readOnly && (
-              <div className="pt-2">
-                <Button variant="outline" size="sm" className="gap-1.5 border-dashed" onClick={addRegion}>
-                  <Plus className="h-3.5 w-3.5" />
-                  {tr('engine.pageBlockCanvas.addRegion', locale)}
-                </Button>
+              <div className="pt-2 flex justify-center">
+                <AddRegionControl
+                  offer={offer}
+                  onAdd={addRegion}
+                  variant="outline"
+                  className="border-dashed"
+                  locale={locale}
+                />
               </div>
             )}
           </div>
@@ -500,14 +563,114 @@ export function PageBlockCanvas({
         ))}
         {!readOnly && shape === 'regions' && (
           <div className="pt-1">
-            <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={addRegion}>
-              <Plus className="h-3.5 w-3.5" />
-              {tr('engine.pageBlockCanvas.addRegion', locale)}
-            </Button>
+            <AddRegionControl
+              offer={offer}
+              onAdd={addRegion}
+              variant="ghost"
+              className="text-muted-foreground"
+              locale={locale}
+            />
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+/* ─────────────── Add region ─────────────── */
+
+/**
+ * "Add region" offers the names {@link regionOffer} allows and nothing else
+ * (objectui#12902). With none left it is disabled, and says why beside it.
+ */
+function AddRegionControl({
+  offer,
+  onAdd,
+  variant,
+  className,
+  locale,
+}: {
+  offer: RegionOffer;
+  onAdd: (name: string) => void;
+  variant: 'outline' | 'ghost';
+  className?: string;
+  locale?: string;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const reasonId = React.useId();
+  const reason = !offer.known
+    ? tFormat('engine.pageBlockCanvas.addRegionUnknownTemplate', locale, { template: offer.template })
+    : offeredRegionNames(offer).length === 0
+      ? tFormat('engine.pageBlockCanvas.addRegionAllFilled', locale, {
+          template: offer.template,
+          slots: PAGE_TEMPLATE_SLOTS[offer.template as PageTemplate].join(', '),
+        })
+      : null;
+  const label = (
+    <>
+      <Plus className="h-3.5 w-3.5" />
+      {tr('engine.pageBlockCanvas.addRegion', locale)}
+    </>
+  );
+  if (reason !== null) {
+    return (
+      <div className="inline-flex flex-wrap items-center gap-2">
+        <Button
+          variant={variant}
+          size="sm"
+          className={cn('gap-1.5', className)}
+          disabled
+          aria-describedby={reasonId}
+        >
+          {label}
+        </Button>
+        <span id={reasonId} className="text-xs text-muted-foreground" data-add-region-reason="">
+          {reason}
+        </span>
+      </div>
+    );
+  }
+  const gridCell = offer.gridCell;
+  const pick = (name: string) => {
+    setOpen(false);
+    onAdd(name);
+  };
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant={variant} size="sm" className={cn('gap-1.5', className)}>
+          {label}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-56 p-1">
+        <div className="flex flex-col">
+          {offer.slots.map((slot) => (
+            <Button
+              key={slot}
+              variant="ghost"
+              size="sm"
+              className="justify-start font-mono text-xs"
+              data-add-region={slot}
+              onClick={() => pick(slot)}
+            >
+              {slot}
+            </Button>
+          ))}
+          {gridCell !== null && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="justify-start gap-2 text-xs"
+              data-add-region={gridCell}
+              onClick={() => pick(gridCell)}
+            >
+              {tr('engine.pageBlockCanvas.gridCell', locale)}
+              <span className="font-mono text-muted-foreground">{gridCell}</span>
+            </Button>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 

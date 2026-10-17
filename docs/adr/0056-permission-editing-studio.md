@@ -139,8 +139,9 @@ one total-but-raw (Setup, six JSON blobs). That overlap is the problem.
   object.**
 - **`AdminScopeSchema`** (ADR-0090 D12, in `permission.zod.ts`) — the exact
   target shape for the `admin_scope` editor: `businessUnit`, `includeSubtree`,
-  `manageAssignments`, `manageBindings`, `authorEnvironmentSets`,
-  `assignablePermissionSets[]`.
+  `manageAssignments`, `assignablePermissionSets[]`. `manageBindings` and
+  `authorEnvironmentSets` were retired by objectstack-ai/objectstack#23488 (the
+  spec refuses both).
 - **`RowLevelSecurityPolicySchema`** (`spec/security/rls.zod.ts`) — the target
   shape for the RLS editor: `name` / `object` / `operation` / `using` / `check`
   (CEL-style predicates).

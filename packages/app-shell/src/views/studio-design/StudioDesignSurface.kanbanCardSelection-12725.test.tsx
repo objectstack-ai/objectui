@@ -198,11 +198,13 @@ function ObjectViewStub({ schema }: { schema: Record<string, unknown> }) {
       <>
         <Board groupBy={view.kanban?.groupByField ?? 'status'} />
         {/* A card drawn with a control in it, in the board's markup (`SortableCard`). */}
-        <div role="listitem" data-kanban-card="r9">
-          <span>Eve</span>
-          <button type="button" onClick={cardControl}>
-            Act
-          </button>
+        <div role="listitem" aria-label="Eve">
+          <div role="button" tabIndex={0} aria-label="Eve" data-kanban-card="r9">
+            <span>Eve</span>
+            <button type="button" onClick={cardControl}>
+              Act
+            </button>
+          </div>
         </div>
       </>
     );
@@ -383,6 +385,48 @@ describe("a card on a kanban leaf's canvas selects the board's card (objectui#12
     await waitFor(() => expect(outlinedCard()).toBe('r9'));
   });
 
+  it('Enter on a focused card selects it, and opens nothing', async () => {
+    await openBoardLeaf();
+    const bob = await card('Bob');
+    bob.focus();
+
+    const notPrevented = fireEvent.keyDown(bob, { key: 'Enter' });
+
+    expect(notPrevented).toBe(false);
+    await waitFor(() => expect(slot()).toHaveAttribute('data-mode', 'props'));
+    expect(outlinedCard()).toBe('r1');
+    expect(cardSection()).toHaveAttribute('data-selected', 'true');
+    expect(openRecord).not.toHaveBeenCalled();
+  });
+
+  it("Space on a focused card selects it on the release, and its press does not scroll or open", async () => {
+    await openBoardLeaf();
+    const ada = await card('Ada');
+    ada.focus();
+
+    expect(fireEvent.keyDown(ada, { key: ' ' })).toBe(false);
+    expect(outlinedCard()).toBeNull();
+    expect(fireEvent.keyUp(ada, { key: ' ' })).toBe(false);
+
+    await waitFor(() => expect(slot()).toHaveAttribute('data-mode', 'props'));
+    expect(outlinedCard()).toBe('r2');
+    expect(openRecord).not.toHaveBeenCalled();
+  });
+
+  it('a key on a control drawn inside a card is that control\'s, and selects nothing', async () => {
+    await openBoardLeaf();
+    const act = within(canvas()).getByRole('button', { name: 'Act' });
+    const own = vi.fn();
+    act.addEventListener('keydown', own);
+
+    expect(fireEvent.keyDown(act, { key: 'Enter' })).toBe(true);
+    fireEvent.keyUp(act, { key: ' ' });
+
+    expect(own).toHaveBeenCalledTimes(1);
+    expect(outlinedCard()).toBeNull();
+    expect(slot()).toHaveAttribute('data-mode', 'copilot');
+  });
+
   it("Esc clears the card selection, and the slot keeps the view's properties", async () => {
     await openBoardLeaf();
     fireEvent.click(await card('Ada'));
@@ -520,6 +564,16 @@ describe('CONTROLS (objectui#12725)', () => {
     fireEvent.click(bob);
 
     expect(press).toHaveBeenCalledTimes(1);
+    expect(openRecord).toHaveBeenCalledWith('r1');
+  });
+
+  it('outside Studio, Enter on a focused card opens the record (objectui#12888)', async () => {
+    render(<Board groupBy="status" />);
+    const bob = (await screen.findByText('Bob', undefined, { timeout: 4000 })).closest('[data-kanban-card]') as HTMLElement;
+    bob.focus();
+
+    fireEvent.keyDown(bob, { key: 'Enter' });
+
     expect(openRecord).toHaveBeenCalledWith('r1');
   });
 

@@ -373,6 +373,12 @@ function ObjectRecordsGrid({ name }: StudioCanvasPreviewProps) {
  * board's drag sensor starts a move. A control drawn inside a card keeps its
  * job.
  *
+ * A focused card opens on Enter and on Space's release, as a click does
+ * (objectui#12888), so the keys are taken in the capture phase too: on the
+ * Studio canvas Enter, and Space's release, select the card, and Space's press
+ * is held so the board does not scroll. Only a key on the card element itself,
+ * the board's own guard: a key on something inside the card stays its own.
+ *
  * Drawn always, with no box, for the reason {@link ColumnHeaderSelect} is.
  */
 function KanbanCardSelect({ objectName, children }: { objectName: string; children: React.ReactNode }) {
@@ -390,6 +396,16 @@ function KanbanCardSelect({ objectName, children }: { objectName: string; childr
   const onPointerDownCapture = (e: React.PointerEvent<HTMLDivElement>) => {
     if (cardOf(e)) e.stopPropagation();
   };
+  const onKeyCapture = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!cards || !(e.target instanceof Element) || !e.target.matches('[data-kanban-card]')) return;
+    if (!e.currentTarget.contains(e.target)) return;
+    const selects = e.type === 'keydown' ? e.key === 'Enter' : e.key === ' ';
+    if (!selects && !(e.type === 'keydown' && e.key === ' ')) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const id = e.target.getAttribute('data-kanban-card');
+    if (selects && id) cards.onSelect(id);
+  };
   const onClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
     const id = cardOf(e)?.getAttribute('data-kanban-card');
     if (!cards || !id) return;
@@ -404,6 +420,8 @@ function KanbanCardSelect({ objectName, children }: { objectName: string; childr
       data-studio-canvas-cards={scope}
       onPointerDownCapture={onPointerDownCapture}
       onClickCapture={onClickCapture}
+      onKeyDownCapture={onKeyCapture}
+      onKeyUpCapture={onKeyCapture}
     >
       {cards?.selected ? (
         // The clicked card is outlined, as the StudioRailProps artboard draws

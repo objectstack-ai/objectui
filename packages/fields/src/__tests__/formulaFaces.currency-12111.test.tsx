@@ -36,7 +36,7 @@ afterEach(() => cleanup());
 const noop = () => {};
 
 /** ICU puts U+00A0 between a currency CODE and the amount; keep rows readable. */
-const norm = (s: string | null) => (s ?? '').replace(/ /g, ' ');
+const norm = (s: string | null) => (s ?? '').replace(/\u00a0/g, ' ');
 
 type Tenant = { locale: string; currency: string };
 const USD_TENANT: Tenant = { locale: 'en-US', currency: 'USD' };

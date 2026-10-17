@@ -61,7 +61,7 @@ import {
   toast,
 } from '@object-ui/components';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, resolveAffordance, resolveFieldAffordance, type SchemaLike, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, partitionRowsByPredicate, buildCategoryOrder, buildCategoryRank, type FilterTokenScope } from '@object-ui/core';
+import { resolveConditionalFormatting, isDeadlineSettled, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, resolveAffordance, resolveFieldAffordance, type SchemaLike, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, partitionRowsByPredicate, buildCategoryOrder, buildCategoryRank, type FilterTokenScope } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import {
   RECORD_OVERLAY_DEFAULT_WIDTH,
@@ -2820,9 +2820,26 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                   .filter((f) => isProjectableField(f, declared as Record<string, unknown>))
                   .filter((f) => passesProjectionGate(f))
               : [];
+            // [objectui#11815] A shown DECLARED deadline's `settledWhen`
+            // operands. The predicate reads the row exactly as a row action's
+            // gate does, so a grid showing only Title and Due fetched rows
+            // without `status`, CEL faulted `No such key`, and a done row's
+            // deadline still read overdue. The same two gates as the harvests
+            // above.
+            const shownColumns = (schemaFields ?? (Array.isArray(schemaColumns) ? schemaColumns : [])) as unknown[];
+            const deadlineFields = declared
+              ? collectPredicateFieldRefs(
+                  shownColumns
+                    .map((entry) => (declared as Record<string, { dueLike?: unknown; settledWhen?: unknown } | undefined>)[columnIdentity(entry) ?? ''])
+                    .filter((def) => def?.dueLike === true && def.settledWhen != null)
+                    .map((def) => def!.settledWhen),
+                )
+                  .filter((f) => isProjectableField(f, declared as Record<string, unknown>))
+                  .filter((f) => passesProjectionGate(f))
+              : [];
             // A UNION, never an append: a grouping field that IS also a column
             // must not produce a duplicate `$select` entry.
-            const extraFields = [...predicateFields, ...groupingFields, ...concurrencyFields, ...rowColorFields];
+            const extraFields = [...predicateFields, ...groupingFields, ...concurrencyFields, ...rowColorFields, ...deadlineFields];
             const withHarvestedFields = (list: any[]): any[] => {
               if (extraFields.length === 0) return list;
               const names = new Set(list.map((f: any) => columnIdentity(f)));
@@ -3592,6 +3609,13 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   }, [pageSizeDiagnosticObject, pageSizeDiagnosticFlat, columnDiagnosticBlockType, schema.objectName]);
 
   const generateColumns = useCallback((): ObjectGridColumnDraft[] => {
+    // objectui#11815 — the host's verdict on a declared deadline's
+    // `settledWhen` for ONE row, handed to the cell as `deadlineSettled`. The
+    // one helper in `@object-ui/core`, with the scope and relation collapse
+    // this grid's conditional formatting uses; a field that is not a declared
+    // deadline answers `false` before any predicate runs.
+    const settledFor = (field: unknown, row: Record<string, unknown> | undefined): boolean =>
+      isDeadlineSettled(field as Parameters<typeof isDeadlineSettled>[0], row, { scope: predicateScope, fields: objectFields });
     // Map field type to column header icon (Airtable-style)
     const getTypeIcon = (fieldType: string | null): React.ReactNode => {
       if (!fieldType) return <Type className="h-3.5 w-3.5" />;
@@ -3872,6 +3896,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               // read `5000%` in this cell.
               if (objectDefField.max !== undefined) fieldMeta.max = objectDefField.max;
               if (objectDefField.format) fieldMeta.format = objectDefField.format;
+              // objectui#11815 — the deadline declaration rides on every
+              // builder: `dueLike` is what the date cells paint from, and
+              // `settledWhen` is what `isDeadlineSettled` judges per row.
+              // Dropped here, a declared deadline never read overdue.
+              if (objectDefField.dueLike !== undefined) fieldMeta.dueLike = objectDefField.dueLike;
+              if (objectDefField.settledWhen !== undefined) fieldMeta.settledWhen = objectDefField.settledWhen;
               if (objectDefField.options) fieldMeta.options = translateOptions(schema.objectName, col.field, objectDefField.options);
             }
             // Preserve relational metadata (reference, displayField, …) so
@@ -3906,7 +3936,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               // Both link and action: link takes priority for navigation, action executes on secondary interaction
               cellRenderer = (value: any, row: any) => {
                 const displayContent = pointerFace?.(row) ?? (LinkContentRenderer
-                  ? <LinkContentRenderer value={value} field={fieldMeta as any} dependentValues={row} />
+                  ? <LinkContentRenderer value={value} field={fieldMeta as any} dependentValues={row} deadlineSettled={settledFor(fieldMeta, row)} />
                   : (value != null && value !== '' ? String(value) : <EmptyValue />));
                 return (
                   <LinkCell
@@ -3924,7 +3954,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               // Link column: clicking navigates to the record detail
               cellRenderer = (value: any, row: any) => {
                 const displayContent = pointerFace?.(row) ?? (LinkContentRenderer
-                  ? <LinkContentRenderer value={value} field={fieldMeta as any} dependentValues={row} />
+                  ? <LinkContentRenderer value={value} field={fieldMeta as any} dependentValues={row} deadlineSettled={settledFor(fieldMeta, row)} />
                   : (value != null && value !== '' ? String(value) : <EmptyValue />));
                 return (
                   <LinkCell
@@ -3964,7 +3994,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               // `dependentValues` for a cell whose value only means something
               // beside a sibling column (objectui#12613).
               cellRenderer = (value: any, row: any) => (
-                pointerFace?.(row) ?? <CellRenderer value={value} field={fieldMeta as any} dependentValues={row} />
+                pointerFace?.(row) ?? <CellRenderer value={value} field={fieldMeta as any} dependentValues={row} deadlineSettled={settledFor(fieldMeta, row)} />
               );
             } else {
               // Default renderer with empty value handling
@@ -4113,6 +4143,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             // The percent storage statement, as path A copies it (objectui#11475).
             if (fieldDef.max !== undefined) fieldMeta.max = fieldDef.max;
             if (fieldDef.format) fieldMeta.format = fieldDef.format;
+            // The deadline declaration, as path A copies it (objectui#11815).
+            if (fieldDef.dueLike !== undefined) fieldMeta.dueLike = fieldDef.dueLike;
+            if (fieldDef.settledWhen !== undefined) fieldMeta.settledWhen = fieldDef.settledWhen;
             if (fieldDef.options) fieldMeta.options = translateOptions(schema.objectName, fieldName, fieldDef.options);
           }
           // Preserve relational metadata (reference, displayField, …) so
@@ -4142,7 +4175,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
           if (isPrimaryField && LinkContentRenderer) {
             cellRenderer = (value: any, row: any) => {
-              const displayContent = pointerFace?.(row) ?? <LinkContentRenderer value={value} field={fieldMeta as any} dependentValues={row} />;
+              const displayContent = pointerFace?.(row) ?? <LinkContentRenderer value={value} field={fieldMeta as any} dependentValues={row} deadlineSettled={settledFor(fieldMeta, row)} />;
               return (
                 <LinkCell
                   testId="primary-field-link"
@@ -4166,7 +4199,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               </LinkCell>
             );
           } else if (CellRenderer) {
-            cellRenderer = (value: any, row: any) => pointerFace?.(row) ?? <CellRenderer value={value} field={fieldMeta as any} dependentValues={row} />;
+            cellRenderer = (value: any, row: any) => pointerFace?.(row) ?? <CellRenderer value={value} field={fieldMeta as any} dependentValues={row} deadlineSettled={settledFor(fieldMeta, row)} />;
           }
 
           return {
@@ -4297,6 +4330,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             // The percent storage statement, as path A copies it (objectui#11475).
             if (fieldDef.max !== undefined) fieldMeta.max = fieldDef.max;
             if (fieldDef.format) fieldMeta.format = fieldDef.format;
+            // The deadline declaration, as path A copies it (objectui#11815).
+            if (fieldDef.dueLike !== undefined) fieldMeta.dueLike = fieldDef.dueLike;
+            if (fieldDef.settledWhen !== undefined) fieldMeta.settledWhen = fieldDef.settledWhen;
             if (fieldDef.options) fieldMeta.options = translateOptions(schema.objectName, fieldName, fieldDef.options);
           }
           // Preserve relational metadata (reference, displayField, …) so
@@ -4328,7 +4364,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             ...(schema.showColumnTypeIcons && rendererType && { headerIcon: getTypeIcon(rendererType) }),
             ...(inferredAlign && { align: inferredAlign }),
             ...(CellRenderer && {
-              cell: (value: any, row: any) => pointerFace?.(row) ?? <CellRenderer value={value} field={fieldMeta as any} dependentValues={row} />,
+              cell: (value: any, row: any) => pointerFace?.(row) ?? <CellRenderer value={value} field={fieldMeta as any} dependentValues={row} deadlineSettled={settledFor(fieldMeta, row)} />,
             }),
             sortable: fieldDef?.sortable !== false,
           };
@@ -4436,13 +4472,13 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         // Aligned on the RENDERER key, like paths A-C: a `text` column with
         // `format: 'currency'` renders as currency, so it aligns as currency.
         ...(!!rendererType && numericTypes.includes(rendererType) && { align: 'right' as const }),
-        cell: (value: any, row: any) => pointerFace?.(row) ?? <CellRenderer value={value} field={fieldForCell} dependentValues={row} />,
+        cell: (value: any, row: any) => pointerFace?.(row) ?? <CellRenderer value={value} field={fieldForCell} dependentValues={row} deadlineSettled={settledFor(fieldForCell, row)} />,
         sortable: field.sortable !== false,
       });
     });
 
     return generatedColumns;
-  }, [objectSchema, objectFields, objectTypesPending, schemaFields, schemaColumns, dataConfig, hasInlineData, objectName, navigation.handleClick, executeAction, data, resolveFieldLabel, translateOptions, schema.objectName, perms, uiLanguage, dataSource]);
+  }, [objectSchema, objectFields, objectTypesPending, schemaFields, schemaColumns, dataConfig, hasInlineData, objectName, navigation.handleClick, executeAction, data, resolveFieldLabel, translateOptions, schema.objectName, perms, uiLanguage, dataSource, predicateScope]);
 
   // Formats this grid can actually deliver (objectui#2942): the server stream
   // handles csv/xlsx/json, the client fallback only csv/json. Declared-but-dead

@@ -62,12 +62,12 @@ export interface UseEnvironmentEntitlementsOptions {
   refreshKey?: unknown;
 }
 
-type ResolveOptions = Pick<UseEnvironmentEntitlementsOptions, 'dataSource' | 'authFetch' | 'apiBase'> & {
+type EntitlementsResolveOptions = Pick<UseEnvironmentEntitlementsOptions, 'dataSource' | 'authFetch' | 'apiBase'> & {
   orgId: string | undefined;
 };
 
 /** The authoritative summary first, the row derivation when it is unavailable. */
-async function resolveEntitlements(opts: ResolveOptions): Promise<EnvironmentEntitlementsState> {
+async function resolveEntitlements(opts: EntitlementsResolveOptions): Promise<EnvironmentEntitlementsState> {
   const { dataSource, authFetch, apiBase, orgId } = opts;
 
   const fromSummary = async (): Promise<EnvironmentEntitlementsState | null> => {
@@ -153,7 +153,7 @@ interface EntitlementsResource {
 
 const resources = new Map<string, EntitlementsResource>();
 
-function resolveInto(resource: EntitlementsResource, opts: ResolveOptions): void {
+function resolveInto(resource: EntitlementsResource, opts: EntitlementsResolveOptions): void {
   const generation = ++resource.generation;
   resource.inFlight = true;
   void resolveEntitlements(opts).then((next) => {
@@ -165,7 +165,7 @@ function resolveInto(resource: EntitlementsResource, opts: ResolveOptions): void
 }
 
 /** Join the resource for `key`, starting its resolution only if nobody has. */
-function acquire(key: string, opts: ResolveOptions): EntitlementsResource {
+function acquire(key: string, opts: EntitlementsResolveOptions): EntitlementsResource {
   let resource = resources.get(key);
   if (!resource) {
     resource = { value: undefined, inFlight: false, generation: 0, readers: 0, listeners: new Set() };
@@ -218,7 +218,7 @@ export function useEnvironmentEntitlements(
       setState(null);
       return;
     }
-    const resolveOpts = (): ResolveOptions => ({ ...resolveDeps.current, apiBase, orgId });
+    const resolveOpts = (): EntitlementsResolveOptions => ({ ...resolveDeps.current, apiBase, orgId });
     const resource = acquire(key, resolveOpts());
 
     // The explicit invalidation: this reader's `refreshKey` moved while it kept

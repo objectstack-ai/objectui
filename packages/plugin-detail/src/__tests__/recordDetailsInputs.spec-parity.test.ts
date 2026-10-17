@@ -110,10 +110,11 @@ const specAcceptedTopLevelKeys = (): string[] => authorableShapeKeys(RecordDetai
  * `RecordDetailsProps` is this block's PROPS contract, not the whole contract of
  * the node: `dataSource`, the per-element binding this block reads since
  * objectui#12294 and declares from the seam, is a `PageComponentSchema` key.
- * DERIVED from that schema's input shape (it is a `.pipe()`), never listed.
+ * DERIVED from that schema's own shape, never listed (a `.pipe()` through
+ * `@objectstack/spec` 18.0.0-next.2, whose input side carried the keys; a plain
+ * object since 18.0.0-next.3, objectstack `105902f`).
  */
-const nodeLevelSpecKeys = (): string[] =>
-  authorableShapeKeys((PageComponentSchema as unknown as { _def?: { in?: unknown } })._def?.in);
+const nodeLevelSpecKeys = (): string[] => authorableShapeKeys(PageComponentSchema);
 
 /** Member keys of one `sections[]` entry, per the spec. */
 const specSectionKeys = (): string[] =>

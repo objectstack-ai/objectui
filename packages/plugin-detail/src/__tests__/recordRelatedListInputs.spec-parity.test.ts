@@ -84,14 +84,15 @@ const specTopLevelKeys = (): string[] => shapeKeys(RecordRelatedListProps);
  * through `ElementDataSourceGate` and now declares from that seam — is one of
  * them, and it is accepted here for the same reason `className` would be.
  *
- * DERIVED from `PageComponentSchema`'s own input shape (it is a `.pipe()`), never
- * listed, so a spec release moves it. The repo-wide half of this gate makes the
+ * DERIVED from `PageComponentSchema`'s own shape, never listed, so a spec release
+ * moves it. (It was a `.pipe()` through `@objectstack/spec` 18.0.0-next.2, whose
+ * input side carried the keys; 18.0.0-next.3 makes it a plain object, objectstack
+ * `105902f`.) The repo-wide half of this gate makes the
  * same widening in
  * `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`, and both
  * assert the derivation still discriminates.
  */
-const nodeLevelSpecKeys = (): string[] =>
-  shapeKeys((PageComponentSchema as unknown as { _def?: { in?: unknown } })._def?.in);
+const nodeLevelSpecKeys = (): string[] => shapeKeys(PageComponentSchema);
 const specAddKeys = (): string[] => shapeKeys(innerObject(RecordRelatedListProps, 'add'));
 const specPickerKeys = (): string[] =>
   shapeKeys(innerObject(innerObject(RecordRelatedListProps, 'add'), 'picker'));

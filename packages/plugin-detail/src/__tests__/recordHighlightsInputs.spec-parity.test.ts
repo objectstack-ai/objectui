@@ -75,10 +75,11 @@ function specTopLevelKeys(): string[] {
  * `registry-inputs-spec-parity.test.ts` already make (objectui#6678).
  * `dataSource`, the per-element binding this block reads since objectui#12294
  * and declares from the seam, is a `PageComponentSchema` key, not a
- * `RecordHighlightsProps` one. DERIVED from that schema's input shape.
+ * `RecordHighlightsProps` one. DERIVED from that schema's own shape (a `.pipe()`
+ * through `@objectstack/spec` 18.0.0-next.2, a plain object since 18.0.0-next.3,
+ * objectstack `105902f`).
  */
-const nodeLevelSpecKeys = (): string[] =>
-  authorableShapeKeys((PageComponentSchema as unknown as { _def?: { in?: unknown } })._def?.in);
+const nodeLevelSpecKeys = (): string[] => authorableShapeKeys(PageComponentSchema);
 
 const config = () => ComponentRegistry.getConfig('record:highlights');
 const inputs = () => config()?.inputs ?? [];

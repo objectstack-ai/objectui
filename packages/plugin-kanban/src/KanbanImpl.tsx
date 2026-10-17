@@ -245,6 +245,9 @@ function SortableCard({ card, onCardClick, conditionalFormatting, objectFields }
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners} role="listitem" aria-label={card.title}
+      // objectui#12725 — names the card's record on its element, so a host
+      // (the Studio canvas) can tell which card a click landed on.
+      data-kanban-card={card.id}
       onClick={(e) => onCardClick?.(card, e)}
     >
       <Card className={cn("mb-2 border-border border-l-4 border-l-primary/40 bg-card/60 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 group touch-manipulation", movable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer")} style={cardStyles}>

@@ -73,6 +73,7 @@ import {
   SelectValue,
   cn,
   HorizontalOverflowBox,
+  PINNED_RIGHT_SEAM_SHADOW_CLASSES,
 } from '@object-ui/components';
 import { toast } from 'sonner';
 import { useAuth } from '@object-ui/auth';
@@ -865,6 +866,18 @@ function RecordCell({ r, href, hiddenKeys, deadLabel, unresolvableLabel }: {
     </div>
   );
 }
+
+/**
+ * objectui#12816 — the inline Approve / Reject column is pinned to the table's
+ * right edge, the way the console's lists pin their Actions column: inside the
+ * `seam="pinned"` overflow box the pinned cells draw the shared seam shadow on
+ * their own left edge while columns scroll under them. The cell's fill is the
+ * card's, so a table that does not scroll looks as before; the row's hover and
+ * keyboard-focus tints are layered back over that fill by an `::after` behind
+ * the cell's content (the sticky cell is its own stacking context, so `-z-10`
+ * stays inside it).
+ */
+const PINNED_ACTIONS_CLASSES = `sticky right-0 z-10 bg-card after:pointer-events-none after:absolute after:inset-0 after:-z-10 after:opacity-0 in-[tr:hover]:after:opacity-100 ${PINNED_RIGHT_SEAM_SHADOW_CLASSES}`;
 
 function InlineActions({
   r,
@@ -2060,7 +2073,9 @@ export function ApprovalsInboxPage() {
                   {/* objectui#12708 — wider than the panel, the table scrolls
                       in the shared overflow box: a right-edge shadow while
                       columns remain to the right, its scrollbar on hover. */}
-                  <HorizontalOverflowBox outerClassName="rounded-lg overflow-hidden" data-testid="approvals-inbox-table-scroller">
+                  {/* objectui#12816 — `seam="pinned"`: the shadow moves from
+                      the box's edge to the pinned Approve / Reject cells. */}
+                  <HorizontalOverflowBox seam="pinned" outerClassName="rounded-lg overflow-hidden" data-testid="approvals-inbox-table-scroller">
                   <Table containerClassName="overflow-visible">
                     <TableHeader>
                       <TableRow>
@@ -2081,11 +2096,15 @@ export function ApprovalsInboxPage() {
                             spreading five auto columns evenly and leaving 审批事项
                             over-wide next to a cramped 状态. */}
                         <TableHead className="w-[22%]">{tr('colRequest', 'Request')}</TableHead>
-                        <TableHead className="w-[30%]">{tr('colRecord', 'Record')}</TableHead>
+                        {/* objectui#12816 — the Record cells are `max-w-0` (below),
+                            so this floor is the column's only minimum: enough to
+                            tell one record from the next at 1024 px, however long
+                            the titles are. */}
+                        <TableHead className="w-[30%] min-w-40">{tr('colRecord', 'Record')}</TableHead>
                         <TableHead className="w-[16%]">{tr('colRequester', 'Requester')}</TableHead>
                         <TableHead className="w-[110px] min-w-[96px] whitespace-nowrap">{tr('colStatus', 'Status')}</TableHead>
                         <TableHead className="w-[132px]">{tr('colWaiting', 'Submitted')}</TableHead>
-                        <TableHead className="w-20" aria-label={tr('colActions', 'Actions')} />
+                        <TableHead className={cn('w-20', PINNED_ACTIONS_CLASSES, 'after:bg-muted/50')} aria-label={tr('colActions', 'Actions')} />
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -2109,7 +2128,11 @@ export function ApprovalsInboxPage() {
                             </TableCell>
                           )}
                           <TableCell><RequestCell r={r} tr={tr} /></TableCell>
-                          <TableCell>
+                          {/* objectui#12816 — `max-w-0` takes the record title's
+                              unbreakable width out of the auto-layout table's
+                              column sizing, so a long title truncates (full text
+                              in its `title`) instead of widening the table. */}
+                          <TableCell className="max-w-0">
                             <RecordCell
                               r={r}
                               // A known-dead reference needs no probe: there is
@@ -2156,7 +2179,18 @@ export function ApprovalsInboxPage() {
                               ) : null;
                             })()}
                           </TableCell>
-                          <TableCell className="w-20">
+                          <TableCell
+                            className={cn(
+                              'w-20',
+                              PINNED_ACTIONS_CLASSES,
+                              // The focused row's inset ring is drawn by the row,
+                              // under this opaque cell: the cell redraws the ring's
+                              // top, right and bottom edges itself.
+                              focusIndex === i
+                                ? 'after:bg-accent/30 after:opacity-100 in-[tr:hover]:after:bg-accent/50 shadow-[inset_0_2px_0_var(--color-ring),inset_-2px_0_0_var(--color-ring),inset_0_-2px_0_var(--color-ring)]'
+                                : 'after:bg-accent/50',
+                            )}
+                          >
                             <InlineActions
                               r={r}
                               actionable={isActionable(r)}

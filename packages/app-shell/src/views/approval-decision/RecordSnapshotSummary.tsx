@@ -98,8 +98,8 @@ function FieldFace({ objectName, def, value, snapshot, fields }: {
     ? { ...def, options: translateOptions(objectName, def.name as string, options) }
     : def;
   const Cell = getCellRenderer(resolveCellRendererType(field as { type?: string; format?: string }));
-  // eslint-disable-next-line react-hooks/static-components -- getCellRenderer returns the registry's module-level renderer for the type, not a component created during render
   const deadlineSettled = isDeadlineSettled(def, snapshot, { scope: predicateScope, fields });
+  // eslint-disable-next-line react-hooks/static-components -- getCellRenderer returns the registry's module-level renderer for the type, not a component created during render
   return <Cell value={value} field={field as unknown as FieldMetadata} deadlineSettled={deadlineSettled} />;
 }
 

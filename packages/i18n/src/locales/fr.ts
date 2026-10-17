@@ -2691,7 +2691,6 @@ const fr = {
     usersOnline: "Utilisateurs actuellement en ligne",
     switchView: "Changer de vue",
     connection: {
-      connected: "Connecté",
       connecting: "Connexion…",
       reconnecting: "Reconnexion…",
       disconnected: "Déconnecté",

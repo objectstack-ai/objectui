@@ -2724,7 +2724,6 @@ const zh = {
     usersOnline: '当前在线用户',
     switchView: '切换视图',
     connection: {
-      connected: '已连接',
       connecting: '连接中…',
       reconnecting: '正在重新连接…',
       disconnected: '已断开连接',

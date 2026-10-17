@@ -3176,7 +3176,6 @@ const en = {
     usersOnline: 'Users currently online',
     switchView: 'Switch view',
     connection: {
-      connected: 'Connected',
       connecting: 'Connecting…',
       reconnecting: 'Reconnecting…',
       disconnected: 'Disconnected',

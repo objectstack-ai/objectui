@@ -2642,7 +2642,6 @@ const ko = {
     usersOnline: "현재 접속 중인 사용자",
     switchView: "뷰 전환",
     connection: {
-      connected: "연결됨",
       connecting: "연결 중…",
       reconnecting: "다시 연결 중…",
       disconnected: "연결 끊김",

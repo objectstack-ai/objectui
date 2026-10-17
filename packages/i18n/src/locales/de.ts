@@ -2642,7 +2642,6 @@ const de = {
     usersOnline: "Aktuell online befindliche Benutzer",
     switchView: "Ansicht wechseln",
     connection: {
-      connected: "Verbunden",
       connecting: "Verbindung wird hergestellt…",
       reconnecting: "Verbindung wird wiederhergestellt…",
       disconnected: "Getrennt",

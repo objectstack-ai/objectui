@@ -2644,7 +2644,6 @@ const ja = {
     usersOnline: "現在オンラインのユーザー",
     switchView: "ビューを切り替え",
     connection: {
-      connected: "接続済み",
       connecting: "接続中…",
       reconnecting: "再接続中…",
       disconnected: "切断されました",

@@ -2758,7 +2758,6 @@ const ru = {
     usersOnline: "Пользователи сейчас в сети",
     switchView: "Сменить представление",
     connection: {
-      connected: "Подключено",
       connecting: "Подключение…",
       reconnecting: "Переподключение…",
       disconnected: "Отключено",

@@ -2854,7 +2854,6 @@ const ar = {
     usersOnline: "المستخدمون المتصلون الآن",
     switchView: "تبديل العرض",
     connection: {
-      connected: "متصل",
       connecting: "جارٍ الاتصال…",
       reconnecting: "جارٍ إعادة الاتصال…",
       disconnected: "منقطع",

@@ -161,11 +161,15 @@ describe('element:record_picker — label/placeholder accept the inline locale m
     expect(triggerText(container)).toContain('Pick one');
   });
 
-  it('keeps the "Select a record…" placeholder default for an ABSENT key', () => {
+  it('draws the active language\'s placeholder default for an ABSENT key', () => {
     // CONTROL for the ordering choice at the read site: the default is applied
-    // before resolution, so an absent key still means the default.
+    // before resolution, so an absent key still means the default. Edited
+    // deliberately by objectui#12910: this case drew the English
+    // "Select a record…" under zh-CN. The default is now the bundle's
+    // `lookup.selectRecord`, so a zh-CN viewer reads 选择记录.
     const { container } = renderPicker({ object: 'account' }, 'zh-CN');
-    expect(triggerText(container)).toContain('Select a record…');
+    expect(triggerText(container)).toContain('选择记录');
+    expect(triggerText(container)).not.toContain('Select');
   });
 
   it('renders NO label element when `label` is absent', () => {

@@ -52,7 +52,8 @@ describe('element:definition-list', () => {
 
   it('shows a friendly message when there are no items', () => {
     const { getByText } = renderType({ type: 'element:definition-list', properties: { items: [] } });
-    expect(getByText(/No details/i)).toBeTruthy();
+    // The bundle's `common.noData` since objectui#12910 (was "No details").
+    expect(getByText('No data')).toBeTruthy();
   });
 });
 

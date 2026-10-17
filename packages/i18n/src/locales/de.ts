@@ -4241,6 +4241,37 @@ const de = {
   element: {
     number: {
       noObject: "Kein Objekt angegeben: Legen Sie dataSource.object fest.",
+      sourceUnresolved: "Die Datenquelle dieser Kennzahl konnte nicht aufgelöst werden",
+    },
+    image: {
+      noSource: "Keine Bildquelle",
+    },
+    recordPicker: {
+      sourceUnresolved: "Die Datenquelle dieser Datensatzauswahl konnte nicht aufgelöst werden",
+    },
+    metadataViewer: {
+      missingKey: "{{key}} fehlt für diese Ansicht.",
+      loading: "{{name}} wird geladen…",
+      loadFailed: "{{name}} konnte nicht geladen werden: {{message}}",
+      notFound: "{{name}} nicht gefunden.",
+      stateMachine: "Zustandsautomat",
+      flow: "Flow",
+      permission: "Berechtigung",
+      noStateMachine: "Kein Zustandsautomat auf {{object}}.",
+      noStateMachineNamed: "Kein Zustandsautomat namens „{{name}}“ auf {{object}}.",
+      lifecycle: "Lebenszyklus von {{object}}",
+      field: "Feld {{field}}",
+      initial: "Anfang",
+      final: "Ende",
+      steps: "Schritte: {{count}}",
+      noSteps: "Keine Schritte vorhanden.",
+      untitledStep: "(Schritt)",
+      hiddenSteps: "Technische Schritte ausgeblendet: {{count}} · {{setting}} setzen, um alle anzuzeigen",
+      objectAccess: "Objektzugriff: {{count}}",
+      noPermissions: "Keine Objektberechtigungen deklariert.",
+      object: "Objekt",
+      unknownType: "Unbekannter Metadaten-Ansichtstyp. Erwartet: {{a}}, {{b}} oder {{c}}.",
+      unknownTypeNamed: "Unbekannter Metadaten-Ansichtstyp „{{type}}“. Erwartet: {{a}}, {{b}} oder {{c}}.",
     },
   },
 };

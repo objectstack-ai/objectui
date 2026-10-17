@@ -57,9 +57,17 @@ function DefinitionListRenderer({ schema }: { schema: any }) {
   }>(schema);
   const items = Array.isArray(props.items) ? props.items : [];
   const cols = props.columns === 2 ? 'sm:grid-cols-2' : 'grid-cols-1';
+  // objectui#12910 — the empty state reads `common.noData`, the key
+  // `element:repeater` below reads for its own, so a zh-CN page draws its own
+  // language instead of the English "No details" this block used to print.
+  const { t } = useObjectTranslation();
 
   if (items.length === 0) {
-    return <p className="text-sm text-muted-foreground">No details</p>;
+    return (
+      <p className="text-sm text-muted-foreground" data-testid="definition-list-empty">
+        {t('common.noData', { defaultValue: 'No data' })}
+      </p>
+    );
   }
 
   return (
@@ -93,8 +101,8 @@ ComponentRegistry.register('definition-list', DefinitionListRenderer, {
   //   - `columns` is compared to the NUMBER 2 (`props.columns === 2`), so the
   //     enum members are the numbers 1 and 2. The strings '1' / '2' it used to
   //     publish render one column, and the spec refuses them.
-  //   - `items` is optional: absent and empty both render the "No details"
-  //     state, and the spec row does not require it. Marking it required made
+  //   - `items` is optional: absent and empty both render the empty state
+  //     (`common.noData`, objectui#12910), and the spec row does not require it. Marking it required made
   //     the page validator raise `missing-required-prop` on a list the spec
   //     and the renderer both accept.
   inputs: [
@@ -103,7 +111,7 @@ ComponentRegistry.register('definition-list', DefinitionListRenderer, {
       type: 'array',
       of: 'object',
       description:
-        'Term/description pairs [{ term, description }], in order: `term` is the row label, `description` is shown as-is (an object as JSON, an omitted one as an em dash). Omitted or empty renders the "No details" state',
+        'Term/description pairs [{ term, description }], in order: `term` is the row label, `description` is shown as-is (an object as JSON, an omitted one as an em dash). Omitted or empty renders the empty state: the active language’s "No data" (`common.noData`)',
     },
     {
       name: 'columns',

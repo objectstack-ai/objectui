@@ -73,7 +73,8 @@ describe('element:record_picker — emptyText accepts the inline locale map (obj
     // just as well by a picker that rendered no empty state — or no picker.
     renderPicker({ object: 'account' });
     expect(screen.getByTestId('record-picker')).toBeInTheDocument();
-    expect(screen.getByText('No records')).toBeInTheDocument();
+    // The bundle's `common.noData` since objectui#12910 (was "No records").
+    expect(screen.getByText('No data')).toBeInTheDocument();
   });
 
   it('resolves the map to the active language — the case that THREW before', () => {
@@ -102,19 +103,23 @@ describe('element:record_picker — emptyText accepts the inline locale map (obj
     expect(screen.getByText('Nothing here')).toBeInTheDocument();
   });
 
-  it('keeps the "No records" default for an ABSENT key', () => {
+  it('draws the active language\'s default for an ABSENT key', () => {
     // CONTROL for the ordering choice at the read site: the default is applied
-    // before resolution, so an absent key still means the default.
+    // before resolution, so an absent key still means the default. Edited
+    // deliberately by objectui#12910: this case rendered the English
+    // "No records" under zh-CN, the defect that card closes. The default is
+    // now the bundle's `common.noData`, so a zh-CN viewer reads 暂无数据.
     renderPicker({ object: 'account' }, 'zh-CN');
-    expect(screen.getByText('No records')).toBeInTheDocument();
+    expect(screen.getByText('暂无数据')).toBeInTheDocument();
+    expect(screen.queryByText('No records')).toBeNull();
   });
 
   it('renders an authored empty string as empty, not as the default', () => {
     // The other half of that ordering choice, and the one a `||` default would
     // silently break: `''` is a legal string under the contract and an author
-    // who writes it is asking for no text, not for "No records".
+    // who writes it is asking for no text, not for the default ("No data").
     const { container } = renderPicker({ object: 'account', emptyText: '' }, 'en');
-    expect(screen.queryByText('No records')).toBeNull();
+    expect(screen.queryByText('No data')).toBeNull();
     expect(container.querySelector('p.text-xs')?.textContent).toBe('');
   });
 });

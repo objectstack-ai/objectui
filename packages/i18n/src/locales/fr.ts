@@ -4333,6 +4333,37 @@ const fr = {
   element: {
     number: {
       noObject: "Aucun objet indiqué : définissez dataSource.object.",
+      sourceUnresolved: "La source de données de cet indicateur n’a pas pu être résolue",
+    },
+    image: {
+      noSource: "Aucune source d’image",
+    },
+    recordPicker: {
+      sourceUnresolved: "La source de données de ce sélecteur d’enregistrement n’a pas pu être résolue",
+    },
+    metadataViewer: {
+      missingKey: "{{key}} manquant pour cette vue.",
+      loading: "Chargement de {{name}}…",
+      loadFailed: "Impossible de charger {{name}} : {{message}}",
+      notFound: "{{name}} introuvable.",
+      stateMachine: "Machine à états",
+      flow: "Flux",
+      permission: "Autorisation",
+      noStateMachine: "Aucune machine à états sur {{object}}.",
+      noStateMachineNamed: "Aucune machine à états nommée « {{name}} » sur {{object}}.",
+      lifecycle: "Cycle de vie de {{object}}",
+      field: "champ {{field}}",
+      initial: "début",
+      final: "fin",
+      steps: "Étapes : {{count}}",
+      noSteps: "Aucune étape à afficher.",
+      untitledStep: "(étape)",
+      hiddenSteps: "Étapes techniques masquées : {{count}} · définissez {{setting}} pour tout afficher",
+      objectAccess: "Accès aux objets : {{count}}",
+      noPermissions: "Aucune autorisation d’objet déclarée.",
+      object: "Objet",
+      unknownType: "Type de vue de métadonnées inconnu. Attendu : {{a}}, {{b}} ou {{c}}.",
+      unknownTypeNamed: "Type de vue de métadonnées inconnu « {{type}} ». Attendu : {{a}}, {{b}} ou {{c}}.",
     },
   },
 };

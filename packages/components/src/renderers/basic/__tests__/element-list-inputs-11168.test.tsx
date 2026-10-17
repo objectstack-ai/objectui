@@ -152,12 +152,13 @@ describe('element:definition-list.columns — the NUMBERS 1 and 2 (objectui#1116
 });
 
 describe('element:definition-list.items — optional, as the renderer and the spec read it (objectui#11168)', () => {
-  it('absent `items` renders the "No details" state, the spec accepts it, and the validator does not report it missing', () => {
+  it('absent `items` renders the empty state, the spec accepts it, and the validator does not report it missing', () => {
     expect(inputsOf(DEFINITION_LIST).get('items')?.required).not.toBe(true);
     expect(specRow(DEFINITION_LIST).safeParse({}).success).toBe(true);
     expect(diagnose({ type: DEFINITION_LIST })).toEqual([]);
     mountList({});
-    expect(screen.getByText('No details')).toBeInTheDocument();
+    // The bundle's `common.noData` since objectui#12910 (was "No details").
+    expect(screen.getByText('No data')).toBeInTheDocument();
   });
 
   it('CONTROL: a required input on a sibling block is still reported when it is missing', () => {

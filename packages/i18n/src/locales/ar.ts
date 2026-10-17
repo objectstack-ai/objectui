@@ -4633,6 +4633,37 @@ const ar = {
   element: {
     number: {
       noObject: "لم يُحدَّد أي كائن: عيّن dataSource.object.",
+      sourceUnresolved: "تعذّر تحديد مصدر بيانات هذا المقياس",
+    },
+    image: {
+      noSource: "لا يوجد مصدر للصورة",
+    },
+    recordPicker: {
+      sourceUnresolved: "تعذّر تحديد مصدر بيانات منتقي السجلات هذا",
+    },
+    metadataViewer: {
+      missingKey: "{{key}} مفقود لهذا العرض.",
+      loading: "جارٍ تحميل {{name}}…",
+      loadFailed: "تعذّر تحميل {{name}}: {{message}}",
+      notFound: "لم يُعثر على {{name}}.",
+      stateMachine: "آلة الحالات",
+      flow: "التدفق",
+      permission: "الإذن",
+      noStateMachine: "لا توجد آلة حالات على {{object}}.",
+      noStateMachineNamed: "لا توجد آلة حالات باسم «{{name}}» على {{object}}.",
+      lifecycle: "دورة حياة {{object}}",
+      field: "الحقل {{field}}",
+      initial: "البداية",
+      final: "النهاية",
+      steps: "الخطوات: {{count}}",
+      noSteps: "لا توجد خطوات لعرضها.",
+      untitledStep: "(خطوة)",
+      hiddenSteps: "الخطوات التقنية المخفية: {{count}} · عيّن {{setting}} لعرضها كلها",
+      objectAccess: "الوصول إلى الكائنات: {{count}}",
+      noPermissions: "لم تُعلَن أي أذونات للكائنات.",
+      object: "الكائن",
+      unknownType: "نوع عرض بيانات وصفية غير معروف. المتوقع {{a}} أو {{b}} أو {{c}}.",
+      unknownTypeNamed: "نوع عرض بيانات وصفية غير معروف «{{type}}». المتوقع {{a}} أو {{b}} أو {{c}}.",
     },
   },
 };

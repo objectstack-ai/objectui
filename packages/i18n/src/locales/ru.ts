@@ -4447,6 +4447,37 @@ const ru = {
   element: {
     number: {
       noObject: "Объект не указан: задайте dataSource.object.",
+      sourceUnresolved: "Не удалось определить источник данных этого показателя",
+    },
+    image: {
+      noSource: "Нет источника изображения",
+    },
+    recordPicker: {
+      sourceUnresolved: "Не удалось определить источник данных этого выбора записи",
+    },
+    metadataViewer: {
+      missingKey: "Для этого представления не задан {{key}}.",
+      loading: "Загрузка {{name}}…",
+      loadFailed: "Не удалось загрузить {{name}}: {{message}}",
+      notFound: "{{name}} не найден.",
+      stateMachine: "Конечный автомат",
+      flow: "Процесс",
+      permission: "Разрешение",
+      noStateMachine: "На {{object}} нет конечного автомата.",
+      noStateMachineNamed: "На {{object}} нет конечного автомата с именем «{{name}}».",
+      lifecycle: "Жизненный цикл {{object}}",
+      field: "поле {{field}}",
+      initial: "начальное",
+      final: "конечное",
+      steps: "Шаги: {{count}}",
+      noSteps: "Нет шагов для отображения.",
+      untitledStep: "(шаг)",
+      hiddenSteps: "Скрыто технических шагов: {{count}} · задайте {{setting}}, чтобы показать все",
+      objectAccess: "Доступ к объектам: {{count}}",
+      noPermissions: "Разрешения на объекты не объявлены.",
+      object: "Объект",
+      unknownType: "Неизвестный тип представления метаданных. Ожидается {{a}}, {{b}} или {{c}}.",
+      unknownTypeNamed: "Неизвестный тип представления метаданных «{{type}}». Ожидается {{a}}, {{b}} или {{c}}.",
     },
   },
 };

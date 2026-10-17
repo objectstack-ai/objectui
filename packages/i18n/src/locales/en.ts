@@ -4996,6 +4996,45 @@ const en = {
     // terse: this pack is eager, and the console closure budget weighs it.
     number: {
       noObject: 'No object named: set dataSource.object.',
+      // objectui#12910 — the title of the panel this block draws when its
+      // `dataSource.view` names nothing.
+      sourceUnresolved: 'This metric’s data source could not be resolved',
+    },
+    // objectui#12910 — `element:image` with no `src`.
+    image: {
+      noSource: 'No image source',
+    },
+    // objectui#12910 — `element:record_picker`'s panel title, same case.
+    recordPicker: {
+      sourceUnresolved: 'This record picker’s data source could not be resolved',
+    },
+    // objectui#12910 — `element:metadata_viewer` (the ```metadata doc fence).
+    // A `{{name}}`-style slot that the renderer draws as a `<code>` chip is
+    // filled with a private-use mark and split on, so each language places
+    // the chip. Counts read as "Label: N" so no key needs a plural family.
+    metadataViewer: {
+      missingKey: 'Missing {{key}} for this view.',
+      loading: 'Loading {{name}}…',
+      loadFailed: 'Failed to load {{name}}: {{message}}',
+      notFound: '{{name}} not found.',
+      stateMachine: 'State machine',
+      flow: 'Flow',
+      permission: 'Permission',
+      noStateMachine: 'No state machine on {{object}}.',
+      noStateMachineNamed: 'No state machine named “{{name}}” on {{object}}.',
+      lifecycle: 'Lifecycle of {{object}}',
+      field: 'field {{field}}',
+      initial: 'initial',
+      final: 'final',
+      steps: 'Steps: {{count}}',
+      noSteps: 'No steps to show.',
+      untitledStep: '(step)',
+      hiddenSteps: 'Technical steps hidden: {{count}} · set {{setting}} to show all',
+      objectAccess: 'Object access: {{count}}',
+      noPermissions: 'No object permissions declared.',
+      object: 'Object',
+      unknownType: 'Unknown metadata view type. Expected {{a}}, {{b}} or {{c}}.',
+      unknownTypeNamed: 'Unknown metadata view type “{{type}}”. Expected {{a}}, {{b}} or {{c}}.',
     },
   },
 } as const;

@@ -4242,6 +4242,37 @@ const ja = {
   element: {
     number: {
       noObject: "オブジェクトが指定されていません。dataSource.object を設定してください。",
+      sourceUnresolved: "この指標のデータソースを解決できませんでした",
+    },
+    image: {
+      noSource: "画像ソースがありません",
+    },
+    recordPicker: {
+      sourceUnresolved: "このレコードピッカーのデータソースを解決できませんでした",
+    },
+    metadataViewer: {
+      missingKey: "このビューには {{key}} がありません。",
+      loading: "{{name}} を読み込み中…",
+      loadFailed: "{{name}} を読み込めませんでした: {{message}}",
+      notFound: "{{name}} が見つかりません。",
+      stateMachine: "ステートマシン",
+      flow: "フロー",
+      permission: "権限",
+      noStateMachine: "{{object}} にステートマシンがありません。",
+      noStateMachineNamed: "{{object}} に「{{name}}」という名前のステートマシンがありません。",
+      lifecycle: "{{object}} のライフサイクル",
+      field: "フィールド {{field}}",
+      initial: "初期",
+      final: "最終",
+      steps: "ステップ: {{count}}",
+      noSteps: "表示するステップがありません。",
+      untitledStep: "(ステップ)",
+      hiddenSteps: "非表示の技術ステップ: {{count}} · すべて表示するには {{setting}} を設定",
+      objectAccess: "オブジェクトアクセス: {{count}}",
+      noPermissions: "オブジェクト権限が宣言されていません。",
+      object: "オブジェクト",
+      unknownType: "不明なメタデータビューの種類です。{{a}}、{{b}}、{{c}} のいずれかを指定してください。",
+      unknownTypeNamed: "不明なメタデータビューの種類「{{type}}」です。{{a}}、{{b}}、{{c}} のいずれかを指定してください。",
     },
   },
 };

@@ -126,7 +126,11 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
   const binding = usePageVariableBinding(schema?.id);
   // Above every early return below, so hook order stays stable across
   // resolution states — same rule as the block comment further down.
-  const { language } = useObjectTranslation();
+  // objectui#12910 — `t` reads the closed control's busy and empty defaults
+  // from the bundle, so a zh-CN page draws its own language where this block
+  // used to print English literals. Each inline `defaultValue` is the `en`
+  // pack's value, held byte-identical to it by `pnpm check:i18n-keys`.
+  const { language, t } = useObjectTranslation();
 
   const [rows, setRows] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -194,7 +198,10 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
           committedReadRef.current = { adapter, signature };
         }
       } catch (e: any) {
-        if (!cancelled) setError(e?.message ?? 'Failed to load');
+        // The message only marks the read as failed (the control shows the
+        // translated error placeholder, never the message), so a rejection
+        // with no message is still a failure: `''` keeps `error` non-null.
+        if (!cancelled) setError(e?.message ?? '');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -244,7 +251,8 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
   // a second, unrelated call site whose contract is not this one.
   //
   // The placeholder default is applied BEFORE resolution, matching `emptyText`:
-  // an absent key still means "Select a record…", and an authored `''` still
+  // an absent key still means the bundle's `lookup.selectRecord` (objectui#12910;
+  // it was the English "Select a record…"), and an authored `''` still
   // renders empty because `pickLocalized` passes either string through
   // untouched. `label` takes no default — absent resolves to `''`, which the
   // `{label && …}` site drops exactly as it always did.
@@ -258,7 +266,10 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
   // into a shared module, and `basic/ -> layout/` would be a new dependency
   // between renderer families. Tracked separately (objectui#5637 report).
   const label = pickLocalized(props.label, language);
-  const placeholder = pickLocalized(props.placeholder ?? 'Select a record…', language);
+  const placeholder = pickLocalized(
+    props.placeholder ?? t('lookup.selectRecord', { defaultValue: 'Select record' }),
+    language,
+  );
   // `emptyText` is `string | I18nLabel`, and its destination is a TEXT NODE, so
   // it resolves through `pickLocalized` — the objectui-side helper the sibling
   // text-node sites read through (`element:text.content`,
@@ -269,10 +280,15 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
   // `Objects are not valid as a React child`, the same pre-fix harm measured
   // for `schema.label` in `inline-locale-label-read-sites.test.tsx`.
   //
-  // The default is applied BEFORE resolution so `?? 'No records'` keeps meaning
-  // exactly what it meant (absent → default) and an authored `''` still renders
-  // empty — `pickLocalized` passes either string through untouched.
-  const emptyText = pickLocalized(props.emptyText ?? 'No records', language);
+  // The default is applied BEFORE resolution so `??` keeps meaning exactly what
+  // it meant (absent → default) and an authored `''` still renders empty —
+  // `pickLocalized` passes either string through untouched. The default is
+  // `common.noData` (objectui#12910; it was the English "No records"), the key
+  // `element:repeater` reads for its own empty state since objectui#12889.
+  const emptyText = pickLocalized(
+    props.emptyText ?? t('common.noData', { defaultValue: 'No data' }),
+    language,
+  );
 
   // The block's `aria` bag (objectui#11083). The spec declares `aria`
   // (`AriaPropsSchema`) on `element:record_picker`, and nothing read it, so a
@@ -294,7 +310,9 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
     return (
       <ElementDataSourceErrorPanel
         testId="record-picker"
-        title="This record picker’s data source could not be resolved"
+        title={t('element.recordPicker.sourceUnresolved', {
+          defaultValue: 'This record picker’s data source could not be resolved',
+        })}
         message={dataBinding.error}
       />
     );
@@ -330,7 +348,7 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
       <Select
         value={value}
         onValueChange={handleChange}
-        disabled={loading || !!error || !object}
+        disabled={loading || error !== null || !object}
       >
         <SelectTrigger
           id={schema?.id}
@@ -339,7 +357,13 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
           {...triggerAria}
         >
           <SelectValue
-            placeholder={loading ? 'Loading…' : error ? 'Failed to load' : placeholder}
+            placeholder={
+              loading
+                ? t('common.loading', { defaultValue: 'Loading…' })
+                : error !== null
+                  ? t('list.loadErrorTitle', { defaultValue: 'Couldn’t load records' })
+                  : placeholder
+            }
           />
         </SelectTrigger>
         <SelectContent>
@@ -354,7 +378,7 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
           })}
         </SelectContent>
       </Select>
-      {!loading && !error && rows.length === 0 && (
+      {!loading && error === null && rows.length === 0 && (
         <p className="text-xs text-muted-foreground">{emptyText}</p>
       )}
     </div>
@@ -411,7 +435,7 @@ ComponentRegistry.register('record_picker', elementDataSourceBlock(ElementRecord
       // legal write this input's own description teaches (objectui#5637).
       type: ['string', 'object'],
       description:
-        'Prompt shown in the closed control while no record is selected (renderer default "Select a record…"). Display-only — it never reaches the query. Accepts either a plain string or an inline per-locale map (`{ en: "Owner", "zh-CN": "负责人" }`), the `I18nLabel` union rc.6 widened this key to; the renderer resolves the map against the active language at the read site, falling back through base language, a region-qualified sibling, `default`, then `en`. It is REPLACED while the picker is busy: "Loading…" while it reads a new set of options and "Failed to load" after an error both win over this key (a re-read of the same options after a data change keeps them on screen and shows no "Loading…"). An authored empty string stays empty; the default applies only when the key is absent.',
+        'Prompt shown in the closed control while no record is selected (renderer default: the active language’s "Select record", `lookup.selectRecord`). Display-only — it never reaches the query. Accepts either a plain string or an inline per-locale map (`{ en: "Owner", "zh-CN": "负责人" }`), the `I18nLabel` union rc.6 widened this key to; the renderer resolves the map against the active language at the read site, falling back through base language, a region-qualified sibling, `default`, then `en`. It is REPLACED while the picker is busy: the active language’s "Loading…" (`common.loading`) while it reads a new set of options and "Couldn’t load records" (`list.loadErrorTitle`) after an error both win over this key (a re-read of the same options after a data change keeps them on screen and shows no "Loading…"). An authored empty string stays empty; the default applies only when the key is absent.',
     },
     {
       name: 'label',
@@ -449,7 +473,7 @@ ComponentRegistry.register('record_picker', elementDataSourceBlock(ElementRecord
       // render, never before and never after.
       type: ['string', 'object'],
       description:
-        'Text shown in place of the row list when the query returns no records (renderer default "No records"). Unlike the node-level `dataSource` binding\'s `filter` / `sort` / `limit` this is display-only — it never reaches the query, and the binding does not override it. Accepts either a plain string or an inline per-locale map (`{ en: "None", "zh-CN": "无记录" }`) — the `I18nLabel` union rc.6 widened this key to — and the renderer resolves the map against the active language at the read site, falling back through base language, `default`, then `en`. An authored empty string stays empty; the "No records" default applies only when the key is absent.',
+        'Text shown in place of the row list when the query returns no records (renderer default: the active language’s "No data", `common.noData`). Unlike the node-level `dataSource` binding\'s `filter` / `sort` / `limit` this is display-only — it never reaches the query, and the binding does not override it. Accepts either a plain string or an inline per-locale map (`{ en: "None", "zh-CN": "无记录" }`) — the `I18nLabel` union rc.6 widened this key to — and the renderer resolves the map against the active language at the read site, falling back through base language, `default`, then `en`. An authored empty string stays empty; the default applies only when the key is absent.',
     },
   ],
 });

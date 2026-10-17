@@ -4336,6 +4336,37 @@ const es = {
   element: {
     number: {
       noObject: "No se ha indicado ningún objeto: define dataSource.object.",
+      sourceUnresolved: "No se pudo resolver el origen de datos de esta métrica",
+    },
+    image: {
+      noSource: "Sin origen de imagen",
+    },
+    recordPicker: {
+      sourceUnresolved: "No se pudo resolver el origen de datos de este selector de registros",
+    },
+    metadataViewer: {
+      missingKey: "Falta {{key}} en esta vista.",
+      loading: "Cargando {{name}}…",
+      loadFailed: "No se pudo cargar {{name}}: {{message}}",
+      notFound: "No se encontró {{name}}.",
+      stateMachine: "Máquina de estados",
+      flow: "Flujo",
+      permission: "Permiso",
+      noStateMachine: "No hay ninguna máquina de estados en {{object}}.",
+      noStateMachineNamed: "No hay ninguna máquina de estados llamada «{{name}}» en {{object}}.",
+      lifecycle: "Ciclo de vida de {{object}}",
+      field: "campo {{field}}",
+      initial: "inicio",
+      final: "fin",
+      steps: "Pasos: {{count}}",
+      noSteps: "No hay pasos que mostrar.",
+      untitledStep: "(paso)",
+      hiddenSteps: "Pasos técnicos ocultos: {{count}} · establece {{setting}} para mostrarlos todos",
+      objectAccess: "Acceso a objetos: {{count}}",
+      noPermissions: "No se han declarado permisos de objeto.",
+      object: "Objeto",
+      unknownType: "Tipo de vista de metadatos desconocido. Se esperaba {{a}}, {{b}} o {{c}}.",
+      unknownTypeNamed: "Tipo de vista de metadatos desconocido «{{type}}». Se esperaba {{a}}, {{b}} o {{c}}.",
     },
   },
 };

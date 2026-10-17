@@ -340,7 +340,9 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // 88 once objectui#12724 added `chatbot.build.nextStepQuote`, the finished
     // build's quote around each next step („{{step}}“) — one interpolated span,
     // runtime data.
-    expect(okSpans, 'correctly paired spans').toBe(88);
+    // 90 once objectui#12910 added `element.metadataViewer.noStateMachineNamed`
+    // and `.unknownTypeNamed`, one paired span each.
+    expect(okSpans, 'correctly paired spans').toBe(90);
   });
 
   it('keeps the count identity that replaces the card’s count(„) === count(“)', () => {
@@ -394,7 +396,10 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // one matched pair fewer. 87 / 87 / 0 after objectui#12622 added
     // `fields.datePicker.invalid`, one more matched pair. 88 / 88 / 0 after
     // objectui#12724 added `chatbot.build.nextStepQuote`, one more matched pair.
-    expect({ open, close, rdq }).toEqual({ open: 88, close: 88, rdq: 0 });
+    // 90 / 90 / 0 after objectui#12910 added
+    // `element.metadataViewer.noStateMachineNamed` and `.unknownTypeNamed`, one
+    // matched pair each.
+    expect({ open, close, rdq }).toEqual({ open: 90, close: 90, rdq: 0 });
     // The durable shape: every „ closed by a “, every surplus “ an English
     // opener answered by a ”. Survived translating the two English values.
     expect(close).toBe(open + rdq);

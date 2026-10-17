@@ -21,7 +21,7 @@
 import * as React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import { useMetadataItem, resolveInlineAriaProps } from '@object-ui/react';
-import { useDisplayLocale } from '@object-ui/i18n';
+import { useDisplayLocale, useObjectTranslation } from '@object-ui/i18n';
 import type { AriaProps } from '@object-ui/types';
 import {
   ArrowRight,
@@ -87,6 +87,74 @@ function Shell({
       <div className="p-3.5">{children}</div>
     </div>
   );
+}
+
+/**
+ * objectui#12910 — the viewer's copy reads `element.metadataViewer.*`, so a
+ * zh-CN page draws its own language where every line of this block used to be
+ * an English literal. Each inline `defaultValue` is the `en` pack's value, held
+ * byte-identical to it by `pnpm check:i18n-keys`.
+ *
+ * Several sentences carry a metadata name drawn as a `<code>` chip. The chip
+ * cannot be interpolated as text, and splitting the sentence around it would
+ * fix the word order to English's. So each chip's slot is interpolated with a
+ * private-use mark ({@link CHIP}), and {@link withChips} splits the translated
+ * sentence on those marks: the language decides where the chip sits.
+ */
+const CHIP = ['\uE000', '\uE001', '\uE002'] as const;
+
+function Code({ children }: { children: React.ReactNode }) {
+  return <code className="font-mono">{children}</code>;
+}
+
+/** The translated `text` with `chips[i]` drawn where `CHIP[i]` was interpolated. */
+function withChips(text: string, chips: React.ReactNode[]): React.ReactNode {
+  return text.split(/([\uE000-\uE002])/u).map((part, i) => {
+    const at = (CHIP as readonly string[]).indexOf(part);
+    return at === -1 ? part : <React.Fragment key={i}>{chips[at]}</React.Fragment>;
+  });
+}
+
+/** The lines every view shares: a missing key, loading, a failed load, not found. */
+function useViewStates() {
+  const { t } = useObjectTranslation();
+  return {
+    t,
+    missing: (key: string) => (
+      <Placeholder tone="warn">
+        {withChips(
+          t('element.metadataViewer.missingKey', { defaultValue: 'Missing {{key}} for this view.', key: CHIP[0] }),
+          [<Code key="k">{key}</Code>],
+        )}
+      </Placeholder>
+    ),
+    loading: (name: string) => (
+      <Placeholder>
+        {withChips(t('element.metadataViewer.loading', { defaultValue: 'Loading {{name}}…', name: CHIP[0] }), [
+          <Code key="n">{name}</Code>,
+        ])}
+      </Placeholder>
+    ),
+    failed: (name: string, message: string) => (
+      <Placeholder tone="warn">
+        {withChips(
+          t('element.metadataViewer.loadFailed', {
+            defaultValue: 'Failed to load {{name}}: {{message}}',
+            name: CHIP[0],
+            message,
+          }),
+          [<Code key="n">{name}</Code>],
+        )}
+      </Placeholder>
+    ),
+    notFound: (name: string) => (
+      <Placeholder tone="warn">
+        {withChips(t('element.metadataViewer.notFound', { defaultValue: '{{name}} not found.', name: CHIP[0] }), [
+          <Code key="n">{name}</Code>,
+        ])}
+      </Placeholder>
+    ),
+  };
 }
 
 function Placeholder({ tone = 'muted', children }: { tone?: 'muted' | 'warn'; children: React.ReactNode }) {
@@ -156,6 +224,7 @@ type StateOption = Omit<SpecSelectOption, 'visibleWhen'>;
 
 function StateMachineView({ object, name }: ViewerProps) {
   const { item: obj, loading, error } = useMetadataItem('object', object ?? null);
+  const { t, ...view } = useViewStates();
 
   const rule = React.useMemo(() => {
     const rules: any[] = obj?.validations ?? obj?.validationRules ?? [];
@@ -165,14 +234,29 @@ function StateMachineView({ object, name }: ViewerProps) {
     );
   }, [obj, name]);
 
-  if (!object) return <Placeholder tone="warn">Missing <code className="font-mono">object</code> for the state machine.</Placeholder>;
-  if (loading) return <Placeholder>Loading <code className="font-mono">{object}</code>…</Placeholder>;
-  if (error) return <Placeholder tone="warn">Failed to load object <code className="font-mono">{object}</code>: {error.message}</Placeholder>;
-  if (!obj) return <Placeholder tone="warn">Object <code className="font-mono">{object}</code> not found.</Placeholder>;
+  if (!object) return view.missing('object');
+  if (loading) return view.loading(object);
+  if (error) return view.failed(object, error.message);
+  if (!obj) return view.notFound(object);
   if (!rule) {
     return (
       <Placeholder tone="warn">
-        No state machine{name ? ` named “${name}”` : ''} on <code className="font-mono">{object}</code>.
+        {name
+          ? withChips(
+              t('element.metadataViewer.noStateMachineNamed', {
+                defaultValue: 'No state machine named “{{name}}” on {{object}}.',
+                name,
+                object: CHIP[0],
+              }),
+              [<Code key="o">{object}</Code>],
+            )
+          : withChips(
+              t('element.metadataViewer.noStateMachine', {
+                defaultValue: 'No state machine on {{object}}.',
+                object: CHIP[0],
+              }),
+              [<Code key="o">{object}</Code>],
+            )}
       </Placeholder>
     );
   }
@@ -209,15 +293,27 @@ function StateMachineView({ object, name }: ViewerProps) {
     );
   };
 
+  const kind = t('element.metadataViewer.stateMachine', { defaultValue: 'State machine' });
   return (
     <Shell
-      hint="state machine"
+      hint={kind}
       icon={Workflow}
-      title={rule.label ?? rule.name ?? 'State machine'}
+      title={rule.label ?? rule.name ?? kind}
       subtitle={
         <>
-          Lifecycle of <code className="font-mono">{object}</code>
-          {rule.field ? <> · field <code className="font-mono">{rule.field}</code></> : null}
+          {withChips(
+            t('element.metadataViewer.lifecycle', { defaultValue: 'Lifecycle of {{object}}', object: CHIP[0] }),
+            [<Code key="o">{object}</Code>],
+          )}
+          {rule.field ? (
+            <>
+              {' · '}
+              {withChips(
+                t('element.metadataViewer.field', { defaultValue: 'field {{field}}', field: CHIP[0] }),
+                [<Code key="f">{rule.field}</Code>],
+              )}
+            </>
+          ) : null}
         </>
       }
     >
@@ -234,12 +330,12 @@ function StateMachineView({ object, name }: ViewerProps) {
               <Chip value={s} />
               {isInitial && (
                 <span className="inline-flex items-center gap-1 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400">
-                  <CircleDot className="h-3 w-3" /> initial
+                  <CircleDot className="h-3 w-3" /> {t('element.metadataViewer.initial', { defaultValue: 'initial' })}
                 </span>
               )}
               {isFinal ? (
                 <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                  <Flag className="h-3 w-3" /> final
+                  <Flag className="h-3 w-3" /> {t('element.metadataViewer.final', { defaultValue: 'final' })}
                 </span>
               ) : (
                 <>
@@ -280,11 +376,12 @@ const TECHNICAL_NODE_TYPES = new Set([
 
 function FlowView({ name, detail }: ViewerProps) {
   const { item: flow, loading, error } = useMetadataItem('flow', name ?? null);
+  const { t, ...view } = useViewStates();
 
-  if (!name) return <Placeholder tone="warn">Missing <code className="font-mono">name</code> for the flow.</Placeholder>;
-  if (loading) return <Placeholder>Loading flow <code className="font-mono">{name}</code>…</Placeholder>;
-  if (error) return <Placeholder tone="warn">Failed to load flow <code className="font-mono">{name}</code>: {error.message}</Placeholder>;
-  if (!flow) return <Placeholder tone="warn">Flow <code className="font-mono">{name}</code> not found.</Placeholder>;
+  if (!name) return view.missing('name');
+  if (loading) return view.loading(name);
+  if (error) return view.failed(name, error.message);
+  if (!flow) return view.notFound(name);
 
   const allNodes: any[] = Array.isArray(flow.nodes) ? flow.nodes : [];
   const business = (detail ?? 'business') === 'business';
@@ -293,13 +390,16 @@ function FlowView({ name, detail }: ViewerProps) {
 
   return (
     <Shell
-      hint="flow"
+      hint={t('element.metadataViewer.flow', { defaultValue: 'Flow' })}
       icon={GitBranch}
       title={flow.label ?? flow.name ?? name}
-      subtitle={flow.description ?? <>Process with {allNodes.length} step{allNodes.length === 1 ? '' : 's'}</>}
+      subtitle={
+        flow.description ??
+        t('element.metadataViewer.steps', { defaultValue: 'Steps: {{count}}', count: allNodes.length })
+      }
     >
       {nodes.length === 0 ? (
-        <Placeholder>No steps to show.</Placeholder>
+        <Placeholder>{t('element.metadataViewer.noSteps', { defaultValue: 'No steps to show.' })}</Placeholder>
       ) : (
         <ol className="space-y-1.5">
           {nodes.map((n, i) => (
@@ -307,7 +407,9 @@ function FlowView({ name, detail }: ViewerProps) {
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary">
                 {i + 1}
               </span>
-              <span className="text-sm">{n?.label ?? n?.id ?? '(step)'}</span>
+              <span className="text-sm">
+                {n?.label ?? n?.id ?? t('element.metadataViewer.untitledStep', { defaultValue: '(step)' })}
+              </span>
               {n?.type && (
                 <span className="ml-auto rounded border bg-background px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
                   {n.type}
@@ -319,7 +421,14 @@ function FlowView({ name, detail }: ViewerProps) {
       )}
       {business && hiddenCount > 0 && (
         <div className="mt-2 text-[11px] text-muted-foreground">
-          {hiddenCount} technical step{hiddenCount === 1 ? '' : 's'} hidden · set <code className="font-mono">detail: technical</code> to show all
+          {withChips(
+            t('element.metadataViewer.hiddenSteps', {
+              defaultValue: 'Technical steps hidden: {{count}} · set {{setting}} to show all',
+              count: hiddenCount,
+              setting: CHIP[0],
+            }),
+            [<Code key="s">detail: technical</Code>],
+          )}
         </div>
       )}
     </Shell>
@@ -339,29 +448,34 @@ const CRUD: Array<{ key: string; label: string }> = [
 
 function PermissionView({ name }: ViewerProps) {
   const { item: perm, loading, error } = useMetadataItem('permission', name ?? null);
+  const { t, ...view } = useViewStates();
 
-  if (!name) return <Placeholder tone="warn">Missing <code className="font-mono">name</code> for the permission set.</Placeholder>;
-  if (loading) return <Placeholder>Loading permission set <code className="font-mono">{name}</code>…</Placeholder>;
-  if (error) return <Placeholder tone="warn">Failed to load permission <code className="font-mono">{name}</code>: {error.message}</Placeholder>;
-  if (!perm) return <Placeholder tone="warn">Permission set <code className="font-mono">{name}</code> not found.</Placeholder>;
+  if (!name) return view.missing('name');
+  if (loading) return view.loading(name);
+  if (error) return view.failed(name, error.message);
+  if (!perm) return view.notFound(name);
 
   const objects: Record<string, any> = perm.objects && typeof perm.objects === 'object' ? perm.objects : {};
   const entries = Object.entries(objects);
 
   return (
     <Shell
-      hint="permission"
+      hint={t('element.metadataViewer.permission', { defaultValue: 'Permission' })}
       icon={ShieldCheck}
       title={perm.label ?? perm.name ?? name}
-      subtitle={<>Object access · {entries.length} object{entries.length === 1 ? '' : 's'}</>}
+      subtitle={t('element.metadataViewer.objectAccess', { defaultValue: 'Object access: {{count}}', count: entries.length })}
     >
       {entries.length === 0 ? (
-        <Placeholder>No object permissions declared.</Placeholder>
+        <Placeholder>
+          {t('element.metadataViewer.noPermissions', { defaultValue: 'No object permissions declared.' })}
+        </Placeholder>
       ) : (
         <table className="w-full border-separate border-spacing-0 text-xs">
           <thead>
             <tr className="text-muted-foreground">
-              <th className="border-b px-2 py-1.5 text-left font-medium">Object</th>
+              <th className="border-b px-2 py-1.5 text-left font-medium">
+                {t('element.metadataViewer.object', { defaultValue: 'Object' })}
+              </th>
               {CRUD.map((c) => (
                 <th key={c.key} className="border-b px-2 py-1.5 text-center font-mono font-medium" title={c.key}>
                   {c.label}
@@ -399,6 +513,7 @@ function PermissionView({ name }: ViewerProps) {
  * The view for the authored `type`, the part of the block below its root.
  */
 function MetadataView(props: ViewerProps) {
+  const { t } = useObjectTranslation();
   switch (props.type) {
     case 'state_machine':
       return <StateMachineView {...props} />;
@@ -407,11 +522,27 @@ function MetadataView(props: ViewerProps) {
     case 'permission':
       return <PermissionView {...props} />;
     default:
+      // The three accepted values are `type` identifiers, drawn as chips in
+      // the order the language puts its slots in.
       return (
         <Placeholder tone="warn">
-          Unknown metadata view type{props.type ? ` “${props.type}”` : ''}. Expected{' '}
-          <code className="font-mono">state_machine</code>, <code className="font-mono">flow</code>, or{' '}
-          <code className="font-mono">permission</code>.
+          {withChips(
+            props.type
+              ? t('element.metadataViewer.unknownTypeNamed', {
+                  defaultValue: 'Unknown metadata view type “{{type}}”. Expected {{a}}, {{b}} or {{c}}.',
+                  type: props.type,
+                  a: CHIP[0],
+                  b: CHIP[1],
+                  c: CHIP[2],
+                })
+              : t('element.metadataViewer.unknownType', {
+                  defaultValue: 'Unknown metadata view type. Expected {{a}}, {{b}} or {{c}}.',
+                  a: CHIP[0],
+                  b: CHIP[1],
+                  c: CHIP[2],
+                }),
+            [<Code key="a">state_machine</Code>, <Code key="b">flow</Code>, <Code key="c">permission</Code>],
+          )}
         </Placeholder>
       );
   }

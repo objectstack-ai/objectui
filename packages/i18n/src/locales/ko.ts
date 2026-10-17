@@ -4239,6 +4239,37 @@ const ko = {
   element: {
     number: {
       noObject: "개체가 지정되지 않았습니다. dataSource.object를 설정하세요.",
+      sourceUnresolved: "이 지표의 데이터 소스를 확인할 수 없습니다",
+    },
+    image: {
+      noSource: "이미지 소스 없음",
+    },
+    recordPicker: {
+      sourceUnresolved: "이 레코드 선택기의 데이터 소스를 확인할 수 없습니다",
+    },
+    metadataViewer: {
+      missingKey: "이 보기에 {{key}}이(가) 없습니다.",
+      loading: "{{name}} 로딩 중…",
+      loadFailed: "{{name}}을(를) 불러오지 못했습니다: {{message}}",
+      notFound: "{{name}}을(를) 찾을 수 없습니다.",
+      stateMachine: "상태 머신",
+      flow: "플로우",
+      permission: "권한",
+      noStateMachine: "{{object}}에 상태 머신이 없습니다.",
+      noStateMachineNamed: "{{object}}에 “{{name}}”(이)라는 상태 머신이 없습니다.",
+      lifecycle: "{{object}}의 수명 주기",
+      field: "필드 {{field}}",
+      initial: "초기",
+      final: "최종",
+      steps: "단계: {{count}}",
+      noSteps: "표시할 단계가 없습니다.",
+      untitledStep: "(단계)",
+      hiddenSteps: "숨겨진 기술 단계: {{count}} · 모두 표시하려면 {{setting}} 설정",
+      objectAccess: "개체 액세스: {{count}}",
+      noPermissions: "선언된 개체 권한이 없습니다.",
+      object: "개체",
+      unknownType: "알 수 없는 메타데이터 보기 유형입니다. {{a}}, {{b}} 또는 {{c}}이어야 합니다.",
+      unknownTypeNamed: "알 수 없는 메타데이터 보기 유형 “{{type}}”입니다. {{a}}, {{b}} 또는 {{c}}이어야 합니다.",
     },
   },
 };

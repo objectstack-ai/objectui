@@ -126,6 +126,11 @@ const COUNT_NEUTRAL = {
     'marketplace.installedCount',
     'approvalsInbox.approveN',
     'approvalsInbox.rejectN',
+    // objectui#12910 — `element:metadata_viewer`'s counts, each "Label: N" in
+    // every pack so no plural family is needed.
+    'element.metadataViewer.steps',
+    'element.metadataViewer.hiddenSteps',
+    'element.metadataViewer.objectAccess',
   ],
   /** Every pack phrases it count-invariantly: an `(s)` marker in `en`/`de`/
    *  `fr`/`es`/`pt` (the convention `perm-home-namespace-3546.test.tsx` pins),

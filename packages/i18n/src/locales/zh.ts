@@ -4300,6 +4300,37 @@ const zh = {
   element: {
     number: {
       noObject: '未指定对象：请设置 dataSource.object。',
+      sourceUnresolved: '无法解析此指标的数据源',
+    },
+    image: {
+      noSource: '无图片来源',
+    },
+    recordPicker: {
+      sourceUnresolved: '无法解析此记录选择器的数据源',
+    },
+    metadataViewer: {
+      missingKey: '此视图缺少 {{key}}。',
+      loading: '正在加载 {{name}}…',
+      loadFailed: '加载 {{name}} 失败：{{message}}',
+      notFound: '未找到 {{name}}。',
+      stateMachine: '状态机',
+      flow: '流程',
+      permission: '权限',
+      noStateMachine: '{{object}} 上没有状态机。',
+      noStateMachineNamed: '{{object}} 上没有名为“{{name}}”的状态机。',
+      lifecycle: '{{object}} 的生命周期',
+      field: '字段 {{field}}',
+      initial: '初始',
+      final: '终态',
+      steps: '步骤：{{count}}',
+      noSteps: '没有可显示的步骤。',
+      untitledStep: '（步骤）',
+      hiddenSteps: '已隐藏技术步骤：{{count}} · 设置 {{setting}} 以显示全部',
+      objectAccess: '对象访问：{{count}}',
+      noPermissions: '未声明对象权限。',
+      object: '对象',
+      unknownType: '未知的元数据视图类型。应为 {{a}}、{{b}} 或 {{c}}。',
+      unknownTypeNamed: '未知的元数据视图类型“{{type}}”。应为 {{a}}、{{b}} 或 {{c}}。',
     },
   },
 } as const;

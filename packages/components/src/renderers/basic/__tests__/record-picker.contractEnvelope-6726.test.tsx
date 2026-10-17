@@ -75,21 +75,22 @@ describe('element:record_picker — the find() envelope it reads (objectui#6726)
     const adapter = mount(asData);
     await waitFor(() => expect(adapter.find).toHaveBeenCalled());
     await waitFor(() => expect(screen.getByTestId('record-picker-trigger')).toBeTruthy());
-    await waitFor(() => expect(screen.queryByText('No records')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('No data')).toBeNull());
   });
 
   it('still reads a bare array — the live non-envelope shape fakes answer with', async () => {
     const adapter = mount(asBareArray);
     await waitFor(() => expect(adapter.find).toHaveBeenCalled());
     await waitFor(() => expect(screen.getByTestId('record-picker-trigger')).toBeTruthy());
-    await waitFor(() => expect(screen.queryByText('No records')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('No data')).toBeNull());
   });
 
   it('does NOT read `records` — not a QueryResult member', async () => {
     const adapter = mount(asRecords);
     await waitFor(() => expect(adapter.find).toHaveBeenCalled());
-    // The empty-state line, offered to the user: before the fix the picker
+    // The empty-state line (the bundle's `common.noData` since objectui#12910),
+    // offered to the user: before the fix the picker
     // offered the two rows above off a key the contract does not declare.
-    await waitFor(() => expect(screen.getByText('No records')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('No data')).toBeTruthy());
   });
 });

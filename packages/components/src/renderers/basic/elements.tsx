@@ -265,6 +265,9 @@ function ElementImageRenderer({ schema }: { schema: any }) {
   // Before the early return below, so the hook order is the same with and
   // without a `src`.
   const locale = useDisplayLocale();
+  // objectui#12910 — the no-`src` placeholder reads the bundle; it was the
+  // English literal "no image source".
+  const { t } = useObjectTranslation();
   const fit = props.fit ?? 'cover';
   if (!props.src) {
     return (
@@ -274,8 +277,9 @@ function ElementImageRenderer({ schema }: { schema: any }) {
           schema?.className,
         )}
         style={{ height: props.height ?? 120 }}
+        data-testid="element-image-no-source"
       >
-        no image source
+        {t('element.image.noSource', { defaultValue: 'No image source' })}
       </div>
     );
   }
@@ -622,7 +626,10 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
           if (!cancelled) setValue(v);
         }
       } catch (e: any) {
-        if (!cancelled) setError(e?.message ?? 'aggregate failed');
+        // The thrown message when there is one; otherwise `''` still selects
+        // the error line below, which draws the translated default in its
+        // place (objectui#12910 — this was the English "aggregate failed").
+        if (!cancelled) setError(e?.message ?? '');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -642,7 +649,9 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
     return (
       <ElementDataSourceErrorPanel
         testId="element-number"
-        title="This metric’s data source could not be resolved"
+        title={t('element.number.sourceUnresolved', {
+          defaultValue: 'This metric’s data source could not be resolved',
+        })}
         message={filterRefusal?.message ?? dataBinding.error}
       />
     );
@@ -686,7 +695,11 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
           {formatValue(value, props.format, props.prefix, props.suffix, tenantCurrency, locale)}
         </div>
       )}
-      {error && <div className="text-xs text-destructive">{error}</div>}
+      {error !== null && (
+        <div className="text-xs text-destructive" data-testid="element-number-error">
+          {error || t('errors.unknown', { defaultValue: 'An unexpected error occurred.' })}
+        </div>
+      )}
     </div>
   );
 }

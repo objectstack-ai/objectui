@@ -369,11 +369,11 @@ function resolveSectionEntry(
     if (pooled) return pooled;
     const member = findCustomFieldMember(ctx.customFields, fieldDef);
     if (member) return normalizeSectionField(member, ctx);
-    const meta = ctx.objectSchema?.fields?.[fieldDef] as any;
-    // The snake_case `visible_on` this read also took until objectui#12242 is
-    // retired with no alias (`FieldSchema` refuses it; its spelling is
-    // `visibleWhen`, which `fromObjectSchema` carries as the field-level rule).
-    return attachVisibility(fromObjectSchema(fieldDef, ctx), meta?.visibleOn);
+    // No view-level predicate is read off the object field (objectui#12719):
+    // the spec `FieldSchema` declares no `visibleOn` (nor the snake_case
+    // `visible_on`, objectui#12242). An object field's visibility is its
+    // `visibleWhen`, which `fromObjectSchema` carries as the field-level rule.
+    return fromObjectSchema(fieldDef, ctx);
   }
 
   const fd = fieldDef as Record<string, any>;

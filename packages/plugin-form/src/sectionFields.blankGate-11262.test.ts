@@ -20,11 +20,12 @@
  * That verdict stands ("no gate"); only the silence ends.
  *
  * Every chain that reaches `attachVisibility` is pinned, because each reads a
- * different key: the object schema's `visibleOn` behind a name string (its
- * snake_case `visible_on` is not a chain since objectui#12242, pinned last), a
- * spec form-view entry's `visibleWhen` (its retired `visibleOn` is read by no
- * chain since objectui#12654), and an already-built runtime field's own
- * `visibleOn`. The last one is the exception
+ * different key: a spec form-view entry's `visibleWhen` (its retired
+ * `visibleOn` is read by no chain since objectui#12654), and an already-built
+ * runtime field's own `visibleOn`. A name string over the object schema is no
+ * chain: the object field's `visibleOn` was one until objectui#12719, and its
+ * snake_case `visible_on` until objectui#12242, both keys the spec
+ * `FieldSchema` never declares (pinned last). The runtime field is the exception
  * the card's reading did not draw: that field IS the output, so its blank is
  * not dropped at all. It reaches the form renderer, which evaluates it and
  * reports it (the `form.tsx` pin "a blank view-level visibleOn is a layout
@@ -68,8 +69,6 @@ function ctxWith(name: string, meta: Record<string, unknown> = {}) {
 
 /** The chains into `attachVisibility` that DROP a blank, each handed the predicate under test. */
 const CHAINS: Array<readonly [string, (pred: unknown, name: string) => ReturnType<typeof normalizeSectionField>]> = [
-  ['a name string over the object schema’s visibleOn', (pred, name) =>
-    normalizeSectionField(name, ctxWith(name, { visibleOn: pred }))],
   ['a form-view entry’s visibleWhen', (pred, name) =>
     normalizeSectionField({ field: name, visibleWhen: pred }, ctxWith(name))],
 ];
@@ -123,26 +122,33 @@ describe('a runtime FormField carrying its own blank visibleOn (objectui#11262)'
   });
 });
 
-describe('the retired snake_case `visible_on` is not a chain (objectui#12242)', () => {
-  // The row this file carried for `visible_on` pinned a branch objectui#12242
-  // deleted: the spec refuses the key by name (its spelling is `visibleWhen`),
-  // and `BaseFieldMetadata` types it `never`. So a predicate written under it
-  // gates nothing and is reported as nothing, written or blank alike.
+describe.each([
+  ['the retired snake_case `visible_on`', 'visible_on', 'objectui#12242'],
+  ['the undeclared `visibleOn`', 'visibleOn', 'objectui#12719'],
+] as const)('a name string over the object field’s %s is not a chain (%s)', (_label, key) => {
+  // Each key had a row in the CHAINS table above until its issue deleted the
+  // read: the spec `FieldSchema` declares neither (`visible_on` it refuses by
+  // name, and `BaseFieldMetadata` types it `never`; `visibleOn` it never
+  // declared). An object field's visibility is its `visibleWhen`, which
+  // `fromObjectSchema` carries as the field-level rule, not the view-level
+  // slot. So a predicate written under either key gates nothing and is
+  // reported as nothing, written or blank alike.
   it.each([
     ['a written predicate', "record.stage == 'won'"],
     ['a written envelope', { dialect: 'cel', source: "record.stage == 'won'" }],
     ...BLANKS,
-  ] as const)('%s under `visible_on`: no view-level gate on the runtime field, and silent', (_label, pred) => {
+  ] as const)('%s: no view-level gate on the runtime field, and silent', (_label, pred) => {
     const name = fresh('retired');
-    const f = normalizeSectionField(name, ctxWith(name, { visible_on: pred }));
+    const f = normalizeSectionField(name, ctxWith(name, { [key]: pred }));
     expect(f.name).toBe(name);
     expect((f as { visibleOn?: unknown }).visibleOn).toBeUndefined();
     expect(warn).not.toHaveBeenCalled();
   });
 
-  it('control — the same predicate under the object schema’s `visibleOn` IS carried', () => {
+  it('control — the same predicate under the object field’s declared `visibleWhen` IS carried, as the field-level rule', () => {
     const name = fresh('control');
-    const f = normalizeSectionField(name, ctxWith(name, { visibleOn: "record.stage == 'won'" }));
-    expect((f as { visibleOn?: unknown }).visibleOn).toBe("record.stage == 'won'");
+    const f = normalizeSectionField(name, ctxWith(name, { visibleWhen: "record.stage == 'won'" }));
+    expect((f as { visibleWhen?: unknown }).visibleWhen).toBe("record.stage == 'won'");
+    expect((f as { visibleOn?: unknown }).visibleOn).toBeUndefined();
   });
 });

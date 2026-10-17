@@ -161,6 +161,42 @@ describe('normalizeSectionField', () => {
     expect(canonical.visibleOn).toBe("record.b == 2");
   });
 
+  // objectui#12719: a section entry written as a bare field name read the
+  // object field's `visibleOn` into the view-level slot — a key the spec
+  // `FieldSchema` never declares (its visibility key is `visibleWhen`, which
+  // `fromObjectSchema` carries as the field-level rule). The read is gone; the
+  // object field's `visibleWhen` and the spec entry's own `visibleWhen` are not.
+  describe('a bare-name entry reads no view-level predicate off the object field (objectui#12719)', () => {
+    const withField = (meta: Record<string, unknown>) => ({
+      ...ctx,
+      objectSchema: {
+        ...objectSchema,
+        fields: { ...objectSchema.fields, gated: { type: 'text', label: 'Gated', ...meta } },
+      },
+    });
+
+    it("the object field's undeclared `visibleOn` gates nothing", () => {
+      const f = normalizeSectionField('gated', withField({ visibleOn: "record.b == 2" })) as any;
+      expect(f.name).toBe('gated');
+      expect(f.visibleOn).toBeUndefined();
+      expect(f.visibleWhen).toBeUndefined();
+    });
+
+    it("control — the object field's declared `visibleWhen` is carried as the field-level rule", () => {
+      const f = normalizeSectionField('gated', withField({ visibleWhen: "record.b == 2" })) as any;
+      expect(f.visibleWhen).toBe("record.b == 2");
+      expect(f.visibleOn).toBeUndefined();
+    });
+
+    it("control — the spec entry's own `visibleWhen` still lands in the view-level slot", () => {
+      const f = normalizeSectionField(
+        { field: 'gated', visibleWhen: "record.b == 2" },
+        withField({ visibleOn: "record.c == 3" }),
+      ) as any;
+      expect(f.visibleOn).toBe("record.b == 2");
+    });
+  });
+
   it('carries a view-level dependsOn (spec cascading declaration)', () => {
     const f = normalizeSectionField({ field: 'industry', dependsOn: 'country' }, ctx) as any;
     expect(f.dependsOn).toBe('country');

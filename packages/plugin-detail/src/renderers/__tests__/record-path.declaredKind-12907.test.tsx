@@ -39,6 +39,7 @@ import * as React from 'react';
 import { describe, it, expect, afterEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, cleanup, within, type RenderResult } from '@testing-library/react';
+import type { SelectOptionKind } from '@objectstack/spec/data';
 import { I18nProvider } from '@object-ui/i18n';
 import { RecordContextProvider, SchemaRenderer } from '@object-ui/react';
 import { buildDefaultHighlights } from '../../synth/buildDefaultPageSchema';
@@ -47,7 +48,7 @@ import '../../index';
 
 const OBJECT_NAME = 'library_loan';
 
-const loanDef = (options: Array<Record<string, unknown>>) => ({
+const loanDef = (options: Array<{ value: string; label: string; kind?: SelectOptionKind }>) => ({
   name: OBJECT_NAME,
   label: 'Loan',
   fields: { status: { name: 'status', label: 'Status', type: 'select', options } },

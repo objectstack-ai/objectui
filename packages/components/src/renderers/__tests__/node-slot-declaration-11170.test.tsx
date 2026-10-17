@@ -99,6 +99,8 @@ const CONTEXTS: Record<string, Context> = {
   'data-table': { extra: { data: [], columns: [{ key: 'a', title: 'A' }] } },
   'page:tabs': { panel: { value: 'p', label: 'P' } },
   'page:accordion': { panel: { label: 'P', collapsed: false } },
+  // A region is named for a slot `default` places: a template-less full page is judged as `default` and refuses any other (objectui#12902).
+  ...Object.fromEntries(['page', 'app', 'utility', 'home', 'record'].map((t) => [t, { panel: { name: 'main' } }])),
 };
 
 const bareName = (type: string): string => type.slice(type.lastIndexOf(':') + 1);

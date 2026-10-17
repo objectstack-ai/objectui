@@ -2847,6 +2847,7 @@ const fr = {
       title: "Activité récente",
       filter: "Filtrer",
       empty: "Aucune activité récente",
+      accessDenied: "Vous n'avez pas l'autorisation de consulter l'activité.",
       ariaLabel: "Fil d'activité",
       typeCreate: "Créer",
       typeUpdate: "Mettre à jour",

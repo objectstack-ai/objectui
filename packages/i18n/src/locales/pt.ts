@@ -2845,6 +2845,7 @@ const pt = {
       title: "Atividade recente",
       filter: "Filtrar",
       empty: "Sem atividade recente",
+      accessDenied: "Você não tem permissão para ver a atividade.",
       ariaLabel: "Feed de atividade",
       typeCreate: "Criar",
       typeUpdate: "Atualizar",

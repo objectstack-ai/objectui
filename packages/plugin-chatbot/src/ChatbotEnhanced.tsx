@@ -21,7 +21,7 @@ import * as React from 'react';
 import { cn, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@object-ui/components';
 import { SchemaRenderer } from '@object-ui/react';
 import { useObjectTranslation, useSafeTranslate } from '@object-ui/i18n';
-import { AlertCircle, ArrowRight, Copy, Check, RefreshCw, CornerDownLeft, Bot, Eye, GitCompareArrows, Rocket, Clock3, CheckCircle2, XCircle, Loader2, ShieldCheck, TriangleAlert, ClipboardList, HelpCircle, Table2, WifiOff, Sparkles, Hourglass } from 'lucide-react';
+import { AlertCircle, ArrowRight, Copy, Check, RefreshCw, CornerDownLeft, Bot, Eye, GitCompareArrows, Rocket, Clock3, CheckCircle2, ChevronDown, XCircle, Loader2, ShieldCheck, TriangleAlert, ClipboardList, HelpCircle, Table2, WifiOff, Sparkles, Hourglass } from 'lucide-react';
 import type { ChatStatus } from 'ai';
 import {
   humanizeToolName,
@@ -82,7 +82,14 @@ import {
   SourcesContent,
   Source,
 } from './elements/sources';
-import { parseResultEnvelope, detectAuthoringVerdict, type DraftReview } from './mapMessages';
+import {
+  parseResultEnvelope,
+  detectAuthoringVerdict,
+  detectBuiltAppPackage,
+  buildProgressFromDraftReview,
+  type DraftReview,
+  type ProposedPlan,
+} from './mapMessages';
 
 /**
  * One chat message as `<ChatbotEnhanced>` RENDERS it — the runtime contract of
@@ -313,16 +320,12 @@ export interface ChatbotEnhancedToolInvocation {
    * objects the build will create, the agent's assumptions, and any
    * structure-deciding questions — and the user can approve or adjust before
    * `apply_blueprint` runs. Nothing is created yet; this is the confirm gate.
+   *
+   * The shape is `mapMessages.ts`'s `ProposedPlan`, referenced rather than
+   * repeated, for the reason `draftReview` above gives (objectui#12724 added
+   * the field, view and app-label rows to it).
    */
-  proposedPlan?: {
-    summary?: string;
-    objects: Array<{ name: string; label?: string; fieldCount: number }>;
-    counts: { objects: number; views: number; dashboards: number; seedData: number };
-    questions: string[];
-    questionChoices?: Array<{ text: string; options: string[] }>;
-    assumptions: string[];
-    targetApp?: string;
-  };
+  proposedPlan?: ProposedPlan;
   /** Granular metadata-change preview (confirm-before-change). Set only
    *  when a mutating tool returned status:'changes_proposed' — i.e. it was
    *  NOT yet approved this turn, so nothing changed. Rendered as a 确认修改 card. */
@@ -388,6 +391,11 @@ export interface ChatbotLabels {
   clear?: string;
   /** Trailing hint next to the send button (e.g. "to send"). */
   sendHint?: string;
+  /**
+   * objectui#12724 — the newline half of the composer's key hint, after
+   * "Shift+↵" («↵ 发送 · Shift+↵ 换行»). Omitted, the hint names sending only.
+   */
+  newlineHint?: string;
   /** Compact agent activity heading shown in summary mode. */
   agentActivity?: string;
   /** Status label for completed tool work. */
@@ -1609,6 +1617,10 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
     // standalone hosts) each call returns the English fallback passed beside
     // it, so nothing below can render a raw key.
     const tt = useSafeTranslate();
+    // objectui#12724 — the plan card's section heads and its 等待确认 chip.
+    const planAwaitingLabel = tt('chatbot.plan.awaitingConfirm', 'Awaiting confirmation');
+    const planObjectsLabel = tt('chatbot.plan.objectsAndFields', 'Objects and fields');
+    const planViewsLabel = tt('chatbot.plan.views', 'Views');
 
     // Resolve localizable strings once. Precedence is host `labels` prop ->
     // locale pack -> the English default this component always shipped, so a
@@ -1622,6 +1634,7 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
           'Ask anything — the assistant has access to your current app context.',
         clear: labels?.clear ?? 'Clear',
         sendHint: labels?.sendHint ?? 'to send',
+        newlineHint: labels?.newlineHint,
         agentActivity: labels?.agentActivity ?? tt('chatbot.toolState.agentActivity', 'Agent activity'),
         toolCompleted: labels?.toolCompleted ?? tt('chatbot.toolState.completed', 'Completed'),
         toolRunning: labels?.toolRunning ?? tt('chatbot.toolState.running', 'Running'),
@@ -2639,7 +2652,12 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                     (make the data yours, refine, automate, publish) so a finished
                     build isn't a dead end. Backend supplies these as
                     `nextSteps` on the apply_blueprint result; lifecycle-neutral. */}
-                {tool.draftReview.nextSteps && tool.draftReview.nextSteps.length > 0 ? (
+                {/* objectui#12724 — a whole-app build says its next steps on
+                    the finished build card instead (「接下来可以说」), so
+                    only an incremental edit keeps the list here. */}
+                {tool.draftReview.nextSteps &&
+                tool.draftReview.nextSteps.length > 0 &&
+                !buildProgressFromDraftReview(tool.draftReview) ? (
                   <div
                     className="flex flex-col gap-1 border-t bg-muted/20 px-3 py-2"
                     data-testid="draft-next-steps"
@@ -2734,10 +2752,38 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                 className="flex flex-col gap-2 border-t bg-muted/20 px-3 py-2.5"
                 data-testid="proposed-plan"
               >
-                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground/80">
-                  <ClipboardList className="size-3.5" />
-                  {planTitleLabel}
-                </span>
+                {/* objectui#12724 — the header names the app the plan builds
+                    (`blueprint.app.label`) and, until the user decides, says
+                    the plan waits for them. */}
+                <div className="flex items-center gap-2">
+                  <span
+                    className="inline-flex min-w-0 items-center gap-1.5 text-xs font-medium text-foreground/80"
+                    data-testid="proposed-plan-title"
+                  >
+                    <ClipboardList className="size-3.5 shrink-0" />
+                    <span className="truncate">
+                      {tool.proposedPlan.appLabel
+                        ? `${planTitleLabel} · ${tool.proposedPlan.appLabel}`
+                        : planTitleLabel}
+                    </span>
+                  </span>
+                  {onSendMessage &&
+                  !builtPlanIds.has(tool.toolCallId) &&
+                  !approvedPlanIds.has(tool.toolCallId) ? (
+                    <span
+                      className="ml-auto inline-flex h-5 shrink-0 items-center rounded-md bg-amber-50 px-1.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950/30 dark:text-amber-300"
+                      data-testid="proposed-plan-awaiting"
+                    >
+                      {planAwaitingLabel}
+                    </span>
+                  ) : null}
+                </div>
+                {(() => {
+                  const bits = countBitsOf(tool.proposedPlan!.counts);
+                  return bits.length ? (
+                    <span className="text-[11px] text-muted-foreground" data-testid="proposed-plan-counts">{bits.join(' · ')}</span>
+                  ) : null;
+                })()}
                 {tool.proposedPlan.targetApp ? (
                   <span
                     className="inline-flex w-fit items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-300"
@@ -2750,8 +2796,46 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                 {tool.proposedPlan.summary ? (
                   <p className="text-xs text-muted-foreground">{tool.proposedPlan.summary}</p>
                 ) : null}
-                {tool.proposedPlan.objects.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5">
+                {tool.proposedPlan.objects.some((o) => o.fields) ? (
+                  // objectui#12724 — one row per object with a chip per
+                  // declared field (`blueprint.objects[].fields`).
+                  <div className="flex flex-col" data-testid="proposed-plan-objects">
+                    <span className="text-[11px] font-medium text-foreground/70">
+                      {planObjectsLabel}
+                    </span>
+                    {tool.proposedPlan.objects.map((o) => (
+                      <div
+                        key={o.name}
+                        className="flex items-start gap-2 border-t border-border/60 py-1.5 first-of-type:border-t-0"
+                        data-testid={`proposed-plan-object-${o.name}`}
+                      >
+                        <span
+                          className="w-20 shrink-0 truncate pt-0.5 text-xs font-medium text-foreground"
+                          title={o.name}
+                        >
+                          {o.label || o.name}
+                        </span>
+                        <div className="flex min-w-0 flex-wrap gap-1">
+                          {o.fields ? (
+                            o.fields.map((f) => (
+                              <span
+                                key={f.name}
+                                className="inline-flex h-5 items-center rounded-md bg-muted px-1.5 text-[11px] text-foreground/80"
+                                title={f.name}
+                                data-testid="proposed-plan-field"
+                              >
+                                {f.label || f.name}
+                              </span>
+                            ))
+                          ) : o.fieldCount > 0 ? (
+                            <span className="pt-0.5 text-[11px] text-foreground/40">· {o.fieldCount}</span>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : tool.proposedPlan.objects.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5" data-testid="proposed-plan-object-chips">
                     {tool.proposedPlan.objects.map((o) => (
                       <span
                         key={o.name}
@@ -2767,12 +2851,25 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                     ))}
                   </div>
                 ) : null}
-                {(() => {
-                  const bits = countBitsOf(tool.proposedPlan!.counts);
-                  return bits.length ? (
-                    <span className="text-[11px] text-muted-foreground">{bits.join(' · ')}</span>
-                  ) : null;
-                })()}
+                {tool.proposedPlan.views && tool.proposedPlan.views.length > 0 ? (
+                  // objectui#12724 — the views the build creates (`blueprint.views`).
+                  <div className="flex flex-col gap-0.5" data-testid="proposed-plan-views">
+                    <span className="text-[11px] font-medium text-foreground/70">
+                      {planViewsLabel}
+                    </span>
+                    {tool.proposedPlan.views.map((v) => (
+                      <div
+                        key={v.name}
+                        className="flex items-start gap-1.5 text-[11px] text-foreground/80"
+                        title={v.name}
+                        data-testid="proposed-plan-view"
+                      >
+                        <span className="mt-px shrink-0 text-foreground/40">·</span>
+                        <span>{v.label || v.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
                 {/* Assumptions split into ordinary design notes vs. business
                     rules the build is explicitly DEFERRING ("待补 / Not yet
                     built"). The deferred set gets its own labelled, tinted
@@ -2918,6 +3015,13 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                     >
                       {planAdjustLabel}
                     </button>
+                    {/* objectui#12724 — the reply door beside the buttons. */}
+                    <span
+                      className="text-[11px] text-muted-foreground"
+                      data-testid="proposed-plan-reply-hint"
+                    >
+                      {planApproveHintLabel}
+                    </span>
                   </div>
                   )
                 ) : (
@@ -3328,6 +3432,33 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                 // nothing the row above it does not, and a reloaded multi-step
                 // build printed it under every step. The note stays for a
                 // placeholder turn with nothing else on screen (#772).
+                // objectui#12724 — the whole-app build's draft tool (its
+                // envelope names the package and the `nextSteps`), and whether
+                // the build is live: the envelope itself says `published` (an
+                // auto-publish environment), or this chat published the draft.
+                const builtAppDraft = tools.find(
+                  (tool) =>
+                    tool.draftReview?.packageId &&
+                    tool.draftReview.kind !== 'edit' &&
+                    tool.draftReview.items?.some((i) => i.type === 'app'),
+                );
+                // An auto-publish environment's envelope says `published` and
+                // lifts no draft review, so its package is read off the
+                // envelope itself (the reader the page's binding uses).
+                const publishedBuild = tools.find(
+                  (tool) =>
+                    parseResultEnvelope(tool.result)?.status === 'published' &&
+                    Boolean(detectBuiltAppPackage(tool.result)),
+                );
+                const builtPackageId =
+                  builtAppDraft?.draftReview?.packageId ??
+                  (publishedBuild ? detectBuiltAppPackage(publishedBuild.result) : undefined);
+                const buildIsLive =
+                  publishedBuild !== undefined ||
+                  (builtAppDraft !== undefined &&
+                    (builtPackageId !== undefined && pendingByPackage.has(builtPackageId)
+                      ? pendingByPackage.get(builtPackageId) === 0
+                      : publishedToolCalls.has(builtAppDraft.toolCallId)));
                 const showsActivity =
                   summaryTools.length > 0 ||
                   detailedTools.length > 0 ||
@@ -3359,6 +3490,18 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                         )}
                       >
                     <MessageContent>
+                      {/* objectui#12724 — the phase line leads the turn, above
+                          the design / build panel it summarizes. */}
+                      {!isUser && processVisibility === 'summary' && summaryTools.length > 0 ? (
+                        <ToolPhaseSummary
+                          phaseKey={message.id}
+                          streaming={Boolean(message.streaming)}
+                          phaseTools={tools}
+                          summaryTools={summaryTools}
+                          translateToolTitle={tt}
+                          labels={L}
+                        />
+                      ) : null}
                       {blueprintProgress ? (
                         <BlueprintProgressPanel
                           progress={blueprintProgress}
@@ -3376,12 +3519,9 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                           // envelope — present on reloaded conversations too,
                           // so the Studio CTA / artifact links never depend on
                           // live-canvas runtime state.
-                          appSegment={
-                            message.toolInvocations
-                              ?.map((tool) => tool.draftReview)
-                              .find((dr) => dr?.packageId && dr.items?.some((i) => i.type === 'app'))
-                              ?.packageId
-                          }
+                          appSegment={builtPackageId}
+                          live={buildIsLive}
+                          nextSteps={builtAppDraft?.draftReview?.nextSteps}
                           onOpenBuiltApp={onOpenBuiltApp}
                           openBuiltAppLabel={openBuiltAppLabel}
                           onDesignBuiltApp={onDesignBuiltApp}
@@ -3402,12 +3542,6 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                           <ReasoningTrigger />
                           <ReasoningContent>{reasoning}</ReasoningContent>
                         </Reasoning>
-                      ) : null}
-                      {!isUser && processVisibility === 'summary' && summaryTools.length > 0 ? (
-                        <ToolActivitySummary
-                          groups={summarizeTools(summaryTools, tt)}
-                          labels={L}
-                        />
                       ) : null}
                       {!isUser && detailedTools.length > 0
                         ? detailedTools.map(renderToolDetail)
@@ -3651,6 +3785,16 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                 >
                   <CornerDownLeft className="h-3 w-3" />
                   <span className="opacity-70">{L.sendHint}</span>
+                  {L.newlineHint ? (
+                    <>
+                      <span className="opacity-40">·</span>
+                      <span className="opacity-70">Shift+</span>
+                      <CornerDownLeft className="h-3 w-3" />
+                      <span className="opacity-70" data-testid="composer-newline-hint">
+                        {L.newlineHint}
+                      </span>
+                    </>
+                  ) : null}
                 </span>
               </PromptInputTools>
               <PromptInputSubmit
@@ -4288,6 +4432,8 @@ function BuildProgressPanel({
   getArtifactAction,
   onPreviewDraftApp,
   previewDraftLabel = 'Preview',
+  live = false,
+  nextSteps,
   waitingLabel = 'Waiting for server…',
   stalledLabel = 'Still working…',
   offlineLabel = 'Connection lost — reconnecting…',
@@ -4295,6 +4441,14 @@ function BuildProgressPanel({
   progress: ChatBuildProgress;
   /** The build's owning package id (from its draft envelope), for deep links. */
   appSegment?: string;
+  /**
+   * objectui#12724 — the build is published (its envelope says so, or this
+   * chat's publish signal does), so the finished card says 「已搭建并上线」.
+   * Without that signal it keeps saying only that the app was built.
+   */
+  live?: boolean;
+  /** objectui#12724 — the build envelope's `nextSteps`, for the 「接下来可以说」 line. */
+  nextSteps?: string[];
   onOpenBuiltApp?: (appName: string) => void;
   openBuiltAppLabel?: string;
   onDesignBuiltApp?: (appName: string, appSegment?: string) => void;
@@ -4354,9 +4508,11 @@ function BuildProgressPanel({
         ) : (
           <Loader2 className="size-4 shrink-0 animate-spin text-primary" />
         )}
-        <span>
+        <span data-testid="build-progress-title">
           {isDone
-            ? t('chatbot.build.built', { app: appName, defaultValue: 'Built {{app}}' })
+            ? live
+              ? t('chatbot.build.builtAndLive', { app: appName, defaultValue: 'Built and live · {{app}}' })
+              : t('chatbot.build.built', { app: appName, defaultValue: 'Built {{app}}' })
             : isUnknown
               ? unknownPhase
               : t('chatbot.build.building', { app: appName, defaultValue: 'Building {{app}}…' })}
@@ -4378,12 +4534,15 @@ function BuildProgressPanel({
           </span>
         ) : null}
       </div>
-      <div className="mb-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-        <div
-          className={cn('h-full rounded-full transition-all duration-500', isDone ? 'bg-emerald-500' : 'bg-primary')}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
+      {/* objectui#12724 — a finished build is a result card, not a progress bar. */}
+      {!isDone ? (
+        <div className="mb-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-primary transition-all duration-500"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      ) : null}
       <ul className="space-y-1">
         {orderedTypes.map((type) => {
           const entries = groups.get(type)!;
@@ -4450,36 +4609,37 @@ function BuildProgressPanel({
         </div>
       ) : null}
       {isDone && builtApp && (onDesignBuiltApp || onOpenBuiltApp || onPreviewDraftApp) ? (
-        <div className="mt-3 flex items-center gap-2">
-          {/* ADR-0080 D5 cold-start handoff: Studio is the built app's
-              iteration home, so it takes the PRIMARY slot; "Open app" (the
-              published front-end) demotes to a secondary. Hosts that don't
-              pass onDesignBuiltApp keep the old Open-app-primary layout. */}
-          {onDesignBuiltApp ? (
-            <button
-              type="button"
-              onClick={() => onDesignBuiltApp(builtApp.name, appSegment)}
-              className="inline-flex h-7 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-              data-testid="build-progress-design-app"
-            >
-              {designBuiltAppLabel}
-              <ArrowRight className="size-3.5" />
-            </button>
-          ) : null}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {/* objectui#12724 (the AiBuild artboard, ruled by the maintainer):
+              the finished card's PRIMARY action opens the built app (its
+              first navigation item); Studio is the secondary door. Both are
+              in-app navigations the user chooses — nothing navigates on its
+              own when a build lands. A host without onOpenBuiltApp puts
+              Studio in the primary slot. */}
           {onOpenBuiltApp ? (
             <button
               type="button"
               onClick={() => onOpenBuiltApp(builtApp.name)}
-              className={cn(
-                'inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-xs font-medium',
-                onDesignBuiltApp
-                  ? 'border hover:bg-muted'
-                  : 'bg-primary text-primary-foreground hover:bg-primary/90',
-              )}
+              className="inline-flex h-7 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
               data-testid="build-progress-open-app"
             >
               {openBuiltAppLabel}
               <ArrowRight className="size-3.5" />
+            </button>
+          ) : null}
+          {onDesignBuiltApp ? (
+            <button
+              type="button"
+              onClick={() => onDesignBuiltApp(builtApp.name, appSegment)}
+              className={cn(
+                'inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-xs font-medium',
+                onOpenBuiltApp
+                  ? 'border hover:bg-muted'
+                  : 'bg-primary text-primary-foreground hover:bg-primary/90',
+              )}
+              data-testid="build-progress-design-app"
+            >
+              {designBuiltAppLabel}
             </button>
           ) : null}
           {/* ADR-0037: see the drafted app as-if-published, before Publish. */}
@@ -4494,6 +4654,190 @@ function BuildProgressPanel({
               {previewDraftLabel}
             </button>
           ) : null}
+        </div>
+      ) : null}
+      {isDone && builtApp ? (
+        // objectui#12724 — what to say next (the envelope's `nextSteps`) and
+        // the posture of every later change, under the finished build.
+        <p
+          className="mt-3 border-t pt-2.5 text-xs text-muted-foreground"
+          data-testid="build-result-footer"
+        >
+          {nextSteps && nextSteps.length > 0 ? (
+            <span data-testid="build-result-next-steps">
+              {t('chatbot.build.nextStepsLead', {
+                steps: nextSteps
+                  .map((step) => t('chatbot.build.nextStepQuote', { step, defaultValue: '“{{step}}”' }))
+                  .join(' '),
+                defaultValue: 'Next, you can say: {{steps}}',
+              })}{' '}
+            </span>
+          ) : null}
+          <span data-testid="build-result-posture">
+            {t('chatbot.build.draftPosture', {
+              defaultValue: 'Later changes are saved as drafts, and you publish them in Studio.',
+            })}
+          </span>
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * objectui#12724 — one step of a phase's collapsed line: a tool, folded over
+ * every call of it in the turn, in the order the turn first called it.
+ */
+interface ToolPhaseStep {
+  title: string;
+  count: number;
+}
+
+/** Fold a turn's tool calls into one step per tool, in first-call order. */
+function foldToolPhaseSteps(
+  tools: ChatbotEnhancedToolInvocation[],
+  translateToolTitle?: ToolTitleTranslator,
+): ToolPhaseStep[] {
+  const steps = new Map<string, ToolPhaseStep>();
+  for (const tool of tools) {
+    const step = steps.get(tool.toolName);
+    if (step) step.count += 1;
+    else
+      steps.set(tool.toolName, {
+        title: humanizeToolName(tool.toolName, translateToolTitle) || tool.toolName,
+        count: 1,
+      });
+  }
+  return [...steps.values()];
+}
+
+/**
+ * Wall-clock span of each phase, keyed by its message id. Measured here, while
+ * the turn streams, because no producer persists a duration: a turn reopened
+ * from history has no entry, and its line simply omits the time. Module-scoped
+ * so a pane remount mid-turn keeps the clock it started.
+ */
+const phaseClock = new Map<string, { start: number; end?: number }>();
+
+function usePhaseElapsed(key: string, running: boolean): number | undefined {
+  // The clock is read in effects only (render stays pure); `now` is the last
+  // reading, refreshed once a second while the phase runs.
+  const [now, setNow] = React.useState<number | undefined>(undefined);
+  React.useEffect(() => {
+    if (!running) {
+      const entry = phaseClock.get(key);
+      if (entry && entry.end === undefined) entry.end = Date.now();
+      setNow(Date.now());
+      return undefined;
+    }
+    const entry = phaseClock.get(key);
+    if (!entry) phaseClock.set(key, { start: Date.now() });
+    else entry.end = undefined;
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [key, running]);
+  const entry = phaseClock.get(key);
+  if (!entry || now === undefined) return undefined;
+  return Math.max(0, Math.floor(((entry.end ?? now) - entry.start) / 1000));
+}
+
+/**
+ * objectui#12724 — a turn's tool activity as ONE collapsed line per phase
+ * (「设计方案 · 4 步 · 0:48 · 读取编写规范 · 列出对象 ×3 …」), with a chevron
+ * that expands the per-tool rows (`ToolActivitySummary`). Repeated calls of a
+ * tool fold into one step with a count. The phase is named for the build tool
+ * the turn called (`propose_blueprint` designs the plan, `apply_blueprint`
+ * builds); any other turn's line opens on its step count. The rows open on their
+ * own while a step runs, waits or failed, so a live timer or an error is never
+ * hidden behind the chevron; the user's own toggle wins after that.
+ */
+function ToolPhaseSummary({
+  phaseKey,
+  streaming,
+  phaseTools,
+  summaryTools,
+  translateToolTitle,
+  labels,
+}: {
+  phaseKey: string;
+  streaming: boolean;
+  /** Every tool the turn called — the phase's name, steps and state. */
+  phaseTools: ChatbotEnhancedToolInvocation[];
+  /** The tools the summary strip shows — the expanded rows. */
+  summaryTools: ChatbotEnhancedToolInvocation[];
+  translateToolTitle?: ToolTitleTranslator;
+  labels: ToolActivitySummaryLabels;
+}) {
+  const { t } = useObjectTranslation();
+  // The line's steps speak for the whole turn — every tool it called,
+  // including the ones that render their own card below (the plan, a draft, an
+  // approval) — while its state and the expanded rows are the summary strip's:
+  // a step that waits on the user already says so on its own card (the plan's
+  // 等待确认), so it does not hold the line open. A turn whose every tool has
+  // its own card draws no line (the host gates on the summary strip), so a lone
+  // card is never named twice.
+  const groups = summarizeTools(summaryTools, translateToolTitle);
+  const steps = foldToolPhaseSteps(phaseTools, translateToolTitle);
+  const has = (state: ToolSummaryState) => groups.some((g) => g.state === state);
+  const lineState: ToolSummaryState = has('failed')
+    ? 'failed'
+    : has('awaiting')
+      ? 'awaiting'
+      : has('running')
+        ? 'running'
+        : 'completed';
+  const [toggled, setToggled] = React.useState<boolean | null>(null);
+  const expanded = toggled ?? lineState !== 'completed';
+  const elapsed = usePhaseElapsed(phaseKey, streaming || lineState === 'running');
+  const names = phaseTools.map((tool) => tool.toolName);
+  const phaseLabel = names.includes('apply_blueprint')
+    ? t('chatbot.phase.build', { defaultValue: 'Build' })
+    : names.includes('propose_blueprint')
+      ? t('chatbot.phase.design', { defaultValue: 'Design the plan' })
+      : undefined;
+  const headline = [
+    ...(phaseLabel ? [phaseLabel] : []),
+    t('chatbot.phase.stepCount', { count: steps.length, defaultValue: '{{count}} steps' }),
+    ...(elapsed !== undefined ? [formatElapsed(elapsed)] : []),
+  ].join(' · ');
+  const stepText = steps
+    .map((step) => (step.count > 1 ? `${step.title} ×${step.count}` : step.title))
+    .join(' · ');
+  return (
+    <div className="not-prose mb-2" data-testid="tool-phase">
+      <div
+        className="flex min-h-6 min-w-0 items-center gap-2 text-xs text-muted-foreground"
+        data-testid="tool-phase-line"
+      >
+        <ToolSummaryIcon state={lineState} />
+        {!expanded ? <span className="sr-only">{getToolSummaryStatus(lineState, labels)}</span> : null}
+        <span className="shrink-0 font-medium text-foreground" data-testid="tool-phase-headline">
+          {headline}
+        </span>
+        <span className="min-w-0 truncate" title={stepText} data-testid="tool-phase-steps">
+          {stepText}
+        </span>
+        {groups.length > 0 ? (
+        <button
+          type="button"
+          onClick={() => setToggled(!expanded)}
+          aria-expanded={expanded}
+          aria-label={
+            expanded
+              ? t('chatbot.phase.collapse', { defaultValue: 'Hide steps' })
+              : t('chatbot.phase.expand', { defaultValue: 'Show steps' })
+          }
+          className="ml-auto inline-flex size-5 shrink-0 items-center justify-center rounded-md hover:bg-muted hover:text-foreground"
+          data-testid="tool-phase-toggle"
+        >
+          <ChevronDown className={cn('size-3.5 transition-transform', expanded && 'rotate-180')} />
+        </button>
+        ) : null}
+      </div>
+      {expanded && groups.length > 0 ? (
+        <div className="mt-1" data-testid="tool-phase-steps-expanded">
+          <ToolActivitySummary groups={groups} labels={labels} />
         </div>
       ) : null}
     </div>

@@ -403,6 +403,10 @@ describe("a card on a kanban leaf's canvas selects the board's card (objectui#12
     await openBoardLeaf();
     const ada = await card('Ada');
     ada.focus();
+    // The board's own key handlers sit on the card: neither key reaches them.
+    const own = vi.fn();
+    ada.addEventListener('keydown', own);
+    ada.addEventListener('keyup', own);
 
     expect(fireEvent.keyDown(ada, { key: ' ' })).toBe(false);
     expect(outlinedCard()).toBeNull();
@@ -411,6 +415,7 @@ describe("a card on a kanban leaf's canvas selects the board's card (objectui#12
     await waitFor(() => expect(slot()).toHaveAttribute('data-mode', 'props'));
     expect(outlinedCard()).toBe('r2');
     expect(openRecord).not.toHaveBeenCalled();
+    expect(own).not.toHaveBeenCalled();
   });
 
   it('a key on a control drawn inside a card is that control\'s, and selects nothing', async () => {

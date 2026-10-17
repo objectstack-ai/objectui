@@ -1,0 +1,39 @@
+{
+  "number": 12882,
+  "kind": "pull_request",
+  "title": "fix(plugin-kanban,i18n): a kanban card's description names no key the board lacks (objectui#12837)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "examples",
+    "package: i18n",
+    "plugin",
+    "plugin: kanban",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T12:06:17Z",
+  "updated_at": "2026-10-17T12:50:36Z",
+  "closed_at": "2026-10-17T12:50:34Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-17T12:50:34Z",
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12882",
+  "body": "Fixes #12837\nClause-②: yes\n\n## What changed\n\nEvery kanban card's `aria-describedby` pointed at dnd-kit's default English instructions: \"To pick up a draggable item, press the space bar. While dragging, use the arrow keys …\". The board builds only `PointerSensor` and `TouchSensor`, so Space moves nothing, and the text stayed English under every locale.\n\n- `packages/plugin-kanban/src/KanbanImpl.tsx`: the board's existing `dndAccessibility` memo now passes `screenReaderInstructions: { draggable: t('kanban.dnd.instructions') }` beside the objectui#12716 `announcements`. The key is added to `useKanbanT`'s inline defaults, the same way as the other `kanban.dnd.*` keys. The sensors, the announcements, drag-and-drop behaviour, every `data-testid` and the lane and swimlane `aria-label`s are unchanged.\n- `packages/i18n/src/locales/*.ts`: one new key, `kanban.dnd.instructions`, in all ten packs.\n- `packages/plugin-kanban/README.md`: the \"Accessible\" line now matches what ships.\n- One changeset, patch for `@object-ui/plugin-kanban` and `@object-ui/i18n`.\n\n## The sentence\n\n- en: \"To move this card to another column, drag it with a pointer or by touch.\"\n- zh: \"如需将此卡片移到其他列，请用鼠标或触控拖动它。\"\n\nIt names no key because no key moves a card. Keyboard drag (a `KeyboardSensor` with cross-lane coordinates) is a new capability that the triage grade holds for the maintainer, and this PR does not build it.\n\n## Does any keyboard route change a card's column today?\n\nNo, measured on the showcase task board. A focused card does nothing on Enter or Space. Only a pointer click opens the card's record (the URL moves to the record page). The board has no other control that moves a card. So the sentence names no keyboard route.\n\n## Space and Enter on a focused card (zh-CN, showcase task board, card \"Evidence collection\")\n\n| | `main` `64acb7e` | this branch `4057737` |\n|---|---|---|\n| description | \"To pick up a draggable item, press the space bar. While dragging, use the arrow keys to move the item. Press space again …\" | \"如需将此卡片移到其他列，请用鼠标或触控拖动它。\" |\n| Space | nothing: live region empty, no `aria-pressed`, focus stays | nothing (same) |\n| Enter | nothing: URL unchanged, no dialog | nothing (same) |\n\nA card's role is `listitem`: the board writes it after spreading dnd-kit's attributes. dnd-kit therefore never sets `aria-pressed` on a card. Enter and Space doing nothing on a focused card is reported separately and not changed here.\n\n## README line\n\n- Before: \"Accessible: Built on @dnd-kit with keyboard navigation support\"\n- After: \"Accessible: Drag announcements and each card's description read in the viewer's language (objectui#12716, objectui#12837). Cards move by pointer or touch drag; there is no keyboard drag.\"\n\n## Deviations\n\nNone in the file surface. One changeset file covers both packages.\n\n## Screenshots (light, zh-CN; the caption is a test-page overlay showing the focused card's accessible description, not part of the product)\n\n- Before (`main`): https://github.com/objectstack-ai/objectui/blob/e5029552b5e00adb5635a86ffb32be74c4d87225/docs/design/findings/12837/main-before-zh-light.png?raw=true\n- After (this branch): https://github.com/objectstack-ai/objectui/blob/e5029552b5e00adb5635a86ffb32be74c4d87225/docs/design/findings/12837/branch-after-zh-light.png?raw=true\n\nThe screenshots live on the evidence branch `claude/issue-12837-evidence` and are never merged.\n\n## Tests (head `4057737`)\n\n`packages/plugin-kanban/src/__tests__/dndInstructions-12837.test.tsx` uses the real board and the real `DndContext`. It wraps only `useSensor`, to record the sensors.\n\n- Under en and under zh, the card's `aria-describedby` target equals the bundle sentence and contains none of space, Space, 空格, arrow or 方向键.\n- CONTROL: the board builds `PointerSensor` and `TouchSensor` and no `KeyboardSensor`.\n- CONTROL: Space on a focused card leaves the live region unchanged and reports no `aria-pressed=true`.\n- The objectui#12716 pins (`dndAnnouncements-12716.test.tsx`) pass unchanged.\n\nAblations ran through `ablation-replace.mjs`. Each anchor hit once, and each restore was verified with `git diff HEAD` empty.\n\n| ablation | result |\n|---|---|\n| delete the `screenReaderInstructions` line | 2 red (en, zh), each reading dnd-kit's \"To pick up a draggable item …\" |\n| import `KeyboardSensor` in place of `TouchSensor` | 2 red: both CONTROLs (with a keyboard sensor, Space starts a drag) |\n\nLocal gates on `4057737`:\n\n- `pnpm exec vitest run --maxWorkers=2 packages/plugin-kanban/`: exit 0, 74 files, 500 tests passed.\n- `type-check`, `lint` (normal mode, 0 errors, no new warning) and `build` for `@object-ui/plugin-kanban` and `@object-ui/i18n`: all exit 0.\n- `pnpm check:i18n-keys`, `pnpm check:i18n-drift`, `pnpm check:i18n-dead-keys`, `node scripts/check-changeset-presence.mjs` and `pnpm check:new-line-citations`: all exit 0.\n\nSession: `https://claude.ai/code/session_01WT5P73Bw57v6j8kro7afTn`\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WT5P73Bw57v6j8kro7afTn\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01WT5P73Bw57v6j8kro7afTn)_"
+}

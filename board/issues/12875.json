@@ -1,0 +1,34 @@
+{
+  "number": 12875,
+  "kind": "pull_request",
+  "title": "fix(app-shell): one neutral sentence for a refused activity read on Home and the bell",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T09:35:04Z",
+  "updated_at": "2026-10-17T10:03:27Z",
+  "closed_at": "2026-10-17T10:03:25Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-17T10:03:25Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12875",
+  "body": "Fixes #12859\nClause-②: no.\n\n## What changed\n\nA refused `sys_activity` read (the shared feed's `refused: true`, set by `isRefusedFeedRead` since objectui#12843) now shows one neutral sentence on both surfaces that have no record:\n\n- **Home's activity card** (`HomeActivity` in `console/home/HomeRail.tsx`) read the record panel's `detail.activityAccessDenied` (\"You don't have permission to view activity on this record.\"). It now reads the new `layout.activityFeed.accessDenied` (\"You don't have permission to view activity.\").\n- **The header bell's Activity tab** (`InboxPopover`) drew `errors.unknown` (\"An unexpected error occurred.\") for every error, the 403 included. For `refused === true` it now draws the same new key with Home's lock icon (`data-testid=\"inbox-activity-access-denied\"`). Every other failure keeps `errors.unknown` on both surfaces.\n- The new key is in all ten `packages/i18n` packs, right after `layout.activityFeed.empty`, away from the `workspace.*` / `organizations.*` / `cloudOnboarding.*` regions. `detail.activityAccessDenied` is unchanged and stays the record panel's.\n- `isRefusedFeedRead` stays the one classifier. The feed hook (`sharedUserFeeds.ts`) is not touched.\n\nMechanism check (A1, measured): the bell reads the same shared reading. `AppHeader` passes `useSharedActivityFeed()` as `activity`, and so does `global:notifications` (`global-notifications-renderer.tsx`). `ActivityFeedReading.refused` was already on the prop, so the bell only had to read it.\n\n## Pins\n\n- `layout/__tests__/InboxPopover.refusedActivity-12859.test.tsx` (new): real `InboxPopover`, real `HomeActivity` and the real record panel, under the real catalogue in `en` and `zh-CN`. Refused: the bell shows the neutral sentence with a lock; Home shows the same text; the record panel beside them shows a different sentence. CONTROL: an error that is not a refusal shows the generic copy on both.\n- `layout/__tests__/AppHeader.inboxVariant.test.tsx`: the real path through the hook. A 403 `PERMISSION_DENIED` from the adapter used to be pinned as \"An unexpected error occurred.\" on the bell. It now reads the neutral sentence. A new CONTROL: a 500 keeps the generic copy and no access-denied node.\n- `console/home/__tests__/HomeActivity.refusedRead-12843.test.tsx`: a 403 on Home now reads the neutral sentence, not \"this record\". CONTROL: the record panel rendered beside it still reads \"You don't have permission to view activity on this record.\". The key-echo cell now expects `layout.activityFeed.accessDenied`.\n\n**Ablation (one run, committed fix at `17388be9be`):** `scripts/ablation-replace.mjs` replaced the bell's `activity.status === 'error' && activity.refused ? (` with `... && false ? (`. Anchor count went 1 to 0, blob `a14325a16be7` to `cd3ff0cb99f0`. Result: 5 cells failed, 39 passed. The failures were the AppHeader 403 cell and the two refused cells in each language. All CONTROL cells stayed green. Restore: blob after restore `a14325a16be7` equals the HEAD blob, and `git diff HEAD` is empty. A trap was armed on EXIT INT TERM.\n\n## Gates (all on `17388be9be`)\n\n- Type-check: closure build `pnpm --workspace-concurrency=2 --filter '@object-ui/app-shell^...' build`, then `pnpm --filter @object-ui/i18n type-check` and `pnpm --filter @object-ui/app-shell type-check` (both `tsc --noEmit` and `tsc -p tsconfig.test.json`; `--listFilesOnly` lists the new test). Lock verdict: command-exit 0.\n- vitest: the three test files, 49/49. `packages/i18n/` in full, 83 files: 1325 passed, 13 skipped.\n- **`packages/app-shell/` in full: NOT MEASURED.** The tree has 1540 test files. At `--maxWorkers=1` the run produced no verdict in about 70 minutes, so I stopped it. Declared narrowing (lock verdict command-exit 0), 217 files and 1887 tests passed: `packages/app-shell/src/layout/`, `src/console/home/`, `src/hooks/__tests__/`, `src/__tests__/` (it holds the i18n and product-neutral ratchets), `RecordDetailView.feedRefusal-11195`, `AppContent.pseudoRouteSegments`, `global-page-blocks.render`, and `apps/console` `approvalsInboxComponentRef`. These are every test outside the first two directories that names `InboxPopover`, `HomeRail` or `HomeActivity` in a `git grep`. The rest of the package is left to CI.\n- Lint, narrowed: `eslint --no-inline-config --format json` on the 15 changed `.ts`/`.tsx` files gave 15 files, 0 errors and 15 warnings. Every warning is on a line this diff did not touch (`no-explicit-any` and `no-unused-vars` in the AppHeader test stubs, plus one in HomeRail). The config sets no `parserOptions.project` or `projectService`, so linting is not type-aware and this diff cannot change the verdict on any file it did not touch.\n- Battery, all exit 0: `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `i18n-dead-keys`, `control-bytes`, plus `node scripts/check-hand-rolled-comment-mask.mjs`, `node scripts/check-changeset-fixed.mjs` and `node scripts/check-changeset-presence.mjs`.\n\nChangeset: `.changeset/12859-activity-refused-copy.md` (`@object-ui/app-shell` and `@object-ui/i18n`, patch).\n\n## Acceptance notes\n\n- The file surface named `HomeRail.tsx`, `InboxPopover.tsx`, the packs and \"tests beside\". Two existing test files changed with it: `AppHeader.inboxVariant.test.tsx`, because it pinned the old generic copy for the bell's 403 and that pin had to flip, and `HomeActivity.refusedRead-12843.test.tsx`, because it pinned Home equal to the record sentence.\n\nImplemented by the os-dev run in session `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_"
+}

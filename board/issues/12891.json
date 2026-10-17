@@ -1,0 +1,28 @@
+{
+  "number": 12891,
+  "kind": "issue",
+  "title": "Console top bar: the green 已连接 chip appears for 2 s on load and vanishes, and nothing says what connected — the 2026-10-16 control-plane walk read it as a flash (persistent with a tooltip, or removed?)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T14:18:25Z",
+  "updated_at": "2026-10-17T14:18:25Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12891",
+  "body": "Filing gate ①: a measured behaviour with a named site, reported by a walk as a defect; whether it is one is triage's (and, if it is a product choice, the maintainer's). Filed by `repo:cloud` seat 2 (seat post objectstack-ai/objectstack#24145, session `session_01Cbdek8SKSHxddGqTPZXdqX`) from the cloud#2915 dev's measured split (its report on objectstack-ai/cloud#2915; cloud PR objectstack-ai/cloud#2972 fixes cloud's half and adds no override for these). ⛔ Not a claim; no assignee. Grading is triage's.\n\n**Reader who acts:** triage first (grade, or route to the decision box); then the lane that owns `packages/app-shell/src/layout/`. **Pull:** objectstack-ai/cloud#2915 item 4 / Target 4 (the maintainer's 2026-10-16 walk): \"the top bar shows a green 已连接 chip for a moment after load, then it disappears; nothing says what connected\" → \"the connection chip is either persistent (with a tooltip saying what it means) or removed; a chip that appears and vanishes is a flash.\"\n\n**Dedupe:** REST enumeration of this repository's issues updated since 2026-08-15 (735 issues, open and closed; control objectui#12294 found), grepped for `data-list.tsx`, `repeater … Loading`, `elements.tsx:6xx`, `element:number … loading`, `UserFilters`, `raw field name`, `ConnectionStatus`, `已连接`. The nearest hits: objectui#11880 (page elements bind through node-level `dataSource`), #12345 (the repeater's retired flat spec), #12784 (the date-range chip's hard-coded From / To), #12295 (the chip never shows a mid-session outage) and the open parent #12308. None names this. ⚠️ objectui#12295's reproduction calls the 2000 ms auto-hide \"correct\" (its subject was the missing outage state, not the flash), so this card may be asking to change a deliberate behaviour; it is filed for triage to weigh, not as a settled defect.\n\n## What happens (read at `ef71a09f9e5f`)\n\n`packages/app-shell/src/layout/ConnectionStatus.tsx:35-46` sets `showConnected` for 2000 ms on the transition to `connected`, then returns `null`; it is mounted at `packages/app-shell/src/layout/AppHeader.tsx:735` from the data adapter's connection state (`console/AppContent.tsx:591-595`); the zh string is `connected: '已连接'` (`packages/i18n/src/locales/zh.ts:2682`). Cloud configures nothing here (no connection-status setting in cloud's `packages/` or `apps/`).\n\n## Options the walk named\n\nPersistent with a tooltip saying what it means, or removed on a successful connect (keeping only the reconnecting / error states objectui#12295 asked for).\n\nDedupe words: ConnectionStatus connected flash, 已连接 chip, topbar connection auto-hide, connection indicator 2000ms"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 12872,
+  "kind": "pull_request",
+  "title": "fix(studio): the api-name chip gives way before the item title (objectui#12791)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T09:05:06Z",
+  "updated_at": "2026-10-17T09:47:03Z",
+  "closed_at": "2026-10-17T09:47:02Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-17T09:47:02Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12872",
+  "body": "Fixes #12791\nClause-②: no\n\n## What changed\n\nIn Studio's item header the api-name chip was `shrink-0`, so a long machine name kept its whole width and cut the item title to a few characters. Live on main, the draft object \"Service Territory Assignment 105\" (`probe_service_territory_assignment_105`) read \"Servi…\" at 65.94 px in a 560 px row.\n\nTwo tokens in `studio-tokens.ts` change:\n\n- `STUDIO_ITEM_TITLE`: `basis-[200px] max-w-max grow-[1000000]`, keeping `min-w-0 truncate`.\n- `STUDIO_API_CHIP`: `basis-[14ch] max-w-max grow-[1000] shrink-[100000] min-w-[5ch] truncate`, now a block element.\n\n`StudioItemHeader` wraps the chip in the status chip's tooltip mechanism from objectui#12631: a focusable trigger, with the full name as the tooltip text. The chip's own text stays the whole name. The chip keeps its place (objectui#11665, objectui#7254), the `chips` slot is untouched, and so are the tab row, the meta and status folds and their thresholds, every other token and every existing test id.\n\n## Give-way order\n\nThe title and the chip share the row in steps:\n\n1. The title gets 200 px, or its whole label if shorter.\n2. The chip gets 14 characters, or its whole name if shorter.\n3. The title grows to its whole label.\n4. The chip grows to its whole name.\n5. The meta gets whatever is left.\n\nWhen the row narrows, the meta folds and the status text folds at their existing thresholds. On a row too narrow even for those minimums, the chip shrinks first, down to 5ch, and only then does the title go below 200 px. The row never overflows. The weights are large so the other item's share stays far below a pixel.\n\nThe 14-character step reconciles two pins. One is \"chip before title\". The other is the card's CONTROL that a short api name stays whole at 560 px: with the card's long title, a strict order cut `account` to one letter.\n\n## Measured widths (title / api chip)\n\nLive: HotCRM under `objectstack dev --fresh`, console from this branch.\n\n| row | main | this branch |\n|---|---|---|\n| 560 px | 65.94 / 260.16 whole | 233.66 / 92.44 cut |\n| 736 px (1024 px viewport) | 261.94 cut / 260.16 whole | 284.41 whole / 237.55 cut |\n| 360 px | 0 / 260.16, row overflows by 28 px | 187 / 33, no overflow |\n\nGeometry spec (Chromium, fixture fonts):\n\n- 560 px row, 30-character name: main 53.73, this branch 200.\n- 736 px row: main 217.73 cut, this branch 284.41 whole.\n- 360 px row: main title 0 with the row 409 px wide (49 px overflow), this branch 131.67 with no overflow.\n\n## Deviations\n\n- The title's floor is a flex basis, not a min-width: a min-width would overflow a 360 px row.\n- The chip keeps 14 characters before a long title grows past 200 px. At a 736 px row with a kind chip, the spec reads the title at 270.63 of 284 px and the chip at 92.48 px.\n- The status chip's text still shows down to a 480 px row (that threshold is unchanged). Between 480 px and the point where the title reaches 200 px, the title can be under 200 px while the status text shows.\n\n## Screenshots (light; evidence branch, not merged)\n\n- [560 px row, main](https://github.com/objectstack-ai/objectui/blob/7034312e3b20af4398f272aa92cf42f343e8eeae/docs/design/findings/12791/main-row560-vp608-light.png?raw=true)\n- [560 px row, this branch](https://github.com/objectstack-ai/objectui/blob/7034312e3b20af4398f272aa92cf42f343e8eeae/docs/design/findings/12791/branch-row560-vp608-light.png?raw=true)\n- [1024 px viewport, main](https://github.com/objectstack-ai/objectui/blob/7034312e3b20af4398f272aa92cf42f343e8eeae/docs/design/findings/12791/main-vp1024-row736-light.png?raw=true)\n- [1024 px viewport, this branch](https://github.com/objectstack-ai/objectui/blob/7034312e3b20af4398f272aa92cf42f343e8eeae/docs/design/findings/12791/branch-vp1024-row736-light.png?raw=true)\n- [360 px row, main](https://github.com/objectstack-ai/objectui/blob/7034312e3b20af4398f272aa92cf42f343e8eeae/docs/design/findings/12791/main-row360-vp408-light.png?raw=true)\n- [360 px row, this branch](https://github.com/objectstack-ai/objectui/blob/7034312e3b20af4398f272aa92cf42f343e8eeae/docs/design/findings/12791/branch-row360-vp408-light.png?raw=true)\n\n## Test evidence (at 0250fa5)\n\n- `e2e/studio-item-header-title-width.spec.ts`, Chromium: 7 passed. It bundles the real `StudioItemHeader` from source and compiles the real theme with Tailwind. Cases: the 560 px floor with the chip cut and its tooltip, short-name and short-title CONTROLs, 736 px and 1024 px CONTROLs, kind chips staying whole, and no overflow at 360 px.\n- `StudioItemHeader.apiChip-12791.test.tsx`: 5 passed (whole name, hover and focus tooltip, DOM order title then api chip then chips).\n- All studio-design tests plus the permission-matrix tests that render the header: 237 files, 1700 tests passed (run at 44d1dc3; the only later commit touches just the e2e spec).\n- On 0250fa5, the three `StudioItemHeader*` files: 18 of 18 passed.\n- Ablations, each restored with `git diff HEAD` empty afterwards:\n  - main's two token values put back: 5 of 7 spec cases red; the two CONTROLs stay green.\n  - tooltip removed: 2 vitest cases red.\n  - chips moved before the api chip: the order case red.\n- Exit 0 for `@object-ui/app-shell` type-check, eslint on the touched files and build, plus `pnpm type-check:e2e`, `pnpm check:i18n-keys`, `pnpm check:i18n-drift`, `node scripts/check-changeset-presence.mjs` and `pnpm check:new-line-citations`.\n\nSession: `https://claude.ai/code/session_01Hi3YhZSf1g3MAVLbmNm952`\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01Hi3YhZSf1g3MAVLbmNm952\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01Hi3YhZSf1g3MAVLbmNm952)_"
+}

@@ -1,0 +1,38 @@
+{
+  "number": 12870,
+  "kind": "issue",
+  "title": "App pages: a `record:related_list` bound through `parentDataSource` draws its rows but no toolbar and no row action — its authored `actions` are spec-legal and silently dropped (PageView's record navigator resolves no related-list handlers)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "finding",
+    "priority:p2"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T09:02:54Z",
+  "updated_at": "2026-10-17T12:23:14Z",
+  "closed_at": "2026-10-17T12:21:54Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12870",
+  "body": "Filing gate ①: a measured gap with a named site, and a declared key the renderer drops without a word. Filed by `repo:cloud` seat 2 (seat post objectstack-ai/objectstack#24145, session `session_01Cbdek8SKSHxddGqTPZXdqX`) on the cloud#2774 dev's fork report (objectstack-ai/cloud#2774 comment 6230709279) and the seat's decision record on that card. ⛔ Not a claim; no assignee. Grading is triage's.\n\n**Pull (real, ruled):** cloud's control plane must rebuild its team (members · invitations) page and its environments page as custom `app` pages under the maintainer's ruling cloud#2839 Q1 = D (objectstack-ai/cloud#2774 comment 6136933325): the four record blocks consume an element-level `dataSource` (objectui#12294, landed `d81e460434`), and the record shell's ⟳ / share / view tabs / star go away with the shell. On the team page the rows must still offer change role / remove / resend / revoke, and on the environments page each card must offer 打开 and the row menu. At the pin cloud consumes (`ef71a09f9e5f`) they cannot.\n\n**Reader who acts:** the lane that owns `plugin-detail` and `app-shell`'s page view (one dev round). The cloud seat holds objectstack-ai/cloud#2912 (`pm:blocked`, `Blocked-by:` this card) until the capability is in cloud's objectui pin.\n\n**Dedupe:** semantic search answered zero on both the query and a control naming objectui#12294, so it was not used. Instead: the seat's REST enumeration of this repository's issues (`state=all`, 2026-10-17T05:27Z) grepped for `related.?list | row action | app page | parentDataSource | quick_actions`, plus `since=2026-10-17T05:00Z`: objectui#12296 (the decision that gave `record:related_list` its `parentDataSource`), #12294 (the binding, landed), #12302 (`objectui validate` and `dataSource` on the list), #12703 (compact posture of a list block in a narrow region, which drops the toolbar by design — a different trigger), #12741 (`showViewAll`), #12772 (declared action icons dropped — icons, not the actions). None names an app page's related list drawing no actions.\n\n## What happens (read at `ef71a09f9e5f` with `git show`; no render — objectui has no install in the cloud seat's container)\n\n1. `packages/app-shell/src/views/PageView.tsx:151,191` publishes `pageRecordActionsValue` for every page; `packages/app-shell/src/views/pageRecordActions.ts:30-33` and `:70`: `resolve: () => NO_RELATED_HANDLERS` — \"A page has no parent record, so it has no related lists to serve\".\n2. `packages/plugin-detail/src/renderers/record-related-list.tsx:265-291` takes its handlers from that resolve; `:497-506` hands the toolbar and row actions down only beside `handlers.onToolbarAction` / `handlers.onRowAction`. With no handler, an authored `actions` list on the block is not drawn, and nothing says so: the notice at `:528-546` covers unresolvable action ids only.\n3. Since objectui#12294, a `record:related_list` on a `type: 'app'` page binds its parent from `properties.parentDataSource` (`packages/plugin-detail/src/renderers/recordBinding.tsx:263-302` `ParentRecordBinding`, `:375-489` `BoundRecordProvider`) and draws the rows — read-only. The record page mounts the related-list handlers (the bridge the shell provides); an app page never does, even when the block has resolved its parent record.\n4. The shape is spec-legal: the cloud seat's rig probe (framework pin `be076dad28a0`, `@objectstack/spec`) parsed an `app` page carrying a `sys_member` list with `parentDataSource` and `actions: ['invite_user']` — `getMetadataTypeSchema('page').safeParse` success, `ComponentPropsMap['record:related_list']` ok; an unknown key is refused (control). So an author or an AI declares an honoured-looking key and the runtime drops it silently — the shape NORTH-STAR's 「声明即强制」 refuses.\n\nThe same gap holds for the other list shapes on an app page: `element:repeater` prints lines with no link and no action (`packages/components/src/renderers/basic/data-list.tsx:133-262`); `list-view`'s row actions are the host-built `rowActionDefs` the spec refuses by name (`packages/plugin-list/src/ListView.tsx:2953-2975`).\n\n## Wanted\n\nOn an app page, a `record:related_list` whose parent is bound through `parentDataSource` gets the record page's related-list handlers — the bridge the record page already mounts, served inside `ParentRecordBinding` or by `pageRecordActionsValue.resolve` for a block that has resolved its parent — so its authored `actions` (toolbar and row) draw and run exactly as on the record page. Until the handlers exist, a block that authors `actions` on an app page should say so at render (the way `:528-546` reports an unresolvable id), never draw nothing.\n\nDone when: a `type: 'app'` page with a `sys_member` list bound by `parentDataSource` to `sys_organization` `{current_org_id}` and `actions` naming the organisation's invite / change-role / remove actions draws the toolbar and the row menu and runs them, pinned by a test beside `record-related-list.tsx`; and an app-page list that authors `actions` without handlers renders a visible notice.\n\n## Evidence\n\n- The readings are the cloud#2774 dev's (objectstack-ai/cloud#2774 comment 6230709279, R4 / R5 / R1), re-read by the seat at `pageRecordActions.ts:28-34,68-72`, `record-related-list.tsx:497-506` and `filter-tokens.ts:112-120` before filing.\n- Dedupe words: app page related list actions, pageRecordActions resolve no handlers, parentDataSource actions dropped, app page row actions, NO_RELATED_HANDLERS."
+}

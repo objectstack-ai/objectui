@@ -1,0 +1,36 @@
+{
+  "number": 12884,
+  "kind": "pull_request",
+  "title": "fix(console): name the three agent scopes on the OAuth consent page",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T12:25:02Z",
+  "updated_at": "2026-10-17T12:51:12Z",
+  "closed_at": "2026-10-17T12:51:10Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-17T12:51:10Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12884",
+  "body": "Fixes #12853\nClause-②: yes\n\n## What changed\n\nThe OAuth consent page's list ('This app will be able to:') showed the three agent scopes `data:read`, `data:write` and `actions:execute` as raw strings. `describeScope` in `OAuthConsentPage.tsx` now maps each one to a sentence, through three new keys under `oauth.consent.scope` (`dataRead`, `dataWrite`, `actionsExecute`) in all ten packs. Each key has a `defaultValue` equal to the en pack, written the same way as the four existing scopes. The en region comment now says seven scopes. Any other scope still renders as its raw string: there is no generic entry and nothing is guessed from a scope's spelling.\n\nUnchanged: the consent flow, Deny and Authorize, the public-client lookup, `followAuthorize.ts`, every `data-testid`, and `packages/components/src/ui/**`. There is no scope narrowing.\n\n## The three sentences and what they rest on (objectstack main 7cda377)\n\n| scope | en | zh | objectstack source |\n|---|---|---|---|\n| `data:read` | Read records, within your own permissions | 读取记录（不超出您自己的权限） | `MCP_OAUTH_SCOPE_DATA_READ` in `packages/spec/src/ai/mcp.zod.ts`: \"Read-family tools: `list_objects`, `describe_object`, `query_records`, `get_record`.\" The `mcp_agent_data_read` set in `default-permission-sets.ts` is \"Read-only ceiling … Bounded by the delegating user's own permissions.\" |\n| `data:write` | Create, change and delete records, within your own permissions | 创建、修改和删除记录（不超出您自己的权限） | `MCP_OAUTH_SCOPE_DATA_WRITE`: \"Write-family tools: `create_record`, `update_record`, `delete_record`.\" The `mcp_agent_data_write` set: \"Full CRUD, still bounded by the delegating user's own permissions.\" |\n| `actions:execute` | Run actions on your behalf, within your own permissions | 代表您运行操作（不超出您自己的权限） | `MCP_OAUTH_SCOPE_ACTIONS`: \"Business-action tools: `list_actions`, `run_action`.\" In `assemble-execution-context.ts`: \"The `actions:execute` scope IS the user's consent to let this agent invoke actions on their behalf\". With it, the agent holds exactly the user's own `systemPermissions`. |\n\nThe ceiling clause on every row comes from `registerObjectTools`' `grantedScopes` doc in `packages/mcp/src/mcp-http-tools.ts`: \"Scopes only bound the tool surface — every call still runs under the principal's permissions and RLS.\" The `data:write` sentence does not mention reading: the write permission set carries the read bit, but the read tools register only under `data:read` (`canRead` in `mcp-http-tools.ts`). The sentence follows the tool surface. The other eight packs carry the same three sentences in each pack's own register.\n\n## The title half, as measured on main\n\nThe title half was already fixed on `main` (objectui#12301, landed as PR #12312). The page asks `GET /api/v1/auth/oauth2/public-client?client_id=…` and titles the request with the registered `client_name`. If no name is registered, the title says 'an application' and the raw id appears only inside a labelled 'Client ID' alert, never in the name's place. `OAuthConsentPage.public-client-12301.test.tsx` holds this behaviour and passes unchanged on this branch, including 'names a registered client by its client_name and shows its logo_uri'.\n\n## Tests (at 354bc6e)\n\n- New `OAuthConsentPage.agent-scopes-12853.test.tsx`, with `scope=openid data:read data:write actions:execute`. In en, the list reads the four sentences. In zh, it reads 确认您的身份 plus the three zh sentences. CONTROL: `data:read reports:export` renders `reports:export` as its raw string.\n- `pnpm exec vitest run apps/console/src/pages/auth/__tests__/ packages/i18n/`: 102 files passed; 1438 tests passed, 13 skipped.\n- Ablation, one leg per new pin, fix committed first. The en pack's `dataWrite` value, then the zh pack's `dataRead` value, then the page's default branch were each mutated, and each turned exactly its own pin red. Each leg was restored, and `git diff HEAD` was empty afterwards.\n- Gates: `build` (the `@object-ui/console...` closure, 35/35 tasks), `type-check` for `@object-ui/console` and `@object-ui/i18n`, eslint in normal mode on the changed files (0 errors), `pnpm check:i18n-keys`, `pnpm check:i18n-drift` (3 keys added, 0 en values changed), and `node scripts/check-changeset-presence.mjs`. All exited 0.\n\n## Live before and after\n\nBackend: `e2e/live/ci/start-backend.sh` (showcase on published `@objectstack` 18.0.0-next.2). Client: registered through dynamic client registration with `client_name: Claude Code` and redirect `https://client.example/cb`, because the server refuses http redirect URIs. Admin signed in. The authorize endpoint returned a signed consent query string, which was opened on each dev console's `/oauth/consent`. Settings: light theme, zh, 1100 px wide.\n\n- `main` bf376c5: title 'Claude Code 请求访问您的账户'; the last three rows read `data:read`, `data:write`, `actions:execute`.\n- This branch: same title; the last three rows read the three sentences above.\n\nScreenshots (evidence branch `claude/issue-12853-evidence`, never merged):\n\n- before: https://github.com/objectstack-ai/objectui/blob/afa507d011e493b425128b393951ac64346b0af8/docs/design/findings/12853/consent-zh-1100-before-main-bf376c5.png?raw=true\n- after: https://github.com/objectstack-ai/objectui/blob/afa507d011e493b425128b393951ac64346b0af8/docs/design/findings/12853/consent-zh-1100-after-branch-354bc6e.png?raw=true\n\n## Deviations\n\nNone in the code. The card asked for a fallback to the id; the measured fallback is the labelled-id state that objectui#12301 settled on, and this PR leaves it as it is.\n\n## Acceptance notes\n\n- In the dev console, the public-client lookup fires twice per load on both `main` and this branch, once per React StrictMode effect pass in dev. Not filed.\n\nSession: `https://claude.ai/code/session_01F7rGA65najBBQpwrw7ZXFw`\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01F7rGA65najBBQpwrw7ZXFw"
+}

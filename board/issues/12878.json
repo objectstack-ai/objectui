@@ -1,0 +1,36 @@
+{
+  "number": 12878,
+  "kind": "pull_request",
+  "title": "fix(console,i18n): a settings row's chips read in the session's language (objectui#12821)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T11:05:05Z",
+  "updated_at": "2026-10-17T11:32:10Z",
+  "closed_at": "2026-10-17T11:32:08Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-17T11:32:08Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12878",
+  "body": "Fixes #12821\nClause-②: no\n\n## What changed\n\nEvery chip on a console settings row now reads in the session's language. Each one draws a `console.settingsView.*` key that has a real translation in all ten `packages/i18n` packs. English output is byte-for-byte unchanged (pinned).\n\n| Chip | Was | Key |\n|---|---|---|\n| env-lock chip (`EnvLockBadge`) | `Locked by env` literal | `envLockBadge` |\n| env-lock fallback title (server sent no reason) | `Pinned by environment variable — cannot be edited from the UI.` literal | `envLockBadgeTitle` |\n| `Deprecated` chip (`FieldHeader`) | `Deprecated` literal | `deprecatedBadge` |\n| `Deprecated` chip with a replacement | `Deprecated` + template ` → replacedBy` | `deprecatedBadgeReplacedBy` (one sentence, `{{replacedBy}}`) |\n| unsupported-specifier row (folded in: the enumeration found it) | `Unsupported specifier type: ` + type | `unsupportedSpecifierType` (`{{type}}`) |\n\nThis follows PR #12819 (objectui#12694): same namespace, one sentence per variant with an interpolation hole rather than glued fragments, and an every-pack pin. No new namespace was added.\n\nOut of scope, unchanged: a served `lockedReason` (the server's \"Set via env: NAME\") is still the title as served. A test pins that.\n\n## Pins\n\n- `SettingsField.chipLocale-12821.test.tsx`\n  - (a) zh-CN: the env-lock chip and its fallback title equal the zh pack strings and contain no Latin script.\n  - (b) zh-CN: the `Deprecated` chip, with and without a replacement, reads zh.\n  - (c) CONTROL, en: exactly `Locked by env`, the old fallback title, `Deprecated`, `Deprecated → country_code`, and `Unsupported specifier type: not_a_type`.\n  - Every pack: each key is a string, each holed key has exactly one hole, and no non-en pack copies the en value.\n- `settingsPage.noBareLiterals-12821.test.ts` (d) is the enumeration pin.\n  - It lists every `*.tsx` directly under `apps/console/src/pages/settings/` from disk and blanks comments with `scripts/js-comment-mask.mjs`.\n  - It then parses with the TypeScript parser. It asserts that no JSX text node, string in a rendered position of a JSX child expression, or `title` / `aria-label` value carries a letter (`\\p{L}`).\n  - A rendered position is: the expression itself, either branch of `?:`, either side of `??` / `||`, the right of `&&`, or a template's text.\n  - A synthetic-source control proves the detector fires on each shape it claims, and stays quiet on `t()` calls (including `defaultValue`), `className` and comments.\n  - On `main` it finds exactly four literals, and all four are fixed here: the two `EnvLockBadge` literals, `Deprecated`, and `Unsupported specifier type:`. SettingsHub, SettingsView and WorkspaceTimezonePrompt were already clean.\n\n### Ablation (one-time, run at `30d5e5268d`)\n\n- Tool: `ablation-replace.mjs` (objectstack). It put the literal `Locked by env` back in place of the chip's `t()` call: anchor x1 to x0, blob `fd50404c4be7` to `a4a9f689a5eb`.\n- Result: `Tests 3 failed | 21 passed (24)`.\n  - Red: (a) the zh chip and fallback title, the zh served-reason case (it finds the chip by its zh text), and (d) `EnvLockBadge.tsx`.\n  - Green: the en control stayed green.\n- Restore: blob after restore == HEAD blob `fd50404c4be7`, and `git diff HEAD` is empty.\n\n## Gates (all at HEAD `30d5e5268d`)\n\n- **Type-check:** `pnpm --filter @object-ui/i18n --filter @object-ui/console run type-check` exits 0.\n  - The closure was built first with `turbo run build --filter='@object-ui/console^...'`: 34/34 tasks.\n  - `tsc --listFiles` confirms that both new test files and `js-comment-mask.mjs` are in console's program.\n- **vitest, targeted:** the two new files pass, 24/24.\n- **vitest, package dirs** (`--maxWorkers=1`):\n  - `packages/i18n/`: 83 files, 1325 passed, 13 skipped, exit 0.\n  - `apps/console/`: **NOT MEASURED**, because it timed out at 570s under the lock (exit 124).\n  - Narrowed instead: `apps/console/src/pages/settings/` passed (20 files, 173 tests). Every test outside that dir that names `EnvLockBadge`, `SettingsField` or `pages/settings` also passed (4 files, 33 tests: `select-placeholder-literal-11252`, `App.homePermissions-12700`, `AppContent.approvalRecordReads`, `AppContent.systemHubRoutes`).\n  - Blind spot: this narrowing comes from a git grep of names. CI runs the full console project.\n- **Lint, narrowed to the 14 changed ts/tsx files:** `eslint` (inline config on, as each package's `lint` script runs it) gives 0 errors and 2 warnings. Both warnings are pre-existing `no-explicit-any` lines in `SettingsField.tsx`.\n  - The population is read from `eslint.config.js`: `**/*.{ts,tsx}` blocks.\n  - The file count, 14, is read from the `--format json` output.\n  - Invariance: the config sets no `parserOptions.project` / `projectService`, so linting is not type-aware and this diff cannot move a verdict on an untouched file.\n- **Pre-tsc battery:** all exit 0.\n  - `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `control-bytes`\n  - `i18n-dead-keys`: none of the five new keys is a candidate.\n  - `node scripts/check-hand-rolled-comment-mask.mjs`, `node scripts/check-changeset-fixed.mjs`, `check-changeset-presence`, `check:new-line-citations`\n- `check:spec-floors` exits 1. This diff touches no `package.json`, so it is recorded, not fixed.\n\n## Acceptance notes\n\n- A1 is confirmed: the `Deprecated` chip has zero producers.\n  - On objectstack `origin/main` `eda6f14b7b`, `git grep 'deprecated\\s*:'` over `*manifest*.ts` hits only the spec declaration in `settings-manifest.zod.ts`.\n  - Positive control: `valueDomain\\s*:` hits `company.manifest.ts` and `localization.manifest.ts`.\n- zh strings follow the pack's existing punctuation (ASCII colon and comma, as in `lockedByEnv` and `cryptoRefusal*`).\n- For `ar`, the replacement arrow is `←`, so it points toward the replacement in RTL reading order. Every other pack keeps `→`.\n\n- [x] Adds no product-specific widget, dialog, hook or string (see AGENTS.md › Product-neutral renderer)\n\n---\n\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

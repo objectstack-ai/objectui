@@ -1,0 +1,40 @@
+{
+  "number": 12874,
+  "kind": "pull_request",
+  "title": "fix(fields,core,grid,detail): overdue is declared-only, and a settled deadline paints nothing (objectui#11815)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "package: core",
+    "package: fields",
+    "package: types",
+    "plugin",
+    "plugin: kanban",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T09:34:50Z",
+  "updated_at": "2026-10-17T10:27:00Z",
+  "closed_at": "2026-10-17T10:26:58Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-17T10:26:58Z",
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12874",
+  "body": "Part of #11815 — two hosts outside the claimed file surface stay open, named under Deviations: ListView's own projection (ruling 6), and the approval snapshot faces.\nClause-②: yes\n\n## What changed\n\nRuling D (6054882132): overdue is declared-only.\n\n- **The rule.** A `date` / `datetime` reads overdue only when its field declares `dueLike: true`, and never while that field's `settledWhen` holds for the record. The field-name regex `DUE_LIKE_FIELD_NAME` retires (ADR-0049: nothing undeclared paints). An undeclared `due_date` in the past now reads as any past date does.\n- **The prop.** `CellRendererProps.deadlineSettled?: boolean` in `@object-ui/fields`. While it is true, `DateCellRenderer` and `DateTimeCellRenderer` paint no overdue wording and no `text-red-600`; the wording falls back to the neutral relative phrase. Absent or false changes nothing. Settled is never carried as `dueLike: false`.\n- **The helper.** `isDeadlineSettled(field, row, { scope, fields })` in `@object-ui/core` (`evaluator/deadlineSettled.ts`), built on `evalRowPredicate(settledWhen, row, { fallback: false, scope, fields })`. It is `false` for a field without `dueLike: true` or without `settledWhen`, and `false` when the predicate fails to evaluate. Every host calls it; none has its own copy.\n- **Hosts changed.**\n  - `ObjectGrid`: object columns, name columns and inline-row fields now forward `dueLike` and `settledWhen`; three of the four builders used to drop `dueLike`. Every cell and link cell on all four paths gets `deadlineSettled` for its row. The grid's own `$select` adds a shown deadline's `settledWhen` operands through the existing declared-field and FLS gates.\n  - The record page: `DetailSection`'s read-only cell, judged against `data`, and `HeaderHighlight`, judged against the staged record. `fieldEnrichment` forwards `settledWhen` beside `dueLike` and takes neither from the view entry.\n  - `RelatedList`: each child row is judged on its own row, never the parent's. The row's `dueLike` is forwarded, and its projection asks for the predicate's operands.\n  - Kanban card, gallery card (which now also forwards `dueLike`), compact list and tree: one call-site line each.\n- **Hosts measured and left alone.** `ReportViewer` and the dashboard's `buildFieldMeta` forward no `dueLike`, so they paint no overdue at all. `RecordMetaFooter` draws only user lookups. `DetailView`'s summary chips do not reach the date cells.\n- **The view-level key.** `DetailViewField.dueLike` and its `DetailViewFieldSchema` row are retired, with no alias. Producer search for the authored view-level key found 0 in objectui (`apps/`, `packages/`, `examples/`, `content/docs`), 0 in hotcrm, and in objectstack `examples/` only field-level declarations (app-showcase task, app-todo task, app-crm activity). Semver is `minor` on the precedent of f61dab1 (objectui#11070 round 4, `DetailViewField.reference_to` retired as a Minor Change in `@object-ui/types` 17.7.0).\n- **Docs.** `content/docs/fields/date.mdx`, `datetime.mdx` and `api/schema-reference.md` drop the name convention and the view-level key, and say how `settledWhen` reaches each view.\n\n## Inverted pins (each a CONTROL now)\n\n- `DateCellRenderer.test.tsx` — 'labels a past due_date as Overdue Nd' is now 'CONTROL — an undeclared past due_date reads neutral', plus a declared twin.\n- `datetimeCell.dueLikeAffordance-8958.test.tsx` — 'the field-name heuristic answers the same on both cells' is now 'CONTROL — with no key authored, a deadline-shaped name paints nothing on either cell'.\n- `DetailSection.dueLikeReachesTheCell-9729.test.tsx` — the view-entry key no longer reaches the cell; the object field's does.\n- `mirror-only-published-keys-9729.test.ts` — the key is absent from both published faces.\n- Re-declared, subject unchanged: `date-locale-channel` 'resolves through the translate fn' (zh, en) and `dateCell.unparsableValue-8581` 'POPULATED — a past due_date is still Overdue Nd' now declare `dueLike: true`.\n\n## Live, before and after\n\nSetup: showcase at `@objectstack/cli` 18.0.0-next.2 through `e2e/live/ci/start-backend.sh`; task `due_date` declares `dueLike: true` and `settledWhen: record.status == 'done'`. A throwaway copy adds an undeclared `renewal_on`. zh-CN, light, today 2026-10-17.\n\n| Row | main 473e5a0 | this branch |\n|:--|:--|:--|\n| Audit current IA (done, due 09-29) | 9月29日 red | 9月29日 neutral |\n| App wireframes (done, due 10-11) | 逾期 6 天 red | 6天前 neutral |\n| Design system (in review, due 10-13) | 逾期 4 天 red | 逾期 4 天 red |\n| renewal_on 10-12 (undeclared, matches the old regex) | 逾期 5 天 red | 5天前 neutral |\n\nOn the record page of the done task, the highlights strip reads 逾期 6 天 in red on main and 6天前 neutral on the branch.\n\nScreenshots (evidence branch `claude/issue-11815-evidence`, not merged):\n- list before: https://github.com/objectstack-ai/objectui/blob/2c26117564d3d9840d8391d167979e7c5f3952bf/docs/design/findings/11815/list-before-main.png?raw=true\n- list after: https://github.com/objectstack-ai/objectui/blob/2c26117564d3d9840d8391d167979e7c5f3952bf/docs/design/findings/11815/list-after-branch.png?raw=true\n- done record, after: https://github.com/objectstack-ai/objectui/blob/2c26117564d3d9840d8391d167979e7c5f3952bf/docs/design/findings/11815/record-done-after-branch.png?raw=true\n- done record, before: https://github.com/objectstack-ai/objectui/blob/2c26117564d3d9840d8391d167979e7c5f3952bf/docs/design/findings/11815/record-done-before-main.png?raw=true\n\n## Test evidence (head c6a46ce)\n\n- Full suites of fields, core, types, plugin-grid, plugin-detail, plugin-kanban, plugin-list and plugin-tree: 1610 files and 25618 tests passed, exit 0.\n- `build` and `type-check` pass for all eight packages.\n- `check:i18n-keys`, `check:i18n-drift`, `check:new-line-citations`, changeset presence and no-major all exit 0.\n- Lint on the touched files adds nothing: 4 pre-existing errors on main and here, identical.\n- Each new pin was ablated once and turned red. The view-level key's TypeScript pin was reverse-checked: re-declaring the member gives TS2578 and TS2344.\n\n## Deviations\n\n- **ListView** (`plugin-list/src/ListView.tsx`, outside the claimed surface) builds the `$select` for console list views and has no arm for `settledWhen` operands. A list view that hides `status` leaves done rows overdue, as today. The fix is one `addSpeculative` loop; this needs the seat's call.\n- **Approval snapshot faces** (`ApprovalsInboxPage` `RecordFieldFace`, app-shell `RecordSnapshotSummary` `FieldFace`) draw a declared deadline beside the record snapshot with no `deadlineSettled`. The fix is one call-site line each; this needs the seat's call.\n- **`ReportViewer`** is in the claimed surface but unchanged: report columns carry no `dueLike`.\n\nSession: `https://claude.ai/code/session_01LzSF1MK7r46WEAYG2ooGiq`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01LzSF1MK7r46WEAYG2ooGiq)_"
+}

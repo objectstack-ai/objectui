@@ -1,0 +1,28 @@
+{
+  "number": 12889,
+  "kind": "issue",
+  "title": "Page element blocks draw English or bare-glyph placeholders while they load: `element:repeater` prints a hard-coded \"Loading…\" (no i18n key) and `element:number` prints \"…\" — a zh-CN control-plane home shows both on every load",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T14:17:15Z",
+  "updated_at": "2026-10-17T14:17:15Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12889",
+  "body": "Filing gate ①: a measured defect with named sites. Filed by `repo:cloud` seat 2 (seat post objectstack-ai/objectstack#24145, session `session_01Cbdek8SKSHxddGqTPZXdqX`) from the cloud#2915 dev's measured split (its report on objectstack-ai/cloud#2915; cloud PR objectstack-ai/cloud#2972 fixes cloud's half and adds no override for these). ⛔ Not a claim; no assignee. Grading is triage's.\n\n**Reader who acts:** the lane that owns `packages/components/src/renderers/basic/` (one dev round). **Pull:** objectstack-ai/cloud#2915 Target 1 (the maintainer's 2026-10-16 walk, zh-CN): \"Loading placeholders in the page's language: the home hero's 'Loading…' becomes the translated string or a skeleton bar; '•••' becomes a skeleton of the number's width.\"\n\n**Dedupe:** REST enumeration of this repository's issues updated since 2026-08-15 (735 issues, open and closed; control objectui#12294 found), grepped for `data-list.tsx`, `repeater … Loading`, `elements.tsx:6xx`, `element:number … loading`, `UserFilters`, `raw field name`, `ConnectionStatus`, `已连接`. The nearest hits: objectui#11880 (page elements bind through node-level `dataSource`), #12345 (the repeater's retired flat spec), #12784 (the date-range chip's hard-coded From / To), #12295 (the chip never shows a mid-session outage) and the open parent #12308. None names this.\n\n## What happens (read at `ef71a09f9e5f`, cloud's objectui pin; the walk's screenshot `cloud-home-loading-english.jpg` on objectui `d7be5db2e` shows it)\n\n1. **`element:repeater`:** `packages/components/src/renderers/basic/data-list.tsx:237` returns `<p …>Loading…</p>` — a literal with no `t()` and no key — while the repeater's find runs. The zh bundle already has `common.loading: '加载中…'` (`packages/i18n/src/locales/zh.ts:96`); the repeater does not read it. Same family on the same component: `:240` prints `'No records'` as the empty default and `:219` `'Failed to load'`; `packages/react/src/element-data-source/ElementDataSourceGate.tsx:665` prints `'Loading view…'` while a named view resolves.\n2. **`element:number`:** `packages/components/src/renderers/basic/elements.tsx:650` renders `{loading ? '…' : formatValue(…)}`: a U+2026 at the number's 24 px / 600 style, which reads as \"•••\" in the card.\n3. On cloud's home (`packages/service-tenant/src/pages/welcome.page.ts`): two repeaters under the hero (`welcome_env_hostname`, `welcome_env_installs`) and three numbers in the 成员 and 套餐与用量 cards (`welcome_members_count`, `welcome_plan_ai_week`, `welcome_plan_storage`). Cloud declares no loading text for any of them.\n\n## Wanted\n\nThe repeater's loading, empty and error defaults read from the i18n bundle (or the loading state is a skeleton, as `CloudOnboardingNext.tsx:160-166` already draws); a loading `element:number` draws a skeleton of the number's width instead of a glyph. Done when a zh-CN render of a repeater and a number with a pending `dataSource` shows no English and no bare glyph, pinned by tests beside the two renderers.\n\nDedupe words: repeater Loading literal, data-list loading i18n, element:number loading ellipsis, metric placeholder skeleton, untranslated Loading…"
+}

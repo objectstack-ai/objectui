@@ -1,0 +1,36 @@
+{
+  "number": 12880,
+  "kind": "pull_request",
+  "title": "feat(app-shell): a column header on an object leaf's Studio canvas selects that column in the view's properties (objectui#12725, part)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: components",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T11:29:46Z",
+  "updated_at": "2026-10-17T11:56:13Z",
+  "closed_at": "2026-10-17T11:56:11Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-17T11:56:11Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12880",
+  "body": "Part of #12725\nClause-②: no\n\n## What\n\nIn Studio's Interfaces pillar, clicking a column header on an `object` leaf's canvas selects that column in the view's properties. This is the card's target 2 (\"clicking any canvas element … switches the slot to 属性 for that element\") and ruling 1 (「属性好需要考虑选中每个元素的时候也要显示」).\n\n- **Select, not sort.** Inside the Studio canvas, a click on the header of a column the view lists does four things: it selects that column's row in the panel's column list, switches the right slot to 属性 (the copilot folds to its strip at the foot), outlines the header, and makes the status line read 「已选中：COLUMN · Esc 取消选中」. The click does not sort. A header the view does not list has no row to select, so it keeps the runtime click, which sorts.\n- **Back to the view.** Esc (honouring `isSlotEscapeExempt`), or a click on empty canvas, clears the column selection, and the slot keeps the view's properties. A column picked in the panel's list is the one outlined on the canvas.\n- **Scope.** A hidden slot stays hidden, as phases 1 and 2 pinned. Dashboards and pages are unchanged.\n\n## How\n\n- `studio-canvas-preview.tsx`: a Studio-internal `StudioCanvasColumnSelectionContext` beside the props, following the objectui#11774 / #11823 precedent. `StudioCanvasPreviewProps` and `index.ts` are unchanged. The default `object` canvas wraps the grid in a `display: contents` element. Its capture-phase click handler reads the header's `data-column-key` and selects that column before the header's sort handler runs. A canvas registered over the default gets no channel.\n- `StudioDesignSurface.tsx` (Interfaces pillar): the column selection is the pillar's one keyed selection, so `showProps`, Esc and the empty-canvas click work exactly as on a dashboard. The pillar provides the context only while the panel lists the leaf's columns. The 「点元素 → 右栏切到属性」 hint shows only on the default canvas.\n- `ObjectListViewInspector.tsx` (not exported): optional `selection` / `onSelectionChange` props, so the host holds the column selection. Without them the panel keeps its own selection, as before.\n- `@object-ui/components` `data-table.tsx`: the header cell carries `data-column-key` (the column's `accessorKey`, which the object grid sets to the field). Nothing in the header identified every column: `data-auto-width-key` is absent on fixed-width, fit-content and masked columns; the header index is shifted by the checkbox column and by the grid dropping hidden, permission-gated or misspelled columns; and the header text is a label. Markup only: no prop, export or behaviour change.\n\n## Tests\n\n- New: `StudioDesignSurface.leafColumnSelection-12725.test.tsx`, 7 tests, using the real `StudioObjectRecordsCanvas` and the real data table under a stub `object-view`. They pin:\n  - a listed header selects, outlines and does not sort;\n  - Esc clears the selection;\n  - an empty-canvas click clears it;\n  - a panel pick outlines the header on the canvas;\n  - an unlisted header sorts;\n  - CONTROL: the table outside Studio sorts and names its column;\n  - CONTROL: a canvas registered over the default gets no channel and no hint, sorts, and keeps the copilot.\n- Ablation on HEAD `ac5b1aa` through `ablation-replace.mjs` (anchor must hit once; each restore proven by blob == HEAD and an empty `git diff HEAD`). Every mutant went red:\n  - select off: 3\n  - stopPropagation off: 1\n  - unlisted guard off: 1\n  - outline off: 4\n  - Esc off: 1\n  - empty-click off: 1\n  - inspector not host-held: 2\n  - showProps off: 4\n  - hint gate off: 1\n  - context off: 4\n  - `data-column-key` off: 4\n- Full app-shell package on `ac5b1aa` (before the main merge), 6 shards: 1540 files passed + 1 skipped, 14548 tests passed, 9 skipped.\n- On final head `5361b52`:\n  - studio-design + layout: 310 files / 2184 tests;\n  - the brief's families + the data-table tests: 56 / 418;\n  - plugin-grid: 225 / 2063;\n  - type-check for app-shell and components, plus the repo checks: all green.\n\n## Live reading\n\nBackend from `e2e/live/ci/start-backend.sh` (published 18.0.0-next.2). Before = `main` `8d6e435`, after = this branch, at 1010 and 1280 px. Leaf: Interfaces › Data Model › Tasks.\n\n- Before: a Status header click re-sorts the rows and the slot stays on the copilot.\n- After: the slot shows 属性 with Status selected and outlined, and the rows are unchanged. Esc and an empty click clear the selection.\n\n28 PNGs and a README are on `claude/issue-12725c-evidence` under `evidence/12725c/`. The browser stubbed three requests, identically before and after:\n- `studio.access` added to the permissions answer, because the published backend gives the seeded admin none;\n- the package list;\n- the AI agents list, for the copilot runs.\n\n## Acceptance notes\n\nWhat stays on #12725 after this PR:\n- **A kanban card's properties**, measured and not built. The showcase's board is a `page` leaf, `showcase_task_board`. A card click in the Studio canvas opens the runtime record-detail overlay, and the slot stays on the copilot. A view-leaf panel would write `kanban.titleField`, `kanban.columns`, `kanban.groupByField` and `navigation.mode` (`@objectstack/spec` `ListViewSchema`). `rowColor` is not read by `plugin-kanban`, so the panel gets no colour control. On a page leaf only `interfaceConfig.columns` and `interfaceConfig.recordAction` exist.\n- **The copilot's 草稿 chip and 来源 line.**\n- **Change card v2 and the 变更 badge** (objectstack-ai/cloud#2924).\n\nRecorded, not filed:\n- Selecting a header is pointer-only; the keyboard reaches the column through the panel's list.\n- At 1010 px, after a sideways scroll, the frozen Title column covers part of the selected header's outline.\n- The published backend gives the seeded admin no `studio.access`.\n\nProvenance: built by the cloud session `session_0152jviPgitwc5LMzdTG53aX` (claim `6231963028`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final message, because a cloud session cannot open a PR from its container. The seat replaced the dev's footer lines with this paragraph and changed nothing else.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_0152jviPgitwc5LMzdTG53aX)_\n"
+}

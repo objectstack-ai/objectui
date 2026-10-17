@@ -1,0 +1,38 @@
+{
+  "number": 12879,
+  "kind": "pull_request",
+  "title": "fix(plugin-list,app-shell,console): settle a declared deadline in the list view's projection and the approval snapshots (objectui#11815)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "documentation",
+    "package: app-shell",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T11:26:58Z",
+  "updated_at": "2026-10-17T11:57:58Z",
+  "closed_at": "2026-10-17T11:57:57Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-17T11:57:57Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12879",
+  "body": "Fixes #11815\nClause-②: no\n\nThe remainder of ruling D after #12874 (`f34e877`): the two hosts that PR measured and left outside its surface.\n\n## What changed\n\n- **List view projection** (`packages/plugin-list/src/ListView.tsx`): the `$select` harvest gains one loop right after `addSpeculative(rowColorConfig?.field)`. For each shown column (after the FLS filter) whose object field declares `dueLike: true` with a `settledWhen`, it runs `addSpeculative` on every operand `collectPredicateFieldRefs` finds. That is the same declared-field and FLS gate every binding there uses. A list that hides the predicate's field now fetches it, so its done rows read as settled. An operand the viewer may not read is never requested, and that deadline stays unsettled (it fails toward overdue).\n- **Approvals inbox** (`apps/console/.../ApprovalsInboxPage.tsx`, `RecordFieldFace`): passes `deadlineSettled = isDeadlineSettled(def, snapshot, { scope, fields })`.\n- **Decision panel** (`packages/app-shell/.../RecordSnapshotSummary.tsx`, `FieldFace`): the same call.\n- **Docs** (`content/docs/fields/date.mdx`): the \"show that field as a column\" caveat now describes what the code does.\n\n## What each approval face holds as its snapshot\n\n- `ApprovalsInboxPage`: the request row's `payload`, the object both the summary rows and the lead amount draw their values from. `fields` is the indexed object metadata.\n- `RecordSnapshotSummary`: `withoutDeniedFields(payload, perms, object)`, the FLS-redacted values the face draws. A status the reader may not read is absent, so that deadline stays unsettled.\n\nThe snapshot's date and status were frozen together, so judging the snapshot's own state is the consistent reading.\n\n## Live (showcase via `e2e/live/ci/start-backend.sh`, `@objectstack/cli` 18.0.0-next.2, zh-CN)\n\n- On the stock showcase, `main` already sends `status`: `showcase_task`'s row-action predicates project `status`, `priority` and `done` through the existing predicate harvest. So the stock metadata cannot tell `main` from this branch.\n- In the scratch backend only, I added a list view with columns title and due date, and pointed `due_date`'s `settledWhen` at `record.progress == 100`. The done rows carry progress 100, and nothing else projects `progress`.\n\n| | `main` `f34e877` | this branch |\n| --- | --- | --- |\n| `$select` | id,title,due_date,status,priority,done | id,title,due_date,status,priority,progress,done |\n| App wireframes (done) | 逾期 6 天, red | 6天前, neutral |\n| Audit current IA (done) | 9月29日, red | 9月29日, neutral |\n\nApproval faces live: not measured. No showcase approval process targets an object that declares a deadline, so the unit pins below cover them.\n\n## Screenshots (never-merged `claude/issue-11815b-evidence`)\n\n- before: https://github.com/objectstack-ai/objectui/blob/be335f3485f9f2080db03930000ab92d849d86ad/docs/design/findings/11815b/list-view-deadlines-main-f34e877.png?raw=true\n- after: https://github.com/objectstack-ai/objectui/blob/be335f3485f9f2080db03930000ab92d849d86ad/docs/design/findings/11815b/list-view-deadlines-branch.png?raw=true\n\n## Tests (at `6ae5c25`)\n\n- `ListView.deadlineSettledSelect-11815`: `status` is in `$select` when the view shows the deadline but not `status`. Against a backend that honours `$select`, a done row reads neutral and an open row overdue. CONTROL: an undeclared date with a `settledWhen` pulls nothing in. CONTROL: an operand the viewer may not read is not requested.\n- `RecordSnapshotSummary.test` and `ApprovalsInboxPage.deadlineSettled-11815`: a snapshot whose `settledWhen` holds draws its past deadline neutral; one where it does not draws it overdue. CONTROL: an undeclared past date is never overdue.\n- Ablation: each new pin turned red once under its mutation and was restored with `git diff HEAD` empty.\n- Full runs: plugin-list 1518 passed; the approval-decision and ApprovalsInboxPage files 138 passed; `scripts/__tests__/` 5620 passed, 2 skipped.\n- `build` and `type-check` pass for plugin-list, app-shell and console.\n- Lint adds no finding on the touched host files.\n- `check:i18n-keys`, `check:i18n-drift`, changeset presence, no-major and `check:new-line-citations` all exit 0.\n\n## Deviations\n\n- Changesets are `patch`: a fix with no exported type, prop or i18n key moving.\n- The live reading needed the scratch-fixture change described above. The repo is untouched by it.\n\nSession: `https://claude.ai/code/session_01DiTjG1AEXG49VTNoVQ5cpt`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01DiTjG1AEXG49VTNoVQ5cpt)_"
+}

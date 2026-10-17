@@ -1,0 +1,35 @@
+{
+  "number": 12877,
+  "kind": "pull_request",
+  "title": "feat(app-shell): ⌘K recent rows show their object's type and icon (objectui#12852)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T10:57:32Z",
+  "updated_at": "2026-10-17T11:23:47Z",
+  "closed_at": "2026-10-17T11:23:45Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-17T11:23:45Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12877",
+  "body": "Fixes #12852\nClause-②: no\n\n## What changed\n\nIn the command palette (⌘K), every row of the recently viewed group drew the same search icon and its title alone, so two recent records with the same title rendered identically. Each row now shows:\n\n- on the right, as muted text, the record's object label in the viewer's language;\n- on the left, the object's icon, in place of the shared search icon.\n\nOne file changes (`packages/app-shell/src/chrome/CommandPalette.tsx`), plus a new test beside it and an `@object-ui/app-shell` patch changeset. `RecentItemsProvider`'s stored entry shape, `recentItemTypeLabel.ts`, `useRecentItemLabel.ts`, the locale packs and `packages/components/src/ui` are untouched. The group's heading, order, count (5), `onSelect` and every existing `data-testid` stay as they were; the type text carries a new `data-testid` of `palette-recent-type`.\n\n## How each row's type and icon are derived\n\n- **Object:** read only from the stored `href`, through the existing `recentItemObject` (its `/apps/APP/OBJECT/record/ID` parse). The helper is imported, not copied.\n- **Type text:** the object's label from `useNavTargetLabel` (the object's current label in the viewer's language), else the object's machine name. This is the rule Home's Recently accessed trail uses.\n- **Icon:** the object's declared icon through `getIcon`, as the palette's record-search groups use it, else `FileText`, the record glyph of Home's `RECENT_ICON`.\n- `useMetadata().objects` is read inside the row function, never at render, so a closed palette still reads no metadata (`CommandPalette.studioScope-11863`, 'reads nothing until the palette opens').\n\n## Stored shapes that cannot carry a type\n\nA record entry whose `href` is not `/apps/APP/OBJECT/record/ID` names no object, so its row shows no type and the neutral `FileText` icon. The type is never guessed from the label or the id. objectui writes record entries in one place, `RecordDetailView`, always in that shape. So only an entry written by another producer into the synced preference can lack a type, for example a non-`/apps` route.\n\n## Group membership, as measured\n\nThe group still lists `recentItems.filter(it => it.type === 'record').slice(0, 5)`. Only records appear in it, so a 页面 (page) entry cannot appear, and the card's 页面 example does not apply to this group. The filter is unchanged.\n\n## Live before and after\n\nSetup: hotcrm `objectstack dev --fresh` backend, consoles from `main` `5ff64ef` and from this branch, zh-CN, light theme. A `crm_opportunity` and a `crm_task` were both renamed 'Objectstack' (locally only), and a contact was visited too. Then ⌘K was opened with an empty input.\n\n- `main`: the two 'Objectstack' rows are identical; every row has the search icon and no type.\n- Branch: 'Objectstack' 商机 with a dollar-sign icon, 'Objectstack' 任务 with a square-check icon, 'Sarah Johnson' 联系人 with a user icon, plus 线索 / 产品 rows with their own icons.\n- No /api/v1/meta request was made after opening the palette, on either side.\n\nScreenshots (evidence branch `claude/issue-12852-evidence`, not merged):\n\n- before: https://github.com/objectstack-ai/objectui/blob/7122f5c6beb9d32605e6862d4797adddf4ad3a94/docs/design/findings/12852/before-main-recent-zh-CN.png?raw=true\n- after: https://github.com/objectstack-ai/objectui/blob/7122f5c6beb9d32605e6862d4797adddf4ad3a94/docs/design/findings/12852/after-branch-recent-zh-CN.png?raw=true\n\n## Tests (on 210ce40)\n\n`CommandPalette.recentItemType-12852.test.tsx` checks:\n\n- two records with the same title and different objects show different type text and different icons;\n- the type is the object's label in zh-CN (组织 / 环境) and in en;\n- CONTROL: an entry whose href names no object shows no type and the neutral icon;\n- CONTROL: an object the metadata does not hold is typed by its machine name;\n- CONTROL: the group lists the first five records in order under its heading, and a row opens its href and closes the palette.\n\nEach new pin was ablated once (icon, type text, label vs machine name, the neutral control, the count). Each run went red, was restored and showed an empty `git diff HEAD`.\n\nGates on 210ce40:\n\n- Every CommandPalette, useRecentItemLabel, Home recent and RecordDetailView recent-visit test: 15 files, 76 tests passed.\n- `@object-ui/app-shell` type-check and build: exit 0.\n- eslint on the touched files: 0 errors.\n- `check:i18n-keys`, `check:i18n-drift`, `check-changeset-presence` and `check:new-line-citations`: exit 0.\n\n## Deviations\n\nNone in the code. The neutral icon is Home's record glyph (`FileText`), not the old search icon, so the palette and Home draw the same thing.\n\nSession: `https://claude.ai/code/session_01SRHG3vksxM8h9PHq9mPEUW`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01SRHG3vksxM8h9PHq9mPEUW)_"
+}

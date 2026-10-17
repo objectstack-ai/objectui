@@ -899,6 +899,17 @@ const zh = {
     columns: '列',
     requiredFieldsTitle: '填写必填字段',
     requiredFieldsDescription: '此次移动会使以下字段成为必填项。填写后即可继续。',
+    dnd: {
+      start: '已拿起 {{card}}，当前在 {{column}}。',
+      overCard: '{{card}} 正移到 {{column}} 中的 {{target}} 上。',
+      overColumn: '{{card}} 正移到 {{column}}。',
+      overNone: '{{card}} 不在任何列上。',
+      moved: '{{card}} 已移到 {{column}}。',
+      dropped: '已放下 {{card}}，仍在 {{column}}。',
+      cancelled: '已取消拖动。{{card}} 仍在 {{column}}。',
+      untitledCard: '未命名卡片',
+      unnamedColumn: '未命名列',
+    },
   },
   timeline: {
     bucket: {

@@ -874,6 +874,17 @@ const de = {
     cardTitlePlaceholder: "Kartentitel eingeben…",
     requiredFieldsTitle: "Erforderliche Felder ausfüllen",
     requiredFieldsDescription: "Durch diese Verschiebung werden die folgenden Felder zu Pflichtfeldern. Füllen Sie sie aus, um fortzufahren.",
+    dnd: {
+      start: "Karte {{card}} in Spalte {{column}} aufgenommen.",
+      overCard: "Karte {{card}} über Karte {{target}} in Spalte {{column}}.",
+      overColumn: "Karte {{card}} über Spalte {{column}}.",
+      overNone: "Karte {{card}} ist über keiner Spalte.",
+      moved: "Karte {{card}} in Spalte {{column}} verschoben.",
+      dropped: "Karte {{card}} abgelegt. Sie bleibt in Spalte {{column}}.",
+      cancelled: "Ziehen abgebrochen. Karte {{card}} bleibt in Spalte {{column}}.",
+      untitledCard: "ohne Titel",
+      unnamedColumn: "ohne Namen",
+    },
   },
   timeline: {
     bucket: {

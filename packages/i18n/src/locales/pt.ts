@@ -899,6 +899,17 @@ const pt = {
     cardTitlePlaceholder: "Digite o título do cartão…",
     requiredFieldsTitle: "Preencha os campos obrigatórios",
     requiredFieldsDescription: "Esta movimentação torna os campos abaixo obrigatórios. Preencha-os para continuar.",
+    dnd: {
+      start: "Cartão {{card}} levantado na coluna {{column}}.",
+      overCard: "Cartão {{card}} sobre o cartão {{target}} na coluna {{column}}.",
+      overColumn: "Cartão {{card}} sobre a coluna {{column}}.",
+      overNone: "O cartão {{card}} não está sobre nenhuma coluna.",
+      moved: "Cartão {{card}} movido para a coluna {{column}}.",
+      dropped: "Cartão {{card}} solto. Continua na coluna {{column}}.",
+      cancelled: "Arrasto cancelado. O cartão {{card}} continua na coluna {{column}}.",
+      untitledCard: "sem título",
+      unnamedColumn: "sem nome",
+    },
   },
   timeline: {
     bucket: {

@@ -1129,6 +1129,17 @@ const en = {
     columns: 'columns',
     requiredFieldsTitle: 'Complete required fields',
     requiredFieldsDescription: 'This move makes the fields below required. Fill them in to continue.',
+    dnd: {
+      start: 'Picked up {{card}} in {{column}}.',
+      overCard: 'Moving {{card}} over {{target}} in {{column}}.',
+      overColumn: 'Moving {{card}} over {{column}}.',
+      overNone: 'Moving {{card}}. It is not over a column.',
+      moved: 'Moved {{card}} to {{column}}.',
+      dropped: 'Dropped {{card}}. It stays in {{column}}.',
+      cancelled: 'Cancelled moving {{card}}. It stays in {{column}}.',
+      untitledCard: 'an untitled card',
+      unnamedColumn: 'an unnamed column',
+    },
   },
   timeline: {
     bucket: {

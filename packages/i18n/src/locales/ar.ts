@@ -993,6 +993,17 @@ const ar = {
     cardTitlePlaceholder: "أدخل عنوان البطاقة…",
     requiredFieldsTitle: "أكمل الحقول المطلوبة",
     requiredFieldsDescription: "يجعل هذا النقل الحقول أدناه مطلوبة. أكملها للمتابعة.",
+    dnd: {
+      start: "تم التقاط البطاقة {{card}} في العمود {{column}}.",
+      overCard: "البطاقة {{card}} فوق البطاقة {{target}} في العمود {{column}}.",
+      overColumn: "البطاقة {{card}} فوق العمود {{column}}.",
+      overNone: "البطاقة {{card}} ليست فوق أي عمود.",
+      moved: "تم نقل البطاقة {{card}} إلى العمود {{column}}.",
+      dropped: "تم إفلات البطاقة {{card}}. لا تزال في العمود {{column}}.",
+      cancelled: "تم إلغاء السحب. لا تزال البطاقة {{card}} في العمود {{column}}.",
+      untitledCard: "بلا عنوان",
+      unnamedColumn: "بلا اسم",
+    },
   },
   timeline: {
     bucket: {

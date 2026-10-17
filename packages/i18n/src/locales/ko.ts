@@ -874,6 +874,17 @@ const ko = {
     cardTitlePlaceholder: "카드 제목 입력…",
     requiredFieldsTitle: "필수 항목 입력",
     requiredFieldsDescription: "이 이동으로 아래 항목이 필수가 됩니다. 입력한 후 계속하세요.",
+    dnd: {
+      start: "{{card}} 카드를 집었습니다. 현재 {{column}} 열에 있습니다.",
+      overCard: "{{card}} 카드를 {{column}} 열의 {{target}} 카드 위로 옮기는 중입니다.",
+      overColumn: "{{card}} 카드를 {{column}} 열 위로 옮기는 중입니다.",
+      overNone: "{{card}} 카드가 어느 열 위에도 있지 않습니다.",
+      moved: "{{card}} 카드를 {{column}} 열로 옮겼습니다.",
+      dropped: "{{card}} 카드를 놓았습니다. {{column}} 열에 그대로 있습니다.",
+      cancelled: "드래그를 취소했습니다. {{card}} 카드는 {{column}} 열에 그대로 있습니다.",
+      untitledCard: "제목 없는",
+      unnamedColumn: "이름 없는",
+    },
   },
   timeline: {
     bucket: {

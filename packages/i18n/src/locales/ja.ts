@@ -874,6 +874,17 @@ const ja = {
     cardTitlePlaceholder: "カードのタイトルを入力…",
     requiredFieldsTitle: "必須項目を入力してください",
     requiredFieldsDescription: "この移動により以下の項目が必須になります。入力して続行してください。",
+    dnd: {
+      start: "{{card}} を持ち上げました。{{column}} にあります。",
+      overCard: "{{card}} を {{column}} の {{target}} の上に移動中です。",
+      overColumn: "{{card}} を {{column}} の上に移動中です。",
+      overNone: "{{card}} はどのカラムの上にもありません。",
+      moved: "{{card}} を {{column}} に移動しました。",
+      dropped: "{{card}} をドロップしました。{{column}} のままです。",
+      cancelled: "ドラッグをキャンセルしました。{{card}} は {{column}} のままです。",
+      untitledCard: "無題のカード",
+      unnamedColumn: "名前のないカラム",
+    },
   },
   timeline: {
     bucket: {

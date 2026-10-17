@@ -35,6 +35,7 @@ import { useKanbanRecordsSettled } from './KanbanRecordsSettled'
 import { useKanbanColumnSummary, sumLaneField } from './KanbanColumnSummary'
 import { laneCount, useKanbanLanePaging } from './KanbanLanePaging'
 import { ownerInitials, type KanbanCardOwner } from './KanbanCardOwner'
+import { kanbanDndAnnouncements } from './kanbanDndAnnouncements'
 
 // Utility function to merge class names (inline to avoid external dependency)
 const cn = (...classes: Array<string | false | null | undefined>) => classes.filter(Boolean).join(' ')
@@ -47,6 +48,17 @@ const useKanbanT = createSafeTranslation(
     'kanban.noCards': 'No cards',
     'kanban.cardTitlePlaceholder': 'Enter card title…',
     'kanban.loadMore': 'Load more',
+    // What the drag live region speaks (objectui#12716), built by
+    // `kanbanDndAnnouncements.ts`.
+    'kanban.dnd.start': 'Picked up {{card}} in {{column}}.',
+    'kanban.dnd.overCard': 'Moving {{card}} over {{target}} in {{column}}.',
+    'kanban.dnd.overColumn': 'Moving {{card}} over {{column}}.',
+    'kanban.dnd.overNone': 'Moving {{card}}. It is not over a column.',
+    'kanban.dnd.moved': 'Moved {{card}} to {{column}}.',
+    'kanban.dnd.dropped': 'Dropped {{card}}. It stays in {{column}}.',
+    'kanban.dnd.cancelled': 'Cancelled moving {{card}}. It stays in {{column}}.',
+    'kanban.dnd.untitledCard': 'an untitled card',
+    'kanban.dnd.unnamedColumn': 'an unnamed column',
   },
   'kanban.noCards',
 )
@@ -1161,12 +1173,25 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
     }
   }, [])
 
+  // What the drag live region speaks (objectui#12716): the card's title and
+  // the column's label, never the record id or the option value dnd-kit's
+  // default sentences read. The sentences read the columns this render drew,
+  // which are the ones `handleDragEnd` resolves a drop against. The place the
+  // last sentence named lives in a ref, so a rebuild of this object — here or
+  // on React's own account — repeats no sentence and drops none (AGENTS.md #10).
+  const dndPlaceRef = React.useRef<string | undefined>(undefined)
+  const dndAccessibility = React.useMemo(
+    () => ({ announcements: kanbanDndAnnouncements(t, boardColumns, dndPlaceRef) }),
+    [t, boardColumns],
+  )
+
   return (
     <DndContext
       sensors={sensors}
       collisionDetection={closestCorners}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      accessibility={dndAccessibility}
     >
       <div ref={boardRef} className="flex flex-col min-w-0 min-h-0 h-full">
       {/* Mobile-only column indicator. Replaces the prior verbose

@@ -904,6 +904,17 @@ const es = {
     cardTitlePlaceholder: "Escriba el título de la tarjeta…",
     requiredFieldsTitle: "Complete los campos obligatorios",
     requiredFieldsDescription: "Este movimiento hace que los campos siguientes sean obligatorios. Complételos para continuar.",
+    dnd: {
+      start: "Tarjeta {{card}} tomada en la columna {{column}}.",
+      overCard: "Tarjeta {{card}} sobre la tarjeta {{target}} en la columna {{column}}.",
+      overColumn: "Tarjeta {{card}} sobre la columna {{column}}.",
+      overNone: "La tarjeta {{card}} no está sobre ninguna columna.",
+      moved: "Tarjeta {{card}} movida a la columna {{column}}.",
+      dropped: "Tarjeta {{card}} soltada. Sigue en la columna {{column}}.",
+      cancelled: "Arrastre cancelado. La tarjeta {{card}} sigue en la columna {{column}}.",
+      untitledCard: "sin título",
+      unnamedColumn: "sin nombre",
+    },
   },
   timeline: {
     bucket: {

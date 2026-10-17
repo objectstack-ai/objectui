@@ -937,6 +937,17 @@ const ru = {
     cardTitlePlaceholder: "Введите название карточки…",
     requiredFieldsTitle: "Заполните обязательные поля",
     requiredFieldsDescription: "Это перемещение делает поля ниже обязательными. Заполните их, чтобы продолжить.",
+    dnd: {
+      start: "Карточка {{card}} взята в колонке {{column}}.",
+      overCard: "Карточка {{card}} над карточкой {{target}} в колонке {{column}}.",
+      overColumn: "Карточка {{card}} над колонкой {{column}}.",
+      overNone: "Карточка {{card}} не находится ни над одной колонкой.",
+      moved: "Карточка {{card}} перемещена в колонку {{column}}.",
+      dropped: "Карточка {{card}} отпущена. Она остаётся в колонке {{column}}.",
+      cancelled: "Перетаскивание отменено. Карточка {{card}} остаётся в колонке {{column}}.",
+      untitledCard: "без названия",
+      unnamedColumn: "без названия",
+    },
   },
   timeline: {
     bucket: {

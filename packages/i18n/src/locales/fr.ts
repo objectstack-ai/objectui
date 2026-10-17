@@ -900,6 +900,17 @@ const fr = {
     cardTitlePlaceholder: "Saisir le titre de la carte…",
     requiredFieldsTitle: "Compléter les champs obligatoires",
     requiredFieldsDescription: "Ce déplacement rend les champs ci-dessous obligatoires. Remplissez-les pour continuer.",
+    dnd: {
+      start: "Carte {{card}} saisie dans la colonne {{column}}.",
+      overCard: "Carte {{card}} au-dessus de la carte {{target}} dans la colonne {{column}}.",
+      overColumn: "Carte {{card}} au-dessus de la colonne {{column}}.",
+      overNone: "La carte {{card}} n'est au-dessus d'aucune colonne.",
+      moved: "Carte {{card}} déplacée dans la colonne {{column}}.",
+      dropped: "Carte {{card}} déposée. Elle reste dans la colonne {{column}}.",
+      cancelled: "Déplacement annulé. La carte {{card}} reste dans la colonne {{column}}.",
+      untitledCard: "sans titre",
+      unnamedColumn: "sans nom",
+    },
   },
   timeline: {
     bucket: {

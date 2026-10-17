@@ -13,8 +13,10 @@
  * place, and the retired `full-width` template. The page renderer used to stack
  * such a region under `main` at full width. It no longer draws it anywhere and
  * says so on the page instead; it never moves it into another slot. The
- * `dashboard` template keeps its open grid, and a page that names no template
- * (the `pageType` dispatch) is not judged here.
+ * `dashboard` template keeps its open grid. A `kind: 'full'` page that names no
+ * template is judged as `default` since objectui#12902
+ * (`page-template-less-12902.test.tsx`); only a page of another kind keeps the
+ * stacking, pinned below.
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
@@ -129,11 +131,12 @@ describe('CONTROLS — what each template places still draws as before', () => {
   });
 
   it.each(['record', 'home', 'app', 'utility'])(
-    'a %s page that names no template still stacks an unnamed-slot region under main (the pageType dispatch)',
+    'a %s page of a kind the placement check does not judge still stacks an unnamed-slot region under main',
     (pageType) => {
       const { container } = renderPage({
         type: 'page',
         pageType,
+        kind: 'slotted',
         regions: [region('main'), region('region_2')],
       });
       expectDrawnOnGrid(container, 'main');

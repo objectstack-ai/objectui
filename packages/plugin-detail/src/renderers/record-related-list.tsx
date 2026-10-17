@@ -506,6 +506,25 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
     : handlers?.rowActions;
   const refusedActions = placedActions?.refused ?? [];
   /**
+   * Authored actions that resolved and were placed, but that no host executor
+   * can run here, so the list does not draw them (objectui#12870). An action
+   * offered with nothing to run it would be a dead button, so it stays undrawn,
+   * but never without a word: the notice below names it.
+   *
+   * The usual case is a list on a custom page whose parent did not resolve to a
+   * record: the page serves the record page's executor only to a list that has
+   * a parent in scope (`parentDataSource`). With no provider at all (the Studio
+   * designer, a standalone embed) the same notice names the same entries.
+   */
+  const unservedActions: string[] = placedActions
+    ? [
+        ...(handlers?.onToolbarAction ? [] : placedActions.toolbar),
+        ...(handlers?.onRowAction ? [] : placedActions.row),
+      ]
+        .map((a) => String(a.name))
+        .filter((name, idx, all) => all.indexOf(name) === idx)
+    : [];
+  /**
    * WHO sees the refusal notice (objectui#11768). An authored id this list
    * cannot draw is an authoring fault, and `os validate` already refuses it at
    * build time (objectstack-ai/objectstack#20936); the notice is its runtime
@@ -525,9 +544,11 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
    * (objectui#4656). The hosted workspace owner whose reported set carries no
    * `manage_metadata` (objectstack#8270) therefore does not see it.
    */
-  const showActionRefusals =
-    refusedActions.length > 0 &&
-    (isDevBuild() || perms.hasCapabilities([METADATA_AUTHORING_CAPABILITY]));
+  const authoringAudience = isDevBuild() || perms.hasCapabilities([METADATA_AUTHORING_CAPABILITY]);
+  const showActionRefusals = refusedActions.length > 0 && authoringAudience;
+  // The unserved-actions notice has the refusal notice's audience: both name an
+  // authoring fault for the person who can fix the page (objectui#11768).
+  const showUnservedActions = unservedActions.length > 0 && authoringAudience;
   /**
    * `showViewAll` — READ (objectui#12741; ENFORCE, the objectui half of
    * objectstack-ai/objectstack#23941). The contract declares it
@@ -560,6 +581,21 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
           className="mb-2 text-xs text-muted-foreground italic px-3 py-2 border border-dashed rounded"
         >
           {describeRelatedListActionRefusals(refusedActions, objectName, !!relatedObjectMeta)}
+        </div>
+      )}
+      {showUnservedActions && (
+        // Beside the refusal notice: these entries resolved, and nothing here
+        // can run them (objectui#12870).
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="record-related-list-actions-unserved"
+          className="mb-2 text-xs text-muted-foreground italic px-3 py-2 border border-dashed rounded"
+        >
+          {`record:related_list — actions not drawn: ${unservedActions.map((n) => `"${n}"`).join(', ')}. ` +
+            (parentLinkValue == null || parentLinkValue === ''
+              ? 'This list has no parent record in scope, so nothing can run its actions: bind the parent with `parentDataSource`, or place the list on a record page.'
+              : 'No host on this page offers an executor for them.')}
         </div>
       )}
       <RelatedList

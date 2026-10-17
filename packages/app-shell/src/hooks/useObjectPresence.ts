@@ -54,6 +54,7 @@
  * hook adds a request; the point is to remove one.
  */
 import { useMetadata, type MetadataTypeStatus } from '@object-ui/react';
+import { useExpressionContext } from '../providers/ExpressionProvider.js';
 
 /** What the metadata registry can say about one object name. */
 export type ObjectPresence = 'present' | 'absent' | 'unknown';
@@ -93,7 +94,21 @@ export function objectPresence(
 
 /** {@link objectPresence} bound to the shell's metadata registry. */
 export function useObjectPresence(name: string): ObjectPresenceReading {
-  const { getItemsByType, getTypeStatus } = useMetadata();
+  const { getItemsByType, getTypeStatus, readObjectScope } = useMetadata();
+  // objectui#12811 — inside an app whose served item names its package, and
+  // while nothing has asked for the whole registry, the object is asked for by
+  // name through the app's object scope, rather than by loading every object.
+  const { app } = useExpressionContext();
+  const packageId = typeof app?._packageId === 'string' && app._packageId ? app._packageId : undefined;
+  if (packageId && readObjectScope && getTypeStatus?.('object') === 'idle') {
+    const scope = readObjectScope({ packageId, names: [name] });
+    const presence: ObjectPresence = !scope.settled
+      ? 'unknown'
+      : scope.objects.some((o) => (o as { name?: unknown } | null | undefined)?.name === name)
+        ? 'present'
+        : 'absent';
+    return { presence, settled: scope.settled };
+  }
   // Reading the items is also what ENSURES the type is fetched (MetadataProvider
   // `readType`), so a surface that only ever asks this question still gets an
   // answer instead of waiting on somebody else to populate the cache.

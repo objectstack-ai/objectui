@@ -14,8 +14,8 @@
  *
  * The harness is the REAL `MetadataProvider`, with a client double that records
  * each call as its URL would read, under the real `AppContent`. The chrome is a
- * stand-in that does what the sidebar's capability gate does (one
- * `requiresObject` entry), and `useActionModal` is mounted beside it, as
+ * stand-in that does what the sidebar's capability gate does for the app's
+ * one `requiresObject` entry, and `useActionModal` is mounted beside it, as
  * `ConsoleShell` mounts it.
  *
  * CONTROLs: an app item with no package id asks the whole registry, as before;
@@ -99,6 +99,8 @@ const OBJECTS = [
 const NAVIGATION = [
   { id: 'n1', type: 'object', label: 'Accounts', objectName: 'crm_account' },
   { id: 'n2', type: 'object', label: 'Cases', objectName: 'crm_case' },
+  // An entry for an object this runtime may not register (a cloud-only one).
+  { id: 'n3', type: 'object', label: 'Cloud', objectName: 'cloud_only', requiresObject: 'cloud_only' },
 ];
 
 interface Server {
@@ -208,7 +210,7 @@ describe('one console open asks for the app\'s objects, not the whole registry (
 
     expect(objectCalls()).not.toContain('object');
     expect(objectCalls()[0]).toBe(`object?package=${CRM}`);
-    // The route's lookup target outside the package, and the gate's `requiresObject` name.
+    // The route's lookup target outside the package, and the object the app's `requiresObject` entry names.
     expect([...objectCalls()].sort()).toEqual([`object?package=${CRM}`, 'object/cloud_only', 'object/sys_user'].sort());
     // The route element and the chrome are handed the scope.
     expect(screen.getByTestId('object-view')).toHaveTextContent('crm_account,crm_contact,sys_user');

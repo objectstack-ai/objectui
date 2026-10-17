@@ -65,9 +65,11 @@ export interface MetadataContextValue extends MetadataCacheState {
    * The object definitions one app reads (objectui#12811): the objects of
    * `packageId` (`GET /api/v1/meta/object?package=`), plus each of `names`
    * that package does not hold, fetched by name. Each is shaped exactly as the
-   * same definition in `objects`. `missing` lists the `names` the server
-   * answered without a definition; `settled` is true once the package list and
-   * every name have been answered.
+   * same definition in `objects`; `served` holds the same definitions as the
+   * server served them, before views are merged (as `getItemsByType('object')`
+   * holds the whole list). `missing` lists the `names` the server answered
+   * without a definition; `settled` is true once the package list and every
+   * name have been answered.
    *
    * With no `packageId` it is the whole registry, as `objects` is; `objects`
    * keeps that meaning everywhere. Optional, as `getTypeStatus` is: a
@@ -76,6 +78,7 @@ export interface MetadataContextValue extends MetadataCacheState {
    */
   readObjectScope?: (scope: { packageId?: string; names?: readonly string[] }) => {
     objects: any[];
+    served: any[];
     missing: readonly string[];
     settled: boolean;
   };

@@ -1230,8 +1230,10 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
       const packageId = scope.packageId;
       if (!packageId) {
         const status = getEntry('object').status;
+        const served = readType('object');
         return {
-          objects: composeObjects(readType('object'), readType('view')) as any[],
+          objects: composeObjects(served, readType('view')) as any[],
+          served,
           missing: NO_NAMES,
           settled: status === 'ready' || status === 'error',
         };
@@ -1280,6 +1282,7 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
       }
       return {
         objects: composeObjects(entry.items, readType('view')) as any[],
+        served: entry.items,
         missing: entry.missing as readonly string[],
         settled: entry.answered && namesSettled,
       };

@@ -60,6 +60,7 @@
  */
 
 import { useMetadata } from '@object-ui/react';
+import { useExpressionContext } from '../providers/ExpressionProvider.js';
 
 /** One identity for "nothing was served", so a dependency list on it holds. */
 const NONE_SERVED: readonly unknown[] = Object.freeze([]);
@@ -113,7 +114,18 @@ function payloadOf(items: unknown): readonly unknown[] {
  */
 export function useServedViewItems(): ServedViewReads {
   const metadata = useMetadata();
-  return servedViewReads(payloadOf(metadata.getItemsByType('view')), payloadOf(metadata.getItemsByType('object')));
+  // objectui#12811 — inside an app whose served item names its package, and
+  // while nothing has asked for the whole registry, the served object
+  // documents are the app's object scope's, as served (the route's object is
+  // in it: `AppContent` names it). Reading `getItemsByType('object')` here
+  // loaded the whole registry on every open of an object list.
+  const { app } = useExpressionContext();
+  const packageId = typeof app?._packageId === 'string' && app._packageId ? app._packageId : undefined;
+  const objects =
+    packageId && metadata.readObjectScope && metadata.getTypeStatus?.('object') === 'idle'
+      ? metadata.readObjectScope({ packageId }).served
+      : metadata.getItemsByType('object');
+  return servedViewReads(payloadOf(metadata.getItemsByType('view')), payloadOf(objects));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

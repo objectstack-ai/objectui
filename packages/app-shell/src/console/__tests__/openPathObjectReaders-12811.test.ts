@@ -9,11 +9,13 @@
  * so a reader that is mounted on that open and reads `objects` at render
  * brings the whole registry back onto it.
  *
- * This file finds every reader of `objects` off the metadata context in the
- * packages' and the console's source (a `{ objects }` destructured from
- * `useMetadata()`, `useMetadata().objects`, or `.objects` on a binding of
- * `useMetadata()`), and fails on a reader the table below does not classify,
- * and on a row that names no reader. Each row says where the reader runs:
+ * This file finds every reader of the whole object list off the metadata
+ * context in the packages' and the console's source (a `{ objects }`
+ * destructured from `useMetadata()`, `useMetadata().objects`, `.objects` on a
+ * binding of `useMetadata()`, or `getItemsByType('object')`, which holds the
+ * same list as served), and fails on a reader the table below does not
+ * classify, and on a row that names no reader. Each row says where the reader
+ * runs:
  *
  *   - `scope`: on the open path, it reads `readObjectScope`, and `objects`
  *     only where no package scopes the read;
@@ -23,8 +25,11 @@
  *     whole registry (the control: its own pins stay unchanged).
  *
  * Measured once on HotCRM (a Chromium open of `/apps/crm_enterprise/crm_account`
- * with a stack-recording getter): the readers that touched `objects` were
- * `AppContent`, `useActionModal` and `useNavMemberGates`. The `request` pin
+ * with a stack-recording getter, and the request initiators): the readers
+ * that touched the whole list were `AppContent`, `useActionModal` and
+ * `useNavMemberGates`, and, once those no longer loaded it first,
+ * `useServedViewItems` (the header's and the list's view-tab labels) and
+ * `useObjectPresence` (the bell's activity feed). The `request` pin
  * beside this file (`AppContent.objectScope-12811.test.tsx`) re-derives the
  * requests; this one re-derives who reads.
  */
@@ -49,6 +54,14 @@ const OBJECTS_READERS: Record<string, { kind: Kind; why: string }> = {
   'packages/app-shell/src/hooks/useNavMemberGates.ts': {
     kind: 'scope',
     why: "the capability gate reads the app's scope; with no app package (the home feeds) it reads objects",
+  },
+  'packages/app-shell/src/hooks/useServedViewItems.ts': {
+    kind: 'scope',
+    why: "the served object documents behind the view-tab labels (AppHeader, ObjectView) are the app scope's, until something loads the whole registry",
+  },
+  'packages/app-shell/src/hooks/useObjectPresence.ts': {
+    kind: 'scope',
+    why: "an object's presence (the bell's sys_activity feed) is asked by name through the app scope, until something loads the whole registry",
   },
   'packages/app-shell/src/hooks/useActionModal.tsx': {
     kind: 'action',
@@ -91,6 +104,9 @@ function sourceFiles(dir: string, out: string[] = []): string[] {
   return out;
 }
 
+const isObjectTypeArg = (node: ts.CallExpression): boolean =>
+  node.arguments.length === 1 && ts.isStringLiteral(node.arguments[0]) && node.arguments[0].text === 'object';
+
 const isUseMetadataCall = (node: ts.Node | undefined): boolean =>
   !!node && ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'useMetadata';
 
@@ -108,6 +124,7 @@ function readsObjects(path: string): boolean {
         for (const el of node.name.elements) {
           const key = el.propertyName ?? el.name;
           if (ts.isIdentifier(key) && key.text === 'objects') found = true;
+          if (ts.isIdentifier(key) && key.text === 'getItemsByType' && ts.isIdentifier(el.name)) bindings.add(`fn:${el.name.text}`);
         }
       }
     }
@@ -118,6 +135,15 @@ function readsObjects(path: string): boolean {
     if (ts.isPropertyAccessExpression(node) && node.name.text === 'objects') {
       const target = node.expression;
       if (isUseMetadataCall(target) || (ts.isIdentifier(target) && bindings.has(target.text))) found = true;
+    }
+    // `getItemsByType('object')`, called on a binding of `useMetadata()` or destructured from it.
+    if (ts.isCallExpression(node) && isObjectTypeArg(node)) {
+      const callee = node.expression;
+      if (
+        (ts.isPropertyAccessExpression(callee) && callee.name.text === 'getItemsByType' &&
+          (isUseMetadataCall(callee.expression) || (ts.isIdentifier(callee.expression) && bindings.has(callee.expression.text)))) ||
+        (ts.isIdentifier(callee) && bindings.has(`fn:${callee.text}`))
+      ) found = true;
     }
     ts.forEachChild(node, access);
   };

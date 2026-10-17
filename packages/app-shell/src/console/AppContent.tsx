@@ -286,8 +286,9 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // On the routes `APP_OBJECT_SCOPE_ROUTES` names, inside an app whose served
   // item carries its package, that is the app's object scope
   // (`readObjectScope`): the package's objects, plus by name the route's
-  // object and its lookup targets when the package does not hold them, and the
-  // navigation's objects while the command palette is open. Everywhere else it
+  // object and its lookup targets when the package does not hold them, the
+  // objects the app's navigation entries require, and the navigation's objects
+  // while the command palette is open. Everywhere else it
   // is the whole registry, read as `objects`, as before: a record surface
   // derives its related lists from every object that points at it, so a
   // record overlay (`?recordId=`, `?form=`) reads the whole registry, and so
@@ -300,7 +301,9 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   const scopeCandidate = !!scopeRoute && !!readObjectScope && !searchParamsHasRecordOverlay(location.search);
   let objectScope: ReturnType<NonNullable<typeof readObjectScope>> | null = null;
   if (scopeCandidate && scopePackageId && readObjectScope) {
-    const names: string[] = [];
+    // The objects the app's own navigation entries require (`requiresObject`):
+    // the sidebar's capability gate answers from this scope.
+    const names: string[] = navigationRequiredObjectNames(activeApp?.navigation);
     if (scopeRoute.objectName) names.push(scopeRoute.objectName);
     if (new URLSearchParams(location.search).has(COMMAND_PALETTE_PARAM)) {
       names.push(...navigationObjectNames(activeApp?.navigation));
@@ -1660,6 +1663,20 @@ function lookupTargetNames(def: any): string[] {
     }
   }
   return [...out];
+}
+
+/** The objects an app's navigation entries require (`requiresObject`), at every group depth. */
+function navigationRequiredObjectNames(navigation: unknown): string[] {
+  const out: string[] = [];
+  const walk = (items: unknown) => {
+    if (!Array.isArray(items)) return;
+    for (const item of items as Array<{ requiresObject?: unknown; children?: unknown }>) {
+      if (typeof item?.requiresObject === 'string' && item.requiresObject) out.push(item.requiresObject);
+      walk(item?.children);
+    }
+  };
+  walk(navigation);
+  return out;
 }
 
 /** The objects an app's navigation opens, at every group depth. */

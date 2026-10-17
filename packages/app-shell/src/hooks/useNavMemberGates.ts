@@ -110,16 +110,20 @@ export function useNavMemberGates(): NavMemberGates {
   // Runtime capability gate: hide nav items targeting objects/services
   // not registered in this runtime (e.g. cloud-only `sys_app`).
   //
-  // objectui#12811 — inside an app whose served item names its package, the
-  // gate reads that app's object scope, not the whole registry: an object the
-  // package holds is registered, and one outside it is asked for by name when
-  // an entry names it (`requiresObject`), and is registered when the server
-  // answers with its definition. Until that answer, it reads as registered,
-  // as every object did while the whole list loaded. Outside an app (the home
-  // page's feeds) there is no package, and the gate reads the whole registry.
+  // objectui#12811 — inside an app whose served item names its package, and
+  // while nothing has asked for the whole registry, the gate reads that app's
+  // object scope (`readObjectScope`): an object the scope holds is registered,
+  // one the server answered without a definition is not, and any other reads
+  // as registered, as every object did while the whole list loaded. The gate
+  // asks for nothing itself: `AppContent` names the objects the app's own
+  // entries require, so the sidebar's answer is exact, while the bell's
+  // cross-app roster does not ask another app's objects one by one. Outside an
+  // app (the home page's feeds) there is no package, and the gate reads the
+  // whole registry, as it does once anything has loaded it.
   const metadata = useMetadata();
   const packageId = typeof app?._packageId === 'string' && app._packageId ? app._packageId : undefined;
-  const readObjectScope = packageId ? metadata.readObjectScope : undefined;
+  const readObjectScope =
+    packageId && metadata.getTypeStatus?.('object') === 'idle' ? metadata.readObjectScope : undefined;
   const scope = readObjectScope ? readObjectScope({ packageId }) : null;
   const metadataObjects = scope ? scope.objects : metadata.objects;
   const missingObjects = scope ? scope.missing : NO_MISSING;
@@ -135,14 +139,11 @@ export function useNavMemberGates(): NavMemberGates {
           if (registeredObjectNames.size === 0) return true;
           return registeredObjectNames.has(name);
         }
-        if (registeredObjectNames.has(name)) return true;
-        if (missingObjectNames.has(name)) return false;
-        readObjectScope({ packageId, names: [name] });
-        return true;
+        return registeredObjectNames.has(name) || !missingObjectNames.has(name);
       }
       return true;
     },
-    [registeredObjectNames, missingObjectNames, readObjectScope, packageId],
+    [registeredObjectNames, missingObjectNames, readObjectScope],
   );
 
   return { evaluateVisibility: evalVis, checkPermission: checkPerm, checkCapability: checkCap, can };

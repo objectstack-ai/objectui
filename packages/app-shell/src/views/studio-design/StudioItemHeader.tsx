@@ -33,6 +33,11 @@
  * objectui#12707 — a chip at the tab row's end (the read-only link) folds to
  * its icon when the row cannot hold it whole: the tab row tells its children
  * which row they sit in, and `useStudioTabRowFold` measures that row.
+ *
+ * objectui#12791 — a long api-name chip gives way before the title: it
+ * truncates first, its full name in its tooltip (the status chip's
+ * mechanism), and the title truncates last. The chip keeps its place; the
+ * `chips` after it stay whole.
  */
 
 import * as React from 'react';
@@ -105,6 +110,29 @@ export function StudioStatusChip({
           {title}
         </span>
       )}
+    </TooltipProvider>
+  );
+}
+
+/**
+ * objectui#12791 — the item's machine name as a mono chip. On a narrow row it
+ * truncates before the title does (`STUDIO_API_CHIP`), so the whole name is
+ * its tooltip, as the status chip's folded text is: a focusable trigger, the
+ * name as the tooltip's text. The chip's own text stays the whole name.
+ */
+function StudioApiChip({ apiName }: { apiName: string }): React.ReactElement {
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <code data-testid="studio-item-api-name" tabIndex={0} className={STUDIO_API_CHIP}>
+            {apiName}
+          </code>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs break-all font-mono" data-testid="studio-item-api-name-tooltip">
+          {apiName}
+        </TooltipContent>
+      </Tooltip>
     </TooltipProvider>
   );
 }
@@ -255,7 +283,7 @@ export function StudioItemHeader({
           {title}
         </h1>
         <span className="contents" data-slot="identity-chips">
-          {apiName && <code className={STUDIO_API_CHIP}>{apiName}</code>}
+          {apiName && <StudioApiChip apiName={apiName} />}
           {chips}
         </span>
         {status && <StudioStatusChip {...status} fold />}

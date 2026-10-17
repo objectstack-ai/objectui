@@ -72,9 +72,27 @@ export const STUDIO_ITEM_HEADER = 'shrink-0 border-b px-6 pt-[18px]';
 export const STUDIO_ITEM_ROW = 'flex min-w-0 items-center gap-3 @container';
 export const STUDIO_ITEM_META_FOLD = 'hidden basis-0 grow @min-[640px]:block';
 export const STUDIO_STATUS_TEXT_FOLD = 'sr-only @min-[480px]:not-sr-only';
-export const STUDIO_ITEM_TITLE = 'min-w-0 truncate text-[18px] font-semibold leading-tight tracking-[-0.01em] text-foreground';
+/**
+ * objectui#12791 — the title and the api-name chip share the room the row has
+ * in four steps, so the title keeps 200 px and the chip gives way before it:
+ * the title gets 200 px (or its whole text, if shorter); the chip gets 14
+ * characters (or its whole name); the title grows to its whole text; the
+ * chip grows to its whole name; the meta slot gets what is left. Each gets
+ * the first step as its basis (`basis-*`, capped at its own text by
+ * `max-w-max`), and the rest as growth: the weights put the title ahead of
+ * the chip and the chip ahead of the meta (`basis-0 grow`). On a row too
+ * narrow for both bases the chip shrinks first, down to a few characters
+ * (`min-w-[5ch]`), and only then does the title go below 200 px, so the row
+ * never overflows. A cut chip shows its full name in its tooltip
+ * (`StudioItemHeader`). The weights are large so the other item's share is
+ * far below a pixel.
+ */
+export const STUDIO_ITEM_TITLE =
+  'min-w-0 max-w-max basis-[200px] grow-[1000000] truncate text-[18px] font-semibold leading-tight tracking-[-0.01em] text-foreground';
 export const STUDIO_ICON_TILE = 'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary';
-export const STUDIO_API_CHIP = 'inline-flex h-[22px] shrink-0 items-center rounded-[5px] bg-muted px-2 font-mono text-[11px] text-muted-foreground';
+export const STUDIO_API_CHIP =
+  'block h-[22px] min-w-[5ch] max-w-max basis-[14ch] grow-[1000] shrink-[100000] truncate rounded-[5px] bg-muted px-2 font-mono text-[11px] leading-[22px] text-muted-foreground ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 export const STUDIO_KIND_CHIP = 'inline-flex h-[22px] shrink-0 items-center rounded-[5px] bg-muted px-2 text-[11px] font-medium text-muted-foreground';
 export const STUDIO_META = 'min-w-0 truncate text-xs text-muted-foreground';
 /**

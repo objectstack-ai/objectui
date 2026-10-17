@@ -96,7 +96,7 @@ describe('element:repeater — the find() envelope it reads (objectui#6726)', ()
     await waitFor(() => expect(adapter.find).toHaveBeenCalled());
     // The empty-state paragraph, not the list: before the fix this painted the
     // two rows above.
-    await waitFor(() => expect(screen.getByText('No records')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('No data')).toBeTruthy());
     expect(screen.queryByTestId('repeater')).toBeNull();
   });
 });

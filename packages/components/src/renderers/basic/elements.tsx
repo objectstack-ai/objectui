@@ -53,7 +53,7 @@ import type { AriaProps, TextSchema } from '@object-ui/types';
 import { cn } from '../../lib/utils';
 import { LazyIcon } from '../../lib/lazy-icon';
 import { renderInlineMarkdown } from '../../lib/inline-markdown';
-import { Button, Separator } from '../../ui';
+import { Button, Separator, Skeleton } from '../../ui';
 import { readProps } from './readProps';
 import { readActionEntryParamValues } from '../action/static-params';
 
@@ -670,9 +670,22 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
 
   return (
     <div className={cn('flex flex-col gap-1', schema?.className)} {...resolveInlineAriaProps(props.aria, locale)}>
-      <div className="text-3xl font-semibold tracking-tight tabular-nums">
-        {loading ? '…' : formatValue(value, props.format, props.prefix, props.suffix, tenantCurrency, locale)}
-      </div>
+      {/* objectui#12889 — while the aggregate runs, a skeleton bar the height
+          of the number's line and about a figure's width, not a bare `…`
+          glyph at the number's size. Its accessible name is `common.loading`,
+          the key the rest of the tree reads for a bare "Loading…". */}
+      {loading ? (
+        <Skeleton
+          role="status"
+          aria-label={t('common.loading', { defaultValue: 'Loading…' })}
+          className="h-9 w-20"
+          data-testid="element-number-loading"
+        />
+      ) : (
+        <div className="text-3xl font-semibold tracking-tight tabular-nums">
+          {formatValue(value, props.format, props.prefix, props.suffix, tenantCurrency, locale)}
+        </div>
+      )}
       {error && <div className="text-xs text-destructive">{error}</div>}
     </div>
   );

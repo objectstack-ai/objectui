@@ -4188,7 +4188,7 @@ const en = {
       noDescription: 'No description provided.',
       back: 'Back to marketplace',
       browseLink: 'Browse the marketplace →',
-      installedAdditiveNote: 'The kernel API is additive only — uninstall removes the on-disk manifest so the package won\'t load on next boot, but the running kernel keeps the app registered until you restart the runtime.',
+      installedAdditiveNote: 'Uninstall removes the app from the running kernel at once, together with its permission sets and their grants, and deletes the cached manifest so the package does not load at the next start. Records stored in its objects stay in the database.',
       versionBadge: 'v{{version}}',
       installedBadge: 'Installed v{{version}}',
       // objectui#11645 — an install-local entry this runtime refused to load at
@@ -4361,9 +4361,9 @@ const en = {
         revokedToast: 'Acceptance of "{{set}}" revoked.',
       },
       uninstall: {
-        confirm: 'Uninstall {{manifestId}} v{{version}} from this runtime?\n\nThe cached manifest will be removed. The app will remain loaded in the running kernel until the next restart.',
-        successInList: 'Removed {{manifestId}}. Restart the runtime to fully unload it from the running kernel.',
-        successInDetail: 'Removed cached manifest for {{manifestId}}. Restart the runtime to fully unload the app from the running kernel.',
+        confirm: 'Uninstall {{manifestId}} v{{version}} from this runtime?\n\nThe app will leave the running kernel at once, together with its permission sets and their grants, and its cached manifest will be removed. Records stored in its objects stay in the database.',
+        successInList: 'Removed {{manifestId}}: the app has left the running kernel, with its permission sets and their grants. Records stored in its objects stay in the database.',
+        successInDetail: 'Removed {{manifestId}} and its cached manifest: the app has left the running kernel, with its permission sets and their grants. Records stored in its objects stay in the database.',
         confirmNotLoaded: 'Uninstall {{manifestId}} v{{version}} from this runtime?\n\nThe cached manifest will be removed. This runtime did not load the package, so none of it is running.',
         successNotLoaded: 'Removed {{manifestId}}. It was not loaded, so no restart is needed.',
       },

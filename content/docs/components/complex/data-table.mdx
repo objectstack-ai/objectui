@@ -22,6 +22,7 @@ interface TableColumn {
   width?: string;                        // Column width (e.g., '100px', '20%')
   sortable?: boolean;                    // Enable sorting for this column
   masked?: boolean;                      // Withhold the raw value (see Masked columns)
+  chips?: boolean;                       // Cells draw chips: never narrower than the widest one (see Chip columns)
 }
 
 interface DataTableSchema {
@@ -194,6 +195,32 @@ held focus), the arrow keys move focus one cell, Home / End go to the ends of th
 row and Ctrl+Home / Ctrl+End to the ends of the page, and an edit ended with Enter
 or Escape hands focus back to its cell. A widget a cell renders keeps its own Tab
 stop. Off, every data cell is its own Tab stop, as before.
+
+## Chip columns
+
+A column with `chips: true` draws chips in its cells (a select or status field's
+badges). Its minimum width is its widest drawn chip among the rows on screen,
+measured once each time the data, the page or the page size changes, so a
+single-word value such as "Published" is never cut to an ellipsis. The floor
+raises a declared `width` and a user's resize alike; a wider `width` is kept.
+Text columns have no floor: they keep their width and truncate first.
+`ObjectGrid` sets the flag on select-typed columns.
+
+## Wide tables
+
+A table wider than its box shows a shadow at the right edge while columns remain
+to the right, and none once it is scrolled to the end. With a right-pinned column
+(the grid's Actions column) the shadow sits at that column's left edge, where the
+content slides under it. The scrollbar shows while the pointer is over the table
+or focus is inside it. The same affordance is exported for a page's own table as
+`HorizontalOverflowBox`:
+
+```tsx
+import { HorizontalOverflowBox, Table } from '@object-ui/components';
+<HorizontalOverflowBox>
+  <Table containerClassName="overflow-visible">…</Table>
+</HorizontalOverflowBox>
+```
 
 ## Masked columns
 

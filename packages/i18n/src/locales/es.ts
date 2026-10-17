@@ -3590,7 +3590,7 @@ const es = {
     noDescription: "Sin descripción disponible.",
     back: "Volver al marketplace",
     browseLink: "Explorar marketplace →",
-    installedAdditiveNote: "La API del kernel es solo aditiva — desinstalar elimina el manifiesto del disco para que el paquete no se cargue al próximo inicio, pero el kernel en ejecución mantiene la aplicación registrada hasta reiniciar.",
+    installedAdditiveNote: "La desinstalación retira la aplicación del kernel en ejecución de inmediato, junto con sus conjuntos de permisos y sus asignaciones, y elimina el manifiesto en caché para que el paquete no se cargue en el próximo inicio. Los registros almacenados en sus objetos permanecen en la base de datos.",
     versionBadge: "v{{version}}",
     installedBadge: "Instalado v{{version}}",
     // objectui#11645 — an install-local entry this runtime refused to load at
@@ -3741,9 +3741,9 @@ const es = {
       },
     },
     uninstall: {
-      confirm: "¿Desinstalar {{manifestId}} v{{version}} de este runtime?\n\nEl manifiesto en caché será eliminado.",
-      successInList: "{{manifestId}} eliminado. Reinicie el runtime para descargarlo completamente.",
-      successInDetail: "Manifiesto en caché para {{manifestId}} eliminado.",
+      confirm: "¿Desinstalar {{manifestId}} v{{version}} de este runtime?\n\nLa aplicación se retirará de inmediato del kernel en ejecución, junto con sus conjuntos de permisos y sus asignaciones, y el manifiesto en caché será eliminado. Los registros almacenados en sus objetos permanecen en la base de datos.",
+      successInList: "{{manifestId}} eliminado: la aplicación se retiró del kernel en ejecución, junto con sus conjuntos de permisos y sus asignaciones. Los registros almacenados en sus objetos permanecen en la base de datos.",
+      successInDetail: "{{manifestId}} y su manifiesto en caché eliminados: la aplicación se retiró del kernel en ejecución, junto con sus conjuntos de permisos y sus asignaciones. Los registros almacenados en sus objetos permanecen en la base de datos.",
       confirmNotLoaded: "¿Desinstalar {{manifestId}} v{{version}} de este runtime?\n\nEl manifiesto en caché será eliminado. Este runtime no cargó el paquete, así que ninguna parte de él está en ejecución.",
       successNotLoaded: "{{manifestId}} eliminado. No estaba cargado, así que no es necesario reiniciar.",
     },

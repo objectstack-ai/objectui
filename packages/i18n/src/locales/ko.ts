@@ -3521,7 +3521,7 @@ const ko = {
     noDescription: "사용 가능한 설명이 없습니다.",
     back: "마켓플레이스로 돌아가기",
     browseLink: "마켓플레이스 탐색 →",
-    installedAdditiveNote: "커널 API는 추가 전용입니다 — 제거하면 디스크에서 매니페스트가 삭제되어 다음 시작 시 패키지가 로드되지 않지만, 실행 중인 커널은 재시작될 때까지 앱을 등록된 상태로 유지합니다.",
+    installedAdditiveNote: "제거하면 앱이 실행 중인 커널에서 즉시 제거되며, 앱의 권한 세트와 그 부여 내역도 함께 제거됩니다. 캐시된 매니페스트도 삭제되므로 다음 시작 시 패키지가 로드되지 않습니다. 앱의 객체에 저장된 레코드는 데이터베이스에 남습니다.",
     versionBadge: "v{{version}}",
     installedBadge: "v{{version}} 설치됨",
     // objectui#11645 — an install-local entry this runtime refused to load at
@@ -3670,9 +3670,9 @@ const ko = {
       },
     },
     uninstall: {
-      confirm: "이 런타임에서 {{manifestId}} v{{version}}을(를) 제거하시겠습니까?\n\n캐시된 매니페스트가 삭제됩니다.",
-      successInList: "{{manifestId}} 제거됨. 완전히 언로드하려면 런타임을 재시작하세요.",
-      successInDetail: "{{manifestId}}의 캐시된 매니페스트 제거됨.",
+      confirm: "이 런타임에서 {{manifestId}} v{{version}}을(를) 제거하시겠습니까?\n\n앱이 실행 중인 커널에서 즉시 제거되며, 앱의 권한 세트와 그 부여 내역도 함께 제거됩니다. 캐시된 매니페스트도 삭제됩니다. 앱의 객체에 저장된 레코드는 데이터베이스에 남습니다.",
+      successInList: "{{manifestId}} 제거됨. 앱이 실행 중인 커널에서 제거되었으며, 권한 세트와 그 부여 내역도 함께 제거되었습니다. 앱의 객체에 저장된 레코드는 데이터베이스에 남습니다.",
+      successInDetail: "{{manifestId}} 및 캐시된 매니페스트 제거됨. 앱이 실행 중인 커널에서 제거되었으며, 권한 세트와 그 부여 내역도 함께 제거되었습니다. 앱의 객체에 저장된 레코드는 데이터베이스에 남습니다.",
       confirmNotLoaded: "이 런타임에서 {{manifestId}} v{{version}}을(를) 제거하시겠습니까?\n\n캐시된 매니페스트가 삭제됩니다. 이 런타임은 이 패키지를 로드하지 않았으므로 실행 중인 부분이 없습니다.",
       successNotLoaded: "{{manifestId}} 제거됨. 로드되지 않았으므로 재시작할 필요가 없습니다.",
     },

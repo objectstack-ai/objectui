@@ -32,30 +32,13 @@ import {
   type MetadataDiagnosticsEntry,
 } from './useMetadata.js';
 import { t, tFormat, translateMetadataType, useMetadataLocale } from './i18n.js';
+import { diagnosticsHeaderTone, type DiagnosticsHeaderTone } from './diagnostics-tone.js';
 
 type Severity = 'error' | 'warning';
 
-/**
- * The header's tone, read from the entries the sweep returned — the
- * envelope carries only `total`, so the severity split lives on each
- * entry's `diagnostics`. An entry the server marks invalid is an error
- * even when it ships no messages; warnings only count once no entry is
- * an error. Zero entries is the clean state the body already announces
- * as "All clear", so the header must not paint it as a failure.
- */
-type DiagnosticsHeaderTone = 'error' | 'warning' | 'clean';
-
-function diagnosticsHeaderTone(
-  entries: readonly MetadataDiagnosticsEntry[],
-): DiagnosticsHeaderTone {
-  let warned = false;
-  for (const e of entries) {
-    if (!e.diagnostics.valid || (e.diagnostics.errors?.length ?? 0) > 0) return 'error';
-    if ((e.diagnostics.warnings?.length ?? 0) > 0) warned = true;
-  }
-  return warned ? 'warning' : 'clean';
-}
-
+// The header's tone is `diagnosticsHeaderTone` over the entries the sweep
+// returned; zero entries is the clean state the body already announces as
+// "All clear". The directory's "View all issues" link reads the same rule.
 const HEADER_ICON_CLASS: Record<DiagnosticsHeaderTone | 'pending', string> = {
   pending: 'h-5 w-5 text-muted-foreground',
   error: 'h-5 w-5 text-destructive',
@@ -67,6 +50,15 @@ const HEADER_TONE_BADGE_CLASS: Record<DiagnosticsHeaderTone, string> = {
   error: 'text-[11px] border-destructive/40 text-destructive bg-destructive/[0.06]',
   warning: 'text-[11px] border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-500/[0.06]',
   clean: 'text-[11px] text-muted-foreground',
+};
+
+// The count badge beside each type heading takes its group's tone by the same
+// rule, over that group's entries (objectui#12768): on "Errors + Warnings" a
+// warnings-only group is not painted as an error. Same colours as the header.
+const GROUP_TONE_BADGE_CLASS: Record<DiagnosticsHeaderTone, string> = {
+  error: 'text-[10px] border-destructive/40 text-destructive bg-destructive/[0.06]',
+  warning: 'text-[10px] border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-500/[0.06]',
+  clean: 'text-[10px] text-muted-foreground',
 };
 
 export function MetadataDiagnosticsPage() {
@@ -86,11 +78,14 @@ export function MetadataDiagnosticsPage() {
     return m;
   }, [typesEntries, locale]);
 
-  // Group entries by type, ordered by descending count.
+  // Group entries by type, ordered by descending count; each group carries its
+  // own tone for the count badge beside its heading.
   const groups = React.useMemo(() => {
     const map: Record<string, MetadataDiagnosticsEntry[]> = {};
     for (const e of summary.entries) (map[e.type] ??= []).push(e);
-    return Object.entries(map).sort(([, a], [, b]) => b.length - a.length);
+    return Object.entries(map)
+      .sort(([, a], [, b]) => b.length - a.length)
+      .map(([type, rows]) => [type, rows, diagnosticsHeaderTone(rows)] as const);
   }, [summary]);
 
   const tone = diagnosticsHeaderTone(summary.entries);
@@ -196,7 +191,7 @@ export function MetadataDiagnosticsPage() {
             </EmptyDescription>
           </Empty>
         )}
-        {groups.map(([type, rows]) => (
+        {groups.map(([type, rows, groupTone]) => (
           <section key={type} className="space-y-2">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
               <Link
@@ -210,7 +205,8 @@ export function MetadataDiagnosticsPage() {
               </span>
               <Badge
                 variant="outline"
-                className="text-[10px] border-destructive/40 text-destructive bg-destructive/[0.06]"
+                data-tone={groupTone}
+                className={GROUP_TONE_BADGE_CLASS[groupTone]}
               >
                 {rows.length}
               </Badge>

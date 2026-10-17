@@ -148,9 +148,11 @@ type ObjectFieldOnlyOptionKey = Exclude<
  * parse with the issue path naming the key.
  */
 function objectFieldOnlyOptionRefusals() {
-  const formKeys = new Set(Object.keys(SpecFormSelectOptionSchema.shape));
+  // Only the KEY sets are read here; they still cross the objectui#8317 import
+  // boundary, which leaves keys untouched.
+  const formKeys = new Set(Object.keys(stripImportedDefaults(SpecFormSelectOptionSchema).shape));
   const refusals = {} as Record<ObjectFieldOnlyOptionKey, ReturnType<typeof retirementTombstone>>;
-  for (const key of Object.keys(SpecSelectOptionSchema.shape)) {
+  for (const key of Object.keys(stripImportedDefaults(SpecSelectOptionSchema).shape)) {
     if (formKeys.has(key)) continue;
     refusals[key as ObjectFieldOnlyOptionKey] = retirementTombstone(
       `\`${key}\` is an object-field option key, not a form option key: the spec's form-view option `

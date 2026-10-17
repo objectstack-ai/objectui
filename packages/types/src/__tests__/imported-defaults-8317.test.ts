@@ -146,6 +146,8 @@ import {
   checkPageRegionPlacement,
   checkPageDefaultPlacement,
   VIEW_METADATA_MEMBERS as SpecViewMetadataMembers,
+  // objectui#12736 — the form option's spec shape: the form-view option.
+  FormSelectOptionSchema as SpecFormSelectOptionSchema,
 } from '@objectstack/spec/ui';
 import {
   FieldSchema as SpecFieldSchema,
@@ -262,6 +264,10 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // objectui#8885: `ObjectChartSchema.drillDown` crosses this boundary.
   ['ChartDrillDownSchema', SpecChartDrillDownSchema],
   ['SelectOptionSchema', SpecSelectOptionSchema],
+  // objectui#12736: `SelectOptionSchema` (the SDUI form option) now spreads the
+  // spec's FORM-VIEW option and reads the object-field option above only for
+  // the key set it refuses.
+  ['FormSelectOptionSchema', SpecFormSelectOptionSchema],
   // objectui#8069: the form field-rule triad's blank check hands a predicate's
   // TEXT to this schema and takes its verdict and sentence (ADR-0137 D1), so
   // the crossing is measured here like every other one.

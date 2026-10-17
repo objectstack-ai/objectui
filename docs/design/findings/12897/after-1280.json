@@ -1,0 +1,111 @@
+{
+  "viewport": 1280,
+  "header": 680,
+  "row": 632,
+  "rowScrollWidth": 632,
+  "slotMode": "copilot",
+  "slotWidth": 360,
+  "title": {
+    "text": "任务看板（看板视图） · 视图",
+    "width": 178.2,
+    "scrollWidth": 178,
+    "tooltip": "内部标识: object · showcase_task"
+  },
+  "pieces": [
+    {
+      "tag": "button",
+      "testid": null,
+      "text": "",
+      "width": 0,
+      "left": -264,
+      "right": -264,
+      "display": "none",
+      "minWidth": "0px",
+      "flexShrink": "1",
+      "flexBasis": "auto",
+      "scrollWidth": 0
+    },
+    {
+      "tag": "span",
+      "testid": null,
+      "text": "",
+      "width": 32,
+      "left": 0,
+      "right": 32,
+      "display": "flex",
+      "minWidth": "auto",
+      "flexShrink": "0",
+      "flexBasis": "auto",
+      "scrollWidth": 32
+    },
+    {
+      "tag": "h1",
+      "testid": "if-breadcrumb",
+      "text": "任务看板（看板视图） · 视图",
+      "width": 178.2,
+      "left": 44,
+      "right": 222.2,
+      "display": "block",
+      "minWidth": "0px",
+      "flexShrink": "1",
+      "flexBasis": "200px",
+      "scrollWidth": 178
+    },
+    {
+      "tag": "span",
+      "testid": "if-canvas-caption",
+      "text": "任务看板（看板视图） · 视图",
+      "width": 37.7,
+      "left": 234.2,
+      "right": 271.9,
+      "display": "flex",
+      "minWidth": "auto",
+      "flexShrink": "0",
+      "flexBasis": "auto",
+      "scrollWidth": 38
+    },
+    {
+      "tag": "div",
+      "testid": null,
+      "text": "只读 · 用覆盖定制在「数据」中打开",
+      "width": 316.9,
+      "left": 315.1,
+      "right": 632,
+      "display": "flex",
+      "minWidth": "auto",
+      "flexShrink": "0",
+      "flexBasis": "auto",
+      "scrollWidth": 317
+    }
+  ],
+  "actionKids": [
+    {
+      "testid": "studio-readonly-link",
+      "text": "只读 · 用覆盖定制",
+      "width": 132.3,
+      "left": 315.1,
+      "right": 447.4,
+      "folded": null,
+      "visible": true
+    },
+    {
+      "testid": "if-open-in-data",
+      "text": "在「数据」中打开",
+      "width": 136.6,
+      "left": 455.4,
+      "right": 592,
+      "folded": null,
+      "visible": true
+    },
+    {
+      "testid": "if-item-more",
+      "text": "",
+      "width": 32,
+      "left": 600,
+      "right": 632,
+      "folded": null,
+      "visible": true
+    }
+  ],
+  "label": "after"
+}

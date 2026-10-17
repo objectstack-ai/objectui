@@ -1,0 +1,111 @@
+{
+  "viewport": 1010,
+  "header": 470,
+  "row": 422,
+  "rowScrollWidth": 422,
+  "slotMode": "copilot",
+  "slotWidth": 300,
+  "title": {
+    "text": "任务看板（看板视图） · 视图",
+    "width": 103.8,
+    "scrollWidth": 178,
+    "tooltip": "任务看板（看板视图） · 视图\n内部标识: object · showcase_task"
+  },
+  "pieces": [
+    {
+      "tag": "button",
+      "testid": null,
+      "text": "",
+      "width": 0,
+      "left": -264,
+      "right": -264,
+      "display": "none",
+      "minWidth": "0px",
+      "flexShrink": "1",
+      "flexBasis": "auto",
+      "scrollWidth": 0
+    },
+    {
+      "tag": "span",
+      "testid": null,
+      "text": "",
+      "width": 32,
+      "left": 0,
+      "right": 32,
+      "display": "flex",
+      "minWidth": "auto",
+      "flexShrink": "0",
+      "flexBasis": "auto",
+      "scrollWidth": 32
+    },
+    {
+      "tag": "h1",
+      "testid": "if-breadcrumb",
+      "text": "任务看板（看板视图） · 视图",
+      "width": 103.8,
+      "left": 44,
+      "right": 147.8,
+      "display": "block",
+      "minWidth": "0px",
+      "flexShrink": "1",
+      "flexBasis": "200px",
+      "scrollWidth": 178
+    },
+    {
+      "tag": "span",
+      "testid": "if-canvas-caption",
+      "text": "任务看板（看板视图） · 视图",
+      "width": 37.7,
+      "left": 159.8,
+      "right": 197.4,
+      "display": "flex",
+      "minWidth": "auto",
+      "flexShrink": "0",
+      "flexBasis": "auto",
+      "scrollWidth": 38
+    },
+    {
+      "tag": "div",
+      "testid": null,
+      "text": "只读 · 用覆盖定制在「数据」中打开",
+      "width": 212.6,
+      "left": 209.4,
+      "right": 422,
+      "display": "flex",
+      "minWidth": "auto",
+      "flexShrink": "0",
+      "flexBasis": "auto",
+      "scrollWidth": 213
+    }
+  ],
+  "actionKids": [
+    {
+      "testid": "studio-readonly-link",
+      "text": "只读 · 用覆盖定制",
+      "width": 28,
+      "left": 209.4,
+      "right": 237.4,
+      "folded": "true",
+      "visible": true
+    },
+    {
+      "testid": "if-open-in-data",
+      "text": "在「数据」中打开",
+      "width": 136.6,
+      "left": 245.4,
+      "right": 382,
+      "folded": null,
+      "visible": true
+    },
+    {
+      "testid": "if-item-more",
+      "text": "",
+      "width": 32,
+      "left": 390,
+      "right": 422,
+      "folded": null,
+      "visible": true
+    }
+  ],
+  "label": "after"
+}

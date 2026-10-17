@@ -1215,8 +1215,9 @@ export function buildDefaultPageSchema(
     object: def?.name,
     // `default`, not `full-width`: the spec's `PageSchema.template` names four
     // layouts and retires `full-width` by name (its replacement is `default`),
-    // so a Studio seed carrying it is refused at save. The renderer maps both
-    // names to the same `FullWidthTemplate`, so the seed lays out unchanged.
+    // so a Studio seed carrying it is refused at save. Both names were drawn
+    // by the same renderer component, which `default` still names, so the
+    // seed lays out unchanged (objectui#12476 dropped `full-width`).
     template: 'default',
     regions,
   };

@@ -1640,7 +1640,7 @@ export interface PageNodeSchema extends BaseSchema, Omit<SpecPage, (typeof PAGE_
    * through to the `pageType` switch — so an omitted key does NOT lay out as
    * `'default'`; it lays out as whatever `pageType` selects. The tag said
    * `'default'`, and because `TEMPLATE_REGISTRY` really does map that name to
-   * `FullWidthTemplate`, the zod mirror's `.default('default')` made a PARSED
+   * `DefaultTemplate`, the zod mirror's `.default('default')` made a PARSED
    * page take the template branch and skip the `pageType` dispatch entirely —
    * one authored page, two layouts. objectui#7735 removed the substitution.
    *

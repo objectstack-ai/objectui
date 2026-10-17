@@ -14,4 +14,8 @@ The `page` renderer used to stack such a region under `main` at full width, igno
 
 Unchanged: the placed regions draw as before, each on its 12-column block grid (objectui#12624), with the narrow-region compact list (objectui#12703). `dashboard` keeps its open grid. A page that names no template takes the `pageType` layout, which still stacks an unplaced region under `main`.
 
+The renames the spec names: `full-width` → `default`; on `default` and `three-column`, `left_sidebar` → `sidebar`, `right_sidebar` → `aside`, `content` → `main`; or choose `dashboard` when the regions are meant as a grid.
+
+`@object-ui/components` now needs `@objectstack/spec` 18.0.0-next.2 or later: the renderer reads the spec's `PAGE_TEMPLATE_SLOTS`, which next.1 does not carry, so the package's declared range moves from `^18.0.0-next.1` to `^18.0.0-next.2`.
+
 No export, prop, type or language-pack key is added or removed. The narrowing is in what the renderer draws: `PageNodeSchema.regions[].name` is a string in `@object-ui/types`, and the renderer no longer draws a name its template does not place.

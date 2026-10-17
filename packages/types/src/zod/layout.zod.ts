@@ -1365,7 +1365,9 @@ export const PageNodeSchema = BaseSchema.extend(SpecPageFields.shape).extend({
   //    {@link PageNodeRegionSchema} carries with the same meaning: `page.tsx`
   //    in `@object-ui/components` places a region by its lowercased `name`, as
   //    the check does, so the refusal names exactly the region the renderer
-  //    stacks under `main`.
+  //    does not place: on a page that names a slotted template it is drawn
+  //    nowhere and the page shows a refusal (objectui#12476); on a page that
+  //    names no template it is still stacked under `main`.
   // The spec's `PageSchema` carries six on objectstack `main` (the installed
   // 18.0.0-next.2 still carries the removed one below); these four are attached as-is: the first
   // three read `kind`, `source`, `requires` and `slots`, which this node carries

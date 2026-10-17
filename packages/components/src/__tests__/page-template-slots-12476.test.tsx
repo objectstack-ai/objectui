@@ -25,7 +25,7 @@ import { ActionProvider, SchemaRenderer } from '@object-ui/react';
 import '../renderers';
 
 function tile(id: string) {
-  return { type: 'statistic', id, label: id, value: 1 } as any;
+  return { type: 'statistic', id, label: id, value: 1 };
 }
 
 function region(name: string) {

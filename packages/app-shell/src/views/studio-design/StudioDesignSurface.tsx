@@ -1217,6 +1217,11 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   // pillar's `?sel=nav:` deep link tells them apart, so that it does not act
   // on a write state nobody has answered yet (objectui#11153).
   const [pkgWritable, setPkgWritable] = React.useState<boolean | null | undefined>(undefined);
+  // objectui#12718 — the package's display name, from the same answer: the
+  // Interfaces pillar names a package that has no app yet by it. Held with
+  // the id it answered for, so a switch never hands the next package the
+  // previous one's name while its own read is in flight.
+  const [pkgEntry, setPkgEntry] = React.useState<PkgEntry | null>(null);
   React.useEffect(() => {
     // objectui#11553 — the package-less scope has no package to look up; its
     // writability is decided below, not fetched.
@@ -1225,7 +1230,10 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
     setPkgWritable(undefined);
     fetchPackages()
       .then((list) => {
-        if (!cancelled) setPkgWritable(list.find((p) => p.id === packageId)?.writable ?? null);
+        if (cancelled) return;
+        const entry = list.find((p) => p.id === packageId) ?? null;
+        setPkgWritable(entry?.writable ?? null);
+        setPkgEntry(entry);
       })
       .catch((e: unknown) => {
         // Staying ungated is still right — the server gate is the authority
@@ -1954,6 +1962,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                 <InterfacesPillar
                   key={packageId}
                   packageId={packageId}
+                  packageLabel={pkgEntry?.id === packageId ? pkgEntry.name : undefined}
                   publishNonce={publishNonce}
                   draftNonce={draftNonce}
                   onDraftSaved={onDraftSaved}
@@ -2934,6 +2943,7 @@ const leafKeyOf = (s: Surface | null): string => `${s?.type ?? ''}:${s?.name ?? 
 
 export function InterfacesPillar({
   packageId,
+  packageLabel,
   publishNonce = 0,
   draftNonce = 0,
   onDraftSaved,
@@ -2946,6 +2956,10 @@ export function InterfacesPillar({
   onHeldEditChange,
 }: {
   packageId: string;
+  /** objectui#12718 — the package's display name, as the Studio top bar
+   * reads it; `undefined` until the package list answers. The pillar names a
+   * package with no app by it, so the id shows only when neither exists. */
+  packageLabel?: string;
   publishNonce?: number;
   /** Bumped when a draft is saved elsewhere (e.g. the header's create-app flow) — a
    * re-resolve signal so a just-created app appears without a reload. */
@@ -3000,7 +3014,10 @@ export function InterfacesPillar({
   // in the designer locale, so the rail heading follows a designer-language
   // switch as the nav rows do. ⛔ Never `String()` it: a map reads
   // `[object Object]`.
-  const [appLabel, setAppLabel] = React.useState<I18nLabel>(packageId);
+  // objectui#12718 — `null` until an app is found. A package with no app yet
+  // is named by its display name, and by its id only when it declares none.
+  const [loadedAppLabel, setAppLabel] = React.useState<I18nLabel | null>(null);
+  const appLabel: I18nLabel = loadedAppLabel ?? packageLabel ?? packageId;
   const [appName, setAppName] = React.useState<string | null>(null);
   const [appDraft, setAppDraft] = React.useState<Record<string, unknown>>({});
   // objectui#11272 — the app `appDraft` was loaded for, `app:NAME`: written
@@ -3369,7 +3386,11 @@ export function InterfacesPillar({
           const d = drafts?.[0];
           if (d?.name) {
             name = String(d.name);
-            label = String(d.name);
+            // objectui#12718 — the `_drafts` row serves the app's label
+            // (objectstack-ai/objectstack#22200), as the shell header's
+            // draft-only read already takes it.
+            const rowLabel = (d as { label?: I18nLabel | null }).label;
+            label = rowLabel ?? String(d.name);
           }
         }
         if (!name) {

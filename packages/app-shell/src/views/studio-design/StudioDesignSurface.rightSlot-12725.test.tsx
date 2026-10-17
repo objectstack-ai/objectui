@@ -14,7 +14,7 @@
  *  - The canvas has no 画布 / 源码 / 属性 tabs: one status line, and the item's
  *    definition opens from its ⋯ menu.
  *  - The pillar names are visible from 1024 px (`lg`), icons below.
- *  - CONTROLS: a pillar that keeps its own aside gets the copilot alone; no
+ *  - CONTROLS: a pillar that claims nothing (Access) gets the copilot alone; no
  *    copilot served → the properties alone; an injected `aiSlot` (the cloud
  *    seam) keeps the classic layout with no slot.
  *
@@ -319,8 +319,12 @@ describe('Studio right slot — controls (objectui#12725)', () => {
     expect(screen.getByTestId('studio-slot-toggle')).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('a pillar that keeps its own aside gets the copilot alone: a title, no switch, no strip', async () => {
-    renderAt('data');
+  // objectui#12725 phase 2 — Data and Automations now claim the slot, so the
+  // pillar that claims nothing is Access (its panels are in the main column
+  // and in dialogs; it has no properties aside). The Data pillar with nothing
+  // selected claims nothing either: `pillarsClaimSlot-12725`.
+  it('a pillar that claims nothing gets the copilot alone: a title, no switch, no strip', async () => {
+    renderAt('access');
     await waitFor(() => expect(slot()).toHaveAttribute('data-mode', 'copilot'));
     expect(within(slot()).queryAllByRole('tab')).toHaveLength(0);
     expect(within(slot()).getByTestId('studio-slot-title')).toHaveTextContent(t('engine.studio.aiCopilot', 'en'));
@@ -329,7 +333,8 @@ describe('Studio right slot — controls (objectui#12725)', () => {
     expect(slot()).toHaveAttribute('data-mode', 'copilot');
   });
 
-  it('no copilot served: the Interfaces slot holds the properties alone; the Data pillar shows no slot', async () => {
+  // objectui#12725 phase 2 — re-pointed from Data to Access, for the reason above.
+  it('no copilot served: the Interfaces slot holds the properties alone; the Access pillar shows no slot', async () => {
     copilot.available = false;
     await openDashboard();
     await waitFor(() => expect(slot()).toHaveAttribute('data-mode', 'props'));
@@ -338,7 +343,7 @@ describe('Studio right slot — controls (objectui#12725)', () => {
     expect(screen.queryByTestId('if-canvas-hint')).toBeNull();
     cleanup();
 
-    renderAt('data');
+    renderAt('access');
     await screen.findByTestId('studio-shell-header');
     await act(async () => {});
     expect(slot()).not.toBeVisible();

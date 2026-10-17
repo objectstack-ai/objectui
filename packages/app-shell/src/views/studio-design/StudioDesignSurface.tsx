@@ -5386,18 +5386,28 @@ export function DataPillar({
   // a keystroke in another surface is not read as one.
   const pillarRef = React.useRef<HTMLDivElement>(null);
   const inspectorOpen = fieldSel !== null;
+  // objectui#12725 — the surface's right slot hosts the field inspector
+  // (`useStudioRightSlot`); `null` under an injected `aiSlot`, where the
+  // classic aside beside the canvas stays. The pillar has no properties of
+  // its own to show with nothing selected (the object's own settings are its
+  // Settings tab), so it claims the slot only while a field or group is
+  // selected: Esc, an empty click or ✕ hand the slot back to the copilot.
+  const slot = useStudioRightSlot();
+  const inSlot = slot !== null;
+  const slotPropsTarget = slot?.propsTarget ?? null;
   React.useEffect(() => {
     if (!inspectorOpen) return;
     const closeOnEscape = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented) return;
       const target = e.target;
       if (!(target instanceof Node)) return;
-      if (target !== document.body && !pillarRef.current?.contains(target)) return;
+      // The slot's inspector is this pillar's too, though it sits outside it.
+      if (target !== document.body && !pillarRef.current?.contains(target) && !slotPropsTarget?.contains(target)) return;
       setFieldSel(null);
     };
     document.addEventListener('keydown', closeOnEscape);
     return () => document.removeEventListener('keydown', closeOnEscape);
-  }, [inspectorOpen]);
+  }, [inspectorOpen, slotPropsTarget]);
   // Stamp + read for the panel-family count declared above.
   const panelKey = `${current?.name ?? ''}:${viewMode}`;
   const panelBlocking = panelBlockingReport.key === panelKey ? panelBlockingReport.count : 0;
@@ -5914,6 +5924,30 @@ export function DataPillar({
   // rendered fills the field rail below without a remount.
   const inspector = useRegisteredMetadataInspector('object');
 
+  // objectui#12725 — the field rail is up exactly when the render below draws
+  // it; that is when the pillar holds the slot's properties half. A selection
+  // asks for them, keyed on its identity, as the Interfaces pillar does.
+  const fieldRailShown = Boolean(current && fieldSel && objLoaded);
+  const claimSlotProps = slot?.claimProps;
+  React.useEffect(
+    () => (claimSlotProps && fieldRailShown ? claimSlotProps() : undefined),
+    [claimSlotProps, fieldRailShown],
+  );
+  const showSlotProps = slot?.showProps;
+  React.useEffect(() => {
+    if (fieldRailShown && fieldSelKey && showSlotProps) showSlotProps();
+  }, [fieldRailShown, fieldSelKey, showSlotProps]);
+  // objectui#12725 — a click on empty canvas (the body's own padding, or the
+  // Form preview's frame and the space between its fields) drops the
+  // selection, as Esc does.
+  const clearFieldSelOnEmpty = (e: React.MouseEvent) => {
+    if (inSlot && e.target === e.currentTarget) setFieldSel(null);
+  };
+  // The field rail in the slot (filling it), or beside the canvas (the
+  // classic layout).
+  const hostFieldRail = (rail: React.ReactElement): React.ReactNode =>
+    inSlot ? slotPropsTarget && createPortal(rail, slotPropsTarget) : rail;
+
   // The object-level tabs (Data pillar): underline tabs in the item header.
   // objectui#5813 — the 90% path is Records / Form (fields ARE the grid's
   // columns, so a separate fields tab would ADD a surface, not remove one).
@@ -6158,7 +6192,11 @@ export function DataPillar({
               body padding and no framed card around the list, so its toolbar,
               grid and footer span the column's full width. Every other view
               keeps the padded body. */}
-          <main className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', bodyFlush ? null : 'px-6 py-4')}>
+          <main
+            data-testid="data-canvas-main"
+            onClick={clearFieldSelOnEmpty}
+            className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', bodyFlush ? null : 'px-6 py-4')}
+          >
           {!current ? (
             objectsLoaded && objects.length === 0 ? (
               /* Fresh package: the first act is creating an object — say so and
@@ -6419,7 +6457,11 @@ export function DataPillar({
                   </>
                 }
               />
-              <div className="flex min-h-0 flex-1 flex-col overflow-auto bg-sidebar p-6">
+              <div
+                data-testid="data-form-preview-frame"
+                onClick={clearFieldSelOnEmpty}
+                className="flex min-h-0 flex-1 flex-col overflow-auto bg-sidebar p-6"
+              >
               <>
               {/* Form — the real runtime ObjectForm ("same renderer"): the object's
                 * form exactly as an end user sees it. Clicking any rendered field
@@ -6440,7 +6482,7 @@ export function DataPillar({
                     : ''
                 }
               `}</style>
-              <div className="rounded-lg border bg-background p-6">
+              <div className="rounded-lg border bg-background p-6" onClick={clearFieldSelOnEmpty}>
                 {/* Match the real display: the runtime form auto-widens (a
                     field-heavy record opens in a near-full-width modal), so its
                     container queries reach up to 4 columns on wide screens. A
@@ -6452,6 +6494,9 @@ export function DataPillar({
                     const name = el?.getAttribute('data-field');
                     if (name && readFields(objDraft.fields).entries.some((f) => f.name === name)) {
                       setFieldSel({ kind: 'field', id: name });
+                    } else if (!el && inSlot) {
+                      // objectui#12725 — the space between the fields is empty canvas.
+                      setFieldSel(null);
                     }
                   }}
                 >
@@ -6501,9 +6546,10 @@ export function DataPillar({
           * is a question the rail body answers, not a reason to swallow the
           * click. (Unreachable in production today only because registration is
           * eager — the very thing part A wants to make lazy.) */}
-        {current && fieldSel && objLoaded && (
+        {current && fieldSel && objLoaded && hostFieldRail(
           <StudioInspector
             testId="data-field-inspector"
+            className={inSlot ? 'w-full flex-1 border-l-0' : undefined}
             eyebrow={t(fieldSel.kind === 'group' ? 'engine.studio.data.groupProps' : 'engine.studio.data.fieldProps', locale)}
             eyebrowId={fieldRailTitleId}
             id={fieldSel.id}
@@ -7378,6 +7424,35 @@ export function AutomationsPillar({
   // content column, and no aside while there is nothing to select.
   const flowsEmpty = listed && !error && flows.length === 0;
 
+  // objectui#12725 — the surface's right slot hosts the Configuration
+  // (`useStudioRightSlot`); `null` in the package-less scope and under an
+  // injected `aiSlot`, where the aside beside the canvas (or, on a folded
+  // row, the drawer over it) stays. Held while there is a flow to select, as
+  // the aside is drawn. A selection asks for the properties, keyed on its
+  // identity; Esc drops it (the canvas's own background press already does),
+  // so the slot returns to the flow's Configuration.
+  const slot = useStudioRightSlot();
+  const inSlot = slot !== null;
+  const claimSlotProps = slot?.claimProps;
+  React.useEffect(
+    () => (claimSlotProps && !flowsEmpty ? claimSlotProps() : undefined),
+    [claimSlotProps, flowsEmpty],
+  );
+  const flowSelectionKey = selection ? `${selection.kind}:${selection.id}` : '';
+  const showSlotProps = slot?.showProps;
+  React.useEffect(() => {
+    if (flowSelectionKey && showSlotProps) showSlotProps();
+  }, [flowSelectionKey, showSlotProps]);
+  React.useEffect(() => {
+    if (!inSlot || !flowSelectionKey) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || isSlotEscapeExempt(e.target)) return;
+      setSelection(null);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [inSlot, flowSelectionKey]);
+
   // The Configuration's body, in the aside beside the canvas or, on a folded
   // row, in the drawer over it (objectui#11795).
   const configBodyEl =
@@ -7879,10 +7954,14 @@ export function AutomationsPillar({
           </main>
         </div>
 
-        {flowsEmpty ? null : configFolded ? (
+        {flowsEmpty ? null : configFolded && !inSlot ? (
           // objectui#11795 — the folded row: no aside reserving width beside
           // the canvas; the selection's configuration opens over it, and
           // closing the drawer clears the selection, as the aside's ✕ does.
+          // objectui#12725 — in the right slot the Configuration reserves no
+          // width in this row at all (the slot's width is the copilot's
+          // already), so the drawer has nothing left to save and only the
+          // classic layout folds.
           <Sheet open={selection !== null} onOpenChange={(open) => { if (!open) setSelection(null); }}>
             <SheetContent
               side="right"
@@ -7907,9 +7986,10 @@ export function AutomationsPillar({
           // selected the aside keeps its "Configuration" eyebrow.
           const heading =
             selection && inspector && current && flowLoaded ? flowSelectionHeading(draft, selection, locale) : null;
-          return (
+          const aside = (
             <StudioInspector
               testId="auto-config-aside"
+              className={inSlot ? 'w-full flex-1 border-l-0' : undefined}
               eyebrow={heading?.eyebrow ?? t('engine.studio.auto.config', locale)}
               title={heading?.title}
               onClose={selection ? () => setSelection(null) : undefined}
@@ -7927,6 +8007,8 @@ export function AutomationsPillar({
               )}
             </StudioInspector>
           );
+          // objectui#12725 — in the right slot (filling it), or beside the canvas.
+          return inSlot ? slot.propsTarget && createPortal(aside, slot.propsTarget) : aside;
         })()
         )}
       </div>

@@ -743,7 +743,10 @@ describe('a package switch: Automations and Data open nothing of the previous pa
     // Whatever flow the canvas holds on package B takes the edit.
     await waitFor(() => expect(document.querySelector('[data-node-id="start"]')).not.toBeNull(), SLOW);
     fireEvent.click(document.querySelector('[data-node-id="start"] [role="button"]') as HTMLElement);
-    editText(await within(screen.getByRole('complementary')).findByLabelText('Label', undefined, SLOW), 'Kick-off');
+    // objectui#12725 — the Configuration aside now sits inside the surface's
+    // right slot, itself an `aside`: two complementary landmarks, so the
+    // Configuration is found by its own test id.
+    editText(await within(screen.getByTestId('auto-config-aside')).findByLabelText('Label', undefined, SLOW), 'Kick-off');
     await waitFor(() => expect(server.saves).toHaveLength(1), SLOW);
     expect(server.saves.map((s) => [s.type, s.name, s.packageId, s.body.label, startLabelOf(s.body)])).toEqual([
       ['flow', 'beta_sync', PKG_B, 'Beta sync', 'Kick-off'],

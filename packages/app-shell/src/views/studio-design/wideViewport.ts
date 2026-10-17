@@ -23,6 +23,9 @@ import { NODE_W, PADDING } from '../metadata-admin/previews/flow-canvas-layout.j
  * answers both ways. A one-time Chromium reading for objectui#11795
  * (historical, not re-derived by anything): at a 1024px window the canvas was
  * about 460px wide with no dock beside the pillar, and about 40px with it.
+ * Where the slot hosts the pillar, the Configuration itself is in the slot
+ * (objectui#12725, phase 2) and the row holds no aside, so only the classic
+ * layout folds: the package-less scope and an injected `aiSlot`.
  *
  * The sum, term by term: the flow rail (`w-52`, 208px; below `md` it becomes an
  * overlay, but every row below `md` is narrower than this sum anyway); the

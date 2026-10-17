@@ -33,10 +33,31 @@ const closeDate: DateFieldMetadata = {
 };
 ```
 
-`dueLike` marks the field as due/deadline-semantic, gating the relative "Overdue Nd"
-wording and the red styling. `datetime` is its own type with its own metadata
-(`DateTimeFieldMetadata`) and honours `dueLike` identically; see
-[DateTime Field](/docs/fields/datetime).
+`dueLike` declares the date a deadline, gating the relative "Overdue Nd" wording and
+the red styling. It is `@objectstack/spec`'s `FieldSchema.dueLike`, and the spec
+accepts it on `date` and `datetime` fields only. `datetime` is its own type with its
+own metadata (`DateTimeFieldMetadata`) and honours `dueLike` identically; see
+[DateTime Field](/docs/fields/datetime), which also covers the field-name fallback
+today's cells still apply when the key is absent.
+
+`settledWhen` says when the deadline is settled for one record: a CEL predicate over
+the record's own columns, read as `record`. While it holds, no overdue wording or
+colour applies to that record. It is `FieldSchema.settledWhen`, and the spec accepts
+it only beside `dueLike: true`:
+
+```ts
+import type { DateFieldMetadata } from '@object-ui/types';
+
+const dueDate: DateFieldMetadata = {
+  type: 'date',
+  name: 'due_date',
+  dueLike: true,
+  settledWhen: "record.status == 'done'",
+};
+```
+
+⚠️ `settledWhen` is declared, not yet rendered: no date cell evaluates it today, so a
+past deadline on a settled record still renders overdue.
 
 There is no date-range key. `@objectstack/spec`'s `FieldSchema` declares no date bound
 (its `min` / `max` are numbers) and refuses `min_date` / `max_date` by name, and no

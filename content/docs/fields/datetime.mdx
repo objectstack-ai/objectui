@@ -44,19 +44,42 @@ const startsAt: DateTimeFieldMetadata = {
 
 ## Overdue Affordance
 
-`dueLike` marks the field as due/deadline-semantic. It is the same key, with the
-same meaning, that the [Date Field](/docs/fields/date) uses — a past `starts_at`
-or `created_at` is not a missed deadline, so only a field that says so gets the
-affordance:
+`dueLike` declares the datetime a deadline. It is `@objectstack/spec`'s
+`FieldSchema.dueLike`, the same key, with the same meaning, that the
+[Date Field](/docs/fields/date) uses, and the spec accepts it on `date` and
+`datetime` fields only. A past `starts_at` or `created_at` is not a missed
+deadline, so only a field that says so gets the affordance:
 
 - the relative face reads **"Overdue Nd"** instead of the neutral "N days ago";
 - the cell is styled red, whichever display face it is painting.
 
-The key is optional, and only a declared `true` short-circuits. With the key
-absent, common due/deadline field-name conventions (`due_at`, `deadline`,
-`expires_at`, `sla_at`, `renewal_at`, `next_action_at`, …) turn the affordance
-on by themselves — and writing `dueLike: false` does **not** suppress that
-fallback. Authoring a neutral field name is the opt-out.
+The spec reads an absent key, or `false`, as "not a deadline", with nothing
+inferred from the field's name. Today's cells do not follow that yet: only a
+declared `true` short-circuits, and with the key absent, common due/deadline
+field-name conventions (`due_at`, `deadline`, `expires_at`, `sla_at`,
+`renewal_at`, `next_action_at`, …) turn the affordance on by themselves —
+writing `dueLike: false` does **not** suppress that fallback. Until the fallback
+is retired, authoring a neutral field name is the opt-out.
+
+`settledWhen` says when the deadline is settled for one record. It is
+`FieldSchema.settledWhen`: a CEL predicate over the record's own columns, read as
+`record`, written as a bare string or as the spec's expression envelope. While it
+holds, no overdue wording or colour applies to that record, and the spec accepts it
+only beside `dueLike: true`:
+
+```ts
+import type { DateTimeFieldMetadata } from '@object-ui/types';
+
+const respondBy: DateTimeFieldMetadata = {
+  type: 'datetime',
+  name: 'respond_by',
+  dueLike: true,
+  settledWhen: { dialect: 'cel', source: "record.status == 'closed'" },
+};
+```
+
+⚠️ `settledWhen` is declared, not yet rendered: no datetime cell evaluates it
+today, so a past deadline on a settled record still renders overdue.
 
 The affordance is **day-granular**. It compares calendar days, so a datetime a
 few hours past its deadline still reads "Today" and is not red — the same answer

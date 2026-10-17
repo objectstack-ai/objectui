@@ -1303,6 +1303,14 @@ An enhanced detail view for a single record with sections, tabs and navigation.
 > ⚠️ The authored entry wins. Where the object's own field metadata also
 > declares `dueLike`, that value is consulted only when the entry leaves the
 > key out — it does not overwrite what the view author wrote.
+>
+> On the object's field metadata, `dueLike` and its partner `settledWhen` are
+> `@objectstack/spec`'s `FieldSchema.dueLike` and `FieldSchema.settledWhen`,
+> both for `date` / `datetime` fields only. `settledWhen` is a CEL predicate
+> over the record (`record.status == 'done'`) that settles the deadline for
+> that record, and the spec accepts it only beside `dueLike: true`. It is an
+> object-metadata key: a `DetailViewField` entry does not carry it. ⚠️ It is
+> declared, not yet rendered: no date cell evaluates it today.
 
 **Related:** [DetailSchema](#detailschema), [ObjectViewSchema](#objectviewschema)
 

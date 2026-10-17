@@ -86,6 +86,30 @@ const HIDDEN_ICON_LABEL_NO_POINTER =
   'group-data-[state=collapsed]:group-data-[collapsible=icon]:pointer-events-none';
 
 /**
+ * The classes the sidebar content carries so that, once the sidebar collapses
+ * to icons, the rail scrolls vertically when its rows overflow (objectui#12794).
+ * The `SidebarContent` primitive sets `overflow-hidden` under this variant, so
+ * the rows below the fold could not be reached until the sidebar expanded.
+ *
+ * `cn` (tailwind-merge) drops the primitive's same-variant `overflow-hidden`
+ * only for a later same-variant `overflow-*` shorthand; an `overflow-y-*` alone
+ * leaves it in place and lets stylesheet order decide. So the shorthand here
+ * is `overflow-auto`, and `overflow-x-hidden` keeps the horizontal axis
+ * clipped: the rail's rows are wider than the 3rem rail, and it never scrolls
+ * sideways. The rail draws no scrollbar: a classic bar takes its width out of
+ * the 3rem rail, so the icon buttons would run under it and sit off-centre.
+ * The wheel, touch and keyboard focus still scroll it. Marked important
+ * because a host may theme every scrollbar with an unlayered `*` rule (the
+ * console does), which outranks any layered utility. Off icon mode nothing
+ * changes: the expanded sidebar and the mobile sheet keep the primitive's own
+ * `overflow-auto` and the host's scrollbar.
+ */
+const ICON_RAIL_SCROLLS_VERTICALLY =
+  'group-data-[state=collapsed]:group-data-[collapsible=icon]:overflow-auto ' +
+  'group-data-[state=collapsed]:group-data-[collapsible=icon]:overflow-x-hidden ' +
+  'group-data-[state=collapsed]:group-data-[collapsible=icon]:[scrollbar-width:none]!';
+
+/**
  * Lazy-resolved Lucide icon — see ../utils/getIcon for impl.
  * The local symbol is kept for backwards compat with existing call sites
  * within this file.
@@ -478,7 +502,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
           </div>
         </SidebarHeader>
       )}
-      <SidebarContent className="pt-2">
+      <SidebarContent className={`pt-2 ${ICON_RAIL_SCROLLS_VERTICALLY}`}>
         <div className="transition-opacity duration-200 ease-in-out">
           {context === 'app' && activeApp ? (
            <>

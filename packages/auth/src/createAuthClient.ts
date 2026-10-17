@@ -264,9 +264,10 @@ export function takePreflightSession(
   if (!slot || slot.taken) return null;
   slot.taken = true;
   if (slot.authUrl !== authUrl || slot.token !== TokenStorage.get()) return null;
-  let payload: { user?: AuthUser; session?: AuthClientSession } | null = null;
+  type Payload = { user?: AuthUser; session?: AuthClientSession } | null;
+  let payload: Payload;
   try {
-    payload = parseJSON(slot.body, { strict: false }) as typeof payload;
+    payload = parseJSON(slot.body, { strict: false }) as Payload;
   } catch {
     return null;
   }

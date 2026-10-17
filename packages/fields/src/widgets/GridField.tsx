@@ -1033,17 +1033,14 @@ function GridFieldBody({
                           readonly
                           field={{ reference: c.reference, displayField: c.displayField, idField: c.idField } as any}
                         />
-                      ) : c.type === 'file' || isTemporal(c.type) ? (
-                        // A temporal column printed with `String(value)` puts
-                        // the raw stored ISO on screen — `2026-06-17T00:00:00.000Z`
-                        // for a date, and for a datetime it would ALSO have been
-                        // wrong to render as a bare day (objectui#3569). Now that
-                        // the three types are distinct, each formats as itself.
-                        displayText(c, row[c.name], displayLocale, currency)
-                      ) : row[c.name] != null && row[c.name] !== '' ? (
-                        String(row[c.name])
                       ) : (
-                        '—'
+                        // Every other cell reads through `displayText`, as the
+                        // list-mode cell does. `String(value)` put the stored
+                        // shape on screen: a raw ISO for a temporal column
+                        // (objectui#3569), a select's stored value instead of
+                        // its option label, and an amount ungrouped and in no
+                        // locale (objectui#12915).
+                        displayText(c, row[c.name], displayLocale, currency)
                       )}
                     </td>
                   ))}

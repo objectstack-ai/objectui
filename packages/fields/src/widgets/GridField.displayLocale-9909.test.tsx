@@ -72,9 +72,8 @@ interface Surface {
 
 const SURFACES: Surface[] = [
   {
-    // The read-only table's total cell. (Its number CELLS print the stored
-    // value as-is — only temporal and file cells go through `displayText`
-    // there — so the total is this surface's one localized number face.)
+    // The read-only table's total cell. (Its number cells read through
+    // `displayText` too since objectui#12915; that file pins them.)
     name: 'read-only grid — total',
     node: <GridField value={rows} onChange={() => {}} field={field} readonly />,
     de: /Total ?99\.765,25/,

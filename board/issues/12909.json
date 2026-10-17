@@ -1,0 +1,36 @@
+{
+  "number": 12909,
+  "kind": "pull_request",
+  "title": "fix(components,react): page element loading, empty and error defaults read the bundle (objectui#12889)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: components",
+    "package: react",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T17:26:30Z",
+  "updated_at": "2026-10-17T17:51:42Z",
+  "closed_at": "2026-10-17T17:51:40Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-17T17:51:40Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12909",
+  "body": "Fixes #12889\nClause-②: no\n\n## What changed\n\nPage element blocks now draw their loading, empty and error defaults in the page's language. All three files read copy through `useObjectTranslation` from `@object-ui/i18n`. `elements.tsx` already used this hook (`element.number.noObject`), and so did `ElementDataSourceGate.tsx` (`view.malformedFilter`, `view.noObject`). Each inline `defaultValue` is the `en` pack's value, and `check:i18n-keys` keeps the two byte-identical.\n\n| Site | Before | After |\n|---|---|---|\n| `element:repeater` loading | `Loading…` literal | `common.loading` (zh: 加载中…), `role=\"status\"` |\n| `element:repeater` empty | `'No records'` | `common.noData` (en: \"No data\", zh: 暂无数据). An authored `emptyText` still wins |\n| `element:repeater` error, no message | `'Failed to load'` | `list.loadErrorTitle` (en: \"Couldn’t load records\", zh: 无法加载记录). A thrown message is still shown as thrown |\n| `element:number` loading | a bare `…` glyph at text-3xl | the `Skeleton` primitive (`h-9 w-20`, the number's line height), `role=\"status\"`, `aria-label` = `common.loading` |\n| `ElementDataSourceLoadingPanel` | `Loading view…` | `common.loading` |\n\n- **Keys.** All four keys already existed in every pack, so no language-pack key, prop, widget or export was added.\n- **No-message rejections.** A rejection with an empty message used to fall through `if (error)` to the empty state. It now shows the error default.\n- **English copy changes.** The repeater's English empty text is now \"No data\" instead of \"No records\", and the saved-view placeholder now reads \"Loading…\" instead of \"Loading view…\". The three existing assertions on `'No records'` (`data-list.contractEnvelope-6726`, `data-list.elementDataSource-11880` ×2) were updated to match. One code comment in `element-number.contractEnvelope-6726` that described the old glyph was updated too.\n\n## Pins (beside the renderers)\n\n- `packages/components/src/renderers/basic/__tests__/element-loading-copy-12889.test.tsx`\n  - **Repeater under zh-CN:** a pending find shows 加载中… and no Latin letters, an empty answer shows 暂无数据, and a rejection with no message shows 无法加载记录.\n  - **Repeater controls:** a thrown message is shown as thrown, an authored `emptyText` wins, and under en the defaults read \"Loading…\" and \"No data\".\n  - **Number:** while loading it draws the skeleton (`animate-pulse`, `role=status`, `aria-label` 加载中…), with no `…` and no `.tabular-nums`. Control: once the aggregate answers, the number replaces the skeleton.\n- `packages/react/src/element-data-source/__tests__/ElementDataSourceLoadingPanel.i18n-12889.test.tsx`\n  - The gate, pending on a named view under zh-CN, draws 加载中… and no English.\n  - Control: under en the panel draws \"Loading…\".\n  - Without a provider it draws the inline default, not the raw key.\n\n**Ablation.** I put the repeater's literal back (`node scripts/ablation-replace.mjs` from the objectstack checkout). The run is wrapped and its restore is proven:\n```\nablation-replace: ok mutation landed: anchor 1 -> 0, blob fe0a34049038 -> bb1a25003189\n FAIL ... > under zh-CN, a pending find shows the zh loading text and no English\nAssertionError: expected 'Loading…' to be '加载中…'\n      Tests  1 failed | 7 passed (8)\nablation-replace: ok restored: blob == HEAD (fe0a34049038) and `git diff HEAD` is empty\n```\nThe first attempt was a no-op. The tool refused it before any test ran, because the replacement text `Loading…` already appeared inside the anchor, so its count could not rise. I re-ran it with the distinct spelling shown above.\n\n## Verification (head `74a80e8e2f`)\n\n- **Closure build:** `pnpm --workspace-concurrency=2 --filter '@object-ui/components^...' run build`, exit 0 (8 of 47 projects).\n- **Type-check:** `pnpm --filter @object-ui/components --filter @object-ui/react run type-check` (both run `tsc -p tsconfig.test.json`, which includes `src/**/*.test.tsx`), exit 0.\n- **Targeted vitest:** the 2 new and 3 edited test files, 33/33 passed.\n- **`packages/react/` (whole dir):** 114 files and 1429 tests passed.\n- **`packages/components/` (whole dir): NOT MEASURED** — 405 test files, more than the container's foreground limit allows under a shared lock. I narrowed the run to every test file in `renderers/basic/` plus every test file in the repo that names `element:repeater`, `'repeater'`, `element:number`, `data-list`, `ElementDataSourceLoadingPanel`, `resolving-view` or `Loading view`. That set was 84 files and 3552 tests, and all passed. The full-dir run is left to CI.\n- **Lint:** `eslint --no-inline-config` over the 8 changed `.ts`/`.tsx` files gave 0 errors. The warnings are all on lines that predate this change. The config sets no `parserOptions.project` and no `projectService`, so linting is not type-aware and this diff cannot change the verdict on any untouched file.\n- **Battery, all exit 0:** `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `i18n-dead-keys`, `control-bytes`, `scripts/check-hand-rolled-comment-mask.mjs`, `scripts/check-changeset-fixed.mjs` and `scripts/check-changeset-presence.mjs`.\n\n## Acceptance notes\n\nThese are the same family, but outside this card's ruling, so I did not change them. `record-picker.tsx` is also outside the claimed file surface:\n- **`element:record_picker` (`record-picker.tsx`):** the empty default is `'No records'`, and the input placeholder is `'Loading…'` or `'Failed to load'`. All are English literals. The existing pin \"keeps the No records default for an ABSENT key\" renders that English under zh-CN.\n- **`element:number` (`elements.tsx`):** the error fallback is `'aggregate failed'`, and the error-panel title is \"This metric’s data source could not be resolved\". Both are English literals.\n- **`element:definition-list` (`data-list.tsx`):** the empty state is a `No details` literal.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

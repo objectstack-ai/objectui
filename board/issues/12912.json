@@ -1,0 +1,36 @@
+{
+  "number": 12912,
+  "kind": "pull_request",
+  "title": "refactor(app-shell): retire the post-build transition's dead halves — Studio's run-landing reader, the full-page opt-out flag, the stale ADR citation (objectui#12842)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T18:22:14Z",
+  "updated_at": "2026-10-17T18:48:36Z",
+  "closed_at": "2026-10-17T18:48:34Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-17T18:48:34Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12912",
+  "body": "Fixes #12842\nClause-②: no\n\n## What\n\nobjectui#12724 (PR #12841) removed the automatic navigation into Studio after an AI build. This retires the three things it left with no other half, all at once, and every remaining citation of a section ADR-0080 does not have:\n\n1. **Studio's run-mode landing reader.** `studioLanding.ts` (`STUDIO_RUN_LANDING`, `isStudioRunLanding`) is deleted. `StudioDesignSurface`'s `landedInRun` reader goes, along with the one-shot `landingCollapsedRef` it drove and the now-unused `useLocation` import. The properties-collapse state and `canvasMode` now start at `false` and `'design'` with plain setters.\n2. **The full-page opt-out flag.** `ConsoleLayout.openDockFullPage` and `StudioAiCopilot.openFullPage` no longer write `sessionStorage['objectstack:ai-full-page-requested']`. Its only reader was the retired transition.\n3. **The \"ADR-0080 D5\" citations.** objectstack's ADR-0080 has no D-numbered sections. The citation goes back to PR #2623, whose title named it.\n   - `ChatbotEnhanced`'s `onDesignBuiltApp` doc comment now describes what the card draws: \"Open app\" (打开应用) is the primary action and \"Design in Studio\" (在 Studio 中查看) the secondary one. Studio is primary only when the host passes no `onOpenBuiltApp` (objectui#12724).\n   - `artifactStudioPath.ts` and its test header now state the rule itself: every AI-built artifact links to the Studio pillar where it can be edited by hand, with no AI needed. They cite objectui#2623, which introduced it.\n   - The `ChatbotEnhanced.test.tsx` comment now says the pin it replaced came from objectui#2623.\n\n   No ADR holds that rule, so none is cited. These are comment changes only.\n\n## Behaviour after the change\n\n- **Arrival in the Interfaces pillar:** every arrival opens on 「设计」 with the properties aside open. That is what an arrival without the landing state already did, and since #12841 no arrival carried it.\n- **Console dock full-page button:** it records where it was pressed, then opens `/ai` (no bound package) or `/ai/build?package=PKG`. Only the storage write is gone.\n- **Studio copilot full-page button:** it records where it was pressed, then opens `/ai/build?package=PKG`. Only the storage write is gone.\n\n## Retired pins (Acceptance 2)\n\n| Retired | What it pinned |\n|---|---|\n| `StudioDesignSurface.runLanding-11658.test.tsx` (whole file) | The reader of `STUDIO_RUN_LANDING` in the Interfaces pillar. Its producer, the post-build navigation in `AiChatPage`, was removed by #12841. |\n| `ConsoleLayout.dockBinding-10926.test.tsx`: the `OPT_OUT` const, `getItem(OPT_OUT)` toBe `'1'` (bound thread) and `getItem(OPT_OUT)` toBeNull (app-less thread) | The dock's write of `objectstack:ai-full-page-requested`. Its reader was the retired transition. The navigation and return-location asserts in the same tests stay. |\n\n## Pins that keep the unchanged behaviour covered\n\n- `StudioDesignSurface.canvasMode.test.tsx`, new case \"an arrival opens on Design with the properties aside open\". This was the control case of the retired file.\n- New `__tests__/studioCopilotOpenFullPage-12842.test.tsx`: the copilot's full-page button goes to `/ai/build?package=app.crm` and records the Studio URL it left. Nothing pinned this button before.\n\nBoth pins pass on `main`'s source before the removal (2 files, 4 tests) and on this head. They pin behaviour that does not change, so there is no ablation.\n\n## Evidence\n\n- Acceptance 1: `git grep -n \"STUDIO_RUN_LANDING\\|isStudioRunLanding\\|ai-full-page-requested\" HEAD -- packages apps` prints nothing (exit 1). Control: the same grep on `044f231` exits 0 with 13 lines.\n- Acceptance 3: `git grep -n \"ADR-0080 D[0-9]\" -- packages apps examples ':!**/CHANGELOG.md'` on ed0eeefe3 prints nothing (exit 1). Control: the same grep on f3cd6ad prints 3 lines (`artifactStudioPath.ts:5`, `artifactStudioPath.test.ts:7`, `ChatbotEnhanced.test.tsx:1039`).\n- Full suite, `pnpm --filter @object-ui/app-shell test` at f3cd6ad, before the main merge: Test Files 1553 passed, 1 skipped (1554); Tests 14621 passed, 9 skipped. Exit 0.\n- Targeted families at f3cd6ad (114 files naming StudioDesignSurface, ConsoleLayout, StudioAiCopilot, ChatbotEnhanced, dockBinding or studioCopilot): 114 passed, 838 tests.\n- At ed0eeefe3, after merging origin/main 97538115b:\n  - `app-shell^...` build: exit 0.\n  - app-shell and plugin-chatbot `type-check`: exit 0.\n  - vitest on `artifactStudioPath.test.ts` and `ChatbotEnhanced.test.tsx`: 2 files, 98 tests passed.\n  - `check:changeset-claims`, `changeset:check`, `check-changeset-presence`, `check:new-line-citations`: all exit 0.\n- eslint on the changed files at f3cd6ad: 0 errors, warning counts unchanged from main.\n- Live reading: NOT MEASURED, reason: no user reach.\n\n## Changesets\n\n- `.changeset/12842-retire-built-transition.md` (`@object-ui/app-shell`, patch)\n- `.changeset/12842-chatbot-studio-door-comment.md` (`@object-ui/plugin-chatbot`, patch, comment only)\n\nThe presence gate counts a comment change under `src/` as published source, so plugin-chatbot gets its own changeset.\n\n## Acceptance notes\n\n- `AiChatPage.noNavigationAfterBuild-12724.test.tsx` still asserts that the Studio door navigates with no router state. That still holds and is left as is (seat ruling A).\n- Recorded deviation: an unpushed local commit carried a model-named trailer. It was undone with a soft reset of that commit only and re-made with the model-free pair. No pushed history changed (seat ruling A).\n\nProvenance: built by the cloud session `session_01BBswNTRf2oJjcE63sgcpUu` (claim `6237041503`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final messages, because a cloud session cannot open a PR from its container. The first head (`f3cd6ad`) was extended on the seat's request to the two other \"ADR-0080 D5\" citations of the same family (`ed0eeef`). The seat replaced the dev's footer lines with this paragraph and changed nothing else.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01BBswNTRf2oJjcE63sgcpUu)_\n"
+}

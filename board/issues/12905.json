@@ -1,0 +1,35 @@
+{
+  "number": 12905,
+  "kind": "pull_request",
+  "title": "fix(plugin-list): an unlabelled user-filter chip draws a skeleton, not the field key, while the object definition loads",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T16:36:49Z",
+  "updated_at": "2026-10-17T17:40:19Z",
+  "closed_at": "2026-10-17T17:40:16Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-17T17:40:16Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12905",
+  "body": "Fixes #12890\nClause-②: yes\n\n## What changed\n\nA user-filter chip with no authored `label` takes its name from the object definition. `ListView` holds that definition at `null` until `getObjectSchema` answers, and every chip draw site fell back to the machine key meanwhile (cloud's 我的软件包 showed `category`, then `分类`).\n\n- `ListView` already tracks the fetch in `objectDefLoaded`. It now hands `objectDefPending={!objectDefLoaded}` to `UserFilters`.\n- `UserFiltersProps` gains an optional `objectDefPending` (default false). While it is true, every site that read `f.label || f.field` draws the label if there is one, and otherwise:\n  - the dropdown chip (in the bar and inside the \"More\" overflow): a `Skeleton` from `@object-ui/components`;\n  - the text control's search placeholder: empty;\n  - the person-picker (`LookupValuePicker`) `label`: empty;\n  - the deprecated toggle button: a `Skeleton`.\n- Label resolution itself is unchanged: `resolveFields` still resolves `f.label`, then the definition's field label, through `useSafeFieldLabel`. No second mechanism.\n- Once the definition settles, behaviour is as before. A field the settled definition does not name, or a failed `getObjectSchema` (which settles with `objectDef` still `null`), still draws the key. A host that does not pass the new prop also still draws the key, as before.\n\n## Published surface (for the contract reviewer)\n\n- `UserFiltersProps`, which the `@object-ui/plugin-list` package entry exports as a type, gains one optional member: `objectDefPending?: boolean`. It defaults to `false`.\n- A host that omits it behaves exactly as before: an unlabelled chip falls back to the field key. Only `ListView` sets it.\n- Semver: this adds an optional member to a published props type, so the API surface widens without breaking anything. The repo levels a Clause-② widening at least `minor`, so the changeset is `'@object-ui/plugin-list': minor`. Commit `5d0f34e12e` raised it from `patch`.\n\n## Tests\n\nNew `packages/plugin-list/src/__tests__/UserFilters.pendingLabel-12890.test.tsx`:\n- PENDING: with `objectDefPending`, no unlabelled chip's key appears in the bar's text or any placeholder. Covered: dropdown chip, overflow chip in \"More\", text placeholder, person-picker prompt. A skeleton stands in.\n- PENDING: the toggle chip draws no key.\n- CONTROL: an authored label is drawn while pending.\n- SETTLED: without the pending signal, the key is still the last resort.\n- ARRIVAL (through `ListView`, zh resources, gated `getObjectSchema`): skeleton while pending, then `分类` after release.\n\nAblation, once, through `scripts/ablation-replace.mjs` (objectstack checkout), wrap mode: restored the chip site to `{f.label || f.field}`. The anchor went from 1 hit to 0 and the blob went `ee06df6d9966` to `ad54466e63dc`. Result: `Tests 2 failed | 3 passed (5)`. PENDING and ARRIVAL failed with `expected 'category' not to contain 'category'`. The restore was proved by blob hash: after == HEAD == `ee06df6d9966`, and `git diff HEAD` was empty.\n\nAll of the following ran at head `85588ab6ce`. The only later commit, `5d0f34e12e`, touches the changeset alone; `check-changeset-fixed`, `check-changeset-presence` and `check-changeset-no-major` were re-run on it and exited 0.\n- `pnpm exec vitest run --maxWorkers=1 packages/plugin-list/`: 150 files, 1523 tests passed. It ran under the shared lock; the lock verdict reported command-exit 0.\n- `type-check` on `@object-ui/plugin-list` (`tsc --noEmit && tsc -p tsconfig.test.json`): exit 0. `--listFiles` confirms the new test is in the test project. The dependency closure was built first with `turbo run build --filter='@object-ui/plugin-list^...'`, exit 0.\n- ESLint, narrowed to the three changed source files (root flat config, `--format json`): 3 files, 0 errors. That config has no type-aware linting, so this diff cannot change the verdict on any untouched file.\n- The pre-tsc battery exited 0: phantom-deps, self-import, unreferenced-sources, doc-example-readers, handler-key-reads, side-effects-array, element-data-source-declaration, spec-symbols, action-forward-parity, designer-field-key-parity, icon-record-names, i18n-keys, i18n-drift, i18n-designer-parity, control-bytes and new-line-citations. So did `check-hand-rolled-comment-mask`, `check-changeset-fixed` and `check-changeset-presence`.\n- `check:spec-floors` exited 1 with `no-artifact`, because the workspace was not fully built. NOT MEASURED. The dispatch expects this.\n\n## Acceptance notes\n\n- Toggle mode (deprecated, ADR-0047 §3.4a) never receives `objectDef`. After the definition settles, an unlabelled toggle chip draws the key, before and after this change. This PR only covers the pending window. Observation, not filed; no carrier.\n- While pending, the person picker's search prompt reads its translated \"Search\" text with an empty label. It can only be seen if someone opens a lookup chip before the definition arrives.\n\nThe session behind this change is `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

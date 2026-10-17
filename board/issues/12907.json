@@ -1,0 +1,33 @@
+{
+  "number": 12907,
+  "kind": "issue",
+  "title": "record path: a derived stage drops its option's declared lifecycle `kind`, so terminal stages are still guessed from spelling (`deriveStages` maps value and label only; spec 18 declares `kind`)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "domain:ui",
+    "enhancement",
+    "finding",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T17:01:23Z",
+  "updated_at": "2026-10-17T18:53:14Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12907",
+  "body": "## Source\n\nobjectstack-ai/objectstack#23809 landed as PR #23846: a select option declares `kind: 'open' | 'won' | 'lost'`, mandatory on every option of an object's `stageField`. That card's landing record (objectstack `6214430018`) lists its readers to follow in their own cards: \"objectui's record path and kanban read the option `kind`\". No objectui card carries that yet; this is the record-path half, measured. objectstack-ai/cloud#2926 is the producer that waits on it (the AI builder writing kinds).\n\n## Measured at objectui `ef71a09f9e5f` (cloud's pin; `main` reads the same)\n\n- `packages/plugin-detail/src/synth/buildDefaultPageSchema.ts:391` `deriveStages` returns `options.map((o) => ({ value: o.value, label: o.label }))`, so the option's `kind` is dropped.\n- `packages/plugin-detail/src/renderers/record-path.tsx` `classify` honours an explicit `terminal` first. That is the `record:path` `stages[].terminal` the spec's vocabulary ruling chose `won` / `lost` to match (objectstack `6209728672`). Absent that, it falls back to `LOST_TOKENS` / `WON_TOKENS` over the value and label.\n- Observed on staging on 2026-10-16 (objectstack-ai/cloud#2926's walk): a loan's `status` (`borrowed` 借出, `returned` 已还, `overdue` 逾期) draws 借出 ✓ → 已还 → 逾期. Neither 已还 nor 逾期 matches a token, so the successful end reads as a middle step.\n\n## Target\n\n1. A derived stage carries `terminal` from its option's declared `kind`: `won` → `won`, `lost` → `lost`, `open` → none. A declared kind wins over the spelling heuristic. The heuristic stays the fallback for options that declare none, as #23809 Target 2 says, until the next major.\n2. Tests: a stage field whose options declare `kind` draws the `won` option as the forward terminus and the `lost` option in the separated group, whatever their spelling; options without `kind` behave as today.\n\n## Same family, not measured here\n\n#23809 also names the kanban's column order and the \"closed\" filters as readers of a `stageField`. Check whether `plugin-kanban` classifies terminal lanes by spelling too; if it does, the same declared-kind-first rule belongs in the same change.\n\n## Acceptance\n\nAfter cloud's objectui pin carries this, a loan built by objectstack-ai/cloud#2926 with `returned` declared `kind: 'won'` draws 已还 as the end of its path. The cloud seat reads it.\n\n<sub>Filed by the `repo:cloud#2` seat (seat post objectstack-ai/objectstack#24145, session `session_01Cbdek8SKSHxddGqTPZXdqX`). ⛔ Not a claim. Dedupe: this repository's issues since 2026-08-15 by title and body (`kind`, `stage path`, `record path`, `terminal`, `23809`): objectui#12711 and #12736 (the types' acceptance of `kind`, closed) and #12726 (overdue styling, closed); none reads `kind` in the path.</sub>"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 12911,
+  "kind": "pull_request",
+  "title": "fix(app-shell): the Console top bar stays silent on a successful connect",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T17:52:45Z",
+  "updated_at": "2026-10-17T18:21:57Z",
+  "closed_at": "2026-10-17T18:21:55Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-17T18:21:55Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12911",
+  "body": "Fixes #12891\nClause-②: no\n\nThe Console top bar no longer flashes a green \"Connected\" chip for 2 s after load. A successful connect (`connected`) renders nothing from the first frame; the `showConnected` state and its 2000 ms timer are removed. `connecting`, `reconnecting`, `disconnected` and `error` are unchanged. No tooltip, setting, constant or prop was added (triage route 6235395258: silent on a successful connect).\n\n## Readers of the `connected` text and the timer (A1)\n\nBefore (at c999d4c017): `ConnectionStatus.tsx` read `topbar.connection.connected` through its `statusConfig` row and drew it while `showConnected` was true (the 2000 ms `setTimeout`); the only other reader was the objectui#12295 test constant `CONNECTED`, which pinned the flash. The ten language packs carried the key.\n\nAfter: no source reader of `topbar.connection.connected` remains (`git grep` over packages, apps, scripts outside the packs: the objectui#12295 test constant only, now asserting absence). `showConnected` and `setTimeout` are gone from the component. The key is retired from all ten packs (ar, de, en, es, fr, ja, ko, pt, ru, zh); `statusConfig` is typed over `Exclude<ConnectionState, 'connected'>`.\n\n## Pins and ablation (A2)\n\n- New `ConnectionStatus.silentWhenConnected-12891.test.tsx`: (a) on the transition to `connected` the component renders nothing at 0, 1, 1000, 1999, 2000 and 60000 ms, and when mounted connected; (b) CONTROL: `connecting`, `reconnecting`, `disconnected` and `error` still draw their chip.\n- `ConnectionStatus.followsRequests-12295.test.tsx`: the two assertions that pinned the 2 s flash now assert absence, with the reason beside the edit (objectui#12891 routed it silent). The outage-state pins (reconnecting stays up, error stays up, a 500 leaves it hidden) are unchanged.\n- Ablation (flash put back in `ConnectionStatus.tsx`, one run, under the shared lock, restore trap armed): 6 of 10 tests red (both new (a) pins and the four 12295 tests that reach the connected state), the 4 control pins stayed green. Direction: red, as expected. Mutation was proven on disk before the run (marker count 1 of 1). Restore proven by blob hash: worktree and HEAD blob both 49fae23151451534d13ada3fc81f6101867e311a, `git diff HEAD` empty. The test imports the component by relative path, so no rebuild is involved.\n\n## Gates\n\n- `pnpm exec vitest run --maxWorkers=1` on the two ConnectionStatus tests plus `ellipsis-glyph-3878.test.ts`: 3 files, 17 tests passed. `packages/i18n/` whole dir: 83 files passed, 1325 tests passed, 13 skipped.\n- Type-check: closure `pnpm --filter '@object-ui/app-shell^...' build` then `@object-ui/i18n` and `@object-ui/app-shell` `type-check` (src and tsconfig.test.json): exit 0.\n- eslint with `--no-inline-config` over the 16 changed files: 0 errors, 0 warnings.\n- `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:i18n-dead-keys` (a report): exit 0. `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:control-bytes`, `check-hand-rolled-comment-mask.mjs`, `check-changeset-fixed.mjs`: all exit 0. `check:spec-floors`: exit 1, recorded, not touched.\n\n## Declared narrowing (NOT MEASURED)\n\n`vitest` over the whole `packages/app-shell/` dir and over `packages/app-shell/src/layout/` each hit the 8-9 minute foreground cap under the shared lock (exit 124, no verdict). Not measured: the rest of the app-shell suite. The reachable consumers were run instead: the two ConnectionStatus tests; every `AppHeader` test that touches the chip mocks `ConnectionStatus` itself, so the change cannot move them. CI runs the full suite.\n\n## Acceptance notes\n\nThe 12295 PR described the 2000 ms auto-hide as correct; this card is the maintainer's walk asking to remove the flash, and triage routed it silent, so the 12295 flash pins were edited rather than kept.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

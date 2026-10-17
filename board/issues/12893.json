@@ -1,0 +1,36 @@
+{
+  "number": 12893,
+  "kind": "pull_request",
+  "title": "fix(components): element:text renders its declared inline Markdown, with a link-scheme allow-list shared with the marketplace README renderer (objectui#12778)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: components",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T14:24:07Z",
+  "updated_at": "2026-10-17T14:49:33Z",
+  "closed_at": "2026-10-17T14:49:31Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-17T14:49:31Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12893",
+  "body": "Fixes #12778\nClause-②: yes\n\n## What\n\n`element:text` now renders the inline Markdown its spec declares. `ElementTextPropsSchema.content` is described as \"Text or Markdown content\" (objectstack `packages/spec/src/ui/component.zod.ts`), but `ElementTextRenderer` printed `pickLocalized(content)` as typed. The named producer is objectstack-ai/cloud#2918 (PR objectstack-ai/cloud#2937): the pricing footer's sales address had to become a separate button.\n\n- The inline half of the console's zero-dependency README renderer (`MarkdownText` in `@object-ui/app-shell`, its `renderInline` and the inline raw-HTML grammar) moves into `@object-ui/components` as `renderInlineMarkdown` (`packages/components/src/lib/inline-markdown.tsx`).\n- `element:text` renders its content, a string or a locale map, through it inside its single p or h1-h6 tag.\n- `MarkdownText` calls the same function and keeps only its block parser. There is one implementation and no new dependency.\n\n## Behaviour\n\n- **Inline subset:** `**bold**`, `*italic*`, single-backtick `code`, `[text](url)`, all drawn as React elements, never as an HTML string.\n- **Raw HTML** is skipped: neither rendered nor printed, as objectui#12146 does for READMEs.\n- **Link safety:** an href survives only for `http:`, `https:`, `mailto:`, `tel:`, or a scheme-less path, query or fragment. Any other scheme (`javascript:`, `data:`, `vbscript:`, any case), or an href containing whitespace or a control character, prints the link text with no anchor. React 19 blocks `javascript:` itself; this package's peer range admits React 18, which does not. **This also fixes the marketplace README renderer**, which passed href through as written.\n- **Block syntax** in `element:text` (a `#` heading, a `- ` or `1. ` item, a fence) prints as typed. The tag holds one line of inline content. A code span is a single backtick pair, so a typed fence stays literal.\n- **Plain text is unchanged:** a lone `*`, `2 * 3 * 4`, `snake_case`, `__dunder__`, bracket text without a destination, and `a < b`. Emphasis delimiters follow CommonMark's flanking rule in its simplest form.\n- **Link target:** `element:text` opens `http(s):` and protocol-relative links in a new tab with `rel=\"noopener noreferrer\"`. A same-site path, `mailto:` and `tel:` stay in the current tab. README links all open a new tab, as before.\n\n## Clause-②\n\nyes. The `@object-ui/components` entry gains `renderInlineMarkdown`, the type `InlineMarkdownOptions`, and `RAW_HTML_OPEN_TAG` / `RAW_HTML_CLOSING_TAG` (RegExp sources). They are exported because app-shell's README renderer imports them, which keeps one copy of the inline pass and of the tag grammar its HTML-block rules use. No existing export changes, and no prop or language-pack key is added.\n\n## Tests\n\n- `packages/components/src/renderers/basic/__tests__/element-text-markdown-12778.test.tsx`:\n  - link and bold from the producer's sentence;\n  - a localized content map in zh-CN;\n  - new-tab and same-tab targets;\n  - italic and code;\n  - CONTROLS: six refused hrefs, raw HTML (an img tag with an onerror handler, and a b tag), plain-text shapes, block syntax.\n- `packages/app-shell/src/console/marketplace/__tests__/MarkdownText.linkScheme-12778.test.tsx`: refused schemes in a paragraph and a list item; CONTROL: the README inline pass renders as before (href, new tab, link class, emphasis in a heading, paragraph and list).\n- The existing objectui#12146 README fixtures pass unchanged.\n- **Ablations** (each restored to the HEAD blob, git diff HEAD empty):\n  - verbatim output: 11 of 21 red;\n  - href passthrough: 9 of 26 red;\n  - old italic regex: 1 red;\n  - old code-span regex: 1 red;\n  - raw-HTML pattern removed: 1 red.\n- **Local gates at 8ff1d52:**\n  - app-shell dependency-closure build, components and app-shell type-check: exit 0;\n  - 98 test files naming the touched symbols: 3383 passed;\n  - components suite in two shards (before the main merge): 4020 passed, 24 skipped;\n  - `check:changeset-claims`, `changeset:check`, `check:test-path-roots`, `check:new-line-citations` (0 new), `check:spec-symbols`, changeset presence: all 0;\n  - eslint on the changed files: 0 errors.\n\nNOT MEASURED: live reading, reason: no authored element:text Markdown in the showcase.\n\n## Acceptance notes\n\n- Inline raw-HTML skipping uses CommonMark's grammar. Plain text shaped like an open tag (a less-than sign directly followed by a letter, with a greater-than sign later in the same run of text) loses that span in element:text, where it used to print literally. This is the same grammar react-markdown applies with skipHtml.\n- A Markdown destination ends at its first closing parenthesis, and a link title (`[a](url \"t\")`) is not supported. Such a destination contains whitespace and is refused, so the link prints as its text.\n\nProvenance: built by the cloud session `session_01Av7gvRf1BcoMo5Eagr2HbP` (claim `6234438315`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final message, because a cloud session cannot open a PR from its container. The seat replaced the dev's session and footer lines with this paragraph, reworded one Acceptance-notes example so that the body carries no tag-shaped text, and changed nothing else.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01Av7gvRf1BcoMo5Eagr2HbP)_\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 12914,
+  "kind": "pull_request",
+  "title": "fix(plugin-form): record:line_items hydrates an untyped column from the child field",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T19:25:21Z",
+  "updated_at": "2026-10-17T19:50:55Z",
+  "closed_at": "2026-10-17T19:50:53Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-17T19:50:53Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12914",
+  "body": "Fixes #12854\nClause-②: no\n\nThe objectui half of objectstack-ai/objectstack#24140 (the spec describe landed in objectstack-ai/objectstack#24188).\n\n## What changed\n\n- `LineItemsPanel` (`record:line_items`) now passes its authored `columns` through `hydrateColumns` from `deriveMasterDetail.ts`, the same function the master-detail carriers call through `deriveDetail`. It was already exported, so `deriveMasterDetail.ts` is untouched. There is no second resolver.\n- The child schema it hydrates from is the one the panel already loads with `getObjectSchema(childObject)` for the save sanitize and the line affordances (A1). `hydrateColumns` takes it as is: its parameter is the structural `ChildObjectSchemaLike` (`name?`, `fields?`), and the panel's state is that shape or `null` (passed as `undefined`).\n- A column without a `type` takes the child field's `label`, `type` and `options`. Through the same function it also takes `required`, a lookup's `reference` / `displayField`, file props, `readonlyWhen` / `requiredWhen` and a formula's `computed` / `expr`, exactly as a master-detail grid's column does. An authored `label` or `type` still wins. A column whose field the child object does not declare is returned as written. Until the schema answers, the columns render as authored.\n\n## Translation path\n\nThe master-detail carriers do not translate a column heading on the client. The hydrated `label` is the one the object-metadata endpoint serves, and that endpoint translates the object document into the session locale (`translateObject` in `@objectstack/spec/system`, reading `objects.CHILD.fields.F.label`). The console adapter's schema cache is cleared on a language switch, so the next read is in the new locale. `record:line_items` now takes its heading from the same served label, so it translates the same way. The zh pin serves the child schema the way that endpoint answers a zh session.\n\n## Print page (A3)\n\nA print page does not use a different renderer. `record:line_items` has one registration (`ComponentRegistry.register('line_items', LineItemsPanelRenderer, { namespace: 'record' })` in `packages/plugin-form/src/index.tsx`), and it renders `LineItemsPanel`. On a page that declares `print`, the panel only reads `usePrintPage()` to name its row cap. Printed headings therefore go through the same hydration.\n\n## Pins\n\nNew `packages/plugin-form/src/LineItemsPanel.childFieldHydration-12854.test.tsx`, through the real panel and `SchemaRendererProvider`:\n\n- (a) an identity-only column is headed `Quantity` / `Line status` (the child field labels), not `quantity` / `status`;\n- (a, zh) under a zh `I18nProvider`, with the schema served in zh, the headings are `数量` / `行状态`;\n- (b) the `status` cell is a select picker named by the hydrated label, showing the option label `Open` (zh: `未结`) rather than the stored value `open`;\n- (c) CONTROL: authored labels `Units` / `State` are kept, and the field's type and options still apply;\n- (c) CONTROL: an undeclared `note` column is headed `note` and edits as a plain text input over the stored value.\n\nAblation, after the fix was committed (`f58f1ce764`), with `scripts/ablation-replace.mjs` from the objectstack checkout and a `trap` restore. `hydrateColumns(schema.columns, childSchema ?? undefined)` was replaced with `schema.columns` plus a marker comment. Anchor count went 1 to 0, and the blob went `892b35f0be3b` to `85ce270d9929`. All 4 tests went red: (a) failed with `Unable to find role=\"columnheader\" and name \"Quantity\"`, the zh case on `数量`, and both controls on their hydration-dependent assertions. After the restore the blob read `892b35f0be3b`, matching the HEAD blob, and `git diff HEAD` was empty. A first attempt that put back a bare `schema.columns` was refused by the tool before the run (the replacement text already occurred in the anchor, so its count could not rise), and nothing was run on it.\n\n## Verification (on `f58f1ce764`)\n\n- New test file: `Tests 4 passed (4)`, lock verdict `command-exit 0`.\n- Closure build `pnpm --workspace-concurrency=2 --filter '@object-ui/plugin-form^...' build`: exit 0.\n- `pnpm --filter @object-ui/plugin-form run type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`): exit 0. `--listFilesOnly` on `tsconfig.test.json` counts the new test file once.\n- eslint `--no-inline-config` on the 2 changed source files: 0 errors and 17 warnings. All warnings are on lines this PR did not touch (`no-explicit-any`, `set-state-in-effect`, `exhaustive-deps`).\n- The pre-tsc battery all exited 0: `check:phantom-deps`, `self-import`, `unreferenced-sources`, `doc-example-readers`, `handler-key-reads`, `side-effects-array`, `element-data-source-declaration`, `spec-symbols`, `action-forward-parity`, `designer-field-key-parity`, `icon-record-names`, `i18n-keys`, `i18n-drift`, `i18n-designer-parity`, `control-bytes`, `scripts/check-hand-rolled-comment-mask.mjs`, `scripts/check-changeset-fixed.mjs` and `scripts/check-changeset-presence.mjs`.\n- `check:spec-floors`: exit 1, `no-artifact` (the workspace was not fully built). Recorded, not fixed.\n- NOT MEASURED: `plugin-form` package dir, reason: lock queue. Three timed acquisitions (300 s, 360 s, 420 s) never reached the head while one holder ran a full `packages/components/` vitest for more than 24 minutes, and an earlier whole-package run was cut by the foreground cap. This run is declared to CI.\n\n## Acceptance notes\n\n- The read-only table of the grid (`GridField` with `readonly`) draws a `select` cell as the stored value. Its cell sends only file and temporal columns through `displayText`, so `displayText`'s select branch is not reached from that table. A read-only line-items panel therefore shows `open`, not `Open`, even after this change (measured while writing the pins). That is not this PR's scope, and it is reported to the seat.\n- Riders for objectstack's pin bump that carries this: see the `domain:spec` seat's note on the card.\n\nChangeset: `.changeset/12854-line-items-hydrate.md` (`@object-ui/plugin-form: patch`).\n\nSession: `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

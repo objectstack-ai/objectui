@@ -1,0 +1,38 @@
+{
+  "number": 12901,
+  "kind": "pull_request",
+  "title": "fix(components): a slotted page template draws only the regions it places, and full-width retires (objectui#12476)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "package: components",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T15:25:17Z",
+  "updated_at": "2026-10-17T16:49:24Z",
+  "closed_at": "2026-10-17T16:49:22Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-17T16:49:22Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12901",
+  "body": "Fixes #12476\nClause-②: no (narrowing)\n\n## What changes\n\n`packages/components/src/renderers/layout/page.tsx`, against `@objectstack/spec` 18.0.0-next.3 (`PAGE_TEMPLATE_SLOTS`, `checkPageRegionPlacement`):\n\n- **Slotted templates draw only what they place.** On `default`, `header-sidebar-main` and `three-column`, a region the template does not place is no longer stacked under `main`. It is drawn nowhere and never moved into another slot. Where it used to stack, the page shows a refusal (`data-page-refusal=\"unplaced-region\"`) naming the region and the template's slots.\n- **`full-width` retires.** `TEMPLATE_REGISTRY` is now keyed by the spec's `PageTemplate`, so a template the spec adds or retires fails to compile. `FullWidthTemplate` is renamed `DefaultTemplate`. A template name the registry does not hold draws a refusal (`data-page-refusal=\"unregistered-template\"`) instead of silently taking the pageType layout.\n- **The spec floor moves.** `@object-ui/components` now reads the spec's `PAGE_TEMPLATE_SLOTS`, which `@objectstack/spec` 18.0.0-next.1 does not carry, so its declared range moves from `^18.0.0-next.1` to `^18.0.0-next.2` (the lockfile's one `specifier` line moves with it; the resolved version stays 18.0.0-next.3).\n- **A pending changeset is corrected.** `.changeset/23610-record-page-seed-default.md` no longer says the renderer recognises `full-width`: a stored `full-width` row keeps rendering because the platform rewrites it to `default` on read. Three comments that named `FullWidthTemplate` or the old stacking are corrected too.\n- **Unchanged:** `dashboard`'s open grid; the 12-column block grid in each placed region (objectui#12624); the narrow-region compact list (objectui#12703); the pageType dispatch (no template), which still stacks.\n\n## Why a visible refusal, not drawing nothing\n\nThe spec migration rewrites only `full-width` to `default` on read. A stored row with an unplaced region is served unchanged, so it does reach the renderer. Drawing nothing would silently lose content. Stacking is the mis-layout the ruling retires. A visible refusal tells the author what to rename.\n\n## Callers read (H3)\n\n- The synthesized record page (`plugin-detail` `buildDefaultPageSchema`, `template: 'default'`, regions `main` and `aside` only) and approval pages: unaffected.\n- PageView and PagePreview spread the raw stored row with no parse: they get the new behaviour for slotted templates.\n- Preview samples and examples carry no template: pageType path, unchanged.\n- No in-repo producer emits `full-width`.\n\n## Tests\n\n- New `page-template-slots-12476.test.tsx`: 16 tests. 7 pin the refusals, 9 are controls.\n- Ablation: with page.tsx reverted to the main blob, 7 failed and 9 passed. Restored by HEAD blob hash, 16/16.\n- Moved pin: `layout-default-jsdoc-7361` row 7 now reads `DefaultTemplate` (rename only).\n- No pin asserted that an unplaced region is stacked.\n- Families naming the page renderer: 66 files, 1447 tests green.\n- `@object-ui/components` test: 4036 green.\n- Live reading: NOT MEASURED. Reason: it needs the console dev server and a seeded preview route.\n\n## Acceptance notes\n\n- Studio's \"Add region\" (`PageBlockCanvas` addRegion) writes `region_N`, which the save door refuses on a `default` or template-less page. Reported to the seat, not fixed here.\n- The template-less pageType path still stacks, although the spec judges such a page as `default`. Left as is per the claim's surface.\n- The objectstack migration's \"renders as before\" sentence no longer holds for unplaced regions.\n\nProvenance: built by the cloud session `session_01KduCFcSEActo1Znrb6DLqw` (claim `6235363143`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final message, because a cloud session cannot open a PR from its container. The seat replaced the dev's footer line with this paragraph. After the first head (`572fd84`) failed its contract review (`6236121598`), the dev reworked it to `fd893dd`, and the seat added the two bullets above on the floor and the corrected changeset (body refreshed 2026-10-17T16:31Z, after the contract reviews `6236121598` and `6236677561`); nothing else changed.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01KduCFcSEActo1Znrb6DLqw)_\n"
+}

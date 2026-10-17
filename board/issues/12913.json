@@ -1,0 +1,32 @@
+{
+  "number": 12913,
+  "kind": "issue",
+  "title": "console app bar: a host can ask for no app switcher when the viewer is served one app — the cloud control plane draws 「云 ▾」 with 「所有应用」 linking to the app the user is already in",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "enhancement",
+    "finding",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T18:32:13Z",
+  "updated_at": "2026-10-17T18:55:44Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12913",
+  "body": "## Source\n\nobjectstack-ai/cloud#2919 (from the maintainer's 2026-10-16 walk of the cloud control plane): the control plane is one product, Cloud, with one companion, the user's account settings. Its top bar should draw no app switcher; the 预览版 chip stays beside the product mark. The cloud half is objectstack-ai/cloud PR #2980: the control plane's `account` app is now `hidden: true`, reached from the avatar menu's 「个人资料」. That leaves the switcher with one row, and the rest is this repository's: the console has no setting to draw no switcher.\n\n## Measured (cloud's objectui pin `ef71a09f9e5f`, and `main` `97538115`)\n\n- `packages/app-shell/src/layout/AppSwitcher.tsx`:\n  - It lists apps with `active !== false && hidden !== true` (pin :62, `main` :79).\n  - It returns null only when no active app resolves (pin :66, `main` :83). So one listed app still draws the 「云 ▾」 pill and its dropdown.\n- At `main`, the dropdown carries 「Back to home」, 「All apps」 (:134-156, objectui#12605) and a Settings row for viewers served Setup (:157-169). In the control plane, 「所有应用」 links to the declared home, `/apps/cloud_control`, which is the app the viewer is already in.\n- `AppHeader.tsx` draws the pill whenever `activeAppName && onAppChange` (`main` :877-887). `runtime-config.ts:277-300` (`AppShellRuntimeConfig`) has no single-app or switcher field.\n- What the control plane serves (`GET /api/v1/meta/app` after PR #2980):\n  - owners, plain members and org-less signups are served one un-hidden app, `cloud_control`;\n  - a platform admin is served two, `cloud_control` and `platform_admin` (Cloud Admin), and the switcher is that admin's door to Cloud Admin.\n\n## Target\n\n1. A host can ask the console to draw no app switcher, and so no pill dropdown and no 「所有应用」, when the viewer is served exactly one un-hidden active app. The app's name or the product mark stands in its place.\n2. Scope: only where the host asks. objectui#12605's 「主页 / 所有应用 / 设置」 rows stay for every other deployment, tenant environments included.\n3. A viewer served more than one un-hidden app (the control plane's platform admin) keeps the switcher.\n4. The 预览版 chip stays beside the product mark when the pill goes.\n\n## Suggested shape (this lane's call)\n\nA field in `AppShellRuntimeConfig`, which the control plane serves from `packages/service-cloud/src/multi-environment-plugins.ts` (cloud), gating a derived rule: no switcher when one app is served.\n- A flag alone would hide Cloud Admin's door from the platform admin.\n- A derived rule alone would change the chrome for every single-app viewer in every deployment, and it would retire #12605's rows there unmeasured.\n- The runtime config is host-produced, not authored metadata.\n\nThe cloud follow-up (serving the field, then the pin bump) is the cloud seat's once this lands.\n\n## Acceptance\n\n- Tests: with the host field set and one served app, no pill dropdown and no 「所有应用」. With two served apps, the switcher is drawn. Without the field, today's behaviour is unchanged.\n- The cloud seat reads the control plane's top bar after cloud's pin carries this.\n\n<sub>Filed by the `repo:cloud#2` seat (seat post objectstack-ai/objectstack#24145, session `session_01Cbdek8SKSHxddGqTPZXdqX`) from the os-dev report on cloud#2919 (PR #2980). ⛔ Not a claim. Dedupe: this repository's issues since 2026-08-15 by title and body (`app switcher`, `AppSwitcher`, `single-app`, `All apps`, `所有应用`): objectui#12605, #12461, #12201, #12625 (closed; the pill's design and names), none a single-app setting.</sub>"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 12898,
+  "kind": "pull_request",
+  "title": "fix(plugin-kanban): name the card lists and drag overlay from the pack",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: i18n",
+    "plugin",
+    "plugin: kanban",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T15:02:53Z",
+  "updated_at": "2026-10-17T15:29:35Z",
+  "closed_at": "2026-10-17T15:29:34Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-17T15:29:33Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12898",
+  "body": "Fixes #12838\nClause-②: no\n\n## What changed\n\nThe kanban board's three interpolating accessible names wrapped a label in English words, so under zh the lane list read \"待规划 cards\". Each is now one pack sentence with the label interpolated, read through the board's own translation hook (`useKanbanT`, the `createSafeTranslation` instance in `KanbanImpl.tsx` that objectui#12716's drag announcements and objectui#12837's card description already read), in the `kanban` namespace:\n\n| element | before | key | en (unchanged) | zh |\n|:--|:--|:--|:--|:--|\n| a lane's card list | template \"COLUMN cards\" | `kanban.columnCards` | `{{column}} cards` | `{{column}} 的卡片` |\n| a swimlane cell's card list | template \"COLUMN - LANE cards\" | `kanban.laneCards` | `{{column}} - {{lane}} cards` | `{{column}} - {{lane}} 的卡片` |\n| the drag overlay | template \"Dragging TITLE\" | `kanban.dnd.dragging` | `Dragging {{card}}` | `正在拖动 {{card}}` |\n\nThe keys are added to all ten `@object-ui/i18n` packs with real translations, and to the hook's English defaults (so a board with no `I18nProvider` reads exactly as before). No other file and no other key changed.\n\n## Tests\n\n`packages/plugin-kanban/src/__tests__/ariaLabelTemplates-12838.test.tsx`, on the real board and the real `DndContext` (no module mocks): the packs disagree for each key; under zh, the lane list, a swimlane cell and the drag overlay (painted by a real pointer pick-up past the 5px activation distance) are each named by the zh sentence with the value filled in; CONTROL, under en the three names read exactly `To do cards`, `To do - ann cards`, `Dragging Content backlog`, and with no provider the same English sentences.\n\nAblation (one-off, no permanent file), run through `ablation-replace.mjs` after the fix was committed: the lane list put back to the English template, anchor 1 to 0, blob `4220d7a5b598` to `d3fd821da2f4`; exactly the zh lane-list case went red (`Tests 1 failed | 7 passed`), the en control stayed green; restore proven by blob hash (after restore `4220d7a5b598` = HEAD blob) and an empty `git diff HEAD`.\n\nAll readings at `253ed3d333`:\n- vitest, new file: 8 passed (8). `packages/plugin-kanban/`: 76 files, 514 tests passed. `packages/i18n/`: 83 files, 1325 passed, 13 skipped.\n- closure build `turbo run build --filter='@object-ui/plugin-kanban^...'`: 12/12 tasks. `type-check` for `@object-ui/i18n` and `@object-ui/plugin-kanban`: exit 0 (the new test file is in `tsconfig.test.json`'s file list, counted with `--listFiles`).\n- `check:i18n-keys`, `check:i18n-drift` (3 keys added, 0 en values changed), `check:i18n-dead-keys` (no new key listed), `check:i18n-designer-parity`, `check:control-bytes`, and the rest of the pre-tsc battery: exit 0. `check-hand-rolled-comment-mask`, `check-changeset-fixed`, `check-changeset-presence`: exit 0. `check:spec-floors`: exit 1, `no-artifact` (it wants a whole-workspace build); recorded, not fixed.\n- lint, narrowed to the 12 changed files: eslint with `--no-inline-config --format json`, 12 files, 0 errors, 1 warning (`no-explicit-any` at `KanbanImpl.tsx:234`, the same line as base `:227`, not touched here). The root `eslint.config.js` sets no `parserOptions.project` or `projectService`, so linting is not type-aware and this diff cannot move a verdict in an untouched file.\n\n## Acceptance notes\n\n- **Out of this card's scope by ruling:** the repo-wide enumeration pin over interpolating `aria-label` templates (triage: a new gate defaults to no). The pin here is beside the board only.\n- **No other English template `aria-label` is in `KanbanImpl.tsx`.** The other `aria-label`s there are the bare value (`card.title`, `owner.name`, `column.title`) or the two LITERALS \"Kanban board with swimlanes\" / \"Kanban board\", which are a different class: they are frozen members of the literal census BACKLOG (`packages/i18n/src/__tests__/ariaLabelLiteralCensus-12145.test.ts`), whose removal edits that census and about six existing kanban pins. Left as they are.\n- **Same class, another file (reported, not fixed):** `packages/plugin-kanban/src/CardTemplates.tsx:69` names its button with the template \"Add card to COLUMN_ID\" (an option value, not a label) and paints a visible \"Add Card\". `CardTemplates` is exported from the package entry but no in-repo source imports it.\n- **Seen, not measured:** in swimlane mode the lane for cards with no value is the English constant `UNCATEGORIZED_LANE` (\"Uncategorized\"), shown as the lane heading and now interpolated into `kanban.laneCards`. The packs have `kanban.uncategorized`, which `KanbanBoardCore.tsx` reads for the column path but `KanbanImpl.tsx` does not. Not measured in a browser.\n\nSession: `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_"
+}

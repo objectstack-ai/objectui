@@ -1,0 +1,37 @@
+{
+  "number": 12892,
+  "kind": "issue",
+  "title": "Console boot preflight renews the session but drops the cookie: auth-preflight.ts calls get-session with credentials 'omit', so past updateAge every returning user's first load re-creates the cookie / bearer split",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:identity",
+    "domain:ui",
+    "finding",
+    "priority:p2"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T14:22:26Z",
+  "updated_at": "2026-10-17T17:45:47Z",
+  "closed_at": "2026-10-17T17:44:42Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12892",
+  "body": "Filing gate ①: a measured defect with a named site, on a public door. Filed by `repo:cloud` seat 2 (seat post objectstack-ai/objectstack#24145, session `session_01Cbdek8SKSHxddGqTPZXdqX`) from the objectstack-ai/cloud#2699 dev's measurement (its report on that card). ⛔ Not a claim; no assignee. Grading is triage's.\n\n**Reader who acts:** the lane that owns `apps/console/src/lib/auth-preflight.ts` and `packages/auth` (one dev round). **Pull:** objectstack-ai/cloud#2699 — split sessions (a dead cookie beside a live bearer) look signed in while every cookie-only path sees a signed-out user. The cloud and framework halves are closed and pinned; this is the last open path, and cloud#2699 stays open until this fix reaches cloud's `.objectui-sha`.\n\n**Dedupe:** REST enumeration of this repository's issues updated since 2026-08-15 (735 issues; control objectui#12294 found), grepped for `auth-preflight`, `preflight … get-session|cookie|credentials`, `credentials … omit`, `split session`: one hit, objectui#12808 (closed; it made AuthProvider take the preflight's answer instead of its own get-session, which is why the preflight is now the boot's only session read). Not this.\n\n## What happens (measured on cloud's control plane: cloud `main` `9cc7f47`, framework pin `be076dad28a0`, objectui pin `ef71a09f9e5f`, better-auth 1.7.3 with `expiresIn` 604800 s and `updateAge` 86400 s, in a real Chromium cookie jar on the plane's real socket)\n\n- `apps/console/src/lib/auth-preflight.ts:86-91` at `ef71a09f9e5f` (line 104 on `main`, unchanged) runs `GET …/get-session` with `Authorization: Bearer`, `Accept: application/json` and `credentials: 'omit'`, on every boot before React mounts (`apps/console/src/main.tsx:78`). The code comment says why it omits the cookie: to detect a stale token.\n- Past `updateAge`, that call renews `sys_session` (+86460 s) and answers `Set-Cookie … Max-Age=604800`. A same-origin fetch with `credentials: 'omit'` does not store a response cookie (Chromium probe on a plain server: `omit` not stored, `include` and default stored), so the browser keeps the old cookie.\n- The AuthProvider's get-session after it (`credentials: 'include'`) finds a fresh row and re-issues nothing. End state: the row outlives the cookie by 86461 s. On `main`, since objectui#12808, AuthProvider takes the preflight's answer (`packages/auth/src/createAuthClient.ts` `takePreflightSession`, line 259), so the boot's only session read is the cookieless one.\n- With the cookie already dead, the preflight also blocks the self-heal: the cookie stays absent, while a boot with get-session alone (the control) re-creates it.\n- Controls in the same harness: get-session alone → row minus cookie 0 s; the preflight with `?disableRefresh=true` then get-session → 0 s.\n\n## Wanted\n\nThe boot's session reads never extend the session without the browser receiving the renewed cookie. Two candidate shapes, the second not measured: (1) the preflight passes `disableRefresh=true` — but on `main` the boot then has no renewing read at all, so a cookie-carrying renewal must stay somewhere in the boot; (2) the preflight sends `credentials: 'include'` (the server prefers the bearer, per the file's own header, so the stale-token check is unchanged and the renewed cookie is stored). The framework's rule for this is `packages/spec/src/contracts/auth-service.ts:336-347`: a cookie-carrying read renews only on the get-session route that re-issues the cookie. Done when a test beside the preflight pins that its request either does not renew or stores the renewed cookie, and the cloud#2699 reading (row minus cookie after a boot past `updateAge`) reads 0 s.\n\nDedupe words: auth-preflight credentials omit, preflight get-session renewal cookie discarded, console boot split session cookie bearer, bearer-only get-session Set-Cookie dropped."
+}

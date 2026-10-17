@@ -124,21 +124,13 @@ export function ConsoleLayout({
   // so the page's collapse-to-dock returns exactly here (history-back could
   // land on a prior /ai URL after in-page conversation switches).
   // objectui#10926 — a build thread bound to this app maximizes to that app's
-  // build surface, which resolves the same `app:PKG:build` thread. That arrival
-  // carries the same one-shot opt-out as the Studio dock's full-page door, so
-  // the built-moment transition (objectui#5799) does not bounce a thread that
-  // built the app straight on to Studio.
+  // build surface, which resolves the same `app:PKG:build` thread.
   const openDockFullPage = useCallback(
     (boundPackageId?: string) => {
       rememberDockReturnLocation(`${location.pathname}${location.search}`);
       if (!boundPackageId) {
         navigate('/ai');
         return;
-      }
-      try {
-        sessionStorage.setItem('objectstack:ai-full-page-requested', '1');
-      } catch {
-        /* storage unavailable — the transition may bounce the arrival to Studio */
       }
       navigate(`/ai/build?package=${encodeURIComponent(boundPackageId)}`);
     },

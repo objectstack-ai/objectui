@@ -630,10 +630,11 @@ export interface ChatbotEnhancedProps extends React.HTMLAttributes<HTMLDivElemen
   /** Label for the open-built-app action (default "Open app"). */
   openBuiltAppLabel?: string;
   /**
-   * ADR-0080 D5 cold-start handoff — when provided, a finished build renders
-   * "Design in Studio" as the PRIMARY action (Studio is the built app's
-   * iteration home), demoting "Open app" to a secondary action. The host
-   * wires this to its Studio route (e.g. `navigate('/studio/<pkg>/interfaces')`).
+   * When provided, a finished build that created an `app` renders a "Design in
+   * Studio" action (the console's 在 Studio 中查看). Beside `onOpenBuiltApp` it is
+   * the SECONDARY action — "Open app" (打开应用) is primary (objectui#12724);
+   * without `onOpenBuiltApp` it takes the primary slot. The host wires this to
+   * its Studio route (e.g. `navigate('/studio/<pkg>/interfaces')`).
    */
   onDesignBuiltApp?: (appName: string, appSegment?: string) => void;
   /** Label for the design-built-app action (default "Design in Studio"). */

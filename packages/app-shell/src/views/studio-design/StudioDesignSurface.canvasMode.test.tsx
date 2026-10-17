@@ -99,6 +99,15 @@ describe('Interfaces canvas — 设计⇄运行 switch (objectui#5800)', () => {
     );
   });
 
+  // objectui#12842 — every arrival opens this way; no router state asks for
+  // another posture since the post-build run-mode landing retired.
+  it('an arrival opens on Design with the properties aside open', async () => {
+    await openDashboardLeaf();
+    expect(screen.getByRole('button', { name: 'Design' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Collapse properties' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Show properties' })).not.toBeInTheDocument();
+  });
+
   it('run mode removes the overlays — the SAME renderer serves the interactive runtime', async () => {
     await openDashboardLeaf();
     await waitFor(

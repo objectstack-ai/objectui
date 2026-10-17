@@ -51,17 +51,18 @@ function makeAdapter(calls: string[]) {
   } as unknown as Parameters<typeof MetadataProvider>[0]['adapter'];
 }
 
-let latest: {
+type Reading = {
   served: ReturnType<typeof useServedViewItems>;
   presence: ReturnType<typeof useObjectPresence>;
   ctx: ReturnType<typeof useMetadata>;
-} | null = null;
-function Probe() {
-  latest = { served: useServedViewItems(), presence: useObjectPresence('sys_activity'), ctx: useMetadata() };
-  return null;
-}
+};
 
-function mount(app: Record<string, unknown>, calls: string[], extra?: ReactNode) {
+function mount(app: Record<string, unknown>, calls: string[], extra?: ReactNode): () => Reading {
+  let latest: Reading | null = null;
+  function Probe() {
+    latest = { served: useServedViewItems(), presence: useObjectPresence('sys_activity'), ctx: useMetadata() };
+    return null;
+  }
   render(
     <MetadataProvider adapter={makeAdapter(calls)}>
       <ExpressionProvider app={app}>
@@ -70,45 +71,43 @@ function mount(app: Record<string, unknown>, calls: string[], extra?: ReactNode)
       </ExpressionProvider>
     </MetadataProvider>,
   );
+  return () => latest as unknown as Reading;
 }
 
 const objectCalls = (calls: string[]) => calls.filter((c) => c === 'object' || c.startsWith('object?') || c.startsWith('object/'));
 
-afterEach(() => {
-  cleanup();
-  latest = null;
-});
+afterEach(() => cleanup());
 
 describe('the chrome readers of the object registry read the app scope (objectui#12811)', () => {
   it("inside an app with a package: the served documents are the scope's, and presence is asked by name", async () => {
     const calls: string[] = [];
-    mount({ name: 'crm', _packageId: CRM }, calls);
-    await waitFor(() => expect(latest!.presence.settled).toBe(true));
-    await waitFor(() => expect(isServedView(latest!.served, 'crm_account', 'crm_account.mine')).toBe(true));
+    const read = mount({ name: 'crm', _packageId: CRM }, calls);
+    await waitFor(() => expect(read().presence.settled).toBe(true));
+    await waitFor(() => expect(isServedView(read().served, 'crm_account', 'crm_account.mine')).toBe(true));
 
-    expect(latest!.presence.presence).toBe('present');
+    expect(read().presence.presence).toBe('present');
     expect(objectCalls(calls)).not.toContain('object');
     expect([...objectCalls(calls)].sort()).toEqual([`object?package=${CRM}`, 'object/sys_activity'].sort());
   });
 
   it('CONTROL: outside an app (no package), both read the whole registry, as before', async () => {
     const calls: string[] = [];
-    mount({}, calls);
-    await waitFor(() => expect(latest!.presence.settled).toBe(true));
-    expect(latest!.presence.presence).toBe('present');
-    expect(isServedView(latest!.served, 'crm_account', 'crm_account.mine')).toBe(true);
+    const read = mount({}, calls);
+    await waitFor(() => expect(read().presence.settled).toBe(true));
+    expect(read().presence.presence).toBe('present');
+    expect(isServedView(read().served, 'crm_account', 'crm_account.mine')).toBe(true);
     expect(objectCalls(calls)).toEqual(['object']);
   });
 
   it('CONTROL: once the whole registry is loaded, both read it', async () => {
     const calls: string[] = [];
-    mount({ name: 'crm', _packageId: CRM }, calls);
-    await waitFor(() => expect(latest!.presence.settled).toBe(true));
+    const read = mount({ name: 'crm', _packageId: CRM }, calls);
+    await waitFor(() => expect(read().presence.settled).toBe(true));
     act(() => {
-      void latest!.ctx.objects;
+      void read().ctx.objects;
     });
-    await waitFor(() => expect(latest!.ctx.getTypeStatus!('object')).toBe('ready'));
-    expect(latest!.served.objects).toHaveLength(OBJECTS.length);
-    expect(latest!.presence.presence).toBe('present');
+    await waitFor(() => expect(read().ctx.getTypeStatus!('object')).toBe('ready'));
+    expect(read().served.objects).toHaveLength(OBJECTS.length);
+    expect(read().presence.presence).toBe('present');
   });
 });

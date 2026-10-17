@@ -1622,7 +1622,7 @@ const NO_OBJECTS: any[] = [];
  * matched against that table, so a more specific route (`search`,
  * `create-app`, a host route) is never taken for `:objectName`.
  */
-export const APP_OBJECT_SCOPE_ROUTES: readonly string[] = ['/', ':objectName', ':objectName/view/:viewId'];
+const APP_OBJECT_SCOPE_ROUTES: readonly string[] = ['/', ':objectName', ':objectName/view/:viewId'];
 
 function matchObjectScopeRoute(
   subPath: string,

@@ -871,6 +871,8 @@ const ko = {
     deleteCard: "카드 삭제",
     deleteColumn: "열 삭제",
     noCards: "카드 없음",
+    columnCards: "{{column}} 열의 카드",
+    laneCards: "{{column}} - {{lane}}의 카드",
     cardTitlePlaceholder: "카드 제목 입력…",
     requiredFieldsTitle: "필수 항목 입력",
     requiredFieldsDescription: "이 이동으로 아래 항목이 필수가 됩니다. 입력한 후 계속하세요.",
@@ -885,6 +887,7 @@ const ko = {
       untitledCard: "제목 없는",
       unnamedColumn: "이름 없는",
       instructions: "이 카드를 다른 열로 옮기려면 마우스나 터치로 끌어 놓으세요.",
+      dragging: "{{card}} 카드를 끄는 중",
     },
   },
   timeline: {

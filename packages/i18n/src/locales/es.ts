@@ -901,6 +901,8 @@ const es = {
     deleteCard: "Eliminar tarjeta",
     deleteColumn: "Eliminar columna",
     noCards: "Sin tarjetas",
+    columnCards: "Tarjetas de la columna {{column}}",
+    laneCards: "Tarjetas de {{column}} - {{lane}}",
     cardTitlePlaceholder: "Escriba el título de la tarjeta…",
     requiredFieldsTitle: "Complete los campos obligatorios",
     requiredFieldsDescription: "Este movimiento hace que los campos siguientes sean obligatorios. Complételos para continuar.",
@@ -915,6 +917,7 @@ const es = {
       untitledCard: "sin título",
       unnamedColumn: "sin nombre",
       instructions: "Para mover esta tarjeta a otra columna, arrástrela con el ratón o de forma táctil.",
+      dragging: "Arrastrando la tarjeta {{card}}",
     },
   },
   timeline: {

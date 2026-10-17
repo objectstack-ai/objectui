@@ -990,6 +990,8 @@ const ar = {
     deleteCard: "حذف بطاقة",
     deleteColumn: "حذف عمود",
     noCards: "لا بطاقات",
+    columnCards: "بطاقات العمود {{column}}",
+    laneCards: "بطاقات {{column}} - {{lane}}",
     cardTitlePlaceholder: "أدخل عنوان البطاقة…",
     requiredFieldsTitle: "أكمل الحقول المطلوبة",
     requiredFieldsDescription: "يجعل هذا النقل الحقول أدناه مطلوبة. أكملها للمتابعة.",
@@ -1004,6 +1006,7 @@ const ar = {
       untitledCard: "بلا عنوان",
       unnamedColumn: "بلا اسم",
       instructions: "لنقل هذه البطاقة إلى عمود آخر، اسحبها بالمؤشر أو باللمس.",
+      dragging: "جارٍ سحب البطاقة {{card}}",
     },
   },
   timeline: {

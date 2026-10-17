@@ -1123,6 +1123,8 @@ const en = {
     deleteCard: 'Delete card',
     deleteColumn: 'Delete column',
     noCards: 'No cards',
+    columnCards: '{{column}} cards',
+    laneCards: '{{column}} - {{lane}} cards',
     cardTitlePlaceholder: 'Enter card title…',
     uncategorized: 'Uncategorized',
     loadMore: 'Load more',
@@ -1140,6 +1142,7 @@ const en = {
       untitledCard: 'an untitled card',
       unnamedColumn: 'an unnamed column',
       instructions: 'To move this card to another column, drag it with a pointer or by touch.',
+      dragging: 'Dragging {{card}}',
     },
   },
   timeline: {

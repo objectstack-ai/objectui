@@ -687,7 +687,10 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
         // cram the whole dashboard into one row (charts squeezed to a few px).
         // Give layout-less widgets a sensible default span so they auto-flow
         // into a readable grid — KPIs quarter-width, charts/tables half-width —
-        // matching the editable DashboardGridLayout's auto-placement. Only the
+        // matching the editable DashboardGridLayout's auto-placement. A KPI is
+        // ONE row, the height `DashboardEditor`'s `addWidget` gives a new
+        // widget: a row floors at 5rem and grows to the tile's content, so two
+        // rows left the tile's lower half empty (objectui#12704). Only the
         // positioned grid needs this; the responsive flow layout sizes each
         // widget as one cell.
         // The type this entry draws as: the authored `type`, or the spec's
@@ -695,7 +698,7 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
         const entryType = resolveWidgetType(widget);
         const isMetricSpan = entryType === 'metric' || METRIC_LIKE_TYPES.has(entryType || '');
         const fallbackSpan = hasExplicitColumns
-          ? { w: Math.min(isMetricSpan ? 3 : 6, columns), h: isMetricSpan ? 2 : 4 }
+          ? { w: Math.min(isMetricSpan ? 3 : 6, columns), h: isMetricSpan ? 1 : 4 }
           : undefined;
         const effectiveLayout = widget.layout ?? fallbackSpan;
         const clampedLayout = effectiveLayout

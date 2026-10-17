@@ -16,7 +16,9 @@ its skeleton, never an empty list or a "not found".
 
 What still reads the whole registry, as before:
 
-- An app item that carries no package id, and every route outside an app (the home page).
+- An app item that carries no package id, an app whose package holds no objects of its own (a platform
+  app such as Setup, whose entries all open other packages' objects), and every route outside an app
+  (the home page).
 - A record overlay (`?recordId=`, `?form=`) and every record route: a record's related lists come from
   every object that points at its object, in any package.
 - An object list whose views open records in an overlay the URL does not carry (`modal`, `split`,

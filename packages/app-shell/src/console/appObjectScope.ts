@@ -16,7 +16,11 @@
  * object, in any package, so a record overlay (`?recordId=`, `?form=`) reads
  * the whole registry, and so does a list whose views open records in an
  * in-page overlay the URL does not carry (`modal`, `split`, `popover`). An app
- * item without a package id has no package to scope by.
+ * item without a package id has no package to scope by, and neither has an app
+ * whose package holds no objects of its own (a platform app such as Setup,
+ * whose every entry opens another package's object): asking each of those by
+ * name costs a request per object, measured on HotCRM, and its landing loads
+ * the whole registry anyway.
  *
  * Two readers ask the same question with the same answer: `AppContent`, which
  * renders the route, and the console root (`ConsoleShell`), which asks it as
@@ -118,6 +122,11 @@ export function readAppObjectScope(
   const candidate = !!route && !!readObjectScope && !hasRecordOverlay(search);
   const packageId = typeof app?._packageId === 'string' && app._packageId ? app._packageId : undefined;
   if (!candidate || !packageId || !readObjectScope || !route) return { candidate, scope: null };
+  // The package list first: no name is asked until it shows the app holds
+  // objects of its own.
+  const own = readObjectScope({ packageId });
+  if (!own.settled) return { candidate, scope: own };
+  if (!own.served.some((o: any) => o?._packageId === packageId)) return { candidate, scope: null };
   // The objects the app's own navigation entries require: the sidebar's
   // capability gate answers from this scope.
   const names = navigationNames(app?.navigation, (item) => item.requiresObject);

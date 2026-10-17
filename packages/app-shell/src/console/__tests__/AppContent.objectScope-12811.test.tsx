@@ -18,7 +18,8 @@
  * one `requiresObject` entry, and `useActionModal` is mounted beside it, as
  * `ConsoleShell` mounts it.
  *
- * CONTROLs: an app item with no package id asks the whole registry, as before;
+ * CONTROLs: an app item with no package id, or whose package holds no objects
+ * of its own (a platform app such as Setup), asks the whole registry, as before;
  * a record overlay (`?recordId=`) reads the whole registry, because a record's
  * related lists come from every object that points at it.
  */
@@ -225,6 +226,14 @@ describe('one console open asks for the app\'s objects, not the whole registry (
     expect(objectCalls()).toContain('object');
     expect(objectCalls().some((c) => c.startsWith('object?'))).toBe(false);
     expect(screen.getByTestId('object-view')).toHaveTextContent('crm_account,crm_contact,crm_case,sys_user');
+  });
+
+  it('CONTROL: an app whose package holds no objects of its own reads the whole registry, and asks none by name', async () => {
+    server.apps = [{ name: 'crm', label: 'Setup-like', _packageId: 'app.platform', navigation: NAVIGATION }];
+    boot('/apps/crm/crm_account');
+    await waitFor(() => expect(screen.getByTestId('object-view')).toHaveTextContent('crm_case'));
+
+    expect(objectCalls()).toEqual(['object?package=app.platform', 'object']);
   });
 
   it('CONTROL: a record overlay reads the whole registry (a record\'s related lists come from every object)', async () => {

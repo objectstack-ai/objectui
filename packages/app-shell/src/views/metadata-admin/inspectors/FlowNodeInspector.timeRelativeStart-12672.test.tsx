@@ -327,6 +327,10 @@ describe('the cron field reads the resolved kind (objectui#12672)', () => {
     expect(triggerSelect().textContent).toBe('Schedule');
     expect(triggerSelect().textContent).not.toMatch(/cron/i);
     expect(triggerSelect().hasAttribute('data-placeholder')).toBe(true);
+    // The Trigger help names every cadence the schedule kind binds, not only cron.
+    const help = screen.getByText(/^When this flow starts\./).textContent ?? '';
+    expect(help).not.toMatch(/fire on a cron\./);
+    expect(help).toMatch(/interval/);
   });
 
   it("a sweep's cadence is in effect beside its descriptor", () => {

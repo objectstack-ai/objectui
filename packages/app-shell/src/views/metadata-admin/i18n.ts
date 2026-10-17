@@ -6996,7 +6996,7 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
   start: {
     triggerType: {
       label: '触发方式',
-      help: '流程何时启动。记录触发在数据变更时触发;定时触发按 cron 触发。',
+      help: '流程何时启动。记录触发在数据变更时触发;定时触发按计划(cron、间隔或指定时间)触发。',
       opts: {
         'record-after-create': '记录创建后',
         'record-after-update': '记录更新后',

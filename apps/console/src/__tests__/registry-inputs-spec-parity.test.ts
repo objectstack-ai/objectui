@@ -396,16 +396,17 @@ function declaredInputs(type: string): string[] | null {
  *
  * So the forward direction's question — "does the contract accept this key on
  * this node?" — has to be asked of the whole node contract. It is DERIVED here,
- * not listed: `PageComponentSchema` is a `.pipe()`, whose input side is the
- * object whose shape names those keys. A spec release that adds or removes one
- * moves this set with it.
+ * not listed: `PageComponentSchema` is the object whose shape names those keys.
+ * (Through `@objectstack/spec` 18.0.0-next.2 it was a `.pipe()` that folded the
+ * retired `visibility` spelling into `visibleWhen`, and the keys sat on its
+ * input side; 18.0.0-next.3 drops that fold, objectstack `105902f`.) A spec
+ * release that adds or removes one moves this set with it.
  *
  * ⚠️ Used by the FORWARD direction only. Feeding it to the reverse direction
  * would demand that every covered block publish `dataSource` — including the
  * blocks that do not read it, which is the exact lie the ruling refused.
  */
-const nodeLevelSpecKeys = (): string[] =>
-  authorableShapeKeys((PageComponentSchema as unknown as { _def?: { in?: unknown } })._def?.in);
+const nodeLevelSpecKeys = (): string[] => authorableShapeKeys(PageComponentSchema);
 
 /** Top-level inputs this block declares that its spec props schema rejects. */
 function offSpecInputs(type: string): string[] {
@@ -982,6 +983,8 @@ const UNJUDGED_SPEC_BLOCKS: Record<string, string> = {
     'EMPTY SPEC SHAPE. New in `@objectstack/spec` 18 (objectui#12030), which declares it with no top-level key at all. Registered by `@object-ui/app-shell` (`src/views/record-approvals-renderer.tsx`), outside this file\'s import graph; the empty shape is the load-bearing half either way, exactly as for `app:launcher` above. objectui#12030, ledger objectui#8176.',
   'record:attachments':
     'EMPTY SPEC SHAPE. New in `@objectstack/spec` 18 (objectui#12030), which declares it with no top-level key at all. Registered by `@object-ui/app-shell` (`src/views/record-attachments-renderer.tsx`), outside this file\'s import graph; the empty shape is the load-bearing half either way, exactly as for `app:launcher` above. objectui#12030, ledger objectui#8176.',
+  'record:json':
+    'NOT REGISTERED, DELIBERATELY. New in `@objectstack/spec` 18.0.0-next.3 (objectstack#23745, landed as `97b8e7a51d`) for the approval request page\'s raw-payload panel, which objectui#12490 was to render. The maintainer then dropped that face (pointer 6232139151 on objectui#12490: no business need for an approver to read JSON), so no renderer is built, the served-page edit closed unmerged, and the type is filed for retirement upstream (objectstack#24162). Registering it forces this entry out; the spec retiring it makes this entry RETIRED UPSTREAM. objectui#12873, ledger objectui#8176.',
   // The fourth class, and the only one that is not mechanically "unjudgeable":
   // OWED. The 17.5.0 bump booked four blocks here — new in that spec, registered
   // with `registerLazy` by the console (`register-plugins.ts`) and not loaded by
@@ -1346,25 +1349,6 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
    */
   'object-grid.title':
     '@deprecated in ObjectGridSchema ("Use label instead"); GA describes it as the "Fallback for `label` (the renderer reads `label || title`)". Read as back-compat, deliberately not published — the canonical `label` IS declared. Same ruled carve-out class as the five the ruling enumerated, measured on this branch — objectui#4648 (maintainer 2026-08-16).',
-
-  // ── `page:header.showStar`: retired upstream, bump not installed yet ───────
-  // objectstack#23650's ruling retires the metadata switch, and it landed as
-  // objectstack#23781: a `retiredKey()` tombstone on `PageHeaderProps`. The
-  // installed `@objectstack/spec` predates that commit and still lists the key
-  // as live, so the reverse direction demands it. objectui#12627 stopped the
-  // renderer reading it and the registration publishing it AHEAD of the bump:
-  // the favorites star follows the host's `onToggleFavorite` alone.
-  //
-  // ⚠️ THIS ENTRY DIES ON THE BUMP, by design, and nothing has to remember it.
-  // The first installed spec that carries objectstack#23781 tombstones the
-  // key, `specTopLevelKeys` subtracts it, and `every unpublished-key exemption
-  // names a key the spec really declares` and `carries no stale unpublished-key
-  // exemption` both name this entry. Deleting it is the whole fix. ⛔ Do not
-  // resolve that red by re-declaring the input or by listing this key in
-  // `GA_PENDING_UNPUBLISHED_KEYS`: the first publishes a key the contract
-  // refuses, the second would hide this entry from both checks.
-  'page:header.showStar':
-    'Retired upstream by objectstack#23650 (landed as objectstack#23781), which the installed spec predates. The renderer no longer reads it and the registration no longer publishes it (objectui#12627): the favorites star draws where the host wires onToggleFavorite, and metadata does not control it. Goes dangling and stale on the bump that installs the tombstone; delete it there.',
 
   // ── objectui#8176: the two lazily-registered blocks, judged for the first ──
   //     time. ONE key left of the eighteen that entered, and as of objectui#8201
@@ -4613,10 +4597,15 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       // `record:attachments`, each declared with an EMPTY shape, so all three are
       // ledgered (9 -> 12). `judged` and `registeredPropless` do not move.
       // 40 + 7 + 12 = 59.
-      specCarried: 59,
+      //
+      // 59 -> 60 on the `@objectstack/spec` 18.0.0-next.3 pin (objectui#12873):
+      // one new block, `record:json`, which this repo deliberately does not
+      // register (its ledger entry says why), so it is ledgered (12 -> 13).
+      // `judged` and `registeredPropless` do not move. 40 + 7 + 13 = 60.
+      specCarried: 60,
       judged: 40,
       registeredPropless: 7,
-      ledgeredUnjudgeable: 12,
+      ledgeredUnjudgeable: 13,
     });
     // Non-vacuity, stated rather than implied by the numbers above.
     expect(covered.length).toBeGreaterThan(0);

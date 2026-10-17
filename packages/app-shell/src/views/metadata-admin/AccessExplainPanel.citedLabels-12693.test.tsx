@@ -31,7 +31,7 @@ const mockList = vi.fn(async (type: string) => {
   return rows ?? [];
 });
 // One client for every render, so the panel's list effect runs once per open.
-const mockClient = { list: (type: string, options?: unknown) => mockList(type, options) };
+const mockClient = { list: (type: string) => mockList(type) };
 
 vi.mock('@object-ui/auth', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),

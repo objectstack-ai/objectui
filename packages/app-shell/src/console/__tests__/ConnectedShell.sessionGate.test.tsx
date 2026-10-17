@@ -12,7 +12,12 @@
  * Both directions are pinned, because the fix is worth nothing if it also
  * stops the signed-in console from loading:
  *   - auth pending  → zero metadata requests;
- *   - auth resolved → the same three requests, once each.
+ *   - auth resolved → the eager requests, once each.
+ *
+ * objectui#12811: the eager requests are `app` and `view`. The third,
+ * `object`, was the whole object registry, which the root's action runtime
+ * (`useActionModal`) loaded on every open by reading `objects`; it now loads
+ * only where a route or an action reads it, and this shell renders neither.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -104,7 +109,7 @@ describe('ConnectedShell session gate (objectui#4042)', () => {
     await waitFor(() => expect(metaCalls).toContain('app'));
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    expect(metaCalls.filter((c) => c === 'object')).toHaveLength(1);
+    expect(metaCalls.filter((c) => c === 'object')).toHaveLength(0);
     expect(metaCalls.filter((c) => c === 'view')).toHaveLength(1);
     expect(metaCalls.filter((c) => c === 'app')).toHaveLength(1);
     expect(getByTestId('route-content')).toBeTruthy();

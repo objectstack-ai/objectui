@@ -3045,13 +3045,16 @@ const en = {
       unidentified: 'This application could not be identified.',
       clientId: 'Client ID',
       willAllow: 'This app will be able to:',
-      // Only the four scopes the page maps by name; anything else renders the
+      // Only the seven scopes the page maps by name; anything else renders the
       // raw scope string, which is why there is no generic entry here.
       scope: {
         openid: 'Confirm your identity',
         profile: 'Read your basic profile (name, picture)',
         email: 'Read your email address',
         offlineAccess: 'Stay signed in (refresh access)',
+        dataRead: 'Read records, within your own permissions',
+        dataWrite: 'Create, change and delete records, within your own permissions',
+        actionsExecute: 'Run actions on your behalf, within your own permissions',
       },
       deny: 'Deny',
       authorize: 'Authorize',

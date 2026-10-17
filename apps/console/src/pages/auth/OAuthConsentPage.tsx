@@ -292,6 +292,21 @@ function describeScope(
       return t('oauth.consent.scope.offlineAccess', {
         defaultValue: 'Stay signed in (refresh access)',
       });
+    // The three agent scopes, as the server grants them: the agent's tools and
+    // data ceiling follow the scope, and every call still runs under the
+    // signed-in user's own permissions, so each sentence carries that bound.
+    case 'data:read':
+      return t('oauth.consent.scope.dataRead', {
+        defaultValue: 'Read records, within your own permissions',
+      });
+    case 'data:write':
+      return t('oauth.consent.scope.dataWrite', {
+        defaultValue: 'Create, change and delete records, within your own permissions',
+      });
+    case 'actions:execute':
+      return t('oauth.consent.scope.actionsExecute', {
+        defaultValue: 'Run actions on your behalf, within your own permissions',
+      });
     default:
       return scope;
   }

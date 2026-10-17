@@ -188,7 +188,10 @@ async function addNotify(): Promise<void> {
   fireEvent.click(await screen.findByRole('button', { name: 'Insert node here' }, { timeout: 8000 }));
   const option = screen.getAllByRole('option').find((o) => o.textContent?.startsWith('Notify'));
   browserClick(option!);
-  await within(screen.getByRole('complementary')).findByLabelText('ID', undefined, { timeout: 8000 });
+  // objectui#12725 — the Configuration aside now sits inside the surface's
+  // right slot, itself an `aside`: two complementary landmarks, so the
+  // Configuration is found by its own test id.
+  await within(screen.getByTestId('auto-config-aside')).findByLabelText('ID', undefined, { timeout: 8000 });
 }
 
 describe('Publish refuses while an edit is held, naming it (objectui#11786)', () => {
@@ -211,7 +214,7 @@ describe('Publish refuses while an edit is held, naming it (objectui#11786)', ()
   it('once the step is filled in and saved, Publish goes', async () => {
     await openFlow();
     await addNotify();
-    const rail = screen.getByRole('complementary');
+    const rail = screen.getByTestId('auto-config-aside');
     fireEvent.change(within(rail).getByPlaceholderText('Your request was approved'), {
       target: { value: 'Request approved' },
     });

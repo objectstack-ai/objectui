@@ -118,7 +118,9 @@ async function openNewDataset(label: string) {
   const labelBox = await screen.findByRole('textbox', { name: 'Label' }, { timeout: 8000 });
   fireEvent.change(labelBox, { target: { value: label } });
   fireEvent.blur(labelBox);
-  await waitFor(() => expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('probe_ds'));
+  // The dataset's own Name comes first; the seed's `count` measure row, in the
+  // draft from the start (objectui#12866), has a Name too.
+  await waitFor(() => expect(screen.getAllByRole('textbox', { name: 'Name' })[0]).toHaveValue('probe_ds'));
 }
 
 async function pickBaseObject(objectName: string) {

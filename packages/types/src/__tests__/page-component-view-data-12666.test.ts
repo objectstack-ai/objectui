@@ -34,9 +34,10 @@
  *    the binding), so it has no region leg here; that answer is the arm's own
  *    and did not move with this change, because the spec's object-level check
  *    never ran once a region child had failed.
- * ⛔ No spec-side leg: the installed 18.0.0-next.2 still refuses the slotted
- * binding and objectstack `main` accepts it, so a spec leg would read
- * differently on the two trees objectui is built against.
+ * ⛔ No spec-side leg. None could be written while 18.0.0-next.2 refused the
+ * slotted binding and objectstack `main` accepted it. The installed
+ * 18.0.0-next.3 accepts it too (objectstack `a35f7a6`), so a spec leg is
+ * writable now; it would be a new assertion, not the bump that made it so.
  */
 import { describe, it, expect } from 'vitest';
 import { PageNodeSchema, safeValidateSchema } from '../zod/index.zod';

@@ -33,7 +33,7 @@ import {
   TabsTrigger,
   TabsContent,
 } from '@object-ui/components';
-import { Bell, CheckSquare, Activity as ActivityIcon, ChevronRight, CircleAlert } from 'lucide-react';
+import { Bell, CheckSquare, Activity as ActivityIcon, ChevronRight, CircleAlert, Lock } from 'lucide-react';
 import { useObjectTranslation, useDisplayLocale } from '@object-ui/i18n';
 import type { ActivityFeedReading } from '../hooks/sharedUserFeeds.js';
 import { useNavigationContext } from '../context/NavigationContext.js';
@@ -122,8 +122,9 @@ export interface InboxPopoverProps {
    *    no drill into a list page that answers this caller `403`;
    *  - `status: 'ready'` — the rows ARE the answer; only here does an empty
    *    list say "No recent activity";
-   *  - `status: 'error'` — the read failed (a refusal included): the tab says
-   *    so, beside whatever rows it last had;
+   *  - `status: 'error'` — the read failed: the tab says so, beside whatever
+   *    rows it last had; a refusal (`refused`) with the permission sentence
+   *    Home shows, any other failure with the generic one (objectui#12859);
    *  - `idle` / `loading` — not asked yet, or in flight.
    */
   activity: ActivityFeedReading;
@@ -670,7 +671,17 @@ export function InboxPopover({
                   className="flex items-center justify-center gap-2 px-3 py-3 text-sm text-muted-foreground"
                   data-testid="inbox-activity-unanswered"
                 >
-                  {activity.status === 'error' ? (
+                  {activity.status === 'error' && activity.refused ? (
+                    // A refused read (the feed's `isRefusedFeedRead` verdict)
+                    // says so with Home's lock and sentence (objectui#12859);
+                    // every other failure keeps the generic copy.
+                    <span className="flex items-center gap-2" data-testid="inbox-activity-access-denied">
+                      <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      {t('layout.activityFeed.accessDenied', {
+                        defaultValue: "You don't have permission to view activity.",
+                      })}
+                    </span>
+                  ) : activity.status === 'error' ? (
                     <>
                       <CircleAlert className="h-4 w-4 text-amber-500" />
                       {t('errors.unknown', { defaultValue: 'An unexpected error occurred.' })}

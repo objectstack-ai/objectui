@@ -3016,6 +3016,7 @@ const ar = {
       title: "النشاط الأخير",
       filter: "تصفية",
       empty: "لا نشاط أخير",
+      accessDenied: "ليس لديك صلاحية عرض النشاط.",
       ariaLabel: "تغذية النشاط",
       typeCreate: "إنشاء",
       typeUpdate: "تحديث",

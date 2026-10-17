@@ -2796,6 +2796,7 @@ const de = {
       title: "Letzte Aktivitäten",
       filter: "Filtern",
       empty: "Keine letzten Aktivitäten",
+      accessDenied: "Sie haben keine Berechtigung, Aktivitäten anzuzeigen.",
       ariaLabel: "Aktivitätsfeed",
       typeCreate: "Erstellen",
       typeUpdate: "Aktualisieren",

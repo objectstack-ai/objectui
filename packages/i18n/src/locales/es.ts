@@ -2850,6 +2850,7 @@ const es = {
       title: "Actividad reciente",
       filter: "Filtrar",
       empty: "Sin actividad reciente",
+      accessDenied: "No tiene permiso para ver la actividad.",
       ariaLabel: "Feed de actividad",
       typeCreate: "Crear",
       typeUpdate: "Actualizar",

@@ -849,7 +849,7 @@ describe('AppHeader — the Activity tab asks only a caller who may read sys_act
     expect(screen.queryByText('No recent activity')).not.toBeInTheDocument();
   });
 
-  it('a 403 from the server (a stale grant) reads as failed, never as "No recent activity"', async () => {
+  it('a 403 from the server (a stale grant) reads as refused, never as "No recent activity" (objectui#12859)', async () => {
     activityError = Object.assign(new Error("operation 'find' on object 'sys_activity' is not permitted"), {
       httpStatus: 403,
       code: 'PERMISSION_DENIED',
@@ -857,9 +857,22 @@ describe('AppHeader — the Activity tab asks only a caller who may read sys_act
     renderBell(ACTIVITY_READER);
 
     await waitFor(() => expect(activityReads()).toHaveLength(1));
+    const unanswered = await screen.findByTestId('inbox-activity-unanswered');
+    expect(unanswered).toHaveTextContent("You don't have permission to view activity.");
+    expect(unanswered).not.toHaveTextContent('An unexpected error occurred.');
+    expect(screen.getByTestId('inbox-activity-access-denied')).toBeInTheDocument();
+    expect(screen.queryByText('No recent activity')).not.toBeInTheDocument();
+  });
+
+  it('CONTROL: a 500 reads as failed with the generic copy, never as refused (objectui#12859)', async () => {
+    activityError = Object.assign(new Error('Internal Server Error'), { httpStatus: 500 });
+    renderBell(ACTIVITY_READER);
+
+    await waitFor(() => expect(activityReads()).toHaveLength(1));
     expect(await screen.findByTestId('inbox-activity-unanswered')).toHaveTextContent(
       'An unexpected error occurred.',
     );
+    expect(screen.queryByTestId('inbox-activity-access-denied')).not.toBeInTheDocument();
     expect(screen.queryByText('No recent activity')).not.toBeInTheDocument();
   });
 

@@ -58,6 +58,8 @@ import { useMetadata } from '../providers/MetadataProvider.js';
 import { useExpressionContext, evaluateNavigationVisibility } from '../providers/ExpressionProvider.js';
 import { withoutUnreadableObjectEntries, type ObjectReadCheck } from '../utils/navObjectReadGate.js';
 
+const NO_MISSING: readonly string[] = [];
+
 /** The member's gates, as the sidebar applies them. */
 export interface NavMemberGates {
   /** The `visible` evaluator handed to `@object-ui/layout`'s item guard. */
@@ -75,7 +77,7 @@ export interface NavMemberGates {
  * expression evaluator, `usePermissions()`, and the registered object list.
  */
 export function useNavMemberGates(): NavMemberGates {
-  const { evaluator } = useExpressionContext();
+  const { evaluator, app } = useExpressionContext();
   const evalVis = useCallback(
     (expr: string | boolean | undefined) => evaluateNavigationVisibility(expr, evaluator),
     [evaluator],
@@ -107,20 +109,40 @@ export function useNavMemberGates(): NavMemberGates {
 
   // Runtime capability gate: hide nav items targeting objects/services
   // not registered in this runtime (e.g. cloud-only `sys_app`).
-  const { objects: metadataObjects } = useMetadata();
+  //
+  // objectui#12811 — inside an app whose served item names its package, the
+  // gate reads that app's object scope, not the whole registry: an object the
+  // package holds is registered, and one outside it is asked for by name when
+  // an entry names it (`requiresObject`), and is registered when the server
+  // answers with its definition. Until that answer, it reads as registered,
+  // as every object did while the whole list loaded. Outside an app (the home
+  // page's feeds) there is no package, and the gate reads the whole registry.
+  const metadata = useMetadata();
+  const packageId = typeof app?._packageId === 'string' && app._packageId ? app._packageId : undefined;
+  const readObjectScope = packageId ? metadata.readObjectScope : undefined;
+  const scope = readObjectScope ? readObjectScope({ packageId }) : null;
+  const metadataObjects = scope ? scope.objects : metadata.objects;
+  const missingObjects = scope ? scope.missing : NO_MISSING;
   const registeredObjectNames = useMemo(
     () => new Set<string>((metadataObjects || []).map((o: any) => o?.name).filter(Boolean)),
     [metadataObjects],
   );
+  const missingObjectNames = useMemo(() => new Set<string>(missingObjects), [missingObjects]);
   const checkCap = useCallback(
     (kind: 'object' | 'service', name: string): boolean => {
       if (kind === 'object') {
-        if (registeredObjectNames.size === 0) return true;
-        return registeredObjectNames.has(name);
+        if (!readObjectScope) {
+          if (registeredObjectNames.size === 0) return true;
+          return registeredObjectNames.has(name);
+        }
+        if (registeredObjectNames.has(name)) return true;
+        if (missingObjectNames.has(name)) return false;
+        readObjectScope({ packageId, names: [name] });
+        return true;
       }
       return true;
     },
-    [registeredObjectNames],
+    [registeredObjectNames, missingObjectNames, readObjectScope, packageId],
   );
 
   return { evaluateVisibility: evalVis, checkPermission: checkPerm, checkCapability: checkCap, can };

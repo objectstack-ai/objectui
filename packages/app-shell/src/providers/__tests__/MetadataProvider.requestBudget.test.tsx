@@ -46,9 +46,10 @@ function makeRecordingAdapter(calls: string[], mode: 'ok' | 'unauthorized') {
 }
 
 /**
- * Mirrors the real first-render consumer (`useActionModal`, mounted by
- * `GlobalActionRuntimeProvider`): it reads `objects` on EVERY render, and the
- * `objects` getter reads both the `object` and the `view` type.
+ * A first-render consumer that reads `objects` on EVERY render, as
+ * `useActionModal` did until objectui#12811 (it now reads it only while an
+ * object's form modal is open). The `objects` getter reads both the `object`
+ * and the `view` type.
  */
 function ObjectsConsumer() {
   const ctx = useMetadata();

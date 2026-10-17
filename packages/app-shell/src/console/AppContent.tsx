@@ -8,7 +8,7 @@
  * /organizations) is provided by `createConsole` from @object-ui/app-shell.
  */
 
-import { Routes, Route, Navigate, useNavigate, useLocation, useParams, useSearchParams } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation, useParams, useSearchParams, matchRoutes } from 'react-router-dom';
 import { useState, useEffect, useCallback, useRef, lazy, Suspense, useMemo, type ReactNode } from 'react';
 import { useAssistant } from '../assistant/assistantBus.js';
 import { ModalForm } from '@object-ui/plugin-form';
@@ -34,7 +34,7 @@ import { useHomePath } from '../hooks/useHomePath.js';
 import { useSignedInUserLocale } from '../hooks/useUserLocale.js';
 import { resolveRecordFormTarget, resolveRecordFormModalLayout, resolveNavigateCreateUrl, resolveNavigateEditUrl, resolvePostCreateTarget, recordFormCreateValues, readRecordFormCreateValues, RECORD_FORM_CREATE_VALUES_STATE } from '../utils/recordFormNavigation.js';
 import { deriveRecordSurface, deriveRecordFlowSurface } from '@object-ui/plugin-view';
-import { RECORD_FORM_PARAM, RECORD_FORM_OBJECT_PARAM, RECORD_FORM_LINK_PARAM } from '../urlParams.js';
+import { RECORD_FORM_PARAM, RECORD_FORM_OBJECT_PARAM, RECORD_FORM_LINK_PARAM, RECORD_DRAWER_PARAM, COMMAND_PALETTE_PARAM } from '../urlParams.js';
 import { appRouteSegment, matchAppBySegment } from '../utils/appRoute.js';
 import { resolveHref, type NavTemplateContext } from '@object-ui/layout';
 import type { NavigationItem } from '@object-ui/types';
@@ -54,7 +54,7 @@ import { AppNoAccessEmptyState } from './AppNoAccessEmptyState.js';
 import { appServesNoNavigation } from './appServesNoNavigation.js';
 import { useNavMemberGates, navEntriesShownToMember } from '../hooks/useNavMemberGates.js';
 import { resolveSetupAppPath } from './ConsoleShell.js';
-import { collectRoutePaths, metadataReadsForAppRoute, type LazyMetadataType } from './appRouteMetadataReads.js';
+import { APP_ROUTE_METADATA_READS, collectRoutePaths, metadataReadsForAppRoute, type LazyMetadataType } from './appRouteMetadataReads.js';
 import { SkeletonDashboard, SkeletonDetail, SkeletonGrid } from '../skeletons/index.js';
 
 // Route-based code splitting — lazy-load less-frequently-used routes
@@ -196,7 +196,10 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   const navigate = useNavigate();
   const location = useLocation();
   const { appName } = useParams();
-  const { apps, objects: allObjects, loading: metadataLoading, ensureType, getTypeStatus, error: metadataError, refresh: refreshMetadata } = useMetadata();
+  // ⛔ `objects` is not destructured here: reading it loads the whole registry
+  // (objectui#12811). It is read below only on a route that needs all of it.
+  const metadata = useMetadata();
+  const { apps, loading: metadataLoading, ensureType, getTypeStatus, error: metadataError, refresh: refreshMetadata, readObjectScope } = metadata;
   // objectui#7373 — where this file's two "you cannot be here" exits land. Both
   // sit BELOW the readiness gate further down (`metadataLoading` &c), so the
   // list they resolve against has settled; an app list that failed to load is
@@ -207,29 +210,6 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   const { t } = useObjectTranslation();
   const { objectLabel, objectPluralLabel } = useObjectLabel();
 
-  // objectui#12809 — the lazy metadata buckets the CURRENT route reads at
-  // render (`appRouteMetadataReads.ts` declares them per route). This used to
-  // be a preload of all four (`object`, `dashboard`, `report`, `page`) that held
-  // the splash on every route; now the splash holds only for the current
-  // route's, and a later navigation onto a route whose buckets have not landed
-  // shows a skeleton in the route slot (below) instead of an empty list or a
-  // "not found". The record-form overlay (`?form=`) edits a record of an object,
-  // so it reads `object` on any route.
-  const hostRoutePaths = useMemo(
-    () => [...collectRoutePaths(extraRoutes), ...collectRoutePaths(extraRoutesNoApp)],
-    [extraRoutes, extraRoutesNoApp],
-  );
-  const appSubPath = location.pathname.split('/').filter(Boolean).slice(2).join('/');
-  const routeReads = metadataReadsForAppRoute(appSubPath, hostRoutePaths);
-  const routeReadsKey = [
-    ...routeReads,
-    ...(searchParamsHasRecordForm(location.search) && !routeReads.includes('object') ? ['object'] : []),
-  ].join(',');
-  const routeReadsSettled = useLazyMetadataSettled(routeReadsKey, ensureType, getTypeStatus);
-  // Set once the first frame past the splash has rendered. After it, a route
-  // waiting on its buckets draws its skeleton inside the console chrome rather
-  // than taking the whole console back to the splash.
-  const firstPaintDone = useRef(false);
 
   // Hidden apps (`App.hidden`) are excluded from app-listing surfaces
   // (sidebar switcher, home grid, app switcher). The active app for the
@@ -286,6 +266,72 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // raw: on a package-id route that is a second address for the same app, and
   // the recent-items tracker below matches it against the URL (objectui#11818).
   const appSegment = appName ?? appRouteSegment(activeApp);
+
+  // objectui#12809 — the lazy metadata buckets the CURRENT route reads at
+  // render (`appRouteMetadataReads.ts` declares them per route). This used to
+  // be a preload of all four (`object`, `dashboard`, `report`, `page`) that held
+  // the splash on every route; now the splash holds only for the current
+  // route's, and a later navigation onto a route whose buckets have not landed
+  // shows a skeleton in the route slot (below) instead of an empty list or a
+  // "not found". The record-form overlay (`?form=`) edits a record of an object,
+  // so it reads `object` on any route.
+  const hostRoutePaths = useMemo(
+    () => [...collectRoutePaths(extraRoutes), ...collectRoutePaths(extraRoutesNoApp)],
+    [extraRoutes, extraRoutesNoApp],
+  );
+  const appSubPath = location.pathname.split('/').filter(Boolean).slice(2).join('/');
+  const routeReads = metadataReadsForAppRoute(appSubPath, hostRoutePaths);
+
+  // objectui#12811 — which objects this route and the chrome around it read.
+  // On the routes `APP_OBJECT_SCOPE_ROUTES` names, inside an app whose served
+  // item carries its package, that is the app's object scope
+  // (`readObjectScope`): the package's objects, plus by name the route's
+  // object and its lookup targets when the package does not hold them, and the
+  // navigation's objects while the command palette is open. Everywhere else it
+  // is the whole registry, read as `objects`, as before: a record surface
+  // derives its related lists from every object that points at it, so a
+  // record overlay (`?recordId=`, `?form=`) reads the whole registry, and so
+  // does a list whose views open records in an in-page overlay the URL does
+  // not carry (`modal`, `split`, `popover`). An app item without a package id
+  // has no package to scope by.
+  const scopeRoute = matchObjectScopeRoute(appSubPath, hostRoutePaths);
+  const scopePackageId =
+    typeof activeApp?._packageId === 'string' && activeApp._packageId ? activeApp._packageId : undefined;
+  const scopeCandidate = !!scopeRoute && !!readObjectScope && !searchParamsHasRecordOverlay(location.search);
+  let objectScope: ReturnType<NonNullable<typeof readObjectScope>> | null = null;
+  if (scopeCandidate && scopePackageId && readObjectScope) {
+    const names: string[] = [];
+    if (scopeRoute.objectName) names.push(scopeRoute.objectName);
+    if (new URLSearchParams(location.search).has(COMMAND_PALETTE_PARAM)) {
+      names.push(...navigationObjectNames(activeApp?.navigation));
+    }
+    const first = readObjectScope({ packageId: scopePackageId, names });
+    const routeDef = scopeRoute.objectName
+      ? first.objects.find((o: any) => o?.name === scopeRoute.objectName)
+      : undefined;
+    if (!routeDef || !opensRecordsInPageOverlay(routeDef)) {
+      const lookups = routeDef ? lookupTargetNames(routeDef) : [];
+      objectScope = lookups.length > 0
+        ? readObjectScope({ packageId: scopePackageId, names: [...names, ...lookups] })
+        : first;
+    }
+  }
+  // Until the app list has loaded, a scope candidate does not know its package
+  // yet, and reads nothing (the splash is up).
+  const readsWholeRegistry = !scopeCandidate || (!metadataLoading && !objectScope);
+  const allObjects: any[] = objectScope
+    ? objectScope.objects
+    : readsWholeRegistry ? metadata.objects : NO_OBJECTS;
+  const routeReadsKey = [
+    ...routeReads.filter((type) => type !== 'object' || readsWholeRegistry),
+    ...(searchParamsHasRecordForm(location.search) && !routeReads.includes('object') ? ['object'] : []),
+  ].join(',');
+  const bucketsSettled = useLazyMetadataSettled(routeReadsKey, ensureType, getTypeStatus);
+  const routeReadsSettled = bucketsSettled && (!objectScope || objectScope.settled);
+  // Set once the first frame past the splash has rendered. After it, a route
+  // waiting on its buckets draws its skeleton inside the console chrome rather
+  // than taking the whole console back to the splash.
+  const firstPaintDone = useRef(false);
 
   // A normal app was requested but isn't present in the loaded metadata — the
   // post-publish readiness lag, or a genuinely-missing app. Applies in BOTH
@@ -1167,7 +1213,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
               <RouteFader className="h-full">
                 {/* objectui#12809 — the route's metadata has not landed: its
                     skeleton, never its empty or "not found" state. */}
-                {!routeReadsSettled ? <RouteMetadataSkeleton reads={routeReadsKey} /> : (
+                {!routeReadsSettled ? <RouteMetadataSkeleton reads={routeReadsKey || 'object'} /> : (
                 <Routes>
                 <Route
                   path="/"
@@ -1561,6 +1607,73 @@ function RouteNotFound() {
 function searchParamsHasRecordForm(search: string): boolean {
   const sp = new URLSearchParams(search);
   return sp.has(RECORD_FORM_PARAM) || sp.has(RECORD_FORM_OBJECT_PARAM);
+}
+
+const NO_OBJECTS: any[] = [];
+
+/**
+ * objectui#12811 — the routes under `/apps/:appName` whose element, and the
+ * chrome around it, read the app's object scope instead of the whole
+ * registry: the app's root (its landing reads only the navigation's gates)
+ * and an object's list. Paths as `APP_ROUTE_METADATA_READS` spells them, and
+ * matched against that table, so a more specific route (`search`,
+ * `create-app`, a host route) is never taken for `:objectName`.
+ */
+export const APP_OBJECT_SCOPE_ROUTES: readonly string[] = ['/', ':objectName', ':objectName/view/:viewId'];
+
+function matchObjectScopeRoute(
+  subPath: string,
+  hostPaths: readonly string[],
+): { objectName?: string } | null {
+  const routes = [...APP_ROUTE_METADATA_READS.map(({ path }) => ({ path })), ...hostPaths.map((path) => ({ path }))];
+  const matches = matchRoutes(routes, `/${subPath.replace(/^\/+/, '')}`);
+  const match = matches?.[matches.length - 1];
+  if (!match || !APP_OBJECT_SCOPE_ROUTES.includes(match.route.path)) return null;
+  return { objectName: match.params.objectName };
+}
+
+/** A record overlay the URL carries: the detail drawer, or the record form. */
+function searchParamsHasRecordOverlay(search: string): boolean {
+  return new URLSearchParams(search).has(RECORD_DRAWER_PARAM) || searchParamsHasRecordForm(search);
+}
+
+const IN_PAGE_RECORD_OVERLAYS = new Set(['modal', 'split', 'popover']);
+
+/**
+ * Whether a list of this object opens a record in an overlay the URL does not
+ * carry: `ObjectView` mounts `RecordDetailView` inside it with the list's
+ * objects, so such a list reads the whole registry.
+ */
+function opensRecordsInPageOverlay(def: any): boolean {
+  const views = [def?.list, ...Object.values((def?.listViews ?? {}) as Record<string, any>)];
+  return views.some((view) => IN_PAGE_RECORD_OVERLAYS.has(view?.navigation?.mode));
+}
+
+/** The objects an object's lookup and master-detail fields point at. */
+function lookupTargetNames(def: any): string[] {
+  const fields = def?.fields;
+  const defs: any[] = Array.isArray(fields) ? fields : Object.values((fields ?? {}) as Record<string, any>);
+  const out = new Set<string>();
+  for (const field of defs) {
+    if ((field?.type === 'lookup' || field?.type === 'master_detail') && typeof field.reference === 'string' && field.reference) {
+      out.add(field.reference);
+    }
+  }
+  return [...out];
+}
+
+/** The objects an app's navigation opens, at every group depth. */
+function navigationObjectNames(navigation: unknown): string[] {
+  const out: string[] = [];
+  const walk = (items: unknown) => {
+    if (!Array.isArray(items)) return;
+    for (const item of items as Array<{ type?: string; objectName?: unknown; children?: unknown }>) {
+      if (item?.type === 'object' && typeof item.objectName === 'string' && item.objectName) out.push(item.objectName);
+      walk(item?.children);
+    }
+  };
+  walk(navigation);
+  return out;
 }
 
 /**

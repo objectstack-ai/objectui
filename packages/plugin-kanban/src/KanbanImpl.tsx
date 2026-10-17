@@ -35,7 +35,7 @@ import { useKanbanRecordsSettled } from './KanbanRecordsSettled'
 import { useKanbanColumnSummary, sumLaneField } from './KanbanColumnSummary'
 import { laneCount, useKanbanLanePaging } from './KanbanLanePaging'
 import { ownerInitials, type KanbanCardOwner } from './KanbanCardOwner'
-import { kanbanDndAnnouncements } from './kanbanDndAnnouncements'
+import { createKanbanDndAnnouncer } from './kanbanDndAnnouncements'
 
 // Utility function to merge class names (inline to avoid external dependency)
 const cn = (...classes: Array<string | false | null | undefined>) => classes.filter(Boolean).join(' ')
@@ -1176,13 +1176,14 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
   // What the drag live region speaks (objectui#12716): the card's title and
   // the column's label, never the record id or the option value dnd-kit's
   // default sentences read. The sentences read the columns this render drew,
-  // which are the ones `handleDragEnd` resolves a drop against. The place the
-  // last sentence named lives in a ref, so a rebuild of this object — here or
-  // on React's own account — repeats no sentence and drops none (AGENTS.md #10).
-  const dndPlaceRef = React.useRef<string | undefined>(undefined)
+  // which are the ones `handleDragEnd` resolves a drop against. The announcer
+  // is held for the board's lifetime and keeps the memory a drag's sentences
+  // share, so a rebuild of this object — here or on React's own account —
+  // repeats no sentence (AGENTS.md #10).
+  const [announceDnd] = React.useState(createKanbanDndAnnouncer)
   const dndAccessibility = React.useMemo(
-    () => ({ announcements: kanbanDndAnnouncements(t, boardColumns, dndPlaceRef) }),
-    [t, boardColumns],
+    () => ({ announcements: announceDnd(t, boardColumns) }),
+    [announceDnd, t, boardColumns],
   )
 
   return (

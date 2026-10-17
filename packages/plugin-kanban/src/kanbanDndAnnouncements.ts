@@ -39,25 +39,48 @@ import type { Announcements, UniqueIdentifier } from '@dnd-kit/core'
 import type { TranslateFn } from '@object-ui/i18n'
 import type { KanbanCard, KanbanColumn } from './types'
 
-/**
- * Where the last sentence of this drag left the card, so the next `over`
- * sentence is spoken only when the place changes. The board holds it in a ref,
- * so the memory does not depend on the identity of a memoised value (AGENTS.md
- * #10).
- */
-export interface KanbanDndPlaceMemory {
-  current: string | undefined
-}
+/** Builds the `announcements` for the board's current columns, in its language. */
+export type KanbanDndAnnouncer = (t: TranslateFn, columns: readonly KanbanColumn[]) => Announcements
 
 /** What a pointer is over, resolved the way the board's drop resolves it. */
 type KanbanDndTarget =
   | { kind: 'card'; card: KanbanCard; column: KanbanColumn }
   | { kind: 'column'; column: KanbanColumn }
 
-export function kanbanDndAnnouncements(
+/**
+ * One board's announcer, which the board holds for its lifetime.
+ *
+ * It remembers the place the last sentence of a drag named, so an `over`
+ * sentence is spoken only when the place changes. dnd-kit puts each sentence
+ * into the live region at once, replacing the one before, and a pointer
+ * pick-up's first `over` is the card over itself: the place the pick-up
+ * sentence has just named. A second sentence about that place would replace
+ * the pick-up sentence before a screen reader reads it.
+ *
+ * The memory lives here, not in the `announcements` object, because the board
+ * rebuilds that object whenever its columns or its translation change — and
+ * React may throw a memoised one away on its own account (AGENTS.md #10). Every
+ * object one announcer builds shares one memory, so a rebuild in the middle of
+ * a drag repeats no sentence.
+ */
+export function createKanbanDndAnnouncer(): KanbanDndAnnouncer {
+  let lastPlace: string | undefined
+  return (t, columns) => kanbanDndAnnouncements(t, columns, {
+    get: () => lastPlace,
+    set: (place) => { lastPlace = place },
+  })
+}
+
+/** The place the last sentence of the current drag named. */
+interface PlaceMemory {
+  get(): string | undefined
+  set(place: string | undefined): void
+}
+
+function kanbanDndAnnouncements(
   t: TranslateFn,
   columns: readonly KanbanColumn[],
-  memory: KanbanDndPlaceMemory,
+  memory: PlaceMemory,
 ): Announcements {
   const homeOf = (id: UniqueIdentifier): { card: KanbanCard; column: KanbanColumn } | null => {
     for (const column of columns) {
@@ -94,18 +117,16 @@ export function kanbanDndAnnouncements(
   return {
     onDragStart({ active }) {
       const home = homeOf(active.id)
-      // A pointer pick-up's first `over` is the card over itself: the place
-      // this sentence names. Remembering it keeps that `over` from replacing
-      // the pick-up sentence before a screen reader reads it.
-      memory.current = home ? placeOf({ kind: 'column', column: home.column }) : undefined
+      // The card over itself names this place; see `createKanbanDndAnnouncer`.
+      memory.set(home ? placeOf({ kind: 'column', column: home.column }) : undefined)
       return t('kanban.dnd.start', { card: cardName(home?.card), column: columnName(home?.column) })
     },
     onDragOver({ active, over }) {
       const target = targetOf(active.id, over?.id)
       const place = placeOf(target)
       // `undefined` leaves the region as it is, which dnd-kit allows.
-      if (place === memory.current) return undefined
-      memory.current = place
+      if (place === memory.get()) return undefined
+      memory.set(place)
       const card = cardName(homeOf(active.id)?.card)
       if (target === null) return t('kanban.dnd.overNone', { card })
       if (target.kind === 'card') {
@@ -114,7 +135,7 @@ export function kanbanDndAnnouncements(
       return t('kanban.dnd.overColumn', { card, column: columnName(target.column) })
     },
     onDragEnd({ active, over }) {
-      memory.current = undefined
+      memory.set(undefined)
       const home = homeOf(active.id)
       const card = cardName(home?.card)
       const target = targetOf(active.id, over?.id)
@@ -124,7 +145,7 @@ export function kanbanDndAnnouncements(
       return t('kanban.dnd.dropped', { card, column: columnName(home?.column) })
     },
     onDragCancel({ active }) {
-      memory.current = undefined
+      memory.set(undefined)
       const home = homeOf(active.id)
       return t('kanban.dnd.cancelled', { card: cardName(home?.card), column: columnName(home?.column) })
     },

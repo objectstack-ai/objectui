@@ -15,6 +15,7 @@
  */
 
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate, useLocation, Link, Navigate } from 'react-router-dom';
 import { useAdapter, SchemaRendererProvider, useMetadata } from '@object-ui/react';
 // The ONE draft-envelope reader (objectui#8181): unwrap AND strip the
@@ -27,9 +28,23 @@ import { dropServedPicklistOptions, extractDraftBody, formatMetadataError } from
 import type { MetadataClient } from '@object-ui/data-objectstack';
 import type { FlowRuntimeState as SpecFlowRuntimeState } from '@objectstack/spec/contracts';
 import { resolveI18nLabel, type I18nLabel } from '@objectstack/spec/ui';
-import { StudioChatDock, type StudioSurfaceLabel } from './StudioAiCopilot.js';
-import { nextCenterTab, type StudioCenterTab } from './centerTab.js';
-import { AUTOMATIONS_CONFIG_FOLD_WIDTH, useIsNarrowerThan, useIsWideViewport } from './wideViewport.js';
+import { StudioChatDock, type StudioCopilotStatus, type StudioSurfaceLabel } from './StudioAiCopilot.js';
+import { StudioRightSlot } from './StudioRightSlot.js';
+import {
+  StudioRightSlotContext,
+  isSlotEscapeExempt,
+  matchStudioSlotShortcut,
+  useStudioRightSlot,
+  type StudioRightSlotHandle,
+  type StudioSlotMode,
+} from './studioRightSlotState.js';
+import { AUTOMATIONS_CONFIG_FOLD_WIDTH, useIsNarrowerThan } from './wideViewport.js';
+import {
+  DOCK_STUDIO_EXPANDED_STORAGE_KEY,
+  maximizedDockWidth,
+  readStoredDockExpanded,
+  writeStoredDockExpanded,
+} from '../../layout/chatDockState.js';
 import { AppMark, type AppMarkApp } from '../../layout/AppMark.js';
 import {
   STUDIO_HEADER,
@@ -63,10 +78,6 @@ import {
   GridFieldAuthoringProvider,
   cn,
   useIsMobile,
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
   Button,
   Popover,
   PopoverTrigger,
@@ -117,12 +128,13 @@ import {
   SlidersHorizontal,
   MousePointer2,
   Code2,
+  Copy,
+  MoreHorizontal,
   Eye,
   Loader2,
   Pencil,
   Check,
   Plus,
-  X,
   GitBranch,
   Rocket,
   ChevronDown,
@@ -301,11 +313,6 @@ import { getIcon } from '../../utils/getIcon.js';
 import { fetchPackages, prefixObjectName, type PkgEntry } from './packages-io.js';
 import { DraftChangesPanel, type DraftChangesPosture } from '../../preview/DraftChangesPanel.js';
 import { toast } from 'sonner';
-
-// ADR-0057 P3c follow-up (#2477 item 3) — the folded layout's side-by-side
-// threshold (`xl`, not `2xl`) and its matchMedia hook live in ./wideViewport so
-// the rule is testable without mounting this surface; see that module for why
-// 1280 is the right line and what the canvas measures there.
 
 /**
  * The create dialog's OWD options reuse the SETTINGS tab's own label and gloss
@@ -1622,12 +1629,12 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
     });
   }, [resolvePackageApp, publishNonce, draftNonce]);
 
-  // ADR-0057 P3 — the decided Studio grid: `[left: nav/tree] [center: canvas +
-  // properties] [right: chat]`. NOT keyed on the async agent catalog (that
-  // would flip the whole grid after load): on an agent-less env the folded
-  // center layout still works; the right dock simply self-gates away. An
-  // injected `aiSlot` (the cloud seam, ADR-0080) keeps the legacy left panel
-  // — the cloud edition migrates on its own schedule.
+  // objectui#12725 — the Studio grid is `[left: nav/tree] [center: canvas]
+  // [right: ONE slot, properties OR copilot]`. NOT keyed on the async agent
+  // catalog (that would flip the whole grid after load): on an agent-less env
+  // the slot holds the properties alone. An injected `aiSlot` (the cloud seam,
+  // ADR-0080) keeps the legacy left panel and the pillars' own asides — the
+  // cloud edition migrates on its own schedule.
   const chatDockMode = !aiSlot;
   // objectui#11795 — Studio stays a desktop tool; on a phone it says so once,
   // in one line under the header, rather than leave the cramped layout to
@@ -1638,6 +1645,78 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   // Display-only; the agent's context stays URL-derived. Other pillars report
   // nothing, so their chip keeps reading `type · name`.
   const [surfaceLabel, setSurfaceLabel] = React.useState<StudioSurfaceLabel | null>(null);
+
+  // objectui#12725 — the one right slot (`StudioRightSlot`): the open item's
+  // properties OR the copilot, the maintainer's 「按「右栏二选一」定稿」. Not in
+  // the package-less scope: its one pillar keeps its own aside, and its build
+  // thread would be a package's, with no package here to build into
+  // (objectui#11553).
+  const slotHost = chatDockMode && packageId !== null;
+  // Shown or hidden from the top bar, remembered per tab under the key the
+  // Studio dock kept its collapse in (#2477 item 2): an author who hid the
+  // copilot finds the slot hidden. Under `md` the slot overlays the page and
+  // starts closed — a phone must not open on a panel over the Studio.
+  const [slotOpenStored, setSlotOpenStored] = React.useState(() =>
+    readStoredDockExpanded(DOCK_STUDIO_EXPANDED_STORAGE_KEY, true),
+  );
+  const [slotOpenMobile, setSlotOpenMobile] = React.useState(false);
+  const slotOpen = isMobile ? slotOpenMobile : slotOpenStored;
+  const setSlotOpen = React.useCallback(
+    (next: boolean) => {
+      if (isMobile) {
+        setSlotOpenMobile(next);
+        return;
+      }
+      setSlotOpenStored(next);
+      writeStoredDockExpanded(DOCK_STUDIO_EXPANDED_STORAGE_KEY, next);
+    },
+    [isMobile],
+  );
+  // The copilot first: nothing is selected yet, and the card's slot opens on
+  // the conversation. A selection asks for the properties (`showProps`).
+  const [slotMode, setSlotMode] = React.useState<StudioSlotMode>('copilot');
+  const [slotPropsTarget, setSlotPropsTarget] = React.useState<HTMLElement | null>(null);
+  const [slotPropsClaims, setSlotPropsClaims] = React.useState(0);
+  const [copilotStatus, setCopilotStatus] = React.useState<StudioCopilotStatus>({
+    available: false,
+    planPending: false,
+  });
+  const [copilotCanvasOpen, setCopilotCanvasOpen] = React.useState(false);
+  const slotHasProps = slotPropsClaims > 0;
+  const copilotAvailable = copilotStatus.available;
+  // What the slot SHOWS: a missing half never shows.
+  const shownSlotMode: StudioSlotMode = !copilotAvailable ? 'props' : !slotHasProps ? 'copilot' : slotMode;
+  const slotHasContent = slotHasProps || copilotAvailable;
+  const claimSlotProps = React.useCallback(() => {
+    setSlotPropsClaims((n) => n + 1);
+    return () => setSlotPropsClaims((n) => n - 1);
+  }, []);
+  const showSlotProps = React.useCallback(() => {
+    setSlotMode('props');
+    if (isMobile) setSlotOpenMobile(true);
+  }, [isMobile]);
+  const slotHandle = React.useMemo<StudioRightSlotHandle | null>(
+    () =>
+      slotHost
+        ? { propsTarget: slotPropsTarget, mode: shownSlotMode, claimProps: claimSlotProps, showProps: showSlotProps }
+        : null,
+    [slotHost, slotPropsTarget, shownSlotMode, claimSlotProps, showSlotProps],
+  );
+  // `⌘.` / `Ctrl+.` — a hidden slot opens; a shown one switches its halves.
+  React.useEffect(() => {
+    if (!slotHost) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!matchStudioSlotShortcut(e)) return;
+      e.preventDefault();
+      if (!slotOpen) {
+        setSlotOpen(true);
+        return;
+      }
+      if (slotHasProps && copilotAvailable) setSlotMode(shownSlotMode === 'props' ? 'copilot' : 'props');
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [slotHost, slotOpen, setSlotOpen, slotHasProps, copilotAvailable, shownSlotMode]);
 
   /**
    * Host side of the live `?surface=` channel. Producers below the provider —
@@ -1721,6 +1800,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
 
   return (
     <SurfaceDeepLinkProvider onRequest={requestSurface}>
+      <StudioRightSlotContext.Provider value={slotHandle}>
       <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
         {/* The ADR-0080 `aiSlot` seam — a cloud edition may still inject its own
           * left copilot panel; the built-in copilot is the RIGHT dock below. */}
@@ -1782,9 +1862,10 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                   }
                 >
                   <p.Icon className={'h-3.5 w-3.5 ' + (tab === p.key ? 'text-primary' : '')} />
-                  {/* Below the 1280px design width the pillars read as icons;
-                      the name stays in the accessible name and the tooltip. */}
-                  <span className="sr-only xl:not-sr-only">{t(`engine.studio.pillar.${p.key}`, locale)}</span>
+                  {/* objectui#12725 — named from 1024 px up; below that the
+                      pillars read as icons, the name kept in the accessible
+                      name and the tooltip. */}
+                  <span className="sr-only lg:not-sr-only">{t(`engine.studio.pillar.${p.key}`, locale)}</span>
                 </Link>
               ))}
             </nav>
@@ -1878,6 +1959,24 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
               ) : (
                 publishButton
               )}
+              {/* objectui#12725 — the top bar's right-most icon shows or hides
+                  the right slot; `⌘.` switches what it shows. */}
+              {slotHost && slotHasContent && (
+                <>
+                  <span className="mx-0.5 h-5 w-px shrink-0 bg-border" aria-hidden="true" />
+                  <button
+                    type="button"
+                    data-testid="studio-slot-toggle"
+                    onClick={() => setSlotOpen(!slotOpen)}
+                    aria-pressed={slotOpen}
+                    aria-label={t(slotOpen ? 'engine.studio.slot.collapse' : 'engine.studio.slot.expand', locale)}
+                    title={t(slotOpen ? 'engine.studio.slot.collapse' : 'engine.studio.slot.expand', locale)}
+                    className={cn(STUDIO_HEADER_ICON_BUTTON, slotOpen && 'text-foreground')}
+                  >
+                    {slotOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+                  </button>
+                </>
+              )}
             </div>
           </header>
 
@@ -1969,7 +2068,6 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                   onCreateApp={readOnly ? undefined : () => setAppCreating(true)}
                   readOnly={readOnly}
                   readOnlySettled={pkgWritable !== undefined}
-                  foldInspector={chatDockMode}
                   onDirtyChange={setPillarDirty}
                   onSurfaceLabelChange={setSurfaceLabel}
                   onHeldEditChange={setHeldEdit}
@@ -1979,13 +2077,32 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
           </div>
         </div>
 
-        {/* ADR-0057 P3c — the copilot as the shared right dock (same package-
-          * scoped build thread as the left panel it replaces; self-gates on the
-          * agent catalog like the copilot always has). */}
-        {/* objectui#11553 — not in the package-less scope: its build thread
-          * is a PACKAGE's, and there is no package here to build into. */}
-        {chatDockMode && packageId !== null && (
-          <StudioChatDock packageId={packageId} locale={locale} surfaceLabel={surfaceLabel} />
+        {/* objectui#12725 — the one right slot: properties OR the copilot.
+          * The copilot is the same package-scoped build thread the dock held,
+          * self-gating on the agent catalog as it always has. */}
+        {slotHost && (
+          <StudioRightSlot
+            open={slotOpen}
+            mode={shownSlotMode}
+            onModeChange={setSlotMode}
+            hasProps={slotHasProps}
+            copilotAvailable={copilotAvailable}
+            planPending={copilotStatus.planPending}
+            propsTargetRef={setSlotPropsTarget}
+            wideWidth={copilotCanvasOpen && !isMobile ? maximizedDockWidth(window.innerWidth) : undefined}
+            overlay={isMobile}
+            onOverlayDismiss={() => setSlotOpen(false)}
+            locale={locale}
+            copilot={
+              <StudioChatDock
+                packageId={packageId}
+                locale={locale}
+                surfaceLabel={surfaceLabel}
+                onStatusChange={setCopilotStatus}
+                onCanvasOpenChange={setCopilotCanvasOpen}
+              />
+            }
+          />
         )}
 
         {/* objectui#11553 — the package-less scope reviews exactly what its
@@ -2028,6 +2145,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
           }
         />
       </div>
+      </StudioRightSlotContext.Provider>
     </SurfaceDeepLinkProvider>
   );
 }
@@ -2950,7 +3068,6 @@ export function InterfacesPillar({
   onCreateApp,
   readOnly = false,
   readOnlySettled = true,
-  foldInspector = false,
   onDirtyChange,
   onSurfaceLabelChange,
   onHeldEditChange,
@@ -2982,10 +3099,6 @@ export function InterfacesPillar({
    * unknown state as writable. Defaults to true: a caller that passes
    * `readOnly` outright has settled it. */
   readOnlySettled?: boolean;
-  /** ADR-0057 P3c — the chat dock owns the right side, so the inspector folds
-   * into center `[canvas | properties]` tabs instead of its own right aside.
-   * Default false → the classic three-zone layout, pixel-identical. */
-  foldInspector?: boolean;
   /** objectui#2600 — mirrors the unsaved-nav-edit state (`navDirty`) up to the
    * Studio header, whose pillar/Home/package navigation unmounts this whole
    * pillar (SPA nav, so no beforeunload). Reports `false` on unmount so a
@@ -3210,10 +3323,10 @@ export function InterfacesPillar({
     },
     [],
   );
-  // Inspector tab — source pages carry a `source` string, not a block tree, so
-  // their editor lives in a dedicated Source tab (the Properties tab has no
-  // blocks to inspect). Non-source surfaces never show the tab strip.
-  const [inspectorTab, setInspectorTab] = React.useState<'props' | 'source'>('source');
+  // objectui#12725 — the item's definition (查看定义, the header's ⋯ menu): a
+  // source page's code editor, any other item's document as JSON. It replaces
+  // the inspector's 源码 tab, the maintainer's 「源码的选项卡有必要保留吗」.
+  const [definitionOpen, setDefinitionOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<Record<string, unknown>>({});
   // objectui#11272 — the leaf `draft` was loaded for, as `leafKeyOf` spells
   // it: written where the load below installs a buffer, and nowhere else.
@@ -3252,20 +3365,15 @@ export function InterfacesPillar({
     (next: MetadataSelection | null) => setSelectionState({ key: leafKey, value: next }),
     [leafKey],
   );
-  // ADR-0057 P3c — the folded-layout center tab (canvas | properties). The
-  // auto-switch below reacts to inspector-target EDGES (select a block → jump
-  // to Properties; deselect → back to Canvas) while preserving a manual choice
-  // in steady state — see nextCenterTab. Inert when `foldInspector` is off.
-  const [centerTab, setCenterTab] = React.useState<StudioCenterTab>('canvas');
-  // Folded layout, wide viewport (xl+, #2477 item 3 — was 2xl): enough room to
-  // show canvas AND properties side by side beside the chat dock — no tabs, no
-  // auto-switch.
-  const isWide = useIsWideViewport();
-  const showFoldedTabs = foldInspector && !isWide;
-  // The right-hand properties aside can be collapsed to a thin rail to give the
-  // canvas (and the chat dock beside it) more room — in-memory, per-mount. Only
-  // meaningful in the aside layouts (`!showFoldedTabs`); the narrow center-tabs
-  // layout already toggles properties as a tab, so it ignores this.
+  // objectui#12725 — the surface's right slot hosts this pillar's properties
+  // (`useStudioRightSlot`); `null` under an injected `aiSlot`, where the
+  // classic aside beside the canvas stays.
+  const slot = useStudioRightSlot();
+  const inSlot = slot !== null;
+  const claimSlotProps = slot?.claimProps;
+  React.useEffect(() => (claimSlotProps ? claimSlotProps() : undefined), [claimSlotProps]);
+  // The classic layout's aside can be collapsed to give the canvas more room —
+  // in-memory, per-mount. In the slot the top bar's toggle owns that instead.
   //
   // objectui#11658 — an arrival that asks for the run-mode landing (the
   // post-build transition, see `studioLanding.ts`) opens on 「运行」 with this
@@ -3281,15 +3389,31 @@ export function InterfacesPillar({
     landingCollapsedRef.current = false;
     setInspectorCollapsedState(collapsed);
   }, []);
-  const canCollapseInspector = !showFoldedTabs;
-  const hasInspectorTarget = Boolean((editNav && navSel) || selection);
-  const prevInspectorTargetRef = React.useRef(hasInspectorTarget);
+  const canCollapseInspector = !inSlot;
+  // objectui#12725 — switching by intent: selecting anything on the canvas
+  // (or a nav entry in nav editing) shows its properties in the slot; Esc or a
+  // click on empty canvas drops the selection, so the slot returns to the
+  // item's own properties. Keyed on the selection's identity, so a second
+  // element selected while the copilot shows asks again.
+  const inspectorTargetKey =
+    editNav && navSel ? `nav:${navSel.id}` : selection ? `${selection.kind}:${selection.id}` : '';
+  const showSlotProps = slot?.showProps;
   React.useEffect(() => {
-    if (!showFoldedTabs) return;
-    const hadTarget = prevInspectorTargetRef.current;
-    prevInspectorTargetRef.current = hasInspectorTarget;
-    setCenterTab((cur) => nextCenterTab(cur, hadTarget, hasInspectorTarget));
-  }, [showFoldedTabs, hasInspectorTarget]);
+    if (inspectorTargetKey && showSlotProps) showSlotProps();
+  }, [inspectorTargetKey, showSlotProps]);
+  const clearInspectorTarget = React.useCallback(() => {
+    setSelection(null);
+    setNavSel(null);
+  }, [setSelection]);
+  React.useEffect(() => {
+    if (!inspectorTargetKey) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || isSlotEscapeExempt(e.target)) return;
+      clearInspectorTarget();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [inspectorTargetKey, clearInspectorTarget]);
   const [loading, setLoading] = React.useState(false);
   const [saving, setSaving] = React.useState<false | 'draft' | 'publish'>(false);
   const [hasDraft, setHasDraft] = React.useState(false);
@@ -3969,13 +4093,9 @@ export function InterfacesPillar({
         const surface = resolveSurface(entry, locale, targetLabelRef.current);
         if (surface) setCurrent(surface);
         setCanvasMode('design');
-        // A page opens on its source beside the live preview: the rail shows
-        // the code editor (its Source tab, the aside expanded), whichever tab
-        // and width an earlier leaf left it on.
-        if (kind === 'page') {
-          setInspectorTab('source');
-          setInspectorCollapsed(false);
-        }
+        // A page opens on its source beside the live preview: the definition
+        // sheet holds the code editor (objectui#12725).
+        if (kind === 'page') setDefinitionOpen(true);
         if (isMobile) setRailOpen(false);
         await doNavSave(navSending(linked) ?? { unmoved: () => false }, linked);
       } catch (e) {
@@ -3994,7 +4114,6 @@ export function InterfacesPillar({
       packageId,
       onDraftSaved,
       setCanvasMode,
-      setInspectorCollapsed,
       isMobile,
       doNavSave,
       navSending,
@@ -4002,10 +4121,9 @@ export function InterfacesPillar({
   );
 
   // ADR-0057 P3c — the canvas and the inspector are rendered by BOTH layouts
-  // below (the classic three-zone row, and the folded center-tabs grid that
-  // cedes the right side to the chat dock), so they are built once here. The
-  // extraction is presentation-neutral: the classic branch composes exactly
-  // the pre-P3c tree.
+  // below (the classic three-zone row, and — objectui#12725 — the canvas with
+  // its properties portaled into the surface's right slot), so they are built
+  // once here. The classic branch composes exactly the pre-P3c tree.
   // objectui#8219 — true exactly when the canvas below renders its `Preview`
   // branch (same guards, same order). A registered preview brings its own
   // frame (PreviewShell), so the wrapper then draws none: one frame, and the
@@ -4177,6 +4295,102 @@ export function InterfacesPillar({
   // channel, no chip: the hint under the tab row still names the pillar).
   const openSurface = useSurfaceNavigator();
   const isObjectLeaf = current?.type === 'object';
+  // objectui#12455 — while a nav entry is open in the inspector, the aside
+  // names it as the shared aside names anything: "Nav item · Kind", the
+  // entry's label (what it inherits when it declares none), and its nav id.
+  // Top-level entries only, as `StudioNavItemInspector` edits only those.
+  const navInspectorHead = React.useMemo(() => {
+    if (!editNav || !navSel) return null;
+    const m = /^navigation\[(\d+)\]$/.exec(navSel.id);
+    const node = m ? navTree[Number(m[1])] : undefined;
+    if (!node) return null;
+    const untitled = node.label === undefined && navPayloadOf([node]).length === 0;
+    return {
+      eyebrow: tFormat('engine.studio.nav.eyebrow', locale, { kind: navKindName(node, locale) }),
+      title: untitled
+        ? tFormat('engine.appNav.item', locale, { n: Number(m![1]) + 1 })
+        : navEntryLabelText(node, locale, targetLabel) || undefined,
+      id: typeof node.id === 'string' ? node.id : undefined,
+    };
+  }, [editNav, navSel, navTree, locale, targetLabel]);
+  const canvasFrameRef = React.useRef<HTMLDivElement | null>(null);
+  // objectui#12725 — 复制 JSON: the item's document as this pillar holds it.
+  const copyDefinition = React.useCallback(() => {
+    const text = JSON.stringify(draft, null, 2);
+    const clipboard = typeof navigator === 'undefined' ? undefined : navigator.clipboard;
+    if (!clipboard) {
+      toast.error(t('engine.studio.if.copyFailed', locale));
+      return;
+    }
+    clipboard.writeText(text).then(
+      () => toast.success(t('engine.studio.api.copied', locale)),
+      () => toast.error(t('engine.studio.if.copyFailed', locale)),
+    );
+  }, [draft, locale]);
+  // objectui#12725 — the item's ⋯ menu: its definition, and its document as
+  // JSON. Rename and delete are not offered here: this header has neither
+  // today (a nav entry is renamed and removed in nav editing).
+  const itemMoreEl =
+    current && draftLoaded ? (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            data-testid="if-item-more"
+            aria-label={t('engine.studio.if.more', locale)}
+            title={t('engine.studio.if.more', locale)}
+            className={STUDIO_HEADER_ICON_BUTTON}
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuItem data-testid="if-item-view-definition" onSelect={() => setDefinitionOpen(true)}>
+            <Code2 className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
+            {t('engine.studio.if.viewDefinition', locale)}
+          </DropdownMenuItem>
+          <DropdownMenuItem data-testid="if-item-copy-json" onSelect={copyDefinition}>
+            <Copy className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
+            {t('engine.studio.if.copyJson', locale)}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    ) : null;
+  // objectui#12725 — one status line above the canvas instead of the canvas's
+  // own tabs: what the canvas shows, and (beside the right slot) what a click
+  // on it does. An object entry's canvas is the running list; its line keeps
+  // saying where the structure is edited (objectui#12455).
+  const selectionLabel =
+    editNav && navSel ? (navInspectorHead?.title ?? navSel.id) : selection ? (selection.label || selection.id) : null;
+  const canvasHint = !inSlot
+    ? null
+    : selectionLabel !== null
+      ? tFormat('engine.studio.if.canvasHint.selected', locale, { label: String(selectionLabel) })
+      : slot?.mode === 'copilot' && Preview && designing && !StudioCanvas && !isSourcePage
+        ? t('engine.studio.if.canvasHint.pick', locale)
+        : null;
+  const canvasStatusEl = current ? (
+    <div
+      data-testid="if-canvas-status"
+      className="flex h-9 shrink-0 items-center gap-3 border-b px-6 text-xs text-muted-foreground"
+    >
+      {isObjectLeaf ? (
+        <p className="min-w-0 truncate">
+          {t('engine.studio.if.objectHintPre', locale)}<span className="font-medium">{t('engine.studio.pillar.data', locale)}</span>{t('engine.studio.if.objectHintPost', locale)}
+        </p>
+      ) : (
+        <p className="min-w-0 truncate">
+          {t(designing && !isSourcePage ? 'engine.studio.if.status.design' : 'engine.studio.if.status.run', locale)}
+          {hasDraft && draftLoaded ? ` · ${t('engine.studio.if.status.unpublished', locale)}` : null}
+        </p>
+      )}
+      {canvasHint && (
+        <p className="ml-auto min-w-0 truncate" data-testid="if-canvas-hint">
+          {canvasHint}
+        </p>
+      )}
+    </div>
+  ) : null;
   const ifHeaderEl = (
     <StudioItemHeader
       testId="if-item-header"
@@ -4241,6 +4455,7 @@ export function InterfacesPillar({
             </button>
           )}
           {canvasModeToggleEl}
+          {itemMoreEl}
           {canCollapseInspector && (
             <>
               <span className="mx-0.5 h-5 w-px shrink-0 bg-border" aria-hidden="true" />
@@ -4259,31 +4474,22 @@ export function InterfacesPillar({
           )}
         </>
       }
-      tabs={
-        current ? (
-          <>
-            {/* objectui#12455 — the canvas is the one view of an entry here; an
-                object entry's is the running list, so its tab says Preview
-                and the line beside it says where the structure is edited. */}
-            <StudioTab active data-testid="if-tab-canvas">
-              {t(isObjectLeaf ? 'engine.studio.if.tabPreview' : 'engine.studio.if.tabCanvas', locale)}
-            </StudioTab>
-            {!isEditable && isObjectLeaf ? (
-              <p className="ml-auto flex min-w-0 items-center gap-1 self-center truncate pl-3 text-xs text-muted-foreground">
-                {t('engine.studio.if.objectHintPre', locale)}<span className="font-medium">{t('engine.studio.pillar.data', locale)}</span>{t('engine.studio.if.objectHintPost', locale)}
-              </p>
-            ) : null}
-          </>
-        ) : undefined
-      }
+      // objectui#12725 — no tab row: the status line under the header
+      // (`canvasStatusEl`) continues it, so the header drops its own rule.
+      className={current ? 'border-b-0 pb-3' : undefined}
     />
   );
   const canvasEl = (
-    // objectui#12611 — folded (objectui#11795's width), the canvas keeps a
-    // 16 px gutter instead of 24, so a dashboard's tiles get their width.
+    // objectui#12611 — beside the right slot (objectui#11795's width), the
+    // canvas keeps a 16 px gutter instead of 24, so a dashboard's tiles get
+    // their width. objectui#12725 — a click on empty canvas (the gutter, or
+    // the frame around the preview) drops the selection.
     <main
       data-testid="if-canvas-main"
-      className={cn('flex min-w-0 flex-1 flex-col overflow-auto bg-muted/30 py-4', showFoldedTabs ? 'px-4' : 'px-6')}
+      onClick={(e) => {
+        if (e.target === e.currentTarget || e.target === canvasFrameRef.current) clearInspectorTarget();
+      }}
+      className={cn('flex min-w-0 flex-1 flex-col overflow-auto bg-muted/30 py-4', inSlot ? 'px-4' : 'px-6')}
     >
       {(error || navError || leafHeld) && (
         <div className="mb-3 flex shrink-0 flex-col gap-1.5">
@@ -4319,6 +4525,7 @@ export function InterfacesPillar({
         </div>
       )}
       <div
+        ref={canvasFrameRef}
         className={cn(
           // Source pages: let the live preview fill the canvas height (it
           // brings its own PreviewShell chrome), so it balances the taller
@@ -4415,75 +4622,6 @@ export function InterfacesPillar({
     </main>
   );
 
-  // objectui#12455 — while a nav entry is open in the inspector, the aside
-  // names it as the shared aside names anything: "Nav item · Kind", the
-  // entry's label (what it inherits when it declares none), and its nav id.
-  // Top-level entries only, as `StudioNavItemInspector` edits only those.
-  const navInspectorHead = React.useMemo(() => {
-    if (!editNav || !navSel) return null;
-    const m = /^navigation\[(\d+)\]$/.exec(navSel.id);
-    const node = m ? navTree[Number(m[1])] : undefined;
-    if (!node) return null;
-    const untitled = node.label === undefined && navPayloadOf([node]).length === 0;
-    return {
-      eyebrow: tFormat('engine.studio.nav.eyebrow', locale, { kind: navKindName(node, locale) }),
-      title: untitled
-        ? tFormat('engine.appNav.item', locale, { n: Number(m![1]) + 1 })
-        : navEntryLabelText(node, locale, targetLabel) || undefined,
-      id: typeof node.id === 'string' ? node.id : undefined,
-    };
-  }, [editNav, navSel, navTree, locale, targetLabel]);
-  const inspectorHeaderEl = (
-    <header className="flex shrink-0 items-center gap-2 border-b bg-background/95 px-3 py-2">
-      <SlidersHorizontal className="h-3.5 w-3.5" />
-      <span className="text-[13px] font-medium">{t('engine.studio.inspector.props', locale)}</span>
-      <div className="ml-auto flex items-center gap-0.5">
-        {/* objectui#7121 — same gate as the rail branch: offering "clear
-            selection" on a studio-canvas leaf would contradict the rail beside
-            it, which states this canvas has no blocks. (The leftover STATE that
-            once reached here is gone since objectui#7137 keyed `selection` to
-            its leaf; this gate stays because it is the RAIL's consistency rule,
-            and a studio-canvas leaf can never produce a selection to clear
-            either way — `StudioCanvasPreviewProps` carries no
-            `onSelectionChange` by contract.) */}
-        {selection && !StudioCanvas && (
-          <button
-            type="button"
-            onClick={() => setSelection(null)}
-            className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label={t('engine.studio.deselect', locale)}
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        )}
-        {canCollapseInspector && (
-          <button
-            type="button"
-            onClick={() => setInspectorCollapsed(true)}
-            className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label={t('engine.studio.inspector.collapse', locale)}
-            title={t('engine.studio.inspector.collapse', locale)}
-          >
-            <PanelRightClose className="h-3.5 w-3.5" />
-          </button>
-        )}
-      </div>
-    </header>
-  );
-
-  // objectui#12611 — whether the properties hold an editor rather than a
-  // statement or an invitation: the branches of `inspectorBodyEl` below that
-  // open one, in its order. The folded layout's Properties tab carries a dot
-  // while this is true, so the folded aside says it is there.
-  const propsDotId = React.useId();
-  const inspectorHasContent =
-    Boolean(editNav && navSel) ||
-    (StudioCanvas && current
-      ? current.type === 'object' && Boolean(listView.target)
-      : Boolean(
-          current && draftLoaded && ((selection && Inspector) || isSourcePage || (DefaultInspector && isEditable)),
-        ));
-
   // Collapsed state — a thin rail on the right with an expand affordance, so the
   // canvas reclaims the ~288px the properties aside otherwise holds.
   const inspectorBodyEl =
@@ -4568,67 +4706,20 @@ export function InterfacesPillar({
         />
       </div>
     ) : isSourcePage ? (
-      showFoldedTabs ? (
-        // Folded tabs mode: the center Canvas tab already shows the live
-        // preview, so the nested Source/Props tab strip adds nothing — the
-        // Properties tab body IS the code editor (its Props pane was only an
-        // empty state pointing back at Source).
-        // objectui#11136 — the editor's own read-only contract ("onPatch:
-        // undefined in read-only mode"), fed by the pillar's real flag.
-        <div className="mt-2 flex min-h-0 flex-1 flex-col border-t">
-          <div className="min-h-0 flex-1">
-            <SourcePageEditor
-              mode="editor"
-              draft={draft}
-              onPatch={readOnly ? undefined : onPatch}
-              readOnly={readOnly}
-              locale={locale}
-            />
-          </div>
-          {sourcePageStatusEl}
-        </div>
-      ) : (
-      <Tabs
-        value={inspectorTab}
-        onValueChange={(v) => setInspectorTab(v === 'props' ? 'props' : 'source')}
-        className="flex min-h-0 flex-1 flex-col"
-      >
-        <TabsList className="mx-3 mt-2 shrink-0 self-start">
-          <TabsTrigger value="source" className="gap-1 text-xs">
-            <Code2 className="h-3.5 w-3.5" /> {t('engine.studio.inspector.tabSource', locale)}
-          </TabsTrigger>
-          <TabsTrigger value="props" className="text-xs">
-            {t('engine.studio.inspector.tabProps', locale)}
-          </TabsTrigger>
-        </TabsList>
-        {/* objectui#12522 — the editor fills the tab, its status line under it. */}
-        <TabsContent value="source" className="mt-2 min-h-0 flex-1 flex-col border-t data-[state=active]:flex">
-          <div className="min-h-0 flex-1">
-            <SourcePageEditor
-              mode="editor"
-              draft={draft}
-              onPatch={readOnly ? undefined : onPatch}
-              readOnly={readOnly}
-              locale={locale}
-            />
-          </div>
-          {sourcePageStatusEl}
-        </TabsContent>
-        {/* objectui#12522 — what the page IS, for a page with no block tree. */}
-        <TabsContent value="props" className="mt-0 min-h-0 flex-1 overflow-auto p-3">
-          {current && (
-            <SourcePageProperties
-              draft={draft}
-              name={current.name}
-              navEntries={sourcePageNavEntries}
-              onPatch={readOnly ? undefined : onPatch}
-              readOnly={readOnly}
-              locale={locale}
-            />
-          )}
-        </TabsContent>
-      </Tabs>
-      )
+      // objectui#12725 — no 源码 tab: the properties say what the page IS
+      // (objectui#12522); its code opens from the header's ⋯ menu (查看定义).
+      <div className="min-h-0 flex-1 overflow-auto p-3">
+        {current && (
+          <SourcePageProperties
+            draft={draft}
+            name={current.name}
+            navEntries={sourcePageNavEntries}
+            onPatch={readOnly ? undefined : onPatch}
+            readOnly={readOnly}
+            locale={locale}
+          />
+        )}
+      </div>
     ) : DefaultInspector && current && isEditable ? (
       // No block selected → the surface's "home" inspector (e.g. a page's
       // interfaceConfig form). Selecting a sub-element from it swaps in the
@@ -4674,6 +4765,67 @@ export function InterfacesPillar({
         </div>
       </div>
     );
+  // The one properties aside, in the right slot (filling it) or beside the
+  // canvas (the classic layout).
+  const inspectorAsideEl = (
+    <StudioInspector
+      testId="if-inspector"
+      eyebrow={navInspectorHead?.eyebrow ?? t('engine.studio.inspector.props', locale)}
+      title={navInspectorHead?.title}
+      id={navInspectorHead?.id}
+      className={inSlot ? 'w-full flex-1 border-l-0' : undefined}
+      // objectui#12455 — in the classic layout the header's properties toggle
+      // opens and closes the aside, so it carries no second one.
+      onClose={navInspectorHead ? () => setNavSel(null) : selection && !StudioCanvas ? () => setSelection(null) : undefined}
+      closeLabel={t('engine.studio.deselect', locale)}
+      // objectui#12453 — a read-only package saves no draft: no footer.
+      footer={readOnly ? null : t('engine.studio.inspector.draftFooter', locale)}
+      bodyClassName="flex min-h-0 flex-1 flex-col"
+    >
+      {inspectorBodyEl}
+    </StudioInspector>
+  );
+  // objectui#12725 — 查看定义: a source page's code editor (where its 源码 tab
+  // was), any other item's document, read-only, as JSON.
+  const definitionSheetEl = current ? (
+    <Sheet open={definitionOpen} onOpenChange={setDefinitionOpen}>
+      <SheetContent
+        side="right"
+        aria-describedby={undefined}
+        data-testid="if-definition-sheet"
+        className="flex w-full flex-col gap-0 p-0 sm:max-w-2xl"
+      >
+        <SheetHeader className="shrink-0 border-b px-4 py-3 pr-10">
+          <SheetTitle className="text-[13px] font-medium">
+            {tFormat('engine.studio.if.definitionTitle', locale, { label: current.label || current.name })}
+          </SheetTitle>
+        </SheetHeader>
+        {isSourcePage ? (
+          // objectui#11136 — the editor's own read-only contract ("onPatch:
+          // undefined in read-only mode"), fed by the pillar's real flag.
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1">
+              <SourcePageEditor
+                mode="editor"
+                draft={draft}
+                onPatch={readOnly ? undefined : onPatch}
+                readOnly={readOnly}
+                locale={locale}
+              />
+            </div>
+            {sourcePageStatusEl}
+          </div>
+        ) : (
+          <pre
+            data-testid="if-definition-json"
+            className="min-h-0 flex-1 overflow-auto bg-muted/30 p-4 font-mono text-xs leading-relaxed"
+          >
+            {JSON.stringify(draft, null, 2)}
+          </pre>
+        )}
+      </SheetContent>
+    </Sheet>
+  ) : null;
 
   return (
     <div className="flex h-full flex-col">
@@ -4902,125 +5054,18 @@ export function InterfacesPillar({
 
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden" data-testid="if-content-column">
           {ifHeaderEl}
+          {canvasStatusEl}
+          {definitionSheetEl}
           <div className="flex min-h-0 flex-1">
-        {!foldInspector ? (
-          <>
-            {/* canvas */}
-            {canvasEl}
-
-            {/* inspector — full-height flex column so the source editor fills it
-                top-to-bottom instead of squeezing into a fixed height with dead
-                space below. Widens for source pages so code has room. Collapses
-                to a thin rail to hand the width back to the canvas. */}
-            {inspectorCollapsed ? null : (
-              <StudioInspector
-                testId="if-inspector"
-                eyebrow={navInspectorHead?.eyebrow ?? t('engine.studio.inspector.props', locale)}
-                title={navInspectorHead?.title}
-                id={navInspectorHead?.id}
-                width={
-                  isSourcePage && !(selection && Inspector && current) && !(editNav && navSel)
-                    ? 'w-[24rem] xl:w-[30rem] 2xl:w-[36rem]'
-                    : undefined
-                }
-                // objectui#12455 — the header's properties toggle opens and
-                // closes the aside in this layout, so it carries no second one.
-                onClose={navInspectorHead ? () => setNavSel(null) : selection && !StudioCanvas ? () => setSelection(null) : undefined}
-                closeLabel={t('engine.studio.deselect', locale)}
-                // objectui#12453 — a read-only package saves no draft: no footer.
-                footer={readOnly ? null : t('engine.studio.inspector.draftFooter', locale)}
-                bodyClassName="flex min-h-0 flex-1 flex-col"
-              >
-                {inspectorBodyEl}
-              </StudioInspector>
-            )}
-          </>
-        ) : isWide ? (
-          // Folded layout on a WIDE (xl+) viewport: enough room to keep the
-          // canvas and the properties side by side beside the chat dock — the
-          // tabs (and their auto-switch) only exist where width forces them.
-          // The inspector is slimmer at xl (and grows at 2xl) so the canvas
-          // keeps usable width once the ~420px dock is also on screen.
-          <>
-            {canvasEl}
-            {inspectorCollapsed ? null : (
-              <StudioInspector
-                testId="if-inspector"
-                eyebrow={navInspectorHead?.eyebrow ?? t('engine.studio.inspector.props', locale)}
-                title={navInspectorHead?.title}
-                id={navInspectorHead?.id}
-                width={
-                  isSourcePage && !(selection && Inspector && current) && !(editNav && navSel)
-                    ? 'w-[24rem] xl:w-[30rem] 2xl:w-[36rem]'
-                    : undefined
-                }
-                // objectui#12455 — as in the classic layout: the header's
-                // properties toggle opens and closes this aside.
-                onClose={navInspectorHead ? () => setNavSel(null) : selection && !StudioCanvas ? () => setSelection(null) : undefined}
-                closeLabel={t('engine.studio.deselect', locale)}
-                // objectui#12453 — a read-only package saves no draft: no footer.
-                footer={readOnly ? null : t('engine.studio.inspector.draftFooter', locale)}
-                bodyClassName="flex min-h-0 flex-1 flex-col"
-              >
-                {inspectorBodyEl}
-              </StudioInspector>
-            )}
-          </>
-        ) : (
-          // ADR-0057 P3c — folded layout: the chat dock owns the right side,
-          // so the inspector shares the center with the canvas as tabs
-          // (`[left: nav/tree] [center: canvas + properties] [right: chat]`).
-          <Tabs
-            value={centerTab}
-            onValueChange={(v) => setCenterTab(v === 'properties' ? 'properties' : 'canvas')}
-            className="flex min-w-0 flex-1 flex-col"
-            data-testid="studio-center-tabs"
-          >
-            {/* objectui#12611 — on the canvas's 16 px gutter, and the
-                Properties segment carries a dot while the folded aside holds
-                an editor (`inspectorHasContent`). */}
-            <TabsList className="mx-4 mt-2 shrink-0 self-start">
-              <TabsTrigger value="canvas" className="gap-1 text-xs">
-                <Eye className="h-3.5 w-3.5" /> {t('engine.studio.if.tabCanvas', locale)}
-              </TabsTrigger>
-              <TabsTrigger
-                value="properties"
-                className="gap-1 text-xs"
-                data-testid="studio-center-tab-properties"
-                aria-describedby={inspectorHasContent ? propsDotId : undefined}
-              >
-                <SlidersHorizontal className="h-3.5 w-3.5" /> {t('engine.studio.inspector.props', locale)}
-                {inspectorHasContent && (
-                  <span
-                    aria-hidden="true"
-                    data-testid="studio-center-tab-properties-dot"
-                    className="ml-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
-                  />
-                )}
-              </TabsTrigger>
-              {/* The dot's meaning, as the tab's description: its name stays "Properties". */}
-              {inspectorHasContent && (
-                <span id={propsDotId} hidden>
-                  {t('engine.studio.inspector.propsHasContent', locale)}
-                </span>
-              )}
-            </TabsList>
-            {/* forceMount + state-hidden: the canvas hosts the RUNTIME preview
-                (records grids, PreviewShell iframes) — unmounting it on every
-                flip to Properties would refetch/reload it each time. */}
-            <TabsContent
-              forceMount
-              value="canvas"
-              className="mt-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
-            >
-              {canvasEl}
-            </TabsContent>
-            <TabsContent value="properties" className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden">
-              {inspectorHeaderEl}
-              {inspectorBodyEl}
-            </TabsContent>
-          </Tabs>
-        )}
+        {canvasEl}
+        {inSlot
+          ? // objectui#12725 — the properties live in the surface's right slot.
+            slot.propsTarget && createPortal(inspectorAsideEl, slot.propsTarget)
+          : // The classic layout (an injected `aiSlot`): the aside beside the
+            // canvas, collapsible from the header to hand the canvas its width.
+            inspectorCollapsed
+            ? null
+            : inspectorAsideEl}
           </div>
         </div>
       </div>

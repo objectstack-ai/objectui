@@ -27,6 +27,7 @@ import {
 import { ComponentRegistry, toDomProps } from '@object-ui/core';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { compile, manifestFromConfigs, type Diagnostic } from '@object-ui/sdui-parser';
+import { PAGE_TEMPLATE_SLOTS, type PageTemplate } from '@objectstack/spec/ui';
 import { ReactKindPage } from './react-page';
 import { PRINT_PAGE_ATTRIBUTE, PRINT_RUNNING_ATTRIBUTE, buildPagePrintStylesheet, isPagePrintDeclaration } from './page-print';
 import { cn } from '../../lib/utils';
@@ -91,7 +92,7 @@ function findRegion(regions: PageNodeRegion[] | undefined, name: string): PageNo
 }
 
 /** Get all regions that are NOT in the named set */
-function getRemainingRegions(regions: PageNodeRegion[] | undefined, exclude: string[]): PageNodeRegion[] {
+function getRemainingRegions(regions: PageNodeRegion[] | undefined, exclude: readonly string[]): PageNodeRegion[] {
   if (!regions) return [];
   const lowerSet = new Set(exclude.map((n) => n.toLowerCase()));
   return regions.filter((r) => !lowerSet.has(r.name?.toLowerCase() ?? ''));
@@ -292,31 +293,114 @@ const RunningRegions: React.FC<{
 };
 
 // ---------------------------------------------------------------------------
+// Layout refusals — a template shape the spec refuses (objectui#12476)
+// ---------------------------------------------------------------------------
+
+/** A template that places named slots only: every one but `dashboard`'s open grid. */
+type SlottedTemplate = Exclude<PageTemplate, 'dashboard'>;
+
+const TEMPLATE_NAMES = Object.keys(PAGE_TEMPLATE_SLOTS).map((name) => `'${name}'`).join(', ');
+
+/** A visible refusal in place of what the page asked for, styled like the html tier's compile error. */
+const PageLayoutRefusal: React.FC<{ kind: string; title: string; items: string[] }> = ({ kind, title, items }) => (
+  <div
+    className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive"
+    data-page-refusal={kind}
+  >
+    <div className="font-semibold">{title}</div>
+    <ul className="mt-1 list-disc space-y-0.5 pl-5">
+      {items.map((item, i) => (
+        <li key={i}>{item}</li>
+      ))}
+    </ul>
+  </div>
+);
+
+/**
+ * The regions a slotted template does not place (`PAGE_TEMPLATE_SLOTS`).
+ *
+ * They are not drawn, and not moved into another slot: the page says so where
+ * they used to be stacked, under `main` (objectui#12476). The spec refuses such
+ * a region at `os validate` and at save (`checkPageRegionPlacement`); a row
+ * stored before that refusal is served unchanged, so this is what it shows
+ * until its region is renamed.
+ */
+const UnplacedRegionsRefusal: React.FC<{ regions: PageNodeRegion[]; template: SlottedTemplate }> = ({
+  regions,
+  template,
+}) => {
+  if (regions.length === 0) return null;
+  const slots = PAGE_TEMPLATE_SLOTS[template].join(', ');
+  return (
+    <PageLayoutRefusal
+      kind="unplaced-region"
+      title={`Not drawn: the '${template}' template does not place ${regions.length === 1 ? 'this region' : `these ${regions.length} regions`}`}
+      items={regions.map(
+        (region, idx) =>
+          `Region '${region.name ?? `#${idx}`}': '${template}' places only ${slots}. Rename it to one of those slots, `
+          + `or choose the 'dashboard' template, which lays every other region out as a grid cell.`,
+      )}
+    />
+  );
+};
+
+/** A template name the registry does not hold: the page is not laid out by another layout instead. */
+const UnregisteredTemplateRefusal: React.FC<{ schema: PageNodeSchema }> = ({ schema }) => (
+  <PageLayoutRefusal
+    kind="unregistered-template"
+    title="Not drawn: this page's template is not registered"
+    items={[
+      `Template '${String(schema.template)}' is not one of ${TEMPLATE_NAMES}. `
+      + `'full-width' was a second name for 'default'.`,
+    ]}
+  />
+);
+
+// ---------------------------------------------------------------------------
 // RegionLayout — structured layout with named slots
 // ---------------------------------------------------------------------------
 
+/**
+ * The `default` template's body, and the `pageType` layouts' body.
+ *
+ * Under `template` (the `default` template) a region the template does not
+ * place is refused on screen, never stacked (objectui#12476): the spec refuses
+ * it at `os validate` and at save (`checkPageRegionPlacement`). Without
+ * `template` (a page that names no template and takes the `pageType`
+ * dispatch, or a page app-shell builds in code) such a region is still
+ * stacked under `main`.
+ */
 const RegionLayout: React.FC<{
   regions: PageNodeRegion[];
   pageType?: string;
   className?: string;
-}> = ({ regions, pageType, className }) => {
+  template?: SlottedTemplate;
+}> = ({ regions, pageType, className, template }) => {
   const header = findRegion(regions, 'header');
   const sidebar = findRegion(regions, 'sidebar');
   const main = findRegion(regions, 'main');
   const aside = findRegion(regions, 'aside');
   const footer = findRegion(regions, 'footer');
 
-  // Remaining regions that don't match named slots → append below main
-  const extras = getRemainingRegions(regions, ['header', 'sidebar', 'main', 'aside', 'footer']);
+  const remaining = getRemainingRegions(regions, ['header', 'sidebar', 'main', 'aside', 'footer']);
+  // Remaining regions that don't match named slots → append below main,
+  // on a page with no template only.
+  const extras = template ? [] : remaining;
+  const unplaced = template ? remaining : [];
 
-  // If there's no named layout structure, just stack everything
   const hasStructure = header || sidebar || main || aside || footer;
   if (!hasStructure) {
+    // If there's no named layout structure, just stack everything — unless a
+    // template lays the page out, which places none of these regions.
     return (
       <div className={cn('space-y-6', className)} data-page-layout={pageType}>
-        {regions.map((region, idx) => (
-          <RegionContent key={region.name || idx} region={region} />
-        ))}
+        {template ? (
+          <UnplacedRegionsRefusal regions={unplaced} template={template} />
+        ) : (
+          regions.map((region, idx) => (
+            <RegionContent key={region.name || idx} region={region} />
+          ))
+        )}
       </div>
     );
   }
@@ -350,6 +434,7 @@ const RegionLayout: React.FC<{
             {extras.map((region, idx) => (
               <RegionContent key={region.name || `extra-${idx}`} region={region} />
             ))}
+            {template && <UnplacedRegionsRefusal regions={unplaced} template={template} />}
           </div>
 
           {aside && (
@@ -390,10 +475,10 @@ const FlatContent: React.FC<{ schema: PageNodeSchema }> = ({ schema }) => {
 // Template layouts — predefined layout templates
 // ---------------------------------------------------------------------------
 
-/** Template: full-width single column */
-const FullWidthTemplate: React.FC<{ schema: PageNodeSchema }> = ({ schema }) => {
+/** Template: default — header and footer spanning, sidebar + main + aside between */
+const DefaultTemplate: React.FC<{ schema: PageNodeSchema }> = ({ schema }) => {
   if (schema.regions && schema.regions.length > 0) {
-    return <RegionLayout regions={schema.regions} pageType={schema.pageType} />;
+    return <RegionLayout regions={schema.regions} pageType={schema.pageType} template="default" />;
   }
   return <FlatContent schema={schema} />;
 };
@@ -406,7 +491,7 @@ const HeaderSidebarMainTemplate: React.FC<{ schema: PageNodeSchema }> = ({ schem
   const header = findRegion(regions, 'header');
   const sidebar = findRegion(regions, 'sidebar');
   const main = findRegion(regions, 'main');
-  const extras = getRemainingRegions(regions, ['header', 'sidebar', 'main']);
+  const unplaced = getRemainingRegions(regions, PAGE_TEMPLATE_SLOTS['header-sidebar-main']);
 
   return (
     <div className="flex flex-col gap-6" data-template="header-sidebar-main">
@@ -419,9 +504,7 @@ const HeaderSidebarMainTemplate: React.FC<{ schema: PageNodeSchema }> = ({ schem
           )}
           <div className="flex-1 min-w-0 space-y-6">
             {main && <RegionContent region={main} />}
-            {extras.map((region, idx) => (
-              <RegionContent key={region.name || `extra-${idx}`} region={region} />
-            ))}
+            <UnplacedRegionsRefusal regions={unplaced} template="header-sidebar-main" />
           </div>
         </div>
       </RunningRegions>
@@ -439,7 +522,7 @@ const ThreeColumnTemplate: React.FC<{ schema: PageNodeSchema }> = ({ schema }) =
   const main = findRegion(regions, 'main');
   const aside = findRegion(regions, 'aside');
   const footer = findRegion(regions, 'footer');
-  const extras = getRemainingRegions(regions, ['header', 'sidebar', 'main', 'aside', 'footer']);
+  const unplaced = getRemainingRegions(regions, PAGE_TEMPLATE_SLOTS['three-column']);
 
   return (
     <div className="flex flex-col gap-6" data-template="three-column">
@@ -455,9 +538,7 @@ const ThreeColumnTemplate: React.FC<{ schema: PageNodeSchema }> = ({ schema }) =
           )}
           <div className="flex-1 min-w-0 space-y-6">
             {main && <RegionContent region={main} />}
-            {extras.map((region, idx) => (
-              <RegionContent key={region.name || `extra-${idx}`} region={region} />
-            ))}
+            <UnplacedRegionsRefusal regions={unplaced} template="three-column" />
           </div>
           {aside && (
             <aside className={cn('md:shrink-0', getSidebarWidthClass(aside.width as string || 'small'), aside.className)}>
@@ -477,7 +558,8 @@ const DashboardTemplate: React.FC<{ schema: PageNodeSchema }> = ({ schema }) => 
 
   const header = findRegion(regions, 'header');
   const footer = findRegion(regions, 'footer');
-  const contentRegions = getRemainingRegions(regions, ['header', 'footer']);
+  // The open grid (`PAGE_TEMPLATE_OPEN_GRID`): every other region is a cell.
+  const contentRegions = getRemainingRegions(regions, PAGE_TEMPLATE_SLOTS.dashboard);
 
   return (
     <div className="flex flex-col gap-6" data-template="dashboard">
@@ -495,19 +577,33 @@ const DashboardTemplate: React.FC<{ schema: PageNodeSchema }> = ({ schema }) => 
   );
 };
 
-/** Template registry — maps template names to layout components */
-const TEMPLATE_REGISTRY: Record<string, React.FC<{ schema: PageNodeSchema }>> = {
-  'default': FullWidthTemplate,
-  'full-width': FullWidthTemplate,
+/**
+ * Template registry — maps template names to layout components. Keyed by the
+ * spec's closed template set (`PAGE_TEMPLATE_SLOTS`), so a template the spec
+ * adds or retires fails to compile here. `full-width` retired with spec 18
+ * (objectui#12476): it was a second name for `default`, the same component.
+ */
+const TEMPLATE_REGISTRY: Record<PageTemplate, React.FC<{ schema: PageNodeSchema }>> = {
+  'default': DefaultTemplate,
   'header-sidebar-main': HeaderSidebarMainTemplate,
   'three-column': ThreeColumnTemplate,
   'dashboard': DashboardTemplate,
 };
 
-/** Resolve template: if the schema specifies a template name, use the matching layout */
+/**
+ * Resolve template: the layout for the schema's template name; `null` when it
+ * names none, and the page takes the `pageType` dispatch. A name the registry
+ * does not hold (`full-width`, or any other) resolves to a refusal, not to the
+ * `pageType` layout: the spec refuses it at the parse.
+ */
 function resolveTemplate(schema: PageNodeSchema): React.FC<{ schema: PageNodeSchema }> | null {
   if (!schema.template) return null;
-  return TEMPLATE_REGISTRY[schema.template] || null;
+  // Typed as the closed set, but a raw served row can carry any string.
+  const template: string = schema.template;
+  if (Object.prototype.hasOwnProperty.call(TEMPLATE_REGISTRY, template)) {
+    return TEMPLATE_REGISTRY[template as PageTemplate];
+  }
+  return UnregisteredTemplateRefusal;
 }
 
 // ---------------------------------------------------------------------------

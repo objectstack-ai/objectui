@@ -137,7 +137,7 @@ import { useMetadataLocale, t, tFormat, translateMetadataType, translateValidati
 import { JsonSourceEditor } from './JsonSourceEditor.js';
 import { validateMetadataDraft, hasClientValidator, type DraftMode } from './clientValidation.js';
 import { describeIssuePath, issueSlicePath, issueSliceFingerprint } from './issuePath.js';
-import { buildCreateModeBody, unsetSeedPlaceholders } from './createBody.js';
+import { buildCreateModeBody, seedStructuralDefaults, unsetSeedPlaceholders } from './createBody.js';
 import { errorCodeIs, errorCodeIsAnyOf } from '@object-ui/types';
 import { useCanAuthorMetadata, useCanReadAuthoringTrail } from '../../hooks/useCanAuthorMetadata.js';
 import { environmentScopeSuffix, isEnvironmentScope, useWalledCatalogReadOnly } from './catalog-scope.js';
@@ -552,6 +552,32 @@ function MetadataResourceEditPageImpl({
     },
     [],
   );
+  // objectui#12866 — a create draft carries the spec create seed's STRUCTURAL
+  // defaults (a dataset's `count` measure), so the designer shows before the
+  // first save what the save writes. The seed rides the `/meta/types` entry,
+  // which `useMetadataTypes` reads AFTER the first render, so the draft is
+  // built without it and the defaults are folded in once, when it arrives.
+  // Only keys the draft does not hold yet are added: anything the author (or
+  // `createDefaults`, which `buildCreateModeBody` lets the draft win over)
+  // already set is left alone, and an absent key is exactly the one the save
+  // fills from the seed. The seed's placeholder identity stays out, as it
+  // stays out of the save body (`seedStructuralDefaults`, objectui#12810). A
+  // type with `createBuildBody` builds its own body and is not seeded.
+  const specCreateSeedForDraft = (entry as { createSeed?: Record<string, unknown> } | undefined)?.createSeed;
+  const draftSeededRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!createMode || draftSeededRef.current || config.createBuildBody || !specCreateSeedForDraft) return;
+    draftSeededRef.current = true;
+    const defaults = seedStructuralDefaults(specCreateSeedForDraft);
+    setDraft((prev) => {
+      const missing = Object.keys(defaults).filter((key) => !(key in prev));
+      if (missing.length === 0) return prev;
+      const next = { ...prev };
+      // A copy: the designer must never hold (and patch) the registry entry's own arrays.
+      for (const key of missing) next[key] = structuredClone(defaults[key]);
+      return next;
+    });
+  }, [createMode, config.createBuildBody, specCreateSeedForDraft]);
   const [destructiveIssues, setDestructiveIssues] = React.useState<
     null | Array<{ kind?: string; path?: string; message?: string }>
   >(null);

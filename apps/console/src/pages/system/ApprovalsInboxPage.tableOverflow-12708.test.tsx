@@ -8,9 +8,10 @@
  * Submitted, the inline Approve / Reject cell) is wider than its card: a long
  * record title holds the Record column open and the columns after it run past
  * the card's right edge, with nothing to say the table continues. The table
- * now sits in the shared overflow box (`HorizontalOverflowBox`): a right-edge
- * shadow while columns remain to the right, none at the right end, and its
- * scrollbar on hover.
+ * now sits in the shared overflow box (`HorizontalOverflowBox`): a shadow while
+ * columns remain to the right, none at the right end, and its scrollbar on
+ * hover. Since objectui#12816 that shadow is the pinned Approve / Reject
+ * cells' seam (`ApprovalsInboxPage.pinnedActions-12816.test.tsx`).
  *
  * jsdom lays nothing out, so the box's scroll geometry is stubbed, as the
  * box's own pins in `@object-ui/components` stub it.
@@ -155,16 +156,20 @@ describe('Approvals Inbox — the wide table shows that it scrolls (objectui#127
     expect(table!.parentElement).toHaveClass('overflow-visible');
   });
 
-  it('draws the right-edge shadow while the table is wider than the box, and none at the right end', async () => {
+  // objectui#12816 pins the Approve / Reject column right, so the cue moved
+  // from the box's edge overlay to the pinned cells' seam (`seam="pinned"`):
+  // the box says it can scroll further right, and no edge overlay is drawn.
+  it('marks the box while the table is wider than it, and not at the right end', async () => {
     renderInbox();
     await waitFor(() => expect(screen.getAllByText('Readable Invoice').length).toBeGreaterThan(0));
     const box = screen.getByTestId('approvals-inbox-table-scroller');
-    expect(screen.queryByTestId('horizontal-overflow-shadow')).toBeNull();
+    expect(box).not.toHaveAttribute('data-overflow-right');
 
     setGeometry(box, { scrollLeft: 0, scrollWidth: 1071, clientWidth: 718 });
-    expect(screen.getByTestId('horizontal-overflow-shadow')).toBeInTheDocument();
+    expect(box).toHaveAttribute('data-overflow-right', 'true');
+    expect(screen.queryByTestId('horizontal-overflow-shadow')).toBeNull();
 
     setGeometry(box, { scrollLeft: 1071 - 718, scrollWidth: 1071, clientWidth: 718 });
-    expect(screen.queryByTestId('horizontal-overflow-shadow')).toBeNull();
+    expect(box).not.toHaveAttribute('data-overflow-right');
   });
 });

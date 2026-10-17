@@ -1,0 +1,482 @@
+[
+ {
+  "scrollWidth": 1074,
+  "clientWidth": 718,
+  "overflowRight": true,
+  "edgeShadow": true,
+  "headers": [
+   {
+    "text": null,
+    "width": 32,
+    "position": "static"
+   },
+   {
+    "text": "Request",
+    "width": 149,
+    "position": "static"
+   },
+   {
+    "text": "Record",
+    "width": 473,
+    "position": "static"
+   },
+   {
+    "text": "Requester",
+    "width": 122,
+    "position": "static"
+   },
+   {
+    "text": "Status",
+    "width": 100,
+    "position": "static"
+   },
+   {
+    "text": "Submitted",
+    "width": 98,
+    "position": "static"
+   },
+   {
+    "text": "Actions",
+    "width": 100,
+    "position": "static"
+   }
+  ],
+  "recordColumnWidth": 473,
+  "actionsCellPosition": "static",
+  "actionsCellSeamOpacity": "1",
+  "buttons": [
+   [
+    {
+     "label": "Approve",
+     "insideCard": false
+    },
+    {
+     "label": "Reject",
+     "insideCard": false
+    }
+   ],
+   [
+    {
+     "label": "Approve",
+     "insideCard": false
+    },
+    {
+     "label": "Reject",
+     "insideCard": false
+    }
+   ],
+   [
+    {
+     "label": "Approve",
+     "insideCard": false
+    },
+    {
+     "label": "Reject",
+     "insideCard": false
+    }
+   ]
+  ],
+  "recordLinks": [
+   {
+    "title": "ACC-000012 - Northwind Logistics International Holdings Limited",
+    "ellipsized": false
+   },
+   {
+    "title": "ACC-000011 - Fabrikam Renewable Energy Partners International",
+    "ellipsized": false
+   },
+   {
+    "title": "ACC-000010 - Contoso Pharmaceuticals and Life Sciences Group",
+    "ellipsized": false
+   }
+  ],
+  "dark": false,
+  "name": "main @ 5d69b0e, 1024, light",
+  "width": 1024,
+  "theme": "light"
+ },
+ {
+  "scrollWidth": 1074,
+  "clientWidth": 974,
+  "overflowRight": true,
+  "edgeShadow": true,
+  "headers": [
+   {
+    "text": null,
+    "width": 32,
+    "position": "static"
+   },
+   {
+    "text": "Request",
+    "width": 149,
+    "position": "static"
+   },
+   {
+    "text": "Record",
+    "width": 473,
+    "position": "static"
+   },
+   {
+    "text": "Requester",
+    "width": 122,
+    "position": "static"
+   },
+   {
+    "text": "Status",
+    "width": 100,
+    "position": "static"
+   },
+   {
+    "text": "Submitted",
+    "width": 98,
+    "position": "static"
+   },
+   {
+    "text": "Actions",
+    "width": 100,
+    "position": "static"
+   }
+  ],
+  "recordColumnWidth": 473,
+  "actionsCellPosition": "static",
+  "actionsCellSeamOpacity": "1",
+  "buttons": [
+   [
+    {
+     "label": "Approve",
+     "insideCard": false
+    },
+    {
+     "label": "Reject",
+     "insideCard": false
+    }
+   ],
+   [
+    {
+     "label": "Approve",
+     "insideCard": false
+    },
+    {
+     "label": "Reject",
+     "insideCard": false
+    }
+   ],
+   [
+    {
+     "label": "Approve",
+     "insideCard": false
+    },
+    {
+     "label": "Reject",
+     "insideCard": false
+    }
+   ]
+  ],
+  "recordLinks": [
+   {
+    "title": "ACC-000012 - Northwind Logistics International Holdings Limited",
+    "ellipsized": false
+   },
+   {
+    "title": "ACC-000011 - Fabrikam Renewable Energy Partners International",
+    "ellipsized": false
+   },
+   {
+    "title": "ACC-000010 - Contoso Pharmaceuticals and Life Sciences Group",
+    "ellipsized": false
+   }
+  ],
+  "dark": false,
+  "name": "main @ 5d69b0e, 1280, light",
+  "width": 1280,
+  "theme": "light"
+ },
+ {
+  "scrollWidth": 762,
+  "clientWidth": 718,
+  "overflowRight": true,
+  "edgeShadow": false,
+  "headers": [
+   {
+    "text": null,
+    "width": 32,
+    "position": "static"
+   },
+   {
+    "text": "Request",
+    "width": 149,
+    "position": "static"
+   },
+   {
+    "text": "Record",
+    "width": 160,
+    "position": "static"
+   },
+   {
+    "text": "Requester",
+    "width": 122,
+    "position": "static"
+   },
+   {
+    "text": "Status",
+    "width": 100,
+    "position": "static"
+   },
+   {
+    "text": "Submitted",
+    "width": 98,
+    "position": "static"
+   },
+   {
+    "text": "Actions",
+    "width": 100,
+    "position": "sticky"
+   }
+  ],
+  "recordColumnWidth": 160,
+  "actionsCellPosition": "sticky",
+  "actionsCellSeamOpacity": "1",
+  "buttons": [
+   [
+    {
+     "label": "Approve",
+     "insideCard": true
+    },
+    {
+     "label": "Reject",
+     "insideCard": true
+    }
+   ],
+   [
+    {
+     "label": "Approve",
+     "insideCard": true
+    },
+    {
+     "label": "Reject",
+     "insideCard": true
+    }
+   ],
+   [
+    {
+     "label": "Approve",
+     "insideCard": true
+    },
+    {
+     "label": "Reject",
+     "insideCard": true
+    }
+   ]
+  ],
+  "recordLinks": [
+   {
+    "title": "ACC-000012 - Northwind Logistics International Holdings Limited",
+    "ellipsized": true
+   },
+   {
+    "title": "ACC-000011 - Fabrikam Renewable Energy Partners International",
+    "ellipsized": true
+   },
+   {
+    "title": "ACC-000010 - Contoso Pharmaceuticals and Life Sciences Group",
+    "ellipsized": true
+   }
+  ],
+  "dark": false,
+  "name": "branch, 1024, light",
+  "width": 1024,
+  "theme": "light"
+ },
+ {
+  "scrollWidth": 762,
+  "clientWidth": 718,
+  "overflowRight": true,
+  "edgeShadow": false,
+  "headers": [
+   {
+    "text": null,
+    "width": 32,
+    "position": "static"
+   },
+   {
+    "text": "Request",
+    "width": 149,
+    "position": "static"
+   },
+   {
+    "text": "Record",
+    "width": 160,
+    "position": "static"
+   },
+   {
+    "text": "Requester",
+    "width": 122,
+    "position": "static"
+   },
+   {
+    "text": "Status",
+    "width": 100,
+    "position": "static"
+   },
+   {
+    "text": "Submitted",
+    "width": 98,
+    "position": "static"
+   },
+   {
+    "text": "Actions",
+    "width": 100,
+    "position": "sticky"
+   }
+  ],
+  "recordColumnWidth": 160,
+  "actionsCellPosition": "sticky",
+  "actionsCellSeamOpacity": "1",
+  "buttons": [
+   [
+    {
+     "label": "Approve",
+     "insideCard": true
+    },
+    {
+     "label": "Reject",
+     "insideCard": true
+    }
+   ],
+   [
+    {
+     "label": "Approve",
+     "insideCard": true
+    },
+    {
+     "label": "Reject",
+     "insideCard": true
+    }
+   ],
+   [
+    {
+     "label": "Approve",
+     "insideCard": true
+    },
+    {
+     "label": "Reject",
+     "insideCard": true
+    }
+   ]
+  ],
+  "recordLinks": [
+   {
+    "title": "ACC-000012 - Northwind Logistics International Holdings Limited",
+    "ellipsized": true
+   },
+   {
+    "title": "ACC-000011 - Fabrikam Renewable Energy Partners International",
+    "ellipsized": true
+   },
+   {
+    "title": "ACC-000010 - Contoso Pharmaceuticals and Life Sciences Group",
+    "ellipsized": true
+   }
+  ],
+  "dark": true,
+  "name": "branch, 1024, dark",
+  "width": 1024,
+  "theme": "dark"
+ },
+ {
+  "scrollWidth": 974,
+  "clientWidth": 974,
+  "overflowRight": false,
+  "edgeShadow": false,
+  "headers": [
+   {
+    "text": null,
+    "width": 32,
+    "position": "static"
+   },
+   {
+    "text": "Request",
+    "width": 209,
+    "position": "static"
+   },
+   {
+    "text": "Record",
+    "width": 282,
+    "position": "static"
+   },
+   {
+    "text": "Requester",
+    "width": 153,
+    "position": "static"
+   },
+   {
+    "text": "Status",
+    "width": 100,
+    "position": "static"
+   },
+   {
+    "text": "Submitted",
+    "width": 98,
+    "position": "static"
+   },
+   {
+    "text": "Actions",
+    "width": 100,
+    "position": "sticky"
+   }
+  ],
+  "recordColumnWidth": 282,
+  "actionsCellPosition": "sticky",
+  "actionsCellSeamOpacity": "0",
+  "buttons": [
+   [
+    {
+     "label": "Approve",
+     "insideCard": true
+    },
+    {
+     "label": "Reject",
+     "insideCard": true
+    }
+   ],
+   [
+    {
+     "label": "Approve",
+     "insideCard": true
+    },
+    {
+     "label": "Reject",
+     "insideCard": true
+    }
+   ],
+   [
+    {
+     "label": "Approve",
+     "insideCard": true
+    },
+    {
+     "label": "Reject",
+     "insideCard": true
+    }
+   ]
+  ],
+  "recordLinks": [
+   {
+    "title": "ACC-000012 - Northwind Logistics International Holdings Limited",
+    "ellipsized": true
+   },
+   {
+    "title": "ACC-000011 - Fabrikam Renewable Energy Partners International",
+    "ellipsized": true
+   },
+   {
+    "title": "ACC-000010 - Contoso Pharmaceuticals and Life Sciences Group",
+    "ellipsized": true
+   }
+  ],
+  "dark": false,
+  "name": "branch, 1280, light",
+  "width": 1280,
+  "theme": "light"
+ }
+]

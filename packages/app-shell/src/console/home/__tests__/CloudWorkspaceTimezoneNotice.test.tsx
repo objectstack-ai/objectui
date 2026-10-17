@@ -34,9 +34,9 @@ const ZH = { defaultLanguage: 'zh', detectBrowserLanguage: false } as const;
 
 /** The two packs' sentences for the seed below — the copy a user reads. */
 const EN_LINE =
-  'The workspace timezone was set to Asia/Shanghai from your browser when the workspace was created. '
+  'The environment timezone was set to Asia/Shanghai from your browser when the environment was created. '
   + 'You can change it in Settings → Localization.';
-const ZH_LINE = '工作区时区在创建时已按你的浏览器设为 Asia/Shanghai，可在「设置 → 本地化」中修改。';
+const ZH_LINE = '环境时区在创建时已按你的浏览器设为 Asia/Shanghai，可在「设置 → 本地化」中修改。';
 
 /**
  * The line resolves from the locale packs, so a real i18n context is needed —

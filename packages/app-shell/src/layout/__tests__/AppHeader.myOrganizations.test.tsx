@@ -199,7 +199,7 @@ afterEach(() => {
 });
 
 describe('AppHeader avatar menu — the single-org door to workspace management (#8096)', () => {
-  it('offers "My Workspaces" to a user with exactly one organization', () => {
+  it('offers "My Organizations" to a user with exactly one organization', () => {
     render(<AppHeader variant="home" />);
 
     expect(screen.getByTestId('header-my-organizations')).toBeInTheDocument();

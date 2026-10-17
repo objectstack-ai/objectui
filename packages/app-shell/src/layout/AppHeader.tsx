@@ -1195,7 +1195,7 @@ export function AppHeader({
                * (objectstack#8096): the picker at `/organizations` auto-skips
                * with one org, and the switcher never appears.
                *
-               * "My Workspaces" → `?manage=1`, which OrganizationsPage reads as
+               * "My Organizations" → `?manage=1`, which OrganizationsPage reads as
                * "the user came here to MANAGE": multi-org users get the picker,
                * a single-org user is deep-linked straight to that org's members
                * page (there is no choice worth showing them). Deliberately NOT

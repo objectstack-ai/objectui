@@ -2800,7 +2800,7 @@ const ar = {
     default: "مؤسستي",
     switch: "تبديل المؤسسة",
     createTitle: "إنشاء مؤسسة",
-    createDescription: "المؤسسة هي مساحة مشتركة لفريقك للتعاون.",
+    createDescription: "المؤسسة مكان مشترك يتعاون فيه فريقك.",
     createButton: "إنشاء مؤسسة",
     nameLabel: "اسم المؤسسة",
     namePlaceholder: "مثلاً، Acme Inc",

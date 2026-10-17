@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { normalizeSchemaReferenceKeys } from '@object-ui/core';
 import { findRelationshipField, deriveColumns, deriveDetail, deriveFormFields, resolveInlineMode, fieldTypeToColumnType, hydrateColumns } from './deriveMasterDetail';
+import { en } from '@object-ui/i18n';
+
+/** The `en` session's word for a boolean value: what `useBooleanValueLabel`
+ *  (`@object-ui/fields`) draws under `en`. The derive functions require one
+ *  (objectui#12924). */
+const booleanLabel = (value: boolean) => (value ? en.common.yes : en.common.no);
 
 const taskSchema = {
   name: 'showcase_task',
@@ -70,7 +76,7 @@ describe('findRelationshipField', () => {
 
 describe('deriveColumns', () => {
   it('derives editable columns, skipping system/audit/FK/non-editable fields', () => {
-    const cols = deriveColumns(taskSchema, { relationshipField: 'project' });
+    const cols = deriveColumns(taskSchema, { booleanLabel, relationshipField: 'project' });
     const names = cols.map((c) => c.name);
     expect(names).toEqual(['title', 'status', 'estimate_hours', 'budget', 'due_date', 'assignee']);
     // id (system), created_at (audit), project (FK), health (formula) excluded
@@ -81,7 +87,7 @@ describe('deriveColumns', () => {
   });
 
   it('carries type, options, required and lookup reference through', () => {
-    const cols = deriveColumns(taskSchema, { relationshipField: 'project' });
+    const cols = deriveColumns(taskSchema, { booleanLabel, relationshipField: 'project' });
     const byName = Object.fromEntries(cols.map((c) => [c.name, c]));
     expect(byName.title).toMatchObject({ type: 'text', label: 'Title', required: true });
     expect(byName.status).toMatchObject({ type: 'select', options: [{ label: 'To Do', value: 'todo' }, { label: 'Done', value: 'done' }] });
@@ -102,14 +108,14 @@ describe('deriveColumns', () => {
       name: 'line',
       fields: { assignee: { type: 'lookup', label: 'Assignee', reference: 'user', display_field: 'full_name' } },
     });
-    const raw = deriveColumns(snakeSchema()).find((c) => c.name === 'assignee');
+    const raw = deriveColumns(snakeSchema(), { booleanLabel }).find((c) => c.name === 'assignee');
     expect(raw).toMatchObject({ type: 'lookup', reference: 'user' });
     expect(raw?.displayField).toBeUndefined();
-    expect(hydrateColumns([{ name: 'assignee' }], snakeSchema())[0].displayField).toBeUndefined();
+    expect(hydrateColumns([{ name: 'assignee' }], snakeSchema(), { booleanLabel })[0].displayField).toBeUndefined();
 
     const folded = normalizeSchemaReferenceKeys(snakeSchema());
-    expect(deriveColumns(folded).find((c) => c.name === 'assignee')?.displayField).toBe('full_name');
-    expect(hydrateColumns([{ name: 'assignee' }], folded)[0].displayField).toBe('full_name');
+    expect(deriveColumns(folded, { booleanLabel }).find((c) => c.name === 'assignee')?.displayField).toBe('full_name');
+    expect(hydrateColumns([{ name: 'assignee' }], folded, { booleanLabel })[0].displayField).toBe('full_name');
   });
 
   it('carries field-level CEL conditional rules (readonlyWhen / requiredWhen) onto columns', () => {
@@ -125,7 +131,7 @@ describe('deriveColumns', () => {
         memo: { type: 'text', label: 'Memo', conditionalRequired: 'record.qty >= 1' },
       },
     };
-    const byName = Object.fromEntries(deriveColumns(schema, { relationshipField: 'parent' }).map((c) => [c.name, c]));
+    const byName = Object.fromEntries(deriveColumns(schema, { booleanLabel, relationshipField: 'parent' }).map((c) => [c.name, c]));
     expect(byName.qty.readonlyWhen).toBe("parent.status == 'paid'");
     expect(byName.note.requiredWhen).toBe('record.qty >= 100');
     expect(byName.memo.requiredWhen).toBeUndefined();
@@ -141,7 +147,7 @@ describe('deriveColumns', () => {
         photo: { type: 'image', label: 'Photo' },
       },
     };
-    const byName = Object.fromEntries(deriveColumns(schema, { relationshipField: 'expense' }).map((c) => [c.name, c]));
+    const byName = Object.fromEntries(deriveColumns(schema, { booleanLabel, relationshipField: 'expense' }).map((c) => [c.name, c]));
     expect(byName.receipt).toMatchObject({ type: 'file', multiple: true, accept: ['image/*', '.pdf'] });
     // Image fields restrict the picker to images when no accept list is declared.
     expect(byName.photo).toMatchObject({ type: 'file', accept: ['image/*'] });
@@ -171,20 +177,20 @@ describe('deriveColumns curation (column budget)', () => {
   const visible = (cols: any[]) => cols.filter((c) => !c.defaultHidden).map((c) => c.name);
 
   it('returns ALL columns — none dropped — and defaults a focused 6 visible', () => {
-    const cols = deriveColumns(wideSchema, { relationshipField: 'parent' });
+    const cols = deriveColumns(wideSchema, { booleanLabel, relationshipField: 'parent' });
     expect(cols.length).toBe(12);              // every editable column kept (parent FK excluded)
     expect(visible(cols).length).toBe(6);      // default-visible budget
     expect(cols.some((c) => c.defaultHidden)).toBe(true); // the rest collapsed, not gone
   });
 
   it('always keeps required columns visible (never default-hidden)', () => {
-    const cols = deriveColumns(wideSchema, { relationshipField: 'parent' });
+    const cols = deriveColumns(wideSchema, { booleanLabel, relationshipField: 'parent' });
     expect(visible(cols)).toContain('title');  // name-like + required
     expect(visible(cols)).toContain('status'); // required
   });
 
   it('collapses low-signal text columns into the chooser (hidden, not dropped)', () => {
-    const cols = deriveColumns(wideSchema, { relationshipField: 'parent' });
+    const cols = deriveColumns(wideSchema, { booleanLabel, relationshipField: 'parent' });
     const byName = Object.fromEntries(cols.map((c) => [c.name, c]));
     expect(byName.notes).toBeDefined();
     expect(byName.notes.defaultHidden).toBe(true);
@@ -192,7 +198,7 @@ describe('deriveColumns curation (column budget)', () => {
   });
 
   it('preserves schema order (including hidden columns)', () => {
-    const names = deriveColumns(wideSchema, { relationshipField: 'parent' }).map((c) => c.name);
+    const names = deriveColumns(wideSchema, { booleanLabel, relationshipField: 'parent' }).map((c) => c.name);
     const sorted = [...names].sort(
       (a, b) => Object.keys(wideSchema.fields).indexOf(a) - Object.keys(wideSchema.fields).indexOf(b),
     );
@@ -200,7 +206,7 @@ describe('deriveColumns curation (column budget)', () => {
   });
 
   it('maxColumns: 0 marks no column hidden (all visible)', () => {
-    const cols = deriveColumns(wideSchema, { relationshipField: 'parent', maxColumns: 0 });
+    const cols = deriveColumns(wideSchema, { booleanLabel, relationshipField: 'parent', maxColumns: 0 });
     expect(cols.length).toBe(12);
     expect(cols.every((c) => !c.defaultHidden)).toBe(true);
   });
@@ -219,7 +225,7 @@ describe('deriveColumns curation (column budget)', () => {
         parent: { type: 'master_detail', reference: 'p', required: true },
       },
     };
-    const cols = deriveColumns(reqHeavy, { relationshipField: 'parent' });
+    const cols = deriveColumns(reqHeavy, { booleanLabel, relationshipField: 'parent' });
     expect(visible(cols)).toEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g']); // 7 required visible
     expect(cols.find((c) => c.name === 'h')?.defaultHidden).toBe(true); // non-required collapsed
     expect(cols.length).toBe(8); // nothing dropped
@@ -256,7 +262,7 @@ describe('deriveFormFields (per-row expand form)', () => {
   });
 
   it('is surfaced on deriveDetail output', () => {
-    const d = deriveDetail('showcase_task', taskSchema, 'showcase_project');
+    const d = deriveDetail('showcase_task', taskSchema, 'showcase_project', { booleanLabel });
     expect(Array.isArray(d.formFields)).toBe(true);
     expect(d.formFields).toContain('title');
     expect(d.formFields).not.toContain('project');
@@ -275,6 +281,7 @@ describe('hydrateColumns (fill types on bare author columns)', () => {
         { name: 'assignee', label: 'Owner' },
       ] as any,
       taskSchema,
+      { booleanLabel },
     );
     const byName = Object.fromEntries(cols.map((c) => [c.name, c]));
     expect(byName.title.type).toBe('text');
@@ -289,6 +296,7 @@ describe('hydrateColumns (fill types on bare author columns)', () => {
     const cols = hydrateColumns(
       [{ name: 'due_date', label: '合同时间' }, { name: 'status', label: 'Status' }] as any,
       taskSchema,
+      { booleanLabel },
     );
     expect(cols.map((c) => c.name)).toEqual(['due_date', 'status']); // order kept, no extra columns
     expect(cols[0].label).toBe('合同时间'); // author label kept, not schema's "Due Date"
@@ -302,7 +310,7 @@ describe('hydrateColumns (fill types on bare author columns)', () => {
         photo: { type: 'image', label: 'Photo' },
       },
     };
-    const cols = hydrateColumns([{ name: 'receipt' }, { name: 'photo' }] as any, schema);
+    const cols = hydrateColumns([{ name: 'receipt' }, { name: 'photo' }] as any, schema, { booleanLabel });
     expect(cols[0]).toMatchObject({ type: 'file', multiple: true, accept: ['.pdf'] });
     expect(cols[1]).toMatchObject({ type: 'file', accept: ['image/*'] });
   });
@@ -311,25 +319,27 @@ describe('hydrateColumns (fill types on bare author columns)', () => {
     const cols = hydrateColumns(
       [{ name: 'status', label: 'Status', type: 'text' }] as any,
       taskSchema,
+      { booleanLabel },
     );
     expect(cols[0].type).toBe('text'); // author wins — not upgraded to select
     expect(cols[0].options).toBeUndefined();
   });
 
   it('leaves a column untouched when its field is absent from the schema', () => {
-    const cols = hydrateColumns([{ name: 'ghost', label: 'Ghost' }] as any, taskSchema);
+    const cols = hydrateColumns([{ name: 'ghost', label: 'Ghost' }] as any, taskSchema, { booleanLabel });
     expect(cols[0].type).toBeUndefined(); // unknown field → grid falls back to text
   });
 
   it('is a no-op without a schema or columns', () => {
-    expect(hydrateColumns([{ name: 'x' }] as any, undefined)).toEqual([{ name: 'x' }]);
-    expect(hydrateColumns(undefined, taskSchema)).toEqual([]);
+    expect(hydrateColumns([{ name: 'x' }] as any, undefined, { booleanLabel })).toEqual([{ name: 'x' }]);
+    expect(hydrateColumns(undefined, taskSchema, { booleanLabel })).toEqual([]);
   });
 });
 
 describe('deriveDetail hydrates explicit-but-untyped override columns', () => {
   it('fills widget types on bare author columns instead of passing them through raw', () => {
     const d = deriveDetail('showcase_task', taskSchema, 'showcase_project', {
+      booleanLabel,
       relationshipField: 'project',
       columns: [{ name: 'status', label: 'Status' }, { name: 'due_date', label: 'Due' }] as any,
     });
@@ -398,7 +408,7 @@ describe('resolveInlineMode (grid vs form)', () => {
 
 describe('deriveDetail', () => {
   it('resolves relationshipField + columns + amountField from the child schema', () => {
-    const d = deriveDetail('showcase_task', taskSchema, 'showcase_project');
+    const d = deriveDetail('showcase_task', taskSchema, 'showcase_project', { booleanLabel });
     expect(d.relationshipField).toBe('project');
     expect(d.columns.map((c) => c.name)).toContain('estimate_hours');
     // The running total prefers the (last) currency column over a raw number
@@ -417,7 +427,7 @@ describe('deriveDetail', () => {
         amount: { type: 'currency', label: 'Amount', scale: 2, expression: { dialect: 'cel', source: 'record.quantity * record.unit_price' } },
       },
     };
-    const d = deriveDetail('inv_line', lineSchema, 'inv');
+    const d = deriveDetail('inv_line', lineSchema, 'inv', { booleanLabel });
     const amountCol = d.columns.find((c) => c.name === 'amount')!;
     expect(amountCol.computed).toBe(true);
     expect(amountCol.expr).toBe('record.quantity * record.unit_price');
@@ -434,7 +444,7 @@ describe('deriveDetail', () => {
         quantity: { type: 'number', label: 'Qty', required: true },
       },
     };
-    const d = deriveDetail('inv_line', lineSchema, 'inv');
+    const d = deriveDetail('inv_line', lineSchema, 'inv', { booleanLabel });
     expect(d.sortField).toBe('position');
     expect(d.columns.map((c) => c.name)).not.toContain('position'); // not user-edited
     expect(d.formFields).not.toContain('position');
@@ -443,6 +453,7 @@ describe('deriveDetail', () => {
 
   it('honors explicit overrides over derived values', () => {
     const d = deriveDetail('showcase_task', taskSchema, 'showcase_project', {
+      booleanLabel,
       relationshipField: 'project',
       columns: [{ name: 'title', type: 'text' }],
       amountField: 'budget',
@@ -452,7 +463,7 @@ describe('deriveDetail', () => {
   });
 
   it('throws a helpful error when no relationship can be resolved', () => {
-    expect(() => deriveDetail('showcase_task', { fields: { title: { type: 'text' } } }, 'showcase_project'))
+    expect(() => deriveDetail('showcase_task', { fields: { title: { type: 'text' } } }, 'showcase_project', { booleanLabel }))
       .toThrow(/could not find a lookup\/master_detail field/i);
   });
 });

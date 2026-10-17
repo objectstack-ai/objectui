@@ -20,7 +20,7 @@ import {
   deriveInlineGridColumns,
   deriveInlineRowFormFields,
 } from '@objectstack/spec/data';
-import type { GridColumn } from '@object-ui/fields';
+import type { BooleanValueLabel, GridColumn } from '@object-ui/fields';
 
 /**
  * Minimal shape of a MASTER-DETAIL CHILD object's schema, as returned by
@@ -107,11 +107,26 @@ function applyFileColumnProps(col: GridColumn, d: any): void {
   }
 }
 
-function optionsFor(def: any): GridColumn['options'] | undefined {
+/**
+ * A select column's options, from its child field. A `boolean` / `toggle`
+ * field has no options of its own, so it gets two, whose STORED values are
+ * `'true'` / `'false'` and whose LABELS are the session's word for each value,
+ * drawn by `booleanLabel` (objectui#12924).
+ *
+ * The labels used to be the literals `Yes` / `No`, so the line-items grid's
+ * select and its read-only cells read English on every locale. They now come
+ * from the one rule that names a boolean value as a word,
+ * `useBooleanValueLabel` in `@object-ui/fields` (`common.yes` / `common.no`,
+ * objectui#11689), which the caller holds and hands in: this module is pure,
+ * so it has no translator of its own. ⛔ No default stands in for a missing
+ * one; every derive function below REQUIRES it, so a caller cannot draw the
+ * options in a language the session is not in.
+ */
+function optionsFor(def: any, booleanLabel: BooleanValueLabel): GridColumn['options'] | undefined {
   if (def?.type === 'boolean' || def?.type === 'toggle') {
     return [
-      { label: 'Yes', value: 'true' },
-      { label: 'No', value: 'false' },
+      { label: booleanLabel(true), value: 'true' },
+      { label: booleanLabel(false), value: 'false' },
     ];
   }
   const raw = def?.options;
@@ -162,11 +177,13 @@ export function findRelationshipField(
  *
  * What each column carries — label, cell type, options, lookup target,
  * conditional rules, computed expression — is built here, from the child
- * field, by {@link deriveColumn}.
+ * field, by {@link deriveColumn}. `booleanLabel` is required: it draws the
+ * option labels of a `boolean` / `toggle` child field in the session language
+ * (see `optionsFor`, objectui#12924).
  */
 export function deriveColumns(
   childSchema: ChildObjectSchemaLike | undefined,
-  opts: { relationshipField?: string; exclude?: string[]; maxColumns?: number } = {},
+  opts: { booleanLabel: BooleanValueLabel; relationshipField?: string; exclude?: string[]; maxColumns?: number },
 ): GridColumn[] {
   const fields = childSchema?.fields;
   if (!fields || typeof fields !== 'object') return [];
@@ -176,7 +193,7 @@ export function deriveColumns(
     maxColumns: opts.maxColumns ?? DEFAULT_MAX_INLINE_GRID_COLUMNS,
   });
   return derived.map(({ name, defaultHidden }) => {
-    const col = deriveColumn(name, fields[name]);
+    const col = deriveColumn(name, fields[name], opts.booleanLabel);
     return defaultHidden ? { ...col, defaultHidden } : col;
   });
 }
@@ -186,14 +203,14 @@ export function deriveColumns(
  * `d` (the field map holds `null` / `undefined` / `0` / `''` / `false` under
  * that name) still builds a plain text column headed by the field name.
  */
-function deriveColumn(name: string, d: any): GridColumn {
+function deriveColumn(name: string, d: any, booleanLabel: BooleanValueLabel): GridColumn {
   const col: GridColumn = {
     name,
     label: d?.label || name,
     type: fieldTypeToColumnType(d?.type),
     required: !!d?.required,
   };
-  const options = optionsFor(d);
+  const options = optionsFor(d, booleanLabel);
   if (col.type === 'select' && options) col.options = options;
   if (col.type === 'lookup') {
     col.reference = d?.reference;
@@ -301,10 +318,15 @@ function reportCurrencyColumnScale(
  * its type is declared or hydrated, is reported by
  * {@link reportCurrencyColumnScale} (objectui#10783): the grid does not read
  * that key.
+ *
+ * `booleanLabel` is required for the same reason as on {@link deriveColumns}:
+ * an untyped column over a `boolean` / `toggle` child field hydrates into a
+ * select whose two option labels it draws (objectui#12924).
  */
 export function hydrateColumns(
   columns: GridColumn[] | undefined,
   childSchema: ChildObjectSchemaLike | undefined,
+  opts: { booleanLabel: BooleanValueLabel },
 ): GridColumn[] {
   const cols = columns ?? [];
   const fields = childSchema?.fields;
@@ -321,7 +343,7 @@ export function hydrateColumns(
     const next: GridColumn = { ...col, type };
     if (next.label == null) next.label = d?.label || col.name;
     if (next.required == null) next.required = !!d?.required;
-    const options = optionsFor(d);
+    const options = optionsFor(d, opts.booleanLabel);
     if (type === 'select' && options && !next.options) next.options = options;
     if (type === 'lookup') {
       if (next.reference == null) next.reference = d?.reference;
@@ -468,13 +490,21 @@ export interface DerivedDetail {
  * Resolve a child collection's full config (FK + columns) from its object
  * schema. Throws when no relationship to the parent can be found. The caller
  * supplies any explicit overrides (relationshipField / columns / amountField),
- * which win over the derived values.
+ * which win over the derived values, and the required `booleanLabel`, which
+ * is not an override: it draws a `boolean` / `toggle` column's two option
+ * labels in the session language (objectui#12924, see {@link deriveColumns}).
  */
 export function deriveDetail(
   childObject: string,
   childSchema: ChildObjectSchemaLike | undefined,
   parentObjectName: string,
-  override: { relationshipField?: string; columns?: GridColumn[]; amountField?: string; inlineEdit?: boolean | InlineMode } = {},
+  override: {
+    booleanLabel: BooleanValueLabel;
+    relationshipField?: string;
+    columns?: GridColumn[];
+    amountField?: string;
+    inlineEdit?: boolean | InlineMode;
+  },
 ): DerivedDetail {
   const relationshipField = override.relationshipField || findRelationshipField(childSchema, parentObjectName);
   if (!relationshipField) {
@@ -483,9 +513,10 @@ export function deriveDetail(
       `Set relationshipField explicitly.`,
     );
   }
+  const { booleanLabel } = override;
   const columns = override.columns?.length
-    ? hydrateColumns(override.columns, childSchema)
-    : deriveColumns(childSchema, { relationshipField });
+    ? hydrateColumns(override.columns, childSchema, { booleanLabel })
+    : deriveColumns(childSchema, { relationshipField, booleanLabel });
   const amountField = override.amountField || pickAmountField(columns);
   const formFields = deriveFormFields(childSchema, { relationshipField });
   // Resolve mode from the explicit override, else the relationship field's

@@ -30,6 +30,12 @@ import { registerAllFields } from '@object-ui/fields';
 import { deriveInlineRowFormFields, isInlineRowFormOffered } from '@objectstack/spec/data';
 import { MasterDetailForm, type MasterDetailDetailConfig, type MasterDetailFormSchema } from './MasterDetailForm';
 import { deriveDetail, deriveFormFields } from './deriveMasterDetail';
+import { en } from '@object-ui/i18n';
+
+/** The `en` session's word for a boolean value: what `useBooleanValueLabel`
+ *  (`@object-ui/fields`) draws under `en`. The derive functions require one
+ *  (objectui#12924). */
+const booleanLabel = (value: boolean) => (value ? en.common.yes : en.common.no);
 
 type SpecData = typeof import('@objectstack/spec/data');
 type Fields = typeof import('@object-ui/fields');
@@ -184,12 +190,12 @@ describe('the per-row form reads the spec rule, not a copy of it (objectui#11428
         memo: { type: 'textarea' },
       },
     };
-    const real = deriveDetail('po_memo', schema, 'po');
+    const real = deriveDetail('po_memo', schema, 'po', { booleanLabel });
     expect(real.formFields).toStrictEqual(['qty', 'memo']);
     expect(real.mode, 'a textarea in the form tips the smart default to `form`').toBe('form');
 
     vi.mocked(deriveInlineRowFormFields).mockReturnValue(['qty']);
-    const stubbed = deriveDetail('po_memo', schema, 'po');
+    const stubbed = deriveDetail('po_memo', schema, 'po', { booleanLabel });
     expect(stubbed.formFields).toStrictEqual(['qty']);
     expect(stubbed.mode, 'the spec dropped the textarea, so nothing tips it').toBe('grid');
   });

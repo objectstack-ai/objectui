@@ -26,7 +26,7 @@ import {
   CardTitle,
   cn,
 } from '@object-ui/components';
-import { LineItemsField, type GridColumn } from '@object-ui/fields';
+import { LineItemsField, useBooleanValueLabel, type GridColumn } from '@object-ui/fields';
 import type { GridFieldMetadata } from '@object-ui/types';
 import { createSafeTranslation } from '@object-ui/i18n';
 import { useSchemaContext, useRecordContext, useFilterScope, useResolvedFilter, useDataInvalidation, usePrintPage, NonGridRowCeilingNote } from '@object-ui/react';
@@ -213,6 +213,13 @@ function describeRefusedRowLimit(authored: unknown, childObject: unknown): strin
 export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ schema }) => {
   const ctx = useSchemaContext() as any;
   const { t } = useLineItemsTranslation();
+  // The session's word for a boolean value, which draws a hydrated `boolean` /
+  // `toggle` column's two option labels (objectui#12924). The grid memo below
+  // is keyed on the two WORDS, not on the function, which is a new one every
+  // render.
+  const booleanLabel = useBooleanValueLabel();
+  const booleanTrueWord = booleanLabel(true);
+  const booleanFalseWord = booleanLabel(false);
   const dataSource = ctx?.dataSource;
   // useRecordContext returns null outside a <RecordContextProvider> (e.g. in the
   // Studio designer/palette), so it never throws — call it unconditionally to
@@ -758,7 +765,7 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
         // master-detail grid's does. An authored `label` or `type` still wins,
         // and a column whose field the child does not declare is kept as
         // written. Until the schema arrives the columns render as authored.
-        columns: applyColumnPermissions(hydrateColumns(schema.columns, childSchema ?? undefined), {
+        columns: applyColumnPermissions(hydrateColumns(schema.columns, childSchema ?? undefined, { booleanLabel }), {
           perms,
           objectName: schema.childObject,
         }),
@@ -776,7 +783,8 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
         // the grid does not declare, or one of its retired snake_case
         // spellings, fails to compile here.
       } satisfies Partial<GridFieldMetadata>) as GridFieldMetadata,
-    [schema, childSchema, perms, lineAddGranted, lineRemoveGranted],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `booleanLabel` keyed on its WORDS, see above
+    [schema, childSchema, perms, lineAddGranted, lineRemoveGranted, booleanTrueWord, booleanFalseWord],
   );
 
   // The config hint names the property to set as code, and the property name

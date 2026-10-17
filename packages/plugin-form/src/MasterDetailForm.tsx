@@ -33,7 +33,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { BatchTransactionOperation, DataSource, GridFieldMetadata, I18nLabel } from '@object-ui/types';
 import { resolveAffordance, runBatchTransaction } from '@object-ui/core';
-import { LineItemsField } from '@object-ui/fields';
+import { LineItemsField, useBooleanValueLabel } from '@object-ui/fields';
 import { Button, Card, CardContent, CardHeader, CardTitle, cn, toast } from '@object-ui/components';
 import {
   formatDisplayNumber,
@@ -992,6 +992,16 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
   // The defaults behind those three, and the built-in save toast, in the
   // session locale (objectui#11039). See `formChrome.ts`.
   const { t } = useFormChromeTranslation();
+  // The session's word for a boolean value, which draws a derived `boolean` /
+  // `toggle` column's two option labels (objectui#12924). Held in a ref and
+  // read by the resolve effect below when its child schema has arrived, so the
+  // derive takes the words of the latest render. ⛔ Not an effect dependency:
+  // re-running the effect re-resolves every entry, and a new `resolvedEntries`
+  // re-reads the lines over any unsaved edit. The words are taken once, with
+  // the child schema whose labels arrive translated by the same fetch.
+  const booleanLabel = useBooleanValueLabel();
+  const booleanLabelRef = useRef(booleanLabel);
+  booleanLabelRef.current = booleanLabel;
 
   // A detail can be configured with just `{ childObject }` — the relationship
   // FK and grid columns are then derived from the child object's metadata
@@ -1106,6 +1116,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
             // stop: there is no authored override to weigh it against
             // (objectui#11070 round 9).
             const derived = deriveDetail(d.childObject, childSchema, schema.objectName, {
+              booleanLabel: booleanLabelRef.current,
               relationshipField: d.relationshipField,
               columns: d.columns,
               amountField: d.amountField,

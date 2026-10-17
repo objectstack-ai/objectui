@@ -18,42 +18,15 @@
  * inline forms — and then skipped: neither rendered (a README is third-party
  * content) nor printed as literal text. It is what react-markdown's `skipHtml`
  * option does over a full CommonMark tree, done by this renderer's own parser
- * because there is no engine underneath it to hand the option to. The source is
+ * because there is no engine underneath it to hand the option to. The inline half —
+ * `**bold**`, `*italic*`, `` `code` ``, `[text](url)` and inline raw HTML —
+ * is `@object-ui/components`' `renderInlineMarkdown` (objectui#12778), shared
+ * with `element:text`. The source is
  * never pre-filtered: HTML inside a code span or a fenced block is code, and
  * prints as before.
  */
 
-import { Fragment } from 'react';
-
-interface Block {
-  type: 'h1' | 'h2' | 'h3' | 'p' | 'ul' | 'ol' | 'code' | 'html';
-  text?: string;
-  items?: string[];
-  lang?: string;
-}
-
-// ── CommonMark raw-HTML grammar ─────────────────────────────────────────────
-// Spelled from the spec's definitions, piece by piece, so each can be checked
-// against its section: a tag name, an attribute, an open tag, a closing tag.
-const TAG_NAME = '[A-Za-z][A-Za-z0-9-]*';
-const ATTRIBUTE_VALUE = `(?:[^"'=<>\`\\s]+|'[^']*'|"[^"]*")`;
-const ATTRIBUTE = `(?:\\s+[A-Za-z_:][A-Za-z0-9_.:-]*(?:\\s*=\\s*${ATTRIBUTE_VALUE})?)`;
-const OPEN_TAG = `<${TAG_NAME}${ATTRIBUTE}*\\s*\\/?>`;
-const CLOSING_TAG = `<\\/${TAG_NAME}\\s*>`;
-
-/** "Raw HTML": an open or closing tag, a comment, a processing instruction, a declaration or a CDATA section. */
-const INLINE_HTML = new RegExp(
-  [
-    OPEN_TAG,
-    CLOSING_TAG,
-    '<!-->',
-    '<!--->',
-    '<!--[\\s\\S]*?-->',
-    '<\\?[\\s\\S]*?\\?>',
-    '<![A-Za-z][^>]*>',
-    '<!\\[CDATA\\[[\\s\\S]*?\\]\\]>',
-  ].join('|'),
-);
+import { RAW_HTML_CLOSING_TAG, RAW_HTML_OPEN_TAG, renderInlineMarkdown } from '@object-ui/components';
 
 /** Condition 6's tag names. */
 const BLOCK_TAG_NAMES = [
@@ -82,7 +55,7 @@ const HTML_BLOCK_RULES: HtmlBlockRule[] = [
   { start: /^ {0,3}<!\[CDATA\[/, end: /\]\]>/, interruptsParagraph: true },
   { start: new RegExp(`^ {0,3}<\\/?(?:${BLOCK_TAG_NAMES})(?:[ \\t>]|\\/>|$)`, 'i'), end: 'blank', interruptsParagraph: true },
   {
-    start: new RegExp(`^ {0,3}(?!<\\/?(?:pre|script|style|textarea)(?:[\\s/>]|$))(?:${OPEN_TAG}|${CLOSING_TAG})[ \\t]*$`, 'i'),
+    start: new RegExp(`^ {0,3}(?!<\\/?(?:pre|script|style|textarea)(?:[\\s/>]|$))(?:${RAW_HTML_OPEN_TAG}|${RAW_HTML_CLOSING_TAG})[ \\t]*$`, 'i'),
     end: 'blank',
     interruptsParagraph: false,
   },
@@ -187,44 +160,21 @@ function parseBlocks(src: string): Block[] {
   return blocks;
 }
 
-// Inline pass: **bold**, *italic*, `code`, [text](url). Order matters
-// so we tokenize once and replace by position.
-function renderInline(input: string): React.ReactNode {
-  const out: React.ReactNode[] = [];
-  let remaining = input;
-  let key = 0;
-  const patterns: { re: RegExp; render: (m: RegExpExecArray) => React.ReactNode }[] = [
-    { re: /`([^`]+)`/, render: (m) => <code key={`k${key++}`} className="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em]">{m[1]}</code> },
-    { re: /\*\*([^*]+)\*\*/, render: (m) => <strong key={`k${key++}`} className="font-semibold text-foreground">{m[1]}</strong> },
-    { re: /\*([^*]+)\*/, render: (m) => <em key={`k${key++}`}>{m[1]}</em> },
-    { re: /\[([^\]]+)\]\(([^)]+)\)/, render: (m) => (
-      <a key={`k${key++}`} href={m[2]} target="_blank" rel="noopener noreferrer" className="text-violet-600 underline-offset-2 hover:underline dark:text-violet-400">{m[1]}</a>
-    ) },
-    // Inline raw HTML: matched so it is consumed, rendered as nothing.
-    { re: INLINE_HTML, render: () => null },
-  ];
+// Inline pass: the one inline renderer `element:text` uses too
+// (objectui#12778), with this card's look. A README is third-party content, so
+// every link opens a new tab, and a link whose scheme is not `http:`, `https:`,
+// `mailto:` or `tel:` prints as its text.
+const README_INLINE = {
+  classNames: {
+    code: 'rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em]',
+    strong: 'font-semibold text-foreground',
+    link: 'text-violet-600 underline-offset-2 hover:underline dark:text-violet-400',
+  },
+  newTab: 'all',
+} as const;
 
-  while (remaining) {
-    let bestIdx = -1;
-    let bestMatch: RegExpExecArray | null = null;
-    let bestPattern: typeof patterns[number] | null = null;
-    for (const p of patterns) {
-      const m = p.re.exec(remaining);
-      if (m && (bestIdx === -1 || m.index < bestIdx)) {
-        bestIdx = m.index;
-        bestMatch = m;
-        bestPattern = p;
-      }
-    }
-    if (!bestMatch || !bestPattern) {
-      out.push(remaining);
-      break;
-    }
-    if (bestIdx > 0) out.push(remaining.slice(0, bestIdx));
-    out.push(bestPattern.render(bestMatch));
-    remaining = remaining.slice(bestIdx + bestMatch[0].length);
-  }
-  return <>{out.map((n, i) => <Fragment key={i}>{n}</Fragment>)}</>;
+function renderInline(input: string): React.ReactNode {
+  return renderInlineMarkdown(input, README_INLINE);
 }
 
 export function MarkdownText({ source, className }: { source: string; className?: string }) {

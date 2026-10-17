@@ -52,6 +52,7 @@ import {
 import type { AriaProps, TextSchema } from '@object-ui/types';
 import { cn } from '../../lib/utils';
 import { LazyIcon } from '../../lib/lazy-icon';
+import { renderInlineMarkdown } from '../../lib/inline-markdown';
 import { Button, Separator } from '../../ui';
 import { readProps } from './readProps';
 import { readActionEntryParamValues } from '../action/static-params';
@@ -154,6 +155,20 @@ const VARIANT_TAG: Record<ElementTextVariant, 'h1' | 'h2' | 'h3' | 'h4' | 'h5' |
   overline: 'p',
 };
 
+// The spec declares `content` as "Text or Markdown content" (objectui#12778).
+// The tag is one `p` or `h1`-`h6`, so the subset is the inline one: links,
+// emphasis and code. Block syntax (`#`, `- `, a fence) prints as typed. A
+// same-site path, `mailto:` and `tel:` stay in this tab; an `http(s):` link
+// opens a new one.
+const ELEMENT_TEXT_MARKDOWN = {
+  classNames: {
+    code: 'rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em]',
+    strong: 'font-semibold',
+    link: 'text-primary underline underline-offset-2 hover:no-underline',
+  },
+  newTab: 'external',
+} as const;
+
 function ElementTextRenderer({ schema }: { schema: any }) {
   const props = readProps<{
     content?: unknown;
@@ -173,7 +188,7 @@ function ElementTextRenderer({ schema }: { schema: any }) {
       className={cn(VARIANT_CLASS[variant] ?? VARIANT_CLASS.body, ALIGN_CLASS[align], schema?.className)}
       {...resolveInlineAriaProps(props.aria, locale)}
     >
-      {pickLocalized(props.content, language)}
+      {renderInlineMarkdown(pickLocalized(props.content, language), ELEMENT_TEXT_MARKDOWN)}
     </Tag>
   );
 }

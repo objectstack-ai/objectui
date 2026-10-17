@@ -41,6 +41,12 @@ export { renderChildren, renderNodeSlot, isEmptyNodeSlot } from './lib/utils';
 export { cva } from 'class-variance-authority';
 export { getLazyIcon, isLucideIconName, LazyIcon, toKebabIconName } from './lib/lazy-icon';
 
+// The inline Markdown subset `element:text` draws (objectui#12778). Exported
+// because app-shell's marketplace README renderer draws its inline text with
+// the same one, so both share the raw-HTML skip and the link-scheme refusal.
+export { renderInlineMarkdown, RAW_HTML_OPEN_TAG, RAW_HTML_CLOSING_TAG } from './lib/inline-markdown';
+export type { InlineMarkdownOptions } from './lib/inline-markdown';
+
 // The member-action visibility gate — "did this action DECLARE a `visible` gate
 // at all?", the single definition objectui#3492 established and PR #3816 /
 // #3825 / #3836 applied to every member-action gate in this package and in

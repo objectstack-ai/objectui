@@ -68,10 +68,19 @@ describe('DateCellRenderer', () => {
     expect(screen.queryByText(/Overdue/)).not.toBeInTheDocument();
   });
 
-  it('labels a past due_date as "Overdue Nd" and colors it red', () => {
+  // CONTROL (objectui#11815, ruling D): this pin used to assert the field-name
+  // guess — an undeclared `due_date` in the past read "Overdue 6d" in red.
+  // Overdue is declared-only now, so the same field reads as any past date.
+  it('CONTROL — an undeclared past due_date reads neutral, with no red', () => {
     render(<DateCellRenderer value={daysAgo(6)} field={{ type: 'date', name: 'due_date' } as any} />);
+    const el = screen.getByText('6 days ago');
+    expect(el.className).not.toMatch(/text-red-600/);
+    expect(screen.queryByText(/Overdue/)).not.toBeInTheDocument();
+  });
+
+  it('labels a past DECLARED deadline as "Overdue Nd" and colors it red', () => {
+    render(<DateCellRenderer value={daysAgo(6)} field={{ type: 'date', name: 'due_date', dueLike: true } as any} />);
     const el = screen.getByText('Overdue 6d');
-    expect(el).toBeInTheDocument();
     expect(el.className).toMatch(/text-red-600/);
   });
 

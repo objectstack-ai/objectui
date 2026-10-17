@@ -226,7 +226,8 @@ describe('objectui#8581 — an unparsable date string is not a formatted value, 
     it('POPULATED — a past due_date is still "Overdue Nd" in red', () => {
       const past = new Date();
       past.setDate(past.getDate() - 6);
-      const { container } = renderCell('date', past.toISOString(), { name: 'due_date' });
+      // Declared (objectui#11815): overdue is declared-only, the name guesses nothing.
+      const { container } = renderCell('date', past.toISOString(), { name: 'due_date', dueLike: true });
       const span = container.querySelector('span.tabular-nums');
       expect(span?.textContent, 'due_date: a real past date must still read Overdue').toMatch(/Overdue/);
       expect(span?.className, 'due_date: a real past date must still be red').toMatch(/text-red-600/);

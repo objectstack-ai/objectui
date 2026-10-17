@@ -3,7 +3,7 @@
 /**
  * CloudOnboardingNext resolves `hasProductionEnv` from the entitlements summary
  * and shows the right primary next-step: "Create your environment" when the org
- * has none, "Open workspace" once it does, and a graceful both-actions fallback
+ * has none, "Open" once it does, and a graceful both-actions fallback
  * when the signal can't be resolved.
  */
 
@@ -65,7 +65,7 @@ describe('CloudOnboardingNext', () => {
 
     const create = await screen.findByText('Create your environment');
     expect(create).toBeTruthy();
-    expect(screen.queryByText('Open workspace')).toBeNull();
+    expect(screen.queryByText('Open')).toBeNull();
 
     fireEvent.click(create);
     // Deep-links into the create dialog (#844): the environments list consumes
@@ -75,21 +75,21 @@ describe('CloudOnboardingNext', () => {
     );
   });
 
-  it('shows "Open workspace" once the org has a production env', async () => {
+  it('shows "Open" once the org has a production env', async () => {
     fetchImpl = async () => summary(true);
     renderOnboarding(<CloudOnboardingNext {...PROPS} />);
 
-    expect(await screen.findByText('Open workspace')).toBeTruthy();
+    expect(await screen.findByText('Open')).toBeTruthy();
     expect(screen.queryByText('Create your environment')).toBeNull();
   });
 
-  it('degrades to the open-workspace actions when the signal cannot be resolved', async () => {
+  it('degrades to the Open actions when the signal cannot be resolved', async () => {
     fetchImpl = async () => ({ ok: false, status: 500, json: async () => null });
     renderOnboarding(<CloudOnboardingNext {...PROPS} />);
 
     // Unknown state is fail-safe: it must NEVER strand a real user behind a
-    // wrong "create" CTA, so it shows Open workspace + Manage environments.
-    expect(await screen.findByText('Open workspace')).toBeTruthy();
+    // wrong "create" CTA, so it shows Open + Manage environments.
+    expect(await screen.findByText('Open')).toBeTruthy();
     expect(screen.getByText('Manage environments')).toBeTruthy();
     expect(screen.queryByText('Create your environment')).toBeNull();
   });
@@ -124,7 +124,7 @@ describe('CloudOnboardingNext', () => {
     });
     const { container } = renderOnboarding(<CloudOnboardingNext {...PROPS} />);
 
-    expect(await screen.findByText('Open workspace')).toBeTruthy();
+    expect(await screen.findByText('Open')).toBeTruthy();
     expect(screen.queryByText('Create your environment')).toBeNull();
     expect(container.querySelector('[data-onboarding="unknown"]')).toBeTruthy();
   });
@@ -133,12 +133,12 @@ describe('CloudOnboardingNext', () => {
   // the customer's words. A new customer has exactly one environment, and
   // "production" is operator vocabulary, so neither the button nor the hint
   // under it says it. The destination is unchanged: the same sso-open URL.
-  describe('the ready state speaks of a workspace, not of production (objectui#11659)', () => {
-    it('zh: the primary button reads 进入工作区 and the block never says 生产环境', async () => {
+  describe('the ready state opens the environment, and never says production (objectui#11659, objectui#12851)', () => {
+    it('zh: the primary button reads 打开 and the block never says 生产环境', async () => {
       fetchImpl = async () => summary(true);
       const { container } = renderOnboarding(<CloudOnboardingNext {...PROPS} />, 'zh');
 
-      const open = await screen.findByRole('button', { name: '进入工作区' });
+      const open = await screen.findByRole('button', { name: '打开' });
       expect(container.querySelector('[data-onboarding="ready"]')).toBeTruthy();
       expect(container.textContent).not.toContain('生产环境');
 
@@ -157,12 +157,45 @@ describe('CloudOnboardingNext', () => {
       expect(assign).toHaveBeenCalledWith(PROPS.properties.openProductionUrl);
     });
 
-    it('en: the primary button reads "Open workspace" and the block never says production', async () => {
+    it('en: the primary button reads "Open" and the block never says production', async () => {
       fetchImpl = async () => summary(true);
       const { container } = renderOnboarding(<CloudOnboardingNext {...PROPS} />);
 
-      expect(await screen.findByRole('button', { name: 'Open workspace' })).toBeTruthy();
+      expect(await screen.findByRole('button', { name: 'Open' })).toBeTruthy();
       expect(container.textContent ?? '').not.toMatch(/production/i);
+    });
+  });
+
+  // objectui#12851 (ruling on objectstack-ai/cloud#2939, letter A): the running
+  // instance is 「环境」, and the hint under the buttons says in one line what an
+  // environment is. 「工作区」 is retired from this block in both states.
+  describe('the hint says what an environment is (objectui#12851)', () => {
+    it('zh: the create-state hint defines 环境 and never says 工作区', async () => {
+      fetchImpl = async () => summary(false);
+      const { container } = renderOnboarding(<CloudOnboardingNext {...PROPS} />, 'zh');
+
+      expect(await screen.findByText('环境是运行你的应用的独立实例，有自己的网址、数据库和套餐。')).toBeTruthy();
+      expect(container.textContent).not.toContain('工作区');
+    });
+
+    it('zh: the ready-state hint says the environment is ready, beside the 打开 button', async () => {
+      fetchImpl = async () => summary(true);
+      const { container } = renderOnboarding(<CloudOnboardingNext {...PROPS} />, 'zh');
+
+      expect(await screen.findByRole('button', { name: '打开' })).toBeTruthy();
+      expect(screen.getByText('你的环境已就绪——它是运行你的应用的独立实例，有自己的网址、数据库和套餐。')).toBeTruthy();
+      expect(container.textContent).not.toContain('工作区');
+    });
+
+    it('en (control): the ready-state hint names the environment and never says workspace', async () => {
+      fetchImpl = async () => summary(true);
+      const { container } = renderOnboarding(<CloudOnboardingNext {...PROPS} />);
+
+      expect(await screen.findByRole('button', { name: 'Open' })).toBeTruthy();
+      expect(
+        screen.getByText('Your environment is ready — a private instance that runs your apps, with its own URL, database, and plan.'),
+      ).toBeTruthy();
+      expect(container.textContent ?? '').not.toMatch(/workspace/i);
     });
   });
 
@@ -172,11 +205,11 @@ describe('CloudOnboardingNext', () => {
     const { container } = renderOnboarding(<CloudOnboardingNext {...PROPS} />);
 
     // Before the fetch resolves: no CTA text, just the skeleton placeholder.
-    expect(screen.queryByText('Open workspace')).toBeNull();
+    expect(screen.queryByText('Open')).toBeNull();
     expect(screen.queryByText('Create your environment')).toBeNull();
     expect(container.querySelector('[data-onboarding="loading"]')).toBeTruthy();
 
     resolveFetch(summary(true));
-    await waitFor(() => expect(screen.getByText('Open workspace')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Open')).toBeTruthy());
   });
 });

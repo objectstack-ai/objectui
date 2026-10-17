@@ -390,7 +390,9 @@ describe('objectui#3546 slice two — the organization namespace', () => {
     // The org MANAGEMENT surface and the org PICKER differ by one letter at
     // every call site. Merging them would silently repoint 90 keys.
     expect(at(builtInLocales.en, 'organization.tabs.members')).toBe('Members');
-    expect(at(builtInLocales.en, 'organizations.title')).toBe('Workspaces');
+    // The picker's noun became "Organization" with objectui#12851; the two
+    // namespaces stay separate regardless.
+    expect(at(builtInLocales.en, 'organizations.title')).toBe('Organizations');
     expect(at(builtInLocales.en, 'organization.title')).toBeUndefined();
   });
 });

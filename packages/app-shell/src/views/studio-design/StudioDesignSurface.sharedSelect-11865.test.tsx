@@ -554,7 +554,7 @@ const TRIGGER_WRITES: ReadonlyArray<readonly [string, string]> = [
   ['Record created or updated', flowWith(',"config":{"triggerType":"record-after-write"}')],
   ['Record before update', flowWith(',"config":{"triggerType":"record-before-update"}')],
   ['Record deleted', flowWith(',"config":{"triggerType":"record-after-delete"}')],
-  ['Schedule (cron)', flowWith(',"config":{"triggerType":"schedule"}')],
+  ['Schedule', flowWith(',"config":{"triggerType":"schedule"}')],
   ['Time-relative (date sweep)', flowWith(',"config":{"triggerType":"time_relative"}')],
   ['Manual / autolaunched', flowWith(',"config":{"triggerType":"manual"}')],
   ['Webhook / API', flowWith(',"config":{"triggerType":"api"}')],

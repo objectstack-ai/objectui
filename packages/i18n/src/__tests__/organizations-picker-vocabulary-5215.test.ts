@@ -1,134 +1,128 @@
 /**
- * The `organizations.*` PICKER family (avatar menu / console picker — distinct
- * from `organization.*` org MANAGEMENT, see the separating comment in `en.ts`)
- * must use one noun per pack, not two (objectui#5215).
+ * The organisation is called by ONE noun per pack, and it is that pack's word
+ * for "organization" (objectui#5215, then objectui#12851).
  *
- * ## The defect this pins
+ * ## History
  *
- * `en` and `zh` were renamed from "organization" to "workspace" terminology in
- * full. The other eight packs (`ar`, `de`, `es`, `fr`, `ja`, `ko`, `pt`, `ru`)
- * had only `create` follow, leaving every one of them mixing both nouns in a
- * single dropdown — `de.ts` read `create: "Workspace erstellen"` directly
- * beside `mine: "Meine Organisationen"`, two lines apart in the same menu.
+ * objectui#5215 found the `organizations.*` PICKER family (avatar menu /
+ * console picker — distinct from `organization.*` org MANAGEMENT, see the
+ * separating comment in `en.ts`) mixing two nouns inside one dropdown: `de.ts`
+ * read `create: "Workspace erstellen"` beside `mine: "Meine Organisationen"`.
+ * It settled the family on "workspace".
  *
- * ## Why no existing gate sees this class
+ * objectui#12851 executes the maintainer's ruling on objectstack-ai/cloud#2939
+ * (letter A): "workspace" was naming two different things — the organisation
+ * members and billing belong to, and the running environment an app lives in.
+ * The organisation is now "Organization" (zh 组织, ja 組織, es Organización, …)
+ * and "workspace" retires from it. The one-noun-per-pack invariant #5215
+ * pinned still holds; only the noun turned around.
  *
- * `all-locales-key-parity` is a KEY-SET invariant — every pack has every key,
- * so it is green whether or not two keys in the same pack agree on a noun.
- * `check:i18n-drift` follows changes to the **en** VALUE; en has not moved, so
- * there is nothing to follow. `check:i18n-keys` compares call-site keys and
- * inline `defaultValue`s against **en** only — the eight non-en packs are
- * outside its comparison set. None of the three looks at same-language
- * vocabulary consistency, which is exactly the axis this defect lives on.
+ * ## What this pins
  *
- * ## What this test is, and is not
+ * For every one of the ten packs, every value in the two families that name
+ * the organisation — the `organizations.*` picker and the `workspace.*`
+ * switcher / create-dialog keys (the keys keep their historical name; only
+ * the values moved) — contains the pack's organisation stem and none of the
+ * pack's retired workspace stems. A future edit that brings the old noun back
+ * into one key, the exact shape of #5215's defect, fails here.
  *
- * This is NOT the general vocabulary-consistency gate the issue explicitly
- * declined to ask for — building one that works for arbitrary synonym pairs
- * across arbitrary namespaces is a different, harder card. This is a narrow,
- * cheap pin for the ONE family that was measured to have the defect: it
- * asserts that no `organizations.*` picker value, in any of the eight packs,
- * still contains that pack's OLD organization-noun. A future edit that
- * reintroduces the old noun in one key without updating its neighbors — the
- * exact shape of the original defect — fails here immediately.
+ * ## Why no other gate sees this class
+ *
+ * `all-locales-key-parity` is a key-set invariant; `check:i18n-drift` only
+ * follows an `en` value that moved; `check:i18n-keys` compares call sites with
+ * `en` only. None of them reads same-language vocabulary.
  */
 import { describe, it, expect } from 'vitest';
 import { builtInLocales } from '../locales';
 
 type LocaleCode = keyof typeof builtInLocales;
 
-/** The keys that carry the picker's noun (objectui#5215's enumerated scope). */
-const NOUN_KEYS = [
-  'mine',
-  'title',
-  'heading',
-  'subtitle',
-  'searchPlaceholder',
-  'new',
-  'current',
-  'emptyTitle',
-  'emptyDescription',
-  'noMatches',
+/** The keys whose value names the organisation. */
+const ORG_KEYS = [
+  'organizations.mine',
+  'organizations.create',
+  'organizations.title',
+  'organizations.heading',
+  'organizations.subtitle',
+  'organizations.searchPlaceholder',
+  'organizations.new',
+  'organizations.current',
+  'organizations.emptyTitle',
+  'organizations.emptyDescription',
+  'organizations.noMatches',
+  'workspace.label',
+  'workspace.default',
+  'workspace.switch',
+  'workspace.createTitle',
+  'workspace.createDescription',
+  'workspace.createButton',
+  'workspace.nameLabel',
+  'workspace.settings',
+  'workspace.createFailed',
 ] as const;
 
-/**
- * The eight packs in scope, each with the OLD organization-noun stem(s) that
- * must no longer appear in any `NOUN_KEYS` value, and the pack's own
- * already-established workspace term (taken from `create`, unchanged by this
- * fix) that every `NOUN_KEYS` value must now contain instead.
- */
-// Stems are deliberately SHORT — short enough to survive each pack's own
-// pluralization/inflection of the noun (e.g. Arabic "مساحة" singular vs.
-// "مساحات" plural share only the 4-letter root "مساح"; Spanish/French
-// "espacio de trabajo" / "espace de travail" only add an -s to the FIRST
-// word in the plural, so the shared, inflection-proof anchor is the
-// invariant second word, "trabajo" / "travail"). All comparisons below are
-// case-insensitive so pt's sentence-initial "Workspace atual" / "Workspaces"
-// match the same lowercase stem as its mid-sentence "um workspace".
-const PACKS: Record<string, { oldStems: string[]; newStem: string }> = {
-  ar: { oldStems: ['مؤسس'], newStem: 'مساح' },
-  de: { oldStems: ['organisation'], newStem: 'workspace' },
-  es: { oldStems: ['organizaci'], newStem: 'trabajo' },
-  fr: { oldStems: ['organisation'], newStem: 'travail' },
-  ja: { oldStems: ['組織'], newStem: 'ワークスペース' },
-  ko: { oldStems: ['조직'], newStem: '워크스페이스' },
-  pt: { oldStems: ['organizaç'], newStem: 'workspace' },
-  ru: { oldStems: ['организац'], newStem: 'пространств' },
+// Stems are deliberately SHORT so they survive each pack's inflection
+// (Spanish "organización" / "organizaciones" share "organizaci"; Russian
+// "организация" / "организации" share "организац"; Arabic "مؤسسة" /
+// "مؤسسات" / "مؤسستي" share "مؤسس"). Comparisons are case-insensitive.
+// The retired stems are each pack's former word for the organisation —
+// Spanish and French keep only the invariant second word of "espacio de
+// trabajo" / "espace de travail", and Arabic the root of "مساحة" / "مساحات".
+const PACKS: Record<LocaleCode, { orgStem: string; retiredStems: string[] }> = {
+  en: { orgStem: 'organization', retiredStems: ['workspace'] },
+  zh: { orgStem: '组织', retiredStems: ['工作区'] },
+  ar: { orgStem: 'مؤسس', retiredStems: ['مساح'] },
+  de: { orgStem: 'organisation', retiredStems: ['workspace', 'arbeitsbereich'] },
+  es: { orgStem: 'organizaci', retiredStems: ['trabajo'] },
+  fr: { orgStem: 'organisation', retiredStems: ['travail'] },
+  ja: { orgStem: '組織', retiredStems: ['ワークスペース'] },
+  ko: { orgStem: '조직', retiredStems: ['워크스페이스', '작업 공간'] },
+  pt: { orgStem: 'organizaç', retiredStems: ['workspace', 'trabalho'] },
+  ru: { orgStem: 'организац', retiredStems: ['пространств'] },
 };
 
 const at = (pack: unknown, path: string): unknown =>
   path.split('.').reduce<unknown>((n, k) => (n as Record<string, unknown> | undefined)?.[k], pack);
 
-describe('objectui#5215 — organizations.* picker family speaks one noun per pack', () => {
-  it('covers exactly the eight non-en/zh packs and all ten noun-carrying keys', () => {
-    expect(Object.keys(PACKS).sort()).toEqual(['ar', 'de', 'es', 'fr', 'ja', 'ko', 'pt', 'ru']);
-    expect(NOUN_KEYS).toHaveLength(10);
+describe('objectui#12851 — the organisation speaks one noun per pack, and it is "organization"', () => {
+  it('covers all ten packs', () => {
+    expect(Object.keys(PACKS).sort()).toEqual(Object.keys(builtInLocales).sort());
   });
 
-  it.each(Object.keys(PACKS) as LocaleCode[])(
-    '%s: no organizations.* picker value still carries the old organization-noun',
-    (lang) => {
-      const { oldStems } = PACKS[lang];
-      for (const key of NOUN_KEYS) {
-        const value = at(builtInLocales[lang], `organizations.${key}`);
-        expect(typeof value, `organizations.${key} in ${lang}`).toBe('string');
-        const lowered = (value as string).toLowerCase();
-        for (const stem of oldStems) {
-          expect(
-            lowered.includes(stem.toLowerCase()),
-            `organizations.${key} in ${lang} still contains "${stem}": ${JSON.stringify(value)}`,
-          ).toBe(false);
-        }
-      }
-    },
-  );
+  it.each(Object.keys(PACKS) as LocaleCode[])('%s: every organisation value carries the organisation noun', (lang) => {
+    const { orgStem } = PACKS[lang];
+    for (const key of ORG_KEYS) {
+      const value = at(builtInLocales[lang], key);
+      expect(typeof value, `${key} in ${lang}`).toBe('string');
+      expect(
+        (value as string).toLowerCase().includes(orgStem.toLowerCase()),
+        `${key} in ${lang} does not contain "${orgStem}": ${JSON.stringify(value)}`,
+      ).toBe(true);
+    }
+  });
 
-  it.each(Object.keys(PACKS) as LocaleCode[])(
-    '%s: every organizations.* picker value uses the pack\'s own workspace term',
-    (lang) => {
-      const { newStem } = PACKS[lang];
-      for (const key of NOUN_KEYS) {
-        const value = at(builtInLocales[lang], `organizations.${key}`) as string;
+  it.each(Object.keys(PACKS) as LocaleCode[])('%s: no organisation value still carries the retired workspace noun', (lang) => {
+    const { retiredStems } = PACKS[lang];
+    for (const key of ORG_KEYS) {
+      const value = at(builtInLocales[lang], key) as string;
+      for (const stem of retiredStems) {
         expect(
-          value.toLowerCase().includes(newStem.toLowerCase()),
-          `organizations.${key} in ${lang} does not contain "${newStem}": ${JSON.stringify(value)}`,
-        ).toBe(true);
+          value.toLowerCase().includes(stem.toLowerCase()),
+          `${key} in ${lang} still contains "${stem}": ${JSON.stringify(value)}`,
+        ).toBe(false);
       }
-    },
-  );
+    }
+  });
 
-  it('the sibling organization.* (singular, management) namespace is untouched — still the org noun', () => {
-    // Guards the namespace-separation premise this fix depends on: the picker
-    // family renamed, the management family deliberately did not (comment
-    // between the two blocks in en.ts). If a future change collapses that
-    // separation this assertion is the first thing to notice.
+  it('the sibling organization.* (singular, management) namespace already used the organisation noun', () => {
+    // The management family never moved; it and the picker now agree.
     for (const lang of Object.keys(PACKS) as LocaleCode[]) {
-      const { oldStems } = PACKS[lang];
       const backToList = at(builtInLocales[lang], 'organization.backToList');
       expect(typeof backToList, `organization.backToList in ${lang}`).toBe('string');
-      const lowered = (backToList as string).toLowerCase();
-      const containsOldStem = oldStems.some((stem) => lowered.includes(stem.toLowerCase()));
-      expect(containsOldStem, `organization.backToList in ${lang}: ${JSON.stringify(backToList)}`).toBe(true);
+      expect(
+        (backToList as string).toLowerCase().includes(PACKS[lang].orgStem.toLowerCase()),
+        `organization.backToList in ${lang}: ${JSON.stringify(backToList)}`,
+      ).toBe(true);
     }
   });
 });

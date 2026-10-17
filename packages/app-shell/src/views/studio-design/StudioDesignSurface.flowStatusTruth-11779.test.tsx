@@ -61,6 +61,14 @@ const FLOWS: Array<Record<string, unknown>> = [
     edges,
   },
   {
+    // objectui#12845 — the stock showcase's interval cadence (`showcase_scheduled_digest`).
+    name: 'scheduled_digest',
+    label: 'Scheduled digest',
+    type: 'schedule',
+    nodes: [{ id: 'start', type: 'start', label: 'Start', config: { schedule: { type: 'interval', intervalMs: 60000 } } }, end],
+    edges,
+  },
+  {
     name: 'approve_manually',
     label: 'Approve manually',
     type: 'autolaunched',
@@ -82,6 +90,8 @@ const RUNTIME_ROWS = [
   { name: 'notify_on_update', enabled: true, bound: true, triggerType: 'record_change', object: 'task' },
   // A schedule flow the deployment holds unarmed.
   { name: 'task_due_reminder', enabled: true, bound: false, triggerType: 'schedule', reason: REASON },
+  // A schedule flow on an interval cadence, bound.
+  { name: 'scheduled_digest', enabled: true, bound: true, triggerType: 'schedule' },
   // No declared trigger: runs when invoked.
   { name: 'approve_manually', enabled: true, bound: false },
 ];
@@ -244,9 +254,18 @@ describe('the header Trigger pill reads the Start node (objectui#11779)', () => 
   it('a schedule flow reads as a schedule; a manual flow falls back to its type', async () => {
     renderPillar();
     await openFlow('Task due reminder', 'task_due_reminder');
-    expect(headerPill('Trigger').value).toBe('Schedule (cron)');
+    expect(headerPill('Trigger').value).toBe('Schedule');
     await openFlow('Approve manually', 'approve_manually');
     expect(headerPill('Trigger').value).toBe('autolaunched');
+  });
+
+  // objectui#12845 — the label names the schedule KIND, not one cadence: an
+  // interval flow reads exactly what the cron flow above reads, never "cron".
+  it('an interval schedule flow reads the same Schedule label as a cron one, never cron', async () => {
+    renderPillar();
+    await openFlow('Scheduled digest', 'scheduled_digest');
+    expect(headerPill('Trigger').value).toBe('Schedule');
+    expect(headerPill('Trigger').value).not.toMatch(/cron/i);
   });
 });
 

@@ -2091,7 +2091,7 @@ const en = {
     },
     settingsHub: {
       title: 'Settings',
-      subtitle: 'Configure your workspace, integrations, and feature flags.',
+      subtitle: 'Configure your environment, integrations, and feature flags.',
       loadError: 'Failed to load settings',
       empty: 'No settings registered. Plugins can register settings manifests via the SettingsService.',
       settingsCount: '{{n}} settings',
@@ -2099,7 +2099,7 @@ const en = {
       // Section headers, keyed by the manifest `category` value. Unknown
       // (plugin-authored) categories fall back to the literal category string.
       categories: {
-        Workspace: 'Workspace',
+        Workspace: 'Environment',
         Communication: 'Communication',
         Security: 'Security',
         Infrastructure: 'Infrastructure',
@@ -2166,12 +2166,12 @@ const en = {
     // administrator while `localization.timezone` is still the manifest default.
     // `{{current}}` is that default, `{{zone}}` the zone the admin confirmed.
     workspaceTimezonePrompt: {
-      title: 'Set the workspace timezone',
-      description: 'This workspace still uses the platform default timezone, {{current}}. The workspace timezone decides what "today" means in formulas, how reports group dates and how dates and times are shown, for everyone in the workspace. Your browser timezone is filled in below.',
+      title: 'Set the environment timezone',
+      description: 'This environment still uses the platform default timezone, {{current}}. The environment timezone decides what "today" means in formulas, how reports group dates and how dates and times are shown, for everyone in the environment. Your browser timezone is filled in below.',
       laterHint: 'You can change it at any time on the Settings page.',
       decline: 'Keep the default',
       confirm: 'Set timezone',
-      saved: 'Workspace timezone set to {{zone}}',
+      saved: 'Environment timezone set to {{zone}}',
     },
     error: {
       connectionFailed: 'Cannot connect to server',
@@ -2959,7 +2959,7 @@ const en = {
       cancel: 'Cancel',
     },
     shell: {
-      tenantHostHint: 'You are signing in to this workspace',
+      tenantHostHint: 'You are signing in to this environment',
     },
     // These were previously supplied only as inline `defaultValue:` args at the
     // SetPasswordPage call sites, so `zh` was the only pack that could carry a
@@ -3110,21 +3110,21 @@ const en = {
     unknown: 'An unexpected error occurred.',
   },
   workspace: {
-    label: 'Workspaces',
-    default: 'My Workspace',
-    switch: 'Switch workspace',
-    createTitle: 'Create a workspace',
-    createDescription: 'A workspace is a shared space for your team to collaborate.',
-    createButton: 'Create workspace',
-    nameLabel: 'Workspace name',
+    label: 'Organizations',
+    default: 'My Organization',
+    switch: 'Switch organization',
+    createTitle: 'Create an organization',
+    createDescription: 'An organization is a shared space for your team to collaborate.',
+    createButton: 'Create organization',
+    nameLabel: 'Organization name',
     namePlaceholder: 'e.g., Acme Inc',
     slugLabel: 'URL slug',
     slugHint: 'Used in URLs. Only lowercase letters, numbers, and hyphens.',
     invite: 'Invite member',
     members: 'Members',
-    settings: 'Workspace settings',
+    settings: 'Organization settings',
     multiOrgDisabled: 'Creating new organizations is disabled on this instance.',
-    createFailed: 'Failed to create workspace',
+    createFailed: 'Failed to create organization',
   },
   help: {
     onThisPage: 'On this page',
@@ -3222,21 +3222,21 @@ const en = {
     appOpened: '{{time}}',
     build: {
       title: 'Build an app',
-      noCapability: 'Building apps isn\'t available in this workspace — it requires the “Manage Metadata” permission, which your account doesn\'t have.',
+      noCapability: 'Building apps isn\'t available in this environment — it requires the “Manage Metadata” permission, which your account doesn\'t have.',
     },
     template: {
       title: 'Start with a template',
       marketplaceDisabled: 'This runtime has no app marketplace configured, so there are no templates to install here.',
     },
     open: 'Open',
-    loading: 'Loading workspace…',
+    loading: 'Loading environment…',
     welcome: 'Build your business system with AI',
     welcomeDescription: 'Describe your business in one sentence — AI generates the objects, screens, APIs and agent tools. Or start from scratch.',
     welcomeAdminDescription: 'Describe your business in one sentence — AI generates the objects, screens, APIs and agent tools. Or set things up yourself from the menu on the left.',
     welcomeAdminDescriptionNoBuild: 'Set up your first application from the Administration menu on the left. Once you have data, the AI assistant can help you explore it.',
     welcomeAdminDescriptionNoAi: 'Set up your first application from the Administration menu on the left.',
     noAppsTitle: 'No applications yet',
-    noAppsDescription: 'Your workspace is being set up — apps your admin shares with you will show up here.',
+    noAppsDescription: 'Your environment is being set up — apps your admin shares with you will show up here.',
     buildWithAI: 'Build with AI',
     askAI: 'Ask AI',
     recoveryReminder: {
@@ -3276,7 +3276,7 @@ const en = {
       manageObjects: 'Manage Objects',
       manageObjectsDesc: 'Configure data models',
       systemSettings: 'System Settings',
-      systemSettingsDesc: 'Configure your workspace',
+      systemSettingsDesc: 'Configure your environment',
     },
     recentApps: {
       title: 'Recently Accessed',
@@ -3592,18 +3592,18 @@ const en = {
     language: 'Language',
   },
   organizations: {
-    mine: 'My Workspaces',
-    create: 'Create workspace',
-    title: 'Workspaces',
-    heading: 'Your Workspaces',
-    subtitle: 'Select a workspace to continue, or create a new one.',
-    searchPlaceholder: 'Search for a workspace',
-    new: 'New workspace',
-    current: 'Current workspace',
+    mine: 'My Organizations',
+    create: 'Create organization',
+    title: 'Organizations',
+    heading: 'Your Organizations',
+    subtitle: 'Select an organization to continue, or create a new one.',
+    searchPlaceholder: 'Search for an organization',
+    new: 'New organization',
+    current: 'Current organization',
     manage: 'Manage',
-    emptyTitle: 'No workspaces yet',
-    emptyDescription: 'Create your first workspace to get started.',
-    noMatches: 'No workspaces match your search.',
+    emptyTitle: 'No organizations yet',
+    emptyDescription: 'Create your first organization to get started.',
+    noMatches: 'No organizations match your search.',
   },
   // Organization MANAGEMENT (packages/app-shell/src/console/organizations/**
   // plus the workspace switcher). Distinct from `organizations` above, which
@@ -3875,10 +3875,10 @@ const en = {
     dismiss: 'Dismiss',
   },
   cloudOnboarding: {
-    hintCreate: 'Spin up your first environment — a private workspace with its own URL, database, and plan. Building happens inside it.',
-    hintReady: 'Your workspace is ready. Open it to build and run your apps — that all happens inside the workspace.',
+    hintCreate: 'An environment is a private instance that runs your apps, with its own URL, database, and plan.',
+    hintReady: 'Your environment is ready — a private instance that runs your apps, with its own URL, database, and plan.',
     createEnvironment: 'Create your environment',
-    openWorkspace: 'Open workspace',
+    openWorkspace: 'Open',
     manageEnvironments: 'Manage environments',
   },
   // `cloud:plan-status` — the Cloud pricing page's current-plan marker (objectui#10919).
@@ -3889,7 +3889,7 @@ const en = {
   // timezone a workspace was seeded with at creation (objectui#11930). `{{zone}}`
   // is the seed, an IANA id printed verbatim.
   cloudWorkspaceTimezoneNotice: {
-    seeded: 'The workspace timezone was set to {{zone}} from your browser when the workspace was created. You can change it in Settings → Localization.',
+    seeded: 'The environment timezone was set to {{zone}} from your browser when the environment was created. You can change it in Settings → Localization.',
   },
   // `@object-ui/plugin-ai` — the `nl-query`, `ai-form-assist` and
   // `ai-recommendations` components (objectui#10232). The two count labels are
@@ -4295,7 +4295,7 @@ const en = {
         environmentPlaceholder: 'Pick an environment',
         includeSampleData: 'Include sample data',
         noEnvs: 'No environments found in your active organization.',
-        noPermission: 'You do not have permission to install apps in any environment. Only organization owners and admins can install — ask your workspace admin.',
+        noPermission: 'You do not have permission to install apps in any environment. Only organization owners and admins can install — ask your organization admin.',
         signInFirst: 'You need to sign into ObjectStack Cloud first. Click "Open on cloud" below.',
         success: 'Installed successfully. Open the environment to see the new app.',
         localSuccess: 'Installed v{{version}} to this runtime. "{{name}}" should now appear in the app switcher.',

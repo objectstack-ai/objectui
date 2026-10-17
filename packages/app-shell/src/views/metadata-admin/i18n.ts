@@ -1125,7 +1125,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.dataset.baseObject': 'Base object',
   'engine.inspector.dataset.baseObjectPlaceholder': 'Select an object…',
   'engine.inspector.dataset.searchObjects': 'Search objects…',
-  'engine.inspector.dataset.baseObjectChangeHint': 'Changing the base object clears its dimensions, measures, joins & filters.',
+  'engine.inspector.dataset.baseObjectChangeHint': 'Changing the base object clears its dimensions, field measures, joins & filters; a row count is kept.',
   'engine.inspector.dataset.includedRelationships': 'Included relationships',
   'engine.inspector.dataset.noJoins': 'No joins. Add a relationship (a lookup field on {object}) to use {path} dimensions/measures.',
   'engine.inspector.dataset.baseObjectFallback': 'the base object',
@@ -2323,7 +2323,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // `manage_metadata` capability, and its refusal is an English sentence that
   // reached a zh console verbatim. Deployments that withhold the capability do
   // so deliberately, so this states the posture rather than inviting a retry.
-  'engine.packages.noCapability': 'You do not have permission to manage packages in this workspace — it requires the “Manage Metadata” permission.',
+  'engine.packages.noCapability': 'You do not have permission to manage packages in this environment — it requires the “Manage Metadata” permission.',
   'engine.packages.form.basics': 'Basics',
   'engine.packages.form.advanced': 'Advanced',
   'engine.packages.form.namespace': 'Namespace',
@@ -4621,7 +4621,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.dataset.baseObject': '基础对象',
   'engine.inspector.dataset.baseObjectPlaceholder': '选择对象…',
   'engine.inspector.dataset.searchObjects': '搜索对象…',
-  'engine.inspector.dataset.baseObjectChangeHint': '更改基础对象会清空其维度、度量、关联与筛选。',
+  'engine.inspector.dataset.baseObjectChangeHint': '更改基础对象会清空其维度、字段度量、关联与筛选；行计数会保留。',
   'engine.inspector.dataset.includedRelationships': '包含的关联',
   'engine.inspector.dataset.noJoins': '暂无关联。添加一个关联（{object} 上的查找字段），即可使用 {path} 形式的维度 / 度量。',
   'engine.inspector.dataset.baseObjectFallback': '基础对象',
@@ -5717,7 +5717,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.packages.create.failed': '创建软件包失败',
   'engine.packages.create.exists': '已存在相同 ID 的软件包。',
   // objectstack#8270 — 这条正是在 zh 控制台里显示为英文原文的服务端拒绝信息。
-  'engine.packages.noCapability': '你没有在此工作区管理软件包的权限 — 该操作需要「管理元数据」权限。',
+  'engine.packages.noCapability': '你没有在此环境管理软件包的权限 — 该操作需要「管理元数据」权限。',
   'engine.packages.form.basics': '基本信息',
   'engine.packages.form.advanced': '高级',
   'engine.packages.form.namespace': '命名空间',
@@ -7026,14 +7026,14 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
   start: {
     triggerType: {
       label: '触发方式',
-      help: '流程何时启动。记录触发在数据变更时触发;定时触发按 cron 触发。',
+      help: '流程何时启动。记录触发在数据变更时触发;定时触发按计划(cron、间隔或指定时间)触发。',
       opts: {
         'record-after-create': '记录创建后',
         'record-after-update': '记录更新后',
         'record-after-write': '记录创建或更新后',
         'record-before-update': '记录更新前',
         'record-after-delete': '记录删除后',
-        schedule: '定时(cron)',
+        schedule: '定时',
         time_relative: '相对时间(日期扫描)',
         manual: '手动 / 自动启动',
         api: 'Webhook / API',

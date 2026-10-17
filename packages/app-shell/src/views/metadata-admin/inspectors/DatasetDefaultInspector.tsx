@@ -359,15 +359,36 @@ function DatasetFilterField({ label, help, value, onCommit, fields, disabled, lo
 }
 
 /**
- * Patch for a base-object change. A dataset's joins (`include`), `dimensions`,
- * `measures`, and `filter` all reference the OLD object's fields, so a real
- * object change re-bases the dataset and clears them — preventing stale field
- * refs from silently producing broken/ambiguous queries. Selecting the SAME
- * object is a no-op (only sets `object`).
+ * Whether a measure names none of its object's fields: a plain row count — no
+ * `field` (or the row wildcard `'*'`), no measure-scoped `filter` (its keys are
+ * fields), and not `derived` (a derived measure combines other measures, which
+ * may name fields, and one left pointing at a cleared measure is refused).
  */
-export function objectChangePatch(next: string, current: string): Record<string, unknown> {
+function measureNamesNoField(m: Measure): boolean {
+  return (isBlankField(m.field) || m.field === '*') && m.filter === undefined && m.derived === undefined;
+}
+
+/**
+ * Patch for a base-object change. A dataset's joins (`include`), `dimensions`,
+ * `filter`, and every measure that names a field reference the OLD object's
+ * fields, so a real object change re-bases the dataset and clears them —
+ * preventing stale field refs from silently producing broken/ambiguous queries.
+ * A measure that names no field (the row count) means the same on any object
+ * and is kept from `draft` (objectui#12848). A draft that holds no `measures`
+ * is given none: a new dataset's first pick then keeps the create seed's
+ * `count`, which the save merges under the draft. With no `draft`, nothing is
+ * kept. Selecting the SAME object is a no-op (only sets `object`).
+ */
+export function objectChangePatch(
+  next: string,
+  current: string,
+  draft?: Record<string, unknown>,
+): Record<string, unknown> {
   if (next === current) return { object: next };
-  return { object: next, include: [], dimensions: [], measures: [], filter: undefined };
+  const patch: Record<string, unknown> = { object: next, include: [], dimensions: [], filter: undefined };
+  if (!draft) patch.measures = [];
+  else if (Array.isArray(draft.measures)) patch.measures = (draft.measures as Measure[]).filter(measureNamesNoField);
+  return patch;
 }
 
 export function DatasetDefaultInspector({ draft, onPatch, readOnly, name, locale, onBlockingIssuesChange }: MetadataDefaultInspectorProps) {
@@ -536,7 +557,7 @@ export function DatasetDefaultInspector({ draft, onPatch, readOnly, name, locale
       <InspectorComboField
         label={tr('engine.inspector.dataset.baseObject')}
         value={object}
-        onCommit={(v) => onPatch(objectChangePatch(v, object))}
+        onCommit={(v) => onPatch(objectChangePatch(v, object, draft))}
         options={objectComboOptions}
         loading={objectsLoading}
         placeholder={tr('engine.inspector.dataset.baseObjectPlaceholder')}

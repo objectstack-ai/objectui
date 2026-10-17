@@ -194,7 +194,7 @@ describe('asks once while the zone is the default and the session may write it (
   it('en: renders once, pre-filled with the browser zone, naming the current default', async () => {
     renderPrompt(ADMIN, 'en');
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('Set the workspace timezone')).toBeTruthy();
+    expect(within(dialog).getByText('Set the environment timezone')).toBeTruthy();
     expect(within(dialog).getByText(/platform default timezone, UTC\./)).toBeTruthy();
     // The Settings page's own field for the key, pre-filled with the browser's zone.
     const field = within(dialog).getByLabelText('Default timezone') as HTMLInputElement;
@@ -208,10 +208,10 @@ describe('asks once while the zone is the default and the session may write it (
   it('zh-CN: the same prompt reads in the pack, pre-filled the same way', async () => {
     renderPrompt(ADMIN, 'zh');
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('设置工作区时区')).toBeTruthy();
+    expect(within(dialog).getByText('设置环境时区')).toBeTruthy();
     expect(within(dialog).getByRole('button', { name: '保持默认' })).toBeTruthy();
     expect(within(dialog).getByRole('button', { name: '设置时区' })).toBeTruthy();
-    expect(screen.queryByText('Set the workspace timezone')).toBeNull();
+    expect(screen.queryByText('Set the environment timezone')).toBeNull();
     // An input carrying a suggestion `list` is a combobox to assistive tech.
     expect((within(dialog).getByRole('combobox') as HTMLInputElement).value).toBe(BROWSER_ZONE);
   });
@@ -268,7 +268,7 @@ describe('confirm writes once through the Settings write path; decline writes no
     const puts = settingsCalls('PUT');
     expect(puts).toHaveLength(1);
     expect(JSON.parse(String((puts[0][1] as RequestInit).body))).toEqual({ timezone: 'Europe/Berlin' });
-    expect(toastSuccess).toHaveBeenCalledWith('Workspace timezone set to Europe/Berlin');
+    expect(toastSuccess).toHaveBeenCalledWith('Environment timezone set to Europe/Berlin');
   });
 
   it('confirm without editing writes the pre-filled browser zone', async () => {

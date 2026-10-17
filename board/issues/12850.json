@@ -1,0 +1,35 @@
+{
+  "number": 12850,
+  "kind": "pull_request",
+  "title": "fix(console): pin the Approvals Inbox Approve / Reject column and truncate long record titles (objectui#12816)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T03:17:14Z",
+  "updated_at": "2026-10-17T03:43:55Z",
+  "closed_at": "2026-10-17T03:43:54Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-17T03:43:54Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12850",
+  "body": "Fixes #12816\nClause-②: no\n\nImplemented by session `https://claude.ai/code/session_011vfKFYJe5mXFiDw6F7CHuD` on head `9f7f390`.\n\n## What was wrong (measured, HotCRM under `objectstack dev --fresh`, Chromium)\n\nThe record titles are `nowrap`, and the inbox table uses auto layout, which sizes a column by its content's minimum width. A long title (\"ACC-000011 - Contoso Pharmaceuticals and Life Sciences Group\") therefore held the Record column at 473 px although it is styled `w-[30%]`. The table was 1074 px wide in a 718 px box, and the inline Approve / Reject column sat past the card's right edge. Setting `max-width: 0` on the Record cells alone, in the live page, brought the table to 718 px.\n\n## What changed (`ApprovalsInboxPage.tsx` only)\n\n- Record cells are `max-w-0`. The title no longer sizes its column, so it truncates; its full text stays in `title`, and the link is still the whole title. The Record header keeps a `min-w-40` floor so rows stay distinguishable at 1024 px (without it the column falls to 114 px and every row reads \"ACC-00…\").\n- The Approve / Reject column is pinned to the right edge in the header and in every row: `sticky right-0 z-10`, with the shared `PINNED_RIGHT_SEAM_SHADOW_CLASSES`, inside the overflow box's `seam=\"pinned\"` mode. This is how the console's lists pin their Actions column: the shadow sits on the pinned cells' left edge while the table scrolls under them. The box's own edge overlay is no longer drawn.\n- The pinned cell's fill is the card's (`bg-card`), so a table that does not scroll looks as before. An `::after` layer behind the cell's content redraws the row's hover and keyboard-focus tints on that fill, and the focused row's ring is redrawn on the pinned cell.\n- Tailwind utilities and theme tokens only; no inline style. `packages/components` is untouched, and the shared overflow box is used as published. The other columns' widths, the filters, the inline approve and reject flows, the dialogs, the waiting-on-others section and every `data-testid` are unchanged.\n\n## Before / after (Chromium, three pending account approvals with long titles)\n\n| | table scrollWidth / clientWidth | Record column | Approve / Reject inside the card at rest | Approve / Reject cell |\n|---|---|---|---|---|\n| main `5d69b0e`, 1024 | 1074 / 718 | 473 px | no (all 3 rows) | static |\n| this branch, 1024, light | 762 / 718 | 160 px, titles truncated | yes (all 3 rows) | sticky, seam shadow on |\n| this branch, 1024, dark | 762 / 718 | 160 px, titles truncated | yes | sticky, seam shadow on |\n| main `5d69b0e`, 1280 | 1074 / 974 | 473 px | no | static |\n| this branch, 1280, light | 974 / 974 (no overflow) | 282 px, titles truncated | yes | sticky, seam shadow off |\n\nThe buttons are still revealed on row hover or focus, as before. The table only shows where they sit.\n\n## Screenshots (evidence branch `claude/issue-12816-evidence`, never merged)\n\n- [main, 1024, light (before)](https://github.com/objectstack-ai/objectui/blob/e760383c390964e30e1428bcaa8048203da419d7/docs/design/findings/12816/approvals-inbox-1024-light-main.png?raw=true)\n- [1024, light](https://github.com/objectstack-ai/objectui/blob/e760383c390964e30e1428bcaa8048203da419d7/docs/design/findings/12816/approvals-inbox-1024-light.png?raw=true): second row hovered, Approve / Reject pinned, seam shadow on\n- [1024, dark](https://github.com/objectstack-ai/objectui/blob/e760383c390964e30e1428bcaa8048203da419d7/docs/design/findings/12816/approvals-inbox-1024-dark.png?raw=true)\n- [1280, light (CONTROL)](https://github.com/objectstack-ai/objectui/blob/e760383c390964e30e1428bcaa8048203da419d7/docs/design/findings/12816/approvals-inbox-1280-light.png?raw=true): nothing overflows, titles truncate\n- [1024, light, keyboard-focused row](https://github.com/objectstack-ai/objectui/blob/e760383c390964e30e1428bcaa8048203da419d7/docs/design/findings/12816/approvals-inbox-1024-light-focused-row.png?raw=true): the ring stays continuous across the pinned cell\n- [DOM readings](https://github.com/objectstack-ai/objectui/blob/e760383c390964e30e1428bcaa8048203da419d7/docs/design/findings/12816/dom-readings.json?raw=true)\n\n## Deviations\n\n- `ApprovalsInboxPage.tableOverflow-12708.test.tsx`: the case that checked the box's edge shadow now checks the box's `data-overflow-right` mark, and that the edge overlay stays off. The ruled `seam=\"pinned\"` moves the shadow to the pinned cells.\n- The Record header floor (`min-w-40`) is this PR's choice; the reasoning is in the dev report on the card.\n\n## Test evidence (head `9f7f390`)\n\n- `pnpm exec vitest run` over all 18 `ApprovalsInboxPage.*.test.tsx` files: exit 0, 92 tests passed.\n- New pin `ApprovalsInboxPage.pinnedActions-12816.test.tsx` (stubbed 718 px box, 60-character record title): pinned header and row cells with the seam classes; the Record cell `max-w-0` with the full title in `title`; a short-title CONTROL; the focused row's ring on the pinned cell.\n- Ablations, one per new pin, each restored to the HEAD blob: Record `max-w-0` removed, 1 of 6 red. `sticky right-0` removed, 1 of 6 red. `seam=\"pinned\"` changed to edge, 2 of 6 red. Record floor removed, 1 of 6 red. Focus ring removed, 1 of 6 red. Seam classes removed, 1 of 6 red.\n- `type-check` and `build` for `@object-ui/console` (after the dependency build): exit 0. `eslint` on the touched files: 0 errors.\n- `check:i18n-keys`, `check:i18n-drift`, `check:new-line-citations`, `check-changeset-presence`, `check-changeset-no-major`: all exit 0.\n\n## Acceptance notes\n\n- On main, the 1280 px inbox also overflowed with these titles (1074 in 974). It no longer does.\n- Out of scope and unchanged: the served request page (objectui#12482–#12491) and the list columns' labels (objectui#12608).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_011vfKFYJe5mXFiDw6F7CHuD)_"
+}

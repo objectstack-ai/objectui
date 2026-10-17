@@ -1,0 +1,35 @@
+{
+  "number": 12849,
+  "kind": "pull_request",
+  "title": "fix(app-shell): Studio Interfaces names a package with no app by its display name (objectui#12718)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T03:12:40Z",
+  "updated_at": "2026-10-17T03:39:03Z",
+  "closed_at": "2026-10-17T03:39:01Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-17T03:39:01Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12849",
+  "body": "Fixes #12718\nClause-②: no\n\n## What\n\nOn the Studio Interfaces pillar of a package that has no app yet, the rail heading and the pillar title now name the package by its display name, the same name the top bar shows, instead of its id.\n\n- Before: `COM.QA.RECHECK · NAVIGATION` and title `com.qa.recheck`, under a top bar reading `QA Recheck`.\n- After: `QA RECHECK · NAVIGATION` and title `QA Recheck`.\n\nA package whose manifest declares no name still shows its id, because that is the only name it has.\n\nA draft-only app (created, never published) is now named by the label its pending-draft row serves, as the shell header already names it, instead of by its machine name. A published app keeps its own label.\n\n## Mechanism (measured at main 5e15928)\n\n- `InterfacesPillar` started its app label with `packageId`. The app resolve returned on the no-app branch before it ever set a label, so the id stayed.\n- The package's display name was already in the surface's own `fetchPackages()` answer, the read it makes for the read-only gate. That read now also keeps the package entry, and the surface passes `packageLabel` to the pillar.\n  - No request is added; the test checks that `/api/v1/packages` is read at most once.\n  - The entry is stored with its id, so after a package switch the next package never gets the previous package's name. The pillar is also keyed on `packageId`.\n- The pillar now holds no app label until it finds an app, and reads app label, then package name, then package id.\n- The three readers are unchanged: the rail heading (through `railAppLabel`, objectui#12688), the pillar title, and the create dialog's description.\n- The draft-only path now reads the `_drafts` row's `label` (served since objectstack-ai/objectstack#22200) and falls back to the app name.\n- The published path's final `packageId` fallback can never be reached: a row without a name drops to the drafts or no-app branch. It is left unchanged.\n\n## Tests\n\n`StudioDesignSurface.noAppPackageLabel-12718.test.tsx` renders the real surface with the package list stubbed. It has 4 tests:\n1. A package with no app: the package name appears in the heading and the title, and the id does not appear in the pillar.\n2. A draft-only app with a label: its label is shown.\n3. CONTROL: a published app keeps its own label.\n4. CONTROL: a package with no declared name shows its id.\n\nAblation, with the fix committed first and a trap that restores the file:\n- Dropping the package-name fallback turns test 1 red.\n- Reading the draft name instead of the draft label turns test 2 red.\n- After both, the restored blob 9a25941 equals HEAD.\n\nFamily: 226 files that name `StudioDesignSurface`, `appLabel`, `navHeading` or `displayAppLabel` all pass (1855 tests).\n\n## Live reading\n\nBackend from `e2e/live/ci/start-backend.sh` (published 18.0.0-next.2). `POST /api/v1/packages` with a named manifest and no app returned 201.\n\n- Before: the backend's published console and this branch's console with the file at 5e15928 both show the id.\n- After: this branch's console shows the package name.\n\nScreenshots are on branch `claude/issue-12718-evidence`, under `evidence/12718/`. A live reading of a draft-only app was NOT MEASURED; the unit test covers it.\n\n## Acceptance notes\n\n- `AppSchema.label` is required by the spec, so the existing app-name fallbacks were left in their current order. The package name comes before the id only, not before an app's own name.\n- The surface's package read does not refetch on `objectui:packages-changed` (the top bar does). After a rename made elsewhere, the no-app heading updates on the next remount. Noted, not filed.\n\nClause-② reason: no export, type member, spec key or language-pack key changes. `InterfacesPillar` gains an internal prop and is not exported from the package entry.\n\nProvenance: built by the cloud session `session_017wgGVVegwUuFc4uhBx7Lot` (claim `6228641111`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final message, because a cloud session cannot open a PR from its container. The seat replaced the dev's footer line with this paragraph and changed nothing else.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017wgGVVegwUuFc4uhBx7Lot)_\n"
+}

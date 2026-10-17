@@ -1,0 +1,31 @@
+{
+  "number": 12868,
+  "kind": "pull_request",
+  "title": "feat(app-shell): Studio's Data and Automations pillars show their properties in the right slot (objectui#12725, part)",
+  "state": "open",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T08:20:54Z",
+  "updated_at": "2026-10-17T08:22:26Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12868",
+  "body": "Part of #12725\nClause-②: no\n\n## What changes\n\nItem 3 of the card says properties follow the selection in every pillar. The maintainer ruled 「studio 中其他的设计面板属性都是右侧打开的」 and 「属性好需要考虑选中每个元素的时候也要显示」. This PR moves the Data and Automations pillars' properties into the Studio right slot, through the seam PR #12863 added (`useStudioRightSlot`: `claimProps`, a portal into `propsTarget`, `showProps` when the selection's identity changes). It replaces each pillar's own aside.\n\n- **Data.** Selecting a field or form section (Records grid or Form tab) switches the slot to 属性, with `data-field-inspector` inside the slot. Nothing is drawn beside the canvas any more.\n  - With nothing selected the pillar has no properties panel, so it holds the slot only while a selection stands.\n  - Esc, a click on empty canvas or ✕ drops the selection and hands the slot back to the copilot. With no copilot served, the slot hides again.\n  - Esc pressed inside the slot's inspector now counts as the pillar's.\n- **Automations.** The flow's Configuration lives in the slot: its empty sentence with nothing selected, and the node's or edge's configuration on a selection, which switches the slot to 属性.\n  - Esc (new, slot only) and the canvas's existing background press return to the flow's Configuration.\n  - In the slot, the narrow-row drawer from objectui#11795 has no job, because the Configuration takes no width from the row. It stays for the classic layout: the package-less scope and an injected `aiSlot`.\n- **Access** has no properties host (its panels are in the main column and in dialogs), so it is untouched.\n- **A hidden slot** stays hidden on a selection, as on Interfaces, and opens on 属性 when shown.\n\n`DataPillar` and `AutomationsPillar` keep their exported signatures. No spec key, export, prop or language-pack key changes, and no new copy.\n\n## Tests\n\n- New `StudioDesignSurface.pillarsClaimSlot-12725.test.tsx`, 14 surface-level tests: Data 6, Automations 7, and an Access control.\n- Each behaviour was proven red by ablation on committed HEAD (blob `89f1781`). Every restore was proven equal to HEAD with an empty `git diff HEAD`.\n  - Data: portal 5 red, showProps 2, claim 3, slot-scope Esc 1, empty click 1.\n  - Automations: portal 7 red, showProps 5, Esc 1, drawer gate 1, claim 5.\n- Re-pointed, each with its reason in a comment:\n  - `rightSlot-12725`: its two \"claims nothing\" controls move from Data to Access. The Interfaces pins are unchanged and green.\n  - `autosaveSwitch-11232` and `heldPublish-11786`: read the Configuration by its test id, because it now sits inside the slot's own `aside`.\n- Runs:\n  - Full `pnpm --filter @object-ui/app-shell test` on the first commit: 1534 files green, 1 red (`heldPublish-11786`), fixed in the next commit.\n  - On the merged head: `studio-design` plus `layout` gave 307 files and 2165 tests green.\n  - type-check clean; changeset and path gates green; eslint 0 errors.\n\n## Live reading\n\nEvidence branch `claude/issue-12725b-evidence`, folder `evidence/12725b/`: 48 PNGs and a README with DOM measurements.\n\n- Setup: published backend, ObjectStack Showcase, before at `34354a4` and after on this branch, 1010 and 1280 px.\n- Copilot shots: the community build serves no agent, so those runs stub `GET /api/v1/ai/agents` in the browser.\n- At 1280 px with the copilot:\n  - before: the Data and Automations asides sat beside the slot (four columns) and the flow canvas was 380 px;\n  - after: the canvas is 680 px and the properties are in the slot, with the copilot strip at its foot.\n- At 1010 px with the copilot: before, a node opened a drawer over the canvas; after, it opens the slot's 属性.\n\n## Acceptance notes\n\nStill open on #12725, not this PR:\n- selection inside an object or view leaf: an optional channel on `StudioCanvasPreviewProps`, which is `Clause-②: yes`;\n- the copilot's 草稿 chip and 来源 line;\n- change card v2;\n- the 变更 badge counting the copilot's drafts.\n\nRecorded, not filed:\n- With no copilot served, the 360 px slot at 1280 replaces a 300 px aside, so a selected flow's canvas reads 680 px instead of 740 px. That is the slot's ruled width.\n- After Esc on the flow canvas, the clicked node keeps a focus ring (focus, not selection), as phase 1 recorded for dashboards.\n- Phase 1's pending changeset `12725-studio-right-slot.md` said the Data, Automations and Access pillars keep their own asides. On the seat's ruling, this PR's last commit rewrites that one sentence, so the two entries agree when they release together.\n\nProvenance: built by the cloud session `session_015ToSMnTSEnQUiLrsKjBy3E` (claim `6230887834`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final message, because a cloud session cannot open a PR from its container. The seat replaced the dev's footer line with this paragraph, and replaced the last Acceptance-notes bullet (which left the phase 1 sentence to the seat) with what the follow-up commit did on the seat's ruling. Nothing else was changed.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_015ToSMnTSEnQUiLrsKjBy3E)_\n"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 12861,
+  "kind": "pull_request",
+  "title": "fix(types): type dueLike by reference and declare settledWhen on date and datetime field metadata (objectui#12297)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T05:24:26Z",
+  "updated_at": "2026-10-17T05:53:14Z",
+  "closed_at": "2026-10-17T05:53:12Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-17T05:53:12Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12861",
+  "body": "Fixes #12297\nClause-②: yes\n\n## What changed\n\n**`@object-ui/types`, `packages/types/src/field-types.ts`**\n\n- `DateFieldMetadata.dueLike` and `DateTimeFieldMetadata.dueLike` are typed by reference, `SpecField['dueLike']`. This is the file's existing idiom (`import type { Field as SpecField } from '@objectstack/spec/data'`, the same one `visibleWhen`, `currencyConfig` and `inlineHelpText` use). `Field` is the spec's `z.input` face, so the authored shapes are what the type admits. The value type is unchanged.\n- `settledWhen` is new on both interfaces, typed `SpecField['settledWhen']`. That is the spec's expression input: a bare CEL string or the `{ dialect, source }` envelope. The doc comments follow the spec: a CEL predicate over `record`, display only, `date` / `datetime` only, and accepted only beside `dueLike: true`.\n- The doc comments also say two things the runtime does not do yet. First, the spec reads an absent or `false` `dueLike` as 'not a deadline', but today's date cells still fall back to the field-name convention. Second, `settledWhen` is declared, not yet rendered. Both reads belong to objectui#11815, which is not addressed here and remains open.\n\n**Faces left as they are, and why**\n\n- `DetailViewFieldSchema.dueLike` (`views.ts` and its `zod/views.zod.ts` mirror) is not re-typed. The spec declares `dueLike` only on `FieldSchema`. The detail-view entry is an objectui view key of the same name, with its own documented precedence and fallback, and its type already equals the spec's `boolean | undefined`. Typing it by reference would claim a spec row that does not exist, and no `settledWhen` is added there for the same reason.\n- No zod mirror of field metadata exists under `packages/types/src/zod/`, so nothing was added there.\n\n**Docs**\n\n- `content/docs/fields/date.mdx` and `content/docs/fields/datetime.mdx` name both keys as `FieldSchema.dueLike` / `FieldSchema.settledWhen` and add a typed `settledWhen` snippet each (bare string on date, envelope on datetime). They state the spec's 'absent is not a deadline' alongside today's name fallback, and that `settledWhen` is declared and not yet rendered.\n- `content/docs/api/schema-reference.md`: the detail-view `dueLike` note adds that `settledWhen` is an object-metadata key (a detail-view entry does not carry it), declared and not yet rendered.\n\nA stale header in `field-metadata-family-retired-12242.test.ts` said the installed spec refuses `dueLike`. It now points at this card's pin.\n\n## Spec version and where each reference resolves\n\nThe installed `@objectstack/spec` is `18.0.0-next.2`; `packages/types/package.json` declares `^18.0.0-next.2`. In its `src/data/field.zod.ts`, `FieldSchema` declares:\n\n- `dueLike: z.boolean().optional().describe(\"Deadline semantic (date / datetime only): TRUE declares this date a deadline ...\")`\n- `settledWhen: EvaluatedExpressionInputSchema.optional().describe(\"Predicate (CEL) — the deadline is SETTLED while TRUE ...\")`\n\nThe type-only export `Field = z.input of FieldSchema` is what `SpecField` names.\n\n## Test evidence (HEAD 868d7b8)\n\n- New pin `packages/types/src/__tests__/field-metadata-deadline-by-reference-12297.test.ts`:\n  - Exact `Equal` checks that `DateFieldMetadata` and `DateTimeFieldMetadata` `dueLike` / `settledWhen` equal `SpecField` of the same key.\n  - Control: neither key is in `keyof TimeFieldMetadata` or `keyof TextFieldMetadata`, and fresh `time` / `text` literals carrying them are refused.\n  - Runtime half against the installed `FieldSchema`: accepts both keys in both wire shapes; refuses `dueLike` on `time` and `settledWhen` without `dueLike: true`, each beside an accepting control.\n- Ablation, once: replacing `DateFieldMetadata`'s `SpecField['settledWhen']` with a local `string` made `tsc -p tsconfig.test.json` exit 2 with TS2344 on exactly that `Equal` row. Restored, with the file's HEAD blob hash matching and `git diff HEAD` empty.\n- `pnpm --filter @object-ui/types test`: 386 files, 10513 tests passed.\n- `pnpm --filter @object-ui/types type-check`, `lint` (0 errors; the 3 warnings on `field-types.ts` are pre-existing) and `build`: exit 0.\n- `pnpm check:spec-symbols`: exit 0, output identical before and after.\n- Docs gates `check:doc-snippets` (801 of 801 blocks), `check:doc-examples`, `check-doc-json-fences`, `check-doc-links`, `check-doc-component-types`, `check-doc-example-ids`, plus `check-control-bytes`, `check-changeset-presence` and `check:new-line-citations`: exit 0.\n\nNo screenshots: this change moves no pixel.\n\nImplemented in session `https://claude.ai/code/session_01Qe458QJ3QyHSzgf9t1dDEH`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01Qe458QJ3QyHSzgf9t1dDEH)_"
+}

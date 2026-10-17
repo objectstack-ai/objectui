@@ -1,0 +1,35 @@
+{
+  "number": 12847,
+  "kind": "pull_request",
+  "title": "fix(app-shell): a create flow never saves the spec seed's placeholder identity (objectui#12810)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T02:36:40Z",
+  "updated_at": "2026-10-17T03:11:40Z",
+  "closed_at": "2026-10-17T03:11:39Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-17T03:11:39Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12847",
+  "body": "Fixes #12810\nClause-②: no (designer only; the package entry, its exports and types are unchanged)\n\n## What changes\n\nA create flow no longer saves the spec create seed's placeholder identity. The seed module's header in `@objectstack/spec` says each seed carries placeholder identity (`name` / `label` / object binding) and that \"a create flow overrides those from user input\". The designer's create path spread the seed under the draft, so any of those the author left unset was saved as the seed's value. For a dataset with no base object, that was the seed's placeholder object, and every read of the dataset was then refused.\n\n- `buildCreateModeBody` (`createBody.ts`) keeps the seed's structural defaults (a dataset's `count` measure, a dashboard's `widgets`, an action's `type`/`body`, …) and drops its placeholder identity keys. Those values now come from the author's draft, or not at all.\n- The placeholder identity keys are found by `seedPlaceholderKeys`: `name`, `label`, and every top-level key whose value is the spec's placeholder object. That value is read from the spec seeds (`getMetadataCreateSeed` over `listMetadataCreateSeedTypes`), not restated: the spec keeps its `PLACEHOLDER_OBJECT` constant and `BUILTIN_METADATA_CREATE_SEEDS` module-private, so the installed `@objectstack/spec` exports only those two functions. `mapping.targetObject` is found by its value.\n- The save gate is the shared one: `doSave` in `ResourceEditPage.tsx`, used by every designer (the dataset designer has no gate of its own). After the existing empty-name refusal, `unsetSeedPlaceholders` names each placeholder key the author left blank that the LIVE server schema (the `/meta/types` entry's `required`) requires. If there is one, Save is refused before any request, with the message \"Set “object” before saving: a new item is never saved with the placeholder its template starts from.\" Reading the live `required` keeps this gate from being stricter than the server.\n- One new designer string, `engine.validation.seedPlaceholderUnset`, in both tables of the designer catalogue (`views/metadata-admin/i18n.ts`, en-US and zh-CN).\n\n### Per seed, from the enumeration pin\n\n| seed | placeholder keys | when the author leaves it unset |\n|---|---|---|\n| dataset | name, label, object | name: empty-name refusal; label and object: refused at the client |\n| hook | name, label, object | object refused; label not required, saved without one |\n| mapping | name, label, targetObject | targetObject refused; label saved without one |\n| page | name, label, object | label refused; object not required, saved unbound |\n| action, agent, dashboard, email_template, flow, skill, tool | name, label | label refused |\n| object, permission, translation | name, label | label saved without one |\n| view | name, object, label | its `createBuildBody` builds the body from the draft alone; the seed is not read (unchanged) |\n\nBefore this change, every \"refused\" and \"saved without one\" cell above saved the seed's value instead (`New Dataset`, the placeholder object, …). A name was already refused when empty.\n\n## Tests\n\n- `createBody.seedPlaceholders-12810.test.ts`, the enumeration pin. It iterates every entry of `listMetadataCreateSeedTypes()`. (1) The per-type placeholder listing above must equal what `seedPlaceholderKeys` finds, so a new seed or a new placeholder turns it red until it is listed. (2) A placeholder object nested where the create flow cannot take it out (not top level, no `createBuildBody`) turns it red. (3) For each type, a pristine create draft yields a body with no placeholder value anywhere, and each key gets the fate its row lists. (4) Control: with the author's values set, they are carried, nothing is refused, and every other seed default is kept. It reads no source text.\n- `ResourceEditPage.seedPlaceholder-12810.test.tsx`: the real page, the real dataset designer and a real `MetadataClient` over an in-memory server that records every `PUT`. The types entry carries the spec seed and the dataset JSON schema. (a) Label `Probe Ds` (Name derives `probe_ds`), no base object, Save → the refusal names `object`, and zero `PUT`s. (b) With base object `crm_account` picked, one `PUT`: `object: crm_account`, `label: Probe Ds`, and no placeholder anywhere in the body.\n- `createBody.test.ts` (existing): unchanged and green.\n\n### Ablation\n\nThe mutation was made with `ablation-replace.mjs` (`--delete`). It deleted the line in `buildCreateModeBody` that drops the placeholder keys. On disk: anchor count 1 → 0, blob `3384b667c05e` → `44cc85612aac`. Both new files then ran **16 failed / 19 passed**: (a), all 14 seed-carrying rows of the pin's per-type test, and the dataset `count` test went red. (b), the controls and `view` stayed green. After the restore, the blob equals `HEAD` (`3384b667c05e`) and `git diff HEAD` is empty. A first attempt passed `--replacement ''`. The tool refused it as a no-op (its count did not move) and restored the file, so that run measured nothing; it is not counted.\n\n## Gates\n\nReported in the os-dev report on the card, all on this branch's head.\n\n## Acceptance notes\n\n- In the dataset designer, the base-object picker resets `measures` to `[]` the first time an object is picked (`objectChangePatch` from the empty value). So the normal create flow (pick an object, then save) saves `measures: []`, not the seed's `count`. The page test saw this. This PR does not change that picker; it is reported to the seat.\n- The `object` seed's `pluralLabel` (`New Objects`) is a label-family placeholder that the spec header does not list as identity. It is left as is; the create form derives it from the Label.\n\n---\n\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

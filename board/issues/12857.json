@@ -1,0 +1,35 @@
+{
+  "number": 12857,
+  "kind": "pull_request",
+  "title": "fix(plugin-dashboard): a layout-less metric tile spans one row, and a geometry pin holds one-row tiles at content height (objectui#12704)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T04:27:05Z",
+  "updated_at": "2026-10-17T04:53:00Z",
+  "closed_at": "2026-10-17T04:52:58Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-17T04:52:58Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12857",
+  "body": "Fixes #12704\nClause-②: no\n\n## What changed\n\n- **One default** (`packages/plugin-dashboard/src/DashboardRenderer.tsx`, `fallbackSpan` in `renderWidget`): on a dashboard that declares `columns`, a metric widget with no `layout` now spans `h: 1` instead of `h: 2`. That is the height `DashboardEditor`'s `addWidget` gives a new widget. Non-metric widgets keep `h: 4`. An authored `layout.h` is unchanged.\n- **The geometry pin** `e2e/dashboard-metric-tile-height.spec.ts`, beside `e2e/sidebar-offcanvas-geometry.spec.ts`. It bundles the real `DashboardRenderer` and its imports from source with Vite (each `@object-ui/*` resolved to its `src/`, built in memory). It mounts the bundle in Chromium with React's client renderer, so the dataset tile goes through its real loading effect. The data source is a stub `queryDataset` (the `dataSource` prop the renderer takes). No server runs. The stylesheet is the real theme sheet, `packages/components/src/index.css`, compiled with Tailwind for the classes on the page.\n- **The default's unit pin** `packages/plugin-dashboard/src/__tests__/DashboardRenderer.metricFallbackSpan-12704.test.tsx`: a layout-less metric spans `span 3` / `span 1`. Two CONTROLs: an authored `layout.h: 2` keeps `span 2`, and a layout-less table keeps `span 6` / `span 4`.\n- A `patch` changeset for `@object-ui/plugin-dashboard`.\n- Unchanged, as rulings B and B′ bind: the grid rule (`minmax(5rem, auto)`, `span h`), `MetricCard.tsx`, the tile padding and chrome, `DashboardEditor.tsx`. No `packages/spec` change.\n\n## Why the pin is a Playwright spec\n\nThe claims are heights the grid computes. jsdom has no layout engine, so the `__tests__` shape could only pin the span, and it does that for the default. Its stub is a JavaScript object, not a server, so the ruling's fallback (letter D) does not apply.\n\n## Measured heights (Chromium, light, 12 columns, quarter-width tile)\n\n| case | 1280 px | 1024 px |\n| --- | --- | --- |\n| `h: 1`, bare value (title, value, measure label) | 124.38 | 124.38 |\n| `h: 1`, with a delta line | 146.38 | 146.38 |\n| `h: 2` CONTROL | 176 (2 x 80 + 16) | 176 |\n| bare and delta in one row | both 146.38 | both 146.38 |\n\nThe 1280 readings equal the earlier live console measurement on the HotCRM scratch dashboard (124.38 / 146.38 / 176). At 1024 the fixture has no sidebar, so the tile stays wider than 160 px and its measure label shows. In the console with the sidebar, the tile was narrower and measured 117.75 px. The pin asserts relations, not pixel equality across fonts:\n\n- a one-row box ends at its last line plus the padding and border below it (25 px here);\n- the delta tile is taller than the bare one;\n- the `h: 2` tile is two rows plus the gap, with more than 40 px of empty lower half;\n- tiles in one row align on the tallest.\n\nScreenshots, evidence branch only (never merged):\n- [1280 px](https://github.com/objectstack-ai/objectui/blob/e1483b8e5ab88e3c1f019df72f5d04c302bace6f/docs/design/findings/12704/metric-tile-heights-1280-light.png?raw=true)\n- [1024 px](https://github.com/objectstack-ai/objectui/blob/e1483b8e5ab88e3c1f019df72f5d04c302bace6f/docs/design/findings/12704/metric-tile-heights-1024-light.png?raw=true)\n\n## The two metadata cards\n\nNeither has landed. On objectstack `main` `9ffe8af` System Overview's 6 metric tiles are still `h: 2` (objectstack-ai/objectstack#24126). On hotcrm `main` `4f82b81` Sales Performance's KPI tiles are still `h: 2` (objectstack-ai/hotcrm#2135). The screenshot acceptance of Sales Performance and System Overview waits for them, as ruled.\n\n## Test evidence (HEAD `a20446a`)\n\n- The pin: `CI=1 playwright test` with the repo's `playwright.config.ts`, project `chromium`, on `e2e/dashboard-metric-tile-height.spec.ts` and `e2e/sidebar-offcanvas-geometry.spec.ts`: 8 expected, 0 unexpected, 0 flaky. Local differences from CI: a launch `executablePath` for the preinstalled Chromium, and no console preview server (neither spec uses it). Stable over `--repeat-each=4`.\n- Ablations, each through `ablation-replace` with on-disk proof and a restore to `git diff HEAD` empty:\n  - bare tile forced to `h: 2`: red (span check);\n  - row floor `minmax(5rem, auto)` changed to `minmax(12rem, auto)`, span unchanged: red, \"bare: the one-row box runs 67.63px past its content and padding\";\n  - default reverted to `h: 2`: the unit pin goes red (expected `span 1`, received `span 2`) and both CONTROLs stay green.\n- `pnpm --filter @object-ui/plugin-dashboard test`: exit 0, 183 files passed, 1814 tests passed, 6 skipped (run on `b6dfaf0`; no plugin-dashboard file changed after it).\n- `type-check`, `lint`, `build` for `@object-ui/plugin-dashboard`: exit 0 each (lint warnings only, none on changed lines).\n- `pnpm type-check:e2e` exit 0. `scripts/__tests__/e2e-type-check.test.ts` 15/15. ESLint on the touched files exit 0.\n- `node scripts/check-changeset-presence.mjs` exit 0. `pnpm check:new-line-citations` reports 0 new.\n\n## Acceptance notes\n\n- `defaultWidgetPlacement` in `packages/types` still gives every layout-less widget `h: 4` in the editable grid (`DashboardGridLayout`, the `DashboardWithConfig` sliders), metrics included. The read grid now says 1 row for a layout-less metric, while edit mode says 4. That function is outside this card's claimed files, so it is untouched here. Not reproduced live.\n\nSession: `https://claude.ai/code/session_01BxWPtU5qnbTX3RoZJqNSza`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01BxWPtU5qnbTX3RoZJqNSza)_"
+}

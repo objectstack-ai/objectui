@@ -36,7 +36,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 const { execute, listRuns, catalog, ADAPTER } = vi.hoisted(() => {
-  const catalog = { flows: [] as Array<{ spec: Record<string, unknown> }> };
+  const catalog = { flows: [] as Array<Record<string, unknown>> };
   const execute = vi.fn(async () => ({ success: true, status: 'completed', durationMs: 1 }));
   const listRuns = vi.fn(async () => ({ runs: [] }));
   // A STABLE singleton: a fresh object per render loops the page's fetch effects.
@@ -56,8 +56,9 @@ vi.mock('@object-ui/app-shell', async (importOriginal) => ({
 // Imported AFTER the mocks so the page picks them up.
 import { FlowRunsPage } from './FlowRunsPage';
 
-const REASSIGN = { spec: { name: 'reassign_wizard', label: 'Reassign', variables: [] } };
-const NIGHTLY = { spec: { name: 'nightly_sync', variables: [] } };
+// Flows as the server lists them: flattened, `name` and `label` on the item (objectui#12829).
+const REASSIGN = { name: 'reassign_wizard', label: 'Reassign', variables: [] };
+const NIGHTLY = { name: 'nightly_sync', variables: [] };
 
 beforeEach(() => {
   catalog.flows = [REASSIGN, NIGHTLY];

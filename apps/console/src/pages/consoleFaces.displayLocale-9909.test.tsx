@@ -70,7 +70,7 @@ const { STORED, approvalsApiStub, ADAPTER, AUTH, I18N } = vi.hoisted(() => {
   // its flow and run loads on it, so a fresh one per call re-ran them on every
   // render and its runs table never settled (objectui#11865 surfaced it).
   const client = {
-    meta: { getItems: async (type: string) => (type === 'flow' ? [{ spec: { name: 'sync_flow', label: 'Sync' } }] : []) },
+    meta: { getItems: async (type: string) => (type === 'flow' ? [{ name: 'sync_flow', label: 'Sync' }] : []) },
     automation: { execute: async () => ({ success: true }), listRuns, getRun: async () => ({ run: null }) },
   };
   const ADAPTER = {

@@ -66,7 +66,6 @@ interface FlowItem {
   name: string;
   label?: string;
   spec?: any;
-  updatedAt?: string;
 }
 
 interface RunSummary {
@@ -218,15 +217,14 @@ export function FlowRunsPage() {
         : Array.isArray(result?.items)
           ? result.items
           : [];
-      // The served list is flattened: `name` and `label` sit on the item
-      // itself, with no `spec` member. Both are read the same way, `spec`
-      // first, so the picker names a labelled flow `label (name)` on the list
-      // the server answers (objectui#12783).
+      // The served list is flattened: each item IS the flow definition, its
+      // `name` and `label` on the item itself, so the picker names a labelled
+      // flow `label (name)` (objectui#12783). No server wraps an item in a
+      // `spec` member, so none is read (objectui#12829).
       const normalized: FlowItem[] = items.map(it => ({
-        name: it?.spec?.name ?? it?.name,
-        label: it?.spec?.label ?? it?.label,
-        spec: it?.spec ?? it,
-        updatedAt: it?.updatedAt ?? it?.updated_at,
+        name: it?.name,
+        label: it?.label,
+        spec: it,
       })).filter(f => f.name);
       setFlows(normalized);
       if (!selectedFlowName && normalized.length > 0) {

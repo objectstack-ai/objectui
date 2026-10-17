@@ -40,7 +40,8 @@ const { execute, ADAPTER, authFetch } = vi.hoisted(() => {
   }));
   const ADAPTER = {
     getClient: () => ({
-      meta: { getItems: async (type: string) => (type === 'flow' ? [{ spec: flow }] : []) },
+      // The served list item IS the flow definition (objectui#12829).
+      meta: { getItems: async (type: string) => (type === 'flow' ? [flow] : []) },
       automation: { execute, listRuns: async () => ({ runs: [] }) },
     }),
   };

@@ -77,13 +77,12 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 import { FlowRunsPage } from './FlowRunsPage';
 import { PublicFormsPage } from './PublicFormsPage';
 
-/** A flow definition, as `meta.getItems('flow')` rows carry it. */
+/** A flow definition, as `meta.getItems('flow')` rows carry it: the item IS
+ *  the definition, flattened, with no `spec` member (objectui#12829). */
 const FLOW = {
-  spec: {
-    name: 'reassign_wizard',
-    label: 'Reassign',
-    variables: [{ name: 'recordId', type: 'text', isInput: true }],
-  },
+  name: 'reassign_wizard',
+  label: 'Reassign',
+  variables: [{ name: 'recordId', type: 'text', isInput: true }],
 };
 
 /** A published public form, on the `ViewItem` shape `GET /meta/view` serves:

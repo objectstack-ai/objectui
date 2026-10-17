@@ -153,10 +153,19 @@ export type { KanbanCard, KanbanColumn } from './types'
 // `@object-ui/types` gives the grid's and list view's rule (objectui#6349,
 // batch 7); no package entry reached the alias.
 
+/**
+ * The event a card activation hands `onCardClick`: the pointer click, or the
+ * Enter / Space key that activates a focused card the same way
+ * (objectui#12883). Both carry what the readers of this channel take from it —
+ * `target` for the popover anchor, `metaKey` / `ctrlKey` for open-in-new-tab;
+ * a key event has no `button`, so it never reads as a middle click.
+ */
+export type KanbanCardActivationEvent = React.MouseEvent | React.KeyboardEvent
+
 export interface KanbanBoardProps {
   columns: KanbanColumn[]
   onCardMove?: (cardId: string, fromColumnId: string, toColumnId: string, newIndex: number) => void
-  onCardClick?: (card: KanbanCard, event?: React.MouseEvent) => void
+  onCardClick?: (card: KanbanCard, event?: KanbanCardActivationEvent) => void
   className?: string
   quickAdd?: boolean
   onQuickAdd?: (columnId: string, title: string) => void
@@ -218,7 +227,7 @@ function getCardStyles(
   return resolveConditionalFormatting(card as Record<string, unknown>, rules as any, scope, objectFields as never) as React.CSSProperties
 }
 
-function SortableCard({ card, onCardClick, conditionalFormatting, objectFields }: { card: KanbanCard; onCardClick?: (card: KanbanCard, event?: React.MouseEvent) => void; conditionalFormatting?: KanbanConditionalFormattingRule[]; objectFields?: unknown }) {
+function SortableCard({ card, onCardClick, conditionalFormatting, objectFields }: { card: KanbanCard; onCardClick?: (card: KanbanCard, event?: KanbanCardActivationEvent) => void; conditionalFormatting?: KanbanConditionalFormattingRule[]; objectFields?: unknown }) {
   // A disabled sortable attaches no drag listeners and reports
   // `aria-disabled` (objectui#12082).
   const movable = React.useContext(KanbanCardsMovable)
@@ -244,8 +253,38 @@ function SortableCard({ card, onCardClick, conditionalFormatting, objectFields }
   const owner = (card as { cardOwner?: KanbanCardOwner }).cardOwner
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} role="listitem" aria-label={card.title}
+    // objectui#12883 — the list item and the control are two elements. The
+    // card is a tab stop (dnd-kit's `tabIndex`), so it is a control a key
+    // activates: a `button`, the role dnd-kit itself gives a draggable, whose
+    // Enter and Space take the SAME `onCardClick` a pointer click takes. A
+    // `button` cannot also be the `listitem` its `list` needs, so the item
+    // wraps it — the APG shape for an activatable item in a list. The
+    // description dnd-kit points `aria-describedby` at (objectui#12837) stays
+    // on the focusable element, where it is read.
+    <div role="listitem" aria-label={card.title}>
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} role="button" aria-label={card.title}
       onClick={(e) => onCardClick?.(card, e)}
+      onKeyDown={(e) => {
+        // A key on something inside the card (a link a field renders) is that
+        // element's own; only the card's own key opens it.
+        if (e.target !== e.currentTarget) return
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          onCardClick?.(card, e)
+        } else if (e.key === ' ') {
+          // A button activates on Space's release; held here, the press
+          // would scroll the board. No sensor binds a key (the board builds
+          // pointer and touch only), so Space is free.
+          e.preventDefault()
+        }
+      }}
+      onKeyUp={(e) => {
+        if (e.target !== e.currentTarget) return
+        if (e.key === ' ') {
+          e.preventDefault()
+          onCardClick?.(card, e)
+        }
+      }}
     >
       <Card className={cn("mb-2 border-border border-l-4 border-l-primary/40 bg-card/60 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 group touch-manipulation", movable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer")} style={cardStyles}>
         {card.coverImage && (
@@ -327,6 +366,7 @@ function SortableCard({ card, onCardClick, conditionalFormatting, objectFields }
           </CardContent>
         )}
       </Card>
+    </div>
     </div>
   )
 }
@@ -607,7 +647,7 @@ function KanbanColumnView({
 }: {
   column: KanbanColumn
   cards: KanbanCard[]
-  onCardClick?: (card: KanbanCard, event?: React.MouseEvent) => void
+  onCardClick?: (card: KanbanCard, event?: KanbanCardActivationEvent) => void
   quickAdd?: boolean
   onQuickAdd?: (columnId: string, title: string) => void
   conditionalFormatting?: KanbanConditionalFormattingRule[]

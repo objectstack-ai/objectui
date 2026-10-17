@@ -99,7 +99,8 @@ async function renderBoard(lang: 'en' | 'zh') {
 
 /** What the live region says now. */
 const said = () => document.querySelector('[id^="DndLiveRegion"]')?.textContent ?? null
-const card = (title: string) => screen.getByRole('listitem', { name: title })
+// The sortable node — the `button` inside each card's `listitem` (objectui#12883).
+const card = (title: string) => screen.getByRole('button', { name: title })
 
 /**
  * Pick the card up with the pointer, then move it through `bands` (band 1, 2,
@@ -217,7 +218,7 @@ describe('the kanban board announces titles and labels, not ids (objectui#12716)
       </I18nProvider>,
     )
     await screen.findByText(NO_CARDS.en)
-    const el = document.querySelector('[aria-roledescription="sortable"][role="listitem"]') as HTMLElement
+    const el = document.querySelector('[aria-roledescription="sortable"][role="button"]') as HTMLElement
     el.dataset.cardId = CONTENT
     const heard = pointerDrag(el, [DOING])
     expect(heard[0]).toBe('Picked up an untitled card in To Do.')

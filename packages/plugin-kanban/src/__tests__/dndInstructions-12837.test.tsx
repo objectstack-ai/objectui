@@ -72,7 +72,9 @@ async function renderBoard(lang: 'en' | 'zh') {
   await screen.findByText(NO_CARDS[lang])
 }
 
-const card = () => screen.getByRole('listitem', { name: 'Content backlog' })
+// The focusable control, which carries the description; since objectui#12883
+// it is the `button` inside the card's `listitem`.
+const card = () => screen.getByRole('button', { name: 'Content backlog' })
 
 /** The text of the node the card's `aria-describedby` points at. */
 function description(el: HTMLElement): string {

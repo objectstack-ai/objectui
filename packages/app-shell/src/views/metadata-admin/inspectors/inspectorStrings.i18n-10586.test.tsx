@@ -246,7 +246,7 @@ const DATASET_EN = [
   'Description',
   'Base object',
   'Select an object…',
-  'Changing the base object clears its dimensions, measures, joins & filters.',
+  'Changing the base object clears its dimensions, field measures, joins & filters; a row count is kept.',
   'Included relationships',
   'Add',
   'No joins. Add a relationship (a lookup field on the base object) to use relationship.field dimensions/measures.',

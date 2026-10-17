@@ -120,8 +120,12 @@ const SCROLL_AREA_STYLE =
  * The AUTHORED (`cards`) spelling, measured on `origin/main` @ `78a3cc238`
  * through `measure()` below with both declarations still saying `items`. The
  * repair must not move any of these numbers.
+ *
+ * ⚠️ SUPERSEDED as the expected reading by objectui#12837, and kept for the
+ * reason `ITEMS_SPELLING_6939` is kept: `PRE_REPAIR` below is this reading with
+ * ONE string swapped, and that swap is asserted.
  */
-const PRE_REPAIR: Record<(typeof IDS)[number], Reading> = {
+const PRE_REPAIR_PRE_12837: Record<(typeof IDS)[number], Reading> = {
   'plugin-kanban/basic-kanban-board': {
     elements: 64,
     tags: { DIV: 52, SPAN: 6, H3: 3, STYLE: 3 },
@@ -164,8 +168,12 @@ const ITEMS_SPELLING_6939: Record<(typeof IDS)[number], Reading> = {
 };
 
 /**
- * The `items` spelling as it reads TODAY, after objectui#9170 removed the lane
- * count from the board-level empty state's description.
+ * The `items` spelling after objectui#9170 removed the lane count from the
+ * board-level empty state's description.
+ *
+ * ⚠️ SUPERSEDED as the expected reading by objectui#12837 (see
+ * `ITEMS_SPELLING` below), and kept: the objectui#9170 delta case still
+ * compares against it, and the objectui#12837 delta case starts from it.
  *
  * ⭐ Written as its own literal rather than derived from the baseline above: a
  * computed expectation would agree with that baseline by construction, and the
@@ -178,7 +186,7 @@ const ITEMS_SPELLING_6939: Record<(typeof IDS)[number], Reading> = {
  * description as `{description && <p …>{description}</p>}`, and route 3 passes
  * none.
  */
-const ITEMS_SPELLING: Record<(typeof IDS)[number], Reading> = {
+const ITEMS_SPELLING_PRE_12837: Record<(typeof IDS)[number], Reading> = {
   'plugin-kanban/basic-kanban-board': {
     elements: 44,
     tags: { DIV: 31, SPAN: 6, H3: 4, STYLE: 3 },
@@ -190,6 +198,66 @@ const ITEMS_SPELLING: Record<(typeof IDS)[number], Reading> = {
     tags: { DIV: 39, SPAN: 9, H3: 5, STYLE: 4 },
     sha256: '6adfe4595da25bb8e84f679d3e7e4517258ad5eac8facbd5cc9c6632f8fa8e76',
     visibleText: "No cardsBacklog0Work In Progress0 / 3Code Review0Completed0\n    To pick up a draggable item, press the space bar.\n    While dragging, use the arrow keys to move the item.\n    Press space again to drop the item in its new position, or press escape to cancel.\n  ",
+  },
+};
+
+/**
+ * dnd-kit's default screen-reader instructions, which every card's
+ * `aria-describedby` pointed at until objectui#12837 (the board's hidden
+ * instructions node; its text lands in `textContent`).
+ */
+const DND_KIT_DEFAULT_INSTRUCTIONS =
+  '\n    To pick up a draggable item, press the space bar.\n    While dragging, use the arrow keys to move the item.\n' +
+  '    Press space again to drop the item in its new position, or press escape to cancel.\n  ';
+
+/**
+ * What the board's instructions node reads since objectui#12837: the en value
+ * of `kanban.dnd.instructions`. This harness mounts no translation provider,
+ * so the text comes from `useKanbanT`'s provider-less defaults in
+ * `packages/plugin-kanban/src/KanbanImpl.tsx`, which `pnpm check:i18n-keys`
+ * holds equal to the en pack. This package does not depend on
+ * `@object-ui/i18n`, so the value is held here once rather than imported.
+ */
+const KANBAN_DND_INSTRUCTIONS_EN = 'To move this card to another column, drag it with a pointer or by touch.';
+
+/**
+ * The AUTHORED (`cards`) spelling as it reads TODAY, after objectui#12837
+ * replaced the board's instructions text. Written as its own literal, not
+ * derived from `PRE_REPAIR_PRE_12837`, so the delta case compares two
+ * independently written readings.
+ */
+const PRE_REPAIR: Record<(typeof IDS)[number], Reading> = {
+  'plugin-kanban/basic-kanban-board': {
+    elements: 64,
+    tags: { DIV: 52, SPAN: 6, H3: 3, STYLE: 3 },
+    sha256: 'fe90e1cc6d10ddd0ba415df89ecdf6be451a9ba1831ce4adfdacbbb77702d263',
+    visibleText: "To Do2Design new featureCreate mockups and wireframesWrite documentationUpdate API docsIn Progress1Implement featureCode the new componentHigh PriorityDone1Setup projectInitialize repositoryTo move this card to another column, drag it with a pointer or by touch.",
+  },
+  'plugin-kanban/advanced-kanban-with-badges-and-limits': {
+    elements: 86,
+    tags: { DIV: 68, SPAN: 10, H3: 4, STYLE: 4 },
+    sha256: 'f80e461758a7005a05d13bd53afe4604cc9b465cbb9d6e70961108b69fdec303',
+    visibleText: "Backlog2User AuthenticationImplement OAuth2.0BackendHighDark ModeAdd theme switcherUIWork In Progress1 / 3API IntegrationConnect to backend servicesIn ProgressCode Review0No cardsCompleted1Project SetupRepository initializedTo move this card to another column, drag it with a pointer or by touch.",
+  },
+};
+
+/**
+ * The `items` spelling as it reads TODAY, after objectui#12837. objectui#6939's
+ * result is unchanged: the board is still empty, says "No cards", and reads
+ * zero on every column.
+ */
+const ITEMS_SPELLING: Record<(typeof IDS)[number], Reading> = {
+  'plugin-kanban/basic-kanban-board': {
+    elements: 44,
+    tags: { DIV: 31, SPAN: 6, H3: 4, STYLE: 3 },
+    sha256: 'd863684901a946ea155c8cd2e118e01e808c8428d3715011fd0d2df1e880f7e5',
+    visibleText: "No cardsTo Do0In Progress0Done0To move this card to another column, drag it with a pointer or by touch.",
+  },
+  'plugin-kanban/advanced-kanban-with-badges-and-limits': {
+    elements: 57,
+    tags: { DIV: 39, SPAN: 9, H3: 5, STYLE: 4 },
+    sha256: '21e8e94cce3ad4ee15b0eb5d19c0363091b7b5f10d910e0f0cb925ccbe43be33',
+    visibleText: "No cardsBacklog0Work In Progress0 / 3Code Review0Completed0To move this card to another column, drag it with a pointer or by touch.",
   },
 };
 
@@ -373,7 +441,7 @@ describe('objectui#6939 — and the repair moved the validator, not the renderer
     // apart, and they say: exactly the description `<p>`, exactly the lane-count
     // phrase, nothing else.
     const before = ITEMS_SPELLING_6939[id];
-    const after = ITEMS_SPELLING[id];
+    const after = ITEMS_SPELLING_PRE_12837[id];
 
     // (1) one element fewer, and it is the description `<p>` —
     // `DataEmptyState` renders `{description && <p …>{description}</p>}`, so
@@ -403,5 +471,32 @@ describe('objectui#6939 — and the repair moved the validator, not the renderer
     // …and the two readings really are two, not one constant referenced twice.
     expect(after.sha256).not.toBe(before.sha256);
     expect(after.elements).not.toBe(before.elements);
+  });
+
+  it.each(IDS)('%s: both censuses moved by exactly the instructions text objectui#12837 replaced', (id) => {
+    // The same discipline as the objectui#9170 case above: the pre-12837
+    // readings are kept, and the ONE difference is asserted. objectui#12837
+    // gave the board's DndContext `screenReaderInstructions`, so the hidden
+    // instructions node every card's `aria-describedby` points at stays, and
+    // only its text changes from dnd-kit's default to the bundle sentence.
+    const pairs = [
+      ['authored (`cards`)', PRE_REPAIR_PRE_12837[id], PRE_REPAIR[id]],
+      ['`items`', ITEMS_SPELLING_PRE_12837[id], ITEMS_SPELLING[id]],
+    ] as const;
+    for (const [spelling, before, after] of pairs) {
+      // (1) the node stays: no element and no tag moved.
+      expect(after.elements, `${spelling}: an element moved`).toBe(before.elements);
+      expect(after.tags, `${spelling}: a tag moved`).toEqual(before.tags);
+      // (2) exactly the instructions text was swapped, and nothing else.
+      expect(before.visibleText, `${spelling}: the pre-12837 text must carry dnd-kit's default`).toContain(
+        DND_KIT_DEFAULT_INSTRUCTIONS,
+      );
+      expect(
+        before.visibleText.replace(DND_KIT_DEFAULT_INSTRUCTIONS, KANBAN_DND_INSTRUCTIONS_EN),
+        `${spelling}: more than the instructions text moved`,
+      ).toBe(after.visibleText);
+      // (3) the two readings really are two.
+      expect(after.sha256, `${spelling}: one hash referenced twice`).not.toBe(before.sha256);
+    }
   });
 });

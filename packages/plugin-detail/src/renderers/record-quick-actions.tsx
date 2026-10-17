@@ -22,6 +22,7 @@ import {
   Button,
   cn,
   hasDeclaredVisibilityGate,
+  resolveIcon,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -401,6 +402,11 @@ function QuickActionButton({
   const disabledReason = disabledByPredicate
     ? tt('actions.notAvailableForRecord', 'Not available for this record')
     : undefined;
+  // The declared `icon` (objectui#12772), resolved through the shared icon seam.
+  // It sits beside the label and gives way to the spinner while the action
+  // runs — the `action:button` order. `null` (none declared, or a name no glyph
+  // answers) draws the label alone, as before.
+  const ActionIcon = resolveIcon(action.icon);
   const button = (
     <Button
       variant={variant}
@@ -413,6 +419,9 @@ function QuickActionButton({
       }}
     >
       {running && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+      {/* Resolved from the shared icon seam, not a component created during render. */}
+      {/* eslint-disable-next-line react-hooks/static-components */}
+      {!running && ActionIcon && <ActionIcon className="mr-2 h-4 w-4" />}
       {label}
     </Button>
   );

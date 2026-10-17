@@ -22,6 +22,10 @@ import {
   // blank `visible` is no gate here as it is on every toolbar. This file used
   // to keep a twin with a "declared?" test of its own (objectui#11294).
   isCustomRowActionVisible,
+  // THE icon-name seam (`name -> component | null`): a declared `icon` is drawn
+  // beside the label on both custom-action surfaces below; an unknown name
+  // resolves to `null` and the label renders alone (objectui#12772).
+  resolveIcon,
 } from '@object-ui/components';
 import { Edit, Trash2, MoreVertical } from 'lucide-react';
 import { evalRowPredicate, hasDeclaredPredicate, type CrudAffordances } from '@object-ui/core';
@@ -400,6 +404,10 @@ const RowActionMenuItem: React.FC<{
   const disabledVerdict = useRowPredicate(disabledGate, row, { fallback: true, warnOnError: true, label: `${def.name}:disabled`, fields: objectFields });
   const isDisabled = hasDeclaredPredicate(disabledGate) && disabledVerdict;
   if (!isVisible) return null;
+  // The declared `icon`, drawn the way the built-in Edit / Delete items beside
+  // it draw theirs; `null` (none declared, or a name no glyph answers) leaves
+  // the label alone, exactly as before (objectui#12772).
+  const ActionIcon = resolveIcon(def.icon);
   return (
     <DropdownMenuItem
       disabled={isDisabled}
@@ -407,6 +415,9 @@ const RowActionMenuItem: React.FC<{
       data-testid={`row-action-${def.name}`}
       className={def.variant === 'danger' ? 'text-destructive focus:text-destructive' : undefined}
     >
+      {/* Resolved from the shared icon seam, not a component created during render. */}
+      {/* eslint-disable-next-line react-hooks/static-components */}
+      {ActionIcon && <ActionIcon className="mr-2 h-4 w-4" />}
       {def.label ?? formatActionLabel(def.name)}
     </DropdownMenuItem>
   );
@@ -507,6 +518,9 @@ const RowActionInlineButton: React.FC<{
     [def, row, scope, objectFields],
   );
   if (!isVisible) return null;
+  // Same seam and same posture as the "⋮" item: the icon goes BESIDE the label,
+  // never instead of it (objectui#12772).
+  const ActionIcon = resolveIcon(def.icon);
   return (
     <Button
       variant={toButtonVariant(def.variant)}
@@ -515,6 +529,9 @@ const RowActionInlineButton: React.FC<{
       data-testid={`row-action-inline-${def.name}`}
       onClick={(e) => { e.stopPropagation(); onActionDef?.(def, row); }}
     >
+      {/* Resolved from the shared icon seam, not a component created during render. */}
+      {/* eslint-disable-next-line react-hooks/static-components */}
+      {ActionIcon && <ActionIcon className="mr-2 h-4 w-4" />}
       {def.label ?? formatActionLabel(def.name)}
     </Button>
   );

@@ -61,7 +61,7 @@ import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
 import type { RecordPathComponentProps } from '@object-ui/types';
 import { cn } from '@object-ui/components';
 import { useDetailTranslation } from '../useDetailTranslation';
-import { deriveStages } from '../synth/buildDefaultPageSchema';
+import { declaredStageKinds, deriveStages, stageTerminalOfKind } from '../synth/buildDefaultPageSchema';
 import { useRecordAriaProps } from './recordComponentAria';
 
 const splitDesigner = (props: Record<string, any>) => {
@@ -211,14 +211,28 @@ export const RecordPathRenderer: React.FC<RecordPathRendererProps> = ({
   }, [rawStages, statusField, ctx?.objectName, translateOptions]);
   const current = statusField && ctx?.data ? (ctx.data as any)[statusField] : undefined;
 
-  // Classify each stage. Honor explicit `terminal` from the schema first;
-  // fall back to a heuristic so CRM examples / Salesforce-style picklists
-  // ("closed_won", "closed_lost", "失败", "流失") get the right treatment
-  // without requiring authors to migrate their stage configs.
+  // The lifecycle `kind` the status field's options declare (objectui#12907),
+  // read off the same `objectSchema` the derivation above reads.
+  const declaredKinds = React.useMemo(
+    () => declaredStageKinds(objectSchema, statusField ?? null),
+    [objectSchema, statusField],
+  );
+
+  // Classify each stage, in three steps:
+  //   1. an explicit `terminal` on the stage;
+  //   2. the `kind` its option declares on the status field (objectui#12907)
+  //      — `open` included, which is how a declared open stage spelled like a
+  //      terminal stays a middle step: the spec's strict `stages[]` row can
+  //      carry `won` / `lost`, so step 1 cannot say "open";
+  //   3. only for options that declare no kind, a spelling heuristic, so CRM
+  //      examples / Salesforce-style picklists ("closed_won", "closed_lost",
+  //      "失败", "流失") get the right treatment without a migration.
   const LOST_TOKENS = /(^|[_-\s])(closed_)?(lost|failed?|cancell?ed|失败|流失|丢单|败)([_-\s]|$)/i;
   const WON_TOKENS = /(^|[_-\s])(closed_)?(won|success|成交|赢|完成)([_-\s]|$)/i;
   const classify = (s: { value: any; label?: string; terminal?: 'won' | 'lost' }): 'won' | 'lost' | undefined => {
     if (s.terminal) return s.terminal;
+    const declared = declaredKinds?.get(s.value);
+    if (declared !== undefined) return stageTerminalOfKind(declared);
     const probe = `${String(s.value ?? '')} ${String(s.label ?? '')}`;
     if (LOST_TOKENS.test(probe)) return 'lost';
     if (WON_TOKENS.test(probe)) return 'won';

@@ -18,6 +18,7 @@ import {
   buildDefaultAttachments,
   detectStatusField,
   deriveStages,
+  declaredStageKinds,
   deriveHighlightFields,
   deriveFieldGroupDetailSections,
   resolveDetailSections,
@@ -112,6 +113,41 @@ describe('deriveStages', () => {
       { value: 'contacted', label: 'Contacted' },
       { value: 'qualified', label: 'Qualified' },
     ]);
+  });
+
+  // objectui#12907: the option's declared lifecycle `kind` rides onto the stage.
+  const loanDef = {
+    fields: {
+      status: {
+        options: [
+          { value: 'borrowed', label: 'Borrowed', kind: 'open' as const },
+          { value: 'returned', label: 'Returned', kind: 'won' as const },
+          { value: 'overdue', label: 'Overdue', kind: 'lost' as const },
+          { value: 'lost_card', label: 'Lost card' },
+        ],
+      },
+    },
+  };
+
+  it('carries a declared won / lost kind as terminal; open and undeclared get none', () => {
+    expect(deriveStages(loanDef, 'status')).toEqual([
+      { value: 'borrowed', label: 'Borrowed' },
+      { value: 'returned', label: 'Returned', terminal: 'won' },
+      { value: 'overdue', label: 'Overdue', terminal: 'lost' },
+      { value: 'lost_card', label: 'Lost card' },
+    ]);
+  });
+
+  it('declaredStageKinds lists only the options that declare a kind', () => {
+    expect(declaredStageKinds(loanDef, 'status')).toEqual(
+      new Map([
+        ['borrowed', 'open'],
+        ['returned', 'won'],
+        ['overdue', 'lost'],
+      ]),
+    );
+    expect(declaredStageKinds(leadDef, 'status')).toBeNull();
+    expect(declaredStageKinds(loanDef, null)).toBeNull();
   });
 });
 

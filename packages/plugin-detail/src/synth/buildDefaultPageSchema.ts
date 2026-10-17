@@ -24,7 +24,7 @@
  */
 
 import { deriveFieldGroupLayout } from '@objectstack/spec/data';
-import type { ServiceObject } from '@objectstack/spec/data';
+import type { SelectOptionKind, ServiceObject } from '@objectstack/spec/data';
 import { detectStatusField } from '@object-ui/types';
 // The retirement gate (objectui#4914, ruling B). `@object-ui/fields`
 // re-exports the same function; this module reads it from `@object-ui/core`
@@ -127,7 +127,14 @@ export interface ObjectDefFieldLike {
   name?: string;
   label?: string;
   type?: string;
-  options?: Array<{ value: any; label: string }>;
+  /**
+   * The picklist. `kind` is the option's declared lifecycle category
+   * (`SelectOption.kind` in `@objectstack/spec/data`, objectstack#23809):
+   * {@link deriveStages} carries a `won` / `lost` kind onto the derived stage
+   * as its `terminal`, and `record:path` lets any declared kind (`open`
+   * included) win over its spelling heuristic (objectui#12907).
+   */
+  options?: Array<{ value: any; label: string; kind?: SelectOptionKind }>;
   /** Declared group membership — matches a `fieldGroups[].key`. */
   group?: string;
   /** Hidden fields never surface in derived sections. */
@@ -386,17 +393,62 @@ function componentNode(type: string, props: Record<string, unknown> = {}): any {
 export { detectStatusField };
 
 /**
+ * The `record:path` terminal a declared option `kind` stands for: `won` and
+ * `lost` are the spec's `stages[].terminal` values verbatim (the vocabulary
+ * objectstack#23809 chose to match), and `open` is no terminal.
+ */
+export function stageTerminalOfKind(kind: SelectOptionKind | undefined): 'won' | 'lost' | undefined {
+  return kind === 'won' || kind === 'lost' ? kind : undefined;
+}
+
+/**
  * Derive stage values from an object field's `options` (picklist).
+ *
+ * A stage carries `terminal` from its option's declared `kind`
+ * ({@link stageTerminalOfKind}, objectui#12907), so a `won` option is the
+ * path's forward terminus and a `lost` one sits in the separated group
+ * whatever it is called. An option that declares no kind, or `open`, gets no
+ * `terminal` key: the stage shape is the spec's strict `stages[]` row, which
+ * has no way to say "declared open" — `record:path` reads that off the field
+ * itself ({@link declaredStageKinds}).
  */
 export function deriveStages(
   def: ObjectDefLike | undefined,
   statusField: string | null,
-): Array<{ value: any; label: string }> | null {
+): Array<{ value: any; label: string; terminal?: 'won' | 'lost' }> | null {
   if (!def || !statusField) return null;
   const field = def.fields?.[statusField];
   const options = field?.options;
   if (!Array.isArray(options) || options.length === 0) return null;
-  return options.map((o) => ({ value: o.value, label: o.label }));
+  return options.map((o) => {
+    const terminal = stageTerminalOfKind(o.kind);
+    return terminal ? { value: o.value, label: o.label, terminal } : { value: o.value, label: o.label };
+  });
+}
+
+/**
+ * The lifecycle `kind` each option of `statusField` declares, keyed by option
+ * value — only the options that declare one (objectui#12907).
+ *
+ * ⚠️ Package-internal: exported for `renderers/record-path.tsx`, NOT
+ * re-exported from the package entry. `record:path` consults it after a
+ * stage's explicit `terminal` and before its spelling heuristic, because the
+ * spec's strict `stages[]` row can carry `won` / `lost` but not `open`: a
+ * declared `open` on a value spelled `closed_won` has to beat the heuristic
+ * from here. Returns `null` when there is nothing to consult.
+ */
+export function declaredStageKinds(
+  def: ObjectDefLike | undefined,
+  statusField: string | null,
+): Map<unknown, SelectOptionKind> | null {
+  if (!def || !statusField) return null;
+  const options = def.fields?.[statusField]?.options;
+  if (!Array.isArray(options)) return null;
+  const kinds = new Map<unknown, SelectOptionKind>();
+  for (const o of options) {
+    if (o?.kind !== undefined) kinds.set(o.value, o.kind);
+  }
+  return kinds.size > 0 ? kinds : null;
 }
 
 /**

@@ -90,7 +90,7 @@ describe('green on main — the negative control', () => {
  * ⛔ It cannot be produced by running the resolver, and that impossibility is
  * the card's central claim: every workspace range on `@objectstack/*` is a
  * floating range that a fresh resolve satisfies with the newest release — `^18.0.0-next.1`
- * resolving 18.0.0-next.2 today (objectui#12030, objectui#12370, objectui#12626; `^17.x` and 17.4.0 when this sample was
+ * resolving 18.0.0-next.3 today (objectui#12030, objectui#12370, objectui#12626, objectui#12873; `^17.x` and 17.4.0 when this sample was
  * written), so no fresh resolve can pick 17.2.0. The sample is therefore a transformation of the real lockfile
  * reproducing the identity facts measured on PRs #7053 / #7058 — the family
  * down to 17.2.0, and `@objectstack/spec` resolved at BOTH versions.
@@ -98,9 +98,9 @@ describe('green on main — the negative control', () => {
 function sampleA(): string {
   let out = realLock;
   for (const pkg of ['client', 'core', 'formula', 'lint', 'sdui-parser']) {
-    out = out.replace(new RegExp(`(@objectstack/${pkg}@)18\\.0\\.0-next\\.2`, 'g'), '$117.2.0');
+    out = out.replace(new RegExp(`(@objectstack/${pkg}@)18\\.0\\.0-next\\.3`, 'g'), '$117.2.0');
   }
-  const specKey = "  '@objectstack/spec@18.0.0-next.2(ai@7.0.65(zod@4.6.7))':";
+  const specKey = "  '@objectstack/spec@18.0.0-next.3(ai@7.0.65(zod@4.6.7))':";
   expect(out, 'the spec snapshot key moved — rebuild this sample before trusting it').toContain(
     specKey,
   );
@@ -124,8 +124,8 @@ function sampleA(): string {
 function sampleB(): string {
   let out = realLock;
   const forked = [
-    "  '@objectstack/spec@18.0.0-next.2(ai@7.0.65(zod@4.6.7))':",
-    "  '@objectstack/formula@18.0.0-next.2(ai@7.0.65(zod@4.6.7))':",
+    "  '@objectstack/spec@18.0.0-next.3(ai@7.0.65(zod@4.6.7))':",
+    "  '@objectstack/formula@18.0.0-next.3(ai@7.0.65(zod@4.6.7))':",
     "  ai@7.0.65(zod@4.6.7):",
   ];
   for (const key of forked) {
@@ -191,7 +191,7 @@ describe('cause 2 — a declared dependency forks with no version moving (object
     expect(spec?.headCount).toBe(2);
     // This is #8326's exact bundling mechanism — two real paths, nothing
     // dedupes them — arriving with no version change anywhere.
-    expect(spec?.head.every((k) => k.includes('@18.0.0-next.2'))).toBe(true);
+    expect(spec?.head.every((k) => k.includes('@18.0.0-next.3'))).toBe(true);
   });
 });
 

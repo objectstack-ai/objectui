@@ -15,7 +15,9 @@
  *   - CONTROL (`objectChangePatch`): a move from one object to another clears
  *     the joins, dimensions, filter and every measure that names a field, and
  *     keeps the measure that names none;
- *   - CONTROL: selecting the same object only sets `object`.
+ *   - CONTROL: selecting the same object only sets `object`;
+ *   - the base-object hint says so, in en and zh: field measures are cleared
+ *     and a row count is kept.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -77,7 +79,7 @@ import { MetadataResourceEditPage } from '../ResourceEditPage';
 import { registerDefaultMetadataSchemas } from '../default-schemas';
 import { registerBuiltinPreviews } from '../previews';
 import { registerBuiltinInspectors } from '.';
-import { objectChangePatch } from './DatasetDefaultInspector';
+import { DatasetDefaultInspector, objectChangePatch } from './DatasetDefaultInspector';
 
 const DATASET_JSON_SCHEMA = z.toJSONSchema(getMetadataTypeSchema('dataset') as z.ZodType, {
   io: 'input',
@@ -184,5 +186,13 @@ describe('objectChangePatch moves a dataset between objects (objectui#12848)', (
 
   it('CONTROL: selecting the same object changes nothing but `object`', () => {
     expect(objectChangePatch('crm_opportunity', 'crm_opportunity', authored)).toEqual({ object: 'crm_opportunity' });
+  });
+
+  it.each([
+    ['en-US', 'Changing the base object clears its dimensions, field measures, joins & filters; a row count is kept.'],
+    ['zh-CN', '更改基础对象会清空其维度、字段度量、关联与筛选；行计数会保留。'],
+  ] as const)('the base-object hint says a row count is kept (%s)', (locale, hint) => {
+    render(<DatasetDefaultInspector type="dataset" name="sales" locale={locale} draft={authored} onPatch={vi.fn()} readOnly={false} />);
+    expect(screen.getByText(hint)).toBeInTheDocument();
   });
 });

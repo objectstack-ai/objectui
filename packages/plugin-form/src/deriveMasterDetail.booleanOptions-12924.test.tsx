@@ -24,7 +24,8 @@
  *   - the derive functions draw the labels with the function they are handed,
  *     and keep the stored values;
  *   - `record:line_items` (`LineItemsPanel`) hydrates an untyped column over a
- *     boolean child field into a picker that reads the zh words;
+ *     boolean child field into a picker that reads the zh words, and re-labels
+ *     it when the language is switched while it is on screen;
  *   - `MasterDetailForm` derives a boolean column that reads the zh words, in
  *     its editable grid and in its list-mode (per-row form) cells.
  *
@@ -35,8 +36,8 @@
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import * as React from 'react';
-import { render, screen, cleanup, waitFor } from '@testing-library/react';
-import { I18nProvider, loadBuiltInLocale } from '@object-ui/i18n';
+import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react';
+import { I18nProvider, loadBuiltInLocale, useObjectTranslation } from '@object-ui/i18n';
 import { zh } from '@object-ui/i18n/locales';
 import { registerAllFields } from '@object-ui/fields';
 import { SchemaRendererProvider } from '@object-ui/react';
@@ -169,6 +170,38 @@ describe('the line-items carriers read a boolean column in the session language 
     await masterDetail('grid');
     await waitFor(() => expect(billablePickers().map((el) => el.textContent)).toEqual([YES, NO]));
     expect(screen.queryByText('Yes')).toBeNull();
+  });
+
+  it('record:line_items: a language switched while the grid is on screen re-labels the picker', async () => {
+    // The grid memo is keyed on the two WORDS, so a switch re-hydrates the
+    // columns; the function itself is a new one every render and cannot key it.
+    function SwitchTo({ language }: { language: string }) {
+      const { changeLanguage } = useObjectTranslation();
+      return (
+        <button type="button" onClick={() => void changeLanguage(language)}>
+          switch
+        </button>
+      );
+    }
+    render(
+      <I18nProvider config={{ defaultLanguage: 'en', detectBrowserLanguage: false }} persistLanguage={false}>
+        <SwitchTo language="zh" />
+        <SchemaRendererProvider dataSource={dataSource() as never}>
+          <LineItemsPanel
+            schema={{
+              childObject: 'inv_line',
+              relationshipField: 'invoice',
+              parentObject: 'inv',
+              parentId: 'inv1',
+              columns: [{ name: 'description' }, { name: 'billable' }],
+            } as never}
+          />
+        </SchemaRendererProvider>
+      </I18nProvider>,
+    );
+    await waitFor(() => expect(billablePickers().map((el) => el.textContent)).toEqual(['Yes', 'No']));
+    fireEvent.click(screen.getByRole('button', { name: 'switch' }));
+    await waitFor(() => expect(billablePickers().map((el) => el.textContent)).toEqual([YES, NO]));
   });
 
   it('MasterDetailForm, list mode: each line\'s cell reads the zh words', async () => {

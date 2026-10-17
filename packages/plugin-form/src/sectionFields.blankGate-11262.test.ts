@@ -125,7 +125,7 @@ describe('a runtime FormField carrying its own blank visibleOn (objectui#11262)'
 describe.each([
   ['the retired snake_case `visible_on`', 'visible_on', 'objectui#12242'],
   ['the undeclared `visibleOn`', 'visibleOn', 'objectui#12719'],
-] as const)('a name string over the object field’s %s is not a chain (%s)', (_label, key) => {
+] as const)('a name string over the object field’s %s is not a chain (%s)', (_label, key, _issue) => {
   // Each key had a row in the CHAINS table above until its issue deleted the
   // read: the spec `FieldSchema` declares neither (`visible_on` it refuses by
   // name, and `BaseFieldMetadata` types it `never`; `visibleOn` it never

@@ -105,6 +105,14 @@ export interface AppObjectScopeRead {
   candidate: boolean;
   /** The app's object scope, or `null` when this route reads the whole registry. */
   scope: AppObjectScope | null;
+  /**
+   * The route can render: the package list and the route's own object have
+   * answered. The other names (lookup targets, required objects, the
+   * palette's) are asked beside it, not waited for: until they land, a lookup
+   * cell draws its value without a link, and a `requiresObject` entry stays
+   * shown, as it did while the whole list loaded.
+   */
+  ready: boolean;
 }
 
 /**
@@ -121,12 +129,13 @@ export function readAppObjectScope(
   const route = matchObjectScopeRoute(subPath, hostPaths);
   const candidate = !!route && !!readObjectScope && !hasRecordOverlay(search);
   const packageId = typeof app?._packageId === 'string' && app._packageId ? app._packageId : undefined;
-  if (!candidate || !packageId || !readObjectScope || !route) return { candidate, scope: null };
+  if (!candidate || !packageId || !readObjectScope || !route) return { candidate, scope: null, ready: false };
   // The package list first: no name is asked until it shows the app holds
   // objects of its own.
   const own = readObjectScope({ packageId });
-  if (!own.settled) return { candidate, scope: own };
-  if (!own.served.some((o: any) => o?._packageId === packageId)) return { candidate, scope: null };
+  if (!own.settled) return { candidate, scope: own, ready: false };
+  if (!own.served.some((o: any) => o?._packageId === packageId)) return { candidate, scope: null, ready: false };
+  const ready = readObjectScope({ packageId, names: route.objectName ? [route.objectName] : [] }).settled;
   // The objects the app's own navigation entries require: the sidebar's
   // capability gate answers from this scope.
   const names = navigationNames(app?.navigation, (item) => item.requiresObject);
@@ -136,9 +145,13 @@ export function readAppObjectScope(
   }
   const first = readObjectScope({ packageId, names });
   const routeDef = route.objectName ? first.objects.find((o: any) => o?.name === route.objectName) : undefined;
-  if (routeDef && opensRecordsInPageOverlay(routeDef)) return { candidate, scope: null };
+  if (routeDef && opensRecordsInPageOverlay(routeDef)) return { candidate, scope: null, ready: false };
   const lookups = routeDef ? lookupTargetNames(routeDef) : [];
-  return { candidate, scope: lookups.length > 0 ? readObjectScope({ packageId, names: [...names, ...lookups] }) : first };
+  return {
+    candidate,
+    scope: lookups.length > 0 ? readObjectScope({ packageId, names: [...names, ...lookups] }) : first,
+    ready,
+  };
 }
 
 /**

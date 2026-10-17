@@ -287,7 +287,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // the app's object scope on the routes `appObjectScope.ts` names, inside an
   // app whose served item carries its package; the whole registry everywhere
   // else, as before (that module says why).
-  const { candidate: scopeCandidate, scope: objectScope } = readAppObjectScope(
+  const { candidate: scopeCandidate, scope: objectScope, ready: objectScopeReady } = readAppObjectScope(
     readObjectScope,
     activeApp,
     appSubPath,
@@ -305,7 +305,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     ...(searchParamsHasRecordForm(location.search) && !routeReads.includes('object') ? ['object'] : []),
   ].join(',');
   const bucketsSettled = useLazyMetadataSettled(routeReadsKey, ensureType, getTypeStatus);
-  const routeReadsSettled = bucketsSettled && (!objectScope || objectScope.settled);
+  const routeReadsSettled = bucketsSettled && (!objectScope || objectScopeReady);
   // Set once the first frame past the splash has rendered. After it, a route
   // waiting on its buckets draws its skeleton inside the console chrome rather
   // than taking the whole console back to the splash.

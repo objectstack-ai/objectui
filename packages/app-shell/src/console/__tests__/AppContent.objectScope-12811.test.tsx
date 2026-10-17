@@ -208,6 +208,7 @@ describe('one console open asks for the app\'s objects, not the whole registry (
     boot('/apps/crm/crm_account');
     await waitFor(() => expect(screen.getByTestId('object-view')).toBeInTheDocument());
     await waitFor(() => expect(screen.getByTestId('cloud-only-entry')).toHaveTextContent('false'));
+    await waitFor(() => expect(screen.getByTestId('object-view')).toHaveTextContent('sys_user'));
 
     expect(objectCalls()).not.toContain('object');
     expect(objectCalls()[0]).toBe(`object?package=${CRM}`);
@@ -256,6 +257,17 @@ describe('an object outside the package is read by name, behind the skeleton (ob
     act(() => server.release());
     await waitFor(() => expect(screen.getByTestId('object-view')).toHaveTextContent('crm_case'));
     expect(objectCalls()).not.toContain('object');
+  });
+
+  it('does not hold the route for its lookup targets: they are asked beside it, and the list renders meanwhile', async () => {
+    server.holdByName = true;
+    boot('/apps/crm/crm_account');
+    await waitFor(() => expect(screen.getByTestId('object-view')).toHaveTextContent('crm_account,crm_contact'));
+    expect(server.calls).toContain('object/sys_user');
+    expect(screen.getByTestId('object-view')).not.toHaveTextContent('sys_user');
+
+    act(() => server.release());
+    await waitFor(() => expect(screen.getByTestId('object-view')).toHaveTextContent('sys_user'));
   });
 
   it('after the first paint, shows the route skeleton inside the chrome, never an empty route, until it lands', async () => {

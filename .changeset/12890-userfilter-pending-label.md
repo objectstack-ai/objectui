@@ -1,5 +1,5 @@
 ---
-'@object-ui/plugin-list': patch
+'@object-ui/plugin-list': minor
 ---
 
 A list's user-filter chip no longer shows the raw field key while the object definition is loading (objectui#12890).

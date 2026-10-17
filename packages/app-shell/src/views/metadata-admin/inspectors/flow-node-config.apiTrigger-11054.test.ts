@@ -57,12 +57,13 @@ describe('the 「Webhook / API」 trigger writes the token the engine routes (ob
     expect((trigger.options ?? []).map((o) => o.value)).not.toContain('webhook');
   });
 
-  it('the fields the old option showed still show for the new token', () => {
-    for (const id of ['objectName', 'condition']) {
-      const f = byId(id);
-      expect(f.showWhen?.equals, id).toContain('api');
-      expect(f.showWhen?.equals, id).not.toContain('webhook');
-    }
+  it('the new token shows the Entry condition, and neither token shows Object (objectui#12780)', () => {
+    // The engine evaluates the start condition on every run, so it carries no
+    // gate; the API binding never reads `config.objectName`.
+    expect(byId('condition').showWhen).toBeUndefined();
+    const objectName = byId('objectName');
+    expect(objectName.showWhen?.equals).not.toContain('api');
+    expect(objectName.showWhen?.equals).not.toContain('webhook');
   });
 
   it('the zh overlay labels the new option value, not the retired one', () => {

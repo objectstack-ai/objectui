@@ -59,11 +59,11 @@ describe('the start node trigger select stops offering it (objectui#11067)', () 
   });
 
   it('no start field is gated on `event` any more', () => {
-    for (const id of ['objectName', 'condition']) {
-      const f = byId(id);
-      expect(f.showWhen?.field, id).toBe('triggerType');
-      expect(f.showWhen?.equals, id).not.toContain('event');
-    }
+    const objectName = byId('objectName');
+    expect(objectName.showWhen?.field).toBe('triggerType');
+    expect(objectName.showWhen?.equals).not.toContain('event');
+    // objectui#12780 — the Entry condition carries no gate at all.
+    expect(byId('condition').showWhen).toBeUndefined();
   });
 
   it('every value a start field is gated on is one the select offers', () => {
@@ -86,11 +86,11 @@ describe('the start node trigger select stops offering it (objectui#11067)', () 
 });
 
 describe('a start node that already stores `event` (objectui#11067)', () => {
-  it('no longer shows the object and condition fields for it on the token alone', () => {
+  it('no longer shows the object field for it on the token alone', () => {
+    // The Entry condition shows under every token (objectui#12780): the engine
+    // evaluates it on every run, whatever the trigger.
     const node = flowWith({ triggerType: 'event' }).nodes[0];
-    for (const id of ['objectName', 'condition']) {
-      expect(isFieldVisible(byId(id), node, fields), id).toBe(false);
-    }
+    expect(isFieldVisible(byId('objectName'), node, fields)).toBe(false);
   });
 
   it('keeps a value it already stores on screen, flagged as retained', () => {

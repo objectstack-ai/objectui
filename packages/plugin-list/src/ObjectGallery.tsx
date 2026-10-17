@@ -7,8 +7,8 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo, useContext } from 'react';
-import { useDataScope, SchemaRendererContext, useNavigationOverlay, useSafeFieldLabel, useSettledSchema, useDataInvalidation, useFilterScope, useResolvedFilter } from '@object-ui/react';
-import { ComponentRegistry, buildExpandFields, getRecordDisplayName, isEmptyValue, isExpandableFieldType } from '@object-ui/core';
+import { useDataScope, SchemaRendererContext, useNavigationOverlay, useSafeFieldLabel, useSettledSchema, useDataInvalidation, useFilterScope, useResolvedFilter, usePredicateScope } from '@object-ui/react';
+import { ComponentRegistry, buildExpandFields, getRecordDisplayName, isEmptyValue, isExpandableFieldType, isDeadlineSettled } from '@object-ui/core';
 import { cn, Card, CardContent, NavigationOverlay } from '@object-ui/components';
 import { usePermissions } from '@object-ui/permissions';
 import type { DataSource, GalleryConfig, ObjectGallerySchema, QueryParams } from '@object-ui/types';
@@ -363,6 +363,9 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
     // same context: type, options, currency, precision, scale, reference
     // target, etc. This is what keeps card output visually aligned with the
     // record detail page.
+    // The host predicate scope a card's declared deadline is judged in
+    // (objectui#11815).
+    const predicateScope = usePredicateScope();
     const buildEnrichedField = useCallback((fieldName: string) => {
       const def = objectDef?.fields?.[fieldName];
       const enriched: Record<string, any> = { name: fieldName };
@@ -388,6 +391,10 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
         // `50%` in the grid (objectui#11475). Same presence test as `scale`.
         if (def.max !== undefined) enriched.max = def.max;
         if (def.format) enriched.format = def.format;
+        // The field's deadline declaration (objectui#11815): the date cells
+        // paint overdue from `dueLike` alone, so without it a card's declared
+        // deadline never reads overdue.
+        if (def.dueLike !== undefined) enriched.dueLike = def.dueLike;
         // objectui#6837 half 2 — maintainer 2026-08-31: protocol normalization
         // belongs on the SERVER, the front end just executes the protocol.
         // `reference` is the only target spelling `@objectstack/spec`'s
@@ -725,7 +732,11 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
                                     {fieldLabel}
                                 </span>
                             )}
-                            <CellRenderer value={value} field={enriched as any} />
+                            <CellRenderer
+                                value={value}
+                                field={enriched as any}
+                                deadlineSettled={isDeadlineSettled(objectDef?.fields?.[field], item, { scope: predicateScope, fields: objectDef?.fields })}
+                            />
                         </div>
                     );
                 })}

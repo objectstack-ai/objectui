@@ -29,6 +29,7 @@ import {
   useFilterScope,
   useResolvedFilter,
 } from '@object-ui/react';
+import { useObjectTranslation } from '@object-ui/i18n';
 import { cn } from '../../lib/utils';
 import { readProps } from './readProps';
 
@@ -140,6 +141,14 @@ function RepeaterRenderer({ schema }: { schema: any }) {
   }>(schema);
 
   const adapter = useAdapter() as any;
+  // objectui#12889 — the loading, empty and error defaults read the shared
+  // bundle keys through the hook `element:number` (elements.tsx) reads its
+  // copy through, so a zh-CN page draws its own language instead of the
+  // English literals this renderer used to print. Each inline `defaultValue`
+  // is the `en` pack's value, served when no `I18nProvider` is mounted and
+  // held byte-identical to the pack by `pnpm check:i18n-keys`. An authored
+  // `emptyText` still wins over the default.
+  const { t } = useObjectTranslation();
   // objectui#11880 — the spec's per-element binding (`PageComponentSchema
   // .dataSource`), resolved through `useElementDataSource` as `element:number`
   // and `element:record_picker` resolve theirs, against the repeater's own
@@ -216,7 +225,10 @@ function RepeaterRenderer({ schema }: { schema: any }) {
         const data: any[] = res?.data ?? (Array.isArray(res) ? res : []);
         if (!cancelled) setRows(data);
       } catch (e: any) {
-        if (!cancelled) setError(e?.message ?? 'Failed to load');
+        // The thrown message when there is one; otherwise the empty string
+        // still selects the error branch below, which draws the translated
+        // default in its place.
+        if (!cancelled) setError(e?.message ?? '');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -234,10 +246,26 @@ function RepeaterRenderer({ schema }: { schema: any }) {
     return <ElementDataSourceErrorPanel testId="repeater" message={dataBinding.error} />;
   }
   if (dataBinding.status === 'loading') return <ElementDataSourceLoadingPanel testId="repeater" />;
-  if (loading) return <p className="py-2 text-sm text-muted-foreground">Loading…</p>;
-  if (error) return <p className="py-2 text-sm text-destructive">{error}</p>;
+  if (loading) {
+    return (
+      <p className="py-2 text-sm text-muted-foreground" role="status" data-testid="repeater-loading">
+        {t('common.loading', { defaultValue: 'Loading…' })}
+      </p>
+    );
+  }
+  if (error !== null) {
+    return (
+      <p className="py-2 text-sm text-destructive" data-testid="repeater-error">
+        {error || t('list.loadErrorTitle', { defaultValue: 'Couldn’t load records' })}
+      </p>
+    );
+  }
   if (rows.length === 0) {
-    return <p className="py-2 text-sm text-muted-foreground">{props.emptyText ?? 'No records'}</p>;
+    return (
+      <p className="py-2 text-sm text-muted-foreground">
+        {props.emptyText ?? t('common.noData', { defaultValue: 'No data' })}
+      </p>
+    );
   }
 
   return (

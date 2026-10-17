@@ -5252,6 +5252,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                 <UserFilters
                   config={filterElements}
                   objectDef={objectDef}
+                  objectDefPending={!objectDefLoaded}
                   data={data}
                   onFilterChange={setUserFilterConditions}
                   maxVisible={3}

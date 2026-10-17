@@ -22,11 +22,26 @@
  * # What this does
  *
  * Run BEFORE React renders. If `auth-session-token` is present, probe
- * `/api/v1/auth/get-session` with that Bearer (and no cookie). If the
- * response is not authenticated, delete the stale token + every stale
- * active-organization id (the bare pre-objectui#5664 key and each
- * `auth-active-organization-id:u:` scope) so AuthProvider's first
- * `getSession()` falls back to cookie auth cleanly.
+ * `/api/v1/auth/get-session` with that Bearer. If the response is not
+ * authenticated, delete the stale token + every stale active-organization id
+ * (the bare pre-objectui#5664 key and each `auth-active-organization-id:u:`
+ * scope) so AuthProvider's first `getSession()` falls back to cookie auth
+ * cleanly.
+ *
+ * # Why the cookie rides along (objectui#12892)
+ *
+ * The probe sends `credentials: 'include'`. Adding the cookie does not blunt
+ * the stale-token check: better-auth's `bearer()` plugin writes the Bearer's
+ * token over the request's session cookie, so a stale Bearer still answers
+ * null with a live cookie beside it. What the cookie buys is the renewal. Past
+ * better-auth's `updateAge` this read extends the session row and re-issues the
+ * cookie in `Set-Cookie`, and a fetch with `credentials: 'omit'` never stores a
+ * response cookie, so the row outlived the cookie the browser kept. Since
+ * objectui#12808 this is the boot's only session read, so it must be the
+ * cookie-storing one: the framework's rule is that a browser session renews
+ * only on the `get-session` route, which re-issues the cookie, so cookie expiry
+ * and session expiry cannot split (objectstack's `auth-service.ts` contract,
+ * objectstack-ai/objectstack#22384).
  *
  * Idempotent, runs once per page load, < 50 ms when the token is valid
  * (single round-trip), no UI flicker (happens before render).
@@ -34,9 +49,9 @@
  * # The answer is handed on (objectui#12808)
  *
  * When the token is valid this request already IS the session `AuthProvider`
- * would ask for next: the server prefers the Bearer over the cookie, so adding
- * the cookie cannot change the answer. The body is left on `globalThis`
- * under `Symbol.for('objectui.authPreflightSession')`, with the auth URL and the
+ * would ask for next, with the same Bearer and the same cookie. The body is
+ * left on `globalThis` under `Symbol.for('objectui.authPreflightSession')`,
+ * with the auth URL and the
  * token it was asked with, and `AuthProvider` takes it, once, for its first
  * state (`takePreflightSession` in `@object-ui/auth`'s `createAuthClient.ts`)
  * instead of issuing a second `get-session`. A stale or unanswered token leaves
@@ -98,10 +113,10 @@ export async function preflightAuth(authBaseUrl: string): Promise<void> {
   try {
     const res = await fetch(`${authBaseUrl}/get-session`, {
       method: 'GET',
-      // Send ONLY the Bearer (no cookie) — we want to know if the token
-      // alone is valid. If we sent the cookie too the server might accept
-      // the cookie and we wouldn't detect a stale token.
-      credentials: 'omit',
+      // The cookie rides along so a renewed `Set-Cookie` is stored; the
+      // server reads the Bearer over it, so a stale token still answers null
+      // (header, objectui#12892).
+      credentials: 'include',
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: 'application/json',

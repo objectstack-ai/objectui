@@ -169,7 +169,7 @@ describe('element:repeater does not read the retired flat query keys (objectui#1
     ['props', { props: { ...FLAT, titleField: 'name' } }],
   ])('a node carrying only the flat keys (in `%s`) issues no read and shows the empty state', async (_bag, node) => {
     const adapter = mount(node);
-    await waitFor(() => expect(screen.getByText('No records')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('No data')).toBeInTheDocument());
     await settle();
     expect(adapter.find, 'the flat `object` was read as the query object').not.toHaveBeenCalled();
   });
@@ -191,7 +191,7 @@ describe('element:repeater does not read the retired flat query keys (objectui#1
 
   it('a binding that names no object issues no read, whatever flat `object` sits beside it', async () => {
     const adapter = mount({ dataSource: { object: '' }, properties: { ...FLAT, titleField: 'name' } });
-    await waitFor(() => expect(screen.getByText('No records')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('No data')).toBeInTheDocument());
     await settle();
     expect(adapter.find).not.toHaveBeenCalled();
   });

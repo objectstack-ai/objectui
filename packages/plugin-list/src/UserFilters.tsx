@@ -7,7 +7,7 @@
  */
 
 import * as React from 'react';
-import { cn, Button, Input, Popover, PopoverContent, PopoverTrigger, LookupValuePicker } from '@object-ui/components';
+import { cn, Button, Input, Popover, PopoverContent, PopoverTrigger, LookupValuePicker, Skeleton } from '@object-ui/components';
 import { ChevronDown, X, Plus } from 'lucide-react';
 import type { ListViewSchema } from '@object-ui/types';
 import { normalizeFilterOperator } from '@objectstack/spec/ui';
@@ -168,6 +168,19 @@ export interface UserFiltersProps {
   config: NonNullable<ListViewSchema['userFilters']>;
   /** Object definition for auto-deriving field options */
   objectDef?: any;
+  /**
+   * True while the host is still fetching `objectDef` (objectui#12890).
+   *
+   * An unlabelled chip takes its label from the definition, so until it
+   * arrives the only name the chip has is the machine key (`category`), which
+   * a viewer reads as the field's name and then sees replaced by the real one
+   * (`分类`). While pending, such a chip draws a skeleton instead of the key.
+   * An authored `label` is drawn either way. Once the host settles the fetch
+   * this is false, and a field the settled definition does not name falls back
+   * to the key exactly as before. Omitted means settled: a host that passes no
+   * definition at all keeps drawing the key.
+   */
+  objectDefPending?: boolean;
   /** Current data for computing counts */
   data?: any[];
   /** Callback when filter state changes */
@@ -275,6 +288,7 @@ function normalizeTabPresets(tabs: any[]): Array<{ id: string; label: string; fi
 export function UserFilters({
   config,
   objectDef,
+  objectDefPending = false,
   data = [],
   onFilterChange,
   maxVisible,
@@ -291,6 +305,7 @@ export function UserFilters({
         <DropdownFilters
           fields={config.fields || []}
           objectDef={objectDef}
+          objectDefPending={objectDefPending}
           data={data}
           onFilterChange={onFilterChange}
           maxVisible={maxVisible}
@@ -321,6 +336,7 @@ export function UserFilters({
       return (
         <ToggleFilters
           fields={config.fields || []}
+          objectDefPending={objectDefPending}
           onFilterChange={onFilterChange}
           className={className}
         />
@@ -456,12 +472,35 @@ function resolveFields(
   });
 }
 
+/**
+ * The text a chip is named by: its label, or — once the definition has
+ * settled — the field key. While the definition is pending an unlabelled chip
+ * has no name yet, so this answers `undefined` and each draw site renders its
+ * own empty state (objectui#12890). `label` is the authored one, or the one
+ * {@link resolveFields} took from the definition.
+ */
+function chipName(f: { field: string; label?: string }, pending: boolean): string | undefined {
+  return f.label || (pending ? undefined : f.field);
+}
+
+/** Stand-in for a chip name that is still loading (objectui#12890). */
+function PendingChipName({ field }: { field: string }) {
+  return (
+    <Skeleton
+      className="inline-block h-3 w-12 align-middle"
+      data-testid={`filter-label-pending-${field}`}
+      aria-hidden="true"
+    />
+  );
+}
+
 // ============================================
 // Dropdown Mode
 // ============================================
 interface DropdownFiltersProps {
   fields: NonNullable<NonNullable<ListViewSchema['userFilters']>['fields']>;
   objectDef?: any;
+  objectDefPending: boolean;
   data: any[];
   onFilterChange: (filters: any[]) => void;
   maxVisible?: number;
@@ -537,7 +576,7 @@ function typingOf(field: ResolvedField): string {
   return JSON.stringify([field.type, field.options.map(o => o.value)]);
 }
 
-function DropdownFilters({ fields, objectDef, data, onFilterChange, maxVisible, className, initialSelections, onSelectionsChange }: DropdownFiltersProps) {
+function DropdownFilters({ fields, objectDef, objectDefPending, data, onFilterChange, maxVisible, className, initialSelections, onSelectionsChange }: DropdownFiltersProps) {
   const { fieldLabel, translateOptions } = useSafeFieldLabel();
   const moreLabel = useMoreLabel();
   const tt = useSafeTranslate();
@@ -739,6 +778,7 @@ function DropdownFilters({ fields, objectDef, data, onFilterChange, maxVisible, 
       f.options.length === 0 &&
       (f.referenceTo || f.type === 'user');
     const popoverWidth = isLookupLike || kind === 'range' ? 'w-72' : 'w-56';
+    const name = chipName(f, objectDefPending);
 
     return (
       <Popover key={f.field}>
@@ -759,7 +799,7 @@ function DropdownFilters({ fields, objectDef, data, onFilterChange, maxVisible, 
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            <span className="truncate max-w-[100px]">{f.label || f.field}</span>
+            <span className="truncate max-w-[100px]">{name ?? <PendingChipName field={f.field} />}</span>
             {hasSelection && (
               <span className="text-[10px] text-muted-foreground/80 tabular-nums">
                 {activeCount}
@@ -785,7 +825,7 @@ function DropdownFilters({ fields, objectDef, data, onFilterChange, maxVisible, 
               <LookupValuePicker
                 field={{
                   value: f.field,
-                  label: f.label || f.field,
+                  label: name ?? '',
                   type: f.type,
                   referenceTo: f.referenceTo,
                   displayField: f.displayField,
@@ -842,7 +882,7 @@ function DropdownFilters({ fields, objectDef, data, onFilterChange, maxVisible, 
               type="search"
               data-testid={`filter-text-${f.field}`}
               defaultValue={String(selected[0] ?? '')}
-              placeholder={f.label || f.field}
+              placeholder={name ?? ''}
               onBlur={(e) => {
                 const q = e.target.value.trim();
                 handleChange(f.field, q ? [q] : []);
@@ -1224,11 +1264,12 @@ function TabFilters({ tabs, showAllRecords, allowAddTab, onFilterChange, classNa
 // ============================================
 interface ToggleFiltersProps {
   fields: NonNullable<NonNullable<ListViewSchema['userFilters']>['fields']>;
+  objectDefPending: boolean;
   onFilterChange: (filters: any[]) => void;
   className?: string;
 }
 
-function ToggleFilters({ fields, onFilterChange, className }: ToggleFiltersProps) {
+function ToggleFilters({ fields, objectDefPending, onFilterChange, className }: ToggleFiltersProps) {
   const [activeToggles, setActiveToggles] = React.useState<Set<string>>(() => {
     const defaults = new Set<string>();
     fields.forEach(f => {
@@ -1279,7 +1320,7 @@ function ToggleFilters({ fields, onFilterChange, className }: ToggleFiltersProps
             data-testid={`filter-toggle-${f.field}`}
             onClick={() => handleToggle(f.field)}
           >
-            {f.label || f.field}
+            {chipName(f, objectDefPending) ?? <PendingChipName field={f.field} />}
           </Button>
         );
       })}

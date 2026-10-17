@@ -70,7 +70,7 @@ function mount(envelope: Envelope) {
   return { adapter, view };
 }
 
-/** The number the block painted (the '…' placeholder while loading). */
+/** The number the block painted (empty while the loading skeleton shows, objectui#12889). */
 const painted = (view: ReturnType<typeof render>) =>
   view.container.querySelector('.tabular-nums')?.textContent ?? '';
 

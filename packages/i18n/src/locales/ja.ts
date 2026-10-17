@@ -884,6 +884,7 @@ const ja = {
       cancelled: "ドラッグをキャンセルしました。{{card}} は {{column}} のままです。",
       untitledCard: "無題のカード",
       unnamedColumn: "名前のないカラム",
+      instructions: "このカードを別のカラムに移動するには、マウスまたはタッチでドラッグします。",
     },
   },
   timeline: {

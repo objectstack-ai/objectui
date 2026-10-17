@@ -884,6 +884,7 @@ const de = {
       cancelled: "Ziehen abgebrochen. Karte {{card}} bleibt in Spalte {{column}}.",
       untitledCard: "ohne Titel",
       unnamedColumn: "ohne Namen",
+      instructions: "Um diese Karte in eine andere Spalte zu verschieben, ziehen Sie sie mit der Maus oder per Touch.",
     },
   },
   timeline: {

@@ -884,6 +884,7 @@ const ko = {
       cancelled: "드래그를 취소했습니다. {{card}} 카드는 {{column}} 열에 그대로 있습니다.",
       untitledCard: "제목 없는",
       unnamedColumn: "이름 없는",
+      instructions: "이 카드를 다른 열로 옮기려면 마우스나 터치로 끌어 놓으세요.",
     },
   },
   timeline: {

@@ -910,6 +910,7 @@ const fr = {
       cancelled: "Déplacement annulé. La carte {{card}} reste dans la colonne {{column}}.",
       untitledCard: "sans titre",
       unnamedColumn: "sans nom",
+      instructions: "Pour déplacer cette carte vers une autre colonne, faites-la glisser avec la souris ou au toucher.",
     },
   },
   timeline: {

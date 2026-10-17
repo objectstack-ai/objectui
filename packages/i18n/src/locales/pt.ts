@@ -909,6 +909,7 @@ const pt = {
       cancelled: "Arrasto cancelado. O cartão {{card}} continua na coluna {{column}}.",
       untitledCard: "sem título",
       unnamedColumn: "sem nome",
+      instructions: "Para mover este cartão para outra coluna, arraste-o com o mouse ou pelo toque.",
     },
   },
   timeline: {

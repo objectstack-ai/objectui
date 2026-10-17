@@ -1003,6 +1003,7 @@ const ar = {
       cancelled: "تم إلغاء السحب. لا تزال البطاقة {{card}} في العمود {{column}}.",
       untitledCard: "بلا عنوان",
       unnamedColumn: "بلا اسم",
+      instructions: "لنقل هذه البطاقة إلى عمود آخر، اسحبها بالمؤشر أو باللمس.",
     },
   },
   timeline: {

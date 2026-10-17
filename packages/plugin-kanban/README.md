@@ -222,7 +222,7 @@ opens nothing.
 - **Column Limits**: Set maximum card limits and get visual feedback when full
 - **Card Badges**: Add colored badges to cards for status/priority
 - **Responsive**: Horizontal scrolling for many columns
-- **Accessible**: Built on @dnd-kit with keyboard navigation support
+- **Accessible**: Drag announcements and each card's description read in the viewer's language (objectui#12716, objectui#12837). Cards move by pointer or touch drag; there is no keyboard drag.
 
 ## Lazy Loading Architecture
 

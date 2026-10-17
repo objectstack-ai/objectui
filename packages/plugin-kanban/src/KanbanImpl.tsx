@@ -59,6 +59,9 @@ const useKanbanT = createSafeTranslation(
     'kanban.dnd.cancelled': 'Cancelled moving {{card}}. It stays in {{column}}.',
     'kanban.dnd.untitledCard': 'an untitled card',
     'kanban.dnd.unnamedColumn': 'an unnamed column',
+    // Each card's accessible description (objectui#12837). It names no key:
+    // the board's sensors are pointer and touch only.
+    'kanban.dnd.instructions': 'To move this card to another column, drag it with a pointer or by touch.',
   },
   'kanban.noCards',
 )
@@ -1180,9 +1183,17 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
   // is held for the board's lifetime and keeps the memory a drag's sentences
   // share, so a rebuild of this object — here or on React's own account —
   // repeats no sentence (AGENTS.md #10).
+  //
+  // Each card's description (objectui#12837) replaces dnd-kit's default, which
+  // told the reader to press the space bar and the arrow keys: the board has
+  // no keyboard sensor, so neither key moves a card. The bundle sentence says
+  // how a card moves today, by pointer or touch, and names no key.
   const [announceDnd] = React.useState(createKanbanDndAnnouncer)
   const dndAccessibility = React.useMemo(
-    () => ({ announcements: announceDnd(t, boardColumns) }),
+    () => ({
+      announcements: announceDnd(t, boardColumns),
+      screenReaderInstructions: { draggable: t('kanban.dnd.instructions') },
+    }),
     [announceDnd, t, boardColumns],
   )
 

@@ -909,6 +909,7 @@ const zh = {
       cancelled: '已取消拖动。{{card}} 仍在 {{column}}。',
       untitledCard: '未命名卡片',
       unnamedColumn: '未命名列',
+      instructions: '如需将此卡片移到其他列，请用鼠标或触控拖动它。',
     },
   },
   timeline: {

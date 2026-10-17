@@ -1139,6 +1139,7 @@ const en = {
       cancelled: 'Cancelled moving {{card}}. It stays in {{column}}.',
       untitledCard: 'an untitled card',
       unnamedColumn: 'an unnamed column',
+      instructions: 'To move this card to another column, drag it with a pointer or by touch.',
     },
   },
   timeline: {

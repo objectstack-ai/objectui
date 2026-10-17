@@ -914,6 +914,7 @@ const es = {
       cancelled: "Arrastre cancelado. La tarjeta {{card}} sigue en la columna {{column}}.",
       untitledCard: "sin título",
       unnamedColumn: "sin nombre",
+      instructions: "Para mover esta tarjeta a otra columna, arrástrela con el ratón o de forma táctil.",
     },
   },
   timeline: {

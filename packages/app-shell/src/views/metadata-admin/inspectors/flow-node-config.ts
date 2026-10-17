@@ -447,7 +447,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
         { value: 'record-after-write', label: 'Record created or updated' },
         { value: 'record-before-update', label: 'Record before update' },
         { value: 'record-after-delete', label: 'Record deleted' },
-        { value: 'schedule', label: 'Schedule (cron)' },
+        { value: 'schedule', label: 'Schedule' },
         { value: 'time_relative', label: 'Time-relative (date sweep)' },
         { value: 'manual', label: 'Manual / autolaunched' },
         // objectui#11054 — `api` is the token the engine routes to the inbound

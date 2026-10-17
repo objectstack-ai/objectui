@@ -165,19 +165,24 @@ import {
 } from '../metadata-admin/preview-registry.js';
 import {
   getStudioCanvasPreview,
+  StudioCanvasCardSelectionContext,
   StudioCanvasColumnSelectionContext,
   StudioCanvasDraftOnlyObjectsContext,
   StudioCanvasListViewContext,
   StudioCanvasNavEntryContext,
   StudioObjectRecordsCanvas,
+  type StudioCanvasCardSelection,
   type StudioCanvasColumnSelection,
   type StudioCanvasDraftOnlyObjects,
   type StudioCanvasNavEntry,
 } from './studio-canvas-preview.js';
 import {
+  listViewCardIdOf,
+  listViewCardSelection,
   listViewColumnFields,
   listViewColumnIndexOf,
   listViewColumnSelection,
+  listViewIsKanban,
   ObjectListViewInspector,
   useObjectListViewDraft,
   type DraftOnlyObjects,
@@ -3926,6 +3931,22 @@ export function InterfacesPillar({
       },
     };
   }, [columnFieldsKey, listViewObject, selectedColumnIndex, setSelection]);
+  // objectui#12725 — and on a kanban view, a click on a card selects the
+  // board's card (`StudioCanvasCardSelectionContext`): the same one
+  // selection, `{ kind: 'card' }`, so the slot, Esc and the empty-canvas
+  // click treat it as they treat a column. Its properties are the panel's
+  // kanban card section.
+  const kanbanLeaf = current?.type === 'object' && listViewIsKanban(listView);
+  const selectedCardId = listViewCardIdOf(selection);
+  const cardLabel = t('engine.studio.inspector.listView.kanbanCard', locale);
+  const canvasCards = React.useMemo<StudioCanvasCardSelection | null>(() => {
+    if (!kanbanLeaf || !listViewObject) return null;
+    return {
+      objectName: listViewObject,
+      selected: selectedCardId,
+      onSelect: (id) => setSelection(listViewCardSelection(id, cardLabel)),
+    };
+  }, [kanbanLeaf, listViewObject, selectedCardId, cardLabel, setSelection]);
 
   // nav editing — patch appDraft.navigation, then save/publish the App overlay
   const onNavPatch = React.useCallback((patch: Record<string, unknown>) => {
@@ -4399,9 +4420,10 @@ export function InterfacesPillar({
       ? tFormat('engine.studio.if.canvasHint.selected', locale, { label: String(selectionLabel) })
       : slot?.mode === 'copilot' &&
           // objectui#12725 — an `object` leaf's headers are elements too, while the panel lists its
-          // columns, on the default canvas: the one that reports a header click.
+          // columns, and so are a kanban view's cards, on the default canvas: the one that reports
+          // a header or a card click.
           ((Preview && designing && !StudioCanvas && !isSourcePage) ||
-            (StudioCanvas === StudioObjectRecordsCanvas && canvasColumns))
+            (StudioCanvas === StudioObjectRecordsCanvas && (canvasColumns || canvasCards)))
         ? t('engine.studio.if.canvasHint.pick', locale)
         : null;
   const canvasStatusEl = current ? (
@@ -4621,7 +4643,10 @@ export function InterfacesPillar({
                 {/* objectui#12725 — and the panel's column selection, which a
                     header click on the default canvas makes. */}
                 <StudioCanvasColumnSelectionContext.Provider value={canvasColumns}>
-                  <StudioCanvas type={current.type} name={current.name} draft={draft} locale={locale} />
+                  {/* objectui#12725 — and, on a kanban view, its card selection. */}
+                  <StudioCanvasCardSelectionContext.Provider value={canvasCards}>
+                    <StudioCanvas type={current.type} name={current.name} draft={draft} locale={locale} />
+                  </StudioCanvasCardSelectionContext.Provider>
                 </StudioCanvasColumnSelectionContext.Provider>
               </StudioCanvasDraftOnlyObjectsContext.Provider>
             </StudioCanvasListViewContext.Provider>

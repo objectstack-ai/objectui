@@ -934,6 +934,8 @@ const ru = {
     deleteCard: "Удалить карточку",
     deleteColumn: "Удалить колонку",
     noCards: "Нет карточек",
+    columnCards: "Карточки в колонке {{column}}",
+    laneCards: "Карточки: {{column}} - {{lane}}",
     cardTitlePlaceholder: "Введите название карточки…",
     requiredFieldsTitle: "Заполните обязательные поля",
     requiredFieldsDescription: "Это перемещение делает поля ниже обязательными. Заполните их, чтобы продолжить.",
@@ -948,6 +950,7 @@ const ru = {
       untitledCard: "без названия",
       unnamedColumn: "без названия",
       instructions: "Чтобы переместить карточку в другую колонку, перетащите её мышью или касанием.",
+      dragging: "Перетаскивается карточка {{card}}",
     },
   },
   timeline: {

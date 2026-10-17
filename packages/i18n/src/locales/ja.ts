@@ -871,6 +871,8 @@ const ja = {
     deleteCard: "カードを削除",
     deleteColumn: "カラムを削除",
     noCards: "カードがありません",
+    columnCards: "{{column}} のカード",
+    laneCards: "{{column}} - {{lane}} のカード",
     cardTitlePlaceholder: "カードのタイトルを入力…",
     requiredFieldsTitle: "必須項目を入力してください",
     requiredFieldsDescription: "この移動により以下の項目が必須になります。入力して続行してください。",
@@ -885,6 +887,7 @@ const ja = {
       untitledCard: "無題のカード",
       unnamedColumn: "名前のないカラム",
       instructions: "このカードを別のカラムに移動するには、マウスまたはタッチでドラッグします。",
+      dragging: "{{card}} をドラッグ中",
     },
   },
   timeline: {

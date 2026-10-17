@@ -45,10 +45,16 @@ import { ChevronDown, Loader2 } from 'lucide-react';
 import {
   Badge,
   Button,
+  cn,
   Label,
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   SortBuilder,
   type SortItem,
 } from '@object-ui/components';
@@ -57,7 +63,7 @@ import { useAuth } from '@object-ui/auth';
 import { resolveViewId } from '@object-ui/core';
 import { extractDraftBody, type MetadataClient } from '@object-ui/data-objectstack';
 import { stripReadDecorations } from '@objectstack/spec/kernel';
-import { resolveI18nLabel, type I18nLabel } from '@objectstack/spec/ui';
+import { NavigationModeSchema, resolveI18nLabel, type I18nLabel } from '@objectstack/spec/ui';
 import { InspectorReorderButtons, InspectorShell } from '../metadata-admin/inspectors/_shared.js';
 import { FieldsListEditor } from '../metadata-admin/previews/FieldsListEditor.js';
 import { useObjectFields } from '../metadata-admin/previews/useObjectFields.js';
@@ -428,7 +434,10 @@ function selectedColumnIndex(id: string | undefined): number | null {
   return m ? Number(m[1]) : null;
 }
 
-/** A selection in the panel's column list, as `FieldsListEditor` spells it. */
+/**
+ * A selection in the panel: a row of its column list, as `FieldsListEditor`
+ * spells it, or a kanban view's card (`kind: 'card'`, objectui#12725).
+ */
 export interface ListViewColumnSelection {
   kind: string;
   id: string;
@@ -463,17 +472,237 @@ export function listViewColumnFields(listView: ObjectListViewDraft): string[] {
   return Array.isArray(columns) ? columns.map((c) => colFieldName(c) ?? '') : [];
 }
 
+/**
+ * objectui#12725 — the selection of a kanban view's card, made by a click on
+ * a card of the board: `id` is the clicked card's record id, the one the
+ * canvas outlines. Its properties are the board's card, not that record's.
+ */
+export function listViewCardSelection(id: string, label: string): ListViewColumnSelection {
+  return { kind: 'card', id, label };
+}
+
+/** The record id of the card a selection names, or `null` when it names no card. */
+export function listViewCardIdOf(selection: ListViewColumnSelection | null | undefined): string | null {
+  return selection?.kind === 'card' ? selection.id : null;
+}
+
+/**
+ * objectui#12725 — whether the view the panel edits renders as a kanban board
+ * (its list body's `type`), the one view whose cards a canvas click selects.
+ * `false` while the view is loading, and for an item that is not a list view.
+ */
+export function listViewIsKanban(listView: ObjectListViewDraft): boolean {
+  const { target, row, notList, seedColumns, loadedFor, targetKey } = listView;
+  if (!target || notList || loadedFor !== targetKey) return false;
+  return listBodyOf(row ?? newListViewItem(target, seedColumns)).type === 'kanban';
+}
+
 const noop = (): void => {};
 
 const SORT_ID = 'studio-list-view-sort';
 const FILTER_ID = 'studio-list-view-filter';
+const KANBAN_GROUP_ID = 'studio-list-view-kanban-group';
+const KANBAN_TITLE_ID = 'studio-list-view-kanban-title';
+const KANBAN_OPEN_ID = 'studio-list-view-kanban-open';
+const KANBAN_FIELDS_LABEL_ID = 'studio-list-view-kanban-fields';
+/** The Select value for "no key written": a Select item cannot carry `''`. */
+const UNSET = '__unset__';
+
+/** The copy of each `navigation.mode` the spec declares (`NavigationModeSchema`). */
+const NAVIGATION_MODE_LABEL_KEYS: Record<string, string> = {
+  page: 'engine.studio.inspector.listView.kanbanCard.mode.page',
+  drawer: 'engine.studio.inspector.listView.kanbanCard.mode.drawer',
+  modal: 'engine.studio.inspector.listView.kanbanCard.mode.modal',
+  split: 'engine.studio.inspector.listView.kanbanCard.mode.split',
+  popover: 'engine.studio.inspector.listView.kanbanCard.mode.popover',
+  new_window: 'engine.studio.inspector.listView.kanbanCard.mode.newWindow',
+  none: 'engine.studio.inspector.listView.kanbanCard.mode.none',
+};
+
+/**
+ * objectui#12725 — the 看板卡片 section of a kanban view: what each card on
+ * the board shows and what a click on one opens, as the StudioRailProps
+ * artboard draws it. Each control writes one key the spec declares, and only
+ * that key:
+ *
+ *  - card fields → `kanban.columns` (`KanbanConfigSchema.columns`, "Fields to
+ *    show on cards"), ordered;
+ *  - title → `kanban.titleField`, optional: empty removes the key, and the
+ *    card shows the record's display name, as the spec describes;
+ *  - click to open → `navigation.mode` (`NavigationModeSchema`); the default
+ *    removes the key;
+ *  - group by → `kanban.groupByField`, required by the spec. Every field of
+ *    the object is offered: the spec's check refuses only a padded name, and
+ *    a field's name is never padded.
+ *
+ * `KanbanConfigSchema` is strict and requires `groupByField` and `columns`,
+ * so the block is born by picking the group-by field (with `columns: []`, on
+ * which the board shows the view's own first columns), and the title and the
+ * card fields wait for it. ⛔ No colour control: no reader in `plugin-kanban`
+ * draws a list view's `rowColor` on a card.
+ */
+function KanbanCardSection({
+  body,
+  writeBody,
+  fields,
+  fieldCatalog,
+  readOnly,
+  locale,
+  selected,
+}: {
+  body: Row;
+  writeBody: (next: Row) => void;
+  fields: ReadonlyArray<{ name: string; label?: string }>;
+  fieldCatalog: LoadState<ObjectFieldOption[]>;
+  readOnly: boolean;
+  locale: string;
+  selected: boolean;
+}): React.ReactElement {
+  const ref = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (selected) ref.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [selected]);
+  const kanban = isPlainObject(body.kanban) ? body.kanban : null;
+  const navigation = isPlainObject(body.navigation) ? body.navigation : null;
+  const groupBy = typeof kanban?.groupByField === 'string' ? kanban.groupByField : '';
+  const titleField = typeof kanban?.titleField === 'string' ? kanban.titleField : '';
+  const mode = typeof navigation?.mode === 'string' ? navigation.mode : '';
+  const writeKanban = (next: Row) => writeBody({ ...body, kanban: next });
+  const fieldItems = (current: string) => (
+    <>
+      {current && !fields.some((f) => f.name === current) && (
+        <SelectItem value={current}>
+          <span className="font-mono">{current}</span>
+        </SelectItem>
+      )}
+      {fields.map((f) => (
+        <SelectItem key={f.name} value={f.name}>
+          <span className="flex items-center gap-2">
+            <span>{f.label || f.name}</span>
+            <code className="text-xs text-muted-foreground">{f.name}</code>
+          </span>
+        </SelectItem>
+      ))}
+    </>
+  );
+  const FieldsWidget = WIDGETS['field-multi'];
+  return (
+    <div
+      ref={ref}
+      data-testid="list-view-kanban-card"
+      data-selected={selected ? 'true' : undefined}
+      className={cn('space-y-3 rounded-md border p-2', selected && 'border-primary ring-1 ring-primary')}
+    >
+      <div>
+        <p className="text-xs font-medium">{t('engine.studio.inspector.listView.kanbanCard', locale)}</p>
+        <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+          {t('engine.studio.inspector.listView.kanbanCard.intro', locale)}
+        </p>
+      </div>
+      {!kanban && (
+        <p className="rounded-md border border-dashed px-2 py-1.5 text-[11px] leading-snug text-muted-foreground" data-testid="list-view-kanban-group-first">
+          {t('engine.studio.inspector.listView.kanbanCard.groupByFirst', locale)}
+        </p>
+      )}
+      <div className="space-y-1.5" data-testid="list-view-kanban-fields">
+        <p id={KANBAN_FIELDS_LABEL_ID} className="text-xs text-muted-foreground">
+          {t('engine.studio.inspector.listView.kanbanCard.fields', locale)}
+        </p>
+        <FieldsWidget
+          ariaLabelledBy={KANBAN_FIELDS_LABEL_ID}
+          schema={{}}
+          value={Array.isArray(kanban?.columns) ? kanban.columns : []}
+          readOnly={readOnly || !kanban}
+          context={{ conditionScope: 'none', objectFields: fieldCatalog }}
+          onChange={(next) => {
+            if (kanban && Array.isArray(next)) writeKanban({ ...kanban, columns: next.map(String) });
+          }}
+        />
+      </div>
+      <div className="space-y-1.5" data-testid="list-view-kanban-title">
+        <Label htmlFor={KANBAN_TITLE_ID} className="text-xs text-muted-foreground">
+          {t('engine.studio.inspector.listView.kanbanCard.title', locale)}
+        </Label>
+        <Select
+          value={titleField || UNSET}
+          disabled={readOnly || !kanban}
+          onValueChange={(v) => {
+            if (!kanban) return;
+            const { titleField: _dropped, ...rest } = kanban;
+            writeKanban(v === UNSET ? rest : { ...rest, titleField: v });
+          }}
+        >
+          <SelectTrigger id={KANBAN_TITLE_ID} className="h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={UNSET}>
+              <span className="text-muted-foreground">{t('engine.studio.inspector.listView.kanbanCard.titleRecordName', locale)}</span>
+            </SelectItem>
+            {fieldItems(titleField)}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5" data-testid="list-view-kanban-open">
+        <Label htmlFor={KANBAN_OPEN_ID} className="text-xs text-muted-foreground">
+          {t('engine.studio.inspector.listView.kanbanCard.open', locale)}
+        </Label>
+        <Select
+          value={mode || UNSET}
+          disabled={readOnly}
+          onValueChange={(v) => {
+            const { mode: _dropped, ...rest } = navigation ?? {};
+            const next = v === UNSET ? rest : { ...rest, mode: v };
+            const { navigation: _old, ...others } = body;
+            writeBody(Object.keys(next).length > 0 ? { ...others, navigation: next } : others);
+          }}
+        >
+          <SelectTrigger id={KANBAN_OPEN_ID} className="h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={UNSET}>
+              <span className="text-muted-foreground">{t('engine.studio.inspector.listView.kanbanCard.openDefault', locale)}</span>
+            </SelectItem>
+            {mode && !NavigationModeSchema.options.includes(mode as never) && (
+              <SelectItem value={mode}>
+                <span className="font-mono">{mode}</span>
+              </SelectItem>
+            )}
+            {NavigationModeSchema.options.map((m) => (
+              <SelectItem key={m} value={m}>
+                {t(NAVIGATION_MODE_LABEL_KEYS[m] ?? m, locale)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5 border-t pt-3" data-testid="list-view-kanban-group">
+        <Label htmlFor={KANBAN_GROUP_ID} className="text-xs text-muted-foreground">
+          {t('engine.studio.inspector.listView.kanbanCard.groupBy', locale)}
+        </Label>
+        <Select
+          value={groupBy || undefined}
+          disabled={readOnly}
+          onValueChange={(v) => writeKanban({ ...(kanban ?? { columns: [] }), groupByField: v })}
+        >
+          <SelectTrigger id={KANBAN_GROUP_ID} className="h-8 text-xs">
+            <SelectValue placeholder={t('engine.studio.inspector.listView.kanbanCard.pickField', locale)} />
+          </SelectTrigger>
+          <SelectContent>{fieldItems(groupBy)}</SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+}
 
 /**
  * The panel itself: Columns (add, remove, reorder — the Studio's own column
  * manager, `FieldsListEditor`), Filter (the runtime `FilterBuilder`, through
  * the designer's `filter-builder` widget, which writes the spec's
  * `ViewFilterRule[]`) and Sort (the runtime `SortBuilder`, in a popover the
- * width the builder needs, written as the spec's `{ field, order }[]`).
+ * width the builder needs, written as the spec's `{ field, order }[]`). On a
+ * kanban view, the kanban card section comes first (`KanbanCardSection`).
  */
 export function ObjectListViewInspector({
   listView,
@@ -595,6 +824,18 @@ export function ObjectListViewInspector({
               <p className="rounded-md border border-dashed px-2 py-1.5 text-[11px] leading-snug text-muted-foreground" data-testid="list-view-not-created">
                 {tFormat('engine.studio.inspector.listView.notCreated', locale, { view: target.viewId })}
               </p>
+            )}
+            {body.type === 'kanban' && (
+              // objectui#12725 — a kanban view's card: a card click on the canvas selects it.
+              <KanbanCardSection
+                body={body}
+                writeBody={writeBody}
+                fields={fields}
+                fieldCatalog={fieldCatalog}
+                readOnly={readOnly}
+                locale={locale}
+                selected={hostHeld && listViewCardIdOf(selection) !== null}
+              />
             )}
             <div className="space-y-1.5" data-testid="list-view-columns">
               <FieldsListEditor

@@ -71,8 +71,8 @@ export function getPackageSchema(): JsonSchema | undefined {
  * Curated authoring FormView for a package manifest.
  *
  * `id` / `type` / `namespace` / `defaultDatasource` / `scope` / `dependencies`
- * are marked `immutable` — editable when CREATING (SchemaForm `createMode`)
- * but locked once the package exists, because the REST `PATCH /packages/:id`
+ * are marked `immutable` — editable when CREATING (SchemaForm `createMode`;
+ * `scope` has no create row, see below) but locked once the package exists, because the REST `PATCH /packages/:id`
  * only persists `name` / `description` / `version`. `name` / `version` /
  * `description` stay editable in every non-view mode.
  *
@@ -90,8 +90,28 @@ export function getPackageSchema(): JsonSchema | undefined {
  *     back to the schema's own `description` — i.e. `ManifestSchema`'s
  *     `.describe()` in `@objectstack/spec`. The English text keeps exactly one
  *     producer, in the framework repo, and this file never copies it.
+ *
+ * ## No `scope` row on create (objectui#12869)
+ *
+ * With `{ create: true }` the Advanced section has no `scope` row. The install
+ * door, `POST /api/v1/packages`, defaults `scope` to `project` and refuses
+ * `cloud` and `system` with a 400 (objectstack#24160), while `ManifestSchema`,
+ * which this form is derived from, offers all three. So the create form offers
+ * no scope at all and the server's default applies. Edit and view keep the
+ * row, `immutable`, read from `ManifestSchema`: an existing package's scope can
+ * be `cloud` or `system`.
+ *
+ * ⛔ Not a list of allowed scope values here. Once an installed spec release
+ * exports `PackageInstallManifestSchema` (`@objectstack/spec/api`), the create
+ * form can take its options from that declaration instead.
  */
-export function getPackageForm(locale: string): FormViewSpec {
+export function getPackageForm(locale: string, { create = false }: { create?: boolean } = {}): FormViewSpec {
+  const scopeRow = {
+    field: 'scope',
+    label: t('engine.packages.form.scope', locale),
+    helpText: tOptional('engine.packages.form.help.scope', locale),
+    immutable: true,
+  };
   return {
     type: 'modal',
     sections: [
@@ -153,12 +173,7 @@ export function getPackageForm(locale: string): FormViewSpec {
             helpText: tOptional('engine.packages.form.help.defaultDatasource', locale),
             immutable: true,
           },
-          {
-            field: 'scope',
-            label: t('engine.packages.form.scope', locale),
-            helpText: tOptional('engine.packages.form.help.scope', locale),
-            immutable: true,
-          },
+          ...(create ? [] : [scopeRow]),
           {
             field: 'dependencies',
             label: t('engine.packages.form.dependencies', locale),

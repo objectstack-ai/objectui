@@ -2817,13 +2817,24 @@ export function FormulaCellRenderer({ value, field }: CellRendererProps): React.
   //
   // ⛔ No type is inferred from the expression or from its inputs. The spec's
   // own field form says of `returnType` that consumers read it "instead of
-  // re-parsing the expression", and its four values (`number` / `text` /
-  // `boolean` / `date`) carry no currency, so a formula over two currency
-  // fields renders as a number here, not as money.
+  // re-parsing the expression", so a formula over two currency fields that
+  // declares `number` (or nothing) renders as a number here, not as money.
   const returnType = field && 'returnType' in field ? field.returnType : undefined;
   const valueType = returnType ?? (typeof value === 'number' ? 'number' : 'text');
   if (valueType === 'number') {
     return <NumberCellRenderer value={value} field={field} />;
+  }
+
+  // A declared CURRENCY is money (objectui#12111): the spec's `currency`
+  // return type is "an amount of money, in the currency the formula's own
+  // `currencyConfig` declares, as a currency field declares it". So it is drawn
+  // by the currency cell itself, handed this formula's own definition: that
+  // renderer reads `currencyConfig` through `resolveFieldCurrency` exactly as
+  // it reads a currency field's, so a `fixed` config keeps its own code and an
+  // absent one is `dynamic`, the tenant default currency. ⛔ No second money
+  // formatter here.
+  if (valueType === 'currency') {
+    return <CurrencyCellRenderer value={value} field={field} />;
   }
 
   // A declared BOOLEAN reads the locale's Yes / No word (objectui#11748), the

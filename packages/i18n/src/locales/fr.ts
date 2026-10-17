@@ -897,6 +897,8 @@ const fr = {
     deleteCard: "Supprimer la carte",
     deleteColumn: "Supprimer la colonne",
     noCards: "Aucune carte",
+    columnCards: "Cartes de la colonne {{column}}",
+    laneCards: "Cartes de {{column}} - {{lane}}",
     cardTitlePlaceholder: "Saisir le titre de la carte…",
     requiredFieldsTitle: "Compléter les champs obligatoires",
     requiredFieldsDescription: "Ce déplacement rend les champs ci-dessous obligatoires. Remplissez-les pour continuer.",
@@ -911,6 +913,7 @@ const fr = {
       untitledCard: "sans titre",
       unnamedColumn: "sans nom",
       instructions: "Pour déplacer cette carte vers une autre colonne, faites-la glisser avec la souris ou au toucher.",
+      dragging: "Déplacement de la carte {{card}}",
     },
   },
   timeline: {

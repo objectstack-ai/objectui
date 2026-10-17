@@ -1410,6 +1410,35 @@ import { PreviewBadge, getPlatformStage } from '@object-ui/app-shell';
 
 Labels are localized under `topbar.stage.*` (`@object-ui/i18n`).
 
+## One app, no app switcher (host request)
+
+Inside an app the top bar draws the app pill, `AppSwitcher`, whose dropdown
+switches apps and carries 「Back to home」, 「All apps」 and 「Settings」. A host whose
+deployment is one product can ask for no switcher when the viewer is served a
+single app, by serving one key in its runtime config:
+
+```ts
+// packages/app-shell/src/runtime-config.ts — `AppShellRuntimeConfig.hideSingleAppSwitcher`
+import type { AppShellRuntimeConfig } from '@object-ui/app-shell';
+
+// The fragment a host adds to its `GET /api/v1/runtime/config` payload.
+// Optional: a payload without it keeps the switcher.
+const request: Pick<AppShellRuntimeConfig, 'hideSingleAppSwitcher'> = {
+  hideSingleAppSwitcher: true,
+};
+```
+
+- It is a request, and the rule needs a second condition. The pill becomes the
+  app's glyph and name, with no dropdown, only when the key is `true` AND the
+  viewer's app list holds exactly one active, un-hidden app. That count reads
+  the same list the dropdown draws, so Setup counts and a `hidden` app does not.
+- A viewer served two or more apps keeps the switcher, because it is their way
+  to the other app.
+- Only a literal `true` turns it on. It is re-read from each payload, so a
+  runtime that does not send it keeps today's top bar.
+- The product mark still links home, and the platform-stage chip still follows
+  the app's name.
+
 ## Links
 
 - 📚 [Documentation](https://www.objectui.org/docs/layout/app-shell)

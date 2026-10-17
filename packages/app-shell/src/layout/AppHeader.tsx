@@ -873,7 +873,11 @@ export function AppHeader({
                 dropdown's Studio row takes the Studio button's own target, so
                 the two cannot disagree (objectui#12201 item 6). `min-w-0` here
                 and on the pill's button lets a long app name truncate in the
-                pill rather than spill out of the left zone (objectui#12472). */}
+                pill rather than spill out of the left zone (objectui#12472).
+                Where the host asks for no switcher and the viewer is served
+                one app, `AppSwitcher` draws the app's glyph and name with no
+                dropdown in the same slot, so the chip below still follows it
+                (objectui#12913). */}
             {activeAppName && onAppChange ? (
               <div className="flex items-center min-w-0">
                 <AppSwitcher

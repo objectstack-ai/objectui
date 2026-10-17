@@ -48,6 +48,9 @@ const useKanbanT = createSafeTranslation(
     'kanban.noCards': 'No cards',
     'kanban.cardTitlePlaceholder': 'Enter card title…',
     'kanban.loadMore': 'Load more',
+    // The heading of the swimlane that holds cards with no value in the
+    // swimlane field (objectui#12899); the bucket key stays `UNCATEGORIZED_LANE`.
+    'kanban.uncategorized': 'Uncategorized',
     // The accessible names of a lane's card list and of a swimlane cell's card
     // list (objectui#12838): one sentence each, with the column (and lane)
     // label interpolated, so the words around the label are translated too.
@@ -73,6 +76,12 @@ const useKanbanT = createSafeTranslation(
   'kanban.noCards',
 )
 
+/**
+ * The bucket KEY of the swimlane that holds cards with no value in the swimlane
+ * field. It buckets, filters, counts, keys the lane element and tracks the
+ * collapsed set, so it never changes with the locale; the lane is DRAWN as
+ * `kanban.uncategorized` (objectui#12899).
+ */
 const UNCATEGORIZED_LANE = 'Uncategorized'
 
 /**
@@ -1454,6 +1463,8 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
           {/* Swimlane rows */}
           {swimlanes.map(lane => {
             const isCollapsed = collapsedLanes.has(lane)
+            // Display only: the key above and below is still `lane`.
+            const laneLabel = lane === UNCATEGORIZED_LANE ? t('kanban.uncategorized') : lane
             const laneCardCount = boardColumns.reduce((sum, col) =>
               sum + col.cards.filter(c => (c[swimlaneField!] != null ? String(c[swimlaneField!]) : UNCATEGORIZED_LANE) === lane).length, 0)
 
@@ -1466,7 +1477,7 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
                   aria-expanded={!isCollapsed}
                 >
                   <span className={cn("transition-transform text-xs", isCollapsed ? "" : "rotate-90")}>▶</span>
-                  <span className=" text-xs font-semibold text-muted-foreground uppercase tracking-wider">{lane}</span>
+                  <span className=" text-xs font-semibold text-muted-foreground uppercase tracking-wider">{laneLabel}</span>
                   <span className=" text-xs text-muted-foreground">({laneCountLabel(laneCardCount, countsAreWindowed)})</span>
                 </button>
 
@@ -1496,7 +1507,7 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
                         >
                           {!collapsed && (
                             <SortableContext items={laneCards.map(c => c.id)} strategy={verticalListSortingStrategy}>
-                              <div className="space-y-2" role="list" aria-label={t('kanban.laneCards', { column: col.title, lane })}>
+                              <div className="space-y-2" role="list" aria-label={t('kanban.laneCards', { column: col.title, lane: laneLabel })}>
                                 {laneCards.map(card => (
                                   <SortableCard key={card.id} card={card} onCardClick={onCardClick} conditionalFormatting={conditionalFormatting} objectFields={objectFields} />
                                 ))}

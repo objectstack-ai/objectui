@@ -253,16 +253,16 @@ describe('UnifiedSidebar — a hidden group label is no focus stop in icon mode 
     expect(peer).toHaveAttribute('data-state', 'collapsed');
     expect(peer).toHaveAttribute('data-collapsible', 'icon');
 
-    const labels = labelsIn(container);
-    expect(labels).toHaveLength(3);
-    for (const label of labels) expectHidden(label);
-    expect(labelByText('Area')).toBe(labels[0]);
-    expect(labelByText('Recent')).toBe(labels[2]);
-    expect(screen.queryByRole('button', { name: 'Workspace' })).not.toBeInTheDocument();
-
     const walk = await tabWalk(screen.getByRole('link', { name: 'Page Authoring' }), sidebarOf(container));
     expect(walk.map((el) => el.textContent?.trim())).toEqual(['Page Authoring', 'My Work', 'Tasks']);
     expect(walk.filter((el) => el.closest('[data-sidebar="group-label"]'))).toEqual([]);
+    expect(screen.queryByRole('button', { name: 'Workspace' })).not.toBeInTheDocument();
+
+    const labels = labelsIn(container);
+    expect(labels).toHaveLength(3);
+    expect(labelByText('Area')).toBe(labels[0]);
+    expect(labelByText('Recent')).toBe(labels[2]);
+    for (const label of labels) expectHidden(label);
   });
 
   it('collapsed to icons (home arm): the Starred label is hidden and not announced', () => {

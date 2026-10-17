@@ -176,12 +176,12 @@ describe('NavigationRenderer — a hidden group label is no focus stop in icon m
     expect(peer).toHaveAttribute('data-state', 'collapsed');
     expect(peer).toHaveAttribute('data-collapsible', 'icon');
 
-    expectHiddenLabels(container, 2);
-    expect(screen.queryByRole('button', { name: /Sales|Support/ })).not.toBeInTheDocument();
-
     const walk = await tabWalk(user, screen.getByRole('link', { name: 'PAGE_AUTHORING' }), sidebarOf(container));
     expect(walk.map(name)).toEqual(['PAGE_AUTHORING', 'ACCOUNTS', 'CONTACTS', 'CASES']);
     expect(walk.filter((el) => el.closest('[data-sidebar="group-label"]'))).toEqual([]);
+    expect(screen.queryByRole('button', { name: /Sales|Support/ })).not.toBeInTheDocument();
+
+    expectHiddenLabels(container, 2);
   });
 
   it('collapsed to icons: the Favorites label is hidden and not announced', () => {

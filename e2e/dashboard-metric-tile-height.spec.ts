@@ -78,6 +78,10 @@ const REPO_ROOT = (() => {
 const source = (rel: string) => path.join(REPO_ROOT, rel);
 
 const DASHBOARD_RENDERER = source('packages/plugin-dashboard/src/DashboardRenderer.tsx');
+// By path, the module `@object-ui/i18n` resolves to below, so this file holds
+// no import statement naming a workspace package (the premise
+// `scripts/__tests__/e2e-type-check.test.ts` pins for `e2e/`).
+const I18N_ENTRY = source('packages/i18n/src/index.ts');
 const THEME_CSS = source('packages/components/src/index.css');
 
 /** The widths the ruling names: the reported 1024 px and the console's 1280 px. */
@@ -120,7 +124,7 @@ function entry(): Plugin {
   const code = `
 import * as React from 'react';
 import { createRoot } from 'react-dom/client';
-import { I18nProvider } from '@object-ui/i18n';
+import { I18nProvider } from ${JSON.stringify(I18N_ENTRY)};
 import { DashboardRenderer } from ${JSON.stringify(DASHBOARD_RENDERER)};
 
 const VALUES = { total_amount: 1964500, open_count: 42 };
@@ -251,10 +255,34 @@ async function mount(page: Page, viewport: { width: number; height: number }): P
     null,
     { timeout: 30_000 },
   );
-  const candidates = await page.evaluate(() =>
-    [...document.querySelectorAll('[class]')].flatMap((el) => (el.getAttribute('class') ?? '').split(/\s+/)).filter(Boolean),
-  );
-  await page.addStyleTag({ content: await tailwindFor(candidates) });
+  // The stylesheet is compiled for the classes on the page, and the page can
+  // still add classes after the tiles answer (a later effect re-renders a
+  // node). So compile until the class set stops growing: a rule missing from a
+  // one-shot sheet (a card's `border`, say) moves the reading by a pixel or two.
+  const classesOnPage = () =>
+    page.evaluate(() => [
+      ...new Set(
+        [...document.querySelectorAll('[class]')].flatMap((el) => (el.getAttribute('class') ?? '').split(/\s+/)).filter(Boolean),
+      ),
+    ]);
+  const compiled = new Set<string>();
+  for (let round = 0; ; round++) {
+    const candidates = await classesOnPage();
+    if (round > 0 && candidates.every((c) => compiled.has(c))) break;
+    if (round === 5) throw new Error('the page kept adding classes; the stylesheet never caught up');
+    candidates.forEach((c) => compiled.add(c));
+    const css = await tailwindFor([...compiled]);
+    await page.evaluate((text) => {
+      let sheet = document.getElementById('tailwind');
+      if (!sheet) {
+        sheet = document.createElement('style');
+        sheet.id = 'tailwind';
+        document.head.appendChild(sheet);
+      }
+      sheet.textContent = text;
+    }, css);
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  }
   // Settle: two consecutive frames with the same heights.
   await page.waitForFunction(
     () => {
@@ -340,7 +368,10 @@ test.describe('a dashboard metric tile is as tall as its content (objectui#12704
         body: JSON.stringify(reading, null, 2),
         contentType: 'application/json',
       });
-      console.log(`objectui#12704 @${viewport.width}px`, JSON.stringify(reading));
+      testInfo.annotations.push({ type: `metric-tile-heights@${viewport.width}`, description: JSON.stringify(reading) });
+      const shot = testInfo.outputPath(`metric-tile-heights-${viewport.width}.png`);
+      await page.screenshot({ path: shot, fullPage: true });
+      await testInfo.attach(`metric-tile-heights-${viewport.width}.png`, { path: shot, contentType: 'image/png' });
 
       const [bare] = reading.bare;
       const [delta] = reading.delta;

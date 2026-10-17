@@ -243,7 +243,7 @@ describe('opening the node writes nothing (objectui#12672)', () => {
 describe('a node that stores a triggerType beside a timeRelative block agrees with the spec (objectui#12672)', () => {
   const cases: Array<{ triggerType: string; flowType: string; label: string; extra?: Record<string, unknown> }> = [
     { triggerType: 'record-after-update', flowType: 'record_change', label: 'Record updated', extra: { objectName: 'showcase_task' } },
-    { triggerType: 'schedule', flowType: 'schedule', label: 'Schedule (cron)' },
+    { triggerType: 'schedule', flowType: 'schedule', label: 'Schedule' },
     { triggerType: 'manual', flowType: 'autolaunched', label: 'Manual / autolaunched' },
     { triggerType: 'api', flowType: 'api', label: 'Webhook / API', extra: { secret: 'value-already-on-the-node' } },
   ];
@@ -313,8 +313,24 @@ describe('the cron field reads the resolved kind (objectui#12672)', () => {
     mount(draft);
     expect(screen.getByDisplayValue('0 7 * * *')).toBeTruthy();
     expect(bannerBeside('Cron schedule')).toBeNull();
-    expect(triggerSelect().textContent).toBe('Schedule (cron)');
+    expect(triggerSelect().textContent).toBe('Schedule');
     expect(triggerSelect().hasAttribute('data-placeholder')).toBe(true);
+  });
+
+  // objectui#12845 — the schedule kind binds cron, interval and once cadences
+  // (objectui#12779), so the select names the kind, not one cadence: an
+  // interval flow reads the same label a cron flow does, and never "cron".
+  it('an interval schedule flow reads Schedule in the select, the same label a cron flow reads, never cron', () => {
+    const draft = showcaseFlow({ schedule: { type: 'interval', intervalMs: 60000 } }, 'schedule');
+    expect(resolveFlowTriggerKind(draft)).toBe('schedule');
+    mount(draft);
+    expect(triggerSelect().textContent).toBe('Schedule');
+    expect(triggerSelect().textContent).not.toMatch(/cron/i);
+    expect(triggerSelect().hasAttribute('data-placeholder')).toBe(true);
+    // The Trigger help names every cadence the schedule kind binds, not only cron.
+    const help = screen.getByText(/^When this flow starts\./).textContent ?? '';
+    expect(help).not.toMatch(/fire on a cron\./);
+    expect(help).toMatch(/interval/);
   });
 
   it("a sweep's cadence is in effect beside its descriptor", () => {

@@ -7026,14 +7026,14 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
   start: {
     triggerType: {
       label: '触发方式',
-      help: '流程何时启动。记录触发在数据变更时触发;定时触发按 cron 触发。',
+      help: '流程何时启动。记录触发在数据变更时触发;定时触发按计划(cron、间隔或指定时间)触发。',
       opts: {
         'record-after-create': '记录创建后',
         'record-after-update': '记录更新后',
         'record-after-write': '记录创建或更新后',
         'record-before-update': '记录更新前',
         'record-after-delete': '记录删除后',
-        schedule: '定时(cron)',
+        schedule: '定时',
         time_relative: '相对时间(日期扫描)',
         manual: '手动 / 自动启动',
         api: 'Webhook / API',

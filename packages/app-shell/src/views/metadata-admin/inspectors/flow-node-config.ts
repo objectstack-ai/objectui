@@ -435,19 +435,19 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
   // Trigger — the start node IS the flow trigger (spec: `'start' // Trigger`).
   // The trigger CATEGORY is flow-level (`flow.type`); the start node's `config`
   // carries the trigger PARAMETERS. Keys match real production metadata:
-  // record-change starts use objectName + criteria; scheduled starts use a cron
-  // `schedule`. All optional and shown together (no category gating) so every
+  // record-change starts use objectName + criteria; scheduled starts use a
+  // `schedule` cadence (a cron, an interval or a set time). All optional and shown together (no category gating) so every
   // real start node renders without falling back to JSON.
   start: [
     cfg('triggerType', 'Trigger', 'select', {
-      help: 'When this flow starts. Record triggers fire on data changes; schedule triggers fire on a cron.',
+      help: 'When this flow starts. Record triggers fire on data changes; schedule triggers fire on a schedule (a cron, an interval or a set time).',
       options: [
         { value: 'record-after-create', label: 'Record created' },
         { value: 'record-after-update', label: 'Record updated' },
         { value: 'record-after-write', label: 'Record created or updated' },
         { value: 'record-before-update', label: 'Record before update' },
         { value: 'record-after-delete', label: 'Record deleted' },
-        { value: 'schedule', label: 'Schedule (cron)' },
+        { value: 'schedule', label: 'Schedule' },
         { value: 'time_relative', label: 'Time-relative (date sweep)' },
         { value: 'manual', label: 'Manual / autolaunched' },
         // objectui#11054 — `api` is the token the engine routes to the inbound

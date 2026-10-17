@@ -341,7 +341,8 @@ async function mount(page: Page, c: Case): Promise<void> {
     (window as unknown as { __case: Case }).__case = value;
   }, c);
   await page.addScriptTag({ content: bundle, type: 'module' });
-  await page.waitForSelector('[data-testid="hdr-title"]', { timeout: 30_000 });
+  // Attached, not visible: a starved title is 0 px wide, and that is the reading.
+  await page.waitForSelector('[data-testid="hdr-title"]', { state: 'attached', timeout: 30_000 });
   // The stylesheet is compiled for the classes on the page; compile until the
   // class set stops growing.
   const classesOnPage = () =>
@@ -383,7 +384,7 @@ async function mount(page: Page, c: Case): Promise<void> {
       { value: c, text: css },
     );
     await page.addScriptTag({ content: bundle, type: 'module' });
-    await page.waitForSelector('[data-testid="hdr-title"]', { timeout: 30_000 });
+    await page.waitForSelector('[data-testid="hdr-title"]', { state: 'attached', timeout: 30_000 });
   }
   await page.evaluate(() => document.fonts?.ready);
   // Settle: two consecutive frames with the same title, chip and actions

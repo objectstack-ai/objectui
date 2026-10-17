@@ -1580,20 +1580,25 @@ function useLazyMetadataSettled(
   ensureType: ((type: string) => Promise<unknown>) | undefined,
   getTypeStatus: ((type: string) => string) | undefined,
 ): boolean {
-  useEffect(() => {
-    if (!ensureType || !readsKey) return;
-    for (const type of readsKey.split(',')) void ensureType(type);
-  }, [readsKey, ensureType]);
-
   const answered = useRef(new Set<string>());
-  if (!ensureType || !getTypeStatus || !readsKey) return true;
+  const types = readsKey ? readsKey.split(',') : [];
+  const statuses = types.map((type) => getTypeStatus?.(type) ?? 'idle');
+  // Asked from an effect, never from render (the provider bumps its context
+  // when an answer lands). Re-asked whenever one of them is back at `idle`.
+  const idleKey = types.filter((_, i) => statuses[i] === 'idle').join(',');
+  useEffect(() => {
+    if (!ensureType) return;
+    for (const type of readsKey.split(',')) if (type) void ensureType(type);
+  }, [readsKey, idleKey, ensureType]);
+
+  if (!ensureType || !getTypeStatus || types.length === 0) return true;
   let settled = true;
-  for (const type of readsKey.split(',')) {
-    const status = getTypeStatus(type);
+  types.forEach((type, i) => {
+    const status = statuses[i];
     if (status === 'ready' || status === 'error') answered.current.add(type);
     else if (status === 'idle') answered.current.delete(type);
     if (!answered.current.has(type)) settled = false;
-  }
+  });
   return settled;
 }
 

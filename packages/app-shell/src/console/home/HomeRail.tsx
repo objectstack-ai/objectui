@@ -569,11 +569,13 @@ export function HomeContinue({
  * the reader's language, the API name only when none resolves.
  *
  * A read the server REFUSED anyway (a grant the client believed, or no loaded
- * grant to ask) says so with the record activity panel's own sentence and
- * lock (objectui#12843), not the generic failure: the feed marks the refusal
- * with that panel's verdict (`isRefusedFeedRead`, objectui#11195), and this
- * card reads the same `detail.activityAccessDenied` key. Every other failure
- * keeps the generic copy.
+ * grant to ask) says so with a lock and a permission sentence (objectui#12843),
+ * not the generic failure: the feed marks the refusal with the record activity
+ * panel's verdict (`isRefusedFeedRead`, objectui#11195). The sentence is the
+ * neutral `layout.activityFeed.accessDenied`, the one the bell's Activity tab
+ * shows for the same refusal (objectui#12859); the record panel's
+ * `detail.activityAccessDenied` names "this record", and Home has none. Every
+ * other failure keeps the generic copy.
  *
  * Laid out as Home's section ④ (objectui#12604): the heading above a card with
  * 12 px padding; each row the actor (13 px / 500), the verb and target muted,
@@ -596,8 +598,8 @@ export function HomeActivity({ activity, onViewAll, t }: { activity: ActivityFee
             {activity.status === 'error' && activity.refused ? (
               <span className="flex items-center gap-2" data-testid="home-activity-access-denied">
                 <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
-                {t('detail.activityAccessDenied', {
-                  defaultValue: "You don't have permission to view activity on this record.",
+                {t('layout.activityFeed.accessDenied', {
+                  defaultValue: "You don't have permission to view activity.",
                 })}
               </span>
             ) : activity.status === 'error' ? (

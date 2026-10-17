@@ -53,13 +53,9 @@ deadline, so only a field that says so gets the affordance:
 - the relative face reads **"Overdue Nd"** instead of the neutral "N days ago";
 - the cell is styled red, whichever display face it is painting.
 
-The spec reads an absent key, or `false`, as "not a deadline", with nothing
-inferred from the field's name. Today's cells do not follow that yet: only a
-declared `true` short-circuits, and with the key absent, common due/deadline
-field-name conventions (`due_at`, `deadline`, `expires_at`, `sla_at`,
-`renewal_at`, `next_action_at`, …) turn the affordance on by themselves —
-writing `dueLike: false` does **not** suppress that fallback. Until the fallback
-is retired, authoring a neutral field name is the opt-out.
+An absent key, or `false`, means "not a deadline", with nothing inferred from
+the field's name: an undeclared `due_at` in the past reads as any past datetime
+does.
 
 `settledWhen` says when the deadline is settled for one record. It is
 `FieldSchema.settledWhen`: a CEL predicate over the record's own columns, read as
@@ -78,8 +74,10 @@ const respondBy: DateTimeFieldMetadata = {
 };
 ```
 
-⚠️ `settledWhen` is declared, not yet rendered: no datetime cell evaluates it
-today, so a past deadline on a settled record still renders overdue.
+Every view that draws the datetime beside its record evaluates `settledWhen`
+against that record (see [Date Field](/docs/fields/date)), and a settled deadline
+reads the neutral phrase with no red. A predicate that fails to evaluate leaves
+the deadline unsettled.
 
 The affordance is **day-granular**. It compares calendar days, so a datetime a
 few hours past its deadline still reads "Today" and is not red — the same answer

@@ -14,6 +14,7 @@ export * from './fieldRules.js';
 export * from './subjectPermissions.js';
 export * from './rowPredicateCanon.js';
 export * from './listConditional.js';
+export * from './deadlineSettled.js';
 export * from './optionRules.js';
 export * from './optionLint.js';
 export * from './ExpressionCache.js';

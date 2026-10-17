@@ -17,10 +17,10 @@ import {
   TooltipTrigger,
 } from '@object-ui/components';
 import type { HighlightField } from '@object-ui/types';
-import { EXPANDABLE_FIELD_TYPES, resolveFieldAffordance } from '@object-ui/core';
+import { EXPANDABLE_FIELD_TYPES, resolveFieldAffordance, isDeadlineSettled } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import { getCellRenderer, resolveCellRendererType, useBooleanValueLabel } from '@object-ui/fields';
-import { useSafeFieldLabel, useInlineEdit } from '@object-ui/react';
+import { useSafeFieldLabel, useInlineEdit, usePredicateScope } from '@object-ui/react';
 import { Check, X, Pencil } from 'lucide-react';
 import { InlineFieldInput } from './InlineFieldInput';
 import {
@@ -67,6 +67,9 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
   // The caller's permissions, for the field question the strip asks of each
   // highlight — the same one the details body asks (objectui#12103).
   const perms = usePermissions();
+  // The host predicate scope a declared deadline's `settledWhen` is judged in
+  // (objectui#11815), against the staged record below.
+  const predicateScope = usePredicateScope();
 
   // The STAGED record: the saved record this strip receives, overlaid with the
   // edit session's draft by the same spread `DetailView` gives the details body
@@ -413,7 +416,11 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
                             isKpi && 'tabular-nums tracking-tight',
                           )}
                         >
-                          <CellRenderer value={value} field={enrichedField as any} />
+                          <CellRenderer
+                            value={value}
+                            field={enrichedField as any}
+                            deadlineSettled={isDeadlineSettled(enrichedField, stagedRecord, { scope: predicateScope, fields: objectSchema?.fields })}
+                          />
                         </span>
                       )}
                     </div>

@@ -39,6 +39,29 @@ interface TypeCacheEntry {
 
 type ItemPromiseMap = Map<string, Promise<any | null>>;
 
+/**
+ * One package's object definitions, plus the objects outside it that a reader
+ * named (objectui#12811): what `readObjectScope` answers from.
+ *
+ * `items` is the package list followed by the by-name extras. Like every cache
+ * array here it is REPLACED on each write, never mutated, because
+ * `composeObjects` keys its composed list on it. No timestamp: an entry is
+ * dropped or refetched only with the `object` type (`invalidate`, `refresh`,
+ * an organization or preview-mode switch).
+ */
+interface ObjectScopeEntry {
+  status: MetadataTypeStatus;
+  items: any[];
+  /** The package list has answered once; a refetch keeps this, and the items. */
+  answered: boolean;
+  /** The names read by name for this scope, and whether each has answered. */
+  names: Map<string, 'pending' | 'answered'>;
+  /** The names the server answered without a definition. Replaced on change. */
+  missing: string[];
+}
+
+const NO_NAMES: readonly string[] = Object.freeze([]) as readonly string[];
+
 interface MetadataProviderProps {
   children: ReactNode;
   adapter: ObjectStackAdapter;
@@ -652,6 +675,8 @@ function removeNoOrgSeedEntry(type: string): void {
 export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: MetadataProviderProps) {
   const cacheRef = useRef<Map<string, TypeCacheEntry>>(new Map());
   const itemPromisesRef = useRef<Map<string, ItemPromiseMap>>(new Map());
+  // objectui#12811 — the package-scoped object reads, keyed by package id.
+  const scopesRef = useRef<Map<string, ObjectScopeEntry>>(new Map());
   // Types whose session entry this boot wrote under NO_ORG_SCOPE because the
   // active organization had not resolved yet (objectui#5243).
   const unscopedSeedTypesRef = useRef<Set<string>>(new Set<string>());
@@ -692,7 +717,8 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
   // let consumers refetch through the new source.
   //
   // ⚠️ Deliberately skipped on MOUNT (objectui#4042). Consumers read metadata
-  // during the FIRST render — `useActionModal` reads `objects`, which kicks
+  // during the FIRST render — a reader of `objects` (as `useActionModal` was
+  // until objectui#12811) kicks
   // `ensureType('object')` and `ensureType('view')` from a render-phase getter,
   // before any effect has run. Clearing unconditionally in this mount effect
   // threw those two entries away while their requests were still in flight, so
@@ -710,6 +736,7 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
     }
     cacheRef.current.clear();
     itemPromisesRef.current.clear();
+    scopesRef.current.clear();
     bump();
   }, [previewDrafts, bump]);
 
@@ -876,39 +903,127 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
     [getEntry],
   );
 
+  // ── objectui#12811 — package-scoped object reads ─────────────────────────
+  //
+  // The list goes through the same ingestion as the whole list
+  // (`normalizeSchemaReferenceKeys` here, `composeObjects` on read), and a
+  // by-name extra through `getItem`, which applies the same normalization. So
+  // a scoped definition is shaped exactly like the same object in `objects`.
+  // A landing for an entry that was dropped meanwhile (an invalidation, an
+  // organization switch) is discarded: the entry it would write to is gone.
+  const fetchScopeList = useCallback(
+    (packageId: string, entry: ObjectScopeEntry): Promise<void> => {
+      entry.status = 'loading';
+      const preview = previewClientRef.current;
+      const fetchItems: Promise<unknown> = preview
+        ? preview.list('object', { packageId })
+        : adapterRef.current.getClient().meta.getItems('object', { packageId });
+      return fetchItems
+        .then((res: unknown) => {
+          if (scopesRef.current.get(packageId) !== entry) return;
+          const items = extractItems(res);
+          for (const it of items) normalizeSchemaReferenceKeys(it);
+          const listed = new Set(items.map((it: any) => it?.name));
+          // The by-name extras stay until their own answer replaces them.
+          const extras = entry.items.filter((it: any) => !listed.has(it?.name) && entry.names.has(it?.name));
+          entry.items = [...items, ...extras];
+          entry.status = 'ready';
+          entry.answered = true;
+          debug(`fetched object scope package=${packageId} items=${items.length}`);
+          bump();
+        })
+        .catch((err: unknown) => {
+          if (scopesRef.current.get(packageId) !== entry) return;
+          entry.status = 'error';
+          entry.answered = true;
+          debug(`fetch failed object scope package=${packageId}`, err);
+          bump();
+        });
+    },
+    [bump],
+  );
+
+  const fetchScopeName = useCallback(
+    (packageId: string, entry: ObjectScopeEntry, name: string): Promise<void> => {
+      entry.names.set(name, 'pending');
+      return getItem('object', name).then((item: any) => {
+        if (scopesRef.current.get(packageId) !== entry) return;
+        entry.names.set(name, 'answered');
+        const rest = entry.items.filter((it: any) => it?.name !== name);
+        if (item) {
+          entry.items = [...rest, item];
+          if (entry.missing.includes(name)) entry.missing = entry.missing.filter(n => n !== name);
+        } else {
+          if (rest.length !== entry.items.length) entry.items = rest;
+          if (!entry.missing.includes(name)) entry.missing = [...entry.missing, name];
+        }
+        bump();
+      });
+    },
+    [bump, getItem],
+  );
+
+  /** Refetch every scope in place: the items stay until the answers replace them. */
+  const refreshScopes = useCallback((): Promise<void>[] => {
+    // `getItem` answers from the `object` entry's by-name cache; a refresh
+    // must ask the server again.
+    getEntry('object').byName.clear();
+    itemPromisesRef.current.get('object')?.clear();
+    const pending: Promise<void>[] = [];
+    for (const [packageId, entry] of scopesRef.current) {
+      if (entry.status === 'idle') continue;
+      pending.push(fetchScopeList(packageId, entry));
+      for (const name of Array.from(entry.names.keys())) pending.push(fetchScopeName(packageId, entry, name));
+    }
+    return pending;
+  }, [fetchScopeList, fetchScopeName, getEntry]);
+
   const refresh = useCallback(
     async (type?: string): Promise<void> => {
       if (type) {
         const entry = getEntry(type);
         entry.fetchedAt = 0;
         entry.byName.clear();
-        await ensureType(type);
+        const scoped = type === 'object' ? refreshScopes() : [];
+        await Promise.all([ensureType(type), ...scoped]);
         return;
       }
       const types = Array.from(cacheRef.current.keys()).filter(
         t => cacheRef.current.get(t)!.status !== 'idle',
       );
-      await Promise.all(
-        types.map(t => {
+      const scoped = refreshScopes();
+      await Promise.all([
+        ...types.map(t => {
           const entry = cacheRef.current.get(t)!;
           entry.fetchedAt = 0;
           entry.byName.clear();
           return ensureType(t);
         }),
-      );
+        ...scoped,
+      ]);
     },
-    [ensureType, getEntry],
+    [ensureType, getEntry, refreshScopes],
   );
 
   const invalidate = useCallback(
     (type: string, name?: string): void => {
-      const entry = cacheRef.current.get(type);
+      const entry = type === 'object' ? getEntry(type) : cacheRef.current.get(type);
       if (!entry) return;
       if (name) {
         entry.byName.delete(name);
         entry.items = entry.items.filter((it: any) => it?.name !== name);
+        if (type === 'object') {
+          for (const scope of scopesRef.current.values()) {
+            if (scope.items.some((it: any) => it?.name === name)) {
+              scope.items = scope.items.filter((it: any) => it?.name !== name);
+            }
+            scope.names.delete(name);
+            if (scope.missing.includes(name)) scope.missing = scope.missing.filter(n => n !== name);
+          }
+        }
         debug(`invalidated type=${type} name=${name}`);
       } else {
+        if (type === 'object') scopesRef.current.clear();
         entry.status = 'idle';
         entry.items = [];
         entry.byName.clear();
@@ -918,7 +1033,7 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
       }
       bump();
     },
-    [bump],
+    [bump, getEntry],
   );
 
   // ADR-0037 P2.5 — same-document live refresh: while this tree renders the
@@ -1027,6 +1142,7 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
     let cancelled = false;
     cacheRef.current.clear();
     itemPromisesRef.current.clear();
+    scopesRef.current.clear();
     // `apps` is the one collection read straight off the entry
     // (`getEntry('app').items`) instead of through `readType`, so unlike every
     // lazy type it is NOT re-armed by a consumer reading it. Without this kick
@@ -1093,16 +1209,89 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
     };
   }, [adapter, ensureType, getEntry, bump, previewDrafts]);
 
-  const value = useMemo<MetadataContextValue>(() => {
-    void version;
-
-    const readType = (type: string): any[] => {
+  const readType = useCallback(
+    (type: string): any[] => {
       const entry = getEntry(type);
       if (entry.status === 'idle') {
         void ensureType(type);
       }
       return entry.items;
-    };
+    },
+    [ensureType, getEntry],
+  );
+
+  // objectui#12811 — see `MetadataContextValue.readObjectScope`. Reading it
+  // starts what it needs and nothing more: the package list once, and a name
+  // by name only after that list has answered without it. When the whole
+  // registry is already loaded (Studio was opened, say), the scope is cut from
+  // it and nothing is requested.
+  const readObjectScope = useCallback(
+    (scope: { packageId?: string; names?: readonly string[] }) => {
+      const packageId = scope.packageId;
+      if (!packageId) {
+        const status = getEntry('object').status;
+        const served = readType('object');
+        return {
+          objects: composeObjects(served, readType('view')) as any[],
+          served,
+          missing: NO_NAMES,
+          settled: status === 'ready' || status === 'error',
+        };
+      }
+      let entry = scopesRef.current.get(packageId);
+      if (!entry) {
+        entry = { status: 'idle', items: [], answered: false, names: new Map(), missing: [] };
+        scopesRef.current.set(packageId, entry);
+      }
+      const whole = getEntry('object');
+      // The whole list in hand answers the scope; one in flight is waited for
+      // (a record route reads it), rather than asked for twice.
+      if (entry.status === 'idle') {
+        if (whole.status === 'ready') {
+          entry.items = whole.items.filter((it: any) => it?._packageId === packageId);
+          entry.status = 'ready';
+          entry.answered = true;
+        } else if (whole.status !== 'loading') {
+          void fetchScopeList(packageId, entry);
+        }
+      }
+      let namesSettled = true;
+      if (scope.names && scope.names.length > 0) {
+        if (!entry.answered) {
+          namesSettled = false;
+        } else {
+          for (const name of scope.names) {
+            if (!name || entry.items.some((it: any) => it?.name === name)) continue;
+            const state = entry.names.get(name);
+            if (state === 'answered') continue;
+            if (state === 'pending') {
+              namesSettled = false;
+              continue;
+            }
+            if (whole.status === 'ready') {
+              const item = whole.byName.get(name);
+              entry.names.set(name, 'answered');
+              if (item) entry.items = [...entry.items, item];
+              else entry.missing = [...entry.missing, name];
+              continue;
+            }
+            namesSettled = false;
+            void fetchScopeName(packageId, entry, name);
+          }
+        }
+      }
+      return {
+        objects: composeObjects(entry.items, readType('view')) as any[],
+        served: entry.items,
+        missing: entry.missing as readonly string[],
+        settled: entry.answered && namesSettled,
+      };
+    },
+    [fetchScopeList, fetchScopeName, getEntry, readType],
+  );
+
+  const value = useMemo<MetadataContextValue>(() => {
+    void version;
 
     const getItemsByType = (type: string): any[] => readType(type);
 
@@ -1128,13 +1317,14 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
       ensureType,
       getItem,
       getItemsByType,
+      readObjectScope,
       // Pure read — must NOT kick a fetch, so render-phase status checks
       // can't recurse into ensureType.
       getTypeStatus: (type: string) => getEntry(type).status,
     };
 
     return base;
-  }, [version, initialLoading, initialError, ensureType, getItem, getEntry, refresh, invalidate]);
+  }, [version, initialLoading, initialError, ensureType, getItem, getEntry, refresh, invalidate, readType, readObjectScope]);
 
   return <MetadataCtx.Provider value={value}>{children}</MetadataCtx.Provider>;
 }

@@ -26,6 +26,7 @@ import {
 import { AdapterProvider, useAdapter } from '../providers/AdapterProvider.js';
 import { withSettleSignal } from '../observability/settleSignal.js';
 import { MetadataProvider, useMetadata } from '../providers/MetadataProvider.js';
+import { useAppObjectScopePrefetch } from './appObjectScope.js';
 import { appRouteSegment } from '../utils/appRoute.js';
 import { SETUP_APP_PACKAGE_ID, SETUP_APP_NAME } from './setupApp.js';
 import { useAiSurfaceEnabled } from '../hooks/useAiSurface.js';
@@ -93,6 +94,11 @@ export function LoadingFallback() {
  */
 function GlobalActionRuntimeProvider({ dataSource, children }: { dataSource: unknown; children: ReactNode }) {
   const { modalHandler, modalElement } = useActionModal(dataSource);
+  // objectui#12811 — the current app's object scope starts here, as soon as the
+  // app list names the app: `AppContent` mounts only after the session's
+  // permission read, and the whole object list this root used to load (through
+  // `useActionModal`) loaded beside that read.
+  useAppObjectScopePrefetch();
   const runtime = useConsoleActionRuntime({ dataSource });
   return (
     <ActionProvider

@@ -156,7 +156,15 @@ export function useActionModal(dataSource?: any) {
   // `getItem` fetches ONE named item on demand, so resolving a modal target
   // never drags in the whole (lazily loaded) page or object list — this hook is
   // mounted at the console root, where an eager list read would cost every page.
-  const { objects, getItem } = useMetadata();
+  //
+  // objectui#12811 — the same holds for `objects`, which the hook read on every
+  // render and so loaded the whole registry on every console open. It is read
+  // now only while an object's form modal is open, and the open waits for it
+  // (`ensureType('object')` below): the form view's subforms are derived from
+  // every object (`attachInlineSubforms`), so the whole list is the read this
+  // layout needs, and an action is when it is needed.
+  const metadata = useMetadata();
+  const { getItem, ensureType } = metadata;
 
   const close = useCallback((r: ActionResult) => {
     setState((s) => {
@@ -233,11 +241,14 @@ export function useActionModal(dataSource?: any) {
         // everywhere at once. Byte-identical to what #4764 settled on.
         return { success: false, error: modalTargetRefusalMessage({ target: name }) };
       }
+      if (d.objectName && !d.content && !(d.fields || (d as any).sections)) {
+        await ensureType('object');
+      }
       return new Promise<ActionResult>((resolve) => {
         setState({ d, resolve });
       });
     },
-    [resolveModalTarget],
+    [resolveModalTarget, ensureType],
   );
 
   let modalElement: React.ReactNode = null;
@@ -255,7 +266,7 @@ export function useActionModal(dataSource?: any) {
       // New/Edit modal in AppContent so action-opened forms stay consistent.
       const viewLayout = (d.fields || (d as any).sections)
         ? {}
-        : resolveFormViewLayout(objects.find((o: any) => o?.name === d.objectName));
+        : resolveFormViewLayout(metadata.objects.find((o: any) => o?.name === d.objectName));
       modalElement = (
         <ModalForm
           schema={{

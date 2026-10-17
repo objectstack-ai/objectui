@@ -242,18 +242,19 @@ describe('DAY GRANULARITY — inherited from the shared relative path, not re-de
 });
 
 describe('THE OTHER SURFACES the one key reaches', () => {
-  it('the field-name heuristic answers the same on both cells, with no key authored', () => {
-    // `due_at` matches the due/deadline name convention, so the affordance
-    // appears with nothing authored at all. This is the larger population the
-    // change moves, and it is pinned rather than left implicit.
+  it('CONTROL — with no key authored, a deadline-shaped name paints nothing on either cell', () => {
+    // Inverted by objectui#11815 (ruling D). This pin used to assert the
+    // field-name heuristic: `due_at` read "Overdue 3d" in red with nothing
+    // authored. The heuristic is retired — overdue is declared-only — so the
+    // same name now reads exactly as a neutral one, on both cells.
     const dateTime = faceOf(dateTimeCell(OVERDUE_3D, { name: 'due_at', format: 'relative' }));
     const date = faceOf(dateCell(OVERDUE_3D, { name: 'due_at', format: 'relative' }));
-    expect(dateTime.text).toBe('Overdue 3d');
+    expect(dateTime.text).toBe('3 days ago');
     expect(dateTime.text).toBe(date.text);
-    expect(dateTime.red).toBe(date.red);
+    expect(dateTime.red).toBe(false);
+    expect(date.red).toBe(false);
 
-    // A neutral name on the same instant stays neutral — the heuristic is a
-    // name test, not "every past datetime".
+    // A neutral name on the same instant reads the same.
     const neutral = faceOf(dateTimeCell(OVERDUE_3D, { name: 'created_at', format: 'relative' }));
     expect(neutral.text).toBe('3 days ago');
     expect(neutral.red).toBe(false);

@@ -55,6 +55,7 @@ import { appServesNoNavigation } from './appServesNoNavigation.js';
 import { useNavMemberGates, navEntriesShownToMember } from '../hooks/useNavMemberGates.js';
 import { resolveSetupAppPath } from './ConsoleShell.js';
 import { collectRoutePaths, metadataReadsForAppRoute, type LazyMetadataType } from './appRouteMetadataReads.js';
+import { readAppObjectScope } from './appObjectScope.js';
 import { SkeletonDashboard, SkeletonDetail, SkeletonGrid } from '../skeletons/index.js';
 
 // Route-based code splitting — lazy-load less-frequently-used routes
@@ -196,7 +197,10 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   const navigate = useNavigate();
   const location = useLocation();
   const { appName } = useParams();
-  const { apps, objects: allObjects, loading: metadataLoading, ensureType, getTypeStatus, error: metadataError, refresh: refreshMetadata } = useMetadata();
+  // ⛔ `objects` is not destructured here: reading it loads the whole registry
+  // (objectui#12811). It is read below only on a route that needs all of it.
+  const metadata = useMetadata();
+  const { apps, loading: metadataLoading, ensureType, getTypeStatus, error: metadataError, refresh: refreshMetadata, readObjectScope } = metadata;
   // objectui#7373 — where this file's two "you cannot be here" exits land. Both
   // sit BELOW the readiness gate further down (`metadataLoading` &c), so the
   // list they resolve against has settled; an app list that failed to load is
@@ -207,29 +211,6 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   const { t } = useObjectTranslation();
   const { objectLabel, objectPluralLabel } = useObjectLabel();
 
-  // objectui#12809 — the lazy metadata buckets the CURRENT route reads at
-  // render (`appRouteMetadataReads.ts` declares them per route). This used to
-  // be a preload of all four (`object`, `dashboard`, `report`, `page`) that held
-  // the splash on every route; now the splash holds only for the current
-  // route's, and a later navigation onto a route whose buckets have not landed
-  // shows a skeleton in the route slot (below) instead of an empty list or a
-  // "not found". The record-form overlay (`?form=`) edits a record of an object,
-  // so it reads `object` on any route.
-  const hostRoutePaths = useMemo(
-    () => [...collectRoutePaths(extraRoutes), ...collectRoutePaths(extraRoutesNoApp)],
-    [extraRoutes, extraRoutesNoApp],
-  );
-  const appSubPath = location.pathname.split('/').filter(Boolean).slice(2).join('/');
-  const routeReads = metadataReadsForAppRoute(appSubPath, hostRoutePaths);
-  const routeReadsKey = [
-    ...routeReads,
-    ...(searchParamsHasRecordForm(location.search) && !routeReads.includes('object') ? ['object'] : []),
-  ].join(',');
-  const routeReadsSettled = useLazyMetadataSettled(routeReadsKey, ensureType, getTypeStatus);
-  // Set once the first frame past the splash has rendered. After it, a route
-  // waiting on its buckets draws its skeleton inside the console chrome rather
-  // than taking the whole console back to the splash.
-  const firstPaintDone = useRef(false);
 
   // Hidden apps (`App.hidden`) are excluded from app-listing surfaces
   // (sidebar switcher, home grid, app switcher). The active app for the
@@ -286,6 +267,49 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // raw: on a package-id route that is a second address for the same app, and
   // the recent-items tracker below matches it against the URL (objectui#11818).
   const appSegment = appName ?? appRouteSegment(activeApp);
+
+  // objectui#12809 — the lazy metadata buckets the CURRENT route reads at
+  // render (`appRouteMetadataReads.ts` declares them per route). This used to
+  // be a preload of all four (`object`, `dashboard`, `report`, `page`) that held
+  // the splash on every route; now the splash holds only for the current
+  // route's, and a later navigation onto a route whose buckets have not landed
+  // shows a skeleton in the route slot (below) instead of an empty list or a
+  // "not found". The record-form overlay (`?form=`) edits a record of an object,
+  // so it reads `object` on any route.
+  const hostRoutePaths = useMemo(
+    () => [...collectRoutePaths(extraRoutes), ...collectRoutePaths(extraRoutesNoApp)],
+    [extraRoutes, extraRoutesNoApp],
+  );
+  const appSubPath = location.pathname.split('/').filter(Boolean).slice(2).join('/');
+  const routeReads = metadataReadsForAppRoute(appSubPath, hostRoutePaths);
+
+  // objectui#12811 — which objects this route and the chrome around it read:
+  // the app's object scope on the routes `appObjectScope.ts` names, inside an
+  // app whose served item carries its package; the whole registry everywhere
+  // else, as before (that module says why).
+  const { candidate: scopeCandidate, scope: objectScope, ready: objectScopeReady } = readAppObjectScope(
+    readObjectScope,
+    activeApp,
+    appSubPath,
+    location.search,
+    hostRoutePaths,
+  );
+  // Until the app list has loaded, a scope candidate does not know its package
+  // yet, and reads nothing (the splash is up).
+  const readsWholeRegistry = !scopeCandidate || (!metadataLoading && !objectScope);
+  const allObjects: any[] = objectScope
+    ? objectScope.objects
+    : readsWholeRegistry ? metadata.objects : NO_OBJECTS;
+  const routeReadsKey = [
+    ...routeReads.filter((type) => type !== 'object' || readsWholeRegistry),
+    ...(searchParamsHasRecordForm(location.search) && !routeReads.includes('object') ? ['object'] : []),
+  ].join(',');
+  const bucketsSettled = useLazyMetadataSettled(routeReadsKey, ensureType, getTypeStatus);
+  const routeReadsSettled = bucketsSettled && (!objectScope || objectScopeReady);
+  // Set once the first frame past the splash has rendered. After it, a route
+  // waiting on its buckets draws its skeleton inside the console chrome rather
+  // than taking the whole console back to the splash.
+  const firstPaintDone = useRef(false);
 
   // A normal app was requested but isn't present in the loaded metadata — the
   // post-publish readiness lag, or a genuinely-missing app. Applies in BOTH
@@ -1167,7 +1191,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
               <RouteFader className="h-full">
                 {/* objectui#12809 — the route's metadata has not landed: its
                     skeleton, never its empty or "not found" state. */}
-                {!routeReadsSettled ? <RouteMetadataSkeleton reads={routeReadsKey} /> : (
+                {!routeReadsSettled ? <RouteMetadataSkeleton reads={routeReadsKey || 'object'} /> : (
                 <Routes>
                 <Route
                   path="/"
@@ -1562,6 +1586,8 @@ function searchParamsHasRecordForm(search: string): boolean {
   const sp = new URLSearchParams(search);
   return sp.has(RECORD_FORM_PARAM) || sp.has(RECORD_FORM_OBJECT_PARAM);
 }
+
+const NO_OBJECTS: any[] = [];
 
 /**
  * objectui#12809 — whether every bucket in `readsKey` (comma-joined) has

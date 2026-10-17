@@ -3339,6 +3339,7 @@ const en = {
       title: 'Recent Activity',
       filter: 'Filter',
       empty: 'No recent activity',
+      accessDenied: "You don't have permission to view activity.",
       viewAll: 'View all activity',
       ariaLabel: 'Activity feed',
       typeCreate: 'Create',

@@ -74,7 +74,8 @@ afterEach(() => {
 
 function cellAt(value: string): { text: string; red: boolean } {
   const { container } = render(
-    <DateCellRenderer value={value} field={{ name: 'due_date', type: 'date' } as any} />,
+    // Declared (objectui#11815): overdue is declared-only, the name guesses nothing.
+    <DateCellRenderer value={value} field={{ name: 'due_date', type: 'date', dueLike: true } as any} />,
   );
   const span = container.querySelector('span');
   return { text: span?.textContent ?? '', red: (span?.className ?? '').includes('text-red-600') };

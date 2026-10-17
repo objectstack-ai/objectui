@@ -1,0 +1,170 @@
+/**
+ * Which objects an app route reads (objectui#12811).
+ *
+ * Reading `useMetadata().objects` loads the whole object registry
+ * (`GET /api/v1/meta/object`). On the routes {@link APP_OBJECT_SCOPE_ROUTES}
+ * names, inside an app whose served item carries its package, the route and
+ * the chrome around it read the app's object scope instead
+ * (`MetadataContextValue.readObjectScope`): the package's objects, plus by
+ * name the route's object and its lookup targets when the package does not
+ * hold them, the objects the app's navigation entries require
+ * (`requiresObject`), and the navigation's objects while the command palette
+ * is open.
+ *
+ * Everywhere else the route reads the whole registry, as before. A record
+ * surface derives its related lists from every object that points at its
+ * object, in any package, so a record overlay (`?recordId=`, `?form=`) reads
+ * the whole registry, and so does a list whose views open records in an
+ * in-page overlay the URL does not carry (`modal`, `split`, `popover`). An app
+ * item without a package id has no package to scope by, and neither has an app
+ * whose package holds no objects of its own (a platform app such as Setup,
+ * whose every entry opens another package's object): asking each of those by
+ * name costs a request per object, measured on HotCRM, and its landing loads
+ * the whole registry anyway.
+ *
+ * Two readers ask the same question with the same answer: `AppContent`, which
+ * renders the route, and the console root (`ConsoleShell`), which asks it as
+ * soon as the app list lands, so the scope loads beside the session's
+ * permission read rather than after it, as the whole list used to.
+ */
+
+import { matchRoutes, useLocation } from 'react-router-dom';
+import { useMetadata, type MetadataContextValue } from '@object-ui/react';
+import { APP_ROUTE_METADATA_READS } from './appRouteMetadataReads.js';
+import { matchAppBySegment } from '../utils/appRoute.js';
+import { COMMAND_PALETTE_PARAM, RECORD_DRAWER_PARAM, RECORD_FORM_OBJECT_PARAM, RECORD_FORM_PARAM } from '../urlParams.js';
+
+type ReadObjectScope = NonNullable<MetadataContextValue['readObjectScope']>;
+export type AppObjectScope = ReturnType<ReadObjectScope>;
+
+/**
+ * The routes under `/apps/:appName` whose element, and the chrome around it,
+ * read the app's object scope: the app's root (its landing reads only the
+ * navigation's gates) and an object's list. Paths as `APP_ROUTE_METADATA_READS`
+ * spells them, and matched against that table, so a more specific route
+ * (`search`, `create-app`, a host route) is never taken for `:objectName`.
+ */
+export const APP_OBJECT_SCOPE_ROUTES: readonly string[] = ['/', ':objectName', ':objectName/view/:viewId'];
+
+function matchObjectScopeRoute(subPath: string, hostPaths: readonly string[]): { objectName?: string } | null {
+  const routes = [...APP_ROUTE_METADATA_READS.map(({ path }) => ({ path })), ...hostPaths.map((path) => ({ path }))];
+  const matches = matchRoutes(routes, `/${subPath.replace(/^\/+/, '')}`);
+  const match = matches?.[matches.length - 1];
+  if (!match || !APP_OBJECT_SCOPE_ROUTES.includes(match.route.path)) return null;
+  return { objectName: match.params.objectName };
+}
+
+/** A record overlay the URL carries: the detail drawer, or the record form. */
+function hasRecordOverlay(search: string): boolean {
+  const sp = new URLSearchParams(search);
+  return sp.has(RECORD_DRAWER_PARAM) || sp.has(RECORD_FORM_PARAM) || sp.has(RECORD_FORM_OBJECT_PARAM);
+}
+
+const IN_PAGE_RECORD_OVERLAYS = new Set(['modal', 'split', 'popover']);
+
+/**
+ * Whether a list of this object opens a record in an overlay the URL does not
+ * carry: `ObjectView` mounts `RecordDetailView` inside it with the list's
+ * objects, so such a list reads the whole registry.
+ */
+function opensRecordsInPageOverlay(def: any): boolean {
+  const views = [def?.list, ...Object.values((def?.listViews ?? {}) as Record<string, any>)];
+  return views.some((view) => IN_PAGE_RECORD_OVERLAYS.has(view?.navigation?.mode));
+}
+
+/** The objects an object's lookup and master-detail fields point at. */
+function lookupTargetNames(def: any): string[] {
+  const fields = def?.fields;
+  const defs: any[] = Array.isArray(fields) ? fields : Object.values((fields ?? {}) as Record<string, any>);
+  const out = new Set<string>();
+  for (const field of defs) {
+    if ((field?.type === 'lookup' || field?.type === 'master_detail') && typeof field.reference === 'string' && field.reference) {
+      out.add(field.reference);
+    }
+  }
+  return [...out];
+}
+
+/** The names a navigation tree carries under `key` on its entries, at every group depth. */
+function navigationNames(navigation: unknown, pick: (item: Record<string, unknown>) => unknown): string[] {
+  const out: string[] = [];
+  const walk = (items: unknown) => {
+    if (!Array.isArray(items)) return;
+    for (const item of items as Array<Record<string, unknown>>) {
+      const name = item ? pick(item) : undefined;
+      if (typeof name === 'string' && name) out.push(name);
+      walk(item?.children);
+    }
+  };
+  walk(navigation);
+  return out;
+}
+
+export interface AppObjectScopeRead {
+  /** The route reads a scope when its app names a package: an app route on the scope list, no record overlay. */
+  candidate: boolean;
+  /** The app's object scope, or `null` when this route reads the whole registry. */
+  scope: AppObjectScope | null;
+  /**
+   * The route can render: the package list and the route's own object have
+   * answered. The other names (lookup targets, required objects, the
+   * palette's) are asked beside it, not waited for: until they land, a lookup
+   * cell draws its value without a link, and a `requiresObject` entry stays
+   * shown, as it did while the whole list loaded.
+   */
+  ready: boolean;
+}
+
+/**
+ * The object scope the route at `subPath` (below `/apps/:appName`) reads, in
+ * `app`. Reading it starts what it needs (see `readObjectScope`).
+ */
+export function readAppObjectScope(
+  readObjectScope: ReadObjectScope | undefined,
+  app: Record<string, any> | undefined,
+  subPath: string,
+  search: string,
+  hostPaths: readonly string[] = [],
+): AppObjectScopeRead {
+  const route = matchObjectScopeRoute(subPath, hostPaths);
+  const candidate = !!route && !!readObjectScope && !hasRecordOverlay(search);
+  const packageId = typeof app?._packageId === 'string' && app._packageId ? app._packageId : undefined;
+  if (!candidate || !packageId || !readObjectScope || !route) return { candidate, scope: null, ready: false };
+  // The package list first: no name is asked until it shows the app holds
+  // objects of its own.
+  const own = readObjectScope({ packageId });
+  if (!own.settled) return { candidate, scope: own, ready: false };
+  if (!own.served.some((o: any) => o?._packageId === packageId)) return { candidate, scope: null, ready: false };
+  const ready = readObjectScope({ packageId, names: route.objectName ? [route.objectName] : [] }).settled;
+  // The objects the app's own navigation entries require: the sidebar's
+  // capability gate answers from this scope.
+  const names = navigationNames(app?.navigation, (item) => item.requiresObject);
+  if (route.objectName) names.push(route.objectName);
+  if (new URLSearchParams(search).has(COMMAND_PALETTE_PARAM)) {
+    names.push(...navigationNames(app?.navigation, (item) => (item.type === 'object' ? item.objectName : undefined)));
+  }
+  const first = readObjectScope({ packageId, names });
+  const routeDef = route.objectName ? first.objects.find((o: any) => o?.name === route.objectName) : undefined;
+  if (routeDef && opensRecordsInPageOverlay(routeDef)) return { candidate, scope: null, ready: false };
+  const lookups = routeDef ? lookupTargetNames(routeDef) : [];
+  return {
+    candidate,
+    scope: lookups.length > 0 ? readObjectScope({ packageId, names: [...names, ...lookups] }) : first,
+    ready,
+  };
+}
+
+/**
+ * The console root's half: on an app route, start the app's object scope as
+ * soon as the app list names the app, before `AppContent` mounts (it mounts
+ * below the session's permission read). It reads nothing else and renders
+ * nothing; `AppContent` reads the same scope entry when it renders.
+ */
+export function useAppObjectScopePrefetch(): void {
+  const { apps, readObjectScope } = useMetadata();
+  const { pathname, search } = useLocation();
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments[0] !== 'apps' || !segments[1] || !readObjectScope) return;
+  const app = matchAppBySegment(apps, segments[1]);
+  if (app) readAppObjectScope(readObjectScope, app, segments.slice(2).join('/'), search);
+}

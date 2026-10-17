@@ -7,7 +7,8 @@
  */
 
 /**
- * An authored `dueLike` on a DETAIL-VIEW FIELD reaches the cell (objectui#9729).
+ * An authored `dueLike` on a DETAIL-VIEW FIELD reaches the cell (objectui#9729)
+ * — retired by objectui#11815; the cases at the bottom pin the inversion.
  *
  * ## Why this reading exists
  *
@@ -61,9 +62,23 @@ const sectionOf = (fields: unknown[]): DetailViewSection =>
 const BASE = { name: 'end_date', label: 'End', type: 'date', format: 'relative' };
 const DATA = { end_date: daysAgo(3) };
 
-describe('an authored `dueLike` on a DetailViewField', () => {
-  it('reaches the date cell and changes the drawn wording', () => {
+/**
+ * ⭐ INVERTED BY RULING (objectui#11815, ruling D) — ⛔ not relaxed. The
+ * authored view-entry `dueLike` retired: the deadline is the object FIELD's
+ * declaration, read through `enrichDetailField`. So the key on the view entry
+ * no longer reaches the cell, and the same key on the object field does.
+ */
+describe('`dueLike` reaches the detail cell from the FIELD, not the view entry (objectui#11815)', () => {
+  it('a view-entry `dueLike` no longer changes the drawn wording', () => {
     render(<DetailSection section={sectionOf([{ ...BASE, dueLike: true }])} data={DATA} />);
+    const html = document.body.innerHTML;
+    expect(html).toContain('days ago');
+    expect(html).not.toContain('Overdue');
+  });
+
+  it("the object field's `dueLike` reaches the date cell and changes the drawn wording", () => {
+    const objectSchema = { fields: { end_date: { name: 'end_date', type: 'date', dueLike: true } } };
+    render(<DetailSection section={sectionOf([{ ...BASE }])} data={DATA} objectSchema={objectSchema} />);
     expect(document.body.innerHTML).toContain('Overdue');
   });
 

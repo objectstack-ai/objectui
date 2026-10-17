@@ -229,7 +229,11 @@ export const ENRICHED_FIELD_METADATA_KEYS = [
   // Per-field widget override (ADR-0056 P2) — a structured editor replaces the
   // raw type in inline edit too, matching the form path.
   'widget',
+  // The deadline semantic (objectui#11815): the FIELD's `dueLike`, and the
+  // `settledWhen` the host judges against the record before it hands the cell
+  // `deadlineSettled`. See `DEADLINE_KEYS` in `enrichDetailField` below.
   'dueLike',
+  'settledWhen',
 
   // Relational / picker configuration. Every key the lookup + user pickers read
   // off their field metadata, so an inline-edit picker behaves
@@ -261,11 +265,15 @@ export const ENRICHED_FIELD_METADATA_KEYS = [
   'dependsOn',
 ] as const;
 
+/** The two deadline keys only the object field may supply (objectui#11815). */
+const DEADLINE_KEYS = ['dueLike', 'settledWhen'] as const;
+
 /**
  * Merge a detail-view field with its object-schema metadata.
  *
  * The view field always wins — it is the author's explicit override; the object
- * schema only fills the keys it left undefined. Shared by `DetailSection` (the
+ * schema only fills the keys it left undefined — except the two deadline keys,
+ * which only the object field supplies. Shared by `DetailSection` (the
  * details body) and `HeaderHighlight` (the highlights strip) so the two editors
  * can't drift again.
  *
@@ -278,6 +286,10 @@ export function enrichDetailField(
   objectDefField: Record<string, any> | undefined | null,
 ): Record<string, any> {
   const enriched: Record<string, any> = { ...viewField };
+  // The deadline is the FIELD's declaration and nothing else's (objectui#11815,
+  // ruling D): the authored view-entry `dueLike` retired, so a view entry
+  // never supplies either deadline key — not even one that arrives untyped.
+  for (const key of DEADLINE_KEYS) delete enriched[key];
   if (!objectDefField) return enriched;
 
   if (!enriched.type && objectDefField.type) enriched.type = objectDefField.type;

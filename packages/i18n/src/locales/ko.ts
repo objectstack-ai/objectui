@@ -2795,6 +2795,7 @@ const ko = {
       title: "최근 활동",
       filter: "필터",
       empty: "최근 활동 없음",
+      accessDenied: "활동을 볼 권한이 없습니다.",
       ariaLabel: "활동 피드",
       typeCreate: "생성",
       typeUpdate: "업데이트",

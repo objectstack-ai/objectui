@@ -388,6 +388,17 @@ export interface CellRendererProps {
    * that does not pass it changes nothing.
    */
   dependentValues?: Record<string, unknown>;
+  /**
+   * The host's answer to "is this declared deadline settled for this row?"
+   * (objectui#11815) — `isDeadlineSettled` from `@object-ui/core`, which
+   * evaluates the field's `settledWhen` against the row the host holds. A cell
+   * cannot evaluate a predicate, so the host hands it the verdict.
+   *
+   * While it is `true` the `date` and `datetime` cells paint no overdue wording
+   * and no overdue colour: the relative wording falls back to the neutral
+   * phrase a non-deadline reads. Absent or `false` changes nothing.
+   */
+  deadlineSettled?: boolean;
 }
 
 // `coerceToSafeValue` lives in `./coerceToSafeValue.ts` (objectui#8580) so
@@ -1044,10 +1055,12 @@ export function BooleanCellRenderer({ value, field }: CellRendererProps): React.
  * The overdue affordance — ONE home for both date-family cell renderers
  * (objectui#8958).
  *
- * `dueLike` is declared for BOTH types: `DetailViewFieldSchema.dueLike`
- * (`@object-ui/types`' zod views) says, in the `describe` text an author
- * reads, "Marks a date/datetime field as due/deadline-semantic, gating the
- * relative 'Overdue Nd' wording". `DateCellRenderer` honoured it;
+ * `dueLike` is declared for BOTH types — today on the field itself
+ * (`DateFieldMetadata.dueLike` / `DateTimeFieldMetadata.dueLike`, by reference
+ * to `@objectstack/spec`); when this was written, on the since-retired view
+ * entry key, whose `describe` text read "Marks a date/datetime field as
+ * due/deadline-semantic, gating the relative 'Overdue Nd' wording".
+ * `DateCellRenderer` honoured it;
  * `DateTimeCellRenderer` never read it, so an author who marked a `datetime`
  * column `dueLike` published successfully and the affordance simply did not
  * appear — accepted, parsed, dropped, and rendered as a legitimate-looking
@@ -1059,40 +1072,35 @@ export function BooleanCellRenderer({ value, field }: CellRendererProps): React.
  *   datetime no key at all   -> "3 days ago"  + no red   <- byte-identical
  *
  * These two functions exist so the repair is a SHARED read rather than a
- * second copy. The regex and the midnight predicate below were inline in
- * `DateCellRenderer`; copying either into the sibling is objectui#4576
- * exactly — the shape this package already paid for when one convention was
- * duplicated across a boundary and the two copies drifted while both stayed
- * "correct". The wording half was already shared (both cells reach the same
+ * second copy: copying either into the sibling is objectui#4576 exactly — the
+ * shape this package already paid for when one convention was duplicated
+ * across a boundary and the two copies drifted while both stayed "correct".
+ * The wording half was already shared (both cells reach the same
  * `formatRelativeDate`, which reads `options.dueLike`); these cover the two
  * halves that were not.
  */
-const DUE_LIKE_FIELD_NAME =
-  /(^|_)(due|deadline|expires?|expiry|expiration|expected_close|target_close|sla|return_by|renewal|next_action)(_|$)/;
 
 /**
- * Whether a field is due/deadline-semantic: the authored key first, then the
- * field-name convention.
+ * Whether a field is due/deadline-semantic, for ONE row: declared, and not
+ * settled (objectui#11815, ruling D: overdue is declared-only).
  *
- * A date is only *semantically* a due/deadline when the field says so — a
- * plain "start_date" or "created_at" in the past is neither overdue text nor
- * red, even though it renders in the same relative-time style.
+ * A date is a deadline only when its field declares `dueLike: true` —
+ * `@objectstack/spec`'s `FieldSchema.dueLike`, typed by reference on
+ * `DateFieldMetadata` / `DateTimeFieldMetadata`. Nothing else is read. The
+ * field-name convention that used to stand behind the declaration (a regex
+ * over `due` / `deadline` / `expires` / …) is retired: under ADR-0049 nothing
+ * undeclared paints, so an undeclared `due_date` in the past reads as any
+ * past date does.
  *
- * `dueLike` is read through the two interfaces that DECLARE it rather than
- * through `as any`, which is the objectui#7747 discipline the `format` read
- * one function down already follows: `as any` would also silence a typo in
- * the property name, this does not. The name spellings stay on a loose record
- * read because `accessorKey` / `key` are grid-column spellings that no field
- * interface carries — and that read goes through `unknown`, because
- * `FieldMetadata` is a closed union whose members carry no index signature,
- * so a direct assertion is `TS2352` (measured, not assumed).
+ * `deadlineSettled` is the host's verdict on the field's `settledWhen` for
+ * this row (`isDeadlineSettled` in `@object-ui/core`). While it holds, the
+ * cell answers exactly as for a non-deadline: neutral wording, no red. It is
+ * a separate input on purpose — ⛔ never carried as `dueLike: false`, which
+ * would merge "settled" with "not a deadline".
  */
-function resolveDueLike(field: CellRendererProps['field']): boolean {
-  const declared = (field as DateFieldMetadata | DateTimeFieldMetadata | undefined)?.dueLike;
-  if (declared === true) return true;
-  const named = field as unknown as Record<string, unknown> | undefined;
-  const fieldName = String(named?.name || named?.accessorKey || named?.key || '').toLowerCase();
-  return DUE_LIKE_FIELD_NAME.test(fieldName);
+function resolveDueLike(field: CellRendererProps['field'], deadlineSettled?: boolean): boolean {
+  if (deadlineSettled === true) return false;
+  return (field as DateFieldMetadata | DateTimeFieldMetadata | undefined)?.dueLike === true;
 }
 
 /**
@@ -1119,7 +1127,7 @@ function isOverdueInstant(date: Date, dueLike: boolean): boolean {
 /**
  * Date field cell renderer
  */
-export function DateCellRenderer({ value, field }: CellRendererProps): React.ReactElement {
+export function DateCellRenderer({ value, field, deadlineSettled }: CellRendererProps): React.ReactElement {
   // `useDisplayLocale()`, NOT `useLocalization().locale` (objectui#4468). The
   // raw tenant locale is `undefined` on any workspace that never configured
   // one, and `Intl` reads the MACHINE's locale from `undefined` — so a `zh`
@@ -1185,7 +1193,7 @@ export function DateCellRenderer({ value, field }: CellRendererProps): React.Rea
   // Both halves of the affordance come from the shared reads above, so the
   // `datetime` sibling one function down answers this question identically
   // instead of carrying a second copy (objectui#8958).
-  const dueLike = resolveDueLike(field);
+  const dueLike = resolveDueLike(field, deadlineSettled);
   const formatted = formatDate(safe as string | Date, style, { dueLike, locale, t });
   const isOverdue = isOverdueInstant(displayDate, dueLike);
 
@@ -1202,7 +1210,7 @@ export function DateCellRenderer({ value, field }: CellRendererProps): React.Rea
 /**
  * DateTime field cell renderer (Airtable-style with date and time visually separated)
  */
-export function DateTimeCellRenderer({ value, field }: CellRendererProps): React.ReactElement {
+export function DateTimeCellRenderer({ value, field, deadlineSettled }: CellRendererProps): React.ReactElement {
   // Hook before every early return — a value flipping between null and set
   // must not change the hook count between renders (same rule as the number /
   // currency renderers above). This is the site objectui#4468 caught rendering
@@ -1306,7 +1314,7 @@ export function DateTimeCellRenderer({ value, field }: CellRendererProps): React
   // narrowed rather than closed. Since `'compact'` is THIS cell's default
   // face, that is also where the visible population is.
   const style = authoredFormat === 'short' ? 'compact' : authoredFormat;
-  const dueLike = resolveDueLike(field);
+  const dueLike = resolveDueLike(field, deadlineSettled);
   const isOverdue = isOverdueInstant(date, dueLike);
   // Spelled as the sibling spells it, one function up, for the same reason
   // every other guard in these two renderers is: one shape, one reading.

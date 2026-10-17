@@ -50,6 +50,7 @@ import {
   useFilterScope,
   useResolvedFilter,
   useDataInvalidation,
+  usePredicateScope,
 } from '@object-ui/react';
 import {
   NavigationOverlay,
@@ -81,6 +82,7 @@ import {
   ValueDataSource,
   applyNonGridRowCeiling,
   nonGridRowCeilingQuery,
+  isDeadlineSettled,
   type NonGridCeilingResult,
 } from '@object-ui/core';
 import { ChevronRight, ChevronDown } from 'lucide-react';
@@ -545,6 +547,8 @@ interface CellFormatContext {
   objectName?: string;
   /** `useSafeFieldLabel().translateOptions` — identity without a provider. */
   translateOptions: TranslateOptions;
+  /** The host's `isDeadlineSettled` verdict for this cell's row (objectui#11815). */
+  deadlineSettled?: boolean;
 }
 
 /**
@@ -602,7 +606,7 @@ function renderTreeCell(value: unknown, ctx: CellFormatContext, empty = ''): Rea
     label: ctx.columnLabel,
     ...(options ? { options } : {}),
   };
-  return <Face value={value} field={field} />;
+  return <Face value={value} field={field} deadlineSettled={ctx.deadlineSettled} />;
 }
 
 /**
@@ -1098,6 +1102,8 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
   // Column labels: i18n convention key (`objects.{obj}.fields.{field}.label`)
   // first, then the object schema's authored label, then a humanized field key.
   const i18n = useSafeFieldLabel();
+  // The host predicate scope a row's declared deadline is judged in (objectui#11815).
+  const predicateScope = usePredicateScope();
   // The `?? schema.objectName` tail is NOT the shared rung repeated: it is this
   // site's own coercion of the OFF-CONTRACT `data: { provider: 'object' }` that
   // carries no `object` (`ViewDataSchema` declares it required), kept so the
@@ -1116,12 +1122,13 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
    * from the SAME `objectSchema.fields` map the header labels read, so a column
    * cannot be labelled from the schema and then formatted without it.
    */
-  const cellContext = (field: string): CellFormatContext => ({
+  const cellContext = (field: string, row?: Record<string, unknown>): CellFormatContext => ({
     fieldDef: objectSchema?.fields?.[field],
     fieldName: field,
     columnLabel: fieldLabel(field),
     objectName: headerObjectName,
     translateOptions: i18n.translateOptions,
+    deadlineSettled: isDeadlineSettled(objectSchema?.fields?.[field], row, { scope: predicateScope, fields: objectSchema?.fields }),
   });
 
   const navigation = useNavigationOverlay({
@@ -1353,7 +1360,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
                       <span className="inline-block h-5 w-5" />
                     )}
                     <span className="truncate">
-                      {renderTreeCell(node.record[config.labelField], cellContext(config.labelField), '—')}
+                      {renderTreeCell(node.record[config.labelField], cellContext(config.labelField, node.record), '—')}
                     </span>
                   </div>
                 </td>
@@ -1361,7 +1368,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
                   .filter((f) => f !== config.labelField)
                   .map((f) => (
                     <td key={f} className="px-3 py-2 text-muted-foreground">
-                      {renderTreeCell(node.record[f], cellContext(f))}
+                      {renderTreeCell(node.record[f], cellContext(f, node.record))}
                     </td>
                   ))}
               </tr>

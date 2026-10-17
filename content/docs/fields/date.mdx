@@ -37,8 +37,8 @@ const closeDate: DateFieldMetadata = {
 the red styling. It is `@objectstack/spec`'s `FieldSchema.dueLike`, and the spec
 accepts it on `date` and `datetime` fields only. `datetime` is its own type with its
 own metadata (`DateTimeFieldMetadata`) and honours `dueLike` identically; see
-[DateTime Field](/docs/fields/datetime), which also covers the field-name fallback
-today's cells still apply when the key is absent.
+[DateTime Field](/docs/fields/datetime). Nothing is inferred from the field's name:
+without the key, a past `due_date` reads as any past date does.
 
 `settledWhen` says when the deadline is settled for one record: a CEL predicate over
 the record's own columns, read as `record`. While it holds, no overdue wording or
@@ -56,8 +56,16 @@ const dueDate: DateFieldMetadata = {
 };
 ```
 
-⚠️ `settledWhen` is declared, not yet rendered: no date cell evaluates it today, so a
-past deadline on a settled record still renders overdue.
+Every view that draws the date beside its record — the grid, the record page, related
+lists, kanban and gallery cards, the compact list and the tree — evaluates
+`settledWhen` against that record, so a done task's past due date reads neutral while
+an open one's reads overdue. A predicate that fails to evaluate leaves the deadline
+unsettled.
+
+⚠️ The predicate reads the record as the view fetched it. A standalone grid and a
+related list add the fields `settledWhen` reads to their own query; a list view
+fetches its columns, so a list view that hides the field the predicate reads leaves
+its deadlines unsettled. Show that field as a column.
 
 There is no date-range key. `@objectstack/spec`'s `FieldSchema` declares no date bound
 (its `min` / `max` are numbers) and refuses `min_date` / `max_date` by name, and no

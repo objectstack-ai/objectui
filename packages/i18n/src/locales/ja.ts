@@ -2798,6 +2798,7 @@ const ja = {
       title: "最近の活動",
       filter: "フィルター",
       empty: "最近の活動はありません",
+      accessDenied: "アクティビティを表示する権限がありません。",
       ariaLabel: "アクティビティフィード",
       typeCreate: "作成",
       typeUpdate: "更新",

@@ -58,6 +58,8 @@ import { useMetadata } from '../providers/MetadataProvider.js';
 import { useExpressionContext, evaluateNavigationVisibility } from '../providers/ExpressionProvider.js';
 import { withoutUnreadableObjectEntries, type ObjectReadCheck } from '../utils/navObjectReadGate.js';
 
+const NO_MISSING: readonly string[] = [];
+
 /** The member's gates, as the sidebar applies them. */
 export interface NavMemberGates {
   /** The `visible` evaluator handed to `@object-ui/layout`'s item guard. */
@@ -75,7 +77,7 @@ export interface NavMemberGates {
  * expression evaluator, `usePermissions()`, and the registered object list.
  */
 export function useNavMemberGates(): NavMemberGates {
-  const { evaluator } = useExpressionContext();
+  const { evaluator, app } = useExpressionContext();
   const evalVis = useCallback(
     (expr: string | boolean | undefined) => evaluateNavigationVisibility(expr, evaluator),
     [evaluator],
@@ -107,20 +109,41 @@ export function useNavMemberGates(): NavMemberGates {
 
   // Runtime capability gate: hide nav items targeting objects/services
   // not registered in this runtime (e.g. cloud-only `sys_app`).
-  const { objects: metadataObjects } = useMetadata();
+  //
+  // objectui#12811 — inside an app whose served item names its package, and
+  // while nothing has asked for the whole registry, the gate reads that app's
+  // object scope (`readObjectScope`): an object the scope holds is registered,
+  // one the server answered without a definition is not, and any other reads
+  // as registered, as every object did while the whole list loaded. The gate
+  // asks for nothing itself: `AppContent` names the objects the app's own
+  // entries require, so the sidebar's answer is exact, while the bell's
+  // cross-app roster does not ask another app's objects one by one. Outside an
+  // app (the home page's feeds) there is no package, and the gate reads the
+  // whole registry, as it does once anything has loaded it.
+  const metadata = useMetadata();
+  const packageId = typeof app?._packageId === 'string' && app._packageId ? app._packageId : undefined;
+  const readObjectScope =
+    packageId && metadata.getTypeStatus?.('object') === 'idle' ? metadata.readObjectScope : undefined;
+  const scope = readObjectScope ? readObjectScope({ packageId }) : null;
+  const metadataObjects = scope ? scope.objects : metadata.objects;
+  const missingObjects = scope ? scope.missing : NO_MISSING;
   const registeredObjectNames = useMemo(
     () => new Set<string>((metadataObjects || []).map((o: any) => o?.name).filter(Boolean)),
     [metadataObjects],
   );
+  const missingObjectNames = useMemo(() => new Set<string>(missingObjects), [missingObjects]);
   const checkCap = useCallback(
     (kind: 'object' | 'service', name: string): boolean => {
       if (kind === 'object') {
-        if (registeredObjectNames.size === 0) return true;
-        return registeredObjectNames.has(name);
+        if (!readObjectScope) {
+          if (registeredObjectNames.size === 0) return true;
+          return registeredObjectNames.has(name);
+        }
+        return registeredObjectNames.has(name) || !missingObjectNames.has(name);
       }
       return true;
     },
-    [registeredObjectNames],
+    [registeredObjectNames, missingObjectNames, readObjectScope],
   );
 
   return { evaluateVisibility: evalVis, checkPermission: checkPerm, checkCapability: checkCap, can };

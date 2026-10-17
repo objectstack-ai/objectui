@@ -62,6 +62,7 @@ import { InspectorReorderButtons, InspectorShell } from '../metadata-admin/inspe
 import { FieldsListEditor } from '../metadata-admin/previews/FieldsListEditor.js';
 import { useObjectFields } from '../metadata-admin/previews/useObjectFields.js';
 import { foldStoredListOptions } from '../metadata-admin/previews/ViewPreview.js';
+import { colFieldName } from '../metadata-admin/previews/view-column-io.js';
 import { WIDGETS, type ObjectFieldOption } from '../metadata-admin/widgets.js';
 import { failed, loaded, type LoadState } from '../metadata-admin/loadState.js';
 import { readDraftForSave, useDraftSaveGuard } from '../metadata-admin/DraftConflictDialog.js';
@@ -427,6 +428,41 @@ function selectedColumnIndex(id: string | undefined): number | null {
   return m ? Number(m[1]) : null;
 }
 
+/** A selection in the panel's column list, as `FieldsListEditor` spells it. */
+export interface ListViewColumnSelection {
+  kind: string;
+  id: string;
+  label?: string;
+}
+
+/**
+ * objectui#12725 — the selection of the view's column at `index`, spelled as
+ * the panel's column list spells its own (`FieldsListEditor`, under the
+ * `config` key), so a column selected on the canvas is that list's row.
+ */
+export function listViewColumnSelection(index: number, label: string): ListViewColumnSelection {
+  return { kind: 'column', id: `config.columns[${index}]`, label };
+}
+
+/** The column index a selection names, or `null` when it names no column. */
+export function listViewColumnIndexOf(selection: ListViewColumnSelection | null | undefined): number | null {
+  return selection?.kind === 'column' ? selectedColumnIndex(selection.id) : null;
+}
+
+/**
+ * objectui#12725 — the field each column the panel lists shows, in the
+ * view's order: the rows a canvas header can select. Empty while the view is
+ * loading, and for an item that is not a list view (nothing is edited there).
+ * A view not created yet lists the columns its first edit starts from, as the
+ * panel does.
+ */
+export function listViewColumnFields(listView: ObjectListViewDraft): string[] {
+  const { target, row, notList, seedColumns, loadedFor, targetKey } = listView;
+  if (!target || notList || loadedFor !== targetKey) return [];
+  const columns = listBodyOf(row ?? newListViewItem(target, seedColumns)).columns;
+  return Array.isArray(columns) ? columns.map((c) => colFieldName(c) ?? '') : [];
+}
+
 const noop = (): void => {};
 
 const SORT_ID = 'studio-list-view-sort';
@@ -443,16 +479,30 @@ export function ObjectListViewInspector({
   listView,
   readOnly,
   locale,
+  selection,
+  onSelectionChange,
 }: {
   listView: ObjectListViewDraft;
   readOnly: boolean;
   locale: string;
+  /**
+   * objectui#12725 — the column selection, held by the host so a click on a
+   * canvas header can make it. With `onSelectionChange` the panel's list
+   * reads and writes this one; without, the panel keeps its own.
+   */
+  selection?: ListViewColumnSelection | null;
+  onSelectionChange?: (selection: ListViewColumnSelection | null) => void;
 }): React.ReactElement | null {
   const { target, row, notList, seedColumns, failure, saving, hasDraft, edit, loadedFor, targetKey } = listView;
   const objectName = target?.objectName;
   const fieldState = useObjectFields(objectName);
-  const [selected, setSelected] = React.useState<{ key: string; index: number | null }>({ key: '', index: null });
+  const [ownSelected, setOwnSelected] = React.useState<{ key: string; index: number | null }>({ key: '', index: null });
   if (!target) return null;
+  const hostHeld = !!onSelectionChange;
+  const selectColumn = (sel: ListViewColumnSelection | null) => {
+    if (onSelectionChange) onSelectionChange(sel);
+    else setOwnSelected({ key: target.viewId, index: listViewColumnIndexOf(sel) });
+  };
   const isLoaded = loadedFor === targetKey;
   const refusal = !failure
     ? null
@@ -463,7 +513,11 @@ export function ObjectListViewInspector({
   const body = listBodyOf(working);
   const columns = Array.isArray(body.columns) ? (body.columns as unknown[]) : [];
   const allStrings = columns.length > 0 && columns.every((c) => typeof c === 'string');
-  const selectedIndex = selected.key === target.viewId ? selected.index : null;
+  const selectedIndex = hostHeld
+    ? listViewColumnIndexOf(selection)
+    : ownSelected.key === target.viewId
+      ? ownSelected.index
+      : null;
   const writeBody = (next: Row) => edit(withListBody(working, next));
   const fields = fieldState.fields;
   const fieldCatalog: LoadState<ObjectFieldOption[]> = fieldState.error
@@ -555,9 +609,7 @@ export function ObjectListViewInspector({
                 onPatch={(patch) => {
                   if (isPlainObject(patch.config)) writeBody(patch.config);
                 }}
-                onSelectionChange={(sel) =>
-                  setSelected({ key: target.viewId, index: selectedColumnIndex(sel?.id) })
-                }
+                onSelectionChange={selectColumn}
               />
               {selectedIndex != null && selectedIndex < columns.length && (
                 <div className="flex items-center justify-end">
@@ -570,7 +622,7 @@ export function ObjectListViewInspector({
                       const [moved] = next.splice(selectedIndex, 1);
                       next.splice(to, 0, moved);
                       writeBody({ ...body, columns: next });
-                      setSelected({ key: target.viewId, index: to });
+                      selectColumn(listViewColumnSelection(to, selection?.label ?? colFieldName(moved) ?? ''));
                     }}
                   />
                 </div>

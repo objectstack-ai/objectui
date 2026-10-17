@@ -165,13 +165,23 @@ import {
 } from '../metadata-admin/preview-registry.js';
 import {
   getStudioCanvasPreview,
+  StudioCanvasColumnSelectionContext,
   StudioCanvasDraftOnlyObjectsContext,
   StudioCanvasListViewContext,
   StudioCanvasNavEntryContext,
+  StudioObjectRecordsCanvas,
+  type StudioCanvasColumnSelection,
   type StudioCanvasDraftOnlyObjects,
   type StudioCanvasNavEntry,
 } from './studio-canvas-preview.js';
-import { ObjectListViewInspector, useObjectListViewDraft, type DraftOnlyObjects } from './ObjectListViewInspector.js';
+import {
+  listViewColumnFields,
+  listViewColumnIndexOf,
+  listViewColumnSelection,
+  ObjectListViewInspector,
+  useObjectListViewDraft,
+  type DraftOnlyObjects,
+} from './ObjectListViewInspector.js';
 import {
   DEFAULT_PAGE_SOURCE_KIND,
   NO_REPORT_BINDING,
@@ -3895,6 +3905,27 @@ export function InterfacesPillar({
     snapshot: listView.row,
     save: listView.save,
   });
+  // objectui#12725 — a click on a column header in an `object` leaf's canvas
+  // selects that column (`StudioCanvasColumnSelectionContext`): the pillar's
+  // one selection, so it shows in the panel's column list, asks the slot for
+  // 属性, and Esc or an empty-canvas click drops it as on a dashboard. Only
+  // the columns the panel lists are offered; another header keeps sorting.
+  const columnFieldsKey = JSON.stringify(current?.type === 'object' ? listViewColumnFields(listView) : []);
+  const listViewObject = listView.target?.objectName;
+  const selectedColumnIndex = listViewColumnIndexOf(selection);
+  const canvasColumns = React.useMemo<StudioCanvasColumnSelection | null>(() => {
+    const fields = JSON.parse(columnFieldsKey) as string[];
+    if (!listViewObject || fields.length === 0) return null;
+    return {
+      objectName: listViewObject,
+      fields,
+      selected: selectedColumnIndex != null ? (fields[selectedColumnIndex] ?? null) : null,
+      onSelect: (field, label) => {
+        const index = fields.indexOf(field);
+        if (index >= 0) setSelection(listViewColumnSelection(index, label));
+      },
+    };
+  }, [columnFieldsKey, listViewObject, selectedColumnIndex, setSelection]);
 
   // nav editing — patch appDraft.navigation, then save/publish the App overlay
   const onNavPatch = React.useCallback((patch: Record<string, unknown>) => {
@@ -4366,7 +4397,11 @@ export function InterfacesPillar({
     ? null
     : selectionLabel !== null
       ? tFormat('engine.studio.if.canvasHint.selected', locale, { label: String(selectionLabel) })
-      : slot?.mode === 'copilot' && Preview && designing && !StudioCanvas && !isSourcePage
+      : slot?.mode === 'copilot' &&
+          // objectui#12725 — an `object` leaf's headers are elements too, while the panel lists its
+          // columns, on the default canvas: the one that reports a header click.
+          ((Preview && designing && !StudioCanvas && !isSourcePage) ||
+            (StudioCanvas === StudioObjectRecordsCanvas && canvasColumns))
         ? t('engine.studio.if.canvasHint.pick', locale)
         : null;
   const canvasStatusEl = current ? (
@@ -4583,7 +4618,11 @@ export function InterfacesPillar({
           <StudioCanvasNavEntryContext.Provider value={canvasNavEntry}>
             <StudioCanvasListViewContext.Provider value={listView.canvas}>
               <StudioCanvasDraftOnlyObjectsContext.Provider value={canvasDraftOnly}>
-                <StudioCanvas type={current.type} name={current.name} draft={draft} locale={locale} />
+                {/* objectui#12725 — and the panel's column selection, which a
+                    header click on the default canvas makes. */}
+                <StudioCanvasColumnSelectionContext.Provider value={canvasColumns}>
+                  <StudioCanvas type={current.type} name={current.name} draft={draft} locale={locale} />
+                </StudioCanvasColumnSelectionContext.Provider>
               </StudioCanvasDraftOnlyObjectsContext.Provider>
             </StudioCanvasListViewContext.Provider>
           </StudioCanvasNavEntryContext.Provider>
@@ -4668,11 +4707,21 @@ export function InterfacesPillar({
       // objectui#11823 — except the list itself. An `object` leaf's canvas is
       // the object's running list, and the list view it shows IS package
       // metadata: this panel edits its columns, filter and sort (the view the
-      // canvas opens, see `ObjectListViewInspector`). Still no block, still no
-      // selection. Every other studio-canvas type keeps the statement below.
+      // canvas opens, see `ObjectListViewInspector`). Still no block.
+      // objectui#12725 — its one selection is a column: the default canvas
+      // reports a header click through a context beside the props
+      // (`StudioCanvasColumnSelectionContext`), never through them. Every
+      // other studio-canvas type keeps the statement below.
       current.type === 'object' && listView.target ? (
         <div className="min-h-0 flex-1 overflow-hidden">
-          <ObjectListViewInspector listView={listView} readOnly={readOnly} locale={locale} />
+          <ObjectListViewInspector
+            listView={listView}
+            readOnly={readOnly}
+            locale={locale}
+            // objectui#12725 — the pillar's selection, which a canvas header click also makes.
+            selection={selection}
+            onSelectionChange={setSelection}
+          />
         </div>
       ) : (
         <div className="min-h-0 flex-1 overflow-auto p-3">

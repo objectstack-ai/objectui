@@ -145,7 +145,10 @@ async function renderOn(pillar: 'access' | 'interfaces') {
       </Routes>
     </MemoryRouter>,
   );
-  const toolbar = await screen.findByRole('banner');
+  // objectui#12725 — by test id: the Interfaces properties now sit in the right
+  // slot beside the top bar, and testing-library reads their aside's `header`
+  // as a second banner (a browser does not: it is inside an `aside`).
+  const toolbar = await screen.findByTestId('studio-shell-header');
   await waitFor(() => expect(within(toolbar).getByRole('button', { name: 'Create app' })).toBeInTheDocument());
   if (pillar === 'access') await screen.findByText('a_account');
   return toolbar;

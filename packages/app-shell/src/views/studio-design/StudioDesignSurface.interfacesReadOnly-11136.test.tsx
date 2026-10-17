@@ -105,6 +105,7 @@ vi.mock('@monaco-editor/react', () => {
 });
 
 import { InterfacesPillar } from './StudioDesignSurface';
+import { StudioRightSlotContext } from './studioRightSlotState';
 // objectui#11357 — the `page` resource config whose `fromDraft` the pillar's page save
 // goes through, registered at load exactly as the package entry registers it.
 import '../../services/builtinComponents.js';
@@ -140,10 +141,29 @@ afterEach(cleanup);
 
 const DRAFT_FOOTER = t('engine.studio.inspector.draftFooter', 'en');
 
-function renderPillar(readOnly: boolean, opts: { foldInspector?: boolean } = {}) {
+/**
+ * objectui#12725 — the Studio surface's right slot, reduced to what the pillar
+ * reads of it: a properties target to portal into.
+ */
+function SlotHost({ children }: { children: React.ReactNode }) {
+  const [target, setTarget] = React.useState<HTMLElement | null>(null);
+  const handle = React.useMemo(
+    () => ({ propsTarget: target, mode: 'props' as const, claimProps: () => () => {}, showProps: () => {} }),
+    [target],
+  );
+  return (
+    <StudioRightSlotContext.Provider value={handle}>
+      {children}
+      <div data-testid="studio-slot-props" ref={setTarget} />
+    </StudioRightSlotContext.Provider>
+  );
+}
+
+function renderPillar(readOnly: boolean, opts: { inSlot?: boolean } = {}) {
+  const pillar = <InterfacesPillar packageId={PKG} readOnly={readOnly} />;
   return render(
     <MemoryRouter initialEntries={[`/studio/${PKG}/interfaces`]}>
-      <InterfacesPillar packageId={PKG} readOnly={readOnly} foldInspector={opts.foldInspector} />
+      {opts.inSlot ? <SlotHost>{pillar}</SlotHost> : pillar}
     </MemoryRouter>,
   );
 }
@@ -185,24 +205,35 @@ async function inspectHello(): Promise<HTMLElement> {
   return within(rail()).findByLabelText('ID', undefined, { timeout: 8000 });
 }
 
-async function openLanding(): Promise<HTMLTextAreaElement> {
-  await openHome();
-  fireEvent.click(screen.getByRole('button', { name: /Landing/ }));
-  const editor = await within(rail()).findByRole('textbox', { name: 'Page source' }, { timeout: 8000 });
+/**
+ * objectui#12725 — a source page's code editor is in its definition sheet (the
+ * item's ⋯ menu, View definition), the one source-editor site in either layout.
+ */
+async function openSourceEditor(): Promise<HTMLTextAreaElement> {
+  fireEvent.pointerDown(await screen.findByTestId('if-item-more', undefined, { timeout: 8000 }), {
+    button: 0,
+    ctrlKey: false,
+  });
+  fireEvent.click(await screen.findByTestId('if-item-view-definition'));
+  const sheet = await screen.findByTestId('if-definition-sheet');
+  const editor = await within(sheet).findByRole('textbox', { name: 'Page source' }, { timeout: 8000 });
   return editor as HTMLTextAreaElement;
 }
 
-/**
- * The folded layout (the chat dock owns the right side): the rail becomes the
- * center "Properties" tab, whose body for a source page IS the code editor —
- * the second of the pillar's two source-editor sites.
- */
-async function openLandingFolded(): Promise<HTMLTextAreaElement> {
-  const tabs = await screen.findByTestId('studio-center-tabs', undefined, { timeout: 8000 });
+async function openLanding(): Promise<HTMLTextAreaElement> {
+  await openHome();
+  fireEvent.click(screen.getByRole('button', { name: /Landing/ }));
+  await within(rail()).findByTestId('source-page-properties', undefined, { timeout: 8000 });
+  return openSourceEditor();
+}
+
+/** The same, with the properties in the right slot (the Studio surface's layout). */
+async function openLandingInSlot(): Promise<HTMLTextAreaElement> {
   fireEvent.click(await screen.findByRole('button', { name: /Landing/ }, { timeout: 8000 }));
-  fireEvent.mouseDown(within(tabs).getByRole('tab', { name: 'Properties' }), { button: 0 });
-  const editor = await within(tabs).findByRole('textbox', { name: 'Page source' }, { timeout: 8000 });
-  return editor as HTMLTextAreaElement;
+  await within(screen.getByTestId('studio-slot-props')).findByTestId('source-page-properties', undefined, {
+    timeout: 8000,
+  });
+  return openSourceEditor();
 }
 
 describe('Interfaces pillar on a read-only package (objectui#11136)', () => {
@@ -251,9 +282,9 @@ describe('Interfaces pillar on a read-only package (objectui#11136)', () => {
     expect(editor.readOnly).toBe(true);
   });
 
-  it("opens a source page's code editor read-only in the folded layout too", async () => {
-    renderPillar(true, { foldInspector: true });
-    const editor = await openLandingFolded();
+  it("opens a source page's code editor read-only with the properties in the right slot too", async () => {
+    renderPillar(true, { inSlot: true });
+    const editor = await openLandingInSlot();
 
     expect(editor.readOnly).toBe(true);
   });
@@ -308,9 +339,9 @@ describe('Interfaces pillar on a writable package — the control (objectui#1113
     expect(server.saves[0]).toMatchObject({ type: 'page', name: 'landing', body: { source: '<h1>Hello</h1>' } });
   });
 
-  it("a source page's code editor in the folded layout edits too", async () => {
-    renderPillar(false, { foldInspector: true });
-    const editor = await openLandingFolded();
+  it("a source page's code editor with the properties in the right slot edits too", async () => {
+    renderPillar(false, { inSlot: true });
+    const editor = await openLandingInSlot();
 
     expect(editor.readOnly).toBe(false);
   });

@@ -131,7 +131,10 @@ async function renderSurface() {
   );
   // The header landmark is the toolbar under test; wait for its own create
   // affordance rather than for a frame count.
-  const toolbar = await screen.findByRole('banner');
+  // objectui#12725 — by test id: the Interfaces properties now sit in the right
+  // slot beside the top bar, and testing-library reads their aside's `header`
+  // as a second banner (a browser does not: it is inside an `aside`).
+  const toolbar = await screen.findByTestId('studio-shell-header');
   await waitFor(() =>
     expect(within(toolbar).getByRole('button', { name: 'Create app' })).toBeInTheDocument(),
   );

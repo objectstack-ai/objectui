@@ -75,6 +75,10 @@ const mockClient = vi.hoisted(() => ({
   save: vi.fn(async () => ({})),
   publish: vi.fn(async () => ({ success: true })),
   reset: vi.fn(async () => ({})),
+  // objectui#12725 — the properties are mounted in the right slot now (they
+  // sat behind the folded Properties tab), so an object leaf's list-view
+  // inspector asks for the preview-drafts client too.
+  withPreviewDrafts: vi.fn((): unknown => mockClient),
 }));
 
 vi.mock('../metadata-admin/useMetadata', async (importOriginal) => {

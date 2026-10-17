@@ -132,7 +132,7 @@ describe('Studio shell header below and above 640 px (objectui#12509)', () => {
     expect(segment.sm).toEqual(expect.arrayContaining(['flex-none', 'shrink-0']));
   });
 
-  it('the real header wears the tokens; every segment keeps its name and reads as an icon below `xl`', async () => {
+  it('the real header wears the tokens; every segment keeps its name and reads as an icon below `lg`', async () => {
     render(
       <MemoryRouter initialEntries={[`/studio/${PACKAGE_ID}/data`]}>
         <Routes>
@@ -156,7 +156,9 @@ describe('Studio shell header below and above 640 px (objectui#12509)', () => {
     for (const key of ['data', 'automations', 'interfaces', 'access']) {
       const link = within(nav).getByRole('link', { name: t(`engine.studio.pillar.${key}`, 'en') });
       expect(link).toHaveClass(...STUDIO_HEADER_PILLAR.split(' '));
-      expect(within(link).getByText(t(`engine.studio.pillar.${key}`, 'en'))).toHaveClass('sr-only', 'xl:not-sr-only');
+      // objectui#12725 — named from 1024 px (`lg`, was `xl`): the right slot
+      // leaves the top bar room for the four names at the card's 1010 reading.
+      expect(within(link).getByText(t(`engine.studio.pillar.${key}`, 'en'))).toHaveClass('sr-only', 'lg:not-sr-only');
     }
 
     // The chip is the piece that gives way on a tight row.

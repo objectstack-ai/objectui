@@ -212,7 +212,10 @@ function shieldMarkup(): string {
 describe('Studio pillar nav: Access is the fourth segment, and More is gone (objectui#12452)', () => {
   it('reads Data, Automations, Interfaces, Access, each a link to its pillar, with no trigger beside them', async () => {
     renderAt(`/studio/${PKG}/interfaces`);
-    await screen.findByRole('banner');
+    // objectui#12725 — by test id: the Interfaces properties now sit in the right
+    // slot beside the top bar, and testing-library reads their aside's `header`
+    // as a second banner (a browser does not: it is inside an `aside`).
+    await screen.findByTestId('studio-shell-header');
 
     const links = within(pillarNav()).getAllByRole('link');
     expect(links.map((a) => a.textContent)).toEqual([DATA, AUTOMATIONS, INTERFACES, ACCESS]);
@@ -231,7 +234,7 @@ describe('Studio pillar nav: Access is the fourth segment, and More is gone (obj
   it.each(['app.objectstack.hotcrm', PKG])('with Access open in %s, Access is the current page and carries the active look', async (pkg) => {
     fetchPackagesMock.mockResolvedValue([{ id: pkg, name: 'Pkg', writable: true, namespace: 'pkg' }]);
     renderAt(`/studio/${pkg}/access`);
-    await screen.findByRole('banner');
+    await screen.findByTestId('studio-shell-header');
 
     const access = segment(ACCESS);
     expect(access).toHaveAttribute('aria-current', 'page');
@@ -246,7 +249,7 @@ describe('Studio pillar nav: Access is the fourth segment, and More is gone (obj
 
   it('control: with Interfaces open, Access carries neither, and Interfaces carries both', async () => {
     renderAt(`/studio/${PKG}/interfaces`);
-    await screen.findByRole('banner');
+    await screen.findByTestId('studio-shell-header');
 
     expect(segment(ACCESS)).not.toHaveAttribute('aria-current');
     expect(segment(ACCESS)).not.toHaveClass('shadow-sm');

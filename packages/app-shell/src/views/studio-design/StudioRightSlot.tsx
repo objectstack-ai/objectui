@@ -103,7 +103,7 @@ export function StudioRightSlot({
           !overlay && 'transition-[width] duration-200 ease-out',
         )}
       >
-        <header className="shrink-0 border-b px-3 py-2.5">
+        <div className="shrink-0 border-b px-3 py-2.5">
           {switchable ? (
             <div
               role="tablist"
@@ -151,7 +151,7 @@ export function StudioRightSlot({
               {t('engine.studio.slot.planPending', locale)}
             </span>
           )}
-        </header>
+        </div>
         <div
           ref={propsTargetRef}
           data-testid="studio-slot-props"

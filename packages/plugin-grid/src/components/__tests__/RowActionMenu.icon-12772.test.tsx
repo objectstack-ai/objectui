@@ -29,14 +29,14 @@ import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import React from 'react';
 import { PredicateScopeProvider } from '@object-ui/react';
-import { RowActionMenu } from '../RowActionMenu';
+import { RowActionMenu, type RowActionDef } from '../RowActionMenu';
 
 const UNKNOWN_ICON = 'definitely-not-a-lucide-glyph';
 
-function renderMenu(rowActionDefs: Record<string, unknown>[]) {
+function renderMenu(rowActionDefs: RowActionDef[]) {
   return render(
     <PredicateScopeProvider scope={{}}>
-      <RowActionMenu row={{ id: 'e1' }} onActionDef={() => {}} rowActionDefs={rowActionDefs as any} />
+      <RowActionMenu row={{ id: 'e1' }} onActionDef={() => {}} rowActionDefs={rowActionDefs} />
     </PredicateScopeProvider>,
   );
 }
@@ -69,7 +69,7 @@ describe('RowActionInlineButton draws a declared icon beside the label (objectui
 describe('RowActionMenuItem draws a declared icon beside the label (objectui#12772)', () => {
   const ARCHIVE = { name: 'archive', label: 'Archive', variant: 'secondary' as const };
 
-  async function openMenu(def: Record<string, unknown>) {
+  async function openMenu(def: RowActionDef) {
     renderMenu([def]);
     await userEvent.click(screen.getByTestId('row-action-trigger'));
     return screen.findByTestId('row-action-archive');

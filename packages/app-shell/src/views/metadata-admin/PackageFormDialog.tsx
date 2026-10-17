@@ -307,7 +307,7 @@ export function PackageFormDialog({
 }) {
   const locale = useMetadataLocale();
   const schema = React.useMemo(() => getPackageSchema(), []);
-  const form = React.useMemo(() => getPackageForm(locale), [locale]);
+  const form = React.useMemo(() => getPackageForm(locale, { create: mode === 'create' }), [locale, mode]);
   // objectui#11792 — the `<org>` of a derived `com.<org>.<name>` id. Null
   // outside an AuthProvider and whenever the session has no active
   // organization; `deriveCreatePackageId` then leaves the segment out.
@@ -333,11 +333,13 @@ export function PackageFormDialog({
   React.useEffect(() => {
     if (!open) return;
     if (createMode) {
-      // Defaults for a new WRITABLE base package. Deliberately no `scope`:
-      // a runtime-created base is writable, whereas `scope: 'project'` marks a
-      // read-only CODE package (packages-io writability heuristic). Sending it
-      // would make every new package render as 只读. `defaultDatasource` is
-      // likewise left to the server so we don't pin a datasource on create.
+      // Defaults for a new package. No `scope`, and the create form offers
+      // none (objectui#12869): `POST /api/v1/packages` defaults it to
+      // `project` and refuses `cloud` / `system` (objectstack#24160). Whether
+      // the new package is writable is the server's verdict, the row's served
+      // `writable`, which PackagesPage reads; it is never guessed from
+      // `scope`. `defaultDatasource` is likewise left to the server so we
+      // don't pin a datasource on create.
       setForm({ draft: { version: '0.1.0', type: 'app' }, touched: UNTOUCHED });
     } else {
       setForm({ draft: { ...(manifest ?? {}) }, touched: UNTOUCHED });
@@ -470,8 +472,11 @@ export function PackageFormDialog({
     try {
       let result: PackageSaveResult;
       if (createMode) {
+        // No `scope` reaches the install door, even from a draft that holds
+        // one: the create form offers none and the server defaults it.
+        const { scope: _scope, ...authored } = draft;
         const manifestBody: ManifestRecord = {
-          ...draft,
+          ...authored,
           id: String(draft.id ?? '').trim(),
           name: String(draft.name ?? '').trim(),
           version: versionStr,

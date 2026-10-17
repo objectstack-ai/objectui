@@ -19,3 +19,13 @@ Leaf: 界面 › 数据模型 › 任务看板（看板视图） (`object · sho
 On `main` the canvas already says 「点元素 → 右栏切到属性」 on this leaf, because the view lists columns; no card click answers it there.
 
 Recorded, not part of this change: at 1010 px the item header's title is drawn with no visible text beside its chips, on `main` and on the branch alike (`before-1010-open.png`, `after-1010-card-click.png`).
+
+## Keyboard (after objectui#12888)
+
+`main` `1d872f2` (objectui#12888) made a focused card open on Enter and Space and split `SortableCard` into a list item wrapping a `role="button"` control; the branch now carries `data-kanban-card` on that control. Re-read on the branch head `9bce2a9` (merged with `main` `1d872f2`), same backend (`18.0.0-next.3`) and stubs, `MODE=enter`: the driver focuses the first card's control and presses Enter (`after-WIDTH-card-enter.png`, `after-WIDTH-enter.json`; the other shots of that run were not kept).
+
+| width | Enter on a focused card | Esc |
+|---|---|---|
+| 1280 / 1010 | slot 属性, 看板卡片 selected, the card outlined, 「已选中：看板卡片 · Esc 取消选中」, no overlay, URL unchanged | slot stays 属性, cleared |
+
+While the card keeps keyboard focus, the browser's focus ring on the control draws over the selection outline. The JSON's `cardKeyed` reads 0 here because it counts the outer list items, and the attribute now sits on the control inside each.

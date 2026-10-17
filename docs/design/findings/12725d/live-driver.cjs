@@ -69,10 +69,16 @@ function withEntry(nav) {
   await shot('open');
   const first = page.locator('[data-testid="if-canvas-main"] [role="listitem"]').first();
   out.cardTitle = await first.getAttribute('aria-label');
-  await first.click();
+  if (process.env.MODE === 'enter') {
+    // Keyboard: focus the card's control (objectui#12888 made it a tab stop) and press Enter.
+    await page.locator('[data-testid="if-canvas-main"] [data-kanban-card]').first().focus();
+    await page.keyboard.press('Enter');
+  } else {
+    await first.click();
+  }
   await page.waitForTimeout(2000);
   out.afterCardClick = await measure();
-  await shot('card-click');
+  await shot(process.env.MODE === 'enter' ? 'card-enter' : 'card-click');
   await page.keyboard.press('Escape');
   await page.waitForTimeout(1200);
   out.afterEsc = await measure();
@@ -87,7 +93,7 @@ function withEntry(nav) {
     out.afterEmptyClick = await measure();
     await shot('empty-click');
   }
-  fs.writeFileSync(`${OUT}/${label}-${width}.json`, JSON.stringify(out, null, 2));
+  fs.writeFileSync(`${OUT}/${label}-${width}${process.env.MODE === 'enter' ? '-enter' : ''}.json`, JSON.stringify(out, null, 2));
   console.log(JSON.stringify(out));
   await browser.close();
 })().catch((e) => { console.error('DRIVER FAILED', e.message); process.exit(1); });

@@ -4,9 +4,11 @@
  * objectui#12522 — the page designer for a source page (`kind: 'html'` /
  * `'react'`), and Run mode for a block-tree page.
  *
- * - The Properties tab of an html page shows what the page IS: its label
+ * - The properties of an html page show what the page IS: its label
  *   (editable, and the edit autosaves), its identifier, the "Written in" kind,
  *   and every navigation entry that opens it, a nested one with its group.
+ *   objectui#12725 — they are the whole aside now: no Source / Properties
+ *   tabs; the code editor opens from the item's ⋯ menu (View definition).
  * - The status line under the source editor says "Saved" for the buffer as it
  *   was read, "Unsaved" once it is edited, and "Saved HH:MM" once the
  *   pillar's own save of it lands.
@@ -157,19 +159,21 @@ async function openHome(): Promise<void> {
   await screen.findByRole('button', { name: 'Select hello' }, { timeout: 8000 });
 }
 
-/** The landing page (an html page) open, on its Source tab. */
-async function openLanding(): Promise<HTMLTextAreaElement> {
+/** The landing page (an html page) open: its properties fill the aside. */
+async function openLanding(): Promise<HTMLElement> {
   renderPillar();
   await openHome();
   fireEvent.click(screen.getByRole('button', { name: /^Landing/ }));
-  const editor = await within(rail()).findByRole('textbox', { name: 'Page source' }, { timeout: 8000 });
-  return editor as HTMLTextAreaElement;
+  return within(rail()).findByTestId('source-page-properties', undefined, { timeout: 8000 });
 }
 
-function openPropertiesTab(): void {
-  fireEvent.mouseDown(within(rail()).getByRole('tab', { name: t('engine.studio.inspector.tabProps', 'en') }), {
-    button: 0,
-  });
+/** objectui#12725 — the code editor, opened from the item's ⋯ menu (View definition). */
+async function openSource(): Promise<{ editor: HTMLTextAreaElement; sheet: HTMLElement }> {
+  fireEvent.pointerDown(screen.getByTestId('if-item-more'), { button: 0, ctrlKey: false });
+  fireEvent.click(await screen.findByTestId('if-item-view-definition'));
+  const sheet = await screen.findByTestId('if-definition-sheet');
+  const editor = await within(sheet).findByRole('textbox', { name: 'Page source' }, { timeout: 8000 });
+  return { editor: editor as HTMLTextAreaElement, sheet };
 }
 
 function modeButtons(): { design: HTMLElement; run: HTMLElement } {
@@ -181,11 +185,11 @@ function modeButtons(): { design: HTMLElement; run: HTMLElement } {
 }
 
 describe('Interfaces pillar — a source page (objectui#12522)', () => {
-  it("the Properties tab lists the page's label, identifier, kind and the navigation entries that open it", async () => {
-    await openLanding();
-    openPropertiesTab();
+  it("the properties list the page's label, identifier, kind and the navigation entries that open it", async () => {
+    const props = await openLanding();
+    // objectui#12725 — no Source / Properties tab strip over them.
+    expect(within(rail()).queryAllByRole('tab')).toHaveLength(0);
 
-    const props = await within(rail()).findByTestId('source-page-properties');
     expect(within(props).getByLabelText(t('engine.studio.if.pageProps.label', 'en'))).toHaveValue('Landing page');
     expect(within(props).getByTestId('source-page-identifier')).toHaveTextContent('landing');
     expect(within(props).getByTestId('source-page-kind')).toHaveTextContent(
@@ -198,30 +202,25 @@ describe('Interfaces pillar — a source page (objectui#12522)', () => {
     expect(within(props).queryByText('Home')).toBeNull();
   });
 
-  it('a label edit in the Properties tab autosaves, and the status line moves from Unsaved to Saved HH:MM', async () => {
+  it('a label edit in the properties autosaves, and the status line moves from Unsaved to Saved HH:MM', async () => {
     await openLanding();
-    expect(within(rail()).getByTestId('source-page-status')).toHaveTextContent(t('engine.studio.if.pageSaved', 'en'));
-
-    openPropertiesTab();
     const label = await within(rail()).findByLabelText(t('engine.studio.if.pageProps.label', 'en'));
     fireEvent.change(label, { target: { value: 'Welcome' } });
 
     await waitFor(() => expect(server.saves).toHaveLength(1), { timeout: 8000 });
     expect(server.saves[0]).toMatchObject({ type: 'page', name: 'landing', body: { label: 'Welcome', kind: 'html' } });
 
-    fireEvent.mouseDown(within(rail()).getByRole('tab', { name: t('engine.studio.inspector.tabSource', 'en') }), {
-      button: 0,
-    });
-    await waitFor(() =>
-      expect(within(rail()).getByTestId('source-page-status')).toHaveAttribute('data-state', 'saved'),
-    );
-    expect(within(rail()).getByTestId('source-page-status').textContent).toMatch(/^Saved \d{1,2}:\d{2}/);
+    const { sheet } = await openSource();
+    await waitFor(() => expect(within(sheet).getByTestId('source-page-status')).toHaveAttribute('data-state', 'saved'));
+    expect(within(sheet).getByTestId('source-page-status').textContent).toMatch(/^Saved \d{1,2}:\d{2}/);
   });
 
   it('a source edit reads Unsaved until its save lands', async () => {
-    const editor = await openLanding();
+    await openLanding();
+    const { editor, sheet } = await openSource();
+    expect(within(sheet).getByTestId('source-page-status')).toHaveTextContent(t('engine.studio.if.pageSaved', 'en'));
     fireEvent.change(editor, { target: { value: '<h1>Hello</h1>' } });
-    expect(within(rail()).getByTestId('source-page-status')).toHaveTextContent(t('engine.studio.if.pageUnsaved', 'en'));
+    expect(within(sheet).getByTestId('source-page-status')).toHaveTextContent(t('engine.studio.if.pageUnsaved', 'en'));
     await waitFor(() => expect(server.saves).toHaveLength(1), { timeout: 8000 });
   });
 

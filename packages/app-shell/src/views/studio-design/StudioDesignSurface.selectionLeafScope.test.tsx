@@ -30,9 +30,11 @@
  *   (a) **studio-canvas leaves** (`object`). #7121 gates the rail and the
  *       header's clear button on `StudioCanvas`, so both of those symptoms are
  *       already unreachable here. What it did NOT gate is `hasInspectorTarget`,
- *       which feeds `nextCenterTab` — so in the folded layout the ONLY
- *       surviving observable of the leak is the center tab, and that is what
- *       the folded-layout test below measures.
+ *       which fed `nextCenterTab` — so in the folded layout the ONLY
+ *       surviving observable of the leak was the center tab. objectui#12725
+ *       retired that layout; the selection's identity now feeds the right
+ *       slot (it asks for the properties) and the canvas status line ("Selected:
+ *       …"), and the slot-layout test below measures that line.
  *
  *   (b) **leaves whose own type has no registered designer**. Nothing gates
  *       this population: the stale selection reaches the
@@ -64,11 +66,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
-// jsdom has no matchMedia — `useIsMobile` (rail overlay) and
-// `useIsWideViewport` (the folded layout's side-by-side threshold) both need a
-// stub. `innerWidth` stays at jsdom's 1024 default, i.e. BELOW the 1280 `xl`
-// breakpoint, so `foldInspector` really does produce the center-tabs layout
-// rather than the wide side-by-side one.
+// jsdom has no matchMedia — `useIsMobile` (rail overlay) needs a stub.
 window.matchMedia = ((query: string) => ({
   matches: false,
   media: query,
@@ -136,6 +134,7 @@ vi.mock('@object-ui/react', async (importOriginal) => {
 });
 
 import { InterfacesPillar } from './StudioDesignSurface';
+import { StudioRightSlotContext } from './studioRightSlotState';
 import { listMetadataPreviewTypes, registerMetadataPreview } from '../metadata-admin/preview-registry';
 import { listMetadataInspectorTypes, registerMetadataInspector } from '../metadata-admin/inspector-registry';
 import { listStudioCanvasPreviewTypes } from './studio-canvas-preview';
@@ -209,10 +208,26 @@ function expectPopulatedRegistries() {
   expect(listStudioCanvasPreviewTypes()).not.toContain('page');
 }
 
-function mountPillar(props: { foldInspector?: boolean } = {}) {
+/** objectui#12725 — the Studio surface's right slot, reduced to what the pillar reads of it. */
+function SlotHost({ children }: { children: React.ReactNode }) {
+  const [target, setTarget] = React.useState<HTMLElement | null>(null);
+  const handle = React.useMemo(
+    () => ({ propsTarget: target, mode: 'props' as const, claimProps: () => () => {}, showProps: () => {} }),
+    [target],
+  );
+  return (
+    <StudioRightSlotContext.Provider value={handle}>
+      {children}
+      <div ref={setTarget} />
+    </StudioRightSlotContext.Provider>
+  );
+}
+
+function mountPillar(props: { inSlot?: boolean } = {}) {
+  const pillar = <InterfacesPillar packageId="com.acme.app" />;
   return render(
     <MemoryRouter initialEntries={['/studio/com.acme.app/interfaces']}>
-      <InterfacesPillar packageId="com.acme.app" {...props} />
+      {props.inSlot ? <SlotHost>{pillar}</SlotHost> : pillar}
     </MemoryRouter>,
   );
 }
@@ -237,11 +252,9 @@ async function selectBlockOnDashboardLeaf() {
   );
 }
 
-/** Which center tab is active, read from the DOM rather than from state. */
-function activeCenterTab(): string | null {
-  const tabs = screen.getByTestId('studio-center-tabs');
-  const active = tabs.querySelector('[role="tab"][data-state="active"]');
-  return active?.textContent?.trim() ?? null;
+/** The canvas status line's right-hand hint, read from the DOM rather than from state. */
+function canvasHint(): string | null {
+  return screen.queryByTestId('if-canvas-hint')?.textContent ?? null;
 }
 
 describe('Interfaces pillar — a block selection expires with its leaf (#7137)', () => {
@@ -306,24 +319,22 @@ describe('Interfaces pillar — a block selection expires with its leaf (#7137)'
     expect(screen.queryByTestId('stub-inspector')).not.toBeInTheDocument();
   });
 
-  it('returns the folded center tab to Canvas instead of stranding it on Properties', async () => {
+  it('in the right slot, the canvas stops naming a selection the new leaf does not hold', async () => {
     expectPopulatedRegistries();
-    mountPillar({ foldInspector: true });
+    mountPillar({ inSlot: true });
     await selectBlockOnDashboardLeaf();
 
-    // Control on the same instrument: selecting a block DOES drive this tab, so
-    // the "back to Canvas" reading below is a measurement of the auto-switch and
-    // not of a tab strip that never moves.
-    await waitFor(() => expect(activeCenterTab()).toBe('Properties'), { timeout: 4000 });
+    // Control on the same instrument: selecting a block DOES drive this line,
+    // so the reading below measures the selection's expiry and not a line
+    // that never names one. (objectui#12725 re-points the folded center-tab
+    // reading here: that layout is gone.)
+    await waitFor(() => expect(canvasHint()).toMatch(/^Selected: blk_1/), { timeout: 4000 });
 
-    // ⭐ The card's `centerTab` sub-claim, measured. A surviving selection keeps
-    // `hasInspectorTarget` true across the leaf change, so `nextCenterTab` sees
-    // no edge and the author lands on Properties — on a leaf with no block to
-    // inspect there. With the selection scoped to
-    // its leaf the target CLEARS, and the folded layout returns to the canvas
-    // that actually has something to show.
+    // ⭐ A surviving selection would keep naming `blk_1` on the object leaf —
+    // a leaf with no block to inspect. Scoped to its leaf, it CLEARS.
     fireEvent.click(screen.getByTitle('object · showcase_task'));
-    await waitFor(() => expect(activeCenterTab()).toBe('Canvas'), { timeout: 4000 });
+    await screen.findByTestId('studio-list-view-inspector', undefined, { timeout: 4000 });
+    expect(canvasHint()).toBeNull();
   });
 });
 

@@ -22,22 +22,15 @@ export const DOCK_WIDTH_STORAGE_KEY = 'ai-chat-dock-width';
  */
 export const DOCK_EXPANDED_STORAGE_KEY = 'ai-chat-dock-expanded';
 /**
- * sessionStorage key for the STUDIO right dock's expanded/collapsed state.
- * Distinct from the console key so the two surfaces never fight over one flag.
- * The Studio copilot mounts expanded by default (it always has), but a user who
- * collapses it to get the classic three-zone canvas keeps it collapsed across
- * pillar / package switches and re-entering Studio in the same tab — the
- * annoyance was it re-expanding every time (issue #2477 item 2). Per-tab
- * (sessionStorage): a fresh tab re-defaults to the copilot-visible posture.
+ * sessionStorage key for whether the STUDIO right slot is shown (objectui#12725;
+ * the Studio right dock's expanded/collapsed state before it). Distinct from
+ * the console key so the two surfaces never fight over one flag. The slot
+ * shows by default, but a user who hides it keeps it hidden across pillar /
+ * package switches and re-entering Studio in the same tab — the annoyance was
+ * it re-opening every time (issue #2477 item 2). Per-tab (sessionStorage): a
+ * fresh tab re-defaults to the slot shown.
  */
 export const DOCK_STUDIO_EXPANDED_STORAGE_KEY = 'ai-chat-studio-dock-expanded';
-/**
- * localStorage key for the STUDIO dock's width, distinct from the console
- * dock's. The two surfaces size their canvas very differently — a wide console
- * chat should NOT squeeze the Studio design canvas (issue #2477 item 6) — so
- * each remembers its own width.
- */
-export const DOCK_STUDIO_WIDTH_STORAGE_KEY = 'ai-chat-studio-dock-width';
 /** Default rail width (px). */
 export const DOCK_DEFAULT_WIDTH = 420;
 /** The rail never narrower than this. */

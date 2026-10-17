@@ -12,9 +12,10 @@
  * conversation — the same thread the full-page `/ai` surface shows — so the dock
  * is a VIEW, not a new conversation. P3b retired the FAB into this dock's
  * launcher. P3c makes `/ai` the dock maximized (the header's maximize button ⇄
- * the page's collapse-to-dock button, same thread both ways), reuses the panel
- * under Studio (right dock, `children` body override), and auto-maximizes the
- * rail while the ADR-0037 Live Canvas is open.
+ * the page's collapse-to-dock button, same thread both ways) and auto-maximizes
+ * the rail while the ADR-0037 Live Canvas is open. (P3c also reused the panel
+ * under Studio; objectui#12725 moved the Studio copilot into that surface's own
+ * right slot, `StudioRightSlot`, so the console is this panel's one host.)
  */
 import * as React from 'react';
 import {
@@ -65,23 +66,21 @@ function readStoredWidth(key: string): number {
 export interface ChatDockOptions {
   /**
    * Mount expanded when no stored preference exists. The console rail keeps
-   * P3a's default-collapsed posture; the Studio dock passes `true` because the
-   * copilot it replaces has always been visible by default.
+   * P3a's default-collapsed posture.
    */
   defaultExpanded?: boolean;
   /**
    * sessionStorage key the expanded/collapsed state round-trips through (see
    * {@link DOCK_EXPANDED_STORAGE_KEY}). Omitted → in-memory only, so each mount
-   * starts from `defaultExpanded`. Both shipped docks DO pass a key, and they
-   * pass DIFFERENT ones on purpose — console and Studio must never share one
-   * collapse (#2477 item 2).
+   * starts from `defaultExpanded`. The console dock passes its own key; the
+   * Studio right slot keeps its shown state under a different one, so the two
+   * never share one collapse (#2477 item 2).
    */
   persistExpandedKey?: string;
   /**
    * localStorage key the rail WIDTH round-trips through. Defaults to the shared
-   * console key; the Studio dock passes its own ({@link
-   * DOCK_STUDIO_WIDTH_STORAGE_KEY}) so a wide console chat doesn't squeeze the
-   * design canvas, and vice-versa (issue #2477 item 6).
+   * console key. (The Studio dock passed its own, issue #2477 item 6, until
+   * objectui#12725 gave Studio a fixed-width right slot.)
    */
   persistWidthKey?: string;
 }
@@ -379,7 +378,7 @@ export interface ChatDockPanelProps {
    * `children`.
    */
   appPackageId?: string;
-  /** Header title override (the Studio dock says "AI copilot"); default "Assistant". */
+  /** Header title override; default "Assistant". */
   title?: string;
   /**
    * ADR-0057 P3c — render a maximize header button that opens the full-page
@@ -393,9 +392,10 @@ export interface ChatDockPanelProps {
   /**
    * Body override. Default mounts {@link ChatDockConversation} (the console's
    * own thread — app-bound for `build` inside an authorable app, product-only
-   * otherwise). The Studio dock passes its own package-scoped build
-   * conversation instead — note the empty-catalog gate then lives in the
-   * caller, because the default body's self-gate is bypassed.
+   * otherwise). A caller may pass its own conversation instead (the Studio
+   * dock passed its package-scoped build thread until objectui#12725) — note
+   * the empty-catalog gate then lives in the caller, because the default
+   * body's self-gate is bypassed.
    */
   children?: React.ReactNode;
 }
@@ -507,7 +507,7 @@ export function ChatDockPanel({
 
 export interface ChatDockMobileSheetProps {
   /** Sheet visibility — decoupled from {@link ChatDockState} so callers can
-   *  drive it from the dock (console) or a local state (Studio). */
+   *  drive it from the dock (console) or a local state. */
   open: boolean;
   onOpenChange: (open: boolean) => void;
   userId?: string;
@@ -638,7 +638,8 @@ export interface ChatDockLauncherProps {
  * The collapsed affordance — a fixed edge button that expands the dock. Rendered
  * only while collapsed, so it never overlaps the expanded rail. The console
  * retired it in P3b (the FAB is that surface's launcher); the Studio dock (P3c)
- * uses it as its collapsed state, since Studio has no FAB.
+ * used it as its collapsed state until objectui#12725 gave Studio a right slot
+ * that the top bar shows and hides. No shipped surface mounts it today.
  *
  * objectui#11666 — like the console FAB, it carries a marker while a proposed
  * plan awaits the user's approval (read off the assistant bus, which the chat

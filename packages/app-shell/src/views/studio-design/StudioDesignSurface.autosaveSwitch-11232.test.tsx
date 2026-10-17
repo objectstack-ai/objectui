@@ -547,8 +547,9 @@ describe('Studio surface — a package switch over an unsaved nav edit (objectui
     // The previous package's page does not stay open on the new package.
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Select hello' })).toBeNull(), SLOW);
 
-    fireEvent.mouseDown(screen.getByRole('tab', { name: /Properties/ }));
-    const label = await screen.findByLabelText(/^Label/, undefined, SLOW);
+    // objectui#12725 — the page's properties are in the right slot, which shows
+    // them with no copilot served (this tree mocks it away): no tab to open.
+    const label = await within(screen.getByTestId('studio-slot-props')).findByLabelText(/^Label/, undefined, SLOW);
     expect(label).toHaveValue('Board');
     editText(label, 'Board two');
     await waitFor(() => expect(server.saves).toHaveLength(1), SLOW);

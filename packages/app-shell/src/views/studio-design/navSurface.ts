@@ -15,8 +15,8 @@
  * too, but it is no leaf row: the rail draws it as a divider (objectui#11791).
  *
  * Extracted from `StudioDesignSurface.tsx` so the binding is unit-testable
- * without mounting the pillar — the same reason `packageSurfaces.ts` and
- * `centerTab.ts` live beside it.
+ * without mounting the pillar — the same reason `packageSurfaces.ts` lives
+ * beside it.
  */
 
 import type { I18nLabel, ObjectNavItem } from '@objectstack/spec/ui';

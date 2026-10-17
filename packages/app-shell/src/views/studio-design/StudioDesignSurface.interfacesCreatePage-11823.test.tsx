@@ -13,11 +13,13 @@
  *  - New page saves a draft `PageSchema` parses (an app page of the chosen
  *    source kind), saves the app document with a labelled `page` entry naming
  *    it (the whole document parses with `AppSchema`), shows the entry in the
- *    rail, and opens it: the code editor in the rail holds the page's source,
- *    and the canvas beside it is the live preview drawing that source;
+ *    rail, and opens it: the code editor holds the page's source, and the
+ *    canvas is the live preview drawing that source. objectui#12725 — the
+ *    editor is in the item's definition sheet (the ⋯ menu's View definition,
+ *    where the inspector's Source tab was), which a new page opens on;
  *  - a React page is written and previewed the same way;
- *  - the rail opens on the Source tab even when an earlier source page left it
- *    on Properties;
+ *  - the definition sheet opens on the new page even after the author closed
+ *    an earlier page's;
  *  - an identifier another page already holds (published in any package, or a
  *    draft) is refused in the dialog and nothing is written;
  *  - CONTROLS: the New menu still offers New dashboard and New report, beside
@@ -129,10 +131,15 @@ function rail(): HTMLElement {
   return screen.getByRole('complementary');
 }
 
-/** The pillar has loaded its app and opened the first leaf, the landing page's source. */
+/** The pillar has loaded its app and opened the first leaf, the landing page's properties. */
 async function ready() {
   await screen.findByTitle('page · landing', undefined, { timeout: 8000 });
-  await within(rail()).findByRole('textbox', { name: 'Page source' }, { timeout: 8000 });
+  await within(rail()).findByTestId('source-page-properties', undefined, { timeout: 8000 });
+}
+
+/** objectui#12725 — the item's definition sheet, where its code editor lives. */
+function definitionSheet(): HTMLElement {
+  return screen.getByTestId('if-definition-sheet');
 }
 
 async function openNewPage() {
@@ -149,7 +156,7 @@ function savesOf(type: string): Array<[string, string, Record<string, unknown>, 
   return mockClient.save.mock.calls.filter((c) => c[0] === type) as never;
 }
 
-/** The new page is open: the rail's code editor holds `source`, and the canvas previews it. */
+/** The new page is open: its definition sheet's code editor holds `source`, and the canvas previews it. */
 async function expectOpenOnSourceAndPreview(source: string) {
   await waitFor(() =>
     expect(screen.getByTestId('if-canvas-caption')).toHaveAttribute(
@@ -158,13 +165,13 @@ async function expectOpenOnSourceAndPreview(source: string) {
     ),
   );
   await waitFor(
-    () => expect(within(rail()).getByRole('textbox', { name: 'Page source' })).toHaveValue(source),
+    () => expect(within(definitionSheet()).getByRole('textbox', { name: 'Page source' })).toHaveValue(source),
     { timeout: 8000 },
   );
-  // The live preview is the canvas, not the rail: the runtime renderer drew
+  // The live preview is the canvas, not the sheet: the runtime renderer drew
   // the starter's paragraph there.
   const preview = await screen.findByText(STARTER, undefined, { timeout: 8000 });
-  expect(rail().contains(preview)).toBe(false);
+  expect(definitionSheet().contains(preview)).toBe(false);
   expect(screen.queryByText(/HTML page failed to compile/)).toBeNull();
 }
 
@@ -210,7 +217,8 @@ describe('the Interfaces pillar creates a page and opens it on source plus live 
 
     expect(await screen.findByTitle('page · team_handbook')).toBeInTheDocument();
     await expectOpenOnSourceAndPreview(pageStarterSource('html', STARTER));
-    expect(screen.queryByRole('dialog')).toBeNull();
+    // The create dialog is gone; the one dialog open is the new page's definition.
+    expect(screen.getAllByRole('dialog')).toEqual([definitionSheet()]);
   });
 
   it('a React page is written and opened the same way', async () => {
@@ -233,13 +241,14 @@ describe('the Interfaces pillar creates a page and opens it on source plus live 
     await expectOpenOnSourceAndPreview(pageStarterSource('react', STARTER));
   });
 
-  it('the rail opens on the Source tab even when an earlier source page left it on Properties', async () => {
+  it('the definition sheet opens on the new page even after the author closed an earlier page\'s', async () => {
     mountPillar();
     await ready();
-    fireEvent.mouseDown(within(rail()).getByRole('tab', { name: t('engine.studio.inspector.tabProps', 'en-US') }), {
-      button: 0,
-    });
-    await waitFor(() => expect(within(rail()).queryByRole('textbox', { name: 'Page source' })).toBeNull());
+    fireEvent.pointerDown(screen.getByTestId('if-item-more'), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByTestId('if-item-view-definition'));
+    await within(definitionSheet()).findByRole('textbox', { name: 'Page source' }, { timeout: 8000 });
+    fireEvent.keyDown(definitionSheet(), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByTestId('if-definition-sheet')).toBeNull());
 
     const dialog = await openNewPage();
     typeName(dialog, 'Team handbook');

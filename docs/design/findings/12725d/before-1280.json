@@ -1,0 +1,69 @@
+{
+  "label": "before",
+  "width": "1280",
+  "open": {
+    "url": "/studio/com.example.showcase/interfaces?surface=object%3Ashowcase_task&nav=nav_task_board_view",
+    "slotMode": "copilot",
+    "slotWidth": 360,
+    "hint": "点元素 → 右栏切到属性",
+    "section": null,
+    "sectionText": null,
+    "outline": null,
+    "cards": 10,
+    "cardKeyed": 0,
+    "dialogs": []
+  },
+  "cardTitle": "Content backlog",
+  "afterCardClick": {
+    "url": "/studio/com.example.showcase/interfaces?surface=object%3Ashowcase_task&nav=nav_task_board_view",
+    "slotMode": "copilot",
+    "slotWidth": 360,
+    "hint": "点元素 → 右栏切到属性",
+    "section": null,
+    "sectionText": null,
+    "outline": null,
+    "cards": 10,
+    "cardKeyed": 0,
+    "dialogs": [
+      "Showcase task详情Showcase task详情 的记录详情浮层。Content backlog待规划2026年11月16日showcase_tas"
+    ]
+  },
+  "afterEsc": {
+    "url": "/studio/com.example.showcase/interfaces?surface=object%3Ashowcase_task&nav=nav_task_board_view",
+    "slotMode": "copilot",
+    "slotWidth": 360,
+    "hint": "点元素 → 右栏切到属性",
+    "section": null,
+    "sectionText": null,
+    "outline": null,
+    "cards": 10,
+    "cardKeyed": 0,
+    "dialogs": []
+  },
+  "afterSecondCard": {
+    "url": "/studio/com.example.showcase/interfaces?surface=object%3Ashowcase_task&nav=nav_task_board_view",
+    "slotMode": "copilot",
+    "slotWidth": 360,
+    "hint": "点元素 → 右栏切到属性",
+    "section": null,
+    "sectionText": null,
+    "outline": null,
+    "cards": 10,
+    "cardKeyed": 0,
+    "dialogs": [
+      "Showcase task详情Showcase task详情 的记录详情浮层。Evidence collection待规划2026年11月11日showcase"
+    ]
+  },
+  "afterEmptyClick": {
+    "url": "/studio/com.example.showcase/interfaces?surface=object%3Ashowcase_task&nav=nav_task_board_view",
+    "slotMode": "copilot",
+    "slotWidth": 360,
+    "hint": "点元素 → 右栏切到属性",
+    "section": null,
+    "sectionText": null,
+    "outline": null,
+    "cards": 10,
+    "cardKeyed": 0,
+    "dialogs": []
+  }
+}

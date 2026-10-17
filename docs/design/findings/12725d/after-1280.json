@@ -1,0 +1,62 @@
+{
+  "label": "after",
+  "width": "1280",
+  "open": {
+    "url": "/studio/com.example.showcase/interfaces?surface=object%3Ashowcase_task&nav=nav_task_board_view",
+    "slotMode": "copilot",
+    "slotWidth": 360,
+    "hint": "点元素 → 右栏切到属性",
+    "section": "shown",
+    "sectionText": "看板卡片看板上每张卡片显示什么,点一张卡片时打开什么。卡片字段标题title负责人assignee优先级priority标题记录名称点击打开默认分组字段状态status",
+    "cards": 10,
+    "cardKeyed": 10,
+    "dialogs": []
+  },
+  "cardTitle": "Content backlog",
+  "afterCardClick": {
+    "url": "/studio/com.example.showcase/interfaces?surface=object%3Ashowcase_task&nav=nav_task_board_view",
+    "slotMode": "props",
+    "slotWidth": 360,
+    "hint": "已选中：看板卡片 · Esc 取消选中",
+    "section": "shown, selected",
+    "sectionText": "看板卡片看板上每张卡片显示什么,点一张卡片时打开什么。卡片字段标题title负责人assignee优先级priority标题记录名称点击打开默认分组字段状态status",
+    "outline": "a9uzEfeR8aKQ7LDd",
+    "cards": 10,
+    "cardKeyed": 10,
+    "dialogs": []
+  },
+  "afterEsc": {
+    "url": "/studio/com.example.showcase/interfaces?surface=object%3Ashowcase_task&nav=nav_task_board_view",
+    "slotMode": "props",
+    "slotWidth": 360,
+    "hint": null,
+    "section": "shown",
+    "sectionText": "看板卡片看板上每张卡片显示什么,点一张卡片时打开什么。卡片字段标题title负责人assignee优先级priority标题记录名称点击打开默认分组字段状态status",
+    "cards": 10,
+    "cardKeyed": 10,
+    "dialogs": []
+  },
+  "afterSecondCard": {
+    "url": "/studio/com.example.showcase/interfaces?surface=object%3Ashowcase_task&nav=nav_task_board_view",
+    "slotMode": "props",
+    "slotWidth": 360,
+    "hint": "已选中：看板卡片 · Esc 取消选中",
+    "section": "shown, selected",
+    "sectionText": "看板卡片看板上每张卡片显示什么,点一张卡片时打开什么。卡片字段标题title负责人assignee优先级priority标题记录名称点击打开默认分组字段状态status",
+    "outline": "t7hRse6YmdGD1a9U",
+    "cards": 10,
+    "cardKeyed": 10,
+    "dialogs": []
+  },
+  "afterEmptyClick": {
+    "url": "/studio/com.example.showcase/interfaces?surface=object%3Ashowcase_task&nav=nav_task_board_view",
+    "slotMode": "props",
+    "slotWidth": 360,
+    "hint": null,
+    "section": "shown",
+    "sectionText": "看板卡片看板上每张卡片显示什么,点一张卡片时打开什么。卡片字段标题title负责人assignee优先级priority标题记录名称点击打开默认分组字段状态status",
+    "cards": 10,
+    "cardKeyed": 10,
+    "dialogs": []
+  }
+}

@@ -24,14 +24,13 @@
  *   - the derive functions draw the labels with the function they are handed,
  *     and keep the stored values;
  *   - `record:line_items` (`LineItemsPanel`) hydrates an untyped column over a
- *     boolean child field into a picker that reads the zh words, and re-labels
- *     it when the language is switched while it is on screen;
+ *     boolean child field into a picker that reads the zh words, draws the
+ *     same words in its read-only table, and re-labels the picker when the
+ *     language is switched while it is on screen;
  *   - `MasterDetailForm` derives a boolean column that reads the zh words, in
  *     its editable grid and in its list-mode (per-row form) cells.
  *
- * Every oracle is read from the zh pack. The read-only table reads a select
- * cell's option label only once objectui#12923 routes it through
- * `displayText`; that face is not pinned here.
+ * Every oracle is read from the zh pack.
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
@@ -170,6 +169,33 @@ describe('the line-items carriers read a boolean column in the session language 
     await masterDetail('grid');
     await waitFor(() => expect(billablePickers().map((el) => el.textContent)).toEqual([YES, NO]));
     expect(screen.queryByText('Yes')).toBeNull();
+  });
+
+  it('record:line_items, read-only: the table cell reads the zh word for each stored value', async () => {
+    const { container } = inZh(
+      <SchemaRendererProvider dataSource={dataSource() as never}>
+        <LineItemsPanel
+          schema={{
+            childObject: 'inv_line',
+            relationshipField: 'invoice',
+            parentObject: 'inv',
+            parentId: 'inv1',
+            readonly: true,
+            columns: [{ name: 'description' }, { name: 'billable' }],
+          } as never}
+        />
+      </SchemaRendererProvider>,
+    );
+    // The read-only table draws each select cell's option label through
+    // `displayText` (objectui#12915), so the hydrated words reach it too, on
+    // screen and on a print page. Column 0 is the row number.
+    const cells = () =>
+      Array.from(container.querySelectorAll('tbody tr')).map((tr) =>
+        Array.from(tr.querySelectorAll('td')).slice(1).map((td) => td.textContent),
+      );
+    await waitFor(() => expect(cells()).toEqual([['Freight', YES], ['Packing', NO]]));
+    expect(screen.queryByRole('combobox')).toBeNull();
+    expect(container.textContent).not.toMatch(/\b(Yes|No|true|false)\b/);
   });
 
   it('record:line_items: a language switched while the grid is on screen re-labels the picker', async () => {

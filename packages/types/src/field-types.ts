@@ -584,12 +584,35 @@ export interface DateFieldMetadata extends BaseFieldMetadata {
    */
   max_date?: never;
   /**
-   * Marks this field as due/deadline-semantic (vs. a plain start/end/created
-   * date). Gates the relative-time "Overdue Nd" wording and red styling —
-   * without it, a past date renders as neutral "Nd ago" text. Auto-detected
-   * from common due/deadline field-name conventions when omitted.
+   * Declares this date a deadline — `@objectstack/spec`'s
+   * `FieldSchema.dueLike`, typed BY REFERENCE (objectui#12297). `true` lets a
+   * renderer show relative overdue wording ("Overdue Nd") and an overdue
+   * colour once the date has passed; a past date that is not a deadline reads
+   * as neutral "N days ago" text. The spec authors it on `date` and
+   * `datetime` fields only and refuses it on any other type. Display only:
+   * nothing on the write path reads it.
+   *
+   * ⚠️ The spec says absent or `false` means "not a deadline", with nothing
+   * inferred from the field's name. Today's date cells still fall back to the
+   * due/deadline field-NAME convention when the key is not `true`, and `false`
+   * does not suppress that fallback; retiring it is objectui#11815.
    */
-  dueLike?: boolean;
+  dueLike?: SpecField['dueLike'];
+  /**
+   * When this field's deadline is SETTLED for a record —
+   * `@objectstack/spec`'s `FieldSchema.settledWhen`, typed BY REFERENCE
+   * (objectui#12297): a CEL predicate over the record's own columns, read as
+   * `record` (`record.status == 'done'`), as a bare string or the spec's
+   * expression envelope (`{ dialect, source }`). While it holds, no overdue
+   * wording or colour applies to that record. The spec requires
+   * `dueLike: true` beside it and refuses it on any type but `date` /
+   * `datetime`. Display only: nothing on the write path reads it.
+   *
+   * ⚠️ Declared, not yet rendered: no date cell evaluates it today, so a past
+   * deadline on a settled record still renders overdue. The read is
+   * objectui#11815.
+   */
+  settledWhen?: SpecField['settledWhen'];
 }
 
 /**
@@ -609,21 +632,26 @@ export interface DateTimeFieldMetadata extends BaseFieldMetadata {
    */
   max_date?: never;
   /**
-   * Marks this field as due/deadline-semantic — the same key, with the same
-   * meaning, as {@link DateFieldMetadata.dueLike} one interface up.
-   *
-   * It is declared here because the runtime honours it here (objectui#8958).
-   * `DetailViewFieldSchema.dueLike` has always described itself as marking "a
-   * date/datetime field", and `DateTimeCellRenderer` now reads it; leaving it
-   * off this interface would keep the mismatch alive with the sign flipped —
-   * a key the renderer honours but the authoring type rejects.
+   * Declares this datetime a deadline — `@objectstack/spec`'s
+   * `FieldSchema.dueLike`, typed BY REFERENCE (objectui#12297): the same key,
+   * with the same meaning and the same name-convention fallback, as
+   * {@link DateFieldMetadata.dueLike} one interface up. `DateTimeCellRenderer`
+   * reads it (objectui#8958).
    *
    * ⚠️ Day granularity, inherited from the shared relative-time path: the
    * overdue wording gates on whole calendar days, so a datetime a few hours
    * past its deadline is not yet overdue. Sub-day precision is a separate
    * call and was not taken.
    */
-  dueLike?: boolean;
+  dueLike?: SpecField['dueLike'];
+  /**
+   * When this datetime's deadline is SETTLED for a record —
+   * `@objectstack/spec`'s `FieldSchema.settledWhen`, typed BY REFERENCE
+   * (objectui#12297): the same key, with the same meaning and the same
+   * "declared, not yet rendered" status, as
+   * {@link DateFieldMetadata.settledWhen} one interface up.
+   */
+  settledWhen?: SpecField['settledWhen'];
 }
 
 /**

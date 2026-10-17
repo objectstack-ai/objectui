@@ -36,10 +36,10 @@
  *  - `GeolocationFieldMetadata` leaves the `FieldMetadata` union: `geolocation`
  *    is not a spec `FieldType`.
  *
- * `dueLike` is deliberately NOT moved. The installed spec refuses it, but
- * `@objectstack/spec`'s own source has since declared it on `FieldSchema`
- * (unpublished at the version installed here), so the authoring face is where
- * it is headed, not away from; the card holds it for a decision.
+ * `dueLike` was deliberately NOT moved: `@objectstack/spec` declared it on
+ * `FieldSchema` before it reached the installed release. Now that it has, it
+ * is typed by reference beside `settledWhen` (objectui#12297), pinned in
+ * `field-metadata-deadline-by-reference-12297.test.ts`.
  */
 import { describe, it, expect } from 'vitest';
 import { FieldSchema, ObjectSchema, type Field as SpecField } from '@objectstack/spec/data';

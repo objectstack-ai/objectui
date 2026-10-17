@@ -6456,12 +6456,18 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
       // canonical measure is named differently), the rows come back without
       // any measure value. Detect this and fall back to client-side
       // aggregation so charts still render.
-      const measureMissing = rawRows.length > 0 && rawRows.every((row: any) => {
-        if (row == null) return true;
-        if (measureName in row && row[measureName] != null) return false;
-        if (valueKey in row && row[valueKey] != null) return false;
-        return true;
-      });
+      //
+      // "Missing" means the KEY is absent, never that its value is `null`
+      // (objectui#12812). A served `null` is the server's answer — the max or
+      // min over rows whose field is all NULL is NULL — and it reaches the
+      // caller as `null`. Reading it as a dropped measure re-read every row
+      // through `find()` only to compute the same `null` client-side. The
+      // analytics service writes a measure key only when the engine row
+      // carries it, so an unsupported measure surfaces as an absent key (or
+      // a refusal), not as a `null` value.
+      const measureMissing = rawRows.length > 0 && rawRows.every((row: any) =>
+        row == null || (!(measureName in row) && !(valueKey in row)),
+      );
       if (measureMissing) {
         return await this.aggregateViaFind(resource, params);
       }

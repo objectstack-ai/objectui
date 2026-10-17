@@ -36,6 +36,7 @@ import {
   type ApproverDirectory,
 } from '../hooks/useApproverDirectory.js';
 import { DecisionProgressIndicator } from './approval-progress/DecisionProgressIndicator.js';
+import { eligibleApproverCount } from './approval-progress/eligibleApprovers.js';
 
 /**
  * RecordApprovalsPanel — the record page's read-only approval surface
@@ -365,7 +366,7 @@ export const RecordApprovalsPanel: React.FC<RecordApprovalsPanelProps> = ({
       : a.actor_name ?? formatIdentity(a.actor_id);
 
   const dp = pendingRequest?.decision_progress;
-  const eligible = (pendingRequest?.pending_approvers || []).length;
+  const eligible = eligibleApproverCount(pendingRequest);
   const stepText = headline.status === 'pending'
     ? (headline.step_label || (headline.current_step ? prettifyMachineName(headline.current_step) : null))
     : null;

@@ -4211,11 +4211,17 @@ const en = {
       since: 'Since',
       privatePackages: 'Your organization\'s private packages now appear in the Marketplace under “Your organization”.',
       disconnect: 'Disconnect',
+      disconnectNeedsSetupAccess: 'You need Setup access to disconnect this server.',
     },
     unbound: {
       title: 'Not connected',
       body: 'This runtime is not connected to a control plane. Connect opens your cloud account in a new window, where one click approves the link — no ids or credentials are typed into this page.',
       connect: 'Connect',
+      revokeNotReached: {
+        disconnected: 'This server is disconnected.',
+        cloudMayList: 'ObjectStack Cloud could not be told, so your cloud account may still list this connection.',
+        removeInCloud: 'Remove the connection there.',
+      },
     },
   },
   marketplace: {

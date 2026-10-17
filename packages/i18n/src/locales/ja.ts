@@ -3526,11 +3526,17 @@ const ja = {
       since: "接続日時",
       privatePackages: "組織のプライベートパッケージが、マーケットプレイスの「自分の組織」に表示されるようになりました。",
       disconnect: "接続を解除",
+      disconnectNeedsSetupAccess: "このサーバーの接続を解除するには、設定へのアクセス権が必要です。",
     },
     unbound: {
       title: "未接続",
       body: "このランタイムはコントロールプレーンに接続されていません。「接続」を押すと新しいウィンドウでクラウドアカウントが開き、ワンクリックで接続を承認できます。ID や認証情報をこのページに入力する必要はありません。",
       connect: "接続",
+      revokeNotReached: {
+        disconnected: "このサーバーの接続は解除されました。",
+        cloudMayList: "ObjectStack Cloud に通知できなかったため、クラウドアカウントにはこの接続がまだ表示されている可能性があります。",
+        removeInCloud: "クラウドアカウントで接続を削除してください。",
+      },
     },
   },
   marketplace: {

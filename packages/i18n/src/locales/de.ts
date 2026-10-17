@@ -3524,11 +3524,17 @@ const de = {
       since: "Verbunden seit",
       privatePackages: "Die privaten Pakete Ihrer Organisation erscheinen jetzt im Marktplatz unter „Ihre Organisation“.",
       disconnect: "Verbindung trennen",
+      disconnectNeedsSetupAccess: "Zum Trennen dieses Servers benötigen Sie Zugriff auf die Einrichtung.",
     },
     unbound: {
       title: "Nicht verbunden",
       body: "Diese Runtime ist mit keiner Control Plane verbunden. Verbinden öffnet Ihr Cloud-Konto in einem neuen Fenster, wo ein einziger Klick die Verbindung genehmigt — es werden keine IDs oder Zugangsdaten auf dieser Seite eingegeben.",
       connect: "Verbinden",
+      revokeNotReached: {
+        disconnected: "Dieser Server ist getrennt.",
+        cloudMayList: "ObjectStack Cloud konnte nicht benachrichtigt werden, daher führt Ihr Cloud-Konto diese Verbindung möglicherweise noch auf.",
+        removeInCloud: "Entfernen Sie die Verbindung dort.",
+      },
     },
   },
   marketplace: {

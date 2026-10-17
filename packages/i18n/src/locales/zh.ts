@@ -3665,11 +3665,17 @@ const zh = {
       since: '连接于',
       privatePackages: '组织的私有包现已显示在应用市场的「你的组织」分类下。',
       disconnect: '断开连接',
+      disconnectNeedsSetupAccess: '断开此服务器的连接需要 Setup 访问权限。',
     },
     unbound: {
       title: '未连接',
       body: '此运行时尚未连接到控制平面。点击「连接」会在新窗口中打开你的云账户，只需点击一次即可批准连接——无需在本页面输入任何 ID 或凭据。',
       connect: '连接',
+      revokeNotReached: {
+        disconnected: '此服务器已断开连接。',
+        cloudMayList: '未能通知 ObjectStack Cloud，因此你的云账户中可能仍列有此连接。',
+        removeInCloud: '请在云账户中移除该连接。',
+      },
     },
   },
   marketplace: {

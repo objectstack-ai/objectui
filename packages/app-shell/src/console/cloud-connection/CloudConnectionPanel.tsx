@@ -98,6 +98,14 @@ function translateFailureCode(
   return null;
 }
 
+/**
+ * The `code` the runtime's `setup.access` gate answers a connection-changing
+ * door with (`403`, objectstack#24148). Matched on the registered code, not on
+ * the status: a session held by the authentication policy is also a `403`, with
+ * its own code and a message that already says what to do.
+ */
+const SETUP_ACCESS_REFUSED = 'PERMISSION_DENIED';
+
 /** An `Error` that still carries the envelope's codes — see `getJson`. */
 type ApiFailure = Error & { declaredCode?: string; code?: string };
 
@@ -135,6 +143,16 @@ export function CloudConnectionPanel() {
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  // The last Disconnect cleared this server's credential but the control plane
+  // never acknowledged the revoke (`unbind` answered `revoked: false`), so the
+  // cloud account may still list the connection (objectui#12860). Held outside
+  // `phase` so the status refresh that follows — and any later one that still
+  // finds the server unbound — keeps it; only a connect or a bound status
+  // clears it.
+  const [revokeNotReached, setRevokeNotReached] = useState(false);
+  // The last Disconnect was refused by the `setup.access` gate: the connection
+  // still exists, so the bound card stays and says why (objectui#12860).
+  const [disconnectRefused, setDisconnectRefused] = useState(false);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // `t` is a fresh function on every render under several translation
@@ -167,6 +185,8 @@ export function CloudConnectionPanel() {
     try {
       const body = await getJson(`${BASE}/status`);
       const data: StatusData = body?.data ?? { environmentId: null, bound: false, connection: null };
+      setDisconnectRefused(false);
+      if (data.bound) setRevokeNotReached(false);
       setPhase(data.bound ? { kind: 'bound', status: data } : { kind: 'unbound' });
     } catch (err: any) {
       setPhase({ kind: 'error', message: failureText(err) });
@@ -232,6 +252,7 @@ export function CloudConnectionPanel() {
 
   const connect = useCallback(async () => {
     setBusy(true);
+    setRevokeNotReached(false);
     try {
       const body = await getJson(`${BASE}/bind/start`, { method: 'POST', body: '{}' });
       const code: DeviceCode = body?.data;
@@ -257,11 +278,21 @@ export function CloudConnectionPanel() {
 
   const disconnect = useCallback(async () => {
     setBusy(true);
+    setDisconnectRefused(false);
     try {
-      await getJson(`${BASE}/unbind`, { method: 'POST', body: '{}' });
+      const body = await getJson(`${BASE}/unbind`, { method: 'POST', body: '{}' });
+      // `revoked` is the control plane's acknowledgement of the revoke; the
+      // local credential is cleared either way, so the panel still lands on
+      // the not-connected view — with a notice when the cloud never heard it.
+      setRevokeNotReached(body?.data?.revoked === false);
       await refreshStatus();
     } catch (err: any) {
-      setPhase({ kind: 'error', message: failureText(err) });
+      if ((err as ApiFailure)?.code === SETUP_ACCESS_REFUSED) {
+        // Refused before anything was revoked or cleared: still connected.
+        setDisconnectRefused(true);
+      } else {
+        setPhase({ kind: 'error', message: failureText(err) });
+      }
     } finally {
       setBusy(false);
     }
@@ -377,6 +408,11 @@ export function CloudConnectionPanel() {
         <p className="text-sm text-muted-foreground">
           {t('cloudConnection.bound.privatePackages')}
         </p>
+        {disconnectRefused ? (
+          <div role="alert" className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+            <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" /> {t('cloudConnection.bound.disconnectNeedsSetupAccess')}
+          </div>
+        ) : null}
         <button
           type="button"
           disabled={busy}
@@ -396,6 +432,18 @@ export function CloudConnectionPanel() {
         <CloudOff className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
         <span className="font-medium">{t('cloudConnection.unbound.title')}</span>
       </div>
+      {revokeNotReached ? (
+        <div role="status" className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
+          {/* Three self-contained sentences, one key each, so a translator
+              never receives a clause stitched across JSX. */}
+          <p>
+            {t('cloudConnection.unbound.revokeNotReached.disconnected')}{' '}
+            {t('cloudConnection.unbound.revokeNotReached.cloudMayList')}{' '}
+            {t('cloudConnection.unbound.revokeNotReached.removeInCloud')}
+          </p>
+        </div>
+      ) : null}
       <p className="text-sm text-muted-foreground">
         {t('cloudConnection.unbound.body')}
       </p>

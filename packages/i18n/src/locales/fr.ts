@@ -3590,11 +3590,17 @@ const fr = {
       since: "Depuis",
       privatePackages: "Les paquets privés de votre organisation apparaissent désormais dans la Marketplace sous « Votre organisation ».",
       disconnect: "Déconnecter",
+      disconnectNeedsSetupAccess: "La déconnexion de ce serveur nécessite l'accès à la configuration.",
     },
     unbound: {
       title: "Non connecté",
       body: "Ce runtime n'est connecté à aucun plan de contrôle. « Connecter » ouvre votre compte cloud dans une nouvelle fenêtre, où un seul clic approuve la liaison — aucun identifiant ni justificatif n'est saisi sur cette page.",
       connect: "Connecter",
+      revokeNotReached: {
+        disconnected: "Ce serveur est déconnecté.",
+        cloudMayList: "ObjectStack Cloud n'a pas pu être prévenu : votre compte cloud peut encore afficher cette connexion.",
+        removeInCloud: "Supprimez-la depuis votre compte cloud.",
+      },
     },
   },
   marketplace: {

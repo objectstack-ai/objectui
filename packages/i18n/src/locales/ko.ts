@@ -3523,11 +3523,17 @@ const ko = {
       since: "연결 시각",
       privatePackages: "조직의 비공개 패키지가 이제 마켓플레이스의 '내 조직'에 표시됩니다.",
       disconnect: "연결 해제",
+      disconnectNeedsSetupAccess: "이 서버의 연결을 해제하려면 설정 접근 권한이 필요합니다.",
     },
     unbound: {
       title: "연결되지 않음",
       body: "이 런타임은 컨트롤 플레인에 연결되어 있지 않습니다. '연결'을 누르면 새 창에서 클라우드 계정이 열리고, 한 번의 클릭으로 연결을 승인할 수 있습니다. 이 페이지에 ID나 자격 증명을 입력할 필요가 없습니다.",
       connect: "연결",
+      revokeNotReached: {
+        disconnected: "이 서버의 연결이 해제되었습니다.",
+        cloudMayList: "ObjectStack Cloud에 알리지 못했으므로 클라우드 계정에 이 연결이 아직 표시될 수 있습니다.",
+        removeInCloud: "클라우드 계정에서 연결을 제거하세요.",
+      },
     },
   },
   marketplace: {

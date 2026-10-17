@@ -137,7 +137,7 @@ import { useMetadataLocale, t, tFormat, translateMetadataType, translateValidati
 import { JsonSourceEditor } from './JsonSourceEditor.js';
 import { validateMetadataDraft, hasClientValidator, type DraftMode } from './clientValidation.js';
 import { describeIssuePath, issueSlicePath, issueSliceFingerprint } from './issuePath.js';
-import { buildCreateModeBody } from './createBody.js';
+import { buildCreateModeBody, unsetSeedPlaceholders } from './createBody.js';
 import { errorCodeIs, errorCodeIsAnyOf } from '@object-ui/types';
 import { useCanAuthorMetadata, useCanReadAuthoringTrail } from '../../hooks/useCanAuthorMetadata.js';
 import { environmentScopeSuffix, isEnvironmentScope, useWalledCatalogReadOnly } from './catalog-scope.js';
@@ -1654,6 +1654,28 @@ function MetadataResourceEditPageImpl({
         : builtBody;
       if (!savedName) {
         setError(t('engine.validation.nameRequired', locale));
+        setSaving(false);
+        return;
+      }
+      // objectui#12810 — a create never saves the seed's placeholder identity
+      // (`buildCreateModeBody` leaves it out). One the author left unset that
+      // the type requires — a dataset's base object — is refused HERE, named,
+      // with no request sent, as an empty name is above.
+      const unsetPlaceholders = createMode
+        ? unsetSeedPlaceholders(
+            config,
+            itemToSave as Record<string, unknown>,
+            specCreateSeed,
+            (entry?.schema as { required?: unknown } | undefined)?.required,
+            identityField,
+          )
+        : [];
+      if (unsetPlaceholders.length > 0) {
+        setError(
+          tFormat('engine.validation.seedPlaceholderUnset', locale, {
+            fields: unsetPlaceholders.map((key) => `“${labelForIssuePath(key)}”`).join(', '),
+          }),
+        );
         setSaving(false);
         return;
       }

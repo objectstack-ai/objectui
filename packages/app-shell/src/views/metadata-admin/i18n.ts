@@ -2243,6 +2243,9 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.validation.serverRefused': 'The server refused this draft — fix {issue} before saving.',
   'engine.validation.failedOne': 'Validation failed (1 issue).',
   'engine.validation.nameRequired': 'A name is required.',
+  // objectui#12810 — a create that leaves a required seed placeholder unset
+  // (a dataset's base object) is refused before any request.
+  'engine.validation.seedPlaceholderUnset': 'Set {fields} before saving: a new item is never saved with the placeholder its template starts from.',
   'engine.embedded.saved': 'Saved.',
   'engine.embedded.readOnlyParent': 'The parent type is read-only — saving will still attempt a PUT and may be refused by the server.',
   'engine.embedded.saveIntoParent': 'Save into {parentType}',
@@ -5617,6 +5620,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.validation.serverRefused': '服务端已拒绝此草稿 —— 请先修复 {issue} 再保存。',
   'engine.validation.failedOne': '校验失败（1 个问题）。',
   'engine.validation.nameRequired': '名称必填。',
+  // objectui#12810 — 见英文表同名条目。
+  'engine.validation.seedPlaceholderUnset': '请先设置 {fields} 再保存：新建项不会带着模板的占位值保存。',
   'engine.embedded.saved': '已保存。',
   'engine.embedded.readOnlyParent': '父类型为只读；仍会尝试 PUT 保存，但服务器可能拒绝。',
   'engine.embedded.saveIntoParent': '保存到 {parentType}',

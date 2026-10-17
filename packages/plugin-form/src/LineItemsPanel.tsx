@@ -33,6 +33,7 @@ import { useSchemaContext, useRecordContext, useFilterScope, useResolvedFilter, 
 import { usePermissions } from '@object-ui/permissions';
 import { buildMasterDetailEditBatch, sumRows } from './masterDetailTx';
 import { applyColumnPermissions } from './fieldWriteGate';
+import { hydrateColumns } from './deriveMasterDetail';
 import {
   runBatchTransaction,
   mergeFilterNodes,
@@ -311,7 +312,8 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
   // Child object schema — used to strip computed / read-only columns from each
   // row before persisting (parity with the parent form's sanitize). Rows are
   // loaded from a full read, so an edit would otherwise round-trip formula /
-  // summary columns the server rejects as unknown fields.
+  // summary columns the server rejects as unknown fields. The grid's untyped
+  // columns are hydrated from it too (`gridField` below, objectui#12854).
   const [childSchema, setChildSchema] = useState<{ fields?: Record<string, any> } | null>(null);
   useEffect(() => {
     const ds: any = dataSource;
@@ -745,7 +747,21 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
         // the surrounding form already disables that field (objectui#10163).
         // Adding and removing lines are the map rows above, on top of
         // `schema.readonly` below.
-        columns: applyColumnPermissions(schema.columns, { perms, objectName: schema.childObject }),
+        //
+        // Before that pass, a column the author left untyped (`{ name }`, or
+        // `{ name, label }`) takes its `label`, `type` and `options` from the
+        // child object's field, through the same `hydrateColumns` the
+        // master-detail carriers call (objectui#12854). The child schema is
+        // the one loaded above; the object-metadata endpoint serves it
+        // translated into the session locale, so an identity-only column's
+        // heading reads the child field's translated label, as a
+        // master-detail grid's does. An authored `label` or `type` still wins,
+        // and a column whose field the child does not declare is kept as
+        // written. Until the schema arrives the columns render as authored.
+        columns: applyColumnPermissions(hydrateColumns(schema.columns, childSchema ?? undefined), {
+          perms,
+          objectName: schema.childObject,
+        }),
         // The grid's `totalField` is the CHILD column summed (this block's
         // `amountField`), shown whenever one is named, exactly as
         // `MasterDetailForm` maps it. This block's own `totalField` is only
@@ -760,7 +776,7 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
         // the grid does not declare, or one of its retired snake_case
         // spellings, fails to compile here.
       } satisfies Partial<GridFieldMetadata>) as GridFieldMetadata,
-    [schema, perms, lineAddGranted, lineRemoveGranted],
+    [schema, childSchema, perms, lineAddGranted, lineRemoveGranted],
   );
 
   // The config hint names the property to set as code, and the property name

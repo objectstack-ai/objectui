@@ -1925,7 +1925,13 @@ function MetadataResourceEditPageImpl({
   // Discard the pending draft (`DELETE ?state=draft`). The published
   // overlay is untouched; the editor reverts to showing the live body.
   async function doDiscardDraft() {
-    if (!confirm(tFormat('engine.edit.discardDraftConfirm', locale, { type, name: name ?? '' }))) {
+    // objectui#12690 — the confirm and the toast name the item by the label
+    // its loaded body carries (the one the assistant context above reads),
+    // and by the machine `type/name` only when it carries none. Read once,
+    // before the discard swaps the body.
+    const ownLabel = typeof draft.label === 'string' ? draft.label.trim() : '';
+    const item = ownLabel || `${type}/${name ?? ''}`;
+    if (!confirm(tFormat('engine.edit.discardDraftConfirm', locale, { item }))) {
       return;
     }
     setSaving(true);
@@ -1954,7 +1960,7 @@ function MetadataResourceEditPageImpl({
       // the console's shared toast (`sonner`, the one Studio's publish uses).
       // Only here, after the DELETE and the re-read landed: a refused discard
       // goes to the `catch` below and keeps showing its error instead.
-      toast.success(tFormat('engine.edit.draftDiscarded', locale, { type, name: name ?? '' }));
+      toast.success(tFormat('engine.edit.draftDiscarded', locale, { item }));
     } catch (err: any) {
       setError(err?.message ?? String(err));
     } finally {

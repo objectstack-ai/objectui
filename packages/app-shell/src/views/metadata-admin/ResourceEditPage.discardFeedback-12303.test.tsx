@@ -6,8 +6,11 @@
  *
  * Measured on the card: the `DELETE …?state=draft` answered 200, the pending
  * banner went away, and nothing on the page said so. The page now raises the
- * console's shared success toast naming the item (`type/name`), once the
- * discard and its re-read have landed. A refused discard raises none: it
+ * console's shared success toast naming the item, once the discard and its
+ * re-read have landed. objectui#12690 changed WHAT names it: the item's own
+ * label when it carries one (here the fixture's label is its name), the
+ * machine `type/name` only when it carries none; that rule is pinned in
+ * `ResourceEditPage.discardDraftLabel-12690.test.tsx`. A refused discard raises none: it
  * keeps the page's error line, as before.
  *
  * The REAL page over a REAL `MetadataClient`, whose transport is an in-memory
@@ -173,10 +176,11 @@ describe('MetadataResourceEditPage — "Discard draft" says what it discarded (o
     expect(await source()).toHaveValue('# Live');
     expect(toasts.success).toHaveBeenCalledTimes(1);
     expect(toasts.success).toHaveBeenCalledWith(
-      tFormat('engine.edit.draftDiscarded', 'en', { type: 'doc', name: 'live_guide' }),
+      tFormat('engine.edit.draftDiscarded', 'en', { item: 'live_guide' }),
     );
-    // The words name the item, not just the act.
-    expect(toasts.success.mock.calls[0]![0]).toContain('doc/live_guide');
+    // The words name the item, not just the act. objectui#12690 — by its label
+    // (`doc()` labels the fixture with its name), no longer as `doc/live_guide`.
+    expect(toasts.success.mock.calls[0]![0]).toContain('live_guide');
   });
 
   it('CONTROL: a declined confirm sends no DELETE and says nothing', async () => {

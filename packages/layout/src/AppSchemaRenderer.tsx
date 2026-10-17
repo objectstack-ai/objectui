@@ -59,6 +59,24 @@ import {
 // Internal module, not re-exported by `index.ts` (objectui#11395).
 import { byNavOrder } from './navOrder';
 
+/**
+ * The classes this file's sidebar group label carries so that, once the
+ * sidebar collapses to icons, the hidden label is nothing a screen reader
+ * announces and no keyboard focus stop (objectui#12795). The
+ * `SidebarGroupLabel` primitive draws it at `opacity-0` there, which leaves it
+ * in the accessibility tree; `invisible` takes it out, under the primitive's
+ * own hiding condition, so the expanded sidebar is unchanged. `visibility`
+ * joins the primitive's transition list under the same condition, so the label
+ * still fades out before it is hidden. `NavigationRenderer` documents the pair
+ * in full, and a pin enumerates every `SidebarGroupLabel` call site.
+ * The primitive is Shadcn-synced and never edited (AGENTS.md #7), so the pair
+ * rides on the call site's `className`. Module-local on purpose: `index.ts`
+ * re-exports this file whole.
+ */
+const HIDDEN_ICON_LABEL_NOT_FOCUSABLE =
+  'group-data-[state=collapsed]:group-data-[collapsible=icon]:invisible ' +
+  'group-data-[state=collapsed]:group-data-[collapsible=icon]:transition-[margin,opacity,visibility]';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -235,7 +253,7 @@ function AreaSwitcher({
 
   return (
     <SidebarGroup>
-      <SidebarGroupLabel className="flex items-center gap-1.5">
+      <SidebarGroupLabel className={`flex items-center gap-1.5 ${HIDDEN_ICON_LABEL_NOT_FOCUSABLE}`}>
         <Layers className="h-3.5 w-3.5" />
         Area
       </SidebarGroupLabel>

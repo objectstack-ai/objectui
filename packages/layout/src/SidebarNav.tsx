@@ -20,6 +20,24 @@ import {
 } from '@object-ui/components';
 import { ChevronRight, Search } from 'lucide-react';
 
+/**
+ * The classes this file's sidebar group label carries so that, once the
+ * sidebar collapses to icons, the hidden label is nothing a screen reader
+ * announces and no keyboard focus stop (objectui#12795). The
+ * `SidebarGroupLabel` primitive draws it at `opacity-0` there, which leaves it
+ * in the accessibility tree; `invisible` takes it out, under the primitive's
+ * own hiding condition, so the expanded sidebar is unchanged. `visibility`
+ * joins the primitive's transition list under the same condition, so the label
+ * still fades out before it is hidden. `NavigationRenderer` documents the pair
+ * in full, and a pin enumerates every `SidebarGroupLabel` call site.
+ * The primitive is Shadcn-synced and never edited (AGENTS.md #7), so the pair
+ * rides on the call site's `className`. Module-local on purpose: `index.ts`
+ * re-exports this file whole.
+ */
+const HIDDEN_ICON_LABEL_NOT_FOCUSABLE =
+  'group-data-[state=collapsed]:group-data-[collapsible=icon]:invisible ' +
+  'group-data-[state=collapsed]:group-data-[collapsible=icon]:transition-[margin,opacity,visibility]';
+
 export interface NavItem {
   title: string;
   href: string;
@@ -165,7 +183,7 @@ export function SidebarNav({ items, title = "Application", className, collapsibl
             {gIdx > 0 && (
               <div className="mx-3 mb-1 h-px bg-sidebar-border/60" aria-hidden />
             )}
-            <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/60">
+            <SidebarGroupLabel className={`text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/60 ${HIDDEN_ICON_LABEL_NOT_FOCUSABLE}`}>
               {group.groupLabel || title}
             </SidebarGroupLabel>
             <SidebarGroupContent>

@@ -219,6 +219,28 @@ export interface RelatedRecordActionsBridgeProps {
    * The parent's, not the child's — the record being bound is the parent.
    */
   parentObjectFields?: unknown;
+  /**
+   * What this bridge publishes, derived from the value it builds (objectui#12870).
+   *
+   * Absent, the bridge publishes its own value, which is what the record page
+   * mounts. A custom page passes `pageRecordActionsValue` here: the page keeps
+   * its own record and list navigator, and serves this bridge's related-list
+   * executor to the lists that bound a parent through `parentDataSource`. So a
+   * page list's authored actions run through the executor below, under the
+   * page's own `ActionProvider`, and no second executor exists.
+   *
+   * Called on every render, and nothing rests on the identity of what it
+   * returns (AGENTS.md #10).
+   */
+  serve?: (bridge: RelatedRecordActionsValue) => RelatedRecordActionsValue;
+  /**
+   * The parent record of each related list is the one the LIST names (the
+   * `parentId` it resolves with), not one record this bridge is mounted under
+   * (objectui#12870). Set by a custom page, whose lists bind their parents
+   * through `parentDataSource`, each its own. Absent, the mount's
+   * `parentRecordId` decides, as on the record page.
+   */
+  parentFromList?: boolean;
   children: React.ReactNode;
 }
 
@@ -271,6 +293,8 @@ export function RelatedRecordActionsBridge({
   parentTitle,
   parentRecord,
   parentObjectFields,
+  serve,
+  parentFromList = false,
   children,
 }: RelatedRecordActionsBridgeProps) {
   const navigate = useNavigate();
@@ -554,10 +578,16 @@ export function RelatedRecordActionsBridge({
         // bridge is mounted under a parent record — the record page mounts it
         // with one; a mount without (the "standalone list" these props allow)
         // places `list_item` alone.
+        //
+        // [objectui#12870] With `parentFromList` (a custom page) the parent is
+        // each list's own: a list that bound its parent through
+        // `parentDataSource` names that record's key as `parentId`, and sits
+        // inside it exactly as a record page's list sits inside the page record.
+        const inParentRecord = parentFromList ? parentId != null && parentId !== '' : hasParentRecord;
         const rowActions = deriveActions(
           childDef,
           localizeActionTexts,
-          hasParentRecord ? ROW_LOCATIONS_IN_RECORD : ROW_LOCATIONS,
+          inParentRecord ? ROW_LOCATIONS_IN_RECORD : ROW_LOCATIONS,
         );
         if (rowActions.length > 0) {
           handlers.rowActions = rowActions;
@@ -585,10 +615,10 @@ export function RelatedRecordActionsBridge({
     // the #4646 create predicates: a parent record that changes (a save, a
     // status transition) must re-resolve "+ New" for every related list under
     // it, or the toolbar keeps answering for the record's previous state.
-    [objects, base, appName, navigate, dataSource, localizeActionTexts, runRowAction, openChildForm, recordHref, openRecord, perms, parentRecord, parentObjectFields, predicateScope, hasParentRecord],
+    [objects, base, appName, navigate, dataSource, localizeActionTexts, runRowAction, openChildForm, recordHref, openRecord, perms, parentRecord, parentObjectFields, predicateScope, hasParentRecord, parentFromList],
   );
 
   return (
-    <RelatedRecordActionsProvider value={value}>{children}</RelatedRecordActionsProvider>
+    <RelatedRecordActionsProvider value={serve ? serve(value) : value}>{children}</RelatedRecordActionsProvider>
   );
 }

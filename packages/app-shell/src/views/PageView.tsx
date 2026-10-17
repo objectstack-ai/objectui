@@ -18,7 +18,7 @@ import {
   SchemaRenderer,
   notifyDataChanged,
   useAdapter,
-  RelatedRecordActionsProvider,
+  type RelatedRecordActionsValue,
 } from '@object-ui/react';
 import { Empty, EmptyTitle, EmptyDescription, Spinner } from '@object-ui/components';
 import { FileText, Pencil } from 'lucide-react';
@@ -31,6 +31,7 @@ import { appStudioRoutePath } from '../utils/appRoute.js';
 import { ConsoleActionRuntimeProvider } from '../hooks/useConsoleActionRuntime.js';
 import { useStudioDesignGate } from '../hooks/useStudioDesignGate.js';
 import { pageRecordActionsValue } from './pageRecordActions.js';
+import { RelatedRecordActionsBridge } from './RelatedRecordActionsBridge.js';
 import { pageKindNode } from './pageKindNode.js';
 
 /**
@@ -141,9 +142,12 @@ export function PageView() {
     navigate(studioPath);
   };
   // The record navigator the page's blocks open a record through
-  // (objectui#11293). Not memoised: the schema below is rebuilt on every
-  // render too, and nothing may rest on this object's identity (AGENTS.md #10).
-  const pageRecordActions = pageRecordActionsValue(appName, (objects ?? []) as unknown[], navigate, routerRootHref);
+  // (objectui#11293), served with the record page's related-list executor for
+  // the lists that bound a parent (objectui#12870). Not memoised: the schema
+  // below is rebuilt on every render too, and nothing may rest on this
+  // object's identity (AGENTS.md #10).
+  const servePageRecordActions = (bridge: RelatedRecordActionsValue) =>
+    pageRecordActionsValue(appName, (objects ?? []) as unknown[], navigate, routerRootHref, bridge);
 
   return (
     // Mount the shared console action runtime so page-level `action:button`s can
@@ -183,7 +187,16 @@ export function PageView() {
               <InterfaceListPage page={page} reserveEditAffordance={canEditInStudio} />
             </Suspense>
           ) : (
-            <RelatedRecordActionsProvider value={pageRecordActions}>
+            // The record page's bridge, mounted inside this page's action
+            // runtime so its executor dispatches through the page's runner;
+            // `serve` publishes the page's own value over it (objectui#12870).
+            <RelatedRecordActionsBridge
+              appName={appName}
+              objects={objects ?? []}
+              dataSource={dataSource}
+              serve={servePageRecordActions}
+              parentFromList
+            >
               <SchemaRenderer
                 schema={{
                   ...page,
@@ -229,7 +242,7 @@ export function PageView() {
                   context: { params },
                 }}
               />
-            </RelatedRecordActionsProvider>
+            </RelatedRecordActionsBridge>
           )}
         </div>
         <MetadataPanel

@@ -1,0 +1,36 @@
+{
+  "number": 12786,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail): record page inline date / datetime edit draws the platform picker and keeps the time (objectui#12759)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: fields",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T20:32:38Z",
+  "updated_at": "2026-10-16T20:58:39Z",
+  "closed_at": "2026-10-16T20:58:38Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T20:58:38Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12786",
+  "body": "Fixes #12759\nClause-②: no\n\nAn inline edit of a `datetime` field on the record page keeps its time. The details section and the header highlights now draw the platform date picker for `date` and `datetime`, the same picker the grid cell, the forms, the dialogs and the kanban dialog draw since #12756.\n\n## What was wrong (measured live before the fix)\n\n`InlineFieldInput` routed `date` and `datetime` to `DateField`, the native date input, which can only hold a day. For a `datetime` it wrote local midnight of the picked day.\n\nOn `origin/main`, with a Chromium browser in `Asia/Taipei`, the record `showcase_field_zoo` held `f_datetime = 2026-06-17T14:30:00.000Z` (22:30 local). An inline edit of the day to the 20th sent `{\"f_datetime\":\"2026-06-19T16:00:00.000Z\"}` and stored it. The time was lost, and the box then repainted the previous day, 06/19.\n\n## What changed\n\n1. **`packages/plugin-detail/src/InlineFieldInput.tsx`**\n   - `date` and `datetime` are no longer excluded from the `FieldEditWidget` delegation tail, and the `DateField` branch is removed.\n   - `FieldEditWidget` already draws the lazy `DatePickerField` / `DateTimePickerField` (the `fields-date-picker` chunk). No second picker and no static import were added.\n   - `date` and `datetime` left `INLINE_ROUTED_FIELD_TYPES`, an internal set that is not exported from the package entry.\n2. **The value written**\n   - A `datetime` is read as the local wall clock. A calendar pick keeps the time, typed text carries the time typed, and the write is an ISO instant.\n   - A `date` field still writes the plain `YYYY-MM-DD` (#12206).\n3. **The impossible-stored-day notice (#10625 / #10567)** is the picker's own: an empty `aria-invalid` box, described by a notice that names the stored string.\n4. **Typed text and Save.** The picker reads typed text on blur and on Enter. Save takes focus first, so the typed value is saved. Ctrl/Cmd+Enter was also measured live: it saves the typed value.\n5. **Docs**\n   - The pending changesets 12622, 12642 and 12664 said the detail inline editor keeps the native input. That sentence is corrected.\n   - `DatePickerField.tsx`'s \"where the native input stays\" comment is corrected (comment only).\n\n## Live reading\n\nPublished backend `@objectstack/*@18.0.0-next.2` (showcase app), this branch's console, Chromium in `Asia/Taipei`. PNGs and the table are on `claude/issue-12759-evidence` under `evidence/12759/`.\n\n| Run | PATCH body | Stored |\n|---|---|---|\n| before, native input, day 20 | `{\"f_datetime\":\"2026-06-19T16:00:00.000Z\"}` | local midnight, time lost |\n| after, calendar day 20 | `{\"f_datetime\":\"2026-06-20T14:30:00.000Z\"}` | 22:30 kept |\n| after, typed `06/20/2026, 09:05 PM` + Save | `{\"f_datetime\":\"2026-06-20T13:05:00.000Z\"}` | as typed |\n| after, the same typed + Ctrl+Enter | `{\"f_datetime\":\"2026-06-20T13:05:00.000Z\"}` | as typed |\n| control, `date` field, day 20 | `{\"f_date\":\"2026-06-20\"}` | plain day |\n\nThe picker shows `06/17/2026, 10:30 PM` with the placeholder `MM/DD/YYYY, HH:mm AM/PM` (console locale).\n\n## Tests\n\n**New: `InlineFieldInput.datetimePicker-12759.test.tsx`.** It drives the whole record-page write: highlights strip, then save bar, then `dataSource.update`.\n- the picker is drawn, not the native date input, and it shows the date and the time;\n- a record at 14:30 moved to the 16th in the calendar saves `2026-10-16T14:30:00.000Z`;\n- a typed date and time saves that instant;\n- CONTROL: a `date` field saves `{ due_date: '2026-10-16' }`;\n- zone cases at UTC+8 and UTC-5 (14:30 local is kept). These are registered in `date-only-zone-pins-10183.test.ts` and run in its forks child.\n\n**Ported to the picker** (the assertions keep their intent): `InlineFieldInput.test.tsx`, `InlineFieldInput.delegation.test.tsx`, `InlineFieldInput.impossibleDay-10625.test.tsx`, `InlineFieldInput.dateOnlyWriteZone-12206.test.tsx`, `inlineEditTypeCoverage.test.tsx` (date/datetime move from routed to delegated).\n\n**Ablation.** Through src: vitest aliases the packages to src. Each leg checked the anchor count and the blob on disk, and each restore matched the HEAD blob with an empty `git diff HEAD`.\n- the base editor restored: 4/4 suite pins red;\n- a local-midnight re-emit for datetime: both time pins red, CONTROL green;\n- the picker's date write turned into an instant: CONTROL red only;\n- the picker's notice removed: both #10625 notice cases red.\n\n**Runs**\n- at `a286306`: zone driver 29/29;\n- targeted sets 36 files / 872 passed, 81 files / 1459 passed, 13 files / 477 passed;\n- new pin re-run at merged head `6fdbc5d`: 4 passed.\n\nNOT MEASURED: the whole-package `packages/plugin-detail` run hit the foreground time cap (exit 124). CI runs the full farm.\n\n## Gates (local)\n\n- closure build `@object-ui/plugin-detail^...`: 0\n- `type-check` plugin-detail 0, fields 0\n- `check:i18n-keys` / `-drift` / `-dead-keys` 0\n- `check:changeset-claims` 0\n- `changeset:check` 0\n- `check:test-path-roots` 0\n- `check:spec-symbols` 0\n- `check:new-line-citations` 0\n- `check-changeset-presence.mjs` 0\n- `check:control-bytes` 0\n- eslint on the changed files: 0 errors\n\n## Acceptance notes\n\n- Clause-②: no. No prop, export, type member or language-pack key is added or removed. `INLINE_ROUTED_FIELD_TYPES` is not exported from the package entry.\n- Under jsdom, Ctrl+Enter right after typing does not save the typed value, because synthetic dispatch runs no microtask checkpoint between listeners. Real Chromium saves it (table above), so no jsdom pin was added for it.\n\nProvenance: built by the cloud session `session_01K55FPCr5QJXCL9M28p3vvZ` (claim `6223418940`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final message, because a cloud session cannot open a PR from its container. The seat replaced the dev's footer line with this line and changed nothing else.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01K55FPCr5QJXCL9M28p3vvZ)_\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 12792,
+  "kind": "pull_request",
+  "title": "fix(app-shell): the Studio read-only link at a tab row's end folds to its icon instead of being cut to \"Rea\" (objectui#12707)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T20:57:15Z",
+  "updated_at": "2026-10-16T21:23:58Z",
+  "closed_at": "2026-10-16T21:23:55Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T21:23:55Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12792",
+  "body": "Fixes #12707\nClause-②: no\n\n## What changed\n\n**Target 1: the read-only chip in a tab row.** Measured on main 80863ad at 1024 px (HotCRM, Automations, Enroll Members in Campaign): the flow's tab row is 436 px wide and the full \"Read-only · Customize with an overlay\" link is 254 px, so the row's scrollWidth is 636 and only 54 px of the link shows, which is the icon and \"Rea\". The link was never squeezed; it overflowed the row's sideways scroll.\n\n- `StudioItemHeader` now tells the children of its tab row which row they sit in, through a React context; no prop was added.\n- `useStudioTabRowFold`, in the same file, measures that row: the tabs' right edge, plus the gap and the slot's padding, plus the chip's full width, against the row's own clientWidth. It re-measures on every render and from a ResizeObserver, never by viewport or breakpoint. The chip unfolds as soon as the row has room again.\n- `StudioReadOnlyLink` (internal) uses the hook. Folded, it is a 28 px glyph-only chip: its text stays in the DOM as sr-only, so its accessible name is the same in both forms, its title (the existing pillar sentence) stays its tooltip, and its href is unchanged. `data-testid=\"studio-readonly-link\"` and the package chip's `studio-pkg-readonly` are untouched. No i18n key was added.\n- One rule, one place: both tab-row placements fold through it. Automations is the flow tab row. Access is the permission-set tab row, through `PermissionMatrixEditor`'s `chrome.chips`; that file is unchanged. The placements in the Data and Interfaces title rows are not in a tab row and never fold; there the link is whole and the title truncates first.\n- The tab labels keep `whitespace-nowrap shrink-0`, and the row keeps its sideways scroll and edge fades (objectui#12611).\n\n**Target 2: the Unpublished draft chip in Data and Interfaces.** Measured first, as the ruling asks: in a writable package with a draft object, at a 560 px header row the chip is 122 px, reads \"Unpublished draft\" whole, and sits inside the row. objectui#12611 already covers it, so nothing changed there; a CONTROL test pins it.\n\n## Deviations\n\n- The accessible name in both forms is the link's own existing label (`engine.studio.pkg.readonlyLink`). The tooltip is the placement's existing title (`engine.studio.pkg.readonlyHint` on Automations). No new key; the name does not change between forms.\n- New export `useStudioTabRowFold` from `StudioItemHeader.tsx`, a module the package entry does not re-export.\n\n## Screenshots (HotCRM, read-only under objectstack dev)\n\nDOM read at capture:\n\n- Automations, Enroll Members in Campaign, 1024 px, light: the link is folded, its visible text is the layers glyph only, and its accessible name is \"Read-only · Customize with an overlay\". Title: \"Read-only package — switch to or create a writable package to edit.\" Row 436 px, scrollWidth 436, link 28 px, inside the row. Tabs: Canvas · Variables · Runs · Problems 1 · Debug, all whole, one line. https://github.com/objectstack-ai/objectui/blob/6012be82d1f938b683d7f7faaff15990f77d5baa/docs/design/findings/12707/automations-enroll-1024-light.png?raw=true\n- The same at 1024 px, dark: same readings. https://github.com/objectstack-ai/objectui/blob/6012be82d1f938b683d7f7faaff15990f77d5baa/docs/design/findings/12707/automations-enroll-1024-dark.png?raw=true\n- The same at 1280 px, light: the link is whole and its rendered text is \"Read-only · Customize with an overlay\". Row 692 px, link 254 px, inside the row. Tabs as above, whole. https://github.com/objectstack-ai/objectui/blob/6012be82d1f938b683d7f7faaff15990f77d5baa/docs/design/findings/12707/automations-enroll-1280-light.png?raw=true\n- Data, Account object, 1024 px, light: the link sits in the title row, whole, with rendered text \"Read-only · Customize with an overlay\". The visible tabs are Records · Form · Advanced (the Data tab row's own fold), whole. https://github.com/objectstack-ai/objectui/blob/6012be82d1f938b683d7f7faaff15990f77d5baa/docs/design/findings/12707/data-object-1024-light.png?raw=true\n- Target 2 measurement, a writable package's draft object at a 560 px row, light: the status chip's rendered text is \"Unpublished draft\" (122 px, inside the row). https://github.com/objectstack-ai/objectui/blob/6012be82d1f938b683d7f7faaff15990f77d5baa/docs/design/findings/12707/data-draft-object-row560-light.png?raw=true\n\n## Test evidence (head `78306de`; this PR's head `9dc644c` is the same tree as one commit)\n\n- `StudioDesignSurface.readOnlyChipFold-12707.test.tsx`, 7 passed. It runs the real AutomationsPillar with a flow open, read-only. At 800 px the link is whole. At 560 px it is glyph-only, with the accessible name, the title and the same href. It folds and unfolds as the row resizes. The tab labels stay nowrap and the row still scrolls. CONTROLs: the chip in a title row never folds; the Unpublished draft chip keeps its #12611 fold.\n- Ablations, each red and then restored with an empty git diff HEAD: the fold never fires (3 failed); the label is never sr-only (1 failed); nowrap removed from the tab token (1 failed); the tab-row context removed (3 failed).\n- `pnpm --filter @object-ui/app-shell test`, in full: exit 0, Test Files 1484 passed and 1 skipped, Tests 13945 passed and 9 skipped.\n- `pnpm --filter @object-ui/app-shell type-check`: exit 0. `build`: exit 0. eslint on the touched files: exit 0, 0 errors.\n- `pnpm check:i18n-keys`, `pnpm check:i18n-drift`, `node scripts/check-changeset-presence.mjs`, `pnpm check:new-line-citations`: all exit 0.\n\n## Acceptance notes\n\n- Not in this PR: the Data title row's title truncates to \"Service T…\" at a 560 px row when the object's api name is long, while the api-name chip stays whole (see the last screenshot). This is reported to the seat; #12707 does not cover it.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01Umh5XoHZFaBP7A8Kc2g2Jc)_\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01Umh5XoHZFaBP7A8Kc2g2Jc"
+}

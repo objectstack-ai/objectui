@@ -1,0 +1,35 @@
+{
+  "number": 12833,
+  "kind": "pull_request",
+  "title": "fix(app-shell): the Studio Validations editor says why it is read-only, to hover and to the keyboard (objectui#12691)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T00:27:32Z",
+  "updated_at": "2026-10-17T00:53:24Z",
+  "closed_at": "2026-10-17T00:53:22Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-17T00:53:22Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12833",
+  "body": "Fixes #12691\nClause-②: no\n\n## What\n\nOn a read-only package, the Studio Data pillar's Validations rule editor disabled every control (type, name, label, message, the rule's own settings, runs-on, severity, priority, enabled) and gave no reason: no tooltip, no `title`, no `aria-describedby`, and Tab skipped the whole editor.\n\nThe rule editor body now gets the same treatment objectui#12303 gave the Field properties rail (`StudioDesignSurface.tsx`, the rail body described by `fieldRailReasonId`):\n\n- on a read-only package, the body is a `role=\"group\"` tab stop, named by the panel title (\"Validation rules\");\n- it is described by a visually hidden copy of the existing `engine.studio.pkg.readonlyHint` row, so screen readers announce the reason;\n- it is the trigger of a tooltip that shows the reason, so hovering any disabled control in it, or tabbing to it, shows \"Read-only package — switch to or create a writable package to edit.\" (zh: the existing Chinese row).\n\nThe editor gets one reason, not one per control. Every control is disabled for the same reason, and a disabled control gets no pointer or focus events, so a per-control tooltip would never fire. That is why objectui#12303 wrapped the rail body, and this reuses that pattern rather than adding a second one. The controls stay disabled, and a writable package renders exactly as before.\n\nOnly `ObjectValidationsPanel.tsx` changes. The panel already has the locale and its `disabled` flag, so the mount in `StudioDesignSurface.tsx` is untouched. No export, prop or language-pack key is added.\n\n## Tests\n\n`ObjectValidationsPanel.readOnlyReason-12691.test.tsx`, 7 tests:\n- en-US and zh-CN: the body is described by the reason and named by the panel title, and holds at least 6 disabled controls;\n- en-US and zh-CN: hovering the disabled Severity picker opens a tooltip with the reason;\n- en-US and zh-CN: Tab from the rule list lands on the described body, and the tooltip opens;\n- CONTROL: on a writable package there is no reason, no `aria-describedby`, and the controls are enabled.\n\nAblation: with the panel swapped back to its `33ee9de` blob, the run gave `Tests 6 failed | 1 passed (7)` (only the CONTROL stayed green). Restored from HEAD: the hash equals the HEAD blob and `git diff HEAD` is empty.\n\nEvery test family naming `ObjectValidationsPanel`, `readonlyHint`, `ReadOnlyReason` or `StudioDesignSurface` passes on head `700571b`: `Test Files 182 passed (182)`, `Tests 1518 passed (1518)`.\n\nLocal gates on `700571b`, all exit 0: app-shell dependency build plus `type-check`, `check:i18n-keys`, `check:i18n-dead-keys`, `check:changeset-claims`, `changeset:check`, `check:test-path-roots`, `check:spec-symbols`, `check:new-line-citations`, `check-changeset-presence.mjs`, eslint on the changed files (0 errors; 1 warning in code this diff does not touch).\n\n## Live reading\n\nBackend from `e2e/live/ci/start-backend.sh`: published `@objectstack/cli@18.0.0-next.2`, showcase at `e5136ff10f1a`. Console vite dev server on this branch. Page `/studio/com.example.showcase/data?surface=object%3Ashowcase_task`, Validations tab, rule \"Task Status Flow\":\n\n- before (base panel): hovering Severity shows no tooltip; Tab from the rule list lands on `BODY`.\n- after: hovering Severity shows the reason tooltip; Tab lands on the editor group, which is described by the reason and opens the tooltip.\n\nScreenshots are on branch `claude/issue-12691-evidence`, under `evidence/12691/`.\n\n## Acceptance notes\n\n- The tooltip uses `side=\"left\"`, as the objectui#12303 rail does. In this two-pane layout it sits over the top of the rule list while it is open.\n- Outside this card's surface, not measured: the Settings, Hooks and Actions panels get the same `disabled` at their mounts. Whether they state a reason was not read here.\n\nProvenance: built by the cloud session `session_01KRbDaSjHueddhNPJ9LH6Pd` (claim `6226701667`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final message, because a cloud session cannot open a PR from its container. The seat replaced the dev's session and footer lines with this paragraph and changed nothing else.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01KRbDaSjHueddhNPJ9LH6Pd)_\n"
+}

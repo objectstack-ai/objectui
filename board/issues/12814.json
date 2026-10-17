@@ -1,0 +1,35 @@
+{
+  "number": 12814,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail): a record on a print page prints its own title field (objectui#12787)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T22:20:10Z",
+  "updated_at": "2026-10-16T22:47:01Z",
+  "closed_at": "2026-10-16T22:47:00Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T22:46:59Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12814",
+  "body": "Fixes #12787\nClause-②: no\n\n## What\n\nOn a page that declares `print`, `record:details` now prints the record's own title field. A printed invoice carries its invoice number again. Off a print page nothing changes.\n\nOff a print page, `record:details` hides the row that the page header's H1 already shows: the declared name field, else the field a `titleFormat` resolves to, else the first title candidate that has a value. A print page refuses `page:header`, so on paper nothing drew that value.\n\n`packages/plugin-detail/src/renderers/record-details.tsx` now reads `usePrintPage() !== null` with its other hooks, above every early return, the same way `DetailView` (PR #12785) and `DetailSection` (PR #12729) read it. On a print page the whole title ladder is skipped. An author's `hideFields` and the `record:highlights` dedupe still apply: their premise does not depend on a page header.\n\nNo prop, type member, export or i18n key changed.\n\n## Measured\n\n- Before the fix, a test with each rung on a print page showed all three rungs drop the row: the declared name field, the `titleFormat` match and the candidate fallback.\n- `showcase_invoice` (next.2) declares no `nameField` and no `titleFormat`. On the live PDF, the invoice number was hidden by the candidate fallback (the derived `name`), not by the declared-name branch.\n\n## Tests\n\nNew `packages/plugin-detail/src/__tests__/record-details.printTitleField-12787.test.tsx`, through the real renderer:\n\n- Inside a `PrintPageProvider`, the title row prints for a declared name field (INV-1010), for a `titleFormat` that resolves to `contract_no`, and for the candidate fallback.\n- CONTROL: off a print page, the same three rows stay hidden.\n- The objectui#10360 and objectui#9436 dedupe pins are unchanged and green (14 passed with the new file).\n\nAblations, with the fix committed:\n\n- The print guard forced off turns the three print rows red and leaves the controls green.\n- The guard forced on turns the three controls red.\n- Both were restored to HEAD (blob equal, `git diff HEAD` empty).\n\nResults at `05aab42`:\n\n- `pnpm --filter @object-ui/plugin-detail test` (run at `1eb4c26`, before a type-only follow-up to the new test): 282 files passed, 1 skipped; 2692 tests passed, 18 skipped.\n- The new file at `05aab42`: 6 passed.\n- Exit 0: the plugin-detail closure build, `type-check`, `build`, tsc over the package's test config, eslint on the touched files (no new warnings), `check:i18n-keys`, `check:i18n-drift`, the changeset presence check, `check:new-line-citations` and `check:test-path-roots`.\n\n## Printed page\n\nSetup:\n\n- Published `@objectstack/*@18.0.0-next.2` showcase backend, from the showcase source at the next.2 release commit.\n- A throwaway A4 `print` page on `showcase_invoice` whose `record:details` declares `name`, added in a scratch copy only.\n- INV-1010 printed to PDF with Chromium, on the record route and on the named page route.\n\nPDF text read at capture:\n\n- Before (main `f114263`), record route: no INV-1010.\n- Before, named page route: no INV-1010.\n- After, record route: INVOICE NUMBER INV-1010.\n- After, named page route: INVOICE NUMBER INV-1010.\n\nScreenshots:\n\n- Before, record route: https://github.com/objectstack-ai/objectui/blob/f9af05bebdb786be2c0c7df54928bdbb08ef8d85/docs/design/findings/12787/before-record-pdf-1.png?raw=true\n- Before, named page route: https://github.com/objectstack-ai/objectui/blob/f9af05bebdb786be2c0c7df54928bdbb08ef8d85/docs/design/findings/12787/before-named-pdf-1.png?raw=true\n- After, record route: https://github.com/objectstack-ai/objectui/blob/f9af05bebdb786be2c0c7df54928bdbb08ef8d85/docs/design/findings/12787/after-record-pdf-1.png?raw=true\n- After, named page route: https://github.com/objectstack-ai/objectui/blob/f9af05bebdb786be2c0c7df54928bdbb08ef8d85/docs/design/findings/12787/after-named-pdf-1.png?raw=true\n- CONTROL, the ordinary record page after the change (light): the H1 reads INV-1010 and no Invoice Number row appears below it. https://github.com/objectstack-ai/objectui/blob/f9af05bebdb786be2c0c7df54928bdbb08ef8d85/docs/design/findings/12787/after-control-ordinary-record-page.png?raw=true\n\nThe images live on branch `claude/issue-12787-evidence` only. This branch carries no PNG or PDF.\n\n## Acceptance notes\n\n- Out of scope, unchanged: `page:header`'s refusal on a print page (the spec's contract), `DetailView`'s own header and the auto-tabs strip on a print page, and the related list (objectui#12741).\n- The test file sits in `src/__tests__/`, where the claim's file surface names it. The sibling title-dedupe pins live in `src/renderers/__tests__/`.\n\nBuilt in cloud session `https://claude.ai/code/session_016Vv5qFjotEeCQN4PUiWwiT` (claim `6225037918`).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_016Vv5qFjotEeCQN4PUiWwiT"
+}

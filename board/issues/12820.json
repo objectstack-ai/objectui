@@ -1,0 +1,35 @@
+{
+  "number": 12820,
+  "kind": "pull_request",
+  "title": "fix(plugin-list): a date-range user-filter chip draws the platform date picker, with translated bound labels (objectui#12784)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T22:45:12Z",
+  "updated_at": "2026-10-16T23:12:34Z",
+  "closed_at": "2026-10-16T23:12:32Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T23:12:32Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12820",
+  "body": "Fixes #12784\nClause-②: no\n\n## What changed\n\nA list view's `date-range` user-filter chip (`packages/plugin-list/src/UserFilters.tsx`) now draws the platform date picker on both bounds. It used to draw two native date inputs, which take their placeholder and digit order from the machine's locale, labelled with the English literals \"From\" / \"To\".\n\n- **The seam, with no new dependency.** Each bound (`DateBoundInput`) resolves the `field:date` widget from `ComponentRegistry` at render time. That is the seam `FilterBuilder` and `filter-ui` use since PR #12782 (objectui#12743). `@object-ui/fields` registers the picker behind its lazy loader. With no `field:date` widget registered, a bound keeps the native input.\n- **Labels.** The bounds reuse the existing `filterBuilder.rangeStart` / `filterBuilder.rangeEnd` keys, which all ten packs already carry. No language-pack key, prop, export or dependency is added, so `Clause-②: no`.\n- **Value unchanged.** Each bound writes `YYYY-MM-DD`, and the chip writes `[]` when both are empty, so the query gets the same `>=` / `<=` conditions as before.\n- **Typed day applied.** The picker reads its text on blur and on Enter. A pointer press outside the bound while it holds focus blurs it first, so the text is read before the chip's popover closes on that press. Escape discards.\n- The range popover widens from `w-56` to `w-72` so the picker and its clear and calendar buttons fit.\n\n## Measured\n\n- **Fallback reach (H2).** `@object-ui/fields` calls `registerAllFields()` when it is imported, and plugin-list imports it, so in practice `field:date` is always registered wherever `UserFilters` loads. The native pair is reached only when `field:date` has been unregistered. `user-filter-arity-spec-parity.test.tsx` now pins it exactly that way.\n- **Live reading.** Backend: `e2e/live/ci/start-backend.sh`, published `@objectstack/*@18.0.0-next.2`. In the throwaway showcase copy only, a `{ field: 'due_date', type: 'date-range' }` chip was added to the Task Workbench page. The console ran in zh with the browser locale set to en-US.\n  - Before (`c054d01`): two native date inputs showing `mm/dd/yyyy`, labelled \"From\" / \"To\".\n  - After: two pickers with placeholder `YYYY/MM/DD`, labelled 起始值 / 结束值.\n  - Typing `2026/10/01` + Enter filters 10 rows down to 9. Both builds write the same URL value, `uf_due_date=2026-10-01%2C`.\n  - Screenshots: branch `claude/issue-12784-evidence`, `evidence/12784/`.\n\n## Tests\n\n- New `packages/plugin-list/src/__tests__/UserFilters.dateRangePicker-12784.test.tsx`, using the real `@object-ui/fields` picker:\n  - both bounds draw the picker, named From / To;\n  - in a zh session, placeholder `YYYY/MM/DD` and names 起始值 / 结束值;\n  - a typed bound applies on Enter, on blur, and on an outside press that closes the chip, writing `YYYY-MM-DD`;\n  - clearing the only set bound writes `[]`;\n  - CONTROL: the select, multi-select and text chips are unchanged.\n- Ablation 1: `UserFilters.tsx` swapped for the `c054d01` blob. 6 failed, and the 2 controls passed.\n- Ablation 2: the bound labels hard-coded back to the literals 'From' / 'To'. Only the zh test failed.\n- After each ablation the file was restored to HEAD's blob `046cc1fa781b183775ffb19bfffaacb03c846ed1`, byte for byte.\n- Local gates, all exit 0:\n  - plugin-list dependency closure build and `type-check`;\n  - the 55 test files that name `UserFilters`, `date-range` or `field:date`;\n  - `packages/i18n/src/__tests__`;\n  - `check:i18n-keys`, `check:i18n-drift`, `check:i18n-dead-keys`;\n  - `check:changeset-claims`, `changeset:check`, `check:test-path-roots`, `check:spec-symbols`, `check:new-line-citations`, `check-changeset-presence`;\n  - eslint on the changed files (0 errors).\n\n## Acceptance notes\n\n- In zh the bounds read the filter builder's generic 起始值 / 结束值. Date-specific wording would mean new keys in all ten packs, and then `Clause-②: yes`. Not done here.\n- Not touched (outside the surface): the English literal \"No options\" on a choice chip with no options, in the same file. Also plugin-view FilterUI's English sr-only \" (start)\" / \" (end)\" bound labels. Both read from source only.\n\nChangeset: `.changeset/12784-user-filter-date-range-picker.md` (`@object-ui/plugin-list`: patch).\n\nProvenance: built by the cloud session `session_01FWQBTBcVy92xxtD1YnNATh` (claim `6225707844`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final message, because a cloud session cannot open a PR from its container. The seat replaced the dev's two footer lines with this paragraph and changed nothing else.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01FWQBTBcVy92xxtD1YnNATh)_\n"
+}

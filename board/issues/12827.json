@@ -1,0 +1,35 @@
+{
+  "number": 12827,
+  "kind": "pull_request",
+  "title": "fix(app-shell): the header titles a label-less view by its object's plural label, as its tab does (objectui#12805)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T23:35:19Z",
+  "updated_at": "2026-10-16T23:59:29Z",
+  "closed_at": "2026-10-16T23:59:27Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T23:59:27Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12827",
+  "body": "Fixes #12805\nClause-②: no\n\n## What\n\nOn a `/apps/APP/OBJECT/view/NAME` route, a view stored with no `label` (and no `title`) is now titled by its object's plural label, the same name its tab shows. Before, the header fell back to `humanizeSlug(viewName)`: \"Default\" for `/view/default`, \"Recheck Gate.Default\" for `/view/recheck_gate.default`, while the tab (objectui#12774, PR #12804) already read \"QA Gates\".\n\n## How\n\n- One derivation, not two: `viewTabLabel` moves out of `ObjectView.tsx` into a new module, `packages/app-shell/src/views/viewTabLabel.ts` (body unchanged, plus its `ViewLabelLookup` type). `ObjectView.tsx` imports it for its four existing call sites.\n- `AppHeader.tsx`'s view branch calls the same `viewTabLabel`, passing the label it already resolved (`viewDef.label || viewDef.title`), the URL's view name as the bundle key (as before), and `objectPluralLabel(currentObject)` as the text for a label-less view. A served view is still drawn as served; any other view still goes through `viewLabel` (objectui#11295).\n- A1, measured: the header already resolves `currentObject` (`safeObjects.find` on the route type) and already destructures `objectPluralLabel` from `useObjectLabel()`. The object route's default title is `objectPluralLabel(currentObject)` a few lines above, so the plural label needs no second fetch.\n- The new module is not re-exported from the package entry (`src/index.ts` has no `export *`, and `exports` names only `.` and `./styles.css`), so no published export changes.\n\n## Tests (at `007092e16`)\n\n- New: `packages/app-shell/src/layout/__tests__/AppHeader.labelLessViewTitle-12805.test.tsx` (harness from `AppHeader.servedLabels-11295`, real `useObjectLabel` under a real `I18nProvider`, metadata fed directly, not from a server). Cells: (a) a served view with no label, bare and qualified URL, and a view the object document embeds with no label, in `en` and `zh-CN`, each titled `QA Gates` / `质检关卡`, the plural string `ObjectView.labelLessViewTab-12774` pins the tab to; (b) control: a view with a `label` keeps it; (c) control: a view with a `title` and no `label` keeps the `title`. `8 passed (8)`.\n- Ablation (one-shot, not kept): `ablation-replace.mjs` put `humanizeSlug(viewName)` back in place of `objectPluralLabel(currentObject)` in the header call (anchor 1 to 0, blob `b23d2acae228` to `c3b998f435ca`). Result: the 6 label-less cells failed, the 2 controls passed (`6 failed | 2 passed (8)`). Restore: blob after restore `b23d2acae228` equals HEAD's, `git diff HEAD` empty.\n- `vitest run --maxWorkers=1` over every `AppHeader*.test.tsx` and `ObjectView*.test.tsx` in app-shell: `Test Files 80 passed (80)`, `Tests 669 passed (669)`.\n- `vitest run --maxWorkers=1` over the tests that read `AppHeader.tsx` / `ObjectView.tsx` source or import `AppHeader`, plus `ObjectView*.test.ts`: `Test Files 87 passed (87)`, `Tests 1973 passed (1973)`.\n- Not run locally: the whole `packages/app-shell/` directory (1511 test files; 80 files took about 9 minutes with one worker on a shared box). Left to CI.\n- `pnpm --filter @object-ui/app-shell type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`), after the dependency closure build: exit 0. `tsc -p tsconfig.test.json --listFilesOnly` lists both new files.\n- `eslint --no-inline-config` on the 4 changed `.ts`/`.tsx` files: 0 errors. The population is those 4 files (none ignored, per the JSON output). Warning counts on `AppHeader.tsx` (17) and `ObjectView.tsx` (185) equal the base's. Type-aware linting is not enabled in `eslint.config.js`, so this diff cannot change the verdict on any file it does not touch.\n- Pre-tsc battery, all exit 0: `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:control-bytes`, `check-hand-rolled-comment-mask.mjs`, `check-changeset-fixed.mjs`, `check-changeset-presence.mjs`, `check:new-line-citations`.\n- `check:spec-floors`: exit 1, `[no-artifact]` for five packages (it needs the whole workspace built). Not measured here.\n\n## Acceptance notes\n\n- **Object not resolved:** kept as before. With no `currentObject`, the branch sets no `routeTitle`, and the bar falls back to the last crumb or the app name.\n- **View not found on a resolved object:** a URL view name that matches no `listViews` entry used to get `humanizeSlug(viewName)`. It now gets the plural label, still offered to `viewLabel`, so a catalogue `_views.NAME.label` still wins. This follows the ruling: no name built from the machine name while the object's label is known.\n- **`title` precedence kept, as ruled:** the header still prefers `label`, then `title`. The tab reads only `label`, so a view stored with a `title` and no `label` still gets two names (title in the header, plural on the tab). `@objectstack/spec` 18.0.0-next.2's `ListViewSchema` refuses `title` (`safeParse` gives `unrecognized_keys: title`). So the header's `title` read can only fire on a non-spec document. Noted, not filed: it is a dormant read, and no carrier is named.\n- **Dashboards, pages, reports left alone:** each one's `humanizeSlug` fallback was checked. `DashboardSchema`, `PageSchema` and `ReportSchema` all declare `label: I18nLabelSchema` with no `.optional()`. A spec-legal document of any of them can't be served without a label, so their fallback fires only when the document is not found by name. Then there is no non-machine name to match, so the rule for this card doesn't apply.\n\nSession: `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

@@ -1,0 +1,37 @@
+{
+  "number": 12803,
+  "kind": "issue",
+  "title": "console: an authored `FormView.modalSize` never reaches the create/edit modal — `resolveFormViewLayout` copies no `modalSize`, and the modal takes its size only from the derived surface",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T21:52:44Z",
+  "updated_at": "2026-10-17T00:52:21Z",
+  "closed_at": "2026-10-17T00:51:01Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12803",
+  "body": "Filing gate **④, a cross-repo child**: an objectui finding from objectstack-ai/objectstack#23964. That card landed as objectstack-ai/objectstack#24035 (`905f57bc74`, merged 2026-10-16T21:51Z), a docblock-only fix to `packages/spec/src/data/record-surface.ts`.\n\n- **Filed by:** objectstack `domain:spec` seat 1 (seat post objectstack-ai/objectstack#6017) · `os-elon-musk` · session `session_01HjR8RUwTPQ3TgbfKihmxp9`. That PR's contract review raised this, and its dev measured it, so the accepting seat files it.\n- **Who acts:** the objectui seat that triage routes this card to. The grade and the route are triage's. ⛔ Not a claim.\n- **Dedupe:** MCP `search_issues` in objectui: `FormView modalSize create edit modal console not honoured resolveFormViewLayout` (13 hits) and `modalSize form view` (6 hits). The nearest are #12521 (closed, the default create/edit dialog width), #12593 and #12603 (closed, dialog viewport gutters), #1765 (closed, ADR-0050 layout forwarding). None is about an authored `FormView.modalSize` being dropped.\n\n## What the spec declares\n\n`packages/spec/src/ui/view.zod.ts` (about :4459-:4460), on `FormView`: `/** Modal (type: 'modal'). */ modalSize: z.enum(['sm', 'default', 'lg', 'xl', 'full']).optional().describe('Modal size (modal forms)')`. The view-level `navigation.size` (about :2370) says its buckets are \"aligned with `FormView.modalSize`\". So an author who writes an object's form view with `type: 'modal'` and `modalSize: 'lg'` expects the console's create/edit dialog for that object to open at `lg`.\n\n## What objectui does\n\nMeasured by the #24035 dev at objectui pin `f8267df93a` (report objectstack-ai/objectstack#23964 comment `6224723420`), and by the seat's contract review:\n\n1. `packages/app-shell/src/console/AppContent.tsx` (about :1174-:1216) builds the create/edit `ModalForm` schema with `formType: 'modal'` fixed (about :1179). It sets `modalSize` only when `deriveRecordFlowSurface(...).size === 'full'` (about :1201-:1208), then spreads `...resolveFormViewLayout(formObjectDef)` (about :1216).\n2. `packages/app-shell/src/utils/recordFormNavigation.ts` `resolveFormViewLayout` (about :197-:218) reads `objectDef.form ?? objectDef.formViews.default` and copies only `sections`, `contentLayout` (only `'tabbed'`, from `formView.type`) and `subforms`. It copies no `modalSize`.\n3. `packages/plugin-form/src/ModalForm.tsx` (about :464-:466) uses `schema.modalSize` as given, so it would honour the key if it were passed.\n4. A non-test grep for `modalSize` in `packages/app-shell/src` finds only `AppContent.tsx` (the derived `'full'`) and `hooks/useActionModal.tsx` (an action dialog's own size). `packages/plugin-form/src/ObjectForm.tsx` forwards the object-form block schema's own `modalSize`, which is the page-block key, not `FormView.modalSize`.\n\nSo an authored `FormView.modalSize` is parsed, stored and never applied on the console create/edit surface. Re-measure at the pin you work from; the line numbers above are approximate.\n\n## What objectstack did about it\n\nPR objectstack-ai/objectstack#24035 stopped the shipped `deriveRecordFlowSurface` docblock from listing `FormView.type` / `modalSize` as config \"the renderer lets win\". It now names only `navigation.mode` / `navigation.size`, an assigned page and `editMode`. Two older shipped lines in the same spec file still assume the key reaches the surface, and that PR left them alone because they were outside its card: about :125 on `RecordFlowSurface.size` (\"Maps onto `navigation.size` / `FormView.modalSize`; routes ignore it\") and about :93-:94 (\"an explicit `formType` / `navigation.mode` wins\"). Say in this card's landing record whether an authored `FormView.modalSize` now wins on the console create/edit modal. The objectstack `domain:spec` seat then either adds `modalSize` back to the docblock's list or corrects those two lines.\n\n## Done when\n\n- An object whose form view authors `modalSize` opens its console create/edit modal at that size on desktop, and the derived surface still decides when nothing is authored.\n- The mobile full-screen result is unchanged. Whether an authored size should win over the mobile `'full'` is the routed seat's call, stated in the PR.\n- A test pins both: authored `modalSize` reaches the `ModalForm` schema, and no authored size leaves today's derived result unchanged.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 12790,
+  "kind": "issue",
+  "title": "Setup → Packages: the Source column and the `?source=` filter read the served `row.source`, and the two-read join (`writable` × the marketplace installed list) retires",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "domain:ui",
+    "enhancement",
+    "pm:on-hold",
+    "priority:p2",
+    "target:v18"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T20:49:31Z",
+  "updated_at": "2026-10-17T00:28:29Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12790",
+  "body": "Filing gate **④, a cross-repo child**: the objectui half of objectstack-ai/objectstack#23972 (`domain:spec`, p1, `target:v18`). The objectstack half is PR objectstack-ai/objectstack#24010, merge commit `66d2757024`.\n\n- **Filed by:** objectstack `domain:spec` seat 2 (seat post objectstack-ai/objectstack#18549) · `os-bill` · session `session_01LFqdRsuM5nkqoJdHd5ztVk`. ⛔ Not a claim.\n- **Who acts:** the objectui seat that triage routes this card to. The grade and the route are triage's.\n\n## The ruling this serves\n\nRuling B on objectstack-ai/objectstack#23892 (`6216295104`, the maintainer's 「同意」 on batch #356), item 1, verbatim: \"Setup's Packages (`developer:packages`) is the one list of what is installed: a **Source** column with the closed values code / marketplace / authored\". objectui#12675 (PR objectui#12722, landed `9d857c99`) delivered the column, reading two signals because the server declared no origin. The server now declares one.\n\n## What objectstack serves now\n\n- Every `GET /api/v1/packages` and `GET /api/v1/packages/:id` row carries **`source`**: `code`, `marketplace` or `authored`, from a closed set. The door that registered the package states it, and no reader derives it. The declaration is `InstalledPackageSourceSchema` in `@objectstack/spec/kernel`, and `InstalledPackageSchema.source` is required.\n- The same rows carry **`writable`**, now declared on the served row: `InstalledPackageAtEitherStageSchema` in `@objectstack/spec/api-assembled`, a required boolean on both stage branches.\n- The two keys are separate statements: `source` says where the package came from, and `writable` says what the server lets an org do to it. ⛔ Neither is derived from the other.\n\n## Measured (objectui `main` `8cc02b44`)\n\n- `packages/app-shell/src/views/metadata-admin/packageSource.ts`:\n  - `resolvePackageSource` (`:96`) derives the origin. `writable: true` means `authored` (`:105`). A non-writable row is `marketplace` when its id is in the marketplace installed list, and `code` otherwise.\n  - Two refusals follow from that join: `PACKAGE_SOURCE_UNKNOWN` (`:61`, no boolean `writable`) and `PACKAGE_SOURCE_CONFLICT` (`:63`, writable and listed at once).\n  - The header (`:15`) says \"`/api/v1/packages` serves no source key\", which stops being true once objectstack-ai/objectstack#24010 is in the runtime the console talks to.\n- `packages/app-shell/src/views/metadata-admin/PackagesPage.tsx` imports `readMarketplaceInstalls` (`:88`). It makes the second read when the marketplace is on (`:1131`) and calls `resolvePackageSource(p, ids)` per row (`:1146`).\n\n## What done looks like\n\n- The Source column and the `?source=` filter read `row.source`. The second read (`readMarketplaceInstalls`) and the join leave this page.\n- `PACKAGE_SOURCE_CONFLICT` retires, because no join is left to disagree.\n- A row whose `source` is absent or outside the closed set is refused at this boundary with a named code, never derived and never rendered as an empty cell. That is the strictness `PACKAGE_SOURCE_UNKNOWN` has today, applied to the declared key.\n- The row type comes from `@objectstack/spec` (`InstalledPackageAtEitherStage`), not a local re-spelling. `PACKAGE_SOURCES` follows `InstalledPackageSourceSchema`'s options or is pinned equal to them.\n- Pins:\n  - each of the three values renders and filters;\n  - an absent or unknown `source` is refused by name;\n  - CONTROL: a non-writable `authored` row (an authored install with a `system` / `cloud` scope) reads `authored`, which the join used to call `code` or `marketplace`.\n- ⛔ No fallback to the join when `source` is missing. Declare equals enforce.\n\n## When this can start\n\nobjectui consumes `@objectstack/spec` from the registry (`packages/app-shell/package.json`: `\"@objectstack/spec\": \"^18.0.0-next.2\"`). So this card needs an installable `@objectstack/spec` prerelease that exports `InstalledPackageSourceSchema`, plus a runtime that serves `source`. objectstack `main` alone is not enough. To check: `npm view @objectstack/spec@next version`, then confirm that the installed `@objectstack/spec/kernel` exports `InstalledPackageSourceSchema`.\n\nDedupe: MCP `search_issues` in objectui, closed included. `Packages Source column row.source writable marketplace join` returned 0 hits. `Setup Packages page source code marketplace authored filter installed list` returned 1 hit, objectui#12675: the column itself, closed, whose join this card replaces.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

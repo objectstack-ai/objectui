@@ -1,0 +1,35 @@
+{
+  "number": 12836,
+  "kind": "pull_request",
+  "title": "fix(data-objectstack): a served null aggregate is the answer, not a missing measure (objectui#12812)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "data-adapter",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-17T00:37:57Z",
+  "updated_at": "2026-10-17T01:09:41Z",
+  "closed_at": "2026-10-17T01:09:39Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-17T01:09:39Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12836",
+  "body": "Fixes #12812\nClause-②: no.\n\n## What changed\n\n`ObjectStackAdapter.aggregate()` (`packages/data-objectstack/src/index.ts`, the `measureMissing` predicate right after the `rows` read) treated a measure whose value was `null` in every row as a measure the server had dropped, and fell back to `aggregateViaFind`, which re-reads the object's rows through `find()` and computes the measure client-side. The max or min over rows whose field is all NULL is NULL, so a correct answer cost a second, row-reading request (measured on the cloud home: its last API call, +496 ms at 50 ms RTT).\n\n`measureMissing` now asks only whether the measure KEY is present (either the `measureName` spelling or the `valueKey` column). A present `null` is the answer and reaches the caller as `null` from the one analytics request; it is not coerced to `0` or an empty string. Only an answer whose rows all lack the key still falls back. The request the adapter sends is unchanged, and no fallback or retry path was added.\n\n## Why the null reading was not protecting a server shape\n\n- History: the predicate entered in `a20e037c08` (\"Add fallback to client-side aggregation when backend drops measure\"). Its only test fed rows with the key absent; nothing in that commit names a server that answers `null` for an unsupported measure.\n- Server today (objectstack `main` `ba8bf1dcda`, `packages/services/service-analytics`): an unknown measure is either suffix-inferred (`inferMeasure`) or refused (`INVALID_FIELD`, 400); `ObjectQLStrategy` builds each output row with `if (m in row) mapped[m] = row[m]` and the native SQL strategy with `if (m in row) out[m] = row[m]`. A measure the engine did not produce therefore arrives ABSENT, never as `null`; a `null` is the engine's aggregate value.\n- The request carries one measure (`measures: [measureName]`), so the per-key rule is the single key; for grouped answers the predicate stays per-answer (`every` row), unchanged.\n\n## Tests\n\nNew `packages/data-objectstack/src/aggregate-null-measure-12812.test.ts`, driving the real client through `fetch` so \"no second read\" is a statement about URLs requested:\n\n1. key present with `null` (single bucket, `max`) returns `[{ amount: null }]`, exactly one `/analytics/query` request, zero `/data` requests;\n2. key present with `null` in every bucket of a grouped answer, same, per bucket;\n3. CONTROL: key absent still falls back (one `/data` read, client-side sums 150 / 20);\n4. CONTROL: a present non-null value maps to the field column unchanged, one request, no `/data` read.\n\nThe existing `CONTROL: rows that lack the measure still fall back` pin in `aggregate-rows-post-unwrap-7028.test.ts` stays green.\n\nAblation (one-shot, at `c070af402a`, via objectstack `scripts/ablation-replace.mjs`, wrap mode): the old `!= null` predicate restored on disk (anchor 1 to 0, blob `96a1d9151abd` to `a0b3b50103af`), the new file ran `Tests 2 failed | 2 passed (4)`: pins 1 and 2 red, both controls green. Restore proven: blob after restore equals HEAD (`96a1d9151abd`) and `git diff HEAD` is empty. The test imports `./index` (source), so no `dist/` leg applies.\n\nLocal gates at `c070af402a`:\n\n- `pnpm --filter '@object-ui/data-objectstack^...' build` exit 0; `pnpm --filter @object-ui/data-objectstack type-check` exit 0 (`tsc --listFiles` includes the new test file).\n- `pnpm exec vitest run --maxWorkers=1 packages/data-objectstack/` exit 0: `Test Files 95 passed (95)`, `Tests 1171 passed (1171)`.\n- ESLint narrowed to the two changed source files, the package `lint` script's flags (`eslint`, inline config honoured): exit 0, 2 files, 0 errors (warnings are `no-explicit-any`, the level the sibling aggregate tests carry). Narrowing is exact: `eslint.config.js` enables no type-aware linting (no `parserOptions.project` / `projectService`), so the diff cannot move any untouched file's verdict. The repo-wide lint run is CI's.\n- Pre-tsc battery, each exit 0: `check:phantom-deps`, `check:self-import`, `check:unreferenced-sources`, `check:doc-example-readers`, `check:handler-key-reads`, `check:side-effects-array`, `check:element-data-source-declaration`, `check:spec-symbols`, `check:action-forward-parity`, `check:designer-field-key-parity`, `check:icon-record-names`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-designer-parity`, `check:control-bytes`, `scripts/check-hand-rolled-comment-mask.mjs`; also `scripts/check-changeset-fixed.mjs`, `scripts/check-changeset-presence.mjs`, `scripts/check-changeset-no-major.mjs`, `check:new-line-citations` (0 new).\n\n## Changeset\n\n`.changeset/12812-null-aggregate.md`: `@object-ui/data-objectstack: patch`. No published export or type changes (behaviour only), hence `Clause-②: no.`\n\nImplemented by the os-dev for seat `domain:ui#2`, session `https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01XVp19E1MYUTFM3dnkwz8gB)_\n"
+}

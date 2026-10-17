@@ -1,0 +1,35 @@
+{
+  "number": 12802,
+  "kind": "pull_request",
+  "title": "fix(app-shell): the permission set provenance badge reads packageId and the artifact only (spec 18 retired managedBy) (objectui#12753)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T21:44:33Z",
+  "updated_at": "2026-10-16T22:10:58Z",
+  "closed_at": "2026-10-16T22:10:56Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T22:10:56Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12802",
+  "body": "Fixes #12753\nClause-②: no\n\n## What changed\n\nSpec 18 retired the authored `managedBy` on a permission set (objectstack-ai/objectstack#23891, landed as objectstack-ai/objectstack#23989). The permission set editor's provenance badge read it for a third answer, \"Platform\", and as one input to \"Package\". It now decides from `packageId` and the package artifact only.\n\n- `PermissionMatrixEditor.tsx`: one derivation, `shippedByPackage = !!packageId || codeIsArtifact`, next to `artifactTierApplies`. Both sites read it: the routed page's badge and the Studio Access pillar's kind chip. They can no longer drift. The `managedBy` read is gone from both.\n- `permission-slice.ts`: the local `PermissionSetDraft` type drops its `managedBy` member. That type is not exported from the package entry.\n- `i18n.ts`: `perm.badge.platform` (en and zh) is removed. Once the read went, `check:i18n-dead-keys` listed it with only a CHANGELOG footprint.\n- `PermissionMatrixEditor.badge.test.tsx` is rewritten. The old suite pinned each `managedBy` arm; the new one pins the two-answer badge at both sites.\n\n## Why \"Platform\" goes (no served datum names it)\n\nMeasured on a live backend (published `@objectstack/*@18.0.0-next.2`, the showcase app). The platform-shipped sets (`admin_full_access` and the other `plugin-security` sets) are served as `_packageId: com.objectstack.plugin-security`, `_provenance: package`, with no `managedBy`, on both the list read and the layered `/layers` read the editor uses. The showcase's own sets are served the same way under `com.example.showcase`. The layered read's `provenance` is `package` or `org`; neither names a platform set. So a set the platform ships reads \"Package\", like any packaged set. Nothing on the client reads a retired key.\n\n## Clause-② (no)\n\nThe metadata-admin string table loses `perm.badge.platform`. The table is module-local: it is not exported from the package entry and is not one of the `packages/i18n` locale packs, so no consumer can address the key. The visible change is that a stored row still carrying `managedBy: 'platform'` now reads \"Custom\" instead of \"Platform\". No export, prop or exported type member changes.\n\n## Evidence\n\n- Unit: the new suite covers the page and studio sites x 5 cases (packageId reads Package; code artifact reads Package; neither reads Custom; stray `managedBy: 'platform'` reads Custom; stray `managedBy: 'package'` reads Custom). 10 passed. All 35 test files naming the editor, the slice, the clone module or the badge, plus `packages/i18n/src/__tests__`: 118 files, 1624 passed, 13 skipped, at head 52f65f3.\n- Ablation (each restored to the HEAD blob):\n  - Dropping the artifact term turns the code-artifact case red at both sites (2).\n  - Re-reading `managedBy === 'platform'` at the page badge turns the stray-platform case red (1).\n  - Re-reading `managedBy === 'package'` at the studio chip turns the stray-package case red (1).\n- Live, console before (020d178) and after, against the same backend, branch `claude/issue-12753-evidence` under `evidence/12753/`:\n\n| set | before | after |\n| --- | --- | --- |\n| `admin_full_access` (shipped by plugin-security) | Package | Package |\n| `custom_reviewer` (authored here) | Custom | Custom |\n| `legacy_platform_row` (authored with `managedBy: 'platform'`) | Platform | Custom |\n\n- Gates, local, exit 0: app-shell dependency build + `type-check`, `check:i18n-keys`, `check:i18n-drift`, `check:i18n-dead-keys`, `check:i18n-designer-parity`, `check:changeset-claims`, `changeset:check`, `check:test-path-roots`, `check:spec-symbols`, `check:new-line-citations`, `check-changeset-presence`. eslint on the changed files: 0 errors.\n\n## Acceptance notes\n\n- Not touched, on purpose: the `sys_permission_set.managed_by` column and what reads it, and the object lifecycle `managedBy`. These are outside the claim.\n- `permission-set-clone.ts` keeps `managedBy` in its comment. That comment describes the server's clone door, which still drops the key at objectstack main.\n- `PermissionMatrixEditor.provenanceBadge-7611.test.tsx` is unchanged and still green. It drives no `managedBy` arm.\n\nProvenance: built by the cloud session `session_0193EQMEE4tpjYNJen4LAhgR` (claim `6224724406`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final message, because a cloud session cannot open a PR from its container. The seat ruled the dev's open question 1 as `Clause-②: no` (the removed key and the narrowed type are both unaddressable outside the package); the dev applied it to the changeset in `44d065c`, and the seat set line 2 and the section heading here to match. The seat appended `(objectui#12753)` to the title and replaced the dev's footer line with this paragraph.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_0193EQMEE4tpjYNJen4LAhgR)_\n"
+}

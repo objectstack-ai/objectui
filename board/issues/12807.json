@@ -1,0 +1,36 @@
+{
+  "number": 12807,
+  "kind": "pull_request",
+  "title": "fix(components,react): element:button resolves its inline action's I18nLabel copy (objectui#12757)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: components",
+    "package: react",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T22:03:28Z",
+  "updated_at": "2026-10-16T22:28:57Z",
+  "closed_at": "2026-10-16T22:28:55Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T22:28:55Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12807",
+  "body": "Fixes #12757\nClause-②: no\n\n## What changes\n\n`element:button` hands its inline action to the runner through `useActionTextLocalizer`, the localizer every other action surface already uses. The spec types an inline action's `label`, `confirmText`, `successMessage` and `errorMessage` as `I18nLabel`. Before this change the button forwarded a per-locale map as is. The runner has no language and skips a non-string, so the success toast read the generic 「操作已成功完成」, the error toast read the generic failure copy, and the confirm prompt and the param dialog's title received an object.\n\nThe localizer itself had the same gap. It collapsed a map only for `label` and `successMessage`, and only on a NAMED action. An inline action is often nameless, the producer's invite button among them (objectstack-ai/cloud#2909). So adopting the localizer alone would not have fixed the card's pin. The localizer now collapses all four declared copies to the active language on every action. A translation-bundle entry still wins on a named action. `errorMessage` gets the collapse only, because the spec's action translation bundle declares no key for it. Plain-string copy, and a nameless action whose copy is already text, come back unchanged (the same object).\n\n- `packages/components/src/renderers/basic/elements.tsx`: `ElementButtonRenderer` localizes the declared action inside the click handler, before `execute`.\n- `packages/react/src/hooks/useActionTextLocalizer.ts`: the declared `I18nLabel` copy (`confirmText`, `successMessage`, `errorMessage`, plus `label`) collapses through `pickLocalized` before the bundle lookup, and on the nameless path too.\n- `ActionRunner.ts` is not touched (PR #12799's file). `ActionParamDialog` is not touched: its title is `action.label`, which now arrives as a string.\n\nThe claim listed the localizer as outside the surface. This PR changes it under the dispatch contract's in-place-fix exemption: same defect class, a mechanical extension of the `pickLocalized` step the hook's docblock already pins, no other claim on the file, and the same test family. The seat amends the claim's file surface.\n\n## Evidence\n\n- Tests: `element-button-i18nCopy-12757.test.tsx` (a zh-CN `successMessage` map toasts 「邀请已发送」; `label`, `confirmText` and `errorMessage` maps reach the confirm prompt, the dispatched def and the error toast as zh-CN; an en leg; a plain-string control) and `useActionTextLocalizer.i18nLabelCopy-12757.test.tsx` (nameless; named with no bundle entry; the bundle outranks the collapse; a same-object control).\n- Ablation, renderer: with `localizeActionTexts` taken out, 3 of 4 rows go red ('Received: 「操作已成功完成」') and the control stays green. Restored blob = HEAD.\n- Ablation, localizer: with the collapse taken out, 6 of 8 rows go red and both controls stay green. Restored blob = HEAD.\n- Live reading: a published @objectstack 18.0.0-next.2 showcase backend, with the console from this branch under the zh-CN locale, and the contact form's `successMessage` turned into an en/zh-CN map in a throwaway copy. Before: 「操作已成功完成」. After: 「谢谢！我们已收到您的咨询。」. Screenshots: branch `claude/issue-12757-evidence`, `evidence/12757/`.\n- Local gates on head af0778f: the 137 test files naming the touched symbols (2923 tests) pass; type-check of `@object-ui/components` and `@object-ui/react` passes; the i18n, changeset, test-path-roots, spec-symbols, new-line-citations and action-forward-parity checks exit 0.\n\n## Acceptance notes\n\n- When an action has neither a label nor a name, the localizer's normalized label is the empty string where `element:button` used to forward undefined. The param dialog shows no title either way.\n- Noted, not filed: `ActionSchema.description` is also an `I18nLabel`, and `useConsoleActionRuntime` passes it to `actionDescription` unreduced. A map description on a registered action with params may reach the param dialog as an object. This is a read-only inference and was not measured.\n- Noted, not filed: `element:button` forwards a few keys the spec's `InlineActionSchema` pick list does not carry (`description`, `name`, `navigate`, `to`). It is dormant.\n\nChangesets: `.changeset/12757-element-button-i18n-copy.md` (`@object-ui/components`, patch) and `.changeset/12757-action-text-localizer-copy.md` (`@object-ui/react`, patch).\n\nProvenance: built by the cloud session `session_01UNQYdaeXCqyhJF48NnmykY` (claim `6224898753`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final message, because a cloud session cannot open a PR from its container. The seat replaced the dev's footer line with this paragraph and changed nothing else.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01UNQYdaeXCqyhJF48NnmykY)_\n"
+}

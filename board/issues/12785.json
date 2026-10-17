@@ -1,0 +1,35 @@
+{
+  "number": 12785,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail): a record on a print page does not print its approval band (objectui#12751)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-16T20:31:13Z",
+  "updated_at": "2026-10-16T20:55:32Z",
+  "closed_at": "2026-10-16T20:55:31Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-16T20:55:31Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12785",
+  "body": "Fixes #12751\nClause-②: no\n\n## What\n\nOn a page that declares `print`, a record in approval no longer prints its approval band. The \"Recall approval\" button, the \"In approval · editable\" / \"Locked for approval\" status badge and the \"Approvals — 0 of 1\" tally do not reach paper. Off a print page the band is unchanged.\n\n`packages/plugin-detail/src/DetailView.tsx` now reads `usePrintPage()` once, above every early return (`isPrintPage`), the way `DetailSection` reads it since PR #12729. The approval band's condition gains `&& !isPrintPage`, so on a print page none of the band is drawn: the badge, the recall button, the tally, the per-group ticks and the recall-error line.\n\n## Why hide the status and the tally, not print them as text\n\nThe card leaves this open. The spec answers it:\n- Its print-page refusals reject `record:approvals` and `record:approval_decision` because what they show changes per viewer and per decision.\n- It rejects `record:path` because the current stage is a field that `record:details` already prints.\n\nThe band's badge is host-threaded per viewer (the approvals read, the submitter signal), and its tally moves with every decision. A printed record that should say it is awaiting approval prints the record's own status field through `record:details`. Printing a plain-text badge would add new rendering that nobody has asked for.\n\n## Tests\n\n- New `DetailView.printApprovalBand-12751.test.tsx`:\n  - inside a `PrintPageProvider`, for both an editable and a locking approval: no recall button, no `role=status`, no progressbar, and the record's field still renders;\n  - CONTROL off a print page: the band, the recall button, the badge text and the progressbar render.\n  - Result: 4 passed.\n- Ablation with the fix committed (the band condition back to `schema.showHeader === false && (() => {`): `Tests 2 failed | 2 passed (4)`. Both print rows went red and both controls stayed green. The file was restored from HEAD; blob 97b55210cfb0 equals HEAD and `git diff HEAD` is empty.\n- `pnpm exec vitest run packages/plugin-detail`: 2682 passed, 14 skipped.\n- The 37 test files outside plugin-detail that name `DetailView`: 1784 passed.\n- After the merge with main: the three approval-band files, 28 passed.\n\n## Local gates\n\nAll of these exited 0:\n- the closure build for `@object-ui/plugin-detail`;\n- the plugin-detail type-check;\n- `check:changeset-claims`, `changeset:check`, `check:test-path-roots`, `check:spec-symbols` and `check:new-line-citations`;\n- the changeset presence check.\n\neslint: 0 errors. `DetailView.tsx` has the same warning count as on main, and the new test file is clean.\n\n## Printed page\n\nSetup:\n- Published `@objectstack/*@18.0.0-next.2` showcase backend.\n- A throwaway A4 `print` page on `showcase_invoice`, added in the scratch copy only.\n- INV-1010 in its finance and legal sign-off, submitted by the signed-in admin.\n- Printed to PDF with Chromium on both the record route and the named page route.\n\nResults:\n- Before: the PDF carries \"In approval · editable\", \"Recall approval\" and \"Approvals — 0 of 1\" above the fields.\n- After: only the record's fields.\n\nThe PNGs are on branch `claude/issue-12751-evidence` under `evidence/12751/`.\n\n## Acceptance notes\n\n- Found on the same PDF, not fixed here: the invoice number does not print. `record:details` hides the record's title field because it assumes a page header draws it, and a print page refuses `page:header`. This is reported for the seat to file.\n- Not gated here: `DetailView`'s own header (`showHeader: true`) and the auto-tabs strip. They would print their controls if an author enabled them inside a print page. No producer was measured doing so.\n- The approval decision action bar and the Print button do not reach paper today; their host already hides them in print.\n\nProvenance: built by the cloud session `session_01F54KeYBZhaNDNQjYZJ3HmP` (claim `6223385481`) and opened by the `domain:ui` seat 1 PM (`session_011K9g23W67dy2zwnyzaoB6o`) from that session's final message, because a cloud session cannot open a PR from its container. The seat made no change to the dev's text and added this line.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01F54KeYBZhaNDNQjYZJ3HmP)_\n"
+}

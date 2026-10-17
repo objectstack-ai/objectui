@@ -110,6 +110,8 @@ const ROWS = [
 
 /** What a card click asks the runtime to open. */
 const openRecord = vi.fn();
+/** What the control drawn inside a card does. */
+const cardControl = vi.fn();
 
 vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn(), info: vi.fn(), warning: vi.fn(), dismiss: vi.fn() },
@@ -191,7 +193,20 @@ function Board({ groupBy }: { groupBy: string }) {
 function ObjectViewStub({ schema }: { schema: Record<string, unknown> }) {
   const views = (schema.listViews ?? {}) as Record<string, { type?: string; kanban?: { groupByField?: string } }>;
   const view = views[String(schema.defaultListView)];
-  if (view?.type === 'kanban') return <Board groupBy={view.kanban?.groupByField ?? 'status'} />;
+  if (view?.type === 'kanban') {
+    return (
+      <>
+        <Board groupBy={view.kanban?.groupByField ?? 'status'} />
+        {/* A card drawn with a control in it, in the board's markup (`SortableCard`). */}
+        <div role="listitem" data-kanban-card="r9">
+          <span>Eve</span>
+          <button type="button" onClick={cardControl}>
+            Act
+          </button>
+        </div>
+      </>
+    );
+  }
   return (
     <table>
       <tbody>
@@ -229,6 +244,7 @@ beforeAll(() => {
 beforeEach(() => {
   window.sessionStorage.clear();
   openRecord.mockClear();
+  cardControl.mockClear();
   mockClient.save.mockClear();
   vi.stubGlobal(
     'fetch',
@@ -352,6 +368,19 @@ describe("a card on a kanban leaf's canvas selects the board's card (objectui#12
     fireEvent.click(await card('Cyd'));
     await waitFor(() => expect(outlinedCard()).toBe('r3'));
     expect(openRecord).not.toHaveBeenCalled();
+  });
+
+  it('a control drawn inside a card keeps its click, and selects nothing', async () => {
+    await openBoardLeaf();
+
+    fireEvent.click(within(canvas()).getByRole('button', { name: 'Act' }));
+
+    expect(cardControl).toHaveBeenCalledTimes(1);
+    expect(outlinedCard()).toBeNull();
+    expect(slot()).toHaveAttribute('data-mode', 'copilot');
+    // The card itself still selects.
+    fireEvent.click(within(canvas()).getByText('Eve'));
+    await waitFor(() => expect(outlinedCard()).toBe('r9'));
   });
 
   it("Esc clears the card selection, and the slot keeps the view's properties", async () => {

@@ -2028,6 +2028,11 @@ const ko = {
       cryptoRefusalToastNoSubject: "시크릿을 암호화할 수 없습니다",
       sourceBadgeInherited: "{{source}}에서 상속됨",
       sourceBadgeOverrides: "{{source}} 재정의",
+      envLockBadge: "환경 변수로 잠김",
+      envLockBadgeTitle: "환경 변수로 고정되어 UI에서 편집할 수 없습니다.",
+      deprecatedBadge: "지원 중단됨",
+      deprecatedBadgeReplacedBy: "지원 중단됨 → {{replacedBy}}",
+      unsupportedSpecifierType: "지원되지 않는 설정 항목 유형: {{type}}",
     },
     workspaceTimezonePrompt: {
       title: "환경 시간대 설정",

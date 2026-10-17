@@ -2028,6 +2028,11 @@ const de = {
       cryptoRefusalToastNoSubject: "Geheimnisse können nicht verschlüsselt werden",
       sourceBadgeInherited: "Geerbt von {{source}}",
       sourceBadgeOverrides: "Überschreibt {{source}}",
+      envLockBadge: "Per Umgebung gesperrt",
+      envLockBadgeTitle: "Durch eine Umgebungsvariable festgelegt — kann nicht in der Oberfläche bearbeitet werden.",
+      deprecatedBadge: "Veraltet",
+      deprecatedBadgeReplacedBy: "Veraltet → {{replacedBy}}",
+      unsupportedSpecifierType: "Nicht unterstützter Einstellungstyp: {{type}}",
     },
     workspaceTimezonePrompt: {
       title: "Zeitzone der Umgebung festlegen",

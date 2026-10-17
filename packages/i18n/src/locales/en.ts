@@ -2161,6 +2161,16 @@ const en = {
       // badge, so a pack puts the layer where its own grammar wants it.
       sourceBadgeInherited: 'Inherited from {{source}}',
       sourceBadgeOverrides: 'Overrides {{source}}',
+      // The chips on a settings row's header (objectui#12821): the env-lock
+      // chip and the title it shows when the server sends no reason, and the
+      // `Deprecated` chip, with `{{replacedBy}}` the key that replaces it.
+      // `unsupportedSpecifierType` is the row drawn for a specifier type the
+      // page has no control for, `{{type}}` that type.
+      envLockBadge: 'Locked by env',
+      envLockBadgeTitle: 'Pinned by environment variable — cannot be edited from the UI.',
+      deprecatedBadge: 'Deprecated',
+      deprecatedBadgeReplacedBy: 'Deprecated → {{replacedBy}}',
+      unsupportedSpecifierType: 'Unsupported specifier type: {{type}}',
     },
     // The one-time workspace-timezone prompt (objectui#11758): asked of an
     // administrator while `localization.timezone` is still the manifest default.

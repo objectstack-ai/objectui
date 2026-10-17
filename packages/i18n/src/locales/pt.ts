@@ -2072,6 +2072,11 @@ const pt = {
       cryptoRefusalToastNoSubject: "Não é possível criptografar segredos",
       sourceBadgeInherited: "Herdado de {{source}}",
       sourceBadgeOverrides: "Substitui {{source}}",
+      envLockBadge: "Bloqueado pelo ambiente",
+      envLockBadgeTitle: "Fixado por uma variável de ambiente — não pode ser editado pela interface.",
+      deprecatedBadge: "Obsoleto",
+      deprecatedBadgeReplacedBy: "Obsoleto → {{replacedBy}}",
+      unsupportedSpecifierType: "Tipo de configuração não suportado: {{type}}",
     },
     workspaceTimezonePrompt: {
       title: "Definir o fuso horário do ambiente",

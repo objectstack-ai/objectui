@@ -2074,6 +2074,11 @@ const fr = {
       cryptoRefusalToastNoSubject: "Impossible de chiffrer les secrets",
       sourceBadgeInherited: "Hérité de {{source}}",
       sourceBadgeOverrides: "Remplace {{source}}",
+      envLockBadge: "Verrouillé par l'env.",
+      envLockBadgeTitle: "Fixé par une variable d'environnement — modification impossible depuis l'interface.",
+      deprecatedBadge: "Obsolète",
+      deprecatedBadgeReplacedBy: "Obsolète → {{replacedBy}}",
+      unsupportedSpecifierType: "Type de paramètre non pris en charge : {{type}}",
     },
     workspaceTimezonePrompt: {
       title: "Définir le fuseau horaire de l’environnement",

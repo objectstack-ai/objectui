@@ -1818,6 +1818,11 @@ const zh = {
       cryptoRefusalToastNoSubject: '无法加密机密信息',
       sourceBadgeInherited: '继承自{{source}}',
       sourceBadgeOverrides: '覆盖{{source}}',
+      envLockBadge: '环境变量锁定',
+      envLockBadgeTitle: '由环境变量固定,无法在界面中编辑。',
+      deprecatedBadge: '已弃用',
+      deprecatedBadgeReplacedBy: '已弃用 → {{replacedBy}}',
+      unsupportedSpecifierType: '不支持的设置项类型:{{type}}',
     },
     workspaceTimezonePrompt: {
       title: '设置环境时区',

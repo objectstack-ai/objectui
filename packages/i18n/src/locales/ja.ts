@@ -2030,6 +2030,11 @@ const ja = {
       cryptoRefusalToastNoSubject: "シークレットを暗号化できません",
       sourceBadgeInherited: "{{source}}から継承",
       sourceBadgeOverrides: "{{source}}を上書き",
+      envLockBadge: "環境変数でロック",
+      envLockBadgeTitle: "環境変数で固定されているため、画面から編集できません。",
+      deprecatedBadge: "非推奨",
+      deprecatedBadgeReplacedBy: "非推奨 → {{replacedBy}}",
+      unsupportedSpecifierType: "サポートされていない設定項目の種類: {{type}}",
     },
     workspaceTimezonePrompt: {
       title: "環境のタイムゾーンを設定",

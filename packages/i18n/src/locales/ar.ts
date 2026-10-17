@@ -2225,6 +2225,11 @@ const ar = {
       cryptoRefusalToastNoSubject: "تعذّر تشفير الأسرار",
       sourceBadgeInherited: "موروث من {{source}}",
       sourceBadgeOverrides: "يتجاوز {{source}}",
+      envLockBadge: "مقفل بواسطة البيئة",
+      envLockBadgeTitle: "مثبّت بواسطة متغير بيئة — لا يمكن تعديله من الواجهة.",
+      deprecatedBadge: "مهمل",
+      deprecatedBadgeReplacedBy: "مهمل ← {{replacedBy}}",
+      unsupportedSpecifierType: "نوع إعداد غير مدعوم: {{type}}",
     },
     workspaceTimezonePrompt: {
       title: "تعيين المنطقة الزمنية للبيئة",

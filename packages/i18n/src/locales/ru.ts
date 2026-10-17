@@ -2135,6 +2135,11 @@ const ru = {
       cryptoRefusalToastNoSubject: "Не удалось зашифровать секреты",
       sourceBadgeInherited: "Унаследовано: {{source}}",
       sourceBadgeOverrides: "Переопределяет: {{source}}",
+      envLockBadge: "Задано окружением",
+      envLockBadgeTitle: "Закреплено переменной окружения — изменить в интерфейсе нельзя.",
+      deprecatedBadge: "Устарело",
+      deprecatedBadgeReplacedBy: "Устарело → {{replacedBy}}",
+      unsupportedSpecifierType: "Неподдерживаемый тип настройки: {{type}}",
     },
     workspaceTimezonePrompt: {
       title: "Задайте часовой пояс окружения",

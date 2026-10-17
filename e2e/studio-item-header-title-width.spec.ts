@@ -50,7 +50,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
  *   - Fonts are whatever Chromium falls back to (`Inter` is named by the theme
  *     and not installed in the test lane). The assertions are the card's
  *     floor (200 px) and relations (clipped or whole, inside the row), and the
- *     widths themselves go to the report.
+ *     widths themselves go to the report. Where a CONTROL's outcome depends
+ *     on the font (does the short chip fit beside 200 px of title at 560 px?),
+ *     it asserts the row's rule from widths measured on the same page, then
+ *     asserts "whole" at the narrowest row that holds the item: CI's fallback
+ *     font draws the title about 17% wider than a local one.
  */
 
 const REPO_ROOT = (() => {
@@ -229,10 +233,21 @@ interface Box {
   clipped: boolean;
 }
 
+/** The steps the row shares out, read from the browser (`studio-tokens.ts`). */
+interface Steps {
+  /** The title's basis: 200 px. */
+  title: number;
+  /** The chip's basis: 14 characters of its own font, in px. */
+  chip: number;
+  /** The chip's minimum: 5 characters, in px. */
+  chipMin: number;
+}
+
 interface Reading {
   row: { width: number; scrollWidth: number };
   title: Box & { text: string };
   chip: Box & { text: string; tabIndex: number };
+  steps: Steps;
   kindChip: Box | null;
   status: { width: number; textShown: boolean };
   /** Every child of the row lies inside it. */
@@ -240,6 +255,37 @@ interface Reading {
   /** Title, api chip, chips: the order objectui#11665 and objectui#7254 pin. */
   identityOrder: string[];
   documentOverflowX: number;
+}
+
+/**
+ * The widths the row's rule gives the title and the chip, from what this page
+ * measured: the room the two share (every other slot is fixed or takes only
+ * what they leave), each one's whole text, and the steps. This is what makes
+ * the CONTROLs below hold under any font: they assert the rule, not one
+ * font's pixels. The four steps, in order: the title to its basis (or its
+ * whole text), the chip to its basis (or its whole name), the title to its
+ * whole text, the chip to its whole name. On a row too narrow for both bases
+ * the chip gives way first, down to its minimum.
+ */
+function predict(r: Reading): { room: number; title: number; chip: number } {
+  const room = r.title.width + r.chip.width;
+  const titleFull = r.title.scrollWidth;
+  const chipFull = r.chip.scrollWidth;
+  const titleStep = Math.min(r.steps.title, titleFull);
+  const chipStep = Math.max(r.steps.chipMin, Math.min(r.steps.chip, chipFull));
+  if (room >= titleFull + chipFull) return { room, title: titleFull, chip: chipFull };
+  if (room >= titleFull + chipStep) return { room, title: titleFull, chip: room - titleFull };
+  if (room >= titleStep + chipStep) return { room, title: room - chipStep, chip: chipStep };
+  const chip = Math.max(r.steps.chipMin, room - titleStep);
+  return { room, title: room - chip, chip };
+}
+
+/** The reading matches the rule, to a pixel (scroll widths are whole pixels). */
+function expectRule(r: Reading): void {
+  const want = predict(r);
+  const got = `title ${r.title.width}px (text ${r.title.scrollWidth}px), chip ${r.chip.width}px (name ${r.chip.scrollWidth}px), steps ${JSON.stringify(r.steps)}`;
+  expect(Math.abs(r.title.width - want.title), `title should be ${want.title}px: ${got}`).toBeLessThanOrEqual(1);
+  expect(Math.abs(r.chip.width - want.chip), `chip should be ${want.chip}px: ${got}`).toBeLessThanOrEqual(1);
 }
 
 let bundle = '';
@@ -312,6 +358,14 @@ async function measure(page: Page): Promise<Reading> {
     const statusText = status.querySelector<HTMLElement>('[data-slot="status-text"]')!;
     const row = title.parentElement!;
     const rowRect = row.getBoundingClientRect();
+    // Computed lengths are absolute, so `14ch` and `5ch` come back in px, in
+    // the chip's own font.
+    const px = (v: string) => parseFloat(v) || 0;
+    const steps = {
+      title: px(getComputedStyle(title).flexBasis),
+      chip: px(getComputedStyle(chip).flexBasis),
+      chipMin: px(getComputedStyle(chip).minWidth),
+    };
     // The row's boxes: its children, and the children of a `contents` wrapper
     // (the identity chips), which draws no box of its own.
     const boxes = Array.from(row.children).flatMap((el) =>
@@ -322,6 +376,7 @@ async function measure(page: Page): Promise<Reading> {
       row: { width: round(rowRect.width), scrollWidth: row.scrollWidth },
       title: { ...boxOf(title), text: title.textContent ?? '' },
       chip: { ...boxOf(chip), text: chip.textContent ?? '', tabIndex: chip.tabIndex },
+      steps,
       kindChip: kind ? boxOf(kind) : null,
       status: { width: round(status.getBoundingClientRect().width), textShown: statusText.getBoundingClientRect().width > 1 },
       childrenInsideRow: shown.every((el) => {
@@ -378,21 +433,44 @@ test.describe('the Studio item title keeps its room beside a long api name (obje
     await expect(page.getByRole('tooltip')).toHaveText(LONG_API);
   });
 
-  test('CONTROL: at a 560 px row with a short api name, the chip is whole', async ({ page }, testInfo) => {
-    const r = await read(page, CASES.short560, testInfo);
-    expect(r.chip.text).toBe(SHORT_API);
-    expect(r.chip.clipped, `chip ${r.chip.width}px for ${r.chip.scrollWidth}px of name`).toBe(false);
-    expect(r.title.width).toBeGreaterThanOrEqual(TITLE_FLOOR);
-    expect(r.childrenInsideRow).toBe(true);
-  });
-
-  test("CONTROL: at a 736 px row (the card's 1024 px viewport) the title is whole, and the chip takes what is left", async ({
+  test('CONTROL: with a short api name the chip is whole wherever the row holds it beside the 200 px title', async ({
     page,
   }, testInfo) => {
+    // At 560 px: the rule, from this page's own widths. Whether the short
+    // chip fits there beside 200 px of title depends on the font (the status
+    // chip and the actions are text too), so it is not asserted as a pixel.
+    const r = await read(page, CASES.short560, testInfo);
+    expect(r.chip.text).toBe(SHORT_API);
+    expect(r.title.width).toBeGreaterThanOrEqual(TITLE_FLOOR);
+    expect(r.childrenInsideRow).toBe(true);
+    expectRule(r);
+    // Then at the narrowest row that holds 200 px of title and the whole
+    // short name (560 px when this font leaves room there): the chip is whole.
+    const shortfall = Math.max(0, r.steps.title + r.chip.scrollWidth - predict(r).room);
+    const fits = shortfall > 0 ? await read(page, { ...CASES.short560, name: 'short-fits', row: Math.ceil(560 + shortfall) + 1 }, testInfo) : r;
+    expect(fits.chip.clipped, `chip ${fits.chip.width}px for ${fits.chip.scrollWidth}px of name at a ${fits.row.width}px row`).toBe(false);
+    expect(fits.title.width).toBeGreaterThanOrEqual(TITLE_FLOOR);
+    expectRule(fits);
+  });
+
+  test("CONTROL: the title is whole wherever the row holds it beside the chip's 14 characters (736 px, the card's 1024 px viewport)", async ({
+    page,
+  }, testInfo) => {
+    // At 736 px: the rule, from this page's own widths. Whether the whole
+    // title fits there beside the chip's 14 characters depends on the font.
     const r = await read(page, CASES.long736, testInfo);
-    expect(r.title.clipped, `title ${r.title.width}px for ${r.title.scrollWidth}px of text`).toBe(false);
     expect(r.title.text).toBe(TITLE);
     expect(r.childrenInsideRow).toBe(true);
+    expectRule(r);
+    // Then at the narrowest row that holds the whole title and the chip's
+    // 14 characters (736 px when this font leaves room there): the title is
+    // whole, and the long chip is what is cut.
+    const chipStep = Math.min(r.steps.chip, r.chip.scrollWidth);
+    const shortfall = Math.max(0, r.title.scrollWidth + chipStep - predict(r).room);
+    const fits = shortfall > 0 ? await read(page, { ...CASES.long736, name: 'long-fits', row: Math.ceil(736 + shortfall) + 1 }, testInfo) : r;
+    expect(fits.title.clipped, `title ${fits.title.width}px for ${fits.title.scrollWidth}px of text at a ${fits.row.width}px row`).toBe(false);
+    expect(fits.chip.clipped).toBe(true);
+    expectRule(fits);
   });
 
   test('CONTROL: at a 1024 px row with the long api name, neither the title nor the chip is cut', async ({ page }, testInfo) => {

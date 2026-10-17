@@ -54,6 +54,8 @@ import { AppNoAccessEmptyState } from './AppNoAccessEmptyState.js';
 import { appServesNoNavigation } from './appServesNoNavigation.js';
 import { useNavMemberGates, navEntriesShownToMember } from '../hooks/useNavMemberGates.js';
 import { resolveSetupAppPath } from './ConsoleShell.js';
+import { collectRoutePaths, metadataReadsForAppRoute, type LazyMetadataType } from './appRouteMetadataReads.js';
+import { SkeletonDashboard, SkeletonDetail, SkeletonGrid } from '../skeletons/index.js';
 
 // Route-based code splitting — lazy-load less-frequently-used routes
 const RecordDetailView = lazy(() => import('../views/RecordDetailView.js').then(m => ({ default: m.RecordDetailView })));
@@ -194,7 +196,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   const navigate = useNavigate();
   const location = useLocation();
   const { appName } = useParams();
-  const { apps, objects: allObjects, loading: metadataLoading, ensureType, error: metadataError, refresh: refreshMetadata } = useMetadata();
+  const { apps, objects: allObjects, loading: metadataLoading, ensureType, getTypeStatus, error: metadataError, refresh: refreshMetadata } = useMetadata();
   // objectui#7373 — where this file's two "you cannot be here" exits land. Both
   // sit BELOW the readiness gate further down (`metadataLoading` &c), so the
   // list they resolve against has settled; an app list that failed to load is
@@ -205,26 +207,29 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   const { t } = useObjectTranslation();
   const { objectLabel, objectPluralLabel } = useObjectLabel();
 
-  // Preload the metadata buckets that the routes under /apps/:appName/* assume
-  // are fully loaded by render time (the lazy MetadataProvider only eagerly
-  // loads `app`).
-  const [scopeMetaReady, setScopeMetaReady] = useState(!ensureType);
-  useEffect(() => {
-    if (!ensureType) {
-      setScopeMetaReady(true);
-      return;
-    }
-    let cancelled = false;
-    Promise.all([
-      ensureType('object'),
-      ensureType('dashboard'),
-      ensureType('report'),
-      ensureType('page'),
-    ]).finally(() => {
-      if (!cancelled) setScopeMetaReady(true);
-    });
-    return () => { cancelled = true; };
-  }, [ensureType]);
+  // objectui#12809 — the lazy metadata buckets the CURRENT route reads at
+  // render (`appRouteMetadataReads.ts` declares them per route). This used to
+  // be a preload of all four (`object`, `dashboard`, `report`, `page`) that held
+  // the splash on every route; now the splash holds only for the current
+  // route's, and a later navigation onto a route whose buckets have not landed
+  // shows a skeleton in the route slot (below) instead of an empty list or a
+  // "not found". The record-form overlay (`?form=`) edits a record of an object,
+  // so it reads `object` on any route.
+  const hostRoutePaths = useMemo(
+    () => [...collectRoutePaths(extraRoutes), ...collectRoutePaths(extraRoutesNoApp)],
+    [extraRoutes, extraRoutesNoApp],
+  );
+  const appSubPath = location.pathname.split('/').filter(Boolean).slice(2).join('/');
+  const routeReads = metadataReadsForAppRoute(appSubPath, hostRoutePaths);
+  const routeReadsKey = [
+    ...routeReads,
+    ...(searchParamsHasRecordForm(location.search) && !routeReads.includes('object') ? ['object'] : []),
+  ].join(',');
+  const routeReadsSettled = useLazyMetadataSettled(routeReadsKey, ensureType, getTypeStatus);
+  // Set once the first frame past the splash has rendered. After it, a route
+  // waiting on its buckets draws its skeleton inside the console chrome rather
+  // than taking the whole console back to the splash.
+  const firstPaintDone = useRef(false);
 
   // Hidden apps (`App.hidden`) are excluded from app-listing surfaces
   // (sidebar switcher, home grid, app switcher). The active app for the
@@ -813,7 +818,16 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // organization stamped) waits exactly zero extra frames. What does wait is
   // the viewer whose verdict genuinely is not known yet — and for them a
   // LoadingScreen is the honest frame, not a screen built on a guess.
-  if (!dataSource || metadataLoading || !scopeMetaReady || !isWorkspaceAdminResolved) return <LoadingScreen />;
+  //
+  // objectui#12809 — of the lazy metadata, the splash waits only for what the
+  // current route reads (`routeReadsSettled`), and only until the first paint.
+  if (
+    !dataSource ||
+    metadataLoading ||
+    !isWorkspaceAdminResolved ||
+    (!firstPaintDone.current && !routeReadsSettled)
+  ) return <LoadingScreen />;
+  firstPaintDone.current = true;
 
   // ADR-0037 — preview mode renders its OWN empty/error states and never
   // falls through to the generic "No Apps Configured" guard below: inside a
@@ -1062,6 +1076,9 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   );
 
   if (!activeApp && (isCreateAppRoute || isSystemRoute || isMetadataRoute)) {
+    // objectui#12809 — no chrome on this branch, so a route still waiting on
+    // its metadata keeps the splash, as its Suspense fallback does.
+    if (!routeReadsSettled) return <LoadingScreen />;
     return (
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
@@ -1148,6 +1165,9 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
           <ErrorBoundary>
             <Suspense fallback={<LoadingScreen />}>
               <RouteFader className="h-full">
+                {/* objectui#12809 — the route's metadata has not landed: its
+                    skeleton, never its empty or "not found" state. */}
+                {!routeReadsSettled ? <RouteMetadataSkeleton reads={routeReadsKey} /> : (
                 <Routes>
                 <Route
                   path="/"
@@ -1231,6 +1251,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
                     page so users always know when a URL didn't resolve. */}
                 <Route path="*" element={<RouteNotFound />} />
               </Routes>
+                )}
               </RouteFader>
             </Suspense>
           </ErrorBoundary>
@@ -1529,6 +1550,64 @@ function RouteNotFound() {
           </Button>
         </div>
       </Empty>
+    </div>
+  );
+}
+
+/**
+ * objectui#12809 — whether the record-form overlay is open in the URL. Its
+ * object definition comes from the `object` bucket on every route.
+ */
+function searchParamsHasRecordForm(search: string): boolean {
+  const sp = new URLSearchParams(search);
+  return sp.has(RECORD_FORM_PARAM) || sp.has(RECORD_FORM_OBJECT_PARAM);
+}
+
+/**
+ * objectui#12809 — whether every bucket in `readsKey` (comma-joined) has
+ * answered: ready, or failed (a failure is an answer the route renders).
+ *
+ * A bucket that answered once and is now refetching (a `refresh()`, a lapsed
+ * TTL) keeps its items while it loads, so it still counts: the route stays
+ * mounted instead of dropping to a skeleton. A bucket back at `idle` (an
+ * organization switch or an `invalidate` dropped its items) waits again.
+ *
+ * A provider without `ensureType` / `getTypeStatus` (test doubles, hosts on an
+ * older context) has nothing to wait on: settled, as the old preload read it.
+ */
+function useLazyMetadataSettled(
+  readsKey: string,
+  ensureType: ((type: string) => Promise<unknown>) | undefined,
+  getTypeStatus: ((type: string) => string) | undefined,
+): boolean {
+  const answered = useRef(new Set<string>());
+  const types = readsKey ? readsKey.split(',') : [];
+  const statuses = types.map((type) => getTypeStatus?.(type) ?? 'idle');
+  // Asked from an effect, never from render (the provider bumps its context
+  // when an answer lands). Re-asked whenever one of them is back at `idle`.
+  const idleKey = types.filter((_, i) => statuses[i] === 'idle').join(',');
+  useEffect(() => {
+    if (!ensureType) return;
+    for (const type of readsKey.split(',')) if (type) void ensureType(type);
+  }, [readsKey, idleKey, ensureType]);
+
+  if (!ensureType || !getTypeStatus || types.length === 0) return true;
+  let settled = true;
+  types.forEach((type, i) => {
+    const status = statuses[i];
+    if (status === 'ready' || status === 'error') answered.current.add(type);
+    else if (status === 'idle') answered.current.delete(type);
+    if (!answered.current.has(type)) settled = false;
+  });
+  return settled;
+}
+
+/** The route slot while its metadata loads, shaped like what will land there. */
+function RouteMetadataSkeleton({ reads }: { reads: string }) {
+  const types = reads.split(',') as LazyMetadataType[];
+  return (
+    <div data-testid="route-metadata-skeleton" className="h-full">
+      {types[0] === 'dashboard' ? <SkeletonDashboard /> : types.includes('page') ? <SkeletonDetail /> : <SkeletonGrid />}
     </div>
   );
 }

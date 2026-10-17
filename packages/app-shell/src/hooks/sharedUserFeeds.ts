@@ -67,6 +67,9 @@ import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { useAuth } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
 import { errorCodeIs } from '@object-ui/types';
+// The refused-read verdict the record activity panel reads (objectui#11195),
+// so a refused `sys_activity` read means the same thing on Home (objectui#12843).
+import { isRefusedFeedRead } from '@object-ui/plugin-detail';
 // Re-exported from `@object-ui/react` — import it through the provider module
 // so a consumer that stubs the provider stubs this too.
 import { useAdapter } from '../providers/AdapterProvider.js';
@@ -179,6 +182,14 @@ export type SharedFeedStatus = 'idle' | 'loading' | 'ready' | 'error';
 export interface SharedFeedSnapshot<T> {
   value: T;
   status: SharedFeedStatus;
+  /**
+   * Present, and `true`, only on an `error` snapshot whose read the server
+   * REFUSED (objectui#12843) — the verdict is plugin-detail's
+   * `isRefusedFeedRead`, the one the record activity panel reads
+   * (objectui#11195). Absent on every other snapshot, so a feed whose runner
+   * never calls `markRefused` publishes exactly the shape it always did.
+   */
+  refused?: boolean;
 }
 
 /**
@@ -193,10 +204,16 @@ export interface SharedFeedSnapshot<T> {
  *  - `markFailed()` reports a read that should have worked and did not. The
  *    last value stays on screen, the status goes `error`, and the next poll
  *    backs off. A thrown error is equivalent — the runner may just let it fly.
+ *  - `markRefused()` is `markFailed()` for a read the server REFUSED
+ *    (objectui#12843): the same `error` state and backoff, with `refused` on
+ *    the snapshot so a consumer can say "no permission" instead of "something
+ *    went wrong". The runner decides which with the shared verdict; the store
+ *    classifies nothing itself.
  */
 type FeedRunner<T> = (ctx: {
   markUnavailable: () => void;
   markFailed: () => void;
+  markRefused: () => void;
 }) => Promise<T | undefined>;
 
 /**
@@ -312,6 +329,7 @@ class SharedFeed<T> {
     // loading state ten times a minute.
     if (this.snapshot.status === 'idle') this.publish(this.snapshot.value, 'loading');
     let failed = false;
+    let refused = false;
     try {
       const next = await runner({
         // Already retired ⇒ this WAS a probe, and it came back missing again.
@@ -319,6 +337,10 @@ class SharedFeed<T> {
         markUnavailable: () => (probing ? this.spendProbe() : this.retire()),
         markFailed: () => {
           failed = true;
+        },
+        markRefused: () => {
+          failed = true;
+          refused = true;
         },
       });
       if (next !== undefined) {
@@ -337,7 +359,7 @@ class SharedFeed<T> {
         // reason to start telling a community build its inbox is broken. Spend
         // the probe, keep the state, let the next one decide (#4315).
         if (probing) this.spendProbe();
-        else this.fail();
+        else this.fail(refused);
       }
     } catch {
       // Not swallowed into "keep the last value and say nothing": the value
@@ -382,10 +404,13 @@ class SharedFeed<T> {
     this.stopPolling();
   }
 
-  /** A read that should have worked did not — report it and back the poll off. */
-  private fail(): void {
+  /**
+   * A read that should have worked did not — report it and back the poll off.
+   * `refused` marks the `error` snapshot as a refusal (objectui#12843).
+   */
+  private fail(refused = false): void {
     this.backoffMs = Math.min(Math.max(this.backoffMs, this.pollMs) * 2, MAX_BACKOFF_MS);
-    this.publish(this.snapshot.value, 'error');
+    this.publish(this.snapshot.value, 'error', refused);
   }
 
   private schedule(): void {
@@ -468,9 +493,17 @@ class SharedFeed<T> {
     }
   }
 
-  private publish(next: T, status: SharedFeedStatus): void {
-    if (Object.is(next, this.snapshot.value) && status === this.snapshot.status) return;
-    this.snapshot = { value: next, status };
+  private publish(next: T, status: SharedFeedStatus, refused = false): void {
+    if (
+      Object.is(next, this.snapshot.value) &&
+      status === this.snapshot.status &&
+      refused === (this.snapshot.refused === true)
+    ) {
+      return;
+    }
+    // `refused` is written only when true, so every snapshot that is not a
+    // refusal keeps the two-key shape it always had.
+    this.snapshot = refused ? { value: next, status, refused: true } : { value: next, status };
     for (const listener of [...this.listeners]) listener();
   }
 
@@ -854,6 +887,15 @@ export interface ActivityFeedReading extends SharedFeedSnapshot<ActivityItem[]> 
    * See {@link useSharedActivityFeed} for why unknown permissions read `true`.
    */
   readable: boolean;
+  /**
+   * `true` only when `status` is `error` because the server REFUSED the read
+   * (objectui#12843) — a refusal by `isRefusedFeedRead`, the verdict the
+   * record activity panel reads (objectui#11195). A consumer that shows a
+   * failure shows the permission copy instead; every other failure leaves it
+   * unset and keeps the generic one. Optional so a consumer that builds a
+   * reading of its own is unchanged.
+   */
+  refused?: boolean;
 }
 
 const ACTIVITY_OBJECT = 'sys_activity';
@@ -980,7 +1022,7 @@ export function useSharedActivityFeed(): ActivityFeedReading {
     activity.settled && appsSettled && readable && adapter
       ? `${adapter}:${user?.id ?? ''}:${rosterKey}`
       : null,
-    async ({ markUnavailable, markFailed }) => {
+    async ({ markUnavailable, markFailed, markRefused }) => {
       if (!dataSource) return undefined;
       if (activity.presence === 'absent') {
         // This deployment declares no `sys_activity`. That IS the answer the
@@ -1001,9 +1043,11 @@ export function useSharedActivityFeed(): ActivityFeedReading {
         }>,
       ).catch((err: unknown) => {
         // No `sys_activity` object ⇒ this deployment has no audit plugin, which
-        // is an answer. Anything else — a refusal included — is a read that
-        // failed and must say so.
+        // is an answer. Anything else is a read that failed and must say so —
+        // and a REFUSED one says which, by the record panel's own verdict
+        // (objectui#12843), so its consumers can show the permission copy.
         if (isMissingResource(err)) markUnavailable();
+        else if (isRefusedFeedRead(err)) markRefused();
         else markFailed();
         return null;
       });
@@ -1011,7 +1055,12 @@ export function useSharedActivityFeed(): ActivityFeedReading {
       return mapActivityRows(Array.isArray(res.data) ? res.data : []);
     },
   );
-  return { value: snapshot.value, status: snapshot.status, readable };
+  return {
+    value: snapshot.value,
+    status: snapshot.status,
+    readable,
+    refused: snapshot.status === 'error' && snapshot.refused === true,
+  };
 }
 
 /**
@@ -1021,7 +1070,7 @@ export function useSharedActivityFeed(): ActivityFeedReading {
  * shared feed's, unchanged: a cut of the rows is not a different answer.
  */
 export function useHumanActivityFeed(limit: number): ActivityFeedReading {
-  const { value: all, status, readable } = useSharedActivityFeed();
+  const { value: all, status, readable, refused } = useSharedActivityFeed();
   const human = useMemo(() => {
     const kept = all.filter((a) => {
       const actor = a.user.trim();
@@ -1029,7 +1078,7 @@ export function useHumanActivityFeed(limit: number): ActivityFeedReading {
     });
     return kept.slice(0, limit);
   }, [all, limit]);
-  return { value: human, status, readable };
+  return { value: human, status, readable, refused };
 }
 
 // ── Inbox messages ───────────────────────────────────────────────────────────

@@ -86,6 +86,22 @@ const HIDDEN_ICON_LABEL_NO_POINTER =
   'group-data-[state=collapsed]:group-data-[collapsible=icon]:pointer-events-none';
 
 /**
+ * The classes every group label here carries so that, once the sidebar
+ * collapses to icons, a hidden label is no keyboard focus stop and nothing a
+ * screen reader announces (objectui#12795). The primitive draws the label at
+ * `opacity-0` there, which leaves it in the tab order and in the accessibility
+ * tree; `invisible` takes it out of both, under the primitive's own hiding
+ * condition, so the expanded sidebar is unchanged. `visibility` joins the
+ * primitive's transition list under the same condition, so the label still
+ * fades out before it is hidden, and on expand it is visible at once and fades
+ * in. `NavigationRenderer` (in `@object-ui/layout`) gives its group labels the
+ * same pair, and a pin enumerates every `SidebarGroupLabel` call site.
+ */
+const HIDDEN_ICON_LABEL_NOT_FOCUSABLE =
+  'group-data-[state=collapsed]:group-data-[collapsible=icon]:invisible ' +
+  'group-data-[state=collapsed]:group-data-[collapsible=icon]:transition-[margin,opacity,visibility]';
+
+/**
  * The classes the sidebar content carries so that, once the sidebar collapses
  * to icons, the rail scrolls vertically when its rows overflow (objectui#12794).
  * The `SidebarContent` primitive sets `overflow-hidden` under this variant, so
@@ -521,7 +537,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
               area visibility is derived from the items inside (#3319) */}
            {visibleAreas.length > 1 && (
              <SidebarGroup>
-               <SidebarGroupLabel className="flex items-center gap-1.5">
+               <SidebarGroupLabel className={`flex items-center gap-1.5 ${HIDDEN_ICON_LABEL_NOT_FOCUSABLE}`}>
                  <Layers className="h-3.5 w-3.5" />
                  {t('sidebar.area', { defaultValue: 'Area' })}
                </SidebarGroupLabel>
@@ -580,7 +596,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
            {recentItems.length > 0 && (
              <SidebarGroup>
                <SidebarGroupLabel
-                 className={`flex items-center gap-1.5 cursor-pointer select-none ${HIDDEN_ICON_LABEL_NO_POINTER}`}
+                 className={`flex items-center gap-1.5 cursor-pointer select-none ${HIDDEN_ICON_LABEL_NO_POINTER} ${HIDDEN_ICON_LABEL_NOT_FOCUSABLE}`}
                  onClick={() => setRecentExpanded(prev => !prev)}
                >
                  <ChevronRight className={`h-3 w-3 transition-transform duration-150 ${recentExpanded ? 'rotate-90' : ''}`} />
@@ -667,7 +683,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
            {/* Starred Apps */}
            {favorites.filter(f => f.type === 'object' || f.type === 'dashboard' || f.type === 'page').length > 0 && (
              <SidebarGroup>
-               <SidebarGroupLabel className="flex items-center gap-1.5">
+               <SidebarGroupLabel className={`flex items-center gap-1.5 ${HIDDEN_ICON_LABEL_NOT_FOCUSABLE}`}>
                  <Star className="h-3.5 w-3.5" />
                  {t('sidebar.starred', { defaultValue: 'Starred' })}
                </SidebarGroupLabel>

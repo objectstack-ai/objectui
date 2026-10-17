@@ -15,7 +15,7 @@
  */
 import {
   ArrowRight, Bell, Check,
-  FileText, Database, LayoutDashboard, File, List, CircleAlert, Rocket,
+  FileText, Database, LayoutDashboard, File, List, CircleAlert, Rocket, Lock,
 } from 'lucide-react';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { Button, cn } from '@object-ui/components';
@@ -568,6 +568,13 @@ export function HomeContinue({
  * bell's Activity tab renders for the same row (objectui#12238): the label in
  * the reader's language, the API name only when none resolves.
  *
+ * A read the server REFUSED anyway (a grant the client believed, or no loaded
+ * grant to ask) says so with the record activity panel's own sentence and
+ * lock (objectui#12843), not the generic failure: the feed marks the refusal
+ * with that panel's verdict (`isRefusedFeedRead`, objectui#11195), and this
+ * card reads the same `detail.activityAccessDenied` key. Every other failure
+ * keeps the generic copy.
+ *
  * Laid out as Home's section ④ (objectui#12604): the heading above a card with
  * 12 px padding; each row the actor (13 px / 500), the verb and target muted,
  * and a 12 px line of time and object; "View all activity →" the last row.
@@ -586,7 +593,14 @@ export function HomeActivity({ activity, onViewAll, t }: { activity: ActivityFee
             className="flex items-center gap-2 py-2 text-[13px] text-muted-foreground"
             data-testid="home-activity-unanswered"
           >
-            {activity.status === 'error' ? (
+            {activity.status === 'error' && activity.refused ? (
+              <span className="flex items-center gap-2" data-testid="home-activity-access-denied">
+                <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
+                {t('detail.activityAccessDenied', {
+                  defaultValue: "You don't have permission to view activity on this record.",
+                })}
+              </span>
+            ) : activity.status === 'error' ? (
               <>
                 <CircleAlert className="h-4 w-4 text-amber-500" />
                 {t('errors.unknown', { defaultValue: 'An unexpected error occurred.' })}

@@ -105,6 +105,30 @@ import { byNavOrder } from './navOrder';
 const HIDDEN_ICON_LABEL_NO_POINTER =
   'group-data-[state=collapsed]:group-data-[collapsible=icon]:pointer-events-none';
 
+/**
+ * The classes this file's sidebar group labels carry so that, once the sidebar
+ * collapses to icons, a hidden label is no keyboard focus stop and nothing a
+ * screen reader announces (objectui#12795).
+ *
+ * The primitive draws the label at `opacity-0` there, which leaves it in the
+ * tab order and in the accessibility tree. A collapsible group's label is its
+ * disclosure button, so Tab from the row above it landed on an invisible
+ * button and Enter toggled a group the user could not see. `invisible`
+ * (`visibility: hidden`) takes the label out of both, under the primitive's
+ * own hiding condition, so in the expanded sidebar every label is focusable
+ * and toggles as before. Visibility would switch at once and cut the label's
+ * fade-out short, so under the same condition `visibility` joins the
+ * primitive's transition list: the label stays visible while it fades and is
+ * hidden when the fade ends. On expand the variant no longer applies, so the
+ * label is visible at once and fades in as before.
+ *
+ * Module-local for the same reason as the constant above. Every
+ * `SidebarGroupLabel` call site carries this pair; a pin enumerates them.
+ */
+const HIDDEN_ICON_LABEL_NOT_FOCUSABLE =
+  'group-data-[state=collapsed]:group-data-[collapsible=icon]:invisible ' +
+  'group-data-[state=collapsed]:group-data-[collapsible=icon]:transition-[margin,opacity,visibility]';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -1560,7 +1584,7 @@ function NavigationItemRenderer({
     const group = (
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <SidebarGroup>
-          <SidebarGroupLabel asChild className={HIDDEN_ICON_LABEL_NO_POINTER}>
+          <SidebarGroupLabel asChild className={cn(HIDDEN_ICON_LABEL_NO_POINTER, HIDDEN_ICON_LABEL_NOT_FOCUSABLE)}>
             <CollapsibleTrigger className={cn('flex w-full items-center justify-between', isMobile && 'min-h-[44px] text-[15px] rounded-xl')}>
               {groupLabel}
               <ChevronRight
@@ -1848,7 +1872,7 @@ export function NavigationRenderer({
   const hasExtraFavorites = React.Children.toArray(extraFavorites).length > 0;
   const favoritesSection = showPinned || hasExtraFavorites ? (
     <SidebarGroup>
-      <SidebarGroupLabel className={cn('flex items-center gap-1.5', HIDDEN_ICON_LABEL_NO_POINTER)}>
+      <SidebarGroupLabel className={cn('flex items-center gap-1.5', HIDDEN_ICON_LABEL_NO_POINTER, HIDDEN_ICON_LABEL_NOT_FOCUSABLE)}>
         <Star className="h-3.5 w-3.5" />
         {tProp ? tProp('console.nav.favorites', { defaultValue: 'Favorites' }) : 'Favorites'}
       </SidebarGroupLabel>

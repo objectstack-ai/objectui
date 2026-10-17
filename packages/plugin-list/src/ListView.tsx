@@ -3074,6 +3074,24 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           // declare is never sent.
           addSpeculative(rowColorConfig?.field);
 
+          // [objectui#11815] A shown DECLARED deadline's `settledWhen`
+          // operands. The cells judge `isDeadlineSettled` against the row
+          // they draw, and an absent key is a CEL fault (`No such key`), not
+          // a null — so a list showing Title and Due but not `status` fetched
+          // rows without it, and a done row's deadline still read overdue.
+          // Asked of the columns that survived the FLS gate (`cols`): a
+          // deadline the viewer may not read is not drawn, so nothing judges
+          // it. Through `addSpeculative`, like every binding here: an operand
+          // the viewer may not read is never requested, and that row's
+          // deadline then stays unsettled (it fails toward overdue).
+          const deadlineDefs = objectDef?.fields as Record<string, { dueLike?: unknown; settledWhen?: unknown } | undefined> | undefined;
+          for (const f of collectPredicateFieldRefs(
+            cols
+              .map((c) => deadlineDefs?.[c])
+              .filter((def) => def?.dueLike === true && def.settledWhen != null)
+              .map((def) => def!.settledWhen),
+          )) addSpeculative(f);
+
           for (const f of collectPredicateFieldRefs(listViewPredicates({
             conditionalFormatting: schema.conditionalFormatting as unknown[] | undefined,
             /**

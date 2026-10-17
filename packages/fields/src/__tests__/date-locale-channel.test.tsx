@@ -348,14 +348,15 @@ describe('en session — output is byte-identical (must-not-change)', () => {
 
 describe('the already-localized overdue branch is undisturbed (green both sides)', () => {
   it('resolves through the translate fn, not through Intl — zh', () => {
-    renderSession('zh', <DateCellRenderer value={daysFromNow(-6)} field={dateField('due_date')} />);
+    // Declared (objectui#11815): overdue is declared-only, the name guesses nothing.
+    renderSession('zh', <DateCellRenderer value={daysFromNow(-6)} field={{ ...dateField('due_date'), dueLike: true }} />);
     const el = screen.getByText('逾期 6 天');
     expect(el).toBeInTheDocument();
     expect(el.className).toMatch(/text-red-600/);
   });
 
   it('resolves through the translate fn, not through Intl — en', () => {
-    renderSession('en', <DateCellRenderer value={daysFromNow(-6)} field={dateField('due_date')} />);
+    renderSession('en', <DateCellRenderer value={daysFromNow(-6)} field={{ ...dateField('due_date'), dueLike: true }} />);
     expect(screen.getByText('Overdue 6d')).toBeInTheDocument();
   });
 });

@@ -20,6 +20,7 @@ import {
   useDataInvalidation,
   useFilterScope,
   useResolvedFilter,
+  usePredicateScope,
 } from '@object-ui/react';
 import {
   NavigationOverlay,
@@ -42,6 +43,7 @@ import {
   isEmptyValue,
   resolveNameField,
   resolveAffordance,
+  isDeadlineSettled,
   type SchemaLike,
 } from '@object-ui/core';
 import { getBadgeColorClasses, getBadgeHexAppearance, getCellRenderer, resolveCellRendererType } from '@object-ui/fields';
@@ -1056,6 +1058,9 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
   const ownerPersonObject = typeof ownerReference === 'string' && ownerReference ? ownerReference : 'sys_user';
 
   // Enhance data with title mapping and ensure IDs
+  // The host predicate scope a card's declared deadline is judged in
+  // (objectui#11815).
+  const predicateScope = usePredicateScope();
   const effectiveData = useMemo(() => {
     if (!Array.isArray(rawData)) return [];
 
@@ -1328,6 +1333,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
               <CellRenderer
                 value={raw}
                 field={fieldForCell}
+                deadlineSettled={isDeadlineSettled(def, item, { scope: predicateScope, fields: objectDef?.fields })}
               />
             );
             cardFieldCells.push({
@@ -1428,7 +1434,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
         ...(cardOwner ? { cardOwner } : {}),
       };
     });
-  }, [rawData, schema, objectDef, ownerField, ownerReadable, ownerPersonObject, perms]);
+  }, [rawData, schema, objectDef, ownerField, ownerReadable, ownerPersonObject, perms, predicateScope]);
 
   // Generate columns if missing but groupBy is present
   const effectiveColumns = useMemo(() => {

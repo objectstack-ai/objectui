@@ -49,11 +49,13 @@ import { resolveKeyedI18nLabel, getRecordDisplayName, appRouteSegment } from '..
 import { getIcon } from '../utils/getIcon.js';
 import { useRecentItems } from '../context/RecentItemsProvider.js';
 import { useRecentItemLabel } from '../hooks/useRecentItemLabel.js';
+import { recentItemObject } from '../console/home/recentItemTypeLabel.js';
+import type { RecentItem } from '../context/RecentItemsProvider.js';
 import { useCommandPalette } from '../context/CommandPaletteProvider.js';
 import { useMetadata } from '../providers/MetadataProvider.js';
 import { resolveHref, resolveNavItemLabel } from '@object-ui/layout';
 import type { NavigationItem } from '@object-ui/types';
-import { useNavTargetLabel } from '../hooks/useNavTargetLabel.js';
+import { findByName, useNavTargetLabel } from '../hooks/useNavTargetLabel.js';
 import { useAuth } from '@object-ui/auth';
 import { matchesPaletteQuery } from './paletteMatch.js';
 import { fetchPackages, type PkgEntry } from '../views/studio-design/packages-io.js';
@@ -225,6 +227,35 @@ export function CommandPalette(props: CommandPaletteProps) {
   );
   const showRecentRecords = open && inputValue.trim().length === 0 && recentRecords.length > 0;
 
+  /**
+   * What a recent row draws beside its title (objectui#12852), so two entries
+   * that share a title — an organisation and its environment — are never drawn
+   * alike: its object's label on the right and its object's icon on the left,
+   * as Home's "Recently accessed" row draws them (objectui#12604).
+   *
+   * The object is the one `recentItemObject` reads off the address the record
+   * was stored under, `/apps/APP/OBJECT/record/ID`; nothing else on the entry
+   * names it. Its label is the object's current one in the viewer's language
+   * (`useNavTargetLabel`), else its machine name; its icon is the object's
+   * declared one, else the record kind's glyph. An entry stored under any other
+   * address names no object, so its row shows no type and keeps the neutral
+   * glyph — ⛔ never a type guessed from the title.
+   *
+   * `objects` is read inside the function, never at render: the metadata
+   * cache loads the object list when it is first read, and a closed palette
+   * reads nothing (objectui#11863).
+   */
+  const metadata = useMetadata();
+  const recentContext = (item: RecentItem): { type?: string; icon?: string } => {
+    const objectName = recentItemObject(item);
+    if (!objectName) return {};
+    const def = findByName(metadata.objects, objectName) as { icon?: unknown } | undefined;
+    return {
+      type: targetLabel({ kind: 'object', objectName }) ?? objectName,
+      icon: typeof def?.icon === 'string' && def.icon !== '' ? def.icon : undefined,
+    };
+  };
+
   // Index object defs by name so group headings can resolve the object's
   // localized label (labels may be `{ key, defaultValue }` i18n objects, which
   // the hook's plain-string `objectLabel` can't carry).
@@ -306,16 +337,28 @@ export function CommandPalette(props: CommandPaletteProps) {
           <CommandGroup
             heading={t('console.commandPalette.recentRecords', { defaultValue: 'Recently viewed' })}
           >
-            {recentRecords.map((item) => (
-              <CommandItem
-                key={`recent:${item.id}`}
-                value={`recent ${recentLabel(item)} ${item.id}`}
-                onSelect={() => runCommand(() => navigate(item.href))}
-              >
-                <Search className="mr-2 h-4 w-4" />
-                <span className="truncate">{recentLabel(item)}</span>
-              </CommandItem>
-            ))}
+            {recentRecords.map((item) => {
+              const { type, icon } = recentContext(item);
+              const Icon = icon ? getIcon(icon) : FileText;
+              return (
+                <CommandItem
+                  key={`recent:${item.id}`}
+                  value={`recent ${recentLabel(item)} ${item.id}`}
+                  onSelect={() => runCommand(() => navigate(item.href))}
+                >
+                  <Icon className="mr-2 h-4 w-4" />
+                  <span className="truncate">{recentLabel(item)}</span>
+                  {type && (
+                    <span
+                      data-testid="palette-recent-type"
+                      className="ml-auto max-w-[45%] truncate text-xs text-muted-foreground"
+                    >
+                      {type}
+                    </span>
+                  )}
+                </CommandItem>
+              );
+            })}
           </CommandGroup>
         )}
 

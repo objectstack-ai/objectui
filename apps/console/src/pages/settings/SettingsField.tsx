@@ -160,6 +160,7 @@ function FieldHeader({
   labelId?: string;
   htmlFor?: string;
 }) {
+  const { t } = useObjectTranslation();
   return (
     <div className="flex items-center gap-2">
       <Label id={labelId} htmlFor={htmlFor} className="text-sm font-medium">
@@ -168,7 +169,9 @@ function FieldHeader({
       </Label>
       {spec.deprecated ? (
         <Badge variant="outline" className="text-amber-700 border-amber-300">
-          Deprecated{spec.replacedBy ? ` → ${spec.replacedBy}` : ''}
+          {spec.replacedBy
+            ? t('console.settingsView.deprecatedBadgeReplacedBy', { replacedBy: spec.replacedBy })
+            : t('console.settingsView.deprecatedBadge')}
         </Badge>
       ) : null}
       {resolved?.locked ? <EnvLockBadge reason={resolved.lockedReason} /> : null}
@@ -646,7 +649,9 @@ export function SettingsField(props: SettingsFieldProps) {
       );
     default:
       return wrapper(
-        <div className="text-sm text-muted-foreground">Unsupported specifier type: {spec.type}</div>,
+        <div className="text-sm text-muted-foreground">
+          {t('console.settingsView.unsupportedSpecifierType', { type: spec.type })}
+        </div>,
         undefined,
       );
   }

@@ -29,7 +29,8 @@
 
 import * as React from 'react';
 import { cn } from '@object-ui/components';
-import { getRecordDisplayName, isEmptyValue, columnIdentity } from '@object-ui/core';
+import { getRecordDisplayName, isEmptyValue, columnIdentity, isDeadlineSettled } from '@object-ui/core';
+import { usePredicateScope } from '@object-ui/react';
 import { getCellRenderer, resolveCellRendererType } from '@object-ui/fields';
 import { useObjectTranslation, useSafeFieldLabel } from '@object-ui/i18n';
 
@@ -136,6 +137,8 @@ export function ListViewCompactRows({ rows, fields, objectName, objectDef, onRow
   const { fieldLabel, fieldOptionLabel } = useSafeFieldLabel();
   const { primary, secondary } = compactRowColumns(fields);
   const destination = React.useContext(CompactListDestinationContext);
+  // The host predicate scope a row's declared deadline is judged in (objectui#11815).
+  const predicateScope = usePredicateScope();
 
   // The field as the shared cell renderers take it: the object's definition,
   // its label and option labels through the i18n dictionary.
@@ -160,7 +163,8 @@ export function ListViewCompactRows({ rows, fields, objectName, objectDef, onRow
     if (isEmptyValue(value)) return null;
     const field = fieldFor(name);
     const Cell = getCellRenderer(resolveCellRendererType(field as never));
-    return <Cell value={value} field={field as never} />;
+    const deadlineSettled = isDeadlineSettled(objectDef?.fields?.[name], record, { scope: predicateScope, fields: objectDef?.fields });
+    return <Cell value={value} field={field as never} deadlineSettled={deadlineSettled} />;
   };
 
   return (

@@ -1271,46 +1271,19 @@ An enhanced detail view for a single record with sections, tabs and navigation.
 > so author it on a record page. Placed anywhere it cannot resolve a parent id
 > it scopes to nothing and renders an empty list.
 
-> **Due/deadline fields: `dueLike`.** A field entry — a `DetailViewField`, in
-> `fields` or in a section's `fields` — may mark a `date` / `datetime` field as
-> due/deadline-semantic. It is the same key, with the same meaning, that the
-> [Date Field](/docs/fields/date) and [DateTime Field](/docs/fields/datetime)
-> carry in their own object metadata: the authored entry is handed to the same
-> cell renderer, so the affordance it turns on is the one described under
+> **Due/deadline fields: `dueLike` and `settledWhen`.** A deadline is declared
+> on the object's field metadata, never on a field entry: `dueLike` and its
+> partner `settledWhen` are `@objectstack/spec`'s `FieldSchema.dueLike` and
+> `FieldSchema.settledWhen`, both for `date` / `datetime` fields only. A
+> `DetailViewField` entry carries neither — the detail view reads both from the
+> object field it draws. See [Date Field](/docs/fields/date) and
 > [Overdue Affordance](/docs/fields/datetime#overdue-affordance).
 >
-> ```json
-> {
->   "type": "detail-view",
->   "objectName": "Contract",
->   "fields": [
->     {
->       "name": "end_date",
->       "label": "Contract Ends",
->       "type": "date",
->       "format": "relative",
->       "dueLike": true
->     }
->   ]
-> }
-> ```
->
-> ⚠️ `end_date` is deliberately a neutral name here, because only a declared
-> `true` short-circuits: with the key absent the due/deadline field-name
-> convention still decides for itself, and `dueLike: false` does not suppress
-> that fallback either. Authoring a neutral name is the opt-out.
->
-> ⚠️ The authored entry wins. Where the object's own field metadata also
-> declares `dueLike`, that value is consulted only when the entry leaves the
-> key out — it does not overwrite what the view author wrote.
->
-> On the object's field metadata, `dueLike` and its partner `settledWhen` are
-> `@objectstack/spec`'s `FieldSchema.dueLike` and `FieldSchema.settledWhen`,
-> both for `date` / `datetime` fields only. `settledWhen` is a CEL predicate
-> over the record (`record.status == 'done'`) that settles the deadline for
-> that record, and the spec accepts it only beside `dueLike: true`. It is an
-> object-metadata key: a `DetailViewField` entry does not carry it. ⚠️ It is
-> declared, not yet rendered: no date cell evaluates it today.
+> `settledWhen` is a CEL predicate over the record (`record.status == 'done'`),
+> accepted only beside `dueLike: true`. The detail view evaluates it against
+> the record it shows: while it holds, the deadline is settled and the cell
+> paints no overdue wording or colour. Nothing is inferred from a field's
+> name: an undeclared date in the past reads as any past date does.
 
 **Related:** [DetailSchema](#detailschema), [ObjectViewSchema](#objectviewschema)
 

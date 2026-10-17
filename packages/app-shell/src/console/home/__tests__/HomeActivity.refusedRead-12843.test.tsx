@@ -8,18 +8,22 @@
 
 /**
  * objectui#12843 — a `sys_activity` read the server REFUSES shows, on Home's
- * activity card, the permission sentence the record activity panel shows for
- * the same refusal (objectui#11195), not "An unexpected error occurred.".
+ * activity card, a permission sentence and lock, not "An unexpected error
+ * occurred.".
  *
- * One verdict decides it on both surfaces: the shared feed classifies its
- * rejection with plugin-detail's `isRefusedFeedRead`, the function the record
- * panel reads, and the card renders the same `detail.activityAccessDenied` key.
+ * One verdict decides it on Home and on the record activity panel: the shared
+ * feed classifies its rejection with plugin-detail's `isRefusedFeedRead`, the
+ * function the record panel reads (objectui#11195). The SENTENCE differs
+ * (objectui#12859): the record panel's `detail.activityAccessDenied` says
+ * "…on this record", and Home has no record, so the card reads the neutral
+ * `layout.activityFeed.accessDenied`, the one the bell's Activity tab reads.
  * The pins run the real hook (`useHumanActivityFeed`, Home's cut of the shared
  * feed) into the real card under the real en catalogue; only the adapter is a
  * fake, and it answers each case's way:
  *
- *   - a 403 `PERMISSION_DENIED` envelope ⇒ the record panel's sentence, read
- *     back from the record panel itself rendered beside it;
+ *   - a 403 `PERMISSION_DENIED` envelope ⇒ the neutral sentence, and not the
+ *     record panel's, read back from the record panel rendered beside it;
+ *   - CONTROL: the record panel beside it still says "…on this record";
  *   - CONTROL: a 500 ⇒ the generic failure, unchanged;
  *   - CONTROL: an answered read ⇒ the rows.
  */
@@ -61,6 +65,7 @@ vi.mock('../../../providers/AdapterProvider', () => ({ useAdapter: () => fakeAda
 const { useHumanActivityFeed, __resetSharedUserFeeds } = await import('../../../hooks/sharedUserFeeds');
 
 const GENERIC_ERROR = 'An unexpected error occurred.';
+const NEUTRAL_DENIED = "You don't have permission to view activity.";
 
 /** Home's card, fed by Home's cut of the shared feed, with the console's translator. */
 function HomeCard() {
@@ -97,8 +102,8 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("Home's activity card shows the record panel's permission copy for a refused read (objectui#12843)", () => {
-  it('a 403 on sys_activity: the card reads the same sentence the record activity panel shows', async () => {
+describe("Home's activity card shows a permission sentence for a refused read (objectui#12843, objectui#12859)", () => {
+  it('a 403 on sys_activity: the card reads the neutral sentence, not the record panel\'s "…on this record"', async () => {
     readError = Object.assign(new Error("operation 'find' on object 'sys_activity' is not permitted"), {
       httpStatus: 403,
       code: 'PERMISSION_DENIED',
@@ -108,9 +113,12 @@ describe("Home's activity card shows the record panel's permission copy for a re
     const recordSentence = screen
       .getByTestId('record-panel')
       .querySelector('[data-denied-source="activity"]')?.textContent;
-    expect(recordSentence).toBeTruthy();
+    // CONTROL: the record panel keeps its record-specific sentence.
+    expect(recordSentence).toBe("You don't have permission to view activity on this record.");
     const notice = screen.getByTestId('home-activity-access-denied');
-    expect(notice).toHaveTextContent(recordSentence as string);
+    expect(notice).toHaveTextContent(NEUTRAL_DENIED);
+    expect(notice).not.toHaveTextContent('this record');
+    expect(notice.querySelector('svg')).not.toBeNull();
     expect(screen.getByTestId('home-activity-unanswered')).not.toHaveTextContent(GENERIC_ERROR);
     // Not an empty-feed claim either.
     expect(screen.queryByText('No recent activity')).not.toBeInTheDocument();
@@ -133,11 +141,11 @@ describe("Home's activity card shows the record panel's permission copy for a re
   });
 });
 
-describe('the card reads the record panel key, not a sentence of its own (objectui#12843)', () => {
+describe('the card reads the neutral activity key, not the record panel key (objectui#12859)', () => {
   // A key-echo translator: what the card renders IS the key it asked for.
   const echo = (key: string) => key;
 
-  it('a refused error reading renders `detail.activityAccessDenied`', () => {
+  it('a refused error reading renders `layout.activityFeed.accessDenied`', () => {
     render(
       <HomeActivity
         activity={{ value: [], status: 'error', readable: true, refused: true }}
@@ -145,7 +153,7 @@ describe('the card reads the record panel key, not a sentence of its own (object
         t={echo}
       />,
     );
-    expect(screen.getByTestId('home-activity-access-denied')).toHaveTextContent('detail.activityAccessDenied');
+    expect(screen.getByTestId('home-activity-access-denied')).toHaveTextContent('layout.activityFeed.accessDenied');
   });
 
   it('an error reading without the refusal renders `errors.unknown`', () => {

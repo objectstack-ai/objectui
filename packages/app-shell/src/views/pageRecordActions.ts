@@ -6,11 +6,46 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type { RelatedRecordActionsValue, RelatedRecordHandlers } from '@object-ui/react';
+import type {
+  RelatedRecordActionsValue,
+  RelatedRecordHandlers,
+  ResolveRelatedRecordActionsInput,
+} from '@object-ui/react';
 import { documentHref } from './documentHref.js';
 
 /** No related-list handlers — see {@link pageRecordActionsValue}. */
 const NO_RELATED_HANDLERS: RelatedRecordHandlers = Object.freeze({});
+
+/**
+ * The page's related-list handlers for one list (objectui#12870): the
+ * record page's executor for the list's ACTIONS, and nothing else.
+ *
+ *  - A list with no parent in scope (`parentId` empty: no `parentDataSource`,
+ *    or a bound row without a key) gets no handlers, as before.
+ *  - A list whose parent resolved gets `onRowAction` / `onToolbarAction` from
+ *    the bridge the record page mounts — the same closures, so an authored
+ *    action runs through the same `ActionRunner` dispatch it runs through on a
+ *    record page.
+ *
+ * Only the two executors are served. The bridge's other members (New, Edit,
+ * Delete, row click, "View all", and the child object's default
+ * `rowActions` / `toolbarActions`) would change what a page list that authors
+ * no `actions` draws, and that list is unchanged by this card. The renderer
+ * draws an authored action only beside its executor, so the executors alone
+ * are what an authored `actions` needs.
+ */
+function pageRelatedHandlers(
+  related: RelatedRecordActionsValue | undefined,
+  input: ResolveRelatedRecordActionsInput,
+): RelatedRecordHandlers {
+  if (!related || input.parentId == null || input.parentId === '') return NO_RELATED_HANDLERS;
+  const { onRowAction, onToolbarAction } = related.resolve(input);
+  if (!onRowAction && !onToolbarAction) return NO_RELATED_HANDLERS;
+  return {
+    ...(onRowAction ? { onRowAction } : {}),
+    ...(onToolbarAction ? { onToolbarAction } : {}),
+  };
+}
 
 /**
  * What a custom page publishes on `RelatedRecordActionsContext`
@@ -29,10 +64,14 @@ const NO_RELATED_HANDLERS: RelatedRecordHandlers = Object.freeze({});
  *
  * Deliberate limits, on the model of `listRecordActionsValue`:
  *
- *  - **`resolve` returns no handlers.** A page has no parent record, so it has
- *    no related lists to serve; an empty handler set is what the context
- *    documents as "capability unavailable", the same read-only outcome a
- *    consumer gets with no provider at all.
+ *  - **`resolve` serves a list's action executors only, and only under a
+ *    parent (objectui#12870).** A page has no parent record of its own; a
+ *    `record:related_list` that bound one through `parentDataSource` has, and
+ *    gets the record page's executor for its authored `actions`, from the
+ *    bridge passed as `related` (see `pageRelatedHandlers`). Every other list
+ *    gets an empty handler set, which the context documents as "capability
+ *    unavailable", the same read-only outcome a consumer gets with no provider
+ *    at all.
  *  - **Only objects this console can route to.** `recordHref` answers `null`
  *    for an object outside the app's metadata, or outside an app route, and
  *    `openRecord` then does nothing — the shape of the record page's own
@@ -54,13 +93,15 @@ const NO_RELATED_HANDLERS: RelatedRecordHandlers = Object.freeze({});
  * already do on the record and list pages.
  *
  * Its own module so `PageView.tsx` exports components only; pinned by
- * `__tests__/PageView.recordNavigator-11293.test.tsx`.
+ * `__tests__/PageView.recordNavigator-11293.test.tsx`, and its related-list
+ * half by `__tests__/PageView.relatedListActions-12870.test.tsx`.
  */
 export function pageRecordActionsValue(
   appName: string | undefined,
   objects: ReadonlyArray<unknown>,
   navigate: (to: string) => void,
   routerRootHref: string,
+  related?: RelatedRecordActionsValue,
 ): RelatedRecordActionsValue {
   const routable = new Set(
     objects
@@ -84,7 +125,7 @@ export function pageRecordActionsValue(
       : base;
   };
   return {
-    resolve: () => NO_RELATED_HANDLERS,
+    resolve: (input) => pageRelatedHandlers(related, input),
     recordHref: (objectName, recordId) => {
       const path = recordPath(objectName, recordId);
       return path === null ? null : documentHref(routerRootHref, path);

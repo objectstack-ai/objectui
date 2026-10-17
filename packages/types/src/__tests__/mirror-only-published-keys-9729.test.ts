@@ -43,6 +43,10 @@
  *     mirror is ⛔ untouched — it already stated the key — so the section below
  *     that measures the mirror is unchanged, and it is the TypeScript half at
  *     the bottom of this file that inverted.
+ *     ⚠️ Dated note (objectui#11815, ruling D): the key has since RETIRED
+ *     from both faces — the deadline is the object field's declaration, read
+ *     through enrichment — so both `dueLike` sections below now pin its
+ *     absence.
  *
  * What stays, in both cases, is the BEFORE/AFTER continuity, so neither defect
  * this card measured can quietly return under the same name.
@@ -99,25 +103,27 @@ import type { ObjectGridSchema as ObjectGridSchemaType } from '../objectql.js';
 /** A control key no surface in this package declares. */
 const UNKNOWN_KEY = 'zzzNotAKeyAnySurfaceDeclares9729';
 
-describe('views.zod.ts#DetailViewFieldSchema — `dueLike`', () => {
-  it('the mirror JUDGES the key, while an unknown key is stripped unexamined', () => {
-    const judged = DetailViewFieldSchema.safeParse({ name: 'end_date', dueLike: true });
-    expect(judged.success).toBe(true);
-    // KEPT, not stripped — the mirror states it.
-    expect(judged.success && judged.data).toMatchObject({ dueLike: true });
+describe('views.zod.ts#DetailViewFieldSchema — `dueLike`, retired by objectui#11815', () => {
+  /**
+   * ⭐ INVERTED BY RULING, ⛔ not relaxed. objectui#9738 letter A declared the
+   * key on both faces; objectui#11815 (ruling D) retired it from the authored
+   * view entry altogether: the deadline is the object FIELD's declaration
+   * (`DateFieldMetadata.dueLike` / `settledWhen`, by reference to the spec),
+   * read through `enrichDetailField`. So the mirror no longer judges the key —
+   * it strips it exactly as it strips an unknown one, which the lit control
+   * beside it shows is the same instrument answering.
+   */
+  it('the mirror no longer states the key, and strips it like an unknown one', () => {
+    expect(Object.keys(DetailViewFieldSchema.shape)).not.toContain('dueLike');
+    const retired = DetailViewFieldSchema.safeParse({ name: 'end_date', dueLike: true });
+    expect(retired.success).toBe(true);
+    expect(retired.success && Object.keys(retired.data)).not.toContain('dueLike');
 
-    // LIT CONTROL, same schema, same document shape: an unstated key survives
-    // the parse and is GONE from the output. So "green" is not the evidence —
-    // the key surviving into `data` is.
-    const control = DetailViewFieldSchema.safeParse({ name: 'end_date', [UNKNOWN_KEY]: true });
-    expect(control.success).toBe(true);
-    expect(control.success && Object.keys(control.data)).not.toContain(UNKNOWN_KEY);
-  });
-
-  it('the mirror refuses a wrong-typed `dueLike` BY NAME', () => {
-    const r = DetailViewFieldSchema.safeParse({ name: 'end_date', dueLike: 'yes' });
-    expect(r.success).toBe(false);
-    expect(!r.success && r.error.issues.map((i) => i.path.join('.'))).toContain('dueLike');
+    // LIT CONTROL, same schema: a key the mirror DOES state survives the parse.
+    const control = DetailViewFieldSchema.safeParse({ name: 'end_date', currency: 'USD' });
+    expect(control.success && control.data).toMatchObject({ currency: 'USD' });
+    const unknown = DetailViewFieldSchema.safeParse({ name: 'end_date', [UNKNOWN_KEY]: true });
+    expect(unknown.success && Object.keys(unknown.data)).not.toContain(UNKNOWN_KEY);
   });
 });
 
@@ -199,25 +205,12 @@ describe('complex.zod.ts#DashboardConfigSchema — `aria` is the CONTRAST, not t
 /* ── The TypeScript side, where the two keys stop behaving alike ───────────── */
 
 /**
- * `DetailViewField` ACCEPTS `dueLike`. This binding IS the assertion, and it is
- * read by the package's `tsc -p tsconfig.test.json` leg.
- *
- * ⭐ THE DIRECTION OF THIS ASSERTION IS INVERTED FROM WHAT THIS CARD MEASURED,
- * deliberately and by ruling — ⛔ not relaxed, and ⛔ not deleted, to keep a leg
- * green. What stood here was a `@ts-expect-error` recording the REFUSAL, written
- * so that it would fail in BOTH directions; objectui#9738 letter A declared the
- * key on the twin, which is precisely the direction that turns such a directive
- * unused (`TS2578`, measured on this file). So the measurement moves WITH the
- * declaration, onto the same literal, and stays discriminating in its new
- * direction: the twin losing the member again makes this line `TS2353` on the
- * same leg.
- *
- * ⚠️ The assignment alone would not be enough, and the second assertion below is
- * why. An index signature added to `DetailViewField` would let this literal
- * compile while `dueLike` is undeclared — exactly the shape `ObjectGridSchema`
- * has further up this file, where an authored key is absorbed as `any` and
- * nothing contradicts it. The exact `Equal` separates DECLARED from ABSORBED.
+ * `DetailViewField` REFUSES `dueLike` since objectui#11815 (ruling D) retired
+ * the authored view-entry key. This directive IS the assertion, read by the
+ * package's `tsc -p tsconfig.test.json` leg: re-declaring the member makes it
+ * unused (`TS2578`) on the same leg.
  */
+// @ts-expect-error — objectui#11815: the deadline is the FIELD's declaration, not the view entry's
 export const authoredDueLike: DetailViewField = { name: 'end_date', dueLike: true };
 
 /** LIT CONTROL: a key the twin DOES declare is accepted on the same literal. */
@@ -233,20 +226,9 @@ type Equal< A, B > =
   (< T >() => T extends A ? 1 : 2) extends (< T >() => T extends B ? 1 : 2) ? true : false;
 type Expect< T extends true > = T;
 
-/**
- * The member is DECLARED with a real type, not absorbed by an index signature
- * and not widened to `any` — `boolean | undefined`, exactly.
- *
- * ⛔ `extends` is not an acceptable weakening here: `any` and a `boolean`-typed
- * index signature both satisfy an `extends` written in either direction, and
- * those are the two ways this declaration could be present in a listing while
- * being absent as a contract. The mirror's own judgement of the same key — that
- * `dueLike: 'yes'` is refused BY NAME — is pinned at the top of this file, so
- * the two published faces are asserted to agree on the TYPE as well as on the
- * name.
- */
-export type assertionDueLikeIsDeclaredOnTheTwin =
-  Expect< Equal< DetailViewField['dueLike'], boolean | undefined > >;
+/** The member is gone from the twin, not merely made optional (objectui#11815). */
+export type assertionDueLikeIsRetiredFromTheTwin =
+  Expect< Equal< 'dueLike' extends keyof DetailViewField ? true : false, false > >;
 
 /**
  * The TWIN refuses `operators` too since objectui#8347 removed `BaseSchema`'s

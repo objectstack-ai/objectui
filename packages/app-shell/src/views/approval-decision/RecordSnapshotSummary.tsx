@@ -68,24 +68,39 @@
  */
 
 import * as React from 'react';
-import { withoutDeniedFields } from '@object-ui/core';
+import { isDeadlineSettled, withoutDeniedFields } from '@object-ui/core';
 import { getCellRenderer, resolveCellRendererType } from '@object-ui/fields';
 import { useSafeFieldLabel } from '@object-ui/i18n';
 import { usePermissions } from '@object-ui/permissions';
-import { useMetadataItem } from '@object-ui/react';
+import { useMetadataItem, usePredicateScope } from '@object-ui/react';
 import type { FieldMetadata } from '@object-ui/types';
 import { distinctLabels, planSnapshotSummary, type FieldDef } from './snapshotSummaryPlan.js';
 
-/** A declared field's stored value, through the record page's own cell. */
-function FieldFace({ objectName, def, value }: { objectName: string; def: FieldDef; value: unknown }) {
+/**
+ * A declared field's stored value, through the record page's own cell.
+ *
+ * A declared deadline is judged against `snapshot`, the same record values the
+ * face draws `value` from (objectui#11815): the snapshot's date and its status
+ * were frozen together, so its `settledWhen` is read off the snapshot's own
+ * state, never the live record's.
+ */
+function FieldFace({ objectName, def, value, snapshot, fields }: {
+  objectName: string;
+  def: FieldDef;
+  value: unknown;
+  snapshot: Record<string, unknown>;
+  fields: Record<string, FieldDef | undefined>;
+}) {
   const { translateOptions } = useSafeFieldLabel();
+  const predicateScope = usePredicateScope();
   const options = def.options;
   const field = Array.isArray(options) && options.length > 0
     ? { ...def, options: translateOptions(objectName, def.name as string, options) }
     : def;
   const Cell = getCellRenderer(resolveCellRendererType(field as { type?: string; format?: string }));
+  const deadlineSettled = isDeadlineSettled(def, snapshot, { scope: predicateScope, fields });
   // eslint-disable-next-line react-hooks/static-components -- getCellRenderer returns the registry's module-level renderer for the type, not a component created during render
-  return <Cell value={value} field={field as unknown as FieldMetadata} />;
+  return <Cell value={value} field={field as unknown as FieldMetadata} deadlineSettled={deadlineSettled} />;
 }
 
 export interface RecordSnapshotSummaryProps {
@@ -153,7 +168,7 @@ function DeclaredSummary({ target, fields, shown, display }: {
   const labelOf = new Map(keys.map((key, i) => [key, labels[i]]));
   const valueOf = (key: string) =>
     display?.[key] ?? (
-      <FieldFace objectName={target} def={{ ...(fields[key] as FieldDef), name: key }} value={shown[key]} />
+      <FieldFace objectName={target} def={{ ...(fields[key] as FieldDef), name: key }} value={shown[key]} snapshot={shown} fields={fields} />
     );
 
   return (

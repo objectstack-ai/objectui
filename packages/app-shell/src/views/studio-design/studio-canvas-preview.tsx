@@ -132,6 +132,37 @@ export interface StudioCanvasListView {
 export const StudioCanvasListViewContext = React.createContext<StudioCanvasListView | null>(null);
 
 /**
+ * The column selection of the list view the Properties panel edits
+ * (objectui#12725): which of the view's listed columns a header click on the
+ * canvas can select, which one is selected, and how to select one.
+ *
+ * Target 2 of objectui#12725: a click on a canvas element shows that
+ * element's properties. On an `object` leaf the element is a column, and its
+ * properties are its row in the panel's column list, so a click on a header
+ * the view lists selects that row. A header the view does not list (no row to
+ * select) keeps the runtime's click, which sorts.
+ *
+ * ⛔ Studio-internal, for the reason {@link StudioCanvasNavEntry} is: a
+ * context beside the published props, never a member of
+ * {@link StudioCanvasPreviewProps}. The Interfaces pillar provides it while
+ * its panel lists the open leaf's columns. A canvas registered over the
+ * default does not read it, and one rendered outside the pillar sees `null`;
+ * either way its headers sort as the running app's do.
+ */
+export interface StudioCanvasColumnSelection {
+  /** The object the view lists. Headers are read only on this object's canvas. */
+  objectName: string;
+  /** The field each listed column shows, in the view's order. */
+  fields: readonly string[];
+  /** The selected column's field, or `null` with none selected. */
+  selected: string | null;
+  /** Select the column showing `field`; `label` is the header as drawn. */
+  onSelect: (field: string, label: string) => void;
+}
+
+export const StudioCanvasColumnSelectionContext = React.createContext<StudioCanvasColumnSelection | null>(null);
+
+/**
  * Which of the package's objects have only a draft (a pending draft, no
  * published row), as the Interfaces pillar knows them under the publish the
  * canvas shows (objectui#12508).
@@ -299,7 +330,52 @@ function ObjectRecordsGrid({ name }: StudioCanvasPreviewProps) {
   };
   // The renderer settles its named view once, at mount, so a different view is
   // a different mount; a different slice of the same list is a refetch.
-  return <SchemaRenderer key={view ? viewId : ''} schema={schema as never} />;
+  return (
+    <ColumnHeaderSelect objectName={name}>
+      <SchemaRenderer key={view ? viewId : ''} schema={schema as never} />
+    </ColumnHeaderSelect>
+  );
+}
+
+/**
+ * objectui#12725 — the canvas half of selecting a column: a click on a header
+ * the panel lists ({@link StudioCanvasColumnSelectionContext}) selects that
+ * column and does not sort. The runtime grid names each header's column on
+ * the cell (`data-column-key`, the data table's `accessorKey`, which the
+ * object grid sets to the column's `field`); the click is taken in the
+ * capture phase, before the header's own sort handler sees it.
+ *
+ * The wrapper is always drawn, and draws no box (`display: contents`), so the
+ * grid under it is not remounted when the channel arrives or goes.
+ */
+function ColumnHeaderSelect({ objectName, children }: { objectName: string; children: React.ReactNode }) {
+  const channel = React.useContext(StudioCanvasColumnSelectionContext);
+  const columns = channel && channel.objectName === objectName ? channel : null;
+  const scope = React.useId();
+  const onClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!columns || !(e.target instanceof Element)) return;
+    const header = e.target.closest('thead th[data-column-key]');
+    if (!header || !e.currentTarget.contains(header)) return;
+    // A control drawn inside the header (the edit-field button) keeps its job.
+    const control = e.target.closest('button, input, a, [role="checkbox"]');
+    if (control && header.contains(control)) return;
+    const field = header.getAttribute('data-column-key');
+    if (!field || !columns.fields.includes(field)) return;
+    e.stopPropagation();
+    e.preventDefault();
+    columns.onSelect(field, header.textContent?.trim() || field);
+  };
+  return (
+    <div className="contents" data-testid="studio-canvas-columns" data-studio-canvas-columns={scope} onClickCapture={onClickCapture}>
+      {columns?.selected ? (
+        // The selected column's header is outlined, as the StudioRailProps
+        // artboard draws a selected element. A style rule, not a class on
+        // the cell: the grid owns its cells and redraws them.
+        <style>{`[data-studio-canvas-columns="${scope}"] thead th[data-column-key=${JSON.stringify(columns.selected)}]{box-shadow:inset 0 0 0 2px hsl(var(--primary));}`}</style>
+      ) : null}
+      {children}
+    </div>
+  );
 }
 
 /** An object definition's merged `listViews` map, or `{}` when it has none. */

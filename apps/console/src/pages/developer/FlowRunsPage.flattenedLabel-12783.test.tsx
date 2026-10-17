@@ -10,18 +10,19 @@
  * the flat item but the label from `it.spec.label` alone, so on a real server
  * every flow was listed by its API name only, `showcase_batch_reminders` where
  * "Batch Task Reminders (Loop) (showcase_batch_reminders)" belongs. The page's
- * other suites feed `{ spec: {...} }` items, which is why none of them saw it.
+ * other suites fed `{ spec: {...} }` items, which is why none of them saw it.
  *
  * What is pinned:
  *   - a flattened answer, shaped as the served list is: the option text is
  *     `label (name)`;
- *   - a `spec`-wrapped answer: the same text (the page still reads that form,
- *     `spec` first, as it reads the name);
+ *   - a `spec`-wrapped item is NOT read (objectui#12829): no server serves that
+ *     shape, so the page keeps no arm for it and such an item lists no flow;
  *   - an unlabelled flow: its bare name, not the name standing in for a label.
  *
- * DIRECTION, observed on unchanged `main`: the flattened case is red there (the
- * option reads the bare name); the other two are green there by design, as
- * no-regression guards for the forms the fix must not disturb.
+ * DIRECTION, observed on unchanged `main` at objectui#12783: the flattened case
+ * was red there (the option read the bare name); the unlabelled case is green
+ * by design, as a no-regression guard. The `spec`-wrapped case is red on any
+ * page that still reads a `spec` arm (objectui#12829).
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -100,19 +101,16 @@ describe('the flow picker names a labelled flow by its label (objectui#12783)', 
     ]);
   });
 
-  it('a spec-wrapped answer: the same text', async () => {
+  it('a spec-wrapped item is not read: it lists no flow (objectui#12829)', async () => {
     catalog.answer = {
       type: 'flow',
       items: [
         { spec: { name: 'showcase_batch_reminders', label: 'Batch Task Reminders (Loop)', variables: [] } },
-        { spec: { name: 'nightly_sync', variables: [] } },
       ],
     };
     render(<FlowRunsPage />);
-    expect(await optionTexts()).toEqual([
-      'Batch Task Reminders (Loop) (showcase_batch_reminders)',
-      'nightly_sync',
-    ]);
+    expect(await screen.findByText('No flow definitions found.')).toBeInTheDocument();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
   });
 
   it('an unlabelled flow: its bare name, never the name doubled as a label', async () => {

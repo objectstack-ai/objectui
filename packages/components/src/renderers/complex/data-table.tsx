@@ -3143,6 +3143,11 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                 return (
                   <TableHead
                     key={col.accessorKey}
+                    // Which column this header is, for a host that reads the
+                    // rendered table (objectui#12725: Studio's canvas selects
+                    // the column a header click names). Nothing else in the
+                    // header carries the key on every column.
+                    data-column-key={col.accessorKey}
                     className={cn(
                       col.className,
                       isColumnSortable(col) && 'cursor-pointer select-none',

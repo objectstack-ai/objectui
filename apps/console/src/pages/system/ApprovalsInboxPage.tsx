@@ -79,9 +79,9 @@ import { toast } from 'sonner';
 import { useAuth } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
 import { useDisplayLocale, useObjectTranslation, useSafeFieldLabel } from '@object-ui/i18n';
-import { useMetadata } from '@object-ui/react';
+import { useMetadata, usePredicateScope } from '@object-ui/react';
 import { getCellRenderer, resolveCellRendererType } from '@object-ui/fields';
-import { isExpandableFieldType } from '@object-ui/core';
+import { isDeadlineSettled, isExpandableFieldType } from '@object-ui/core';
 import { isSystemManagedField, type FieldMetadata } from '@object-ui/types';
 import { APPROVAL_STATUS_LABELS } from '@objectstack/spec/contracts';
 import {
@@ -513,18 +513,31 @@ function useRequestFieldDefs(objectName: string | null | undefined): FieldDefs |
  * to the record page's own cell and adds nothing. A face that looks wrong here
  * looks wrong on the record page as well, and the fix belongs in the cell.
  *
+ * A declared deadline is judged against `snapshot`, the request's `payload`
+ * the face draws `value` from (objectui#11815): the snapshot's date and its
+ * status were frozen together at submission, so its `settledWhen` is read off
+ * the snapshot's own state, never the live record's.
+ *
  * Module scope on purpose, for the same reason as the row cells below
  * (objectui#5348).
  */
-function RecordFieldFace({ objectName, def, value }: { objectName: string; def: FieldDef; value: unknown }) {
+function RecordFieldFace({ objectName, def, value, snapshot, fields }: {
+  objectName: string;
+  def: FieldDef;
+  value: unknown;
+  snapshot: Record<string, unknown>;
+  fields: FieldDefs;
+}) {
   const { translateOptions } = useSafeFieldLabel();
+  const predicateScope = usePredicateScope();
   const options = def.options;
   const field = Array.isArray(options) && options.length > 0
     ? { ...def, options: translateOptions(objectName, def.name as string, options) }
     : def;
   const Cell = getCellRenderer(resolveCellRendererType(field as { type?: string; format?: string }));
+  const deadlineSettled = isDeadlineSettled(def, snapshot, { scope: predicateScope, fields });
   // eslint-disable-next-line react-hooks/static-components -- getCellRenderer returns the registry's module-level renderer for the type, not a component created during render
-  return <Cell value={value} field={field as unknown as FieldMetadata} />;
+  return <Cell value={value} field={field as unknown as FieldMetadata} deadlineSettled={deadlineSettled} />;
 }
 
 /** One row of the drawer's summary card. `key` is the snapshot key, so it is unique. */
@@ -643,7 +656,7 @@ function payloadSummary(
       out.push({
         key: k,
         label: declaredLabel(meta, k, def),
-        value: resolved ?? <RecordFieldFace objectName={meta.objectName} def={def} value={v} />,
+        value: resolved ?? <RecordFieldFace objectName={meta.objectName} def={def} value={v} snapshot={payload as Record<string, unknown>} fields={meta.defs} />,
         title: resolved,
       });
     } else {
@@ -2462,6 +2475,8 @@ export function ApprovalsInboxPage() {
                             objectName={summaryMeta.objectName}
                             def={leadDef}
                             value={(selected.payload as Record<string, unknown>)[drawerAmount.key]}
+                            snapshot={selected.payload as Record<string, unknown>}
+                            fields={summaryMeta.defs}
                           />
                         ),
                       title: selected.payload_display?.[drawerAmount.key],

@@ -29,7 +29,7 @@ import {
   resolveIcon,
   useIsMobile,
 } from '@object-ui/components';
-import { SchemaRenderer, useCapabilityGate, useCondition, toPredicateInput, useSettledSchema, useFilterScope, useResolvedFilter, type RelatedRowActionDef } from '@object-ui/react';
+import { SchemaRenderer, useCapabilityGate, useCondition, toPredicateInput, useSettledSchema, useFilterScope, useResolvedFilter, usePredicateScope, type RelatedRowActionDef } from '@object-ui/react';
 import {
   Plus,
   ExternalLink,
@@ -66,6 +66,7 @@ import {
   toFilterNodeSafely,
   userActionPredicates,
   resolveAffordance,
+  isDeadlineSettled,
   type FilterNode,
 } from '@object-ui/core';
 import { useSafeFieldLabel } from '@object-ui/react';
@@ -575,6 +576,9 @@ export const RelatedList: React.FC<RelatedListProps> = ({
    * `RelatedList.multiValueParentScope-7299.test.tsx`.
    */
   const { ready: objectSchemaReady, def: objectSchema } = useSettledSchema<any>(api ?? '', dataSource);
+  // The host predicate scope a child row's declared deadline is judged in
+  // (objectui#11815) — the scope the grid's cells read.
+  const predicateScope = usePredicateScope();
   const [collapsed, setCollapsed] = React.useState(defaultCollapsed);
   // Add-by-picker (generic m2m/junction assignment). `refreshNonce` re-runs the
   // auto-fetch after an add/remove so the list reflects the new link rows.
@@ -863,22 +867,33 @@ export const RelatedList: React.FC<RelatedListProps> = ({
     if (authored.length === 0) return undefined;
     const relatedObjectName = objectName || api || '';
     const projection = new Set<string>(['id']);
+    const drawnKeys: string[] = [];
     for (const col of keepReadableColumns(dropParentKeyColumn(authored, referenceField), perms, relatedObjectName)) {
       const key = drawnColumnKey(col);
-      if (key) projection.add(key);
+      if (key) {
+        projection.add(key);
+        drawnKeys.push(key);
+      }
     }
     for (const root of expandFields) projection.add(root);
     const fields = objectSchema?.fields;
     if (fields && typeof fields === 'object') {
       const readable = (field: string): boolean =>
         !perms?.isLoaded || !relatedObjectName || perms.checkField(relatedObjectName, field, 'read');
-      const operands = collectPredicateFieldRefs(
-        listViewPredicates({
+      // A drawn declared deadline's `settledWhen` (objectui#11815) reads the
+      // row like a row predicate does, so its operands ride the same gates.
+      const settledWhens = drawnKeys
+        .map((key) => parentRelationshipFieldDef(fields, key) as { dueLike?: unknown; settledWhen?: unknown } | undefined)
+        .filter((def) => def?.dueLike === true && def.settledWhen != null)
+        .map((def) => def!.settledWhen);
+      const operands = collectPredicateFieldRefs([
+        ...listViewPredicates({
           rowActionDefs: rowActions,
           objectActions: objectSchema?.actions,
           userActions: objectSchema?.userActions,
         }),
-      );
+        ...settledWhens,
+      ]);
       for (const field of operands) {
         // Declared — looked up in EITHER container shape the metadata API
         // serves (the Record, or the array of named defs), because a reader
@@ -1501,7 +1516,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
     // values, etc. Shared by BOTH the explicit-columns path and the
     // auto-derived path so a `status` column reads "Planned" (badge), never the
     // raw `planned`, regardless of how the columns were supplied.
-    const makeCell = (key: string, def: any): ((value: any) => any) | undefined => {
+    const makeCell = (key: string, def: any): ((value: any, row?: Record<string, unknown>) => any) | undefined => {
       // ⛔ A column whose field carries no `type` gets NO cell — and therefore
       // none of the objectui#8459 placeholder below. That boundary is
       // DELIBERATE, and objectui#8477 is the card that measured it and chose to
@@ -1616,6 +1631,9 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         // read `5000%` in this list (objectui#11475).
         ...((def as any).max !== undefined && { max: (def as any).max }),
         ...(def.format && { format: def.format }),
+        // The FIELD's deadline declaration (objectui#11815): without it a
+        // child row's declared deadline never reads overdue in this list.
+        ...(def.dueLike !== undefined && { dueLike: def.dueLike }),
         // objectui#6837 half 2 narrowed the READ to `reference` (the only
         // spelling the protocol declares — `FieldSchema` refuses `reference_to`
         // by name), and objectui#11070 round 4 moved the EMITTED key with it:
@@ -1625,7 +1643,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         ...(def.reference && { reference: def.reference }),
         ...(def.reference_field && { reference_field: def.reference_field }),
       };
-      return (value: any) => {
+      return (value: any, row?: Record<string, unknown>) => {
         // ONE definition of emptiness with `pruneEmpty` — see `isValueEmpty`.
         // This used to test `null | undefined` alone, which let a
         // whitespace-only string or an empty array through to a renderer that
@@ -1636,6 +1654,9 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         return React.createElement(CellRenderer, {
           value: resolveUserValue(value),
           field: fieldMeta,
+          // The CHILD row's own `settledWhen` verdict (objectui#11815), judged
+          // against the row the table hands this cell — never the parent record.
+          deadlineSettled: isDeadlineSettled(def, row, { scope: predicateScope, fields: objectSchema?.fields }),
         });
       };
     };
@@ -1842,7 +1863,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
 
     const pruned = pruneEmpty(generated);
     return pruned.slice(0, Math.max(1, maxColumns));
-  }, [columns, objectSchema, objectName, api, resolveFieldLabel, referenceField, relatedData, maxColumns, lookupLabels, perms, redactedFields]);
+  }, [columns, objectSchema, objectName, api, resolveFieldLabel, referenceField, relatedData, maxColumns, lookupLabels, perms, redactedFields, predicateScope]);
 
   /**
    * [#6108] The SERVED per-column sortability projection for this object —
